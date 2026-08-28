@@ -14,6 +14,16 @@ import { dist, shoelace, signedArea, centroid, pointInPolygon } from './geometry
 import { escapeHtml, escapeXml } from './util/escape.js';
 import { nombreFr, formatHeureMin, slugFichier, horodatageFichier } from './util/format.js';
 import { telechargerTexte } from './util/download.js';
+import {
+  projectOntoSegment, distancePointSegment, angleOfSegment, nearestSegmentIndex,
+  lineSegIntersect, lineLineIntersect
+} from './geometry/segments.js';
+import { estRectangle, rectangleDepuisCoin, rectangleDepuisCote, RECT_MIN_M } from './geometry/rect.js';
+import {
+  clipLineToPolygon, polygonOffset, ringSegments, clipPolygonByConvex, exteriorBisector, offsetZone
+} from './geometry/polygon.js';
+import { memePoint, decouperAnneau, chainerSegments, fusionnerAnneaux, simplifierContour } from './geometry/rings.js';
+import { parseSvgPathPoints } from './geometry/path.js';
 // ================= Identite de version (voir MD/RELEASE.md) =================
 // Trois contrats independants, trois numeros : l'application (SemVer), le schema du fichier de
 // projet (entier monotone) et l'API (prefixe de route). Ils sont declares ici, tout en haut du
@@ -556,16 +566,6 @@ function rebuildPanelTabs(){
 }
 rebuildPanelTabs();
 
-// ================= Geometry helpers =================
-// Le mode rectangle se lit sur l'etat de gel des 4 coins - pas de drapeau separe, donc pas de
-// migration pour les projets deja enregistres. Mais il doit CONTRAINDRE les angles, pas
-// interdire toute modification : un rectangle qu'on ne peut plus redimensionner sans sortir du
-// mode, puis y rentrer (ce qui le redresse sur sa boite englobante), est un cul-de-sac.
-function estRectangle(obj){
-  return obj && obj.type==='polygon' && obj.pts.length===4 &&
-         obj.frozenVertices && obj.frozenVertices.length===4 && obj.frozenVertices.every(Boolean);
-}
-const RECT_MIN_M = 0.10;   // pas de rectangle degenere
 // Un quadrilatere deja d'equerre, meme tourne, est deja un rectangle : le redresser sur les axes
 // n'aurait aucun sens et le ferait souvent sortir de la parcelle.
 function dejaRectangle(pts, tolDeg){
@@ -579,44 +579,6 @@ function dejaRectangle(pts, tolDeg){
     const ang = Math.acos(Math.max(-1,Math.min(1,(u.x*v.x+u.y*v.y)/d)))*180/Math.PI;
     return Math.abs(ang-90) <= tol;
   });
-}
-// Reconstruit les 4 coins quand on tire le coin `idx` vers `w`. Le coin oppose ne bouge pas.
-// On travaille dans le repere du rectangle lui-meme (les deux cotes issus du coin oppose), pas
-// dans celui de l'ecran : un rectangle tourne reste ainsi manipulable sans se redresser.
-function rectangleDepuisCoin(pts, idx, w){
-  const opp = (idx+2)%4, O = pts[opp];
-  const A = pts[(opp+1)%4], B = pts[(opp+3)%4];
-  const lu = Math.hypot(A.x-O.x, A.y-O.y) || 1, lv = Math.hypot(B.x-O.x, B.y-O.y) || 1;
-  const u = { x:(A.x-O.x)/lu, y:(A.y-O.y)/lu };
-  const v = { x:(B.x-O.x)/lv, y:(B.y-O.y)/lv };
-  const rel = { x:w.x-O.x, y:w.y-O.y };
-  const a = rel.x*u.x + rel.y*u.y;
-  const b = rel.x*v.x + rel.y*v.y;
-  if(Math.abs(a) < RECT_MIN_M || Math.abs(b) < RECT_MIN_M) return null;
-  const en = (ka,kb) => ({ x:O.x + u.x*ka + v.x*kb, y:O.y + u.y*ka + v.y*kb });
-  const out = new Array(4);
-  out[opp] = { x:O.x, y:O.y };
-  out[(opp+1)%4] = en(a, 0);
-  out[idx] = en(a, b);
-  out[(opp+3)%4] = en(0, b);
-  return out;
-}
-// Translation d'un cote perpendiculairement a lui-meme, les deux cotes voisins s'allongent.
-// `ref` est la position du point i au DEBUT du glisser : partir de la position courante
-// cumulerait le deplacement d'une image a l'autre et ferait fuir le cote.
-function rectangleDepuisCote(pts, i, j, ref, dx, dy){
-  const ex = pts[j].x-pts[i].x, ey = pts[j].y-pts[i].y;
-  const L = Math.hypot(ex,ey) || 1;
-  const n = { x:-ey/L, y:ex/L };                 // normale au cote
-  const t = dx*n.x + dy*n.y;                     // deplacement projete sur cette normale
-  const nx = ref.x + t*n.x, ny = ref.y + t*n.y;
-  const oppose = pts[(i+2)%4];
-  if(Math.abs((nx-oppose.x)*n.x + (ny-oppose.y)*n.y) < RECT_MIN_M) return null;
-  const decx = nx - pts[i].x, decy = ny - pts[i].y;
-  const out = pts.map(p=>({...p}));
-  out[i] = { x:pts[i].x+decx, y:pts[i].y+decy };
-  out[j] = { x:pts[j].x+decx, y:pts[j].y+decy };
-  return out;
 }
 
 // ================= Color scheme (adapts SVG-drawn ink to system dark/light) =================
@@ -1033,21 +995,6 @@ function sendObjectBackward(obj){
   render();
 }
 
-function exteriorBisector(obj, i){
-  const n = obj.pts.length;
-  const prev = obj.pts[(i-1+n)%n], cur = obj.pts[i], next = obj.pts[(i+1)%n];
-  const u = {x:prev.x-cur.x, y:prev.y-cur.y}; const ul = Math.hypot(u.x,u.y)||1;
-  const v = {x:next.x-cur.x, y:next.y-cur.y}; const vl = Math.hypot(v.x,v.y)||1;
-  const un = {x:u.x/ul, y:u.y/ul}, vn = {x:v.x/vl, y:v.y/vl};
-  let bis = {x:un.x+vn.x, y:un.y+vn.y};
-  let bl = Math.hypot(bis.x,bis.y);
-  if(bl < 1e-6){ bis = {x:-un.y, y:un.x}; bl = 1; } // u,v opposite (straight angle): use perpendicular
-  bis = {x:bis.x/bl, y:bis.y/bl};
-  // pick whichever side (bisector or its negation) actually lands outside the polygon
-  const step = 0.05;
-  const testPt = {x:cur.x+bis.x*step, y:cur.y+bis.y*step};
-  return pointInPolygon(testPt, obj.pts) ? {x:-bis.x, y:-bis.y} : bis;
-}
 
 function pathD(pts, curve){
   if(pts.length<2) return '';
@@ -2723,13 +2670,6 @@ window.addEventListener('pointercancel', ()=>{ activeDrag=null; });
 
 // ================= Add point (via double-click on an edge; see insertPointOnSegment below) =================
 
-function projectOntoSegment(p,a,b){
-  const abx=b.x-a.x, aby=b.y-a.y;
-  const len2 = abx*abx+aby*aby || 1e-9;
-  let t = ((p.x-a.x)*abx + (p.y-a.y)*aby)/len2;
-  t = Math.max(0.02, Math.min(0.98, t));
-  return {x:a.x+t*abx, y:a.y+t*aby};
-}
 
 function insertPointOnSegment(obj, segIndex, clickWorld){
   if(obj.locked) return;
@@ -4484,22 +4424,7 @@ function cancelPick(){
   render();
 }
 
-// ================= Rotation alignment tool =================
-function angleOfSegment(a,b){ return Math.atan2(b.y-a.y, b.x-a.x); }
 
-function nearestSegmentIndex(obj, target){
-  const mid = {x:(target.a.x+target.b.x)/2, y:(target.a.y+target.b.y)/2};
-  const n = obj.pts.length;
-  const edgeCount = obj.type==='path' ? n-1 : n;
-  let best=-1, bestD=Infinity;
-  for(let i=0;i<edgeCount;i++){
-    const a=obj.pts[i], b=obj.pts[(i+1)%n];
-    const m = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-    const d = dist(m,mid);
-    if(d<bestD){ bestD=d; best=i; }
-  }
-  return best;
-}
 
 function alignObjectByRotation(obj){
   if(!alignTargetSeg) return;
@@ -4773,74 +4698,6 @@ document.getElementById('importSvgFile').addEventListener('change', e=>{
   reader.readAsText(file);
 });
 
-// Best-effort SVG path 'd' parser: reduces a path to an ordered list of {x,y} endpoint vertices,
-// matching how this app already represents imported curves (plain polyline points, not bezier
-// control points - a C command already only kept its endpoint before this fix). Handles
-// M/L/H/V/C/S/Q/T/A/Z, both absolute and uppercase and relative/lowercase forms, and implicit
-// repeated coordinate pairs after the initial command letter. Arc (A) commands are read (so
-// their parameters don't corrupt the token stream) but only their endpoint is kept - drawing the
-// true elliptical arc as a polyline is out of scope for a best-effort importer; document this
-// limitation rather than silently misinterpreting the arc's numeric parameters as extra points,
-// which is what the previous M/L/C-only parser did for H/V/Q/S/T/A.
-function parseSvgPathPoints(d){
-  const tokens = String(d).match(/[MLHVCSQTAZmlhvcsqtaz]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
-  const pts = [];
-  let cur = {x:0,y:0}, start = {x:0,y:0};
-  let cmd = null, i = 0;
-  const isCmdTok = t => /^[MLHVCSQTAZ]$/i.test(t);
-  const num = ()=>{ const v = parseFloat(tokens[i++]); return Number.isFinite(v) ? v : 0; };
-  while(i < tokens.length){
-    if(isCmdTok(tokens[i])){ cmd = tokens[i]; i++; }
-    if(cmd===null) break;
-    const rel = cmd === cmd.toLowerCase();
-    const C = cmd.toUpperCase();
-    if(C==='M'){
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      start = {...cur};
-      pts.push({...cur});
-      cmd = rel ? 'l' : 'L'; // subsequent coordinate pairs without a new letter are implicit linetos
-    } else if(C==='L'){
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      pts.push({...cur});
-    } else if(C==='H'){
-      const x=num();
-      cur = {x: rel ? cur.x+x : x, y:cur.y};
-      pts.push({...cur});
-    } else if(C==='V'){
-      const y=num();
-      cur = {x:cur.x, y: rel ? cur.y+y : y};
-      pts.push({...cur});
-    } else if(C==='C'){
-      num();num(); num();num(); // two control points - not stored, endpoint-only representation
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      pts.push({...cur});
-    } else if(C==='S' || C==='Q'){
-      num();num(); // one control point - not stored
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      pts.push({...cur});
-    } else if(C==='T'){
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      pts.push({...cur});
-    } else if(C==='A'){
-      num();num();num();num();num(); // rx, ry, x-axis-rotation, large-arc-flag, sweep-flag - not stored
-      const x=num(), y=num();
-      cur = rel ? {x:cur.x+x, y:cur.y+y} : {x,y};
-      pts.push({...cur});
-    } else if(C==='Z'){
-      cur = {...start};
-      pts.push({...cur});
-      cmd = null;
-    } else {
-      break; // unrecognized command letter: stop rather than risk mis-consuming tokens
-    }
-  }
-  return pts;
-}
 function importSVGString(svgText){
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
   const perr = doc.querySelector('parsererror');
@@ -5373,13 +5230,6 @@ function aireSignee(pts){
   }
   return s/2;
 }
-function distancePointSegment(p, a, b){
-  const dx = b.x-a.x, dy = b.y-a.y;
-  const l2 = dx*dx + dy*dy;
-  if(l2 === 0) return Math.hypot(p.x-a.x, p.y-a.y);
-  const t = Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy)/l2));
-  return Math.hypot(p.x - (a.x + t*dx), p.y - (a.y + t*dy));
-}
 function distancePointContour(p, pts){
   let d = Infinity;
   for(let i=0;i<pts.length;i++) d = Math.min(d, distancePointSegment(p, pts[i], pts[(i+1)%pts.length]));
@@ -5431,16 +5281,6 @@ function anneauExterieur(geometry){
     if(a > aireMax){ aireMax = a; meilleur = anneau; }
   });
   return meilleur;
-}
-function simplifierContour(pts, seuil){
-  if(pts.length <= 4) return pts;
-  const out = [];
-  for(let i=0;i<pts.length;i++){
-    const prec = out.length ? out[out.length-1] : pts[(i-1+pts.length)%pts.length];
-    const suiv = pts[(i+1)%pts.length];
-    if(distancePointSegment(pts[i], prec, suiv) >= seuil) out.push(pts[i]);
-  }
-  return out.length >= 3 ? out : pts;
 }
 function anneauVersPts(anneau, proj, simplifier){
   let pts = anneau.map(c=>proj.versMetres(c[0], c[1]));
@@ -5749,105 +5589,7 @@ function lienTerritoireUrbanisme(insee){
 // communes s'annulent deux a deux et il ne reste que le contour exterieur. Les aretes annulees
 // sont rendues telles quelles : ce sont les limites internes, celles qu'on garde en pointille.
 const FUSION_TOL_M = 0.05;
-function memePoint(a, b, tol){ return Math.hypot(a.x-b.x, a.y-b.y) <= tol; }
-// Une limite commune n'est pas forcement decoupee pareil des deux cotes : le voisin peut avoir un
-// sommet au milieu de mon arete. Sans ce redecoupage, les deux aretes ne se reconnaissent pas et
-// la limite interne resterait dans le contour.
-function decouperAnneau(anneau, sommetsAutres, tol){
-  const out = [];
-  for(let i=0;i<anneau.length;i++){
-    const a = anneau[i], b = anneau[(i+1)%anneau.length];
-    out.push(a);
-    const len = Math.hypot(b.x-a.x, b.y-a.y);
-    if(len < tol) continue;
-    const inseres = [];
-    sommetsAutres.forEach(s=>{
-      if(memePoint(s,a,tol) || memePoint(s,b,tol)) return;
-      if(distancePointSegment(s, a, b) > tol) return;
-      const t = ((s.x-a.x)*(b.x-a.x) + (s.y-a.y)*(b.y-a.y))/(len*len);
-      if(t > 0 && t < 1) inseres.push({ t, p:{x:s.x, y:s.y} });
-    });
-    inseres.sort((u,v)=>u.t-v.t);
-    inseres.forEach((u,k)=>{ if(k===0 || u.t - inseres[k-1].t > 1e-9) out.push(u.p); });
-  }
-  return out;
-}
-function fusionnerAnneaux(anneaux, tol){
-  if(anneaux.length === 1) return { contour: anneaux[0].map(p=>({x:p.x,y:p.y})), limites: [] };
-  const tousSommets = [].concat(...anneaux);
-  const decoupes = anneaux.map(a=>decouperAnneau(a, tousSommets, tol));
-  const aretes = [];
-  decoupes.forEach((anneau, idx)=>{
-    for(let i=0;i<anneau.length;i++){
-      aretes.push({ a: anneau[i], b: anneau[(i+1)%anneau.length], anneau: idx, interne:false, utilisee:false });
-    }
-  });
-  // Deux anneaux voisins parcourus dans le meme sens traversent leur limite commune en sens
-  // OPPOSE : une arete qui trouve sa jumelle inversee dans un autre anneau est donc interne.
-  const limites = [];
-  aretes.forEach(e1=>{
-    if(e1.interne) return;
-    const jumelle = aretes.find(e2=>!e2.interne && e2.anneau !== e1.anneau &&
-      memePoint(e2.a, e1.b, tol) && memePoint(e2.b, e1.a, tol));
-    if(jumelle){
-      e1.interne = true; jumelle.interne = true;
-      limites.push([{x:e1.a.x, y:e1.a.y}, {x:e1.b.x, y:e1.b.y}]);
-    }
-  });
-  const restantes = aretes.filter(e=>!e.interne);
-  if(!restantes.length) return null;
-  // Chainage du contour exterieur.
-  const contour = [];
-  let courante = restantes[0];
-  courante.utilisee = true;
-  contour.push({x:courante.a.x, y:courante.a.y});
-  const depart = courante.a;
-  for(let garde=0; garde < restantes.length + 2; garde++){
-    contour.push({x:courante.b.x, y:courante.b.y});
-    if(memePoint(courante.b, depart, tol)){
-      contour.pop();   // le dernier point rejoint le premier : anneau implicitement ferme
-      break;
-    }
-    const suivante = restantes.find(e=>!e.utilisee && memePoint(e.a, courante.b, tol));
-    if(!suivante) return null;     // chaine rompue : on ne fusionne pas plutot que de sortir un contour faux
-    suivante.utilisee = true;
-    courante = suivante;
-  }
-  // Toutes les aretes exterieures doivent avoir servi : s'il en reste, l'union n'est pas d'un
-  // seul tenant (parcelles non contigues, ou trou) et une fusion serait un mensonge geometrique.
-  if(restantes.some(e=>!e.utilisee)) return null;
-  if(contour.length < 3) return null;
-  // Les sommets ajoutes par le redecoupage laissent des points parfaitement alignes : inutile de
-  // les garder, ils alourdissent le tableau des cotes sans rien decrire.
-  const propre = simplifierContour(contour, 0.01);
-  return { contour: propre.length >= 3 ? propre : contour, limites };
-}
 
-// Recolle les aretes internes bout a bout : une limite entre deux parcelles arrive en plusieurs
-// segments (un par arete cadastrale), un seul trait est plus lisible et plus manipulable.
-function chainerSegments(segments, tol){
-  const restants = segments.map(s=>({a:s[0], b:s[1], pris:false}));
-  const chaines = [];
-  restants.forEach(seg=>{
-    if(seg.pris) return;
-    seg.pris = true;
-    const chaine = [seg.a, seg.b];
-    let avance = true;
-    while(avance){
-      avance = false;
-      for(const autre of restants){
-        if(autre.pris) continue;
-        const fin = chaine[chaine.length-1], debut = chaine[0];
-        if(memePoint(autre.a, fin, tol)){ chaine.push(autre.b); autre.pris = true; avance = true; }
-        else if(memePoint(autre.b, fin, tol)){ chaine.push(autre.a); autre.pris = true; avance = true; }
-        else if(memePoint(autre.b, debut, tol)){ chaine.unshift(autre.a); autre.pris = true; avance = true; }
-        else if(memePoint(autre.a, debut, tol)){ chaine.unshift(autre.b); autre.pris = true; avance = true; }
-      }
-    }
-    chaines.push(chaine.map(p=>({x:p.x, y:p.y})));
-  });
-  return chaines;
-}
 
 function objetsDepuisCadastre(etat){
   const principale = etat.principale;
@@ -7979,111 +7721,6 @@ function ensureConstruction(obj){
   return obj.construction;
 }
 
-// ---- geometry helpers (Mode Terrasse only: line generation clipped to a polygon) ----
-function lineSegIntersect(origin, dir, p1, p2){
-  const ex=p2.x-p1.x, ey=p2.y-p1.y;
-  const denom = dir.x*ey - dir.y*ex;
-  if(Math.abs(denom)<1e-9) return null;
-  const dx=p1.x-origin.x, dy=p1.y-origin.y;
-  const t = (dx*ey - dy*ex)/denom;
-  const s = (dir.y*dx - dir.x*dy)/denom;
-  if(s < -1e-6 || s > 1+1e-6) return null;
-  return { t, point:{x:origin.x+t*dir.x, y:origin.y+t*dir.y} };
-}
-// Every stretch of the line that lies inside the polygon, as a list of segments. A convex shape
-// gives one; a concave one gives several, and taking only the outer envelope would run the
-// piece straight across the notch - outside the terrasse - which is exactly what an L-shaped
-// deck exposes. Each consecutive pair of crossings is kept or dropped on whether its midpoint
-// is actually inside, which also copes with the line grazing a vertex and registering twice.
-function clipLineToPolygon(origin, dir, poly){
-  const hits=[]; const n=poly.length;
-  for(let i=0;i<n;i++){
-    const hit = lineSegIntersect(origin, dir, poly[i], poly[(i+1)%n]);
-    if(hit) hits.push(hit);
-  }
-  if(hits.length<2) return [];
-  hits.sort((a,b)=>a.t-b.t);
-  const out=[];
-  for(let i=0;i<hits.length-1;i++){
-    const t0=hits[i].t, t1=hits[i+1].t;
-    if(t1-t0 < 1e-7) continue;
-    const mid = {x:origin.x+dir.x*(t0+t1)/2, y:origin.y+dir.y*(t0+t1)/2};
-    if(pointInPolygon(mid, poly)) out.push({ a:hits[i].point, b:hits[i+1].point });
-  }
-  return out;
-}
-// Intersection of two infinite lines (unlike clipLineToPolygon/lineSegIntersect, which bound
-// one side to a finite segment). Used to re-miter corners when inset-ing a polygon.
-function lineLineIntersect(p1,d1,p2,d2){
-  const denom = d1.x*d2.y - d1.y*d2.x;
-  if(Math.abs(denom)<1e-9) return null;
-  const dx=p2.x-p1.x, dy=p2.y-p1.y;
-  const t = (dx*d2.y - dy*d2.x)/denom;
-  return { x:p1.x+t*d1.x, y:p1.y+t*d1.y };
-}
-// Shrinks a polygon inward by distM (each edge moved inward along its normal, corners
-// re-mitered as the intersection of consecutive offset edges) so the result stays the same
-// shape/angles, just smaller - used so the main lames field stops short to leave room for a
-// perimeter border instead of running under it.
-// Offsets every edge by distM - positive inward, negative outward - and re-miters the corners
-// as the intersection of consecutive offset edges. Offsetting each edge on its own instead
-// leaves a wedge of gap at every convex corner and lets the pieces cross over at every concave
-// one, so a border laid that way stops following the outline as soon as the shape is not a
-// plain rectangle.
-// The inward normal comes from the winding, which is exact at any scale; probing a fixed
-// distance to find the interior breaks on anything thinner than the probe.
-function polygonOffset(pts, distM){
-  const n = pts.length;
-  if(Math.abs(distM) < 1e-9) return pts.map(p=>({...p}));
-  const ccw = signedArea(pts) > 0;
-  const offsetLines = pts.map((p,i)=>{
-    const a=p, b=pts[(i+1)%n];
-    const ex=b.x-a.x, ey=b.y-a.y; const L=Math.hypot(ex,ey)||1;
-    const nx = ccw ? -ey/L :  ey/L;
-    const ny = ccw ?  ex/L : -ex/L;
-    return { origin:{x:a.x+nx*distM, y:a.y+ny*distM}, dir:{x:ex/L, y:ey/L} };
-  });
-  return pts.map((p,i)=>{
-    const prev = offsetLines[(i-1+n)%n], cur = offsetLines[i];
-    const pt = lineLineIntersect(prev.origin, prev.dir, cur.origin, cur.dir);
-    return pt || {...p};
-  });
-}
-// A closed ring of points as the list of its edges.
-function ringSegments(ring){
-  return ring.map((p,i)=>({ a:p, b:ring[(i+1)%ring.length] }));
-}
-// Sutherland-Hodgman. The subject may be concave - an L-shaped terrasse is - but the clip has
-// to be convex, which a board's rectangle always is. Used to give each board the end its own
-// outline calls for: a board whose centreline stops on an oblique edge, drawn as a box, sticks
-// out on one side and falls short on the other, which is what makes a run of them look like a
-// staircase instead of a clean diagonal cut.
-function clipPolygonByConvex(subject, clip){
-  let out = subject.map(p=>({x:p.x, y:p.y}));
-  const n = clip.length;
-  const ccw = signedArea(clip) > 0;
-  for(let i=0; i<n && out.length; i++){
-    const a = clip[i], b = clip[(i+1)%n];
-    const ex = b.x-a.x, ey = b.y-a.y;
-    const cote = p => (ex*(p.y-a.y) - ey*(p.x-a.x)) * (ccw ? 1 : -1);
-    const dedans = p => cote(p) >= -1e-9;
-    const input = out; out = [];
-    for(let j=0; j<input.length; j++){
-      const P = input[j], Q = input[(j+1)%input.length];
-      const pin = dedans(P), qin = dedans(Q);
-      if(pin) out.push(P);
-      if(pin !== qin){
-        const dx = Q.x-P.x, dy = Q.y-P.y;
-        const den = ex*dy - ey*dx;
-        if(Math.abs(den) > 1e-12){
-          const t = (ey*(P.x-a.x) - ex*(P.y-a.y)) / den;
-          out.push({ x:P.x + t*dx, y:P.y + t*dy });
-        }
-      }
-    }
-  }
-  return out;
-}
 // How far a board really runs along its own axis. Its centreline stops where the centreline
 // crosses the outline, but on an oblique end the two SIDES of the board stop somewhere else -
 // one of them reaches past the centreline crossing. Measuring the centreline therefore both
@@ -8431,51 +8068,6 @@ function empriseEquipement(o){
     return pts;
   }
   return (o.pts && o.pts.length >= 3) ? o.pts.map(p=>({...p})) : null;
-}
-// "30 cm autour de l'equipement" veut dire une bande de 30 cm partout, pas un onglet. L'onglet
-// est juste pour une planche de rive, qu'on coupe reellement en biseau ; applique a une zone de
-// charge il degenere : mesure sur une emprise a 18 degres de pointe, une marge de 30 cm s'etirait
-// en dard de 1,88 m et faisait poser des appuis a un metre de tout equipement. Les coins convexes
-// sont donc arrondis - la zone est la somme de Minkowski de l'emprise et d'un disque de la marge,
-// ce qui redonne exactement r + marge pour un spa rond. Les coins rentrants gardent l'onglet : la
-// c'est bien l'intersection des deux bords decales qui borne la zone.
-function offsetZone(poly, marge){
-  const n = poly.length;
-  if(!(marge > 1e-9) || n < 3) return poly.map(p=>({...p}));
-  const ccw = signedArea(poly) > 0;
-  const bords = poly.map((p,i)=>{
-    const q = poly[(i+1)%n];
-    const ex = q.x-p.x, ey = q.y-p.y, L = Math.hypot(ex,ey)||1;
-    // Normale sortante : l'oppose de la normale interieure de polygonOffset.
-    return { nx: ccw ? ey/L : -ey/L, ny: ccw ? -ex/L : ex/L, dx:ex/L, dy:ey/L };
-  });
-  const out = [];
-  for(let i=0;i<n;i++){
-    const p = poly[i];
-    const a = bords[(i-1+n)%n], b = bords[i];
-    const oa = { x:p.x + a.nx*marge, y:p.y + a.ny*marge };
-    const ob = { x:p.x + b.nx*marge, y:p.y + b.ny*marge };
-    const tourne = a.dx*b.dy - a.dy*b.dx;
-    const convexe = ccw ? tourne > 1e-12 : tourne < -1e-12;
-    if(convexe){
-      const A0 = Math.atan2(oa.y-p.y, oa.x-p.x), A1 = Math.atan2(ob.y-p.y, ob.x-p.x);
-      let d = A1 - A0;
-      if(ccw){ while(d < 0) d += 2*Math.PI; } else { while(d > 0) d -= 2*Math.PI; }
-      const pas = Math.max(1, Math.ceil(Math.abs(d)/(Math.PI/12)));   // un point tous les 15 deg
-      for(let k=0;k<=pas;k++){
-        const A = A0 + d*k/pas;
-        out.push({ x:p.x + marge*Math.cos(A), y:p.y + marge*Math.sin(A) });
-      }
-    } else {
-      const m = lineLineIntersect(oa, {x:a.dx,y:a.dy}, ob, {x:b.dx,y:b.dy});
-      if(m) out.push(m); else { out.push(oa); out.push(ob); }
-    }
-  }
-  // Un decalage vers l'exterieur ne peut qu'agrandir : si l'aire a diminue, c'est que la marge a
-  // depasse une dimension de la forme et repliee le contour. On repart alors de l'emprise nue.
-  const a0 = Math.abs(signedArea(poly)), a1 = Math.abs(signedArea(out));
-  const sain = out.length >= 3 && out.every(p=>isFinite(p.x)&&isFinite(p.y)) && a1 >= a0;
-  return sain ? out : poly.map(p=>({...p}));
 }
 // Le nom de la fonction, des champs de reglage et du role des vis reste "spa" : c'est le
 // vocabulaire des projets deja enregistres, et le renommer les casserait. Ce n'est plus le spa

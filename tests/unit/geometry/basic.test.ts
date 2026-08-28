@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { dist, shoelace, signedArea, centroid, pointInPolygon } from '../../../src/geometry/basic.js';
 
-const p = (x: number, y: number) => ({ x, y }) as never;
+const p = (x: number, y: number) => ({ x, y });
 const carre = [p(0, 0), p(10, 0), p(10, 10), p(0, 10)];
 
 describe('dist', () => {
