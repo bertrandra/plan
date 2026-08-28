@@ -41,7 +41,7 @@ import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
-import { creerDomObjet, reconstruirePoignees } from './render/objects.js';
+import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
 import { dessinerCalqueParasols } from './render/parasolOverlay.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
 import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
@@ -651,118 +651,20 @@ function render(){
     if(sel) amenerPoigneesDevant(sel);
   }
 
+  // Le positionnement d'un objet vit dans render/objects.ts. Ce qui reste ici est ce que lui
+  // seul ne peut pas savoir : la selection courante, le masquage, l'etat du fond orthophoto et
+  // le pointage en cours pour l'outil de mesure.
   etat.objects.forEach(obj=>{
-    const isSel = obj.key===activeSel;
-
-    // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
-    // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus
-    // deroutant qu'utile. Il reste choisissable depuis la barre laterale pour le demasquer.
-    if(objetMasque(obj)){
-      vue(obj).el.style.display = 'none';
-      vue(obj).nameEl.style.display = 'none';
-      if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.style.display = 'none';
-      vue(obj).pointEls.forEach(e=>e.style.display='none');
-      vue(obj).ptLabelEls.forEach(e=>e.style.display='none');
-      vue(obj).edgeEls.forEach(e=>e.style.display='none');
-      vue(obj).segLabelEls.forEach(e=>e.style.display='none');
-      if(vue(obj).radiusHandle) vue(obj).radiusHandle.style.display='none';
-      return;
-    }
-    vue(obj).el.style.display = '';
-    vue(obj).nameEl.style.display = '';
-    if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.style.display = '';
-
-    if(obj.type==='polygon'){
-      vue(obj).el.setAttribute('points', polyStr(etat.scene, obj.pts));
-    } else if(obj.type==='path'){
-      vue(obj).el.setAttribute('d', pathD(etat.scene, obj.pts, !!obj.curve));
-      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*etat.scene.scale));
-      if(vue(obj).camMarkerEl){
-        const p0 = toScreen(obj.pts[0]);
-        vue(obj).camMarkerEl.setAttribute('cx',p0.x); vue(obj).camMarkerEl.setAttribute('cy',p0.y);
-      }
-    } else {
-      const c = toScreen(obj.center);
-      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*etat.scene.scale);
-    }
-    if(obj.type!=='path') vue(obj).el.setAttribute('stroke-width', isSel ? '3' : (obj.type==='circle'?'0.08':'1.8'));
-    else vue(obj).el.setAttribute('stroke-opacity', isSel ? '1' : '0.85');
-
-    // Avec le fond orthophoto, un terrain rempli a 100 % masque exactement ce qu'on est venu
-    // voir. La transparence est appliquee A L'AFFICHAGE, sans toucher au fillOpacity de l'objet :
-    // le projet n'est pas modifie, rien a re-enregistrer, et decocher le fond rend au terrain son
-    // remplissage d'origine. Le contour, lui, ne bouge pas : c'est lui qui porte l'information.
-    if(obj.type==='polygon' && estTerrain(obj)){
-      vue(obj).el.setAttribute('fill-opacity', orthoActif ? orthoParcelleOpacite : obj.fillOpacity);
-    }
-
-    const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);
-    const cs = toScreen(cen);
-    vue(obj).nameEl.setAttribute('x',cs.x); vue(obj).nameEl.setAttribute('y',cs.y);
-    vue(obj).nameEl.setAttribute('font-size', obj.key==='parcelle'||obj.key==='maison' ? 14 : 10);
-    vue(obj).nameEl.textContent = obj.showName ? obj.name : '';
-
-    if(obj.type==='polygon' || obj.type==='path'){
-      const n = obj.pts.length;
-      const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
-      if(vue(obj).pointEls.length !== n) rebuildHandles(obj);
-      const objCenter = cen;
-      for(let i=0;i<n;i++){
-        const p = toScreen(obj.pts[i]);
-        vue(obj).pointEls[i].setAttribute('cx',p.x); vue(obj).pointEls[i].setAttribute('cy',p.y);
-        const showPtForPick = pickState && pickState.mode==='target';
-        vue(obj).pointEls[i].style.display = (isSel || showPtForPick) ? '' : 'none';
-        const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-        vue(obj).pointEls[i].setAttribute('fill', isFrozen ? obj.stroke : '#fff');
-        vue(obj).pointEls[i].setAttribute('r', isFrozen ? 7.5 : 6.5);
-
-        // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
-        let ext;
-        if(obj.type==='polygon'){
-          ext = exteriorBisector(obj, i);
-        } else {
-          const nb = obj.pts[Math.min(i+1,n-1)], pb2 = obj.pts[Math.max(i-1,0)];
-          const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
-          ext = {x:-dy/L, y:dx/L};
-        }
-        vue(obj).ptLabelEls[i].setAttribute('x', p.x + ext.x*13);
-        vue(obj).ptLabelEls[i].setAttribute('y', p.y - ext.y*13 + 3);
-        vue(obj).ptLabelEls[i].setAttribute('text-anchor','middle');
-        let vertTxt = '';
-        const vName = obj.vertexNames[i] || ('P'+(i+1));
-        const showAngleHere = obj.showAngles && obj.type==='polygon';
-        if(obj.showVertNames && showAngleHere) vertTxt = vName + ' — ' + interiorAngleDeg(obj,i).toFixed(1) + '°';
-        else if(obj.showVertNames) vertTxt = vName;
-        else if(showAngleHere) vertTxt = interiorAngleDeg(obj,i).toFixed(1) + '°';
-        vue(obj).ptLabelEls[i].textContent = vertTxt;
-        vue(obj).ptLabelEls[i].style.display = vertTxt ? '' : 'none';
-
-        if(i < edgeCount){
-          const a=obj.pts[i], b=obj.pts[(i+1)%n];
-          const pa=toScreen(a), pb=toScreen(b);
-          vue(obj).edgeEls[i].setAttribute('x1',pa.x); vue(obj).edgeEls[i].setAttribute('y1',pa.y);
-          vue(obj).edgeEls[i].setAttribute('x2',pb.x); vue(obj).edgeEls[i].setAttribute('y2',pb.y);
-          const showEdgeForPick = pickState && pickState.mode==='ref';
-          vue(obj).edgeEls[i].style.display = (isSel || showEdgeForPick) ? '' : 'none';
-          vue(obj).edgeEls[i].style.pointerEvents = (isSel || showEdgeForPick) ? 'all' : 'none';
-
-          const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-          vue(obj).segLabelEls[i].setAttribute('x',mid.x); vue(obj).segLabelEls[i].setAttribute('y',mid.y-5);
-          let segTxt = '';
-          if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i] + ' — ' + dist(a,b).toFixed(2)+' m';
-          else if(obj.showSegNames) segTxt = obj.segmentNames[i];
-          else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
-          vue(obj).segLabelEls[i].textContent = segTxt;
-          vue(obj).segLabelEls[i].style.display = segTxt ? '' : 'none';
-        }
-      }
-      vue(obj).el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
-    } else {
-      const rp = toScreen({x:obj.center.x+obj.r, y:obj.center.y});
-      vue(obj).radiusHandle.setAttribute('cx',rp.x); vue(obj).radiusHandle.setAttribute('cy',rp.y);
-      vue(obj).radiusHandle.style.display = isSel ? '' : 'none';
-      vue(obj).el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
-    }
+    positionnerObjet(obj, {
+      scene: etat.scene,
+      selectionnee: obj.key === activeSel,
+      masque: objetMasque(obj),
+      ortho: { actif: orthoActif, parcelleOpacite: orthoParcelleOpacite },
+      estTerrain,
+      pointageSommets: !!(pickState && pickState.mode === 'target'),
+      pointageCotes: !!(pickState && pickState.mode === 'ref'),
+      reconstruirePoignees: rebuildHandles
+    });
   });
 
   // ---- surfaces: computed on demand in the "Objet" tab (see renderAttrTable) ----

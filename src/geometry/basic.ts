@@ -69,3 +69,23 @@ export function pointInPolygon(pt: PtBrut, poly: readonly PtBrut[]): boolean {
   }
   return inside;
 }
+
+/**
+ * Angle interieur au sommet `i`, en degres.
+ *
+ * Le sens de parcours decide de quel cote se trouve l'interieur : sur un polygone horaire, l'angle
+ * brut mesure l'exterieur. C'est l'aire signee qui tranche - sonder la position des voisins
+ * donnerait un resultat faux sur une forme concave, justement la ou l'angle est interessant.
+ */
+export function angleInterieurDeg(pts: readonly PtBrut[], i: number): number {
+  const n = pts.length;
+  const prec = pts[(i - 1 + n) % n],
+    cur = pts[i],
+    suiv = pts[(i + 1) % n];
+  const u = { x: prec.x - cur.x, y: prec.y - cur.y };
+  const v = { x: suiv.x - cur.x, y: suiv.y - cur.y };
+  let a = ((Math.atan2(v.y, v.x) - Math.atan2(u.y, u.x)) * 180) / Math.PI;
+  a = ((a % 360) + 360) % 360;
+  const sensTrigo = signedArea(pts) > 0;
+  return sensTrigo ? 360 - a : a;
+}
