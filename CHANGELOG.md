@@ -3,6 +3,22 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.2] — 2026-08-28
+
+Phase 2 de la migration TypeScript : extraction des fonctions pures. Aucun comportement ne change,
+les six golden files restent identiques au bit près à chaque lot.
+
+### Interne
+
+- 16 modules typés sortent de `legacy.ts` (12 959 → 12 250 lignes) : `model/{units,types,defaults,demo,version}`,
+  `geometry/{basic,segments,rect,polygon,rings,path}`, `geo/{projection,soleil}`,
+  `export/pdf/writer`, `export/dxf`, `util/{escape,format,download}`.
+- 79 tests unitaires ajoutés (106 au total) : géométrie, projection locale, position du soleil,
+  structure du PDF assemblé.
+- Ce que le typage a fait remonter sans le corriger : `estRectangle` rend `null`/`undefined` et
+  jamais `false` sur une entrée vide, `rectangleDepuisCote` peut rendre `null`. Les types le disent
+  désormais ; le comportement est inchangé.
+
 ## [1.0.1-alpha.1] — 2026-08-28
 
 Phases 0 et 1 de la migration TypeScript

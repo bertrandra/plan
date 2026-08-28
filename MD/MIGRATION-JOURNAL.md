@@ -7,7 +7,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 |---|---|---|---|---|
 | 0 — Filet de sécurité | ✅ 28/08/2026 | `v0-preTS` | les golden files se reproduisent à l'identique depuis le fichier étiqueté | 6 empreintes identiques par 3 chemins de calcul indépendants |
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
-| 2 — Extraction des feuilles pures | ⏳ | | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | |
+| 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ⏳ | | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | |
 | 4 — Modèle et conteneur d'état | ⏳ | | `legacy.ts` réduit aux panneaux UI et à la 3D | |
 | 5 — Panneaux UI | ⏳ | | | |
@@ -60,6 +60,59 @@ files — la régression sera désormais détectée par `npm test`, pas par une 
 navigateur sur `dist/index.html` : 35 objets, duplication et annulation, confirmation de
 réinitialisation, les cinq onglets, et la **vue 3D** (canvas 1216×419, three.js chargé depuis le
 CDN — le point le plus risqué du passage en module).
+
+## Phase 2 — 28 août 2026
+
+Cinq lots, chacun vérifié avant le suivant : `tsc --noEmit`, `eslint`, `vitest`, puis les six
+golden files recalculés depuis `dist/index.html`.
+
+| Lot | Modules créés | Sortis de `legacy.ts` |
+|---|---|---|
+| 1 | `model/units.ts`, `model/types.ts`, `geometry/basic.ts`, `util/{escape,format,download}.ts` | 12 959 → 12 909 |
+| 2 | `geometry/{segments,rect,polygon,rings,path}.ts` | 12 909 → 12 501 |
+| 3 | `geo/projection.ts`, `geo/soleil.ts` | 12 501 → 12 443 |
+| 4 | `model/version.ts`, `export/pdf/writer.ts`, `export/dxf.ts` | 12 443 → 12 312 |
+| 5 | `model/demo.ts`, `model/defaults.ts` | 12 312 → 12 250 |
+
+**709 lignes sorties, et non les ~1 800 annoncées par la spec.** L'écart n'est pas un travail
+laissé de côté : la liste de la phase 2 est épuisée. Plusieurs fonctions qu'elle range dans
+`geometry/` et `export/` ne lisent pas que leurs arguments, et la phase 2 est explicitement
+réservée à celles qui le font :
+
+| Fonction | Ce qu'elle lit en plus de ses arguments | Suite |
+|---|---|---|
+| `pathD`, `polyStr` | `toScreen()`, donc l'état de la vue | phase 4, avec une projection en paramètre |
+| `buildExportDXF` | `objects`, `measures` | phase 4 |
+| `buildExportPDF`, `buildDossierPDF` | idem | phase 4 |
+| `lieuActuel` | la parcelle courante | phase 4 |
+
+Le reste des ~1 800 lignes se trouve dans `geo/cadastre.ts`, `geo/bdtopo.ts`, `export/pdf/plan.ts`
+et `dossier.ts` — des fichiers de la cible §3.2 que la phase 2 ne liste pas.
+
+### Ce que le typage a fait remonter (aucun comportement corrigé, §10.3)
+
+- `estRectangle` rend `obj && …`, donc `null`/`undefined` et jamais `false` sur une entrée vide.
+  Tous les appelants la lisent comme une valeur falsy : le comportement est juste, le type le dit
+  désormais. Le barreau 3 (`strictNullChecks`) fera remonter toute cette famille.
+- `rectangleDepuisCote` peut rendre `null` (rectangle dégénéré refusé) : idem.
+- `rings` dépendait implicitement de `distancePointSegment` et `simplifierContour` ; ces
+  dépendances sont maintenant des imports.
+- `pdfEchelleGraphique` dépendait de `niceStep`, partagée avec la grille du plan : elle est passée
+  dans `util/format.ts`.
+
+### Tests
+
+79 tests unitaires ajoutés (106 au total), sur des invariants et non sur des valeurs recopiées :
+aire signée et sens de parcours, `offsetZone` = somme de Minkowski avec un disque aux cordes près,
+découpe d'une droite par un polygone concave, fusion de deux parcelles mitoyennes, aller-retour de
+la projection locale au millimètre, hauteur du soleil aux deux solstices et bascule de l'heure
+d'été, table xref et longueurs de flux du PDF assemblé.
+
+Trois de mes attentes de test étaient fausses et le code avait raison : l'aire de `offsetZone`
+(arcs inscrits, donc légèrement inférieure à la valeur exacte), l'échelle retenue par
+`echelleQuiTient` (1/75 et non 1/100), et la répétition implicite des commandes SVG dans
+`parseSvgPathPoints`. Corrigées côté test.
+
 
 ### Point de vigilance
 
