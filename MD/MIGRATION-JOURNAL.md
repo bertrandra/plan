@@ -769,9 +769,13 @@ propres sondes, donnait les mêmes chiffres dégradés pour une tout autre raiso
 
 ### Ce qui reste
 
-Le squelette de `legacy.ts` : orchestration du rendu, sélection, historique, câblage
-import/export, changement de mode, visionneuse GLB. **4 576 lignes**, contre 13 571 au début de la
-migration.
+Le squelette de `legacy.ts` : orchestration du rendu, sélection, historique, câblage des événements,
+changement de mode, visionneuse GLB et le `boot()` lui-même. **4 365 lignes**, contre 13 571 au
+début de la migration — 68 % en sont sortis.
+
+La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y est documentée pour
+ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
+perdu au premier enregistrement.
 
 Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
 `noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros
