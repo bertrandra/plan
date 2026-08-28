@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Plan interactif — Parcelle AE 101</title>
+<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+
+<div id="projectBar"></div>
+<div id="modeBar" style="display:flex; gap:6px; width:98vw; max-width:1600px; margin:0 0 8px;">
+  <button id="modePlanBtn" class="objbtn active">Plan</button>
+  <button id="modeTerrasseBtn" class="objbtn">Terrasse</button>
+  <button id="mode3dBtn" class="objbtn" title="Vue 3D de la terrasse actuellement selectionnee">Vue 3D</button>
+  <button id="glbViewerBtn" class="objbtn" title="Relit le dernier fichier GLB exporte (onglet Export), pour verifier le fichier reel avant de le partager">Visionneuse GLB</button>
+  <!-- Bascules d'affichage, groupees a droite : c'est le groupe qui porte margin-left:auto,
+       sinon masquer la case Voisinage renverrait la case Orthophoto au milieu de la barre. -->
+  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:16px;">
+    <label id="voisinageToggle" style="display:none; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Masque les parcelles adjacentes et tout ce qui a ete importe avec elles (bati, vegetation, arbres estimes), sur le plan comme en 3D. Rien n'est supprime.">
+      <input type="checkbox" id="chkVoisinage" checked> 🏘️ Voisinage
+    </label>
+    <label id="orthoToggle" style="display:inline-flex; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Photographie aerienne IGN posee sous le plan et sous la Vue 3D, calee sur la position reelle de la parcelle. Reglages (opacites) dans l'onglet Affichage.">
+      <input type="checkbox" id="chkOrtho"> 🛰️ Fond orthophoto
+    </label>
+  </span>
+</div>
+<h1>Plan interactif — Parcelle AE 101<span id="titreLieu"></span></h1>
+
+<div id="selector"></div>
+<div id="terrasseTopBar" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
+  <div id="terrasseSelector" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;"></div>
+</div>
+<div id="stageParking" style="display:none;"></div>
+<div id="stage">
+  <button id="fitBtn" title="Ajuster la vue à l'objet sélectionné">⤢ Ajuster à la sélection</button>
+  <button id="gridBtn" title="Afficher / masquer la grille du plan">▦</button>
+</div>
+
+<div id="planActions" class="controls" style="width:98vw; max-width:1600px; margin:0 0 10px;">
+  <button id="undoBtn" class="secondary" disabled>↶ Annuler (Ctrl+Z)</button>
+  <button id="addObjBtn" class="secondary small">+ Polygone</button>
+  <button id="addRectBtn" class="secondary small">+ Rectangle</button>
+  <button id="addPathBtn" class="secondary small">+ Chemin</button>
+  <button id="addCircleBtn" class="secondary small">+ Cercle</button>
+  <button id="addParasolBtn" class="secondary small" title="Parasol de terrasse : son ombre se projette sur le plan et une recherche automatique propose la meilleure position">+ Parasol</button>
+  <button id="addViewpointBtn" class="secondary small" title="Pose un point de camera pour la Vue 3D">+ Point de vue</button>
+  <button id="dupObjBtn" class="secondary small">Dupliquer</button>
+  <button id="delObjBtn" class="secondary small">- Supprimer</button>
+  <button id="backObjBtn" class="secondary small" title="Recule l'objet selectionne d'un plan, parmi ceux de meme priorite">↓ Reculer d'un plan</button>
+</div>
+
+<div id="terrassePanel" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
+  <div id="terrasseEmpty" class="hint" style="display:none;">Aucun objet avec Fonction = terrasse pour l'instant. Retourne en Mode Plan, ouvre l'onglet Objet de l'element concerne, et regle "Fonction" sur "terrasse".</div>
+  <div id="terrasseContent" style="display:none;">
+    <div id="terrasseSubTabs" style="display:flex; gap:4px; width:98vw; max-width:1600px; margin:14px auto 0;"></div>
+    <div class="panelBox">
+
+      <div id="terrasseTabConstruction">
+        <div class="sectionTitle">Construction</div>
+        <table class="attrTable" id="terrasseConfigTable"></table>
+        <div id="terrasseAvertBox"></div>
+        <div class="controls">
+          <button id="terrasseOptimBtn" class="objbtn">Optimisation des parametres</button>
+        </div>
+        <div id="terrasseOptimResult" style="display:none;"></div>
+        <div class="sectionTitle" style="margin-top:18px;">Paramètres de calcul</div>
+        <div class="hint">Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l'usage du métier (voir l'onglet Méthode).</div>
+        <div id="terrasseParamsBox"></div>
+      </div>
+
+      <div id="terrasseTabBom" style="display:none;">
+        <div class="sectionTitle">Liste de matériaux (BOM)</div>
+        <table class="attrTable" id="terrasseBomTable"></table>
+        <div class="controls">
+          <span id="terrasseBomTotals" style="font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif;"></span>
+        </div>
+        <div class="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
+        <div class="sectionTitle" style="margin-top:18px;">Débit des lames</div>
+        <div id="terrasseDebitBox"></div>
+        <div class="sectionTitle" style="margin-top:18px;">Débit du bois porteur et appuis</div>
+        <div id="terrasseDebitBoisBox"></div>
+      </div>
+
+      <div id="terrasseTabCanevas" style="display:none;">
+        <div class="sectionTitle">Canevas</div>
+        <div id="terrasseLayerTabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
+        <div class="hint" id="terrasseLayerHint"></div>
+        <div id="stageHost" style="margin-top:10px;"></div>
+      </div>
+
+      <div id="terrasseTab3d" style="display:none;">
+        <div class="sectionTitle" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Vue 3D</span>
+          <button id="terrasse3dFullPageBtn" type="button" class="secondary small" title="Agrandir en pleine page">⛶ Plein écran</button>
+        </div>
+        <div class="controls">
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+            <input type="checkbox" id="terrasse3dFilaire">
+            Lames en filaire — voir la structure dessous
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
+            <input type="checkbox" id="terrasse3dAllObjects" checked>
+            Afficher tous les objets du plan
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
+            <input type="checkbox" id="terrasse3dObjectsOpaque" checked>
+            Objets opaques (sinon opacite du plan)
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet">
+            <input type="checkbox" id="terrasse3dTextures" checked>
+            Texture (sinon couleur unie)
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, decoche par defaut">
+            <input type="checkbox" id="terrasse3dShadows">
+            Ombre portée
+          </label>
+        </div>
+        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+            <input type="checkbox" id="terrasse3dCloture">
+            Clôture autour de la parcelle
+          </label>
+          <span style="display:inline-flex; align-items:center; gap:4px; margin-left:14px;">
+            <label for="terrasse3dClotureHauteur" style="font-size:0.82rem; color:var(--ink-soft);">Hauteur (m)</label>
+            <input type="number" id="terrasse3dClotureHauteur" step="0.1" min="0.1" value="1.8" style="width:62px;">
+          </span>
+          <input type="color" id="terrasse3dClotureCouleur" value="#6b4a2a" title="Couleur de la cloture" style="margin-left:10px; width:32px; height:26px; padding:0; border:1px solid var(--rule); cursor:pointer;">
+          <img id="terrasse3dClotureTexVignette" style="width:24px; height:24px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); margin-left:10px; visibility:hidden;">
+          <span id="terrasse3dClotureTexNom" style="font-size:0.8rem; color:var(--ink-soft); margin-left:6px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Aucune (couleur unie)</span>
+          <button id="terrasse3dClotureTexBtn" type="button" class="secondary small" style="margin-left:6px;">Choisir une texture…</button>
+          <button id="terrasse3dClotureTexClear" type="button" class="secondary small" style="display:none;" title="Retirer cette texture">×</button>
+        </div>
+        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+          <span style="font-size:0.88rem;" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique a droite">☀️ Soleil</span>
+          <label for="vue3dDate" style="font-size:0.82rem; color:var(--ink-soft); margin-left:6px;">Date</label>
+          <input type="date" id="vue3dDate">
+          <input type="range" id="vue3dSemaine" min="0" max="52" value="0" step="1" title="Semaine de l'annee - avance/recule de 7 jours a chaque cran" style="width:110px;">
+          <span id="vue3dLieu" style="font-size:0.8rem; color:var(--ink-soft); margin-left:10px;"></span>
+        </div>
+        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+          <span style="font-size:0.88rem;">🕐 Heure</span>
+          <input type="range" id="vue3dHeure" min="0" max="1439" step="5" value="720" style="flex:1; max-width:260px;">
+          <span id="vue3dHeureTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">12:00</span>
+          <span id="vue3dSoleilInfo" style="font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px;" title="Hauteur du soleil au-dessus de l'horizon et direction d'ou il vient, pour la date, l'heure et le lieu choisis"></span>
+          <span style="font-size:0.88rem; margin-left:18px;" title="Multiplie l'intensite du soleil - 100 % = eclairage physique pour l'heure choisie ; au-dela, la scene est volontairement sureclairee pour mieux voir les details">☀️ Intensité</span>
+          <input type="range" id="vue3dIntensite" min="25" max="300" step="5" value="100" style="flex:1; max-width:160px;">
+          <span id="vue3dIntensiteTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">100 %</span>
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Lumieres autres que le soleil (l'appoint qui eclaire faiblement le cote a l'ombre, et l'ambiante generale) - decoche pour un eclairage entierement au soleil, jusqu'au noir complet une fois couche">
+            <input type="checkbox" id="vue3dLumiereAppoint" checked>
+            Lumière d'appoint
+          </label>
+        </div>
+        <div class="controls" style="align-items:center; margin-top:6px;">
+          <button id="terrasse3dSaveViewBtn" type="button" class="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera">📷 Enregistrer la vue comme point de vue</button>
+          <select id="terrasse3dViewSelect" style="margin-left:10px;">
+            <option value="">Aller a un point de vue enregistre…</option>
+          </select>
+        </div>
+        <div id="terrasse3dLoading" class="hint">Chargement de la bibliotheque 3D…</div>
+        <div id="terrasse3dWrap" style="display:none; margin-top:10px;">
+          <div id="terrasse3dCanvasHost" style="position:relative; width:100%; height:420px; border:1px solid var(--border); border-radius:4px; overflow:hidden; background:#dfe7ea;">
+            <div id="terrasse3dZoomControls" style="position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px;">
+              <button id="terrasse3dZoomIn" type="button" title="Zoom avant" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">+</button>
+              <button id="terrasse3dZoomOut" type="button" title="Zoom arriere" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">−</button>
+              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+              <button id="terrasse3dModeOrbit" type="button" title="Tourner (glisser fait pivoter la vue) — mode par defaut" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">⟳</button>
+              <button id="terrasse3dModePan" type="button" title="Deplacer (glisser translate la vue, un seul doigt suffit)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">✋</button>
+              <button id="terrasse3dModeZoom" type="button" title="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🔍</button>
+              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+              <button id="terrasse3dSavePng" type="button" title="Enregistrer la vue actuelle en PNG" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">💾</button>
+              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+              <button id="terrasse3dEyeLevel" type="button" title="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🧍</button>
+            </div>
+          </div>
+          <div class="hint" id="terrasse3dHint">Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons ⟳ / ✋ / 🔍 changent ce que fait le glisser a un seul doigt — pratique sur tablette. Les points de vue se posent et se renomment en Mode Plan ("+ Point de vue"). Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
+        </div>
+      </div>
+
+      <div id="terrasseTabCoupe" style="display:none;">
+        <div class="sectionTitle">Plan de coupe</div>
+        <div id="terrasseCoupeWrap" style="overflow-x:auto;"></div>
+        <div class="hint">Empilement des couches a l'endroit le plus charge (appui / solive / lambourde / lame), a l'echelle. Le fut de la vis est enterre : seul son depassement de tete souleve la terrasse. Tout se regle dans Construction.</div>
+      </div>
+
+      <div id="terrasseTabImplantation" style="display:none;">
+        <div class="sectionTitle">Plan d'implantation</div>
+        <div id="terrasseImplantWrap"></div>
+      </div>
+
+      <div id="terrasseTabChantier" style="display:none;">
+        <div class="sectionTitle">Chantier — activités et durées</div>
+        <div id="terrasseChantierWrap"></div>
+      </div>
+
+      <div id="terrasseTabMethode" style="display:none;">
+        <div class="sectionTitle">Méthode de calcul</div>
+        <div id="terrasseMethodeWrap"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="glbViewerPanel" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
+  <div class="sectionTitle" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+    <span>Visionneuse GLB</span>
+    <span id="glbViewerLieu" style="font-size:0.8rem; font-weight:400; font-family:inherit; color:var(--ink-soft);"></span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:400; font-family:inherit;">
+      <label for="glbViewerDate">Date</label>
+      <input type="date" id="glbViewerDate">
+      <input type="range" id="glbViewerSemaine" min="0" max="52" value="0" step="1" title="Semaine de l'annee - avance/recule de 7 jours a chaque cran" style="width:110px;">
+    </span>
+    <button id="glbViewerFullPageBtn" type="button" class="secondary small" title="Agrandir en pleine page">⛶ Plein écran</button>
+  </div>
+  <div id="glbViewerEmpty" class="hint">
+    Aucun modèle généré pour l'instant.
+    <button id="glbViewerExporterBtn" type="button" class="objbtn small" style="margin-left:8px;" title="Construit le modele 3D en memoire pour l'afficher ici - n'ecrit aucun fichier (pour telecharger un .glb, utiliser l'onglet Export)">Générer le modèle 3D</button>
+  </div>
+  <div id="glbViewerLoading" class="hint" style="display:none;">⏳ Chargement du modele…</div>
+  <div id="glbViewerContent" style="display:none;">
+    <div class="controls">
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+        <input type="checkbox" id="glbViewerFilaire">
+        Filaire (sinon plein)
+      </label>
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
+        <input type="checkbox" id="glbViewerShadows">
+        Ombre portée
+      </label>
+      <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Lumieres autres que le soleil (l'appoint qui eclaire faiblement le cote a l'ombre, et l'ambiante generale) - decoche pour un eclairage entierement au soleil, jusqu'au noir complet une fois couche">
+        <input type="checkbox" id="glbViewerLumiereAppoint" checked>
+        Lumière d'appoint
+      </label>
+      <span style="display:inline-flex; align-items:center; gap:6px; margin-left:18px; font-size:0.88rem;">
+        Fond
+        <select id="glbViewerFond">
+          <option value="clair">Clair</option>
+          <option value="sombre">Sombre</option>
+          <option value="damier">Damier neutre</option>
+        </select>
+      </span>
+      <select id="glbViewerViewSelect" style="margin-left:18px;">
+        <option value="">Aller a un point de vue enregistre…</option>
+      </select>
+      <button id="glbViewerRegenBtn" type="button" class="objbtn small" style="margin-left:18px;" title="Reconstruit le modele depuis l'etat actuel du plan (apres avoir modifie des objets, des textures ou la cloture) - en memoire, sans ecrire de fichier">↻ Régénérer depuis le plan</button>
+    </div>
+    <div class="controls" style="align-items:center; margin-top:6px;">
+      <span style="font-size:0.88rem;" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique dans l'entete">🕐 Heure</span>
+      <input type="range" id="glbViewerHeure" min="0" max="1439" step="5" value="720" style="flex:1; max-width:260px;">
+      <span id="glbViewerHeureTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">12:00</span>
+      <span style="font-size:0.88rem; margin-left:18px;" title="Multiplie l'intensite du soleil - 100 % = eclairage physique pour l'heure choisie ; au-dela, la scene est volontairement suréclairée pour mieux voir les details">☀️ Intensité</span>
+      <input type="range" id="glbViewerIntensite" min="25" max="300" step="5" value="100" style="flex:1; max-width:160px;">
+      <span id="glbViewerIntensiteTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">100 %</span>
+    </div>
+    <div id="glbViewerHint" class="hint"></div>
+    <div id="glbViewerCanvasHost" style="position:relative; width:100%; height:420px; border:1px solid var(--border); border-radius:4px; overflow:hidden; background:#dfe7ea; margin-top:6px;">
+      <div style="position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px;">
+        <button id="glbViewerZoomIn" type="button" title="Zoom avant" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">+</button>
+        <button id="glbViewerZoomOut" type="button" title="Zoom arriere" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">−</button>
+        <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+        <button id="glbViewerEyeLevel" type="button" title="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🧍</button>
+      </div>
+    </div>
+    <div class="hint">Glisser = tourner, molette = zoom, clic droit + glisser = deplacer. Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
+  </div>
+</div>
+
+<div id="panelTabs"></div>
+
+<div id="panel">
+  <div id="panelEdition">
+    <div class="sectionTitle" id="attrTitle">Attributs</div>
+    <table class="attrTable" id="attrNameTable"></table>
+    <div id="attrTabs" style="display:flex; gap:6px; margin:8px 0 4px;"></div>
+    <table class="attrTable" id="attrTable"></table>
+
+    <div class="controls">
+      <button id="resetPosBtn" class="secondary">Réinitialiser la position</button>
+      <button id="resetBtn" class="secondary">Réinitialiser tout</button>
+    </div>
+    <div class="hint">Glisse un point pour l'ajuster, un côté pour déplacer ses deux extrémités, l'intérieur d'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).</div>
+  </div>
+
+  <div id="panelAffichage" style="display:none;">
+    <div class="sectionTitle">Affichage par objet</div>
+    <table class="dispTable" id="dispTable"></table>
+
+    <div class="controls">
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkNorth" checked> Afficher la flèche Nord</label>
+    </div>
+    <div class="sectionTitle">Fond orthophoto (IGN)</div>
+    <div class="controls" style="align-items:center;">
+      <span style="font-size:0.82rem;" title="Opacite de la photo aerienne elle-meme">Photo</span>
+      <input type="range" id="orthoOpacite" min="20" max="100" step="5" value="85" style="max-width:150px;">
+      <span id="orthoOpaciteTexte" style="font-size:0.82rem; font-variant-numeric:tabular-nums; min-width:44px;">85 %</span>
+      <span style="font-size:0.82rem; margin-left:18px;" title="Remplissage du terrain par-dessus la photo : a 100 % la parcelle masque exactement ce qu'on veut voir">Remplissage parcelle</span>
+      <input type="range" id="orthoParcelleOpacite" min="0" max="100" step="5" value="15" style="max-width:150px;">
+      <span id="orthoParcelleOpaciteTexte" style="font-size:0.82rem; font-variant-numeric:tabular-nums; min-width:44px;">15 %</span>
+      <button id="orthoParcelleDefaut" class="secondary small" title="Revenir a la valeur conseillee">15 % conseillé</button>
+    </div>
+    <div class="hint">La case d'activation est en haut de page, à côté des modes. Le remplissage de la parcelle s'applique <b>uniquement</b> quand le fond est affiché : le contour et les cotes restent intacts, seul le fond de couleur s'efface pour laisser voir la photo. Décocher le fond rend au terrain son remplissage d'origine.</div>
+    <div class="hint">Le calage est exact sur un plan importé depuis une adresse ; ailleurs, il suit le lieu déclaré de la parcelle. Les tuiles ne sont pas enregistrées dans le projet (elles sont retéléchargées), mais ces réglages, eux, le sont.</div>
+  </div>
+
+  <div id="panelExport" style="display:none;">
+    <div class="sectionTitle">Export / Import</div>
+    <div class="controls">
+      <button id="exportBtn">Générer le résumé à copier</button>
+      <button id="exportSvgBtn" class="secondary">Exporter en SVG</button>
+      <button id="exportPngBtn" class="secondary">Exporter en PNG</button>
+      <button id="exportDxfBtn" class="secondary">Exporter en DXF</button>
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;">
+        Échelle 1/<input type="number" id="pdfScaleInput" value="200" min="1" step="1" style="width:70px; padding:3px 5px; border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);">
+      </label>
+      <button id="exportPdfBtn" class="secondary">Exporter en PDF</button>
+    </div>
+    <div class="hint">L'échelle du PDF (1/200 par défaut) fixe la taille de la page en fonction de l'étendue du plan : à 1/200, 1 m réel = 5 mm sur papier.</div>
+    <div class="sectionTitle">Dossier PDF (plan de masse + terrasses)</div>
+    <div class="controls" style="align-items:flex-start;">
+      <div id="dossierTerrasses" style="display:flex; flex-direction:column; gap:3px; font-size:0.82rem;"></div>
+    </div>
+    <div class="controls" style="align-items:center;">
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;" title="Spa, mobilier, parasol... : tout objet dont le centre tombe sur la terrasse"><input type="checkbox" id="chkDossierEquipements" checked> Inclure l'emprise des équipements posés sur la terrasse</label>
+      <button id="dossierPdfBtn" class="secondary" style="margin-left:14px;">Générer le dossier PDF</button>
+    </div>
+    <div class="hint">Page 1 : plan de masse à l'échelle, avec la parcelle, les bâtiments, les terrasses retenues (repérées S1, S2…) et leurs équipements. Puis une section par terrasse : son plan coté, l'emprise des équipements, et le tableau des dimensions. Format A4, échelle choisie automatiquement pour chaque page et rappelée sous le dessin.</div>
+
+    <div class="controls">
+      <button id="exportGlbBtn" class="secondary" title="Exporte la scene 3D de la terrasse selectionnee (avec les reglages actuels : tous les objets, textures, opacite) en fichier .glb">Exporter en GLB (3D)</button>
+    </div>
+    <div class="hint">Le GLB reprend la scene 3D telle que reglee dans l'onglet Vue 3D (filaire, tous les objets, textures, opacite) - ouvrable dans Blender, un visualiseur GLB, ou tout logiciel qui lit le format.</div>
+    <div class="controls">
+      <button id="importSvgBtn" class="secondary">Importer un SVG</button>
+      <input type="file" id="importSvgFile" accept=".svg,image/svg+xml" style="display:none;">
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkReplaceOnImport"> Supprimer les objets existants avant d'importer</label>
+    </div>
+    <div class="hint">L'import fonctionne de façon exacte pour les fichiers exportés par cette appli (formes + noms + attributs récupérés). Pour un SVG externe, seules les formes (polygon/path/circle) sont importées, en unités = mètres, sans les noms/attributs.</div>
+    <div class="hint">Le DXF (format CAO ouvert, compatible AutoCAD/QGIS/etc.) est proposé à la place du DWG : le DWG est un format binaire propriétaire Autodesk qui ne peut pas être généré de façon fiable sans leur SDK. Le DXF s'ouvre dans la quasi-totalité des logiciels de CAO, y compris AutoCAD.</div>
+    <div class="sectionTitle">Projet (JSON)</div>
+    <div class="controls">
+      <button id="exportJsonBtn" class="secondary">Exporter le projet (JSON)</button>
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkExportSansParcelle"> Exporter sans la parcelle</label>
+    </div>
+    <div class="controls">
+      <button id="importJsonBtn" class="secondary">Importer un projet (JSON)</button>
+      <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;">
+      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkJsonRemplace" checked> Remplacer le plan actuel</label>
+    </div>
+    <div class="hint">Le JSON est le format de sauvegarde de l'application : un export réimporté redonne le plan à l'identique (formes, noms, mesures, terrasse, textures, clôture). L'import n'écrit rien sur le serveur : le projet passe en « modifications non enregistrées » jusqu'à ce que vous cliquiez sur Enregistrer.</div>
+    <div class="hint">« Sans la parcelle » retire la parcelle et les parcelles voisines, ainsi que les mesures qui s'y appuient et la clôture qui leur est attachée : utile pour transmettre un aménagement sans divulguer la localisation.</div>
+    <textarea id="exportBox" readonly></textarea>
+  </div>
+
+  <div id="panelPlu" style="display:none;">
+    <div class="sectionTitle">PLU — règles d'urbanisme de la parcelle</div>
+    <div class="controls">
+      <button id="pluInterrogerBtn" class="secondary">Interroger le Géoportail de l'urbanisme</button>
+      <a id="pluGeoportailLien" href="#" target="_blank" rel="noopener" class="hint" style="display:none;">Ouvrir la parcelle sur le Géoportail de l'urbanisme ↗</a>
+    </div>
+    <div id="pluContenu"></div>
+    <div class="hint">Le zonage vient du Géoportail de l'urbanisme (données versées par la commune) et reste attaché à la parcelle : il se sauvegarde avec le projet. C'est une information de repérage, pas une autorisation : seul le règlement complet, et le service urbanisme de la commune, font foi.</div>
+  </div>
+
+  <div id="panelMesure" style="display:none;">
+    <div class="sectionTitle">Mesure</div>
+    <div id="measureControls"></div>
+    <table class="attrTable" id="measureResultsTable"></table>
+    <div class="controls">
+      <button id="recalcMeasureBtn" class="secondary small">Recalculer les mesures</button>
+      <button id="clearMeasureBtn" class="secondary small">Effacer les mesures</button>
+    </div>
+    <div class="hint">Les mesures se recalculent automatiquement à chaque modification du plan ; ce bouton force un rafraîchissement immédiat du tableau si besoin.</div>
+    <div class="hint">Mesure perpendiculaire à un segment de référence (souvent un côté de la parcelle). Les traits fins gris et les cotes s'affichent sur le plan, à l'extérieur de la parcelle.</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -3,10 +3,12 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
-## [Non publié]
+## [1.0.1-alpha.1] — 2026-08-28
 
-Phase 0 de la migration TypeScript ([`MD/spec-migration-typescript.md`](MD/spec-migration-typescript.md) §4) :
-filet de sécurité posé avant la moindre ligne de TypeScript. Aucun octet exporté ne change.
+Phases 0 et 1 de la migration TypeScript
+([`MD/spec-migration-typescript.md`](MD/spec-migration-typescript.md) §4) : filet de sécurité, puis
+échafaudage **sans déplacer une ligne de logique**. L'application construite est fonctionnellement
+identique et produit les six golden files au bit près.
 
 ### Modifié
 
@@ -21,9 +23,15 @@ filet de sécurité posé avant la moindre ligne de TypeScript. Aucun octet expo
   three.js n'est pas déterministe).
 - Liste de fumée de 25 interactions (`tests/CHECKLIST-FUMEE.md`), à dérouler avant chaque fusion.
 - Artefact gelé dans `legacy/plan_interactif.html`, étiquette `v0-preTS`.
+- Chaîne d'outils : Vite 5 avec `vite-plugin-singlefile` (le déploiement reste « copier un
+  fichier »), TypeScript 5.7 au barreau permissif, ESLint 9, Vitest 2.
+- `plan.html` découpé en `index.html`, `src/styles/app.css`, `src/legacy.ts` (les deux blocs
+  `<script>` verbatim, sous `@ts-nocheck`) et `src/main.ts` (amorçage).
+- `npm test` recalcule les empreintes des golden files : une régression d'export est désormais
+  détectée par la chaîne de test, plus par une relecture.
+- `npm run build` produit `dist/index.html` (432 ko) avec `api.php` à côté.
 - Le serveur de développement accepte `POST /_fixture/<nom>` pour déposer un golden file au bit
   près : un PDF qui transite par une chaîne JavaScript n'est plus le même fichier.
-
 ## [1.0.0] — 2026-08-28
 
 Première version numérotée. Elle **fige l'application mono-page existante telle qu'elle est** et

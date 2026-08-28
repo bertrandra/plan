@@ -11,3 +11,7 @@ desktop.ini
 
 # Sauvegardes manuelles anterieures au depot : c'est exactement ce que git remplace desormais.
 BKP */
+
+# Chaine Node (phase 1 de la migration)
+node_modules/
+dist/

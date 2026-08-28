@@ -1,0 +1,226 @@
+  :root{
+    color-scheme: light dark;
+    --ink:#3B2E1F; --ink-soft:#6b5a41; --paper:#FBF7EE; --paper-deep:#F3ECDA;
+    --rule:#C9B98C; --border:#D9CBA8; --accent:#8B6B3D; --accent-light:#EDE0C0;
+    --stage-bg:#FDFBF5; --panel-bg:#fff; --input-bg:#FEFDFA;
+    /* Teinte d'alternance : une nuance de l'accent, assez faible pour guider l'oeil le long
+       d'une ligne sans decouper le tableau en bandes. */
+    --zebra:rgba(139,107,61,0.05); --zebra-hover:rgba(139,107,61,0.11);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#EFE4C8; --ink-soft:#C9B98C; --paper:#241C13; --paper-deep:#2E241830;
+      --rule:#6b5a41; --border:#4a3d2a; --accent:#E0B564; --accent-light:#4a3d2a;
+      --stage-bg:#2A2118; --panel-bg:#2A2118; --input-bg:#332818;
+      --zebra:rgba(224,181,100,0.06); --zebra-hover:rgba(224,181,100,0.13);
+    }
+  }
+  *{box-sizing:border-box;}
+  html{ overscroll-behavior-y:contain; }
+  body{
+    margin:0; font-family:"Georgia","Iowan Old Style",serif;
+    background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center;
+    padding:18px 12px 40px;
+    overscroll-behavior-y:contain;
+  }
+  h1{
+    font-size:1.3rem; font-weight:400; margin:0 0 14px; letter-spacing:0.02em;
+    padding-bottom:8px; border-bottom:2px solid var(--accent);
+    width:98vw; max-width:1600px; text-align:center;
+  }
+  /* Le lieu du plan, sur la meme ligne que le titre : c'est lui qui cale le soleil, l'orthophoto
+     et le PLU - le voir en permanence evite de travailler sur une position qu'on croit juste. */
+  #titreLieu{
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.78rem; color:var(--ink-soft);
+    letter-spacing:0; margin-left:14px; white-space:nowrap;
+  }
+  #stage{
+    position:relative; background:var(--stage-bg); border:1px solid var(--border);
+    box-shadow:0 1px 3px rgba(59,46,31,0.12), 0 0 0 6px #fff, 0 0 0 7px var(--border);
+    touch-action:none; overscroll-behavior:none; overflow:hidden; margin:6px 0 16px;
+  }
+  #stage svg, #stage svg *{ touch-action:none; }
+  #fitBtn{
+    position:absolute; left:10px; bottom:10px; z-index:5; display:none;
+    font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem;
+    padding:7px 12px; border:1px solid var(--border); border-radius:4px;
+    background:var(--btn-bg,#fff); color:var(--ink); cursor:pointer;
+    box-shadow:0 1px 3px rgba(59,46,31,0.2);
+  }
+  #fitBtn:hover{ background:var(--accent-soft,#f0e6d2); }
+  /* Bascule de la grille, posee sur le canevas lui-meme : c'est un reglage qu'on actionne en
+     regardant le plan, pas en fouillant un panneau. */
+  #gridBtn{
+    position:absolute; left:10px; top:10px; z-index:5;
+    width:32px; height:32px; padding:0; line-height:1; font-size:1rem;
+    border:1px solid var(--border); border-radius:4px;
+    background:var(--btn-bg,#fff); color:var(--ink-soft); cursor:pointer;
+    box-shadow:0 1px 3px rgba(59,46,31,0.2);
+  }
+  #gridBtn:hover{ background:var(--accent-soft,#f0e6d2); }
+  #gridBtn.off{ color:var(--rule); opacity:0.75; }
+  svg{display:block; cursor:grab;}
+  svg:active{cursor:grabbing;}
+
+  #projectBar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    width:98vw; max-width:1600px; margin:0 0 10px; align-self:flex-start;
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
+  }
+  #projectBar select{
+    font-family:inherit; font-size:0.8rem; padding:5px 8px; max-width:280px;
+    border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);
+  }
+  #projectStatus{ color:var(--ink-soft); font-style:italic; }
+  #projectBar.localMode #projectStatus{ color:var(--accent); font-style:normal; }
+  /* Version : poussee a droite de la barre, discrete mais toujours lisible - on la lit surtout
+     quand quelque chose ne va pas. Le detail (build, schema, API) est dans l'infobulle. */
+  #appVersion{
+    margin-left:auto; color:var(--ink-soft); font-size:0.72rem; letter-spacing:0.03em;
+    font-variant-numeric:tabular-nums; padding:2px 7px; border:1px solid var(--border);
+    border-radius:999px; background:var(--paper-deep); white-space:nowrap; cursor:help;
+  }
+  .promptInput{
+    width:100%; font-family:inherit; font-size:0.9rem; padding:6px 8px; margin-top:8px;
+    border:1px solid var(--border); border-radius:4px; background:var(--input-bg); color:var(--ink);
+  }
+
+  #selector{
+    display:flex; flex-direction:column; gap:6px; align-items:stretch;
+    width:98vw; max-width:1600px; margin-bottom:10px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+  }
+  /* Deux niveaux distincts a l'oeil : la CATEGORIE (fonction) se choisit en haut, en pastilles
+     sans serif ; les OBJETS de la categorie sont les boutons du plan, en serif comme le reste du
+     document. Sur un plan importe du cadastre, la liste a plat depassait 60 boutons. */
+  .selectorFamilles{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .selectorRangee{ display:flex; gap:10px; align-items:flex-start; }
+  .selectorLegende{
+    font-size:0.6rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-soft); opacity:.7; margin-right:2px; align-self:center; white-space:nowrap;
+  }
+  /* La selection courante quitte la liste : elle a sa place fixe, a gauche, toujours au meme
+     endroit quel que soit le filtre - on sait ce qu'on edite sans le chercher parmi 60 boutons. */
+  .selectorSelection{
+    display:flex; flex-direction:column; gap:1px; flex:none; max-width:230px;
+    padding:3px 10px; border:1px solid var(--accent); background:var(--accent-light);
+    border-radius:2px; cursor:pointer;
+  }
+  .selectorSelection.vide{ border-style:dashed; border-color:var(--rule); background:transparent; cursor:default; }
+  .selectorSelectionNom{
+    font-family:"Georgia",serif; font-size:0.82rem; font-weight:700; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .selectorSelectionFam{ font-size:0.6rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+  .selectorListe{
+    display:flex; gap:6px; flex-wrap:wrap; align-content:flex-start;
+    max-height:5.4rem; overflow-y:auto; flex:1;
+  }
+  /* Selecteur descendant obligatoire : .objbtn est declare plus bas dans la feuille et, a
+     specificite egale, c'est lui qui l'emporterait - la pastille de categorie reprendrait alors
+     la police serif et les angles droits des boutons d'objet, et les deux niveaux se
+     confondraient a nouveau. */
+  .selectorFamilles .fambtn{
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.68rem; padding:3px 11px;
+    text-transform:uppercase; letter-spacing:.05em; border-radius:11px; opacity:0.92;
+  }
+  .selectorFamilles .fambtn .fambtnN{ opacity:.6; margin-left:5px; font-variant-numeric:tabular-nums; }
+  .selectorFamilles .fambtn.active{ opacity:1; }
+  .selectorFamilles .fambtn.active .fambtnN{ opacity:.85; }
+  .objbtn{
+    font-family:"Georgia",serif; font-size:0.76rem; padding:6px 13px;
+    border:1px solid var(--rule); background:#fff; color:var(--ink-soft); cursor:pointer; border-radius:2px;
+    transition:background 0.12s, color 0.12s;
+  }
+  .objbtn:hover{background:var(--accent-light);}
+  .objbtn.active{border-color:var(--accent); background:var(--accent); color:#fff; font-weight:700;}
+
+  #panelTabs{
+    display:flex; gap:4px; width:98vw; max-width:1600px; margin:14px auto 0;
+    font-family:"Georgia",serif;
+  }
+  .panelTabBtn{
+    font-family:"Georgia",serif; font-size:0.85rem; padding:8px 20px;
+    border:1px solid var(--border); border-bottom:none; background:var(--paper-deep); color:var(--ink-soft);
+    cursor:pointer; border-radius:6px 6px 0 0; margin-bottom:-1px;
+    transition:background 0.12s, color 0.12s;
+  }
+  .panelTabBtn:hover{ background:var(--accent-light); }
+  .panelTabBtn.active{
+    background:var(--panel-bg); color:var(--ink); font-weight:700;
+    border-color:var(--border); border-bottom:1px solid var(--panel-bg);
+  }
+
+  #panel{
+    margin-top:0; width:98vw; max-width:1600px; background:var(--panel-bg); border:1px solid var(--border);
+    padding:14px 18px; font-family:"Helvetica Neue",Arial,sans-serif;
+    box-shadow:0 1px 3px rgba(59,46,31,0.06); position:relative; z-index:0;
+  }
+  .panelBox{
+    margin-top:0; width:98vw; max-width:1600px; background:var(--panel-bg); border:1px solid var(--border);
+    padding:14px 18px; font-family:"Helvetica Neue",Arial,sans-serif;
+    box-shadow:0 1px 3px rgba(59,46,31,0.06);
+  }
+  .surfaces{display:flex; gap:18px; flex-wrap:wrap; font-size:0.86rem; margin-bottom:12px;}
+  .surfaces b{display:block; font-size:1.0rem; color:var(--accent);}
+
+  table.attrTable{width:100%; border-collapse:collapse; font-size:0.82rem; margin-bottom:10px;}
+  table.attrTable th, table.attrTable td{ text-align:left; padding:4px 6px; border-bottom:1px solid var(--paper-deep); }
+  table.attrTable th{color:var(--accent); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; border-bottom:1.5px solid var(--rule);}
+  table.attrTable input[type=text]{
+    width:100%; font-family:inherit; font-size:0.82rem; padding:3px 5px;
+    border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);
+  }
+  /* Alternance de fond : sur des tableaux de vingt a cent lignes, c'est ce qui permet de suivre
+     une ligne jusqu'au bout sans se tromper de rangee. Les lignes qui portent deja un fond -
+     titres de section, phases, config courante - gardent le leur. */
+  table.attrTable tr:nth-child(even):not(.sectionRow),
+  table.dispTable tr:nth-child(even){ background:var(--zebra); }
+  table.attrTable tr:hover:not(.sectionRow),
+  table.dispTable tr:hover{ background:var(--zebra-hover); }
+  table.attrTable tr.sectionRow{ background:transparent; }
+
+  .dispTable{width:100%; border-collapse:collapse; font-size:0.78rem; margin-top:6px;}
+  .dispTable th,.dispTable td{padding:4px 6px; border-bottom:1px solid var(--paper-deep); text-align:center;}
+  .dispTable th{color:var(--accent); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1.5px solid var(--rule);}
+  .dispTable td:first-child, .dispTable th:first-child{text-align:left;}
+
+  .controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  button{
+    font-family:"Georgia",serif; font-size:0.8rem; padding:7px 14px;
+    border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; border-radius:2px;
+  }
+  button.secondary{background:var(--panel-bg); color:var(--ink); border-color:var(--rule);}
+  button.small{padding:4px 10px; font-size:0.72rem;}
+  button:hover{opacity:0.82;}
+  button:disabled{opacity:0.35; cursor:not-allowed;}
+  #exportBox{
+    width:100%; margin-top:10px; font-family:"SF Mono","Menlo",monospace; font-size:0.74rem;
+    padding:10px; border:1px solid var(--border); background:var(--paper-deep); white-space:pre;
+    min-height:160px; display:none;
+  }
+  .hint{font-family:"Georgia",serif; font-style:italic; font-size:0.74rem; color:var(--ink-soft); margin-top:6px;}
+  .highlightRow{background:var(--accent-light) !important;}
+  .attrTabBtn{
+    font-family:"Georgia",serif; font-size:0.78rem; padding:6px 14px;
+    border:1px solid var(--rule); background:var(--paper-deep); color:var(--ink-soft); cursor:pointer; border-radius:2px 2px 0 0;
+    border-bottom:none;
+  }
+  .attrTabBtn.active{background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700;}
+  .sectionTitle{
+    font-family:"Georgia",serif; font-weight:700; font-size:0.9rem; margin:12px 0 6px;
+    color:var(--ink); letter-spacing:0.01em;
+    border-bottom:1px solid var(--rule); padding-bottom:3px;
+  }
+  /* Plein page de la Vue 3D : sort du flux normal et couvre tout le viewport, par-dessus le
+     reste de l'appli (sidebar, autres onglets) - aucun autre element n'a besoin d'etre cache
+     explicitement, le recouvrement suffit. */
+  #terrasseTab3d.pleinePage{
+    position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
+    padding:14px 18px; overflow:auto; margin:0;
+  }
+  #glbViewerPanel.pleinePage{
+    position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
+    padding:14px 18px; overflow:auto; margin:0;
+  }
