@@ -3,6 +3,57 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.12] — 2026-08-28
+
+L'alignement par rotation sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `geometry/alignement.ts` : `alignerSurCote()`, `rotationDAlignement()`, `tourner()`. Trois
+  décisions y sont désormais écrites — rotation repliée dans ±90° (un côté s'aligne sur une droite,
+  pas sur une direction), pivot au milieu du côté aligné, distance mesurée depuis ce côté et
+  conservant la forme du côté où elle est déjà.
+- `legacy.ts` : 10 016 → 9 988 lignes. 308 tests.
+
+## [1.0.1-alpha.11] — 2026-08-28
+
+L'ajout et le retrait de sommets sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `model/sommets.ts` : `insererSommet()`, `supprimerSommet()`, `minimumSommets()` — les quatre
+  tableaux d'une forme (points, noms de coins, noms de côtés, coins gelés) restent en phase au même
+  endroit.
+- La suppression d'un objet passe par `detruireVue()`, qui oublie en plus l'entrée de la carte des
+  vues — une fuite lente que le code en place laissait derrière lui.
+- `legacy.ts` : 10 024 → 10 016 lignes. 291 tests.
+
+### Connu, non corrigé
+
+- Les noms de sommets par défaut sont numérotés d'après le nouveau total, pas d'après la position
+  d'insertion : deux insertions peuvent produire deux « Coin 5 ». Comportement du fichier d'origine,
+  figé par un test.
+
+## [1.0.1-alpha.10] — 2026-08-28
+
+Le glisser-déposer sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `interaction/drag.ts` : les cinq gestes qui modifient la géométrie (forme, cercle, sommet, côté,
+  rayon). Le `pointermove` passe de 87 lignes à 6. Principe du module : on refuse plutôt que de
+  déformer, et le refus est en bloc.
+- `render/theme.ts` ne lit plus `window.matchMedia` sans garde : ce module pouvait empêcher toute
+  suite de tests qui l'importe de se charger — 15 tests ne tournaient plus sans qu'aucun n'échoue.
+- `legacy.ts` : 10 092 → 10 024 lignes. 278 tests.
+
+### Connu, non corrigé
+
+- Le débordement d'un cercle hors du contour est testé par seize points de son bord, pas par une
+  vraie intersection : une fente de contour plus étroite que l'écart entre deux rayons
+  échantillonnés laisse passer un cercle qui déborde. Comportement du fichier d'origine, figé par
+  un test.
+
 ## [1.0.1-alpha.9] — 2026-08-28
 
 `render()` est réduit à son orchestration : le positionnement des objets et le dessin des cotes
