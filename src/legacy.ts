@@ -24,24 +24,22 @@ import {
 } from './geometry/polygon.js';
 import { memePoint, decouperAnneau, chainerSegments, fusionnerAnneaux, simplifierContour } from './geometry/rings.js';
 import { parseSvgPathPoints } from './geometry/path.js';
+import { TERRE_A, TERRE_E2, projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from './geo/projection.js';
+import { decalageFuseauFrance, positionSoleil } from './geo/soleil.js';
+import { APP_VERSION, SCHEMA_VERSION, API_VERSION, BUILD_AT, BUILD_SHA, versionLongue, signatureExport } from './model/version.js';
+import { niceStep } from './util/format.js';
+import { dxfNum } from './export/dxf.js';
+import {
+  A4_L, A4_H, PT_PAR_METRE, MARGE_PDF, ECHELLES_DOSSIER,
+  pdfEscape, horodatagePdfInfo, assemblerPDF, pdfTexte, pdfPolygone, pdfCercle,
+  pdfFlecheNord, pdfEchelleGraphique, echelleQuiTient
+} from './export/pdf/writer.js';
 // ================= Identite de version (voir MD/RELEASE.md) =================
 // Trois contrats independants, trois numeros : l'application (SemVer), le schema du fichier de
 // projet (entier monotone) et l'API (prefixe de route). Ils sont declares ici, tout en haut du
 // premier script, parce que les appels reseau du boot les estampillent deja.
-const APP_VERSION = '1.0.0';
-const SCHEMA_VERSION = 1;
-const API_VERSION = 'v1';
 // Pas de build ni de depot git a ce stade : le "build id" se reduit a la date de figeage du
 // fichier mono-page. Il identifie l'artefact, pas un contrat (RELEASE.md 5.1).
-const BUILD_AT = '2026-08-28';
-const BUILD_SHA = null;
-function versionLongue(){
-  return APP_VERSION + (BUILD_SHA ? ' · ' + BUILD_SHA : '') + ' · ' + BUILD_AT;
-}
-// Ligne d'identification portee par les exports texte (SVG, DXF, resume, PDF).
-function signatureExport(){
-  return 'Plan interactif ' + APP_VERSION + ' — ' + new Date().toLocaleDateString('fr-FR');
-}
 function showErrBanner(msg){
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#a02020;color:#fff;padding:10px 14px;font-family:monospace;font-size:12px;z-index:9999;white-space:pre-wrap;max-height:40vh;overflow:auto;';
@@ -677,12 +675,6 @@ document.getElementById('fitBtn').addEventListener('click', ()=>{
   fitToObject(obj || null);
 });
 
-function niceStep(target){
-  const steps=[0.1,0.2,0.5,1,2,5,10,20,50];
-  let best=steps[0], bd=Infinity;
-  steps.forEach(s=>{ const d=Math.abs(s-target); if(d<bd){bd=d; best=s;} });
-  return best;
-}
 function drawGrid(){
   gridGroup.innerHTML='';
   // Grille masquable : elle sert a estimer les distances pendant le travail, elle gene des qu'on
@@ -3393,8 +3385,6 @@ function fitToObject(obj){
   render();
 }
 
-// ================= DXF export (open CAD format, substitute for proprietary binary DWG) =================
-function dxfNum(n){ return n.toFixed(4); }
 
 function buildExportDXF(){
   let ents = '';
@@ -3449,15 +3439,6 @@ document.getElementById('exportDxfBtn').addEventListener('click', ()=>{
   }
 });
 
-// ================= PDF export (hand-written minimal PDF, no external library available) =================
-function pdfEscape(s){
-  const accentMap = {'À':'A','Á':'A','Â':'A','Ä':'A','à':'a','á':'a','â':'a','ä':'a',
-    'É':'E','È':'E','Ê':'E','Ë':'E','é':'e','è':'e','ê':'e','ë':'e',
-    'Î':'I','Ï':'I','î':'i','ï':'i','Ô':'O','Ö':'O','ô':'o','ö':'o',
-    'Ù':'U','Û':'U','Ü':'U','ù':'u','û':'u','ü':'u','Ç':'C','ç':'c','œ':'oe','Œ':'OE','°':'deg'};
-  let out = String(s).split('').map(c=>accentMap[c]||c).join('');
-  return out.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
-}
 function hexToRgb01(hex){
   hex = (hex||'#888888').replace('#','');
   if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
@@ -3734,117 +3715,7 @@ function buildExportPDF(scaleDenom){
 // cotes et le tableau des dimensions - de quoi discuter le projet ou le donner a un artisan.
 // L'ecrivain PDF est le meme (fait main, pas de bibliotheque disponible), mais l'assemblage des
 // objets est generique ici : buildExportPDF() numerote ses deux pages en dur.
-const A4_L = 595.28, A4_H = 841.89;      // A4 portrait, en points PostScript
-const PT_PAR_METRE = 2834.645;           // 1 m a l'echelle 1:1
-const ECHELLES_DOSSIER = [10,20,25,50,75,100,125,150,200,250,500,1000,2000];
-const MARGE_PDF = 42;
 
-function echelleQuiTient(largeurM, hauteurM, dispoL, dispoH){
-  for(const d of ECHELLES_DOSSIER){
-    const k = PT_PAR_METRE/d;
-    if(largeurM*k <= dispoL && hauteurM*k <= dispoH) return d;
-  }
-  return ECHELLES_DOSSIER[ECHELLES_DOSSIER.length-1];
-}
-function assemblerPDF(pages){
-  // Numerotation : 1 Catalog, 2 Pages, 3 Font, puis (Page, Contenu) par page, puis les etats
-  // graphiques d'opacite. Tout est calcule, rien n'est fige : le nombre de pages varie.
-  const opacites = [1, 0.5, 0.35, 0.9, 0.75];
-  const numPremierePage = 4;
-  const kids = pages.map((_,i)=>(numPremierePage + i*2) + ' 0 R').join(' ');
-  const numPremierGs = numPremierePage + pages.length*2;
-  const dictGs = '<< ' + opacites.map((v,i)=>'/GS' + i + ' ' + (numPremierGs+i) + ' 0 R').join(' ') + ' >>';
-  const ressources = '<< /Font << /F1 3 0 R >> /ExtGState ' + dictGs + ' >>';
-  const objs = [];
-  objs.push('<< /Type /Catalog /Pages 2 0 R >>');
-  objs.push('<< /Type /Pages /Kids [' + kids + '] /Count ' + pages.length + ' >>');
-  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-  pages.forEach((p, i)=>{
-    const numContenu = numPremierePage + i*2 + 1;
-    objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + p.l.toFixed(2) + ' ' + p.h.toFixed(2) + '] /Resources ' + ressources + ' /Contents ' + numContenu + ' 0 R >>');
-    objs.push('<< /Length ' + p.contenu.length + ' >>\nstream\n' + p.contenu + '\nendstream');
-  });
-  opacites.forEach(v=>{ objs.push('<< /Type /ExtGState /ca ' + v.toFixed(3) + ' /CA ' + v.toFixed(3) + ' >>'); });
-  // Dictionnaire /Info : un PDF finit imprime chez un artisan, sans la page qui l'a produit. La
-  // version doit voyager avec le fichier (RELEASE.md 5.2). Ajoute en dernier pour ne decaler
-  // aucune des numerotations calculees plus haut. Chaines en ASCII pur : un PDF sans encodage
-  // declare rend le reste illisible.
-  const numInfo = objs.length + 1;
-  objs.push('<< /Producer (Plan interactif ' + APP_VERSION + ') /Creator (plan.html build ' + BUILD_AT
-    + ') /CreationDate (' + horodatagePdfInfo() + ') >>');
-  let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-  objs.forEach((corps,i)=>{ offsets.push(pdf.length); pdf += (i+1) + ' 0 obj\n' + corps + '\nendobj\n'; });
-  const xref = pdf.length;
-  pdf += 'xref\n0 ' + (objs.length+1) + '\n0000000000 65535 f \n';
-  for(let i=1;i<=objs.length;i++) pdf += String(offsets[i]).padStart(10,'0') + ' 00000 n \n';
-  pdf += 'trailer\n<< /Size ' + (objs.length+1) + ' /Root 1 0 R /Info ' + numInfo + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF';
-  return pdf;
-}
-// Date au format attendu par le dictionnaire /Info d'un PDF : D:AAAAMMJJHHMMSS, heure locale.
-function horodatagePdfInfo(){
-  const d = new Date();
-  const p = n => String(n).padStart(2,'0');
-  return 'D:' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate())
-    + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
-}
-// Petites briques de dessin, en points PDF (origine en bas a gauche, Y vers le haut - c'est
-// deja la convention du plan, donc pas d'inversion a faire).
-function pdfTexte(x, y, taille, txt, couleur, angleDeg){
-  const c = couleur || [0.15,0.12,0.08];
-  let s = 'BT /F1 ' + taille + ' Tf ' + c[0].toFixed(3) + ' ' + c[1].toFixed(3) + ' ' + c[2].toFixed(3) + ' rg ';
-  if(angleDeg){
-    const a = angleDeg*Math.PI/180, co = Math.cos(a), si = Math.sin(a);
-    s += co.toFixed(4) + ' ' + si.toFixed(4) + ' ' + (-si).toFixed(4) + ' ' + co.toFixed(4) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Tm ';
-  } else {
-    s += x.toFixed(2) + ' ' + y.toFixed(2) + ' Td ';
-  }
-  return s + '(' + pdfEscape(txt) + ') Tj ET\n';
-}
-function pdfPolygone(ptsPdf, remplissage, contour, epaisseur, opacite){
-  let s = '';
-  if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
-  if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
-  if(contour) s += contour[0].toFixed(3) + ' ' + contour[1].toFixed(3) + ' ' + contour[2].toFixed(3) + ' RG\n';
-  s += (epaisseur || 0.8).toFixed(2) + ' w\n';
-  ptsPdf.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
-  s += 'h ' + (remplissage && contour ? 'B' : (remplissage ? 'f' : 'S')) + '\n';
-  if(opacite !== undefined && opacite < 1) s += '/GS0 gs\n';
-  return s;
-}
-function pdfCercle(cx, cy, r, remplissage, contour, opacite){
-  const k = 0.5523*r;
-  let s = '';
-  if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
-  if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
-  if(contour) s += contour[0].toFixed(3) + ' ' + contour[1].toFixed(3) + ' ' + contour[2].toFixed(3) + ' RG\n';
-  s += '0.8 w\n' + (cx+r).toFixed(2) + ' ' + cy.toFixed(2) + ' m\n';
-  s += (cx+r).toFixed(2)+' '+(cy+k).toFixed(2)+' '+(cx+k).toFixed(2)+' '+(cy+r).toFixed(2)+' '+cx.toFixed(2)+' '+(cy+r).toFixed(2)+' c\n';
-  s += (cx-k).toFixed(2)+' '+(cy+r).toFixed(2)+' '+(cx-r).toFixed(2)+' '+(cy+k).toFixed(2)+' '+(cx-r).toFixed(2)+' '+cy.toFixed(2)+' c\n';
-  s += (cx-r).toFixed(2)+' '+(cy-k).toFixed(2)+' '+(cx-k).toFixed(2)+' '+(cy-r).toFixed(2)+' '+cx.toFixed(2)+' '+(cy-r).toFixed(2)+' c\n';
-  s += (cx+k).toFixed(2)+' '+(cy-r).toFixed(2)+' '+(cx+r).toFixed(2)+' '+(cy-k).toFixed(2)+' '+(cx+r).toFixed(2)+' '+cy.toFixed(2)+' c\n';
-  s += 'h ' + (remplissage && contour ? 'B' : (remplissage ? 'f' : 'S')) + '\n';
-  if(opacite !== undefined && opacite < 1) s += '/GS0 gs\n';
-  return s;
-}
-function pdfFlecheNord(x, y){
-  let s = '0.23 0.18 0.12 RG 0.23 0.18 0.12 rg 1.4 w [] 0 d\n';
-  s += x.toFixed(2)+' '+(y-4).toFixed(2)+' m '+x.toFixed(2)+' '+(y+16).toFixed(2)+' l S\n';
-  s += (x-5).toFixed(2)+' '+(y+12).toFixed(2)+' m '+x.toFixed(2)+' '+(y+22).toFixed(2)+' l '+(x+5).toFixed(2)+' '+(y+12).toFixed(2)+' l h f\n';
-  return s + pdfTexte(x+7, y+8, 10, 'N');
-}
-function pdfEchelleGraphique(x, y, ptsParMetre, denom){
-  const metres = niceStep(110/ptsParMetre);
-  const longueur = metres*ptsParMetre;
-  let s = '0.23 0.18 0.12 RG 1.2 w [] 0 d\n';
-  s += x.toFixed(2)+' '+y.toFixed(2)+' m '+(x+longueur).toFixed(2)+' '+y.toFixed(2)+' l S\n';
-  s += x.toFixed(2)+' '+(y-3).toFixed(2)+' m '+x.toFixed(2)+' '+(y+3).toFixed(2)+' l S\n';
-  s += (x+longueur).toFixed(2)+' '+(y-3).toFixed(2)+' m '+(x+longueur).toFixed(2)+' '+(y+3).toFixed(2)+' l S\n';
-  s += pdfTexte(x, y-11, 8, '0');
-  s += pdfTexte(x+longueur-12, y-11, 8, metres + ' m');
-  s += pdfTexte(x, y+8, 8, 'Echelle 1/' + denom);
-  return s;
-}
 // Emprise d'un objet, en metres : ce que le tableau des dimensions doit annoncer.
 function dimensionsObjet(o){
   if(o.type === 'circle'){
@@ -5206,21 +5077,6 @@ async function fetchJSONReseau(url){
   }
 }
 
-const TERRE_A = 6378137, TERRE_E2 = 0.00669437999014;
-// Projection plane locale tangente : exacte au millimetre sur l'emprise utile (moins d'un km),
-// et sans dependance externe - aucune bibliotheque de projection n'est chargeable ici.
-function projecteurLocal(lat0, lon0){
-  const phi = lat0*Math.PI/180, s = Math.sin(phi);
-  const N = TERRE_A/Math.sqrt(1 - TERRE_E2*s*s);                 // rayon de la 1re verticale
-  const M = TERRE_A*(1 - TERRE_E2)/Math.pow(1 - TERRE_E2*s*s, 1.5); // rayon meridien
-  const kx = N*Math.cos(phi)*Math.PI/180;   // metres par degre de longitude
-  const ky = M*Math.PI/180;                 // metres par degre de latitude
-  return {
-    lat0, lon0, kx, ky,
-    versMetres: (lon, lat)=>({ x:(lon-lon0)*kx, y:(lat-lat0)*ky }),
-    versDegres: (x, y)=>({ lon: lon0 + x/kx, lat: lat0 + y/ky })
-  };
-}
 
 function aireSignee(pts){
   let s = 0;
@@ -6730,16 +6586,6 @@ function referenceGeoPlan(){
     return { lat:lieu.latitude, lon:lieu.longitude, x:c.x, y:c.y, exact:false };
   }
   return null;
-}
-function tuileX(lon, z){ return Math.floor((lon + 180)/360 * Math.pow(2, z)); }
-function tuileY(lat, z){
-  const r = lat*Math.PI/180;
-  return Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r))/Math.PI)/2 * Math.pow(2, z));
-}
-function lonDeTuile(x, z){ return x/Math.pow(2, z)*360 - 180; }
-function latDeTuile(y, z){
-  const n = Math.PI - 2*Math.PI*y/Math.pow(2, z);
-  return 180/Math.PI * Math.atan(0.5*(Math.exp(n) - Math.exp(-n)));
 }
 function urlTuileOrtho(z, x, y){
   return WMTS_URL + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + ORTHO_COUCHE +
@@ -10171,41 +10017,6 @@ function syncLieuTitre(){
   const p = trouverParcelleCloture();
   el.textContent = p ? libelleLieu() : '';
   el.title = p ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : '';
-}
-// France (CET/CEST) : UTC+1 toute l'annee, UTC+2 entre le dernier dimanche de mars 01h UTC et le
-// dernier dimanche d'octobre 01h UTC (regle DST europeenne) - calculee explicitement plutot que de
-// faire confiance au fuseau de l'ordinateur qui fait tourner l'appli (qui peut etre ailleurs que
-// la France, alors que Le Vesinet, lui, ne bouge pas).
-function decalageFuseauFrance(anneeRef, tsUTC){
-  function dernierDimancheUTC(mois){ // mois 0-index ; renvoie 01:00 UTC du dernier dimanche de ce mois
-    const d = new Date(Date.UTC(anneeRef, mois+1, 1, 1, 0, 0));
-    d.setUTCDate(d.getUTCDate() - (d.getUTCDay()||7));
-    return d.getTime();
-  }
-  const debutEte = dernierDimancheUTC(2), finEte = dernierDimancheUTC(9);
-  return (tsUTC >= debutEte && tsUTC < finEte) ? 2 : 1;
-}
-// Formules solaires standard (NOAA, simplifiees) : declinaison depuis le jour de l'annee, equation
-// du temps (correction de quelques minutes due a l'orbite elliptique/l'inclinaison terrestre),
-// puis hauteur/azimut depuis latitude + angle horaire. Azimut en convention 0=Nord/90=Est/180=
-// Sud/270=Ouest (sens horaire), converti ensuite vers le repere de la scene (+X=Est, +Z=Sud, meme
-// convention que toLocal/buildThreeScene) par l'appelant.
-function positionSoleil(annee, mois, jour, heureDecimale, latDeg, lonDeg){
-  const jourAnnee = Math.floor((Date.UTC(annee,mois-1,jour) - Date.UTC(annee,0,1))/86400000) + 1;
-  const decalageFuseauH = decalageFuseauFrance(annee, Date.UTC(annee,mois-1,jour,12,0,0));
-  const B = (360/365) * (jourAnnee - 81) * Math.PI/180;
-  const eot = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B); // minutes
-  const tc = 4*(lonDeg - 15*decalageFuseauH) + eot; // minutes
-  const heureSolaire = heureDecimale + tc/60;
-  const haRad = (15*(heureSolaire - 12)) * Math.PI/180;
-  const declRad = (23.45*Math.PI/180) * Math.sin((360/365)*(284+jourAnnee)*Math.PI/180);
-  const latRad = latDeg*Math.PI/180;
-  const elevRad = Math.asin(Math.sin(declRad)*Math.sin(latRad) + Math.cos(declRad)*Math.cos(latRad)*Math.cos(haRad));
-  let cosAz = (Math.sin(declRad) - Math.sin(elevRad)*Math.sin(latRad)) / (Math.cos(elevRad)*Math.cos(latRad));
-  cosAz = Math.max(-1, Math.min(1, cosAz));
-  let azRad = Math.acos(cosAz);
-  if(haRad > 0) azRad = 2*Math.PI - azRad;
-  return { elevRad, azRad };
 }
 let glbViewerDateStr = new Date().toISOString().slice(0,10);
 let glbViewerMinutes = 720; // minutes depuis minuit ; 720 = midi

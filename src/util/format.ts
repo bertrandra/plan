@@ -33,3 +33,21 @@ export function horodatageFichier(): string {
     p = (n: number) => String(n).padStart(2, "0");
   return '' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate());
 }
+
+/**
+ * Pas « rond » le plus proche d'une cible, pris dans une echelle fixe (0,1 a 50 m). Sert a la
+ * grille du plan comme a l'echelle graphique des PDF : un pas de 0,37 m ne se lit pas.
+ */
+export function niceStep(target: number): number {
+  const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
+  let best = steps[0],
+    bd = Infinity;
+  steps.forEach((s) => {
+    const d = Math.abs(s - target);
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  });
+  return best;
+}
