@@ -358,6 +358,61 @@ mesure en cours de saisie, la 3D, et `W`/`H`. Ce sont les états que `render/**`
 l'ordre de la migration.
 
 
+## `render/**` et `interaction/**` — premiers modules (28 août 2026)
+
+L'`AppState` étant en place, ces deux couches peuvent enfin sortir : une fonction de rendu qui
+reçoit l'état **dit dans sa signature** ce dont elle a besoin.
+
+| Module | Contenu | Dépendances rendues explicites |
+|---|---|---|
+| `render/theme.ts` | encres du plan SVG selon le thème système | — |
+| `render/svg.ts` | `svgNS`, `creerSvg<K>()` typé, `attrs()` (§7.2) | — |
+| `render/decor.ts` | flèche du Nord, échelle graphique | scène + bascule, groupe SVG reçu |
+| `render/grille.ts` | grille du plan | scène + bascule, groupe SVG reçu |
+| `render/measures.ts` | géométrie des cotes recalculée à chaque rendu | liste des objets |
+| `interaction/editing.ts` | édition par longueur de côté et par angle | contour de contrainte |
+
+`W` et `H` rejoignent `etat.scene` : la taille utile de la scène appartient à la transformation,
+pas à une variable libre. Les appels existants passent par des enveloppes d'une ligne — le reste
+de `legacy.ts` n'est pas touché tant que `render()` n'est pas sorti à son tour.
+
+### Le piège des identifiants d'une lettre, cette fois réalisé
+
+Renommer `W`/`H` a détourné **les variables locales de `renderImplantation()`** : cette fonction
+déclare ses propres `W` et `H`, le format papier en millimètres. Après remplacement, elle
+affichait la taille de la fenêtre à la place — l'implantation aurait annoncé un format faux, et
+aucun test ne l'aurait vu, puisque les golden files ne couvrent pas ce panneau.
+
+Repéré en cherchant les déclarations locales masquées avant de conclure, restauré sur la portée
+exacte de la fonction, et vérifié à l'écran : *« sur papier : 69 × 90 mm — tient en A4 paysage »*.
+C'est la troisième fois qu'un remplacement global mord au-delà de sa cible dans cette migration
+(les `];` de la phase 3, les chaînes de caractères de l'`AppState`, les locales ici) : le
+remplacement mécanique va vite, mais il ne se relit pas tout seul.
+
+### Une fausse alerte, correctement diagnostiquée
+
+Le `projet.json` de référence a divergé après un contrôle — sur `objects[0].affichage`, passé de
+`null` à `{voisinage:true, grille:true}`. C'était **mon propre test** : basculer la grille
+enregistre le réglage sur la parcelle, comme prévu. Revérifié sur une page neuve sans y toucher :
+identique. Une divergence de golden file mérite un diff, pas une conclusion.
+
+### Tests
+
+22 tests ajoutés (221 au total), dont les invariants qui portent vraiment : la grille garde un pas
+lisible de 4 à 220 px/m, l'échelle passe aux centimètres au bon moment, une cote survit à la
+suppression de sa cible sans planter, et l'édition **refuse** au lieu de déformer — sommet gelé,
+ou point candidat hors du contour.
+
+Vérifié au navigateur : Nord affiché/masqué, grille, échelle, implantation, et une longueur de
+côté portée de 2,84 à 6,72 m qui fait passer l'aire de la terrasse de 35,01 à 31,79 m², puis
+annulation qui restaure 35,01.
+
+### Ce qui reste
+
+`render()` lui-même, `createObjectDOM`/`rebuildHandles`, le calque parasol, et le gros de
+`interaction/**` (glisser, pincement, création d'objets). `legacy.ts` est à 10 453 lignes.
+
+
 ### Point de vigilance
 
 `plan.html` et `src/legacy.ts` contiennent désormais le même code à deux endroits. Toute correction

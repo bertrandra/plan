@@ -3,6 +3,24 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.7] — 2026-08-28
+
+Premiers modules de `render/**` et `interaction/**`, rendus possibles par l'état explicite.
+Aucun comportement ne change.
+
+### Interne
+
+- `render/` : thème SVG, helper `creerSvg` typé (§7.2), flèche du Nord, échelle, grille,
+  géométrie des cotes. `W` et `H` rejoignent `etat.scene`.
+- `interaction/editing.ts` : édition par longueur de côté et par angle, contour de contrainte
+  passé en paramètre.
+- 22 tests ajoutés (221 au total).
+
+### Corrigé avant publication
+
+- Le renommage de `W`/`H` avait détourné les variables locales de `renderImplantation()` (format
+  papier en mm) vers la taille de la fenêtre. Restauré et vérifié à l'écran.
+
 ## [1.0.1-alpha.6] — 2026-08-28
 
 L'état de l'application tient désormais dans un seul objet explicite (`src/core/state.ts`), à la

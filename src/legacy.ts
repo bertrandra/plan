@@ -38,6 +38,8 @@ import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
 import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
 import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
+import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
+import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
 import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
 import { creerEtat } from './core/state.js';
@@ -947,6 +949,15 @@ function render(){
 }
 
 // ================= Attribute table for selected object =================
+// L'edition par cote et par angle vit dans interaction/editing.ts ; ces enveloppes fournissent le
+// contour de contrainte, que le module ne va plus chercher lui-meme.
+function applyAngleEdit(obj, i, newAngleDeg){
+  return editerAngle(obj, i, newAngleDeg, contourDeContrainte(etat.objects, obj));
+}
+function applyLengthEdit(obj, i, newLen){
+  return editerLongueur(obj, i, newLen, contourDeContrainte(etat.objects, obj));
+}
+
 
 function interiorAngleDeg(obj, i){
   const n = obj.pts.length;
@@ -959,56 +970,7 @@ function interiorAngleDeg(obj, i){
   return ccw ? (360 - a) : a;
 }
 
-function applyAngleEdit(obj, i, newAngleDeg){
-  const n = obj.pts.length;
-  if(obj.frozenVertices && obj.frozenVertices[(i+1)%n]) return false;
-  const prev = obj.pts[(i-1+n)%n], cur = obj.pts[i], next = obj.pts[(i+1)%n];
-  const u = {x:prev.x-cur.x, y:prev.y-cur.y};
-  const v = {x:next.x-cur.x, y:next.y-cur.y};
-  const L = Math.hypot(v.x,v.y);
-  const uAngle = Math.atan2(u.y,u.x);
-  const ccw = signedArea(obj.pts) > 0;
-  const signedDelta = (ccw ? -newAngleDeg : newAngleDeg) * Math.PI/180;
-  const newVAngle = uAngle + signedDelta;
-  const candidate = {x:cur.x+L*Math.cos(newVAngle), y:cur.y+L*Math.sin(newVAngle)};
-  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
-  if(!bound || pointInPolygon(candidate,bound)){
-    obj.pts[(i+1)%n] = candidate;
-    return true;
-  }
-  return false;
-}
 
-function applyLengthEdit(obj, i, newLen){
-  const n = obj.pts.length;
-  const j = (i+1)%n;
-  const aFrozen = !!(obj.frozenVertices && obj.frozenVertices[i]);
-  const bFrozen = !!(obj.frozenVertices && obj.frozenVertices[j]);
-  if(aFrozen && bFrozen) return false; // both ends locked: nothing can move
-
-  const a = obj.pts[i], b = obj.pts[j];
-  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
-
-  if(bFrozen){
-    // b is fixed: move a instead, keeping b fixed and reaching the target length
-    const dx=a.x-b.x, dy=a.y-b.y; const cur=Math.hypot(dx,dy)||1;
-    const candidate = {x:b.x+dx/cur*newLen, y:b.y+dy/cur*newLen};
-    if(!bound || pointInPolygon(candidate,bound)){
-      obj.pts[i] = candidate;
-      return true;
-    }
-    return false;
-  }
-
-  // default: move b (also used when a is frozen, since b is the free end)
-  const dx=b.x-a.x, dy=b.y-a.y; const cur=Math.hypot(dx,dy)||1;
-  const candidate = {x:a.x+dx/cur*newLen, y:a.y+dy/cur*newLen};
-  if(!bound || pointInPolygon(candidate,bound)){
-    obj.pts[j] = candidate;
-    return true;
-  }
-  return false;
-}
 
 
 // Le type geometrique brut (Chemin) ne dit rien d'utile pour un point de vue - il est
@@ -3662,6 +3624,12 @@ let draftTargets = []; // [{objKey, ptIndex}]
 let alignTargetSeg = null; // {objKey, segIndex} - reference segment for the rotation-alignment tool
 let alignDistanceValue = ''; // remembers the typed distance across re-renders; blank = no translation
 
+// La geometrie des cotes vit dans render/measures.ts ; ces enveloppes gardent les appels
+// existants inchanges et fournissent la liste des objets, que le module ne lit plus tout seul.
+function computeMeasureGeom(m){ return geometrieMesure(etat.objects, m); }
+function measureSegCoords(ref){ return coordonneesCote(etat.objects, ref); }
+function measurePointCoord(t){ return coordonneesPoint(etat.objects, t); }
+
 const measureGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(measureGroup);
 
@@ -3676,31 +3644,6 @@ function targetLabel(t){
   if(!obj) return '(objet supprime)';
   if(obj.type==='circle') return obj.name + ' (centre)';
   return obj.name + ': ' + (obj.vertexNames[t.ptIndex]||('P'+(t.ptIndex+1)));
-}
-function measureSegCoords(ref){
-  const obj = etat.objects.find(o=>o.key===ref.objKey);
-  if(!obj) return null;
-  const n = obj.pts.length;
-  return {a:obj.pts[ref.segIndex], b:obj.pts[(ref.segIndex+1)%n]};
-}
-function measurePointCoord(t){
-  const obj = etat.objects.find(o=>o.key===t.objKey);
-  if(!obj) return null;
-  return obj.type==='circle' ? obj.center : obj.pts[t.ptIndex];
-}
-function computeMeasureGeom(m){
-  const seg = measureSegCoords({objKey:m.refObjKey, segIndex:m.refSegIndex});
-  const p = measurePointCoord({objKey:m.targetObjKey, ptIndex:m.targetPtIndex});
-  if(!seg || !p) return null;
-  const A = m.startEnd==='B' ? seg.b : seg.a;
-  const B = m.startEnd==='B' ? seg.a : seg.b;
-  const ux=B.x-A.x, uy=B.y-A.y; const L=Math.hypot(ux,uy)||1e-9;
-  const nx=ux/L, ny=uy/L;
-  const dx=p.x-A.x, dy=p.y-A.y;
-  const along = dx*nx+dy*ny;
-  const foot = {x:A.x+nx*along, y:A.y+ny*along};
-  const perp = dist(p,foot);
-  return {A,B,foot,p,along,perp};
 }
 
 // Distance from `center` to where the ray (center -> center+dir) exits the polygon `poly`.
