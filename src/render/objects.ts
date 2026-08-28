@@ -15,6 +15,7 @@ import { versEcran } from './scene.js';
 import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
+import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { PtBrut } from '../model/types.js';
 import type { EtatScene } from './scene.js';
 
@@ -275,12 +276,13 @@ export function positionnerObjet(obj: ObjetPlan, ctx: ContextePositionnement): v
         v.ptLabelEls[i].setAttribute('x', String(p.x + ext.x*13));
         v.ptLabelEls[i].setAttribute('y', String(p.y - ext.y*13 + 3));
         v.ptLabelEls[i].setAttribute('text-anchor','middle');
-        let vertTxt = '';
         const vName = obj.vertexNames[i] || ('P'+(i+1));
+        // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
         const showAngleHere = obj.showAngles && obj.type==='polygon';
-        if(obj.showVertNames && showAngleHere) vertTxt = vName + ' — ' + angleInterieurDeg(obj.pts,i).toFixed(1) + '°';
-        else if(obj.showVertNames) vertTxt = vName;
-        else if(showAngleHere) vertTxt = angleInterieurDeg(obj.pts,i).toFixed(1) + '°';
+        // L'angle n'est calcule que s'il doit etre affiche : ce rendu passe sur chaque point de
+        // chaque objet a chaque image.
+        const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
+        const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
         v.ptLabelEls[i].textContent = vertTxt;
         v.ptLabelEls[i].style.display = vertTxt ? '' : 'none';
 
@@ -295,10 +297,10 @@ export function positionnerObjet(obj: ObjetPlan, ctx: ContextePositionnement): v
 
           const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
           v.segLabelEls[i].setAttribute('x', String(mid.x)); v.segLabelEls[i].setAttribute('y', String(mid.y-5));
-          let segTxt = '';
-          if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i] + ' — ' + dist(a,b).toFixed(2)+' m';
-          else if(obj.showSegNames) segTxt = obj.segmentNames[i];
-          else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
+          const segTxt = etiquetteComposee(
+            obj.segmentNames[i], longueurEnMetres(dist(a,b)),
+            obj.showSegNames, obj.showDims, SEP_ECRAN
+          );
           v.segLabelEls[i].textContent = segTxt;
           v.segLabelEls[i].style.display = segTxt ? '' : 'none';
         }

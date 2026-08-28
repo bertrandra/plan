@@ -54,6 +54,31 @@ Autres sources de non-déterminisme repérées par la spec §10.1 et **non encor
 pas dans ces fixtures parce que la capture ne crée aucun objet ; elles devront être injectées
 (horloge et générateur de clés) en phase 4.
 
+## Ce que ces empreintes ne voient pas
+
+Elles sont capturées sur le jeu de démonstration **tel qu'il est**, c'est-à-dire avec la plupart des
+cases d'affichage décochées. Conséquence mesurée le 28 août 2026 : `plan.svg` contient **14**
+étiquettes de mesure seule, et **aucune** étiquette composée (`nom - valeur`) ni **aucun** angle.
+La règle qui compose ces textes existe pourtant à six endroits du programme — écran, SVG, PDF du
+plan, PDF du dossier — et deux d'entre eux emploient volontairement une ponctuation ASCII.
+
+**Une régression sur la composition des étiquettes ne ferait donc bouger aucune de ces empreintes.**
+C'est le même angle mort que celui du zoom (une transformation de vue que les exports ne voient pas,
+spec §10.1) : ici, une branche de code que le jeu de démonstration n'emprunte pas.
+
+Contrôle complémentaire, à rejouer quand on touche aux étiquettes — cocher « Nom segment », « Nom
+coin », « Dimension » et « Angle » sur **tous** les objets de la table d'affichage, puis exporter :
+
+| Mesure | Valeur attendue |
+|---|---:|
+| `<text>` dans `plan.svg` | 265 |
+| dont étiquettes composées (` - `) | 204 |
+| dont angles (`deg`) | 88 |
+| longueur cumulée des textes SVG | 3 931 |
+| longueur cumulée des textes PDF (`( … ) Tj`) | 5 019 |
+
+Relevé identique sur `dist/index.html` et sur le témoin figé `legacy/plan_interactif.html`.
+
 ## Quantités
 
 [`quantites-demo.txt`](quantites-demo.txt) fige les surfaces et longueurs calculées, objet par

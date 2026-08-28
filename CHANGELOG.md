@@ -3,6 +3,25 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.13] — 2026-08-28
+
+La composition des étiquettes de côtes et de coins est réunie en un seul endroit. Aucun comportement
+ne change.
+
+### Interne
+
+- `model/etiquettes.ts` : `etiquetteComposee()`, `longueurEnMetres()`, `angleEnDegres()`. La règle
+  était recopiée à six endroits, dont deux avec une ponctuation ASCII volontaire (les PDF écrivent
+  en WinAnsi) que rien ne signalait. La ponctuation est désormais un paramètre nommé.
+- `legacy.ts` : 9 988 → 9 971 lignes. 325 tests.
+
+### Documentation
+
+- `tests/fixtures/golden/EMPREINTES.md` : nouvelle section « Ce que ces empreintes ne voient pas ».
+  Le jeu de démonstration n'affiche ni nom de côté ni angle — les six empreintes ne couvrent donc
+  pas la composition des étiquettes. Le contrôle complémentaire et ses valeurs attendues y sont
+  écrits.
+
 ## [1.0.1-alpha.12] — 2026-08-28
 
 L'alignement par rotation sort de `legacy.ts`. Aucun comportement ne change.

@@ -637,10 +637,41 @@ migrée translatait là où le témoin ne faisait que tourner. En cause, **le ch
 la valeur d'une sonde antérieure** sur cette page-là. Rejouée à froid des deux côtés, la mesure est
 identique. C'est deux fois de suite que l'état résiduel d'une page a imité une régression.
 
+### Six copies d'une même règle, dont deux qui divergeaient exprès
+
+Ce qui s'écrit le long d'un côté ou à côté d'un coin — le nom, la mesure, les deux joints, ou rien —
+était décidé par le même enchaînement de trois lignes recopié **six fois** : à l'écran, dans les
+deux mises à jour ciblées du panneau d'attributs, dans l'export SVG (polygone et chemin) et dans les
+deux PDF. Deux de ces copies employaient une ponctuation différente : `-` au lieu de `—`, `deg` au
+lieu de `°`.
+
+Cette différence est voulue — un PDF écrit ses textes en WinAnsi, où le tiret cadratin et le signe
+degré ne survivent pas — mais rien ne le disait, et rien n'empêchait qu'une copie « corrigée » par
+mégarde casse un export. `model/etiquettes.ts` fait de la ponctuation un paramètre nommé
+(`SEP_ECRAN` / `SEP_EXPORT`, `DEGRE_ECRAN` / `DEGRE_EXPORT`) : l'écart se lit au lieu de se deviner.
+
+Le calcul de l'angle reste paresseux là où il l'était : ce rendu passe sur chaque point de chaque
+objet à chaque image, et calculer un angle qu'on jette n'aurait rien coûté de visible mais aurait
+été une régression gratuite.
+
+### Les golden files n'exerçaient pas la branche que je modifiais
+
+En vérifiant, un fait embarrassant : `plan.svg` contient **14** étiquettes de mesure seule et
+**aucune** étiquette composée, ni **aucun** angle. Le jeu de démonstration a ces cases décochées.
+Autrement dit, une régression sur la composition des étiquettes n'aurait fait bouger **aucune** des
+six empreintes — le même angle mort que le zoom, sous une autre forme : là une transformation que
+les exports ne voient pas, ici une branche que le jeu de démonstration n'emprunte pas.
+
+La vérification a donc été faite à la main, sur les deux versions, toutes cases cochées sur tous les
+objets : 265 textes dans le SVG dont 204 composés et 88 angles, et les longueurs cumulées des textes
+identiques au caractère près (3 931 pour le SVG, 5 019 pour le PDF). Le contrôle et ses valeurs
+attendues sont maintenant écrits dans [`EMPREINTES.md`](../tests/fixtures/golden/EMPREINTES.md) —
+sans quoi il ne resterait que dans ce journal, et personne ne le rejouerait.
+
 ### Ce qui reste
 
 Les panneaux d'interface qui pilotent le plan : attributs, mesures, PLU, barre de projet,
-configurateur de terrasse. `legacy.ts` est à 9 988 lignes — il passe sous les 10 000.
+configurateur de terrasse. `legacy.ts` est à 9 971 lignes.
 
 
 ### Point de vigilance

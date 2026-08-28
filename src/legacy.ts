@@ -42,6 +42,10 @@ import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour,
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { insererSommet, supprimerSommet, minimumSommets } from './model/sommets.js';
 import { alignerSurCote } from './geometry/alignement.js';
+import {
+  etiquetteComposee, longueurEnMetres, angleEnDegres,
+  SEP_ECRAN, DEGRE_ECRAN, SEP_EXPORT, DEGRE_EXPORT
+} from './model/etiquettes.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { appliquerGlisser } from './interaction/drag.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -1325,11 +1329,8 @@ function renderAttrTable(){
         if(vue(obj).ptLabelEls && vue(obj).ptLabelEls[i]){
           const vName = obj.vertexNames[i] || ('P'+(i+1));
           const showAngleHere = obj.showAngles && obj.type==='polygon';
-          let vertTxt = '';
-          if(obj.showVertNames && showAngleHere) vertTxt = vName + ' — ' + interiorAngleDeg(obj,i).toFixed(1) + '°';
-          else if(obj.showVertNames) vertTxt = vName;
-          else if(showAngleHere) vertTxt = interiorAngleDeg(obj,i).toFixed(1) + '°';
-          vue(obj).ptLabelEls[i].textContent = vertTxt;
+          const angleTxt = showAngleHere ? angleEnDegres(interiorAngleDeg(obj,i), DEGRE_ECRAN) : '';
+          vue(obj).ptLabelEls[i].textContent = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
         }
       });
       td1.appendChild(ii);
@@ -1404,11 +1405,9 @@ function renderAttrTable(){
         obj.segmentNames[i] = ii.value;
         if(vue(obj).segLabelEls && vue(obj).segLabelEls[i]){
           const a=obj.pts[i], b=obj.pts[(i+1)%obj.pts.length];
-          let segTxt = '';
-          if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i] + ' — ' + dist(a,b).toFixed(2)+' m';
-          else if(obj.showSegNames) segTxt = obj.segmentNames[i];
-          else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
-          vue(obj).segLabelEls[i].textContent = segTxt;
+          vue(obj).segLabelEls[i].textContent = etiquetteComposee(
+            obj.segmentNames[i], longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_ECRAN
+          );
         }
       });
       td1.appendChild(ii);
@@ -2279,19 +2278,14 @@ function buildExportSVG(){
       for(let i=0;i<n;i++){
         const a=obj.pts[i], b=obj.pts[(i+1)%n];
         const pa=exToSvg(a), pb=exToSvg(b);
-        let segTxt='';
-        if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i]+' - '+dist(a,b).toFixed(2)+' m';
-        else if(obj.showSegNames) segTxt = obj.segmentNames[i];
-        else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
+        const segTxt = etiquetteComposee(obj.segmentNames[i], longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           body += '<text x="'+mx.toFixed(2)+'" y="'+(my-0.3).toFixed(2)+'" font-size="'+fsSeg+'" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" fill="#12210f">'+escapeXml(segTxt)+'</text>\n';
         }
-        let exVertTxt = '';
         const exVName = obj.vertexNames[i]||'';
-        if(obj.showVertNames && obj.showAngles) exVertTxt = exVName + ' - ' + interiorAngleDeg(obj,i).toFixed(1) + 'deg';
-        else if(obj.showVertNames) exVertTxt = exVName;
-        else if(obj.showAngles) exVertTxt = interiorAngleDeg(obj,i).toFixed(1) + 'deg';
+        const exAngleTxt = obj.showAngles ? angleEnDegres(interiorAngleDeg(obj,i), DEGRE_EXPORT) : '';
+        const exVertTxt = etiquetteComposee(exVName, exAngleTxt, obj.showVertNames, obj.showAngles, SEP_EXPORT);
         if(exVertTxt){
           body += '<text x="'+(pa.x+0.4).toFixed(2)+'" y="'+(pa.y-0.4).toFixed(2)+'" font-size="'+fsVert+'" font-family="Helvetica Neue, Arial, sans-serif" fill="#333">'+escapeXml(exVertTxt)+'</text>\n';
         }
@@ -2301,10 +2295,7 @@ function buildExportSVG(){
       for(let i=0;i<obj.pts.length-1;i++){
         const a=obj.pts[i], b=obj.pts[i+1];
         const pa=exToSvg(a), pb=exToSvg(b);
-        let segTxt='';
-        if(obj.showSegNames && obj.showDims) segTxt = (obj.segmentNames[i]||('Cote '+(i+1)))+' - '+dist(a,b).toFixed(2)+' m';
-        else if(obj.showSegNames) segTxt = obj.segmentNames[i]||('Cote '+(i+1));
-        else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
+        const segTxt = etiquetteComposee(obj.segmentNames[i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           body += '<text x="'+mx.toFixed(2)+'" y="'+(my-0.3).toFixed(2)+'" font-size="'+fsSeg+'" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" fill="#12210f">'+escapeXml(segTxt)+'</text>\n';
@@ -2587,19 +2578,14 @@ function buildExportPDF(scaleDenom){
       for(let i=0;i<n;i++){
         const a=obj.pts[i], b=obj.pts[(i+1)%n];
         const pa=toPdf(a), pb=toPdf(b);
-        let segTxt='';
-        if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i]+' - '+dist(a,b).toFixed(2)+' m';
-        else if(obj.showSegNames) segTxt = obj.segmentNames[i];
-        else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
+        const segTxt = etiquetteComposee(obj.segmentNames[i], longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           content += 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(segTxt)+') Tj ET\n';
         }
-        let vertTxt = '';
         const vName = obj.vertexNames[i]||'';
-        if(obj.showVertNames && obj.showAngles) vertTxt = vName + ' - ' + interiorAngleDeg(obj,i).toFixed(1) + 'deg';
-        else if(obj.showVertNames) vertTxt = vName;
-        else if(obj.showAngles) vertTxt = interiorAngleDeg(obj,i).toFixed(1) + 'deg';
+        const angleTxt = obj.showAngles ? angleEnDegres(interiorAngleDeg(obj,i), DEGRE_EXPORT) : '';
+        const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, obj.showAngles, SEP_EXPORT);
         if(vertTxt){
           content += 'BT /F1 6.5 Tf 0.2 0.2 0.2 rg '+(pa.x+3).toFixed(2)+' '+(pa.y+3).toFixed(2)+' Td ('+pdfEscape(vertTxt)+') Tj ET\n';
         }
@@ -2613,10 +2599,7 @@ function buildExportPDF(scaleDenom){
       for(let i=0;i<obj.pts.length-1;i++){
         const a=obj.pts[i], b=obj.pts[i+1];
         const pa=toPdf(a), pb=toPdf(b);
-        let segTxt='';
-        if(obj.showSegNames && obj.showDims) segTxt = (obj.segmentNames[i]||('Cote '+(i+1)))+' - '+dist(a,b).toFixed(2)+' m';
-        else if(obj.showSegNames) segTxt = obj.segmentNames[i]||('Cote '+(i+1));
-        else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
+        const segTxt = etiquetteComposee(obj.segmentNames[i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           content += 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(segTxt)+') Tj ET\n';
