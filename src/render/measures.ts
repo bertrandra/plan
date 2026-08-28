@@ -8,6 +8,9 @@
 // comme partout depuis la phase 3, au lieu d'etre lue dans la fermeture.
 
 import { dist, centroid } from '../geometry/basic.js';
+import { creerSvg } from './svg.js';
+import { versEcran, type EtatScene } from './scene.js';
+import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
 import type { PtBrut } from '../model/types.js';
 
 interface ObjetPlan {
@@ -131,4 +134,84 @@ export function ancrageHorsContour(
   const dirY = versExterieur ? ny : -ny;
   const sortie = Math.max(distanceSortiePolygone(point, { x: dirX, y: dirY }, poly), 0);
   return { x: point.x + dirX * (sortie + degagement), y: point.y + dirY * (sortie + degagement), dirX, dirY };
+}
+
+/** Ce que le dessin des cotes doit connaitre, en plus du groupe SVG ou il ecrit. */
+export interface ContexteCotes {
+  scene: EtatScene;
+  objets: ObjetPlan[];
+  mesures: (Mesure & { show?: boolean; displayMode?: string })[];
+  /** Cote de reference en cours de designation, s'il y en a un. */
+  brouillonRef: { objKey: string; segIndex: number } | null;
+  /** Points deja designes pour la cote en cours. */
+  brouillonCibles: { objKey: string; ptIndex: number }[];
+}
+
+/**
+ * Dessine les cotes enregistrees, plus la cote en cours de saisie.
+ *
+ * Une cote se compose d'un trait de rappel partant du point mesure, perpendiculaire au cote de
+ * reference, prolonge jusqu'a sortir du contour - et de sa valeur, posee au bout. `⊥` designe la
+ * distance perpendiculaire, `→` la distance le long du cote : deux facons de decrire le meme
+ * point, et l'utilisateur choisit celle qui parle a son artisan.
+ */
+export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
+  groupe.innerHTML = '';
+  const pc = ctx.objets.find(o=>o.key==='parcelle');
+
+  // draft (in-progress) picks: highlight ref segment and picked targets
+  if(ctx.brouillonRef){
+    const seg = coordonneesCote(ctx.objets, ctx.brouillonRef);
+    if(seg){
+      const pa=versEcran(ctx.scene, seg.a), pb=versEcran(ctx.scene, seg.b);
+      const l = creerSvg('line');
+      l.setAttribute('x1', String(pa.x)); l.setAttribute('y1', String(pa.y)); l.setAttribute('x2', String(pb.x)); l.setAttribute('y2', String(pb.y));
+      l.setAttribute('stroke',SVG_MEASURE_LINE); l.setAttribute('stroke-width','4'); l.setAttribute('stroke-opacity','0.55');
+      groupe.appendChild(l);
+    }
+  }
+  ctx.brouillonCibles.forEach(t=>{
+    const p = coordonneesPoint(ctx.objets, t);
+    if(!p) return;
+    const ps = versEcran(ctx.scene, p);
+    const c = creerSvg('circle');
+    c.setAttribute('cx', String(ps.x)); c.setAttribute('cy', String(ps.y)); c.setAttribute('r', String('9'));
+    c.setAttribute('fill','none'); c.setAttribute('stroke',SVG_MEASURE_LINE); c.setAttribute('stroke-width','2.5');
+    groupe.appendChild(c);
+  });
+
+  ctx.mesures.forEach(m=>{
+    if(!m.show || !pc) return;
+    const g = geometrieMesure(ctx.objets, m);
+    if(!g) return;
+    const anchor = ancrageHorsContour(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const pPt = versEcran(ctx.scene, g.p), pAnchor = versEcran(ctx.scene, anchor);
+
+    // witness line starts at the measured point and heads toward the reference segment
+    // (perpendicular to it), continuing just past it until clear of the parcel by 2m
+    const l1 = creerSvg('line');
+    l1.setAttribute('x1', String(pPt.x)); l1.setAttribute('y1', String(pPt.y));
+    l1.setAttribute('x2', String(pAnchor.x)); l1.setAttribute('y2', String(pAnchor.y));
+    l1.setAttribute('stroke',SVG_MEASURE_LINE); l1.setAttribute('stroke-width','1.4'); l1.setAttribute('stroke-dasharray','4 2.5');
+    groupe.appendChild(l1);
+
+    [pPt, pAnchor].forEach(p=>{
+      const tick = creerSvg('circle');
+      tick.setAttribute('cx', String(p.x)); tick.setAttribute('cy', String(p.y)); tick.setAttribute('r', String('2'));
+      tick.setAttribute('fill',SVG_MEASURE_LINE);
+      groupe.appendChild(tick);
+    });
+
+    const value = (m.displayMode==='along') ? g.along : g.perp;
+    const prefix = (m.displayMode==='along') ? '→ ' : '⊥ ';
+    const t = creerSvg('text');
+    t.setAttribute('x', String(pAnchor.x)); t.setAttribute('y', String(pAnchor.y));
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); t.setAttribute('font-size','11');
+    t.setAttribute('fill',SVG_MEASURE_TEXT); t.setAttribute('font-weight','700');
+    t.setAttribute('paint-order','stroke'); t.setAttribute('stroke',SVG_LABEL_HALO); t.setAttribute('stroke-width','4');
+    t.textContent = prefix + value.toFixed(2)+' m';
+    groupe.appendChild(t);
+  });
+
 }

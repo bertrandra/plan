@@ -38,7 +38,7 @@ import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
 import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
 import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
-import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour } from './render/measures.js';
+import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, dessinerCotes } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -3554,63 +3554,15 @@ function renderMeasureResults(){
   });
 }
 
+// Le dessin des cotes vit dans render/measures.ts ; cette enveloppe fournit ce que le module ne
+// lit plus lui-meme : les objets, les mesures et la cote en cours de saisie.
 function drawMeasures(){
-  measureGroup.innerHTML = '';
-  const pc = etat.objects.find(o=>o.key==='parcelle');
-
-  // draft (in-progress) picks: highlight ref segment and picked targets
-  if(draftRef){
-    const seg = measureSegCoords(draftRef);
-    if(seg){
-      const pa=toScreen(seg.a), pb=toScreen(seg.b);
-      const l = document.createElementNS(svgNS,'line');
-      l.setAttribute('x1',pa.x); l.setAttribute('y1',pa.y); l.setAttribute('x2',pb.x); l.setAttribute('y2',pb.y);
-      l.setAttribute('stroke',SVG_MEASURE_LINE); l.setAttribute('stroke-width','4'); l.setAttribute('stroke-opacity','0.55');
-      measureGroup.appendChild(l);
-    }
-  }
-  draftTargets.forEach(t=>{
-    const p = measurePointCoord(t);
-    if(!p) return;
-    const ps = toScreen(p);
-    const c = document.createElementNS(svgNS,'circle');
-    c.setAttribute('cx',ps.x); c.setAttribute('cy',ps.y); c.setAttribute('r','9');
-    c.setAttribute('fill','none'); c.setAttribute('stroke',SVG_MEASURE_LINE); c.setAttribute('stroke-width','2.5');
-    measureGroup.appendChild(c);
-  });
-
-  etat.measures.forEach(m=>{
-    if(!m.show || !pc) return;
-    const g = computeMeasureGeom(m);
-    if(!g) return;
-    const anchor = ancrageHorsContour(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
-    const pPt = toScreen(g.p), pAnchor = toScreen(anchor);
-
-    // witness line starts at the measured point and heads toward the reference segment
-    // (perpendicular to it), continuing just past it until clear of the parcel by 2m
-    const l1 = document.createElementNS(svgNS,'line');
-    l1.setAttribute('x1',pPt.x); l1.setAttribute('y1',pPt.y);
-    l1.setAttribute('x2',pAnchor.x); l1.setAttribute('y2',pAnchor.y);
-    l1.setAttribute('stroke',SVG_MEASURE_LINE); l1.setAttribute('stroke-width','1.4'); l1.setAttribute('stroke-dasharray','4 2.5');
-    measureGroup.appendChild(l1);
-
-    [pPt, pAnchor].forEach(p=>{
-      const tick = document.createElementNS(svgNS,'circle');
-      tick.setAttribute('cx',p.x); tick.setAttribute('cy',p.y); tick.setAttribute('r','2');
-      tick.setAttribute('fill',SVG_MEASURE_LINE);
-      measureGroup.appendChild(tick);
-    });
-
-    const value = (m.displayMode==='along') ? g.along : g.perp;
-    const prefix = (m.displayMode==='along') ? '→ ' : '⊥ ';
-    const t = document.createElementNS(svgNS,'text');
-    t.setAttribute('x',pAnchor.x); t.setAttribute('y',pAnchor.y);
-    t.setAttribute('text-anchor','middle');
-    t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); t.setAttribute('font-size','11');
-    t.setAttribute('fill',SVG_MEASURE_TEXT); t.setAttribute('font-weight','700');
-    t.setAttribute('paint-order','stroke'); t.setAttribute('stroke',SVG_LABEL_HALO); t.setAttribute('stroke-width','4');
-    t.textContent = prefix + value.toFixed(2)+' m';
-    measureGroup.appendChild(t);
+  dessinerCotes(measureGroup, {
+    scene: etat.scene,
+    objets: etat.objects,
+    mesures: etat.measures,
+    brouillonRef: draftRef,
+    brouillonCibles: draftTargets
   });
 }
 
