@@ -40,6 +40,7 @@ import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
+import { creerDomObjet, reconstruirePoignees } from './render/objects.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
 import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
 import { creerEtat } from './core/state.js';
@@ -393,122 +394,29 @@ document.getElementById('fitBtn').addEventListener('click', ()=>{
 });
 
 
-// per-object SVG element bundles
-function createObjectDOM(obj){
-  if(obj.type==='polygon'){
-    vue(obj).el = document.createElementNS(svgNS,'polygon');
-    vue(obj).el.setAttribute('fill',obj.fill); vue(obj).el.setAttribute('fill-opacity',obj.fillOpacity);
-    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width','1.8');
-    vue(obj).el.setAttribute('pointer-events','all');
-    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
-    vue(obj).el.style.cursor='pointer';
-    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
-    svg.appendChild(vue(obj).el);
-  } else if(obj.type==='path'){
-    vue(obj).el = document.createElementNS(svgNS,'path');
-    vue(obj).el.setAttribute('fill','none');
-    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width', (obj.width||1)*scene.scale);
-    vue(obj).el.setAttribute('stroke-linecap','butt'); vue(obj).el.setAttribute('stroke-linejoin','round');
-    vue(obj).el.setAttribute('pointer-events','stroke');
-    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
-    vue(obj).el.style.cursor='pointer';
-    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
-    // Point de vue : point (position) + vecteur (direction), pas un chemin qu'on arpente - le
-    // premier point porte un marqueur rond permanent (visible meme non selectionne), le second
-    // une pointe de fleche nativement orientee sur le trait (marker-end + orient="auto").
-    if(obj.fonction === 'camera'){ vue(obj).el.setAttribute('marker-end', 'url(#flecheVue)'); }
-    // Limite cadastrale interne a une propriete fusionnee : elle n'est plus une limite de
-    // terrain, seulement un reperage. Le pointille dit exactement cela, et la distingue au
-    // premier coup d'oeil du contour plein de la parcelle.
-    if(obj.fonction === 'limite'){ vue(obj).el.setAttribute('stroke-dasharray', '10 7'); }
-    svg.appendChild(vue(obj).el);
-    if(obj.fonction === 'camera'){
-      vue(obj).camMarkerEl = document.createElementNS(svgNS,'circle');
-      vue(obj).camMarkerEl.setAttribute('r','7'); vue(obj).camMarkerEl.setAttribute('fill',obj.fill);
-      vue(obj).camMarkerEl.setAttribute('stroke',obj.stroke); vue(obj).camMarkerEl.setAttribute('stroke-width','2');
-      vue(obj).camMarkerEl.style.pointerEvents = 'none';
-      svg.appendChild(vue(obj).camMarkerEl);
-    }
-  } else {
-    vue(obj).el = document.createElementNS(svgNS,'circle');
-    vue(obj).el.setAttribute('fill',obj.fill); vue(obj).el.setAttribute('fill-opacity',obj.fillOpacity);
-    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width','0.08');
-    vue(obj).el.setAttribute('pointer-events','all');
-    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
-    vue(obj).el.style.cursor='pointer';
-    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
-    svg.appendChild(vue(obj).el);
-  }
-  vue(obj).nameEl = document.createElementNS(svgNS,'text');
-  vue(obj).nameEl.setAttribute('text-anchor','middle');
-  vue(obj).nameEl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-  vue(obj).nameEl.setAttribute('font-weight','700');
-  vue(obj).nameEl.setAttribute('paint-order','stroke');
-  vue(obj).nameEl.setAttribute('stroke',SVG_LABEL_HALO); vue(obj).nameEl.setAttribute('stroke-width','3');
-  vue(obj).nameEl.setAttribute('fill', obj.stroke);
-  vue(obj).nameEl.style.pointerEvents = 'none';
-  svg.appendChild(vue(obj).nameEl);
-  vue(obj).pointEls = []; vue(obj).ptLabelEls = []; vue(obj).edgeEls = []; vue(obj).segLabelEls = [];
-  vue(obj).radiusHandle = null;
-}
 
 // Paint low-priority objects first so higher "Priorite d'affichage" ends up on top; ties
 // keep the objects' array order (stable sort), which double-clicking an object still
+// La fabrication des elements SVG d'un objet vit dans render/objects.ts ; ces enveloppes lui
+// fournissent la racine, la scene, et ce que lui seul ne peut pas savoir : quel objet est
+// selectionne, et comment passer des pixels aux metres.
+function createObjectDOM(obj){ creerDomObjet(svg, obj, etat.scene); }
+function rebuildHandles(obj){
+  reconstruirePoignees(obj, {
+    racine: svg,
+    surDoubleClicCote(o, index, ev){
+      if(o.key !== etat.selectedKey) return;
+      const rect = stage.getBoundingClientRect();
+      insertPointOnSegment(o, index, toWorld({x:ev.clientX-rect.left, y:ev.clientY-rect.top}));
+      ev.preventDefault();
+    }
+  });
+}
+
 // adjusts (see sendObjectBackward below) to fine-tune stacking within the same priority.
 function byPriority(a,b){ return (a.priority||0) - (b.priority||0); }
 etat.objects.slice().sort(byPriority).forEach(createObjectDOM);
 
-function rebuildHandles(obj){
-  vue(obj).pointEls.forEach(e=>e.remove()); vue(obj).ptLabelEls.forEach(e=>e.remove());
-  vue(obj).edgeEls.forEach(e=>e.remove()); vue(obj).segLabelEls.forEach(e=>e.remove());
-  vue(obj).pointEls=[]; vue(obj).ptLabelEls=[]; vue(obj).edgeEls=[]; vue(obj).segLabelEls=[];
-  if(vue(obj).radiusHandle){ vue(obj).radiusHandle.remove(); vue(obj).radiusHandle=null; }
-
-  if(obj.type==='polygon' || obj.type==='path'){
-    const n = obj.pts.length;
-    const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
-    for(let i=0;i<edgeCount;i++){
-      const el=document.createElementNS(svgNS,'line');
-      el.setAttribute('stroke','rgba(0,0,0,0.001)'); el.setAttribute('stroke-width','16');
-      el.setAttribute('pointer-events','all'); el.style.cursor='ew-resize'; el.title='Modifier ce cote (glisser = deplacer, double-clic = ajouter un point)';
-      el.dataset.role='edge'; el.dataset.key=obj.key; el.dataset.index=i;
-      el.addEventListener('dblclick', ev=>{
-        if(obj.key !== etat.selectedKey) return;
-        const rect = stage.getBoundingClientRect();
-        const w = toWorld({x:ev.clientX-rect.left, y:ev.clientY-rect.top});
-        const idx = parseInt(el.dataset.index,10);
-        insertPointOnSegment(obj, idx, w);
-        ev.preventDefault();
-      });
-      svg.appendChild(el); vue(obj).edgeEls.push(el);
-
-      const sl=document.createElementNS(svgNS,'text');
-      sl.setAttribute('text-anchor','middle'); sl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-      sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_INK);
-      sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_LABEL_HALO); sl.setAttribute('stroke-width','3');
-      sl.style.pointerEvents = 'none';
-      svg.appendChild(sl); vue(obj).segLabelEls.push(sl);
-    }
-    for(let i=0;i<n;i++){
-      const c=document.createElementNS(svgNS,'circle');
-      c.setAttribute('r',6.5); c.setAttribute('fill','#fff'); c.setAttribute('stroke',obj.stroke); c.setAttribute('stroke-width','2');
-      c.setAttribute('pointer-events','all'); c.style.cursor='crosshair'; c.title='Modifier ce coin (glisser = deplacer, double-clic = figer/degeler)';
-      c.dataset.role='point'; c.dataset.key=obj.key; c.dataset.index=i;
-      svg.appendChild(c); vue(obj).pointEls.push(c);
-
-      const lb=document.createElementNS(svgNS,'text');
-      lb.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); lb.setAttribute('font-size','10'); lb.setAttribute('fill','#333'); lb.setAttribute('font-weight','700');
-      lb.style.pointerEvents = 'none';
-      svg.appendChild(lb); vue(obj).ptLabelEls.push(lb);
-    }
-  } else {
-    const rh=document.createElementNS(svgNS,'circle');
-    rh.setAttribute('r',6); rh.setAttribute('fill','#fff'); rh.setAttribute('stroke',obj.stroke); rh.setAttribute('stroke-width','2');
-    rh.setAttribute('pointer-events','all'); rh.style.cursor='ew-resize';
-    rh.dataset.role='radius'; rh.dataset.key=obj.key;
-    svg.appendChild(rh); vue(obj).radiusHandle = rh;
-  }
-}
 etat.objects.forEach(rebuildHandles);
 
 // ================= Selector buttons =================

@@ -233,12 +233,16 @@ d'annulation possibles**, 100 objets ramenés à 40. La borne se comporte comme 
 
 ### Un bug produit, préexistant, consigné et non corrigé
 
-Après avoir déroulé **toutes** les annulations disponibles, le bouton « Dupliquer » ne fait plus
-rien : aucun objet créé, aucun message. Le bouton est bien le même élément, toujours attaché, et
-son gestionnaire s'exécute.
+**Après une annulation, plusieurs actions d'édition cessent silencieusement d'agir.** Constaté sur
+deux gestes différents : « Dupliquer » ne crée plus rien (aucun objet, aucun message), et le
+double-clic sur un côté n'insère plus de point. Les gestionnaires s'exécutent bel et bien - une
+sonde temporaire l'a montré - mais l'effet ne se produit pas. Indice relevé au passage, à verser au
+dossier : sur le côté double-cliqué, le gestionnaire part **deux fois**, la seconde avec une
+sélection courante différente, ce qui suggère qu'un élément de poignée survit à la reconstruction.
 
-Ce n'est **pas** une régression : le même scénario donne exactement le même résultat sur
-`legacy/plan_interactif.html`, l'artefact gelé d'avant migration (35 → 38 → 35 → 35). C'est
+Ce n'est **pas** une régression : les deux scénarios donnent exactement le même résultat sur
+`legacy/plan_interactif.html`, l'artefact gelé d'avant migration - duplication (35 → 38 → 35 → 35)
+et insertion de point (6 → 6 après une annulation, alors que 6 → 7 sur une page neuve). C'est
 précisément à cela que sert ce fichier. Conformément à la §10.3, il est consigné et **non corrigé
 pendant la migration** — le faire ici mélangerait un changement de comportement à un déplacement
 de code, et brouillerait la seule chose que les golden files savent prouver.
@@ -406,6 +410,28 @@ ou point candidat hors du contour.
 Vérifié au navigateur : Nord affiché/masqué, grille, échelle, implantation, et une longueur de
 côté portée de 2,84 à 6,72 m qui fait passer l'aire de la terrasse de 35,01 à 31,79 m², puis
 annulation qui restaure 35,01.
+
+### `render/objects.ts` — les elements SVG d'un objet
+
+`createObjectDOM` et `rebuildHandles` sortent a leur tour. Deux changements de forme, aucun de
+fond :
+
+- la racine SVG et la scene sont des parametres ;
+- le double-clic sur un cote est **delegue a l'appelant** par un rappel. Le module fabrique les
+  poignees ; il ne sait pas quel objet est selectionne, ni comment convertir des pixels en metres.
+  C'est `legacy.ts` qui le sait, et qui fournit le rappel.
+
+Le typage a fait remonter une anomalie de plus, conservee telle quelle (§10.3) : le code pose
+`el.title = '…'` sur des elements SVG pour obtenir une infobulle. Sur un element SVG, `title`
+**n'est pas un attribut standard** : l'affectation cree une propriete JavaScript inerte et
+n'affiche rien. Il faudrait un enfant `<title>`. Le comportement est conserve a l'identique
+(fonction `titreInerte`, nommee pour ce qu'elle fait), l'anomalie est consignee.
+
+**Verification serree, parce que ce morceau touche a tout :** 19 polygones, 12 chemins, 161
+cercles, 288 textes, 127 poignees de sommet et 116 poignees de cote apres selection ; duplication
+et annulation coherentes ; et surtout l'insertion d'un point par double-clic sur un cote, qui passe
+desormais par le rappel : 6 sommets → 7, puis 6 apres annulation.
+
 
 ### Ce qui reste
 
