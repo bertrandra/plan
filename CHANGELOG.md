@@ -3,6 +3,105 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.22] — 2026-08-29
+
+La barre de projet, l'actualisation cadastrale et le panneau PLU sortent de `legacy.ts`.
+
+### Interne
+
+- `ui/projectBar.ts` : `setupProjectBar()`, `renderPanneauPlu()`, `actualiserDepuisIgn()`,
+  `ouvrirDialogueActualisation()`, `construireVoisinage()`.
+- `legacy.ts` : 5 214 → 4 576 lignes.
+
+### Corrigé avant publication
+
+- Le boot s'arrêtait juste avant le premier `render()` : la fabrique de contexte avait été insérée
+  au niveau du module, alors que `etat` est une **locale de `boot()`**. Plan sans étiquettes et
+  barre vide. Trouvé en comparant HEAD et la modification dans le même onglet neuf.
+
+## [1.0.1-alpha.21] — 2026-08-29
+
+Les huit panneaux du mode Terrasse sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `ui/terrassePanels.ts` : configurateur, paramètres de calcul, plan de coupe, débit de bois,
+  implantation, chantier, méthode, optimisation — 1 373 lignes.
+- `legacy.ts` : 6 585 → 5 214 lignes. Vérifié panneau par panneau contre le témoin figé, au
+  caractère près.
+
+## [1.0.1-alpha.20] — 2026-08-29
+
+La Vue 3D sort de `legacy.ts` — et une régression sérieuse en sort avec elle.
+
+### Corrigé
+
+- **La Vue 3D était vide et l'export GLB ne se terminait jamais**, depuis le correctif « une seule
+  scène » de l'alpha.8 : le remplacement en masse `scene.` → `etat.scene.` avait aussi capturé les
+  scènes **locales** de la 3D. `TypeError: etat.scene.add is not a function`, qu'aucun golden file
+  ne pouvait voir. Corrigé aux 33 sites concernés. Le GLB retrouve exactement l'empreinte
+  structurelle du golden : 203 nœuds, 200 maillages, 288 matériaux, 178 textures.
+
+### Interne
+
+- `three/scene.ts` et `three/etat3d.ts`. `legacy.ts` : 7 209 → 6 585 lignes.
+
+## [1.0.1-alpha.19] — 2026-08-29
+
+Le panneau d'attributs sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `ui/attrPanel.ts` (717 lignes) et `interaction/outilAlignement.ts` pour la cible de l'outil
+  d'alignement, partagée par trois endroits.
+- `legacy.ts` : 7 912 → 7 209 lignes.
+
+## [1.0.1-alpha.18] — 2026-08-29
+
+Le dialogue d'import cadastral sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `ui/cadastreDialog.ts` (753 lignes). La fonction était passée **en callback** à `showConfirm` :
+  avec un paramètre de contexte, elle aurait reçu l'argument du confirm. Six appels asynchrones
+  lancés sans attente sont désormais marqués `void`.
+- `legacy.ts` : 8 663 → 7 912 lignes.
+
+## [1.0.1-alpha.17] — 2026-08-29
+
+L'acquisition IGN sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `geo/apiIgn.ts` : géocodage BAN, cadastre API Carto, BD TOPO, PLU. Ce module ne connaît ni le DOM
+  ni l'état.
+- `geometry/proximite.ts` : distances entre contours — des critères de classement, jamais des
+  mesures publiées.
+- Un doublon disparaît : `aireSignee` était `signedArea`.
+- `legacy.ts` : 9 011 → 8 663 lignes.
+
+## [1.0.1-alpha.16] — 2026-08-29
+
+Les quatre constructeurs d'export sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `export/dxfPlan.ts`, `export/svgPlan.ts`, `export/pdfPlan.ts`, `export/dossierPdf.ts`, plus
+  `export/separateurs.ts` (contrat entre l'export et l'import SVG).
+- `model/types.ts` gagne `ObjetPlan`.
+- `legacy.ts` : 9 699 → 9 011 lignes.
+
+## [1.0.1-alpha.15] — 2026-08-29
+
+La conversion des données cadastrales sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `geo/cadastreObjets.ts` et `geo/constantesCadastre.ts`. Le paramètre s'appelle `importe` et non
+  `etat` : il portait exactement le nom de l'état de l'application.
+- Vérifié par un import réel contre les services IGN : projet identique, `84bc5173…`.
+- `legacy.ts` : 9 928 → 9 699 lignes.
+
 ## [1.0.1-alpha.14] — 2026-08-28
 
 Les règles qui comblent les trous de la BD TOPO sortent de `legacy.ts`. Aucun comportement ne

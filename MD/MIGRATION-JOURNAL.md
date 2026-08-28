@@ -734,10 +734,49 @@ cause des textures distantes que cet environnement ne sert pas ». C'était faux
 était ce bug, et si le témoin figé semblait bloqué lui aussi, c'est que ma sonde attendait par une
 boucle synchrone, qui empêche justement tout travail asynchrone d'aboutir.
 
+### Les gros morceaux d'interface, un par un
+
+Cinq extractions se sont enchaînées sur le même patron : la fonction reçoit `etat` et un `ctx` qui
+porte ce qu'elle doit pouvoir déclencher, et le câblage reste dans `legacy.ts`.
+
+- **`ui/attrPanel.ts`** (717 lignes) — le panneau qui pilote le plan. Sa règle, désormais écrite en
+  tête : une saisie en cours ne doit jamais passer par `render()`, qui reconstruit la table et
+  détruirait le champ qu'on est en train de remplir.
+- **`ui/terrassePanels.ts`** (1 373 lignes) — les huit panneaux du mode Terrasse. Ils lisent la
+  construction, ils ne la déduisent pas : tout le calcul reste dans `engine/`.
+- **`ui/cadastreDialog.ts`** (753 lignes) — le dialogue d'import en trois étapes.
+- **`ui/projectBar.ts`** (667 lignes) — barre de projet, actualisation IGN, panneau PLU.
+- **`three/scene.ts`** (631 lignes) et **`three/etat3d.ts`** — la Vue 3D et son état.
+
+Deux états partagés ont pris un module à eux plutôt que de voyager dans un contexte :
+`interaction/outilAlignement.ts` (trois lecteurs, un écrivain) et `three/etat3d.ts`.
+
+### Deux pièges de portée, tous deux invisibles à la compilation
+
+Le premier est bénin et connu : `etat:` est aussi une **clé** d'objet dans les métadonnées BD TOPO
+(« état de l'objet »), et le remplacement `etat` → `ctx.etat` l'avait renommée.
+
+Le second a coûté cher. `src/legacy.ts` ressemble à un fichier plat, mais tout son corps vit dans
+`boot(seed)` : `const etat = creerEtat(...)` y est **local**. La fabrique de contexte, insérée entre
+les imports au niveau du module, ne le voyait pas. Le boot s'arrêtait donc sur un `ReferenceError`
+juste avant le premier `render()` — objets SVG créés mais jamais positionnés, tous les `<text>`
+vides, barre de projet absente.
+
+Ce qui a permis de trancher : construire **HEAD puis la modification et mesurer dans le même onglet
+neuf**. 4 éléments de barre / 288 textes / 29 remplis d'un côté, 0 / 278 / 0 de l'autre. Sans cette
+comparaison j'ai d'abord accusé l'environnement — un vieil onglet, encore chargé de l'état de mes
+propres sondes, donnait les mêmes chiffres dégradés pour une tout autre raison.
+
 ### Ce qui reste
 
-Les panneaux d'interface qui pilotent le plan : attributs, mesures, PLU, barre de projet,
-configurateur de terrasse. `legacy.ts` est à 9 928 lignes.
+Le squelette de `legacy.ts` : orchestration du rendu, sélection, historique, câblage
+import/export, changement de mode, visionneuse GLB. **4 576 lignes**, contre 13 571 au début de la
+migration.
+
+Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
+`noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros
+modules déplacés tels quels. Ce n'est pas un travail mécanique : typer ces signatures, c'est
+décider de la forme des données, et c'est précisément ce que la spec §5 demande.
 
 
 ### Point de vigilance
