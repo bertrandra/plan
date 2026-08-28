@@ -9,7 +9,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
-| 4 — Modèle et conteneur d’état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.6` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place (334 accès), scène et pile sorties ; `render/**` et `interaction/**` restent |
+| 4 — Modèle et conteneur d'état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.8` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place, `render/**` et `interaction/**` amorcés (11 modules) ; `render()` et la création d'objets restent |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
 | 6 — 3D et exports | ⏳ | | | |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
@@ -461,6 +461,34 @@ retour exact à 100, « Ajuster à la sélection » 413, flèche du Nord présen
 voit à l'écran. Tout déplacement touchant la transformation de vue doit être vérifié par un zoom et
 un déplacement réels, pas seulement par les exports.
 
+
+
+### `interaction/navigation.ts` — zoom, pincement, déplacement, cadrage
+
+Le calcul de la navigation sort à son tour : `zoomerAutourDe`, `zoomMolette`, `debutPincement`,
+`pincer`, `deplacer`, `milieuDe`, puis `empriseDe` et `cadrerSur`. Ces fonctions prennent une scène
+et rendent la suivante ; le câblage des événements — identifiants de pointeur, rectangles du DOM —
+reste dans `legacy.ts`.
+
+Ce n'est pas un rangement cosmétique : c'est précisément ce morceau que la régression des deux
+scènes avait rendu inerte, et que ni les golden files ni les tests unitaires ne pouvaient voir. Il
+est désormais couvert par 23 tests, sur les invariants qui comptent :
+
+- au zoom, le point visé reste **exactement** sous le curseur ;
+- au pincement, le point saisi reste sous les doigts, y compris quand la main se déplace en
+  pinçant ;
+- l'échelle reste bornée entre 6 et 220 px/m quel que soit l'acharnement ;
+- un aller-retour de molette revient exactement à l'échelle de départ.
+
+**Un écart du fichier d'origine, figé plutôt que corrigé** (§10.3) : le cadrage plafonne à
+400 px/m alors que la molette et le pincement s'arrêtent à 220. Cadrer sur un tout petit objet peut
+donc dépasser ce que la molette autorise ensuite. Un test l'énonce explicitement — mieux vaut une
+incohérence documentée qu'une cohérence supposée.
+
+**Vérifié au navigateur, en pilotant de vrais événements de pointeur** : zoom 62 → 68 → 62 px de
+large ; déplacement à trois doigts de 50 px demandés, 50 px obtenus, sans dérive d'échelle ;
+pincement qui double l'écartement et double l'échelle au chiffre près (rapport 2,000), puis retour
+exact ; cadrage d'une terrasse de 62 à 240 px dans une scène de 320.
 
 ### Ce qui reste
 

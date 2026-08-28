@@ -3,6 +3,33 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.8] — 2026-08-28
+
+Le rendu et les interactions sortent de `legacy.ts`, module par module. Aucun comportement ne
+change — mais une régression introduite en cours de route a été trouvée et corrigée.
+
+### Interne
+
+- `render/` : objets SVG d'un plan, calque des parasols, géométrie des cotes, thème, helper
+  `creerSvg` typé, décor et grille.
+- `interaction/` : édition par côté et par angle, zoom, pincement, déplacement, cadrage.
+- `pathD` et `polyStr` rejoignent `geometry/path.ts` : la dette de la phase 2 est soldée.
+- `legacy.ts` : 10 839 → 10 271 lignes. 249 tests.
+
+### Corrigé avant publication
+
+- **Le zoom ne faisait plus rien** depuis trois commits : deux scènes coexistaient, l'une écrite
+  par la molette, l'autre lue par le dessin. Les golden files ne pouvaient pas le voir — un export
+  est recalculé dans son propre repère. Corrigé, et la navigation est désormais couverte par
+  23 tests.
+
+### Connu, non corrigé
+
+- Le cadrage plafonne à 400 px/m alors que la molette s'arrête à 220 : écart repris du fichier
+  d'origine, figé par un test.
+- Sur un élément SVG, `el.title` ne produit aucune infobulle : l'affectation crée une propriété
+  inerte. Comportement conservé.
+
 ## [1.0.1-alpha.7] — 2026-08-28
 
 Premiers modules de `render/**` et `interaction/**`, rendus possibles par l'état explicite.
