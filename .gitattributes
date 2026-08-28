@@ -1,0 +1,3 @@
+# plan.html est servi tel quel et ses exports sont compares par empreinte : aucune conversion de
+# fins de ligne, sinon un clone sous Windows produirait un fichier different octet pour octet.
+* -text

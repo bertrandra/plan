@@ -1,0 +1,13 @@
+# Empeche tout acces web direct aux fichiers JSON des projets.
+# Seul api.php (execute cote serveur) doit pouvoir les lire/ecrire.
+
+# Apache 2.4+ (SiteGround)
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+
+# Apache 2.2 (au cas ou)
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

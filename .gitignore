@@ -1,0 +1,13 @@
+# Sorties d'export : regenerables a tout moment depuis l'application, et le .glb pese 40 Mo.
+Export/
+
+# Copies de secours ecrites par api.php a chaque enregistrement de projet.
+data/*.bak
+*.bak
+
+# Windows / OneDrive
+Thumbs.db
+desktop.ini
+
+# Sauvegardes manuelles anterieures au depot : c'est exactement ce que git remplace desormais.
+BKP */

@@ -1,0 +1,1969 @@
+{
+    "meta": {
+        "id": "parcelle-ae-101-test",
+        "name": "Parcelle AE 101 test",
+        "createdAt": "2026-08-22T18:48:01Z",
+        "updatedAt": "2026-08-25T14:30:20Z"
+    },
+    "objects": [
+        {
+            "key": "parcelle",
+            "type": "polygon",
+            "name": "Parcelle",
+            "fill": "#1b5e0d",
+            "fillOpacity": 1,
+            "stroke": "#3B2E1F",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "terrain",
+            "matiere": "",
+            "priority": 0,
+            "locked": true,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": true,
+            "clotureHauteur": 2,
+            "clotureCouleur": "#e19951",
+            "clotureTexture": {
+                "id": "oak_veneer_01",
+                "nom": "Oak Veneer 01",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg"
+            },
+            "textureArbre": null,
+            "latitude": 48.89229999999999876081346883438527584075927734375,
+            "longitude": 2.133100000000000218136619878350757062435150146484375,
+            "nomLieu": "Le Vésinet",
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": 0,
+                    "y": 0
+                },
+                {
+                    "x": 10.17999999999999971578290569595992565155029296875,
+                    "y": -6.38999999999999968025576890795491635799407958984375
+                },
+                {
+                    "x": 0.35999999999999998667732370449812151491641998291015625,
+                    "y": -24.3599999999999994315658113919198513031005859375
+                },
+                {
+                    "x": -29.21000000000000085265128291212022304534912109375,
+                    "y": -29.879999999999999005240169935859739780426025390625
+                },
+                {
+                    "x": -34.090000000000003410605131648480892181396484375,
+                    "y": -18.800000000000000710542735760100185871124267578125
+                }
+            ],
+            "vertexNames": [
+                "Coin Nord",
+                "Coin Est",
+                "Coin Sud-Est",
+                "Coin Sud",
+                "Coin Ouest"
+            ],
+            "segmentNames": [
+                "Nord-Est (Babar)",
+                "Sud-Est (guitare)",
+                "Sud (Joel)",
+                "Sud-Ouest (rue)",
+                "Nord-Ouest (Aline)"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false
+            ]
+        },
+        {
+            "key": "terrasse",
+            "type": "polygon",
+            "name": "Terrasse",
+            "fill": "#DDBC7E",
+            "fillOpacity": 0.68000000000000004884981308350688777863979339599609375,
+            "stroke": "#8B6B3D",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": true,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "terrasse",
+            "matiere": "",
+            "priority": 1,
+            "locked": false,
+            "textureVerticale": {
+                "id": "teak_veneer",
+                "nom": "Teak Veneer",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "teak_veneer",
+                "nom": "Teak Veneer",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -2.925961142136461301532790457713417708873748779296875,
+                    "y": -1.6488103813672030373282950677094049751758575439453125
+                },
+                {
+                    "x": -2.473392314595500796059468484600074589252471923828125,
+                    "y": -6.324105092381554271696586511097848415374755859375
+                },
+                {
+                    "x": -5.293482762886721815220880671404302120208740234375,
+                    "y": -6.52845947269251336564366283710114657878875732421875
+                },
+                {
+                    "x": -7.050930433560960608474488253705203533172607421875,
+                    "y": -8.31315439407487843936905846931040287017822265625
+                },
+                {
+                    "x": -10.11187104688038829181095934472978115081787109375,
+                    "y": -8.8676237403059641195568474358879029750823974609375
+                },
+                {
+                    "x": -13.235443614361845021676344913430511951446533203125,
+                    "y": -7.316051484993625564356989343650639057159423828125
+                }
+            ],
+            "vertexNames": [
+                "Coin 1",
+                "Coin 2",
+                "Coin 5",
+                "Coin 3",
+                "Coin 6",
+                "Coin 4"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 2",
+                "Cote 5",
+                "Cote 3",
+                "Cote 6",
+                "Cote 4"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "construction": {
+                "typePose": "vis-fondation",
+                "hauteurVis": 40,
+                "depassementVis": 0,
+                "visModeAuto": true,
+                "chargeNormale": 250,
+                "chargeSpa": 500,
+                "kPortee": 25.800000000000000710542735760100185871124267578125,
+                "kEntraxeLame": 18.5,
+                "coefRaideurLame": 1,
+                "jeuLames": 6,
+                "epaisseurLameRive": 22,
+                "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+                "chuteMinReutilisable": 50,
+                "jointsSurAppui": true,
+                "prixLongueurs": [],
+                "longueursBois": "5, 4, 3, 2.5, 2",
+                "prixLongueursBois": [],
+                "jointsBoisSurAppui": true,
+                "lambourdeSection": "45x70",
+                "longueursLambourde": "5, 4, 3, 2.5, 2",
+                "prixLongueursLambourde": [],
+                "prixVisUnite": 35,
+                "visParBoite": 1,
+                "hauteurPlot": 10,
+                "plotModele": "auto",
+                "plotEntraxe": 65,
+                "plotEntraxeAuto": true,
+                "plotAvecSolives": false,
+                "plotSurfaceAssise": 300,
+                "prixPlots": [],
+                "supportType": "concasse",
+                "supportDecaissement": 15,
+                "cadences": [],
+                "equipe": 2,
+                "heuresJour": 7,
+                "echelleImplant": 200,
+                "lames3dFilaire": false,
+                "vues3d": [
+                    {
+                        "nom": "vers terrasse",
+                        "pos": {
+                            "x": -8.7944619608588965320450370199978351593017578125,
+                            "y": 1.6950000000000020605739337042905390262603759765625,
+                            "z": 3.325654797423556185975712651270441710948944091796875
+                        },
+                        "cible": {
+                            "x": 0,
+                            "y": 0,
+                            "z": 0
+                        }
+                    },
+                    {
+                        "nom": "Fenetre",
+                        "pos": {
+                            "x": -0.34948758742790442255454763653688132762908935546875,
+                            "y": 1.6999999999999999555910790149937383830547332763671875,
+                            "z": 3.73419923903070838377971085719764232635498046875
+                        },
+                        "cible": {
+                            "x": 0,
+                            "y": 1.6999999999999999555910790149937383830547332763671875,
+                            "z": 0
+                        }
+                    },
+                    {
+                        "nom": "Entree",
+                        "pos": {
+                            "x": -22.8192466755626668373224674724042415618896484375,
+                            "y": 1.6950000000000000621724893790087662637233734130859375,
+                            "z": 22.125337871232854780600973754189908504486083984375
+                        },
+                        "cible": {
+                            "x": 0,
+                            "y": 1.6950000000000000621724893790087662637233734130859375,
+                            "z": 0
+                        }
+                    },
+                    {
+                        "nom": "Arriere",
+                        "pos": {
+                            "x": 9.37645332443732826277482672594487667083740234375,
+                            "y": 1.6950000000000000621724893790087662637233734130859375,
+                            "z": -0.807562128767141729213108192197978496551513671875
+                        },
+                        "cible": {
+                            "x": 0,
+                            "y": 1.6950000000000000621724893790087662637233734130859375,
+                            "z": 0
+                        }
+                    },
+                    {
+                        "nom": "Vue 5",
+                        "pos": {
+                            "x": -8.7944619608588965320450370199978351593017578125,
+                            "y": 1.695000000000002504663143554353155195713043212890625,
+                            "z": 3.325654797423556185975712651270441710948944091796875
+                        },
+                        "cible": {
+                            "x": 0,
+                            "y": 0,
+                            "z": 0
+                        }
+                    }
+                ],
+                "visEntraxe": 100,
+                "visEntraxeZoneSpa": 60,
+                "visMargeZoneSpa": 30,
+                "soliveEntraxe": 65,
+                "soliveSection": "63x175",
+                "avecLambourde": true,
+                "lambourdeEntraxe": 45,
+                "sensPose": 0,
+                "segmentReference": 0,
+                "essenceBois": "pin-classe4",
+                "largeurLame": 140,
+                "epaisseurLame": 25,
+                "avecLameRive": true,
+                "hauteurLameRive": 270,
+                "avecLamePlat": true,
+                "bom": [
+                    {
+                        "poste": "vis",
+                        "label": "Vis de fondation",
+                        "qte": 37,
+                        "unite": "u",
+                        "prixBas": 25,
+                        "prixHaut": 45,
+                        "prixReel": 1295,
+                        "calcule": "calcule — 35.00 € x 37"
+                    },
+                    {
+                        "poste": "bois",
+                        "label": "Cadre, solives (63x175) — barres achetees",
+                        "qte": 92.5,
+                        "unite": "ml",
+                        "prixBas": 4,
+                        "prixHaut": 7,
+                        "prixReel": 508.75,
+                        "calcule": "calcule — prix par longueur, debit 63x175"
+                    },
+                    {
+                        "poste": "lambourde",
+                        "label": "Lambourdes (45x70) — barres achetees",
+                        "qte": 93,
+                        "unite": "ml",
+                        "prixBas": 4,
+                        "prixHaut": 7,
+                        "prixReel": 511.5,
+                        "calcule": "calcule — prix par longueur, debit 45x70"
+                    },
+                    {
+                        "poste": "lames",
+                        "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+                        "qte": 267.49999999999994315658113919198513031005859375,
+                        "unite": "ml",
+                        "prixBas": 3.500000000000000444089209850062616169452667236328125,
+                        "prixHaut": 5.60000000000000053290705182007513940334320068359375,
+                        "prixReel": 1217.5399999999999636202119290828704833984375,
+                        "calcule": "calcule — prix par longueur, debit des lames"
+                    },
+                    {
+                        "poste": "visserie",
+                        "label": "Visserie / fixations",
+                        "qte": 34.71880026736693025668500922620296478271484375,
+                        "unite": "m²",
+                        "prixBas": 4,
+                        "prixHaut": 6,
+                        "prixReel": null
+                    },
+                    {
+                        "poste": "lameRive",
+                        "label": "Lame de rive (finition)",
+                        "qte": 28.4963148443290634759250679053366184234619140625,
+                        "unite": "ml",
+                        "prixBas": 10,
+                        "prixHaut": 20,
+                        "prixReel": null
+                    }
+                ]
+            }
+        },
+        {
+            "key": "maison",
+            "type": "polygon",
+            "name": "Maison",
+            "fill": "#fdfaf7",
+            "fillOpacity": 0.88000000000000000444089209850062616169452667236328125,
+            "stroke": "#7A4A2A",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "batiment",
+            "matiere": "",
+            "priority": 2,
+            "locked": true,
+            "elevation": 4,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -4.78000000000000024868995751603506505489349365234375,
+                    "y": -7.5800000000000000710542735760100185871124267578125
+                },
+                {
+                    "x": 3.189999999999999946709294817992486059665679931640625,
+                    "y": -7.45999999999999996447286321199499070644378662109375
+                },
+                {
+                    "x": 3.270000000000000017763568394002504646778106689453125,
+                    "y": -13.3800000000000007815970093361102044582366943359375
+                },
+                {
+                    "x": -2.0099999999999997868371792719699442386627197265625,
+                    "y": -13.480000000000000426325641456060111522674560546875
+                },
+                {
+                    "x": -1.9699999999999999733546474089962430298328399658203125,
+                    "y": -15.3300000000000000710542735760100185871124267578125
+                },
+                {
+                    "x": -1.29000000000000003552713678800500929355621337890625,
+                    "y": -15.300000000000000710542735760100185871124267578125
+                },
+                {
+                    "x": -1.270000000000000017763568394002504646778106689453125,
+                    "y": -19.6099999999999994315658113919198513031005859375
+                },
+                {
+                    "x": -2.0099999999999997868371792719699442386627197265625,
+                    "y": -19.620000000000000994759830064140260219573974609375
+                },
+                {
+                    "x": -2.04000000000000003552713678800500929355621337890625,
+                    "y": -20.8900000000000005684341886080801486968994140625
+                },
+                {
+                    "x": -11.449999999999999289457264239899814128875732421875,
+                    "y": -20.989999999999998436805981327779591083526611328125
+                },
+                {
+                    "x": -11.449999999999999289457264239899814128875732421875,
+                    "y": -20.379999999999999005240169935859739780426025390625
+                },
+                {
+                    "x": -12.0999999999999996447286321199499070644378662109375,
+                    "y": -20.309999999999998721023075631819665431976318359375
+                },
+                {
+                    "x": -12.21000000000000085265128291212022304534912109375,
+                    "y": -10.21000000000000085265128291212022304534912109375
+                },
+                {
+                    "x": -4.78000000000000024868995751603506505489349365234375,
+                    "y": -10.07000000000000028421709430404007434844970703125
+                }
+            ],
+            "vertexNames": [
+                "H0",
+                "H1",
+                "H5",
+                "H4",
+                "H6",
+                "H7",
+                "H9",
+                "H8",
+                "H13",
+                "H12",
+                "H11",
+                "H10",
+                "H2",
+                "H3"
+            ],
+            "segmentNames": [
+                "Facade Nord",
+                "Cote 2",
+                "Cote 3",
+                "Cote 4",
+                "Cote 5",
+                "Cote 6",
+                "Cote 7",
+                "Cote 8",
+                "Cote 9",
+                "Cote 10",
+                "Cote 11",
+                "Cote 12",
+                "Retrait Nord",
+                "Cote 14"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ]
+        },
+        {
+            "key": "dalle",
+            "type": "polygon",
+            "name": "Dalle beton",
+            "fill": "#C7BFA9",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#5C5240",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "dalle",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "concrete_floor_02",
+                "nom": "Concrete Floor 02",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "concrete_floor_02",
+                "nom": "Concrete Floor 02",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": 9.599000000000000198951966012828052043914794921875,
+                    "y": -6.541000000000000369482222595252096652984619140625
+                },
+                {
+                    "x": 4.94099999999999983657517077517695724964141845703125,
+                    "y": -3.61699999999999999289457264239899814128875732421875
+                },
+                {
+                    "x": 3.80900000000000016342482922482304275035858154296875,
+                    "y": -5.42100000000000026290081223123706877231597900390625
+                },
+                {
+                    "x": 8.4670000000000005258016244624741375446319580078125,
+                    "y": -8.3450000000000006394884621840901672840118408203125
+                }
+            ],
+            "vertexNames": [
+                "Coin 1",
+                "Coin 2",
+                "Coin 3",
+                "Coin 4"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 2",
+                "Cote 3",
+                "Cote 4"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false
+            ]
+        },
+        {
+            "key": "abri",
+            "type": "polygon",
+            "name": "Abri de jardin",
+            "fill": "#A9BE8E",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#4A6B32",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "batiment",
+            "matiere": "",
+            "priority": 2,
+            "locked": true,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -1.55600000000000004973799150320701301097869873046875,
+                    "y": -3.721999999999999975131004248396493494510650634765625
+                },
+                {
+                    "x": -1.298999999999999932498440102790482342243194580078125,
+                    "y": -2.137000000000000010658141036401502788066864013671875
+                },
+                {
+                    "x": -1.721999999999999975131004248396493494510650634765625,
+                    "y": -1.0940000000000000834887714518117718398571014404296875
+                },
+                {
+                    "x": 0,
+                    "y": -0.10399999999999999522604099411182687617838382720947265625
+                },
+                {
+                    "x": 2.141999999999999904076730672386474907398223876953125,
+                    "y": -1.499000000000000110134124042815528810024261474609375
+                },
+                {
+                    "x": 2.234999999999999875655021241982467472553253173828125,
+                    "y": -3.645000000000000017763568394002504646778106689453125
+                }
+            ],
+            "vertexNames": [
+                "A1",
+                "B",
+                "C",
+                "D",
+                "E",
+                "F"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 2",
+                "Cote 3",
+                "Cote 4",
+                "Cote 5",
+                "Cote 6"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ]
+        },
+        {
+            "key": "path1787318807161_2",
+            "type": "path",
+            "name": "Chemin ZigZag",
+            "fill": "#c9a15a",
+            "fillOpacity": 1,
+            "stroke": "#c9a15a",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "chemin",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -24.88318266598224681729334406554698944091796875,
+                    "y": -27.557373775334863097441484569571912288665771484375
+                },
+                {
+                    "x": -23.240478052522401952728614560328423976898193359375,
+                    "y": -26.8916460162109416387465898878872394561767578125
+                },
+                {
+                    "x": -20.153050157585273183258323115296661853790283203125,
+                    "y": -24.621476210975334453223695163615047931671142578125
+                },
+                {
+                    "x": -16.1684416184144339467820827849209308624267578125,
+                    "y": -25.52959575605371611572991241700947284698486328125
+                },
+                {
+                    "x": -12.4347310842714051659640972502529621124267578125,
+                    "y": -22.857481436968203780679687042720615863800048828125
+                },
+                {
+                    "x": -8.0880295873071279544319622800685465335845947265625,
+                    "y": -23.639223445278329194252364686690270900726318359375
+                },
+                {
+                    "x": -7.468018971311945364277562475763261318206787109375,
+                    "y": -21.026097591733144298586921649985015392303466796875
+                }
+            ],
+            "vertexNames": [
+                "Point 1",
+                "Coin 3",
+                "Coin 4",
+                "Coin 5",
+                "Coin 7",
+                "Coin 6",
+                "Point 2"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 3",
+                "Cote 4",
+                "Cote 5",
+                "Cote 7",
+                "Cote 6"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "width": 0.5,
+            "curve": true
+        },
+        {
+            "key": "path1787319011372_6",
+            "type": "path",
+            "name": "Chemin Arrière",
+            "fill": "#c9a15a",
+            "fillOpacity": 1,
+            "stroke": "#c9a15a",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "chemin",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -7.3839284710498507280362900928594172000885009765625,
+                    "y": -22.6255277946254835796935367397964000701904296875
+                },
+                {
+                    "x": -0.0077703706487529979052286677188021712936460971832275390625,
+                    "y": -21.680341427143776655839246814139187335968017578125
+                },
+                {
+                    "x": 4.0880331212877099034130878862924873828887939453125,
+                    "y": -13.69259411901064282801598892547190189361572265625
+                },
+                {
+                    "x": 4.5328298998713076883859685040079057216644287109375,
+                    "y": -7.5766850741691911252928548492491245269775390625
+                },
+                {
+                    "x": -0.34810675936153667731076666314038448035717010498046875,
+                    "y": -5.6565474500324253170902011333964765071868896484375
+                },
+                {
+                    "x": -1.480425748994364187893779671867378056049346923828125,
+                    "y": -6.87707174317916525296823238022625446319580078125
+                },
+                {
+                    "x": -4.86093215790797739117579112644307315349578857421875,
+                    "y": -7.22027036337343997018933805520646274089813232421875
+                },
+                {
+                    "x": -6.62859804758497972443365142680704593658447265625,
+                    "y": -8.735486780050859323409895296208560466766357421875
+                },
+                {
+                    "x": -9.3124522423355653444332347135059535503387451171875,
+                    "y": -9.4302916731081172230233278241939842700958251953125
+                },
+                {
+                    "x": -13.09769904257058215080178342759609222412109375,
+                    "y": -9.96585932492764214885028195567429065704345703125
+                },
+                {
+                    "x": -14.27477442107848304431172437034547328948974609375,
+                    "y": -12.314813192562095167659208527766168117523193359375
+                }
+            ],
+            "vertexNames": [
+                "Point 1",
+                "Coin 6",
+                "Coin 3",
+                "Coin 4",
+                "Coin 5",
+                "Coin 7",
+                "Coin 11",
+                "Coin 8",
+                "Coin 10",
+                "Coin 9",
+                "Point 2"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 6",
+                "Cote 3",
+                "Cote 4",
+                "Cote 5",
+                "Cote 7",
+                "Cote 11",
+                "Cote 8",
+                "Cote 10",
+                "Cote 9"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "width": 0.59999999999999997779553950749686919152736663818359375,
+            "curve": true
+        },
+        {
+            "key": "spa",
+            "type": "circle",
+            "name": "Spa",
+            "fill": "#93BFCC",
+            "fillOpacity": 0.88000000000000000444089209850062616169452667236328125,
+            "stroke": "#2A5A6B",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": true,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "equipement",
+            "matiere": "",
+            "priority": 5,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "center": {
+                "x": -4.56899999999999995026200849679298698902130126953125,
+                "y": -4.34700000000000041922021409845910966396331787109375
+            },
+            "r": 1.100000000000000088817841970012523233890533447265625
+        },
+        {
+            "key": "table",
+            "type": "polygon",
+            "name": "Table",
+            "fill": "#713e0f",
+            "fillOpacity": 0.68000000000000004884981308350688777863979339599609375,
+            "stroke": "#8B4A42",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "terrasse",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "teak_veneer",
+                "nom": "Teak Veneer",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "teak_veneer",
+                "nom": "Teak Veneer",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -19.657000000000000028421709430404007434844970703125,
+                    "y": -11.983000000000000540012479177676141262054443359375
+                },
+                {
+                    "x": -22.28399999999999891997504164464771747589111328125,
+                    "y": -13.4309999999999991615595718030817806720733642578125
+                },
+                {
+                    "x": -20.35300000000000153477230924181640148162841796875,
+                    "y": -16.934000000000001051603248924948275089263916015625
+                },
+                {
+                    "x": -17.7259999999999990905052982270717620849609375,
+                    "y": -15.4849999999999994315658113919198513031005859375
+                }
+            ],
+            "vertexNames": [
+                "Coin 1",
+                "Coin 2",
+                "Coin 3",
+                "Coin 4"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 2",
+                "Cote 3",
+                "Cote 4"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false
+            ],
+            "construction": {
+                "typePose": "vis-fondation",
+                "hauteurVis": 40,
+                "depassementVis": 0,
+                "visModeAuto": true,
+                "chargeNormale": 250,
+                "chargeSpa": 500,
+                "kPortee": 25.800000000000000710542735760100185871124267578125,
+                "kEntraxeLame": 18.5,
+                "coefRaideurLame": 1,
+                "jeuLames": 6,
+                "epaisseurLameRive": 22,
+                "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+                "chuteMinReutilisable": 50,
+                "jointsSurAppui": true,
+                "prixLongueurs": [],
+                "longueursBois": "5, 4, 3, 2.5, 2",
+                "prixLongueursBois": [],
+                "jointsBoisSurAppui": true,
+                "lambourdeSection": "45x70",
+                "longueursLambourde": "5, 4, 3, 2.5, 2",
+                "prixLongueursLambourde": [],
+                "prixVisUnite": 35,
+                "visParBoite": 1,
+                "hauteurPlot": 10,
+                "plotModele": "auto",
+                "plotEntraxe": 65,
+                "plotEntraxeAuto": true,
+                "plotAvecSolives": false,
+                "plotSurfaceAssise": 300,
+                "prixPlots": [],
+                "supportType": "concasse",
+                "supportDecaissement": 15,
+                "cadences": [],
+                "equipe": 2,
+                "heuresJour": 7,
+                "echelleImplant": 200,
+                "lames3dFilaire": false,
+                "vues3d": [],
+                "visEntraxe": 100,
+                "visEntraxeZoneSpa": 60,
+                "visMargeZoneSpa": 30,
+                "soliveEntraxe": 70,
+                "soliveSection": "63x175",
+                "avecLambourde": true,
+                "lambourdeEntraxe": 45,
+                "sensPose": 0,
+                "segmentReference": 0,
+                "essenceBois": "pin-classe4",
+                "largeurLame": 140,
+                "epaisseurLame": 25,
+                "avecLameRive": true,
+                "hauteurLameRive": 270,
+                "avecLamePlat": true,
+                "bom": [
+                    {
+                        "poste": "vis",
+                        "label": "Vis de fondation",
+                        "qte": 13,
+                        "unite": "u",
+                        "prixBas": 25,
+                        "prixHaut": 45,
+                        "prixReel": 455,
+                        "calcule": "calcule — 35.00 € x 13"
+                    },
+                    {
+                        "poste": "bois",
+                        "label": "Cadre, solives (63x175) — barres achetees",
+                        "qte": 31,
+                        "unite": "ml",
+                        "prixBas": 4,
+                        "prixHaut": 7,
+                        "prixReel": 170.5,
+                        "calcule": "calcule — prix par longueur, debit 63x175"
+                    },
+                    {
+                        "poste": "lambourde",
+                        "label": "Lambourdes (45x70) — barres achetees",
+                        "qte": 24,
+                        "unite": "ml",
+                        "prixBas": 4,
+                        "prixHaut": 7,
+                        "prixReel": 132,
+                        "calcule": "calcule — prix par longueur, debit 45x70"
+                    },
+                    {
+                        "poste": "lames",
+                        "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+                        "qte": 89.400000000000005684341886080801486968994140625,
+                        "unite": "ml",
+                        "prixBas": 3.500000000000000444089209850062616169452667236328125,
+                        "prixHaut": 5.60000000000000053290705182007513940334320068359375,
+                        "prixReel": 406.79000000000002046363078989088535308837890625,
+                        "calcule": "calcule — prix par longueur, debit des lames"
+                    },
+                    {
+                        "poste": "visserie",
+                        "label": "Visserie / fixations",
+                        "qte": 11.998120999999997593477019108831882476806640625,
+                        "unite": "m²",
+                        "prixBas": 4,
+                        "prixHaut": 6,
+                        "prixReel": null
+                    },
+                    {
+                        "poste": "lameRive",
+                        "label": "Lame de rive (finition)",
+                        "qte": 14.086827249647509319174787378869950771331787109375,
+                        "unite": "ml",
+                        "prixBas": 10,
+                        "prixHaut": 20,
+                        "prixReel": null
+                    }
+                ]
+            }
+        },
+        {
+            "key": "obj1787318713220_1",
+            "type": "polygon",
+            "name": "Parking",
+            "fill": "#bcbcb8",
+            "fillOpacity": 0.75,
+            "stroke": "#2a4d6e",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "autre",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "elevation": 0.05000000000000000277555756156289135105907917022705078125,
+            "textureVerticale": {
+                "id": "beige_wall_001",
+                "nom": "Beige Wall 001",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "beige_wall_001",
+                "nom": "Beige Wall 001",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -29.4117513468307976154392235912382602691650390625,
+                    "y": -29.337401317212457030336736352182924747467041015625
+                },
+                {
+                    "x": -24.48191428460715002302094944752752780914306640625,
+                    "y": -28.63664591187539798511352273635566234588623046875
+                },
+                {
+                    "x": -25.890783254563313420248960028402507305145263671875,
+                    "y": -24.844943327103496955032824189402163028717041015625
+                },
+                {
+                    "x": -30.94822629310345263320414233021438121795654296875,
+                    "y": -25.841262931034481908909583580680191516876220703125
+                }
+            ],
+            "vertexNames": [
+                "Coin 1",
+                "Coin 2",
+                "Coin 3",
+                "Coin 4"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 2",
+                "Cote 3",
+                "Cote 4"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false
+            ]
+        },
+        {
+            "key": "path1787318953347_3",
+            "type": "path",
+            "name": "Chemin Table",
+            "fill": "#c9a15a",
+            "fillOpacity": 1,
+            "stroke": "#c9a15a",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "chemin",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -18.493929350539406897269145702011883258819580078125,
+                    "y": -14.12178723835632609961976413615047931671142578125
+                },
+                {
+                    "x": -15.7794053111752266005396450054831802845001220703125,
+                    "y": -12.6918092676995595269318073405884206295013427734375
+                },
+                {
+                    "x": -13.3064436387920235205228891572915017604827880859375,
+                    "y": -12.0122101693995571025652679963968694210052490234375
+                },
+                {
+                    "x": -12.20252291049241222253840533085167407989501953125,
+                    "y": -11.987552526747673908857905189506709575653076171875
+                }
+            ],
+            "vertexNames": [
+                "Point 1",
+                "Coin 3",
+                "Coin 4",
+                "Point 2"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 3",
+                "Cote 4"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false,
+                false
+            ],
+            "width": 0.5,
+            "curve": true
+        },
+        {
+            "key": "path1787319000006_5",
+            "type": "path",
+            "name": "Chemin Buandrie",
+            "fill": "#c9a15a",
+            "fillOpacity": 1,
+            "stroke": "#c9a15a",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "chemin",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -6.49380384301340907171606886549852788448333740234375,
+                    "y": -8.822028444602519670070250867865979671478271484375
+                },
+                {
+                    "x": -6.27438378837932031473201277549378573894500732421875,
+                    "y": -9.198690042089030072247624048031866550445556640625
+                },
+                {
+                    "x": -4.74709352046202237573879756382666528224945068359375,
+                    "y": -9.392530284698555220757043571211397647857666015625
+                }
+            ],
+            "vertexNames": [
+                "Point 1",
+                "Coin 3",
+                "Point 2"
+            ],
+            "segmentNames": [
+                "Cote 1",
+                "Cote 3"
+            ],
+            "frozenVertices": [
+                false,
+                false,
+                false
+            ],
+            "width": 0.5,
+            "curve": true
+        },
+        {
+            "key": "circle1787323958811_1",
+            "type": "circle",
+            "name": "Chêne",
+            "fill": "#198712",
+            "fillOpacity": 0.88000000000000000444089209850062616169452667236328125,
+            "stroke": "#0a3d5c",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "arbre",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "elevation": 4,
+            "textureVerticale": {
+                "id": "jolcham_oak_bark_01",
+                "nom": "Jolcham Oak Bark 01",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "bark_brown_02",
+                "nom": "Bark Brown 02",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/bark_brown_02.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "diametreArbre": 6,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "center": {
+                "x": -13.7890000000000014779288903810083866119384765625,
+                "y": -19.86999999999999744204615126363933086395263671875
+            },
+            "r": 0.5500000000000000444089209850062616169452667236328125
+        },
+        {
+            "key": "circle1787324026450_2",
+            "type": "circle",
+            "name": "Erable",
+            "fill": "#574619",
+            "fillOpacity": 0.88000000000000000444089209850062616169452667236328125,
+            "stroke": "#0a3d5c",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "arbre",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "elevation": 2.5,
+            "textureVerticale": {
+                "id": "tree_bark_03",
+                "nom": "Tree Bark 03",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/tree_bark_03.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/tree_bark_03/tree_bark_03_diff_1k.jpg"
+            },
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "diametreArbre": 4,
+            "couleurArbre": "#2f4b26",
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "center": {
+                "x": -2.02649352276962968488760452601127326488494873046875,
+                "y": -2.279132556320451197251486519235186278820037841796875
+            },
+            "r": 0.40000000000000002220446049250313080847263336181640625
+        },
+        {
+            "key": "path1787324582190_1",
+            "type": "path",
+            "name": "Abri de jardin Chemin",
+            "fill": "#c9a15a",
+            "fillOpacity": 1,
+            "stroke": "#c9a15a",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "chemin",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "textureVerticale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "pine_bark",
+                "nom": "Pine Bark",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -0.605750864804100341842740817810408771038055419921875,
+                    "y": -3.69494254875432392992706809309311211109161376953125
+                },
+                {
+                    "x": -0.443472136839982600253762257125345058739185333251953125,
+                    "y": -5.5475584471999130897756913327611982822418212890625
+                }
+            ],
+            "vertexNames": [
+                "Point 1",
+                "Point 2"
+            ],
+            "segmentNames": [
+                "Cote 1"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.5,
+            "curve": false
+        },
+        {
+            "key": "circle1787324912263_1",
+            "type": "circle",
+            "name": "Arbre Entrée",
+            "fill": "#258112",
+            "fillOpacity": 0.88000000000000000444089209850062616169452667236328125,
+            "stroke": "#0a3d5c",
+            "showName": false,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "arbre",
+            "matiere": "",
+            "priority": 2,
+            "locked": false,
+            "elevation": 2.5,
+            "textureVerticale": {
+                "id": "jolcham_oak_bark_01",
+                "nom": "Jolcham Oak Bark 01",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+            },
+            "textureHorizontale": {
+                "id": "jolcham_oak_bark_01",
+                "nom": "Jolcham Oak Bark 01",
+                "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+                "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+            },
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "diametreArbre": 3,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "center": {
+                "x": -26.14893283840802240547418477945029735565185546875,
+                "y": -24.505936996066441935226976056583225727081298828125
+            },
+            "r": 0.299999999999999988897769753748434595763683319091796875
+        },
+        {
+            "key": "path1787580286624_2",
+            "type": "path",
+            "name": "Coin entrant terrasse",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -14.09742702775134404191703652031719684600830078125,
+                    "y": -9.5686240030357794239534996449947357177734375
+                },
+                {
+                    "x": -11.023535718511933367835808894596993923187255859375,
+                    "y": -8.7106617539209008072020878898911178112030029296875
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        },
+        {
+            "key": "path1787581252906_3",
+            "type": "path",
+            "name": "Arriere terrasse",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": 1.149398905964154504744101359392516314983367919921875,
+                    "y": -5.36360044808902802770944617805071175098419189453125
+                },
+                {
+                    "x": -0.94279507062539236184051105738035403192043304443359375,
+                    "y": -5.40508920773179379892781071248464286327362060546875
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        },
+        {
+            "key": "path1787581272870_4",
+            "type": "path",
+            "name": "Fenetre cuisine",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -7.5494180035365783254519556066952645778656005859375,
+                    "y": -10.033001656198774043105004238896071910858154296875
+                },
+                {
+                    "x": -7.651724241721833408291786327026784420013427734375,
+                    "y": -8.498408083419946024150704033672809600830078125
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        },
+        {
+            "key": "circle1787654712806_1",
+            "type": "circle",
+            "name": "Parasol 1",
+            "fill": "#7a9e6b",
+            "fillOpacity": 0.5500000000000000444089209850062616169452667236328125,
+            "stroke": "#3f5c33",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": true,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "parasol",
+            "matiere": "",
+            "priority": 4,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "hauteurParasol": 2.20000000000000017763568394002504646778106689453125,
+            "terrasseLieeKey": "terrasse",
+            "matSurPerimetre": true,
+            "matDeporte": true,
+            "matAngleDeg": 330,
+            "center": {
+                "x": -9.3702820770107617676103473058901727199554443359375,
+                "y": -7.74797750948523944458656842471100389957427978515625
+            },
+            "r": 1.5
+        },
+        {
+            "key": "circle1787654721763_2",
+            "type": "circle",
+            "name": "Parasol 2",
+            "fill": "#7a9e6b",
+            "fillOpacity": 0.5500000000000000444089209850062616169452667236328125,
+            "stroke": "#3f5c33",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": true,
+            "showAngles": false,
+            "constrained": true,
+            "fonction": "parasol",
+            "matiere": "",
+            "priority": 4,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "hauteurParasol": 2.20000000000000017763568394002504646778106689453125,
+            "terrasseLieeKey": "table",
+            "matSurPerimetre": true,
+            "matDeporte": true,
+            "matAngleDeg": 330,
+            "center": {
+                "x": -20.60123810567665714188478887081146240234375,
+                "y": -15.60439999999999827196006663143634796142578125
+            },
+            "r": 1.5
+        },
+        {
+            "key": "path1787657679667_1",
+            "type": "path",
+            "name": "Entrée",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -29.12216624450683610803025658242404460906982421875,
+                    "y": -28.344500000000000028421709430404007434844970703125
+                },
+                {
+                    "x": -24.972166244506837529115728102624416351318359375,
+                    "y": -23.973167510986325368094185250811278820037841796875
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        },
+        {
+            "key": "path1787662991223_1",
+            "type": "path",
+            "name": "Robinet",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -29.498832479422436136928808991797268390655517578125,
+                    "y": -18.625196526227679072462706244550645351409912109375
+                },
+                {
+                    "x": -25.401003907993864316949839121662080287933349609375,
+                    "y": -16.6901116803850442238399409689009189605712890625
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        },
+        {
+            "key": "path1787663085641_2",
+            "type": "path",
+            "name": "Chène",
+            "fill": "#c0392b",
+            "fillOpacity": 0.90000000000000002220446049250313080847263336181640625,
+            "stroke": "#6b1f16",
+            "showName": true,
+            "showSegNames": false,
+            "showVertNames": false,
+            "showDims": false,
+            "showAngles": false,
+            "constrained": false,
+            "fonction": "camera",
+            "matiere": "",
+            "priority": 3,
+            "locked": false,
+            "textureVerticale": null,
+            "textureHorizontale": null,
+            "altitude": 1.600000000000000088817841970012523233890533447265625,
+            "hidden": false,
+            "clotureActive": false,
+            "clotureTexture": null,
+            "textureArbre": null,
+            "terrasseLieeKey": null,
+            "matSurPerimetre": false,
+            "matDeporte": false,
+            "pts": [
+                {
+                    "x": -13.9679233885133431414260485325939953327178955078125,
+                    "y": -22.95259041938286515005529508925974369049072265625
+                },
+                {
+                    "x": -15.4577572163730820875571225769817829132080078125,
+                    "y": -21.60109977529705105325774638913571834564208984375
+                }
+            ],
+            "vertexNames": [
+                "Position",
+                "Direction"
+            ],
+            "segmentNames": [
+                "Vise"
+            ],
+            "frozenVertices": [
+                false,
+                false
+            ],
+            "width": 0.08000000000000000166533453693773481063544750213623046875,
+            "curve": false
+        }
+    ],
+    "measures": [
+        {
+            "id": "m1787318119012_3bzqp",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "B",
+            "targetObjKey": "table",
+            "targetPtIndex": 1,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787318119013_sb6w7",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "B",
+            "targetObjKey": "table",
+            "targetPtIndex": 0,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787318119013_25xhv",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "B",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 3,
+            "show": false,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787318119013_569g5",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "B",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 2,
+            "show": false,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787318119013_u2h7f",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "B",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 0,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787320863816_gdw04",
+            "refObjKey": "maison",
+            "refSegIndex": 11,
+            "startEnd": "A",
+            "targetObjKey": "table",
+            "targetPtIndex": 3,
+            "show": false,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787326161120_3z11y",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "A",
+            "targetObjKey": "maison",
+            "targetPtIndex": 12,
+            "show": false,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787374695689_0h264",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "A",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 4,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787374695690_mqf1d",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "A",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 3,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787374695690_ngg7h",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "A",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 2,
+            "show": true,
+            "displayMode": "perp"
+        },
+        {
+            "id": "m1787374695690_jvhx8",
+            "refObjKey": "parcelle",
+            "refSegIndex": 4,
+            "startEnd": "A",
+            "targetObjKey": "terrasse",
+            "targetPtIndex": 1,
+            "show": true,
+            "displayMode": "perp"
+        }
+    ]
+}

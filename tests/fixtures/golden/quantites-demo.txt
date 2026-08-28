@@ -1,0 +1,47 @@
+Parcelle AE 101 (parcelle): 722.99 m2
+Terrasse (terrasse): 35.01 m2
+Chemin Arrière (path1787319011372_6): 26.84 m2 (longueur x largeur)
+Maison (maison): 151.78 m2
+Dalle beton (dalle): 11.81 m2
+Abri de jardin (abri): 11.00 m2
+Chemin ZigZag (path1787318807161_2): 10.78 m2 (longueur x largeur)
+Spa (spa): 3.83 m2
+Table (table): 12.10 m2
+Parking (obj1787318713220_1): 19.61 m2
+Chemin Table (path1787318953347_3): 3.40 m2 (longueur x largeur)
+Chemin Buandrie (path1787319000006_5): 1.00 m2 (longueur x largeur)
+Chêne (circle1787323958811_1): 0.96 m2
+Erable (circle1787324026450_2): 0.51 m2
+Abri de jardin Chemin (path1787324582190_1): 0.94 m2 (longueur x largeur)
+Arbre Entrée (circle1787324912263_1): 0.29 m2
+Coin entrant terrasse (path1787580286624_2): 0.26 m2 (longueur x largeur)
+Arriere terrasse (path1787581252906_3): 0.17 m2 (longueur x largeur)
+Fenetre cuisine (path1787581272870_4): 0.12 m2 (longueur x largeur)
+Parasol 1 (circle1787654712806_1): 7.13 m2
+Parasol 2 (circle1787654721763_2): 7.13 m2
+Entrée (path1787657679667_1): 0.49 m2 (longueur x largeur)
+Robinet (path1787662991223_1): 0.37 m2 (longueur x largeur)
+Chène (path1787663085641_2): 0.16 m2 (longueur x largeur)
+Plattebande Rue (obj1787734238284_1): 20.18 m2
+Platebande Aline (obj1787734283270_4): 19.26 m2
+Platebande Joel (obj1787734358395_6): 26.01 m2
+Platebande Guitare  (obj1787734423634_7): 18.86 m2
+Platebande Cuisine Petit Salon (dup1787735066438_8): 4.87 m2
+Plattebande Cuisine (dup1787735282871_9): 0.88 m2
+Platebande PEtit Salon Entree (dup1787735336361_10): 2.21 m2
+Platebande Grand Salon Entree (dup1787735407953_11): 3.05 m2
+Platebande grand Salon Arriere (dup1787735490653_12): 3.02 m2
+Platebande Angle Grand Salon (dup1787735519516_13): 1.49 m2
+Platebande Grand Salon Clim (dup1787735589549_14): 2.87 m2
+Emprise totale (hors parcelle): 408.4 m2 (56.5 %)
+  Longueur totale: 44.54 m
+  Longueur totale: 21.47 m
+  Longueur totale: 6.76 m
+  Longueur totale: 1.98 m
+  Longueur totale: 1.87 m
+  Longueur totale: 3.20 m
+  Longueur totale: 2.10 m
+  Longueur totale: 1.54 m
+  Longueur totale: 6.05 m
+  Longueur totale: 4.55 m
+  Longueur totale: 2.02 m
