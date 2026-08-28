@@ -490,10 +490,39 @@ large ; déplacement à trois doigts de 50 px demandés, 50 px obtenus, sans dé
 pincement qui double l'écartement et double l'échelle au chiffre près (rapport 2,000), puis retour
 exact ; cadrage d'une terrasse de 62 à 240 px dans une scène de 320.
 
+
+### `render()` réduit à son orchestration
+
+Le corps de `render()` — la boucle de 113 lignes qui place les éléments SVG de chaque objet — part
+dans `render/objects.ts` sous le nom `positionnerObjet()`. Ce qui reste dans `render()` est la
+séquence des sous-rendus, plus ce que le module ne peut pas savoir : la sélection courante, le
+masquage, l'état du fond orthophoto, et le pointage en cours pour l'outil de mesure.
+
+Le dessin des cotes suit (`dessinerCotes`), ainsi que deux fonctions qui portent une décision de
+conception : `distanceSortiePolygone` et `ancrageHorsContour`. Une étiquette de cote se pose **hors
+du contour**, du côté opposé au centre de la parcelle, et au-delà de la **dernière** sortie du
+rayon — pas de la première. Sur une forme concave, viser la première sortie poserait l'étiquette
+dans un vide intérieur. C'est le défaut qui avait été corrigé à la main dans le dossier PDF ; il
+est maintenant figé par un test, sur une forme en C où le rayon ressort, rentre, puis ressort.
+
+`angleInterieurDeg` rejoint `geometry/basic.ts` : comme `signedArea`, c'est le sens de parcours qui
+y décide de quel côté se trouve l'intérieur.
+
+**Vérifié branche par branche au navigateur**, parce que ce morceau touche tout ce qui se voit :
+19 polygones, 12 chemins, 161 cercles, 288 textes au chargement ; étiquettes de nom et six cotes en
+mètres ; sélection qui montre 6 poignées pour la terrasse et aucune pour les autres objets, trait à
+3 px ; angles 0 → 6 en cochant la colonne « Angle » ; opacité du terrain 1 → 0,15 avec l'orthophoto
+(4 tuiles) puis retour à 1 ; les quatre cotes avec leurs traits de rappel, et le basculement
+perpendiculaire / le long qui fait apparaître une cote « ⊥ 14,85 m ».
+
+Une variable morte du fichier d'origine (`const objCenter`, jamais lue) a été retirée — signalée
+par eslint, maintenant que ce code est vérifié.
+
 ### Ce qui reste
 
-`render()` lui-même, `createObjectDOM`/`rebuildHandles`, le calque parasol, et le gros de
-`interaction/**` (glisser, pincement, création d'objets). `legacy.ts` est à 10 453 lignes.
+Le glisser-deposer d'objets et de sommets, la creation et la suppression d'objets, l'alignement par
+rotation, et les panneaux d'interface qui pilotent le plan (attributs, mesures, PLU, barre de projet,
+configurateur de terrasse). `legacy.ts` est à 10 092 lignes.
 
 
 ### Point de vigilance

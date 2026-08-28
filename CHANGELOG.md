@@ -3,6 +3,21 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.9] — 2026-08-28
+
+`render()` est réduit à son orchestration : le positionnement des objets et le dessin des cotes
+vivent dans `render/`. Aucun comportement ne change.
+
+### Interne
+
+- `render/objects.ts` : `positionnerObjet()` — la boucle de 113 lignes qui plaçait chaque objet.
+- `render/measures.ts` : `dessinerCotes()`, plus `ancrageHorsContour()` et
+  `distanceSortiePolygone()` — l'étiquette se pose hors du contour, au-delà de la dernière sortie
+  du rayon.
+- `geometry/basic.ts` : `angleInterieurDeg()`.
+- Variable morte du fichier d'origine retirée (`const objCenter`, jamais lue).
+- `legacy.ts` : 10 271 → 10 092 lignes. 254 tests.
+
 ## [1.0.1-alpha.8] — 2026-08-28
 
 Le rendu et les interactions sortent de `legacy.ts`, module par module. Aucun comportement ne
