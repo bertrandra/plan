@@ -79,6 +79,24 @@ coin », « Dimension » et « Angle » sur **tous** les objets de la table d'af
 
 Relevé identique sur `dist/index.html` et sur le témoin figé `legacy/plan_interactif.html`.
 
+## Comparer deux imports cadastraux
+
+L'import depuis une adresse ne peut pas être figé ici : il dépend des services IGN en ligne. Il se
+compare en le rejouant sur les deux versions, à la même adresse et avec les mêmes choix. Quatre
+champs doivent être neutralisés — un de plus que pour les exports, et c'est le piège :
+
+```
+"(recupereLe|interrogeLe|exportedAt|writtenAt)":\s*"[^"]*"   →   "$1":"HORODATAGE"
+```
+
+`interrogeLe` vient de l'interrogation du PLU. Comme les trois autres, il fait 24 caractères : deux
+exports peuvent donc avoir **exactement la même taille** et deux empreintes différentes.
+
+Relevé du 28 août 2026, « Place de la Mairie 35000 Rennes », choix par défaut à chaque étape
+(parcelle AC 530, bâtiments et haies et végétation cochés, arbres décochés) : projet de
+**25 108 octets**, SHA-256 `84bc517386e0a0201b8445d57eb0c4ae84fe3ff70ed9f0dfabfdb76b84f4b6c3`,
+4 objets — la parcelle de 418 m² et trois bâtiments de 16 ; 15,5 et 13,8 m.
+
 ## Quantités
 
 [`quantites-demo.txt`](quantites-demo.txt) fige les surfaces et longueurs calculées, objet par

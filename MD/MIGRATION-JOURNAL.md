@@ -689,12 +689,22 @@ assumés, pas des mesures, et c'est justement ce qu'il fallait écrire quelque p
 Les nombres de la BD TOPO arrivent en texte à virgule française (`5,2`), que `parseFloat` tronque à
 `5` : `nombreFr` existe pour ça, et un test le fige.
 
-**Limite de vérification, à dire clairement** : ces règles ne servent qu'à l'import cadastral, qui
-appelle les services IGN en ligne. Les golden files ne les touchent pas, et l'import de bout en bout
-n'a pas été rejoué. Ce qui a été vérifié : 18 tests unitaires, l'application qui démarre avec ses
-35 objets et 288 textes, le dialogue « Nouveau projet depuis une adresse » qui s'ouvre, aucune
-exception, et les six empreintes inchangées. Le déplacement est par ailleurs littéral — aucune ligne
-de calcul n'a été touchée, seuls un paramètre a été renommé et des types ajoutés.
+### La chaîne cadastre, vérifiée en vrai
+
+La limite annoncée au commit précédent — « l'import de bout en bout n'a pas été rejoué » — est
+levée. Import réel joué **sur les deux versions**, contre les services IGN en ligne, à la même
+adresse publique (la mairie de Rennes, pour ne viser aucun particulier) et avec les mêmes choix par
+défaut à chaque étape : géocodage BAN → parcelle API Carto → bâtiments BD TOPO → `objetsDepuisCadastre`.
+
+Résultat : **projet identique**, `84bc5173…`, 25 108 octets, mêmes hachés objet par objet — la
+parcelle AC 530 de 418 m² et trois bâtiments dont les hauteurs mesurées (16 ; 15,5 ; 13,8 m)
+traversent bien `hauteurBatiment`, et dont les noms passent par `libelleParcelle`.
+
+Un détail qui a d'abord fait croire à un écart : les deux exports faisaient exactement la même
+taille mais pas la même empreinte. La cause était un quatrième horodatage, `interrogeLe`, posé par
+l'interrogation du PLU — de largeur fixe, donc invisible au comptage d'octets. C'est le même piège
+que celui de `/CreationDate` dans les PDF, et il rappelle qu'une comparaison d'imports doit
+neutraliser **quatre** champs, pas trois : `recupereLe`, `interrogeLe`, `exportedAt`, `writtenAt`.
 
 ### Ce qui reste
 
