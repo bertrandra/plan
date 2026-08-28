@@ -518,11 +518,61 @@ perpendiculaire / le long qui fait apparaître une cote « ⊥ 14,85 m ».
 Une variable morte du fichier d'origine (`const objCenter`, jamais lue) a été retirée — signalée
 par eslint, maintenant que ce code est vérifié.
 
+### Le glisser-déposer, et son principe de refus
+
+`interaction/drag.ts` reprend les cinq gestes qui modifient la géométrie : déplacer une forme, un
+cercle, un sommet, un côté, et changer un rayon. Le `pointermove` de `legacy.ts` passe de 87 lignes
+à 6 : il ne fait plus que traduire l'événement en mètres et fournir le contour de contrainte.
+
+Un principe traverse le module, et il méritait d'être écrit plutôt que déduit : **on refuse plutôt
+que de déformer**. Chaque geste calcule un candidat, le teste entièrement contre le contour, et
+n'applique rien s'il en sort. Rien n'est rogné ni ramené au bord — une forme qui s'arrêterait au
+contour en changeant de proportions mentirait sur ce qu'on vient de dessiner. Le refus est en bloc :
+si un seul sommet sortait, la forme entière reste où elle est.
+
+Deux détails du fichier d'origine sont conservés tels quels et désormais documentés :
+
+- **Le débordement d'un cercle se teste par seize points de son bord**, pas par une vraie
+  intersection cercle/polygone. Un test le prouve : une fente de contour plus étroite que l'écart
+  entre deux rayons échantillonnés laisse passer un cercle qui déborde réellement. Sur une parcelle
+  aux côtés métriques le cas est théorique, et le calcul est payé à chaque image d'un glisser.
+- **Un sommet dont un voisin est gelé ne peut plus que coulisser** sur sa direction d'origine depuis
+  ce voisin, ce qui préserve l'angle ; avec ses deux voisins gelés, il ne bouge plus du tout. Un
+  plancher de 0,05 m empêche le côté de s'annuler puis de se retourner quand le pointeur passe
+  derrière l'ancre.
+
+**Vérifié par événements de pointeur réels, contre le témoin figé `legacy/plan_interactif.html`**,
+parce que ni les golden files ni les tests unitaires ne voient un glisser : un export est recalculé
+dans son propre repère. Les deux versions donnent les mêmes chiffres, à la dernière décimale —
+sommet tiré de (+12,7095 ; −8,1172) m avec les cinq autres sommets immobiles, côté translaté de 9 px
+sur ses deux extrémités, cercle déplacé de (10 ; 6), rayon augmenté de 20,418 à centre fixe,
+déplacement de vue de 40 px qui revient exactement à son point de départ. Y compris **le même
+refus** : la terrasse de démonstration touche le bord de la parcelle et ne se translate pas, sur
+l'une comme sur l'autre.
+
+Fausse piste au passage : une première mesure montrait le cercle immobile sur le témoin et mobile
+sur la version migrée. C'était l'état laissé par la sonde précédente sur la même page, pas un écart
+de comportement — rejouée à froid, la mesure est identique. Une sonde qui modifie le plan doit
+repartir d'un chargement neuf.
+
+### Une suite de tests avait cessé de se charger sans que rien n'échoue
+
+En ajoutant les tests du glisser, le total est passé de 254 à 278 alors que 24 tests seulement
+étaient nouveaux. `tests/unit/render/measures.test.ts` — 15 tests — ne se chargeait plus depuis que
+`dessinerCotes` avait fait entrer `render/theme.ts` dans ses imports : ce module lit
+`window.matchMedia` au chargement, ce qui n'existe pas dans l'environnement Node des tests.
+
+Le point à retenir n'est pas la correction (une garde `typeof window !== 'undefined'`, l'encre
+claire hors navigateur) mais **la façon dont l'incident se cache** : une suite qui échoue au
+chargement ne fait échouer aucun test. Le compte total avait silencieusement baissé de 254 à 239, et
+la ligne `Tests` restait verte. Le nombre de tests est une donnée à surveiller, pas seulement leur
+couleur.
+
 ### Ce qui reste
 
-Le glisser-deposer d'objets et de sommets, la creation et la suppression d'objets, l'alignement par
-rotation, et les panneaux d'interface qui pilotent le plan (attributs, mesures, PLU, barre de projet,
-configurateur de terrasse). `legacy.ts` est à 10 092 lignes.
+La création et la suppression d'objets, l'alignement par rotation, et les panneaux d'interface qui
+pilotent le plan (attributs, mesures, PLU, barre de projet, configurateur de terrasse).
+`legacy.ts` est à 10 024 lignes.
 
 
 ### Point de vigilance

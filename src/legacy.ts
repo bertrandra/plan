@@ -41,6 +41,7 @@ import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, dessinerCotes } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
+import { appliquerGlisser } from './interaction/drag.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
 import { dessinerCalqueParasols } from './render/parasolOverlay.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
@@ -1722,88 +1723,19 @@ svg.addEventListener('pointerdown', e=>{
 window.addEventListener('pointermove', e=>{
   if(!activeDrag) return;
 
+  // Le deplacement de la vue n'est pas un glisser d'objet : il ecrit dans la scene, pas dans le
+  // plan, et passe donc par interaction/navigation.ts.
   if(activeDrag.type === 'pan'){
     const rect = stage.getBoundingClientRect();
     const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
-    etat.scene.origine = {
-      x: activeDrag.startOrigin.x + (cur.x-activeDrag.startScreen.x),
-      y: activeDrag.startOrigin.y + (cur.y-activeDrag.startScreen.y)
-    };
+    etat.scene = deplacer(etat.scene, activeDrag.startOrigin, activeDrag.startScreen, cur);
     render();
     return;
   }
 
-  const w = worldFromEvent(e);
-  const dx = w.x-activeDrag.startWorld.x, dy = w.y-activeDrag.startWorld.y;
-  const obj = activeDrag.obj;
-  const parcelleNow = objByKey('parcelle');
-  const bound = (obj.constrained && parcelleNow) ? parcelleNow.pts : null;
-
-  if(activeDrag.type === 'circleMove'){
-    activeDrag.moved = true;
-    const cand = {x:activeDrag.startCenter.x+dx, y:activeDrag.startCenter.y+dy};
-    let ok = !bound || pointInPolygon(cand, bound);
-    if(ok && bound){
-      for(let a=0;a<16;a++){
-        const ang=a/16*2*Math.PI;
-        const bp={x:cand.x+obj.r*Math.cos(ang), y:cand.y+obj.r*Math.sin(ang)};
-        if(!pointInPolygon(bp,bound)){ ok=false; break; }
-      }
-    }
-    if(ok) obj.center = cand;
-  } else if(activeDrag.type === 'point' && estRectangle(obj)){
-    // Tirer un coin redimensionne le rectangle : l'oppose reste fixe, les voisins suivent.
-    const pts = rectangleDepuisCoin(obj.pts, activeDrag.idx, w);
-    if(pts && (!bound || pts.every(p=>pointInPolygon(p,bound)))) obj.pts = pts;
-  } else if(activeDrag.type === 'edge' && estRectangle(obj)){
-    const pts = rectangleDepuisCote(obj.pts, activeDrag.i, activeDrag.j, activeDrag.startA, dx, dy);
-    if(pts && (!bound || pts.every(p=>pointInPolygon(p,bound)))) obj.pts = pts;
-  } else if(activeDrag.type === 'point'){
-    let candidate = w;
-    if(obj.type==='polygon' && obj.frozenVertices){
-      const n = obj.pts.length;
-      const idx = activeDrag.idx;
-      const prevIdx = (idx-1+n)%n, nextIdx = (idx+1)%n;
-      const prevFrozen = obj.frozenVertices[prevIdx];
-      const nextFrozen = obj.frozenVertices[nextIdx];
-      if(prevFrozen && nextFrozen){
-        candidate = null; // both neighbours frozen: angle at both would change, no valid move
-      } else if(prevFrozen || nextFrozen){
-        // one neighbour is frozen: keep the angle at that frozen corner fixed by only
-        // allowing movement along the original direction from the frozen corner
-        const anchor = obj.pts[prevFrozen ? prevIdx : nextIdx];
-        const origDir = {x:activeDrag.startPt.x-anchor.x, y:activeDrag.startPt.y-anchor.y};
-        const dirLen = Math.hypot(origDir.x,origDir.y) || 1e-9;
-        const ux = origDir.x/dirLen, uy = origDir.y/dirLen;
-        const rel = {x:w.x-anchor.x, y:w.y-anchor.y};
-        const t = Math.max(0.05, rel.x*ux + rel.y*uy); // signed distance along the fixed direction, min 5cm
-        candidate = {x:anchor.x+ux*t, y:anchor.y+uy*t};
-      }
-    }
-    if(candidate && (!bound || pointInPolygon(candidate, bound))) obj.pts[activeDrag.idx] = candidate;
-  } else if(activeDrag.type === 'edge'){
-    const na={x:activeDrag.startA.x+dx,y:activeDrag.startA.y+dy};
-    const nb={x:activeDrag.startB.x+dx,y:activeDrag.startB.y+dy};
-    if(!bound || (pointInPolygon(na,bound)&&pointInPolygon(nb,bound))){
-      obj.pts[activeDrag.i]=na; obj.pts[activeDrag.j]=nb;
-    }
-  } else if(activeDrag.type === 'shapeMove'){
-    activeDrag.moved = true;
-    const cand = activeDrag.startPts.map(p=>({x:p.x+dx,y:p.y+dy}));
-    if(!bound || cand.every(p=>pointInPolygon(p,bound))) obj.pts = cand;
-  } else if(activeDrag.type === 'radius'){
-    const newR = Math.max(0.15, dist(obj.center, w));
-    let ok = !bound;
-    if(bound){
-      ok = true;
-      for(let a=0;a<16;a++){
-        const ang=a/16*2*Math.PI;
-        const bp={x:obj.center.x+newR*Math.cos(ang), y:obj.center.y+newR*Math.sin(ang)};
-        if(!pointInPolygon(bp,bound)){ ok=false; break; }
-      }
-    }
-    if(ok) obj.r = newR;
-  }
+  // Tout le calcul du glisser vit dans interaction/drag.ts ; ici, la position du pointeur en
+  // metres et le contour dans lequel l'objet doit rester.
+  appliquerGlisser(activeDrag, worldFromEvent(e), contourDeContrainte(etat.objects, activeDrag.obj));
   render();
 });
 window.addEventListener('pointerup', ()=>{

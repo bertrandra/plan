@@ -8,7 +8,12 @@
 // du systeme change en cours de session, et c'est un compromis assume - basculer le theme demande
 // un rechargement.
 
-export const themeSombre = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+// Hors navigateur (tests unitaires en environnement Node), il n'y a pas de theme : on prend
+// l'encre claire. Sans cette garde, importer n'importe quel module de rendu pour tester sa
+// geometrie ferait echouer le chargement sur un `window` absent.
+export const themeSombre =
+  typeof window !== 'undefined' &&
+  !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
 export const SVG_INK = themeSombre ? '#EFE4C8' : '#3B2E1F';
 export const SVG_GRID_MAJOR = themeSombre ? '#6b5a41' : '#C9B98C';
