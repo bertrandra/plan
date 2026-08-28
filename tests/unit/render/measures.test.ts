@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { geometrieMesure, coordonneesCote, coordonneesPoint } from '../../../src/render/measures.js';
+import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, distanceSortiePolygone } from '../../../src/render/measures.js';
+import { pointInPolygon } from '../../../src/geometry/basic.js';
 
 // Une terrasse carree de 10 m, et un point a coter.
 const objets = [
@@ -67,5 +68,43 @@ describe('geometrieMesure', () => {
     const g = geometrieMesure(plat, mesure({ refObjKey: 'plat', refSegIndex: 0 }))!;
     expect(Number.isFinite(g.perp)).toBe(true);
     expect(Number.isFinite(g.along)).toBe(true);
+  });
+});
+
+describe('ancrage des etiquettes de cote', () => {
+  const parcelle = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }];
+
+  it('mesure la distance de sortie du contour', () => {
+    expect(distanceSortiePolygone({ x: 10, y: 10 }, { x: 1, y: 0 }, parcelle)).toBeCloseTo(10, 9);
+    expect(distanceSortiePolygone({ x: 10, y: 10 }, { x: 0, y: 1 }, parcelle)).toBeCloseTo(10, 9);
+  });
+
+  it('prend la DERNIERE sortie quand le rayon ressort puis rentre', () => {
+    // Un C couche : deux bandes pleines reliees a droite. Un rayon vertical en x = 5 traverse la
+    // bande basse (y 0-2), le vide (2-5), puis la bande haute (5-7). L'etiquette doit se poser
+    // au-dela de la DERNIERE sortie, sinon elle atterrit dans le vide entre les deux bandes.
+    const enC = [
+      { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 7 }, { x: 0, y: 7 },
+      { x: 0, y: 5 }, { x: 8, y: 5 }, { x: 8, y: 2 }, { x: 0, y: 2 }
+    ];
+    expect(distanceSortiePolygone({ x: 5, y: 1 }, { x: 0, y: 1 }, enC)).toBeCloseTo(6, 9);
+  });
+
+  it('pose l etiquette hors du contour, du cote oppose au centre', () => {
+    // Point sur le bord sud, cote de reference horizontal : l'etiquette part vers le sud.
+    const a = ancrageHorsContour({ x: 10, y: 0 }, parcelle, 2, { x: 1, y: 0 });
+    expect(a.y).toBeLessThan(0);
+    expect(pointInPolygon(a, parcelle)).toBe(false);
+  });
+
+  it('laisse exactement le degagement demande au-dela du contour', () => {
+    const a = ancrageHorsContour({ x: 10, y: 10 }, parcelle, 2, { x: 1, y: 0 });
+    // Depuis le centre, la sortie est a 10 m ; l'etiquette se pose a 12 m.
+    expect(Math.abs(a.y - 10)).toBeCloseTo(12, 9);
+  });
+
+  it('rend aussi la direction suivie, pour orienter le trait de rappel', () => {
+    const a = ancrageHorsContour({ x: 10, y: 0 }, parcelle, 2, { x: 1, y: 0 });
+    expect(Math.hypot(a.dirX, a.dirY)).toBeCloseTo(1, 9);
   });
 });

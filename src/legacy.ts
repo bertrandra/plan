@@ -38,7 +38,7 @@ import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
 import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
 import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
-import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
+import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -2409,7 +2409,7 @@ function buildExportSVG(){
     if(!m.show || !pcObjForExport) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
-    const anchor = measureOutsideAnchor(g.p, pcObjForExport.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, pcObjForExport.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = exToSvg(g.p), pAnchor = exToSvg(anchor);
     body += '<line x1="'+pPt.x.toFixed(2)+'" y1="'+pPt.y.toFixed(2)+'" x2="'+pAnchor.x.toFixed(2)+'" y2="'+pAnchor.y.toFixed(2)+'" stroke="#1E6B8C" stroke-width="0.05" stroke-dasharray="0.15 0.1"/>\n';
     const value = (m.displayMode==='along') ? g.along : g.perp;
@@ -2601,7 +2601,7 @@ function buildExportPDF(scaleDenom){
       if(!m.show) return;
       const g = computeMeasureGeom(m);
       if(!g) return;
-      const anchor = measureOutsideAnchor(g.p, pcObjForBBox.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+      const anchor = ancrageHorsContour(g.p, pcObjForBBox.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
       // pad a little extra so the label TEXT (not just its anchor point) stays on the page
       allPts.push({x:anchor.x+anchor.dirX*0.6, y:anchor.y+anchor.dirY*0.6});
       allPts.push({x:g.p.x, y:g.p.y});
@@ -2736,7 +2736,7 @@ function buildExportPDF(scaleDenom){
     if(!m.show || !pcObjPdf) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
-    const anchor = measureOutsideAnchor(g.p, pcObjPdf.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, pcObjPdf.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = toPdf(g.p), pAnchor = toPdf(anchor);
     content += '0.118 0.420 0.549 RG\n0.8 w [3 2] 0 d\n';
     content += pPt.x.toFixed(2)+' '+pPt.y.toFixed(2)+' m '+pAnchor.x.toFixed(2)+' '+pAnchor.y.toFixed(2)+' l S\n';
@@ -3368,39 +3368,6 @@ function targetLabel(t){
 
 // Distance from `center` to where the ray (center -> center+dir) exits the polygon `poly`.
 // Returns 0 if no intersection is found (e.g. center already outside).
-function rayPolygonExitDistance(center, dir, poly){
-  let maxT = 0;
-  const n = poly.length;
-  for(let i=0;i<n;i++){
-    const a=poly[i], b=poly[(i+1)%n];
-    const ex=b.x-a.x, ey=b.y-a.y;
-    const det = ex*dir.y - ey*dir.x;
-    if(Math.abs(det) < 1e-9) continue;
-    const acx = a.x-center.x, acy = a.y-center.y;
-    const t = (ex*acy - ey*acx) / det;
-    const s = (dir.x*acy - dir.y*acx) / det;
-    if(t>=0 && s>=0 && s<=1 && t>maxT) maxT = t;
-  }
-  return maxT;
-}
-
-// Anchor point for a measure's witness line / label. The line is ALWAYS perpendicular
-// to the reference segment (90°) and ALWAYS points toward the OUTSIDE of the parcel
-// polygon, starting at the measured point and continuing until it clears the polygon by
-// at least `clearance` meters. `segDir` is the reference segment's direction vector.
-function measureOutsideAnchor(point, poly, clearance, segDir){
-  // the two perpendiculars to the reference segment
-  const sl = Math.hypot(segDir.x, segDir.y) || 1;
-  const nx = -segDir.y/sl, ny = segDir.x/sl;
-  const c = centroid(poly);
-  // pick the perpendicular that heads away from the parcel centroid (i.e. outward)
-  const outward = ((point.x-c.x)*nx + (point.y-c.y)*ny) >= 0;
-  const dirX = outward ? nx : -nx;
-  const dirY = outward ? ny : -ny;
-  const exitDist = rayPolygonExitDistance(point, {x:dirX,y:dirY}, poly);
-  const baseDist = Math.max(exitDist, 0);
-  return {x:point.x+dirX*(baseDist+clearance), y:point.y+dirY*(baseDist+clearance), dirX, dirY};
-}
 
 function startPick(mode, multi, purpose){
   pickState = {mode, multi, purpose: purpose||'measure'};
@@ -3616,7 +3583,7 @@ function drawMeasures(){
     if(!m.show || !pc) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
-    const anchor = measureOutsideAnchor(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = toScreen(g.p), pAnchor = toScreen(anchor);
 
     // witness line starts at the measured point and heads toward the reference segment

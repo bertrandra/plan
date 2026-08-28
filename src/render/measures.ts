@@ -7,7 +7,7 @@
 // Consequence : ces fonctions ont besoin de la liste des objets. Elle est passee en parametre,
 // comme partout depuis la phase 3, au lieu d'etre lue dans la fermeture.
 
-import { dist } from '../geometry/basic.js';
+import { dist, centroid } from '../geometry/basic.js';
 import type { PtBrut } from '../model/types.js';
 
 interface ObjetPlan {
@@ -83,4 +83,52 @@ export function geometrieMesure(objets: ObjetPlan[], m: Mesure): GeometrieMesure
   const foot = { x: A.x + nx * along, y: A.y + ny * along };
   const perp = dist(p, foot);
   return { A, B, foot, p, along, perp };
+}
+
+/**
+ * Distance a laquelle un rayon partant de `depuis` sort du polygone : la plus grande intersection
+ * vers l'avant. On prend le MAXIMUM et non la premiere : sur une forme concave, le rayon peut
+ * ressortir puis rentrer, et l'etiquette doit se poser au-dela de la derniere sortie.
+ */
+export function distanceSortiePolygone(depuis: PtBrut, dir: PtBrut, poly: readonly PtBrut[]): number {
+  let maxT = 0;
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const a = poly[i],
+      b = poly[(i + 1) % n];
+    const ex = b.x - a.x,
+      ey = b.y - a.y;
+    const det = ex * dir.y - ey * dir.x;
+    if (Math.abs(det) < 1e-9) continue;
+    const acx = a.x - depuis.x,
+      acy = a.y - depuis.y;
+    const t = (ex * acy - ey * acx) / det;
+    const s = (dir.x * acy - dir.y * acx) / det;
+    if (t >= 0 && s >= 0 && s <= 1 && t > maxT) maxT = t;
+  }
+  return maxT;
+}
+
+/**
+ * Ou poser l'etiquette d'une cote : hors du contour, du cote oppose au centre de la parcelle, a
+ * `degagement` metres de la sortie. Une cote posee sur le contour se confond avec lui a
+ * l'impression - c'est le defaut qu'un dossier PDF rend immediatement visible.
+ */
+export function ancrageHorsContour(
+  point: PtBrut,
+  poly: readonly PtBrut[],
+  degagement: number,
+  dirSegment: PtBrut
+): PtBrut & { dirX: number; dirY: number } {
+  // Les deux perpendiculaires au cote de reference.
+  const sl = Math.hypot(dirSegment.x, dirSegment.y) || 1;
+  const nx = -dirSegment.y / sl,
+    ny = dirSegment.x / sl;
+  const c = centroid(poly as PtBrut[]);
+  // On garde celle qui s'eloigne du centre de la parcelle.
+  const versExterieur = (point.x - c.x) * nx + (point.y - c.y) * ny >= 0;
+  const dirX = versExterieur ? nx : -nx;
+  const dirY = versExterieur ? ny : -ny;
+  const sortie = Math.max(distanceSortiePolygone(point, { x: dirX, y: dirY }, poly), 0);
+  return { x: point.x + dirX * (sortie + degagement), y: point.y + dirY * (sortie + degagement), dirX, dirY };
 }
