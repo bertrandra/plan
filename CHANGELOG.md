@@ -3,6 +3,25 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.6] — 2026-08-28
+
+L'état de l'application tient désormais dans un seul objet explicite (`src/core/state.ts`), à la
+place des variables libres de la fermeture de `boot()`. Aucun comportement ne change.
+
+### Interne
+
+- `EtatApp` / `creerEtat()` : données du plan, sélection, modes, bascules d'affichage, édition,
+  calque d'ombre. 334 accès passent par `etat.`.
+- La variable locale du dialogue d'import cadastre, qui s'appelait aussi `etat`, devient
+  `etatImport` : elle masquait l'état global sur 750 lignes.
+- 7 tests ajoutés (189 au total).
+
+### Corrigé avant publication
+
+- Le remplacement automatique avait renommé `data-measures` en `data-etat.measures` dans le SVG
+  exporté. Un SVG produit par une version antérieure aurait perdu ses mesures à la réimportation.
+  Détecté par les golden files, corrigé, et vérifié en réimportant le SVG d'avant migration.
+
 ## [1.0.1-alpha.5] — 2026-08-28
 
 Phase 5 de la migration TypeScript, **partielle** : les modules d'interface qui ne dépendent pas

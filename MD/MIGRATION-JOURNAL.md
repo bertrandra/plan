@@ -9,7 +9,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
-| 4 — Modèle et conteneur d’état | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.4` | `legacy.ts` réduit aux panneaux UI et à la 3D | **non atteint** : séparation donnée/vue faite, scène et pile d’annulation sorties ; `AppState`, `render/**` et `interaction/**` restent |
+| 4 — Modèle et conteneur d’état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.6` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place (334 accès), scène et pile sorties ; `render/**` et `interaction/**` restent |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
 | 6 — 3D et exports | ⏳ | | | |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
@@ -301,6 +301,61 @@ d'affichage, mesures, PLU, barre de projet, configurateur de terrasse — appell
 lisent l'état du plan. Ils sortiront quand `render/**` sera sorti, c'est-à-dire après l'`AppState`
 de la phase 4. La spec ordonne ces deux phases dans ce sens précisément pour éviter qu'un panneau
 se retrouve à porter une copie de l'état.
+
+
+## Phase 4, suite — l'`AppState` (28 août 2026)
+
+Le préalable des phases 4 et 5 restantes : **un seul objet d'état, explicite**, à la place des
+variables libres de la fermeture de `boot()` (§6.1). `src/core/state.ts` définit `EtatApp` et
+`creerEtat()`, et `boot()` le crée en première ligne.
+
+### Ce qui a rejoint l'état
+
+| Groupe | Variables | Usages réécrits |
+|---|---|---|
+| Données du plan | `objects`, `measures` | 207 |
+| Sélection et onglets | `selectedKey`, `highlight`, `attrTab`, `panelTab` | 69 |
+| Modes | `appMode`, `terrasseSelectedKey` | 52 |
+| Bascules et édition | `showNorth`, `grilleVisible`, `voisinageVisible`, `dirty`, `newObjCounter` | 33 |
+| Calque d'ombre | `parasolOmbreAffichee`, `parasolCarteAffichee`, `parasolDateStr`, `parasolMinutes` | 26 |
+
+334 accès passent désormais par `etat.` — et `creerEtat` reçoit `normalizeObjects` en paramètre,
+parce que la normalisation vit encore dans `legacy.ts` et que `core/` ne doit pas dépendre de
+`legacy` (§3.3).
+
+### Deux pièges rencontrés, dont un attrapé par les golden files
+
+**1. Le nom de l'état existait déjà.** `ouvrirImportCadastre()` déclare son propre
+`const etat = {…}` — l'état du dialogue d'import. Dans ses 750 lignes, l'état global était donc
+**masqué** : une écriture `etat.objects` y aurait silencieusement visé le dialogue. Aucune de mes
+réécritures n'était tombée dans cette plage (vérifié champ par champ), mais le piège restait
+armé pour la suite : la variable locale s'appelle maintenant `etatImport`.
+
+**2. Le SVG exporté a changé — et c'est le golden file qui l'a dit.** Mon remplacement ne
+distinguait pas le code des chaînes de caractères : `id="measures-data"` et `data-measures` sont
+devenus `id="etat.measures-data"` et `data-etat.measures`. Le round-trip interne aurait continué
+de marcher (export et import utilisaient le même nom faux), mais **tout SVG exporté avant cette
+version aurait perdu ses mesures à la réimportation**. Corrigé, puis vérifié pour de bon : le
+`plan.svg` de `tests/fixtures/golden/`, produit avant la migration, se réimporte et ses mesures
+sont reconnues.
+
+C'est exactement ce que les fixtures de la phase 0 existent pour attraper — et le seul des cinq
+groupes de variables qui ait cassé quelque chose.
+
+### Vérifications
+
+Après chaque groupe : `tsc`, `eslint`, build, puis contrôle au navigateur. Sélection et poignées,
+onglets d'attributs, grille (167 → 129 → 167), flèche du Nord, aller-retour mode Terrasse,
+duplication/annulation/réinitialisation, mesures, et les ombres de parasol qui se déplacent
+correctement quand on passe du solstice d'été au solstice d'hiver. Les six golden files sont
+identiques. 7 tests ajoutés sur `creerEtat` (189 au total).
+
+### Ce qui reste libre dans `boot()`
+
+54 variables : l'état d'interaction (glisser, pincement, double-clics), l'orthophoto, l'outil de
+mesure en cours de saisie, la 3D, et `W`/`H`. Ce sont les états que `render/**` et
+`interaction/**` emporteront avec eux — ils n'ont plus de raison structurelle de rester, juste
+l'ordre de la migration.
 
 
 ### Point de vigilance

@@ -36,6 +36,7 @@ import { computeImplantation, repereImplantation } from './engine/implantation.j
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
 import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
 import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
+import { creerEtat } from './core/state.js';
 import { PileAnnulation } from './core/history.js';
 import { creerScene, versEcran, versMonde } from './render/scene.js';
 import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
@@ -143,23 +144,29 @@ async function loadInitialProject(){
 
 
 function boot(seed){
+
+// ================= Etat de l'application (spec §6.1) =================
+// Un seul objet, cree ici, en tete de boot() : tout ce qui etait une variable libre de cette
+// fermeture le rejoint au fil de la migration. `normalizeObjects` est passe en parametre parce
+// qu'il vit encore dans ce fichier - core/ ne doit pas dependre de legacy (§3.3).
+const etat = creerEtat(seed, normalizeObjects);
 // Etat d'affichage des parasols et du mode Terrasse. Ces variables sont restees ici quand le
 // moteur est parti en phase 3 : elles decrivent ce que l'utilisateur regarde, pas un calcul.
 // Les fonctions d'ombre les recoivent desormais en parametre (contexteSoleilParasol ci-dessous).
-let parasolOmbreAffichee = true;
-let parasolCarteAffichee = false;
-let parasolDateStr = new Date().getFullYear() + '-06-21'; // solstice d'ete
-let parasolMinutes = 900; // 15:00
+// parasol.ombreAffichee : dans `etat.parasol` (spec 6.1).
+// parasol.carteAffichee : dans `etat.parasol` (spec 6.1).
+// parasol.dateStr : dans `etat.parasol` (spec 6.1).
+// parasol.minutes : dans `etat.parasol` (spec 6.1).
 
 // Contexte solaire des parasols : ce que les fonctions d'ombre lisaient jusqu'ici directement dans
 // la fermeture de boot(). Elles le recoivent maintenant en parametre (phase 3), et c'est ici qu'on
 // le compose a partir des curseurs et du lieu de la parcelle.
 function contexteSoleilParasol(){
   const lieu = lieuActuel();
-  return { dateStr: parasolDateStr, minutes: parasolMinutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
+  return { dateStr: etat.parasol.dateStr, minutes: etat.parasol.minutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
 }
-let appMode = 'plan';
-let terrasseSelectedKey = null;
+// appMode : dans `etat` (spec 6.1).
+// terrasseSelectedKey : dans `etat` (spec 6.1).
 
 
 // ================= Undo history =================
@@ -171,16 +178,16 @@ function snapshotState(){
   // to be able to bring back a deleted object/measure or remove one that was added, not just
   // revert edited values in place. Measures live in a separate array from `objects`, so a
   // snapshot of objects alone would silently lose any measure add/remove/toggle on undo.
-  return { objects: serializeObjects(objects), measures: serializeMeasures(measures) };
+  return { objects: serializeObjects(etat.objects), measures: serializeMeasures(etat.measures) };
 }
-let dirty = false;
+// dirty : dans `etat` (spec 6.1).
 let refreshProjectStatus = function(){};
 // Central "something changed" entry point. Anything that mutates persisted project data
 // (object fields, construction params, measures, ...) should call this - directly, or via
 // pushHistory()/mutate() below - so the "unsaved changes" indicator can never silently miss
 // a change the way per-callsite `dirty = true` assignments used to.
 function markDirty(){
-  dirty = true;
+  etat.dirty = true;
   refreshProjectStatus();
 }
 function pushHistory(){
@@ -202,19 +209,19 @@ function restoreState(snapshot){
   // previous approach looked up each object by key and only ever touched a fixed set of
   // fields, so it silently did nothing (or threw, for a deleted object) whenever the action
   // being undone/reset had added, deleted, reordered, or replaced whole objects.
-  objects.forEach(detruireVue);
+  etat.objects.forEach(detruireVue);
   const restored = normalizeObjects(snapshot.objects);
-  objects.length = 0;
+  etat.objects.length = 0;
   restored.forEach(o=>{
-    objects.push(o);
+    etat.objects.push(o);
     createObjectDOM(o);
     rebuildHandles(o);
   });
   reapplyStackingOrder();
   if(snapshot.measures){
-    measures = snapshot.measures.map(m=>({...m}));
+    etat.measures = snapshot.measures.map(m=>({...m}));
   }
-  if(!objects.some(o=>o.key===selectedKey)) selectedKey = objects.length ? objects[0].key : null;
+  if(!etat.objects.some(o=>o.key===etat.selectedKey)) etat.selectedKey = etat.objects.length ? etat.objects[0].key : null;
   rebuildSelector();
   renderMeasureResults();
   render();
@@ -237,16 +244,16 @@ window.addEventListener('keydown', e=>{
 });
 
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
-let panelTab = 'edition';
+// panelTab, selectedKey, highlight et attrTab vivent desormais dans `etat` (spec §6.1).
 function rebuildPanelTabs(){
   const div = document.getElementById('panelTabs');
   div.innerHTML = '';
   [['edition','Édition'],['affichage','Affichage'],['mesure','Mesure'],['plu','PLU'],['export','Export']].forEach(([key,label])=>{
     const b = document.createElement('button');
-    b.className = 'panelTabBtn' + (panelTab===key ? ' active' : '');
+    b.className = 'panelTabBtn' + (etat.panelTab===key ? ' active' : '');
     b.textContent = label;
     b.addEventListener('click', ()=>{
-      panelTab = key;
+      etat.panelTab = key;
       document.getElementById('panelEdition').style.display = key==='edition' ? '' : 'none';
       document.getElementById('panelAffichage').style.display = key==='affichage' ? '' : 'none';
       document.getElementById('panelMesure').style.display = key==='mesure' ? '' : 'none';
@@ -315,9 +322,9 @@ function normalizeObjects(raw){
     return c;
   });
 }
-const objects = normalizeObjects(seed.objects);
-const initialState = JSON.parse(JSON.stringify(objects));
-let selectedKey = objects.some(o=>o.key==='terrasse') ? 'terrasse' : (objects.length ? objects[0].key : null);
+// objects : dans `etat`, construit par creerEtat qui appelle normalizeObjects (spec 6.1).
+const initialState = JSON.parse(JSON.stringify(etat.objects));
+
 
 // ================= Screen transform =================
 // L'echelle et l'origine de la scene, regroupees dans un objet nomme (spec §6.1) : la
@@ -373,7 +380,7 @@ svg.appendChild(parasolMatGroup);
 
 // "Fit to selection" button: zoom & center on the currently selected object
 document.getElementById('fitBtn').addEventListener('click', ()=>{
-  const obj = objects.find(o=>o.key===(appMode==='terrasse' ? terrasseSelectedKey : selectedKey));
+  const obj = etat.objects.find(o=>o.key===(etat.appMode==='terrasse' ? etat.terrasseSelectedKey : etat.selectedKey));
   fitToObject(obj || null);
 });
 
@@ -381,7 +388,7 @@ function drawGrid(){
   gridGroup.innerHTML='';
   // Grille masquable : elle sert a estimer les distances pendant le travail, elle gene des qu'on
   // regarde le plan pour lui-meme (fond orthophoto, capture d'ecran, presentation).
-  if(!grilleVisible) return;
+  if(!etat.grilleVisible) return;
   const stepM = niceStep(60/scene.scale);
   const tl=toWorld({x:0,y:0}), br=toWorld({x:W,y:H});
   const xMin=Math.floor(Math.min(tl.x,br.x)/stepM)*stepM, xMax=Math.ceil(Math.max(tl.x,br.x)/stepM)*stepM;
@@ -467,7 +474,7 @@ function createObjectDOM(obj){
 // keep the objects' array order (stable sort), which double-clicking an object still
 // adjusts (see sendObjectBackward below) to fine-tune stacking within the same priority.
 function byPriority(a,b){ return (a.priority||0) - (b.priority||0); }
-objects.slice().sort(byPriority).forEach(createObjectDOM);
+etat.objects.slice().sort(byPriority).forEach(createObjectDOM);
 
 function rebuildHandles(obj){
   vue(obj).pointEls.forEach(e=>e.remove()); vue(obj).ptLabelEls.forEach(e=>e.remove());
@@ -484,7 +491,7 @@ function rebuildHandles(obj){
       el.setAttribute('pointer-events','all'); el.style.cursor='ew-resize'; el.title='Modifier ce cote (glisser = deplacer, double-clic = ajouter un point)';
       el.dataset.role='edge'; el.dataset.key=obj.key; el.dataset.index=i;
       el.addEventListener('dblclick', ev=>{
-        if(obj.key !== selectedKey) return;
+        if(obj.key !== etat.selectedKey) return;
         const rect = stage.getBoundingClientRect();
         const w = toWorld({x:ev.clientX-rect.left, y:ev.clientY-rect.top});
         const idx = parseInt(el.dataset.index,10);
@@ -520,16 +527,16 @@ function rebuildHandles(obj){
     svg.appendChild(rh); vue(obj).radiusHandle = rh;
   }
 }
-objects.forEach(rebuildHandles);
+etat.objects.forEach(rebuildHandles);
 
 // ================= Selector buttons =================
 // Etat d'affichage lu des le premier rebuildSelector(), appele quelques lignes plus bas pendant
 // le boot : ces declarations restent ICI et non dans les sections qui les pilotent, plus bas.
 // Les ranger "pres de leur code" a deja provoque un plantage au chargement (zone morte
 // temporelle) que le jeu de demonstration ne revelait pas.
-let voisinageVisible = true;
-let grilleVisible = true;
-let highlight = {type:null, index:null};
+// voisinageVisible : dans `etat` (spec 6.1).
+// grilleVisible : dans `etat` (spec 6.1).
+
 const selectorDiv = document.getElementById('selector');
 // Un bouton par objet reste la selection la plus directe, mais un plan importe du cadastre en
 // compte facilement 60 (les arbres estimes a eux seuls) : la rangee occupait alors la moitie de
@@ -544,7 +551,7 @@ function rebuildSelector(){
   // selectionner un objet qu'on ne voit pas n'a pas de sens, et les compteurs annonceraient un
   // plan qui n'est pas celui affiche. Un objet masque INDIVIDUELLEMENT (case du tableau
   // d'affichage) reste, lui, listee : c'est de la que l'on peut le demasquer.
-  const objetsListables = objects.filter(o=>!(o.voisinage && !voisinageVisible));
+  const objetsListables = etat.objects.filter(o=>!(o.voisinage && !etat.voisinageVisible));
   const familles = [];
   objetsListables.forEach(obj=>{
     const f = obj.fonction || 'autre';
@@ -555,7 +562,7 @@ function rebuildSelector(){
   // Le filtre courant peut avoir disparu (dernier objet de sa famille supprime, ou voisinage
   // masque) : on retombe sur "tout" plutot que d'afficher une rangee vide sans explication.
   if(selectorFiltre !== 'tout' && !familles.some(f=>f.cle===selectorFiltre)) selectorFiltre = 'tout';
-  const objetSelectionne = objetsListables.find(o=>o.key===selectedKey);
+  const objetSelectionne = objetsListables.find(o=>o.key===etat.selectedKey);
 
   // --- Niveau 1 : la categorie ---
   if(familles.length > 1){
@@ -619,10 +626,10 @@ function rebuildSelector(){
     : objetsListables.filter(o=>(o.fonction||'autre')===selectorFiltre);
   visibles.forEach(obj=>{
     const b=document.createElement('button');
-    b.className='objbtn'+(obj.key===selectedKey?' active':'');
+    b.className='objbtn'+(obj.key===etat.selectedKey?' active':'');
     b.textContent=obj.name;
     b.title = obj.name + (obj.fonction ? ' — ' + (LIBELLE_FONCTION[obj.fonction] || obj.fonction) : '');
-    b.addEventListener('click', ()=>{ selectedKey=obj.key; highlight={type:null,index:null}; rebuildSelector(); render(); });
+    b.addEventListener('click', ()=>{ etat.selectedKey=obj.key; etat.highlight={type:null,index:null}; rebuildSelector(); render(); });
     liste.appendChild(b);
   });
   rangee.appendChild(liste);
@@ -656,7 +663,7 @@ function amenerPoigneesDevant(obj){
 // Re-append every object's DOM elements in `objects` array order (later in the array =
 // painted later = visually in front). Used after reordering the array itself.
 function reapplyStackingOrder(){
-  objects.slice().sort(byPriority).forEach(bringToFront);
+  etat.objects.slice().sort(byPriority).forEach(bringToFront);
 }
 
 // Double-click on an object sends it one step back in the stacking order, so whatever
@@ -669,14 +676,14 @@ function reapplyStackingOrder(){
 // effect at all once re-sorted, which would make the double-click look broken).
 function sendObjectBackward(obj){
   if(!obj || obj.key==='parcelle') return;
-  const idx = objects.indexOf(obj);
+  const idx = etat.objects.indexOf(obj);
   let swapIdx = -1;
   for(let i=idx-1; i>=0; i--){
-    if(objects[i].key==='parcelle') continue;
-    if((objects[i].priority||0) === (obj.priority||0)){ swapIdx = i; break; }
+    if(etat.objects[i].key==='parcelle') continue;
+    if((etat.objects[i].priority||0) === (obj.priority||0)){ swapIdx = i; break; }
   }
   if(swapIdx===-1) return; // already the backmost object within its own priority tier
-  [objects[swapIdx], objects[idx]] = [objects[idx], objects[swapIdx]];
+  [etat.objects[swapIdx], etat.objects[idx]] = [etat.objects[idx], etat.objects[swapIdx]];
   // La selection est conservee : render() ne remonte plus que les poignees, donc le recul reste
   // visible et le geste est repetable sans devoir re-selectionner entre chaque.
   reapplyStackingOrder();
@@ -733,9 +740,9 @@ function projeterSurPerimetre(pt, poly){
 // pourtour, puis on redonne a la toile la position correspondante. Appele a chaque rendu, donc la
 // contrainte tient aussi pendant un glisser - l'objet suit le curseur en restant colle au bord.
 function contraindreParasols(){
-  objects.forEach(par=>{
+  etat.objects.forEach(par=>{
     if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
-    const terr = terrasseDuParasol(par, objects, terrasseSelectedKey);
+    const terr = terrasseDuParasol(par, etat.objects, etat.terrasseSelectedKey);
     if(!terr || !terr.pts || terr.pts.length<3) return;
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
@@ -746,12 +753,12 @@ function contraindreParasols(){
 }
 function renderParasolOverlay(){
   parasolGroup.innerHTML = '';
-  if(appMode !== 'plan') return;
-  const parasols = objects.filter(o=>o.fonction==='parasol' && !o.hidden);
+  if(etat.appMode !== 'plan') return;
+  const parasols = etat.objects.filter(o=>o.fonction==='parasol' && !o.hidden);
   if(!parasols.length) return;
   contraindreParasols();
-  if(parasolCarteAffichee){
-    calculerCartesOmbre(contexteSoleilParasol(), objects).forEach(carte=>{
+  if(etat.parasol.carteAffichee){
+    calculerCartesOmbre(contexteSoleilParasol(), etat.objects).forEach(carte=>{
       const cote = carte.pas*scene.scale;
       carte.cells.forEach(c=>{
         if(c.frac <= 0) return;
@@ -765,7 +772,7 @@ function renderParasolOverlay(){
       });
     });
   }
-  if(parasolOmbreAffichee){
+  if(etat.parasol.ombreAffichee){
     parasols.forEach(par=>{
       const g = ombreInstantanee(par, contexteSoleilParasol());
       if(!g) return;
@@ -817,13 +824,13 @@ function render(){
   // In Mode Terrasse the plan is a backdrop for the layer overlay, not something being edited:
   // the selection handles and vertex labels would sit on top of the vis and solives and make
   // the canevas unreadable. The choice made in Mode Plan is kept, just not drawn here.
-  const activeSel = (appMode==='terrasse') ? null : selectedKey;
+  const activeSel = (etat.appMode==='terrasse') ? null : etat.selectedKey;
   if(activeSel && activeSel !== 'parcelle'){
-    const sel = objects.find(o=>o.key===activeSel);
+    const sel = etat.objects.find(o=>o.key===activeSel);
     if(sel) amenerPoigneesDevant(sel);
   }
 
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     const isSel = obj.key===activeSel;
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
@@ -944,17 +951,17 @@ function render(){
   drawScaleBar();
   drawNorthArrow();
   drawMeasures();
-  if(panelTab==='mesure') renderMeasureResults();
+  if(etat.panelTab==='mesure') renderMeasureResults();
 
   // show the "fit to selection" button only when an object is selected
   const fitBtn = document.getElementById('fitBtn');
-  if(fitBtn) fitBtn.style.display = selectedKey ? 'block' : 'none';
+  if(fitBtn) fitBtn.style.display = etat.selectedKey ? 'block' : 'none';
 
   // Mode Terrasse's construction overlay is drawn in screen space (toScreen), same as
   // everything else here: without this, panning/zooming the plan moves the real shapes
   // but leaves the vis/solives/lambourdes/lames overlay stuck at its old screen position.
-  if(appMode==='terrasse'){
-    const terrasseObj = objects.find(o=>o.key===terrasseSelectedKey);
+  if(etat.appMode==='terrasse'){
+    const terrasseObj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
     if(terrasseObj) renderTerrasseLayerView(terrasseObj);
   }
 }
@@ -984,7 +991,7 @@ function applyAngleEdit(obj, i, newAngleDeg){
   const signedDelta = (ccw ? -newAngleDeg : newAngleDeg) * Math.PI/180;
   const newVAngle = uAngle + signedDelta;
   const candidate = {x:cur.x+L*Math.cos(newVAngle), y:cur.y+L*Math.sin(newVAngle)};
-  const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
   if(!bound || pointInPolygon(candidate,bound)){
     obj.pts[(i+1)%n] = candidate;
     return true;
@@ -1000,7 +1007,7 @@ function applyLengthEdit(obj, i, newLen){
   if(aFrozen && bFrozen) return false; // both ends locked: nothing can move
 
   const a = obj.pts[i], b = obj.pts[j];
-  const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
 
   if(bFrozen){
     // b is fixed: move a instead, keeping b fixed and reaching the target length
@@ -1023,7 +1030,6 @@ function applyLengthEdit(obj, i, newLen){
   return false;
 }
 
-let attrTab = 'segments'; // 'segments' | 'angles'
 
 // Le type geometrique brut (Chemin) ne dit rien d'utile pour un point de vue - il est
 // techniquement un chemin a 2 points, mais personne ne le pense comme "un chemin". Fonction prime
@@ -1035,7 +1041,7 @@ function libelleTypeObjet(obj){
 }
 
 function renderAttrTable(){
-  const obj = objects.find(o=>o.key===selectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.selectedKey);
   const nameTbl = document.getElementById('attrNameTable');
   const tabsDiv = document.getElementById('attrTabs');
   const tbl = document.getElementById('attrTable');
@@ -1084,22 +1090,22 @@ function renderAttrTable(){
   if(obj.type==='polygon'){
     [['objet','Objet'],['segments','Cotes'],['angles','Coins']].forEach(([key,label])=>{
       const b = document.createElement('button');
-      b.className = 'attrTabBtn' + (attrTab===key ? ' active' : '');
+      b.className = 'attrTabBtn' + (etat.attrTab===key ? ' active' : '');
       b.textContent = label;
-      b.addEventListener('click', ()=>{ attrTab=key; render(); });
+      b.addEventListener('click', ()=>{ etat.attrTab=key; render(); });
       tabsDiv.appendChild(b);
     });
   } else if(obj.type==='path'){
-    if(attrTab==='angles') attrTab='segments'; // path has no angle tab
+    if(etat.attrTab==='angles') etat.attrTab='segments'; // path has no angle tab
     [['objet','Objet'],['segments','Points / Segments']].forEach(([key,label])=>{
       const b = document.createElement('button');
-      b.className = 'attrTabBtn' + (attrTab===key ? ' active' : '');
+      b.className = 'attrTabBtn' + (etat.attrTab===key ? ' active' : '');
       b.textContent = label;
-      b.addEventListener('click', ()=>{ attrTab=key; render(); });
+      b.addEventListener('click', ()=>{ etat.attrTab=key; render(); });
       tabsDiv.appendChild(b);
     });
   } else {
-    attrTab = 'objet'; // circles only have the Objet tab
+    etat.attrTab = 'objet'; // circles only have the Objet tab
     const b = document.createElement('button');
     b.className = 'attrTabBtn active';
     b.textContent = 'Objet';
@@ -1109,13 +1115,13 @@ function renderAttrTable(){
   // --- content table (tabbed for polygons, single view for circle) ---
   tbl.innerHTML = '';
   const head = document.createElement('tr');
-  head.innerHTML = (obj.type==='polygon' && attrTab==='angles')
+  head.innerHTML = (obj.type==='polygon' && etat.attrTab==='angles')
     ? '<th>Champ</th><th>Nom</th><th>Valeur</th><th>Figé</th>'
     : '<th>Champ</th><th>Nom</th><th>Valeur</th>';
   tbl.appendChild(head);
 
-  if(attrTab==='objet'){
-    const parcelleForSurf = objects.find(o=>o.key==='parcelle');
+  if(etat.attrTab==='objet'){
+    const parcelleForSurf = etat.objects.find(o=>o.key==='parcelle');
     const sParcelle = parcelleForSurf ? shoelace(parcelleForSurf.pts) : 0;
     const surf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
     const addRow = (label, valueEl) => {
@@ -1223,7 +1229,7 @@ function renderAttrTable(){
           const estChemin = obj.fonction === 'chemin';
           ouvrirSelecteurTexture(label, (choix, appliquerTous)=>{
             if(appliquerTous){
-              objects.filter(o=>o.fonction==='chemin').forEach(o=>{
+              etat.objects.filter(o=>o.fonction==='chemin').forEach(o=>{
                 o.textureVerticale = choix; o.textureHorizontale = choix;
               });
             } else {
@@ -1231,7 +1237,7 @@ function renderAttrTable(){
             }
             markDirty();
             renderAttrTable();
-            const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+            const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
             if(t) buildThreeScene(t);
           }, estChemin ? { checkboxLabel: 'Appliquer à tous les chemins (vertical + horizontale)' } : undefined);
         });
@@ -1241,7 +1247,7 @@ function renderAttrTable(){
           clearBtn.textContent = '×'; clearBtn.title = 'Retirer cette texture';
           clearBtn.addEventListener('click', ()=>{
             obj[cle] = null; markDirty(); renderAttrTable();
-            const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+            const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
             if(t) buildThreeScene(t);
           });
           wrap.appendChild(clearBtn);
@@ -1262,7 +1268,7 @@ function renderAttrTable(){
         diamInp.addEventListener('change', ()=>{
           obj.diametreArbre = Math.max(0.1, parseFloat(diamInp.value)) || 3;
           markDirty();
-          const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+          const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
           if(t) buildThreeScene(t);
         });
         addRow('Diamètre du feuillage (m)', diamInp);
@@ -1273,7 +1279,7 @@ function renderAttrTable(){
         couleurArbreInp.addEventListener('input', ()=>{
           obj.couleurArbre = couleurArbreInp.value;
           markDirty();
-          const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+          const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
           if(t) buildThreeScene(t);
         });
         addRow('Couleur du feuillage', couleurArbreInp);
@@ -1284,14 +1290,14 @@ function renderAttrTable(){
       if(obj.fonction === 'parasol'){
         // Terrasse de rattachement : c'est elle dont l'ombrage est mesure et sur laquelle porte la
         // recherche de position. Indispensable des qu'il y a plusieurs terrasses.
-        const terrasses = objects.filter(o=>o.fonction==='terrasse');
+        const terrasses = etat.objects.filter(o=>o.fonction==='terrasse');
         const tSelect = document.createElement('select');
         if(!terrasses.length){
           const o0 = document.createElement('option');
           o0.textContent = 'Aucune terrasse dans le plan'; o0.value = '';
           tSelect.appendChild(o0); tSelect.disabled = true;
         } else {
-          const courante = terrasseDuParasol(obj, objects, terrasseSelectedKey);
+          const courante = terrasseDuParasol(obj, etat.objects, etat.terrasseSelectedKey);
           terrasses.forEach(t=>{
             const o2 = document.createElement('option');
             o2.value = t.key; o2.textContent = t.name;
@@ -1320,7 +1326,7 @@ function renderAttrTable(){
           hInp.value = obj.hauteurParasol;
           markDirty();
           render();
-          const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+          const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
           if(t) buildThreeScene(t);
         });
         addRow('Hauteur du mât (m)', hInp);
@@ -1340,7 +1346,7 @@ function renderAttrTable(){
           obj.matDeporte = cbDep.checked;
           markDirty();
           render(); renderAttrTable();
-          const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+          const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
           if(t) buildThreeScene(t);
         });
         addRow('Mât déporté (en bord de toile)', cbDep);
@@ -1354,39 +1360,39 @@ function renderAttrTable(){
             angInp.value = Math.round(obj.matAngleDeg);
             markDirty();
             render();
-            const t = threeScene && objects.find(o=>o.key===terrasseSelectedKey);
+            const t = threeScene && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
             if(t) buildThreeScene(t);
           });
           addRow('Orientation du mât (°)', angInp);
         }
 
-        const dateInp = document.createElement('input'); dateInp.type='date'; dateInp.value = parasolDateStr;
-        dateInp.addEventListener('change', ()=>{ if(dateInp.value){ parasolDateStr = dateInp.value; render(); } });
+        const dateInp = document.createElement('input'); dateInp.type='date'; dateInp.value = etat.parasol.dateStr;
+        dateInp.addEventListener('change', ()=>{ if(dateInp.value){ etat.parasol.dateStr = dateInp.value; render(); } });
         addRow('Ombre — date', dateInp);
 
         const wrapH = document.createElement('div');
         wrapH.style.cssText = 'display:flex; align-items:center; gap:8px;';
         const heureInp = document.createElement('input'); heureInp.type='range';
-        heureInp.min='0'; heureInp.max='1439'; heureInp.step='5'; heureInp.value = parasolMinutes;
+        heureInp.min='0'; heureInp.max='1439'; heureInp.step='5'; heureInp.value = etat.parasol.minutes;
         heureInp.style.cssText = 'flex:1;';
         const heureTxt = document.createElement('span');
         heureTxt.style.cssText = 'min-width:44px; text-align:right; font-variant-numeric:tabular-nums;';
-        heureTxt.textContent = formatHeureMin(parasolMinutes);
+        heureTxt.textContent = formatHeureMin(etat.parasol.minutes);
         heureInp.addEventListener('input', ()=>{
-          parasolMinutes = parseInt(heureInp.value,10);
-          heureTxt.textContent = formatHeureMin(parasolMinutes);
+          etat.parasol.minutes = parseInt(heureInp.value,10);
+          heureTxt.textContent = formatHeureMin(etat.parasol.minutes);
           render();
         });
         wrapH.appendChild(heureInp); wrapH.appendChild(heureTxt);
         addRow('Ombre — heure', wrapH);
 
-        const cbOmbre = document.createElement('input'); cbOmbre.type='checkbox'; cbOmbre.checked = parasolOmbreAffichee;
-        cbOmbre.addEventListener('change', ()=>{ parasolOmbreAffichee = cbOmbre.checked; render(); });
+        const cbOmbre = document.createElement('input'); cbOmbre.type='checkbox'; cbOmbre.checked = etat.parasol.ombreAffichee;
+        cbOmbre.addEventListener('change', ()=>{ etat.parasol.ombreAffichee = cbOmbre.checked; render(); });
         addRow('Afficher l\'ombre', cbOmbre);
 
-        const cbCarte = document.createElement('input'); cbCarte.type='checkbox'; cbCarte.checked = parasolCarteAffichee;
+        const cbCarte = document.createElement('input'); cbCarte.type='checkbox'; cbCarte.checked = etat.parasol.carteAffichee;
         cbCarte.title = 'Colore la terrasse selon la part des apres-midis d\'ete (mai a septembre, 12h-18h) passee a l\'ombre';
-        cbCarte.addEventListener('change', ()=>{ parasolCarteAffichee = cbCarte.checked; render(); });
+        cbCarte.addEventListener('change', ()=>{ etat.parasol.carteAffichee = cbCarte.checked; render(); });
         addRow('Carte de chaleur (heures d\'ombre)', cbCarte);
 
         const wrapOpt = document.createElement('div');
@@ -1396,14 +1402,14 @@ function renderAttrTable(){
         const optTxt = document.createElement('span');
         optTxt.style.cssText = 'font-size:0.8rem; color:var(--ink-soft);';
         optBtn.addEventListener('click', ()=>{
-          const terr = terrasseDuParasol(obj, objects, terrasseSelectedKey);
+          const terr = terrasseDuParasol(obj, etat.objects, etat.terrasseSelectedKey);
           if(!terr){ showToast('Aucune terrasse : cree d\'abord un objet avec Fonction = terrasse.'); return; }
           optBtn.disabled = true; optBtn.textContent = 'Recherche…';
           // Laisse le navigateur peindre l'etat "Recherche…" avant de bloquer le thread : sans ce
           // report, le calcul demarre dans le meme tour de boucle et le bouton ne change jamais
           // visuellement d'aspect.
           setTimeout(()=>{
-            const res = chercherMeilleurePositionParasol(obj, contexteSoleilParasol(), objects);
+            const res = chercherMeilleurePositionParasol(obj, contexteSoleilParasol(), etat.objects);
             optBtn.disabled = false; optBtn.textContent = 'Placer au mieux';
             if(!res){ showToast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
             pushHistory();
@@ -1461,7 +1467,7 @@ function renderAttrTable(){
           let depart = 0, meilleure = Infinity;
           coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts[0]); if(d < meilleure){ meilleure = d; depart = k; } });
           const newPts = obj.pts.map((_,i)=>({ ...coins[(depart+i)%4] }));
-          const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+          const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
           if(bound && !newPts.every(p=>pointInPolygon(p,bound))){
             showToast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
             rectCb.checked = false;
@@ -1487,7 +1493,7 @@ function renderAttrTable(){
         const v = parseFloat(rr.value);
         if(!isNaN(v) && v>0.05){
           pushHistory();
-          const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+          const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
           let ok = !bound;
           if(bound){
             ok = true;
@@ -1618,10 +1624,10 @@ function renderAttrTable(){
       alignBtnTd.appendChild(alignBtn);
       alignBtnRow.appendChild(alignBtnTd); tbl.appendChild(alignBtnRow);
     }
-  } else if(obj.type==='polygon' && attrTab==='angles'){
+  } else if(obj.type==='polygon' && etat.attrTab==='angles'){
     obj.vertexNames.forEach((vn,i)=>{
       const tr=document.createElement('tr');
-      if(highlight.type==='vertex' && highlight.index===i) tr.className='highlightRow';
+      if(etat.highlight.type==='vertex' && etat.highlight.index===i) tr.className='highlightRow';
       const frozen = !!obj.frozenVertices[i];
       const td0=document.createElement('td'); td0.textContent='Coin '+(i+1)+' (angle)';
       const td1=document.createElement('td');
@@ -1672,11 +1678,11 @@ function renderAttrTable(){
       tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
       tbl.appendChild(tr);
     });
-  } else if((obj.type==='polygon' || obj.type==='path') && attrTab==='segments'){
+  } else if((obj.type==='polygon' || obj.type==='path') && etat.attrTab==='segments'){
     if(obj.type==='path'){
       obj.vertexNames.forEach((vn,i)=>{
         const tr=document.createElement('tr');
-        if(highlight.type==='vertex' && highlight.index===i) tr.className='highlightRow';
+        if(etat.highlight.type==='vertex' && etat.highlight.index===i) tr.className='highlightRow';
         const td0=document.createElement('td'); td0.textContent='Point '+(i+1);
         const td1=document.createElement('td');
         const ii=document.createElement('input'); ii.type='text'; ii.value=vn;
@@ -1704,7 +1710,7 @@ function renderAttrTable(){
       const n = obj.pts.length;
       if(obj.type==='path' && i >= n-1) return; // no closing segment for open paths
       const tr=document.createElement('tr');
-      if(highlight.type==='segment' && highlight.index===i) tr.className='highlightRow';
+      if(etat.highlight.type==='segment' && etat.highlight.index===i) tr.className='highlightRow';
       const td0=document.createElement('td'); td0.textContent='Cote '+(i+1)+' (longueur)';
       const td1=document.createElement('td');
       const ii=document.createElement('input'); ii.type='text'; ii.value=sn;
@@ -1771,9 +1777,9 @@ function renderDispTable(){
   // Chaque case appelle render(), qui rappelle cette fonction : tout reconstruire detachait du
   // DOM la case qu'on venait de cocher, et le focus clavier repartait au debut de la page. Tant
   // que la liste d'objets ne bouge pas, on se contente donc de remettre les cases a jour.
-  const signature = JSON.stringify(objects.map(o=>[o.key, o.name]));
-  if(tbl.dataset.signature === signature && tbl.rows.length === objects.length + 1){
-    objects.forEach((obj,i)=>{
+  const signature = JSON.stringify(etat.objects.map(o=>[o.key, o.name]));
+  if(tbl.dataset.signature === signature && tbl.rows.length === etat.objects.length + 1){
+    etat.objects.forEach((obj,i)=>{
       const cells = tbl.rows[i+1].cells;
       const cbHide = cells[1].firstChild;
       if(cbHide) cbHide.checked = !!obj.hidden;
@@ -1795,8 +1801,8 @@ function renderDispTable(){
   thHide.style.cursor = 'pointer';
   thHide.title = "Cliquer pour masquer/afficher tous les objets";
   thHide.addEventListener('click', ()=>{
-    const allHidden = objects.every(o=>o.hidden);
-    objects.forEach(o=>{ o.hidden = !allHidden; });
+    const allHidden = etat.objects.every(o=>o.hidden);
+    etat.objects.forEach(o=>{ o.hidden = !allHidden; });
     markDirty();
     render();
   });
@@ -1807,9 +1813,9 @@ function renderDispTable(){
     th.style.cursor = 'pointer';
     th.title = "Cliquer pour appliquer a tous les objets";
     th.addEventListener('click', ()=>{
-      const allChecked = objects.every(o=>o[col.field]);
+      const allChecked = etat.objects.every(o=>o[col.field]);
       const newVal = !allChecked;
-      objects.forEach(o=>{ o[col.field] = newVal; });
+      etat.objects.forEach(o=>{ o[col.field] = newVal; });
       markDirty();
       render();
     });
@@ -1817,12 +1823,12 @@ function renderDispTable(){
   });
   tbl.appendChild(head);
 
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     // On retient la cle, pas l'objet : les lignes survivent maintenant a un render(), et un
     // restoreState() remplace les objets par des copies. Capturer `obj` ferait ecrire les cases
     // dans des objets detaches du plan.
     const cle = obj.key;
-    const cible = ()=>objects.find(o=>o.key === cle);
+    const cible = ()=>etat.objects.find(o=>o.key === cle);
     const tr=document.createElement('tr');
     const td0=document.createElement('td'); td0.textContent=obj.name;
     tr.appendChild(td0);
@@ -1844,12 +1850,12 @@ function renderDispTable(){
 }
 
 // ---- North arrow (fixed screen position, toggleable) ----
-let showNorth = true;
+// showNorth : dans `etat` (spec 6.1).
 const northGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(northGroup);
 function drawNorthArrow(){
   northGroup.innerHTML = '';
-  if(!showNorth) return;
+  if(!etat.showNorth) return;
   const nx = W-30, ny = 34;
   const g = document.createElementNS(svgNS,'g');
   g.setAttribute('transform','translate('+nx+','+ny+')');
@@ -1900,14 +1906,14 @@ function worldFromEvent(e){
   const rect = stage.getBoundingClientRect();
   return toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
 }
-function objByKey(key){ return objects.find(o=>o.key===key); }
+function objByKey(key){ return etat.objects.find(o=>o.key===key); }
 
 svg.addEventListener('pointerdown', e=>{
   const ds = e.target.dataset;
   // Mode Terrasse is read-only over the plan geometry (construction config lives in its
   // own panel): block shape/point/edge/radius interaction, but let a blank-background
   // pointerdown fall through so pan still works.
-  if(appMode==='terrasse' && ds && ds.role){ e.preventDefault(); return; }
+  if(etat.appMode==='terrasse' && ds && ds.role){ e.preventDefault(); return; }
 
   // ---- Measurement tool / Alignment tool: intercept clicks while picking a reference segment / target point(s) ----
   if(pickState){
@@ -1930,7 +1936,7 @@ svg.addEventListener('pointerdown', e=>{
       if(ds && ds.role==='point'){
         t = {objKey:ds.key, ptIndex:parseInt(ds.index,10)};
       } else if(ds && ds.role==='obj'){
-        const tobj = objects.find(o=>o.key===ds.key);
+        const tobj = etat.objects.find(o=>o.key===ds.key);
         if(tobj && tobj.type==='circle') t = {objKey:ds.key, ptIndex:0};
       }
       if(t){
@@ -2000,14 +2006,14 @@ svg.addEventListener('pointerdown', e=>{
       return;
     }
     lastObjClick = {key, time:nowObj, x:e.clientX, y:e.clientY};
-    if(key !== selectedKey){
-      selectedKey = key; highlight = {type:null, index:null}; rebuildSelector(); render();
+    if(key !== etat.selectedKey){
+      etat.selectedKey = key; etat.highlight = {type:null, index:null}; rebuildSelector(); render();
       e.preventDefault();
       return;
     }
     const obj = objByKey(key);
     if(obj.locked) return; // locked: selectable/viewable but not movable
-    highlight = {type:null, index:null};
+    etat.highlight = {type:null, index:null};
     const rect0 = stage.getBoundingClientRect();
     pushHistory();
     if(obj.type==='circle'){
@@ -2016,7 +2022,7 @@ svg.addEventListener('pointerdown', e=>{
       activeDrag = {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(p=>({...p})), startScreen:{x:e.clientX-rect0.left,y:e.clientY-rect0.top}, moved:false};
     }
   } else if(ds.role === 'point'){
-    if(ds.key !== selectedKey) return;
+    if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key); const idx=parseInt(ds.index,10);
     if(obj.locked) return;
     const nowTp = Date.now();
@@ -2031,12 +2037,12 @@ svg.addEventListener('pointerdown', e=>{
     lastPointClick = {key:ds.key, index:idx, time:nowTp};
     // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
     if(obj.frozenVertices[idx] && !estRectangle(obj)) return;
-    highlight = {type:'vertex', index:idx};
-    attrTab = 'angles';
+    etat.highlight = {type:'vertex', index:idx};
+    etat.attrTab = 'angles';
     pushHistory();
     activeDrag = {type:'point', obj, idx, startWorld:w, startPt:{...obj.pts[idx]}};
   } else if(ds.role === 'edge'){
-    if(ds.key !== selectedKey) return;
+    if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key); const i=parseInt(ds.index,10); const n=obj.pts.length; const j=(i+1)%n;
     if(obj.locked) return;
     const nowT = Date.now();
@@ -2049,15 +2055,15 @@ svg.addEventListener('pointerdown', e=>{
     lastEdgeClick = {key:ds.key, index:i, time:nowT};
     // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
     if((obj.frozenVertices[i] || obj.frozenVertices[j]) && !estRectangle(obj)) return;
-    highlight = {type:'segment', index:i};
-    attrTab = 'segments';
+    etat.highlight = {type:'segment', index:i};
+    etat.attrTab = 'segments';
     pushHistory();
     activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...obj.pts[i]}, startB:{...obj.pts[j]}};
   } else if(ds.role === 'radius'){
-    if(ds.key !== selectedKey) return;
+    if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key);
     if(obj.locked) return;
-    highlight = {type:null, index:null};
+    etat.highlight = {type:null, index:null};
     pushHistory();
     activeDrag = {type:'radius', obj, startWorld:w, startR:obj.r};
   }
@@ -2155,7 +2161,7 @@ window.addEventListener('pointermove', e=>{
 window.addEventListener('pointerup', ()=>{
   if(activeDrag && (activeDrag.type==='shapeMove' || activeDrag.type==='circleMove') && !activeDrag.moved){
     // plain click (no drag) on the already-selected object's fill: toggle deselect
-    selectedKey = null;
+    etat.selectedKey = null;
     rebuildSelector();
     render();
   }
@@ -2174,7 +2180,7 @@ function insertPointOnSegment(obj, segIndex, clickWorld){
   const n = obj.pts.length;
   const a = obj.pts[segIndex], b = obj.pts[(segIndex+1)%n];
   const newPt = projectOntoSegment(clickWorld, a, b);
-  const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
   if(bound && !pointInPolygon(newPt, bound)) return;
   pushHistory();
   obj.pts.splice(segIndex+1, 0, newPt);
@@ -2294,18 +2300,18 @@ document.getElementById('delObjBtn').addEventListener('click', deleteSelectedObj
 // Le double-tap est un geste fragile au doigt sur une petite forme : le bouton fait la meme
 // chose de facon fiable, et rend la fonction decouvrable.
 document.getElementById('backObjBtn').addEventListener('click', ()=>{
-  const obj = objByKey(selectedKey);
+  const obj = objByKey(etat.selectedKey);
   if(!obj){ showToast('Selectionne d\'abord un objet.'); return; }
   if(obj.key==='parcelle'){ showToast('La parcelle reste toujours au fond.'); return; }
   pushHistory();
-  const avant = objects.indexOf(obj);
+  const avant = etat.objects.indexOf(obj);
   sendObjectBackward(obj);
-  if(objects.indexOf(obj) === avant) showToast('Deja au fond de sa priorite d\'affichage.');
+  if(etat.objects.indexOf(obj) === avant) showToast('Deja au fond de sa priorite d\'affichage.');
 });
 document.getElementById('resetPosBtn').addEventListener('click', ()=>{
-  const obj = objByKey(selectedKey);
+  const obj = objByKey(etat.selectedKey);
   if(!obj){ showToast('Selectionne d\'abord un objet.'); return; }
-  const init = initialState.find(o=>o.key===selectedKey);
+  const init = initialState.find(o=>o.key===etat.selectedKey);
   if(!init){ showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
   pushHistory();
   if(obj.type==='circle'){
@@ -2333,17 +2339,17 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   });
 });
 
-document.getElementById('chkNorth').addEventListener('change', e=>{ showNorth = e.target.checked; render(); });
+document.getElementById('chkNorth').addEventListener('change', e=>{ etat.showNorth = e.target.checked; render(); });
 document.getElementById('chkVoisinage').addEventListener('change', function(){
-  voisinageVisible = this.checked;
+  etat.voisinageVisible = this.checked;
   // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
   // parcelle (a defaut, le premier objet reste visible).
-  if(!voisinageVisible){
-    const sel = objects.find(o=>o.key === selectedKey);
+  if(!etat.voisinageVisible){
+    const sel = etat.objects.find(o=>o.key === etat.selectedKey);
     if(sel && sel.voisinage){
-      const repli = objects.find(o=>o.key === 'parcelle') || objects.find(o=>!o.voisinage);
-      selectedKey = repli ? repli.key : null;
-      highlight = {type:null, index:null};
+      const repli = etat.objects.find(o=>o.key === 'parcelle') || etat.objects.find(o=>!o.voisinage);
+      etat.selectedKey = repli ? repli.key : null;
+      etat.highlight = {type:null, index:null};
     }
   }
   enregistrerAffichage();
@@ -2351,10 +2357,10 @@ document.getElementById('chkVoisinage').addEventListener('change', function(){
   render();
   // La 3D batit sa scene a partir des objets visibles : il faut la reconstruire, pas seulement
   // la redessiner.
-  if(threeScene) buildThreeScene(objects.find(o=>o.key===terrasseSelectedKey) || null);
+  if(threeScene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 });
 document.getElementById('gridBtn').addEventListener('click', ()=>{
-  grilleVisible = !grilleVisible;
+  etat.grilleVisible = !etat.grilleVisible;
   syncBasculeGrille();
   enregistrerAffichage();
   render();
@@ -2381,15 +2387,15 @@ document.getElementById('orthoParcelleDefaut').addEventListener('click', functio
 });
 
 // ================= Add / delete whole object =================
-let newObjCounter = 1;
+// newObjCounter : dans `etat` (spec 6.1).
 // `enRectangle` cree la forme avec le mode rectangle deja arme : les quatre angles sont tenus a
 // 90 degres des le depart, et tirer un coin redimensionne au lieu de deformer. C'est le cas de
 // loin le plus courant (terrasse, dalle, abri) et il evitait jusqu'ici d'aller cocher la case.
 function addNewObject(enRectangle){
   pushHistory();
-  const pc = objects.find(o=>o.key==='parcelle');
+  const pc = etat.objects.find(o=>o.key==='parcelle');
   const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'obj' + Date.now() + '_' + (newObjCounter++);
+  const key = 'obj' + Date.now() + '_' + (etat.newObjCounter++);
   const demiL = enRectangle ? 1.5 : 1.0;   // 3 x 2 m, pour qu'on voie que c'est un rectangle
   const demiH = 1.0;
   const newObj = {
@@ -2405,23 +2411,23 @@ function addNewObject(enRectangle){
     showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
     constrained:true, fonction:'autre', matiere:'', priority:2, locked:false
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
-  selectedKey = key;
+  etat.selectedKey = key;
   // Sur un rectangle on ouvre l'onglet Objet : c'est la que se trouve la case du mode, donc
   // celle qu'il faudra decocher pour reprendre la main sur les angles.
-  attrTab = enRectangle ? 'objet' : 'segments';
+  etat.attrTab = enRectangle ? 'objet' : 'segments';
   rebuildSelector();
   render();
 }
 
 function addNewPath(){
   pushHistory();
-  const pc = objects.find(o=>o.key==='parcelle');
+  const pc = etat.objects.find(o=>o.key==='parcelle');
   const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'path' + Date.now() + '_' + (newObjCounter++);
+  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
   const newObj = {
     key, type:'path', name:'Nouveau chemin', fill:'#c9a15a', fillOpacity:1, stroke:'#c9a15a',
     pts:[ {x:c.x-2,y:c.y}, {x:c.x+2,y:c.y} ],
@@ -2432,33 +2438,33 @@ function addNewPath(){
     showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
     constrained:true, fonction:'chemin', matiere:'', priority:2, locked:false
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
-  selectedKey = key;
-  attrTab = 'segments';
+  etat.selectedKey = key;
+  etat.attrTab = 'segments';
   rebuildSelector();
   render();
 }
 
 function addNewCircle(){
   pushHistory();
-  const pc = objects.find(o=>o.key==='parcelle');
+  const pc = etat.objects.find(o=>o.key==='parcelle');
   const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'circle' + Date.now() + '_' + (newObjCounter++);
+  const key = 'circle' + Date.now() + '_' + (etat.newObjCounter++);
   const newObj = {
     key, type:'circle', name:'Nouveau cercle', fill:'#5bc8f5', fillOpacity:0.88, stroke:'#0a3d5c',
     center:{x:c.x, y:c.y}, r:1.0,
     showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
     constrained:true, fonction:'equipement', matiere:'', priority:2, locked:false
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
-  selectedKey = key;
-  attrTab = 'objet';
+  etat.selectedKey = key;
+  etat.attrTab = 'objet';
   rebuildSelector();
   render();
 }
@@ -2470,12 +2476,12 @@ function addNewParasol(){
   pushHistory();
   // Pose par defaut au centre de la terrasse (c'est un parasol DE terrasse) plutot qu'au centre de
   // la parcelle - sinon il nait loin de l'endroit ou on veut l'utiliser.
-  const terr = objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse')
-            || objects.find(o=>o.fonction==='terrasse')
-            || objects.find(o=>o.key==='parcelle');
+  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
+            || etat.objects.find(o=>o.fonction==='terrasse')
+            || etat.objects.find(o=>o.key==='parcelle');
   const c = terr ? centroid(terr.pts) : {x:0, y:0};
-  const key = 'circle' + Date.now() + '_' + (newObjCounter++);
-  const n = objects.filter(o=>o.fonction==='parasol').length + 1;
+  const key = 'circle' + Date.now() + '_' + (etat.newObjCounter++);
+  const n = etat.objects.filter(o=>o.fonction==='parasol').length + 1;
   const newObj = {
     key, type:'circle', name:'Parasol '+n, fill:'#7a9e6b', fillOpacity:0.55, stroke:'#3f5c33',
     center:{x:c.x, y:c.y}, r:1.5, // 3 m de diametre, taille courante d'un parasol de terrasse
@@ -2484,12 +2490,12 @@ function addNewParasol(){
     hauteurParasol:2.2,
     terrasseLieeKey: (terr && terr.fonction==='terrasse') ? terr.key : null
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
-  selectedKey = key;
-  attrTab = 'objet';
+  etat.selectedKey = key;
+  etat.attrTab = 'objet';
   rebuildSelector();
   render();
 }
@@ -2500,10 +2506,10 @@ function addNewParasol(){
 // placement/selection/export pour un simple marqueur.
 function addNewViewpoint(){
   pushHistory();
-  const pc = objects.find(o=>o.key==='parcelle');
+  const pc = etat.objects.find(o=>o.key==='parcelle');
   const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'path' + Date.now() + '_' + (newObjCounter++);
-  const n = objects.filter(o=>o.fonction==='camera').length + 1;
+  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
+  const n = etat.objects.filter(o=>o.fonction==='camera').length + 1;
   const newObj = {
     key, type:'path', name:'Point de vue '+n, fill:'#c0392b', fillOpacity:0.9, stroke:'#6b1f16',
     pts:[ {x:c.x, y:c.y}, {x:c.x+2, y:c.y} ],
@@ -2513,18 +2519,18 @@ function addNewViewpoint(){
     constrained:false, fonction:'camera', matiere:'', priority:3, locked:false,
     altitude:1.6
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
-  selectedKey = key;
-  attrTab = 'objet';
+  etat.selectedKey = key;
+  etat.attrTab = 'objet';
   rebuildSelector();
   render();
 }
 
 function duplicateSelectedObject(){
-  const src = objects.find(o=>o.key===selectedKey);
+  const src = etat.objects.find(o=>o.key===etat.selectedKey);
   if(!src){ showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
   pushHistory();
   // Passe par le meme couple serialize/normalize que la sauvegarde et l'annulation. La raison
@@ -2533,27 +2539,27 @@ function duplicateSelectedObject(){
   // et qui suffit a garder ce detour : la copie doit etre normalisee comme un objet importe,
   // avec ses invariants de tableaux (vertexNames, segmentNames, frozenVertices).
   const plain = serializeObjects([src])[0];
-  plain.key = 'dup' + Date.now() + '_' + (newObjCounter++);
+  plain.key = 'dup' + Date.now() + '_' + (etat.newObjCounter++);
   plain.name = src.name + ' (copie)';
   const clone = normalizeObjects([plain])[0];
   if(clone.type==='circle') clone.center.x -= 5;
   else clone.pts.forEach(p=>{ p.x -= 5; });
-  objects.push(clone);
+  etat.objects.push(clone);
   createObjectDOM(clone);
   rebuildHandles(clone);
   reapplyStackingOrder();
-  selectedKey = clone.key;
-  attrTab = 'objet';
+  etat.selectedKey = clone.key;
+  etat.attrTab = 'objet';
   rebuildSelector();
   render();
 }
 
 function deleteSelectedObject(){
-  if(!selectedKey){ showToast('Sélectionne d\'abord un objet à supprimer.'); return; }
-  if(selectedKey === 'parcelle'){ showToast('La parcelle ne peut pas être supprimée.'); return; }
-  const idx = objects.findIndex(o=>o.key===selectedKey);
+  if(!etat.selectedKey){ showToast('Sélectionne d\'abord un objet à supprimer.'); return; }
+  if(etat.selectedKey === 'parcelle'){ showToast('La parcelle ne peut pas être supprimée.'); return; }
+  const idx = etat.objects.findIndex(o=>o.key===etat.selectedKey);
   if(idx===-1) return;
-  const obj = objects[idx];
+  const obj = etat.objects[idx];
   if(obj.locked){ showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
   showConfirm('Supprimer definitivement "' + obj.name + '" ?', ()=>{
     pushHistory();
@@ -2562,8 +2568,8 @@ function deleteSelectedObject(){
     vue(obj).edgeEls.forEach(el=>el.remove()); vue(obj).segLabelEls.forEach(el=>el.remove());
     if(vue(obj).radiusHandle) vue(obj).radiusHandle.remove();
     if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.remove();
-    objects.splice(idx,1);
-    selectedKey = null;
+    etat.objects.splice(idx,1);
+    etat.selectedKey = null;
     rebuildSelector();
     render();
   });
@@ -2657,7 +2663,7 @@ const NAME_SEP = '\u241F'; // unlikely-to-collide separator for encoding name ar
 
 function buildExportSVG(){
   const allPts = [];
-  objects.forEach(o=>{
+  etat.objects.forEach(o=>{
     if(o.type==='polygon' || o.type==='path') o.pts.forEach(p=>allPts.push(p));
     else { allPts.push({x:o.center.x-o.r,y:o.center.y-o.r}); allPts.push({x:o.center.x+o.r,y:o.center.y+o.r}); }
   });
@@ -2695,7 +2701,7 @@ function buildExportSVG(){
   }
 
   let body = '';
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     if(obj.type==='polygon'){
       const pts = obj.pts.map(p=>{const s=exToSvg(p); return s.x.toFixed(2)+','+s.y.toFixed(2);}).join(' ');
       body += '<polygon points="'+pts+'" fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.15" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-points="'+escapeXml(obj.pts.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml(obj.vertexNames.join(NAME_SEP))+'" data-segment-names="'+escapeXml(obj.segmentNames.join(NAME_SEP))+'"/>\n';
@@ -2753,8 +2759,8 @@ function buildExportSVG(){
   });
 
   // draw visible measures (matches the live plan) + embed a hidden JSON copy for exact re-import
-  const pcObjForExport = objects.find(o=>o.key==='parcelle');
-  measures.forEach(m=>{
+  const pcObjForExport = etat.objects.find(o=>o.key==='parcelle');
+  etat.measures.forEach(m=>{
     if(!m.show || !pcObjForExport) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
@@ -2765,8 +2771,8 @@ function buildExportSVG(){
     const prefix = (m.displayMode==='along') ? '-&gt; ' : 'T ';
     body += '<text x="'+pAnchor.x.toFixed(2)+'" y="'+pAnchor.y.toFixed(2)+'" text-anchor="middle" font-size="'+fsVert+'" font-family="Helvetica Neue, Arial, sans-serif" fill="#0F4C63">'+prefix+value.toFixed(2)+' m</text>\n';
   });
-  if(measures.length){
-    const measuresJSON = JSON.stringify(measures.map(m=>({
+  if(etat.measures.length){
+    const measuresJSON = JSON.stringify(etat.measures.map(m=>({
       refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
       targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:m.show, displayMode:m.displayMode
     })));
@@ -2793,7 +2799,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   const parcelleForText = objByKey('parcelle');
   const sParcelle = parcelleForText ? shoelace(parcelleForText.pts) : 0;
   let total = 0;
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     let s;
     if(obj.type==='polygon') s = shoelace(obj.pts);
     else if(obj.type==='circle') s = Math.PI*obj.r*obj.r;
@@ -2803,7 +2809,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   });
   out += 'Emprise totale (hors parcelle): ' + total.toFixed(1) + ' m2' + (sParcelle>0 ? (' (' + (total/sParcelle*100).toFixed(1) + ' %)') : '') + '\n\n';
 
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     out += '--- ' + obj.name + ' (' + obj.key + ') ---\n';
     if(obj.type==='circle'){
       out += '  Centre: X=' + obj.center.x.toFixed(3) + ' Y=' + obj.center.y.toFixed(3) + '  Rayon=' + obj.r.toFixed(2) + ' m\n\n';
@@ -2832,9 +2838,9 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
     }
   });
 
-  if(measures.length){
+  if(etat.measures.length){
     out += '=== Mesures ===\n';
-    measures.forEach(m=>{
+    etat.measures.forEach(m=>{
       const g = computeMeasureGeom(m);
       out += '  ' + refLabel({objKey:m.refObjKey, segIndex:m.refSegIndex}) + ' -> ' + targetLabel({objKey:m.targetObjKey, ptIndex:m.targetPtIndex})
            + '  origine=' + m.startEnd
@@ -2851,7 +2857,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
 
 // center the initial view on the parcel, using the actual responsive canvas size
 (function centerInitialView(){
-  const parcelle = objects.find(o=>o.key==='parcelle');
+  const parcelle = etat.objects.find(o=>o.key==='parcelle');
   const xs = parcelle.pts.map(p=>p.x), ys = parcelle.pts.map(p=>p.y);
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
@@ -2864,11 +2870,11 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
 function fitToObject(obj){
   let xs, ys;
   if(!obj){
-    const parcelle = objects.find(o=>o.key==='parcelle');
+    const parcelle = etat.objects.find(o=>o.key==='parcelle');
     if(!parcelle){
-      if(!objects.length) return;
+      if(!etat.objects.length) return;
       xs = []; ys = [];
-      objects.forEach(o=>{
+      etat.objects.forEach(o=>{
         if(o.type==='circle'){ xs.push(o.center.x-o.r, o.center.x+o.r); ys.push(o.center.y-o.r, o.center.y+o.r); }
         else { o.pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); }); }
       });
@@ -2893,7 +2899,7 @@ function fitToObject(obj){
 
 function buildExportDXF(){
   let ents = '';
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     if(obj.type==='polygon'){
       ents += '0\nLWPOLYLINE\n8\n' + escapeXml(obj.name).replace(/[^\w-]/g,'_') + '\n90\n' + obj.pts.length + '\n70\n1\n';
       obj.pts.forEach(p=>{
@@ -2908,7 +2914,7 @@ function buildExportDXF(){
       ents += '0\nCIRCLE\n8\n' + escapeXml(obj.name).replace(/[^\w-]/g,'_') + '\n10\n' + dxfNum(obj.center.x) + '\n20\n' + dxfNum(obj.center.y) + '\n40\n' + dxfNum(obj.r) + '\n';
     }
   });
-  measures.forEach(m=>{
+  etat.measures.forEach(m=>{
     if(!m.show) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
@@ -2956,15 +2962,15 @@ function hexToRgb01(hex){
 function buildExportPDF(scaleDenom){
   scaleDenom = Math.max(1, scaleDenom || 200);
   const allPts = [];
-  objects.forEach(o=>{
+  etat.objects.forEach(o=>{
     if(o.type==='polygon'||o.type==='path') o.pts.forEach(p=>allPts.push(p));
     else { allPts.push({x:o.center.x-o.r,y:o.center.y-o.r}); allPts.push({x:o.center.x+o.r,y:o.center.y+o.r}); }
   });
   // also account for visible measure labels, which are placed outside the parcel and
   // would otherwise fall outside the page's computed bounding box (invisible/clipped)
-  const pcObjForBBox = objects.find(o=>o.key==='parcelle');
+  const pcObjForBBox = etat.objects.find(o=>o.key==='parcelle');
   if(pcObjForBBox){
-    measures.forEach(m=>{
+    etat.measures.forEach(m=>{
       if(!m.show) return;
       const g = computeMeasureGeom(m);
       if(!g) return;
@@ -3006,13 +3012,13 @@ function buildExportPDF(scaleDenom){
 
   // register one ExtGState per distinct fill-opacity value, so translucent fills
   // (e.g. Terrasse at 0.68) let objects underneath show through, matching the live plan
-  const opacityValues = [...new Set(objects.map(o=>Math.round((o.fillOpacity!=null?o.fillOpacity:1)*100)/100))];
+  const opacityValues = [...new Set(etat.objects.map(o=>Math.round((o.fillOpacity!=null?o.fillOpacity:1)*100)/100))];
   if(!opacityValues.includes(1)) opacityValues.push(1);
   const gsName = v => 'GS'+Math.round(v*100);
 
   let content = '1 w\n';
 
-  objects.forEach(obj=>{
+  etat.objects.forEach(obj=>{
     if(obj.type==='polygon'){
       const [fr,fg,fb] = hexToRgb01(obj.fill);
       const [sr,sg,sb] = hexToRgb01(obj.stroke);
@@ -3098,8 +3104,8 @@ function buildExportPDF(scaleDenom){
   });
 
   // measures (only those with "Afficher" checked, same rule as the live plan and the SVG export)
-  const pcObjPdf = objects.find(o=>o.key==='parcelle');
-  measures.forEach(m=>{
+  const pcObjPdf = etat.objects.find(o=>o.key==='parcelle');
+  etat.measures.forEach(m=>{
     if(!m.show || !pcObjPdf) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
@@ -3115,7 +3121,7 @@ function buildExportPDF(scaleDenom){
 
   // north arrow (fixed in the top-right corner of the drawing area), respects the same
   // "Afficher la fleche Nord" checkbox as the live plan and the SVG export
-  if(showNorth){
+  if(etat.showNorth){
     const nx = margin+drawW-14, ny = margin+drawH-28;
     content += '0.23 0.18 0.12 RG 0.23 0.18 0.12 rg 1.4 w [] 0 d\n';
     content += nx.toFixed(2)+' '+(ny-4).toFixed(2)+' m '+nx.toFixed(2)+' '+(ny+16).toFixed(2)+' l S\n';
@@ -3138,9 +3144,9 @@ function buildExportPDF(scaleDenom){
   content += 'BT /F1 8 Tf '+(sbX+barPts-14).toFixed(2)+' '+(sbY-11).toFixed(2)+' Td ('+barMeters+' m) Tj ET\n';
 
   // ---- second page: surfaces summary table ----
-  const pcObjSurf = objects.find(o=>o.key==='parcelle');
+  const pcObjSurf = etat.objects.find(o=>o.key==='parcelle');
   const sParcelleSurf = pcObjSurf ? shoelace(pcObjSurf.pts) : 0;
-  const surfRows = objects.map(o=>{
+  const surfRows = etat.objects.map(o=>{
     let s;
     if(o.type==='polygon') s = shoelace(o.pts);
     else if(o.type==='circle') s = Math.PI*o.r*o.r;
@@ -3182,7 +3188,7 @@ function buildExportPDF(scaleDenom){
   const objs = [];
   objs.push('<< /Type /Catalog /Pages 2 0 R >>');
   objs.push('<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>');
-  const gsStartNum = 8; // objects 1..7 are Catalog/Pages/Page1/Content1/Font/Page2/Content2
+  const gsStartNum = 8; // etat.objects 1..7 are Catalog/Pages/Page1/Content1/Font/Page2/Content2
   const extGStateDict = '<< ' + opacityValues.map((v,i)=>'/'+gsName(v)+' '+(gsStartNum+i)+' 0 R').join(' ') + ' >>';
   const resourcesDict = '<< /Font << /F1 5 0 R >> /ExtGState '+extGStateDict+' >>';
   objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+pageW.toFixed(2)+' '+pageH.toFixed(2)+'] /Resources '+resourcesDict+' /Contents 4 0 R >>');
@@ -3311,7 +3317,7 @@ function anglesPolygone(pts, P, opts){
   return c;
 }
 function equipementsSurTerrasse(terrasse){
-  return objects.filter(o=>{
+  return etat.objects.filter(o=>{
     if(o === terrasse || o.hidden) return false;
     if(FONCTIONS_HORS_EQUIPEMENT.indexOf(o.fonction) >= 0) return false;
     const c = o.type === 'circle' ? o.center : centroid(o.pts);
@@ -3333,7 +3339,7 @@ function pagePlanDeMasse(terrasses, equipementsParTerrasse, avecEquipements){
     if(!parcelle) return true;
     return pointInPolygon(o.type === 'circle' ? o.center : centroid(o.pts), parcelle.pts);
   };
-  const batiments = objects.filter(o=>(o.fonction === 'batiment' || o.fonction === 'annexe') && !o.hidden && surPropriete(o));
+  const batiments = etat.objects.filter(o=>(o.fonction === 'batiment' || o.fonction === 'annexe') && !o.hidden && surPropriete(o));
   const aDessiner = [];
   if(parcelle) aDessiner.push(parcelle);
   batiments.forEach(b=>aDessiner.push(b));
@@ -3509,7 +3515,7 @@ function renderDossierTerrasses(){
   const hote = document.getElementById('dossierTerrasses');
   if(!hote) return;
   hote.innerHTML = '';
-  const terrasses = objects.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon');
+  const terrasses = etat.objects.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon');
   if(!terrasses.length){
     const p = document.createElement('span');
     p.className = 'hint';
@@ -3557,7 +3563,7 @@ document.getElementById('dossierPdfBtn').addEventListener('click', function(){
 });
 
 function buildDossierPDF(cles, avecEquipements){
-  const terrasses = objects.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon' && cles.indexOf(o.key) >= 0);
+  const terrasses = etat.objects.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon' && cles.indexOf(o.key) >= 0);
   if(!terrasses.length) throw new Error('aucune terrasse selectionnee');
   const equipements = new Map();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(t) : []));
@@ -3636,8 +3642,8 @@ let dernierGlbExporte = null; // { buffer: ArrayBuffer, nomTerrasse, date }
 // vrai. La Visionneuse n'a besoin que des donnees : lui faire deposer un fichier dans le dossier
 // de telechargements a chaque ouverture ou rafraichissement n'aurait aucun interet.
 function genererGlb(btn, telecharger){
-  const terr = objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse')
-            || objects.find(o=>o.fonction==='terrasse');
+  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
+            || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr){ showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
   const libelleAvant = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = telecharger ? 'Export en cours…' : 'Génération…'; }
@@ -3700,10 +3706,10 @@ document.getElementById('exportGlbBtn').addEventListener('click', function(){
 // Each measure: {id, refObjKey, refSegIndex, startEnd, targetObjKey, targetPtIndex, show}
 // Geometry (perp/along/foot) is recomputed live every render so it always reflects the
 // current position of the objects involved.
-let measures = (seed.measures || []).map(m=>({...m}));
+// measures : dans `etat`, initialise par creerEtat (spec 6.1).
 // Reference snapshot of the measures as loaded, used by "Reinitialiser tout" alongside
 // `initialState` (objects) so a full reset restores the whole project, not just geometry.
-const initialMeasures = serializeMeasures(measures);
+const initialMeasures = serializeMeasures(etat.measures);
 let pickState = null; // {mode:'ref'|'target', multi:boolean, purpose:'measure'|'align'}
 let draftRef = null; // {objKey, segIndex}
 let draftStartEnd = 'A';
@@ -3716,24 +3722,24 @@ svg.appendChild(measureGroup);
 
 function refLabel(ref){
   if(!ref) return '(aucun)';
-  const obj = objects.find(o=>o.key===ref.objKey);
+  const obj = etat.objects.find(o=>o.key===ref.objKey);
   if(!obj) return '(objet supprime)';
   return obj.name + ': ' + (obj.segmentNames[ref.segIndex]||('Cote '+(ref.segIndex+1)));
 }
 function targetLabel(t){
-  const obj = objects.find(o=>o.key===t.objKey);
+  const obj = etat.objects.find(o=>o.key===t.objKey);
   if(!obj) return '(objet supprime)';
   if(obj.type==='circle') return obj.name + ' (centre)';
   return obj.name + ': ' + (obj.vertexNames[t.ptIndex]||('P'+(t.ptIndex+1)));
 }
 function measureSegCoords(ref){
-  const obj = objects.find(o=>o.key===ref.objKey);
+  const obj = etat.objects.find(o=>o.key===ref.objKey);
   if(!obj) return null;
   const n = obj.pts.length;
   return {a:obj.pts[ref.segIndex], b:obj.pts[(ref.segIndex+1)%n]};
 }
 function measurePointCoord(t){
-  const obj = objects.find(o=>o.key===t.objKey);
+  const obj = etat.objects.find(o=>o.key===t.objKey);
   if(!obj) return null;
   return obj.type==='circle' ? obj.center : obj.pts[t.ptIndex];
 }
@@ -3846,7 +3852,7 @@ function alignObjectByRotation(obj){
     }
   }
 
-  const bound = (obj.constrained && objects.find(o=>o.key==='parcelle')) ? objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
   if(bound && !newPts.every(p=>pointInPolygon(p,bound))){
     showToast('Le resultat sortirait de la parcelle - alignement annule.');
     return;
@@ -3912,7 +3918,7 @@ function rebuildMeasurePanel(){
   addBtn.disabled = !draftRef || draftTargets.length===0;
   addBtn.addEventListener('click', ()=>{
     draftTargets.forEach(t=>{
-      measures.push({
+      etat.measures.push({
         id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
         refObjKey:draftRef.objKey, refSegIndex:draftRef.segIndex,
         startEnd: draftStartEnd,
@@ -3936,7 +3942,7 @@ function renderMeasureResults(){
   const head = document.createElement('tr');
   head.innerHTML = '<th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th><th>Affichage</th><th>Afficher</th><th></th>';
   tbl.appendChild(head);
-  measures.forEach(m=>{
+  etat.measures.forEach(m=>{
     if(!m.displayMode) m.displayMode = 'along';
     const g = computeMeasureGeom(m);
     const tr = document.createElement('tr');
@@ -3966,7 +3972,7 @@ function renderMeasureResults(){
     td4.appendChild(cb);
     const td5=document.createElement('td');
     const delBtn=document.createElement('button'); delBtn.className='secondary small'; delBtn.textContent='Supprimer';
-    delBtn.addEventListener('click', ()=>{ measures = measures.filter(x=>x.id!==m.id); renderMeasureResults(); render(); });
+    delBtn.addEventListener('click', ()=>{ etat.measures = etat.measures.filter(x=>x.id!==m.id); renderMeasureResults(); render(); });
     td5.appendChild(delBtn);
     tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td1b); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td3b); tr.appendChild(td4); tr.appendChild(td5);
     tbl.appendChild(tr);
@@ -3975,7 +3981,7 @@ function renderMeasureResults(){
 
 function drawMeasures(){
   measureGroup.innerHTML = '';
-  const pc = objects.find(o=>o.key==='parcelle');
+  const pc = etat.objects.find(o=>o.key==='parcelle');
 
   // draft (in-progress) picks: highlight ref segment and picked targets
   if(draftRef){
@@ -3998,7 +4004,7 @@ function drawMeasures(){
     measureGroup.appendChild(c);
   });
 
-  measures.forEach(m=>{
+  etat.measures.forEach(m=>{
     if(!m.show || !pc) return;
     const g = computeMeasureGeom(m);
     if(!g) return;
@@ -4040,10 +4046,10 @@ document.getElementById('recalcMeasureBtn').addEventListener('click', ()=>{
 
 document.getElementById('clearMeasureBtn').addEventListener('click', ()=>{
   const doClear = ()=>{
-    measures = []; draftTargets = []; draftRef = null; pickState = null;
+    etat.measures = []; draftTargets = []; draftRef = null; pickState = null;
     renderMeasureResults(); rebuildMeasurePanel(); render();
   };
-  if(measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', doClear);
+  if(etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', doClear);
   else doClear();
 });
 
@@ -4097,14 +4103,14 @@ function importSVGString(svgText){
   if(replaceMode){
     // remove every current object and its DOM elements, and any stored measures (they
     // reference object keys that are about to disappear)
-    objects.slice().forEach(detruireVue);
-    objects.length = 0;
-    measures.length = 0;
-    selectedKey = null;
+    etat.objects.slice().forEach(detruireVue);
+    etat.objects.length = 0;
+    etat.measures.length = 0;
+    etat.selectedKey = null;
   }
 
   let imported = 0;
-  newObjCounter += 1;
+  etat.newObjCounter += 1;
 
   doc.querySelectorAll('polygon').forEach(el=>{
     const dataPts = el.getAttribute('data-points');
@@ -4117,7 +4123,7 @@ function importSVGString(svgText){
     }
     if(pts.length<3) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
     const name = isOwn ? (el.getAttribute('data-name')||'Objet importe') : ('Objet importe '+imported);
     const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
     const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
@@ -4133,7 +4139,7 @@ function importSVGString(svgText){
       priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
-    objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
+    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
   });
 
   doc.querySelectorAll('path').forEach(el=>{
@@ -4149,7 +4155,7 @@ function importSVGString(svgText){
     }
     if(pts.length<2) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
     const name = isOwn ? (el.getAttribute('data-name')||'Chemin importe') : ('Chemin importe '+imported);
     const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Point '+(i+1));
     const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
@@ -4167,7 +4173,7 @@ function importSVGString(svgText){
       priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
-    objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
+    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
   });
 
   doc.querySelectorAll('circle').forEach(el=>{
@@ -4181,7 +4187,7 @@ function importSVGString(svgText){
     }
     if(!Number.isFinite(r) || r<=0) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
     const name = isOwn ? (el.getAttribute('data-name')||'Cercle importe') : ('Cercle importe '+imported);
     const newObj = {
       key, type:'circle', name,
@@ -4195,22 +4201,22 @@ function importSVGString(svgText){
       priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||3) : 3,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
-    objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
+    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
   });
 
   let importedMeasures = 0;
   if(replaceMode && isOwn){
-    const mdEl = doc.getElementById('measures-data');
+    const mdEl = doc.getElementById("measures-data");
     const mdRaw = mdEl ? mdEl.getAttribute('data-measures') : null;
     if(mdRaw){
       try {
         const parsed = JSON.parse(mdRaw);
         parsed.forEach(m=>{
           // only restore a measure if both referenced objects actually exist post-import
-          const refObj = objects.find(o=>o.key===m.refObjKey);
-          const tgtObj = objects.find(o=>o.key===m.targetObjKey);
+          const refObj = etat.objects.find(o=>o.key===m.refObjKey);
+          const tgtObj = etat.objects.find(o=>o.key===m.targetObjKey);
           if(refObj && tgtObj){
-            measures.push({
+            etat.measures.push({
               id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
               refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
               targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:!!m.show,
@@ -4219,7 +4225,7 @@ function importSVGString(svgText){
             importedMeasures++;
           }
         });
-      } catch(err){ /* ignore malformed measures data, geometry import already succeeded */ }
+      } catch(err){ /* ignore malformed etat.measures data, geometry import already succeeded */ }
     }
   }
 
@@ -4231,11 +4237,11 @@ function importSVGString(svgText){
   if(!isOwn) msg += ' (SVG externe : noms/attributs par defaut, verifie les proportions.)';
   if(importedMeasures) msg += ' ' + importedMeasures + ' mesure(s) restauree(s).';
   else if(!replaceMode && measures0FromFile(doc)) msg += ' (Les mesures du fichier ne sont restaurees qu\'en mode "remplacement".)';
-  if(!objects.find(o=>o.key==='parcelle')) msg += ' ATTENTION: aucun objet "parcelle" dans le resultat - certaines fonctions (mesures, alignement, contrainte a la parcelle) seront limitees tant qu\'une parcelle n\'existe pas.';
+  if(!etat.objects.find(o=>o.key==='parcelle')) msg += ' ATTENTION: aucun objet "parcelle" dans le resultat - certaines fonctions (mesures, alignement, contrainte a la parcelle) seront limitees tant qu\'une parcelle n\'existe pas.';
   showToast(msg);
 }
 function measures0FromFile(doc){
-  const el = doc.getElementById('measures-data');
+  const el = doc.getElementById("measures-data");
   return !!(el && el.getAttribute('data-measures'));
 }
 
@@ -4324,8 +4330,8 @@ function filtrerSansParcelle(objsSer, msSer){
 
 function exportProjetJSON(){
   const sansParcelle = document.getElementById('chkExportSansParcelle').checked;
-  let objs = serializeObjects(objects);
-  let ms = serializeMeasures(measures);
+  let objs = serializeObjects(etat.objects);
+  let ms = serializeMeasures(etat.measures);
   const metaSrc = (seed && seed.meta) || {};
   const meta = {
     id: metaSrc.id || null,
@@ -4397,8 +4403,8 @@ function validerProjetJSON(data){
 
 function appliquerProjetImporte(valide, remplacer){
   pushHistory();
-  const objsBase = remplacer ? [] : serializeObjects(objects);
-  const msBase = remplacer ? [] : serializeMeasures(measures);
+  const objsBase = remplacer ? [] : serializeObjects(etat.objects);
+  const msBase = remplacer ? [] : serializeMeasures(etat.measures);
   const clesPrises = new Set(objsBase.map(o=>o.key));
   const renommages = {};
   const ajoutes = [];
@@ -4457,8 +4463,8 @@ function appliquerProjetImporte(valide, remplacer){
       if(lieu.nomLieu) pc.nomLieu = lieu.nomLieu;
     }
   }
-  const parcelle = objects.find(o=>o.key === 'parcelle');
-  if(parcelle) selectedKey = parcelle.key;
+  const parcelle = etat.objects.find(o=>o.key === 'parcelle');
+  if(parcelle) etat.selectedKey = parcelle.key;
   rebuildSelector();
   render();
   // Le cadrage par defaut suit le terrain importe : une propriete de 2 400 m2 et une terrasse de
@@ -5174,7 +5180,7 @@ function objetsDepuisCadastre(etat){
 }
 
 function ouvrirImportCadastre(){
-  const etat = {
+  const etatImport = {
     etape: 1,
     suggestions: [], geo: null, occupe: false, message: '', erreur: '',
     candidats: [], principale: null, adjacentes: [], autres: [],
@@ -5226,13 +5232,13 @@ function ouvrirImportCadastre(){
     return b;
   }
   function majEtat(){
-    etatLigne.textContent = etat.erreur || etat.message || '';
-    etatLigne.style.color = etat.erreur ? '#a02020' : 'inherit';
+    etatLigne.textContent = etatImport.erreur || etatImport.message || '';
+    etatLigne.style.color = etatImport.erreur ? '#a02020' : 'inherit';
   }
   function occuper(actif, texte){
-    etat.occupe = actif;
-    etat.message = actif ? texte : '';
-    if(actif) etat.erreur = '';
+    etatImport.occupe = actif;
+    etatImport.message = actif ? texte : '';
+    if(actif) etatImport.erreur = '';
     majEtat();
     [...pied.querySelectorAll('button')].forEach(b=>{ b.disabled = actif; });
   }
@@ -5240,11 +5246,11 @@ function ouvrirImportCadastre(){
   // ---- apercu SVG partage par les etapes 2 et 3 ----
   function dessinerApercu(hote){
     hote.innerHTML = '';
-    if(!etat.principale) return;
+    if(!etatImport.principale) return;
     // L'apercu montre la propriete telle qu'elle sera importee : fusionnee d'un seul tenant, avec
     // ses limites internes en pointille. Sinon on verrait des parcelles separees et le resultat
     // serait une surprise apres coup.
-    const parcellesProp = etat.parcellesPropriete();
+    const parcellesProp = etatImport.parcellesPropriete();
     const fusionApercu = parcellesProp.length > 1
       ? fusionnerAnneaux(parcellesProp.map(p=>p.pts), FUSION_TOL_M)
       : null;
@@ -5258,9 +5264,9 @@ function ouvrirImportCadastre(){
     } else {
       parcellesProp.forEach(p=>lots.push({ c:p, role:'principale' }));
     }
-    etat.adjacentes.concat(etat.autres).forEach(c=>{
-      if(etat.estPropriete(c.idu)) return;
-      lots.push({ c, role: etat.selection.has(c.idu) ? 'retenue' : 'libre' });
+    etatImport.adjacentes.concat(etatImport.autres).forEach(c=>{
+      if(etatImport.estPropriete(c.idu)) return;
+      lots.push({ c, role: etatImport.selection.has(c.idu) ? 'retenue' : 'libre' });
     });
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     lots.forEach(l=>l.c.pts.forEach(p=>{
@@ -5277,7 +5283,7 @@ function ouvrirImportCadastre(){
     lots.slice().reverse().forEach(l=>{
       const poly = document.createElementNS(svgNS, 'polygon');
       poly.setAttribute('points', l.c.pts.map(p=>(p.x-minX).toFixed(3) + ',' + (maxY-p.y).toFixed(3)).join(' '));
-      const survole = etat.survol === l.c.idu;
+      const survole = etatImport.survol === l.c.idu;
       if(l.role === 'principale'){ poly.setAttribute('fill', '#FBF3D9'); poly.setAttribute('stroke', '#3B2E1F'); }
       else if(l.role === 'retenue'){ poly.setAttribute('fill', '#EDE3CB'); poly.setAttribute('stroke', '#8A7B63'); }
       else { poly.setAttribute('fill', 'transparent'); poly.setAttribute('stroke', '#9a9a9a'); poly.setAttribute('stroke-dasharray', (trait*4).toFixed(2) + ' ' + (trait*3).toFixed(2)); }
@@ -5286,11 +5292,11 @@ function ouvrirImportCadastre(){
       // decochent dans la liste.
       if(l.c.idu !== '__propriete__'){
         poly.style.cursor = 'pointer';
-        poly.addEventListener('mouseenter', ()=>{ etat.survol = l.c.idu; rafraichirVue(); });
-        poly.addEventListener('mouseleave', ()=>{ if(etat.survol === l.c.idu){ etat.survol = null; rafraichirVue(); } });
+        poly.addEventListener('mouseenter', ()=>{ etatImport.survol = l.c.idu; rafraichirVue(); });
+        poly.addEventListener('mouseleave', ()=>{ if(etatImport.survol === l.c.idu){ etatImport.survol = null; rafraichirVue(); } });
         poly.addEventListener('click', ()=>{
-          if(etat.etape === 2) choisirPrincipale(l.c);
-          else if(l.c.idu !== etat.principale.idu) basculerVoisine(l.c);
+          if(etatImport.etape === 2) choisirPrincipale(l.c);
+          else if(l.c.idu !== etatImport.principale.idu) basculerVoisine(l.c);
         });
       }
       svgEl.appendChild(poly);
@@ -5322,7 +5328,7 @@ function ouvrirImportCadastre(){
     // Couches BD TOPO par-dessus le parcellaire : elles ne sont pas cliquables (leur import se
     // regle par les cases de l'etape 3), mais sans elles l'apercu ne montrerait pas ce qui va
     // reellement arriver dans le plan.
-    const parcellesRetenues = new Set([etat.principale.idu].concat(etat.voisinesRetenues().map(v=>v.idu)));
+    const parcellesRetenues = new Set([etatImport.principale.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
     const dessinerCouche = (elements, actif, remplissage, contour, opacite) => {
       elements.forEach(e=>{
         const retenu = actif && [...e.parcelles].some(idu=>parcellesRetenues.has(idu));
@@ -5337,9 +5343,9 @@ function ouvrirImportCadastre(){
         svgEl.appendChild(poly);
       });
     };
-    dessinerCouche(etat.vegetation, etat.importerVegetation, '#A9BE8E', '#4A6B32', 0.55);
-    dessinerCouche(etat.haies, etat.importerHaies, '#7FA86B', '#3F5C33', 0.8);
-    dessinerCouche(etat.batiments, etat.importerBatiments, '#D9B694', '#7A4A2A', 0.9);
+    dessinerCouche(etatImport.vegetation, etatImport.importerVegetation, '#A9BE8E', '#4A6B32', 0.55);
+    dessinerCouche(etatImport.haies, etatImport.importerHaies, '#7FA86B', '#3F5C33', 0.8);
+    dessinerCouche(etatImport.batiments, etatImport.importerBatiments, '#D9B694', '#7A4A2A', 0.9);
 
     // Le point d'adresse, souvent hors de toute parcelle : le montrer evite de croire a un bug.
     const pa = document.createElementNS(svgNS, 'circle');
@@ -5368,7 +5374,7 @@ function ouvrirImportCadastre(){
   // la parcelle principale ou une voisine COCHEE. Recalcule a chaque coche, donc les compteurs
   // suivent la selection au lieu d'annoncer un total theorique.
   function elementsRetenus(liste){
-    const retenues = new Set([etat.principale.idu].concat(etat.voisinesRetenues().map(v=>v.idu)));
+    const retenues = new Set([etatImport.principale.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
     return liste.filter(e=>[...e.parcelles].some(idu=>retenues.has(idu)));
   }
   function remplirBlocIgn(){
@@ -5380,16 +5386,16 @@ function ouvrirImportCadastre(){
       if(titre) lab.title = titre;
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = !!etat[cle];
+      cb.checked = !!etatImport[cle];
       cb.disabled = n === 0;
-      cb.addEventListener('change', ()=>{ etat[cle] = cb.checked; remplirBlocIgn(); if(hoteApercu) dessinerApercu(hoteApercu); });
+      cb.addEventListener('change', ()=>{ etatImport[cle] = cb.checked; remplirBlocIgn(); if(hoteApercu) dessinerApercu(hoteApercu); });
       lab.appendChild(cb);
       lab.appendChild(document.createTextNode(libelle + ' — ' + n));
       if(n === 0) lab.style.opacity = '0.55';
       blocIgn.appendChild(lab);
     };
-    const bats = elementsRetenus(etat.batiments);
-    const iduPropriete = new Set(etat.parcellesPropriete().map(p=>p.idu));
+    const bats = elementsRetenus(etatImport.batiments);
+    const iduPropriete = new Set(etatImport.parcellesPropriete().map(p=>p.idu));
     const surPrincipale = bats.filter(b=>[...b.parcelles].some(idu=>iduPropriete.has(idu)));
     const hauteurs = surPrincipale.map(b=>hauteurBatiment(b.props)).sort((a,b)=>b-a);
     ligne('importerBatiments', 'Bâtiments (BD TOPO, avec hauteur)', bats.length,
@@ -5401,9 +5407,9 @@ function ouvrirImportCadastre(){
         hauteurs.map(h=>h.toFixed(1).replace('.',',') + ' m').join(', ');
       blocIgn.appendChild(d);
     }
-    ligne('importerHaies', 'Haies (géométrie + hauteur)', elementsRetenus(etat.haies).length,
+    ligne('importerHaies', 'Haies (géométrie + hauteur)', elementsRetenus(etatImport.haies).length,
       'Couche haie de la BD TOPO : renseignee surtout en zone de bocage, souvent vide en ville.');
-    const vegs = elementsRetenus(etat.vegetation);
+    const vegs = elementsRetenus(etatImport.vegetation);
     ligne('importerVegetation', 'Zones de végétation', vegs.length,
       'Bois, forets, vergers... hauteur deduite de la nature de la zone.');
     ligne('importerArbres', 'Arbres estimés dans ces zones (~' + Math.min(MAX_ARBRES_ESTIMES,
@@ -5412,22 +5418,22 @@ function ouvrirImportCadastre(){
 
     const plu = document.createElement('div');
     plu.style.cssText = 'font-size:0.8rem; margin-top:8px; line-height:1.45;';
-    if(etat.plu && etat.plu.zones && etat.plu.zones.length){
-      const z = etat.plu.zones[0];
+    if(etatImport.plu && etatImport.plu.zones && etatImport.plu.zones.length){
+      const z = etatImport.plu.zones[0];
       plu.innerHTML = '<b>PLU</b> — zone ' + escapeHtml(z.libelle) + (z.typezone ? ' (type ' + escapeHtml(z.typezone) + ')' : '') +
         (z.libelong ? '<br>' + escapeHtml(z.libelong) : '') +
         (z.urlfic ? '<br><a href="' + escapeHtml(z.urlfic) + '" target="_blank" rel="noopener">Règlement (PDF)</a>' : '') +
         '<br><span style="opacity:0.75;">Le zonage est rattaché à la parcelle et consultable dans l\'onglet PLU.</span>';
-    } else if(etat.plu && etat.plu.commune && etat.plu.commune.rnu){
+    } else if(etatImport.plu && etatImport.plu.commune && etatImport.plu.commune.rnu){
       plu.textContent = 'PLU : commune au RNU (pas de document d\'urbanisme local).';
     } else {
       plu.textContent = 'PLU : aucun zonage renvoye par le Geoportail de l\'urbanisme pour ce point.';
     }
     blocIgn.appendChild(plu);
-    if(etat.ignErreur){
+    if(etatImport.ignErreur){
       const e = document.createElement('div');
       e.style.cssText = 'font-size:0.8rem; color:#a02020; margin-top:6px;';
-      e.textContent = etat.ignErreur;
+      e.textContent = etatImport.ignErreur;
       blocIgn.appendChild(e);
     }
   }
@@ -5443,21 +5449,21 @@ function ouvrirImportCadastre(){
     // entrer son batiment dans le lot.
     remplirBlocIgn();
     casesVoisines.forEach((ligne, idu)=>{
-      ligne.cb.checked = etat.selection.has(idu) || etat.propriete.has(idu);
-      ligne.cb.disabled = etat.propriete.has(idu);
-      if(ligne.cbProp) ligne.cbProp.checked = etat.propriete.has(idu);
-      ligne.lab.style.background = (etat.survol === idu) ? 'rgba(139,107,61,0.18)' : 'transparent';
+      ligne.cb.checked = etatImport.selection.has(idu) || etatImport.propriete.has(idu);
+      ligne.cb.disabled = etatImport.propriete.has(idu);
+      if(ligne.cbProp) ligne.cbProp.checked = etatImport.propriete.has(idu);
+      ligne.lab.style.background = (etatImport.survol === idu) ? 'rgba(139,107,61,0.18)' : 'transparent';
     });
     majResumePropriete();
   }
   function rendre(){
-    if(etapeConstruite !== etat.etape){
+    if(etapeConstruite !== etatImport.etape){
       corps.innerHTML = ''; pied.innerHTML = '';
       hoteApercu = listeVoisines = blocIgn = resumePropriete = null;
-      if(etat.etape === 1) construireEtape1();
-      else if(etat.etape === 2) construireEtape2();
+      if(etatImport.etape === 1) construireEtape1();
+      else if(etatImport.etape === 2) construireEtape2();
       else construireEtape3();
-      etapeConstruite = etat.etape;
+      etapeConstruite = etatImport.etape;
     }
     majEtat();
   }
@@ -5481,16 +5487,16 @@ function ouvrirImportCadastre(){
     champAdresse.addEventListener('input', ()=>{
       clearTimeout(minuteur);
       const texte = champAdresse.value.trim();
-      if(texte.length < 3){ etat.suggestions = []; remplirSuggestions(); return; }
+      if(texte.length < 3){ etatImport.suggestions = []; remplirSuggestions(); return; }
       minuteur = setTimeout(async ()=>{
         const monTour = ++requeteEnCours;
         try {
           const res = await geocoderBAN(texte, true);
           if(monTour !== requeteEnCours) return; // une frappe plus recente a pris la main
-          etat.suggestions = res; etat.erreur = '';
+          etatImport.suggestions = res; etatImport.erreur = '';
         } catch(e){
           if(monTour !== requeteEnCours) return;
-          etat.suggestions = []; etat.erreur = 'Geocodage impossible : ' + (e.message || e);
+          etatImport.suggestions = []; etatImport.erreur = 'Geocodage impossible : ' + (e.message || e);
         }
         remplirSuggestions(); majEtat();
       }, 250);
@@ -5498,7 +5504,7 @@ function ouvrirImportCadastre(){
     champAdresse.addEventListener('keydown', e=>{
       if(e.key === 'Enter'){
         e.preventDefault();
-        if(etat.suggestions.length) choisirAdresse(etat.suggestions[0]);
+        if(etatImport.suggestions.length) choisirAdresse(etatImport.suggestions[0]);
         else lancerRechercheTexte(champAdresse.value.trim());
       }
     });
@@ -5508,7 +5514,7 @@ function ouvrirImportCadastre(){
   }
   function remplirSuggestions(){
     listeSuggestions.innerHTML = '';
-    etat.suggestions.forEach(s=>{
+    etatImport.suggestions.forEach(s=>{
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'secondary';
       b.style.cssText = 'text-align:left; font-size:0.84rem; padding:6px 8px;';
@@ -5519,7 +5525,7 @@ function ouvrirImportCadastre(){
   }
   const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
   async function lancerRechercheTexte(texte){
-    if(!texte || texte.length < 3){ etat.erreur = 'Saisis une adresse (au moins 3 caracteres).'; majEtat(); return; }
+    if(!texte || texte.length < 3){ etatImport.erreur = 'Saisis une adresse (au moins 3 caracteres).'; majEtat(); return; }
     const m = texte.match(RE_COORDS);
     if(m){
       const lat = parseFloat(m[1].replace(',', '.')), lon = parseFloat(m[2].replace(',', '.'));
@@ -5530,17 +5536,17 @@ function ouvrirImportCadastre(){
     try {
       const res = await geocoderBAN(texte, false);
       occuper(false);
-      if(!res.length){ etat.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; majEtat(); return; }
-      etat.suggestions = res; remplirSuggestions();
+      if(!res.length){ etatImport.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; majEtat(); return; }
+      etatImport.suggestions = res; remplirSuggestions();
       choisirAdresse(res[0]);
     } catch(e){
       occuper(false);
-      etat.erreur = 'Geocodage impossible : ' + (e.message || e);
+      etatImport.erreur = 'Geocodage impossible : ' + (e.message || e);
       majEtat();
     }
   }
   async function choisirAdresse(sug){
-    etat.geo = sug;
+    etatImport.geo = sug;
     occuper(true, 'Recherche de la parcelle…');
     try {
       const proj = projecteurLocal(sug.lat, sug.lon);
@@ -5552,40 +5558,40 @@ function ouvrirImportCadastre(){
       }
       occuper(false);
       if(!features.length){
-        etat.erreur = 'Aucune parcelle cadastrale trouvee dans un rayon de ' + RAYONS_RECHERCHE_M[RAYONS_RECHERCHE_M.length-1] + ' m.';
+        etatImport.erreur = 'Aucune parcelle cadastrale trouvee dans un rayon de ' + RAYONS_RECHERCHE_M[RAYONS_RECHERCHE_M.length-1] + ' m.';
         majEtat(); return;
       }
-      const cands = classerCandidats(construireCandidats(features, proj, ptRef, etat.simplifier));
+      const cands = classerCandidats(construireCandidats(features, proj, ptRef, etatImport.simplifier));
       if(!cands.length){
-        etat.erreur = 'Geometrie inexploitable renvoyee par le service cadastre.';
+        etatImport.erreur = 'Geometrie inexploitable renvoyee par le service cadastre.';
         majEtat(); return;
       }
       // Le filtre geom pourrait etre ignore sans que rien ne le signale : une "plus proche"
       // parcelle a 200 m de l'adresse trahirait ce cas mieux que n'importe quel code HTTP.
       if(cands[0].distance > 120){
-        etat.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(cands[0].distance) + ' m de l\'adresse).';
+        etatImport.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(cands[0].distance) + ' m de l\'adresse).';
         majEtat(); return;
       }
-      etat.proj = proj;
-      etat.rayon = rayon;
-      etat.candidats = cands;
-      etat.selection = new Set();
-      etat.voisinageCharge = new Set();
+      etatImport.proj = proj;
+      etatImport.rayon = rayon;
+      etatImport.candidats = cands;
+      etatImport.selection = new Set();
+      etatImport.voisinageCharge = new Set();
       occuper(true, 'Recherche des parcelles voisines…');
       try {
         await chargerVoisinage(cands[0]);
       } catch(e){
         // Le voisinage est un complement : son echec ne doit pas emporter la parcelle trouvee.
-        etat.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
+        etatImport.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
       }
       occuper(false);
       appliquerPrincipale(cands[0]);
       await chargerIgnAvecMessage(cands[0]);
-      etat.etape = 2;
+      etatImport.etape = 2;
       rendre();
     } catch(e){
       occuper(false);
-      etat.erreur = (e.message || String(e));
+      etatImport.erreur = (e.message || String(e));
       majEtat();
     }
   }
@@ -5593,71 +5599,71 @@ function ouvrirImportCadastre(){
   // des mitoyennes. Faite une seule fois par parcelle (un changement de parcelle principale
   // rouvre un voisinage different, mais y revenir ne redemande rien).
   async function chargerVoisinage(c){
-    if(etat.voisinageCharge.has(c.idu)) return;
-    const emprise = empriseAutourAnneau(c.anneauDeg, etat.proj, 20);
-    const features = await interrogerCadastre(emprise, etat.geo ? etat.geo.citycode : '');
-    const connus = new Set(etat.candidats.map(x=>x.idu));
-    const nouveaux = construireCandidats(features, etat.proj, {x:0, y:0}, etat.simplifier)
+    if(etatImport.voisinageCharge.has(c.idu)) return;
+    const emprise = empriseAutourAnneau(c.anneauDeg, etatImport.proj, 20);
+    const features = await interrogerCadastre(emprise, etatImport.geo ? etatImport.geo.citycode : '');
+    const connus = new Set(etatImport.candidats.map(x=>x.idu));
+    const nouveaux = construireCandidats(features, etatImport.proj, {x:0, y:0}, etatImport.simplifier)
       .filter(x=>!connus.has(x.idu));
-    if(nouveaux.length) etat.candidats = classerCandidats(etat.candidats.concat(nouveaux));
-    etat.voisinageCharge.add(c.idu);
+    if(nouveaux.length) etatImport.candidats = classerCandidats(etatImport.candidats.concat(nouveaux));
+    etatImport.voisinageCharge.add(c.idu);
   }
   function appliquerPrincipale(c){
-    etat.principale = c;
-    const tri = trierVoisines(c, etat.candidats);
-    etat.adjacentes = tri.adjacentes;
-    etat.autres = tri.autres;
-    etat.tropDense = tri.tropDense;
-    etat.selection = new Set([...etat.selection].filter(idu => idu !== c.idu));
+    etatImport.principale = c;
+    const tri = trierVoisines(c, etatImport.candidats);
+    etatImport.adjacentes = tri.adjacentes;
+    etatImport.autres = tri.autres;
+    etatImport.tropDense = tri.tropDense;
+    etatImport.selection = new Set([...etatImport.selection].filter(idu => idu !== c.idu));
     // La nouvelle principale ne peut plus figurer dans la liste des parcelles a lui fusionner.
-    etat.propriete.delete(c.idu);
-    rattacherElementsAuxParcelles(etat.batiments, etat.candidats);
-    rattacherElementsAuxParcelles(etat.haies, etat.candidats);
-    rattacherElementsAuxParcelles(etat.vegetation, etat.candidats);
+    etatImport.propriete.delete(c.idu);
+    rattacherElementsAuxParcelles(etatImport.batiments, etatImport.candidats);
+    rattacherElementsAuxParcelles(etatImport.haies, etatImport.candidats);
+    rattacherElementsAuxParcelles(etatImport.vegetation, etatImport.candidats);
   }
   // BD TOPO + PLU sur l'emprise de la parcelle et de ses mitoyennes. Chargement separe du
   // cadastre : ces couches sont un complement, leur indisponibilite ne doit pas empecher
   // d'importer la parcelle (message a cote, et cases correspondantes vides).
   async function chargerDonneesIgn(c){
-    if(etat.ignCharge.has(c.idu)) return;
-    const anneaux = [c.anneauDeg].concat(etat.adjacentes.map(v=>v.anneauDeg));
-    const bbox = bboxDegDesAnneaux(anneaux, etat.proj, 10);
+    if(etatImport.ignCharge.has(c.idu)) return;
+    const anneaux = [c.anneauDeg].concat(etatImport.adjacentes.map(v=>v.anneauDeg));
+    const bbox = bboxDegDesAnneaux(anneaux, etatImport.proj, 10);
     const centre = centroid(c.pts);
-    const centreDeg = etat.proj.versDegres(centre.x, centre.y);
+    const centreDeg = etatImport.proj.versDegres(centre.x, centre.y);
     const [bat, veg, haie, plu] = await Promise.all([
       interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch(e=>{ throw e; }),
       interrogerWfs(COUCHE_VEGETATION, bbox, 40).catch(()=>[]),
       interrogerWfs(COUCHE_HAIE, bbox, 40).catch(()=>[]),
       interrogerPlu(centreDeg.lon, centreDeg.lat).catch(()=>null)
     ]);
-    etat.batiments = construireElementsIgn(bat, etat.proj, etat.simplifier, 'batiment');
-    etat.vegetation = construireElementsIgn(veg, etat.proj, etat.simplifier, 'vegetation');
-    etat.haies = construireElementsIgn(haie, etat.proj, etat.simplifier, 'haie');
-    etat.plu = plu;
-    rattacherElementsAuxParcelles(etat.batiments, etat.candidats);
-    rattacherElementsAuxParcelles(etat.haies, etat.candidats);
-    rattacherElementsAuxParcelles(etat.vegetation, etat.candidats);
-    etat.ignCharge.add(c.idu);
+    etatImport.batiments = construireElementsIgn(bat, etatImport.proj, etatImport.simplifier, 'batiment');
+    etatImport.vegetation = construireElementsIgn(veg, etatImport.proj, etatImport.simplifier, 'vegetation');
+    etatImport.haies = construireElementsIgn(haie, etatImport.proj, etatImport.simplifier, 'haie');
+    etatImport.plu = plu;
+    rattacherElementsAuxParcelles(etatImport.batiments, etatImport.candidats);
+    rattacherElementsAuxParcelles(etatImport.haies, etatImport.candidats);
+    rattacherElementsAuxParcelles(etatImport.vegetation, etatImport.candidats);
+    etatImport.ignCharge.add(c.idu);
   }
   async function chargerIgnAvecMessage(c){
     occuper(true, 'Bâtiments, végétation et PLU…');
     try {
       await chargerDonneesIgn(c);
-      etat.ignErreur = '';
+      etatImport.ignErreur = '';
     } catch(e){
-      etat.batiments = []; etat.haies = []; etat.vegetation = [];
-      etat.ignErreur = 'Donnees BD TOPO indisponibles : ' + (e.message || e);
+      etatImport.batiments = []; etatImport.haies = []; etatImport.vegetation = [];
+      etatImport.ignErreur = 'Donnees BD TOPO indisponibles : ' + (e.message || e);
     }
     occuper(false);
-    if(etat.ignErreur) etat.erreur = etat.ignErreur;
+    if(etatImport.ignErreur) etatImport.erreur = etatImport.ignErreur;
   }
   async function choisirPrincipale(c){
-    if(!c || c.idu === etat.principale.idu) return;
+    if(!c || c.idu === etatImport.principale.idu) return;
     occuper(true, 'Recherche des parcelles voisines…');
     try {
       await chargerVoisinage(c);
     } catch(e){
-      etat.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
+      etatImport.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
     }
     occuper(false);
     appliquerPrincipale(c);
@@ -5666,26 +5672,26 @@ function ouvrirImportCadastre(){
     rendre();
   }
   function basculerVoisine(c){
-    if(etat.propriete.has(c.idu)) return;   // une parcelle de la propriete est importee d'office
-    if(etat.selection.has(c.idu)) etat.selection.delete(c.idu);
-    else etat.selection.add(c.idu);
+    if(etatImport.propriete.has(c.idu)) return;   // une parcelle de la propriete est importee d'office
+    if(etatImport.selection.has(c.idu)) etatImport.selection.delete(c.idu);
+    else etatImport.selection.add(c.idu);
     rafraichirVue();
   }
   function basculerPropriete(c){
-    if(etat.propriete.has(c.idu)) etat.propriete.delete(c.idu);
+    if(etatImport.propriete.has(c.idu)) etatImport.propriete.delete(c.idu);
     else {
-      etat.propriete.add(c.idu);
-      etat.selection.delete(c.idu);   // elle n'est plus une voisine : elle EST la parcelle
+      etatImport.propriete.add(c.idu);
+      etatImport.selection.delete(c.idu);   // elle n'est plus une voisine : elle EST la parcelle
     }
     rafraichirVue();
   }
-  // Resume de la propriete : surface fusionnee reelle (pas la somme des contenances) et etat de
+  // Resume de la propriete : surface fusionnee reelle (pas la somme des contenances) et etatImport de
   // la fusion. Une fusion impossible doit se voir AVANT la creation du projet, pas apres.
   function majResumePropriete(){
     if(!resumePropriete) return;
-    const parcelles = etat.parcellesPropriete();
+    const parcelles = etatImport.parcellesPropriete();
     if(parcelles.length <= 1){
-      resumePropriete.textContent = 'Propriété : ' + libelleParcelle(etat.principale) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.';
+      resumePropriete.textContent = 'Propriété : ' + libelleParcelle(etatImport.principale) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.';
       resumePropriete.style.color = '';
       return;
     }
@@ -5708,14 +5714,14 @@ function ouvrirImportCadastre(){
     corps.appendChild(hoteApercu);
     const info = document.createElement('div');
     info.style.cssText = 'margin-top:10px; line-height:1.5;';
-    const p = etat.principale;
-    const ecartAuto = etat.candidats.length > 1 ? (etat.candidats[1].distance - etat.candidats[0].distance) : Infinity;
+    const p = etatImport.principale;
+    const ecartAuto = etatImport.candidats.length > 1 ? (etatImport.candidats[1].distance - etatImport.candidats[0].distance) : Infinity;
     info.innerHTML = '<b>' + escapeHtml('Parcelle ' + libelleParcelle(p)) + '</b> — ' + escapeHtml(p.commune) +
       ' (INSEE ' + escapeHtml(p.codeInsee) + ')<br>Surface : ' + escapeHtml(ligneSurface(p)) +
-      '<br>Adresse : ' + escapeHtml(etat.geo.label) +
+      '<br>Adresse : ' + escapeHtml(etatImport.geo.label) +
       '<br>Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)') +
-      (etat.geo.genre && etat.geo.genre !== 'housenumber' && etat.geo.genre !== 'coordonnees'
-        ? '<br><i>Adresse resolue au niveau ' + escapeHtml(etat.geo.genre) + ' : la parcelle proposee est approximative.</i>' : '') +
+      (etatImport.geo.genre && etatImport.geo.genre !== 'housenumber' && etatImport.geo.genre !== 'coordonnees'
+        ? '<br><i>Adresse resolue au niveau ' + escapeHtml(etatImport.geo.genre) + ' : la parcelle proposee est approximative.</i>' : '') +
       (ecartAuto < ECART_AUTO_M ? '<br><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i>' : '');
     corps.appendChild(info);
 
@@ -5725,14 +5731,14 @@ function ouvrirImportCadastre(){
     corps.appendChild(titreListe);
     const liste = document.createElement('div');
     liste.style.cssText = 'margin-top:6px; display:flex; flex-direction:column; gap:3px; max-height:22vh; overflow:auto;';
-    etat.candidats.forEach(c=>{
+    etatImport.candidats.forEach(c=>{
       const b = document.createElement('button');
       b.type = 'button';
       b.className = c.idu === p.idu ? '' : 'secondary';
       b.style.cssText = 'text-align:left; font-size:0.82rem; padding:5px 8px;';
       b.textContent = libelleParcelle(c) + ' — ' + ligneSurface(c) + ' — ' + c.distance.toFixed(2) + ' m de l\'adresse';
-      b.addEventListener('mouseenter', ()=>{ etat.survol = c.idu; dessinerApercu(hoteApercu); });
-      b.addEventListener('mouseleave', ()=>{ etat.survol = null; dessinerApercu(hoteApercu); });
+      b.addEventListener('mouseenter', ()=>{ etatImport.survol = c.idu; dessinerApercu(hoteApercu); });
+      b.addEventListener('mouseleave', ()=>{ etatImport.survol = null; dessinerApercu(hoteApercu); });
       b.addEventListener('click', ()=>choisirPrincipale(c));
       liste.appendChild(b);
     });
@@ -5741,18 +5747,18 @@ function ouvrirImportCadastre(){
     const optSimplif = document.createElement('label');
     optSimplif.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:10px; font-size:0.82rem;';
     const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.checked = etat.simplifier;
+    cb.type = 'checkbox'; cb.checked = etatImport.simplifier;
     cb.addEventListener('change', ()=>{
-      etat.simplifier = cb.checked;
+      etatImport.simplifier = cb.checked;
       // Retour a la geometrie source : re-projeter depuis les anneaux WGS84 conserves, plutot
       // que de re-simplifier un contour deja simplifie (ce qui ne reviendrait jamais en arriere).
-      etat.candidats.forEach(c=>{
-        c.pts = anneauVersPts(c.anneauDeg, etat.proj, etat.simplifier);
+      etatImport.candidats.forEach(c=>{
+        c.pts = anneauVersPts(c.anneauDeg, etatImport.proj, etatImport.simplifier);
         c.aire = shoelace(c.pts);
         c.dedans = pointInPolygon({x:0,y:0}, c.pts);
         c.distance = distancePointContour({x:0,y:0}, c.pts);
       });
-      appliquerPrincipale(etat.candidats.find(c=>c.idu === etat.principale.idu) || etat.principale);
+      appliquerPrincipale(etatImport.candidats.find(c=>c.idu === etatImport.principale.idu) || etatImport.principale);
       etapeConstruite = 0; rendre();
     });
     optSimplif.appendChild(cb);
@@ -5760,8 +5766,8 @@ function ouvrirImportCadastre(){
     corps.appendChild(optSimplif);
 
     pied.appendChild(bouton('Annuler', false, fermer));
-    pied.appendChild(bouton('← Changer d\'adresse', false, ()=>{ etat.etape = 1; etat.suggestions = []; rendre(); }));
-    pied.appendChild(bouton('Parcelles voisines →', true, ()=>{ etat.etape = 3; rendre(); }));
+    pied.appendChild(bouton('← Changer d\'adresse', false, ()=>{ etatImport.etape = 1; etatImport.suggestions = []; rendre(); }));
+    pied.appendChild(bouton('Parcelles voisines →', true, ()=>{ etatImport.etape = 3; rendre(); }));
     dessinerApercu(hoteApercu);
   }
 
@@ -5780,11 +5786,11 @@ function ouvrirImportCadastre(){
     const barreSelection = document.createElement('div');
     barreSelection.style.cssText = 'display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;';
     barreSelection.appendChild(bouton('Cocher toutes les mitoyennes', false, ()=>{
-      etat.adjacentes.forEach(c=>etat.selection.add(c.idu));
+      etatImport.adjacentes.forEach(c=>etatImport.selection.add(c.idu));
       rafraichirVue();
     }));
     barreSelection.appendChild(bouton('Tout decocher', false, ()=>{
-      etat.selection.clear();
+      etatImport.selection.clear();
       rafraichirVue();
     }));
     corps.appendChild(barreSelection);
@@ -5808,11 +5814,11 @@ function ouvrirImportCadastre(){
     champNom = document.createElement('input');
     champNom.type = 'text';
     champNom.className = 'promptInput';
-    champNom.value = (libelleParcelle(etat.principale) + ' — ' + (etat.geo ? etat.geo.label : '')).slice(0, 60);
+    champNom.value = (libelleParcelle(etatImport.principale) + ' — ' + (etatImport.geo ? etatImport.geo.label : '')).slice(0, 60);
     corps.appendChild(labNom); corps.appendChild(champNom);
 
     pied.appendChild(bouton('Annuler', false, fermer));
-    pied.appendChild(bouton('← Retour', false, ()=>{ etat.etape = 2; rendre(); }));
+    pied.appendChild(bouton('← Retour', false, ()=>{ etatImport.etape = 2; rendre(); }));
     pied.appendChild(bouton('Creer le projet', true, creerProjet));
     remplirListeVoisines();
     // Le resume de propriete se remplit a l'arrivee sur l'etape, pas seulement au premier clic :
@@ -5832,7 +5838,7 @@ function ouvrirImportCadastre(){
       liste.forEach(c=>{
         const rang = document.createElement('div');
         rang.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.82rem; padding:2px 0; background:transparent;';
-        if(etat.survol === c.idu) rang.style.background = 'rgba(139,107,61,0.18)';
+        if(etatImport.survol === c.idu) rang.style.background = 'rgba(139,107,61,0.18)';
         // Deux cases distinctes : "propriete" fusionne la parcelle avec la principale (un seul
         // terrain), "importer" la pose a cote en simple reference. La premiere implique la
         // seconde, d'ou la case importer cochee et desactivee dans ce cas.
@@ -5841,7 +5847,7 @@ function ouvrirImportCadastre(){
         labProp.title = 'Cette parcelle fait partie de la propriete : elle sera fusionnee avec la parcelle principale, sa limite interne restant en pointille.';
         const cbProp = document.createElement('input');
         cbProp.type = 'checkbox';
-        cbProp.checked = etat.propriete.has(c.idu);
+        cbProp.checked = etatImport.propriete.has(c.idu);
         cbProp.addEventListener('change', ()=>basculerPropriete(c));
         labProp.appendChild(cbProp);
         labProp.appendChild(document.createTextNode('propriété'));
@@ -5851,8 +5857,8 @@ function ouvrirImportCadastre(){
         labImport.title = 'Importer cette parcelle comme voisine, en decor de reference.';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.checked = etat.selection.has(c.idu) || etat.propriete.has(c.idu);
-        cb.disabled = etat.propriete.has(c.idu);
+        cb.checked = etatImport.selection.has(c.idu) || etatImport.propriete.has(c.idu);
+        cb.disabled = etatImport.propriete.has(c.idu);
         cb.addEventListener('change', ()=>basculerVoisine(c));
         labImport.appendChild(cb);
         labImport.appendChild(document.createTextNode('importer'));
@@ -5875,8 +5881,8 @@ function ouvrirImportCadastre(){
         btnPrincipale.title = 'En faire la parcelle principale : celle qui porte l\'adresse, l\'origine du plan et le zonage PLU. L\'actuelle redevient une voisine.';
         btnPrincipale.addEventListener('click', e=>{ e.stopPropagation(); choisirPrincipale(c); });
 
-        rang.addEventListener('mouseenter', ()=>{ etat.survol = c.idu; rafraichirVue(); });
-        rang.addEventListener('mouseleave', ()=>{ if(etat.survol === c.idu){ etat.survol = null; rafraichirVue(); } });
+        rang.addEventListener('mouseenter', ()=>{ etatImport.survol = c.idu; rafraichirVue(); });
+        rang.addEventListener('mouseleave', ()=>{ if(etatImport.survol === c.idu){ etatImport.survol = null; rafraichirVue(); } });
         casesVoisines.set(c.idu, {cb, cbProp, lab:rang});
         rang.appendChild(labProp);
         rang.appendChild(labImport);
@@ -5885,9 +5891,9 @@ function ouvrirImportCadastre(){
         listeVoisines.appendChild(rang);
       });
     };
-    groupe('Parcelles mitoyennes', etat.adjacentes);
-    groupe('Autres parcelles du secteur', etat.autres);
-    if(etat.tropDense){
+    groupe('Parcelles mitoyennes', etatImport.adjacentes);
+    groupe('Autres parcelles du secteur', etatImport.autres);
+    if(etatImport.tropDense){
       const t = document.createElement('div');
       t.style.cssText = 'font-size:0.8rem; color:#a02020; margin-top:6px;';
       t.textContent = 'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.';
@@ -5896,12 +5902,12 @@ function ouvrirImportCadastre(){
   }
 
   async function creerProjet(){
-    const nom = (champNom.value || '').trim() || ('Parcelle ' + libelleParcelle(etat.principale));
+    const nom = (champNom.value || '').trim() || ('Parcelle ' + libelleParcelle(etatImport.principale));
     let objets;
     try {
-      objets = objetsDepuisCadastre(etat);
+      objets = objetsDepuisCadastre(etatImport);
     } catch(e){
-      etat.erreur = 'Construction du plan impossible : ' + (e.message || e);
+      etatImport.erreur = 'Construction du plan impossible : ' + (e.message || e);
       majEtat(); return;
     }
     if(!seed.apiAvailable){
@@ -5919,7 +5925,7 @@ function ouvrirImportCadastre(){
       location.href = withProjectParam(cree.id);
     } catch(e){
       occuper(false);
-      etat.erreur = 'Impossible de creer le projet : ' + (e.message || e);
+      etatImport.erreur = 'Impossible de creer le projet : ' + (e.message || e);
       majEtat();
     }
   }
@@ -5958,21 +5964,21 @@ function estVoisinage(o){ return !!o.voisinage; }
 function syncBasculeGrille(){
   const b = document.getElementById('gridBtn');
   if(!b) return;
-  b.classList.toggle('off', !grilleVisible);
-  b.title = (grilleVisible ? 'Masquer' : 'Afficher') + ' la grille du plan';
-  b.setAttribute('aria-pressed', grilleVisible ? 'true' : 'false');
+  b.classList.toggle('off', !etat.grilleVisible);
+  b.title = (etat.grilleVisible ? 'Masquer' : 'Afficher') + ' la grille du plan';
+  b.setAttribute('aria-pressed', etat.grilleVisible ? 'true' : 'false');
 }
-function objetMasque(o){ return !!o.hidden || (o.voisinage && !voisinageVisible); }
+function objetMasque(o){ return !!o.hidden || (o.voisinage && !etat.voisinageVisible); }
 function syncBasculeVoisinage(){
   const lab = document.getElementById('voisinageToggle');
   const cb = document.getElementById('chkVoisinage');
   if(!lab || !cb) return;
-  const n = objects.filter(estVoisinage).length;
+  const n = etat.objects.filter(estVoisinage).length;
   // Case affichee seulement s'il y a du voisinage a masquer : une bascule sans effet visible
   // ferait douter de ce qu'elle commande.
   lab.style.display = n ? 'inline-flex' : 'none';
   lab.title = 'Masque les ' + n + ' objet(s) importe(s) avec les parcelles adjacentes (bati, vegetation, arbres estimes), sur le plan comme en 3D. Rien n\'est supprime.';
-  cb.checked = voisinageVisible;
+  cb.checked = etat.voisinageVisible;
 }
 // Un seul enregistrement pour les bascules d'affichage rangees sur la parcelle. Rien n'est ecrit
 // tant que tout est aux valeurs par defaut : un projet qui n'y a jamais touche ne gagne pas le
@@ -5980,21 +5986,21 @@ function syncBasculeVoisinage(){
 function enregistrerAffichage(){
   const p = trouverParcelleCloture();
   if(!p) return;
-  const auxDefauts = voisinageVisible && grilleVisible;
+  const auxDefauts = etat.voisinageVisible && etat.grilleVisible;
   if((!p.affichage || typeof p.affichage !== 'object')){
     if(auxDefauts) return;
     p.affichage = {};
   }
-  if(p.affichage.voisinage === voisinageVisible && p.affichage.grille === grilleVisible) return;
-  p.affichage.voisinage = voisinageVisible;
-  p.affichage.grille = grilleVisible;
+  if(p.affichage.voisinage === etat.voisinageVisible && p.affichage.grille === etat.grilleVisible) return;
+  p.affichage.voisinage = etat.voisinageVisible;
+  p.affichage.grille = etat.grilleVisible;
   markDirty();
 }
 function restaurerAffichageDuProjet(){
   const p = trouverParcelleCloture();
   const a = p && p.affichage;
-  voisinageVisible = !(a && a.voisinage === false);
-  grilleVisible = !(a && a.grille === false);
+  etat.voisinageVisible = !(a && a.voisinage === false);
+  etat.grilleVisible = !(a && a.grille === false);
   syncBasculeVoisinage();
   syncBasculeGrille();
   // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
@@ -6003,7 +6009,7 @@ function restaurerAffichageDuProjet(){
   rebuildSelector();   // le voisinage masque ne doit pas figurer dans les categories
   syncLieuTitre();     // la parcelle a pu changer de position (import, actualisation)
   render();
-  if(threeScene) buildThreeScene(objects.find(o=>o.key===terrasseSelectedKey) || null);
+  if(threeScene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 }
 
 // Les reglages du fond (actif, opacite de la photo, remplissage du terrain) sont ranges SUR la
@@ -6114,7 +6120,7 @@ async function chargerOrthophoto(){
   // Emprise a couvrir : celle du plan entier, avec une marge - le fond doit tenir sous les objets
   // qui debordent de la parcelle (batiments mitoyens, chemins).
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  objects.forEach(o=>{
+  etat.objects.forEach(o=>{
     const pts = o.type === 'circle'
       ? [{x:o.center.x-o.r, y:o.center.y-o.r}, {x:o.center.x+o.r, y:o.center.y+o.r}]
       : (o.pts || []);
@@ -6383,8 +6389,8 @@ function ouvrirDialogueActualisation(bouton){
     showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
     return;
   }
-  const nbIgn = objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation').length;
-  const nbVoisines = objects.filter(o=>o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length;
+  const nbIgn = etat.objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation').length;
+  const nbVoisines = etat.objects.filter(o=>o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length;
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center; padding:14px;';
@@ -6524,13 +6530,13 @@ async function actualiserDepuisIgn(options, bouton){
 
     // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee "tout" seulement)
     const objsIgn = options.portee === 'tout'
-      ? objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation')
+      ? etat.objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation')
       : [];
     const couches = [...new Set(objsIgn.map(o=>o.bdtopo.couche))];
     const fraiches = {};
     if(couches.length){
       const anneaux = [];
-      objects.forEach(o=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push(o.cadastre.geometrieSource.coordinates[0]); });
+      etat.objects.forEach(o=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push(o.cadastre.geometrieSource.coordinates[0]); });
       if(anneaux.length){
         const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
         for(const couche of couches){
@@ -6549,7 +6555,7 @@ async function actualiserDepuisIgn(options, bouton){
     // ---- 3. Application
     pushHistory();
     let nMaj = 0, nAbsents = 0, ecartMax = 0;
-    const serialises = serializeObjects(objects).map(o=>{
+    const serialises = serializeObjects(etat.objects).map(o=>{
       if(o.key === parcelle.key && ptsParcelle){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
         o.pts.forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle)); });
@@ -6617,7 +6623,7 @@ async function actualiserDepuisIgn(options, bouton){
         bilan.push('voisinage non ajoute : ' + (e.message || e));
       }
     }
-    restoreState({ objects: serialises, measures: serializeMeasures(measures) });
+    restoreState({ objects: serialises, measures: serializeMeasures(etat.measures) });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle
     const cible = trouverParcelleCloture();
@@ -6802,7 +6808,7 @@ function setupProjectBar(seed){
     b.type = 'button'; b.className = 'secondary small'; b.textContent = '+ Depuis une adresse';
     b.title = 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines';
     b.addEventListener('click', ()=>{
-      if(dirty && seed.apiAvailable){
+      if(etat.dirty && seed.apiAvailable){
         showConfirm('Des modifications ne sont pas enregistrees. Ouvrir l\'import cadastre quand meme ?', ouvrirImportCadastre);
         return;
       }
@@ -6849,7 +6855,7 @@ function setupProjectBar(seed){
   });
   sel.addEventListener('change', ()=>{
     const target = sel.value;
-    if(dirty){
+    if(etat.dirty){
       sel.value = currentMeta.id; // revert until confirmed, so a cancel leaves the dropdown consistent
       showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', ()=>{
         localStorage.setItem(LS_LAST_PROJECT, target);
@@ -6866,7 +6872,7 @@ function setupProjectBar(seed){
   newBtn.addEventListener('click', ()=>{
     showPrompt('Nom du nouveau projet (copie du plan actuel) :', currentMeta ? (currentMeta.name + ' (copie)') : 'Nouveau projet', async (name)=>{
       try{
-        const created = await apiSave({ name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: serializeObjects(objects), measures: serializeMeasures(measures) });
+        const created = await apiSave({ name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: serializeObjects(etat.objects), measures: serializeMeasures(etat.measures) });
         localStorage.setItem(LS_LAST_PROJECT, created.id);
         location.href = withProjectParam(created.id);
       } catch(e){
@@ -6881,13 +6887,13 @@ function setupProjectBar(seed){
     if(!currentMeta) return;
     saveBtn.disabled = true; saveBtn.textContent = 'Enregistrement…';
     try{
-      const res = await apiSave({ id: currentMeta.id, name: currentMeta.name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: serializeObjects(objects), measures: serializeMeasures(measures) });
-      dirty = false;
+      const res = await apiSave({ id: currentMeta.id, name: currentMeta.name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: serializeObjects(etat.objects), measures: serializeMeasures(etat.measures) });
+      etat.dirty = false;
       lastSavedLabel = 'Enregistre a ' + new Date(res.updatedAt || Date.now()).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
       initialState.length = 0;
-      initialState.push(...serializeObjects(objects));
+      initialState.push(...serializeObjects(etat.objects));
       initialMeasures.length = 0;
-      initialMeasures.push(...serializeMeasures(measures));
+      initialMeasures.push(...serializeMeasures(etat.measures));
       showToast('Projet enregistre.');
     } catch(e){
       showErrBanner('Echec de l\'enregistrement : ' + (e.message||e));
@@ -6917,7 +6923,7 @@ function setupProjectBar(seed){
   const status = document.createElement('span');
   status.id = 'projectStatus';
   function updateStatus(){
-    status.textContent = dirty ? 'Modifications non enregistrees' : (lastSavedLabel || 'A jour');
+    status.textContent = etat.dirty ? 'Modifications non enregistrees' : (lastSavedLabel || 'A jour');
   }
   refreshProjectStatus = updateStatus;
   updateStatus();
@@ -7233,11 +7239,11 @@ function elevationOf(o){
 function rebuildTerrasseSelector(){
   const div = document.getElementById('terrasseSelector');
   div.innerHTML = '';
-  const terrasses = objects.filter(o=>o.fonction==='terrasse');
+  const terrasses = etat.objects.filter(o=>o.fonction==='terrasse');
   const empty = document.getElementById('terrasseEmpty');
   const content = document.getElementById('terrasseContent');
   if(terrasses.length===0){
-    terrasseSelectedKey = null;
+    etat.terrasseSelectedKey = null;
     // La Vue 3D, elle, ne depend pas d'une terrasse : un plan de parcelle avec ses batiments se
     // regarde en 3D tel quel. Les autres sous-onglets (construction, BOM, coupe...) n'auraient
     // rien a decrire et restent derriere le message d'accueil.
@@ -7253,15 +7259,15 @@ function rebuildTerrasseSelector(){
     return false;
   }
   empty.style.display='none'; content.style.display='block';
-  if(!terrasseSelectedKey || !terrasses.some(o=>o.key===terrasseSelectedKey)) terrasseSelectedKey = terrasses[0].key;
+  if(!etat.terrasseSelectedKey || !terrasses.some(o=>o.key===etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0].key;
   terrasses.forEach(o=>{
     const b = document.createElement('button');
-    b.className = 'objbtn' + (o.key===terrasseSelectedKey ? ' active' : '');
+    b.className = 'objbtn' + (o.key===etat.terrasseSelectedKey ? ' active' : '');
     b.textContent = o.name;
-    b.addEventListener('click', ()=>{ terrasseSelectedKey=o.key; refreshTerrasseView(); });
+    b.addEventListener('click', ()=>{ etat.terrasseSelectedKey=o.key; refreshTerrasseView(); });
     div.appendChild(b);
   });
-  const selectedObj = terrasses.find(o=>o.key===terrasseSelectedKey);
+  const selectedObj = terrasses.find(o=>o.key===etat.terrasseSelectedKey);
   if(selectedObj){
     const surf = document.createElement('span');
     surf.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft); margin-left:8px;';
@@ -7389,14 +7395,14 @@ function renderTerrasseConfigurator(obj){
   // far above that is telling the user their solives are closer together than they need to be.
   // The spa densification is deliberate and local, so it is counted separately - otherwise a
   // heavy spa would make the layout look over-screwed and point the blame at the entraxe.
-  const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj, null, objects) : [];
+  const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj, null, etat.objects) : [];
   const visCount = visPts.length;
   const visSpa = visPts.filter(p=>p.role==='spa').length;
   // Nommer ce qui a ete detecte. Toute forme passee en fonction "equipement" resserre desormais
   // la grille : si elle n'est pas nommee ici, personne ne peut voir laquelle, ni s'apercevoir
   // qu'un objet a ete classe equipement par megarde.
   const zonesEquip = (obj.pts && obj.pts.length>=3)
-    ? findSpaZones(c.visMargeZoneSpa, objects).filter(z=>zoneToucheTerrasse(z, obj.pts)) : [];
+    ? findSpaZones(c.visMargeZoneSpa, etat.objects).filter(z=>zoneToucheTerrasse(z, obj.pts)) : [];
   const nomsEquip = zonesEquip.map(z=>z.nom).join(', ');
   const surfM2 = shoelace(obj.pts) || 1;
   const densite = visCount / surfM2;
@@ -7773,8 +7779,8 @@ svg.appendChild(terrasseLayerGroup);
 
 function renderTerrasseLayerView(obj){
   terrasseLayerGroup.innerHTML = '';
-  if(appMode!=='terrasse' || !obj) return;
-  const layers = computeTerrasseLayers(obj, objects);
+  if(etat.appMode!=='terrasse' || !obj) return;
+  const layers = computeTerrasseLayers(obj, etat.objects);
   // Thinner/dashed strokes once more than one layer is shown together, so they stay
   // readable stacked on top of each other instead of turning into a solid mess.
   const multi = Object.values(terrasseLayerVisible).filter(Boolean).length > 1;
@@ -7816,7 +7822,7 @@ function renderTerrasseLayerView(obj){
 
 function renderBOMTable(obj){
   const c = ensureConstruction(obj);
-  const layers = computeTerrasseLayers(obj, objects);
+  const layers = computeTerrasseLayers(obj, etat.objects);
   const lines = computeBOM(obj, layers);
   c.bom = lines;
   renderDebitLames(obj, layers);
@@ -8518,10 +8524,10 @@ function buildThreeScene(obj){
   // Sans terrasse : une construction par defaut jetable (aucun objet du plan n'est touche) sert
   // uniquement a garder les constantes de section/hauteur ci-dessous definies.
   const c = obj ? ensureConstruction(obj) : ensureConstruction({});
-  const layers = obj ? computeTerrasseLayers(obj, objects) : null;
+  const layers = obj ? computeTerrasseLayers(obj, etat.objects) : null;
   // Le centre de la scene se prend sur la terrasse ; a defaut sur la parcelle, sinon sur
   // l'ensemble des objets - la camera doit regarder quelque chose dans tous les cas.
-  const objetCentre = obj || trouverParcelleCloture() || objects.find(o=>o.pts && o.pts.length);
+  const objetCentre = obj || trouverParcelleCloture() || etat.objects.find(o=>o.pts && o.pts.length);
   const cen = objetCentre
     ? (objetCentre.type === 'circle' ? {x:objetCentre.center.x, y:objetCentre.center.y} : centroid(objetCentre.pts))
     : {x:0, y:0};
@@ -8564,7 +8570,7 @@ function buildThreeScene(obj){
   const ptsPourEtendue = obj ? obj.pts.slice() : [];
   // Sans terrasse, "tous les objets" n'est pas une option : ils sont la seule chose a montrer.
   if(show3dAllObjects || !obj){
-    objects.forEach(o=>{
+    etat.objects.forEach(o=>{
       if(o===obj) return;
       if(o.type==='circle') ptsPourEtendue.push(...cerclePointsExtent(o));
       else if(o.pts) ptsPourEtendue.push(...o.pts);
@@ -8979,7 +8985,7 @@ function buildThreeScene(obj){
     // "Texture" decoche revient a la couleur unie sans avoir a retirer la texture de chaque
     // objet - un simple objet vide desactive le rendu texture le temps de la case decochee.
     const texturesDe = o => show3dTextures ? {horizontale:o.textureHorizontale, vertical:o.textureVerticale} : null;
-    objects.forEach(o=>{
+    etat.objects.forEach(o=>{
       if(o===obj) return;
       if(objetMasque(o)) return; // masque dans le plan = masque partout, y compris ici (voisinage compris)
       if(o.key==='parcelle' || o.fonction==='terrain'){
@@ -9133,7 +9139,7 @@ function buildThreeScene(obj){
 // propres a une terrasse) - re-remplie a chaque construction de la scene pour refleter tout ajout,
 // renommage ou suppression fait depuis Mode Plan entre-temps.
 function renderVue3DSelect(){
-  const vues = objects.filter(o=>o.fonction==='camera');
+  const vues = etat.objects.filter(o=>o.fonction==='camera');
   ['terrasse3dViewSelect','glbViewerViewSelect'].forEach(id=>{
     const sel = document.getElementById(id);
     if(!sel) return;
@@ -9146,12 +9152,12 @@ function renderVue3DSelect(){
   });
 }
 document.getElementById('terrasse3dViewSelect').addEventListener('change', function(){
-  const vp = objects.find(o=>o.key===this.value);
+  const vp = etat.objects.find(o=>o.key===this.value);
   this.value = '';
   if(vp) allerAuPointDeVue(vp);
 });
 document.getElementById('glbViewerViewSelect').addEventListener('change', function(){
-  const vp = objects.find(o=>o.key===this.value);
+  const vp = etat.objects.find(o=>o.key===this.value);
   this.value = '';
   if(vp) allerAuPointDeVueGlb(vp);
 });
@@ -9164,7 +9170,7 @@ document.getElementById('glbViewerViewSelect').addEventListener('change', functi
 // tableau, donc potentiellement une voisine - et la cloture comme la position du soleil se
 // retrouveraient rattachees au terrain d'a cote.
 function trouverParcelleCloture(){
-  return objects.find(o=>o.key==='parcelle') || objects.find(o=>o.fonction==='terrain');
+  return etat.objects.find(o=>o.key==='parcelle') || etat.objects.find(o=>o.fonction==='terrain');
 }
 function syncClotureControls(parcelleObj){
   const cb = document.getElementById('terrasse3dCloture');
@@ -9186,7 +9192,7 @@ function syncClotureControls(parcelleObj){
   [hInp, cInp, texBtn].forEach(el=>{ el.disabled = !cb.checked; });
 }
 function rafraichirApresCloture(){
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(threeScene) buildThreeScene(obj || null);
 }
@@ -9310,7 +9316,7 @@ document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
   threeScene.renderer.domElement.toBlob(blob=>{
     if(!blob){ showErrBanner('Erreur export PNG : conversion en image impossible.'); return; }
     const url = URL.createObjectURL(blob);
-    const obj = objects.find(o=>o.key===terrasseSelectedKey);
+    const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
     const nom = (obj && obj.name ? obj.name : 'terrasse').normalize('NFD').replace(/[̀-ͯ]/g,'')
       .replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'') || 'terrasse';
     const a = document.createElement('a');
@@ -9326,7 +9332,7 @@ document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
 // laisses - ce bouton leve ou baisse le point de vue, il ne le deplace pas.
 const HAUTEUR_YEUX_M = 1.6;
 document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>{
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   if(!obj || !threeScene) return;
   const { camera, controls, renderer, scene } = threeScene;
   camera.position.y = hauteurFinieMm(obj)/1000 + HAUTEUR_YEUX_M;
@@ -9335,7 +9341,7 @@ document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>{
 });
 // Le filaire change la geometrie, pas seulement un materiau : la scene se reconstruit.
 document.getElementById('terrasse3dFilaire').addEventListener('change', function(){
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   if(!obj) return;
   ensureConstruction(obj).lames3dFilaire = this.checked;
   if(threeScene) buildThreeScene(obj);
@@ -9343,14 +9349,14 @@ document.getElementById('terrasse3dFilaire').addEventListener('change', function
 let show3dAllObjects = true;
 document.getElementById('terrasse3dAllObjects').addEventListener('change', function(){
   show3dAllObjects = this.checked;
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(threeScene) buildThreeScene(obj || null);
 });
 let objects3dOpaque = true;
 document.getElementById('terrasse3dObjectsOpaque').addEventListener('change', function(){
   objects3dOpaque = this.checked;
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(threeScene) buildThreeScene(obj || null);
 });
@@ -9360,7 +9366,7 @@ document.getElementById('terrasse3dObjectsOpaque').addEventListener('change', fu
 let show3dTextures = true;
 document.getElementById('terrasse3dTextures').addEventListener('change', function(){
   show3dTextures = this.checked;
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(threeScene) buildThreeScene(obj || null);
 });
@@ -9370,7 +9376,7 @@ document.getElementById('terrasse3dTextures').addEventListener('change', functio
 let show3dShadows = false;
 document.getElementById('terrasse3dShadows').addEventListener('change', function(){
   show3dShadows = this.checked;
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(threeScene) buildThreeScene(obj || null);
 });
@@ -9393,8 +9399,8 @@ document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
   // des objets a l'echelle comparable sur le plan.
   const planDx = dx/dl, planDz = -dz/dl;
   pushHistory();
-  const n = objects.filter(o=>o.fonction==='camera').length + 1;
-  const key = 'path' + Date.now() + '_' + (newObjCounter++);
+  const n = etat.objects.filter(o=>o.fonction==='camera').length + 1;
+  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
   const newObj = {
     key, type:'path', name:'Point de vue '+n, fill:'#c0392b', fillOpacity:0.9, stroke:'#6b1f16',
     pts:[ {x:planX, y:planY}, {x:planX+planDx*2, y:planY+planDz*2} ],
@@ -9404,7 +9410,7 @@ document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
     constrained:false, fonction:'camera', matiere:'', priority:3, locked:false,
     altitude: camera.position.y
   };
-  objects.push(newObj);
+  etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
   reapplyStackingOrder();
@@ -9417,10 +9423,10 @@ document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
 // repere local se fait ICI, au moment du clic, avec le centroide de CETTE terrasse - un point de
 // vue n'appartient a aucune terrasse en particulier, donc rien n'est precalcule/fige a l'avance.
 function allerAuPointDeVue(vp){
-  const terr = (objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse'))
-            || objects.find(o=>o.fonction==='terrasse');
+  const terr = (etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse'))
+            || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr){ showToast('Cree d\'abord une terrasse pour pouvoir y aller en Vue 3D.'); return; }
-  terrasseSelectedKey = terr.key;
+  etat.terrasseSelectedKey = terr.key;
   terrasseSubTab = '3d';
   setAppMode('terrasse');
   document.getElementById('modeTerrasseBtn').classList.remove('active');
@@ -9454,8 +9460,8 @@ function allerAuPointDeVue(vp){
 // repères coincident.
 function allerAuPointDeVueGlb(vp){
   if(!glbViewerScene) return;
-  const terr = objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse')
-            || objects.find(o=>o.fonction==='terrasse');
+  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
+            || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr) return;
   const cen = centroid(terr.pts);
   const ddx = vp.pts[1].x-vp.pts[0].x, ddy = vp.pts[1].y-vp.pts[0].y;
@@ -9548,9 +9554,9 @@ function captureStageHome(){
 }
 function updateStagePlacement(){
   captureStageHome();
-  if(appMode==='terrasse' && terrasseSubTab==='canevas'){
+  if(etat.appMode==='terrasse' && terrasseSubTab==='canevas'){
     document.getElementById('stageHost').appendChild(stage);
-  } else if(appMode==='terrasse'){
+  } else if(etat.appMode==='terrasse'){
     document.getElementById('stageParking').appendChild(stage);
   } else {
     stageHomeParent.insertBefore(stage, stageHomeNext);
@@ -9602,7 +9608,7 @@ function rebuildTerrasseSubTabs(){
   if(terrasseSubTab==='3d'){
     // obj peut etre absent (plan sans terrasse) : buildThreeScene(null) construit alors le
     // terrain, les batiments et le reste du plan, sans la structure de terrasse.
-    const obj = objects.find(o=>o.key===terrasseSelectedKey) || null;
+    const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null;
     document.getElementById('terrasse3dLoading').style.display = threeLoaded ? 'none' : '';
     ensureThreeLoaded(()=>{
       document.getElementById('terrasse3dLoading').style.display = 'none';
@@ -9618,7 +9624,7 @@ function rebuildTerrasseSubTabs(){
 let terrasseLastFittedKey = null;
 function refreshTerrasseView(){
   if(!rebuildTerrasseSelector()) return;
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   if(!obj){
     // Cas "Vue 3D sans terrasse" : rien a configurer, mais la scene 3D doit quand meme se
     // construire (rebuildTerrasseSubTabs s'en charge, avec obj = null).
@@ -9649,7 +9655,7 @@ function setAppMode(mode){
   // plus bas) : tout retour explicite vers Plan ou Terrasse doit la refermer, sinon son canevas
   // resterait actif en arriere-plan sous le panneau qu'on vient de rouvrir.
   fermerVisionneuseGlb();
-  appMode = mode;
+  etat.appMode = mode;
   document.getElementById('modePlanBtn').className = 'objbtn' + (mode==='plan' ? ' active' : '');
   document.getElementById('modeTerrasseBtn').className = 'objbtn' + (mode==='terrasse' ? ' active' : '');
   // "Vue 3D" est un raccourci vers Mode Terrasse/sous-onglet 3D, pas un troisieme appMode a part
@@ -9688,7 +9694,7 @@ function renderImplantation(obj){
   const c = ensureConstruction(obj);
   host.innerHTML = '';
   if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
-  const layers = computeTerrasseLayers(obj, objects);
+  const layers = computeTerrasseLayers(obj, etat.objects);
   const I = computeImplantation(obj, layers);
   const ech = ECHELLES.includes(c.echelleImplant) ? c.echelleImplant : 200;
   const mm = m => m*1000/ech;                       // metres reels -> mm sur le papier
@@ -9897,7 +9903,7 @@ function renderChantier(obj){
   const c = ensureConstruction(obj);
   host.innerHTML = '';
   if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
-  const layers = computeTerrasseLayers(obj, objects);
+  const layers = computeTerrasseLayers(obj, etat.objects);
   const ch = computeChantier(obj, layers);
   const equipe = Math.max(1, Math.round(c.equipe||2));
   const hJour = Math.max(1, c.heuresJour||7);
@@ -10024,8 +10030,8 @@ function renderMethode(obj){
 
   const span = porteeVisM(c);
   const ok = obj.pts && obj.pts.length>=3;
-  const S = ok ? computeStructure(obj, objects) : {cadre:[],solives:[],lambourdes:[],solivesSpa:[]};
-  const vis = ok ? buildVisGrid(obj, S, objects) : [];
+  const S = ok ? computeStructure(obj, etat.objects) : {cadre:[],solives:[],lambourdes:[],solivesSpa:[]};
+  const vis = ok ? buildVisGrid(obj, S, etat.objects) : [];
   const roles = {rive:0, courant:0, spa:0};
   vis.forEach(p=>roles[p.role]=(roles[p.role]||0)+1);
   const surf = shoelace(obj.pts) || 1;
@@ -10282,7 +10288,7 @@ function renderOptimResult(obj){
   const host = document.getElementById('terrasseOptimResult');
   if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host.style.display='none'; return; }
   const c = ensureConstruction(obj);
-  const res = optimiserParametres(obj, objects);
+  const res = optimiserParametres(obj, etat.objects);
   host.style.display = '';
   host.innerHTML = '';
   if(!res.length){ host.innerHTML = '<div class="hint">Aucune configuration exploitable.</div>'; return; }
@@ -10372,7 +10378,7 @@ function renderOptimResult(obj){
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c,'vis',VIS_PRICE),
     prixUnitaire(c,'bois',SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts)||1, objects);
+    lamesAngleOf(obj), shoelace(obj.pts)||1, etat.objects);
   const note = document.createElement('div');
   note.className = 'hint';
   const gain = actuel.cout - best.cout;
@@ -10385,7 +10391,7 @@ function renderOptimResult(obj){
   host.appendChild(note);
 }
 document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
-  const obj = objects.find(o=>o.key===terrasseSelectedKey);
+  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   if(!obj) return;
   optimVisible = !optimVisible;
   document.getElementById('terrasseOptimBtn').textContent =
@@ -10439,8 +10445,8 @@ document.getElementById('glbViewerZoomOut').addEventListener('click', ()=>{
 // la cible du regard.
 document.getElementById('glbViewerEyeLevel').addEventListener('click', ()=>{
   if(!glbViewerScene) return;
-  const terr = objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse')
-            || objects.find(o=>o.fonction==='terrasse');
+  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
+            || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr) return;
   const { camera, controls, renderer, scene } = glbViewerScene;
   camera.position.y = hauteurFinieMm(terr)/1000 + HAUTEUR_YEUX_M;
@@ -10543,7 +10549,7 @@ render();
 // raison de tomber sur l'echelle par defaut du plan de demonstration. Un plan dessine a la main
 // garde, lui, le cadrage historique - ses coordonnees ont ete posees avec.
 (function cadrerSurTerrainImporte(){
-  const p = objects.find(o=>o.key==='parcelle');
+  const p = etat.objects.find(o=>o.key==='parcelle');
   if(p && p.cadastre && p.pts && p.pts.length >= 3) fitToObject(p);
 })();
 // Reglages du fond orthophoto enregistres avec le projet : on les restitue, et on rallume le
