@@ -13,6 +13,30 @@ while ($listener.IsListening) {
   $ctx = $listener.GetContext()
   $rel = [System.Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath).TrimStart('/')
   if ([string]::IsNullOrWhiteSpace($rel)) { $rel = 'plan.html' }
+  # Depot de fixture : POST /_fixture/<nom> ecrit le corps brut dans tests/fixtures/golden/.
+  # Sert a capturer les golden files au bit pres (les PDF sont binaires : les faire transiter
+  # par une chaine de caracteres les corromprait). Refuse tout ce qui sort du dossier, et
+  # n'accepte que des noms de fichier simples.
+  if ($ctx.Request.HttpMethod -eq 'POST' -and $rel -like '_fixture/*') {
+    $nom = $rel.Substring(9)
+    if ($nom -match '^[A-Za-z0-9._-]+$') {
+      $dossier = Join-Path $root 'tests/fixtures/golden'
+      if (-not (Test-Path -LiteralPath $dossier)) { New-Item -ItemType Directory -Force $dossier | Out-Null }
+      $ms = New-Object System.IO.MemoryStream
+      $ctx.Request.InputStream.CopyTo($ms)
+      [System.IO.File]::WriteAllBytes((Join-Path $dossier $nom), $ms.ToArray())
+      $ctx.Response.StatusCode = 200
+      $rep = [System.Text.Encoding]::UTF8.GetBytes('{"ecrit":"' + $nom + '","octets":' + $ms.Length + '}')
+    } else {
+      $ctx.Response.StatusCode = 400
+      $rep = [System.Text.Encoding]::UTF8.GetBytes('{"error":"nom de fichier refuse"}')
+    }
+    $ctx.Response.ContentType = 'application/json'
+    $ctx.Response.Headers.Add('Access-Control-Allow-Origin', '*')
+    $ctx.Response.OutputStream.Write($rep, 0, $rep.Length)
+    $ctx.Response.Close()
+    continue
+  }
   $path = Join-Path $root $rel
   try {
     if (Test-Path -LiteralPath $path -PathType Leaf) {

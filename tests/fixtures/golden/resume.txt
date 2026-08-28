@@ -1,0 +1,396 @@
+Plan interactif 1.0.0 - export (repere local, metres) - 28/08/2026
+Origine (0,0) = Apex, le sommet Coin Nord de la parcelle (le point le plus au nord).
+Axe X+ = Est ; Axe Y+ = Nord (correspond au "haut" de l'affichage a l'ecran).
+Pour reimporter/recaler ce plan ailleurs, aligner Apex sur Coin Nord et orienter Y+ vers le nord.
+
+Parcelle AE 101 (parcelle): 722.99 m2
+Terrasse (terrasse): 35.01 m2
+Chemin Arrière (path1787319011372_6): 26.84 m2 (longueur x largeur)
+Maison (maison): 151.78 m2
+Dalle beton (dalle): 11.81 m2
+Abri de jardin (abri): 11.00 m2
+Chemin ZigZag (path1787318807161_2): 10.78 m2 (longueur x largeur)
+Spa (spa): 3.83 m2
+Table (table): 12.10 m2
+Parking (obj1787318713220_1): 19.61 m2
+Chemin Table (path1787318953347_3): 3.40 m2 (longueur x largeur)
+Chemin Buandrie (path1787319000006_5): 1.00 m2 (longueur x largeur)
+Chêne (circle1787323958811_1): 0.96 m2
+Erable (circle1787324026450_2): 0.51 m2
+Abri de jardin Chemin (path1787324582190_1): 0.94 m2 (longueur x largeur)
+Arbre Entrée (circle1787324912263_1): 0.29 m2
+Coin entrant terrasse (path1787580286624_2): 0.26 m2 (longueur x largeur)
+Arriere terrasse (path1787581252906_3): 0.17 m2 (longueur x largeur)
+Fenetre cuisine (path1787581272870_4): 0.12 m2 (longueur x largeur)
+Parasol 1 (circle1787654712806_1): 7.13 m2
+Parasol 2 (circle1787654721763_2): 7.13 m2
+Entrée (path1787657679667_1): 0.49 m2 (longueur x largeur)
+Robinet (path1787662991223_1): 0.37 m2 (longueur x largeur)
+Chène (path1787663085641_2): 0.16 m2 (longueur x largeur)
+Plattebande Rue (obj1787734238284_1): 20.18 m2
+Platebande Aline (obj1787734283270_4): 19.26 m2
+Platebande Joel (obj1787734358395_6): 26.01 m2
+Platebande Guitare  (obj1787734423634_7): 18.86 m2
+Platebande Cuisine Petit Salon (dup1787735066438_8): 4.87 m2
+Plattebande Cuisine (dup1787735282871_9): 0.88 m2
+Platebande PEtit Salon Entree (dup1787735336361_10): 2.21 m2
+Platebande Grand Salon Entree (dup1787735407953_11): 3.05 m2
+Platebande grand Salon Arriere (dup1787735490653_12): 3.02 m2
+Platebande Angle Grand Salon (dup1787735519516_13): 1.49 m2
+Platebande Grand Salon Clim (dup1787735589549_14): 2.87 m2
+Emprise totale (hors parcelle): 408.4 m2 (56.5 %)
+
+--- Parcelle AE 101 (parcelle) ---
+  Coin Sud: X=-20.135 Y=-37.127  Angle=103.3 deg
+  Coin Ouest: X=-28.018 Y=-27.832  Angle=94.5 deg
+  Coin Nord: X=0.000 Y=0.000  Angle=117.7 deg
+  Coin Est: X=11.381 Y=-3.596  Angle=94.5 deg
+  Coin Sud-Est: X=6.798 Y=-23.459  Angle=129.6 deg
+  Point 6: X=0.672 Y=-26.526  Angle=180.4 deg
+  Sud-Ouest (rue) (Coin Sud -> Coin Ouest): 12.19 m
+  Nord-Ouest (Aline) (Coin Ouest -> Coin Nord): 39.49 m
+  Nord-Est (Babar) (Coin Nord -> Coin Est): 11.94 m
+  Sud-Est (guitare) (Coin Est -> Coin Sud-Est): 20.38 m
+  Cote 5 (Coin Sud-Est -> Point 6): 6.85 m
+  Sud (Joel) (Point 6 -> Coin Sud): 23.35 m
+
+--- Terrasse (terrasse) ---
+  Coin 1: X=-2.617 Y=-2.541  Angle=66.7 deg
+  Coin 2: X=-0.883 Y=-6.927  Angle=88.6 deg
+  Coin 5: X=-3.548 Y=-7.907  Angle=221.3 deg
+  Coin 3: X=-4.750 Y=-10.116  Angle=144.8 deg
+  Coin 6: X=-7.550 Y=-11.500  Angle=143.3 deg
+  Coin 4: X=-10.995 Y=-10.869  Angle=55.2 deg
+  Cote 1 (Coin 1 -> Coin 2): 4.72 m
+  Cote 2 (Coin 2 -> Coin 5): 2.84 m
+  Cote 5 (Coin 5 -> Coin 3): 2.52 m
+  Cote 3 (Coin 3 -> Coin 6): 3.12 m
+  Cote 6 (Coin 6 -> Coin 4): 3.50 m
+  Cote 4 (Coin 4 -> Coin 1): 11.81 m
+
+--- Chemin Arrière (path1787319011372_6) ---
+  Largeur: 0.60 m (courbe)
+  Point 1: X=-1.270 Y=-24.572
+  Coin 6: X=4.148 Y=-22.190
+  Coin 3: X=7.492 Y=-12.219
+  Coin 4: X=6.225 Y=-6.193
+  Coin 5: X=0.982 Y=-5.694
+  Coin 7: X=0.228 Y=-7.185
+  Coin 11: X=-2.939 Y=-8.454
+  Coin 8: X=-4.225 Y=-10.407
+  Coin 10: X=-6.622 Y=-11.822
+  Coin 9: X=-10.127 Y=-13.388
+  Point 2: X=-10.611 Y=-15.982
+  Cote 1 (Point 1 -> Coin 6): 5.92 m
+  Cote 6 (Coin 6 -> Coin 3): 10.52 m
+  Cote 3 (Coin 3 -> Coin 4): 6.16 m
+  Cote 4 (Coin 4 -> Coin 5): 5.27 m
+  Cote 5 (Coin 5 -> Coin 7): 1.67 m
+  Cote 7 (Coin 7 -> Coin 11): 3.41 m
+  Cote 11 (Coin 11 -> Coin 8): 2.34 m
+  Cote 8 (Coin 8 -> Coin 10): 2.78 m
+  Cote 10 (Coin 10 -> Coin 9): 3.84 m
+  Cote 9 (Coin 9 -> Point 2): 2.64 m
+  Longueur totale: 44.54 m
+
+--- Maison (maison) ---
+  H0: X=-2.761 Y=-8.779  Angle=90.9 deg
+  H1: X=4.897 Y=-6.453  Angle=89.9 deg
+  H5: X=6.616 Y=-12.144  Angle=90.3 deg
+  H4: X=1.548 Y=-13.705  Angle=270.2 deg
+  H6: X=2.100 Y=-15.479  Angle=271.3 deg
+  H7: X=2.748 Y=-15.261  Angle=87.7 deg
+  H9: X=3.962 Y=-19.415  Angle=90.5 deg
+  H8: X=3.251 Y=-19.630  Angle=267.9 deg
+  H13: X=3.574 Y=-20.864  Angle=92.0 deg
+  H12: X=-5.479 Y=-23.570  Angle=89.4 deg
+  H11: X=-5.648 Y=-22.982  Angle=263.8 deg
+  H10: X=-6.295 Y=-23.094  Angle=96.8 deg
+  H2: X=-9.202 Y=-13.378  Angle=90.5 deg
+  H3: X=-2.071 Y=-11.182  Angle=268.9 deg
+  Facade Nord (H0 -> H1): 8.00 m
+  Cote 2 (H1 -> H5): 5.94 m
+  Cote 3 (H5 -> H4): 5.30 m
+  Cote 4 (H4 -> H6): 1.86 m
+  Cote 5 (H6 -> H7): 0.68 m
+  Cote 6 (H7 -> H9): 4.33 m
+  Cote 7 (H9 -> H8): 0.74 m
+  Cote 8 (H8 -> H13): 1.28 m
+  Cote 9 (H13 -> H12): 9.45 m
+  Cote 10 (H12 -> H11): 0.61 m
+  Cote 11 (H11 -> H10): 0.66 m
+  Cote 12 (H10 -> H2): 10.14 m
+  Retrait Nord (H2 -> H3): 7.46 m
+  Cote 14 (H3 -> H0): 2.50 m
+
+--- Dalle beton (dalle) ---
+  Coin 1: X=10.827 Y=-3.788  Angle=90.0 deg
+  Coin 2: X=5.521 Y=-2.258  Angle=90.0 deg
+  Coin 3: X=4.929 Y=-4.313  Angle=90.0 deg
+  Coin 4: X=10.235 Y=-5.843  Angle=90.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 5.52 m
+  Cote 2 (Coin 2 -> Coin 3): 2.14 m
+  Cote 3 (Coin 3 -> Coin 4): 5.52 m
+  Cote 4 (Coin 4 -> Coin 1): 2.14 m
+
+--- Abri de jardin (abri) ---
+  A1: X=-0.720 Y=-4.162  Angle=79.6 deg
+  B: X=-0.911 Y=-2.561  Angle=211.3 deg
+  C: X=-1.609 Y=-1.671  Angle=97.8 deg
+  D: X=-0.222 Y=-0.238  Angle=117.0 deg
+  E: X=2.232 Y=-0.991  Angle=125.6 deg
+  F: X=2.917 Y=-3.036  Angle=88.7 deg
+  Cote 1 (A1 -> B): 1.61 m
+  Cote 2 (B -> C): 1.13 m
+  Cote 3 (C -> D): 1.99 m
+  Cote 4 (D -> E): 2.57 m
+  Cote 5 (E -> F): 2.16 m
+  Cote 6 (F -> A1): 3.81 m
+
+--- Chemin ZigZag (path1787318807161_2) ---
+  Largeur: 0.50 m (courbe)
+  Point 1: X=-16.622 Y=-33.634
+  Coin 3: X=-15.221 Y=-32.536
+  Coin 4: X=-12.871 Y=-29.488
+  Coin 5: X=-8.774 Y=-29.260
+  Coin 7: X=-5.912 Y=-25.646
+  Coin 6: X=-1.500 Y=-25.195
+  Point 2: X=-1.626 Y=-22.501
+  Cote 1 (Point 1 -> Coin 3): 1.78 m
+  Cote 3 (Coin 3 -> Coin 4): 3.85 m
+  Cote 4 (Coin 4 -> Coin 5): 4.10 m
+  Cote 5 (Coin 5 -> Coin 7): 4.61 m
+  Cote 7 (Coin 7 -> Coin 6): 4.43 m
+  Cote 6 (Coin 6 -> Point 2): 2.70 m
+  Longueur totale: 21.47 m
+
+--- Spa (spa) ---
+  Centre: X=-3.454 Y=-5.600  Rayon=1.10 m
+
+--- Table (table) ---
+  Coin 1: X=-15.897 Y=-17.154  Angle=90.0 deg
+  Coin 2: X=-18.031 Y=-19.280  Angle=90.0 deg
+  Coin 3: X=-15.196 Y=-22.125  Angle=90.0 deg
+  Coin 4: X=-13.063 Y=-19.998  Angle=90.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 3.01 m
+  Cote 2 (Coin 2 -> Coin 3): 4.02 m
+  Cote 3 (Coin 3 -> Coin 4): 3.01 m
+  Cote 4 (Coin 4 -> Coin 1): 4.02 m
+
+--- Parking (obj1787318713220_1) ---
+  Coin 1: X=-20.498 Y=-36.608  Angle=105.6 deg
+  Coin 2: X=-15.935 Y=-34.564  Angle=77.7 deg
+  Coin 3: X=-18.346 Y=-31.296  Angle=99.2 deg
+  Coin 4: X=-22.951 Y=-33.660  Angle=77.4 deg
+  Cote 1 (Coin 1 -> Coin 2): 5.00 m
+  Cote 2 (Coin 2 -> Coin 3): 4.06 m
+  Cote 3 (Coin 3 -> Coin 4): 5.18 m
+  Cote 4 (Coin 4 -> Coin 1): 3.83 m
+
+--- Chemin Table (path1787318953347_3) ---
+  Largeur: 0.50 m (courbe)
+  Point 1: X=-14.182 Y=-18.895
+  Coin 3: X=-11.959 Y=-16.763
+  Coin 4: X=-9.761 Y=-15.421
+  Point 2: X=-8.702 Y=-15.091
+  Cote 1 (Point 1 -> Coin 3): 3.08 m
+  Cote 3 (Coin 3 -> Coin 4): 2.58 m
+  Cote 4 (Coin 4 -> Point 2): 1.11 m
+  Longueur totale: 6.76 m
+
+--- Chemin Buandrie (path1787319000006_5) ---
+  Largeur: 0.50 m (courbe)
+  Point 1: X=-4.071 Y=-10.453
+  Coin 3: X=-3.755 Y=-10.755
+  Point 2: X=-2.227 Y=-10.519
+  Cote 1 (Point 1 -> Coin 3): 0.44 m
+  Cote 3 (Coin 3 -> Point 2): 1.55 m
+  Longueur totale: 1.98 m
+
+--- Chêne (circle1787323958811_1) ---
+  Centre: X=-8.047 Y=-23.138  Rayon=0.55 m
+
+--- Erable (circle1787324026450_2) ---
+  Centre: X=-1.574 Y=-2.900  Rayon=0.40 m
+
+--- Abri de jardin Chemin (path1787324582190_1) ---
+  Largeur: 0.50 m (droit)
+  Point 1: X=0.190 Y=-3.872
+  Point 2: X=0.860 Y=-5.615
+  Cote 1 (Point 1 -> Point 2): 1.87 m
+  Longueur totale: 1.87 m
+
+--- Arbre Entrée (circle1787324912263_1) ---
+  Centre: X=-18.689 Y=-31.040  Rayon=0.30 m
+
+--- Coin entrant terrasse (path1787580286624_2) ---
+  Largeur: 0.08 m (droit)
+  Position: X=-11.202 Y=-13.282
+  Direction: X=-8.473 Y=-11.602
+  Vise (Position -> Direction): 3.20 m
+  Longueur totale: 3.20 m
+
+--- Arriere terrasse (path1787581252906_3) ---
+  Largeur: 0.08 m (droit)
+  Position: X=2.346 Y=-4.995
+  Direction: X=0.339 Y=-5.616
+  Vise (Position -> Direction): 2.10 m
+  Longueur totale: 2.10 m
+
+--- Fenetre cuisine (path1787581272870_4) ---
+  Largeur: 0.08 m (droit)
+  Position: X=-4.754 Y=-11.914
+  Direction: X=-5.278 Y=-10.462
+  Vise (Position -> Direction): 1.54 m
+  Longueur totale: 1.54 m
+
+--- Parasol 1 (circle1787654712806_1) ---
+  Centre: X=-7.145 Y=-10.214  Rayon=1.51 m
+
+--- Parasol 2 (circle1787654721763_2) ---
+  Centre: X=-15.804 Y=-20.911  Rayon=1.51 m
+
+--- Entrée (path1787657679667_1) ---
+  Largeur: 0.08 m (droit)
+  Position: X=-20.494 Y=-35.569
+  Direction: X=-17.702 Y=-30.199
+  Vise (Position -> Direction): 6.05 m
+  Longueur totale: 6.05 m
+
+--- Robinet (path1787662991223_1) ---
+  Largeur: 0.08 m (droit)
+  Position: X=-23.553 Y=-26.294
+  Direction: X=-20.135 Y=-23.290
+  Vise (Position -> Direction): 4.55 m
+  Longueur totale: 4.55 m
+
+--- Chène (path1787663085641_2) ---
+  Largeur: 0.08 m (droit)
+  Position: X=-7.365 Y=-26.163
+  Direction: X=-9.177 Y=-25.271
+  Vise (Position -> Direction): 2.02 m
+  Longueur totale: 2.02 m
+
+--- Plattebande Rue (obj1787734238284_1) ---
+  Coin 1: X=-23.255 Y=-33.255  Angle=103.8 deg
+  Coin 2: X=-20.776 Y=-32.022  Angle=75.6 deg
+  Coin 3: X=-26.059 Y=-25.910  Angle=85.5 deg
+  Coin 4: X=-27.896 Y=-27.767  Angle=95.1 deg
+  Cote 1 (Coin 1 -> Coin 2): 2.77 m
+  Cote 2 (Coin 2 -> Coin 3): 8.08 m
+  Cote 3 (Coin 3 -> Coin 4): 2.61 m
+  Cote 4 (Coin 4 -> Coin 1): 7.19 m
+
+--- Platebande Aline (obj1787734283270_4) ---
+  Coin 1: X=-25.471 Y=-26.570  Angle=87.2 deg
+  Coin 2: X=-11.004 Y=-12.258  Angle=90.8 deg
+  Coin 3: X=-11.688 Y=-11.547  Angle=89.0 deg
+  Coin 4: X=-26.079 Y=-25.892  Angle=93.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 20.35 m
+  Cote 2 (Coin 2 -> Coin 3): 0.99 m
+  Cote 3 (Coin 3 -> Coin 4): 20.32 m
+  Cote 4 (Coin 4 -> Coin 1): 0.91 m
+
+--- Platebande Joel (obj1787734358395_6) ---
+  Coin 1: X=-15.639 Y=-34.804  Angle=94.4 deg
+  Coin 2: X=6.852 Y=-23.521  Angle=95.0 deg
+  Coin 3: X=6.452 Y=-22.515  Angle=84.8 deg
+  Coin 4: X=-16.147 Y=-33.960  Angle=85.9 deg
+  Cote 1 (Coin 1 -> Coin 2): 25.16 m
+  Cote 2 (Coin 2 -> Coin 3): 1.08 m
+  Cote 3 (Coin 3 -> Coin 4): 25.33 m
+  Cote 4 (Coin 4 -> Coin 1): 0.98 m
+
+--- Platebande Guitare  (obj1787734423634_7) ---
+  Coin 1: X=5.904 Y=-21.909  Angle=85.3 deg
+  Coin 2: X=7.087 Y=-22.081  Angle=94.5 deg
+  Coin 3: X=10.672 Y=-6.311  Angle=83.5 deg
+  Coin 4: X=9.528 Y=-6.185  Angle=96.7 deg
+  Cote 1 (Coin 1 -> Coin 2): 1.20 m
+  Cote 2 (Coin 2 -> Coin 3): 16.17 m
+  Cote 3 (Coin 3 -> Coin 4): 1.15 m
+  Cote 4 (Coin 4 -> Coin 1): 16.14 m
+
+--- Platebande Cuisine Petit Salon (dup1787735066438_8) ---
+  Coin 1: X=-7.002 Y=-23.288  Angle=90.0 deg
+  Coin 2: X=-6.420 Y=-23.121  Angle=90.0 deg
+  Coin 3: X=-8.644 Y=-15.384  Angle=90.0 deg
+  Coin 4: X=-9.225 Y=-15.552  Angle=90.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 0.61 m
+  Cote 2 (Coin 2 -> Coin 3): 8.05 m
+  Cote 3 (Coin 3 -> Coin 4): 0.61 m
+  Cote 4 (Coin 4 -> Coin 1): 8.05 m
+
+--- Plattebande Cuisine (dup1787735282871_9) ---
+  Coin 1: X=-9.452 Y=-14.990  Angle=90.0 deg
+  Coin 2: X=-8.865 Y=-14.821  Angle=90.0 deg
+  Coin 3: X=-9.265 Y=-13.431  Angle=90.0 deg
+  Coin 4: X=-9.851 Y=-13.599  Angle=90.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 0.61 m
+  Cote 2 (Coin 2 -> Coin 3): 1.45 m
+  Cote 3 (Coin 3 -> Coin 4): 0.61 m
+  Cote 4 (Coin 4 -> Coin 1): 1.45 m
+
+--- Platebande PEtit Salon Entree (dup1787735336361_10) ---
+  Coin 1: X=-5.292 Y=-24.171  Angle=90.0 deg
+  Coin 2: X=-1.808 Y=-23.170  Angle=90.0 deg
+  Coin 3: X=-1.976 Y=-22.583  Angle=90.0 deg
+  Coin 4: X=-5.460 Y=-23.585  Angle=90.0 deg
+  Cote 1 (Coin 1 -> Coin 2): 3.63 m
+  Cote 2 (Coin 2 -> Coin 3): 0.61 m
+  Cote 3 (Coin 3 -> Coin 4): 3.63 m
+  Cote 4 (Coin 4 -> Coin 1): 0.61 m
+
+--- Platebande Grand Salon Entree (dup1787735407953_11) ---
+  Coin 1: X=-1.163 Y=-22.953  Angle=88.8 deg
+  Coin 2: X=3.755 Y=-21.433  Angle=85.9 deg
+  Coin 3: X=3.544 Y=-20.889  Angle=94.4 deg
+  Coin 4: X=-1.332 Y=-22.366  Angle=90.8 deg
+  Cote 1 (Coin 1 -> Coin 2): 5.15 m
+  Cote 2 (Coin 2 -> Coin 3): 0.58 m
+  Cote 3 (Coin 3 -> Coin 4): 5.09 m
+  Cote 4 (Coin 4 -> Coin 1): 0.61 m
+
+--- Platebande grand Salon Arriere (dup1787735490653_12) ---
+  Coin 1: X=3.936 Y=-19.375  Angle=82.0 deg
+  Coin 2: X=4.562 Y=-19.110  Angle=99.2 deg
+  Coin 3: X=3.566 Y=-15.051  Angle=89.3 deg
+  Coin 4: X=2.833 Y=-15.241  Angle=89.6 deg
+  Cote 1 (Coin 1 -> Coin 2): 0.68 m
+  Cote 2 (Coin 2 -> Coin 3): 4.18 m
+  Cote 3 (Coin 3 -> Coin 4): 0.76 m
+  Cote 4 (Coin 4 -> Coin 1): 4.28 m
+
+--- Platebande Angle Grand Salon (dup1787735519516_13) ---
+  Coin 1: X=3.778 Y=-21.273  Angle=62.3 deg
+  Coin 2: X=4.489 Y=-20.558  Angle=135.2 deg
+  Coin 3: X=4.489 Y=-19.301  Angle=71.0 deg
+  Coin 4: X=3.286 Y=-19.716  Angle=91.5 deg
+  Cote 1 (Coin 1 -> Coin 2): 1.01 m
+  Cote 2 (Coin 2 -> Coin 3): 1.26 m
+  Cote 3 (Coin 3 -> Coin 4): 1.27 m
+  Cote 4 (Coin 4 -> Coin 1): 1.63 m
+
+--- Platebande Grand Salon Clim (dup1787735589549_14) ---
+  Coin 1: X=2.107 Y=-15.464  Angle=90.4 deg
+  Coin 2: X=3.539 Y=-15.026  Angle=93.7 deg
+  Coin 3: X=3.118 Y=-13.239  Angle=86.4 deg
+  Coin 4: X=1.558 Y=-13.712  Angle=89.5 deg
+  Cote 1 (Coin 1 -> Coin 2): 1.50 m
+  Cote 2 (Coin 2 -> Coin 3): 1.84 m
+  Cote 3 (Coin 3 -> Coin 4): 1.63 m
+  Cote 4 (Coin 4 -> Coin 1): 1.84 m
+
+=== Mesures ===
+  Parcelle AE 101: Cote 5 -> Table: Coin 2  origine=B  perpendiculaire=14.85 m  le_long=-13.48 m  affichage_sur_plan=le_long  affiche=oui
+  Parcelle AE 101: Cote 5 -> Table: Coin 1  origine=B  perpendiculaire=15.80 m  le_long=-10.62 m  affichage_sur_plan=le_long  affiche=oui
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 3  origine=B  perpendiculaire=17.10 m  le_long=2.50 m  affichage_sur_plan=perpendiculaire  affiche=non
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 5  origine=B  perpendiculaire=18.54 m  le_long=4.56 m  affichage_sur_plan=perpendiculaire  affiche=non
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 1  origine=B  perpendiculaire=22.92 m  le_long=7.80 m  affichage_sur_plan=le_long  affiche=oui
+  Maison: Cote 12 -> Table: Coin 4  origine=B  perpendiculaire=5.60 m  le_long=5.24 m  affichage_sur_plan=perpendiculaire  affiche=non
+  Parcelle AE 101: Cote 5 -> Maison: H2  origine=B  perpendiculaire=16.18 m  le_long=-2.94 m  affichage_sur_plan=perpendiculaire  affiche=non
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 6  origine=B  perpendiculaire=17.12 m  le_long=-0.63 m  affichage_sur_plan=le_long  affiche=oui
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 3  origine=B  perpendiculaire=17.10 m  le_long=2.50 m  affichage_sur_plan=le_long  affiche=oui
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 5  origine=B  perpendiculaire=18.54 m  le_long=4.56 m  affichage_sur_plan=le_long  affiche=oui
+  Parcelle AE 101: Cote 5 -> Terrasse: Coin 2  origine=B  perpendiculaire=18.22 m  le_long=7.38 m  affichage_sur_plan=le_long  affiche=oui
+

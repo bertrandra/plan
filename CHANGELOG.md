@@ -3,6 +3,27 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [Non publié]
+
+Phase 0 de la migration TypeScript ([`MD/spec-migration-typescript.md`](MD/spec-migration-typescript.md) §4) :
+filet de sécurité posé avant la moindre ligne de TypeScript. Aucun octet exporté ne change.
+
+### Modifié
+
+- `history` renommé en `undoStack` (changement A1 accepté par la spec §10.3 : une fois les modules
+  en place, la collision avec `window.history` deviendrait silencieuse). Prouvé inerte — les six
+  empreintes de référence sont identiques avant et après.
+
+### Interne
+
+- Golden files déposés dans `tests/fixtures/golden/` : résumé, SVG, DXF, projet JSON, PDF plan,
+  PDF dossier, plus une empreinte structurelle du GLB (le binaire pèse 41,5 Mo et l'exporteur
+  three.js n'est pas déterministe).
+- Liste de fumée de 25 interactions (`tests/CHECKLIST-FUMEE.md`), à dérouler avant chaque fusion.
+- Artefact gelé dans `legacy/plan_interactif.html`, étiquette `v0-preTS`.
+- Le serveur de développement accepte `POST /_fixture/<nom>` pour déposer un golden file au bit
+  près : un PDF qui transite par une chaîne JavaScript n'est plus le même fichier.
+
 ## [1.0.0] — 2026-08-28
 
 Première version numérotée. Elle **fige l'application mono-page existante telle qu'elle est** et
