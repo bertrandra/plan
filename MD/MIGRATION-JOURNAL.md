@@ -433,6 +433,35 @@ et annulation coherentes ; et surtout l'insertion d'un point par double-clic sur
 desormais par le rappel : 6 sommets → 7, puis 6 apres annulation.
 
 
+### Une régression que les golden files ne pouvaient pas voir
+
+En sortant `pathD` et `polyStr` — les deux fonctions laissées en phase 2 faute de scène explicite —
+j'ai découvert que **deux scènes coexistaient** : `etat.scene`, lue par les modules extraits, et un
+`const scene` resté dans `legacy.ts`, écrit par le zoom et le déplacement. Exactement le double état
+que la §6.1 interdit.
+
+Symptôme : la molette modifiait une scène, le dessin lisait l'autre. **Le zoom ne faisait plus
+rien.** Introduit en sortant le décor et la grille (commit `7fb5852`), présent dans les deux commits
+suivants.
+
+Pourquoi rien ne l'avait signalé : les six golden files sont des **exports**, et un export ne dépend
+pas de la transformation d'écran — le SVG exporté est recalculé dans son propre repère. Les tests
+unitaires, eux, passent la scène en paramètre, donc ils ne pouvaient pas voir deux scènes. Seul un
+zoom réel dans le navigateur le montrait, et je n'avais vérifié que la barre d'échelle, qui
+n'avait légitimement pas bougé à ce niveau de zoom.
+
+Corrigé en supprimant la scène en double. Deux occurrences avaient échappé au remplacement, pour
+des raisons instructives : `versEcran(scene, p)` n'est pas suivi d'un point, et dans
+`{...scene.origine}` le point vu par le garde-fou était celui de l'opérateur de décomposition.
+
+Vérifié après correction, contre les valeurs relevées en phase 4b : largeur 100 px, zoom avant 110,
+retour exact à 100, « Ajuster à la sélection » 413, flèche du Nord présente, barre d'échelle « 2 m ».
+
+**La leçon, pour la suite :** les golden files couvrent ce qui sort de l'application, pas ce qu'on
+voit à l'écran. Tout déplacement touchant la transformation de vue doit être vérifié par un zoom et
+un déplacement réels, pas seulement par les exports.
+
+
 ### Ce qui reste
 
 `render()` lui-même, `createObjectDOM`/`rebuildHandles`, le calque parasol, et le gros de

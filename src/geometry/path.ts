@@ -1,11 +1,11 @@
 // Chemins : lecture d'un attribut `d` SVG (spec §3.2, geometry/path.ts).
 //
-// La spec range aussi `pathD` et `polyStr` ici, mais les deux appellent `toScreen()` : elles
-// dependent de l'etat de la vue et ne sont donc pas des feuilles pures au sens de la phase 2.
-// Elles restent dans legacy.ts jusqu'a ce qu'elles recoivent une projection en parametre
-// (phase 4, quand l'etat devient explicite).
+// `pathD` et `polyStr` etaient restees dans legacy.ts a la phase 2 : elles appellent la
+// transformation de la vue, qui n'existait pas encore comme objet. Elles l'ont rejointe en phase 4
+// et vivent maintenant ici, la scene passee en parametre (voir plus bas).
 
 import type { PtBrut } from '../model/types.js';
+import { versEcran, type EtatScene } from '../render/scene.js';
 
 // Best-effort SVG path 'd' parser: reduces a path to an ordered list of {x,y} endpoint vertices,
 // matching how this app already represents imported curves (plain polyline points, not bezier
@@ -74,4 +74,48 @@ export function parseSvgPathPoints(d: string): PtBrut[] {
     }
   }
   return pts;
+}
+
+// ---- Trace a l'ecran ----------------------------------------------------------------------
+// Ces deux fonctions produisent des coordonnees d'ECRAN, pas du plan : elles ont donc besoin de
+// la transformation de scene. C'est la raison pour laquelle elles etaient restees dans legacy.ts
+// a la phase 2 - la scene n'existait pas encore comme objet. Elle est maintenant un parametre.
+
+/** Liste de points pour l'attribut `points` d'un `<polygon>`, en pixels. */
+export function polyStr(scene: EtatScene, pts: PtBrut[]): string {
+  return pts
+    .map((p) => {
+      const s = versEcran(scene, p);
+      return s.x + ',' + s.y;
+    })
+    .join(' ');
+}
+
+/**
+ * Attribut `d` d'un `<path>`, en pixels.
+ *
+ * Sans lissage, une simple polyligne. Avec lissage, une conversion Catmull-Rom vers des Bezier
+ * cubiques : la courbe passe exactement par tous les points saisis, ce qu'une Bezier dont on
+ * choisirait les controles a la main ne garantit pas.
+ */
+export function pathD(scene: EtatScene, pts: PtBrut[], curve?: boolean): string {
+  if (pts.length < 2) return '';
+  const s = pts.map((p) => versEcran(scene, p));
+  if (!curve || s.length < 3) {
+    return 'M ' + s.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L ');
+  }
+  let d = 'M ' + s[0].x.toFixed(1) + ',' + s[0].y.toFixed(1) + ' ';
+  for (let i = 0; i < s.length - 1; i++) {
+    const p0 = s[Math.max(0, i - 1)],
+      p1 = s[i],
+      p2 = s[i + 1],
+      p3 = s[Math.min(s.length - 1, i + 2)];
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+    d +=
+      'C ' + c1.x.toFixed(1) + ',' + c1.y.toFixed(1) + ' ' +
+      c2.x.toFixed(1) + ',' + c2.y.toFixed(1) + ' ' +
+      p2.x.toFixed(1) + ',' + p2.y.toFixed(1) + ' ';
+  }
+  return d;
 }

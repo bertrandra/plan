@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { estRectangle, rectangleDepuisCoin, rectangleDepuisCote, RECT_MIN_M } from '../../../src/geometry/rect.js';
 import { memePoint, fusionnerAnneaux, simplifierContour } from '../../../src/geometry/rings.js';
-import { parseSvgPathPoints } from '../../../src/geometry/path.js';
+import { parseSvgPathPoints, pathD, polyStr } from '../../../src/geometry/path.js';
 import { shoelace } from '../../../src/geometry/basic.js';
 
 const p = (x: number, y: number) => ({ x, y });
@@ -100,5 +100,32 @@ describe('parseSvgPathPoints', () => {
   it('applique la repetition implicite : une lettre inconnue laisse la commande precedente active', () => {
     // Regle SVG : des paires de coordonnees qui suivent sans lettre rejouent la derniere commande.
     expect(parseSvgPathPoints('M 0,0 L 5,5 X 9,9')).toEqual([{ x: 0, y: 0 }, { x: 5, y: 5 }, { x: 9, y: 9 }]);
+  });
+});
+
+describe('trace a l ecran', () => {
+  const scene = { scale: 10, origine: { x: 100, y: 200 }, W: 800, H: 600 };
+
+  it('ecrit une polyligne en pixels, Y inverse', () => {
+    // Le plan a Y+ vers le nord, l'ecran Y+ vers le bas : un point a 5 m au nord monte de 50 px.
+    expect(polyStr(scene, [p(0, 0), p(1, 5)])).toBe('100,200 110,150');
+  });
+
+  it('ecrit un chemin droit quand le lissage est absent', () => {
+    expect(pathD(scene, [p(0, 0), p(2, 0)])).toBe('M 100.0,200.0 L 120.0,200.0');
+  });
+
+  it('rend une chaine vide sous deux points', () => {
+    expect(pathD(scene, [p(0, 0)])).toBe('');
+  });
+
+  it('passe en Bezier cubiques des qu on lisse trois points ou plus', () => {
+    const d = pathD(scene, [p(0, 0), p(2, 2), p(4, 0)], true);
+    expect(d.startsWith('M ')).toBe(true);
+    expect((d.match(/C /g) || []).length).toBe(2);
+  });
+
+  it('ne lisse pas deux points, meme si on le demande', () => {
+    expect(pathD(scene, [p(0, 0), p(2, 0)], true)).not.toContain('C ');
   });
 });

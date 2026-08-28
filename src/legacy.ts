@@ -23,7 +23,7 @@ import {
   clipLineToPolygon, polygonOffset, ringSegments, clipPolygonByConvex, exteriorBisector, offsetZone
 } from './geometry/polygon.js';
 import { memePoint, decouperAnneau, chainerSegments, fusionnerAnneaux, simplifierContour } from './geometry/rings.js';
-import { parseSvgPathPoints } from './geometry/path.js';
+import { parseSvgPathPoints, pathD, polyStr } from './geometry/path.js';
 import { TERRE_A, TERRE_E2, projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from './geo/projection.js';
 import { decalageFuseauFrance, positionSoleil } from './geo/soleil.js';
 import { DEMO_OBJECTS, DEMO_MEASURES } from './model/demo.js';
@@ -338,7 +338,8 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 // L'echelle et l'origine de la scene, regroupees dans un objet nomme (spec §6.1) : la
 // transformation monde <-> ecran est desormais une donnee que l'on passe, et non deux variables
 // libres que quarante endroits lisent et ecrivent sans le dire.
-const scene = creerScene();
+// La scene vit dans `etat.scene` : une seule transformation, partagee par le rendu et les
+// interactions. Elle avait ete dupliquee ici par erreur lors du passage a l etat explicite.
 // W et H : dans `etat.scene` (spec 6.1) - la taille utile de la scene.
 function computeSize(){
   const margin = 40;
@@ -347,8 +348,8 @@ function computeSize(){
 }
 computeSize();
 
-function toScreen(p){ return versEcran(scene, p); }
-function toWorld(p){ return versMonde(scene, p); }
+function toScreen(p){ return versEcran(etat.scene, p); }
+function toWorld(p){ return versMonde(etat.scene, p); }
 
 // ================= Build SVG =================
 const stage = document.getElementById('stage');
@@ -528,8 +529,6 @@ function rebuildSelector(){
 }
 rebuildSelector();
 
-// ================= Render =================
-function polyStr(pts){ return pts.map(p=>{const s=toScreen(p); return s.x+','+s.y;}).join(' '); }
 
 function bringToFront(obj){
   svg.appendChild(vue(obj).el);
@@ -583,22 +582,6 @@ function sendObjectBackward(obj){
 }
 
 
-function pathD(pts, curve){
-  if(pts.length<2) return '';
-  const s = pts.map(toScreen);
-  if(!curve || s.length<3){
-    return 'M ' + s.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' L ');
-  }
-  // Catmull-Rom to cubic Bezier (smooth curve through all points)
-  let d = 'M ' + s[0].x.toFixed(1) + ',' + s[0].y.toFixed(1) + ' ';
-  for(let i=0;i<s.length-1;i++){
-    const p0 = s[Math.max(0,i-1)], p1 = s[i], p2 = s[i+1], p3 = s[Math.min(s.length-1,i+2)];
-    const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
-    const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
-    d += 'C ' + c1.x.toFixed(1)+','+c1.y.toFixed(1)+' '+c2.x.toFixed(1)+','+c2.y.toFixed(1)+' '+p2.x.toFixed(1)+','+p2.y.toFixed(1)+' ';
-  }
-  return d;
-}
 // Le dessin du calque parasol vit dans render/parasolOverlay.ts. La contrainte de position, elle,
 // modifie les objets : elle reste ici et s'execute avant le dessin, comme avant.
 function renderParasolOverlay(){
@@ -689,17 +672,17 @@ function render(){
     if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.style.display = '';
 
     if(obj.type==='polygon'){
-      vue(obj).el.setAttribute('points', polyStr(obj.pts));
+      vue(obj).el.setAttribute('points', polyStr(etat.scene, obj.pts));
     } else if(obj.type==='path'){
-      vue(obj).el.setAttribute('d', pathD(obj.pts, !!obj.curve));
-      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*scene.scale));
+      vue(obj).el.setAttribute('d', pathD(etat.scene, obj.pts, !!obj.curve));
+      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*etat.scene.scale));
       if(vue(obj).camMarkerEl){
         const p0 = toScreen(obj.pts[0]);
         vue(obj).camMarkerEl.setAttribute('cx',p0.x); vue(obj).camMarkerEl.setAttribute('cy',p0.y);
       }
     } else {
       const c = toScreen(obj.center);
-      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*scene.scale);
+      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*etat.scene.scale);
     }
     if(obj.type!=='path') vue(obj).el.setAttribute('stroke-width', isSel ? '3' : (obj.type==='circle'?'0.08':'1.8'));
     else vue(obj).el.setAttribute('stroke-opacity', isSel ? '1' : '0.85');
@@ -1724,7 +1707,7 @@ svg.addEventListener('pointerdown', e=>{
   if(!ds || !ds.role){
     // click/drag on empty background (grid, or blank stage area): pan the view
     const rect = stage.getBoundingClientRect();
-    activeDrag = {type:'pan', startScreen:{x:e.clientX-rect.left, y:e.clientY-rect.top}, startOrigin:{...scene.origine}};
+    activeDrag = {type:'pan', startScreen:{x:e.clientX-rect.left, y:e.clientY-rect.top}, startOrigin:{...etat.scene.origine}};
     e.preventDefault();
     return;
   }
@@ -1839,7 +1822,7 @@ window.addEventListener('pointermove', e=>{
   if(activeDrag.type === 'pan'){
     const rect = stage.getBoundingClientRect();
     const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
-    scene.origine = {
+    etat.scene.origine = {
       x: activeDrag.startOrigin.x + (cur.x-activeDrag.startScreen.x),
       y: activeDrag.startOrigin.y + (cur.y-activeDrag.startScreen.y)
     };
@@ -1983,8 +1966,8 @@ svg.addEventListener('wheel', e=>{
   const mouse = {x:e.clientX-rect.left, y:e.clientY-rect.top};
   const wb = toWorld(mouse);
   const factor = e.deltaY<0 ? 1.1 : 1/1.1;
-  scene.scale = Math.min(220, Math.max(6, scene.scale*factor));
-  scene.origine = {x: mouse.x - wb.x*scene.scale, y: mouse.y + wb.y*scene.scale};
+  etat.scene.scale = Math.min(220, Math.max(6, etat.scene.scale*factor));
+  etat.scene.origine = {x: mouse.x - wb.x*etat.scene.scale, y: mouse.y + wb.y*etat.scene.scale};
   render();
 }, {passive:false});
 
@@ -1997,12 +1980,12 @@ stage.addEventListener('pointerdown', e=>{
   if(activePointers.size===2){
     activeDrag=null;
     const arr=[...activePointers.values()];
-    pinchState={dist0:dist(arr[0],arr[1]), scale0:scene.scale, midWorld:toWorld(midOf(arr))};
+    pinchState={dist0:dist(arr[0],arr[1]), scale0:etat.scene.scale, midWorld:toWorld(midOf(arr))};
     panState=null;
   } else if(activePointers.size===3){
     activeDrag=null; pinchState=null;
     const arr=[...activePointers.values()];
-    panState={avg0:midOf(arr), origin0:{...scene.origine}};
+    panState={avg0:midOf(arr), origin0:{...etat.scene.origine}};
   } else if(activePointers.size>3){ pinchState=null; panState=null; }
 });
 window.addEventListener('pointermove', e=>{
@@ -2011,13 +1994,13 @@ window.addEventListener('pointermove', e=>{
   if(activePointers.size===2 && pinchState){
     const arr=[...activePointers.values()];
     const d=dist(arr[0],arr[1]); const mid=midOf(arr);
-    scene.scale = Math.min(220, Math.max(6, pinchState.scale0*(d/pinchState.dist0)));
-    scene.origine = {x: mid.x-pinchState.midWorld.x*scene.scale, y: mid.y+pinchState.midWorld.y*scene.scale};
+    etat.scene.scale = Math.min(220, Math.max(6, pinchState.scale0*(d/pinchState.dist0)));
+    etat.scene.origine = {x: mid.x-pinchState.midWorld.x*etat.scene.scale, y: mid.y+pinchState.midWorld.y*etat.scene.scale};
     render();
   } else if(activePointers.size===3 && panState){
     const arr=[...activePointers.values()];
     const avg=midOf(arr);
-    scene.origine = {x: panState.origin0.x+(avg.x-panState.avg0.x), y: panState.origin0.y+(avg.y-panState.avg0.y)};
+    etat.scene.origine = {x: panState.origin0.x+(avg.x-panState.avg0.x), y: panState.origin0.y+(avg.y-panState.avg0.y)};
     render();
   }
 });
@@ -2039,9 +2022,9 @@ window.addEventListener('resize', ()=>{
     computeSize();
     stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
     svg.setAttribute('width', etat.scene.W); svg.setAttribute('height', etat.scene.H);
-    scene.origine = {
-      x: etat.scene.W/2 - centerWorldBefore.x*scene.scale,
-      y: etat.scene.H/2 + centerWorldBefore.y*scene.scale
+    etat.scene.origine = {
+      x: etat.scene.W/2 - centerWorldBefore.x*etat.scene.scale,
+      y: etat.scene.H/2 + centerWorldBefore.y*etat.scene.scale
     };
     render();
   }, 150);
@@ -2624,8 +2607,8 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
-  scene.scale = Math.max(6, Math.min(220, Math.min((etat.scene.W-60)/spanX, (etat.scene.H-60)/spanY)));
-  scene.origine = { x: etat.scene.W/2 - midX*scene.scale, y: etat.scene.H/2 + midY*scene.scale };
+  etat.scene.scale = Math.max(6, Math.min(220, Math.min((etat.scene.W-60)/spanX, (etat.scene.H-60)/spanY)));
+  etat.scene.origine = { x: etat.scene.W/2 - midX*etat.scene.scale, y: etat.scene.H/2 + midY*etat.scene.scale };
 })();
 
 // Zoom & center the view on a given object (or the whole parcel if none)
@@ -2653,8 +2636,8 @@ function fitToObject(obj){
   const midX=(minX+maxX)/2, midY=(minY+maxY)/2;
   const spanX=Math.max(0.5, maxX-minX), spanY=Math.max(0.5, maxY-minY);
   const pad = 80; // screen px of breathing room around the object
-  scene.scale = Math.max(6, Math.min(400, Math.min((etat.scene.W-pad)/spanX, (etat.scene.H-pad)/spanY)));
-  scene.origine = { x: etat.scene.W/2 - midX*scene.scale, y: etat.scene.H/2 + midY*scene.scale };
+  etat.scene.scale = Math.max(6, Math.min(400, Math.min((etat.scene.W-pad)/spanX, (etat.scene.H-pad)/spanY)));
+  etat.scene.origine = { x: etat.scene.W/2 - midX*etat.scene.scale, y: etat.scene.H/2 + midY*etat.scene.scale };
   render();
 }
 
@@ -3379,7 +3362,7 @@ document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
 // texture, puisque l'export construit/reconstruit la scene juste avant d'exporter.
 function attendreTexturesPretes(scene, delaiMaxMs){
   const textures = new Set();
-  scene.traverse(o=>{
+  etat.scene.traverse(o=>{
     if(o.isMesh){
       (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{
         if(m && m.map) textures.add(m.map);
@@ -5941,8 +5924,8 @@ function placerOrthophoto(){
     const coin = toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
     t.el.setAttribute('x', coin.x);
     t.el.setAttribute('y', coin.y);
-    t.el.setAttribute('width', Math.max(1, t.largeur*scene.scale));
-    t.el.setAttribute('height', Math.max(1, t.hauteur*scene.scale));
+    t.el.setAttribute('width', Math.max(1, t.largeur*etat.scene.scale));
+    t.el.setAttribute('height', Math.max(1, t.hauteur*etat.scene.scale));
   });
 }
 async function basculerOrthophoto(actif){
@@ -7888,7 +7871,7 @@ function ensureGLTFLoaderLoaded(cb){
 // on the GPU, since disposal isn't automatic when objects merely lose their scene references.
 function disposeThreeSceneResources(scene){
   if(!scene) return;
-  scene.traverse(obj=>{
+  etat.scene.traverse(obj=>{
     if(obj.geometry) obj.geometry.dispose();
     const materials = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
     materials.forEach(mat=>{
@@ -7902,7 +7885,7 @@ function disposeThreeSceneResources(scene){
   // scene.background can itself be a texture (the GLB viewer's "damier" checkerboard uses a
   // CanvasTexture) rather than a plain THREE.Color - traverse() never visits it since it isn't
   // part of the object graph, so it needs disposing separately or it leaks like any other texture.
-  if(scene.background && scene.background.isTexture) scene.background.dispose();
+  if(etat.scene.background && etat.scene.background.isTexture) etat.scene.background.dispose();
 }
 function disposeThreeScene(){
   if(threeScene){
@@ -8090,7 +8073,7 @@ function buildGlbViewerScene(camaraAConserver, tailleHost){
   const loader = new THREE.GLTFLoader();
   loader.parse(dernierGlbExporte.buffer, '', (gltf)=>{
     const scene = new THREE.Scene();
-    scene.background = fondGlbViewer();
+    etat.scene.background = fondGlbViewer();
     // GLTFExporter embarque les lumieres directionnelles de la scene source dans le .glb (via
     // l'extension glTF KHR_lights_punctual ; seule l'hemispherique, non representable, y echappe).
     // Rechargees telles quelles, elles s'ajoutent a celles de la visionneuse SANS etre pilotees par
@@ -8099,7 +8082,7 @@ function buildGlbViewerScene(camaraAConserver, tailleHost){
     const lumieresDuFichier = [];
     gltf.scene.traverse(o=>{ if(o.isLight) lumieresDuFichier.push(o); });
     lumieresDuFichier.forEach(l=>{ if(l.parent) l.parent.remove(l); });
-    scene.add(gltf.scene);
+    etat.scene.add(gltf.scene);
 
     const bb = new THREE.Box3().setFromObject(gltf.scene);
     const centre = new THREE.Vector3(); bb.getCenter(centre);
@@ -8134,7 +8117,7 @@ function buildGlbViewerScene(camaraAConserver, tailleHost){
     controls.update();
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
-    scene.add(hemiLight);
+    etat.scene.add(hemiLight);
     // Position/intensite/couleur initiales sans importance : appliquerLumiereGlb() ci-dessous les
     // pose selon le curseur "coucher de soleil / plein soleil" juste apres construction.
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
@@ -8147,14 +8130,14 @@ function buildGlbViewerScene(camaraAConserver, tailleHost){
       dirLight.shadow.camera.near = 0.05; dirLight.shadow.camera.far = rayon*8;
       dirLight.shadow.bias = -0.0005;
       dirLight.target.position.copy(centre);
-      scene.add(dirLight.target);
+      etat.scene.add(dirLight.target);
     }
-    scene.add(dirLight);
+    etat.scene.add(dirLight);
     const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
     dirFill.position.set(centre.x - rayon*1.6, centre.y + rayon*2.2, centre.z - rayon*1.0);
-    scene.add(dirFill);
+    etat.scene.add(dirFill);
 
-    scene.traverse(o=>{
+    etat.scene.traverse(o=>{
       if(o.isMesh){
         (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{ if(m) m.wireframe = glbViewerFilaire; });
         if(glbViewerShadows){ o.castShadow = true; o.receiveShadow = true; }
@@ -8305,7 +8288,7 @@ function buildThreeScene(obj){
   const lameW = (c.largeurLame||140)/1000;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xdfe7ea);
+  etat.scene.background = new THREE.Color(0xdfe7ea);
 
   // En mode "tous les objets", la camera et le sol doivent couvrir tout le plan, pas seulement
   // cette terrasse - sinon la maison ou la parcelle se retrouvent hors champ ou sous un sol trop
@@ -8361,7 +8344,7 @@ function buildThreeScene(obj){
   // a peu pres de l'oppose de la premiere, apporte un degrade meme aux faces que le soleil
   // principal n'atteint pas.
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
-  scene.add(hemiLight);
+  etat.scene.add(hemiLight);
   // Position/intensite/couleur posees juste apres construction par appliquerLumiereVue3d(),
   // d'apres la date, l'heure et le lieu de la parcelle : ces valeurs-ci ne servent qu'a exister.
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
@@ -8385,17 +8368,17 @@ function buildThreeScene(obj){
     dirLight.shadow.camera.far = extent * 9;
     dirLight.shadow.bias = -0.0005;
   }
-  scene.add(dirLight);
+  etat.scene.add(dirLight);
   const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
   dirFill.position.set(-extent*0.8, extent*1.1, -extent*0.5);
-  scene.add(dirFill);
+  etat.scene.add(dirFill);
 
   const groundGeo = new THREE.PlaneGeometry(extent*4, extent*4);
   const groundMat = new THREE.MeshStandardMaterial({color:0x9fb98c});
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.receiveShadow = show3dShadows;
-  scene.add(ground);
+  etat.scene.add(ground);
 
   // Three.js est en Y-haut : X=Est reste X, hauteur devient Y, donc le plan (Est,Nord) doit se
   // loger sur (X,Z). Mais Est x Nord = Haut (repere ENU standard), alors que X x Y = Z en
@@ -8413,7 +8396,7 @@ function buildThreeScene(obj){
       new THREE.BufferGeometry().setFromPoints(outlinePts),
       new THREE.LineBasicMaterial({color:0x2a2a2a})
     );
-    scene.add(outline);
+    etat.scene.add(outline);
   }
 
   // Le calque orthophoto du plan sert aussi de sol a la 3D : une dalle par tuile, posee juste
@@ -8432,7 +8415,7 @@ function buildThreeScene(obj){
       const l = toLocal({ x:t.xMin + t.largeur/2, y:t.yMin + t.hauteur/2 });
       dalle.position.set(l.x, 0.004, l.z);
       dalle.receiveShadow = show3dShadows;
-      scene.add(dalle);
+      etat.scene.add(dalle);
     });
   }
 
@@ -8511,14 +8494,14 @@ function buildThreeScene(obj){
       }
     }
     objet.position.y = yBase;
-    scene.add(objet);
+    etat.scene.add(objet);
   }
   // Silhouette au sol : sert pour la parcelle (jamais un bloc plein).
   function addGroundOutline(pts, color, closed){
     if(!pts || pts.length < 2) return;
     const vpts = pts.map(p=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.008, l.z); });
     if(closed) vpts.push(vpts[0].clone());
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(vpts),
+    etat.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(vpts),
                               new THREE.LineBasicMaterial({color})));
   }
   // Meme algorithme que pathD (Catmull-Rom -> Bezier cubique, cf. rendu 2D du plan) mais evalue
@@ -8599,7 +8582,7 @@ function buildThreeScene(obj){
     }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
-    scene.add(mesh);
+    etat.scene.add(mesh);
   }
   // Approxime un cercle du plan par un polygone regulier, au RAYON REEL (contrairement a
   // empriseEquipement qui grossit volontairement au rayon circonscrit pour une zone de charge) :
@@ -8634,19 +8617,19 @@ function buildThreeScene(obj){
       const geo = new THREE.CylinderGeometry(radius, radius*0.5, profondeur, 10);
       const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color}));
       mesh.position.set(P.x, -profondeur/2, P.z);
-      scene.add(mesh);
+      etat.scene.add(mesh);
     }
     if(hTete > 0){
       const fut = new THREE.Mesh(new THREE.CylinderGeometry(radius*0.8, radius*0.8, hTete, 10),
                                  new THREE.MeshStandardMaterial({color:0xb8c2ce}));
       fut.position.set(P.x, hTete/2, P.z);
-      scene.add(fut);
+      etat.scene.add(fut);
       // La platine qui recoit la solive, plaquee sous le dessous de la structure.
       const ep = Math.min(0.012, hTete*0.35);
       const pl = new THREE.Mesh(new THREE.BoxGeometry(radius*3.4, ep, radius*3.4),
                                 new THREE.MeshStandardMaterial({color:0x8a96a8}));
       pl.position.set(P.x, hTete - ep/2, P.z);
-      scene.add(pl);
+      etat.scene.add(pl);
     }
   }
   // Un plot n'a pas la silhouette d'une vis : base large evasee posee sur l'assise, fut etroit,
@@ -8659,12 +8642,12 @@ function buildThreeScene(obj){
     const hTete = Math.min(0.02, yTop*0.2);
     const mat = new THREE.MeshStandardMaterial({color});
     const base = new THREE.Mesh(new THREE.CylinderGeometry(rBase*0.72, rBase, hBase, 14), mat);
-    base.position.set(P.x, hBase/2, P.z); scene.add(base);
+    base.position.set(P.x, hBase/2, P.z); etat.scene.add(base);
     const futH = Math.max(0.005, yTop - hBase - hTete);
     const fut = new THREE.Mesh(new THREE.CylinderGeometry(rBase*0.3, rBase*0.34, futH, 12), mat);
-    fut.position.set(P.x, hBase + futH/2, P.z); scene.add(fut);
+    fut.position.set(P.x, hBase + futH/2, P.z); etat.scene.add(fut);
     const tete = new THREE.Mesh(new THREE.CylinderGeometry(rBase*0.55, rBase*0.55, hTete, 14), mat);
-    tete.position.set(P.x, yTop - hTete/2, P.z); scene.add(tete);
+    tete.position.set(P.x, yTop - hTete/2, P.z); etat.scene.add(tete);
   }
 
   // Toute la structure de la terrasse (appuis, solives, lambourdes, lames) : sautee quand la Vue
@@ -8768,7 +8751,7 @@ function buildThreeScene(obj){
         const matMat = new THREE.MeshStandardMaterial({color:0x6b5a44});
         const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hMat, 10), matMat);
         mat.position.set(plMat.x, hMat/2, plMat.z);
-        scene.add(mat);
+        etat.scene.add(mat);
         if(o.matDeporte){
           // Le bras horizontal qui rattrape le deport, sinon la toile flotte sans lien visible.
           const dx = pl.x-plMat.x, dz = pl.z-plMat.z;
@@ -8778,7 +8761,7 @@ function buildThreeScene(obj){
             bras.position.set((pl.x+plMat.x)/2, hMat, (pl.z+plMat.z)/2);
             bras.rotation.z = Math.PI/2;
             bras.rotation.y = -Math.atan2(dz, dx);
-            scene.add(bras);
+            etat.scene.add(bras);
           }
         }
         const matToile = new THREE.MeshStandardMaterial({color: o.fill || '#7a9e6b', side: THREE.DoubleSide});
@@ -8790,7 +8773,7 @@ function buildThreeScene(obj){
         // emprise circulaire au sol que le rayon utilise pour calculer l'ombre en 2D.
         const toile = new THREE.Mesh(new THREE.ConeGeometry(o.r, Math.max(0.15, o.r*0.28), 24), matToile);
         toile.position.set(pl.x, hMat + Math.max(0.15, o.r*0.28)/2, pl.z);
-        scene.add(toile);
+        etat.scene.add(toile);
         return;
       }
       const h = elevationOf(o);
@@ -8817,7 +8800,7 @@ function buildThreeScene(obj){
         // fine ligne/aret entre les deux. On l'enfonce d'un tiers de son rayon pour qu'elle
         // enveloppe le sommet du tronc (bien plus fin qu'elle) au lieu de juste le toucher.
         sphere.position.set(pLocal.x, h + rayon*0.67, pLocal.z);
-        scene.add(sphere);
+        etat.scene.add(sphere);
       }
     });
   }
@@ -8846,7 +8829,7 @@ function buildThreeScene(obj){
   // artefacts d'auto-ombrage aux angles rasants).
   function appliquerOmbres(){
     if(!show3dShadows) return;
-    scene.traverse(o=>{
+    etat.scene.traverse(o=>{
       if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; }
     });
     ground.castShadow = false;
