@@ -34,6 +34,7 @@ import { defaultConstruction, ensureConstruction } from './engine/construction.j
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
+import { creerScene, versEcran, versMonde } from './render/scene.js';
 import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
 import { computeTerrasseLayers } from './engine/layers.js';
 import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, terrasseDuParasol } from './engine/parasol.js';
@@ -592,8 +593,10 @@ const initialState = JSON.parse(JSON.stringify(objects));
 let selectedKey = objects.some(o=>o.key==='terrasse') ? 'terrasse' : (objects.length ? objects[0].key : null);
 
 // ================= Screen transform =================
-let scale = 16.5;
-let originScreen = {x: 430, y: 90};
+// L'echelle et l'origine de la scene, regroupees dans un objet nomme (spec §6.1) : la
+// transformation monde <-> ecran est desormais une donnee que l'on passe, et non deux variables
+// libres que quarante endroits lisent et ecrivent sans le dire.
+const scene = creerScene();
 let W = 780, H = 600;
 function computeSize(){
   const margin = 40;
@@ -602,8 +605,8 @@ function computeSize(){
 }
 computeSize();
 
-function toScreen(p){ return { x: originScreen.x + p.x*scale, y: originScreen.y - p.y*scale }; }
-function toWorld(p){ return { x: (p.x-originScreen.x)/scale, y: -(p.y-originScreen.y)/scale }; }
+function toScreen(p){ return versEcran(scene, p); }
+function toWorld(p){ return versMonde(scene, p); }
 
 // ================= Build SVG =================
 const stage = document.getElementById('stage');
@@ -652,7 +655,7 @@ function drawGrid(){
   // Grille masquable : elle sert a estimer les distances pendant le travail, elle gene des qu'on
   // regarde le plan pour lui-meme (fond orthophoto, capture d'ecran, presentation).
   if(!grilleVisible) return;
-  const stepM = niceStep(60/scale);
+  const stepM = niceStep(60/scene.scale);
   const tl=toWorld({x:0,y:0}), br=toWorld({x:W,y:H});
   const xMin=Math.floor(Math.min(tl.x,br.x)/stepM)*stepM, xMax=Math.ceil(Math.max(tl.x,br.x)/stepM)*stepM;
   const yMin=Math.floor(Math.min(tl.y,br.y)/stepM)*stepM, yMax=Math.ceil(Math.max(tl.y,br.y)/stepM)*stepM;
@@ -688,7 +691,7 @@ function createObjectDOM(obj){
   } else if(obj.type==='path'){
     vue(obj).el = document.createElementNS(svgNS,'path');
     vue(obj).el.setAttribute('fill','none');
-    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width', (obj.width||1)*scale);
+    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width', (obj.width||1)*scene.scale);
     vue(obj).el.setAttribute('stroke-linecap','butt'); vue(obj).el.setAttribute('stroke-linejoin','round');
     vue(obj).el.setAttribute('pointer-events','stroke');
     vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
@@ -1022,7 +1025,7 @@ function renderParasolOverlay(){
   contraindreParasols();
   if(parasolCarteAffichee){
     calculerCartesOmbre(contexteSoleilParasol(), objects).forEach(carte=>{
-      const cote = carte.pas*scale;
+      const cote = carte.pas*scene.scale;
       carte.cells.forEach(c=>{
         if(c.frac <= 0) return;
         const s = toScreen({x:c.x, y:c.y});
@@ -1042,7 +1045,7 @@ function renderParasolOverlay(){
       const s = toScreen({x:g.cx, y:g.cy});
       const el = document.createElementNS(svgNS,'ellipse');
       el.setAttribute('cx', s.x); el.setAttribute('cy', s.y);
-      el.setAttribute('rx', g.demiGrand*scale); el.setAttribute('ry', g.demiPetit*scale);
+      el.setAttribute('rx', g.demiGrand*scene.scale); el.setAttribute('ry', g.demiPetit*scene.scale);
       // L'axe long suit (ux,uy) en coordonnees plan ; a l'ecran l'axe Y est inverse, d'ou -uy.
       const deg = Math.atan2(-g.uy, g.ux) * 180/Math.PI;
       el.setAttribute('transform', 'rotate(' + deg.toFixed(2) + ' ' + s.x + ' ' + s.y + ')');
@@ -1118,14 +1121,14 @@ function render(){
       vue(obj).el.setAttribute('points', polyStr(obj.pts));
     } else if(obj.type==='path'){
       vue(obj).el.setAttribute('d', pathD(obj.pts, !!obj.curve));
-      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*scale));
+      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*scene.scale));
       if(vue(obj).camMarkerEl){
         const p0 = toScreen(obj.pts[0]);
         vue(obj).camMarkerEl.setAttribute('cx',p0.x); vue(obj).camMarkerEl.setAttribute('cy',p0.y);
       }
     } else {
       const c = toScreen(obj.center);
-      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*scale);
+      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*scene.scale);
     }
     if(obj.type!=='path') vue(obj).el.setAttribute('stroke-width', isSel ? '3' : (obj.type==='circle'?'0.08':'1.8'));
     else vue(obj).el.setAttribute('stroke-opacity', isSel ? '1' : '0.85');
@@ -2136,8 +2139,8 @@ svg.appendChild(scaleGroup);
 function drawScaleBar(){
   scaleGroup.innerHTML = '';
   const targetPx = 110;
-  const meters = niceStep(targetPx/scale);
-  const barPx = meters*scale;
+  const meters = niceStep(targetPx/scene.scale);
+  const barPx = meters*scene.scale;
   const x0 = W-barPx-24, y0 = H-22;
   const line1 = document.createElementNS(svgNS,'line');
   line1.setAttribute('x1',x0); line1.setAttribute('y1',y0);
@@ -2145,7 +2148,7 @@ function drawScaleBar(){
   line1.setAttribute('stroke',SVG_INK); line1.setAttribute('stroke-width','2');
   scaleGroup.appendChild(line1);
   [0, meters].forEach(v=>{
-    const x = x0 + v*scale;
+    const x = x0 + v*scene.scale;
     const tick = document.createElementNS(svgNS,'line');
     tick.setAttribute('x1',x); tick.setAttribute('y1',y0-5);
     tick.setAttribute('x2',x); tick.setAttribute('y2',y0+5);
@@ -2226,7 +2229,7 @@ svg.addEventListener('pointerdown', e=>{
   if(!ds || !ds.role){
     // click/drag on empty background (grid, or blank stage area): pan the view
     const rect = stage.getBoundingClientRect();
-    activeDrag = {type:'pan', startScreen:{x:e.clientX-rect.left, y:e.clientY-rect.top}, startOrigin:{...originScreen}};
+    activeDrag = {type:'pan', startScreen:{x:e.clientX-rect.left, y:e.clientY-rect.top}, startOrigin:{...scene.origine}};
     e.preventDefault();
     return;
   }
@@ -2341,7 +2344,7 @@ window.addEventListener('pointermove', e=>{
   if(activeDrag.type === 'pan'){
     const rect = stage.getBoundingClientRect();
     const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
-    originScreen = {
+    scene.origine = {
       x: activeDrag.startOrigin.x + (cur.x-activeDrag.startScreen.x),
       y: activeDrag.startOrigin.y + (cur.y-activeDrag.startScreen.y)
     };
@@ -2485,8 +2488,8 @@ svg.addEventListener('wheel', e=>{
   const mouse = {x:e.clientX-rect.left, y:e.clientY-rect.top};
   const wb = toWorld(mouse);
   const factor = e.deltaY<0 ? 1.1 : 1/1.1;
-  scale = Math.min(220, Math.max(6, scale*factor));
-  originScreen = {x: mouse.x - wb.x*scale, y: mouse.y + wb.y*scale};
+  scene.scale = Math.min(220, Math.max(6, scene.scale*factor));
+  scene.origine = {x: mouse.x - wb.x*scene.scale, y: mouse.y + wb.y*scene.scale};
   render();
 }, {passive:false});
 
@@ -2499,12 +2502,12 @@ stage.addEventListener('pointerdown', e=>{
   if(activePointers.size===2){
     activeDrag=null;
     const arr=[...activePointers.values()];
-    pinchState={dist0:dist(arr[0],arr[1]), scale0:scale, midWorld:toWorld(midOf(arr))};
+    pinchState={dist0:dist(arr[0],arr[1]), scale0:scene.scale, midWorld:toWorld(midOf(arr))};
     panState=null;
   } else if(activePointers.size===3){
     activeDrag=null; pinchState=null;
     const arr=[...activePointers.values()];
-    panState={avg0:midOf(arr), origin0:{...originScreen}};
+    panState={avg0:midOf(arr), origin0:{...scene.origine}};
   } else if(activePointers.size>3){ pinchState=null; panState=null; }
 });
 window.addEventListener('pointermove', e=>{
@@ -2513,13 +2516,13 @@ window.addEventListener('pointermove', e=>{
   if(activePointers.size===2 && pinchState){
     const arr=[...activePointers.values()];
     const d=dist(arr[0],arr[1]); const mid=midOf(arr);
-    scale = Math.min(220, Math.max(6, pinchState.scale0*(d/pinchState.dist0)));
-    originScreen = {x: mid.x-pinchState.midWorld.x*scale, y: mid.y+pinchState.midWorld.y*scale};
+    scene.scale = Math.min(220, Math.max(6, pinchState.scale0*(d/pinchState.dist0)));
+    scene.origine = {x: mid.x-pinchState.midWorld.x*scene.scale, y: mid.y+pinchState.midWorld.y*scene.scale};
     render();
   } else if(activePointers.size===3 && panState){
     const arr=[...activePointers.values()];
     const avg=midOf(arr);
-    originScreen = {x: panState.origin0.x+(avg.x-panState.avg0.x), y: panState.origin0.y+(avg.y-panState.avg0.y)};
+    scene.origine = {x: panState.origin0.x+(avg.x-panState.avg0.x), y: panState.origin0.y+(avg.y-panState.avg0.y)};
     render();
   }
 });
@@ -2541,9 +2544,9 @@ window.addEventListener('resize', ()=>{
     computeSize();
     stage.style.width = W+'px'; stage.style.height = H+'px';
     svg.setAttribute('width', W); svg.setAttribute('height', H);
-    originScreen = {
-      x: W/2 - centerWorldBefore.x*scale,
-      y: H/2 + centerWorldBefore.y*scale
+    scene.origine = {
+      x: W/2 - centerWorldBefore.x*scene.scale,
+      y: H/2 + centerWorldBefore.y*scene.scale
     };
     render();
   }, 150);
@@ -3124,8 +3127,8 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
-  scale = Math.max(6, Math.min(220, Math.min((W-60)/spanX, (H-60)/spanY)));
-  originScreen = { x: W/2 - midX*scale, y: H/2 + midY*scale };
+  scene.scale = Math.max(6, Math.min(220, Math.min((W-60)/spanX, (H-60)/spanY)));
+  scene.origine = { x: W/2 - midX*scene.scale, y: H/2 + midY*scene.scale };
 })();
 
 // Zoom & center the view on a given object (or the whole parcel if none)
@@ -3153,8 +3156,8 @@ function fitToObject(obj){
   const midX=(minX+maxX)/2, midY=(minY+maxY)/2;
   const spanX=Math.max(0.5, maxX-minX), spanY=Math.max(0.5, maxY-minY);
   const pad = 80; // screen px of breathing room around the object
-  scale = Math.max(6, Math.min(400, Math.min((W-pad)/spanX, (H-pad)/spanY)));
-  originScreen = { x: W/2 - midX*scale, y: H/2 + midY*scale };
+  scene.scale = Math.max(6, Math.min(400, Math.min((W-pad)/spanX, (H-pad)/spanY)));
+  scene.origine = { x: W/2 - midX*scene.scale, y: H/2 + midY*scene.scale };
   render();
 }
 
@@ -3396,7 +3399,7 @@ function buildExportPDF(scaleDenom){
   content += 'BT /F1 14 Tf '+margin.toFixed(2)+' '+(pageH-margin-16).toFixed(2)+' Td (Plan interactif - Parcelle AE 101) Tj ET\n';
   content += 'BT /F1 9 Tf '+margin.toFixed(2)+' '+(pageH-margin-34).toFixed(2)+' Td (Echelle 1/'+scaleDenom+' - genere le '+new Date().toLocaleDateString('fr-FR')+' - Plan interactif v'+APP_VERSION+') Tj ET\n';
 
-  // scale bar (nice round length, sized to look reasonable on paper regardless of scale)
+  // scene.scale bar (nice round length, sized to look reasonable on paper regardless of scene.scale)
   const barMeters = niceStep(120/ptsPerMeter);
   const barPts = barMeters*ptsPerMeter;
   const sbX = margin, sbY = pageH-margin-58;
@@ -6460,8 +6463,8 @@ function placerOrthophoto(){
     const coin = toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
     t.el.setAttribute('x', coin.x);
     t.el.setAttribute('y', coin.y);
-    t.el.setAttribute('width', Math.max(1, t.largeur*scale));
-    t.el.setAttribute('height', Math.max(1, t.hauteur*scale));
+    t.el.setAttribute('width', Math.max(1, t.largeur*scene.scale));
+    t.el.setAttribute('height', Math.max(1, t.hauteur*scene.scale));
   });
 }
 async function basculerOrthophoto(actif){
