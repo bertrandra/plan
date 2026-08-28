@@ -706,6 +706,34 @@ l'interrogation du PLU — de largeur fixe, donc invisible au comptage d'octets.
 que celui de `/CreationDate` dans les PDF, et il rappelle qu'une comparaison d'imports doit
 neutraliser **quatre** champs, pas trois : `recupereLe`, `interrogeLe`, `exportedAt`, `writtenAt`.
 
+### La Vue 3D était cassée depuis mon propre correctif du zoom
+
+En sortant `buildThreeScene` dans `three/scene.ts`, TypeScript a refusé une ligne que personne ne
+regardait : la fonction déclarait `const scene = new THREE.Scene()` puis ajoutait tout à
+`etat.scene` — qui est la **transformation de vue du plan**, et n'a pas de méthode `add`.
+
+C'est ma régression, et elle vient du commit qui réparait le zoom (« une seule scène ») : le
+remplacement en masse de `scene.` par `etat.scene.` a aussi capturé les scènes **locales** de la 3D.
+Trois autres fonctions étaient touchées — `attendreTexturesPretes`, `disposeThreeScene` et
+`buildGlbViewerScene` — ce qui bloquait en plus l'export GLB.
+
+Le symptôme était pourtant net dans la console (`TypeError: etat.scene.add is not a function`), mais
+rien ne le regardait : les golden files ne couvrent pas la 3D, et **un `<canvas>` présent suffisait
+à faire croire que la vue marchait**. C'est le troisième angle mort de la même famille, après le
+zoom et la composition des étiquettes.
+
+Corrigé aux 33 sites, en ne touchant que les accès qui sont des opérations Three (`add`, `remove`,
+`traverse`, `background`) : les 29 accès restants à `etat.scene` sont bien `scale` / `origine` /
+`W` / `H`. Vérifié par une mesure de **contenu** et non de présence — 13 couleurs distinctes dans un
+carré de 20 px au centre du canvas (un aplat en donnerait une), et surtout un GLB de
+41 473 604 octets dont l'empreinte structurelle est exactement celle du golden : 203 nœuds,
+200 maillages, 288 matériaux, 178 textures, 1 scène, glTF 2.0.
+
+Une correction de ma part, au passage : j'avais écrit un peu plus tôt que le GLB restait bloqué « à
+cause des textures distantes que cet environnement ne sert pas ». C'était faux deux fois — la cause
+était ce bug, et si le témoin figé semblait bloqué lui aussi, c'est que ma sonde attendait par une
+boucle synchrone, qui empêche justement tout travail asynchrone d'aboutir.
+
 ### Ce qui reste
 
 Les panneaux d'interface qui pilotent le plan : attributs, mesures, PLU, barre de projet,
