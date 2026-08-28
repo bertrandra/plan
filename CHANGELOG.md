@@ -3,6 +3,26 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.4] — 2026-08-28
+
+Phase 4 de la migration TypeScript, **partielle** : la séparation donnée/vue est faite, la scène et
+la pile d'annulation sont sorties. Aucun comportement ne change.
+
+### Interne
+
+- Les huit poignées SVG que portait chaque objet vivent dans une carte à côté
+  (`src/render/vues.ts`) : la donnée du plan redevient sérialisable par construction.
+- L'échelle et l'origine forment un objet `scene` ; la conversion monde ↔ écran vit dans
+  `src/render/scene.ts`, la scène passée en paramètre.
+- La pile d'annulation devient `PileAnnulation` (`src/core/history.ts`), bornée à 60 pas.
+- 10 tests ajoutés (163 au total).
+
+### Connu, non corrigé
+
+- Après avoir déroulé toutes les annulations disponibles, « Dupliquer » ne fait plus rien. Le
+  comportement est identique sur l'artefact gelé d'avant migration : bug préexistant, consigné pour
+  après la migration comme l'impose la spec (§10.3).
+
 ## [1.0.1-alpha.3] — 2026-08-28
 
 Phase 3 de la migration TypeScript : le moteur terrasse devient une bibliothèque pure et testée.

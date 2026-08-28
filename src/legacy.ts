@@ -34,6 +34,7 @@ import { defaultConstruction, ensureConstruction } from './engine/construction.j
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
+import { PileAnnulation } from './core/history.js';
 import { creerScene, versEcran, versMonde } from './render/scene.js';
 import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
 import { computeTerrasseLayers } from './engine/layers.js';
@@ -436,8 +437,8 @@ let terrasseSelectedKey = null;
 
 
 // ================= Undo history =================
-const undoStack = [];
-const HISTORY_LIMIT = 60;
+const undoStack = new PileAnnulation();
+
 function snapshotState(){
   // Full clone of every object AND of the measures list (reuses the same serializers as
   // project saving), not just a fixed set of fields on objects that still exist: undo needs
@@ -457,8 +458,8 @@ function markDirty(){
   refreshProjectStatus();
 }
 function pushHistory(){
-  undoStack.push(snapshotState());
-  if(undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  undoStack.empiler(snapshotState());
+
   updateUndoBtn();
   markDirty();
 }
@@ -494,13 +495,13 @@ function restoreState(snapshot){
   updateUndoBtn();
 }
 function undo(){
-  if(undoStack.length===0) return;
-  const snapshot = undoStack.pop();
+  if(undoStack.vide) return;
+  const snapshot = undoStack.depiler();
   restoreState(snapshot);
 }
 function updateUndoBtn(){
   const b = document.getElementById('undoBtn');
-  if(b) b.disabled = undoStack.length===0;
+  if(b) b.disabled = undoStack.vide;
 }
 window.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='z' || e.key==='Z')){
@@ -2800,9 +2801,11 @@ function duplicateSelectedObject(){
   const src = objects.find(o=>o.key===selectedKey);
   if(!src){ showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
   pushHistory();
-  // Route through the same serialize/normalize pair used for saving and undo, rather than
-  // JSON.stringify-ing the live object directly: it carries DOM element references (el,
-  // pointEls...) once rendered, which JSON.stringify can't handle.
+  // Passe par le meme couple serialize/normalize que la sauvegarde et l'annulation. La raison
+  // d'origine - l'objet portait ses elements SVG, que JSON.stringify ne sait pas traiter - a
+  // disparu en phase 4 : les poignees vivent desormais a cote (render/vues.ts). Ce qui reste,
+  // et qui suffit a garder ce detour : la copie doit etre normalisee comme un objet importe,
+  // avec ses invariants de tableaux (vertexNames, segmentNames, frozenVertices).
   const plain = serializeObjects([src])[0];
   plain.key = 'dup' + Date.now() + '_' + (newObjCounter++);
   plain.name = src.name + ' (copie)';

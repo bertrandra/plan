@@ -9,7 +9,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
-| 4 — Modèle et conteneur d'état | ⏳ | | `legacy.ts` réduit aux panneaux UI et à la 3D | |
+| 4 — Modèle et conteneur d’état | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.4` | `legacy.ts` réduit aux panneaux UI et à la 3D | **non atteint** : séparation donnée/vue faite, scène et pile d’annulation sorties ; `AppState`, `render/**` et `interaction/**` restent |
 | 5 — Panneaux UI | ⏳ | | | |
 | 6 — 3D et exports | ⏳ | | | |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
@@ -186,6 +186,75 @@ réutilisables, et les ombres de parasol.
 Navigateur : les six golden files restent identiques au bit près, et tous les panneaux pilotés par
 le moteur affichent leurs chiffres — BOM (1 295 €), implantation (37 vis, comme l'oracle), chantier
 (11,5 h), méthode, plan de coupe.
+
+
+## Phase 4 — 28 août 2026 — **partielle**
+
+Trois incréments livrés et vérifiés, sur les cinq que demande la phase. Le critère de sortie
+(« `legacy.ts` ne contient plus que les panneaux UI et la couche 3D ») **n'est pas atteint** :
+voir « Ce qui reste » plus bas.
+
+### 4a — La séparation donnée / vue (§5.2) ✅
+
+Les huit poignées SVG que chaque objet portait (`el`, `nameEl`, `pointEls`, `ptLabelEls`,
+`edgeEls`, `segLabelEls`, `radiusHandle`, `camMarkerEl`) vivent désormais dans une carte indexée
+par clé — `src/render/vues.ts`, avec `vue(obj)` et `detruireVue(obj)`. 118 accès remplacés, et les
+deux boucles de démontage recopiées deviennent un seul appel.
+
+Ce que ça ferme : la donnée du plan est **serialisable par construction**. La liste blanche de
+`serializeObjects` existait d'abord pour ne pas embarquer de nœud DOM ; cette classe de bug
+disparaît. Un commentaire de `duplicateSelectedObject` qui invoquait précisément cette raison est
+devenu faux et a été corrigé — le détour par serialize/normalize reste utile, mais pour une autre
+raison (les invariants de tableaux).
+
+**Vérifié :** aucune fuite de nœuds sur trois cycles complets de réinitialisation — 19 polygones,
+288 textes, 161 cercles, 167 lignes, 12 chemins, identiques à chaque cycle.
+
+### 4b — La transformation de scène devient un objet nommé (§6.1) ✅
+
+`scale` et `originScreen` étaient deux variables libres lues et écrites depuis une quarantaine
+d'endroits. Elles forment un objet `scene`, et la conversion monde ↔ écran vit dans
+`src/render/scene.ts` avec la scène **en paramètre**.
+
+`W` et `H` restent dans `legacy.ts` : remplacer globalement deux identifiants d'une lettre serait
+plus risqué que profitable tant que `render/**` n'est pas sorti.
+
+**Vérifié :** zoom molette (100 → 110 px), retour exact au zoom arrière, « Ajuster à la sélection »
+(100 → 413), grille redessinée.
+
+### 4c — La pile d'annulation (§3.2, `core/history.ts`) ✅
+
+`PileAnnulation` ne connaît ni le plan, ni le DOM, ni le rendu : empiler, dépiler, borner à 60.
+`snapshotState()` et `restoreState()` restent dans `legacy.ts` — ce sont des orchestrateurs qui
+démontent et reconstruisent la scène, pas de la gestion de pile ; ils partiront avec `render/**`.
+
+**Vérifié au navigateur :** 65 duplications puis annulations en boucle → exactement **60 pas
+d'annulation possibles**, 100 objets ramenés à 40. La borne se comporte comme le type le dit.
+
+### Un bug produit, préexistant, consigné et non corrigé
+
+Après avoir déroulé **toutes** les annulations disponibles, le bouton « Dupliquer » ne fait plus
+rien : aucun objet créé, aucun message. Le bouton est bien le même élément, toujours attaché, et
+son gestionnaire s'exécute.
+
+Ce n'est **pas** une régression : le même scénario donne exactement le même résultat sur
+`legacy/plan_interactif.html`, l'artefact gelé d'avant migration (35 → 38 → 35 → 35). C'est
+précisément à cela que sert ce fichier. Conformément à la §10.3, il est consigné et **non corrigé
+pendant la migration** — le faire ici mélangerait un changement de comportement à un déplacement
+de code, et brouillerait la seule chose que les golden files savent prouver.
+
+### Ce qui reste de la phase 4
+
+| Étape | État | Pourquoi |
+|---|---|---|
+| `core/state.ts` — l'`AppState` complet de la §6.1 | ⏳ | Demande de faire passer un contexte dans ~100 fonctions et tous leurs appels : c'est le gros du travail, et il ne se découpe pas en incréments vérifiables aussi nets que les précédents. |
+| `render/**` — `render()`, `createObjectDOM`, `rebuildHandles`, `drawGrid`, les mesures, l'aperçu parasol | ⏳ | Ces fonctions lisent une dizaine de variables de la fermeture (`objects`, `selectedKey`, `highlight`, `svg`, `gridGroup`, `scene`…). Elles sortiront avec l'`AppState`, pas avant. |
+| `interaction/**` — pointeur, édition, création | ⏳ | Même dépendance, plus l'état de glisser-déposer. |
+
+Autrement dit : les deux morceaux que la phase 4 pouvait livrer **isolément** le sont ; le reste
+forme un seul bloc dont le préalable est l'`AppState`. Le découper à la hache produirait un état
+partagé à deux endroits — exactement ce que la §6.1 interdit (« pas de `let` au niveau module,
+cela reproduit le problème avec une ergonomie pire »).
 
 
 ### Point de vigilance
