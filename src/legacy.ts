@@ -36,6 +36,10 @@ import { computeImplantation, repereImplantation } from './engine/implantation.j
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
 import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
 import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
+import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
+import { dessinerGrille } from './render/grille.js';
+import { svgNS, creerSvg, attrs } from './render/svg.js';
+import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
 import { creerEtat } from './core/state.js';
 import { PileAnnulation } from './core/history.js';
 import { creerScene, versEcran, versMonde } from './render/scene.js';
@@ -287,14 +291,14 @@ function dejaRectangle(pts, tolDeg){
 }
 
 // ================= Color scheme (adapts SVG-drawn ink to system dark/light) =================
-const isDarkScheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-const SVG_INK = isDarkScheme ? '#EFE4C8' : '#3B2E1F';
-const SVG_GRID_MAJOR = isDarkScheme ? '#6b5a41' : '#C9B98C';
-const SVG_GRID_MINOR = isDarkScheme ? '#3a3020' : '#EDE5D0';
-const SVG_LABEL_HALO = isDarkScheme ? '#241C13cc' : '#FBF7EEcc';
-const SVG_MEASURE_LINE = isDarkScheme ? '#8FC7DE' : '#1E6B8C';
-const SVG_MEASURE_LINE_SOFT = isDarkScheme ? '#5C93A8' : '#6B9CB0';
-const SVG_MEASURE_TEXT = isDarkScheme ? '#B8E4F7' : '#0F4C63';
+
+
+
+
+
+
+
+
 
 // ================= Object model =================
 // Normalizes a plain-data objects array (from api.php, from DEMO_OBJECTS, or from an undo
@@ -331,11 +335,11 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 // transformation monde <-> ecran est desormais une donnee que l'on passe, et non deux variables
 // libres que quarante endroits lisent et ecrivent sans le dire.
 const scene = creerScene();
-let W = 780, H = 600;
+// W et H : dans `etat.scene` (spec 6.1) - la taille utile de la scene.
 function computeSize(){
   const margin = 40;
-  W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
-  H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
+  etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
+  etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
 computeSize();
 
@@ -344,10 +348,10 @@ function toWorld(p){ return versMonde(scene, p); }
 
 // ================= Build SVG =================
 const stage = document.getElementById('stage');
-stage.style.width = W+'px'; stage.style.height = H+'px';
-const svgNS = 'http://www.w3.org/2000/svg';
+stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+// svgNS : dans render/svg.ts
 const svg = document.createElementNS(svgNS,'svg');
-svg.setAttribute('width', W); svg.setAttribute('height', H);
+svg.setAttribute('width', etat.scene.W); svg.setAttribute('height', etat.scene.H);
 stage.appendChild(svg);
 
 // Pointe de fleche pour les points de vue (point + vecteur) : marker-end + orient="auto" suit
@@ -365,6 +369,8 @@ svg.appendChild(orthoGroup);
 
 const gridGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(gridGroup);
+// La grille vit dans render/grille.ts ; cette enveloppe garde les appels existants inchanges.
+function drawGrid(){ dessinerGrille(gridGroup, etat); }
 
 // Ombre du parasol + carte de chaleur : juste au-dessus de la grille et SOUS tous les objets -
 // une ombre qui masquerait la terrasse ou le mobilier qu'elle recouvre serait illisible.
@@ -384,32 +390,6 @@ document.getElementById('fitBtn').addEventListener('click', ()=>{
   fitToObject(obj || null);
 });
 
-function drawGrid(){
-  gridGroup.innerHTML='';
-  // Grille masquable : elle sert a estimer les distances pendant le travail, elle gene des qu'on
-  // regarde le plan pour lui-meme (fond orthophoto, capture d'ecran, presentation).
-  if(!etat.grilleVisible) return;
-  const stepM = niceStep(60/scene.scale);
-  const tl=toWorld({x:0,y:0}), br=toWorld({x:W,y:H});
-  const xMin=Math.floor(Math.min(tl.x,br.x)/stepM)*stepM, xMax=Math.ceil(Math.max(tl.x,br.x)/stepM)*stepM;
-  const yMin=Math.floor(Math.min(tl.y,br.y)/stepM)*stepM, yMax=Math.ceil(Math.max(tl.y,br.y)/stepM)*stepM;
-  for(let x=xMin;x<=xMax+1e-9;x+=stepM){
-    const p1=toScreen({x,y:yMin}), p2=toScreen({x,y:yMax});
-    const l=document.createElementNS(svgNS,'line');
-    l.setAttribute('x1',p1.x); l.setAttribute('y1',p1.y); l.setAttribute('x2',p2.x); l.setAttribute('y2',p2.y);
-    l.setAttribute('stroke', Math.abs(x)<1e-6?SVG_GRID_MAJOR:SVG_GRID_MINOR);
-    l.setAttribute('stroke-width', Math.abs(x)<1e-6?1.3:0.8);
-    gridGroup.appendChild(l);
-  }
-  for(let y=yMin;y<=yMax+1e-9;y+=stepM){
-    const p1=toScreen({x:xMin,y}), p2=toScreen({x:xMax,y});
-    const l=document.createElementNS(svgNS,'line');
-    l.setAttribute('x1',p1.x); l.setAttribute('y1',p1.y); l.setAttribute('x2',p2.x); l.setAttribute('y2',p2.y);
-    l.setAttribute('stroke', Math.abs(y)<1e-6?SVG_GRID_MAJOR:SVG_GRID_MINOR);
-    l.setAttribute('stroke-width', Math.abs(y)<1e-6?1.3:0.8);
-    gridGroup.appendChild(l);
-  }
-}
 
 // per-object SVG element bundles
 function createObjectDOM(obj){
@@ -1853,49 +1833,14 @@ function renderDispTable(){
 // showNorth : dans `etat` (spec 6.1).
 const northGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(northGroup);
-function drawNorthArrow(){
-  northGroup.innerHTML = '';
-  if(!etat.showNorth) return;
-  const nx = W-30, ny = 34;
-  const g = document.createElementNS(svgNS,'g');
-  g.setAttribute('transform','translate('+nx+','+ny+')');
-  g.innerHTML =
-    '<line x1="0" y1="18" x2="0" y2="-14" stroke="'+SVG_INK+'" stroke-width="2"/>' +
-    '<polygon points="0,-20 -7,-6 7,-6" fill="'+SVG_INK+'"/>' +
-    '<text x="0" y="30" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-size="13" font-weight="700" fill="'+SVG_INK+'">N</text>';
-  northGroup.appendChild(g);
-}
 
 // ---- Scale bar ----
 const scaleGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(scaleGroup);
-function drawScaleBar(){
-  scaleGroup.innerHTML = '';
-  const targetPx = 110;
-  const meters = niceStep(targetPx/scene.scale);
-  const barPx = meters*scene.scale;
-  const x0 = W-barPx-24, y0 = H-22;
-  const line1 = document.createElementNS(svgNS,'line');
-  line1.setAttribute('x1',x0); line1.setAttribute('y1',y0);
-  line1.setAttribute('x2',x0+barPx); line1.setAttribute('y2',y0);
-  line1.setAttribute('stroke',SVG_INK); line1.setAttribute('stroke-width','2');
-  scaleGroup.appendChild(line1);
-  [0, meters].forEach(v=>{
-    const x = x0 + v*scene.scale;
-    const tick = document.createElementNS(svgNS,'line');
-    tick.setAttribute('x1',x); tick.setAttribute('y1',y0-5);
-    tick.setAttribute('x2',x); tick.setAttribute('y2',y0+5);
-    tick.setAttribute('stroke',SVG_INK); tick.setAttribute('stroke-width','1.5');
-    scaleGroup.appendChild(tick);
-    const t = document.createElementNS(svgNS,'text');
-    t.setAttribute('x',x); t.setAttribute('y',y0+17);
-    t.setAttribute('text-anchor','middle');
-    t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-    t.setAttribute('font-size','10'); t.setAttribute('fill',SVG_INK);
-    t.textContent = v===0 ? '0' : (meters>=1 ? meters+' m' : (meters*100)+' cm');
-    scaleGroup.appendChild(t);
-  });
-}
+// Les deux dessins de repere vivent dans render/decor.ts ; ces enveloppes gardent les appels
+// existants inchanges tant que render() n'est pas sorti a son tour.
+function drawNorthArrow(){ dessinerFlecheNord(northGroup, etat); }
+function drawScaleBar(){ dessinerEchelle(scaleGroup, etat); }
 
 // ================= Interaction =================
 let activeDrag = null;
@@ -2272,14 +2217,14 @@ let resizeTimer = null;
 window.addEventListener('resize', ()=>{
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(()=>{
-    const oldW = W, oldH = H;
+    const oldW = etat.scene.W, oldH = etat.scene.H;
     const centerWorldBefore = toWorld({x:oldW/2, y:oldH/2});
     computeSize();
-    stage.style.width = W+'px'; stage.style.height = H+'px';
-    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+    svg.setAttribute('width', etat.scene.W); svg.setAttribute('height', etat.scene.H);
     scene.origine = {
-      x: W/2 - centerWorldBefore.x*scene.scale,
-      y: H/2 + centerWorldBefore.y*scene.scale
+      x: etat.scene.W/2 - centerWorldBefore.x*scene.scale,
+      y: etat.scene.H/2 + centerWorldBefore.y*scene.scale
     };
     render();
   }, 150);
@@ -2862,8 +2807,8 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
-  scene.scale = Math.max(6, Math.min(220, Math.min((W-60)/spanX, (H-60)/spanY)));
-  scene.origine = { x: W/2 - midX*scene.scale, y: H/2 + midY*scene.scale };
+  scene.scale = Math.max(6, Math.min(220, Math.min((etat.scene.W-60)/spanX, (etat.scene.H-60)/spanY)));
+  scene.origine = { x: etat.scene.W/2 - midX*scene.scale, y: etat.scene.H/2 + midY*scene.scale };
 })();
 
 // Zoom & center the view on a given object (or the whole parcel if none)
@@ -2891,8 +2836,8 @@ function fitToObject(obj){
   const midX=(minX+maxX)/2, midY=(minY+maxY)/2;
   const spanX=Math.max(0.5, maxX-minX), spanY=Math.max(0.5, maxY-minY);
   const pad = 80; // screen px of breathing room around the object
-  scene.scale = Math.max(6, Math.min(400, Math.min((W-pad)/spanX, (H-pad)/spanY)));
-  scene.origine = { x: W/2 - midX*scene.scale, y: H/2 + midY*scene.scale };
+  scene.scale = Math.max(6, Math.min(400, Math.min((etat.scene.W-pad)/spanX, (etat.scene.H-pad)/spanY)));
+  scene.origine = { x: etat.scene.W/2 - midX*scene.scale, y: etat.scene.H/2 + midY*scene.scale };
   render();
 }
 

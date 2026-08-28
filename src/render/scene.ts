@@ -17,13 +17,13 @@ export interface EtatScene {
   scale: number;
   /** Position, en pixels, du point (0,0) du plan. */
   origine: PtEcran;
-  // La taille utile de la scene (W, H) reste pour l'instant dans legacy.ts : ce sont deux
-  // identifiants d'une lettre, dont le remplacement global serait plus risque que profitable
-  // tant que render/** n'est pas sorti. Ils rejoindront cet objet avec le rendu (phase 4, suite).
+  /** Taille utile de la scene, en pixels : la fenetre moins les marges. */
+  W: number;
+  H: number;
 }
 
 export function creerScene(): EtatScene {
-  return { scale: 16.5, origine: { x: 430, y: 90 } };
+  return { scale: 16.5, origine: { x: 430, y: 90 }, W: 780, H: 600 };
 }
 
 export function versEcran(scene: EtatScene, p: PtBrut): PtEcran {
