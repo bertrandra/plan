@@ -40,6 +40,7 @@ import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
+import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './interaction/navigation.js';
 import { creerDomObjet, reconstruirePoignees } from './render/objects.js';
 import { dessinerCalqueParasols } from './render/parasolOverlay.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
@@ -1960,32 +1961,29 @@ stage.addEventListener('touchstart', e=>{ if(e.target.closest('button')) return;
 stage.addEventListener('touchmove', e=>{ if(e.target.closest('button')) return; e.preventDefault(); }, {passive:false});
 stage.addEventListener('touchend', e=>{ if(e.target.closest('button')) return; e.preventDefault(); }, {passive:false});
 
+// Le calcul du zoom vit dans interaction/navigation.ts ; ici, seul le cablage.
 svg.addEventListener('wheel', e=>{
   e.preventDefault();
   const rect = stage.getBoundingClientRect();
-  const mouse = {x:e.clientX-rect.left, y:e.clientY-rect.top};
-  const wb = toWorld(mouse);
-  const factor = e.deltaY<0 ? 1.1 : 1/1.1;
-  etat.scene.scale = Math.min(220, Math.max(6, etat.scene.scale*factor));
-  etat.scene.origine = {x: mouse.x - wb.x*etat.scene.scale, y: mouse.y + wb.y*etat.scene.scale};
+  etat.scene = zoomMolette(etat.scene, {x:e.clientX-rect.left, y:e.clientY-rect.top}, e.deltaY);
   render();
 }, {passive:false});
 
 const activePointers = new Map();
 let pinchState=null, panState=null;
 function stageRel(e){ const r=stage.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-function midOf(arr){ const n=arr.length; return {x:arr.reduce((s,p)=>s+p.x,0)/n, y:arr.reduce((s,p)=>s+p.y,0)/n}; }
+// midOf vit dans interaction/navigation.ts sous le nom milieuDe.
 stage.addEventListener('pointerdown', e=>{
   activePointers.set(e.pointerId, stageRel(e));
   if(activePointers.size===2){
     activeDrag=null;
     const arr=[...activePointers.values()];
-    pinchState={dist0:dist(arr[0],arr[1]), scale0:etat.scene.scale, midWorld:toWorld(midOf(arr))};
+    pinchState = debutPincement(etat.scene, arr[0], arr[1]);
     panState=null;
   } else if(activePointers.size===3){
     activeDrag=null; pinchState=null;
     const arr=[...activePointers.values()];
-    panState={avg0:midOf(arr), origin0:{...etat.scene.origine}};
+    panState = { avg0: milieuDe(arr), origin0: { ...etat.scene.origine } };
   } else if(activePointers.size>3){ pinchState=null; panState=null; }
 });
 window.addEventListener('pointermove', e=>{
@@ -1993,14 +1991,14 @@ window.addEventListener('pointermove', e=>{
   activePointers.set(e.pointerId, stageRel(e));
   if(activePointers.size===2 && pinchState){
     const arr=[...activePointers.values()];
-    const d=dist(arr[0],arr[1]); const mid=midOf(arr);
-    etat.scene.scale = Math.min(220, Math.max(6, pinchState.scale0*(d/pinchState.dist0)));
-    etat.scene.origine = {x: mid.x-pinchState.midWorld.x*etat.scene.scale, y: mid.y+pinchState.midWorld.y*etat.scene.scale};
+
+    etat.scene = pincer(etat.scene, pinchState, arr[0], arr[1]);
+
     render();
   } else if(activePointers.size===3 && panState){
     const arr=[...activePointers.values()];
-    const avg=midOf(arr);
-    etat.scene.origine = {x: panState.origin0.x+(avg.x-panState.avg0.x), y: panState.origin0.y+(avg.y-panState.avg0.y)};
+    const avg=milieuDe(arr);
+    etat.scene = deplacer(etat.scene, panState.origin0, panState.avg0, avg);
     render();
   }
 });
