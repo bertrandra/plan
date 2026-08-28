@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  zoomerAutourDe, zoomMolette, debutPincement, pincer, deplacer, milieuDe,
+  zoomerAutourDe, zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe,
   ZOOM_MIN, ZOOM_MAX, FACTEUR_MOLETTE
 } from '../../../src/interaction/navigation.js';
 import { creerScene, versEcran, versMonde } from '../../../src/render/scene.js';
@@ -122,5 +122,50 @@ describe('milieuDe', () => {
   });
   it('moyenne trois doigts', () => {
     expect(milieuDe([{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 0, y: 30 }])).toEqual({ x: 10, y: 10 });
+  });
+});
+
+describe('cadrage', () => {
+  const carre = { type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] };
+
+  it('mesure l emprise d un polygone', () => {
+    expect(empriseDe([carre])).toEqual({ minX: 0, maxX: 10, minY: 0, maxY: 10 });
+  });
+
+  it('mesure un cercle par son rayon, pas par son centre', () => {
+    expect(empriseDe([{ type: 'circle', center: { x: 5, y: 5 }, r: 2 }])).toEqual({ minX: 3, maxX: 7, minY: 3, maxY: 7 });
+  });
+
+  it('englobe plusieurs formes', () => {
+    const e = empriseDe([carre, { type: 'circle', center: { x: 20, y: -5 }, r: 1 }])!;
+    expect(e).toEqual({ minX: 0, maxX: 21, minY: -6, maxY: 10 });
+  });
+
+  it('rend null quand il n y a rien a cadrer', () => {
+    expect(empriseDe([])).toBeNull();
+  });
+
+  it('centre l emprise dans la scene', () => {
+    const s = cadrerSur(scene(), { minX: 0, maxX: 10, minY: 0, maxY: 10 });
+    const centre = versEcran(s, { x: 5, y: 5 });
+    expect(centre.x).toBeCloseTo(400, 6);
+    expect(centre.y).toBeCloseTo(300, 6);
+  });
+
+  it('laisse la marge de respiration demandee', () => {
+    // 10 m dans 800 px de large avec 80 px de marge : 72 px par metre.
+    const s = cadrerSur(scene(), { minX: 0, maxX: 10, minY: 0, maxY: 10 }, 80);
+    expect(s.scale).toBeCloseTo(Math.min((800 - 80) / 10, (600 - 80) / 10), 9);
+  });
+
+  it('ne divise pas par zero sur une forme degeneree', () => {
+    const s = cadrerSur(scene(), { minX: 3, maxX: 3, minY: 3, maxY: 3 });
+    expect(Number.isFinite(s.scale)).toBe(true);
+  });
+
+  it('plafonne a 400 px/m - au-dela de la molette, ecart repris du fichier d origine', () => {
+    const s = cadrerSur(scene(), { minX: 0, maxX: 0.001, minY: 0, maxY: 0.001 });
+    expect(s.scale).toBe(400);
+    expect(s.scale).toBeGreaterThan(ZOOM_MAX);
   });
 });

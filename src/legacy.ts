@@ -40,7 +40,7 @@ import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
-import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './interaction/navigation.js';
+import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { creerDomObjet, reconstruirePoignees } from './render/objects.js';
 import { dessinerCalqueParasols } from './render/parasolOverlay.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
@@ -2610,32 +2610,14 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
 })();
 
 // Zoom & center the view on a given object (or the whole parcel if none)
+// Le cadrage vit dans interaction/navigation.ts ; ici, le choix de CE QU'ON cadre : l'objet
+// demande, sinon la parcelle, sinon tout le plan.
 function fitToObject(obj){
-  let xs, ys;
-  if(!obj){
-    const parcelle = etat.objects.find(o=>o.key==='parcelle');
-    if(!parcelle){
-      if(!etat.objects.length) return;
-      xs = []; ys = [];
-      etat.objects.forEach(o=>{
-        if(o.type==='circle'){ xs.push(o.center.x-o.r, o.center.x+o.r); ys.push(o.center.y-o.r, o.center.y+o.r); }
-        else { o.pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); }); }
-      });
-    } else {
-      xs = parcelle.pts.map(p=>p.x); ys = parcelle.pts.map(p=>p.y);
-    }
-  } else if(obj.type==='circle'){
-    xs = [obj.center.x-obj.r, obj.center.x+obj.r];
-    ys = [obj.center.y-obj.r, obj.center.y+obj.r];
-  } else {
-    xs = obj.pts.map(p=>p.x); ys = obj.pts.map(p=>p.y);
-  }
-  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
-  const midX=(minX+maxX)/2, midY=(minY+maxY)/2;
-  const spanX=Math.max(0.5, maxX-minX), spanY=Math.max(0.5, maxY-minY);
-  const pad = 80; // screen px of breathing room around the object
-  etat.scene.scale = Math.max(6, Math.min(400, Math.min((etat.scene.W-pad)/spanX, (etat.scene.H-pad)/spanY)));
-  etat.scene.origine = { x: etat.scene.W/2 - midX*etat.scene.scale, y: etat.scene.H/2 + midY*etat.scene.scale };
+  const formes = obj ? [obj]
+    : (etat.objects.find(o=>o.key==='parcelle') ? [etat.objects.find(o=>o.key==='parcelle')] : etat.objects);
+  const emprise = empriseDe(formes);
+  if(!emprise) return;
+  etat.scene = cadrerSur(etat.scene, emprise);
   render();
 }
 

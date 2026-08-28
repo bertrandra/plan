@@ -80,6 +80,58 @@ export function deplacer(scene: EtatScene, origine0: PtEcran, depuis: PtEcran, v
   };
 }
 
+/** Emprise rectangulaire a cadrer, en metres. */
+export interface Emprise {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/**
+ * Cadre la vue sur une emprise : elle occupe la scene, centree, avec `marge` pixels de respiration.
+ *
+ * Note de migration : le plafond de zoom est ici de 400 px/m, alors que la molette et le pincement
+ * sont bornes a 220 (ZOOM_MAX). L'ecart vient du fichier d'origine et est conserve tel quel
+ * (§10.3) : cadrer sur un tout petit objet peut donc depasser ce que la molette autorise.
+ */
+export function cadrerSur(scene: EtatScene, emprise: Emprise, marge = 80): EtatScene {
+  const midX = (emprise.minX + emprise.maxX) / 2;
+  const midY = (emprise.minY + emprise.maxY) / 2;
+  // Un objet degenere (un point, un segment) aurait une etendue nulle : le plancher de 0,5 m
+  // evite une echelle infinie.
+  const spanX = Math.max(0.5, emprise.maxX - emprise.minX);
+  const spanY = Math.max(0.5, emprise.maxY - emprise.minY);
+  const scale = Math.max(
+    ZOOM_MIN,
+    Math.min(400, Math.min((scene.W - marge) / spanX, (scene.H - marge) / spanY))
+  );
+  return {
+    ...scene,
+    scale,
+    origine: { x: scene.W / 2 - midX * scale, y: scene.H / 2 + midY * scale }
+  };
+}
+
+/** Emprise d'une forme du plan : polygone, chemin ou cercle. */
+export function empriseDe(formes: { type?: string; pts?: PtBrut[]; center?: PtBrut; r?: number }[]): Emprise | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const o of formes) {
+    if (o.type === 'circle' && o.center && typeof o.r === 'number') {
+      xs.push(o.center.x - o.r, o.center.x + o.r);
+      ys.push(o.center.y - o.r, o.center.y + o.r);
+    } else if (o.pts) {
+      o.pts.forEach((p) => {
+        xs.push(p.x);
+        ys.push(p.y);
+      });
+    }
+  }
+  if (!xs.length) return null;
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
 /** Moyenne d'un ensemble de points - le « centre » de plusieurs doigts. */
 export function milieuDe(points: PtEcran[]): PtEcran {
   const n = points.length;
