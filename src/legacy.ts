@@ -7,6 +7,13 @@
 //     d un module ne se rattrape qu au point d import) ;
 //   - l appel final loadInitialProject().then(boot) est remonte dans main.ts ;
 //   - les deux symboles d entree sont exportes en fin de fichier.
+//
+// Phase 2 en cours : les fonctions pures sortent d'ici une par une vers de vrais modules types.
+// Ce qui suit est importe, plus defini dans ce fichier.
+import { dist, shoelace, signedArea, centroid, pointInPolygon } from './geometry/basic.js';
+import { escapeHtml, escapeXml } from './util/escape.js';
+import { nombreFr, formatHeureMin, slugFichier, horodatageFichier } from './util/format.js';
+import { telechargerTexte } from './util/download.js';
 // ================= Identite de version (voir MD/RELEASE.md) =================
 // Trois contrats independants, trois numeros : l'application (SemVer), le schema du fichier de
 // projet (entier monotone) et l'API (prefixe de route). Ils sont declares ici, tout en haut du
@@ -78,11 +85,6 @@ function showProjectLoadError(err){
 // in the print window below). Any user-editable field (object name, in particular) must go
 // through this before being interpolated into markup - otherwise a name containing '</title>
 // <script>...' or similar would be interpreted as HTML/script in the printed window.
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, ch => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-  }[ch]));
-}
 function showConfirm(msg, onConfirm){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center;';
@@ -555,16 +557,6 @@ function rebuildPanelTabs(){
 rebuildPanelTabs();
 
 // ================= Geometry helpers =================
-function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-function shoelace(P){
-  let s=0; const n=P.length;
-  for(let i=0;i<n;i++){ const p1=P[i], p2=P[(i+1)%n]; s += p1.x*p2.y - p2.x*p1.y; }
-  return Math.abs(s)/2;
-}
-function centroid(pts){
-  let cx=0,cy=0; pts.forEach(p=>{cx+=p.x;cy+=p.y;});
-  return {x:cx/pts.length, y:cy/pts.length};
-}
 // Le mode rectangle se lit sur l'etat de gel des 4 coins - pas de drapeau separe, donc pas de
 // migration pour les projets deja enregistres. Mais il doit CONTRAINDRE les angles, pas
 // interdire toute modification : un rectangle qu'on ne peut plus redimensionner sans sortir du
@@ -625,15 +617,6 @@ function rectangleDepuisCote(pts, i, j, ref, dx, dy){
   out[i] = { x:pts[i].x+decx, y:pts[i].y+decy };
   out[j] = { x:pts[j].x+decx, y:pts[j].y+decy };
   return out;
-}
-function pointInPolygon(pt, poly){
-  let inside=false;
-  for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
-    const intersect = ((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/((yj-yi)||1e-12)+xi);
-    if(intersect) inside=!inside;
-  }
-  return inside;
 }
 
 // ================= Color scheme (adapts SVG-drawn ink to system dark/light) =================
@@ -1535,11 +1518,6 @@ function render(){
 }
 
 // ================= Attribute table for selected object =================
-function signedArea(pts){
-  let s=0; const n=pts.length;
-  for(let i=0;i<n;i++){ const a=pts[i], b=pts[(i+1)%n]; s += a.x*b.y - b.x*a.y; }
-  return s/2;
-}
 
 function interiorAngleDeg(obj, i){
   const n = obj.pts.length;
@@ -3238,7 +3216,6 @@ document.getElementById('exportPngBtn').addEventListener('click', ()=>{
   img.src = svgUrl;
 });
 
-function escapeXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
 const NAME_SEP = '\u241F'; // unlikely-to-collide separator for encoding name arrays in SVG data-* attrs
 
 function buildExportSVG(){
@@ -5097,25 +5074,6 @@ function serializeMeasures(ms){
 // measures}) : ce qui sort d'ici se recharge tel quel ici, et se repost e a action=save une
 // fois remis a plat ({name, objects, measures}). L'import accepte les deux formes.
 
-function slugFichier(txt){
-  const sansAccents = String(txt||'projet').normalize('NFD').replace(/[̀-ͯ]/g,'');
-  const slug = sansAccents.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
-  return slug || 'projet';
-}
-function horodatageFichier(){
-  const d = new Date(), p = n => String(n).padStart(2,'0');
-  return '' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate());
-}
-function telechargerTexte(nomFichier, texte, mime){
-  const blob = new Blob([texte], {type: mime || 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = nomFichier; a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  // Revoquer tout de suite interrompt le telechargement sur certains navigateurs.
-  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-}
 
 // Retirer la parcelle sans nettoyer ce qui la reference produirait un fichier casse a la
 // relecture : mesures orphelines (une mesure perpendiculaire prend presque toujours un cote de
@@ -5620,11 +5578,6 @@ const COUCHE_HAIE = 'BDTOPO_V3:haie';
 const ESPACEMENT_ARBRES_M = 8;      // un arbre pour ~64 m2 de couvert : ordre de grandeur d'un bois
 const MAX_ARBRES_ESTIMES = 60;
 
-function nombreFr(v){
-  if(v === null || v === undefined || v === '') return null;
-  const n = parseFloat(String(v).replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
 function bboxDegDesAnneaux(anneaux, proj, margeM){
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
   anneaux.forEach(anneau=>anneau.forEach(c=>{
@@ -10661,9 +10614,6 @@ function positionSoleil(annee, mois, jour, heureDecimale, latDeg, lonDeg){
   let azRad = Math.acos(cosAz);
   if(haRad > 0) azRad = 2*Math.PI - azRad;
   return { elevRad, azRad };
-}
-function formatHeureMin(min){
-  return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0');
 }
 let glbViewerDateStr = new Date().toISOString().slice(0,10);
 let glbViewerMinutes = 720; // minutes depuis minuit ; 720 = midi
