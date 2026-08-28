@@ -34,6 +34,7 @@ import { defaultConstruction, ensureConstruction } from './engine/construction.j
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
+import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
 import { computeTerrasseLayers } from './engine/layers.js';
 import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, terrasseDuParasol } from './engine/parasol.js';
 import { CHARGE_NORMALE_DEFAUT, CHARGE_REF, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, PORTEE_VIS_K, SECTION_REF_AIRE, SOLIVE_SECTION_DIMS, VIS_ROLE_RANK, buildVisGrid, buildVisGridCount, coefRaideurLame, computeStructure, dedupeVis, dimsSection, distPointToLine, empriseEquipement, evaluerStructure, findSpaZones, generateSpanningLines, lamesAngleOf, libelleAppui, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, safeOffset, sectionLambourde, segmentZoneRanges, subdivideSegment, tarifSection, zoneToucheTerrasse } from './engine/structure.js';
@@ -473,16 +474,7 @@ function restoreState(snapshot){
   // previous approach looked up each object by key and only ever touched a fixed set of
   // fields, so it silently did nothing (or threw, for a deleted object) whenever the action
   // being undone/reset had added, deleted, reordered, or replaced whole objects.
-  objects.forEach(o=>{
-    if(o.el) o.el.remove();
-    if(o.nameEl) o.nameEl.remove();
-    (o.pointEls||[]).forEach(e=>e.remove());
-    (o.ptLabelEls||[]).forEach(e=>e.remove());
-    (o.edgeEls||[]).forEach(e=>e.remove());
-    (o.segLabelEls||[]).forEach(e=>e.remove());
-    if(o.radiusHandle) o.radiusHandle.remove();
-    if(o.camMarkerEl) o.camMarkerEl.remove();
-  });
+  objects.forEach(detruireVue);
   const restored = normalizeObjects(snapshot.objects);
   objects.length = 0;
   restored.forEach(o=>{
@@ -685,60 +677,60 @@ function drawGrid(){
 // per-object SVG element bundles
 function createObjectDOM(obj){
   if(obj.type==='polygon'){
-    obj.el = document.createElementNS(svgNS,'polygon');
-    obj.el.setAttribute('fill',obj.fill); obj.el.setAttribute('fill-opacity',obj.fillOpacity);
-    obj.el.setAttribute('stroke',obj.stroke); obj.el.setAttribute('stroke-width','1.8');
-    obj.el.setAttribute('pointer-events','all');
-    obj.el.dataset.role='obj'; obj.el.dataset.key=obj.key;
-    obj.el.style.cursor='pointer';
-    obj.el.title = 'Double-clic : reculer cet objet dans la superposition';
-    svg.appendChild(obj.el);
+    vue(obj).el = document.createElementNS(svgNS,'polygon');
+    vue(obj).el.setAttribute('fill',obj.fill); vue(obj).el.setAttribute('fill-opacity',obj.fillOpacity);
+    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width','1.8');
+    vue(obj).el.setAttribute('pointer-events','all');
+    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
+    vue(obj).el.style.cursor='pointer';
+    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
+    svg.appendChild(vue(obj).el);
   } else if(obj.type==='path'){
-    obj.el = document.createElementNS(svgNS,'path');
-    obj.el.setAttribute('fill','none');
-    obj.el.setAttribute('stroke',obj.stroke); obj.el.setAttribute('stroke-width', (obj.width||1)*scale);
-    obj.el.setAttribute('stroke-linecap','butt'); obj.el.setAttribute('stroke-linejoin','round');
-    obj.el.setAttribute('pointer-events','stroke');
-    obj.el.dataset.role='obj'; obj.el.dataset.key=obj.key;
-    obj.el.style.cursor='pointer';
-    obj.el.title = 'Double-clic : reculer cet objet dans la superposition';
+    vue(obj).el = document.createElementNS(svgNS,'path');
+    vue(obj).el.setAttribute('fill','none');
+    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width', (obj.width||1)*scale);
+    vue(obj).el.setAttribute('stroke-linecap','butt'); vue(obj).el.setAttribute('stroke-linejoin','round');
+    vue(obj).el.setAttribute('pointer-events','stroke');
+    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
+    vue(obj).el.style.cursor='pointer';
+    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
     // Point de vue : point (position) + vecteur (direction), pas un chemin qu'on arpente - le
     // premier point porte un marqueur rond permanent (visible meme non selectionne), le second
     // une pointe de fleche nativement orientee sur le trait (marker-end + orient="auto").
-    if(obj.fonction === 'camera'){ obj.el.setAttribute('marker-end', 'url(#flecheVue)'); }
+    if(obj.fonction === 'camera'){ vue(obj).el.setAttribute('marker-end', 'url(#flecheVue)'); }
     // Limite cadastrale interne a une propriete fusionnee : elle n'est plus une limite de
     // terrain, seulement un reperage. Le pointille dit exactement cela, et la distingue au
     // premier coup d'oeil du contour plein de la parcelle.
-    if(obj.fonction === 'limite'){ obj.el.setAttribute('stroke-dasharray', '10 7'); }
-    svg.appendChild(obj.el);
+    if(obj.fonction === 'limite'){ vue(obj).el.setAttribute('stroke-dasharray', '10 7'); }
+    svg.appendChild(vue(obj).el);
     if(obj.fonction === 'camera'){
-      obj.camMarkerEl = document.createElementNS(svgNS,'circle');
-      obj.camMarkerEl.setAttribute('r','7'); obj.camMarkerEl.setAttribute('fill',obj.fill);
-      obj.camMarkerEl.setAttribute('stroke',obj.stroke); obj.camMarkerEl.setAttribute('stroke-width','2');
-      obj.camMarkerEl.style.pointerEvents = 'none';
-      svg.appendChild(obj.camMarkerEl);
+      vue(obj).camMarkerEl = document.createElementNS(svgNS,'circle');
+      vue(obj).camMarkerEl.setAttribute('r','7'); vue(obj).camMarkerEl.setAttribute('fill',obj.fill);
+      vue(obj).camMarkerEl.setAttribute('stroke',obj.stroke); vue(obj).camMarkerEl.setAttribute('stroke-width','2');
+      vue(obj).camMarkerEl.style.pointerEvents = 'none';
+      svg.appendChild(vue(obj).camMarkerEl);
     }
   } else {
-    obj.el = document.createElementNS(svgNS,'circle');
-    obj.el.setAttribute('fill',obj.fill); obj.el.setAttribute('fill-opacity',obj.fillOpacity);
-    obj.el.setAttribute('stroke',obj.stroke); obj.el.setAttribute('stroke-width','0.08');
-    obj.el.setAttribute('pointer-events','all');
-    obj.el.dataset.role='obj'; obj.el.dataset.key=obj.key;
-    obj.el.style.cursor='pointer';
-    obj.el.title = 'Double-clic : reculer cet objet dans la superposition';
-    svg.appendChild(obj.el);
+    vue(obj).el = document.createElementNS(svgNS,'circle');
+    vue(obj).el.setAttribute('fill',obj.fill); vue(obj).el.setAttribute('fill-opacity',obj.fillOpacity);
+    vue(obj).el.setAttribute('stroke',obj.stroke); vue(obj).el.setAttribute('stroke-width','0.08');
+    vue(obj).el.setAttribute('pointer-events','all');
+    vue(obj).el.dataset.role='obj'; vue(obj).el.dataset.key=obj.key;
+    vue(obj).el.style.cursor='pointer';
+    vue(obj).el.title = 'Double-clic : reculer cet objet dans la superposition';
+    svg.appendChild(vue(obj).el);
   }
-  obj.nameEl = document.createElementNS(svgNS,'text');
-  obj.nameEl.setAttribute('text-anchor','middle');
-  obj.nameEl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-  obj.nameEl.setAttribute('font-weight','700');
-  obj.nameEl.setAttribute('paint-order','stroke');
-  obj.nameEl.setAttribute('stroke',SVG_LABEL_HALO); obj.nameEl.setAttribute('stroke-width','3');
-  obj.nameEl.setAttribute('fill', obj.stroke);
-  obj.nameEl.style.pointerEvents = 'none';
-  svg.appendChild(obj.nameEl);
-  obj.pointEls = []; obj.ptLabelEls = []; obj.edgeEls = []; obj.segLabelEls = [];
-  obj.radiusHandle = null;
+  vue(obj).nameEl = document.createElementNS(svgNS,'text');
+  vue(obj).nameEl.setAttribute('text-anchor','middle');
+  vue(obj).nameEl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
+  vue(obj).nameEl.setAttribute('font-weight','700');
+  vue(obj).nameEl.setAttribute('paint-order','stroke');
+  vue(obj).nameEl.setAttribute('stroke',SVG_LABEL_HALO); vue(obj).nameEl.setAttribute('stroke-width','3');
+  vue(obj).nameEl.setAttribute('fill', obj.stroke);
+  vue(obj).nameEl.style.pointerEvents = 'none';
+  svg.appendChild(vue(obj).nameEl);
+  vue(obj).pointEls = []; vue(obj).ptLabelEls = []; vue(obj).edgeEls = []; vue(obj).segLabelEls = [];
+  vue(obj).radiusHandle = null;
 }
 
 // Paint low-priority objects first so higher "Priorite d'affichage" ends up on top; ties
@@ -748,10 +740,10 @@ function byPriority(a,b){ return (a.priority||0) - (b.priority||0); }
 objects.slice().sort(byPriority).forEach(createObjectDOM);
 
 function rebuildHandles(obj){
-  obj.pointEls.forEach(e=>e.remove()); obj.ptLabelEls.forEach(e=>e.remove());
-  obj.edgeEls.forEach(e=>e.remove()); obj.segLabelEls.forEach(e=>e.remove());
-  obj.pointEls=[]; obj.ptLabelEls=[]; obj.edgeEls=[]; obj.segLabelEls=[];
-  if(obj.radiusHandle){ obj.radiusHandle.remove(); obj.radiusHandle=null; }
+  vue(obj).pointEls.forEach(e=>e.remove()); vue(obj).ptLabelEls.forEach(e=>e.remove());
+  vue(obj).edgeEls.forEach(e=>e.remove()); vue(obj).segLabelEls.forEach(e=>e.remove());
+  vue(obj).pointEls=[]; vue(obj).ptLabelEls=[]; vue(obj).edgeEls=[]; vue(obj).segLabelEls=[];
+  if(vue(obj).radiusHandle){ vue(obj).radiusHandle.remove(); vue(obj).radiusHandle=null; }
 
   if(obj.type==='polygon' || obj.type==='path'){
     const n = obj.pts.length;
@@ -769,33 +761,33 @@ function rebuildHandles(obj){
         insertPointOnSegment(obj, idx, w);
         ev.preventDefault();
       });
-      svg.appendChild(el); obj.edgeEls.push(el);
+      svg.appendChild(el); vue(obj).edgeEls.push(el);
 
       const sl=document.createElementNS(svgNS,'text');
       sl.setAttribute('text-anchor','middle'); sl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
       sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_INK);
       sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_LABEL_HALO); sl.setAttribute('stroke-width','3');
       sl.style.pointerEvents = 'none';
-      svg.appendChild(sl); obj.segLabelEls.push(sl);
+      svg.appendChild(sl); vue(obj).segLabelEls.push(sl);
     }
     for(let i=0;i<n;i++){
       const c=document.createElementNS(svgNS,'circle');
       c.setAttribute('r',6.5); c.setAttribute('fill','#fff'); c.setAttribute('stroke',obj.stroke); c.setAttribute('stroke-width','2');
       c.setAttribute('pointer-events','all'); c.style.cursor='crosshair'; c.title='Modifier ce coin (glisser = deplacer, double-clic = figer/degeler)';
       c.dataset.role='point'; c.dataset.key=obj.key; c.dataset.index=i;
-      svg.appendChild(c); obj.pointEls.push(c);
+      svg.appendChild(c); vue(obj).pointEls.push(c);
 
       const lb=document.createElementNS(svgNS,'text');
       lb.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); lb.setAttribute('font-size','10'); lb.setAttribute('fill','#333'); lb.setAttribute('font-weight','700');
       lb.style.pointerEvents = 'none';
-      svg.appendChild(lb); obj.ptLabelEls.push(lb);
+      svg.appendChild(lb); vue(obj).ptLabelEls.push(lb);
     }
   } else {
     const rh=document.createElementNS(svgNS,'circle');
     rh.setAttribute('r',6); rh.setAttribute('fill','#fff'); rh.setAttribute('stroke',obj.stroke); rh.setAttribute('stroke-width','2');
     rh.setAttribute('pointer-events','all'); rh.style.cursor='ew-resize';
     rh.dataset.role='radius'; rh.dataset.key=obj.key;
-    svg.appendChild(rh); obj.radiusHandle = rh;
+    svg.appendChild(rh); vue(obj).radiusHandle = rh;
   }
 }
 objects.forEach(rebuildHandles);
@@ -912,8 +904,8 @@ rebuildSelector();
 function polyStr(pts){ return pts.map(p=>{const s=toScreen(p); return s.x+','+s.y;}).join(' '); }
 
 function bringToFront(obj){
-  svg.appendChild(obj.el);
-  svg.appendChild(obj.nameEl);
+  svg.appendChild(vue(obj).el);
+  svg.appendChild(vue(obj).nameEl);
   amenerPoigneesDevant(obj);
 }
 // Les poignees seules, sans la forme. Selectionner un objet doit rendre ses poignees
@@ -922,12 +914,12 @@ function bringToFront(obj){
 // et le recul obtenu par double-tap est annule au clic suivant.
 function amenerPoigneesDevant(obj){
   if(obj.type==='polygon' || obj.type==='path'){
-    obj.edgeEls.forEach(el=>svg.appendChild(el));
-    obj.segLabelEls.forEach(el=>svg.appendChild(el));
-    obj.pointEls.forEach(el=>svg.appendChild(el));
-    obj.ptLabelEls.forEach(el=>svg.appendChild(el));
-  } else if(obj.radiusHandle){
-    svg.appendChild(obj.radiusHandle);
+    vue(obj).edgeEls.forEach(el=>svg.appendChild(el));
+    vue(obj).segLabelEls.forEach(el=>svg.appendChild(el));
+    vue(obj).pointEls.forEach(el=>svg.appendChild(el));
+    vue(obj).ptLabelEls.forEach(el=>svg.appendChild(el));
+  } else if(vue(obj).radiusHandle){
+    svg.appendChild(vue(obj).radiusHandle);
   }
 }
 
@@ -1108,63 +1100,63 @@ function render(){
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus
     // deroutant qu'utile. Il reste choisissable depuis la barre laterale pour le demasquer.
     if(objetMasque(obj)){
-      obj.el.style.display = 'none';
-      obj.nameEl.style.display = 'none';
-      if(obj.camMarkerEl) obj.camMarkerEl.style.display = 'none';
-      obj.pointEls.forEach(e=>e.style.display='none');
-      obj.ptLabelEls.forEach(e=>e.style.display='none');
-      obj.edgeEls.forEach(e=>e.style.display='none');
-      obj.segLabelEls.forEach(e=>e.style.display='none');
-      if(obj.radiusHandle) obj.radiusHandle.style.display='none';
+      vue(obj).el.style.display = 'none';
+      vue(obj).nameEl.style.display = 'none';
+      if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.style.display = 'none';
+      vue(obj).pointEls.forEach(e=>e.style.display='none');
+      vue(obj).ptLabelEls.forEach(e=>e.style.display='none');
+      vue(obj).edgeEls.forEach(e=>e.style.display='none');
+      vue(obj).segLabelEls.forEach(e=>e.style.display='none');
+      if(vue(obj).radiusHandle) vue(obj).radiusHandle.style.display='none';
       return;
     }
-    obj.el.style.display = '';
-    obj.nameEl.style.display = '';
-    if(obj.camMarkerEl) obj.camMarkerEl.style.display = '';
+    vue(obj).el.style.display = '';
+    vue(obj).nameEl.style.display = '';
+    if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.style.display = '';
 
     if(obj.type==='polygon'){
-      obj.el.setAttribute('points', polyStr(obj.pts));
+      vue(obj).el.setAttribute('points', polyStr(obj.pts));
     } else if(obj.type==='path'){
-      obj.el.setAttribute('d', pathD(obj.pts, !!obj.curve));
-      obj.el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*scale));
-      if(obj.camMarkerEl){
+      vue(obj).el.setAttribute('d', pathD(obj.pts, !!obj.curve));
+      vue(obj).el.setAttribute('stroke-width', Math.max(1, (obj.width||1)*scale));
+      if(vue(obj).camMarkerEl){
         const p0 = toScreen(obj.pts[0]);
-        obj.camMarkerEl.setAttribute('cx',p0.x); obj.camMarkerEl.setAttribute('cy',p0.y);
+        vue(obj).camMarkerEl.setAttribute('cx',p0.x); vue(obj).camMarkerEl.setAttribute('cy',p0.y);
       }
     } else {
       const c = toScreen(obj.center);
-      obj.el.setAttribute('cx',c.x); obj.el.setAttribute('cy',c.y); obj.el.setAttribute('r',obj.r*scale);
+      vue(obj).el.setAttribute('cx',c.x); vue(obj).el.setAttribute('cy',c.y); vue(obj).el.setAttribute('r',obj.r*scale);
     }
-    if(obj.type!=='path') obj.el.setAttribute('stroke-width', isSel ? '3' : (obj.type==='circle'?'0.08':'1.8'));
-    else obj.el.setAttribute('stroke-opacity', isSel ? '1' : '0.85');
+    if(obj.type!=='path') vue(obj).el.setAttribute('stroke-width', isSel ? '3' : (obj.type==='circle'?'0.08':'1.8'));
+    else vue(obj).el.setAttribute('stroke-opacity', isSel ? '1' : '0.85');
 
     // Avec le fond orthophoto, un terrain rempli a 100 % masque exactement ce qu'on est venu
     // voir. La transparence est appliquee A L'AFFICHAGE, sans toucher au fillOpacity de l'objet :
     // le projet n'est pas modifie, rien a re-enregistrer, et decocher le fond rend au terrain son
     // remplissage d'origine. Le contour, lui, ne bouge pas : c'est lui qui porte l'information.
     if(obj.type==='polygon' && estTerrain(obj)){
-      obj.el.setAttribute('fill-opacity', orthoActif ? orthoParcelleOpacite : obj.fillOpacity);
+      vue(obj).el.setAttribute('fill-opacity', orthoActif ? orthoParcelleOpacite : obj.fillOpacity);
     }
 
     const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);
     const cs = toScreen(cen);
-    obj.nameEl.setAttribute('x',cs.x); obj.nameEl.setAttribute('y',cs.y);
-    obj.nameEl.setAttribute('font-size', obj.key==='parcelle'||obj.key==='maison' ? 14 : 10);
-    obj.nameEl.textContent = obj.showName ? obj.name : '';
+    vue(obj).nameEl.setAttribute('x',cs.x); vue(obj).nameEl.setAttribute('y',cs.y);
+    vue(obj).nameEl.setAttribute('font-size', obj.key==='parcelle'||obj.key==='maison' ? 14 : 10);
+    vue(obj).nameEl.textContent = obj.showName ? obj.name : '';
 
     if(obj.type==='polygon' || obj.type==='path'){
       const n = obj.pts.length;
       const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
-      if(obj.pointEls.length !== n) rebuildHandles(obj);
+      if(vue(obj).pointEls.length !== n) rebuildHandles(obj);
       const objCenter = cen;
       for(let i=0;i<n;i++){
         const p = toScreen(obj.pts[i]);
-        obj.pointEls[i].setAttribute('cx',p.x); obj.pointEls[i].setAttribute('cy',p.y);
+        vue(obj).pointEls[i].setAttribute('cx',p.x); vue(obj).pointEls[i].setAttribute('cy',p.y);
         const showPtForPick = pickState && pickState.mode==='target';
-        obj.pointEls[i].style.display = (isSel || showPtForPick) ? '' : 'none';
+        vue(obj).pointEls[i].style.display = (isSel || showPtForPick) ? '' : 'none';
         const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-        obj.pointEls[i].setAttribute('fill', isFrozen ? obj.stroke : '#fff');
-        obj.pointEls[i].setAttribute('r', isFrozen ? 7.5 : 6.5);
+        vue(obj).pointEls[i].setAttribute('fill', isFrozen ? obj.stroke : '#fff');
+        vue(obj).pointEls[i].setAttribute('r', isFrozen ? 7.5 : 6.5);
 
         // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
         let ext;
@@ -1175,43 +1167,43 @@ function render(){
           const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
           ext = {x:-dy/L, y:dx/L};
         }
-        obj.ptLabelEls[i].setAttribute('x', p.x + ext.x*13);
-        obj.ptLabelEls[i].setAttribute('y', p.y - ext.y*13 + 3);
-        obj.ptLabelEls[i].setAttribute('text-anchor','middle');
+        vue(obj).ptLabelEls[i].setAttribute('x', p.x + ext.x*13);
+        vue(obj).ptLabelEls[i].setAttribute('y', p.y - ext.y*13 + 3);
+        vue(obj).ptLabelEls[i].setAttribute('text-anchor','middle');
         let vertTxt = '';
         const vName = obj.vertexNames[i] || ('P'+(i+1));
         const showAngleHere = obj.showAngles && obj.type==='polygon';
         if(obj.showVertNames && showAngleHere) vertTxt = vName + ' — ' + interiorAngleDeg(obj,i).toFixed(1) + '°';
         else if(obj.showVertNames) vertTxt = vName;
         else if(showAngleHere) vertTxt = interiorAngleDeg(obj,i).toFixed(1) + '°';
-        obj.ptLabelEls[i].textContent = vertTxt;
-        obj.ptLabelEls[i].style.display = vertTxt ? '' : 'none';
+        vue(obj).ptLabelEls[i].textContent = vertTxt;
+        vue(obj).ptLabelEls[i].style.display = vertTxt ? '' : 'none';
 
         if(i < edgeCount){
           const a=obj.pts[i], b=obj.pts[(i+1)%n];
           const pa=toScreen(a), pb=toScreen(b);
-          obj.edgeEls[i].setAttribute('x1',pa.x); obj.edgeEls[i].setAttribute('y1',pa.y);
-          obj.edgeEls[i].setAttribute('x2',pb.x); obj.edgeEls[i].setAttribute('y2',pb.y);
+          vue(obj).edgeEls[i].setAttribute('x1',pa.x); vue(obj).edgeEls[i].setAttribute('y1',pa.y);
+          vue(obj).edgeEls[i].setAttribute('x2',pb.x); vue(obj).edgeEls[i].setAttribute('y2',pb.y);
           const showEdgeForPick = pickState && pickState.mode==='ref';
-          obj.edgeEls[i].style.display = (isSel || showEdgeForPick) ? '' : 'none';
-          obj.edgeEls[i].style.pointerEvents = (isSel || showEdgeForPick) ? 'all' : 'none';
+          vue(obj).edgeEls[i].style.display = (isSel || showEdgeForPick) ? '' : 'none';
+          vue(obj).edgeEls[i].style.pointerEvents = (isSel || showEdgeForPick) ? 'all' : 'none';
 
           const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-          obj.segLabelEls[i].setAttribute('x',mid.x); obj.segLabelEls[i].setAttribute('y',mid.y-5);
+          vue(obj).segLabelEls[i].setAttribute('x',mid.x); vue(obj).segLabelEls[i].setAttribute('y',mid.y-5);
           let segTxt = '';
           if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i] + ' — ' + dist(a,b).toFixed(2)+' m';
           else if(obj.showSegNames) segTxt = obj.segmentNames[i];
           else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
-          obj.segLabelEls[i].textContent = segTxt;
-          obj.segLabelEls[i].style.display = segTxt ? '' : 'none';
+          vue(obj).segLabelEls[i].textContent = segTxt;
+          vue(obj).segLabelEls[i].style.display = segTxt ? '' : 'none';
         }
       }
-      obj.el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
+      vue(obj).el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
     } else {
       const rp = toScreen({x:obj.center.x+obj.r, y:obj.center.y});
-      obj.radiusHandle.setAttribute('cx',rp.x); obj.radiusHandle.setAttribute('cy',rp.y);
-      obj.radiusHandle.style.display = isSel ? '' : 'none';
-      obj.el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
+      vue(obj).radiusHandle.setAttribute('cx',rp.x); vue(obj).radiusHandle.setAttribute('cy',rp.y);
+      vue(obj).radiusHandle.style.display = isSel ? '' : 'none';
+      vue(obj).el.style.cursor = obj.locked ? 'not-allowed' : (isSel ? 'move' : 'pointer');
     }
   });
 
@@ -1350,7 +1342,7 @@ function renderAttrTable(){
     obj.name = inp.value;
     markDirty();
     rebuildSelector();
-    if(obj.nameEl) obj.nameEl.textContent = obj.showName ? obj.name : '';
+    if(vue(obj).nameEl) vue(obj).nameEl.textContent = obj.showName ? obj.name : '';
     document.getElementById('attrTitle').textContent = libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
   });
   tdInput.appendChild(inp);
@@ -1411,8 +1403,8 @@ function renderAttrTable(){
     const colorInp = document.createElement('input'); colorInp.type='color'; colorInp.value = obj.fill;
     colorInp.addEventListener('input', ()=>{
       obj.fill = colorInp.value;
-      if(obj.type==='path'){ obj.el.setAttribute('stroke', obj.fill); obj.stroke = obj.fill; }
-      else obj.el.setAttribute('fill', obj.fill);
+      if(obj.type==='path'){ vue(obj).el.setAttribute('stroke', obj.fill); obj.stroke = obj.fill; }
+      else vue(obj).el.setAttribute('fill', obj.fill);
       markDirty();
       rebuildSelector();
     });
@@ -1908,14 +1900,14 @@ function renderAttrTable(){
         // Targeted update instead of render(): render() rebuilds this whole table from
         // scratch, which recreates this very input and kills focus/cursor on every keystroke.
         obj.vertexNames[i] = ii.value;
-        if(obj.ptLabelEls && obj.ptLabelEls[i]){
+        if(vue(obj).ptLabelEls && vue(obj).ptLabelEls[i]){
           const vName = obj.vertexNames[i] || ('P'+(i+1));
           const showAngleHere = obj.showAngles && obj.type==='polygon';
           let vertTxt = '';
           if(obj.showVertNames && showAngleHere) vertTxt = vName + ' — ' + interiorAngleDeg(obj,i).toFixed(1) + '°';
           else if(obj.showVertNames) vertTxt = vName;
           else if(showAngleHere) vertTxt = interiorAngleDeg(obj,i).toFixed(1) + '°';
-          obj.ptLabelEls[i].textContent = vertTxt;
+          vue(obj).ptLabelEls[i].textContent = vertTxt;
         }
       });
       td1.appendChild(ii);
@@ -1960,9 +1952,9 @@ function renderAttrTable(){
         const ii=document.createElement('input'); ii.type='text'; ii.value=vn;
         ii.addEventListener('input', ()=>{
           obj.vertexNames[i] = ii.value;
-          if(obj.ptLabelEls && obj.ptLabelEls[i]){
+          if(vue(obj).ptLabelEls && vue(obj).ptLabelEls[i]){
             const vName = obj.vertexNames[i] || ('P'+(i+1));
-            obj.ptLabelEls[i].textContent = obj.showVertNames ? vName : '';
+            vue(obj).ptLabelEls[i].textContent = obj.showVertNames ? vName : '';
           }
         });
         td1.appendChild(ii);
@@ -1988,13 +1980,13 @@ function renderAttrTable(){
       const ii=document.createElement('input'); ii.type='text'; ii.value=sn;
       ii.addEventListener('input', ()=>{
         obj.segmentNames[i] = ii.value;
-        if(obj.segLabelEls && obj.segLabelEls[i]){
+        if(vue(obj).segLabelEls && vue(obj).segLabelEls[i]){
           const a=obj.pts[i], b=obj.pts[(i+1)%obj.pts.length];
           let segTxt = '';
           if(obj.showSegNames && obj.showDims) segTxt = obj.segmentNames[i] + ' — ' + dist(a,b).toFixed(2)+' m';
           else if(obj.showSegNames) segTxt = obj.segmentNames[i];
           else if(obj.showDims) segTxt = dist(a,b).toFixed(2)+' m';
-          obj.segLabelEls[i].textContent = segTxt;
+          vue(obj).segLabelEls[i].textContent = segTxt;
         }
       });
       td1.appendChild(ii);
@@ -2833,11 +2825,11 @@ function deleteSelectedObject(){
   if(obj.locked){ showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
   showConfirm('Supprimer definitivement "' + obj.name + '" ?', ()=>{
     pushHistory();
-    obj.el.remove(); obj.nameEl.remove();
-    obj.pointEls.forEach(el=>el.remove()); obj.ptLabelEls.forEach(el=>el.remove());
-    obj.edgeEls.forEach(el=>el.remove()); obj.segLabelEls.forEach(el=>el.remove());
-    if(obj.radiusHandle) obj.radiusHandle.remove();
-    if(obj.camMarkerEl) obj.camMarkerEl.remove();
+    vue(obj).el.remove(); vue(obj).nameEl.remove();
+    vue(obj).pointEls.forEach(el=>el.remove()); vue(obj).ptLabelEls.forEach(el=>el.remove());
+    vue(obj).edgeEls.forEach(el=>el.remove()); vue(obj).segLabelEls.forEach(el=>el.remove());
+    if(vue(obj).radiusHandle) vue(obj).radiusHandle.remove();
+    if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.remove();
     objects.splice(idx,1);
     selectedKey = null;
     rebuildSelector();
@@ -4373,13 +4365,7 @@ function importSVGString(svgText){
   if(replaceMode){
     // remove every current object and its DOM elements, and any stored measures (they
     // reference object keys that are about to disappear)
-    objects.slice().forEach(o=>{
-      o.el.remove(); o.nameEl.remove();
-      (o.pointEls||[]).forEach(el=>el.remove()); (o.ptLabelEls||[]).forEach(el=>el.remove());
-      (o.edgeEls||[]).forEach(el=>el.remove()); (o.segLabelEls||[]).forEach(el=>el.remove());
-      if(o.radiusHandle) o.radiusHandle.remove();
-      if(o.camMarkerEl) o.camMarkerEl.remove();
-    });
+    objects.slice().forEach(detruireVue);
     objects.length = 0;
     measures.length = 0;
     selectedKey = null;
