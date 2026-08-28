@@ -15,7 +15,7 @@ import { escapeHtml, escapeXml } from './util/escape.js';
 import { nombreFr, formatHeureMin, slugFichier, horodatageFichier } from './util/format.js';
 import { telechargerTexte } from './util/download.js';
 import {
-  projectOntoSegment, distancePointSegment, angleOfSegment, nearestSegmentIndex,
+  projectOntoSegment, distancePointSegment, nearestSegmentIndex,
   lineSegIntersect, lineLineIntersect
 } from './geometry/segments.js';
 import { estRectangle, rectangleDepuisCoin, rectangleDepuisCote, RECT_MIN_M } from './geometry/rect.js';
@@ -41,6 +41,7 @@ import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, dessinerCotes } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { insererSommet, supprimerSommet, minimumSommets } from './model/sommets.js';
+import { alignerSurCote } from './geometry/alignement.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { appliquerGlisser } from './interaction/drag.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -3316,42 +3317,13 @@ function alignObjectByRotation(obj){
   if(!target) return;
   const idx = nearestSegmentIndex(obj, target);
   if(idx<0) return;
-  const n = obj.pts.length;
-  const a = obj.pts[idx], b = obj.pts[(idx+1)%n];
-  const curAngle = angleOfSegment(a,b);
-  const targetAngle = angleOfSegment(target.a, target.b);
-  let diff = Math.atan2(Math.sin(targetAngle-curAngle), Math.cos(targetAngle-curAngle));
-  if(diff > Math.PI/2) diff -= Math.PI;
-  else if(diff < -Math.PI/2) diff += Math.PI;
-
-  // pivot = midpoint of the nearest (closest-matching) side: that side moves the least,
-  // the rest of the object rotates around it
-  const pivot = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-  const cosA=Math.cos(diff), sinA=Math.sin(diff);
-  let newPts = obj.pts.map(p=>{
-    const dx=p.x-pivot.x, dy=p.y-pivot.y;
-    return {x:pivot.x+dx*cosA-dy*sinA, y:pivot.y+dx*sinA+dy*cosA};
-  });
-
-  // optional: also set the perpendicular distance between the aligned side and the
-  // target segment's line. Left blank = no translation, only the rotation is applied.
+  // Distance laissee vide = on ne fait que tourner, sans deplacer la forme.
   const distInput = document.getElementById('alignDistanceInput');
   const distRaw = distInput ? distInput.value.trim() : '';
-  if(distRaw !== ''){
-    const desired = parseFloat(distRaw);
-    if(!isNaN(desired) && desired>=0){
-      const ux=target.b.x-target.a.x, uy=target.b.y-target.a.y;
-      const L=Math.hypot(ux,uy)||1e-9;
-      const nx=-uy/L, ny=ux/L; // unit normal to the target line
-      const dx=pivot.x-target.a.x, dy=pivot.y-target.a.y;
-      const curSigned = dx*nx+dy*ny; // current signed distance of the pivot from the target line
-      const sign = curSigned>=0 ? 1 : -1; // keep the object on the same side it's already on
-      const delta = sign*desired - curSigned;
-      newPts = newPts.map(p=>({x:p.x+nx*delta, y:p.y+ny*delta}));
-    }
-  }
+  const distance = distRaw === '' ? null : parseFloat(distRaw);
+  const newPts = alignerSurCote(obj.pts, idx, target, distance);
 
-  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = contourDeContrainte(etat.objects, obj);
   if(bound && !newPts.every(p=>pointInPolygon(p,bound))){
     showToast('Le resultat sortirait de la parcelle - alignement annule.');
     return;

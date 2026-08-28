@@ -608,10 +608,39 @@ Ce qui a permis de trancher, et qui vaut pour toute vérification par événemen
 sonde sur le témoin figé, à froid**. Un écart entre deux pages dont l'une a déjà servie ne prouve
 rien. Depuis, la sonde lit l'état avant d'agir (`stroke-width === '3'`) au lieu de le supposer.
 
+### Aligner, c'est se caler sur une droite — pas sur une direction
+
+`geometry/alignement.ts` fait tourner une forme jusqu'à ce que l'un de ses côtés soit parallèle à un
+côté désigné ailleurs sur le plan, puis, si on le demande, la pose à une distance donnée de cette
+limite. C'est le geste qui sert à placer un abri « à 3 m de la clôture, dans son alignement ».
+
+Trois décisions y sont écrites, parce qu'aucune ne se devine en lisant le calcul :
+
+- **La rotation est repliée dans ±90°.** Un côté s'aligne sur une *droite*, pas sur une direction :
+  tourner de 170° pour obtenir ce qu'une rotation de −10° obtient aussi bien retournerait l'objet
+  bout pour bout, et un abri se retrouverait porte au fond.
+- **Le pivot est le milieu du côté aligné**, celui qui bouge le moins. Pivoter autour du centre de
+  la forme ferait glisser le côté qu'on cherchait justement à caler.
+- **La translation garde la forme du côté où elle est déjà** : une distance est un écart, pas une
+  position. Et elle se mesure depuis le côté aligné, pas depuis la forme entière — un carré de 4 m
+  posé à 3 m d'une limite la dépasse donc de 1 m par son côté opposé. C'est bien ce qu'on demande ;
+  c'est au contrôle du contour, chez l'appelant, de refuser si le résultat sort vraiment.
+
+**Vérifié sur les deux versions**, six scénarios chacune : rotation seule, distance 2 m, distance
+nulle, distance négative, distance illisible, et un objet dont l'alignement est refusé par le
+contour. Toutes les coordonnées coïncident à la quatrième décimale — la table passe de
+(113,8329 ; 201,4140) à (115,5514 ; 201,8332) des deux côtés en rotation seule, et à
+(63,0123 ; 246,3911) avec 2 m. Les six empreintes sont inchangées.
+
+Deuxième fausse alerte du même genre que la précédente, et elle mérite d'être notée : la version
+migrée translatait là où le témoin ne faisait que tourner. En cause, **le champ « distance » gardait
+la valeur d'une sonde antérieure** sur cette page-là. Rejouée à froid des deux côtés, la mesure est
+identique. C'est deux fois de suite que l'état résiduel d'une page a imité une régression.
+
 ### Ce qui reste
 
-L'alignement par rotation et les panneaux d'interface qui pilotent le plan (attributs, mesures, PLU,
-barre de projet, configurateur de terrasse). `legacy.ts` est à 10 016 lignes.
+Les panneaux d'interface qui pilotent le plan : attributs, mesures, PLU, barre de projet,
+configurateur de terrasse. `legacy.ts` est à 9 988 lignes — il passe sous les 10 000.
 
 
 ### Point de vigilance
