@@ -27,6 +27,16 @@ import { parseSvgPathPoints } from './geometry/path.js';
 import { TERRE_A, TERRE_E2, projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from './geo/projection.js';
 import { decalageFuseauFrance, positionSoleil } from './geo/soleil.js';
 import { DEMO_OBJECTS, DEMO_MEASURES } from './model/demo.js';
+import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT, PRIX_STORE, achatPlots, achatVis, chargePlot, computeAssise, computeBOM, coutDebit, largeurProduit, longueursBois, longueursDispo, longueursLambourde, parseLongueurs, prixBarre, prixBarreDefaut, prixM2De, prixPersonnalise, prixPlotUnite, prixVisUnite, setPrixBarre, setPrixM2 } from './engine/bom.js';
+import { CADENCES, CHANTIER_PHASES, cadenceDe, computeChantier } from './engine/chantier.js';
+import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAME_RIVE_EPAISSEUR_M, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VISSERIE_PRICE, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, estPlots, plotModele } from './engine/constantes.js';
+import { defaultConstruction, ensureConstruction } from './engine/construction.js';
+import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
+import { computeImplantation, repereImplantation } from './engine/implantation.js';
+import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
+import { computeTerrasseLayers } from './engine/layers.js';
+import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, terrasseDuParasol } from './engine/parasol.js';
+import { CHARGE_NORMALE_DEFAUT, CHARGE_REF, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, PORTEE_VIS_K, SECTION_REF_AIRE, SOLIVE_SECTION_DIMS, VIS_ROLE_RANK, buildVisGrid, buildVisGridCount, coefRaideurLame, computeStructure, dedupeVis, dimsSection, distPointToLine, empriseEquipement, evaluerStructure, findSpaZones, generateSpanningLines, lamesAngleOf, libelleAppui, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, safeOffset, sectionLambourde, segmentZoneRanges, subdivideSegment, tarifSection, zoneToucheTerrasse } from './engine/structure.js';
 import {
   LIBELLE_FONCTION, FONCTIONS_HORS_EQUIPEMENT, LIEU_DEFAUT, ELEVATION_DEFAUT, elevationParDefaut
 } from './model/defaults.js';
@@ -404,6 +414,24 @@ async function loadInitialProject(){
 
 
 function boot(seed){
+// Etat d'affichage des parasols et du mode Terrasse. Ces variables sont restees ici quand le
+// moteur est parti en phase 3 : elles decrivent ce que l'utilisateur regarde, pas un calcul.
+// Les fonctions d'ombre les recoivent desormais en parametre (contexteSoleilParasol ci-dessous).
+let parasolOmbreAffichee = true;
+let parasolCarteAffichee = false;
+let parasolDateStr = new Date().getFullYear() + '-06-21'; // solstice d'ete
+let parasolMinutes = 900; // 15:00
+
+// Contexte solaire des parasols : ce que les fonctions d'ombre lisaient jusqu'ici directement dans
+// la fermeture de boot(). Elles le recoivent maintenant en parametre (phase 3), et c'est ici qu'on
+// le compose a partir des curseurs et du lieu de la parcelle.
+function contexteSoleilParasol(){
+  const lieu = lieuActuel();
+  return { dateStr: parasolDateStr, minutes: parasolMinutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
+}
+let appMode = 'plan';
+let terrasseSelectedKey = null;
+
 
 // ================= Undo history =================
 const undoStack = [];
@@ -952,28 +980,6 @@ function pathD(pts, curve){
   return d;
 }
 
-// ================= Parasol : ombre portee, carte de chaleur, meilleure position =================
-// Sous cette hauteur de soleil l'ombre s'allonge sans fin et ne couvre plus rien d'utile : on la
-// considere comme inexistante plutot que de dessiner une trainee de 40 m a 18h en septembre.
-const PARASOL_ELEV_MIN_DEG = 8;
-// Periode optimisee : les apres-midis d'ete, le seul moment ou un parasol de terrasse sert
-// vraiment (l'ombre de janvier a 9h n'interesse personne et diluerait le resultat).
-const PARASOL_MOIS = [5,6,7,8,9];
-const PARASOL_HEURES = [12,13,14,15,16,17,18];
-let parasolOmbreAffichee = true;
-let parasolCarteAffichee = false;
-let parasolDateStr = new Date().getFullYear() + '-06-21'; // solstice d'ete
-let parasolMinutes = 900; // 15:00
-function hauteurParasolDe(par){
-  return (par.hauteurParasol !== undefined && par.hauteurParasol !== null) ? par.hauteurParasol : 2.2;
-}
-// Parasol deporte : le mat n'est pas au centre de la toile mais sur son bord, a `matAngleDeg` du
-// centre (0 = Est, 90 = Nord, comme partout ailleurs dans le plan). `center` reste TOUJOURS le
-// centre de la toile - c'est lui qui porte l'ombre, la surface et le cercle dessine ; seul le pied
-// se deplace. Garder cette convention evite de recalculer l'ombre differemment selon le modele.
-function matAngleDe(par){
-  return (par.matAngleDeg !== undefined && par.matAngleDeg !== null) ? par.matAngleDeg : 0;
-}
 function positionMat(par){
   if(!par.matDeporte) return { x: par.center.x, y: par.center.y };
   const a = matAngleDe(par) * Math.PI/180;
@@ -1001,28 +1007,13 @@ function projeterSurPerimetre(pt, poly){
   }
   return best;
 }
-// Points regulierement repartis le long du pourtour d'un polygone (positions candidates du pied
-// quand il doit rester en bordure).
-function pointsPerimetre(poly, pas){
-  const out = [];
-  for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j].x, ay=poly[j].y, bx=poly[i].x, by=poly[i].y;
-    const L = Math.hypot(bx-ax, by-ay);
-    const n = Math.max(1, Math.round(L/pas));
-    for(let k=0;k<n;k++){
-      const t = k/n;
-      out.push({ x: ax+(bx-ax)*t, y: ay+(by-ay)*t });
-    }
-  }
-  return out;
-}
 // Applique la contrainte "pied en bordure" : on projette le PIED (pas le centre de la toile) sur le
 // pourtour, puis on redonne a la toile la position correspondante. Appele a chaque rendu, donc la
 // contrainte tient aussi pendant un glisser - l'objet suit le curseur en restant colle au bord.
 function contraindreParasols(){
   objects.forEach(par=>{
     if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
-    const terr = terrasseDuParasol(par);
+    const terr = terrasseDuParasol(par, objects, terrasseSelectedKey);
     if(!terr || !terr.pts || terr.pts.length<3) return;
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
@@ -1031,163 +1022,6 @@ function contraindreParasols(){
     par.center.y += cible.y - mat.y;
   });
 }
-// Chaque parasol est rattache a UNE terrasse : c'est elle dont on mesure l'ombrage et sur laquelle
-// la recherche de position cherche. Sans ce lien, un jardin a plusieurs terrasses verrait tous ses
-// parasols optimises sur la meme (la premiere trouvee), ce qui n'a aucun sens.
-function terrasseDuParasol(par){
-  if(par && par.terrasseLieeKey){
-    const t = objects.find(o=>o.key===par.terrasseLieeKey && o.fonction==='terrasse');
-    if(t) return t;
-  }
-  // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre
-  // fonction : on retombe sur celle qui contient physiquement le parasol, puis sur la premiere.
-  if(par && par.center){
-    const dessous = objects.find(o=>o.fonction==='terrasse' && o.pts && pointInPolygon(par.center, o.pts));
-    if(dessous) return dessous;
-  }
-  return objects.find(o=>o.key===terrasseSelectedKey && o.fonction==='terrasse')
-      || objects.find(o=>o.fonction==='terrasse');
-}
-// Geometrie de l'ombre d'une toile circulaire horizontale, pour une position de soleil donnee :
-// le disque se projette en ellipse, decalee de h/tan(hauteur) a l'oppose du soleil et etiree de
-// 1/sin(hauteur) dans cette direction (la perpendiculaire, elle, garde le rayon de la toile).
-// Renvoie la geometrie PAR METRE de hauteur de mat, pour pouvoir la reutiliser telle quelle sur
-// n'importe quel parasol ou position candidate sans refaire le calcul solaire.
-function echantillonsSoleilParasol(){
-  const annee = parseInt(parasolDateStr.slice(0,4),10) || new Date().getFullYear();
-  const lieu = lieuActuel();
-  const out = [];
-  PARASOL_MOIS.forEach(m=>{
-    PARASOL_HEURES.forEach(hh=>{
-      const { elevRad, azRad } = positionSoleil(annee, m, 15, hh, lieu.latitude, lieu.longitude);
-      if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return;
-      const ux = -Math.sin(azRad), uy = -Math.cos(azRad); // du parasol vers son ombre
-      out.push({ ux, uy, decalageParMetre: 1/Math.tan(elevRad), etirement: 1/Math.sin(elevRad) });
-    });
-  });
-  return out;
-}
-function geometrieOmbre(par, ech){
-  const h = hauteurParasolDe(par);
-  return {
-    cx: par.center.x + h*ech.decalageParMetre*ech.ux,
-    cy: par.center.y + h*ech.decalageParMetre*ech.uy,
-    ux: ech.ux, uy: ech.uy,
-    demiGrand: par.r * ech.etirement,
-    demiPetit: par.r
-  };
-}
-function pointDansOmbre(px, py, g){
-  const dx = px-g.cx, dy = py-g.cy;
-  const le = dx*g.ux + dy*g.uy, tr = -dx*g.uy + dy*g.ux;
-  return (le*le)/(g.demiGrand*g.demiGrand) + (tr*tr)/(g.demiPetit*g.demiPetit) <= 1;
-}
-// Ombre a la date/heure exactes choisies dans le panneau (pas la periode d'optimisation) : c'est
-// l'ombre "en direct" qu'on voit bouger quand on deplace le parasol ou le curseur d'heure.
-function ombreInstantanee(par){
-  const [annee, mois, jour] = parasolDateStr.split('-').map(Number);
-  const lieu = lieuActuel();
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, parasolMinutes/60, lieu.latitude, lieu.longitude);
-  if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return null;
-  return geometrieOmbre(par, {
-    ux: -Math.sin(azRad), uy: -Math.cos(azRad),
-    decalageParMetre: 1/Math.tan(elevRad), etirement: 1/Math.sin(elevRad)
-  });
-}
-// Quadrillage regulier des points interieurs a un polygone - sert deux fois : les points de la
-// terrasse dont on mesure l'ombrage, et les positions candidates testees par la recherche.
-function grillePolygone(poly, pas){
-  const xs = poly.map(p=>p.x), ys = poly.map(p=>p.y);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  const y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const pts = [];
-  for(let x=x0+pas/2; x<x1; x+=pas){
-    for(let y=y0+pas/2; y<y1; y+=pas){
-      if(pointInPolygon({x,y}, poly)) pts.push({x,y});
-    }
-  }
-  return pts;
-}
-// Part du temps (sur la periode optimisee) ou chaque point de la terrasse est a l'ombre d'au moins
-// un parasol. Recalcule a chaque rendu quand la carte est affichee : quelques milliers de tests,
-// donc assez leger pour suivre un glisser en direct sans cache a invalider.
-// Une carte par terrasse ayant au moins un parasol rattache, chacune ombragee uniquement par SES
-// parasols : sur un jardin a plusieurs terrasses, chacune se lit independamment.
-function calculerCartesOmbre(){
-  const parasols = objects.filter(o=>o.fonction==='parasol' && !o.hidden);
-  if(!parasols.length) return [];
-  const ech = echantillonsSoleilParasol();
-  if(!ech.length) return [];
-  const parTerrasse = new Map();
-  parasols.forEach(p=>{
-    const t = terrasseDuParasol(p);
-    if(!t) return;
-    if(!parTerrasse.has(t.key)) parTerrasse.set(t.key, { terr:t, liste:[] });
-    parTerrasse.get(t.key).liste.push(p);
-  });
-  const cartes = [];
-  parTerrasse.forEach(({terr, liste})=>{
-    const aire = Math.abs(shoelace(terr.pts));
-    const pas = Math.max(0.15, Math.sqrt(aire/400));
-    const pts = grillePolygone(terr.pts, pas);
-    const geos = ech.map(e=>liste.map(p=>geometrieOmbre(p, e)));
-    const cells = pts.map(p=>{
-      let n = 0;
-      for(let i=0;i<geos.length;i++){
-        for(let j=0;j<geos[i].length;j++){
-          if(pointDansOmbre(p.x, p.y, geos[i][j])){ n++; break; }
-        }
-      }
-      return { x:p.x, y:p.y, frac: n/ech.length };
-    });
-    cartes.push({ cells, pas, nEch: ech.length, terrKey: terr.key });
-  });
-  return cartes;
-}
-// Teste un quadrillage de positions possibles SUR la terrasse et garde celle qui ombrage le plus
-// de surface-heures sur la periode. Les autres parasols ne comptent pas dans le score : on cherche
-// ce que celui-ci apporte, pas ce que l'ensemble couvre deja.
-function chercherMeilleurePositionParasol(par){
-  const terr = terrasseDuParasol(par);
-  if(!terr) return null;
-  const ech = echantillonsSoleilParasol();
-  if(!ech.length) return null;
-  const aire = Math.abs(shoelace(terr.pts));
-  const cibles = grillePolygone(terr.pts, Math.max(0.2, Math.sqrt(aire/250)));
-  // Positions candidates du PIED : le pourtour seul si le mat doit y rester, sinon toute la
-  // surface. Un deporte ajoute une seconde dimension de recherche (l'orientation du bras), d'ou
-  // des quadrillages plus larges pour que le produit des deux reste calculable en ~1 s.
-  const deporte = !!par.matDeporte;
-  const angles = deporte ? Array.from({length:12}, (_,i)=>i*30) : [matAngleDe(par)];
-  const candidats = par.matSurPerimetre
-    ? pointsPerimetre(terr.pts, Math.max(0.25, Math.sqrt(aire)/6))
-    : grillePolygone(terr.pts, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
-  if(!cibles.length || !candidats.length) return null;
-  const h = hauteurParasolDe(par), r = par.r;
-  let best = null;
-  candidats.forEach(pied=>{
-    angles.forEach(angDeg=>{
-      // `pied` est la position du mat ; la toile (donc l'ombre) est decalee du bras pour un deporte.
-      const a = angDeg*Math.PI/180;
-      const toileX = deporte ? pied.x - r*Math.cos(a) : pied.x;
-      const toileY = deporte ? pied.y - r*Math.sin(a) : pied.y;
-      let score = 0;
-      for(let i=0;i<ech.length;i++){
-        const e = ech[i];
-        const cx = toileX + h*e.decalageParMetre*e.ux, cy = toileY + h*e.decalageParMetre*e.uy;
-        const aa = r*e.etirement, a2 = aa*aa, r2 = r*r;
-        for(let k=0;k<cibles.length;k++){
-          const dx = cibles[k].x-cx, dy = cibles[k].y-cy;
-          const le = dx*e.ux + dy*e.uy, tr = -dx*e.uy + dy*e.ux;
-          if((le*le)/a2 + (tr*tr)/r2 <= 1) score++;
-        }
-      }
-      if(!best || score > best.score) best = { x:toileX, y:toileY, angleDeg:angDeg, score };
-    });
-  });
-  if(!best) return null;
-  return { x:best.x, y:best.y, angleDeg:best.angleDeg, couverture: best.score/(ech.length*cibles.length), nEch: ech.length };
-}
 function renderParasolOverlay(){
   parasolGroup.innerHTML = '';
   if(appMode !== 'plan') return;
@@ -1195,7 +1029,7 @@ function renderParasolOverlay(){
   if(!parasols.length) return;
   contraindreParasols();
   if(parasolCarteAffichee){
-    calculerCartesOmbre().forEach(carte=>{
+    calculerCartesOmbre(contexteSoleilParasol(), objects).forEach(carte=>{
       const cote = carte.pas*scale;
       carte.cells.forEach(c=>{
         if(c.frac <= 0) return;
@@ -1211,7 +1045,7 @@ function renderParasolOverlay(){
   }
   if(parasolOmbreAffichee){
     parasols.forEach(par=>{
-      const g = ombreInstantanee(par);
+      const g = ombreInstantanee(par, contexteSoleilParasol());
       if(!g) return;
       const s = toScreen({x:g.cx, y:g.cy});
       const el = document.createElementNS(svgNS,'ellipse');
@@ -1735,7 +1569,7 @@ function renderAttrTable(){
           o0.textContent = 'Aucune terrasse dans le plan'; o0.value = '';
           tSelect.appendChild(o0); tSelect.disabled = true;
         } else {
-          const courante = terrasseDuParasol(obj);
+          const courante = terrasseDuParasol(obj, objects, terrasseSelectedKey);
           terrasses.forEach(t=>{
             const o2 = document.createElement('option');
             o2.value = t.key; o2.textContent = t.name;
@@ -1840,14 +1674,14 @@ function renderAttrTable(){
         const optTxt = document.createElement('span');
         optTxt.style.cssText = 'font-size:0.8rem; color:var(--ink-soft);';
         optBtn.addEventListener('click', ()=>{
-          const terr = terrasseDuParasol(obj);
+          const terr = terrasseDuParasol(obj, objects, terrasseSelectedKey);
           if(!terr){ showToast('Aucune terrasse : cree d\'abord un objet avec Fonction = terrasse.'); return; }
           optBtn.disabled = true; optBtn.textContent = 'Recherche…';
           // Laisse le navigateur peindre l'etat "Recherche…" avant de bloquer le thread : sans ce
           // report, le calcul demarre dans le meme tour de boucle et le bouton ne change jamais
           // visuellement d'aspect.
           setTimeout(()=>{
-            const res = chercherMeilleurePositionParasol(obj);
+            const res = chercherMeilleurePositionParasol(obj, contexteSoleilParasol(), objects);
             optBtn.disabled = false; optBtn.textContent = 'Placer au mieux';
             if(!res){ showToast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
             pushHistory();
@@ -7375,1109 +7209,12 @@ function setupProjectBar(seed){
   bar.appendChild(pastilleVersion());
 }
 
-// ================= Mode Terrasse : construction & BOM =================
-const ESSENCE_PRICES = {
-  'pin-classe4': { label:'Pin classe 4 (autoclave)', bas:25, haut:40 },
-  'douglas':     { label:'Douglas',                   bas:35, haut:55 },
-  'composite':   { label:'Composite',                 bas:50, haut:90 },
-  'exotique':    { label:'Exotique (cumaru, ipe...)',  bas:60, haut:120 },
-  'autre':       { label:'Autre (prix libre)',         bas:0,  haut:0 }
-};
-const SOLIVE_SECTIONS = ['45x70','45x95','63x175'];
-const VIS_PRICE = { bas:25, haut:45 };
-// Une vis de fondation se termine par une tete reglable (platine ou U) qui sort du sol pour
-// rattraper un devers ou monter au niveau d'un seuil. La course usuelle des tetes du commerce va
-// jusqu'a une quinzaine de centimetres ; au-dela on est sur un poteau, avec un moment en pied que
-// la seule vis ne reprend pas sans contreventement.
-const VIS_DEPASSEMENT_USUEL_CM = 15;
-const VIS_DEPASSEMENT_MAX_CM = 30;
-// ---- pose sur plots (SPEC-PLOTS-01) ----------------------------------------------------
-// Gammes courantes de plots polymere reglables, hauteurs en cm. Le NF DTU 51.4 couvre le plot
-// reglable jusqu'a 30 cm, et le platelage jusqu'a 1 m au-dessus du support continu.
-const PLOT_MODELES = [
-  { cle:'fixe',     label:'Plot fixe / cale',    min:1.0, max:3.0,  prix:2.5 },
-  { cle:'r25-40',   label:'Reglable 25-40 mm',   min:2.5, max:4.0,  prix:3.2 },
-  { cle:'r40-70',   label:'Reglable 40-70 mm',   min:4.0, max:7.0,  prix:4.2 },
-  { cle:'r60-100',  label:'Reglable 60-100 mm',  min:6.0, max:10.0, prix:5.5 },
-  { cle:'r100-170', label:'Reglable 100-170 mm', min:10.0,max:17.0, prix:7.5 },
-  { cle:'r170-300', label:'Reglable 170-300 mm', min:17.0,max:30.0, prix:11.0 }
-];
-const PLOT_ENTRAXE_MAX_M = 0.70;   // NF DTU 51.4, appuis sous lambourdes, pose sur 3 appuis ou +
-const PLOT_HAUTEUR_DTU_CM = 30;    // au-dela, le plot reglable sort du domaine du DTU
-const PLOT_HAUTEUR_MAX_CM = 100;   // au-dela, le platelage entier sort du domaine
-const PLOT_ASSISE_MIN_CM2 = 300;   // surface d'assise minimale, NF DTU 51.4 / 43.1
-const SUPPORT_TYPES = {
-  'dalle':       { label:'Dalle ou chape existante',        decaissement:false, geotextile:false, concasse:false, dalles:false },
-  'concasse':    { label:'Decaissement + concasse compacte', decaissement:true,  geotextile:true,  concasse:true,  dalles:false },
-  'plots-beton': { label:'Dalles stabilisatrices sous plots',decaissement:true,  geotextile:true,  concasse:true,  dalles:true  }
-};
-const GEOTEXTILE_PRICE = { bas:1,  haut:3  };   // €/m²
-const CONCASSE_PRICE   = { bas:35, haut:60 };   // €/m³
-const DALLE_STAB_PRICE = { bas:3,  haut:7  };   // €/u
-function estPlots(c){ return c.typePose === 'plots'; }
-function plotModele(c){
-  const h = c.hauteurPlot || 10;
-  if(c.plotModele && c.plotModele !== 'auto'){
-    const m = PLOT_MODELES.find(x=>x.cle===c.plotModele);
-    if(m) return m;
-  }
-  // Support suppose plan : une seule hauteur, donc le modele le moins cher qui la couvre.
-  return PLOT_MODELES.find(m=>h >= m.min-1e-9 && h <= m.max+1e-9)
-      || PLOT_MODELES[PLOT_MODELES.length-1];
-}
-const SOLIVE_PRICE = { bas:4, haut:7 };
-const VISSERIE_PRICE = { bas:4, haut:6 };
-const LAME_RIVE_PRICE = { bas:10, haut:20 };
-const LAME_RIVE_EPAISSEUR_M = 0.022; // 22mm, planche de rive standard
 
-let appMode = 'plan';
-let terrasseSelectedKey = null;
 
-function defaultConstruction(){
-  return {
-    typePose:'vis-fondation',
-    hauteurVis:40, depassementVis:0,
-    visModeAuto:true,
-    chargeNormale:250, chargeSpa:500,
-    kPortee:25.8, kEntraxeLame:18.5, coefRaideurLame:1.00,
-    jeuLames:6, epaisseurLameRive:22,
-    longueursLames:'3, 2.5, 2, 1.7, 1.5', chuteMinReutilisable:50, jointsSurAppui:true,
-    prixLongueurs:{},
-    longueursBois:'5, 4, 3, 2.5, 2', prixLongueursBois:{}, jointsBoisSurAppui:true,
-    lambourdeSection:'45x70', longueursLambourde:'5, 4, 3, 2.5, 2', prixLongueursLambourde:{},
-    prixVisUnite:35, visParBoite:1,
-    hauteurPlot:10, plotModele:'auto', plotEntraxe:65, plotEntraxeAuto:true,
-    plotAvecSolives:false, plotSurfaceAssise:300, prixPlots:{},
-    supportType:'concasse', supportDecaissement:15,
-    cadences:{}, equipe:2, heuresJour:7, echelleImplant:200, lames3dFilaire:false,
-    visEntraxe:100, visEntraxeZoneSpa:60, visMargeZoneSpa:30,
-    soliveEntraxe:40, soliveSection:'45x70',
-    avecLambourde:false, lambourdeEntraxe:40,
-    sensPose:0, segmentReference:0,
-    essenceBois:'pin-classe4', largeurLame:140, epaisseurLame:25,
-    avecLameRive:false, hauteurLameRive:200,
-    avecLamePlat:false,
-    bom:[]
-  };
-}
-function ensureConstruction(obj){
-  if(!obj.construction) obj.construction = defaultConstruction();
-  if(obj.construction.hauteurVis===undefined) obj.construction.hauteurVis = 40;
-  // 0 par defaut : un projet enregistre avant ce reglage garde exactement la hauteur qu'il avait,
-  // tete arasee au niveau du sol.
-  if(obj.construction.depassementVis===undefined) obj.construction.depassementVis = 0;
-  if(obj.construction.avecLameRive===undefined) obj.construction.avecLameRive = false;
-  if(obj.construction.hauteurLameRive===undefined) obj.construction.hauteurLameRive = 200;
-  if(obj.construction.avecLamePlat===undefined) obj.construction.avecLamePlat = false;
-  if(obj.construction.visModeAuto===undefined) obj.construction.visModeAuto = true;
-  // Calibration values that used to be baked into the code. Backfilled with the constants they
-  // replace, so a project saved before they existed keeps behaving exactly as it did.
-  const k = obj.construction;
-  if(k.chargeNormale===undefined) k.chargeNormale = CHARGE_NORMALE_DEFAUT;
-  if(k.chargeSpa===undefined) k.chargeSpa = CHARGE_SPA_DEFAUT;
-  if(k.kPortee===undefined) k.kPortee = PORTEE_VIS_K;
-  if(k.kEntraxeLame===undefined) k.kEntraxeLame = ENTRAXE_LAME_K;
-  if(k.coefRaideurLame===undefined) k.coefRaideurLame = LAME_RAIDEUR[k.essenceBois] !== undefined ? LAME_RAIDEUR[k.essenceBois] : 1;
-  if(k.jeuLames===undefined) k.jeuLames = 6;
-  if(k.epaisseurLameRive===undefined) k.epaisseurLameRive = Math.round(LAME_RIVE_EPAISSEUR_M*1000);
-  if(k.longueursLames===undefined) k.longueursLames = LONGUEURS_LAMES_DEFAUT.join(', ');
-  if(k.chuteMinReutilisable===undefined) k.chuteMinReutilisable = 50;
-  if(k.jointsSurAppui===undefined) k.jointsSurAppui = true;
-  if(!k.prixLongueurs || typeof k.prixLongueurs !== 'object') k.prixLongueurs = {};
-  if(k.longueursBois===undefined) k.longueursBois = LONGUEURS_BOIS_DEFAUT.join(', ');
-  if(!k.prixLongueursBois || typeof k.prixLongueursBois !== 'object') k.prixLongueursBois = {};
-  if(k.jointsBoisSurAppui===undefined) k.jointsBoisSurAppui = true;
-  // A project saved before lambourdes had a section of their own keeps the solives' one, which
-  // is what it was implicitly built with.
-  if(k.lambourdeSection===undefined) k.lambourdeSection = k.soliveSection || '45x70';
-  if(k.longueursLambourde===undefined) k.longueursLambourde = k.longueursBois || LONGUEURS_BOIS_DEFAUT.join(', ');
-  if(!k.prixLongueursLambourde || typeof k.prixLongueursLambourde !== 'object') k.prixLongueursLambourde = {};
-  // Mode plots. Un projet enregistre avant reste en vis de fondation et ne voit rien changer.
-  if(k.typePose===undefined) k.typePose = 'vis-fondation';
-  if(k.hauteurPlot===undefined) k.hauteurPlot = 10;
-  if(k.plotModele===undefined) k.plotModele = 'auto';
-  if(k.plotEntraxe===undefined) k.plotEntraxe = 65;
-  if(k.plotEntraxeAuto===undefined) k.plotEntraxeAuto = true;
-  if(k.plotAvecSolives===undefined) k.plotAvecSolives = false;
-  if(k.plotSurfaceAssise===undefined) k.plotSurfaceAssise = PLOT_ASSISE_MIN_CM2;
-  if(!k.prixPlots || typeof k.prixPlots !== 'object') k.prixPlots = {};
-  if(k.supportType===undefined) k.supportType = 'concasse';
-  if(k.supportDecaissement===undefined) k.supportDecaissement = 15;
-  if(!k.cadences || typeof k.cadences !== 'object') k.cadences = {};
-  if(k.equipe===undefined) k.equipe = 2;
-  if(k.heuresJour===undefined) k.heuresJour = 7;
-  if(k.echelleImplant===undefined) k.echelleImplant = 200;
-  if(k.lames3dFilaire===undefined) k.lames3dFilaire = false;
-  if(k.prixVisUnite===undefined) k.prixVisUnite = (VIS_PRICE.bas+VIS_PRICE.haut)/2;
-  if(k.visParBoite===undefined) k.visParBoite = 1;
-  return obj.construction;
-}
 
-// How far a board really runs along its own axis. Its centreline stops where the centreline
-// crosses the outline, but on an oblique end the two SIDES of the board stop somewhere else -
-// one of them reaches past the centreline crossing. Measuring the centreline therefore both
-// truncates the drawn board (leaving a notch at the edge, and a gap to its neighbour) and
-// under-orders the piece: what has to be cut is as long as the board's longest side.
-function etendueLame(a, b, largeurM, poly){
-  const ex = b.x-a.x, ey = b.y-a.y;
-  const L = Math.hypot(ex,ey) || 1;
-  const ux = ex/L, uy = ey/L;
-  const nx = -uy*(largeurM/2), ny = ux*(largeurM/2);
-  // The overhang is read off the single edge the board ends on, and nothing else. Following the
-  // board's own sides instead would work on a convex shape but jumps the notch of an L: a side
-  // running along the re-entrant edge re-enters the other wing and stretches the board by metres.
-  const debord = (pt) => {
-    if(!poly || poly.length < 3) return 0;
-    let best = null, bestD = Infinity;
-    for(let i=0;i<poly.length;i++){
-      const p = poly[i], q = poly[(i+1)%poly.length];
-      const abx = q.x-p.x, aby = q.y-p.y;
-      const l2 = abx*abx + aby*aby || 1e-12;
-      let t = ((pt.x-p.x)*abx + (pt.y-p.y)*aby)/l2;
-      t = Math.max(0, Math.min(1, t));
-      const d = Math.hypot(pt.x-(p.x+t*abx), pt.y-(p.y+t*aby));
-      if(d < bestD){ bestD = d; best = {p, q}; }
-    }
-    if(!best || bestD > 1e-3) return 0;            // l'about ne tombe pas sur un bord
-    const vx = best.q.x-best.p.x, vy = best.q.y-best.p.y;
-    const vl = Math.hypot(vx,vy) || 1;
-    const sin = Math.abs(ux*(vy/vl) - uy*(vx/vl));
-    const cos = Math.abs(ux*(vx/vl) + uy*(vy/vl));
-    if(sin < 1e-4) return 0;                        // lame parallele au bord : about droit
-    return Math.min((largeurM/2)*(cos/sin), largeurM*4);
-  };
-  const t0 = -debord(a), t1 = L + debord(b);
-  return { t0, t1, ux, uy, nx, ny, longueur: t1-t0 };
-}
-// Length of stock a board needs: its longest side, not its centreline.
-function longueurLameReelle(a, b, largeurM, poly){
-  return etendueLame(a, b, largeurM, poly).longueur;
-}
-// Footprint of one board: its full rectangle, cut to the outline it lives in.
-function empriseLame(a, b, largeurM, poly){
-  const e = etendueLame(a, b, largeurM, poly);
-  const coin = (t, s) => ({ x:a.x + e.ux*t + e.nx*s, y:a.y + e.uy*t + e.ny*s });
-  const rect = [coin(e.t0,1), coin(e.t1,1), coin(e.t1,-1), coin(e.t0,-1)];
-  if(!poly || poly.length < 3) return rect;
-  const cut = clipPolygonByConvex(poly, rect);
-  return cut.length >= 3 ? cut : rect;
-}
-// Shifts a boundary edge perpendicular to itself by distM (positive = away from the
-// polygon's interior) - used to keep perimeter trim boards flush with the true edge instead
-// of straddling it on its centerline.
-// Parallel lines in direction `angleDeg`, spaced `spacingM` apart along the perpendicular,
-// each clipped to where it crosses the polygon boundary. Used for solives/lambourdes/lames.
-// Spacing is always measured from centroid(poly), so passing a `clipPoly` returns the very
-// same family of lines merely cut shorter - which is what lets the screw layout sit under the
-// drawn solives instead of beside them. Anchoring on the clip polygon's own centroid would
-// shift every line by the offset between the two centroids.
-function generateParallelLines(poly, angleDeg, spacingM, clipPoly){
-  if(spacingM<=0.01) return [];
-  const rad = angleDeg*Math.PI/180;
-  const dir = {x:Math.cos(rad), y:Math.sin(rad)};
-  const perp = {x:-dir.y, y:dir.x};
-  const c = centroid(poly);
-  const target = clipPoly || poly;
-  const projs = poly.map(p=>(p.x-c.x)*perp.x+(p.y-c.y)*perp.y);
-  const minP=Math.min(...projs), maxP=Math.max(...projs);
-  const lines=[];
-  const start = Math.ceil(minP/spacingM)*spacingM;
-  for(let off=start; off<=maxP; off+=spacingM){
-    const origin = {x:c.x+perp.x*off, y:c.y+perp.y*off};
-    clipLineToPolygon(origin, dir, target).forEach(s=>lines.push(s));
-  }
-  return lines;
-}
-// ---- foundation screw layout ----------------------------------------------------------
-// Nominal section of a solive in mm, laid on edge: b = width, h = height.
-const SOLIVE_SECTION_DIMS = {
-  '40x60':{b:40,h:60}, '45x45':{b:45,h:45},
-  '45x70':{b:45,h:70}, '45x95':{b:45,h:95}, '63x175':{b:63,h:175}
-};
-// Lambourdes carry only the lames over a short span, so the range starts smaller than for the
-// solives; the bigger sections stay available for a build where they share one section.
-const LAMBOURDE_SECTIONS = ['40x60','45x45','45x70','45x95','63x175'];
-function dimsSection(sec){ return SOLIVE_SECTION_DIMS[sec] || SOLIVE_SECTION_DIMS['45x70']; }
-function sectionLambourde(c){ return c.lambourdeSection || c.soliveSection || '45x70'; }
-// Bending deflection makes the admissible span of a beam vary as (E*I/charge)^(1/3); with
-// I = b*h^3/12 and the load carried proportional to the entraxe, that collapses to
-//     portee = K * h * (b/entraxe)^(1/3)
-// K is calibrated against trade practice rather than derived, so that the two reference cases
-// come out right: a 45x70 at 70 cm entraxe lands on the 70 cm between supports that NF DTU
-// 51.4 caps lambourdes at, and a 45x145 at 70 cm lands on the ~1.50 m used for solives borne
-// on foundation screws. Both give K = 25.8 with lengths in mm.
-// This is a pre-dimensioning aid on a 250 kg/m2 basis, not a substitute for a design note.
-const PORTEE_VIS_K = 25.8;
-// The load K was calibrated against. Asking for more than this shortens the admissible span by
-// the cube root of the ratio, which is the same exponent the rest of the formula runs on.
-const CHARGE_REF = 250;
-const CHARGE_NORMALE_DEFAUT = 250;
-const CHARGE_SPA_DEFAUT = 500;   // spa rempli + occupe : ~1,5 a 2 t sur 3 a 4 m2
-function maxPorteeVisM(c){
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection] || SOLIVE_SECTION_DIMS['45x70'];
-  const entraxeMm = Math.max(200, (c.soliveEntraxe||40)*10);
-  const k = c.kPortee || PORTEE_VIS_K;
-  const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
-  const mm = k * dims.h * Math.cbrt(dims.b/entraxeMm) * Math.cbrt(CHARGE_REF/q);
-  return Math.max(0.5, Math.min(2.5, mm/1000));
-}
-// Distance allowed between two screws along one solive: derived from the section by default,
-// or forced by hand when the user knows better than the table.
-function porteeVisM(c){
-  return c.visModeAuto===false ? Math.max(0.3, (c.visEntraxe||100)/100) : maxPorteeVisM(c);
-}
-// Distance entre deux appuis, quel que soit le mode de fondation. Sur vis, la section decide.
-// Sur plots, le NF DTU 51.4 plafonne a 70 cm sous lambourdes quoi qu'en dise la section : un
-// plot ne se compare pas a une vis, c'est l'appui du platelage lui-meme.
-function porteeAppuiM(c){
-  if(!estPlots(c)) return porteeVisM(c);
-  if(c.plotEntraxeAuto === false){
-    return Math.max(0.2, Math.min(PLOT_ENTRAXE_MAX_M, (c.plotEntraxe||65)/100));
-  }
-  // La piece posee sur les plots est la solive en structure double, la lambourde sinon.
-  const sec = c.plotAvecSolives ? c.soliveSection : sectionLambourde(c);
-  const ent = c.plotAvecSolives ? (c.soliveEntraxe||40) : maxEntraxeLameCm(c);
-  return Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ ...c, soliveSection:sec, soliveEntraxe:ent }));
-}
-// Nom du poste d'appui, pour les libelles partages entre les deux modes.
-function libelleAppui(c, pluriel){
-  return estPlots(c) ? (pluriel ? 'plots' : 'plot') : (pluriel ? 'vis' : 'vis');
-}
-// Spacing under a spa. Rather than a bare number, it is the same span shortened for the heavier
-// load it has to carry - so raising the target load tightens the grid on its own.
-function porteeVisSpaM(c){
-  const span = porteeVisM(c);
-  if(c.visModeAuto===false) return Math.min(span, Math.max(0.2, (c.visEntraxeZoneSpa||60)/100));
-  const qN = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
-  const qS = Math.max(qN, c.chargeSpa || CHARGE_SPA_DEFAUT);
-  return Math.max(0.2, Math.min(span, span * Math.cbrt(qN/qS)));
-}
-// NF DTU 51.4 sets the spacing of the supports under a lame from its thickness, width and
-// class. Across the usual range the table collapses to a near-constant ratio - 22 mm goes with
-// 40 cm, 24 mm with 45 cm, 27 mm with 50 cm - that is, about 18.5 times the thickness.
-const ENTRAXE_LAME_K = 18.5;
-// Composite creeps a great deal more than timber; dense tropicals rather less.
-const LAME_RAIDEUR = { 'pin-classe4':1.00, 'douglas':1.00, 'exotique':1.05, 'composite':0.80, 'autre':1.00 };
-// Furthest apart the supports carrying the lames may sit - the lambourdes when there are any,
-// otherwise the solives themselves. Rounded to 5 cm because that is how a deck gets set out.
-function coefRaideurLame(c){
-  return (c.coefRaideurLame !== undefined && c.coefRaideurLame !== null)
-    ? c.coefRaideurLame : (LAME_RAIDEUR[c.essenceBois] !== undefined ? LAME_RAIDEUR[c.essenceBois] : 1);
-}
-function maxEntraxeLameCm(c){
-  const ep = Math.max(15, c.epaisseurLame||25);
-  const k = Math.max(0.3, Math.min(2, coefRaideurLame(c)));
-  const K = c.kEntraxeLame || ENTRAXE_LAME_K;
-  return Math.max(30, Math.min(55, Math.round(ep*K*k/10/5)*5));
-}
-// Unit price for a poste: the real price once the user has entered one in the BOM, otherwise
-// the middle of the indicative range.
-function prixUnitaire(c, poste, range){
-  const line = (c.bom||[]).find(l=>l.poste===poste);
-  // prixReel is the total for the line, not a rate: divide it back down before using it as one.
-  if(line && line.prixReel>0 && line.qte>0) return line.prixReel/line.qte;
-  return (range.bas+range.haut)/2;
-}
-// Walks the configurations that satisfy both rules at once - the lames must not span further
-// than their thickness allows, and every beam must reach from one support to the next - and
-// ranks them by what the structure they imply would cost. Quantities are measured with the
-// same functions that draw the plan, so a figure quoted here is the figure you would read off
-// the drawing, not a parallel estimate that can drift away from it.
-// Measures one candidate structure: real line lengths and a real screw layout, priced. Shared
-// by the optimiser and by the "where do I stand today" comparison, so the two can never be
-// computed on different bases.
-// `prixBois` est le tarif au ml de la section de reference 45x70. Le prix reel suit le volume :
-// une 63x175 fait 3,5 fois la matiere d'une 40x60 et ne peut pas etre comparee au meme tarif,
-// sinon l'optimiseur choisit systematiquement la plus grosse section « gratuitement ».
-const SECTION_REF_AIRE = 45*70;
-function tarifSection(prixBoisRef, sec){
-  const d = dimsSection(sec);
-  return prixBoisRef * (d.b*d.h) / SECTION_REF_AIRE;
-}
-function evaluerStructure(obj, trial, prixVis, prixBois, lamesAngle, surf){
-  const probe = { pts:obj.pts, construction:trial };
-  const S = computeStructure(probe);
-  const vis = buildVisGrid(probe, S);
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  // Every load-bearing piece counts towards the timber: the frame is part of the structure,
-  // and the spa reinforcement is real wood that has to be bought. Chaque famille est chiffree
-  // au tarif de sa propre section.
-  const secCadre = S.plotSimple ? sectionLambourde(trial) : trial.soliveSection;
-  const mlPorteur = ml(S.solives) + ml(S.solivesSpa);
-  const mlCadre = ml(S.cadre);
-  const mlLamb = ml(S.lambourdes);
-  const coutBois = mlPorteur*tarifSection(prixBois, trial.soliveSection)
-                 + mlCadre  *tarifSection(prixBois, secCadre)
-                 + mlLamb   *tarifSection(prixBois, sectionLambourde(trial));
-  return { section:trial.soliveSection, avecLambourde:!!trial.avecLambourde,
-           soliveEntraxe:trial.soliveEntraxe, lambourdeEntraxe:trial.lambourdeEntraxe,
-           vis:vis.length, ml:+(mlPorteur+mlCadre+mlLamb).toFixed(1),
-           densite:+(vis.length/surf).toFixed(2),
-           portee:Math.round(porteeAppuiM(trial)*100),
-           cout:Math.round(vis.length*prixVis + coutBois) };
-}
-function optimiserParametres(obj){
-  const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts) || 1;
-  // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
-  // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
-  // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the
-  // ranking does not turn on it.
-  const prixVis = estPlots(c) ? prixPlotUnite(c) : prixVisUnite(c);
-  // Averaged over every timber group, so a build whose lambourdes are a separate product is
-  // compared on what its wood really costs rather than on the solives' rate alone.
-  // Ramene au tarif de la section de reference, en divisant par le volume : c'est ce tarif-la
-  // que evaluerStructure redimensionne ensuite pour chaque section candidate.
-  const groupesRef = computeDebitsBois(obj, computeTerrasseLayers(obj));
-  let refCout = 0, refMlAire = 0;
-  groupesRef.forEach(g=>{
-    const d = dimsSection(g.section);
-    refCout += coutDebit(c, g.debit, g.cle);
-    refMlAire += g.debit.reelMl * d.b * d.h;
-  });
-  const prixBois = refMlAire > 0
-    ? refCout/refMlAire*SECTION_REF_AIRE
-    : (SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2;
-  const entraxeLame = maxEntraxeLameCm(c);
-  const lamesAngle = lamesAngleOf(obj);
 
-  const evaluate = (section, avecLambourde, soliveEntraxe) => evaluerStructure(obj,
-    { ...c, soliveSection:section, avecLambourde, soliveEntraxe,
-      lambourdeEntraxe:entraxeLame, visModeAuto:true },
-    prixVis, prixBois, lamesAngle, surf);
 
-  const out = [];
-  // Sur plots, l'arbitrage n'est pas le meme : l'appui coute cinq a dix fois moins cher que la
-  // vis, et son entraxe est plafonne par le DTU quoi qu'on fasse. La question devient donc
-  // « pose simple ou structure double », et non « quelle section de solive porte le plus loin ».
-  if(estPlots(c)){
-    // Pose simple : les lambourdes portent les lames, plots dessous. Une entree par section de
-    // lambourde, puisque c'est elle qui travaille.
-    LAMBOURDE_SECTIONS.forEach(section=>{
-      out.push(Object.assign(
-        evaluerStructure(obj, { ...c, lambourdeSection:section, plotAvecSolives:false,
-                                avecLambourde:true, lambourdeEntraxe:entraxeLame, plotEntraxeAuto:true },
-          prixVis, prixBois, lamesAngle, surf),
-        { section, avecLambourde:false, topologie:'simple', soliveEntraxe:entraxeLame }));
-    });
-    // Structure double : plots sous solives, lambourdes au-dessus. Plus de bois, moins de plots.
-    SOLIVE_SECTIONS.forEach(section=>{
-      const porteeLamb = maxPorteeVisM({ ...c, soliveSection:sectionLambourde(c), soliveEntraxe:entraxeLame });
-      const maxSolive = Math.floor(porteeLamb*100/5)*5;
-      for(let se=entraxeLame; se<=maxSolive; se+=5){
-        out.push(Object.assign(
-          evaluerStructure(obj, { ...c, soliveSection:section, plotAvecSolives:true,
-                                  avecLambourde:true, soliveEntraxe:se,
-                                  lambourdeEntraxe:entraxeLame, plotEntraxeAuto:true },
-            prixVis, prixBois, lamesAngle, surf),
-          { section, avecLambourde:true, topologie:'double', soliveEntraxe:se }));
-      }
-    });
-    return out.sort((a,b)=>a.cout-b.cout);
-  }
-  // Without lambourdes the solives carry the lames themselves, so their spacing is pinned by
-  // the lame thickness and the section is the only free variable.
-  SOLIVE_SECTIONS.forEach(section=>out.push(evaluate(section, false, entraxeLame)));
-  // With lambourdes the lames rest on the lambourdes instead, which frees the solives to
-  // spread out as far as a lambourde of that section will reach between them. Same span
-  // formula, applied one storey down: here the tributary width is the lambourde entraxe.
-  SOLIVE_SECTIONS.forEach(section=>{
-    // How far the solives may spread is set by what a LAMBOURDE of its own section can reach
-    // between them, not by the solive's section.
-    const porteeLambourde = maxPorteeVisM({ ...c, soliveSection:sectionLambourde(c), soliveEntraxe:entraxeLame });
-    const maxSolive = Math.floor(porteeLambourde*100/5)*5;
-    for(let se=entraxeLame; se<=maxSolive; se+=5) out.push(evaluate(section, true, se));
-  });
-  return out.sort((a,b)=>a.cout-b.cout);
-}
-// Breaks a-b up so no gap exceeds maxGap. The start point is always emitted (it is a corner
-// of the ring, where two edge beams meet); the end belongs to the next segment.
-function subdivideSegment(a, b, maxGap, includeEnd){
-  const L = dist(a,b);
-  const out = [{x:a.x, y:a.y}];
-  if(L>1e-6){
-    const n = Math.max(1, Math.ceil(L/maxGap));
-    for(let i=1;i<n;i++) out.push({ x:a.x+(b.x-a.x)*i/n, y:a.y+(b.y-a.y)*i/n });
-  }
-  if(includeEnd) out.push({x:b.x, y:b.y});
-  return out;
-}
-// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
-// apart from one that has folded through itself. (Defined once, near renderAttrTable() above -
-// removed the duplicate that used to live here, same implementation under a different param name.)
-// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
-// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
-// around and return a polygon LARGER than the original, which looks perfectly plausible and
-// silently poisons everything clipped against it. Both are caught here by comparing signed
-// areas, and the raw outline is used instead.
-function safeOffset(poly, distM){
-  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
-  const off = polygonOffset(poly, distM);
-  const a0 = signedArea(poly), a1 = signedArea(off);
-  const grew = Math.abs(a1) > Math.abs(a0);
-  const ok = off.length>=3
-          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
-          && Math.sign(a1)===Math.sign(a0)
-          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
-                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
-  return ok ? off : poly.map(p=>({...p}));
-}
-const VIS_ROLE_RANK = { spa:3, rive:2, courant:1 };
-// Two screws a handspan apart are one screw once you are on site: keep whichever carries the
-// more demanding role, so a perimeter screw is never dropped in favour of a field one.
-function dedupeVis(pts, minDist){
-  const kept = [];
-  // Two frame screws are only ever the same screw at a mitred corner, where the two runs meet
-  // at a shared point. On a narrow strip the opposite runs of the frame can pass within the
-  // normal merge distance of each other, and merging them there would leave one whole side of
-  // the frame bearing on nothing - so they get a much tighter threshold of their own.
-  const RIVE_MERGE = 0.10;
-  pts.slice()
-     .sort((a,b)=>(VIS_ROLE_RANK[b.role]||0)-(VIS_ROLE_RANK[a.role]||0))
-     .forEach(p=>{
-       const merged = kept.some(q=>{
-         const lim = (p.role==='rive' && q.role==='rive') ? Math.min(minDist, RIVE_MERGE) : minDist;
-         return dist(p,q) < lim;
-       });
-       if(!merged) kept.push(p);
-     });
-  return kept;
-}
-// Une charge concentree, ce n'est ni un nom ni une forme ronde : c'est ce qu'on pose sur la
-// terrasse. Tout objet dont la fonction est "equipement" en est une - spa, jacuzzi, cuve, bac
-// maconne, barbecue, bain nordique - quelle que soit sa geometrie. La zone renforcee est son
-// emprise reelle elargie de la marge, et non plus un disque centre sur lui.
-function empriseEquipement(o){
-  if(o.type==='circle'){
-    // Un polygone inscrit rognerait le disque entre deux sommets ; on prend le rayon circonscrit,
-    // de sorte que l'emprise couvre le cercle au lieu de le sous-estimer.
-    const N = 32, rc = (o.r||0)/Math.cos(Math.PI/N), pts = [];
-    if(rc <= 0) return null;
-    for(let i=0;i<N;i++){
-      const a = 2*Math.PI*i/N;
-      pts.push({ x:o.center.x + rc*Math.cos(a), y:o.center.y + rc*Math.sin(a) });
-    }
-    return pts;
-  }
-  return (o.pts && o.pts.length >= 3) ? o.pts.map(p=>({...p})) : null;
-}
-// Le nom de la fonction, des champs de reglage et du role des vis reste "spa" : c'est le
-// vocabulaire des projets deja enregistres, et le renommer les casserait. Ce n'est plus le spa
-// seul qu'il designe, mais toute zone d'equipement.
-function findSpaZones(margeCm){
-  const marge = (margeCm||0)/100;
-  const zones = [];
-  objects.forEach(o=>{
-    if(o.fonction !== 'equipement') return;
-    const fp = empriseEquipement(o);
-    if(!fp) return;
-    const poly = offsetZone(fp, marge);
-    zones.push({ nom:o.name || 'Equipement', key:o.key, poly, center:centroid(poly) });
-  });
-  return zones;
-}
-// Une zone ne compte que si elle mord vraiment sur la terrasse : un equipement pose a cote ne
-// doit resserrer aucun appui. Tester le seul centre laisserait passer un equipement en L dont le
-// centroide tombe hors de son propre contour, ou a cheval sur le bord.
-function zoneToucheTerrasse(zone, poly){
-  return pointInPolygon(zone.center, poly)
-      || zone.poly.some(p=>pointInPolygon(p, poly))
-      || poly.some(p=>pointInPolygon(p, zone.poly));
-}
-// A screw only carries what sits on top of it, so the screws are set out along the solives
-// rather than on a lattice floating free of the structure - a screw between two solives holds
-// up nothing. The border gets its own ring of them: the outer solive and the lame de rive have
-// to land on something, and NF DTU 51.4 practice is to set the end supports back 15-20 cm from
-// the edge, leaving a short porte-a-faux. An edge-exclusion margin does the exact opposite,
-// stripping support from the one line that carries the most concentrated load.
-// Beams spanning from one side of the frame to the other: the width is divided into whole
-// bays no wider than maxSpacing, and the two extremes are left out because the cadre already
-// occupies them. This is how a deck is actually set out - equal bays, edge to edge - where
-// anchoring a family of lines on the centroid leaves the outermost beam wherever it happens to
-// fall (up to 42 cm inside the edge on this terrasse, measured).
-function generateSpanningLines(poly, angleDeg, maxSpacingM, clipPoly){
-  if(maxSpacingM<=0.01) return [];
-  const rad = angleDeg*Math.PI/180;
-  const dir = {x:Math.cos(rad), y:Math.sin(rad)};
-  const perp = {x:-dir.y, y:dir.x};
-  const c = centroid(poly);
-  const target = clipPoly || poly;
-  const projs = poly.map(p=>(p.x-c.x)*perp.x+(p.y-c.y)*perp.y);
-  const minP = Math.min(...projs), maxP = Math.max(...projs);
-  const W = maxP - minP;
-  const n = Math.max(1, Math.ceil(W/maxSpacingM));
-  const lines = [];
-  for(let k=1;k<n;k++){
-    const off = minP + W*k/n;
-    clipLineToPolygon({x:c.x+perp.x*off, y:c.y+perp.y*off}, dir, target).forEach(s=>lines.push(s));
-  }
-  return lines;
-}
 
-// ---- structure -------------------------------------------------------------------------
-// The beam network is built first and the screws are derived from it afterwards. That order is
-// what guarantees a screw always lands under something: buildVisGrid can only place screws on
-// pieces this function returned. Two genuinely different ouvrages are modelled.
-//
-//   Sans lambourdes - the solives carry the lames themselves, so they run perpendicular to them
-//     at the spacing the lame thickness allows. Numerous and close together.
-//   Avec lambourdes - the solives become primary beams parallel to the lames, spread as wide as
-//     a lambourde will reach between them, with a second lit of lambourdes crossing at the lame
-//     spacing. Far fewer beams underneath, hence far fewer screws.
-//
-// Both are closed by a cadre - a solive de rive following the outline. Without it the border of
-// the deck rests on nothing and the perimeter screws carry thin air.
-function computeStructure(obj){
-  const c = ensureConstruction(obj);
-  const poly = obj.pts;
-  const n = poly.length;
-  const lamesAngle = lamesAngleOf(obj);
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection] || SOLIVE_SECTION_DIMS['45x70'];
-  const soliveW = dims.b/1000;
-
-  // Centreline pulled in half a section so the outer face of the frame sits flush with the
-  // outline, the same way the perimeter trim boards are handled. On a shape thinner than the
-  // section itself the two opposite runs would swap sides and the frame would come out wider
-  // than the terrasse, so the offset is capped by the shape's own thickness (2·aire/perimetre
-  // is the inscribed radius of a rectangle and a fair proxy on anything else).
-  // Pose sur plots, topologie simple : les lambourdes reposent directement sur les plots et il
-  // n'y a pas de solive. Le cadre devient une lambourde de rive, donc de la section des
-  // lambourdes. Topologie double (plots sous solives) : identique au mode vis.
-  const plotSimple = estPlots(c) && !c.plotAvecSolives;
-  const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
-  const perim = poly.reduce((s,p,i)=>s+dist(p, poly[(i+1)%n]), 0) || 1;
-  const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
-  const cadre = ringSegments(safeOffset(poly, cadreOff));
-
-  // Avec des plots sans solives, la couche qui porte les lames est un lit de lambourdes a
-  // l'entraxe dicte par l'epaisseur de lame, et c'est elle qui repose sur les appuis.
-  // Sur plots il y a toujours des lambourdes : posees sur les plots en structure simple, sur les
-  // solives en structure double. C'est la couche qui recoit les lames dans les deux cas.
-  const avecLamb = estPlots(c) ? true : c.avecLambourde;
-  const soliveAngle = avecLamb ? lamesAngle : (lamesAngle+90);
-  const solives = plotSimple
-    ? []
-    : generateSpanningLines(poly, soliveAngle, Math.max(0.1,(c.soliveEntraxe||40)/100));
-  const entraxeLamb = plotSimple ? maxEntraxeLameCm(c) : (c.lambourdeEntraxe||40);
-  const lambourdes = avecLamb
-    ? generateSpanningLines(poly, lamesAngle+90, Math.max(0.1, entraxeLamb/100))
-    : [];
-
-  // A spa is a tonne or more standing on a couple of square metres. Where the solives are
-  // already close together, that load is answered by tightening the screws along them - the
-  // beams are there already. Where they are primary beams metres apart, no amount of screwing
-  // between them helps: the zone needs beams of its own, run from frame to frame like any
-  // other solive so their ends are carried.
-  // En pose simple sur plots, les lambourdes sont deja au pas de la lame : la zone spa se traite
-  // en resserrant les appuis, pas en ajoutant des pieces. Voir aussi l'avertissement du §spa.
-  const solivesSpa = [];
-  if(c.avecLambourde && !plotSimple){
-    const dense = porteeVisSpaM(c);
-    const rad = soliveAngle*Math.PI/180;
-    const dir = {x:Math.cos(rad), y:Math.sin(rad)};
-    const perp = {x:-dir.y, y:dir.x};
-    findSpaZones(c.visMargeZoneSpa).forEach(zone=>{
-      if(!zoneToucheTerrasse(zone, poly)) return;
-      // Le balayage couvre l'etendue reelle de la zone en travers des solives, et non plus un
-      // rayon : une emprise allongee doit etre renforcee sur toute sa longueur.
-      const projs = zone.poly.map(p=>(p.x-zone.center.x)*perp.x + (p.y-zone.center.y)*perp.y);
-      const kMin = Math.ceil(Math.min(...projs)/dense), kMax = Math.floor(Math.max(...projs)/dense);
-      for(let k=kMin;k<=kMax;k++){
-        const origin = {x:zone.center.x+perp.x*k*dense, y:zone.center.y+perp.y*k*dense};
-        // Skip one that would land on a solive already there. On a concave shape the line can
-        // come back in several pieces; only the ones actually crossing the zone are of use.
-        if(solives.some(s=>distPointToLine(origin, s) < dense*0.5)) continue;
-        clipLineToPolygon(origin, dir, poly)
-          .filter(s=>segmentZoneRanges(s, zone).length > 0)
-          .forEach(s=>solivesSpa.push(s));
-      }
-    });
-  }
-  // Les pieces qui reposent sur les appuis : les solives quand il y en a, les lambourdes en
-  // pose simple sur plots. buildVisGrid n'a pas a savoir laquelle des deux c'est.
-  const portees = plotSimple ? lambourdes : solives;
-  return { cadre, solives, lambourdes, solivesSpa, portees, plotSimple,
-           soliveAngle, lamesAngle, cadreOff, soliveW:cadreW };
-}
-// Perpendicular distance from a point to the infinite line carrying a segment.
-function distPointToLine(p, seg){
-  const ex = seg.b.x-seg.a.x, ey = seg.b.y-seg.a.y;
-  const L = Math.hypot(ex,ey) || 1;
-  return Math.abs((p.x-seg.a.x)*(-ey/L) + (p.y-seg.a.y)*(ex/L));
-}
-// Ou une piece traverse une zone d'equipement, en distances le long d'elle. Un disque se
-// traverse en un seul morceau ; une emprise quelconque peut etre concave - un bac en L, un
-// muret en U - et la meme piece y entre et en ressort alors plusieurs fois. On rend donc une
-// liste d'intervalles, dont le cercle du spa n'etait que le cas a un seul element.
-function segmentZoneRanges(seg, zone){
-  const poly = zone && zone.poly;
-  const L = dist(seg.a, seg.b);
-  if(L < 1e-6 || !poly || poly.length < 3) return [];
-  const dx = (seg.b.x-seg.a.x)/L, dy = (seg.b.y-seg.a.y)/L;
-  const ts = [0, L];
-  for(let i=0;i<poly.length;i++){
-    const p = poly[i], q = poly[(i+1)%poly.length];
-    const ex = q.x-p.x, ey = q.y-p.y;
-    const den = dx*ey - dy*ex;
-    if(Math.abs(den) < 1e-12) continue;   // piece parallele a l'arete : pas de franchissement
-    const t = ((p.x-seg.a.x)*ey - (p.y-seg.a.y)*ex)/den;   // distance le long de la piece
-    const u = ((p.x-seg.a.x)*dy - (p.y-seg.a.y)*dx)/den;   // position sur l'arete, 0 a 1
-    if(u >= -1e-9 && u <= 1+1e-9 && t > 0 && t < L) ts.push(t);
-  }
-  ts.sort((a,b)=>a-b);
-  const out = [];
-  for(let i=0;i<ts.length-1;i++){
-    const d0 = ts[i], d1 = ts[i+1];
-    if(d1-d0 < 1e-6) continue;
-    const mid = { x:seg.a.x+dx*(d0+d1)/2, y:seg.a.y+dy*(d0+d1)/2 };
-    if(!pointInPolygon(mid, poly)) continue;
-    // Deux intervalles jointifs n'en font qu'un : une arete effleuree ne doit pas couper la
-    // traversee en deux, ce qui doublerait la vis a la jonction.
-    const last = out[out.length-1];
-    if(last && d0 - last[1] < 1e-6) last[1] = d1; else out.push([d0, d1]);
-  }
-  return out;
-}
-
-// Screws go on the pieces the structure returned, and nowhere else. A beam running from frame
-// to frame is already held at both ends, so it only needs intermediate screws when it is longer
-// than its admissible span - which is why a well-proportioned deck takes far fewer screws than
-// a grid would suggest.
-function buildVisGrid(obj, structure){
-  const c = ensureConstruction(obj);
-  if(!obj.pts || obj.pts.length<3) return [];
-  const S = structure || computeStructure(obj);
-  const span = porteeAppuiM(c);
-  const dense = Math.min(span, porteeVisSpaM(c));
-  const zones = findSpaZones(c.visMargeZoneSpa);
-  const pts = [];
-
-  // 1. Cadre: a screw under every corner, where two rive beams meet and the load concentrates,
-  //    then the runs between them broken up to stay inside the span.
-  S.cadre.forEach(seg=>{
-    subdivideSegment(seg.a, seg.b, span, false).forEach(p=>pts.push({...p, role:'rive'}));
-  });
-
-  // 2. Beams: both ends rest on the cadre, so only the interior needs dividing. `portees` is
-  //    the layer that actually bears on the supports - solives, or lambourdes when plots carry
-  //    the deck directly.
-  (S.portees || S.solives).concat(S.solivesSpa).forEach(seg=>{
-    const L = dist(seg.a, seg.b);
-    if(L < 0.05) return;
-    const at = d => ({ x:seg.a.x+(seg.b.x-seg.a.x)*d/L, y:seg.a.y+(seg.b.y-seg.a.y)*d/L });
-    const n = Math.max(1, Math.ceil(L/span));
-    for(let k=1;k<n;k++) pts.push({...at(L*k/n), role:'courant'});
-    // 3. Then every stretch crossing an equipment zone is re-divided at the tighter spacing.
-    zones.forEach(z=>{
-      segmentZoneRanges(seg, z).forEach(([d0,d1])=>{
-        const m = Math.max(1, Math.ceil((d1-d0)/dense));
-        for(let k=0;k<=m;k++) pts.push({...at(d0+(d1-d0)*k/m), role:'spa'});
-      });
-    });
-  });
-
-  return dedupeVis(pts, Math.min(0.35, dense*0.45));
-}
-
-// Lames run in `sensPose` (relative to the reference side). With lambourdes: lambourdes sit
-// perpendicular to the lames (supporting them directly) and solives sit parallel to the lames
-// (supporting the lambourdes). Without lambourdes, solives go straight under the lames,
-// perpendicular to them.
-// Direction the lames run in: the reference side, turned by the chosen sens de pose.
-function lamesAngleOf(obj){
-  const c = ensureConstruction(obj);
-  const n = obj.pts.length;
-  const refIdx = Math.min(c.segmentReference||0, n-1);
-  const a = obj.pts[refIdx], b = obj.pts[(refIdx+1)%n];
-  return angleOfSegment(a,b)*180/Math.PI + (c.sensPose||0);
-}
-// Screw count on its own, for the density readout in the configurator.
-function buildVisGridCount(obj){
-  if(!obj.pts || obj.pts.length<3) return 0;
-  return buildVisGrid(obj).length;
-}
-function computeTerrasseLayers(obj){
-  const c = ensureConstruction(obj);
-  const n = obj.pts.length;
-  const S = computeStructure(obj);
-  const lamesAngle = S.lamesAngle;
-
-  const vis = buildVisGrid(obj, S);
-  const cadre = S.cadre;
-  // The spa reinforcement beams are solives like any other once they exist: same section, same
-  // price, drawn on the same layer.
-  const solives = S.solives.concat(S.solivesSpa);
-  const lambourdes = S.lambourdes;
-  const largeurLameM = (c.largeurLame||140)/1000;
-  const riveEp = (c.epaisseurLameRive||22)/1000;
-  const boardSpacing = largeurLameM + (c.jeuLames!==undefined ? c.jeuLames : 6)/1000;
-
-  // Avec "lame a plat" active, le champ de lames s'arrete a une largeur de lame du bord
-  // (au lieu de courir jusqu'au contour) pour laisser la place a la bordure - le contour
-  // retreci garde la meme forme/angles que la terrasse, donc les extremites des lames
-  // suivent toujours le bon angle, juste plus court.
-  const lamesFieldPoly = c.avecLamePlat ? safeOffset(obj.pts, largeurLameM) : obj.pts;
-  const lames = generateParallelLines(lamesFieldPoly, lamesAngle, boardSpacing);
-
-  // Lame de rive : habillage suspendu qui fait le tour de la terrasse, decale vers
-  // l'exterieur d'une demi-epaisseur pour que sa face interieure soit a l'aplomb du
-  // contour reel. Anneau a onglets : decaler chaque cote separement laisserait un coin
-  // ouvert a chaque angle saillant et un croisement a chaque angle rentrant.
-  const lameRive = c.avecLameRive
-    ? ringSegments(safeOffset(obj.pts, -riveEp/2))
-    : [];
-  // Lame a plat : meme contour, posee a plat au niveau des lames (bordure/cadre de
-  // finition), decalee vers l'interieur d'une demi-largeur pour occuper exactement la
-  // bande laissee libre par le retrecissement du champ de lames ci-dessus, bord exterieur
-  // a l'aplomb du contour reel.
-  const lamePlat = c.avecLamePlat
-    ? ringSegments(safeOffset(obj.pts, largeurLameM/2))
-    : [];
-
-  // Ring pieces are given as the pair of rings that bound them, not just a centreline. A ring
-  // drawn as a chain of boxes leaves every corner uncut - the mitre only exists if the corner
-  // points of both the outer and the inner ring are used, which is exactly what these carry.
-  const bandes = {
-    cadre: { ext: safeOffset(obj.pts, S.cadreOff - S.soliveW/2),
-             int: safeOffset(obj.pts, S.cadreOff + S.soliveW/2) },
-    lamePlat: c.avecLamePlat
-      ? { ext: obj.pts.map(p=>({...p})), int: safeOffset(obj.pts, largeurLameM) } : null,
-    lameRive: c.avecLameRive
-      ? { ext: safeOffset(obj.pts, -riveEp), int: obj.pts.map(p=>({...p})) } : null
-  };
-  return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly };
-}
-
-function computeBOM(obj, layers){
-  const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts);
-  const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const essence = ESSENCE_PRICES[c.essenceBois] || ESSENCE_PRICES.autre;
-  // Essence prices are per m2 (like the main lames); convert to a per-ml price for the
-  // perimeter board using its width, rather than reusing the m2 figure directly.
-  const lameWidthM = (c.largeurLame||140)/1000;
-  // Lames are quoted on what actually gets bought - whole boards in stock lengths, offcuts
-  // reused - rather than on the surface plus a flat waste percentage. The cut-list covers the
-  // deck boards and the flat border together, so the border is not billed a second time below.
-  const debit = computeDebitLames(obj, layers);
-
-  const prevReel = {};
-  (c.bom||[]).forEach(l=>{ prevReel[l.poste] = l.prixReel; });
-
-  const groupesBois = computeDebitsBois(obj, layers);
-  const nAppuis = layers.vis.length;
-  const vis = achatVis(c, nAppuis);
-  const plots = achatPlots(c, nAppuis);
-  const assise = computeAssise(c, surf, nAppuis);
-  const lines = [];
-  if(estPlots(c)){
-    lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',
-                 prixBas:plots.modele.prix*0.7, prixHaut:plots.modele.prix*1.4 });
-    // L'assise n'existe pas en mode vis : ces postes n'apparaissent que sur plots.
-    if(assise.geotextileM2 > 0) lines.push({ poste:'geotextile', label:'Geotextile (assise)', qte:assise.geotextileM2, unite:'m²', prixBas:GEOTEXTILE_PRICE.bas, prixHaut:GEOTEXTILE_PRICE.haut });
-    if(assise.concasseM3 > 0)   lines.push({ poste:'concasse',   label:'Concasse 10/20 compacte (' + (c.supportDecaissement||15) + ' cm)', qte:assise.concasseM3, unite:'m³', prixBas:CONCASSE_PRICE.bas, prixHaut:CONCASSE_PRICE.haut });
-    if(assise.dallesU > 0)      lines.push({ poste:'dallesStab', label:'Dalles stabilisatrices sous plots', qte:assise.dallesU, unite:'u', prixBas:DALLE_STAB_PRICE.bas, prixHaut:DALLE_STAB_PRICE.haut });
-  } else {
-    lines.push({ poste:'vis', label:'Vis de fondation' + (vis.parBoite>1 ? ' ('+vis.boites+' × '+vis.parBoite+')' : ''), qte:vis.unites, unite:'u',  prixBas:VIS_PRICE.bas, prixHaut:VIS_PRICE.haut });
-  }
-  // One BOM line per timber product: merged while the sections match, split as soon as the
-  // lambourdes have a section of their own.
-  groupesBois.forEach(g=>lines.push({
-    poste: g.cle, label: g.titre + ' — barres achetees', qte: g.debit.achatMl, unite:'ml',
-    prixBas: SOLIVE_PRICE.bas, prixHaut: SOLIVE_PRICE.haut
-  }));
-  lines.push(
-    { poste:'lames',      label:'Lames ('+essence.label+')' + (c.avecLamePlat?' + bordure a plat':'') + ' — barres achetees', qte:debit.achatMl, unite:'ml', prixBas:essence.bas*lameWidthM, prixHaut:essence.haut*lameWidthM },
-    { poste:'visserie',   label:'Visserie / fixations',             qte:surf,              unite:'m²', prixBas:VISSERIE_PRICE.bas, prixHaut:VISSERIE_PRICE.haut },
-    { poste:'lameRive',   label:'Lame de rive (finition)',          qte:lameRiveMl,        unite:'ml', prixBas:c.avecLameRive?LAME_RIVE_PRICE.bas:0, prixHaut:c.avecLameRive?LAME_RIVE_PRICE.haut:0 }
-  );
-  lines.forEach(l=>{ l.prixReel = (prevReel[l.poste]!==undefined) ? prevReel[l.poste] : null; });
-  // These lines are priced from their cut-list rather than by hand: the prices live per stock
-  // length, where the merchant actually quotes them, and one source of truth beats two that can
-  // disagree. `calcule` tells renderBOMTable to show it read-only.
-  const calcules = { lames:{ cout:coutDebit(c, debit, 'lames'), note:'calcule — prix par longueur, debit des lames' },
-                     vis: estPlots(c)
-                       ? { cout:plots.cout, note:'calcule — ' + prixPlotUnite(c).toFixed(2) + ' € x ' + plots.unites }
-                       : { cout:vis.cout,   note:'calcule — ' + prixVisUnite(c).toFixed(2) + ' € x ' + vis.unites } };
-  groupesBois.forEach(g=>{
-    calcules[g.cle] = { cout: coutDebit(c, g.debit, g.cle),
-                        note: 'calcule — prix par longueur, debit ' + g.section };
-  });
-  Object.keys(calcules).forEach(poste=>{
-    const l = lines.find(x=>x.poste===poste);
-    if(l){
-      l.prixReel = Math.round(calcules[poste].cout*100)/100;
-      l.calcule = calcules[poste].note;
-    }
-  });
-  return lines;
-}
-
-// ---- debit des lames -------------------------------------------------------------------
-const LONGUEURS_LAMES_DEFAUT = [3, 2.5, 2, 1.7, 1.5];
-// Boards are quoted by the piece, and the rate per metre is not the same from one length to the
-// next - short lengths are usually dearer per metre, and one length in a range is often on
-// offer. Until the user types the merchant's actual figures, each length falls back to the
-// essence's mid-range rate times its width and length.
-// One price store per product, so a length that exists in two of them keeps two prices - a 3 m
-// deck board and a 3 m solive are not the same purchase.
-const PRIX_STORE = { lames:'prixLongueurs', bois:'prixLongueursBois', lambourde:'prixLongueursLambourde' };
-// Width a board of this product covers, used for the per-m² view. Only the lames are sold by
-// surface in practice, so the others report per metre instead.
-function largeurProduit(c, cle){
-  if(cle === 'lames') return (c.largeurLame||140)/1000;
-  if(cle === 'lambourde') return dimsSection(sectionLambourde(c)).b/1000;
-  return dimsSection(c.soliveSection).b/1000;
-}
-function prixBarreDefaut(c, cle, L){
-  if(cle === 'lames'){
-    const essence = ESSENCE_PRICES[c.essenceBois] || ESSENCE_PRICES.autre;
-    return Math.round(((essence.bas+essence.haut)/2) * largeurProduit(c,'lames') * L * 100)/100;
-  }
-  return Math.round(((SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2) * L * 100)/100;
-}
-function prixBarre(c, cle, L){
-  const store = c[PRIX_STORE[cle]];
-  const p = store ? store[String(L)] : undefined;
-  return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : prixBarreDefaut(c, cle, L);
-}
-function prixPersonnalise(c, cle, L){
-  const store = c[PRIX_STORE[cle]];
-  const p = store ? store[String(L)] : undefined;
-  return p !== undefined && p !== null && isFinite(p) && p >= 0;
-}
-function setPrixBarre(c, cle, L, valeur){
-  const k = PRIX_STORE[cle];
-  if(!c[k] || typeof c[k] !== 'object') c[k] = {};
-  if(valeur === null || valeur === undefined || !isFinite(valeur) || valeur < 0) delete c[k][String(L)];
-  else c[k][String(L)] = valeur;
-}
-// The two ways a merchant quotes the same board. Each derives from the other through the board's
-// own footprint, so entering either one fills the other in.
-function prixM2De(c, cle, L){
-  const surf = L * largeurProduit(c, cle);
-  return surf > 0 ? prixBarre(c, cle, L)/surf : 0;
-}
-function setPrixM2(c, cle, L, prixM2){
-  const surf = L * largeurProduit(c, cle);
-  setPrixBarre(c, cle, L, (isFinite(prixM2) && prixM2 >= 0 && surf > 0) ? prixM2*surf : null);
-}
-// Screws are sold by the piece, often in boxes: a part box still has to be bought whole.
-function prixVisUnite(c){
-  const p = c.prixVisUnite;
-  return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : (VIS_PRICE.bas+VIS_PRICE.haut)/2;
-}
-function achatVis(c, n){
-  const parBoite = Math.max(1, Math.round(c.visParBoite||1));
-  const boites = Math.ceil(n/parBoite);
-  const unites = boites*parBoite;
-  return { parBoite, boites, unites, cout: unites*prixVisUnite(c) };
-}
-// Prix d'un plot : celui saisi pour le modele, sinon le tarif indicatif de la gamme.
-function prixPlotUnite(c){
-  const m = plotModele(c);
-  const p = c.prixPlots ? c.prixPlots[m.cle] : undefined;
-  return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : m.prix;
-}
-function achatPlots(c, n){
-  const m = plotModele(c);
-  return { modele:m, unites:n, cout:n*prixPlotUnite(c) };
-}
-// Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
-// qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
-function computeAssise(c, surfM2, nbPlots){
-  // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
-  // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
-  if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
-  const t = SUPPORT_TYPES[c.supportType] || SUPPORT_TYPES.concasse;
-  const ep = Math.max(0, c.supportDecaissement||15)/100;
-  return {
-    type:t,
-    geotextileM2: t.geotextile ? surfM2*1.1 : 0,        // +10% de recouvrement des les
-    concasseM3:   t.concasse   ? surfM2*ep  : 0,
-    dallesU:      t.dalles     ? nbPlots    : 0
-  };
-}
-// Charge reprise par un plot et pression sur son assise - le poinconnement n'existe pas en mode
-// vis, qui reporte en profondeur, mais decide de la tenue d'un plot pose sur du concasse.
-function chargePlot(c, nbPlots, surfM2){
-  const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
-  const tributaire = nbPlots > 0 ? surfM2/nbPlots : 0;
-  const charge = q*tributaire;                                  // kg par plot
-  const assise = Math.max(50, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2);
-  return { tributaire, charge, assise, pression: assise>0 ? charge/assise : 0 };
-}
-// What a cut-list actually costs, at the per-length prices in force.
-function coutDebit(c, debit, cle){
-  return Object.keys(debit.achats)
-    .reduce((s,L)=>s + debit.achats[L]*prixBarre(c, cle, parseFloat(L)), 0);
-}
-const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];
-// "3, 2.5, 2" -> [3, 2.5, 2], longest first. Tolerates commas, semicolons, spaces and the
-// French decimal comma, because that is how the figure gets pasted off a merchant's page.
-function parseLongueurs(raw, defauts){
-  const list = (raw || '').toString().split(/[;\s]+|,(?![0-9])/)
-    .map(s=>parseFloat(s.replace(',','.')))
-    .filter(v=>isFinite(v) && v>0.2);
-  const uniq = [...new Set(list)].sort((a,b)=>b-a);
-  return uniq.length ? uniq : defauts.slice();
-}
-function longueursDispo(c){ return parseLongueurs(c.longueursLames, LONGUEURS_LAMES_DEFAUT); }
-function longueursBois(c){ return parseLongueurs(c.longueursBois, LONGUEURS_BOIS_DEFAUT); }
-function longueursLambourde(c){ return parseLongueurs(c.longueursLambourde, LONGUEURS_BOIS_DEFAUT); }
-// Cuts the drawn runs out of boards bought in standard lengths.
-//
-// Two rules from the trade shape the answer. Offcuts are reused before anything new is opened -
-// that is where the saving actually comes from. And a butt joint between two boards has to land
-// on a support, so a piece that does not finish its run is cut to a whole number of support
-// spacings; a board too short to reach even one support cannot serve in a jointed run at all.
-//
-// Done in two passes. Each run is first solved exactly - the cheapest set of stock lengths that
-// covers it - by dynamic programming over the remaining length; a greedy choice cannot do this,
-// because covering the most metres now regularly forces a whole extra board for the tail. Then
-// the resulting cut-list is served from the offcut pool wherever a saved piece is long enough,
-// so only what the pool cannot cover is actually bought.
-//
-// Cutting stock over all runs at once is NP-hard, but per run it is a small, exactly solvable
-// problem, and cross-run reuse is what the pool pass buys back.
-function optimiserDebitLames(runs, dispo, minReuseM, entraxeM, joints){
-  const tol = 1e-6;
-  const achats = {}, roles = {};
-  let pool = [], reelMl = 0, achatMl = 0, perdueMl = 0;
-  // Offcuts are tallied by where they end up, not lumped together: averaging a 2 m piece that
-  // goes back in the pot with a 6 cm scrap produces a figure that describes neither.
-  const noteRole = (L, key, chute) => {
-    roles[L] = roles[L] || { entiere:0, ajustee:0, recoupee:0, troncon:0, rebutMl:0, potMl:0 };
-    roles[L][key]++;
-    const ch = chute || 0;
-    if(ch >= minReuseM) roles[L].potMl += ch; else roles[L].rebutMl += ch;
-  };
-  // Length usable from a board of L, covering `reste` of a run. A piece that does not finish
-  // the run has to end on a support, so it is cut to a whole number of spacings; a board too
-  // short to reach even one support cannot serve in a jointed run at all.
-  const utile = (L, reste) => {
-    if(L >= reste - tol) return reste;
-    if(!joints || entraxeM <= 0) return L;
-    const k = Math.floor((L + tol) / entraxeM);
-    return k > 0 ? k * entraxeM : 0;
-  };
-  // Cheapest board set covering one run, memoised on the remaining length.
-  const memo = new Map();
-  function plan(R){
-    if(R <= tol) return { cout:0, pieces:[] };
-    const key = Math.round(R*1e4);
-    if(memo.has(key)) return memo.get(key);
-    let best = null;
-    for(const L of dispo){
-      const u = utile(L, R);
-      if(u <= tol) continue;
-      const sub = plan(R - u);
-      if(!sub) continue;
-      const cout = L + sub.cout;
-      if(!best || cout < best.cout - 1e-9){
-        best = { cout, pieces:[{ L, u, finit: u >= R - tol }].concat(sub.pieces) };
-      }
-    }
-    memo.set(key, best);
-    return best;
-  }
-  runs.slice().sort((a,b)=>b-a).forEach(run=>{
-    reelMl += run;
-    const p = plan(run);
-    if(!p) return;   // aucune longueur du stock ne peut servir sur cette travee
-    p.pieces.forEach(pc=>{
-      // Serve from the offcut pool first - the tightest saved piece that still covers it.
-      let idx = -1, meilleurReste = Infinity;
-      pool.forEach((L,i)=>{
-        const reste = L - pc.u;
-        if(reste >= -tol && reste < meilleurReste){ meilleurReste = reste; idx = i; }
-      });
-      if(idx >= 0){
-        const L = pool.splice(idx,1)[0];
-        const rem = L - pc.u;
-        if(rem >= minReuseM) pool.push(rem); else perdueMl += rem;
-        return;                                   // rien achete pour cette piece
-      }
-      achats[pc.L] = (achats[pc.L]||0) + 1;
-      achatMl += pc.L;
-      const rem = pc.L - pc.u;
-      // Four distinct fates, because they mean different things on site: used as-is, trimmed to
-      // length with a scrap, cut with a piece worth keeping, or a mid-run section between joints.
-      noteRole(pc.L,
-        rem <= tol ? 'entiere'
-        : !pc.finit ? 'troncon'
-        : rem >= minReuseM ? 'recoupee'
-        : 'ajustee',
-        rem);
-      if(rem >= minReuseM) pool.push(rem); else perdueMl += rem;
-    });
-  });
-  const restantMl = pool.reduce((s,x)=>s+x, 0);
-  return { achats, roles, reelMl, achatMl, perdueMl, restantMl, pool:pool.slice().sort((a,b)=>b-a),
-           chuteMl: achatMl - reelMl };
-}
-// Runs to cut: the deck boards themselves plus the flat border, which is the same product
-// bought at the same time.
-// Every load-bearing piece, cut out of stock lengths. A splice in a beam has to sit over a
-// screw, so the same joint rule applies with the screw spacing standing in for the support
-// spacing. Reported with the metre breakdown by role, since one cut-list covers all three.
-// Returns one cut-list group per product actually bought. Lambourdes share the solives' group
-// while they share their section - same piece, same order - and split into their own group with
-// their own stock lengths and prices as soon as the section differs, because then they are a
-// different product and mixing the two would price and cut them wrong.
-function computeDebitsBois(obj, layers){
-  const c = ensureConstruction(obj);
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const secS = c.soliveSection, secL = sectionLambourde(c);
-  const wS = dimsSection(secS).b/1000, wL = dimsSection(secL).b/1000;
-  const separe = secL !== secS && layers.lambourdes.length > 0;
-  const opt = [ (c.chuteMinReutilisable!==undefined ? c.chuteMinReutilisable : 50)/100,
-                porteeVisM(c), c.jointsBoisSurAppui !== false ];
-  // Same rule as the lames: a beam ending on an oblique edge is cut to its longest side. The
-  // cadre follows the outline and is already mitred, so its own centreline is the right measure.
-  const runsLamb = layers.lambourdes.map(s=>longueurLameReelle(s.a, s.b, wL, obj.pts));
-  const runsPorteur = [].concat(
-    layers.cadre.map(s=>dist(s.a,s.b)),
-    layers.solives.map(s=>longueurLameReelle(s.a, s.b, wS, obj.pts)),
-    separe ? [] : runsLamb
-  );
-  const avecLamb = layers.lambourdes.length > 0 && !separe;
-  const roles = ['Cadre'];
-  if(layers.solives.length) roles.push('solives');
-  if(avecLamb) roles.push('lambourdes');
-  const groupes = [{
-    cle:'bois', section:secS,
-    titre: roles.join(', ') + ' (' + secS + ')',
-    champLongueurs:'longueursBois',
-    parts: Object.assign({ cadre:ml(layers.cadre) },
-             layers.solives.length ? { solives:ml(layers.solives) } : {},
-             avecLamb ? { lambourdes:ml(layers.lambourdes) } : {}),
-    debit: optimiserDebitLames(runsPorteur.filter(L=>L>0.05), longueursBois(c), ...opt)
-  }];
-  if(separe){
-    groupes.push({
-      cle:'lambourde', section:secL, titre:'Lambourdes (' + secL + ')',
-      champLongueurs:'longueursLambourde',
-      parts:{ lambourdes: ml(layers.lambourdes) },
-      debit: optimiserDebitLames(runsLamb.filter(L=>L>0.05), longueursLambourde(c), ...opt)
-    });
-  }
-  return groupes;
-}
-function computeDebitLames(obj, layers){
-  const c = ensureConstruction(obj);
-  const largeurLameM = (c.largeurLame||140)/1000;
-  // Measured on the longest side of each board, so an angled end orders the piece that actually
-  // has to be cut rather than the shorter centreline.
-  const runs = layers.lames.map(s=>longueurLameReelle(s.a, s.b, largeurLameM, layers.lamesFieldPoly))
-    .concat(layers.lamePlat.map(s=>dist(s.a,s.b)))
-    .filter(L=>L > 0.05);
-  // Supports under the lames: the lambourdes when there are any, otherwise the solives.
-  const entraxeAppui = (c.avecLambourde ? (c.lambourdeEntraxe||40) : (c.soliveEntraxe||40))/100;
-  return optimiserDebitLames(runs, longueursDispo(c),
-    (c.chuteMinReutilisable!==undefined ? c.chuteMinReutilisable : 50)/100,
-    entraxeAppui, c.jointsSurAppui !== false);
-}
 
 // One cut-list table, used for both the deck boards and the structural timber - the only thing
 // that differs is which set of per-length prices it reads and writes.
@@ -8741,155 +7478,7 @@ function renderDebitLames(obj, layers){
   }));
 }
 
-// ---- implantation ----------------------------------------------------------------------
-// Sur le terrain on ne mesure pas dans le vide : on tend un cordeau le long d'un cote, et tout
-// se cote depuis ce cordeau. Le repere est donc le depart du cote de reference, X le long de ce
-// cote, Y perpendiculaire vers l'interieur - exactement les deux cordeaux qu'on tire en premier.
-function repereImplantation(obj){
-  const c = ensureConstruction(obj);
-  const n = obj.pts.length;
-  const i0 = Math.min(c.segmentReference||0, n-1);
-  const A = obj.pts[i0], B = obj.pts[(i0+1)%n];
-  const ex = B.x-A.x, ey = B.y-A.y, L = Math.hypot(ex,ey) || 1;
-  const ux = ex/L, uy = ey/L;
-  let nx = -uy, ny = ux;
-  const mid = { x:(A.x+B.x)/2, y:(A.y+B.y)/2 };
-  if(!pointInPolygon({ x:mid.x+nx*0.01, y:mid.y+ny*0.01 }, obj.pts)){ nx = -nx; ny = -ny; }
-  return {
-    origine:A, cote:i0, longueurCote:L,
-    vers: p => ({ x:(p.x-A.x)*ux + (p.y-A.y)*uy, y:(p.x-A.x)*nx + (p.y-A.y)*ny })
-  };
-}
-function computeImplantation(obj, layers){
-  const R = repereImplantation(obj);
-  const sommets = obj.pts.map((p,i)=>({ i, ...R.vers(p) }));
-  const appuis = layers.vis.map(p=>({ ...R.vers(p), role:p.role }));
-  // Numerotes par rangee puis de gauche a droite : c'est l'ordre dans lequel on les marque,
-  // un cordeau apres l'autre.
-  appuis.sort((a,b)=> Math.abs(a.y-b.y) > 0.02 ? a.y-b.y : a.x-b.x);
-  appuis.forEach((a,i)=>{ a.n = i+1; });
-  // Regroupes par piece porteuse, pas par ordonnee : des que le contour est oblique, les appuis
-  // d'une meme solive n'ont pas le meme Y et un regroupement par rangee les eparpille. Sur le
-  // terrain on materialise une piece, puis on marque ses appuis au ruban le long d'elle - c'est
-  // cette distance-la qu'il faut donner.
-  const lignesPorteuses = [].concat(
-    layers.cadre.map((s,i)=>({ ref:'C'+(i+1), type:'cadre', seg:s })),
-    (layers.solives.length ? layers.solives : layers.lambourdes)
-      .map((s,i)=>({ ref:'L'+(i+1), type:layers.solives.length?'solive':'lambourde', seg:s }))
-  );
-  const pris = new Set();
-  const lignes = lignesPorteuses.map(l=>{
-    const A = l.seg.a, B = l.seg.b;
-    const ex = B.x-A.x, ey = B.y-A.y, L = Math.hypot(ex,ey) || 1;
-    const ux = ex/L, uy = ey/L;
-    const sur = [];
-    layers.vis.forEach((p,idx)=>{
-      if(pris.has(idx)) return;
-      const t = (p.x-A.x)*ux + (p.y-A.y)*uy;
-      if(t < -0.02 || t > L+0.02) return;
-      const ecart = Math.abs((p.x-A.x)*(-uy) + (p.y-A.y)*ux);
-      if(ecart > 0.03) return;
-      pris.add(idx);
-      sur.push({ d:Math.max(0,t), n:appuis.find(a=>Math.abs(a.x-R.vers(p).x)<1e-9 &&
-                                                   Math.abs(a.y-R.vers(p).y)<1e-9)?.n });
-    });
-    sur.sort((a,b)=>a.d-b.d);
-    return { ...l, longueur:L, depart:R.vers(A), fin:R.vers(B), appuis:sur };
-  }).filter(l=>l.appuis.length);
-  // Diagonales : le seul controle qui prouve que le trace est d'equerre.
-  const diagonales = [];
-  const n = sommets.length;
-  if(n === 4){
-    diagonales.push({ de:0, a:2, d:dist(obj.pts[0], obj.pts[2]) });
-    diagonales.push({ de:1, a:3, d:dist(obj.pts[1], obj.pts[3]) });
-  } else {
-    for(let i=0;i<n;i++){
-      const j = (i + Math.floor(n/2)) % n;
-      if(i < j) diagonales.push({ de:i, a:j, d:dist(obj.pts[i], obj.pts[j]) });
-    }
-  }
-  const xs = sommets.map(s=>s.x), ys = sommets.map(s=>s.y);
-  return { R, sommets, appuis, lignes, diagonales,
-           bbox:{ x0:Math.min(...xs), x1:Math.max(...xs), y0:Math.min(...ys), y1:Math.max(...ys) } };
-}
 
-// ---- chantier : activites et durees ----------------------------------------------------
-// Cadences en heures par unite, ordres de grandeur du metier pour une equipe qui sait faire, sur
-// un chantier de particulier. Elles sont toutes reglables : une terrasse en fond de jardin sans
-// acces engin n'a pas les memes que la meme terrasse devant un garage.
-const CADENCES = {
-  piquetage:   { h:0.06, unite:'m²', label:'Piquetage, tracage et implantation',        phase:'Preparation' },
-  decaissement:{ h:1.60, unite:'m³', label:'Decaissement manuel',                        phase:'Preparation' },
-  evacuation:  { h:0.50, unite:'m³', label:'Evacuation des terres',                      phase:'Preparation' },
-  geotextile:  { h:0.03, unite:'m²', label:'Pose du geotextile',                         phase:'Preparation' },
-  concasse:    { h:0.80, unite:'m³', label:'Apport et compactage du concasse',           phase:'Preparation' },
-  dallesStab:  { h:0.08, unite:'u',  label:'Pose des dalles stabilisatrices',            phase:'Preparation' },
-  vissage:     { h:0.25, unite:'u',  label:'Vissage des vis de fondation',               phase:'Appuis' },
-  posePlots:   { h:0.08, unite:'u',  label:'Pose des plots',                             phase:'Appuis' },
-  reglage:     { h:0.06, unite:'u',  label:'Reglage de niveau des appuis',               phase:'Appuis' },
-  debitBois:   { h:0.10, unite:'u',  label:'Debit des bois de structure',                phase:'Structure' },
-  poseCadre:   { h:0.25, unite:'ml', label:'Pose du cadre peripherique',                 phase:'Structure' },
-  poseSolives: { h:0.15, unite:'ml', label:'Pose des solives',                           phase:'Structure' },
-  poseLamb:    { h:0.12, unite:'ml', label:'Pose des lambourdes',                        phase:'Structure' },
-  controle:    { h:0.05, unite:'m²', label:'Controle de niveau et de planeite',          phase:'Structure' },
-  debitLames:  { h:0.05, unite:'u',  label:'Debit des lames',                            phase:'Platelage' },
-  poseLames:   { h:0.35, unite:'m²', label:'Pose et fixation des lames',                 phase:'Platelage' },
-  coupeRive:   { h:0.15, unite:'ml', label:'Coupe de finition en rive',                  phase:'Platelage' },
-  poseRive:    { h:0.25, unite:'ml', label:'Pose de la lame de rive',                    phase:'Finitions' },
-  posePlat:    { h:0.20, unite:'ml', label:'Pose de la bordure a plat',                  phase:'Finitions' },
-  nettoyage:   { h:0.03, unite:'m²', label:'Nettoyage et evacuation des chutes',         phase:'Finitions' }
-};
-const CHANTIER_PHASES = ['Preparation','Appuis','Structure','Platelage','Finitions'];
-function cadenceDe(c, cle){
-  const v = c.cadences ? c.cadences[cle] : undefined;
-  return (v !== undefined && v !== null && isFinite(v) && v >= 0) ? v : CADENCES[cle].h;
-}
-// Les quantites viennent du projet, pas d'un forfait : c'est ce qui rend la duree discutable
-// ligne par ligne plutot qu'a prendre ou a laisser.
-function computeChantier(obj, layers){
-  const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts) || 0;
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const nbAppuis = layers.vis.length;
-  const debitL = computeDebitLames(obj, layers);
-  const groupes = computeDebitsBois(obj, layers);
-  const nbBarresBois = groupes.reduce((s,g)=>s + Object.keys(g.debit.achats).reduce((t,L)=>t+g.debit.achats[L],0), 0);
-  const nbBarresLames = Object.keys(debitL.achats).reduce((t,L)=>t+debitL.achats[L], 0);
-  const assise = computeAssise(c, surf, nbAppuis);
-  const perim = ml(layers.cadre);
-  const plots = estPlots(c);
-
-  const q = {
-    piquetage: surf,
-    decaissement: assise.concasseM3,
-    evacuation: assise.concasseM3,
-    geotextile: assise.geotextileM2,
-    concasse: assise.concasseM3,
-    dallesStab: assise.dallesU,
-    vissage: plots ? 0 : nbAppuis,
-    posePlots: plots ? nbAppuis : 0,
-    reglage: nbAppuis,
-    debitBois: nbBarresBois,
-    poseCadre: perim,
-    poseSolives: ml(layers.solives),
-    poseLamb: ml(layers.lambourdes),
-    controle: surf,
-    debitLames: nbBarresLames,
-    poseLames: surf,
-    coupeRive: perim,
-    poseRive: ml(layers.lameRive),
-    posePlat: ml(layers.lamePlat),
-    nettoyage: surf
-  };
-  const lignes = Object.keys(CADENCES)
-    .map(cle=>({ cle, ...CADENCES[cle], qte:q[cle]||0, cadence:cadenceDe(c,cle) }))
-    .filter(l=>l.qte > 1e-6)
-    .map(l=>({ ...l, heures: l.qte*l.cadence }));
-  const total = lignes.reduce((s,l)=>s+l.heures, 0);
-  // Le poste qui pese le plus : c'est lui qu'il faut attaquer pour raccourcir le chantier.
-  const dominant = lignes.slice().sort((a,b)=>b.heures-a.heures)[0] || null;
-  return { lignes, total, dominant, surf, nbAppuis };
-}
 
 // Hauteur finie : du sol fini au dessus des lames. C'est le chiffre qui decide d'une marche,
 // d'un seuil de porte ou d'un garde-corps, et il n'apparaissait nulle part - seulement de
@@ -9082,14 +7671,14 @@ function renderTerrasseConfigurator(obj){
   // far above that is telling the user their solives are closer together than they need to be.
   // The spa densification is deliberate and local, so it is counted separately - otherwise a
   // heavy spa would make the layout look over-screwed and point the blame at the entraxe.
-  const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj) : [];
+  const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj, null, objects) : [];
   const visCount = visPts.length;
   const visSpa = visPts.filter(p=>p.role==='spa').length;
   // Nommer ce qui a ete detecte. Toute forme passee en fonction "equipement" resserre desormais
   // la grille : si elle n'est pas nommee ici, personne ne peut voir laquelle, ni s'apercevoir
   // qu'un objet a ete classe equipement par megarde.
   const zonesEquip = (obj.pts && obj.pts.length>=3)
-    ? findSpaZones(c.visMargeZoneSpa).filter(z=>zoneToucheTerrasse(z, obj.pts)) : [];
+    ? findSpaZones(c.visMargeZoneSpa, objects).filter(z=>zoneToucheTerrasse(z, obj.pts)) : [];
   const nomsEquip = zonesEquip.map(z=>z.nom).join(', ');
   const surfM2 = shoelace(obj.pts) || 1;
   const densite = visCount / surfM2;
@@ -9467,7 +8056,7 @@ svg.appendChild(terrasseLayerGroup);
 function renderTerrasseLayerView(obj){
   terrasseLayerGroup.innerHTML = '';
   if(appMode!=='terrasse' || !obj) return;
-  const layers = computeTerrasseLayers(obj);
+  const layers = computeTerrasseLayers(obj, objects);
   // Thinner/dashed strokes once more than one layer is shown together, so they stay
   // readable stacked on top of each other instead of turning into a solid mess.
   const multi = Object.values(terrasseLayerVisible).filter(Boolean).length > 1;
@@ -9509,7 +8098,7 @@ function renderTerrasseLayerView(obj){
 
 function renderBOMTable(obj){
   const c = ensureConstruction(obj);
-  const layers = computeTerrasseLayers(obj);
+  const layers = computeTerrasseLayers(obj, objects);
   const lines = computeBOM(obj, layers);
   c.bom = lines;
   renderDebitLames(obj, layers);
@@ -10211,7 +8800,7 @@ function buildThreeScene(obj){
   // Sans terrasse : une construction par defaut jetable (aucun objet du plan n'est touche) sert
   // uniquement a garder les constantes de section/hauteur ci-dessous definies.
   const c = obj ? ensureConstruction(obj) : ensureConstruction({});
-  const layers = obj ? computeTerrasseLayers(obj) : null;
+  const layers = obj ? computeTerrasseLayers(obj, objects) : null;
   // Le centre de la scene se prend sur la terrasse ; a defaut sur la parcelle, sinon sur
   // l'ensemble des objets - la camera doit regarder quelque chose dans tous les cas.
   const objetCentre = obj || trouverParcelleCloture() || objects.find(o=>o.pts && o.pts.length);
@@ -11381,7 +9970,7 @@ function renderImplantation(obj){
   const c = ensureConstruction(obj);
   host.innerHTML = '';
   if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
-  const layers = computeTerrasseLayers(obj);
+  const layers = computeTerrasseLayers(obj, objects);
   const I = computeImplantation(obj, layers);
   const ech = ECHELLES.includes(c.echelleImplant) ? c.echelleImplant : 200;
   const mm = m => m*1000/ech;                       // metres reels -> mm sur le papier
@@ -11590,7 +10179,7 @@ function renderChantier(obj){
   const c = ensureConstruction(obj);
   host.innerHTML = '';
   if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
-  const layers = computeTerrasseLayers(obj);
+  const layers = computeTerrasseLayers(obj, objects);
   const ch = computeChantier(obj, layers);
   const equipe = Math.max(1, Math.round(c.equipe||2));
   const hJour = Math.max(1, c.heuresJour||7);
@@ -11717,8 +10306,8 @@ function renderMethode(obj){
 
   const span = porteeVisM(c);
   const ok = obj.pts && obj.pts.length>=3;
-  const S = ok ? computeStructure(obj) : {cadre:[],solives:[],lambourdes:[],solivesSpa:[]};
-  const vis = ok ? buildVisGrid(obj, S) : [];
+  const S = ok ? computeStructure(obj, objects) : {cadre:[],solives:[],lambourdes:[],solivesSpa:[]};
+  const vis = ok ? buildVisGrid(obj, S, objects) : [];
   const roles = {rive:0, courant:0, spa:0};
   vis.forEach(p=>roles[p.role]=(roles[p.role]||0)+1);
   const surf = shoelace(obj.pts) || 1;
@@ -11975,7 +10564,7 @@ function renderOptimResult(obj){
   const host = document.getElementById('terrasseOptimResult');
   if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host.style.display='none'; return; }
   const c = ensureConstruction(obj);
-  const res = optimiserParametres(obj);
+  const res = optimiserParametres(obj, objects);
   host.style.display = '';
   host.innerHTML = '';
   if(!res.length){ host.innerHTML = '<div class="hint">Aucune configuration exploitable.</div>'; return; }
@@ -12065,7 +10654,7 @@ function renderOptimResult(obj){
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c,'vis',VIS_PRICE),
     prixUnitaire(c,'bois',SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts)||1);
+    lamesAngleOf(obj), shoelace(obj.pts)||1, objects);
   const note = document.createElement('div');
   note.className = 'hint';
   const gain = actuel.cout - best.cout;

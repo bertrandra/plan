@@ -8,7 +8,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 0 — Filet de sécurité | ✅ 28/08/2026 | `v0-preTS` | les golden files se reproduisent à l'identique depuis le fichier étiqueté | 6 empreintes identiques par 3 chemins de calcul indépendants |
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
-| 3 — Extraction du moteur | ⏳ | | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | |
+| 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
 | 4 — Modèle et conteneur d'état | ⏳ | | `legacy.ts` réduit aux panneaux UI et à la 3D | |
 | 5 — Panneaux UI | ⏳ | | | |
 | 6 — 3D et exports | ⏳ | | | |
@@ -112,6 +112,80 @@ Trois de mes attentes de test étaient fausses et le code avait raison : l'aire 
 (arcs inscrits, donc légèrement inférieure à la valeur exacte), l'échelle retenue par
 `echelleQuiTient` (1/75 et non 1/100), et la répétition implicite des commandes SVG dans
 `parseSvgPathPoints`. Corrigées côté test.
+
+
+## Phase 3 — 28 août 2026
+
+Le moteur terrasse sort de `legacy.ts` : 10 modules, 1 429 lignes, 12 250 → 10 839.
+
+| Module | Contenu |
+|---|---|
+| `engine/constantes.ts` | prix, sections, plots, règles DTU |
+| `engine/construction.ts` | `defaultConstruction`, `ensureConstruction` |
+| `engine/lames.ts` | étendue, longueur réelle, emprise d'une lame |
+| `engine/structure.ts` | portées admissibles, ossature, grille d'appuis, zones d'équipement |
+| `engine/layers.ts` | calques d'une terrasse |
+| `engine/bom.ts` | quantitatif et prix |
+| `engine/debit.ts` | optimisation des coupes |
+| `engine/implantation.ts` | repère de traçage et cotes |
+| `engine/chantier.ts` | cadences et temps |
+| `engine/parasol.ts` | ombre portée, cartes d'ombre, meilleure position |
+
+### L'oracle, capturé avant de toucher au code
+
+Les six golden files ne contiennent aucune sortie du moteur : il fallait un oracle. Une passerelle
+temporaire, posée **à l'intérieur de `boot()`** — c'est là que vivait tout le moteur — a permis de
+capturer, sur les deux terrasses de référence, les neuf calculs avec leurs artefacts de flottants
+intacts (`269.3999999999999`, `3.5000000000000004`). Fixture : `tests/fixtures/golden/moteur-terrasses.json`,
+180 ko, incluant la liste des 35 objets, sans quoi `findSpaZones` n'est pas rejouable.
+
+### Les lectures d'état devenues des paramètres (spec §4)
+
+Le balayage a montré un moteur déjà presque pur : **deux fonctions seulement** lisaient la fermeture.
+Le fil a dû être tiré jusqu'aux appelants :
+
+| Fonction | Avant | Après |
+|---|---|---|
+| `findSpaZones` | lisait `objects` | `(margeCm, objets)` |
+| `computeStructure` | — | `(obj, objets)`, pour atteindre `findSpaZones` |
+| `buildVisGrid`, `computeTerrasseLayers`, `optimiserParametres`, `evaluerStructure` | — | idem |
+| `calculerCartesOmbre`, `ombreInstantanee`, `chercherMeilleurePositionParasol` | lisaient `parasolDateStr`, `parasolMinutes`, `lieuActuel()`, `objects` | reçoivent un `ContexteSoleil` et `objets` |
+| `terrasseDuParasol` | lisait `objects` et `terrasseSelectedKey` | reçoit les deux |
+
+`legacy.ts` compose ce contexte dans `contexteSoleilParasol()`, à partir des curseurs et du lieu de
+la parcelle.
+
+### La parité, prouvée là où elle a un sens
+
+Premier essai : rejouer l'oracle sous Node. **Huit comparaisons sur dix-neuf échouaient — d'un ULP.**
+`-4.020338010114908` contre `-4.020338010114907`. Ce n'est pas le calcul qui diffère, c'est
+`Math.sin`/`Math.cos` d'une version de V8 à l'autre.
+
+La preuve a donc été refaite sur le terrain où elle vaut : **navigateur contre navigateur**, en
+recapturant les mêmes neuf calculs après le déplacement. **18 sorties sur 18 (2 terrasses × 9),
+identiques bit à bit.** Le test Node conserve l'égalité **stricte** sur le BOM et le chantier — les
+nombres qui partent chez un fournisseur, qui passent sans tolérance — et compare à 12 chiffres
+significatifs ailleurs, avec le pourquoi écrit dans le fichier de test.
+
+### Un dégât à signaler
+
+La règle de suppression automatique (« de la déclaration jusqu'au `}` en colonne 0 ») ne
+reconnaissait pas les constantes qui se terminent par `];`. Elle a donc avalé six déclarations
+d'état au passage — `parasolDateStr`, `parasolMinutes`, `appMode`, `terrasseSelectedKey` et deux
+bascules d'affichage. Détecté par un diff systématique entre l'avant et l'après, en écartant tout ce
+qui se retrouvait dans les modules ; les six ont été rétablies dans `legacy.ts`, où elles ont leur
+place — elles décrivent ce que l'utilisateur regarde, pas un calcul.
+
+### Couverture et vérifications
+
+`vitest --coverage` : **91,5 % sur `src/engine`** (critère de sortie : ≥ 80 %), 153 tests au total.
+Les 34 nouveaux couvrent les portées admissibles (croissance avec la hauteur de section, racine
+cubique de la charge, plafond DTU à 70 cm), les achats par boîte entière, le débit et ses chutes
+réutilisables, et les ombres de parasol.
+
+Navigateur : les six golden files restent identiques au bit près, et tous les panneaux pilotés par
+le moteur affichent leurs chiffres — BOM (1 295 €), implantation (37 vis, comme l'oracle), chantier
+(11,5 h), méthode, plan de coupe.
 
 
 ### Point de vigilance

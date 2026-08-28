@@ -1,0 +1,85 @@
+// Cadences et estimation du temps de chantier
+//
+// Deplace depuis legacy.ts sans retouche : l ordre des operations est conserve tel quel, y compris
+// la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
+// bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
+
+import { dist, shoelace } from '../geometry/basic.js';
+import { computeAssise } from './bom.js';
+import { estPlots } from './constantes.js';
+import { ensureConstruction } from './construction.js';
+import { computeDebitLames, computeDebitsBois } from './debit.js';
+
+export const CADENCES = {
+  piquetage:   { h:0.06, unite:'m²', label:'Piquetage, tracage et implantation',        phase:'Preparation' },
+  decaissement:{ h:1.60, unite:'m³', label:'Decaissement manuel',                        phase:'Preparation' },
+  evacuation:  { h:0.50, unite:'m³', label:'Evacuation des terres',                      phase:'Preparation' },
+  geotextile:  { h:0.03, unite:'m²', label:'Pose du geotextile',                         phase:'Preparation' },
+  concasse:    { h:0.80, unite:'m³', label:'Apport et compactage du concasse',           phase:'Preparation' },
+  dallesStab:  { h:0.08, unite:'u',  label:'Pose des dalles stabilisatrices',            phase:'Preparation' },
+  vissage:     { h:0.25, unite:'u',  label:'Vissage des vis de fondation',               phase:'Appuis' },
+  posePlots:   { h:0.08, unite:'u',  label:'Pose des plots',                             phase:'Appuis' },
+  reglage:     { h:0.06, unite:'u',  label:'Reglage de niveau des appuis',               phase:'Appuis' },
+  debitBois:   { h:0.10, unite:'u',  label:'Debit des bois de structure',                phase:'Structure' },
+  poseCadre:   { h:0.25, unite:'ml', label:'Pose du cadre peripherique',                 phase:'Structure' },
+  poseSolives: { h:0.15, unite:'ml', label:'Pose des solives',                           phase:'Structure' },
+  poseLamb:    { h:0.12, unite:'ml', label:'Pose des lambourdes',                        phase:'Structure' },
+  controle:    { h:0.05, unite:'m²', label:'Controle de niveau et de planeite',          phase:'Structure' },
+  debitLames:  { h:0.05, unite:'u',  label:'Debit des lames',                            phase:'Platelage' },
+  poseLames:   { h:0.35, unite:'m²', label:'Pose et fixation des lames',                 phase:'Platelage' },
+  coupeRive:   { h:0.15, unite:'ml', label:'Coupe de finition en rive',                  phase:'Platelage' },
+  poseRive:    { h:0.25, unite:'ml', label:'Pose de la lame de rive',                    phase:'Finitions' },
+  posePlat:    { h:0.20, unite:'ml', label:'Pose de la bordure a plat',                  phase:'Finitions' },
+  nettoyage:   { h:0.03, unite:'m²', label:'Nettoyage et evacuation des chutes',         phase:'Finitions' }
+};
+export const CHANTIER_PHASES = ['Preparation','Appuis','Structure','Platelage','Finitions'];
+export function cadenceDe(c, cle){
+  const v = c.cadences ? c.cadences[cle] : undefined;
+  return (v !== undefined && v !== null && isFinite(v) && v >= 0) ? v : CADENCES[cle].h;
+}
+// Les quantites viennent du projet, pas d'un forfait : c'est ce qui rend la duree discutable
+// ligne par ligne plutot qu'a prendre ou a laisser.
+export function computeChantier(obj, layers){
+  const c = ensureConstruction(obj);
+  const surf = shoelace(obj.pts) || 0;
+  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
+  const nbAppuis = layers.vis.length;
+  const debitL = computeDebitLames(obj, layers);
+  const groupes = computeDebitsBois(obj, layers);
+  const nbBarresBois = groupes.reduce((s,g)=>s + Object.keys(g.debit.achats).reduce((t,L)=>t+g.debit.achats[L],0), 0);
+  const nbBarresLames = Object.keys(debitL.achats).reduce((t,L)=>t+debitL.achats[L], 0);
+  const assise = computeAssise(c, surf, nbAppuis);
+  const perim = ml(layers.cadre);
+  const plots = estPlots(c);
+
+  const q = {
+    piquetage: surf,
+    decaissement: assise.concasseM3,
+    evacuation: assise.concasseM3,
+    geotextile: assise.geotextileM2,
+    concasse: assise.concasseM3,
+    dallesStab: assise.dallesU,
+    vissage: plots ? 0 : nbAppuis,
+    posePlots: plots ? nbAppuis : 0,
+    reglage: nbAppuis,
+    debitBois: nbBarresBois,
+    poseCadre: perim,
+    poseSolives: ml(layers.solives),
+    poseLamb: ml(layers.lambourdes),
+    controle: surf,
+    debitLames: nbBarresLames,
+    poseLames: surf,
+    coupeRive: perim,
+    poseRive: ml(layers.lameRive),
+    posePlat: ml(layers.lamePlat),
+    nettoyage: surf
+  };
+  const lignes = Object.keys(CADENCES)
+    .map(cle=>({ cle, ...CADENCES[cle], qte:q[cle]||0, cadence:cadenceDe(c,cle) }))
+    .filter(l=>l.qte > 1e-6)
+    .map(l=>({ ...l, heures: l.qte*l.cadence }));
+  const total = lignes.reduce((s,l)=>s+l.heures, 0);
+  // Le poste qui pese le plus : c'est lui qu'il faut attaquer pour raccourcir le chantier.
+  const dominant = lignes.slice().sort((a,b)=>b.heures-a.heures)[0] || null;
+  return { lignes, total, dominant, surf, nbAppuis };
+}

@@ -59,3 +59,4 @@ démonstration, dérouler dans l'ordre. Un point qui échoue bloque la fusion.
 |---|---|---|---|
 | 2026-08-28 | v1.0.0 — phase 0 | partiel | Points 1 à 8, 10, 16, 17 à 23 : non rejoués (gestes au pointeur et rendu visuel). Points 9, 11, 13, 14, 15, 24, 25 : vérifiés lors de la QA du 27 août et de la capture des fixtures. |
 | 2026-08-28 | v1.0.1-alpha.1 — phase 1 | partiel | Sur `dist/index.html` : points 9 (annuler ×5), 22 (vue 3D, canvas + three.js chargé), plus duplication, réinitialisation et les cinq onglets. Points 1 à 8, 10 à 21, 23 à 25 : non rejoués (gestes au pointeur, rendu visuel). Les six golden files sont identiques au bit près depuis le build. |
+| 2026-08-28 | v1.0.1-alpha.3 — phase 3 | partiel | Points 17 à 21 (configuration → BOM, débit, coupe, implantation, chantier) rejoués sur `dist/index.html` : chiffres affichés conformes à l'oracle (37 vis, 11,5 h). Points 1 à 16 et 22 à 25 : non rejoués. Golden files identiques. |

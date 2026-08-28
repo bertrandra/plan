@@ -1,0 +1,9193 @@
+{
+ "genereLe": "2026-08-28T12:29:28.032Z",
+ "source": "dist/index.html avant deplacement du moteur (phase 3)",
+ "objets": [
+  {
+   "key": "parcelle",
+   "type": "polygon",
+   "name": "Parcelle AE 101",
+   "fill": "#1b5e0d",
+   "fillOpacity": 1,
+   "stroke": "#3B2E1F",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "terrain",
+   "matiere": "",
+   "priority": 0,
+   "locked": true,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": true,
+   "clotureHauteur": 2,
+   "clotureCouleur": "#e19951",
+   "clotureTexture": {
+    "id": "oak_veneer_01",
+    "nom": "Oak Veneer 01",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg"
+   },
+   "textureArbre": null,
+   "latitude": 48.905189,
+   "longitude": 2.132811,
+   "nomLieu": "Le Vésinet",
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": {
+    "idu": "78650000AE0101",
+    "codeInsee": "78650",
+    "commune": "Le Vésinet",
+    "section": "AE",
+    "numero": "0101",
+    "contenanceM2": 716,
+    "source": "IGN/API Carto/PCI",
+    "recupereLe": "2026-08-27T10:19:24Z",
+    "adresse": "2 Allee des Limites 78110 Le Vesinet",
+    "origineLat": 48.9053664,
+    "origineLon": 2.1328776,
+    "simplifieM": 0,
+    "recale": {
+     "depuis": "plan dessine a la main",
+     "rotationDeg": 16.033,
+     "echelle": 1.004124,
+     "ecartMoyenM": 0.064
+    },
+    "geometrieSource": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        2.13260294,
+        48.90503255
+       ],
+       [
+        2.13249541,
+        48.90511613
+       ],
+       [
+        2.13287759,
+        48.9053664
+       ],
+       [
+        2.13303283,
+        48.90533406
+       ],
+       [
+        2.13297032,
+        48.90515545
+       ],
+       [
+        2.13288675,
+        48.90512787
+       ],
+       [
+        2.13260294,
+        48.90503255
+       ]
+      ]
+     ]
+    }
+   },
+   "bdtopo": null,
+   "plu": {
+    "zones": [
+     {
+      "libelle": "UFb",
+      "libelong": "Quartier residentiel a parcellaire plus resserre",
+      "typezone": "U",
+      "partition": "DU_78650",
+      "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf",
+      "nomfic": "78650_reglement_20251229.pdf",
+      "datappro": ""
+     }
+    ],
+    "prescriptions": [],
+    "informations": [
+     {
+      "libelle": "Droit de preemption urbain renforce",
+      "typeinf": "04",
+      "nomfic": "78650_info_surf_99_notice_20251229.pdf",
+      "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_info_surf_99_notice_20251229.pdf"
+     }
+    ],
+    "servitudes": [
+     {
+      "type": "AC2",
+      "nom": "Secteur résidentiel d'habitations individuelles de la commune",
+      "assiette": "Enceinte du site",
+      "forme": "surfacique",
+      "generateur": "Site",
+      "nature": "Inscrit",
+      "source": "BD-PARCELLAIRE",
+      "fichier": "AC2_SI6012_19700710_act.pdf",
+      "partition": "130029325_SUP_R11_AC2",
+      "urlreg": ""
+     },
+     {
+      "type": "AC4",
+      "nom": "Site patrimonial remarquable du Vésinet",
+      "assiette": "Périmètre du SPR",
+      "forme": "surfacique",
+      "generateur": "SPR",
+      "nature": "",
+      "source": "Plus précis que le cadastre",
+      "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+      "partition": "172014607_SUP_78_AC4",
+      "urlreg": ""
+     }
+    ],
+    "spr": [
+     {
+      "type": "AC4",
+      "nom": "Site patrimonial remarquable du Vésinet",
+      "assiette": "Périmètre du SPR",
+      "forme": "surfacique",
+      "generateur": "SPR",
+      "nature": "",
+      "source": "Plus précis que le cadastre",
+      "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+      "partition": "172014607_SUP_78_AC4",
+      "urlreg": ""
+     }
+    ],
+    "document": {
+     "nom": "78650_PLU_20251229",
+     "type": "PLU",
+     "partition": "DU_78650"
+    },
+    "commune": {
+     "nom": "LE VESINET",
+     "insee": "78650",
+     "rnu": false
+    },
+    "interrogeLe": "2026-08-27T10:43:05Z",
+    "lon": 2.132811,
+    "lat": 48.905189
+   },
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -20.135,
+     "y": -37.127
+    },
+    {
+     "x": -28.018,
+     "y": -27.832
+    },
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 11.381,
+     "y": -3.596
+    },
+    {
+     "x": 6.798,
+     "y": -23.459
+    },
+    {
+     "x": 0.672,
+     "y": -26.526
+    }
+   ],
+   "vertexNames": [
+    "Coin Sud",
+    "Coin Ouest",
+    "Coin Nord",
+    "Coin Est",
+    "Coin Sud-Est",
+    "Point 6"
+   ],
+   "segmentNames": [
+    "Sud-Ouest (rue)",
+    "Nord-Ouest (Aline)",
+    "Nord-Est (Babar)",
+    "Sud-Est (guitare)",
+    "Cote 5",
+    "Sud (Joel)"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "terrasse",
+   "type": "polygon",
+   "name": "Terrasse",
+   "fill": "#DDBC7E",
+   "fillOpacity": 0.68,
+   "stroke": "#8B6B3D",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": true,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "terrasse",
+   "matiere": "",
+   "priority": 1,
+   "locked": false,
+   "textureVerticale": {
+    "id": "teak_veneer",
+    "nom": "Teak Veneer",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "teak_veneer",
+    "nom": "Teak Veneer",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -2.6169,
+     "y": -2.5407
+    },
+    {
+     "x": -0.8835,
+     "y": -6.9272
+    },
+    {
+     "x": -3.5484,
+     "y": -7.9065
+    },
+    {
+     "x": -4.7495,
+     "y": -10.1162
+    },
+    {
+     "x": -7.5497,
+     "y": -11.5003
+    },
+    {
+     "x": -10.9945,
+     "y": -10.8692
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 5",
+    "Coin 3",
+    "Coin 6",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 5",
+    "Cote 3",
+    "Cote 6",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "construction": {
+    "typePose": "vis-fondation",
+    "hauteurVis": 40,
+    "depassementVis": 0,
+    "visModeAuto": true,
+    "chargeNormale": 250,
+    "chargeSpa": 500,
+    "kPortee": 25.8,
+    "kEntraxeLame": 18.5,
+    "coefRaideurLame": 1,
+    "jeuLames": 6,
+    "epaisseurLameRive": 22,
+    "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+    "chuteMinReutilisable": 50,
+    "jointsSurAppui": true,
+    "prixLongueurs": [],
+    "longueursBois": "5, 4, 3, 2.5, 2",
+    "prixLongueursBois": [],
+    "jointsBoisSurAppui": true,
+    "lambourdeSection": "45x70",
+    "longueursLambourde": "5, 4, 3, 2.5, 2",
+    "prixLongueursLambourde": [],
+    "prixVisUnite": 35,
+    "visParBoite": 1,
+    "hauteurPlot": 10,
+    "plotModele": "auto",
+    "plotEntraxe": 65,
+    "plotEntraxeAuto": true,
+    "plotAvecSolives": false,
+    "plotSurfaceAssise": 300,
+    "prixPlots": [],
+    "supportType": "concasse",
+    "supportDecaissement": 15,
+    "cadences": [],
+    "equipe": 2,
+    "heuresJour": 7,
+    "echelleImplant": 200,
+    "lames3dFilaire": false,
+    "vues3d": [
+     {
+      "nom": "vers terrasse",
+      "pos": {
+       "x": -7.56491,
+       "y": 1.695000000000002,
+       "z": 5.64849
+      },
+      "cible": {
+       "x": 0,
+       "y": 0,
+       "z": 0
+      }
+     },
+     {
+      "nom": "Fenetre",
+      "pos": {
+       "x": 0.69835,
+       "y": 1.7,
+       "z": 3.70067
+      },
+      "cible": {
+       "x": 0,
+       "y": 1.7,
+       "z": 0
+      }
+     },
+     {
+      "nom": "Entree",
+      "pos": {
+       "x": -15.88592,
+       "y": 1.695,
+       "z": 27.68098
+      },
+      "cible": {
+       "x": 0,
+       "y": 1.695,
+       "z": 0
+      }
+     },
+     {
+      "nom": "Arriere",
+      "pos": {
+       "x": 8.82492,
+       "y": 1.695,
+       "z": -3.37977
+      },
+      "cible": {
+       "x": 0,
+       "y": 1.695,
+       "z": 0
+      }
+     },
+     {
+      "nom": "Vue 5",
+      "pos": {
+       "x": -7.56491,
+       "y": 1.6950000000000025,
+       "z": 5.64849
+      },
+      "cible": {
+       "x": 0,
+       "y": 0,
+       "z": 0
+      }
+     }
+    ],
+    "visEntraxe": 100,
+    "visEntraxeZoneSpa": 60,
+    "visMargeZoneSpa": 30,
+    "soliveEntraxe": 65,
+    "soliveSection": "63x175",
+    "avecLambourde": true,
+    "lambourdeEntraxe": 45,
+    "sensPose": 0,
+    "segmentReference": 0,
+    "essenceBois": "pin-classe4",
+    "largeurLame": 140,
+    "epaisseurLame": 25,
+    "avecLameRive": true,
+    "hauteurLameRive": 270,
+    "avecLamePlat": true,
+    "bom": [
+     {
+      "poste": "vis",
+      "label": "Vis de fondation",
+      "qte": 37,
+      "unite": "u",
+      "prixBas": 25,
+      "prixHaut": 45,
+      "prixReel": 1295,
+      "calcule": "calcule — 35.00 € x 37"
+     },
+     {
+      "poste": "bois",
+      "label": "Cadre, solives (63x175) — barres achetees",
+      "qte": 92.5,
+      "unite": "ml",
+      "prixBas": 4,
+      "prixHaut": 7,
+      "prixReel": 508.75,
+      "calcule": "calcule — prix par longueur, debit 63x175"
+     },
+     {
+      "poste": "lambourde",
+      "label": "Lambourdes (45x70) — barres achetees",
+      "qte": 93,
+      "unite": "ml",
+      "prixBas": 4,
+      "prixHaut": 7,
+      "prixReel": 511.5,
+      "calcule": "calcule — prix par longueur, debit 45x70"
+     },
+     {
+      "poste": "lames",
+      "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+      "qte": 267.49999999999994,
+      "unite": "ml",
+      "prixBas": 3.5000000000000004,
+      "prixHaut": 5.6000000000000005,
+      "prixReel": 1217.54,
+      "calcule": "calcule — prix par longueur, debit des lames"
+     },
+     {
+      "poste": "visserie",
+      "label": "Visserie / fixations",
+      "qte": 34.71880026736693,
+      "unite": "m²",
+      "prixBas": 4,
+      "prixHaut": 6,
+      "prixReel": null
+     },
+     {
+      "poste": "lameRive",
+      "label": "Lame de rive (finition)",
+      "qte": 28.496314844329063,
+      "unite": "ml",
+      "prixBas": 10,
+      "prixHaut": 20,
+      "prixReel": null
+     }
+    ]
+   }
+  },
+  {
+   "key": "path1787319011372_6",
+   "type": "path",
+   "name": "Chemin Arrière",
+   "fill": "#c9a15a",
+   "fillOpacity": 1,
+   "stroke": "#c9a15a",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "chemin",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -1.2699,
+     "y": -24.5718
+    },
+    {
+     "x": 4.1481,
+     "y": -22.1896
+    },
+    {
+     "x": 7.4923,
+     "y": -12.2185
+    },
+    {
+     "x": 6.2254,
+     "y": -6.1929
+    },
+    {
+     "x": 0.9824,
+     "y": -5.6935
+    },
+    {
+     "x": 0.2281,
+     "y": -7.1854
+    },
+    {
+     "x": -2.9391,
+     "y": -8.4542
+    },
+    {
+     "x": -4.2248,
+     "y": -10.4067
+    },
+    {
+     "x": -6.6222,
+     "y": -11.8216
+    },
+    {
+     "x": -10.1267,
+     "y": -13.3882
+    },
+    {
+     "x": -10.6112,
+     "y": -15.9815
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Coin 6",
+    "Coin 3",
+    "Coin 4",
+    "Coin 5",
+    "Coin 7",
+    "Coin 11",
+    "Coin 8",
+    "Coin 10",
+    "Coin 9",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 6",
+    "Cote 3",
+    "Cote 4",
+    "Cote 5",
+    "Cote 7",
+    "Cote 11",
+    "Cote 8",
+    "Cote 10",
+    "Cote 9"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "width": 0.6025,
+   "curve": true
+  },
+  {
+   "key": "maison",
+   "type": "polygon",
+   "name": "Maison",
+   "fill": "#fdfaf7",
+   "fillOpacity": 0.88,
+   "stroke": "#7A4A2A",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "batiment",
+   "matiere": "",
+   "priority": 2,
+   "locked": true,
+   "elevation": 6,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -2.7612,
+     "y": -8.7789
+    },
+    {
+     "x": 4.8971,
+     "y": -6.4527
+    },
+    {
+     "x": 6.6161,
+     "y": -12.1437
+    },
+    {
+     "x": 1.5483,
+     "y": -13.7046
+    },
+    {
+     "x": 2.1,
+     "y": -15.4788
+    },
+    {
+     "x": 2.7479,
+     "y": -15.2613
+    },
+    {
+     "x": 3.9625,
+     "y": -19.4152
+    },
+    {
+     "x": 3.2511,
+     "y": -19.6301
+    },
+    {
+     "x": 3.5744,
+     "y": -20.864
+    },
+    {
+     "x": -5.4791,
+     "y": -23.5702
+    },
+    {
+     "x": -5.6483,
+     "y": -22.9816
+    },
+    {
+     "x": -6.295,
+     "y": -23.0943
+    },
+    {
+     "x": -9.2023,
+     "y": -13.3776
+    },
+    {
+     "x": -2.0706,
+     "y": -11.1819
+    }
+   ],
+   "vertexNames": [
+    "H0",
+    "H1",
+    "H5",
+    "H4",
+    "H6",
+    "H7",
+    "H9",
+    "H8",
+    "H13",
+    "H12",
+    "H11",
+    "H10",
+    "H2",
+    "H3"
+   ],
+   "segmentNames": [
+    "Facade Nord",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4",
+    "Cote 5",
+    "Cote 6",
+    "Cote 7",
+    "Cote 8",
+    "Cote 9",
+    "Cote 10",
+    "Cote 11",
+    "Cote 12",
+    "Retrait Nord",
+    "Cote 14"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "dalle",
+   "type": "polygon",
+   "name": "Dalle beton",
+   "fill": "#C7BFA9",
+   "fillOpacity": 0.9,
+   "stroke": "#5C5240",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "dalle",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "concrete_floor_02",
+    "nom": "Concrete Floor 02",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "concrete_floor_02",
+    "nom": "Concrete Floor 02",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 10.8273,
+     "y": -3.7884
+    },
+    {
+     "x": 5.5211,
+     "y": -2.2584
+    },
+    {
+     "x": 4.929,
+     "y": -4.3133
+    },
+    {
+     "x": 10.2352,
+     "y": -5.8433
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "abri",
+   "type": "polygon",
+   "name": "Abri de jardin",
+   "fill": "#A9BE8E",
+   "fillOpacity": 0.9,
+   "stroke": "#4A6B32",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "annexe",
+   "matiere": "",
+   "priority": 2,
+   "locked": true,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -0.7198,
+     "y": -4.1615
+    },
+    {
+     "x": -0.9114,
+     "y": -2.5606
+    },
+    {
+     "x": -1.6088,
+     "y": -1.6714
+    },
+    {
+     "x": -0.2216,
+     "y": -0.2384
+    },
+    {
+     "x": 2.2325,
+     "y": -0.9906
+    },
+    {
+     "x": 2.9174,
+     "y": -3.0359
+    }
+   ],
+   "vertexNames": [
+    "A1",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4",
+    "Cote 5",
+    "Cote 6"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "path1787318807161_2",
+   "type": "path",
+   "name": "Chemin ZigZag",
+   "fill": "#c9a15a",
+   "fillOpacity": 1,
+   "stroke": "#c9a15a",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "chemin",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -16.6217,
+     "y": -33.6337
+    },
+    {
+     "x": -15.221,
+     "y": -32.5356
+    },
+    {
+     "x": -12.871,
+     "y": -29.4885
+    },
+    {
+     "x": -8.7737,
+     "y": -29.2598
+    },
+    {
+     "x": -5.9115,
+     "y": -25.6456
+    },
+    {
+     "x": -1.4999,
+     "y": -25.1945
+    },
+    {
+     "x": -1.6262,
+     "y": -22.5007
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Coin 3",
+    "Coin 4",
+    "Coin 5",
+    "Coin 7",
+    "Coin 6",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 3",
+    "Cote 4",
+    "Cote 5",
+    "Cote 7",
+    "Cote 6"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "width": 0.5021,
+   "curve": true
+  },
+  {
+   "key": "spa",
+   "type": "circle",
+   "name": "Spa",
+   "fill": "#93BFCC",
+   "fillOpacity": 0.88,
+   "stroke": "#2A5A6B",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "equipement",
+   "matiere": "",
+   "priority": 5,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -3.4542,
+    "y": -5.6003
+   },
+   "r": 1.1045
+  },
+  {
+   "key": "table",
+   "type": "polygon",
+   "name": "Table",
+   "fill": "#713e0f",
+   "fillOpacity": 0.68,
+   "stroke": "#8B4A42",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "terrasse",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "teak_veneer",
+    "nom": "Teak Veneer",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "teak_veneer",
+    "nom": "Teak Veneer",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -15.8974,
+     "y": -17.154
+    },
+    {
+     "x": -18.031,
+     "y": -19.28
+    },
+    {
+     "x": -15.196,
+     "y": -22.1251
+    },
+    {
+     "x": -13.0626,
+     "y": -19.9981
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "construction": {
+    "typePose": "vis-fondation",
+    "hauteurVis": 40,
+    "depassementVis": 0,
+    "visModeAuto": true,
+    "chargeNormale": 250,
+    "chargeSpa": 500,
+    "kPortee": 25.8,
+    "kEntraxeLame": 18.5,
+    "coefRaideurLame": 1,
+    "jeuLames": 6,
+    "epaisseurLameRive": 22,
+    "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+    "chuteMinReutilisable": 50,
+    "jointsSurAppui": true,
+    "prixLongueurs": [],
+    "longueursBois": "5, 4, 3, 2.5, 2",
+    "prixLongueursBois": [],
+    "jointsBoisSurAppui": true,
+    "lambourdeSection": "45x70",
+    "longueursLambourde": "5, 4, 3, 2.5, 2",
+    "prixLongueursLambourde": [],
+    "prixVisUnite": 35,
+    "visParBoite": 1,
+    "hauteurPlot": 10,
+    "plotModele": "auto",
+    "plotEntraxe": 65,
+    "plotEntraxeAuto": true,
+    "plotAvecSolives": false,
+    "plotSurfaceAssise": 300,
+    "prixPlots": [],
+    "supportType": "concasse",
+    "supportDecaissement": 15,
+    "cadences": [],
+    "equipe": 2,
+    "heuresJour": 7,
+    "echelleImplant": 200,
+    "lames3dFilaire": false,
+    "vues3d": [],
+    "visEntraxe": 100,
+    "visEntraxeZoneSpa": 60,
+    "visMargeZoneSpa": 30,
+    "soliveEntraxe": 70,
+    "soliveSection": "63x175",
+    "avecLambourde": true,
+    "lambourdeEntraxe": 45,
+    "sensPose": 0,
+    "segmentReference": 0,
+    "essenceBois": "pin-classe4",
+    "largeurLame": 140,
+    "epaisseurLame": 25,
+    "avecLameRive": true,
+    "hauteurLameRive": 270,
+    "avecLamePlat": true,
+    "bom": [
+     {
+      "poste": "vis",
+      "label": "Vis de fondation",
+      "qte": 13,
+      "unite": "u",
+      "prixBas": 25,
+      "prixHaut": 45,
+      "prixReel": 455,
+      "calcule": "calcule — 35.00 € x 13"
+     },
+     {
+      "poste": "bois",
+      "label": "Cadre, solives (63x175) — barres achetees",
+      "qte": 31,
+      "unite": "ml",
+      "prixBas": 4,
+      "prixHaut": 7,
+      "prixReel": 170.5,
+      "calcule": "calcule — prix par longueur, debit 63x175"
+     },
+     {
+      "poste": "lambourde",
+      "label": "Lambourdes (45x70) — barres achetees",
+      "qte": 24,
+      "unite": "ml",
+      "prixBas": 4,
+      "prixHaut": 7,
+      "prixReel": 132,
+      "calcule": "calcule — prix par longueur, debit 45x70"
+     },
+     {
+      "poste": "lames",
+      "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+      "qte": 89.4,
+      "unite": "ml",
+      "prixBas": 3.5000000000000004,
+      "prixHaut": 5.6000000000000005,
+      "prixReel": 406.79,
+      "calcule": "calcule — prix par longueur, debit des lames"
+     },
+     {
+      "poste": "visserie",
+      "label": "Visserie / fixations",
+      "qte": 11.998120999999998,
+      "unite": "m²",
+      "prixBas": 4,
+      "prixHaut": 6,
+      "prixReel": null
+     },
+     {
+      "poste": "lameRive",
+      "label": "Lame de rive (finition)",
+      "qte": 14.08682724964751,
+      "unite": "ml",
+      "prixBas": 10,
+      "prixHaut": 20,
+      "prixReel": null
+     }
+    ]
+   }
+  },
+  {
+   "key": "obj1787318713220_1",
+   "type": "polygon",
+   "name": "Parking",
+   "fill": "#bcbcb8",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "autre",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.05,
+   "textureVerticale": {
+    "id": "beige_wall_001",
+    "nom": "Beige Wall 001",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "beige_wall_001",
+    "nom": "Beige Wall 001",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -20.4984,
+     "y": -36.6075
+    },
+    {
+     "x": -15.9351,
+     "y": -34.564
+    },
+    {
+     "x": -18.3463,
+     "y": -31.2955
+    },
+    {
+     "x": -22.9508,
+     "y": -33.6596
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "path1787318953347_3",
+   "type": "path",
+   "name": "Chemin Table",
+   "fill": "#c9a15a",
+   "fillOpacity": 1,
+   "stroke": "#c9a15a",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "chemin",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -14.1818,
+     "y": -18.8955
+    },
+    {
+     "x": -11.9587,
+     "y": -16.7627
+    },
+    {
+     "x": -9.7606,
+     "y": -15.421
+    },
+    {
+     "x": -8.7021,
+     "y": -15.091
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Coin 3",
+    "Coin 4",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "width": 0.5021,
+   "curve": true
+  },
+  {
+   "key": "path1787319000006_5",
+   "type": "path",
+   "name": "Chemin Buandrie",
+   "fill": "#c9a15a",
+   "fillOpacity": 1,
+   "stroke": "#c9a15a",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "chemin",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -4.0707,
+     "y": -10.4528
+    },
+    {
+     "x": -3.7545,
+     "y": -10.7555
+    },
+    {
+     "x": -2.2268,
+     "y": -10.519
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Coin 3",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 3"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false
+   ],
+   "width": 0.5021,
+   "curve": true
+  },
+  {
+   "key": "circle1787323958811_1",
+   "type": "circle",
+   "name": "Chêne",
+   "fill": "#198712",
+   "fillOpacity": 0.88,
+   "stroke": "#0a3d5c",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 4,
+   "textureVerticale": {
+    "id": "jolcham_oak_bark_01",
+    "nom": "Jolcham Oak Bark 01",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "bark_brown_02",
+    "nom": "Bark Brown 02",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/bark_brown_02.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "diametreArbre": 6,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -8.047,
+    "y": -23.1381
+   },
+   "r": 0.5523
+  },
+  {
+   "key": "circle1787324026450_2",
+   "type": "circle",
+   "name": "Erable",
+   "fill": "#574619",
+   "fillOpacity": 0.88,
+   "stroke": "#0a3d5c",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 2.5,
+   "textureVerticale": {
+    "id": "tree_bark_03",
+    "nom": "Tree Bark 03",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/tree_bark_03.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/tree_bark_03/tree_bark_03_diff_1k.jpg"
+   },
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "diametreArbre": 4,
+   "couleurArbre": "#2f4b26",
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -1.574,
+    "y": -2.8996
+   },
+   "r": 0.4016
+  },
+  {
+   "key": "path1787324582190_1",
+   "type": "path",
+   "name": "Abri de jardin Chemin",
+   "fill": "#c9a15a",
+   "fillOpacity": 1,
+   "stroke": "#c9a15a",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "chemin",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "textureVerticale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "pine_bark",
+    "nom": "Pine Bark",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 0.1897,
+     "y": -3.8719
+    },
+    {
+     "x": 0.8601,
+     "y": -5.6148
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.5021,
+   "curve": false
+  },
+  {
+   "key": "circle1787324912263_1",
+   "type": "circle",
+   "name": "Arbre Entrée",
+   "fill": "#258112",
+   "fillOpacity": 0.88,
+   "stroke": "#0a3d5c",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 2.5,
+   "textureVerticale": {
+    "id": "jolcham_oak_bark_01",
+    "nom": "Jolcham Oak Bark 01",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+   },
+   "textureHorizontale": {
+    "id": "jolcham_oak_bark_01",
+    "nom": "Jolcham Oak Bark 01",
+    "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+   },
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "diametreArbre": 3,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -18.6895,
+    "y": -31.0399
+   },
+   "r": 0.3012
+  },
+  {
+   "key": "path1787580286624_2",
+   "type": "path",
+   "name": "Coin entrant terrasse",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -11.2016,
+     "y": -13.2821
+    },
+    {
+     "x": -8.4731,
+     "y": -11.6016
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "path1787581252906_3",
+   "type": "path",
+   "name": "Arriere terrasse",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 2.3464,
+     "y": -4.9955
+    },
+    {
+     "x": 0.3388,
+     "y": -5.6158
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "path1787581272870_4",
+   "type": "path",
+   "name": "Fenetre cuisine",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -4.7536,
+     "y": -11.9143
+    },
+    {
+     "x": -5.2779,
+     "y": -10.4617
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "circle1787654712806_1",
+   "type": "circle",
+   "name": "Parasol 1",
+   "fill": "#7a9e6b",
+   "fillOpacity": 0.55,
+   "stroke": "#3f5c33",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "parasol",
+   "matiere": "",
+   "priority": 4,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "hauteurParasol": 2.2,
+   "terrasseLieeKey": "terrasse",
+   "matSurPerimetre": true,
+   "matDeporte": true,
+   "matAngleDeg": 346.033,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -7.144623434318644,
+    "y": -10.2140525895679
+   },
+   "r": 1.5062
+  },
+  {
+   "key": "circle1787654721763_2",
+   "type": "circle",
+   "name": "Parasol 2",
+   "fill": "#7a9e6b",
+   "fillOpacity": 0.55,
+   "stroke": "#3f5c33",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "parasol",
+   "matiere": "",
+   "priority": 4,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "hauteurParasol": 2.2,
+   "terrasseLieeKey": "table",
+   "matSurPerimetre": true,
+   "matDeporte": true,
+   "matAngleDeg": 346.033,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "center": {
+    "x": -15.804324990545062,
+    "y": -20.910774934260065
+   },
+   "r": 1.5062
+  },
+  {
+   "key": "path1787657679667_1",
+   "type": "path",
+   "name": "Entrée",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -20.4943,
+     "y": -35.5689
+    },
+    {
+     "x": -17.7016,
+     "y": -30.1994
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "path1787662991223_1",
+   "type": "path",
+   "name": "Robinet",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -23.5533,
+     "y": -26.2936
+    },
+    {
+     "x": -20.1353,
+     "y": -23.2897
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "path1787663085641_2",
+   "type": "path",
+   "name": "Chène",
+   "fill": "#c0392b",
+   "fillOpacity": 0.9,
+   "stroke": "#6b1f16",
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "camera",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "altitude": 1.6,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -7.3648,
+     "y": -26.1626
+    },
+    {
+     "x": -9.1774,
+     "y": -25.2715
+    }
+   ],
+   "vertexNames": [
+    "Position",
+    "Direction"
+   ],
+   "segmentNames": [
+    "Vise"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.0803,
+   "curve": false
+  },
+  {
+   "key": "obj1787734238284_1",
+   "type": "polygon",
+   "name": "Plattebande Rue",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -23.2549,
+     "y": -33.255
+    },
+    {
+     "x": -20.7764,
+     "y": -32.0224
+    },
+    {
+     "x": -26.0594,
+     "y": -25.9097
+    },
+    {
+     "x": -27.8959,
+     "y": -27.7671
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "obj1787734283270_4",
+   "type": "polygon",
+   "name": "Platebande Aline",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -25.471,
+     "y": -26.5696
+    },
+    {
+     "x": -11.0042,
+     "y": -12.2577
+    },
+    {
+     "x": -11.6876,
+     "y": -11.5471
+    },
+    {
+     "x": -26.0788,
+     "y": -25.8921
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "obj1787734358395_6",
+   "type": "polygon",
+   "name": "Platebande Joel",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -15.6395,
+     "y": -34.804
+    },
+    {
+     "x": 6.8523,
+     "y": -23.5209
+    },
+    {
+     "x": 6.4524,
+     "y": -22.5148
+    },
+    {
+     "x": -16.1469,
+     "y": -33.9598
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "obj1787734423634_7",
+   "type": "polygon",
+   "name": "Platebande Guitare ",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 5.9037,
+     "y": -21.9094
+    },
+    {
+     "x": 7.087,
+     "y": -22.0812
+    },
+    {
+     "x": 10.6722,
+     "y": -6.3111
+    },
+    {
+     "x": 9.5278,
+     "y": -6.1849
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "dup1787735066438_8",
+   "type": "polygon",
+   "name": "Platebande Cuisine Petit Salon",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -7.002,
+     "y": -23.2885
+    },
+    {
+     "x": -6.4204,
+     "y": -23.1213
+    },
+    {
+     "x": -8.6437,
+     "y": -15.3844
+    },
+    {
+     "x": -9.2254,
+     "y": -15.5516
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "key": "dup1787735282871_9",
+   "type": "polygon",
+   "name": "Plattebande Cuisine",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -9.4517,
+     "y": -14.9896
+    },
+    {
+     "x": -8.865,
+     "y": -14.821
+    },
+    {
+     "x": -9.2646,
+     "y": -13.4305
+    },
+    {
+     "x": -9.8513,
+     "y": -13.5991
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "key": "dup1787735336361_10",
+   "type": "polygon",
+   "name": "Platebande PEtit Salon Entree",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -5.2917,
+     "y": -24.1709
+    },
+    {
+     "x": -1.8075,
+     "y": -23.1696
+    },
+    {
+     "x": -1.976,
+     "y": -22.5834
+    },
+    {
+     "x": -5.4602,
+     "y": -23.5847
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "key": "dup1787735407953_11",
+   "type": "polygon",
+   "name": "Platebande Grand Salon Entree",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": -1.1631,
+     "y": -22.9534
+    },
+    {
+     "x": 3.7552,
+     "y": -21.4325
+    },
+    {
+     "x": 3.5437,
+     "y": -20.8885
+    },
+    {
+     "x": -1.3318,
+     "y": -22.3662
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "dup1787735490653_12",
+   "type": "polygon",
+   "name": "Platebande grand Salon Arriere",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 3.9357,
+     "y": -19.3753
+    },
+    {
+     "x": 4.5623,
+     "y": -19.11
+    },
+    {
+     "x": 3.5663,
+     "y": -15.0512
+    },
+    {
+     "x": 2.8327,
+     "y": -15.2408
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "dup1787735519516_13",
+   "type": "polygon",
+   "name": "Platebande Angle Grand Salon",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 3.7783,
+     "y": -21.2735
+    },
+    {
+     "x": 4.4886,
+     "y": -20.5582
+    },
+    {
+     "x": 4.4895,
+     "y": -19.3013
+    },
+    {
+     "x": 3.2859,
+     "y": -19.7159
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "key": "dup1787735589549_14",
+   "type": "polygon",
+   "name": "Platebande Grand Salon Clim",
+   "fill": "#3d6709",
+   "fillOpacity": 0.75,
+   "stroke": "#2a4d6e",
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": true,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "locked": false,
+   "elevation": 0.2,
+   "textureVerticale": null,
+   "textureHorizontale": null,
+   "hidden": false,
+   "clotureActive": false,
+   "clotureTexture": null,
+   "textureArbre": null,
+   "terrasseLieeKey": null,
+   "matSurPerimetre": false,
+   "matDeporte": false,
+   "cadastre": null,
+   "bdtopo": null,
+   "plu": null,
+   "ortho": null,
+   "affichage": null,
+   "voisinage": false,
+   "pts": [
+    {
+     "x": 2.1068,
+     "y": -15.464
+    },
+    {
+     "x": 3.5394,
+     "y": -15.0262
+    },
+    {
+     "x": 3.118,
+     "y": -13.2389
+    },
+    {
+     "x": 1.5579,
+     "y": -13.7116
+    }
+   ],
+   "vertexNames": [
+    "Coin 1",
+    "Coin 2",
+    "Coin 3",
+    "Coin 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ ],
+ "terrasses": [
+  {
+   "cle": "terrasse",
+   "entree": {
+    "key": "terrasse",
+    "name": "Terrasse",
+    "type": "polygon",
+    "pts": [
+     {
+      "x": -2.6169,
+      "y": -2.5407
+     },
+     {
+      "x": -0.8835,
+      "y": -6.9272
+     },
+     {
+      "x": -3.5484,
+      "y": -7.9065
+     },
+     {
+      "x": -4.7495,
+      "y": -10.1162
+     },
+     {
+      "x": -7.5497,
+      "y": -11.5003
+     },
+     {
+      "x": -10.9945,
+      "y": -10.8692
+     }
+    ],
+    "fonction": "terrasse",
+    "construction": {
+     "typePose": "vis-fondation",
+     "hauteurVis": 40,
+     "depassementVis": 0,
+     "visModeAuto": true,
+     "chargeNormale": 250,
+     "chargeSpa": 500,
+     "kPortee": 25.8,
+     "kEntraxeLame": 18.5,
+     "coefRaideurLame": 1,
+     "jeuLames": 6,
+     "epaisseurLameRive": 22,
+     "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+     "chuteMinReutilisable": 50,
+     "jointsSurAppui": true,
+     "prixLongueurs": [],
+     "longueursBois": "5, 4, 3, 2.5, 2",
+     "prixLongueursBois": [],
+     "jointsBoisSurAppui": true,
+     "lambourdeSection": "45x70",
+     "longueursLambourde": "5, 4, 3, 2.5, 2",
+     "prixLongueursLambourde": [],
+     "prixVisUnite": 35,
+     "visParBoite": 1,
+     "hauteurPlot": 10,
+     "plotModele": "auto",
+     "plotEntraxe": 65,
+     "plotEntraxeAuto": true,
+     "plotAvecSolives": false,
+     "plotSurfaceAssise": 300,
+     "prixPlots": [],
+     "supportType": "concasse",
+     "supportDecaissement": 15,
+     "cadences": [],
+     "equipe": 2,
+     "heuresJour": 7,
+     "echelleImplant": 200,
+     "lames3dFilaire": false,
+     "vues3d": [
+      {
+       "nom": "vers terrasse",
+       "pos": {
+        "x": -7.56491,
+        "y": 1.695000000000002,
+        "z": 5.64849
+       },
+       "cible": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+       }
+      },
+      {
+       "nom": "Fenetre",
+       "pos": {
+        "x": 0.69835,
+        "y": 1.7,
+        "z": 3.70067
+       },
+       "cible": {
+        "x": 0,
+        "y": 1.7,
+        "z": 0
+       }
+      },
+      {
+       "nom": "Entree",
+       "pos": {
+        "x": -15.88592,
+        "y": 1.695,
+        "z": 27.68098
+       },
+       "cible": {
+        "x": 0,
+        "y": 1.695,
+        "z": 0
+       }
+      },
+      {
+       "nom": "Arriere",
+       "pos": {
+        "x": 8.82492,
+        "y": 1.695,
+        "z": -3.37977
+       },
+       "cible": {
+        "x": 0,
+        "y": 1.695,
+        "z": 0
+       }
+      },
+      {
+       "nom": "Vue 5",
+       "pos": {
+        "x": -7.56491,
+        "y": 1.6950000000000025,
+        "z": 5.64849
+       },
+       "cible": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+       }
+      }
+     ],
+     "visEntraxe": 100,
+     "visEntraxeZoneSpa": 60,
+     "visMargeZoneSpa": 30,
+     "soliveEntraxe": 65,
+     "soliveSection": "63x175",
+     "avecLambourde": true,
+     "lambourdeEntraxe": 45,
+     "sensPose": 0,
+     "segmentReference": 0,
+     "essenceBois": "pin-classe4",
+     "largeurLame": 140,
+     "epaisseurLame": 25,
+     "avecLameRive": true,
+     "hauteurLameRive": 270,
+     "avecLamePlat": true,
+     "bom": [
+      {
+       "poste": "vis",
+       "label": "Vis de fondation",
+       "qte": 37,
+       "unite": "u",
+       "prixBas": 25,
+       "prixHaut": 45,
+       "prixReel": 1295,
+       "calcule": "calcule — 35.00 € x 37"
+      },
+      {
+       "poste": "bois",
+       "label": "Cadre, solives (63x175) — barres achetees",
+       "qte": 92.5,
+       "unite": "ml",
+       "prixBas": 4,
+       "prixHaut": 7,
+       "prixReel": 508.75,
+       "calcule": "calcule — prix par longueur, debit 63x175"
+      },
+      {
+       "poste": "lambourde",
+       "label": "Lambourdes (45x70) — barres achetees",
+       "qte": 93,
+       "unite": "ml",
+       "prixBas": 4,
+       "prixHaut": 7,
+       "prixReel": 511.5,
+       "calcule": "calcule — prix par longueur, debit 45x70"
+      },
+      {
+       "poste": "lames",
+       "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+       "qte": 267.49999999999994,
+       "unite": "ml",
+       "prixBas": 3.5000000000000004,
+       "prixHaut": 5.6000000000000005,
+       "prixReel": 1217.54,
+       "calcule": "calcule — prix par longueur, debit des lames"
+      },
+      {
+       "poste": "visserie",
+       "label": "Visserie / fixations",
+       "qte": 34.71880026736693,
+       "unite": "m²",
+       "prixBas": 4,
+       "prixHaut": 6,
+       "prixReel": null
+      },
+      {
+       "poste": "lameRive",
+       "label": "Lame de rive (finition)",
+       "qte": 28.496314844329063,
+       "unite": "ml",
+       "prixBas": 10,
+       "prixHaut": 20,
+       "prixReel": null
+      }
+     ]
+    }
+   },
+   "structure": {
+    "cadre": [
+     {
+      "a": {
+       "x": -2.628615548058667,
+       "y": -2.5967642596869567
+      },
+      "b": {
+       "x": -0.9246554837063317,
+       "y": -6.908764272541185
+      }
+     },
+     {
+      "a": {
+       "x": -0.9246554837063317,
+       "y": -6.908764272541185
+      },
+      "b": {
+       "x": -3.5704069363719384,
+       "y": -7.881027546058176
+      }
+     },
+     {
+      "a": {
+       "x": -3.5704069363719384,
+       "y": -7.881027546058176
+      },
+      "b": {
+       "x": -4.772407925447497,
+       "y": -10.09238512291294
+      }
+     },
+     {
+      "a": {
+       "x": -4.772407925447497,
+       "y": -10.09238512291294
+      },
+      "b": {
+       "x": -7.554295911332508,
+       "y": -11.467433748462346
+      }
+     },
+     {
+      "a": {
+       "x": -7.554295911332508,
+       "y": -11.467433748462346
+      },
+      "b": {
+       "x": -10.929572743068976,
+       "y": -10.849070647989492
+      }
+     },
+     {
+      "a": {
+       "x": -10.929572743068976,
+       "y": -10.849070647989492
+      },
+      "b": {
+       "x": -2.628615548058667,
+       "y": -2.5967642596869567
+      }
+     }
+    ],
+    "solives": [
+     {
+      "a": {
+       "x": -10.5017,
+       "y": -10.379288235294117
+      },
+      "b": {
+       "x": -10.254532310469079,
+       "y": -11.00476479588451
+      }
+     },
+     {
+      "a": {
+       "x": -10.008899999999999,
+       "y": -9.889376470588234
+      },
+      "b": {
+       "x": -9.514564620938154,
+       "y": -11.140329591769023
+      }
+     },
+     {
+      "a": {
+       "x": -9.5161,
+       "y": -9.399464705882353
+      },
+      "b": {
+       "x": -8.774596931407235,
+       "y": -11.275894387653533
+      }
+     },
+     {
+      "a": {
+       "x": -9.0233,
+       "y": -8.90955294117647
+      },
+      "b": {
+       "x": -8.034629241876313,
+       "y": -11.411459183538044
+      }
+     },
+     {
+      "a": {
+       "x": -8.5305,
+       "y": -8.419641176470588
+      },
+      "b": {
+       "x": -7.351783481291494,
+       "y": -11.40247261140474
+      }
+     },
+     {
+      "a": {
+       "x": -8.0377,
+       "y": -7.929729411764706
+      },
+      "b": {
+       "x": -6.777549163228706,
+       "y": -11.118636556969092
+      }
+     },
+     {
+      "a": {
+       "x": -7.544899999999999,
+       "y": -7.439817647058823
+      },
+      "b": {
+       "x": -6.203314845165917,
+       "y": -10.834800502533442
+      }
+     },
+     {
+      "a": {
+       "x": -7.052099999999999,
+       "y": -6.94990588235294
+      },
+      "b": {
+       "x": -5.6290805271031275,
+       "y": -10.550964448097792
+      }
+     },
+     {
+      "a": {
+       "x": -6.5592999999999995,
+       "y": -6.459994117647059
+      },
+      "b": {
+       "x": -5.05484620904034,
+       "y": -10.267128393662142
+      }
+     },
+     {
+      "a": {
+       "x": -6.0665,
+       "y": -5.970082352941176
+      },
+      "b": {
+       "x": -4.563391890134156,
+       "y": -9.773811281016936
+      }
+     },
+     {
+      "a": {
+       "x": -5.5737000000000005,
+       "y": -5.4801705882352945
+      },
+      "b": {
+       "x": -4.16594157541665,
+       "y": -9.042609915242835
+      }
+     },
+     {
+      "a": {
+       "x": -5.0809,
+       "y": -4.9902588235294125
+      },
+      "b": {
+       "x": -3.7684912606991414,
+       "y": -8.31140854946873
+      }
+     },
+     {
+      "a": {
+       "x": -4.5881,
+       "y": -4.500347058823531
+      },
+      "b": {
+       "x": -3.280940313628358,
+       "y": -7.808213658724999
+      }
+     },
+     {
+      "a": {
+       "x": -4.0953,
+       "y": -4.010435294117648
+      },
+      "b": {
+       "x": -2.681580235221269,
+       "y": -7.5879602440437495
+      }
+     },
+     {
+      "a": {
+       "x": -3.6025,
+       "y": -3.5205235294117663
+      },
+      "b": {
+       "x": -2.0822201568141794,
+       "y": -7.3677068293625
+      }
+     },
+     {
+      "a": {
+       "x": -3.1097,
+       "y": -3.0306117647058834
+      },
+      "b": {
+       "x": -1.4828600784070898,
+       "y": -7.14745341468125
+      }
+     }
+    ],
+    "lambourdes": [
+     {
+      "a": {
+       "x": -8.35775393166444,
+       "y": -11.352261554727871
+      },
+      "b": {
+       "x": -4.618109914966277,
+       "y": -9.874477686371643
+      }
+     },
+     {
+      "a": {
+       "x": -9.16580786332888,
+       "y": -11.204223109455743
+      },
+      "b": {
+       "x": -4.294583283348911,
+       "y": -9.279275956386718
+      }
+     },
+     {
+      "a": {
+       "x": -9.973861794993322,
+       "y": -11.056184664183613
+      },
+      "b": {
+       "x": -3.9710566517315433,
+       "y": -8.68407422640179
+      }
+     },
+     {
+      "a": {
+       "x": -10.781915726657763,
+       "y": -10.908146218911485
+      },
+      "b": {
+       "x": -3.6475300201141767,
+       "y": -8.088872496416865
+      }
+     },
+     {
+      "a": {
+       "x": -10.41951135902994,
+       "y": -10.297581291023784
+      },
+      "b": {
+       "x": -1.0195118255723434,
+       "y": -6.5830117728896465
+      }
+     },
+     {
+      "a": {
+       "x": -9.639250223126947,
+       "y": -9.521893161921405
+      },
+      "b": {
+       "x": -1.1792506430151093,
+       "y": -6.178780595600682
+      }
+     },
+     {
+      "a": {
+       "x": -8.858989087223952,
+       "y": -8.746205032819027
+      },
+      "b": {
+       "x": -1.3389894604578751,
+       "y": -5.774549418311717
+      }
+     },
+     {
+      "a": {
+       "x": -8.078727951320959,
+       "y": -7.970516903716649
+      },
+      "b": {
+       "x": -1.4987282779006401,
+       "y": -5.370318241022753
+      }
+     },
+     {
+      "a": {
+       "x": -7.298466815417962,
+       "y": -7.194828774614269
+      },
+      "b": {
+       "x": -1.658467095343406,
+       "y": -4.966087063733788
+      }
+     },
+     {
+      "a": {
+       "x": -6.518205679514968,
+       "y": -6.419140645511892
+      },
+      "b": {
+       "x": -1.818205912786171,
+       "y": -4.561855886444823
+      }
+     },
+     {
+      "a": {
+       "x": -5.737944543611976,
+       "y": -5.643452516409514
+      },
+      "b": {
+       "x": -1.9779447302289368,
+       "y": -4.15762470915586
+      }
+     },
+     {
+      "a": {
+       "x": -4.957683407708978,
+       "y": -4.867764387307132
+      },
+      "b": {
+       "x": -2.1376835476717027,
+       "y": -3.7533935318668927
+      }
+     },
+     {
+      "a": {
+       "x": -4.177422271805986,
+       "y": -4.092076258204756
+      },
+      "b": {
+       "x": -2.2974223651144676,
+       "y": -3.3491623545779285
+      }
+     },
+     {
+      "a": {
+       "x": -3.39716113590299,
+       "y": -3.316388129102376
+      },
+      "b": {
+       "x": -2.4571611825572335,
+       "y": -2.9449311772889635
+      }
+     }
+    ],
+    "solivesSpa": [],
+    "portees": [
+     {
+      "a": {
+       "x": -10.5017,
+       "y": -10.379288235294117
+      },
+      "b": {
+       "x": -10.254532310469079,
+       "y": -11.00476479588451
+      }
+     },
+     {
+      "a": {
+       "x": -10.008899999999999,
+       "y": -9.889376470588234
+      },
+      "b": {
+       "x": -9.514564620938154,
+       "y": -11.140329591769023
+      }
+     },
+     {
+      "a": {
+       "x": -9.5161,
+       "y": -9.399464705882353
+      },
+      "b": {
+       "x": -8.774596931407235,
+       "y": -11.275894387653533
+      }
+     },
+     {
+      "a": {
+       "x": -9.0233,
+       "y": -8.90955294117647
+      },
+      "b": {
+       "x": -8.034629241876313,
+       "y": -11.411459183538044
+      }
+     },
+     {
+      "a": {
+       "x": -8.5305,
+       "y": -8.419641176470588
+      },
+      "b": {
+       "x": -7.351783481291494,
+       "y": -11.40247261140474
+      }
+     },
+     {
+      "a": {
+       "x": -8.0377,
+       "y": -7.929729411764706
+      },
+      "b": {
+       "x": -6.777549163228706,
+       "y": -11.118636556969092
+      }
+     },
+     {
+      "a": {
+       "x": -7.544899999999999,
+       "y": -7.439817647058823
+      },
+      "b": {
+       "x": -6.203314845165917,
+       "y": -10.834800502533442
+      }
+     },
+     {
+      "a": {
+       "x": -7.052099999999999,
+       "y": -6.94990588235294
+      },
+      "b": {
+       "x": -5.6290805271031275,
+       "y": -10.550964448097792
+      }
+     },
+     {
+      "a": {
+       "x": -6.5592999999999995,
+       "y": -6.459994117647059
+      },
+      "b": {
+       "x": -5.05484620904034,
+       "y": -10.267128393662142
+      }
+     },
+     {
+      "a": {
+       "x": -6.0665,
+       "y": -5.970082352941176
+      },
+      "b": {
+       "x": -4.563391890134156,
+       "y": -9.773811281016936
+      }
+     },
+     {
+      "a": {
+       "x": -5.5737000000000005,
+       "y": -5.4801705882352945
+      },
+      "b": {
+       "x": -4.16594157541665,
+       "y": -9.042609915242835
+      }
+     },
+     {
+      "a": {
+       "x": -5.0809,
+       "y": -4.9902588235294125
+      },
+      "b": {
+       "x": -3.7684912606991414,
+       "y": -8.31140854946873
+      }
+     },
+     {
+      "a": {
+       "x": -4.5881,
+       "y": -4.500347058823531
+      },
+      "b": {
+       "x": -3.280940313628358,
+       "y": -7.808213658724999
+      }
+     },
+     {
+      "a": {
+       "x": -4.0953,
+       "y": -4.010435294117648
+      },
+      "b": {
+       "x": -2.681580235221269,
+       "y": -7.5879602440437495
+      }
+     },
+     {
+      "a": {
+       "x": -3.6025,
+       "y": -3.5205235294117663
+      },
+      "b": {
+       "x": -2.0822201568141794,
+       "y": -7.3677068293625
+      }
+     },
+     {
+      "a": {
+       "x": -3.1097,
+       "y": -3.0306117647058834
+      },
+      "b": {
+       "x": -1.4828600784070898,
+       "y": -7.14745341468125
+      }
+     }
+    ],
+    "plotSimple": false,
+    "soliveAngle": -68.43770408643601,
+    "lamesAngle": -68.43770408643601,
+    "cadreOff": 0.0315,
+    "soliveW": 0.063
+   },
+   "layers": {
+    "vis": [
+     {
+      "x": -4.860375484104428,
+      "y": -5.54831281509277,
+      "role": "spa"
+     },
+     {
+      "x": -4.443807047327438,
+      "y": -6.602470798202422,
+      "role": "spa"
+     },
+     {
+      "x": -4.516699068705436,
+      "y": -4.681032523876953,
+      "role": "spa"
+     },
+     {
+      "x": -4.059084135978687,
+      "y": -5.839061774139954,
+      "role": "spa"
+     },
+     {
+      "x": -3.6014692032519378,
+      "y": -6.9970910244029545,
+      "role": "spa"
+     },
+     {
+      "x": -3.982906133727698,
+      "y": -4.294856486227635,
+      "role": "spa"
+     },
+     {
+      "x": -3.465333150142413,
+      "y": -5.604614125835836,
+      "role": "spa"
+     },
+     {
+      "x": -2.947760166557128,
+      "y": -6.914371765444035,
+      "role": "spa"
+     },
+     {
+      "x": -3.3336464866530284,
+      "y": -4.20087770980665,
+      "role": "spa"
+     },
+     {
+      "x": -2.871339144728032,
+      "y": -5.37078145698214,
+      "role": "spa"
+     },
+     {
+      "x": -2.409031802803036,
+      "y": -6.54068520415763,
+      "role": "spa"
+     },
+     {
+      "x": -2.5041139817977767,
+      "y": -4.563093055143205,
+      "role": "spa"
+     },
+     {
+      "x": -2.053147198930994,
+      "y": -5.704298658607577,
+      "role": "spa"
+     },
+     {
+      "x": -2.628615548058667,
+      "y": -2.5967642596869567,
+      "role": "rive"
+     },
+     {
+      "x": -2.0606288599412217,
+      "y": -4.034097597305033,
+      "role": "rive"
+     },
+     {
+      "x": -1.4926421718237768,
+      "y": -5.471430934923109,
+      "role": "rive"
+     },
+     {
+      "x": -0.9246554837063317,
+      "y": -6.908764272541185,
+      "role": "rive"
+     },
+     {
+      "x": -2.247531210039135,
+      "y": -7.394895909299681,
+      "role": "rive"
+     },
+     {
+      "x": -3.5704069363719384,
+      "y": -7.881027546058176,
+      "role": "rive"
+     },
+     {
+      "x": -4.171407430909717,
+      "y": -8.986706334485557,
+      "role": "rive"
+     },
+     {
+      "x": -4.772407925447497,
+      "y": -10.09238512291294,
+      "role": "rive"
+     },
+     {
+      "x": -6.163351918390003,
+      "y": -10.779909435687642,
+      "role": "rive"
+     },
+     {
+      "x": -7.554295911332508,
+      "y": -11.467433748462346,
+      "role": "rive"
+     },
+     {
+      "x": -9.241934327200742,
+      "y": -11.15825219822592,
+      "role": "rive"
+     },
+     {
+      "x": -10.929572743068976,
+      "y": -10.849070647989492,
+      "role": "rive"
+     },
+     {
+      "x": -9.546079877233923,
+      "y": -9.47368624993907,
+      "role": "rive"
+     },
+     {
+      "x": -8.162587011398873,
+      "y": -8.098301851888648,
+      "role": "rive"
+     },
+     {
+      "x": -6.779094145563821,
+      "y": -6.722917453838225,
+      "role": "rive"
+     },
+     {
+      "x": -5.39560127972877,
+      "y": -5.347533055787802,
+      "role": "rive"
+     },
+     {
+      "x": -8.528964620938158,
+      "y": -10.160506062357257,
+      "role": "courant"
+     },
+     {
+      "x": -7.941141740645747,
+      "y": -9.911056893937664,
+      "role": "courant"
+     },
+     {
+      "x": -7.407624581614352,
+      "y": -9.524182984366899,
+      "role": "courant"
+     },
+     {
+      "x": -6.8741074225829575,
+      "y": -9.137309074796132,
+      "role": "courant"
+     },
+     {
+      "x": -6.340590263551563,
+      "y": -8.750435165225365,
+      "role": "courant"
+     },
+     {
+      "x": -5.807073104520169,
+      "y": -8.3635612556546,
+      "role": "courant"
+     },
+     {
+      "x": -5.314945945067078,
+      "y": -7.871946816979056,
+      "role": "courant"
+     },
+     {
+      "x": -4.869820787708325,
+      "y": -7.261390251739065,
+      "role": "courant"
+     }
+    ],
+    "cadre": [
+     {
+      "a": {
+       "x": -2.628615548058667,
+       "y": -2.5967642596869567
+      },
+      "b": {
+       "x": -0.9246554837063317,
+       "y": -6.908764272541185
+      }
+     },
+     {
+      "a": {
+       "x": -0.9246554837063317,
+       "y": -6.908764272541185
+      },
+      "b": {
+       "x": -3.5704069363719384,
+       "y": -7.881027546058176
+      }
+     },
+     {
+      "a": {
+       "x": -3.5704069363719384,
+       "y": -7.881027546058176
+      },
+      "b": {
+       "x": -4.772407925447497,
+       "y": -10.09238512291294
+      }
+     },
+     {
+      "a": {
+       "x": -4.772407925447497,
+       "y": -10.09238512291294
+      },
+      "b": {
+       "x": -7.554295911332508,
+       "y": -11.467433748462346
+      }
+     },
+     {
+      "a": {
+       "x": -7.554295911332508,
+       "y": -11.467433748462346
+      },
+      "b": {
+       "x": -10.929572743068976,
+       "y": -10.849070647989492
+      }
+     },
+     {
+      "a": {
+       "x": -10.929572743068976,
+       "y": -10.849070647989492
+      },
+      "b": {
+       "x": -2.628615548058667,
+       "y": -2.5967642596869567
+      }
+     }
+    ],
+    "solives": [
+     {
+      "a": {
+       "x": -10.5017,
+       "y": -10.379288235294117
+      },
+      "b": {
+       "x": -10.254532310469079,
+       "y": -11.00476479588451
+      }
+     },
+     {
+      "a": {
+       "x": -10.008899999999999,
+       "y": -9.889376470588234
+      },
+      "b": {
+       "x": -9.514564620938154,
+       "y": -11.140329591769023
+      }
+     },
+     {
+      "a": {
+       "x": -9.5161,
+       "y": -9.399464705882353
+      },
+      "b": {
+       "x": -8.774596931407235,
+       "y": -11.275894387653533
+      }
+     },
+     {
+      "a": {
+       "x": -9.0233,
+       "y": -8.90955294117647
+      },
+      "b": {
+       "x": -8.034629241876313,
+       "y": -11.411459183538044
+      }
+     },
+     {
+      "a": {
+       "x": -8.5305,
+       "y": -8.419641176470588
+      },
+      "b": {
+       "x": -7.351783481291494,
+       "y": -11.40247261140474
+      }
+     },
+     {
+      "a": {
+       "x": -8.0377,
+       "y": -7.929729411764706
+      },
+      "b": {
+       "x": -6.777549163228706,
+       "y": -11.118636556969092
+      }
+     },
+     {
+      "a": {
+       "x": -7.544899999999999,
+       "y": -7.439817647058823
+      },
+      "b": {
+       "x": -6.203314845165917,
+       "y": -10.834800502533442
+      }
+     },
+     {
+      "a": {
+       "x": -7.052099999999999,
+       "y": -6.94990588235294
+      },
+      "b": {
+       "x": -5.6290805271031275,
+       "y": -10.550964448097792
+      }
+     },
+     {
+      "a": {
+       "x": -6.5592999999999995,
+       "y": -6.459994117647059
+      },
+      "b": {
+       "x": -5.05484620904034,
+       "y": -10.267128393662142
+      }
+     },
+     {
+      "a": {
+       "x": -6.0665,
+       "y": -5.970082352941176
+      },
+      "b": {
+       "x": -4.563391890134156,
+       "y": -9.773811281016936
+      }
+     },
+     {
+      "a": {
+       "x": -5.5737000000000005,
+       "y": -5.4801705882352945
+      },
+      "b": {
+       "x": -4.16594157541665,
+       "y": -9.042609915242835
+      }
+     },
+     {
+      "a": {
+       "x": -5.0809,
+       "y": -4.9902588235294125
+      },
+      "b": {
+       "x": -3.7684912606991414,
+       "y": -8.31140854946873
+      }
+     },
+     {
+      "a": {
+       "x": -4.5881,
+       "y": -4.500347058823531
+      },
+      "b": {
+       "x": -3.280940313628358,
+       "y": -7.808213658724999
+      }
+     },
+     {
+      "a": {
+       "x": -4.0953,
+       "y": -4.010435294117648
+      },
+      "b": {
+       "x": -2.681580235221269,
+       "y": -7.5879602440437495
+      }
+     },
+     {
+      "a": {
+       "x": -3.6025,
+       "y": -3.5205235294117663
+      },
+      "b": {
+       "x": -2.0822201568141794,
+       "y": -7.3677068293625
+      }
+     },
+     {
+      "a": {
+       "x": -3.1097,
+       "y": -3.0306117647058834
+      },
+      "b": {
+       "x": -1.4828600784070898,
+       "y": -7.14745341468125
+      }
+     }
+    ],
+    "lambourdes": [
+     {
+      "a": {
+       "x": -8.35775393166444,
+       "y": -11.352261554727871
+      },
+      "b": {
+       "x": -4.618109914966277,
+       "y": -9.874477686371643
+      }
+     },
+     {
+      "a": {
+       "x": -9.16580786332888,
+       "y": -11.204223109455743
+      },
+      "b": {
+       "x": -4.294583283348911,
+       "y": -9.279275956386718
+      }
+     },
+     {
+      "a": {
+       "x": -9.973861794993322,
+       "y": -11.056184664183613
+      },
+      "b": {
+       "x": -3.9710566517315433,
+       "y": -8.68407422640179
+      }
+     },
+     {
+      "a": {
+       "x": -10.781915726657763,
+       "y": -10.908146218911485
+      },
+      "b": {
+       "x": -3.6475300201141767,
+       "y": -8.088872496416865
+      }
+     },
+     {
+      "a": {
+       "x": -10.41951135902994,
+       "y": -10.297581291023784
+      },
+      "b": {
+       "x": -1.0195118255723434,
+       "y": -6.5830117728896465
+      }
+     },
+     {
+      "a": {
+       "x": -9.639250223126947,
+       "y": -9.521893161921405
+      },
+      "b": {
+       "x": -1.1792506430151093,
+       "y": -6.178780595600682
+      }
+     },
+     {
+      "a": {
+       "x": -8.858989087223952,
+       "y": -8.746205032819027
+      },
+      "b": {
+       "x": -1.3389894604578751,
+       "y": -5.774549418311717
+      }
+     },
+     {
+      "a": {
+       "x": -8.078727951320959,
+       "y": -7.970516903716649
+      },
+      "b": {
+       "x": -1.4987282779006401,
+       "y": -5.370318241022753
+      }
+     },
+     {
+      "a": {
+       "x": -7.298466815417962,
+       "y": -7.194828774614269
+      },
+      "b": {
+       "x": -1.658467095343406,
+       "y": -4.966087063733788
+      }
+     },
+     {
+      "a": {
+       "x": -6.518205679514968,
+       "y": -6.419140645511892
+      },
+      "b": {
+       "x": -1.818205912786171,
+       "y": -4.561855886444823
+      }
+     },
+     {
+      "a": {
+       "x": -5.737944543611976,
+       "y": -5.643452516409514
+      },
+      "b": {
+       "x": -1.9779447302289368,
+       "y": -4.15762470915586
+      }
+     },
+     {
+      "a": {
+       "x": -4.957683407708978,
+       "y": -4.867764387307132
+      },
+      "b": {
+       "x": -2.1376835476717027,
+       "y": -3.7533935318668927
+      }
+     },
+     {
+      "a": {
+       "x": -4.177422271805986,
+       "y": -4.092076258204756
+      },
+      "b": {
+       "x": -2.2974223651144676,
+       "y": -3.3491623545779285
+      }
+     },
+     {
+      "a": {
+       "x": -3.39716113590299,
+       "y": -3.316388129102376
+      },
+      "b": {
+       "x": -2.4571611825572335,
+       "y": -2.9449311772889635
+      }
+     }
+    ],
+    "lames": [
+     {
+      "a": {
+       "x": -10.689732385634766,
+       "y": -10.763629143213981
+      },
+      "b": {
+       "x": -10.681606131925873,
+       "y": -10.784193243764378
+      }
+     },
+     {
+      "a": {
+       "x": -10.577023903178572,
+       "y": -10.651581230191589
+      },
+      "b": {
+       "x": -10.51236782966604,
+       "y": -10.815198321724253
+      }
+     },
+     {
+      "a": {
+       "x": -10.464315420722379,
+       "y": -10.539533317169193
+      },
+      "b": {
+       "x": -10.343129527406207,
+       "y": -10.846203399684128
+      }
+     },
+     {
+      "a": {
+       "x": -10.351606938266185,
+       "y": -10.427485404146799
+      },
+      "b": {
+       "x": -10.173891225146372,
+       "y": -10.877208477644006
+      }
+     },
+     {
+      "a": {
+       "x": -10.238898455809991,
+       "y": -10.315437491124404
+      },
+      "b": {
+       "x": -10.004652922886539,
+       "y": -10.908213555603881
+      }
+     },
+     {
+      "a": {
+       "x": -10.126189973353798,
+       "y": -10.20338957810201
+      },
+      "b": {
+       "x": -9.835414620626704,
+       "y": -10.939218633563758
+      }
+     },
+     {
+      "a": {
+       "x": -10.013481490897604,
+       "y": -10.091341665079618
+      },
+      "b": {
+       "x": -9.666176318366873,
+       "y": -10.970223711523634
+      }
+     },
+     {
+      "a": {
+       "x": -9.900773008441409,
+       "y": -9.979293752057222
+      },
+      "b": {
+       "x": -9.496938016107036,
+       "y": -11.001228789483509
+      }
+     },
+     {
+      "a": {
+       "x": -9.788064525985217,
+       "y": -9.867245839034828
+      },
+      "b": {
+       "x": -9.327699713847203,
+       "y": -11.032233867443386
+      }
+     },
+     {
+      "a": {
+       "x": -9.675356043529023,
+       "y": -9.755197926012434
+      },
+      "b": {
+       "x": -9.15846141158737,
+       "y": -11.063238945403262
+      }
+     },
+     {
+      "a": {
+       "x": -9.562647561072827,
+       "y": -9.64315001299004
+      },
+      "b": {
+       "x": -8.989223109327535,
+       "y": -11.094244023363137
+      }
+     },
+     {
+      "a": {
+       "x": -9.449939078616636,
+       "y": -9.531102099967647
+      },
+      "b": {
+       "x": -8.819984807067703,
+       "y": -11.125249101323014
+      }
+     },
+     {
+      "a": {
+       "x": -9.33723059616044,
+       "y": -9.419054186945251
+      },
+      "b": {
+       "x": -8.650746504807866,
+       "y": -11.15625417928289
+      }
+     },
+     {
+      "a": {
+       "x": -9.224522113704248,
+       "y": -9.307006273922859
+      },
+      "b": {
+       "x": -8.481508202548035,
+       "y": -11.187259257242765
+      }
+     },
+     {
+      "a": {
+       "x": -9.111813631248053,
+       "y": -9.194958360900463
+      },
+      "b": {
+       "x": -8.3122699002882,
+       "y": -11.218264335202642
+      }
+     },
+     {
+      "a": {
+       "x": -8.999105148791859,
+       "y": -9.082910447878069
+      },
+      "b": {
+       "x": -8.143031598028367,
+       "y": -11.249269413162517
+      }
+     },
+     {
+      "a": {
+       "x": -8.886396666335665,
+       "y": -8.970862534855675
+      },
+      "b": {
+       "x": -7.973793295768532,
+       "y": -11.280274491122395
+      }
+     },
+     {
+      "a": {
+       "x": -8.773688183879472,
+       "y": -8.85881462183328
+      },
+      "b": {
+       "x": -7.804554993508698,
+       "y": -11.31127956908227
+      }
+     },
+     {
+      "a": {
+       "x": -8.66097970142328,
+       "y": -8.746766708810888
+      },
+      "b": {
+       "x": -7.635316691248866,
+       "y": -11.342284647042145
+      }
+     },
+     {
+      "a": {
+       "x": -8.548271218967084,
+       "y": -8.634718795788492
+      },
+      "b": {
+       "x": -7.489382388321848,
+       "y": -11.314317189480272
+      }
+     },
+     {
+      "a": {
+       "x": -8.43556273651089,
+       "y": -8.522670882766098
+      },
+      "b": {
+       "x": -7.358049030847976,
+       "y": -11.249400933470135
+      }
+     },
+     {
+      "a": {
+       "x": -8.322854254054697,
+       "y": -8.410622969743704
+      },
+      "b": {
+       "x": -7.226715673374104,
+       "y": -11.184484677459997
+      }
+     },
+     {
+      "a": {
+       "x": -8.210145771598503,
+       "y": -8.29857505672131
+      },
+      "b": {
+       "x": -7.095382315900231,
+       "y": -11.11956842144986
+      }
+     },
+     {
+      "a": {
+       "x": -8.09743728914231,
+       "y": -8.186527143698916
+      },
+      "b": {
+       "x": -6.964048958426359,
+       "y": -11.054652165439723
+      }
+     },
+     {
+      "a": {
+       "x": -7.984728806686116,
+       "y": -8.074479230676522
+      },
+      "b": {
+       "x": -6.832715600952487,
+       "y": -10.989735909429585
+      }
+     },
+     {
+      "a": {
+       "x": -7.872020324229922,
+       "y": -7.9624313176541275
+      },
+      "b": {
+       "x": -6.701382243478615,
+       "y": -10.924819653419448
+      }
+     },
+     {
+      "a": {
+       "x": -7.759311841773728,
+       "y": -7.850383404631733
+      },
+      "b": {
+       "x": -6.570048886004743,
+       "y": -10.859903397409312
+      }
+     },
+     {
+      "a": {
+       "x": -7.646603359317535,
+       "y": -7.738335491609339
+      },
+      "b": {
+       "x": -6.438715528530871,
+       "y": -10.794987141399174
+      }
+     },
+     {
+      "a": {
+       "x": -7.53389487686134,
+       "y": -7.626287578586945
+      },
+      "b": {
+       "x": -6.307382171056998,
+       "y": -10.730070885389036
+      }
+     },
+     {
+      "a": {
+       "x": -7.421186394405146,
+       "y": -7.51423966556455
+      },
+      "b": {
+       "x": -6.176048813583126,
+       "y": -10.665154629378899
+      }
+     },
+     {
+      "a": {
+       "x": -7.308477911948953,
+       "y": -7.402191752542157
+      },
+      "b": {
+       "x": -6.044715456109254,
+       "y": -10.60023837336876
+      }
+     },
+     {
+      "a": {
+       "x": -7.195769429492759,
+       "y": -7.290143839519763
+      },
+      "b": {
+       "x": -5.913382098635382,
+       "y": -10.535322117358625
+      }
+     },
+     {
+      "a": {
+       "x": -7.083060947036565,
+       "y": -7.1780959264973685
+      },
+      "b": {
+       "x": -5.7820487411615105,
+       "y": -10.470405861348487
+      }
+     },
+     {
+      "a": {
+       "x": -6.970352464580372,
+       "y": -7.0660480134749735
+      },
+      "b": {
+       "x": -5.650715383687638,
+       "y": -10.40548960533835
+      }
+     },
+     {
+      "a": {
+       "x": -6.857643982124178,
+       "y": -6.95400010045258
+      },
+      "b": {
+       "x": -5.519382026213766,
+       "y": -10.340573349328212
+      }
+     },
+     {
+      "a": {
+       "x": -6.744935499667984,
+       "y": -6.841952187430186
+      },
+      "b": {
+       "x": -5.388048668739894,
+       "y": -10.275657093318074
+      }
+     },
+     {
+      "a": {
+       "x": -6.6322270172117905,
+       "y": -6.729904274407792
+      },
+      "b": {
+       "x": -5.2567153112660225,
+       "y": -10.210740837307938
+      }
+     },
+     {
+      "a": {
+       "x": -6.519518534755597,
+       "y": -6.617856361385397
+      },
+      "b": {
+       "x": -5.12538195379215,
+       "y": -10.1458245812978
+      }
+     },
+     {
+      "a": {
+       "x": -6.406810052299402,
+       "y": -6.505808448363004
+      },
+      "b": {
+       "x": -4.994048596318278,
+       "y": -10.080908325287663
+      }
+     },
+     {
+      "a": {
+       "x": -6.294101569843209,
+       "y": -6.393760535340609
+      },
+      "b": {
+       "x": -4.862715238844405,
+       "y": -10.015992069277525
+      }
+     },
+     {
+      "a": {
+       "x": -6.181393087387015,
+       "y": -6.281712622318214
+      },
+      "b": {
+       "x": -4.768303923404038,
+       "y": -9.857641789164484
+      }
+     },
+     {
+      "a": {
+       "x": -6.068684604930821,
+       "y": -6.169664709295821
+      },
+      "b": {
+       "x": -4.6774029050932695,
+       "y": -9.690408436270216
+      }
+     },
+     {
+      "a": {
+       "x": -5.9559761224746275,
+       "y": -6.057616796273426
+      },
+      "b": {
+       "x": -4.586501886782501,
+       "y": -9.523175083375948
+      }
+     },
+     {
+      "a": {
+       "x": -5.843267640018434,
+       "y": -5.945568883251031
+      },
+      "b": {
+       "x": -4.4956008684717315,
+       "y": -9.35594173048168
+      }
+     },
+     {
+      "a": {
+       "x": -5.730559157562239,
+       "y": -5.833520970228637
+      },
+      "b": {
+       "x": -4.404699850160963,
+       "y": -9.18870837758741
+      }
+     },
+     {
+      "a": {
+       "x": -5.6178506751060455,
+       "y": -5.721473057206243
+      },
+      "b": {
+       "x": -4.313798831850194,
+       "y": -9.021475024693142
+      }
+     },
+     {
+      "a": {
+       "x": -5.505142192649852,
+       "y": -5.609425144183849
+      },
+      "b": {
+       "x": -4.222897813539426,
+       "y": -8.854241671798874
+      }
+     },
+     {
+      "a": {
+       "x": -5.392433710193658,
+       "y": -5.497377231161455
+      },
+      "b": {
+       "x": -4.131996795228656,
+       "y": -8.687008318904606
+      }
+     },
+     {
+      "a": {
+       "x": -5.2797252277374636,
+       "y": -5.3853293181390605
+      },
+      "b": {
+       "x": -4.041095776917888,
+       "y": -8.519774966010337
+      }
+     },
+     {
+      "a": {
+       "x": -5.16701674528127,
+       "y": -5.273281405116666
+      },
+      "b": {
+       "x": -3.950194758607118,
+       "y": -8.352541613116069
+      }
+     },
+     {
+      "a": {
+       "x": -5.054308262825076,
+       "y": -5.161233492094271
+      },
+      "b": {
+       "x": -3.859293740296349,
+       "y": -8.1853082602218
+      }
+     },
+     {
+      "a": {
+       "x": -4.9415997803688825,
+       "y": -5.049185579071878
+      },
+      "b": {
+       "x": -3.768392721985581,
+       "y": -8.018074907327533
+      }
+     },
+     {
+      "a": {
+       "x": -4.828891297912689,
+       "y": -4.937137666049484
+      },
+      "b": {
+       "x": -3.677491703674812,
+       "y": -7.850841554433264
+      }
+     },
+     {
+      "a": {
+       "x": -4.716182815456495,
+       "y": -4.825089753027088
+      },
+      "b": {
+       "x": -3.5563040310547778,
+       "y": -7.760250874394419
+      }
+     },
+     {
+      "a": {
+       "x": -4.603474333000301,
+       "y": -4.713041840004695
+      },
+      "b": {
+       "x": -3.419224151018073,
+       "y": -7.709876629011874
+      }
+     },
+     {
+      "a": {
+       "x": -4.490765850544107,
+       "y": -4.600993926982301
+      },
+      "b": {
+       "x": -3.2821442709813673,
+       "y": -7.659502383629328
+      }
+     },
+     {
+      "a": {
+       "x": -4.378057368087913,
+       "y": -4.488946013959906
+      },
+      "b": {
+       "x": -3.1450643909446616,
+       "y": -7.609128138246782
+      }
+     },
+     {
+      "a": {
+       "x": -4.265348885631719,
+       "y": -4.376898100937513
+      },
+      "b": {
+       "x": -3.007984510907957,
+       "y": -7.558753892864237
+      }
+     },
+     {
+      "a": {
+       "x": -4.152640403175527,
+       "y": -4.264850187915117
+      },
+      "b": {
+       "x": -2.8709046308712516,
+       "y": -7.508379647481692
+      }
+     },
+     {
+      "a": {
+       "x": -4.039931920719333,
+       "y": -4.152802274892723
+      },
+      "b": {
+       "x": -2.7338247508345463,
+       "y": -7.458005402099146
+      }
+     },
+     {
+      "a": {
+       "x": -3.9272234382631384,
+       "y": -4.040754361870329
+      },
+      "b": {
+       "x": -2.596744870797841,
+       "y": -7.407631156716601
+      }
+     },
+     {
+      "a": {
+       "x": -3.8145149558069447,
+       "y": -3.9287064488479353
+      },
+      "b": {
+       "x": -2.459664990761136,
+       "y": -7.357256911334055
+      }
+     },
+     {
+      "a": {
+       "x": -3.701806473350751,
+       "y": -3.816658535825541
+      },
+      "b": {
+       "x": -2.32258511072443,
+       "y": -7.30688266595151
+      }
+     },
+     {
+      "a": {
+       "x": -3.589097990894557,
+       "y": -3.7046106228031475
+      },
+      "b": {
+       "x": -2.185505230687725,
+       "y": -7.256508420568964
+      }
+     },
+     {
+      "a": {
+       "x": -3.476389508438363,
+       "y": -3.5925627097807533
+      },
+      "b": {
+       "x": -2.0484253506510197,
+       "y": -7.206134175186419
+      }
+     },
+     {
+      "a": {
+       "x": -3.363681025982169,
+       "y": -3.4805147967583596
+      },
+      "b": {
+       "x": -1.9113454706143147,
+       "y": -7.155759929803874
+      }
+     },
+     {
+      "a": {
+       "x": -3.250972543525976,
+       "y": -3.368466883735964
+      },
+      "b": {
+       "x": -1.7742655905776095,
+       "y": -7.105385684421328
+      }
+     },
+     {
+      "a": {
+       "x": -3.1382640610697816,
+       "y": -3.2564189707135713
+      },
+      "b": {
+       "x": -1.6371857105409042,
+       "y": -7.055011439038783
+      }
+     },
+     {
+      "a": {
+       "x": -3.0255555786135884,
+       "y": -3.1443710576911754
+      },
+      "b": {
+       "x": -1.5001058305041988,
+       "y": -7.004637193656237
+      }
+     },
+     {
+      "a": {
+       "x": -2.9128470961573942,
+       "y": -3.032323144668782
+      },
+      "b": {
+       "x": -1.3630259504674935,
+       "y": -6.9542629482736915
+      }
+     },
+     {
+      "a": {
+       "x": -2.800138613701201,
+       "y": -2.920275231646387
+      },
+      "b": {
+       "x": -1.2259460704307883,
+       "y": -6.9038887028911455
+      }
+     },
+     {
+      "a": {
+       "x": -2.687430131245007,
+       "y": -2.8082273186239943
+      },
+      "b": {
+       "x": -1.0888661903940828,
+       "y": -6.8535144575086
+      }
+     }
+    ],
+    "lameRive": [
+     {
+      "a": {
+       "x": -2.61280885623348,
+       "y": -2.5211220045537637
+      },
+      "b": {
+       "x": -0.8691282437850905,
+       "y": -6.9336378730808566
+      }
+     },
+     {
+      "a": {
+       "x": -0.8691282437850905,
+       "y": -6.9336378730808566
+      },
+      "b": {
+       "x": -3.5407150380923382,
+       "y": -7.915395142646352
+      }
+     },
+     {
+      "a": {
+       "x": -3.5407150380923382,
+       "y": -7.915395142646352
+      },
+      "b": {
+       "x": -4.741500406986589,
+       "y": -10.12451630628437
+      }
+     },
+     {
+      "a": {
+       "x": -4.741500406986589,
+       "y": -10.12451630628437
+      },
+      "b": {
+       "x": -7.548095078582298,
+       "y": -11.51177710371156
+      }
+     },
+     {
+      "a": {
+       "x": -7.548095078582298,
+       "y": -11.51177710371156
+      },
+      "b": {
+       "x": -11.017173010356865,
+       "y": -10.876229297527477
+      }
+     },
+     {
+      "a": {
+       "x": -11.017173010356865,
+       "y": -10.876229297527477
+      },
+      "b": {
+       "x": -2.61280885623348,
+       "y": -2.5211220045537637
+      }
+     }
+    ],
+    "lamePlat": [
+     {
+      "a": {
+       "x": -2.642934551241483,
+       "y": -2.665287243748791
+      },
+      "b": {
+       "x": -0.9749566304585144,
+       "y": -6.886231716758189
+      }
+     },
+     {
+      "a": {
+       "x": -0.9749566304585144,
+       "y": -6.886231716758189
+      },
+      "b": {
+       "x": -3.5973043030487526,
+       "y": -7.849894546795945
+      }
+     },
+     {
+      "a": {
+       "x": -3.5973043030487526,
+       "y": -7.849894546795945
+      },
+      "b": {
+       "x": -4.800406500994436,
+       "y": -10.063278050917646
+      }
+     },
+     {
+      "a": {
+       "x": -4.800406500994436,
+       "y": -10.063278050917646
+      },
+      "b": {
+       "x": -7.559913136294464,
+       "y": -11.42726388547188
+      }
+     },
+     {
+      "a": {
+       "x": -7.559913136294464,
+       "y": -11.42726388547188
+      },
+      "b": {
+       "x": -10.850217206819945,
+       "y": -10.824468106643318
+      }
+     },
+     {
+      "a": {
+       "x": -10.850217206819945,
+       "y": -10.824468106643318
+      },
+      "b": {
+       "x": -2.642934551241483,
+       "y": -2.665287243748791
+      }
+     }
+    ],
+    "bandes": {
+     "cadre": {
+      "ext": [
+       {
+        "x": -2.6169,
+        "y": -2.5407
+       },
+       {
+        "x": -0.8835,
+        "y": -6.9272
+       },
+       {
+        "x": -3.5484,
+        "y": -7.9065
+       },
+       {
+        "x": -4.7495,
+        "y": -10.1162
+       },
+       {
+        "x": -7.5497,
+        "y": -11.5003
+       },
+       {
+        "x": -10.9945,
+        "y": -10.8692
+       }
+      ],
+      "int": [
+       {
+        "x": -2.6403310961173343,
+        "y": -2.6528285193739105
+       },
+       {
+        "x": -0.9658109674126629,
+        "y": -6.890328545082371
+       },
+       {
+        "x": -3.5924138727438777,
+        "y": -7.855555092116351
+       },
+       {
+        "x": -4.795315850894992,
+        "y": -10.06857024582588
+       },
+       {
+        "x": -7.558891822665019,
+        "y": -11.434567496924693
+       },
+       {
+        "x": -10.864645486137952,
+        "y": -10.828941295978987
+       }
+      ]
+     },
+     "lamePlat": {
+      "ext": [
+       {
+        "x": -2.6169,
+        "y": -2.5407
+       },
+       {
+        "x": -0.8835,
+        "y": -6.9272
+       },
+       {
+        "x": -3.5484,
+        "y": -7.9065
+       },
+       {
+        "x": -4.7495,
+        "y": -10.1162
+       },
+       {
+        "x": -7.5497,
+        "y": -11.5003
+       },
+       {
+        "x": -10.9945,
+        "y": -10.8692
+       }
+      ],
+      "int": [
+       {
+        "x": -2.6689691024829667,
+        "y": -2.7898744874975794
+       },
+       {
+        "x": -1.066413260917029,
+        "y": -6.845263433516376
+       },
+       {
+        "x": -3.646208606097506,
+        "y": -7.793289093591891
+       },
+       {
+        "x": -4.851313001988872,
+        "y": -10.010356101835292
+       },
+       {
+        "x": -7.570126272588928,
+        "y": -11.354227770943762
+       },
+       {
+        "x": -10.705934413639891,
+        "y": -10.779736213286638
+       }
+      ]
+     },
+     "lameRive": {
+      "ext": [
+       {
+        "x": -2.6087177124669623,
+        "y": -2.5015440091075227
+       },
+       {
+        "x": -0.8547564875701816,
+        "y": -6.94007574616171
+       },
+       {
+        "x": -3.5330300761846765,
+        "y": -7.924290285292702
+       },
+       {
+        "x": -4.733500813973178,
+        "y": -10.13283261256874
+       },
+       {
+        "x": -7.546490157164595,
+        "y": -11.523254207423122
+       },
+       {
+        "x": -11.039846020713732,
+        "y": -10.883258595054956
+       }
+      ],
+      "int": [
+       {
+        "x": -2.6169,
+        "y": -2.5407
+       },
+       {
+        "x": -0.8835,
+        "y": -6.9272
+       },
+       {
+        "x": -3.5484,
+        "y": -7.9065
+       },
+       {
+        "x": -4.7495,
+        "y": -10.1162
+       },
+       {
+        "x": -7.5497,
+        "y": -11.5003
+       },
+       {
+        "x": -10.9945,
+        "y": -10.8692
+       }
+      ]
+     }
+    },
+    "lamesFieldPoly": [
+     {
+      "x": -2.6689691024829667,
+      "y": -2.7898744874975794
+     },
+     {
+      "x": -1.066413260917029,
+      "y": -6.845263433516376
+     },
+     {
+      "x": -3.646208606097506,
+      "y": -7.793289093591891
+     },
+     {
+      "x": -4.851313001988872,
+      "y": -10.010356101835292
+     },
+     {
+      "x": -7.570126272588928,
+      "y": -11.354227770943762
+     },
+     {
+      "x": -10.705934413639891,
+      "y": -10.779736213286638
+     }
+    ]
+   },
+   "bom": [
+    {
+     "poste": "vis",
+     "label": "Vis de fondation",
+     "qte": 37,
+     "unite": "u",
+     "prixBas": 25,
+     "prixHaut": 45,
+     "prixReel": 1295,
+     "calcule": "calcule — 35.00 € x 37"
+    },
+    {
+     "poste": "bois",
+     "label": "Cadre, solives (63x175) — barres achetees",
+     "qte": 92.5,
+     "unite": "ml",
+     "prixBas": 4,
+     "prixHaut": 7,
+     "prixReel": 508.75,
+     "calcule": "calcule — prix par longueur, debit 63x175"
+    },
+    {
+     "poste": "lambourde",
+     "label": "Lambourdes (45x70) — barres achetees",
+     "qte": 94,
+     "unite": "ml",
+     "prixBas": 4,
+     "prixHaut": 7,
+     "prixReel": 517,
+     "calcule": "calcule — prix par longueur, debit 45x70"
+    },
+    {
+     "poste": "lames",
+     "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+     "qte": 269.3999999999999,
+     "unite": "ml",
+     "prixBas": 3.5000000000000004,
+     "prixHaut": 5.6000000000000005,
+     "prixReel": 1226.19,
+     "calcule": "calcule — prix par longueur, debit des lames"
+    },
+    {
+     "poste": "visserie",
+     "label": "Visserie / fixations",
+     "qte": 35.00596645000001,
+     "unite": "m²",
+     "prixBas": 4,
+     "prixHaut": 6,
+     "prixReel": null
+    },
+    {
+     "poste": "lameRive",
+     "label": "Lame de rive (finition)",
+     "qte": 28.6135212262717,
+     "unite": "ml",
+     "prixBas": 10,
+     "prixHaut": 20,
+     "prixReel": null
+    }
+   ],
+   "debitLames": {
+    "achats": {
+     "2": 32,
+     "3": 17,
+     "1.7": 17,
+     "1.5": 42,
+     "2.5": 25
+    },
+    "roles": {
+     "2": {
+      "entiere": 0,
+      "ajustee": 11,
+      "recoupee": 0,
+      "troncon": 21,
+      "rebutMl": 4.785747042119944,
+      "potMl": 0
+     },
+     "3": {
+      "entiere": 0,
+      "ajustee": 8,
+      "recoupee": 0,
+      "troncon": 9,
+      "rebutMl": 4.404580778284376,
+      "potMl": 0
+     },
+     "1.7": {
+      "entiere": 0,
+      "ajustee": 17,
+      "recoupee": 0,
+      "troncon": 0,
+      "rebutMl": 0.985972755243703,
+      "potMl": 0
+     },
+     "1.5": {
+      "entiere": 0,
+      "ajustee": 31,
+      "recoupee": 3,
+      "troncon": 8,
+      "rebutMl": 5.5066022478314185,
+      "potMl": 2.674247820801083
+     },
+     "2.5": {
+      "entiere": 0,
+      "ajustee": 5,
+      "recoupee": 0,
+      "troncon": 20,
+      "rebutMl": 5.807760075316004,
+      "potMl": 0
+     }
+    },
+    "reelMl": 246.29175468367907,
+    "achatMl": 269.3999999999999,
+    "perdueMl": 21.953781756407093,
+    "restantMl": 1.154463559913826,
+    "pool": [
+     1.154463559913826
+    ],
+    "chuteMl": 23.108245316320847
+   },
+   "debitBois": [
+    {
+     "cle": "bois",
+     "section": "63x175",
+     "titre": "Cadre, solives (63x175)",
+     "champLongueurs": "longueursBois",
+     "parts": {
+      "cadre": 28.2117287695508,
+      "solives": 52.43595976436336
+     },
+     "debit": {
+      "achats": {
+       "2": 1,
+       "3": 3,
+       "4": 11,
+       "5": 7,
+       "2.5": 1
+      },
+      "roles": {
+       "2": {
+        "entiere": 0,
+        "ajustee": 0,
+        "recoupee": 1,
+        "troncon": 0,
+        "rebutMl": 0,
+        "potMl": 0.6217293002913924
+       },
+       "3": {
+        "entiere": 0,
+        "ajustee": 3,
+        "recoupee": 0,
+        "troncon": 0,
+        "rebutMl": 0.9409805125831294,
+        "potMl": 0
+       },
+       "4": {
+        "entiere": 0,
+        "ajustee": 6,
+        "recoupee": 5,
+        "troncon": 0,
+        "rebutMl": 1.5317439956162269,
+        "potMl": 3.3877764300256694
+       },
+       "5": {
+        "entiere": 0,
+        "ajustee": 1,
+        "recoupee": 4,
+        "troncon": 2,
+        "rebutMl": 0.3635332405200531,
+        "potMl": 4.87263873212144
+       },
+       "2.5": {
+        "entiere": 0,
+        "ajustee": 1,
+        "recoupee": 0,
+        "troncon": 0,
+        "rebutMl": 0.44918726101352124,
+        "potMl": 0
+       }
+      },
+      "reelMl": 81.0381391882593,
+      "achatMl": 92.5,
+      "perdueMl": 3.3562765365122282,
+      "restantMl": 8.105584275228475,
+      "pool": [
+       0.8968307347750635,
+       0.8902307087722869,
+       0.8701559301988047,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8490186281690413,
+       0.6217293002913924,
+       0.590860242185876,
+       0.5685474482541117,
+       0.5590691911146939,
+       0.5549778176005913
+      ],
+      "chuteMl": 11.461860811740706
+     }
+    },
+    {
+     "cle": "lambourde",
+     "section": "45x70",
+     "titre": "Lambourdes (45x70)",
+     "champLongueurs": "longueursLambourde",
+     "parts": {
+      "lambourdes": 78.97483146096275
+     },
+     "debit": {
+      "achats": {
+       "2": 2,
+       "3": 2,
+       "4": 6,
+       "5": 9,
+       "2.5": 6
+      },
+      "roles": {
+       "2": {
+        "entiere": 0,
+        "ajustee": 1,
+        "recoupee": 1,
+        "troncon": 0,
+        "rebutMl": 0.03120134142009512,
+        "potMl": 0.9369459605056862
+       },
+       "3": {
+        "entiere": 0,
+        "ajustee": 2,
+        "recoupee": 0,
+        "troncon": 0,
+        "rebutMl": 0.09343162865170473,
+        "potMl": 0
+       },
+       "4": {
+        "entiere": 0,
+        "ajustee": 3,
+        "recoupee": 3,
+        "troncon": 0,
+        "rebutMl": 0.4856697353697692,
+        "potMl": 2.656658136483292
+       },
+       "5": {
+        "entiere": 0,
+        "ajustee": 0,
+        "recoupee": 2,
+        "troncon": 7,
+        "rebutMl": 0,
+        "potMl": 7.78529580797327
+       },
+       "2.5": {
+        "entiere": 0,
+        "ajustee": 2,
+        "recoupee": 0,
+        "troncon": 4,
+        "rebutMl": 2.260809884758657,
+        "potMl": 0
+       }
+      },
+      "reelMl": 79.74998750483752,
+      "achatMl": 94,
+      "perdueMl": 2.871112590200226,
+      "restantMl": 11.37889990496225,
+      "pool": [
+       0.9679749063172043,
+       0.9369459605056862,
+       0.9159723782258107,
+       0.9154809676447733,
+       0.9047484712143126,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.8520821369333067,
+       0.7732022625213144
+      ],
+      "chuteMl": 14.25001249516248
+     }
+    }
+   ],
+   "implantation": {
+    "R": {
+     "origine": {
+      "x": -2.6169,
+      "y": -2.5407
+     },
+     "cote": 0,
+     "longueurCote": 4.716572676213099
+    },
+    "sommets": [
+     {
+      "i": 0,
+      "x": 0,
+      "y": 0
+     },
+     {
+      "i": 1,
+      "x": 4.716572676213099,
+      "y": 0
+     },
+     {
+      "i": 2,
+      "x": 4.647955433944749,
+      "y": 2.838311500533986
+     },
+     {
+      "i": 3,
+      "x": 6.261597973236796,
+      "y": 4.767449405243525
+     },
+     {
+      "i": 4,
+      "x": 6.519727775018523,
+      "y": 7.880361523410711
+     },
+     {
+      "i": 5,
+      "x": 4.6667855922179164,
+      "y": 10.852152148134824
+     }
+    ],
+    "appuis": [
+     {
+      "x": 0.04783518872714336,
+      "y": 0.03150000000000015,
+      "role": "rive",
+      "n": 1
+     },
+     {
+      "x": 1.5933241085537926,
+      "y": 0.031500000000000195,
+      "role": "rive",
+      "n": 2
+     },
+     {
+      "x": 3.138813028380442,
+      "y": 0.031500000000000306,
+      "role": "rive",
+      "n": 3
+     },
+     {
+      "x": 4.68430194820709,
+      "y": 0.031500000000000083,
+      "role": "rive",
+      "n": 4
+     },
+     {
+      "x": 1.922313307301142,
+      "y": 0.6383618910667549,
+      "role": "spa",
+      "n": 5
+     },
+     {
+      "x": 3.1493916538738853,
+      "y": 0.6383618910667549,
+      "role": "spa",
+      "n": 6
+     },
+     {
+      "x": 1.2805826558262534,
+      "y": 1.2767237821335096,
+      "role": "spa",
+      "n": 7
+     },
+     {
+      "x": 2.538518606522078,
+      "y": 1.2767237821335091,
+      "role": "spa",
+      "n": 8
+     },
+     {
+      "x": 3.7964545572179027,
+      "y": 1.276723782133509,
+      "role": "spa",
+      "n": 9
+     },
+     {
+      "x": 4.650239850490592,
+      "y": 1.4404584554120778,
+      "role": "rive",
+      "n": 10
+     },
+     {
+      "x": 1.1293735431022247,
+      "y": 1.9150856732002635,
+      "role": "spa",
+      "n": 11
+     },
+     {
+      "x": 2.5376870266169638,
+      "y": 1.9150856732002635,
+      "role": "spa",
+      "n": 12
+     },
+     {
+      "x": 3.9460005101317015,
+      "y": 1.9150856732002635,
+      "role": "spa",
+      "n": 13
+     },
+     {
+      "x": 1.292348772877649,
+      "y": 2.5534475642670174,
+      "role": "spa",
+      "n": 14
+     },
+     {
+      "x": 2.5375167017608162,
+      "y": 2.553447564267018,
+      "role": "spa",
+      "n": 15
+     },
+     {
+      "x": 3.782684630643983,
+      "y": 2.5534475642670174,
+      "role": "spa",
+      "n": 16
+     },
+     {
+      "x": 4.616177752774092,
+      "y": 2.8494169108241554,
+      "role": "rive",
+      "n": 17
+     },
+     {
+      "x": 1.9726300956159495,
+      "y": 3.1918094553337713,
+      "role": "spa",
+      "n": 18
+     },
+     {
+      "x": 3.106110715597003,
+      "y": 3.1918094553337717,
+      "role": "spa",
+      "n": 19
+     },
+     {
+      "x": 1.5891989619355302,
+      "y": 3.615790268310986,
+      "role": "rive",
+      "n": 20
+     },
+     {
+      "x": 3.5623525914435974,
+      "y": 3.830171346400527,
+      "role": "courant",
+      "n": 21
+     },
+     {
+      "x": 5.423604248587694,
+      "y": 3.8147094216575637,
+      "role": "rive",
+      "n": 22
+     },
+     {
+      "x": 3.966592397876598,
+      "y": 4.4685332374672795,
+      "role": "courant",
+      "n": 23
+     },
+     {
+      "x": 6.231030744401296,
+      "y": 4.780001932490973,
+      "role": "rive",
+      "n": 24
+     },
+     {
+      "x": 4.24293999316072,
+      "y": 5.106895128534034,
+      "role": "courant",
+      "n": 25
+     },
+     {
+      "x": 2.3598808485397234,
+      "y": 5.407935402466478,
+      "role": "rive",
+      "n": 26
+     },
+     {
+      "x": 4.406665607898231,
+      "y": 5.745257019600787,
+      "role": "courant",
+      "n": 27
+     },
+     {
+      "x": 6.3592516204771945,
+      "y": 6.326279488137919,
+      "role": "rive",
+      "n": 28
+     },
+     {
+      "x": 4.570391222635745,
+      "y": 6.3836189106675425,
+      "role": "courant",
+      "n": 29
+     },
+     {
+      "x": 4.734116837373259,
+      "y": 7.021980801734297,
+      "role": "courant",
+      "n": 30
+     },
+     {
+      "x": 3.130562735143917,
+      "y": 7.200080536621972,
+      "role": "rive",
+      "n": 31
+     },
+     {
+      "x": 4.897842452110771,
+      "y": 7.660342692801052,
+      "role": "courant",
+      "n": 32
+     },
+     {
+      "x": 6.487472496553097,
+      "y": 7.872557043784868,
+      "role": "rive",
+      "n": 33
+     },
+     {
+      "x": 4.913802472604744,
+      "y": 8.298704583867806,
+      "role": "courant",
+      "n": 34
+     },
+     {
+      "x": 3.9012446217481105,
+      "y": 8.992225670777463,
+      "role": "rive",
+      "n": 35
+     },
+     {
+      "x": 5.5796995024527,
+      "y": 9.328463924358912,
+      "role": "rive",
+      "n": 36
+     },
+     {
+      "x": 4.6719265083523025,
+      "y": 10.784370804932957,
+      "role": "rive",
+      "n": 37
+     }
+    ],
+    "lignes": [
+     {
+      "ref": "C1",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -2.628615548058667,
+        "y": -2.5967642596869567
+       },
+       "b": {
+        "x": -0.9246554837063317,
+        "y": -6.908764272541185
+       }
+      },
+      "longueur": 4.636466759479947,
+      "depart": {
+       "x": 0.04783518872714336,
+       "y": 0.03150000000000015
+      },
+      "fin": {
+       "x": 4.68430194820709,
+       "y": 0.031500000000000083
+      },
+      "appuis": [
+       {
+        "d": 0,
+        "n": 1
+       },
+       {
+        "d": 1.545488919826649,
+        "n": 2
+       },
+       {
+        "d": 3.090977839653298,
+        "n": 3
+       },
+       {
+        "d": 4.636466759479946,
+        "n": 4
+       }
+      ]
+     },
+     {
+      "ref": "C2",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -0.9246554837063317,
+        "y": -6.908764272541185
+       },
+       "b": {
+        "x": -3.5704069363719384,
+        "y": -7.881027546058176
+       }
+      },
+      "longueur": 2.8187402544952853,
+      "depart": {
+       "x": 4.68430194820709,
+       "y": 0.031500000000000083
+      },
+      "fin": {
+       "x": 4.616177752774092,
+       "y": 2.8494169108241554
+      },
+      "appuis": [
+       {
+        "d": 1.4093701272476424,
+        "n": 10
+       },
+       {
+        "d": 2.818740254495285,
+        "n": 17
+       }
+      ]
+     },
+     {
+      "ref": "C3",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -3.5704069363719384,
+        "y": -7.881027546058176
+       },
+       "b": {
+        "x": -4.772407925447497,
+        "y": -10.09238512291294
+       }
+      },
+      "longueur": 2.5169244546572305,
+      "depart": {
+       "x": 4.616177752774092,
+       "y": 2.8494169108241554
+      },
+      "fin": {
+       "x": 6.231030744401296,
+       "y": 4.780001932490973
+      },
+      "appuis": [
+       {
+        "d": 1.2584622273286141,
+        "n": 22
+       },
+       {
+        "d": 2.51692445465723,
+        "n": 24
+       }
+      ]
+     },
+     {
+      "ref": "C4",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -4.772407925447497,
+        "y": -10.09238512291294
+       },
+       "b": {
+        "x": -7.554295911332508,
+        "y": -11.467433748462346
+       }
+      },
+      "longueur": 3.1031692652249365,
+      "depart": {
+       "x": 6.231030744401296,
+       "y": 4.780001932490973
+      },
+      "fin": {
+       "x": 6.487472496553097,
+       "y": 7.872557043784868
+      },
+      "appuis": [
+       {
+        "d": 1.5515846326124683,
+        "n": 28
+       },
+       {
+        "d": 3.103169265224937,
+        "n": 33
+       }
+      ]
+     },
+     {
+      "ref": "C5",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -7.554295911332508,
+        "y": -11.467433748462346
+       },
+       "b": {
+        "x": -10.929572743068976,
+        "y": -10.849070647989492
+       }
+      },
+      "longueur": 3.4314525517458883,
+      "depart": {
+       "x": 6.487472496553097,
+       "y": 7.872557043784868
+      },
+      "fin": {
+       "x": 4.6719265083523025,
+       "y": 10.784370804932957
+      },
+      "appuis": [
+       {
+        "d": 1.715726275872944,
+        "n": 36
+       },
+       {
+        "d": 3.431452551745888,
+        "n": 37
+       }
+      ]
+     },
+     {
+      "ref": "C6",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -10.929572743068976,
+        "y": -10.849070647989492
+       },
+       "b": {
+        "x": -2.628615548058667,
+        "y": -2.5967642596869567
+       }
+      },
+      "longueur": 11.70497548394751,
+      "depart": {
+       "x": 4.6719265083523025,
+       "y": 10.784370804932957
+      },
+      "fin": {
+       "x": 0.04783518872714336,
+       "y": 0.03150000000000015
+      },
+      "appuis": [
+       {
+        "d": 1.9508292473245858,
+        "n": 35
+       },
+       {
+        "d": 3.901658494649169,
+        "n": 31
+       },
+       {
+        "d": 5.852487741973755,
+        "n": 26
+       },
+       {
+        "d": 7.80331698929834,
+        "n": 20
+       }
+      ]
+     },
+     {
+      "ref": "L4",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -9.0233,
+        "y": -8.90955294117647
+       },
+       "b": {
+        "x": -8.034629241876313,
+        "y": -11.411459183538044
+       }
+      },
+      "longueur": 2.6901681571114993,
+      "depart": {
+       "x": 3.568718394048995,
+       "y": 8.298704583867806
+      },
+      "fin": {
+       "x": 6.258886551160495,
+       "y": 8.298704583867806
+      },
+      "appuis": [
+       {
+        "d": 1.3450840785557492,
+        "n": 34
+       }
+      ]
+     },
+     {
+      "ref": "L5",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -8.5305,
+        "y": -8.419641176470588
+       },
+       "b": {
+        "x": -7.351783481291494,
+        "y": -11.40247261140474
+       }
+      },
+      "longueur": 3.2072817152080098,
+      "depart": {
+       "x": 3.2942015945067653,
+       "y": 7.660342692801052
+      },
+      "fin": {
+       "x": 6.501483309714773,
+       "y": 7.66034269280105
+      },
+      "appuis": [
+       {
+        "d": 1.6036408576040044,
+        "n": 32
+       }
+      ]
+     },
+     {
+      "ref": "L6",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -8.0377,
+        "y": -7.929729411764706
+       },
+       "b": {
+        "x": -6.777549163228706,
+        "y": -11.118636556969092
+       }
+      },
+      "longueur": 3.4288640848174454,
+      "depart": {
+       "x": 3.019684794964536,
+       "y": 7.021980801734298
+      },
+      "fin": {
+       "x": 6.448548879781982,
+       "y": 7.021980801734298
+      },
+      "appuis": [
+       {
+        "d": 1.7144320424087225,
+        "n": 30
+       }
+      ]
+     },
+     {
+      "ref": "L7",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -7.544899999999999,
+        "y": -7.439817647058823
+       },
+       "b": {
+        "x": -6.203314845165917,
+        "y": -10.834800502533442
+       }
+      },
+      "longueur": 3.6504464544268806,
+      "depart": {
+       "x": 2.745167995422305,
+       "y": 6.383618910667542
+      },
+      "fin": {
+       "x": 6.3956144498491865,
+       "y": 6.383618910667543
+      },
+      "appuis": [
+       {
+        "d": 1.8252232272134403,
+        "n": 29
+       }
+      ]
+     },
+     {
+      "ref": "L8",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -7.052099999999999,
+        "y": -6.94990588235294
+       },
+       "b": {
+        "x": -5.6290805271031275,
+        "y": -10.550964448097792
+       }
+      },
+      "longueur": 3.872028824036317,
+      "depart": {
+       "x": 2.470651195880074,
+       "y": 5.745257019600788
+      },
+      "fin": {
+       "x": 6.342680019916392,
+       "y": 5.745257019600787
+      },
+      "appuis": [
+       {
+        "d": 1.9360144120181573,
+        "n": 27
+       }
+      ]
+     },
+     {
+      "ref": "L9",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -6.5592999999999995,
+        "y": -6.459994117647059
+       },
+       "b": {
+        "x": -5.05484620904034,
+        "y": -10.267128393662142
+       }
+      },
+      "longueur": 4.093611193645749,
+      "depart": {
+       "x": 2.1961343963378446,
+       "y": 5.106895128534035
+      },
+      "fin": {
+       "x": 6.289745589983594,
+       "y": 5.106895128534035
+      },
+      "appuis": [
+       {
+        "d": 2.046805596822875,
+        "n": 25
+       }
+      ]
+     },
+     {
+      "ref": "L10",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -6.0665,
+        "y": -5.970082352941176
+       },
+       "b": {
+        "x": -4.563391890134156,
+        "y": -9.773811281016936
+       }
+      },
+      "longueur": 4.089949602161967,
+      "depart": {
+       "x": 1.9216175967956135,
+       "y": 4.46853323746728
+      },
+      "fin": {
+       "x": 6.011567198957581,
+       "y": 4.4685332374672795
+      },
+      "appuis": [
+       {
+        "d": 2.044974801080984,
+        "n": 23
+       }
+      ]
+     },
+     {
+      "ref": "L11",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -5.5737000000000005,
+        "y": -5.4801705882352945
+       },
+       "b": {
+        "x": -4.16594157541665,
+        "y": -9.042609915242835
+       }
+      },
+      "longueur": 3.830503588380428,
+      "depart": {
+       "x": 1.6471007972533829,
+       "y": 3.830171346400527
+      },
+      "fin": {
+       "x": 5.4776043856338115,
+       "y": 3.830171346400527
+      },
+      "appuis": [
+       {
+        "d": 1.915251794190214,
+        "n": 21
+       }
+      ]
+     },
+     {
+      "ref": "L12",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -5.0809,
+        "y": -4.9902588235294125
+       },
+       "b": {
+        "x": -3.7684912606991414,
+        "y": -8.31140854946873
+       }
+      },
+      "longueur": 3.5710575745988855,
+      "depart": {
+       "x": 1.3725839977111534,
+       "y": 3.1918094553337717
+      },
+      "fin": {
+       "x": 4.943641572310038,
+       "y": 3.1918094553337717
+      },
+      "appuis": [
+       {
+        "d": 0.6000460979047963,
+        "n": 18
+       },
+       {
+        "d": 1.73352671788585,
+        "n": 19
+       }
+      ]
+     },
+     {
+      "ref": "L13",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -4.5881,
+        "y": -4.500347058823531
+       },
+       "b": {
+        "x": -3.280940313628358,
+        "y": -7.808213658724999
+       }
+      },
+      "longueur": 3.556774927995713,
+      "depart": {
+       "x": 1.098067198168923,
+       "y": 2.553447564267018
+      },
+      "fin": {
+       "x": 4.654842126164636,
+       "y": 2.5534475642670174
+      },
+      "appuis": [
+       {
+        "d": 0.1942815747087263,
+        "n": 14
+       },
+       {
+        "d": 1.4394495035918935,
+        "n": 15
+       },
+       {
+        "d": 2.68461743247506,
+        "n": 16
+       }
+      ]
+     },
+     {
+      "ref": "L14",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -4.0953,
+        "y": -4.010435294117648
+       },
+       "b": {
+        "x": -2.681580235221269,
+        "y": -7.5879602440437495
+       }
+      },
+      "longueur": 3.84672436505006,
+      "depart": {
+       "x": 0.823550398626692,
+       "y": 1.9150856732002635
+      },
+      "fin": {
+       "x": 4.670274763676752,
+       "y": 1.9150856732002635
+      },
+      "appuis": [
+       {
+        "d": 0.3058231444755326,
+        "n": 11
+       },
+       {
+        "d": 1.7141366279902714,
+        "n": 12
+       },
+       {
+        "d": 3.1224501115050094,
+        "n": 13
+       }
+      ]
+     },
+     {
+      "ref": "L15",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -3.6025,
+        "y": -3.5205235294117663
+       },
+       "b": {
+        "x": -2.0822201568141794,
+        "y": -7.3677068293625
+       }
+      },
+      "longueur": 4.136673802104405,
+      "depart": {
+       "x": 0.5490335990844621,
+       "y": 1.2767237821335093
+      },
+      "fin": {
+       "x": 4.685707401188868,
+       "y": 1.2767237821335091
+      },
+      "appuis": [
+       {
+        "d": 0.7315490567417913,
+        "n": 7
+       },
+       {
+        "d": 1.989485007437616,
+        "n": 8
+       },
+       {
+        "d": 3.247420958133441,
+        "n": 9
+       }
+      ]
+     },
+     {
+      "ref": "L16",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -3.1097,
+        "y": -3.0306117647058834
+       },
+       "b": {
+        "x": -1.4828600784070898,
+        "y": -7.14745341468125
+       }
+      },
+      "longueur": 4.4266232391587526,
+      "depart": {
+       "x": 0.27451679954223124,
+       "y": 0.638361891066755
+      },
+      "fin": {
+       "x": 4.701140038700983,
+       "y": 0.6383618910667546
+      },
+      "appuis": [
+       {
+        "d": 1.6477965077589107,
+        "n": 5
+       },
+       {
+        "d": 2.874874854331654,
+        "n": 6
+       }
+      ]
+     }
+    ],
+    "diagonales": [
+     {
+      "de": 0,
+      "a": 3,
+      "d": 7.869954447771599
+     },
+     {
+      "de": 1,
+      "a": 4,
+      "d": 8.084025361786045
+     },
+     {
+      "de": 2,
+      "a": 5,
+      "d": 8.013862770225106
+     }
+    ],
+    "bbox": {
+     "x0": 0,
+     "x1": 6.519727775018523,
+     "y0": 0,
+     "y1": 10.852152148134824
+    }
+   },
+   "chantier": {
+    "lignes": [
+     {
+      "cle": "piquetage",
+      "h": 0.06,
+      "unite": "m²",
+      "label": "Piquetage, tracage et implantation",
+      "phase": "Preparation",
+      "qte": 35.00596645000001,
+      "cadence": 0.06,
+      "heures": 2.1003579870000006
+     },
+     {
+      "cle": "vissage",
+      "h": 0.25,
+      "unite": "u",
+      "label": "Vissage des vis de fondation",
+      "phase": "Appuis",
+      "qte": 37,
+      "cadence": 0.25,
+      "heures": 9.25
+     },
+     {
+      "cle": "reglage",
+      "h": 0.06,
+      "unite": "u",
+      "label": "Reglage de niveau des appuis",
+      "phase": "Appuis",
+      "qte": 37,
+      "cadence": 0.06,
+      "heures": 2.2199999999999998
+     },
+     {
+      "cle": "debitBois",
+      "h": 0.1,
+      "unite": "u",
+      "label": "Debit des bois de structure",
+      "phase": "Structure",
+      "qte": 48,
+      "cadence": 0.1,
+      "heures": 4.800000000000001
+     },
+     {
+      "cle": "poseCadre",
+      "h": 0.25,
+      "unite": "ml",
+      "label": "Pose du cadre peripherique",
+      "phase": "Structure",
+      "qte": 28.2117287695508,
+      "cadence": 0.25,
+      "heures": 7.0529321923877
+     },
+     {
+      "cle": "poseSolives",
+      "h": 0.15,
+      "unite": "ml",
+      "label": "Pose des solives",
+      "phase": "Structure",
+      "qte": 52.43595976436336,
+      "cadence": 0.15,
+      "heures": 7.865393964654504
+     },
+     {
+      "cle": "poseLamb",
+      "h": 0.12,
+      "unite": "ml",
+      "label": "Pose des lambourdes",
+      "phase": "Structure",
+      "qte": 78.97483146096275,
+      "cadence": 0.12,
+      "heures": 9.47697977531553
+     },
+     {
+      "cle": "controle",
+      "h": 0.05,
+      "unite": "m²",
+      "label": "Controle de niveau et de planeite",
+      "phase": "Structure",
+      "qte": 35.00596645000001,
+      "cadence": 0.05,
+      "heures": 1.7502983225000006
+     },
+     {
+      "cle": "debitLames",
+      "h": 0.05,
+      "unite": "u",
+      "label": "Debit des lames",
+      "phase": "Platelage",
+      "qte": 133,
+      "cadence": 0.05,
+      "heures": 6.65
+     },
+     {
+      "cle": "poseLames",
+      "h": 0.35,
+      "unite": "m²",
+      "label": "Pose et fixation des lames",
+      "phase": "Platelage",
+      "qte": 35.00596645000001,
+      "cadence": 0.35,
+      "heures": 12.252088257500002
+     },
+     {
+      "cle": "coupeRive",
+      "h": 0.15,
+      "unite": "ml",
+      "label": "Coupe de finition en rive",
+      "phase": "Platelage",
+      "qte": 28.2117287695508,
+      "cadence": 0.15,
+      "heures": 4.23175931543262
+     },
+     {
+      "cle": "poseRive",
+      "h": 0.25,
+      "unite": "ml",
+      "label": "Pose de la lame de rive",
+      "phase": "Finitions",
+      "qte": 28.6135212262717,
+      "cadence": 0.25,
+      "heures": 7.153380306567925
+     },
+     {
+      "cle": "posePlat",
+      "h": 0.2,
+      "unite": "ml",
+      "label": "Pose de la bordure a plat",
+      "phase": "Finitions",
+      "qte": 27.84775207346245,
+      "cadence": 0.2,
+      "heures": 5.56955041469249
+     },
+     {
+      "cle": "nettoyage",
+      "h": 0.03,
+      "unite": "m²",
+      "label": "Nettoyage et evacuation des chutes",
+      "phase": "Finitions",
+      "qte": 35.00596645000001,
+      "cadence": 0.03,
+      "heures": 1.0501789935000003
+     }
+    ],
+    "total": 81.42291952955077,
+    "dominant": {
+     "cle": "poseLames",
+     "h": 0.35,
+     "unite": "m²",
+     "label": "Pose et fixation des lames",
+     "phase": "Platelage",
+     "qte": 35.00596645000001,
+     "cadence": 0.35,
+     "heures": 12.252088257500002
+    },
+    "surf": 35.00596645000001,
+    "nbAppuis": 37
+   },
+   "visGrid": [
+    {
+     "x": -4.860375484104428,
+     "y": -5.54831281509277,
+     "role": "spa"
+    },
+    {
+     "x": -4.443807047327438,
+     "y": -6.602470798202422,
+     "role": "spa"
+    },
+    {
+     "x": -4.516699068705436,
+     "y": -4.681032523876953,
+     "role": "spa"
+    },
+    {
+     "x": -4.059084135978687,
+     "y": -5.839061774139954,
+     "role": "spa"
+    },
+    {
+     "x": -3.6014692032519378,
+     "y": -6.9970910244029545,
+     "role": "spa"
+    },
+    {
+     "x": -3.982906133727698,
+     "y": -4.294856486227635,
+     "role": "spa"
+    },
+    {
+     "x": -3.465333150142413,
+     "y": -5.604614125835836,
+     "role": "spa"
+    },
+    {
+     "x": -2.947760166557128,
+     "y": -6.914371765444035,
+     "role": "spa"
+    },
+    {
+     "x": -3.3336464866530284,
+     "y": -4.20087770980665,
+     "role": "spa"
+    },
+    {
+     "x": -2.871339144728032,
+     "y": -5.37078145698214,
+     "role": "spa"
+    },
+    {
+     "x": -2.409031802803036,
+     "y": -6.54068520415763,
+     "role": "spa"
+    },
+    {
+     "x": -2.5041139817977767,
+     "y": -4.563093055143205,
+     "role": "spa"
+    },
+    {
+     "x": -2.053147198930994,
+     "y": -5.704298658607577,
+     "role": "spa"
+    },
+    {
+     "x": -2.628615548058667,
+     "y": -2.5967642596869567,
+     "role": "rive"
+    },
+    {
+     "x": -2.0606288599412217,
+     "y": -4.034097597305033,
+     "role": "rive"
+    },
+    {
+     "x": -1.4926421718237768,
+     "y": -5.471430934923109,
+     "role": "rive"
+    },
+    {
+     "x": -0.9246554837063317,
+     "y": -6.908764272541185,
+     "role": "rive"
+    },
+    {
+     "x": -2.247531210039135,
+     "y": -7.394895909299681,
+     "role": "rive"
+    },
+    {
+     "x": -3.5704069363719384,
+     "y": -7.881027546058176,
+     "role": "rive"
+    },
+    {
+     "x": -4.171407430909717,
+     "y": -8.986706334485557,
+     "role": "rive"
+    },
+    {
+     "x": -4.772407925447497,
+     "y": -10.09238512291294,
+     "role": "rive"
+    },
+    {
+     "x": -6.163351918390003,
+     "y": -10.779909435687642,
+     "role": "rive"
+    },
+    {
+     "x": -7.554295911332508,
+     "y": -11.467433748462346,
+     "role": "rive"
+    },
+    {
+     "x": -9.241934327200742,
+     "y": -11.15825219822592,
+     "role": "rive"
+    },
+    {
+     "x": -10.929572743068976,
+     "y": -10.849070647989492,
+     "role": "rive"
+    },
+    {
+     "x": -9.546079877233923,
+     "y": -9.47368624993907,
+     "role": "rive"
+    },
+    {
+     "x": -8.162587011398873,
+     "y": -8.098301851888648,
+     "role": "rive"
+    },
+    {
+     "x": -6.779094145563821,
+     "y": -6.722917453838225,
+     "role": "rive"
+    },
+    {
+     "x": -5.39560127972877,
+     "y": -5.347533055787802,
+     "role": "rive"
+    },
+    {
+     "x": -8.528964620938158,
+     "y": -10.160506062357257,
+     "role": "courant"
+    },
+    {
+     "x": -7.941141740645747,
+     "y": -9.911056893937664,
+     "role": "courant"
+    },
+    {
+     "x": -7.407624581614352,
+     "y": -9.524182984366899,
+     "role": "courant"
+    },
+    {
+     "x": -6.8741074225829575,
+     "y": -9.137309074796132,
+     "role": "courant"
+    },
+    {
+     "x": -6.340590263551563,
+     "y": -8.750435165225365,
+     "role": "courant"
+    },
+    {
+     "x": -5.807073104520169,
+     "y": -8.3635612556546,
+     "role": "courant"
+    },
+    {
+     "x": -5.314945945067078,
+     "y": -7.871946816979056,
+     "role": "courant"
+    },
+    {
+     "x": -4.869820787708325,
+     "y": -7.261390251739065,
+     "role": "courant"
+    }
+   ],
+   "spaZones": [
+    {
+     "nom": "Spa",
+     "key": "spa",
+     "poly": [
+      {
+       "x": -2.0458003788087056,
+       "y": -5.629705142098868
+      },
+      {
+       "x": -2.0458003788087056,
+       "y": -5.570894857901132
+      },
+      {
+       "x": -2.0671257239690943,
+       "y": -5.354374994913133
+      },
+      {
+       "x": -2.0785990412510906,
+       "y": -5.296694733835662
+      },
+      {
+       "x": -2.1417555556771353,
+       "y": -5.0884956077565535
+      },
+      {
+       "x": -2.164261277092291,
+       "y": -5.034161989885093
+      },
+      {
+       "x": -2.26682189135318,
+       "y": -4.84228457637068
+      },
+      {
+       "x": -2.2994951346488652,
+       "y": -4.793385612169386
+      },
+      {
+       "x": -2.437518501855207,
+       "y": -4.6252036526149345
+      },
+      {
+       "x": -2.479103652614935,
+       "y": -4.583618501855207
+      },
+      {
+       "x": -2.647285612169386,
+       "y": -4.445595134648865
+      },
+      {
+       "x": -2.6961845763706798,
+       "y": -4.4129218913531805
+      },
+      {
+       "x": -2.8880619898850926,
+       "y": -4.310361277092292
+      },
+      {
+       "x": -2.942395607756553,
+       "y": -4.287855555677135
+      },
+      {
+       "x": -3.150594733835662,
+       "y": -4.22469904125109
+      },
+      {
+       "x": -3.2082749949131335,
+       "y": -4.213225723969093
+      },
+      {
+       "x": -3.4247948579011327,
+       "y": -4.191900378808705
+      },
+      {
+       "x": -3.4836051420988676,
+       "y": -4.191900378808705
+      },
+      {
+       "x": -3.700125005086867,
+       "y": -4.213225723969093
+      },
+      {
+       "x": -3.757805266164339,
+       "y": -4.22469904125109
+      },
+      {
+       "x": -3.9660043922434474,
+       "y": -4.287855555677135
+      },
+      {
+       "x": -4.020338010114907,
+       "y": -4.310361277092291
+      },
+      {
+       "x": -4.21221542362932,
+       "y": -4.412921891353179
+      },
+      {
+       "x": -4.261114387830615,
+       "y": -4.4455951346488645
+      },
+      {
+       "x": -4.429296347385066,
+       "y": -4.583618501855207
+      },
+      {
+       "x": -4.470881498144793,
+       "y": -4.625203652614934
+      },
+      {
+       "x": -4.6089048653511355,
+       "y": -4.793385612169385
+      },
+      {
+       "x": -4.641578108646821,
+       "y": -4.84228457637068
+      },
+      {
+       "x": -4.744138722907709,
+       "y": -5.034161989885093
+      },
+      {
+       "x": -4.766644444322865,
+       "y": -5.0884956077565535
+      },
+      {
+       "x": -4.829800958748909,
+       "y": -5.296694733835661
+      },
+      {
+       "x": -4.841274276030906,
+       "y": -5.354374994913131
+      },
+      {
+       "x": -4.862599621191295,
+       "y": -5.5708948579011315
+      },
+      {
+       "x": -4.862599621191295,
+       "y": -5.629705142098868
+      },
+      {
+       "x": -4.841274276030906,
+       "y": -5.846225005086867
+      },
+      {
+       "x": -4.829800958748909,
+       "y": -5.903905266164338
+      },
+      {
+       "x": -4.766644444322865,
+       "y": -6.112104392243446
+      },
+      {
+       "x": -4.744138722907709,
+       "y": -6.1664380101149066
+      },
+      {
+       "x": -4.641578108646821,
+       "y": -6.358315423629319
+      },
+      {
+       "x": -4.6089048653511355,
+       "y": -6.4072143878306145
+      },
+      {
+       "x": -4.470881498144793,
+       "y": -6.575396347385066
+      },
+      {
+       "x": -4.4292963473850655,
+       "y": -6.616981498144793
+      },
+      {
+       "x": -4.261114387830614,
+       "y": -6.755004865351134
+      },
+      {
+       "x": -4.2122154236293206,
+       "y": -6.787678108646819
+      },
+      {
+       "x": -4.020338010114909,
+       "y": -6.890238722907708
+      },
+      {
+       "x": -3.966004392243447,
+       "y": -6.912744444322865
+      },
+      {
+       "x": -3.757805266164338,
+       "y": -6.975900958748909
+      },
+      {
+       "x": -3.700125005086868,
+       "y": -6.987374276030906
+      },
+      {
+       "x": -3.4836051420988685,
+       "y": -7.008699621191295
+      },
+      {
+       "x": -3.4247948579011327,
+       "y": -7.008699621191295
+      },
+      {
+       "x": -3.2082749949131335,
+       "y": -6.9873742760309066
+      },
+      {
+       "x": -3.150594733835662,
+       "y": -6.97590095874891
+      },
+      {
+       "x": -2.942395607756553,
+       "y": -6.912744444322865
+      },
+      {
+       "x": -2.888061989885093,
+       "y": -6.890238722907709
+      },
+      {
+       "x": -2.6961845763706807,
+       "y": -6.787678108646821
+      },
+      {
+       "x": -2.647285612169386,
+       "y": -6.755004865351135
+      },
+      {
+       "x": -2.4791036526149344,
+       "y": -6.616981498144793
+      },
+      {
+       "x": -2.437518501855207,
+       "y": -6.575396347385065
+      },
+      {
+       "x": -2.2994951346488652,
+       "y": -6.407214387830614
+      },
+      {
+       "x": -2.26682189135318,
+       "y": -6.35831542362932
+      },
+      {
+       "x": -2.1642612770922915,
+       "y": -6.166438010114908
+      },
+      {
+       "x": -2.1417555556771353,
+       "y": -6.112104392243447
+      },
+      {
+       "x": -2.078599041251091,
+       "y": -5.9039052661643385
+      },
+      {
+       "x": -2.0671257239690948,
+       "y": -5.846225005086868
+      }
+     ],
+     "center": {
+      "x": -3.4542,
+      "y": -5.600299999999999
+     }
+    }
+   ]
+  },
+  {
+   "cle": "table",
+   "entree": {
+    "key": "table",
+    "name": "Table",
+    "type": "polygon",
+    "pts": [
+     {
+      "x": -15.8974,
+      "y": -17.154
+     },
+     {
+      "x": -18.031,
+      "y": -19.28
+     },
+     {
+      "x": -15.196,
+      "y": -22.1251
+     },
+     {
+      "x": -13.0626,
+      "y": -19.9981
+     }
+    ],
+    "fonction": "terrasse",
+    "construction": {
+     "typePose": "vis-fondation",
+     "hauteurVis": 40,
+     "depassementVis": 0,
+     "visModeAuto": true,
+     "chargeNormale": 250,
+     "chargeSpa": 500,
+     "kPortee": 25.8,
+     "kEntraxeLame": 18.5,
+     "coefRaideurLame": 1,
+     "jeuLames": 6,
+     "epaisseurLameRive": 22,
+     "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+     "chuteMinReutilisable": 50,
+     "jointsSurAppui": true,
+     "prixLongueurs": [],
+     "longueursBois": "5, 4, 3, 2.5, 2",
+     "prixLongueursBois": [],
+     "jointsBoisSurAppui": true,
+     "lambourdeSection": "45x70",
+     "longueursLambourde": "5, 4, 3, 2.5, 2",
+     "prixLongueursLambourde": [],
+     "prixVisUnite": 35,
+     "visParBoite": 1,
+     "hauteurPlot": 10,
+     "plotModele": "auto",
+     "plotEntraxe": 65,
+     "plotEntraxeAuto": true,
+     "plotAvecSolives": false,
+     "plotSurfaceAssise": 300,
+     "prixPlots": [],
+     "supportType": "concasse",
+     "supportDecaissement": 15,
+     "cadences": [],
+     "equipe": 2,
+     "heuresJour": 7,
+     "echelleImplant": 200,
+     "lames3dFilaire": false,
+     "vues3d": [],
+     "visEntraxe": 100,
+     "visEntraxeZoneSpa": 60,
+     "visMargeZoneSpa": 30,
+     "soliveEntraxe": 70,
+     "soliveSection": "63x175",
+     "avecLambourde": true,
+     "lambourdeEntraxe": 45,
+     "sensPose": 0,
+     "segmentReference": 0,
+     "essenceBois": "pin-classe4",
+     "largeurLame": 140,
+     "epaisseurLame": 25,
+     "avecLameRive": true,
+     "hauteurLameRive": 270,
+     "avecLamePlat": true,
+     "bom": [
+      {
+       "poste": "vis",
+       "label": "Vis de fondation",
+       "qte": 13,
+       "unite": "u",
+       "prixBas": 25,
+       "prixHaut": 45,
+       "prixReel": 455,
+       "calcule": "calcule — 35.00 € x 13"
+      },
+      {
+       "poste": "bois",
+       "label": "Cadre, solives (63x175) — barres achetees",
+       "qte": 31,
+       "unite": "ml",
+       "prixBas": 4,
+       "prixHaut": 7,
+       "prixReel": 170.5,
+       "calcule": "calcule — prix par longueur, debit 63x175"
+      },
+      {
+       "poste": "lambourde",
+       "label": "Lambourdes (45x70) — barres achetees",
+       "qte": 24,
+       "unite": "ml",
+       "prixBas": 4,
+       "prixHaut": 7,
+       "prixReel": 132,
+       "calcule": "calcule — prix par longueur, debit 45x70"
+      },
+      {
+       "poste": "lames",
+       "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+       "qte": 89.4,
+       "unite": "ml",
+       "prixBas": 3.5000000000000004,
+       "prixHaut": 5.6000000000000005,
+       "prixReel": 406.79,
+       "calcule": "calcule — prix par longueur, debit des lames"
+      },
+      {
+       "poste": "visserie",
+       "label": "Visserie / fixations",
+       "qte": 11.998120999999998,
+       "unite": "m²",
+       "prixBas": 4,
+       "prixHaut": 6,
+       "prixReel": null
+      },
+      {
+       "poste": "lameRive",
+       "label": "Lame de rive (finition)",
+       "qte": 14.08682724964751,
+       "unite": "ml",
+       "prixBas": 10,
+       "prixHaut": 20,
+       "prixReel": null
+      }
+     ]
+    }
+   },
+   "structure": {
+    "cadre": [
+     {
+      "a": {
+       "x": -15.89747621203843,
+       "y": -17.198544397840227
+      },
+      "b": {
+       "x": -17.986452208306517,
+       "y": -19.280079347252464
+      }
+     },
+     {
+      "a": {
+       "x": -17.986452208306517,
+       "y": -19.280079347252464
+      },
+      "b": {
+       "x": -15.195926924080533,
+       "y": -22.08054618540109
+      }
+     },
+     {
+      "a": {
+       "x": -15.195926924080533,
+       "y": -22.08054618540109
+      },
+      "b": {
+       "x": -13.107144655980257,
+       "y": -19.998030068287896
+      }
+     },
+     {
+      "a": {
+       "x": -13.107144655980257,
+       "y": -19.998030068287896
+      },
+      "b": {
+       "x": -15.89747621203843,
+       "y": -17.198544397840227
+      }
+     }
+    ],
+    "solives": [
+     {
+      "a": {
+       "x": -15.424833378637285,
+       "y": -17.62811694927956
+      },
+      "b": {
+       "x": -17.5585,
+       "y": -19.754183333333334
+      }
+     },
+     {
+      "a": {
+       "x": -14.952266757274572,
+       "y": -18.10223389855912
+      },
+      "b": {
+       "x": -17.086,
+       "y": -20.228366666666666
+      }
+     },
+     {
+      "a": {
+       "x": -14.479700135911857,
+       "y": -18.57635084783868
+      },
+      "b": {
+       "x": -16.613500000000002,
+       "y": -20.70255
+      }
+     },
+     {
+      "a": {
+       "x": -14.007133514549144,
+       "y": -19.050467797118237
+      },
+      "b": {
+       "x": -16.141,
+       "y": -21.17673333333333
+      }
+     },
+     {
+      "a": {
+       "x": -13.534566893186428,
+       "y": -19.5245847463978
+      },
+      "b": {
+       "x": -15.668499999999998,
+       "y": -21.650916666666667
+      }
+     }
+    ],
+    "lambourdes": [
+     {
+      "a": {
+       "x": -17.726140442524063,
+       "y": -18.976226368956766
+      },
+      "b": {
+       "x": -14.891243363575033,
+       "y": -21.821257604914265
+      }
+     },
+     {
+      "a": {
+       "x": -17.421280885048127,
+       "y": -18.672452737913535
+      },
+      "b": {
+       "x": -14.586469469645861,
+       "y": -21.517398004095224
+      }
+     },
+     {
+      "a": {
+       "x": -17.11642132757219,
+       "y": -18.368679106870303
+      },
+      "b": {
+       "x": -14.28169557571669,
+       "y": -21.21353840327618
+      }
+     },
+     {
+      "a": {
+       "x": -16.811561770096255,
+       "y": -18.06490547582707
+      },
+      "b": {
+       "x": -13.976921681787516,
+       "y": -20.909678802457133
+      }
+     },
+     {
+      "a": {
+       "x": -16.50670221262032,
+       "y": -17.761131844783836
+      },
+      "b": {
+       "x": -13.672147787858345,
+       "y": -20.60581920163809
+      }
+     },
+     {
+      "a": {
+       "x": -16.201842655144382,
+       "y": -17.457358213740605
+      },
+      "b": {
+       "x": -13.367373893929173,
+       "y": -20.301959600819046
+      }
+     }
+    ],
+    "solivesSpa": [],
+    "portees": [
+     {
+      "a": {
+       "x": -15.424833378637285,
+       "y": -17.62811694927956
+      },
+      "b": {
+       "x": -17.5585,
+       "y": -19.754183333333334
+      }
+     },
+     {
+      "a": {
+       "x": -14.952266757274572,
+       "y": -18.10223389855912
+      },
+      "b": {
+       "x": -17.086,
+       "y": -20.228366666666666
+      }
+     },
+     {
+      "a": {
+       "x": -14.479700135911857,
+       "y": -18.57635084783868
+      },
+      "b": {
+       "x": -16.613500000000002,
+       "y": -20.70255
+      }
+     },
+     {
+      "a": {
+       "x": -14.007133514549144,
+       "y": -19.050467797118237
+      },
+      "b": {
+       "x": -16.141,
+       "y": -21.17673333333333
+      }
+     },
+     {
+      "a": {
+       "x": -13.534566893186428,
+       "y": -19.5245847463978
+      },
+      "b": {
+       "x": -15.668499999999998,
+       "y": -21.650916666666667
+      }
+     }
+    ],
+    "plotSimple": false,
+    "soliveAngle": -135.1022273129481,
+    "lamesAngle": -135.1022273129481,
+    "cadreOff": 0.0315,
+    "soliveW": 0.063
+   },
+   "layers": {
+    "vis": [
+     {
+      "x": -15.89747621203843,
+      "y": -17.198544397840227,
+      "role": "rive"
+     },
+     {
+      "x": -16.941964210172472,
+      "y": -18.239311872546345,
+      "role": "rive"
+     },
+     {
+      "x": -17.986452208306517,
+      "y": -19.280079347252464,
+      "role": "rive"
+     },
+     {
+      "x": -16.591189566193524,
+      "y": -20.68031276632678,
+      "role": "rive"
+     },
+     {
+      "x": -15.195926924080533,
+      "y": -22.08054618540109,
+      "role": "rive"
+     },
+     {
+      "x": -14.151535790030394,
+      "y": -21.039288126844493,
+      "role": "rive"
+     },
+     {
+      "x": -13.107144655980257,
+      "y": -19.998030068287896,
+      "role": "rive"
+     },
+     {
+      "x": -14.502310434009344,
+      "y": -18.598287233064063,
+      "role": "rive"
+     },
+     {
+      "x": -16.49166668931864,
+      "y": -18.691150141306444,
+      "role": "courant"
+     },
+     {
+      "x": -16.019133378637285,
+      "y": -19.165300282612893,
+      "role": "courant"
+     },
+     {
+      "x": -15.546600067955929,
+      "y": -19.63945042391934,
+      "role": "courant"
+     },
+     {
+      "x": -15.074066757274572,
+      "y": -20.113600565225784,
+      "role": "courant"
+     },
+     {
+      "x": -14.601533446593212,
+      "y": -20.587750706532233,
+      "role": "courant"
+     }
+    ],
+    "cadre": [
+     {
+      "a": {
+       "x": -15.89747621203843,
+       "y": -17.198544397840227
+      },
+      "b": {
+       "x": -17.986452208306517,
+       "y": -19.280079347252464
+      }
+     },
+     {
+      "a": {
+       "x": -17.986452208306517,
+       "y": -19.280079347252464
+      },
+      "b": {
+       "x": -15.195926924080533,
+       "y": -22.08054618540109
+      }
+     },
+     {
+      "a": {
+       "x": -15.195926924080533,
+       "y": -22.08054618540109
+      },
+      "b": {
+       "x": -13.107144655980257,
+       "y": -19.998030068287896
+      }
+     },
+     {
+      "a": {
+       "x": -13.107144655980257,
+       "y": -19.998030068287896
+      },
+      "b": {
+       "x": -15.89747621203843,
+       "y": -17.198544397840227
+      }
+     }
+    ],
+    "solives": [
+     {
+      "a": {
+       "x": -15.424833378637285,
+       "y": -17.62811694927956
+      },
+      "b": {
+       "x": -17.5585,
+       "y": -19.754183333333334
+      }
+     },
+     {
+      "a": {
+       "x": -14.952266757274572,
+       "y": -18.10223389855912
+      },
+      "b": {
+       "x": -17.086,
+       "y": -20.228366666666666
+      }
+     },
+     {
+      "a": {
+       "x": -14.479700135911857,
+       "y": -18.57635084783868
+      },
+      "b": {
+       "x": -16.613500000000002,
+       "y": -20.70255
+      }
+     },
+     {
+      "a": {
+       "x": -14.007133514549144,
+       "y": -19.050467797118237
+      },
+      "b": {
+       "x": -16.141,
+       "y": -21.17673333333333
+      }
+     },
+     {
+      "a": {
+       "x": -13.534566893186428,
+       "y": -19.5245847463978
+      },
+      "b": {
+       "x": -15.668499999999998,
+       "y": -21.650916666666667
+      }
+     }
+    ],
+    "lambourdes": [
+     {
+      "a": {
+       "x": -17.726140442524063,
+       "y": -18.976226368956766
+      },
+      "b": {
+       "x": -14.891243363575033,
+       "y": -21.821257604914265
+      }
+     },
+     {
+      "a": {
+       "x": -17.421280885048127,
+       "y": -18.672452737913535
+      },
+      "b": {
+       "x": -14.586469469645861,
+       "y": -21.517398004095224
+      }
+     },
+     {
+      "a": {
+       "x": -17.11642132757219,
+       "y": -18.368679106870303
+      },
+      "b": {
+       "x": -14.28169557571669,
+       "y": -21.21353840327618
+      }
+     },
+     {
+      "a": {
+       "x": -16.811561770096255,
+       "y": -18.06490547582707
+      },
+      "b": {
+       "x": -13.976921681787516,
+       "y": -20.909678802457133
+      }
+     },
+     {
+      "a": {
+       "x": -16.50670221262032,
+       "y": -17.761131844783836
+      },
+      "b": {
+       "x": -13.672147787858345,
+       "y": -20.60581920163809
+      }
+     },
+     {
+      "a": {
+       "x": -16.201842655144382,
+       "y": -17.457358213740605
+      },
+      "b": {
+       "x": -13.367373893929173,
+       "y": -20.301959600819046
+      }
+     }
+    ],
+    "lames": [
+     {
+      "a": {
+       "x": -15.81584213072266,
+       "y": -17.43414036539298
+      },
+      "b": {
+       "x": -17.751124770841578,
+       "y": -19.362529422804318
+      }
+     },
+     {
+      "a": {
+       "x": -15.712773743890011,
+       "y": -17.537546884015367
+      },
+      "b": {
+       "x": -17.64807091435465,
+       "y": -19.465950420014533
+      }
+     },
+     {
+      "a": {
+       "x": -15.609705357057361,
+       "y": -17.640953402637752
+      },
+      "b": {
+       "x": -17.545017057867717,
+       "y": -19.56937141722475
+      }
+     },
+     {
+      "a": {
+       "x": -15.506636970224712,
+       "y": -17.744359921260138
+      },
+      "b": {
+       "x": -17.441963201380787,
+       "y": -19.67279241443497
+      }
+     },
+     {
+      "a": {
+       "x": -15.403568583392063,
+       "y": -17.847766439882523
+      },
+      "b": {
+       "x": -17.338909344893857,
+       "y": -19.776213411645188
+      }
+     },
+     {
+      "a": {
+       "x": -15.300500196559414,
+       "y": -17.95117295850491
+      },
+      "b": {
+       "x": -17.235855488406926,
+       "y": -19.879634408855406
+      }
+     },
+     {
+      "a": {
+       "x": -15.197431809726764,
+       "y": -18.054579477127294
+      },
+      "b": {
+       "x": -17.132801631919996,
+       "y": -19.983055406065624
+      }
+     },
+     {
+      "a": {
+       "x": -15.094363422894114,
+       "y": -18.15798599574968
+      },
+      "b": {
+       "x": -17.029747775433066,
+       "y": -20.08647640327584
+      }
+     },
+     {
+      "a": {
+       "x": -14.991295036061464,
+       "y": -18.261392514372066
+      },
+      "b": {
+       "x": -16.926693918946135,
+       "y": -20.189897400486057
+      }
+     },
+     {
+      "a": {
+       "x": -14.888226649228816,
+       "y": -18.36479903299445
+      },
+      "b": {
+       "x": -16.823640062459205,
+       "y": -20.293318397696275
+      }
+     },
+     {
+      "a": {
+       "x": -14.785158262396166,
+       "y": -18.468205551616837
+      },
+      "b": {
+       "x": -16.720586205972275,
+       "y": -20.396739394906493
+      }
+     },
+     {
+      "a": {
+       "x": -14.682089875563516,
+       "y": -18.571612070239222
+      },
+      "b": {
+       "x": -16.61753234948534,
+       "y": -20.50016039211671
+      }
+     },
+     {
+      "a": {
+       "x": -14.579021488730866,
+       "y": -18.675018588861608
+      },
+      "b": {
+       "x": -16.51447849299841,
+       "y": -20.603581389326926
+      }
+     },
+     {
+      "a": {
+       "x": -14.475953101898218,
+       "y": -18.778425107483994
+      },
+      "b": {
+       "x": -16.411424636511484,
+       "y": -20.707002386537145
+      }
+     },
+     {
+      "a": {
+       "x": -14.372884715065567,
+       "y": -18.88183162610638
+      },
+      "b": {
+       "x": -16.30837078002455,
+       "y": -20.810423383747363
+      }
+     },
+     {
+      "a": {
+       "x": -14.269816328232919,
+       "y": -18.985238144728765
+      },
+      "b": {
+       "x": -16.20531692353762,
+       "y": -20.91384438095758
+      }
+     },
+     {
+      "a": {
+       "x": -14.16674794140027,
+       "y": -19.08864466335115
+      },
+      "b": {
+       "x": -16.10226306705069,
+       "y": -21.017265378167796
+      }
+     },
+     {
+      "a": {
+       "x": -14.06367955456762,
+       "y": -19.192051181973536
+      },
+      "b": {
+       "x": -15.999209210563759,
+       "y": -21.120686375378014
+      }
+     },
+     {
+      "a": {
+       "x": -13.960611167734971,
+       "y": -19.29545770059592
+      },
+      "b": {
+       "x": -15.896155354076829,
+       "y": -21.224107372588232
+      }
+     },
+     {
+      "a": {
+       "x": -13.857542780902321,
+       "y": -19.398864219218307
+      },
+      "b": {
+       "x": -15.793101497589898,
+       "y": -21.32752836979845
+      }
+     },
+     {
+      "a": {
+       "x": -13.754474394069673,
+       "y": -19.502270737840693
+      },
+      "b": {
+       "x": -15.690047641102968,
+       "y": -21.430949367008665
+      }
+     },
+     {
+      "a": {
+       "x": -13.651406007237021,
+       "y": -19.60567725646308
+      },
+      "b": {
+       "x": -15.586993784616036,
+       "y": -21.534370364218884
+      }
+     },
+     {
+      "a": {
+       "x": -13.548337620404373,
+       "y": -19.709083775085464
+      },
+      "b": {
+       "x": -15.483939928129105,
+       "y": -21.6377913614291
+      }
+     },
+     {
+      "a": {
+       "x": -13.445269233571723,
+       "y": -19.81249029370785
+      },
+      "b": {
+       "x": -15.380886071642175,
+       "y": -21.74121235863932
+      }
+     },
+     {
+      "a": {
+       "x": -13.342200846739074,
+       "y": -19.915896812330235
+      },
+      "b": {
+       "x": -15.277832215155243,
+       "y": -21.84463335584954
+      }
+     }
+    ],
+    "lameRive": [
+     {
+      "a": {
+       "x": -15.897373386272292,
+       "y": -17.13844481345262
+      },
+      "b": {
+       "x": -18.046556371702483,
+       "y": -19.279972291435648
+      }
+     },
+     {
+      "a": {
+       "x": -18.046556371702483,
+       "y": -19.279972291435648
+      },
+      "b": {
+       "x": -15.19602551857505,
+       "y": -22.1406584749393
+      }
+     },
+     {
+      "a": {
+       "x": -15.19602551857505,
+       "y": -22.1406584749393
+      },
+      "b": {
+       "x": -13.047044723308481,
+       "y": -19.99812442059788
+      }
+     },
+     {
+      "a": {
+       "x": -13.047044723308481,
+       "y": -19.99812442059788
+      },
+      "b": {
+       "x": -15.897373386272292,
+       "y": -17.13844481345262
+      }
+     }
+    ],
+    "lamePlat": [
+     {
+      "a": {
+       "x": -15.897569360085408,
+       "y": -17.252987550756057
+      },
+      "b": {
+       "x": -17.93200490734782,
+       "y": -19.2801763272277
+      }
+     },
+     {
+      "a": {
+       "x": -17.93200490734782,
+       "y": -19.2801763272277
+      },
+      "b": {
+       "x": -15.195837609067855,
+       "y": -22.026091523113532
+      }
+     },
+     {
+      "a": {
+       "x": -15.195837609067855,
+       "y": -22.026091523113532
+      },
+      "b": {
+       "x": -13.161588124400573,
+       "y": -19.997944596195325
+      }
+     },
+     {
+      "a": {
+       "x": -13.161588124400573,
+       "y": -19.997944596195325
+      },
+      "b": {
+       "x": -15.897569360085408,
+       "y": -17.252987550756057
+      }
+     }
+    ],
+    "bandes": {
+     "cadre": {
+      "ext": [
+       {
+        "x": -15.8974,
+        "y": -17.154
+       },
+       {
+        "x": -18.031,
+        "y": -19.28
+       },
+       {
+        "x": -15.196,
+        "y": -22.1251
+       },
+       {
+        "x": -13.0626,
+        "y": -19.9981
+       }
+      ],
+      "int": [
+       {
+        "x": -15.897552424076865,
+        "y": -17.24308879568045
+       },
+       {
+        "x": -17.94190441661304,
+        "y": -19.28015869450493
+       },
+       {
+        "x": -15.195853848161068,
+        "y": -22.035992370802177
+       },
+       {
+        "x": -13.151689311960517,
+        "y": -19.99796013657579
+       }
+      ]
+     },
+     "lamePlat": {
+      "ext": [
+       {
+        "x": -15.8974,
+        "y": -17.154
+       },
+       {
+        "x": -18.031,
+        "y": -19.28
+       },
+       {
+        "x": -15.196,
+        "y": -22.1251
+       },
+       {
+        "x": -13.0626,
+        "y": -19.9981
+       }
+      ],
+      "int": [
+       {
+        "x": -15.897738720170814,
+        "y": -17.35197510151211
+       },
+       {
+        "x": -17.833009814695643,
+        "y": -19.280352654455395
+       },
+       {
+        "x": -15.195675218135705,
+        "y": -21.927083046227065
+       },
+       {
+        "x": -13.260576248801145,
+        "y": -19.99778919239065
+       }
+      ]
+     },
+     "lameRive": {
+      "ext": [
+       {
+        "x": -15.897346772544585,
+        "y": -17.12288962690524
+       },
+       {
+        "x": -18.06211274340497,
+        "y": -19.2799445828713
+       },
+       {
+        "x": -15.196051037150102,
+        "y": -22.156216949878605
+       },
+       {
+        "x": -13.03148944661696,
+        "y": -19.998148841195757
+       }
+      ],
+      "int": [
+       {
+        "x": -15.8974,
+        "y": -17.154
+       },
+       {
+        "x": -18.031,
+        "y": -19.28
+       },
+       {
+        "x": -15.196,
+        "y": -22.1251
+       },
+       {
+        "x": -13.0626,
+        "y": -19.9981
+       }
+      ]
+     }
+    },
+    "lamesFieldPoly": [
+     {
+      "x": -15.897738720170814,
+      "y": -17.35197510151211
+     },
+     {
+      "x": -17.833009814695643,
+      "y": -19.280352654455395
+     },
+     {
+      "x": -15.195675218135705,
+      "y": -21.927083046227065
+     },
+     {
+      "x": -13.260576248801145,
+      "y": -19.99778919239065
+     }
+    ]
+   },
+   "bom": [
+    {
+     "poste": "vis",
+     "label": "Vis de fondation",
+     "qte": 13,
+     "unite": "u",
+     "prixBas": 25,
+     "prixHaut": 45,
+     "prixReel": 455,
+     "calcule": "calcule — 35.00 € x 13"
+    },
+    {
+     "poste": "bois",
+     "label": "Cadre, solives (63x175) — barres achetees",
+     "qte": 34,
+     "unite": "ml",
+     "prixBas": 4,
+     "prixHaut": 7,
+     "prixReel": 187,
+     "calcule": "calcule — prix par longueur, debit 63x175"
+    },
+    {
+     "poste": "lambourde",
+     "label": "Lambourdes (45x70) — barres achetees",
+     "qte": 27,
+     "unite": "ml",
+     "prixBas": 4,
+     "prixHaut": 7,
+     "prixReel": 148.5,
+     "calcule": "calcule — prix par longueur, debit 45x70"
+    },
+    {
+     "poste": "lames",
+     "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+     "qte": 89.4,
+     "unite": "ml",
+     "prixBas": 3.5000000000000004,
+     "prixHaut": 5.6000000000000005,
+     "prixReel": 406.79,
+     "calcule": "calcule — prix par longueur, debit des lames"
+    },
+    {
+     "poste": "visserie",
+     "label": "Visserie / fixations",
+     "qte": 12.097368949999975,
+     "unite": "m²",
+     "prixBas": 4,
+     "prixHaut": 6,
+     "prixReel": null
+    },
+    {
+     "poste": "lameRive",
+     "label": "Lame de rive (finition)",
+     "qte": 14.14459563191639,
+     "unite": "ml",
+     "prixBas": 10,
+     "prixHaut": 20,
+     "prixReel": null
+    }
+   ],
+   "debitLames": {
+    "achats": {
+     "3": 27,
+     "2.5": 2,
+     "1.7": 2
+    },
+    "roles": {
+     "3": {
+      "entiere": 0,
+      "ajustee": 27,
+      "recoupee": 0,
+      "troncon": 0,
+      "rebutMl": 6.947257470747654,
+      "potMl": 0
+     },
+     "2.5": {
+      "entiere": 0,
+      "ajustee": 0,
+      "recoupee": 0,
+      "troncon": 2,
+      "rebutMl": 0.5,
+      "potMl": 0
+     },
+     "1.7": {
+      "entiere": 0,
+      "ajustee": 2,
+      "recoupee": 0,
+      "troncon": 0,
+      "rebutMl": 0.14796234239798745,
+      "potMl": 0
+     }
+    },
+    "reelMl": 81.80383661432555,
+    "achatMl": 89.4,
+    "perdueMl": 7.595219813145639,
+    "restantMl": 0,
+    "pool": [],
+    "chuteMl": 7.596163385674458
+   },
+   "debitBois": [
+    {
+     "cle": "bois",
+     "section": "63x175",
+     "titre": "Cadre, solives (63x175)",
+     "champLongueurs": "longueursBois",
+     "parts": {
+      "cadre": 13.804595626986044,
+      "solives": 15.061394934263301
+     },
+     "debit": {
+      "achats": {
+       "3": 2,
+       "4": 7
+      },
+      "roles": {
+       "3": {
+        "entiere": 0,
+        "ajustee": 2,
+        "recoupee": 0,
+        "troncon": 0,
+        "rebutMl": 0.1014420328491239,
+        "potMl": 0
+       },
+       "4": {
+        "entiere": 0,
+        "ajustee": 2,
+        "recoupee": 5,
+        "troncon": 0,
+        "rebutMl": 0.0939623401648304,
+        "potMl": 4.938581026365135
+       }
+      },
+      "reelMl": 28.866014600620918,
+      "achatMl": 34,
+      "perdueMl": 0.1954043730139543,
+      "restantMl": 4.938581026365135,
+      "pool": [
+       0.9879043036362858,
+       0.9878102544546588,
+       0.9877162052730255,
+       0.9876221560913985,
+       0.9875281069097666
+      ],
+      "chuteMl": 5.133985399379082
+     }
+    },
+    {
+     "cle": "lambourde",
+     "section": "45x70",
+     "titre": "Lambourdes (45x70)",
+     "champLongueurs": "longueursLambourde",
+     "parts": {
+      "lambourdes": 24.09611287599359
+     },
+     "debit": {
+      "achats": {
+       "2": 6,
+       "2.5": 6
+      },
+      "roles": {
+       "2": {
+        "entiere": 0,
+        "ajustee": 6,
+        "recoupee": 0,
+        "troncon": 0,
+        "rebutMl": 0.04397451270405739,
+        "potMl": 0
+       },
+       "2.5": {
+        "entiere": 0,
+        "ajustee": 0,
+        "recoupee": 0,
+        "troncon": 6,
+        "rebutMl": 2.85987454157664,
+        "potMl": 0
+       }
+      },
+      "reelMl": 24.0961509457193,
+      "achatMl": 27,
+      "perdueMl": 2.9038490542806974,
+      "restantMl": 0,
+      "pool": [],
+      "chuteMl": 2.9038490542806983
+     }
+    }
+   ],
+   "implantation": {
+    "R": {
+     "origine": {
+      "x": -15.8974,
+      "y": -17.154
+     },
+     "cote": 0,
+     "longueurCote": 3.011996839307771
+    },
+    "sommets": [
+     {
+      "i": 0,
+      "x": 0,
+      "y": 0
+     },
+     {
+      "i": 1,
+      "x": 3.0119968393077707,
+      "y": 0
+     },
+     {
+      "i": 2,
+      "x": 3.0119724700922927,
+      "y": 4.01644357727158
+     },
+     {
+      "i": 3,
+      "x": -0.0005885397942182458,
+      "y": 4.015594041187544
+     }
+    ],
+    "appuis": [
+     {
+      "x": 0.031495383585900726,
+      "y": 0.03150000000000267,
+      "role": "rive",
+      "n": 1
+     },
+     {
+      "x": 1.5059960158855983,
+      "y": 0.03150000000000297,
+      "role": "rive",
+      "n": 2
+     },
+     {
+      "x": 2.980496648185299,
+      "y": 0.03150000000000075,
+      "role": "rive",
+      "n": 3
+     },
+     {
+      "x": 1.5059473335271552,
+      "y": 0.669407262878595,
+      "role": "courant",
+      "n": 4
+     },
+     {
+      "x": 1.5058962474004294,
+      "y": 1.3388145257571933,
+      "role": "courant",
+      "n": 5
+     },
+     {
+      "x": 0.031205729790254266,
+      "y": 2.007801462086354,
+      "role": "rive",
+      "n": 6
+     },
+     {
+      "x": 1.505845161273701,
+      "y": 2.008221788635789,
+      "role": "courant",
+      "n": 7
+     },
+     {
+      "x": 2.980484654726403,
+      "y": 2.008217346568506,
+      "role": "rive",
+      "n": 8
+     },
+     {
+      "x": 1.505794075146973,
+      "y": 2.6776290515143844,
+      "role": "courant",
+      "n": 9
+     },
+     {
+      "x": 1.505742989020244,
+      "y": 3.3470363143929847,
+      "role": "courant",
+      "n": 10
+     },
+     {
+      "x": 0.03091607599460522,
+      "y": 3.984102924172703,
+      "role": "rive",
+      "n": 11
+     },
+     {
+      "x": 1.5056943686310553,
+      "y": 3.9845188086548555,
+      "role": "rive",
+      "n": 12
+     },
+     {
+      "x": 2.9804726612675063,
+      "y": 3.9849346931370073,
+      "role": "rive",
+      "n": 13
+     }
+    ],
+    "lignes": [
+     {
+      "ref": "C1",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -15.89747621203843,
+        "y": -17.198544397840227
+       },
+       "b": {
+        "x": -17.986452208306517,
+        "y": -19.280079347252464
+       }
+      },
+      "longueur": 2.949001264599398,
+      "depart": {
+       "x": 0.031495383585900726,
+       "y": 0.03150000000000267
+      },
+      "fin": {
+       "x": 2.980496648185299,
+       "y": 0.03150000000000075
+      },
+      "appuis": [
+       {
+        "d": 0,
+        "n": 1
+       },
+       {
+        "d": 1.4745006322996979,
+        "n": 2
+       },
+       {
+        "d": 2.9490012645993984,
+        "n": 3
+       }
+      ]
+     },
+     {
+      "ref": "C2",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -17.986452208306517,
+        "y": -19.280079347252464
+       },
+       "b": {
+        "x": -15.195926924080533,
+        "y": -22.08054618540109
+       }
+      },
+      "longueur": 3.9534346932097755,
+      "depart": {
+       "x": 2.980496648185299,
+       "y": 0.03150000000000075
+      },
+      "fin": {
+       "x": 2.9804726612675063,
+       "y": 3.9849346931370073
+      },
+      "appuis": [
+       {
+        "d": 1.9767173466048895,
+        "n": 8
+       },
+       {
+        "d": 3.9534346932097755,
+        "n": 13
+       }
+      ]
+     },
+     {
+      "ref": "C3",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -15.195926924080533,
+        "y": -22.08054618540109
+       },
+       "b": {
+        "x": -13.107144655980257,
+        "y": -19.998030068287896
+       }
+      },
+      "longueur": 2.949556702551478,
+      "depart": {
+       "x": 2.9804726612675063,
+       "y": 3.9849346931370073
+      },
+      "fin": {
+       "x": 0.03091607599460522,
+       "y": 3.984102924172703
+      },
+      "appuis": [
+       {
+        "d": 1.4747783512757395,
+        "n": 12
+       },
+       {
+        "d": 2.9495567025514777,
+        "n": 11
+       }
+      ]
+     },
+     {
+      "ref": "C4",
+      "type": "cadre",
+      "seg": {
+       "a": {
+        "x": -13.107144655980257,
+        "y": -19.998030068287896
+       },
+       "b": {
+        "x": -15.89747621203843,
+        "y": -17.198544397840227
+       }
+      },
+      "longueur": 3.952602966625394,
+      "depart": {
+       "x": 0.03091607599460522,
+       "y": 3.984102924172703
+      },
+      "fin": {
+       "x": 0.031495383585900726,
+       "y": 0.03150000000000267
+      },
+      "appuis": [
+       {
+        "d": 1.976301483312696,
+        "n": 6
+       }
+      ]
+     },
+     {
+      "ref": "L1",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -15.424833378637285,
+        "y": -17.62811694927956
+       },
+       "b": {
+        "x": -17.5585,
+        "y": -19.754183333333334
+       }
+      },
+      "longueur": 3.0120908884894018,
+      "depart": {
+       "x": -0.00009811071754434186,
+       "y": 0.6694072628785961
+      },
+      "fin": {
+       "x": 3.011992777771857,
+       "y": 0.6694072628785965
+      },
+      "appuis": [
+       {
+        "d": 1.5060454442446995,
+        "n": 4
+       }
+      ]
+     },
+     {
+      "ref": "L2",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -14.952266757274572,
+        "y": -18.10223389855912
+       },
+       "b": {
+        "x": -17.086,
+        "y": -20.228366666666666
+       }
+      },
+      "longueur": 3.012184937671029,
+      "depart": {
+       "x": -0.00019622143508502,
+       "y": 1.3388145257571935
+      },
+      "fin": {
+       "x": 3.0119887162359436,
+       "y": 1.3388145257571926
+      },
+      "appuis": [
+       {
+        "d": 1.5060924688355142,
+        "n": 5
+       }
+      ]
+     },
+     {
+      "ref": "L3",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -14.479700135911857,
+        "y": -18.57635084783868
+       },
+       "b": {
+        "x": -16.613500000000002,
+        "y": -20.70255
+       }
+      },
+      "longueur": 3.012278986852662,
+      "depart": {
+       "x": -0.00029433215262941737,
+       "y": 2.0082217886357894
+      },
+      "fin": {
+       "x": 3.0119846547000324,
+       "y": 2.0082217886357867
+      },
+      "appuis": [
+       {
+        "d": 1.5061394934263304,
+        "n": 7
+       }
+      ]
+     },
+     {
+      "ref": "L4",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -14.007133514549144,
+        "y": -19.050467797118237
+       },
+       "b": {
+        "x": -16.141,
+        "y": -21.17673333333333
+       }
+      },
+      "longueur": 3.012373036034289,
+      "depart": {
+       "x": -0.00039244287017248247,
+       "y": 2.6776290515143844
+      },
+      "fin": {
+       "x": 3.0119805931641164,
+       "y": 2.6776290515143857
+      },
+      "appuis": [
+       {
+        "d": 1.5061865180171452,
+        "n": 9
+       }
+      ]
+     },
+     {
+      "ref": "L5",
+      "type": "solive",
+      "seg": {
+       "a": {
+        "x": -13.534566893186428,
+        "y": -19.5245847463978
+       },
+       "b": {
+        "x": -15.668499999999998,
+        "y": -21.650916666666667
+       }
+      },
+      "longueur": 3.012467085215921,
+      "depart": {
+       "x": -0.0004905535877155476,
+       "y": 3.3470363143929838
+      },
+      "fin": {
+       "x": 3.0119765316282057,
+       "y": 3.3470363143929847
+      },
+      "appuis": [
+       {
+        "d": 1.5062335426079598,
+        "n": 10
+       }
+      ]
+     }
+    ],
+    "diagonales": [
+     {
+      "de": 0,
+      "a": 2,
+      "d": 5.02033835214321
+     },
+     {
+      "de": 1,
+      "a": 3,
+      "d": 5.020026510886171
+     }
+    ],
+    "bbox": {
+     "x0": -0.0005885397942182458,
+     "x1": 3.0119968393077707,
+     "y0": 0,
+     "y1": 4.01644357727158
+    }
+   },
+   "chantier": {
+    "lignes": [
+     {
+      "cle": "piquetage",
+      "h": 0.06,
+      "unite": "m²",
+      "label": "Piquetage, tracage et implantation",
+      "phase": "Preparation",
+      "qte": 12.097368949999975,
+      "cadence": 0.06,
+      "heures": 0.7258421369999984
+     },
+     {
+      "cle": "vissage",
+      "h": 0.25,
+      "unite": "u",
+      "label": "Vissage des vis de fondation",
+      "phase": "Appuis",
+      "qte": 13,
+      "cadence": 0.25,
+      "heures": 3.25
+     },
+     {
+      "cle": "reglage",
+      "h": 0.06,
+      "unite": "u",
+      "label": "Reglage de niveau des appuis",
+      "phase": "Appuis",
+      "qte": 13,
+      "cadence": 0.06,
+      "heures": 0.78
+     },
+     {
+      "cle": "debitBois",
+      "h": 0.1,
+      "unite": "u",
+      "label": "Debit des bois de structure",
+      "phase": "Structure",
+      "qte": 21,
+      "cadence": 0.1,
+      "heures": 2.1
+     },
+     {
+      "cle": "poseCadre",
+      "h": 0.25,
+      "unite": "ml",
+      "label": "Pose du cadre peripherique",
+      "phase": "Structure",
+      "qte": 13.804595626986044,
+      "cadence": 0.25,
+      "heures": 3.451148906746511
+     },
+     {
+      "cle": "poseSolives",
+      "h": 0.15,
+      "unite": "ml",
+      "label": "Pose des solives",
+      "phase": "Structure",
+      "qte": 15.061394934263301,
+      "cadence": 0.15,
+      "heures": 2.259209240139495
+     },
+     {
+      "cle": "poseLamb",
+      "h": 0.12,
+      "unite": "ml",
+      "label": "Pose des lambourdes",
+      "phase": "Structure",
+      "qte": 24.09611287599359,
+      "cadence": 0.12,
+      "heures": 2.8915335451192306
+     },
+     {
+      "cle": "controle",
+      "h": 0.05,
+      "unite": "m²",
+      "label": "Controle de niveau et de planeite",
+      "phase": "Structure",
+      "qte": 12.097368949999975,
+      "cadence": 0.05,
+      "heures": 0.6048684474999988
+     },
+     {
+      "cle": "debitLames",
+      "h": 0.05,
+      "unite": "u",
+      "label": "Debit des lames",
+      "phase": "Platelage",
+      "qte": 31,
+      "cadence": 0.05,
+      "heures": 1.55
+     },
+     {
+      "cle": "poseLames",
+      "h": 0.35,
+      "unite": "m²",
+      "label": "Pose et fixation des lames",
+      "phase": "Platelage",
+      "qte": 12.097368949999975,
+      "cadence": 0.35,
+      "heures": 4.234079132499991
+     },
+     {
+      "cle": "coupeRive",
+      "h": 0.15,
+      "unite": "ml",
+      "label": "Coupe de finition en rive",
+      "phase": "Platelage",
+      "qte": 13.804595626986044,
+      "cadence": 0.15,
+      "heures": 2.0706893440479064
+     },
+     {
+      "cle": "poseRive",
+      "h": 0.25,
+      "unite": "ml",
+      "label": "Pose de la lame de rive",
+      "phase": "Finitions",
+      "qte": 14.14459563191639,
+      "cadence": 0.25,
+      "heures": 3.5361489079790975
+     },
+     {
+      "cle": "posePlat",
+      "h": 0.2,
+      "unite": "ml",
+      "label": "Pose de la bordure a plat",
+      "phase": "Finitions",
+      "qte": 13.496595622519735,
+      "cadence": 0.2,
+      "heures": 2.699319124503947
+     },
+     {
+      "cle": "nettoyage",
+      "h": 0.03,
+      "unite": "m²",
+      "label": "Nettoyage et evacuation des chutes",
+      "phase": "Finitions",
+      "qte": 12.097368949999975,
+      "cadence": 0.03,
+      "heures": 0.3629210684999992
+     }
+    ],
+    "total": 30.51575985403618,
+    "dominant": {
+     "cle": "poseLames",
+     "h": 0.35,
+     "unite": "m²",
+     "label": "Pose et fixation des lames",
+     "phase": "Platelage",
+     "qte": 12.097368949999975,
+     "cadence": 0.35,
+     "heures": 4.234079132499991
+    },
+    "surf": 12.097368949999975,
+    "nbAppuis": 13
+   },
+   "visGrid": [
+    {
+     "x": -15.89747621203843,
+     "y": -17.198544397840227,
+     "role": "rive"
+    },
+    {
+     "x": -16.941964210172472,
+     "y": -18.239311872546345,
+     "role": "rive"
+    },
+    {
+     "x": -17.986452208306517,
+     "y": -19.280079347252464,
+     "role": "rive"
+    },
+    {
+     "x": -16.591189566193524,
+     "y": -20.68031276632678,
+     "role": "rive"
+    },
+    {
+     "x": -15.195926924080533,
+     "y": -22.08054618540109,
+     "role": "rive"
+    },
+    {
+     "x": -14.151535790030394,
+     "y": -21.039288126844493,
+     "role": "rive"
+    },
+    {
+     "x": -13.107144655980257,
+     "y": -19.998030068287896,
+     "role": "rive"
+    },
+    {
+     "x": -14.502310434009344,
+     "y": -18.598287233064063,
+     "role": "rive"
+    },
+    {
+     "x": -16.49166668931864,
+     "y": -18.691150141306444,
+     "role": "courant"
+    },
+    {
+     "x": -16.019133378637285,
+     "y": -19.165300282612893,
+     "role": "courant"
+    },
+    {
+     "x": -15.546600067955929,
+     "y": -19.63945042391934,
+     "role": "courant"
+    },
+    {
+     "x": -15.074066757274572,
+     "y": -20.113600565225784,
+     "role": "courant"
+    },
+    {
+     "x": -14.601533446593212,
+     "y": -20.587750706532233,
+     "role": "courant"
+    }
+   ],
+   "spaZones": [
+    {
+     "nom": "Spa",
+     "key": "spa",
+     "poly": [
+      {
+       "x": -2.0458003788087056,
+       "y": -5.629705142098868
+      },
+      {
+       "x": -2.0458003788087056,
+       "y": -5.570894857901132
+      },
+      {
+       "x": -2.0671257239690943,
+       "y": -5.354374994913133
+      },
+      {
+       "x": -2.0785990412510906,
+       "y": -5.296694733835662
+      },
+      {
+       "x": -2.1417555556771353,
+       "y": -5.0884956077565535
+      },
+      {
+       "x": -2.164261277092291,
+       "y": -5.034161989885093
+      },
+      {
+       "x": -2.26682189135318,
+       "y": -4.84228457637068
+      },
+      {
+       "x": -2.2994951346488652,
+       "y": -4.793385612169386
+      },
+      {
+       "x": -2.437518501855207,
+       "y": -4.6252036526149345
+      },
+      {
+       "x": -2.479103652614935,
+       "y": -4.583618501855207
+      },
+      {
+       "x": -2.647285612169386,
+       "y": -4.445595134648865
+      },
+      {
+       "x": -2.6961845763706798,
+       "y": -4.4129218913531805
+      },
+      {
+       "x": -2.8880619898850926,
+       "y": -4.310361277092292
+      },
+      {
+       "x": -2.942395607756553,
+       "y": -4.287855555677135
+      },
+      {
+       "x": -3.150594733835662,
+       "y": -4.22469904125109
+      },
+      {
+       "x": -3.2082749949131335,
+       "y": -4.213225723969093
+      },
+      {
+       "x": -3.4247948579011327,
+       "y": -4.191900378808705
+      },
+      {
+       "x": -3.4836051420988676,
+       "y": -4.191900378808705
+      },
+      {
+       "x": -3.700125005086867,
+       "y": -4.213225723969093
+      },
+      {
+       "x": -3.757805266164339,
+       "y": -4.22469904125109
+      },
+      {
+       "x": -3.9660043922434474,
+       "y": -4.287855555677135
+      },
+      {
+       "x": -4.020338010114907,
+       "y": -4.310361277092291
+      },
+      {
+       "x": -4.21221542362932,
+       "y": -4.412921891353179
+      },
+      {
+       "x": -4.261114387830615,
+       "y": -4.4455951346488645
+      },
+      {
+       "x": -4.429296347385066,
+       "y": -4.583618501855207
+      },
+      {
+       "x": -4.470881498144793,
+       "y": -4.625203652614934
+      },
+      {
+       "x": -4.6089048653511355,
+       "y": -4.793385612169385
+      },
+      {
+       "x": -4.641578108646821,
+       "y": -4.84228457637068
+      },
+      {
+       "x": -4.744138722907709,
+       "y": -5.034161989885093
+      },
+      {
+       "x": -4.766644444322865,
+       "y": -5.0884956077565535
+      },
+      {
+       "x": -4.829800958748909,
+       "y": -5.296694733835661
+      },
+      {
+       "x": -4.841274276030906,
+       "y": -5.354374994913131
+      },
+      {
+       "x": -4.862599621191295,
+       "y": -5.5708948579011315
+      },
+      {
+       "x": -4.862599621191295,
+       "y": -5.629705142098868
+      },
+      {
+       "x": -4.841274276030906,
+       "y": -5.846225005086867
+      },
+      {
+       "x": -4.829800958748909,
+       "y": -5.903905266164338
+      },
+      {
+       "x": -4.766644444322865,
+       "y": -6.112104392243446
+      },
+      {
+       "x": -4.744138722907709,
+       "y": -6.1664380101149066
+      },
+      {
+       "x": -4.641578108646821,
+       "y": -6.358315423629319
+      },
+      {
+       "x": -4.6089048653511355,
+       "y": -6.4072143878306145
+      },
+      {
+       "x": -4.470881498144793,
+       "y": -6.575396347385066
+      },
+      {
+       "x": -4.4292963473850655,
+       "y": -6.616981498144793
+      },
+      {
+       "x": -4.261114387830614,
+       "y": -6.755004865351134
+      },
+      {
+       "x": -4.2122154236293206,
+       "y": -6.787678108646819
+      },
+      {
+       "x": -4.020338010114909,
+       "y": -6.890238722907708
+      },
+      {
+       "x": -3.966004392243447,
+       "y": -6.912744444322865
+      },
+      {
+       "x": -3.757805266164338,
+       "y": -6.975900958748909
+      },
+      {
+       "x": -3.700125005086868,
+       "y": -6.987374276030906
+      },
+      {
+       "x": -3.4836051420988685,
+       "y": -7.008699621191295
+      },
+      {
+       "x": -3.4247948579011327,
+       "y": -7.008699621191295
+      },
+      {
+       "x": -3.2082749949131335,
+       "y": -6.9873742760309066
+      },
+      {
+       "x": -3.150594733835662,
+       "y": -6.97590095874891
+      },
+      {
+       "x": -2.942395607756553,
+       "y": -6.912744444322865
+      },
+      {
+       "x": -2.888061989885093,
+       "y": -6.890238722907709
+      },
+      {
+       "x": -2.6961845763706807,
+       "y": -6.787678108646821
+      },
+      {
+       "x": -2.647285612169386,
+       "y": -6.755004865351135
+      },
+      {
+       "x": -2.4791036526149344,
+       "y": -6.616981498144793
+      },
+      {
+       "x": -2.437518501855207,
+       "y": -6.575396347385065
+      },
+      {
+       "x": -2.2994951346488652,
+       "y": -6.407214387830614
+      },
+      {
+       "x": -2.26682189135318,
+       "y": -6.35831542362932
+      },
+      {
+       "x": -2.1642612770922915,
+       "y": -6.166438010114908
+      },
+      {
+       "x": -2.1417555556771353,
+       "y": -6.112104392243447
+      },
+      {
+       "x": -2.078599041251091,
+       "y": -5.9039052661643385
+      },
+      {
+       "x": -2.0671257239690948,
+       "y": -5.846225005086868
+      }
+     ],
+     "center": {
+      "x": -3.4542,
+      "y": -5.600299999999999
+     }
+    }
+   ]
+  }
+ ]
+}

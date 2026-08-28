@@ -3,6 +3,21 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.3] — 2026-08-28
+
+Phase 3 de la migration TypeScript : le moteur terrasse devient une bibliothèque pure et testée.
+Aucun nombre ne change — la parité est prouvée bit à bit.
+
+### Interne
+
+- 10 modules `src/engine/**` (1 429 lignes hors de `legacy.ts`, qui passe à 10 839) : constantes,
+  construction, lames, structure, calques, BOM, débit, implantation, chantier, parasols.
+- Les deux fonctions qui lisaient l'état global le reçoivent désormais en paramètre, ainsi que
+  leurs appelants ; les fonctions d'ombre reçoivent un contexte solaire explicite.
+- Oracle du moteur capturé avant déplacement (`tests/fixtures/golden/moteur-terrasses.json`,
+  deux terrasses de référence, neuf calculs chacune, artefacts de flottants compris).
+- Couverture `src/engine` : 91,5 % (critère de sortie de la spec : ≥ 80 %). 153 tests au total.
+
 ## [1.0.1-alpha.2] — 2026-08-28
 
 Phase 2 de la migration TypeScript : extraction des fonctions pures. Aucun comportement ne change,

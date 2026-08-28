@@ -1,0 +1,577 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/geometry/polygon.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/geometry</a> polygon.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">97.34% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>110/113</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">81.66% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>49/60</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>8/8</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">97.34% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>110/113</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1310x</span>
+<span class="cline-any cline-yes">1310x</span>
+<span class="cline-any cline-yes">6588x</span>
+<span class="cline-any cline-yes">6588x</span>
+<span class="cline-any cline-yes">6588x</span>
+<span class="cline-any cline-yes">1310x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-yes">1309x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">576x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">69x</span>
+<span class="cline-any cline-yes">69x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-yes">2133x</span>
+<span class="cline-any cline-yes">2133x</span>
+<span class="cline-any cline-yes">2133x</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1035x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Polygones : decoupe, decalage, bissectrices (spec §3.2, geometry/polygon.ts).
+//
+// Deplace depuis legacy.ts sans retouche. Les commentaires d'origine sont conserves : ils portent
+// le raisonnement qui a coute cher (pourquoi la normale vient du sens de parcours et non d'un
+// sondage, pourquoi les coins convexes s'arrondissent au lieu de s'onglet).
+&nbsp;
+import type { PtBrut } from '../model/types.js';
+import { signedArea, pointInPolygon } from './basic.js';
+import { lineSegIntersect, lineLineIntersect } from './segments.js';
+&nbsp;
+interface FormeAPoints {
+  pts: PtBrut[];
+}
+&nbsp;
+// Every stretch of the line that lies inside the polygon, as a list of segments. A convex shape
+// gives one; a concave one gives several, and taking only the outer envelope would run the
+// piece straight across the notch - outside the terrasse - which is exactly what an L-shaped
+// deck exposes. Each consecutive pair of crossings is kept or dropped on whether its midpoint
+// is actually inside, which also copes with the line grazing a vertex and registering twice.
+export function clipLineToPolygon(origin: PtBrut, dir: PtBrut, poly: PtBrut[]): { a: PtBrut; b: PtBrut }[] {
+  const hits=[]; const n=poly.length;
+  for(let i=0;i&lt;n;i++){
+    const hit = lineSegIntersect(origin, dir, poly[i], poly[(i+1)%n]);
+    if(hit) hits.push(hit);
+  }
+  if(hits.length&lt;2) return [];
+  hits.sort((a,b)=&gt;a.t-b.t);
+  const out=[];
+  for(let i=0;i&lt;hits.length-1;i++){
+    const t0=hits[i].t, t1=hits[i+1].t;
+    if(t1-t0 &lt; 1e-7) <span class="branch-0 cbranch-no" title="branch not covered" >continue;</span>
+    const mid = {x:origin.x+dir.x*(t0+t1)/2, y:origin.y+dir.y*(t0+t1)/2};
+    if(pointInPolygon(mid, poly)) out.push({ a:hits[i].point, b:hits[i+1].point });
+  }
+  return out;
+}
+&nbsp;
+// Shrinks a polygon inward by distM (each edge moved inward along its normal, corners
+// re-mitered as the intersection of consecutive offset edges) so the result stays the same
+// shape/angles, just smaller - used so the main lames field stops short to leave room for a
+// perimeter border instead of running under it.
+// Offsets every edge by distM - positive inward, negative outward - and re-miters the corners
+// as the intersection of consecutive offset edges. Offsetting each edge on its own instead
+// leaves a wedge of gap at every convex corner and lets the pieces cross over at every concave
+// one, so a border laid that way stops following the outline as soon as the shape is not a
+// plain rectangle.
+// The inward normal comes from the winding, which is exact at any scale; probing a fixed
+// distance to find the interior breaks on anything thinner than the probe.
+export function polygonOffset(pts: PtBrut[], distM: number): PtBrut[] {
+  const n = pts.length;
+  if(Math.abs(distM) &lt; 1e-9) <span class="branch-0 cbranch-no" title="branch not covered" >return pts.map(p=&gt;({...p}));</span>
+  const ccw = signedArea(pts) &gt; 0;
+  const offsetLines = pts.map((p,i)=&gt;{
+    const a=p, b=pts[(i+1)%n];
+    const ex=b.x-a.x, ey=b.y-a.y; const L=Math.hypot(ex,ey<span class="branch-0 cbranch-no" title="branch not covered" >)||1;</span>
+    const nx = ccw ? -ey/L :  ey/L;
+    const ny = ccw ?  ex/L : -ex/L;
+    return { origin:{x:a.x+nx*distM, y:a.y+ny*distM}, dir:{x:ex/L, y:ey/L} };
+  });
+  return pts.map((p,i)=&gt;{
+    const prev = offsetLines[(i-1+n)%n], cur = offsetLines[i];
+    const pt = lineLineIntersect(prev.origin, prev.dir, cur.origin, cur.dir);
+    return <span class="branch-0 cbranch-no" title="branch not covered" >pt || {...p};</span>
+  });
+}
+&nbsp;
+// A closed ring of points as the list of its edges.
+export function ringSegments(ring: PtBrut[]): { a: PtBrut; b: PtBrut }[] {
+  return ring.map((p,i)=&gt;({ a:p, b:ring[(i+1)%ring.length] }));
+}
+&nbsp;
+// Sutherland-Hodgman. The subject may be concave - an L-shaped terrasse is - but the clip has
+// to be convex, which a board's rectangle always is. Used to give each board the end its own
+// outline calls for: a board whose centreline stops on an oblique edge, drawn as a box, sticks
+// out on one side and falls short on the other, which is what makes a run of them look like a
+// staircase instead of a clean diagonal cut.
+export function clipPolygonByConvex(subject: PtBrut[], clip: PtBrut[]): PtBrut[] {
+  let out = subject.map(p=&gt;({x:p.x, y:p.y}));
+  const n = clip.length;
+  const ccw = signedArea(clip) &gt; 0;
+  for(let i=0; i&lt;n &amp;&amp; out.length; i++){
+    const a = clip[i], b = clip[(i+1)%n];
+    const ex = b.x-a.x, ey = b.y-a.y;
+    const cote = p =&gt; (ex*(p.y-a.y) - ey*(p.x-a.x)) * (ccw ? <span class="branch-0 cbranch-no" title="branch not covered" >1 : -1);</span>
+    const dedans = p =&gt; cote(p) &gt;= -1e-9;
+    const input = out; out = [];
+    for(let j=0; j&lt;input.length; j++){
+      const P = input[j], Q = input[(j+1)%input.length];
+      const pin = dedans(P), qin = dedans(Q);
+      if(pin) out.push(P);
+      if(pin !== qin){
+        const dx = Q.x-P.x, dy = Q.y-P.y;
+        const den = ex*dy - ey*dx;
+        if(Math.abs(den) &gt; 1e-12){
+          const t = (ey*(P.x-a.x) - ex*(P.y-a.y)) / den;
+          out.push({ x:P.x + t*dx, y:P.y + t*dy });
+        }
+      }
+    }
+  }
+  return out;
+}
+&nbsp;
+export function exteriorBisector(obj: FormeAPoints, i: number): PtBrut {
+  const n = obj.pts.length;
+  const prev = obj.pts[(i-1+n)%n], cur = obj.pts[i], next = obj.pts[(i+1)%n];
+  const u = {x:prev.x-cur.x, y:prev.y-cur.y}; const ul = Math.hypot(u.x,u.y<span class="branch-0 cbranch-no" title="branch not covered" >)||1;</span>
+  const v = {x:next.x-cur.x, y:next.y-cur.y}; const vl = Math.hypot(v.x,v.y<span class="branch-0 cbranch-no" title="branch not covered" >)||1;</span>
+  const un = {x:u.x/ul, y:u.y/ul}, vn = {x:v.x/vl, y:v.y/vl};
+  let bis = {x:un.x+vn.x, y:un.y+vn.y};
+  let bl = Math.hypot(bis.x,bis.y);
+  if(bl &lt; 1e-6)<span class="branch-0 cbranch-no" title="branch not covered" >{ bis = {x:-un.y, y:un.x}; bl = 1; } // u,v opposite (straight angle): use perpendicular</span>
+  bis = {x:bis.x/bl, y:bis.y/bl};
+  // pick whichever side (bisector or its negation) actually lands outside the polygon
+  const step = 0.05;
+  const testPt = {x:cur.x+bis.x*step, y:cur.y+bis.y*step};
+  return pointInPolygon(testPt, obj.pts) ? {x:-bis.x, y:-bis.y} : bis;
+}
+&nbsp;
+// "30 cm autour de l'equipement" veut dire une bande de 30 cm partout, pas un onglet. L'onglet
+// est juste pour une planche de rive, qu'on coupe reellement en biseau ; applique a une zone de
+// charge il degenere : mesure sur une emprise a 18 degres de pointe, une marge de 30 cm s'etirait
+// en dard de 1,88 m et faisait poser des appuis a un metre de tout equipement. Les coins convexes
+// sont donc arrondis - la zone est la somme de Minkowski de l'emprise et d'un disque de la marge,
+// ce qui redonne exactement r + marge pour un spa rond. Les coins rentrants gardent l'onglet : la
+// c'est bien l'intersection des deux bords decales qui borne la zone.
+export function offsetZone(poly: PtBrut[], marge: number): PtBrut[] {
+  const n = poly.length;
+  if(!(marge &gt; 1e-9) || n &lt; 3) return poly.map(p=&gt;({...p}));
+  const ccw = signedArea(poly) &gt; 0;
+  const bords = poly.map((p,i)=&gt;{
+    const q = poly[(i+1)%n];
+    const ex = q.x-p.x, ey = q.y-p.y, L = Math.hypot(ex,ey<span class="branch-0 cbranch-no" title="branch not covered" >)||1;</span>
+    // Normale sortante : l'oppose de la normale interieure de polygonOffset.
+    return { nx: ccw ? ey/L : -ey/L, ny: ccw ? -ex/L : ex/L, dx:ex/L, dy:ey/L };
+  });
+  const out = [];
+  for(let i=0;i&lt;n;i++){
+    const p = poly[i];
+    const a = bords[(i-1+n)%n], b = bords[i];
+    const oa = { x:p.x + a.nx*marge, y:p.y + a.ny*marge };
+    const ob = { x:p.x + b.nx*marge, y:p.y + b.ny*marge };
+    const tourne = a.dx*b.dy - a.dy*b.dx;
+    const convexe = ccw ? tourne &gt; 1e-12 : tourne &lt; -1e-12;
+    if(convexe){
+      const A0 = Math.atan2(oa.y-p.y, oa.x-p.x), A1 = Math.atan2(ob.y-p.y, ob.x-p.x);
+      let d = A1 - A0;
+      if(ccw){ while(d &lt; 0) d += 2*Math.PI; } else { while(d &gt; 0) d -= 2*Math.PI; }
+      const pas = Math.max(1, Math.ceil(Math.abs(d)/(Math.PI/12)));   // un point tous les 15 deg
+      for(let k=0;k&lt;=pas;k++){
+        const A = A0 + d*k/pas;
+        out.push({ x:p.x + marge*Math.cos(A), y:p.y + marge*Math.sin(A) });
+      }
+<span class="branch-0 cbranch-no" title="branch not covered" >    } else {</span>
+<span class="cstat-no" title="statement not covered" >      const m = lineLineIntersect(oa, {x:a.dx,y:a.dy}, ob, {x:b.dx,y:b.dy});</span>
+<span class="cstat-no" title="statement not covered" >      if(m) out.push(m); else { out.push(oa); out.push(ob); }</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+  }
+  // Un decalage vers l'exterieur ne peut qu'agrandir : si l'aire a diminue, c'est que la marge a
+  // depasse une dimension de la forme et repliee le contour. On repart alors de l'emprise nue.
+  const a0 = Math.abs(signedArea(poly)), a1 = Math.abs(signedArea(out));
+  const sain = out.length &gt;= 3 &amp;&amp; out.every(p=&gt;isFinite(p.x)&amp;&amp;isFinite(p.y)) &amp;&amp; a1 &gt;= a0;
+  return sain ? <span class="branch-0 cbranch-no" title="branch not covered" >out : poly.map(p=&gt;({...p}));</span>
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-08-28T12:56:07.795Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    
