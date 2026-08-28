@@ -11,7 +11,7 @@ const dorees = resolve(racine, 'tests/fixtures/golden');
 describe('phase 1 - echafaudage', () => {
   it('expose les deux points d entree attendus par main.ts', () => {
     const legacy = readFileSync(resolve(racine, 'src/legacy.ts'), 'utf8');
-    expect(legacy).toContain('export { boot, loadInitialProject, showProjectLoadError };');
+    expect(legacy).toContain('export { boot, loadInitialProject };');
     expect(legacy.startsWith('// @ts-nocheck')).toBe(true);
   });
 

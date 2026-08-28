@@ -10,7 +10,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
 | 4 — Modèle et conteneur d’état | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.4` | `legacy.ts` réduit aux panneaux UI et à la 3D | **non atteint** : séparation donnée/vue faite, scène et pile d’annulation sorties ; `AppState`, `render/**` et `interaction/**` restent |
-| 5 — Panneaux UI | ⏳ | | | |
+| 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
 | 6 — 3D et exports | ⏳ | | | |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
 
@@ -255,6 +255,52 @@ Autrement dit : les deux morceaux que la phase 4 pouvait livrer **isolément** l
 forme un seul bloc dont le préalable est l'`AppState`. Le découper à la hache produirait un état
 partagé à deux endroits — exactement ce que la §6.1 interdit (« pas de `let` au niveau module,
 cela reproduit le problème avec une ergonomie pire »).
+
+
+## Phase 5 — 28 août 2026 — **partielle, et bloquée par la spec elle-même**
+
+La §4 est explicite : *« ne pas commencer `ui/**` avant que `render/**` soit sorti »*. `render/**`
+est encore dans `legacy.ts` (phase 4 partielle), donc la phase 5 ne peut pas être menée dans
+l'ordre prévu. Ce qui a été livré, ce sont les modules `ui/**` qui **ne dépendent pas du rendu** —
+vérifié fonction par fonction, pas supposé.
+
+### Livré
+
+| Module | Contenu | Pourquoi il pouvait sortir |
+|---|---|---|
+| `ui/dialogs.ts` | `showToast`, `showConfirm`, `showPrompt`, `showErrBanner`, `showProjectLoadError` | Ne touchent ni au plan ni au rendu |
+| `ui/texturePicker.ts` | catalogue Poly Haven + fenêtre de choix | Ouvre, laisse choisir, rappelle `onChoisi` : ce sont les appelants qui appliquent et redessinent |
+| `ui/dom.ts` | `el()`, `elOpt()`, `els()`, `on()` (§7.1) | Aucune dépendance ; en place pour que le code neuf n'ajoute pas de `getElementById` non gardé |
+
+**Un doublon supprimé au passage.** En phase 1, `main.ts` portait une copie du bandeau d'erreur,
+parce que `showErrBanner` vivait dans `legacy.ts` et n'était donc pas disponible si c'est
+justement le chargement de `legacy` qui échouait. Maintenant que le bandeau est dans un module
+sans dépendances, `main.ts` l'importe statiquement et la copie disparaît.
+
+### Écarté après vérification
+
+`renderPanneauPlu` semblait indépendant du rendu — un premier test de dépendance le disait. Il
+appelle en réalité `trouverParcelleCloture()`, qui lit `objects` : il attend donc `render/**`,
+comme les autres panneaux. Le test de dépendance ne regardait que les identifiants cités
+directement, pas ceux atteints par un appel.
+
+### Tests
+
+19 tests ajoutés (182 au total), tous sous **jsdom** — c'est la première fois que du code
+d'interface est testé dans ce projet (spec §11.2), et il n'était tout simplement pas testable
+tant qu'il vivait dans la fermeture de `boot()`.
+
+Ce que les tests du sélecteur de textures ont demandé de comprendre : « Enregistrer » ne rappelle
+pas le catalogue mais la **liste des fichiers** de la texture. Une simulation qui répond la même
+chose aux deux URL fait croire qu'on teste l'enregistrement alors qu'on teste un échec.
+
+### Ce qui reste de la phase 5
+
+Tous les panneaux qui pilotent le plan — sélecteur d'objets, panneau d'attributs, tableau
+d'affichage, mesures, PLU, barre de projet, configurateur de terrasse — appellent `render()` et
+lisent l'état du plan. Ils sortiront quand `render/**` sera sorti, c'est-à-dire après l'`AppState`
+de la phase 4. La spec ordonne ces deux phases dans ce sens précisément pour éviter qu'un panneau
+se retrouve à porter une copie de l'état.
 
 
 ### Point de vigilance

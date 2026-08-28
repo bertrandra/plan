@@ -5,18 +5,11 @@
 // phases 2 a 6.
 
 import './styles/app.css';
-
-// Bandeau d'erreur minimal, duplique volontairement depuis legacy.ts : si l'import du module
-// legacy echoue, `showErrBanner` n'existe pas encore. Meme rendu, meme texte que l'original -
-// c'est le seul filet quand le chargement du module lui-meme casse.
-function bandeauErreur(msg: string): void {
-  const box = document.createElement('div');
-  box.style.cssText =
-    'position:fixed;bottom:0;left:0;right:0;background:#a02020;color:#fff;padding:10px 14px;' +
-    'font-family:monospace;font-size:12px;z-index:9999;white-space:pre-wrap;max-height:40vh;overflow:auto;';
-  box.textContent = 'Erreur JS: ' + msg;
-  document.body.appendChild(box);
-}
+// Import statique, et non dynamique comme celui de legacy plus bas : ce module ne depend de rien
+// et ne peut donc pas echouer a se charger. C'est ce qui permet de s'en servir comme filet quand
+// c'est le chargement de legacy qui casse. En phase 1, faute de l'avoir isole, main.ts portait
+// une copie du bandeau ; la phase 5 l'a rendue inutile.
+import { showErrBanner, showProjectLoadError } from './ui/dialogs.js';
 
 function texteErreur(err: unknown): string {
   const e = err as { message?: string; stack?: string } | null;
@@ -30,18 +23,18 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
-    const { boot, loadInitialProject, showProjectLoadError } = await import('./legacy');
+    const { boot, loadInitialProject } = await import('./legacy');
     try {
       const seed = await loadInitialProject();
       boot(seed);
     } catch (err) {
       // Echec classe par apiList()/apiLoad() (reseau, serveur, projet absent, JSON illisible)
       // avec un vrai projet en jeu : ecran de reprise plutot qu'un bandeau d'erreur brut.
-      if (err && (err as { reason?: string }).reason) showProjectLoadError(err);
-      else bandeauErreur(texteErreur(err));
+      if (err && (err as { reason?: string }).reason) showProjectLoadError(err as { reason?: string });
+      else showErrBanner(texteErreur(err));
     }
   } catch (err) {
-    bandeauErreur(texteErreur(err));
+    showErrBanner(texteErreur(err));
   }
 }
 

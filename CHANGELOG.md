@@ -3,6 +3,20 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.5] — 2026-08-28
+
+Phase 5 de la migration TypeScript, **partielle** : les modules d'interface qui ne dépendent pas
+du rendu sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `src/ui/dialogs.ts` : notifications, confirmation, saisie, bandeau d'erreur, écran de reprise.
+- `src/ui/texturePicker.ts` : catalogue Poly Haven et fenêtre de choix, typés.
+- `src/ui/dom.ts` : helpers `el()` / `elOpt()` / `els()` / `on()` (§7.1), en place pour que le
+  code neuf n'ajoute pas de `getElementById` non gardé.
+- `main.ts` n'a plus sa copie du bandeau d'erreur : il importe celui du module.
+- 19 tests ajoutés sous jsdom (182 au total) — première couverture d'interface du projet.
+
 ## [1.0.1-alpha.4] — 2026-08-28
 
 Phase 4 de la migration TypeScript, **partielle** : la séparation donnée/vue est faite, la scène et
