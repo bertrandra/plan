@@ -40,6 +40,7 @@ import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, dessinerCotes } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
+import { insererSommet, supprimerSommet, minimumSommets } from './model/sommets.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { appliquerGlisser } from './interaction/drag.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -1760,26 +1761,19 @@ function insertPointOnSegment(obj, segIndex, clickWorld){
   const n = obj.pts.length;
   const a = obj.pts[segIndex], b = obj.pts[(segIndex+1)%n];
   const newPt = projectOntoSegment(clickWorld, a, b);
-  const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
+  const bound = contourDeContrainte(etat.objects, obj);
   if(bound && !pointInPolygon(newPt, bound)) return;
   pushHistory();
-  obj.pts.splice(segIndex+1, 0, newPt);
-  obj.vertexNames.splice(segIndex+1, 0, 'Coin '+(obj.pts.length));
-  obj.segmentNames.splice(segIndex+1, 0, 'Cote '+(obj.pts.length));
-  obj.frozenVertices.splice(segIndex+1, 0, false);
+  insererSommet(obj, segIndex, clickWorld);
   rebuildHandles(obj);
   render();
 }
 
 function deleteVertex(obj, idx){
   if(obj.locked) return;
-  const minPts = obj.type==='path' ? 2 : 3;
-  if(obj.pts.length <= minPts) return; // keep at least a valid shape
+  if(obj.pts.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
   pushHistory();
-  obj.pts.splice(idx,1);
-  obj.vertexNames.splice(idx,1);
-  if(idx < obj.segmentNames.length) obj.segmentNames.splice(idx,1); else obj.segmentNames.pop();
-  obj.frozenVertices.splice(idx,1);
+  supprimerSommet(obj, idx);
   rebuildHandles(obj);
   render();
 }
@@ -2140,11 +2134,9 @@ function deleteSelectedObject(){
   if(obj.locked){ showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
   showConfirm('Supprimer definitivement "' + obj.name + '" ?', ()=>{
     pushHistory();
-    vue(obj).el.remove(); vue(obj).nameEl.remove();
-    vue(obj).pointEls.forEach(el=>el.remove()); vue(obj).ptLabelEls.forEach(el=>el.remove());
-    vue(obj).edgeEls.forEach(el=>el.remove()); vue(obj).segLabelEls.forEach(el=>el.remove());
-    if(vue(obj).radiusHandle) vue(obj).radiusHandle.remove();
-    if(vue(obj).camMarkerEl) vue(obj).camMarkerEl.remove();
+    // Le demontage appartient a render/vues.ts : il retire les memes elements qu'ici, et oublie
+    // en plus l'entree de la carte - que ce code laissait derriere lui a chaque suppression.
+    detruireVue(obj);
     etat.objects.splice(idx,1);
     etat.selectedKey = null;
     rebuildSelector();

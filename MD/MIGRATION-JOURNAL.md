@@ -568,11 +568,50 @@ chargement ne fait échouer aucun test. Le compte total avait silencieusement ba
 la ligne `Tests` restait verte. Le nombre de tests est une donnée à surveiller, pas seulement leur
 couleur.
 
+### Les quatre tableaux qui doivent rester en phase
+
+Une forme ne porte pas seulement ses points : elle porte le nom de chaque coin, le nom de chaque
+côté, et l'état gelé de chaque coin. Ajouter ou retirer un sommet, c'est quatre `splice` au même
+indice — et un oubli sur l'un des trois décale tous les noms suivants, ce qui affiche « Coin 3 » sur
+le quatrième coin sans que rien ne signale l'erreur. `model/sommets.ts` fait cette chirurgie au même
+endroit, une fois.
+
+Deux comportements du fichier d'origine sont conservés et maintenant figés par des tests, parce
+qu'ils ressemblent à des défauts et qu'une « correction » silencieuse changerait un export :
+
+- **Le point inséré est projeté sur le côté**, pas posé là où on a cliqué : un double-clic vise un
+  trait, et un sommet posé à côté du trait déformerait la forme au lieu de la subdiviser.
+- **Les noms par défaut sont numérotés d'après le nouveau total**, pas d'après la position
+  d'insertion : deux insertions peuvent donc produire deux « Coin 5 ». Ce sont des suggestions
+  éditables, pas des clés.
+
+La suppression d'un objet, elle, réutilise `detruireVue()` de `render/vues.ts` au lieu de refaire à
+la main le retrait des huit familles d'éléments SVG. Le module oublie **en plus** l'entrée de sa
+carte, que le code en place laissait derrière lui à chaque suppression — une fuite lente, invisible
+à l'usage, que l'API du module ferme au passage.
+
+**Vérifié sur les deux versions** : insertion 6 → 7 sommets avec les poignées et les côtés qui
+suivent, point inséré exactement sur le trait (écart nul) et aux mêmes coordonnées à la quatrième
+décimale — (197,6103 ; 141,9395) des deux côtés ; suppression d'un coin 7 → 6 avec les trois
+tableaux en phase ; suppression d'un objet qui ne laisse plus aucun élément portant sa clé dans le
+document. Les six empreintes sont inchangées.
+
+### Une sonde qui croyait sélectionner, et désélectionnait
+
+Ce morceau a produit une fausse alerte de régression : la version migrée n'insérait aucun sommet là
+où le témoin en insérait six. La cause n'était ni dans l'une ni dans l'autre. **La terrasse est déjà
+sélectionnée au chargement** ; le clic « sélectionne-la d'abord » de la sonde était donc un clic
+simple sur un objet déjà sélectionné — c'est-à-dire, exactement comme prévu, une désélection. Tous
+les clics suivants tombaient alors sur `ds.key !== etat.selectedKey` et ne faisaient rien.
+
+Ce qui a permis de trancher, et qui vaut pour toute vérification par événements : **rejouer la même
+sonde sur le témoin figé, à froid**. Un écart entre deux pages dont l'une a déjà servie ne prouve
+rien. Depuis, la sonde lit l'état avant d'agir (`stroke-width === '3'`) au lieu de le supposer.
+
 ### Ce qui reste
 
-La création et la suppression d'objets, l'alignement par rotation, et les panneaux d'interface qui
-pilotent le plan (attributs, mesures, PLU, barre de projet, configurateur de terrasse).
-`legacy.ts` est à 10 024 lignes.
+L'alignement par rotation et les panneaux d'interface qui pilotent le plan (attributs, mesures, PLU,
+barre de projet, configurateur de terrasse). `legacy.ts` est à 10 016 lignes.
 
 
 ### Point de vigilance
