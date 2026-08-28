@@ -54,6 +54,7 @@ import {
 import { objetsDepuisCadastre } from './geo/cadastreObjets.js';
 import { ouvrirImportCadastre } from './ui/cadastreDialog.js';
 import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
+import { vue3d } from './three/etat3d.js';
 import { cibleAlignement, definirCibleAlignement } from './interaction/outilAlignement.js';
 import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
@@ -761,7 +762,7 @@ function renderAttrTable(){
     libelleTypeObjet, markDirty, measureSegCoords, pushHistory, reapplyStackingOrder,
     rebuildHandles, rebuildSelector, refLabel, render, renderAttrTable, startPick,
     pickState: ()=>pickState,
-    vue3dOuverte: ()=>threeScene
+    vue3dOuverte: ()=>vue3d.scene
   });
 }
 
@@ -1245,7 +1246,7 @@ document.getElementById('chkVoisinage').addEventListener('change', function(){
   render();
   // La 3D batit sa scene a partir des objets visibles : il faut la reconstruire, pas seulement
   // la redessiner.
-  if(threeScene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
+  if(vue3d.scene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 });
 document.getElementById('gridBtn').addEventListener('click', ()=>{
   etat.grilleVisible = !etat.grilleVisible;
@@ -1814,9 +1815,9 @@ function genererGlb(btn, telecharger){
   ensureThreeLoaded(()=>{
     ensureGLTFExporterLoaded(()=>{
       try{
-        const dejaActive = threeScene && dernierObj3dKey===terr.key;
+        const dejaActive = vue3d.scene && vue3d.dernierObjKey===terr.key;
         if(!dejaActive) buildThreeScene(terr);
-        attendreTexturesPretes(threeScene.scene, 15000).then(()=>{
+        attendreTexturesPretes(vue3d.scene.scene, 15000).then(()=>{
           try{
             const exporter = new THREE.GLTFExporter();
             // Cette version (r128) de GLTFExporter n'a pas de callback d'erreur separe
@@ -1830,7 +1831,7 @@ function genererGlb(btn, telecharger){
               if(!dejaActive) disposeThreeScene();
               restaurer();
             }, 20000);
-            exporter.parse(threeScene.scene, (result)=>{
+            exporter.parse(vue3d.scene.scene, (result)=>{
               if(fini) return; fini = true; clearTimeout(filet);
               dernierGlbExporte = { buffer: result, nomTerrasse: terr.name, date: new Date() };
               if(telecharger){
@@ -2652,7 +2653,7 @@ function restaurerAffichageDuProjet(){
   rebuildSelector();   // le voisinage masque ne doit pas figurer dans les categories
   syncLieuTitre();     // la parcelle a pu changer de position (import, actualisation)
   render();
-  if(threeScene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
+  if(vue3d.scene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 }
 
 // Les reglages du fond (actif, opacite de la photo, remplissage du terrain) sont ranges SUR la
@@ -4646,7 +4647,6 @@ function renderTerrasseCoupe(obj){
 // Seule dependance externe de tout le fichier, et uniquement chargee si on ouvre la vue 3D :
 // le reste de l'appli reste 100% autonome sans connexion internet.
 let threeLoaded = false;
-let threeScene = null;
 
 // --- Soleil de la Vue 3D (memes regles que la visionneuse GLB, etat separe : les deux vues
 // peuvent etre reglees a des moments differents sans se marcher dessus) ---
@@ -4687,8 +4687,8 @@ function syncControlesSoleilVue3d(){
 // La scene de la Vue 3D est centree sur l'origine (contrairement a celle de la visionneuse GLB,
 // centree sur la boite englobante du modele), d'ou le centre implicite (0,0,0) ici.
 function appliquerLumiereVue3d(){
-  if(!threeScene || !threeScene.dirLight) return;
-  const { dirLight, dirFill, hemiLight, extent } = threeScene;
+  if(!vue3d.scene || !vue3d.scene.dirLight) return;
+  const { dirLight, dirFill, hemiLight, extent } = vue3d.scene;
   const [annee, mois, jour] = vue3dDateStr.split('-').map(Number);
   const lieu = lieuActuel();
   const { elevRad, azRad } = positionSoleil(annee, mois, jour, vue3dMinutes/60, lieu.latitude, lieu.longitude);
@@ -4719,7 +4719,7 @@ function appliquerLumiereVue3d(){
   // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
   // requestAnimationFrame, que le navigateur met en pause des que l'onglet passe en arriere-plan
   // (le reglage se ferait alors sans effet visible au retour tant qu'aucune image n'est produite).
-  threeScene.renderer.render(threeScene.scene, threeScene.camera);
+  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
 }
 // Une instance THREE.Texture par usage plutot qu'un cache partage : cloner une texture avant la
 // fin de son chargement la prive definitivement de l'image (verifie - le clone garde un
@@ -4748,7 +4748,6 @@ function chargerTexturePolyhaven(url){
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
-let dernierObj3dKey = null;
 function ensureThreeLoaded(cb){
   if(threeLoaded && window.THREE && window.THREE.OrbitControls){ cb(); return; }
   const s1 = document.createElement('script');
@@ -4806,8 +4805,8 @@ function disposeThreeSceneResources(scene){
   if(etat.scene.background && etat.scene.background.isTexture) etat.scene.background.dispose();
 }
 function disposeThreeScene(){
-  if(threeScene){
-    cancelAnimationFrame(threeScene.raf);
+  if(vue3d.scene){
+    cancelAnimationFrame(vue3d.scene.raf);
     // OrbitControls (r128) attaches its drag-continuation listeners to `document`/`window`, not
     // just to the canvas being removed below - without an explicit dispose(), those listeners
     // (and everything they close over: this camera, this scene, this renderer) are never
@@ -4815,9 +4814,9 @@ function disposeThreeScene(){
     // session with several rebuilds this accumulates real RAM, which is what was actually
     // driving iOS into killing the page ("Impossible de charger la page") - a step further than
     // the WebGL-context cap alone.
-    if(threeScene.controls && threeScene.controls.dispose) threeScene.controls.dispose();
-    disposeThreeSceneResources(threeScene.scene);
-    threeScene.renderer.dispose();
+    if(vue3d.scene.controls && vue3d.scene.controls.dispose) vue3d.scene.controls.dispose();
+    disposeThreeSceneResources(vue3d.scene.scene);
+    vue3d.scene.renderer.dispose();
     // iOS Safari caps the number of *live* WebGL contexts a page may hold at once (historically
     // as few as 8-16) and does not free one just because renderer.dispose() released its GPU
     // memory - the context object itself lingers until GC catches up. Once the cap is hit,
@@ -4825,14 +4824,14 @@ function disposeThreeScene(){
     // null, and Three.js passes that null straight into shaderSource() - which is exactly the
     // "Argument 1 ('shader') ... must be an instance of WebGLShader" crash reported on iPhone.
     // forceContextLoss() explicitly releases the context immediately instead of waiting on GC.
-    if(threeScene.renderer.forceContextLoss) threeScene.renderer.forceContextLoss();
-    if(threeScene.renderer.domElement.parentNode) threeScene.renderer.domElement.parentNode.removeChild(threeScene.renderer.domElement);
-    threeScene = null;
+    if(vue3d.scene.renderer.forceContextLoss) vue3d.scene.renderer.forceContextLoss();
+    if(vue3d.scene.renderer.domElement.parentNode) vue3d.scene.renderer.domElement.parentNode.removeChild(vue3d.scene.renderer.domElement);
+    vue3d.scene = null;
   }
 }
 
 // ================= Visionneuse GLB (relit le dernier .glb reellement exporte) =================
-// Scene Three.js totalement separee de `threeScene` (la Vue 3D "live", construite depuis les
+// Scene Three.js totalement separee de `vue3d.scene` (la Vue 3D "live", construite depuis les
 // donnees du plan) : les deux peuvent exister independamment, fermer l'une ne doit pas perturber
 // l'autre. Celle-ci part d'un ArrayBuffer deja fige (dernierGlbExporte) plutot que des objets du
 // plan, donc pas d'`extent` connu a l'avance - le cadrage de camera se deduit de la boite
@@ -5158,8 +5157,8 @@ function buildThreeScene(obj){
   // ses batiments, par exemple). Tout ce qui suit doit donc tenir sans terrasse - seule la
   // modelisation de la structure (plots, solives, lames) est sautee.
   const cleVue = obj ? obj.key : '__plan_sans_terrasse__';
-  const camaraAConserver = (threeScene && dernierObj3dKey === cleVue)
-    ? { pos: threeScene.camera.position.clone(), cible: threeScene.controls.target.clone() }
+  const camaraAConserver = (vue3d.scene && vue3d.dernierObjKey === cleVue)
+    ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
     : null;
   disposeThreeScene(); // removes the previous canvas (if any); leaves the zoom-buttons overlay in place
   const host = document.getElementById('terrasse3dCanvasHost');
@@ -5182,13 +5181,13 @@ function buildThreeScene(obj){
   // ne fait pas partie de `construction` (qui decrit la terrasse a construire) et n'est pas
   // sauvegardee avec le projet, comme le mode de glisser (orbiter/deplacer/zoom) plus haut.
   const cbAll = document.getElementById('terrasse3dAllObjects');
-  if(cbAll) cbAll.checked = show3dAllObjects;
+  if(cbAll) cbAll.checked = vue3d.tousLesObjets;
   const cbOpaque = document.getElementById('terrasse3dObjectsOpaque');
-  if(cbOpaque) cbOpaque.checked = objects3dOpaque;
+  if(cbOpaque) cbOpaque.checked = vue3d.objetsOpaques;
   const cbTextures = document.getElementById('terrasse3dTextures');
-  if(cbTextures) cbTextures.checked = show3dTextures;
+  if(cbTextures) cbTextures.checked = vue3d.textures;
   const cbShadows = document.getElementById('terrasse3dShadows');
-  if(cbShadows) cbShadows.checked = show3dShadows;
+  if(cbShadows) cbShadows.checked = vue3d.ombres;
   // La cloture est une donnee du projet (rattachee a la parcelle), pas une preference d'affichage
   // volatile comme les cases ci-dessus : elle survit a une fermeture/reouverture du fichier.
   const parcelleObjCtrl = trouverParcelleCloture();
@@ -5213,7 +5212,7 @@ function buildThreeScene(obj){
   // petit pour les recevoir.
   const ptsPourEtendue = obj ? obj.pts.slice() : [];
   // Sans terrasse, "tous les objets" n'est pas une option : ils sont la seule chose a montrer.
-  if(show3dAllObjects || !obj){
+  if(vue3d.tousLesObjets || !obj){
     etat.objects.forEach(o=>{
       if(o===obj) return;
       if(o.type==='circle') ptsPourEtendue.push(...cerclePointsExtent(o));
@@ -5240,7 +5239,7 @@ function buildThreeScene(obj){
     return;
   }
   renderer.setSize(w,h);
-  renderer.shadowMap.enabled = show3dShadows;
+  renderer.shadowMap.enabled = vue3d.ombres;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
 
@@ -5252,7 +5251,7 @@ function buildThreeScene(obj){
     controls.target.copy(camaraAConserver.cible);
     controls.update();
   }
-  dernierObj3dKey = cleVue;
+  vue3d.dernierObjKey = cleVue;
 
   // Une seule lumiere directionnelle laisse tout ce qui lui tourne le dos (l'interieur d'un
   // retrait, le cote oppose d'un batiment) eclaire uniquement par l'ambiante plate - aucun
@@ -5267,7 +5266,7 @@ function buildThreeScene(obj){
   // d'apres la date, l'heure et le lieu de la parcelle : ces valeurs-ci ne servent qu'a exister.
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
   dirLight.position.set(extent, extent*1.5, extent*0.6);
-  if(show3dShadows){
+  if(vue3d.ombres){
     // Cadre la camera de la shadow map sur l'etendue reelle de LA scene affichee (pas une valeur
     // fixe) : `extent` change a chaque terrasse/reglage "tous les objets", un cadrage fige serait
     // soit trop juste (ombres coupees) soit inutilement large (ombres floues, moins de precision
@@ -5295,7 +5294,7 @@ function buildThreeScene(obj){
   const groundMat = new THREE.MeshStandardMaterial({color:0x9fb98c});
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
-  ground.receiveShadow = show3dShadows;
+  ground.receiveShadow = vue3d.ombres;
   etat.scene.add(ground);
 
   // Three.js est en Y-haut : X=Est reste X, hauteur devient Y, donc le plan (Est,Nord) doit se
@@ -5332,7 +5331,7 @@ function buildThreeScene(obj){
       dalle.rotation.x = -Math.PI/2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
       const l = toLocal({ x:t.xMin + t.largeur/2, y:t.yMin + t.hauteur/2 });
       dalle.position.set(l.x, 0.004, l.z);
-      dalle.receiveShadow = show3dShadows;
+      dalle.receiveShadow = vue3d.ombres;
       etat.scene.add(dalle);
     });
   }
@@ -5601,7 +5600,7 @@ function buildThreeScene(obj){
   // lame de rive ci-dessous - le seul element de la structure qui presente une vraie face
   // verticale visible. Rien d'autre (solives, lambourdes, vis...) n'en tient compte : ce ne sont
   // pas des surfaces qu'on regarde.
-  const texturesTerrasse = show3dTextures ? {horizontale:obj.textureHorizontale, vertical:obj.textureVerticale} : null;
+  const texturesTerrasse = vue3d.textures ? {horizontale:obj.textureHorizontale, vertical:obj.textureVerticale} : null;
   layers.lames.forEach(seg=>addBeam(seg.a, seg.b, lameBase, lameH, lameW,
     lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse));
   if(c.avecLameRive){
@@ -5621,19 +5620,19 @@ function buildThreeScene(obj){
   // quand meme sa vraie hauteur modelisee (elevationOf le fait automatiquement), mais pas sa
   // structure complete - ce serait reconstruire une deuxieme scene entiere pour un simple arriere-
   // plan. La parcelle n'a pas de volume : un trait au sol suffit a la situer.
-  if(show3dAllObjects || !obj){
+  if(vue3d.tousLesObjets || !obj){
     // "Objets opaques" ignore l'opacite du plan 2D (souvent < 1 pour voir a travers en mode
     // Plan) et force un rendu plein - plus proche d'un rendu final, quand la transparence du
     // plan de travail n'apporte plus rien face a une vraie vue 3D.
-    const opaciteDe = o => objects3dOpaque ? undefined : o.fillOpacity;
+    const opaciteDe = o => vue3d.objetsOpaques ? undefined : o.fillOpacity;
     // "Texture" decoche revient a la couleur unie sans avoir a retirer la texture de chaque
     // objet - un simple objet vide desactive le rendu texture le temps de la case decochee.
-    const texturesDe = o => show3dTextures ? {horizontale:o.textureHorizontale, vertical:o.textureVerticale} : null;
+    const texturesDe = o => vue3d.textures ? {horizontale:o.textureHorizontale, vertical:o.textureVerticale} : null;
     etat.objects.forEach(o=>{
       if(o===obj) return;
       if(objetMasque(o)) return; // masque dans le plan = masque partout, y compris ici (voisinage compris)
       if(o.key==='parcelle' || o.fonction==='terrain'){
-        addRibbonFlat(o.pts, o.fill||'#FBF3D9', 0.003, opaciteDe(o), show3dTextures ? o.textureHorizontale : null);
+        addRibbonFlat(o.pts, o.fill||'#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
         return;
       }
       // Un point de vue est un repere de navigation, pas un objet physique du jardin : rien a
@@ -5652,7 +5651,7 @@ function buildThreeScene(obj){
           const h = elevationOf(o);
           const couleur = o.fill||o.stroke||'#888888';
           if(poly && h > 0) addPrism(poly, 0, h, couleur, false, opaciteDe(o), texturesDe(o));
-          else if(poly) addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), show3dTextures ? o.textureHorizontale : null);
+          else if(poly) addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
           else addGroundOutline(trace, o.stroke||couleur, false);
         }
         return;
@@ -5685,7 +5684,7 @@ function buildThreeScene(obj){
         const matToile = new THREE.MeshStandardMaterial({color: o.fill || '#7a9e6b', side: THREE.DoubleSide});
         const opac = opaciteDe(o);
         if(opac !== undefined && opac < 1){ matToile.transparent = true; matToile.opacity = Math.max(0.15, opac); }
-        const texToile = show3dTextures ? (o.textureHorizontale || o.textureVerticale) : null;
+        const texToile = vue3d.textures ? (o.textureHorizontale || o.textureVerticale) : null;
         if(texToile && texToile.url) matToile.map = chargerTexturePolyhaven(texToile.url);
         // Cone tres plat pose sur le mat : la silhouette d'un parasol ouvert, et surtout la meme
         // emprise circulaire au sol que le rayon utilise pour calculer l'ombre en 2D.
@@ -5708,7 +5707,7 @@ function buildThreeScene(obj){
         const matSphere = new THREE.MeshStandardMaterial({color: o.couleurArbre || '#4a7c3a'});
         const opacite = opaciteDe(o);
         if(opacite !== undefined && opacite < 1){ matSphere.transparent = true; matSphere.opacity = Math.max(0.15, opacite); }
-        if(show3dTextures && o.textureArbre && o.textureArbre.url){
+        if(vue3d.textures && o.textureArbre && o.textureArbre.url){
           matSphere.map = chargerTexturePolyhaven(o.textureArbre.url);
         }
         const sphere = new THREE.Mesh(new THREE.SphereGeometry(rayon, 20, 16), matSphere);
@@ -5733,7 +5732,7 @@ function buildThreeScene(obj){
     const EPAISSEUR_CLOTURE = 0.05;
     const hauteurCloture = Math.max(0.1, parcelleCloture.clotureHauteur || 1.8);
     const couleurCloture = parcelleCloture.clotureCouleur || '#6b4a2a';
-    const texturesCloture = show3dTextures && parcelleCloture.clotureTexture ? {vertical: parcelleCloture.clotureTexture} : null;
+    const texturesCloture = vue3d.textures && parcelleCloture.clotureTexture ? {vertical: parcelleCloture.clotureTexture} : null;
     addBande({
       ext: parcelleCloture.pts,
       int: safeOffset(parcelleCloture.pts, EPAISSEUR_CLOTURE)
@@ -5746,7 +5745,7 @@ function buildThreeScene(obj){
   // les ombres mais n'en projette pas (une ombre du sol sur lui-meme n'a pas de sens et cree des
   // artefacts d'auto-ombrage aux angles rasants).
   function appliquerOmbres(){
-    if(!show3dShadows) return;
+    if(!vue3d.ombres) return;
     etat.scene.traverse(o=>{
       if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; }
     });
@@ -5755,12 +5754,12 @@ function buildThreeScene(obj){
   appliquerOmbres();
 
   function animate(){
-    threeScene.raf = requestAnimationFrame(animate);
+    vue3d.scene.raf = requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   }
-  threeScene = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, extent, cen };
-  const sceneCourante = threeScene;
+  vue3d.scene = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, extent, cen };
+  const sceneCourante = vue3d.scene;
   animate();
   applyMode3D();
   renderVue3DSelect();
@@ -5773,7 +5772,7 @@ function buildThreeScene(obj){
   setTimeout(()=>{
     // La scene a pu etre remplacee entre-temps (changement d'onglet, case a cocher, retour au
     // plan) : construire dans une scene morte laisserait des meshes orphelins et un canevas noir.
-    if(threeScene !== sceneCourante) return;
+    if(vue3d.scene !== sceneCourante) return;
     construireStructureTerrasse();
     appliquerOmbres();          // les pieces qui viennent d'arriver doivent projeter leur ombre
     renderer.render(scene, camera);
@@ -5838,7 +5837,7 @@ function syncClotureControls(parcelleObj){
 function rafraichirApresCloture(){
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(threeScene) buildThreeScene(obj || null);
+  if(vue3d.scene) buildThreeScene(obj || null);
 }
 document.getElementById('terrasse3dCloture').addEventListener('change', function(){
   const p = trouverParcelleCloture();
@@ -5884,8 +5883,8 @@ document.getElementById('terrasse3dClotureTexClear').addEventListener('click', (
 // Explicit zoom buttons: move the camera along its current line of sight to the orbit
 // target, rather than relying only on OrbitControls' own wheel handling.
 function zoom3D(factor){
-  if(!threeScene) return;
-  const { camera, controls, renderer, scene } = threeScene;
+  if(!vue3d.scene) return;
+  const { camera, controls, renderer, scene } = vue3d.scene;
   const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
   offset.multiplyScalar(factor);
   if(offset.length() < 0.3) return; // don't let it zoom through the target
@@ -5916,8 +5915,8 @@ function onZoomDragMove(e){
 }
 function onZoomDragUp(){ zoomDragActive = false; }
 function applyMode3D(){
-  if(!threeScene) return;
-  const { controls, renderer } = threeScene;
+  if(!vue3d.scene) return;
+  const { controls, renderer } = vue3d.scene;
   const dom = renderer.domElement;
   dom.removeEventListener('pointerdown', onZoomDragDown);
   dom.removeEventListener('pointermove', onZoomDragMove);
@@ -5955,9 +5954,9 @@ document.getElementById('terrasse3dModeZoom').addEventListener('click', ()=>setM
 // contenu reste lisible par toBlob() meme apres l'echange de tampon du navigateur, donc pas
 // besoin de repasser par un rendu hors-ecran comme pour l'export PNG du plan 2D.
 document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
-  if(!threeScene){ showErrBanner('Vue 3D pas encore chargee.'); return; }
-  threeScene.renderer.render(threeScene.scene, threeScene.camera); // capture le tout dernier etat
-  threeScene.renderer.domElement.toBlob(blob=>{
+  if(!vue3d.scene){ showErrBanner('Vue 3D pas encore chargee.'); return; }
+  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
+  vue3d.scene.renderer.domElement.toBlob(blob=>{
     if(!blob){ showErrBanner('Erreur export PNG : conversion en image impossible.'); return; }
     const url = URL.createObjectURL(blob);
     const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
@@ -5977,8 +5976,8 @@ document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
 const HAUTEUR_YEUX_M = 1.6;
 document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>{
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  if(!obj || !threeScene) return;
-  const { camera, controls, renderer, scene } = threeScene;
+  if(!obj || !vue3d.scene) return;
+  const { camera, controls, renderer, scene } = vue3d.scene;
   camera.position.y = hauteurFinieMm(obj)/1000 + HAUTEUR_YEUX_M;
   controls.update();
   renderer.render(scene, camera);
@@ -5988,53 +5987,49 @@ document.getElementById('terrasse3dFilaire').addEventListener('change', function
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   if(!obj) return;
   ensureConstruction(obj).lames3dFilaire = this.checked;
-  if(threeScene) buildThreeScene(obj);
+  if(vue3d.scene) buildThreeScene(obj);
 });
-let show3dAllObjects = true;
 document.getElementById('terrasse3dAllObjects').addEventListener('change', function(){
-  show3dAllObjects = this.checked;
+  vue3d.tousLesObjets = this.checked;
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(threeScene) buildThreeScene(obj || null);
+  if(vue3d.scene) buildThreeScene(obj || null);
 });
-let objects3dOpaque = true;
 document.getElementById('terrasse3dObjectsOpaque').addEventListener('change', function(){
-  objects3dOpaque = this.checked;
+  vue3d.objetsOpaques = this.checked;
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(threeScene) buildThreeScene(obj || null);
+  if(vue3d.scene) buildThreeScene(obj || null);
 });
 // Coche par defaut (les textures Poly Haven, une fois choisies, s'affichent) : decocher revient a
 // la couleur unie du plan sans avoir a retirer la texture de chaque objet un par un - pratique
 // pour comparer les deux rendus, ou pour un apercu rapide qui n'attend pas le chargement d'images.
-let show3dTextures = true;
 document.getElementById('terrasse3dTextures').addEventListener('change', function(){
-  show3dTextures = this.checked;
+  vue3d.textures = this.checked;
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(threeScene) buildThreeScene(obj || null);
+  if(vue3d.scene) buildThreeScene(obj || null);
 });
 // Decochee par defaut : une vraie ombre portee (shadow map) coute plus cher a calculer que
 // l'eclairage a trois lumieres sans ombres deja en place - un utilisateur qui veut juste
 // verifier une implantation n'a pas besoin de payer ce cout a chaque rendu.
-let show3dShadows = false;
 document.getElementById('terrasse3dShadows').addEventListener('change', function(){
-  show3dShadows = this.checked;
+  vue3d.ombres = this.checked;
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(threeScene) buildThreeScene(obj || null);
+  if(vue3d.scene) buildThreeScene(obj || null);
 });
 
 // "Enregistrer la vue" cree un objet Point de vue (Mode Plan) a la position et la direction
 // actuelles de la camera - l'inverse de toLocal (centroide de la terrasse ouverte) donne ses
 // coordonnees plan, et l'angle horizontal camera->cible donne sa direction.
 document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
-  if(!threeScene) return;
+  if(!vue3d.scene) return;
   // Centre retenu par buildThreeScene (la terrasse, ou a defaut la parcelle) : le relire ici
   // plutot que de recalculer un centroide de terrasse permet d'enregistrer un point de vue
   // meme depuis un plan sans terrasse.
-  const cen = threeScene.cen || {x:0, y:0};
-  const { camera, controls } = threeScene;
+  const cen = vue3d.scene.cen || {x:0, y:0};
+  const { camera, controls } = vue3d.scene;
   const planX = camera.position.x + cen.x, planY = cen.y - camera.position.z;
   const dx = controls.target.x - camera.position.x, dz = controls.target.z - camera.position.z;
   const dl = Math.hypot(dx,dz) || 1;
@@ -6078,7 +6073,7 @@ function allerAuPointDeVue(vp){
   let tentatives = 0;
   (function essayer(){
     tentatives++;
-    if(threeScene && dernierObj3dKey===terr.key){
+    if(vue3d.scene && vue3d.dernierObjKey===terr.key){
       const cen = centroid(terr.pts);
       // Position = pts[0], direction = vecteur pts[0]->pts[1] (point + vecteur, pas un angle
       // stocke a part) - normalise puis reporte a 1,5 m, une distance de conversation courante.
@@ -6087,10 +6082,10 @@ function allerAuPointDeVue(vp){
       const rad = Math.atan2(ddy/dl, ddx/dl);
       const eyeY = vp.altitude || 1.6;
       const lx = vp.pts[0].x-cen.x, lz = cen.y-vp.pts[0].y;
-      threeScene.camera.position.set(lx, eyeY, lz);
-      threeScene.controls.target.set(lx+Math.cos(rad)*1.5, eyeY, lz-Math.sin(rad)*1.5);
-      threeScene.controls.update();
-      threeScene.renderer.render(threeScene.scene, threeScene.camera);
+      vue3d.scene.camera.position.set(lx, eyeY, lz);
+      vue3d.scene.controls.target.set(lx+Math.cos(rad)*1.5, eyeY, lz-Math.sin(rad)*1.5);
+      vue3d.scene.controls.update();
+      vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
       return;
     }
     if(tentatives < 100) setTimeout(essayer, 100);
@@ -6126,13 +6121,13 @@ function allerAuPointDeVueGlb(vp){
 // seuls : il faut le leur dire explicitement, sans quoi l'image reste a l'ancienne taille,
 // etiree ou avec des bandes vides.
 function resizeThreeScene(){
-  if(!threeScene) return;
+  if(!vue3d.scene) return;
   const host = document.getElementById('terrasse3dCanvasHost');
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
-  threeScene.camera.aspect = w/h;
-  threeScene.camera.updateProjectionMatrix();
-  threeScene.renderer.setSize(w, h);
-  threeScene.renderer.render(threeScene.scene, threeScene.camera);
+  vue3d.scene.camera.aspect = w/h;
+  vue3d.scene.camera.updateProjectionMatrix();
+  vue3d.scene.renderer.setSize(w, h);
+  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
 }
 function resizeGlbViewerScene(){
   if(!glbViewerScene) return;
@@ -6182,7 +6177,7 @@ window.addEventListener('keydown', e=>{
 });
 // La fenetre peut changer de taille pendant que la vue est ouverte (plein page ou non) : le
 // canvas suit, au lieu de rester fige a la taille qu'il avait au dernier rendu de la scene.
-window.addEventListener('resize', ()=>{ if(threeScene) resizeThreeScene(); if(glbViewerScene) resizeGlbViewerScene(); });
+window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(glbViewerScene) resizeGlbViewerScene(); });
 
 let terrasseSubTab = 'construction';
 // The plan (#stage) physically lives in the page once; it's moved between its Mode Plan
@@ -6259,7 +6254,7 @@ function rebuildTerrasseSubTabs(){
       document.getElementById('terrasse3dWrap').style.display = 'block';
       buildThreeScene(obj);
     });
-  } else if(threeScene){
+  } else if(vue3d.scene){
     disposeThreeScene();
     document.getElementById('terrasse3dWrap').style.display = 'none';
   }
