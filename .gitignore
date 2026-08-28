@@ -15,3 +15,6 @@ BKP */
 # Chaine Node (phase 1 de la migration)
 node_modules/
 dist/
+
+# Rapport de couverture, regenere par npm run test -- --coverage
+coverage/
