@@ -55,6 +55,8 @@ import { objetsDepuisCadastre } from './geo/cadastreObjets.js';
 import { ouvrirImportCadastre } from './ui/cadastreDialog.js';
 import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
 import { vue3d } from './three/etat3d.js';
+import { serializeObjects, serializeMeasures } from './io/serialisation.js';
+import { importSVGString as importerSVG } from './io/importSvg.js';
 import { setupProjectBar, renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from './ui/projectBar.js';
 import {
   renderTerrasseConfigurator, renderParametresCalcul, renderTerrasseCoupe, renderDebitBois,
@@ -2124,7 +2126,10 @@ document.getElementById('importSvgFile').addEventListener('change', e=>{
   const reader = new FileReader();
   reader.onload = ev=>{
     try {
-      importSVGString(ev.target.result);
+      importerSVG(ev.target.result, etat, {
+          pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
+          render, renderMeasureResults, markDirty, fitToObject, filtrerSansParcelle, trouverParcelleCloture
+        });
     } catch(err){
       showErrBanner('Erreur import SVG: ' + err.message);
     }
@@ -2140,227 +2145,11 @@ document.getElementById('importSvgFile').addEventListener('change', e=>{
   reader.readAsText(file);
 });
 
-function importSVGString(svgText){
-  const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
-  const perr = doc.querySelector('parsererror');
-  if(perr) throw new Error('SVG invalide ou mal forme');
-  const root = doc.documentElement;
-  const isOwn = root.getAttribute('data-plan-interactif') === '1';
-  const minx = parseFloat(root.getAttribute('data-minx'));
-  const pad = parseFloat(root.getAttribute('data-pad'));
-  const maxy = parseFloat(root.getAttribute('data-maxy'));
-  const replaceMode = document.getElementById('chkReplaceOnImport').checked;
-
-  function svgToWorld(x,y){
-    if(isOwn && Number.isFinite(minx) && Number.isFinite(pad) && Number.isFinite(maxy)){
-      return {x: x + (minx-pad), y: (maxy+pad) - y};
-    }
-    // fallback for external SVGs: treat user units as meters, flip Y (SVG y-down -> world y-up)
-    return {x: x, y: -y};
-  }
-
-  pushHistory();
-
-  if(replaceMode){
-    // remove every current object and its DOM elements, and any stored measures (they
-    // reference object keys that are about to disappear)
-    etat.objects.slice().forEach(detruireVue);
-    etat.objects.length = 0;
-    etat.measures.length = 0;
-    etat.selectedKey = null;
-  }
-
-  let imported = 0;
-  etat.newObjCounter += 1;
-
-  doc.querySelectorAll('polygon').forEach(el=>{
-    const dataPts = el.getAttribute('data-points');
-    let pts;
-    if(isOwn && dataPts){
-      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x,y}; });
-    } else {
-      const raw = (el.getAttribute('points')||'').trim().split(/\s+/).filter(Boolean);
-      pts = raw.map(s=>{ const [x,y]=s.split(',').map(Number); return svgToWorld(x,y); });
-    }
-    if(pts.length<3) return;
-    const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
-    const name = isOwn ? (el.getAttribute('data-name')||'Objet importe') : ('Objet importe '+imported);
-    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
-    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
-    const newObj = {
-      key, type:'polygon', name,
-      fill: el.getAttribute('fill')||'#8fb3d9', fillOpacity: parseFloat(el.getAttribute('fill-opacity'))||0.75,
-      stroke: el.getAttribute('stroke')||'#2a4d6e',
-      pts, vertexNames:vNames, segmentNames:sNames, frozenVertices: pts.map(()=>false),
-      showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-      constrained:false,
-      fonction: isOwn ? (el.getAttribute('data-fonction')||'autre') : 'autre',
-      matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
-      locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
-    };
-    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
-  });
-
-  doc.querySelectorAll('path').forEach(el=>{
-    const dataPts = el.getAttribute('data-points');
-    let pts;
-    if(isOwn && dataPts){
-      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x,y}; });
-    } else {
-      // best-effort: extract endpoint coordinates for every path command, not just M/L/C - see
-      // parseSvgPathPoints() below.
-      const d = el.getAttribute('d')||'';
-      pts = parseSvgPathPoints(d).map(p=>svgToWorld(p.x,p.y));
-    }
-    if(pts.length<2) return;
-    const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
-    const name = isOwn ? (el.getAttribute('data-name')||'Chemin importe') : ('Chemin importe '+imported);
-    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Point '+(i+1));
-    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
-    const width = isOwn ? (parseFloat(el.getAttribute('data-width'))||1) : (parseFloat(el.getAttribute('stroke-width'))||1);
-    const curve = isOwn ? (el.getAttribute('data-curve')==='true') : false;
-    const newObj = {
-      key, type:'path', name,
-      fill: el.getAttribute('stroke')||'#c9a15a', fillOpacity:1, stroke: el.getAttribute('stroke')||'#c9a15a',
-      pts, vertexNames:vNames, segmentNames:sNames, frozenVertices: pts.map(()=>false),
-      width, curve,
-      showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-      constrained:false,
-      fonction: isOwn ? (el.getAttribute('data-fonction')||'chemin') : 'chemin',
-      matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
-      locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
-    };
-    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
-  });
-
-  doc.querySelectorAll('circle').forEach(el=>{
-    let center, r;
-    if(isOwn && el.getAttribute('data-center')){
-      const [cx,cy] = el.getAttribute('data-center').split(',').map(Number);
-      center = {x:cx,y:cy}; r = parseFloat(el.getAttribute('data-radius'));
-    } else {
-      const cx = parseFloat(el.getAttribute('cx')), cy = parseFloat(el.getAttribute('cy'));
-      center = svgToWorld(cx,cy); r = parseFloat(el.getAttribute('r'));
-    }
-    if(!Number.isFinite(r) || r<=0) return;
-    const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
-    const name = isOwn ? (el.getAttribute('data-name')||'Cercle importe') : ('Cercle importe '+imported);
-    const newObj = {
-      key, type:'circle', name,
-      fill: el.getAttribute('fill')||'#5bc8f5', fillOpacity: parseFloat(el.getAttribute('fill-opacity'))||0.9,
-      stroke: el.getAttribute('stroke')||'#0a3d5c',
-      center, r,
-      showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-      constrained:false,
-      fonction: isOwn ? (el.getAttribute('data-fonction')||'equipement') : 'equipement',
-      matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||3) : 3,
-      locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
-    };
-    etat.objects.push(newObj); createObjectDOM(newObj); rebuildHandles(newObj); imported++;
-  });
-
-  let importedMeasures = 0;
-  if(replaceMode && isOwn){
-    const mdEl = doc.getElementById("measures-data");
-    const mdRaw = mdEl ? mdEl.getAttribute('data-measures') : null;
-    if(mdRaw){
-      try {
-        const parsed = JSON.parse(mdRaw);
-        parsed.forEach(m=>{
-          // only restore a measure if both referenced objects actually exist post-import
-          const refObj = etat.objects.find(o=>o.key===m.refObjKey);
-          const tgtObj = etat.objects.find(o=>o.key===m.targetObjKey);
-          if(refObj && tgtObj){
-            etat.measures.push({
-              id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-              refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
-              targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:!!m.show,
-              displayMode: m.displayMode==='along' ? 'along' : 'perp'
-            });
-            importedMeasures++;
-          }
-        });
-      } catch(err){ /* ignore malformed etat.measures data, geometry import already succeeded */ }
-    }
-  }
-
-  reapplyStackingOrder();
-  rebuildSelector();
-  renderMeasureResults();
-  render();
-  let msg = imported + ' objet(s) importe(s).';
-  if(!isOwn) msg += ' (SVG externe : noms/attributs par defaut, verifie les proportions.)';
-  if(importedMeasures) msg += ' ' + importedMeasures + ' mesure(s) restauree(s).';
-  else if(!replaceMode && measures0FromFile(doc)) msg += ' (Les mesures du fichier ne sont restaurees qu\'en mode "remplacement".)';
-  if(!etat.objects.find(o=>o.key==='parcelle')) msg += ' ATTENTION: aucun objet "parcelle" dans le resultat - certaines fonctions (mesures, alignement, contrainte a la parcelle) seront limitees tant qu\'une parcelle n\'existe pas.';
-  showToast(msg);
-}
-function measures0FromFile(doc){
-  const el = doc.getElementById("measures-data");
-  return !!(el && el.getAttribute('data-measures'));
-}
 
 // ================= Persistance : serialisation + barre de projet =================
 // Prend uniquement les champs de donnees (jamais el/nameEl/pointEls/edgeEls/... qui
 // pointent vers des noeuds SVG vivants : un JSON.stringify direct de `objects` planterait
 // sur une structure circulaire une fois la page construite).
-function serializeObjects(objs){
-  return objs.map(o=>{
-    const out = {
-      key:o.key, type:o.type, name:o.name,
-      fill:o.fill, fillOpacity:o.fillOpacity, stroke:o.stroke,
-      showName:!!o.showName, showSegNames:!!o.showSegNames, showVertNames:!!o.showVertNames,
-      showDims:!!o.showDims, showAngles:!!o.showAngles, constrained:!!o.constrained,
-      fonction:o.fonction, matiere:o.matiere, priority:o.priority, locked:!!o.locked,
-      elevation:o.elevation,
-      textureVerticale: o.textureVerticale || null,
-      textureHorizontale: o.textureHorizontale || null,
-      altitude:o.altitude, hidden:!!o.hidden,
-      clotureActive: !!o.clotureActive, clotureHauteur: o.clotureHauteur,
-      clotureCouleur: o.clotureCouleur, clotureTexture: o.clotureTexture || null,
-      diametreArbre: o.diametreArbre, couleurArbre: o.couleurArbre,
-      textureArbre: o.textureArbre || null,
-      latitude: o.latitude, longitude: o.longitude, nomLieu: o.nomLieu,
-      hauteurParasol: o.hauteurParasol, terrasseLieeKey: o.terrasseLieeKey || null,
-      matSurPerimetre: !!o.matSurPerimetre, matDeporte: !!o.matDeporte, matAngleDeg: o.matAngleDeg,
-      // Tracabilite cadastrale (import depuis une adresse), attributs BD TOPO (batiment, haie,
-      // vegetation) et zonage PLU. Cette fonction est une LISTE BLANCHE : un champ absent d'ici
-      // disparait silencieusement au premier enregistrement.
-      cadastre: o.cadastre || null,
-      bdtopo: o.bdtopo || null,
-      plu: o.plu || null,
-      ortho: o.ortho || null,
-      // Reglages d'affichage ranges sur la parcelle (masquage du voisinage), comme `ortho`.
-      affichage: o.affichage || null,
-      // Objet arrive par un import de voisinage : sert a le masquer d'un coup sans le supprimer.
-      voisinage: !!o.voisinage
-    };
-    if(o.type==='circle'){
-      out.center = {x:o.center.x, y:o.center.y}; out.r = o.r;
-    } else {
-      out.pts = o.pts.map(p=>({x:p.x,y:p.y}));
-      out.vertexNames = [...o.vertexNames];
-      out.segmentNames = [...o.segmentNames];
-      out.frozenVertices = o.frozenVertices ? [...o.frozenVertices] : o.pts.map(()=>false);
-      if(o.type==='path'){ out.width = o.width; out.curve = !!o.curve; }
-    }
-    if(o.construction) out.construction = JSON.parse(JSON.stringify(o.construction));
-    return out;
-  });
-}
-function serializeMeasures(ms){
-  return ms.map(m=>({
-    id:m.id, refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
-    targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:!!m.show,
-    displayMode: m.displayMode==='along' ? 'along' : 'perp'
-  }));
-}
 
 // ================= Import / Export du projet en JSON (fichier local) =================
 // Le fichier produit est exactement la reponse de api.php?action=load ({meta, objects,
