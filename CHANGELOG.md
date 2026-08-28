@@ -3,6 +3,24 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.14] — 2026-08-28
+
+Les règles qui comblent les trous de la BD TOPO sortent de `legacy.ts`. Aucun comportement ne
+change.
+
+### Interne
+
+- `geo/bdtopo.ts` : `hauteurBatiment()`, `hauteurVegetation()`, `arbresEstimes()`,
+  `libelleParcelle()` et les deux plafonds d'arbres estimés. Ce sont des choix, pas des mesures :
+  les tests servent surtout à ce que personne ne les prenne pour de la donnée et ne les « corrige ».
+- `legacy.ts` : 9 971 → 9 928 lignes. 343 tests.
+
+### Vérification
+
+- Ces règles ne servent qu'à l'import cadastral, qui appelle les services IGN en ligne : les golden
+  files ne les couvrent pas et l'import de bout en bout n'a pas été rejoué. Déplacement littéral,
+  couvert par 18 tests unitaires, application et dialogue d'import vérifiés au navigateur.
+
 ## [1.0.1-alpha.13] — 2026-08-28
 
 La composition des étiquettes de côtes et de coins est réunie en un seul endroit. Aucun comportement

@@ -668,10 +668,38 @@ identiques au caractère près (3 931 pour le SVG, 5 019 pour le PDF). Le contr�
 attendues sont maintenant écrits dans [`EMPREINTES.md`](../tests/fixtures/golden/EMPREINTES.md) —
 sans quoi il ne resterait que dans ce journal, et personne ne le rejouerait.
 
+### Ce que la BD TOPO ne dit pas
+
+`geo/bdtopo.ts` réunit les quatre règles qui comblent les trous de la donnée IGN — des choix
+assumés, pas des mesures, et c'est justement ce qu'il fallait écrire quelque part :
+
+- **Un bâtiment sans hauteur mesurée** prend celle déduite de son nombre d'étages (2,70 m par
+  niveau), et à défaut 2,50 m. Beaucoup d'annexes — garages, abris — n'ont pas de hauteur dans la
+  BD TOPO ; un bâtiment de hauteur nulle donnerait une Vue 3D plate et une ombre inexistante. Une
+  estimation avouée vaut mieux qu'un zéro qui se fait passer pour une mesure.
+- **Une zone de végétation** prend la hauteur typique de sa nature, 6 m si la nature est inconnue.
+  Les libellés IGN sont accentués : un test le rappelle, parce qu'un libellé désaccentué ne
+  correspondrait à rien et retomberait silencieusement sur 6 m.
+- **Les arbres sont estimés, jamais relevés** : la BD TOPO donne des zones, pas des arbres isolés.
+  On y répartit une grille décalée d'un bruit **déterministe** — une fonction de la position, pas un
+  tirage — parce que rouvrir un projet ne doit pas déplacer les arbres et changer les ombres.
+- **Le libellé d'une parcelle** nettoie les zéros de tête de l'IDU (`0101` → `101`) sans jamais
+  rendre une chaîne vide : une parcelle numérotée `0` garde son zéro.
+
+Les nombres de la BD TOPO arrivent en texte à virgule française (`5,2`), que `parseFloat` tronque à
+`5` : `nombreFr` existe pour ça, et un test le fige.
+
+**Limite de vérification, à dire clairement** : ces règles ne servent qu'à l'import cadastral, qui
+appelle les services IGN en ligne. Les golden files ne les touchent pas, et l'import de bout en bout
+n'a pas été rejoué. Ce qui a été vérifié : 18 tests unitaires, l'application qui démarre avec ses
+35 objets et 288 textes, le dialogue « Nouveau projet depuis une adresse » qui s'ouvre, aucune
+exception, et les six empreintes inchangées. Le déplacement est par ailleurs littéral — aucune ligne
+de calcul n'a été touchée, seuls un paramètre a été renommé et des types ajoutés.
+
 ### Ce qui reste
 
 Les panneaux d'interface qui pilotent le plan : attributs, mesures, PLU, barre de projet,
-configurateur de terrasse. `legacy.ts` est à 9 971 lignes.
+configurateur de terrasse. `legacy.ts` est à 9 928 lignes.
 
 
 ### Point de vigilance

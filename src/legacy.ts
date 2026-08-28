@@ -46,6 +46,10 @@ import {
   etiquetteComposee, longueurEnMetres, angleEnDegres,
   SEP_ECRAN, DEGRE_ECRAN, SEP_EXPORT, DEGRE_EXPORT
 } from './model/etiquettes.js';
+import {
+  hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle,
+  ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES
+} from './geo/bdtopo.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe } from './interaction/navigation.js';
 import { appliquerGlisser } from './interaction/drag.js';
 import { creerDomObjet, reconstruirePoignees, positionnerObjet } from './render/objects.js';
@@ -4147,10 +4151,6 @@ function classerCandidats(cands){
     return (b.contenance || b.aire) - (a.contenance || a.aire);
   });
 }
-function libelleParcelle(c){
-  const num = String(c.numero || '').replace(/^0+/, '') || String(c.numero || '');
-  return ((c.section || '') + ' ' + num).trim() || c.idu;
-}
 function trierVoisines(principale, cands){
   const adjacentes = [], autres = [];
   cands.forEach(c=>{
@@ -4181,8 +4181,6 @@ const GPU_URL = 'https://apicarto.ign.fr/api/gpu';
 const COUCHE_BATIMENT = 'BDTOPO_V3:batiment';
 const COUCHE_VEGETATION = 'BDTOPO_V3:zone_de_vegetation';
 const COUCHE_HAIE = 'BDTOPO_V3:haie';
-const ESPACEMENT_ARBRES_M = 8;      // un arbre pour ~64 m2 de couvert : ordre de grandeur d'un bois
-const MAX_ARBRES_ESTIMES = 60;
 
 function bboxDegDesAnneaux(anneaux, proj, margeM){
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
@@ -4230,47 +4228,6 @@ function rattacherElementsAuxParcelles(elements, parcelles){
     e.parcelles = new Set();
     parcelles.forEach(p=>{ if(polygonesSeTouchent(e.pts, p.pts)) e.parcelles.add(p.idu); });
   });
-}
-function hauteurBatiment(p){
-  const h = nombreFr(p.hauteur);
-  if(h && h > 0) return h;
-  // Beaucoup d'annexes (garages, abris) n'ont pas de hauteur mesuree dans la BD TOPO : on la
-  // deduit du nombre d'etages plutot que de poser un batiment plat de hauteur nulle.
-  const etages = nombreFr(p.nombre_d_etages);
-  if(etages && etages > 0) return Math.round(etages*2.7*10)/10;
-  return 2.5;
-}
-const HAUTEUR_VEGETATION = {
-  'Haie': 2, 'Bois': 12, 'Forêt fermée de feuillus': 15, 'Forêt fermée de conifères': 18,
-  'Forêt fermée mixte': 16, 'Forêt ouverte': 10, 'Peupleraie': 18, 'Verger': 4,
-  'Vigne': 1.5, 'Lande ligneuse': 1.2, 'Zone arborée': 10, 'Bois de conifères': 18
-};
-function hauteurVegetation(nature){
-  const h = HAUTEUR_VEGETATION[nature];
-  return h !== undefined ? h : 6;
-}
-// Arbres ESTIMES : la BD TOPO ne cartographie pas les arbres isoles en zone urbaine. On repartit
-// donc une grille reguliere, decalee d'un bruit deterministe (meme import = memes arbres, sinon
-// deux imports de la meme parcelle ne donneraient pas le meme plan), en ne gardant que les points
-// tombant dans le polygone. C'est un ordre de grandeur de couvert, pas un releve.
-function arbresEstimes(pts, espacement, maxArbres){
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  pts.forEach(p=>{
-    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-  });
-  const out = [];
-  const bruit = (i, j) => { const s = Math.sin(i*127.1 + j*311.7)*43758.5453; return (s - Math.floor(s)) - 0.5; };
-  for(let i=0; minX + i*espacement <= maxX && out.length < maxArbres; i++){
-    for(let j=0; minY + j*espacement <= maxY && out.length < maxArbres; j++){
-      const p = {
-        x: minX + (i + 0.5 + bruit(i,j)*0.6)*espacement,
-        y: minY + (j + 0.5 + bruit(j,i)*0.6)*espacement
-      };
-      if(pointInPolygon(p, pts)) out.push({ x:Math.round(p.x*100)/100, y:Math.round(p.y*100)/100 });
-    }
-  }
-  return out;
 }
 // PLU : zonage du Geoportail de l'urbanisme au point donne. urlfic pointe le reglement PDF reel
 // de la commune - c'est le seul lien qui evite d'aller le chercher a la main.
