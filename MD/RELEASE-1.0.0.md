@@ -18,7 +18,7 @@ tout ce qui a été ajouté sert à savoir, plus tard, **quelle version a produi
 | Application | `APP_VERSION` | `1.0.0` |
 | Schéma de projet | `SCHEMA_VERSION` | `1` |
 | API | `API_VERSION` | `v1` |
-| Build | `BUILD_AT` / `BUILD_SHA` | `2026-08-28` / *aucun (pas de dépôt git)* |
+| Build | `BUILD_AT` / `BUILD_SHA` | `2026-08-28` / *non injecté — voir §5* |
 
 Les trois constantes sont déclarées **en tête du premier script**, avant tout usage : c'est
 l'emplacement imposé par le plantage corrigé la veille, où une variable d'état rangée « près de
@@ -76,12 +76,12 @@ décalage pointant sur le bon objet, chaque `/Length` de flux concordant avec so
 
 | Point | État |
 |---|---|
-| `main` vert : tsc, eslint, vitest, fixtures | **sans objet** — ni dépôt, ni chaîne d'outils (voir §5) |
+| `main` vert : tsc, eslint, vitest, fixtures | ⚠️ dépôt créé ce jour ; aucune chaîne d’outils (voir §5) |
 | Incrément proposé par l'outillage, confirmé | ✅ `1.0.0`, ligne de base §2.3 |
 | Diff des empreintes relu | ✅ première capture — c'est la référence |
 | Bump de schéma ? migration + fixtures | **sans objet** — schéma 1, aucune migration |
 | `CHANGELOG.md` en français, daté | ✅ [`../CHANGELOG.md`](../CHANGELOG.md) |
-| Version bumpée, commitée, étiquetée | ⚠️ version dans le fichier ; **pas de tag** faute de dépôt |
+| Version bumpée, commitée, étiquetée | ✅ commit `5a096c4`, étiquette annotée `v1.0.0` |
 | Build propre, taille ≤ 1,2 Mo | ✅ 779 Ko |
 | Déployé en pré-production | ❌ pas d'environnement de pré-production |
 | Liste de fumée manuelle | ✅ campagne QA du 27 août + revérifications de ce jour |
@@ -89,16 +89,17 @@ décalage pointant sur le bon objet, chaque `/Length` de flux concordant avec so
 | `minClientVersion` mis à jour | ❌ le serveur n'a pas encore de configuration de version |
 | Déployé en production | ⏳ **à faire par l'utilisateur** |
 | Post-déploiement : ouvrir un projet existant, modifier, enregistrer, recharger | ⏳ après déploiement |
-| Release GitHub publiée | ❌ pas de dépôt |
+| Release GitHub publiée | ❌ dépôt local, sans remote |
 
 ---
 
 ## 5. Écarts assumés
 
-1. **Pas de dépôt git.** Sans dépôt, pas de tag, pas de SHA de build, pas de release publiée, et
-   surtout aucun filet quand un fichier revient en arrière — ce qui s'est produit le 27 août, où
-   `plan.html` a perdu deux correctifs et retrouvé un plantage déjà corrigé. C'est le premier
-   manque à combler, avant toute autre étape de la feuille de route.
+1. **Le SHA de build n'est pas dans le fichier.** Le dépôt existe depuis le 28 août (commit
+   initial `5a096c4`, étiquette annotée `v1.0.0`), mais l'artefact **est** le source : un fichier
+   ne peut pas contenir l'empreinte du commit qui le contient. `BUILD_SHA` reste donc `null`,
+   et c'est l'étiquette qui identifie l'artefact. Le jour où une étape de livraison existera,
+   c'est elle qui écrira le SHA dans la copie déployée — jamais dans le source (RELEASE.md §5.1).
 2. **`api.php` non exercé.** Le serveur de développement local ne sait pas exécuter PHP : les
    trois lignes ajoutées (persistance de `appVersion` et `schemaVersion`) sont relues mais jamais
    lancées. À vérifier au premier enregistrement après déploiement.
@@ -124,3 +125,7 @@ sans risque).
 Après déploiement, dérouler les quatre gestes de la fin de liste : ouvrir un projet existant, le
 modifier, l'enregistrer, recharger — et vérifier que `v1.0.0` s'affiche bien à droite de la barre
 de projet.
+
+Le dépôt créé le 28 août rend cette copie de secours inutile : `git checkout v1.0.0 -- plan.html`
+restitue l'artefact exact, et l'étiquette annotée en porte la description. Les sauvegardes
+manuelles (`BKP .../`) sont volontairement hors du dépôt.
