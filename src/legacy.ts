@@ -41,6 +41,7 @@ import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint } from './render/measures.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from './interaction/editing.js';
 import { creerDomObjet, reconstruirePoignees } from './render/objects.js';
+import { dessinerCalqueParasols } from './render/parasolOverlay.js';
 import { svgNS, creerSvg, attrs } from './render/svg.js';
 import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
 import { creerEtat } from './core/state.js';
@@ -598,6 +599,17 @@ function pathD(pts, curve){
   }
   return d;
 }
+// Le dessin du calque parasol vit dans render/parasolOverlay.ts. La contrainte de position, elle,
+// modifie les objets : elle reste ici et s'execute avant le dessin, comme avant.
+function renderParasolOverlay(){
+  if(etat.appMode !== 'plan'){ parasolGroup.innerHTML = ''; return; }
+  contraindreParasols();
+  dessinerCalqueParasols({
+    groupeOmbres: parasolGroup, groupeMats: parasolMatGroup, racine: svg,
+    etat, ctxSoleil: contexteSoleilParasol(), positionMat
+  });
+}
+
 
 function positionMat(par){
   if(!par.matDeporte) return { x: par.center.x, y: par.center.y };
@@ -639,71 +651,6 @@ function contraindreParasols(){
     if(!cible) return;
     par.center.x += cible.x - mat.x;
     par.center.y += cible.y - mat.y;
-  });
-}
-function renderParasolOverlay(){
-  parasolGroup.innerHTML = '';
-  if(etat.appMode !== 'plan') return;
-  const parasols = etat.objects.filter(o=>o.fonction==='parasol' && !o.hidden);
-  if(!parasols.length) return;
-  contraindreParasols();
-  if(etat.parasol.carteAffichee){
-    calculerCartesOmbre(contexteSoleilParasol(), etat.objects).forEach(carte=>{
-      const cote = carte.pas*scene.scale;
-      carte.cells.forEach(c=>{
-        if(c.frac <= 0) return;
-        const s = toScreen({x:c.x, y:c.y});
-        const rect = document.createElementNS(svgNS,'rect');
-        rect.setAttribute('x', s.x-cote/2); rect.setAttribute('y', s.y-cote/2);
-        rect.setAttribute('width', cote); rect.setAttribute('height', cote);
-        rect.setAttribute('fill', '#1e3c5a');
-        rect.setAttribute('fill-opacity', (0.08 + c.frac*0.62).toFixed(3));
-        parasolGroup.appendChild(rect);
-      });
-    });
-  }
-  if(etat.parasol.ombreAffichee){
-    parasols.forEach(par=>{
-      const g = ombreInstantanee(par, contexteSoleilParasol());
-      if(!g) return;
-      const s = toScreen({x:g.cx, y:g.cy});
-      const el = document.createElementNS(svgNS,'ellipse');
-      el.setAttribute('cx', s.x); el.setAttribute('cy', s.y);
-      el.setAttribute('rx', g.demiGrand*scene.scale); el.setAttribute('ry', g.demiPetit*scene.scale);
-      // L'axe long suit (ux,uy) en coordonnees plan ; a l'ecran l'axe Y est inverse, d'ou -uy.
-      const deg = Math.atan2(-g.uy, g.ux) * 180/Math.PI;
-      el.setAttribute('transform', 'rotate(' + deg.toFixed(2) + ' ' + s.x + ' ' + s.y + ')');
-      el.setAttribute('fill', '#2b3a2a');
-      el.setAttribute('fill-opacity', '0.32');
-      el.setAttribute('stroke', '#2b3a2a');
-      el.setAttribute('stroke-opacity', '0.55');
-      el.setAttribute('stroke-dasharray', '4 3');
-      parasolGroup.appendChild(el);
-    });
-  }
-  // Pied du mat : au centre pour un parasol droit, en bord de toile pour un deporte. Redessine
-  // par-dessus tout le reste (le groupe est remis en fin de svg juste avant).
-  parasolMatGroup.innerHTML = '';
-  svg.appendChild(parasolMatGroup);
-  parasols.forEach(par=>{
-    const m = positionMat(par);
-    const s = toScreen(m);
-    const c = document.createElementNS(svgNS,'circle');
-    c.setAttribute('cx', s.x); c.setAttribute('cy', s.y); c.setAttribute('r', 4);
-    c.setAttribute('fill', '#3f2d18');
-    c.setAttribute('stroke', '#fff'); c.setAttribute('stroke-width', '1.5');
-    parasolMatGroup.appendChild(c);
-    if(par.matDeporte){
-      // Un trait relie le pied au centre de la toile : sans lui, sur un deporte, on ne voit pas
-      // a quel parasol appartient ce pied quand plusieurs se chevauchent.
-      const sc = toScreen(par.center);
-      const l = document.createElementNS(svgNS,'line');
-      l.setAttribute('x1', s.x); l.setAttribute('y1', s.y);
-      l.setAttribute('x2', sc.x); l.setAttribute('y2', sc.y);
-      l.setAttribute('stroke', '#3f2d18'); l.setAttribute('stroke-width', '1.5');
-      l.setAttribute('stroke-dasharray', '3 2');
-      parasolMatGroup.appendChild(l);
-    }
   });
 }
 
