@@ -10,12 +10,12 @@
 import { escapeHtml } from '../util/escape.js';
 import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import { nombreFr } from '../util/format.js';
-import { showPrompt } from './dialogs.js';
-import { el } from './dom.js';
+import { showPrompt } from '../shell/dialogs.js';
+import { el } from '../shell/dom.js';
 import { ouvrirImportCadastre } from './cadastreDialog.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { showToast, showErrBanner, showConfirm } from './dialogs.js';
+import { showToast, showErrBanner, showConfirm } from '../shell/dialogs.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { libelleParcelle } from '../geo/bdtopo.js';

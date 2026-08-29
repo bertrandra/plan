@@ -19,8 +19,8 @@ import { empriseLame } from '../engine/lames.js';
 import { hauteurParasolDe } from '../engine/parasol.js';
 import { lineLineIntersect } from '../geometry/segments.js';
 import { PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
-import { showErrBanner } from '../ui/dialogs.js';
-import { elOpt } from '../ui/dom.js';
+import { showErrBanner } from '../shell/dialogs.js';
+import { elOpt } from '../shell/dom.js';
 export function buildThreeScene(obj, etat, ctx){
   // Si on reconstruit la MEME terrasse (une case a cocher qui change, pas un changement d'objet
   // selectionne), on garde la camera ou l'utilisateur l'avait laissee plutot que de repartir sur

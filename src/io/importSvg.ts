@@ -13,8 +13,8 @@ import { NAME_SEP } from '../export/separateurs.js';
 import { cleObjet } from '../model/cles.js';
 import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
-import { showToast } from '../ui/dialogs.js';
-import { elOpt } from '../ui/dom.js';
+import { showToast } from '../shell/dialogs.js';
+import { elOpt } from '../shell/dom.js';
 
 // Un SVG exporte par l'application transporte ses cotes dans un noeud cache. Sa presence dit s'il
 // faut remplacer les cotes en memoire ou les laisser tranquilles.

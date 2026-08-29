@@ -5,7 +5,7 @@
 // et vivent maintenant ici, la scene passee en parametre (voir plus bas).
 
 import type { PtBrut } from '../model/types.js';
-import { versEcran, type EtatScene } from '../render/scene.js';
+import { versEcran, type EtatScene } from '../geometry/vue.js';
 
 // Best-effort SVG path 'd' parser: reduces a path to an ordered list of {x,y} endpoint vertices,
 // matching how this app already represents imported curves (plain polyline points, not bezier

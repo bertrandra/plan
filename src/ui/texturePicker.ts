@@ -8,7 +8,7 @@
 // pour cela qu'il peut sortir maintenant, alors que les panneaux qui pilotent le plan attendent
 // que render/** soit sorti (spec §4, phase 5).
 
-import { showErrBanner } from './dialogs.js';
+import { showErrBanner } from '../shell/dialogs.js';
 
 export const POLYHAVEN_ASSETS_URL = 'https://api.polyhaven.com/assets?type=textures';
 export const POLYHAVEN_FILES_URL = (id: string) =>

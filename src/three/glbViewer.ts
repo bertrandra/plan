@@ -9,7 +9,7 @@
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
 import { vue3d, glb, chargement, type SceneTrois } from './etat3d.js';
-import { showErrBanner } from '../ui/dialogs.js';
+import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded } from './chargeurs.js';

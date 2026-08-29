@@ -3,7 +3,7 @@ import {
   zoomerAutourDe, zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe,
   ZOOM_MIN, ZOOM_MAX, FACTEUR_MOLETTE
 } from '../../../src/interaction/navigation.js';
-import { creerScene, versEcran, versMonde } from '../../../src/render/scene.js';
+import { creerScene, versEcran, versMonde } from '../../../src/geometry/vue.js';
 
 // La transformation de vue est le seul etat que les golden files ne surveillent pas : un export
 // est recalcule dans son propre repere. C'est exactement la qu'une regression est passee (deux

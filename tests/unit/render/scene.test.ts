@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { creerScene, versEcran, versMonde } from '../../../src/render/scene.js';
+import { creerScene, versEcran, versMonde } from '../../../src/geometry/vue.js';
 
 describe('transformation de scene', () => {
   const scene = creerScene();

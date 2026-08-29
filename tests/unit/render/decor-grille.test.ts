@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { dessinerFlecheNord, dessinerEchelle } from '../../../src/render/decor.js';
 import { dessinerGrille } from '../../../src/render/grille.js';
-import { creerScene } from '../../../src/render/scene.js';
+import { creerScene } from '../../../src/geometry/vue.js';
 import { creerSvg } from '../../../src/render/svg.js';
 
 const scene = () => ({ ...creerScene(), W: 800, H: 600 });

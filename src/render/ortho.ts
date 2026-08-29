@@ -10,8 +10,8 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
-import { el, elOpt } from '../ui/dom.js';
-import { showToast } from '../ui/dialogs.js';
+import { el, elOpt } from '../shell/dom.js';
+import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from '../geo/projection.js';

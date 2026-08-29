@@ -11,13 +11,13 @@
 import { vue } from './vues.js';
 import { creerSvg } from './svg.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
-import { versEcran } from './scene.js';
+import { versEcran } from '../geometry/vue.js';
 import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { PtBrut } from '../model/types.js';
-import type { EtatScene } from './scene.js';
+import type { EtatScene } from '../geometry/vue.js';
 
 export interface ObjetPlan {
   curve?: boolean;

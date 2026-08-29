@@ -13,7 +13,7 @@
 import { dist, shoelace, signedArea, centroid, pointInPolygon } from './geometry/basic.js';
 import { escapeHtml, escapeXml } from './util/escape.js';
 import { nombreFr, formatHeureMin, slugFichier, horodatageFichier } from './util/format.js';
-import { telechargerTexte } from './util/download.js';
+import { telechargerTexte } from './shell/download.js';
 import {
   projectOntoSegment, distancePointSegment, nearestSegmentIndex,
   lineSegIntersect, lineLineIntersect
@@ -37,13 +37,19 @@ import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
 import { normalizeObjects } from './model/normalisation.js';
 import { creerCreation, nouveauPointDeVue } from './model/creation.js';
 import { cleObjet } from './model/cles.js';
+import { construireResume } from './export/resume.js';
+import {
+  parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
+  reappliquerEmpilement, reculerObjet
+} from './render/empilement.js';
+import { interiorAngleDeg } from './geometry/angles.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from './three/navigation.js';
 import { creerModes } from './app/modes.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
 import { ouvrirSelecteurTexture } from './ui/texturePicker.js';
-import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './ui/dialogs.js';
+import { showErrBanner, showToast, showProjectLoadError, showConfirm, showPrompt } from './shell/dialogs.js';
 import { dessinerFlecheNord, dessinerEchelle } from './render/decor.js';
 import { dessinerGrille } from './render/grille.js';
 import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, dessinerCotes } from './render/measures.js';
@@ -134,7 +140,7 @@ import { svgNS, creerSvg, attrs } from './render/svg.js';
 import { themeSombre, SVG_INK, SVG_GRID_MAJOR, SVG_GRID_MINOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_LINE_SOFT, SVG_MEASURE_TEXT } from './render/theme.js';
 import { creerEtat } from './core/state.js';
 import { PileAnnulation } from './core/history.js';
-import { creerScene, versEcran, versMonde } from './render/scene.js';
+import { creerScene, versEcran, versMonde } from './geometry/vue.js';
 import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
 import { computeTerrasseLayers } from './engine/layers.js';
 import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, contraindreParasols, decalageMat, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, positionMat, projeterSurPerimetre, terrasseDuParasol } from './engine/parasol.js';
@@ -415,8 +421,7 @@ function rebuildHandles(obj){
 }
 
 // adjusts (see sendObjectBackward below) to fine-tune stacking within the same priority.
-function byPriority(a,b){ return (a.priority||0) - (b.priority||0); }
-etat.objects.slice().sort(byPriority).forEach(createObjectDOM);
+etat.objects.slice().sort(parPriorite).forEach(createObjectDOM);
 
 etat.objects.forEach(rebuildHandles);
 
@@ -438,50 +443,14 @@ const selectorDiv = document.getElementById('selector');
 rebuildSelector();
 
 
-function bringToFront(obj){
-  svg.appendChild(vue(obj).el);
-  svg.appendChild(vue(obj).nameEl);
-  amenerPoigneesDevant(obj);
-}
-// Les poignees seules, sans la forme. Selectionner un objet doit rendre ses poignees
-// attrapables, pas le faire passer devant tout le monde : sinon la priorite d'affichage - qui
-// est une fonction explicite du produit - est contredite des qu'on selectionne quelque chose,
-// et le recul obtenu par double-tap est annule au clic suivant.
-function amenerPoigneesDevant(obj){
-  if(obj.type==='polygon' || obj.type==='path'){
-    vue(obj).edgeEls.forEach(el=>svg.appendChild(el));
-    vue(obj).segLabelEls.forEach(el=>svg.appendChild(el));
-    vue(obj).pointEls.forEach(el=>svg.appendChild(el));
-    vue(obj).ptLabelEls.forEach(el=>svg.appendChild(el));
-  } else if(vue(obj).radiusHandle){
-    svg.appendChild(vue(obj).radiusHandle);
-  }
-}
-
-// Re-append every object's DOM elements in `objects` array order (later in the array =
-// painted later = visually in front). Used after reordering the array itself.
-function reapplyStackingOrder(){
-  etat.objects.slice().sort(byPriority).forEach(bringToFront);
-}
-
-// Double-click on an object sends it one step back in the stacking order, so whatever
-// was hidden underneath becomes visible/clickable. The parcel itself always stays at the
-// very back and can't be pushed further.
-// Since paint order is now sorted by "Priorite d'affichage" (see reapplyStackingOrder),
-// priority is the authoritative coarse layering; double-click only fine-tunes stacking
-// among objects that share the SAME priority as the one clicked (its raw array neighbour
-// can belong to a different tier, where swapping array position would have no visible
-// effect at all once re-sorted, which would make the double-click look broken).
+// L'ordre d'empilement vit dans render/empilement.ts ; ces enveloppes lui passent la racine SVG et
+// la vue de chaque objet.
+function ctxEmpilement(){ return { svg, vue }; }
+function bringToFront(obj){ amenerDevant(obj, ctxEmpilement()); }
+function amenerPoigneesDevant(obj){ remonterPoignees(obj, ctxEmpilement()); }
+function reapplyStackingOrder(){ reappliquerEmpilement(etat.objects, ctxEmpilement()); }
 function sendObjectBackward(obj){
-  if(!obj || obj.key==='parcelle') return;
-  const idx = etat.objects.indexOf(obj);
-  let swapIdx = -1;
-  for(let i=idx-1; i>=0; i--){
-    if(etat.objects[i].key==='parcelle') continue;
-    if((etat.objects[i].priority||0) === (obj.priority||0)){ swapIdx = i; break; }
-  }
-  if(swapIdx===-1) return; // already the backmost object within its own priority tier
-  [etat.objects[swapIdx], etat.objects[idx]] = [etat.objects[idx], etat.objects[swapIdx]];
+  if(!reculerObjet(obj, etat.objects)) return;
   // La selection est conservee : render() ne remonte plus que les poignees, donc le recul reste
   // visible et le geste est repetable sans devoir re-selectionner entre chaque.
   reapplyStackingOrder();
@@ -523,16 +492,7 @@ function applyLengthEdit(obj, i, newLen){
 }
 
 
-function interiorAngleDeg(obj, i){
-  const n = obj.pts.length;
-  const prev = obj.pts[(i-1+n)%n], cur = obj.pts[i], next = obj.pts[(i+1)%n];
-  const u = {x:prev.x-cur.x, y:prev.y-cur.y};
-  const v = {x:next.x-cur.x, y:next.y-cur.y};
-  let a = (Math.atan2(v.y,v.x) - Math.atan2(u.y,u.x)) * 180/Math.PI;
-  a = ((a % 360) + 360) % 360;
-  const ccw = signedArea(obj.pts) > 0;
-  return ccw ? (360 - a) : a;
-}
+// L'angle interieur d'un sommet vit dans geometry/angles.ts.
 
 
 
@@ -833,66 +793,11 @@ function buildExportSVG(){
   return construireSVG(etat.objects, etat.measures, {appVersion:APP_VERSION, schemaVersion:SCHEMA_VERSION});
 }
 
+// Le resume vit dans export/resume.ts ; ici, seulement de quoi l'afficher.
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  let out = "Plan interactif " + APP_VERSION + " - export (repere local, metres) - " + new Date().toLocaleDateString("fr-FR") + "\n";
-  out += "Origine (0,0) = Apex, le sommet Coin Nord de la parcelle (le point le plus au nord).\n";
-  out += "Axe X+ = Est ; Axe Y+ = Nord (correspond au \"haut\" de l'affichage a l'ecran).\n";
-  out += "Pour reimporter/recaler ce plan ailleurs, aligner Apex sur Coin Nord et orienter Y+ vers le nord.\n\n";
-  const parcelleForText = objByKey('parcelle');
-  const sParcelle = parcelleForText ? shoelace(parcelleForText.pts) : 0;
-  let total = 0;
-  etat.objects.forEach(obj=>{
-    let s;
-    if(obj.type==='polygon') s = shoelace(obj.pts);
-    else if(obj.type==='circle') s = Math.PI*obj.r*obj.r;
-    else { let L=0; for(let i=0;i<obj.pts.length-1;i++) L+=dist(obj.pts[i],obj.pts[i+1]); s = L*(obj.width||1); }
-    if(obj.key!=='parcelle') total += s;
-    out += obj.name + ' (' + obj.key + '): ' + s.toFixed(2) + ' m2' + (obj.type==='path' ? ' (longueur x largeur)' : '') + '\n';
+  const out = construireResume(etat.objects, etat.measures, {
+    appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
   });
-  out += 'Emprise totale (hors parcelle): ' + total.toFixed(1) + ' m2' + (sParcelle>0 ? (' (' + (total/sParcelle*100).toFixed(1) + ' %)') : '') + '\n\n';
-
-  etat.objects.forEach(obj=>{
-    out += '--- ' + obj.name + ' (' + obj.key + ') ---\n';
-    if(obj.type==='circle'){
-      out += '  Centre: X=' + obj.center.x.toFixed(3) + ' Y=' + obj.center.y.toFixed(3) + '  Rayon=' + obj.r.toFixed(2) + ' m\n\n';
-    } else if(obj.type==='path'){
-      out += '  Largeur: ' + (obj.width||1).toFixed(2) + ' m' + (obj.curve ? ' (courbe)' : ' (droit)') + '\n';
-      obj.pts.forEach((p,i)=>{
-        out += '  ' + obj.vertexNames[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '\n';
-      });
-      let totalLen = 0;
-      for(let i=0;i<obj.pts.length-1;i++){
-        const a=obj.pts[i], b=obj.pts[i+1];
-        const L = dist(a,b); totalLen += L;
-        out += '  ' + (obj.segmentNames[i]||('Cote '+(i+1))) + ' (' + obj.vertexNames[i] + ' -> ' + obj.vertexNames[i+1] + '): ' + L.toFixed(2) + ' m\n';
-      }
-      out += '  Longueur totale: ' + totalLen.toFixed(2) + ' m\n\n';
-    } else {
-      const n=obj.pts.length;
-      obj.pts.forEach((p,i)=>{
-        out += '  ' + obj.vertexNames[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '  Angle=' + interiorAngleDeg(obj,i).toFixed(1) + ' deg\n';
-      });
-      for(let i=0;i<n;i++){
-        const a=obj.pts[i], b=obj.pts[(i+1)%n];
-        out += '  ' + obj.segmentNames[i] + ' (' + obj.vertexNames[i] + ' -> ' + obj.vertexNames[(i+1)%n] + '): ' + dist(a,b).toFixed(2) + ' m\n';
-      }
-      out += '\n';
-    }
-  });
-
-  if(etat.measures.length){
-    out += '=== Mesures ===\n';
-    etat.measures.forEach(m=>{
-      const g = computeMeasureGeom(m);
-      out += '  ' + refLabel({objKey:m.refObjKey, segIndex:m.refSegIndex}) + ' -> ' + targetLabel({objKey:m.targetObjKey, ptIndex:m.targetPtIndex})
-           + '  origine=' + m.startEnd
-           + (g ? ('  perpendiculaire=' + g.perp.toFixed(2) + ' m  le_long=' + g.along.toFixed(2) + ' m') : '  (non calculable)')
-           + '  affichage_sur_plan=' + (m.displayMode==='along' ? 'le_long' : 'perpendiculaire')
-           + '  affiche=' + (m.show ? 'oui' : 'non') + '\n';
-    });
-    out += '\n';
-  }
-
   const box = document.getElementById('exportBox');
   box.style.display='block'; box.value=out; box.focus(); box.select();
 });

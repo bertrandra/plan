@@ -6,7 +6,7 @@
 import { creerSvg } from './svg.js';
 import { SVG_GRID_MAJOR, SVG_GRID_MINOR } from './theme.js';
 import { niceStep } from '../util/format.js';
-import { versEcran, versMonde, type EtatScene } from './scene.js';
+import { versEcran, versMonde, type EtatScene } from '../geometry/vue.js';
 
 export interface EtatGrille {
   scene: EtatScene;

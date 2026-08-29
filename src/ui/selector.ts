@@ -8,7 +8,7 @@
 // et renverrait le focus au debut de la page. Tant que la liste d'objets ne bouge pas, on se
 // contente donc de remettre les cases a jour - c'est la raison de la signature comparee en tete.
 
-import { el } from './dom.js';
+import { el } from '../shell/dom.js';
 import { LIBELLE_FONCTION } from '../model/defaults.js';
 
 // Famille affichee dans le selecteur. Elle ne concerne que lui : ce n'est ni une donnee du plan ni

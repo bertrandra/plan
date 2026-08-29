@@ -9,7 +9,7 @@
 // precisement la que s'est glissee une regression (deux scenes en parallele, zoom inerte) : ces
 // fonctions pures sont desormais couvertes par des tests.
 
-import { versMonde, type EtatScene } from '../render/scene.js';
+import { versMonde, type EtatScene } from '../geometry/vue.js';
 import type { PtEcran, PtBrut } from '../model/types.js';
 
 /** Bornes du zoom, en pixels par metre. En dessous le plan est illisible, au-dessus il n'a plus de sens. */

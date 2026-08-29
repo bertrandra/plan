@@ -257,6 +257,49 @@ The arrows only point down. That is P6, and §9 FF-1/FF-2 make it mechanical.
 
 The **pure core** (`model`, `util`, `geometry`, `engine`) is a library. It happens to be bundled into a browser app today; nothing about it assumes one. That is what makes QA-F4 free and QA-Q2 cheap.
 
+### 5.2.1 Module map, as built — 29 August 2026
+
+Seven layers, 96 modules, 13 969 lines, plus 1 677 lines still in `legacy.ts`. A module may import
+from its own layer or any layer below it, never above.
+
+| Layer | Folder | Modules | Lines | What it holds |
+|---:|---|---:|---:|---|
+| 0 | `shell/` | 3 | 169 | `dialogs` · `dom` · `download` |
+| 0 | `util/` | 3 | 107 | `escape` · `format` · `semaine` |
+| 1 | `geometry/` | 10 | 780 | `alignement` · `angles` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
+| 2 | `model/` | 11 | 684 | `cles` · `creation` · `defaults` · `demo` · `etiquettes` · `lieu` · `normalisation` · `sommets` · `types` · `units` · `version` |
+| 3 | `engine/` | 11 | 1 611 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `parasol` · `structure` |
+| 3 | `geo/` | 6 | 769 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
+| 4 | `core/` | 3 | 277 | `historique` · `history` · `state` |
+| 4 | `io/` | 5 | 505 | `api` · `importSvg` · `projet` · `serialisation` · `validation` |
+| 4 | `render/` | 12 | 1 305 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
+| 4 | `export/` | 8 | 1 032 | `dossierPdf` · `dxf` · `dxfPlan` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` · `writer` |
+| 4 | `three/` | 8 | 1 484 | `chargeurs` · `etat3d` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
+| 4 | `interaction/` | 6 | 708 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
+| 5 | `ui/` | 9 | 4 300 | `attrPanel` · `cadastreDialog` · `cloture` · `mesurePanel` · `projectBar` · `selector` · `tables` · `terrassePanels` · `texturePicker` |
+| 6 | `app/` | 1 | 238 | `modes` |
+
+**Reading the layers.** Level 0 holds primitives: `util` is pure, `shell` touches the DOM but knows
+nothing of the domain — show a message, find an element, hand the browser a file. Level 1 is
+mathematics. Level 2 is what a plan *is*. Level 3 computes from it (`engine`) or fetches from outside
+(`geo`). Level 4 does something with it — draw, store, export, manipulate. Level 5 is the panels,
+level 6 the orchestration.
+
+**`shell/` exists because the rule kept being broken in the same place.** `dialogs`, `dom` and
+`download` were filed under `ui/` and `util/`, so six modules from lower layers appeared to depend
+upwards — every one of them only wanting to say something to the user. They are not panels and they
+are not pure: they are infrastructure, and they now sit where every layer may reach them. Likewise
+`geometry/vue.ts` (the world↔screen transform, 30 lines of arithmetic) was filed under `render/`,
+which made `geometry/path.ts` depend on the view.
+
+Moving those four files is what turned the rule from an aspiration into a fact:
+`tests/unit/architecture.test.ts` now checks it on every run, along with two others — that
+`geometry`, `model` and `util` never touch the DOM, and that nothing imports `legacy.ts`. That last
+one matters while `legacy.ts` still exists: the dependency must keep running one way, because
+`legacy.ts` is meant to empty out, not fill up.
+
+A folder that is not classified fails the test too, so a new one cannot quietly escape the rule.
+
 ### 5.3 Data view
 
 Five tiers, per `spec-data-strategy.md`:

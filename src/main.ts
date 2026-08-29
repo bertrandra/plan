@@ -9,7 +9,7 @@ import './styles/app.css';
 // et ne peut donc pas echouer a se charger. C'est ce qui permet de s'en servir comme filet quand
 // c'est le chargement de legacy qui casse. En phase 1, faute de l'avoir isole, main.ts portait
 // une copie du bandeau ; la phase 5 l'a rendue inutile.
-import { showErrBanner, showProjectLoadError } from './ui/dialogs.js';
+import { showErrBanner, showProjectLoadError } from './shell/dialogs.js';
 
 function texteErreur(err: unknown): string {
   const e = err as { message?: string; stack?: string } | null;

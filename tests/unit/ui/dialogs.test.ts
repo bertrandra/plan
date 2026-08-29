@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   showToast, showConfirm, showPrompt, showErrBanner, showProjectLoadError
-} from '../../../src/ui/dialogs.js';
+} from '../../../src/shell/dialogs.js';
 
 // Ces dialogues remplacent alert()/confirm()/prompt(), silencieusement bloques en iframe bac a
 // sable. Ils n'etaient testables par rien jusqu'ici : sortis de la fermeture de boot(), ils le

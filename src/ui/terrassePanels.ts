@@ -10,7 +10,7 @@
 
 import { escapeHtml } from '../util/escape.js';
 import { svgNS } from '../render/svg.js';
-import { showToast } from './dialogs.js';
+import { showToast } from '../shell/dialogs.js';
 import { dist, shoelace } from '../geometry/basic.js';
 import { achatPlots, achatVis, chargePlot, coutDebit, longueursBois, longueursDispo, longueursLambourde, prixPersonnalise, prixPlotUnite, prixVisUnite } from '../engine/bom.js';
 import { CADENCES, CHANTIER_PHASES, computeChantier } from '../engine/chantier.js';

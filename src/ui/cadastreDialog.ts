@@ -13,7 +13,7 @@
 // importe, fabriquer l'URL du projet) lui arrivent par `ctx`.
 
 import { escapeHtml } from '../util/escape.js';
-import { showToast } from './dialogs.js';
+import { showToast } from '../shell/dialogs.js';
 import { svgNS } from '../render/svg.js';
 import { centroid, shoelace, pointInPolygon } from '../geometry/basic.js';
 import { fusionnerAnneaux, chainerSegments } from '../geometry/rings.js';

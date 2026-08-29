@@ -9,7 +9,7 @@
 
 import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
-import { versEcran, type EtatScene } from './scene.js';
+import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
 import type { PtBrut } from '../model/types.js';
 

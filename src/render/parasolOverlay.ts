@@ -7,7 +7,7 @@
 // rendu n'a pas a connaitre.
 
 import { creerSvg } from './svg.js';
-import { versEcran, type EtatScene } from './scene.js';
+import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerCartesOmbre, ombreInstantanee, type ContexteSoleil } from '../engine/parasol.js';
 import type { PtBrut } from '../model/types.js';
 

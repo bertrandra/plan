@@ -8,7 +8,7 @@
 
 import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
 import { serializeObjects, serializeMeasures } from './serialisation.js';
-import { showToast } from '../ui/dialogs.js';
+import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
 import { idMesure } from '../model/cles.js';
 export function appliquerProjetImporte(valide, remplacer, etat, ctx){

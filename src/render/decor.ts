@@ -10,7 +10,7 @@
 import { creerSvg, attrs } from './svg.js';
 import { SVG_INK } from './theme.js';
 import { niceStep } from '../util/format.js';
-import type { EtatScene } from './scene.js';
+import type { EtatScene } from '../geometry/vue.js';
 
 /** Ce que le decor a besoin de connaitre de l'etat : la scene et la bascule du Nord. */
 export interface EtatDecor {

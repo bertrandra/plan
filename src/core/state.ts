@@ -12,7 +12,7 @@
 // Cet objet grandit au fil de la migration : chaque variable libre qui rejoint `EtatApp` est une
 // dependance qui cesse d'etre invisible. Ce qui n'y est pas encore vit toujours dans `boot()`.
 
-import { creerScene, type EtatScene } from '../render/scene.js';
+import { creerScene, type EtatScene } from '../geometry/vue.js';
 import { PileAnnulation } from './history.js';
 
 /** Ce que designe un survol ou une selection fine : un cote, un sommet, ou rien. */

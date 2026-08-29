@@ -4,7 +4,7 @@
 // Vue 3D : tout le reste marche sans connexion.
 
 import { chargement } from './etat3d.js';
-import { showErrBanner } from '../ui/dialogs.js';
+import { showErrBanner } from '../shell/dialogs.js';
 
 /**
  * Charge une texture, et la redimensionne si l'image decodee depasse 1024 px.

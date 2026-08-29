@@ -14,9 +14,9 @@ import { dist, shoelace, signedArea, pointInPolygon } from '../geometry/basic.js
 import { nearestSegmentIndex } from '../geometry/segments.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import { cibleAlignement } from '../interaction/outilAlignement.js';
-import { el } from './dom.js';
+import { el } from '../shell/dom.js';
 import { formatHeureMin } from '../util/format.js';
-import { showToast } from './dialogs.js';
+import { showToast } from '../shell/dialogs.js';
 import { ouvrirSelecteurTexture } from './texturePicker.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../engine/parasol.js';
 
