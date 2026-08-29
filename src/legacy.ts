@@ -58,6 +58,7 @@ import { vue3d, glb, chargement } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
 import { validerProjetJSON } from './io/validation.js';
+import { rendreScene } from './render/pipeline.js';
 import {
   dossierSelection, renderDossierTerrasses as construireListeDossier,
   debitTable as construireTableDebit, renderBOMTable as construireTableBom,
@@ -674,55 +675,14 @@ function contraindreParasols(){
   });
 }
 
-function render(){
-  placerOrthophotoModule({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-  drawGrid();
-  renderParasolOverlay();
-  // In Mode Terrasse the plan is a backdrop for the layer overlay, not something being edited:
-  // the selection handles and vertex labels would sit on top of the vis and solives and make
-  // the canevas unreadable. The choice made in Mode Plan is kept, just not drawn here.
-  const activeSel = (etat.appMode==='terrasse') ? null : etat.selectedKey;
-  if(activeSel && activeSel !== 'parcelle'){
-    const sel = etat.objects.find(o=>o.key===activeSel);
-    if(sel) amenerPoigneesDevant(sel);
-  }
-
-  // Le positionnement d'un objet vit dans render/objects.ts. Ce qui reste ici est ce que lui
-  // seul ne peut pas savoir : la selection courante, le masquage, l'etat du fond orthophoto et
-  // le pointage en cours pour l'outil de mesure.
-  etat.objects.forEach(obj=>{
-    positionnerObjet(obj, {
-      scene: etat.scene,
-      selectionnee: obj.key === activeSel,
-      masque: objetMasque(obj),
-      ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
-      estTerrain,
-      pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
-      pointageCotes: !!(mesure.pointage && mesure.pointage.mode === 'ref'),
-      reconstruirePoignees: rebuildHandles
-    });
-  });
-
-  // ---- surfaces: computed on demand in the "Objet" tab (see renderAttrTable) ----
-
-  renderAttrTable();
-  renderDispTable();
-  drawScaleBar();
-  drawNorthArrow();
-  drawMeasures();
-  if(etat.panelTab==='mesure') renderMeasureResults();
-
-  // show the "fit to selection" button only when an object is selected
-  const fitBtn = document.getElementById('fitBtn');
-  if(fitBtn) fitBtn.style.display = etat.selectedKey ? 'block' : 'none';
-
-  // Mode Terrasse's construction overlay is drawn in screen space (toScreen), same as
-  // everything else here: without this, panning/zooming the plan moves the real shapes
-  // but leaves the vis/solives/lambourdes/lames overlay stuck at its old screen position.
-  if(etat.appMode==='terrasse'){
-    const terrasseObj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-    if(terrasseObj) renderTerrasseLayerView(terrasseObj);
-  }
+// Le dessin du plan est orchestre dans render/pipeline.ts ; cette enveloppe lui fournit l'etat et
+// les briques qu'il assemble.
+function render(){ rendreScene(etat, ctxRendu()); }
+function ctxRendu(){
+  return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
+    renderAttrTable, renderDispTable, drawScaleBar, drawNorthArrow, drawMeasures,
+    renderMeasureResults, renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
+    toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup };
 }
 
 // ================= Attribute table for selected object =================
