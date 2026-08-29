@@ -32,6 +32,7 @@ import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT, PRIX_STORE, achatPlots, 
 import { CADENCES, CHANTIER_PHASES, cadenceDe, computeChantier } from './engine/chantier.js';
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAME_RIVE_EPAISSEUR_M, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VISSERIE_PRICE, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, estPlots, plotModele } from './engine/constantes.js';
 import { defaultConstruction, ensureConstruction } from './engine/construction.js';
+import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from './engine/hauteurs.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
@@ -1681,37 +1682,8 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', async func
 
 
 
-// Hauteur finie : du sol fini au dessus des lames. C'est le chiffre qui decide d'une marche,
-// d'un seuil de porte ou d'un garde-corps, et il n'apparaissait nulle part - seulement de
-// maniere implicite dans le plan de coupe. Une seule definition, partagee.
-// Ce que l'appui apporte AU-DESSUS du sol fini. Une vis de fondation est vissee dans le sol :
-// sa longueur est enterree et ne sureleve rien. Seule sa tete reglable, si on la fait depasser,
-// souleve la structure. Un plot est pose sur le sol : toute sa hauteur de reglage compte. C'est
-// la difference qui separe une terrasse sur vis, de plain-pied, d'une terrasse sur plots.
-function hauteurAppuiMm(c){
-  return estPlots(c) ? (c.hauteurPlot||10)*10 : (c.depassementVis||0)*10;
-}
-function hauteurFinieMm(obj){
-  const c = ensureConstruction(obj);
-  const plotSimple = estPlots(c) && !c.plotAvecSolives;
-  const soliveMm = plotSimple ? 0 : (dimsSection(c.soliveSection).h);
-  const lambMm = (c.avecLambourde || estPlots(c)) ? dimsSection(sectionLambourde(c)).h : 0;
-  return hauteurAppuiMm(c) + soliveMm + lambMm + (c.epaisseurLame||25);
-}
-
-// Elevation par defaut selon la fonction de l'objet, pour qu'un champ jamais touche affiche
-// quand meme quelque chose de plausible au premier essai (une maison n'est pas un massif). Un
-// simple ordre de grandeur, pas une donnee reglementaire - modifiable objet par objet.
-// La hauteur d'un objet, en metres au-dessus du sol. Une terrasse ne prend PAS le champ manuel :
-// elle a deja sa propre modelisation (appui + structure + lame, cf. hauteurFinieMm ci-dessus), la
-// seule source qui ne puisse pas se desynchroniser du reste du chiffrage. Tout le reste (maison,
-// arbre, mobilier...) n'a pas cette modelisation : l'utilisateur la saisit a la main.
-function elevationOf(o){
-  if(o.fonction === 'terrasse' && o.type==='polygon' && o.pts && o.pts.length>=3){
-    return hauteurFinieMm(o)/1000;
-  }
-  return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction);
-}
+// Les hauteurs (appui, hauteur finie, elevation) vivent dans engine/hauteurs.ts : elles sont lues
+// par le plan de coupe, la 3D, le dossier PDF et le chiffrage, et doivent rester une seule regle.
 
 function rebuildTerrasseSelector(){
   const div = document.getElementById('terrasseSelector');
