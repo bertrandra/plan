@@ -34,11 +34,7 @@
 // visible, et probablement la premiere chose qu'une reecriture apportera : il faudra alors une
 // seconde pile, et decider ce qu'une nouvelle action fait de la branche abandonnee.
 //
-// **6. `muter()` n'est appele par personne.** Il enveloppe « instantane + mutation + rendu » pour
-// que les appelants ne puissent pas oublier une etape. Il est conserve tel quel ici ; une
-// reecriture doit trancher : le generaliser, ou le retirer.
-//
-// **7. La selection survit a l'annulation, ou retombe sur le premier objet.** Si l'objet
+// **6. La selection survit a l'annulation, ou retombe sur le premier objet.** Si l'objet
 // selectionne n'existe plus dans l'instantane restaure, la selection glisse sur le premier objet
 // disponible plutot que de rester pendante.
 
@@ -100,13 +96,6 @@ export function creerHistorique(etat: EtatAnnulable, ctx: ContexteHistorique) {
     marquerModifie();
   }
 
-  /** Instantane + mutation + rendu, pour qu'un appelant ne puisse oublier ni l'un ni l'autre. */
-  function muter(fn: () => void): void {
-    empiler();
-    fn();
-    ctx.render();
-  }
-
   function restaurer(snap: Instantane): void {
     etat.objects.forEach(ctx.detruireVue);
     const restaures = ctx.normalizeObjects(snap.objects);
@@ -154,7 +143,6 @@ export function creerHistorique(etat: EtatAnnulable, ctx: ContexteHistorique) {
     instantane,
     marquerModifie,
     empiler,
-    muter,
     restaurer,
     annuler,
     majBoutonAnnuler,

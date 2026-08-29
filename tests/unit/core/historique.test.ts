@@ -185,14 +185,3 @@ describe('ce qui manque, et qu on veut voir changer', () => {
     expect('retablir' in h).toBe(false);
   });
 });
-
-describe('muter', () => {
-  it('enchaine instantane, mutation et rendu', () => {
-    const { etat, h, appels } = monter();
-    h.muter(() => { etat.objects[0].x = 7; });
-    expect(etat.objects[0].x).toBe(7);
-    expect(appels.render).toBe(1);
-    h.annuler();
-    expect(etat.objects[0].x).toBe(1);
-  });
-});

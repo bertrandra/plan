@@ -146,6 +146,15 @@ export interface ContexteCreation {
   normalizeObjects: (bruts) => ObjetSerialise[];
   showToast: (message: string) => void;
   showConfirm: (message: string, oui: () => void) => void;
+  /**
+   * L'horloge qui date les cles d'objets. `Date.now` par defaut.
+   *
+   * Elle est injectable parce qu'elle etait la derniere source de non-determinisme du programme :
+   * une cle porte l'instant de sa creation, donc deux executions du meme scenario ne produisaient
+   * jamais le meme fichier. Les golden files n'en souffraient pas — la capture ne cree aucun
+   * objet — mais aucun scenario qui en cree ne pouvait etre compare a lui-meme.
+   */
+  horloge?: () => number;
 }
 
 export function creerCreation(etat, ctx: ContexteCreation) {
@@ -155,8 +164,17 @@ export function creerCreation(etat, ctx: ContexteCreation) {
     return pc ? centroid(pc.pts) : { x: 0, y: 0 };
   }
 
+  const horloge = ctx.horloge || (() => Date.now());
+
+  /**
+   * Une cle neuve : le prefixe du type, l'instant, et un compteur.
+   *
+   * Les trois sont necessaires. L'instant seul se repete quand deux objets naissent dans la meme
+   * milliseconde — un double-clic suffit ; le compteur seul repartirait de zero au rechargement et
+   * entrerait en collision avec les cles deja enregistrees.
+   */
   function cle(prefixe: string) {
-    return prefixe + Date.now() + '_' + (etat.newObjCounter++);
+    return prefixe + horloge() + '_' + (etat.newObjCounter++);
   }
 
   /** Les sept gestes de l'insertion, dans l'ordre — aucun n'est facultatif. */
@@ -219,7 +237,7 @@ export function creerCreation(etat, ctx: ContexteCreation) {
       if (!src) { ctx.showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
       ctx.pushHistory();
       const plain = ctx.serializeObjects([src])[0];
-      plain.key = 'dup' + Date.now() + '_' + (etat.newObjCounter++);
+      plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
       const clone = ctx.normalizeObjects([plain])[0];
       if (clone.type === 'circle') clone.center.x -= 5;

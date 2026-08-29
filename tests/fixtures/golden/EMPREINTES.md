@@ -49,10 +49,15 @@ s{D:\d{14}}{D:AAAAMMJJHHMMSS}g                             /CreationDate du PDF
 s{"(exportedAt|writtenAt)":\s*"[^"]*"}{"$1":"HORODATAGE"}g  horodatages du projet JSON
 ```
 
-Autres sources de non-déterminisme repérées par la spec §10.1 et **non encore neutralisées** :
-`Date.now()` dans les clés générées (`obj…_1`, `path…_6`) et `newObjCounter`. Elles n'apparaissent
-pas dans ces fixtures parce que la capture ne crée aucun objet ; elles devront être injectées
-(horloge et générateur de clés) en phase 4.
+L'autre source de non-déterminisme repérée par la spec §10.1 — `Date.now()` dans les clés générées
+(`obj…_1`, `path…_6`) — est **neutralisable depuis le 29 août 2026** : `model/creation.ts` accepte
+une horloge en paramètre (`ContexteCreation.horloge`, `Date.now` par défaut). Elle n'apparaît pas
+dans ces fixtures, puisque la capture ne crée aucun objet, mais un scénario qui en crée peut
+désormais être comparé à lui-même — c'est ce que fait `tests/unit/model/creation.test.ts`.
+
+`newObjCounter` n'a pas besoin d'être injecté : il repart de zéro à chaque chargement, donc il est
+déjà reproductible. Il accompagne l'horodatage parce que celui-ci se répète quand deux objets
+naissent dans la même milliseconde — un double-clic suffit.
 
 ## Ce que ces empreintes ne voient pas
 

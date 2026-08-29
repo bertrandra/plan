@@ -122,7 +122,10 @@ function monter(objets: ObjetTest[] = [{ key: 'parcelle', fonction: 'terrain', p
     serializeObjects: (o) => JSON.parse(JSON.stringify(o)),
     normalizeObjects: (b) => JSON.parse(JSON.stringify(b)),
     showToast: vi.fn(),
-    showConfirm: (_m: string, oui: () => void) => oui()
+    showConfirm: (_m: string, oui: () => void) => oui(),
+    // Horloge figee : sans elle, une cle porte l'instant de sa creation et aucun scenario qui cree
+    // un objet ne peut etre compare a lui-meme.
+    horloge: () => 1700000000000
   };
   return { etat, ctx, appels, c: creerCreation(etat, ctx) };
 }
@@ -158,6 +161,47 @@ describe('poser un objet dans le plan', () => {
     c.ajouterCercle(); c.ajouterCercle(); c.ajouterCercle();
     const cles = etat.objects.slice(1).map(o => o.key);
     expect(new Set(cles).size).toBe(3);
+  });
+});
+
+describe('les cles', () => {
+  it('portent le type, l instant et un compteur', () => {
+    const { c, etat } = monter();
+    c.ajouterCercle();
+    expect(etat.objects[1].key).toBe('circle1700000000000_0');
+  });
+
+  it('restent distinctes dans une meme milliseconde', () => {
+    // L'horloge figee simule le cas reel : deux objets nes dans la meme milliseconde — un
+    // double-clic suffit. Sans le compteur, ils porteraient la meme cle.
+    const { c, etat } = monter();
+    c.ajouterCercle(); c.ajouterCercle();
+    expect(etat.objects[1].key).toBe('circle1700000000000_0');
+    expect(etat.objects[2].key).toBe('circle1700000000000_1');
+  });
+
+  it('nomment le type qui les porte', () => {
+    const { c, etat } = monter();
+    c.ajouterObjet(false); c.ajouterChemin(); c.ajouterPointDeVue();
+    expect(etat.objects.slice(1).map(o => o.key.replace(/\d+_\d+$/, ''))).toEqual(['obj', 'path', 'path']);
+  });
+
+  it('datent aussi une copie, au lieu de refaire le calcul a la main', () => {
+    const { c, etat } = monter([{ key: 'a', name: 'Abri', type: 'polygon', pts: [] }]);
+    etat.selectedKey = 'a';
+    c.dupliquer();
+    expect(etat.objects[1].key).toBe('dup1700000000000_0');
+  });
+
+  it('rendent un scenario reproductible', () => {
+    // C'etait la derniere source de non-determinisme du programme : deux executions du meme
+    // scenario produisent maintenant les memes cles, donc le meme fichier.
+    const scenario = () => {
+      const { c, etat } = monter();
+      c.ajouterObjet(true); c.ajouterCercle(); c.ajouterPointDeVue();
+      return etat.objects.map(o => o.key).join(' ');
+    };
+    expect(scenario()).toBe(scenario());
   });
 });
 

@@ -33,8 +33,11 @@ describe('conversion vers le repere de la scene', () => {
   });
 
   it('traite une altitude nulle comme absente', () => {
-    // Comportement conserve tel quel : `altitude: 0` retombe sur 1,60 m. Un point de vue au ras du
-    // sol ne se saisit donc pas par ce champ.
+    // Verifie apres coup : ce n'est pas une valeur perdue, parce qu'elle ne peut pas etre saisie.
+    // Le panneau d'attributs plafonne l'altitude par le bas a 0,10 m (`min='0.1'` et un
+    // `Math.max(0.1, …)` a la saisie) : une camera au ras du sol n'est pas un cas prevu, et `0` ne
+    // peut venir que d'un fichier de projet ecrit a la main. Le repli sur 1,60 m est alors le meme
+    // que pour un champ absent, ce qui est le comportement le moins surprenant.
     expect(cameraDepuisPointDeVue(vue(0, 0, 1, 0, 0), { x: 0, y: 0 }).position.y).toBe(1.6);
   });
 });
