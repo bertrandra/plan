@@ -42,6 +42,7 @@ import { rebuildPanelTabs as construireOngletsPanneau } from './ui/panelTabs.js'
 import { alignerObjetParRotation } from './interaction/outilAlignement.js';
 import { exporterProjetJSON } from './io/exportProjet.js';
 import { genererGlb as genererGlbModule } from './three/exportGlb.js';
+import { brancherObjets } from './app/ecouteurs/objets.js';
 import { telechargerBinaire } from './shell/download.js';
 import {
   parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
@@ -579,58 +580,19 @@ window.addEventListener('resize', ()=>{
 });
 
 // ================= Reset / Export =================
-document.getElementById('undoBtn').addEventListener('click', undo);
-// `addEventListener(..., addNewObject)` passerait l'evenement en premier argument, donc un objet
-// toujours truthy : le polygone libre serait cree en mode rectangle. D'ou les fleches explicites.
-document.getElementById('addObjBtn').addEventListener('click', ()=>addNewObject(false));
-document.getElementById('addRectBtn').addEventListener('click', ()=>addNewObject(true));
-document.getElementById('addPathBtn').addEventListener('click', addNewPath);
-document.getElementById('addCircleBtn').addEventListener('click', addNewCircle);
-document.getElementById('addParasolBtn').addEventListener('click', addNewParasol);
-document.getElementById('addViewpointBtn').addEventListener('click', addNewViewpoint);
-document.getElementById('dupObjBtn').addEventListener('click', duplicateSelectedObject);
-document.getElementById('delObjBtn').addEventListener('click', deleteSelectedObject);
-// Le double-tap est un geste fragile au doigt sur une petite forme : le bouton fait la meme
-// chose de facon fiable, et rend la fonction decouvrable.
-document.getElementById('backObjBtn').addEventListener('click', ()=>{
-  const obj = objByKey(etat.selectedKey);
-  if(!obj){ showToast('Selectionne d\'abord un objet.'); return; }
-  if(obj.key==='parcelle'){ showToast('La parcelle reste toujours au fond.'); return; }
-  pushHistory();
-  const avant = etat.objects.indexOf(obj);
-  sendObjectBackward(obj);
-  if(etat.objects.indexOf(obj) === avant) showToast('Deja au fond de sa priorite d\'affichage.');
-});
-document.getElementById('resetPosBtn').addEventListener('click', ()=>{
-  const obj = objByKey(etat.selectedKey);
-  if(!obj){ showToast('Selectionne d\'abord un objet.'); return; }
-  const init = initialState.find(o=>o.key===etat.selectedKey);
-  if(!init){ showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
-  pushHistory();
-  if(obj.type==='circle'){
-    obj.center = {...init.center};
-  } else {
-    const initC = centroid(init.pts);
-    const curC = centroid(obj.pts);
-    const d = {x:initC.x-curC.x, y:initC.y-curC.y};
-    obj.pts.forEach(p=>{ p.x+=d.x; p.y+=d.y; });
-  }
-  render();
-});
-
-document.getElementById('resetBtn').addEventListener('click', ()=>{
-  // Full restore from the reference snapshot taken at load time (same mechanism as undo),
-  // instead of copying a hand-picked subset of fields onto objects that still exist: that
-  // approach silently left elevation/altitude/textures/construction/cloture/parasol/GPS
-  // untouched, never removed objects added after load, and never brought back objects
-  // deleted after load. Measures are reset too, for the same "reset means reset" reason.
-  // Ce bouton efface d'un clic tout le travail fait depuis le chargement, mesures comprises :
-  // il demande confirmation comme le vidage des mesures, qui n'en est qu'une partie.
-  showConfirm('Reinitialiser tout le plan ? Les objets et les mesures reviennent a leur etat du chargement (annulable par Ctrl+Z).', ()=>{
-    pushHistory();
-    restoreState({ objects: initialState, measures: initialMeasures });
-  });
-});
+// L'atelier : la fermeture de boot() devient un objet nomme, que les groupes d'ecouteurs recoivent
+// en parametre (app/atelier.ts). Rien ne change de place dans l'ordre d'execution ; seule la portee
+// devient explicite.
+const atelier = {
+  etat, objByKey,
+  initialState: ()=>initialState,
+  initialMeasures: ()=>initialMeasures,
+  pushHistory, markDirty, undo, restoreState,
+  render, rebuildSelector, rebuildHandles, reapplyStackingOrder, fitToObject,
+  addNewObject, addNewPath, addNewCircle, addNewParasol, addNewViewpoint,
+  duplicateSelectedObject, deleteSelectedObject, sendObjectBackward
+};
+brancherObjets(atelier);
 
 document.getElementById('chkNorth').addEventListener('change', e=>{ etat.showNorth = e.target.checked; render(); });
 document.getElementById('chkVoisinage').addEventListener('change', function(){
