@@ -933,10 +933,38 @@ typecheck avant d'écrire le fichier, pas après. Les tests passaient, la compil
 l'étape suivante, et la leçon est celle qu'on croyait déjà acquise : la vérification vaut pour l'état
 final de l'étape, pas pour un état intermédiaire qui lui ressemblait.
 
+### `app/`, et trois choses qui n'en faisaient qu'une
+
+Le pilotage des modes ouvre le dossier `app/`. Trois mécanismes y vivaient enchevêtrés, et le module
+dit maintenant pourquoi ils le sont :
+
+- **La « Vue 3D » n'est pas un troisième mode**, mais le mode Terrasse sur son sous-onglet `3d`, avec
+  son propre bouton en haut de page. Ce choix évite de retoucher tout ce qui teste encore
+  `appMode === 'terrasse'` ; il se paie en `classList` dispersés, puisque l'apparence des boutons
+  doit alors être corrigée à la main après chaque bascule. Ces lignes étaient inexplicables sans ce
+  contexte.
+- **Le plan n'existe qu'une fois dans la page.** `#stage` est *déplacé* entre trois emplacements —
+  sa place du mode Plan, le sous-onglet Canevas, un garage caché — plutôt que dupliqué ou laissé
+  flottant. D'où la mémorisation de sa place d'origine au premier déplacement : c'est la seule façon
+  de l'y remettre.
+- **La visionneuse GLB est un panneau, pas un mode**, et tout retour vers Plan ou Terrasse doit la
+  refermer — sinon son canevas reste actif derrière le panneau qu'on vient de rouvrir.
+
+La vérification a porté sur neuf états de l'interface, comparés au témoin sur quatre axes chacun :
+boutons actifs, affichage des sept zones, **parent réel du plan dans le DOM**, et onglets visibles.
+C'est le troisième axe qui compte : le déménagement du plan ne se voit ni dans les empreintes ni dans
+le contrôle de santé.
+
+Une fausse alerte au passage, qui vaut d'être notée : le bouton du PLU semblait ne plus se désarmer
+pendant l'interrogation. Un échantillonnage à 20 ms a montré qu'il l'était bien, dès 3 ms — le
+premier relevé, pris 120 ms après le clic, était simplement tombé après la fin de la requête. Mesurer
+un état transitoire à un seul instant ne prouve rien.
+
 ### Ce qui reste
 
-Le squelette de `legacy.ts` : changement de mode, câblage des boutons, et le `boot()` lui-même.
-**1 947 lignes**, contre 13 571 au début de la migration — 86 % en sont sortis.
+Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, les enveloppes
+d'une ligne, et le `boot()` lui-même. **1 789 lignes**, contre 13 571 au début de la migration —
+**87 %** en sont sortis, répartis en **93 modules**.
 
 Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un
 projet importé (`io/projet.ts`), les tables du dossier et du chiffrage (`ui/tables.ts`), et la
@@ -954,13 +982,12 @@ La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y 
 ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
 perdu au premier enregistrement.
 
-Ce qui reste est désormais presque entièrement de la **coquille** : les écouteurs d'événements,
-`boot()`, les fabriques de contexte et les enveloppes d'une ligne. Elles ne se sortent pas morceau
-par morceau ; elles se réorganisent en `app/` d'un seul geste, quand on décidera de le faire.
+Ce qui reste est désormais **entièrement** de la coquille : 87 écouteurs d'événements, les fabriques
+de contexte, une quarantaine d'enveloppes d'une ligne, et `boot()`. Il n'y a plus de logique à en
+extraire — seulement une réorganisation à décider, qui déplacerait ce câblage en `app/` d'un seul
+geste plutôt que morceau par morceau.
 
-Reste tout de même une poignée de choses extractibles au milieu : le pilotage des modes
-(`setAppMode`, les sous-onglets terrasse, le déplacement du plan entre ses deux emplacements), et
-l'onglet PLU.
+La suite utile n'est donc plus l'extraction mais la **phase 7** : l'échelle de rigueur du tsconfig.
 
 Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
 `noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros

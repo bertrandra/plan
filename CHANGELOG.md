@@ -3,6 +3,19 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.44] — 2026-08-29
+
+Le pilotage des modes sort de `legacy.ts` et ouvre le dossier `app/`.
+
+### Interne
+
+- `app/modes.ts` : modes Plan et Terrasse, sous-onglets, déménagement du plan entre ses trois
+  emplacements. La « Vue 3D » n'est pas un troisième mode mais le mode Terrasse sur son sous-onglet
+  `3d` — ce qui explique les corrections d'apparence à la main après chaque bascule.
+- L'interrogation du PLU rejoint `ui/projectBar.ts`, à côté du panneau qu'elle remplit.
+- Vérifié contre le témoin sur neuf états de l'interface, dont le parent réel du plan dans le DOM.
+- `legacy.ts` : 1 947 → 1 789 lignes, soit **87 %** du fichier d'origine sorti, en 93 modules.
+
 ## [1.0.1-alpha.43] — 2026-08-29
 
 ### Interne
