@@ -796,6 +796,82 @@ Start permissive so Phase 1 compiles, then one flag per PR in Phase 7. Each rung
 | 6 | `exactOptionalPropertyTypes` | medium: the `?` fields on `PlanObject` that are currently set to `undefined` explicitly |
 | 7 | `noUnusedLocals`, `noUnusedParameters` | small: reveals dead code left by the split |
 
+### 9.2.1 Mesure réelle — 29 août 2026
+
+Le chiffre de 997 erreurs cité pendant les phases 2–6 était périmé. Mesuré à nouveau après
+l'extraction complète, **drapeau par drapeau, en cumulatif** — parce que les mesurer isolément
+sous-estime tout : sans `noImplicitAny`, presque tout vaut `any`, et un `any` ne peut pas échouer.
+
+| Barreau | Configuration cumulée | Erreurs |
+|---|---|---:|
+| 1 | base actuelle | 0 |
+| 2 | `noImplicitAny` | **1 375** |
+| 3 | + `strictNullChecks` | 1 633 |
+| 4 | + `strict` complet | 1 659 |
+| 5 | + `noUncheckedIndexedAccess` | 2 126 |
+| 6 | + `exactOptionalPropertyTypes` | 2 132 |
+| 7 | + inutilisés, surcharges, `switch` | 2 138 |
+
+Mesurés **isolément**, six de ces drapeaux affichent zéro — `strictFunctionTypes`,
+`strictBindCallApply`, `noImplicitThis`, `noUncheckedIndexedAccess`, `noImplicitOverride`,
+`noFallthroughCasesInSwitch`. Ce zéro ne veut rien dire : il disparaît dès que le barreau 2 est
+franchi. `noUncheckedIndexedAccess` passe ainsi de 0 à 467 une fois les types connus, et c'est le
+troisième poste de la marche.
+
+**Trois faits qui changent le plan.**
+
+1. **`legacy.ts` n'y contribue pour rien.** Il porte `@ts-nocheck`, donc zéro erreur sur les 1 375.
+   L'échelle de rigueur et la suppression de `legacy.ts` sont **indépendantes** : on croyait devoir
+   finir l'une avant l'autre, c'est faux, et la phase 7 peut commencer maintenant.
+2. **Le travail est concentré.** 61 des 100 modules sont déjà propres au barreau 2. Dix fichiers
+   portent 802 des 1 375 erreurs (58 %), vingt-cinq en portent 1 185 (86 %) : `ui/terrassePanels`
+   (116), `ui/cadastreDialog` (102), `engine/structure` (98), `geo/apiIgn` (88), `three/scene` (86).
+3. **Trois quarts sont une seule et même chose.** 1 062 des 1 375 sont `TS7006` — un paramètre sans
+   type. Parmi eux, 291 nomment un objet du plan (`o`, `obj`, `objets`, `terr`…) et 130 un contexte
+   (`etat`, `ctx`). `ObjetPlan` existe déjà dans `model/types.ts` : la marche n'est pas
+   « inventer 1 375 types », c'est « annoter 1 375 fois quatre types déjà écrits ».
+
+### 9.2.2 Ce qu'un étalonnage sur un module réel a montré
+
+`render/empilement.ts` (21 erreurs) a été typé en entier, pour mesurer plutôt qu'estimer.
+
+- Le module passe de **21 à 0**.
+- Mais le total ne baisse d'abord que de **7** : typer le module fait **apparaître des erreurs dans
+  son fichier de test**, dont les doublures ne satisfont plus les types. Il a fallu les reprendre
+  aussi pour arriver à 1 375 → 1 353, soit −22.
+
+**Le coût réel est donc double** : un module et son test. Et la difficulté n'est pas dans le module.
+
+Le point instructif est ailleurs. Typer le contexte avec `Element` rendait le test **impossible à
+écrire** : vérifier un ordre de peinture aurait demandé de fabriquer de vrais nœuds SVG, c'est-à-dire
+de monter un navigateur pour contrôler une comparaison de nombres. La bonne réponse n'était pas de
+relâcher le type mais de **paramétrer** le module sur le type d'élément (`ContexteEmpilement<E =
+Element>`) — il ne lit aucune propriété de ce qu'il empile, il le passe à `appendChild`.
+
+C'est ce que la phase 7 va révéler partout : **le typage ne mesure pas la rigueur, il mesure le
+couplage.** Chaque endroit où un type rend un test impraticable désigne un module qui en demande
+plus qu'il n'en a besoin. Ces endroits-là sont le vrai livrable de la phase, pas les annotations.
+
+### 9.2.3 Ordre d'attaque proposé
+
+Pas un fichier après l'autre par ordre de taille, mais du plus pur au plus dépendant — la même
+progression que les couches (`architecture.md` §5.2.1), pour que chaque type posé serve au suivant :
+
+1. **Consolider les types partagés** — `ObjetPlan`, `EtatPlan`, `Mesure`. C'est le levier des 291 +
+   130 paramètres nommés. Retirer l'index `[autreChamp: string]: unknown` d'`ObjetPlan` en fait
+   partie, et c'est là que se décidera la forme réelle des données.
+2. **`geometry/` puis `model/`** — 55 erreurs à eux deux, aucun DOM, tests déjà nombreux. C'est le
+   rodage : peu de volume, et les types qui en sortent servent partout ensuite.
+3. **`engine/`** — 315 erreurs, mais du calcul pur couvert par les golden files et l'oracle du
+   moteur. Le risque de régression y est le plus bas du projet.
+4. **`geo/`, `export/`, `render/`, `io/`, `three/`, `interaction/`** — 543 erreurs, chacun contre son
+   témoin.
+5. **`ui/`** — 436 erreurs, en dernier. C'est la couche la plus grosse, la moins testée, et celle où
+   un type mal choisi se paie en doublures de test illisibles.
+
+Les barreaux 3 à 7 se franchissent ensuite couche par couche dans le même ordre, et non drapeau par
+drapeau sur tout le dépôt : un fichier déjà strict le reste, et le compteur ne remonte pas.
+
 ### 9.3 ESLint rules that matter here
 
 - `@typescript-eslint/no-explicit-any`: error in `src/model`, `src/engine`, `src/geometry`; warn elsewhere until Phase 7, then error everywhere.

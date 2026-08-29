@@ -1,11 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { parPriorite, reculerObjet, reappliquerEmpilement, amenerPoigneesDevant } from '../../../src/render/empilement.js';
+import type { ContexteEmpilement } from '../../../src/render/empilement.js';
+import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Deux niveaux se superposent, et les confondre est la faute a eviter : la priorite classe
 // grossierement, l'ordre du tableau n'affine qu'a l'interieur d'un meme niveau.
 
-function objet(key: string, priority?: number) {
-  return { key, priority, type: 'polygon' };
+function objet(key: string, priority?: number): ObjetPlan {
+  // `priority` reste absente plutot que posee a `undefined` : c'est ce que le comparateur doit
+  // savoir traiter, et ce qu'un objet reel presente quand personne n'a regle son ordre.
+  return priority === undefined
+    ? { key, name: key, type: 'polygon' }
+    : { key, name: key, type: 'polygon', priority };
 }
 
 describe('classement par priorite', () => {
@@ -66,16 +72,21 @@ describe('reculer un objet', () => {
   });
 });
 
+/** Un element double : un nom, et rien d'autre — c'est tout ce que le module manipule. */
+interface ElementNomme { nom: string }
+
 /** Une racine SVG et des vues qui n'enregistrent que l'ordre des ajouts. */
 function scene() {
   const ordre: string[] = [];
-  const svg = { appendChild: (el: { nom: string }) => ordre.push(el.nom) };
-  const vue = (o) => ({
-    el: { nom: o.key + '.forme' }, nameEl: { nom: o.key + '.nom' },
-    edgeEls: [{ nom: o.key + '.cote' }], segLabelEls: [{ nom: o.key + '.libCote' }],
-    pointEls: [{ nom: o.key + '.point' }], ptLabelEls: [{ nom: o.key + '.libPoint' }]
-  });
-  return { ordre, ctx: { svg, vue } };
+  const ctx: ContexteEmpilement<ElementNomme> = {
+    svg: { appendChild: (el) => ordre.push(el.nom) },
+    vue: (o) => ({
+      el: { nom: o.key + '.forme' }, nameEl: { nom: o.key + '.nom' },
+      edgeEls: [{ nom: o.key + '.cote' }], segLabelEls: [{ nom: o.key + '.libCote' }],
+      pointEls: [{ nom: o.key + '.point' }], ptLabelEls: [{ nom: o.key + '.libPoint' }]
+    })
+  };
+  return { ordre, ctx };
 }
 
 describe('repeindre le plan', () => {
@@ -106,11 +117,11 @@ describe('remonter les seules poignees', () => {
 
   it('remonte la poignee de rayon d un cercle', () => {
     const ordre: string[] = [];
-    const ctx = {
-      svg: { appendChild: (el: { nom: string }) => ordre.push(el.nom) },
+    const ctx: ContexteEmpilement<ElementNomme> = {
+      svg: { appendChild: (el) => ordre.push(el.nom) },
       vue: () => ({ el: { nom: 'f' }, nameEl: { nom: 'n' }, radiusHandle: { nom: 'rayon' } })
     };
-    amenerPoigneesDevant({ key: 'c', type: 'circle' }, ctx);
+    amenerPoigneesDevant({ key: 'c', name: 'Cercle', type: 'circle' }, ctx);
     expect(ordre).toEqual(['rayon']);
   });
 });
