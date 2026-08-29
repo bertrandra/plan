@@ -3,6 +3,32 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.1.0-alpha.1] — 2026-08-29
+
+**La version livrée n'est plus le fichier mono-page d'origine : c'est le build.** `plan.html` passe
+de 779 140 à 450 713 octets. Le témoin figé reste sous `legacy/plan_interactif.html`.
+
+### Modifié
+
+- `APP_VERSION` : `1.0.0` → `1.1.0-alpha.1`, `BUILD_AT` → `2026-08-29`.
+- **Les six empreintes de référence changent**, et c'est voulu : la version est estampillée dans les
+  six artefacts exportés. Prouvé avant recapture — à numéro inchangé le build reproduisait les
+  anciennes empreintes au bit près, et après changement une seule ligne diffère par artefact texte
+  (l'en-tête du résumé, `data-app-version` du SVG, la signature du DXF, `meta.appVersion` du JSON).
+  Les deux PDF ont été comparés sur leur contenu : nombres de textes, d'objets et de pages
+  inchangés. Voir `tests/fixtures/golden/EMPREINTES.md`, section « La rupture ».
+- `export-pdf.test.ts` acceptait `[\d.]+` comme numéro de version : il accepte désormais un SemVer
+  complet, pré-publication comprise.
+
+### Non modifié
+
+- **Le schéma du projet reste à 1.** Un fichier enregistré par la 1.0.0 s'ouvre dans cette version,
+  et réciproquement. La rupture porte sur l'artefact livré, pas sur les données.
+
+### Ce que cette version n'est pas
+
+Ce n'est pas la `1.1.0` : son critère de sortie exige `legacy.ts` supprimé et la phase 7 terminée.
+
 ## [1.0.1-alpha.46] — 2026-08-29
 
 Les trois points laissés en suspens sont soldés.

@@ -1,31 +1,65 @@
 # Golden files — oracle de régression de la migration TypeScript
 
-Capturés le **28 août 2026** sur le jeu de démonstration embarqué (parcelle AE 101, 35 objets,
-2 terrasses, 11 mesures), `plan.html` v1.0.0, en mode local (aucun appel réseau sauf le GLB, qui
-charge Three.js).
+Capturés sur le jeu de démonstration embarqué (parcelle AE 101, 35 objets, 2 terrasses, 11 mesures),
+en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
+
+- **28 août 2026**, `plan.html` v1.0.0 : capture d'origine, phase 0.
+- **29 août 2026**, `plan.html` v1.1.0-alpha.1 : recapture à la rupture (voir plus bas).
 
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
-**Règle qui porte tout le reste :** aucune phase de migration n'a le droit de changer ces octets
-(spec §4 et §10.1). Une empreinte qui bouge sans qu'une fonctionnalité voulue l'explique est un
-changement MAJEUR, pas une correction (RELEASE.md §2.1).
+**Règle qui porte tout le reste :** une empreinte qui bouge sans qu'un changement voulu l'explique
+est un changement MAJEUR, pas une correction (RELEASE.md §2.1). Elle a tenu sans exception pendant
+toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'on l'a décidé.
 
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `318d0cf113f2c681cbe82c54a0fe00029b7153e86d4b4202fd1cbf2145a082e6` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `f5922c20f4ca4df1e43f0d998c7fad28760189671644a2fe784b0f71e9c42a34` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `ec7a1e32267514a52016e60c06dd535f41d54649a07b4b2dadbb95d7c48608ec` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 974 | `bb9719159d0b1a75aa6e853c0391f6c9902fd1e4e9df7cf8f80b3654917d06a6` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `c956c8813f165966f6a2cf5a79f6884e9f17ec035f2909a2cfc6994a4ffd857d` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `ea303be4e40a535137b9b09067fb898435fc61b9a71d329129db981e049b0dc2` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `77cbccfd8eb0ebf5d62ca51c5b16d7931b9d6901b0c3f5d82faed3ffa2a5866d` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `8f35ee04c4f1d8e64427b6def09d1ff894dfdc25980a1b62e0d2d213e48ba14a` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `29814368f4a7f112bb3e93f7b4a3613bd72d7d133a3b448e919187d880857257` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `87880303418ccde09fc52fbbdd688ec5511032f0effe275223304865d19828ea` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `c479f8216995a996a15d8d4721618365a9e46defc0f0cb1212ea5f0000913ced` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `3a34765c8214a23e95e7a1e649584d55de76f40a28f8d267769fa20d01f81d6e` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
-Les empreintes ont été obtenues trois fois par des chemins indépendants — deux captures dans le
-navigateur et un calcul depuis les fichiers déposés — avec le même résultat.
+## La rupture du 29 août 2026
+
+`APP_VERSION` est estampillée dans les six artefacts. Passer de `1.0.0` à `1.1.0-alpha.1` — la
+livraison du build à la place du fichier mono-page d'origine — **change donc ces octets**, et
+l'invariant de la migration passe de « les empreintes ne bougent pas » à « elles ne bougent que par
+la version ».
+
+Ce que cela vaut a été établi **avant** de recapturer, pas après, et par deux chemins :
+
+1. Le même build, encore estampillé `1.0.0`, reproduisait les six empreintes de la version figée au
+   bit près — c'est la vérification faite à chaque étape depuis la phase 1.
+2. Après le changement de numéro, une comparaison **ligne à ligne** avec les anciennes fixtures ne
+   montre qu'**une seule ligne différente** dans chacun des quatre artefacts texte, et c'est celle
+   qui porte la version :
+
+   | Fixture | Ce qui change |
+   |---|---|
+   | `resume.txt` | ligne 1, l'en-tête |
+   | `plan.svg` | ligne 1, l'attribut `data-app-version` |
+   | `plan.dxf` | ligne 2, la signature |
+   | `projet.json` | ligne 9, `meta.appVersion` |
+
+   Les deux PDF ne peuvent pas se comparer ligne à ligne — la chaîne s'allonge de 8 octets, donc
+   tous les décalages internes bougent. Ils ont été comparés sur leur **contenu** : 143 textes,
+   14 objets, 2 pages pour `plan.pdf` ; 106 textes, 15 objets, 3 pages pour `dossier.pdf`. Aucun de
+   ces nombres ne change, et les seuls textes qui diffèrent (1 et 3 respectivement) sont ceux qui
+   portent la version.
+
+Le **schéma du projet ne bouge pas** : un fichier enregistré par la 1.0.0 s'ouvre dans la nouvelle
+version, et l'inverse aussi. La rupture porte sur l'artefact livré, pas sur les données.
+
+Le témoin figé [`../../../legacy/plan_interactif.html`](../../../legacy/plan_interactif.html) reste
+en 1.0.0 : c'est lui qui sert d'oracle pour tout ce que ces empreintes ne voient pas, et les
+comparaisons avec lui doivent désormais neutraliser la version en plus de la date.
 
 ## Le GLB se compare structurellement, pas octet par octet
 

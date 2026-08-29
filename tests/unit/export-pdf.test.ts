@@ -63,7 +63,9 @@ describe('assemblerPDF', () => {
   });
 
   it('estampille la version dans le dictionnaire /Info', () => {
-    expect(doc).toMatch(/\/Producer \(Plan interactif [\d.]+\)/);
+    // SemVer complet, pre-publication comprise : `1.1.0-alpha.1` est un numero valide. La premiere
+    // ecriture de ce test ne connaissait que `1.0.0` et n'acceptait que des chiffres et des points.
+    expect(doc).toMatch(/\/Producer \(Plan interactif \d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?\)/);
     expect(doc).toMatch(/trailer[\s\S]*\/Info \d+ 0 R/);
   });
 

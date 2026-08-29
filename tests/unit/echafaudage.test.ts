@@ -19,14 +19,18 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
+  // Recapturees le 29 aout 2026, a la version 1.1.0-alpha.1. Le seul ecart avec les empreintes de
+  // la 1.0.0 est le numero de version, et cela a ete prouve avant de recapturer : le meme build,
+  // estampille 1.0.0, reproduisait les anciennes empreintes au bit pres, et une comparaison ligne a
+  // ligne ne montrait qu'une ligne differente par artefact (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '318d0cf113f2c681cbe82c54a0fe00029b7153e86d4b4202fd1cbf2145a082e6',
-      'plan.svg': 'f5922c20f4ca4df1e43f0d998c7fad28760189671644a2fe784b0f71e9c42a34',
-      'plan.dxf': 'ec7a1e32267514a52016e60c06dd535f41d54649a07b4b2dadbb95d7c48608ec',
-      'projet.json': 'bb9719159d0b1a75aa6e853c0391f6c9902fd1e4e9df7cf8f80b3654917d06a6',
-      'plan.pdf': 'c956c8813f165966f6a2cf5a79f6884e9f17ec035f2909a2cfc6994a4ffd857d',
-      'dossier.pdf': 'ea303be4e40a535137b9b09067fb898435fc61b9a71d329129db981e049b0dc2'
+      'resume.txt': '77cbccfd8eb0ebf5d62ca51c5b16d7931b9d6901b0c3f5d82faed3ffa2a5866d',
+      'plan.svg': '8f35ee04c4f1d8e64427b6def09d1ff894dfdc25980a1b62e0d2d213e48ba14a',
+      'plan.dxf': '29814368f4a7f112bb3e93f7b4a3613bd72d7d133a3b448e919187d880857257',
+      'projet.json': '87880303418ccde09fc52fbbdd688ec5511032f0effe275223304865d19828ea',
+      'plan.pdf': 'c479f8216995a996a15d8d4721618365a9e46defc0f0cb1212ea5f0000913ced',
+      'dossier.pdf': '3a34765c8214a23e95e7a1e649584d55de76f40a28f8d267769fa20d01f81d6e'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

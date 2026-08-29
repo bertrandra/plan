@@ -57,8 +57,9 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 
 | Version | Content | Gate |
 |---|---|---|
-| `1.0.0` | The current single-file `plan_interactif.html`, frozen and tagged as-is | Golden fixtures captured (Phase 0) |
-| `1.0.x-alpha.N` | TypeScript migration phases 1–7, one prerelease per merged phase | Golden fixtures byte-identical |
+| `1.0.0` | The current single-file `plan_interactif.html`, frozen and tagged as-is | Golden fixtures captured (Phase 0) — ✅ 28/08/2026 |
+| `1.0.x-alpha.N` | TypeScript migration phases 1–6, one prerelease per merged phase | Golden fixtures byte-identical — ✅ `alpha.1` … `alpha.47` |
+| `1.1.0-alpha.N` | The **built** file ships in place of the single-page original. Phase 7 in progress | Golden fixtures identical *up to the version string*, and that proved before recapture — ✅ 29/08/2026 |
 | `1.1.0` | Migration complete. **No behaviour change** — hence MINOR, not MAJOR | Definition of done, `spec-migration-typescript.md` §14 |
 | `2.0.0` | Authentication + MFA + multi-tenancy. Breaking: anonymous access ends, storage moves to the database | Cross-tenant isolation tests green |
 | `2.1.0` | Feature catalog and entitlements | Server-side enforcement tests green |

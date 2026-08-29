@@ -1012,6 +1012,38 @@ repli sur 1,60 m y est le comportement le moins surprenant. Corriger aurait chan
 d'un cas que l'interface interdit déjà, sans rien réparer. Le commentaire, lui, était faux : c'est
 lui qui a été corrigé.
 
+### La rupture : `plan.html` devient le build
+
+Jusqu'ici, la version livrée en production était le fichier mono-page d'origine, et `src/` n'était
+qu'un chantier. Le 29 août 2026, `plan.html` est devenu le build — 779 140 octets remplacés par
+450 713 — et la version passe de `1.0.0` à `1.1.0-alpha.1`.
+
+**C'est une rupture au sens exact**, parce que `APP_VERSION` est estampillée dans les six artefacts
+exportés. L'invariant qui a tenu pendant toute la migration — « les six empreintes ne bougent pas » —
+devient « elles ne bougent que par la version ». Les fixtures ont donc été recapturées.
+
+Recapturer une référence est le geste le plus facile à faire de travers : il suffit de le faire après
+coup, et toute régression accumulée devient la nouvelle norme. L'ordre a donc compté :
+
+1. **D'abord prouver que rien d'autre n'a bougé**, à numéro de version inchangé. Le build estampillé
+   `1.0.0` reproduisait les six empreintes de 2026-08-28 au bit près — c'est la vérification faite à
+   chaque étape depuis la phase 1, et la dernière datait de quelques minutes.
+2. **Ensuite seulement** changer le numéro, et vérifier ligne à ligne : **une seule ligne diffère**
+   dans chacun des quatre artefacts texte, et c'est celle qui porte la version. Les deux PDF, dont
+   tous les décalages internes bougent parce que la chaîne s'allonge de huit octets, ont été comparés
+   sur leur contenu : 143 et 106 textes, 14 et 15 objets, 2 et 3 pages — aucun de ces nombres ne
+   change, et seuls les textes portant la version diffèrent.
+3. **Puis** déposer les nouvelles fixtures et mettre à jour leurs empreintes.
+
+Le schéma du projet, lui, ne bouge pas : un fichier enregistré par la 1.0.0 s'ouvre dans la nouvelle
+version et réciproquement. La rupture porte sur l'artefact livré, pas sur les données — ce qui est
+exactement ce que RELEASE.md §8.4 demande de ne pas mélanger.
+
+**Ce que cette version n'est pas.** Ce n'est pas la `1.1.0` : son critère de sortie (spec §14) exige
+`legacy.ts` supprimé et la phase 7 terminée, et ni l'un ni l'autre n'est vrai. D'où la
+pré-publication `-alpha.1`, qui dit ce qu'elle est — le nouvel artefact, pas encore la nouvelle
+version.
+
 ### Ce qui reste
 
 Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, les enveloppes
@@ -1054,11 +1086,7 @@ faite dans `plan.html` serait perdue pour la version construite. À partir d'ici
 fichier mort : il ne reste que parce qu'il est ce qui tourne encore en production, et il doit être
 remplacé par `dist/index.html` au prochain déploiement.
 
-**L'écart se creuse.** Au 29 août 2026, `src/` a divergé de `plan.html` sur tout ce qui a été
-réorganisé depuis : le soleil des deux vues, le pilotage des vues, la clé des objets. Les deux
-fichiers produisent encore exactement les mêmes exports — c'est vérifié à chaque étape — mais ils ne
-partagent plus une ligne d'organisation. Repousser le remplacement ne coûte rien tant que personne ne
-touche à `plan.html` ; le jour où quelqu'un y corrige quelque chose, ce sera perdu sans bruit.
-
-Ce remplacement n'a volontairement pas été fait ici : supprimer `plan.html` casserait le site en
-production, et c'est une décision de déploiement, pas de migration.
+**Réglé le 29 août 2026.** `plan.html` n'est plus le fichier mono-page d'origine : c'est le build.
+Le témoin 1.0.0 reste en place sous `legacy/plan_interactif.html`, où il joue le seul rôle qui lui
+restait — servir d'oracle pour tout ce que les empreintes ne voient pas. Il n'y a donc plus deux
+copies du même code, mais une version livrée et un témoin figé, ce qui est une autre chose.
