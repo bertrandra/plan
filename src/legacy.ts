@@ -38,6 +38,11 @@ import { normalizeObjects } from './model/normalisation.js';
 import { creerCreation, nouveauPointDeVue } from './model/creation.js';
 import { cleObjet } from './model/cles.js';
 import { construireResume } from './export/resume.js';
+import { rebuildPanelTabs as construireOngletsPanneau } from './ui/panelTabs.js';
+import { alignerObjetParRotation } from './interaction/outilAlignement.js';
+import { exporterProjetJSON } from './io/exportProjet.js';
+import { genererGlb as genererGlbModule } from './three/exportGlb.js';
+import { telechargerBinaire } from './shell/download.js';
 import {
   parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
   reappliquerEmpilement, reculerObjet
@@ -275,28 +280,12 @@ function undo(){ historique.annuler(); }
 function updateUndoBtn(){ historique.majBoutonAnnuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
 // panelTab, selectedKey, highlight et attrTab vivent desormais dans `etat` (spec §6.1).
+// Les onglets du panneau lateral vivent dans ui/panelTabs.ts.
 function rebuildPanelTabs(){
-  const div = document.getElementById('panelTabs');
-  div.innerHTML = '';
-  [['edition','Édition'],['affichage','Affichage'],['mesure','Mesure'],['plu','PLU'],['export','Export']].forEach(([key,label])=>{
-    const b = document.createElement('button');
-    b.className = 'panelTabBtn' + (etat.panelTab===key ? ' active' : '');
-    b.textContent = label;
-    b.addEventListener('click', ()=>{
-      etat.panelTab = key;
-      document.getElementById('panelEdition').style.display = key==='edition' ? '' : 'none';
-      document.getElementById('panelAffichage').style.display = key==='affichage' ? '' : 'none';
-      document.getElementById('panelMesure').style.display = key==='mesure' ? '' : 'none';
-      document.getElementById('panelPlu').style.display = key==='plu' ? '' : 'none';
-      document.getElementById('panelExport').style.display = key==='export' ? '' : 'none';
-      if(key==='mesure'){ rebuildMeasurePanel(); renderMeasureResults(); }
-      if(key==='plu'){ renderPanneauPlu(ctxProjet()); }
-      // La liste des terrasses du dossier se reconstruit a l'ouverture de l'onglet : une terrasse
-      // ajoutee ou renommee entre-temps doit y figurer.
-      if(key==='export'){ construireListeDossier(etat); }
-      rebuildPanelTabs();
-    });
-    div.appendChild(b);
+  construireOngletsPanneau(etat, {
+    rebuildMeasurePanel, renderMeasureResults,
+    renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
+    construireListeDossier: ()=>construireListeDossier(etat)
   });
 }
 rebuildPanelTabs();
@@ -932,61 +921,10 @@ document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
 // Genere le .glb EN MEMOIRE (glb.dernierExporte) et n'ecrit un fichier que si `telecharger` est
 // vrai. La Visionneuse n'a besoin que des donnees : lui faire deposer un fichier dans le dossier
 // de telechargements a chaque ouverture ou rafraichissement n'aurait aucun interet.
+// L'export GLB vit dans three/exportGlb.ts.
 function genererGlb(btn, telecharger){
-  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
-            || etat.objects.find(o=>o.fonction==='terrasse');
-  if(!terr){ showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
-  const libelleAvant = btn ? btn.textContent : '';
-  if(btn){ btn.disabled = true; btn.textContent = telecharger ? 'Export en cours…' : 'Génération…'; }
-  const restaurer = ()=>{ if(btn){ btn.disabled = false; btn.textContent = libelleAvant; } };
-  ensureThreeLoaded(()=>{
-    ensureGLTFExporterLoaded(()=>{
-      try{
-        const dejaActive = vue3d.scene && vue3d.dernierObjKey===terr.key;
-        if(!dejaActive) buildThreeScene(terr);
-        attendreTexturesPretes(vue3d.scene.scene, 15000).then(()=>{
-          try{
-            const exporter = new THREE.GLTFExporter();
-            // Cette version (r128) de GLTFExporter n'a pas de callback d'erreur separe
-            // (parse(input, onDone, options) seulement) : un filet de securite remet le bouton
-            // en etat si onDone n'est jamais appele (echec silencieux plutot qu'exception), sans
-            // quoi il resterait bloque sur "Export en cours…" indefiniment.
-            let fini = false;
-            const filet = setTimeout(()=>{
-              if(fini) return; fini = true;
-              showErrBanner('Export GLB : pas de reponse - reessaie.');
-              if(!dejaActive) disposeThreeScene();
-              restaurer();
-            }, 20000);
-            exporter.parse(vue3d.scene.scene, (result)=>{
-              if(fini) return; fini = true; clearTimeout(filet);
-              glb.dernierExporte = { buffer: result, nomTerrasse: terr.name, date: new Date() };
-              if(telecharger){
-              const blob = new Blob([result], {type:'model/gltf-binary'});
-              const url = URL.createObjectURL(blob);
-              const nom = (terr.name||'terrasse').normalize('NFD').replace(/[̀-ͯ]/g,'')
-                .replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'') || 'terrasse';
-              const a = document.createElement('a');
-              a.href = url; a.download = 'terrasse_' + nom + '.glb'; a.rel = 'noopener';
-              document.body.appendChild(a);
-              a.click();
-              setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-              }
-              if(!dejaActive) disposeThreeScene(); // construite seulement pour l'export : pas de raison de la laisser active
-              restaurer();
-              rafraichirVisionneuseGlbSiOuverte();
-            }, { binary: true });
-          } catch(err){
-            showErrBanner('Export GLB : ' + err.message);
-            if(!dejaActive) disposeThreeScene();
-            restaurer();
-          }
-        });
-      } catch(err){
-        showErrBanner('Export GLB : ' + err.message);
-        restaurer();
-      }
-    });
+  genererGlbModule(etat, btn, telecharger, {
+    buildThreeScene, rafraichirVisionneuseGlbSiOuverte, telechargerBinaire
   });
 }
 document.getElementById('exportGlbBtn').addEventListener('click', function(){
@@ -1032,31 +970,14 @@ function targetLabel(t){
 
 
 
+// L'alignement vit dans interaction/outilAlignement.ts, a cote du cote de reference qu'il lit.
 function alignObjectByRotation(obj){
-  if(!cibleAlignement()) return;
-  if(obj.locked){ showToast('Objet verrouille.'); return; }
-  // Une parcelle issue du cadastre porte l'orientation reelle du terrain : la faire tourner
-  // decale le nord du plan, donc l'ombre du parasol et la Vue 3D, sans que rien ne le signale.
-  if(obj.cadastre) showToast('Attention : cette parcelle vient du cadastre. La faire tourner desaligne le plan du nord reel (ombres, Vue 3D).');
-  const target = measureSegCoords(cibleAlignement());
-  if(!target) return;
-  const idx = nearestSegmentIndex(obj, target);
-  if(idx<0) return;
-  // Distance laissee vide = on ne fait que tourner, sans deplacer la forme.
-  const distInput = document.getElementById('alignDistanceInput');
-  const distRaw = distInput ? distInput.value.trim() : '';
-  const distance = distRaw === '' ? null : parseFloat(distRaw);
-  const newPts = alignerSurCote(obj.pts, idx, target, distance);
-
-  const bound = contourDeContrainte(etat.objects, obj);
-  if(bound && !newPts.every(p=>pointInPolygon(p,bound))){
-    showToast('Le resultat sortirait de la parcelle - alignement annule.');
-    return;
-  }
-  pushHistory();
-  obj.pts = newPts;
-  rebuildHandles(obj);
-  render();
+  const champ = document.getElementById('alignDistanceInput');
+  alignerObjetParRotation(obj, etat, champ ? champ.value : '', {
+    measureSegCoords, nearestSegmentIndex, alignerSurCote, pointInPolygon,
+    contourDeContrainte: (o)=>contourDeContrainte(etat.objects, o),
+    pushHistory, rebuildHandles, render, showToast
+  });
 }
 
 
@@ -1123,61 +1044,13 @@ document.getElementById('importSvgFile').addEventListener('change', e=>{
 // fois remis a plat ({name, objects, measures}). L'import accepte les deux formes.
 
 
-// Retirer la parcelle sans nettoyer ce qui la reference produirait un fichier casse a la
-// relecture : mesures orphelines (une mesure perpendiculaire prend presque toujours un cote de
-// parcelle comme reference) et terrasseLieeKey pointant dans le vide. D'ou la cascade.
-function filtrerSansParcelle(objsSer, msSer){
-  const retirees = new Set(objsSer.filter(o=>o.key==='parcelle' || o.fonction==='terrain').map(o=>o.key));
-  const objets = objsSer.filter(o=>!retirees.has(o.key)).map(o=>
-    (o.terrasseLieeKey && retirees.has(o.terrasseLieeKey)) ? {...o, terrasseLieeKey:null} : o
-  );
-  const mesures = msSer.filter(m=>!retirees.has(m.refObjKey) && !retirees.has(m.targetObjKey));
-  // Le lieu (course du soleil) vit sur la parcelle : on le remonte dans meta pour ne pas le
-  // perdre avec la geometrie. La cloture, elle, decrit la limite de propriete : elle part
-  // avec la parcelle, et c'est voulu.
-  const src = objsSer.find(o=>retirees.has(o.key) && o.latitude !== undefined && o.latitude !== null);
-  return {
-    objets, mesures,
-    lieu: src ? {latitude:src.latitude, longitude:src.longitude, nomLieu:src.nomLieu || null} : null,
-    nbObjRetires: retirees.size,
-    nbMesRetirees: msSer.length - mesures.length
-  };
-}
-
+// L'export du projet vit dans io/exportProjet.ts.
 function exportProjetJSON(){
-  const sansParcelle = document.getElementById('chkExportSansParcelle').checked;
-  let objs = serializeObjects(etat.objects);
-  let ms = serializeMeasures(etat.measures);
-  const metaSrc = (seed && seed.meta) || {};
-  const meta = {
-    id: metaSrc.id || null,
-    name: metaSrc.name || 'Plan interactif',
-    createdAt: metaSrc.createdAt || null,
-    updatedAt: metaSrc.updatedAt || null,
-    exportedAt: new Date().toISOString(),
-    exportedBy: 'plan.html',
-    // Estampille de version : elle explique, deux ans plus tard, un fichier qui se comporte
-    // autrement que prevu (RELEASE.md 5.2).
-    appVersion: APP_VERSION,
-    schemaVersion: SCHEMA_VERSION,
-    writtenAt: new Date().toISOString()
-  };
-  let bilan = '';
-  if(sansParcelle){
-    const f = filtrerSansParcelle(objs, ms);
-    if(!f.objets.length){
-      showToast('Export annule : il ne reste aucun objet une fois la parcelle retiree.');
-      return;
-    }
-    objs = f.objets; ms = f.mesures;
-    meta.sansParcelle = true;
-    if(f.lieu) meta.lieu = f.lieu;
-    bilan = ' Sans parcelle : ' + f.nbObjRetires + ' objet(s) et ' + f.nbMesRetirees + ' mesure(s) retire(s).';
-  }
-  const texte = JSON.stringify({meta, objects:objs, measures:ms}, null, 2);
-  const nom = slugFichier(meta.name) + '-' + horodatageFichier() + (sansParcelle ? '-sans-parcelle' : '') + '.json';
-  telechargerTexte(nom, texte, 'application/json');
-  showToast('Export JSON : ' + objs.length + ' objet(s), ' + ms.length + ' mesure(s).' + bilan);
+  exporterProjetJSON(etat, document.getElementById('chkExportSansParcelle').checked, {
+    serializeObjects, serializeMeasures, telechargerTexte, showToast,
+    appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION,
+    metaProjet: ()=>(seed && seed.meta) || {}
+  });
 }
 
 const IMPORT_JSON_TAILLE_MAX = 5 * 1024 * 1024;
