@@ -3,6 +3,66 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.27] — 2026-08-29
+
+Le fond orthophoto sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `render/ortho.ts` : tuiles WMTS de l'IGN, cache, calage sur le repère du plan, réglages. Vérifié
+  sur des tuiles réelles — 4 tuiles, opacité du terrain 1 → 0,15 puis retour.
+- `legacy.ts` : 3 816 → 3 599 lignes.
+
+## [1.0.1-alpha.26] — 2026-08-29
+
+L'outil de cotation sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `interaction/outilMesure.ts` : le brouillon d'une cote en cours de pose, partagé par le
+  `pointerdown` du plan, le panneau et le rendu. Il ne vit pas dans `etat` : rien ne s'enregistre
+  tant que la cote n'est pas validée.
+- `ui/mesurePanel.ts` : son affichage.
+- `legacy.ts` : 3 931 → 3 816 lignes.
+
+## [1.0.1-alpha.25] — 2026-08-29
+
+Le sélecteur d'objets et la table d'affichage sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `ui/selector.ts`. Le filtre par famille descend avec le sélecteur : ce n'est ni une donnée du plan
+  ni une préférence enregistrée.
+- `legacy.ts` : 4 098 → 3 931 lignes.
+
+## [1.0.1-alpha.24] — 2026-08-29
+
+La visionneuse GLB et le chargement de Three.js sortent de `legacy.ts`.
+
+### Corrigé avant publication
+
+- `SOLEIL_ELEV_PLANCHER`, partagée entre la Vue 3D et la visionneuse, était partie avec cette
+  dernière : la construction de la scène 3D échouait **à mi-course** — 46 nœuds au lieu de 203, sans
+  erreur visible. Elle a désormais son module, `three/lumiere.ts`.
+- Un renommage global avait atteint un identifiant d'élément dans une chaîne
+  (`getElementById('glbViewerFilaire')`), ce qui cassait le boot.
+
+### Interne
+
+- `three/glbViewer.ts`, `three/lumiere.ts`, et l'état de la visionneuse dans `three/etat3d.ts`.
+- `legacy.ts` : 4 365 → 4 098 lignes.
+
+## [1.0.1-alpha.23] — 2026-08-29
+
+La sérialisation et l'import SVG sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `io/serialisation.ts` : `serializeObjects` est une **liste blanche** — un champ qui n'y est pas
+  nommé disparaît au premier enregistrement.
+- `io/importSvg.ts` : le pendant exact de `export/svgPlan.ts`.
+- `legacy.ts` : 4 576 → 4 365 lignes.
+
 ## [1.0.1-alpha.22] — 2026-08-29
 
 La barre de projet, l'actualisation cadastrale et le panneau PLU sortent de `legacy.ts`.

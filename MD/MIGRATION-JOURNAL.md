@@ -767,11 +767,45 @@ neuf**. 4 éléments de barre / 288 textes / 29 remplis d'un côté, 0 / 278 / 0
 comparaison j'ai d'abord accusé l'environnement — un vieil onglet, encore chargé de l'état de mes
 propres sondes, donnait les mêmes chiffres dégradés pour une tout autre raison.
 
+### Un contrôle de santé, après trois fois le même piège
+
+Trois extractions de suite ont été cassées par la même chose : un remplacement global d'identifiant
+qui atteint autre chose que du code. Une **clé d'objet** (`etat:` dans les métadonnées BD TOPO), puis
+deux fois un **identifiant d'élément dans une chaîne** (`getElementById('glbViewerFilaire')`,
+`getElementById('orthoOpacite')`). À chaque fois le boot s'arrêtait, et à chaque fois l'erreur était
+invisible : `main.ts` l'attrape et l'affiche dans un bandeau, elle n'apparaît donc pas dans la
+console.
+
+D'où un contrôle de santé, joué après **chaque** déplacement, en un seul appel : bandeau d'erreur,
+nombre de `<text>` et de textes remplis, éléments de la barre de projet, boutons du sélecteur,
+lignes de la table d'affichage. Un plan sain donne 288 / 29 / 4 / 14 / 36. Le premier symptôme d'un
+boot interrompu est 278 / 0 / 0 — les objets SVG créés mais jamais positionnés.
+
+Ce contrôle a payé immédiatement : les deux dernières occurrences ont été trouvées en un appel, là
+où la première avait demandé une quinzaine d'allers-retours.
+
+### La 3D, la visionneuse GLB, et deux régressions de plus
+
+`three/glbViewer.ts` réunit le chargement de Three.js à la demande, le démontage des scènes et la
+visionneuse. Le démontage mérite sa place ici : `renderer.dispose()` ne libère ni les géométries ni
+les textures déjà téléversées, et sans le parcours explicite, rouvrir la Vue 3D dix fois laisse dix
+scènes en mémoire vidéo.
+
+En sortant ce bloc, une constante partagée (`SOLEIL_ELEV_PLANCHER`) est partie avec lui : la
+construction de la scène 3D échouait alors **à mi-course**, produisant une scène de 46 nœuds au lieu
+de 203, sans aucune erreur visible. Elle a désormais son module, `three/lumiere.ts`, parce qu'elle
+appartient aux deux scènes.
+
 ### Ce qui reste
 
 Le squelette de `legacy.ts` : orchestration du rendu, sélection, historique, câblage des événements,
-changement de mode, visionneuse GLB et le `boot()` lui-même. **4 365 lignes**, contre 13 571 au
-début de la migration — 68 % en sont sortis.
+changement de mode, et le `boot()` lui-même. **3 599 lignes**, contre 13 571 au début de la
+migration — 73 % en sont sortis.
+
+Sont également sortis depuis : le sélecteur d'objets et la table d'affichage
+(`ui/selector.ts`), l'outil de cotation — son brouillon dans `interaction/outilMesure.ts`, son
+panneau dans `ui/mesurePanel.ts` — et le fond orthophoto (`render/ortho.ts`), vérifié sur des tuiles
+IGN réelles.
 
 La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y est documentée pour
 ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
