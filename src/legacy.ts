@@ -58,7 +58,12 @@ import { vue3d, glb, chargement } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
 import { validerProjetJSON } from './io/validation.js';
-import { dossierSelection, renderDossierTerrasses as construireListeDossier, debitTable as construireTableDebit, renderBOMTable as construireTableBom } from './ui/tables.js';
+import {
+  dossierSelection, renderDossierTerrasses as construireListeDossier,
+  debitTable as construireTableDebit, renderBOMTable as construireTableBom,
+  champLongueurs as construireChampLongueurs, bilanDebit, prixPersonnaliseplot,
+  renderDebitLames as construireDebitLames
+} from './ui/tables.js';
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from './io/projet.js';
 import {
   ortho, configOrtho, enregistrerConfigOrtho, syncControlesOrtho, restaurerOrthoDuProjet,
@@ -239,11 +244,11 @@ function restaurerAffichageDuProjet(){ restaurerAffichage(etat, ctxProjetImporte
 // Les tables du dossier et du chiffrage vivent dans ui/tables.ts, les panneaux du mode Terrasse
 // dans ui/terrassePanels.ts : ces deux fabriques leur passent ce qu'ils doivent pouvoir declencher.
 function ctxTables(){
-  return { refreshTerrasseView, renderDebitLames,
+  return { refreshTerrasseView, renderDebitLames: (o,l)=>construireDebitLames(o, l, ctxTables()),
     renderDebitBois: (o,l)=>renderDebitBois(o, l, ctxPanneauxTerrasse()) };
 }
 function ctxPanneauxTerrasse(){
-  return { bilanDebit, champLongueurs,
+  return { bilanDebit, champLongueurs: (c,ch,lib)=>construireChampLongueurs(c, ch, lib, ctxTables()),
     debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()),
     hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView,
     objets: ()=>etat.objects };
@@ -1839,85 +1844,6 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', async func
 // One cut-list table, used for both the deck boards and the structural timber - the only thing
 // that differs is which set of per-length prices it reads and writes.
 // The stock lengths for one product, edited where the cut-list that uses them is shown.
-function champLongueurs(c, champ, libelle){
-  const wrap = document.createElement('div');
-  wrap.className = 'controls';
-  const lab = document.createElement('label');
-  lab.textContent = libelle + ' : ';
-  lab.style.cssText = 'font-size:0.85rem; margin-right:6px;';
-  const inp = document.createElement('input');
-  inp.type='text'; inp.value = c[champ] || ''; inp.style.minWidth = '190px';
-  inp.title = 'Longueurs disponibles chez ton fournisseur, en metres, separees par des virgules';
-  inp.addEventListener('change', ()=>{ c[champ] = inp.value; refreshTerrasseView(); });
-  wrap.appendChild(lab); wrap.appendChild(inp);
-  return wrap;
-}
-function bilanDebit(c, d){
-  const perte = d.achatMl>0 ? 100*d.chuteMl/d.achatMl : 0;
-  const el = document.createElement('div');
-  el.className = 'hint';
-  el.innerHTML = '<b>Bilan.</b> Lineaire reellement pose : ' + d.reelMl.toFixed(2) +
-    ' ml. Achete : ' + d.achatMl.toFixed(2) + ' ml, soit ' + perte.toFixed(1) + ' % de chute — ' +
-    'dont ' + d.restantMl.toFixed(2) + ' ml en chutes reutilisables restantes (≥ ' +
-    (c.chuteMinReutilisable||50) + ' cm, a garder) et ' + d.perdueMl.toFixed(2) + ' ml de rebut.' +
-    (d.pool.length ? ' Chutes en fin de chantier : ' +
-      d.pool.slice(0,10).map(x=>x.toFixed(2)+' m').join(', ') +
-      (d.pool.length>10 ? ' …' : '') + '.' : '');
-  return el;
-}
-
-// The structural timber cut-list, plus the screw price - the two other things that get bought.
-function prixPersonnaliseplot(c, m){
-  const p = c.prixPlots ? c.prixPlots[m.cle] : undefined;
-  return p !== undefined && p !== null && isFinite(p) && p >= 0;
-}
-
-// The cut-list, with what each purchased length is actually for. A bare count of boards is not
-// much use on site; knowing that the 3 m are the through-runs and the 1,5 m are the tail ends is.
-function renderDebitLames(obj, layers){
-  const host = document.getElementById('terrasseDebitBox');
-  if(!host) return;
-  const c = ensureConstruction(obj);
-  host.innerHTML = '';
-  const d = computeDebitLames(obj, layers);
-  const lengths = Object.keys(d.achats).map(parseFloat).sort((a,b)=>b-a);
-  if(!lengths.length){ host.innerHTML = '<div class="hint">Aucune lame a debiter.</div>'; return; }
-
-  const entraxeAppui = (c.avecLambourde ? (c.lambourdeEntraxe||40) : (c.soliveEntraxe||40));
-  const intro = document.createElement('div');
-  intro.className = 'hint';
-  intro.textContent = 'Metre au lineaire reel des lames tracees (bordure a plat comprise), ' +
-    'debitees dans les longueurs du fournisseur. Les chutes d\'au moins ' +
-    (c.chuteMinReutilisable||50) + ' cm sont remises au pot et reservent sur une autre travee' +
-    (c.jointsSurAppui !== false
-      ? ' ; chaque about tombe sur un appui, donc un troncon de milieu de travee est coupe a un multiple de ' + entraxeAppui + ' cm.'
-      : ' ; les abouts ne sont pas contraints de tomber sur un appui.');
-  host.appendChild(intro);
-
-  host.appendChild(champLongueurs(c, 'longueursLames', 'Longueurs achetables (m)'));
-  construireTableDebit(host, c, d, lengths, 'lames', { refreshTerrasseView, renderDebitLames });
-  const cout = coutDebit(c, d, 'lames');
-  const perso = lengths.filter(L=>prixPersonnalise(c,'lames',L)).length;
-  host.appendChild(Object.assign(document.createElement('div'), { className:'hint',
-    textContent: 'Prix par barre : ' +
-      (perso ? perso + ' sur ' + lengths.length + ' saisis, les autres estimes' : 'tous estimes') +
-      ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois]||ESSENCE_PRICES.autre).label +
-      ') pour une lame de ' + (c.largeurLame||140) + ' mm — soit ' +
-      (cout / (d.achatMl||1)).toFixed(2) + ' €/ml en moyenne, ou ' +
-      (cout / (d.reelMl||1)).toFixed(2) + ' €/ml rapporte au lineaire reellement pose. ' +
-      'Saisis le tarif du fournisseur pour chaque longueur : le total alimente la ligne ' +
-      '« Lames » du BOM au-dessus, qui n\'est donc pas saisissable a la main.' }));
-  host.appendChild(bilanDebit(c, d));
-  host.appendChild(Object.assign(document.createElement('div'), {
-    className:'hint',
-    textContent:'Methode : chaque travee est resolue exactement (le jeu de barres le moins cher ' +
-      'qui la couvre), puis les chutes sont mutualisees entre travees. La mutualisation venant ' +
-      'apres, il reste 1 a 2 % a gagner sur la table — d\'ou un effet a connaitre : une gamme ' +
-      'plus courte fait parfois mieux qu\'une gamme large, parce que des barres toutes pareilles ' +
-      'produisent des chutes toutes pareilles, donc reutilisables. Essaie de retirer des ' +
-      'longueurs de la liste et compare le pourcentage de chute.'
-  }));
-}
 
 
 
@@ -2854,15 +2780,15 @@ function refreshTerrasseView(){
     terrasseLastFittedKey = obj.key;
   }
   rebuildTerrasseSubTabs();
-  renderTerrasseConfigurator(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
   renderTerrasseLayerTabs(obj);
   renderTerrasseLayerView(obj);
-  renderTerrasseCoupe(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  construireTableBom(obj, etat, { refreshTerrasseView, renderDebitLames, renderDebitBois: (o,l)=>renderDebitBois(o, l, ctxPanneauxTerrasse()) });
-  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderImplantation(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderChantier(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderMethode(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
+  construireTableBom(obj, etat, ctxTables());
+  renderOptimResult(obj, ctxPanneauxTerrasse());
+  renderImplantation(obj, ctxPanneauxTerrasse());
+  renderChantier(obj, ctxPanneauxTerrasse());
+  renderMethode(obj, ctxPanneauxTerrasse());
 }
 
 function setAppMode(mode){
@@ -2917,7 +2843,7 @@ document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
   if(!obj) return;
   document.getElementById('terrasseOptimBtn').textContent =
     basculerOptimisation() ? 'Masquer l\'optimisation' : 'Optimisation des parametres';
-  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderOptimResult(obj, ctxPanneauxTerrasse());
 });
 document.getElementById('modePlanBtn').addEventListener('click', ()=>setAppMode('plan'));
 document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>{
