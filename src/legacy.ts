@@ -57,6 +57,7 @@ import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
 import { vue3d, glb, chargement } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
+import { dossierSelection, renderDossierTerrasses as construireListeDossier, debitTable as construireTableDebit, renderBOMTable as construireTableBom } from './ui/tables.js';
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from './io/projet.js';
 import {
   ortho, configOrtho, enregistrerConfigOrtho, syncControlesOrtho, restaurerOrthoDuProjet,
@@ -234,6 +235,18 @@ function ctxProjetImporte(){
 }
 function appliquerProjetImporte(valide, remplacer){ chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte()); }
 function restaurerAffichageDuProjet(){ restaurerAffichage(etat, ctxProjetImporte()); }
+// Les tables du dossier et du chiffrage vivent dans ui/tables.ts, les panneaux du mode Terrasse
+// dans ui/terrassePanels.ts : ces deux fabriques leur passent ce qu'ils doivent pouvoir declencher.
+function ctxTables(){
+  return { refreshTerrasseView, renderDebitLames,
+    renderDebitBois: (o,l)=>renderDebitBois(o, l, ctxPanneauxTerrasse()) };
+}
+function ctxPanneauxTerrasse(){
+  return { bilanDebit, champLongueurs,
+    debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()),
+    hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView,
+    objets: ()=>etat.objects };
+}
 function ctxListes(){ return { markDirty, render, restoreState }; }
 
 // L'outil de cotation vit dans ui/mesurePanel.ts ; ces enveloppes lui passent l'etat et ce qu'il
@@ -373,7 +386,7 @@ function rebuildPanelTabs(){
       if(key==='plu'){ renderPanneauPlu(ctxProjet()); }
       // La liste des terrasses du dossier se reconstruit a l'ouverture de l'onglet : une terrasse
       // ajoutee ou renommee entre-temps doit y figurer.
-      if(key==='export'){ renderDossierTerrasses(); }
+      if(key==='export'){ construireListeDossier(etat); }
       rebuildPanelTabs();
     });
     div.appendChild(b);
@@ -1330,41 +1343,6 @@ function buildExportPDF(scaleDenom){
 
 // Emprise d'un objet, en metres : ce que le tableau des dimensions doit annoncer.
 
-const dossierSelection = new Set();
-function renderDossierTerrasses(){
-  const hote = document.getElementById('dossierTerrasses');
-  if(!hote) return;
-  hote.innerHTML = '';
-  const terrasses = etat.objects.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon');
-  if(!terrasses.length){
-    const p = document.createElement('span');
-    p.className = 'hint';
-    p.style.margin = '0';
-    p.textContent = 'Aucune terrasse dans ce plan : regle « Fonction » sur « terrasse » pour l\'objet concerne.';
-    hote.appendChild(p);
-    return;
-  }
-  const cles = new Set(terrasses.map(t=>t.key));
-  [...dossierSelection].forEach(k=>{ if(!cles.has(k)) dossierSelection.delete(k); });
-  if(!dossierSelection.size) terrasses.forEach(t=>dossierSelection.add(t.key));
-  terrasses.forEach(t=>{
-    const lab = document.createElement('label');
-    lab.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer;';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = dossierSelection.has(t.key);
-    cb.addEventListener('change', ()=>{
-      if(cb.checked) dossierSelection.add(t.key); else dossierSelection.delete(t.key);
-    });
-    const equip = equipementsSurTerrasse(etat.objects, t);
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(
-      t.name + ' — ' + shoelace(t.pts).toFixed(2).replace('.',',') + ' m²' +
-      (equip.length ? ' — ' + equip.length + ' équipement(s) : ' + equip.map(e=>e.name).join(', ') : ' — aucun équipement')
-    ));
-    hote.appendChild(lab);
-  });
-}
 document.getElementById('dossierPdfBtn').addEventListener('click', function(){
   const cles = [...dossierSelection];
   if(!cles.length){ showToast('Coche au moins une terrasse pour le dossier.'); return; }
@@ -1893,67 +1871,6 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', async func
 
 // One cut-list table, used for both the deck boards and the structural timber - the only thing
 // that differs is which set of per-length prices it reads and writes.
-function debitTable(host, c, d, lengths, cle){
-  const tbl = document.createElement('table');
-  tbl.className = 'attrTable';
-  const head = document.createElement('tr');
-  head.innerHTML = '<th>Longueur</th><th>Qte</th><th>Metre</th><th>Prix / barre</th>' +
-                   '<th>Prix / m²</th><th>Total</th><th>Usage</th>';
-  tbl.appendChild(head);
-  lengths.forEach(L=>{
-    const n = d.achats[L], r = d.roles[L] || {entiere:0, ajustee:0, recoupee:0, troncon:0, rebutMl:0, potMl:0};
-    const parts = [];
-    if(r.entiere) parts.push(r.entiere + ' posee entiere (tombe juste)');
-    if(r.ajustee) parts.push(r.ajustee + ' arasee, chute ' +
-      Math.round(100*r.rebutMl/r.ajustee) + ' cm au rebut');
-    if(r.recoupee) parts.push(r.recoupee + ' recoupee, ' +
-      Math.round(100*r.potMl/r.recoupee) + ' cm au pot');
-    if(r.troncon) parts.push(r.troncon + ' en troncon courant, about sur appui');
-    const tr = document.createElement('tr');
-    const cell = t => { const td=document.createElement('td'); td.textContent=t; return td; };
-    tr.appendChild(cell(L.toFixed(2).replace(/\.?0+$/,'') + ' m'));
-    tr.appendChild(cell(String(n)));
-    tr.appendChild(cell((n*L).toFixed(2) + ' ml'));
-
-    // The two quotes of the same board, each recomputed from the other. Whichever the merchant
-    // gives you is the one you type; the other follows.
-    const champ = (valeur, titre, appliquer) => {
-      const td = document.createElement('td');
-      const inp = document.createElement('input');
-      inp.type='number'; inp.step='0.01'; inp.min='0'; inp.style.width='85px';
-      inp.value = valeur.toFixed(2);
-      inp.title = titre;
-      if(!prixPersonnalise(c, cle, L)) inp.style.opacity = '0.7';
-      inp.addEventListener('change', ()=>{
-        const v = parseFloat(inp.value);
-        appliquer(isNaN(v) ? null : v);
-        refreshTerrasseView();
-      });
-      td.appendChild(inp);
-      return td;
-    };
-    tr.appendChild(champ(prixBarre(c,cle,L), 'Prix d\'une barre de ' + L + ' m',
-      v => setPrixBarre(c, cle, L, v)));
-    tr.appendChild(champ(prixM2De(c,cle,L), 'Prix au m² pour cette longueur — recalcule le prix de la barre',
-      v => setPrixM2(c, cle, L, v)));
-
-    const tdTot = cell((n*prixBarre(c,cle,L)).toFixed(2) + ' €');
-    tdTot.style.cssText = 'font-variant-numeric:tabular-nums;';
-    tr.appendChild(tdTot);
-
-    const td = cell(parts.join(' · ') || '—');
-    td.style.cssText = 'font-size:0.82rem; color:var(--ink-soft);';
-    tr.appendChild(td);
-    tbl.appendChild(tr);
-  });
-  const tot = document.createElement('tr');
-  tot.style.fontWeight = '600';
-  tot.innerHTML = '<td>Total</td><td>' + lengths.reduce((s,L)=>s+d.achats[L],0) +
-    ' barres</td><td>' + d.achatMl.toFixed(2) + ' ml</td><td></td><td></td><td>' +
-    coutDebit(c, d, cle).toFixed(2) + ' €</td><td></td>';
-  tbl.appendChild(tot);
-  host.appendChild(tbl);
-}
 // The stock lengths for one product, edited where the cut-list that uses them is shown.
 function champLongueurs(c, champ, libelle){
   const wrap = document.createElement('div');
@@ -2011,7 +1928,7 @@ function renderDebitLames(obj, layers){
   host.appendChild(intro);
 
   host.appendChild(champLongueurs(c, 'longueursLames', 'Longueurs achetables (m)'));
-  debitTable(host, c, d, lengths, 'lames');
+  construireTableDebit(host, c, d, lengths, 'lames', { refreshTerrasseView, renderDebitLames });
   const cout = coutDebit(c, d, 'lames');
   const perso = lengths.filter(L=>prixPersonnalise(c,'lames',L)).length;
   host.appendChild(Object.assign(document.createElement('div'), { className:'hint',
@@ -2205,66 +2122,6 @@ function renderTerrasseLayerView(obj){
   if(terrasseLayerVisible.vis) drawPoints(layers.vis, '#235e6e');
 }
 
-function renderBOMTable(obj){
-  const c = ensureConstruction(obj);
-  const layers = computeTerrasseLayers(obj, etat.objects);
-  const lines = computeBOM(obj, layers);
-  c.bom = lines;
-  renderDebitLames(obj, layers);
-  renderDebitBois(obj, layers, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-
-  const tbl = document.getElementById('terrasseBomTable');
-  tbl.innerHTML = '';
-  const head = document.createElement('tr');
-  head.innerHTML = '<th>Poste</th><th>Qte</th><th>Prix bas</th><th>Prix haut</th><th>Prix reel (total ligne)</th>';
-  tbl.appendChild(head);
-
-  let totalBas=0, totalHaut=0;
-  const updateTotals = () => {
-    let reelSum=0, anyReel=false;
-    lines.forEach(l=>{ if(l.prixReel!==null && l.prixReel!==undefined){ reelSum+=l.prixReel; anyReel=true; } });
-    document.getElementById('terrasseBomTotals').textContent =
-      'Estime : ' + totalBas.toFixed(0) + ' € – ' + totalHaut.toFixed(0) + ' €' +
-      (anyReel ? '   |   Reel saisi : ' + reelSum.toFixed(2) + ' €' : '');
-  };
-
-  lines.forEach(l=>{
-    const tr = document.createElement('tr');
-    const td0=document.createElement('td'); td0.textContent=l.label;
-    const td1=document.createElement('td'); td1.textContent = l.qte.toFixed(l.unite==='u'?0:2)+' '+l.unite;
-    const td2=document.createElement('td'); td2.textContent = l.prixBas ? (l.prixBas.toFixed(2)+' €/'+l.unite) : '—';
-    const td3=document.createElement('td'); td3.textContent = l.prixHaut ? (l.prixHaut.toFixed(2)+' €/'+l.unite) : '—';
-    const td4=document.createElement('td');
-    if(l.calcule){
-      // Priced from the cut-list, length by length: editing it here as well would give two
-      // sources of truth that can disagree.
-      td4.textContent = l.prixReel.toFixed(2) + ' €';
-      td4.style.cssText = 'font-variant-numeric:tabular-nums;';
-      const note = document.createElement('div');
-      note.style.cssText = 'font-size:0.78rem; color:var(--ink-soft);';
-      note.textContent = (typeof l.calcule === 'string') ? l.calcule : 'calcule';
-      td4.appendChild(note);
-    } else {
-      const reelInp = document.createElement('input'); reelInp.type='number'; reelInp.step='0.01'; reelInp.min='0';
-      reelInp.placeholder = 'non saisi';
-      if(l.prixReel!==null && l.prixReel!==undefined) reelInp.value = l.prixReel;
-      reelInp.addEventListener('change', ()=>{
-        const v = parseFloat(reelInp.value);
-        l.prixReel = isNaN(v) ? null : v;
-        const idx = c.bom.findIndex(x=>x.poste===l.poste);
-        if(idx>=0) c.bom[idx].prixReel = l.prixReel;
-        updateTotals();
-      });
-      td4.appendChild(reelInp);
-    }
-    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
-    tbl.appendChild(tr);
-
-    totalBas += (l.prixBas||0)*l.qte;
-    totalHaut += (l.prixHaut||0)*l.qte;
-  });
-  updateTotals();
-}
 
 // ================= Coupe verticale (empilement des couches, a l'echelle) =================
 
@@ -3030,15 +2887,15 @@ function refreshTerrasseView(){
     terrasseLastFittedKey = obj.key;
   }
   rebuildTerrasseSubTabs();
-  renderTerrasseConfigurator(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderTerrasseConfigurator(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
   renderTerrasseLayerTabs(obj);
   renderTerrasseLayerView(obj);
-  renderTerrasseCoupe(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderBOMTable(obj);
-  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderImplantation(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderChantier(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
-  renderMethode(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderTerrasseCoupe(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  construireTableBom(obj, etat, { refreshTerrasseView, renderDebitLames, renderDebitBois: (o,l)=>renderDebitBois(o, l, ctxPanneauxTerrasse()) });
+  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderImplantation(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderChantier(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderMethode(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
 }
 
 function setAppMode(mode){
@@ -3093,7 +2950,7 @@ document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
   if(!obj) return;
   document.getElementById('terrasseOptimBtn').textContent =
     basculerOptimisation() ? 'Masquer l\'optimisation' : 'Optimisation des parametres';
-  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable, hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
+  renderOptimResult(obj, { bilanDebit, champLongueurs, debitTable: (h,c,d,l,k)=>construireTableDebit(h,c,d,l,k,ctxTables()), hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView, objets: ()=>etat.objects });
 });
 document.getElementById('modePlanBtn').addEventListener('click', ()=>setAppMode('plan'));
 document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>{
