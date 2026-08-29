@@ -45,6 +45,10 @@ import { genererGlb as genererGlbModule } from './three/exportGlb.js';
 import { brancherObjets } from './app/ecouteurs/objets.js';
 import { brancherAffichage } from './app/ecouteurs/affichage.js';
 import { brancherVue3d } from './app/ecouteurs/vue3d.js';
+import { brancherBoutonsDeVue } from './app/ecouteurs/modes.js';
+import { brancherVisionneuse } from './app/ecouteurs/visionneuse.js';
+import { brancherCommandesSoleil } from './app/ecouteurs/soleil.js';
+import { brancherExports } from './app/ecouteurs/exports.js';
 import { telechargerBinaire } from './shell/download.js';
 import {
   parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
@@ -617,101 +621,10 @@ function duplicateSelectedObject(){ creerCreation(etat, ctxCreation()).dupliquer
 function deleteSelectedObject(){ creerCreation(etat, ctxCreation()).supprimer(); }
 
 
-document.getElementById('exportSvgBtn').addEventListener('click', ()=>{
-  let svgStr;
-  try {
-    svgStr = buildExportSVG();
-  } catch(err){
-    showErrBanner('Erreur export SVG: ' + err.message);
-    return;
-  }
-
-  // Fallback 1: always show the raw SVG markup in the export box, so the user
-  // can copy/save it manually even if the automatic download below fails
-  // silently (behavior varies by browser/preview sandbox).
-  const box = document.getElementById('exportBox');
-  box.style.display='block'; box.value = svgStr; box.focus(); box.select();
-
-  // Fallback 2: try the automatic download; delay revoking the object URL
-  // since revoking immediately can interrupt the download in some browsers.
-  try {
-    const blob = new Blob([svgStr], {type:'image/svg+xml'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'plan_interactif_export.svg'; a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-
-    // Fallback 3: also offer a direct link to open the SVG in a new tab,
-    // in case the download itself is blocked by the surrounding page/sandbox.
-    let link = document.getElementById('svgOpenLink');
-    if(!link){
-      link = document.createElement('a');
-      link.id = 'svgOpenLink';
-      link.target = '_blank'; link.rel = 'noopener';
-      link.className = 'hint';
-      link.style.display = 'block'; link.style.marginTop = '4px';
-      box.insertAdjacentElement('afterend', link);
-    }
-    link.href = url;
-    link.textContent = "Le telechargement automatique n'a pas demarre ? Cliquer ici pour ouvrir le SVG dans un nouvel onglet (puis Enregistrer sous).";
-  } catch(err){
-    showErrBanner('Le contenu SVG est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + err.message);
-  }
-});
-
-document.getElementById('exportPngBtn').addEventListener('click', ()=>{
-  let svgStr;
-  try {
-    svgStr = buildExportSVG();
-  } catch(err){
-    showErrBanner('Erreur export PNG: ' + err.message);
-    return;
-  }
-  const pngScale = 3; // oversample beyond the SVG's native pixel size for a sharper PNG
-  const svgUrl = URL.createObjectURL(new Blob([svgStr], {type:'image/svg+xml'}));
-  const img = new Image();
-  img.onload = ()=>{
-    URL.revokeObjectURL(svgUrl);
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth * pngScale;
-      canvas.height = img.naturalHeight * pngScale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob=>{
-        if(!blob){ showErrBanner('Erreur export PNG: conversion en image impossible.'); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'plan_interactif_export.png'; a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-      }, 'image/png');
-    } catch(err){
-      showErrBanner('Erreur export PNG: ' + err.message);
-    }
-  };
-  img.onerror = ()=>{
-    URL.revokeObjectURL(svgUrl);
-    showErrBanner('Erreur export PNG: impossible de charger le plan genere pour le convertir en image.');
-  };
-  img.src = svgUrl;
-});
 
 function buildExportSVG(){
   return construireSVG(etat.objects, etat.measures, {appVersion:APP_VERSION, schemaVersion:SCHEMA_VERSION});
 }
-
-// Le resume vit dans export/resume.ts ; ici, seulement de quoi l'afficher.
-document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const out = construireResume(etat.objects, etat.measures, {
-    appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
-  });
-  const box = document.getElementById('exportBox');
-  box.style.display='block'; box.value=out; box.focus(); box.select();
-});
 
 // center the initial view on the parcel, using the actual responsive canvas size
 (function centerInitialView(){
@@ -741,28 +654,6 @@ function buildExportDXF(){
   return construireDXF(etat.objects, etat.measures, signatureExport());
 }
 
-document.getElementById('exportDxfBtn').addEventListener('click', ()=>{
-  let dxfStr;
-  try {
-    dxfStr = buildExportDXF();
-  } catch(err){
-    showErrBanner('Erreur export DXF: ' + err.message);
-    return;
-  }
-  const box = document.getElementById('exportBox');
-  box.style.display='block'; box.value = dxfStr; box.focus(); box.select();
-  try {
-    const blob = new Blob([dxfStr], {type:'application/dxf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'plan_interactif_export.dxf'; a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-  } catch(err){
-    showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + err.message);
-  }
-});
 
 
 function buildExportPDF(scaleDenom){
@@ -771,86 +662,25 @@ function buildExportPDF(scaleDenom){
   });
 }
 
-// ================= Dossier PDF : plan de masse + une section par terrasse =================
-
-
-document.getElementById('dossierPdfBtn').addEventListener('click', function(){
-  const cles = [...dossierSelection];
-  if(!cles.length){ showToast('Coche au moins une terrasse pour le dossier.'); return; }
-  let res;
-  try {
-    res = construireDossierPDF(etat.objects, cles, document.getElementById('chkDossierEquipements').checked, {
-      nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION
-    });
-  } catch(err){
-    showErrBanner('Erreur dossier PDF : ' + err.message);
-    return;
-  }
-  const nom = slugFichier((seed && seed.meta && seed.meta.name) || 'plan') + '-dossier-terrasses.pdf';
-  telechargerTexte(nom, res.pdf, 'application/pdf');
-  const nbEquip = [...res.equipements.values()].reduce((s,l)=>s+l.length, 0);
-  showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
-    ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
-});
-
-
-document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
-  const scaleDenom = parseInt(document.getElementById('pdfScaleInput').value,10) || 200;
-  let pdfStr;
-  try {
-    pdfStr = buildExportPDF(scaleDenom);
-  } catch(err){
-    showErrBanner('Erreur export PDF: ' + err.message);
-    return;
-  }
-  try {
-    const blob = new Blob([pdfStr], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'plan_interactif_export.pdf'; a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-
-    let link = document.getElementById('pdfOpenLink');
-    if(!link){
-      link = document.createElement('a');
-      link.id = 'pdfOpenLink'; link.target = '_blank'; link.rel = 'noopener';
-      link.className = 'hint'; link.style.display = 'block'; link.style.marginTop = '4px';
-      document.getElementById('exportBox').insertAdjacentElement('afterend', link);
-    }
-    link.href = url;
-    link.textContent = "Le telechargement automatique n'a pas demarre ? Cliquer ici pour ouvrir le PDF dans un nouvel onglet.";
-  } catch(err){
-    showErrBanner('Echec du telechargement PDF: ' + err.message);
-  }
-});
-// Exporte la scene 3D (celle du Mode Terrasse > Vue 3D) en .glb, quel que soit le mode d'ou on
-// clique - si la Vue 3D n'a jamais ete ouverte pour cette terrasse, elle est construite juste
-// pour l'export puis aussitot refermee (elle ne doit pas se mettre a tourner en arriere-plan sans
-// que l'utilisateur l'ait demande).
-// Chaque texture Poly Haven est chargee sans cache (chargerTexturePolyhaven cree un nouveau
-// TextureLoader a chaque usage, cf. bug du clone-avant-chargement corrige plus tot) : juste apres
-// avoir (re)construit une scene, ses images sont donc encore en telechargement. TextureLoader ne
-// pose `texture.image` que dans le callback onLoad (verifie sur le source r128) - avant ca
-// `texture.image` reste `undefined`. GLTFExporter.parse lit `texture.image.width` pour encoder
-// chaque image et plante immediatement si elle n'est pas encore arrivee ("Cannot read properties
-// of undefined (reading 'width')") : c'est le cas a chaque fois qu'un objet de la scene a une
-// texture, puisque l'export construit/reconstruit la scene juste avant d'exporter.
-// Garde une copie du dernier .glb reellement exporte (pas juste reconstruit "en live" comme la
-// Vue 3D) : c'est ce que relit la Visionneuse GLB, pour verifier le fichier qui sort vraiment de
-// l'appli plutot qu'une reconstruction qui pourrait diverger de lui.
-// Genere le .glb EN MEMOIRE (glb.dernierExporte) et n'ecrit un fichier que si `telecharger` est
-// vrai. La Visionneuse n'a besoin que des donnees : lui faire deposer un fichier dans le dossier
-// de telechargements a chaque ouverture ou rafraichissement n'aurait aucun interet.
 // L'export GLB vit dans three/exportGlb.ts.
 function genererGlb(btn, telecharger){
   genererGlbModule(etat, btn, telecharger, {
     buildThreeScene, rafraichirVisionneuseGlbSiOuverte, telechargerBinaire
   });
 }
-document.getElementById('exportGlbBtn').addEventListener('click', function(){
-  genererGlb(this, true); // onglet Export : c'est bien un fichier que l'utilisateur veut
+
+// Les boutons de l'onglet Export vivent dans app/ecouteurs/exports.ts ; ici, seulement de quoi
+// fabriquer chaque contenu.
+brancherExports({
+  buildExportSVG, buildExportDXF, buildExportPDF, genererGlb,
+  construireResume: ()=>construireResume(etat.objects, etat.measures, {
+    appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
+  }),
+  construireDossier: ()=>construireDossierPDF(etat.objects, [...dossierSelection],
+    document.getElementById('chkDossierEquipements').checked,
+    { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
+  clesDossier: ()=>[...dossierSelection],
+  nomProjet: ()=>(seed && seed.meta && seed.meta.name)
 });
 
 // ================= Measurement tool (click-to-pick, persistent measures) =================
@@ -1333,130 +1163,28 @@ document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
     basculerOptimisation() ? 'Masquer l\'optimisation' : 'Optimisation des parametres';
   renderOptimResult(obj, ctxPanneauxTerrasse());
 });
-document.getElementById('modePlanBtn').addEventListener('click', ()=>modes.allerAuPlan());
-document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>modes.allerAuModeTerrasse());
-document.getElementById('mode3dBtn').addEventListener('click', ()=>modes.goVue3D());
-document.getElementById('glbViewerBtn').addEventListener('click', ()=>modes.ouvrirVisionneuse());
-// Les deux boutons de la Visionneuse passent par genererGlb(..., false) : meme chemin de
-// construction et d'attente des textures que l'onglet Export, mais sans ecriture de fichier.
-document.getElementById('glbViewerExporterBtn').addEventListener('click', function(){
-  genererGlb(this, false);
+brancherBoutonsDeVue({
+  allerAuPlan: ()=>modes.allerAuPlan(),
+  allerAuModeTerrasse: ()=>modes.allerAuModeTerrasse(),
+  goVue3D: ()=>modes.goVue3D(),
+  ouvrirVisionneuse: ()=>modes.ouvrirVisionneuse()
 });
-document.getElementById('glbViewerRegenBtn').addEventListener('click', function(){
-  genererGlb(this, false);
+brancherVisionneuse(atelier, {
+  genererGlb,
+  rafraichir: (cam)=>rafraichirVisionneuseGlb(cam),
+  appliquerLumiere: ()=>appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect }),
+  hauteurFinieMm, hauteurYeuxM: HAUTEUR_YEUX_M
 });
-document.getElementById('glbViewerZoomIn').addEventListener('click', ()=>{
-  if(!glb.scene) return;
-  const { camera, controls, renderer, scene } = glb.scene;
-  const offset = new THREE.Vector3().subVectors(camera.position, controls.target).multiplyScalar(0.8);
-  camera.position.copy(controls.target).add(offset);
-  controls.update(); renderer.render(scene, camera);
+// Les memes cinq commandes, deux fois : les deux vues reglent leur soleil separement.
+brancherCommandesSoleil({
+  prefixe: 'glbViewer', etat: glb, formatHeureMin,
+  syncSemaine: syncSemaineDepuisDate,
+  appliquer: ()=>appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect })
 });
-document.getElementById('glbViewerZoomOut').addEventListener('click', ()=>{
-  if(!glb.scene) return;
-  const { camera, controls, renderer, scene } = glb.scene;
-  const offset = new THREE.Vector3().subVectors(camera.position, controls.target).multiplyScalar(1.25);
-  camera.position.copy(controls.target).add(offset);
-  controls.update(); renderer.render(scene, camera);
-});
-// Meme reperage de terrasse que le bouton Export ("celle selectionnee, sinon la premiere qui
-// existe") et meme calcul que le bouton equivalent de la Vue 3D (hauteurFinieMm + HAUTEUR_YEUX_M)
-// - le GLB exporte utilise exactement le meme repere y=0 au sol que la Vue 3D qui l'a produit,
-// donc la meme formule tombe juste ici aussi. Seule l'altitude bouge, ni la position au sol ni
-// la cible du regard.
-document.getElementById('glbViewerEyeLevel').addEventListener('click', ()=>{
-  if(!glb.scene) return;
-  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
-            || etat.objects.find(o=>o.fonction==='terrasse');
-  if(!terr) return;
-  const { camera, controls, renderer, scene } = glb.scene;
-  camera.position.y = hauteurFinieMm(terr)/1000 + HAUTEUR_YEUX_M;
-  controls.update();
-  renderer.render(scene, camera);
-});
-document.getElementById('glbViewerFilaire').addEventListener('change', function(){
-  glb.filaire = this.checked;
-  if(glb.ouvert) rafraichirVisionneuseGlb(glb.scene && { pos: glb.scene.camera.position.clone(), cible: glb.scene.controls.target.clone() });
-});
-document.getElementById('glbViewerShadows').addEventListener('change', function(){
-  glb.ombres = this.checked;
-  if(glb.ouvert) rafraichirVisionneuseGlb(glb.scene && { pos: glb.scene.camera.position.clone(), cible: glb.scene.controls.target.clone() });
-});
-// Simple bascule de visibilite sur la lumiere existante : pas besoin de reconstruire toute la
-// scene (contrairement a filaire/ombre, qui changent la geometrie ou l'etat du renderer).
-document.getElementById('glbViewerLumiereAppoint').addEventListener('change', function(){
-  glb.lumiereAppoint = this.checked;
-  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
-});
-document.getElementById('glbViewerFond').addEventListener('change', function(){
-  glb.fond = this.value;
-  if(glb.scene){
-    // dispose the outgoing background if it's a texture (the checkerboard case) before swapping
-    // it out, otherwise it leaks - see the comment on disposeThreeSceneResources().
-    if(glb.scene.scene.background && glb.scene.scene.background.isTexture) glb.scene.scene.background.dispose();
-    glb.scene.scene.background = fondGlbViewer();
-  }
-});
-// "input" (pas "change") pour un rendu qui suit le glisser en direct, pas seulement au relachement.
-document.getElementById('glbViewerDate').addEventListener('change', function(){
-  if(!this.value) return;
-  glb.dateStr = this.value;
-  syncSemaineDepuisDate();
-  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
-});
-document.getElementById('glbViewerSemaine').addEventListener('input', function(){
-  const nouvelleValeur = parseInt(this.value,10);
-  const deltaSemaines = nouvelleValeur - glb.semaineAffichee;
-  glb.semaineAffichee = nouvelleValeur;
-  if(deltaSemaines === 0) return;
-  glb.dateStr = dateDecaleeDeSemaines(glb.dateStr, deltaSemaines);
-  document.getElementById('glbViewerDate').value = glb.dateStr;
-  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
-});
-document.getElementById('glbViewerHeure').addEventListener('input', function(){
-  glb.minutes = parseInt(this.value,10);
-  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
-  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
-});
-document.getElementById('glbViewerIntensite').addEventListener('input', function(){
-  const pct = parseInt(this.value,10);
-  glb.intensiteSoleil = pct/100;
-  document.getElementById('glbViewerIntensiteTexte').textContent = pct + ' %';
-  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
-});
-
-// --- Soleil de la Vue 3D : memes commandes, meme mecanique que ci-dessus. Aucune ne reconstruit
-// la scene (contrairement a filaire/ombres/objets) : seules les lumieres deja en place bougent,
-// donc le reglage suit le glisser en direct sans a-coup.
-document.getElementById('vue3dDate').addEventListener('change', function(){
-  if(!this.value) return;
-  soleilVue3d.dateStr = this.value;
-  syncSemaineVue3dDepuisDate();
-  appliquerLumiereVue3d();
-});
-document.getElementById('vue3dSemaine').addEventListener('input', function(){
-  const nouvelleValeur = parseInt(this.value,10);
-  const deltaSemaines = nouvelleValeur - soleilVue3d.semaineAffichee;
-  soleilVue3d.semaineAffichee = nouvelleValeur;
-  if(deltaSemaines === 0) return;
-  soleilVue3d.dateStr = dateDecaleeDeSemaines(soleilVue3d.dateStr, deltaSemaines);
-  document.getElementById('vue3dDate').value = soleilVue3d.dateStr;
-  appliquerLumiereVue3d();
-});
-document.getElementById('vue3dHeure').addEventListener('input', function(){
-  soleilVue3d.minutes = parseInt(this.value,10);
-  document.getElementById('vue3dHeureTexte').textContent = formatHeureMin(soleilVue3d.minutes);
-  appliquerLumiereVue3d();
-});
-document.getElementById('vue3dIntensite').addEventListener('input', function(){
-  const pct = parseInt(this.value,10);
-  soleilVue3d.intensiteSoleil = pct/100;
-  document.getElementById('vue3dIntensiteTexte').textContent = pct + ' %';
-  appliquerLumiereVue3d();
-});
-document.getElementById('vue3dLumiereAppoint').addEventListener('change', function(){
-  soleilVue3d.lumiereAppoint = this.checked;
-  appliquerLumiereVue3d();
+brancherCommandesSoleil({
+  prefixe: 'vue3d', etat: soleilVue3d, formatHeureMin,
+  syncSemaine: syncSemaineVue3dDepuisDate,
+  appliquer: appliquerLumiereVue3d
 });
 
 setupProjectBar(seed, ctxProjet());
