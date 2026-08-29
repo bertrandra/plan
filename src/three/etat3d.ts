@@ -40,6 +40,8 @@ export const glb: {
   lumiereAppoint: boolean;
   /** Multiplicateur du soleil ; 1 = l'eclairage physique de l'heure. */
   intensiteSoleil: number;
+  /** Derniere position du curseur « semaine », pour calculer de combien de crans il vient de bouger. */
+  semaineAffichee: number;
 } = {
   scene: null,
   ouvert: false,
@@ -50,7 +52,8 @@ export const glb: {
   dateStr: new Date().toISOString().slice(0, 10),
   minutes: 720,
   lumiereAppoint: true,
-  intensiteSoleil: 1
+  intensiteSoleil: 1,
+  semaineAffichee: 0
 };
 
 /**

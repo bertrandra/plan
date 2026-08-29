@@ -11,6 +11,8 @@
 import { vue3d, glb, chargement, type SceneTrois } from './etat3d.js';
 import { showErrBanner } from '../ui/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
+import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
+import { ensureGLTFLoaderLoaded } from './chargeurs.js';
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
@@ -137,6 +139,57 @@ export function fondGlbViewer(){
   if(glb.fond==='damier') return damierGlbViewer();
   if(glb.fond==='sombre') return new THREE.Color(0x20242b);
   return new THREE.Color(0xdfe7ea);
+}
+
+/** Recale le curseur « semaine » de la visionneuse sur sa date, et retient sa position. */
+export function syncSemaineGlb(): void {
+  const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
+  glb.semaineAffichee = semaine;
+  const s = document.getElementById('glbViewerSemaine') as HTMLInputElement;
+  s.value = String(semaine);
+}
+
+/** Remet les commandes de la visionneuse en accord avec son etat, a l'ouverture du panneau. */
+export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
+  const dateInp = document.getElementById('glbViewerDate') as HTMLInputElement | null;
+  // Seulement si elle est vide : une date deja choisie ne doit pas etre effacee par une
+  // reouverture du panneau.
+  if (dateInp && !dateInp.value) dateInp.value = glb.dateStr;
+  syncSemaineGlb();
+  (document.getElementById('glbViewerHeure') as HTMLInputElement).value = String(glb.minutes);
+  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
+  const pourcent = Math.round(glb.intensiteSoleil * 100);
+  (document.getElementById('glbViewerIntensite') as HTMLInputElement).value = String(pourcent);
+  document.getElementById('glbViewerIntensiteTexte').textContent = pourcent + ' %';
+}
+
+/**
+ * (Re)construit la scene de la visionneuse a partir du dernier .glb exporte.
+ *
+ * Le sablier couvre a la fois le chargement de Three et du lecteur glTF — reseau, la premiere fois
+ * seulement — et l'analyse du modele : le contenu reste cache tant que la scene n'est pas prete,
+ * plutot que de montrer un canevas vide pendant ce temps.
+ *
+ * La taille de l'hote est mesuree **avant** de cacher le contenu : un ancetre en `display:none`
+ * ecrase `clientWidth`/`clientHeight` a 0 pour tous ses descendants, et la scene retomberait sur sa
+ * taille par defaut, meme en plein ecran.
+ */
+export function rafraichirVisionneuseGlb(camaraAConserver, ctx): void {
+  const empty = document.getElementById('glbViewerEmpty');
+  const content = document.getElementById('glbViewerContent');
+  const loading = document.getElementById('glbViewerLoading');
+  if (!glb.dernierExporte) {
+    empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
+    return;
+  }
+  const host = document.getElementById('glbViewerCanvasHost');
+  const tailleHost = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
+  empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
+  ensureThreeLoaded(() => {
+    ensureGLTFLoaderLoaded(() => {
+      buildGlbViewerScene(camaraAConserver, tailleHost, ctx);
+    });
+  });
 }
 
 // Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : les deux vues se reglent

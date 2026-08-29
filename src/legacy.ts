@@ -101,14 +101,16 @@ import { trouverParcelleCloture as chercherParcelleCloture, syncClotureControls 
 import {
   attendreTexturesPretes, ensureThreeLoaded, ensureGLTFExporterLoaded,
   disposeThreeSceneResources, disposeThreeScene, disposeGlbViewerScene,
-  fondGlbViewer, appliquerLumiereGlb, buildGlbViewerScene
+  fondGlbViewer, appliquerLumiereGlb, buildGlbViewerScene,
+  syncSemaineGlb, syncControlesGlb, rafraichirVisionneuseGlb as rafraichirSceneGlb
 } from './three/glbViewer.js';
 import { serializeObjects, serializeMeasures } from './io/serialisation.js';
 import { importSVGString as importerSVG } from './io/importSvg.js';
 import { setupProjectBar, renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from './ui/projectBar.js';
 import {
   renderTerrasseConfigurator, renderParametresCalcul, renderTerrasseCoupe, renderDebitBois,
-  renderImplantation, renderChantier, renderMethode, renderOptimResult, basculerOptimisation
+  renderImplantation, renderChantier, renderMethode, renderOptimResult, basculerOptimisation,
+  renderTerrasseSelector as construireSelecteurTerrasse
 } from './ui/terrassePanels.js';
 import { buildThreeScene as construireScene3D } from './three/scene.js';
 import { cibleAlignement, definirCibleAlignement } from './interaction/outilAlignement.js';
@@ -1460,50 +1462,9 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', async func
 // Les hauteurs (appui, hauteur finie, elevation) vivent dans engine/hauteurs.ts : elles sont lues
 // par le plan de coupe, la 3D, le dossier PDF et le chiffrage, et doivent rester une seule regle.
 
+// La barre de choix de la terrasse vit dans ui/terrassePanels.ts.
 function rebuildTerrasseSelector(){
-  const div = document.getElementById('terrasseSelector');
-  div.innerHTML = '';
-  const terrasses = etat.objects.filter(o=>o.fonction==='terrasse');
-  const empty = document.getElementById('terrasseEmpty');
-  const content = document.getElementById('terrasseContent');
-  if(terrasses.length===0){
-    etat.terrasseSelectedKey = null;
-    // La Vue 3D, elle, ne depend pas d'une terrasse : un plan de parcelle avec ses batiments se
-    // regarde en 3D tel quel. Les autres sous-onglets (construction, BOM, coupe...) n'auraient
-    // rien a decrire et restent derriere le message d'accueil.
-    if(terrasseSubTab === '3d'){
-      empty.style.display='none'; content.style.display='block';
-      const note = document.createElement('span');
-      note.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft);';
-      note.textContent = 'Plan sans terrasse — vue 3D du terrain et des objets.';
-      div.appendChild(note);
-      return true;
-    }
-    empty.style.display='block'; content.style.display='none';
-    return false;
-  }
-  empty.style.display='none'; content.style.display='block';
-  if(!etat.terrasseSelectedKey || !terrasses.some(o=>o.key===etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0].key;
-  terrasses.forEach(o=>{
-    const b = document.createElement('button');
-    b.className = 'objbtn' + (o.key===etat.terrasseSelectedKey ? ' active' : '');
-    b.textContent = o.name;
-    b.addEventListener('click', ()=>{ etat.terrasseSelectedKey=o.key; refreshTerrasseView(); });
-    div.appendChild(b);
-  });
-  const selectedObj = terrasses.find(o=>o.key===etat.terrasseSelectedKey);
-  if(selectedObj){
-    const surf = document.createElement('span');
-    surf.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft); margin-left:8px;';
-    const hMm = hauteurFinieMm(selectedObj);
-    surf.textContent = 'Surface : ' + shoelace(selectedObj.pts).toFixed(2) + ' m²' +
-      '  (hauteur finie ' + (hMm/10).toFixed(1).replace(/\.0$/,'') + ' cm)';
-    surf.title = 'Hauteur du sol fini au dessus des lames : ' +
-      (estPlots(ensureConstruction(selectedObj)) ? 'plot' : 'depassement de tete de vis') +
-      ' + structure + lame';
-    div.appendChild(surf);
-  }
-  return true;
+  return construireSelecteurTerrasse(etat, terrasseSubTab, { refreshTerrasseView, hauteurFinieMm });
 }
 
 
@@ -1564,41 +1525,10 @@ function syncLieuTitre(){
   el.textContent = p ? libelleLieu() : '';
   el.title = p ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : '';
 }
-// La convention du curseur "semaine" (pas de 7 jours depuis le 1er janvier, decalage relatif) vit
-// dans util/semaine.ts, partagee par la Vue 3D et la visionneuse GLB.
-// glbViewerSemaineAffichee memorise la derniere valeur du curseur pour calculer le delta.
-let glbViewerSemaineAffichee = 0;
-function syncSemaineDepuisDate(){
-  const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
-  glbViewerSemaineAffichee = semaine;
-  document.getElementById('glbViewerSemaine').value = semaine;
-}
-// Deduit la position du soleil (date + heure choisies, lieu fixe) puis en tire hauteur, intensite
-// et couleur ensemble - pas un simple gradateur : sous l'horizon (nuit), l'intensite tombe a 0 sur
-// les 10 derniers degres avant/apres, independamment du plancher de position (qui, lui, evite juste
-// un rayon exactement rasant, pour des raisons de rendu).
+// Le curseur "semaine" et le rafraichissement de la visionneuse vivent dans three/glbViewer.ts.
+function syncSemaineDepuisDate(){ syncSemaineGlb(); }
 function rafraichirVisionneuseGlb(camaraAConserver){
-  const empty = document.getElementById('glbViewerEmpty');
-  const content = document.getElementById('glbViewerContent');
-  const loading = document.getElementById('glbViewerLoading');
-  if(!glb.dernierExporte){
-    empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
-    return;
-  }
-  // Mesuree AVANT de cacher #glbViewerContent (voir le commentaire dans buildGlbViewerScene) :
-  // sinon le host, descendant d'un ancetre display:none le temps du sablier, mesurerait 0 et
-  // retomberait sur la taille par defaut meme en plein ecran.
-  const host = document.getElementById('glbViewerCanvasHost');
-  const tailleHost = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
-  // Le sablier couvre a la fois le chargement de Three/GLTFLoader (reseau, la premiere fois
-  // seulement) et l'analyse du modele lui-meme (GLTFLoader.parse) : le contenu reste cache tant
-  // que la scene n'est pas prete, plutot que de montrer un canevas vide pendant ce temps.
-  empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
-  ensureThreeLoaded(()=>{
-    ensureGLTFLoaderLoaded(()=>{
-      buildGlbViewerScene(camaraAConserver, tailleHost, { lieuActuel, render, renderVue3DSelect });
-    });
-  });
+  rafraichirSceneGlb(camaraAConserver, { lieuActuel, render, renderVue3DSelect });
 }
 // Un nouvel export pendant que l'onglet est deja ouvert doit se refleter sans que l'utilisateur
 // ait besoin de le rouvrir - mais ne construit rien si l'onglet n'est pas affiche (pas de scene
@@ -1625,13 +1555,7 @@ function ouvrirVisionneuseGlb(){
   document.getElementById('glbViewerPanel').style.display = 'block';
   disposeThreeScene(); // une seule scene 3D active a la fois
   syncLieuGlbViewer();
-  const dateInp = document.getElementById('glbViewerDate');
-  if(dateInp && !dateInp.value) dateInp.value = glb.dateStr;
-  syncSemaineDepuisDate();
-  document.getElementById('glbViewerHeure').value = glb.minutes;
-  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
-  document.getElementById('glbViewerIntensite').value = Math.round(glb.intensiteSoleil*100);
-  document.getElementById('glbViewerIntensiteTexte').textContent = Math.round(glb.intensiteSoleil*100) + ' %';
+  syncControlesGlb(formatHeureMin);
   rafraichirVisionneuseGlb();
 }
 function fermerVisionneuseGlb(){
@@ -2120,8 +2044,8 @@ document.getElementById('glbViewerDate').addEventListener('change', function(){
 });
 document.getElementById('glbViewerSemaine').addEventListener('input', function(){
   const nouvelleValeur = parseInt(this.value,10);
-  const deltaSemaines = nouvelleValeur - glbViewerSemaineAffichee;
-  glbViewerSemaineAffichee = nouvelleValeur;
+  const deltaSemaines = nouvelleValeur - glb.semaineAffichee;
+  glb.semaineAffichee = nouvelleValeur;
   if(deltaSemaines === 0) return;
   glb.dateStr = dateDecaleeDeSemaines(glb.dateStr, deltaSemaines);
   document.getElementById('glbViewerDate').value = glb.dateStr;
