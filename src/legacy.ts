@@ -59,6 +59,7 @@ import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
 import { validerProjetJSON } from './io/validation.js';
 import { rendreScene } from './render/pipeline.js';
+import { creerHistorique } from './core/historique.js';
 import {
   dossierSelection, renderDossierTerrasses as construireListeDossier,
   debitTable as construireTableDebit, renderBOMTable as construireTableBom,
@@ -227,8 +228,7 @@ function boot(seed){
 const etat = creerEtat(seed, normalizeObjects);
 
 // Ce dont la barre de projet, l'actualisation cadastrale et le panneau PLU ont besoin. Fabrique a
-// chaque appel : refreshProjectStatus est remplace apres coup par setupProjectBar, et une copie
-// figee pointerait sur la version vide du debut.
+// chaque appel : ce contexte porte des fonctions qui n'existent qu'une fois boot() lance.
 // Le selecteur et la table d'affichage vivent dans ui/selector.ts ; ces enveloppes leur passent
 // l'etat et ce qu'ils doivent pouvoir declencher.
 function rebuildSelector(){ construireSelecteur(etat, ctxListes()); }
@@ -267,7 +267,7 @@ function cancelPick(){ annulerPointage(etat, ctxMesure()); }
 function ctxProjet(){
   return {
     etat, apiDelete, apiSave, lieuActuel, markDirty, pushHistory, rebuildSelector,
-    refreshProjectStatus: (...a)=>refreshProjectStatus(...a),
+    refreshProjectStatus: ()=>historique.declencherRafraichissementStatut(),
     render, restoreState, serializeMeasures, serializeObjects, syncBasculeVoisinage,
     syncLieuTitre, trouverParcelleCloture, withProjectParam,
     initialState: ()=>initialState,
@@ -276,7 +276,7 @@ function ctxProjet(){
     ouvrirDialogueActualisation: (b)=>ouvrirDialogueActualisation(b, ctxProjet()),
     actualiserDepuisIgn: (o,b)=>actualiserDepuisIgn(o, b, ctxProjet()),
     construireVoisinage,
-    definirRafraichisseurStatut: (f)=>{ refreshProjectStatus = f; },
+    definirRafraichisseurStatut: (f)=>historique.definirRafraichisseurStatut(f),
     contexteImport: ()=>({ apiSave, appliquerProjetImporte, withProjectParam, apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT })
   };
 }
@@ -300,79 +300,21 @@ function contexteSoleilParasol(){
 
 
 // ================= Undo history =================
-const undoStack = new PileAnnulation();
-
-function snapshotState(){
-  // Full clone of every object AND of the measures list (reuses the same serializers as
-  // project saving), not just a fixed set of fields on objects that still exist: undo needs
-  // to be able to bring back a deleted object/measure or remove one that was added, not just
-  // revert edited values in place. Measures live in a separate array from `objects`, so a
-  // snapshot of objects alone would silently lose any measure add/remove/toggle on undo.
-  return { objects: serializeObjects(etat.objects), measures: serializeMeasures(etat.measures) };
-}
-// dirty : dans `etat` (spec 6.1).
-let refreshProjectStatus = function(){};
-// Central "something changed" entry point. Anything that mutates persisted project data
-// (object fields, construction params, measures, ...) should call this - directly, or via
-// pushHistory()/mutate() below - so the "unsaved changes" indicator can never silently miss
-// a change the way per-callsite `dirty = true` assignments used to.
-function markDirty(){
-  etat.dirty = true;
-  refreshProjectStatus();
-}
-function pushHistory(){
-  undoStack.empiler(snapshotState());
-
-  updateUndoBtn();
-  markDirty();
-}
-// Wraps a mutation with an automatic history snapshot + re-render, so callsites can't
-// forget either step. Prefer this for new code; existing callsites keep calling
-// pushHistory() + render() explicitly.
-function mutate(fn){
-  pushHistory();
-  fn();
-  render();
-}
-function restoreState(snapshot){
-  // Full teardown + rebuild rather than patching fields on matching objects in place: the
-  // previous approach looked up each object by key and only ever touched a fixed set of
-  // fields, so it silently did nothing (or threw, for a deleted object) whenever the action
-  // being undone/reset had added, deleted, reordered, or replaced whole objects.
-  etat.objects.forEach(detruireVue);
-  const restored = normalizeObjects(snapshot.objects);
-  etat.objects.length = 0;
-  restored.forEach(o=>{
-    etat.objects.push(o);
-    createObjectDOM(o);
-    rebuildHandles(o);
-  });
-  reapplyStackingOrder();
-  if(snapshot.measures){
-    etat.measures = snapshot.measures.map(m=>({...m}));
-  }
-  if(!etat.objects.some(o=>o.key===etat.selectedKey)) etat.selectedKey = etat.objects.length ? etat.objects[0].key : null;
-  rebuildSelector();
-  renderMeasureResults();
-  render();
-  updateUndoBtn();
-}
-function undo(){
-  if(undoStack.vide) return;
-  const snapshot = undoStack.depiler();
-  restoreState(snapshot);
-}
-function updateUndoBtn(){
-  const b = document.getElementById('undoBtn');
-  if(b) b.disabled = undoStack.vide;
-}
-window.addEventListener('keydown', e=>{
-  if((e.ctrlKey||e.metaKey) && (e.key==='z' || e.key==='Z')){
-    e.preventDefault();
-    undo();
-  }
+// L'historique vit dans core/historique.ts ; il a ete sorti tel quel, pour etre reecrit ensuite -
+// son en-tete dit ce qu'une reecriture doit savoir (pas de retablissement, instantane complet,
+// meme liste blanche que l'enregistrement).
+const historique = creerHistorique(etat, {
+  serializeObjects, serializeMeasures, normalizeObjects, detruireVue, createObjectDOM,
+  rebuildHandles, reapplyStackingOrder, rebuildSelector, renderMeasureResults, render,
+  boutonAnnuler: ()=>document.getElementById('undoBtn')
 });
+historique.brancherRaccourci();
 
+function markDirty(){ historique.marquerModifie(); }
+function pushHistory(){ historique.empiler(); }
+function restoreState(snapshot){ historique.restaurer(snapshot); }
+function undo(){ historique.annuler(); }
+function updateUndoBtn(){ historique.majBoutonAnnuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
 // panelTab, selectedKey, highlight et attrTab vivent desormais dans `etat` (spec §6.1).
 function rebuildPanelTabs(){
