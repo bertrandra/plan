@@ -955,6 +955,34 @@ boutons actifs, affichage des sept zones, **parent réel du plan dans le DOM**, 
 C'est le troisième axe qui compte : le déménagement du plan ne se voit ni dans les empreintes ni dans
 le contrôle de santé.
 
+### Puis les démêler pour de bon
+
+Décrire l'enchevêtrement ne le défait pas. L'étape suivante l'a défait, sans changer un comportement.
+
+**La cause du désordre : deux comptes différents tenus au même endroit.** `etat.appMode` n'en connaît
+que deux, `plan` et `terrasse`, parce que c'est ce que le reste du programme teste ; l'utilisateur,
+lui, voit quatre boutons dont un seul doit être allumé. Les deux étaient tenus ensemble, à coups de
+`classList.add` et `.remove` posés **après coup** pour rattraper ce que l'appel précédent venait de
+faire — `goVue3D` allumait « Terrasse » via `setAppMode`, puis l'éteignait aussitôt pour allumer
+« Vue 3D ».
+
+Désormais `vueCourante` est la seule vérité sur ce qui est affiché, `appliquerVue()` le seul endroit
+qui touche aux boutons et aux zones, et `etat.appMode` en est *dérivé*. Les quatre boutons se
+déduisent d'une table ; aucune fonction ne corrige plus l'apparence laissée par une autre, et plus
+une seule ligne de `legacy.ts` n'y touche.
+
+**La visionneuse était un mode qui n'osait pas dire son nom** : elle manipulait elle-même les quatre
+boutons et les six zones, pendant que `setAppMode` la refermait par un rappel. Elle est devenue la
+quatrième vue ; `legacy.ts` ne garde que ce qui lui est propre — charger le modèle, libérer la scène.
+
+**Et la place d'origine du plan** était retenue comme « ce parent et ce frère suivant », capturés
+paresseusement au premier déplacement. Un nœud-ancre posé une fois pour toutes la remplace : il reste
+valable même si le voisinage change, là où une référence de frère ne l'aurait plus été.
+
+La vérification a repris les mêmes états — dix cette fois — en ajoutant deux axes : le `className`
+complet des quatre boutons, et le **rang exact** du plan parmi ses frères, pas seulement son parent.
+Dix lignes identiques au témoin, caractère pour caractère.
+
 Une fausse alerte au passage, qui vaut d'être notée : le bouton du PLU semblait ne plus se désarmer
 pendant l'interrogation. Un échantillonnage à 20 ms a montré qu'il l'était bien, dès 3 ms — le
 premier relevé, pris 120 ms après le clic, était simplement tombé après la fin de la requête. Mesurer
@@ -963,7 +991,7 @@ un état transitoire à un seul instant ne prouve rien.
 ### Ce qui reste
 
 Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, les enveloppes
-d'une ligne, et le `boot()` lui-même. **1 789 lignes**, contre 13 571 au début de la migration —
+d'une ligne, et le `boot()` lui-même. **1 769 lignes**, contre 13 571 au début de la migration —
 **87 %** en sont sortis, répartis en **93 modules**.
 
 Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un

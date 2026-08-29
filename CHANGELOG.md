@@ -3,6 +3,21 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.45] — 2026-08-29
+
+Les trois mécanismes enchevêtrés du pilotage des vues sont démêlés. Aucun comportement ne change.
+
+### Interne
+
+- `vueCourante` devient la seule vérité sur ce qui est affiché, `appliquerVue()` le seul endroit qui
+  touche aux boutons et aux zones, et `etat.appMode` en est dérivé. Plus aucune fonction ne corrige
+  après coup l'apparence laissée par une autre.
+- La visionneuse GLB devient la quatrième vue au lieu d'un panneau qui pilotait lui-même les boutons.
+- La place d'origine du plan est marquée par un nœud-ancre, au lieu d'une référence de frère capturée
+  au premier déplacement.
+- Vérifié contre le témoin sur dix états, dont le `className` complet des boutons et le rang exact du
+  plan parmi ses frères. `legacy.ts` : 1 789 → 1 769 lignes.
+
 ## [1.0.1-alpha.44] — 2026-08-29
 
 Le pilotage des modes sort de `legacy.ts` et ouvre le dossier `app/`.
