@@ -43,6 +43,8 @@ import { alignerObjetParRotation } from './interaction/outilAlignement.js';
 import { exporterProjetJSON } from './io/exportProjet.js';
 import { genererGlb as genererGlbModule } from './three/exportGlb.js';
 import { brancherObjets } from './app/ecouteurs/objets.js';
+import { brancherAffichage } from './app/ecouteurs/affichage.js';
+import { brancherVue3d } from './app/ecouteurs/vue3d.js';
 import { telechargerBinaire } from './shell/download.js';
 import {
   parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
@@ -594,52 +596,10 @@ const atelier = {
 };
 brancherObjets(atelier);
 
-document.getElementById('chkNorth').addEventListener('change', e=>{ etat.showNorth = e.target.checked; render(); });
-document.getElementById('chkVoisinage').addEventListener('change', function(){
-  etat.voisinageVisible = this.checked;
-  // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
-  // parcelle (a defaut, le premier objet reste visible).
-  if(!etat.voisinageVisible){
-    const sel = etat.objects.find(o=>o.key === etat.selectedKey);
-    if(sel && sel.voisinage){
-      const repli = etat.objects.find(o=>o.key === 'parcelle') || etat.objects.find(o=>!o.voisinage);
-      etat.selectedKey = repli ? repli.key : null;
-      etat.highlight = {type:null, index:null};
-    }
-  }
-  enregistrerAffichage();
-  rebuildSelector();
-  render();
-  // La 3D batit sa scene a partir des objets visibles : il faut la reconstruire, pas seulement
-  // la redessiner.
-  if(vue3d.scene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
-});
-document.getElementById('gridBtn').addEventListener('click', ()=>{
-  etat.grilleVisible = !etat.grilleVisible;
-  syncBasculeGrille();
-  enregistrerAffichage();
-  render();
-});
-document.getElementById('chkOrtho').addEventListener('change', e=>{ basculerOrthophotoModule(e.target.checked, { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup }); });
-document.getElementById('orthoOpacite').addEventListener('input', function(){
-  ortho.opacite = parseInt(this.value,10)/100;
-  document.getElementById('orthoOpaciteTexte').textContent = this.value + ' %';
-  if(ortho.actif) placerOrthophotoModule({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-});
-document.getElementById('orthoParcelleOpacite').addEventListener('input', function(){
-  ortho.parcelleOpacite = parseInt(this.value,10)/100;
-  document.getElementById('orthoParcelleOpaciteTexte').textContent = this.value + ' %';
-  // Seul l'affichage change : render() reapplique l'opacite effective sur les terrains.
-  if(ortho.actif) render();
-  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-});
-document.getElementById('orthoParcelleDefaut').addEventListener('click', function(){
-  ortho.parcelleOpacite = 0.15;
-  syncControlesOrtho();
-  if(ortho.actif) render();
-  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-});
+function ctxOrtho(){
+  return { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup };
+}
+brancherAffichage(atelier, { enregistrerAffichage, syncBasculeGrille, ctxOrtho, buildThreeScene });
 
 // ================= Add / delete whole object =================
 // newObjCounter : dans `etat` (spec 6.1). La naissance et la mort d'un objet vivent dans
@@ -1331,116 +1291,14 @@ function resizeThreeScene(){ nav3d.resizeThreeScene(); }
 function resizeGlbViewerScene(){ nav3d.resizeGlbViewerScene(); }
 function setVue3dPleinePage(actif){ nav3d.setVue3dPleinePage(actif); }
 function setGlbViewerPleinePage(actif){ nav3d.setGlbViewerPleinePage(actif); }
-document.getElementById('terrasse3dZoomIn').addEventListener('click', ()=>zoom3D(0.8));
-document.getElementById('terrasse3dZoomOut').addEventListener('click', ()=>zoom3D(1.25));
-document.getElementById('terrasse3dModeOrbit').addEventListener('click', ()=>setMode3D('orbit'));
-document.getElementById('terrasse3dModePan').addEventListener('click', ()=>setMode3D('pan'));
-document.getElementById('terrasse3dModeZoom').addEventListener('click', ()=>setMode3D('zoom'));
-// Le canvas WebGL est construit avec preserveDrawingBuffer:true (cf. buildThreeScene) : son
-// contenu reste lisible par toBlob() meme apres l'echange de tampon du navigateur, donc pas
-// besoin de repasser par un rendu hors-ecran comme pour l'export PNG du plan 2D.
-document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
-  if(!vue3d.scene){ showErrBanner('Vue 3D pas encore chargee.'); return; }
-  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
-  vue3d.scene.renderer.domElement.toBlob(blob=>{
-    if(!blob){ showErrBanner('Erreur export PNG : conversion en image impossible.'); return; }
-    const url = URL.createObjectURL(blob);
-    const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-    const nom = (obj && obj.name ? obj.name : 'terrasse').normalize('NFD').replace(/[̀-ͯ]/g,'')
-      .replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'') || 'terrasse';
-    const a = document.createElement('a');
-    a.href = url; a.download = 'vue3d_' + nom + '.png'; a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-  }, 'image/png');
+brancherVue3d(atelier, {
+  zoom3D, setMode3D, buildThreeScene, createObjectDOM,
+  hauteurDesYeux: ()=>nav3d.hauteurDesYeux(),
+  setVue3dPleinePage, setGlbViewerPleinePage,
+  vue3dPleinePage: ()=>nav3d.vue3dPleinePage,
+  glbViewerPleinePage: ()=>nav3d.glbViewerPleinePage,
+  resizeThreeScene, resizeGlbViewerScene
 });
-document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>nav3d.hauteurDesYeux());
-// Le filaire change la geometrie, pas seulement un materiau : la scene se reconstruit.
-document.getElementById('terrasse3dFilaire').addEventListener('change', function(){
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  if(!obj) return;
-  ensureConstruction(obj).lames3dFilaire = this.checked;
-  if(vue3d.scene) buildThreeScene(obj);
-});
-document.getElementById('terrasse3dAllObjects').addEventListener('change', function(){
-  vue3d.tousLesObjets = this.checked;
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(vue3d.scene) buildThreeScene(obj || null);
-});
-document.getElementById('terrasse3dObjectsOpaque').addEventListener('change', function(){
-  vue3d.objetsOpaques = this.checked;
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(vue3d.scene) buildThreeScene(obj || null);
-});
-// Coche par defaut (les textures Poly Haven, une fois choisies, s'affichent) : decocher revient a
-// la couleur unie du plan sans avoir a retirer la texture de chaque objet un par un - pratique
-// pour comparer les deux rendus, ou pour un apercu rapide qui n'attend pas le chargement d'images.
-document.getElementById('terrasse3dTextures').addEventListener('change', function(){
-  vue3d.textures = this.checked;
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(vue3d.scene) buildThreeScene(obj || null);
-});
-// Decochee par defaut : une vraie ombre portee (shadow map) coute plus cher a calculer que
-// l'eclairage a trois lumieres sans ombres deja en place - un utilisateur qui veut juste
-// verifier une implantation n'a pas besoin de payer ce cout a chaque rendu.
-document.getElementById('terrasse3dShadows').addEventListener('change', function(){
-  vue3d.ombres = this.checked;
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(vue3d.scene) buildThreeScene(obj || null);
-});
-
-// "Enregistrer la vue" cree un objet Point de vue (Mode Plan) a la position et la direction
-// actuelles de la camera - l'inverse de toLocal (centroide de la terrasse ouverte) donne ses
-// coordonnees plan, et l'angle horizontal camera->cible donne sa direction.
-document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
-  if(!vue3d.scene) return;
-  // Centre retenu par buildThreeScene (la terrasse, ou a defaut la parcelle) : le relire ici
-  // plutot que de recalculer un centroide de terrasse permet d'enregistrer un point de vue
-  // meme depuis un plan sans terrasse.
-  const cen = vue3d.scene.cen || {x:0, y:0};
-  const { camera, controls } = vue3d.scene;
-  const planX = camera.position.x + cen.x, planY = cen.y - camera.position.z;
-  const dx = controls.target.x - camera.position.x, dz = controls.target.z - camera.position.z;
-  const dl = Math.hypot(dx,dz) || 1;
-  // Le second point (direction) se pose a 2 m du premier, dans le sens ou la camera regardait -
-  // meme longueur par defaut que "+ Point de vue", pour que les deux chemins de creation donnent
-  // des objets a l'echelle comparable sur le plan.
-  const planDx = dx/dl, planDz = -dz/dl;
-  pushHistory();
-  const n = etat.objects.filter(o=>o.fonction==='camera').length + 1;
-  // Meme fabrique que le bouton "+ Point de vue" du plan : seules la direction et l'altitude
-  // changent. En revanche l'objet n'est PAS selectionne ici et le plan n'est pas redessine : on est
-  // dans la Vue 3D, changer la selection du plan sous l'utilisateur n'aurait pas de sens.
-  const { obj: newObj } = nouveauPointDeVue(
-    { x: planX, y: planY }, cleObjet('path', etat), n,
-    { x: planDx, y: planDz }, camera.position.y
-  );
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  rebuildSelector();
-  showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
-});
-
-document.getElementById('terrasse3dFullPageBtn').addEventListener('click', ()=>{
-  setVue3dPleinePage(!nav3d.vue3dPleinePage);
-});
-document.getElementById('glbViewerFullPageBtn').addEventListener('click', ()=>{
-  setGlbViewerPleinePage(!nav3d.glbViewerPleinePage);
-});
-window.addEventListener('keydown', e=>{
-  if(e.key === 'Escape' && nav3d.vue3dPleinePage) setVue3dPleinePage(false);
-  if(e.key === 'Escape' && nav3d.glbViewerPleinePage) setGlbViewerPleinePage(false);
-});
-// La fenetre peut changer de taille pendant que la vue est ouverte (plein page ou non) : le
-// canvas suit, au lieu de rester fige a la taille qu'il avait au dernier rendu de la scene.
-window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(glb.scene) resizeGlbViewerScene(); });
 
 // Le pilotage des modes vit dans app/modes.ts ; ces enveloppes gardent les noms qu'utilisent les
 // ecouteurs et les panneaux.

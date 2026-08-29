@@ -28,6 +28,11 @@ export function telechargerTexte(nomFichier: string, texte: string, mime?: strin
   proposer(nomFichier, new Blob([texte], { type: mime || 'application/json' }));
 }
 
+/** Meme geste pour un blob deja constitue — celui que rend `canvas.toBlob()`, par exemple. */
+export function telechargerBlob(nomFichier: string, blob: Blob): void {
+  proposer(nomFichier, blob);
+}
+
 /** Meme geste pour un contenu binaire — un .glb, par exemple. */
 export function telechargerBinaire(nomFichier: string, donnees: ArrayBuffer, mime: string): void {
   proposer(nomFichier, new Blob([donnees], { type: mime }));
