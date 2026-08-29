@@ -861,13 +861,7 @@ function buildExportPDF(scaleDenom){
 }
 
 // ================= Dossier PDF : plan de masse + une section par terrasse =================
-// L'export PDF existant sort UNE vue du plan a l'echelle demandee. Ce dossier-ci est un autre
-// document : format A4 fixe, une page de situation puis une page par terrasse retenue, avec ses
-// cotes et le tableau des dimensions - de quoi discuter le projet ou le donner a un artisan.
-// L'ecrivain PDF est le meme (fait main, pas de bibliotheque disponible), mais l'assemblage des
-// objets est generique ici : buildExportPDF() numerote ses deux pages en dur.
 
-// Emprise d'un objet, en metres : ce que le tableau des dimensions doit annoncer.
 
 document.getElementById('dossierPdfBtn').addEventListener('click', function(){
   const cles = [...dossierSelection];
@@ -1122,10 +1116,6 @@ document.getElementById('importSvgFile').addEventListener('change', e=>{
 });
 
 
-// ================= Persistance : serialisation + barre de projet =================
-// Prend uniquement les champs de donnees (jamais el/nameEl/pointEls/edgeEls/... qui
-// pointent vers des noeuds SVG vivants : un JSON.stringify direct de `objects` planterait
-// sur une structure circulaire une fois la page construite).
 
 // ================= Import / Export du projet en JSON (fichier local) =================
 // Le fichier produit est exactement la reponse de api.php?action=load ({meta, objects,
@@ -1240,11 +1230,6 @@ document.getElementById('importJsonFile').addEventListener('change', e=>{
 });
 
 
-// ---- Fusion de parcelles contigues (une propriete = souvent plusieurs parcelles) ----
-// Union par parcours d'aretes plutot que par un vrai moteur booleen : les parcelles cadastrales
-// mitoyennes partagent leur limite au centimetre pres (mesure : 0,000 m), donc les aretes
-// communes s'annulent deux a deux et il ne reste que le contour exterieur. Les aretes annulees
-// sont rendues telles quelles : ce sont les limites internes, celles qu'on garde en pointille.
 
 
 
@@ -1301,28 +1286,9 @@ function enregistrerAffichage(){
   markDirty();
 }
 
-// Les reglages du fond (actif, opacite de la photo, remplissage du terrain) sont ranges SUR la
-// parcelle, comme la cloture, le lieu et le zonage PLU : ils se sauvegardent avec le projet sans
-// nouvelle cle a faire transiter par api.php, et suivent l'export JSON. Seules les tuiles, elles,
-// ne sont pas enregistrees - elles se retelechargent.
 
 // ================= Actualisation des donnees IGN d'un plan existant =================
-// Regle : on REMPLACE ce qui vient de l'API (parcelle cadastrale, objets porteurs d'un champ
-// bdtopo, zonage PLU), on ne touche a rien d'autre, et on n'importe rien de nouveau. Un batiment
-// jamais importe ne doit pas apparaitre d'un coup en doublon de celui dessine a la main ; pour
-// ajouter des couches, c'est l'import depuis une adresse qui sert.
-//
-// Le repere du plan ne bouge pas : la reprojection se cale sur l'origine enregistree a l'import
-// (cadastre.origineLat/Lon = le point (0,0) du plan). Sans cela, tout le contenu place par
-// l'utilisateur se decalerait par rapport a sa parcelle a chaque actualisation.
-// Construit les objets du voisinage a ajouter a un plan existant : parcelles mitoyennes absentes,
-// puis leur bati et leur vegetation. Tout est projete dans le repere du plan (origine enregistree
-// a l'import), donc rien de ce qui existe deja ne bouge. Les doublons sont ecartes par identifiant
-// (idu cadastral, id BD TOPO) : rejouer l'operation deux fois n'ajoute rien la seconde fois.
 
-// Choix de la portee avant d'agir : actualiser le seul contour cadastral n'a pas le meme effet
-// que rejouer toutes les couches, et ajouter le voisinage EST un import - il ne doit jamais
-// partir d'un simple clic sur un bouton nomme "actualiser".
 
 
 // ================= Onglet PLU (Geoportail de l'urbanisme) =================
@@ -1339,9 +1305,6 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', function()
 
 
 
-// One cut-list table, used for both the deck boards and the structural timber - the only thing
-// that differs is which set of per-length prices it reads and writes.
-// The stock lengths for one product, edited where the cut-list that uses them is shown.
 
 
 
@@ -1354,9 +1317,6 @@ function rebuildTerrasseSelector(){
 }
 
 
-// Everything the engine used to hold as a literal, laid out where it can be read and changed.
-// A constant nobody can see is a constant nobody can check - and these drive every quantity in
-// the BOM, so they belong in front of the user rather than buried in the source.
 
 // Le calque des couches vit dans render/terrasseCouches.ts ; ces enveloppes lui fournissent son
 // groupe SVG, l'etat et la transformation d'ecran.
@@ -1379,10 +1339,6 @@ function ctxSoleilVue3d(){ return { lieuActuel, libelleLieu, formatHeureMin }; }
 function syncSemaineVue3dDepuisDate(){ syncSemaineSoleilVue3d(); }
 function syncControlesSoleilVue3d(){ syncControlesSoleil(ctxSoleilVue3d()); }
 function appliquerLumiereVue3d(){ appliquerSoleilVue3d(ctxSoleilVue3d()); }
-// Frees GPU resources (geometries, materials, textures) held by every mesh in a scene, so
-// repeatedly rebuilding the 3D view (buildThreeScene / GLB viewer) doesn't leak VRAM: disposing
-// only the renderer leaves every geometry/material/texture that was ever uploaded still resident
-// on the GPU, since disposal isn't automatic when objects merely lose their scene references.
 
 // ================= Visionneuse GLB (relit le dernier .glb reellement exporte) =================
 // Scene Three.js totalement separee de `vue3d.scene` (la Vue 3D "live", construite depuis les
@@ -1672,16 +1628,8 @@ const modes = creerModes(etat, {
 function refreshTerrasseView(){ modes.refreshTerrasseView(); }
 function rebuildTerrasseSubTabs(){ modes.rebuildTerrasseSubTabs(); }
 function updateStagePlacement(){ modes.updateStagePlacement(); }
-// Le plan d'implantation. Dessine en millimetres reels - le viewBox est en mm - donc imprime a
-// 100 % il sort a l'echelle demandee, regle a la double-decimetre. C'est la seule facon de
-// livrer une echelle qui veuille dire quelque chose.
 
-// Le planning : une ligne par activite reellement necessaire a CETTE terrasse, avec sa quantite
-// tiree du projet et sa cadence reglable. Un forfait au m² ne se discute pas ; une ligne avec sa
-// quantite et sa cadence, si.
 
-// The method sheet is generated from the very constants the engine runs on, so it cannot drift
-// away from what the plan actually does: change PORTEE_VIS_K and this page changes with it.
 
 // The optimiser panel stays open once asked for, and re-ranks itself after every change, so
 // the user can watch a config they are editing move up or down the list.
