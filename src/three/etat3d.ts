@@ -54,13 +54,37 @@ export const glb: {
 };
 
 /**
+ * Le soleil de la Vue 3D, dans les memes champs que celui de la visionneuse — et volontairement
+ * **separe** : les deux vues peuvent etre reglees a des moments differents sans se marcher dessus.
+ *
+ * `semaineAffichee` n'est pas une donnee mais une memoire d'interface : la derniere position du
+ * curseur, gardee pour calculer de combien de crans il vient de bouger (le decalage est relatif —
+ * voir `util/semaine.ts`).
+ */
+export const soleilVue3d: {
+  dateStr: string;
+  minutes: number;
+  intensiteSoleil: number;
+  lumiereAppoint: boolean;
+  semaineAffichee: number;
+} = {
+  dateStr: new Date().toISOString().slice(0, 10),
+  minutes: 720,
+  intensiteSoleil: 1,
+  lumiereAppoint: true,
+  semaineAffichee: 0
+};
+
+/**
  * Three.js et son exporteur glTF arrivent d'un CDN, a la demande. Ces deux drapeaux evitent de les
  * recharger : la bibliotheque se pose sur `window`, un second chargement ne casserait rien mais
  * couterait plusieurs mega-octets.
  */
 export const chargement = {
   three: false,
-  exporteurGltf: false
+  /** L'exporteur (ecrire un .glb) et le lecteur (en relire un) sont deux scripts distincts. */
+  exporteurGltf: false,
+  lecteurGltf: false
 };
 
 export const vue3d: {

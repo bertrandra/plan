@@ -8,3 +8,10 @@
 //
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const THREE: any;
+
+// Les chargeurs verifient la presence de la bibliotheque avant de la retelecharger, et regardent
+// pour cela `window.THREE` — l'endroit ou le script du CDN la depose.
+interface Window {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  THREE?: any;
+}

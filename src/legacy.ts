@@ -59,7 +59,7 @@ import {
 import { objetsDepuisCadastre } from './geo/cadastreObjets.js';
 import { ouvrirImportCadastre } from './ui/cadastreDialog.js';
 import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
-import { vue3d, glb, chargement } from './three/etat3d.js';
+import { vue3d, glb, chargement, soleilVue3d } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
 import { validerProjetJSON } from './io/validation.js';
@@ -87,7 +87,12 @@ import {
 } from './ui/mesurePanel.js';
 import { rebuildSelector as construireSelecteur, renderDispTable as construireTableAffichage } from './ui/selector.js';
 
-import { reglerSoleil, libelleSoleil } from './three/lumiere.js';
+import {
+  syncSemaineDepuisDate as syncSemaineSoleilVue3d,
+  syncControles as syncControlesSoleil,
+  appliquer as appliquerSoleilVue3d
+} from './three/soleilVue3d.js';
+import { chargerTexturePolyhaven, ensureGLTFLoaderLoaded } from './three/chargeurs.js';
 import {
   attendreTexturesPretes, ensureThreeLoaded, ensureGLTFExporterLoaded,
   disposeThreeSceneResources, disposeThreeScene, disposeGlbViewerScene,
@@ -1593,95 +1598,12 @@ function renderTerrasseLayerView(obj){
 // Seule dependance externe de tout le fichier, et uniquement chargee si on ouvre la vue 3D :
 // le reste de l'appli reste 100% autonome sans connexion internet.
 
-// --- Soleil de la Vue 3D (memes regles que la visionneuse GLB, etat separe : les deux vues
-// peuvent etre reglees a des moments differents sans se marcher dessus) ---
-let vue3dDateStr = new Date().toISOString().slice(0,10);
-let vue3dMinutes = 720;            // minutes depuis minuit ; 720 = midi
-let vue3dIntensiteSoleil = 1;      // multiplicateur du soleil ; 1 = eclairage physique de l'heure
-let vue3dLumiereAppoint = true;    // lumieres autres que le soleil (appoint directe + ambiante)
-let vue3dSemaineAffichee = 0;
-function syncSemaineVue3dDepuisDate(){
-  const { semaine } = anneeEtSemaineDepuisDate(vue3dDateStr);
-  vue3dSemaineAffichee = semaine;
-  const s = document.getElementById('vue3dSemaine');
-  if(s) s.value = semaine;
-}
-// Remet les commandes en accord avec l'etat au moment ou la scene est (re)construite : la Vue 3D
-// se reconstruit a chaque case cochee, les curseurs, eux, doivent garder ce qui a ete regle.
-function syncControlesSoleilVue3d(){
-  const d = document.getElementById('vue3dDate');
-  if(d) d.value = vue3dDateStr;
-  syncSemaineVue3dDepuisDate();
-  const h = document.getElementById('vue3dHeure');
-  if(h) h.value = vue3dMinutes;
-  const ht = document.getElementById('vue3dHeureTexte');
-  if(ht) ht.textContent = formatHeureMin(vue3dMinutes);
-  const i = document.getElementById('vue3dIntensite');
-  if(i) i.value = Math.round(vue3dIntensiteSoleil*100);
-  const it = document.getElementById('vue3dIntensiteTexte');
-  if(it) it.textContent = Math.round(vue3dIntensiteSoleil*100) + ' %';
-  const cb = document.getElementById('vue3dLumiereAppoint');
-  if(cb) cb.checked = vue3dLumiereAppoint;
-  const el = document.getElementById('vue3dLieu');
-  if(el) el.textContent = libelleLieu();
-}
-// Les regles du soleil sont dans three/lumiere.ts, partagees avec la visionneuse GLB. La scene de
-// la Vue 3D est centree sur l'origine (contrairement a celle de la visionneuse, centree sur la
-// boite englobante du modele) : elle ne passe donc pas de centre, et `extent` lui sert de rayon.
-function appliquerLumiereVue3d(){
-  if(!vue3d.scene || !vue3d.scene.dirLight) return;
-  const { dirLight, dirFill, hemiLight, extent } = vue3d.scene;
-  const { elevRad, azRad } = reglerSoleil(
-    { dirLight, dirFill, hemiLight, rayon: extent },
-    { dateStr: vue3dDateStr, minutes: vue3dMinutes,
-      intensiteSoleil: vue3dIntensiteSoleil, lumiereAppoint: vue3dLumiereAppoint },
-    lieuActuel()
-  );
-  const info = document.getElementById('vue3dSoleilInfo');
-  if(info) info.textContent = libelleSoleil(elevRad, azRad);
-  // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
-  // requestAnimationFrame, que le navigateur met en pause des que l'onglet passe en arriere-plan
-  // (le reglage se ferait alors sans effet visible au retour tant qu'aucune image n'est produite).
-  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
-}
-// Une instance THREE.Texture par usage plutot qu'un cache partage : cloner une texture avant la
-// fin de son chargement la prive definitivement de l'image (verifie - le clone garde un
-// `.image` vide meme apres coup, TextureLoader ne relie pas les deux de facon vivante), et
-// chaque objet a de toute facon son propre `repeat` a regler selon sa taille. Le second
-// telechargement de la meme URL passe par le cache HTTP du navigateur, donc reste bon marche.
-function chargerTexturePolyhaven(url){
-  const tex = new THREE.TextureLoader().load(url, img=>{
-    // Hard safety net regardless of which labeled resolution the URL pointed to (see the
-    // comment on the 1k/2k selection above): if the decoded image is still bigger than this on
-    // either side, downscale it onto a canvas before it stays resident as GPU texture memory.
-    // Uncompressed RGBA at 4k (4096x4096) is ~64 Mo of GPU memory for ONE map on ONE object -
-    // on an iPhone that's a large chunk of the whole tab's memory budget, and exceeding it is
-    // what silently kills the page (no catchable JS error, since the OS ends the process).
-    const MAX_DIM = 1024;
-    const img0 = tex.image;
-    if(img0 && (img0.width > MAX_DIM || img0.height > MAX_DIM)){
-      const scale = MAX_DIM / Math.max(img0.width, img0.height);
-      const c = document.createElement('canvas');
-      c.width = Math.round(img0.width*scale); c.height = Math.round(img0.height*scale);
-      c.getContext('2d').drawImage(img0, 0, 0, c.width, c.height);
-      tex.image = c;
-      tex.needsUpdate = true;
-    }
-  });
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-// Chargee separement de THREE/OrbitControls, et seulement au premier export GLB - la plupart des
-// sessions ouvrent la Vue 3D sans jamais exporter, inutile d'alourdir ce chemin la pour tout le monde.
-let gltfLoaderLoaded = false;
-function ensureGLTFLoaderLoaded(cb){
-  if(gltfLoaderLoaded && window.THREE && window.THREE.GLTFLoader){ cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-  s.onload = () => { gltfLoaderLoaded = true; cb(); };
-  s.onerror = () => showErrBanner('Impossible de charger le lecteur GLB (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s);
-}
+// Le soleil de la Vue 3D vit dans three/soleilVue3d.ts, son etat dans `soleilVue3d` (etat3d.ts),
+// dans les memes champs que celui de la visionneuse et volontairement separe de lui.
+function ctxSoleilVue3d(){ return { lieuActuel, libelleLieu, formatHeureMin }; }
+function syncSemaineVue3dDepuisDate(){ syncSemaineSoleilVue3d(); }
+function syncControlesSoleilVue3d(){ syncControlesSoleil(ctxSoleilVue3d()); }
+function appliquerLumiereVue3d(){ appliquerSoleilVue3d(ctxSoleilVue3d()); }
 // Frees GPU resources (geometries, materials, textures) held by every mesh in a scene, so
 // repeatedly rebuilding the 3D view (buildThreeScene / GLB viewer) doesn't leak VRAM: disposing
 // only the renderer leaves every geometry/material/texture that was ever uploaded still resident
@@ -2318,32 +2240,32 @@ document.getElementById('glbViewerIntensite').addEventListener('input', function
 // donc le reglage suit le glisser en direct sans a-coup.
 document.getElementById('vue3dDate').addEventListener('change', function(){
   if(!this.value) return;
-  vue3dDateStr = this.value;
+  soleilVue3d.dateStr = this.value;
   syncSemaineVue3dDepuisDate();
   appliquerLumiereVue3d();
 });
 document.getElementById('vue3dSemaine').addEventListener('input', function(){
   const nouvelleValeur = parseInt(this.value,10);
-  const deltaSemaines = nouvelleValeur - vue3dSemaineAffichee;
-  vue3dSemaineAffichee = nouvelleValeur;
+  const deltaSemaines = nouvelleValeur - soleilVue3d.semaineAffichee;
+  soleilVue3d.semaineAffichee = nouvelleValeur;
   if(deltaSemaines === 0) return;
-  vue3dDateStr = dateDecaleeDeSemaines(vue3dDateStr, deltaSemaines);
-  document.getElementById('vue3dDate').value = vue3dDateStr;
+  soleilVue3d.dateStr = dateDecaleeDeSemaines(soleilVue3d.dateStr, deltaSemaines);
+  document.getElementById('vue3dDate').value = soleilVue3d.dateStr;
   appliquerLumiereVue3d();
 });
 document.getElementById('vue3dHeure').addEventListener('input', function(){
-  vue3dMinutes = parseInt(this.value,10);
-  document.getElementById('vue3dHeureTexte').textContent = formatHeureMin(vue3dMinutes);
+  soleilVue3d.minutes = parseInt(this.value,10);
+  document.getElementById('vue3dHeureTexte').textContent = formatHeureMin(soleilVue3d.minutes);
   appliquerLumiereVue3d();
 });
 document.getElementById('vue3dIntensite').addEventListener('input', function(){
   const pct = parseInt(this.value,10);
-  vue3dIntensiteSoleil = pct/100;
+  soleilVue3d.intensiteSoleil = pct/100;
   document.getElementById('vue3dIntensiteTexte').textContent = pct + ' %';
   appliquerLumiereVue3d();
 });
 document.getElementById('vue3dLumiereAppoint').addEventListener('change', function(){
-  vue3dLumiereAppoint = this.checked;
+  soleilVue3d.lumiereAppoint = this.checked;
   appliquerLumiereVue3d();
 });
 
