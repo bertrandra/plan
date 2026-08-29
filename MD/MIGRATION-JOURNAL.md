@@ -11,7 +11,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
 | 4 — Modèle et conteneur d'état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.8` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place, `render/**` et `interaction/**` amorcés (11 modules) ; `render()` et la création d'objets restent |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
-| 6 — 3D et exports | 🟡 partielle 29/08/2026 | `v1.0.1-alpha.38` | (non formulé par la spec) | exports tous sortis (`export/**`) ; côté 3D, la scène, la visionneuse GLB, l'état et le soleil sont sortis — le pilotage de l'onglet terrasse reste dans `legacy.ts` |
+| 6 — 3D et exports | ✅ 29/08/2026 | `v1.0.1-alpha.43` | (non formulé par la spec) | exports tous sortis (`export/**`) ; côté 3D, scène, navigation, soleil, chargeurs, visionneuse GLB, calque des couches et clôture sont sortis. Ne reste dans `legacy.ts` que le pilotage des modes, qui appartient à la coquille |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
 
 ---
@@ -896,10 +896,47 @@ capture ratée :
   avoir ouvert cet onglet affiche « coche au moins une terrasse » et ne produit rien — silencieux si
   l'on ne compte pas les blobs.
 
+### Le bloc 3D et terrasse, en cinq morceaux
+
+Le plus gros gisement restant a été vidé en cinq étapes, chacune vérifiée contre le témoin avant la
+suivante : la navigation des deux vues (`three/navigation.ts`), le soleil de la Vue 3D et les
+chargeurs (`three/soleilVue3d.ts`, `three/chargeurs.ts`), le calque des couches et la clôture
+(`render/terrasseCouches.ts`, `ui/cloture.ts`), puis la visionneuse GLB et le sélecteur de terrasse.
+
+Ce que le découpage a mis au jour, et qui vaut d'être retenu :
+
+- **La conversion d'un point de vue vers le repère de la scène était écrite deux fois** — une pour
+  chaque vue. C'est la troisième duplication trouvée dans ce bloc, après le libellé du lieu et le
+  décalage de semaine. Un point de vue est un point *et* un vecteur : déplacer son second point
+  réoriente la caméra, sans champ à tenir à jour. Le plan compte Y vers le nord, la scène Z vers le
+  sud, d'où un retournement d'axe que rien ne signalait.
+- **Un drapeau allait servir à deux scripts différents.** `exporteurGltf` distinguait mal l'exporteur
+  (écrire un `.glb`) du lecteur (en relire un) ; chacun a maintenant le sien.
+- **Les deux vues rangent enfin leur état de la même façon.** Le soleil de la Vue 3D vivait dans cinq
+  variables locales, celui de la visionneuse dans un objet : leur séparation ressemblait à un
+  accident. Elle est maintenant un choix visible.
+- **La règle des traits qui maigrissent** dans le calque des couches est le seul réglage qui dépende
+  de ce qui est coché ailleurs : à pleine épaisseur, deux couches superposées forment une bouillie.
+- **Deux passes plutôt qu'un `find()` à deux critères** pour trouver la parcelle : depuis l'import
+  cadastre, les parcelles *voisines* sont elles aussi `fonction === 'terrain'`, et un `find()` unique
+  rattacherait la clôture — et la course du soleil — au terrain d'à côté.
+
+La création d'objets, la normalisation et les contraintes de parasol sont sorties dans le même
+mouvement, avec 44 tests. `model/creation.ts` sépare les **fabriques** (pures, testables : la forme
+qu'un objet neuf doit avoir) de la **pose dans le plan** (sept gestes qui doivent tous avoir lieu ;
+en oublier un donne un objet invisible, ou sélectionné sans poignées).
+
+### Une erreur de méthode, et sa correction
+
+Le fichier de tests de l'étape `alpha.39` a été commité **sans passer `tsc`** : j'avais lancé le
+typecheck avant d'écrire le fichier, pas après. Les tests passaient, la compilation non. Corrigé à
+l'étape suivante, et la leçon est celle qu'on croyait déjà acquise : la vérification vaut pour l'état
+final de l'étape, pas pour un état intermédiaire qui lui ressemblait.
+
 ### Ce qui reste
 
-Le squelette de `legacy.ts` : orchestration du rendu, changement de mode, câblage des boutons, et le
-`boot()` lui-même. **2 584 lignes**, contre 13 571 au début de la migration — 81 % en sont sortis.
+Le squelette de `legacy.ts` : changement de mode, câblage des boutons, et le `boot()` lui-même.
+**1 947 lignes**, contre 13 571 au début de la migration — 86 % en sont sortis.
 
 Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un
 projet importé (`io/projet.ts`), les tables du dossier et du chiffrage (`ui/tables.ts`), et la
@@ -917,11 +954,13 @@ La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y 
 ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
 perdu au premier enregistrement.
 
-Ce qui reste dans `legacy.ts` se range en deux tas. **Extractible**, environ 1 100 lignes : le bloc
-3D et terrasse (le plus gros gisement restant, et le plus homogène), `normalizeObjects`, la création
-d'objets, et les contraintes de parasol. **Coquille inhérente**, environ 1 100 lignes également :
-93 écouteurs d'événements, `boot()`, les six fabriques de contexte et les enveloppes d'une ligne —
-celles-ci ne se sortent pas morceau par morceau, elles se réorganisent en `app/` d'un seul geste.
+Ce qui reste est désormais presque entièrement de la **coquille** : les écouteurs d'événements,
+`boot()`, les fabriques de contexte et les enveloppes d'une ligne. Elles ne se sortent pas morceau
+par morceau ; elles se réorganisent en `app/` d'un seul geste, quand on décidera de le faire.
+
+Reste tout de même une poignée de choses extractibles au milieu : le pilotage des modes
+(`setAppMode`, les sous-onglets terrasse, le déplacement du plan entre ses deux emplacements), et
+l'onglet PLU.
 
 Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
 `noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros

@@ -3,6 +3,57 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.43] — 2026-08-29
+
+### Interne
+
+- La visionneuse GLB rejoint `three/glbViewer.ts`, le sélecteur de terrasse `ui/terrassePanels.ts`.
+  Sans aucune terrasse, la Vue 3D reste accessible ; les autres sous-onglets restent derrière
+  l'accueil. `legacy.ts` : 2 023 → 1 947 lignes, soit 86 % du fichier d'origine sorti.
+
+## [1.0.1-alpha.42] — 2026-08-29
+
+### Interne
+
+- `render/terrasseCouches.ts` : chaque couche a sa case, et non un onglet exclusif — d'où les traits
+  qui maigrissent dès qu'il y en a plus d'une.
+- `ui/cloture.ts` : deux passes pour trouver la parcelle, parce que les parcelles voisines importées
+  sont elles aussi `fonction === 'terrain'`.
+
+## [1.0.1-alpha.41] — 2026-08-29
+
+### Interne
+
+- `three/soleilVue3d.ts` et `three/chargeurs.ts`. L'état du soleil rejoint `etat3d.ts`, dans les
+  mêmes champs que celui de la visionneuse.
+
+### Corrigé avant publication
+
+- Un même drapeau allait servir à l'exporteur glTF et au lecteur, qui sont deux scripts distincts.
+
+## [1.0.1-alpha.40] — 2026-08-29
+
+### Interne
+
+- `three/navigation.ts` : zoom, mode du glisser, hauteur des yeux, points de vue, plein page. La
+  conversion d'un point de vue vers le repère de la scène était écrite deux fois ; **10 tests**.
+
+### Corrigé avant publication
+
+- Le fichier de tests d'`alpha.39` ne passait pas `tsc` : le typecheck avait été lancé avant son
+  écriture, pas après.
+
+## [1.0.1-alpha.39] — 2026-08-29
+
+La normalisation, la création d'objets et les contraintes de parasol sortent de `legacy.ts`.
+
+### Interne
+
+- `model/normalisation.ts`, `model/creation.ts` (fabriques pures séparées de la pose dans le plan),
+  et la contrainte « pied en bordure » dans `engine/parasol.ts` — c'est le **pied** qu'on projette
+  sur le pourtour, pas le centre de la toile.
+- **44 tests**, 476 au total. `legacy.ts` : 2 584 → 2 354 lignes.
+
 ## [1.0.1-alpha.38] — 2026-08-29
 
 La Vue 3D et la visionneuse GLB partagent enfin un seul soleil.
