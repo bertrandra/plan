@@ -54,7 +54,13 @@ import {
 import { objetsDepuisCadastre } from './geo/cadastreObjets.js';
 import { ouvrirImportCadastre } from './ui/cadastreDialog.js';
 import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
-import { vue3d } from './three/etat3d.js';
+import { vue3d, glb, chargement } from './three/etat3d.js';
+import { SOLEIL_ELEV_PLANCHER, SOLEIL_DIST_FACTOR } from './three/lumiere.js';
+import {
+  attendreTexturesPretes, ensureThreeLoaded, ensureGLTFExporterLoaded,
+  disposeThreeSceneResources, disposeThreeScene, disposeGlbViewerScene,
+  fondGlbViewer, appliquerLumiereGlb, buildGlbViewerScene
+} from './three/glbViewer.js';
 import { serializeObjects, serializeMeasures } from './io/serialisation.js';
 import { importSVGString as importerSVG } from './io/importSvg.js';
 import { setupProjectBar, renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from './ui/projectBar.js';
@@ -1807,30 +1813,10 @@ document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
 // chaque image et plante immediatement si elle n'est pas encore arrivee ("Cannot read properties
 // of undefined (reading 'width')") : c'est le cas a chaque fois qu'un objet de la scene a une
 // texture, puisque l'export construit/reconstruit la scene juste avant d'exporter.
-function attendreTexturesPretes(scene, delaiMaxMs){
-  const textures = new Set();
-  scene.traverse(o=>{
-    if(o.isMesh){
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{
-        if(m && m.map) textures.add(m.map);
-      });
-    }
-  });
-  if(textures.size===0) return Promise.resolve();
-  const debut = Date.now();
-  return new Promise(resolve=>{
-    (function verifier(){
-      const pretes = [...textures].every(t=>t.image !== undefined);
-      if(pretes || Date.now()-debut > delaiMaxMs) resolve();
-      else setTimeout(verifier, 100);
-    })();
-  });
-}
 // Garde une copie du dernier .glb reellement exporte (pas juste reconstruit "en live" comme la
 // Vue 3D) : c'est ce que relit la Visionneuse GLB, pour verifier le fichier qui sort vraiment de
 // l'appli plutot qu'une reconstruction qui pourrait diverger de lui.
-let dernierGlbExporte = null; // { buffer: ArrayBuffer, nomTerrasse, date }
-// Genere le .glb EN MEMOIRE (dernierGlbExporte) et n'ecrit un fichier que si `telecharger` est
+// Genere le .glb EN MEMOIRE (glb.dernierExporte) et n'ecrit un fichier que si `telecharger` est
 // vrai. La Visionneuse n'a besoin que des donnees : lui faire deposer un fichier dans le dossier
 // de telechargements a chaque ouverture ou rafraichissement n'aurait aucun interet.
 function genererGlb(btn, telecharger){
@@ -1861,7 +1847,7 @@ function genererGlb(btn, telecharger){
             }, 20000);
             exporter.parse(vue3d.scene.scene, (result)=>{
               if(fini) return; fini = true; clearTimeout(filet);
-              dernierGlbExporte = { buffer: result, nomTerrasse: terr.name, date: new Date() };
+              glb.dernierExporte = { buffer: result, nomTerrasse: terr.name, date: new Date() };
               if(telecharger){
               const blob = new Blob([result], {type:'model/gltf-binary'});
               const url = URL.createObjectURL(blob);
@@ -3121,7 +3107,6 @@ function renderBOMTable(obj){
 // ================= Vue 3D (Three.js, charge a la demande depuis un CDN) =================
 // Seule dependance externe de tout le fichier, et uniquement chargee si on ouvre la vue 3D :
 // le reste de l'appli reste 100% autonome sans connexion internet.
-let threeLoaded = false;
 
 // --- Soleil de la Vue 3D (memes regles que la visionneuse GLB, etat separe : les deux vues
 // peuvent etre reglees a des moments differents sans se marcher dessus) ---
@@ -3223,31 +3208,8 @@ function chargerTexturePolyhaven(url){
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
-function ensureThreeLoaded(cb){
-  if(threeLoaded && window.THREE && window.THREE.OrbitControls){ cb(); return; }
-  const s1 = document.createElement('script');
-  s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-  s1.onload = () => {
-    const s2 = document.createElement('script');
-    s2.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
-    s2.onload = () => { threeLoaded = true; cb(); };
-    s2.onerror = () => showErrBanner('Impossible de charger les controles 3D (connexion internet requise pour cette fonctionnalite).');
-    document.head.appendChild(s2);
-  };
-  s1.onerror = () => showErrBanner('Impossible de charger la bibliotheque 3D (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s1);
-}
 // Chargee separement de THREE/OrbitControls, et seulement au premier export GLB - la plupart des
 // sessions ouvrent la Vue 3D sans jamais exporter, inutile d'alourdir ce chemin la pour tout le monde.
-let gltfExporterLoaded = false;
-function ensureGLTFExporterLoaded(cb){
-  if(gltfExporterLoaded && window.THREE && window.THREE.GLTFExporter){ cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js';
-  s.onload = () => { gltfExporterLoaded = true; cb(); };
-  s.onerror = () => showErrBanner('Impossible de charger l\'exporteur GLB (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s);
-}
 let gltfLoaderLoaded = false;
 function ensureGLTFLoaderLoaded(cb){
   if(gltfLoaderLoaded && window.THREE && window.THREE.GLTFLoader){ cb(); return; }
@@ -3261,101 +3223,16 @@ function ensureGLTFLoaderLoaded(cb){
 // repeatedly rebuilding the 3D view (buildThreeScene / GLB viewer) doesn't leak VRAM: disposing
 // only the renderer leaves every geometry/material/texture that was ever uploaded still resident
 // on the GPU, since disposal isn't automatic when objects merely lose their scene references.
-function disposeThreeSceneResources(scene){
-  if(!scene) return;
-  scene.traverse(obj=>{
-    if(obj.geometry) obj.geometry.dispose();
-    const materials = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
-    materials.forEach(mat=>{
-      Object.keys(mat).forEach(key=>{
-        const v = mat[key];
-        if(v && v.isTexture) v.dispose();
-      });
-      mat.dispose();
-    });
-  });
-  // scene.background can itself be a texture (the GLB viewer's "damier" checkerboard uses a
-  // CanvasTexture) rather than a plain THREE.Color - traverse() never visits it since it isn't
-  // part of the object graph, so it needs disposing separately or it leaks like any other texture.
-  if(scene.background && scene.background.isTexture) scene.background.dispose();
-}
-function disposeThreeScene(){
-  if(vue3d.scene){
-    cancelAnimationFrame(vue3d.scene.raf);
-    // OrbitControls (r128) attaches its drag-continuation listeners to `document`/`window`, not
-    // just to the canvas being removed below - without an explicit dispose(), those listeners
-    // (and everything they close over: this camera, this scene, this renderer) are never
-    // released, so every 3D-view rebuild leaves the previous one pinned in memory. Over a
-    // session with several rebuilds this accumulates real RAM, which is what was actually
-    // driving iOS into killing the page ("Impossible de charger la page") - a step further than
-    // the WebGL-context cap alone.
-    if(vue3d.scene.controls && vue3d.scene.controls.dispose) vue3d.scene.controls.dispose();
-    disposeThreeSceneResources(vue3d.scene.scene);
-    vue3d.scene.renderer.dispose();
-    // iOS Safari caps the number of *live* WebGL contexts a page may hold at once (historically
-    // as few as 8-16) and does not free one just because renderer.dispose() released its GPU
-    // memory - the context object itself lingers until GC catches up. Once the cap is hit,
-    // subsequent WebGLRenderer creations silently get a context where gl.createShader() returns
-    // null, and Three.js passes that null straight into shaderSource() - which is exactly the
-    // "Argument 1 ('shader') ... must be an instance of WebGLShader" crash reported on iPhone.
-    // forceContextLoss() explicitly releases the context immediately instead of waiting on GC.
-    if(vue3d.scene.renderer.forceContextLoss) vue3d.scene.renderer.forceContextLoss();
-    if(vue3d.scene.renderer.domElement.parentNode) vue3d.scene.renderer.domElement.parentNode.removeChild(vue3d.scene.renderer.domElement);
-    vue3d.scene = null;
-  }
-}
 
 // ================= Visionneuse GLB (relit le dernier .glb reellement exporte) =================
 // Scene Three.js totalement separee de `vue3d.scene` (la Vue 3D "live", construite depuis les
 // donnees du plan) : les deux peuvent exister independamment, fermer l'une ne doit pas perturber
-// l'autre. Celle-ci part d'un ArrayBuffer deja fige (dernierGlbExporte) plutot que des objets du
+// l'autre. Celle-ci part d'un ArrayBuffer deja fige (glb.dernierExporte) plutot que des objets du
 // plan, donc pas d'`extent` connu a l'avance - le cadrage de camera se deduit de la boite
 // englobante du modele charge, et l'eclairage (absent du GLB, qui n'exporte que la geometrie/les
 // materiaux) est ajoute ici comme dans buildThreeScene.
-let glbViewerScene = null;
-let glbViewerOuvert = false;
-let glbViewerFilaire = false;
-let glbViewerShadows = false;
-let glbViewerFond = 'clair';
-function disposeGlbViewerScene(){
-  if(glbViewerScene){
-    cancelAnimationFrame(glbViewerScene.raf);
-    // see the comment in disposeThreeScene(): without this, OrbitControls keeps its
-    // document/window-level listeners alive, pinning the whole previous scene in memory.
-    if(glbViewerScene.controls && glbViewerScene.controls.dispose) glbViewerScene.controls.dispose();
-    disposeThreeSceneResources(glbViewerScene.scene);
-    glbViewerScene.renderer.dispose();
-    // see the comment in disposeThreeScene(): releases the WebGL context immediately rather
-    // than leaving it to GC, so iOS Safari's low live-context cap doesn't get exhausted.
-    if(glbViewerScene.renderer.forceContextLoss) glbViewerScene.renderer.forceContextLoss();
-    if(glbViewerScene.renderer.domElement.parentNode) glbViewerScene.renderer.domElement.parentNode.removeChild(glbViewerScene.renderer.domElement);
-    glbViewerScene = null;
-  }
-}
-function damierGlbViewer(){
-  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-  const ctx = c.getContext('2d');
-  const taille = 8;
-  for(let y=0;y<64;y+=taille){
-    for(let x=0;x<64;x+=taille){
-      ctx.fillStyle = ((x/taille + y/taille) % 2 === 0) ? '#c9c9c9' : '#a3a3a3';
-      ctx.fillRect(x,y,taille,taille);
-    }
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(24,24);
-  return tex;
-}
-function fondGlbViewer(){
-  if(glbViewerFond==='damier') return damierGlbViewer();
-  if(glbViewerFond==='sombre') return new THREE.Color(0x20242b);
-  return new THREE.Color(0xdfe7ea);
-}
 // Hauteur du soleil a midi (t=0.5) et distance a la scene, retrouvees depuis l'ancienne position
 // fixe (centre + rayon*(2,3,1.2)) pour rester dans la meme gamme deja tuneee visuellement.
-const SOLEIL_ELEV_PLANCHER = 3 * Math.PI/180; // le point d'origine du rayon ne descend jamais pile a l'horizon (rasant parfait = artefacts) ; l'intensite, elle, peut tomber a 0 independamment (nuit)
-const SOLEIL_DIST_FACTOR = Math.hypot(2,3,1.2); // distance de la lumiere a la scene, dans la meme gamme que l'ancien reglage fixe
 // Lieu fixe (Le Vesinet, Yvelines) utilise pour la position du soleil - rattache a la parcelle
 // comme la cloture (memes champs lazy-assignes au premier acces) pour se sauvegarder avec le
 // projet sans faire transiter une nouvelle cle par api.php.
@@ -3387,10 +3264,6 @@ function syncLieuTitre(){
   el.textContent = p ? libelleLieu() : '';
   el.title = p ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : '';
 }
-let glbViewerDateStr = new Date().toISOString().slice(0,10);
-let glbViewerMinutes = 720; // minutes depuis minuit ; 720 = midi
-let glbViewerLumiereAppoint = true; // deuxieme lumiere (cote a l'ombre du soleil) - decochable
-let glbViewerIntensiteSoleil = 1; // multiplicateur du soleil ; 1 = eclairage physique de l'heure
 // Semaine de l'annee (0-52, 7 jours pile depuis le 1er janvier - pas la semaine ISO, on veut juste
 // un pas regulier de 7 jours pour naviguer vite d'une semaine a l'autre, pas la numerotation
 // officielle) : sert au curseur "semaine" a cote de la date, synchronise dans les deux sens avec
@@ -3407,7 +3280,7 @@ function anneeEtSemaineDepuisDate(dateStr){
 // cran. glbViewerSemaineAffichee memorise la derniere valeur du curseur pour calculer ce delta.
 let glbViewerSemaineAffichee = 0;
 function syncSemaineDepuisDate(){
-  const { semaine } = anneeEtSemaineDepuisDate(glbViewerDateStr);
+  const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
   glbViewerSemaineAffichee = semaine;
   document.getElementById('glbViewerSemaine').value = semaine;
 }
@@ -3415,151 +3288,11 @@ function syncSemaineDepuisDate(){
 // et couleur ensemble - pas un simple gradateur : sous l'horizon (nuit), l'intensite tombe a 0 sur
 // les 10 derniers degres avant/apres, independamment du plancher de position (qui, lui, evite juste
 // un rayon exactement rasant, pour des raisons de rendu).
-function appliquerLumiereGlb(){
-  if(!glbViewerScene) return;
-  const { dirLight, dirFill, hemiLight, centre, rayon } = glbViewerScene;
-  const [annee, mois, jour] = glbViewerDateStr.split('-').map(Number);
-  const lieu = lieuActuel();
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, glbViewerMinutes/60, lieu.latitude, lieu.longitude);
-  const elevDeg = elevRad * 180/Math.PI;
-  const facteurJour = Math.max(0, Math.min(1, elevDeg/10));
-  const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
-  const dist = SOLEIL_DIST_FACTOR * rayon;
-  const horiz = Math.cos(elevAffichee) * dist;
-  const dirEst = Math.sin(azRad), dirNord = Math.cos(azRad);
-  dirLight.position.set(
-    centre.x + horiz*dirEst,
-    centre.y + Math.sin(elevAffichee)*dist,
-    centre.z - horiz*dirNord // Nord = -Z dans le repere de la scene
-  );
-  // Contrairement a l'ancienne course d'arc factice (ou le soleil restait "leve" mais rasant aux
-  // deux bouts), ici facteurJour retombe vraiment a 0 la nuit : le soleil direct doit s'eteindre
-  // (0), pas juste faiblir - seules l'ambiante et un leger fond de ciel restent, pour que la scene
-  // reste lisible sans jamais aller au noir complet (meme convention que le reste de l'appli).
-  // Le multiplicateur d'intensite ne s'applique qu'au soleil (pas a l'appoint ni a l'ambiante) et
-  // multiplie facteurJour, qui vaut 0 la nuit : monter l'intensite eclaircit donc le jour sans
-  // jamais rallumer un soleil couche.
-  dirLight.intensity = facteurJour*0.75*glbViewerIntensiteSoleil;
-  dirLight.color.copy(new THREE.Color(0xff8a4c)).lerp(new THREE.Color(0xffffff), facteurJour);
-  dirFill.intensity = 0.03 + facteurJour*0.27;
-  hemiLight.intensity = 0.12 + facteurJour*0.38;
-  // La case "Lumiere d'appoint" coupe les DEUX lumieres autres que le soleil (l'appoint directe
-  // ET l'ambiante) : sinon, meme decochee, l'ambiante restait seule a eclairer la scene en pleine
-  // nuit (soleil a 0), ce qui contredisait la case - decochee, seul le soleil doit rester, jusqu'a
-  // un noir complet quand il est couche.
-  dirFill.visible = glbViewerLumiereAppoint;
-  hemiLight.visible = glbViewerLumiereAppoint;
-  glbViewerScene.renderer.render(glbViewerScene.scene, glbViewerScene.camera);
-}
-function buildGlbViewerScene(camaraAConserver, tailleHost){
-  disposeGlbViewerScene();
-  if(!dernierGlbExporte) return;
-  const host = document.getElementById('glbViewerCanvasHost');
-  // Tant qu'un rechargement est en cours, #glbViewerContent (l'ancetre du host) est cache pour
-  // laisser la place au sablier - un ancetre display:none ecrase clientWidth/clientHeight a 0 pour
-  // TOUS ses descendants, host compris, ce qui retombe silencieusement sur les tailles par defaut
-  // 600x420 meme en plein ecran (le bug : le rendu retrecit d'un coup). `tailleHost`, mesure par
-  // l'appelant AVANT de cacher le contenu, contourne ce piege.
-  const w = (tailleHost && tailleHost.w) || host.clientWidth || 600;
-  const h = (tailleHost && tailleHost.h) || host.clientHeight || 420;
-  const loader = new THREE.GLTFLoader();
-  loader.parse(dernierGlbExporte.buffer, '', (gltf)=>{
-    const scene = new THREE.Scene();
-    scene.background = fondGlbViewer();
-    // GLTFExporter embarque les lumieres directionnelles de la scene source dans le .glb (via
-    // l'extension glTF KHR_lights_punctual ; seule l'hemispherique, non representable, y echappe).
-    // Rechargees telles quelles, elles s'ajoutent a celles de la visionneuse SANS etre pilotees par
-    // le curseur date/heure : a minuit, ce soleil fige continuait d'eclairer la scene. On les
-    // retire donc a l'import - ici l'eclairage doit venir uniquement des lumieres reglables.
-    const lumieresDuFichier = [];
-    gltf.scene.traverse(o=>{ if(o.isLight) lumieresDuFichier.push(o); });
-    lumieresDuFichier.forEach(l=>{ if(l.parent) l.parent.remove(l); });
-    scene.add(gltf.scene);
-
-    const bb = new THREE.Box3().setFromObject(gltf.scene);
-    const centre = new THREE.Vector3(); bb.getCenter(centre);
-    const taille = new THREE.Vector3(); bb.getSize(taille);
-    const rayon = Math.max(0.5, taille.length()/2);
-
-    const camera = new THREE.PerspectiveCamera(45, w/h, Math.max(0.01, rayon/200), rayon*100);
-    if(camaraAConserver){
-      camera.position.copy(camaraAConserver.pos);
-    } else {
-      camera.position.set(centre.x + rayon*1.4, centre.y + rayon*1.1, centre.z + rayon*1.4);
-    }
-
-    const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
-    // On iOS Safari, once the browser's live-WebGL-context cap is reached, this constructor can
-    // succeed but hand back a context that's already lost (getContext() null, or isContextLost()
-    // true) - if that goes unchecked, the very next shader compile crashes with "Argument 1
-    // ('shader') ... must be an instance of WebGLShader" instead of a clear message. Bail out
-    // here with a real error rather than letting THREE crash a few calls further down.
-    const glCtx = renderer.getContext && renderer.getContext();
-    if(!glCtx || (glCtx.isContextLost && glCtx.isContextLost())){
-      showErrBanner('Visionneuse GLB : le navigateur a refuse de creer un contexte 3D (trop d\'onglets/vues 3D ouverts ?). Ferme quelques onglets ou recharge la page, puis reessaie.');
-      return;
-    }
-    renderer.setSize(w,h);
-    renderer.shadowMap.enabled = glbViewerShadows;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    host.appendChild(renderer.domElement);
-
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.copy(camaraAConserver ? camaraAConserver.cible : centre);
-    controls.update();
-
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
-    scene.add(hemiLight);
-    // Position/intensite/couleur initiales sans importance : appliquerLumiereGlb() ci-dessous les
-    // pose selon le curseur "coucher de soleil / plein soleil" juste apres construction.
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    if(glbViewerShadows){
-      dirLight.castShadow = true;
-      dirLight.shadow.mapSize.set(2048, 2048);
-      const d = rayon * 1.3;
-      dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
-      dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
-      dirLight.shadow.camera.near = 0.05; dirLight.shadow.camera.far = rayon*8;
-      dirLight.shadow.bias = -0.0005;
-      dirLight.target.position.copy(centre);
-      scene.add(dirLight.target);
-    }
-    scene.add(dirLight);
-    const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
-    dirFill.position.set(centre.x - rayon*1.6, centre.y + rayon*2.2, centre.z - rayon*1.0);
-    scene.add(dirFill);
-
-    scene.traverse(o=>{
-      if(o.isMesh){
-        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{ if(m) m.wireframe = glbViewerFilaire; });
-        if(glbViewerShadows){ o.castShadow = true; o.receiveShadow = true; }
-      }
-    });
-
-    function animate(){
-      glbViewerScene.raf = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    glbViewerScene = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, centre, rayon };
-    appliquerLumiereGlb();
-    animate();
-
-    const hint = document.getElementById('glbViewerHint');
-    if(hint) hint.textContent = 'Terrasse : ' + (dernierGlbExporte.nomTerrasse||'') + ' — modele genere le ' + dernierGlbExporte.date.toLocaleString();
-    renderVue3DSelect();
-    document.getElementById('glbViewerLoading').style.display = 'none';
-    document.getElementById('glbViewerContent').style.display = 'block';
-  }, (err)=>{
-    document.getElementById('glbViewerLoading').style.display = 'none';
-    showErrBanner('Visionneuse GLB : ' + (err && err.message ? err.message : 'fichier illisible'));
-  });
-}
 function rafraichirVisionneuseGlb(camaraAConserver){
   const empty = document.getElementById('glbViewerEmpty');
   const content = document.getElementById('glbViewerContent');
   const loading = document.getElementById('glbViewerLoading');
-  if(!dernierGlbExporte){
+  if(!glb.dernierExporte){
     empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
     return;
   }
@@ -3574,7 +3307,7 @@ function rafraichirVisionneuseGlb(camaraAConserver){
   empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
   ensureThreeLoaded(()=>{
     ensureGLTFLoaderLoaded(()=>{
-      buildGlbViewerScene(camaraAConserver, tailleHost);
+      buildGlbViewerScene(camaraAConserver, tailleHost, { lieuActuel, render, renderVue3DSelect });
     });
   });
 }
@@ -3582,13 +3315,13 @@ function rafraichirVisionneuseGlb(camaraAConserver){
 // ait besoin de le rouvrir - mais ne construit rien si l'onglet n'est pas affiche (pas de scene
 // qui tourne en arriere-plan sans que personne ne la regarde).
 function rafraichirVisionneuseGlbSiOuverte(){
-  if(glbViewerOuvert) rafraichirVisionneuseGlb();
+  if(glb.ouvert) rafraichirVisionneuseGlb();
 }
 // Panneau independant (pas un troisieme appMode, cf. la note dans setAppMode) : la Visionneuse
 // GLB n'a rien a voir avec les donnees du plan ou de la terrasse, contrairement a "Vue 3D" qui
 // est un raccourci visuel vers Mode Terrasse.
 function ouvrirVisionneuseGlb(){
-  glbViewerOuvert = true;
+  glb.ouvert = true;
   document.getElementById('modePlanBtn').classList.remove('active');
   document.getElementById('modeTerrasseBtn').classList.remove('active');
   document.getElementById('mode3dBtn').classList.remove('active');
@@ -3604,17 +3337,17 @@ function ouvrirVisionneuseGlb(){
   disposeThreeScene(); // une seule scene 3D active a la fois
   syncLieuGlbViewer();
   const dateInp = document.getElementById('glbViewerDate');
-  if(dateInp && !dateInp.value) dateInp.value = glbViewerDateStr;
+  if(dateInp && !dateInp.value) dateInp.value = glb.dateStr;
   syncSemaineDepuisDate();
-  document.getElementById('glbViewerHeure').value = glbViewerMinutes;
-  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glbViewerMinutes);
-  document.getElementById('glbViewerIntensite').value = Math.round(glbViewerIntensiteSoleil*100);
-  document.getElementById('glbViewerIntensiteTexte').textContent = Math.round(glbViewerIntensiteSoleil*100) + ' %';
+  document.getElementById('glbViewerHeure').value = glb.minutes;
+  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
+  document.getElementById('glbViewerIntensite').value = Math.round(glb.intensiteSoleil*100);
+  document.getElementById('glbViewerIntensiteTexte').textContent = Math.round(glb.intensiteSoleil*100) + ' %';
   rafraichirVisionneuseGlb();
 }
 function fermerVisionneuseGlb(){
-  if(!glbViewerOuvert) return;
-  glbViewerOuvert = false;
+  if(!glb.ouvert) return;
+  glb.ouvert = false;
   if(glbViewerPleinePage) setGlbViewerPleinePage(false); // sinon la reouverture repart directement en plein page
   document.getElementById('glbViewerBtn').classList.remove('active');
   document.getElementById('glbViewerPanel').style.display = 'none';
@@ -3953,7 +3686,7 @@ function allerAuPointDeVue(vp){
 // (meme reperage que le bouton Export/l'oeil a 1,6 m) - le GLB affiche etant son export, les deux
 // repères coincident.
 function allerAuPointDeVueGlb(vp){
-  if(!glbViewerScene) return;
+  if(!glb.scene) return;
   const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
             || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr) return;
@@ -3963,7 +3696,7 @@ function allerAuPointDeVueGlb(vp){
   const rad = Math.atan2(ddy/dl, ddx/dl);
   const eyeY = vp.altitude || 1.6;
   const lx = vp.pts[0].x-cen.x, lz = cen.y-vp.pts[0].y;
-  const { camera, controls, renderer, scene } = glbViewerScene;
+  const { camera, controls, renderer, scene } = glb.scene;
   camera.position.set(lx, eyeY, lz);
   controls.target.set(lx+Math.cos(rad)*1.5, eyeY, lz-Math.sin(rad)*1.5);
   controls.update();
@@ -3985,13 +3718,13 @@ function resizeThreeScene(){
   vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
 }
 function resizeGlbViewerScene(){
-  if(!glbViewerScene) return;
+  if(!glb.scene) return;
   const host = document.getElementById('glbViewerCanvasHost');
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
-  glbViewerScene.camera.aspect = w/h;
-  glbViewerScene.camera.updateProjectionMatrix();
-  glbViewerScene.renderer.setSize(w, h);
-  glbViewerScene.renderer.render(glbViewerScene.scene, glbViewerScene.camera);
+  glb.scene.camera.aspect = w/h;
+  glb.scene.camera.updateProjectionMatrix();
+  glb.scene.renderer.setSize(w, h);
+  glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
 }
 let vue3dPleinePage = false;
 function setVue3dPleinePage(actif){
@@ -4032,7 +3765,7 @@ window.addEventListener('keydown', e=>{
 });
 // La fenetre peut changer de taille pendant que la vue est ouverte (plein page ou non) : le
 // canvas suit, au lieu de rester fige a la taille qu'il avait au dernier rendu de la scene.
-window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(glbViewerScene) resizeGlbViewerScene(); });
+window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(glb.scene) resizeGlbViewerScene(); });
 
 let terrasseSubTab = 'construction';
 // The plan (#stage) physically lives in the page once; it's moved between its Mode Plan
@@ -4103,7 +3836,7 @@ function rebuildTerrasseSubTabs(){
     // obj peut etre absent (plan sans terrasse) : buildThreeScene(null) construit alors le
     // terrain, les batiments et le reste du plan, sans la structure de terrasse.
     const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null;
-    document.getElementById('terrasse3dLoading').style.display = threeLoaded ? 'none' : '';
+    document.getElementById('terrasse3dLoading').style.display = chargement.three ? 'none' : '';
     ensureThreeLoaded(()=>{
       document.getElementById('terrasse3dLoading').style.display = 'none';
       document.getElementById('terrasse3dWrap').style.display = 'block';
@@ -4225,15 +3958,15 @@ document.getElementById('glbViewerRegenBtn').addEventListener('click', function(
   genererGlb(this, false);
 });
 document.getElementById('glbViewerZoomIn').addEventListener('click', ()=>{
-  if(!glbViewerScene) return;
-  const { camera, controls, renderer, scene } = glbViewerScene;
+  if(!glb.scene) return;
+  const { camera, controls, renderer, scene } = glb.scene;
   const offset = new THREE.Vector3().subVectors(camera.position, controls.target).multiplyScalar(0.8);
   camera.position.copy(controls.target).add(offset);
   controls.update(); renderer.render(scene, camera);
 });
 document.getElementById('glbViewerZoomOut').addEventListener('click', ()=>{
-  if(!glbViewerScene) return;
-  const { camera, controls, renderer, scene } = glbViewerScene;
+  if(!glb.scene) return;
+  const { camera, controls, renderer, scene } = glb.scene;
   const offset = new THREE.Vector3().subVectors(camera.position, controls.target).multiplyScalar(1.25);
   camera.position.copy(controls.target).add(offset);
   controls.update(); renderer.render(scene, camera);
@@ -4244,65 +3977,65 @@ document.getElementById('glbViewerZoomOut').addEventListener('click', ()=>{
 // donc la meme formule tombe juste ici aussi. Seule l'altitude bouge, ni la position au sol ni
 // la cible du regard.
 document.getElementById('glbViewerEyeLevel').addEventListener('click', ()=>{
-  if(!glbViewerScene) return;
+  if(!glb.scene) return;
   const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
             || etat.objects.find(o=>o.fonction==='terrasse');
   if(!terr) return;
-  const { camera, controls, renderer, scene } = glbViewerScene;
+  const { camera, controls, renderer, scene } = glb.scene;
   camera.position.y = hauteurFinieMm(terr)/1000 + HAUTEUR_YEUX_M;
   controls.update();
   renderer.render(scene, camera);
 });
 document.getElementById('glbViewerFilaire').addEventListener('change', function(){
-  glbViewerFilaire = this.checked;
-  if(glbViewerOuvert) rafraichirVisionneuseGlb(glbViewerScene && { pos: glbViewerScene.camera.position.clone(), cible: glbViewerScene.controls.target.clone() });
+  glb.filaire = this.checked;
+  if(glb.ouvert) rafraichirVisionneuseGlb(glb.scene && { pos: glb.scene.camera.position.clone(), cible: glb.scene.controls.target.clone() });
 });
 document.getElementById('glbViewerShadows').addEventListener('change', function(){
-  glbViewerShadows = this.checked;
-  if(glbViewerOuvert) rafraichirVisionneuseGlb(glbViewerScene && { pos: glbViewerScene.camera.position.clone(), cible: glbViewerScene.controls.target.clone() });
+  glb.ombres = this.checked;
+  if(glb.ouvert) rafraichirVisionneuseGlb(glb.scene && { pos: glb.scene.camera.position.clone(), cible: glb.scene.controls.target.clone() });
 });
 // Simple bascule de visibilite sur la lumiere existante : pas besoin de reconstruire toute la
 // scene (contrairement a filaire/ombre, qui changent la geometrie ou l'etat du renderer).
 document.getElementById('glbViewerLumiereAppoint').addEventListener('change', function(){
-  glbViewerLumiereAppoint = this.checked;
-  appliquerLumiereGlb();
+  glb.lumiereAppoint = this.checked;
+  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
 document.getElementById('glbViewerFond').addEventListener('change', function(){
-  glbViewerFond = this.value;
-  if(glbViewerScene){
+  glb.fond = this.value;
+  if(glb.scene){
     // dispose the outgoing background if it's a texture (the checkerboard case) before swapping
     // it out, otherwise it leaks - see the comment on disposeThreeSceneResources().
-    if(glbViewerScene.scene.background && glbViewerScene.scene.background.isTexture) glbViewerScene.scene.background.dispose();
-    glbViewerScene.scene.background = fondGlbViewer();
+    if(glb.scene.scene.background && glb.scene.scene.background.isTexture) glb.scene.scene.background.dispose();
+    glb.scene.scene.background = fondGlbViewer();
   }
 });
 // "input" (pas "change") pour un rendu qui suit le glisser en direct, pas seulement au relachement.
 document.getElementById('glbViewerDate').addEventListener('change', function(){
   if(!this.value) return;
-  glbViewerDateStr = this.value;
+  glb.dateStr = this.value;
   syncSemaineDepuisDate();
-  appliquerLumiereGlb();
+  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
 document.getElementById('glbViewerSemaine').addEventListener('input', function(){
   const nouvelleValeur = parseInt(this.value,10);
   const deltaSemaines = nouvelleValeur - glbViewerSemaineAffichee;
   glbViewerSemaineAffichee = nouvelleValeur;
   if(deltaSemaines === 0) return;
-  const [annee, mois, jour] = glbViewerDateStr.split('-').map(Number);
-  glbViewerDateStr = new Date(Date.UTC(annee, mois-1, jour) + deltaSemaines*7*86400000).toISOString().slice(0,10);
-  document.getElementById('glbViewerDate').value = glbViewerDateStr;
-  appliquerLumiereGlb();
+  const [annee, mois, jour] = glb.dateStr.split('-').map(Number);
+  glb.dateStr = new Date(Date.UTC(annee, mois-1, jour) + deltaSemaines*7*86400000).toISOString().slice(0,10);
+  document.getElementById('glbViewerDate').value = glb.dateStr;
+  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
 document.getElementById('glbViewerHeure').addEventListener('input', function(){
-  glbViewerMinutes = parseInt(this.value,10);
-  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glbViewerMinutes);
-  appliquerLumiereGlb();
+  glb.minutes = parseInt(this.value,10);
+  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
+  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
 document.getElementById('glbViewerIntensite').addEventListener('input', function(){
   const pct = parseInt(this.value,10);
-  glbViewerIntensiteSoleil = pct/100;
+  glb.intensiteSoleil = pct/100;
   document.getElementById('glbViewerIntensiteTexte').textContent = pct + ' %';
-  appliquerLumiereGlb();
+  appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
 
 // --- Soleil de la Vue 3D : memes commandes, meme mecanique que ci-dessus. Aucune ne reconstruit

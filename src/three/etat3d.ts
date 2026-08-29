@@ -10,13 +10,58 @@
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
 /** Le bundle Three.js de la vue courante, ou `null` quand la Vue 3D est fermee. */
-export interface SceneTrois {
-  renderer: unknown;
-  scene: unknown;
-  camera: { position: { clone(): unknown } };
-  controls: { target: { clone(): unknown } };
-  [autre: string]: unknown;
-}
+// Three.js n'est pas type ici (voir three/global.d.ts) : cette interface dit seulement « un objet
+// de la bibliotheque », sans pretendre en decrire la forme. La decrire vraiment demanderait
+// @types/three, une dependance de type sans dependance de code.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SceneTrois = Record<string, any>;
+
+/**
+ * La visionneuse GLB est une **seconde** scene Three, independante de la Vue 3D : elle affiche un
+ * fichier .glb deja produit, pas le plan. Les deux ne sont jamais ouvertes en meme temps, mais
+ * elles ont chacune leur scene, leur camera et leurs preferences - les melanger reviendrait a
+ * detruire la vue de l'une en fermant l'autre.
+ */
+export const glb: {
+  scene: SceneTrois | null;
+  ouvert: boolean;
+  filaire: boolean;
+  ombres: boolean;
+  /** Fond de la visionneuse : « clair » ou « sombre ». */
+  fond: string;
+  /** Le dernier modele exporte, garde pour pouvoir le reafficher sans le recalculer. */
+  dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: unknown } | null;
+
+  /** Date et heure de la course du soleil dans la visionneuse, independantes de celles du plan. */
+  dateStr: string;
+  /** Minutes depuis minuit ; 720 = midi. */
+  minutes: number;
+  /** Seconde lumiere, du cote a l'ombre du soleil : decochable. */
+  lumiereAppoint: boolean;
+  /** Multiplicateur du soleil ; 1 = l'eclairage physique de l'heure. */
+  intensiteSoleil: number;
+} = {
+  scene: null,
+  ouvert: false,
+  filaire: false,
+  ombres: false,
+  fond: 'clair',
+  dernierExporte: null,
+  dateStr: new Date().toISOString().slice(0, 10),
+  minutes: 720,
+  lumiereAppoint: true,
+  intensiteSoleil: 1
+};
+
+/**
+ * Three.js et son exporteur glTF arrivent d'un CDN, a la demande. Ces deux drapeaux evitent de les
+ * recharger : la bibliotheque se pose sur `window`, un second chargement ne casserait rien mais
+ * couterait plusieurs mega-octets.
+ */
+export const chargement = {
+  three: false,
+  exporteurGltf: false
+};
 
 export const vue3d: {
   scene: SceneTrois | null;
