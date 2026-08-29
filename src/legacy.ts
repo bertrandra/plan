@@ -49,6 +49,9 @@ import { brancherBoutonsDeVue } from './app/ecouteurs/modes.js';
 import { brancherVisionneuse } from './app/ecouteurs/visionneuse.js';
 import { brancherCommandesSoleil } from './app/ecouteurs/soleil.js';
 import { brancherExports } from './app/ecouteurs/exports.js';
+import { brancherFichiers } from './app/ecouteurs/fichiers.js';
+import { brancherCloture } from './app/ecouteurs/cloture.js';
+import { brancherDivers, brancherFiletsDErreur } from './app/ecouteurs/divers.js';
 import { telechargerBinaire } from './shell/download.js';
 import {
   parPriorite, amenerDevant, amenerPoigneesDevant as remonterPoignees,
@@ -172,8 +175,7 @@ import {
   pdfEscape, horodatagePdfInfo, assemblerPDF, pdfTexte, pdfPolygone, pdfCercle,
   pdfFlecheNord, pdfEchelleGraphique, echelleQuiTient, hexToRgb01
 } from './export/pdf/writer.js';
-window.addEventListener('error', function(e){ showErrBanner((e.message||'inconnue') + '  (ligne ' + e.lineno + ', col ' + e.colno + ')'); });
-window.addEventListener('unhandledrejection', function(e){ showErrBanner('Promise rejetee: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+brancherFiletsDErreur();
 
 
 
@@ -390,11 +392,6 @@ const parasolMatGroup = document.createElementNS(svgNS,'g');
 parasolMatGroup.setAttribute('pointer-events','none');
 svg.appendChild(parasolMatGroup);
 
-// "Fit to selection" button: zoom & center on the currently selected object
-document.getElementById('fitBtn').addEventListener('click', ()=>{
-  const obj = etat.objects.find(o=>o.key===(etat.appMode==='terrasse' ? etat.terrasseSelectedKey : etat.selectedKey));
-  fitToObject(obj || null);
-});
 
 
 
@@ -568,22 +565,19 @@ brancherPointeur(svg, stage, etat, {
 
 
 // ================= Responsive resize =================
-let resizeTimer = null;
-window.addEventListener('resize', ()=>{
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(()=>{
-    const oldW = etat.scene.W, oldH = etat.scene.H;
-    const centerWorldBefore = toWorld({x:oldW/2, y:oldH/2});
-    computeSize();
-    stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
-    svg.setAttribute('width', etat.scene.W); svg.setAttribute('height', etat.scene.H);
-    etat.scene.origine = {
-      x: etat.scene.W/2 - centerWorldBefore.x*etat.scene.scale,
-      y: etat.scene.H/2 + centerWorldBefore.y*etat.scene.scale
-    };
-    render();
-  }, 150);
-});
+// Le centre du monde est releve AVANT le changement de taille et remis au centre apres : sans cela,
+// agrandir la fenetre ferait deriver le plan hors de l'ecran au lieu de l'elargir.
+function redimensionnerLePlan(){
+  const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
+  computeSize();
+  stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+  svg.setAttribute('width', etat.scene.W); svg.setAttribute('height', etat.scene.H);
+  etat.scene.origine = {
+    x: etat.scene.W/2 - centreAvant.x*etat.scene.scale,
+    y: etat.scene.H/2 + centreAvant.y*etat.scene.scale
+  };
+  render();
+}
 
 // ================= Reset / Export =================
 // L'atelier : la fermeture de boot() devient un objet nomme, que les groupes d'ecouteurs recoivent
@@ -604,6 +598,22 @@ function ctxOrtho(){
   return { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup };
 }
 brancherAffichage(atelier, { enregistrerAffichage, syncBasculeGrille, ctxOrtho, buildThreeScene });
+// Branche AVANT les commandes 3D : le redimensionnement du plan etait enregistre en premier, et
+// deux ecouteurs de `resize` s'executent dans leur ordre d'enregistrement.
+brancherDivers(atelier, {
+  renderMeasureResults, rebuildMeasurePanel, redimensionnerLePlan,
+  renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
+  interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
+  basculerOptimisation,
+  renderOptimResult: (obj)=>renderOptimResult(obj, ctxPanneauxTerrasse())
+});
+brancherFichiers({
+  exportProjetJSON, validerProjetJSON, appliquerProjetImporte,
+  importerSVG: (contenu)=>importerSVG(contenu, etat, {
+    pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
+    render, renderMeasureResults, markDirty, fitToObject, filtrerSansParcelle, trouverParcelleCloture
+  })
+});
 
 // ================= Add / delete whole object =================
 // newObjCounter : dans `etat` (spec 6.1). La naissance et la mort d'un objet vivent dans
@@ -745,48 +755,7 @@ function drawMeasures(){
   });
 }
 
-document.getElementById('recalcMeasureBtn').addEventListener('click', ()=>{
-  renderMeasureResults();
-  render();
-});
 
-document.getElementById('clearMeasureBtn').addEventListener('click', ()=>{
-  const doClear = ()=>{
-    etat.measures = []; mesure.cibles = []; mesure.ref = null; mesure.pointage = null;
-    renderMeasureResults(); rebuildMeasurePanel(); render();
-  };
-  if(etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', doClear);
-  else doClear();
-});
-
-// ================= SVG import =================
-document.getElementById('importSvgBtn').addEventListener('click', ()=>{
-  document.getElementById('importSvgFile').click();
-});
-document.getElementById('importSvgFile').addEventListener('change', e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    try {
-      importerSVG(ev.target.result, etat, {
-          pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
-          render, renderMeasureResults, markDirty, fitToObject, filtrerSansParcelle, trouverParcelleCloture
-        });
-    } catch(err){
-      showErrBanner('Erreur import SVG: ' + err.message);
-    }
-    e.target.value = '';
-  };
-  reader.onerror = ()=>{
-    // Without this, a failed read (permissions, unreadable file, ...) never fires onload, so
-    // the input keeps the old file selected and re-choosing the SAME file afterwards would not
-    // fire another 'change' event.
-    showErrBanner('Erreur de lecture du fichier SVG.');
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-});
 
 
 
@@ -809,50 +778,6 @@ const IMPORT_JSON_TAILLE_MAX = 5 * 1024 * 1024;
 
 
 
-document.getElementById('exportJsonBtn').addEventListener('click', ()=>{
-  try { exportProjetJSON(); }
-  catch(e){ showErrBanner('Echec de l\'export JSON : ' + (e.message || e)); }
-});
-document.getElementById('importJsonBtn').addEventListener('click', ()=>{
-  document.getElementById('importJsonFile').click();
-});
-document.getElementById('importJsonFile').addEventListener('change', e=>{
-  const file = e.target.files[0];
-  if(!file){ return; }
-  if(file.size > IMPORT_JSON_TAILLE_MAX){
-    showToast('Fichier trop volumineux (' + Math.round(file.size/1048576) + ' Mo, maximum 5 Mo).');
-    e.target.value = '';
-    return;
-  }
-  const remplacer = document.getElementById('chkJsonRemplace').checked;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    let valide;
-    try {
-      valide = validerProjetJSON(JSON.parse(ev.target.result));
-    } catch(err){
-      // Le plan courant reste intact : rien n'a ete touche avant la validation.
-      // Un fichier trop recent n'est pas illisible : il est refuse volontairement. Le dire
-      // autrement enverrait l'utilisateur chercher une corruption qui n'existe pas.
-      showToast((err.motif === 'schema' ? 'Import refuse : ' : 'Import annule - fichier illisible : ') + (err.message || err));
-      e.target.value = '';
-      return;
-    }
-    try {
-      appliquerProjetImporte(valide, remplacer);
-    } catch(err){
-      showErrBanner('Echec de l\'import JSON : ' + (err.message || err));
-    }
-    e.target.value = '';
-  };
-  reader.onerror = ()=>{
-    // Sans ce handler, un echec de lecture ne declenche jamais onload : l'input garde le
-    // fichier choisi et rechoisir LE MEME fichier ensuite n'emettrait plus d'evenement change.
-    showToast('Erreur de lecture du fichier JSON.');
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-});
 
 
 
@@ -917,10 +842,6 @@ function enregistrerAffichage(){
 
 
 // ================= Onglet PLU (Geoportail de l'urbanisme) =================
-// L'interrogation vit dans ui/projectBar.ts, a cote du panneau qu'elle remplit.
-document.getElementById('pluInterrogerBtn').addEventListener('click', function(){
-  interrogerPluDepuisBouton(this, ctxProjet());
-});
 
 
 
@@ -1042,16 +963,6 @@ function renderVue3DSelect(){
     sel.disabled = vues.length===0;
   });
 }
-document.getElementById('terrasse3dViewSelect').addEventListener('change', function(){
-  const vp = etat.objects.find(o=>o.key===this.value);
-  this.value = '';
-  if(vp) allerAuPointDeVue(vp);
-});
-document.getElementById('glbViewerViewSelect').addEventListener('change', function(){
-  const vp = etat.objects.find(o=>o.key===this.value);
-  this.value = '';
-  if(vp) allerAuPointDeVueGlb(vp);
-});
 
 // La cloture est rattachee a la parcelle (objet key==='parcelle', ou a defaut le premier objet
 // fonction==='terrain') plutot qu'a un etat global : elle se sauvegarde avec le projet comme les
@@ -1063,47 +974,6 @@ function rafraichirApresCloture(){
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
   if(vue3d.scene) buildThreeScene(obj || null);
 }
-document.getElementById('terrasse3dCloture').addEventListener('change', function(){
-  const p = trouverParcelleCloture();
-  if(!p) return;
-  p.clotureActive = this.checked;
-  markDirty();
-  syncClotureControls(p);
-  rafraichirApresCloture();
-});
-document.getElementById('terrasse3dClotureHauteur').addEventListener('change', function(){
-  const p = trouverParcelleCloture();
-  if(!p) return;
-  p.clotureHauteur = Math.max(0.1, parseFloat(this.value)) || 1.8;
-  this.value = p.clotureHauteur;
-  markDirty();
-  rafraichirApresCloture();
-});
-document.getElementById('terrasse3dClotureCouleur').addEventListener('input', function(){
-  const p = trouverParcelleCloture();
-  if(!p) return;
-  p.clotureCouleur = this.value;
-  markDirty();
-  rafraichirApresCloture();
-});
-document.getElementById('terrasse3dClotureTexBtn').addEventListener('click', ()=>{
-  const p = trouverParcelleCloture();
-  if(!p) return;
-  ouvrirSelecteurTexture('Clôture', (choix)=>{
-    p.clotureTexture = choix;
-    markDirty();
-    syncClotureControls(p);
-    rafraichirApresCloture();
-  });
-});
-document.getElementById('terrasse3dClotureTexClear').addEventListener('click', ()=>{
-  const p = trouverParcelleCloture();
-  if(!p) return;
-  p.clotureTexture = null;
-  markDirty();
-  syncClotureControls(p);
-  rafraichirApresCloture();
-});
 // Explicit zoom buttons: move the camera along its current line of sight to the orbit
 // target, rather than relying only on OrbitControls' own wheel handling.
 // Le pilotage des deux vues 3D (zoom, mode du glisser, points de vue, plein page) vit dans
@@ -1154,14 +1024,10 @@ function updateStagePlacement(){ modes.updateStagePlacement(); }
 
 
 
-// The optimiser panel stays open once asked for, and re-ranks itself after every change, so
-// the user can watch a config they are editing move up or down the list.
-document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  if(!obj) return;
-  document.getElementById('terrasseOptimBtn').textContent =
-    basculerOptimisation() ? 'Masquer l\'optimisation' : 'Optimisation des parametres';
-  renderOptimResult(obj, ctxPanneauxTerrasse());
+brancherCloture({
+  trouverParcelle: trouverParcelleCloture, syncControles: syncClotureControls,
+  rafraichirApresCloture, markDirty, objByKey,
+  allerAuPointDeVue, allerAuPointDeVueGlb
 });
 brancherBoutonsDeVue({
   allerAuPlan: ()=>modes.allerAuPlan(),
