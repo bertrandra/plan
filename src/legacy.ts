@@ -33,6 +33,8 @@ import { CADENCES, CHANTIER_PHASES, cadenceDe, computeChantier } from './engine/
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAME_RIVE_EPAISSEUR_M, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VISSERIE_PRICE, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, estPlots, plotModele } from './engine/constantes.js';
 import { defaultConstruction, ensureConstruction } from './engine/construction.js';
 import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from './engine/hauteurs.js';
+import { anneeEtSemaineDepuisDate, dateDecaleeDeSemaines } from './util/semaine.js';
+import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
@@ -1857,9 +1859,8 @@ function syncControlesSoleilVue3d(){
   if(it) it.textContent = Math.round(vue3dIntensiteSoleil*100) + ' %';
   const cb = document.getElementById('vue3dLumiereAppoint');
   if(cb) cb.checked = vue3dLumiereAppoint;
-  const lieu = lieuActuel();
   const el = document.getElementById('vue3dLieu');
-  if(el) el.textContent = '📍 ' + lieu.nom + ' — ' + lieu.latitude.toFixed(4).replace('.',',') + '° N, ' + lieu.longitude.toFixed(4).replace('.',',') + '° E';
+  if(el) el.textContent = libelleLieu();
 }
 // Hauteur, azimut, intensite et couleur du soleil sont deduits ensemble de la date/heure/lieu :
 // ce n'est pas un gradateur. Sous l'horizon, le soleil direct s'eteint vraiment (0) au lieu de
@@ -1956,21 +1957,8 @@ function ensureGLTFLoaderLoaded(cb){
 // Lieu fixe (Le Vesinet, Yvelines) utilise pour la position du soleil - rattache a la parcelle
 // comme la cloture (memes champs lazy-assignes au premier acces) pour se sauvegarder avec le
 // projet sans faire transiter une nouvelle cle par api.php.
-function lieuActuel(){
-  const p = trouverParcelleCloture();
-  if(!p) return LIEU_DEFAUT;
-  if(p.latitude === undefined || p.latitude === null) p.latitude = LIEU_DEFAUT.latitude;
-  if(p.longitude === undefined || p.longitude === null) p.longitude = LIEU_DEFAUT.longitude;
-  if(!p.nomLieu) p.nomLieu = LIEU_DEFAUT.nom;
-  return { nom: p.nomLieu, latitude: p.latitude, longitude: p.longitude };
-}
-// Libelle du lieu, partage par l'entete du plan, la Vue 3D et la Visionneuse GLB : une seule
-// formulation, donc pas de risque d'en voir deux differentes sur la meme page.
-function libelleLieu(){
-  const lieu = lieuActuel();
-  return '📍 ' + lieu.nom + ' — ' + lieu.latitude.toFixed(4).replace('.',',') + '° N, ' +
-         lieu.longitude.toFixed(4).replace('.',',') + '° E';
-}
+function lieuActuel(){ return lieuDeParcelle(trouverParcelleCloture()); }
+function libelleLieu(){ return libelleLieuTexte(lieuActuel()); }
 function syncLieuGlbViewer(){
   const el = document.getElementById('glbViewerLieu');
   if(el) el.textContent = libelleLieu();
@@ -1984,20 +1972,9 @@ function syncLieuTitre(){
   el.textContent = p ? libelleLieu() : '';
   el.title = p ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : '';
 }
-// Semaine de l'annee (0-52, 7 jours pile depuis le 1er janvier - pas la semaine ISO, on veut juste
-// un pas regulier de 7 jours pour naviguer vite d'une semaine a l'autre, pas la numerotation
-// officielle) : sert au curseur "semaine" a cote de la date, synchronise dans les deux sens avec
-// elle (deplacer l'un met a jour l'autre).
-function anneeEtSemaineDepuisDate(dateStr){
-  const [annee, mois, jour] = dateStr.split('-').map(Number);
-  const jours = Math.floor((Date.UTC(annee,mois-1,jour) - Date.UTC(annee,0,1)) / 86400000);
-  return { annee, semaine: Math.min(52, Math.floor(jours/7)) };
-}
-// Le curseur affiche une position (semaine de l'annee, juste pour se reperer visuellement), mais
-// chaque deplacement decale la date COURANTE de 7 jours par semaine de difference plutot que de
-// recalculer une position absolue depuis le 1er janvier - sinon une date qui ne tombe pas pile sur
-// un multiple de 7 jours (le cas general) sauterait d'un nombre de jours irregulier au premier
-// cran. glbViewerSemaineAffichee memorise la derniere valeur du curseur pour calculer ce delta.
+// La convention du curseur "semaine" (pas de 7 jours depuis le 1er janvier, decalage relatif) vit
+// dans util/semaine.ts, partagee par la Vue 3D et la visionneuse GLB.
+// glbViewerSemaineAffichee memorise la derniere valeur du curseur pour calculer le delta.
 let glbViewerSemaineAffichee = 0;
 function syncSemaineDepuisDate(){
   const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
@@ -2741,8 +2718,7 @@ document.getElementById('glbViewerSemaine').addEventListener('input', function()
   const deltaSemaines = nouvelleValeur - glbViewerSemaineAffichee;
   glbViewerSemaineAffichee = nouvelleValeur;
   if(deltaSemaines === 0) return;
-  const [annee, mois, jour] = glb.dateStr.split('-').map(Number);
-  glb.dateStr = new Date(Date.UTC(annee, mois-1, jour) + deltaSemaines*7*86400000).toISOString().slice(0,10);
+  glb.dateStr = dateDecaleeDeSemaines(glb.dateStr, deltaSemaines);
   document.getElementById('glbViewerDate').value = glb.dateStr;
   appliquerLumiereGlb({ lieuActuel, render, renderVue3DSelect });
 });
@@ -2772,11 +2748,7 @@ document.getElementById('vue3dSemaine').addEventListener('input', function(){
   const deltaSemaines = nouvelleValeur - vue3dSemaineAffichee;
   vue3dSemaineAffichee = nouvelleValeur;
   if(deltaSemaines === 0) return;
-  // Decalage RELATIF de 7 jours par cran, pas une position absolue depuis le 1er janvier : une
-  // date qui ne tombe pas pile sur un multiple de 7 jours sauterait sinon d'un nombre de jours
-  // irregulier au premier cran.
-  const [annee, mois, jour] = vue3dDateStr.split('-').map(Number);
-  vue3dDateStr = new Date(Date.UTC(annee, mois-1, jour) + deltaSemaines*7*86400000).toISOString().slice(0,10);
+  vue3dDateStr = dateDecaleeDeSemaines(vue3dDateStr, deltaSemaines);
   document.getElementById('vue3dDate').value = vue3dDateStr;
   appliquerLumiereVue3d();
 });
