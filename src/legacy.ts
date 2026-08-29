@@ -94,6 +94,11 @@ import {
 } from './three/soleilVue3d.js';
 import { chargerTexturePolyhaven, ensureGLTFLoaderLoaded } from './three/chargeurs.js';
 import {
+  renderTerrasseLayerTabs as construireOngletsCouches,
+  renderTerrasseLayerView as dessinerCouches
+} from './render/terrasseCouches.js';
+import { trouverParcelleCloture as chercherParcelleCloture, syncClotureControls } from './ui/cloture.js';
+import {
   attendreTexturesPretes, ensureThreeLoaded, ensureGLTFExporterLoaded,
   disposeThreeSceneResources, disposeThreeScene, disposeGlbViewerScene,
   fondGlbViewer, appliquerLumiereGlb, buildGlbViewerScene
@@ -1506,90 +1511,13 @@ function rebuildTerrasseSelector(){
 // A constant nobody can see is a constant nobody can check - and these drive every quantity in
 // the BOM, so they belong in front of the user rather than buried in the source.
 
-// Independent per-layer visibility (not exclusive tabs): each layer has its own show/hide,
-// so any combination can be viewed together instead of one at a time.
-let terrasseLayerVisible = { vis:true, cadre:true, solives:true, lambourdes:true, lames:true, lameRive:true, lamePlat:true };
-const TERRASSE_LAYER_DEFS = [
-  ['vis','Vis', '#235e6e'],
-  ['cadre','Cadre (solive de rive)', '#4a2f18'],
-  ['solives','Solives', '#6b4a2a'],
-  ['lambourdes','Lambourdes', '#b45a2a'],
-  ['lames','Lames', '#c9a15a'],
-  ['lameRive','Lame de rive (verticale)', '#5c3a1e'],
-  ['lamePlat','Planche plate (horizontale)', '#d8b06a']
-];
-function renderTerrasseLayerTabs(obj){
-  const div = document.getElementById('terrasseLayerTabs');
-  div.innerHTML = '';
-  const cMode = ensureConstruction(obj);
-  TERRASSE_LAYER_DEFS.forEach(([key,label,color])=>{
-    if(key==='vis') label = estPlots(cMode) ? 'Plots' : 'Vis';
-    if(key==='solives' && estPlots(cMode) && !cMode.plotAvecSolives) return; // pas de solives
-    const wrap = document.createElement('label');
-    wrap.style.cssText = 'display:inline-flex; align-items:center; gap:5px; margin-right:16px; font-size:0.85rem; cursor:pointer;';
-    const swatch = document.createElement('span');
-    swatch.style.cssText = 'display:inline-block; width:10px; height:10px; border-radius:2px; background:'+color+';';
-    const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = terrasseLayerVisible[key];
-    cb.addEventListener('change', ()=>{ terrasseLayerVisible[key]=cb.checked; renderTerrasseLayerView(obj); });
-    wrap.appendChild(cb); wrap.appendChild(swatch); wrap.appendChild(document.createTextNode(label));
-    div.appendChild(wrap);
-  });
-  const cc = ensureConstruction(obj);
-  document.getElementById('terrasseLayerHint').textContent =
-    (estPlots(cc)
-      ? "Vis : implantation des plots (resserree sous tout objet de fonction equipement). Solives : structure primaire, absente en pose simple sur plots. "
-      : "Vis : grille de fondation (resserree sous tout objet de fonction equipement). Solives : structure primaire. ")
-    + "Lambourdes : structure secondaire, seulement si activee dans Construction. Lames : sens de pose des lames. "
-    + "Lame de rive (verticale) : planche sur chant suspendue sous les lames, cache la structure. "
-    + "Planche plate (horizontale) : cadre pose a plat au niveau des lames. Les deux font le tour "
-    + "et ne sont dessinees que si activees dans Construction.";
-}
-
+// Le calque des couches vit dans render/terrasseCouches.ts ; ces enveloppes lui fournissent son
+// groupe SVG, l'etat et la transformation d'ecran.
 const terrasseLayerGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(terrasseLayerGroup);
 
-function renderTerrasseLayerView(obj){
-  terrasseLayerGroup.innerHTML = '';
-  if(etat.appMode!=='terrasse' || !obj) return;
-  const layers = computeTerrasseLayers(obj, etat.objects);
-  // Thinner/dashed strokes once more than one layer is shown together, so they stay
-  // readable stacked on top of each other instead of turning into a solid mess.
-  const multi = Object.values(terrasseLayerVisible).filter(Boolean).length > 1;
-
-  function drawLines(segs, color, width, dash){
-    segs.forEach(seg=>{
-      const a=toScreen(seg.a), b=toScreen(seg.b);
-      const l=document.createElementNS(svgNS,'line');
-      l.setAttribute('x1',a.x); l.setAttribute('y1',a.y); l.setAttribute('x2',b.x); l.setAttribute('y2',b.y);
-      l.setAttribute('stroke',color); l.setAttribute('stroke-width',width);
-      if(dash) l.setAttribute('stroke-dasharray',dash);
-      l.setAttribute('stroke-linecap','round');
-      terrasseLayerGroup.appendChild(l);
-    });
-  }
-  // Screws are colour-coded by the job they do, so the perimeter ring and the spa
-  // densification read apart from the field at a glance.
-  const VIS_ROLE_COLOR = { rive:'#0f3d49', spa:'#a8452a', courant:'#235e6e' };
-  function drawPoints(pts, color){
-    pts.forEach(p=>{
-      const s=toScreen(p);
-      const ci=document.createElementNS(svgNS,'circle');
-      const isRive = p.role==='rive';
-      ci.setAttribute('cx',s.x); ci.setAttribute('cy',s.y); ci.setAttribute('r', isRive?6:5);
-      ci.setAttribute('fill', VIS_ROLE_COLOR[p.role] || color);
-      ci.setAttribute('stroke','#fff'); ci.setAttribute('stroke-width','1.2');
-      terrasseLayerGroup.appendChild(ci);
-    });
-  }
-
-  if(terrasseLayerVisible.lames) drawLines(layers.lames, '#c9a15a', multi?0.7:1.5, multi?'2 2':null);
-  if(terrasseLayerVisible.lambourdes) drawLines(layers.lambourdes, '#b45a2a', multi?1.5:3);
-  if(terrasseLayerVisible.solives) drawLines(layers.solives, '#6b4a2a', multi?2:4);
-  if(terrasseLayerVisible.cadre) drawLines(layers.cadre, '#4a2f18', multi?3:5);
-  if(terrasseLayerVisible.lameRive) drawLines(layers.lameRive, '#5c3a1e', multi?2:4);
-  if(terrasseLayerVisible.lamePlat) drawLines(layers.lamePlat, '#d8b06a', multi?2:4);
-  if(terrasseLayerVisible.vis) drawPoints(layers.vis, '#235e6e');
-}
+function renderTerrasseLayerTabs(obj){ construireOngletsCouches(obj, ()=>renderTerrasseLayerView(obj)); }
+function renderTerrasseLayerView(obj){ dessinerCouches(terrasseLayerGroup, obj, etat, toScreen); }
 
 
 // ================= Coupe verticale (empilement des couches, a l'echelle) =================
@@ -1757,32 +1685,8 @@ document.getElementById('glbViewerViewSelect').addEventListener('change', functi
 // La cloture est rattachee a la parcelle (objet key==='parcelle', ou a defaut le premier objet
 // fonction==='terrain') plutot qu'a un etat global : elle se sauvegarde avec le projet comme les
 // champs Texture d'un objet, et non comme une simple preference d'affichage de la Vue 3D.
-// Deux passes plutot qu'un seul find() a deux criteres : depuis l'import cadastre, les parcelles
-// VOISINES sont elles aussi fonction==='terrain'. Un find() unique retournerait la premiere du
-// tableau, donc potentiellement une voisine - et la cloture comme la position du soleil se
-// retrouveraient rattachees au terrain d'a cote.
-function trouverParcelleCloture(){
-  return etat.objects.find(o=>o.key==='parcelle') || etat.objects.find(o=>o.fonction==='terrain');
-}
-function syncClotureControls(parcelleObj){
-  const cb = document.getElementById('terrasse3dCloture');
-  if(!cb) return;
-  const hInp = document.getElementById('terrasse3dClotureHauteur');
-  const cInp = document.getElementById('terrasse3dClotureCouleur');
-  const vignette = document.getElementById('terrasse3dClotureTexVignette');
-  const nomSpan = document.getElementById('terrasse3dClotureTexNom');
-  const texBtn = document.getElementById('terrasse3dClotureTexBtn');
-  const clearBtn = document.getElementById('terrasse3dClotureTexClear');
-  cb.checked = !!parcelleObj.clotureActive;
-  hInp.value = (parcelleObj.clotureHauteur !== undefined && parcelleObj.clotureHauteur !== null) ? parcelleObj.clotureHauteur : 1.8;
-  cInp.value = parcelleObj.clotureCouleur || '#6b4a2a';
-  const tex = parcelleObj.clotureTexture;
-  vignette.src = tex ? tex.vignette : '';
-  vignette.style.visibility = tex ? 'visible' : 'hidden';
-  nomSpan.textContent = tex ? tex.nom : 'Aucune (couleur unie)';
-  clearBtn.style.display = tex ? '' : 'none';
-  [hInp, cInp, texBtn].forEach(el=>{ el.disabled = !cb.checked; });
-}
+// La cloture et sa parcelle porteuse vivent dans ui/cloture.ts.
+function trouverParcelleCloture(){ return chercherParcelleCloture(etat.objects); }
 function rafraichirApresCloture(){
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
   // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
