@@ -8,6 +8,7 @@
 // n'existe que dans l'outil, et « Annuler » la fait disparaitre sans laisser de trace.
 
 import { mesure } from '../interaction/outilMesure.js';
+import { idMesure } from '../model/cles.js';
 export function startPick(mode, multi, purpose, etat, ctx){
   mesure.pointage = {mode, multi, purpose: purpose||'measure'};
   rebuildMeasurePanel(etat, ctx);
@@ -75,7 +76,7 @@ export function rebuildMeasurePanel(etat, ctx){
   addBtn.addEventListener('click', ()=>{
     mesure.cibles.forEach(t=>{
       etat.measures.push({
-        id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+        id: idMesure(),
         refObjKey:mesure.ref.objKey, refSegIndex:mesure.ref.segIndex,
         startEnd: mesure.startEnd,
         targetObjKey:t.objKey, targetPtIndex:t.ptIndex,

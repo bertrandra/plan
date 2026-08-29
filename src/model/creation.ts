@@ -16,6 +16,7 @@
 // panneaux et la Vue 3D lisent pour les traiter a part.
 
 import { centroid } from '../geometry/basic.js';
+import { cleObjet } from './cles.js';
 
 /** L'onglet du panneau d'attributs a ouvrir apres la creation. */
 export type OngletAttribut = 'objet' | 'segments';
@@ -107,20 +108,33 @@ export function nouveauParasol(c, key: string, numero: number, terrasse): ObjetN
   };
 }
 
+/** La longueur du segment qui porte la direction d'un point de vue, en metres. */
+const VISEE_M = 2;
+
 /**
  * Point de vue : un chemin de deux points — la position et ce qu'elle vise. Sa `fonction` fait que
  * le panneau y ajoute altitude et direction, et que la Vue 3D sait lesquels lister.
+ *
+ * Deux chemins y menent : le bouton « + Point de vue » du plan, qui pose une visee vers l'est par
+ * defaut a hauteur d'yeux, et « Enregistrer la vue » depuis la 3D, qui reprend la direction et
+ * l'altitude reelles de la camera. Ils ne different **que** par ces deux valeurs, d'ou les
+ * parametres : la forme, elle, ne doit exister qu'une fois — les deux versions etaient tenues en
+ * phase a la main, et le commentaire de l'une demandait deja de penser a l'autre.
  */
-export function nouveauPointDeVue(c, key: string, numero: number): ObjetNeuf {
+export function nouveauPointDeVue(
+  c, key: string, numero: number,
+  direction: { x: number; y: number } = { x: 1, y: 0 },
+  altitude = 1.6
+): ObjetNeuf {
   return {
     obj: {
       key, type: 'path', name: 'Point de vue ' + numero, fill: '#c0392b', fillOpacity: 0.9, stroke: '#6b1f16',
-      pts: [{ x: c.x, y: c.y }, { x: c.x + 2, y: c.y }],
+      pts: [{ x: c.x, y: c.y }, { x: c.x + direction.x * VISEE_M, y: c.y + direction.y * VISEE_M }],
       vertexNames: ['Position', 'Direction'], segmentNames: ['Vise'],
       frozenVertices: [false, false], width: 0.08, curve: false,
       showName: true, showSegNames: false, showVertNames: false, showDims: false, showAngles: false,
       constrained: false, fonction: 'camera', matiere: '', priority: 3, locked: false,
-      altitude: 1.6
+      altitude
     },
     onglet: 'objet'
   };
@@ -146,14 +160,7 @@ export interface ContexteCreation {
   normalizeObjects: (bruts) => ObjetSerialise[];
   showToast: (message: string) => void;
   showConfirm: (message: string, oui: () => void) => void;
-  /**
-   * L'horloge qui date les cles d'objets. `Date.now` par defaut.
-   *
-   * Elle est injectable parce qu'elle etait la derniere source de non-determinisme du programme :
-   * une cle porte l'instant de sa creation, donc deux executions du meme scenario ne produisaient
-   * jamais le meme fichier. Les golden files n'en souffraient pas — la capture ne cree aucun
-   * objet — mais aucun scenario qui en cree ne pouvait etre compare a lui-meme.
-   */
+  /** L'horloge qui date les cles d'objets (voir `model/cles.ts`). `Date.now` par defaut. */
   horloge?: () => number;
 }
 
@@ -164,17 +171,8 @@ export function creerCreation(etat, ctx: ContexteCreation) {
     return pc ? centroid(pc.pts) : { x: 0, y: 0 };
   }
 
-  const horloge = ctx.horloge || (() => Date.now());
-
-  /**
-   * Une cle neuve : le prefixe du type, l'instant, et un compteur.
-   *
-   * Les trois sont necessaires. L'instant seul se repete quand deux objets naissent dans la meme
-   * milliseconde — un double-clic suffit ; le compteur seul repartirait de zero au rechargement et
-   * entrerait en collision avec les cles deja enregistrees.
-   */
   function cle(prefixe: string) {
-    return prefixe + horloge() + '_' + (etat.newObjCounter++);
+    return cleObjet(prefixe, etat, { horloge: ctx.horloge });
   }
 
   /** Les sept gestes de l'insertion, dans l'ordre — aucun n'est facultatif. */

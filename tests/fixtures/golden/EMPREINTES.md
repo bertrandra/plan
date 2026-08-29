@@ -49,15 +49,21 @@ s{D:\d{14}}{D:AAAAMMJJHHMMSS}g                             /CreationDate du PDF
 s{"(exportedAt|writtenAt)":\s*"[^"]*"}{"$1":"HORODATAGE"}g  horodatages du projet JSON
 ```
 
-L'autre source de non-déterminisme repérée par la spec §10.1 — `Date.now()` dans les clés générées
-(`obj…_1`, `path…_6`) — est **neutralisable depuis le 29 août 2026** : `model/creation.ts` accepte
-une horloge en paramètre (`ContexteCreation.horloge`, `Date.now` par défaut). Elle n'apparaît pas
-dans ces fixtures, puisque la capture ne crée aucun objet, mais un scénario qui en crée peut
-désormais être comparé à lui-même — c'est ce que fait `tests/unit/model/creation.test.ts`.
+Les autres sources de non-déterminisme sont **neutralisables depuis le 29 août 2026**, et elles sont
+désormais réunies dans [`../../../src/model/cles.ts`](../../../src/model/cles.ts) :
+
+- `Date.now()` dans les clés d'objets (`obj…_1`, `path…_6`), que la spec §10.1 avait repérée ;
+- **`Math.random()` dans les identifiants de cotes** (`m…_a4f2b`), qu'elle n'avait *pas* repérée :
+  les cotes n'ont pas de compteur, c'est un tirage qui distingue deux cotes posées dans la même
+  milliseconde.
+
+Les deux s'injectent (`horloge`, `alea`), avec les vraies sources par défaut. Elles n'apparaissent
+pas dans ces fixtures — la capture ne crée ni objet ni cote — mais un scénario qui en crée peut
+maintenant être comparé à lui-même, ce que font `tests/unit/model/cles.test.ts` et
+`tests/unit/model/creation.test.ts`.
 
 `newObjCounter` n'a pas besoin d'être injecté : il repart de zéro à chaque chargement, donc il est
-déjà reproductible. Il accompagne l'horodatage parce que celui-ci se répète quand deux objets
-naissent dans la même milliseconde — un double-clic suffit.
+déjà reproductible.
 
 ## Ce que ces empreintes ne voient pas
 

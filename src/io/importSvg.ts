@@ -10,6 +10,7 @@
 // noms, et toucher aux `data-*` d'un cote casse l'autre.
 
 import { NAME_SEP } from '../export/separateurs.js';
+import { cleObjet } from '../model/cles.js';
 import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
 import { showToast } from '../ui/dialogs.js';
@@ -65,7 +66,7 @@ export function importSVGString(svgText, etat, ctx){
     }
     if(pts.length<3) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Objet importe') : ('Objet importe '+imported);
     const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
     const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
@@ -97,7 +98,7 @@ export function importSVGString(svgText, etat, ctx){
     }
     if(pts.length<2) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Chemin importe') : ('Chemin importe '+imported);
     const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Point '+(i+1));
     const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
@@ -129,7 +130,7 @@ export function importSVGString(svgText, etat, ctx){
     }
     if(!Number.isFinite(r) || r<=0) return;
     const origKey = el.getAttribute('data-objkey');
-    const key = (replaceMode && isOwn && origKey) ? origKey : ('imp'+Date.now()+'_'+(etat.newObjCounter++));
+    const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Cercle importe') : ('Cercle importe '+imported);
     const newObj = {
       key, type:'circle', name,

@@ -10,6 +10,7 @@ import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
 import { serializeObjects, serializeMeasures } from './serialisation.js';
 import { showToast } from '../ui/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
+import { idMesure } from '../model/cles.js';
 export function appliquerProjetImporte(valide, remplacer, etat, ctx){
   ctx.pushHistory();
   const objsBase = remplacer ? [] : serializeObjects(etat.objects);
@@ -48,7 +49,7 @@ export function appliquerProjetImporte(valide, remplacer, etat, ctx){
     // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import.
     if(!clesPrises.has(ref) || !clesPrises.has(tgt)){ mesuresIgnorees++; return; }
     let id = m.id;
-    if(!id || idsPris.has(id)) id = 'm' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    if(!id || idsPris.has(id)) id = idMesure();
     idsPris.add(id);
     mesuresFinales.push({
       id, refObjKey:ref, refSegIndex:m.refSegIndex, startEnd:m.startEnd,

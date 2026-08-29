@@ -35,7 +35,8 @@ import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from './engine/hauteurs.j
 import { anneeEtSemaineDepuisDate, dateDecaleeDeSemaines } from './util/semaine.js';
 import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
 import { normalizeObjects } from './model/normalisation.js';
-import { creerCreation } from './model/creation.js';
+import { creerCreation, nouveauPointDeVue } from './model/creation.js';
+import { cleObjet } from './model/cles.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from './three/navigation.js';
 import { creerModes } from './app/modes.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
@@ -1716,16 +1717,13 @@ document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
   const planDx = dx/dl, planDz = -dz/dl;
   pushHistory();
   const n = etat.objects.filter(o=>o.fonction==='camera').length + 1;
-  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
-  const newObj = {
-    key, type:'path', name:'Point de vue '+n, fill:'#c0392b', fillOpacity:0.9, stroke:'#6b1f16',
-    pts:[ {x:planX, y:planY}, {x:planX+planDx*2, y:planY+planDz*2} ],
-    vertexNames:['Position','Direction'], segmentNames:['Vise'],
-    frozenVertices:[false,false], width:0.08, curve:false,
-    showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
-    constrained:false, fonction:'camera', matiere:'', priority:3, locked:false,
-    altitude: camera.position.y
-  };
+  // Meme fabrique que le bouton "+ Point de vue" du plan : seules la direction et l'altitude
+  // changent. En revanche l'objet n'est PAS selectionne ici et le plan n'est pas redessine : on est
+  // dans la Vue 3D, changer la selection du plan sous l'utilisateur n'aurait pas de sens.
+  const { obj: newObj } = nouveauPointDeVue(
+    { x: planX, y: planY }, cleObjet('path', etat), n,
+    { x: planDx, y: planDz }, camera.position.y
+  );
   etat.objects.push(newObj);
   createObjectDOM(newObj);
   rebuildHandles(newObj);
