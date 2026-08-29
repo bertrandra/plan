@@ -259,24 +259,24 @@ The **pure core** (`model`, `util`, `geometry`, `engine`) is a library. It happe
 
 ### 5.2.1 Module map, as built — 29 August 2026
 
-Seven layers, 96 modules, 13 969 lines, plus 1 677 lines still in `legacy.ts`. A module may import
+Seven layers, 99 modules, 14 257 lines, plus 1 500 lines still in `legacy.ts`. A module may import
 from its own layer or any layer below it, never above.
 
 | Layer | Folder | Modules | Lines | What it holds |
 |---:|---|---:|---:|---|
-| 0 | `shell/` | 3 | 169 | `dialogs` · `dom` · `download` |
+| 0 | `shell/` | 3 | 184 | `dialogs` · `dom` · `download` |
 | 0 | `util/` | 3 | 107 | `escape` · `format` · `semaine` |
 | 1 | `geometry/` | 10 | 780 | `alignement` · `angles` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
 | 2 | `model/` | 11 | 684 | `cles` · `creation` · `defaults` · `demo` · `etiquettes` · `lieu` · `normalisation` · `sommets` · `types` · `units` · `version` |
 | 3 | `engine/` | 11 | 1 611 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `parasol` · `structure` |
 | 3 | `geo/` | 6 | 769 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
 | 4 | `core/` | 3 | 277 | `historique` · `history` · `state` |
-| 4 | `io/` | 5 | 505 | `api` · `importSvg` · `projet` · `serialisation` · `validation` |
+| 4 | `io/` | 6 | 597 | `api` · `exportProjet` · `importSvg` · `projet` · `serialisation` · `validation` |
 | 4 | `render/` | 12 | 1 305 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
 | 4 | `export/` | 8 | 1 032 | `dossierPdf` · `dxf` · `dxfPlan` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` · `writer` |
-| 4 | `three/` | 8 | 1 484 | `chargeurs` · `etat3d` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
-| 4 | `interaction/` | 6 | 708 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
-| 5 | `ui/` | 9 | 4 300 | `attrPanel` · `cadastreDialog` · `cloture` · `mesurePanel` · `projectBar` · `selector` · `tables` · `terrassePanels` · `texturePicker` |
+| 4 | `three/` | 9 | 1 571 | `chargeurs` · `etat3d` · `exportGlb` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
+| 4 | `interaction/` | 6 | 759 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
+| 5 | `ui/` | 10 | 4 343 | `attrPanel` · `cadastreDialog` · `cloture` · `mesurePanel` · `panelTabs` · `projectBar` · `selector` · `tables` · `terrassePanels` · `texturePicker` |
 | 6 | `app/` | 1 | 238 | `modes` |
 
 **Reading the layers.** Level 0 holds primitives: `util` is pure, `shell` touches the DOM but knows

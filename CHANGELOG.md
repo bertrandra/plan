@@ -3,6 +3,34 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.1.0-alpha.3] — 2026-08-29
+
+Les quatre dernières fonctions de logique sortent de `legacy.ts`.
+
+### Interne
+
+- `ui/panelTabs.ts`, `interaction/outilAlignement.ts` (l'alignement rejoint le côté de référence
+  qu'il lisait déjà), `io/exportProjet.ts`, `three/exportGlb.ts`.
+- `shell/download.ts` gagne `telechargerBinaire` : le même détour ancre-invisible que pour le texte,
+  qui était recopié à la main dans l'export GLB.
+- `legacy.ts` : 1 625 → 1 500 lignes. Plus aucune fonction de plus de quinze lignes hors `boot()`.
+
+## [1.1.0-alpha.2] — 2026-08-29
+
+Le résumé et l'ordre d'empilement sortent de `legacy.ts` ; les couches sont rangées et la règle de
+dépendance devient vérifiable.
+
+### Interne
+
+- `export/resume.ts` (**18 tests** — un des six artefacts de référence, jusqu'ici sans aucun test),
+  `render/empilement.ts` (**14 tests**), `geometry/angles.ts`.
+- **`shell/`** : `dialogs`, `dom` et `download` n'étaient ni des panneaux ni du pur. Ils quittent
+  `ui/` et `util/`. `geometry/vue.ts` (transformation monde ↔ écran) quitte `render/`.
+- `tests/unit/architecture.test.ts` vérifie désormais la règle de dépendance, la pureté de
+  `geometry`/`model`/`util`, et qu'aucun module n'importe `legacy.ts`. Il a trouvé un quatrième
+  fichier mal rangé dès sa première exécution.
+- 52 lignes de commentaires orphelins retirées — ils décrivaient du code parti ailleurs.
+
 ## [1.1.0-alpha.1] — 2026-08-29
 
 **La version livrée n'est plus le fichier mono-page d'origine : c'est le build.** `plan.html` passe

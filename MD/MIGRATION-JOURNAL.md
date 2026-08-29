@@ -1044,11 +1044,61 @@ exactement ce que RELEASE.md §8.4 demande de ne pas mélanger.
 pré-publication `-alpha.1`, qui dit ce qu'elle est — le nouvel artefact, pas encore la nouvelle
 version.
 
+### « Il ne reste plus de logique » — c'était faux
+
+J'avais écrit, après le pilotage des modes, qu'il ne restait dans `legacy.ts` que du câblage. En
+allant regarder plutôt qu'en me souvenant, il en restait :
+
+- le **résumé texte**, 62 lignes écrites dans un écouteur de clic. C'est un des six artefacts de
+  référence, le seul qu'un artisan lise vraiment, et il n'avait aucun test ;
+- l'**ordre d'empilement**, où deux niveaux se superposent et où les confondre est la faute à
+  éviter : la priorité classe grossièrement, l'ordre du tableau n'affine qu'à l'intérieur d'un même
+  niveau, et la sélection ne change ni l'un ni l'autre ;
+- l'**angle intérieur** d'un sommet, corrigé par l'aire signée — sans quoi un rectangle affiche
+  quatre angles de 270° dès qu'il est dessiné dans l'autre sens ;
+- puis les **onglets du panneau**, l'**alignement**, l'**export du projet** et l'**export GLB**.
+
+Sept modules, 60 tests. `legacy.ts` ne contient plus aucune fonction de plus de quinze lignes en
+dehors de `boot()`.
+
+### La règle de dépendance était fausse, et quatre fichiers en étaient la cause
+
+`architecture.md` énonçait « les flèches ne pointent que vers le bas ». Vérifié pour la première
+fois : **neuf dépendances remontantes**. En les regardant une à une, huit venaient de fichiers mal
+rangés, pas d'inversions réelles.
+
+`dialogs`, `dom` et `download` ne sont ni des panneaux ni du pur : ce sont des primitives qui
+touchent au DOM sans rien connaître du domaine. Six modules de couches basses en dépendaient, tous
+pour la même raison — dire quelque chose à l'utilisateur. Ils vivent maintenant dans `shell/`, où
+toutes les couches peuvent les atteindre. De même, `geometry/vue.ts` — la transformation
+monde ↔ écran, trente lignes d'arithmétique — était rangée dans `render/`, ce qui faisait dépendre la
+géométrie de la vue.
+
+**Le test qui vérifie la règle l'a immédiatement payée** : il a trouvé un quatrième fichier mal
+rangé, `util/download.ts`, que je n'avais pas vu. `tests/unit/architecture.test.ts` contrôle
+désormais trois choses à chaque exécution — les flèches, la pureté de `geometry`, `model` et `util`
+(aucun accès au DOM), et le fait que rien n'importe `legacy.ts`. Ce dernier point compte tant que
+`legacy.ts` existe : la dépendance doit continuer d'aller dans l'autre sens, puisqu'il est censé se
+vider, pas se remplir. Un dossier non classé fait échouer le test, pour qu'un nouveau ne puisse pas
+échapper à la règle en silence.
+
+### Cinquante-deux lignes de commentaires qui mentaient
+
+Treize blocs décrivaient du code parti ailleurs : le dossier PDF, la liste blanche de sérialisation,
+la fusion des parcelles contiguës, l'actualisation IGN, la fiche méthode. Chacun disait quelque chose
+de vrai — et le dit toujours, à côté du code concerné. Ce qui restait ici n'en était que l'ombre : un
+lecteur qui les suit cherche un code qui n'y est plus. Un commentaire qui décrit du code absent est
+pire qu'un fichier sans commentaire, parce qu'il se lit comme une promesse.
+
+Conservés en revanche, parce qu'ils servent à naviguer : les renvois « X vit dans `module.ts` », et
+l'index des champs d'état (« `appMode` : dans `etat`, spec §6.1 ») qui dit où chaque variable est
+partie pendant la migration.
+
 ### Ce qui reste
 
-Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, les enveloppes
-d'une ligne, et le `boot()` lui-même. **1 769 lignes**, contre 13 571 au début de la migration —
-**87 %** en sont sortis, répartis en **93 modules**.
+Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, 62 enveloppes
+d'une ligne, et le `boot()` lui-même. **1 500 lignes**, contre 13 571 au début de la migration —
+**89 %** en sont sortis, répartis en **99 modules** et 14 257 lignes.
 
 Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un
 projet importé (`io/projet.ts`), les tables du dossier et du chiffrage (`ui/tables.ts`), et la
