@@ -10,8 +10,7 @@
 
 import { vue3d, glb, chargement, type SceneTrois } from './etat3d.js';
 import { showErrBanner } from '../ui/dialogs.js';
-import { positionSoleil } from '../geo/soleil.js';
-import { SOLEIL_ELEV_PLANCHER, SOLEIL_DIST_FACTOR } from './lumiere.js';
+import { reglerSoleil } from './lumiere.js';
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
@@ -140,40 +139,11 @@ export function fondGlbViewer(){
   return new THREE.Color(0xdfe7ea);
 }
 
+// Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : les deux vues se reglent
+// separement, mais elles eclairent avec le meme soleil.
 export function appliquerLumiereGlb(ctx){
   if(!glb.scene) return;
-  const { dirLight, dirFill, hemiLight, centre, rayon } = glb.scene;
-  const [annee, mois, jour] = glb.dateStr.split('-').map(Number);
-  const lieu = ctx.lieuActuel();
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, glb.minutes/60, lieu.latitude, lieu.longitude);
-  const elevDeg = elevRad * 180/Math.PI;
-  const facteurJour = Math.max(0, Math.min(1, elevDeg/10));
-  const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
-  const dist = SOLEIL_DIST_FACTOR * rayon;
-  const horiz = Math.cos(elevAffichee) * dist;
-  const dirEst = Math.sin(azRad), dirNord = Math.cos(azRad);
-  dirLight.position.set(
-    centre.x + horiz*dirEst,
-    centre.y + Math.sin(elevAffichee)*dist,
-    centre.z - horiz*dirNord // Nord = -Z dans le repere de la scene
-  );
-  // Contrairement a l'ancienne course d'arc factice (ou le soleil restait "leve" mais rasant aux
-  // deux bouts), ici facteurJour retombe vraiment a 0 la nuit : le soleil direct doit s'eteindre
-  // (0), pas juste faiblir - seules l'ambiante et un leger fond de ciel restent, pour que la scene
-  // reste lisible sans jamais aller au noir complet (meme convention que le reste de l'appli).
-  // Le multiplicateur d'intensite ne s'applique qu'au soleil (pas a l'appoint ni a l'ambiante) et
-  // multiplie facteurJour, qui vaut 0 la nuit : monter l'intensite eclaircit donc le jour sans
-  // jamais rallumer un soleil couche.
-  dirLight.intensity = facteurJour*0.75*glb.intensiteSoleil;
-  dirLight.color.copy(new THREE.Color(0xff8a4c)).lerp(new THREE.Color(0xffffff), facteurJour);
-  dirFill.intensity = 0.03 + facteurJour*0.27;
-  hemiLight.intensity = 0.12 + facteurJour*0.38;
-  // La case "Lumiere d'appoint" coupe les DEUX lumieres autres que le soleil (l'appoint directe
-  // ET l'ambiante) : sinon, meme decochee, l'ambiante restait seule a eclairer la scene en pleine
-  // nuit (soleil a 0), ce qui contredisait la case - decochee, seul le soleil doit rester, jusqu'a
-  // un noir complet quand il est couche.
-  dirFill.visible = glb.lumiereAppoint;
-  hemiLight.visible = glb.lumiereAppoint;
+  reglerSoleil(glb.scene, glb, ctx.lieuActuel());
   glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
 }
 

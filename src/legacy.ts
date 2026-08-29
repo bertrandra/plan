@@ -26,7 +26,6 @@ import { memePoint, decouperAnneau, chainerSegments, fusionnerAnneaux, simplifie
 import { distancePointContour, distanceContours, longueurFrontiere } from './geometry/proximite.js';
 import { parseSvgPathPoints, pathD, polyStr } from './geometry/path.js';
 import { TERRE_A, TERRE_E2, projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from './geo/projection.js';
-import { decalageFuseauFrance, positionSoleil } from './geo/soleil.js';
 import { DEMO_OBJECTS, DEMO_MEASURES } from './model/demo.js';
 import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT, PRIX_STORE, achatPlots, achatVis, chargePlot, computeAssise, computeBOM, coutDebit, largeurProduit, longueursBois, longueursDispo, longueursLambourde, parseLongueurs, prixBarre, prixBarreDefaut, prixM2De, prixPersonnalise, prixPlotUnite, prixVisUnite, setPrixBarre, setPrixM2 } from './engine/bom.js';
 import { CADENCES, CHANTIER_PHASES, cadenceDe, computeChantier } from './engine/chantier.js';
@@ -85,7 +84,7 @@ import {
 } from './ui/mesurePanel.js';
 import { rebuildSelector as construireSelecteur, renderDispTable as construireTableAffichage } from './ui/selector.js';
 
-import { SOLEIL_ELEV_PLANCHER, SOLEIL_DIST_FACTOR } from './three/lumiere.js';
+import { reglerSoleil, libelleSoleil } from './three/lumiere.js';
 import {
   attendreTexturesPretes, ensureThreeLoaded, ensureGLTFExporterLoaded,
   disposeThreeSceneResources, disposeThreeScene, disposeGlbViewerScene,
@@ -1862,41 +1861,20 @@ function syncControlesSoleilVue3d(){
   const el = document.getElementById('vue3dLieu');
   if(el) el.textContent = libelleLieu();
 }
-// Hauteur, azimut, intensite et couleur du soleil sont deduits ensemble de la date/heure/lieu :
-// ce n'est pas un gradateur. Sous l'horizon, le soleil direct s'eteint vraiment (0) au lieu de
-// rester rasant, et seules l'ambiante et l'appoint gardent la scene lisible - decochables.
-// La scene de la Vue 3D est centree sur l'origine (contrairement a celle de la visionneuse GLB,
-// centree sur la boite englobante du modele), d'ou le centre implicite (0,0,0) ici.
+// Les regles du soleil sont dans three/lumiere.ts, partagees avec la visionneuse GLB. La scene de
+// la Vue 3D est centree sur l'origine (contrairement a celle de la visionneuse, centree sur la
+// boite englobante du modele) : elle ne passe donc pas de centre, et `extent` lui sert de rayon.
 function appliquerLumiereVue3d(){
   if(!vue3d.scene || !vue3d.scene.dirLight) return;
   const { dirLight, dirFill, hemiLight, extent } = vue3d.scene;
-  const [annee, mois, jour] = vue3dDateStr.split('-').map(Number);
-  const lieu = lieuActuel();
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, vue3dMinutes/60, lieu.latitude, lieu.longitude);
-  const facteurJour = Math.max(0, Math.min(1, (elevRad*180/Math.PI)/10));
-  const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
-  const dist = SOLEIL_DIST_FACTOR * extent;
-  const horiz = Math.cos(elevAffichee) * dist;
-  // Meme repere que le reste de la scene : X = Est, Y = hauteur, Nord = -Z.
-  dirLight.position.set(Math.sin(azRad)*horiz, Math.sin(elevAffichee)*dist, -Math.cos(azRad)*horiz);
-  dirLight.intensity = facteurJour*0.75*vue3dIntensiteSoleil;
-  dirLight.color.copy(new THREE.Color(0xff8a4c)).lerp(new THREE.Color(0xffffff), facteurJour);
-  dirFill.intensity = 0.03 + facteurJour*0.27;
-  hemiLight.intensity = 0.12 + facteurJour*0.38;
-  dirFill.visible = vue3dLumiereAppoint;
-  hemiLight.visible = vue3dLumiereAppoint;
-  // Lecture chiffree a cote du curseur : sans elle, impossible de savoir si une scene sombre
-  // vient d'un soleil couche, d'un batiment qui fait de l'ombre, ou d'un reglage d'intensite.
+  const { elevRad, azRad } = reglerSoleil(
+    { dirLight, dirFill, hemiLight, rayon: extent },
+    { dateStr: vue3dDateStr, minutes: vue3dMinutes,
+      intensiteSoleil: vue3dIntensiteSoleil, lumiereAppoint: vue3dLumiereAppoint },
+    lieuActuel()
+  );
   const info = document.getElementById('vue3dSoleilInfo');
-  if(info){
-    const elevDeg = elevRad*180/Math.PI;
-    let azDeg = (azRad*180/Math.PI) % 360;
-    if(azDeg < 0) azDeg += 360;
-    const rose = ['N','NE','E','SE','S','SO','O','NO'][Math.round(azDeg/45) % 8];
-    info.textContent = elevDeg <= 0
-      ? '🌙 soleil couché'
-      : '↑ ' + Math.round(elevDeg) + '° — vient du ' + rose + ' (' + Math.round(azDeg) + '°)';
-  }
+  if(info) info.textContent = libelleSoleil(elevRad, azRad);
   // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
   // requestAnimationFrame, que le navigateur met en pause des que l'onglet passe en arriere-plan
   // (le reglage se ferait alors sans effet visible au retour tant qu'aucune image n'est produite).
