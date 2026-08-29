@@ -988,6 +988,30 @@ pendant l'interrogation. Un échantillonnage à 20 ms a montré qu'il l'était b
 premier relevé, pris 120 ms après le clic, était simplement tombé après la fin de la requête. Mesurer
 un état transitoire à un seul instant ne prouve rien.
 
+### Solder les points laissés en suspens
+
+Trois choses avaient été signalées en passant, puis laissées. Les traiter a donné trois réponses
+différentes, et c'est la distinction qui compte.
+
+**`muter()` est supprimé.** Il enveloppait « instantané + mutation + rendu » pour qu'un appelant ne
+puisse rien oublier — mais aucun appelant ne s'en servait. Du code mort qui se présente comme le
+chemin sûr est pire que pas de chemin du tout : la prochaine personne l'aurait cru éprouvé. La
+réécriture de l'historique repartira d'une ardoise propre sur ce point.
+
+**L'horloge des clés devient injectable.** `EMPREINTES.md` la signalait depuis la phase 0 comme la
+dernière source de non-déterminisme « non encore neutralisée », à injecter « en phase 4 » ; c'est
+fait, avec `Date.now` pour défaut. Un scénario qui crée des objets peut désormais être comparé à
+lui-même — un test le fait, en construisant deux fois la même suite et en comparant les clés. Au
+passage, `dupliquer()` refaisait le calcul de clé à la main au lieu d'appeler `cle()` : deux
+écritures de la même règle, dont une pouvait dériver.
+
+**`altitude: 0` a été vérifié, pas corrigé.** Le commentaire du test laissait croire à une valeur
+perdue ; le panneau d'attributs plafonne en réalité l'altitude par le bas à 0,10 m — `min='0.1'` *et*
+un `Math.max(0.1, …)` à la saisie. `0` ne peut donc venir que d'un fichier écrit à la main, et le
+repli sur 1,60 m y est le comportement le moins surprenant. Corriger aurait changé le comportement
+d'un cas que l'interface interdit déjà, sans rien réparer. Le commentaire, lui, était faux : c'est
+lui qui a été corrigé.
+
 ### Ce qui reste
 
 Le squelette de `legacy.ts` : le câblage des 87 écouteurs, les fabriques de contexte, les enveloppes
@@ -1029,3 +1053,12 @@ décider de la forme des données, et c'est précisément ce que la spec §5 dem
 faite dans `plan.html` serait perdue pour la version construite. À partir d'ici, `plan.html` est un
 fichier mort : il ne reste que parce qu'il est ce qui tourne encore en production, et il doit être
 remplacé par `dist/index.html` au prochain déploiement.
+
+**L'écart se creuse.** Au 29 août 2026, `src/` a divergé de `plan.html` sur tout ce qui a été
+réorganisé depuis : le soleil des deux vues, le pilotage des vues, la clé des objets. Les deux
+fichiers produisent encore exactement les mêmes exports — c'est vérifié à chaque étape — mais ils ne
+partagent plus une ligne d'organisation. Repousser le remplacement ne coûte rien tant que personne ne
+touche à `plan.html` ; le jour où quelqu'un y corrige quelque chose, ce sera perdu sans bruit.
+
+Ce remplacement n'a volontairement pas été fait ici : supprimer `plan.html` casserait le site en
+production, et c'est une décision de déploiement, pas de migration.

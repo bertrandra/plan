@@ -3,6 +3,29 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.46] — 2026-08-29
+
+Les trois points laissés en suspens sont soldés.
+
+### Supprimé
+
+- `muter()`, dans l'historique : personne ne l'appelait. Du code mort qui se présente comme le
+  chemin sûr est pire que pas de chemin du tout.
+
+### Interne
+
+- L'horloge des clés d'objets devient injectable (`ContexteCreation.horloge`, `Date.now` par
+  défaut) — la dernière source de non-déterminisme que `EMPREINTES.md` signalait depuis la phase 0.
+  Un scénario qui crée des objets peut désormais être comparé à lui-même.
+- `dupliquer()` refaisait le calcul de clé à la main au lieu d'appeler `cle()` : une seule écriture
+  de la règle désormais.
+- **5 tests**, 490 au total.
+
+### Vérifié plutôt que corrigé
+
+- `altitude: 0` retombe sur 1,60 m. Ce n'est pas une valeur perdue : le panneau d'attributs plafonne
+  l'altitude par le bas à 0,10 m, donc `0` ne peut venir que d'un fichier écrit à la main.
+
 ## [1.0.1-alpha.45] — 2026-08-29
 
 Les trois mécanismes enchevêtrés du pilotage des vues sont démêlés. Aucun comportement ne change.
