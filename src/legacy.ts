@@ -61,6 +61,10 @@ import { validerProjetJSON } from './io/validation.js';
 import { rendreScene } from './render/pipeline.js';
 import { creerHistorique } from './core/historique.js';
 import {
+  LS_LAST_PROJECT, getProjectIdFromUrl, withProjectParam,
+  apiList, apiLoad, apiSave, apiDelete, chargerProjetInitial
+} from './io/api.js';
+import {
   dossierSelection, renderDossierTerrasses as construireListeDossier,
   debitTable as construireTableDebit, renderBOMTable as construireTableBom,
   champLongueurs as construireChampLongueurs, bilanDebit, prixPersonnaliseplot,
@@ -141,81 +145,9 @@ window.addEventListener('unhandledrejection', function(e){ showErrBanner('Promis
 // demonstration ci-dessous, exactement comme avant l'ajout de la persistance.
 
 const API_URL = 'api.php';
-const LS_LAST_PROJECT = 'planInteractif.lastProjectId';
-// Toute requete porte la version du client : le serveur peut ainsi reperer un onglet laisse
-// ouvert plusieurs versions durant, et refuser une ecriture trop ancienne (RELEASE.md 5.3).
-const ENTETES_VERSION = {'X-App-Version': APP_VERSION, 'X-Schema-Version': String(SCHEMA_VERSION)};
-
-function getProjectIdFromUrl(){
-  return new URLSearchParams(location.search).get('projet');
-}
-function withProjectParam(id){
-  const url = new URL(location.href);
-  url.searchParams.set('projet', id);
-  return url.toString();
-}
-async function apiList(){
-  let r;
-  try { r = await fetch(API_URL + '?action=list', {cache:'no-store', headers: ENTETES_VERSION}); }
-  catch(e){ throw Object.assign(new Error('API injoignable (reseau) : ' + (e.message||e)), {reason:'network'}); }
-  if(!r.ok){ throw Object.assign(new Error('api list HTTP ' + r.status), {reason: r.status===404?'notfound':'server'}); }
-  try { return await r.json(); }
-  catch(e){ throw Object.assign(new Error('Reponse invalide (JSON illisible) pour la liste des projets'), {reason:'badjson'}); }
-}
-async function apiLoad(id){
-  let r;
-  try { r = await fetch(API_URL + '?action=load&id=' + encodeURIComponent(id), {cache:'no-store', headers: ENTETES_VERSION}); }
-  catch(e){ throw Object.assign(new Error('API injoignable (reseau) : ' + (e.message||e)), {reason:'network'}); }
-  if(!r.ok){ throw Object.assign(new Error('api load HTTP ' + r.status), {reason: r.status===404?'notfound':'server'}); }
-  try { return await r.json(); }
-  catch(e){ throw Object.assign(new Error('Projet illisible : reponse JSON invalide'), {reason:'badjson'}); }
-}
-async function apiSave(payload){
-  const r = await fetch(API_URL + '?action=save', {
-    method:'POST', headers: Object.assign({'Content-Type':'application/json'}, ENTETES_VERSION), body: JSON.stringify(payload)
-  });
-  if(!r.ok) throw new Error('api save HTTP ' + r.status);
-  return r.json();
-}
-async function apiDelete(id){
-  const r = await fetch(API_URL + '?action=delete', {
-    method:'POST', headers: Object.assign({'Content-Type':'application/json'}, ENTETES_VERSION), body: JSON.stringify({id})
-  });
-  if(!r.ok) throw new Error('api delete HTTP ' + r.status);
-  return r.json();
-}
-
-// Determine what to boot with: a project loaded from the server, or (only when this browser
-// has no known project at all, i.e. a genuine first visit) the local demo dataset, so the app
-// never gets stuck on a blank/broken screen the very first time it's opened. Once a real
-// project id is known (URL param or localStorage), a load failure is surfaced to the user
-// instead of being silently replaced by DEMO_OBJECTS - see M5 in the QA report: swapping in
-// demo data on any error made a real project look lost/replaced when the API merely hiccuped.
-async function loadInitialProject(){
-  const knownProjectId = getProjectIdFromUrl() || localStorage.getItem(LS_LAST_PROJECT);
-  let list;
-  try {
-    list = await apiList();
-  } catch(e){
-    if(!knownProjectId){
-      // Nothing to lose: no project has ever been opened on this browser, so this is
-      // indistinguishable from "API not configured yet" - bootstrap locally with the demo.
-      return { apiAvailable:false, list:[], objects:JSON.parse(JSON.stringify(DEMO_OBJECTS)), measures:JSON.parse(JSON.stringify(DEMO_MEASURES)), meta:null };
-    }
-    throw e; // a real project might exist server-side: don't hide the failure behind DEMO data
-  }
-  let wantedId = getProjectIdFromUrl() || localStorage.getItem(LS_LAST_PROJECT);
-  if(wantedId && !list.some(p=>p.id===wantedId)) wantedId = null;
-  if(!wantedId && list.length) wantedId = list[0].id;
-  if(!wantedId){
-    const created = await apiSave({ name:'Parcelle AE 101', objects:DEMO_OBJECTS, measures:DEMO_MEASURES });
-    wantedId = created.id;
-    list = await apiList();
-  }
-  const full = await apiLoad(wantedId); // a failure here also propagates rather than falling back to DEMO
-  localStorage.setItem(LS_LAST_PROJECT, wantedId);
-  return { apiAvailable:true, list, objects:full.objects, measures:full.measures||[], meta:full.meta };
-}
+// Le client de api.php vit dans io/api.ts. Cette enveloppe lui fournit le jeu de demonstration :
+// c'est le seul endroit qui decide de quoi demarrer quand il n'y a pas de serveur.
+async function loadInitialProject(){ return chargerProjetInitial(DEMO_OBJECTS, DEMO_MEASURES); }
 
 
 
