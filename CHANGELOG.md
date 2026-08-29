@@ -3,6 +3,53 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.31] — 2026-08-29
+
+La validation d'un fichier de projet sort de `legacy.ts`, et gagne les tests qu'elle n'avait pas.
+
+### Interne
+
+- `io/validation.ts` : les trois refus (schéma trop récent, coordonnées au-delà de 100 km, aucun
+  objet exploitable) sont documentés pour ce qu'ils protègent. **19 tests**, 362 au total.
+- `legacy.ts` : 3 119 → 3 086 lignes.
+
+## [1.0.1-alpha.30] — 2026-08-29
+
+Les tables du dossier et du chiffrage sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `ui/tables.ts` : liste des terrasses du dossier, métré, débit de bois. Aucune ne calcule.
+- `legacy.ts` : 3 253 → 3 119 lignes.
+
+### Corrigé avant publication
+
+- La table du métré est restée vide un moment : une fabrique de contexte n'avait pas été insérée là
+  où je croyais. Le contrôle de santé ne l'a pas vu — il a fallu comparer au témoin (7 et 18 lignes
+  contre 0 et 0).
+
+## [1.0.1-alpha.29] — 2026-08-29
+
+Le chargement d'un projet importé sort de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `io/projet.ts`. La séquence compte : remplacer les données, reconstruire les vues, **puis**
+  restaurer les réglages rangés sur la parcelle.
+- `legacy.ts` : 3 345 → 3 253 lignes.
+
+## [1.0.1-alpha.28] — 2026-08-29
+
+Les événements de pointeur sortent de `legacy.ts`. Aucun comportement ne change.
+
+### Interne
+
+- `interaction/pointeur.ts` (289 lignes) : sélection, glisser, double-clic, molette, pincement,
+  déplacement à trois doigts. Deux différences doigt/souris y sont documentées.
+- Vérifié contre le témoin figé, à froid : sommet tiré de (+12,7095 ; −8,1172) m, molette,
+  insertion de sommet.
+- `legacy.ts` : 3 599 → 3 345 lignes.
+
 ## [1.0.1-alpha.27] — 2026-08-29
 
 Le fond orthophoto sort de `legacy.ts`. Aucun comportement ne change.

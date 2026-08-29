@@ -796,11 +796,45 @@ construction de la scène 3D échouait alors **à mi-course**, produisant une sc
 de 203, sans aucune erreur visible. Elle a désormais son module, `three/lumiere.ts`, parce qu'elle
 appartient aux deux scènes.
 
+### Les événements de pointeur, et ce que le terrain leur a appris
+
+`interaction/pointeur.ts` reçoit les 289 lignes qui décident **quel geste s'applique** — le calcul
+de chacun vit déjà ailleurs. Deux détails y sont désormais écrits, parce qu'ils expliquent la forme
+du code et qu'ils viennent de l'usage réel :
+
+- **Un double-tap au doigt n'est pas un double-clic à la souris.** Le doigt couvre plusieurs
+  dizaines de pixels, se lève et se repose plus lentement, et saute d'un tap à l'autre. D'où une
+  fenêtre plus large au toucher (600 ms contre 400) et un test de proximité : deux taps éloignés sur
+  la même forme sont deux intentions, pas un double-tap.
+- **Le second tap atterrit rarement au même endroit que le premier.** Il tombe souvent sur une arête
+  plutôt que sur le corps de la forme, si bien que le double-tap objet ne se déclenchait jamais au
+  doigt. On l'accepte donc quel que soit l'élément touché, à condition que le tap précédent ait visé
+  le même objet.
+
+### Le contrôle de santé ne voit pas tout
+
+L'extraction des tables du chiffrage l'a montré : le plan restait **sain** — 288 textes, barre à
+quatre éléments — pendant que la table du métré était vide. L'erreur était avalée par l'appelant.
+
+Il a fallu comparer au témoin figé, chiffre contre chiffre : 7 lignes de métré et 18 de débit d'un
+côté, 0 et 0 de l'autre. La cause était une fabrique de contexte insérée là où je croyais, mais pas
+là où elle était : un `-replace` qui supposait l'indentation avait échoué **en silence**, laissant
+un identifiant libre que le build accepte sans broncher.
+
+Deux règles en sont sorties, appliquées depuis : vérifier par un `grep` que l'insertion a bien eu
+lieu, et vérifier **la fonctionnalité déplacée** en plus du contrôle de santé.
+
 ### Ce qui reste
 
-Le squelette de `legacy.ts` : orchestration du rendu, sélection, historique, câblage des événements,
-changement de mode, et le `boot()` lui-même. **3 599 lignes**, contre 13 571 au début de la
-migration — 73 % en sont sortis.
+Le squelette de `legacy.ts` : orchestration du rendu, changement de mode, câblage des boutons, et le
+`boot()` lui-même. **3 086 lignes**, contre 13 571 au début de la migration — 77 % en sont sortis.
+
+Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un
+projet importé (`io/projet.ts`), les tables du dossier et du chiffrage (`ui/tables.ts`), et la
+validation d'un fichier de projet (`io/validation.ts`) — cette dernière avec **19 tests**, alors
+qu'elle n'en avait aucun. C'est pourtant la porte d'entrée : elle refuse un schéma trop récent, des
+coordonnées en millimètres, un fichier sans objet exploitable ; et elle *ignore*, en les comptant,
+les objets mal formés, pour qu'un fichier partiellement abîmé reste chargeable.
 
 Sont également sortis depuis : le sélecteur d'objets et la table d'affichage
 (`ui/selector.ts`), l'outil de cotation — son brouillon dans `interaction/outilMesure.ts`, son
