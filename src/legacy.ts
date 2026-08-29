@@ -57,6 +57,7 @@ import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
 import { vue3d, glb, chargement } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import { brancherPointeur } from './interaction/pointeur.js';
+import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from './io/projet.js';
 import {
   ortho, configOrtho, enregistrerConfigOrtho, syncControlesOrtho, restaurerOrthoDuProjet,
   referenceGeoPlan, urlTuileOrtho, chargerTuileOrtho, chargerOrthophoto,
@@ -224,6 +225,15 @@ const etat = creerEtat(seed, normalizeObjects);
 // l'etat et ce qu'ils doivent pouvoir declencher.
 function rebuildSelector(){ construireSelecteur(etat, ctxListes()); }
 function renderDispTable(){ construireTableAffichage(etat, ctxListes()); }
+// Le chargement d'un projet importe vit dans io/projet.ts ; ces enveloppes lui passent l'etat et
+// ce qu'il doit pouvoir declencher.
+function ctxProjetImporte(){
+  return { buildThreeScene, fitToObject, lieuActuel, markDirty, pushHistory, rebuildSelector,
+    render, restoreState, syncBasculeGrille, syncBasculeVoisinage, syncLieuTitre,
+    trouverParcelleCloture, validerProjetJSON, toScreen, orthoGroup: ()=>orthoGroup, etat };
+}
+function appliquerProjetImporte(valide, remplacer){ chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte()); }
+function restaurerAffichageDuProjet(){ restaurerAffichage(etat, ctxProjetImporte()); }
 function ctxListes(){ return { markDirty, render, restoreState }; }
 
 // L'outil de cotation vit dans ui/mesurePanel.ts ; ces enveloppes lui passent l'etat et ce qu'il
@@ -1713,91 +1723,6 @@ function validerProjetJSON(data){
   return { meta, objets, mesures: Array.isArray(data.measures) ? data.measures : [], ignores };
 }
 
-function appliquerProjetImporte(valide, remplacer){
-  pushHistory();
-  const objsBase = remplacer ? [] : serializeObjects(etat.objects);
-  const msBase = remplacer ? [] : serializeMeasures(etat.measures);
-  const clesPrises = new Set(objsBase.map(o=>o.key));
-  const renommages = {};
-  const ajoutes = [];
-
-  valide.objets.forEach(src=>{
-    const copie = JSON.parse(JSON.stringify(src));
-    let cle = copie.key;
-    if(clesPrises.has(cle)){
-      let n = 2;
-      while(clesPrises.has(cle + '-' + n)) n++;
-      cle = cle + '-' + n;
-      // Jamais deux objets de cle 'parcelle' : le second devient un terrain ordinaire, sinon
-      // la contrainte a la parcelle et la cloture designeraient un objet au hasard.
-      if(copie.key === 'parcelle') copie.fonction = 'terrain';
-      renommages[copie.key] = cle;
-      copie.key = cle;
-    }
-    clesPrises.add(cle);
-    ajoutes.push(copie);
-  });
-  ajoutes.forEach(o=>{
-    if(o.terrasseLieeKey && renommages[o.terrasseLieeKey]) o.terrasseLieeKey = renommages[o.terrasseLieeKey];
-  });
-
-  const idsPris = new Set(msBase.map(m=>m.id));
-  const mesuresFinales = msBase.slice();
-  let mesuresOk = 0, mesuresIgnorees = 0;
-  valide.mesures.forEach(m=>{
-    if(!m || typeof m !== 'object'){ mesuresIgnorees++; return; }
-    const ref = renommages[m.refObjKey] || m.refObjKey;
-    const tgt = renommages[m.targetObjKey] || m.targetObjKey;
-    // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import.
-    if(!clesPrises.has(ref) || !clesPrises.has(tgt)){ mesuresIgnorees++; return; }
-    let id = m.id;
-    if(!id || idsPris.has(id)) id = 'm' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    idsPris.add(id);
-    mesuresFinales.push({
-      id, refObjKey:ref, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
-      targetObjKey:tgt, targetPtIndex:m.targetPtIndex, show:!!m.show,
-      displayMode: m.displayMode === 'along' ? 'along' : 'perp'
-    });
-    mesuresOk++;
-  });
-
-  // restoreState fait deja la demolition/reconstruction complete du DOM SVG (meme chemin que
-  // l'undo et que "Reinitialiser tout") : le refaire a la main ici laisserait forcement
-  // trainer un type de noeud le jour ou l'objet en gagne un nouveau.
-  restoreState({ objects: objsBase.concat(ajoutes), measures: mesuresFinales });
-
-  const lieu = valide.meta && valide.meta.lieu;
-  if(lieu && Number.isFinite(lieu.latitude) && Number.isFinite(lieu.longitude)){
-    const pc = trouverParcelleCloture();
-    if(pc && (pc.latitude === undefined || pc.latitude === null)){
-      pc.latitude = lieu.latitude;
-      pc.longitude = lieu.longitude;
-      if(lieu.nomLieu) pc.nomLieu = lieu.nomLieu;
-    }
-  }
-  const parcelle = etat.objects.find(o=>o.key === 'parcelle');
-  if(parcelle) etat.selectedKey = parcelle.key;
-  rebuildSelector();
-  render();
-  // Le cadrage par defaut suit le terrain importe : une propriete de 2 400 m2 et une terrasse de
-  // 20 m2 n'ont pas la meme echelle, garder le cadrage precedent afficherait un plan hors champ.
-  if(parcelle) fitToObject(parcelle);
-  // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
-  // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
-  ortho.tuiles = [];
-  restaurerOrthoDuProjet({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
-  restaurerAffichageDuProjet();
-  markDirty();
-
-  let msg = ajoutes.length + ' objet(s) importe(s)';
-  if(valide.ignores) msg += ', ' + valide.ignores + ' ignore(s)';
-  msg += '. ' + mesuresOk + ' mesure(s) restauree(s)';
-  if(mesuresIgnorees) msg += ', ' + mesuresIgnorees + ' ignoree(s) (objet de reference absent)';
-  msg += '.';
-  if(!parcelle) msg += ' ATTENTION: aucun objet "parcelle" dans le resultat - certaines fonctions (mesures, alignement, contrainte a la parcelle) seront limitees tant qu\'une parcelle n\'existe pas.';
-  msg += ' Rien n\'a ete enregistre sur le serveur : utilise "Enregistrer" pour conserver ce plan.';
-  showToast(msg);
-}
 
 document.getElementById('exportJsonBtn').addEventListener('click', ()=>{
   try { exportProjetJSON(); }
@@ -1904,21 +1829,6 @@ function enregistrerAffichage(){
   p.affichage.voisinage = etat.voisinageVisible;
   p.affichage.grille = etat.grilleVisible;
   markDirty();
-}
-function restaurerAffichageDuProjet(){
-  const p = trouverParcelleCloture();
-  const a = p && p.affichage;
-  etat.voisinageVisible = !(a && a.voisinage === false);
-  etat.grilleVisible = !(a && a.grille === false);
-  syncBasculeVoisinage();
-  syncBasculeGrille();
-  // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
-  // (l'import rend avant de restaurer les reglages). Sans ce rendu, un projet enregistre grille
-  // masquee se rouvrait avec le bouton eteint... et la grille bien visible.
-  rebuildSelector();   // le voisinage masque ne doit pas figurer dans les categories
-  syncLieuTitre();     // la parcelle a pu changer de position (import, actualisation)
-  render();
-  if(vue3d.scene) buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 }
 
 // Les reglages du fond (actif, opacite de la photo, remplissage du terrain) sont ranges SUR la
