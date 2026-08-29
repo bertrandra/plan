@@ -57,6 +57,11 @@ import { renderAttrTable as renderAttrTablePanneau } from './ui/attrPanel.js';
 import { vue3d, glb, chargement } from './three/etat3d.js';
 import { mesure, annulerMesureEnCours } from './interaction/outilMesure.js';
 import {
+  ortho, configOrtho, enregistrerConfigOrtho, syncControlesOrtho, restaurerOrthoDuProjet,
+  referenceGeoPlan, urlTuileOrtho, chargerTuileOrtho, chargerOrthophoto,
+  placerOrthophoto as placerOrthophotoModule, basculerOrthophoto as basculerOrthophotoModule
+} from './render/ortho.js';
+import {
   startPick as demarrerPointage, cancelPick as annulerPointage,
   rebuildMeasurePanel as construirePanneauMesure, renderMeasureResults as construireResultatsMesure
 } from './ui/mesurePanel.js';
@@ -633,7 +638,7 @@ function contraindreParasols(){
 }
 
 function render(){
-  placerOrthophoto();
+  placerOrthophotoModule({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
   drawGrid();
   renderParasolOverlay();
   // In Mode Terrasse the plan is a backdrop for the layer overlay, not something being edited:
@@ -653,7 +658,7 @@ function render(){
       scene: etat.scene,
       selectionnee: obj.key === activeSel,
       masque: objetMasque(obj),
-      ortho: { actif: orthoActif, parcelleOpacite: orthoParcelleOpacite },
+      ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
       estTerrain,
       pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
       pointageCotes: !!(mesure.pointage && mesure.pointage.mode === 'ref'),
@@ -1135,25 +1140,25 @@ document.getElementById('gridBtn').addEventListener('click', ()=>{
   enregistrerAffichage();
   render();
 });
-document.getElementById('chkOrtho').addEventListener('change', e=>{ basculerOrthophoto(e.target.checked); });
+document.getElementById('chkOrtho').addEventListener('change', e=>{ basculerOrthophotoModule(e.target.checked, { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup }); });
 document.getElementById('orthoOpacite').addEventListener('input', function(){
-  orthoOpacite = parseInt(this.value,10)/100;
+  ortho.opacite = parseInt(this.value,10)/100;
   document.getElementById('orthoOpaciteTexte').textContent = this.value + ' %';
-  if(orthoActif) placerOrthophoto();
-  enregistrerConfigOrtho();
+  if(ortho.actif) placerOrthophotoModule({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
+  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
 });
 document.getElementById('orthoParcelleOpacite').addEventListener('input', function(){
-  orthoParcelleOpacite = parseInt(this.value,10)/100;
+  ortho.parcelleOpacite = parseInt(this.value,10)/100;
   document.getElementById('orthoParcelleOpaciteTexte').textContent = this.value + ' %';
   // Seul l'affichage change : render() reapplique l'opacite effective sur les terrains.
-  if(orthoActif) render();
-  enregistrerConfigOrtho();
+  if(ortho.actif) render();
+  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
 });
 document.getElementById('orthoParcelleDefaut').addEventListener('click', function(){
-  orthoParcelleOpacite = ORTHO_PARCELLE_OPACITE_CONSEILLEE;
+  ortho.parcelleOpacite = 0.15;
   syncControlesOrtho();
-  if(orthoActif) render();
-  enregistrerConfigOrtho();
+  if(ortho.actif) render();
+  enregistrerConfigOrtho({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
 });
 
 // ================= Add / delete whole object =================
@@ -2026,8 +2031,8 @@ function appliquerProjetImporte(valide, remplacer){
   if(parcelle) fitToObject(parcelle);
   // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
   // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
-  orthoTuiles = [];
-  restaurerOrthoDuProjet();
+  ortho.tuiles = [];
+  restaurerOrthoDuProjet({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
   restaurerAffichageDuProjet();
   markDirty();
 
@@ -2102,18 +2107,6 @@ document.getElementById('importJsonFile').addEventListener('change', e=>{
 // dont la position reelle est enregistree par l'import cadastre (cadastre.origineLat/Lon). Sans
 // import cadastre, on retombe sur le lieu de la parcelle, cale sur son centroide - moins precis,
 // mais coherent avec ce que l'appli sait du terrain.
-const WMTS_URL = 'https://data.geopf.fr/wmts';
-const ORTHO_COUCHE = 'ORTHOIMAGERY.ORTHOPHOTOS';
-const ORTHO_ZOOM_MAX = 20;
-const ORTHO_MAX_TUILES = 36;
-// Valeur proposee par defaut pour la transparence du terrain sous le fond : assez de teinte pour
-// que la parcelle reste identifiable, assez peu pour lire la photo dessous. Reglable, mais c'est
-// le compromis qui marche sur une orthophoto a 20 cm/pixel - en dessous de 10 % la parcelle
-// disparait, au-dela de 30 % la photo devient laiteuse.
-const ORTHO_PARCELLE_OPACITE_CONSEILLEE = 0.15;
-let orthoActif = false;
-let orthoOpacite = 0.85;
-let orthoParcelleOpacite = ORTHO_PARCELLE_OPACITE_CONSEILLEE;
 // Terrain au sens large : la parcelle principale et les parcelles voisines importees.
 function estTerrain(o){ return o.key === 'parcelle' || o.fonction === 'terrain'; }
 
@@ -2179,216 +2172,6 @@ function restaurerAffichageDuProjet(){
 // parcelle, comme la cloture, le lieu et le zonage PLU : ils se sauvegardent avec le projet sans
 // nouvelle cle a faire transiter par api.php, et suivent l'export JSON. Seules les tuiles, elles,
 // ne sont pas enregistrees - elles se retelechargent.
-function configOrtho(creer){
-  const p = trouverParcelleCloture();
-  if(!p) return null;
-  if(!p.ortho || typeof p.ortho !== 'object'){
-    if(!creer) return null;
-    p.ortho = {};
-  }
-  if(p.ortho.opacite === undefined || p.ortho.opacite === null) p.ortho.opacite = 0.85;
-  if(p.ortho.parcelleOpacite === undefined || p.ortho.parcelleOpacite === null) p.ortho.parcelleOpacite = ORTHO_PARCELLE_OPACITE_CONSEILLEE;
-  if(p.ortho.actif === undefined) p.ortho.actif = false;
-  return p.ortho;
-}
-function enregistrerConfigOrtho(){
-  // Un projet qui n'a jamais touche au fond ne gagne pas le champ pour rien, et surtout : la
-  // restauration au chargement repasse par ici avec exactement les valeurs enregistrees. Sans
-  // cette comparaison, tout projet avec un fond actif s'ouvrirait en "modifications non
-  // enregistrees" alors que rien n'a change.
-  const existante = configOrtho(false);
-  const auxDefauts = !orthoActif && orthoOpacite === 0.85 && orthoParcelleOpacite === ORTHO_PARCELLE_OPACITE_CONSEILLEE;
-  if(!existante && auxDefauts) return;
-  const c = configOrtho(true);
-  if(!c) return;   // pas de parcelle : rien ou ranger le reglage, il reste valable pour la session
-  if(c.actif === orthoActif && c.opacite === orthoOpacite && c.parcelleOpacite === orthoParcelleOpacite) return;
-  c.actif = orthoActif;
-  c.opacite = orthoOpacite;
-  c.parcelleOpacite = orthoParcelleOpacite;
-  markDirty();
-}
-function syncControlesOrtho(){
-  const o = document.getElementById('orthoOpacite');
-  if(o) o.value = Math.round(orthoOpacite*100);
-  const ot = document.getElementById('orthoOpaciteTexte');
-  if(ot) ot.textContent = Math.round(orthoOpacite*100) + ' %';
-  const p = document.getElementById('orthoParcelleOpacite');
-  if(p) p.value = Math.round(orthoParcelleOpacite*100);
-  const pt = document.getElementById('orthoParcelleOpaciteTexte');
-  if(pt) pt.textContent = Math.round(orthoParcelleOpacite*100) + ' %';
-  const cb = document.getElementById('chkOrtho');
-  if(cb) cb.checked = orthoActif;
-}
-// Au chargement d'un projet : on restitue les reglages, et on rallume le fond s'il etait actif.
-function restaurerOrthoDuProjet(){
-  const c = configOrtho(false);
-  if(!c){
-    // Projet sans reglage enregistre : on eteint proprement plutot que de garder le fond du
-    // projet precedent, qui serait cale sur une autre parcelle.
-    if(orthoActif) basculerOrthophoto(false);
-    return;
-  }
-  orthoOpacite = c.opacite;
-  orthoParcelleOpacite = c.parcelleOpacite;
-  syncControlesOrtho();
-  if(c.actif) basculerOrthophoto(true);
-  else if(orthoActif) basculerOrthophoto(false);
-}
-let orthoTuiles = [];        // tuiles pretes a afficher, en coordonnees monde (metres)
-let orthoChargement = false;
-const orthoCache = new Map(); // cle "z/x/y" -> data URI (une tuile n'est telechargee qu'une fois)
-
-function referenceGeoPlan(){
-  const p = trouverParcelleCloture();
-  if(!p || !p.pts || !p.pts.length) return null;
-  if(p.cadastre && p.cadastre.origineLat !== undefined && p.cadastre.origineLat !== null){
-    return { lat:p.cadastre.origineLat, lon:p.cadastre.origineLon, x:0, y:0, exact:true };
-  }
-  // lieuActuel() plutot que p.latitude en direct : sur un plan qui n'a jamais servi au soleil ni
-  // a la 3D, les champs de lieu ne sont pas encore poses sur la parcelle (ils le sont au premier
-  // acces). Les lire crus renverrait "pas de position" sur un plan qui en a pourtant une.
-  const lieu = lieuActuel();
-  if(lieu && Number.isFinite(lieu.latitude)){
-    const c = centroid(p.pts);
-    return { lat:lieu.latitude, lon:lieu.longitude, x:c.x, y:c.y, exact:false };
-  }
-  return null;
-}
-function urlTuileOrtho(z, x, y){
-  return WMTS_URL + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + ORTHO_COUCHE +
-    '&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=' + z + '&TILEROW=' + y + '&TILECOL=' + x;
-}
-// Les tuiles sont recuperees en fetch puis converties en data URI, jamais posees en href
-// distant : une image d'un autre domaine "salit" le canevas (canvas tainted) et ferait echouer
-// l'export PNG - et l'export SVG ne serait plus autonome.
-async function chargerTuileOrtho(z, x, y){
-  const cle = z + '/' + x + '/' + y;
-  if(orthoCache.has(cle)) return orthoCache.get(cle);
-  const r = await fetch(urlTuileOrtho(z, x, y), {cache:'force-cache'});
-  if(!r.ok) throw new Error('tuile ' + cle + ' : HTTP ' + r.status);
-  const blob = await r.blob();
-  const dataUri = await new Promise((resolve, reject)=>{
-    const fr = new FileReader();
-    fr.onload = ()=>resolve(fr.result);
-    fr.onerror = ()=>reject(new Error('lecture de la tuile impossible'));
-    fr.readAsDataURL(blob);
-  });
-  orthoCache.set(cle, dataUri);
-  return dataUri;
-}
-async function chargerOrthophoto(){
-  const ref = referenceGeoPlan();
-  if(!ref) throw new Error('aucune parcelle geolocalisee : importe une parcelle depuis une adresse, ou renseigne le lieu.');
-  const proj = projecteurLocal(ref.lat, ref.lon);
-  // Emprise a couvrir : celle du plan entier, avec une marge - le fond doit tenir sous les objets
-  // qui debordent de la parcelle (batiments mitoyens, chemins).
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  etat.objects.forEach(o=>{
-    const pts = o.type === 'circle'
-      ? [{x:o.center.x-o.r, y:o.center.y-o.r}, {x:o.center.x+o.r, y:o.center.y+o.r}]
-      : (o.pts || []);
-    pts.forEach(p=>{
-      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-    });
-  });
-  if(!Number.isFinite(minX)) throw new Error('plan vide');
-  const marge = Math.max(5, (maxX-minX + maxY-minY)*0.05);
-  minX -= marge; maxX += marge; minY -= marge; maxY += marge;
-  const versLonLat = (x, y)=>proj.versDegres(x - ref.x, y - ref.y);
-  const coinSO = versLonLat(minX, minY), coinNE = versLonLat(maxX, maxY);
-
-  // On part du plus haut niveau de detail qui tienne en ORTHO_MAX_TUILES, puis on redescend tant
-  // que rien ne revient : la couverture de l'orthophoto ne va pas au meme zoom partout (verifie :
-  // sur cette commune le niveau 20 repond 404 alors que le 19 sert bien l'image). Un niveau qui
-  // n'existe pas se traduit par un 404 sur toutes ses tuiles, jamais par une erreur explicite.
-  for(let z = ORTHO_ZOOM_MAX; z >= 15; z--){
-    const x0 = tuileX(coinSO.lon, z), x1 = tuileX(coinNE.lon, z);
-    const y0 = tuileY(coinNE.lat, z), y1 = tuileY(coinSO.lat, z);   // y croit vers le sud
-    if((x1-x0+1)*(y1-y0+1) > ORTHO_MAX_TUILES) continue;
-    // Une seule tuile d'essai avant de lancer les autres : un niveau absent repond 404 sur
-    // chacune de ses tuiles, et seize 404 dans la console pour rien noieraient les vraies erreurs.
-    try {
-      await chargerTuileOrtho(z, Math.floor((x0+x1)/2), Math.floor((y0+y1)/2));
-    } catch(e){
-      continue;
-    }
-    const tuiles = [];
-    const promesses = [];
-    for(let x = x0; x <= x1; x++){
-      for(let y = y0; y <= y1; y++){
-        const lonO = lonDeTuile(x, z), lonE = lonDeTuile(x+1, z);
-        const latN = latDeTuile(y, z), latS = latDeTuile(y+1, z);
-        const so = proj.versMetres(lonO, latS), ne = proj.versMetres(lonE, latN);
-        const t = {
-          z, x, y, dataUri:null,
-          // repere du plan : on annule le decalage du point de calage
-          xMin: so.x + ref.x, yMin: so.y + ref.y,
-          largeur: ne.x - so.x, hauteur: ne.y - so.y
-        };
-        tuiles.push(t);
-        promesses.push(chargerTuileOrtho(z, x, y).then(u=>{ t.dataUri = u; }).catch(()=>{ t.dataUri = null; }));
-      }
-    }
-    await Promise.all(promesses);
-    const reussies = tuiles.filter(t=>t.dataUri);
-    if(reussies.length){
-      orthoTuiles = reussies;
-      return { z, nb: reussies.length, total: tuiles.length, exact: ref.exact };
-    }
-  }
-  throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
-}
-function placerOrthophoto(){
-  if(!orthoActif || !orthoTuiles.length){
-    if(orthoGroup.childNodes.length) orthoGroup.innerHTML = '';
-    return;
-  }
-  if(orthoGroup.childNodes.length !== orthoTuiles.length){
-    orthoGroup.innerHTML = '';
-    orthoTuiles.forEach(t=>{
-      const img = document.createElementNS(svgNS, 'image');
-      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', t.dataUri);
-      img.setAttribute('href', t.dataUri);
-      img.setAttribute('preserveAspectRatio', 'none');
-      t.el = img;
-      orthoGroup.appendChild(img);
-    });
-  }
-  orthoGroup.setAttribute('opacity', orthoOpacite);
-  orthoTuiles.forEach(t=>{
-    if(!t.el) return;
-    const coin = toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
-    t.el.setAttribute('x', coin.x);
-    t.el.setAttribute('y', coin.y);
-    t.el.setAttribute('width', Math.max(1, t.largeur*etat.scene.scale));
-    t.el.setAttribute('height', Math.max(1, t.hauteur*etat.scene.scale));
-  });
-}
-async function basculerOrthophoto(actif){
-  orthoActif = actif;
-  const cbHaut = document.getElementById('chkOrtho');
-  if(cbHaut) cbHaut.checked = actif;
-  if(!actif){ render(); enregistrerConfigOrtho(); return; }
-  if(orthoTuiles.length){ render(); enregistrerConfigOrtho(); return; }
-  orthoChargement = true;
-  const cb = document.getElementById('chkOrtho');
-  if(cb) cb.disabled = true;
-  try {
-    const r = await chargerOrthophoto();
-    render();
-    enregistrerConfigOrtho();
-    showToast('Orthophoto IGN : ' + r.nb + ' tuile(s) au niveau ' + r.z +
-      (r.exact ? '.' : ' — calage approximatif (plan sans import cadastre : le fond est posé sur le lieu déclaré de la parcelle).'));
-  } catch(e){
-    orthoActif = false;
-    if(cb) cb.checked = false;
-    showToast('Orthophoto indisponible : ' + (e.message || e));
-  } finally {
-    orthoChargement = false;
-    if(cb) cb.disabled = false;
-  }
-}
 
 // ================= Actualisation des donnees IGN d'un plan existant =================
 // Regle : on REMPLACE ce qui vient de l'API (parcelle cadastrale, objets porteurs d'un champ
@@ -3080,8 +2863,8 @@ function buildThreeScene(obj){
     appliquerLumiereVue3d, applyMode3D, chargerTexturePolyhaven, disposeThreeScene, elevationOf,
     hauteurAppuiMm, objetMasque, positionMat, render, renderVue3DSelect, syncClotureControls,
     syncControlesSoleilVue3d, trouverParcelleCloture, buildThreeScene,
-    orthoActif: ()=>orthoActif,
-    orthoTuiles: ()=>orthoTuiles
+    orthoActif: ()=>ortho.actif,
+    orthoTuiles: ()=>ortho.tuiles
   });
 }
 // Liste deroulante des points de vue enregistres (objets Fonction=camera, globaux au plan, pas
@@ -3805,7 +3588,7 @@ render();
 })();
 // Reglages du fond orthophoto enregistres avec le projet : on les restitue, et on rallume le
 // fond s'il etait actif a l'enregistrement (les tuiles, elles, se retelechargent).
-restaurerOrthoDuProjet();
+restaurerOrthoDuProjet({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
 // Masquage du voisinage : meme mecanique, meme rangement sur la parcelle.
 restaurerAffichageDuProjet();
 
