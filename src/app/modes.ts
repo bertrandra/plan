@@ -1,24 +1,35 @@
-// Ce que l'utilisateur regarde : mode Plan, mode Terrasse et ses sous-onglets (spec §6.4, app/).
+// Ce que l'utilisateur regarde (spec §6.4, app/).
 //
-// Trois choses vivent ici, et elles sont liees :
+// Quatre vues se partagent la page — le plan, la terrasse, la Vue 3D et la visionneuse GLB — mais
+// elles ne sont pas de meme nature, et c'est ce qui embrouillait le code d'origine :
 //
-// **1. Les deux modes.** Le plan (dessiner la parcelle et ses objets) et la terrasse (la construire).
-// La « Vue 3D » n'en est **pas un troisieme** : c'est le mode Terrasse sur son sous-onglet `3d`,
-// avec son propre bouton en haut de page. Ce choix evite de retoucher les endroits qui testent
-// encore `appMode === 'terrasse'` ; le prix a payer est que l'apparence des boutons doit etre
-// corrigee a la main apres chaque bascule, ce qui explique les `classList` disperses ci-dessous.
+// - `etat.appMode` ne connait que **deux** modes, `plan` et `terrasse`, parce que c'est ce que le
+//   reste du programme teste. La Vue 3D est le mode Terrasse sur son sous-onglet `3d` ; la
+//   visionneuse GLB ne change pas de mode du tout, elle recouvre la page.
+// - Mais l'utilisateur, lui, voit **quatre** boutons dont un seul doit etre allume.
 //
-// **2. Le plan physique se deplace.** `#stage` n'existe qu'une fois dans la page : il est *deplace*
-// entre sa position du mode Plan, le sous-onglet Canevas (ou le voir par-dessous la construction a
-// un sens), et un emplacement cache pour tous les autres sous-onglets. Ni duplique, ni laisse
-// flottant au-dessus d'onglets qui n'en ont que faire — d'ou la memorisation de sa place d'origine
-// au premier deplacement, seule facon de l'y remettre ensuite.
-//
-// **3. La visionneuse GLB est un panneau independant**, pas un mode. Tout retour explicite vers Plan
-// ou Terrasse doit donc la refermer : sinon son canevas resterait actif en arriere-plan, sous le
-// panneau qu'on vient de rouvrir.
+// Ces deux comptes differents etaient tenus au meme endroit, a coups de `classList.add` et
+// `.remove` poses apres coup pour rattraper ce que l'appel precedent venait de faire. D'ou la
+// regle de ce module : `vueCourante` est la seule verite sur ce qui est affiche, `appliquerVue()`
+// est le seul endroit qui touche aux boutons et aux zones, et `etat.appMode` en est **derive**.
+// Aucune fonction ne corrige plus l'apparence laissee par une autre.
 
-import { vue3d, chargement } from '../three/etat3d.js';
+import { vue3d, glb, chargement } from '../three/etat3d.js';
+
+/** Ce que l'utilisateur regarde. Quatre vues, un seul bouton allume. */
+export type Vue = 'plan' | 'terrasse' | 'vue3d' | 'visionneuse';
+
+/** Le bouton du haut de page qui correspond a chaque vue. */
+const BOUTON_DE_VUE: Record<Vue, string> = {
+  plan: 'modePlanBtn',
+  terrasse: 'modeTerrasseBtn',
+  vue3d: 'mode3dBtn',
+  visionneuse: 'glbViewerBtn'
+};
+
+/** Les zones du mode Plan, et celles du mode Terrasse : montrees ensemble, cachees ensemble. */
+const ZONES_PLAN = ['selector', 'planActions', 'panelTabs', 'panel'];
+const ZONES_TERRASSE = ['terrasseTopBar', 'terrassePanel'];
 
 /** Les sous-onglets du mode Terrasse : leur cle, leur libelle, et le panneau qu'ils montrent. */
 const SOUS_ONGLETS: [string, string, string][] = [
@@ -32,13 +43,12 @@ const SOUS_ONGLETS: [string, string, string][] = [
   ['methode', 'Méthode', 'terrasseTabMethode']
 ];
 
-/** Ce que le pilotage des modes doit pouvoir declencher ailleurs. */
+/** Ce que le pilotage des vues doit pouvoir declencher ailleurs. */
 export interface ContexteModes {
   /** Le plan lui-meme, celui qu'on deplace d'un emplacement a l'autre. */
   stage: HTMLElement;
   /** Le groupe SVG du calque des couches, a vider en quittant le mode Terrasse. */
   terrasseLayerGroup: SVGGElement;
-  fermerVisionneuseGlb: () => void;
   /** Reconstruit la barre de choix de la terrasse ; `false` quand il n'y a rien a montrer. */
   rebuildTerrasseSelector: () => boolean;
   fitToObject: (obj) => void;
@@ -49,32 +59,115 @@ export interface ContexteModes {
   render: () => void;
   /** Les panneaux a remplir quand la terrasse courante change. */
   rendrePanneauxTerrasse: (obj) => void;
+  /** Charge et affiche le dernier .glb exporte, une fois son panneau visible. */
+  preparerVisionneuse: () => void;
+  /** Rend la visionneuse a son format normal, avant de la fermer. */
+  quitterPleinPageVisionneuse: () => void;
+  /** Libere la scene de la visionneuse. */
+  disposeGlbViewerScene: () => void;
 }
 
 export function creerModes(etat, ctx: ContexteModes) {
+  let vueCourante: Vue = 'plan';
   let terrasseSubTab = 'construction';
-  let stageHomeParent: Node | null = null, stageHomeNext: Node | null = null;
   // La terrasse sur laquelle la vue a deja ete cadree : on ne recadre qu'au changement, sinon
   // chaque retour au mode Terrasse annulerait le zoom que l'utilisateur venait de regler.
   let terrasseLastFittedKey: string | null = null;
 
-  function captureStageHome(): void {
-    if (!stageHomeParent) {
-      stageHomeParent = ctx.stage.parentNode;
-      stageHomeNext = ctx.stage.nextSibling;
-    }
-  }
+  // ------------------------------------------------------------------------------------------
+  // Le plan physique se deplace
+  // ------------------------------------------------------------------------------------------
+  // `#stage` n'existe qu'une fois dans la page : il est *deplace* entre sa place du mode Plan, le
+  // sous-onglet Canevas (ou le voir par-dessous la construction a un sens) et un garage cache pour
+  // tous les autres sous-onglets. Ni duplique, ni laisse flottant au-dessus d'onglets qui n'en ont
+  // que faire.
+  //
+  // Sa place d'origine est marquee par un noeud-ancre pose ici, une fois pour toutes. Retenir
+  // « le parent et le frere suivant » aurait suffi tant que rien d'autre ne touche a ces voisins —
+  // une ancre, elle, reste valable meme si le voisinage change.
+  const ancrePlan = document.createComment(' emplacement du plan en mode Plan ');
+  ctx.stage.parentNode.insertBefore(ancrePlan, ctx.stage.nextSibling);
 
   function updateStagePlacement(): void {
-    captureStageHome();
     if (etat.appMode === 'terrasse' && terrasseSubTab === 'canevas') {
       document.getElementById('stageHost').appendChild(ctx.stage);
     } else if (etat.appMode === 'terrasse') {
       document.getElementById('stageParking').appendChild(ctx.stage);
     } else {
-      stageHomeParent.insertBefore(ctx.stage, stageHomeNext);
+      ancrePlan.parentNode.insertBefore(ctx.stage, ancrePlan);
     }
   }
+
+  // ------------------------------------------------------------------------------------------
+  // Une seule vue a la fois
+  // ------------------------------------------------------------------------------------------
+
+  /** Allume le bouton de la vue courante, eteint les trois autres. Seul endroit qui les touche. */
+  function appliquerBoutons(): void {
+    for (const [vue, id] of Object.entries(BOUTON_DE_VUE)) {
+      document.getElementById(id).classList.toggle('active', vue === vueCourante);
+    }
+  }
+
+  function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
+    ids.forEach(id => { document.getElementById(id).style.display = visible ? valeurVisible : 'none'; });
+  }
+
+  /**
+   * Applique la vue demandee : boutons, zones, et mode sous-jacent.
+   *
+   * La visionneuse recouvre la page sans changer de mode — d'ou le traitement a part. Toute autre
+   * vue la referme d'abord : sinon son canevas resterait actif derriere le panneau qu'on rouvre.
+   */
+  function appliquerVue(vue: Vue): void {
+    if (vueCourante === 'visionneuse' && vue !== 'visionneuse') fermerVisionneuse();
+    vueCourante = vue;
+    appliquerBoutons();
+    if (vue === 'visionneuse') return;
+
+    const mode = vue === 'plan' ? 'plan' : 'terrasse';
+    etat.appMode = mode;
+    const surLePlan = mode === 'plan';
+    afficher(ZONES_PLAN, surLePlan);
+    afficher(ZONES_TERRASSE, !surLePlan, 'block');
+    if (surLePlan) {
+      ctx.terrasseLayerGroup.innerHTML = '';
+      terrasseLastFittedKey = null; // un retour ulterieur en mode Terrasse recadrera
+      ctx.disposeThreeScene();
+      document.getElementById('terrasse3dWrap').style.display = 'none';
+      updateStagePlacement();
+      // Le plan masque la selection tant qu'il sert de fond en mode Terrasse : revenir doit la
+      // redessiner, sinon l'objet reste visuellement deselectionne alors qu'il est bien celui que
+      // le panneau edite.
+      ctx.render();
+    } else {
+      refreshTerrasseView();
+    }
+  }
+
+  function ouvrirVisionneuse(): void {
+    glb.ouvert = true;
+    appliquerVue('visionneuse');
+    afficher(ZONES_PLAN, false);
+    afficher(ZONES_TERRASSE, false);
+    ctx.stage.style.display = 'none';
+    document.getElementById('glbViewerPanel').style.display = 'block';
+    ctx.preparerVisionneuse();
+  }
+
+  function fermerVisionneuse(): void {
+    if (!glb.ouvert) return;
+    glb.ouvert = false;
+    // Avant de cacher le panneau : sinon la reouverture repartirait directement en plein page.
+    ctx.quitterPleinPageVisionneuse();
+    document.getElementById('glbViewerPanel').style.display = 'none';
+    ctx.stage.style.display = '';
+    ctx.disposeGlbViewerScene();
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Le mode Terrasse et ses sous-onglets
+  // ------------------------------------------------------------------------------------------
 
   /**
    * Reconstruit la rangee de sous-onglets, montre le panneau choisi, et gere la scene 3D.
@@ -95,14 +188,9 @@ export function creerModes(etat, ctx: ContexteModes) {
       const b = document.createElement('button');
       b.className = 'panelTabBtn' + (terrasseSubTab === key ? ' active' : '');
       b.textContent = label;
-      b.addEventListener('click', () => {
-        terrasseSubTab = key;
-        // Choisir un sous-onglet normal alors que « Vue 3D » etait mis en avant doit rendre sa
-        // place a « Terrasse » : un seul bouton du haut actif a la fois.
-        document.getElementById('mode3dBtn').classList.remove('active');
-        document.getElementById('modeTerrasseBtn').classList.add('active');
-        rebuildTerrasseSubTabs();
-      });
+      // Choisir un sous-onglet normal, c'est revenir a la vue Terrasse : c'est `appliquerVue` qui
+      // rend sa place au bouton « Terrasse », et non ce clic qui la lui rendrait a la main.
+      b.addEventListener('click', () => { terrasseSubTab = key; vueCourante = 'terrasse'; appliquerBoutons(); rebuildTerrasseSubTabs(); });
       div.appendChild(b);
     });
     SOUS_ONGLETS.forEach(([key, , panelId]) => {
@@ -146,48 +234,13 @@ export function creerModes(etat, ctx: ContexteModes) {
     ctx.rendrePanneauxTerrasse(obj);
   }
 
-  function setAppMode(mode: string): void {
-    ctx.fermerVisionneuseGlb();
-    etat.appMode = mode;
-    document.getElementById('modePlanBtn').className = 'objbtn' + (mode === 'plan' ? ' active' : '');
-    document.getElementById('modeTerrasseBtn').className = 'objbtn' + (mode === 'terrasse' ? ' active' : '');
-    // Tout appel normal eteint « Vue 3D » ; `goVue3D` le rallume juste apres.
-    document.getElementById('mode3dBtn').classList.remove('active');
-    const showPlan = mode === 'plan';
-    document.getElementById('selector').style.display = showPlan ? '' : 'none';
-    document.getElementById('planActions').style.display = showPlan ? '' : 'none';
-    document.getElementById('panelTabs').style.display = showPlan ? '' : 'none';
-    document.getElementById('panel').style.display = showPlan ? '' : 'none';
-    document.getElementById('terrasseTopBar').style.display = showPlan ? 'none' : 'block';
-    document.getElementById('terrassePanel').style.display = showPlan ? 'none' : 'block';
-    if (mode === 'terrasse') {
-      refreshTerrasseView();
-    } else {
-      ctx.terrasseLayerGroup.innerHTML = '';
-      terrasseLastFittedKey = null; // un retour ulterieur en mode Terrasse recadrera
-      ctx.disposeThreeScene();
-      document.getElementById('terrasse3dWrap').style.display = 'none';
-      updateStagePlacement();
-      // Le plan masque la selection tant qu'il sert de fond en mode Terrasse : revenir doit la
-      // redessiner, sinon l'objet reste visuellement deselectionne alors qu'il est bien celui que
-      // le panneau edite.
-      ctx.render();
-    }
-  }
-
   return {
-    setAppMode,
     refreshTerrasseView,
     rebuildTerrasseSubTabs,
     updateStagePlacement,
+    ouvrirVisionneuse,
 
-    /** Raccourci vers la Vue 3D depuis le haut de page, utilisable depuis Plan comme Terrasse. */
-    goVue3D() {
-      terrasseSubTab = '3d';
-      setAppMode('terrasse');
-      document.getElementById('modeTerrasseBtn').classList.remove('active');
-      document.getElementById('mode3dBtn').classList.add('active');
-    },
+    allerAuPlan() { appliquerVue('plan'); },
 
     /**
      * Retour au mode Terrasse depuis son bouton. Si l'on regardait la Vue 3D, aucun sous-onglet
@@ -195,9 +248,16 @@ export function creerModes(etat, ctx: ContexteModes) {
      */
     allerAuModeTerrasse() {
       if (terrasseSubTab === '3d') terrasseSubTab = 'construction';
-      setAppMode('terrasse');
+      appliquerVue('terrasse');
     },
 
-    get sousOnglet() { return terrasseSubTab; }
+    /** Raccourci vers la Vue 3D depuis le haut de page, utilisable depuis Plan comme Terrasse. */
+    goVue3D() {
+      terrasseSubTab = '3d';
+      appliquerVue('vue3d');
+    },
+
+    get sousOnglet() { return terrasseSubTab; },
+    get vue() { return vueCourante; }
   };
 }

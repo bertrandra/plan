@@ -1516,36 +1516,16 @@ function rafraichirVisionneuseGlb(camaraAConserver){
 function rafraichirVisionneuseGlbSiOuverte(){
   if(glb.ouvert) rafraichirVisionneuseGlb();
 }
-// Panneau independant (pas un troisieme appMode, cf. la note dans setAppMode) : la Visionneuse
-// GLB n'a rien a voir avec les donnees du plan ou de la terrasse, contrairement a "Vue 3D" qui
-// est un raccourci visuel vers Mode Terrasse.
-function ouvrirVisionneuseGlb(){
-  glb.ouvert = true;
-  document.getElementById('modePlanBtn').classList.remove('active');
-  document.getElementById('modeTerrasseBtn').classList.remove('active');
-  document.getElementById('mode3dBtn').classList.remove('active');
-  document.getElementById('glbViewerBtn').classList.add('active');
-  document.getElementById('selector').style.display = 'none';
-  document.getElementById('planActions').style.display = 'none';
-  document.getElementById('panelTabs').style.display = 'none';
-  document.getElementById('panel').style.display = 'none';
-  document.getElementById('terrasseTopBar').style.display = 'none';
-  document.getElementById('terrassePanel').style.display = 'none';
-  stage.style.display = 'none';
-  document.getElementById('glbViewerPanel').style.display = 'block';
+// L'ouverture et la fermeture de la visionneuse appartiennent au pilotage des vues (app/modes.ts) :
+// c'est la qu'on decide qui recouvre la page. Ne reste ici que ce qui lui est propre.
+function preparerVisionneuse(){
   disposeThreeScene(); // une seule scene 3D active a la fois
   syncLieuGlbViewer();
   syncControlesGlb(formatHeureMin);
   rafraichirVisionneuseGlb();
 }
-function fermerVisionneuseGlb(){
-  if(!glb.ouvert) return;
-  glb.ouvert = false;
-  if(nav3d.glbViewerPleinePage) setGlbViewerPleinePage(false); // sinon la reouverture repart directement en plein page
-  document.getElementById('glbViewerBtn').classList.remove('active');
-  document.getElementById('glbViewerPanel').style.display = 'none';
-  stage.style.display = '';
-  disposeGlbViewerScene();
+function quitterPleinPageVisionneuse(){
+  if(nav3d.glbViewerPleinePage) setGlbViewerPleinePage(false);
 }
 
 // La scene 3D est construite dans three/scene.ts ; cette enveloppe lui passe l'etat et ce qu'elle
@@ -1771,8 +1751,9 @@ window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(g
 // Le pilotage des modes vit dans app/modes.ts ; ces enveloppes gardent les noms qu'utilisent les
 // ecouteurs et les panneaux.
 const modes = creerModes(etat, {
-  stage, terrasseLayerGroup, fermerVisionneuseGlb, rebuildTerrasseSelector, fitToObject,
+  stage, terrasseLayerGroup, rebuildTerrasseSelector, fitToObject,
   ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
+  preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
   rendrePanneauxTerrasse(obj){
     renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
     renderTerrasseLayerTabs(obj);
@@ -1785,7 +1766,6 @@ const modes = creerModes(etat, {
     renderMethode(obj, ctxPanneauxTerrasse());
   }
 });
-function setAppMode(mode){ modes.setAppMode(mode); }
 function refreshTerrasseView(){ modes.refreshTerrasseView(); }
 function rebuildTerrasseSubTabs(){ modes.rebuildTerrasseSubTabs(); }
 function updateStagePlacement(){ modes.updateStagePlacement(); }
@@ -1809,10 +1789,10 @@ document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
     basculerOptimisation() ? 'Masquer l\'optimisation' : 'Optimisation des parametres';
   renderOptimResult(obj, ctxPanneauxTerrasse());
 });
-document.getElementById('modePlanBtn').addEventListener('click', ()=>setAppMode('plan'));
+document.getElementById('modePlanBtn').addEventListener('click', ()=>modes.allerAuPlan());
 document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>modes.allerAuModeTerrasse());
 document.getElementById('mode3dBtn').addEventListener('click', ()=>modes.goVue3D());
-document.getElementById('glbViewerBtn').addEventListener('click', ouvrirVisionneuseGlb);
+document.getElementById('glbViewerBtn').addEventListener('click', ()=>modes.ouvrirVisionneuse());
 // Les deux boutons de la Visionneuse passent par genererGlb(..., false) : meme chemin de
 // construction et d'attente des textures que l'onglet Export, mais sans ecriture de fichier.
 document.getElementById('glbViewerExporterBtn').addEventListener('click', function(){
