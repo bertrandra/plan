@@ -34,6 +34,8 @@ import { defaultConstruction, ensureConstruction } from './engine/construction.j
 import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from './engine/hauteurs.js';
 import { anneeEtSemaineDepuisDate, dateDecaleeDeSemaines } from './util/semaine.js';
 import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
+import { normalizeObjects } from './model/normalisation.js';
+import { creerCreation } from './model/creation.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
@@ -119,7 +121,7 @@ import { PileAnnulation } from './core/history.js';
 import { creerScene, versEcran, versMonde } from './render/scene.js';
 import { vue, detruireVue, viderVues, nombreDeVues } from './render/vues.js';
 import { computeTerrasseLayers } from './engine/layers.js';
-import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, terrasseDuParasol } from './engine/parasol.js';
+import { PARASOL_ELEV_MIN_DEG, PARASOL_HEURES, PARASOL_MOIS, calculerCartesOmbre, chercherMeilleurePositionParasol, contraindreParasols, decalageMat, echantillonsSoleilParasol, geometrieOmbre, grillePolygone, hauteurParasolDe, matAngleDe, ombreInstantanee, pointDansOmbre, pointsPerimetre, positionMat, projeterSurPerimetre, terrasseDuParasol } from './engine/parasol.js';
 import { CHARGE_NORMALE_DEFAUT, CHARGE_REF, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, PORTEE_VIS_K, SECTION_REF_AIRE, SOLIVE_SECTION_DIMS, VIS_ROLE_RANK, buildVisGrid, buildVisGridCount, coefRaideurLame, computeStructure, dedupeVis, dimsSection, distPointToLine, empriseEquipement, evaluerStructure, findSpaZones, generateSpanningLines, lamesAngleOf, libelleAppui, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, safeOffset, sectionLambourde, segmentZoneRanges, subdivideSegment, tarifSection, zoneToucheTerrasse } from './engine/structure.js';
 import {
   LIBELLE_FONCTION, FONCTIONS_HORS_EQUIPEMENT, LIEU_DEFAUT, ELEVATION_DEFAUT, elevationParDefaut
@@ -303,31 +305,7 @@ function dejaRectangle(pts, tolDeg){
 
 
 // ================= Object model =================
-// Normalizes a plain-data objects array (from api.php, from DEMO_OBJECTS, or from an undo
-// snapshot) the same way regardless of origin: clone points, and make sure every pts-based
-// object has usable name/frozen arrays even if the source was missing some of them.
-function normalizeObjects(raw){
-  return raw.map(o=>{
-    const c = {...o};
-    if(c.type==='circle'){
-      c.center = {x:c.center.x, y:c.center.y};
-    } else {
-      c.pts = c.pts.map(p=>({x:p.x,y:p.y}));
-      c.vertexNames = c.vertexNames ? [...c.vertexNames] : c.pts.map((_,i)=>'Point '+(i+1));
-      c.segmentNames = c.segmentNames ? [...c.segmentNames] : c.pts.map((_,i)=>'Cote '+(i+1));
-      c.frozenVertices = (c.frozenVertices && c.frozenVertices.length===c.pts.length) ? [...c.frozenVertices] : c.pts.map(()=>false);
-    }
-    if(c.construction) c.construction = JSON.parse(JSON.stringify(c.construction));
-    // Les metadonnees cadastre/BD TOPO/PLU sont des sous-objets : sans clone, un snapshot d'undo
-    // et l'objet vivant partageraient la meme reference (et la geometrie source WGS84 avec).
-    if(c.cadastre) c.cadastre = JSON.parse(JSON.stringify(c.cadastre));
-    if(c.bdtopo) c.bdtopo = JSON.parse(JSON.stringify(c.bdtopo));
-    if(c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
-    if(c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
-    if(c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
-    return c;
-  });
-}
+// La mise en forme des objets qui entrent dans le plan vit dans model/normalisation.ts.
 // objects : dans `etat`, construit par creerEtat qui appelle normalizeObjects (spec 6.1).
 const initialState = JSON.parse(JSON.stringify(etat.objects));
 
@@ -500,56 +478,13 @@ function sendObjectBackward(obj){
 // modifie les objets : elle reste ici et s'execute avant le dessin, comme avant.
 function renderParasolOverlay(){
   if(etat.appMode !== 'plan'){ parasolGroup.innerHTML = ''; return; }
-  contraindreParasols();
+  contraindreParasols(etat.objects, etat.terrasseSelectedKey);
   dessinerCalqueParasols({
     groupeOmbres: parasolGroup, groupeMats: parasolMatGroup, racine: svg,
     etat, ctxSoleil: contexteSoleilParasol(), positionMat
   });
 }
 
-
-function positionMat(par){
-  if(!par.matDeporte) return { x: par.center.x, y: par.center.y };
-  const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.center.x + par.r*Math.cos(a), y: par.center.y + par.r*Math.sin(a) };
-}
-// Decalage centre-de-toile -> mat, utile pour repositionner la toile a partir d'un pied impose.
-function decalageMat(par){
-  if(!par.matDeporte) return { x:0, y:0 };
-  const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.r*Math.cos(a), y: par.r*Math.sin(a) };
-}
-// Point du bord du polygone le plus proche de pt (projection sur chaque segment, on garde le
-// meilleur) - sert a coller le pied du parasol sur le pourtour de la terrasse.
-function projeterSurPerimetre(pt, poly){
-  let best = null, bestD2 = Infinity;
-  for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j].x, ay=poly[j].y, bx=poly[i].x, by=poly[i].y;
-    const ex=bx-ax, ey=by-ay;
-    const L2 = ex*ex+ey*ey;
-    let t = L2 ? ((pt.x-ax)*ex + (pt.y-ay)*ey)/L2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    const px=ax+t*ex, py=ay+t*ey;
-    const d2 = (pt.x-px)*(pt.x-px) + (pt.y-py)*(pt.y-py);
-    if(d2 < bestD2){ bestD2 = d2; best = {x:px, y:py}; }
-  }
-  return best;
-}
-// Applique la contrainte "pied en bordure" : on projette le PIED (pas le centre de la toile) sur le
-// pourtour, puis on redonne a la toile la position correspondante. Appele a chaque rendu, donc la
-// contrainte tient aussi pendant un glisser - l'objet suit le curseur en restant colle au bord.
-function contraindreParasols(){
-  etat.objects.forEach(par=>{
-    if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
-    const terr = terrasseDuParasol(par, etat.objects, etat.terrasseSelectedKey);
-    if(!terr || !terr.pts || terr.pts.length<3) return;
-    const mat = positionMat(par);
-    const cible = projeterSurPerimetre(mat, terr.pts);
-    if(!cible) return;
-    par.center.x += cible.x - mat.x;
-    par.center.y += cible.y - mat.y;
-  });
-}
 
 // Le dessin du plan est orchestre dans render/pipeline.ts ; cette enveloppe lui fournit l'etat et
 // les briques qu'il assemble.
@@ -780,191 +715,19 @@ document.getElementById('orthoParcelleDefaut').addEventListener('click', functio
 });
 
 // ================= Add / delete whole object =================
-// newObjCounter : dans `etat` (spec 6.1).
-// `enRectangle` cree la forme avec le mode rectangle deja arme : les quatre angles sont tenus a
-// 90 degres des le depart, et tirer un coin redimensionne au lieu de deformer. C'est le cas de
-// loin le plus courant (terrasse, dalle, abri) et il evitait jusqu'ici d'aller cocher la case.
-function addNewObject(enRectangle){
-  pushHistory();
-  const pc = etat.objects.find(o=>o.key==='parcelle');
-  const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'obj' + Date.now() + '_' + (etat.newObjCounter++);
-  const demiL = enRectangle ? 1.5 : 1.0;   // 3 x 2 m, pour qu'on voie que c'est un rectangle
-  const demiH = 1.0;
-  const newObj = {
-    key, type:'polygon', name: enRectangle ? 'Nouveau rectangle' : 'Nouvel objet',
-    fill:'#8fb3d9', fillOpacity:0.75, stroke:'#2a4d6e',
-    pts:[
-      {x:c.x-demiL,y:c.y-demiH},{x:c.x+demiL,y:c.y-demiH},
-      {x:c.x+demiL,y:c.y+demiH},{x:c.x-demiL,y:c.y+demiH}
-    ],
-    vertexNames:['Coin 1','Coin 2','Coin 3','Coin 4'],
-    segmentNames:['Cote 1','Cote 2','Cote 3','Cote 4'],
-    frozenVertices: enRectangle ? [true,true,true,true] : [false,false,false,false],
-    showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-    constrained:true, fonction:'autre', matiere:'', priority:2, locked:false
-  };
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  etat.selectedKey = key;
-  // Sur un rectangle on ouvre l'onglet Objet : c'est la que se trouve la case du mode, donc
-  // celle qu'il faudra decocher pour reprendre la main sur les angles.
-  etat.attrTab = enRectangle ? 'objet' : 'segments';
-  rebuildSelector();
-  render();
+// newObjCounter : dans `etat` (spec 6.1). La naissance et la mort d'un objet vivent dans
+// model/creation.ts ; ces enveloppes lui fournissent l'etat et les briques qu'il assemble.
+function ctxCreation(){
+  return { pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
+    render, detruireVue, serializeObjects, normalizeObjects, showToast, showConfirm };
 }
-
-function addNewPath(){
-  pushHistory();
-  const pc = etat.objects.find(o=>o.key==='parcelle');
-  const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
-  const newObj = {
-    key, type:'path', name:'Nouveau chemin', fill:'#c9a15a', fillOpacity:1, stroke:'#c9a15a',
-    pts:[ {x:c.x-2,y:c.y}, {x:c.x+2,y:c.y} ],
-    vertexNames:['Point 1','Point 2'],
-    segmentNames:['Cote 1'],
-    frozenVertices:[false,false],
-    width:1.2, curve:false,
-    showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-    constrained:true, fonction:'chemin', matiere:'', priority:2, locked:false
-  };
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  etat.selectedKey = key;
-  etat.attrTab = 'segments';
-  rebuildSelector();
-  render();
-}
-
-function addNewCircle(){
-  pushHistory();
-  const pc = etat.objects.find(o=>o.key==='parcelle');
-  const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'circle' + Date.now() + '_' + (etat.newObjCounter++);
-  const newObj = {
-    key, type:'circle', name:'Nouveau cercle', fill:'#5bc8f5', fillOpacity:0.88, stroke:'#0a3d5c',
-    center:{x:c.x, y:c.y}, r:1.0,
-    showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-    constrained:true, fonction:'equipement', matiere:'', priority:2, locked:false
-  };
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  etat.selectedKey = key;
-  etat.attrTab = 'objet';
-  rebuildSelector();
-  render();
-}
-
-// Un parasol est un cercle (le diametre de la toile = le rayon du cercle, deja glissable/editable
-// comme tout cercle), marque fonction:'parasol' pour que le panneau y ajoute la hauteur de mat et
-// les outils d'ombre, et pour que la Vue 3D le modelise en mat + toile plutot qu'en bloc plein.
-function addNewParasol(){
-  pushHistory();
-  // Pose par defaut au centre de la terrasse (c'est un parasol DE terrasse) plutot qu'au centre de
-  // la parcelle - sinon il nait loin de l'endroit ou on veut l'utiliser.
-  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
-            || etat.objects.find(o=>o.fonction==='terrasse')
-            || etat.objects.find(o=>o.key==='parcelle');
-  const c = terr ? centroid(terr.pts) : {x:0, y:0};
-  const key = 'circle' + Date.now() + '_' + (etat.newObjCounter++);
-  const n = etat.objects.filter(o=>o.fonction==='parasol').length + 1;
-  const newObj = {
-    key, type:'circle', name:'Parasol '+n, fill:'#7a9e6b', fillOpacity:0.55, stroke:'#3f5c33',
-    center:{x:c.x, y:c.y}, r:1.5, // 3 m de diametre, taille courante d'un parasol de terrasse
-    showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
-    constrained:true, fonction:'parasol', matiere:'', priority:4, locked:false,
-    hauteurParasol:2.2,
-    terrasseLieeKey: (terr && terr.fonction==='terrasse') ? terr.key : null
-  };
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  etat.selectedKey = key;
-  etat.attrTab = 'objet';
-  rebuildSelector();
-  render();
-}
-
-// Un point de vue est un cercle comme un autre (position glissable, selection, export...), juste
-// marque fonction:'camera' pour que le panneau d'attributs y ajoute altitude/direction et que la
-// Vue 3D sache lesquels lister. Reutiliser le cercle evite de reconstruire toute la mecanique de
-// placement/selection/export pour un simple marqueur.
-function addNewViewpoint(){
-  pushHistory();
-  const pc = etat.objects.find(o=>o.key==='parcelle');
-  const c = pc ? centroid(pc.pts) : {x:0, y:0};
-  const key = 'path' + Date.now() + '_' + (etat.newObjCounter++);
-  const n = etat.objects.filter(o=>o.fonction==='camera').length + 1;
-  const newObj = {
-    key, type:'path', name:'Point de vue '+n, fill:'#c0392b', fillOpacity:0.9, stroke:'#6b1f16',
-    pts:[ {x:c.x, y:c.y}, {x:c.x+2, y:c.y} ],
-    vertexNames:['Position','Direction'], segmentNames:['Vise'],
-    frozenVertices:[false,false], width:0.08, curve:false,
-    showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
-    constrained:false, fonction:'camera', matiere:'', priority:3, locked:false,
-    altitude:1.6
-  };
-  etat.objects.push(newObj);
-  createObjectDOM(newObj);
-  rebuildHandles(newObj);
-  reapplyStackingOrder();
-  etat.selectedKey = key;
-  etat.attrTab = 'objet';
-  rebuildSelector();
-  render();
-}
-
-function duplicateSelectedObject(){
-  const src = etat.objects.find(o=>o.key===etat.selectedKey);
-  if(!src){ showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
-  pushHistory();
-  // Passe par le meme couple serialize/normalize que la sauvegarde et l'annulation. La raison
-  // d'origine - l'objet portait ses elements SVG, que JSON.stringify ne sait pas traiter - a
-  // disparu en phase 4 : les poignees vivent desormais a cote (render/vues.ts). Ce qui reste,
-  // et qui suffit a garder ce detour : la copie doit etre normalisee comme un objet importe,
-  // avec ses invariants de tableaux (vertexNames, segmentNames, frozenVertices).
-  const plain = serializeObjects([src])[0];
-  plain.key = 'dup' + Date.now() + '_' + (etat.newObjCounter++);
-  plain.name = src.name + ' (copie)';
-  const clone = normalizeObjects([plain])[0];
-  if(clone.type==='circle') clone.center.x -= 5;
-  else clone.pts.forEach(p=>{ p.x -= 5; });
-  etat.objects.push(clone);
-  createObjectDOM(clone);
-  rebuildHandles(clone);
-  reapplyStackingOrder();
-  etat.selectedKey = clone.key;
-  etat.attrTab = 'objet';
-  rebuildSelector();
-  render();
-}
-
-function deleteSelectedObject(){
-  if(!etat.selectedKey){ showToast('Sélectionne d\'abord un objet à supprimer.'); return; }
-  if(etat.selectedKey === 'parcelle'){ showToast('La parcelle ne peut pas être supprimée.'); return; }
-  const idx = etat.objects.findIndex(o=>o.key===etat.selectedKey);
-  if(idx===-1) return;
-  const obj = etat.objects[idx];
-  if(obj.locked){ showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
-  showConfirm('Supprimer definitivement "' + obj.name + '" ?', ()=>{
-    pushHistory();
-    // Le demontage appartient a render/vues.ts : il retire les memes elements qu'ici, et oublie
-    // en plus l'entree de la carte - que ce code laissait derriere lui a chaque suppression.
-    detruireVue(obj);
-    etat.objects.splice(idx,1);
-    etat.selectedKey = null;
-    rebuildSelector();
-    render();
-  });
-}
+function addNewObject(enRectangle){ creerCreation(etat, ctxCreation()).ajouterObjet(enRectangle); }
+function addNewPath(){ creerCreation(etat, ctxCreation()).ajouterChemin(); }
+function addNewCircle(){ creerCreation(etat, ctxCreation()).ajouterCercle(); }
+function addNewParasol(){ creerCreation(etat, ctxCreation()).ajouterParasol(); }
+function addNewViewpoint(){ creerCreation(etat, ctxCreation()).ajouterPointDeVue(); }
+function duplicateSelectedObject(){ creerCreation(etat, ctxCreation()).dupliquer(); }
+function deleteSelectedObject(){ creerCreation(etat, ctxCreation()).supprimer(); }
 
 
 document.getElementById('exportSvgBtn').addEventListener('click', ()=>{

@@ -149,6 +149,65 @@ export function matAngleDe(par){
   return (par.matAngleDeg !== undefined && par.matAngleDeg !== null) ? par.matAngleDeg : 0;
 }
 
+/**
+ * Position du **pied** du parasol. Sur un parasol droit c'est le centre de la toile ; sur un
+ * deporte, un point de son bord.
+ */
+export function positionMat(par){
+  if(!par.matDeporte) return { x: par.center.x, y: par.center.y };
+  const a = matAngleDe(par) * Math.PI/180;
+  return { x: par.center.x + par.r*Math.cos(a), y: par.center.y + par.r*Math.sin(a) };
+}
+
+/** Decalage centre-de-toile → mat, pour replacer la toile a partir d'un pied impose. */
+export function decalageMat(par){
+  if(!par.matDeporte) return { x:0, y:0 };
+  const a = matAngleDe(par) * Math.PI/180;
+  return { x: par.r*Math.cos(a), y: par.r*Math.sin(a) };
+}
+
+/**
+ * Point du bord du polygone le plus proche de `pt` : on projette sur chaque segment et on garde le
+ * meilleur. Sert a coller le pied du parasol sur le pourtour de la terrasse.
+ */
+export function projeterSurPerimetre(pt, poly){
+  let best = null, bestD2 = Infinity;
+  for(let i=0, j=poly.length-1; i<poly.length; j=i++){
+    const ax=poly[j].x, ay=poly[j].y, bx=poly[i].x, by=poly[i].y;
+    const ex=bx-ax, ey=by-ay;
+    const L2 = ex*ex+ey*ey;
+    let t = L2 ? ((pt.x-ax)*ex + (pt.y-ay)*ey)/L2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const px=ax+t*ex, py=ay+t*ey;
+    const d2 = (pt.x-px)*(pt.x-px) + (pt.y-py)*(pt.y-py);
+    if(d2 < bestD2){ bestD2 = d2; best = {x:px, y:py}; }
+  }
+  return best;
+}
+
+/**
+ * Applique la contrainte « pied en bordure » a tous les parasols qui la demandent.
+ *
+ * C'est le **pied** qu'on projette sur le pourtour, pas le centre de la toile — puis on redonne a la
+ * toile la position correspondante. Sur un parasol deporte, projeter le centre collerait la toile au
+ * bord et laisserait le pied dans le vide, a l'exterieur de la terrasse.
+ *
+ * Appelee a chaque rendu, donc la contrainte tient aussi **pendant** un glisser : l'objet suit le
+ * curseur en restant colle au bord, au lieu de sauter a la fin du geste.
+ */
+export function contraindreParasols(objets, terrasseSelectionnee?){
+  objets.forEach(par=>{
+    if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
+    const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
+    if(!terr || !terr.pts || terr.pts.length<3) return;
+    const mat = positionMat(par);
+    const cible = projeterSurPerimetre(mat, terr.pts);
+    if(!cible) return;
+    par.center.x += cible.x - mat.x;
+    par.center.y += cible.y - mat.y;
+  });
+}
+
 // Points regulierement repartis le long du pourtour d'un polygone (positions candidates du pied
 // quand il doit rester en bordure).
 export function pointsPerimetre(poly, pas){
