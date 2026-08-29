@@ -11,7 +11,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
 | 4 — Modèle et conteneur d'état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.8` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place, `render/**` et `interaction/**` amorcés (11 modules) ; `render()` et la création d'objets restent |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
-| 6 — 3D et exports | ⏳ | | | |
+| 6 — 3D et exports | 🟡 partielle 29/08/2026 | `v1.0.1-alpha.38` | (non formulé par la spec) | exports tous sortis (`export/**`) ; côté 3D, la scène, la visionneuse GLB, l'état et le soleil sont sortis — le pilotage de l'onglet terrasse reste dans `legacy.ts` |
 | 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
 
 ---
@@ -824,10 +824,82 @@ un identifiant libre que le build accepte sans broncher.
 Deux règles en sont sorties, appliquées depuis : vérifier par un `grep` que l'insertion a bien eu
 lieu, et vérifier **la fonctionnalité déplacée** en plus du contrôle de santé.
 
+### L'historique, sorti tel quel pour être réécrit
+
+`core/historique.ts` est le seul module déplacé **sans intention de le garder en l'état** : il doit
+être réécrit, et l'extraction sert à rendre cette réécriture possible. D'où sa forme — le code n'a
+pas bougé d'une ligne, et l'en-tête dit en sept points ce qu'une réécriture doit savoir. Les trois
+qui coûteront le plus cher à redécouvrir :
+
+- **L'instantané passe par la même liste blanche que l'enregistrement.** Un champ ajouté à une forme
+  sans être ajouté à `serializeObjects` est perdu *aussi par une annulation*, pas seulement par une
+  sauvegarde.
+- **La restauration démonte tout et reconstruit.** C'est ce qui lui permet de faire revenir un objet
+  supprimé — ce que l'ancienne implémentation « patch des champs connus » ratait en silence.
+- **Il n'y a pas de rétablissement.** Annuler perd l'avenir.
+
+Les 18 tests de caractérisation figent le comportement actuel, y compris une **absence** : un test
+vérifie qu'il n'existe pas de `retablir`. Le jour où le rétablissement arrive, ce test doit échouer —
+c'est le signal qu'on attend de lui.
+
+### Quatre modules, et deux règles écrites en double
+
+Les extractions suivantes ont sorti le client `api.php` (`io/api.ts`), les hauteurs
+(`engine/hauteurs.ts`), le lieu (`model/lieu.ts`), le curseur « semaine » (`util/semaine.ts`) et le
+soleil des deux vues 3D (`three/lumiere.ts`). Aucune n'avait le moindre test ; elles en ont
+maintenant **70**.
+
+Deux d'entre elles n'étaient pas des déplacements mais des **réunions** : la même règle était écrite
+deux fois, ce qui est exactement la façon dont deux vues finissent par diverger.
+
+- Le **décalage d'un cran de semaine** était dupliqué dans l'écouteur de la Vue 3D et dans celui de
+  la visionneuse GLB. La règle qui compte : le décalage est *relatif* à la date courante — sept
+  jours par cran. Une position absolue depuis le 1er janvier ferait sauter d'un nombre de jours
+  irrégulier au premier cran, dès que la date ne tombe pas sur un multiple de sept. Et ce n'est
+  **pas** la semaine ISO : le curseur sert à naviguer, pas à nommer une semaine.
+- Le **soleil** était calculé séparément dans chaque vue — trente lignes de trigonométrie et trois
+  règles d'éclairage, en double. Le commentaire de l'une disait déjà « mêmes règles que » l'autre.
+  La seule différence réelle est devenue un paramètre : la Vue 3D est centrée sur l'origine, la
+  visionneuse sur la boîte englobante de son modèle.
+
+Ce que la réunion du soleil a permis d'écrire une seule fois, et qui ne se devine pas : la nuit, le
+soleil direct s'éteint **vraiment** (0) au lieu de faiblir ; le multiplicateur d'intensité multiplie
+le facteur jour, donc le monter ne rallume jamais un soleil couché ; et la case « lumière d'appoint »
+coupe les *deux* lumières autres que le soleil — n'en couper qu'une laissait l'ambiante éclairer
+seule en pleine nuit, ce qui contredisait la case.
+
+### Vérifier un changement que les empreintes ne voient pas
+
+Les six golden files ne voient rien de la 3D. Pour le soleil, la vérification a donc intercepté ce
+qui est **réellement passé à Three.js** — position de la lumière, facteur jour — en remplaçant
+`Vector3.prototype.set` et `Color.prototype.lerp` le temps de la sonde, sur la version migrée et sur
+le témoin figé, avec la même suite de réglages : solstices, coucher de soleil, intensité, appoint
+décoché, cran de semaine.
+
+Neuf réglages, deux vues, identiques au dernier chiffre — y compris le facteur de nuit
+`0,13700954863358605`. La visionneuse GLB a été vérifiée sur un modèle réellement exporté, donc avec
+un centre non nul : sans quoi le paramètre qui distingue les deux vues n'aurait pas été exercé.
+
+C'est la même leçon que les tables du métré, sous une autre forme : quand l'oracle ne couvre pas ce
+qu'on touche, il faut fabriquer l'oracle — et le faire jouer des deux côtés, à froid.
+
+### Deux pièges de la capture des empreintes
+
+Rejouer les six exports depuis le navigateur a fait ressortir deux détails qui coûtent chacun une
+capture ratée :
+
+- **`#exportBox` est réutilisé.** Le bouton « Générer le résumé » y écrit le résumé, mais l'export
+  DXF y écrit ensuite le DXF. Lire la zone après avoir déclenché les autres exports rend le DXF sous
+  le nom du résumé — 5 362 caractères au lieu de 15 323.
+- **Le dossier PDF ne s'exporte pas sans sa liste.** `dossierSelection` n'est remplie que par
+  `renderDossierTerrasses`, appelée à l'ouverture de l'onglet « Export ». Cliquer le bouton sans
+  avoir ouvert cet onglet affiche « coche au moins une terrasse » et ne produit rien — silencieux si
+  l'on ne compte pas les blobs.
+
 ### Ce qui reste
 
 Le squelette de `legacy.ts` : orchestration du rendu, changement de mode, câblage des boutons, et le
-`boot()` lui-même. **3 086 lignes**, contre 13 571 au début de la migration — 77 % en sont sortis.
+`boot()` lui-même. **2 584 lignes**, contre 13 571 au début de la migration — 81 % en sont sortis.
 
 Sont sortis depuis : les événements de pointeur (`interaction/pointeur.ts`), le chargement d'un
 projet importé (`io/projet.ts`), les tables du dossier et du chiffrage (`ui/tables.ts`), et la
@@ -844,6 +916,12 @@ IGN réelles.
 La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y est documentée pour
 ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
 perdu au premier enregistrement.
+
+Ce qui reste dans `legacy.ts` se range en deux tas. **Extractible**, environ 1 100 lignes : le bloc
+3D et terrasse (le plus gros gisement restant, et le plus homogène), `normalizeObjects`, la création
+d'objets, et les contraintes de parasol. **Coquille inhérente**, environ 1 100 lignes également :
+93 écouteurs d'événements, `boot()`, les six fabriques de contexte et les enveloppes d'une ligne —
+celles-ci ne se sortent pas morceau par morceau, elles se réorganisent en `app/` d'un seul geste.
 
 Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
 `noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros

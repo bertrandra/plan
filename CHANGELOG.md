@@ -3,6 +3,78 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.0.1-alpha.38] — 2026-08-29
+
+La Vue 3D et la visionneuse GLB partagent enfin un seul soleil.
+
+### Interne
+
+- `three/lumiere.ts` : `reglerSoleil()` porte le calcul qui était écrit deux fois — trente lignes de
+  trigonométrie et trois règles d'éclairage. La seule différence réelle entre les deux vues devient
+  un paramètre : la Vue 3D est centrée sur l'origine, la visionneuse sur son modèle.
+- Vérifié contre le témoin figé en interceptant ce qui est réellement passé à Three (position du
+  soleil, facteur jour) : neuf réglages, deux vues, identiques au dernier chiffre.
+- `legacy.ts` : 2 606 → 2 584 lignes.
+
+## [1.0.1-alpha.37] — 2026-08-29
+
+Le lieu et le curseur « semaine » sortent, avec leurs doublons.
+
+### Interne
+
+- `util/semaine.ts` : le décalage d'un cran était dupliqué dans les deux vues 3D. Il est **relatif**
+  à la date courante (sept jours par cran) et ne suit **pas** la numérotation ISO.
+- `model/lieu.ts` : le lieu est rattaché à la parcelle, donc enregistré avec le projet. Une longitude
+  de 0 est une position, pas une absence.
+- **20 tests**, 432 au total. `legacy.ts` : 2 634 → 2 606 lignes.
+
+## [1.0.1-alpha.36] — 2026-08-29
+
+Les hauteurs sortent de `legacy.ts`, en une seule définition.
+
+### Interne
+
+- `engine/hauteurs.ts` : hauteur d'appui, hauteur finie, élévation — lues par le plan de coupe, la
+  3D, le dossier PDF et le chiffrage. Une vis de fondation est enterrée, seul son dépassement de tête
+  soulève ; un plot est posé, toute sa hauteur compte.
+- **18 tests**, 412 au total. Hauteur finie identique au témoin : 27 cm sur les deux terrasses de la
+  démonstration. `legacy.ts` : 2 661 → 2 634 lignes.
+
+## [1.0.1-alpha.35] — 2026-08-29
+
+Le client `api.php` sort de `legacy.ts`.
+
+### Interne
+
+- `io/api.ts` : la règle qui portait tout est maintenant explicite — on ne retombe sur le jeu de
+  démonstration que si **ce navigateur n'a jamais ouvert aucun projet**. Dès qu'un identifiant est
+  connu, un échec est remonté : substituer la démonstration faisait croire qu'un vrai projet avait
+  été perdu.
+- **14 tests** jsdom, 394 au total. `legacy.ts` : 2 727 → 2 661 lignes.
+
+## [1.0.1-alpha.34] — 2026-08-29
+
+L'historique sort **tel quel**, pour être réécrit ensuite.
+
+### Interne
+
+- `core/historique.ts` : le code n'a pas bougé d'une ligne ; l'en-tête dit en sept points ce qu'une
+  réécriture doit savoir. **18 tests de caractérisation**, dont un qui vérifie une *absence* : il
+  n'existe pas de rétablissement, et ce test doit échouer le jour où il arrivera.
+- `legacy.ts` : 2 914 → 2 727 lignes.
+
+## [1.0.1-alpha.33] — 2026-08-29
+
+### Interne
+
+- `render/pipeline.ts` : l'orchestration du dessin sort de `legacy.ts`.
+
+## [1.0.1-alpha.32] — 2026-08-29
+
+### Interne
+
+- Le débit de bois rejoint les autres tables dans `ui/tables.ts`.
+
 ## [1.0.1-alpha.31] — 2026-08-29
 
 La validation d'un fichier de projet sort de `legacy.ts`, et gagne les tests qu'elle n'avait pas.
