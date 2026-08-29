@@ -36,6 +36,7 @@ import { anneeEtSemaineDepuisDate, dateDecaleeDeSemaines } from './util/semaine.
 import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
 import { normalizeObjects } from './model/normalisation.js';
 import { creerCreation } from './model/creation.js';
+import { creerNavigation3d, HAUTEUR_YEUX_M } from './three/navigation.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
@@ -1786,7 +1787,7 @@ function ouvrirVisionneuseGlb(){
 function fermerVisionneuseGlb(){
   if(!glb.ouvert) return;
   glb.ouvert = false;
-  if(glbViewerPleinePage) setGlbViewerPleinePage(false); // sinon la reouverture repart directement en plein page
+  if(nav3d.glbViewerPleinePage) setGlbViewerPleinePage(false); // sinon la reouverture repart directement en plein page
   document.getElementById('glbViewerBtn').classList.remove('active');
   document.getElementById('glbViewerPanel').style.display = 'none';
   stage.style.display = '';
@@ -1908,71 +1909,28 @@ document.getElementById('terrasse3dClotureTexClear').addEventListener('click', (
 });
 // Explicit zoom buttons: move the camera along its current line of sight to the orbit
 // target, rather than relying only on OrbitControls' own wheel handling.
-function zoom3D(factor){
-  if(!vue3d.scene) return;
-  const { camera, controls, renderer, scene } = vue3d.scene;
-  const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
-  offset.multiplyScalar(factor);
-  if(offset.length() < 0.3) return; // don't let it zoom through the target
-  camera.position.copy(controls.target).add(offset);
-  controls.update();
-  renderer.render(scene, camera); // render immediately, don't wait for the next animation frame
-}
+// Le pilotage des deux vues 3D (zoom, mode du glisser, points de vue, plein page) vit dans
+// three/navigation.ts ; ces enveloppes gardent les noms qu'utilisent les ecouteurs.
+const nav3d = creerNavigation3d(etat, {
+  showToast, showErrBanner, centroid, hauteurFinieMm,
+  ouvrirVue3d(){
+    terrasseSubTab = '3d';
+    setAppMode('terrasse');
+    document.getElementById('modeTerrasseBtn').classList.remove('active');
+    document.getElementById('mode3dBtn').classList.add('active');
+  }
+});
+function zoom3D(factor){ nav3d.zoom3D(factor); }
+function applyMode3D(){ nav3d.applyMode3D(); }
+function setMode3D(m){ nav3d.setMode3D(m); }
+function allerAuPointDeVue(vp){ nav3d.allerAuPointDeVue(vp); }
+function allerAuPointDeVueGlb(vp){ nav3d.allerAuPointDeVueGlb(vp); }
+function resizeThreeScene(){ nav3d.resizeThreeScene(); }
+function resizeGlbViewerScene(){ nav3d.resizeGlbViewerScene(); }
+function setVue3dPleinePage(actif){ nav3d.setVue3dPleinePage(actif); }
+function setGlbViewerPleinePage(actif){ nav3d.setGlbViewerPleinePage(actif); }
 document.getElementById('terrasse3dZoomIn').addEventListener('click', ()=>zoom3D(0.8));
 document.getElementById('terrasse3dZoomOut').addEventListener('click', ()=>zoom3D(1.25));
-
-// Ce que fait le glisser a un seul doigt/bouton gauche : tourner (par defaut), deplacer, ou
-// zoomer. OrbitControls sait remapper le glisser en rotation ou translation (mouseButtons.LEFT /
-// touches.ONE), mais n'a pas d'equivalent "zoom au glisser a un doigt" - le pincement a deux
-// doigts existe deja pour ca, mais un seul doigt ne le peut pas nativement. Le mode Zoom est donc
-// gere a la main : glisser vertical converti en appels a zoom3D, avec rotation et translation
-// coupees pendant ce temps pour que les deux gestions ne se disputent pas le meme pointeur.
-let mode3D = 'orbit';
-let zoomDragActive = false, zoomDragLastY = 0;
-function onZoomDragDown(e){
-  zoomDragActive = true; zoomDragLastY = e.clientY;
-  if(e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
-}
-function onZoomDragMove(e){
-  if(!zoomDragActive) return;
-  const dy = e.clientY - zoomDragLastY; zoomDragLastY = e.clientY;
-  if(Math.abs(dy) < 0.5) return;
-  zoom3D(Math.exp(dy*0.006)); // glisser vers le haut (dy<0) rapproche, vers le bas eloigne
-}
-function onZoomDragUp(){ zoomDragActive = false; }
-function applyMode3D(){
-  if(!vue3d.scene) return;
-  const { controls, renderer } = vue3d.scene;
-  const dom = renderer.domElement;
-  dom.removeEventListener('pointerdown', onZoomDragDown);
-  dom.removeEventListener('pointermove', onZoomDragMove);
-  window.removeEventListener('pointerup', onZoomDragUp);
-  zoomDragActive = false;
-  if(mode3D === 'zoom'){
-    controls.enableRotate = false; controls.enablePan = false;
-    dom.addEventListener('pointerdown', onZoomDragDown);
-    dom.addEventListener('pointermove', onZoomDragMove);
-    window.addEventListener('pointerup', onZoomDragUp);
-  } else {
-    controls.enableRotate = true; controls.enablePan = true;
-    controls.mouseButtons.LEFT = mode3D==='pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
-    controls.touches.ONE = mode3D==='pan' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
-  }
-  [['terrasse3dModeOrbit','orbit'],['terrasse3dModePan','pan'],['terrasse3dModeZoom','zoom']].forEach(([id,m])=>{
-    const b = document.getElementById(id);
-    if(!b) return;
-    const actif = mode3D===m;
-    b.style.background = actif ? 'var(--accent, #2a6b7a)' : '';
-    b.style.color = actif ? '#fff' : '';
-  });
-  const hint = document.getElementById('terrasse3dHint');
-  if(hint) hint.textContent = mode3D==='pan'
-    ? 'Mode deplacer : glisser (un doigt) translate la vue. Molette ou boutons +/− = zoom. Reprends ⟳ pour tourner.'
-    : mode3D==='zoom'
-    ? 'Mode zoom : glisser vers le haut rapproche, vers le bas eloigne. Reprends ⟳ pour tourner.'
-    : 'Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons ⟳ / ✋ / 🔍 changent ce que fait le glisser a un seul doigt — pratique sur tablette.';
-}
-function setMode3D(m){ mode3D = m; applyMode3D(); }
 document.getElementById('terrasse3dModeOrbit').addEventListener('click', ()=>setMode3D('orbit'));
 document.getElementById('terrasse3dModePan').addEventListener('click', ()=>setMode3D('pan'));
 document.getElementById('terrasse3dModeZoom').addEventListener('click', ()=>setMode3D('zoom'));
@@ -1995,19 +1953,7 @@ document.getElementById('terrasse3dSavePng').addEventListener('click', ()=>{
     setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
   }, 'image/png');
 });
-// Vue a hauteur d'yeux : 1,60 m au-dessus du platelage fini (pas du sol - c'est bien le niveau
-// ou on se tient une fois monte sur la terrasse). Seule la hauteur (Y) bouge ; la position
-// horizontale de la camera (X, Z) et le point vise restent exactement ou l'utilisateur les avait
-// laisses - ce bouton leve ou baisse le point de vue, il ne le deplace pas.
-const HAUTEUR_YEUX_M = 1.6;
-document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>{
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  if(!obj || !vue3d.scene) return;
-  const { camera, controls, renderer, scene } = vue3d.scene;
-  camera.position.y = hauteurFinieMm(obj)/1000 + HAUTEUR_YEUX_M;
-  controls.update();
-  renderer.render(scene, camera);
-});
+document.getElementById('terrasse3dEyeLevel').addEventListener('click', ()=>nav3d.hauteurDesYeux());
 // Le filaire change la geometrie, pas seulement un materiau : la scene se reconstruit.
 document.getElementById('terrasse3dFilaire').addEventListener('change', function(){
   const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
@@ -2083,123 +2029,15 @@ document.getElementById('terrasse3dSaveViewBtn').addEventListener('click', ()=>{
   showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
 });
 
-// Depuis le panneau d'attributs d'un point de vue (Mode Plan) : bascule en Mode Terrasse sur la
-// terrasse actuellement selectionnee, ouvre sa Vue 3D et y place la camera. La conversion plan ->
-// repere local se fait ICI, au moment du clic, avec le centroide de CETTE terrasse - un point de
-// vue n'appartient a aucune terrasse en particulier, donc rien n'est precalcule/fige a l'avance.
-function allerAuPointDeVue(vp){
-  const terr = (etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse'))
-            || etat.objects.find(o=>o.fonction==='terrasse');
-  if(!terr){ showToast('Cree d\'abord une terrasse pour pouvoir y aller en Vue 3D.'); return; }
-  etat.terrasseSelectedKey = terr.key;
-  terrasseSubTab = '3d';
-  setAppMode('terrasse');
-  document.getElementById('modeTerrasseBtn').classList.remove('active');
-  document.getElementById('mode3dBtn').classList.add('active');
-  let tentatives = 0;
-  (function essayer(){
-    tentatives++;
-    if(vue3d.scene && vue3d.dernierObjKey===terr.key){
-      const cen = centroid(terr.pts);
-      // Position = pts[0], direction = vecteur pts[0]->pts[1] (point + vecteur, pas un angle
-      // stocke a part) - normalise puis reporte a 1,5 m, une distance de conversation courante.
-      const ddx = vp.pts[1].x-vp.pts[0].x, ddy = vp.pts[1].y-vp.pts[0].y;
-      const dl = Math.hypot(ddx,ddy) || 1;
-      const rad = Math.atan2(ddy/dl, ddx/dl);
-      const eyeY = vp.altitude || 1.6;
-      const lx = vp.pts[0].x-cen.x, lz = cen.y-vp.pts[0].y;
-      vue3d.scene.camera.position.set(lx, eyeY, lz);
-      vue3d.scene.controls.target.set(lx+Math.cos(rad)*1.5, eyeY, lz-Math.sin(rad)*1.5);
-      vue3d.scene.controls.update();
-      vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
-      return;
-    }
-    if(tentatives < 100) setTimeout(essayer, 100);
-    else showErrBanner('Vue 3D : chargement trop long, reessaie.');
-  })();
-}
-// Meme calcul que allerAuPointDeVue ci-dessus (position = pts[0], direction = vecteur
-// pts[0]->pts[1]), mais sans changement d'onglet ni attente : la Visionneuse GLB a deja sa propre
-// scene active quand ce bouton est visible. `terr` sert uniquement de reference pour le centroide
-// (meme reperage que le bouton Export/l'oeil a 1,6 m) - le GLB affiche etant son export, les deux
-// repères coincident.
-function allerAuPointDeVueGlb(vp){
-  if(!glb.scene) return;
-  const terr = etat.objects.find(o=>o.key===etat.terrasseSelectedKey && o.fonction==='terrasse')
-            || etat.objects.find(o=>o.fonction==='terrasse');
-  if(!terr) return;
-  const cen = centroid(terr.pts);
-  const ddx = vp.pts[1].x-vp.pts[0].x, ddy = vp.pts[1].y-vp.pts[0].y;
-  const dl = Math.hypot(ddx,ddy) || 1;
-  const rad = Math.atan2(ddy/dl, ddx/dl);
-  const eyeY = vp.altitude || 1.6;
-  const lx = vp.pts[0].x-cen.x, lz = cen.y-vp.pts[0].y;
-  const { camera, controls, renderer, scene } = glb.scene;
-  camera.position.set(lx, eyeY, lz);
-  controls.target.set(lx+Math.cos(rad)*1.5, eyeY, lz-Math.sin(rad)*1.5);
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-// Plein page : le canvas garde sa taille CSS (100% du host), donc c'est le HOST qui doit
-// grandir - une classe seule n'y suffit pas, la hauteur est fixee en inline (cf. HTML) et gagne
-// sur une regle de classe. Le renderer et la camera, eux, ne suivent jamais une resize CSS tout
-// seuls : il faut le leur dire explicitement, sans quoi l'image reste a l'ancienne taille,
-// etiree ou avec des bandes vides.
-function resizeThreeScene(){
-  if(!vue3d.scene) return;
-  const host = document.getElementById('terrasse3dCanvasHost');
-  const w = host.clientWidth || 600, h = host.clientHeight || 420;
-  vue3d.scene.camera.aspect = w/h;
-  vue3d.scene.camera.updateProjectionMatrix();
-  vue3d.scene.renderer.setSize(w, h);
-  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
-}
-function resizeGlbViewerScene(){
-  if(!glb.scene) return;
-  const host = document.getElementById('glbViewerCanvasHost');
-  const w = host.clientWidth || 600, h = host.clientHeight || 420;
-  glb.scene.camera.aspect = w/h;
-  glb.scene.camera.updateProjectionMatrix();
-  glb.scene.renderer.setSize(w, h);
-  glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
-}
-let vue3dPleinePage = false;
-function setVue3dPleinePage(actif){
-  vue3dPleinePage = actif;
-  const tab = document.getElementById('terrasseTab3d');
-  const host = document.getElementById('terrasse3dCanvasHost');
-  const btn = document.getElementById('terrasse3dFullPageBtn');
-  tab.classList.toggle('pleinePage', actif);
-  host.style.height = actif ? 'calc(100vh - 210px)' : '420px';
-  btn.textContent = actif ? '🗗 Format normal' : '⛶ Plein écran';
-  btn.title = actif ? 'Revenir a l\'affichage normal' : 'Agrandir la vue 3D en pleine page';
-  // Pas besoin d'attendre une frame : lire une propriete de mise en page (clientHeight, dans
-  // resizeThreeScene) force le navigateur a recalculer la mise en page immediatement, jusqu'a ce
-  // point du script - la valeur lue est donc deja la nouvelle, sans avoir a differer l'appel.
-  resizeThreeScene();
-}
 document.getElementById('terrasse3dFullPageBtn').addEventListener('click', ()=>{
-  setVue3dPleinePage(!vue3dPleinePage);
+  setVue3dPleinePage(!nav3d.vue3dPleinePage);
 });
-let glbViewerPleinePage = false;
-function setGlbViewerPleinePage(actif){
-  glbViewerPleinePage = actif;
-  const panel = document.getElementById('glbViewerPanel');
-  const host = document.getElementById('glbViewerCanvasHost');
-  const btn = document.getElementById('glbViewerFullPageBtn');
-  panel.classList.toggle('pleinePage', actif);
-  host.style.height = actif ? 'calc(100vh - 210px)' : '420px';
-  btn.textContent = actif ? '🗗 Format normal' : '⛶ Plein écran';
-  btn.title = actif ? 'Revenir a l\'affichage normal' : 'Agrandir la visionneuse en pleine page';
-  resizeGlbViewerScene();
-}
 document.getElementById('glbViewerFullPageBtn').addEventListener('click', ()=>{
-  setGlbViewerPleinePage(!glbViewerPleinePage);
+  setGlbViewerPleinePage(!nav3d.glbViewerPleinePage);
 });
 window.addEventListener('keydown', e=>{
-  if(e.key === 'Escape' && vue3dPleinePage) setVue3dPleinePage(false);
-  if(e.key === 'Escape' && glbViewerPleinePage) setGlbViewerPleinePage(false);
+  if(e.key === 'Escape' && nav3d.vue3dPleinePage) setVue3dPleinePage(false);
+  if(e.key === 'Escape' && nav3d.glbViewerPleinePage) setGlbViewerPleinePage(false);
 });
 // La fenetre peut changer de taille pendant que la vue est ouverte (plein page ou non) : le
 // canvas suit, au lieu de rester fige a la taille qu'il avait au dernier rendu de la scene.

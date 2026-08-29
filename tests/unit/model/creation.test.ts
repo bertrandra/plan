@@ -103,8 +103,12 @@ describe('chemin et cercle', () => {
   });
 });
 
+/** Un objet du plan, decrit aussi lachement que le module lui-meme le fait. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ObjetTest = Record<string, any>;
+
 /** Un plan minimal et des dependances qui ne font que compter leurs appels. */
-function monter(objets = [{ key: 'parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }]) {
+function monter(objets: ObjetTest[] = [{ key: 'parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }]) {
   const etat = { objects: [...objets], selectedKey: null, attrTab: 'objet', terrasseSelectedKey: null, newObjCounter: 0 };
   const appels: string[] = [];
   const ctx = {
