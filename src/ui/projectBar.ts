@@ -174,6 +174,41 @@ export function setupProjectBar(seed, ctx){
   bar.appendChild(pastilleVersion());
 }
 
+/**
+ * Interroge le Geoportail de l'urbanisme au centre de la parcelle, et range le zonage **sur la
+ * parcelle** (champ `plu`) — comme la cloture et le lieu. Il se sauvegarde ainsi avec le projet
+ * sans nouvelle cle a faire transiter par `api.php`, et il suit la parcelle si le plan est exporte.
+ *
+ * Le bouton est desarme pendant l'appel : le service est lent, et deux interrogations lancees coup
+ * sur coup empileraient deux instantanes d'annulation pour un seul geste.
+ *
+ * Un point sans zonage n'est pas une erreur — toutes les communes n'ont pas de PLU numerise. Le
+ * message le dit, plutot que de laisser croire a une panne.
+ */
+export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx): Promise<void> {
+  const parcelle = ctx.trouverParcelleCloture();
+  if (!parcelle) return;
+  const lieu = ctx.lieuActuel();
+  bouton.disabled = true;
+  const libelleInitial = bouton.textContent;
+  bouton.textContent = 'Interrogation…';
+  try {
+    const plu = await interrogerPlu(lieu.longitude, lieu.latitude);
+    ctx.pushHistory();
+    parcelle.plu = plu;
+    ctx.markDirty();
+    renderPanneauPlu(ctx);
+    const n = plu.zones.length;
+    showToast(n ? ('PLU : zone ' + plu.zones[0].libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
+                : 'PLU : aucun zonage renvoye pour ce point.');
+  } catch (e) {
+    showToast('Interrogation du PLU impossible : ' + ((e as Error).message || e));
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = libelleInitial;
+  }
+}
+
 export function renderPanneauPlu(ctx){
   const hote = document.getElementById('pluContenu');
   const lien = el<HTMLAnchorElement>('pluGeoportailLien');

@@ -37,6 +37,7 @@ import { lieuDeParcelle, libelleLieuTexte } from './model/lieu.js';
 import { normalizeObjects } from './model/normalisation.js';
 import { creerCreation } from './model/creation.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from './three/navigation.js';
+import { creerModes } from './app/modes.js';
 import { computeDebitLames, computeDebitsBois, optimiserDebitLames } from './engine/debit.js';
 import { computeImplantation, repereImplantation } from './engine/implantation.js';
 import { empriseLame, etendueLame, generateParallelLines, longueurLameReelle } from './engine/lames.js';
@@ -112,6 +113,7 @@ import {
   renderImplantation, renderChantier, renderMethode, renderOptimResult, basculerOptimisation,
   renderTerrasseSelector as construireSelecteurTerrasse
 } from './ui/terrassePanels.js';
+import { interrogerPluDepuisBouton } from './ui/projectBar.js';
 import { buildThreeScene as construireScene3D } from './three/scene.js';
 import { cibleAlignement, definirCibleAlignement } from './interaction/outilAlignement.js';
 import {
@@ -1418,31 +1420,9 @@ function enregistrerAffichage(){
 
 
 // ================= Onglet PLU (Geoportail de l'urbanisme) =================
-// Le zonage est stocke SUR la parcelle (champ `plu`), comme la cloture et le lieu : il se
-// sauvegarde avec le projet sans nouvelle cle a faire transiter par api.php, et il suit la
-// parcelle si le plan est exporte en JSON.
-document.getElementById('pluInterrogerBtn').addEventListener('click', async function(){
-  const parcelle = trouverParcelleCloture();
-  if(!parcelle) return;
-  const lieu = lieuActuel();
-  this.disabled = true;
-  const libelleInitial = this.textContent;
-  this.textContent = 'Interrogation…';
-  try {
-    const plu = await interrogerPlu(lieu.longitude, lieu.latitude);
-    pushHistory();
-    parcelle.plu = plu;
-    markDirty();
-    renderPanneauPlu(ctxProjet());
-    const n = plu.zones.length;
-    showToast(n ? ('PLU : zone ' + plu.zones[0].libelle + (n > 1 ? ' (+' + (n-1) + ' autre(s))' : '') + '.')
-                : 'PLU : aucun zonage renvoye pour ce point.');
-  } catch(e){
-    showToast('Interrogation du PLU impossible : ' + (e.message || e));
-  } finally {
-    this.disabled = false;
-    this.textContent = libelleInitial;
-  }
+// L'interrogation vit dans ui/projectBar.ts, a cote du panneau qu'elle remplit.
+document.getElementById('pluInterrogerBtn').addEventListener('click', function(){
+  interrogerPluDepuisBouton(this, ctxProjet());
 });
 
 
@@ -1464,7 +1444,7 @@ document.getElementById('pluInterrogerBtn').addEventListener('click', async func
 
 // La barre de choix de la terrasse vit dans ui/terrassePanels.ts.
 function rebuildTerrasseSelector(){
-  return construireSelecteurTerrasse(etat, terrasseSubTab, { refreshTerrasseView, hauteurFinieMm });
+  return construireSelecteurTerrasse(etat, modes.sousOnglet, { refreshTerrasseView, hauteurFinieMm });
 }
 
 
@@ -1663,12 +1643,7 @@ document.getElementById('terrasse3dClotureTexClear').addEventListener('click', (
 // three/navigation.ts ; ces enveloppes gardent les noms qu'utilisent les ecouteurs.
 const nav3d = creerNavigation3d(etat, {
   showToast, showErrBanner, centroid, hauteurFinieMm,
-  ouvrirVue3d(){
-    terrasseSubTab = '3d';
-    setAppMode('terrasse');
-    document.getElementById('modeTerrasseBtn').classList.remove('active');
-    document.getElementById('mode3dBtn').classList.add('active');
-  }
+  ouvrirVue3d: ()=>modes.goVue3D()
 });
 function zoom3D(factor){ nav3d.zoom3D(factor); }
 function applyMode3D(){ nav3d.applyMode3D(); }
@@ -1793,150 +1768,27 @@ window.addEventListener('keydown', e=>{
 // canvas suit, au lieu de rester fige a la taille qu'il avait au dernier rendu de la scene.
 window.addEventListener('resize', ()=>{ if(vue3d.scene) resizeThreeScene(); if(glb.scene) resizeGlbViewerScene(); });
 
-let terrasseSubTab = 'construction';
-// The plan (#stage) physically lives in the page once; it's moved between its Mode Plan
-// position, the Canevas sub-tab (where the construction overlay is meaningful to see), and
-// a hidden "parking" div for every other sub-tab, rather than duplicated or left floating
-// above tabs that don't need it.
-let stageHomeParent = null, stageHomeNext = null;
-function captureStageHome(){
-  if(!stageHomeParent){
-    stageHomeParent = stage.parentNode;
-    stageHomeNext = stage.nextSibling;
+// Le pilotage des modes vit dans app/modes.ts ; ces enveloppes gardent les noms qu'utilisent les
+// ecouteurs et les panneaux.
+const modes = creerModes(etat, {
+  stage, terrasseLayerGroup, fermerVisionneuseGlb, rebuildTerrasseSelector, fitToObject,
+  ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
+  rendrePanneauxTerrasse(obj){
+    renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
+    renderTerrasseLayerTabs(obj);
+    renderTerrasseLayerView(obj);
+    renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
+    construireTableBom(obj, etat, ctxTables());
+    renderOptimResult(obj, ctxPanneauxTerrasse());
+    renderImplantation(obj, ctxPanneauxTerrasse());
+    renderChantier(obj, ctxPanneauxTerrasse());
+    renderMethode(obj, ctxPanneauxTerrasse());
   }
-}
-function updateStagePlacement(){
-  captureStageHome();
-  if(etat.appMode==='terrasse' && terrasseSubTab==='canevas'){
-    document.getElementById('stageHost').appendChild(stage);
-  } else if(etat.appMode==='terrasse'){
-    document.getElementById('stageParking').appendChild(stage);
-  } else {
-    stageHomeParent.insertBefore(stage, stageHomeNext);
-  }
-}
-
-function rebuildTerrasseSubTabs(){
-  const div = document.getElementById('terrasseSubTabs');
-  div.innerHTML = '';
-  const defs = [
-    ['construction','Construction','terrasseTabConstruction'],
-    ['bom','BOM','terrasseTabBom'],
-    ['canevas','Canevas','terrasseTabCanevas'],
-    ['3d','Vue 3D','terrasseTab3d'],
-    ['coupe','Plan de coupe','terrasseTabCoupe'],
-    ['implantation','Implantation','terrasseTabImplantation'],
-    ['chantier','Chantier','terrasseTabChantier'],
-    ['methode','Méthode','terrasseTabMethode']
-  ];
-  // Sur la Vue 3D, la barre de sous-onglets disparait entierement plutot que de montrer les
-  // 7 autres sans qu'aucun ne soit actif - "Vue 3D" doit etre une vue a part, pas Mode Terrasse
-  // avec un onglet qui manque. "Vue 3D" a son propre bouton tout en haut de la page (barre
-  // modeBar), accessible depuis Plan comme depuis Terrasse. Le sous-onglet '3d' reste dans
-  // `defs` (la logique d'affichage/chargement juste en dessous en a besoin) mais n'a plus de
-  // bouton dans cette rangee, ni ici ni ailleurs.
-  div.style.display = (terrasseSubTab==='3d') ? 'none' : '';
-  defs.filter(([key])=>key!=='3d').forEach(([key,label,panelId])=>{
-    const b = document.createElement('button');
-    b.className = 'panelTabBtn' + (terrasseSubTab===key ? ' active' : '');
-    b.textContent = label;
-    b.addEventListener('click', ()=>{
-      terrasseSubTab=key;
-      // Choisir un sous-onglet normal alors que "Vue 3D" (bouton du haut) etait mis en avant
-      // doit lui rendre sa place a "Terrasse" - un seul bouton du haut actif a la fois.
-      document.getElementById('mode3dBtn').classList.remove('active');
-      document.getElementById('modeTerrasseBtn').classList.add('active');
-      rebuildTerrasseSubTabs();
-    });
-    div.appendChild(b);
-  });
-  defs.forEach(([key,label,panelId])=>{
-    document.getElementById(panelId).style.display = (terrasseSubTab===key) ? '' : 'none';
-  });
-  updateStagePlacement();
-
-  // The 3D view has no show/hide button: it's simply active whenever its tab is, and
-  // rebuilt fresh (buildThreeScene disposes any previous scene itself) whenever this
-  // function re-runs while that tab stays selected, e.g. after a Construction change.
-  if(terrasseSubTab==='3d'){
-    // obj peut etre absent (plan sans terrasse) : buildThreeScene(null) construit alors le
-    // terrain, les batiments et le reste du plan, sans la structure de terrasse.
-    const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null;
-    document.getElementById('terrasse3dLoading').style.display = chargement.three ? 'none' : '';
-    ensureThreeLoaded(()=>{
-      document.getElementById('terrasse3dLoading').style.display = 'none';
-      document.getElementById('terrasse3dWrap').style.display = 'block';
-      buildThreeScene(obj);
-    });
-  } else if(vue3d.scene){
-    disposeThreeScene();
-    document.getElementById('terrasse3dWrap').style.display = 'none';
-  }
-}
-
-let terrasseLastFittedKey = null;
-function refreshTerrasseView(){
-  if(!rebuildTerrasseSelector()) return;
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  if(!obj){
-    // Cas "Vue 3D sans terrasse" : rien a configurer, mais la scene 3D doit quand meme se
-    // construire (rebuildTerrasseSubTabs s'en charge, avec obj = null).
-    rebuildTerrasseSubTabs();
-    return;
-  }
-  ensureConstruction(obj);
-  const fitBtn = document.getElementById('fitBtn');
-  if(fitBtn) fitBtn.style.display = 'block';
-  if(terrasseLastFittedKey !== obj.key){
-    fitToObject(obj);
-    terrasseLastFittedKey = obj.key;
-  }
-  rebuildTerrasseSubTabs();
-  renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
-  renderTerrasseLayerTabs(obj);
-  renderTerrasseLayerView(obj);
-  renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
-  construireTableBom(obj, etat, ctxTables());
-  renderOptimResult(obj, ctxPanneauxTerrasse());
-  renderImplantation(obj, ctxPanneauxTerrasse());
-  renderChantier(obj, ctxPanneauxTerrasse());
-  renderMethode(obj, ctxPanneauxTerrasse());
-}
-
-function setAppMode(mode){
-  // La Visionneuse GLB est un panneau independant (pas un troisieme appMode, cf. sa propre note
-  // plus bas) : tout retour explicite vers Plan ou Terrasse doit la refermer, sinon son canevas
-  // resterait actif en arriere-plan sous le panneau qu'on vient de rouvrir.
-  fermerVisionneuseGlb();
-  etat.appMode = mode;
-  document.getElementById('modePlanBtn').className = 'objbtn' + (mode==='plan' ? ' active' : '');
-  document.getElementById('modeTerrasseBtn').className = 'objbtn' + (mode==='terrasse' ? ' active' : '');
-  // "Vue 3D" est un raccourci vers Mode Terrasse/sous-onglet 3D, pas un troisieme appMode a part
-  // entiere (evite de retoucher les quelques endroits qui testent encore appMode==='terrasse') -
-  // mais visuellement il doit rester le seul bouton actif pendant qu'on le regarde ; tout appel
-  // normal de setAppMode (Plan ou Terrasse choisi directement) l'eteint, goVue3D le rallume juste apres.
-  document.getElementById('mode3dBtn').classList.remove('active');
-  const showPlan = mode==='plan';
-  document.getElementById('selector').style.display = showPlan ? '' : 'none';
-  document.getElementById('planActions').style.display = showPlan ? '' : 'none';
-  document.getElementById('panelTabs').style.display = showPlan ? '' : 'none';
-  document.getElementById('panel').style.display = showPlan ? '' : 'none';
-  document.getElementById('terrasseTopBar').style.display = showPlan ? 'none' : 'block';
-  document.getElementById('terrassePanel').style.display = showPlan ? 'none' : 'block';
-  if(mode==='terrasse'){
-    refreshTerrasseView();
-  } else {
-    terrasseLayerGroup.innerHTML = '';
-    terrasseLastFittedKey = null; // re-entering Mode Terrasse later fits fresh again
-    disposeThreeScene();
-    document.getElementById('terrasse3dWrap').style.display = 'none';
-    updateStagePlacement();
-    // The plan hides the selection while it serves as a backdrop in Mode Terrasse, so coming
-    // back has to redraw it - otherwise the object stays visually deselected even though it is
-    // still the selected one and the panel is editing it.
-    render();
-  }
-}
+});
+function setAppMode(mode){ modes.setAppMode(mode); }
+function refreshTerrasseView(){ modes.refreshTerrasseView(); }
+function rebuildTerrasseSubTabs(){ modes.rebuildTerrasseSubTabs(); }
+function updateStagePlacement(){ modes.updateStagePlacement(); }
 // Le plan d'implantation. Dessine en millimetres reels - le viewBox est en mm - donc imprime a
 // 100 % il sort a l'echelle demandee, regle a la double-decimetre. C'est la seule facon de
 // livrer une echelle qui veuille dire quelque chose.
@@ -1958,22 +1810,8 @@ document.getElementById('terrasseOptimBtn').addEventListener('click', ()=>{
   renderOptimResult(obj, ctxPanneauxTerrasse());
 });
 document.getElementById('modePlanBtn').addEventListener('click', ()=>setAppMode('plan'));
-document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>{
-  // Revenir sur "Terrasse" alors qu'on regardait la Vue 3D (via son propre bouton) ne doit pas
-  // laisser aucun sous-onglet marque actif - Construction est le point d'entree naturel.
-  if(terrasseSubTab==='3d') terrasseSubTab = 'construction';
-  setAppMode('terrasse');
-});
-// Raccourci direct vers la Vue 3D depuis le haut de page, utilisable aussi bien depuis Plan que
-// depuis Terrasse - en coulisse ca reste Mode Terrasse sur son sous-onglet '3d' (pas un troisieme
-// appMode), pour ne rien casser parmi ce qui distingue deja seulement Plan et Terrasse ailleurs.
-function goVue3D(){
-  terrasseSubTab = '3d';
-  setAppMode('terrasse');
-  document.getElementById('modeTerrasseBtn').classList.remove('active');
-  document.getElementById('mode3dBtn').classList.add('active');
-}
-document.getElementById('mode3dBtn').addEventListener('click', goVue3D);
+document.getElementById('modeTerrasseBtn').addEventListener('click', ()=>modes.allerAuModeTerrasse());
+document.getElementById('mode3dBtn').addEventListener('click', ()=>modes.goVue3D());
 document.getElementById('glbViewerBtn').addEventListener('click', ouvrirVisionneuseGlb);
 // Les deux boutons de la Visionneuse passent par genererGlb(..., false) : meme chemin de
 // construction et d'attente des textures que l'onglet Export, mais sans ecriture de fichier.
