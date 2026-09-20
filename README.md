@@ -26,7 +26,7 @@ Prérequis : Node 20 ou plus.
 ```bash
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
-npm run build        # produit dist/plan.html (fichier unique) et dist/api.php
+npm run build        # produit dist/index.html (fichier unique) et dist/api.php
 npm test             # 535 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
@@ -70,8 +70,9 @@ il ne peut plus régresser. Aujourd'hui l'intégralité de `src/` et `tests/` es
 
 ## Déploiement
 
-Copier trois choses sur un hébergement PHP : `dist/plan.html`, `dist/api.php` et un dossier `data/`
-accessible en écriture. Rien d'autre. Les dépendances externes (IGN, BAN, CDN three.js, textures
+Copier trois choses sur un hébergement PHP : `dist/index.html` (renommé `plan.html` si l'URL doit
+rester la même), `dist/api.php` et un dossier `data/` accessible en écriture. Rien d'autre. Le
+`plan.html` à la racine du dépôt est cette même sortie de build, copiée à chaque palier. Les dépendances externes (IGN, BAN, CDN three.js, textures
 Poly Haven) sont des dépendances de disponibilité, pas de données : sans IGN, pas d'import cadastre
 mais un éditeur complet ; sans CDN, pas de 3D mais tout le reste.
 
