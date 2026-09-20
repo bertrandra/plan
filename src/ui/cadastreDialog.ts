@@ -300,7 +300,8 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     const bats = elementsRetenus(etatImport.batiments);
     const iduPropriete = new Set(etatImport.parcellesPropriete().map(p=>p.idu));
     const surPrincipale = bats.filter(b=>[...b.parcelles].some(idu=>iduPropriete.has(idu)));
-    const hauteurs = surPrincipale.map(b=>hauteurBatiment(b.props!)).sort((a,b)=>b-a);
+    // Une feature sans `properties` arrive avec `props` absent : hauteur par defaut, comme a l'import.
+    const hauteurs = surPrincipale.map(b=>hauteurBatiment(b.props || {})).sort((a,b)=>b-a);
     ligne('importerBatiments', 'Bâtiments (BD TOPO, avec hauteur)', bats.length,
       'Emprise et hauteur reelles des batiments. Ceux de la parcelle sont modifiables, ceux des voisins arrivent verrouilles.');
     if(hauteurs.length){

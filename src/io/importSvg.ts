@@ -11,6 +11,7 @@
 
 import { NAME_SEP } from '../export/separateurs.js';
 import { cleObjet } from '../model/cles.js';
+import { referencesDeCote } from '../model/mesures.js';
 import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
 import { showToast } from '../shell/dialogs.js';
@@ -169,22 +170,21 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const mdRaw = mdEl ? mdEl.getAttribute('data-measures') : null;
     if(mdRaw){
       try {
-        // Ce que le fichier porte n'est pas garanti : c'est du JSON arbitraire, verifie ligne a
-        // ligne ci-dessous (existence des deux objets references) avant d'etre repris.
-        const parsed = JSON.parse(mdRaw) as Partial<Mesure>[];
-        parsed.forEach(m=>{
-          // only restore a measure if both referenced objects actually exist post-import
-          const refObj = etat.objects.find(o=>o.key===m.refObjKey);
-          const tgtObj = etat.objects.find(o=>o.key===m.targetObjKey);
-          if(refObj && tgtObj){
-            etat.measures.push({
-              id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-              refObjKey:m.refObjKey!, refSegIndex:m.refSegIndex!, startEnd:m.startEnd!,
-              targetObjKey:m.targetObjKey!, targetPtIndex:m.targetPtIndex!, show:!!m.show,
-              displayMode: m.displayMode==='along' ? 'along' : 'perp'
-            });
-            importedMeasures++;
-          }
+        // Ce que le fichier porte n'est pas garanti : c'est du JSON arbitraire. Chaque cote passe
+        // par `referencesDeCote`, qui verifie ce que le rendu lira — objets presents, indices dans
+        // les polygones — et ecarte le reste. Longtemps, seule l'existence des deux objets etait
+        // verifiee, et les indices entraient tels quels.
+        const parsed: unknown = JSON.parse(mdRaw);
+        (Array.isArray(parsed) ? parsed : []).forEach((brut: unknown)=>{
+          const refs = referencesDeCote(brut, etat.objects);
+          if(!refs) return;
+          const m = brut as Partial<Mesure>;
+          etat.measures.push({
+            id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+            ...refs, show:!!m.show,
+            displayMode: m.displayMode==='along' ? 'along' : 'perp'
+          });
+          importedMeasures++;
         });
       } catch { /* ignore malformed etat.measures data, geometry import already succeeded */ }
     }

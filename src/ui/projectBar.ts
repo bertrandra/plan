@@ -380,7 +380,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « + Depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
-  if(cad.origineLat === undefined || cad.origineLat === null){
+  // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
+  if(cad.origineLat === undefined || cad.origineLat === null || cad.origineLon === undefined || cad.origineLon === null){
     showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
     return;
   }
@@ -388,7 +389,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   if(bouton){ bouton.disabled = true; bouton.textContent = 'Actualisation…'; }
   const bilan = [];
   try {
-    const proj = projecteurLocal(cad.origineLat, cad.origineLon!);
+    const proj = projecteurLocal(cad.origineLat, cad.origineLon);
     const simplifier = !!cad.simplifieM;
 
     // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
@@ -552,7 +553,8 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
     showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « + Depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
-  if(cad.origineLat === undefined || cad.origineLat === null){
+  // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
+  if(cad.origineLat === undefined || cad.origineLat === null || cad.origineLon === undefined || cad.origineLon === null){
     showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
     return;
   }

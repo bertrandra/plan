@@ -1841,3 +1841,26 @@ reproduit **les six empreintes précédentes au bit près, les deux PDF compris*
 
 535 tests, inchangés. `tsc --noEmit`, ESLint et le cliquet à zéro sur `src/` et `tests/`. Le
 cliquet n'a plus de drapeaux à monter : il reste le rapport par dossier, et la garde.
+
+### Trois corrections, le même jour (20 septembre 2026, `1.1.0-alpha.16`)
+
+Les trois points de « ce qui ressemble à un bug » ci-dessus ont été corrigés dans la foulée, en un
+palier séparé pour que la phase 7 reste ce qu'elle promet : des types, rien d'autre.
+
+- **Les cotes importées.** Le défaut était partagé par les deux imports, SVG et JSON : seule
+  l'existence des deux objets était vérifiée, les indices passaient tels quels. Plutôt que deux
+  gardes, un seul juge : `model/mesures.ts::referencesDeCote` ne lit que ce que
+  `render/measures.ts::geometrieMesure` lira, et refuse ce qui ne se dessinerait pas — objet absent,
+  cercle pris pour référence (il n'a pas de côté), indice hors du polygone, indice qui n'est pas un
+  entier positif. `startEnd` est normalisé en `A`/`B`, ce que le rendu distingue ; un fichier qui
+  portait autre chose se dessinait déjà depuis `A`. Le test rejoue l'import du SVG doré (35 objets,
+  11 cotes, références intactes) puis une copie de ses cotes abîmées de six façons : deux
+  survivent, celles qui le doivent.
+- **Le point de calage.** Une garde qui ne vérifie qu'une coordonnée sur deux est une garde qui
+  ment ; elle vérifie les deux, et le `!` sur `origineLon` disparaît avec.
+- **Les bâtiments sans propriétés.** La boîte d'import lisait `props` sans garde là où l'import
+  lui-même faisait déjà `b.props || {}` : même repli.
+
+Six empreintes sur six inchangées à version égale, recapturées en `alpha.16` avec la preuve forte.
+Ce palier est ce que RELEASE.md §2.1 appelle un correctif : aucun nombre, aucun octet exporté ne
+bouge. 547 tests.

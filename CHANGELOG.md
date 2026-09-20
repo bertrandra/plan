@@ -3,6 +3,35 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.1.0-alpha.16] — 2026-09-20
+
+**Trois corrections que le typage strict avait mises au jour** (voir `MD/MIGRATION-JOURNAL.md`,
+« Phase 7 — l'échelle gravie », « ce qui ressemble à un bug »). Aucune ne touche un artefact
+exporté : les six empreintes sont inchangées à version égale.
+
+### Corrigé
+
+- **Les cotes lues d'un fichier sont vérifiées avant d'entrer dans l'état.** L'import SVG annonçait
+  une vérification « ligne à ligne » mais ne contrôlait que l'existence des deux objets référencés :
+  `refSegIndex`, `startEnd` et `targetPtIndex` étaient recopiés tels quels, et l'import JSON faisait
+  de même. Une cote au-delà du polygone, sur un cercle pris pour référence, ou sans indice, entrait
+  dans `etat.measures` pour ne jamais se dessiner. `model/mesures.ts::referencesDeCote` est
+  désormais le seul juge, pour les deux imports : objets présents, cote de référence sur un polygone
+  et dans ses bornes, sommet cible dans les bornes (ou n'importe quel entier positif sur un cercle,
+  dont le point coté est le centre), `startEnd` normalisé en `A`/`B` comme le rendu le lit. Ce qui
+  est refusé est compté dans le message d'import. 12 tests, dont l'import du SVG doré (11 cotes
+  restaurées, références intactes) et une copie abîmée de ses cotes.
+- **Actualiser depuis l'IGN exige les deux coordonnées du point de calage.** La garde ne vérifiait
+  que la latitude : une longitude absente aurait projeté tout le voisinage en `NaN`, en silence.
+- **Un bâtiment BD TOPO sans `properties` ne fait plus lever la boîte d'import cadastral.** La liste
+  des hauteurs « sur la propriété » lisait `props` sans garde ; il prend la hauteur par défaut,
+  comme l'import lui-même le faisait déjà.
+
+### Interne
+
+- Le message de l'import JSON dit « objet de référence absent ou indice hors du plan ».
+- 547 tests (535 + 12).
+
 ## [1.1.0-alpha.15] — 2026-09-20
 
 **Phase 7 : l'échelle de rigueur est gravie.** `tsconfig.json` porte désormais la configuration cible

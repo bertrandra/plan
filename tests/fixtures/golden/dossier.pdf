@@ -160,7 +160,7 @@ BT /F1 10 Tf 0.350 0.300 0.240 rg 42.00 767.89 Td (Parcelle AE 101) Tj ET
 BT /F1 9 Tf 0.350 0.300 0.240 rg 42.00 753.89 Td (Parcelle AE 101 - Le Vesinet) Tj ET
 BT /F1 9 Tf 0.350 0.300 0.240 rg 42.00 739.89 Td (Surface parcelle : 723,0 m2) Tj ET
 BT /F1 9 Tf 0.350 0.300 0.240 rg 42.00 725.89 Td (2 terrasse\(s\) au dossier : S1 Terrasse, S2 Table) Tj ET
-BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres, X+ = Est, Y+ = Nord - Plan interactif v1.1.0-alpha.15) Tj ET
+BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres, X+ = Est, Y+ = Nord - Plan interactif v1.1.0-alpha.16) Tj ET
 
 endstream
 endobj
@@ -288,7 +288,7 @@ BT /F1 8 Tf 0.150 0.120 0.080 rg 392.00 138.00 Td (3,83 m2) Tj ET
 BT /F1 8 Tf 0.350 0.300 0.240 rg 42.00 126.00 Td (Emprise equipements) Tj ET
 BT /F1 8 Tf 0.350 0.300 0.240 rg 392.00 126.00 Td (3,83 m2) Tj ET
 BT /F1 8 Tf 0.350 0.300 0.240 rg 482.00 126.00 Td (11 %) Tj ET
-BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres - Plan interactif v1.1.0-alpha.15) Tj ET
+BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres - Plan interactif v1.1.0-alpha.16) Tj ET
 
 endstream
 endobj
@@ -374,7 +374,7 @@ BT /F1 8 Tf 0.150 0.120 0.080 rg 42.00 134.00 Td (Terrasse Table) Tj ET
 BT /F1 8 Tf 0.150 0.120 0.080 rg 252.00 134.00 Td (perimetre 14,06 m) Tj ET
 BT /F1 8 Tf 0.150 0.120 0.080 rg 392.00 134.00 Td (12,10 m2) Tj ET
 BT /F1 8 Tf 0.150 0.120 0.080 rg 482.00 134.00 Td (4 sommets) Tj ET
-BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres - Plan interactif v1.1.0-alpha.15) Tj ET
+BT /F1 7 Tf 0.500 0.450 0.400 rg 42.00 34.00 Td (Genere le 20/09/2026 - dimensions en metres - Plan interactif v1.1.0-alpha.16) Tj ET
 
 endstream
 endobj
@@ -394,7 +394,7 @@ endobj
 << /Type /ExtGState /ca 0.750 /CA 0.750 >>
 endobj
 15 0 obj
-<< /Producer (Plan interactif 1.1.0-alpha.15) /Creator (plan.html build 2026-08-29) /CreationDate (D:20260920224425) >>
+<< /Producer (Plan interactif 1.1.0-alpha.16) /Creator (plan.html build 2026-08-29) /CreationDate (D:20260920231142) >>
 endobj
 xref
 0 16

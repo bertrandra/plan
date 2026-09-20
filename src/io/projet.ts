@@ -11,6 +11,7 @@ import { serializeObjects, serializeMeasures } from './serialisation.js';
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
 import { idMesure } from '../model/cles.js';
+import { referencesDeCote, type ObjetCotable } from '../model/mesures.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetValide } from './validation.js';
@@ -59,19 +60,24 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
 
   const idsPris = new Set(msBase.map(m=>m.id));
   const mesuresFinales = msBase.slice();
+  // `ObjetSerialise` est un `Record` sans forme : ce que `serializeObjects` ecrit porte bien `key`,
+  // `type` et `pts`, et c'est tout ce que le validateur des cotes lit.
+  const objetsFinaux = objsBase.concat(ajoutes) as ObjetCotable[];
   let mesuresOk = 0, mesuresIgnorees = 0;
   valide.mesures.forEach(m=>{
     if(!m || typeof m !== 'object'){ mesuresIgnorees++; return; }
     const ref = renommages[m.refObjKey!] || m.refObjKey;
     const tgt = renommages[m.targetObjKey!] || m.targetObjKey;
-    // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import.
-    if(!clesPrises.has(ref) || !clesPrises.has(tgt)){ mesuresIgnorees++; return; }
+    // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import, et
+    // si ses indices tombent dans leurs polygones : c'est `referencesDeCote` qui en juge, le meme
+    // pour l'import SVG.
+    const refs = referencesDeCote({ ...m, refObjKey: ref, targetObjKey: tgt }, objetsFinaux);
+    if(!refs){ mesuresIgnorees++; return; }
     let id = m.id;
     if(!id || idsPris.has(id)) id = idMesure();
     idsPris.add(id);
     mesuresFinales.push({
-      id, refObjKey:ref, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
-      targetObjKey:tgt, targetPtIndex:m.targetPtIndex, show:!!m.show,
+      id, ...refs, show:!!m.show,
       displayMode: m.displayMode === 'along' ? 'along' : 'perp'
     });
     mesuresOk++;
@@ -108,7 +114,7 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   let msg = ajoutes.length + ' objet(s) importe(s)';
   if(valide.ignores) msg += ', ' + valide.ignores + ' ignore(s)';
   msg += '. ' + mesuresOk + ' mesure(s) restauree(s)';
-  if(mesuresIgnorees) msg += ', ' + mesuresIgnorees + ' ignoree(s) (objet de reference absent)';
+  if(mesuresIgnorees) msg += ', ' + mesuresIgnorees + ' ignoree(s) (objet de reference absent ou indice hors du plan)';
   msg += '.';
   if(!parcelle) msg += ' ATTENTION: aucun objet "parcelle" dans le resultat - certaines fonctions (mesures, alignement, contrainte a la parcelle) seront limitees tant qu\'une parcelle n\'existe pas.';
   msg += ' Rien n\'a ete enregistre sur le serveur : utilise "Enregistrer" pour conserver ce plan.';
