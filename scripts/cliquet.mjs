@@ -13,6 +13,11 @@
 // ci-dessous, et il ne peut plus régresser.
 
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+// On lance le script `tsc` du paquet avec le Node courant, sans passer par un shell : `npx` est un
+// `.cmd` sous Windows et exigeait `shell: true`, que Node 22 signale comme une faille d'échappement.
+const TSC = createRequire(import.meta.url).resolve('typescript/bin/tsc');
 
 /** Les drapeaux du barreau en cours. On les monte quand tous les dossiers sont propres. */
 const DRAPEAUX = ['--noImplicitAny'];
@@ -27,7 +32,7 @@ const PROPRES = ['core', 'util', 'shell', 'geometry', 'model', 'engine', 'render
 
 const sortie = (() => {
   try {
-    execFileSync('npx', ['tsc', '--noEmit', ...DRAPEAUX], { encoding: 'utf8', shell: true });
+    execFileSync(process.execPath, [TSC, '--noEmit', ...DRAPEAUX], { encoding: 'utf8' });
     return '';
   } catch (e) {
     return String(e.stdout || '');
