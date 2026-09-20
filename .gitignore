@@ -1,5 +1,5 @@
 # Sorties d'export : regenerables a tout moment depuis l'application, et le .glb pese 40 Mo.
-Export/
+/Export/
 
 # Copies de secours ecrites par api.php a chaque enregistrement de projet.
 data/*.bak
