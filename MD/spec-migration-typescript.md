@@ -1354,13 +1354,13 @@ Add 20 % contingency for R1/R3. A two-developer split is viable from Phase 3 (en
 - [x] `tsc --noEmit` clean under the §9.1 configuration. — **20 septembre 2026** (§9.2.15) : `tsconfig.json` est la configuration cible, 0 erreur.
 - [x] `eslint` clean under the §9.3 ruleset. — 20 septembre 2026, `npm run lint` a zero sur `src/` et `tests/`.
 - [x] Vitest green; `src/engine/**` and `src/geometry/**` ≥ 80 % line coverage. — 535 tests verts ; 91,5 % sur le moteur (phase 3).
-- [ ] All §11.1 golden artefacts byte-identical (GLB structurally identical). — Les six artefacts texte et PDF le sont a chaque palier (`tests/fixtures/golden/EMPREINTES.md`) ; le GLB n'a pas ete reverifie structurellement depuis le 9 septembre 2026.
-- [ ] Manual smoke checklist (§11.3) fully passed on the built single file.
-- [ ] `dist/index.html` deployed alongside the unmodified `api.php`; list / load / save / delete all work; an existing production project opens, edits, saves and reloads unchanged.
-- [ ] Bundle within budget (≤ 1.2 MB, versus ~773 KB today).
+- [x] All §11.1 golden artefacts byte-identical (GLB structurally identical). — Les six artefacts texte et PDF le sont a chaque palier (`tests/fixtures/golden/EMPREINTES.md`) ; GLB reverifie le 20 septembre 2026 en `1.1.0-alpha.16` : huit compteurs identiques a `glb-structure.json`.
+- [x] Manual smoke checklist (§11.3) fully passed on the built single file. — **20 septembre 2026**, 25/25 sur `dist/index.html` en `1.1.0-alpha.16` (`tests/CHECKLIST-FUMEE.md`, journal des passages).
+- [x] `dist/index.html` deployed alongside the unmodified `api.php`; list / load / save / delete all work; an existing production project opens, edits, saves and reloads unchanged. — 20 septembre 2026, PHP 8.3 en local : les quatre actions, un projet de production ouvert, duplique, enregistre (24 → 25 objets) et recharge identique, creation puis suppression d'un projet avec `.bak`.
+- [x] Bundle within budget (≤ 1.2 MB, versus ~773 KB today). — 450 556 octets en `1.1.0-alpha.16`.
 - [x] `legacy.ts` deleted; no `@ts-nocheck` remains. — **9 septembre 2026** (§9.2.14). La fermeture vit dans `src/app/boot.ts` ; `tests/unit/echafaudage.test.ts` garde les deux moities de cette affirmation.
-- [ ] `docs/architecture.md` records the module map and the §3.3 dependency rules.
-- [ ] Issue list of defects found-but-not-fixed is filed and triaged.
+- [x] `docs/architecture.md` records the module map and the §3.3 dependency rules. — `MD/architecture.md` §5.2.2, 20 septembre 2026.
+- [x] Issue list of defects found-but-not-fixed is filed and triaged. — `MD/DEFAUTS.md`, treize entrees en trois priorites, 20 septembre 2026.
 
 ---
 

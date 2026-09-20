@@ -300,6 +300,62 @@ one matters while `legacy.ts` still exists: the dependency must keep running one
 
 A folder that is not classified fails the test too, so a new one cannot quietly escape the rule.
 
+### 5.2.2 Module map, as built — 20 September 2026
+
+The migration's Definition of Done (`spec-migration-typescript.md` §14) asks this document to record
+the module map and the §3.3 dependency rules. This is that record, taken after the strictness
+ladder was climbed (`1.1.0-alpha.15`) and the three defects it exposed were fixed (`alpha.16`).
+
+Seven layers, **114 modules, 19 184 lines**, and **no `legacy.ts`** — the boot closure lives in
+`app/boot.ts`, typed like everything else. `tsconfig.json` carries the target configuration of
+§9.1 (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, unused locals and
+parameters forbidden) with zero errors across `src/` and `tests/`.
+
+| Layer | Folder | Modules | Lines | What it holds |
+|---:|---|---:|---:|---|
+| 0 | `shell/` | 3 | 208 | `dialogs` · `dom` · `download` |
+| 0 | `util/` | 3 | 122 | `escape` · `format` · `semaine` |
+| 1 | `geometry/` | 10 | 870 | `alignement` · `angles` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
+| 2 | `model/` | 13 | 1 224 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
+| 3 | `engine/` | 11 | 1 946 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `parasol` · `structure` |
+| 3 | `geo/` | 6 | 992 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
+| 4 | `core/` | 3 | 326 | `historique` · `history` · `state` |
+| 4 | `io/` | 6 | 749 | `api` · `exportProjet` · `importSvg` · `projet` · `serialisation` · `validation` |
+| 4 | `render/` | 12 | 1 514 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
+| 4 | `export/` | 8 | 1 144 | `dossierPdf` · `dxf` · `dxfPlan` · `pdf/writer` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` |
+| 4 | `three/` | 10 | 1 939 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
+| 4 | `interaction/` | 6 | 885 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
+| 5 | `ui/` | 10 | 4 867 | `attrPanel` · `cadastreDialog` · `cloture` · `mesurePanel` · `panelTabs` · `projectBar` · `selector` · `tables` · `terrassePanels` · `texturePicker` |
+| 6 | `app/` | 13 | 2 398 | `atelier` · `boot` · `modes` · `ecouteurs/` (`affichage` · `cloture` · `divers` · `exports` · `fichiers` · `modes` · `objets` · `soleil` · `visionneuse` · `vue3d`) |
+
+`src/main.ts` (bootstrap and error trap) and `src/styles/app.css` sit outside the layers.
+
+**What changed since 29 August.** `legacy.ts` (1 500 lines) is gone: `app/` grew from one module
+to thirteen — the composition root `boot.ts`, the named `atelier` it builds, and ten listener groups
+under `ecouteurs/`. `model/` gained `dictionnaire` (the typed vocabulary of the plan) and `mesures`
+(the single validator for measures read from a file, shared by the SVG and JSON imports).
+`three/` gained `gardes` (type guards at the three.js boundary). `export/pdf/writer` is the
+hand-written PDF writer, filed under its own sub-folder. Line counts grew by about a third across
+the board: that is the cost of saying what each function takes and returns, not new behaviour —
+the six golden artefacts are byte-identical at equal version number since the migration began.
+
+**The dependency rules, as enforced.** A module may import from its own layer or any layer below
+it, never above. `tests/unit/architecture.test.ts` checks it on every run, ignoring `import type`
+lines (erased at build time, so a type-only reference upward — `ui/projectBar.ts` naming
+`io/validation.ts::ProjetValide`, say — is allowed; a value import is not). Three more rules ride
+with it: `geometry`, `model` and `util` never touch the DOM; `engine/**` reads no closure state
+(every input is a parameter, which is what makes the golden oracle in
+`tests/unit/engine/moteur-oracle.test.ts` possible); and every folder under `src/` must be
+classified, so a new one cannot escape the rule by omission. The strictness ratchet
+(`scripts/cliquet.mjs`) adds the last guard: no folder may regain a type error once declared clean.
+
+**What the map does not yet say.** `ui/` is still the heaviest layer by far (4 867 lines in ten
+modules) and holds the four functions §6.4 of the migration spec wants decomposed —
+`ouvrirImportCadastre`, `renderAttrTable`, `renderTerrasseConfigurator`, and `buildThreeScene`
+in `three/`. `ObjetPlan` still carries an index signature and models polygon, path and circle as
+one shape with optional fields; the discriminated union is debt item D-3 in §11. Both are
+post-migration work, and neither changes the layer picture above.
+
 ### 5.3 Data view
 
 Five tiers, per `spec-data-strategy.md`:

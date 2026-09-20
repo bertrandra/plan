@@ -209,6 +209,11 @@ Limite connue : l'exporteur n'attribue de nom ni aux maillages ni aux matériaux
 porte sur les compteurs, pas sur les noms que la spec évoque. Un écart de compteur signale une
 scène différente ; il ne dit pas *quel* objet a changé.
 
+Revérifié le **20 septembre 2026** en `1.1.0-alpha.16`, en direct sur `dist/index.html` : export en 9,7 s,
+41 473 612 octets (8 de plus que la capture, l'exporteur n'est pas déterministe), et les **huit compteurs
+identiques** — 203 nœuds, 200 maillages, 288 matériaux, 178 textures, 178 images, 651 accesseurs, 829
+vues tampon, 1 scène. La visionneuse rouvre le modèle généré.
+
 ## Normalisation avant hachage
 
 Trois substitutions, appliquées au contenu **binaire** du fichier avant le SHA-256. Chaque motif de

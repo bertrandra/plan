@@ -31,6 +31,10 @@ exporté : les six empreintes sont inchangées à version égale.
 
 - Le message de l'import JSON dit « objet de référence absent ou indice hors du plan ».
 - 547 tests (535 + 12).
+- **La définition de fin de migration (spec §14) est cochée en entier** : checklist de fumée déroulée
+  25/25 sur le build (`tests/CHECKLIST-FUMEE.md`), déploiement PHP local avec `api.php` vérifié sur
+  les quatre actions et un projet de production, GLB revérifié structurellement, carte des modules
+  à jour (`MD/architecture.md` §5.2.2), liste des défauts triée (`MD/DEFAUTS.md`).
 
 ## [1.1.0-alpha.15] — 2026-09-20
 
