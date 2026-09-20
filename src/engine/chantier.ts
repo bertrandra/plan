@@ -59,13 +59,13 @@ export function cadenceDe(c: Construction, cle: PosteChantier): number {
 // ligne par ligne plutot qu'a prendre ou a laisser.
 export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts) || 0;
+  const surf = shoelace(obj.pts!) || 0;
   const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
   const nbAppuis = layers.vis.length;
   const debitL = computeDebitLames(obj, layers);
   const groupes = computeDebitsBois(obj, layers);
-  const nbBarresBois = groupes.reduce((s,g)=>s + Object.keys(g.debit.achats).reduce((t,L)=>t+g.debit.achats[L],0), 0);
-  const nbBarresLames = Object.keys(debitL.achats).reduce((t,L)=>t+debitL.achats[L], 0);
+  const nbBarresBois = groupes.reduce((s,g)=>s + Object.keys(g.debit.achats).reduce((t,L)=>t+g.debit.achats[L]!,0), 0);
+  const nbBarresLames = Object.keys(debitL.achats).reduce((t,L)=>t+debitL.achats[L]!, 0);
   const assise = computeAssise(c, surf, nbAppuis);
   const perim = ml(layers.cadre);
   const plots = estPlots(c);

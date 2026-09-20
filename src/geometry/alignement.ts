@@ -67,8 +67,8 @@ export function alignerSurCote(
   distance: number | null = null
 ): PtBrut[] {
   const n = pts.length;
-  const a = pts[indexCote],
-    b = pts[(indexCote + 1) % n];
+  const a = pts[indexCote]!,
+    b = pts[(indexCote + 1) % n]!;
   const pivot = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const tournes = tourner(pts, pivot, rotationDAlignement(a, b, cible));
   if (distance === null || !(distance >= 0)) return tournes;

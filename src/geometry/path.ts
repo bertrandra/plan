@@ -22,11 +22,11 @@ export function parseSvgPathPoints(d: string): PtBrut[] {
   let cur = {x:0,y:0}, start = {x:0,y:0};
   let cmd: string | null = null, i = 0;
   const isCmdTok = (t: string) => /^[MLHVCSQTAZ]$/i.test(t);
-  const num = ()=>{ const v = parseFloat(tokens[i++]); return Number.isFinite(v) ? v : 0; };
+  const num = ()=>{ const v = parseFloat(tokens[i++]!); return Number.isFinite(v) ? v : 0; };
   while(i < tokens.length){
-    if(isCmdTok(tokens[i])){ cmd = tokens[i]; i++; }
+    if(isCmdTok(tokens[i]!)){ cmd = tokens[i]!; i++; }
     if(cmd===null) break;
-    const rel = cmd === cmd.toLowerCase();
+    const rel: boolean = cmd === cmd.toLowerCase();
     const C = cmd.toUpperCase();
     if(C==='M'){
       const x=num(), y=num();
@@ -104,12 +104,12 @@ export function pathD(scene: EtatScene, pts: PtBrut[], curve?: boolean): string 
   if (!curve || s.length < 3) {
     return 'M ' + s.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L ');
   }
-  let d = 'M ' + s[0].x.toFixed(1) + ',' + s[0].y.toFixed(1) + ' ';
+  let d = 'M ' + s[0]!.x.toFixed(1) + ',' + s[0]!.y.toFixed(1) + ' ';
   for (let i = 0; i < s.length - 1; i++) {
-    const p0 = s[Math.max(0, i - 1)],
-      p1 = s[i],
-      p2 = s[i + 1],
-      p3 = s[Math.min(s.length - 1, i + 2)];
+    const p0 = s[Math.max(0, i - 1)]!,
+      p1 = s[i]!,
+      p2 = s[i + 1]!,
+      p3 = s[Math.min(s.length - 1, i + 2)]!;
     const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
     const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
     d +=

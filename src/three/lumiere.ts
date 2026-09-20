@@ -81,7 +81,7 @@ export function reglerSoleil(lum: EclairageSoleil, r: ReglagesSoleil, lieu: { la
   const { dirLight, dirFill, hemiLight } = lum;
   const centre = lum.centre || ORIGINE;
   const [annee, mois, jour] = r.dateStr.split('-').map(Number);
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, r.minutes / 60, lieu.latitude, lieu.longitude);
+  const { elevRad, azRad } = positionSoleil(annee!, mois!, jour!, r.minutes / 60, lieu.latitude, lieu.longitude);
   const facteurJour = Math.max(0, Math.min(1, (elevRad * 180 / Math.PI) / 10));
   const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
   const dist = SOLEIL_DIST_FACTOR * lum.rayon;

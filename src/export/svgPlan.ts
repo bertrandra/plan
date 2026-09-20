@@ -53,9 +53,9 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
     if(!curve || s.length<3){
       return 'M ' + s.map(p=>p.x.toFixed(2)+','+p.y.toFixed(2)).join(' L ');
     }
-    let d = 'M ' + s[0].x.toFixed(2) + ',' + s[0].y.toFixed(2) + ' ';
+    let d = 'M ' + s[0]!.x.toFixed(2) + ',' + s[0]!.y.toFixed(2) + ' ';
     for(let i=0;i<s.length-1;i++){
-      const p0 = s[Math.max(0,i-1)], p1 = s[i], p2 = s[i+1], p3 = s[Math.min(s.length-1,i+2)];
+      const p0 = s[Math.max(0,i-1)]!, p1 = s[i]!, p2 = s[i+1]!, p3 = s[Math.min(s.length-1,i+2)]!;
       const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
       const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
       d += 'C ' + c1.x.toFixed(2)+','+c1.y.toFixed(2)+' '+c2.x.toFixed(2)+','+c2.y.toFixed(2)+' '+p2.x.toFixed(2)+','+p2.y.toFixed(2)+' ';
@@ -71,9 +71,9 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
       const n = (obj.pts||[]).length;
       const ptsPoly = obj.pts || [];
       for(let i=0;i<n;i++){
-        const a=ptsPoly[i], b=ptsPoly[(i+1)%n];
+        const a=ptsPoly[i]!, b=ptsPoly[(i+1)%n]!;
         const pa=exToSvg(a), pb=exToSvg(b);
-        const segTxt = etiquetteComposee((obj.segmentNames||[])[i], longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
+        const segTxt = etiquetteComposee((obj.segmentNames||[])[i]!, longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           body += '<text x="'+mx.toFixed(2)+'" y="'+(my-0.3).toFixed(2)+'" font-size="'+fsSeg+'" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" fill="#12210f">'+escapeXml(segTxt)+'</text>\n';
@@ -89,7 +89,7 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
       const ptsPath = obj.pts || [];
       body += '<path d="'+exPathD(ptsPath, !!obj.curve)+'" fill="none" stroke="'+obj.stroke+'" stroke-width="'+(obj.width||1)+'" stroke-linecap="butt" stroke-linejoin="round" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-width="'+(obj.width||1)+'" data-curve="'+(!!obj.curve)+'" data-points="'+escapeXml(ptsPath.map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
       for(let i=0;i<ptsPath.length-1;i++){
-        const a=ptsPath[i], b=ptsPath[i+1];
+        const a=ptsPath[i]!, b=ptsPath[i+1]!;
         const pa=exToSvg(a), pb=exToSvg(b);
         const segTxt = etiquetteComposee((obj.segmentNames||[])[i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){

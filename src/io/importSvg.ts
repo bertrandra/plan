@@ -41,9 +41,12 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
   if(perr) throw new Error('SVG invalide ou mal forme');
   const root = doc.documentElement;
   const isOwn = root.getAttribute('data-plan-interactif') === '1';
-  const minx = parseFloat(root.getAttribute('data-minx'));
-  const pad = parseFloat(root.getAttribute('data-pad'));
-  const maxy = parseFloat(root.getAttribute('data-maxy'));
+  // `getAttribute` rend `null` quand l'attribut manque, et `parseFloat(null)` vaut NaN : c'est
+  // exactement ce que les `Number.isFinite` et les `||` en aval attendent d'un SVG etranger. Les
+  // `!` poses sur ces lectures numeriques, ici et plus bas, passent ce `null` tel quel a `parseFloat`.
+  const minx = parseFloat(root.getAttribute('data-minx')!);
+  const pad = parseFloat(root.getAttribute('data-pad')!);
+  const maxy = parseFloat(root.getAttribute('data-maxy')!);
   const replaceMode = !!elOpt<HTMLInputElement>('chkReplaceOnImport')?.checked;
 
   function svgToWorld(x: number, y: number): { x: number; y: number } {
@@ -72,27 +75,27 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const dataPts = el.getAttribute('data-points');
     let pts;
     if(isOwn && dataPts){
-      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x,y}; });
+      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x:x!,y:y!}; });
     } else {
       const raw = (el.getAttribute('points')||'').trim().split(/\s+/).filter(Boolean);
-      pts = raw.map(s=>{ const [x,y]=s.split(',').map(Number); return svgToWorld(x,y); });
+      pts = raw.map(s=>{ const [x,y]=s.split(',').map(Number); return svgToWorld(x!,y!); });
     }
     if(pts.length<3) return;
     const origKey = el.getAttribute('data-objkey');
     const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Objet importe') : ('Objet importe '+imported);
-    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
-    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
+    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names')!.split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
+    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names')!.split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
     const newObj = {
       key, type:'polygon', name,
-      fill: el.getAttribute('fill')||'#8fb3d9', fillOpacity: parseFloat(el.getAttribute('fill-opacity'))||0.75,
+      fill: el.getAttribute('fill')||'#8fb3d9', fillOpacity: parseFloat(el.getAttribute('fill-opacity')!)||0.75,
       stroke: el.getAttribute('stroke')||'#2a4d6e',
       pts, vertexNames:vNames, segmentNames:sNames, frozenVertices: pts.map(()=>false),
       showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
       constrained:false,
       fonction: isOwn ? (el.getAttribute('data-fonction')||'autre') : 'autre',
       matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
+      priority: isOwn ? (parseInt(el.getAttribute('data-priority')!,10)||2) : 2,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
     etat.objects.push(newObj); ctx.createObjectDOM(newObj); ctx.rebuildHandles(newObj); imported++;
@@ -102,7 +105,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const dataPts = el.getAttribute('data-points');
     let pts;
     if(isOwn && dataPts){
-      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x,y}; });
+      pts = dataPts.trim().split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return {x:x!,y:y!}; });
     } else {
       // best-effort: extract endpoint coordinates for every path command, not just M/L/C - see
       // parseSvgPathPoints() below.
@@ -113,9 +116,9 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const origKey = el.getAttribute('data-objkey');
     const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Chemin importe') : ('Chemin importe '+imported);
-    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names').split(NAME_SEP) : pts.map((_,i)=>'Point '+(i+1));
-    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names').split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
-    const width = isOwn ? (parseFloat(el.getAttribute('data-width'))||1) : (parseFloat(el.getAttribute('stroke-width'))||1);
+    const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names')!.split(NAME_SEP) : pts.map((_,i)=>'Point '+(i+1));
+    const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names')!.split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
+    const width = isOwn ? (parseFloat(el.getAttribute('data-width')!)||1) : (parseFloat(el.getAttribute('stroke-width')!)||1);
     const curve = isOwn ? (el.getAttribute('data-curve')==='true') : false;
     const newObj = {
       key, type:'path', name,
@@ -126,7 +129,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
       constrained:false,
       fonction: isOwn ? (el.getAttribute('data-fonction')||'chemin') : 'chemin',
       matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||2) : 2,
+      priority: isOwn ? (parseInt(el.getAttribute('data-priority')!,10)||2) : 2,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
     etat.objects.push(newObj); ctx.createObjectDOM(newObj); ctx.rebuildHandles(newObj); imported++;
@@ -135,11 +138,11 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
   doc.querySelectorAll('circle').forEach(el=>{
     let center, r;
     if(isOwn && el.getAttribute('data-center')){
-      const [cx,cy] = el.getAttribute('data-center').split(',').map(Number);
-      center = {x:cx,y:cy}; r = parseFloat(el.getAttribute('data-radius'));
+      const [cx,cy] = el.getAttribute('data-center')!.split(',').map(Number);
+      center = {x:cx!,y:cy!}; r = parseFloat(el.getAttribute('data-radius')!);
     } else {
-      const cx = parseFloat(el.getAttribute('cx')), cy = parseFloat(el.getAttribute('cy'));
-      center = svgToWorld(cx,cy); r = parseFloat(el.getAttribute('r'));
+      const cx = parseFloat(el.getAttribute('cx')!), cy = parseFloat(el.getAttribute('cy')!);
+      center = svgToWorld(cx,cy); r = parseFloat(el.getAttribute('r')!);
     }
     if(!Number.isFinite(r) || r<=0) return;
     const origKey = el.getAttribute('data-objkey');
@@ -147,14 +150,14 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const name = isOwn ? (el.getAttribute('data-name')||'Cercle importe') : ('Cercle importe '+imported);
     const newObj = {
       key, type:'circle', name,
-      fill: el.getAttribute('fill')||'#5bc8f5', fillOpacity: parseFloat(el.getAttribute('fill-opacity'))||0.9,
+      fill: el.getAttribute('fill')||'#5bc8f5', fillOpacity: parseFloat(el.getAttribute('fill-opacity')!)||0.9,
       stroke: el.getAttribute('stroke')||'#0a3d5c',
       center, r,
       showName:true, showSegNames:false, showVertNames:false, showDims:true, showAngles:false,
       constrained:false,
       fonction: isOwn ? (el.getAttribute('data-fonction')||'equipement') : 'equipement',
       matiere: isOwn ? (el.getAttribute('data-matiere')||'') : '',
-      priority: isOwn ? (parseInt(el.getAttribute('data-priority'),10)||3) : 3,
+      priority: isOwn ? (parseInt(el.getAttribute('data-priority')!,10)||3) : 3,
       locked: isOwn ? (el.getAttribute('data-locked')==='true') : false
     };
     etat.objects.push(newObj); ctx.createObjectDOM(newObj); ctx.rebuildHandles(newObj); imported++;
@@ -176,8 +179,8 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
           if(refObj && tgtObj){
             etat.measures.push({
               id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-              refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
-              targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:!!m.show,
+              refObjKey:m.refObjKey!, refSegIndex:m.refSegIndex!, startEnd:m.startEnd!,
+              targetObjKey:m.targetObjKey!, targetPtIndex:m.targetPtIndex!, show:!!m.show,
               displayMode: m.displayMode==='along' ? 'along' : 'perp'
             });
             importedMeasures++;

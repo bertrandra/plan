@@ -43,9 +43,9 @@ describe('assemblerPDF', () => {
     // lecteurs refusent le fichier.
     const startxref = Number(/startxref\s+(\d+)/.exec(doc)![1]);
     const lignes = doc.slice(startxref).split('\n');
-    const nb = Number(lignes[1].trim().split(/\s+/)[1]);
+    const nb = Number(lignes[1]!.trim().split(/\s+/)[1]);
     for (let i = 1; i < nb; i++) {
-      const off = parseInt(lignes[i + 2].slice(0, 10), 10);
+      const off = parseInt(lignes[i + 2]!.slice(0, 10), 10);
       expect(doc.substr(off, String(i).length + 6)).toBe(i + ' 0 obj');
     }
   });

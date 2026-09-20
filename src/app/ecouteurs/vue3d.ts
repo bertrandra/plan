@@ -19,11 +19,12 @@ import { nouveauPointDeVue } from '../../model/creation.js';
 import { cleObjet } from '../../model/cles.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
+import type { Mode3D } from '../../three/navigation.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
   zoom3D: (facteur: number) => void;
-  setMode3D: (mode: string) => void;
+  setMode3D: (mode: Mode3D) => void;
   hauteurDesYeux: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   createObjectDOM: (obj: ObjetPlan) => void;

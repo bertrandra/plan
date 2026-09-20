@@ -3,6 +3,46 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.1.0-alpha.15] — 2026-09-20
+
+**Phase 7 : l'échelle de rigueur est gravie.** `tsconfig.json` porte désormais la configuration cible
+de la spec §9.1 — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+`noUnusedLocals`, `noUnusedParameters`, `noImplicitOverride`, `noFallthroughCasesInSwitch`. Mesurées
+en cumulatif au départ du palier : **1 513 erreurs**, dont 300 dans `ui/`, 218 dans `tests/`, 201
+dans `geometry/`, 168 dans `engine/`, 141 dans `three/`, 132 dans `export/`, 100 dans `render/`,
+81 dans `app/`. À l'arrivée : **0**. Aucun des six artefacts exportés ne bouge à version égale.
+
+### Interne
+
+- **Uniquement des types.** Assertions non nulles `!` là où le code environnant garantit déjà
+  l'invariant (indice borné par la boucle, `find` précédé d'un `some`, `pts` sous un
+  `type === 'polygon'`, élément du DOM d'`index.html`) ; `catch (e)` lu via `(e as Error)` ;
+  paramètres inutilisés préfixés `_` ; imports et variables mortes retirés. Le diff de `geometry/`,
+  une fois les `!` ôtés, est identique à l'original ligne pour ligne. Aucun `if`, `return`, valeur
+  par défaut ou `??` ajouté nulle part.
+- **Des signatures qui mentaient, corrigées** : `ContexteHistorique` disait `unknown[]` pour des
+  objets du plan et des cotes — il est générique sur leur forme, comme l'appelant la connaît ;
+  `ContexteAttrPanel.startPick` et `measureSegCoords` disent les unions réelles ;
+  `appliquerProjetImporte` reçoit un `ProjetValide`, pas `unknown` (`app/ecouteurs/fichiers.ts`,
+  `ui/projectBar.ts`) ; `ContexteVue3d.setMode3D` prend un `Mode3D` ; `ContexteMesurePanel.refLabel`
+  accepte `null`, ce que l'implémentation faisait déjà ; `chargerTuileOrtho` rend `Promise<string>`
+  (le `has` précède le `get`) ; `nomProjet` accepte `null` ; `geocoderBAN` lit un `[number, number]` ;
+  `export/pdf/writer.ts` nomme `Rgb01` ; `three/etat3d.ts` : `dernierExporte.date` est une `Date`.
+- **Types élargis pour `exactOptionalPropertyTypes`**, là où le code assigne `undefined` en
+  clair : `Construction.prixVisUnite`, `TextureAppliquee.vignette`, `SourcesDIdentite.horloge`/`alea`,
+  `AppuiSurLigne.n`, `TerrasseEtudiee.pts`, `PointDeVue.pts`/`altitude`, `SeedProjectBar.meta`.
+- **Deux symboles morts de plus** : le paramètre `lamesAngle` d'`evaluerStructure` n'est jamais lu
+  (renommé `_lamesAngle`, position conservée) ; `GlisserEnCours.startR` n'est lu nulle part.
+- **Le cliquet** (`scripts/cliquet.mjs`) n'a plus de drapeaux à monter : `tsconfig.json` porte tout,
+  il reste le rapport par dossier et la garde contre une régression. Il lance `tsc` avec le Node
+  courant plutôt que par `npx` sous `shell: true`, que Node 22 signalait (DEP0190).
+- `plan.html` : 450 063 → 450 058 octets. 535 tests, inchangés.
+
+Ce que le typage a révélé sans le corriger — des invariants tenus par `normalizeObjects` ou
+`ensureConstruction` et non par les types, une validation d'import annoncée mais absente — est
+consigné dans `MD/MIGRATION-JOURNAL.md`, « Phase 7 — l'échelle gravie ».
+
+
 ## [1.1.0-alpha.14] — 2026-09-09
 
 **Phase 4 : la fermeture `boot()` quitte `legacy.ts`, et `legacy.ts` disparaît.**

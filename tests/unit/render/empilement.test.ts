@@ -29,7 +29,7 @@ describe('classement par priorite', () => {
 describe('reculer un objet', () => {
   it('echange avec le precedent de MEME priorite', () => {
     const l = [objet('a', 1), objet('b', 1), objet('c', 1)];
-    expect(reculerObjet(l[2], l)).toBe(true);
+    expect(reculerObjet(l[2]!, l)).toBe(true);
     expect(l.map(o => o.key)).toEqual(['a', 'c', 'b']);
   });
 
@@ -37,26 +37,26 @@ describe('reculer un objet', () => {
     // Echanger avec le voisin immediat n'aurait AUCUN effet visible une fois le tri refait : le
     // double-clic paraitrait casse.
     const l = [objet('a', 1), objet('autreNiveau', 5), objet('c', 1)];
-    expect(reculerObjet(l[2], l)).toBe(true);
+    expect(reculerObjet(l[2]!, l)).toBe(true);
     expect(l.map(o => o.key)).toEqual(['c', 'autreNiveau', 'a']);
   });
 
   it('ne fait rien quand l objet est deja le plus en arriere de son niveau', () => {
     const l = [objet('a', 1), objet('b', 2)];
-    expect(reculerObjet(l[0], l)).toBe(false);
+    expect(reculerObjet(l[0]!, l)).toBe(false);
     expect(l.map(o => o.key)).toEqual(['a', 'b']);
   });
 
   it('refuse de reculer la parcelle : elle est le fond du plan', () => {
     const l = [objet('x', 1), objet('parcelle', 1)];
-    expect(reculerObjet(l[1], l)).toBe(false);
+    expect(reculerObjet(l[1]!, l)).toBe(false);
     expect(l.map(o => o.key)).toEqual(['x', 'parcelle']);
   });
 
   it('ne prend jamais la parcelle comme partenaire d echange', () => {
     // Sans cette garde, le premier recul enverrait un objet derriere le terrain, ou il disparait.
     const l = [objet('parcelle', 1), objet('a', 1)];
-    expect(reculerObjet(l[1], l)).toBe(false);
+    expect(reculerObjet(l[1]!, l)).toBe(false);
     expect(l.map(o => o.key)).toEqual(['parcelle', 'a']);
   });
 
@@ -66,8 +66,8 @@ describe('reculer un objet', () => {
 
   it('se repete : deux reculs successifs traversent deux voisins', () => {
     const l = [objet('a', 1), objet('b', 1), objet('c', 1)];
-    reculerObjet(l[2], l);
-    reculerObjet(l.find(o => o.key === 'c'), l);
+    reculerObjet(l[2]!, l);
+    reculerObjet(l.find(o => o.key === 'c')!, l);
     expect(l.map(o => o.key)).toEqual(['c', 'a', 'b']);
   });
 });

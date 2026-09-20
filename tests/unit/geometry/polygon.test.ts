@@ -18,8 +18,8 @@ describe('polygonOffset', () => {
   it('conserve les angles droits sur un rectangle (coins re-onglets)', () => {
     const r = polygonOffset(carre, 2);
     expect(r).toHaveLength(4);
-    expect(r[0].x).toBeCloseTo(2, 9);
-    expect(r[0].y).toBeCloseTo(2, 9);
+    expect(r[0]!.x).toBeCloseTo(2, 9);
+    expect(r[0]!.y).toBeCloseTo(2, 9);
   });
   it('ne depend pas du sens de parcours', () => {
     const direct = shoelace(polygonOffset(carre, 1));
@@ -45,7 +45,7 @@ describe('offsetZone', () => {
     const marge = 0.5;
     const zone = offsetZone(carre, marge);
     for (const s of zone) {
-      const d = Math.min(...carre.map((a, i) => distancePointSegment(s, a, carre[(i + 1) % carre.length])));
+      const d = Math.min(...carre.map((a, i) => distancePointSegment(s, a, carre[(i + 1) % carre.length]!)));
       expect(d).toBeLessThanOrEqual(marge + 1e-9);
     }
   });
@@ -66,8 +66,8 @@ describe('clipLineToPolygon', () => {
   it('rend un seul morceau dans un convexe', () => {
     const m = clipLineToPolygon(p(-5, 5), p(1, 0), carre);
     expect(m).toHaveLength(1);
-    expect(m[0].a.x).toBeCloseTo(0, 9);
-    expect(m[0].b.x).toBeCloseTo(10, 9);
+    expect(m[0]!.a.x).toBeCloseTo(0, 9);
+    expect(m[0]!.b.x).toBeCloseTo(10, 9);
   });
   it('coupe en deux morceaux de part et d autre du creux d un L', () => {
     // C'est le cas qui compte : ne garder que l'enveloppe ferait passer une lame en travers
@@ -101,19 +101,19 @@ describe('ringSegments', () => {
   it('referme l anneau : autant de segments que de sommets', () => {
     const s = ringSegments(carre);
     expect(s).toHaveLength(4);
-    expect(s[3].b).toEqual(carre[0]);
+    expect(s[3]!.b).toEqual(carre[0]);
   });
 });
 
 describe('exteriorBisector', () => {
   it('pointe vers l exterieur du polygone', () => {
     const b = exteriorBisector({ pts: carre }, 0);
-    const dehors = { x: carre[0].x + b.x * 0.1, y: carre[0].y + b.y * 0.1 };
+    const dehors = { x: carre[0]!.x + b.x * 0.1, y: carre[0]!.y + b.y * 0.1 };
     expect(pointInPolygon(dehors, carre)).toBe(false);
   });
   it('pointe encore vers l exterieur sur un sommet rentrant', () => {
     const b = exteriorBisector({ pts: enL }, 3);
-    const dehors = { x: enL[3].x + b.x * 0.1, y: enL[3].y + b.y * 0.1 };
+    const dehors = { x: enL[3]!.x + b.x * 0.1, y: enL[3]!.y + b.y * 0.1 };
     expect(pointInPolygon(dehors, enL)).toBe(false);
   });
 });

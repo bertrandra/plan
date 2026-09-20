@@ -12,7 +12,7 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.1.0-alpha.14`, en cours de migration d'un fichier HTML unique de 13 500 lignes vers un
+Version `1.1.0-alpha.15`, en cours de migration d'un fichier HTML unique de 13 500 lignes vers un
 graphe de modules TypeScript (`MD/spec-migration-typescript.md`). L'artefact livré reste un seul
 fichier `plan.html`, désormais **produit par le build** et non plus édité à la main. Le fichier
 d'origine est figé dans `legacy/plan_interactif.html` et sert de témoin : les golden files de
@@ -43,11 +43,11 @@ pwsh -File servir.ps1     # puis http://localhost:8765/plan.html
 
 ### Le cliquet de rigueur
 
-Les drapeaux stricts du compilateur sont montés barreau par barreau, dossier par dossier.
-`scripts/cliquet.mjs` lance `tsc` avec les drapeaux visés et échoue si une erreur vient d'un dossier
-déclaré propre. Passer un dossier à « propre » est un geste explicite dans la liste du script, et
-il ne peut plus régresser. Aujourd'hui l'intégralité de `src/` et `tests/` est propre sous
-`noImplicitAny`.
+Les drapeaux stricts du compilateur ont été montés barreau par barreau, dossier par dossier, et
+l'échelle est gravie : `tsconfig.json` porte la configuration cible de la spec (`strict`,
+`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, locals et paramètres inutilisés interdits).
+`scripts/cliquet.mjs` lance `tsc` et échoue si une erreur vient d'un dossier déclaré propre : tous
+le sont, et aucun ne peut régresser sans que le script le remarque.
 
 ## Organisation du dépôt
 

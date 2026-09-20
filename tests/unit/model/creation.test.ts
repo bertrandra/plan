@@ -18,8 +18,8 @@ describe('objet a quatre coins', () => {
   it('naît rectangulaire et gele en mode rectangle', () => {
     // 3 x 2 m plutot qu'un carre : pour qu'on voie tout de suite que c'est un rectangle.
     const { obj, onglet } = nouvelObjet(CENTRE, 'k', true);
-    expect(obj.pts[0]).toEqual({ x: 8.5, y: 19 });
-    expect(obj.pts[1]).toEqual({ x: 11.5, y: 19 });
+    expect(obj.pts![0]).toEqual({ x: 8.5, y: 19 });
+    expect(obj.pts![1]).toEqual({ x: 11.5, y: 19 });
     expect(obj.frozenVertices).toEqual([true, true, true, true]);
     // L'onglet Objet porte la case du mode : c'est celle qu'il faudra decocher.
     expect(onglet).toBe('objet');
@@ -43,7 +43,7 @@ describe('objet a quatre coins', () => {
 
 describe('les primitives detournees', () => {
   it('le parasol est un cercle, reconnu a sa fonction', () => {
-    const { obj } = nouveauParasol(CENTRE, 'k', 1, null);
+    const { obj } = nouveauParasol(CENTRE, 'k', 1, undefined);
     expect(obj.type).toBe('circle');
     expect(obj.fonction).toBe('parasol');
     expect(obj.r).toBe(1.5);
@@ -65,7 +65,7 @@ describe('les primitives detournees', () => {
   });
 
   it('numerote parasols et points de vue', () => {
-    expect(nouveauParasol(CENTRE, 'k', 3, null).obj.name).toBe('Parasol 3');
+    expect(nouveauParasol(CENTRE, 'k', 3, undefined).obj.name).toBe('Parasol 3');
     expect(nouveauPointDeVue(CENTRE, 'k', 4).obj.name).toBe('Point de vue 4');
   });
 });
@@ -80,7 +80,7 @@ describe('rattachement du parasol', () => {
     // Sans terrasse, le repli est la parcelle : elle sert de position, pas de rattachement.
     const p = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain' };
     expect(nouveauParasol(CENTRE, 'k', 1, p).obj.terrasseLieeKey).toBeNull();
-    expect(nouveauParasol(CENTRE, 'k', 1, null).obj.terrasseLieeKey).toBeNull();
+    expect(nouveauParasol(CENTRE, 'k', 1, undefined).obj.terrasseLieeKey).toBeNull();
   });
 });
 
@@ -100,7 +100,7 @@ describe('chemin et cercle', () => {
   it('le centre du cercle est une copie, pas la reference donnee', () => {
     const centre = { x: 1, y: 2 };
     const { obj } = nouveauCercle(centre, 'k');
-    obj.center.x = 99;
+    obj.center!.x = 99;
     expect(centre.x).toBe(1);
   });
 });
@@ -149,19 +149,19 @@ describe('poser un objet dans le plan', () => {
   it('selectionne l objet neuf', () => {
     const { c, etat } = monter();
     c.ajouterCercle();
-    expect(etat.selectedKey).toBe(etat.objects[1].key);
+    expect(etat.selectedKey).toBe(etat.objects[1]!.key);
   });
 
   it('naît au centre de la parcelle, pas a l origine du repere', () => {
     const { c, etat } = monter();
     c.ajouterCercle();
-    expect(etat.objects[1].center).toEqual({ x: 2, y: 2 });
+    expect(etat.objects[1]!.center).toEqual({ x: 2, y: 2 });
   });
 
   it('tombe sur l origine quand il n y a pas de parcelle', () => {
     const { c, etat } = monter([]);
     c.ajouterCercle();
-    expect(etat.objects[0].center).toEqual({ x: 0, y: 0 });
+    expect(etat.objects[0]!.center).toEqual({ x: 0, y: 0 });
   });
 
   it('donne une cle differente a chaque objet', () => {
@@ -176,7 +176,7 @@ describe('les cles', () => {
   it('portent le type, l instant et un compteur', () => {
     const { c, etat } = monter();
     c.ajouterCercle();
-    expect(etat.objects[1].key).toBe('circle1700000000000_0');
+    expect(etat.objects[1]!.key).toBe('circle1700000000000_0');
   });
 
   it('restent distinctes dans une meme milliseconde', () => {
@@ -184,8 +184,8 @@ describe('les cles', () => {
     // double-clic suffit. Sans le compteur, ils porteraient la meme cle.
     const { c, etat } = monter();
     c.ajouterCercle(); c.ajouterCercle();
-    expect(etat.objects[1].key).toBe('circle1700000000000_0');
-    expect(etat.objects[2].key).toBe('circle1700000000000_1');
+    expect(etat.objects[1]!.key).toBe('circle1700000000000_0');
+    expect(etat.objects[2]!.key).toBe('circle1700000000000_1');
   });
 
   it('nomment le type qui les porte', () => {
@@ -198,7 +198,7 @@ describe('les cles', () => {
     const { c, etat } = monter([{ key: 'a', name: 'Abri', type: 'polygon', pts: [] }]);
     etat.selectedKey = 'a';
     c.dupliquer();
-    expect(etat.objects[1].key).toBe('dup1700000000000_0');
+    expect(etat.objects[1]!.key).toBe('dup1700000000000_0');
   });
 
   it('rendent un scenario reproductible', () => {
@@ -221,8 +221,8 @@ describe('un parasol naît sur sa terrasse', () => {
     // Au centre de la parcelle, il naîtrait loin de l'endroit ou on veut l'utiliser.
     const { c, etat } = monter([parcelle, terrasse]);
     c.ajouterParasol();
-    expect(etat.objects[2].center).toEqual({ x: 12, y: 12 });
-    expect(etat.objects[2].terrasseLieeKey).toBe('t1');
+    expect(etat.objects[2]!.center).toEqual({ x: 12, y: 12 });
+    expect(etat.objects[2]!.terrasseLieeKey).toBe('t1');
   });
 
   it('prefere la terrasse selectionnee', () => {
@@ -230,21 +230,21 @@ describe('un parasol naît sur sa terrasse', () => {
     const { c, etat } = monter([parcelle, terrasse, autre]);
     etat.terrasseSelectedKey = 't2';
     c.ajouterParasol();
-    expect(etat.objects[3].terrasseLieeKey).toBe('t2');
+    expect(etat.objects[3]!.terrasseLieeKey).toBe('t2');
   });
 
   it('retombe sur la parcelle quand il n y a aucune terrasse', () => {
     const { c, etat } = monter([parcelle]);
     c.ajouterParasol();
-    expect(etat.objects[1].center).toEqual({ x: 50, y: 50 });
-    expect(etat.objects[1].terrasseLieeKey).toBeNull();
+    expect(etat.objects[1]!.center).toEqual({ x: 50, y: 50 });
+    expect(etat.objects[1]!.terrasseLieeKey).toBeNull();
   });
 
   it('numerote a partir des parasols deja poses', () => {
     const { c, etat } = monter([parcelle, terrasse]);
     c.ajouterParasol(); c.ajouterParasol();
-    expect(etat.objects[2].name).toBe('Parasol 1');
-    expect(etat.objects[3].name).toBe('Parasol 2');
+    expect(etat.objects[2]!.name).toBe('Parasol 1');
+    expect(etat.objects[3]!.name).toBe('Parasol 2');
   });
 });
 
@@ -263,22 +263,22 @@ describe('dupliquer', () => {
     const { c, etat } = monter([carre]);
     etat.selectedKey = 'a';
     c.dupliquer();
-    expect(etat.objects[1].pts.map(p => p.x)).toEqual([-5, -3, -3]);
+    expect(etat.objects[1]!.pts!.map(p => p.x)).toEqual([-5, -3, -3]);
   });
 
   it('decale aussi un cercle, par son centre', () => {
     const { c, etat } = monter([{ key: 'c', name: 'Bac', type: 'circle', center: { x: 8, y: 3 }, r: 1 }]);
     etat.selectedKey = 'c';
     c.dupliquer();
-    expect(etat.objects[1].center).toEqual({ x: 3, y: 3 });
+    expect(etat.objects[1]!.center).toEqual({ x: 3, y: 3 });
   });
 
   it('nomme la copie et lui donne une cle neuve', () => {
     const { c, etat } = monter([carre]);
     etat.selectedKey = 'a';
     c.dupliquer();
-    expect(etat.objects[1].name).toBe('Abri (copie)');
-    expect(etat.objects[1].key).not.toBe('a');
+    expect(etat.objects[1]!.name).toBe('Abri (copie)');
+    expect(etat.objects[1]!.key).not.toBe('a');
   });
 });
 

@@ -89,7 +89,7 @@ svg.addEventListener('pointerdown', e=>{
   // ---- Measurement tool / Alignment tool: intercept clicks while picking a reference segment / target point(s) ----
   if(mesure.pointage){
     if(mesure.pointage.mode==='ref' && ds && ds.role==='edge'){
-      const picked = {objKey:ds.key, segIndex:parseInt(ds.index,10)};
+      const picked = {objKey:ds.key!, segIndex:parseInt(ds.index!,10)};
       if(mesure.pointage.purpose==='align'){
         definirCibleAlignement(picked);
         mesure.pointage = null;
@@ -105,10 +105,10 @@ svg.addEventListener('pointerdown', e=>{
     if(mesure.pointage.mode==='target'){
       let t = null;
       if(ds && ds.role==='point'){
-        t = {objKey:ds.key, ptIndex:parseInt(ds.index,10)};
+        t = {objKey:ds.key!, ptIndex:parseInt(ds.index!,10)};
       } else if(ds && ds.role==='obj'){
         const tobj = etat.objects.find(o=>o.key===ds.key);
-        if(tobj && tobj.type==='circle') t = {objKey:ds.key, ptIndex:0};
+        if(tobj && tobj.type==='circle') t = {objKey:ds.key!, ptIndex:0};
       }
       if(t){
         if(mesure.pointage.multi){
@@ -151,13 +151,13 @@ svg.addEventListener('pointerdown', e=>{
     lastObjClick = {key:null, time:0, x:0, y:0};
     lastEdgeClick = {key:null, index:null, time:0};
     lastPointClick = {key:null, index:null, time:0};
-    ctx.sendObjectBackward(objByKey(ds.key));
+    ctx.sendObjectBackward(objByKey(ds.key)!);
     e.preventDefault();
     return;
   }
 
   if(ds.role === 'obj'){
-    const key = ds.key;
+    const key = ds.key!;
     const nowObj = Date.now();
     // A tap-based double-tap is physically slower than a mouse double-click (lift + re-touch
     // the finger vs. a spring-loaded button), so it very often misses a window tuned for mice.
@@ -171,7 +171,7 @@ svg.addEventListener('pointerdown', e=>{
       // selecting/dragging (native dblclick can't be used here since preventDefault()
       // further down in this same handler, for the drag-start case, suppresses it)
       lastObjClick = {key:null, time:0, x:0, y:0};
-      const objDbl = objByKey(key);
+      const objDbl = objByKey(key)!;
       ctx.sendObjectBackward(objDbl);
       e.preventDefault();
       return;
@@ -182,7 +182,7 @@ svg.addEventListener('pointerdown', e=>{
       e.preventDefault();
       return;
     }
-    const obj = objByKey(key);
+    const obj = objByKey(key)!;
     if(obj.locked) return; // locked: selectable/viewable but not movable
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
@@ -192,34 +192,34 @@ svg.addEventListener('pointerdown', e=>{
       //
       // `startScreen` n'a pas suivi : ce champ n'etait lu nulle part pour ces deux gestes (seul
       // le pan le lit, plus bas) - verifie a l'occasion du typage et retire (spec §10.3).
-      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center}, moved:false};
+      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center!}, moved:false};
     } else {
       const objP = obj as ObjetAPoints;
       activeDrag = {type:'shapeMove', obj: objP, startWorld:w, startPts: objP.pts.map(p=>({...p})), moved:false};
     }
   } else if(ds.role === 'point'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key) as ObjetAPoints; const idx=parseInt(ds.index,10);
+    const obj = objByKey(ds.key) as ObjetAPoints; const idx=parseInt(ds.index!,10);
     if(obj.locked) return;
     const nowTp = Date.now();
     if(lastPointClick.key===ds.key && lastPointClick.index===idx && (nowTp-lastPointClick.time)<400){
       lastPointClick = {key:null, index:null, time:0};
       ctx.pushHistory();
-      obj.frozenVertices[idx] = !obj.frozenVertices[idx];
+      obj.frozenVertices![idx] = !obj.frozenVertices![idx];
       ctx.render();
       e.preventDefault();
       return;
     }
     lastPointClick = {key:ds.key, index:idx, time:nowTp};
     // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
-    if(obj.frozenVertices[idx] && !estRectangle(obj)) return;
+    if(obj.frozenVertices![idx] && !estRectangle(obj)) return;
     etat.highlight = {type:'vertex', index:idx};
     etat.attrTab = 'angles';
     ctx.pushHistory();
-    activeDrag = {type:'point', obj, idx, startWorld:w, startPt:{...obj.pts[idx]}};
+    activeDrag = {type:'point', obj, idx, startWorld:w, startPt:{...obj.pts[idx]!}};
   } else if(ds.role === 'edge'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key) as ObjetAPoints; const i=parseInt(ds.index,10); const n=obj.pts.length; const j=(i+1)%n;
+    const obj = objByKey(ds.key) as ObjetAPoints; const i=parseInt(ds.index!,10); const n=obj.pts.length; const j=(i+1)%n;
     if(obj.locked) return;
     const nowT = Date.now();
     if(lastEdgeClick.key===ds.key && lastEdgeClick.index===i && (nowT-lastEdgeClick.time)<400){
@@ -230,18 +230,18 @@ svg.addEventListener('pointerdown', e=>{
     }
     lastEdgeClick = {key:ds.key, index:i, time:nowT};
     // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
-    if((obj.frozenVertices[i] || obj.frozenVertices[j]) && !estRectangle(obj)) return;
+    if((obj.frozenVertices![i] || obj.frozenVertices![j]) && !estRectangle(obj)) return;
     etat.highlight = {type:'segment', index:i};
     etat.attrTab = 'segments';
     ctx.pushHistory();
-    activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...obj.pts[i]}, startB:{...obj.pts[j]}};
+    activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...obj.pts[i]!}, startB:{...obj.pts[j]!}};
   } else if(ds.role === 'radius'){
     if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key) as ObjetAPoints;
     if(obj.locked) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
-    activeDrag = {type:'radius', obj, startWorld:w, startR:obj.r};
+    activeDrag = {type:'radius', obj, startWorld:w, startR:obj.r!};
   }
   if(activeDrag) e.preventDefault();
   ctx.render();
@@ -313,7 +313,7 @@ stage.addEventListener('pointerdown', e=>{
   if(activePointers.size===2){
     activeDrag=null;
     const arr=[...activePointers.values()];
-    pinchState = debutPincement(etat.scene, arr[0], arr[1]);
+    pinchState = debutPincement(etat.scene, arr[0]!, arr[1]!);
     panState=null;
   } else if(activePointers.size===3){
     activeDrag=null; pinchState=null;
@@ -327,7 +327,7 @@ window.addEventListener('pointermove', e=>{
   if(activePointers.size===2 && pinchState){
     const arr=[...activePointers.values()];
 
-    etat.scene = pincer(etat.scene, pinchState, arr[0], arr[1]);
+    etat.scene = pincer(etat.scene, pinchState, arr[0]!, arr[1]!);
 
     ctx.render();
   } else if(activePointers.size===3 && panState){

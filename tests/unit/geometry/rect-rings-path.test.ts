@@ -26,11 +26,11 @@ describe('estRectangle', () => {
 
 describe('rectangleDepuisCoin', () => {
   it('garde un rectangle rectangle quand on tire un coin', () => {
-    const r = rectangleDepuisCoin(carre, 0, p(-2, -3));
+    const r = rectangleDepuisCoin(carre, 0, p(-2, -3))!;
     expect(r).toHaveLength(4);
-    const cotes = r.map((a, i) => ({ x: r[(i + 1) % 4].x - a.x, y: r[(i + 1) % 4].y - a.y }));
+    const cotes = r.map((a, i) => ({ x: r[(i + 1) % 4]!.x - a.x, y: r[(i + 1) % 4]!.y - a.y }));
     for (let i = 0; i < 4; i++) {
-      const u = cotes[i], v = cotes[(i + 1) % 4];
+      const u = cotes[i]!, v = cotes[(i + 1) % 4]!;
       expect(u.x * v.x + u.y * v.y).toBeCloseTo(0, 9); // produit scalaire nul = angle droit
     }
   });
@@ -39,12 +39,12 @@ describe('rectangleDepuisCoin', () => {
 describe('rectangleDepuisCote', () => {
   it('refuse de degenerer le rectangle sous la cote minimale', () => {
     // Tirer le cote 0 vers le cote oppose de presque 10 m ne doit pas produire un rectangle plat.
-    expect(rectangleDepuisCote(carre, 0, 1, carre[0], 0, 10 - RECT_MIN_M / 2)).toBeNull();
+    expect(rectangleDepuisCote(carre, 0, 1, carre[0]!, 0, 10 - RECT_MIN_M / 2)).toBeNull();
   });
   it('deplace le cote quand le rectangle reste valide', () => {
-    const r = rectangleDepuisCote(carre, 0, 1, carre[0], 0, 3);
+    const r = rectangleDepuisCote(carre, 0, 1, carre[0]!, 0, 3);
     expect(r).not.toBeNull();
-    expect(shoelace(r)).toBeCloseTo(70, 9);
+    expect(shoelace(r!)).toBeCloseTo(70, 9);
   });
 });
 

@@ -112,7 +112,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   const limitesInternes = fusion ? fusion.limites : [];
   const parcellesFusionnees = fusion ? parcellesPropriete : [principale];
 
-  let nord = ptsFusion[0];
+  let nord = ptsFusion[0]!;
   ptsFusion.forEach(p=>{ if(p.y > nord.y) nord = p; });
   const dec = (p: PtBrut) => ({ x: Math.round((p.x - nord.x)*1000)/1000, y: Math.round((p.y - nord.y)*1000)/1000 });
   const proj = importe.proj;
@@ -138,7 +138,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
       info.adresseLat = importe.geo.lat;
       info.adresseScore = importe.geo.score;
       info.rayonM = importe.rayon;
-      info.distanceBordM = Math.round(c.distance*100)/100;
+      info.distanceBordM = Math.round(c.distance!*100)/100;
     }
     return info;
   }
@@ -336,7 +336,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   }
   // Le zonage PLU se range sur la parcelle : c'est elle qu'il qualifie, et il suit donc le projet
   // sans nouvelle cle a faire transiter par api.php.
-  if(importe.plu) objets[0].plu = importe.plu;
+  if(importe.plu) objets[0]!.plu = importe.plu;
   return objets;
 }
 

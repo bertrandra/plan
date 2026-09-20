@@ -33,9 +33,9 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
   return raw.map(o => {
     const c: ObjetBrut = { ...o };
     if (c.type === 'circle') {
-      c.center = { x: c.center.x, y: c.center.y };
+      c.center = { x: c.center!.x, y: c.center!.y };
     } else {
-      c.pts = c.pts.map(p => ({ x: p.x, y: p.y }));
+      c.pts = c.pts!.map(p => ({ x: p.x, y: p.y }));
       c.vertexNames = c.vertexNames ? [...c.vertexNames] : c.pts.map((_, i) => 'Point ' + (i + 1));
       c.segmentNames = c.segmentNames ? [...c.segmentNames] : c.pts.map((_, i) => 'Cote ' + (i + 1));
       c.frozenVertices = (c.frozenVertices && c.frozenVertices.length === c.pts.length) ? [...c.frozenVertices] : c.pts.map(() => false);

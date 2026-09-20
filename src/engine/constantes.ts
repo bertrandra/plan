@@ -60,7 +60,7 @@ export function plotModele(c: { hauteurPlot?: number; plotModele?: string }): { 
   }
   // Support suppose plan : une seule hauteur, donc le modele le moins cher qui la couvre.
   return PLOT_MODELES.find(m=>h >= m.min-1e-9 && h <= m.max+1e-9)
-      || PLOT_MODELES[PLOT_MODELES.length-1];
+      || PLOT_MODELES[PLOT_MODELES.length-1]!;
 }
 export const SOLIVE_PRICE = { bas:4, haut:7 };
 export const VISSERIE_PRICE = { bas:4, haut:6 };

@@ -39,7 +39,7 @@ describe('etat de l application', () => {
     const normaliser = vi.fn(() => [{ key: 'a', name: 'A', normalise: true }]);
     const etat = creerEtat({ objects: [{ key: 'brut', name: 'Brut' }] }, normaliser);
     expect(normaliser).toHaveBeenCalledWith([{ key: 'brut', name: 'Brut' }]);
-    expect(etat.objects[0].normalise).toBe(true);
+    expect(etat.objects[0]!.normalise).toBe(true);
   });
 
   it('part sur des reglages d affichage previsibles', () => {

@@ -177,9 +177,9 @@ export function urlTuileOrtho(z: number, x: number, y: number): string {
 // Les tuiles sont recuperees en fetch puis converties en data URI, jamais posees en href
 // distant : une image d'un autre domaine "salit" le canevas (canvas tainted) et ferait echouer
 // l'export PNG - et l'export SVG ne serait plus autonome.
-export async function chargerTuileOrtho(z: number, x: number, y: number): Promise<string | undefined> {
+export async function chargerTuileOrtho(z: number, x: number, y: number): Promise<string> {
   const cle = z + '/' + x + '/' + y;
-  if(ortho.cache.has(cle)) return ortho.cache.get(cle);
+  if(ortho.cache.has(cle)) return ortho.cache.get(cle)!;
   const r = await fetch(urlTuileOrtho(z, x, y), {cache:'force-cache'});
   if(!r.ok) throw new Error('tuile ' + cle + ' : HTTP ' + r.status);
   const blob = await r.blob();
@@ -205,7 +205,7 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   ctx.etat.objects.forEach(o=>{
     const pts: PtBrut[] = o.type === 'circle'
-      ? [{x:o.center.x-(o.r||0), y:o.center.y-(o.r||0)}, {x:o.center.x+(o.r||0), y:o.center.y+(o.r||0)}]
+      ? [{x:o.center!.x-(o.r||0), y:o.center!.y-(o.r||0)}, {x:o.center!.x+(o.r||0), y:o.center!.y+(o.r||0)}]
       : (o.pts || []);
     pts.forEach(p=>{
       minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -268,8 +268,9 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     ctx.orthoGroup().innerHTML = '';
     ortho.tuiles.forEach(t=>{
       const img = document.createElementNS(svgNS, 'image');
-      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', t.dataUri);
-      img.setAttribute('href', t.dataUri);
+      // `ortho.tuiles` ne recoit que les tuiles retenues par `chargerOrthophoto`, donc chargees.
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', t.dataUri!);
+      img.setAttribute('href', t.dataUri!);
       img.setAttribute('preserveAspectRatio', 'none');
       t.el = img;
       ctx.orthoGroup().appendChild(img);
@@ -303,7 +304,7 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho): Pr
   } catch(e){
     ortho.actif = false;
     if(cb) cb.checked = false;
-    showToast('Orthophoto indisponible : ' + (e.message || e));
+    showToast('Orthophoto indisponible : ' + ((e as Error).message || e));
   } finally {
     ortho.chargement = false;
     if(cb) cb.disabled = false;

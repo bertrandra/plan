@@ -19,8 +19,12 @@ import { createRequire } from 'node:module';
 // `.cmd` sous Windows et exigeait `shell: true`, que Node 22 signale comme une faille d'échappement.
 const TSC = createRequire(import.meta.url).resolve('typescript/bin/tsc');
 
-/** Les drapeaux du barreau en cours. On les monte quand tous les dossiers sont propres. */
-const DRAPEAUX = ['--noImplicitAny'];
+/**
+ * Les drapeaux du barreau en cours. Vide depuis le 20 septembre 2026 : l'echelle est gravie et
+ * `tsconfig.json` porte la configuration cible (§9.1). Le cliquet reste le rapport par dossier, et
+ * la garde contre une regression dans l'un d'eux.
+ */
+const DRAPEAUX = [];
 
 /**
  * Les dossiers de `src/` qui doivent rester à zéro erreur, plus `tests/` comme un seul bloc :
@@ -56,7 +60,7 @@ for (const l of erreurs) {
 }
 
 const largeur = Math.max(...[...parDossier.keys()].map(d => d.length), 8);
-console.log(`Cliquet de rigueur — ${DRAPEAUX.join(' ')}\n`);
+console.log(`Cliquet de rigueur — ${DRAPEAUX.length ? DRAPEAUX.join(' ') : 'configuration de tsconfig.json'}\n`);
 console.log('  propres : ' + PROPRES.join(', ') + '\n');
 for (const [d, n] of [...parDossier.entries()].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${d.padEnd(largeur)} ${String(n).padStart(5)}`);

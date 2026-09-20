@@ -83,7 +83,7 @@ describe('grille', () => {
       const g = groupe();
       dessinerGrille(g, { scene: { ...scene(), scale }, grilleVisible: true });
       const verticales = [...g.querySelectorAll('line')].filter((l) => l.getAttribute('x1') === l.getAttribute('x2'));
-      const ecart = Math.abs(Number(verticales[1].getAttribute('x1')) - Number(verticales[0].getAttribute('x1')));
+      const ecart = Math.abs(Number(verticales[1]!.getAttribute('x1')) - Number(verticales[0]!.getAttribute('x1')));
       expect(ecart).toBeGreaterThan(30);
       expect(ecart).toBeLessThan(130);
     }

@@ -33,7 +33,7 @@ describe('showConfirm', () => {
   it('appelle l action sur « Confirmer », et ferme', () => {
     const action = vi.fn();
     showConfirm('Reinitialiser tout le plan ?', action);
-    const ov = overlays()[0];
+    const ov = overlays()[0]!;
     expect(ov.textContent).toContain('Reinitialiser tout le plan ?');
     boutonNomme(ov, 'Confirmer')!.click();
     expect(action).toHaveBeenCalledTimes(1);
@@ -43,7 +43,7 @@ describe('showConfirm', () => {
   it('n appelle rien sur « Annuler »', () => {
     const action = vi.fn();
     showConfirm('Supprimer ?', action);
-    boutonNomme(overlays()[0], 'Annuler')!.click();
+    boutonNomme(overlays()[0]!, 'Annuler')!.click();
     expect(action).not.toHaveBeenCalled();
     expect(overlays()).toHaveLength(0);
   });
@@ -52,7 +52,7 @@ describe('showConfirm', () => {
     // Cliquer a cote est un geste d'abandon : il ne doit surtout pas valider.
     const action = vi.fn();
     showConfirm('Supprimer ?', action);
-    const ov = overlays()[0];
+    const ov = overlays()[0]!;
     ov.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(action).not.toHaveBeenCalled();
     expect(overlays()).toHaveLength(0);
@@ -63,7 +63,7 @@ describe('showPrompt', () => {
   it('rend la valeur saisie', () => {
     const recu = vi.fn();
     showPrompt('Nom du nouveau projet :', 'Plan (copie)', recu);
-    const ov = overlays()[0];
+    const ov = overlays()[0]!;
     const champ = ov.querySelector('input') as HTMLInputElement;
     expect(champ.value).toBe('Plan (copie)');
     champ.value = '  Jardin nord  ';
@@ -74,7 +74,7 @@ describe('showPrompt', () => {
   it('n appelle rien quand la saisie est vide', () => {
     const recu = vi.fn();
     showPrompt('Nom :', '', recu);
-    const ov = overlays()[0];
+    const ov = overlays()[0]!;
     (ov.querySelector('input') as HTMLInputElement).value = '   ';
     boutonNomme(ov, 'Valider')!.click();
     expect(recu).not.toHaveBeenCalled();
@@ -83,14 +83,14 @@ describe('showPrompt', () => {
   it('valide a la touche Entree et abandonne a Echap', () => {
     const recu = vi.fn();
     showPrompt('Nom :', 'defaut', recu);
-    const champ = overlays()[0].querySelector('input') as HTMLInputElement;
+    const champ = overlays()[0]!.querySelector('input') as HTMLInputElement;
     champ.value = 'Terrasse sud';
     champ.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(recu).toHaveBeenCalledWith('Terrasse sud');
 
     const recu2 = vi.fn();
     showPrompt('Nom :', 'defaut', recu2);
-    const champ2 = overlays()[0].querySelector('input') as HTMLInputElement;
+    const champ2 = overlays()[0]!.querySelector('input') as HTMLInputElement;
     champ2.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(recu2).not.toHaveBeenCalled();
     expect(overlays()).toHaveLength(0);

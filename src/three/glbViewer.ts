@@ -42,7 +42,7 @@ export interface ContexteVisionneuseGlb {
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-  const ctx = c.getContext('2d');
+  const ctx = c.getContext('2d')!;
   const taille = 8;
   for(let y=0;y<64;y+=taille){
     for(let x=0;x<64;x+=taille){
@@ -135,7 +135,7 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
 
 export function disposeThreeScene(){
   if(vue3d.scene){
-    cancelAnimationFrame(vue3d.scene.raf);
+    cancelAnimationFrame(vue3d.scene.raf!);
     // OrbitControls (r128) attaches its drag-continuation listeners to `document`/`window`, not
     // just to the canvas being removed below - without an explicit dispose(), those listeners
     // (and everything they close over: this camera, this scene, this renderer) are never
@@ -161,7 +161,7 @@ export function disposeThreeScene(){
 
 export function disposeGlbViewerScene(){
   if(glb.scene){
-    cancelAnimationFrame(glb.scene.raf);
+    cancelAnimationFrame(glb.scene.raf!);
     // see the comment in disposeThreeScene(): without this, OrbitControls keeps its
     // document/window-level listeners alive, pinning the whole previous scene in memory.
     if(glb.scene.controls && glb.scene.controls.dispose) glb.scene.controls.dispose();
@@ -197,10 +197,10 @@ export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
   if (dateInp && !dateInp.value) dateInp.value = glb.dateStr;
   syncSemaineGlb();
   (document.getElementById('glbViewerHeure') as HTMLInputElement).value = String(glb.minutes);
-  document.getElementById('glbViewerHeureTexte').textContent = formatHeureMin(glb.minutes);
+  document.getElementById('glbViewerHeureTexte')!.textContent = formatHeureMin(glb.minutes);
   const pourcent = Math.round(glb.intensiteSoleil * 100);
   (document.getElementById('glbViewerIntensite') as HTMLInputElement).value = String(pourcent);
-  document.getElementById('glbViewerIntensiteTexte').textContent = pourcent + ' %';
+  document.getElementById('glbViewerIntensiteTexte')!.textContent = pourcent + ' %';
 }
 
 /**
@@ -215,14 +215,14 @@ export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
  * taille par defaut, meme en plein ecran.
  */
 export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx: ContexteVisionneuseGlb): void {
-  const empty = document.getElementById('glbViewerEmpty');
-  const content = document.getElementById('glbViewerContent');
-  const loading = document.getElementById('glbViewerLoading');
+  const empty = document.getElementById('glbViewerEmpty')!;
+  const content = document.getElementById('glbViewerContent')!;
+  const loading = document.getElementById('glbViewerLoading')!;
   if (!glb.dernierExporte) {
     empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
     return;
   }
-  const host = document.getElementById('glbViewerCanvasHost');
+  const host = document.getElementById('glbViewerCanvasHost')!;
   const tailleHost = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
   empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
   ensureThreeLoaded(() => {
@@ -243,7 +243,7 @@ export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
 export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHost: TailleHote | null, ctx: ContexteVisionneuseGlb): void {
   disposeGlbViewerScene();
   if(!glb.dernierExporte) return;
-  const host = document.getElementById('glbViewerCanvasHost');
+  const host = document.getElementById('glbViewerCanvasHost')!;
   // Tant qu'un rechargement est en cours, #glbViewerContent (l'ancetre du host) est cache pour
   // laisser la place au sablier - un ancetre display:none ecrase clientWidth/clientHeight a 0 pour
   // TOUS ses descendants, host compris, ce qui retombe silencieusement sur les tailles par defaut
@@ -330,7 +330,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     });
 
     function animate(){
-      glb.scene.raf = requestAnimationFrame(animate);
+      glb.scene!.raf = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
@@ -339,12 +339,14 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     animate();
 
     const hint = document.getElementById('glbViewerHint');
-    if(hint) hint.textContent = 'Terrasse : ' + (glb.dernierExporte.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte.date.toLocaleString();
+    // `dernierExporte` etait verifie a l'entree ; le compilateur ne suit pas cette garde dans le
+    // rappel asynchrone du lecteur.
+    if(hint) hint.textContent = 'Terrasse : ' + (glb.dernierExporte!.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte!.date.toLocaleString();
     ctx.renderVue3DSelect();
-    document.getElementById('glbViewerLoading').style.display = 'none';
-    document.getElementById('glbViewerContent').style.display = 'block';
+    document.getElementById('glbViewerLoading')!.style.display = 'none';
+    document.getElementById('glbViewerContent')!.style.display = 'block';
   }, (err)=>{
-    document.getElementById('glbViewerLoading').style.display = 'none';
+    document.getElementById('glbViewerLoading')!.style.display = 'none';
     showErrBanner('Visionneuse GLB : ' + (err && err.message ? err.message : 'fichier illisible'));
   });
 }

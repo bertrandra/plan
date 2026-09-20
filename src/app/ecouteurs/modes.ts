@@ -13,7 +13,7 @@ export interface ContexteBoutonsDeVue {
 }
 
 export function brancherBoutonsDeVue(ctx: ContexteBoutonsDeVue): void {
-  const surClic = (id: string, action: () => void) => document.getElementById(id).addEventListener('click', action);
+  const surClic = (id: string, action: () => void) => document.getElementById(id)!.addEventListener('click', action);
   surClic('modePlanBtn', () => ctx.allerAuPlan());
   surClic('modeTerrasseBtn', () => ctx.allerAuModeTerrasse());
   surClic('mode3dBtn', () => ctx.goVue3D());

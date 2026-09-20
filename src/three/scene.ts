@@ -98,7 +98,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
     : null;
   ctx.disposeThreeScene(); // removes the previous canvas (if any); leaves the zoom-buttons overlay in place
-  const host = elOpt<HTMLInputElement>('terrasse3dCanvasHost');
+  const host = elOpt<HTMLInputElement>('terrasse3dCanvasHost')!;
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
 
   // Sans terrasse : une construction par defaut jetable (aucun objet du plan n'est touche) sert
@@ -109,7 +109,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // l'ensemble des objets - la camera doit regarder quelque chose dans tous les cas.
   const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan)=>o.pts && o.pts.length);
   const cen = objetCentre
-    ? (objetCentre.type === 'circle' ? {x:objetCentre.center.x, y:objetCentre.center.y} : centroid(objetCentre.pts))
+    ? (objetCentre.type === 'circle' ? {x:objetCentre.center!.x, y:objetCentre.center!.y} : centroid(objetCentre.pts!))
     : {x:0, y:0};
   // La case suit la valeur du projet, pas l'inverse : un projet rouvert retrouve son reglage.
   const cbF = elOpt<HTMLInputElement>('terrasse3dFilaire');
@@ -147,7 +147,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // En mode "tous les objets", la camera et le sol doivent couvrir tout le plan, pas seulement
   // cette terrasse - sinon la maison ou la parcelle se retrouvent hors champ ou sous un sol trop
   // petit pour les recevoir.
-  const ptsPourEtendue = obj ? obj.pts.slice() : [];
+  const ptsPourEtendue = obj ? obj.pts!.slice() : [];
   // Sans terrasse, "tous les objets" n'est pas une option : ils sont la seule chose a montrer.
   if(vue3d.tousLesObjets || !obj){
     etat.objects.forEach((o: ObjetPlan)=>{
@@ -157,8 +157,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     });
   }
   function cerclePointsExtent(o: ObjetPlan){
-    return [{x:o.center.x-o.r,y:o.center.y},{x:o.center.x+o.r,y:o.center.y},
-            {x:o.center.x,y:o.center.y-o.r},{x:o.center.x,y:o.center.y+o.r}];
+    const ce = o.center!, r = o.r!;
+    return [{x:ce.x-r,y:ce.y},{x:ce.x+r,y:ce.y},
+            {x:ce.x,y:ce.y-r},{x:ce.x,y:ce.y+r}];
   }
   const maxRadius = ptsPourEtendue.reduce((m: number, p: PtBrut)=>Math.max(m, dist(p,cen)), 0);
   const extent = Math.max(3, maxRadius*2);
@@ -244,8 +245,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // Visible outline of the terrasse's real footprint at ground level, so the boards'
   // orientation above can be checked against the actual polygon angle at a glance.
   if(obj){
-    const outlinePts = obj.pts.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
-    outlinePts.push(outlinePts[0].clone());
+    const outlinePts = obj.pts!.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
+    outlinePts.push(outlinePts[0]!.clone());
     const outline = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(outlinePts),
       new THREE.LineBasicMaterial({color:0x2a2a2a})
@@ -259,7 +260,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   if(ctx.orthoActif() && ctx.orthoTuiles().length){
     const chargeurOrtho = new THREE.TextureLoader();
     ctx.orthoTuiles().forEach((t: TuileOrtho)=>{
-      const tex = chargeurOrtho.load(t.dataUri);
+      // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
+      const tex = chargeurOrtho.load(t.dataUri!);
       // `SRGBColorSpace` / `texture.colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la
       // r128, donc la condition est fausse aujourd'hui et cette ligne ne fait rien. C'est un
       // garde-fou tourne vers l'avenir, ecrit ainsi expres : il s'allumera tout seul le jour d'une
@@ -297,8 +299,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     if(!footprint || footprint.length < 3 || height <= 0) return;
     const pts2d = footprint.map((p: PtBrut)=>{ const l=toLocal(p); return {x:l.x, y:-l.z}; });
     const shape = new THREE.Shape();
-    shape.moveTo(pts2d[0].x, pts2d[0].y);
-    for(let i=1;i<pts2d.length;i++) shape.lineTo(pts2d[i].x, pts2d[i].y);
+    shape.moveTo(pts2d[0]!.x, pts2d[0]!.y);
+    for(let i=1;i<pts2d.length;i++) shape.lineTo(pts2d[i]!.x, pts2d[i]!.y);
     shape.closePath();
     // Distance cumulee le long du perimetre (en metres reels), pour deroule des faces laterales
     // ci-dessous. Le generateur par defaut de Three (WorldUVGenerator) choisit entre la
@@ -308,20 +310,20 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     // meme coordonnee brute). Un vrai deroule du perimetre evite ce repli, quelle que soit la
     // forme.
     const distAcc = [0];
-    for(let i=1;i<pts2d.length;i++) distAcc.push(distAcc[i-1] + dist(pts2d[i-1], pts2d[i]));
+    for(let i=1;i<pts2d.length;i++) distAcc.push(distAcc[i-1]! + dist(pts2d[i-1]!, pts2d[i]!));
     const distDe = (x: number, y: number) => {
       let meilleur = 0, meilleurEcart = Infinity;
       for(let i=0;i<pts2d.length;i++){
-        const e = Math.abs(pts2d[i].x-x) + Math.abs(pts2d[i].y-y);
-        if(e < meilleurEcart){ meilleurEcart = e; meilleur = distAcc[i]; }
+        const e = Math.abs(pts2d[i]!.x-x) + Math.abs(pts2d[i]!.y-y);
+        if(e < meilleurEcart){ meilleurEcart = e; meilleur = distAcc[i]!; }
       }
       return meilleur;
     };
     const uvGenerator = {
-      generateTopUV: (geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number) => [indexA,indexB,indexC].map(
+      generateTopUV: (_geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number) => [indexA,indexB,indexC].map(
         idx => new THREE.Vector2(vertices[idx*3], vertices[idx*3+1])),
-      generateSideWallUV: (geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number, indexD: number) => [indexA,indexB,indexC,indexD].map(
-        idx => new THREE.Vector2(distDe(vertices[idx*3], vertices[idx*3+1]), 1 - vertices[idx*3+2]))
+      generateSideWallUV: (_geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number, indexD: number) => [indexA,indexB,indexC,indexD].map(
+        idx => new THREE.Vector2(distDe(vertices[idx*3]!, vertices[idx*3+1]!), 1 - vertices[idx*3+2]!))
     };
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, UVGenerator: uvGenerator });
     geo.rotateX(-Math.PI/2);
@@ -362,7 +364,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   function addGroundOutline(pts: PtBrut[] | null | undefined, color: CouleurTrois, closed?: boolean){
     if(!pts || pts.length < 2) return;
     const vpts = pts.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.008, l.z); });
-    if(closed) vpts.push(vpts[0].clone());
+    if(closed) vpts.push(vpts[0]!.clone());
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(vpts),
                               new THREE.LineBasicMaterial({color})));
   }
@@ -375,9 +377,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   function courbePolyligne(pts: PtBrut[], curve?: boolean, segsParTroncon?: number): PtBrut[] {
     if(pts.length < 3 || !curve) return pts.slice();
     segsParTroncon = segsParTroncon || 12;
-    const out = [pts[0]];
+    const out: PtBrut[] = [pts[0]!];
     for(let i=0;i<pts.length-1;i++){
-      const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
+      const p0=pts[Math.max(0,i-1)]!, p1=pts[i]!, p2=pts[i+1]!, p3=pts[Math.min(pts.length-1,i+2)]!;
       const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
       const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
       for(let k=1;k<=segsParTroncon;k++){
@@ -401,21 +403,21 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     const demi = largeur/2;
     const segs: { ux: number; uy: number; nx: number; ny: number }[] = [];
     for(let i=0;i<n-1;i++){
-      const a=pts[i], b=pts[i+1];
+      const a=pts[i]!, b=pts[i+1]!;
       const ex=b.x-a.x, ey=b.y-a.y; const L=Math.hypot(ex,ey)||1;
       segs.push({ ux:ex/L, uy:ey/L, nx:-ey/L, ny:ex/L });
     }
     function bord(i: number, sens: number){
-      if(i===0) return { x:pts[0].x+segs[0].nx*demi*sens, y:pts[0].y+segs[0].ny*demi*sens };
-      if(i===n-1) return { x:pts[n-1].x+segs[n-2].nx*demi*sens, y:pts[n-1].y+segs[n-2].ny*demi*sens };
-      const s1=segs[i-1], s2=segs[i];
-      const o1={x:pts[i].x+s1.nx*demi*sens, y:pts[i].y+s1.ny*demi*sens};
-      const o2={x:pts[i].x+s2.nx*demi*sens, y:pts[i].y+s2.ny*demi*sens};
+      if(i===0) return { x:pts[0]!.x+segs[0]!.nx*demi*sens, y:pts[0]!.y+segs[0]!.ny*demi*sens };
+      if(i===n-1) return { x:pts[n-1]!.x+segs[n-2]!.nx*demi*sens, y:pts[n-1]!.y+segs[n-2]!.ny*demi*sens };
+      const s1=segs[i-1]!, s2=segs[i]!;
+      const o1={x:pts[i]!.x+s1.nx*demi*sens, y:pts[i]!.y+s1.ny*demi*sens};
+      const o2={x:pts[i]!.x+s2.nx*demi*sens, y:pts[i]!.y+s2.ny*demi*sens};
       const inter = lineLineIntersect(o1, {x:s1.ux,y:s1.uy}, o2, {x:s2.ux,y:s2.uy});
       // Un virage tres serre pousse le mitre tres loin (meme piege que les zones d'equipement a
       // angle aigu, cf. offsetZone) : au-dela d'une distance raisonnable on retombe sur un simple
       // biseau (moyenne des deux bords), qui reste toujours proche du trace.
-      if(!inter || dist(inter, pts[i]) > demi*4) return { x:(o1.x+o2.x)/2, y:(o1.y+o2.y)/2 };
+      if(!inter || dist(inter, pts[i]!) > demi*4) return { x:(o1.x+o2.x)/2, y:(o1.y+o2.y)/2 };
       return inter;
     }
     const gauche=[], droite=[];
@@ -427,9 +429,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown){
     if(!poly || poly.length < 3) return;
     const shape = new THREE.Shape();
-    const p0 = toLocal(poly[0]);
+    const p0 = toLocal(poly[0]!);
     shape.moveTo(p0.x, -p0.z);
-    for(let i=1;i<poly.length;i++){ const p=toLocal(poly[i]); shape.lineTo(p.x, -p.z); }
+    for(let i=1;i<poly.length;i++){ const p=toLocal(poly[i]!); shape.lineTo(p.x, -p.z); }
     shape.closePath();
     const geo = new THREE.ShapeGeometry(shape);
     geo.rotateX(-Math.PI/2);
@@ -468,7 +470,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     const n = Math.min(bande.ext.length, bande.int.length);
     for(let i=0;i<n;i++){
       const j = (i+1)%n;
-      addPrism([bande.ext[i], bande.ext[j], bande.int[j], bande.int[i]], yBase, height, color, false, undefined, textures);
+      addPrism([bande.ext[i]!, bande.ext[j]!, bande.int[j]!, bande.int[i]!], yBase, height, color, false, undefined, textures);
     }
   }
   // Une vis se dessine SOUS le plan de sol, puisque c'est la qu'elle est : on voit la fondation
@@ -607,7 +609,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       // terrasse - exactement ce qu'on cherche a ne PAS voir quand on juge son implantation.
       if(o.fonction === 'parasol'){
         const hMat = hauteurParasolDe(o);
-        const pl = toLocal(o.center);
+        const pl = toLocal(o.center!);
         // Le mat se dresse a SA position (le centre pour un parasol droit, le bord de toile pour un
         // deporte) ; la toile, elle, reste centree sur o.center.
         const plMat = toLocal(ctx.positionMat(o));
@@ -635,21 +637,23 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
         if(urlToile) matToile.map = ctx.chargerTexturePolyhaven(urlToile);
         // Cone tres plat pose sur le mat : la silhouette d'un parasol ouvert, et surtout la meme
         // emprise circulaire au sol que le rayon utilise pour calculer l'ombre en 2D.
-        const toile = new THREE.Mesh(new THREE.ConeGeometry(o.r, Math.max(0.15, o.r*0.28), 24), matToile);
-        toile.position.set(pl.x, hMat + Math.max(0.15, o.r*0.28)/2, pl.z);
+        const toile = new THREE.Mesh(new THREE.ConeGeometry(o.r!, Math.max(0.15, o.r!*0.28), 24), matToile);
+        toile.position.set(pl.x, hMat + Math.max(0.15, o.r!*0.28)/2, pl.z);
         scene.add(toile);
         return;
       }
       const h = ctx.elevationOf(o);
       if(h <= 0) return;
-      const footprint = o.type==='circle' ? cerclePoly(o.center, o.r) : o.pts;
-      addPrism(footprint, 0, h, o.fill, false, opaciteDe(o), texturesDe(o));
+      const footprint = o.type==='circle' ? cerclePoly(o.center!, o.r!) : o.pts;
+      // `fill` est facultatif sur `ObjetPlan` : un objet sans couleur arrive tel quel a Three, qui
+      // ignore la valeur absente (avec un avertissement console) et garde sa couleur par defaut.
+      addPrism(footprint, 0, h, o.fill as CouleurTrois, false, opaciteDe(o), texturesDe(o));
       if(o.fonction === 'arbre'){
         // Feuillage = une sphere posee sur le sommet du tronc (le prisme juste au-dessus, de
         // hauteur h) : son centre remonte d'un rayon au-dessus de h pour qu'elle touche le tronc
         // sans le traverser ni flotter au-dessus. Diametre/couleur/texture sont propres au
         // feuillage (champs "arbre" du panneau Objet), independants de la silhouette du tronc.
-        const centreArbre = o.type==='circle' ? o.center : centroid(o.pts);
+        const centreArbre = o.type==='circle' ? o.center! : centroid(o.pts!);
         const rayon = Math.max(0.05, (o.diametreArbre !== undefined && o.diametreArbre !== null ? o.diametreArbre : 3) / 2);
         const matSphere = new THREE.MeshStandardMaterial({color: o.couleurArbre || '#4a7c3a'});
         const opacite = opaciteDe(o);
@@ -702,7 +706,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   appliquerOmbres();
 
   function animate(){
-    vue3d.scene.raf = requestAnimationFrame(animate);
+    vue3d.scene!.raf = requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   }

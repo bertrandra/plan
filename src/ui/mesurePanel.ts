@@ -16,7 +16,7 @@ export interface EtatMesures { measures: Mesure[] }
 
 /** Ce que le panneau de mesure demande au reste du programme. */
 export interface ContexteMesurePanel {
-  refLabel: (ref: { objKey: string; segIndex: number }) => string;
+  refLabel: (ref: { objKey: string; segIndex: number } | null) => string;
   targetLabel: (t: { objKey: string; ptIndex: number }) => string;
   computeMeasureGeom: (m: Mesure) => { perp: number; along: number } | null;
   render: () => void;
@@ -34,7 +34,7 @@ export function cancelPick(etat: EtatMesures, ctx: ContexteMesurePanel): void {
 }
 
 export function rebuildMeasurePanel(etat: EtatMesures, ctx: ContexteMesurePanel): void {
-  const ctrl = document.getElementById('measureControls');
+  const ctrl = document.getElementById('measureControls')!;
   ctrl.innerHTML = '';
 
   const explain = document.createElement('div');
@@ -90,7 +90,7 @@ export function rebuildMeasurePanel(etat: EtatMesures, ctx: ContexteMesurePanel)
     mesure.cibles.forEach(t=>{
       etat.measures.push({
         id: idMesure(),
-        refObjKey:mesure.ref.objKey, refSegIndex:mesure.ref.segIndex,
+        refObjKey:mesure.ref!.objKey, refSegIndex:mesure.ref!.segIndex,
         startEnd: mesure.startEnd,
         targetObjKey:t.objKey, targetPtIndex:t.ptIndex,
         show:true, displayMode:'along'
@@ -107,7 +107,7 @@ export function rebuildMeasurePanel(etat: EtatMesures, ctx: ContexteMesurePanel)
 }
 
 export function renderMeasureResults(etat: EtatMesures, ctx: ContexteMesurePanel): void {
-  const tbl = document.getElementById('measureResultsTable');
+  const tbl = document.getElementById('measureResultsTable')!;
   tbl.innerHTML = '';
   const head = document.createElement('tr');
   head.innerHTML = '<th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th><th>Affichage</th><th>Afficher</th><th></th>';
@@ -137,7 +137,7 @@ export function renderMeasureResults(etat: EtatMesures, ctx: ContexteMesurePanel
     modeBtn.addEventListener('click', ()=>{ m.displayMode = m.displayMode==='along' ? 'perp' : 'along'; renderMeasureResults(etat, ctx); ctx.render(); });
     td3b.appendChild(modeBtn);
     const td4=document.createElement('td');
-    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=m.show;
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=m.show!;
     cb.addEventListener('change', ()=>{ m.show=cb.checked; ctx.render(); });
     td4.appendChild(cb);
     const td5=document.createElement('td');

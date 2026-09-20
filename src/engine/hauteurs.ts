@@ -61,5 +61,5 @@ export function elevationOf(o: ObjetMesurable): number {
   if (o.fonction === 'terrasse' && o.type === 'polygon' && o.pts && o.pts.length >= 3) {
     return hauteurFinieMm(o) / 1000;
   }
-  return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction);
+  return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction!);
 }

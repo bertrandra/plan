@@ -12,9 +12,9 @@
 /** De quoi fabriquer une identite. Les vraies sources par defaut, des sources figees pour un test. */
 export interface SourcesDIdentite {
   /** `Date.now` par defaut. */
-  horloge?: () => number;
+  horloge?: (() => number) | undefined;
   /** `Math.random` par defaut. */
-  alea?: () => number;
+  alea?: (() => number) | undefined;
 }
 
 /**

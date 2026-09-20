@@ -1241,6 +1241,18 @@ fichier de `src/` ne porte la directive `@ts-nocheck`.
 
 ---
 
+### 9.2.15 L'échelle gravie — 20 septembre 2026
+
+Barreaux 3 à 7 franchis en une passe, couche par couche et en parallèle, sous la règle « aucun
+changement de comportement » : 1 513 erreurs → 0, `tsconfig.json` porte la configuration cible de
+la §9.1. Six empreintes sur six identiques à version inchangée, puis recapturées en `1.1.0-alpha.15`
+avec la preuve forte (ancien numéro remis dans les octets frais, anciennes empreintes retrouvées au
+bit près). Ce que le typage a révélé sans le corriger — signatures fausses, invariants tenus par
+`normalizeObjects` ou `ensureConstruction` et non par les types — est dans
+`MIGRATION-JOURNAL.md`, « Phase 7 — l'échelle gravie ». Le cliquet n'a plus de drapeaux : il
+reste le rapport par dossier et la garde contre une régression.
+
+
 ## 10. Behaviour-preservation rules
 
 ### 10.1 Golden-file testing
@@ -1339,10 +1351,10 @@ Add 20 % contingency for R1/R3. A two-developer split is viable from Phase 3 (en
 
 ## 14. Definition of done
 
-- [ ] `tsc --noEmit` clean under the §9.1 configuration.
-- [ ] `eslint` clean under the §9.3 ruleset.
+- [x] `tsc --noEmit` clean under the §9.1 configuration. — **20 septembre 2026** (§9.2.15) : `tsconfig.json` est la configuration cible, 0 erreur.
+- [x] `eslint` clean under the §9.3 ruleset. — 20 septembre 2026, `npm run lint` a zero sur `src/` et `tests/`.
 - [x] Vitest green; `src/engine/**` and `src/geometry/**` ≥ 80 % line coverage. — 535 tests verts ; 91,5 % sur le moteur (phase 3).
-- [ ] All §11.1 golden artefacts byte-identical (GLB structurally identical).
+- [ ] All §11.1 golden artefacts byte-identical (GLB structurally identical). — Les six artefacts texte et PDF le sont a chaque palier (`tests/fixtures/golden/EMPREINTES.md`) ; le GLB n'a pas ete reverifie structurellement depuis le 9 septembre 2026.
 - [ ] Manual smoke checklist (§11.3) fully passed on the built single file.
 - [ ] `dist/index.html` deployed alongside the unmodified `api.php`; list / load / save / delete all work; an existing production project opens, edits, saves and reloads unchanged.
 - [ ] Bundle within budget (≤ 1.2 MB, versus ~773 KB today).

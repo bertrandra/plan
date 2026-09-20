@@ -17,6 +17,9 @@ export interface PagePdf {
   contenu: string;
 }
 
+/** Une couleur en composantes 0..1, l'unite des operateurs `rg` et `RG` du PDF. */
+export type Rgb01 = [number, number, number];
+
 /** A4 portrait, en points PostScript, et marge commune aux pages du dossier. */
 export const A4_L = 595.28;
 export const A4_H = 841.89;
@@ -49,7 +52,7 @@ export function assemblerPDF(pages: PagePdf[]): string {
   const numPremierePage = 4;
   const kids = pages.map((_,i)=>(numPremierePage + i*2) + ' 0 R').join(' ');
   const numPremierGs = numPremierePage + pages.length*2;
-  const dictGs = '<< ' + opacites.map((v,i)=>'/GS' + i + ' ' + (numPremierGs+i) + ' 0 R').join(' ') + ' >>';
+  const dictGs = '<< ' + opacites.map((_v,i)=>'/GS' + i + ' ' + (numPremierGs+i) + ' 0 R').join(' ') + ' >>';
   const ressources = '<< /Font << /F1 3 0 R >> /ExtGState ' + dictGs + ' >>';
   const objs = [];
   objs.push('<< /Type /Catalog /Pages 2 0 R >>');
@@ -80,7 +83,7 @@ export function assemblerPDF(pages: PagePdf[]): string {
 
 // Petites briques de dessin, en points PDF (origine en bas a gauche, Y vers le haut - c'est
 // deja la convention du plan, donc pas d'inversion a faire).
-export function pdfTexte(x: number, y: number, taille: number, txt: unknown, couleur?: number[], angleDeg?: number): string {
+export function pdfTexte(x: number, y: number, taille: number, txt: unknown, couleur?: Rgb01, angleDeg?: number): string {
   const c = couleur || [0.15,0.12,0.08];
   let s = 'BT /F1 ' + taille + ' Tf ' + c[0].toFixed(3) + ' ' + c[1].toFixed(3) + ' ' + c[2].toFixed(3) + ' rg ';
   if(angleDeg){
@@ -92,7 +95,7 @@ export function pdfTexte(x: number, y: number, taille: number, txt: unknown, cou
   return s + '(' + pdfEscape(txt) + ') Tj ET\n';
 }
 
-export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: number[] | null, contour?: number[] | null, epaisseur?: number, opacite?: number): string {
+export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number): string {
   let s = '';
   if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
   if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
@@ -104,7 +107,7 @@ export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: nu
   return s;
 }
 
-export function pdfCercle(cx: number, cy: number, r: number, remplissage?: number[] | null, contour?: number[] | null, opacite?: number): string {
+export function pdfCercle(cx: number, cy: number, r: number, remplissage?: Rgb01 | null, contour?: Rgb01 | null, opacite?: number): string {
   const k = 0.5523*r;
   let s = '';
   if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
@@ -132,7 +135,7 @@ export function echelleQuiTient(largeurM: number, hauteurM: number, dispoL: numb
     const k = PT_PAR_METRE/d;
     if(largeurM*k <= dispoL && hauteurM*k <= dispoH) return d;
   }
-  return ECHELLES_DOSSIER[ECHELLES_DOSSIER.length-1];
+  return ECHELLES_DOSSIER[ECHELLES_DOSSIER.length-1]!;
 }
 
 export function pdfEchelleGraphique(x: number, y: number, ptsParMetre: number, denom: number): string {
@@ -154,7 +157,7 @@ export function pdfEchelleGraphique(x: number, y: number, ptsParMetre: number, d
  * Accepte la forme courte `#abc`, et retombe sur un gris moyen plutot que sur du noir quand la
  * couleur est absente : un objet sans couleur reste visible sans se faire passer pour un trait.
  */
-export function hexToRgb01(hex: string): [number, number, number] {
+export function hexToRgb01(hex: string | undefined): Rgb01 {
   hex = (hex || '#888888').replace('#', '');
   if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
   const r = parseInt(hex.substr(0, 2), 16) / 255 || 0;

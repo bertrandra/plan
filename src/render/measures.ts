@@ -45,7 +45,7 @@ export function coordonneesCote(
   const obj = objets.find((o) => o.key === ref.objKey);
   if (!obj || !obj.pts) return null;
   const n = obj.pts.length;
-  return { a: obj.pts[ref.segIndex], b: obj.pts[(ref.segIndex + 1) % n] };
+  return { a: obj.pts[ref.segIndex]!, b: obj.pts[(ref.segIndex + 1) % n]! };
 }
 
 /** Le point designe : un sommet, ou le centre s'il s'agit d'un cercle. */
@@ -93,8 +93,8 @@ export function distanceSortiePolygone(depuis: PtBrut, dir: PtBrut, poly: readon
   let maxT = 0;
   const n = poly.length;
   for (let i = 0; i < n; i++) {
-    const a = poly[i],
-      b = poly[(i + 1) % n];
+    const a = poly[i]!,
+      b = poly[(i + 1) % n]!;
     const ex = b.x - a.x,
       ey = b.y - a.y;
     const det = ex * dir.y - ey * dir.x;
@@ -180,7 +180,7 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     if(!m.show || !pc) return;
     const g = geometrieMesure(ctx.objets, m);
     if(!g) return;
-    const anchor = ancrageHorsContour(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, pc.pts!, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = versEcran(ctx.scene, g.p), pAnchor = versEcran(ctx.scene, anchor);
 
     // witness line starts at the measured point and heads toward the reference segment

@@ -129,7 +129,7 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
 
   let voulu = projetConnu;
   if (voulu && !liste.some((p) => p.id === voulu)) voulu = null;
-  if (!voulu && liste.length) voulu = liste[0].id;
+  if (!voulu && liste.length) voulu = liste[0]!.id;
   if (!voulu) {
     const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
     voulu = cree.id;

@@ -318,7 +318,8 @@ export interface Construction {
   prixLongueursBois?: PrixParLongueur;
   prixLongueursLambourde?: PrixParLongueur;
   prixPlots?: PrixParLongueur;
-  prixVisUnite?: number;
+  /** `undefined` explicite quand l'utilisateur efface le prix saisi (ui/terrassePanels). */
+  prixVisUnite?: number | undefined;
   visParBoite?: number;
 
   // ---- Chantier -------------------------------------------------------------------------------
@@ -356,7 +357,8 @@ export type ObjetBrut = Partial<ObjetPlan>;
 export interface TextureAppliquee {
   id: string;
   nom: string;
-  vignette?: string;
+  /** Absente quand l'API Poly Haven ne fournit pas de `thumbnail_url`. */
+  vignette?: string | undefined;
   url: string;
 }
 

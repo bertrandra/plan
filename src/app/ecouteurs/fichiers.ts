@@ -11,6 +11,7 @@
 // `onerror` existe autant que `onload` : un échec de lecture ne déclenche jamais `onload`.
 
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
+import type { ProjetValide } from '../../io/validation.js';
 
 /** Taille maximale d'un fichier de projet. Au-delà, on refuse avant même de lire. */
 export const IMPORT_JSON_TAILLE_MAX = 5 * 1024 * 1024;
@@ -20,8 +21,8 @@ export interface ContexteFichiers {
   importerSVG: (contenu: string) => void;
   exportProjetJSON: () => void;
   /** Valide un projet lu ; lève une erreur portant un `motif` si le fichier est refusé. */
-  validerProjetJSON: (brut: unknown) => unknown;
-  appliquerProjetImporte: (valide: unknown, remplacer: boolean) => void;
+  validerProjetJSON: (brut: unknown) => ProjetValide;
+  appliquerProjetImporte: (valide: ProjetValide, remplacer: boolean) => void;
 }
 
 /**
@@ -30,11 +31,11 @@ export interface ContexteFichiers {
  * `surSucces` reçoit le contenu ; les erreurs de lecture passent par `messageErreur`.
  */
 function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSucces: (contenu: string) => void): void {
-  const file = input.files[0];
+  const file = input.files![0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    surSucces(String(ev.target.result));
+    surSucces(String(ev.target!.result));
     input.value = '';
   };
   reader.onerror = () => {
@@ -64,7 +65,7 @@ export function brancherFichiers(ctx: ContexteFichiers): void {
   el('importJsonBtn').addEventListener('click', () => el('importJsonFile').click());
 
   el('importJsonFile').addEventListener('change', function () {
-    const file = this.files[0];
+    const file = this.files![0];
     if (!file) return;
     // Refusé avant lecture : charger cinq mégaoctets pour découvrir ensuite qu'on les refuse
     // ferait attendre pour rien, et un fichier de projet de cette taille n'en est pas un.

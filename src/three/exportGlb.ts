@@ -25,7 +25,7 @@ export interface ContexteExportGlb {
 }
 
 /** Un nom de fichier sur : sans accents, sans espaces, sans rien qui gene un systeme de fichiers. */
-export function nomFichierTerrasse(nom: string): string {
+export function nomFichierTerrasse(nom: string | undefined): string {
   return (nom || 'terrasse').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'terrasse';
 }
@@ -59,7 +59,9 @@ export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null,
         // `void` : cette promesse ne peut pas etre rejetee — `attendreTexturesPretes` ne fait que
         // resoudre, a l'arrivee des textures ou au bout du delai. La suite est deliberement laissee
         // en arriere-plan, le bouton etant deja desarme.
-        void attendreTexturesPretes(vue3d.scene.scene, ATTENTE_TEXTURES_MS).then(() => {
+        // La scene vient d'etre construite (ou l'etait deja) ; si `buildThreeScene` a renonce
+        // (contexte WebGL refuse), l'acces echoue et le `catch` ci-dessous affiche l'erreur.
+        void attendreTexturesPretes(vue3d.scene!.scene, ATTENTE_TEXTURES_MS).then(() => {
           try {
             const exporteur = new THREE.GLTFExporter();
             let fini = false;
@@ -69,7 +71,7 @@ export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null,
               if (!dejaActive) disposeThreeScene();
               restaurer();
             }, ATTENTE_EXPORTEUR_MS);
-            exporteur.parse(vue3d.scene.scene, (result) => {
+            exporteur.parse(vue3d.scene!.scene, (result) => {
               if (fini) return; fini = true; clearTimeout(filet);
               // `parse` rend `object` : sa signature ne distingue pas les deux sorties possibles,
               // alors que c'est l'option qui en decide - `{ binary: true }` (plus bas) donne un

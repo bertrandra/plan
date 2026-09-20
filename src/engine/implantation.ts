@@ -17,18 +17,18 @@ interface AppuiImplante extends PtBrut { role?: RoleAppui; n?: number }
 interface LignePorteuse { ref: string; type: string; seg: Segment }
 
 /** Un appui a marquer le long d'une piece : a quelle distance de son depart, et sous quel numero. */
-interface AppuiSurLigne { d: number; n?: number }
+interface AppuiSurLigne { d: number; n?: number | undefined }
 
 export function repereImplantation(obj: ObjetPlan){
   const c = ensureConstruction(obj);
-  const n = obj.pts.length;
+  const n = obj.pts!.length;
   const i0 = Math.min(c.segmentReference||0, n-1);
-  const A = obj.pts[i0], B = obj.pts[(i0+1)%n];
+  const A = obj.pts![i0]!, B = obj.pts![(i0+1)%n]!;
   const ex = B.x-A.x, ey = B.y-A.y, L = Math.hypot(ex,ey) || 1;
   const ux = ex/L, uy = ey/L;
   let nx = -uy, ny = ux;
   const mid = { x:(A.x+B.x)/2, y:(A.y+B.y)/2 };
-  if(!pointInPolygon({ x:mid.x+nx*0.01, y:mid.y+ny*0.01 }, obj.pts)){ nx = -nx; ny = -ny; }
+  if(!pointInPolygon({ x:mid.x+nx*0.01, y:mid.y+ny*0.01 }, obj.pts!)){ nx = -nx; ny = -ny; }
   return {
     origine:A, cote:i0, longueurCote:L,
     vers: (p: PtBrut) => ({ x:(p.x-A.x)*ux + (p.y-A.y)*uy, y:(p.x-A.x)*nx + (p.y-A.y)*ny })
@@ -36,7 +36,7 @@ export function repereImplantation(obj: ObjetPlan){
 }
 export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse){
   const R = repereImplantation(obj);
-  const sommets = obj.pts.map((p,i)=>({ i, ...R.vers(p) }));
+  const sommets = obj.pts!.map((p,i)=>({ i, ...R.vers(p) }));
   const appuis: AppuiImplante[] = layers.vis.map(p=>({ ...R.vers(p), role:p.role }));
   // Numerotes par rangee puis de gauche a droite : c'est l'ordre dans lequel on les marque,
   // un cordeau apres l'autre.
@@ -74,12 +74,12 @@ export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse){
   const diagonales: { de: number; a: number; d: number }[] = [];
   const n = sommets.length;
   if(n === 4){
-    diagonales.push({ de:0, a:2, d:dist(obj.pts[0], obj.pts[2]) });
-    diagonales.push({ de:1, a:3, d:dist(obj.pts[1], obj.pts[3]) });
+    diagonales.push({ de:0, a:2, d:dist(obj.pts![0]!, obj.pts![2]!) });
+    diagonales.push({ de:1, a:3, d:dist(obj.pts![1]!, obj.pts![3]!) });
   } else {
     for(let i=0;i<n;i++){
       const j = (i + Math.floor(n/2)) % n;
-      if(i < j) diagonales.push({ de:i, a:j, d:dist(obj.pts[i], obj.pts[j]) });
+      if(i < j) diagonales.push({ de:i, a:j, d:dist(obj.pts![i]!, obj.pts![j]!) });
     }
   }
   const xs = sommets.map(s=>s.x), ys = sommets.map(s=>s.y);

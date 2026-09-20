@@ -260,7 +260,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
   function ligneSurface(c: Candidate): string {
     const calc = Math.round(c.aire);
     if(c.contenance === null) return calc + ' m² (calcul)';
-    const ecart = Math.abs(calc - c.contenance)/c.contenance;
+    const ecart = Math.abs(calc - c.contenance!)/c.contenance!;
     // Au-dela de 3 %, on montre les deux : la contenance cadastrale est arrondie et calculee
     // autrement, l'ecart est normal - mais le cacher ferait douter de la geometrie importee.
     return ecart > 0.03 ? (c.contenance + ' m² (cadastre) / ' + calc + ' m² (calcul)') : (c.contenance + ' m²');
@@ -291,16 +291,16 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       cb.type = 'checkbox';
       cb.checked = !!etatImport[cle];
       cb.disabled = n === 0;
-      cb.addEventListener('change', ()=>{ etatImport[cle] = cb.checked; remplirBlocIgn(); if(hoteApercu) dessinerApercu(hoteApercu); });
+      cb.addEventListener('change', ()=>{ etatImport[cle] = cb.checked; remplirBlocIgn(); if(hoteApercu) dessinerApercu(hoteApercu!); });
       lab.appendChild(cb);
       lab.appendChild(document.createTextNode(libelle + ' — ' + n));
       if(n === 0) lab.style.opacity = '0.55';
-      blocIgn.appendChild(lab);
+      blocIgn!.appendChild(lab);
     };
     const bats = elementsRetenus(etatImport.batiments);
     const iduPropriete = new Set(etatImport.parcellesPropriete().map(p=>p.idu));
     const surPrincipale = bats.filter(b=>[...b.parcelles].some(idu=>iduPropriete.has(idu)));
-    const hauteurs = surPrincipale.map(b=>hauteurBatiment(b.props)).sort((a,b)=>b-a);
+    const hauteurs = surPrincipale.map(b=>hauteurBatiment(b.props!)).sort((a,b)=>b-a);
     ligne('importerBatiments', 'Bâtiments (BD TOPO, avec hauteur)', bats.length,
       'Emprise et hauteur reelles des batiments. Ceux de la parcelle sont modifiables, ceux des voisins arrivent verrouilles.');
     if(hauteurs.length){
@@ -322,7 +322,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     const plu = document.createElement('div');
     plu.style.cssText = 'font-size:0.8rem; margin-top:8px; line-height:1.45;';
     if(etatImport.plu && etatImport.plu.zones && etatImport.plu.zones.length){
-      const z = etatImport.plu.zones[0];
+      const z = etatImport.plu.zones[0]!;
       plu.innerHTML = '<b>PLU</b> — zone ' + escapeHtml(z.libelle) + (z.typezone ? ' (type ' + escapeHtml(z.typezone) + ')' : '') +
         (z.libelong ? '<br>' + escapeHtml(z.libelong) : '') +
         (z.urlfic ? '<br><a href="' + escapeHtml(z.urlfic) + '" target="_blank" rel="noopener">Règlement (PDF)</a>' : '') +
@@ -388,8 +388,9 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     // On ne reconstruit QUE la liste des suggestions a chaque frappe : reconstruire le corps
     // entier remplacerait le champ de saisie et lui ferait perdre le focus a chaque lettre.
     champAdresse.addEventListener('input', ()=>{
-      clearTimeout(minuteur);
-      const texte = champAdresse.value.trim();
+      // Sans effet sur null : seule la signature de clearTimeout le refuse.
+      clearTimeout(minuteur!);
+      const texte = champAdresse!.value.trim();
       if(texte.length < 3){ etatImport.suggestions = []; remplirSuggestions(); return; }
       minuteur = setTimeout(async ()=>{
         const monTour = ++requeteEnCours;
@@ -399,7 +400,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
           etatImport.suggestions = res; etatImport.erreur = '';
         } catch(e){
           if(monTour !== requeteEnCours) return;
-          etatImport.suggestions = []; etatImport.erreur = 'Geocodage impossible : ' + (e.message || e);
+          etatImport.suggestions = []; etatImport.erreur = 'Geocodage impossible : ' + ((e as Error).message || e);
         }
         remplirSuggestions(); majEtat();
       }, 250);
@@ -407,23 +408,23 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     champAdresse.addEventListener('keydown', e=>{
       if(e.key === 'Enter'){
         e.preventDefault();
-        if(etatImport.suggestions.length) void choisirAdresse(etatImport.suggestions[0]);
-        else void lancerRechercheTexte(champAdresse.value.trim());
+        if(etatImport.suggestions.length) void choisirAdresse(etatImport.suggestions[0]!);
+        else void lancerRechercheTexte(champAdresse!.value.trim());
       }
     });
     pied.appendChild(bouton('Annuler', false, fermer));
-    pied.appendChild(bouton('Rechercher', true, ()=>lancerRechercheTexte(champAdresse.value.trim())));
-    setTimeout(()=>champAdresse.focus(), 0);
+    pied.appendChild(bouton('Rechercher', true, ()=>lancerRechercheTexte(champAdresse!.value.trim())));
+    setTimeout(()=>champAdresse!.focus(), 0);
   }
   function remplirSuggestions(){
-    listeSuggestions.innerHTML = '';
+    listeSuggestions!.innerHTML = '';
     etatImport.suggestions.forEach(s=>{
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'secondary';
       b.style.cssText = 'text-align:left; font-size:0.84rem; padding:6px 8px;';
       b.textContent = s.label + (s.genre && s.genre !== 'housenumber' ? '  (niveau ' + s.genre + ')' : '');
       b.addEventListener('click', ()=>choisirAdresse(s));
-      listeSuggestions.appendChild(b);
+      listeSuggestions!.appendChild(b);
     });
   }
   const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
@@ -431,7 +432,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     if(!texte || texte.length < 3){ etatImport.erreur = 'Saisis une adresse (au moins 3 caracteres).'; majEtat(); return; }
     const m = texte.match(RE_COORDS);
     if(m){
-      const lat = parseFloat(m[1].replace(',', '.')), lon = parseFloat(m[2].replace(',', '.'));
+      const lat = parseFloat(m[1]!.replace(',', '.')), lon = parseFloat(m[2]!.replace(',', '.'));
       void choisirAdresse({ label:'Point ' + lat.toFixed(6) + ', ' + lon.toFixed(6), score:1, genre:'coordonnees', citycode:'', ville:'', lon, lat });
       return;
     }
@@ -441,10 +442,10 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       occuper(false);
       if(!res.length){ etatImport.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; majEtat(); return; }
       etatImport.suggestions = res; remplirSuggestions();
-      void choisirAdresse(res[0]);
+      void choisirAdresse(res[0]!);
     } catch(e){
       occuper(false);
-      etatImport.erreur = 'Geocodage impossible : ' + (e.message || e);
+      etatImport.erreur = 'Geocodage impossible : ' + ((e as Error).message || e);
       majEtat();
     }
   }
@@ -471,8 +472,8 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       }
       // Le filtre geom pourrait etre ignore sans que rien ne le signale : une "plus proche"
       // parcelle a 200 m de l'adresse trahirait ce cas mieux que n'importe quel code HTTP.
-      if(cands[0].distance > 120){
-        etatImport.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(cands[0].distance) + ' m de l\'adresse).';
+      if(cands[0]!.distance > 120){
+        etatImport.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(cands[0]!.distance) + ' m de l\'adresse).';
         majEtat(); return;
       }
       etatImport.proj = proj;
@@ -482,19 +483,19 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       etatImport.voisinageCharge = new Set();
       occuper(true, 'Recherche des parcelles voisines…');
       try {
-        await chargerVoisinage(cands[0]);
+        await chargerVoisinage(cands[0]!);
       } catch(e){
         // Le voisinage est un complement : son echec ne doit pas emporter la parcelle trouvee.
-        etatImport.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
+        etatImport.erreur = 'Parcelles voisines non chargees : ' + ((e as Error).message || e);
       }
       occuper(false);
-      appliquerPrincipale(cands[0]);
-      await chargerIgnAvecMessage(cands[0]);
+      appliquerPrincipale(cands[0]!);
+      await chargerIgnAvecMessage(cands[0]!);
       etatImport.etape = 2;
       rendre();
     } catch(e){
       occuper(false);
-      etatImport.erreur = (e.message || String(e));
+      etatImport.erreur = ((e as Error).message || String(e));
       majEtat();
     }
   }
@@ -555,7 +556,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       etatImport.ignErreur = '';
     } catch(e){
       etatImport.batiments = []; etatImport.haies = []; etatImport.vegetation = [];
-      etatImport.ignErreur = 'Donnees BD TOPO indisponibles : ' + (e.message || e);
+      etatImport.ignErreur = 'Donnees BD TOPO indisponibles : ' + ((e as Error).message || e);
     }
     occuper(false);
     if(etatImport.ignErreur) etatImport.erreur = etatImport.ignErreur;
@@ -566,7 +567,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     try {
       await chargerVoisinage(c);
     } catch(e){
-      etatImport.erreur = 'Parcelles voisines non chargees : ' + (e.message || e);
+      etatImport.erreur = 'Parcelles voisines non chargees : ' + ((e as Error).message || e);
     }
     occuper(false);
     appliquerPrincipale(c);
@@ -618,7 +619,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     const info = document.createElement('div');
     info.style.cssText = 'margin-top:10px; line-height:1.5;';
     const p = etatImport.principale!;
-    const ecartAuto = etatImport.candidats.length > 1 ? (etatImport.candidats[1].distance! - etatImport.candidats[0].distance!) : Infinity;
+    const ecartAuto = etatImport.candidats.length > 1 ? (etatImport.candidats[1]!.distance! - etatImport.candidats[0]!.distance!) : Infinity;
     info.innerHTML = '<b>' + escapeHtml('Parcelle ' + libelleParcelle(p)) + '</b> — ' + escapeHtml(p.commune||'') +
       ' (INSEE ' + escapeHtml(p.codeInsee||'') + ')<br>Surface : ' + escapeHtml(ligneSurface(p)) +
       '<br>Adresse : ' + escapeHtml(etatImport.geo!.label) +
@@ -640,8 +641,8 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       b.className = c.idu === p.idu ? '' : 'secondary';
       b.style.cssText = 'text-align:left; font-size:0.82rem; padding:5px 8px;';
       b.textContent = libelleParcelle(c) + ' — ' + ligneSurface(c) + ' — ' + c.distance.toFixed(2) + ' m de l\'adresse';
-      b.addEventListener('mouseenter', ()=>{ etatImport.survol = c.idu; dessinerApercu(hoteApercu); });
-      b.addEventListener('mouseleave', ()=>{ etatImport.survol = null; dessinerApercu(hoteApercu); });
+      b.addEventListener('mouseenter', ()=>{ etatImport.survol = c.idu; dessinerApercu(hoteApercu!); });
+      b.addEventListener('mouseleave', ()=>{ etatImport.survol = null; dessinerApercu(hoteApercu!); });
       b.addEventListener('click', ()=>choisirPrincipale(c));
       liste.appendChild(b);
     });
@@ -814,7 +815,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       // par la nullabilite de ces deux champs pendant les etapes 1 et 2.
       objets = objetsDepuisCadastre(etatImport as unknown as ImportCadastral);
     } catch(e){
-      etatImport.erreur = 'Construction du plan impossible : ' + (e.message || e);
+      etatImport.erreur = 'Construction du plan impossible : ' + ((e as Error).message || e);
       majEtat(); return;
     }
     if(!ctx.apiDisponible){
@@ -832,7 +833,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
       location.href = ctx.withProjectParam(cree.id);
     } catch(e){
       occuper(false);
-      etatImport.erreur = 'Impossible de creer le projet : ' + (e.message || e);
+      etatImport.erreur = 'Impossible de creer le projet : ' + ((e as Error).message || e);
       majEtat();
     }
   }

@@ -11,7 +11,7 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
   const etat = {
     objects: objetsInitiaux.map((o) => ({ ...o })),
     measures: [] as Record<string, unknown>[],
-    selectedKey: objetsInitiaux.length ? objetsInitiaux[0].key : null,
+    selectedKey: objetsInitiaux.length ? objetsInitiaux[0]!.key : null,
     dirty: false
   };
   const bouton = { disabled: true } as HTMLButtonElement;
@@ -64,9 +64,9 @@ describe('empiler et annuler', () => {
   it('empile l etat AVANT la modification', () => {
     const { etat, h } = monter();
     h.empiler();
-    etat.objects[0].x = 99;
+    etat.objects[0]!.x = 99;
     h.annuler();
-    expect(etat.objects[0].x).toBe(1);
+    expect(etat.objects[0]!.x).toBe(1);
   });
 
   it('marque le plan modifie en empilant', () => {
@@ -120,17 +120,17 @@ describe('empiler et annuler', () => {
 
   it('remonte plusieurs pas, un par annulation', () => {
     const { etat, h } = monter();
-    h.empiler(); etat.objects[0].x = 2;
-    h.empiler(); etat.objects[0].x = 3;
+    h.empiler(); etat.objects[0]!.x = 2;
+    h.empiler(); etat.objects[0]!.x = 3;
     h.annuler();
-    expect(etat.objects[0].x).toBe(2);
+    expect(etat.objects[0]!.x).toBe(2);
     h.annuler();
-    expect(etat.objects[0].x).toBe(1);
+    expect(etat.objects[0]!.x).toBe(1);
   });
 
   it('oublie les pas les plus anciens au-dela de la limite', () => {
     const { etat, h } = monter();
-    for (let i = 0; i < LIMITE_HISTORIQUE + 10; i++) { h.empiler(); etat.objects[0].x = i; }
+    for (let i = 0; i < LIMITE_HISTORIQUE + 10; i++) { h.empiler(); etat.objects[0]!.x = i; }
     expect(h.pile.taille).toBe(LIMITE_HISTORIQUE);
   });
 });
@@ -140,7 +140,7 @@ describe('la selection apres une annulation', () => {
     const { etat, h } = monter([{ key: 'a' }, { key: 'b' }]);
     etat.selectedKey = 'b';
     h.empiler();
-    etat.objects[0].key = 'a';
+    etat.objects[0]!.key = 'a';
     h.annuler();
     expect(etat.selectedKey).toBe('b');
   });
@@ -179,9 +179,9 @@ describe('ce qui manque, et qu on veut voir changer', () => {
     // c'est le signal qu'on attend de lui.
     const { etat, h } = monter();
     h.empiler();
-    etat.objects[0].x = 42;
+    etat.objects[0]!.x = 42;
     h.annuler();
-    expect(etat.objects[0].x).toBe(1);
+    expect(etat.objects[0]!.x).toBe(1);
     expect('retablir' in h).toBe(false);
   });
 });

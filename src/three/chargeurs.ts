@@ -28,7 +28,7 @@ export function chargerTexturePolyhaven(url: string) {
       const scale = MAX_DIM / Math.max(img0.width, img0.height);
       const c = document.createElement('canvas');
       c.width = Math.round(img0.width * scale); c.height = Math.round(img0.height * scale);
-      c.getContext('2d').drawImage(img0, 0, 0, c.width, c.height);
+      c.getContext('2d')!.drawImage(img0, 0, 0, c.width, c.height);
       tex.image = c;
       tex.needsUpdate = true;
     }

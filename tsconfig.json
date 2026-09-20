@@ -1,15 +1,19 @@
 {
-  // Barreau 1 de l'echelle de rigueur (spec-migration-typescript.md 9.2) : permissif, pour que la
-  // phase 1 compile avec legacy.ts tel quel. Les drapeaux se remontent un par PR en phase 7,
-  // jusqu'a la cible de la section 9.1 - chaque barreau doit etre a zero erreur avant le suivant.
+  // Configuration cible de la spec-migration-typescript.md §9.1, atteinte le 20 septembre 2026 :
+  // les sept barreaux de l'echelle de rigueur (§9.2) sont graves. `npm run cliquet` garde le
+  // detail par dossier et interdit toute regression.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "strict": false,
-    "allowJs": true,
-    "checkJs": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,

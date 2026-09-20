@@ -30,7 +30,7 @@ export interface ContexteExports {
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
   /** Le nom du projet, pour nommer le dossier PDF. */
-  nomProjet: () => string;
+  nomProjet: () => string | null | undefined;
 }
 
 /** Affiche un contenu dans la zone de texte, sélectionné pour un copier-coller immédiat. */
@@ -117,7 +117,7 @@ export function brancherExports(ctx: ContexteExports): void {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth * FACTEUR;
         canvas.height = img.naturalHeight * FACTEUR;
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
           if (!blob) { showErrBanner('Erreur export PNG: conversion en image impossible.'); return; }
           telechargerBlob('plan_interactif_export.png', blob);
@@ -159,7 +159,7 @@ export function brancherExports(ctx: ContexteExports): void {
       const url = telechargerEtPartagerUrl('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
       lienDeSecours('pdfOpenLink', url,
         "Le telechargement automatique n'a pas demarre ? Cliquer ici pour ouvrir le PDF dans un nouvel onglet.",
-        document.getElementById('exportBox'));
+        document.getElementById('exportBox')!);
     } catch (err) {
       showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
     }

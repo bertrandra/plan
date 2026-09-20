@@ -42,7 +42,8 @@ import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
-  parPriorite, amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, reculerObjet
+  parPriorite, amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, reculerObjet,
+  type ContexteEmpilement
 } from '../render/empilement.js';
 import { interiorAngleDeg } from '../geometry/angles.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../three/navigation.js';
@@ -287,7 +288,7 @@ function dejaRectangle(pts: PtBrut[] | undefined, tolDeg?: number): boolean {
   if(!pts || pts.length!==4) return false;
   const tol = tolDeg || 1;
   return pts.every((_,i)=>{
-    const a=pts[(i-1+4)%4], b=pts[i], c=pts[(i+1)%4];
+    const a=pts[(i-1+4)%4]!, b=pts[i]!, c=pts[(i+1)%4]!;
     const u={x:a.x-b.x,y:a.y-b.y}, v={x:c.x-b.x,y:c.y-b.y};
     const d = Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y);
     if(d < 1e-9) return false;
@@ -333,7 +334,7 @@ function toWorld(p: PtEcran): PtBrut { return versMonde(etat.scene, p); }
 function objByKey(key: string | null){ return etat.objects.find(o=>o.key===key); }
 
 // ================= Build SVG =================
-const stage = document.getElementById('stage');
+const stage = document.getElementById('stage')!;
 stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
 // svgNS : dans render/svg.ts
 const svg = document.createElementNS(svgNS,'svg');
@@ -415,7 +416,9 @@ rebuildSelector();
 
 // L'ordre d'empilement vit dans render/empilement.ts ; ces enveloppes lui passent la racine SVG et
 // la vue de chaque objet.
-function ctxEmpilement(){ return { svg, vue }; }
+// La vue d'un objet empile a toujours son `el` : `creerDomObjet` l'a pose avant. Le type de `vue()`
+// ne le sait pas ; l'ajout au SVG le suppose comme le faisait l'appel direct.
+function ctxEmpilement(): ContexteEmpilement<SVGElement | null>{ return { svg: { appendChild: (el)=>svg.appendChild(el!) }, vue }; }
 function amenerPoigneesDevant(obj: ObjetPlan){ remonterPoignees(obj, ctxEmpilement()); }
 function reapplyStackingOrder(){ reappliquerEmpilement(etat.objects, ctxEmpilement()); }
 function sendObjectBackward(obj: ObjetPlan){
@@ -513,8 +516,8 @@ function insertPointOnSegment(obj: ObjetPlan, segIndex: number, clickWorld: PtBr
   // Point de vue : exactement 2 points (position, direction) - un 3e casserait la lecture
   // point+vecteur (quel bout regarderait quoi ?), donc jamais d'ajout ici.
   if(obj.fonction==='camera') return;
-  const n = obj.pts.length;
-  const a = obj.pts[segIndex], b = obj.pts[(segIndex+1)%n];
+  const n = obj.pts!.length;
+  const a = obj.pts![segIndex]!, b = obj.pts![(segIndex+1)%n]!;
   const newPt = projectOntoSegment(clickWorld, a, b);
   const bound = contourDeContrainte(etat.objects, aPoints(obj));
   if(bound && !pointInPolygon(newPt, bound)) return;
@@ -525,7 +528,7 @@ function insertPointOnSegment(obj: ObjetPlan, segIndex: number, clickWorld: PtBr
 }
 function deleteVertex(obj: ObjetPlan, idx: number){
   if(obj.locked) return;
-  if(obj.pts.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
+  if(obj.pts!.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
   pushHistory();
   supprimerSommet(aPoints(obj), idx);
   rebuildHandles(obj);
@@ -617,7 +620,7 @@ function buildExportSVG(){
 // center the initial view on the parcel, using the actual responsive canvas size
 (function centerInitialView(){
   const parcelle = etat.objects.find(o=>o.key==='parcelle');
-  const xs = parcelle.pts.map(p=>p.x), ys = parcelle.pts.map(p=>p.y);
+  const xs = parcelle!.pts!.map(p=>p.x), ys = parcelle!.pts!.map(p=>p.y);
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
@@ -630,7 +633,7 @@ function buildExportSVG(){
 // demande, sinon la parcelle, sinon tout le plan.
 function fitToObject(obj: ObjetPlan | null){
   const formes = obj ? [obj]
-    : (etat.objects.find(o=>o.key==='parcelle') ? [etat.objects.find(o=>o.key==='parcelle')] : etat.objects);
+    : (etat.objects.find(o=>o.key==='parcelle') ? [etat.objects.find(o=>o.key==='parcelle')!] : etat.objects);
   const emprise = empriseDe(formes);
   if(!emprise) return;
   etat.scene = cadrerSur(etat.scene, emprise);
@@ -694,13 +697,13 @@ function refLabel(ref: { objKey: string; segIndex: number } | null){
   if(!ref) return '(aucun)';
   const obj = etat.objects.find(o=>o.key===ref.objKey);
   if(!obj) return '(objet supprime)';
-  return obj.name + ': ' + (obj.segmentNames[ref.segIndex]||('Cote '+(ref.segIndex+1)));
+  return obj.name + ': ' + (obj.segmentNames![ref.segIndex]||('Cote '+(ref.segIndex+1)));
 }
 function targetLabel(t: { objKey: string; ptIndex: number }){
   const obj = etat.objects.find(o=>o.key===t.objKey);
   if(!obj) return '(objet supprime)';
   if(obj.type==='circle') return obj.name + ' (centre)';
-  return obj.name + ': ' + (obj.vertexNames[t.ptIndex]||('P'+(t.ptIndex+1)));
+  return obj.name + ': ' + (obj.vertexNames![t.ptIndex]||('P'+(t.ptIndex+1)));
 }
 
 // Distance from `center` to where the ray (center -> center+dir) exits the polygon `poly`.

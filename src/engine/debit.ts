@@ -82,7 +82,7 @@ export function optimiserDebitLames(
   function plan(R: number): PlanDebit | null {
     if(R <= tol) return { cout:0, pieces:[] };
     const key = Math.round(R*1e4);
-    if(memo.has(key)) return memo.get(key);
+    if(memo.has(key)) return memo.get(key) as PlanDebit | null;
     let best: PlanDebit | null = null;
     for(const L of dispo){
       const u = utile(L, R);
@@ -109,7 +109,7 @@ export function optimiserDebitLames(
         if(reste >= -tol && reste < meilleurReste){ meilleurReste = reste; idx = i; }
       });
       if(idx >= 0){
-        const L = pool.splice(idx,1)[0];
+        const L = pool.splice(idx,1)[0]!;
         const rem = L - pc.u;
         if(rem >= minReuseM) pool.push(rem); else perdueMl += rem;
         return;                                   // rien achete pour cette piece
@@ -157,7 +157,7 @@ export interface GroupeDebit {
 export function computeDebitsBois(obj: ObjetPlan, layers: CouchesTerrasse): GroupeDebit[] {
   const c = ensureConstruction(obj);
   const ml = (a: Segment[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const secS = c.soliveSection, secL = sectionLambourde(c);
+  const secS = c.soliveSection!, secL = sectionLambourde(c);
   const wS = dimsSection(secS).b/1000, wL = dimsSection(secL).b/1000;
   const separe = secL !== secS && layers.lambourdes.length > 0;
   // Tuple et non tableau : ces trois valeurs sont etalees dans optimiserDebitLames, dont la

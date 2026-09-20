@@ -14,6 +14,7 @@ import { dist, shoelace, signedArea, pointInPolygon } from '../geometry/basic.js
 import { nearestSegmentIndex } from '../geometry/segments.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import { cibleAlignement, type CoteDesigne } from '../interaction/outilAlignement.js';
+import type { Pointage } from '../interaction/outilMesure.js';
 import { el } from '../shell/dom.js';
 import { formatHeureMin } from '../util/format.js';
 import { showToast } from '../shell/dialogs.js';
@@ -40,8 +41,8 @@ export interface ContexteAttrPanel {
   rebuildHandles: (obj: ObjetPlan) => void;
   /** Pointage en cours de l'outil d'alignement/mesure, ou `null` si l'utilisateur n'attend rien. */
   pickState: () => { purpose: string } | null;
-  startPick: (mode: string, multi: boolean, purpose?: string) => void;
-  measureSegCoords: (cible: CoteDesigne | null) => { a: PtBrut; b: PtBrut } | null;
+  startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']) => void;
+  measureSegCoords: (cible: CoteDesigne) => { a: PtBrut; b: PtBrut } | null;
   refLabel: (ref: { objKey: string; segIndex: number } | null) => string;
   alignObjectByRotation: (obj: ObjetPlan) => void;
   interiorAngleDeg: (obj: ObjetPlan, i: number) => number;
@@ -56,12 +57,12 @@ export interface ContexteAttrPanel {
 let alignDistanceValue = '';
 export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
   const obj = etat.objects.find(o=>o.key===etat.selectedKey);
-  const nameTbl = document.getElementById('attrNameTable');
-  const tabsDiv = document.getElementById('attrTabs');
-  const tbl = document.getElementById('attrTable');
+  const nameTbl = document.getElementById('attrNameTable')!;
+  const tabsDiv = document.getElementById('attrTabs')!;
+  const tbl = document.getElementById('attrTable')!;
 
   const delObjBtn = el<HTMLButtonElement>('delObjBtn');
-  delObjBtn.disabled = !obj || obj.key==='parcelle' || obj.locked;
+  delObjBtn.disabled = !obj || obj.key==='parcelle' || obj.locked!;
   delObjBtn.title = !obj ? 'Selectionne d\'abord un objet' : (obj.key==='parcelle' ? 'La parcelle ne peut pas etre supprimee' : (obj.locked ? 'Objet verrouille' : ''));
 
   const dupObjBtn = el<HTMLButtonElement>('dupObjBtn');
@@ -69,14 +70,14 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
   dupObjBtn.title = !obj ? 'Selectionne d\'abord un objet' : (obj.key==='parcelle' ? 'La parcelle ne peut pas etre dupliquee' : 'Cree une copie, decalee de 5 m vers la gauche');
 
   if(!obj){
-    document.getElementById('attrTitle').textContent = 'Aucune sélection';
+    document.getElementById('attrTitle')!.textContent = 'Aucune sélection';
     nameTbl.innerHTML = '';
     tabsDiv.innerHTML = '';
     tbl.innerHTML = '<tr><td style="padding:10px; color:#8a8a80;">Clique sur un objet (ou son bouton ci-dessus) pour l\'éditer.</td></tr>';
     return;
   }
-  const titleSurf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
-  document.getElementById('attrTitle').textContent = ctx.libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
+  const titleSurf = obj.type==='polygon' ? shoelace(obj.pts!) : (obj.type==='circle' ? Math.PI*obj.r!*obj.r! : null);
+  document.getElementById('attrTitle')!.textContent = ctx.libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
 
   // --- name table (always visible, not tabbed) ---
   nameTbl.innerHTML = '';
@@ -92,8 +93,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     obj.name = inp.value;
     ctx.markDirty();
     ctx.rebuildSelector();
-    if(vue(obj).nameEl) vue(obj).nameEl.textContent = obj.showName ? obj.name : '';
-    document.getElementById('attrTitle').textContent = ctx.libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
+    if(vue(obj).nameEl) vue(obj).nameEl!.textContent = obj.showName ? obj.name : '';
+    document.getElementById('attrTitle')!.textContent = ctx.libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
   });
   tdInput.appendChild(inp);
   rowName.appendChild(tdLabel); rowName.appendChild(tdBlank); rowName.appendChild(tdInput);
@@ -102,7 +103,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
   // --- tabs ---
   tabsDiv.innerHTML = '';
   if(obj.type==='polygon'){
-    [['objet','Objet'],['segments','Cotes'],['angles','Coins']].forEach(([key,label])=>{
+    ([['objet','Objet'],['segments','Cotes'],['angles','Coins']] as [string, string][]).forEach(([key,label])=>{
       const b = document.createElement('button');
       b.className = 'attrTabBtn' + (etat.attrTab===key ? ' active' : '');
       b.textContent = label;
@@ -111,7 +112,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     });
   } else if(obj.type==='path'){
     if(etat.attrTab==='angles') etat.attrTab='segments'; // path has no angle tab
-    [['objet','Objet'],['segments','Points / Segments']].forEach(([key,label])=>{
+    ([['objet','Objet'],['segments','Points / Segments']] as [string, string][]).forEach(([key,label])=>{
       const b = document.createElement('button');
       b.className = 'attrTabBtn' + (etat.attrTab===key ? ' active' : '');
       b.textContent = label;
@@ -136,8 +137,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
   if(etat.attrTab==='objet'){
     const parcelleForSurf = etat.objects.find((o: ObjetPlan)=>o.key==='parcelle');
-    const sParcelle = parcelleForSurf ? shoelace(parcelleForSurf.pts) : 0;
-    const surf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
+    const sParcelle = parcelleForSurf ? shoelace(parcelleForSurf.pts!) : 0;
+    const surf = obj.type==='polygon' ? shoelace(obj.pts!) : (obj.type==='circle' ? Math.PI*obj.r!*obj.r! : null);
     const addRow = (label: string, valueEl: HTMLElement) => {
       const tr=document.createElement('tr');
       const td0=document.createElement('td'); td0.textContent=label;
@@ -150,11 +151,11 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     typeSpan.textContent = ctx.libelleTypeObjet(obj);
     addRow('Type', typeSpan);
 
-    const colorInp = document.createElement('input'); colorInp.type='color'; colorInp.value = obj.fill;
+    const colorInp = document.createElement('input'); colorInp.type='color'; colorInp.value = obj.fill!;
     colorInp.addEventListener('input', ()=>{
       obj.fill = colorInp.value;
-      if(obj.type==='path'){ vue(obj).el.setAttribute('stroke', obj.fill); obj.stroke = obj.fill; }
-      else vue(obj).el.setAttribute('fill', obj.fill);
+      if(obj.type==='path'){ vue(obj).el!.setAttribute('stroke', obj.fill); obj.stroke = obj.fill; }
+      else vue(obj).el!.setAttribute('fill', obj.fill);
       ctx.markDirty();
       ctx.rebuildSelector();
     });
@@ -227,7 +228,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         const tex = obj[cle];
         const vignette = document.createElement('img');
         vignette.style.cssText = 'width:28px; height:28px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); background:var(--accent-light,#eee);';
-        vignette.src = tex ? tex.vignette : '';
+        vignette.src = tex ? tex.vignette! : '';
         vignette.style.visibility = tex ? 'visible' : 'hidden';
         const nomSpan = document.createElement('span');
         nomSpan.style.cssText = 'font-size:0.82rem; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
@@ -427,7 +428,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
             optBtn.disabled = false; optBtn.textContent = 'Placer au mieux';
             if(!res){ showToast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
             ctx.pushHistory();
-            obj.center.x = res.x; obj.center.y = res.y;
+            obj.center!.x = res.x; obj.center!.y = res.y;
             if(obj.matDeporte && res.angleDeg !== undefined) obj.matAngleDeg = res.angleDeg;
             ctx.render();
             ctx.renderAttrTable();
@@ -451,25 +452,25 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     lockCb.addEventListener('change', ()=>{ ctx.pushHistory(); obj.locked = lockCb.checked; ctx.render(); });
     addRow('Verrouiller objet', lockCb);
 
-    if(obj.type==='polygon' && obj.pts.length===4){
+    if(obj.type==='polygon' && obj.pts!.length===4){
       const rectCb = document.createElement('input'); rectCb.type='checkbox';
       // Derived from the freeze state rather than a separate stored flag: freezing all 4
       // corners is what actually blocks angle/length edits elsewhere in the app (Coins/
       // Cotes tabs, point/edge drag), so this stays true to reality even if a corner gets
       // individually un-frozen later (double-click on a point handle).
-      rectCb.checked = obj.frozenVertices.every(Boolean);
+      rectCb.checked = obj.frozenVertices!.every(Boolean);
       rectCb.title = 'Verrouille les 4 angles a 90 degres (fige les 4 coins)';
       rectCb.addEventListener('change', ()=>{
         if(rectCb.checked){
           // Deja d'equerre : on verrouille tel quel, sans redresser. Une terrasse rectangulaire
           // mais orientee a 30 degres n'a aucune raison de basculer sur les axes de l'ecran.
-          if(ctx.dejaRectangle(obj.pts)){
+          if(ctx.dejaRectangle(obj.pts!)){
             ctx.pushHistory();
-            obj.frozenVertices = obj.frozenVertices.map(()=>true);
+            obj.frozenVertices = obj.frozenVertices!.map(()=>true);
             ctx.render();
             return;
           }
-          const xs = obj.pts.map((p: PtBrut)=>p.x), ys = obj.pts.map((p: PtBrut)=>p.y);
+          const xs = obj.pts!.map((p: PtBrut)=>p.x), ys = obj.pts!.map((p: PtBrut)=>p.y);
           const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
           // Envoyer chaque point vers le coin le plus proche selon les medianes parait naturel,
           // mais sur une forme oblique (losange, parallelogramme) deux points atterrissent sur le
@@ -477,10 +478,10 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
           // l'ordre de parcours, en partant de celui le plus proche du premier point : quatre
           // coins distincts, et le sens de rotation conserve.
           const coins = [{x:minX,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:minX,y:maxY}];
-          if(signedArea(obj.pts) < 0) coins.reverse();
+          if(signedArea(obj.pts!) < 0) coins.reverse();
           let depart = 0, meilleure = Infinity;
-          coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts[0]); if(d < meilleure){ meilleure = d; depart = k; } });
-          const newPts = obj.pts.map((_: PtBrut, i: number)=>({ ...coins[(depart+i)%4] }));
+          coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts![0]!); if(d < meilleure){ meilleure = d; depart = k; } });
+          const newPts = obj.pts!.map((_: PtBrut, i: number)=>({ ...coins[(depart+i)%4]! }));
           const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!.pts : null;
           if(bound && !newPts.every((p: PtBrut)=>pointInPolygon(p,bound))){
             showToast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
@@ -489,11 +490,11 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
           }
           ctx.pushHistory();
           obj.pts = newPts;
-          obj.frozenVertices = obj.frozenVertices.map(()=>true);
+          obj.frozenVertices = obj.frozenVertices!.map(()=>true);
           ctx.rebuildHandles(obj);
         } else {
           ctx.pushHistory();
-          obj.frozenVertices = obj.frozenVertices.map(()=>false);
+          obj.frozenVertices = obj.frozenVertices!.map(()=>false);
         }
         ctx.render();
       });
@@ -502,7 +503,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
     if(obj.type==='circle'){
       const rr=document.createElement('input'); rr.type='number'; rr.step='0.01'; rr.min='0.1';
-      rr.value = obj.r.toFixed(2);
+      rr.value = obj.r!.toFixed(2);
       rr.addEventListener('change', ()=>{
         const v = parseFloat(rr.value);
         if(!isNaN(v) && v>0.05){
@@ -513,11 +514,11 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
             ok = true;
             for(let a=0;a<16;a++){
               const ang=a/16*2*Math.PI;
-              const bp={x:obj.center.x+v*Math.cos(ang), y:obj.center.y+v*Math.sin(ang)};
+              const bp={x:obj.center!.x+v*Math.cos(ang), y:obj.center!.y+v*Math.sin(ang)};
               if(!pointInPolygon(bp,bound)){ ok=false; break; }
             }
           }
-          if(ok) obj.r=v; else rr.value=obj.r.toFixed(2);
+          if(ok) obj.r=v; else rr.value=obj.r!.toFixed(2);
           ctx.render();
         }
       });
@@ -526,7 +527,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
     if(obj.type==='path' && obj.fonction!=='camera'){
       let totalLen = 0;
-      for(let i=0;i<obj.pts.length-1;i++) totalLen += dist(obj.pts[i], obj.pts[i+1]);
+      for(let i=0;i<obj.pts!.length-1;i++) totalLen += dist(obj.pts![i]!, obj.pts![i+1]!);
       const lenSpan = document.createElement('span'); lenSpan.textContent = totalLen.toFixed(2) + ' m';
       addRow('Longueur totale', lenSpan);
 
@@ -555,7 +556,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       altInp.addEventListener('change', ()=>{ obj.altitude = Math.max(0.1, parseFloat(altInp.value)||1.6); ctx.markDirty(); });
       addRow('Altitude (m)', altInp);
 
-      const ddx = obj.pts[1].x-obj.pts[0].x, ddy = obj.pts[1].y-obj.pts[0].y;
+      const ddx = obj.pts![1]!.x-obj.pts![0]!.x, ddy = obj.pts![1]!.y-obj.pts![0]!.y;
       const distDir = Math.hypot(ddx,ddy) || 2;
       const dirActuel = Math.atan2(ddy,ddx)*180/Math.PI;
       const dirInp = document.createElement('input'); dirInp.type='number'; dirInp.step='5';
@@ -563,7 +564,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       dirInp.title = 'Direction visee, en degres : 0° = Est, 90° = Nord. Deplace le point "Direction" sur le plan - ce champ le suit, ou le repositionne.';
       dirInp.addEventListener('change', ()=>{
         const rad = (parseFloat(dirInp.value)||0)*Math.PI/180;
-        obj.pts[1] = { x: obj.pts[0].x+Math.cos(rad)*distDir, y: obj.pts[0].y+Math.sin(rad)*distDir };
+        obj.pts![1] = { x: obj.pts![0]!.x+Math.cos(rad)*distDir, y: obj.pts![0]!.y+Math.sin(rad)*distDir };
         ctx.markDirty();
         ctx.render();
       });
@@ -606,10 +607,10 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       infoTd.style.fontSize = '0.8rem'; infoTd.style.padding = '4px 6px';
       let nearestLbl = '(choisis d\'abord un segment cible)';
       if(cibleAlignement()){
-        const tgt = ctx.measureSegCoords(cibleAlignement());
+        const tgt = ctx.measureSegCoords(cibleAlignement()!);
         if(tgt){
           const idx = nearestSegmentIndex({ type: obj.type, pts: obj.pts||[] }, tgt);
-          if(idx>=0) nearestLbl = obj.segmentNames[idx] || ('Cote '+(idx+1));
+          if(idx>=0) nearestLbl = obj.segmentNames![idx] || ('Cote '+(idx+1));
         }
       }
       infoTd.textContent = 'Segment cible : ' + ctx.refLabel(cibleAlignement()) + '  |  Côté le plus proche de "' + obj.name + '" : ' + nearestLbl;
@@ -632,7 +633,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const alignBtnTd = document.createElement('td'); alignBtnTd.colSpan = 3;
       const alignBtn = document.createElement('button');
       alignBtn.textContent = 'Aligner par rotation';
-      alignBtn.disabled = !cibleAlignement() || obj.locked;
+      alignBtn.disabled = !cibleAlignement() || obj.locked!;
       alignBtn.title = obj.locked ? 'Objet verrouille' : '';
       alignBtn.addEventListener('click', ()=>{ ctx.alignObjectByRotation(obj); });
       alignBtnTd.appendChild(alignBtn);
@@ -642,19 +643,19 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     (obj.vertexNames||[]).forEach((vn: string, i: number)=>{
       const tr=document.createElement('tr');
       if(etat.highlight.type==='vertex' && etat.highlight.index===i) tr.className='highlightRow';
-      const frozen = !!obj.frozenVertices[i];
+      const frozen = !!obj.frozenVertices![i];
       const td0=document.createElement('td'); td0.textContent='Coin '+(i+1)+' (angle)';
       const td1=document.createElement('td');
       const ii=document.createElement('input'); ii.type='text'; ii.value=vn;
       ii.addEventListener('input', ()=>{
         // Targeted update instead of ctx.render(): ctx.render() rebuilds this whole table from
         // scratch, which recreates this very input and kills focus/cursor on every keystroke.
-        obj.vertexNames[i] = ii.value;
+        obj.vertexNames![i] = ii.value;
         if(vue(obj).ptLabelEls && vue(obj).ptLabelEls[i]){
-          const vName = obj.vertexNames[i] || ('P'+(i+1));
+          const vName = obj.vertexNames![i] || ('P'+(i+1));
           const showAngleHere = obj.showAngles && obj.type==='polygon';
           const angleTxt = showAngleHere ? angleEnDegres(ctx.interiorAngleDeg(obj,i), DEGRE_ECRAN) : '';
-          vue(obj).ptLabelEls[i].textContent = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
+          vue(obj).ptLabelEls[i]!.textContent = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
         }
       });
       td1.appendChild(ii);
@@ -677,14 +678,14 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const delBtnV = document.createElement('button');
       delBtnV.textContent = 'Supprimer'; delBtnV.className='secondary small';
       delBtnV.style.marginLeft = '6px';
-      delBtnV.disabled = obj.pts.length <= 3 || frozen;
-      delBtnV.title = obj.pts.length<=3 ? 'Impossible: il faut garder au moins 3 sommets' : (frozen ? 'Coin fige' : 'Supprime ce coin (fusionne les deux cotes voisins)');
+      delBtnV.disabled = obj.pts!.length <= 3 || frozen;
+      delBtnV.title = obj.pts!.length<=3 ? 'Impossible: il faut garder au moins 3 sommets' : (frozen ? 'Coin fige' : 'Supprime ce coin (fusionne les deux cotes voisins)');
       delBtnV.addEventListener('click', ()=>{ ctx.deleteVertex(obj, i); });
       td2.appendChild(delBtnV);
       const td3 = document.createElement('td');
       const fz = document.createElement('input'); fz.type='checkbox'; fz.checked=frozen;
       fz.title = 'Figer cet angle : empeche de le deplacer (glisser, longueur adjacente, angle) pour faciliter les autres modifications';
-      fz.addEventListener('change', ()=>{ obj.frozenVertices[i]=fz.checked; ctx.render(); });
+      fz.addEventListener('change', ()=>{ obj.frozenVertices![i]=fz.checked; ctx.render(); });
       td3.appendChild(fz);
       tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
       tbl.appendChild(tr);
@@ -698,18 +699,18 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         const td1=document.createElement('td');
         const ii=document.createElement('input'); ii.type='text'; ii.value=vn;
         ii.addEventListener('input', ()=>{
-          obj.vertexNames[i] = ii.value;
+          obj.vertexNames![i] = ii.value;
           if(vue(obj).ptLabelEls && vue(obj).ptLabelEls[i]){
-            const vName = obj.vertexNames[i] || ('P'+(i+1));
-            vue(obj).ptLabelEls[i].textContent = obj.showVertNames ? vName : '';
+            const vName = obj.vertexNames![i] || ('P'+(i+1));
+            vue(obj).ptLabelEls[i]!.textContent = obj.showVertNames ? vName : '';
           }
         });
         td1.appendChild(ii);
         const td2=document.createElement('td');
         const delBtnP = document.createElement('button');
         delBtnP.textContent = 'Supprimer'; delBtnP.className='secondary small';
-        delBtnP.disabled = obj.pts.length <= 2;
-        delBtnP.title = obj.pts.length<=2 ? 'Impossible: il faut garder au moins 2 points' : 'Supprime ce point';
+        delBtnP.disabled = obj.pts!.length <= 2;
+        delBtnP.title = obj.pts!.length<=2 ? 'Impossible: il faut garder au moins 2 points' : 'Supprime ce point';
         delBtnP.addEventListener('click', ()=>{ ctx.deleteVertex(obj, i); });
         td2.appendChild(delBtnP);
         tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
@@ -718,7 +719,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     }
     const minPts = obj.type==='path' ? 2 : 3;
     (obj.segmentNames||[]).forEach((sn: string, i: number)=>{
-      const n = obj.pts.length;
+      const n = obj.pts!.length;
       if(obj.type==='path' && i >= n-1) return; // no closing segment for open paths
       const tr=document.createElement('tr');
       if(etat.highlight.type==='segment' && etat.highlight.index===i) tr.className='highlightRow';
@@ -726,20 +727,20 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const td1=document.createElement('td');
       const ii=document.createElement('input'); ii.type='text'; ii.value=sn;
       ii.addEventListener('input', ()=>{
-        obj.segmentNames[i] = ii.value;
+        obj.segmentNames![i] = ii.value;
         if(vue(obj).segLabelEls && vue(obj).segLabelEls[i]){
-          const a=obj.pts[i], b=obj.pts[(i+1)%obj.pts.length];
-          vue(obj).segLabelEls[i].textContent = etiquetteComposee(
-            obj.segmentNames[i], longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_ECRAN
+          const a=obj.pts![i]!, b=obj.pts![(i+1)%obj.pts!.length]!;
+          vue(obj).segLabelEls[i]!.textContent = etiquetteComposee(
+            obj.segmentNames![i]!, longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_ECRAN
           );
         }
       });
       td1.appendChild(ii);
       const td2=document.createElement('td');
       const len=document.createElement('input'); len.type='number'; len.step='0.01'; len.min='0.05';
-      len.value = dist(obj.pts[i], obj.pts[(i+1)%n]).toFixed(2);
-      const aFrozenUi = !!obj.frozenVertices[i];
-      const bFrozenUi = !!obj.frozenVertices[(i+1)%n];
+      len.value = dist(obj.pts![i]!, obj.pts![(i+1)%n]!).toFixed(2);
+      const aFrozenUi = !!obj.frozenVertices![i];
+      const bFrozenUi = !!obj.frozenVertices![(i+1)%n];
       const bothFrozenUi = aFrozenUi && bFrozenUi;
       len.disabled = bothFrozenUi;
       len.title = bothFrozenUi ? 'Les deux coins de ce cote sont figes' : (aFrozenUi || bFrozenUi ? 'Un coin est fige : l\'autre extremite du cote sera deplacee pour atteindre cette longueur' : '');
@@ -748,7 +749,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         if(!isNaN(v) && v>0){
           ctx.pushHistory();
           const ok = ctx.applyLengthEdit(obj,i,v);
-          if(!ok) len.value = dist(obj.pts[i], obj.pts[(i+1)%n]).toFixed(2); // reverted
+          if(!ok) len.value = dist(obj.pts![i]!, obj.pts![(i+1)%n]!).toFixed(2); // reverted
           ctx.rebuildHandles(obj); ctx.render();
         }
       });
@@ -757,8 +758,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Supprimer'; delBtn.className='secondary small';
       delBtn.style.marginLeft = '6px';
-      delBtn.disabled = obj.pts.length <= minPts;
-      delBtn.title = obj.pts.length<=minPts ? 'Impossible: nombre minimum de sommets atteint' : 'Supprime ce cote (fusionne les deux sommets voisins)';
+      delBtn.disabled = obj.pts!.length <= minPts;
+      delBtn.title = obj.pts!.length<=minPts ? 'Impossible: nombre minimum de sommets atteint' : 'Supprime ce cote (fusionne les deux sommets voisins)';
       delBtn.addEventListener('click', ()=>{ ctx.deleteVertex(obj, (i+1)%n); });
       td2.appendChild(delBtn);
       tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);

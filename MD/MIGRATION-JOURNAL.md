@@ -12,7 +12,7 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 4 — Modèle et conteneur d'état | ✅ 09/09/2026 | `v1.1.0-alpha.14` | `legacy.ts` réduit aux panneaux UI et à la 3D | dépassé : `legacy.ts` **supprimé**. La fermeture `boot()` vit dans `src/app/boot.ts`, module typé et linté ; six empreintes sur six inchangées à version égale |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
 | 6 — 3D et exports | ✅ 29/08/2026 | `v1.0.1-alpha.43` | (non formulé par la spec) | exports tous sortis (`export/**`) ; côté 3D, scène, navigation, soleil, chargeurs, visionneuse GLB, calque des couches et clôture sont sortis. Ne reste dans `legacy.ts` que le pilotage des modes, qui appartient à la coquille |
-| 7 — Cran de rigueur et nettoyage | 🟡 en cours | | O1–O6 atteints, `legacy.ts` supprimé | `legacy.ts` supprimé (09/09/2026) ; barreau 2 (`noImplicitAny`) à zéro sur tout le dépôt ; barreaux 3 à 7 devant |
+| 7 — Cran de rigueur et nettoyage | ✅ 20/09/2026 | `v1.1.0-alpha.15` | O1–O6 atteints, `legacy.ts` supprimé | `legacy.ts` supprimé (09/09/2026) ; `tsconfig.json` = configuration cible §9.1, 1 513 → 0 sur tout le dépôt ; six empreintes sur six inchangées à version égale |
 
 ---
 
@@ -1727,3 +1727,117 @@ recaptures antérieures ne pouvaient pas établir. Détail dans
 Le test d’échafaudage change d’objet plutôt que de disparaître : il vérifiait que `legacy.ts`
 commençait par `@ts-nocheck` ; il vérifie maintenant que `legacy.ts` n’existe plus **et** qu’aucun
 fichier de `src/` ne porte la directive. C’est le critère de sortie §14, gardé par un test.
+
+## Phase 7 — l'échelle gravie (20 septembre 2026)
+
+Les barreaux 3 à 7 de la spec §9.2 ont été franchis en une seule passe, et `tsconfig.json` porte
+désormais la configuration cible de la §9.1. Mesure cumulée au départ, sur le dépôt entier :
+
+| Barreau | Drapeau ajouté | Erreurs |
+|---|---|---:|
+| 3 | `strictNullChecks` | 602 |
+| 4 | `strict` complet | 636 |
+| 5 | `noUncheckedIndexedAccess` | 1 472 |
+| 6 | `exactOptionalPropertyTypes` | 1 508 |
+| 7 | `noUnusedLocals`, `noUnusedParameters`, `noImplicitOverride`, `noFallthroughCasesInSwitch` | 1 513 |
+
+À l'arrivée : 0. Le barreau 5 était bien le plus gros poste, comme la §9.2 l'annonçait : les
+tableaux parallèles à `pts` et les indices bornés par une boucle représentent plus de la moitié
+des 1 513.
+
+### La méthode : couche par couche, en parallèle, sous une même règle
+
+La §9.2.3 prévoyait de gravir les barreaux « couche par couche dans le même ordre, et non drapeau
+par drapeau ». C'est ce qui a été fait, avec une différence de rythme : les quinze dossiers ont été
+traités **en même temps**, chacun par un passage indépendant, parce que les corrections sont
+locales. Une règle unique pour tous, et elle tient en une phrase : **aucun changement de
+comportement à l'exécution**. Donc uniquement des types — `!` là où le code environnant garantit
+déjà l'invariant, `| undefined` là où une propriété facultative reçoit `undefined` en clair, `as`
+là où une garantie existe que le compilateur ne voit pas — et jamais un `if`, un `return`, une
+valeur par défaut ou un `??` de plus. Un passage ne modifiait que son dossier et ses tests ; les
+types partagés (`model/types.ts`) n'ont bougé qu'à deux endroits, signalés par le passage `ui/` et
+appliqués ensuite : `prixVisUnite` et `vignette` acceptent `undefined`.
+
+La règle est vérifiable, et elle a été vérifiée : le diff de `geometry/`, une fois les `!` ôtés,
+est identique à l'original ligne pour ligne. Celui d'`ui/`, une fois `!`, `(e as Error)` et deux
+casts retirés, aussi.
+
+`app/` est passé en dernier et seul, parce que c'est la racine de composition : c'est là que les
+contextes fournis aux autres dossiers se comparent aux interfaces qu'ils exigent, et c'est là que
+les signatures fausses se voient.
+
+### Ce que le compilateur a trouvé : des signatures qui disaient faux
+
+`strictFunctionTypes` compare les paramètres dans le bon sens, et c'est lui qui a fait tomber les
+interfaces écrites « pour compiler » :
+
+- **`ContexteHistorique` disait `unknown[]`** pour des objets du plan et des cotes. Il est désormais
+  générique sur leur forme : la racine de composition y met `ObjetPlan` et `Mesure`, un test y met
+  la doublure minimale qu'il veut. L'historique ne lit que `key`, et son type le dit enfin.
+- **`appliquerProjetImporte` recevait `unknown`** dans `app/ecouteurs/fichiers.ts` et dans
+  `ui/projectBar.ts` alors qu'elle exige un `ProjetValide` — le type que `validerProjetJSON` rend.
+  L'appel de `cadastreDialog.ts` construit bien un `ProjetValide` ; il compile sans changement.
+- `ContexteAttrPanel.startPick` et `measureSegCoords` disaient `string` et `| null` là où les
+  unions réelles (`Pointage['mode']`, `CoteDesigne`) existaient déjà ; `ContexteVue3d.setMode3D`
+  prend un `Mode3D` ; `ContexteMesurePanel.refLabel` accepte `null`, ce que son implémentation
+  faisait depuis le début.
+- `chargerTuileOrtho` annonçait `Promise<string | undefined>` alors que le `has` précède le `get` :
+  elle rend `Promise<string>`. `three/etat3d.ts` disait `unknown` pour une `Date`.
+- `ContexteEmpilement` est générique sur le type d'élément ; à la racine, l'ajout au SVG suppose
+  `el` posé, exactement comme l'appel direct le supposait — c'est écrit une fois, là où c'est vrai.
+
+Et deux symboles morts de plus, dans la lignée des 280 du 9 septembre : le paramètre `lamesAngle`
+d'`evaluerStructure`, jamais lu (l'angle est recalculé en amont), et `GlisserEnCours.startR`.
+
+### Ce que le compilateur n'a pas corrigé, et qu'il faut savoir
+
+Une assertion `!` ne rend pas un invariant vrai : elle dit qu'il l'est **ailleurs**. Les passages
+ont relevé où cet ailleurs est fragile. Rien n'a été corrigé — ce palier ne change pas de
+comportement — mais tout est ici, groupé par ce qui tient l'invariant :
+
+**Tenu par `normalizeObjects`, pas par le type.** « `type === 'polygon'` implique `pts` présent »,
+« `type === 'circle'` implique `center` et `r` », « `vertexNames`/`segmentNames` alignés sur `pts` » :
+une soixantaine de sites dans `attrPanel.ts`, et partout dans `render/`, `export/`, `three/`,
+`engine/parasol.ts`. C'est le chantier de l'union discriminée que `types.ts` annonce depuis la
+phase 4 (spec §12), et ce palier le rend plus visible, pas plus urgent.
+
+**Tenu par `ensureConstruction`, sauf quatre champs.** `soliveSection`, `soliveEntraxe`,
+`lambourdeEntraxe`, `essenceBois` ne sont posés que par `defaultConstruction()`, jamais comblés à
+l'ouverture (le commentaire de `Construction` le dit). Sur un projet enregistré sans eux,
+`computeDebitsBois` produirait `section: undefined` et un titre « (undefined) ». C'est le
+comportement actuel ; les `!` le laissent passer.
+
+**Tenu par l'appelant.** `rect.ts` suppose `pts.length === 4`, garanti par `estRectangle` chez
+l'appelant ; `alignement.ts` et `interaction/editing.ts` reçoivent un indice de l'interface sans le
+borner ; `render/objects.ts` suppose que `reconstruirePoignees` ramène `pointEls` à la bonne
+longueur ; `tables.ts` suppose « `calcule` implique `prixReel` posé », tenu par `engine/bom`.
+
+**Des `!` qui mentent, et le disent.** `io/importSvg.ts` : sur un SVG étranger,
+`parseFloat(el.getAttribute(...))` reçoit réellement `null`, et c'est le `NaN` qui en sort que
+`Number.isFinite` attend en aval. `geometry/path.ts::num` lit au-delà de la fin sur un chemin
+tronqué, rattrapé par le même `isFinite`. Ces deux-là sont commentés : si quelqu'un retire un jour
+la garde aval, le compilateur ne préviendra plus.
+
+**Ce qui ressemble à un bug, à traiter hors de ce palier.** `io/importSvg.ts` l.179 : le
+commentaire annonce une vérification « ligne à ligne » des mesures restaurées, seule l'existence
+des deux objets est contrôlée — `refSegIndex`, `startEnd`, `targetPtIndex` sont recopiés tels
+quels. `ui/projectBar.ts` l.387 : la garde ne vérifie qu'`origineLat` avant de projeter avec
+`origineLon`. `ui/cadastreDialog.ts` l.303 : `hauteurBatiment(b.props!)` alors que `props` est
+facultatif et lu sans garde. `three/scene.ts` : un objet sans `fill` arrive à `MeshStandardMaterial`
+comme `undefined`, que Three r128 ignore avec un avertissement. `three/exportGlb.ts` : si la scène
+WebGL n'a pas pu se créer, l'export GLB échoue sur un `TypeError` rattrapé en bannière, message
+peu explicite. `util/semaine.ts`, `three/lumiere.ts`, `engine/parasol.ts` : une date qui n'a pas
+trois segments donne `NaN` en silence.
+
+### La preuve
+
+Le protocole habituel, dans l'ordre. D'abord **à version inchangée** : le build fraîchement typé
+reproduit les six empreintes d'`alpha.14` au bit près — le typage n'a rien déplacé, alors que le
+build lui-même a changé de cinq octets (imports morts, paramètre renommé). Ensuite le numéro passe
+à `alpha.15` et les six sont recapturées. Enfin la preuve forte du 9 septembre, refaite :
+`alpha.14` et `alpha.15` ayant la même longueur, remettre l'ancien numéro dans les six octets frais
+reproduit **les six empreintes précédentes au bit près, les deux PDF compris**. Détail dans
+[`../tests/fixtures/golden/EMPREINTES.md`](../tests/fixtures/golden/EMPREINTES.md).
+
+535 tests, inchangés. `tsc --noEmit`, ESLint et le cliquet à zéro sur `src/` et `tests/`. Le
+cliquet n'a plus de drapeaux à monter : il reste le rapport par dossier, et la garde.

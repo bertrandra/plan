@@ -72,8 +72,8 @@ export function validerProjetJSON(data: unknown): ProjetValide {
   // Une coordonnee absurde signe un fichier dans une autre unite (millimetres, pixels...) :
   // mieux vaut refuser que de charger un plan de 12 km de large impossible a retrouver a l'ecran.
   const horsLimite = objets.some(o => o.type === 'circle'
-    ? (Math.abs(o.center.x) > 100000 || Math.abs(o.center.y) > 100000)
-    : o.pts.some(p => Math.abs(p.x) > 100000 || Math.abs(p.y) > 100000));
+    ? (Math.abs(o.center!.x) > 100000 || Math.abs(o.center!.y) > 100000)
+    : o.pts!.some(p => Math.abs(p.x) > 100000 || Math.abs(p.y) > 100000));
   if(horsLimite) throw new Error('Coordonnees aberrantes (au-dela de 100 000 m) : le fichier n\'est probablement pas en metres.');
   return { meta, objets, mesures: Array.isArray(brut.measures) ? brut.measures as Partial<Mesure>[] : [], ignores };
 }

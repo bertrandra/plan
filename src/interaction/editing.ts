@@ -48,9 +48,9 @@ export function editerAngle(
 ): boolean {
   const n = obj.pts.length;
   if (obj.frozenVertices && obj.frozenVertices[(i + 1) % n]) return false;
-  const prec = obj.pts[(i - 1 + n) % n],
-    cur = obj.pts[i],
-    suiv = obj.pts[(i + 1) % n];
+  const prec = obj.pts[(i - 1 + n) % n]!,
+    cur = obj.pts[i]!,
+    suiv = obj.pts[(i + 1) % n]!;
   const u = { x: prec.x - cur.x, y: prec.y - cur.y };
   const v = { x: suiv.x - cur.x, y: suiv.y - cur.y };
   const L = Math.hypot(v.x, v.y);
@@ -84,8 +84,8 @@ export function editerLongueur(
   const bGele = !!(obj.frozenVertices && obj.frozenVertices[j]);
   if (aGele && bGele) return false; // les deux extremites verrouillees : rien ne peut bouger
 
-  const a = obj.pts[i],
-    b = obj.pts[j];
+  const a = obj.pts[i]!,
+    b = obj.pts[j]!;
 
   if (bGele) {
     const dx = a.x - b.x,

@@ -6,7 +6,9 @@
 /** Une date `AAAA-MM-JJ` decoupee, sans passer par `new Date()` et son fuseau. */
 function partsDe(dateStr: string): [number, number, number] {
   const [annee, mois, jour] = dateStr.split('-').map(Number);
-  return [annee, mois, jour];
+  // Une date mal formee donnerait `undefined`, que `Date.UTC` transforme en NaN — comportement
+  // d'origine, conserve.
+  return [annee!, mois!, jour!];
 }
 
 /**

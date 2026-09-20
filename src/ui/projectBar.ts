@@ -36,11 +36,12 @@ import type { Lieu } from '../model/lieu.js';
 // Un projet du serveur, tel que la liste et la barre le montrent : la meme ligne que celle que rend
 // `apiList()`. Elle est decrite une seule fois, la ou elle arrive.
 import type { ProjetResume as ProjetMeta } from '../io/api.js';
+import type { ProjetValide } from '../io/validation.js';
 
 /** Ce que le choix depuis une adresse ouvre : voir `cadastreDialog.ts`. */
 export interface ContexteImportCadastre {
   apiSave: (payload: unknown) => Promise<{ id: string }>;
-  appliquerProjetImporte: (valide: unknown, remplacer: boolean) => void;
+  appliquerProjetImporte: (valide: ProjetValide, remplacer: boolean) => void;
   withProjectParam: (id: string) => string;
   apiDisponible: boolean;
   cleDernierProjet: string;
@@ -75,7 +76,7 @@ export interface ContexteProjectBar {
 /** Ce que la barre de projet recoit au demarrage : liste des projets et projet courant. */
 interface SeedProjectBar {
   apiAvailable: boolean;
-  meta?: ProjetMeta | null;
+  meta?: ProjetMeta | null | undefined;
   list: ProjetMeta[];
 }
 
@@ -86,7 +87,7 @@ export interface OptionsActualisation {
 }
 
 export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): void {
-  const bar = document.getElementById('projectBar');
+  const bar = document.getElementById('projectBar')!;
   bar.innerHTML = '';
 
   // Pastille de version, calee a droite de la barre : c'est la premiere chose a demander dans un
@@ -155,7 +156,7 @@ export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): 
   sel.addEventListener('change', ()=>{
     const target = sel.value;
     if(ctx.etat.dirty){
-      sel.value = currentMeta.id; // revert until confirmed, so a cancel leaves the dropdown consistent
+      sel.value = currentMeta!.id; // revert until confirmed, so a cancel leaves the dropdown consistent
       showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', ()=>{
         localStorage.setItem(ctx.cleDernierProjet, target);
         location.href = ctx.withProjectParam(target);
@@ -175,7 +176,7 @@ export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): 
         localStorage.setItem(ctx.cleDernierProjet, created.id);
         location.href = ctx.withProjectParam(created.id);
       } catch(e){
-        showErrBanner('Impossible de creer le projet : ' + (e.message||e));
+        showErrBanner('Impossible de creer le projet : ' + ((e as Error).message||e));
       }
     });
   });
@@ -195,7 +196,7 @@ export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): 
       ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
       showToast('Projet enregistre.');
     } catch(e){
-      showErrBanner('Echec de l\'enregistrement : ' + (e.message||e));
+      showErrBanner('Echec de l\'enregistrement : ' + ((e as Error).message||e));
     } finally {
       saveBtn.disabled = false; saveBtn.textContent = 'Enregistrer';
       ctx.refreshProjectStatus();
@@ -207,14 +208,14 @@ export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): 
   delBtn.title = 'Supprimer ce projet du serveur';
   delBtn.disabled = list.length <= 1;
   delBtn.addEventListener('click', ()=>{
-    showConfirm('Supprimer definitivement le projet "' + currentMeta.name + '" ? Cette action est irreversible.', async ()=>{
+    showConfirm('Supprimer definitivement le projet "' + currentMeta!.name + '" ? Cette action est irreversible.', async ()=>{
       try{
-        await ctx.apiDelete(currentMeta.id);
+        await ctx.apiDelete(currentMeta!.id);
         localStorage.removeItem(ctx.cleDernierProjet);
         const url = new URL(location.href); url.searchParams.delete('projet');
         location.href = url.toString();
       } catch(e){
-        showErrBanner('Echec de la suppression : ' + (e.message||e));
+        showErrBanner('Echec de la suppression : ' + ((e as Error).message||e));
       }
     });
   });
@@ -257,7 +258,7 @@ export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx: 
     ctx.markDirty();
     renderPanneauPlu(ctx);
     const n = plu.zones.length;
-    showToast(n ? ('PLU : zone ' + plu.zones[0].libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
+    showToast(n ? ('PLU : zone ' + plu.zones[0]!.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
                 : 'PLU : aucun zonage renvoye pour ce point.');
   } catch (e) {
     showToast('Interrogation du PLU impossible : ' + ((e as Error).message || e));
@@ -387,7 +388,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   if(bouton){ bouton.disabled = true; bouton.textContent = 'Actualisation…'; }
   const bilan = [];
   try {
-    const proj = projecteurLocal(cad.origineLat, cad.origineLon);
+    const proj = projecteurLocal(cad.origineLat, cad.origineLon!);
     const simplifier = !!cad.simplifieM;
 
     // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
@@ -422,7 +423,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     const fraiches: Record<string, FeatureGeoJSON> = {};
     if(couches.length){
       const anneaux: Anneau[] = [];
-      ctx.etat.objects.forEach((o: ObjetPlan)=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]); });
+      ctx.etat.objects.forEach((o: ObjetPlan)=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]!); });
       if(anneaux.length){
         const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
         for(const couche of couches){
@@ -451,11 +452,11 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           segmentNames: ptsParcelle.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
           frozenVertices: ptsParcelle.map(()=>false)
         });
-        const pp: Record<string, unknown> = featParcelle.properties || {};
+        const pp: Record<string, unknown> = featParcelle!.properties || {};
         copie.cadastre = Object.assign({}, o.cadastre, {
           contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
           recupereLe: new Date().toISOString(),
-          geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(featParcelle.geometry)] }
+          geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(featParcelle!.geometry)] }
         });
         return copie;
       }
@@ -520,7 +521,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       const deg = proj.versDegres(centre.x, centre.y);
       try {
         cible.plu = await interrogerPlu(deg.lon, deg.lat);
-        if(cible.plu.zones.length) bilan.push('PLU : zone ' + cible.plu.zones[0].libelle);
+        if(cible.plu.zones.length) bilan.push('PLU : zone ' + cible.plu.zones[0]!.libelle);
         else bilan.push('PLU : aucun zonage');
       } catch { bilan.push('PLU indisponible'); }
       renderPanneauPlu(ctx);
@@ -711,7 +712,7 @@ export async function construireVoisinage(
       cadastre: {
         idu:c.idu, codeInsee:c.codeInsee, commune:c.commune, section:c.section, numero:c.numero,
         contenanceM2:c.contenance, source:'IGN/API Carto/PCI', recupereLe,
-        origineLat:cad.origineLat, origineLon:cad.origineLon,
+        origineLat:cad.origineLat!, origineLon:cad.origineLon!,
         simplifieM: simplifier ? SIMPLIF_M : 0,
         geometrieSource:{ type:'Polygon', coordinates:[c.anneauDeg] }
       }

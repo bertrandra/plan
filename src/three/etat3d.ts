@@ -68,7 +68,7 @@ export const glb: {
   /** Fond de la visionneuse : « clair » ou « sombre ». */
   fond: string;
   /** Le dernier modele exporte, garde pour pouvoir le reafficher sans le recalculer. */
-  dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: unknown } | null;
+  dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: Date } | null;
 
   /** Date et heure de la course du soleil dans la visionneuse, independantes de celles du plan. */
   dateStr: string;
@@ -165,5 +165,11 @@ export interface PlanVuDeLa3d {
  * `pts[0]` est la position, `pts[0] → pts[1]` la direction. C'est bien un objet du plan
  * (`ObjetPlan` de type « pointDeVue »), mais seuls ces deux champs entrent dans le calcul de
  * camera.
+ *
+ * Les deux champs acceptent `undefined` explicitement (et pas seulement l'absence) : un point de vue
+ * sans altitude se construit aussi bien avec `{ altitude: undefined }` qu'en omettant le champ.
  */
-export type PointDeVue = Pick<ObjetPlan, 'pts' | 'altitude'>;
+export interface PointDeVue {
+  pts?: ObjetPlan['pts'] | undefined;
+  altitude?: ObjetPlan['altitude'] | undefined;
+}

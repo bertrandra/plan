@@ -68,7 +68,7 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(k.chargeSpa===undefined) k.chargeSpa = CHARGE_SPA_DEFAUT;
   if(k.kPortee===undefined) k.kPortee = PORTEE_VIS_K;
   if(k.kEntraxeLame===undefined) k.kEntraxeLame = ENTRAXE_LAME_K;
-  if(k.coefRaideurLame===undefined) k.coefRaideurLame = LAME_RAIDEUR[k.essenceBois] !== undefined ? LAME_RAIDEUR[k.essenceBois] : 1;
+  if(k.coefRaideurLame===undefined) k.coefRaideurLame = LAME_RAIDEUR[k.essenceBois!] !== undefined ? LAME_RAIDEUR[k.essenceBois!]! : 1;
   if(k.jeuLames===undefined) k.jeuLames = 6;
   if(k.epaisseurLameRive===undefined) k.epaisseurLameRive = Math.round(LAME_RIVE_EPAISSEUR_M*1000);
   if(k.longueursLames===undefined) k.longueursLames = LONGUEURS_LAMES_DEFAUT.join(', ');

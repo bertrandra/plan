@@ -206,10 +206,10 @@ describe('cartes d ombre et recherche de position', () => {
   it('calcule une carte d ombre par terrasse portant un parasol', () => {
     const cartes = calculerCartesOmbre(ctx, [terrasse, parasol] as never[]);
     expect(cartes.length).toBe(1);
-    expect(cartes[0].terrKey).toBe('terr');
-    expect(cartes[0].cells.length).toBeGreaterThan(0);
+    expect(cartes[0]!.terrKey).toBe('terr');
+    expect(cartes[0]!.cells.length).toBeGreaterThan(0);
     // Chaque cellule porte la fraction d'echantillons ou elle est a l'ombre : entre 0 et 1.
-    for (const c of cartes[0].cells) {
+    for (const c of cartes[0]!.cells) {
       expect(c.frac).toBeGreaterThanOrEqual(0);
       expect(c.frac).toBeLessThanOrEqual(1);
     }

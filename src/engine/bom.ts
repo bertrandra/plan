@@ -19,9 +19,9 @@ export type ProduitBarre = 'lames' | 'bois' | 'lambourde';
 
 export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] {
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts);
+  const surf = shoelace(obj.pts!);
   const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const essence = ESSENCE_PRICES[c.essenceBois] || ESSENCE_PRICES.autre;
+  const essence = ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!;
   // Essence prices are per m2 (like the main lames); convert to a per-ml price for the
   // perimeter board using its width, rather than reusing the m2 figure directly.
   const lameWidthM = (c.largeurLame||140)/1000;
@@ -60,7 +60,8 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
     { poste:'visserie',   label:'Visserie / fixations',             qte:surf,              unite:'m²', prixBas:VISSERIE_PRICE.bas, prixHaut:VISSERIE_PRICE.haut },
     { poste:'lameRive',   label:'Lame de rive (finition)',          qte:lameRiveMl,        unite:'ml', prixBas:c.avecLameRive?LAME_RIVE_PRICE.bas:0, prixHaut:c.avecLameRive?LAME_RIVE_PRICE.haut:0 }
   );
-  lines.forEach(l=>{ l.prixReel = (prevReel[l.poste]!==undefined) ? prevReel[l.poste] : null; });
+  // La garde exclut `undefined` ; le compilateur ne suit pas une clef lue par propriete.
+  lines.forEach(l=>{ l.prixReel = (prevReel[l.poste]!==undefined) ? prevReel[l.poste] as number | null : null; });
   // These lines are priced from their cut-list rather than by hand: the prices live per stock
   // length, where the merchant actually quotes them, and one source of truth beats two that can
   // disagree. `calcule` tells renderBOMTable to show it read-only.
@@ -76,8 +77,8 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   Object.keys(calcules).forEach(poste=>{
     const l = lines.find(x=>x.poste===poste);
     if(l){
-      l.prixReel = Math.round(calcules[poste].cout*100)/100;
-      l.calcule = calcules[poste].note;
+      l.prixReel = Math.round(calcules[poste]!.cout*100)/100;
+      l.calcule = calcules[poste]!.note;
     }
   });
   return lines;
@@ -102,7 +103,7 @@ export function largeurProduit(c: Construction, cle: ProduitBarre): number {
 }
 export function prixBarreDefaut(c: Construction, cle: ProduitBarre, L: number): number {
   if(cle === 'lames'){
-    const essence = ESSENCE_PRICES[c.essenceBois] || ESSENCE_PRICES.autre;
+    const essence = ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!;
     return Math.round(((essence.bas+essence.haut)/2) * largeurProduit(c,'lames') * L * 100)/100;
   }
   return Math.round(((SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2) * L * 100)/100;
@@ -161,7 +162,7 @@ export function computeAssise(c: Construction, surfM2: number, nbPlots: number){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
   if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
-  const t = SUPPORT_TYPES[c.supportType] || SUPPORT_TYPES.concasse;
+  const t = SUPPORT_TYPES[c.supportType!] || SUPPORT_TYPES.concasse!;
   const ep = Math.max(0, c.supportDecaissement||15)/100;
   return {
     type:t,
@@ -182,7 +183,7 @@ export function chargePlot(c: Construction, nbPlots: number, surfM2: number){
 // What a cut-list actually costs, at the per-length prices in force.
 export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): number {
   return Object.keys(debit.achats)
-    .reduce((s,L)=>s + debit.achats[L]*prixBarre(c, cle, parseFloat(L)), 0);
+    .reduce((s,L)=>s + debit.achats[L]!*prixBarre(c, cle, parseFloat(L)), 0);
 }
 export const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];
 // "3, 2.5, 2" -> [3, 2.5, 2], longest first. Tolerates commas, semicolons, spaces and the

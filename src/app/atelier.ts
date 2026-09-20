@@ -30,7 +30,7 @@ export interface Atelier {
   // ---- L'état, et de quoi le lire -------------------------------------------------------------
   etat: EtatPlan;
   /** Un objet par sa clé, ou `undefined`. */
-  objByKey: (key: string) => ObjetPlan | undefined;
+  objByKey: (key: string | null) => ObjetPlan | undefined;
   /** L'état du plan au chargement — la référence du bouton « Réinitialiser ». */
   initialState: () => ObjetPlan[];
   initialMeasures: () => Mesure[];

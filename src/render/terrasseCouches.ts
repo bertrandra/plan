@@ -42,7 +42,7 @@ const VIS_ROLE_COLOR: Record<string, string> = { rive: '#0f3d49', spa: '#a8452a'
  * dessinerait jamais rien laisserait croire a un bug.
  */
 export function renderTerrasseLayerTabs(obj: ObjetPlan, redessiner: () => void): void {
-  const div = document.getElementById('terrasseLayerTabs');
+  const div = document.getElementById('terrasseLayerTabs')!;
   div.innerHTML = '';
   const c = ensureConstruction(obj);
   TERRASSE_LAYER_DEFS.forEach(([key, libelle, couleur]) => {
@@ -53,12 +53,12 @@ export function renderTerrasseLayerTabs(obj: ObjetPlan, redessiner: () => void):
     wrap.style.cssText = 'display:inline-flex; align-items:center; gap:5px; margin-right:16px; font-size:0.85rem; cursor:pointer;';
     const swatch = document.createElement('span');
     swatch.style.cssText = 'display:inline-block; width:10px; height:10px; border-radius:2px; background:' + couleur + ';';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = terrasseLayerVisible[key];
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = terrasseLayerVisible[key]!;
     cb.addEventListener('change', () => { terrasseLayerVisible[key] = cb.checked; redessiner(); });
     wrap.appendChild(cb); wrap.appendChild(swatch); wrap.appendChild(document.createTextNode(label));
     div.appendChild(wrap);
   });
-  document.getElementById('terrasseLayerHint').textContent =
+  document.getElementById('terrasseLayerHint')!.textContent =
     (estPlots(c)
       ? 'Vis : implantation des plots (resserree sous tout objet de fonction equipement). Solives : structure primaire, absente en pose simple sur plots. '
       : 'Vis : grille de fondation (resserree sous tout objet de fonction equipement). Solives : structure primaire. ')

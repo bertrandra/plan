@@ -23,7 +23,7 @@ import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js
  * de type, soit une clef et un nom inventes pour satisfaire le compilateur.
  */
 export interface TerrasseEtudiee {
-  pts?: PtBrut[];
+  pts?: PtBrut[] | undefined;
   construction?: Construction;
 }
 
@@ -81,7 +81,7 @@ export const SOLIVE_SECTION_DIMS: Record<string, DimsSection> = {
 // Lambourdes carry only the lames over a short span, so the range starts smaller than for the
 // solives; the bigger sections stay available for a build where they share one section.
 export const LAMBOURDE_SECTIONS = ['40x60','45x45','45x70','45x95','63x175'];
-export function dimsSection(sec: string | undefined): DimsSection { return SOLIVE_SECTION_DIMS[sec] || SOLIVE_SECTION_DIMS['45x70']; }
+export function dimsSection(sec: string | undefined): DimsSection { return SOLIVE_SECTION_DIMS[sec!] || SOLIVE_SECTION_DIMS['45x70']!; }
 export function sectionLambourde(c: Construction): string { return c.lambourdeSection || c.soliveSection || '45x70'; }
 // Bending deflection makes the admissible span of a beam vary as (E*I/charge)^(1/3); with
 // I = b*h^3/12 and the load carried proportional to the entraxe, that collapses to
@@ -98,7 +98,7 @@ export const CHARGE_REF = 250;
 export const CHARGE_NORMALE_DEFAUT = 250;
 export const CHARGE_SPA_DEFAUT = 500;   // spa rempli + occupe : ~1,5 a 2 t sur 3 a 4 m2
 export function maxPorteeVisM(c: Construction): number {
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection] || SOLIVE_SECTION_DIMS['45x70'];
+  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
   const entraxeMm = Math.max(200, (c.soliveEntraxe||40)*10);
   const k = c.kPortee || PORTEE_VIS_K;
   const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
@@ -119,7 +119,7 @@ export function porteeAppuiM(c: Construction): number {
     return Math.max(0.2, Math.min(PLOT_ENTRAXE_MAX_M, (c.plotEntraxe||65)/100));
   }
   // La piece posee sur les plots est la solive en structure double, la lambourde sinon.
-  const sec = c.plotAvecSolives ? c.soliveSection : sectionLambourde(c);
+  const sec = c.plotAvecSolives ? c.soliveSection! : sectionLambourde(c);
   const ent = c.plotAvecSolives ? (c.soliveEntraxe||40) : maxEntraxeLameCm(c);
   return Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ ...c, soliveSection:sec, soliveEntraxe:ent }));
 }
@@ -147,7 +147,7 @@ export const LAME_RAIDEUR: Record<string, number> = { 'pin-classe4':1.00, 'dougl
 // otherwise the solives themselves. Rounded to 5 cm because that is how a deck gets set out.
 export function coefRaideurLame(c: Construction): number {
   return (c.coefRaideurLame !== undefined && c.coefRaideurLame !== null)
-    ? c.coefRaideurLame : (LAME_RAIDEUR[c.essenceBois] !== undefined ? LAME_RAIDEUR[c.essenceBois] : 1);
+    ? c.coefRaideurLame : (LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1);
 }
 export function maxEntraxeLameCm(c: Construction): number {
   const ep = Math.max(15, c.epaisseurLame||25);
@@ -160,7 +160,7 @@ export function maxEntraxeLameCm(c: Construction): number {
 export function prixUnitaire(c: Construction, poste: string, range: Fourchette): number {
   const line = (c.bom||[]).find(l=>l.poste===poste);
   // prixReel is the total for the line, not a rate: divide it back down before using it as one.
-  if(line && line.prixReel>0 && line.qte>0) return line.prixReel/line.qte;
+  if(line && line.prixReel!>0 && line.qte>0) return line.prixReel!/line.qte;
   return (range.bas+range.haut)/2;
 }
 // Walks the configurations that satisfy both rules at once - the lames must not span further
@@ -179,7 +179,7 @@ export function tarifSection(prixBoisRef: number, sec: string | undefined): numb
   const d = dimsSection(sec);
   return prixBoisRef * (d.b*d.h) / SECTION_REF_AIRE;
 }
-export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prixVis: number, prixBois: number, lamesAngle: number, surf: number, objets: ObjetPlan[]): CandidatStructure {
+export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prixVis: number, prixBois: number, _lamesAngle: number, surf: number, objets: ObjetPlan[]): CandidatStructure {
   const probe = { pts:obj.pts, construction:trial };
   const S = computeStructure(probe, objets);
   const vis = buildVisGrid(probe, S, objets);
@@ -194,8 +194,8 @@ export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prix
   const coutBois = mlPorteur*tarifSection(prixBois, trial.soliveSection)
                  + mlCadre  *tarifSection(prixBois, secCadre)
                  + mlLamb   *tarifSection(prixBois, sectionLambourde(trial));
-  return { section:trial.soliveSection, avecLambourde:!!trial.avecLambourde,
-           soliveEntraxe:trial.soliveEntraxe, lambourdeEntraxe:trial.lambourdeEntraxe,
+  return { section:trial.soliveSection!, avecLambourde:!!trial.avecLambourde,
+           soliveEntraxe:trial.soliveEntraxe!, lambourdeEntraxe:trial.lambourdeEntraxe!,
            vis:vis.length, ml:+(mlPorteur+mlCadre+mlLamb).toFixed(1),
            densite:+(vis.length/surf).toFixed(2),
            portee:Math.round(porteeAppuiM(trial)*100),
@@ -203,7 +203,7 @@ export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prix
 }
 export function optimiserParametres(obj: ObjetPlan, objets: ObjetPlan[]): CandidatStructure[] {
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts) || 1;
+  const surf = shoelace(obj.pts!) || 1;
   // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
   // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
   // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the
@@ -340,7 +340,7 @@ export function empriseEquipement(o: ObjetPlan): PtBrut[] | null {
     if(rc <= 0) return null;
     for(let i=0;i<N;i++){
       const a = 2*Math.PI*i/N;
-      pts.push({ x:o.center.x + rc*Math.cos(a), y:o.center.y + rc*Math.sin(a) });
+      pts.push({ x:o.center!.x + rc*Math.cos(a), y:o.center!.y + rc*Math.sin(a) });
     }
     return pts;
   }
@@ -416,10 +416,10 @@ export function generateSpanningLines(poly: PtBrut[], angleDeg: number, maxSpaci
 // the deck rests on nothing and the perimeter screws carry thin air.
 export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const c = ensureConstruction(obj);
-  const poly = obj.pts;
+  const poly = obj.pts!;
   const n = poly.length;
   const lamesAngle = lamesAngleOf(obj);
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection] || SOLIVE_SECTION_DIMS['45x70'];
+  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
   const soliveW = dims.b/1000;
 
   // Centreline pulled in half a section so the outer face of the frame sits flush with the
@@ -432,7 +432,7 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   // lambourdes. Topologie double (plots sous solives) : identique au mode vis.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
-  const perim = poly.reduce((s,p,i)=>s+dist(p, poly[(i+1)%n]), 0) || 1;
+  const perim = poly.reduce((s,p,i)=>s+dist(p, poly[(i+1)%n]!), 0) || 1;
   const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
   const cadre = ringSegments(safeOffset(poly, cadreOff));
 
@@ -503,7 +503,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   const dx = (seg.b.x-seg.a.x)/L, dy = (seg.b.y-seg.a.y)/L;
   const ts = [0, L];
   for(let i=0;i<poly.length;i++){
-    const p = poly[i], q = poly[(i+1)%poly.length];
+    const p = poly[i]!, q = poly[(i+1)%poly.length]!;
     const ex = q.x-p.x, ey = q.y-p.y;
     const den = dx*ey - dy*ex;
     if(Math.abs(den) < 1e-12) continue;   // piece parallele a l'arete : pas de franchissement
@@ -514,7 +514,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   ts.sort((a,b)=>a-b);
   const out: Intervalle[] = [];
   for(let i=0;i<ts.length-1;i++){
-    const d0 = ts[i], d1 = ts[i+1];
+    const d0 = ts[i]!, d1 = ts[i+1]!;
     if(d1-d0 < 1e-6) continue;
     const mid = { x:seg.a.x+dx*(d0+d1)/2, y:seg.a.y+dy*(d0+d1)/2 };
     if(!pointInPolygon(mid, poly)) continue;
@@ -573,9 +573,9 @@ export function buildVisGrid(obj: TerrasseEtudiee, structure: Structure | null, 
 // Direction the lames run in: the reference side, turned by the chosen sens de pose.
 export function lamesAngleOf(obj: TerrasseEtudiee): number {
   const c = ensureConstruction(obj);
-  const n = obj.pts.length;
+  const n = obj.pts!.length;
   const refIdx = Math.min(c.segmentReference||0, n-1);
-  const a = obj.pts[refIdx], b = obj.pts[(refIdx+1)%n];
+  const a = obj.pts![refIdx]!, b = obj.pts![(refIdx+1)%n]!;
   return angleOfSegment(a,b)*180/Math.PI + (c.sensPose||0);
 }
 // Screw count on its own, for the density readout in the configurator.

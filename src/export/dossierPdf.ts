@@ -22,7 +22,7 @@ import type { PagePdf } from './pdf/writer.js';
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
 export interface MetaDossier {
   appVersion: string;
-  nomProjet?: string;
+  nomProjet?: string | null | undefined;
 }
 
 /** Point du plan avec de quoi calculer une projection PDF : `P(p)` rend des points en pt PostScript. */
@@ -36,14 +36,14 @@ interface OptionsAngles { taille?: number }
 
 function dimensionsObjet(o: ObjetPlan){
   if(o.type === 'circle'){
-    return { libelle: 'diametre ' + (o.r*2).toFixed(2).replace('.',',') + ' m',
-             surface: Math.PI*o.r*o.r, largeur: o.r*2, longueur: o.r*2 };
+    return { libelle: 'diametre ' + (o.r!*2).toFixed(2).replace('.',',') + ' m',
+             surface: Math.PI*o.r!*o.r!, largeur: o.r!*2, longueur: o.r!*2 };
   }
   const xs = (o.pts||[]).map(p=>p.x), ys = (o.pts||[]).map(p=>p.y);
   const l = Math.max(...xs)-Math.min(...xs), h = Math.max(...ys)-Math.min(...ys);
   if(o.type === 'path'){
     let L = 0;
-    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(o.pts![i], o.pts![i+1]);
+    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(o.pts![i]!, o.pts![i+1]!);
     return { libelle: 'longueur ' + L.toFixed(2).replace('.',',') + ' m x ' + (o.width||0.5).toFixed(2).replace('.',',') + ' m',
              surface: L*(o.width||0.5), largeur:o.width||0.5, longueur:L };
   }
@@ -56,7 +56,7 @@ function dimensionsObjet(o: ObjetPlan){
 // Angle interieur au sommet i, en degres.
 function angleSommetDeg(pts: PtBrut[], i: number): number | null {
   const n = pts.length;
-  const a = pts[(i-1+n)%n], b = pts[i], c = pts[(i+1)%n];
+  const a = pts[(i-1+n)%n]!, b = pts[i]!, c = pts[(i+1)%n]!;
   const u = {x:a.x-b.x, y:a.y-b.y}, v = {x:c.x-b.x, y:c.y-b.y};
   const nu = Math.hypot(u.x,u.y), nv = Math.hypot(v.x,v.y);
   if(nu < 1e-9 || nv < 1e-9) return null;
@@ -78,7 +78,7 @@ function cotationPolygone(pts: PtBrut[], P: Projeteur, opts?: OptionsCotation): 
   const sens = signedArea(pts) > 0 ? 1 : -1;   // +1 = sens trigonometrique
   let c = '';
   pts.forEach((a, i)=>{
-    const b = pts[(i+1) % pts.length];
+    const b = pts[(i+1) % pts.length]!;
     const lon = dist(a,b);
     if(lon < (o.longueurMin || 0.05)) return;
     const dx = (b.x-a.x)/lon, dy = (b.y-a.y)/lon;
@@ -110,7 +110,7 @@ function anglesPolygone(pts: PtBrut[], P: Projeteur, opts?: OptionsAngles): stri
     const ang = angleSommetDeg(pts, i);
     if(ang === null) return;
     const n = pts.length;
-    const a = pts[(i-1+n)%n], b = pts[(i+1)%n];
+    const a = pts[(i-1+n)%n]!, b = pts[(i+1)%n]!;
     const u = {x:a.x-s.x, y:a.y-s.y}, v = {x:b.x-s.x, y:b.y-s.y};
     const nu = Math.hypot(u.x,u.y) || 1, nv = Math.hypot(v.x,v.y) || 1;
     let bx = u.x/nu + v.x/nv, by = u.y/nu + v.y/nv;
@@ -264,7 +264,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
   const cons = terrasse.construction;
   const ptsSousTitre = terrasse.pts||[];
   const sousTitre = 'Surface ' + shoelace(ptsSousTitre).toFixed(2).replace('.',',') + ' m2' +
-    ' - perimetre ' + ptsSousTitre.reduce((s,p,i)=>s + dist(p, ptsSousTitre[(i+1)%ptsSousTitre.length]), 0).toFixed(2).replace('.',',') + ' m' +
+    ' - perimetre ' + ptsSousTitre.reduce((s,p,i)=>s + dist(p, ptsSousTitre[(i+1)%ptsSousTitre.length]!), 0).toFixed(2).replace('.',',') + ' m' +
     (cons && cons.essenceBois ? ' - ' + cons.essenceBois : '');
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 30, 9, sousTitre, [0.35,0.3,0.24]);
 
@@ -279,8 +279,8 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
   y -= 13;
   const ptsTableau = terrasse.pts||[];
   ptsTableau.forEach((a, i)=>{
-    const b = ptsTableau[(i+1) % ptsTableau.length];
-    const nom = (terrasse.segmentNames && terrasse.segmentNames[i]) || ('Cote ' + (i+1));
+    const b = ptsTableau[(i+1) % ptsTableau.length]!;
+    const nom =(terrasse.segmentNames && terrasse.segmentNames[i]) || ('Cote ' + (i+1));
     const ang = angleSommetDeg(ptsTableau, i);
     // L'angle porte sur le sommet ou le cote commence : c'est ce qu'on trace en premier sur place.
     c += pdfTexte(colA, y, 8, nom) + pdfTexte(colB, y, 8, dist(a,b).toFixed(2).replace('.',',') + ' m') +
@@ -288,7 +288,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
     y -= 12;
   });
   let perimetre = 0;
-  ptsTableau.forEach((a,i)=>{ perimetre += dist(a, ptsTableau[(i+1)%ptsTableau.length]); });
+  ptsTableau.forEach((a,i)=>{ perimetre += dist(a, ptsTableau[(i+1)%ptsTableau.length]!); });
   c += '0.7 0.65 0.58 RG 0.5 w\n' + colA.toFixed(2)+' '+(y+9).toFixed(2)+' m '+(A4_L-MARGE_PDF).toFixed(2)+' '+(y+9).toFixed(2)+' l S\n';
   c += pdfTexte(colA, y, 8, 'Terrasse ' + terrasse.name) +
        pdfTexte(colB, y, 8, 'perimetre ' + perimetre.toFixed(2).replace('.',',') + ' m') +
@@ -304,7 +304,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
       y -= 12;
     });
     const empriseEquip = equipements.reduce((s,o)=>s + dimensionsObjet(o).surface, 0);
-    const surfT = shoelace(terrasse.pts);
+    const surfT = shoelace(terrasse.pts!);
     c += pdfTexte(colA, y, 8, 'Emprise equipements', [0.35,0.3,0.24]) +
          pdfTexte(colC, y, 8, empriseEquip.toFixed(2).replace('.',',') + ' m2', [0.35,0.3,0.24]) +
          pdfTexte(colD, y, 8, surfT > 0 ? (empriseEquip/surfT*100).toFixed(0) + ' %' : '-', [0.35,0.3,0.24]);
@@ -326,7 +326,7 @@ export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEq
   const equipements = new Map<string, ObjetPlan[]>();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));
   const pages = [ pagePlanDeMasse(objets, terrasses, equipements, avecEquipements, meta) ];
-  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key), i+1, terrasses.length, meta)));
+  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key)!, i+1, terrasses.length, meta)));
   return { pdf: assemblerPDF(pages), pages: pages.length, terrasses, equipements };
 }
 

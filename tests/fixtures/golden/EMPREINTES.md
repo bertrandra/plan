@@ -119,6 +119,26 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
     bascules qui passent par `rafraichirVisionneuseGlb(caméra courante)` — filaire, ombres, lumière
     d'appoint — reconstruisent la scène six fois en laissant exactement un canevas, sans erreur.
 
+- **20 septembre 2026**, `plan.html` v1.1.0-alpha.15 : **l'échelle de rigueur est gravie**.
+  `tsconfig.json` porte la configuration cible de la spec §9.1 (`strict`, `noUncheckedIndexedAccess`,
+  `exactOptionalPropertyTypes`, `noUnusedLocals`, `noUnusedParameters`, `noImplicitOverride`,
+  `noFallthroughCasesInSwitch`) : 1 513 erreurs → 0 sur `src/` et `tests/`. Même protocole — six
+  sur six identiques à version inchangée sur le build fraîchement typé, puis recapture après le
+  changement de numéro. Et la preuve forte de la recapture précédente, refaite : `alpha.14` et
+  `alpha.15` ont la même longueur, donc remettre l'ancien numéro dans les six octets frais reproduit
+  **les six empreintes précédentes au bit près, les deux PDF compris**. Une ligne diffère dans
+  `resume.txt`, `plan.svg` et `plan.dxf` (la version), trois dans `projet.json` (version et les
+  deux horodatages, neutralisés par la normalisation). Le build passe de 450 063 à 450 058 octets :
+  des imports morts en moins et un paramètre renommé, rien qui s'exécute.
+
+  Ce palier ne change **que des types** : assertions non nulles là où l'invariant est tenu par le
+  code environnant, types élargis là où une signature mentait, imports morts retirés. Ce que le
+  compilateur a trouvé en chemin — des signatures fausses et une trentaine d'invariants que seul
+  `normalizeObjects` ou `ensureConstruction` garantit — est consigné dans
+  [`../../../MD/MIGRATION-JOURNAL.md`](../../../MD/MIGRATION-JOURNAL.md), « Phase 7 — l'échelle
+  gravie ».
+
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -130,12 +150,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 332 | `339a1b6cdcd60f73606f55add12eeb9b17e05d82de5992eb7d912389803e0389` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 118 | `5a1f16036582f88f8feee554a63e8db4298027b9bf7ce44f36a27125a0891d6d` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 373 | `de103c29d992cf5444a1b6aa65922e05f282c6359f2ba1593b45cfd7a56c11c5` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 983 | `19f65dbd460bb849d0db18a9d72dd3ea6cd24892a765a49fb8b54f67192fe4fe` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 180 | `dec9cddfed86f7a7af173eab815a3abcd7850bde38650cace9615d4ae29b931e` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 290 | `023f9b13b378b4b54b03a130033bc8b66ea2d4a107ebaa861c8aba5692500fb7` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 332 | `f389d84b63a67bbcad222f678eeb6a5bfc11a5037a1c6d2aef761490a11b1978` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 118 | `28f914456516ae15488d7e5824fb528c6e0a372e904eaef731f0108b898472fd` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 373 | `f8dce1aa4d9ccbfd7f1f592a44ffab5bcc249d89b176c1984b93feb39f10161d` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 983 | `a54e6eee1da04d860bcf4c7cfe00424dd6cb13676c5c09b68f5346c41037f6e6` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 180 | `3cd950dcfd720bd123354f2090bf84b6dca2d8c0ceb746317e03a8750d7dadc1` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 290 | `9afdbfb38d3277c0c4a2975120085d1e8c8024ceaf04fc073fd1f8a01523ba0b` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

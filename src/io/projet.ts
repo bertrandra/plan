@@ -62,8 +62,8 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   let mesuresOk = 0, mesuresIgnorees = 0;
   valide.mesures.forEach(m=>{
     if(!m || typeof m !== 'object'){ mesuresIgnorees++; return; }
-    const ref = renommages[m.refObjKey] || m.refObjKey;
-    const tgt = renommages[m.targetObjKey] || m.targetObjKey;
+    const ref = renommages[m.refObjKey!] || m.refObjKey;
+    const tgt = renommages[m.targetObjKey!] || m.targetObjKey;
     // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import.
     if(!clesPrises.has(ref) || !clesPrises.has(tgt)){ mesuresIgnorees++; return; }
     let id = m.id;
@@ -86,8 +86,8 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   if(lieu && Number.isFinite(lieu.latitude) && Number.isFinite(lieu.longitude)){
     const pc = ctx.trouverParcelleCloture();
     if(pc && (pc.latitude === undefined || pc.latitude === null)){
-      pc.latitude = lieu.latitude;
-      pc.longitude = lieu.longitude;
+      pc.latitude = lieu.latitude!;
+      pc.longitude = lieu.longitude!;
       if(lieu.nomLieu) pc.nomLieu = lieu.nomLieu;
     }
   }

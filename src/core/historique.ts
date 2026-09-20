@@ -39,15 +39,21 @@
 // disponible plutot que de rester pendante.
 
 import { PileAnnulation, type Instantane } from './history.js';
+import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
-/** Ce que l'historique doit pouvoir faire au plan et a l'interface. */
-export interface ContexteHistorique {
-  serializeObjects: (objets: unknown[]) => unknown[];
-  serializeMeasures: (mesures: unknown[]) => unknown[];
-  normalizeObjects: (bruts: unknown[]) => { key: string }[];
-  detruireVue: (obj: unknown) => void;
-  createObjectDOM: (obj: unknown) => void;
-  rebuildHandles: (obj: unknown) => void;
+/**
+ * Ce que l'historique doit pouvoir faire au plan et a l'interface.
+ *
+ * Generique sur la forme des objets et des cotes : l'historique ne lit que `key`, et c'est
+ * l'appelant (la racine de composition, ou un test) qui sait ce qu'il empile vraiment.
+ */
+export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = Mesure> {
+  serializeObjects: (objets: O[]) => unknown[];
+  serializeMeasures: (mesures: M[]) => unknown[];
+  normalizeObjects: (bruts: ObjetBrut[]) => O[];
+  detruireVue: (obj: O) => void;
+  createObjectDOM: (obj: O) => void;
+  rebuildHandles: (obj: O) => void;
   reapplyStackingOrder: () => void;
   rebuildSelector: () => void;
   renderMeasureResults: () => void;
@@ -57,14 +63,14 @@ export interface ContexteHistorique {
 }
 
 /** Ce que l'historique lit et ecrit dans l'etat du plan — rien de plus. */
-interface EtatAnnulable {
-  objects: { key: string }[];
-  measures: unknown[];
+interface EtatAnnulable<O extends { key: string }, M> {
+  objects: O[];
+  measures: M[];
   selectedKey: string | null;
   dirty: boolean;
 }
 
-export function creerHistorique(etat: EtatAnnulable, ctx: ContexteHistorique) {
+export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulable<O, M>, ctx: ContexteHistorique<O, M>) {
   const pile = new PileAnnulation();
 
   // Remplace par la barre de projet une fois construite. Avant cela, marquer le plan modifie ne
@@ -98,7 +104,7 @@ export function creerHistorique(etat: EtatAnnulable, ctx: ContexteHistorique) {
 
   function restaurer(snap: Instantane): void {
     etat.objects.forEach(ctx.detruireVue);
-    const restaures = ctx.normalizeObjects(snap.objects);
+    const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
     etat.objects.length = 0;
     restaures.forEach((o) => {
       etat.objects.push(o);
@@ -107,10 +113,10 @@ export function creerHistorique(etat: EtatAnnulable, ctx: ContexteHistorique) {
     });
     ctx.reapplyStackingOrder();
     if (snap.measures) {
-      etat.measures = (snap.measures as Record<string, unknown>[]).map((m) => ({ ...m }));
+      etat.measures = (snap.measures as M[]).map((m) => ({ ...m }));
     }
     if (!etat.objects.some((o: { key: string }) => o.key === etat.selectedKey)) {
-      etat.selectedKey = etat.objects.length ? etat.objects[0].key : null;
+      etat.selectedKey = etat.objects.length ? etat.objects[0]!.key : null;
     }
     ctx.rebuildSelector();
     ctx.renderMeasureResults();

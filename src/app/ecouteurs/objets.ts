@@ -9,7 +9,7 @@ import type { Atelier } from '../atelier.js';
 
 export function brancherObjets(a: Atelier): void {
   const surClic = (id: string, action: () => void) => {
-    document.getElementById(id).addEventListener('click', action);
+    document.getElementById(id)!.addEventListener('click', action);
   };
 
   surClic('undoBtn', a.undo);
@@ -57,12 +57,12 @@ export function brancherObjets(a: Atelier): void {
     if (!init) { showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
     a.pushHistory();
     if (obj.type === 'circle') {
-      obj.center = { ...init.center };
+      obj.center = { ...init.center! };
     } else {
-      const initC = centroid(init.pts);
-      const curC = centroid(obj.pts);
+      const initC = centroid(init.pts!);
+      const curC = centroid(obj.pts!);
       const d = { x: initC.x - curC.x, y: initC.y - curC.y };
-      obj.pts.forEach(p => { p.x += d.x; p.y += d.y; });
+      obj.pts!.forEach(p => { p.x += d.x; p.y += d.y; });
     }
     a.render();
   });

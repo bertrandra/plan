@@ -57,10 +57,10 @@ describe('editerLongueur', () => {
 describe('editerAngle', () => {
   it('impose l angle interieur en pivotant le sommet suivant', () => {
     const obj = { pts: carre() };
-    const avantL = longueur(obj.pts[1], obj.pts[2]);
+    const avantL = longueur(obj.pts[1]!, obj.pts[2]!);
     expect(editerAngle(obj, 1, 45, null)).toBe(true);
     // La longueur du cote pivote est conservee : on change l'angle, pas la dimension.
-    expect(longueur(obj.pts[1], obj.pts[2])).toBeCloseTo(avantL, 9);
+    expect(longueur(obj.pts[1]!, obj.pts[2]!)).toBeCloseTo(avantL, 9);
   });
 
   it('tient compte du sens de parcours', () => {

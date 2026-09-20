@@ -34,11 +34,12 @@ export type Mode3D = 'orbit' | 'pan' | 'zoom';
  * peut etre precalcule ni fige a l'avance.
  */
 export function cameraDepuisPointDeVue(vp: PointDeVue, centroide: { x: number; y: number }) {
-  const ddx = vp.pts[1].x - vp.pts[0].x, ddy = vp.pts[1].y - vp.pts[0].y;
+  const pts = vp.pts!;
+  const ddx = pts[1]!.x - pts[0]!.x, ddy = pts[1]!.y - pts[0]!.y;
   const dl = Math.hypot(ddx, ddy) || 1;
   const rad = Math.atan2(ddy / dl, ddx / dl);
   const eyeY = vp.altitude || 1.6;
-  const lx = vp.pts[0].x - centroide.x, lz = centroide.y - vp.pts[0].y;
+  const lx = pts[0]!.x - centroide.x, lz = centroide.y - pts[0]!.y;
   return {
     position: { x: lx, y: eyeY, z: lz },
     cible: { x: lx + Math.cos(rad) * 1.5, y: eyeY, z: lz - Math.sin(rad) * 1.5 }
@@ -127,7 +128,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       controls.mouseButtons.LEFT = mode3D === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
       controls.touches.ONE = mode3D === 'pan' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
     }
-    [['terrasse3dModeOrbit', 'orbit'], ['terrasse3dModePan', 'pan'], ['terrasse3dModeZoom', 'zoom']].forEach(([id, m]) => {
+    ([['terrasse3dModeOrbit', 'orbit'], ['terrasse3dModePan', 'pan'], ['terrasse3dModeZoom', 'zoom']] as const).forEach(([id, m]) => {
       const b = document.getElementById(id);
       if (!b) return;
       const actif = mode3D === m;
@@ -151,7 +152,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    */
   function redimensionner(sc: SceneTroisBase | null, idHote: string): void {
     if (!sc) return;
-    const host = document.getElementById(idHote);
+    const host = document.getElementById(idHote)!;
     const w = host.clientWidth || 600, h = host.clientHeight || 420;
     sc.camera.aspect = w / h;
     sc.camera.updateProjectionMatrix();
@@ -172,9 +173,9 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    * page jusqu'a ce point du script, donc la valeur lue est deja la nouvelle.
    */
   function pleinePage(actif: boolean, idConteneur: string, idHote: string, idBouton: string, quoi: string, redim: () => void): void {
-    const conteneur = document.getElementById(idConteneur);
-    const host = document.getElementById(idHote);
-    const btn = document.getElementById(idBouton);
+    const conteneur = document.getElementById(idConteneur)!;
+    const host = document.getElementById(idHote)!;
+    const btn = document.getElementById(idBouton)!;
     conteneur.classList.toggle('pleinePage', actif);
     host.style.height = actif ? 'calc(100vh - 210px)' : '420px';
     btn.textContent = actif ? '🗗 Format normal' : '⛶ Plein écran';
@@ -223,7 +224,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       (function essayer() {
         tentatives++;
         if (vue3d.scene && vue3d.dernierObjKey === terr.key) {
-          poserCamera(vue3d.scene, vp, ctx.centroid(terr.pts));
+          poserCamera(vue3d.scene, vp, ctx.centroid(terr.pts!));
           return;
         }
         if (tentatives < 100) setTimeout(essayer, 100);
@@ -241,7 +242,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse');
       if (!terr) return;
-      poserCamera(glb.scene, vp, ctx.centroid(terr.pts));
+      poserCamera(glb.scene, vp, ctx.centroid(terr.pts!));
     },
 
     setVue3dPleinePage(actif: boolean) {

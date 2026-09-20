@@ -51,7 +51,7 @@ describe('identifiant d une cote', () => {
   it('distingue deux cotes posees dans la meme milliseconde', () => {
     // Les cotes n'ont pas de compteur : c'est le tirage qui joue ce role.
     let n = 0;
-    const alea = () => [0.111111111, 0.222222222][n++];
+    const alea = () => [0.111111111, 0.222222222][n++]!;
     const a = idMesure({ horloge: HORLOGE, alea });
     const b = idMesure({ horloge: HORLOGE, alea });
     expect(a).not.toBe(b);

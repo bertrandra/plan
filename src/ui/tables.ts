@@ -69,7 +69,7 @@ export function debitTable(host: HTMLElement, c: Construction, d: Debit, lengths
                    '<th>Prix / m²</th><th>Total</th><th>Usage</th>';
   tbl.appendChild(head);
   lengths.forEach((L: number)=>{
-    const n = d.achats[L], r = d.roles[L] || {entiere:0, ajustee:0, recoupee:0, troncon:0, rebutMl:0, potMl:0};
+    const n = d.achats[L]!, r = d.roles[L] || {entiere:0, ajustee:0, recoupee:0, troncon:0, rebutMl:0, potMl:0};
     const parts: string[] = [];
     if(r.entiere) parts.push(r.entiere + ' posee entiere (tombe juste)');
     if(r.ajustee) parts.push(r.ajustee + ' arasee, chute ' +
@@ -116,7 +116,7 @@ export function debitTable(host: HTMLElement, c: Construction, d: Debit, lengths
   });
   const tot = document.createElement('tr');
   tot.style.fontWeight = '600';
-  tot.innerHTML = '<td>Total</td><td>' + lengths.reduce((s: number,L: number)=>s+d.achats[L],0) +
+  tot.innerHTML = '<td>Total</td><td>' + lengths.reduce((s: number,L: number)=>s+d.achats[L]!,0) +
     ' barres</td><td>' + d.achatMl.toFixed(2) + ' ml</td><td></td><td></td><td>' +
     coutDebit(c, d, cle).toFixed(2) + ' €</td><td></td>';
   tbl.appendChild(tot);
@@ -131,7 +131,7 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
   ctx.renderDebitLames(obj, layers);
   ctx.renderDebitBois(obj, layers);
 
-  const tbl = document.getElementById('terrasseBomTable');
+  const tbl = document.getElementById('terrasseBomTable')!;
   tbl.innerHTML = '';
   const head = document.createElement('tr');
   head.innerHTML = '<th>Poste</th><th>Qte</th><th>Prix bas</th><th>Prix haut</th><th>Prix reel (total ligne)</th>';
@@ -141,7 +141,7 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
   const updateTotals = () => {
     let reelSum=0, anyReel=false;
     lines.forEach((l: LigneBom)=>{ if(l.prixReel!==null && l.prixReel!==undefined){ reelSum+=l.prixReel; anyReel=true; } });
-    document.getElementById('terrasseBomTotals').textContent =
+    document.getElementById('terrasseBomTotals')!.textContent =
       'Estime : ' + totalBas.toFixed(0) + ' € – ' + totalHaut.toFixed(0) + ' €' +
       (anyReel ? '   |   Reel saisi : ' + reelSum.toFixed(2) + ' €' : '');
   };
@@ -156,7 +156,7 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
     if(l.calcule){
       // Priced from the cut-list, length by length: editing it here as well would give two
       // sources of truth that can disagree.
-      td4.textContent = l.prixReel.toFixed(2) + ' €';
+      td4.textContent = l.prixReel!.toFixed(2) + ' €';
       td4.style.cssText = 'font-variant-numeric:tabular-nums;';
       const note = document.createElement('div');
       note.style.cssText = 'font-size:0.78rem; color:var(--ink-soft);';
@@ -170,7 +170,7 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
         const v = parseFloat(reelInp.value);
         l.prixReel = isNaN(v) ? null : v;
         const idx = (c.bom||[]).findIndex((x: LigneBom)=>x.poste===l.poste);
-        if(idx>=0 && c.bom) c.bom[idx].prixReel = l.prixReel;
+        if(idx>=0 && c.bom) c.bom[idx]!.prixReel = l.prixReel;
         updateTotals();
       });
       td4.appendChild(reelInp);
@@ -251,7 +251,7 @@ export function renderDebitLames(obj: ObjetPlan, layers: CouchesTerrasse, ctx: C
   host.appendChild(Object.assign(document.createElement('div'), { className:'hint',
     textContent: 'Prix par barre : ' +
       (perso ? perso + ' sur ' + lengths.length + ' saisis, les autres estimes' : 'tous estimes') +
-      ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois]||ESSENCE_PRICES.autre).label +
+      ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois!]||ESSENCE_PRICES.autre!).label +
       ') pour une lame de ' + (c.largeurLame||140) + ' mm — soit ' +
       (cout / (d.achatMl||1)).toFixed(2) + ' €/ml en moyenne, ou ' +
       (cout / (d.reelMl||1)).toFixed(2) + ' €/ml rapporte au lineaire reellement pose. ' +

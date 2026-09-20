@@ -37,7 +37,7 @@ export function nearestSegmentIndex(obj: FormeAPoints, target: { a: PtBrut; b: P
   const edgeCount = obj.type==='path' ? n-1 : n;
   let best=-1, bestD=Infinity;
   for(let i=0;i<edgeCount;i++){
-    const a=obj.pts[i], b=obj.pts[(i+1)%n];
+    const a=obj.pts[i]!, b=obj.pts[(i+1)%n]!;
     const m = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
     const d = dist(m,mid);
     if(d<bestD){ bestD=d; best=i; }

@@ -27,7 +27,7 @@ export interface ContexteOnglets {
 export interface EtatOnglets { panelTab: string }
 
 export function rebuildPanelTabs(etat: EtatOnglets, ctx: ContexteOnglets): void {
-  const div = document.getElementById('panelTabs');
+  const div = document.getElementById('panelTabs')!;
   div.innerHTML = '';
   ONGLETS.forEach(([key, label]) => {
     const b = document.createElement('button');
@@ -36,7 +36,7 @@ export function rebuildPanelTabs(etat: EtatOnglets, ctx: ContexteOnglets): void 
     b.addEventListener('click', () => {
       etat.panelTab = key;
       ONGLETS.forEach(([k, , panneau]) => {
-        document.getElementById(panneau).style.display = (k === key) ? '' : 'none';
+        document.getElementById(panneau)!.style.display = (k === key) ? '' : 'none';
       });
       if (key === 'mesure') { ctx.rebuildMeasurePanel(); ctx.renderMeasureResults(); }
       if (key === 'plu') ctx.renderPanneauPlu();

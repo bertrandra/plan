@@ -57,11 +57,11 @@ interface EtatTerrassePanels { objects: ObjetPlan[]; terrasseSelectedKey: string
 export type ContexteSelecteurTerrasse = Pick<ContexteTerrassePanels, 'refreshTerrasseView' | 'hauteurFinieMm'>;
 
 export function renderTerrasseSelector(etat: EtatTerrassePanels, sousOnglet: string, ctx: ContexteSelecteurTerrasse): boolean {
-  const div = document.getElementById('terrasseSelector');
+  const div = document.getElementById('terrasseSelector')!;
   div.innerHTML = '';
   const terrasses = etat.objects.filter((o: ObjetPlan) => o.fonction === 'terrasse');
-  const empty = document.getElementById('terrasseEmpty');
-  const content = document.getElementById('terrasseContent');
+  const empty = document.getElementById('terrasseEmpty')!;
+  const content = document.getElementById('terrasseContent')!;
   if (terrasses.length === 0) {
     etat.terrasseSelectedKey = null;
     if (sousOnglet === '3d') {
@@ -76,7 +76,7 @@ export function renderTerrasseSelector(etat: EtatTerrassePanels, sousOnglet: str
     return false;
   }
   empty.style.display = 'none'; content.style.display = 'block';
-  if (!etat.terrasseSelectedKey || !terrasses.some((o: ObjetPlan) => o.key === etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0].key;
+  if (!etat.terrasseSelectedKey || !terrasses.some((o: ObjetPlan) => o.key === etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0]!.key;
   terrasses.forEach((o: ObjetPlan) => {
     const b = document.createElement('button');
     b.className = 'objbtn' + (o.key === etat.terrasseSelectedKey ? ' active' : '');
@@ -127,7 +127,7 @@ export function renderDebitBois(obj: ObjetPlan, layers: CouchesTerrasse, ctx: Co
       host.appendChild(Object.assign(document.createElement('div'),
         { className:'sectionTitle', textContent:g.titre, style: i ? 'margin-top:16px;' : '' }));
     }
-    const detail = Object.keys(g.parts).map(k=>k + ' ' + g.parts[k].toFixed(2) + ' ml').join(', ');
+    const detail = Object.keys(g.parts).map(k=>k + ' ' + g.parts[k]!.toFixed(2) + ' ml').join(', ');
     host.appendChild(Object.assign(document.createElement('div'), { className:'hint',
       textContent: (groupes.length > 1 ? '' : 'Debites ensemble : meme section, meme commande. ') +
         'Metre par role — ' + detail + '.' + (i ? '' : regleAbout) }));
@@ -201,7 +201,7 @@ export function renderDebitBois(obj: ObjetPlan, layers: CouchesTerrasse, ctx: Co
     host.appendChild(tblV);
     host.appendChild(Object.assign(document.createElement('div'), { className:'hint',
       textContent: 'Le prix d\'un plot depend surtout de sa hauteur de reglage : compter ' +
-        PLOT_MODELES[0].prix.toFixed(2) + ' a ' + PLOT_MODELES[PLOT_MODELES.length-1].prix.toFixed(2) +
+        PLOT_MODELES[0]!.prix.toFixed(2) + ' a ' + PLOT_MODELES[PLOT_MODELES.length-1]!.prix.toFixed(2) +
         ' € piece selon la gamme. Le prix est memorise par modele : changer de hauteur change de ' +
         'modele, et donc de prix. L\'assise est chiffree separement au BOM ci-dessus.' }));
   } else {
@@ -236,7 +236,7 @@ export function renderDebitBois(obj: ObjetPlan, layers: CouchesTerrasse, ctx: Co
 
 export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const c = ensureConstruction(obj);
-  const tbl = document.getElementById('terrasseConfigTable');
+  const tbl = document.getElementById('terrasseConfigTable')!;
   tbl.innerHTML = '';
   const head = document.createElement('tr');
   head.innerHTML = '<th>Champ</th><th>Nom</th><th>Valeur</th>';
@@ -268,7 +268,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
   const plots = estPlots(c);
   addSection('Fondation et appuis');
   const typeSelect = document.createElement('select');
-  [['vis-fondation','Sur vis de fondation'],['plots','Sur plots reglables']].forEach(([v,l])=>{
+  ([['vis-fondation','Sur vis de fondation'],['plots','Sur plots reglables']] as [string, string][]).forEach(([v,l])=>{
     const o=document.createElement('option'); o.value=v; o.textContent=l;
     if((c.typePose||'vis-fondation')===v) o.selected=true; typeSelect.appendChild(o);
   });
@@ -325,12 +325,12 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
 
     const supSelect = document.createElement('select');
     Object.keys(SUPPORT_TYPES).forEach(k=>{ const o=document.createElement('option'); o.value=k;
-      o.textContent=SUPPORT_TYPES[k].label; if((c.supportType||'concasse')===k) o.selected=true; supSelect.appendChild(o); });
+      o.textContent=SUPPORT_TYPES[k]!.label; if((c.supportType||'concasse')===k) o.selected=true; supSelect.appendChild(o); });
     supSelect.addEventListener('change', ()=>{ ctx.pushHistory(); c.supportType=supSelect.value; ctx.refreshTerrasseView(); });
     addRow('Assise sous les plots', supSelect, 'chiffree au BOM');
 
     const decInp = document.createElement('input'); decInp.type='number'; decInp.step='5'; decInp.min='0'; decInp.value=String(c.supportDecaissement);
-    decInp.disabled = !(SUPPORT_TYPES[c.supportType]||SUPPORT_TYPES.concasse).concasse;
+    decInp.disabled = !(SUPPORT_TYPES[c.supportType!]||SUPPORT_TYPES.concasse!).concasse;
     decInp.title = 'Epaisseur de concasse compacte sous les plots';
     decInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.supportDecaissement=parseFloat(decInp.value)||15; ctx.refreshTerrasseView(); });
     addRow('Decaissement / concasse (cm)', decInp, 'usage : 15 cm minimum sur sol meuble');
@@ -339,7 +339,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
     assiseInp.title = 'Surface d\'assise du plot au contact du support';
     assiseInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.plotSurfaceAssise=parseFloat(assiseInp.value)||PLOT_ASSISE_MIN_CM2; ctx.refreshTerrasseView(); });
     addRow('Surface d\'assise du plot (cm²)', assiseInp,
-      (c.plotSurfaceAssise < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²');
+      (c.plotSurfaceAssise! < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²');
   }
 
   const autoSpan = maxPorteeVisM(c);
@@ -423,7 +423,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
     addRow('Charge par plot', el,
       ch.tributaire.toFixed(2) + ' m² repris · ' + ch.pression.toFixed(2) + ' kg/cm² sur ' +
       ch.assise + ' cm²' +
-      ((SUPPORT_TYPES[c.supportType]||{}).dalles ? '' :
+      ((SUPPORT_TYPES[c.supportType!]||{}).dalles ? '' :
         (c.supportType==='dalle' ? ' — sur dalle, sans objet' : ' — sur concasse, verifier le poinconnement')));
   }
 
@@ -496,7 +496,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
   addRow('Sens de pose (°, / cote de reference)', sensPoseInp);
 
   const essenceSelect = document.createElement('select');
-  Object.keys(ESSENCE_PRICES).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=ESSENCE_PRICES[k].label; if(c.essenceBois===k) o.selected=true; essenceSelect.appendChild(o); });
+  Object.keys(ESSENCE_PRICES).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=ESSENCE_PRICES[k]!.label; if(c.essenceBois===k) o.selected=true; essenceSelect.appendChild(o); });
   // Essence and thickness both feed the admissible spacing of the supports under the lames, so
   // they drive the whole view now, not just the prices. Changing the essence resets the
   // stiffness coefficient to that essence's own value - an override belongs to the lame type it
@@ -504,7 +504,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
   essenceSelect.addEventListener('change', ()=>{
     ctx.pushHistory();
     c.essenceBois = essenceSelect.value;
-    c.coefRaideurLame = LAME_RAIDEUR[c.essenceBois] !== undefined ? LAME_RAIDEUR[c.essenceBois] : 1;
+    c.coefRaideurLame = LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1;
     ctx.refreshTerrasseView();
   });
   addRow('Essence de bois', essenceSelect);
@@ -513,7 +513,7 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
   coefInp.value = String(coefRaideurLame(c));
   coefInp.title = 'Raideur de la lame par rapport au resineux (1,00). Multiplie l\'ecartement admissible des appuis.';
   coefInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.coefRaideurLame=parseFloat(coefInp.value)||1; ctx.refreshTerrasseView(); });
-  const coefDefaut = LAME_RAIDEUR[c.essenceBois] !== undefined ? LAME_RAIDEUR[c.essenceBois] : 1;
+  const coefDefaut = LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1;
   addRow('Coefficient raideur lame', coefInp,
          'defaut ' + coefDefaut.toFixed(2) + ' · appuis a ' + maxEntraxeLameCm(c) + ' cm' +
          (Math.abs(coefRaideurLame(c)-coefDefaut) > 1e-9 ? ' (modifie)' : ''));
@@ -626,13 +626,13 @@ export function renderParametresCalcul(obj: ObjetPlan, ctx: ContexteTerrassePane
   };
 
   row('K portee', 'portee = K · h · (b/entraxe)^⅓ · (250/charge)^⅓ — cale sur NF DTU 51.4',
-      num(c.kPortee, '0.1', '5', v=>c.kPortee = v || PORTEE_VIS_K));
+      num(c.kPortee!, '0.1', '5', v=>c.kPortee = v || PORTEE_VIS_K));
   row('K entraxe lame', 'ecartement des appuis = K × epaisseur de lame',
-      num(c.kEntraxeLame, '0.5', '5', v=>c.kEntraxeLame = v || ENTRAXE_LAME_K));
+      num(c.kEntraxeLame!, '0.5', '5', v=>c.kEntraxeLame = v || ENTRAXE_LAME_K));
   row('Charge de reference', 'charge sur laquelle K portee est cale, sert de base au rapport de charges',
       CHARGE_REF + ' kg/m²');
   row('Jeu entre lames', 'ajoute a la largeur de lame pour l\'espacement du platelage',
-      num(c.jeuLames, '1', '0', v=>c.jeuLames = (v===undefined||isNaN(v)) ? 6 : v));
+      num(c.jeuLames!, '1', '0', v=>c.jeuLames = (v===undefined||isNaN(v)) ? 6 : v));
   row('Longueurs achetables', 'se reglent au-dessus de chaque tableau de debit, onglet BOM',
       'lames ' + longueursDispo(c).join(' / ') + '  ·  bois ' + longueursBois(c).join(' / ') +
       (sectionLambourde(c)!==c.soliveSection ? '  ·  lambourdes ' + longueursLambourde(c).join(' / ') : ''));
@@ -643,17 +643,17 @@ export function renderParametresCalcul(obj: ObjetPlan, ctx: ContexteTerrassePane
   jointBoisCb.addEventListener('change', ()=>{ ctx.pushHistory(); c.jointsBoisSurAppui = jointBoisCb.checked; ctx.refreshTerrasseView(); });
   row('Aboutures bois sur appui', 'une abouture de poutre doit reposer sur un appui', jointBoisCb);
   row('Chute minimale reutilisable', 'en dessous, une chute part au rebut au lieu de resservir (cm)',
-      num(c.chuteMinReutilisable, '5', '0', v=>c.chuteMinReutilisable = (v===undefined||isNaN(v)) ? 50 : v));
+      num(c.chuteMinReutilisable!, '5', '0', v=>c.chuteMinReutilisable = (v===undefined||isNaN(v)) ? 50 : v));
   const jointCb = document.createElement('input'); jointCb.type='checkbox'; jointCb.checked = c.jointsSurAppui !== false;
   jointCb.title = 'Impose que chaque about entre deux lames tombe sur une lambourde ou une solive';
   jointCb.addEventListener('change', ()=>{ ctx.pushHistory(); c.jointsSurAppui = jointCb.checked; ctx.refreshTerrasseView(); });
   row('Joints sur appui', 'un about de lame doit reposer sur une piece, pas dans le vide', jointCb);
   row('Epaisseur lame de rive', 'epaisseur de l\'habillage peripherique (mm)',
-      num(c.epaisseurLameRive, '1', '5', v=>c.epaisseurLameRive = v || 22));
+      num(c.epaisseurLameRive!, '1', '5', v=>c.epaisseurLameRive = v || 22));
   row('Coefficients raideur par essence', 'valeur par defaut du coefficient ci-dessus',
-      Object.keys(LAME_RAIDEUR).map(k=>k.replace('-classe4','')+' ' + LAME_RAIDEUR[k].toFixed(2)).join(' · '));
+      Object.keys(LAME_RAIDEUR).map(k=>k.replace('-classe4','')+' ' + LAME_RAIDEUR[k]!.toFixed(2)).join(' · '));
   row('Sections de solive', 'largeur × hauteur en mm, posee sur chant',
-      SOLIVE_SECTIONS.map(s=>s+' ('+SOLIVE_SECTION_DIMS[s].b+'×'+SOLIVE_SECTION_DIMS[s].h+')').join(' · '));
+      SOLIVE_SECTIONS.map(s=>s+' ('+SOLIVE_SECTION_DIMS[s]!.b+'×'+SOLIVE_SECTION_DIMS[s]!.h+')').join(' · '));
   row('Bornes de portee', 'la portee calculee est bridee a cet intervalle', '50 a 250 cm');
   row('Bornes entraxe lame', 'l\'ecartement des appuis est bride a cet intervalle', '30 a 55 cm');
   const surPlots = estPlots(c);
@@ -669,7 +669,7 @@ export function renderParametresCalcul(obj: ObjetPlan, ctx: ContexteTerrassePane
     row('Domaine d\'emploi', 'plot reglable / hauteur du platelage au-dessus du support',
         PLOT_HAUTEUR_DTU_CM + ' cm / ' + PLOT_HAUTEUR_MAX_CM + ' cm');
     row('Prix indicatifs', 'utilises tant qu\'aucun prix reel n\'est saisi',
-        'plots ' + PLOT_MODELES[0].prix.toFixed(2) + '-' + PLOT_MODELES[PLOT_MODELES.length-1].prix.toFixed(2) +
+        'plots ' + PLOT_MODELES[0]!.prix.toFixed(2) + '-' + PLOT_MODELES[PLOT_MODELES.length-1]!.prix.toFixed(2) +
         ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · geotextile ' +
         GEOTEXTILE_PRICE.bas + '-' + GEOTEXTILE_PRICE.haut + ' €/m² · concasse ' +
         CONCASSE_PRICE.bas + '-' + CONCASSE_PRICE.haut + ' €/m³ · dalle stab ' +
@@ -687,7 +687,7 @@ export function renderParametresCalcul(obj: ObjetPlan, ctx: ContexteTerrassePane
 
 export function renderTerrasseCoupe(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const c = ensureConstruction(obj);
-  const wrap = document.getElementById('terrasseCoupeWrap');
+  const wrap = document.getElementById('terrasseCoupeWrap')!;
   wrap.innerHTML = '';
 
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
@@ -700,7 +700,7 @@ export function renderTerrasseCoupe(obj: ObjetPlan, ctx: ContexteTerrassePanels)
   const lambourdeH = (c.avecLambourde || estPlots(c)) ? dimsSection(sectionLambourde(c)).h : 0;
   const lameH = c.epaisseurLame||25;
   // L'assise n'existe que sur plots, et se dessine sous le niveau du sol fini.
-  const assiseH = estPlots(c) && (SUPPORT_TYPES[c.supportType]||{}).concasse
+  const assiseH = estPlots(c) && (SUPPORT_TYPES[c.supportType!]||{}).concasse
     ? (c.supportDecaissement||15)*10 : 0;
   const totalH = ctx.hauteurFinieMm(obj);   // meme definition que celle affichee au selecteur
 
@@ -809,7 +809,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
   if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
   const layers = computeTerrasseLayers(obj, ctx.objets());
   const I = computeImplantation(obj, layers);
-  const ech = ECHELLES.includes(c.echelleImplant) ? c.echelleImplant : 200;
+  const ech = ECHELLES.includes(c.echelleImplant!) ? c.echelleImplant! : 200;
   const mm = (m: number) => m*1000/ech;                       // metres reels -> mm sur le papier
   const marge = 18;                                  // mm, place pour les cotes
   const W = mm(I.bbox.x1-I.bbox.x0) + marge*2;
@@ -861,16 +861,16 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
 
   // diagonales de controle
   I.diagonales.forEach(d=>{
-    const a=P(I.sommets[d.de]), b=P(I.sommets[d.a]);
+    const a=P(I.sommets[d.de]!), b=P(I.sommets[d.a]!);
     s.appendChild(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#c0392b','stroke-width':0.25,'stroke-dasharray':'3 2'}));
     s.appendChild(txt((a.x+b.x)/2, (a.y+b.y)/2-0.8, d.d.toFixed(3)+' m', 2, '#c0392b','middle'));
   });
 
   // cotes du contour, cote par cote
   I.sommets.forEach((v,i)=>{
-    const w = I.sommets[(i+1)%I.sommets.length];
+    const w = I.sommets[(i+1)%I.sommets.length]!;
     const a=P(v), b=P(w);
-    const L = dist((obj.pts||[])[i], (obj.pts||[])[(i+1)%(obj.pts||[]).length]);
+    const L = dist((obj.pts||[])[i]!, (obj.pts||[])[(i+1)%(obj.pts||[]).length]!);
     const ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
     const t = txt(0,-1.2, L.toFixed(3)+' m', 2.4, '#111','middle');
@@ -883,7 +883,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
   I.appuis.forEach(a=>{
     const q = P(a);
     s.appendChild(el('circle',{cx:q.x,cy:q.y,r:ech<=50?1.6:1.0,
-      fill:COUL[a.role]||'#235e6e',stroke:'#fff','stroke-width':0.2}));
+      fill:COUL[a.role!]||'#235e6e',stroke:'#fff','stroke-width':0.2}));
     if(ech<=100) s.appendChild(txt(q.x, q.y-2.0, String(a.n), ech<=50?2.0:1.5, '#111','middle'));
   });
 
@@ -921,7 +921,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
     tD.appendChild(tr);
   });
   if(I.diagonales.length===2){
-    const ecart = Math.abs(I.diagonales[0].d - I.diagonales[1].d);
+    const ecart = Math.abs(I.diagonales[0]!.d - I.diagonales[1]!.d);
     const tr=document.createElement('tr');
     tr.style.fontWeight='600';
     tr.innerHTML = '<td>Ecart entre diagonales</td><td>'+(ecart*1000).toFixed(0)+' mm</td>'+
@@ -972,7 +972,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
     { innerHTML:'<th>Sommet</th><th>X (m)</th><th>Y (m)</th><th>Cote suivant (m)</th>' }));
   I.sommets.forEach((v,i)=>{
     const tr=document.createElement('tr');
-    const L = dist((obj.pts||[])[i], (obj.pts||[])[(i+1)%(obj.pts||[]).length]);
+    const L = dist((obj.pts||[])[i]!, (obj.pts||[])[(i+1)%(obj.pts||[]).length]!);
     tr.innerHTML = '<td>'+(i+1)+(i===I.R.cote?' (repere R)':'')+'</td><td>'+v.x.toFixed(3)+
       '</td><td>'+v.y.toFixed(3)+'</td><td>'+L.toFixed(3)+'</td>';
     tS.appendChild(tr);
@@ -1121,9 +1121,9 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
 
   // The tables are generated with the project's own calibration, so they show what this plan
   // actually uses rather than the factory defaults.
-  const cal = (e: number) => ({ soliveSection:'', soliveEntraxe:e, kPortee:c.kPortee, chargeNormale:c.chargeNormale });
+  const cal = (e: number) => ({ soliveSection:'', soliveEntraxe:e, kPortee:c.kPortee!, chargeNormale:c.chargeNormale! });
   const sectionRows = SOLIVE_SECTIONS.map(s=>{
-    const d = SOLIVE_SECTION_DIMS[s];
+    const d = SOLIVE_SECTION_DIMS[s]!;
     const p40 = Math.round(maxPorteeVisM({...cal(40), soliveSection:s})*100);
     const p50 = Math.round(maxPorteeVisM({...cal(50), soliveSection:s})*100);
     const p70 = Math.round(maxPorteeVisM({...cal(70), soliveSection:s})*100);
@@ -1132,7 +1132,7 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
   }).join('');
 
   const lameRows = [19,21,22,24,25,27,28].map(ep=>{
-    const K = c.kEntraxeLame;
+    const K = c.kEntraxeLame!;
     const bois = maxEntraxeLameCm({epaisseurLame:ep, essenceBois:'pin-classe4', kEntraxeLame:K});
     const compo = maxEntraxeLameCm({epaisseurLame:ep, essenceBois:'composite', kEntraxeLame:K});
     const exo = maxEntraxeLameCm({epaisseurLame:ep, essenceBois:'exotique', kEntraxeLame:K});
@@ -1203,8 +1203,8 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
   '22 mm avec 40 cm, 24 mm avec 45 cm, 27 mm avec 50 cm — soit environ ' +
   '<b>' + (c.kEntraxeLame||ENTRAXE_LAME_K) + ' × l\'épaisseur</b>, arrondi à 5 cm, multiplié par un ' +
   'coefficient de raideur propre à la lame. Le composite flue nettement plus (' +
-  LAME_RAIDEUR.composite.toFixed(2) + ' par défaut), les bois exotiques denses un peu moins (' +
-  LAME_RAIDEUR.exotique.toFixed(2) + '). Ce coefficient est modifiable pour l\'essence ' +
+  LAME_RAIDEUR.composite!.toFixed(2) + ' par défaut), les bois exotiques denses un peu moins (' +
+  LAME_RAIDEUR.exotique!.toFixed(2) + '). Ce coefficient est modifiable pour l\'essence ' +
   'sélectionnée dans l\'onglet Construction — il vaut actuellement <b>' +
   coefRaideurLame(c).toFixed(2) + '</b>, soit des appuis à ' + maxEntraxeLameCm(c) + ' cm.</p>' +
   '<table class="attrTable"><tr><th>Épaisseur lame</th><th>Bois résineux</th><th>Exotique</th>' +
@@ -1289,7 +1289,7 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
   '<p><b>Cette terrasse :</b> ' + surf.toFixed(2) + ' m², portée ' + Math.round(span*100) + ' cm → ' +
   '<b>' + vis.length + ' vis</b> (' + roles.rive + ' sous cadre, ' + roles.courant +
   ' sous solives, ' + roles.spa + ' en zone d\'équipement), soit ' + (vis.length/surf).toFixed(2) +
-  ' vis/m² au total et ' + ((vis.length-roles.spa)/surf).toFixed(2) + ' vis/m² hors équipement. ' +
+  ' vis/m² au total et ' + ((vis.length-roles.spa!)/surf).toFixed(2) + ' vis/m² hors équipement. ' +
   'C\'est ce second chiffre qui se compare à l\'usage du métier, entre 1,0 et 1,5 vis/m². ' +
   'Bois porteur : ' + ml(S.cadre).toFixed(1) + ' ml de cadre, ' + ml(S.solives).toFixed(1) +
   ' ml de solives' + (S.solivesSpa.length ? ' (+ ' + ml(S.solivesSpa).toFixed(1) + ' ml de renfort sous équipement)' : '') +
@@ -1394,8 +1394,8 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
 }
 
 export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: ContexteTerrassePanels): void {
-  const host = document.getElementById('terrasseOptimResult');
-  if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host!.style.display='none'; return; }
+  const host = document.getElementById('terrasseOptimResult')!;
+  if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host.style.display='none'; return; }
   const c = ensureConstruction(obj);
   const res = optimiserParametres(obj, ctx.objets());
   host.style.display = '';
@@ -1406,7 +1406,7 @@ export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: Contex
   const intro = document.createElement('div');
   intro.className = 'hint';
   intro.textContent = 'Lames de ' + (c.epaisseurLame||25) + ' mm en ' +
-    ((ESSENCE_PRICES[c.essenceBois]||{}).label || c.essenceBois) + ' : appuis a ' + entraxeLame +
+    ((ESSENCE_PRICES[c.essenceBois!]||{}).label || c.essenceBois) + ' : appuis a ' + entraxeLame +
     ' cm maximum. Une ligne par strategie de construction (section × avec ou sans lambourdes), ' +
     'a chaque fois son meilleur entraxe ; toutes respectent cette limite et la portee de chaque ' +
     'piece. Classement par cout de structure (vis + bois porteur) : les lames sont identiques ' +
@@ -1483,7 +1483,7 @@ export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: Contex
   });
   host.appendChild(tbl);
 
-  const best = res[0];
+  const best = res[0]!;
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c,'vis',VIS_PRICE),
     prixUnitaire(c,'bois',SOLIVE_PRICE),

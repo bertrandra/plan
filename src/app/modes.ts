@@ -88,15 +88,15 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
   // « le parent et le frere suivant » aurait suffi tant que rien d'autre ne touche a ces voisins —
   // une ancre, elle, reste valable meme si le voisinage change.
   const ancrePlan = document.createComment(' emplacement du plan en mode Plan ');
-  ctx.stage.parentNode.insertBefore(ancrePlan, ctx.stage.nextSibling);
+  ctx.stage.parentNode!.insertBefore(ancrePlan, ctx.stage.nextSibling);
 
   function updateStagePlacement(): void {
     if (etat.appMode === 'terrasse' && terrasseSubTab === 'canevas') {
-      document.getElementById('stageHost').appendChild(ctx.stage);
+      document.getElementById('stageHost')!.appendChild(ctx.stage);
     } else if (etat.appMode === 'terrasse') {
-      document.getElementById('stageParking').appendChild(ctx.stage);
+      document.getElementById('stageParking')!.appendChild(ctx.stage);
     } else {
-      ancrePlan.parentNode.insertBefore(ctx.stage, ancrePlan);
+      ancrePlan.parentNode!.insertBefore(ctx.stage, ancrePlan);
     }
   }
 
@@ -107,12 +107,12 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
   /** Allume le bouton de la vue courante, eteint les trois autres. Seul endroit qui les touche. */
   function appliquerBoutons(): void {
     for (const [vue, id] of Object.entries(BOUTON_DE_VUE)) {
-      document.getElementById(id).classList.toggle('active', vue === vueCourante);
+      document.getElementById(id)!.classList.toggle('active', vue === vueCourante);
     }
   }
 
   function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
-    ids.forEach(id => { document.getElementById(id).style.display = visible ? valeurVisible : 'none'; });
+    ids.forEach(id => { document.getElementById(id)!.style.display = visible ? valeurVisible : 'none'; });
   }
 
   /**
@@ -136,7 +136,7 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
       ctx.terrasseLayerGroup.innerHTML = '';
       terrasseLastFittedKey = null; // un retour ulterieur en mode Terrasse recadrera
       ctx.disposeThreeScene();
-      document.getElementById('terrasse3dWrap').style.display = 'none';
+      document.getElementById('terrasse3dWrap')!.style.display = 'none';
       updateStagePlacement();
       // Le plan masque la selection tant qu'il sert de fond en mode Terrasse : revenir doit la
       // redessiner, sinon l'objet reste visuellement deselectionne alors qu'il est bien celui que
@@ -153,7 +153,7 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
     afficher(ZONES_PLAN, false);
     afficher(ZONES_TERRASSE, false);
     ctx.stage.style.display = 'none';
-    document.getElementById('glbViewerPanel').style.display = 'block';
+    document.getElementById('glbViewerPanel')!.style.display = 'block';
     ctx.preparerVisionneuse();
   }
 
@@ -162,7 +162,7 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
     glb.ouvert = false;
     // Avant de cacher le panneau : sinon la reouverture repartirait directement en plein page.
     ctx.quitterPleinPageVisionneuse();
-    document.getElementById('glbViewerPanel').style.display = 'none';
+    document.getElementById('glbViewerPanel')!.style.display = 'none';
     ctx.stage.style.display = '';
     ctx.disposeGlbViewerScene();
   }
@@ -183,7 +183,7 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
    * et se reconstruit a chaque passage ici — apres un changement de construction, par exemple.
    */
   function rebuildTerrasseSubTabs(): void {
-    const div = document.getElementById('terrasseSubTabs');
+    const div = document.getElementById('terrasseSubTabs')!;
     div.innerHTML = '';
     div.style.display = (terrasseSubTab === '3d') ? 'none' : '';
     SOUS_ONGLETS.filter(([key]) => key !== '3d').forEach(([key, label]) => {
@@ -196,7 +196,7 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
       div.appendChild(b);
     });
     SOUS_ONGLETS.forEach(([key, , panelId]) => {
-      document.getElementById(panelId).style.display = (terrasseSubTab === key) ? '' : 'none';
+      document.getElementById(panelId)!.style.display = (terrasseSubTab === key) ? '' : 'none';
     });
     updateStagePlacement();
 
@@ -204,15 +204,15 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
       // `obj` peut etre absent (plan sans terrasse) : la scene se construit alors avec le terrain,
       // les batiments et le reste du plan, sans structure de terrasse.
       const obj = etat.objects.find(o => o.key === etat.terrasseSelectedKey) || null;
-      document.getElementById('terrasse3dLoading').style.display = chargement.three ? 'none' : '';
+      document.getElementById('terrasse3dLoading')!.style.display = chargement.three ? 'none' : '';
       ctx.ensureThreeLoaded(() => {
-        document.getElementById('terrasse3dLoading').style.display = 'none';
-        document.getElementById('terrasse3dWrap').style.display = 'block';
+        document.getElementById('terrasse3dLoading')!.style.display = 'none';
+        document.getElementById('terrasse3dWrap')!.style.display = 'block';
         ctx.buildThreeScene(obj);
       });
     } else if (vue3d.scene) {
       ctx.disposeThreeScene();
-      document.getElementById('terrasse3dWrap').style.display = 'none';
+      document.getElementById('terrasse3dWrap')!.style.display = 'none';
     }
   }
 

@@ -70,6 +70,9 @@ export const RESEAU_TIMEOUT_MS = 8000;
 export const RAYONS_RECHERCHE_M = [12, 25, 50];
 export const ECART_AUTO_M = 3;        // en dessous, on ne tranche pas a la place de l'utilisateur
 
+/** Ce que `fetchJSONReseau` lit d'une erreur : le nom (`AbortError`) et le `statut` pose ci-dessous sur un HTTP non-2xx. */
+type ErreurReseau = { name?: string; statut?: number } | null | undefined;
+
 export function fetchJSONTimeout(url: string): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(()=>controller.abort(), RESEAU_TIMEOUT_MS);
@@ -86,12 +89,14 @@ export async function fetchJSONReseau(url: string): Promise<unknown> {
   try {
     return await fetchJSONTimeout(url);
   } catch(e){
-    if(e && e.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
-    if(e && e.statut && e.statut < 500) throw e;
+    const err = e as ErreurReseau;
+    if(err && err.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
+    if(err && err.statut && err.statut < 500) throw e;
     try {
       return await fetchJSONTimeout(url);
     } catch(e2){
-      if(e2 && e2.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
+      const err2 = e2 as ErreurReseau;
+      if(err2 && err2.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
       if(e2 instanceof TypeError && location.protocol === 'file:'){
         throw new Error('Import cadastre indisponible quand la page est ouverte en fichier local : sers-la par un serveur web.');
       }
@@ -116,8 +121,8 @@ export function anneauExterieur(geometry: GeometrieGeoJSON | null | undefined): 
     if(!Array.isArray(anneau) || anneau.length < 4) return;
     let s = 0;
     for(let i=0;i<anneau.length;i++){
-      const p1 = anneau[i], p2 = anneau[(i+1)%anneau.length];
-      s += p1[0]*p2[1] - p2[0]*p1[1];
+      const p1 = anneau[i]!, p2 = anneau[(i+1)%anneau.length]!;
+      s += p1[0]!*p2[1]! - p2[0]!*p1[1]!;
     }
     const a = Math.abs(s/2);
     if(a > aireMax){ aireMax = a; meilleur = anneau; }
@@ -125,12 +130,12 @@ export function anneauExterieur(geometry: GeometrieGeoJSON | null | undefined): 
   return meilleur;
 }
 export function anneauVersPts(anneau: Anneau, proj: ProjecteurLocal, simplifier: boolean): PtBrut[] {
-  let pts = anneau.map(c=>proj.versMetres(c[0], c[1]));
+  let pts = anneau.map(c=>proj.versMetres(c[0]!, c[1]!));
   // GeoJSON ferme l'anneau ; l'appli, elle, garde des pts implicitement fermes.
-  if(pts.length > 1 && Math.hypot(pts[0].x-pts[pts.length-1].x, pts[0].y-pts[pts.length-1].y) < 1e-6) pts.pop();
+  if(pts.length > 1 && Math.hypot(pts[0]!.x-pts[pts.length-1]!.x, pts[0]!.y-pts[pts.length-1]!.y) < 1e-6) pts.pop();
   const nets: PtBrut[] = [];
   pts.forEach(p=>{
-    if(!nets.length || Math.hypot(p.x-nets[nets.length-1].x, p.y-nets[nets.length-1].y) > 0.01) nets.push(p);
+    if(!nets.length || Math.hypot(p.x-nets[nets.length-1]!.x, p.y-nets[nets.length-1]!.y) > 0.01) nets.push(p);
   });
   pts = simplifier ? simplifierContour(nets, SIMPLIF_M) : nets;
   // Sens horaire, comme les parcelles des projets existants (l'aire, elle, est en valeur absolue).
@@ -147,8 +152,9 @@ export async function geocoderBAN(texte: string, autocomplete: boolean): Promise
     genre: (f.properties && f.properties.type as string) || '',
     citycode: (f.properties && f.properties.citycode as string) || '',
     ville: (f.properties && f.properties.city as string) || '',
-    lon: (f.geometry?.coordinates as number[])[0],
-    lat: (f.geometry?.coordinates as number[])[1]
+    // La BAN rend un Point : `[lon, lat]`, jamais un anneau.
+    lon: (f.geometry?.coordinates as [number, number])[0],
+    lat: (f.geometry?.coordinates as [number, number])[1]
   }));
 }
 export function empriseGeoJSON(lon: number, lat: number, proj: ProjecteurLocal, rayonM: number): EmpriseGeoJSON {
@@ -164,8 +170,8 @@ export function empriseGeoJSON(lon: number, lat: number, proj: ProjecteurLocal, 
 export function empriseAutourAnneau(anneau: Anneau, proj: ProjecteurLocal, margeM: number): EmpriseGeoJSON {
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
   anneau.forEach(c=>{
-    lonMin = Math.min(lonMin, c[0]); lonMax = Math.max(lonMax, c[0]);
-    latMin = Math.min(latMin, c[1]); latMax = Math.max(latMax, c[1]);
+    lonMin = Math.min(lonMin, c[0]!); lonMax = Math.max(lonMax, c[0]!);
+    latMin = Math.min(latMin, c[1]!); latMax = Math.max(latMax, c[1]!);
   });
   const dLon = margeM/proj.kx, dLat = margeM/proj.ky;
   return { type:'Polygon', coordinates:[[
@@ -263,8 +269,8 @@ export function trierVoisines(principale: ParcellePrincipale, cands: Candidate[]
       autres.push(c);
     }
   });
-  adjacentes.sort((a,b)=> (b.frontiere - a.frontiere) || (b.aire - a.aire));
-  autres.sort((a,b)=> a.distancePrincipale - b.distancePrincipale);
+  adjacentes.sort((a,b)=> (b.frontiere! - a.frontiere!) || (b.aire - a.aire));
+  autres.sort((a,b)=> a.distancePrincipale! - b.distancePrincipale!);
   return {
     adjacentes: adjacentes.slice(0, MAX_VOISINES),
     autres: autres.slice(0, MAX_VOISINES),
@@ -285,8 +291,8 @@ export const COUCHE_HAIE = 'BDTOPO_V3:haie';
 export function bboxDegDesAnneaux(anneaux: Anneau[], proj: ProjecteurLocal, margeM: number): BboxDeg {
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
   anneaux.forEach(anneau=>anneau.forEach(c=>{
-    lonMin = Math.min(lonMin, c[0]); lonMax = Math.max(lonMax, c[0]);
-    latMin = Math.min(latMin, c[1]); latMax = Math.max(latMax, c[1]);
+    lonMin = Math.min(lonMin, c[0]!); lonMax = Math.max(lonMax, c[0]!);
+    latMin = Math.min(latMin, c[1]!); latMax = Math.max(latMax, c[1]!);
   }));
   const dLon = margeM/proj.kx, dLat = margeM/proj.ky;
   return { lonMin:lonMin-dLon, lonMax:lonMax+dLon, latMin:latMin-dLat, latMax:latMax+dLat };

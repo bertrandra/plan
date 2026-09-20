@@ -58,9 +58,9 @@ export interface ContexteAlignement {
  *
  * Une distance laissee vide ne fait que tourner, sans deplacer la forme.
  */
-// `etat` n'est lu nulle part dans le corps (verifie a l'occasion du typage, spec §10.3) : un
-// parametre mort, laisse tel quel pour ne pas toucher a la signature de l'appelant hors de propos.
-export function alignerObjetParRotation(obj: ObjetPlan, etat: unknown, distanceSaisie: string, ctx: ContexteAlignement): void {
+// `_etat` n'est lu nulle part dans le corps (verifie a l'occasion du typage, spec §10.3) : un
+// parametre mort, garde en position pour ne pas toucher a la signature de l'appelant hors de propos.
+export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distanceSaisie: string, ctx: ContexteAlignement): void {
   const ref = cibleAlignement();
   if (!ref) return;
   if (obj.locked) { ctx.showToast('Objet verrouille.'); return; }
@@ -70,7 +70,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, etat: unknown, distanceS
   const idx = ctx.nearestSegmentIndex(obj, target);
   if (idx < 0) return;
   const distance = distanceSaisie.trim() === '' ? null : parseFloat(distanceSaisie);
-  const newPts = ctx.alignerSurCote(obj.pts, idx, target, distance);
+  const newPts = ctx.alignerSurCote(obj.pts!, idx, target, distance);
 
   const bound = ctx.contourDeContrainte(obj);
   if (bound && !newPts.every(p => ctx.pointInPolygon(p, bound))) {

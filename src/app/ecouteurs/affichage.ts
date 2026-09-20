@@ -65,7 +65,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {
 
   el('orthoOpacite').addEventListener('input', function () {
     ortho.opacite = parseInt(this.value, 10) / 100;
-    document.getElementById('orthoOpaciteTexte').textContent = this.value + ' %';
+    document.getElementById('orthoOpaciteTexte')!.textContent = this.value + ' %';
     // L'opacite de la photo est portee par les tuiles : il faut les reposer.
     if (ortho.actif) placerOrthophoto(ctx.ctxOrtho());
     enregistrerConfigOrtho(ctx.ctxOrtho());
@@ -73,7 +73,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {
 
   el('orthoParcelleOpacite').addEventListener('input', function () {
     ortho.parcelleOpacite = parseInt(this.value, 10) / 100;
-    document.getElementById('orthoParcelleOpaciteTexte').textContent = this.value + ' %';
+    document.getElementById('orthoParcelleOpaciteTexte')!.textContent = this.value + ' %';
     // Celle-ci ne touche pas aux tuiles : `render()` reapplique l'opacite effective sur les
     // terrains, et cela suffit.
     if (ortho.actif) a.render();

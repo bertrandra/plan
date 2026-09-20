@@ -20,7 +20,7 @@ export function etendueLame(a: PtBrut, b: PtBrut, largeurM: number, poly: PtBrut
     if(!poly || poly.length < 3) return 0;
     let best: Segment | null = null, bestD = Infinity;
     for(let i=0;i<poly.length;i++){
-      const p = poly[i], q = poly[(i+1)%poly.length];
+      const p = poly[i]!, q = poly[(i+1)%poly.length]!;
       const abx = q.x-p.x, aby = q.y-p.y;
       const l2 = abx*abx + aby*aby || 1e-12;
       let t = ((pt.x-p.x)*abx + (pt.y-p.y)*aby)/l2;

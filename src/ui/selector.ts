@@ -80,7 +80,7 @@ export function rebuildSelector(etat: EtatApp, ctx: ContexteSelecteur): void {
   const chipLeg = document.createElement('span');
   chipLeg.className = 'selectorSelectionFam';
   chipLeg.textContent = objetSelectionne
-    ? (LIBELLE_FONCTION[objetSelectionne.fonction] || objetSelectionne.fonction || 'Objet')
+    ? (LIBELLE_FONCTION[objetSelectionne.fonction!] || objetSelectionne.fonction || 'Objet')
     : 'Sélection';
   const chipNom = document.createElement('span');
   chipNom.className = 'selectorSelectionNom';
@@ -133,11 +133,11 @@ export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
   const signature = JSON.stringify(etat.objects.map((o: ObjetPlan)=>[o.key, o.name]));
   if(tbl.dataset.signature === signature && tbl.rows.length === etat.objects.length + 1){
     etat.objects.forEach((obj: ObjetPlan, i: number)=>{
-      const cells = tbl.rows[i+1].cells;
-      const cbHide = cells[1].firstChild as HTMLInputElement | null;
+      const cells = tbl.rows[i+1]!.cells;
+      const cbHide = cells[1]!.firstChild as HTMLInputElement | null;
       if(cbHide) cbHide.checked = !!obj.hidden;
       cols.forEach((col,c)=>{
-        const cb = cells[c+2].firstChild as HTMLInputElement | null;
+        const cb = cells[c+2]!.firstChild as HTMLInputElement | null;
         if(cb) cb.checked = !!(obj as Record<string, unknown>)[col.field];
       });
     });

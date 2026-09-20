@@ -19,8 +19,8 @@ export function shoelace(P: readonly PtBrut[]): number {
   let s = 0;
   const n = P.length;
   for (let i = 0; i < n; i++) {
-    const p1 = P[i],
-      p2 = P[(i + 1) % n];
+    const p1 = P[i]!,
+      p2 = P[(i + 1) % n]!;
     s += p1.x * p2.y - p2.x * p1.y;
   }
   return Math.abs(s) / 2;
@@ -35,8 +35,8 @@ export function signedArea(pts: readonly PtBrut[]): number {
   let s = 0;
   const n = pts.length;
   for (let i = 0; i < n; i++) {
-    const a = pts[i],
-      b = pts[(i + 1) % n];
+    const a = pts[i]!,
+      b = pts[(i + 1) % n]!;
     s += a.x * b.y - b.x * a.y;
   }
   return s / 2;
@@ -60,10 +60,10 @@ export function centroid(pts: readonly PtBrut[]): PtBrut {
 export function pointInPolygon(pt: PtBrut, poly: readonly PtBrut[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].x,
-      yi = poly[i].y,
-      xj = poly[j].x,
-      yj = poly[j].y;
+    const xi = poly[i]!.x,
+      yi = poly[i]!.y,
+      xj = poly[j]!.x,
+      yj = poly[j]!.y;
     const intersect = yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi || 1e-12) + xi;
     if (intersect) inside = !inside;
   }
@@ -79,9 +79,9 @@ export function pointInPolygon(pt: PtBrut, poly: readonly PtBrut[]): boolean {
  */
 export function angleInterieurDeg(pts: readonly PtBrut[], i: number): number {
   const n = pts.length;
-  const prec = pts[(i - 1 + n) % n],
-    cur = pts[i],
-    suiv = pts[(i + 1) % n];
+  const prec = pts[(i - 1 + n) % n]!,
+    cur = pts[i]!,
+    suiv = pts[(i + 1) % n]!;
   const u = { x: prec.x - cur.x, y: prec.y - cur.y };
   const v = { x: suiv.x - cur.x, y: suiv.y - cur.y };
   let a = ((Math.atan2(v.y, v.x) - Math.atan2(u.y, u.x)) * 180) / Math.PI;

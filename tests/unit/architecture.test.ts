@@ -45,7 +45,7 @@ function importsInterCouches(chemin: string): string[] {
     .filter(l => !/^\s*import type /.test(l))
     .map(l => /from '\.\.\/(\w+)\//.exec(l))
     .filter((m): m is RegExpExecArray => m !== null)
-    .map(m => m[1]);
+    .map(m => m[1]!);
 }
 
 describe('les fleches ne pointent que vers le bas', () => {
@@ -56,7 +56,7 @@ describe('les fleches ne pointent que vers le bas', () => {
       try { fichiers = fichiersTs(join(src, couche)); } catch { continue; }
       for (const f of fichiers) {
         for (const cible of importsInterCouches(f)) {
-          if (NIVEAU[cible] !== undefined && NIVEAU[cible] > NIVEAU[couche]) {
+          if (NIVEAU[cible] !== undefined && NIVEAU[cible] > NIVEAU[couche]!) {
             violations.push(`${couche}/${f.split(/[\\/]/).pop()} -> ${cible}/ (niveau ${NIVEAU[couche]} vers ${NIVEAU[cible]})`);
           }
         }

@@ -191,7 +191,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   /** Centre de la parcelle : un objet neuf naît la ou on regarde, pas a l'origine du repere. */
   function centreParcelle() {
     const pc = etat.objects.find(o => o.key === 'parcelle');
-    return pc ? centroid(pc.pts) : { x: 0, y: 0 };
+    // La parcelle est un polygone : elle porte toujours `pts`.
+    return pc ? centroid(pc.pts!) : { x: 0, y: 0 };
   }
 
   function cle(prefixe: string) {
@@ -233,7 +234,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse')
                 || etat.objects.find(o => o.key === 'parcelle');
-      const c = terr ? centroid(terr.pts) : { x: 0, y: 0 };
+      const c = terr ? centroid(terr.pts!) : { x: 0, y: 0 };
       const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
@@ -257,12 +258,12 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const src = etat.objects.find(o => o.key === etat.selectedKey);
       if (!src) { ctx.showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
       ctx.pushHistory();
-      const plain = ctx.serializeObjects([src])[0];
+      const plain = ctx.serializeObjects([src])[0]!;
       plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
-      const clone = ctx.normalizeObjects([plain])[0];
-      if (clone.type === 'circle') clone.center.x -= 5;
-      else clone.pts.forEach(p => { p.x -= 5; });
+      const clone = ctx.normalizeObjects([plain])[0]!;
+      if (clone.type === 'circle') clone.center!.x -= 5;
+      else clone.pts!.forEach(p => { p.x -= 5; });
       inserer({ obj: clone, onglet: 'objet' });
     },
 
@@ -277,7 +278,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       if (etat.selectedKey === 'parcelle') { ctx.showToast('La parcelle ne peut pas être supprimée.'); return; }
       const idx = etat.objects.findIndex(o => o.key === etat.selectedKey);
       if (idx === -1) return;
-      const obj = etat.objects[idx];
+      const obj = etat.objects[idx]!;
       if (obj.locked) { ctx.showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
       ctx.showConfirm('Supprimer definitivement "' + obj.name + '" ?', () => {
         ctx.pushHistory();

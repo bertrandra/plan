@@ -42,14 +42,14 @@ describe('tourner', () => {
   it('laisse le pivot exactement en place', () => {
     const pivot = { x: 3, y: 7 };
     const r = tourner([pivot, { x: 5, y: 7 }], pivot, 1.1);
-    expect(r[0].x).toBeCloseTo(3, 12);
-    expect(r[0].y).toBeCloseTo(7, 12);
+    expect(r[0]!.x).toBeCloseTo(3, 12);
+    expect(r[0]!.y).toBeCloseTo(7, 12);
   });
 
   it('conserve les distances', () => {
     const r = tourner(carre, { x: 2, y: 2 }, 0.7);
-    expect(Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y)).toBeCloseTo(4, 12);
-    expect(Math.hypot(r[2].x - r[1].x, r[2].y - r[1].y)).toBeCloseTo(4, 12);
+    expect(Math.hypot(r[1]!.x - r[0]!.x, r[1]!.y - r[0]!.y)).toBeCloseTo(4, 12);
+    expect(Math.hypot(r[2]!.x - r[1]!.x, r[2]!.y - r[1]!.y)).toBeCloseTo(4, 12);
   });
 });
 
@@ -58,15 +58,15 @@ describe('alignerSurCote', () => {
 
   it('rend le cote vise parallele a la cible', () => {
     const r = alignerSurCote(penche, 0, limiteHorizontale);
-    const angle = angleOfSegment(r[0], r[1]);
+    const angle = angleOfSegment(r[0]!, r[1]!);
     expect(Math.sin(angle - angleOfSegment(limiteHorizontale.a, limiteHorizontale.b))).toBeCloseTo(0, 12);
   });
 
   it('garde le milieu du cote aligne immobile', () => {
     // Le pivot est ce milieu : c'est le cote qu'on cale qui doit bouger le moins.
-    const avant = { x: (penche[0].x + penche[1].x) / 2, y: (penche[0].y + penche[1].y) / 2 };
+    const avant = { x: (penche[0]!.x + penche[1]!.x) / 2, y: (penche[0]!.y + penche[1]!.y) / 2 };
     const r = alignerSurCote(penche, 0, limiteHorizontale);
-    const apres = { x: (r[0].x + r[1].x) / 2, y: (r[0].y + r[1].y) / 2 };
+    const apres = { x: (r[0]!.x + r[1]!.x) / 2, y: (r[0]!.y + r[1]!.y) / 2 };
     expect(apres.x).toBeCloseTo(avant.x, 12);
     expect(apres.y).toBeCloseTo(avant.y, 12);
   });
@@ -78,14 +78,14 @@ describe('alignerSurCote', () => {
 
   it('pose le cote aligne a la distance demandee de la droite cible', () => {
     const r = alignerSurCote(carre, 0, limiteHorizontale, 3);
-    const milieu = { x: (r[0].x + r[1].x) / 2, y: (r[0].y + r[1].y) / 2 };
+    const milieu = { x: (r[0]!.x + r[1]!.x) / 2, y: (r[0]!.y + r[1]!.y) / 2 };
     expect(Math.abs(milieu.y - 10)).toBeCloseTo(3, 12);
   });
 
   it('laisse le cote aligne du cote ou il etait deja', () => {
     // Le carre est sous la limite (y=10) : son cote se pose 3 m dessous, il ne saute pas au-dessus.
     const r = alignerSurCote(carre, 0, limiteHorizontale, 3);
-    const milieu = { x: (r[0].x + r[1].x) / 2, y: (r[0].y + r[1].y) / 2 };
+    const milieu = { x: (r[0]!.x + r[1]!.x) / 2, y: (r[0]!.y + r[1]!.y) / 2 };
     expect(milieu.y).toBeCloseTo(7, 12);
   });
 
@@ -101,20 +101,20 @@ describe('alignerSurCote', () => {
     const auDessus = carre.map((p) => ({ x: p.x, y: p.y + 20 }));
     const r = alignerSurCote(auDessus, 0, limiteHorizontale, 3);
     expect(r.every((p) => p.y > 10)).toBe(true);
-    const milieu = { x: (r[0].x + r[1].x) / 2, y: (r[0].y + r[1].y) / 2 };
+    const milieu = { x: (r[0]!.x + r[1]!.x) / 2, y: (r[0]!.y + r[1]!.y) / 2 };
     expect(milieu.y - 10).toBeCloseTo(3, 12);
   });
 
   it('accepte une distance nulle : le cote se pose sur la limite', () => {
     const r = alignerSurCote(carre, 0, limiteHorizontale, 0);
-    const milieu = { x: (r[0].x + r[1].x) / 2, y: (r[0].y + r[1].y) / 2 };
+    const milieu = { x: (r[0]!.x + r[1]!.x) / 2, y: (r[0]!.y + r[1]!.y) / 2 };
     expect(milieu.y).toBeCloseTo(10, 12);
   });
 
   it('ignore une distance illisible plutot que de projeter la forme a l infini', () => {
     const r = alignerSurCote(carre, 0, limiteHorizontale, NaN);
     expect(r.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
-    expect(r[0].y).toBeCloseTo(0, 12);
+    expect(r[0]!.y).toBeCloseTo(0, 12);
   });
 
   it('ne divise pas par zero sur un cote cible degenere', () => {
@@ -126,8 +126,8 @@ describe('alignerSurCote', () => {
   it('conserve la forme : les longueurs des cotes ne changent pas', () => {
     const r = alignerSurCote(penche, 1, limiteHorizontale, 2);
     for (let i = 0; i < 4; i++) {
-      const av = Math.hypot(penche[(i + 1) % 4].x - penche[i].x, penche[(i + 1) % 4].y - penche[i].y);
-      const ap = Math.hypot(r[(i + 1) % 4].x - r[i].x, r[(i + 1) % 4].y - r[i].y);
+      const av = Math.hypot(penche[(i + 1) % 4]!.x - penche[i]!.x, penche[(i + 1) % 4]!.y - penche[i]!.y);
+      const ap = Math.hypot(r[(i + 1) % 4]!.x - r[i]!.x, r[(i + 1) % 4]!.y - r[i]!.y);
       expect(ap).toBeCloseTo(av, 12);
     }
   });

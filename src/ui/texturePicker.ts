@@ -120,7 +120,7 @@ export function ouvrirSelecteurTexture(
     ([...grille.children] as HTMLElement[]).forEach(c=>{ c.style.outline = c.dataset.id===id ? '3px solid var(--accent)' : 'none'; });
     apercu.innerHTML = '';
     const img = document.createElement('img');
-    img.src = data.thumbnail_url; img.style.cssText = 'max-width:100%; border-radius:4px; margin-bottom:8px;';
+    img.src = data.thumbnail_url!; img.style.cssText = 'max-width:100%; border-radius:4px; margin-bottom:8px;';
     const nom = document.createElement('div'); nom.style.cssText='font-weight:600; margin-bottom:4px;'; nom.textContent = data.name;
     const cat = document.createElement('div'); cat.style.cssText='font-size:0.78rem; color:var(--ink-soft); margin-bottom:6px;'; cat.textContent = data.category || (data.categories||[]).join(', ');
     const desc = document.createElement('div'); desc.style.cssText='font-size:0.78rem; color:var(--ink-soft);'; desc.textContent = data.description || '';
@@ -136,7 +136,7 @@ export function ouvrirSelecteurTexture(
       b.style.cssText = 'padding:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; cursor:pointer; background:#fff;';
       b.title = data.name;
       const img = document.createElement('img');
-      img.src = data.thumbnail_url; img.loading = 'lazy';
+      img.src = data.thumbnail_url!; img.loading = 'lazy';
       img.style.cssText = 'width:100%; height:64px; object-fit:cover; display:block;';
       const lbl = document.createElement('div');
       lbl.textContent = data.name; lbl.style.cssText = 'font-size:0.66rem; padding:2px 3px; line-height:1.15; ' +
@@ -165,7 +165,7 @@ export function ouvrirSelecteurTexture(
   recherche.addEventListener('input', filtrerEtDessiner);
 
   chargerCataloguePolyhaven().then(()=>{
-    statut.textContent = Object.keys(polyhavenCatalogue).length + ' textures disponibles.';
+    statut.textContent = Object.keys(polyhavenCatalogue!).length + ' textures disponibles.';
     filtrerEtDessiner();
     recherche.focus();
   }).catch(err=>{
@@ -180,7 +180,7 @@ export function ouvrirSelecteurTexture(
 
   enregistrerBtn.addEventListener('click', ()=>{
     if(!selectionId || !polyhavenCatalogue) return;
-    const data = polyhavenCatalogue[selectionId];
+    const data = polyhavenCatalogue[selectionId]!;
     enregistrerBtn.disabled = true; enregistrerBtn.textContent = 'Enregistrement…';
     fetch(POLYHAVEN_FILES_URL(selectionId))
       .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
@@ -198,11 +198,11 @@ export function ouvrirSelecteurTexture(
         const f = files as { Diffuse?: Record<string, { jpg?: { url?: string } }>; diffuse?: Record<string, { jpg?: { url?: string } }> };
         const diff = f.Diffuse || f.diffuse;
         const resKeys = diff ? Object.keys(diff).filter(k=>/^\d+k$/i.test(k)).sort((a,b)=>parseInt(a,10)-parseInt(b,10)) : [];
-        const reso = diff && (diff[resKeys[0]] || Object.values(diff)[0]);
+        const reso = diff && (diff[resKeys[0]!] || Object.values(diff)[0]);
         const url = reso && reso.jpg && reso.jpg.url;
         if(!url) throw new Error('Pas de carte de couleur (Diffuse) disponible pour cette texture');
         overlay.remove();
-        onChoisi({ id:selectionId, nom:data.name, vignette:data.thumbnail_url, url }, !!(appliquerTousCb && appliquerTousCb.checked));
+        onChoisi({ id:selectionId!, nom:data.name, vignette:data.thumbnail_url, url }, !!(appliquerTousCb && appliquerTousCb.checked));
       })
       .catch(err=>{
         enregistrerBtn.disabled = false; enregistrerBtn.textContent = 'Enregistrer';

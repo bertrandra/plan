@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appliquerGlisser, sommetTire, cercleTientDansContour, type GlisserEnCours } from '../../../src/interaction/drag.js';
+import { appliquerGlisser, sommetTire, cercleTientDansContour, type FormeGlissable, type GlisserEnCours } from '../../../src/interaction/drag.js';
 
 // Le glisser-deposer est, comme le zoom, invisible aux golden files : un export est recalcule dans
 // son propre repere et ne voit jamais qu'un sommet a mal suivi la souris. D'ou ces tests.
@@ -40,10 +40,12 @@ describe('cercleTientDansContour', () => {
 });
 
 describe('sommetTire', () => {
-  const polygone = (frozen?: boolean[]) => ({
+  // La cle est omise plutot que posee a `undefined` : c'est la forme d'un objet du plan sans
+  // sommets geles, et ce que `FormeGlissable` decrit.
+  const polygone = (frozen?: boolean[]): FormeGlissable => ({
     type: 'polygon',
     pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }],
-    frozenVertices: frozen
+    ...(frozen && { frozenVertices: frozen })
   });
 
   it('suit librement le pointeur quand rien n est gele', () => {
@@ -197,8 +199,8 @@ describe('appliquerGlisser', () => {
       const obj = rect();
       const d = glisser({ type: 'edge', obj, i: 0, j: 1, startWorld: { x: 4, y: 2 }, startA: { x: 2, y: 2 }, startB: { x: 6, y: 2 } });
       appliquerGlisser(d, { x: 4, y: 1 }, contour);
-      expect(obj.pts[0].y).toBeCloseTo(1, 9);
-      expect(obj.pts[1].y).toBeCloseTo(1, 9);
+      expect(obj.pts[0]!.y).toBeCloseTo(1, 9);
+      expect(obj.pts[1]!.y).toBeCloseTo(1, 9);
     });
   });
 

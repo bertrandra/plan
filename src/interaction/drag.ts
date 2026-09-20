@@ -73,7 +73,7 @@ export function sommetTire(obj: FormeGlissable, idx: number, depart: PtBrut, mon
   if (precGele && suivGele) return null;
   if (!precGele && !suivGele) return monde;
 
-  const ancre = obj.pts[precGele ? precIdx : suivIdx];
+  const ancre = obj.pts[precGele ? precIdx : suivIdx]!;
   const dirOrig = { x: depart.x - ancre.x, y: depart.y - ancre.y };
   const longueur = Math.hypot(dirOrig.x, dirOrig.y) || 1e-9;
   const ux = dirOrig.x / longueur,

@@ -31,14 +31,14 @@ export function syncClotureControls(parcelleObj: ObjetPlan): void {
   const hInp = document.getElementById('terrasse3dClotureHauteur') as HTMLInputElement;
   const cInp = document.getElementById('terrasse3dClotureCouleur') as HTMLInputElement;
   const vignette = document.getElementById('terrasse3dClotureTexVignette') as HTMLImageElement;
-  const nomSpan = document.getElementById('terrasse3dClotureTexNom');
+  const nomSpan = document.getElementById('terrasse3dClotureTexNom')!;
   const texBtn = document.getElementById('terrasse3dClotureTexBtn') as HTMLButtonElement;
-  const clearBtn = document.getElementById('terrasse3dClotureTexClear');
+  const clearBtn = document.getElementById('terrasse3dClotureTexClear')!;
   cb.checked = !!parcelleObj.clotureActive;
   hInp.value = String((parcelleObj.clotureHauteur !== undefined && parcelleObj.clotureHauteur !== null) ? parcelleObj.clotureHauteur : 1.8);
   cInp.value = parcelleObj.clotureCouleur || '#6b4a2a';
   const tex = parcelleObj.clotureTexture;
-  vignette.src = tex ? tex.vignette : '';
+  vignette.src = tex ? tex.vignette! : '';
   vignette.style.visibility = tex ? 'visible' : 'hidden';
   nomSpan.textContent = tex ? tex.nom : 'Aucune (couleur unie)';
   clearBtn.style.display = tex ? '' : 'none';

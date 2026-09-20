@@ -84,7 +84,7 @@ export function creerEtat(
     selectedKey: objects.some((o) => o.key === 'terrasse')
       ? 'terrasse'
       : objects.length
-        ? objects[0].key
+        ? objects[0]!.key
         : null,
     highlight: { type: null, index: null },
     appMode: 'plan',

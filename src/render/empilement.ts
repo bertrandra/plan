@@ -90,10 +90,10 @@ export function reculerObjet(obj: ObjetPlan | null, objets: ObjetPlan[]): boolea
   const idx = objets.indexOf(obj);
   let swapIdx = -1;
   for (let i = idx - 1; i >= 0; i--) {
-    if (objets[i].key === 'parcelle') continue;
-    if ((objets[i].priority || 0) === (obj.priority || 0)) { swapIdx = i; break; }
+    if (objets[i]!.key === 'parcelle') continue;
+    if ((objets[i]!.priority || 0) === (obj.priority || 0)) { swapIdx = i; break; }
   }
   if (swapIdx === -1) return false; // deja le plus en arriere de son niveau
-  [objets[swapIdx], objets[idx]] = [objets[idx], objets[swapIdx]];
+  [objets[swapIdx], objets[idx]] = [objets[idx]!, objets[swapIdx]!];
   return true;
 }

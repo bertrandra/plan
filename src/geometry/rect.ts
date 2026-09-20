@@ -29,8 +29,8 @@ export function estRectangle(obj: FormeRect | null | undefined): boolean | null 
 // On travaille dans le repere du rectangle lui-meme (les deux cotes issus du coin oppose), pas
 // dans celui de l'ecran : un rectangle tourne reste ainsi manipulable sans se redresser.
 export function rectangleDepuisCoin(pts: PtBrut[], idx: number, w: PtBrut): PtBrut[] | null {
-  const opp = (idx+2)%4, O = pts[opp];
-  const A = pts[(opp+1)%4], B = pts[(opp+3)%4];
+  const opp = (idx+2)%4, O = pts[opp]!;
+  const A = pts[(opp+1)%4]!, B = pts[(opp+3)%4]!;
   const lu = Math.hypot(A.x-O.x, A.y-O.y) || 1, lv = Math.hypot(B.x-O.x, B.y-O.y) || 1;
   const u = { x:(A.x-O.x)/lu, y:(A.y-O.y)/lu };
   const v = { x:(B.x-O.x)/lv, y:(B.y-O.y)/lv };
@@ -51,16 +51,16 @@ export function rectangleDepuisCoin(pts: PtBrut[], idx: number, w: PtBrut): PtBr
 // `ref` est la position du point i au DEBUT du glisser : partir de la position courante
 // cumulerait le deplacement d'une image a l'autre et ferait fuir le cote.
 export function rectangleDepuisCote(pts: PtBrut[], i: number, j: number, ref: PtBrut, dx: number, dy: number): PtBrut[] | null {
-  const ex = pts[j].x-pts[i].x, ey = pts[j].y-pts[i].y;
+  const ex = pts[j]!.x-pts[i]!.x, ey = pts[j]!.y-pts[i]!.y;
   const L = Math.hypot(ex,ey) || 1;
   const n = { x:-ey/L, y:ex/L };                 // normale au cote
   const t = dx*n.x + dy*n.y;                     // deplacement projete sur cette normale
   const nx = ref.x + t*n.x, ny = ref.y + t*n.y;
-  const oppose = pts[(i+2)%4];
+  const oppose = pts[(i+2)%4]!;
   if(Math.abs((nx-oppose.x)*n.x + (ny-oppose.y)*n.y) < RECT_MIN_M) return null;
-  const decx = nx - pts[i].x, decy = ny - pts[i].y;
+  const decx = nx - pts[i]!.x, decy = ny - pts[i]!.y;
   const out = pts.map(p=>({...p}));
-  out[i] = { x:pts[i].x+decx, y:pts[i].y+decy };
-  out[j] = { x:pts[j].x+decx, y:pts[j].y+decy };
+  out[i] = { x:pts[i]!.x+decx, y:pts[i]!.y+decy };
+  out[j] = { x:pts[j]!.x+decx, y:pts[j]!.y+decy };
   return out;
 }

@@ -13,7 +13,7 @@ import type { PtBrut } from '../model/types.js';
 /** Distance d'un point au contour le plus proche du polygone (au bord, pas au centre). */
 export function distancePointContour(p: PtBrut, pts: readonly PtBrut[]): number {
   let d = Infinity;
-  for (let i = 0; i < pts.length; i++) d = Math.min(d, distancePointSegment(p, pts[i], pts[(i + 1) % pts.length]));
+  for (let i = 0; i < pts.length; i++) d = Math.min(d, distancePointSegment(p, pts[i]!, pts[(i + 1) % pts.length]!));
   return d;
 }
 
@@ -26,8 +26,8 @@ export function distancePointContour(p: PtBrut, pts: readonly PtBrut[]): number 
  */
 export function distanceContours(A: readonly PtBrut[], B: readonly PtBrut[]): number {
   let d = Infinity;
-  for (let i = 0; i < A.length; i++) d = Math.min(d, distancePointContour(A[i], B));
-  for (let i = 0; i < B.length; i++) d = Math.min(d, distancePointContour(B[i], A));
+  for (let i = 0; i < A.length; i++) d = Math.min(d, distancePointContour(A[i]!, B));
+  for (let i = 0; i < B.length; i++) d = Math.min(d, distancePointContour(B[i]!, A));
   return d;
 }
 
@@ -42,7 +42,7 @@ export function distanceContours(A: readonly PtBrut[], B: readonly PtBrut[]): nu
 export function longueurFrontiere(A: readonly PtBrut[], B: readonly PtBrut[], tol: number): number {
   let total = 0;
   for (let i = 0; i < A.length; i++) {
-    const a = A[i], b = A[(i + 1) % A.length];
+    const a = A[i]!, b = A[(i + 1) % A.length]!;
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     if (len < 1e-6) continue;
     const n = Math.max(2, Math.min(60, Math.ceil(len / 0.5)));

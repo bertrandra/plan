@@ -54,7 +54,8 @@ export function showProjectLoadError(err: { reason?: string } | null): void {
   title.textContent = 'Chargement du projet impossible';
   const msg = document.createElement('div');
   msg.style.cssText = 'margin-bottom:16px; font-size:0.9rem; line-height:1.4; color:#444;';
-  msg.textContent = (reasonLabels[err && err.reason] || 'Une erreur est survenue lors du chargement du projet.') +
+  // Sans `err`, l'indice vaut `null`/`undefined` : la recherche echoue et le repli s'applique.
+  msg.textContent = (reasonLabels[(err && err.reason) as string] || 'Une erreur est survenue lors du chargement du projet.') +
     ' Le projet de demonstration n\'a pas ete charge a la place, pour eviter de donner l\'impression que votre projet a ete perdu ou remplace.';
   const retryBtn = document.createElement('button');
   retryBtn.type = 'button'; retryBtn.textContent = 'Réessayer';

@@ -128,7 +128,7 @@ describe('les requetes', () => {
   it('portent la version du client, pour qu un onglet trop vieux soit reperable', async () => {
     fetchSimule.mockResolvedValue(reponse([]));
     await apiList();
-    const entetes = fetchSimule.mock.calls[0][1].headers;
+    const entetes = fetchSimule.mock.calls[0]![1].headers;
     expect(entetes['X-App-Version']).toBeTruthy();
     expect(entetes['X-Schema-Version']).toBeTruthy();
   });
@@ -136,7 +136,7 @@ describe('les requetes', () => {
   it('n utilisent jamais le cache : un projet relu doit etre a jour', async () => {
     fetchSimule.mockResolvedValue(reponse([]));
     await apiList();
-    expect(fetchSimule.mock.calls[0][1].cache).toBe('no-store');
+    expect(fetchSimule.mock.calls[0]![1].cache).toBe('no-store');
   });
 
   it('signalent un echec d ecriture', async () => {

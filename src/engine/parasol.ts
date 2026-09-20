@@ -59,7 +59,7 @@ interface CandidatPosition { x: number; y: number; angleDeg: number; score: numb
 export function ombreInstantanee(par: ObjetPlan, ctx: ContexteSoleil): GeometrieOmbre | null {
   const [annee, mois, jour] = ctx.dateStr.split('-').map(Number);
   const lieu = ctx.lieu;
-  const { elevRad, azRad } = positionSoleil(annee, mois, jour, ctx.minutes/60, lieu.latitude, lieu.longitude);
+  const { elevRad, azRad } = positionSoleil(annee!, mois!, jour!, ctx.minutes/60, lieu.latitude, lieu.longitude);
   if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return null;
   return geometrieOmbre(par, {
     ux: -Math.sin(azRad), uy: -Math.cos(azRad),
@@ -95,19 +95,19 @@ export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): C
     const t = terrasseDuParasol(p, objets);
     if(!t) return;
     if(!parTerrasse.has(t.key)) parTerrasse.set(t.key, { terr:t, liste:[] });
-    parTerrasse.get(t.key).liste.push(p);
+    parTerrasse.get(t.key)!.liste.push(p);
   });
   const cartes: CarteOmbre[] = [];
   parTerrasse.forEach(({terr, liste})=>{
-    const aire = Math.abs(shoelace(terr.pts));
+    const aire = Math.abs(shoelace(terr.pts!));
     const pas = Math.max(0.15, Math.sqrt(aire/400));
-    const pts = grillePolygone(terr.pts, pas);
+    const pts = grillePolygone(terr.pts!, pas);
     const geos = ech.map(e=>liste.map(p=>geometrieOmbre(p, e)));
     const cells = pts.map(p=>{
       let n = 0;
       for(let i=0;i<geos.length;i++){
-        for(let j=0;j<geos[i].length;j++){
-          if(pointDansOmbre(p.x, p.y, geos[i][j])){ n++; break; }
+        for(let j=0;j<geos[i]!.length;j++){
+          if(pointDansOmbre(p.x, p.y, geos[i]![j]!)){ n++; break; }
         }
       }
       return { x:p.x, y:p.y, frac: n/ech.length };
@@ -124,19 +124,21 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
   if(!terr) return null;
   const ech = echantillonsSoleilParasol(ctx);
   if(!ech.length) return null;
-  const aire = Math.abs(shoelace(terr.pts));
-  const cibles = grillePolygone(terr.pts, Math.max(0.2, Math.sqrt(aire/250)));
+  const aire = Math.abs(shoelace(terr.pts!));
+  const cibles = grillePolygone(terr.pts!, Math.max(0.2, Math.sqrt(aire/250)));
   // Positions candidates du PIED : le pourtour seul si le mat doit y rester, sinon toute la
   // surface. Un deporte ajoute une seconde dimension de recherche (l'orientation du bras), d'ou
   // des quadrillages plus larges pour que le produit des deux reste calculable en ~1 s.
   const deporte = !!par.matDeporte;
   const angles = deporte ? Array.from({length:12}, (_,i)=>i*30) : [matAngleDe(par)];
   const candidats = par.matSurPerimetre
-    ? pointsPerimetre(terr.pts, Math.max(0.25, Math.sqrt(aire)/6))
-    : grillePolygone(terr.pts, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
+    ? pointsPerimetre(terr.pts!, Math.max(0.25, Math.sqrt(aire)/6))
+    : grillePolygone(terr.pts!, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
   if(!cibles.length || !candidats.length) return null;
-  const h = hauteurParasolDe(par), r = par.r;
-  let best: CandidatPosition | null = null;
+  const h = hauteurParasolDe(par), r = par.r!;
+  // `null as ...` : affecte dans une fermeture, que le compilateur ne suit pas — sans cette forme il
+  // retrecit `best` a `null` pour de bon.
+  let best = null as CandidatPosition | null;
   candidats.forEach(pied=>{
     angles.forEach(angDeg=>{
       // `pied` est la position du mat ; la toile (donc l'ombre) est decalee du bras pour un deporte.
@@ -145,11 +147,11 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
       const toileY = deporte ? pied.y - r*Math.sin(a) : pied.y;
       let score = 0;
       for(let i=0;i<ech.length;i++){
-        const e = ech[i];
+        const e = ech[i]!;
         const cx = toileX + h*e.decalageParMetre*e.ux, cy = toileY + h*e.decalageParMetre*e.uy;
         const aa = r*e.etirement, a2 = aa*aa, r2 = r*r;
         for(let k=0;k<cibles.length;k++){
-          const dx = cibles[k].x-cx, dy = cibles[k].y-cy;
+          const dx = cibles[k]!.x-cx, dy = cibles[k]!.y-cy;
           const le = dx*e.ux + dy*e.uy, tr = -dx*e.uy + dy*e.ux;
           if((le*le)/a2 + (tr*tr)/r2 <= 1) score++;
         }
@@ -168,11 +170,11 @@ export function hauteurParasolDe(par: ObjetPlan): number {
 export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): GeometrieOmbre {
   const h = hauteurParasolDe(par);
   return {
-    cx: par.center.x + h*ech.decalageParMetre*ech.ux,
-    cy: par.center.y + h*ech.decalageParMetre*ech.uy,
+    cx: par.center!.x + h*ech.decalageParMetre*ech.ux,
+    cy: par.center!.y + h*ech.decalageParMetre*ech.uy,
     ux: ech.ux, uy: ech.uy,
-    demiGrand: par.r * ech.etirement,
-    demiPetit: par.r
+    demiGrand: par.r! * ech.etirement,
+    demiPetit: par.r!
   };
 }
 
@@ -189,16 +191,16 @@ export function matAngleDe(par: ObjetPlan): number {
  * deporte, un point de son bord.
  */
 export function positionMat(par: ObjetPlan): PtBrut {
-  if(!par.matDeporte) return { x: par.center.x, y: par.center.y };
+  if(!par.matDeporte) return { x: par.center!.x, y: par.center!.y };
   const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.center.x + par.r*Math.cos(a), y: par.center.y + par.r*Math.sin(a) };
+  return { x: par.center!.x + par.r!*Math.cos(a), y: par.center!.y + par.r!*Math.sin(a) };
 }
 
 /** Decalage centre-de-toile → mat, pour replacer la toile a partir d'un pied impose. */
 export function decalageMat(par: ObjetPlan): PtBrut {
   if(!par.matDeporte) return { x:0, y:0 };
   const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.r*Math.cos(a), y: par.r*Math.sin(a) };
+  return { x: par.r!*Math.cos(a), y: par.r!*Math.sin(a) };
 }
 
 /**
@@ -208,7 +210,7 @@ export function decalageMat(par: ObjetPlan): PtBrut {
 export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null {
   let best: PtBrut | null = null, bestD2 = Infinity;
   for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j].x, ay=poly[j].y, bx=poly[i].x, by=poly[i].y;
+    const ax=poly[j]!.x, ay=poly[j]!.y, bx=poly[i]!.x, by=poly[i]!.y;
     const ex=bx-ax, ey=by-ay;
     const L2 = ex*ex+ey*ey;
     let t = L2 ? ((pt.x-ax)*ex + (pt.y-ay)*ey)/L2 : 0;
@@ -238,8 +240,8 @@ export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: 
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
     if(!cible) return;
-    par.center.x += cible.x - mat.x;
-    par.center.y += cible.y - mat.y;
+    par.center!.x += cible.x - mat.x;
+    par.center!.y += cible.y - mat.y;
   });
 }
 
@@ -248,7 +250,7 @@ export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: 
 export function pointsPerimetre(poly: PtBrut[], pas: number): PtBrut[] {
   const out: PtBrut[] = [];
   for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j].x, ay=poly[j].y, bx=poly[i].x, by=poly[i].y;
+    const ax=poly[j]!.x, ay=poly[j]!.y, bx=poly[i]!.x, by=poly[i]!.y;
     const L = Math.hypot(bx-ax, by-ay);
     const n = Math.max(1, Math.round(L/pas));
     for(let k=0;k<n;k++){
@@ -276,7 +278,7 @@ export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseS
   // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre
   // fonction : on retombe sur celle qui contient physiquement le parasol, puis sur la premiere.
   if(par && par.center){
-    const dessous = objets.find(o=>o.fonction==='terrasse' && o.pts && pointInPolygon(par.center, o.pts));
+    const dessous = objets.find(o=>o.fonction==='terrasse' && o.pts && pointInPolygon(par.center!, o.pts));
     if(dessous) return dessous;
   }
   return objets.find(o=>o.key===terrasseSelectionnee && o.fonction==='terrasse')
