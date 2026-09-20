@@ -18,8 +18,27 @@ import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_
 import { ensureConstruction } from '../engine/construction.js';
 import { computeDebitsBois } from '../engine/debit.js';
 import { computeImplantation } from '../engine/implantation.js';
-import { computeTerrasseLayers } from '../engine/layers.js';
-import { buildVisGrid, CHARGE_REF, coefRaideurLame, computeStructure, dimsSection, ENTRAXE_LAME_K, evaluerStructure, findSpaZones, LAMBOURDE_SECTIONS, LAME_RAIDEUR, lamesAngleOf, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, PORTEE_VIS_K, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, sectionLambourde, SOLIVE_SECTION_DIMS, zoneToucheTerrasse } from '../engine/structure.js';
+import { computeTerrasseLayers, type CouchesTerrasse } from '../engine/layers.js';
+import { buildVisGrid, CHARGE_REF, coefRaideurLame, computeStructure, dimsSection, ENTRAXE_LAME_K, evaluerStructure, findSpaZones, LAMBOURDE_SECTIONS, LAME_RAIDEUR, lamesAngleOf, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, PORTEE_VIS_K, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, sectionLambourde, SOLIVE_SECTION_DIMS, structureVide, zoneToucheTerrasse } from '../engine/structure.js';
+import type { ObjetPlan, Construction, PtBrut } from '../model/types.js';
+import type { Debit } from '../engine/debit.js';
+import type { ProduitBarre } from '../engine/bom.js';
+
+/** Ce que ces huit panneaux demandent au reste du programme. */
+export interface ContexteTerrassePanels {
+  refreshTerrasseView: () => void;
+  champLongueurs: (c: Construction, champ: string, libelle: string) => HTMLElement;
+  debitTable: (host: HTMLElement, c: Construction, d: Debit, lengths: number[], cle: ProduitBarre) => void;
+  bilanDebit: (c: Construction, d: Debit) => HTMLElement;
+  prixPersonnaliseplot: (c: Construction, m: { cle: string }) => boolean;
+  hauteurAppuiMm: (c: Construction) => number;
+  hauteurFinieMm: (obj: ObjetPlan) => number;
+  objets: () => ObjetPlan[];
+  pushHistory: () => void;
+}
+
+/** Ce que les panneaux Terrasse lisent et ecrivent sur l'etat du plan. */
+interface EtatTerrassePanels { objects: ObjetPlan[]; terrasseSelectedKey: string | null }
 
 
 /**
@@ -34,10 +53,13 @@ import { buildVisGrid, CHARGE_REF, coefRaideurLame, computeStructure, dimsSectio
  * La selection se repare toute seule : si la terrasse retenue a disparu — supprimee, ou passee a
  * une autre fonction — on retombe sur la premiere plutot que de rester sur une cle morte.
  */
-export function renderTerrasseSelector(etat, sousOnglet: string, ctx): boolean {
+/** Ce que la barre de choix de la terrasse lit, et rien de plus. */
+export type ContexteSelecteurTerrasse = Pick<ContexteTerrassePanels, 'refreshTerrasseView' | 'hauteurFinieMm'>;
+
+export function renderTerrasseSelector(etat: EtatTerrassePanels, sousOnglet: string, ctx: ContexteSelecteurTerrasse): boolean {
   const div = document.getElementById('terrasseSelector');
   div.innerHTML = '';
-  const terrasses = etat.objects.filter(o => o.fonction === 'terrasse');
+  const terrasses = etat.objects.filter((o: ObjetPlan) => o.fonction === 'terrasse');
   const empty = document.getElementById('terrasseEmpty');
   const content = document.getElementById('terrasseContent');
   if (terrasses.length === 0) {
@@ -54,20 +76,20 @@ export function renderTerrasseSelector(etat, sousOnglet: string, ctx): boolean {
     return false;
   }
   empty.style.display = 'none'; content.style.display = 'block';
-  if (!etat.terrasseSelectedKey || !terrasses.some(o => o.key === etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0].key;
-  terrasses.forEach(o => {
+  if (!etat.terrasseSelectedKey || !terrasses.some((o: ObjetPlan) => o.key === etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0].key;
+  terrasses.forEach((o: ObjetPlan) => {
     const b = document.createElement('button');
     b.className = 'objbtn' + (o.key === etat.terrasseSelectedKey ? ' active' : '');
     b.textContent = o.name;
     b.addEventListener('click', () => { etat.terrasseSelectedKey = o.key; ctx.refreshTerrasseView(); });
     div.appendChild(b);
   });
-  const selectedObj = terrasses.find(o => o.key === etat.terrasseSelectedKey);
+  const selectedObj = terrasses.find((o: ObjetPlan) => o.key === etat.terrasseSelectedKey);
   if (selectedObj) {
     const surf = document.createElement('span');
     surf.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft); margin-left:8px;';
     const hMm = ctx.hauteurFinieMm(selectedObj);
-    surf.textContent = 'Surface : ' + shoelace(selectedObj.pts).toFixed(2) + ' m²' +
+    surf.textContent = 'Surface : ' + shoelace(selectedObj.pts||[]).toFixed(2) + ' m²' +
       '  (hauteur finie ' + (hMm / 10).toFixed(1).replace(/\.0$/, '') + ' cm)';
     surf.title = 'Hauteur du sol fini au dessus des lames : ' +
       (estPlots(ensureConstruction(selectedObj)) ? 'plot' : 'depassement de tete de vis') +
@@ -87,7 +109,7 @@ export function basculerOptimisation(): boolean {
   return optimVisible;
 }
 const ECHELLES = [200, 100, 50, 20];
-export function renderDebitBois(obj, layers, ctx){
+export function renderDebitBois(obj: ObjetPlan, layers: CouchesTerrasse, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseDebitBoisBox');
   if(!host) return;
   const c = ensureConstruction(obj);
@@ -137,16 +159,16 @@ export function renderDebitBois(obj, layers, ctx){
   tblV.className = 'attrTable';
   tblV.appendChild(Object.assign(document.createElement('tr'),
     { innerHTML:'<th>Poste</th><th>Qte</th><th>Valeur</th><th>Total</th>' }));
-  const rowV = (label, qte, el, total) => {
+  const rowV = (label: string, qte: string | number, el: string | HTMLElement, total: string) => {
     const tr=document.createElement('tr');
     const t0=document.createElement('td'); t0.textContent=label;
-    const t1=document.createElement('td'); t1.textContent=qte;
+    const t1=document.createElement('td'); t1.textContent=String(qte);
     const t2=document.createElement('td'); if(typeof el==='string') t2.textContent=el; else t2.appendChild(el);
     const t3=document.createElement('td'); t3.textContent=total||''; t3.style.cssText='font-variant-numeric:tabular-nums;';
     tr.appendChild(t0); tr.appendChild(t1); tr.appendChild(t2); tr.appendChild(t3);
     tblV.appendChild(tr);
   };
-  const champPrix = (valeur, titre, appliquer) => {
+  const champPrix = (valeur: number, titre: string, appliquer: (v: number | undefined) => void) => {
     const i = document.createElement('input');
     i.type='number'; i.step='0.5'; i.min='0'; i.style.width='90px';
     i.value = valeur.toFixed(2); i.title = titre;
@@ -166,7 +188,13 @@ export function renderDebitBois(obj, layers, ctx){
     rowV('Modele retenu', m.label, m.min + ' a ' + m.max + ' cm', '');
     rowV('Prix unitaire', nAppuis + ' plots poses',
       champPrix(prixPlotUnite(c), 'Prix d\'un plot ' + m.label + ' chez ton fournisseur',
-        v => { if(v===undefined) delete c.prixPlots[m.cle]; else c.prixPlots[m.cle] = v; }), '');
+        v => {
+          // `prixPlots` accepte les deux formes historiques (objet ou tableau, voir
+          // model/dictionnaire.ts) : ecriture indexee sur un cast, comme la lecture.
+          if(!c.prixPlots) c.prixPlots = {};
+          if(v===undefined) delete (c.prixPlots as Record<string, number | undefined>)[m.cle];
+          else (c.prixPlots as Record<string, number | undefined>)[m.cle] = v;
+        }), '');
     rowV('A acheter', ap.unites + ' plots',
       ctx.prixPersonnaliseplot(c, m) ? 'prix saisi' : 'prix estime',
       ap.cout.toFixed(2) + ' €');
@@ -206,7 +234,7 @@ export function renderDebitBois(obj, layers, ctx){
   }
 }
 
-export function renderTerrasseConfigurator(obj, ctx){
+export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const c = ensureConstruction(obj);
   const tbl = document.getElementById('terrasseConfigTable');
   tbl.innerHTML = '';
@@ -215,7 +243,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   tbl.appendChild(head);
   // 22 reglages a plat, c'est un mur : on ne trouve pas ce qu'on cherche. Les sections donnent
   // au tableau la structure de l'ouvrage lui-meme, du sol vers la finition.
-  const addSection = (titre) => {
+  const addSection = (titre: string) => {
     const tr=document.createElement('tr');
     tr.className = 'sectionRow';
     const td=document.createElement('td'); td.colSpan=3; td.textContent=titre;
@@ -224,7 +252,7 @@ export function renderTerrasseConfigurator(obj, ctx){
       'color:var(--ink-soft); padding-top:14px;';
     tr.appendChild(td); tbl.appendChild(tr);
   };
-  const addRow = (label, el, note?) => {
+  const addRow = (label: string, el: HTMLElement, note?: string) => {
     const tr=document.createElement('tr');
     const td0=document.createElement('td'); td0.textContent=label;
     const td1=document.createElement('td');
@@ -248,7 +276,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   addRow('Type de pose', typeSelect, plots ? 'appui pose : il faut une assise' : 'appui fonde : hors gel par la profondeur');
 
   if(!plots){
-    const hauteurVisInp = document.createElement('input'); hauteurVisInp.type='number'; hauteurVisInp.step='5'; hauteurVisInp.min='10'; hauteurVisInp.value=c.hauteurVis;
+    const hauteurVisInp = document.createElement('input'); hauteurVisInp.type='number'; hauteurVisInp.step='5'; hauteurVisInp.min='10'; hauteurVisInp.value=String(c.hauteurVis);
     hauteurVisInp.title = 'Longueur du fut visse dans le sol, pour aller chercher le hors-gel. Enterree, elle ne sureleve pas la terrasse : c\'est le depassement de tete ci-dessous qui le fait.';
     hauteurVisInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.hauteurVis=parseFloat(hauteurVisInp.value)||40; ctx.refreshTerrasseView(); });
     addRow('Longueur vis dans le sol (cm)', hauteurVisInp,
@@ -256,7 +284,7 @@ export function renderTerrasseConfigurator(obj, ctx){
 
     // La seule partie de la vis qui souleve quoi que ce soit. C'est par elle qu'on rattrape un
     // devers ou qu'on vient affleurer un seuil de porte.
-    const depInp = document.createElement('input'); depInp.type='number'; depInp.step='1'; depInp.min='0'; depInp.value=c.depassementVis||0;
+    const depInp = document.createElement('input'); depInp.type='number'; depInp.step='1'; depInp.min='0'; depInp.value=String(c.depassementVis||0);
     depInp.title = 'Hauteur de tete reglable au-dessus du sol. C\'est la seule partie de la vis qui compte dans la hauteur finie.';
     depInp.addEventListener('change', ()=>{
       ctx.pushHistory();
@@ -269,7 +297,7 @@ export function renderTerrasseConfigurator(obj, ctx){
        : dep > 0 ? 'hors sol : compte dans la hauteur finie'
        : 'tete arasee au niveau du sol'));
   } else {
-    const hPlotInp = document.createElement('input'); hPlotInp.type='number'; hPlotInp.step='1'; hPlotInp.min='1'; hPlotInp.value=c.hauteurPlot;
+    const hPlotInp = document.createElement('input'); hPlotInp.type='number'; hPlotInp.step='1'; hPlotInp.min='1'; hPlotInp.value=String(c.hauteurPlot);
     hPlotInp.title = 'Hauteur de reglage du plot, dessus d\'assise a dessous de lambourde';
     hPlotInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.hauteurPlot=parseFloat(hPlotInp.value)||10; ctx.refreshTerrasseView(); });
     const m = plotModele(c), h = c.hauteurPlot||10;
@@ -301,13 +329,13 @@ export function renderTerrasseConfigurator(obj, ctx){
     supSelect.addEventListener('change', ()=>{ ctx.pushHistory(); c.supportType=supSelect.value; ctx.refreshTerrasseView(); });
     addRow('Assise sous les plots', supSelect, 'chiffree au BOM');
 
-    const decInp = document.createElement('input'); decInp.type='number'; decInp.step='5'; decInp.min='0'; decInp.value=c.supportDecaissement;
+    const decInp = document.createElement('input'); decInp.type='number'; decInp.step='5'; decInp.min='0'; decInp.value=String(c.supportDecaissement);
     decInp.disabled = !(SUPPORT_TYPES[c.supportType]||SUPPORT_TYPES.concasse).concasse;
     decInp.title = 'Epaisseur de concasse compacte sous les plots';
     decInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.supportDecaissement=parseFloat(decInp.value)||15; ctx.refreshTerrasseView(); });
     addRow('Decaissement / concasse (cm)', decInp, 'usage : 15 cm minimum sur sol meuble');
 
-    const assiseInp = document.createElement('input'); assiseInp.type='number'; assiseInp.step='10'; assiseInp.min='50'; assiseInp.value=c.plotSurfaceAssise;
+    const assiseInp = document.createElement('input'); assiseInp.type='number'; assiseInp.step='10'; assiseInp.min='50'; assiseInp.value=String(c.plotSurfaceAssise);
     assiseInp.title = 'Surface d\'assise du plot au contact du support';
     assiseInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.plotSurfaceAssise=parseFloat(assiseInp.value)||PLOT_ASSISE_MIN_CM2; ctx.refreshTerrasseView(); });
     addRow('Surface d\'assise du plot (cm²)', assiseInp,
@@ -322,23 +350,24 @@ export function renderTerrasseConfigurator(obj, ctx){
   const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj, null, ctx.objets()) : [];
   const visCount = visPts.length;
   const visSpa = visPts.filter(p=>p.role==='spa').length;
+  void visSpa;
   // Nommer ce qui a ete detecte. Toute forme passee en fonction "equipement" resserre desormais
   // la grille : si elle n'est pas nommee ici, personne ne peut voir laquelle, ni s'apercevoir
   // qu'un objet a ete classe equipement par megarde.
   const zonesEquip = (obj.pts && obj.pts.length>=3)
-    ? findSpaZones(c.visMargeZoneSpa, ctx.objets()).filter(z=>zoneToucheTerrasse(z, obj.pts)) : [];
+    ? findSpaZones(c.visMargeZoneSpa, ctx.objets()).filter(z=>zoneToucheTerrasse(z, obj.pts||[])) : [];
   const nomsEquip = zonesEquip.map(z=>z.nom).join(', ');
-  const surfM2 = shoelace(obj.pts) || 1;
+  const surfM2 = shoelace(obj.pts||[]) || 1;
   const densite = visCount / surfM2;
   const densiteHorsSpa = (visCount - visSpa) / surfM2;
   const chargeInp = document.createElement('input'); chargeInp.type='number'; chargeInp.step='25'; chargeInp.min='100';
-  chargeInp.value = c.chargeNormale;
+  chargeInp.value = String(c.chargeNormale);
   chargeInp.title = 'Charge d\'exploitation visee hors zone renforcee. 250 kg/m² = usage courant d\'une terrasse privative.';
   chargeInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.chargeNormale=parseFloat(chargeInp.value)||250; ctx.refreshTerrasseView(); });
   addRow('Charge cible — zone courante (kg/m²)', chargeInp, 'usage : 250 kg/m²');
 
   const chargeSpaInp = document.createElement('input'); chargeSpaInp.type='number'; chargeSpaInp.step='25'; chargeSpaInp.min='100';
-  chargeSpaInp.value = c.chargeSpa;
+  chargeSpaInp.value = String(c.chargeSpa);
   chargeSpaInp.title = 'Charge visee sous les equipements. Un spa rempli et occupe pese 1,5 a 2 t sur 3 a 4 m² ; un bac plante ou une cuve sont du meme ordre.';
   chargeSpaInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.chargeSpa=parseFloat(chargeSpaInp.value)||500; ctx.refreshTerrasseView(); });
   addRow('Charge cible — zone equipement (kg/m²)', chargeSpaInp,
@@ -372,7 +401,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   const visEntraxeInp = document.createElement('input'); visEntraxeInp.type='number'; visEntraxeInp.step='5';
   visEntraxeInp.min = plots ? '20' : '30'; visEntraxeInp.max = plots ? '70' : '';
   visEntraxeInp.disabled = auto;
-  visEntraxeInp.value = auto ? Math.round(spanAppui*100) : (plots ? c.plotEntraxe : c.visEntraxe);
+  visEntraxeInp.value = String(auto ? Math.round(spanAppui*100) : (plots ? c.plotEntraxe : c.visEntraxe));
   visEntraxeInp.title = plots
     ? 'Distance entre deux plots le long d\'une meme piece. Plafonnee a 70 cm.'
     : 'Distance maximale entre deux vis le long d\'une meme solive';
@@ -401,12 +430,12 @@ export function renderTerrasseConfigurator(obj, ctx){
 
   const visZoneSpaInp = document.createElement('input'); visZoneSpaInp.type='number'; visZoneSpaInp.step='5'; visZoneSpaInp.min='20';
   visZoneSpaInp.disabled = c.visModeAuto!==false;
-  visZoneSpaInp.value = c.visModeAuto!==false ? Math.round(porteeVisSpaM(c)*100) : c.visEntraxeZoneSpa;
+  visZoneSpaInp.value = String(c.visModeAuto!==false ? Math.round(porteeVisSpaM(c)*100) : c.visEntraxeZoneSpa);
   visZoneSpaInp.title = 'En mode automatique, deduit de la charge cible sous les equipements';
   visZoneSpaInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.visEntraxeZoneSpa=parseFloat(visZoneSpaInp.value)||60; ctx.refreshTerrasseView(); });
   addRow('Entraxe ' + (plots?'plots':'vis') + ' — zone equipement (cm)', visZoneSpaInp);
 
-  const margeSpaInp = document.createElement('input'); margeSpaInp.type='number'; margeSpaInp.step='5'; margeSpaInp.min='0'; margeSpaInp.value=c.visMargeZoneSpa;
+  const margeSpaInp = document.createElement('input'); margeSpaInp.type='number'; margeSpaInp.step='5'; margeSpaInp.min='0'; margeSpaInp.value=String(c.visMargeZoneSpa);
   margeSpaInp.title = 'Debord de la zone renforcee autour de l\'emprise de l\'equipement : la charge ne s\'arrete pas au bord de la cuve.';
   margeSpaInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.visMargeZoneSpa=parseFloat(margeSpaInp.value)||30; ctx.refreshTerrasseView(); });
   addRow('Marge autour de l\'equipement (cm)', margeSpaInp,
@@ -415,7 +444,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   addSection('Structure porteuse');
   // En pose simple sur plots il n'y a pas de solive : ces trois reglages n'ont plus d'objet.
   const sansSolives = plots && !c.plotAvecSolives;
-  const soliveEntraxeInp = document.createElement('input'); soliveEntraxeInp.type='number'; soliveEntraxeInp.step='5'; soliveEntraxeInp.min='20'; soliveEntraxeInp.value=c.soliveEntraxe;
+  const soliveEntraxeInp = document.createElement('input'); soliveEntraxeInp.type='number'; soliveEntraxeInp.step='5'; soliveEntraxeInp.min='20'; soliveEntraxeInp.value=String(c.soliveEntraxe);
   soliveEntraxeInp.disabled = sansSolives;
   soliveEntraxeInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.soliveEntraxe=parseFloat(soliveEntraxeInp.value)||40; ctx.refreshTerrasseView(); });
   addRow('Entraxe solives (cm)', soliveEntraxeInp, sansSolives ? 'sans objet : pas de solives' : '');
@@ -449,7 +478,7 @@ export function renderTerrasseConfigurator(obj, ctx){
           : 'differente des solives : debit et prix separes'));
 
   const lambourdeEntraxeInp = document.createElement('input'); lambourdeEntraxeInp.type='number'; lambourdeEntraxeInp.step='5'; lambourdeEntraxeInp.min='20';
-  lambourdeEntraxeInp.value = sansSolives ? maxEntraxeLameCm(c) : c.lambourdeEntraxe;
+  lambourdeEntraxeInp.value = String(sansSolives ? maxEntraxeLameCm(c) : c.lambourdeEntraxe);
   lambourdeEntraxeInp.disabled = !lambActif || sansSolives;
   lambourdeEntraxeInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.lambourdeEntraxe=parseFloat(lambourdeEntraxeInp.value)||40; ctx.refreshTerrasseView(); });
   addRow('Entraxe lambourdes (cm)', lambourdeEntraxeInp,
@@ -457,11 +486,11 @@ export function renderTerrasseConfigurator(obj, ctx){
 
   addSection('Lames et sens de pose');
   const segRefSelect = document.createElement('select');
-  obj.segmentNames.forEach((sn,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=sn||('Cote '+(i+1)); if((c.segmentReference||0)===i) o.selected=true; segRefSelect.appendChild(o); });
+  (obj.segmentNames||[]).forEach((sn,i)=>{ const o=document.createElement('option'); o.value=String(i); o.textContent=sn||('Cote '+(i+1)); if((c.segmentReference||0)===i) o.selected=true; segRefSelect.appendChild(o); });
   segRefSelect.addEventListener('change', ()=>{ ctx.pushHistory(); c.segmentReference=parseInt(segRefSelect.value,10)||0; ctx.refreshTerrasseView(); });
   addRow('Cote de reference', segRefSelect);
 
-  const sensPoseInp = document.createElement('input'); sensPoseInp.type='number'; sensPoseInp.step='1'; sensPoseInp.value=c.sensPose;
+  const sensPoseInp = document.createElement('input'); sensPoseInp.type='number'; sensPoseInp.step='1'; sensPoseInp.value=String(c.sensPose);
   sensPoseInp.title = '0 = parallele au cote de reference';
   sensPoseInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.sensPose=parseFloat(sensPoseInp.value)||0; ctx.refreshTerrasseView(); });
   addRow('Sens de pose (°, / cote de reference)', sensPoseInp);
@@ -481,7 +510,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   addRow('Essence de bois', essenceSelect);
 
   const coefInp = document.createElement('input'); coefInp.type='number'; coefInp.step='0.05'; coefInp.min='0.3'; coefInp.max='2';
-  coefInp.value = coefRaideurLame(c);
+  coefInp.value = String(coefRaideurLame(c));
   coefInp.title = 'Raideur de la lame par rapport au resineux (1,00). Multiplie l\'ecartement admissible des appuis.';
   coefInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.coefRaideurLame=parseFloat(coefInp.value)||1; ctx.refreshTerrasseView(); });
   const coefDefaut = LAME_RAIDEUR[c.essenceBois] !== undefined ? LAME_RAIDEUR[c.essenceBois] : 1;
@@ -489,11 +518,11 @@ export function renderTerrasseConfigurator(obj, ctx){
          'defaut ' + coefDefaut.toFixed(2) + ' · appuis a ' + maxEntraxeLameCm(c) + ' cm' +
          (Math.abs(coefRaideurLame(c)-coefDefaut) > 1e-9 ? ' (modifie)' : ''));
 
-  const largeurInp = document.createElement('input'); largeurInp.type='number'; largeurInp.step='5'; largeurInp.min='60'; largeurInp.value=c.largeurLame;
+  const largeurInp = document.createElement('input'); largeurInp.type='number'; largeurInp.step='5'; largeurInp.min='60'; largeurInp.value=String(c.largeurLame);
   largeurInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.largeurLame=parseFloat(largeurInp.value)||140; ctx.refreshTerrasseView(); });
   addRow('Largeur lame (mm)', largeurInp);
 
-  const epaisseurInp = document.createElement('input'); epaisseurInp.type='number'; epaisseurInp.step='1'; epaisseurInp.min='15'; epaisseurInp.value=c.epaisseurLame;
+  const epaisseurInp = document.createElement('input'); epaisseurInp.type='number'; epaisseurInp.step='1'; epaisseurInp.min='15'; epaisseurInp.value=String(c.epaisseurLame);
   epaisseurInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.epaisseurLame=parseFloat(epaisseurInp.value)||25; ctx.refreshTerrasseView(); });
   addRow('Epaisseur lame (mm)', epaisseurInp);
 
@@ -506,7 +535,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   addRow('Lame de rive — habillage VERTICAL', lameRiveCb,
     'planche sur chant qui fait le tour, suspendue sous les lames, cache la structure');
 
-  const hauteurRiveInp = document.createElement('input'); hauteurRiveInp.type='number'; hauteurRiveInp.step='10'; hauteurRiveInp.min='50'; hauteurRiveInp.value=c.hauteurLameRive;
+  const hauteurRiveInp = document.createElement('input'); hauteurRiveInp.type='number'; hauteurRiveInp.step='10'; hauteurRiveInp.min='50'; hauteurRiveInp.value=String(c.hauteurLameRive);
   hauteurRiveInp.disabled = !c.avecLameRive;
   hauteurRiveInp.title = 'Hauteur de l\'habillage, mesuree depuis le dessus des lames vers le bas';
   hauteurRiveInp.addEventListener('change', ()=>{ ctx.pushHistory(); c.hauteurLameRive=parseFloat(hauteurRiveInp.value)||200; ctx.refreshTerrasseView(); });
@@ -568,7 +597,7 @@ export function renderTerrasseConfigurator(obj, ctx){
   renderParametresCalcul(obj, ctx);
 }
 
-export function renderParametresCalcul(obj, ctx){
+export function renderParametresCalcul(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const c = ensureConstruction(obj);
   const host = document.getElementById('terrasseParamsBox');
   if(!host) return;
@@ -579,7 +608,7 @@ export function renderParametresCalcul(obj, ctx){
   const head = document.createElement('tr');
   head.innerHTML = '<th>Parametre</th><th>Role</th><th>Valeur</th>';
   tbl.appendChild(head);
-  const row = (label, note, el) => {
+  const row = (label: string, note: string, el: string | HTMLElement) => {
     const tr=document.createElement('tr');
     const td0=document.createElement('td'); td0.textContent=label;
     const td1=document.createElement('td'); td1.textContent=note;
@@ -590,8 +619,8 @@ export function renderParametresCalcul(obj, ctx){
     tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
     tbl.appendChild(tr);
   };
-  const num = (val, step, min, apply) => {
-    const i=document.createElement('input'); i.type='number'; i.step=step; i.min=min; i.value=val;
+  const num = (val: number, step: string, min: string, apply: (v: number) => void) => {
+    const i=document.createElement('input'); i.type='number'; i.step=step; i.min=min; i.value=String(val);
     i.addEventListener('change', ()=>{ ctx.pushHistory(); apply(parseFloat(i.value)); ctx.refreshTerrasseView(); });
     return i;
   };
@@ -656,7 +685,7 @@ export function renderParametresCalcul(obj, ctx){
   host.appendChild(tbl);
 }
 
-export function renderTerrasseCoupe(obj, ctx){
+export function renderTerrasseCoupe(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const c = ensureConstruction(obj);
   const wrap = document.getElementById('terrasseCoupeWrap');
   wrap.innerHTML = '';
@@ -685,7 +714,7 @@ export function renderTerrasseCoupe(obj, ctx){
   nsv.setAttribute('width', String(svgW)); nsv.setAttribute('height', String(svgH));
   nsv.setAttribute('viewBox', '0 0 '+svgW+' '+svgH);
 
-  function band(y0mm, hmm, color, label){
+  function band(y0mm: number, hmm: number, color: string, label: string): void {
     const y = groundY - (y0mm+hmm)*scalePx;
     const h = Math.max(hmm*scalePx, 2);
     const r = document.createElementNS(svgNS,'rect');
@@ -726,14 +755,14 @@ export function renderTerrasseCoupe(obj, ctx){
 
   // Le plot se dresse au-dessus du sol ; la vis descend dessous et ne montre que sa tete reglable.
   // Deux sens opposes, donc des rectangles de part et d'autre de la ligne de sol.
-  function appuiRect(x, yTopPx, hPx, w, fill){
+  function appuiRect(x: number | string, yTopPx: number | string, hPx: number | string, w: number | string, fill: string): void {
     const r = document.createElementNS(svgNS,'rect');
-    r.setAttribute('x', x); r.setAttribute('y', yTopPx);
-    r.setAttribute('width', w); r.setAttribute('height', hPx);
+    r.setAttribute('x', String(x)); r.setAttribute('y', String(yTopPx));
+    r.setAttribute('width', String(w)); r.setAttribute('height', String(hPx));
     r.setAttribute('fill', fill); r.setAttribute('stroke','#3B2E1F');
     nsv.appendChild(r);
   }
-  function appuiLabel(yPx, txt){
+  function appuiLabel(yPx: number, txt: string): void {
     const t = document.createElementNS(svgNS,'text');
     t.setAttribute('x', '108'); t.setAttribute('y', String(yPx+4));
     t.setAttribute('font-size','11'); t.setAttribute('fill','#3B2E1F');
@@ -772,7 +801,7 @@ export function renderTerrasseCoupe(obj, ctx){
   wrap.appendChild(nsv);
 }
 
-export function renderImplantation(obj, ctx){
+export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseImplantWrap');
   if(!host) return;
   const c = ensureConstruction(obj);
@@ -781,11 +810,11 @@ export function renderImplantation(obj, ctx){
   const layers = computeTerrasseLayers(obj, ctx.objets());
   const I = computeImplantation(obj, layers);
   const ech = ECHELLES.includes(c.echelleImplant) ? c.echelleImplant : 200;
-  const mm = m => m*1000/ech;                       // metres reels -> mm sur le papier
+  const mm = (m: number) => m*1000/ech;                       // metres reels -> mm sur le papier
   const marge = 18;                                  // mm, place pour les cotes
   const W = mm(I.bbox.x1-I.bbox.x0) + marge*2;
   const H = mm(I.bbox.y1-I.bbox.y0) + marge*2;
-  const P = p => ({ x: marge + mm(p.x-I.bbox.x0), y: marge + mm(p.y-I.bbox.y0) });
+  const P = (p: PtBrut) => ({ x: marge + mm(p.x-I.bbox.x0), y: marge + mm(p.y-I.bbox.y0) });
   const nom = estPlots(c) ? 'plots' : 'vis';
 
   // ---- barre de reglage ----
@@ -813,9 +842,9 @@ export function renderImplantation(obj, ctx){
   s.setAttribute('width', W+'mm'); s.setAttribute('height', H+'mm');
   s.setAttribute('viewBox', '0 0 '+W+' '+H);
   s.style.cssText = 'background:#fff; border:1px solid var(--rule,#ccc); max-width:100%;';
-  const el = (t,at)=>{ const e=document.createElementNS(svgNS,t);
-    Object.keys(at).forEach(k=>e.setAttribute(k,at[k])); return e; };
-  const txt = (x,y,t,size?,fill?,anchor?)=>{ const e=el('text',{x,y,'font-size':size||2.2,
+  const el = (t: string, at: Record<string, string | number>)=>{ const e=document.createElementNS(svgNS,t);
+    Object.keys(at).forEach(k=>e.setAttribute(k,String(at[k]))); return e; };
+  const txt = (x: number | string, y: number | string, t: string, size?: number, fill?: string, anchor?: string)=>{ const e=el('text',{x,y,'font-size':size||2.2,
     fill:fill||'#111','font-family':"'Helvetica Neue',Arial,sans-serif",
     'text-anchor':anchor||'start'}); e.textContent=t; return e; };
 
@@ -841,7 +870,7 @@ export function renderImplantation(obj, ctx){
   I.sommets.forEach((v,i)=>{
     const w = I.sommets[(i+1)%I.sommets.length];
     const a=P(v), b=P(w);
-    const L = dist(obj.pts[i], obj.pts[(i+1)%obj.pts.length]);
+    const L = dist((obj.pts||[])[i], (obj.pts||[])[(i+1)%(obj.pts||[]).length]);
     const ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
     const t = txt(0,-1.2, L.toFixed(3)+' m', 2.4, '#111','middle');
@@ -920,8 +949,8 @@ export function renderImplantation(obj, ctx){
                 '<th>Appuis, distance depuis le depart (m)</th>' }));
   I.lignes.forEach(l=>{
     const tr=document.createElement('tr');
-    const cell=t=>{const td=document.createElement('td'); td.textContent=t; return td;};
-    const nb=t=>{const td=cell(t); td.style.cssText='font-variant-numeric:tabular-nums;'; return td;};
+    const cell=(t: string)=>{const td=document.createElement('td'); td.textContent=t; return td;};
+    const nb=(t: string)=>{const td=cell(t); td.style.cssText='font-variant-numeric:tabular-nums;'; return td;};
     tr.appendChild(cell(l.ref + ' — ' + l.type));
     tr.appendChild(nb(l.depart.x.toFixed(3) + ' / ' + l.depart.y.toFixed(3)));
     tr.appendChild(nb(l.fin.x.toFixed(3) + ' / ' + l.fin.y.toFixed(3)));
@@ -943,7 +972,7 @@ export function renderImplantation(obj, ctx){
     { innerHTML:'<th>Sommet</th><th>X (m)</th><th>Y (m)</th><th>Cote suivant (m)</th>' }));
   I.sommets.forEach((v,i)=>{
     const tr=document.createElement('tr');
-    const L = dist(obj.pts[i], obj.pts[(i+1)%obj.pts.length]);
+    const L = dist((obj.pts||[])[i], (obj.pts||[])[(i+1)%(obj.pts||[]).length]);
     tr.innerHTML = '<td>'+(i+1)+(i===I.R.cote?' (repere R)':'')+'</td><td>'+v.x.toFixed(3)+
       '</td><td>'+v.y.toFixed(3)+'</td><td>'+L.toFixed(3)+'</td>';
     tS.appendChild(tr);
@@ -978,7 +1007,7 @@ export function renderImplantation(obj, ctx){
   });
 }
 
-export function renderChantier(obj, ctx){
+export function renderChantier(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseChantierWrap');
   if(!host) return;
   const c = ensureConstruction(obj);
@@ -1000,10 +1029,10 @@ export function renderChantier(obj, ctx){
 
   const barre = document.createElement('div');
   barre.className = 'controls';
-  const mk = (lbl, val, step, min, apply) => {
+  const mk = (lbl: string, val: number, step: string, min: string, apply: (v: number) => void) => {
     const w=document.createElement('span'); w.style.cssText='margin-right:18px; font-size:0.88rem;';
     const l=document.createElement('label'); l.textContent=lbl+' : '; l.style.marginRight='5px';
-    const i=document.createElement('input'); i.type='number'; i.step=step; i.min=min; i.value=val; i.style.width='70px';
+    const i=document.createElement('input'); i.type='number'; i.step=step; i.min=min; i.value=String(val); i.style.width='70px';
     i.addEventListener('change', ()=>{ apply(parseFloat(i.value)); ctx.refreshTerrasseView(); });
     w.appendChild(l); w.appendChild(i); return w;
   };
@@ -1015,7 +1044,7 @@ export function renderChantier(obj, ctx){
   tbl.className = 'attrTable';
   tbl.appendChild(Object.assign(document.createElement('tr'),
     { innerHTML:'<th>Activite</th><th>Quantite</th><th>Cadence</th><th>Duree</th><th>Part</th>' }));
-  CHANTIER_PHASES.forEach(phase=>{
+  CHANTIER_PHASES.forEach((phase: string)=>{
     const lignes = ch.lignes.filter(l=>l.phase===phase);
     if(!lignes.length) return;
     const hPhase = lignes.reduce((s,l)=>s+l.heures,0);
@@ -1026,7 +1055,7 @@ export function renderChantier(obj, ctx){
     tbl.appendChild(trP);
     lignes.forEach(l=>{
       const tr = document.createElement('tr');
-      const cell = t => { const td=document.createElement('td'); td.textContent=t; return td; };
+      const cell = (t: string) => { const td=document.createElement('td'); td.textContent=t; return td; };
       const td0 = cell('　' + l.label);
       if(ch.dominant && l.cle===ch.dominant.cle) td0.style.fontWeight='600';
       tr.appendChild(td0);
@@ -1038,7 +1067,11 @@ export function renderChantier(obj, ctx){
       inp.title = 'Heures par ' + l.unite;
       inp.addEventListener('change', ()=>{
         const v = parseFloat(inp.value);
-        if(isNaN(v)||v<0) delete c.cadences[l.cle]; else c.cadences[l.cle] = v;
+        // `cadences` accepte les deux formes historiques (objet ou tableau, voir
+        // model/dictionnaire.ts) : ecriture indexee sur un cast, comme la lecture.
+        if(!c.cadences) c.cadences = {};
+        const dict = c.cadences as Record<string, number | undefined>;
+        if(isNaN(v)||v<0) delete dict[l.cle]; else dict[l.cle] = v;
         ctx.refreshTerrasseView();
       });
       tdC.appendChild(inp);
@@ -1081,14 +1114,14 @@ export function renderChantier(obj, ctx){
   }
 }
 
-export function renderMethode(obj, ctx){
+export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseMethodeWrap');
   if(!host) return;
   const c = ensureConstruction(obj);
 
   // The tables are generated with the project's own calibration, so they show what this plan
   // actually uses rather than the factory defaults.
-  const cal = e => ({ soliveSection:'', soliveEntraxe:e, kPortee:c.kPortee, chargeNormale:c.chargeNormale });
+  const cal = (e: number) => ({ soliveSection:'', soliveEntraxe:e, kPortee:c.kPortee, chargeNormale:c.chargeNormale });
   const sectionRows = SOLIVE_SECTIONS.map(s=>{
     const d = SOLIVE_SECTION_DIMS[s];
     const p40 = Math.round(maxPorteeVisM({...cal(40), soliveSection:s})*100);
@@ -1109,12 +1142,12 @@ export function renderMethode(obj, ctx){
 
   const span = porteeVisM(c);
   const ok = obj.pts && obj.pts.length>=3;
-  const S = ok ? computeStructure(obj, ctx.objets()) : {cadre:[],solives:[],lambourdes:[],solivesSpa:[]};
+  const S = ok ? computeStructure(obj, ctx.objets()) : structureVide();
   const vis = ok ? buildVisGrid(obj, S, ctx.objets()) : [];
-  const roles = {rive:0, courant:0, spa:0};
+  const roles: Record<string, number> = {rive:0, courant:0, spa:0};
   vis.forEach(p=>roles[p.role]=(roles[p.role]||0)+1);
-  const surf = shoelace(obj.pts) || 1;
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
+  const surf = shoelace(obj.pts||[]) || 1;
+  const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
 
   host.innerHTML =
   '<div style="max-width:none; line-height:1.55;">' +
@@ -1360,9 +1393,9 @@ export function renderMethode(obj, ctx){
   '</div>';
 }
 
-export function renderOptimResult(obj, ctx){
+export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseOptimResult');
-  if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host.style.display='none'; return; }
+  if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host!.style.display='none'; return; }
   const c = ensureConstruction(obj);
   const res = optimiserParametres(obj, ctx.objets());
   host.style.display = '';
@@ -1388,7 +1421,7 @@ export function renderOptimResult(obj, ctx){
   tbl.appendChild(head);
 
   const surPlots = estPlots(c);
-  const isCurrent = r => surPlots
+  const isCurrent = (r: typeof res[number]) => surPlots
     ? (r.topologie === (c.plotAvecSolives ? 'double' : 'simple') &&
        r.section === (c.plotAvecSolives ? c.soliveSection : sectionLambourde(c)) &&
        (r.topologie==='simple' || r.soliveEntraxe===c.soliveEntraxe))
@@ -1397,7 +1430,7 @@ export function renderOptimResult(obj, ctx){
   // Neighbouring entraxes of one strategy differ by a couple of euros and would fill the table
   // with the same answer eight times; keep the best of each section/lambourdes pairing so every
   // row is a genuinely different way to build the thing.
-  const seen = new Set();
+  const seen = new Set<string>();
   const distinct = res.filter(r=>{
     const key = r.section + '|' + (surPlots ? r.topologie : r.avecLambourde);
     if(seen.has(key)) return false;
@@ -1412,7 +1445,7 @@ export function renderOptimResult(obj, ctx){
     const tr = document.createElement('tr');
     const cur = isCurrent(r);
     if(cur) tr.style.cssText = 'font-weight:600; background:var(--accent-light);';
-    const cell = txt => { const td=document.createElement('td'); td.textContent=txt; return td; };
+    const cell = (txt: string) => { const td=document.createElement('td'); td.textContent=txt; return td; };
     tr.appendChild(cell(r.section + (i===0 ? '  ← optimum' : '')));
     tr.appendChild(cell(surPlots
       ? (r.topologie==='double' ? 'double (plots sous solives)' : 'simple (plots sous lambourdes)')
@@ -1454,7 +1487,7 @@ export function renderOptimResult(obj, ctx){
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c,'vis',VIS_PRICE),
     prixUnitaire(c,'bois',SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts)||1, ctx.objets());
+    lamesAngleOf(obj), shoelace(obj.pts||[])||1, ctx.objets());
   const note = document.createElement('div');
   note.className = 'hint';
   const gain = actuel.cout - best.cout;

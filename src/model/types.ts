@@ -31,6 +31,21 @@ export interface PtBrut {
 }
 
 /**
+ * Un segment oriente : d'ou il part, ou il va.
+ *
+ * La forme `{ a, b }` etait ecrite a la main dans une dizaine de signatures — decoupe de ligne,
+ * cotes d'un anneau, solives, lambourdes, cadre. Elle porte un nom pour la meme raison que `PtBrut` :
+ * la voir passer de fonction en fonction dit ce que le calcul manipule.
+ *
+ * A ne pas confondre avec `LimiteBrute` (`geometry/rings.ts`), qui est une **paire** `[p0, p1]` :
+ * deux formes distinctes, et confondre les deux etait precisement l'erreur que le typage a trouvee.
+ */
+export interface Segment {
+  a: PtBrut;
+  b: PtBrut;
+}
+
+/**
  * Une forme du plan, telle que la manipulent le rendu, les exports et la 3D.
  *
  * Trois types cohabitent sous une seule forme, et c'est le champ `type` qui dit lequel : un
@@ -81,8 +96,324 @@ export interface ObjetPlan {
 
   fonction?: string;
   matiere?: string;
+
+  /**
+   * Le lieu, porte par la parcelle et par elle seule.
+   *
+   * Il est range sur un objet du plan plutot que dans un reglage d'application pour qu'il se
+   * sauvegarde avec le projet, sans cle supplementaire cote serveur (voir `model/lieu.ts`).
+   */
+  latitude?: number | null;
+  longitude?: number | null;
+  nomLieu?: string | null;
   /** Hauteur en metres, pour la Vue 3D et les ombres. */
   elevation?: number;
 
+  /** Les parametres de construction, sur une terrasse et sur elle seule. */
+  construction?: Construction;
+
+  /**
+   * Ce qui fait d'un cercle un parasol.
+   *
+   * `center` reste **toujours** le centre de la toile, y compris sur un modele deporte : c'est elle
+   * qui porte l'ombre, la surface et le cercle dessine. Seul le pied se deplace, a `matAngleDeg` du
+   * centre et a une distance d'un rayon. Garder cette convention evite de calculer l'ombre de deux
+   * facons selon le modele.
+   */
+  hauteurParasol?: number;
+  matDeporte?: boolean;
+  matAngleDeg?: number;
+  /** Le pied doit rester sur le pourtour de la terrasse. */
+  matSurPerimetre?: boolean;
+  /** La terrasse a laquelle un parasol est rattache — celle dont on mesure l'ombrage. */
+  terrasseLieeKey?: string | null;
+
+  /** Hauteur d'oeil d'un point de vue, en metres. */
+  altitude?: number;
+
+  /**
+   * Ce que l'import cadastral a rattache a la parcelle : le repere qui recale le fond orthophoto,
+   * et la fiche cadastrale affichee ailleurs dans le panneau.
+   *
+   * **Partiel, volontairement** : seuls les deux champs lus par `render/ortho.ts` sont decrits ici.
+   * La fiche complete (idu, commune, section, contenance, geometrie source, PLU…) appartient au
+   * passage sur `geo/` et `io/`, pas a celui sur `render/` — l'ecrire en entier maintenant reviendrait
+   * a deviner sa forme depuis un seul lecteur.
+   */
+  cadastre?: {
+    /** Le point de calage, en longitude/latitude WGS84 — l'origine reelle enregistree a l'import. */
+    origineLat?: number;
+    origineLon?: number;
+    [autreChampCadastre: string]: unknown;
+  } | null;
+
+  /** Reglages du fond orthophoto, rattaches a la parcelle comme le lieu et la cloture. */
+  ortho?: {
+    actif?: boolean;
+    opacite?: number;
+    parcelleOpacite?: number;
+  };
+
+  /**
+   * Bascules d'affichage rattachees a la parcelle, comme le fond orthophoto : masquage du
+   * voisinage importe et de la grille. Elles suivent ainsi le projet enregistre plutot que d'etre
+   * reperdues a chaque ouverture.
+   */
+  affichage?: {
+    voisinage?: boolean;
+    grille?: boolean;
+  };
+
+  /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
+  clotureActive?: boolean;
+  clotureHauteur?: number;
+  clotureCouleur?: string;
+  clotureTexture?: TextureAppliquee | null;
+
+  /**
+   * Textures Poly Haven posees par l'utilisateur, choisies dans `ui/texturePicker.ts`.
+   *
+   * `textureVerticale`/`textureHorizontale` s'appliquent aux faces d'un objet de terrasse (le
+   * platelage vu de dessus, ses tranches vues de cote) ; `textureArbre` au feuillage d'un arbre.
+   */
+  textureVerticale?: TextureAppliquee | null;
+  textureHorizontale?: TextureAppliquee | null;
+  textureArbre?: TextureAppliquee | null;
+
+  /**
+   * Attributs BD TOPO d'un objet importe (batiment, haie, vegetation, arbre estime).
+   *
+   * Reste `unknown` volontairement : la forme varie selon la couche d'origine (un batiment porte
+   * `nombreEtages`, une haie non) — voir `geo/cadastreObjets.ts`, seul ecrivain. La decrire par une
+   * union taguee est un chantier du durcissement (spec §12), pas de cette migration.
+   */
+  bdtopo?: unknown;
+  /**
+   * Zonage PLU, rattache a la parcelle qu'il qualifie — contrairement a \`bdtopo\`, la forme de la
+   * fiche IGN (\`ZonagePlu\`) est stable d'une commune a l'autre, elle a donc pu etre typee (voir
+   * \`geo/apiIgn.ts::interrogerPlu\`, seul ecrivain).
+   */
+  plu?: ZonagePlu | null;
+  /** Diametre estime d'un arbre importe, en metres. */
+  diametreArbre?: number;
+  couleurArbre?: string;
+
+  [autreChamp: string]: unknown;
+}
+
+/**
+ * Un prix saisi a la main, range par longueur de barre (`'2.5'`, `'3'`…).
+ *
+ * Le type admet aussi un tableau, et ce n'est pas de la complaisance : les projets enregistres
+ * portent `[]` la ou `defaultConstruction()` pose `{}`, et `ensureConstruction` les laisse passer
+ * puisqu'un tableau *est* un objet. Un tableau vide se comporte comme un dictionnaire vide — aucune
+ * clef a lire — et rien n'ecrit jamais par indice, donc les deux formes coexistent sans consequence.
+ * Le type le dit plutot que de laisser croire a une seule.
+ */
+export type PrixParLongueur = Record<string, number> | unknown[];
+
+/** Une ligne du chiffrage, telle qu'elle est enregistree avec la terrasse. */
+export interface LigneBom {
+  poste: string;
+  label: string;
+  qte: number;
+  unite: string;
+  prixBas: number;
+  prixHaut: number;
+  /** Prix retenu, ou `null` quand la fourchette n'a pas ete tranchee. */
+  prixReel?: number | null;
+  calcule?: string;
+  [autreChamp: string]: unknown;
+}
+
+/** Une vue 3D enregistree sur la terrasse : d'ou l'on regarde, et ce que l'on vise. */
+export interface VueEnregistree {
+  nom: string;
+  pos: { x: number; y: number; z: number };
+  cible: { x: number; y: number; z: number };
+}
+
+/**
+ * Les parametres de construction d'une terrasse : structure, debit, chiffrage, chantier.
+ *
+ * **Tout y est facultatif, et c'est la verite du stockage** — un projet enregistre avant qu'un
+ * reglage existe ne le porte pas. `ensureConstruction` (engine/construction.ts) comble les manques a
+ * l'ouverture, et c'est la seule raison pour laquelle le reste du moteur peut lire ces champs sans
+ * precaution.
+ *
+ * Deux choses a savoir avant de s'y fier :
+ *
+ * 1. `ensureConstruction` comble **40 de ces champs, pas les 53**. Les treize autres — `visEntraxe`,
+ *    `soliveSection`, `avecLambourde`, `essenceBois`, `largeurLame`, `sensPose`… — ne sont poses que
+ *    par `defaultConstruction()`, donc uniquement sur une terrasse neuve. Ils datent de la premiere
+ *    version et n'ont jamais eu besoin d'etre retro-remplis ; le jour ou l'un d'eux change de nom,
+ *    c'est ici qu'il faudra regarder.
+ * 2. La distinction « avant » / « apres `ensureConstruction` » n'est pas encore dans le type. Elle le
+ *    deviendra au barreau 3 (`strictNullChecks`), ou lire un champ facultatif sans le verifier
+ *    cessera d'etre gratuit.
+ */
+export interface Construction {
+  // ---- Pose et fondation ----------------------------------------------------------------------
+  /** `'vis-fondation'` ou `'plots'`. */
+  typePose?: string;
+  hauteurVis?: number;
+  /** Depassement de la tete de vis hors sol, en cm. 0 = tete arasee. */
+  depassementVis?: number;
+  visModeAuto?: boolean;
+  visEntraxe?: number;
+  visEntraxeZoneSpa?: number;
+  visMargeZoneSpa?: number;
+  hauteurPlot?: number;
+  plotModele?: string;
+  plotEntraxe?: number;
+  plotEntraxeAuto?: boolean;
+  plotAvecSolives?: boolean;
+  /** Surface d'assise d'un plot, en cm². */
+  plotSurfaceAssise?: number;
+  supportType?: string;
+  /** Decaissement du support, en cm. */
+  supportDecaissement?: number;
+
+  // ---- Charges et calibration -----------------------------------------------------------------
+  chargeNormale?: number;
+  chargeSpa?: number;
+  kPortee?: number;
+  kEntraxeLame?: number;
+  coefRaideurLame?: number;
+
+  // ---- Ossature -------------------------------------------------------------------------------
+  soliveEntraxe?: number;
+  soliveSection?: string;
+  avecLambourde?: boolean;
+  lambourdeEntraxe?: number;
+  lambourdeSection?: string;
+
+  // ---- Lames ----------------------------------------------------------------------------------
+  essenceBois?: string;
+  largeurLame?: number;
+  epaisseurLame?: number;
+  /** Jeu entre lames, en mm. */
+  jeuLames?: number;
+  avecLameRive?: boolean;
+  hauteurLameRive?: number;
+  epaisseurLameRive?: number;
+  avecLamePlat?: boolean;
+  /** Angle de pose, en degres. */
+  sensPose?: number;
+  /** Indice du cote qui donne la direction de pose. */
+  segmentReference?: number;
+
+  // ---- Debit ----------------------------------------------------------------------------------
+  /** Longueurs achetables, saisies en clair : `'3, 2.5, 2'`. */
+  longueursLames?: string;
+  longueursBois?: string;
+  longueursLambourde?: string;
+  /** Chute la plus courte qu'on accepte de reutiliser, en cm. */
+  chuteMinReutilisable?: number;
+  jointsSurAppui?: boolean;
+  jointsBoisSurAppui?: boolean;
+
+  // ---- Prix -----------------------------------------------------------------------------------
+  prixLongueurs?: PrixParLongueur;
+  prixLongueursBois?: PrixParLongueur;
+  prixLongueursLambourde?: PrixParLongueur;
+  prixPlots?: PrixParLongueur;
+  prixVisUnite?: number;
+  visParBoite?: number;
+
+  // ---- Chantier -------------------------------------------------------------------------------
+  /** Cadences par poste, en heures par unite. */
+  cadences?: Record<string, number> | unknown[];
+  equipe?: number;
+  heuresJour?: number;
+
+  // ---- Sorties et affichage -------------------------------------------------------------------
+  /** Denominateur de l'echelle du plan d'implantation : 200 pour du 1/200. */
+  echelleImplant?: number;
+  lames3dFilaire?: boolean;
+  bom?: LigneBom[];
+  vues3d?: VueEnregistree[];
+
+  [autreChamp: string]: unknown;
+}
+
+/**
+ * Un objet **avant** normalisation : la meme forme, mais rien de garanti.
+ *
+ * C'est le type de ce qui sort d'un fichier, d'`api.php` ou d'un instantane d'annulation. Il se
+ * distingue d'`ObjetPlan` par ce qu'il ne promet pas : ni `key`, ni `name`, ni les tableaux
+ * paralleles a `pts`. Les poser est precisement le travail de `normalizeObjects`, et le seul endroit
+ * du programme ou l'on a le droit de rencontrer un objet incomplet est en amont de cet appel.
+ */
+export type ObjetBrut = Partial<ObjetPlan>;
+
+/**
+ * Une texture Poly Haven telle qu'elle est enregistree sur un objet du plan, apres un choix dans
+ * `ui/texturePicker.ts` — le type vit ici et non la-bas pour la meme raison que `Mesure` juste en
+ * dessous : c'est une donnee du projet, portee par plusieurs champs d'`ObjetPlan`, pas une donnee
+ * du selecteur lui-meme.
+ */
+export interface TextureAppliquee {
+  id: string;
+  nom: string;
+  vignette?: string;
+  url: string;
+}
+
+/**
+ * Le zonage PLU, tel que renvoye par le Geoportail de l'urbanisme et enregistre sur \`ObjetPlan.plu\`.
+ * Le type vit ici et non dans \`geo/apiIgn.ts\` pour la meme raison que \`TextureAppliquee\` : c'est une
+ * donnee du projet, pas une donnee propre au module qui va la chercher.
+ */
+export interface ZoneUrba {
+  libelle: string; libelong: string; typezone: string;
+  partition: string; urlfic: string; nomfic: string; datappro: string;
+}
+export interface PrescriptionPlu { libelle: string; typepsc: string; urlfic: string }
+export interface InformationPlu { libelle: string; typeinf: string; nomfic: string; urlfic: string }
+/** Une servitude d'utilite publique (AC1, AC2, AC4/SPR, PT1, I4...) qui touche le point interroge. */
+export interface ServitudePlu {
+  type: string; nom: string; assiette: string; forme: string;
+  generateur: string; nature: string; source: string;
+  fichier: string; partition: string; urlreg: string;
+}
+export interface DocumentPlu { nom: string; type: string; partition: string }
+export interface CommunePlu { nom: string; insee: string; rnu: boolean }
+
+/** Le zonage complet au point interroge : c'est la forme reelle de \`ObjetPlan.plu\`. */
+export interface ZonagePlu {
+  zones: ZoneUrba[];
+  prescriptions: PrescriptionPlu[];
+  informations: InformationPlu[];
+  servitudes: ServitudePlu[];
+  /** Sous-ensemble de \`servitudes\` : les Sites Patrimoniaux Remarquables (AC4). */
+  spr: ServitudePlu[];
+  document: DocumentPlu | null;
+  commune: CommunePlu | null;
+  interrogeLe: string;
+  lon: number;
+  lat: number;
+}
+
+/**
+ * Une cote telle qu'elle est enregistree : **deux references, pas des coordonnees**.
+ *
+ * Elle designe un cote (objet + indice) et un point (objet + indice), et sa geometrie est
+ * recalculee a chaque rendu — c'est ce qui la garde juste quand l'objet mesure bouge.
+ *
+ * Le type vit ici et non dans `render/`, malgre son unique lecteur : c'est une donnee du projet, elle
+ * s'enregistre dans le fichier et `core/state.ts` en tient la liste. Un etat qui doit importer depuis
+ * `render/` pour se decrire remonterait la pile a l'envers.
+ */
+export interface Mesure {
+  refObjKey: string;
+  refSegIndex: number;
+  startEnd: string;
+  targetObjKey: string;
+  targetPtIndex: number;
+  /** Cote masquee : elle reste enregistree, elle ne se dessine plus. */
+  show?: boolean;
+  /** Ce qui s'ecrit au bout du trait de rappel : distance perpendiculaire, le long du cote, ou les deux. */
+  displayMode?: string;
   [autreChamp: string]: unknown;
 }

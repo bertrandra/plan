@@ -7,8 +7,12 @@
 import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT } from './bom.js';
 import { LAME_RIVE_EPAISSEUR_M, PLOT_ASSISE_MIN_CM2, VIS_PRICE } from './constantes.js';
 import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAME_RAIDEUR, PORTEE_VIS_K } from './structure.js';
+import type { Construction } from '../model/types.js';
 
-export function defaultConstruction(){
+/** Ce qui porte des parametres de construction : une terrasse du plan, ou une candidate a l'etude. */
+export interface PorteurDeConstruction { construction?: Construction }
+
+export function defaultConstruction(): Construction {
   return {
     typePose:'vis-fondation',
     hauteurVis:40, depassementVis:0,
@@ -35,7 +39,19 @@ export function defaultConstruction(){
     bom:[]
   };
 }
-export function ensureConstruction(obj){
+/**
+ * Comble les manques d'une construction enregistree, et la rend.
+ *
+ * A savoir avant de s'y fier : elle comble **40 des 53 champs** de `Construction`. Les treize autres
+ * ne sont poses que par `defaultConstruction()`, donc uniquement sur une terrasse neuve — voir la
+ * note du type dans `model/types.ts`.
+ *
+ * Le parametre n'exige pas un `ObjetPlan` complet, seulement ce qui porte la construction. Ce n'est
+ * pas de la complaisance : `evaluerStructure` evalue des configurations candidates sur un objet
+ * fabrique pour l'occasion — un contour et des parametres, sans clef ni nom — et c'est exactement
+ * ce que la signature autorise.
+ */
+export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(!obj.construction) obj.construction = defaultConstruction();
   if(obj.construction.hauteurVis===undefined) obj.construction.hauteurVis = 40;
   // 0 par defaut : un projet enregistre avant ce reglage garde exactement la hauteur qu'il avait,

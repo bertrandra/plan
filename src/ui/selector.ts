@@ -10,21 +10,32 @@
 
 import { el } from '../shell/dom.js';
 import { LIBELLE_FONCTION } from '../model/defaults.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan } from '../model/types.js';
+
+/** Une famille d'objets, regroupes pour le premier niveau du selecteur. */
+interface FamilleSelecteur { cle: string; objets: ObjetPlan[] }
+
+/** Ce que le selecteur et la table d'affichage doivent pouvoir declencher ailleurs. */
+export interface ContexteSelecteur {
+  render: () => void;
+  markDirty: () => void;
+}
 
 // Famille affichee dans le selecteur. Elle ne concerne que lui : ce n'est ni une donnee du plan ni
 // une preference enregistree, seulement l'endroit ou l'utilisateur regarde en ce moment.
 let selectorFiltre = 'terrain';
 
 const selectorDiv = () => el('selector');
-export function rebuildSelector(etat, ctx){
+export function rebuildSelector(etat: EtatApp, ctx: ContexteSelecteur): void {
   selectorDiv().innerHTML='';
   // Voisinage masque = voisinage absent du selecteur, categories comprises : proposer de
   // selectionner un objet qu'on ne voit pas n'a pas de sens, et les compteurs annonceraient un
   // plan qui n'est pas celui affiche. Un objet masque INDIVIDUELLEMENT (case du tableau
   // d'affichage) reste, lui, listee : c'est de la que l'on peut le demasquer.
-  const objetsListables = etat.objects.filter(o=>!(o.voisinage && !etat.voisinageVisible));
-  const familles = [];
-  objetsListables.forEach(obj=>{
+  const objetsListables = etat.objects.filter((o: ObjetPlan)=>!(o.voisinage && !etat.voisinageVisible));
+  const familles: FamilleSelecteur[] = [];
+  objetsListables.forEach((obj: ObjetPlan)=>{
     const f = obj.fonction || 'autre';
     let fam = familles.find(x=>x.cle===f);
     if(!fam){ fam = {cle:f, objets:[]}; familles.push(fam); }
@@ -43,13 +54,13 @@ export function rebuildSelector(etat, ctx){
     legende.className = 'selectorLegende';
     legende.textContent = 'Catégorie';
     rangeeFiltres.appendChild(legende);
-    const ajouterFiltre = (cle, libelle, n)=>{
+    const ajouterFiltre = (cle: string, libelle: string, n: number)=>{
       const b = document.createElement('button');
       b.className = 'objbtn fambtn' + (selectorFiltre===cle ? ' active' : '');
       b.appendChild(document.createTextNode(libelle));
       const compteur = document.createElement('span');
       compteur.className = 'fambtnN';
-      compteur.textContent = n;
+      compteur.textContent = String(n);
       b.appendChild(compteur);
       b.title = 'N\'afficher que : ' + libelle + ' (' + n + ')';
       b.addEventListener('click', ()=>{ selectorFiltre = cle; rebuildSelector(etat, ctx); });
@@ -94,8 +105,8 @@ export function rebuildSelector(etat, ctx){
   // selection reste lisible dans la pastille de gauche, qui ne bouge jamais.
   const visibles = selectorFiltre==='tout'
     ? objetsListables.slice()
-    : objetsListables.filter(o=>(o.fonction||'autre')===selectorFiltre);
-  visibles.forEach(obj=>{
+    : objetsListables.filter((o: ObjetPlan)=>(o.fonction||'autre')===selectorFiltre);
+  visibles.forEach((obj: ObjetPlan)=>{
     const b=document.createElement('button');
     b.className='objbtn'+(obj.key===etat.selectedKey?' active':'');
     b.textContent=obj.name;
@@ -107,7 +118,7 @@ export function rebuildSelector(etat, ctx){
   selectorDiv().appendChild(rangee);
 }
 
-export function renderDispTable(etat, ctx){
+export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
   const tbl = el<HTMLTableElement>('dispTable');
   const cols = [
     {field:'showName', label:'Nom'},
@@ -119,15 +130,15 @@ export function renderDispTable(etat, ctx){
   // Chaque case appelle ctx.render(), qui rappelle cette fonction : tout reconstruire detachait du
   // DOM la case qu'on venait de cocher, et le focus clavier repartait au debut de la page. Tant
   // que la liste d'objets ne bouge pas, on se contente donc de remettre les cases a jour.
-  const signature = JSON.stringify(etat.objects.map(o=>[o.key, o.name]));
+  const signature = JSON.stringify(etat.objects.map((o: ObjetPlan)=>[o.key, o.name]));
   if(tbl.dataset.signature === signature && tbl.rows.length === etat.objects.length + 1){
-    etat.objects.forEach((obj,i)=>{
+    etat.objects.forEach((obj: ObjetPlan, i: number)=>{
       const cells = tbl.rows[i+1].cells;
       const cbHide = cells[1].firstChild as HTMLInputElement | null;
       if(cbHide) cbHide.checked = !!obj.hidden;
       cols.forEach((col,c)=>{
         const cb = cells[c+2].firstChild as HTMLInputElement | null;
-        if(cb) cb.checked = !!obj[col.field];
+        if(cb) cb.checked = !!(obj as Record<string, unknown>)[col.field];
       });
     });
     return;
@@ -143,8 +154,8 @@ export function renderDispTable(etat, ctx){
   thHide.style.cursor = 'pointer';
   thHide.title = "Cliquer pour masquer/afficher tous les objets";
   thHide.addEventListener('click', ()=>{
-    const allHidden = etat.objects.every(o=>o.hidden);
-    etat.objects.forEach(o=>{ o.hidden = !allHidden; });
+    const allHidden = etat.objects.every((o: ObjetPlan)=>o.hidden);
+    etat.objects.forEach((o: ObjetPlan)=>{ o.hidden = !allHidden; });
     ctx.markDirty();
     ctx.render();
   });
@@ -155,9 +166,9 @@ export function renderDispTable(etat, ctx){
     th.style.cursor = 'pointer';
     th.title = "Cliquer pour appliquer a tous les objets";
     th.addEventListener('click', ()=>{
-      const allChecked = etat.objects.every(o=>o[col.field]);
+      const allChecked = etat.objects.every((o: ObjetPlan)=>(o as Record<string, unknown>)[col.field]);
       const newVal = !allChecked;
-      etat.objects.forEach(o=>{ o[col.field] = newVal; });
+      etat.objects.forEach((o: ObjetPlan)=>{ (o as Record<string, unknown>)[col.field] = newVal; });
       ctx.markDirty();
       ctx.render();
     });
@@ -165,12 +176,12 @@ export function renderDispTable(etat, ctx){
   });
   tbl.appendChild(head);
 
-  etat.objects.forEach(obj=>{
+  etat.objects.forEach((obj: ObjetPlan)=>{
     // On retient la cle, pas l'objet : les lignes survivent maintenant a un ctx.render(), et un
     // ctx.restoreState() remplace les objets par des copies. Capturer `obj` ferait ecrire les cases
     // dans des objets detaches du plan.
     const cle = obj.key;
-    const cible = ()=>etat.objects.find(o=>o.key === cle);
+    const cible = ()=>etat.objects.find((o: ObjetPlan)=>o.key === cle);
     const tr=document.createElement('tr');
     const td0=document.createElement('td'); td0.textContent=obj.name;
     tr.appendChild(td0);
@@ -182,8 +193,8 @@ export function renderDispTable(etat, ctx){
     tr.appendChild(tdHide);
     cols.forEach(col=>{
       const td=document.createElement('td');
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=obj[col.field];
-      cb.addEventListener('change', ()=>{ const o=cible(); if(!o) return; o[col.field]=cb.checked; ctx.markDirty(); ctx.render(); });
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!(obj as Record<string, unknown>)[col.field];
+      cb.addEventListener('change', ()=>{ const o=cible(); if(!o) return; (o as Record<string, unknown>)[col.field]=cb.checked; ctx.markDirty(); ctx.render(); });
       td.appendChild(cb);
       tr.appendChild(td);
     });

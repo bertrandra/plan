@@ -23,7 +23,10 @@ export interface ContexteOnglets {
   construireListeDossier: () => void;
 }
 
-export function rebuildPanelTabs(etat, ctx: ContexteOnglets): void {
+/** Ce que les onglets lisent et ecrivent : quel onglet est actif. */
+export interface EtatOnglets { panelTab: string }
+
+export function rebuildPanelTabs(etat: EtatOnglets, ctx: ContexteOnglets): void {
   const div = document.getElementById('panelTabs');
   div.innerHTML = '';
   ONGLETS.forEach(([key, label]) => {

@@ -4,10 +4,32 @@
 import type { PtBrut } from '../model/types.js';
 import { distancePointSegment } from './segments.js';
 
+/**
+ * Une limite interne : ses deux extremites, **dans cet ordre**, sans nom de champ.
+ *
+ * La forme n'est pas un detail. Ces couples ne sont produits qu'ici et ne sont consommes que par
+ * `chainerSegments`, qui les recolle bout a bout ; leur seule propriete utile est d'avoir un debut
+ * et une fin. Le type qui figurait ici (`{ a, b }`) etait une annotation ecrite a la main lors de
+ * l'extraction et jamais verifiee : le code produisait et lisait des paires depuis le debut.
+ */
+export type LimiteBrute = [PtBrut, PtBrut];
+
 /** Resultat d'une fusion : le contour exterieur, et les limites internes devenues invisibles. */
 export interface AnneauxFusionnes {
   contour: PtBrut[];
-  limites: { a: PtBrut; b: PtBrut }[];
+  limites: LimiteBrute[];
+}
+
+/** Un point insere par le redecoupage, avec son abscisse le long de l'arete. */
+interface PointInsere { t: number; p: PtBrut; }
+
+/** Une arete d'anneau pendant la fusion : sa provenance, et les deux marques du parcours. */
+interface AreteAnneau {
+  a: PtBrut;
+  b: PtBrut;
+  anneau: number;
+  interne: boolean;
+  utilisee: boolean;
 }
 
 export function memePoint(a: PtBrut, b: PtBrut, tol: number): boolean { return Math.hypot(a.x-b.x, a.y-b.y) <= tol; }
@@ -16,13 +38,13 @@ export function memePoint(a: PtBrut, b: PtBrut, tol: number): boolean { return M
 // sommet au milieu de mon arete. Sans ce redecoupage, les deux aretes ne se reconnaissent pas et
 // la limite interne resterait dans le contour.
 export function decouperAnneau(anneau: PtBrut[], sommetsAutres: PtBrut[], tol: number): PtBrut[] {
-  const out = [];
+  const out: PtBrut[] = [];
   for(let i=0;i<anneau.length;i++){
     const a = anneau[i], b = anneau[(i+1)%anneau.length];
     out.push(a);
     const len = Math.hypot(b.x-a.x, b.y-a.y);
     if(len < tol) continue;
-    const inseres = [];
+    const inseres: PointInsere[] = [];
     sommetsAutres.forEach(s=>{
       if(memePoint(s,a,tol) || memePoint(s,b,tol)) return;
       if(distancePointSegment(s, a, b) > tol) return;
@@ -37,9 +59,9 @@ export function decouperAnneau(anneau: PtBrut[], sommetsAutres: PtBrut[], tol: n
 
 // Recolle les aretes internes bout a bout : une limite entre deux parcelles arrive en plusieurs
 // segments (un par arete cadastrale), un seul trait est plus lisible et plus manipulable.
-export function chainerSegments(segments: { a: PtBrut; b: PtBrut }[], tol: number): PtBrut[][] {
+export function chainerSegments(segments: LimiteBrute[], tol: number): PtBrut[][] {
   const restants = segments.map(s=>({a:s[0], b:s[1], pris:false}));
-  const chaines = [];
+  const chaines: PtBrut[][] = [];
   restants.forEach(seg=>{
     if(seg.pris) return;
     seg.pris = true;
@@ -63,9 +85,9 @@ export function chainerSegments(segments: { a: PtBrut; b: PtBrut }[], tol: numbe
 
 export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusionnes | null {
   if(anneaux.length === 1) return { contour: anneaux[0].map(p=>({x:p.x,y:p.y})), limites: [] };
-  const tousSommets = [].concat(...anneaux);
+  const tousSommets = ([] as PtBrut[]).concat(...anneaux);
   const decoupes = anneaux.map(a=>decouperAnneau(a, tousSommets, tol));
-  const aretes = [];
+  const aretes: AreteAnneau[] = [];
   decoupes.forEach((anneau, idx)=>{
     for(let i=0;i<anneau.length;i++){
       aretes.push({ a: anneau[i], b: anneau[(i+1)%anneau.length], anneau: idx, interne:false, utilisee:false });
@@ -73,7 +95,7 @@ export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusio
   });
   // Deux anneaux voisins parcourus dans le meme sens traversent leur limite commune en sens
   // OPPOSE : une arete qui trouve sa jumelle inversee dans un autre anneau est donc interne.
-  const limites = [];
+  const limites: LimiteBrute[] = [];
   aretes.forEach(e1=>{
     if(e1.interne) return;
     const jumelle = aretes.find(e2=>!e2.interne && e2.anneau !== e1.anneau &&
@@ -86,7 +108,7 @@ export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusio
   const restantes = aretes.filter(e=>!e.interne);
   if(!restantes.length) return null;
   // Chainage du contour exterieur.
-  const contour = [];
+  const contour: PtBrut[] = [];
   let courante = restantes[0];
   courante.utilisee = true;
   contour.push({x:courante.a.x, y:courante.a.y});
@@ -114,7 +136,7 @@ export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusio
 
 export function simplifierContour(pts: PtBrut[], seuil: number): PtBrut[] {
   if(pts.length <= 4) return pts;
-  const out = [];
+  const out: PtBrut[] = [];
   for(let i=0;i<pts.length;i++){
     const prec = out.length ? out[out.length-1] : pts[(i-1+pts.length)%pts.length];
     const suiv = pts[(i+1)%pts.length];

@@ -18,10 +18,10 @@ import { versEcran, type EtatScene } from '../geometry/vue.js';
 // which is what the previous M/L/C-only parser did for H/V/Q/S/T/A.
 export function parseSvgPathPoints(d: string): PtBrut[] {
   const tokens = String(d).match(/[MLHVCSQTAZmlhvcsqtaz]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
-  const pts = [];
+  const pts: PtBrut[] = [];
   let cur = {x:0,y:0}, start = {x:0,y:0};
-  let cmd = null, i = 0;
-  const isCmdTok = t => /^[MLHVCSQTAZ]$/i.test(t);
+  let cmd: string | null = null, i = 0;
+  const isCmdTok = (t: string) => /^[MLHVCSQTAZ]$/i.test(t);
   const num = ()=>{ const v = parseFloat(tokens[i++]); return Number.isFinite(v) ? v : 0; };
   while(i < tokens.length){
     if(isCmdTok(tokens[i])){ cmd = tokens[i]; i++; }

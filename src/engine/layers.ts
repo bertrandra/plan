@@ -8,8 +8,9 @@ import { ringSegments } from '../geometry/polygon.js';
 import { ensureConstruction } from './construction.js';
 import { generateParallelLines } from './lames.js';
 import { buildVisGrid, computeStructure, safeOffset } from './structure.js';
+import type { ObjetPlan } from '../model/types.js';
 
-export function computeTerrasseLayers(obj, objets){
+export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   const c = ensureConstruction(obj);
   // `const n = obj.pts.length` : variable morte dans le fichier d origine, retiree - son
   // initialisation ne fait que lire une longueur, donc aucun effet de bord perdu.
@@ -62,3 +63,12 @@ export function computeTerrasseLayers(obj, objets){
   return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly };
 }
 
+
+/**
+ * Les calques d'une terrasse, tels que computeTerrasseLayers les produit.
+ *
+ * Le type est **derive de la fonction** et non ecrit a la main : c'est un resultat de calcul, pas
+ * une donnee enregistree, et une description separee finirait par diverger de ce qui est reellement
+ * rendu — exactement ce que geometry/rings.ts a montre.
+ */
+export type CouchesTerrasse = ReturnType<typeof computeTerrasseLayers>;

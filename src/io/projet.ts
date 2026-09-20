@@ -6,18 +6,36 @@
 // vues, PUIS on restaure les reglages d'affichage ranges sur la parcelle (fond orthophoto,
 // masquage du voisinage). L'inverse restaurerait des reglages sur des objets qui n'existent plus.
 
-import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
+import { ortho, restaurerOrthoDuProjet, type ContexteOrtho } from '../render/ortho.js';
 import { serializeObjects, serializeMeasures } from './serialisation.js';
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
 import { idMesure } from '../model/cles.js';
-export function appliquerProjetImporte(valide, remplacer, etat, ctx){
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
+import type { ProjetValide } from './validation.js';
+import type { ObjetSerialise } from '../model/creation.js';
+
+/** Ce que l'application de l'import — de fichier ou de cadastre — demande au reste du programme. */
+export interface ContexteImportProjet extends ContexteOrtho {
+  pushHistory: () => void;
+  /** Voir la note du meme nom dans app/atelier.ts : `objects` passe par `normalizeObjects` en route. */
+  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
+  rebuildSelector: () => void;
+  fitToObject: (obj: ObjetPlan) => void;
+  syncBasculeVoisinage: () => void;
+  syncBasculeGrille: () => void;
+  syncLieuTitre: () => void;
+  buildThreeScene: (obj: ObjetPlan | null) => void;
+}
+
+export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean, etat: EtatApp, ctx: ContexteImportProjet): void {
   ctx.pushHistory();
-  const objsBase = remplacer ? [] : serializeObjects(etat.objects);
-  const msBase = remplacer ? [] : serializeMeasures(etat.measures);
+  const objsBase: ObjetSerialise[] = remplacer ? [] : serializeObjects(etat.objects);
+  const msBase: ObjetSerialise[] = remplacer ? [] : serializeMeasures(etat.measures);
   const clesPrises = new Set(objsBase.map(o=>o.key));
-  const renommages = {};
-  const ajoutes = [];
+  const renommages: Record<string, string> = {};
+  const ajoutes: ObjetSerialise[] = [];
 
   valide.objets.forEach(src=>{
     const copie = JSON.parse(JSON.stringify(src));
@@ -97,7 +115,7 @@ export function appliquerProjetImporte(valide, remplacer, etat, ctx){
   showToast(msg);
 }
 
-export function restaurerAffichageDuProjet(etat, ctx){
+export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportProjet): void {
   const p = ctx.trouverParcelleCloture();
   const a = p && p.affichage;
   etat.voisinageVisible = !(a && a.voisinage === false);

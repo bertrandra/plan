@@ -27,7 +27,65 @@ import {
   interrogerPlu, lienGeoportailUrbanisme, lienTerritoireUrbanisme,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
-export function setupProjectBar(seed, ctx){
+import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate } from '../geo/apiIgn.js';
+import type { ProjecteurLocal } from '../geo/projection.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, ObjetBrut } from '../model/types.js';
+import type { Lieu } from '../model/lieu.js';
+
+// Un projet du serveur, tel que la liste et la barre le montrent : la meme ligne que celle que rend
+// `apiList()`. Elle est decrite une seule fois, la ou elle arrive.
+import type { ProjetResume as ProjetMeta } from '../io/api.js';
+
+/** Ce que le choix depuis une adresse ouvre : voir `cadastreDialog.ts`. */
+export interface ContexteImportCadastre {
+  apiSave: (payload: unknown) => Promise<{ id: string }>;
+  appliquerProjetImporte: (valide: unknown, remplacer: boolean) => void;
+  withProjectParam: (id: string) => string;
+  apiDisponible: boolean;
+  cleDernierProjet: string;
+}
+
+/** Ce que la barre de projet, le PLU et l'actualisation IGN demandent au reste du programme. */
+export interface ContexteProjectBar {
+  etat: EtatApp;
+  apiDelete: (id: string) => Promise<unknown>;
+  /** Le serveur ne promet que `{id}`, mais rend en pratique `updatedAt` — voir `io/api.ts`. */
+  apiSave: (payload: unknown) => Promise<{ id: string; updatedAt?: string }>;
+  lieuActuel: () => Lieu;
+  markDirty: () => void;
+  pushHistory: () => void;
+  rebuildSelector: () => void;
+  refreshProjectStatus: () => void;
+  render: () => void;
+  restoreState: (instantane: { objects: ObjetBrut[]; measures: unknown[] }) => void;
+  serializeMeasures: (ms: EtatApp['measures']) => unknown[];
+  serializeObjects: (objs: ObjetPlan[]) => ObjetBrut[];
+  syncBasculeVoisinage: () => void;
+  syncLieuTitre: () => void;
+  trouverParcelleCloture: () => ObjetPlan | null | undefined;
+  withProjectParam: (id: string) => string;
+  initialState: () => unknown[];
+  initialMeasures: () => unknown[];
+  cleDernierProjet: string;
+  definirRafraichisseurStatut: (f: () => void) => void;
+  contexteImport: () => ContexteImportCadastre;
+}
+
+/** Ce que la barre de projet recoit au demarrage : liste des projets et projet courant. */
+interface SeedProjectBar {
+  apiAvailable: boolean;
+  meta?: ProjetMeta | null;
+  list: ProjetMeta[];
+}
+
+/** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
+export interface OptionsActualisation {
+  portee: 'tout' | 'parcelle';
+  voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean };
+}
+
+export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): void {
   const bar = document.getElementById('projectBar');
   bar.innerHTML = '';
 
@@ -88,7 +146,7 @@ export function setupProjectBar(seed, ctx){
   const sel = document.createElement('select');
   sel.id = 'projectSelect';
   sel.title = 'Choisir un projet';
-  list.forEach(p=>{
+  list.forEach((p: ProjetMeta)=>{
     const opt = document.createElement('option');
     opt.value = p.id; opt.textContent = p.name;
     if(currentMeta && p.id===currentMeta.id) opt.selected = true;
@@ -185,7 +243,7 @@ export function setupProjectBar(seed, ctx){
  * Un point sans zonage n'est pas une erreur — toutes les communes n'ont pas de PLU numerise. Le
  * message le dit, plutot que de laisser croire a une panne.
  */
-export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx): Promise<void> {
+export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx: ContexteProjectBar): Promise<void> {
   const parcelle = ctx.trouverParcelleCloture();
   if (!parcelle) return;
   const lieu = ctx.lieuActuel();
@@ -209,7 +267,7 @@ export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx):
   }
 }
 
-export function renderPanneauPlu(ctx){
+export function renderPanneauPlu(ctx: ContexteProjectBar): void {
   const hote = document.getElementById('pluContenu');
   const lien = el<HTMLAnchorElement>('pluGeoportailLien');
   const btn = el<HTMLButtonElement>('pluInterrogerBtn');
@@ -246,7 +304,7 @@ export function renderPanneauPlu(ctx){
   }
   const tbl = document.createElement('table');
   tbl.className = 'attrTable';
-  const ligne = (cle, valeurHtml) => {
+  const ligne = (cle: string, valeurHtml: string) => {
     const tr = document.createElement('tr');
     const td1 = document.createElement('td');
     td1.textContent = cle;
@@ -262,7 +320,7 @@ export function renderPanneauPlu(ctx){
       ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les regles nationales qui s\'appliquent.'
       : 'Aucune zone renvoyee pour ce point (document non verse au Geoportail, ou parcelle hors zonage).');
   }
-  plu.zones.forEach((z, i)=>{
+  plu.zones.forEach((z, i: number)=>{
     const prefixe = plu.zones.length > 1 ? 'Zone ' + (i+1) : 'Zone';
     ligne(prefixe, '<b>' + escapeHtml(z.libelle) + '</b>' + (z.typezone ? ' — type ' + escapeHtml(z.typezone) : ''));
     if(z.libelong) ligne('Libellé', escapeHtml(z.libelong));
@@ -270,17 +328,17 @@ export function renderPanneauPlu(ctx){
     if(z.urlfic) ligne('Règlement', '<a href="' + escapeHtml(z.urlfic) + '" target="_blank" rel="noopener">' + escapeHtml(z.nomfic || 'document PDF') + ' ↗</a>');
     if(z.partition) ligne('Document', escapeHtml(z.partition));
   });
-  (plu.prescriptions || []).forEach((p, i)=>{
+  (plu.prescriptions || []).forEach((p, i: number)=>{
     ligne('Prescription ' + (i+1), escapeHtml((p.libelle || '') + (p.typepsc ? ' (' + p.typepsc + ')' : '')) +
       (p.urlfic ? ' <a href="' + escapeHtml(p.urlfic) + '" target="_blank" rel="noopener">↗</a>' : ''));
   });
-  (plu.informations || []).forEach((info, i)=>{
+  (plu.informations || []).forEach((info, i: number)=>{
     ligne('Information ' + (i+1), escapeHtml(info.libelle || '') +
       (info.urlfic ? ' <a href="' + escapeHtml(info.urlfic) + '" target="_blank" rel="noopener">' + escapeHtml(info.nomfic || 'notice') + ' ↗</a>' : ''));
   });
   // Servitudes d'utilite publique : le SPR (AC4) est mis en avant separement - c'est celle qui
   // change le plus concretement ce qu'on a le droit de construire et l'aspect impose.
-  (plu.spr || []).forEach(s=>{
+  (plu.spr || []).forEach((s)=>{
     ligne('SPR', '<b>' + escapeHtml(s.nom) + '</b>' +
       (s.assiette ? ' — ' + escapeHtml(s.assiette) : '') +
       (s.source ? '<br><span style="opacity:0.75;">Précision de la limite : ' + escapeHtml(s.source) + '</span>' : '') +
@@ -290,10 +348,10 @@ export function renderPanneauPlu(ctx){
   // Comparaison par contenu et non par identite d'objet : apres un aller-retour JSON (projet
   // enregistre puis rouvert), `spr` et `servitudes` sont deux copies distinctes, et un includes()
   // sur les references reafficherait le SPR une seconde fois en bas de liste.
-  const cleSup = s => (s.type || '') + '|' + (s.nom || '') + '|' + (s.fichier || '');
+  const cleSup = (s: { type?: string; nom?: string; fichier?: string }) => (s.type || '') + '|' + (s.nom || '') + '|' + (s.fichier || '');
   const clesSpr = new Set((plu.spr || []).map(cleSup));
   const autresSup = (plu.servitudes || []).filter(s=>!clesSpr.has(cleSup(s)));
-  autresSup.forEach((s, i)=>{
+  autresSup.forEach((s, i: number)=>{
     ligne('Servitude ' + (i+1) + (s.type ? ' (' + s.type + ')' : ''),
       '<b>' + escapeHtml(s.nom) + '</b>' +
       (s.generateur ? ' — ' + escapeHtml(s.generateur) : '') +
@@ -313,7 +371,7 @@ export function renderPanneauPlu(ctx){
   hote.appendChild(tbl);
 }
 
-export async function actualiserDepuisIgn(options, bouton, ctx){
+export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, bouton: HTMLButtonElement | null, ctx: ContexteProjectBar): Promise<void> {
   options = options || { portee:'tout', voisinage:{actif:false} };
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
@@ -333,9 +391,13 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     const simplifier = !!cad.simplifieM;
 
     // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
-    const urlParcelle = CADASTRE_URL + '?code_insee=' + encodeURIComponent(cad.codeInsee) +
-      '&section=' + encodeURIComponent(cad.section) + '&numero=' + encodeURIComponent(cad.numero) + '&_limit=5';
-    const repParcelle = await fetchJSONReseau(urlParcelle);
+    // `cadastre` ne declare que les deux champs que `render/ortho.ts` lit (model/types.ts) ; les
+    // autres, dont ceux-ci, arrivent par l'index signature en `unknown`.
+    const urlParcelle = CADASTRE_URL + '?code_insee=' + encodeURIComponent(cad.codeInsee as string) +
+      '&section=' + encodeURIComponent(cad.section as string) + '&numero=' + encodeURIComponent(cad.numero as string) + '&_limit=5';
+    // `fetchJSONReseau` rend du JSON arbitraire (`unknown`) : ce module (ui/, pas encore type)
+    // continue de le lire sans verification, comme avant le typage de geo/apiIgn.ts.
+    const repParcelle = await fetchJSONReseau(urlParcelle) as CollectionGeoJSON;
     const featParcelle = ((repParcelle && repParcelle.features) || [])[0];
     let ptsParcelle = null;
     if(featParcelle){
@@ -344,20 +406,23 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     }
     // Une parcelle fusionnee a un contour construit, pas un contour cadastral : le remplacer par
     // celui d'une seule de ses composantes amputerait le terrain.
-    if(cad.fusionDe && cad.fusionDe.length > 1){
+    const fusionDe = cad.fusionDe as unknown[] | undefined;
+    if(fusionDe && fusionDe.length > 1){
       bilan.push('propriete fusionnee : contour conserve');
       ptsParcelle = null;
     }
 
     // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee "tout" seulement)
-    const objsIgn = options.portee === 'tout'
-      ? ctx.etat.objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation')
+    // `bdtopo` reste `unknown` sur ObjetPlan (sa forme varie selon la couche, voir model/types.ts) :
+    // ce module le lit sans verification, comme avant le typage de geo/.
+    const objsIgn: { bdtopo: { couche: string } }[] = options.portee === 'tout'
+      ? ctx.etat.objects.filter((o: ObjetPlan) => o.bdtopo && (o.bdtopo as { couche?: string }).couche && (o.bdtopo as { couche?: string }).couche !== 'estimation') as unknown as { bdtopo: { couche: string } }[]
       : [];
-    const couches = [...new Set(objsIgn.map(o=>o.bdtopo.couche))];
-    const fraiches = {};
+    const couches: string[] = [...new Set(objsIgn.map(o => o.bdtopo.couche))];
+    const fraiches: Record<string, FeatureGeoJSON> = {};
     if(couches.length){
-      const anneaux = [];
-      ctx.etat.objects.forEach(o=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push(o.cadastre.geometrieSource.coordinates[0]); });
+      const anneaux: Anneau[] = [];
+      ctx.etat.objects.forEach((o: ObjetPlan)=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]); });
       if(anneaux.length){
         const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
         for(const couche of couches){
@@ -365,7 +430,7 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
             const feats = await interrogerWfs(couche, bbox, 80);
             feats.forEach(f=>{
               const p = f.properties || {};
-              const id = f.id || p.cleabs;
+              const id = (f.id as string) || (p.cleabs as string);
               if(id) fraiches[id] = f;
             });
           } catch { bilan.push('couche ' + couche + ' indisponible'); }
@@ -376,51 +441,52 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     // ---- 3. Application
     ctx.pushHistory();
     let nMaj = 0, nAbsents = 0, ecartMax = 0;
-    const serialises = ctx.serializeObjects(ctx.etat.objects).map(o=>{
+    const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((o: ObjetBrut)=>{
       if(o.key === parcelle.key && ptsParcelle){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
-        o.pts.forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle)); });
-        const copie = Object.assign({}, o, {
+        (o.pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle!)); });
+        const copie: ObjetBrut = Object.assign({}, o, {
           pts: ptsParcelle,
           vertexNames: ptsParcelle.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
           segmentNames: ptsParcelle.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
           frozenVertices: ptsParcelle.map(()=>false)
         });
-        const pp = featParcelle.properties || {};
+        const pp: Record<string, unknown> = featParcelle.properties || {};
         copie.cadastre = Object.assign({}, o.cadastre, {
-          contenanceM2: pp.contenance, commune: pp.nom_com || o.cadastre.commune,
+          contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
           recupereLe: new Date().toISOString(),
           geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(featParcelle.geometry)] }
         });
         return copie;
       }
-      if(o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation'){
-        const f = fraiches[o.bdtopo.id];
+      const bdtopo = o.bdtopo as { couche?: string; id?: string; hauteurRetenueM?: number; nature?: string; usage1?: string } | undefined;
+      if(bdtopo && bdtopo.couche && bdtopo.couche !== 'estimation'){
+        const f = fraiches[bdtopo.id as string];
         if(!f){ nAbsents++; return o; }
         const anneau = anneauExterieur(f.geometry);
         if(!anneau){ nAbsents++; return o; }
         const pts = anneauVersPts(anneau, proj, simplifier);
         if(pts.length < 3){ nAbsents++; return o; }
-        const p = f.properties || {};
+        const p: Record<string, unknown> = f.properties || {};
         nMaj++;
         // Nom, couleurs, verrouillage et textures sont des choix de l'utilisateur : l'actualisation
         // ne touche qu'a la geometrie et aux attributs IGN.
-        const haut = o.bdtopo.couche === COUCHE_BATIMENT
+        const haut = bdtopo.couche === COUCHE_BATIMENT
           ? hauteurBatiment(p)
-          : (nombreFr(p.hauteur) || o.bdtopo.hauteurRetenueM || hauteurVegetation(p.nature));
+          : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
         return Object.assign({}, o, {
           pts,
           vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
           segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
           frozenVertices: pts.map(()=>false),
           elevation: haut,
-          bdtopo: Object.assign({}, o.bdtopo, {
-            nature: p.nature || o.bdtopo.nature, usage1: p.usage_1 || o.bdtopo.usage1,
+          bdtopo: Object.assign({}, bdtopo, {
+            nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
             nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
             altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            etat: p.etat_de_l_objet || o.bdtopo.etat,
-            identifiantRnb: p.identifiants_rnb || o.bdtopo.identifiantRnb,
+            etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
+            identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
             recupereLe: new Date().toISOString()
           })
         });
@@ -431,7 +497,7 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     // des objets. Tout ce qui arrive ici est marque voisinage:true, pour pouvoir etre masque
     // d'un coup sans etre supprime.
     // Ce que l'import du voisinage rend : les objets, plus le compte de chaque famille pour le bilan.
-  let ajouts: { objets: unknown[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number } = { objets: [] };
+  let ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number } = { objets: [] };
     if(options.voisinage && options.voisinage.actif){
       try {
         ajouts = await construireVoisinage(parcelle, cad, proj, simplifier, options.voisinage, serialises);
@@ -442,7 +508,7 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
         if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau a ajouter');
         serialises.push(...ajouts.objets);
       } catch(e){
-        bilan.push('voisinage non ajoute : ' + (e.message || e));
+        bilan.push('voisinage non ajoute : ' + ((e as Error).message || e));
       }
     }
     ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
@@ -450,7 +516,7 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     // ---- 4. Le zonage PLU, au centre de la parcelle
     const cible = ctx.trouverParcelleCloture();
     if(cible){
-      const centre = centroid(cible.pts);
+      const centre = centroid(cible.pts||[]);
       const deg = proj.versDegres(centre.x, centre.y);
       try {
         cible.plu = await interrogerPlu(deg.lon, deg.lat);
@@ -472,13 +538,13 @@ export async function actualiserDepuisIgn(options, bouton, ctx){
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
     showToast('Actualisation IGN — ' + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
   } catch(e){
-    showToast('Actualisation impossible : ' + (e.message || e));
+    showToast('Actualisation impossible : ' + ((e as Error).message || e));
   } finally {
     if(bouton){ bouton.disabled = false; bouton.textContent = libelleInitial; }
   }
 }
 
-export function ouvrirDialogueActualisation(bouton, ctx){
+export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: ContexteProjectBar): void {
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
@@ -489,8 +555,8 @@ export function ouvrirDialogueActualisation(bouton, ctx){
     showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
     return;
   }
-  const nbIgn = ctx.etat.objects.filter(o=>o.bdtopo && o.bdtopo.couche && o.bdtopo.couche !== 'estimation').length;
-  const nbVoisines = ctx.etat.objects.filter(o=>o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length;
+  const nbIgn = ctx.etat.objects.filter((o: ObjetPlan)=>o.bdtopo && (o.bdtopo as { couche?: string }).couche && (o.bdtopo as { couche?: string }).couche !== 'estimation').length;
+  const nbVoisines = ctx.etat.objects.filter((o: ObjetPlan)=>o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length;
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center; padding:14px;';
@@ -505,7 +571,7 @@ export function ouvrirDialogueActualisation(bouton, ctx){
     ' — ' + (cad.commune || '') + '. Les objets dessines a la main ne sont jamais touches.';
   box.appendChild(titre); box.appendChild(sous);
 
-  const radio = (valeur, libelle, aide, coche) => {
+  const radio = (valeur: string, libelle: string, aide: string, coche: boolean) => {
     const lab = document.createElement('label');
     lab.style.cssText = 'display:flex; gap:8px; align-items:flex-start; padding:6px 0; cursor:pointer;';
     const r = document.createElement('input');
@@ -540,7 +606,7 @@ export function ouvrirDialogueActualisation(bouton, ctx){
 
   const sousOptions = document.createElement('div');
   sousOptions.style.cssText = 'margin:6px 0 0 26px; display:flex; flex-direction:column; gap:3px; font-size:0.82rem;';
-  const sousCase = (libelle, coche, titreAide) => {
+  const sousCase = (libelle: string, coche: boolean, titreAide: string) => {
     const l = document.createElement('label');
     l.style.cssText = 'display:flex; gap:6px; align-items:center; cursor:pointer;';
     if(titreAide) l.title = titreAide;
@@ -577,7 +643,7 @@ export function ouvrirDialogueActualisation(bouton, ctx){
   const valider = document.createElement('button');
   valider.type = 'button'; valider.textContent = 'Actualiser';
   valider.addEventListener('click', ()=>{
-    const options = {
+    const options: OptionsActualisation = {
       portee: rTout.checked ? 'tout' : 'parcelle',
       voisinage: cbVois.checked
         ? { actif:true, batiments:cbBati.checked, vegetation:cbVeg.checked, arbres:cbArbres.checked }
@@ -593,34 +659,41 @@ export function ouvrirDialogueActualisation(bouton, ctx){
   document.body.appendChild(overlay);
 }
 
-export async function construireVoisinage(parcelle, cad, proj, simplifier, choix, dejaSerialises){
-  const resultat = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
+export async function construireVoisinage(
+  parcelle: ObjetPlan,
+  cad: { idu?: string; codeInsee?: string; origineLat?: number; origineLon?: number; geometrieSource?: { coordinates?: Anneau[] } },
+  proj: ProjecteurLocal,
+  simplifier: boolean,
+  choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean },
+  dejaSerialises: ObjetBrut[]
+): Promise<{ objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number }> {
+  const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
   const anneauSource = cad.geometrieSource && cad.geometrieSource.coordinates && cad.geometrieSource.coordinates[0];
   if(!anneauSource) throw new Error('geometrie source de la parcelle absente');
 
   const bboxParcelle = bboxDegDesAnneaux([anneauSource], proj, 20);
-  const emprise = { type:'Polygon', coordinates:[[
+  const emprise: EmpriseGeoJSON = { type:'Polygon', coordinates:[[
     [bboxParcelle.lonMin, bboxParcelle.latMin], [bboxParcelle.lonMax, bboxParcelle.latMin],
     [bboxParcelle.lonMax, bboxParcelle.latMax], [bboxParcelle.lonMin, bboxParcelle.latMax],
     [bboxParcelle.lonMin, bboxParcelle.latMin]
   ]]};
   const feats = await interrogerCadastre(emprise, cad.codeInsee);
-  const centreParc = centroid(parcelle.pts);
+  const centreParc = centroid(parcelle.pts||[]);
   const candidats = construireCandidats(feats, proj, centreParc, simplifier);
-  const principale = { idu: cad.idu, pts: parcelle.pts };
+  const principale = { idu: cad.idu as string, pts: parcelle.pts||[] };
   const tri = trierVoisines(principale, candidats);
 
-  const iduPresents = new Set(dejaSerialises.filter(o=>o.cadastre && o.cadastre.idu).map(o=>o.cadastre.idu));
-  iduPresents.add(cad.idu);
+  const iduPresents = new Set(dejaSerialises.filter(o=>o.cadastre && o.cadastre.idu).map(o=>o.cadastre!.idu as string));
+  iduPresents.add(cad.idu as string);
   const clesPrises = new Set(dejaSerialises.map(o=>o.key));
-  const cleUnique = base => {
+  const cleUnique = (base: string | undefined) => {
     let cle = (base || 'objet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'objet';
     if(clesPrises.has(cle)){ let n = 2; while(clesPrises.has(cle + '-' + n)) n++; cle = cle + '-' + n; }
     clesPrises.add(cle);
     return cle;
   };
   const recupereLe = new Date().toISOString();
-  const nouvellesParcelles = [];
+  const nouvellesParcelles: Candidate[] = [];
   tri.adjacentes.forEach(c=>{
     if(iduPresents.has(c.idu)) return;
     iduPresents.add(c.idu);
@@ -649,11 +722,11 @@ export async function construireVoisinage(parcelle, cad, proj, simplifier, choix
 
   // BD TOPO sur les seules parcelles qui viennent d'entrer dans le plan.
   const bbox = bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
-  const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && o.bdtopo.id).map(o=>o.bdtopo.id));
-  const surNouvelles = e => nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
+  const surNouvelles = (e: { pts: import('../model/types.js').PtBrut[] }) => nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
 
   if(choix.batiments){
-    const feats2 = await interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch(()=>[]);
+    const feats2 = await interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch((): FeatureGeoJSON[]=>[]);
     construireElementsIgn(feats2, proj, simplifier, 'batiment').forEach(b=>{
       if(idsPresents.has(b.id) || !surNouvelles(b)) return;
       idsPresents.add(b.id);
@@ -683,18 +756,18 @@ export async function construireVoisinage(parcelle, cad, proj, simplifier, choix
   }
   if(choix.vegetation){
     for(const couche of [COUCHE_HAIE, COUCHE_VEGETATION]){
-      const feats3 = await interrogerWfs(couche, bbox, 40).catch(()=>[]);
+      const feats3 = await interrogerWfs(couche, bbox, 40).catch((): FeatureGeoJSON[]=>[]);
       const elems = construireElementsIgn(feats3, proj, simplifier, couche === COUCHE_HAIE ? 'haie' : 'vegetation');
       elems.forEach(v=>{
         if(idsPresents.has(v.id) || !surNouvelles(v)) return;
         idsPresents.add(v.id);
         const p = v.props || {};
         const estHaie = couche === COUCHE_HAIE;
-        const haut = estHaie ? (nombreFr(p.hauteur) || 2) : hauteurVegetation(p.nature);
+        const haut = estHaie ? (nombreFr(p.hauteur) || 2) : hauteurVegetation(p.nature as string | undefined);
         const pts = v.pts;
         resultat.objets.push({
           key: cleUnique((estHaie ? 'haie-' : 'vegetation-') + (v.id || '')), type:'polygon',
-          name: estHaie ? 'Haie' : (p.nature || 'Vegetation'),
+          name: estHaie ? 'Haie' : ((p.nature as string) || 'Vegetation'),
           fill: estHaie ? '#7FA86B' : '#A9BE8E', fillOpacity: estHaie ? 0.8 : 0.55,
           stroke: estHaie ? '#3F5C33' : '#4A6B32',
           pts,

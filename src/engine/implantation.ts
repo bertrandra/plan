@@ -6,8 +6,20 @@
 
 import { dist, pointInPolygon } from '../geometry/basic.js';
 import { ensureConstruction } from './construction.js';
+import type { CouchesTerrasse } from './layers.js';
+import type { RoleAppui } from './structure.js';
+import type { ObjetPlan, PtBrut, Segment } from '../model/types.js';
 
-export function repereImplantation(obj){
+/** Un appui replace dans le repere de tracage : ses deux cotes, son role, et son numero de marquage. */
+interface AppuiImplante extends PtBrut { role?: RoleAppui; n?: number }
+
+/** Une piece porteuse a materialiser au cordeau, et les appuis a marquer le long d'elle. */
+interface LignePorteuse { ref: string; type: string; seg: Segment }
+
+/** Un appui a marquer le long d'une piece : a quelle distance de son depart, et sous quel numero. */
+interface AppuiSurLigne { d: number; n?: number }
+
+export function repereImplantation(obj: ObjetPlan){
   const c = ensureConstruction(obj);
   const n = obj.pts.length;
   const i0 = Math.min(c.segmentReference||0, n-1);
@@ -19,13 +31,13 @@ export function repereImplantation(obj){
   if(!pointInPolygon({ x:mid.x+nx*0.01, y:mid.y+ny*0.01 }, obj.pts)){ nx = -nx; ny = -ny; }
   return {
     origine:A, cote:i0, longueurCote:L,
-    vers: p => ({ x:(p.x-A.x)*ux + (p.y-A.y)*uy, y:(p.x-A.x)*nx + (p.y-A.y)*ny })
+    vers: (p: PtBrut) => ({ x:(p.x-A.x)*ux + (p.y-A.y)*uy, y:(p.x-A.x)*nx + (p.y-A.y)*ny })
   };
 }
-export function computeImplantation(obj, layers){
+export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse){
   const R = repereImplantation(obj);
   const sommets = obj.pts.map((p,i)=>({ i, ...R.vers(p) }));
-  const appuis = layers.vis.map(p=>({ ...R.vers(p), role:p.role }));
+  const appuis: AppuiImplante[] = layers.vis.map(p=>({ ...R.vers(p), role:p.role }));
   // Numerotes par rangee puis de gauche a droite : c'est l'ordre dans lequel on les marque,
   // un cordeau apres l'autre.
   appuis.sort((a,b)=> Math.abs(a.y-b.y) > 0.02 ? a.y-b.y : a.x-b.x);
@@ -34,17 +46,17 @@ export function computeImplantation(obj, layers){
   // d'une meme solive n'ont pas le meme Y et un regroupement par rangee les eparpille. Sur le
   // terrain on materialise une piece, puis on marque ses appuis au ruban le long d'elle - c'est
   // cette distance-la qu'il faut donner.
-  const lignesPorteuses = [].concat(
+  const lignesPorteuses = ([] as LignePorteuse[]).concat(
     layers.cadre.map((s,i)=>({ ref:'C'+(i+1), type:'cadre', seg:s })),
     (layers.solives.length ? layers.solives : layers.lambourdes)
       .map((s,i)=>({ ref:'L'+(i+1), type:layers.solives.length?'solive':'lambourde', seg:s }))
   );
-  const pris = new Set();
+  const pris = new Set<number>();
   const lignes = lignesPorteuses.map(l=>{
     const A = l.seg.a, B = l.seg.b;
     const ex = B.x-A.x, ey = B.y-A.y, L = Math.hypot(ex,ey) || 1;
     const ux = ex/L, uy = ey/L;
-    const sur = [];
+    const sur: AppuiSurLigne[] = [];
     layers.vis.forEach((p,idx)=>{
       if(pris.has(idx)) return;
       const t = (p.x-A.x)*ux + (p.y-A.y)*uy;
@@ -59,7 +71,7 @@ export function computeImplantation(obj, layers){
     return { ...l, longueur:L, depart:R.vers(A), fin:R.vers(B), appuis:sur };
   }).filter(l=>l.appuis.length);
   // Diagonales : le seul controle qui prouve que le trace est d'equerre.
-  const diagonales = [];
+  const diagonales: { de: number; a: number; d: number }[] = [];
   const n = sommets.length;
   if(n === 4){
     diagonales.push({ de:0, a:2, d:dist(obj.pts[0], obj.pts[2]) });

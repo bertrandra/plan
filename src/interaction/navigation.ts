@@ -2,7 +2,8 @@
 // (spec §3.2, interaction/pointer.ts).
 //
 // Ce module ne contient que le calcul : il prend une scene et rend la scene suivante. Le cablage
-// des evenements reste dans legacy.ts, avec les identifiants de pointeur et les rectangles du DOM.
+// des evenements vit dans interaction/pointeur.ts, avec les identifiants de pointeur et les
+// rectangles du DOM.
 //
 // Separer ainsi n'est pas cosmetique. La transformation de vue est le seul etat que les golden
 // files ne peuvent pas surveiller - un export est recalcule dans son propre repere. C'est

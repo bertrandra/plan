@@ -7,9 +7,10 @@
 // Le .glb sort de la scene reellement affichee, jamais d'une reconstruction parallele — c'est ce
 // qui garantit que le fichier livre montre ce que l'utilisateur a vu.
 
-import { vue3d, glb } from './etat3d.js';
+import { vue3d, glb, type PlanVuDeLa3d } from './etat3d.js';
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
+import type { ObjetPlan } from '../model/types.js';
 
 /** Delai maximal d'attente des textures, puis de reponse de l'exporteur, en millisecondes. */
 const ATTENTE_TEXTURES_MS = 15000;
@@ -17,7 +18,7 @@ const ATTENTE_EXPORTEUR_MS = 20000;
 
 /** Ce que l'export doit pouvoir declencher ailleurs. */
 export interface ContexteExportGlb {
-  buildThreeScene: (obj) => void;
+  buildThreeScene: (obj: ObjetPlan) => void;
   /** Un nouvel export doit se refleter dans la visionneuse si elle est ouverte. */
   rafraichirVisionneuseGlbSiOuverte: () => void;
   telechargerBinaire: (nomFichier: string, donnees: ArrayBuffer, mime: string) => void;
@@ -41,7 +42,7 @@ export function nomFichierTerrasse(nom: string): string {
  *   d'erreur separe — `parse(input, onDone, options)` et rien d'autre : un echec silencieux
  *   laisserait le bouton bloque sur « Export en cours… » indefiniment.
  */
-export function genererGlb(etat, bouton: HTMLButtonElement | null, telecharger: boolean, ctx: ContexteExportGlb): void {
+export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null, telecharger: boolean, ctx: ContexteExportGlb): void {
   const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
             || etat.objects.find(o => o.fonction === 'terrasse');
   if (!terr) { showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
@@ -70,9 +71,15 @@ export function genererGlb(etat, bouton: HTMLButtonElement | null, telecharger: 
             }, ATTENTE_EXPORTEUR_MS);
             exporteur.parse(vue3d.scene.scene, (result) => {
               if (fini) return; fini = true; clearTimeout(filet);
-              glb.dernierExporte = { buffer: result, nomTerrasse: terr.name, date: new Date() };
+              // `parse` rend `object` : sa signature ne distingue pas les deux sorties possibles,
+              // alors que c'est l'option qui en decide - `{ binary: true }` (plus bas) donne un
+              // ArrayBuffer, son absence donnerait le JSON glTF. C'est donc bien un ArrayBuffer
+              // ici, et toute la suite en depend deja : le telechargement en `model/gltf-binary`
+              // comme la relecture par `GLTFLoader.parse` dans la visionneuse.
+              const binaire = result as ArrayBuffer;
+              glb.dernierExporte = { buffer: binaire, nomTerrasse: terr.name, date: new Date() };
               if (telecharger) {
-                ctx.telechargerBinaire('terrasse_' + nomFichierTerrasse(terr.name) + '.glb', result, 'model/gltf-binary');
+                ctx.telechargerBinaire('terrasse_' + nomFichierTerrasse(terr.name) + '.glb', binaire, 'model/gltf-binary');
               }
               // Construite seulement pour l'export : pas de raison de la laisser active.
               if (!dejaActive) disposeThreeScene();

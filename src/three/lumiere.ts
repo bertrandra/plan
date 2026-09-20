@@ -8,8 +8,31 @@
 // pour rester dans la gamme deja reglee a l'oeil : changer l'un des deux change l'aspect de toutes
 // les images produites.
 
+import type * as THREE_NS from 'three';
 import { positionSoleil } from '../geo/soleil.js';
-import type { SceneTrois } from './etat3d.js';
+
+/**
+ * Ce dont le reglage du soleil a besoin, et rien de plus : trois lumieres, une distance, et un
+ * centre facultatif.
+ *
+ * Le type portait `SceneTrois` — la scene entiere — alors que le commentaire de `reglerSoleil`
+ * decrivait deja exactement ces cinq champs, et que l'appelant de la Vue 3D construit un objet a
+ * quatre champs a la volee (`soleilVue3d.ts`) sans jamais passer de scene. Le type disait donc
+ * autre chose que le code.
+ */
+export interface EclairageSoleil {
+  dirLight: THREE_NS.DirectionalLight;
+  dirFill: THREE_NS.DirectionalLight;
+  hemiLight: THREE_NS.HemisphereLight;
+  /** La lumiere se pose a `SOLEIL_DIST_FACTOR` fois cette distance. */
+  rayon: number;
+  /**
+   * La Vue 3D est centree sur l'origine et n'en passe pas ; la visionneuse passe le centre de la
+   * boite englobante de son modele. Seules les trois coordonnees sont lues, d'ou une forme
+   * structurelle plutot que `Vector3` : l'origine par defaut n'en est pas un.
+   */
+  centre?: { x: number; y: number; z: number };
+}
 
 /**
  * Elevation minimale du point d'origine du rayon, en radians (3°).
@@ -54,7 +77,7 @@ const ORIGINE = { x: 0, y: 0, z: 0 };
  * pose a `SOLEIL_DIST_FACTOR` fois cette distance — et, optionnellement, un `centre` : la Vue 3D est
  * centree sur l'origine, la visionneuse GLB sur la boite englobante de son modele.
  */
-export function reglerSoleil(lum: SceneTrois, r: ReglagesSoleil, lieu: { latitude: number; longitude: number }) {
+export function reglerSoleil(lum: EclairageSoleil, r: ReglagesSoleil, lieu: { latitude: number; longitude: number }) {
   const { dirLight, dirFill, hemiLight } = lum;
   const centre = lum.centre || ORIGINE;
   const [annee, mois, jour] = r.dateStr.split('-').map(Number);

@@ -7,20 +7,33 @@
 // Une cote n'entre dans le plan qu'au moment ou on la valide. Tant qu'elle est en brouillon, elle
 // n'existe que dans l'outil, et « Annuler » la fait disparaitre sans laisser de trace.
 
-import { mesure } from '../interaction/outilMesure.js';
+import { mesure, type Pointage } from '../interaction/outilMesure.js';
 import { idMesure } from '../model/cles.js';
-export function startPick(mode, multi, purpose, etat, ctx){
+import type { Mesure } from '../model/types.js';
+
+/** Ce que le panneau de mesure lit et modifie dans l'etat du plan. */
+export interface EtatMesures { measures: Mesure[] }
+
+/** Ce que le panneau de mesure demande au reste du programme. */
+export interface ContexteMesurePanel {
+  refLabel: (ref: { objKey: string; segIndex: number }) => string;
+  targetLabel: (t: { objKey: string; ptIndex: number }) => string;
+  computeMeasureGeom: (m: Mesure) => { perp: number; along: number } | null;
+  render: () => void;
+}
+
+export function startPick(mode: Pointage['mode'], multi: boolean, purpose: Pointage['purpose'] | undefined, etat: EtatMesures, ctx: ContexteMesurePanel): void {
   mesure.pointage = {mode, multi, purpose: purpose||'measure'};
   rebuildMeasurePanel(etat, ctx);
   ctx.render();
 }
-export function cancelPick(etat, ctx){
+export function cancelPick(etat: EtatMesures, ctx: ContexteMesurePanel): void {
   mesure.pointage = null;
   rebuildMeasurePanel(etat, ctx);
   ctx.render();
 }
 
-export function rebuildMeasurePanel(etat, ctx){
+export function rebuildMeasurePanel(etat: EtatMesures, ctx: ContexteMesurePanel): void {
   const ctrl = document.getElementById('measureControls');
   ctrl.innerHTML = '';
 
@@ -93,7 +106,7 @@ export function rebuildMeasurePanel(etat, ctx){
   ctrl.appendChild(addBtn);
 }
 
-export function renderMeasureResults(etat, ctx){
+export function renderMeasureResults(etat: EtatMesures, ctx: ContexteMesurePanel): void {
   const tbl = document.getElementById('measureResultsTable');
   tbl.innerHTML = '';
   const head = document.createElement('tr');
@@ -129,7 +142,7 @@ export function renderMeasureResults(etat, ctx){
     td4.appendChild(cb);
     const td5=document.createElement('td');
     const delBtn=document.createElement('button'); delBtn.className='secondary small'; delBtn.textContent='Supprimer';
-    delBtn.addEventListener('click', ()=>{ etat.measures = etat.measures.filter(x=>x.id!==m.id); renderMeasureResults(etat, ctx); ctx.render(); });
+    delBtn.addEventListener('click', ()=>{ etat.measures = etat.measures.filter((x: Mesure)=>x.id!==m.id); renderMeasureResults(etat, ctx); ctx.render(); });
     td5.appendChild(delBtn);
     tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td1b); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td3b); tr.appendChild(td4); tr.appendChild(td5);
     tbl.appendChild(tr);

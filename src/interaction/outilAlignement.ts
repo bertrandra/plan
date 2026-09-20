@@ -7,6 +7,9 @@
 // Elle vit donc ici plutot que dans une variable de module partagee de fait : trois lecteurs et un
 // ecrivain, c'est exactement ce qui merite une frontiere explicite.
 
+import type { PtBrut, ObjetPlan } from '../model/types.js';
+import type { CoteCible } from '../geometry/alignement.js';
+
 /** Un cote designe sur le plan : la cle de l'objet et l'indice du cote. */
 export interface CoteDesigne {
   objKey: string;
@@ -27,14 +30,14 @@ export function definirCibleAlignement(v: CoteDesigne | null): void {
 /** Ce dont l'alignement a besoin du reste du programme. */
 export interface ContexteAlignement {
   /** Coordonnees du cote de reference designe. */
-  measureSegCoords: (ref: CoteDesigne) => { a; b } | null;
+  measureSegCoords: (ref: CoteDesigne) => CoteCible | null;
   /** Le contour dans lequel l'objet doit rester, ou `null` s'il est libre. */
-  contourDeContrainte: (obj) => { x: number; y: number }[] | null;
-  nearestSegmentIndex: (obj, cible) => number;
-  alignerSurCote: (pts, idx: number, cible, distance: number | null) => { x: number; y: number }[];
-  pointInPolygon: (p, poly) => boolean;
+  contourDeContrainte: (obj: ObjetPlan) => PtBrut[] | null;
+  nearestSegmentIndex: (obj: ObjetPlan, cible: CoteCible) => number;
+  alignerSurCote: (pts: PtBrut[], idx: number, cible: CoteCible, distance: number | null) => PtBrut[];
+  pointInPolygon: (p: PtBrut, poly: PtBrut[]) => boolean;
   pushHistory: () => void;
-  rebuildHandles: (obj) => void;
+  rebuildHandles: (obj: ObjetPlan) => void;
   render: () => void;
   showToast: (message: string) => void;
 }
@@ -55,7 +58,9 @@ export interface ContexteAlignement {
  *
  * Une distance laissee vide ne fait que tourner, sans deplacer la forme.
  */
-export function alignerObjetParRotation(obj, etat, distanceSaisie: string, ctx: ContexteAlignement): void {
+// `etat` n'est lu nulle part dans le corps (verifie a l'occasion du typage, spec §10.3) : un
+// parametre mort, laisse tel quel pour ne pas toucher a la signature de l'appelant hors de propos.
+export function alignerObjetParRotation(obj: ObjetPlan, etat: unknown, distanceSaisie: string, ctx: ContexteAlignement): void {
   const ref = cibleAlignement();
   if (!ref) return;
   if (obj.locked) { ctx.showToast('Objet verrouille.'); return; }

@@ -18,14 +18,15 @@ import { ensureConstruction } from '../../engine/construction.js';
 import { nouveauPointDeVue } from '../../model/creation.js';
 import { cleObjet } from '../../model/cles.js';
 import type { Atelier } from '../atelier.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
   zoom3D: (facteur: number) => void;
   setMode3D: (mode: string) => void;
   hauteurDesYeux: () => void;
-  buildThreeScene: (obj) => void;
-  createObjectDOM: (obj) => void;
+  buildThreeScene: (obj: ObjetPlan | null) => void;
+  createObjectDOM: (obj: ObjetPlan) => void;
   setVue3dPleinePage: (actif: boolean) => void;
   setGlbViewerPleinePage: (actif: boolean) => void;
   /** L'état plein page des deux vues, lu au moment du clic. */
@@ -86,7 +87,9 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d): void {
   el('terrasse3dSavePng').addEventListener('click', () => {
     if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
     vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
-    vue3d.scene.renderer.domElement.toBlob(blob => {
+    // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
+    // le type du callback ne peut pas s'en deduire. `Blob | null` est celui de la vraie API canvas.
+    vue3d.scene.renderer.domElement.toBlob((blob: Blob | null) => {
       if (!blob) { showErrBanner('Erreur export PNG : conversion en image impossible.'); return; }
       const obj = terrasseCourante();
       telechargerBlob('vue3d_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);

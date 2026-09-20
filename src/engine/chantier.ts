@@ -9,6 +9,9 @@ import { computeAssise } from './bom.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
+import type { CouchesTerrasse } from './layers.js';
+import { valeurEnregistree } from '../model/dictionnaire.js';
+import type { ObjetPlan, Construction, PtBrut } from '../model/types.js';
 
 export const CADENCES = {
   piquetage:   { h:0.06, unite:'m²', label:'Piquetage, tracage et implantation',        phase:'Preparation' },
@@ -33,16 +36,31 @@ export const CADENCES = {
   nettoyage:   { h:0.03, unite:'m²', label:'Nettoyage et evacuation des chutes',         phase:'Finitions' }
 };
 export const CHANTIER_PHASES = ['Preparation','Appuis','Structure','Platelage','Finitions'];
-export function cadenceDe(c, cle){
-  const v = c.cadences ? c.cadences[cle] : undefined;
+
+/**
+ * Les vingt postes du chantier. Derive de `CADENCES` : ajouter une cadence ajoute un poste, et le
+ * compilateur reclamera alors la quantite correspondante dans `computeChantier`.
+ */
+export type PosteChantier = keyof typeof CADENCES;
+
+/**
+ * La cadence retenue pour un poste : celle saisie par l'utilisateur si elle est utilisable, sinon
+ * celle du bareme.
+ *
+ * `c.cadences` passe par `valeurEnregistree` parce que ce dictionnaire peut avoir ete enregistre en
+ * tableau — c'est le cas du jeu de demonstration — et qu'une cadence saisie s'y range malgre tout.
+ * Voir `model/dictionnaire.ts` : l'indexation est la meme, seul le compilateur y gagne.
+ */
+export function cadenceDe(c: Construction, cle: PosteChantier): number {
+  const v = valeurEnregistree(c.cadences, cle);
   return (v !== undefined && v !== null && isFinite(v) && v >= 0) ? v : CADENCES[cle].h;
 }
 // Les quantites viennent du projet, pas d'un forfait : c'est ce qui rend la duree discutable
 // ligne par ligne plutot qu'a prendre ou a laisser.
-export function computeChantier(obj, layers){
+export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const c = ensureConstruction(obj);
   const surf = shoelace(obj.pts) || 0;
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
+  const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
   const nbAppuis = layers.vis.length;
   const debitL = computeDebitLames(obj, layers);
   const groupes = computeDebitsBois(obj, layers);
@@ -52,7 +70,9 @@ export function computeChantier(obj, layers){
   const perim = ml(layers.cadre);
   const plots = estPlots(c);
 
-  const q = {
+  // `Record<PosteChantier, number>` : le compilateur verifie que chaque cadence a sa quantite.
+  // Un poste ajoute a `CADENCES` sans quantite ici serait sinon compte a zero, en silence.
+  const q: Record<PosteChantier, number> = {
     piquetage: surf,
     decaissement: assise.concasseM3,
     evacuation: assise.concasseM3,
@@ -74,7 +94,7 @@ export function computeChantier(obj, layers){
     posePlat: ml(layers.lamePlat),
     nettoyage: surf
   };
-  const lignes = Object.keys(CADENCES)
+  const lignes = (Object.keys(CADENCES) as PosteChantier[])
     .map(cle=>({ cle, ...CADENCES[cle], qte:q[cle]||0, cadence:cadenceDe(c,cle) }))
     .filter(l=>l.qte > 1e-6)
     .map(l=>({ ...l, heures: l.qte*l.cadence }));

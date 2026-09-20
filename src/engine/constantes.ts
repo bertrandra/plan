@@ -5,7 +5,13 @@
 // Toute evolution est un changement MAJEUR au sens de MD/RELEASE.md §2.1.
 
 
-export const ESSENCE_PRICES = {
+/** Une essence au catalogue : son libelle et sa fourchette de prix au m². */
+export interface Essence { label: string; bas: number; haut: number }
+
+// Indexe par une chaine venue d'un projet enregistre : elle n'est pas garantie d'etre au catalogue,
+// et chaque lecture porte donc son repli. Record<string, …> dit cela ; figer les cinq clefs
+// obligerait a valider la saisie en amont, ce qui n'est pas le contrat d'aujourd'hui.
+export const ESSENCE_PRICES: Record<string, Essence> = {
   'pin-classe4': { label:'Pin classe 4 (autoclave)', bas:25, haut:40 },
   'douglas':     { label:'Douglas',                   bas:35, haut:55 },
   'composite':   { label:'Composite',                 bas:50, haut:90 },
@@ -35,7 +41,9 @@ export const PLOT_ENTRAXE_MAX_M = 0.70;   // NF DTU 51.4, appuis sous lambourdes
 export const PLOT_HAUTEUR_DTU_CM = 30;    // au-dela, le plot reglable sort du domaine du DTU
 export const PLOT_HAUTEUR_MAX_CM = 100;   // au-dela, le platelage entier sort du domaine
 export const PLOT_ASSISE_MIN_CM2 = 300;   // surface d'assise minimale, NF DTU 51.4 / 43.1
-export const SUPPORT_TYPES = {
+/** Un type de support et ce qu'il implique en preparation de sol. */
+export interface TypeSupport { label: string; decaissement: boolean; geotextile: boolean; concasse: boolean; dalles: boolean }
+export const SUPPORT_TYPES: Record<string, TypeSupport> = {
   'dalle':       { label:'Dalle ou chape existante',        decaissement:false, geotextile:false, concasse:false, dalles:false },
   'concasse':    { label:'Decaissement + concasse compacte', decaissement:true,  geotextile:true,  concasse:true,  dalles:false },
   'plots-beton': { label:'Dalles stabilisatrices sous plots',decaissement:true,  geotextile:true,  concasse:true,  dalles:true  }

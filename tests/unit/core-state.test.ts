@@ -1,19 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerEtat } from '../../src/core/state.js';
+import type { ObjetPlan, Mesure } from '../../src/model/types.js';
 
 // `normaliser` est injecte : c'est ce qui permet de construire un etat sans embarquer legacy.ts,
 // et c'est aussi ce qui rend ce test possible.
-const identite = (objs: unknown[]) => objs as Record<string, unknown>[];
+const identite = (objs: unknown[]) => objs as ObjetPlan[];
 
 describe('etat de l application', () => {
   it('selectionne la terrasse a l ouverture quand il y en a une', () => {
     // C'est l'objet qu'on vient regarder en arrivant.
-    const etat = creerEtat({ objects: [{ key: 'parcelle' }, { key: 'terrasse' }] }, identite);
+    const etat = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'terrasse', name: 'Terrasse' }] }, identite);
     expect(etat.selectedKey).toBe('terrasse');
   });
 
   it('retombe sur le premier objet sinon', () => {
-    const etat = creerEtat({ objects: [{ key: 'parcelle' }, { key: 'maison' }] }, identite);
+    const etat = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'maison', name: 'Maison' }] }, identite);
     expect(etat.selectedKey).toBe('parcelle');
   });
 
@@ -26,16 +27,18 @@ describe('etat de l application', () => {
 
   it('copie les mesures plutot que de garder les references de la graine', () => {
     // Sinon une modification du plan remonterait dans l'objet charge depuis le serveur.
-    const graine = { measures: [{ id: 'm1' }] };
+    // Une vraie cote : elle designe un cote et un point, jamais moins.
+    const m1: Mesure = { id: 'm1', refObjKey: 'terrasse', refSegIndex: 0, startEnd: 'A', targetObjKey: 'parcelle', targetPtIndex: 2 };
+    const graine = { measures: [m1] };
     const etat = creerEtat(graine, identite);
-    expect(etat.measures[0]).toEqual({ id: 'm1' });
+    expect(etat.measures[0]).toEqual(m1);
     expect(etat.measures[0]).not.toBe(graine.measures[0]);
   });
 
   it('normalise les objets par la fonction fournie', () => {
-    const normaliser = vi.fn(() => [{ key: 'a', normalise: true }]);
-    const etat = creerEtat({ objects: [{ key: 'brut' }] }, normaliser);
-    expect(normaliser).toHaveBeenCalledWith([{ key: 'brut' }]);
+    const normaliser = vi.fn(() => [{ key: 'a', name: 'A', normalise: true }]);
+    const etat = creerEtat({ objects: [{ key: 'brut', name: 'Brut' }] }, normaliser);
+    expect(normaliser).toHaveBeenCalledWith([{ key: 'brut', name: 'Brut' }]);
     expect(etat.objects[0].normalise).toBe(true);
   });
 

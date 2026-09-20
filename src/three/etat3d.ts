@@ -9,12 +9,50 @@
 // Un objet mutable partage plutot que des accesseurs : c'est la meme forme que `etat` pour le plan,
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
-/** Le bundle Three.js de la vue courante, ou `null` quand la Vue 3D est fermee. */
-// Three.js n'est pas type ici (voir three/global.d.ts) : cette interface dit seulement « un objet
-// de la bibliotheque », sans pretendre en decrire la forme. La decrire vraiment demanderait
-// @types/three, une dependance de type sans dependance de code.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type SceneTrois = Record<string, any>;
+import type * as THREE_NS from 'three';
+import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import type { ObjetPlan } from '../model/types.js';
+
+/**
+ * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
+ *
+ * Les huit champs communs sont exactement ceux qu'il faut pour redessiner, piloter la camera,
+ * regler le soleil et tout demonter proprement a la fermeture — c'est la partie que le code partage
+ * reellement entre les deux vues (`disposeThreeScene`, la boucle d'animation, le
+ * redimensionnement). Les deux dernieres proprietes different, et c'est normal : la Vue 3D cadre un
+ * plan (une etendue et un centroide en metres du plan), la visionneuse cadre un modele deja produit
+ * (un centre et un rayon en coordonnees 3D). D'ou deux types, pas un seul avec quatre champs
+ * facultatifs qui ne seraient jamais tous poses.
+ *
+ * Ces types sont ecrits depuis `@types/three@0.128.0`, une dependance de type sans dependance de
+ * code : la bibliotheque elle-meme arrive du CDN au moment ou l'on ouvre la 3D (voir
+ * `three/global.d.ts`).
+ */
+export interface SceneTroisBase {
+  renderer: THREE_NS.WebGLRenderer;
+  scene: THREE_NS.Scene;
+  camera: THREE_NS.PerspectiveCamera;
+  controls: OrbitControls;
+  /** Le jeton de `requestAnimationFrame`, garde pour pouvoir arreter la boucle au demontage. */
+  raf: number | null;
+  dirLight: THREE_NS.DirectionalLight;
+  dirFill: THREE_NS.DirectionalLight;
+  hemiLight: THREE_NS.HemisphereLight;
+}
+
+/** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
+export interface SceneVue3d extends SceneTroisBase {
+  extent: number;
+  cen: { x: number; y: number };
+}
+
+/** La scene de la visionneuse : elle cadre un .glb deja produit, donc en coordonnees 3D. */
+export interface SceneGlb extends SceneTroisBase {
+  centre: THREE_NS.Vector3;
+  rayon: number;
+}
+
+export type SceneTrois = SceneVue3d | SceneGlb;
 
 /**
  * La visionneuse GLB est une **seconde** scene Three, independante de la Vue 3D : elle affiche un
@@ -23,7 +61,7 @@ export type SceneTrois = Record<string, any>;
  * detruire la vue de l'une en fermant l'autre.
  */
 export const glb: {
-  scene: SceneTrois | null;
+  scene: SceneGlb | null;
   ouvert: boolean;
   filaire: boolean;
   ombres: boolean;
@@ -91,7 +129,7 @@ export const chargement = {
 };
 
 export const vue3d: {
-  scene: SceneTrois | null;
+  scene: SceneVue3d | null;
   /** Cle de l'objet modelise, pour savoir si on reconstruit la MEME terrasse. */
   dernierObjKey: string | null;
   tousLesObjets: boolean;
@@ -108,3 +146,24 @@ export const vue3d: {
   // Les ombres coutent cher a calculer et changent a chaque heure : on les allume a la demande.
   ombres: false
 };
+
+/**
+ * Ce que les modules 3D lisent du plan : de quoi retrouver la terrasse courante, rien de plus.
+ *
+ * L'etat complet leur est passe, mais seuls ces deux champs sont touches — `navigation.ts` ecrit
+ * aussi le second, quand « aller au point de vue » selectionne la terrasse avant de basculer. Un
+ * type par besoin plutot qu'une dependance de `three/` vers l'etat entier de l'application.
+ */
+export interface PlanVuDeLa3d {
+  objects: ObjetPlan[];
+  terrasseSelectedKey: string | null;
+}
+
+/**
+ * Un point de vue, tel que la 3D le lit : un chemin de deux points et une altitude facultative.
+ *
+ * `pts[0]` est la position, `pts[0] → pts[1]` la direction. C'est bien un objet du plan
+ * (`ObjetPlan` de type « pointDeVue »), mais seuls ces deux champs entrent dans le calcul de
+ * camera.
+ */
+export type PointDeVue = Pick<ObjetPlan, 'pts' | 'altitude'>;

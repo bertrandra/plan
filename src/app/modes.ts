@@ -15,6 +15,8 @@
 // Aucune fonction ne corrige plus l'apparence laissee par une autre.
 
 import { vue3d, glb, chargement } from '../three/etat3d.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, Construction } from '../model/types.js';
 
 /** Ce que l'utilisateur regarde. Quatre vues, un seul bouton allume. */
 export type Vue = 'plan' | 'terrasse' | 'vue3d' | 'visionneuse';
@@ -51,14 +53,14 @@ export interface ContexteModes {
   terrasseLayerGroup: SVGGElement;
   /** Reconstruit la barre de choix de la terrasse ; `false` quand il n'y a rien a montrer. */
   rebuildTerrasseSelector: () => boolean;
-  fitToObject: (obj) => void;
-  ensureConstruction: (obj) => unknown;
+  fitToObject: (obj: ObjetPlan | null) => void;
+  ensureConstruction: (obj: ObjetPlan) => Construction;
   ensureThreeLoaded: (cb: () => void) => void;
-  buildThreeScene: (obj) => void;
+  buildThreeScene: (obj: ObjetPlan | null) => void;
   disposeThreeScene: () => void;
   render: () => void;
   /** Les panneaux a remplir quand la terrasse courante change. */
-  rendrePanneauxTerrasse: (obj) => void;
+  rendrePanneauxTerrasse: (obj: ObjetPlan) => void;
   /** Charge et affiche le dernier .glb exporte, une fois son panneau visible. */
   preparerVisionneuse: () => void;
   /** Rend la visionneuse a son format normal, avant de la fermer. */
@@ -67,7 +69,7 @@ export interface ContexteModes {
   disposeGlbViewerScene: () => void;
 }
 
-export function creerModes(etat, ctx: ContexteModes) {
+export function creerModes(etat: EtatApp, ctx: ContexteModes) {
   let vueCourante: Vue = 'plan';
   let terrasseSubTab = 'construction';
   // La terrasse sur laquelle la vue a deja ete cadree : on ne recadre qu'au changement, sinon

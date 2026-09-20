@@ -9,6 +9,7 @@
 // que render/** soit sorti (spec §4, phase 5).
 
 import { showErrBanner } from '../shell/dialogs.js';
+import type { TextureAppliquee } from '../model/types.js';
 
 export const POLYHAVEN_ASSETS_URL = 'https://api.polyhaven.com/assets?type=textures';
 export const POLYHAVEN_FILES_URL = (id: string) =>
@@ -21,7 +22,14 @@ export interface TexturePolyhaven {
   tags?: string[];
   download_count?: number;
   thumbnail_url?: string;
+  /** Rendu dans l'apercu ; l'API ne garantit ni l'un ni l'autre selon la texture. */
+  category?: string;
+  description?: string;
 }
+
+/** Le resultat d'un choix, tel qu'il s'enregistre sur un objet du plan. Vit dans `model/types.ts` :
+ * c'est une donnee du projet, pas une donnee propre au selecteur. */
+export type { TextureAppliquee };
 
 /** Options d'ouverture : une case a cocher facultative sous la grille. */
 export interface OptionsSelecteur {
@@ -46,7 +54,7 @@ export function chargerCataloguePolyhaven(){
 
 export function ouvrirSelecteurTexture(
   titre: string,
-  onChoisi: (choix: unknown, appliquerATous?: boolean) => void,
+  onChoisi: (choix: TextureAppliquee, appliquerATous?: boolean) => void,
   options?: OptionsSelecteur
 ){
   options = options || {};
@@ -105,9 +113,9 @@ export function ouvrirSelecteurTexture(
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  let selectionId = null;
+  let selectionId: string | null = null;
 
-  function afficherApercu(id, data){
+  function afficherApercu(id: string, data: TexturePolyhaven){
     selectionId = id;
     ([...grille.children] as HTMLElement[]).forEach(c=>{ c.style.outline = c.dataset.id===id ? '3px solid var(--accent)' : 'none'; });
     apercu.innerHTML = '';
@@ -120,7 +128,7 @@ export function ouvrirSelecteurTexture(
     enregistrerBtn.disabled = false;
   }
 
-  function dessinerResultats(entries){
+  function dessinerResultats(entries: [string, TexturePolyhaven][]){
     grille.innerHTML = '';
     entries.slice(0,60).forEach(([id,data])=>{
       const b = document.createElement('button');
@@ -185,7 +193,10 @@ export function ouvrirSelecteurTexture(
         // pouvait charger une image 4k/8k (dizaines de Mo une fois decodee en memoire GPU) et
         // faire planter Safari/Chrome iOS pour depassement memoire - silencieusement, sans
         // message, puisque c'est l'OS qui tue l'onglet, pas une erreur JS interceptable.
-        const diff = files.Diffuse || files.diffuse;
+        // Reponse de l'API "files" : la forme varie d'une texture a l'autre (resolutions
+        // disponibles, cartes proposees), donc on ne la nomme pas — seul le chemin lu ici compte.
+        const f = files as { Diffuse?: Record<string, { jpg?: { url?: string } }>; diffuse?: Record<string, { jpg?: { url?: string } }> };
+        const diff = f.Diffuse || f.diffuse;
         const resKeys = diff ? Object.keys(diff).filter(k=>/^\d+k$/i.test(k)).sort((a,b)=>parseInt(a,10)-parseInt(b,10)) : [];
         const reso = diff && (diff[resKeys[0]] || Object.values(diff)[0]);
         const url = reso && reso.jpg && reso.jpg.url;

@@ -9,10 +9,10 @@ par phase, avec le critère de sortie tel que la spec le formule et la preuve qu
 | 1 — Échafaudage, zéro logique déplacée | ✅ 28/08/2026 | `v1.0.1-alpha.1` | build mono-fichier fonctionnellement identique, golden files conformes, déployable à côté d'`api.php` | `dist/index.html` : 6 empreintes sur 6 identiques |
 | 2 — Extraction des feuilles pures | ✅ 28/08/2026 | `v1.0.1-alpha.2` | ~1 800 lignes hors de `legacy.ts`, maths couvertes par des tests | 709 lignes sorties : la liste de la phase est épuisée (voir plus bas) ; 106 tests |
 | 3 — Extraction du moteur | ✅ 28/08/2026 | `v1.0.1-alpha.3` | moteur terrasse pur, ≥ 80 % de couverture, BOM et débit conformes | 10 modules ; 91,5 % de couverture ; 18/18 sorties identiques bit à bit |
-| 4 — Modèle et conteneur d'état | 🟡 avancée 28/08/2026 | `v1.0.1-alpha.8` | `legacy.ts` réduit aux panneaux UI et à la 3D | données/vue séparées, `AppState` en place, `render/**` et `interaction/**` amorcés (11 modules) ; `render()` et la création d'objets restent |
+| 4 — Modèle et conteneur d'état | ✅ 09/09/2026 | `v1.1.0-alpha.14` | `legacy.ts` réduit aux panneaux UI et à la 3D | dépassé : `legacy.ts` **supprimé**. La fermeture `boot()` vit dans `src/app/boot.ts`, module typé et linté ; six empreintes sur six inchangées à version égale |
 | 5 — Panneaux UI | 🟡 partielle 28/08/2026 | `v1.0.1-alpha.5` | (non formulé par la spec) | dialogues, sélecteur de textures et helpers DOM sortis ; les panneaux qui pilotent le plan attendent `render/**` |
 | 6 — 3D et exports | ✅ 29/08/2026 | `v1.0.1-alpha.43` | (non formulé par la spec) | exports tous sortis (`export/**`) ; côté 3D, scène, navigation, soleil, chargeurs, visionneuse GLB, calque des couches et clôture sont sortis. Ne reste dans `legacy.ts` que le pilotage des modes, qui appartient à la coquille |
-| 7 — Cran de rigueur et nettoyage | ⏳ | | O1–O6 atteints, `legacy.ts` supprimé | |
+| 7 — Cran de rigueur et nettoyage | 🟡 en cours | | O1–O6 atteints, `legacy.ts` supprimé | `legacy.ts` supprimé (09/09/2026) ; barreau 2 (`noImplicitAny`) à zéro sur tout le dépôt ; barreaux 3 à 7 devant |
 
 ---
 
@@ -1116,17 +1116,528 @@ La sérialisation et l'import SVG sont partis dans `io/` : `serializeObjects` y 
 ce qu'elle est, une **liste blanche** — un champ qu'on ajoute à une forme sans l'ajouter là est
 perdu au premier enregistrement.
 
-Ce qui reste est désormais **entièrement** de la coquille : 87 écouteurs d'événements, les fabriques
-de contexte, une quarantaine d'enveloppes d'une ligne, et `boot()`. Il n'y a plus de logique à en
-extraire — seulement une réorganisation à décider, qui déplacerait ce câblage en `app/` d'un seul
-geste plutôt que morceau par morceau.
+Ce qui restait était alors **entièrement** de la coquille : 87 écouteurs d'événements, les fabriques
+de contexte, une quarantaine d'enveloppes d'une ligne, et `boot()`. Les 87 écouteurs sont depuis
+partis en dix modules de `app/ecouteurs/`, autour d'`app/atelier.ts` — la fermeture de `boot()`
+devenue un objet nommé. `legacy.ts` en compte désormais **zéro** et tient en 928 lignes.
 
-La suite utile n'est donc plus l'extraction mais la **phase 7** : l'échelle de rigueur du tsconfig.
+## Phase 7 — le cliquet de rigueur (29 août 2026)
 
-Puis la phase 7, qui n'est pas commencée : l'échelle de rigueur du tsconfig. Mesure faite —
-`noImplicitAny` seul produit aujourd'hui **997 erreurs**, essentiellement les paramètres des gros
-modules déplacés tels quels. Ce n'est pas un travail mécanique : typer ces signatures, c'est
-décider de la forme des données, et c'est précisément ce que la spec §5 demande.
+L'échelle de rigueur du tsconfig commence — mesurée, pas estimée : `noImplicitAny` produit
+**1 375 erreurs** (et non les 997 périmés qui figuraient ici), 2 138 en configuration pleinement
+stricte. Le détail par barreau, par fichier et par nature est en spec §9.2.1.
+
+### Ce que le compilateur ne savait pas garantir
+
+La règle « un fichier déjà strict le reste » n'était qu'une intention. `tsconfig.json` ne sait pas
+l'imposer : restreindre `include` ne restreint rien, puisque les fichiers importés entrent quand même
+dans le programme. Un dossier nettoyé pouvait donc se re-salir sans que rien n'échoue.
+
+`scripts/cliquet.mjs` (`npm run cliquet`) le fait à sa place : il lance `tsc` avec les drapeaux du
+barreau visé et **échoue si une erreur vient d'un dossier déclaré propre**. Les autres sont comptés,
+pas reprochés. C'est le même geste que `tests/unit/architecture.test.ts` pour les dépendances — une
+règle qu'on écrit une fois et qu'un outil tient ensuite.
+
+**Premier palier : `shell`, `geometry`, `model` rejoignent `core` et `util`.** 1 375 → **1 308**.
+
+### Quatre types qui disaient faux
+
+Le typage n'a pas seulement annoté ; il a contredit ce qui était écrit.
+
+- `geometry/rings.ts` **annonçait `{ a, b }` et manipulait `[p0, p1]`**. L'annotation avait été posée
+  à la main pendant l'extraction et jamais vérifiée ; le producteur et le seul consommateur, eux,
+  s'accordaient sur des paires depuis toujours. Un lecteur, lui, pouvait croire le type.
+- `render/measures.ts` déclarait **sa propre interface nommée `ObjetPlan`**, homonyme de celle du
+  modèle et différente d'elle : deux vérités sous un seul nom. Elle s'appelle `ObjetCote` et dit ce
+  qu'elle est — une exigence de quatre champs, que tout `ObjetPlan` satisfait.
+- `EtatPlan` valait `any` dans `app/atelier.ts` alors que `core/state.ts` décrivait déjà l'état. Le
+  câblage pouvait lire un champ inexistant sans que rien ne le signale.
+- `Mesure` vivait dans `render/`, alors que c'est une donnée du projet : elle s'enregistre dans le
+  fichier, et `core/state.ts` en tient la liste.
+
+Aucune de ces quatre corrections ne change une ligne exécutée — les six empreintes le confirment.
+Elles changent ce que le code affirme de lui-même.
+
+### Le couplage, encore
+
+La leçon de l'étalonnage (spec §9.2.2) s'est vérifiée deux fois. `model/creation.ts` ne prend pas
+`EtatApp` mais un `EtatCreation` de cinq champs : `model/` n'a pas à connaître la pile d'annulation
+ni la transformation de la scène, et un test peut alors monter un état en une ligne. Et
+`normalizeObjects` est générique — `<T> ⟶ (T & ObjetBrut)[]` — parce que c'est exactement son
+travail : elle n'enlève rien, elle ajoute. Rendre `T` seul aurait été faux dans l'autre sens, on ne
+pourrait plus lire les noms de sommets qu'elle vient de poser.
+
+Deux fichiers de test ont dû suivre, comme le « coût double » l'annonçait. Ils ont révélé que leurs
+objets d'essai **n'avaient pas de nom** — alors que le programme en lit un à la duplication
+(« … (copie) ») et à la suppression. Un objet sans nom n'avait jamais existé ailleurs que là.
+
+### Une exception à l'ordre annoncé, et pourquoi
+
+L'index `[autreChamp: string]: unknown` d'`ObjetPlan` devait tomber au premier pas. Il est resté :
+le retirer relève de l'honnêteté du type, pas de `noImplicitAny`, et toucherait d'un coup les neuf
+dossiers encore sales. Il attend que le cliquet ait plus de terrain acquis à protéger.
+
+### Vérifications
+
+Typecheck, `npm run lint`, **534 tests**, cliquet sans régression. Sur une page fraîche : relevé de
+santé conforme (288 textes SVG, 29 remplis, `#projectBar` 4, `#selector` 14, `#dispTable` 36) et
+**six empreintes sur six identiques** — résumé, SVG, DXF, projet JSON, PDF du plan, PDF du dossier —
+tailles et SHA-256 inchangés.
+
+### `engine/` — 315 erreurs, et une garde qui aurait coûté cher (30 août 2026)
+
+Le moteur passe de **315 à 0**, et le dépôt de 1 308 à **952**. Un seul levier explique l'essentiel :
+`Construction` n'existait pas. 53 champs — pose, charges, ossature, lames, débit, prix, chantier —
+lus partout et décrits nulle part, dont `defaultConstruction()` était la seule définition, en creux.
+Une fois le type écrit, les dix fichiers du moteur sont tombés presque mécaniquement.
+
+**Ce que le type a révélé en s'écrivant :** `ensureConstruction` comble **40 de ces 53 champs**. Les
+treize autres ne sont posés que par `defaultConstruction()`, donc sur une terrasse neuve seulement.
+Ils datent tous de la première version et n'ont jamais eu besoin d'être rétro-remplis — mais rien ne
+le disait, et le jour où l'un d'eux change de nom, c'est là qu'il faudra regarder.
+
+#### Une garde « propre » qui aurait fait disparaître des saisies
+
+En typant `cadenceDe`, j'ai écrit ceci :
+
+```js
+const table = (c.cadences && !Array.isArray(c.cadences)) ? c.cadences : {};
+```
+
+C'est faux, et il s'en est fallu d'une relecture. Les dictionnaires du projet — cadences, prix par
+longueur, prix des plots — sont posés en `{}` par le défaut mais enregistrés en `[]` dans les
+projets existants, **y compris le jeu de démonstration**. `ensureConstruction` les laisse passer
+puisqu'un tableau *est* un objet. Et `cadences['piquetage'] = 7` sur un tableau pose bel et bien une
+propriété que `cadences['piquetage']` relit : c'est du JavaScript ordinaire.
+
+Écarter les tableaux aurait donc fait retomber une cadence saisie sur le barème — sans erreur, sans
+trace, et invisible aux empreintes puisque la démo n'a aucune cadence saisie. `model/dictionnaire.ts`
+fait maintenant l'indexation exacte d'avant, une seule fois, avec la raison écrite au-dessus.
+
+La leçon est celle du typage lui-même : **un type qui gêne signale quelque chose, mais ce n'est pas
+toujours le code qui a tort.** Ici la forme des données était bel et bien bancale ; la corriger
+demandait une migration, pas un filtre au point de lecture.
+
+#### Dix-neuf coercitions implicites, et un troisième type homonyme
+
+Le typage a aussi rendu visibles 19 `input.value = <nombre>` — corrects en JavaScript, jamais dits.
+Ils passent par `String(...)` ; la valeur et le grisage des 31 champs du panneau Terrasse ont été
+comparés au témoin figé, identiques.
+
+Et `render/parasolOverlay.ts` déclarait un `ObjetParasol` local de quatre champs — **troisième**
+interface locale homonyme ou concurrente du modèle, après l'`ObjetPlan` de `render/measures.ts` et
+l'`EtatPlan` d'`app/atelier.ts`. Trois fois le même geste : décrire sur place ce qui existait déjà
+ailleurs, parce que le type partagé valait `any` et ne servait à rien.
+
+#### Ce que le moteur demande vraiment
+
+Quatre exigences nommées plutôt que l'objet entier : `TerrasseEtudiee`, `PorteurDeConstruction`,
+`ObjetMesurable`, `ObjetCote`. Ce n'est pas de la commodité de test — `evaluerStructure` évaluait
+déjà ses configurations candidates sur un `{ pts, construction }` fabriqué pour l'occasion, qui n'a
+ni clef ni nom. Exiger `ObjetPlan` aurait forcé soit un mensonge de type, soit une clef inventée pour
+satisfaire le compilateur. Le test de `hauteurs.ts` a dit la même chose en refusant d'inventer un nom
+pour un objet dont on ne veut que la hauteur.
+
+Deux types sont **dérivés** de leur fonction plutôt que réécrits (`Structure`, `CouchesTerrasse`) :
+`geometry/rings.ts` a montré ce que coûte une description tenue à part de ce qu'elle décrit.
+
+#### Vérifications
+
+Les empreintes ont été relevées **d'abord à version inchangée** : six sur six identiques au bit près.
+C'est ce qui prouve que le typage n'a rien déplacé — la recapture d'après, elle, ne prouve que le
+changement de numéro. Puis, sur le témoin figé, sept relevés du mode Terrasse : les 31 champs de
+configuration (valeur et grisage), Implantation, Chantier, BOM, Canevas, Plan de coupe et Méthode —
+15 850 caractères pour le seul dernier. **Sept sur sept identiques.**
+
+Une première version de cette sonde a comparé deux choses différentes, deux fois : elle tronquait le
+texte **avant** de neutraliser le numéro de version, plus long de huit caractères, si bien que la
+coupe tombait ailleurs ; et le second relevé partait d'une page où j'avais déjà cliqué, donc d'un
+sous-onglet différent. Les deux donnaient un écart qui ressemblait à une régression et n'était que
+ma propre sonde.
+
+Typecheck, lint, **534 tests**, cliquet : `engine/` rejoint les dossiers protégés.
+
+### `render/` — le quatrième homonyme, et une regression trouvee avant qu'elle ne parte (30 aout 2026)
+
+`render/` passe de **33 à 0** ; le depot, de 952 a **919**.
+
+`render/objects.ts` declarait sa propre interface `ObjetPlan` — champs requis (`fill`, `fillOpacity`,
+`stroke`) la ou le modele les laisse facultatifs. C'est le **quatrieme** type local homonyme trouve
+en phase 7, apres ceux de `render/measures.ts`, `app/atelier.ts` et `render/parasolOverlay.ts` :
+meme geste a chaque fois, decrire sur place ce qui existait deja ailleurs, parce que le type partage
+valait `any` et ne servait a rien. Renommee `ObjetRendu` et **derivee** du modele plutot que reecrite
+— `ObjetPlan & Required<Pick<...>>` — avec un commentaire qui dit pourquoi ces trois champs sont
+surs a cet endroit precis : tout objet vivant dans `etat.objects` les porte, poses par `creation.ts`
+ou `normalisation.ts`, meme si le type du modele ne le garantit pas encore (spec §12).
+
+Le typage a aussi trouve une regression **avant qu'elle n'existe vraiment** : en ajoutant les champs
+`cadastre` et `ortho` a `ObjetPlan` (necessaires pour typer `render/ortho.ts`), un test de
+`model/normalisation.ts` a cesse de compiler. Il utilisait ces deux noms comme placeholders
+arbitraires pour verifier que le clonage profond des metadonnees est generique — `{ geom: {...} }`,
+`{ url: 'x' }` — sans rapport avec leur vraie forme. Une fois les champs types, ces valeurs de test ne
+correspondaient plus a rien de reel. Corrige en leur donnant leur forme reelle (`origineLat`,
+`origineLon`, `actif`, `opacite`) : le test verifie toujours le meme mecanisme, avec des valeurs qui
+existent vraiment.
+
+#### Vérifications
+
+Memes empreintes (six sur six a version inchangee, puis une ligne par artefact texte). Et un controle
+que les empreintes ne peuvent pas faire : le jeu de demonstration n'active jamais le fond orthophoto,
+donc rien dans les fixtures ne passe par `render/ortho.ts`. Active a la main, il pose quatre tuiles ;
+comparees au temoin fige, **memes coordonnees au dernier chiffre decimal** sur les quatre.
+
+Typecheck, lint, 534 tests, cliquet : `render/` rejoint les dossiers proteges.
+
+### `io/` — un type qui mentait sur ce qu'il garantit (30 aout 2026)
+
+`io/` passe de **57 a 0** ; le depot, de 919 a **862**.
+
+Le fait notable n'est pas un nouveau type mais une correction d'un type deja pose : `Atelier.restoreState`
+(app/atelier.ts, ecrit lors de la nomination de la fermeture) annoncait `{ objects: ObjetPlan[];
+measures: Mesure[] }`. En typant `io/projet.ts`, l'appel `ctx.restoreState({ objects:
+objsBase.concat(ajoutes), ... })` a refuse de passer : `objsBase`/`ajoutes` sont des donnees
+serialisees (`ObjetSerialise`, alias de `Record<string, any>`), pas des `ObjetPlan`.
+
+En remontant a l'implementation reelle (`core/historique.ts`), la raison est claire :
+`restaurer(snap)` appelle `ctx.normalizeObjects(snap.objects)` **avant** de les poser dans l'etat.
+`restoreState` n'a donc jamais garanti de recevoir des objets complets — c'est precisement le
+contraire, c'est son travail de completer ce qu'on lui donne. Le type annoncait une garantie qu'aucun
+appelant ne fournissait et que l'implementation ne demandait pas.
+
+Corrige en elargissant le parametre a `ObjetBrut[]` — la forme reelle de ce qui transite, la meme
+utilisee par `normalizeObjects` lui-meme. Le changement est **strictement plus permissif** : les deux
+appels existants (l'annulation, qui repasse un `ObjetPlan[]` deja complet — un `Partial<T>` plus
+strict reste satisfait par un `T` complet — et l'import, qui repasse des donnees serialisees)
+continuent de passer, et le type dit enfin ce que la fonction fait.
+
+Au passage, `affichage` (masquage du voisinage et de la grille) rejoint `ObjetPlan`, sur le meme
+modele que `ortho` — et cette fois sans casser le test de `normalisation.ts`, puisque sa valeur de
+test (`{ grille: true }`) tombe exactement dans la forme reelle.
+
+#### Vérifications
+
+Memes empreintes (six sur six a version inchangee, puis une ligne par artefact texte). Et un cycle
+complet propre a ce module : export JSON du jeu de demonstration, puis reimport en mode
+« remplacement » (simule via `DataTransfer` sur l'input cache, la vraie mecanique de selection de
+fichier n'etant pas disponible hors navigateur reel). Toast : « 35 objet(s) importe(s). 11 mesure(s)
+restauree(s). » Releve de sante identique a une page fraiche.
+
+Une premiere tentative de cette sonde a mesure du vide : j'avais coche la mauvaise case
+(`chkReplaceOnImport`, qui controle l'import SVG) au lieu de `chkJsonRemplace`, et le compte d'objets
+inchange semblait d'abord signaler un import silencieusement rate.
+
+Typecheck, lint, 534 tests, cliquet : `io/` rejoint les dossiers proteges.
+
+### `interaction/` — un discriminant ambigu, et deux champs morts (30 aout 2026)
+
+`interaction/` passe de **53 a 0** ; le depot, de 862 a **809**. Quatre des six fichiers du dossier
+etaient deja propres (editing.ts, drag.ts, outilMesure.ts, navigation.ts, sortis lors de phases
+anterieures) ; il ne restait que `outilAlignement.ts` (12) et `pointeur.ts` (41, le cablage complet
+des evenements de pointeur — selection, glisser, double-tap, molette, pincement, pan a trois doigts).
+
+**Un discriminant qui ne discriminait pas.** Le geste en cours (`activeDrag`) est soit un
+`GlisserEnCours` (drag.ts), soit un pan a un doigt, propre a ce fichier. `GlisserEnCours` admet
+lui-meme `'pan'` dans son propre champ `type` — une imprecision restee de son ecriture initiale, ou
+`'pan'` figurait dans la liste sans jamais etre construit avec cette forme. En ecrivant l'union des
+deux comme `GlisserEnCours | { type:'pan'; ... }`, ce chevauchement rendait le narrowing inoperant :
+`if(activeDrag.type==='pan')` ne suffisait pas a exclure la branche `GlisserEnCours`, et
+`startOrigin`/`startScreen` restaient inaccessibles juste apres le test qui aurait du les garantir.
+Corrige en intersectant le premier membre avec le sous-ensemble reel de types qu'il couvre ici
+(`'shapeMove'|'circleMove'|'point'|'edge'|'radius'`), ce qui rend le discriminant precis.
+
+**Deux champs ecrits, jamais lus.** `startScreen` etait pose sur les gestes `circleMove` et
+`shapeMove`, en plus de `startWorld` — mais seul le pan le lit (`deplacer(scene, startOrigin,
+startScreen, curseur)`). Verifie par recherche exhaustive avant de les retirer : aucun autre
+consommateur, dans ce fichier ni ailleurs. Retires plutot que castes, sur le meme principe que la
+variable morte trouvee dans `engine/layers.ts` en phase 4 : un champ dont on prouve qu'il ne sert nulle
+part se supprime, il ne se maquille pas en type.
+
+Reste une imprecision non touchee, documentee sur place : `GlisserEnCours.obj` exige `pts`, y compris
+pour un cercle qui n'en a jamais. C'est un defaut de `drag.ts`, hors de portee de ce palier — le
+corriger (rendre `pts` facultatif) casserait `estRectangle(obj)`, qui l'exige aussi en interne, dans
+ce meme fichier. Contourne par un cast local (`ObjetAPoints`), avec la raison ecrite au-dessus.
+
+#### Vérifications
+
+Memes empreintes. Et une sonde directe des gestes typés : un `PointerEvent` de glisser reel sur un
+sommet deplace ce seul sommet, exactement du delta demande, les cinq autres restant identiques au
+pixel pres ; un `WheelEvent` sur le plan redessine la scene.
+
+Typecheck, lint, 534 tests, cliquet : `interaction/` rejoint les dossiers proteges.
+
+### `app/` — le plus petit palier restant (30 aout 2026)
+
+`app/` passe de **19 a 0** ; le depot, de 809 a **790**. Six fichiers, tous des interfaces de
+contexte a completer — rien de nouveau methodologiquement, mais deux points valent d'etre notes.
+
+`ObjetPlan` gagne quatre champs de cloture (`clotureActive`, `clotureHauteur`, `clotureCouleur`,
+`clotureTexture`), sur le meme modele que `ortho` et `affichage` au palier `render/`. Le dernier
+reste `unknown` : sa vraie forme appartient au selecteur de texture (`ui/texturePicker.ts`), dont la
+propre fonction rend deja `unknown` — poser un type plus precis ici aurait ete l'inventer, pas le
+lire, et l'aurait fait a un endroit qui n'est pas celui du palier `ui/` a venir.
+
+Deuxieme point : la scene Three.js reste deliberement non typee (`SceneTrois = Record<string, any>`,
+faute de `@types/three`). Un endroit en decoulait directement d'un `any` — le callback de
+`canvas.toBlob()` dans `vue3d.ts`, dont le parametre ne pouvait pas s'inferer a travers la chaine
+`any`. Annote a la main (`Blob | null`, la vraie forme de l'API canvas), avec la raison ecrite au-dessus.
+
+#### Vérifications
+
+Memes empreintes. Et une sonde du pilotage des vues : les quatre boutons (Plan, Terrasse, Vue 3D,
+visionneuse) actionnes en sequence, chacun affichant les bonnes zones — la Vue 3D masquant bien la
+rangee de sous-onglets, comme documente — et le bouton de grille bascule son etat visuel. Aucune
+erreur.
+
+Typecheck, lint, 534 tests, cliquet : `app/` rejoint les dossiers proteges.
+
+
+### `geo/` — la ou les empreintes ne voient rien (30 aout 2026)
+
+`geo/` passe de **127 a 0** ; le depot, de 790 a **638**. L'ecart de 152 est plus grand que le
+compte du dossier, et c'est le fait marquant du palier : donner de vraies signatures a `apiIgn.ts`
+a eteint **25 erreurs de plus dans `ui/projectBar.ts`**, sans y toucher autrement que pour poser
+trois `import type` et quelques annotations. C'est §9.1 pris sur le fait — un `any` partage ne coute
+rien la ou il est ecrit, il coute chez ceux qui l'appellent.
+
+GeoJSON est decrit une fois pour toutes, parametre par le type des `properties`
+(`FeatureGeoJSON<P>`, `CollectionGeoJSON<P>`) : les proprietes d'une parcelle cadastrale et celles
+d'un batiment BD TOPO n'ont rien en commun, et c'est le seul endroit du programme ou la distinction
+se voyait deja, implicitement.
+
+Troisieme objet mort exhume par le typage, apres les deux `startScreen` d'`interaction/` :
+`formeCommune(pts, c)` ne lisait jamais `c`. Verifie dans le corps, retire ; les deux appels
+passaient une parcelle qui ne servait a rien.
+
+#### Vérifications
+
+Les six empreintes sont identiques a version inchangee, puis une ligne par artefact texte apres le
+changement de numero. **Mais elles ne prouvent presque rien ici** : elles ne declenchent aucun appel
+reseau, alors que `geo/` n'est a peu pres que cela. Elles disent seulement que le typage n'a pas
+deborde ailleurs.
+
+Le vrai controle est ailleurs, et il a ete fait : l'import cadastral « Place de la Mairie 35000
+Rennes » rejoue **en direct** sur les deux versions a quelques minutes d'intervalle — le temoin fige
+1.0.0 et le build fraichement type. Meme parcelle proposee (AC 530, 418 m², a 7,33 m de l'adresse),
+meme classement des dix candidates, memes cases cochees par defaut a l'etape 3, memes trois
+batiments (16 ; 15,5 ; 13,8 m), et surtout : **meme projet exporte au bit pres** apres neutralisation
+des quatre horodatages et du numero de version — 25 232 octets,
+`b93a3924b496529d9e4b3d17e522f0cf8a21bcaaa66680ef7b4d0aaf9ba321eb` des deux cotes. Toute la chaine y
+passe : geocodage BAN, `apicarto/cadastre/parcelle` interroge sur une emprise, BD TOPO (batiment,
+zone de vegetation, haie) en WFS, puis les neuf interrogations du GPU/PLU.
+
+Au passage, une limite de la methode est devenue mesurable. Le releve d'import note le 28 aout
+(25 108 octets) **ne se reproduit plus sur le temoin fige lui-meme** : +227 octets. A code
+strictement identique. Ce sont les donnees du GPU qui ont bouge. Une empreinte qui depend d'un
+service en ligne ne se conserve pas dans le temps ; ce qui se conserve, c'est l'egalite entre deux
+versions rejouees le meme jour. `EMPREINTES.md` le dit maintenant a l'endroit ou la vieille valeur
+etait notee, plutot que de la laisser passer pour un oracle.
+
+Typecheck, lint, 534 tests, cliquet : `geo/` rejoint les dossiers proteges. Onze sur quatorze. Il
+reste `ui` (372), `three` (128) et `export` (122).
+
+
+### `three/` — quand la spec et le code se contredisaient (30 aout 2026)
+
+Ce palier ne commence pas par du typage mais par un **ecart** : la spec §8.3 tranchait « Take
+Option A » — `@types/three` en devDependency, `THREE` type sans que la bibliotheque soit
+empaquetee — et le code faisait l'inverse, `declare const THREE: any` et
+`SceneTrois = Record<string, any>`, avec un commentaire qui argumentait contre l'option A en la
+decrivant comme « une dependance de type sans dependance de code ». C'est exactement ce que
+l'option A est, et c'est exactement ce qui avait ete decide. Le code n'avait pas trouve une raison
+de s'ecarter du plan : il avait re-derive la question sans se souvenir de la reponse.
+
+L'ecart a ete referme dans le sens de la spec, apres avoir verifie les deux promesses au lieu de les
+croire : `@types/three@0.128.0` existe et couvre les trois classes d'`examples/` ; et le fichier
+produit ne contient **aucune** trace du paquet. La croissance mesuree du build (+128 octets sur
+449 810) s'explique entierement par le code ecrit ici — les trois gardes de type et deux constantes
+locales — pas par les typages, qui ne survivent pas a la compilation.
+
+`three/` passe ensuite de **128 a 0** ; le depot, de 638 a **510**.
+
+#### Ce que douze erreurs ont dit
+
+Poser les vrais types fait apparaitre douze erreurs au barreau 1, avant meme de parler de
+`noImplicitAny`. Elles valent d'etre lues :
+
+- **`isMesh` / `isLight` / `isTexture` ne sont pas sur `Object3D`.** Ce sont des drapeaux poses par
+  les sous-classes, et Three.js s'en sert **a la place** d'`instanceof`, volontairement : deux
+  copies de la bibliotheque dans une meme page ont des constructeurs differents mais les memes
+  drapeaux. Les trois gardes de `three/gardes.ts` reprennent le test deja ecrit, mot pour mot, et le
+  rendent au verificateur.
+- **`THREE.SRGBColorSpace` et `Texture.colorSpace` n'existent pas a la r128.** Ils datent de la
+  r152. Le code les teste avant de s'en servir (`if(THREE.SRGBColorSpace) ...`), donc la ligne **ne
+  fait rien** aujourd'hui. Elle reste telle quelle : c'est un garde-fou tourne vers l'avenir, qui
+  s'allumera de lui-meme a une montee de version, et le remplacer par l'ancien couple
+  `sRGBEncoding`/`encoding` changerait le rendu des tuiles orthophoto. Un palier de typage ne decide
+  pas d'un rendu. Le commentaire dit maintenant tout cela sur place.
+- **`GLTFExporter.parse` rend `object`** : sa signature r128 ne distingue pas les deux sorties que
+  l'option `{ binary: true }` separe pourtant.
+
+#### Deux types qui mentaient, encore
+
+Meme famille que `geometry/rings.ts` et `Atelier.restoreState` aux paliers precedents.
+
+`reglerSoleil(lum: SceneTrois, ...)` demandait une scene entiere. Son propre commentaire, juste
+au-dessus, enumerait pourtant les cinq champs reellement lus — et l'appelant de la Vue 3D lui
+construit un objet a quatre champs, sans scene. Le type est devenu `EclairageSoleil`.
+
+`attendreTexturesPretes` declarait `new Set<SceneTrois>()` : un ensemble de **scenes**, pour y
+ranger les cartes de couleur des materiaux. Les deux etaient invisibles tant que `SceneTrois` valait
+`Record<string, any>`. C'est le point a retenir du palier : un type assez large pour tout accepter
+ne dit plus rien de faux, il ne dit plus rien du tout.
+
+`SceneTrois` devient d'ailleurs deux types reels — `SceneVue3d` (qui cadre un plan : `extent`,
+`cen`) et `SceneGlb` (qui cadre un modele deja produit : `centre`, `rayon`) — au-dessus d'un
+`SceneTroisBase` de huit champs, exactement ce que les deux vues partagent.
+
+#### Verifications
+
+Les six empreintes sont identiques a version inchangee, puis une ligne par artefact texte apres le
+changement de numero. **Aucune des six n'ouvre la 3D**, donc elles ne disent ici qu'une chose : le
+typage n'a pas deborde ailleurs.
+
+Le controle reel est l'export GLB rejoue en direct, Vue 3D ouverte (Three.js r128 charge du CDN,
+canevas rendu, aucune erreur) : 41 473 604 octets, et des compteurs structurels **identiques au
+releve d'origine** — glTF 2.0, 203 noeuds, 200 maillages, 288 materiaux, 178 textures, 1 scene.
+Puis la visionneuse, sur les chemins les plus retouches : bascule du fond clair/sombre dans les deux
+sens (c'est le chemin qui passe par `estTexture` et libere l'ancienne texture), filaire coche puis
+decoche (deux reconstructions completes de la scene). Il reste exactement un canevas, sans erreur ni
+fuite.
+
+#### Une limite trouvee, pas corrigee
+
+`ObjetPlan` porte `[autreChamp: string]: unknown`. Les champs de texture ne sont donc pas declares
+et se lisent en `unknown` — correct pour ce palier, la forme du catalogue Poly Haven appartenant au
+selecteur (`ui/`). Mais cette signature d'index accepte aussi les fautes de frappe :
+`o.textureHorizontal` compilerait. La retirer se paierait dans tous les dossiers a la fois ; c'est
+un chantier du barreau 3, note ici pour ne pas le redecouvrir.
+
+Typecheck, lint, 534 tests, cliquet : `three/` rejoint les dossiers proteges. Douze sur quatorze. Il
+reste `ui` (372) et `export` (122) — `ui/` en dernier, comme prevu.
+
+### `export/` — le plus gros fichier du palier 2, sans surprise (30 aout 2026)
+
+`export/` passe de **122 a 0** ; le depot, de 510 a **387**. Treize dossiers proteges. Il ne reste
+que `ui/` (371), et c'est exactement le plan trace des le debut de la phase 7 : cette couche-la va
+en dernier, elle est la plus grosse et la moins testee.
+
+Cinq fichiers : `pdf/writer.ts` (les primitives d'ecriture PDF a la main), `resume.ts` (le texte),
+`pdfPlan.ts` et `svgPlan.ts` (le plan en PDF et en SVG), `dossierPdf.ts` (le dossier a l'artisan,
+76 erreurs a lui seul - le plus gros fichier de tout le barreau 2). Rien de nouveau
+methodologiquement : chaque fonction lit des objets du plan et ecrit du texte, sans etat partage
+entre elles.
+
+Deux types nommes par le besoin, pas par l'objet, dans la lignee de `TerrasseEtudiee` ou
+`ObjetMesurable` aux paliers precedents :
+
+- `ObjetASurface` (`type`, `pts`, `r`, `width`) pour `surfaceDe` — les tests l'appellent deja sur des
+  objets partiels (`{ type: 'circle', r: 2 }`), ce qui a directement dicte le type : lui poser
+  `ObjetPlan` complet aurait casse les tests sans rien changer au comportement.
+- `Projeteur` (`(p: PtBrut) => {x,y}`) pour `cotationPolygone`/`anglesPolygone` : ces deux fonctions
+  de cotation ne savent rien du plan, seulement d'un tableau de points et d'une fonction de
+  projection vers le PDF. Le type le dit maintenant explicitement.
+
+#### Verifications
+
+Comme d'habitude : six empreintes identiques a version inchangee, puis une ligne par artefact texte
+apres le changement de numero.
+
+Verification propre a ce palier : les deux PDF sont l'endroit ou une erreur de mise en page se voit
+le moins au premier coup d'oeil (un texte qui chevauche la ligne suivante ne casse rien
+structurellement). Compares en compte de textes/objets/pages avant et apres : **143/14/2** pour
+`plan.pdf`, **106/15/3** pour `dossier.pdf`, identiques au chiffre pres.
+
+Typecheck, lint, 534 tests (aucun test a retoucher pour ce palier, une premiere depuis `render/`),
+cliquet : `export/` rejoint les dossiers proteges.
+
+
+### `ui/` — le dernier palier du barreau 2 (30 aout 2026)
+
+`ui/` passe de **371 a 0** ; le depot, de 387 a **0**. `--noImplicitAny` est propre sur
+l'integralite de `src/` : quatorze dossiers proteges par le cliquet, aucun reste. Le barreau 2 de
+l'echelle de rigueur (spec §9.1) est termine.
+
+Dix fichiers, du plus petit (`panelTabs.ts`, une erreur) au plus gros (`cadastreDialog.ts`, 104 —
+le dialogue d'import cadastral en trois etapes, une seule fonction exportee avec tout un assistant
+en fermetures internes). Rien de nouveau dans la methode, mais deux limites notees a des paliers
+precedents se referment ici — et c'est la logique meme du sequencement `render/` → `geo/` →
+`three/` → `export/` → `ui/` : un champ laisse `unknown` « en attendant le palier qui le lit
+vraiment » finit toujours par arriver a ce palier-la.
+
+#### Deux limites refermees
+
+**Les quatre champs de texture.** `textureVerticale`, `textureHorizontale`, `textureArbre` et
+`clotureTexture` passaient par l'index signature `[autreChamp: string]: unknown` d'`ObjetPlan`
+depuis le palier `three/`, faute d'avoir type leur seul ecrivain (`ui/texturePicker.ts`). C'est
+fait : ils deviennent `TextureAppliquee | null`. Le type vit dans `model/types.ts`, pas dans le
+module qui le produit — la meme regle que `Mesure` au palier `model/` : une fois choisie, une
+texture est une donnee du projet, pas une donnee du selecteur qui l'a proposee.
+
+**Le zonage PLU.** `ObjetPlan.plu` quitte `unknown` pour `ZonagePlu | null`. La famille de sept
+types (`ZoneUrba`, `PrescriptionPlu`, `InformationPlu`, `ServitudePlu`, `DocumentPlu`,
+`CommunePlu`, `ZonagePlu`) demenage de `geo/apiIgn.ts` vers `model/types.ts`. Pas seulement pour
+la coherence avec `TextureAppliquee` : `model/` ne peut pas importer de `geo/` sans fermer un
+cycle, puisque `geo/apiIgn.ts` importe deja `PtBrut` depuis `model/types.ts`. `bdtopo`, lui, reste
+`unknown` — deliberement, et ce n'est pas une limite a refermer : sa forme varie trop d'une couche
+IGN a l'autre pour un type ecrit a la main (spec §12).
+
+**`ContexteImportCadastre`**, troisieme cas du palier ou un `ctx` partage entre deux fichiers est
+nomme une fois plutot que redefini deux fois : expose par `ui/projectBar.ts` (qui construit l'objet
+et ouvre le dialogue), importe par `ui/cadastreDialog.ts` (qui le recoit). Les deux fichiers
+s'accordaient deja en silence sur cinq membres identiques ; nommer le type rend l'accord verifiable.
+
+#### Une lecon d'outillage, pas de code
+
+Trois methodes en sucre syntaxique du litteral d'objet `etatImport`
+(`parcellesPropriete(){ return this... }`) restaient signalees « `this` implicitement `any` »
+malgre l'annotation `const etatImport: EtatImportCadastre = {...}`. Ce n'est pas un defaut de
+l'annotation : TypeScript ne type contextuellement le `this` d'une methode de litteral d'objet que
+sous `noImplicitThis` (famille `strict`, eteinte au barreau 1). Sous `noImplicitAny` seul, il faut
+un parametre `this: T` explicite sur chaque methode — verifie sur un cas isole minimal avant d'etre
+applique aux trois. Le barreau 3 (qui allumera `strict`) fera disparaitre le besoin de l'ecrire.
+
+#### Verifications
+
+Six empreintes identiques a version inchangee, puis une ligne par artefact texte apres le
+changement de numero ; les deux PDF gardent leurs comptes exacts (143/14/2 et 106/15/3).
+
+Verification propre a ce palier, et celle qui compte : les six empreintes n'ouvrent jamais le
+reseau. L'import cadastral complet (adresse → parcelle → parcelles voisines → creation de projet) a
+ete rejoue en direct sur « Place de la Mairie 35000 Rennes », les trois etapes de l'assistant
+franchies comme un utilisateur le ferait : **meme resultat** qu'avant le typage du palier — 4
+objets, memes hauteurs (16 ; 15,5 ; 13,8 m), meme IDU `35238000AC0530`, meme zonage PLU (dix cles),
+aucune erreur console.
+
+Typecheck, lint, 534 tests, cliquet : `ui/` rejoint les dossiers proteges. Quatorze sur quatorze.
+**Le barreau 2 est clos.**
+
+#### `tests/` — la dette laissee de cote, soldee le meme jour
+
+Le rapport ci-dessus disait "22 erreurs dans `tests/`, hors perimetre du cliquet, dette du barreau
+3". Vingt-deux, c'est peu : autant les regler tout de suite plutot que les laisser trainer jusqu'a
+un barreau qui n'a pas encore de date.
+
+Les vingt-deux se ramenaient a une seule cause, deja vue au palier `model/` avec `ObjetBrut` : un
+litteral d'objet assigne d'abord a une variable (`const src = [{ pts: [], ... }]`), puis passe a une
+fonction generique (`normalizeObjects<T extends ObjetBrut>`, `creerCreation(etat: EtatCreation, ...)`).
+Passe directement en ligne (`normalizeObjects([{...}])`), le meme litteral s'infere sans probleme —
+c'est le detour par la variable qui prive TypeScript du type contextuel, et `pts: []` devient
+`any[]` faute de mieux. Verifie par un test A/B : le seul test qui echappait au correctif etait
+justement celui qui passait son litteral en ligne.
+
+Corrige en cinq fichiers, par annotation de la variable intermediaire plutot que retouche du
+litteral (`const src: ObjetBrut[] = [...]`) : `tests/unit/engine/moteur.test.ts`,
+`export/resume.test.ts` (qui gagne aussi un `CTX: ContexteResume` explicite, au lieu de laisser
+`refLabel`/`targetLabel` s'inferer chacun de son cote), `interaction/drag.test.ts` (cinq occurrences
+identiques d'un cercle sans points), `model/creation.test.ts` (`EtatCreation`/`ContexteCreation`,
+importes plutot que redevines) et `model/normalisation.test.ts`, ou deux acces a `bdtopo` (reste
+`unknown` par choix, spec §12) ont du etre cast explicitement une fois `src` type.
+
+Aucun fichier de `src/` touche : pas de nouveau build, pas de nouvelle version, les six empreintes
+n'ont pas de raison de bouger et n'ont pas ete recapturees.
+
+Le cliquet protege maintenant `tests/` comme un bloc, en plus des quatorze dossiers de `src/` :
+**`--noImplicitAny` est a zero sur l'intégralité du depot**, la dette du barreau 3 n'existe plus.
 
 
 ### Point de vigilance
@@ -1140,3 +1651,79 @@ remplacé par `dist/index.html` au prochain déploiement.
 Le témoin 1.0.0 reste en place sous `legacy/plan_interactif.html`, où il joue le seul rôle qui lui
 restait — servir d'oracle pour tout ce que les empreintes ne voient pas. Il n'y a donc plus deux
 copies du même code, mais une version livrée et un témoin figé, ce qui est une autre chose.
+
+## Phase 4 — la fin : `legacy.ts` supprimé (9 septembre 2026)
+
+La spec (§6, « Killing the boot() closure ») demandait de sortir la fermeture. Elle est sortie —
+mais pas comme la spec l'imaginait, et la différence mérite d'être écrite, parce qu'elle a fait
+gagner du temps.
+
+### Ce qui a été fait, et ce qui a été laissé de côté
+
+§6.3 esquissait un bus d'événements (`AppEvent`, `emit()`) pour découpler les ~90 appels directs à
+`render()`. Elle s'autorisait aussi explicitement à ne pas le faire (« Keep that — do not introduce
+reactivity »). C’est cette permission qui a été prise. Introduire un bus aurait changé **l’ordre
+des effets** — le seul invariant que les golden files surveillent vraiment — et l’aurait changé
+partout à la fois. Rien ne l’exigeait : ce qui rendait `legacy.ts` insécable n’était pas le couplage
+des appels, c’était **la portée**. Toutes ces fonctions fermaient sur `etat`, sur la racine SVG et
+sur une soixantaine d’enveloppes.
+
+La réponse tient donc en une phrase : **la fermeture reste une fermeture, mais elle vit dans un
+module typé.** `src/legacy.ts` → `src/app/boot.ts`, mêmes instructions, même ordre, et un
+compilateur qui regarde. `app/atelier.ts` décrivait déjà, depuis la phase 6, la forme de l’objet
+nommé que `boot()` construit et que les groupes d’écouteurs reçoivent.
+
+### Ce que le compilateur a trouvé en arrivant
+
+Le fichier portait `@ts-nocheck` depuis la phase 1 : personne ne l'avait jamais lu. En le retirant,
+38 erreurs de type, puis 66 paramètres implicitement `any`, puis — une fois ESLint autorisé à le
+lire, sa configuration l’excluant nommément — **280 symboles morts**.
+
+Une de ces erreurs n'était pas cosmétique. Le contexte passé à `importSVGString` citait
+`filtrerSansParcelle` en abrégé d’objet ; la fonction avait quitté ce fichier pour
+`io/exportProjet.ts` en phase 2 **sans que l’import soit ajouté**. Construire l’objet levait donc un
+`ReferenceError` — avant l’appel, pas pendant — et le `try/catch` de `app/ecouteurs/fichiers.ts` le
+transformait en bandeau. **L’import SVG était cassé depuis la phase 2, en silence.**
+
+Ce que les paliers précédents auraient pu voir, et n’ont pas vu :
+
+- les golden files n’exercent que les **exports** — aucun n’importe quoi que ce soit ;
+- le `try/catch` transformait une panne en message, donc rien ne remontait ;
+- `@ts-nocheck` empêchait la seule vérification qui l’aurait attrapée immédiatement.
+
+Le typage a donné la cause **et** le remède : `importSVGString` ne lit aucune des quatre propriétés
+que ce littéral lui passait en trop. Les retirer répare le geste sans rien ajouter. Vérifié en
+direct sur les trois versions avec le même fichier — le témoin figé 1.0.0 et le build corrigé
+donnent le même résultat exact ; le build d’avant correction n’importe rien.
+
+### Ce que 280 symboles morts disent
+
+272 spécificateurs d’import et 8 déclarations locales : `legacy.ts` avait gardé une référence vers
+presque tout ce qui en était sorti pendant treize paliers, sans que rien ne les relise. Ce n’est pas
+une négligence de l’extraction, c’est ce qui arrive quand **l’outil qui l’aurait dit était éteint** :
+la configuration ESLint excluait `src/legacy.ts` nommément, « tant qu'il contient le code d'origine ».
+La leçon est petite et générale : une exclusion d’outil posée « en attendant » survit à ce qu’elle
+attendait, et elle ne se signale jamais elle-même.
+
+### Quatre types remis d’aplomb au passage
+
+Aucun n’était visible tant que le fichier ne compilait pas :
+
+- `ProjetResume` (io/api.ts) et `ProjetMeta` (ui/projectBar.ts) décrivaient la **même** ligne de
+  serveur et avaient divergé : `name` obligatoire d’un côté, facultatif de l’autre. Une seule
+  description reste, là où la donnée arrive.
+- `serializeMeasures` déclarait rendre des `ObjetSerialise[]`. Elle rend des cotes.
+- `renderTerrasseSelector` exigeait les neuf fonctions de `ContexteTerrassePanels` ; elle en lit deux.
+- Cinq littéraux de contexte passaient des propriétés que leur destinataire ne lit pas.
+
+### La preuve
+
+Le protocole habituel, avec une preuve d’après-recapture **plus forte que d’ordinaire** : `alpha.13`
+et `alpha.14` ayant la même longueur, remettre l’ancien numéro dans les octets fraîchement capturés
+reproduit les six empreintes précédentes **au bit près, les deux PDF compris** — ce que les
+recaptures antérieures ne pouvaient pas établir. Détail dans
+[`../tests/fixtures/golden/EMPREINTES.md`](../tests/fixtures/golden/EMPREINTES.md).
+
+Le test d’échafaudage change d’objet plutôt que de disparaître : il vérifiait que `legacy.ts`
+commençait par `@ts-nocheck` ; il vérifie maintenant que `legacy.ts` n’existe plus **et** qu’aucun
+fichier de `src/` ne porte la directive. C’est le critère de sortie §14, gardé par un test.

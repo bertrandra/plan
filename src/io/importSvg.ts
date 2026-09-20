@@ -15,6 +15,19 @@ import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
 import { showToast } from '../shell/dialogs.js';
 import { elOpt } from '../shell/dom.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, Mesure } from '../model/types.js';
+
+/** Ce que l'import SVG declenche : construire le DOM d'un objet neuf, puis remettre le plan a jour. */
+export interface ContexteImportSvg {
+  pushHistory: () => void;
+  createObjectDOM: (obj: ObjetPlan) => void;
+  rebuildHandles: (obj: ObjetPlan) => void;
+  reapplyStackingOrder: () => void;
+  rebuildSelector: () => void;
+  renderMeasureResults: () => void;
+  render: () => void;
+}
 
 // Un SVG exporte par l'application transporte ses cotes dans un noeud cache. Sa presence dit s'il
 // faut remplacer les cotes en memoire ou les laisser tranquilles.
@@ -22,7 +35,7 @@ function mesuresDansLeFichier(doc: Document): boolean {
   const el = doc.getElementById('measures-data');
   return !!(el && el.getAttribute('data-measures'));
 }
-export function importSVGString(svgText, etat, ctx){
+export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImportSvg): void {
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
   const perr = doc.querySelector('parsererror');
   if(perr) throw new Error('SVG invalide ou mal forme');
@@ -33,7 +46,7 @@ export function importSVGString(svgText, etat, ctx){
   const maxy = parseFloat(root.getAttribute('data-maxy'));
   const replaceMode = !!elOpt<HTMLInputElement>('chkReplaceOnImport')?.checked;
 
-  function svgToWorld(x,y){
+  function svgToWorld(x: number, y: number): { x: number; y: number } {
     if(isOwn && Number.isFinite(minx) && Number.isFinite(pad) && Number.isFinite(maxy)){
       return {x: x + (minx-pad), y: (maxy+pad) - y};
     }
@@ -153,7 +166,9 @@ export function importSVGString(svgText, etat, ctx){
     const mdRaw = mdEl ? mdEl.getAttribute('data-measures') : null;
     if(mdRaw){
       try {
-        const parsed = JSON.parse(mdRaw);
+        // Ce que le fichier porte n'est pas garanti : c'est du JSON arbitraire, verifie ligne a
+        // ligne ci-dessous (existence des deux objets references) avant d'etre repris.
+        const parsed = JSON.parse(mdRaw) as Partial<Mesure>[];
         parsed.forEach(m=>{
           // only restore a measure if both referenced objects actually exist post-import
           const refObj = etat.objects.find(o=>o.key===m.refObjKey);

@@ -28,7 +28,7 @@ export function estRectangle(obj: FormeRect | null | undefined): boolean | null 
 // Reconstruit les 4 coins quand on tire le coin `idx` vers `w`. Le coin oppose ne bouge pas.
 // On travaille dans le repere du rectangle lui-meme (les deux cotes issus du coin oppose), pas
 // dans celui de l'ecran : un rectangle tourne reste ainsi manipulable sans se redresser.
-export function rectangleDepuisCoin(pts: PtBrut[], idx: number, w: PtBrut): PtBrut[] {
+export function rectangleDepuisCoin(pts: PtBrut[], idx: number, w: PtBrut): PtBrut[] | null {
   const opp = (idx+2)%4, O = pts[opp];
   const A = pts[(opp+1)%4], B = pts[(opp+3)%4];
   const lu = Math.hypot(A.x-O.x, A.y-O.y) || 1, lv = Math.hypot(B.x-O.x, B.y-O.y) || 1;
@@ -38,8 +38,8 @@ export function rectangleDepuisCoin(pts: PtBrut[], idx: number, w: PtBrut): PtBr
   const a = rel.x*u.x + rel.y*u.y;
   const b = rel.x*v.x + rel.y*v.y;
   if(Math.abs(a) < RECT_MIN_M || Math.abs(b) < RECT_MIN_M) return null;
-  const en = (ka,kb) => ({ x:O.x + u.x*ka + v.x*kb, y:O.y + u.y*ka + v.y*kb });
-  const out = new Array(4);
+  const en = (ka: number, kb: number) => ({ x:O.x + u.x*ka + v.x*kb, y:O.y + u.y*ka + v.y*kb });
+  const out: PtBrut[] = new Array(4);
   out[opp] = { x:O.x, y:O.y };
   out[(opp+1)%4] = en(a, 0);
   out[idx] = en(a, b);

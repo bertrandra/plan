@@ -1,14 +1,13 @@
-// Point d'entree de l'application (phase 1 de MD/spec-migration-typescript.md).
+// Point d'entree de l'application (spec-migration-typescript.md).
 //
 // Il ne fait que ce que faisaient les dernieres lignes de plan.html : charger le projet initial,
-// puis demarrer. Toute la logique est encore dans legacy.ts et en sortira module par module aux
-// phases 2 a 6.
+// puis demarrer. Toute la logique vit desormais dans app/boot.ts, la racine de composition (§6).
 
 import './styles/app.css';
-// Import statique, et non dynamique comme celui de legacy plus bas : ce module ne depend de rien
-// et ne peut donc pas echouer a se charger. C'est ce qui permet de s'en servir comme filet quand
-// c'est le chargement de legacy qui casse. En phase 1, faute de l'avoir isole, main.ts portait
-// une copie du bandeau ; la phase 5 l'a rendue inutile.
+// Import statique, et non dynamique comme celui de app/boot.ts plus bas : ce module ne depend de
+// rien et ne peut donc pas echouer a se charger. C'est ce qui permet de s'en servir comme filet
+// quand c'est le chargement de app/boot.ts qui casse. En phase 1, faute de l'avoir isole, main.ts
+// portait une copie du bandeau ; la phase 5 l'a rendue inutile.
 import { showErrBanner, showProjectLoadError } from './shell/dialogs.js';
 
 function texteErreur(err: unknown): string {
@@ -23,7 +22,7 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
-    const { boot, loadInitialProject } = await import('./legacy');
+    const { boot, loadInitialProject } = await import('./app/boot.js');
     try {
       const seed = await loadInitialProject();
       boot(seed);

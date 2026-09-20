@@ -13,17 +13,48 @@ import { vue } from '../render/vues.js';
 import { dist, shoelace, signedArea, pointInPolygon } from '../geometry/basic.js';
 import { nearestSegmentIndex } from '../geometry/segments.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
-import { cibleAlignement } from '../interaction/outilAlignement.js';
+import { cibleAlignement, type CoteDesigne } from '../interaction/outilAlignement.js';
 import { el } from '../shell/dom.js';
 import { formatHeureMin } from '../util/format.js';
 import { showToast } from '../shell/dialogs.js';
 import { ouvrirSelecteurTexture } from './texturePicker.js';
-import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../engine/parasol.js';
+import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol, type ContexteSoleil } from '../engine/parasol.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, PtBrut, TextureAppliquee } from '../model/types.js';
+import type { ObjetMesurable } from '../engine/hauteurs.js';
+
+/** Ce que le panneau d'attributs demande au reste du programme — vaste, comme l'ecran qu'il pilote. */
+export interface ContexteAttrPanel {
+  libelleTypeObjet: (obj: ObjetPlan) => string;
+  markDirty: () => void;
+  rebuildSelector: () => void;
+  render: () => void;
+  renderAttrTable: () => void;
+  pushHistory: () => void;
+  reapplyStackingOrder: () => void;
+  elevationOf: (obj: ObjetMesurable) => number;
+  vue3dOuverte: () => boolean;
+  buildThreeScene: (obj: ObjetPlan) => void;
+  contexteSoleilParasol: () => ContexteSoleil;
+  dejaRectangle: (pts: PtBrut[]) => boolean;
+  rebuildHandles: (obj: ObjetPlan) => void;
+  /** Pointage en cours de l'outil d'alignement/mesure, ou `null` si l'utilisateur n'attend rien. */
+  pickState: () => { purpose: string } | null;
+  startPick: (mode: string, multi: boolean, purpose?: string) => void;
+  measureSegCoords: (cible: CoteDesigne | null) => { a: PtBrut; b: PtBrut } | null;
+  refLabel: (ref: { objKey: string; segIndex: number } | null) => string;
+  alignObjectByRotation: (obj: ObjetPlan) => void;
+  interiorAngleDeg: (obj: ObjetPlan, i: number) => number;
+  applyAngleEdit: (obj: ObjetPlan, i: number, v: number) => boolean;
+  applyLengthEdit: (obj: ObjetPlan, i: number, v: number) => boolean;
+  deleteVertex: (obj: ObjetPlan, i: number) => void;
+  allerAuPointDeVue: (obj: ObjetPlan) => void;
+}
 
 // La distance saisie dans l'outil d'alignement survit aux reconstructions du panneau : la table est
 // rebatie a chaque rendu, et sans cette memoire le champ se viderait des qu'on touche au plan.
 let alignDistanceValue = '';
-export function renderAttrTable(etat, ctx){
+export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
   const obj = etat.objects.find(o=>o.key===etat.selectedKey);
   const nameTbl = document.getElementById('attrNameTable');
   const tabsDiv = document.getElementById('attrTabs');
@@ -104,10 +135,10 @@ export function renderAttrTable(etat, ctx){
   tbl.appendChild(head);
 
   if(etat.attrTab==='objet'){
-    const parcelleForSurf = etat.objects.find(o=>o.key==='parcelle');
+    const parcelleForSurf = etat.objects.find((o: ObjetPlan)=>o.key==='parcelle');
     const sParcelle = parcelleForSurf ? shoelace(parcelleForSurf.pts) : 0;
     const surf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
-    const addRow = (label, valueEl) => {
+    const addRow = (label: string, valueEl: HTMLElement) => {
       const tr=document.createElement('tr');
       const td0=document.createElement('td'); td0.textContent=label;
       const td1=document.createElement('td');
@@ -145,7 +176,7 @@ export function renderAttrTable(etat, ctx){
     });
     addRow('Fonction', fnSelect);
 
-    const prioInp = document.createElement('input'); prioInp.type='number'; prioInp.step='1'; prioInp.value=obj.priority;
+    const prioInp = document.createElement('input'); prioInp.type='number'; prioInp.step='1'; prioInp.value=String(obj.priority);
     prioInp.title = 'Priorite d\'affichage : plus eleve = dessine au-dessus des autres (hors objet selectionne, toujours au premier plan)';
     prioInp.addEventListener('change', ()=>{ obj.priority = parseInt(prioInp.value,10)||0; ctx.markDirty(); ctx.reapplyStackingOrder(); ctx.render(); });
     addRow('Priorité affichage', prioInp);
@@ -190,7 +221,7 @@ export function renderAttrTable(etat, ctx){
       // le dessus (toit). Deux champs separes parce qu'un mur et un toit ne partagent quasiment
       // jamais le meme materiau. Chacun ouvre le meme selecteur Poly Haven, juste range dans un
       // champ different a l'enregistrement.
-      const champTexture = (label, cle) => {
+      const champTexture = (label: string, cle: 'textureVerticale' | 'textureHorizontale' | 'textureArbre') => {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex; align-items:center; gap:8px;';
         const tex = obj[cle];
@@ -210,9 +241,9 @@ export function renderAttrTable(etat, ctx){
           // seulement celui qu'on est en train d'editer - pour qu'aucun chemin ne se retrouve
           // avec un dessus et des bords depareilles.
           const estChemin = obj.fonction === 'chemin';
-          ouvrirSelecteurTexture(label, (choix, appliquerTous)=>{
+          ouvrirSelecteurTexture(label, (choix: TextureAppliquee, appliquerTous?: boolean)=>{
             if(appliquerTous){
-              etat.objects.filter(o=>o.fonction==='chemin').forEach(o=>{
+              etat.objects.filter((o: ObjetPlan)=>o.fonction==='chemin').forEach((o: ObjetPlan)=>{
                 o.textureVerticale = choix; o.textureHorizontale = choix;
               });
             } else {
@@ -220,7 +251,7 @@ export function renderAttrTable(etat, ctx){
             }
             ctx.markDirty();
             ctx.renderAttrTable();
-            const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+            const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
             if(t) ctx.buildThreeScene(t);
           }, estChemin ? { checkboxLabel: 'Appliquer à tous les chemins (vertical + horizontale)' } : undefined);
         });
@@ -230,7 +261,7 @@ export function renderAttrTable(etat, ctx){
           clearBtn.textContent = '×'; clearBtn.title = 'Retirer cette texture';
           clearBtn.addEventListener('click', ()=>{
             obj[cle] = null; ctx.markDirty(); ctx.renderAttrTable();
-            const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+            const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
             if(t) ctx.buildThreeScene(t);
           });
           wrap.appendChild(clearBtn);
@@ -246,12 +277,12 @@ export function renderAttrTable(etat, ctx){
         // independant de la silhouette/hauteur du tronc, parce qu'un feuillage n'a ni la meme
         // forme ni la meme matiere que l'ecorce.
         const diamInp = document.createElement('input'); diamInp.type='number'; diamInp.step='0.1'; diamInp.min='0.1';
-        diamInp.value = (obj.diametreArbre !== undefined && obj.diametreArbre !== null) ? obj.diametreArbre : 3;
+        diamInp.value = String((obj.diametreArbre !== undefined && obj.diametreArbre !== null) ? obj.diametreArbre : 3);
         diamInp.title = 'Diametre du feuillage (sphere posee sur le tronc), utilise par la Vue 3D';
         diamInp.addEventListener('change', ()=>{
           obj.diametreArbre = Math.max(0.1, parseFloat(diamInp.value)) || 3;
           ctx.markDirty();
-          const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+          const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
           if(t) ctx.buildThreeScene(t);
         });
         addRow('Diamètre du feuillage (m)', diamInp);
@@ -262,7 +293,7 @@ export function renderAttrTable(etat, ctx){
         couleurArbreInp.addEventListener('input', ()=>{
           obj.couleurArbre = couleurArbreInp.value;
           ctx.markDirty();
-          const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+          const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
           if(t) ctx.buildThreeScene(t);
         });
         addRow('Couleur du feuillage', couleurArbreInp);
@@ -273,7 +304,7 @@ export function renderAttrTable(etat, ctx){
       if(obj.fonction === 'parasol'){
         // Terrasse de rattachement : c'est elle dont l'ombrage est mesure et sur laquelle porte la
         // recherche de position. Indispensable des qu'il y a plusieurs terrasses.
-        const terrasses = etat.objects.filter(o=>o.fonction==='terrasse');
+        const terrasses = etat.objects.filter((o: ObjetPlan)=>o.fonction==='terrasse');
         const tSelect = document.createElement('select');
         if(!terrasses.length){
           const o0 = document.createElement('option');
@@ -281,7 +312,7 @@ export function renderAttrTable(etat, ctx){
           tSelect.appendChild(o0); tSelect.disabled = true;
         } else {
           const courante = terrasseDuParasol(obj, etat.objects, etat.terrasseSelectedKey);
-          terrasses.forEach(t=>{
+          terrasses.forEach((t: ObjetPlan)=>{
             const o2 = document.createElement('option');
             o2.value = t.key; o2.textContent = t.name;
             if(courante && t.key === courante.key) o2.selected = true;
@@ -302,14 +333,14 @@ export function renderAttrTable(etat, ctx){
         // Le diametre de la toile est deja le "Rayon" du cercle (champ existant plus bas) : seule
         // la hauteur du mat manque, c'est elle qui fixe la longueur de l'ombre projetee.
         const hInp = document.createElement('input'); hInp.type='number'; hInp.step='0.1'; hInp.min='0.5';
-        hInp.value = hauteurParasolDe(obj);
+        hInp.value = String(hauteurParasolDe(obj));
         hInp.title = 'Hauteur de la toile au-dessus du sol - plus le mat est haut, plus l\'ombre se decale loin du pied';
         hInp.addEventListener('change', ()=>{
           obj.hauteurParasol = Math.max(0.5, parseFloat(hInp.value)) || 2.2;
-          hInp.value = obj.hauteurParasol;
+          hInp.value = String(obj.hauteurParasol);
           ctx.markDirty();
           ctx.render();
-          const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+          const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
           if(t) ctx.buildThreeScene(t);
         });
         addRow('Hauteur du mât (m)', hInp);
@@ -329,7 +360,7 @@ export function renderAttrTable(etat, ctx){
           obj.matDeporte = cbDep.checked;
           ctx.markDirty();
           ctx.render(); ctx.renderAttrTable();
-          const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+          const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
           if(t) ctx.buildThreeScene(t);
         });
         addRow('Mât déporté (en bord de toile)', cbDep);
@@ -343,7 +374,7 @@ export function renderAttrTable(etat, ctx){
             angInp.value = String(Math.round(obj.matAngleDeg));
             ctx.markDirty();
             ctx.render();
-            const t = ctx.vue3dOuverte() && etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
+            const t = ctx.vue3dOuverte() && etat.objects.find((o: ObjetPlan)=>o.key===etat.terrasseSelectedKey);
             if(t) ctx.buildThreeScene(t);
           });
           addRow('Orientation du mât (°)', angInp);
@@ -356,7 +387,7 @@ export function renderAttrTable(etat, ctx){
         const wrapH = document.createElement('div');
         wrapH.style.cssText = 'display:flex; align-items:center; gap:8px;';
         const heureInp = document.createElement('input'); heureInp.type='range';
-        heureInp.min='0'; heureInp.max='1439'; heureInp.step='5'; heureInp.value = etat.parasol.minutes;
+        heureInp.min='0'; heureInp.max='1439'; heureInp.step='5'; heureInp.value = String(etat.parasol.minutes);
         heureInp.style.cssText = 'flex:1;';
         const heureTxt = document.createElement('span');
         heureTxt.style.cssText = 'min-width:44px; text-align:right; font-variant-numeric:tabular-nums;';
@@ -438,7 +469,7 @@ export function renderAttrTable(etat, ctx){
             ctx.render();
             return;
           }
-          const xs = obj.pts.map(p=>p.x), ys = obj.pts.map(p=>p.y);
+          const xs = obj.pts.map((p: PtBrut)=>p.x), ys = obj.pts.map((p: PtBrut)=>p.y);
           const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
           // Envoyer chaque point vers le coin le plus proche selon les medianes parait naturel,
           // mais sur une forme oblique (losange, parallelogramme) deux points atterrissent sur le
@@ -449,9 +480,9 @@ export function renderAttrTable(etat, ctx){
           if(signedArea(obj.pts) < 0) coins.reverse();
           let depart = 0, meilleure = Infinity;
           coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts[0]); if(d < meilleure){ meilleure = d; depart = k; } });
-          const newPts = obj.pts.map((_,i)=>({ ...coins[(depart+i)%4] }));
-          const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
-          if(bound && !newPts.every(p=>pointInPolygon(p,bound))){
+          const newPts = obj.pts.map((_: PtBrut, i: number)=>({ ...coins[(depart+i)%4] }));
+          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!.pts : null;
+          if(bound && !newPts.every((p: PtBrut)=>pointInPolygon(p,bound))){
             showToast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
             rectCb.checked = false;
             return;
@@ -476,7 +507,7 @@ export function renderAttrTable(etat, ctx){
         const v = parseFloat(rr.value);
         if(!isNaN(v) && v>0.05){
           ctx.pushHistory();
-          const bound = (obj.constrained && etat.objects.find(o=>o.key==='parcelle')) ? etat.objects.find(o=>o.key==='parcelle').pts : null;
+          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!.pts : null;
           let ok = !bound;
           if(bound){
             ok = true;
@@ -563,7 +594,7 @@ export function renderAttrTable(etat, ctx){
       const btnTd = document.createElement('td'); btnTd.colSpan = 3;
       const pickBtn = document.createElement('button');
       pickBtn.className = 'secondary small';
-      const isPickingAlign = ctx.pickState() && ctx.pickState().purpose==='align';
+      const isPickingAlign = ctx.pickState() && ctx.pickState()!.purpose==='align';
       pickBtn.textContent = isPickingAlign ? 'Clique un segment sur le plan…' : 'Choisir un segment cible';
       if(isPickingAlign) pickBtn.disabled = true;
       pickBtn.addEventListener('click', ()=>ctx.startPick('ref', false, 'align'));
@@ -577,7 +608,7 @@ export function renderAttrTable(etat, ctx){
       if(cibleAlignement()){
         const tgt = ctx.measureSegCoords(cibleAlignement());
         if(tgt){
-          const idx = nearestSegmentIndex(obj, tgt);
+          const idx = nearestSegmentIndex({ type: obj.type, pts: obj.pts||[] }, tgt);
           if(idx>=0) nearestLbl = obj.segmentNames[idx] || ('Cote '+(idx+1));
         }
       }
@@ -608,7 +639,7 @@ export function renderAttrTable(etat, ctx){
       alignBtnRow.appendChild(alignBtnTd); tbl.appendChild(alignBtnRow);
     }
   } else if(obj.type==='polygon' && etat.attrTab==='angles'){
-    obj.vertexNames.forEach((vn,i)=>{
+    (obj.vertexNames||[]).forEach((vn: string, i: number)=>{
       const tr=document.createElement('tr');
       if(etat.highlight.type==='vertex' && etat.highlight.index===i) tr.className='highlightRow';
       const frozen = !!obj.frozenVertices[i];
@@ -660,7 +691,7 @@ export function renderAttrTable(etat, ctx){
     });
   } else if((obj.type==='polygon' || obj.type==='path') && etat.attrTab==='segments'){
     if(obj.type==='path'){
-      obj.vertexNames.forEach((vn,i)=>{
+      (obj.vertexNames||[]).forEach((vn: string, i: number)=>{
         const tr=document.createElement('tr');
         if(etat.highlight.type==='vertex' && etat.highlight.index===i) tr.className='highlightRow';
         const td0=document.createElement('td'); td0.textContent='Point '+(i+1);
@@ -686,7 +717,7 @@ export function renderAttrTable(etat, ctx){
       });
     }
     const minPts = obj.type==='path' ? 2 : 3;
-    obj.segmentNames.forEach((sn,i)=>{
+    (obj.segmentNames||[]).forEach((sn: string, i: number)=>{
       const n = obj.pts.length;
       if(obj.type==='path' && i >= n-1) return; // no closing segment for open paths
       const tr=document.createElement('tr');

@@ -21,7 +21,70 @@ import { lineLineIntersect } from '../geometry/segments.js';
 import { PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { elOpt } from '../shell/dom.js';
-export function buildThreeScene(obj, etat, ctx){
+import { estMesh } from './gardes.js';
+import type * as THREE_NS from 'three';
+import type { ObjetPlan, PtBrut, Construction } from '../model/types.js';
+import type { ObjetMesurable } from '../engine/hauteurs.js';
+import type { TuileOrtho } from '../render/ortho.js';
+import type { PlanVuDeLa3d } from './etat3d.js';
+
+/**
+ * Une couleur telle que Three.js l'accepte a la r128 : un nom ou un hexadecimal CSS venant du plan
+ * (`o.fill`), ou un entier 0xRRGGBB ecrit ici pour les pieces de structure.
+ */
+type CouleurTrois = string | number;
+
+/** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
+interface AnneauMitre { ext: PtBrut[]; int: PtBrut[] }
+
+/**
+ * Les deux textures d'un objet : le dessus qu'on voit a plat, et les faces verticales.
+ *
+ * `unknown` pour chacune : la forme complete de l'enregistrement Poly Haven (id, nom, vignette,
+ * url) appartient au selecteur de texture, dont le typage attend le palier `ui/` — la 3D n'en lit
+ * que l'URL, par `urlTexture` ci-dessous. Meme raisonnement que `clotureTexture` sur `ObjetPlan`.
+ */
+interface TexturesObjet { horizontale?: unknown; vertical?: unknown }
+
+/**
+ * L'URL d'une texture, si elle en a une.
+ *
+ * Reprend exactement le test qui etait ecrit a chaque usage (`texRef && texRef.url`), en un seul
+ * endroit et sans elargir ce que la 3D pretend connaitre du catalogue.
+ */
+function urlTexture(ref: unknown): string | undefined {
+  const r = ref as { url?: string } | null | undefined;
+  return r && r.url ? r.url : undefined;
+}
+
+/** Ce que la construction de la scene 3D demande au reste du programme. */
+export interface ContexteScene3d {
+  /** La parcelle qui porte la cloture, s'il y en a une. */
+  trouverParcelleCloture: () => ObjetPlan | null | undefined;
+  /** Remet les controles de cloture en accord avec la parcelle affichee. */
+  syncClotureControls: (parcelle: ObjetPlan) => void;
+  /** Hauteur de ce sur quoi la structure repose, en millimetres. */
+  hauteurAppuiMm: (c: Construction) => number;
+  /** Altitude d'un objet du plan, en metres. */
+  elevationOf: (o: ObjetMesurable) => number;
+  /** Un objet masque ne se modelise pas. */
+  objetMasque: (o: ObjetPlan) => boolean;
+  /** Position du mat d'un parasol, en coordonnees du plan. */
+  positionMat: (par: ObjetPlan) => PtBrut;
+  /** Le fond orthophoto sert aussi de sol a la 3D. */
+  orthoActif: () => boolean;
+  orthoTuiles: () => TuileOrtho[];
+  chargerTexturePolyhaven: (url: string) => THREE_NS.Texture;
+  /** Demonte la scene precedente avant d'en construire une nouvelle. */
+  disposeThreeScene: () => void;
+  /** Repose le soleil une fois la scene batie. */
+  appliquerLumiereVue3d: () => void;
+  applyMode3D: () => void;
+  renderVue3DSelect: () => void;
+  syncControlesSoleilVue3d: () => void;
+}
+
+export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d){
   // Si on reconstruit la MEME terrasse (une case a cocher qui change, pas un changement d'objet
   // selectionne), on garde la camera ou l'utilisateur l'avait laissee plutot que de repartir sur
   // le cadrage par defaut : cocher "filaire" ou "tous les objets" ne doit pas faire perdre la vue.
@@ -44,7 +107,7 @@ export function buildThreeScene(obj, etat, ctx){
   const layers = obj ? computeTerrasseLayers(obj, etat.objects) : null;
   // Le centre de la scene se prend sur la terrasse ; a defaut sur la parcelle, sinon sur
   // l'ensemble des objets - la camera doit regarder quelque chose dans tous les cas.
-  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find(o=>o.pts && o.pts.length);
+  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan)=>o.pts && o.pts.length);
   const cen = objetCentre
     ? (objetCentre.type === 'circle' ? {x:objetCentre.center.x, y:objetCentre.center.y} : centroid(objetCentre.pts))
     : {x:0, y:0};
@@ -87,17 +150,17 @@ export function buildThreeScene(obj, etat, ctx){
   const ptsPourEtendue = obj ? obj.pts.slice() : [];
   // Sans terrasse, "tous les objets" n'est pas une option : ils sont la seule chose a montrer.
   if(vue3d.tousLesObjets || !obj){
-    etat.objects.forEach(o=>{
+    etat.objects.forEach((o: ObjetPlan)=>{
       if(o===obj) return;
       if(o.type==='circle') ptsPourEtendue.push(...cerclePointsExtent(o));
       else if(o.pts) ptsPourEtendue.push(...o.pts);
     });
   }
-  function cerclePointsExtent(o){
+  function cerclePointsExtent(o: ObjetPlan){
     return [{x:o.center.x-o.r,y:o.center.y},{x:o.center.x+o.r,y:o.center.y},
             {x:o.center.x,y:o.center.y-o.r},{x:o.center.x,y:o.center.y+o.r}];
   }
-  const maxRadius = ptsPourEtendue.reduce((m,p)=>Math.max(m, dist(p,cen)), 0);
+  const maxRadius = ptsPourEtendue.reduce((m: number, p: PtBrut)=>Math.max(m, dist(p,cen)), 0);
   const extent = Math.max(3, maxRadius*2);
   const camera = new THREE.PerspectiveCamera(45, w/h, 0.05, 500);
   camera.position.set(extent*0.9, extent*0.9, extent*0.9);
@@ -176,12 +239,12 @@ export function buildThreeScene(obj, etat, ctx){
   // Three.js - caser Nord tel quel sur Z revient a permuter Y et Z d'un repere direct, ce qui
   // l'inverse (determinant -1) : toute la scene se retrouvait vue en miroir, gauche/droite
   // echangee. Nord doit porter sur -Z (donc Z = Sud) pour rester un repere direct.
-  function toLocal(p){ return { x:p.x-cen.x, z:cen.y-p.y }; }
+  function toLocal(p: PtBrut){ return { x:p.x-cen.x, z:cen.y-p.y }; }
 
   // Visible outline of the terrasse's real footprint at ground level, so the boards'
   // orientation above can be checked against the actual polygon angle at a glance.
   if(obj){
-    const outlinePts = obj.pts.map(p=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
+    const outlinePts = obj.pts.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
     outlinePts.push(outlinePts[0].clone());
     const outline = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(outlinePts),
@@ -195,9 +258,16 @@ export function buildThreeScene(obj, etat, ctx){
   // une image en pleine lumiere sur une scene de nuit trahirait l'heure choisie.
   if(ctx.orthoActif() && ctx.orthoTuiles().length){
     const chargeurOrtho = new THREE.TextureLoader();
-    ctx.orthoTuiles().forEach(t=>{
+    ctx.orthoTuiles().forEach((t: TuileOrtho)=>{
       const tex = chargeurOrtho.load(t.dataUri);
-      if(THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+      // `SRGBColorSpace` / `texture.colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la
+      // r128, donc la condition est fausse aujourd'hui et cette ligne ne fait rien. C'est un
+      // garde-fou tourne vers l'avenir, ecrit ainsi expres : il s'allumera tout seul le jour d'une
+      // montee de version. Le typage l'a rendu visible (il decrit la r128, ou ces deux noms
+      // n'existent pas) ; le retirer ou le remplacer par l'ancien couple `sRGBEncoding`/`encoding`
+      // changerait le rendu des tuiles orthophoto - une decision de produit, pas de typage.
+      const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
+      if(troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
       const dalle = new THREE.Mesh(
         new THREE.PlaneGeometry(t.largeur, t.hauteur),
         new THREE.MeshStandardMaterial({ map:tex, roughness:1, metalness:0 })
@@ -223,9 +293,9 @@ export function buildThreeScene(obj, etat, ctx){
   // construit TOUJOURS le groupe 0 = les deux capuchons (dessus + dessous, devient horizontal
   // apres la rotation) puis le groupe 1 = les faces laterales (deviennent verticales) - d'ou le
   // tableau de materiaux dans cet ordre precis.
-  function addPrism(footprint, yBase, height, color, filaire, opacity, textures){
+  function addPrism(footprint: PtBrut[] | null | undefined, yBase: number, height: number, color: CouleurTrois, filaire?: boolean, opacity?: number, textures?: TexturesObjet | null){
     if(!footprint || footprint.length < 3 || height <= 0) return;
-    const pts2d = footprint.map(p=>{ const l=toLocal(p); return {x:l.x, y:-l.z}; });
+    const pts2d = footprint.map((p: PtBrut)=>{ const l=toLocal(p); return {x:l.x, y:-l.z}; });
     const shape = new THREE.Shape();
     shape.moveTo(pts2d[0].x, pts2d[0].y);
     for(let i=1;i<pts2d.length;i++) shape.lineTo(pts2d[i].x, pts2d[i].y);
@@ -239,7 +309,7 @@ export function buildThreeScene(obj, etat, ctx){
     // forme.
     const distAcc = [0];
     for(let i=1;i<pts2d.length;i++) distAcc.push(distAcc[i-1] + dist(pts2d[i-1], pts2d[i]));
-    const distDe = (x,y) => {
+    const distDe = (x: number, y: number) => {
       let meilleur = 0, meilleurEcart = Infinity;
       for(let i=0;i<pts2d.length;i++){
         const e = Math.abs(pts2d[i].x-x) + Math.abs(pts2d[i].y-y);
@@ -248,9 +318,9 @@ export function buildThreeScene(obj, etat, ctx){
       return meilleur;
     };
     const uvGenerator = {
-      generateTopUV: (geometry, vertices, indexA, indexB, indexC) => [indexA,indexB,indexC].map(
+      generateTopUV: (geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number) => [indexA,indexB,indexC].map(
         idx => new THREE.Vector2(vertices[idx*3], vertices[idx*3+1])),
-      generateSideWallUV: (geometry, vertices, indexA, indexB, indexC, indexD) => [indexA,indexB,indexC,indexD].map(
+      generateSideWallUV: (geometry: THREE_NS.ExtrudeGeometry, vertices: number[], indexA: number, indexB: number, indexC: number, indexD: number) => [indexA,indexB,indexC,indexD].map(
         idx => new THREE.Vector2(distDe(vertices[idx*3], vertices[idx*3+1]), 1 - vertices[idx*3+2]))
     };
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, UVGenerator: uvGenerator });
@@ -263,11 +333,12 @@ export function buildThreeScene(obj, etat, ctx){
       objet = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
                                      new THREE.LineBasicMaterial({color}));
     } else {
-      const faire = (texRef) => {
+      const faire = (texRef: unknown) => {
         const mat = new THREE.MeshStandardMaterial({color});
         if(opacity !== undefined && opacity < 1){ mat.transparent = true; mat.opacity = Math.max(0.15, opacity); }
-        if(texRef && texRef.url){
-          mat.map = ctx.chargerTexturePolyhaven(texRef.url);
+        const urlTex = urlTexture(texRef);
+        if(urlTex){
+          mat.map = ctx.chargerTexturePolyhaven(urlTex);
           // Les UV valent deja des metres reels (deroule du perimetre ci-dessus pour les faces
           // laterales, coordonnees brutes du plan pour les capuchons) : un repeat de
           // 1/METRES_PAR_CARREAU suffit a caler une image sur METRES_PAR_CARREAU m, quelle que
@@ -288,9 +359,9 @@ export function buildThreeScene(obj, etat, ctx){
     scene.add(objet);
   }
   // Silhouette au sol : sert pour la parcelle (jamais un bloc plein).
-  function addGroundOutline(pts, color, closed){
+  function addGroundOutline(pts: PtBrut[] | null | undefined, color: CouleurTrois, closed?: boolean){
     if(!pts || pts.length < 2) return;
-    const vpts = pts.map(p=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.008, l.z); });
+    const vpts = pts.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.008, l.z); });
     if(closed) vpts.push(vpts[0].clone());
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(vpts),
                               new THREE.LineBasicMaterial({color})));
@@ -301,7 +372,7 @@ export function buildThreeScene(obj, etat, ctx){
   // echantillonnee en une polyligne dense au lieu d'un trace SVG. Sans ca, un chemin en mode
   // courbe se rendrait en 3D comme la ligne brisee de ses points de controle, jamais comme la
   // courbe lissee qu'on voit dans le plan.
-  function courbePolyligne(pts, curve, segsParTroncon?){
+  function courbePolyligne(pts: PtBrut[], curve?: boolean, segsParTroncon?: number): PtBrut[] {
     if(pts.length < 3 || !curve) return pts.slice();
     segsParTroncon = segsParTroncon || 12;
     const out = [pts[0]];
@@ -324,17 +395,17 @@ export function buildThreeScene(obj, etat, ctx){
   // intersection (meme principe que polygonOffset pour un polygone ferme), mais sans le bouclage
   // puisqu'un chemin est ouvert - les deux extremites n'ont qu'un seul segment voisin, donc un
   // simple decalage perpendiculaire suffit, pas d'intersection a calculer.
-  function ribbonChemin(pts, largeur){
+  function ribbonChemin(pts: PtBrut[], largeur: number){
     const n = pts.length;
     if(n < 2 || !(largeur > 0)) return null;
     const demi = largeur/2;
-    const segs = [];
+    const segs: { ux: number; uy: number; nx: number; ny: number }[] = [];
     for(let i=0;i<n-1;i++){
       const a=pts[i], b=pts[i+1];
       const ex=b.x-a.x, ey=b.y-a.y; const L=Math.hypot(ex,ey)||1;
       segs.push({ ux:ex/L, uy:ey/L, nx:-ey/L, ny:ex/L });
     }
-    function bord(i, sens){
+    function bord(i: number, sens: number){
       if(i===0) return { x:pts[0].x+segs[0].nx*demi*sens, y:pts[0].y+segs[0].ny*demi*sens };
       if(i===n-1) return { x:pts[n-1].x+segs[n-2].nx*demi*sens, y:pts[n-1].y+segs[n-2].ny*demi*sens };
       const s1=segs[i-1], s2=segs[i];
@@ -353,7 +424,7 @@ export function buildThreeScene(obj, etat, ctx){
   }
   // Ruban plat au sol (chemin non sureleve, le cas courant) : une forme remplie, sans extrusion,
   // posee legerement au-dessus du sol pour eviter le scintillement (z-fighting) avec lui.
-  function addRibbonFlat(poly, color, yLevel, opacity, texRef){
+  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown){
     if(!poly || poly.length < 3) return;
     const shape = new THREE.Shape();
     const p0 = toLocal(poly[0]);
@@ -364,8 +435,9 @@ export function buildThreeScene(obj, etat, ctx){
     geo.rotateX(-Math.PI/2);
     const mat = new THREE.MeshStandardMaterial({color, side:THREE.DoubleSide});
     if(opacity !== undefined && opacity < 1){ mat.transparent = true; mat.opacity = Math.max(0.15, opacity); }
-    if(texRef && texRef.url){
-      mat.map = ctx.chargerTexturePolyhaven(texRef.url);
+    const urlTex = urlTexture(texRef);
+    if(urlTex){
+      mat.map = ctx.chargerTexturePolyhaven(urlTex);
       // ShapeGeometry pousse deja les coordonnees locales brutes (des metres reels) comme UV -
       // meme correction qu'addPrism plus haut : 1/METRES_PAR_CARREAU cale une image sur
       // METRES_PAR_CARREAU m sans reproportionner en plus selon la taille de la forme.
@@ -378,20 +450,20 @@ export function buildThreeScene(obj, etat, ctx){
   // Approxime un cercle du plan par un polygone regulier, au RAYON REEL (contrairement a
   // empriseEquipement qui grossit volontairement au rayon circonscrit pour une zone de charge) :
   // ici c'est un rendu visuel, pas une emprise structurelle.
-  function cerclePoly(center, r, n?){
+  function cerclePoly(center: PtBrut, r: number, n?: number): PtBrut[] {
     n = n || 28;
     const pts = [];
     for(let i=0;i<n;i++){ const a = 2*Math.PI*i/n; pts.push({ x:center.x+r*Math.cos(a), y:center.y+r*Math.sin(a) }); }
     return pts;
   }
   // One board, cut to the outline it sits in rather than squared off at 90 degrees.
-  function addBeam(a, b, yBase, sectionH, sectionW, color, poly, filaire?, textures?){
+  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null){
     if(dist(a,b) < 0.02) return;
     addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, undefined, textures);
   }
   // A perimeter ring, mitred: each edge becomes the quad between the two bounding rings, so the
   // corners meet on the mitre line instead of two square ends overlapping.
-  function addBande(bande, yBase, height, color, textures?){
+  function addBande(bande: AnneauMitre | null | undefined, yBase: number, height: number, color: CouleurTrois, textures?: TexturesObjet | null){
     if(!bande || !bande.ext || !bande.int) return;
     const n = Math.min(bande.ext.length, bande.int.length);
     for(let i=0;i<n;i++){
@@ -402,7 +474,7 @@ export function buildThreeScene(obj, etat, ctx){
   // Une vis se dessine SOUS le plan de sol, puisque c'est la qu'elle est : on voit la fondation
   // et on comprend d'un coup d'oeil pourquoi elle ne sureleve pas la terrasse. Seule sa tete
   // reglable, quand on la fait depasser, monte au-dessus du sol et porte la structure.
-  function addPost(p, profondeur, hTete, radius, color){
+  function addPost(p: PtBrut, profondeur: number, hTete: number, radius: number, color: CouleurTrois){
     const P = toLocal(p);
     if(profondeur > 0){
       const geo = new THREE.CylinderGeometry(radius, radius*0.5, profondeur, 10);
@@ -425,7 +497,7 @@ export function buildThreeScene(obj, etat, ctx){
   }
   // Un plot n'a pas la silhouette d'une vis : base large evasee posee sur l'assise, fut etroit,
   // tete plate sous la lambourde. La base porte la surface d'assise reglee dans Construction.
-  function addPlot(p, yTop, color){
+  function addPlot(p: PtBrut, yTop: number, color: CouleurTrois){
     const P = toLocal(p);
     if(yTop<=0) return;
     const rBase = Math.sqrt((c.plotSurfaceAssise||PLOT_ASSISE_MIN_CM2)/Math.PI)/100;
@@ -498,10 +570,10 @@ export function buildThreeScene(obj, etat, ctx){
     // "Objets opaques" ignore l'opacite du plan 2D (souvent < 1 pour voir a travers en mode
     // Plan) et force un rendu plein - plus proche d'un rendu final, quand la transparence du
     // plan de travail n'apporte plus rien face a une vraie vue 3D.
-    const opaciteDe = o => vue3d.objetsOpaques ? undefined : o.fillOpacity;
+    const opaciteDe = (o: ObjetPlan) => vue3d.objetsOpaques ? undefined : o.fillOpacity;
     // "Texture" decoche revient a la couleur unie sans avoir a retirer la texture de chaque
     // objet - un simple objet vide desactive le rendu texture le temps de la case decochee.
-    const texturesDe = o => vue3d.textures ? {horizontale:o.textureHorizontale, vertical:o.textureVerticale} : null;
+    const texturesDe = (o: ObjetPlan) => vue3d.textures ? {horizontale:o.textureHorizontale, vertical:o.textureVerticale} : null;
     etat.objects.forEach(o=>{
       if(o===obj) return;
       if(ctx.objetMasque(o)) return; // masque dans le plan = masque partout, y compris ici (voisinage compris)
@@ -559,7 +631,8 @@ export function buildThreeScene(obj, etat, ctx){
         const opac = opaciteDe(o);
         if(opac !== undefined && opac < 1){ matToile.transparent = true; matToile.opacity = Math.max(0.15, opac); }
         const texToile = vue3d.textures ? (o.textureHorizontale || o.textureVerticale) : null;
-        if(texToile && texToile.url) matToile.map = ctx.chargerTexturePolyhaven(texToile.url);
+        const urlToile = urlTexture(texToile);
+        if(urlToile) matToile.map = ctx.chargerTexturePolyhaven(urlToile);
         // Cone tres plat pose sur le mat : la silhouette d'un parasol ouvert, et surtout la meme
         // emprise circulaire au sol que le rayon utilise pour calculer l'ombre en 2D.
         const toile = new THREE.Mesh(new THREE.ConeGeometry(o.r, Math.max(0.15, o.r*0.28), 24), matToile);
@@ -581,8 +654,9 @@ export function buildThreeScene(obj, etat, ctx){
         const matSphere = new THREE.MeshStandardMaterial({color: o.couleurArbre || '#4a7c3a'});
         const opacite = opaciteDe(o);
         if(opacite !== undefined && opacite < 1){ matSphere.transparent = true; matSphere.opacity = Math.max(0.15, opacite); }
-        if(vue3d.textures && o.textureArbre && o.textureArbre.url){
-          matSphere.map = ctx.chargerTexturePolyhaven(o.textureArbre.url);
+        const urlArbre = vue3d.textures ? urlTexture(o.textureArbre) : undefined;
+        if(urlArbre){
+          matSphere.map = ctx.chargerTexturePolyhaven(urlArbre);
         }
         const sphere = new THREE.Mesh(new THREE.SphereGeometry(rayon, 20, 16), matSphere);
         const pLocal = toLocal(centreArbre);
@@ -621,7 +695,7 @@ export function buildThreeScene(obj, etat, ctx){
   function appliquerOmbres(){
     if(!vue3d.ombres) return;
     scene.traverse(o=>{
-      if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; }
+      if(estMesh(o)){ o.castShadow = true; o.receiveShadow = true; }
     });
     ground.castShadow = false;
   }

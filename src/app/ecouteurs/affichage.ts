@@ -8,6 +8,7 @@
 import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, syncControlesOrtho } from '../../render/ortho.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que les commandes d'affichage doivent pouvoir déclencher, en plus de l'atelier. */
 export interface ContexteAffichage {
@@ -18,7 +19,7 @@ export interface ContexteAffichage {
   /** Le contexte que réclame le fond orthophoto. */
   ctxOrtho: () => Parameters<typeof placerOrthophoto>[0];
   /** Reconstruit la scène 3D — nécessaire quand la liste des objets visibles change. */
-  buildThreeScene: (obj) => void;
+  buildThreeScene: (obj: ObjetPlan | null) => void;
 }
 
 export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {

@@ -9,14 +9,17 @@
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerCartesOmbre, ombreInstantanee, type ContexteSoleil } from '../engine/parasol.js';
-import type { PtBrut } from '../model/types.js';
+import type { PtBrut , ObjetPlan } from '../model/types.js';
 
-interface ObjetParasol {
-  fonction?: string;
-  hidden?: boolean;
-  center: PtBrut;
-  matDeporte?: boolean;
-}
+/**
+ * Ce que le calque des parasols lit d'un objet.
+ *
+ * C'etait une interface locale de quatre champs, ecrite pendant l'extraction. Elle decrivait bien
+ * l'exigence mais la coupait du modele : les fonctions appelees ici prennent des objets du plan, et
+ * les deux types ne se reconnaissaient plus des que `ObjetPlan` a cesse d'etre `any`. Le calque
+ * recoit la liste des objets du plan, donc c'est ce qu'il annonce.
+ */
+type ObjetParasol = ObjetPlan;
 
 export interface OptionsCalqueParasols {
   /** Ombres et carte d'ensoleillement. */

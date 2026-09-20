@@ -1,6 +1,6 @@
 {
   "name": "plan-interactif",
-  "version": "1.1.0-alpha.1",
+  "version": "1.1.0-alpha.14",
   "private": true,
   "type": "module",
   "description": "Plan de masse interactif : edition 2D, vue 3D, import cadastral IGN, exports SVG/DXF/PDF/GLB.",
@@ -14,11 +14,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src tests"
+    "lint": "eslint src tests",
+    "cliquet": "node scripts/cliquet.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.2",
+    "@types/three": "0.128.0",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "@vitest/coverage-v8": "^2.1.8",

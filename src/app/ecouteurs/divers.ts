@@ -7,6 +7,7 @@
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que ces commandes déclenchent. */
 export interface ContexteDivers {
@@ -15,7 +16,7 @@ export interface ContexteDivers {
   renderPanneauPlu: () => void;
   interrogerPluDepuisBouton: (bouton: HTMLButtonElement) => void;
   basculerOptimisation: () => boolean;
-  renderOptimResult: (obj) => void;
+  renderOptimResult: (obj: ObjetPlan) => void;
   /** Recalcule la taille du plan et le redessine autour de son centre. */
   redimensionnerLePlan: () => void;
 }

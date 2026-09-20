@@ -13,6 +13,7 @@
 // plusieurs versions durant, et refuser une ecriture trop ancienne (RELEASE.md §5.3).
 
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
+import type { ObjetBrut, Mesure } from '../model/types.js';
 
 const API_URL = 'api.php';
 
@@ -24,11 +25,19 @@ const ENTETES_VERSION = {
   'X-Schema-Version': String(SCHEMA_VERSION)
 };
 
-/** Une ligne de la liste des projets du serveur. */
-export interface ProjetResume { id: string; name?: string }
+/**
+ * Une ligne de la liste des projets du serveur — et aussi ce que porte `meta` pour le projet
+ * ouvert : c'est la meme ligne. `ui/projectBar.ts` la reprend telle quelle plutot que d'en tenir une
+ * seconde description, qui avait deja diverge (`name` obligatoire la-bas, facultatif ici).
+ */
+export interface ProjetResume { id: string; name: string; updatedAt?: string }
 
-/** Un projet complet, tel que le serveur le rend. */
-export interface ProjetServeur { objects: unknown[]; measures?: unknown[]; meta?: unknown }
+/**
+ * Un projet complet, tel que le serveur le rend. `objects` et `measures` ont la forme du plan sans
+ * que rien n'y soit verifie a la lecture : c'est `normalizeObjects`, via `creerEtat()`, qui fait
+ * franchir la frontiere (core/state.ts).
+ */
+export interface ProjetServeur { objects: ObjetBrut[]; measures?: Mesure[]; meta?: ProjetResume | null }
 
 /** Motif d'echec, pour que l'appelant sache quoi montrer. */
 export type MotifEchec = 'network' | 'notfound' | 'server' | 'badjson';
@@ -109,10 +118,10 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
     if (!projetConnu) {
       return {
         apiAvailable: false,
-        list: [],
+        list: [] as ProjetResume[],
         objects: JSON.parse(JSON.stringify(demoObjets)),
         measures: JSON.parse(JSON.stringify(demoMesures)),
-        meta: null
+        meta: null as ProjetResume | null
       };
     }
     throw e;

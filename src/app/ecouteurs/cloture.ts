@@ -9,20 +9,21 @@
 // s'abstiennent s'il n'y en a pas. Une clôture sans terrain n'a nulle part où se poser.
 
 import { ouvrirSelecteurTexture } from '../../ui/texturePicker.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que les commandes de clôture et de points de vue déclenchent. */
 export interface ContexteCloture {
   /** La parcelle qui porte la clôture, ou `undefined`. */
-  trouverParcelle: () => { [k: string]: unknown } | undefined;
+  trouverParcelle: () => ObjetPlan | undefined;
   /** Remet les commandes en accord avec ce que porte la parcelle. */
-  syncControles: (parcelle) => void;
+  syncControles: (parcelle: ObjetPlan) => void;
   /** Reconstruit la scène 3D — la clôture en fait partie. */
   rafraichirApresCloture: () => void;
   markDirty: () => void;
   /** Un objet du plan par sa clé. */
-  objByKey: (cle: string) => unknown;
-  allerAuPointDeVue: (vp) => void;
-  allerAuPointDeVueGlb: (vp) => void;
+  objByKey: (cle: string) => ObjetPlan | undefined;
+  allerAuPointDeVue: (vp: ObjetPlan) => void;
+  allerAuPointDeVueGlb: (vp: ObjetPlan) => void;
 }
 
 export function brancherCloture(ctx: ContexteCloture): void {
@@ -33,7 +34,7 @@ export function brancherCloture(ctx: ContexteCloture): void {
    * déplacement, pas à afficher un choix courant. Laisser le point de vue sélectionné donnerait
    * l'impression qu'on y est resté, alors que la caméra a pu bouger depuis.
    */
-  const brancherListeDeVues = (id: string, aller: (vp) => void) => {
+  const brancherListeDeVues = (id: string, aller: (vp: ObjetPlan) => void) => {
     el(id).addEventListener('change', function () {
       const vp = ctx.objByKey(this.value);
       this.value = '';
@@ -44,7 +45,7 @@ export function brancherCloture(ctx: ContexteCloture): void {
   brancherListeDeVues('glbViewerViewSelect', ctx.allerAuPointDeVueGlb);
 
   /** Applique une modification à la parcelle porteuse, ou ne fait rien s'il n'y en a pas. */
-  const surParcelle = (modifier: (p) => void, resynchroniser = false) => {
+  const surParcelle = (modifier: (p: ObjetPlan) => void, resynchroniser = false) => {
     const p = ctx.trouverParcelle();
     if (!p) return;
     modifier(p);

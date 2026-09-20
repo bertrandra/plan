@@ -15,6 +15,38 @@ import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from '../geo/projection.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
+import type { Lieu } from '../model/lieu.js';
+
+/** Ce que le fond orthophoto demande à l'application — la parcelle, le lieu, la vue. */
+export interface ContexteOrtho {
+  /** La parcelle qui porte les réglages du fond, ou `undefined` s'il n'y en a pas. */
+  trouverParcelleCloture: () => ObjetPlan | undefined;
+  lieuActuel: () => Lieu;
+  markDirty: () => void;
+  render: () => void;
+  toScreen: (p: PtBrut) => PtEcran;
+  orthoGroup: () => SVGElement;
+  etat: EtatApp;
+}
+
+/**
+ * Une tuile, en coordonnees monde (metres). `dataUri` reste `string | null` pendant le
+ * chargement — `chargerOrthophoto` ne garde que celles ou il a fini par se poser — et `z`/`x`/`y`
+ * ne servent qu'a ce calcul : `placerOrthophoto`, qui affiche les tuiles retenues, ne les lit pas.
+ */
+export interface TuileOrtho {
+  z: number;
+  x: number;
+  y: number;
+  dataUri: string | null;
+  xMin: number;
+  yMin: number;
+  largeur: number;
+  hauteur: number;
+  el?: SVGImageElement | null;
+}
 
 /** Etat du fond : partage entre le calcul des tuiles, le rendu du plan et la Vue 3D. */
 export const ortho: {
@@ -22,7 +54,7 @@ export const ortho: {
   opacite: number;
   parcelleOpacite: number;
   /** Tuiles pretes a afficher, en coordonnees monde (metres). */
-  tuiles: { dataUri: string; el?: SVGImageElement | null; xMin: number; yMin: number; largeur: number; hauteur: number }[];
+  tuiles: TuileOrtho[];
   chargement: boolean;
   /** Cle « z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre. */
   cache: Map<string, string>;
@@ -44,7 +76,16 @@ const ORTHO_MAX_TUILES = 36;
 // disparait, au-dela de 30 % la photo devient laiteuse.
 const ORTHO_PARCELLE_OPACITE_CONSEILLEE = 0.15;
 
-export function configOrtho(creer, ctx){
+/** La config du fond, une fois que `configOrtho` a comblé ses trois champs. */
+interface ConfigOrthoComplete { actif: boolean; opacite: number; parcelleOpacite: number }
+
+/**
+ * La config enregistrée sur la parcelle, complétée à défaut manquant.
+ *
+ * `creer` distingue lire de créer : `enregistrerConfigOrtho` doit savoir si un projet a *déjà* un
+ * réglage avant d'écrire dedans, sans en fabriquer un pour la seule occasion de vérifier.
+ */
+export function configOrtho(creer: boolean, ctx: ContexteOrtho): ConfigOrthoComplete | null {
   const p = ctx.trouverParcelleCloture();
   if(!p) return null;
   if(!p.ortho || typeof p.ortho !== 'object'){
@@ -54,9 +95,11 @@ export function configOrtho(creer, ctx){
   if(p.ortho.opacite === undefined || p.ortho.opacite === null) p.ortho.opacite = 0.85;
   if(p.ortho.parcelleOpacite === undefined || p.ortho.parcelleOpacite === null) p.ortho.parcelleOpacite = ORTHO_PARCELLE_OPACITE_CONSEILLEE;
   if(p.ortho.actif === undefined) p.ortho.actif = false;
-  return p.ortho;
+  // Les trois champs viennent d'etre combles : le type ne le sait pas encore (ils restent
+  // facultatifs sur ObjetPlan), c'est ce que ce cast affirme.
+  return p.ortho as ConfigOrthoComplete;
 }
-export function enregistrerConfigOrtho(ctx){
+export function enregistrerConfigOrtho(ctx: ContexteOrtho): void {
   // Un projet qui n'a jamais touche au fond ne gagne pas le champ pour rien, et surtout : la
   // restauration au chargement repasse par ici avec exactement les valeurs enregistrees. Sans
   // cette comparaison, tout projet avec un fond actif s'ouvrirait en "modifications non
@@ -85,7 +128,7 @@ export function syncControlesOrtho(){
   if(cb) cb.checked = ortho.actif;
 }
 // Au chargement d'un projet : on restitue les reglages, et on rallume le fond s'il etait actif.
-export function restaurerOrthoDuProjet(ctx){
+export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   const c = configOrtho(false, ctx);
   if(!c){
     // Projet sans reglage enregistre : on eteint proprement plutot que de garder le fond du
@@ -100,11 +143,22 @@ export function restaurerOrthoDuProjet(ctx){
   else if(ortho.actif) void basculerOrthophoto(false, ctx);
 }
 
-export function referenceGeoPlan(ctx){
+/** Le repere qui recale le fond sur le plan : un point commun aux deux systemes de coordonnees. */
+interface ReferenceGeo {
+  lat: number;
+  lon: number;
+  /** Ce point, en coordonnees du plan (metres) — le calage cadastral vaut toujours (0, 0). */
+  x: number;
+  y: number;
+  /** Calage cadastral (import reel), ou repli sur le lieu declare de la parcelle. */
+  exact: boolean;
+}
+
+export function referenceGeoPlan(ctx: ContexteOrtho): ReferenceGeo | null {
   const p = ctx.trouverParcelleCloture();
   if(!p || !p.pts || !p.pts.length) return null;
   if(p.cadastre && p.cadastre.origineLat !== undefined && p.cadastre.origineLat !== null){
-    return { lat:p.cadastre.origineLat, lon:p.cadastre.origineLon, x:0, y:0, exact:true };
+    return { lat:p.cadastre.origineLat, lon:p.cadastre.origineLon as number, x:0, y:0, exact:true };
   }
   // ctx.lieuActuel() plutot que p.latitude en direct : sur un plan qui n'a jamais servi au soleil ni
   // a la 3D, les champs de lieu ne sont pas encore poses sur la parcelle (ils le sont au premier
@@ -116,14 +170,14 @@ export function referenceGeoPlan(ctx){
   }
   return null;
 }
-export function urlTuileOrtho(z, x, y){
+export function urlTuileOrtho(z: number, x: number, y: number): string {
   return WMTS_URL + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + ORTHO_COUCHE +
     '&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=' + z + '&TILEROW=' + y + '&TILECOL=' + x;
 }
 // Les tuiles sont recuperees en fetch puis converties en data URI, jamais posees en href
 // distant : une image d'un autre domaine "salit" le canevas (canvas tainted) et ferait echouer
 // l'export PNG - et l'export SVG ne serait plus autonome.
-export async function chargerTuileOrtho(z, x, y){
+export async function chargerTuileOrtho(z: number, x: number, y: number): Promise<string | undefined> {
   const cle = z + '/' + x + '/' + y;
   if(ortho.cache.has(cle)) return ortho.cache.get(cle);
   const r = await fetch(urlTuileOrtho(z, x, y), {cache:'force-cache'});
@@ -139,7 +193,10 @@ export async function chargerTuileOrtho(z, x, y){
   ortho.cache.set(cle, dataUri);
   return dataUri;
 }
-export async function chargerOrthophoto(ctx){
+/** Ce que rend un chargement reussi : le niveau de detail retenu, et sa fiabilite. */
+interface ResultatChargementOrtho { z: number; nb: number; total: number; exact: boolean }
+
+export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatChargementOrtho> {
   const ref = referenceGeoPlan(ctx);
   if(!ref) throw new Error('aucune parcelle geolocalisee : importe une parcelle depuis une adresse, ou renseigne le lieu.');
   const proj = projecteurLocal(ref.lat, ref.lon);
@@ -147,8 +204,8 @@ export async function chargerOrthophoto(ctx){
   // qui debordent de la parcelle (batiments mitoyens, chemins).
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   ctx.etat.objects.forEach(o=>{
-    const pts = o.type === 'circle'
-      ? [{x:o.center.x-o.r, y:o.center.y-o.r}, {x:o.center.x+o.r, y:o.center.y+o.r}]
+    const pts: PtBrut[] = o.type === 'circle'
+      ? [{x:o.center.x-(o.r||0), y:o.center.y-(o.r||0)}, {x:o.center.x+(o.r||0), y:o.center.y+(o.r||0)}]
       : (o.pts || []);
     pts.forEach(p=>{
       minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -158,7 +215,7 @@ export async function chargerOrthophoto(ctx){
   if(!Number.isFinite(minX)) throw new Error('plan vide');
   const marge = Math.max(5, (maxX-minX + maxY-minY)*0.05);
   minX -= marge; maxX += marge; minY -= marge; maxY += marge;
-  const versLonLat = (x, y)=>proj.versDegres(x - ref.x, y - ref.y);
+  const versLonLat = (x: number, y: number) => proj.versDegres(x - ref.x, y - ref.y);
   const coinSO = versLonLat(minX, minY), coinNE = versLonLat(maxX, maxY);
 
   // On part du plus haut niveau de detail qui tienne en ORTHO_MAX_TUILES, puis on redescend tant
@@ -176,14 +233,14 @@ export async function chargerOrthophoto(ctx){
     } catch {
       continue;
     }
-    const tuiles = [];
-    const promesses = [];
+    const tuiles: TuileOrtho[] = [];
+    const promesses: Promise<void>[] = [];
     for(let x = x0; x <= x1; x++){
       for(let y = y0; y <= y1; y++){
         const lonO = lonDeTuile(x, z), lonE = lonDeTuile(x+1, z);
         const latN = latDeTuile(y, z), latS = latDeTuile(y+1, z);
         const so = proj.versMetres(lonO, latS), ne = proj.versMetres(lonE, latN);
-        const t = {
+        const t: TuileOrtho = {
           z, x, y, dataUri:null,
           // repere du plan : on annule le decalage du point de calage
           xMin: so.x + ref.x, yMin: so.y + ref.y,
@@ -202,7 +259,7 @@ export async function chargerOrthophoto(ctx){
   }
   throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
 }
-export function placerOrthophoto(ctx){
+export function placerOrthophoto(ctx: ContexteOrtho): void {
   if(!ortho.actif || !ortho.tuiles.length){
     if(ctx.orthoGroup().childNodes.length) ctx.orthoGroup().innerHTML = '';
     return;
@@ -228,7 +285,7 @@ export function placerOrthophoto(ctx){
     t.el.setAttribute('height', String(Math.max(1, t.hauteur*ctx.etat.scene.scale)));
   });
 }
-export async function basculerOrthophoto(actif, ctx){
+export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho): Promise<void> {
   ortho.actif = actif;
   const cbHaut = el<HTMLInputElement>('chkOrtho');
   if(cbHaut) cbHaut.checked = actif;

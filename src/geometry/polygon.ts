@@ -81,8 +81,8 @@ export function clipPolygonByConvex(subject: PtBrut[], clip: PtBrut[]): PtBrut[]
   for(let i=0; i<n && out.length; i++){
     const a = clip[i], b = clip[(i+1)%n];
     const ex = b.x-a.x, ey = b.y-a.y;
-    const cote = p => (ex*(p.y-a.y) - ey*(p.x-a.x)) * (ccw ? 1 : -1);
-    const dedans = p => cote(p) >= -1e-9;
+    const cote = (p: PtBrut) => (ex*(p.y-a.y) - ey*(p.x-a.x)) * (ccw ? 1 : -1);
+    const dedans = (p: PtBrut) => cote(p) >= -1e-9;
     const input = out; out = [];
     for(let j=0; j<input.length; j++){
       const P = input[j], Q = input[(j+1)%input.length];

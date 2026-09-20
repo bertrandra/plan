@@ -5,6 +5,119 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
 
 - **28 août 2026**, `plan.html` v1.0.0 : capture d'origine, phase 0.
 - **29 août 2026**, `plan.html` v1.1.0-alpha.1 : recapture à la rupture (voir plus bas).
+- **29 août 2026**, `plan.html` v1.1.0-alpha.4 : recapture de rattrapage. Le numéro de version avait
+  cessé de suivre le journal des modifications — `CHANGELOG.md` annonçait `alpha.2` et `alpha.3`
+  alors qu'`APP_VERSION` et `package.json` étaient restés à `alpha.1`, si bien que ces deux versions
+  n'ont jamais été estampillées dans un artefact. Remettre le numéro à sa place refait bouger les six
+  empreintes, **et rien d'autre** : la preuve ligne à ligne décrite plus bas a été refaite à
+  l'identique, avec le même résultat — une ligne, la version, dans chacun des quatre artefacts
+  texte ; comptes de textes, d'objets et de pages inchangés dans les deux PDF.
+- **30 août 2026**, `plan.html` v1.1.0-alpha.5 : typage complet de `engine/`. Les six empreintes ont
+  d'abord été vérifiées **à version inchangée** — six sur six identiques au bit près, ce qui prouve
+  que le typage du moteur n'a rien déplacé — puis recapturées après le changement de numéro, avec la
+  même preuve ligne à ligne qu'aux deux recaptures précédentes.
+- **30 août 2026**, `plan.html` v1.1.0-alpha.6 : typage complet de `render/`. Même protocole que la
+  recapture précédente — six sur six identiques à version inchangée, puis une ligne par artefact
+  texte après le changement de numéro. Vérification supplémentaire, propre à ce module : le fond
+  orthophoto, activé à la main (le jeu de démonstration ne l'active pas, donc les empreintes ne le
+  voient pas), pose les **quatre mêmes tuiles** — mêmes `x`/`y`/largeur/hauteur au dernier chiffre
+  décimal — que sur le témoin figé.
+- **30 août 2026**, `plan.html` v1.1.0-alpha.7 : typage complet de `io/`. Même protocole. Vérification
+  supplémentaire, propre à ce module : un cycle export JSON → import (remplacement) sur le jeu de
+  démonstration restaure les 35 objets et les 11 mesures, et le relevé de santé après import est
+  identique à celui d'une page fraîche.
+- **30 août 2026**, `plan.html` v1.1.0-alpha.8 : typage complet d'`interaction/`. Même protocole.
+  Vérification supplémentaire : un glisser de sommet réel (`PointerEvent` synthétiques) déplace le
+  sommet visé exactement du delta demandé et laisse les cinq autres inchangés ; un zoom molette
+  redessine la scène.
+- **30 août 2026**, `plan.html` v1.1.0-alpha.9 : typage complet d'`app/`. Même protocole. Vérification
+  supplémentaire : le pilotage des quatre vues (Plan, Terrasse, Vue 3D, visionneuse) et la bascule de
+  la grille testés en séquence, sans erreur.
+
+- **30 août 2026**, `plan.html` v1.1.0-alpha.10 : typage complet de `geo/`. Même protocole — six sur
+  six identiques à version inchangée, puis une ligne par artefact texte après le changement de
+  numéro (143 textes / 14 objets / 2 pages pour `plan.pdf`, 106 / 15 / 3 pour `dossier.pdf` :
+  inchangés). Vérification supplémentaire, propre à ce module et plus forte que les empreintes : les
+  goldens ne passent par **aucun** appel réseau, alors que `geo/` n'est presque que cela. L'import
+  cadastral « Place de la Mairie 35000 Rennes » a donc été rejoué **en direct** sur les deux
+  versions à quelques minutes d'intervalle — le témoin figé 1.0.0 et le build fraîchement typé. La
+  chaîne complète est sollicitée : géocodage BAN, `apicarto/cadastre/parcelle` sur emprise, BD TOPO
+  (bâtiment, zone de végétation, haie) en WFS, puis les neuf interrogations du GPU/PLU. Résultat
+  **identique au bit près** après neutralisation des quatre horodatages et du numéro de version :
+  25 232 octets, SHA-256 `b93a3924b496529d9e4b3d17e522f0cf8a21bcaaa66680ef7b4d0aaf9ba321eb`,
+  parcelle AC 530 de 418 m² (IDU `35238000AC0530`) et trois bâtiments de 16 ; 15,5 et 13,8 m. Le
+  relevé du 28 août (25 108 octets) n'est plus reproductible : le témoin figé lui-même rend
+  aujourd'hui 227 octets de plus, c'est-à-dire que ce sont les données du GPU qui ont bougé, pas le
+  code. C'est bien pour cela que la comparaison qui compte est celle des deux versions entre elles.
+
+- **30 août 2026**, `plan.html` v1.1.0-alpha.11 : typage complet de `three/`, rendu possible par
+  l'adoption de `@types/three@0.128.0` (spec §8.3, option A : une dépendance de **type** sans
+  dépendance de code — la bibliothèque continue d'arriver du CDN, et le build ne grossit d'aucun
+  octet à cause d'elle). Même protocole — six sur six identiques à version inchangée, puis une ligne
+  par artefact texte après le changement de numéro.
+
+  Vérification supplémentaire, propre à ce module : les six empreintes **n'ouvrent jamais la 3D**.
+  C'est `glb-structure.json` qui la voit, et il a été recapturé en direct — Vue 3D ouverte
+  (Three.js r128 chargé du CDN, canevas rendu, aucune erreur), puis export GLB de 41 473 604 octets
+  dont l'en-tête et les compteurs sont **identiques au relevé d'origine** : glTF 2.0, 203 nœuds,
+  200 maillages, 288 matériaux, 178 textures, 1 scène. La visionneuse a été éprouvée dans la foulée
+  sur les chemins les plus retouchés : bascule du fond clair/sombre (qui libère l'ancienne texture,
+  donc passe par le nouveau garde `estTexture`) dans les deux sens, puis filaire coché/décoché — la
+  scène est reconstruite deux fois et il reste exactement un canevas, sans erreur.
+
+- **30 août 2026**, `plan.html` v1.1.0-alpha.12 : typage complet d'`export/`, treizième et
+  avant-dernier palier. Même protocole — six sur six identiques à version inchangée, puis une ligne
+  par artefact texte après le changement de numéro ; les deux PDF gardent exactement leurs comptes
+  de textes, d'objets et de pages (143/14/2 et 106/15/3). Seul `ui/` (371) reste hors du cliquet,
+  volontairement en dernier — c'est la couche la plus grosse et la moins testée.
+
+- **30 août 2026**, `plan.html` v1.1.0-alpha.13 : typage complet d'`ui/`, quatorzième et dernier
+  palier du barreau 2 — `--noImplicitAny` est desormais a zero sur **tout** `src/`. Même protocole —
+  six sur six identiques à version inchangée, puis une ligne par artefact texte après le changement
+  de numéro ; les deux PDF gardent leurs comptes exacts (143/14/2 et 106/15/3). Vérification
+  supplémentaire, propre à ce palier : l'import cadastral complet (adresse → parcelle → parcelles
+  voisines → création) a été rejoué en direct sur « Place de la Mairie 35000 Rennes » — mêmes
+  quatre objets, mêmes hauteurs, même IDU `35238000AC0530`, mêmes dix clés du zonage PLU — aucune
+  erreur console. C'est le chemin le plus riche en `ctx` partagés du fichier (`ContexteImportCadastre`,
+  exporté depuis `ui/projectBar.ts` et importé par `ui/cadastreDialog.ts` plutôt que redéfini) et
+  celui que les six empreintes ne peuvent pas voir, puisqu'il dépend du réseau.
+
+- **9 septembre 2026**, `plan.html` v1.1.0-alpha.14 : fin de la **phase 4** — la fermeture `boot()`
+  a quitté `legacy.ts`, qui a été supprimé. Six sur six identiques **à version inchangée** avant le
+  changement de numéro : déplacer 900 lignes de câblage dans un module typé, retirer 280 symboles
+  morts et supprimer le dernier `@ts-nocheck` ne bougent aucun des six artefacts.
+
+  La preuve d’après recapture est cette fois **plus forte que la comparaison ligne à ligne**, et
+  par un hasard heureux : `alpha.13` et `alpha.14` ont la même longueur. Remettre l'ancien numéro
+  dans les octets fraîchement capturés reproduit donc les six empreintes précédentes **au bit
+  près — les deux PDF compris**, ce que les recaptures précédentes ne pouvaient pas établir (la
+  chaîne changeait de longueur et décalait toute la table xref). La version apparaît une fois dans
+  chacun des quatre artefacts texte, deux fois dans `plan.pdf`, quatre fois dans `dossier.pdf` :
+  ce sont les seuls octets qui diffèrent.
+
+  Vérifications supplémentaires, propres à ce palier — les empreintes ne voient que des **exports**,
+  or ce palier ne touche qu'au **câblage** :
+
+  - **Un bug d'import réparé, et daté.** `filtrerSansParcelle` était cité dans le contexte passé à
+    `importSVGString`, mais n'avait plus été importée depuis sa sortie vers `io/exportProjet.ts` en
+    phase 2. L'objet levait donc un `ReferenceError` avant même l'appel, et le `try/catch` de
+    `app/ecouteurs/fichiers.ts` le transformait en bandeau : **l'import SVG ne marchait plus**. Les
+    trois versions ont été comparées en direct sur le même fichier (`plan.svg` du dossier doré) :
+    le témoin figé 1.0.0 et le build corrigé donnent **le même résultat exact** — 14 → 15 objets,
+    288 → 566 textes, aucune erreur ; le build d’avant correction affiche
+    `Erreur import SVG: filtrerSansParcelle is not defined` et n’importe rien. Le typage a montré
+    que les quatre propriétés en question (dont celle-là) ne sont **lues nulle part** par
+    `importSVGString` : les retirer répare le geste sans rien ajouter.
+
+  - **Relevé de santé identique au témoin, geste par geste.** Grille allumée/éteinte, onglets
+    Affichage et Mesure, mode Terrasse puis retour au mode Plan : `1.1.0-alpha.14` et le témoin
+    figé 1.0.0 donnent la **même** série de nombres (36 lignes d’affichage, 2 terrasses, 14 boutons
+    de sélection, 305 textes après l’aller-retour), sans erreur console de part et d’autre.
+
+  - **Les deux scènes 3D, qui sont du câblage pur.** Vue 3D ouverte : un canevas 600×418, sept
+    points de vue dans la liste. Visionneuse GLB : génération complète puis affichage, et les trois
+    bascules qui passent par `rafraichirVisionneuseGlb(caméra courante)` — filaire, ombres, lumière
+    d'appoint — reconstruisent la scène six fois en laissant exactement un canevas, sans erreur.
 
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
@@ -17,12 +130,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `77cbccfd8eb0ebf5d62ca51c5b16d7931b9d6901b0c3f5d82faed3ffa2a5866d` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `8f35ee04c4f1d8e64427b6def09d1ff894dfdc25980a1b62e0d2d213e48ba14a` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `29814368f4a7f112bb3e93f7b4a3613bd72d7d133a3b448e919187d880857257` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `87880303418ccde09fc52fbbdd688ec5511032f0effe275223304865d19828ea` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `c479f8216995a996a15d8d4721618365a9e46defc0f0cb1212ea5f0000913ced` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `3a34765c8214a23e95e7a1e649584d55de76f40a28f8d267769fa20d01f81d6e` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 332 | `339a1b6cdcd60f73606f55add12eeb9b17e05d82de5992eb7d912389803e0389` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 118 | `5a1f16036582f88f8feee554a63e8db4298027b9bf7ce44f36a27125a0891d6d` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 373 | `de103c29d992cf5444a1b6aa65922e05f282c6359f2ba1593b45cfd7a56c11c5` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 983 | `19f65dbd460bb849d0db18a9d72dd3ea6cd24892a765a49fb8b54f67192fe4fe` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 180 | `dec9cddfed86f7a7af173eab815a3abcd7850bde38650cace9615d4ae29b931e` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 290 | `023f9b13b378b4b54b03a130033bc8b66ea2d4a107ebaa861c8aba5692500fb7` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
@@ -141,6 +254,14 @@ Relevé du 28 août 2026, « Place de la Mairie 35000 Rennes », choix par défa
 (parcelle AC 530, bâtiments et haies et végétation cochés, arbres décochés) : projet de
 **25 108 octets**, SHA-256 `84bc517386e0a0201b8445d57eb0c4ae84fe3ff70ed9f0dfabfdb76b84f4b6c3`,
 4 objets — la parcelle de 418 m² et trois bâtiments de 16 ; 15,5 et 13,8 m.
+
+**Cette empreinte-là ne se conserve pas, et c'est mesuré.** Rejoué le 30 août 2026 sur le témoin
+figé lui-même — donc à code strictement identique — le même import rend **25 335 octets** : 227 de
+plus. Le contenu du GPU/PLU a bougé entre les deux dates. La taille et le SHA-256 ci-dessus ne
+valent donc que comme repère historique ; ce qui se vérifie, c'est **l'égalité entre deux versions
+rejouées le même jour**, comme au palier `geo/` (voir plus haut, v1.1.0-alpha.10). Ce qui reste
+stable dans le temps, ce sont les quatre objets, la parcelle AC 530 de 418 m² et les hauteurs
+16 ; 15,5 et 13,8 m.
 
 ## Quantités
 

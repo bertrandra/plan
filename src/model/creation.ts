@@ -17,12 +17,30 @@
 
 import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
+import type { PtBrut, ObjetPlan } from './types.js';
+
+/**
+ * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
+ *
+ * Nommer l'exigence plutot que d'importer `EtatApp` garde `model/` independant de `core/` : le
+ * modele decrit ce qu'est un plan, il n'a pas a connaitre la pile d'annulation ni la transformation
+ * de la scene. C'est aussi ce qui permet d'appeler `creerCreation` dans un test avec un objet de
+ * cinq champs.
+ */
+export interface EtatCreation {
+  objects: ObjetPlan[];
+  selectedKey: string | null;
+  attrTab: string;
+  terrasseSelectedKey: string | null;
+  /** Consomme par `cleObjet` a chaque objet neuf. */
+  newObjCounter: number;
+}
 
 /** L'onglet du panneau d'attributs a ouvrir apres la creation. */
 export type OngletAttribut = 'objet' | 'segments';
 
 /** Une forme neuve, et l'onglet qui doit l'accompagner. */
-export interface ObjetNeuf { obj; onglet: OngletAttribut }
+export interface ObjetNeuf { obj: ObjetPlan; onglet: OngletAttribut }
 
 /**
  * Objet a quatre coins, rectangle ou libre.
@@ -35,7 +53,7 @@ export interface ObjetNeuf { obj; onglet: OngletAttribut }
  * L'onglet ouvert differe pour la meme raison : sur un rectangle on ouvre « Objet », ou se trouve la
  * case du mode — celle qu'il faudra decocher pour reprendre la main sur les angles.
  */
-export function nouvelObjet(c, key: string, enRectangle: boolean): ObjetNeuf {
+export function nouvelObjet(c: PtBrut, key: string, enRectangle: boolean): ObjetNeuf {
   const demiL = enRectangle ? 1.5 : 1.0;
   const demiH = 1.0;
   return {
@@ -57,7 +75,7 @@ export function nouvelObjet(c, key: string, enRectangle: boolean): ObjetNeuf {
 }
 
 /** Chemin : deux points et une largeur, pour une allee ou une bordure. */
-export function nouveauChemin(c, key: string): ObjetNeuf {
+export function nouveauChemin(c: PtBrut, key: string): ObjetNeuf {
   return {
     obj: {
       key, type: 'path', name: 'Nouveau chemin', fill: '#c9a15a', fillOpacity: 1, stroke: '#c9a15a',
@@ -73,7 +91,7 @@ export function nouveauChemin(c, key: string): ObjetNeuf {
   };
 }
 
-export function nouveauCercle(c, key: string): ObjetNeuf {
+export function nouveauCercle(c: PtBrut, key: string): ObjetNeuf {
   return {
     obj: {
       key, type: 'circle', name: 'Nouveau cercle', fill: '#5bc8f5', fillOpacity: 0.88, stroke: '#0a3d5c',
@@ -94,7 +112,7 @@ export function nouveauCercle(c, key: string): ObjetNeuf {
  * terrasse la recherche d'ombre mesurera. Sans lui, un jardin a plusieurs terrasses les optimiserait
  * tous sur la premiere trouvee.
  */
-export function nouveauParasol(c, key: string, numero: number, terrasse): ObjetNeuf {
+export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse: ObjetPlan | undefined): ObjetNeuf {
   return {
     obj: {
       key, type: 'circle', name: 'Parasol ' + numero, fill: '#7a9e6b', fillOpacity: 0.55, stroke: '#3f5c33',
@@ -122,7 +140,7 @@ const VISEE_M = 2;
  * phase a la main, et le commentaire de l'une demandait deja de penser a l'autre.
  */
 export function nouveauPointDeVue(
-  c, key: string, numero: number,
+  c: PtBrut, key: string, numero: number,
   direction: { x: number; y: number } = { x: 1, y: 0 },
   altitude = 1.6
 ): ObjetNeuf {
@@ -150,21 +168,26 @@ export type ObjetSerialise = Record<string, any>;
 /** Ce que la creation doit pouvoir faire au plan et a l'interface. */
 export interface ContexteCreation {
   pushHistory: () => void;
-  createObjectDOM: (obj) => void;
-  rebuildHandles: (obj) => void;
+  createObjectDOM: (obj: ObjetPlan) => void;
+  rebuildHandles: (obj: ObjetPlan) => void;
   reapplyStackingOrder: () => void;
   rebuildSelector: () => void;
   render: () => void;
-  detruireVue: (obj) => void;
-  serializeObjects: (objets) => ObjetSerialise[];
-  normalizeObjects: (bruts) => ObjetSerialise[];
+  detruireVue: (obj: ObjetPlan) => void;
+  serializeObjects: (objets: ObjetPlan[]) => ObjetSerialise[];
+  /**
+   * L'aller-retour perd la garantie et la reprend : la serialisation rend des donnees nues, et
+   * `dupliquer` repose `key` et `name` juste avant cet appel. C'est ce qui fait du resultat un objet
+   * du plan a nouveau, et pas la normalisation elle-meme.
+   */
+  normalizeObjects: (bruts: ObjetSerialise[]) => ObjetPlan[];
   showToast: (message: string) => void;
   showConfirm: (message: string, oui: () => void) => void;
   /** L'horloge qui date les cles d'objets (voir `model/cles.ts`). `Date.now` par defaut. */
   horloge?: () => number;
 }
 
-export function creerCreation(etat, ctx: ContexteCreation) {
+export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   /** Centre de la parcelle : un objet neuf naît la ou on regarde, pas a l'origine du repere. */
   function centreParcelle() {
     const pc = etat.objects.find(o => o.key === 'parcelle');

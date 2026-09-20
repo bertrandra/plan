@@ -6,19 +6,24 @@
 // l'utilisateur au cadrage d'origine à chaque case cochée, ce qui rend une comparaison impossible.
 
 import { glb } from '../../three/etat3d.js';
-import { fondGlbViewer } from '../../three/glbViewer.js';
+import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
+import { estTexture } from '../../three/gardes.js';
 import type { Atelier } from '../atelier.js';
+import type { ObjetMesurable } from '../../engine/hauteurs.js';
 
 /** Ce que les commandes de la visionneuse pilotent, en plus de l'atelier. */
 export interface ContexteVisionneuse {
   /** Produit le .glb depuis la scène courante. Le bouton passé est désarmé pendant l'opération. */
   genererGlb: (bouton: HTMLButtonElement, telecharger: boolean) => void;
-  /** Recharge la visionneuse, en conservant la caméra qu'on lui passe. */
-  rafraichir: (cameraAConserver) => void;
+  /**
+   * Recharge la visionneuse, en conservant la caméra qu'on lui passe : sa position et le point
+   * qu'elle vise. `null` quand il n'y a pas encore de scène, donc rien à conserver.
+   */
+  rafraichir: (cameraAConserver: CameraConservee) => void;
   /** Repose le soleil sur la scène de la visionneuse. */
   appliquerLumiere: () => void;
   /** Hauteur finie d'une terrasse, en millimètres. */
-  hauteurFinieMm: (obj) => number;
+  hauteurFinieMm: (obj: ObjetMesurable) => number;
   /** Hauteur des yeux au-dessus du platelage, en mètres. */
   hauteurYeuxM: number;
 }
@@ -87,7 +92,7 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse): void 
   el('glbViewerFond').addEventListener('change', function () {
     glb.fond = this.value;
     if (glb.scene) {
-      if (glb.scene.scene.background && glb.scene.scene.background.isTexture) glb.scene.scene.background.dispose();
+      if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
       glb.scene.scene.background = fondGlbViewer();
     }
   });

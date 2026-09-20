@@ -1,8 +1,8 @@
 // Pile d'annulation (spec-migration-typescript.md §3.2, core/history.ts).
 //
-// Seule la pile est ici : elle ne connait ni le plan, ni le DOM, ni le rendu. `snapshotState()`
-// et `restoreState()` restent dans legacy.ts tant que le rendu n'en est pas sorti - ce sont des
-// orchestrateurs qui demontent et reconstruisent la scene, pas de la gestion de pile.
+// Seule la pile est ici : elle ne connait ni le plan, ni le DOM, ni le rendu. Prendre et rendre un
+// instantane vit dans `core/historique.ts`, qui orchestre le demontage et la reconstruction de la
+// scene - ce n'est pas de la gestion de pile.
 //
 // Le renommage `history` -> `undoStack` (changement A1 de la spec §10.3) evitait la collision
 // silencieuse avec `window.history` une fois les modules en place. Le type l'acte : ici, aucune

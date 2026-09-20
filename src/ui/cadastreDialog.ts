@@ -29,8 +29,56 @@ import {
   RAYONS_RECHERCHE_M, ECART_AUTO_M,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
-export function ouvrirImportCadastre(ctx){
-  const etatImport = {
+import type { Candidate, ElementIgn, FeatureGeoJSON } from '../geo/apiIgn.js';
+import type { ProjecteurLocal } from '../geo/projection.js';
+import type { AdresseRecherchee, ImportCadastral } from '../geo/cadastreObjets.js';
+import type { ZonagePlu } from '../model/types.js';
+import type { ContexteImportCadastre } from './projectBar.js';
+
+/**
+ * L'etat du dialogue en trois etapes — **jamais** `etat`, le nom de l'etat de l'application, comme
+ * l'en-tete du fichier le dit deja.
+ *
+ * `principale` et `proj` restent nuls jusqu'a ce que l'etape 1 aboutisse ; `creerProjet` (etape 3
+ * seulement) sait qu'ils sont poses a ce moment-la — voir le cast local a cet appel.
+ */
+interface EtatImportCadastre {
+  etape: 1 | 2 | 3;
+  suggestions: AdresseRecherchee[];
+  geo: AdresseRecherchee | null;
+  occupe: boolean;
+  message: string;
+  erreur: string;
+  candidats: Candidate[];
+  principale: Candidate | null;
+  adjacentes: Candidate[];
+  autres: Candidate[];
+  selection: Set<string>;
+  simplifier: boolean;
+  rayon: number | null;
+  proj: ProjecteurLocal | null;
+  tropDense: boolean;
+  survol: string | null;
+  voisinageCharge: Set<string>;
+  batiments: ElementIgn[];
+  haies: ElementIgn[];
+  vegetation: ElementIgn[];
+  plu: ZonagePlu | null;
+  ignCharge: Set<string>;
+  ignErreur: string;
+  importerBatiments: boolean;
+  importerHaies: boolean;
+  importerVegetation: boolean;
+  importerArbres: boolean;
+  /** Parcelles cochees "propriete" : elles seront FUSIONNEES avec la principale en un seul terrain. */
+  propriete: Set<string>;
+  parcellesPropriete(): Candidate[];
+  estPropriete(idu: string): boolean;
+  voisinesRetenues(): Candidate[];
+}
+
+export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
+  const etatImport: EtatImportCadastre = {
     etape: 1,
     suggestions: [], geo: null, occupe: false, message: '', erreur: '',
     candidats: [], principale: null, adjacentes: [], autres: [],
@@ -41,12 +89,12 @@ export function ouvrirImportCadastre(ctx){
     // Parcelles cochees "propriete" : elles seront FUSIONNEES avec la principale en un seul
     // terrain. La principale en fait toujours partie, en premier (c'est elle qui porte l'adresse).
     propriete: new Set(),
-    parcellesPropriete(){
+    parcellesPropriete(this: EtatImportCadastre){
       const autres = this.adjacentes.concat(this.autres).filter(c=>this.propriete.has(c.idu));
-      return [this.principale].concat(autres);
+      return ([this.principale] as Candidate[]).concat(autres);
     },
-    estPropriete(idu){ return this.principale && (idu === this.principale.idu || this.propriete.has(idu)); },
-    voisinesRetenues(){
+    estPropriete(this: EtatImportCadastre, idu){ return !!this.principale && (idu === this.principale.idu || this.propriete.has(idu)); },
+    voisinesRetenues(this: EtatImportCadastre){
       return this.adjacentes.concat(this.autres).filter(c=>this.selection.has(c.idu) || this.propriete.has(c.idu));
     }
   };
@@ -70,10 +118,10 @@ export function ouvrirImportCadastre(ctx){
   overlay.addEventListener('click', e=>{ if(e.target === overlay) fermer(); });
   document.body.appendChild(overlay);
   document.addEventListener('keydown', surTouche);
-  function surTouche(e){ if(e.key === 'Escape') fermer(); }
+  function surTouche(e: KeyboardEvent): void { if(e.key === 'Escape') fermer(); }
   function fermer(){ document.removeEventListener('keydown', surTouche); overlay.remove(); }
 
-  function bouton(texte, principal, onClic){
+  function bouton(texte: string, principal: boolean, onClic: (e: MouseEvent) => void): HTMLButtonElement {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = texte;
     if(!principal) b.className = 'secondary';
@@ -85,7 +133,7 @@ export function ouvrirImportCadastre(ctx){
     etatLigne.textContent = etatImport.erreur || etatImport.message || '';
     etatLigne.style.color = etatImport.erreur ? '#a02020' : 'inherit';
   }
-  function occuper(actif, texte = ''){
+  function occuper(actif: boolean, texte = ''): void {
     etatImport.occupe = actif;
     etatImport.message = actif ? texte : '';
     if(actif) etatImport.erreur = '';
@@ -94,7 +142,7 @@ export function ouvrirImportCadastre(ctx){
   }
 
   // ---- apercu SVG partage par les etapes 2 et 3 ----
-  function dessinerApercu(hote){
+  function dessinerApercu(hote: HTMLElement): void {
     hote.innerHTML = '';
     if(!etatImport.principale) return;
     // L'apercu montre la propriete telle qu'elle sera importee : fusionnee d'un seul tenant, avec
@@ -104,7 +152,7 @@ export function ouvrirImportCadastre(ctx){
     const fusionApercu = parcellesProp.length > 1
       ? fusionnerAnneaux(parcellesProp.map(p=>p.pts), FUSION_TOL_M)
       : null;
-    const lots = [];
+    const lots: { c: { idu: string; pts: { x: number; y: number }[]; section?: string; numero?: string | number }; role: string; libelle?: string }[] = [];
     if(fusionApercu){
       lots.push({
         c: { idu:'__propriete__', pts: fusionApercu.contour, section:'', numero:'' },
@@ -145,8 +193,10 @@ export function ouvrirImportCadastre(ctx){
         poly.addEventListener('mouseenter', ()=>{ etatImport.survol = l.c.idu; rafraichirVue(); });
         poly.addEventListener('mouseleave', ()=>{ if(etatImport.survol === l.c.idu){ etatImport.survol = null; rafraichirVue(); } });
         poly.addEventListener('click', ()=>{
-          if(etatImport.etape === 2) void choisirPrincipale(l.c);
-          else if(l.c.idu !== etatImport.principale.idu) basculerVoisine(l.c);
+          // Le garde ci-dessus (idu !== '__propriete__') exclut deja le seul lot synthetique :
+          // ce qui reste est toujours une vraie Candidate.
+          if(etatImport.etape === 2) void choisirPrincipale(l.c as Candidate);
+          else if(l.c.idu !== etatImport.principale!.idu) basculerVoisine(l.c as Candidate);
         });
       }
       svgEl.appendChild(poly);
@@ -178,14 +228,14 @@ export function ouvrirImportCadastre(ctx){
     // Couches BD TOPO par-dessus le parcellaire : elles ne sont pas cliquables (leur import se
     // regle par les cases de l'etape 3), mais sans elles l'apercu ne montrerait pas ce qui va
     // reellement arriver dans le plan.
-    const parcellesRetenues = new Set([etatImport.principale.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
-    const dessinerCouche = (elements, actif, remplissage, contour, opacite) => {
+    const parcellesRetenues = new Set([etatImport.principale!.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
+    const dessinerCouche = (elements: ElementIgn[], actif: boolean, remplissage: string, contour: string, opacite?: number) => {
       elements.forEach(e=>{
         const retenu = actif && [...e.parcelles].some(idu=>parcellesRetenues.has(idu));
         const poly = document.createElementNS(svgNS, 'polygon');
         poly.setAttribute('points', e.pts.map(p=>(p.x-minX).toFixed(3) + ',' + (maxY-p.y).toFixed(3)).join(' '));
         poly.setAttribute('fill', retenu ? remplissage : 'none');
-        poly.setAttribute('fill-opacity', retenu ? (opacite || 0.85) : 0);
+        poly.setAttribute('fill-opacity', String(retenu ? (opacite || 0.85) : 0));
         poly.setAttribute('stroke', retenu ? contour : '#b0b0b0');
         poly.setAttribute('stroke-width', (retenu ? trait : trait*0.7).toFixed(3));
         if(!retenu) poly.setAttribute('stroke-dasharray', (trait*2).toFixed(2) + ' ' + (trait*2).toFixed(2));
@@ -207,7 +257,7 @@ export function ouvrirImportCadastre(ctx){
     svgEl.appendChild(pa);
     hote.appendChild(svgEl);
   }
-  function ligneSurface(c){
+  function ligneSurface(c: Candidate): string {
     const calc = Math.round(c.aire);
     if(c.contenance === null) return calc + ' m² (calcul)';
     const ecart = Math.abs(calc - c.contenance)/c.contenance;
@@ -218,19 +268,22 @@ export function ouvrirImportCadastre(ctx){
 
   // ---- etapes ----
   let etapeConstruite = 0;
-  let champAdresse = null, listeSuggestions = null, hoteApercu = null, listeVoisines = null, champNom = null, blocIgn = null, resumePropriete = null;
+  let champAdresse: HTMLInputElement | null = null, listeSuggestions: HTMLElement | null = null,
+    hoteApercu: HTMLElement | null = null, listeVoisines: HTMLElement | null = null,
+    champNom: HTMLInputElement | null = null, blocIgn: HTMLElement | null = null,
+    resumePropriete: HTMLElement | null = null;
 
   // Compte les elements BD TOPO qui tomberaient effectivement dans le plan : ceux qui recouvrent
   // la parcelle principale ou une voisine COCHEE. Recalcule a chaque coche, donc les compteurs
   // suivent la selection au lieu d'annoncer un total theorique.
-  function elementsRetenus(liste){
-    const retenues = new Set([etatImport.principale.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
+  function elementsRetenus(liste: ElementIgn[]): ElementIgn[] {
+    const retenues = new Set([etatImport.principale!.idu].concat(etatImport.voisinesRetenues().map(v=>v.idu)));
     return liste.filter(e=>[...e.parcelles].some(idu=>retenues.has(idu)));
   }
   function remplirBlocIgn(){
     if(!blocIgn) return;
     blocIgn.innerHTML = '';
-    const ligne = (cle, libelle, n, titre) => {
+    const ligne = (cle: 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres', libelle: string, n: number, titre?: string) => {
       const lab = document.createElement('label');
       lab.style.cssText = 'display:flex; align-items:center; gap:6px; font-size:0.82rem; cursor:pointer;';
       if(titre) lab.title = titre;
@@ -292,7 +345,7 @@ export function ouvrirImportCadastre(ctx){
   // la case correspondante SANS reconstruire la liste. Reconstruire remplacerait les <input>
   // en cours d'utilisation - le clavier perdrait sa position a chaque coche, et une reference
   // gardee sur une case (clic sur l'apercu, par exemple) pointerait un noeud detache.
-  const casesVoisines = new Map();
+  const casesVoisines = new Map<string, { cb: HTMLInputElement; cbProp: HTMLInputElement; lab: HTMLElement }>();
   function rafraichirVue(){
     if(hoteApercu) dessinerApercu(hoteApercu);
     // Les compteurs BD TOPO dependent des parcelles cochees : cocher une voisine peut faire
@@ -331,7 +384,7 @@ export function ouvrirImportCadastre(ctx){
     listeSuggestions.style.cssText = 'margin-top:8px; display:flex; flex-direction:column; gap:4px;';
     corps.appendChild(lab); corps.appendChild(champAdresse); corps.appendChild(listeSuggestions);
 
-    let minuteur = null, requeteEnCours = 0;
+    let minuteur: ReturnType<typeof setTimeout> | null = null, requeteEnCours = 0;
     // On ne reconstruit QUE la liste des suggestions a chaque frappe : reconstruire le corps
     // entier remplacerait le champ de saisie et lui ferait perdre le focus a chaque lettre.
     champAdresse.addEventListener('input', ()=>{
@@ -374,7 +427,7 @@ export function ouvrirImportCadastre(ctx){
     });
   }
   const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
-  async function lancerRechercheTexte(texte){
+  async function lancerRechercheTexte(texte: string): Promise<void> {
     if(!texte || texte.length < 3){ etatImport.erreur = 'Saisis une adresse (au moins 3 caracteres).'; majEtat(); return; }
     const m = texte.match(RE_COORDS);
     if(m){
@@ -395,13 +448,13 @@ export function ouvrirImportCadastre(ctx){
       majEtat();
     }
   }
-  async function choisirAdresse(sug){
+  async function choisirAdresse(sug: AdresseRecherchee): Promise<void> {
     etatImport.geo = sug;
     occuper(true, 'Recherche de la parcelle…');
     try {
       const proj = projecteurLocal(sug.lat, sug.lon);
       const ptRef = {x:0, y:0};   // le point d'adresse est l'origine de cette projection
-      let features = [], rayon = null;
+      let features: FeatureGeoJSON[] = [], rayon: number | null = null;
       for(const r of RAYONS_RECHERCHE_M){
         features = await interrogerCadastre(empriseGeoJSON(sug.lon, sug.lat, proj, r), sug.citycode);
         if(features.length){ rayon = r; break; }
@@ -448,17 +501,17 @@ export function ouvrirImportCadastre(ctx){
   // Deuxieme requete, centree sur la parcelle retenue : c'est elle qui donne la liste COMPLETE
   // des mitoyennes. Faite une seule fois par parcelle (un changement de parcelle principale
   // rouvre un voisinage different, mais y revenir ne redemande rien).
-  async function chargerVoisinage(c){
+  async function chargerVoisinage(c: Candidate): Promise<void> {
     if(etatImport.voisinageCharge.has(c.idu)) return;
-    const emprise = empriseAutourAnneau(c.anneauDeg, etatImport.proj, 20);
+    const emprise = empriseAutourAnneau(c.anneauDeg, etatImport.proj!, 20);
     const features = await interrogerCadastre(emprise, etatImport.geo ? etatImport.geo.citycode : '');
     const connus = new Set(etatImport.candidats.map(x=>x.idu));
-    const nouveaux = construireCandidats(features, etatImport.proj, {x:0, y:0}, etatImport.simplifier)
+    const nouveaux = construireCandidats(features, etatImport.proj!, {x:0, y:0}, etatImport.simplifier)
       .filter(x=>!connus.has(x.idu));
     if(nouveaux.length) etatImport.candidats = classerCandidats(etatImport.candidats.concat(nouveaux));
     etatImport.voisinageCharge.add(c.idu);
   }
-  function appliquerPrincipale(c){
+  function appliquerPrincipale(c: Candidate): void {
     etatImport.principale = c;
     const tri = trierVoisines(c, etatImport.candidats);
     etatImport.adjacentes = tri.adjacentes;
@@ -474,28 +527,28 @@ export function ouvrirImportCadastre(ctx){
   // BD TOPO + PLU sur l'emprise de la parcelle et de ses mitoyennes. Chargement separe du
   // cadastre : ces couches sont un complement, leur indisponibilite ne doit pas empecher
   // d'importer la parcelle (message a cote, et cases correspondantes vides).
-  async function chargerDonneesIgn(c){
+  async function chargerDonneesIgn(c: Candidate): Promise<void> {
     if(etatImport.ignCharge.has(c.idu)) return;
     const anneaux = [c.anneauDeg].concat(etatImport.adjacentes.map(v=>v.anneauDeg));
-    const bbox = bboxDegDesAnneaux(anneaux, etatImport.proj, 10);
+    const bbox = bboxDegDesAnneaux(anneaux, etatImport.proj!, 10);
     const centre = centroid(c.pts);
-    const centreDeg = etatImport.proj.versDegres(centre.x, centre.y);
+    const centreDeg = etatImport.proj!.versDegres(centre.x, centre.y);
     const [bat, veg, haie, plu] = await Promise.all([
       interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch(e=>{ throw e; }),
-      interrogerWfs(COUCHE_VEGETATION, bbox, 40).catch(()=>[]),
-      interrogerWfs(COUCHE_HAIE, bbox, 40).catch(()=>[]),
-      interrogerPlu(centreDeg.lon, centreDeg.lat).catch(()=>null)
+      interrogerWfs(COUCHE_VEGETATION, bbox, 40).catch((): FeatureGeoJSON[]=>[]),
+      interrogerWfs(COUCHE_HAIE, bbox, 40).catch((): FeatureGeoJSON[]=>[]),
+      interrogerPlu(centreDeg.lon, centreDeg.lat).catch((): null=>null)
     ]);
-    etatImport.batiments = construireElementsIgn(bat, etatImport.proj, etatImport.simplifier, 'batiment');
-    etatImport.vegetation = construireElementsIgn(veg, etatImport.proj, etatImport.simplifier, 'vegetation');
-    etatImport.haies = construireElementsIgn(haie, etatImport.proj, etatImport.simplifier, 'haie');
+    etatImport.batiments = construireElementsIgn(bat, etatImport.proj!, etatImport.simplifier, 'batiment');
+    etatImport.vegetation = construireElementsIgn(veg, etatImport.proj!, etatImport.simplifier, 'vegetation');
+    etatImport.haies = construireElementsIgn(haie, etatImport.proj!, etatImport.simplifier, 'haie');
     etatImport.plu = plu;
     rattacherElementsAuxParcelles(etatImport.batiments, etatImport.candidats);
     rattacherElementsAuxParcelles(etatImport.haies, etatImport.candidats);
     rattacherElementsAuxParcelles(etatImport.vegetation, etatImport.candidats);
     etatImport.ignCharge.add(c.idu);
   }
-  async function chargerIgnAvecMessage(c){
+  async function chargerIgnAvecMessage(c: Candidate): Promise<void> {
     occuper(true, 'Bâtiments, végétation et PLU…');
     try {
       await chargerDonneesIgn(c);
@@ -507,8 +560,8 @@ export function ouvrirImportCadastre(ctx){
     occuper(false);
     if(etatImport.ignErreur) etatImport.erreur = etatImport.ignErreur;
   }
-  async function choisirPrincipale(c){
-    if(!c || c.idu === etatImport.principale.idu) return;
+  async function choisirPrincipale(c: Candidate | null | undefined): Promise<void> {
+    if(!c || c.idu === etatImport.principale!.idu) return;
     occuper(true, 'Recherche des parcelles voisines…');
     try {
       await chargerVoisinage(c);
@@ -521,13 +574,13 @@ export function ouvrirImportCadastre(ctx){
     etapeConstruite = 0; // la liste des candidates et l'apercu changent entierement
     rendre();
   }
-  function basculerVoisine(c){
+  function basculerVoisine(c: Candidate): void {
     if(etatImport.propriete.has(c.idu)) return;   // une parcelle de la propriete est importee d'office
     if(etatImport.selection.has(c.idu)) etatImport.selection.delete(c.idu);
     else etatImport.selection.add(c.idu);
     rafraichirVue();
   }
-  function basculerPropriete(c){
+  function basculerPropriete(c: Candidate): void {
     if(etatImport.propriete.has(c.idu)) etatImport.propriete.delete(c.idu);
     else {
       etatImport.propriete.add(c.idu);
@@ -541,7 +594,7 @@ export function ouvrirImportCadastre(ctx){
     if(!resumePropriete) return;
     const parcelles = etatImport.parcellesPropriete();
     if(parcelles.length <= 1){
-      resumePropriete.textContent = 'Propriété : ' + libelleParcelle(etatImport.principale) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.';
+      resumePropriete.textContent = 'Propriété : ' + libelleParcelle(etatImport.principale!) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.';
       resumePropriete.style.color = '';
       return;
     }
@@ -564,14 +617,14 @@ export function ouvrirImportCadastre(ctx){
     corps.appendChild(hoteApercu);
     const info = document.createElement('div');
     info.style.cssText = 'margin-top:10px; line-height:1.5;';
-    const p = etatImport.principale;
-    const ecartAuto = etatImport.candidats.length > 1 ? (etatImport.candidats[1].distance - etatImport.candidats[0].distance) : Infinity;
-    info.innerHTML = '<b>' + escapeHtml('Parcelle ' + libelleParcelle(p)) + '</b> — ' + escapeHtml(p.commune) +
-      ' (INSEE ' + escapeHtml(p.codeInsee) + ')<br>Surface : ' + escapeHtml(ligneSurface(p)) +
-      '<br>Adresse : ' + escapeHtml(etatImport.geo.label) +
-      '<br>Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)') +
-      (etatImport.geo.genre && etatImport.geo.genre !== 'housenumber' && etatImport.geo.genre !== 'coordonnees'
-        ? '<br><i>Adresse resolue au niveau ' + escapeHtml(etatImport.geo.genre) + ' : la parcelle proposee est approximative.</i>' : '') +
+    const p = etatImport.principale!;
+    const ecartAuto = etatImport.candidats.length > 1 ? (etatImport.candidats[1].distance! - etatImport.candidats[0].distance!) : Infinity;
+    info.innerHTML = '<b>' + escapeHtml('Parcelle ' + libelleParcelle(p)) + '</b> — ' + escapeHtml(p.commune||'') +
+      ' (INSEE ' + escapeHtml(p.codeInsee||'') + ')<br>Surface : ' + escapeHtml(ligneSurface(p)) +
+      '<br>Adresse : ' + escapeHtml(etatImport.geo!.label) +
+      '<br>Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance!.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)') +
+      (etatImport.geo!.genre && etatImport.geo!.genre !== 'housenumber' && etatImport.geo!.genre !== 'coordonnees'
+        ? '<br><i>Adresse resolue au niveau ' + escapeHtml(etatImport.geo!.genre) + ' : la parcelle proposee est approximative.</i>' : '') +
       (ecartAuto < ECART_AUTO_M ? '<br><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i>' : '');
     corps.appendChild(info);
 
@@ -603,12 +656,12 @@ export function ouvrirImportCadastre(ctx){
       // Retour a la geometrie source : re-projeter depuis les anneaux WGS84 conserves, plutot
       // que de re-simplifier un contour deja simplifie (ce qui ne reviendrait jamais en arriere).
       etatImport.candidats.forEach(c=>{
-        c.pts = anneauVersPts(c.anneauDeg, etatImport.proj, etatImport.simplifier);
+        c.pts = anneauVersPts(c.anneauDeg, etatImport.proj!, etatImport.simplifier);
         c.aire = shoelace(c.pts);
         c.dedans = pointInPolygon({x:0,y:0}, c.pts);
         c.distance = distancePointContour({x:0,y:0}, c.pts);
       });
-      appliquerPrincipale(etatImport.candidats.find(c=>c.idu === etatImport.principale.idu) || etatImport.principale);
+      appliquerPrincipale(etatImport.candidats.find(c=>c.idu === etatImport.principale!.idu) || etatImport.principale!);
       etapeConstruite = 0; rendre();
     });
     optSimplif.appendChild(cb);
@@ -664,7 +717,7 @@ export function ouvrirImportCadastre(ctx){
     champNom = document.createElement('input');
     champNom.type = 'text';
     champNom.className = 'promptInput';
-    champNom.value = (libelleParcelle(etatImport.principale) + ' — ' + (etatImport.geo ? etatImport.geo.label : '')).slice(0, 60);
+    champNom.value = (libelleParcelle(etatImport.principale!) + ' — ' + (etatImport.geo ? etatImport.geo.label : '')).slice(0, 60);
     corps.appendChild(labNom); corps.appendChild(champNom);
 
     pied.appendChild(bouton('Annuler', false, fermer));
@@ -676,15 +729,15 @@ export function ouvrirImportCadastre(ctx){
     majResumePropriete();
     dessinerApercu(hoteApercu);
   }
-  function remplirListeVoisines(){
-    listeVoisines.innerHTML = '';
+  function remplirListeVoisines(): void {
+    listeVoisines!.innerHTML = '';
     casesVoisines.clear();
-    const groupe = (titreTxte, liste) => {
+    const groupe = (titreTxte: string, liste: Candidate[]) => {
       if(!liste.length) return;
       const t = document.createElement('div');
       t.style.cssText = 'font-weight:600; margin-top:6px; font-size:0.82rem;';
       t.textContent = titreTxte;
-      listeVoisines.appendChild(t);
+      listeVoisines!.appendChild(t);
       liste.forEach(c=>{
         const rang = document.createElement('div');
         rang.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.82rem; padding:2px 0; background:transparent;';
@@ -716,7 +769,7 @@ export function ouvrirImportCadastre(ctx){
         const texte = document.createElement('span');
         texte.style.cssText = 'cursor:pointer; flex:1;';
         texte.textContent = libelleParcelle(c) + ' — ' + ligneSurface(c) +
-          (c.frontiere ? ' — ' + c.frontiere.toFixed(1) + ' m de limite commune' : ' — a ' + c.distancePrincipale.toFixed(1) + ' m');
+          (c.frontiere ? ' — ' + c.frontiere.toFixed(1) + ' m de limite commune' : ' — a ' + (c.distancePrincipale||0).toFixed(1) + ' m');
         texte.addEventListener('click', ()=>basculerVoisine(c));
 
         // Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage
@@ -738,7 +791,7 @@ export function ouvrirImportCadastre(ctx){
         rang.appendChild(labImport);
         rang.appendChild(texte);
         rang.appendChild(btnPrincipale);
-        listeVoisines.appendChild(rang);
+        listeVoisines!.appendChild(rang);
       });
     };
     groupe('Parcelles mitoyennes', etatImport.adjacentes);
@@ -747,15 +800,19 @@ export function ouvrirImportCadastre(ctx){
       const t = document.createElement('div');
       t.style.cssText = 'font-size:0.8rem; color:#a02020; margin-top:6px;';
       t.textContent = 'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.';
-      listeVoisines.appendChild(t);
+      listeVoisines!.appendChild(t);
     }
   }
 
-  async function creerProjet(){
-    const nom = (champNom.value || '').trim() || ('Parcelle ' + libelleParcelle(etatImport.principale));
+  async function creerProjet(): Promise<void> {
+    const nom = (champNom!.value || '').trim() || ('Parcelle ' + libelleParcelle(etatImport.principale!));
     let objets;
     try {
-      objets = objetsDepuisCadastre(etatImport);
+      // A l'etape 3 (seul endroit d'ou creerProjet est joignable), le fil de l'assistant a deja
+      // pose `principale` et `proj` (etape 1 reussie) : c'est cette garantie de flux, pas le
+      // type, qui rend le cast sur. `EtatImportCadastre` et `ImportCadastral` different seulement
+      // par la nullabilite de ces deux champs pendant les etapes 1 et 2.
+      objets = objetsDepuisCadastre(etatImport as unknown as ImportCadastral);
     } catch(e){
       etatImport.erreur = 'Construction du plan impossible : ' + (e.message || e);
       majEtat(); return;
@@ -770,7 +827,7 @@ export function ouvrirImportCadastre(ctx){
     }
     occuper(true, 'Creation du projet…');
     try {
-      const cree = await ctx.apiSave({ name: nom, objects: objets, measures: [] });
+      const cree = await ctx.apiSave({ name: nom, objects: objets, measures: [] }) as { id: string };
       localStorage.setItem(ctx.cleDernierProjet, cree.id);
       location.href = ctx.withProjectParam(cree.id);
     } catch(e){

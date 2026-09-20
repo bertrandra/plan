@@ -4,6 +4,8 @@
 // sauvegarde ainsi avec le projet, comme les champs Texture d'un objet, et non comme une simple
 // preference d'affichage qu'on reperdrait a chaque ouverture.
 
+import type { ObjetPlan } from '../model/types.js';
+
 /**
  * La parcelle qui porte la cloture — et aussi le lieu, l'orthophoto et le PLU.
  *
@@ -12,7 +14,7 @@
  * rendrait la premiere du tableau, donc potentiellement une voisine — et la cloture comme la course
  * du soleil se retrouveraient rattachees au terrain d'a cote.
  */
-export function trouverParcelleCloture(objets) {
+export function trouverParcelleCloture(objets: ObjetPlan[]): ObjetPlan | undefined {
   return objets.find(o => o.key === 'parcelle') || objets.find(o => o.fonction === 'terrain');
 }
 
@@ -23,7 +25,7 @@ export function trouverParcelleCloture(objets) {
  * couleur d'une cloture absente ne veut rien dire, et la case a cocher reste alors la seule action
  * possible.
  */
-export function syncClotureControls(parcelleObj): void {
+export function syncClotureControls(parcelleObj: ObjetPlan): void {
   const cb = document.getElementById('terrasse3dCloture') as HTMLInputElement | null;
   if (!cb) return;
   const hInp = document.getElementById('terrasse3dClotureHauteur') as HTMLInputElement;
@@ -33,7 +35,7 @@ export function syncClotureControls(parcelleObj): void {
   const texBtn = document.getElementById('terrasse3dClotureTexBtn') as HTMLButtonElement;
   const clearBtn = document.getElementById('terrasse3dClotureTexClear');
   cb.checked = !!parcelleObj.clotureActive;
-  hInp.value = (parcelleObj.clotureHauteur !== undefined && parcelleObj.clotureHauteur !== null) ? parcelleObj.clotureHauteur : 1.8;
+  hInp.value = String((parcelleObj.clotureHauteur !== undefined && parcelleObj.clotureHauteur !== null) ? parcelleObj.clotureHauteur : 1.8);
   cInp.value = parcelleObj.clotureCouleur || '#6b4a2a';
   const tex = parcelleObj.clotureTexture;
   vignette.src = tex ? tex.vignette : '';

@@ -9,6 +9,9 @@
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
+import type { Appui } from '../engine/structure.js';
+import type { ObjetPlan, PtBrut, PtEcran, Segment } from '../model/types.js';
+import type { EtatApp } from '../core/state.js';
 
 const svgNS = 'http://www.w3.org/2000/svg';
 
@@ -38,7 +41,7 @@ const VIS_ROLE_COLOR: Record<string, string> = { rive: '#0f3d49', spa: '#a8452a'
  * completement d'une pose simple sur plots — ou elles n'existent pas. Proposer une case qui ne
  * dessinerait jamais rien laisserait croire a un bug.
  */
-export function renderTerrasseLayerTabs(obj, redessiner: () => void): void {
+export function renderTerrasseLayerTabs(obj: ObjetPlan, redessiner: () => void): void {
   const div = document.getElementById('terrasseLayerTabs');
   div.innerHTML = '';
   const c = ensureConstruction(obj);
@@ -75,29 +78,31 @@ export function renderTerrasseLayerTabs(obj, redessiner: () => void): void {
  * L'ordre de dessin va du plus fin au plus epais : les lames d'abord, les vis en dernier, pour que
  * la couche la plus grosse reste lisible par-dessus les autres.
  */
-export function renderTerrasseLayerView(groupe: SVGGElement, obj, etat, toScreen): void {
+export function renderTerrasseLayerView(
+  groupe: SVGGElement, obj: ObjetPlan | null | undefined, etat: EtatApp, toScreen: (p: PtBrut) => PtEcran
+): void {
   groupe.innerHTML = '';
   if (etat.appMode !== 'terrasse' || !obj) return;
   const layers = computeTerrasseLayers(obj, etat.objects);
   const multi = Object.values(terrasseLayerVisible).filter(Boolean).length > 1;
 
-  function drawLines(segs, color: string, width: number, dash?: string) {
+  function drawLines(segs: Segment[], color: string, width: number, dash?: string | null) {
     segs.forEach(seg => {
       const a = toScreen(seg.a), b = toScreen(seg.b);
       const l = document.createElementNS(svgNS, 'line');
-      l.setAttribute('x1', a.x); l.setAttribute('y1', a.y); l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
+      l.setAttribute('x1', String(a.x)); l.setAttribute('y1', String(a.y)); l.setAttribute('x2', String(b.x)); l.setAttribute('y2', String(b.y));
       l.setAttribute('stroke', color); l.setAttribute('stroke-width', String(width));
       if (dash) l.setAttribute('stroke-dasharray', dash);
       l.setAttribute('stroke-linecap', 'round');
       groupe.appendChild(l);
     });
   }
-  function drawPoints(pts, color: string) {
+  function drawPoints(pts: Appui[], color: string) {
     pts.forEach(p => {
       const s = toScreen(p);
       const ci = document.createElementNS(svgNS, 'circle');
       const isRive = p.role === 'rive';
-      ci.setAttribute('cx', s.x); ci.setAttribute('cy', s.y); ci.setAttribute('r', isRive ? '6' : '5');
+      ci.setAttribute('cx', String(s.x)); ci.setAttribute('cy', String(s.y)); ci.setAttribute('r', isRive ? '6' : '5');
       ci.setAttribute('fill', VIS_ROLE_COLOR[p.role] || color);
       ci.setAttribute('stroke', '#fff'); ci.setAttribute('stroke-width', '1.2');
       groupe.appendChild(ci);

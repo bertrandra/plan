@@ -13,30 +13,60 @@
 // abime reste chargeable, et l'utilisateur apprend combien de formes ont ete laissees de cote.
 
 import { SCHEMA_VERSION } from '../model/version.js';
-export function validerProjetJSON(data){
+import type { ObjetBrut, Mesure } from '../model/types.js';
+
+/**
+ * Un projet, tel qu'il sort de `JSON.parse` : rien n'est garanti, tout reste a verifier champ par
+ * champ. C'est le seul endroit du programme qui a le droit de le voir sous cette forme —
+ * `validerProjetJSON` existe pour que le reste du code n'ait jamais a la rencontrer.
+ */
+interface ProjetBrut {
+  objects?: unknown;
+  measures?: unknown;
+  meta?: unknown;
+  name?: unknown;
+}
+
+/** Ce qu'un projet valide rend : des objets exploitables, et le compte de ceux ecartes en route. */
+export interface ProjetValide {
+  meta: { name?: string; lieu?: { latitude?: number; longitude?: number; nomLieu?: string }; [autreChamp: string]: unknown };
+  objets: ObjetBrut[];
+  mesures: Partial<Mesure>[];
+  ignores: number;
+}
+
+export function validerProjetJSON(data: unknown): ProjetValide {
   if(!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Structure inattendue : un objet JSON est attendu.');
-  if(!Array.isArray(data.objects) || !data.objects.length) throw new Error('Aucun objet dans le fichier (cle "objects" absente ou vide).');
-  const meta = (data.meta && typeof data.meta === 'object') ? data.meta : (data.name ? {name:data.name} : {});
+  // Rien de plus n'est verifie par ce cast : c'est la forme d'un candidat, pas une garantie. Chaque
+  // champ est encore verifie a sa lecture, ci-dessous.
+  const brut = data as ProjetBrut;
+  if(!Array.isArray(brut.objects) || !brut.objects.length) throw new Error('Aucun objet dans le fichier (cle "objects" absente ou vide).');
+  // Le test est une verite (`data.name ?`), pas un type : un `name` truthy non textuel serait quand
+  // meme repris tel quel, exactement comme avant. Le cast dit cela plutot que de resserrer le test.
+  const meta: ProjetValide['meta'] = (brut.meta && typeof brut.meta === 'object')
+    ? brut.meta as ProjetValide['meta']
+    : (brut.name ? {name: brut.name as string} : {});
   // Un fichier ecrit par une version plus recente peut contenir des champs que ce client ignore :
   // le charger puis l'enregistrer les effacerait sans bruit. On refuse plutot que de tenter une
   // lecture partielle (RELEASE.md 3.2). Un fichier sans `meta.schemaVersion` date d'avant le
   // versionnement du schema : c'est la version 1.
-  const schemaFichier = Number.isFinite(meta.schemaVersion) ? meta.schemaVersion : 1;
+  const schemaFichier: number = Number.isFinite(meta.schemaVersion) ? (meta.schemaVersion as number) : 1;
   if(schemaFichier > SCHEMA_VERSION){
     throw Object.assign(new Error('Ce projet a ete enregistre par une version plus recente de l\'application (schema '
       + schemaFichier + '). Rechargez la page pour obtenir la derniere version.'), {motif:'schema'});
   }
-  const fini = v => typeof v === 'number' && Number.isFinite(v);
-  const objets = [];
+  const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  const objets: ObjetBrut[] = [];
   let ignores = 0;
-  data.objects.forEach(o=>{
-    if(!o || typeof o !== 'object' || typeof o.key !== 'string' || !o.key){ ignores++; return; }
-    if(o.type === 'circle'){
-      if(!o.center || !fini(o.center.x) || !fini(o.center.y) || !fini(o.r) || o.r <= 0){ ignores++; return; }
-    } else if(o.type === 'polygon' || o.type === 'path'){
-      if(!Array.isArray(o.pts) || o.pts.length < 2 || o.pts.some(p=>!p || !fini(p.x) || !fini(p.y))){ ignores++; return; }
+  (brut.objects as unknown[]).forEach(o=>{
+    if(!o || typeof o !== 'object' || typeof (o as ObjetBrut).key !== 'string' || !(o as ObjetBrut).key){ ignores++; return; }
+    const ob = o as ObjetBrut;
+    if(ob.type === 'circle'){
+      if(!ob.center || !fini(ob.center.x) || !fini(ob.center.y) || !fini(ob.r) || ob.r <= 0){ ignores++; return; }
+    } else if(ob.type === 'polygon' || ob.type === 'path'){
+      if(!Array.isArray(ob.pts) || ob.pts.length < 2 || ob.pts.some(p=>!p || !fini(p.x) || !fini(p.y))){ ignores++; return; }
     } else { ignores++; return; }
-    objets.push(o);
+    objets.push(ob);
   });
   if(!objets.length) throw new Error('Aucun objet exploitable : formes absentes ou coordonnees invalides.');
   // Une coordonnee absurde signe un fichier dans une autre unite (millimetres, pixels...) :
@@ -45,5 +75,5 @@ export function validerProjetJSON(data){
     ? (Math.abs(o.center.x) > 100000 || Math.abs(o.center.y) > 100000)
     : o.pts.some(p => Math.abs(p.x) > 100000 || Math.abs(p.y) > 100000));
   if(horsLimite) throw new Error('Coordonnees aberrantes (au-dela de 100 000 m) : le fichier n\'est probablement pas en metres.');
-  return { meta, objets, mesures: Array.isArray(data.measures) ? data.measures : [], ignores };
+  return { meta, objets, mesures: Array.isArray(brut.measures) ? brut.measures as Partial<Mesure>[] : [], ignores };
 }

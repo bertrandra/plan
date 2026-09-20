@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   nouvelObjet, nouveauChemin, nouveauCercle, nouveauParasol, nouveauPointDeVue, creerCreation
 } from '../../../src/model/creation.js';
+import type { EtatCreation, ContexteCreation } from '../../../src/model/creation.js';
+import type { ObjetPlan } from '../../../src/model/types.js';
 
 const CENTRE = { x: 10, y: 20 };
 
@@ -70,13 +72,13 @@ describe('les primitives detournees', () => {
 
 describe('rattachement du parasol', () => {
   it('retient la terrasse qu on lui donne', () => {
-    const t = { key: 't1', fonction: 'terrasse' };
+    const t = { key: 't1', name: 'Terrasse', fonction: 'terrasse' };
     expect(nouveauParasol(CENTRE, 'k', 1, t).obj.terrasseLieeKey).toBe('t1');
   });
 
   it('ne se rattache pas a la parcelle faute de terrasse', () => {
     // Sans terrasse, le repli est la parcelle : elle sert de position, pas de rattachement.
-    const p = { key: 'parcelle', fonction: 'terrain' };
+    const p = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain' };
     expect(nouveauParasol(CENTRE, 'k', 1, p).obj.terrasseLieeKey).toBeNull();
     expect(nouveauParasol(CENTRE, 'k', 1, null).obj.terrasseLieeKey).toBeNull();
   });
@@ -103,15 +105,21 @@ describe('chemin et cercle', () => {
   });
 });
 
-/** Un objet du plan, decrit aussi lachement que le module lui-meme le fait. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ObjetTest = Record<string, any>;
+/**
+ * Un objet du plan — le vrai type, desormais.
+ *
+ * C'etait un `Record<string, any>` parce que le module se decrivait lui-meme aussi lachement. En le
+ * typant, la phase 7 a montre ce qui manquait a ces objets d'essai : un nom. Le programme en lit un
+ * a la duplication (« ... (copie) ») et a la suppression, donc un objet sans nom n'a jamais existe
+ * ailleurs que dans ce fichier.
+ */
+type ObjetTest = ObjetPlan;
 
 /** Un plan minimal et des dependances qui ne font que compter leurs appels. */
-function monter(objets: ObjetTest[] = [{ key: 'parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }]) {
-  const etat = { objects: [...objets], selectedKey: null, attrTab: 'objet', terrasseSelectedKey: null, newObjCounter: 0 };
+function monter(objets: ObjetTest[] = [{ key: 'parcelle', name: 'Parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }]) {
+  const etat: EtatCreation = { objects: [...objets], selectedKey: null, attrTab: 'objet', terrasseSelectedKey: null, newObjCounter: 0 };
   const appels: string[] = [];
-  const ctx = {
+  const ctx: ContexteCreation = {
     pushHistory: () => appels.push('historique'),
     createObjectDOM: () => appels.push('dom'),
     rebuildHandles: () => appels.push('poignees'),
@@ -206,8 +214,8 @@ describe('les cles', () => {
 });
 
 describe('un parasol naît sur sa terrasse', () => {
-  const parcelle = { key: 'parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }] };
-  const terrasse = { key: 't1', fonction: 'terrasse', pts: [{ x: 10, y: 10 }, { x: 14, y: 10 }, { x: 14, y: 14 }, { x: 10, y: 14 }] };
+  const parcelle = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }] };
+  const terrasse = { key: 't1', name: 'Terrasse', fonction: 'terrasse', pts: [{ x: 10, y: 10 }, { x: 14, y: 10 }, { x: 14, y: 14 }, { x: 10, y: 14 }] };
 
   it('se pose au centre de la terrasse, pas de la parcelle', () => {
     // Au centre de la parcelle, il naîtrait loin de l'endroit ou on veut l'utiliser.
@@ -218,7 +226,7 @@ describe('un parasol naît sur sa terrasse', () => {
   });
 
   it('prefere la terrasse selectionnee', () => {
-    const autre = { key: 't2', fonction: 'terrasse', pts: [{ x: 50, y: 50 }, { x: 54, y: 50 }, { x: 54, y: 54 }, { x: 50, y: 54 }] };
+    const autre = { key: 't2', name: 'Terrasse 2', fonction: 'terrasse', pts: [{ x: 50, y: 50 }, { x: 54, y: 50 }, { x: 54, y: 54 }, { x: 50, y: 54 }] };
     const { c, etat } = monter([parcelle, terrasse, autre]);
     etat.terrasseSelectedKey = 't2';
     c.ajouterParasol();
@@ -275,7 +283,7 @@ describe('dupliquer', () => {
 });
 
 describe('supprimer', () => {
-  const carre = { key: 'a', name: 'Abri', type: 'polygon', pts: [] };
+  const carre: ObjetTest = { key: 'a', name: 'Abri', type: 'polygon', pts: [] };
 
   it('refuse sans selection', () => {
     const { c, ctx } = monter([carre]);
@@ -284,7 +292,7 @@ describe('supprimer', () => {
   });
 
   it('refuse de supprimer la parcelle, qui porte le repere du plan', () => {
-    const { c, etat, ctx } = monter([{ key: 'parcelle', fonction: 'terrain', pts: [] }]);
+    const { c, etat, ctx } = monter([{ key: 'parcelle', name: 'Parcelle', fonction: 'terrain', pts: [] }]);
     etat.selectedKey = 'parcelle';
     c.supprimer();
     expect(etat.objects).toHaveLength(1);

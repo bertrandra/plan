@@ -11,23 +11,19 @@ import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
-import type { PtBrut } from '../model/types.js';
+import type { PtBrut, ObjetPlan, Mesure } from '../model/types.js';
 
-interface ObjetPlan {
-  key: string;
-  type?: string;
-  pts?: PtBrut[];
-  center?: PtBrut;
-}
+/**
+ * Ce qu'une cote a besoin de connaitre d'un objet : sa cle, et de quoi retrouver sa geometrie.
+ *
+ * C'est une exigence, pas un type de donnees : tout `ObjetPlan` en est un, et c'est ce qui permet de
+ * poser une cote dans un test sans fabriquer un objet complet. Ce fichier declarait pour cela sa
+ * propre interface **nommee `ObjetPlan`**, homonyme de celle du modele et differente d'elle — deux
+ * verites sous un seul nom. Le nom dit maintenant ce qui est demande.
+ */
+export type ObjetCote = Pick<ObjetPlan, 'key' | 'type' | 'pts' | 'center'>;
 
-/** Une cote telle qu'elle est enregistree : deux references, pas des coordonnees. */
-export interface Mesure {
-  refObjKey: string;
-  refSegIndex: number;
-  startEnd: string;
-  targetObjKey: string;
-  targetPtIndex: number;
-}
+export type { Mesure };
 
 /** Geometrie recalculee d'une cote : origine, direction, pied de la perpendiculaire, distances. */
 export interface GeometrieMesure {
@@ -43,7 +39,7 @@ export interface GeometrieMesure {
 
 /** Les deux extremites d'un cote designe par (cle d'objet, indice de cote). */
 export function coordonneesCote(
-  objets: ObjetPlan[],
+  objets: ObjetCote[],
   ref: { objKey: string; segIndex: number }
 ): { a: PtBrut; b: PtBrut } | null {
   const obj = objets.find((o) => o.key === ref.objKey);
@@ -54,7 +50,7 @@ export function coordonneesCote(
 
 /** Le point designe : un sommet, ou le centre s'il s'agit d'un cercle. */
 export function coordonneesPoint(
-  objets: ObjetPlan[],
+  objets: ObjetCote[],
   cible: { objKey: string; ptIndex: number }
 ): PtBrut | null {
   const obj = objets.find((o) => o.key === cible.objKey);
@@ -69,7 +65,7 @@ export function coordonneesPoint(
  * `startEnd` choisit laquelle des deux extremites du cote sert d'origine : c'est ce qui permet de
  * coter « a 4,56 m du coin nord » plutot que du coin sud.
  */
-export function geometrieMesure(objets: ObjetPlan[], m: Mesure): GeometrieMesure | null {
+export function geometrieMesure(objets: ObjetCote[], m: Mesure): GeometrieMesure | null {
   const seg = coordonneesCote(objets, { objKey: m.refObjKey, segIndex: m.refSegIndex });
   const p = coordonneesPoint(objets, { objKey: m.targetObjKey, ptIndex: m.targetPtIndex });
   if (!seg || !p) return null;
@@ -139,7 +135,7 @@ export function ancrageHorsContour(
 /** Ce que le dessin des cotes doit connaitre, en plus du groupe SVG ou il ecrit. */
 export interface ContexteCotes {
   scene: EtatScene;
-  objets: ObjetPlan[];
+  objets: ObjetCote[];
   mesures: (Mesure & { show?: boolean; displayMode?: string })[];
   /** Cote de reference en cours de designation, s'il y en a un. */
   brouillonRef: { objKey: string; segIndex: number } | null;

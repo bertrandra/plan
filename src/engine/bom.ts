@@ -9,8 +9,15 @@ import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAM
 import { ensureConstruction } from './construction.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './structure.js';
+import { valeurEnregistree } from '../model/dictionnaire.js';
+import type { CouchesTerrasse } from './layers.js';
+import type { Debit } from './debit.js';
+import type { ObjetPlan, Construction, LigneBom } from '../model/types.js';
 
-export function computeBOM(obj, layers){
+/** Les trois produits achetes a la barre, chacun avec son propre carnet de prix. */
+export type ProduitBarre = 'lames' | 'bois' | 'lambourde';
+
+export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] {
   const c = ensureConstruction(obj);
   const surf = shoelace(obj.pts);
   const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
@@ -23,7 +30,7 @@ export function computeBOM(obj, layers){
   // deck boards and the flat border together, so the border is not billed a second time below.
   const debit = computeDebitLames(obj, layers);
 
-  const prevReel = {};
+  const prevReel: Record<string, number | null | undefined> = {};
   (c.bom||[]).forEach(l=>{ prevReel[l.poste] = l.prixReel; });
 
   const groupesBois = computeDebitsBois(obj, layers);
@@ -31,7 +38,7 @@ export function computeBOM(obj, layers){
   const vis = achatVis(c, nAppuis);
   const plots = achatPlots(c, nAppuis);
   const assise = computeAssise(c, surf, nAppuis);
-  const lines = [];
+  const lines: LigneBom[] = [];
   if(estPlots(c)){
     lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',
                  prixBas:plots.modele.prix*0.7, prixHaut:plots.modele.prix*1.4 });
@@ -57,7 +64,8 @@ export function computeBOM(obj, layers){
   // These lines are priced from their cut-list rather than by hand: the prices live per stock
   // length, where the merchant actually quotes them, and one source of truth beats two that can
   // disagree. `calcule` tells renderBOMTable to show it read-only.
-  const calcules = { lames:{ cout:coutDebit(c, debit, 'lames'), note:'calcule — prix par longueur, debit des lames' },
+  // Le dictionnaire s'etend avec un poste par groupe de debit ; son type le dit.
+  const calcules: Record<string, { cout: number; note: string }> = { lames:{ cout:coutDebit(c, debit, 'lames'), note:'calcule — prix par longueur, debit des lames' },
                      vis: estPlots(c)
                        ? { cout:plots.cout, note:'calcule — ' + prixPlotUnite(c).toFixed(2) + ' € x ' + plots.unites }
                        : { cout:vis.cout,   note:'calcule — ' + prixVisUnite(c).toFixed(2) + ' € x ' + vis.unites } };
@@ -83,71 +91,73 @@ export const LONGUEURS_LAMES_DEFAUT = [3, 2.5, 2, 1.7, 1.5];
 // essence's mid-range rate times its width and length.
 // One price store per product, so a length that exists in two of them keeps two prices - a 3 m
 // deck board and a 3 m solive are not the same purchase.
-export const PRIX_STORE = { lames:'prixLongueurs', bois:'prixLongueursBois', lambourde:'prixLongueursLambourde' };
+export const PRIX_STORE: Record<ProduitBarre, 'prixLongueurs' | 'prixLongueursBois' | 'prixLongueursLambourde'> =
+  { lames:'prixLongueurs', bois:'prixLongueursBois', lambourde:'prixLongueursLambourde' };
 // Width a board of this product covers, used for the per-m² view. Only the lames are sold by
 // surface in practice, so the others report per metre instead.
-export function largeurProduit(c, cle){
+export function largeurProduit(c: Construction, cle: ProduitBarre): number {
   if(cle === 'lames') return (c.largeurLame||140)/1000;
   if(cle === 'lambourde') return dimsSection(sectionLambourde(c)).b/1000;
   return dimsSection(c.soliveSection).b/1000;
 }
-export function prixBarreDefaut(c, cle, L){
+export function prixBarreDefaut(c: Construction, cle: ProduitBarre, L: number): number {
   if(cle === 'lames'){
     const essence = ESSENCE_PRICES[c.essenceBois] || ESSENCE_PRICES.autre;
     return Math.round(((essence.bas+essence.haut)/2) * largeurProduit(c,'lames') * L * 100)/100;
   }
   return Math.round(((SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2) * L * 100)/100;
 }
-export function prixBarre(c, cle, L){
-  const store = c[PRIX_STORE[cle]];
-  const p = store ? store[String(L)] : undefined;
+export function prixBarre(c: Construction, cle: ProduitBarre, L: number): number {
+  const p = valeurEnregistree(c[PRIX_STORE[cle]], String(L));
   return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : prixBarreDefaut(c, cle, L);
 }
-export function prixPersonnalise(c, cle, L){
-  const store = c[PRIX_STORE[cle]];
-  const p = store ? store[String(L)] : undefined;
+export function prixPersonnalise(c: Construction, cle: ProduitBarre, L: number): boolean {
+  const p = valeurEnregistree(c[PRIX_STORE[cle]], String(L));
   return p !== undefined && p !== null && isFinite(p) && p >= 0;
 }
-export function setPrixBarre(c, cle, L, valeur){
+export function setPrixBarre(c: Construction, cle: ProduitBarre, L: number, valeur: number | null | undefined): void {
   const k = PRIX_STORE[cle];
   if(!c[k] || typeof c[k] !== 'object') c[k] = {};
-  if(valeur === null || valeur === undefined || !isFinite(valeur) || valeur < 0) delete c[k][String(L)];
-  else c[k][String(L)] = valeur;
+  // Meme raison que `valeurEnregistree` : le carnet peut etre un tableau, et une ecriture par clef
+  // non numerique y pose une propriete ordinaire. La conversion decrit ce que fait deja le code.
+  const carnet = c[k] as Record<string, number>;
+  if(valeur === null || valeur === undefined || !isFinite(valeur) || valeur < 0) delete carnet[String(L)];
+  else carnet[String(L)] = valeur;
 }
 // The two ways a merchant quotes the same board. Each derives from the other through the board's
 // own footprint, so entering either one fills the other in.
-export function prixM2De(c, cle, L){
+export function prixM2De(c: Construction, cle: ProduitBarre, L: number): number {
   const surf = L * largeurProduit(c, cle);
   return surf > 0 ? prixBarre(c, cle, L)/surf : 0;
 }
-export function setPrixM2(c, cle, L, prixM2){
+export function setPrixM2(c: Construction, cle: ProduitBarre, L: number, prixM2: number): void {
   const surf = L * largeurProduit(c, cle);
   setPrixBarre(c, cle, L, (isFinite(prixM2) && prixM2 >= 0 && surf > 0) ? prixM2*surf : null);
 }
 // Screws are sold by the piece, often in boxes: a part box still has to be bought whole.
-export function prixVisUnite(c){
+export function prixVisUnite(c: Construction): number {
   const p = c.prixVisUnite;
   return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : (VIS_PRICE.bas+VIS_PRICE.haut)/2;
 }
-export function achatVis(c, n){
+export function achatVis(c: Construction, n: number){
   const parBoite = Math.max(1, Math.round(c.visParBoite||1));
   const boites = Math.ceil(n/parBoite);
   const unites = boites*parBoite;
   return { parBoite, boites, unites, cout: unites*prixVisUnite(c) };
 }
 // Prix d'un plot : celui saisi pour le modele, sinon le tarif indicatif de la gamme.
-export function prixPlotUnite(c){
+export function prixPlotUnite(c: Construction): number {
   const m = plotModele(c);
-  const p = c.prixPlots ? c.prixPlots[m.cle] : undefined;
+  const p = valeurEnregistree(c.prixPlots, m.cle);
   return (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : m.prix;
 }
-export function achatPlots(c, n){
+export function achatPlots(c: Construction, n: number){
   const m = plotModele(c);
   return { modele:m, unites:n, cout:n*prixPlotUnite(c) };
 }
 // Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
 // qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
-export function computeAssise(c, surfM2, nbPlots){
+export function computeAssise(c: Construction, surfM2: number, nbPlots: number){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
   if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
@@ -162,7 +172,7 @@ export function computeAssise(c, surfM2, nbPlots){
 }
 // Charge reprise par un plot et pression sur son assise - le poinconnement n'existe pas en mode
 // vis, qui reporte en profondeur, mais decide de la tenue d'un plot pose sur du concasse.
-export function chargePlot(c, nbPlots, surfM2){
+export function chargePlot(c: Construction, nbPlots: number, surfM2: number){
   const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
   const tributaire = nbPlots > 0 ? surfM2/nbPlots : 0;
   const charge = q*tributaire;                                  // kg par plot
@@ -170,7 +180,7 @@ export function chargePlot(c, nbPlots, surfM2){
   return { tributaire, charge, assise, pression: assise>0 ? charge/assise : 0 };
 }
 // What a cut-list actually costs, at the per-length prices in force.
-export function coutDebit(c, debit, cle){
+export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): number {
   return Object.keys(debit.achats)
     .reduce((s,L)=>s + debit.achats[L]*prixBarre(c, cle, parseFloat(L)), 0);
 }
@@ -184,9 +194,9 @@ export function parseLongueurs(raw: unknown, defauts: number[]): number[] {
   const uniq = [...new Set(list)].sort((a,b)=>b-a);
   return uniq.length ? uniq : defauts.slice();
 }
-export function longueursDispo(c){ return parseLongueurs(c.longueursLames, LONGUEURS_LAMES_DEFAUT); }
-export function longueursBois(c){ return parseLongueurs(c.longueursBois, LONGUEURS_BOIS_DEFAUT); }
-export function longueursLambourde(c){ return parseLongueurs(c.longueursLambourde, LONGUEURS_BOIS_DEFAUT); }
+export function longueursDispo(c: Construction): number[] { return parseLongueurs(c.longueursLames, LONGUEURS_LAMES_DEFAUT); }
+export function longueursBois(c: Construction): number[] { return parseLongueurs(c.longueursBois, LONGUEURS_BOIS_DEFAUT); }
+export function longueursLambourde(c: Construction): number[] { return parseLongueurs(c.longueursLambourde, LONGUEURS_BOIS_DEFAUT); }
 // Cuts the drawn runs out of boards bought in standard lengths.
 //
 // Two rules from the trade shape the answer. Offcuts are reused before anything new is opened -

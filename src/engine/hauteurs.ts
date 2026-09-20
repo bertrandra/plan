@@ -8,6 +8,16 @@ import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, sectionLambourde } from './structure.js';
 import { elevationParDefaut } from '../model/defaults.js';
+import type { ObjetPlan, Construction } from '../model/types.js';
+
+/**
+ * Ce dont la hauteur d'un objet depend : sa fonction, sa forme, ce qu'il porte.
+ *
+ * Cinq champs, pas un `ObjetPlan` entier — parce qu'aucune de ces trois fonctions ne lit une clef ni
+ * un nom. Ce n'est pas une facilite de test : c'est le test qui l'a montre, en refusant d'inventer
+ * une clef et un nom pour un objet dont on veut seulement connaitre la hauteur.
+ */
+export type ObjetMesurable = Pick<ObjetPlan, 'fonction' | 'type' | 'pts' | 'elevation' | 'construction'>;
 
 /**
  * Ce que l'appui apporte **au-dessus du sol fini**, en millimetres.
@@ -17,7 +27,7 @@ import { elevationParDefaut } from '../model/defaults.js';
  * structure. Un plot, lui, est pose sur le sol : toute sa hauteur de reglage compte. C'est ce qui
  * separe une terrasse sur vis, de plain-pied, d'une terrasse sur plots.
  */
-export function hauteurAppuiMm(c): number {
+export function hauteurAppuiMm(c: Construction): number {
   return estPlots(c) ? (c.hauteurPlot || 10) * 10 : (c.depassementVis || 0) * 10;
 }
 
@@ -30,7 +40,7 @@ export function hauteurAppuiMm(c): number {
  * L'empilement depend du mode d'appui : des plots **sans** solives portent directement les
  * lambourdes, il n'y a alors pas de solive dans la hauteur.
  */
-export function hauteurFinieMm(obj): number {
+export function hauteurFinieMm(obj: ObjetMesurable): number {
   const c = ensureConstruction(obj);
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const soliveMm = plotSimple ? 0 : dimsSection(c.soliveSection).h;
@@ -47,7 +57,7 @@ export function hauteurFinieMm(obj): number {
  * main, et a defaut on prend un ordre de grandeur par fonction, pour qu'un champ jamais touche
  * affiche quand meme quelque chose de plausible au premier essai (une maison n'est pas un massif).
  */
-export function elevationOf(o): number {
+export function elevationOf(o: ObjetMesurable): number {
   if (o.fonction === 'terrasse' && o.type === 'polygon' && o.pts && o.pts.length >= 3) {
     return hauteurFinieMm(o) / 1000;
   }

@@ -8,7 +8,10 @@
 // Les booleens passent par `!!` et les objets absents par `|| null` : le fichier de projet doit
 // avoir la meme forme quel que soit l'etat de la memoire, sinon deux enregistrements du meme plan
 // ne se comparent pas.
-export function serializeObjects(objs){
+import type { ObjetPlan, Mesure } from '../model/types.js';
+import type { ObjetSerialise } from '../model/creation.js';
+
+export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
   return objs.map(o=>{
     const out: Record<string, unknown> = {
       key:o.key, type:o.type, name:o.name,
@@ -52,7 +55,23 @@ export function serializeObjects(objs){
     return out;
   });
 }
-export function serializeMeasures(ms){
+/**
+ * Une cote telle qu'elle s'enregistre : ce qui la designe, pas la geometrie qu'on en recalcule a
+ * chaque rendu. Ecrit en alias de type et non en interface, pour rester assignable a `Mesure` —
+ * qui porte un index de champs libres, et qu'une interface ne satisfait jamais.
+ */
+export type MesureSerialisee = {
+  id: unknown;
+  refObjKey: string;
+  refSegIndex: number;
+  startEnd: string;
+  targetObjKey: string;
+  targetPtIndex: number;
+  show: boolean;
+  displayMode: string;
+};
+
+export function serializeMeasures(ms: Mesure[]): MesureSerialisee[] {
   return ms.map(m=>({
     id:m.id, refObjKey:m.refObjKey, refSegIndex:m.refSegIndex, startEnd:m.startEnd,
     targetObjKey:m.targetObjKey, targetPtIndex:m.targetPtIndex, show:!!m.show,

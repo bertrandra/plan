@@ -9,14 +9,60 @@ import { longueursBois, longueursDispo, longueursLambourde } from './bom.js';
 import { ensureConstruction } from './construction.js';
 import { longueurLameReelle } from './lames.js';
 import { dimsSection, porteeVisM, sectionLambourde } from './structure.js';
+import type { CouchesTerrasse } from './layers.js';
+import type { ProduitBarre } from './bom.js';
+import type { ObjetPlan, Segment } from '../model/types.js';
 
-export function optimiserDebitLames(runs, dispo, minReuseM, entraxeM, joints){
+/**
+ * Ce que devient une barre d'une longueur donnee : quatre sorts, et deux totaux de chutes.
+ *
+ * Les distinguer n'est pas cosmetique — c'est ce qui separe une chute de 2 m qui repart dans le pot
+ * d'un rebut de 6 cm. Les moyenner produirait un chiffre qui ne decrit ni l'un ni l'autre.
+ */
+export interface RolesLongueur {
+  /** Posee telle quelle. */
+  entiere: number;
+  /** Recoupee, avec une chute trop courte pour resservir. */
+  ajustee: number;
+  /** Recoupee, avec une chute qui repart au pot. */
+  recoupee: number;
+  /** Troncon intermediaire d'une travee a joints. */
+  troncon: number;
+  rebutMl: number;
+  potMl: number;
+}
+
+/** Une piece a prelever dans une barre : la longueur achetee, la longueur utile, et si elle finit la travee. */
+interface PieceDebit { L: number; u: number; finit: boolean }
+
+/** Le jeu de barres le moins cher couvrant une travee. */
+interface PlanDebit { cout: number; pieces: PieceDebit[] }
+
+/** Un debit calcule : ce qu'on achete, ce qu'on pose, ce qu'on jette, ce qu'il reste. */
+export interface Debit {
+  /** Nombre de barres achetees, par longueur. */
+  achats: Record<string, number>;
+  roles: Record<string, RolesLongueur>;
+  /** Metres reellement poses. */
+  reelMl: number;
+  achatMl: number;
+  perdueMl: number;
+  restantMl: number;
+  /** Les chutes reutilisables restantes, de la plus longue a la plus courte. */
+  pool: number[];
+  chuteMl: number;
+}
+
+export function optimiserDebitLames(
+  runs: number[], dispo: number[], minReuseM: number, entraxeM: number, joints: boolean
+): Debit {
   const tol = 1e-6;
-  const achats = {}, roles = {};
-  let pool = [], reelMl = 0, achatMl = 0, perdueMl = 0;
+  const achats: Record<string, number> = {}, roles: Record<string, RolesLongueur> = {};
+  let pool: number[] = [];
+  let reelMl = 0, achatMl = 0, perdueMl = 0;
   // Offcuts are tallied by where they end up, not lumped together: averaging a 2 m piece that
   // goes back in the pot with a 6 cm scrap produces a figure that describes neither.
-  const noteRole = (L, key, chute) => {
+  const noteRole = (L: number, key: 'entiere'|'ajustee'|'recoupee'|'troncon', chute: number) => {
     roles[L] = roles[L] || { entiere:0, ajustee:0, recoupee:0, troncon:0, rebutMl:0, potMl:0 };
     roles[L][key]++;
     const ch = chute || 0;
@@ -25,19 +71,19 @@ export function optimiserDebitLames(runs, dispo, minReuseM, entraxeM, joints){
   // Length usable from a board of L, covering `reste` of a run. A piece that does not finish
   // the run has to end on a support, so it is cut to a whole number of spacings; a board too
   // short to reach even one support cannot serve in a jointed run at all.
-  const utile = (L, reste) => {
+  const utile = (L: number, reste: number) => {
     if(L >= reste - tol) return reste;
     if(!joints || entraxeM <= 0) return L;
     const k = Math.floor((L + tol) / entraxeM);
     return k > 0 ? k * entraxeM : 0;
   };
   // Cheapest board set covering one run, memoised on the remaining length.
-  const memo = new Map();
-  function plan(R){
+  const memo = new Map<number, PlanDebit | null>();
+  function plan(R: number): PlanDebit | null {
     if(R <= tol) return { cout:0, pieces:[] };
     const key = Math.round(R*1e4);
     if(memo.has(key)) return memo.get(key);
-    let best = null;
+    let best: PlanDebit | null = null;
     for(const L of dispo){
       const u = utile(L, R);
       if(u <= tol) continue;
@@ -95,9 +141,22 @@ export function optimiserDebitLames(runs, dispo, minReuseM, entraxeM, joints){
 // while they share their section - same piece, same order - and split into their own group with
 // their own stock lengths and prices as soon as the section differs, because then they are a
 // different product and mixing the two would price and cut them wrong.
-export function computeDebitsBois(obj, layers){
+/** Un groupe de debit : un produit reellement achete, avec ses longueurs de stock et son prix. */
+export interface GroupeDebit {
+  /** Le produit achete — c'est lui qui designe le carnet de prix a lire. */
+  cle: ProduitBarre;
+  section: string;
+  titre: string;
+  /** Le champ de Construction qui porte les longueurs achetables de ce produit. */
+  champLongueurs: string;
+  /** Metres lineaires par famille de piece, pour dire d'ou vient le total. */
+  parts: Record<string, number>;
+  debit: Debit;
+}
+
+export function computeDebitsBois(obj: ObjetPlan, layers: CouchesTerrasse): GroupeDebit[] {
   const c = ensureConstruction(obj);
-  const ml = a => a.reduce((s,l)=>s+dist(l.a,l.b),0);
+  const ml = (a: Segment[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
   const secS = c.soliveSection, secL = sectionLambourde(c);
   const wS = dimsSection(secS).b/1000, wL = dimsSection(secL).b/1000;
   const separe = secL !== secS && layers.lambourdes.length > 0;
@@ -108,7 +167,7 @@ export function computeDebitsBois(obj, layers){
   // Same rule as the lames: a beam ending on an oblique edge is cut to its longest side. The
   // cadre follows the outline and is already mitred, so its own centreline is the right measure.
   const runsLamb = layers.lambourdes.map(s=>longueurLameReelle(s.a, s.b, wL, obj.pts));
-  const runsPorteur = [].concat(
+  const runsPorteur = ([] as number[]).concat(
     layers.cadre.map(s=>dist(s.a,s.b)),
     layers.solives.map(s=>longueurLameReelle(s.a, s.b, wS, obj.pts)),
     separe ? [] : runsLamb
@@ -117,7 +176,7 @@ export function computeDebitsBois(obj, layers){
   const roles = ['Cadre'];
   if(layers.solives.length) roles.push('solives');
   if(avecLamb) roles.push('lambourdes');
-  const groupes = [{
+  const groupes: GroupeDebit[] = [{
     cle:'bois', section:secS,
     titre: roles.join(', ') + ' (' + secS + ')',
     champLongueurs:'longueursBois',
@@ -136,7 +195,7 @@ export function computeDebitsBois(obj, layers){
   }
   return groupes;
 }
-export function computeDebitLames(obj, layers){
+export function computeDebitLames(obj: ObjetPlan, layers: CouchesTerrasse): Debit {
   const c = ensureConstruction(obj);
   const largeurLameM = (c.largeurLame||140)/1000;
   // Measured on the longest side of each board, so an angled end orders the piece that actually

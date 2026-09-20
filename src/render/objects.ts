@@ -16,32 +16,24 @@ import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
-import type { PtBrut } from '../model/types.js';
+import type { ObjetPlan } from '../model/types.js';
 import type { EtatScene } from '../geometry/vue.js';
 
-export interface ObjetPlan {
-  curve?: boolean;
-  center?: PtBrut;
-  r?: number;
-  locked?: boolean;
-  name?: string;
-  showName?: boolean;
-  showSegNames?: boolean;
-  showVertNames?: boolean;
-  showDims?: boolean;
-  showAngles?: boolean;
-  vertexNames?: string[];
-  segmentNames?: string[];
-  frozenVertices?: boolean[];
-  key: string;
-  type: string;
-  fill: string;
-  fillOpacity: number;
-  stroke: string;
-  fonction?: string;
-  width?: number;
-  pts?: PtBrut[];
-}
+/**
+ * Un objet du plan, tel que le rendu le suppose : posé, donc pourvu de sa forme et de ses couleurs.
+ *
+ * `ObjetPlan` (model/types.ts) laisse `type`, `fill`, `fillOpacity` et `stroke` facultatifs — c'est
+ * le chantier du durcissement (spec §12), pas de la migration : trois formes cohabitent sous une
+ * seule interface tant qu'un type discriminé ne les sépare pas. Ce module, lui, ne s'exécute que sur
+ * des objets déjà insérés dans le plan par `creation.ts` ou `normalisation.ts`, qui posent toujours
+ * ces quatre champs. `Required<Pick<...>>` dit cette garantie sans la dupliquer : le reste de la
+ * forme reste celui du modèle.
+ *
+ * Ce fichier déclarait auparavant sa propre interface `ObjetPlan`, homonyme et incompatible de celle
+ * du modèle — la même erreur que `render/measures.ts` et `render/parasolOverlay.ts` avaient déjà
+ * montrée pendant la phase 7.
+ */
+export type ObjetRendu = ObjetPlan & Required<Pick<ObjetPlan, 'type' | 'fill' | 'fillOpacity' | 'stroke'>>;
 
 export interface ContextePoignees {
   racine: SVGElement;
@@ -49,7 +41,7 @@ export interface ContextePoignees {
    * Double-clic sur un cote. L'appelant decide quoi en faire (inserer un point) : lui seul sait
    * si l'objet est selectionne et comment convertir des pixels en metres.
    */
-  surDoubleClicCote?: (obj: ObjetPlan, index: number, ev: MouseEvent) => void;
+  surDoubleClicCote?: (obj: ObjetRendu, index: number, ev: MouseEvent) => void;
 }
 
 /**
@@ -65,7 +57,7 @@ function titreInerte(el: SVGElement | null, texte: string): void {
 }
 
 
-export function creerDomObjet(racine: SVGElement, obj: ObjetPlan, scene: EtatScene): void {
+export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatScene): void {
   const v = vue(obj);
   if(obj.type==='polygon'){
     v.el = creerSvg('polygon');
@@ -124,7 +116,7 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetPlan, scene: EtatSce
   v.radiusHandle = null;
 }
 
-export function reconstruirePoignees(obj: ObjetPlan, ctx: ContextePoignees): void {
+export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): void {
   const v = vue(obj);
   const racine = ctx.racine;
   v.pointEls.forEach(e=>e.remove()); v.ptLabelEls.forEach(e=>e.remove());
@@ -184,11 +176,11 @@ export interface ContextePositionnement {
   masque: boolean;
   /** Fond orthophoto : la transparence du terrain est appliquee A L'AFFICHAGE, pas dans l'objet. */
   ortho: { actif: boolean; parcelleOpacite: number };
-  estTerrain: (obj: ObjetPlan) => boolean;
+  estTerrain: (obj: ObjetRendu) => boolean;
   /** Un pointage de cote/sommet est en cours : les poignees des AUTRES objets deviennent visibles. */
   pointageSommets: boolean;
   pointageCotes: boolean;
-  reconstruirePoignees: (obj: ObjetPlan) => void;
+  reconstruirePoignees: (obj: ObjetRendu) => void;
 }
 
 /**
@@ -198,7 +190,7 @@ export interface ContextePositionnement {
  * elements existants ce que disent l'objet, la scene et le contexte. C'est le corps de la boucle
  * de `render()`, sorti tel quel.
  */
-export function positionnerObjet(obj: ObjetPlan, ctx: ContextePositionnement): void {
+export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): void {
   const v = vue(obj);
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre

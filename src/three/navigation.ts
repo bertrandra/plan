@@ -9,7 +9,9 @@
 // celle-ci tourne sur `requestAnimationFrame`, que le navigateur met en pause des que l'onglet passe
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
-import { vue3d, glb } from './etat3d.js';
+import { vue3d, glb, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
+import type { PtBrut } from '../model/types.js';
+import type { ObjetMesurable } from '../engine/hauteurs.js';
 
 /** Hauteur des yeux au-dessus du platelage fini, en metres. */
 export const HAUTEUR_YEUX_M = 1.6;
@@ -31,7 +33,7 @@ export type Mode3D = 'orbit' | 'pan' | 'zoom';
  * terrasse courante : un point de vue n'appartient a aucune terrasse en particulier, donc rien ne
  * peut etre precalcule ni fige a l'avance.
  */
-export function cameraDepuisPointDeVue(vp, centroide: { x: number; y: number }) {
+export function cameraDepuisPointDeVue(vp: PointDeVue, centroide: { x: number; y: number }) {
   const ddx = vp.pts[1].x - vp.pts[0].x, ddy = vp.pts[1].y - vp.pts[0].y;
   const dl = Math.hypot(ddx, ddy) || 1;
   const rad = Math.atan2(ddy / dl, ddx / dl);
@@ -44,7 +46,7 @@ export function cameraDepuisPointDeVue(vp, centroide: { x: number; y: number }) 
 }
 
 /** Pose la camera d'une scene sur un point de vue, et rend. */
-function poserCamera(sc, vp, centroide: { x: number; y: number }) {
+function poserCamera(sc: SceneTroisBase, vp: PointDeVue, centroide: { x: number; y: number }) {
   const { position, cible } = cameraDepuisPointDeVue(vp, centroide);
   sc.camera.position.set(position.x, position.y, position.z);
   sc.controls.target.set(cible.x, cible.y, cible.z);
@@ -57,14 +59,14 @@ export interface ContexteNavigation {
   showToast: (message: string) => void;
   showErrBanner: (message: string) => void;
   /** Centroide d'un polygone du plan. */
-  centroid: (pts) => { x: number; y: number };
+  centroid: (pts: PtBrut[]) => { x: number; y: number };
   /** Hauteur finie d'une terrasse, en millimetres. */
-  hauteurFinieMm: (obj) => number;
+  hauteurFinieMm: (obj: ObjetMesurable) => number;
   /** Bascule en mode Terrasse, sous-onglet 3D — pour « aller au point de vue » depuis le plan. */
   ouvrirVue3d: () => void;
 }
 
-export function creerNavigation3d(etat, ctx: ContexteNavigation) {
+export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
   let vue3dPleinePage = false;
@@ -92,11 +94,14 @@ export function creerNavigation3d(etat, ctx: ContexteNavigation) {
   // pour cela, un seul doigt ne le peut pas nativement. D'ou ces trois ecouteurs, poses et retires
   // avec le mode, et la rotation et la translation coupees pendant ce temps pour que les deux
   // gestions ne se disputent pas le meme pointeur.
-  function onZoomDragDown(e): void {
+  function onZoomDragDown(e: PointerEvent): void {
     zoomDragActive = true; zoomDragLastY = e.clientY;
-    if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
+    // `target` est un `EventTarget` : il ne capture le pointeur que si c'est un element du
+    // document. Le test de presence etait deja la, il devient le garde.
+    const cible = e.target as Element | null;
+    if (cible && cible.setPointerCapture) cible.setPointerCapture(e.pointerId);
   }
-  function onZoomDragMove(e): void {
+  function onZoomDragMove(e: PointerEvent): void {
     if (!zoomDragActive) return;
     const dy = e.clientY - zoomDragLastY; zoomDragLastY = e.clientY;
     if (Math.abs(dy) < 0.5) return;
@@ -144,7 +149,7 @@ export function creerNavigation3d(etat, ctx: ContexteNavigation) {
    * renderer ni la camera ne suivent une resize CSS tout seuls — sans cet appel explicite, l'image
    * reste a l'ancienne taille, etiree ou bordee de bandes vides.
    */
-  function redimensionner(sc, idHote: string): void {
+  function redimensionner(sc: SceneTroisBase | null, idHote: string): void {
     if (!sc) return;
     const host = document.getElementById(idHote);
     const w = host.clientWidth || 600, h = host.clientHeight || 420;
@@ -208,7 +213,7 @@ export function creerNavigation3d(etat, ctx: ContexteNavigation) {
      * presence d'une scene — sinon on poserait la camera dans la scene **precedente**, celle d'une
      * autre terrasse, juste avant qu'elle soit remplacee.
      */
-    allerAuPointDeVue(vp) {
+    allerAuPointDeVue(vp: PointDeVue) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse');
       if (!terr) { ctx.showToast('Cree d\'abord une terrasse pour pouvoir y aller en Vue 3D.'); return; }
@@ -231,7 +236,7 @@ export function creerNavigation3d(etat, ctx: ContexteNavigation) {
      * active quand ce bouton est visible. La terrasse ne sert que de reference pour le centroide ;
      * le GLB affiche etant son export, les deux reperes coincident.
      */
-    allerAuPointDeVueGlb(vp) {
+    allerAuPointDeVueGlb(vp: PointDeVue) {
       if (!glb.scene) return;
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse');

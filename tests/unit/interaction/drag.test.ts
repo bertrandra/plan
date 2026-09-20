@@ -116,7 +116,7 @@ describe('appliquerGlisser', () => {
 
   describe('deplacement d un cercle', () => {
     it('deplace le centre et laisse le rayon tranquille', () => {
-      const obj = { type: 'circle', pts: [], center: { x: 5, y: 5 }, r: 1 };
+      const obj = { type: 'circle', pts: [] as { x: number; y: number }[], center: { x: 5, y: 5 }, r: 1 };
       const d = glisser({ type: 'circleMove', obj, startWorld: { x: 5, y: 5 }, startCenter: { x: 5, y: 5 } });
       appliquerGlisser(d, { x: 6, y: 7 }, contour);
       expect(obj.center).toEqual({ x: 6, y: 7 });
@@ -124,7 +124,7 @@ describe('appliquerGlisser', () => {
     });
 
     it('refuse quand le bord sortirait, meme si le centre reste dedans', () => {
-      const obj = { type: 'circle', pts: [], center: { x: 5, y: 5 }, r: 2 };
+      const obj = { type: 'circle', pts: [] as { x: number; y: number }[], center: { x: 5, y: 5 }, r: 2 };
       const d = glisser({ type: 'circleMove', obj, startWorld: { x: 5, y: 5 }, startCenter: { x: 5, y: 5 } });
       appliquerGlisser(d, { x: 9.5, y: 5 }, contour);
       expect(obj.center).toEqual({ x: 5, y: 5 });
@@ -133,19 +133,19 @@ describe('appliquerGlisser', () => {
 
   describe('rayon', () => {
     it('suit la distance du pointeur au centre', () => {
-      const obj = { type: 'circle', pts: [], center: { x: 5, y: 5 }, r: 1 };
+      const obj = { type: 'circle', pts: [] as { x: number; y: number }[], center: { x: 5, y: 5 }, r: 1 };
       appliquerGlisser(glisser({ type: 'radius', obj, startWorld: { x: 6, y: 5 } }), { x: 8, y: 5 }, contour);
       expect(obj.r).toBe(3);
     });
 
     it('ne descend pas sous un rayon rattrapable a la souris', () => {
-      const obj = { type: 'circle', pts: [], center: { x: 5, y: 5 }, r: 1 };
+      const obj = { type: 'circle', pts: [] as { x: number; y: number }[], center: { x: 5, y: 5 }, r: 1 };
       appliquerGlisser(glisser({ type: 'radius', obj, startWorld: { x: 6, y: 5 } }), { x: 5, y: 5 }, contour);
       expect(obj.r).toBe(0.15);
     });
 
     it('refuse de grandir au-dela du contour', () => {
-      const obj = { type: 'circle', pts: [], center: { x: 5, y: 5 }, r: 1 };
+      const obj = { type: 'circle', pts: [] as { x: number; y: number }[], center: { x: 5, y: 5 }, r: 1 };
       appliquerGlisser(glisser({ type: 'radius', obj, startWorld: { x: 6, y: 5 } }), { x: 14, y: 5 }, contour);
       expect(obj.r).toBe(1);
     });

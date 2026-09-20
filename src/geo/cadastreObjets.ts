@@ -13,7 +13,89 @@ import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
-export function objetsDepuisCadastre(importe){
+import type { PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
+
+/** Une parcelle cadastrale, telle que l'API Carto la rend. */
+export interface ParcelleCadastrale {
+  idu: string;
+  codeInsee?: string;
+  commune?: string;
+  section?: string;
+  numero?: string | number;
+  /** Contenance officielle, en m². `null` quand l'API n'en fournit pas (garde son sens dans le JSON exporte). */
+  contenance?: number | null;
+  /** Contour en degres WGS84, pour la fiche cadastrale (`cadastre.geometrieSource`). */
+  anneauDeg: number[][];
+  /** Contour en metres, repere local. */
+  pts: PtBrut[];
+  /** Distance a l'adresse recherchee, pour la fiche de la parcelle principale. */
+  distance?: number;
+}
+
+/** Un objet BD TOPO brut (batiment, haie, ou zone de vegetation), avant conversion en objet du plan. */
+export interface ObjetBdTopo {
+  id?: string;
+  props?: Record<string, unknown>;
+  pts: PtBrut[];
+  /** Les parcelles que cet objet touche, par IDU. */
+  parcelles: Iterable<string>;
+}
+
+/**
+ * Une suggestion d'adresse rendue par la BAN (`geo/apiIgn.ts::geocoderBAN`), et le point d'adresse
+ * qui a lance la recherche une fois choisi — le meme objet sert aux deux endroits.
+ *
+ * `genre` distingue le niveau de resolution (`'housenumber'`, `'street'`, `'municipality'`...) : une
+ * adresse resolue a la commune n'a pas la meme fiabilite qu'un numero de voirie precis, et l'appelant
+ * (`ui/cadastreDialog.ts`) le signale a l'utilisateur. `citycode` (code INSEE) filtre la recherche
+ * cadastrale a la bonne commune.
+ */
+export interface AdresseRecherchee {
+  label: string;
+  score: number;
+  genre: string;
+  citycode: string;
+  ville: string;
+  lon: number;
+  lat: number;
+}
+
+/** Le projecteur local monde <-> degres, tel que `geo/projection.ts` le rend. */
+export interface ProjecteurCadastre {
+  versDegres: (x: number, y: number) => { lat: number; lon: number };
+}
+
+/**
+ * Ce que l'import cadastral a rassemble, prêt a devenir des objets du plan.
+ *
+ * Le nom `importe` (et non `etat`) porte une histoire : dans le fichier d'origine, ce parametre et
+ * l'etat de l'application portaient le meme nom dans deux portees imbriquees — voir l'en-tete de ce
+ * fichier.
+ */
+export interface ImportCadastral {
+  principale: ParcelleCadastrale;
+  parcellesPropriete: () => ParcelleCadastrale[];
+  /** Ecrit par cette fonction : vrai si la fusion des parcelles de propriete a echoue. */
+  fusionEchouee?: boolean;
+  proj: ProjecteurCadastre;
+  /** Le contour a-t-il ete simplifie avant import ? */
+  simplifier?: boolean;
+  geo?: AdresseRecherchee | null;
+  /** Rayon de recherche des voisines, en metres. */
+  rayon?: number;
+  voisinesRetenues: () => ParcelleCadastrale[];
+  importerBatiments?: boolean;
+  batiments: ObjetBdTopo[];
+  importerHaies?: boolean;
+  haies: ObjetBdTopo[];
+  importerVegetation?: boolean;
+  vegetation: ObjetBdTopo[];
+  importerArbres?: boolean;
+  /** Zonage PLU de la parcelle principale, pose tel quel sur l'objet parcelle. */
+  plu?: ZonagePlu | null;
+}
+
+export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   const principale = importe.principale;
   // Origine (0,0) = sommet le plus au nord de la parcelle principale : c'est la convention du
   // plan (X+ = Est, Y+ = Nord), celle qu'annonce aussi le resume de l'onglet Export.
@@ -32,12 +114,12 @@ export function objetsDepuisCadastre(importe){
 
   let nord = ptsFusion[0];
   ptsFusion.forEach(p=>{ if(p.y > nord.y) nord = p; });
-  const dec = p => ({ x: Math.round((p.x - nord.x)*1000)/1000, y: Math.round((p.y - nord.y)*1000)/1000 });
+  const dec = (p: PtBrut) => ({ x: Math.round((p.x - nord.x)*1000)/1000, y: Math.round((p.y - nord.y)*1000)/1000 });
   const proj = importe.proj;
   const origineDeg = proj.versDegres(nord.x, nord.y);
   const recupereLe = new Date().toISOString();
 
-  function meta(c, principaleOuNon){
+  function meta(c: ParcelleCadastrale, principaleOuNon: boolean): Record<string, unknown> {
     // Type volontairement large : ce bloc de metadonnees s'enrichit champ par champ selon ce que
     // l'import a pu obtenir (adresse, rayon de recherche, parcelles fusionnees). Le decrire
     // exactement demanderait un type par combinaison ; ce sera le travail du durcissement (phase 7).
@@ -60,7 +142,9 @@ export function objetsDepuisCadastre(importe){
     }
     return info;
   }
-  function formeCommune(c, pts){
+  // `c` n'etait lu nulle part dans le corps (verifie a l'occasion du typage, spec §10.3) : les
+  // deux appels passaient une parcelle qui ne servait jamais. Parametre retire, appels ajustes.
+  function formeCommune(pts: PtBrut[]) {
     return {
       pts,
       vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
@@ -82,9 +166,9 @@ export function objetsDepuisCadastre(importe){
     }));
     metaParcelle.contenanceM2 = parcellesFusionnees.reduce((s,c)=>s + (c.contenance || 0), 0) || null;
   }
-  // Meme raison que pour `meta` : la liste melange des polygones, des chemins et des cercles, qui
-  // n'ont pas les memes champs. Le type des objets du plan est un chantier de la phase 7.
-  const objets: Record<string, unknown>[] = [Object.assign({
+  // La liste melange des polygones (parcelles, batiments, haies, vegetation) et des cercles
+  // (arbres estimes) : `ObjetPlan` les couvre tous, `key` et `name` etant ses seuls champs requis.
+  const objets: ObjetPlan[] = [Object.assign({
     key:'parcelle', type:'polygon',
     name:'Parcelle ' + parcellesFusionnees.map(libelleParcelle).join(' + '),
     fill:'#FBF3D9', fillOpacity:1, stroke:'#3B2E1F',
@@ -95,7 +179,7 @@ export function objetsDepuisCadastre(importe){
     longitude: Math.round(centreDeg.lon*1e6)/1e6,
     nomLieu: principale.commune || (importe.geo && importe.geo.ville) || '',
     cadastre: metaParcelle
-  }, formeCommune(principale, ptsP))];
+  }, formeCommune(ptsP))];
 
   const clesPrises = new Set(['parcelle']);
 
@@ -136,19 +220,26 @@ export function objetsDepuisCadastre(importe){
       // principale garde ses dimensions, les voisines sont un decor de reference.
       showDims:false,
       cadastre: meta(c, false)
-    }, formeCommune(c, pts)));
+    }, formeCommune(pts)));
   });
 
   // ---- BD TOPO : batiments, haies, vegetation, arbres estimes ----
   const parcellesRetenues = new Set([principale.idu].concat(importe.voisinesRetenues().map(c=>c.idu)));
-  const surParcellesRetenues = e => [...e.parcelles].some(idu=>parcellesRetenues.has(idu));
-  const cleUnique = base => {
+  const surParcellesRetenues = (e: ObjetBdTopo) => [...e.parcelles].some(idu=>parcellesRetenues.has(idu));
+  const cleUnique = (base: string): string => {
     let cle = base, n = 2;
     while(clesPrises.has(cle)){ cle = base + '-' + n; n++; }
     clesPrises.add(cle);
     return cle;
   };
-  const formeIgn = (pts, fonction, nom, fill, stroke, opts) => Object.assign({
+  /** Ce que chaque appel de `formeIgn` fixe en plus des champs communs a batiment/haie/vegetation. */
+  interface OptionsFormeIgn {
+    cle: string;
+    hauteur: number;
+    opacite?: number;
+    extra?: { locked?: boolean; bdtopo?: unknown };
+  }
+  const formeIgn = (pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn) => Object.assign({
     key: cleUnique(opts.cle), type:'polygon', name: nom,
     fill, fillOpacity: opts.opacite !== undefined ? opts.opacite : 0.9, stroke,
     pts,
@@ -212,8 +303,11 @@ export function objetsDepuisCadastre(importe){
   if(importe.importerVegetation){
     importe.vegetation.filter(surParcellesRetenues).forEach(v=>{
       const p = v.props || {};
-      const haut = hauteurVegetation(p.nature);
-      objets.push(formeIgn(v.pts.map(dec), 'massif', p.nature || 'Vegetation', '#A9BE8E', '#4A6B32', {
+      // `props` est un sac de champs BD TOPO non type : `nature` en sort `unknown`, sa vraie forme
+      // (chaine, ou absente) est connue de `hauteurVegetation` et de l'usage en nom d'objet ici.
+      const nature = p.nature as string | undefined;
+      const haut = hauteurVegetation(nature);
+      objets.push(formeIgn(v.pts.map(dec), 'massif', nature || 'Vegetation', '#A9BE8E', '#4A6B32', {
         cle: 'vegetation-' + (v.id || '').replace(/[^a-z0-9]+/gi,'-').toLowerCase(),
         hauteur: haut, opacite: 0.55,
         extra: { bdtopo: { couche:'BDTOPO_V3:zone_de_vegetation', id:v.id, cleabs:p.cleabs || null,
@@ -223,7 +317,7 @@ export function objetsDepuisCadastre(importe){
     });
     if(importe.importerArbres){
       importe.vegetation.filter(surParcellesRetenues).forEach(v=>{
-        const haut = hauteurVegetation(v.props && v.props.nature);
+        const haut = hauteurVegetation((v.props && v.props.nature) as string | undefined);
         arbresEstimes(v.pts, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES).forEach((a, i)=>{
           const c2 = dec(a);
           objets.push({

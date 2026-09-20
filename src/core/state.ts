@@ -14,6 +14,7 @@
 
 import { creerScene, type EtatScene } from '../geometry/vue.js';
 import { PileAnnulation } from './history.js';
+import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
 /** Ce que designe un survol ou une selection fine : un cote, un sommet, ou rien. */
 export interface Surbrillance {
@@ -31,8 +32,8 @@ export interface EtatParasol {
 
 export interface EtatApp {
   // Donnees persistees
-  objects: Record<string, unknown>[];
-  measures: Record<string, unknown>[];
+  objects: ObjetPlan[];
+  measures: Mesure[];
 
   // Selection et modes
   selectedKey: string | null;
@@ -58,18 +59,21 @@ export interface EtatApp {
 }
 
 export interface GraineProjet {
-  objects?: unknown[];
-  measures?: Record<string, unknown>[];
+  objects?: ObjetBrut[];
+  measures?: Mesure[];
 }
 
 /**
- * Construit l'etat initial. `normaliser` est passe en parametre parce que la normalisation des
- * objets vit encore dans legacy.ts : l'inverse creerait une dependance de core/ vers legacy, que
- * la regle de sens des dependances interdit (§3.3).
+ * Construit l'etat initial. `normaliser` est passe en parametre parce que c'est la racine de
+ * composition (`app/boot.ts`) qui decide de quoi normaliser : le faire ici creerait une dependance
+ * de core/ vers model/ et vers app/, que la regle de sens des dependances interdit (§3.3).
+ *
+ * Sa signature dit ce qu'il fait : il prend des objets dont rien n'est garanti et rend des objets
+ * du plan. C'est le seul endroit du programme ou passe cette frontiere.
  */
 export function creerEtat(
   seed: GraineProjet,
-  normaliser: (objs: unknown[]) => Record<string, unknown>[]
+  normaliser: (objs: ObjetBrut[]) => ObjetPlan[]
 ): EtatApp {
   const objects = normaliser(seed.objects || []);
   return {
@@ -80,7 +84,7 @@ export function creerEtat(
     selectedKey: objects.some((o) => o.key === 'terrasse')
       ? 'terrasse'
       : objects.length
-        ? (objects[0].key as string)
+        ? objects[0].key
         : null,
     highlight: { type: null, index: null },
     appMode: 'plan',

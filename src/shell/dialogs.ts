@@ -37,7 +37,9 @@ export function showToast(msg: string): void {
 // is the developer-facing red strip for uncaught JS errors). Offers a real retry instead of
 // silently swapping in demo data, so a temporary API hiccup never looks like project loss.
 export function showProjectLoadError(err: { reason?: string } | null): void {
-  const reasonLabels = {
+  // Indexe par une chaine venue du reseau : elle n'est pas garantie d'etre une des quatre clefs,
+  // d'ou le repli en dessous. Le type le dit au lieu de le sous-entendre.
+  const reasonLabels: Record<string, string> = {
     network: 'Le serveur du projet est injoignable (probleme reseau).',
     server: 'Le serveur du projet a repondu par une erreur.',
     notfound: 'Le projet demande est introuvable sur le serveur.',

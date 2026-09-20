@@ -235,7 +235,7 @@ describe('cartes d ombre et recherche de position', () => {
   });
 
   it('ne propose rien pour un parasol qui n est sur aucune terrasse', () => {
-    const perdu = { ...parasol, center: { x: 100, y: 100 }, terrasseLieeKey: null };
+    const perdu = { ...parasol, center: { x: 100, y: 100 }, terrasseLieeKey: null as string | null };
     expect(chercherMeilleurePositionParasol(perdu as never, ctx, [perdu] as never[])).toBeNull();
   });
 });

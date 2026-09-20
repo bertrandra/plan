@@ -17,9 +17,21 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
-export function normalizeObjects(raw) {
+import type { ObjetBrut } from './types.js';
+
+/**
+ * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
+ * instantane d'annulation, fait d'`ObjetPlan` complets, ressort en `ObjetPlan` sans avoir a etre
+ * reaffirme — et **`& ObjetBrut`** parce que des champs apparaissent, ceux que la fonction pose.
+ * Rendre `T` seul serait faux dans l'autre sens : on ne pourrait pas lire les noms de sommets qui
+ * viennent d'etre crees.
+ *
+ * Le `as` final dit ce que le compilateur ne sait pas prouver a travers un generique : le clone
+ * porte au moins les champs de la source, puisqu'il commence par la copier.
+ */
+export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)[] {
   return raw.map(o => {
-    const c = { ...o };
+    const c: ObjetBrut = { ...o };
     if (c.type === 'circle') {
       c.center = { x: c.center.x, y: c.center.y };
     } else {
@@ -34,6 +46,6 @@ export function normalizeObjects(raw) {
     if (c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
-    return c;
+    return c as T & ObjetBrut;
   });
 }

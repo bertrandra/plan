@@ -6,11 +6,14 @@
 // d'echange plutot qu'une sauvegarde privee.
 
 import { slugFichier, horodatageFichier } from '../util/format.js';
+import type { ObjetPlan, Mesure } from '../model/types.js';
+import type { ObjetSerialise } from '../model/creation.js';
+import type { EtatApp } from '../core/state.js';
 
 /** Ce qu'un export doit pouvoir demander au reste du programme. */
 export interface ContexteExportProjet {
-  serializeObjects: (objets) => Record<string, unknown>[];
-  serializeMeasures: (mesures) => Record<string, unknown>[];
+  serializeObjects: (objets: ObjetPlan[]) => ObjetSerialise[];
+  serializeMeasures: (mesures: Mesure[]) => ObjetSerialise[];
   telechargerTexte: (nom: string, texte: string, mime: string) => void;
   showToast: (message: string) => void;
   appVersion: string;
@@ -33,7 +36,7 @@ export interface ContexteExportProjet {
  * c'est lui qui cale la course du soleil. La cloture au contraire decrit la limite de propriete :
  * elle part avec la parcelle, et c'est voulu.
  */
-export function filtrerSansParcelle(objsSer, msSer) {
+export function filtrerSansParcelle(objsSer: ObjetSerialise[], msSer: ObjetSerialise[]) {
   const retirees = new Set(objsSer.filter(o => o.key === 'parcelle' || o.fonction === 'terrain').map(o => o.key));
   const objets = objsSer.filter(o => !retirees.has(o.key)).map(o =>
     (o.terrasseLieeKey && retirees.has(o.terrasseLieeKey)) ? { ...o, terrasseLieeKey: null } : o
@@ -55,7 +58,7 @@ export function filtrerSansParcelle(objsSer, msSer) {
  * ils expliquent, deux ans plus tard, un fichier qui se comporte autrement que prevu
  * (RELEASE.md §5.2).
  */
-export function construireFichierProjet(objets, mesures, sansParcelle: boolean, ctx: ContexteExportProjet) {
+export function construireFichierProjet(objets: ObjetSerialise[], mesures: ObjetSerialise[], sansParcelle: boolean, ctx: ContexteExportProjet) {
   const maintenant = (ctx.maintenant || (() => new Date().toISOString()))();
   const src = ctx.metaProjet() || {};
   const meta: Record<string, unknown> = {
@@ -84,7 +87,7 @@ export function construireFichierProjet(objets, mesures, sansParcelle: boolean, 
 }
 
 /** Assemble le fichier, le propose au telechargement, et dit ce qu'il contient. */
-export function exporterProjetJSON(etat, sansParcelle: boolean, ctx: ContexteExportProjet): void {
+export function exporterProjetJSON(etat: EtatApp, sansParcelle: boolean, ctx: ContexteExportProjet): void {
   const fichier = construireFichierProjet(
     ctx.serializeObjects(etat.objects), ctx.serializeMeasures(etat.measures), sansParcelle, ctx
   );

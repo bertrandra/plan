@@ -6,8 +6,8 @@
 // entierement dedans. Rien n'est tronque ni ramene au bord - un objet qui s'arreterait au contour
 // en changeant de forme mentirait sur ce qu'on vient de dessiner.
 //
-// Le cablage des evenements (capture du pointeur, choix de la cible, appels a render) reste dans
-// legacy.ts : ici, seul le calcul.
+// Le cablage des evenements (capture du pointeur, choix de la cible, appels a render) vit dans
+// interaction/pointeur.ts : ici, seul le calcul.
 
 import { pointInPolygon, dist } from '../geometry/basic.js';
 import { estRectangle, rectangleDepuisCoin, rectangleDepuisCote } from '../geometry/rect.js';

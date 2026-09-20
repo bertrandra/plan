@@ -3,8 +3,8 @@
 // Formules NOAA simplifiees, deplacees depuis legacy.ts sans retouche : declinaison depuis le jour
 // de l'annee, equation du temps, puis hauteur et azimut depuis la latitude et l'angle horaire.
 //
-// `lieuActuel()` reste dans legacy.ts : elle lit la parcelle courante, donc l'etat du plan. Ce
-// n'est pas une feuille pure au sens de la phase 2.
+// `lieuActuel()` reste dans la racine de composition (app/boot.ts) : elle lit la parcelle courante,
+// donc l'etat du plan. Ce n'est pas une feuille pure au sens de la phase 2.
 
 /** Hauteur et azimut du soleil, en radians. Azimut : 0 = Nord, 90 = Est (sens horaire). */
 export interface PositionSoleil {
@@ -17,7 +17,7 @@ export interface PositionSoleil {
 // faire confiance au fuseau de l'ordinateur qui fait tourner l'appli (qui peut etre ailleurs que
 // la France, alors que Le Vesinet, lui, ne bouge pas).
 export function decalageFuseauFrance(anneeRef: number, tsUTC: number): number {
-  function dernierDimancheUTC(mois){ // mois 0-index ; renvoie 01:00 UTC du dernier dimanche de ce mois
+  function dernierDimancheUTC(mois: number): number { // mois 0-index ; renvoie 01:00 UTC du dernier dimanche de ce mois
     const d = new Date(Date.UTC(anneeRef, mois+1, 1, 1, 0, 0));
     d.setUTCDate(d.getUTCDate() - (d.getUTCDay()||7));
     return d.getTime();

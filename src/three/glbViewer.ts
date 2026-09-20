@@ -8,11 +8,37 @@
 // materiaux ni les textures deja televersees sur la carte graphique. Sans le parcours explicite qui
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
-import { vue3d, glb, chargement, type SceneTrois } from './etat3d.js';
+import type * as THREE_NS from 'three';
+import { vue3d, glb, chargement } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded } from './chargeurs.js';
+import { estMesh, estLumiere, estTexture } from './gardes.js';
+
+/**
+ * Le point de vue a rendre a la scene rechargee : ou est la camera, et ce qu'elle regarde.
+ *
+ * `null` quand il n'y a pas encore de scene — donc rien a conserver, et la visionneuse repart de
+ * son cadrage par defaut.
+ */
+export type CameraConservee = { pos: THREE_NS.Vector3; cible: THREE_NS.Vector3 } | null;
+
+/**
+ * La taille de l'hote du canevas, **mesuree avant** de cacher le contenu.
+ *
+ * Elle est passee de main en main plutot que relue, et c'est le point du module : un ancetre en
+ * `display:none` ecrase `clientWidth`/`clientHeight` a 0 pour tous ses descendants.
+ */
+export interface TailleHote { w: number; h: number }
+
+/** Ce que la visionneuse a besoin de demander au reste du programme. */
+export interface ContexteVisionneuseGlb {
+  /** Le lieu du plan, pour la course du soleil. */
+  lieuActuel: () => { latitude: number; longitude: number };
+  /** La liste deroulante de choix de terrasse de la Vue 3D, a redessiner. */
+  renderVue3DSelect: () => void;
+}
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
@@ -30,12 +56,16 @@ function damierGlbViewer(){
   return tex;
 }
 
-export function attendreTexturesPretes(scene, delaiMaxMs){
-  const textures = new Set<SceneTrois>();
+// Le `Set` etait declare `Set<SceneTrois>` — un ensemble de *scenes*, alors qu'il ne contient que
+// les cartes de couleur des materiaux. L'annotation ne genait personne tant que `SceneTrois` valait
+// `Record<string, any>` ; elle devient fausse des qu'on la lit vraiment.
+export function attendreTexturesPretes(scene: THREE_NS.Object3D, delaiMaxMs: number): Promise<void> {
+  const textures = new Set<THREE_NS.Texture>();
   scene.traverse(o=>{
-    if(o.isMesh){
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{
-        if(m && m.map) textures.add(m.map);
+    if(estMesh(o)){
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m: THREE_NS.Material)=>{
+        const carte = (m as THREE_NS.Material & { map?: THREE_NS.Texture | null }).map;
+        if(m && carte) textures.add(carte);
       });
     }
   });
@@ -50,7 +80,7 @@ export function attendreTexturesPretes(scene, delaiMaxMs){
   });
 }
 
-export function ensureThreeLoaded(cb){
+export function ensureThreeLoaded(cb: () => void): void {
   if(chargement.three && THREE && THREE.OrbitControls){ cb(); return; }
   const s1 = document.createElement('script');
   s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
@@ -65,7 +95,7 @@ export function ensureThreeLoaded(cb){
   document.head.appendChild(s1);
 }
 
-export function ensureGLTFExporterLoaded(cb){
+export function ensureGLTFExporterLoaded(cb: () => void): void {
   if(chargement.exporteurGltf && THREE && THREE.GLTFExporter){ cb(); return; }
   const s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js';
@@ -74,15 +104,25 @@ export function ensureGLTFExporterLoaded(cb){
   document.head.appendChild(s);
 }
 
-export function disposeThreeSceneResources(scene){
+export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefined): void {
   if(!scene) return;
   scene.traverse(obj=>{
-    if(obj.geometry) obj.geometry.dispose();
-    const materials = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
+    // `geometry` et `material` appartiennent a Mesh, Line et Points — trois soeurs sans ancetre
+    // commun qui les porte. Le code teste la propriete plutot que la sous-classe, et c'est
+    // volontaire : il doit tout liberer, quelle que soit la forme. Le type dit donc la meme chose.
+    const porteur = obj as THREE_NS.Object3D & {
+      geometry?: THREE_NS.BufferGeometry;
+      material?: THREE_NS.Material | THREE_NS.Material[];
+    };
+    if(porteur.geometry) porteur.geometry.dispose();
+    const materials = Array.isArray(porteur.material) ? porteur.material : (porteur.material ? [porteur.material] : []);
     materials.forEach(mat=>{
+      // Parcours a l'aveugle des proprietes du materiau : une texture peut etre posee sur `map`,
+      // `normalMap`, `roughnessMap`... et la liste depend du type de materiau. Chercher celles qui
+      // sont des textures est plus sur que d'enumerer les noms connus.
       Object.keys(mat).forEach(key=>{
-        const v = mat[key];
-        if(v && v.isTexture) v.dispose();
+        const v = (mat as unknown as Record<string, unknown>)[key];
+        if(estTexture(v)) v.dispose();
       });
       mat.dispose();
     });
@@ -90,7 +130,7 @@ export function disposeThreeSceneResources(scene){
   // scene.background can itself be a texture (the GLB viewer's "damier" checkerboard uses a
   // CanvasTexture) rather than a plain THREE.Color - traverse() never visits it since it isn't
   // part of the object graph, so it needs disposing separately or it leaks like any other texture.
-  if(scene.background && scene.background.isTexture) scene.background.dispose();
+  if(estTexture(scene.background)) scene.background.dispose();
 }
 
 export function disposeThreeScene(){
@@ -174,7 +214,7 @@ export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
  * ecrase `clientWidth`/`clientHeight` a 0 pour tous ses descendants, et la scene retomberait sur sa
  * taille par defaut, meme en plein ecran.
  */
-export function rafraichirVisionneuseGlb(camaraAConserver, ctx): void {
+export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx: ContexteVisionneuseGlb): void {
   const empty = document.getElementById('glbViewerEmpty');
   const content = document.getElementById('glbViewerContent');
   const loading = document.getElementById('glbViewerLoading');
@@ -194,13 +234,13 @@ export function rafraichirVisionneuseGlb(camaraAConserver, ctx): void {
 
 // Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : les deux vues se reglent
 // separement, mais elles eclairent avec le meme soleil.
-export function appliquerLumiereGlb(ctx){
+export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
   if(!glb.scene) return;
   reglerSoleil(glb.scene, glb, ctx.lieuActuel());
   glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
 }
 
-export function buildGlbViewerScene(camaraAConserver, tailleHost, ctx){
+export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHost: TailleHote | null, ctx: ContexteVisionneuseGlb): void {
   disposeGlbViewerScene();
   if(!glb.dernierExporte) return;
   const host = document.getElementById('glbViewerCanvasHost');
@@ -220,8 +260,8 @@ export function buildGlbViewerScene(camaraAConserver, tailleHost, ctx){
     // Rechargees telles quelles, elles s'ajoutent a celles de la visionneuse SANS etre pilotees par
     // le curseur date/heure : a minuit, ce soleil fige continuait d'eclairer la scene. On les
     // retire donc a l'import - ici l'eclairage doit venir uniquement des lumieres reglables.
-    const lumieresDuFichier = [];
-    gltf.scene.traverse(o=>{ if(o.isLight) lumieresDuFichier.push(o); });
+    const lumieresDuFichier: THREE_NS.Object3D[] = [];
+    gltf.scene.traverse(o=>{ if(estLumiere(o)) lumieresDuFichier.push(o); });
     lumieresDuFichier.forEach(l=>{ if(l.parent) l.parent.remove(l); });
     scene.add(gltf.scene);
 
@@ -279,8 +319,12 @@ export function buildGlbViewerScene(camaraAConserver, tailleHost, ctx){
     scene.add(dirFill);
 
     scene.traverse(o=>{
-      if(o.isMesh){
-        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{ if(m) m.wireframe = glb.filaire; });
+      if(estMesh(o)){
+        // `wireframe` appartient aux materiaux de maillage (MeshStandardMaterial et compagnie),
+        // pas au tronc commun `Material` - un .glb ne rend que les premiers, mais le code ne
+        // verifie pas la sous-classe et il n'y a pas de raison de le rendre plus strict ici :
+        // poser la propriete sur un materiau qui ne la connait pas est sans effet.
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m: THREE_NS.Material)=>{ if(m) (m as THREE_NS.Material & { wireframe?: boolean }).wireframe = glb.filaire; });
         if(glb.ombres){ o.castShadow = true; o.receiveShadow = true; }
       }
     });

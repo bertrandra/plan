@@ -16,12 +16,51 @@
 //   double-tap objet ne se declenchait jamais au doigt. On l'accepte donc quel que soit l'element
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
-import { appliquerGlisser } from './drag.js';
+import { appliquerGlisser, type GlisserEnCours } from './drag.js';
+import type { DebutPincement } from './navigation.js';
 import { contourDeContrainte } from './editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navigation.js';
 import { estRectangle } from '../geometry/rect.js';
 import { mesure } from './outilMesure.js';
 import { definirCibleAlignement } from './outilAlignement.js';
+import type { EtatApp } from '../core/state.js';
+import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
+
+/**
+ * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
+ * doigt), qui n'a ni objet ni position monde — il ecrit dans la scene, pas dans le plan.
+ *
+ * `GlisserEnCours` admet `'pan'` dans son propre champ `type` (une imprecision restee de son
+ * ecriture initiale), ce qui rendrait le discriminant ambigu ici : sans l'intersection ci-dessous,
+ * `activeDrag.type === 'pan'` ne suffirait pas a exclure la branche `GlisserEnCours` du narrowing,
+ * et `startOrigin`/`startScreen` resteraient inaccessibles apres le test.
+ */
+type Geste =
+  | (GlisserEnCours & { type: 'shapeMove' | 'circleMove' | 'point' | 'edge' | 'radius' })
+  | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut };
+
+/** Le dernier clic sur un cote, un sommet, ou un objet — pour reconnaitre un double-tap. */
+interface DernierClic { key: string | null; index: number | null; time: number }
+interface DernierClicObjet { key: string | null; time: number; x: number; y: number }
+
+/** Ce que le cablage des evenements de pointeur demande au reste de l'application. */
+/**
+ * Un objet a coins : ce que `drag.ts` et `estRectangle` demandent (`pts` garanti), quand `ObjetPlan`
+ * le laisse facultatif. Chaque branche ci-dessous ne l'utilise qu'apres avoir teste `obj.type`, donc
+ * la garantie est reelle a cet endroit — seul le type ne le sait pas encore.
+ */
+type ObjetAPoints = ObjetPlan & { pts: PtBrut[] };
+
+export interface ContextePointeur {
+  toWorld: (p: PtEcran) => PtBrut;
+  render: () => void;
+  renderAttrTable: () => void;
+  rebuildMeasurePanel: () => void;
+  rebuildSelector: () => void;
+  pushHistory: () => void;
+  sendObjectBackward: (obj: ObjetPlan) => void;
+  insertPointOnSegment: (obj: ObjetPlan, segIndex: number, clickWorld: PtBrut) => void;
+}
 
 /**
  * Branche tous les evenements de pointeur sur le plan.
@@ -29,19 +68,19 @@ import { definirCibleAlignement } from './outilAlignement.js';
  * svg recoit les gestes qui visent un objet, stage ceux qui visent la vue (multi-touch) : c'est
  * la meme distinction que dans le DOM, et elle evite qu'un pincement soit pris pour un glisser.
  */
-export function brancherPointeur(svg, stage, etat, ctx){
-let activeDrag = null;
-let lastEdgeClick = {key:null, index:null, time:0};
-let lastPointClick = {key:null, index:null, time:0};
-let lastObjClick = {key:null, time:0, x:0, y:0};
-function worldFromEvent(e){
+export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: EtatApp, ctx: ContextePointeur): void {
+let activeDrag: Geste | null = null;
+let lastEdgeClick: DernierClic = {key:null, index:null, time:0};
+let lastPointClick: DernierClic = {key:null, index:null, time:0};
+let lastObjClick: DernierClicObjet = {key:null, time:0, x:0, y:0};
+function worldFromEvent(e: PointerEvent): PtBrut {
   const rect = stage.getBoundingClientRect();
   return ctx.toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
 }
-function objByKey(key){ return etat.objects.find(o=>o.key===key); }
+function objByKey(key: string | null): ObjetPlan | undefined { return etat.objects.find(o=>o.key===key); }
 
 svg.addEventListener('pointerdown', e=>{
-  const ds = e.target.dataset;
+  const ds = (e.target as HTMLElement).dataset;
   // Mode Terrasse is read-only over the plan geometry (construction config lives in its
   // own panel): block shape/point/edge/radius interaction, but let a blank-background
   // pointerdown fall through so pan still works.
@@ -146,16 +185,21 @@ svg.addEventListener('pointerdown', e=>{
     const obj = objByKey(key);
     if(obj.locked) return; // locked: selectable/viewable but not movable
     etat.highlight = {type:null, index:null};
-    const rect0 = stage.getBoundingClientRect();
     ctx.pushHistory();
     if(obj.type==='circle'){
-      activeDrag = {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, startScreen:{x:e.clientX-rect0.left,y:e.clientY-rect0.top}, moved:false};
+      // `GlisserEnCours.obj` exige `pts`, meme pour un cercle qui n'en a pas : imprecision
+      // preexistante de drag.ts (§10.3), non touchee ici pour ne pas deplacer le probleme.
+      //
+      // `startScreen` n'a pas suivi : ce champ n'etait lu nulle part pour ces deux gestes (seul
+      // le pan le lit, plus bas) - verifie a l'occasion du typage et retire (spec §10.3).
+      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center}, moved:false};
     } else {
-      activeDrag = {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(p=>({...p})), startScreen:{x:e.clientX-rect0.left,y:e.clientY-rect0.top}, moved:false};
+      const objP = obj as ObjetAPoints;
+      activeDrag = {type:'shapeMove', obj: objP, startWorld:w, startPts: objP.pts.map(p=>({...p})), moved:false};
     }
   } else if(ds.role === 'point'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key); const idx=parseInt(ds.index,10);
+    const obj = objByKey(ds.key) as ObjetAPoints; const idx=parseInt(ds.index,10);
     if(obj.locked) return;
     const nowTp = Date.now();
     if(lastPointClick.key===ds.key && lastPointClick.index===idx && (nowTp-lastPointClick.time)<400){
@@ -175,7 +219,7 @@ svg.addEventListener('pointerdown', e=>{
     activeDrag = {type:'point', obj, idx, startWorld:w, startPt:{...obj.pts[idx]}};
   } else if(ds.role === 'edge'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key); const i=parseInt(ds.index,10); const n=obj.pts.length; const j=(i+1)%n;
+    const obj = objByKey(ds.key) as ObjetAPoints; const i=parseInt(ds.index,10); const n=obj.pts.length; const j=(i+1)%n;
     if(obj.locked) return;
     const nowT = Date.now();
     if(lastEdgeClick.key===ds.key && lastEdgeClick.index===i && (nowT-lastEdgeClick.time)<400){
@@ -193,7 +237,7 @@ svg.addEventListener('pointerdown', e=>{
     activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...obj.pts[i]}, startB:{...obj.pts[j]}};
   } else if(ds.role === 'radius'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key);
+    const obj = objByKey(ds.key) as ObjetAPoints;
     if(obj.locked) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
@@ -243,9 +287,10 @@ window.addEventListener('pointercancel', ()=>{ activeDrag=null; });
 // Skip this for real controls living inside #stage (e.g. #fitBtn): preventDefault()
 // on a touch event suppresses the synthetic click that would normally follow on iOS,
 // which otherwise makes those buttons silently do nothing on iPhone/iPad.
-stage.addEventListener('touchstart', e=>{ if(e.target.closest('button')) return; e.preventDefault(); }, {passive:false});
-stage.addEventListener('touchmove', e=>{ if(e.target.closest('button')) return; e.preventDefault(); }, {passive:false});
-stage.addEventListener('touchend', e=>{ if(e.target.closest('button')) return; e.preventDefault(); }, {passive:false});
+const cibleUnBouton = (e: TouchEvent) => (e.target as HTMLElement).closest('button');
+stage.addEventListener('touchstart', e=>{ if(cibleUnBouton(e)) return; e.preventDefault(); }, {passive:false});
+stage.addEventListener('touchmove', e=>{ if(cibleUnBouton(e)) return; e.preventDefault(); }, {passive:false});
+stage.addEventListener('touchend', e=>{ if(cibleUnBouton(e)) return; e.preventDefault(); }, {passive:false});
 
 // Le calcul du zoom vit dans interaction/navigation.ts ; ici, seul le cablage.
 svg.addEventListener('wheel', e=>{
@@ -255,9 +300,13 @@ svg.addEventListener('wheel', e=>{
   ctx.render();
 }, {passive:false});
 
-const activePointers = new Map();
-let pinchState=null, panState=null;
-function stageRel(e){ const r=stage.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+/** Le point de depart d'un pan a trois doigts : la moyenne des positions, et l'origine de la scene. */
+interface DebutPan { avg0: PtEcran; origin0: PtEcran }
+
+const activePointers = new Map<number, PtEcran>();
+let pinchState: DebutPincement | null = null;
+let panState: DebutPan | null = null;
+function stageRel(e: PointerEvent): PtEcran { const r=stage.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 // midOf vit dans interaction/navigation.ts sous le nom milieuDe.
 stage.addEventListener('pointerdown', e=>{
   activePointers.set(e.pointerId, stageRel(e));
@@ -288,7 +337,7 @@ window.addEventListener('pointermove', e=>{
     ctx.render();
   }
 });
-function clearMulti(e){
+function clearMulti(e: PointerEvent): void {
   activePointers.delete(e.pointerId);
   if(activePointers.size<2) pinchState=null;
   if(activePointers.size<3) panState=null;

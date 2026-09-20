@@ -6,8 +6,12 @@
 // herite sans migration.
 
 import { LIEU_DEFAUT } from './defaults.js';
+import type { ObjetPlan } from './types.js';
 
 export interface Lieu { nom: string; latitude: number; longitude: number }
+
+/** Ce qu'il faut pour porter un lieu : trois champs, que la parcelle a et que les autres objets ignorent. */
+export type PorteurDeLieu = Pick<ObjetPlan, 'latitude' | 'longitude' | 'nomLieu'>;
 
 /**
  * Le lieu de la parcelle donnee, ou le lieu par defaut s'il n'y a pas de parcelle.
@@ -16,7 +20,7 @@ export interface Lieu { nom: string; latitude: number; longitude: number }
  * ancien afficherait le lieu par defaut sans jamais l'enregistrer, et le perdrait a chaque
  * reouverture.
  */
-export function lieuDeParcelle(parcelle): Lieu {
+export function lieuDeParcelle(parcelle: PorteurDeLieu | null | undefined): Lieu {
   if (!parcelle) return LIEU_DEFAUT;
   if (parcelle.latitude === undefined || parcelle.latitude === null) parcelle.latitude = LIEU_DEFAUT.latitude;
   if (parcelle.longitude === undefined || parcelle.longitude === null) parcelle.longitude = LIEU_DEFAUT.longitude;
