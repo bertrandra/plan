@@ -26,6 +26,19 @@ export interface ContexteOnglets {
 /** Ce que les onglets lisent et ecrivent : quel onglet est actif. */
 export interface EtatOnglets { panelTab: string }
 
+/** Montre un onglet et rafraichit ce qu'il doit : ce que fait un clic, disponible par programme. */
+export function activerOnglet(key: string, etat: EtatOnglets, ctx: ContexteOnglets): void {
+  etat.panelTab = key;
+  ONGLETS.forEach(([k, , panneau]) => {
+    document.getElementById(panneau)!.style.display = (k === key) ? '' : 'none';
+  });
+  if (key === 'mesure') { ctx.rebuildMeasurePanel(); ctx.renderMeasureResults(); }
+  if (key === 'plu') ctx.renderPanneauPlu();
+  if (key === 'export') ctx.construireListeDossier();
+  // Se reconstruit pour se remettre en surbrillance : l'onglet actif est lu depuis `etat`.
+  rebuildPanelTabs(etat, ctx);
+}
+
 export function rebuildPanelTabs(etat: EtatOnglets, ctx: ContexteOnglets): void {
   const div = document.getElementById('panelTabs')!;
   div.innerHTML = '';
@@ -33,17 +46,7 @@ export function rebuildPanelTabs(etat: EtatOnglets, ctx: ContexteOnglets): void 
     const b = document.createElement('button');
     b.className = 'panelTabBtn' + (etat.panelTab === key ? ' active' : '');
     b.textContent = label;
-    b.addEventListener('click', () => {
-      etat.panelTab = key;
-      ONGLETS.forEach(([k, , panneau]) => {
-        document.getElementById(panneau)!.style.display = (k === key) ? '' : 'none';
-      });
-      if (key === 'mesure') { ctx.rebuildMeasurePanel(); ctx.renderMeasureResults(); }
-      if (key === 'plu') ctx.renderPanneauPlu();
-      if (key === 'export') ctx.construireListeDossier();
-      // Se reconstruit pour se remettre en surbrillance : l'onglet actif est lu depuis `etat`.
-      rebuildPanelTabs(etat, ctx);
-    });
+    b.addEventListener('click', () => activerOnglet(key, etat, ctx));
     div.appendChild(b);
   });
 }

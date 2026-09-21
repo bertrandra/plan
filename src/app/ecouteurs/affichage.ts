@@ -26,13 +26,19 @@ export interface ContexteAffichage {
 export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
-  el('chkNorth').addEventListener('change', e => {
-    a.etat.showNorth = (e.target as HTMLInputElement).checked;
+  // Chaque bascule est une commande qui inverse l'etat ; la case du panneau et le menu Affichage de
+  // la barre d'application (zones/) l'executent tous deux. Une case est tenue en accord avec l'etat
+  // par `syncBasculeVoisinage` / `syncControlesOrtho`, donc l'inverser revient a suivre la case.
+  cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', executer: () => {
+    a.etat.showNorth = !a.etat.showNorth;
+    el('chkNorth').checked = a.etat.showNorth;
     a.render();
-  });
+  } });
+  el('chkNorth').addEventListener('change', () => cmd.executer('affichage.nord'));
 
-  el('chkVoisinage').addEventListener('change', function () {
-    a.etat.voisinageVisible = this.checked;
+  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', executer: () => {
+    a.etat.voisinageVisible = !a.etat.voisinageVisible;
+    el('chkVoisinage').checked = a.etat.voisinageVisible;
     // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
     // parcelle, ou a defaut sur le premier objet reste visible.
     if (!a.etat.voisinageVisible) {
@@ -49,9 +55,10 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     // La 3D batit sa scene a partir des objets visibles : il faut la reconstruire, pas seulement
     // la redessiner.
     if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
-  });
+  } });
+  el('chkVoisinage').addEventListener('change', () => cmd.executer('affichage.voisinage'));
 
-  cmd.bouton('gridBtn', { id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
     ctx.syncBasculeGrille();
     ctx.enregistrerAffichage();
@@ -60,9 +67,12 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
   // — c'est elle qui redessine quand elle a fini.
-  el('chkOrtho').addEventListener('change', e => {
-    void basculerOrthophoto((e.target as HTMLInputElement).checked, ctx.ctxOrtho());
-  });
+  cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', executer: () => {
+    const actif = !ortho.actif;
+    el('chkOrtho').checked = actif;
+    void basculerOrthophoto(actif, ctx.ctxOrtho());
+  } });
+  el('chkOrtho').addEventListener('change', () => cmd.executer('affichage.orthophoto'));
 
   el('orthoOpacite').addEventListener('input', function () {
     ortho.opacite = parseInt(this.value, 10) / 100;

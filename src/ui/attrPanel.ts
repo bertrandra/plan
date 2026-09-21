@@ -15,7 +15,6 @@ import { nearestSegmentIndex } from '../geometry/segments.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import { cibleAlignement, type CoteDesigne } from '../interaction/outilAlignement.js';
 import type { Pointage } from '../interaction/outilMesure.js';
-import { el } from '../shell/dom.js';
 import { formatHeureMin } from '../util/format.js';
 import { showToast } from '../shell/dialogs.js';
 import { ouvrirSelecteurTexture } from './texturePicker.js';
@@ -62,13 +61,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
   const tabsDiv = document.getElementById('attrTabs')!;
   const tbl = document.getElementById('attrTable')!;
 
-  const delObjBtn = el<HTMLButtonElement>('delObjBtn');
-  delObjBtn.disabled = !obj || obj.key==='parcelle' || obj.locked!;
-  delObjBtn.title = !obj ? 'Selectionne d\'abord un objet' : (obj.key==='parcelle' ? 'La parcelle ne peut pas etre supprimee' : (obj.locked ? 'Objet verrouille' : ''));
-
-  const dupObjBtn = el<HTMLButtonElement>('dupObjBtn');
-  dupObjBtn.disabled = !obj || obj.key==='parcelle';
-  dupObjBtn.title = !obj ? 'Selectionne d\'abord un objet' : (obj.key==='parcelle' ? 'La parcelle ne peut pas etre dupliquee' : 'Cree une copie, decalee de 5 m vers la gauche');
+  // Dupliquer et Supprimer sont des commandes de la palette (zones/) : leur condition d'activation
+  // — pas la parcelle, pas un objet verrouille — est portee par la commande (app/ecouteurs/objets.ts).
 
   if(!obj){
     document.getElementById('attrTitle')!.textContent = 'Aucune sélection';

@@ -1,7 +1,10 @@
-// Les boutons qui créent, dupliquent, reculent et suppriment un objet (spec §6.4, app/).
+// Les commandes qui créent, dupliquent, reculent et suppriment un objet (spec §6.4, app/).
 //
-// Presque tous se contentent d'appeler l'atelier. Les trois qui font autre chose le font pour une
-// raison, et elle est écrite en face.
+// Presque toutes se contentent d'appeler l'atelier. Les trois qui font autre chose le font pour une
+// raison, et elle est écrite en face. Depuis l'étape 2 de la reconstruction de l'interface, c'est la
+// palette (zones/Palette.tsx) qui les déclenche ; elles sont déclarées ici sans bouton, sauf les deux
+// qui vivent encore dans le panneau Édition. Une commande inactive — rien de sélectionné, rien à
+// annuler — grise son bouton, là où l'ancienne rangée répondait par un message.
 
 import { showToast, showConfirm } from '../../shell/dialogs.js';
 import { centroid } from '../../geometry/basic.js';
@@ -10,22 +13,28 @@ import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
-  const bouton = (idDom: string, id: string, libelle: string, executer: () => void, raccourci?: string) =>
-    cmd.bouton(idDom, { id, libelle, groupe: 'objet', executer, ...(raccourci ? { raccourci } : {}) });
+  const selection = () => !!a.etat.selectedKey;
+  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean } = {}) =>
+    cmd.declarer({ id, libelle, groupe: 'objet', executer, ...extra });
+  const bouton = (idDom: string, id: string, libelle: string, executer: () => void) =>
+    cmd.bouton(idDom, { id, libelle, groupe: 'objet', executer, actif: selection });
 
-  bouton('undoBtn', 'objet.annuler', 'Annuler', a.undo, 'Ctrl+Z');
+  commande('objet.annuler', 'Annuler', a.undo, { raccourci: 'Ctrl+Z' });
 
   // Des flèches explicites, et non `addEventListener('click', a.addNewObject)` : celui-ci passerait
   // l'événement en premier argument — un objet toujours vrai — et le polygone libre naîtrait en
   // mode rectangle.
-  bouton('addObjBtn', 'objet.ajouter.polygone', 'Polygone', () => a.addNewObject(false));
-  bouton('addRectBtn', 'objet.ajouter.rectangle', 'Rectangle', () => a.addNewObject(true));
-  bouton('addPathBtn', 'objet.ajouter.chemin', 'Chemin', () => a.addNewPath());
-  bouton('addCircleBtn', 'objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
-  bouton('addParasolBtn', 'objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
-  bouton('addViewpointBtn', 'objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
-  bouton('dupObjBtn', 'objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject());
-  bouton('delObjBtn', 'objet.supprimer', 'Supprimer', () => a.deleteSelectedObject());
+  commande('objet.ajouter.polygone', 'Polygone', () => a.addNewObject(false));
+  commande('objet.ajouter.rectangle', 'Rectangle', () => a.addNewObject(true));
+  commande('objet.ajouter.chemin', 'Chemin', () => a.addNewPath());
+  commande('objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
+  commande('objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
+  commande('objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
+  // Les conditions que le panneau Objet posait sur ses anciens boutons : la parcelle ne se duplique
+  // ni ne se supprime, un objet verrouille ne se supprime pas.
+  const selectionne = () => a.objByKey(a.etat.selectedKey);
+  commande('objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle'; } });
+  commande('objet.supprimer', 'Supprimer', () => a.deleteSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle' && !o.locked; } });
 
   /**
    * Reculer d'un cran. Le double-clic sur la forme fait la même chose, mais c'est un geste fragile
@@ -34,7 +43,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    * Il dit aussi quand il ne se passe rien — « déjà au fond de sa priorité » — parce qu'un bouton
    * qui ne réagit pas se lit comme un bouton cassé.
    */
-  bouton('backObjBtn', 'objet.reculer', 'Reculer d\'un plan', () => {
+  commande('objet.reculer', 'Reculer d\'un plan', () => {
     const obj = a.objByKey(a.etat.selectedKey);
     if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
     if (obj.key === 'parcelle') { showToast('La parcelle reste toujours au fond.'); return; }
@@ -42,7 +51,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     const avant = a.etat.objects.indexOf(obj);
     a.sendObjectBackward(obj);
     if (a.etat.objects.indexOf(obj) === avant) showToast('Deja au fond de sa priorite d\'affichage.');
-  });
+  }, { actif: selection });
 
   /**
    * Remettre un objet à sa place du chargement — sa place, pas sa forme.

@@ -15,7 +15,7 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
     dirty: false
   };
   const bouton = { disabled: true } as HTMLButtonElement;
-  const appels = { render: 0, selecteur: 0, vuesDetruites: 0, domCrees: 0 };
+  const appels = { render: 0, selecteur: 0, vuesDetruites: 0, domCrees: 0, pile: [] as boolean[] };
   const ctx = {
     // Copie profonde volontaire : c'est ce que fait la vraie serialisation.
     serializeObjects: (o: unknown[]) => JSON.parse(JSON.stringify(o)),
@@ -28,7 +28,8 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
     rebuildSelector: () => { appels.selecteur++; },
     renderMeasureResults: () => {},
     render: () => { appels.render++; },
-    boutonAnnuler: () => bouton
+    boutonAnnuler: () => bouton,
+    signalerPile: (vide: boolean) => { appels.pile.push(vide); }
   };
   return { etat, ctx, bouton, appels, h: creerHistorique(etat, ctx) };
 }

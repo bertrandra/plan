@@ -60,6 +60,8 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
   render: () => void;
   /** Le bouton « Annuler » de la barre d'outils, s'il existe. */
   boutonAnnuler: () => HTMLButtonElement | null;
+  /** Dit si la pile est vide, a chaque changement : c'est ce que la palette (zones/) lit. */
+  signalerPile?: (vide: boolean) => void;
 }
 
 /** Ce que l'historique lit et ecrit dans l'etat du plan — rien de plus. */
@@ -133,6 +135,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   function majBoutonAnnuler(): void {
     const b = ctx.boutonAnnuler();
     if (b) b.disabled = pile.vide;
+    if (ctx.signalerPile) ctx.signalerPile(pile.vide);
   }
 
   /** Ctrl+Z / Cmd+Z. Pas de Ctrl+Y : il n'y a pas de retablissement (voir le point 5 en tete). */

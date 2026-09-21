@@ -20,6 +20,12 @@ export interface ContexteDivers {
   renderOptimResult: (obj: ObjetPlan) => void;
   /** Recalcule la taille du plan et le redessine autour de son centre. */
   redimensionnerLePlan: () => void;
+  /** Montre un onglet du panneau lateral (ui/panelTabs.ts). */
+  activerOnglet: (onglet: string) => void;
+  /** Demarre un pointage : un cote de reference (`ref`) ou des sommets (`target`), pour une cote ou un alignement. */
+  startPick: (mode: 'ref' | 'target', multi: boolean, purpose?: 'align' | 'measure') => void;
+  /** Passe le panneau d'attributs sur l'onglet Objet, ou vit l'alignement. */
+  ouvrirOngletObjet: () => void;
 }
 
 /**
@@ -48,7 +54,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
    * « Cadrer » : sur l'objet sélectionné, et c'est le mode qui dit lequel — en mode Terrasse la
    * sélection qui compte est celle de la terrasse, pas celle du plan.
    */
-  cmd.bouton('fitBtn', { id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
+  cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
     const cle = a.etat.appMode === 'terrasse' ? a.etat.terrasseSelectedKey : a.etat.selectedKey;
     a.fitToObject(a.etat.objects.find(o => o.key === cle) || null);
   } });
@@ -83,6 +89,18 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     };
     if (a.etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', vider);
     else vider();
+  } });
+
+  // Les deux outils de la palette : une cote, un alignement. Chacun ouvre l'onglet ou le geste se
+  // poursuit, puis attend le clic sur le plan — c'est `interaction/outilMesure.ts` qui sait quoi en faire.
+  cmd.declarer({ id: 'mesure.nouvelle', libelle: 'Nouvelle cote', groupe: 'mesure', description: 'Choisir un côté de référence, puis les coins à coter', executer: () => {
+    ctx.activerOnglet('mesure');
+    ctx.startPick('ref', false);
+  } });
+  cmd.declarer({ id: 'objet.aligner', libelle: 'Aligner par rotation', groupe: 'objet', description: 'Choisir un côté cible sur le plan : l\'objet sélectionné pivote pour lui devenir parallèle', actif: () => !!a.etat.selectedKey, executer: () => {
+    ctx.activerOnglet('edition');
+    ctx.ouvrirOngletObjet();
+    ctx.startPick('ref', false, 'align');
   } });
 
   cmd.bouton('pluInterrogerBtn', { id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', executer: (source) => ctx.interrogerPluDepuisBouton(source as HTMLButtonElement) });

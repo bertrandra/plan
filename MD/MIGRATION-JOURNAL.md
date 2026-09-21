@@ -2090,3 +2090,43 @@ la sélection dans Z7, les dialogues d'import et d'actualisation ouverts depuis 
 retrouvées dans Affichage. Sur le déploiement PHP : la liste des projets dans le `<select>`, le
 statut « Modifications non enregistrees » après une duplication, « Enregistrement… » pendant
 l'appel, « Enregistre a … » après, et l'objet de plus côté serveur. 554 tests.
+
+## Reconstruction de l'IHM — étape 2 : la palette et le canevas (21 septembre 2026, `1.2.0-alpha.3`)
+
+**Z2, la palette d'outils** (`zones/Palette.tsx`) remplace la rangée `#planActions` qui vivait sous
+le plan : quatre groupes — Historique, Créer, Éditer, Outils — treize boutons, chacun une commande
+du registre. Un bouton dont la commande n'est pas active est grisé : plus de « Sélectionne d'abord un
+objet » en réponse à un clic, le bouton le dit avant. L'annulation lit l'état de la pile dans le
+magasin, que l'historique lui signale (`signalerPile`) — le bouton `#undoBtn` que l'historique
+désarmait n'existe plus dans le balisage.
+
+**Z4, les surimpressions du canevas** (`zones/Surimpression.tsx`) : la grille et le cadrage sur la
+sélection gardent leur place sur le plan et leurs identifiants, mais leur état se lit dans le
+magasin. `render/pipeline.ts` et `app/modes.ts` n'écrivent plus `display` sur `#fitBtn` ; le rendu
+ne touche plus un bouton.
+
+**Le menu Affichage** de Z1 : Flèche Nord, Grille, Voisinage (quand il y a du voisinage), Fond
+orthophoto — quatre commandes qui inversent l'état, cochées d'après lui. Les cases de l'onglet
+Affichage exécutent les mêmes commandes, et restent : elles partiront avec l'onglet à l'étape 3.
+
+**Deux outils nouveaux dans la palette**, qui n'étaient jusque-là accessibles qu'au fond d'un
+panneau : `mesure.nouvelle` ouvre l'onglet Mesure et attend le côté de référence ; `objet.aligner`
+ouvre l'onglet Objet et attend le côté cible. `ui/panelTabs.ts` expose pour cela `activerOnglet`,
+ce que faisait un clic sur un onglet, disponible par programme.
+
+Le plan a perdu la largeur de la palette : `computeSize` la retranche au-dessus de 1 024 px ; en
+dessous, la palette s'escamote et le plan reprend tout.
+
+### Ce que ça change d'usage
+
+Le plan est plus haut sur la page — la rangée de boutons ne le pousse plus vers le bas — et les
+gestes de création sont à portée constante, à gauche, quelle que soit la hauteur du panneau.
+Dupliquer, Supprimer, Reculer, Position initiale et Aligner sont gris tant que rien n'est
+sélectionné ; Annuler, tant que la pile est vide.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.2` par la preuve forte. Sur le build : création des
+six formes depuis la palette, duplication, suppression avec confirmation, annulation jusqu'au vide
+avec le bouton qui se grise, grille et cadrage depuis la surimpression, les quatre bascules du menu
+Affichage, la cote et l'alignement depuis la palette. 554 tests.

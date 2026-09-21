@@ -41,6 +41,8 @@ export interface EtatMagasin {
   projet: ProjetObservable;
   /** Position du pointeur sur le plan, en metres, ou `null` hors du plan. */
   pointeur: PtBrut | null;
+  /** La pile d'annulation a quelque chose a rendre. */
+  peutAnnuler: boolean;
 }
 
 export interface Magasin {
@@ -52,6 +54,7 @@ export interface Magasin {
   definirLieu(lieu: string): void;
   definirProjet(projet: Partial<ProjetObservable>): void;
   definirPointeur(p: PtBrut | null): void;
+  definirPeutAnnuler(peut: boolean): void;
 }
 
 export function creerMagasin(etat: EtatApp): Magasin {
@@ -61,7 +64,8 @@ export function creerMagasin(etat: EtatApp): Magasin {
     vue: 'plan',
     lieu: '',
     projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '' },
-    pointeur: null
+    pointeur: null,
+    peutAnnuler: false
   }));
   return {
     store,
@@ -70,6 +74,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirVue: (vue) => store.setState({ vue }),
     definirLieu: (lieu) => store.setState({ lieu }),
     definirProjet: (projet) => store.setState((s) => ({ projet: { ...s.projet, ...projet } })),
-    definirPointeur: (pointeur) => store.setState({ pointeur })
+    definirPointeur: (pointeur) => store.setState({ pointeur }),
+    definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler })
   };
 }

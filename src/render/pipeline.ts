@@ -83,10 +83,6 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   ctx.drawMeasures();
   if(etat.panelTab==='mesure') ctx.renderMeasureResults();
 
-  // show the "fit to selection" button only when an object is selected
-  const fitBtn = document.getElementById('fitBtn');
-  if(fitBtn) fitBtn.style.display = etat.selectedKey ? 'block' : 'none';
-
   // Mode Terrasse's construction overlay is drawn in screen space (toScreen), same as
   // everything else here: without this, panning/zooming the plan moves the real shapes
   // but leaves the vis/solives/lambourdes/lames overlay stuck at its old screen position.

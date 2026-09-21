@@ -26,7 +26,7 @@ import { lieuDeParcelle, libelleLieuTexte } from '../model/lieu.js';
 import { normalizeObjects } from '../model/normalisation.js';
 import { creerCreation } from '../model/creation.js';
 import { construireResume } from '../export/resume.js';
-import { rebuildPanelTabs as construireOngletsPanneau } from '../ui/panelTabs.js';
+import { rebuildPanelTabs as construireOngletsPanneau, activerOnglet as activerOngletPanneau } from '../ui/panelTabs.js';
 import { alignerObjetParRotation } from '../interaction/outilAlignement.js';
 import { exporterProjetJSON } from '../io/exportProjet.js';
 import { genererGlb as genererGlbModule } from '../three/exportGlb.js';
@@ -273,7 +273,10 @@ const historique = creerHistorique(etat, {
   serializeObjects, serializeMeasures, detruireVue, createObjectDOM,
   rebuildHandles, reapplyStackingOrder, rebuildSelector, renderMeasureResults, render,
   normalizeObjects: normaliserEnObjetsDuPlan,
-  boutonAnnuler: ()=>elOpt<HTMLButtonElement>('undoBtn')
+  // Le bouton Annuler est rendu par la palette (zones/) d'apres `peutAnnuler` : l'historique n'a
+  // plus d'element a desarmer lui-meme, il signale.
+  boutonAnnuler: ()=>null,
+  signalerPile: (vide)=>magasin.definirPeutAnnuler(!vide)
 });
 historique.brancherRaccourci();
 
@@ -284,13 +287,14 @@ function undo(){ historique.annuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
 // panelTab, selectedKey, highlight et attrTab vivent desormais dans `etat` (spec §6.1).
 // Les onglets du panneau lateral vivent dans ui/panelTabs.ts.
-function rebuildPanelTabs(){
-  construireOngletsPanneau(etat, {
+function ctxOnglets(){
+  return {
     rebuildMeasurePanel, renderMeasureResults,
     renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
     construireListeDossier: ()=>construireListeDossier(etat)
-  });
+  };
 }
+function rebuildPanelTabs(){ construireOngletsPanneau(etat, ctxOnglets()); }
 rebuildPanelTabs();
 
 // Un quadrilatere deja d'equerre, meme tourne, est deja un rectangle : le redresser sur les axes
@@ -331,8 +335,10 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 // La scene vit dans `etat.scene` : une seule transformation, partagee par le rendu et les
 // interactions. Elle avait ete dupliquee ici par erreur lors du passage a l etat explicite.
 // W et H : dans `etat.scene` (spec 6.1) - la taille utile de la scene.
+// La palette (zones/Palette.tsx) prend sa largeur a gauche du plan ; sous 1 024 px elle s'escamote.
+const LARGEUR_PALETTE = 72;
 function computeSize(){
-  const margin = 40;
+  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE : 0);
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
@@ -603,7 +609,10 @@ brancherDivers(atelier, {
   renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
   interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
   basculerOptimisation,
-  renderOptimResult: (obj)=>renderOptimResult(obj, ctxPanneauxTerrasse())
+  renderOptimResult: (obj)=>renderOptimResult(obj, ctxPanneauxTerrasse()),
+  activerOnglet: (onglet)=>activerOngletPanneau(onglet, etat, ctxOnglets()),
+  startPick,
+  ouvrirOngletObjet: ()=>{ etat.attrTab = 'objet'; renderAttrTable(); }
 }, commandes);
 brancherFichiers({
   exportProjetJSON, validerProjetJSON, appliquerProjetImporte,

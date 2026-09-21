@@ -1,12 +1,14 @@
-// Z1, la barre d'application (spec-ihm-zones §4.1) : le projet, les vues, le titre.
+// Z1, la barre d'application (spec-ihm-zones §4.1) : le projet, l'affichage, les vues, le titre.
 //
 // Etape 1 de la reconstruction : cette zone remplace `#projectBar`, `#modeBar` et le `<h1>`
-// d'index.html. Elle ne sait rien faire par elle-meme — chaque bouton execute une commande du
-// registre, le `<select>` demande au projet de s'ouvrir — et elle lit tout dans le magasin.
-// Les identifiants `projectSelect`, `saveProjectBtn`, `modePlanBtn`… restent les memes que dans
-// l'ancien balisage : la checklist de fumee et les scripts de deploiement les cherchent.
+// d'index.html. Etape 2 : elle gagne le menu Affichage. Elle ne sait rien faire par elle-meme —
+// chaque bouton execute une commande du registre, le `<select>` demande au projet de s'ouvrir — et
+// elle lit tout dans le magasin. Les identifiants `projectSelect`, `saveProjectBtn`,
+// `modePlanBtn`… restent les memes que dans l'ancien balisage : la checklist de fumee et les
+// scripts de deploiement les cherchent.
 
 import { useStore } from 'zustand';
+import { ortho } from '../render/ortho.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -25,6 +27,33 @@ const VUES: [Vue, string, string, string][] = [
   ['visionneuse', 'glbViewerBtn', 'Visionneuse GLB', 'Relit le dernier fichier GLB exporte (onglet Export), pour verifier le fichier reel avant de le partager']
 ];
 const COMMANDE_DE_VUE: Record<Vue, string> = { plan: 'vue.plan', terrasse: 'vue.terrasse', vue3d: 'vue.3d', visionneuse: 'vue.visionneuse' };
+
+/** Le menu Affichage : quatre bascules, chacune une commande, cochee d'apres l'etat du plan. */
+function MenuAffichage({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
+  useStore(magasin.store, (s) => s.version);
+  const etat = magasin.store.getState().etat;
+  const aDuVoisinage = etat.objects.some((o) => o.voisinage);
+  const bascules: [string, string, boolean, boolean][] = [
+    ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
+    ['affichage.grille', 'Grille', etat.grilleVisible, true],
+    ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
+    ['affichage.orthophoto', 'Fond orthophoto', ortho.actif, true]
+  ];
+  return (
+    <details className="menu" id="menuAffichage">
+      <summary>Affichage</summary>
+      <ul role="menu">
+        {bascules.filter(([, , , visible]) => visible).map(([id, libelle, coche]) => (
+          <li key={id} role="menuitemcheckbox" aria-checked={coche}>
+            <button type="button" data-commande={id} onClick={(e) => { commandes.executer(id); e.currentTarget.closest('details')?.removeAttribute('open'); }}>
+              <span className="coche" aria-hidden="true">{coche ? '✓' : ''}</span>{libelle}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
 
 export function BarreApplication({ magasin, commandes, projet }: PropsBarreApplication) {
   const p = useStore(magasin.store, (s) => s.projet);
@@ -53,6 +82,7 @@ export function BarreApplication({ magasin, commandes, projet }: PropsBarreAppli
         {p.apiDisponible && (
           <button type="button" className="secondary small" title={commande('projet.supprimer')?.description} disabled={p.liste.length <= 1} onClick={executer('projet.supprimer')}>Supprimer</button>
         )}
+        <MenuAffichage magasin={magasin} commandes={commandes} />
       </div>
       <div id="modeBar">
         {VUES.map(([cle, id, libelle, titre]) => (

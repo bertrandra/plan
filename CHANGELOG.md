@@ -3,6 +3,37 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.3] — 2026-09-21
+
+**Reconstruction de l'IHM, étape 2 : la palette d'outils et le canevas** (`MD/spec-ihm-zones.md` §6).
+La rangée de boutons sous le plan disparaît ; une palette verticale à gauche du plan la remplace,
+et la barre d'application gagne un menu Affichage. Les six artefacts sont identiques à ceux de
+l'`alpha.2`.
+
+### Modifié
+
+- **La palette** (Z2) : Historique, Créer (polygone, rectangle, chemin, cercle, parasol, point de
+  vue), Éditer (dupliquer, supprimer, reculer, position initiale), Outils (cote, aligner). Un bouton
+  est grisé quand sa commande n'a pas de sens — rien de sélectionné, rien à annuler — au lieu de
+  répondre par un message. Sous 1 024 px, elle s'escamote et le plan reprend sa largeur.
+- **Deux outils désormais à portée de main** : la cote et l'alignement par rotation, qui ne
+  s'atteignaient qu'au fond d'un onglet, ouvrent l'onglet voulu et attendent le clic sur le plan.
+- **Le menu Affichage** : Flèche Nord, Grille, Voisinage, Fond orthophoto, cochés d'après l'état.
+- **Le budget du fichier livré passe à 5 Mo** (décision du 21 septembre, `spec-ihm-zones.md` §7,
+  `RELEASE.md` §8.2).
+
+### Interne
+
+- `zones/Palette.tsx`, `zones/Surimpression.tsx` ; le menu dans `zones/BarreApplication.tsx`.
+- Les commandes d'objet sont déclarées sans bouton et portent leur condition d'activation ; les
+  bascules d'affichage (`affichage.nord`, `affichage.voisinage`, `affichage.orthophoto`,
+  `affichage.grille`) sont des commandes que les cases de l'onglet et le menu exécutent.
+- `core/historique.ts` signale l'état de sa pile (`signalerPile`) ; le magasin porte `peutAnnuler`.
+- `ui/panelTabs.ts` expose `activerOnglet`. `render/pipeline.ts` et `app/modes.ts` n'écrivent plus
+  le `display` du bouton de cadrage.
+- `index.html` : `#planActions` disparaît, `#zoneAtelier` réunit `#zonePalette` et `#stage`, qui
+  contient `#zoneSurimpression`. Le plan retranche la largeur de la palette au-dessus de 1 024 px.
+
 ## [1.2.0-alpha.2] — 2026-09-21
 
 **Reconstruction de l'IHM, étape 1 : la coquille** (`MD/spec-ihm-zones.md` §6). Deux zones React

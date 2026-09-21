@@ -15,22 +15,13 @@
   <div id="terrasseSelector" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;"></div>
 </div>
 <div id="stageParking" style="display:none;"></div>
-<div id="stage">
-  <button id="fitBtn" title="Ajuster la vue à l'objet sélectionné">⤢ Ajuster à la sélection</button>
-  <button id="gridBtn" title="Afficher / masquer la grille du plan">▦</button>
-</div>
-
-<div id="planActions" class="controls" style="width:98vw; max-width:1600px; margin:0 0 10px;">
-  <button id="undoBtn" class="secondary" disabled>↶ Annuler (Ctrl+Z)</button>
-  <button id="addObjBtn" class="secondary small">+ Polygone</button>
-  <button id="addRectBtn" class="secondary small">+ Rectangle</button>
-  <button id="addPathBtn" class="secondary small">+ Chemin</button>
-  <button id="addCircleBtn" class="secondary small">+ Cercle</button>
-  <button id="addParasolBtn" class="secondary small" title="Parasol de terrasse : son ombre se projette sur le plan et une recherche automatique propose la meilleure position">+ Parasol</button>
-  <button id="addViewpointBtn" class="secondary small" title="Pose un point de camera pour la Vue 3D">+ Point de vue</button>
-  <button id="dupObjBtn" class="secondary small">Dupliquer</button>
-  <button id="delObjBtn" class="secondary small">- Supprimer</button>
-  <button id="backObjBtn" class="secondary small" title="Recule l'objet selectionne d'un plan, parmi ceux de meme priorite">↓ Reculer d'un plan</button>
+<!-- Z2, la palette (zones/Palette.tsx), et Z4, le canevas avec ses commandes en surimpression
+     (zones/Surimpression.tsx). Le plan est deplace entre ses conteneurs par app/modes.ts ; la palette reste. -->
+<div id="zoneAtelier">
+  <div id="zonePalette"></div>
+  <div id="stage">
+    <div id="zoneSurimpression"></div>
+  </div>
 </div>
 
 <div id="terrassePanel" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">

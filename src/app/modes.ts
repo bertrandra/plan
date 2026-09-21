@@ -22,7 +22,7 @@ import type { ObjetPlan, Construction } from '../model/types.js';
 export type Vue = 'plan' | 'terrasse' | 'vue3d' | 'visionneuse';
 
 /** Les zones du mode Plan, et celles du mode Terrasse : montrees ensemble, cachees ensemble. */
-const ZONES_PLAN = ['selector', 'planActions', 'panelTabs', 'panel'];
+const ZONES_PLAN = ['selector', 'zonePalette', 'panelTabs', 'panel'];
 const ZONES_TERRASSE = ['terrasseTopBar', 'terrassePanel'];
 
 /** Les sous-onglets du mode Terrasse : leur cle, leur libelle, et le panneau qu'ils montrent. */
@@ -218,8 +218,6 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
       return;
     }
     ctx.ensureConstruction(obj);
-    const fitBtn = document.getElementById('fitBtn');
-    if (fitBtn) fitBtn.style.display = 'block';
     if (terrasseLastFittedKey !== obj.key) {
       ctx.fitToObject(obj);
       terrasseLastFittedKey = obj.key;

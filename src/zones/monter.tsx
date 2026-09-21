@@ -1,11 +1,13 @@
-// Monte les zones React dans leurs conteneurs d'index.html (spec-ihm-zones §6, etape 1).
+// Monte les zones React dans leurs conteneurs d'index.html (spec-ihm-zones §6).
 //
-// Deux racines, une par zone : elles n'ont rien a partager entre elles, tout passe par le magasin
-// et le registre. Un conteneur absent est une erreur de balisage, pas un cas a tolerer.
+// Une racine par zone : elles n'ont rien a partager entre elles, tout passe par le magasin et le
+// registre. Un conteneur absent est une erreur de balisage, pas un cas a tolerer.
 
 import { createRoot } from 'react-dom/client';
 import { BarreApplication } from './BarreApplication.js';
 import { BarreEtat } from './BarreEtat.js';
+import { Palette } from './Palette.js';
+import { Surimpression } from './Surimpression.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -22,7 +24,9 @@ function conteneur(id: string): HTMLElement {
   return el;
 }
 
-export function monterZones(deps: DependancesZones): void {
-  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={deps.magasin} commandes={deps.commandes} projet={deps.projet} />);
-  createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={deps.magasin} />);
+export function monterZones({ magasin, commandes, projet }: DependancesZones): void {
+  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} />);
+  createRoot(conteneur('zonePalette')).render(<Palette magasin={magasin} commandes={commandes} />);
+  createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} />);
+  createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
 }

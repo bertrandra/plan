@@ -27,6 +27,43 @@
   /* Z1 : la barre d'application, en tete de colonne, meme largeur que le reste. */
   #zoneBarre{ width:98vw; max-width:1600px; align-self:center; }
   #modeBar{ display:flex; gap:6px; margin:0 0 8px; }
+  /* Z2 + Z4 : la palette a gauche du plan, sur une meme rangee. */
+  #zoneAtelier{ display:flex; align-items:flex-start; gap:8px; }
+  #zonePalette{
+    display:flex; flex-direction:column; gap:10px; width:64px; flex:none;
+    padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--panel-bg);
+    box-shadow:0 1px 3px rgba(59,46,31,0.06);
+  }
+  .paletteGroupe{ display:flex; flex-direction:column; gap:2px; padding-bottom:8px; border-bottom:1px solid var(--rule); }
+  .paletteGroupe:last-child{ border-bottom:none; padding-bottom:0; }
+  #zonePalette .outil{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    min-width:44px; min-height:44px; padding:4px 2px; border:1px solid transparent; border-radius:4px;
+    background:transparent; color:var(--ink); cursor:pointer;
+  }
+  #zonePalette .outil:hover{ background:var(--accent-light); border-color:var(--border); opacity:1; }
+  #zonePalette .outil:disabled{ opacity:0.35; cursor:not-allowed; }
+  #zonePalette .glyphe{ font-size:1.15rem; line-height:1; }
+  #zonePalette .libelle{ font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.58rem; line-height:1.1; text-align:center; color:var(--ink-soft); }
+  @media (max-width: 1023px){ #zonePalette{ display:none; } }
+  /* Le menu Affichage de la barre d'application. */
+  details.menu{ position:relative; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem; }
+  details.menu > summary{
+    list-style:none; cursor:pointer; padding:5px 10px; border:1px solid var(--rule); border-radius:2px;
+    background:var(--panel-bg); color:var(--ink); user-select:none;
+  }
+  details.menu > summary::-webkit-details-marker{ display:none; }
+  details.menu[open] > summary{ background:var(--accent-light); }
+  details.menu > ul{
+    position:absolute; top:100%; left:0; z-index:60; margin:4px 0 0; padding:4px; list-style:none; min-width:200px;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:4px; box-shadow:0 4px 12px rgba(59,46,31,0.18);
+  }
+  details.menu li button{
+    display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px; text-align:left;
+    background:transparent; color:var(--ink); border:none; border-radius:3px; font-size:0.8rem; min-height:36px;
+  }
+  details.menu li button:hover{ background:var(--accent-light); opacity:1; }
+  details.menu .coche{ display:inline-block; width:1.1em; color:var(--accent); font-weight:700; }
   /* Z7 : la barre d'etat, fixee en bas de la fenetre, jamais cliquable. */
   #zoneEtat{
     position:fixed; left:0; right:0; bottom:0; z-index:50;
