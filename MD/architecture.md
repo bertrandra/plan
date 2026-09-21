@@ -328,7 +328,9 @@ parameters forbidden) with zero errors across `src/` and `tests/`.
 | 5 | `ui/` | 10 | 4 867 | `attrPanel` · `cadastreDialog` · `cloture` · `mesurePanel` · `panelTabs` · `projectBar` · `selector` · `tables` · `terrassePanels` · `texturePicker` |
 | 6 | `app/` | 13 | 2 398 | `atelier` · `boot` · `modes` · `ecouteurs/` (`affichage` · `cloture` · `divers` · `exports` · `fichiers` · `modes` · `objets` · `soleil` · `visionneuse` · `vue3d`) |
 
-`src/main.ts` (bootstrap and error trap) and `src/styles/app.css` sit outside the layers.
+`src/main.ts` (bootstrap and error trap) and `src/styles/app.css` sit outside the layers. Since
+`1.2.0-alpha.1` (21 September), `app/` also holds `commandes` (the command registry) and `magasin`
+(the Zustand bridge over `EtatApp`) — the first two modules of the UI rebuild, `spec-ihm-zones.md`.
 
 **What changed since 29 August.** `legacy.ts` (1 500 lines) is gone: `app/` grew from one module
 to thirteen — the composition root `boot.ts`, the named `atelier` it builds, and ten listener groups

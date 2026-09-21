@@ -1986,3 +1986,53 @@ Le dépôt n'en portait aucune, alors que ce journal en citait deux depuis la ph
 posées ce jour, après coup, sur les commits qu'elles désignent : `v1.0.0` et `v0-preTS` sur le gel
 du 28 août (`599b570`), `v1.1.0-alpha.1` sur la rupture du 29 août (`108389a`), `v1.1.0` sur la
 publication. Annotées, non signées : aucune clé de signature n'est configurée sur ce poste.
+
+## Reconstruction de l'IHM — étape 0 : le registre des commandes et le magasin (21 septembre 2026, `1.2.0-alpha.1`)
+
+Premier palier de `MD/spec-ihm-zones.md` §6, et le seul qui ne change rien à l'écran. Les décisions
+prises le même jour (§7) le cadrent : React avec Zustand, fichier unique conservé, tactile comme
+critère d'acceptation, la terrasse comme contexte du plan et non comme vue, les résultats dans un
+tiroir en bas du canevas.
+
+### Le registre
+
+`app/commandes.ts` : une commande a un identifiant stable en `groupe.action`, un libellé, un
+groupe, parfois un raccourci et une condition d'activation. Le registre refuse un identifiant déjà
+pris — un geste, une commande, autant de liaisons qu'on veut — et lie un élément du DOM à une
+commande sans que l'écouteur sache ce qu'elle fait.
+
+Les neuf groupes d'écouteurs qui portaient des boutons passent par lui : **47 commandes** dans
+douze groupes (`objet` 12, `3d` 9, `export` 7, `visionneuse` 6, `vue` 5, `fichier` 3, `mesure` 2,
+`affichage` 2, `cloture` 2, `projet` 1, `terrasse` 1, `plu` 1). Il ne reste dans `app/` qu'un seul
+`addEventListener('click')` hors registre, celui des sous-onglets de terrasse construits à la volée
+dans `app/modes.ts` — ils disparaissent à l'étape 3 avec le mode Terrasse. Les cases à cocher et
+les curseurs (`change`, `input`) ne sont pas des commandes mais des réglages ; ils rejoindront le
+magasin zone par zone.
+
+Le recâblage est un remplacement ligne à ligne : chaque `el('x').addEventListener('click', f)`
+devient `cmd.bouton('x', { id, libelle, groupe, executer: f })`, `f` inchangé. Les deux écouteurs
+qui lisaient `this` (générer et régénérer le GLB, interroger le PLU) reçoivent l'élément en
+`source`. Aucun `if`, aucune valeur, aucun ordre n'a bougé.
+
+### Le magasin
+
+`app/magasin.ts` : un store Zustand *vanilla* qui tient la référence vivante d'`EtatApp` et un
+compteur de version que `render()` incrémente. C'est un pont, pas une réécriture : tout le
+programme continue de muter l'état en place, et un composant React qui s'abonnera au compteur se
+redessinera à chaque rendu du plan en lisant l'état tel qu'il est. Personne ne s'y abonne encore.
+Les champs migreront vers un état immuable zone par zone, quand une zone en aura besoin.
+
+### L'outillage
+
+React, React DOM et Zustand sont des dépendances ; le greffon React de Vite est branché et
+`tsconfig.json` accepte le JSX. Rien n'en utilise encore : React n'entre pas dans le build. Le
+fichier livré passe de 451 221 à 454 316 octets — Zustand et le registre, trois kilo-octets.
+
+### La preuve
+
+Six tests unitaires sur le registre et le magasin (`tests/unit/app/commandes.test.ts`) : 554 tests.
+Les six artefacts sont comparés aux golden files de la `1.1.0` avec la preuve de la rupture, le
+numéro ayant changé de longueur : quatre fichiers texte identiques hors numéro, deux PDF au même
+contenu, une seule ligne différente une fois neutralisés numéro, dates, décalages et longueurs de
+flux. Puis les gestes qui passent par un bouton — points 1 à 11, 16 à 24 de la checklist — rejoués
+sur le build.

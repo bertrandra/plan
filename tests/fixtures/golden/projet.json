@@ -4,11 +4,11 @@
     "name": "Plan interactif",
     "createdAt": null,
     "updatedAt": null,
-    "exportedAt": "2026-09-21T05:55:04.239Z",
+    "exportedAt": "2026-09-21T19:11:38.465Z",
     "exportedBy": "plan.html",
-    "appVersion": "1.1.0",
+    "appVersion": "1.2.0-alpha.1",
     "schemaVersion": 1,
-    "writtenAt": "2026-09-21T05:55:04.239Z"
+    "writtenAt": "2026-09-21T19:11:38.465Z"
   },
   "objects": [
     {

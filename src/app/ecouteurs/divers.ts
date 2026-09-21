@@ -7,6 +7,7 @@
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
+import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que ces commandes déclenchent. */
@@ -40,17 +41,17 @@ export function brancherFiletsDErreur(): void {
 /** Le délai d'apaisement du redimensionnement, en millisecondes. */
 const APAISEMENT_RESIZE_MS = 150;
 
-export function brancherDivers(a: Atelier, ctx: ContexteDivers): void {
+export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLButtonElement;
 
   /**
    * « Cadrer » : sur l'objet sélectionné, et c'est le mode qui dit lequel — en mode Terrasse la
    * sélection qui compte est celle de la terrasse, pas celle du plan.
    */
-  el('fitBtn').addEventListener('click', () => {
+  cmd.bouton('fitBtn', { id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
     const cle = a.etat.appMode === 'terrasse' ? a.etat.terrasseSelectedKey : a.etat.selectedKey;
     a.fitToObject(a.etat.objects.find(o => o.key === cle) || null);
-  });
+  } });
 
   /**
    * Le redimensionnement est **apaisé** : un glisser de fenêtre émet des dizaines d'événements, et
@@ -65,16 +66,16 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers): void {
     apaisement = setTimeout(ctx.redimensionnerLePlan, APAISEMENT_RESIZE_MS);
   });
 
-  el('recalcMeasureBtn').addEventListener('click', () => {
+  cmd.bouton('recalcMeasureBtn', { id: 'mesure.recalculer', libelle: 'Recalculer les mesures', groupe: 'mesure', executer: () => {
     ctx.renderMeasureResults();
     a.render();
-  });
+  } });
 
   /**
    * Vider les cotes. La confirmation n'est demandée que s'il y en a : confirmer la suppression de
    * rien est une question sans objet.
    */
-  el('clearMeasureBtn').addEventListener('click', () => {
+  cmd.bouton('clearMeasureBtn', { id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', executer: () => {
     const vider = () => {
       a.etat.measures = [];
       mesure.cibles = []; mesure.ref = null; mesure.pointage = null;
@@ -82,20 +83,20 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers): void {
     };
     if (a.etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', vider);
     else vider();
-  });
+  } });
 
-  el('pluInterrogerBtn').addEventListener('click', function () { ctx.interrogerPluDepuisBouton(this); });
+  cmd.bouton('pluInterrogerBtn', { id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', executer: (source) => ctx.interrogerPluDepuisBouton(source as HTMLButtonElement) });
 
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on
    * peut ainsi voir monter ou descendre la configuration qu'on est en train d'éditer.
    */
-  el('terrasseOptimBtn').addEventListener('click', () => {
+  cmd.bouton('terrasseOptimBtn', { id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', executer: () => {
     const obj = a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
     if (!obj) return;
     el('terrasseOptimBtn').textContent = ctx.basculerOptimisation()
       ? 'Masquer l\'optimisation'
       : 'Optimisation des parametres';
     ctx.renderOptimResult(obj);
-  });
+  } });
 }

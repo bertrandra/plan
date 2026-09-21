@@ -12,7 +12,8 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.1.0` : **la migration TypeScript est terminée** (21 septembre 2026). Le fichier HTML
+Version `1.2.0-alpha.1`, reconstruction de l'interface en cours (`MD/spec-ihm-zones.md`). **La migration
+TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier HTML
 unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
 compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact
 livré reste un seul fichier `plan.html`, **produit par le build** et non plus édité à la main. Le fichier
@@ -28,7 +29,7 @@ Prérequis : Node 20 ou plus.
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
 npm run build        # produit dist/index.html (fichier unique) et dist/api.php
-npm test             # 548 tests Vitest, dont la comparaison aux golden files
+npm test             # 554 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
 npm run cliquet      # le cliquet de rigueur, voir ci-dessous

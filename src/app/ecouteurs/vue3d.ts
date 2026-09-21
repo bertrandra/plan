@@ -20,6 +20,7 @@ import { cleObjet } from '../../model/cles.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
+import type { RegistreCommandes } from '../commandes.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
@@ -37,20 +38,21 @@ export interface ContexteVue3d {
   resizeGlbViewerScene: () => void;
 }
 
-export function brancherVue3d(a: Atelier, ctx: ContexteVue3d): void {
+export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
+  const cam = (idDom: string, id: string, libelle: string, executer: () => void) => cmd.bouton(idDom, { id, libelle, groupe: '3d', executer });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };
 
   // ---- Déplacer la caméra ---------------------------------------------------------------------
-  el('terrasse3dZoomIn').addEventListener('click', () => ctx.zoom3D(0.8));
-  el('terrasse3dZoomOut').addEventListener('click', () => ctx.zoom3D(1.25));
-  el('terrasse3dModeOrbit').addEventListener('click', () => ctx.setMode3D('orbit'));
-  el('terrasse3dModePan').addEventListener('click', () => ctx.setMode3D('pan'));
-  el('terrasse3dModeZoom').addEventListener('click', () => ctx.setMode3D('zoom'));
-  el('terrasse3dEyeLevel').addEventListener('click', () => ctx.hauteurDesYeux());
+  cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(0.8));
+  cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1.25));
+  cam('terrasse3dModeOrbit', '3d.modeOrbite', 'Orbite', () => ctx.setMode3D('orbit'));
+  cam('terrasse3dModePan', '3d.modeDeplacement', 'Déplacement', () => ctx.setMode3D('pan'));
+  cam('terrasse3dModeZoom', '3d.modeZoom', 'Zoom', () => ctx.setMode3D('zoom'));
+  cam('terrasse3dEyeLevel', '3d.hauteurDesYeux', 'Hauteur des yeux', () => ctx.hauteurDesYeux());
 
   // ---- Changer ce qu'il y a dans la scène ------------------------------------------------------
 
@@ -85,7 +87,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d): void {
    * `toBlob()` après l'échange de tampon du navigateur — pas besoin du rendu hors-écran qu'exige
    * l'export PNG du plan 2D.
    */
-  el('terrasse3dSavePng').addEventListener('click', () => {
+  cam('terrasse3dSavePng', '3d.enregistrerPng', 'Enregistrer en PNG', () => {
     if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
     vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
     // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
@@ -107,7 +109,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d): void {
    * L'objet n'est **pas** sélectionné et le plan n'est pas redessiné : on est dans la Vue 3D, changer
    * la sélection du plan sous l'utilisateur n'aurait pas de sens.
    */
-  el('terrasse3dSaveViewBtn').addEventListener('click', () => {
+  cam('terrasse3dSaveViewBtn', '3d.enregistrerPointDeVue', 'Enregistrer la vue comme point de vue', () => {
     if (!vue3d.scene) return;
     const cen = vue3d.scene.cen || { x: 0, y: 0 };
     const { camera, controls } = vue3d.scene;
@@ -129,8 +131,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d): void {
   });
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
-  el('terrasse3dFullPageBtn').addEventListener('click', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));
-  el('glbViewerFullPageBtn').addEventListener('click', () => ctx.setGlbViewerPleinePage(!ctx.glbViewerPleinePage()));
+  cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));
+  cmd.bouton('glbViewerFullPageBtn', { id: 'visionneuse.pleinePage', libelle: 'Plein écran', groupe: 'visionneuse', executer: () => ctx.setGlbViewerPleinePage(!ctx.glbViewerPleinePage()) });
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && ctx.vue3dPleinePage()) ctx.setVue3dPleinePage(false);
     if (e.key === 'Escape' && ctx.glbViewerPleinePage()) ctx.setGlbViewerPleinePage(false);

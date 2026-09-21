@@ -10,6 +10,7 @@
 
 import { ouvrirSelecteurTexture } from '../../ui/texturePicker.js';
 import type { ObjetPlan } from '../../model/types.js';
+import type { RegistreCommandes } from '../commandes.js';
 
 /** Ce que les commandes de clôture et de points de vue déclenchent. */
 export interface ContexteCloture {
@@ -26,7 +27,7 @@ export interface ContexteCloture {
   allerAuPointDeVueGlb: (vp: ObjetPlan) => void;
 }
 
-export function brancherCloture(ctx: ContexteCloture): void {
+export function brancherCloture(ctx: ContexteCloture, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
   /**
@@ -76,7 +77,7 @@ export function brancherCloture(ctx: ContexteCloture): void {
     surParcelle(p => { p.clotureCouleur = this.value; });
   });
 
-  el('terrasse3dClotureTexBtn').addEventListener('click', () => {
+  cmd.bouton('terrasse3dClotureTexBtn', { id: 'cloture.choisirTexture', libelle: 'Choisir une texture…', groupe: 'cloture', executer: () => {
     const p = ctx.trouverParcelle();
     if (!p) return;
     ouvrirSelecteurTexture('Clôture', choix => {
@@ -85,9 +86,9 @@ export function brancherCloture(ctx: ContexteCloture): void {
       ctx.syncControles(p);
       ctx.rafraichirApresCloture();
     });
-  });
+  } });
 
-  el('terrasse3dClotureTexClear').addEventListener('click', () => {
+  cmd.bouton('terrasse3dClotureTexClear', { id: 'cloture.retirerTexture', libelle: 'Retirer la texture', groupe: 'cloture', executer: () => {
     surParcelle(p => { p.clotureTexture = null; }, true);
-  });
+  } });
 }

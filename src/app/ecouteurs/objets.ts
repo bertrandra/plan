@@ -7,25 +7,25 @@ import { showToast, showConfirm } from '../../shell/dialogs.js';
 import { centroid } from '../../geometry/basic.js';
 import { enPoints, enCercle } from '../../model/formes.js';
 import type { Atelier } from '../atelier.js';
+import type { RegistreCommandes } from '../commandes.js';
 
-export function brancherObjets(a: Atelier): void {
-  const surClic = (id: string, action: () => void) => {
-    document.getElementById(id)!.addEventListener('click', action);
-  };
+export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
+  const bouton = (idDom: string, id: string, libelle: string, executer: () => void, raccourci?: string) =>
+    cmd.bouton(idDom, { id, libelle, groupe: 'objet', executer, ...(raccourci ? { raccourci } : {}) });
 
-  surClic('undoBtn', a.undo);
+  bouton('undoBtn', 'objet.annuler', 'Annuler', a.undo, 'Ctrl+Z');
 
   // Des flèches explicites, et non `addEventListener('click', a.addNewObject)` : celui-ci passerait
   // l'événement en premier argument — un objet toujours vrai — et le polygone libre naîtrait en
   // mode rectangle.
-  surClic('addObjBtn', () => a.addNewObject(false));
-  surClic('addRectBtn', () => a.addNewObject(true));
-  surClic('addPathBtn', () => a.addNewPath());
-  surClic('addCircleBtn', () => a.addNewCircle());
-  surClic('addParasolBtn', () => a.addNewParasol());
-  surClic('addViewpointBtn', () => a.addNewViewpoint());
-  surClic('dupObjBtn', () => a.duplicateSelectedObject());
-  surClic('delObjBtn', () => a.deleteSelectedObject());
+  bouton('addObjBtn', 'objet.ajouter.polygone', 'Polygone', () => a.addNewObject(false));
+  bouton('addRectBtn', 'objet.ajouter.rectangle', 'Rectangle', () => a.addNewObject(true));
+  bouton('addPathBtn', 'objet.ajouter.chemin', 'Chemin', () => a.addNewPath());
+  bouton('addCircleBtn', 'objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
+  bouton('addParasolBtn', 'objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
+  bouton('addViewpointBtn', 'objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
+  bouton('dupObjBtn', 'objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject());
+  bouton('delObjBtn', 'objet.supprimer', 'Supprimer', () => a.deleteSelectedObject());
 
   /**
    * Reculer d'un cran. Le double-clic sur la forme fait la même chose, mais c'est un geste fragile
@@ -34,7 +34,7 @@ export function brancherObjets(a: Atelier): void {
    * Il dit aussi quand il ne se passe rien — « déjà au fond de sa priorité » — parce qu'un bouton
    * qui ne réagit pas se lit comme un bouton cassé.
    */
-  surClic('backObjBtn', () => {
+  bouton('backObjBtn', 'objet.reculer', 'Reculer d\'un plan', () => {
     const obj = a.objByKey(a.etat.selectedKey);
     if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
     if (obj.key === 'parcelle') { showToast('La parcelle reste toujours au fond.'); return; }
@@ -51,7 +51,7 @@ export function brancherObjets(a: Atelier): void {
    * d'origine : un objet déplacé *et* redimensionné garde ce qu'on lui a fait, et retrouve seulement
    * sa position. Un objet créé après le chargement n'a pas de référence, et le bouton le dit.
    */
-  surClic('resetPosBtn', () => {
+  bouton('resetPosBtn', 'objet.positionInitiale', 'Réinitialiser la position', () => {
     const obj = a.objByKey(a.etat.selectedKey);
     if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
     const init = a.initialState().find(o => o.key === a.etat.selectedKey);
@@ -80,10 +80,10 @@ export function brancherObjets(a: Atelier): void {
    *
    * D'où la confirmation : ce bouton efface d'un clic tout le travail fait depuis le chargement.
    */
-  surClic('resetBtn', () => {
+  cmd.bouton('resetBtn', { id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', executer: () => {
     showConfirm('Reinitialiser tout le plan ? Les objets et les mesures reviennent a leur etat du chargement (annulable par Ctrl+Z).', () => {
       a.pushHistory();
       a.restoreState({ objects: a.initialState(), measures: a.initialMeasures() });
     });
-  });
+  } });
 }

@@ -40,6 +40,8 @@ import { brancherExports } from './ecouteurs/exports.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
+import { creerRegistre } from './commandes.js';
+import { creerMagasin } from './magasin.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
   parPriorite, amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, reculerObjet,
@@ -182,6 +184,10 @@ function boot(seed: GraineDemarrage): void {
 // fermeture l'a rejoint au fil de la migration. La normalisation est passee en parametre parce
 // que c'est ici, et non dans core/, qu'on decide de quoi normaliser (§3.3).
 const etat = creerEtat(seed, normaliserEnObjetsDuPlan);
+// Etape 0 de la reconstruction de l'interface (spec-ihm-zones §6) : le magasin observe l'etat, le
+// registre nomme les commandes. Ni l'un ni l'autre ne change l'ecran.
+const magasin = creerMagasin(etat);
+const commandes = creerRegistre();
 
 // Ce dont la barre de projet, l'actualisation cadastrale et le panneau PLU ont besoin. Fabrique a
 // chaque appel : ce contexte porte des fonctions qui n'existent qu'une fois boot() lance.
@@ -447,7 +453,7 @@ function renderParasolOverlay(){
 
 // Le dessin du plan est orchestre dans render/pipeline.ts ; cette enveloppe lui fournit l'etat et
 // les briques qu'il assemble.
-function render(){ rendreScene(etat, ctxRendu()); }
+function render(){ rendreScene(etat, ctxRendu()); magasin.notifier(); }
 function ctxRendu(){
   return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
     renderAttrTable, renderDispTable, drawScaleBar, drawNorthArrow, drawMeasures,
@@ -574,12 +580,12 @@ const atelier = {
   addNewObject, addNewPath, addNewCircle, addNewParasol, addNewViewpoint,
   duplicateSelectedObject, deleteSelectedObject, sendObjectBackward
 };
-brancherObjets(atelier);
+brancherObjets(atelier, commandes);
 
 function ctxOrtho(){
   return { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup };
 }
-brancherAffichage(atelier, { enregistrerAffichage, syncBasculeGrille, ctxOrtho, buildThreeScene });
+brancherAffichage(atelier, { enregistrerAffichage, syncBasculeGrille, ctxOrtho, buildThreeScene }, commandes);
 // Branche AVANT les commandes 3D : le redimensionnement du plan etait enregistre en premier, et
 // deux ecouteurs de `resize` s'executent dans leur ordre d'enregistrement.
 brancherDivers(atelier, {
@@ -588,14 +594,14 @@ brancherDivers(atelier, {
   interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
   basculerOptimisation,
   renderOptimResult: (obj)=>renderOptimResult(obj, ctxPanneauxTerrasse())
-});
+}, commandes);
 brancherFichiers({
   exportProjetJSON, validerProjetJSON, appliquerProjetImporte,
   importerSVG: (contenu)=>importerSVG(contenu, etat, {
     pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
     render, renderMeasureResults
   })
-});
+}, commandes);
 
 // ================= Add / delete whole object =================
 // newObjCounter : dans `etat` (spec 6.1). La naissance et la mort d'un objet vivent dans
@@ -674,7 +680,7 @@ brancherExports({
     { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
   clesDossier: ()=>[...dossierSelection],
   nomProjet: ()=>(seed && seed.meta && seed.meta.name)
-});
+}, commandes);
 
 // ================= Measurement tool (click-to-pick, persistent measures) =================
 // Each measure: {id, refObjKey, refSegIndex, startEnd, targetObjKey, targetPtIndex, show}
@@ -980,7 +986,7 @@ brancherVue3d(atelier, {
   vue3dPleinePage: ()=>nav3d.vue3dPleinePage,
   glbViewerPleinePage: ()=>nav3d.glbViewerPleinePage,
   resizeThreeScene, resizeGlbViewerScene
-});
+}, commandes);
 
 // Le pilotage des modes vit dans app/modes.ts ; ces enveloppes gardent les noms qu'utilisent les
 // ecouteurs et les panneaux.
@@ -1008,19 +1014,19 @@ brancherCloture({
   trouverParcelle: trouverParcelleCloture, syncControles: syncClotureControls,
   rafraichirApresCloture, markDirty, objByKey,
   allerAuPointDeVue, allerAuPointDeVueGlb
-});
+}, commandes);
 brancherBoutonsDeVue({
   allerAuPlan: ()=>modes.allerAuPlan(),
   allerAuModeTerrasse: ()=>modes.allerAuModeTerrasse(),
   goVue3D: ()=>modes.goVue3D(),
   ouvrirVisionneuse: ()=>modes.ouvrirVisionneuse()
-});
+}, commandes);
 brancherVisionneuse(atelier, {
   genererGlb,
   rafraichir: (cam)=>rafraichirVisionneuseGlb(cam),
   appliquerLumiere: ()=>appliquerLumiereGlb({ lieuActuel, renderVue3DSelect }),
   hauteurFinieMm, hauteurYeuxM: HAUTEUR_YEUX_M
-});
+}, commandes);
 // Les memes cinq commandes, deux fois : les deux vues reglent leur soleil separement.
 brancherCommandesSoleil({
   prefixe: 'glbViewer', etat: glb, formatHeureMin,

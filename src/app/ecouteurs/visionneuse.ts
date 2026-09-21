@@ -9,6 +9,7 @@ import { glb } from '../../three/etat3d.js';
 import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
 import { estTexture } from '../../three/gardes.js';
 import type { Atelier } from '../atelier.js';
+import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetMesurable } from '../../engine/hauteurs.js';
 
 /** Ce que les commandes de la visionneuse pilotent, en plus de l'atelier. */
@@ -28,7 +29,7 @@ export interface ContexteVisionneuse {
   hauteurYeuxM: number;
 }
 
-export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse): void {
+export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
   /** La caméra actuelle, à rendre à la scène rechargée. `null` quand il n'y a pas encore de scène. */
@@ -49,12 +50,12 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse): void 
 
   // Les deux boutons produisent le modèle sans écrire de fichier : la visionneuse n'a besoin que des
   // données, et déposer un .glb dans les téléchargements à chaque ouverture n'aurait aucun sens.
-  const bouton = (id: string) => document.getElementById(id) as HTMLButtonElement;
-  bouton('glbViewerExporterBtn').addEventListener('click', function () { ctx.genererGlb(this, false); });
-  bouton('glbViewerRegenBtn').addEventListener('click', function () { ctx.genererGlb(this, false); });
+  const vis = (idDom: string, id: string, libelle: string, executer: (source?: HTMLElement) => void) => cmd.bouton(idDom, { id, libelle, groupe: 'visionneuse', executer });
+  vis('glbViewerExporterBtn', 'visionneuse.generer', 'Générer le modèle 3D', (source) => ctx.genererGlb(source as HTMLButtonElement, false));
+  vis('glbViewerRegenBtn', 'visionneuse.regenerer', 'Régénérer depuis le plan', (source) => ctx.genererGlb(source as HTMLButtonElement, false));
 
-  el('glbViewerZoomIn').addEventListener('click', () => zoom(0.8));
-  el('glbViewerZoomOut').addEventListener('click', () => zoom(1.25));
+  vis('glbViewerZoomIn', 'visionneuse.zoomAvant', 'Zoom avant', () => zoom(0.8));
+  vis('glbViewerZoomOut', 'visionneuse.zoomArriere', 'Zoom arrière', () => zoom(1.25));
 
   /**
    * Hauteur des yeux. Même repérage de terrasse que le bouton d'export — celle sélectionnée, sinon
@@ -63,7 +64,7 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse): void 
    *
    * Seule l'altitude bouge : ni la position au sol, ni la cible du regard.
    */
-  el('glbViewerEyeLevel').addEventListener('click', () => {
+  vis('glbViewerEyeLevel', 'visionneuse.hauteurDesYeux', 'Hauteur des yeux', () => {
     if (!glb.scene) return;
     const terr = a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && o.fonction === 'terrasse')
               || a.etat.objects.find(o => o.fonction === 'terrasse');

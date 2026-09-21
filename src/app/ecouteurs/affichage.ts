@@ -8,6 +8,7 @@
 import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, syncControlesOrtho } from '../../render/ortho.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
+import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que les commandes d'affichage doivent pouvoir déclencher, en plus de l'atelier. */
@@ -22,7 +23,7 @@ export interface ContexteAffichage {
   buildThreeScene: (obj: ObjetPlan | null) => void;
 }
 
-export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {
+export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
   el('chkNorth').addEventListener('change', e => {
@@ -50,12 +51,12 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {
     if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
   });
 
-  el('gridBtn').addEventListener('click', () => {
+  cmd.bouton('gridBtn', { id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
     ctx.syncBasculeGrille();
     ctx.enregistrerAffichage();
     a.render();
-  });
+  } });
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
   // — c'est elle qui redessine quand elle a fini.
@@ -80,10 +81,10 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage): void {
     enregistrerConfigOrtho(ctx.ctxOrtho());
   });
 
-  el('orthoParcelleDefaut').addEventListener('click', () => {
+  cmd.bouton('orthoParcelleDefaut', { id: 'affichage.orthoParcelleDefaut', libelle: 'Opacité de parcelle conseillée', groupe: 'affichage', executer: () => {
     ortho.parcelleOpacite = 0.15;
     syncControlesOrtho();
     if (ortho.actif) a.render();
     enregistrerConfigOrtho(ctx.ctxOrtho());
-  });
+  } });
 }

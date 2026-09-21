@@ -12,6 +12,7 @@
 
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import type { ProjetValide } from '../../io/validation.js';
+import type { RegistreCommandes } from '../commandes.js';
 
 /** Taille maximale d'un fichier de projet. Au-delà, on refuse avant même de lire. */
 export const IMPORT_JSON_TAILLE_MAX = 5 * 1024 * 1024;
@@ -45,10 +46,10 @@ function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSuc
   reader.readAsText(file);
 }
 
-export function brancherFichiers(ctx: ContexteFichiers): void {
+export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
-  el('importSvgBtn').addEventListener('click', () => el('importSvgFile').click());
+  cmd.bouton('importSvgBtn', { id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', executer: () => el('importSvgFile').click() });
 
   el('importSvgFile').addEventListener('change', function () {
     lireFichierTexte(this, 'Erreur de lecture du fichier SVG.', contenu => {
@@ -57,12 +58,12 @@ export function brancherFichiers(ctx: ContexteFichiers): void {
     });
   });
 
-  el('exportJsonBtn').addEventListener('click', () => {
+  cmd.bouton('exportJsonBtn', { id: 'fichier.exporterJson', libelle: 'Exporter le projet (JSON)', groupe: 'fichier', executer: () => {
     try { ctx.exportProjetJSON(); }
     catch (e) { showErrBanner('Echec de l\'export JSON : ' + ((e as Error).message || e)); }
-  });
+  } });
 
-  el('importJsonBtn').addEventListener('click', () => el('importJsonFile').click());
+  cmd.bouton('importJsonBtn', { id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', executer: () => el('importJsonFile').click() });
 
   el('importJsonFile').addEventListener('change', function () {
     const file = this.files![0];

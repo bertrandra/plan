@@ -18,6 +18,7 @@
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
+import type { RegistreCommandes } from '../commandes.js';
 
 /** Ce que la livraison d'un fichier demande au reste du programme. */
 export interface ContexteExports {
@@ -79,13 +80,11 @@ function lienDeSecours(id: string, url: string, texte: string, apres: Element): 
   lien.textContent = texte;
 }
 
-export function brancherExports(ctx: ContexteExports): void {
-  const surClic = (id: string, action: (bouton: HTMLButtonElement) => void) => {
-    const b = document.getElementById(id) as HTMLButtonElement;
-    b.addEventListener('click', () => action(b));
-  };
+export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
+  const surClic = (idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void) =>
+    cmd.bouton(idDom, { id, libelle, groupe: 'export', executer: (source) => action(source as HTMLButtonElement) });
 
-  surClic('exportSvgBtn', () => {
+  surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
     catch (err) { showErrBanner('Erreur export SVG: ' + (err as Error).message); return; }
@@ -104,7 +103,7 @@ export function brancherExports(ctx: ContexteExports): void {
    * canvas. Le suréchantillonnage ×3 va au-delà de la taille native du SVG — sans lui, un plan
    * imprimé depuis le PNG serait visiblement pixellisé.
    */
-  surClic('exportPngBtn', () => {
+  surClic('exportPngBtn', 'export.png', 'Exporter en PNG', () => {
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
     catch (err) { showErrBanner('Erreur export PNG: ' + (err as Error).message); return; }
@@ -134,10 +133,10 @@ export function brancherExports(ctx: ContexteExports): void {
   });
 
   // Le résumé ne se télécharge pas : il est fait pour être copié dans un message.
-  surClic('exportBtn', () => { afficherDansLaBoite(ctx.construireResume()); });
+  surClic('exportBtn', 'export.resume', 'Générer le résumé', () => { afficherDansLaBoite(ctx.construireResume()); });
 
   // Pas de lien de secours : un fichier CAO ne s'ouvre pas dans un onglet.
-  surClic('exportDxfBtn', () => {
+  surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;
     try { dxfStr = ctx.buildExportDXF(); }
     catch (err) { showErrBanner('Erreur export DXF: ' + (err as Error).message); return; }
@@ -150,7 +149,7 @@ export function brancherExports(ctx: ContexteExports): void {
   });
 
   // Pas d'affichage dans la zone : un PDF n'a pas de contenu lisible à copier.
-  surClic('exportPdfBtn', () => {
+  surClic('exportPdfBtn', 'export.pdf', 'Exporter en PDF', () => {
     const echelle = parseInt((document.getElementById('pdfScaleInput') as HTMLInputElement).value, 10) || 200;
     let pdfStr: string;
     try { pdfStr = ctx.buildExportPDF(echelle); }
@@ -165,7 +164,7 @@ export function brancherExports(ctx: ContexteExports): void {
     }
   });
 
-  surClic('dossierPdfBtn', () => {
+  surClic('dossierPdfBtn', 'export.dossier', 'Générer le dossier PDF', () => {
     if (!ctx.clesDossier().length) { showToast('Coche au moins une terrasse pour le dossier.'); return; }
     let res;
     try { res = ctx.construireDossier(); }
@@ -178,5 +177,5 @@ export function brancherExports(ctx: ContexteExports): void {
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.
-  surClic('exportGlbBtn', bouton => ctx.genererGlb(bouton, true));
+  surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', bouton => ctx.genererGlb(bouton, true));
 }

@@ -3,6 +3,27 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.1] — 2026-09-21
+
+**Reconstruction de l'IHM, étape 0** (`MD/spec-ihm-zones.md` §6) : le registre des commandes et le
+magasin existent, tous les boutons passent par le registre, et l'écran ne change pas. Les six
+artefacts sont identiques à ceux de la `1.1.0` hors numéro de version.
+
+### Interne
+
+- `app/commandes.ts` : une commande a un identifiant stable (`objet.dupliquer`), un libellé, un groupe,
+  parfois un raccourci et une condition d'activation ; le registre refuse un doublon et lie un élément
+  du DOM à une commande. **47 commandes** dans douze groupes remplacent les `addEventListener('click')`
+  des neuf groupes d'écouteurs, ligne à ligne, sans qu'un geste change.
+- `app/magasin.ts` : un store Zustand qui tient la référence vivante d'`EtatApp` et un compteur de
+  version incrémenté par `render()` — le pont vers React, sans réécrire une mutation.
+- React, React DOM et Zustand sont des dépendances ; le greffon React de Vite est branché et le JSX
+  accepté. Rien ne les utilise encore : le fichier livré grossit de trois kilo-octets (Zustand et le
+  registre), React n'y entre pas.
+- Décisions consignées dans la spec : React avec Zustand, fichier unique conservé, tactile comme critère
+  d'acceptation, la terrasse comme contexte du plan, les résultats dans un tiroir en bas du canevas.
+- 554 tests (548 + 6).
+
 ## [1.1.0] — 2026-09-21
 
 **La migration TypeScript est terminée.** Le fichier mono-page de 13 487 lignes (`1.0.0`, figé dans

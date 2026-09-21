@@ -39,19 +39,19 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 21 septembre 2026, a la version 1.1.0. Le seul ecart avec les empreintes de
+  // Recapturees le 21 septembre 2026, a la version 1.2.0-alpha.1. Le seul ecart avec les empreintes de
   // la 1.0.0 est le numero de version, et cela a ete prouve avant chaque recapture : le meme build,
   // estampille de l'ancien numero, reproduisait les anciennes empreintes au bit pres, et une
   // comparaison ligne a ligne ne montrait qu'une ligne differente par artefact texte — celle qui
   // porte la version (voir EMPREINTES.md, « La rupture » et la recapture de rattrapage).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '6cc56af2abeaee48d35df9d82388eb7cf14c35d654e5f612473f9c83fdf39d8a',
-      'plan.svg': '15a35907ce3e09b7c4d77c7ae695127427c0cb16a99d6240acf831e2dce44faa',
-      'plan.dxf': '70a6380756786c406e49b3309835bb35c5076532b6446bbe4642c6b857d3f387',
-      'projet.json': '9eebfa92dd2d2e1a1bc65984ef2b5b58b32acbf797c11a57fe59ca9d1f5a4053',
-      'plan.pdf': '50d0b01abe93a400da42355122797c0b131291f18639a70550599934d3286293',
-      'dossier.pdf': 'cca2d8ccde14a026f4117d96dead73c187dbfb9b0477509473a6a5dcd2de5c74'
+      'resume.txt': '12d53e4a870ea0beb25446cd4fa1e3807d142be9aba19192fd9113d47c1aced0',
+      'plan.svg': '6509ae835124ac0b8f5265857760007ce97f769aaab79b036254ca1bc5ae1b14',
+      'plan.dxf': '3b42a91eb94a3cc61c740836bd49c6c8973b114d04fc01ebe76b7831b3017818',
+      'projet.json': 'f36af4c8fe6a4411e0c1be41de941ad3b477252b21c2235aa783092cdd640fc8',
+      'plan.pdf': '10334bce6965913b1265d5af2649285cce3ab546f8608e4e4c5a344ba947a634',
+      'dossier.pdf': 'ee582e59dffb5e6f06b301f68089a9da20639548923a95e1f5a03b600b53b53f'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

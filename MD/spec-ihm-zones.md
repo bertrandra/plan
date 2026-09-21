@@ -274,7 +274,7 @@ Zone par zone, chaque étape laissant l'application utilisable et les empreintes
 
 | Étape | Livrable | Ce qui bouge | Preuve |
 |---|---|---|---|
-| 0 | La table des commandes (`commandes.ts`) et l'état observable | `app/ecouteurs/*` deviennent des lignes de table ; aucun changement d'écran | 548 tests, six empreintes |
+| 0 | La table des commandes (`commandes.ts`) et l'état observable | `app/ecouteurs/*` deviennent des lignes de table ; aucun changement d'écran | 548 tests, six empreintes — **✅ 21/09/2026, `1.2.0-alpha.1`** : `app/commandes.ts` (47 commandes, 12 groupes), `app/magasin.ts`, React et Zustand installés, six empreintes identiques hors numéro |
 | 1 | La coquille (Z1, Z7) autour du canevas existant | `index.html` : barre d'application et barre d'état ; R1, R2 et le titre disparaissent | Checklist de fumée |
 | 2 | Z2 Palette et Z4 surimpressions | `#planActions`, `fitBtn`, `gridBtn`, le curseur solaire unifié | Points 1 à 11, 22 |
 | 3 | Z3 Explorateur | `#selector`, `dispTable`, `terrasseSelector`, calques, sélection dossier | Points 13, 25 |
@@ -311,11 +311,18 @@ Prises le 21 septembre 2026 pour les quatre premières ; la cinquième est ouver
    terrasse est sélectionnée, alors que le mode Terrasse le verrouillait (`pointeur.ts`, « Mode
    Terrasse is read-only over the plan geometry ») — ce verrou devient un choix explicite de Z2
    (outil de sélection actif ou non), pas un effet de bord du mode.
-5. **L'emplacement des résultats (Z6)** : ouvert, voir §7.1.
+5. **Les résultats (Z6) sont un tiroir en bas du canevas**, repliable, pleine largeur — option A de §7.1.
 
-### 7.1 Z6 en bas ou dans l'inspecteur : ce que chaque option coûte
+### 7.1 Z6 en bas ou dans l'inspecteur : ce que chaque option coûtait
 
-*(à compléter une fois la décision prise)*
+Deux options ont été pesées. **Un tiroir en bas** (retenu) : toute la largeur pour des tableaux de sept
+colonnes, et surtout la boucle réglage → chiffrage visible d'un seul regard — je change l'entraxe
+dans l'inspecteur, je vois les vis changer en bas. Son coût, la hauteur prise au canevas, se règle
+par trois états mémorisés localement : replié sur une ligne de totaux, mi-hauteur, plein. La coupe et
+l'implantation, qui ne se comparent pas au plan, peuvent s'ouvrir en plein canevas depuis le tiroir.
+**Un onglet de l'inspecteur** (écarté) : 320 px pour sept colonnes, et propriétés et résultats en
+onglets frères — le défaut de la disposition actuelle, où Construction et BOM voisinent sans se voir.
+Sous 1 024 px les deux convergent : panneaux escamotés, résultats en plein écran sur bouton.
 
 ## 8. Ce que cela laisse au Core
 
