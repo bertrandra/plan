@@ -287,24 +287,35 @@ carte des modules (`architecture.md` §5.2.2) reste vraie.
 
 ---
 
-## 7. Décisions à prendre avant l'étape 1
+## 7. Décisions
 
-1. **Le cadre.** V2 dit React + Tailwind + shadcn/ui. Le découpage ci-dessus s'applique aussi bien
-   en DOM natif (les zones sont des modules qui rendent dans un conteneur) ; ce qui change est
-   l'étape 0 — store Zustand ou bus d'événements. À trancher avant d'écrire la première zone.
-2. **Le fichier unique.** ASR-3 exige un déploiement « copier un fichier ». `vite-plugin-singlefile`
-   sait embarquer React ; le budget de 1,2 Mo tient (450 Ko aujourd'hui, React ≈ 45 Ko gzippé). À
-   confirmer ou à abandonner avec la 2.0.0 (serveur Node).
-3. **Le tactile.** L'interface actuelle est utilisable au doigt (pincement, trois doigts, double-tap
-   objet). La palette Z2 et l'inspecteur Z5 doivent l'être aussi : largeur des cibles ≥ 44 px,
-   panneaux escamotables en dessous de 1 024 px.
-4. **Les vues.** Plan, Terrasse, Vue 3D et Visionneuse sont-elles quatre *vues* de Z1, ou Terrasse
-   est-elle un *contexte* (une terrasse sélectionnée) du mode Plan ? La seconde lecture supprime un
-   mode et rapproche l'inspecteur du canevas ; elle change la façon dont Z3 et Z5 s'articulent.
-5. **Les résultats.** Z6 en bas (repliable) ou en onglet de Z5 ? En bas, on lit le BOM en regardant
-   le plan ; en onglet, on gagne de la largeur pour le canevas.
+Prises le 21 septembre 2026 pour les quatre premières ; la cinquième est ouverte.
 
----
+1. **Le cadre : React avec Zustand**, comme l'architecture V2 le prévoit. L'étape 0 est donc un
+   store Zustand qui porte `EtatApp` et les états de vue (§5.1), et une table de commandes que les
+   composants déclenchent. Le rendu SVG (`render/pipeline.ts`) et les gestes (`interaction/*`)
+   restent en DOM natif dans un composant hôte : ils sont testés, tactiles et rapides, et React n'a
+   rien à y gagner.
+2. **Le fichier unique est conservé.** `vite-plugin-singlefile` embarque React ; le budget de
+   1,2 Mo tient (450 Ko aujourd'hui, React et Zustand ≈ 50 Ko gzippés). Le déploiement reste
+   « copier un fichier » jusqu'à la 2.0.0.
+3. **Le tactile est un critère d'acceptation**, pas une option : cibles ≥ 44 px dans Z2 et Z5,
+   panneaux escamotables sous 1 024 px, et les points 6 et 7 de la checklist de fumée (pincement,
+   trois doigts) restent bloquants.
+4. **Terrasse est un contexte du plan, pas une vue.** Il n'y a plus que trois vues dans Z1 — Plan,
+   3D, Visionneuse. Sélectionner une terrasse (sur le canevas ou dans Z3) fait apparaître dans Z5
+   la section Construction et dans Z6 ses résultats ; les calques de la terrasse se choisissent
+   dans Z3 et se dessinent sur le plan. Le mode Terrasse, le sous-onglet Canevas, `#terrasseTopBar`
+   et `#stageParking` (le déplacement physique du `<svg>` entre deux conteneurs, `app/modes.ts`)
+   disparaissent. Conséquence à vérifier à l'étape 3 : le plan reste éditable pendant qu'une
+   terrasse est sélectionnée, alors que le mode Terrasse le verrouillait (`pointeur.ts`, « Mode
+   Terrasse is read-only over the plan geometry ») — ce verrou devient un choix explicite de Z2
+   (outil de sélection actif ou non), pas un effet de bord du mode.
+5. **L'emplacement des résultats (Z6)** : ouvert, voir §7.1.
+
+### 7.1 Z6 en bas ou dans l'inspecteur : ce que chaque option coûte
+
+*(à compléter une fois la décision prise)*
 
 ## 8. Ce que cela laisse au Core
 
