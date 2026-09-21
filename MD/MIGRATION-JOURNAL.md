@@ -1938,3 +1938,51 @@ suppose :
 Même protocole : six empreintes sur six identiques à version inchangée sur le build typé, puis
 recapture en `alpha.17` avec la preuve forte (ancien numéro remis dans les octets frais, six
 anciennes empreintes retrouvées au bit près). 548 tests, `tsc`, ESLint et le cliquet à zéro.
+
+## La migration est terminée — `1.1.0`, 21 septembre 2026
+
+Vingt-quatre jours après la phase 0. Le fichier mono-page de 13 487 lignes est un graphe de 115
+modules, sous la configuration la plus stricte du compilateur, et l'artefact livré est toujours un
+seul fichier `plan.html` — celui que `npm run build` produit, copié à la racine à chaque palier. La
+définition de fin (`spec-migration-typescript.md` §14) est cochée en entier, et la grille de sortie
+de `RELEASE.md` §2.3 pour la `1.1.0` était précisément celle-là.
+
+### Le dernier passage de version
+
+Passer d'`alpha.17` à `1.1.0` raccourcit de neuf octets la chaîne estampillée dans les six
+artefacts. La preuve forte des recaptures précédentes (même longueur, ancien numéro remis dans les
+octets frais) ne s'applique donc pas ; c'est la preuve de la rupture du 29 août qui a été refaite :
+
+- les quatre artefacts texte sont **identiques** à ceux de l'`alpha.17` une fois le numéro
+  neutralisé — une ligne diffère dans le résumé, le SVG et le DXF, trois dans le JSON (version et
+  horodatages) ;
+- les deux PDF ont le même contenu : 14 objets, 2 pages, 143 textes pour `plan.pdf` ; 15, 3, 107
+  pour `dossier.pdf` ; et une fois neutralisés le numéro, les dates, les décalages de la table
+  `xref`, `startxref` et les longueurs de flux, **une seule ligne diffère** dans chacun — le
+  dictionnaire `/Producer … /Creator (plan.html build …)`, qui porte la version et la date de build,
+  passée du 29 août au 21 septembre avec `BUILD_AT`.
+
+Puis la checklist de fumée a été redéroulée sur le build `1.1.0`, 25/25, mêmes valeurs qu'en
+`alpha.16` (`tests/CHECKLIST-FUMEE.md`), et le GLB revérifié : huit compteurs identiques.
+
+### Ce que la migration laisse
+
+- **Un oracle.** Six artefacts, une empreinte normalisée chacun, un test qui les garde, et un
+  protocole de recapture qui prouve avant de remplacer. Le moteur a son propre oracle
+  (`tests/unit/engine/moteur-oracle.test.ts`). C'est ce qui a permis de déplacer 13 487 lignes en
+  vingt-quatre jours sans qu'un nombre bouge.
+- **Des règles que l'outil impose**, pas des conventions : sens des dépendances entre couches,
+  pureté de `geometry`, `model` et `util`, configuration stricte, cliquet par dossier.
+- **Une liste de dettes triée** (`MD/DEFAUTS.md`) : ce que le typage a rendu visible sans le corriger,
+  chacune avec ce qui la tient aujourd'hui et ce qui la fermerait.
+- **Ce qui manque encore à `RELEASE.md`** et n'était pas dans le périmètre de la migration :
+  l'injection de la version au build (§5.1), l'échec du build sur arbre sale ou étiquette
+  discordante, la proposition automatique de bump (§7). `APP_VERSION` et `BUILD_AT` restent écrits
+  à la main dans `model/version.ts`, comme depuis le 29 août.
+
+### Les étiquettes
+
+Le dépôt n'en portait aucune, alors que ce journal en citait deux depuis la phase 0. Elles sont
+posées ce jour, après coup, sur les commits qu'elles désignent : `v1.0.0` et `v0-preTS` sur le gel
+du 28 août (`599b570`), `v1.1.0-alpha.1` sur la rupture du 29 août (`108389a`), `v1.1.0` sur la
+publication. Annotées, non signées : aucune clé de signature n'est configurée sur ce poste.

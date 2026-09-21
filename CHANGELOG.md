@@ -3,6 +3,30 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.1.0] — 2026-09-21
+
+**La migration TypeScript est terminée.** Le fichier mono-page de 13 487 lignes (`1.0.0`, figé dans
+`legacy/plan_interactif.html`) est devenu un graphe de 115 modules typés sous la configuration la
+plus stricte du compilateur, et l'artefact livré reste un seul fichier `plan.html`, produit par le
+build. La définition de fin (`MD/spec-migration-typescript.md` §14) est cochée en entier : `tsc`,
+ESLint et 548 tests à zéro ; six artefacts exportés identiques au bit près à ceux de la `1.0.0`, à
+la version près, prouvé à chaque palier ; checklist de fumée 25/25 sur le build ; déploiement de
+test avec `api.php` ; carte des modules ; liste des défauts triée.
+
+Ce que l'utilisateur voit changer par rapport à la `1.0.0`, tout est dans les paliers `alpha` ci-dessous :
+trois corrections (`alpha.16`) et une construction complète à l'ouverture d'un projet ancien
+(`alpha.17`). Aucune quantité, aucun octet exporté ne bouge pour un projet valide — d'où une version
+MINEURE, comme `MD/RELEASE.md` §2.3 le prévoyait.
+
+### Interne
+
+- `BUILD_AT` passe au 21 septembre 2026 ; la pastille de version affiche `v1.1.0`.
+- Le passage d'un numéro de pré-version au numéro final raccourcit la chaîne estampillée dans les
+  six artefacts : les quatre fichiers texte sont identiques à ceux de l'`alpha.17` une fois le numéro
+  neutralisé, et les deux PDF ont le même contenu (mêmes objets, pages et textes) : une fois neutralisés
+  numéro, dates, décalages internes et longueurs de flux, une seule ligne diffère, le dictionnaire
+  `/Producer … /Creator` qui porte la version et la date de build.
+
 ## [1.1.0-alpha.17] — 2026-09-21
 
 **`ObjetPlan` est une union discriminée** (MD/DEFAUTS.md, D-3 ; spec §12). Polygone, chemin et

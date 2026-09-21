@@ -12,9 +12,10 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.1.0-alpha.17`, en cours de migration d'un fichier HTML unique de 13 500 lignes vers un
-graphe de modules TypeScript (`MD/spec-migration-typescript.md`). L'artefact livré reste un seul
-fichier `plan.html`, désormais **produit par le build** et non plus édité à la main. Le fichier
+Version `1.1.0` : **la migration TypeScript est terminée** (21 septembre 2026). Le fichier HTML
+unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
+compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact
+livré reste un seul fichier `plan.html`, **produit par le build** et non plus édité à la main. Le fichier
 d'origine est figé dans `legacy/plan_interactif.html` et sert de témoin : les golden files de
 `tests/fixtures/golden/` sont ceux qu'il produit, et chaque palier de la migration s'y compare au
 bit près. Le détail des paliers est dans `CHANGELOG.md`.

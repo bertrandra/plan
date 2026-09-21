@@ -1351,6 +1351,8 @@ Add 20 % contingency for R1/R3. A two-developer split is viable from Phase 3 (en
 
 ## 14. Definition of done
 
+**Atteinte le 21 septembre 2026, version `1.1.0`** — voir `MIGRATION-JOURNAL.md`, « La migration est terminée ».
+
 - [x] `tsc --noEmit` clean under the §9.1 configuration. — **20 septembre 2026** (§9.2.15) : `tsconfig.json` est la configuration cible, 0 erreur.
 - [x] `eslint` clean under the §9.3 ruleset. — 20 septembre 2026, `npm run lint` a zero sur `src/` et `tests/`.
 - [x] Vitest green; `src/engine/**` and `src/geometry/**` ≥ 80 % line coverage. — 535 tests verts ; 91,5 % sur le moteur (phase 3).
