@@ -9,10 +9,10 @@ export default [
   { ignores: ['dist/**', 'node_modules/**', 'legacy/**', 'src/legacy.ts'] },
   js.configs.recommended,
   {
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsparser,
-      parserOptions: { project: './tsconfig.json', ecmaVersion: 2022, sourceType: 'module' },
+      parserOptions: { project: './tsconfig.json', ecmaVersion: 2022, sourceType: 'module', ecmaFeatures: { jsx: true } },
       globals: { document: 'readonly', window: 'readonly', console: 'readonly' }
     },
     plugins: { '@typescript-eslint': tseslint },

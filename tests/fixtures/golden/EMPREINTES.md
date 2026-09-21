@@ -164,6 +164,10 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   quatre fichiers texte identiques hors numéro, deux PDF au contenu identique une fois neutralisés
   numéro, dates, décalages et longueurs de flux — aucune ligne ne diffère.
 
+- **21 septembre 2026**, `plan.html` v1.2.0-alpha.2 : reconstruction de l'IHM, étape 1 (barre d'application
+  et barre d'état en React). Même protocole, preuve forte : ancien numéro remis dans les octets frais,
+  six anciennes empreintes retrouvées au bit près.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -175,12 +179,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `12d53e4a870ea0beb25446cd4fa1e3807d142be9aba19192fd9113d47c1aced0` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `6509ae835124ac0b8f5265857760007ce97f769aaab79b036254ca1bc5ae1b14` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `3b42a91eb94a3cc61c740836bd49c6c8973b114d04fc01ebe76b7831b3017818` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `f36af4c8fe6a4411e0c1be41de941ad3b477252b21c2235aa783092cdd640fc8` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `10334bce6965913b1265d5af2649285cce3ab546f8608e4e4c5a344ba947a634` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `ee582e59dffb5e6f06b301f68089a9da20639548923a95e1f5a03b600b53b53f` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `9efa56756f69f5ddef467f857d28d34e5d3fce557ad4f06e12688f5185a91f53` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `ac43c3d9dced3afcb3dd794464f7ee1dbcb9e01491b9c5752660480b955223f5` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `f4ef55fcdcf79aa2503309af79431cf7cccb39bc5510009a096dfb163e54f427` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `0723c1c341bd6bf6ff5a4992a9ffa41c6af097319194fffe1c6f47820adba64b` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `882d650b1aabb36fe836eee61157f558fe4c7317a9f955dcad44a121c67880bb` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `51e1d77273ee8cc3d18d6f267d356fde629c26842b75fad4f71d1048db2141a4` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

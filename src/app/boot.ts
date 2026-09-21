@@ -97,7 +97,10 @@ import {
 import type { CameraConservee } from '../three/glbViewer.js';
 import { serializeObjects, serializeMeasures } from '../io/serialisation.js';
 import { importSVGString as importerSVG } from '../io/importSvg.js';
-import { setupProjectBar, renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from '../ui/projectBar.js';
+import { renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from '../ui/projectBar.js';
+import { ouvrirImportCadastre } from '../ui/cadastreDialog.js';
+import { creerProjet } from './projet.js';
+import { monterZones } from '../zones/monter.js';
 import {
   renderTerrasseConfigurator, renderTerrasseCoupe, renderDebitBois, renderImplantation,
   renderChantier, renderMethode, renderOptimResult, basculerOptimisation,
@@ -543,6 +546,13 @@ function deleteVertex(obj: ObjetPlan, idx: number){
   render();
 }
 
+// La barre d'etat (zones/) affiche le pointeur en metres : le plan le publie, elle le lit.
+stage.addEventListener('pointermove', (e)=>{
+  const r = stage.getBoundingClientRect();
+  magasin.definirPointeur(toWorld({ x: e.clientX - r.left, y: e.clientY - r.top }));
+});
+stage.addEventListener('pointerleave', ()=>magasin.definirPointeur(null));
+
 // Les evenements de pointeur vivent dans interaction/pointeur.ts ; ce branchement leur fournit
 // l'etat et tout ce qu'ils doivent pouvoir declencher.
 brancherPointeur(svg, stage, etat, {
@@ -894,12 +904,10 @@ function syncLieuGlbViewer(){
 }
 // Entete du plan : le lieu se met a jour quand la parcelle change (import cadastre, import JSON,
 // actualisation IGN), pas seulement au demarrage.
+// Le lieu s'affiche dans la barre d'application (zones/), qui le lit dans le magasin.
 function syncLieuTitre(){
-  const el = document.getElementById('titreLieu');
-  if(!el) return;
   const p = trouverParcelleCloture();
-  el.textContent = p ? libelleLieu() : '';
-  el.title = p ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : '';
+  magasin.definirLieu(p ? libelleLieu() : '');
 }
 // Le curseur "semaine" et le rafraichissement de la visionneuse vivent dans three/glbViewer.ts.
 function syncSemaineDepuisDate(){ syncSemaineGlb(); }
@@ -994,6 +1002,7 @@ const modes = creerModes(etat, {
   stage, terrasseLayerGroup, rebuildTerrasseSelector, fitToObject,
   ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
   preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
+  signalerVue: (vue)=>magasin.definirVue(vue),
   rendrePanneauxTerrasse(obj){
     renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
     renderTerrasseLayerTabs(obj);
@@ -1039,7 +1048,18 @@ brancherCommandesSoleil({
   appliquer: appliquerLumiereVue3d
 });
 
-setupProjectBar(seed, ctxProjet());
+// Le projet cote serveur devient des commandes (app/projet.ts) ; la barre d'application et la barre
+// d'etat (zones/) les affichent. Montees en dernier : tout ce qu'elles lisent existe alors.
+const projet = creerProjet(seed, {
+  etat, apiSave, apiDelete, serializeObjects, serializeMeasures, withProjectParam,
+  initialState: ()=>initialState,
+  initialMeasures: ()=>initialMeasures,
+  cleDernierProjet: LS_LAST_PROJECT,
+  definirRafraichisseurStatut: (f)=>historique.definirRafraichisseurStatut(f),
+  ouvrirImportCadastre: ()=>ouvrirImportCadastre(ctxProjet().contexteImport()),
+  ouvrirDialogueActualisation: (b)=>ouvrirDialogueActualisation(b, ctxProjet())
+}, magasin, commandes);
+monterZones({ magasin, commandes, projet });
 render();
 // Cadrage d'ouverture sur le terrain quand il vient du cadastre : sa taille reelle n'a aucune
 // raison de tomber sur l'echelle par defaut du plan de demonstration. Un plan dessine a la main

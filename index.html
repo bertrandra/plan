@@ -7,24 +7,8 @@
 </head>
 <body>
 
-<div id="projectBar"></div>
-<div id="modeBar" style="display:flex; gap:6px; width:98vw; max-width:1600px; margin:0 0 8px;">
-  <button id="modePlanBtn" class="objbtn active">Plan</button>
-  <button id="modeTerrasseBtn" class="objbtn">Terrasse</button>
-  <button id="mode3dBtn" class="objbtn" title="Vue 3D de la terrasse actuellement selectionnee">Vue 3D</button>
-  <button id="glbViewerBtn" class="objbtn" title="Relit le dernier fichier GLB exporte (onglet Export), pour verifier le fichier reel avant de le partager">Visionneuse GLB</button>
-  <!-- Bascules d'affichage, groupees a droite : c'est le groupe qui porte margin-left:auto,
-       sinon masquer la case Voisinage renverrait la case Orthophoto au milieu de la barre. -->
-  <span style="margin-left:auto; display:inline-flex; align-items:center; gap:16px;">
-    <label id="voisinageToggle" style="display:none; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Masque les parcelles adjacentes et tout ce qui a ete importe avec elles (bati, vegetation, arbres estimes), sur le plan comme en 3D. Rien n'est supprime.">
-      <input type="checkbox" id="chkVoisinage" checked> 🏘️ Voisinage
-    </label>
-    <label id="orthoToggle" style="display:inline-flex; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Photographie aerienne IGN posee sous le plan et sous la Vue 3D, calee sur la position reelle de la parcelle. Reglages (opacites) dans l'onglet Affichage.">
-      <input type="checkbox" id="chkOrtho"> 🛰️ Fond orthophoto
-    </label>
-  </span>
-</div>
-<h1>Plan interactif — Parcelle AE 101<span id="titreLieu"></span></h1>
+<!-- Z1, la barre d'application (zones/BarreApplication.tsx) : projet, vues, titre. -->
+<div id="zoneBarre"></div>
 
 <div id="selector"></div>
 <div id="terrasseTopBar" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
@@ -282,6 +266,16 @@
   </div>
 
   <div id="panelAffichage" style="display:none;">
+    <!-- Voisinage et fond orthophoto : deplaces de l'ancienne barre de vues a l'etape 1 ; ils rejoindront
+         le menu Affichage de la barre d'application (spec-ihm-zones §4.1). -->
+  <div class="controls" style="display:inline-flex; align-items:center; gap:16px;">
+    <label id="voisinageToggle" style="display:none; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Masque les parcelles adjacentes et tout ce qui a ete importe avec elles (bati, vegetation, arbres estimes), sur le plan comme en 3D. Rien n'est supprime.">
+      <input type="checkbox" id="chkVoisinage" checked> 🏘️ Voisinage
+    </label>
+    <label id="orthoToggle" style="display:inline-flex; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Photographie aerienne IGN posee sous le plan et sous la Vue 3D, calee sur la position reelle de la parcelle. Reglages (opacites) dans l'onglet Affichage.">
+      <input type="checkbox" id="chkOrtho"> 🛰️ Fond orthophoto
+    </label>
+  </div>
     <div class="sectionTitle">Affichage par objet</div>
     <table class="dispTable" id="dispTable"></table>
 
@@ -373,6 +367,9 @@
     <div class="hint">Mesure perpendiculaire à un segment de référence (souvent un côté de la parcelle). Les traits fins gris et les cotes s'affichent sur le plan, à l'extérieur de la parcelle.</div>
   </div>
 </div>
+
+<!-- Z7, la barre d'etat (zones/BarreEtat.tsx) : serveur, enregistrement, selection, echelle, pointeur, version. -->
+<footer id="zoneEtat"></footer>
 
 </body>
 </html>

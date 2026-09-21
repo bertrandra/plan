@@ -3,6 +3,34 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.2] — 2026-09-21
+
+**Reconstruction de l'IHM, étape 1 : la coquille** (`MD/spec-ihm-zones.md` §6). Deux zones React
+entourent le canevas existant — **Z1, la barre d'application** (projet, vues, titre) et **Z7, la
+barre d'état** (serveur, enregistrement, sélection, échelle, pointeur, version). Les régions
+`#projectBar`, `#modeBar` et le `<h1>` d'`index.html` disparaissent. Les six artefacts sont
+identiques à ceux de l'`alpha.1`.
+
+### Modifié
+
+- **Une barre d'état en bas de la fenêtre** : mode local ou statut d'enregistrement, objet
+  sélectionné, échelle du plan (« 1 m = 11 px »), position du pointeur en mètres, version.
+- **Les bascules Voisinage et Fond orthophoto** passent de la barre de vues à l'onglet Affichage,
+  inchangées.
+
+### Interne
+
+- `app/projet.ts` : la logique de la barre de projet (ouvrir, créer, enregistrer, supprimer, depuis
+  une adresse, actualiser IGN) devient cinq commandes et un objet `Projet`, sans DOM ; le statut est
+  publié dans le magasin. `ui/projectBar.ts` ne garde que le cadastre et le PLU.
+- `app/magasin.ts` porte, à côté du pont vers `EtatApp`, des champs immuables : la vue courante,
+  le lieu, le projet et son statut, le pointeur.
+- `zones/` : `BarreApplication.tsx`, `BarreEtat.tsx`, `monter.tsx` — couche de niveau 6 dans le
+  test d'architecture, qui parcourt désormais aussi les `.tsx`. Les identifiants d'éléments
+  (`projectSelect`, `saveProjectBtn`, `modePlanBtn`…) sont conservés.
+- `app/modes.ts` signale la vue courante au magasin au lieu d'allumer des boutons par identifiant.
+- Le fichier livré passe à 679 862 octets : React DOM y entre. Budget 1,2 Mo.
+
 ## [1.2.0-alpha.1] — 2026-09-21
 
 **Reconstruction de l'IHM, étape 0** (`MD/spec-ihm-zones.md` §6) : le registre des commandes et le

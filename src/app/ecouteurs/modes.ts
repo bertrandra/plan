@@ -1,8 +1,8 @@
-// Les quatre boutons du haut de page (spec §6.4, app/).
+// Les quatre commandes de vue (spec §6.4, app/).
 //
-// Quatre boutons, quatre vues, un seul allumé — la règle et son application vivent dans
-// `app/modes.ts`. Ici, il ne reste que le branchement, et c'est précisément ce qu'on voulait : avant
-// le démêlage, chacun de ces clics corrigeait à la main l'apparence laissée par le précédent.
+// Quatre vues, un seul bouton allumé — la règle et son application vivent dans `app/modes.ts`. Les
+// boutons eux-mêmes sont dans la barre d'application (zones/BarreApplication.tsx) depuis l'étape 1
+// de la reconstruction : ici on ne fait que déclarer les commandes qu'ils exécutent.
 
 import type { RegistreCommandes } from '../commandes.js';
 
@@ -15,9 +15,9 @@ export interface ContexteBoutonsDeVue {
 }
 
 export function brancherBoutonsDeVue(ctx: ContexteBoutonsDeVue, cmd: RegistreCommandes): void {
-  const vue = (idDom: string, id: string, libelle: string, executer: () => void) => cmd.bouton(idDom, { id, libelle, groupe: 'vue', executer });
-  vue('modePlanBtn', 'vue.plan', 'Plan', () => ctx.allerAuPlan());
-  vue('modeTerrasseBtn', 'vue.terrasse', 'Terrasse', () => ctx.allerAuModeTerrasse());
-  vue('mode3dBtn', 'vue.3d', 'Vue 3D', () => ctx.goVue3D());
-  vue('glbViewerBtn', 'vue.visionneuse', 'Visionneuse GLB', () => ctx.ouvrirVisionneuse());
+  const vue = (id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: 'vue', executer });
+  vue('vue.plan', 'Plan', () => ctx.allerAuPlan());
+  vue('vue.terrasse', 'Terrasse', () => ctx.allerAuModeTerrasse());
+  vue('vue.3d', 'Vue 3D', () => ctx.goVue3D());
+  vue('vue.visionneuse', 'Visionneuse GLB', () => ctx.ouvrirVisionneuse());
 }

@@ -2036,3 +2036,57 @@ numéro ayant changé de longueur : quatre fichiers texte identiques hors numér
 contenu, une seule ligne différente une fois neutralisés numéro, dates, décalages et longueurs de
 flux. Puis les gestes qui passent par un bouton — points 1 à 11, 16 à 24 de la checklist — rejoués
 sur le build.
+
+## Reconstruction de l'IHM — étape 1 : la coquille (21 septembre 2026, `1.2.0-alpha.2`)
+
+Les deux premières zones React entourent le canevas existant : **Z1, la barre d'application**
+(`zones/BarreApplication.tsx`) et **Z7, la barre d'état** (`zones/BarreEtat.tsx`). Trois régions
+d'`index.html` disparaissent — `#projectBar`, `#modeBar` et le `<h1>` — remplacées par un
+conteneur `#zoneBarre` en tête et un `<footer id="zoneEtat">` fixé en bas de la fenêtre.
+
+### Ce qui a bougé, et où c'est allé
+
+- **La barre de projet** était construite à la main dans `ui/projectBar.ts::setupProjectBar` :
+  chaque bouton, une fermeture qui fabriquait son élément. Sa logique est maintenant `app/projet.ts`,
+  sans un nœud DOM — cinq commandes (`projet.nouveau`, `projet.enregistrer`, `projet.supprimer`,
+  `projet.depuisAdresse`, `projet.actualiserIgn`) et un objet `Projet` dont la seule méthode,
+  `ouvrir(id)`, sert au `<select>`. Le statut d'enregistrement n'écrit plus dans un `<span>` : il
+  est publié dans le magasin (`projet.statut`, `enregistreA`), et l'historique le rafraîchit comme
+  avant, par `definirRafraichisseurStatut`. `ui/projectBar.ts` ne garde que ce qui parle du
+  cadastre et du PLU, et son en-tête le dit.
+- **Les quatre boutons de vue** sont rendus par Z1 depuis `magasin.vue` ; `app/modes.ts` ne
+  cherche plus d'élément par identifiant pour l'allumer, il *signale* la vue courante
+  (`signalerVue`). Les commandes `vue.*` sont déclarées sans liaison DOM.
+- **Le titre et le lieu** : Z1 les lit dans le magasin (`projet.courant.name`, `lieu`) ;
+  `syncLieuTitre` publie au lieu d'écrire dans `#titreLieu`.
+- **Le pointeur** : le plan publie sa position en mètres à chaque `pointermove`, Z7 l'affiche avec
+  l'échelle, l'objet sélectionné, le statut et la version. Elle lit l'état du plan à travers le
+  compteur de version du magasin — elle se redessine à chaque rendu, comme le plan.
+- **Les bascules Voisinage et Orthophoto**, qui vivaient dans la barre de vues, sont déplacées dans
+  l'onglet Affichage, inchangées ; elles rejoindront le menu Affichage de Z1 à l'étape 2.
+
+Les identifiants `projectSelect`, `saveProjectBtn`, `projectStatus`, `appVersion`,
+`modePlanBtn`… sont conservés sur les éléments React : la checklist de fumée et le test de
+déploiement les cherchent, et ils n'ont aucune raison de changer.
+
+### Ce que ça coûte
+
+Le fichier livré passe de 454 316 à 679 862 octets : React DOM y entre. Le budget est de 1,2 Mo
+(`spec-migration-typescript.md` §14) ; il en reste 520 Ko pour les sept zones suivantes, qui
+n'ajoutent que du code à nous. `zones/` est une couche de niveau 6, comme `app/` — le test
+d'architecture parcourt désormais aussi les `.tsx`.
+
+### Ce qui n'a pas bougé
+
+La terrasse est encore une vue : sa disparition comme mode (décision 4) touche `app/modes.ts`,
+`#terrasseTopBar`, `#stageParking` et le déplacement physique du `<svg>` ; elle appartient à
+l'étape 3, avec l'explorateur qui la remplacera par un contexte de sélection.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.1` par la preuve forte (même longueur de numéro,
+ancien numéro remis dans les octets frais). Sur le build : les quatre vues depuis Z1, le pointeur et
+la sélection dans Z7, les dialogues d'import et d'actualisation ouverts depuis Z1, les bascules
+retrouvées dans Affichage. Sur le déploiement PHP : la liste des projets dans le `<select>`, le
+statut « Modifications non enregistrees » après une duplication, « Enregistrement… » pendant
+l'appel, « Enregistre a … » après, et l'objet de plus côté serveur. 554 tests.

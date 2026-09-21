@@ -275,7 +275,7 @@ Zone par zone, chaque étape laissant l'application utilisable et les empreintes
 | Étape | Livrable | Ce qui bouge | Preuve |
 |---|---|---|---|
 | 0 | La table des commandes (`commandes.ts`) et l'état observable | `app/ecouteurs/*` deviennent des lignes de table ; aucun changement d'écran | 548 tests, six empreintes — **✅ 21/09/2026, `1.2.0-alpha.1`** : `app/commandes.ts` (47 commandes, 12 groupes), `app/magasin.ts`, React et Zustand installés, six empreintes identiques hors numéro |
-| 1 | La coquille (Z1, Z7) autour du canevas existant | `index.html` : barre d'application et barre d'état ; R1, R2 et le titre disparaissent | Checklist de fumée |
+| 1 | La coquille (Z1, Z7) autour du canevas existant | `index.html` : barre d'application et barre d'état ; R1, R2 et le titre disparaissent | Checklist de fumée — **✅ 21/09/2026, `1.2.0-alpha.2`** : `zones/BarreApplication.tsx`, `zones/BarreEtat.tsx`, `app/projet.ts` ; vues, pointeur, sélection, dialogues et cycle serveur vérifiés ; empreintes identiques |
 | 2 | Z2 Palette et Z4 surimpressions | `#planActions`, `fitBtn`, `gridBtn`, le curseur solaire unifié | Points 1 à 11, 22 |
 | 3 | Z3 Explorateur | `#selector`, `dispTable`, `terrasseSelector`, calques, sélection dossier | Points 13, 25 |
 | 4 | Z5 Inspecteur par descripteurs | `attrPanel.ts` et `renderTerrasseConfigurator` réécrits en descripteurs (D-12) | Points 8, 10, 16, 17 ; oracle du moteur |

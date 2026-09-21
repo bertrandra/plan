@@ -1,4 +1,4 @@
-// Le magasin : l'etat observable que les zones de la nouvelle interface liront (spec-ihm-zones §5.1).
+// Le magasin : l'etat observable que les zones de la nouvelle interface lisent (spec-ihm-zones §5.1).
 //
 // `EtatApp` est mute en place par tout le programme — `etat.selectedKey = …`, puis `render()`. Le
 // remplacer d'un coup par un etat immuable reviendrait a reecrire chaque geste, et c'est exactement
@@ -7,32 +7,69 @@
 // s'abonne au compteur se redessine a chaque rendu du plan et lit l'etat directement — il voit ce
 // que le plan voit, au meme moment.
 //
-// Etape 0 : le pont existe, personne ne s'y abonne encore. Les champs migreront vers un etat
-// immuable zone par zone, quand une zone en aura besoin, pas avant.
+// A cote de ce pont, quelques champs **immuables** : ce que les zones affichent et que l'etat du plan
+// ne porte pas — la vue courante, le lieu, le projet et son statut d'enregistrement, le pointeur.
+// Ils sont poses par le programme (`definir*`) et lus par les zones ; c'est la forme que prendra
+// tout l'etat, une zone a la fois.
 
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { EtatApp } from '../core/state.js';
+import type { PtBrut } from '../model/types.js';
+import type { ProjetResume } from '../io/api.js';
+import type { Vue } from './modes.js';
+
+/** Ou en est le projet vis-a-vis du serveur. `local` : pas de serveur, jeu de demonstration. */
+export type StatutProjet = 'local' | 'a-jour' | 'modifie' | 'enregistrement';
+
+export interface ProjetObservable {
+  apiDisponible: boolean;
+  courant: ProjetResume | null;
+  liste: ProjetResume[];
+  statut: StatutProjet;
+  /** « Enregistre a 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
+  enregistreA: string;
+}
 
 export interface EtatMagasin {
   /** La reference vivante : la meme que celle que `boot()` mute. */
   etat: EtatApp;
   /** Incremente a chaque `render()` : c'est le signal d'abonnement, pas une donnee. */
   version: number;
+  vue: Vue;
+  /** Le lieu de la parcelle, formate pour le titre, ou vide. */
+  lieu: string;
+  projet: ProjetObservable;
+  /** Position du pointeur sur le plan, en metres, ou `null` hors du plan. */
+  pointeur: PtBrut | null;
 }
 
 export interface Magasin {
   store: StoreApi<EtatMagasin>;
   /** A appeler apres chaque rendu du plan. */
   notifier(): void;
-  /** Version courante, pour les tests et le journal. */
   version(): number;
+  definirVue(vue: Vue): void;
+  definirLieu(lieu: string): void;
+  definirProjet(projet: Partial<ProjetObservable>): void;
+  definirPointeur(p: PtBrut | null): void;
 }
 
 export function creerMagasin(etat: EtatApp): Magasin {
-  const store = createStore<EtatMagasin>(() => ({ etat, version: 0 }));
+  const store = createStore<EtatMagasin>(() => ({
+    etat,
+    version: 0,
+    vue: 'plan',
+    lieu: '',
+    projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '' },
+    pointeur: null
+  }));
   return {
     store,
     notifier: () => store.setState((s) => ({ version: s.version + 1 })),
-    version: () => store.getState().version
+    version: () => store.getState().version,
+    definirVue: (vue) => store.setState({ vue }),
+    definirLieu: (lieu) => store.setState({ lieu }),
+    definirProjet: (projet) => store.setState((s) => ({ projet: { ...s.projet, ...projet } })),
+    definirPointeur: (pointeur) => store.setState({ pointeur })
   };
 }

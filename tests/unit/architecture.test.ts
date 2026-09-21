@@ -28,14 +28,14 @@ const NIVEAU: Record<string, number> = {
   engine: 3, geo: 3,
   core: 4, io: 4, render: 4, export: 4, three: 4, interaction: 4,
   ui: 5,
-  app: 6
+  app: 6, zones: 6
 };
 
 function fichiersTs(dir: string): string[] {
   return readdirSync(dir).flatMap(nom => {
     const chemin = join(dir, nom);
     if (statSync(chemin).isDirectory()) return fichiersTs(chemin);
-    return chemin.endsWith('.ts') ? [chemin] : [];
+    return /\.tsx?$/.test(chemin) ? [chemin] : [];
   });
 }
 

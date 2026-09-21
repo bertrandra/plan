@@ -1,21 +1,20 @@
-// Barre de projet, actualisation cadastrale et panneau PLU (spec §3.2, ui/).
+// Actualisation cadastrale et panneau PLU (spec §3.2, ui/).
 //
-// Trois choses qui parlent du projet plutot que du plan : ou il est enregistre, d'ou viennent ses
-// donnees cadastrales, et ce que le PLU dit de sa parcelle.
+// Deux choses qui parlent du projet plutot que du plan : d'ou viennent ses donnees cadastrales, et
+// ce que le PLU dit de sa parcelle. La barre de projet elle-meme — ouvrir, creer, enregistrer,
+// supprimer — est devenue des commandes (app/projet.ts) affichees par zones/BarreApplication.tsx
+// a l'etape 1 de la reconstruction de l'interface (MD/spec-ihm-zones.md).
 //
 // L'actualisation est le geste delicat du lot : elle rejoue l'import IGN sur un plan qui a deja ete
 // modifie. Ce qui vient du cadastre est remplace, ce que l'utilisateur a dessine est conserve - et
 // c'est pour cela qu'elle passe par l'historique avant de toucher quoi que ce soit.
 
 import { escapeHtml } from '../util/escape.js';
-import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import { nombreFr } from '../util/format.js';
-import { showPrompt } from '../shell/dialogs.js';
 import { el } from '../shell/dom.js';
-import { ouvrirImportCadastre } from './cadastreDialog.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { showToast, showErrBanner, showConfirm } from '../shell/dialogs.js';
+import { showToast } from '../shell/dialogs.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { libelleParcelle } from '../geo/bdtopo.js';
@@ -33,10 +32,6 @@ import type { EtatApp } from '../core/state.js';
 import { sommetsDe } from '../model/formes.js';
 import type { ObjetPlan, ObjetBrut, ObjetPolygone } from '../model/types.js';
 import type { Lieu } from '../model/lieu.js';
-
-// Un projet du serveur, tel que la liste et la barre le montrent : la meme ligne que celle que rend
-// `apiList()`. Elle est decrite une seule fois, la ou elle arrive.
-import type { ProjetResume as ProjetMeta } from '../io/api.js';
 import type { ProjetValide } from '../io/validation.js';
 
 /** Ce que le choix depuis une adresse ouvre : voir `cadastreDialog.ts`. */
@@ -74,164 +69,10 @@ export interface ContexteProjectBar {
   contexteImport: () => ContexteImportCadastre;
 }
 
-/** Ce que la barre de projet recoit au demarrage : liste des projets et projet courant. */
-interface SeedProjectBar {
-  apiAvailable: boolean;
-  meta?: ProjetMeta | null | undefined;
-  list: ProjetMeta[];
-}
-
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
 export interface OptionsActualisation {
   portee: 'tout' | 'parcelle';
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean };
-}
-
-export function setupProjectBar(seed: SeedProjectBar, ctx: ContexteProjectBar): void {
-  const bar = document.getElementById('projectBar')!;
-  bar.innerHTML = '';
-
-  // Pastille de version, calee a droite de la barre : c'est la premiere chose a demander dans un
-  // rapport de bug, et elle doit apparaitre dans les deux modes (RELEASE.md 5.2).
-  function pastilleVersion(){
-    const s = document.createElement('span');
-    s.id = 'appVersion';
-    s.textContent = 'v' + APP_VERSION;
-    s.title = versionLongue() + ' — schema de projet ' + SCHEMA_VERSION + ', API ' + API_VERSION;
-    return s;
-  }
-
-  // Bouton disponible dans les deux modes : sans serveur, l'import cadastre charge quand meme
-  // le plan en memoire (et le dit) - c'est plus utile qu'un bouton absent sans explication.
-  function boutonCadastre(){
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'secondary small'; b.textContent = '+ Depuis une adresse';
-    b.title = 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines';
-    b.addEventListener('click', ()=>{
-      if(ctx.etat.dirty && seed.apiAvailable){
-        showConfirm('Des modifications ne sont pas enregistrees. Ouvrir l\'import cadastre quand meme ?',
-          ()=>ouvrirImportCadastre(ctx.contexteImport()));
-        return;
-      }
-      ouvrirImportCadastre(ctx.contexteImport());
-    });
-    return b;
-  }
-  // Actualisation : disponible des qu'un plan a une origine cadastrale, y compris en mode local.
-  function boutonActualiser(){
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'secondary small'; b.textContent = '↻ Actualiser IGN';
-    b.title = 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.';
-    b.addEventListener('click', ()=>ouvrirDialogueActualisation(b, ctx));
-    return b;
-  }
-
-  if(!seed.apiAvailable){
-    bar.classList.add('localMode');
-    bar.appendChild(boutonCadastre());
-    bar.appendChild(boutonActualiser());
-    const status = document.createElement('span');
-    status.id = 'projectStatus';
-    status.textContent = 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).';
-    bar.appendChild(status);
-    bar.appendChild(pastilleVersion());
-    return;
-  }
-  bar.classList.remove('localMode');
-
-  let currentMeta = seed.meta;
-  let list = seed.list;
-  let lastSavedLabel = currentMeta && currentMeta.updatedAt
-    ? 'Enregistre a ' + new Date(currentMeta.updatedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
-    : '';
-
-  const sel = document.createElement('select');
-  sel.id = 'projectSelect';
-  sel.title = 'Choisir un projet';
-  list.forEach((p: ProjetMeta)=>{
-    const opt = document.createElement('option');
-    opt.value = p.id; opt.textContent = p.name;
-    if(currentMeta && p.id===currentMeta.id) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', ()=>{
-    const target = sel.value;
-    if(ctx.etat.dirty){
-      sel.value = currentMeta!.id; // revert until confirmed, so a cancel leaves the dropdown consistent
-      showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', ()=>{
-        localStorage.setItem(ctx.cleDernierProjet, target);
-        location.href = ctx.withProjectParam(target);
-      });
-      return;
-    }
-    localStorage.setItem(ctx.cleDernierProjet, target);
-    location.href = ctx.withProjectParam(target);
-  });
-
-  const newBtn = document.createElement('button');
-  newBtn.type = 'button'; newBtn.className = 'secondary small'; newBtn.textContent = '+ Nouveau projet';
-  newBtn.addEventListener('click', ()=>{
-    showPrompt('Nom du nouveau projet (copie du plan actuel) :', currentMeta ? (currentMeta.name + ' (copie)') : 'Nouveau projet', async (name)=>{
-      try{
-        const created = await ctx.apiSave({ name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: ctx.serializeObjects(ctx.etat.objects), measures: ctx.serializeMeasures(ctx.etat.measures) });
-        localStorage.setItem(ctx.cleDernierProjet, created.id);
-        location.href = ctx.withProjectParam(created.id);
-      } catch(e){
-        showErrBanner('Impossible de creer le projet : ' + ((e as Error).message||e));
-      }
-    });
-  });
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button'; saveBtn.id = 'saveProjectBtn'; saveBtn.className = 'small'; saveBtn.textContent = 'Enregistrer';
-  saveBtn.addEventListener('click', async ()=>{
-    if(!currentMeta) return;
-    saveBtn.disabled = true; saveBtn.textContent = 'Enregistrement…';
-    try{
-      const res = await ctx.apiSave({ id: currentMeta.id, name: currentMeta.name, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, objects: ctx.serializeObjects(ctx.etat.objects), measures: ctx.serializeMeasures(ctx.etat.measures) });
-      ctx.etat.dirty = false;
-      lastSavedLabel = 'Enregistre a ' + new Date(res.updatedAt || Date.now()).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-      ctx.initialState().length = 0;
-      ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
-      ctx.initialMeasures().length = 0;
-      ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
-      showToast('Projet enregistre.');
-    } catch(e){
-      showErrBanner('Echec de l\'enregistrement : ' + ((e as Error).message||e));
-    } finally {
-      saveBtn.disabled = false; saveBtn.textContent = 'Enregistrer';
-      ctx.refreshProjectStatus();
-    }
-  });
-
-  const delBtn = document.createElement('button');
-  delBtn.type = 'button'; delBtn.className = 'secondary small'; delBtn.textContent = 'Supprimer';
-  delBtn.title = 'Supprimer ce projet du serveur';
-  delBtn.disabled = list.length <= 1;
-  delBtn.addEventListener('click', ()=>{
-    showConfirm('Supprimer definitivement le projet "' + currentMeta!.name + '" ? Cette action est irreversible.', async ()=>{
-      try{
-        await ctx.apiDelete(currentMeta!.id);
-        localStorage.removeItem(ctx.cleDernierProjet);
-        const url = new URL(location.href); url.searchParams.delete('projet');
-        location.href = url.toString();
-      } catch(e){
-        showErrBanner('Echec de la suppression : ' + ((e as Error).message||e));
-      }
-    });
-  });
-
-  const status = document.createElement('span');
-  status.id = 'projectStatus';
-  function updateStatus(){
-    status.textContent = ctx.etat.dirty ? 'Modifications non enregistrees' : (lastSavedLabel || 'A jour');
-  }
-  ctx.definirRafraichisseurStatut(updateStatus);
-  updateStatus();
-
-  bar.appendChild(sel); bar.appendChild(newBtn); bar.appendChild(boutonCadastre()); bar.appendChild(boutonActualiser());
-  bar.appendChild(saveBtn); bar.appendChild(delBtn); bar.appendChild(status);
-  bar.appendChild(pastilleVersion());
 }
 
 /**

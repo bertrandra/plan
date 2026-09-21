@@ -330,7 +330,9 @@ parameters forbidden) with zero errors across `src/` and `tests/`.
 
 `src/main.ts` (bootstrap and error trap) and `src/styles/app.css` sit outside the layers. Since
 `1.2.0-alpha.1` (21 September), `app/` also holds `commandes` (the command registry) and `magasin`
-(the Zustand bridge over `EtatApp`) — the first two modules of the UI rebuild, `spec-ihm-zones.md`.
+(the Zustand bridge over `EtatApp`) — the first two modules of the UI rebuild, `spec-ihm-zones.md`. Since `1.2.0-alpha.2`, a `zones/`
+folder at the same level as `app/` holds the React zones (`BarreApplication`, `BarreEtat`, `monter`), and
+`app/projet.ts` carries the project commands that `ui/projectBar.ts` used to render itself.
 
 **What changed since 29 August.** `legacy.ts` (1 500 lines) is gone: `app/` grew from one module
 to thirteen — the composition root `boot.ts`, the named `atelier` it builds, and ten listener groups

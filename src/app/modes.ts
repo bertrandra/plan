@@ -21,14 +21,6 @@ import type { ObjetPlan, Construction } from '../model/types.js';
 /** Ce que l'utilisateur regarde. Quatre vues, un seul bouton allume. */
 export type Vue = 'plan' | 'terrasse' | 'vue3d' | 'visionneuse';
 
-/** Le bouton du haut de page qui correspond a chaque vue. */
-const BOUTON_DE_VUE: Record<Vue, string> = {
-  plan: 'modePlanBtn',
-  terrasse: 'modeTerrasseBtn',
-  vue3d: 'mode3dBtn',
-  visionneuse: 'glbViewerBtn'
-};
-
 /** Les zones du mode Plan, et celles du mode Terrasse : montrees ensemble, cachees ensemble. */
 const ZONES_PLAN = ['selector', 'planActions', 'panelTabs', 'panel'];
 const ZONES_TERRASSE = ['terrasseTopBar', 'terrassePanel'];
@@ -67,6 +59,8 @@ export interface ContexteModes {
   quitterPleinPageVisionneuse: () => void;
   /** Libere la scene de la visionneuse. */
   disposeGlbViewerScene: () => void;
+  /** Publie la vue courante : c'est la barre d'application (zones/) qui allume le bon bouton. */
+  signalerVue: (vue: Vue) => void;
 }
 
 export function creerModes(etat: EtatApp, ctx: ContexteModes) {
@@ -104,11 +98,9 @@ export function creerModes(etat: EtatApp, ctx: ContexteModes) {
   // Une seule vue a la fois
   // ------------------------------------------------------------------------------------------
 
-  /** Allume le bouton de la vue courante, eteint les trois autres. Seul endroit qui les touche. */
+  /** Publie la vue courante ; la barre d'application allume le bouton, seule a le faire. */
   function appliquerBoutons(): void {
-    for (const [vue, id] of Object.entries(BOUTON_DE_VUE)) {
-      document.getElementById(id)!.classList.toggle('active', vue === vueCourante);
-    }
+    ctx.signalerVue(vueCourante);
   }
 
   function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
