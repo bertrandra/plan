@@ -306,7 +306,7 @@ The migration's Definition of Done (`spec-migration-typescript.md` §14) asks th
 the module map and the §3.3 dependency rules. This is that record, taken after the strictness
 ladder was climbed (`1.1.0-alpha.15`) and the three defects it exposed were fixed (`alpha.16`).
 
-Seven layers, **114 modules, 19 184 lines**, and **no `legacy.ts`** — the boot closure lives in
+Seven layers, **115 modules, about 19 300 lines** (as of `1.1.0-alpha.17`; 114 and 19 184 when this section was first written on 20 September), and **no `legacy.ts`** — the boot closure lives in
 `app/boot.ts`, typed like everything else. `tsconfig.json` carries the target configuration of
 §9.1 (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, unused locals and
 parameters forbidden) with zero errors across `src/` and `tests/`.
@@ -316,7 +316,7 @@ parameters forbidden) with zero errors across `src/` and `tests/`.
 | 0 | `shell/` | 3 | 208 | `dialogs` · `dom` · `download` |
 | 0 | `util/` | 3 | 122 | `escape` · `format` · `semaine` |
 | 1 | `geometry/` | 10 | 870 | `alignement` · `angles` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
-| 2 | `model/` | 13 | 1 224 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
+| 2 | `model/` | 14 | 1 290 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `formes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
 | 3 | `engine/` | 11 | 1 946 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `parasol` · `structure` |
 | 3 | `geo/` | 6 | 992 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
 | 4 | `core/` | 3 | 326 | `historique` · `history` · `state` |
@@ -352,9 +352,9 @@ classified, so a new one cannot escape the rule by omission. The strictness ratc
 **What the map does not yet say.** `ui/` is still the heaviest layer by far (4 867 lines in ten
 modules) and holds the four functions §6.4 of the migration spec wants decomposed —
 `ouvrirImportCadastre`, `renderAttrTable`, `renderTerrasseConfigurator`, and `buildThreeScene`
-in `three/`. `ObjetPlan` still carries an index signature and models polygon, path and circle as
-one shape with optional fields; the discriminated union is debt item D-3 in §11. Both are
-post-migration work, and neither changes the layer picture above.
+in `three/`. `ObjetPlan` became a discriminated union on 21 September (`1.1.0-alpha.17`, debt item D-3 closed):
+`model/formes.ts` holds the named guards. The UI decomposition is post-migration work, and it does
+not change the layer picture above.
 
 ### 5.3 Data view
 

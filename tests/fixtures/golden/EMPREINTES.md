@@ -144,6 +144,12 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   ne touchant un export. Meme protocole, meme preuve forte : ancien numero remis dans les octets
   frais, six anciennes empreintes retrouvees au bit pres.
 
+- **21 septembre 2026**, `plan.html` v1.1.0-alpha.17 : `ObjetPlan` devient une union discriminée
+  (polygone, chemin, cercle) et les signatures d'index disparaissent ; `ensureConstruction` comble
+  douze réglages de plus. Même protocole — six sur six identiques à version inchangée sur le build
+  typé, puis recapture, puis la preuve forte : ancien numéro remis dans les octets frais, six anciennes
+  empreintes retrouvées au bit près.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -155,12 +161,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 332 | `63d6dcaff18ded2c0d1053610f5802ebc6a220243500be2846d29b1101b20db7` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 118 | `97e061269af6dc12fe010b98b051f0e456604cbf07bb51c0885a6df70a4f5e0b` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 373 | `b0aae62a97152823b908098a8b3251535b6d3aec2e98b4f590f219ef2d852e3b` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 983 | `268b904fd43762de6b44f6e11d282286a857bdadfee34a2de5b5e67d8a06cb83` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 180 | `aee7b746e973ec0c304110005cbdc13e59211e95189217b75a094a8ef5992957` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 290 | `bd4d0a27bfbc3781519eea5316dcb6bb321d0d0bdd7c5d3a7759e23cfbe1b0cb` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 332 | `9dc1a707beddf7df7c323a70ab0499ea396d338fde6af00a90f1b46bf0d1d888` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 118 | `af44e1518b7a8b295708b169292c30dfdf5569f0ba3872641586333b615bad2c` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 373 | `b4530e242dad74a67f72198c657e0198bd7e18f2b5da8e212b80e91e9c5cbff5` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 983 | `99b47db04aac629569ae27078da1a67598d7eaaed21ae34f63115058289620bf` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 180 | `a27f204257360b9b82c70175a4ead1212ca4aefd8643259802588b8b9f8bc6cc` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 290 | `6e664a3911bccf1d37c26a9fb2b49c017f4978d630eca50b57adeba8b58e545c` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

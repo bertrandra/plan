@@ -1864,3 +1864,77 @@ palier séparé pour que la phase 7 reste ce qu'elle promet : des types, rien d'
 Six empreintes sur six inchangées à version égale, recapturées en `alpha.16` avec la preuve forte.
 Ce palier est ce que RELEASE.md §2.1 appelle un correctif : aucun nombre, aucun octet exporté ne
 bouge. 547 tests.
+
+## Durcissement — `ObjetPlan` devient une union discriminée (21 septembre 2026, `1.1.0-alpha.17`)
+
+Le premier chantier de la spec §12, et le seul que la phase 7 désignait par son nom : D-3 de
+`MD/DEFAUTS.md`. Jusqu'ici `ObjetPlan` disait « peut-être des sommets, peut-être un centre et un
+rayon » d'une seule forme à champs facultatifs, plus un index `[autreChamp: string]: unknown` qui
+laissait passer n'importe quel nom. Ce que le programme savait — un polygone a toujours `pts`, un
+cercle toujours `center` et `r` — n'était écrit que dans `normalizeObjects`, et 258 assertions `!`
+sur `pts`, `center` et `r` le répétaient à sa place.
+
+### Deux marches
+
+**L'index d'abord.** Retirer les quatre signatures d'index (`ObjetPlan`, `Construction`,
+`LigneBom`, `Mesure`) n'a cassé que 35 sites, et ce qu'ils lisaient tenait en deux champs jamais
+déclarés : `ObjetPlan.voisinage` (posé par « Actualiser IGN », lu par la bascule) et `Mesure.id`
+(posé par `idMesure()` à chaque création, lu par la sérialisation). Déclarés. Les colonnes du
+sélecteur indexaient l'objet par une clé libre : elles nomment maintenant les cinq bascules
+booléennes qu'elles sont.
+
+**L'union ensuite.**
+
+    interface ObjetCommun { key; name; vertexNames?; ... }          // tout ce qui est partagé
+    interface ObjetPolygone extends ObjetCommun { type: 'polygon'; pts: PtBrut[] }
+    interface ObjetChemin   extends ObjetCommun { type: 'path';    pts: PtBrut[] }
+    interface ObjetCercle   extends ObjetCommun { type: 'circle';  center: PtBrut; r: number }
+    type ObjetPlan = ObjetPolygone | ObjetChemin | ObjetCercle;
+
+Poser l'union a produit 317 erreurs — bien moins que craint, parce que la plupart du code
+branchait déjà sur `type` et se rétrécit tout seul. Les cinq dossiers de base ont été traités par
+le coordinateur, les autres en parallèle par quatre passages (moteur, exports, UI et application,
+3D et tests), sous la règle de la phase 7 : aucun changement de comportement.
+
+### Comment les assertions ont disparu, par ordre de préférence
+
+1. **Le code branchait déjà sur `type`** : le `!` tombe, rien d'autre ne bouge. C'est le cas le plus
+   fréquent (attrPanel, render/objects, serialisation, scene, dossierPdf…).
+2. **Le code testait la présence du champ** (`obj.pts ? …`, `obj.center ? …`, `obj.pts || []`) : une
+   garde nommée de `model/formes.ts` la remplace — `aDesSommets`, `estCercle`, `sommetsDe` — avec
+   la même valeur de vérité après `normalizeObjects`.
+3. **Le code lisait `pts` sans brancher**, parce que le contexte garantit un polygone (la parcelle
+   trouvée par sa clé, la terrasse du panneau, un objet déjà filtré) : `enPoints(obj).pts`, ou
+   `enCercle(par)` pour un parasol. Un cast sous un nom, rien à l'exécution — mais un nom qu'on peut
+   chercher, là où le `!` se fondait dans le décor.
+4. Un `Pick<ObjetPlan, 'pts'>` sur l'union n'existe plus (la clé manque à un membre) : les trois
+   vues partielles — `ObjetCote` (render), `ObjetMesurable` (engine), `ObjetASurface` (export) —
+   sont devenues des formes structurelles explicites, auxquelles tout membre reste assignable.
+
+**258 → 25.** Les vingt-cinq qui restent portent toutes sur autre chose que l'union : des types
+partiels (`ObjetBrut` dans `normalisation` et `validation`, ce qui arrive d'un fichier), des
+interfaces locales à champs facultatifs (`dxfPlan`, `structure.TerrasseEtudiee`, `drag.FormeGlissable`,
+`etat3d.PointDeVue`) ou les formes structurelles ci-dessus, qui acceptent volontairement des objets
+incomplets pour les tests.
+
+### Ce que l'union a révélé
+
+Rien de faux à l'exécution, et quatre endroits où le type ne peut pas prouver ce que le code
+suppose :
+
+- `attrPanel.ts`, « Placer au mieux », et `three/scene.ts` sélectionnent un parasol par
+  `fonction === 'parasol'` et lisent `center` : un parasol naît cercle, mais la liste des fonctions
+  permet de dire « parasol » d'un polygone, qui planterait alors. `enCercle` le couvre comme le `!`
+  le couvrait ; c'est **D-14** dans `MD/DEFAUTS.md`.
+- `ecouteurs/objets.ts`, « Position initiale », lit `init.center` ou `init.pts` selon le `type` de
+  l'objet *courant*, pas de l'état initial. Sûr tant que rien ne réaffecte `type`.
+- `three/scene.ts`, ruban de sol : un objet « terrain » circulaire passait `undefined` à
+  `addRibbonFlat`, qui l'accepte. Comportement conservé, invariant nommé.
+- `engine/debit.ts` passait un `pts` peut-être absent à `longueurLameReelle`, dont l'amont avait
+  déjà déréférencé `pts` : un cercle n'y arrivait jamais. Écrit maintenant.
+
+### La preuve
+
+Même protocole : six empreintes sur six identiques à version inchangée sur le build typé, puis
+recapture en `alpha.17` avec la preuve forte (ancien numéro remis dans les octets frais, six
+anciennes empreintes retrouvées au bit près). 548 tests, `tsc`, ESLint et le cliquet à zéro.

@@ -8,7 +8,7 @@ import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, sectionLambourde } from './structure.js';
 import { elevationParDefaut } from '../model/defaults.js';
-import type { ObjetPlan, Construction } from '../model/types.js';
+import type { Construction, PtBrut } from '../model/types.js';
 
 /**
  * Ce dont la hauteur d'un objet depend : sa fonction, sa forme, ce qu'il porte.
@@ -16,8 +16,17 @@ import type { ObjetPlan, Construction } from '../model/types.js';
  * Cinq champs, pas un `ObjetPlan` entier — parce qu'aucune de ces trois fonctions ne lit une clef ni
  * un nom. Ce n'est pas une facilite de test : c'est le test qui l'a montre, en refusant d'inventer
  * une clef et un nom pour un objet dont on veut seulement connaitre la hauteur.
+ *
+ * Ecrit en toutes lettres plutot qu'en `Pick<ObjetPlan, ...>` : `ObjetPlan` est une union et `pts`
+ * manque a l'un de ses membres, ce qu'un Pick refuse. Chaque membre de l'union reste assignable ici.
  */
-export type ObjetMesurable = Pick<ObjetPlan, 'fonction' | 'type' | 'pts' | 'elevation' | 'construction'>;
+export interface ObjetMesurable {
+  fonction?: string;
+  type?: string;
+  pts?: readonly PtBrut[];
+  elevation?: number;
+  construction?: Construction;
+}
 
 /**
  * Ce que l'appui apporte **au-dessus du sol fini**, en millimetres.

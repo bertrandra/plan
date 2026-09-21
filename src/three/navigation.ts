@@ -11,6 +11,7 @@
 
 import { vue3d, glb, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 import type { PtBrut } from '../model/types.js';
+import { enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 
 /** Hauteur des yeux au-dessus du platelage fini, en metres. */
@@ -224,7 +225,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       (function essayer() {
         tentatives++;
         if (vue3d.scene && vue3d.dernierObjKey === terr.key) {
-          poserCamera(vue3d.scene, vp, ctx.centroid(terr.pts!));
+          poserCamera(vue3d.scene, vp, ctx.centroid(enPoints(terr).pts));
           return;
         }
         if (tentatives < 100) setTimeout(essayer, 100);
@@ -242,7 +243,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse');
       if (!terr) return;
-      poserCamera(glb.scene, vp, ctx.centroid(terr.pts!));
+      poserCamera(glb.scene, vp, ctx.centroid(enPoints(terr).pts));
     },
 
     setVue3dPleinePage(actif: boolean) {

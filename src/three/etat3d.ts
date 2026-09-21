@@ -11,7 +11,7 @@
 
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import type { ObjetPlan } from '../model/types.js';
+import type { ObjetPlan, ObjetAPoints } from '../model/types.js';
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -170,6 +170,6 @@ export interface PlanVuDeLa3d {
  * sans altitude se construit aussi bien avec `{ altitude: undefined }` qu'en omettant le champ.
  */
 export interface PointDeVue {
-  pts?: ObjetPlan['pts'] | undefined;
+  pts?: ObjetAPoints['pts'] | undefined;
   altitude?: ObjetPlan['altitude'] | undefined;
 }

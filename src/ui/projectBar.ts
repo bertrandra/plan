@@ -30,7 +30,8 @@ import {
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
-import type { ObjetPlan, ObjetBrut } from '../model/types.js';
+import { sommetsDe } from '../model/formes.js';
+import type { ObjetPlan, ObjetBrut, ObjetPolygone } from '../model/types.js';
 import type { Lieu } from '../model/lieu.js';
 
 // Un projet du serveur, tel que la liste et la barre le montrent : la meme ligne que celle que rend
@@ -446,7 +447,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((o: ObjetBrut)=>{
       if(o.key === parcelle.key && ptsParcelle){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
-        (o.pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle!)); });
+        ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle!)); });
         const copie: ObjetBrut = Object.assign({}, o, {
           pts: ptsParcelle,
           vertexNames: ptsParcelle.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
@@ -518,7 +519,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // ---- 4. Le zonage PLU, au centre de la parcelle
     const cible = ctx.trouverParcelleCloture();
     if(cible){
-      const centre = centroid(cible.pts||[]);
+      const centre = centroid(sommetsDe(cible));
       const deg = proj.versDegres(centre.x, centre.y);
       try {
         cible.plu = await interrogerPlu(deg.lon, deg.lat);
@@ -681,9 +682,9 @@ export async function construireVoisinage(
     [bboxParcelle.lonMin, bboxParcelle.latMin]
   ]]};
   const feats = await interrogerCadastre(emprise, cad.codeInsee);
-  const centreParc = centroid(parcelle.pts||[]);
+  const centreParc = centroid(sommetsDe(parcelle));
   const candidats = construireCandidats(feats, proj, centreParc, simplifier);
-  const principale = { idu: cad.idu as string, pts: parcelle.pts||[] };
+  const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
   const tri = trierVoisines(principale, candidats);
 
   const iduPresents = new Set(dejaSerialises.filter(o=>o.cadastre && o.cadastre.idu).map(o=>o.cadastre!.idu as string));

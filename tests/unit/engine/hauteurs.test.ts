@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from '../../../src/engine/hauteurs.js';
 import { defaultConstruction } from '../../../src/engine/construction.js';
+import type { ObjetMesurable } from '../../../src/engine/hauteurs.js';
 
 // La hauteur finie decide d'une marche, d'un seuil de porte, d'un garde-corps. Elle etait calculee
 // au milieu du bloc terrasse et n'avait aucun test : ceux-ci fixent l'empilement, mode par mode.
@@ -69,7 +70,7 @@ describe('hauteur finie', () => {
   });
 
   it('donne sa construction par defaut a un objet qui n en a pas', () => {
-    const nu = { fonction: 'terrasse', type: 'polygon', pts: [] } as Record<string, unknown>;
+    const nu: ObjetMesurable = { fonction: 'terrasse', type: 'polygon', pts: [] };
     expect(hauteurFinieMm(nu)).toBe(95);
     expect(nu.construction).toBeDefined();
   });

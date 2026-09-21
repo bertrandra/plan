@@ -15,6 +15,7 @@ import { ESSENCE_PRICES } from '../engine/constantes.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { equipementsSurTerrasse } from '../export/dossierPdf.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
+import { sommetsDe } from '../model/formes.js';
 import type { ObjetPlan, Construction, LigneBom } from '../model/types.js';
 
 /** Ce que ces trois tables doivent pouvoir declencher ailleurs. */
@@ -54,7 +55,7 @@ export function renderDossierTerrasses(etat: { objects: ObjetPlan[] }): void {
     const equip = equipementsSurTerrasse(etat.objects, t);
     lab.appendChild(cb);
     lab.appendChild(document.createTextNode(
-      t.name + ' — ' + shoelace(t.pts||[]).toFixed(2).replace('.',',') + ' m²' +
+      t.name + ' — ' + shoelace(sommetsDe(t)).toFixed(2).replace('.',',') + ' m²' +
       (equip.length ? ' — ' + equip.length + ' équipement(s) : ' + equip.map((e: ObjetPlan)=>e.name).join(', ') : ' — aucun équipement')
     ));
     hote.appendChild(lab);

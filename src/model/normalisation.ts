@@ -17,7 +17,7 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
-import type { ObjetBrut } from './types.js';
+import type { ObjetBrut, ObjetAPoints } from './types.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -35,10 +35,13 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.type === 'circle') {
       c.center = { x: c.center!.x, y: c.center!.y };
     } else {
-      c.pts = c.pts!.map(p => ({ x: p.x, y: p.y }));
-      c.vertexNames = c.vertexNames ? [...c.vertexNames] : c.pts.map((_, i) => 'Point ' + (i + 1));
-      c.segmentNames = c.segmentNames ? [...c.segmentNames] : c.pts.map((_, i) => 'Cote ' + (i + 1));
-      c.frozenVertices = (c.frozenVertices && c.frozenVertices.length === c.pts.length) ? [...c.frozenVertices] : c.pts.map(() => false);
+      // Tout ce qui n'est pas un cercle a des sommets — y compris un objet sans `type`, que le
+      // programme a toujours traite comme un polygone.
+      const p = c as Partial<ObjetAPoints>;
+      p.pts = p.pts!.map(q => ({ x: q.x, y: q.y }));
+      p.vertexNames = p.vertexNames ? [...p.vertexNames] : p.pts.map((_, i) => 'Point ' + (i + 1));
+      p.segmentNames = p.segmentNames ? [...p.segmentNames] : p.pts.map((_, i) => 'Cote ' + (i + 1));
+      p.frozenVertices = (p.frozenVertices && p.frozenVertices.length === p.pts.length) ? [...p.frozenVertices] : p.pts.map(() => false);
     }
     if (c.construction) c.construction = JSON.parse(JSON.stringify(c.construction));
     if (c.cadastre) c.cadastre = JSON.parse(JSON.stringify(c.cadastre));

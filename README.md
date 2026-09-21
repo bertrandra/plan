@@ -12,7 +12,7 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.1.0-alpha.16`, en cours de migration d'un fichier HTML unique de 13 500 lignes vers un
+Version `1.1.0-alpha.17`, en cours de migration d'un fichier HTML unique de 13 500 lignes vers un
 graphe de modules TypeScript (`MD/spec-migration-typescript.md`). L'artefact livré reste un seul
 fichier `plan.html`, désormais **produit par le build** et non plus édité à la main. Le fichier
 d'origine est figé dans `legacy/plan_interactif.html` et sert de témoin : les golden files de
@@ -27,7 +27,7 @@ Prérequis : Node 20 ou plus.
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
 npm run build        # produit dist/index.html (fichier unique) et dist/api.php
-npm test             # 547 tests Vitest, dont la comparaison aux golden files
+npm test             # 548 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
 npm run cliquet      # le cliquet de rigueur, voir ci-dessous
@@ -54,7 +54,7 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 | Chemin | Rôle |
 |---|---|
 | `src/engine/`, `src/geometry/` | Le cœur pur : données en entrée, données en sortie, ni DOM, ni réseau, ni horloge. C'est ce qui rend les quantités testables à l'égalité exacte. |
-| `src/model/` | Le document projet (objets, cotes, construction, méta) et sa chaîne de migration de schéma. |
+| `src/model/` | Le document projet : `ObjetPlan` en union discriminée (polygone, chemin, cercle), cotes, construction, méta, et sa chaîne de migration de schéma. |
 | `src/geo/` | Projection locale, cadastre et PLU via la Géoplateforme IGN, géocodage BAN, course du soleil. |
 | `src/render/`, `src/interaction/` | Rendu SVG du plan et gestes d'édition. |
 | `src/export/` | SVG, DXF, PDF (écrivain PDF fait main dans `pdf/`), dossier PDF, résumé. Aucune dépendance entrante. |

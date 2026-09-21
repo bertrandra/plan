@@ -7,6 +7,7 @@
 import { dist, shoelace } from '../geometry/basic.js';
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, VISSERIE_PRICE, VIS_PRICE, estPlots, plotModele } from './constantes.js';
 import { ensureConstruction } from './construction.js';
+import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './structure.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
@@ -19,7 +20,7 @@ export type ProduitBarre = 'lames' | 'bois' | 'lambourde';
 
 export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] {
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts!);
+  const surf = shoelace(enPoints(obj).pts);
   const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
   const essence = ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!;
   // Essence prices are per m2 (like the main lames); convert to a per-ml price for the

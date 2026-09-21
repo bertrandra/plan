@@ -12,6 +12,7 @@ import { PLOT_ENTRAXE_MAX_M, SOLIVE_PRICE, SOLIVE_SECTIONS, estPlots } from './c
 import { ensureConstruction } from './construction.js';
 import { computeDebitsBois } from './debit.js';
 import { computeTerrasseLayers } from './layers.js';
+import { enPoints } from '../model/formes.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
@@ -203,7 +204,7 @@ export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prix
 }
 export function optimiserParametres(obj: ObjetPlan, objets: ObjetPlan[]): CandidatStructure[] {
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts!) || 1;
+  const surf = shoelace(enPoints(obj).pts) || 1;
   // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
   // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
   // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the
@@ -340,7 +341,7 @@ export function empriseEquipement(o: ObjetPlan): PtBrut[] | null {
     if(rc <= 0) return null;
     for(let i=0;i<N;i++){
       const a = 2*Math.PI*i/N;
-      pts.push({ x:o.center!.x + rc*Math.cos(a), y:o.center!.y + rc*Math.sin(a) });
+      pts.push({ x:o.center.x + rc*Math.cos(a), y:o.center.y + rc*Math.sin(a) });
     }
     return pts;
   }

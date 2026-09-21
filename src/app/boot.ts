@@ -116,7 +116,8 @@ import { construireDXF } from '../export/dxfPlan.js';
 import { construireSVG } from '../export/svgPlan.js';
 import { construirePDF } from '../export/pdfPlan.js';
 import { construireDossierPDF } from '../export/dossierPdf.js';
-import type { ObjetPlan, ObjetBrut, PtBrut, PtEcran, Mesure, Construction } from '../model/types.js';
+import { aDesSommets, enPoints } from '../model/formes.js';
+import type { ObjetPlan, ObjetAPoints, ObjetBrut, PtBrut, PtEcran, Mesure, Construction } from '../model/types.js';
 import type { FormeASommets } from '../model/sommets.js';
 import type { ObjetRendu } from '../render/objects.js';
 import type { CouchesTerrasse } from '../engine/layers.js';
@@ -142,12 +143,13 @@ function normaliserEnObjetsDuPlan(bruts: ObjetBrut[]): ObjetPlan[] {
 }
 
 /**
- * Les fonctions de geometrie demandent un objet dont `pts` existe ; sur `ObjetPlan` il est
- * facultatif, parce qu'un cercle n'en a pas. Les enveloppes ci-dessous ne sont appelees que sur
- * des formes a points : le dire une fois vaut mieux qu'un `as` a chaque ligne.
+ * Les fonctions de geometrie demandent un objet dont `pts`, `vertexNames` et `segmentNames`
+ * existent ; `enPoints` (model/formes.ts) n'affirme que les sommets. Les enveloppes ci-dessous ne
+ * sont appelees que sur des formes a points, que la serialisation a completees : le dire une fois
+ * vaut mieux qu'un `as` a chaque ligne.
  */
-function aPoints(obj: ObjetPlan): ObjetPlan & FormeASommets {
-  return obj as ObjetPlan & FormeASommets;
+function aPoints(obj: ObjetPlan): ObjetAPoints & FormeASommets {
+  return enPoints(obj) as ObjetAPoints & FormeASommets;
 }
 
 /**
@@ -516,8 +518,8 @@ function insertPointOnSegment(obj: ObjetPlan, segIndex: number, clickWorld: PtBr
   // Point de vue : exactement 2 points (position, direction) - un 3e casserait la lecture
   // point+vecteur (quel bout regarderait quoi ?), donc jamais d'ajout ici.
   if(obj.fonction==='camera') return;
-  const n = obj.pts!.length;
-  const a = obj.pts![segIndex]!, b = obj.pts![(segIndex+1)%n]!;
+  const n = enPoints(obj).pts.length;
+  const a = enPoints(obj).pts[segIndex]!, b = enPoints(obj).pts[(segIndex+1)%n]!;
   const newPt = projectOntoSegment(clickWorld, a, b);
   const bound = contourDeContrainte(etat.objects, aPoints(obj));
   if(bound && !pointInPolygon(newPt, bound)) return;
@@ -528,7 +530,7 @@ function insertPointOnSegment(obj: ObjetPlan, segIndex: number, clickWorld: PtBr
 }
 function deleteVertex(obj: ObjetPlan, idx: number){
   if(obj.locked) return;
-  if(obj.pts!.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
+  if(enPoints(obj).pts.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
   pushHistory();
   supprimerSommet(aPoints(obj), idx);
   rebuildHandles(obj);
@@ -620,7 +622,7 @@ function buildExportSVG(){
 // center the initial view on the parcel, using the actual responsive canvas size
 (function centerInitialView(){
   const parcelle = etat.objects.find(o=>o.key==='parcelle');
-  const xs = parcelle!.pts!.map(p=>p.x), ys = parcelle!.pts!.map(p=>p.y);
+  const xs = enPoints(parcelle!).pts.map(p=>p.x), ys = enPoints(parcelle!).pts.map(p=>p.y);
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
@@ -1038,7 +1040,7 @@ render();
 // garde, lui, le cadrage historique - ses coordonnees ont ete posees avec.
 (function cadrerSurTerrainImporte(){
   const p = etat.objects.find(o=>o.key==='parcelle');
-  if(p && p.cadastre && p.pts && p.pts.length >= 3) fitToObject(p);
+  if(p && p.cadastre && aDesSommets(p) && p.pts.length >= 3) fitToObject(p);
 })();
 // Reglages du fond orthophoto enregistres avec le projet : on les restitue, et on rallume le
 // fond s'il etait actif a l'enregistrement (les tuiles, elles, se retelechargent).

@@ -17,6 +17,7 @@ import { geometrieMesure, ancrageHorsContour } from '../render/measures.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
 import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
+import { sommetsDe } from '../model/formes.js';
 
 /** Ce que l'export SVG doit savoir en plus des objets : de quoi remplir les attributs data-*. */
 export interface MetaSvg {
@@ -28,7 +29,7 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
   const allPts: PtBrut[] = [];
   objets.forEach((o: ObjetPlan)=>{
     if(o.type==='polygon' || o.type==='path') (o.pts||[]).forEach(p=>allPts.push(p));
-    else { allPts.push({x:o.center!.x-o.r!,y:o.center!.y-o.r!}); allPts.push({x:o.center!.x+o.r!,y:o.center!.y+o.r!}); }
+    else { allPts.push({x:o.center.x-o.r,y:o.center.y-o.r}); allPts.push({x:o.center.x+o.r,y:o.center.y+o.r}); }
   });
   const xs=allPts.map(p=>p.x).filter(v=>Number.isFinite(v));
   const ys=allPts.map(p=>p.y).filter(v=>Number.isFinite(v));
@@ -104,11 +105,11 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
         });
       }
     } else {
-      const c = exToSvg(obj.center!);
-      body += '<circle cx="'+c.x.toFixed(2)+'" cy="'+c.y.toFixed(2)+'" r="'+obj.r!.toFixed(2)+'" fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.08" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-center="'+obj.center!.x.toFixed(4)+','+obj.center!.y.toFixed(4)+'" data-radius="'+obj.r!.toFixed(4)+'"/>\n';
+      const c = exToSvg(obj.center);
+      body += '<circle cx="'+c.x.toFixed(2)+'" cy="'+c.y.toFixed(2)+'" r="'+obj.r.toFixed(2)+'" fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.08" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-center="'+obj.center.x.toFixed(4)+','+obj.center.y.toFixed(4)+'" data-radius="'+obj.r.toFixed(4)+'"/>\n';
     }
     if(obj.showName){
-      const cen = (obj.type==='polygon' || obj.type==='path') ? centroid(obj.pts||[]) : obj.center!;
+      const cen = (obj.type==='polygon' || obj.type==='path') ? centroid(obj.pts||[]) : obj.center;
       const cs = exToSvg(cen);
       const fs = (obj.key==='parcelle'||obj.key==='maison') ? fsNameBig : fsNameSmall;
       body += '<text x="'+cs.x.toFixed(2)+'" y="'+cs.y.toFixed(2)+'" font-size="'+fs+'" font-weight="700" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" fill="'+obj.stroke+'">'+escapeXml(obj.name)+'</text>\n';
@@ -121,7 +122,7 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
     if(!m.show || !pcObjForExport) return;
     const g = geometrieMesure(objets, m);
     if(!g) return;
-    const anchor = ancrageHorsContour(g.p, pcObjForExport.pts||[], 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, sommetsDe(pcObjForExport), 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = exToSvg(g.p), pAnchor = exToSvg(anchor);
     body += '<line x1="'+pPt.x.toFixed(2)+'" y1="'+pPt.y.toFixed(2)+'" x2="'+pAnchor.x.toFixed(2)+'" y2="'+pAnchor.y.toFixed(2)+'" stroke="#1E6B8C" stroke-width="0.05" stroke-dasharray="0.15 0.1"/>\n';
     const value = (m.displayMode==='along') ? g.along : g.perp;

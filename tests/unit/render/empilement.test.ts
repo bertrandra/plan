@@ -10,8 +10,8 @@ function objet(key: string, priority?: number): ObjetPlan {
   // `priority` reste absente plutot que posee a `undefined` : c'est ce que le comparateur doit
   // savoir traiter, et ce qu'un objet reel presente quand personne n'a regle son ordre.
   return priority === undefined
-    ? { key, name: key, type: 'polygon' }
-    : { key, name: key, type: 'polygon', priority };
+    ? { key, name: key, type: 'polygon', pts: [] }
+    : { key, name: key, type: 'polygon', pts: [], priority };
 }
 
 describe('classement par priorite', () => {
@@ -121,7 +121,7 @@ describe('remonter les seules poignees', () => {
       svg: { appendChild: (el) => ordre.push(el.nom) },
       vue: () => ({ el: { nom: 'f' }, nameEl: { nom: 'n' }, radiusHandle: { nom: 'rayon' } })
     };
-    amenerPoigneesDevant({ key: 'c', name: 'Cercle', type: 'circle' }, ctx);
+    amenerPoigneesDevant({ key: 'c', name: 'Cercle', type: 'circle', center: { x: 0, y: 0 }, r: 1 }, ctx);
     expect(ordre).toEqual(['rayon']);
   });
 });

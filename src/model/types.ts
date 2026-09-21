@@ -57,16 +57,9 @@ export interface Segment {
  * Les champs `show*` sont ce que l'utilisateur a choisi d'afficher ; ils ne changent jamais la
  * geometrie, seulement ce qui s'ecrit dessus.
  */
-export interface ObjetPlan {
+interface ObjetCommun {
   key: string;
-  type?: string;
   name: string;
-
-  /** Polygone ferme ou chemin ouvert. */
-  pts?: PtBrut[];
-  /** Cercle. */
-  center?: PtBrut;
-  r?: number;
 
   /** Un nom par sommet et par cote : ces tableaux suivent `pts`, indice par indice. */
   vertexNames?: string[];
@@ -202,8 +195,36 @@ export interface ObjetPlan {
   /** Diametre estime d'un arbre importe, en metres. */
   diametreArbre?: number;
   couleurArbre?: string;
-
 }
+
+/** Un polygone ferme : la parcelle, une terrasse, un batiment, une dalle. */
+export interface ObjetPolygone extends ObjetCommun {
+  type: 'polygon';
+  pts: PtBrut[];
+}
+
+/** Un chemin ouvert, trace avec une largeur en metres. */
+export interface ObjetChemin extends ObjetCommun {
+  type: 'path';
+  pts: PtBrut[];
+}
+
+/** Un cercle : un arbre, un parasol, un spa. */
+export interface ObjetCercle extends ObjetCommun {
+  type: 'circle';
+  center: PtBrut;
+  r: number;
+}
+
+/**
+ * Une forme du plan. Trois formes, et c'est `type` qui dit laquelle : le compilateur ne laisse lire
+ * `pts` qu'apres avoir ecarte le cercle, et `center`/`r` qu'apres l'avoir reconnu. Ce qui les
+ * distingue est ici ; tout ce qu'elles partagent est dans `ObjetCommun`.
+ */
+export type ObjetPlan = ObjetPolygone | ObjetChemin | ObjetCercle;
+
+/** Une forme a sommets : ce que le rendu, l'edition et le moteur manipulent le plus souvent. */
+export type ObjetAPoints = ObjetPolygone | ObjetChemin;
 
 /**
  * Un prix saisi a la main, range par longueur de barre (`'2.5'`, `'3'`…).

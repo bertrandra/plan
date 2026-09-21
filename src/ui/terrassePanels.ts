@@ -20,6 +20,7 @@ import { computeDebitsBois } from '../engine/debit.js';
 import { computeImplantation } from '../engine/implantation.js';
 import { computeTerrasseLayers, type CouchesTerrasse } from '../engine/layers.js';
 import { buildVisGrid, CHARGE_REF, coefRaideurLame, computeStructure, dimsSection, ENTRAXE_LAME_K, evaluerStructure, findSpaZones, LAMBOURDE_SECTIONS, LAME_RAIDEUR, lamesAngleOf, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, PORTEE_VIS_K, porteeAppuiM, porteeVisM, porteeVisSpaM, prixUnitaire, sectionLambourde, SOLIVE_SECTION_DIMS, structureVide, zoneToucheTerrasse } from '../engine/structure.js';
+import { aDesSommets, sommetsDe } from '../model/formes.js';
 import type { ObjetPlan, Construction, PtBrut } from '../model/types.js';
 import type { Debit } from '../engine/debit.js';
 import type { ProduitBarre } from '../engine/bom.js';
@@ -89,7 +90,7 @@ export function renderTerrasseSelector(etat: EtatTerrassePanels, sousOnglet: str
     const surf = document.createElement('span');
     surf.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft); margin-left:8px;';
     const hMm = ctx.hauteurFinieMm(selectedObj);
-    surf.textContent = 'Surface : ' + shoelace(selectedObj.pts||[]).toFixed(2) + ' m²' +
+    surf.textContent = 'Surface : ' + shoelace(sommetsDe(selectedObj)).toFixed(2) + ' m²' +
       '  (hauteur finie ' + (hMm / 10).toFixed(1).replace(/\.0$/, '') + ' cm)';
     surf.title = 'Hauteur du sol fini au dessus des lames : ' +
       (estPlots(ensureConstruction(selectedObj)) ? 'plot' : 'depassement de tete de vis') +
@@ -347,17 +348,17 @@ export function renderTerrasseConfigurator(obj: ObjetPlan, ctx: ContexteTerrasse
   // far above that is telling the user their solives are closer together than they need to be.
   // The spa densification is deliberate and local, so it is counted separately - otherwise a
   // heavy spa would make the layout look over-screwed and point the blame at the entraxe.
-  const visPts = (obj.pts && obj.pts.length>=3) ? buildVisGrid(obj, null, ctx.objets()) : [];
+  const visPts = (aDesSommets(obj) && obj.pts.length>=3) ? buildVisGrid(obj, null, ctx.objets()) : [];
   const visCount = visPts.length;
   const visSpa = visPts.filter(p=>p.role==='spa').length;
   void visSpa;
   // Nommer ce qui a ete detecte. Toute forme passee en fonction "equipement" resserre desormais
   // la grille : si elle n'est pas nommee ici, personne ne peut voir laquelle, ni s'apercevoir
   // qu'un objet a ete classe equipement par megarde.
-  const zonesEquip = (obj.pts && obj.pts.length>=3)
-    ? findSpaZones(c.visMargeZoneSpa, ctx.objets()).filter(z=>zoneToucheTerrasse(z, obj.pts||[])) : [];
+  const zonesEquip = (aDesSommets(obj) && obj.pts.length>=3)
+    ? findSpaZones(c.visMargeZoneSpa, ctx.objets()).filter(z=>zoneToucheTerrasse(z, sommetsDe(obj))) : [];
   const nomsEquip = zonesEquip.map(z=>z.nom).join(', ');
-  const surfM2 = shoelace(obj.pts||[]) || 1;
+  const surfM2 = shoelace(sommetsDe(obj)) || 1;
   const densite = visCount / surfM2;
   const densiteHorsSpa = (visCount - visSpa) / surfM2;
   const chargeInp = document.createElement('input'); chargeInp.type='number'; chargeInp.step='25'; chargeInp.min='100';
@@ -806,7 +807,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
   if(!host) return;
   const c = ensureConstruction(obj);
   host.innerHTML = '';
-  if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
+  if(!aDesSommets(obj) || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
   const layers = computeTerrasseLayers(obj, ctx.objets());
   const I = computeImplantation(obj, layers);
   const ech = ECHELLES.includes(c.echelleImplant!) ? c.echelleImplant! : 200;
@@ -870,7 +871,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
   I.sommets.forEach((v,i)=>{
     const w = I.sommets[(i+1)%I.sommets.length]!;
     const a=P(v), b=P(w);
-    const L = dist((obj.pts||[])[i]!, (obj.pts||[])[(i+1)%(obj.pts||[]).length]!);
+    const L = dist(obj.pts[i]!, obj.pts[(i+1)%obj.pts.length]!);
     const ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
     const t = txt(0,-1.2, L.toFixed(3)+' m', 2.4, '#111','middle');
@@ -972,7 +973,7 @@ export function renderImplantation(obj: ObjetPlan, ctx: ContexteTerrassePanels):
     { innerHTML:'<th>Sommet</th><th>X (m)</th><th>Y (m)</th><th>Cote suivant (m)</th>' }));
   I.sommets.forEach((v,i)=>{
     const tr=document.createElement('tr');
-    const L = dist((obj.pts||[])[i]!, (obj.pts||[])[(i+1)%(obj.pts||[]).length]!);
+    const L = dist(obj.pts[i]!, obj.pts[(i+1)%obj.pts.length]!);
     tr.innerHTML = '<td>'+(i+1)+(i===I.R.cote?' (repere R)':'')+'</td><td>'+v.x.toFixed(3)+
       '</td><td>'+v.y.toFixed(3)+'</td><td>'+L.toFixed(3)+'</td>';
     tS.appendChild(tr);
@@ -1012,7 +1013,7 @@ export function renderChantier(obj: ObjetPlan, ctx: ContexteTerrassePanels): voi
   if(!host) return;
   const c = ensureConstruction(obj);
   host.innerHTML = '';
-  if(!obj.pts || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
+  if(!aDesSommets(obj) || obj.pts.length<3){ host.innerHTML = '<div class="hint">Terrasse invalide.</div>'; return; }
   const layers = computeTerrasseLayers(obj, ctx.objets());
   const ch = computeChantier(obj, layers);
   const equipe = Math.max(1, Math.round(c.equipe||2));
@@ -1141,12 +1142,12 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
   }).join('');
 
   const span = porteeVisM(c);
-  const ok = obj.pts && obj.pts.length>=3;
+  const ok = aDesSommets(obj) && obj.pts.length>=3;
   const S = ok ? computeStructure(obj, ctx.objets()) : structureVide();
   const vis = ok ? buildVisGrid(obj, S, ctx.objets()) : [];
   const roles: Record<string, number> = {rive:0, courant:0, spa:0};
   vis.forEach(p=>roles[p.role]=(roles[p.role]||0)+1);
-  const surf = shoelace(obj.pts||[]) || 1;
+  const surf = shoelace(sommetsDe(obj)) || 1;
   const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
 
   host.innerHTML =
@@ -1395,7 +1396,7 @@ export function renderMethode(obj: ObjetPlan, ctx: ContexteTerrassePanels): void
 
 export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: ContexteTerrassePanels): void {
   const host = document.getElementById('terrasseOptimResult')!;
-  if(!optimVisible || !obj || !obj.pts || obj.pts.length<3){ host.style.display='none'; return; }
+  if(!optimVisible || !obj || !aDesSommets(obj) || obj.pts.length<3){ host.style.display='none'; return; }
   const c = ensureConstruction(obj);
   const res = optimiserParametres(obj, ctx.objets());
   host.style.display = '';
@@ -1487,7 +1488,7 @@ export function renderOptimResult(obj: ObjetPlan | null | undefined, ctx: Contex
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c,'vis',VIS_PRICE),
     prixUnitaire(c,'bois',SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts||[])||1, ctx.objets());
+    lamesAngleOf(obj), shoelace(obj.pts)||1, ctx.objets());
   const note = document.createElement('div');
   note.className = 'hint';
   const gain = actuel.cout - best.cout;

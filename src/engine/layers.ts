@@ -6,12 +6,14 @@
 
 import { ringSegments } from '../geometry/polygon.js';
 import { ensureConstruction } from './construction.js';
+import { enPoints } from '../model/formes.js';
 import { generateParallelLines } from './lames.js';
 import { buildVisGrid, computeStructure, safeOffset } from './structure.js';
 import type { ObjetPlan } from '../model/types.js';
 
 export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   const c = ensureConstruction(obj);
+  const pts = enPoints(obj).pts;
   // `const n = obj.pts.length` : variable morte dans le fichier d origine, retiree - son
   // initialisation ne fait que lire une longueur, donc aucun effet de bord perdu.
   const S = computeStructure(obj, objets);
@@ -31,7 +33,7 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   // (au lieu de courir jusqu'au contour) pour laisser la place a la bordure - le contour
   // retreci garde la meme forme/angles que la terrasse, donc les extremites des lames
   // suivent toujours le bon angle, juste plus court.
-  const lamesFieldPoly = c.avecLamePlat ? safeOffset(obj.pts!, largeurLameM) : obj.pts!;
+  const lamesFieldPoly = c.avecLamePlat ? safeOffset(pts, largeurLameM) : pts;
   const lames = generateParallelLines(lamesFieldPoly, lamesAngle, boardSpacing);
 
   // Lame de rive : habillage suspendu qui fait le tour de la terrasse, decale vers
@@ -39,26 +41,26 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   // contour reel. Anneau a onglets : decaler chaque cote separement laisserait un coin
   // ouvert a chaque angle saillant et un croisement a chaque angle rentrant.
   const lameRive = c.avecLameRive
-    ? ringSegments(safeOffset(obj.pts!, -riveEp/2))
+    ? ringSegments(safeOffset(pts, -riveEp/2))
     : [];
   // Lame a plat : meme contour, posee a plat au niveau des lames (bordure/cadre de
   // finition), decalee vers l'interieur d'une demi-largeur pour occuper exactement la
   // bande laissee libre par le retrecissement du champ de lames ci-dessus, bord exterieur
   // a l'aplomb du contour reel.
   const lamePlat = c.avecLamePlat
-    ? ringSegments(safeOffset(obj.pts!, largeurLameM/2))
+    ? ringSegments(safeOffset(pts, largeurLameM/2))
     : [];
 
   // Ring pieces are given as the pair of rings that bound them, not just a centreline. A ring
   // drawn as a chain of boxes leaves every corner uncut - the mitre only exists if the corner
   // points of both the outer and the inner ring are used, which is exactly what these carry.
   const bandes = {
-    cadre: { ext: safeOffset(obj.pts!, S.cadreOff - S.soliveW/2),
-             int: safeOffset(obj.pts!, S.cadreOff + S.soliveW/2) },
+    cadre: { ext: safeOffset(pts, S.cadreOff - S.soliveW/2),
+             int: safeOffset(pts, S.cadreOff + S.soliveW/2) },
     lamePlat: c.avecLamePlat
-      ? { ext: obj.pts!.map(p=>({...p})), int: safeOffset(obj.pts!, largeurLameM) } : null,
+      ? { ext: pts.map(p=>({...p})), int: safeOffset(pts, largeurLameM) } : null,
     lameRive: c.avecLameRive
-      ? { ext: safeOffset(obj.pts!, -riveEp), int: obj.pts!.map(p=>({...p})) } : null
+      ? { ext: safeOffset(pts, -riveEp), int: pts.map(p=>({...p})) } : null
   };
   return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly };
 }

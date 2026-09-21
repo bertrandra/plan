@@ -39,19 +39,19 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 20 septembre 2026, a la version 1.1.0-alpha.16. Le seul ecart avec les empreintes de
+  // Recapturees le 21 septembre 2026, a la version 1.1.0-alpha.17. Le seul ecart avec les empreintes de
   // la 1.0.0 est le numero de version, et cela a ete prouve avant chaque recapture : le meme build,
   // estampille de l'ancien numero, reproduisait les anciennes empreintes au bit pres, et une
   // comparaison ligne a ligne ne montrait qu'une ligne differente par artefact texte — celle qui
   // porte la version (voir EMPREINTES.md, « La rupture » et la recapture de rattrapage).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '63d6dcaff18ded2c0d1053610f5802ebc6a220243500be2846d29b1101b20db7',
-      'plan.svg': '97e061269af6dc12fe010b98b051f0e456604cbf07bb51c0885a6df70a4f5e0b',
-      'plan.dxf': 'b0aae62a97152823b908098a8b3251535b6d3aec2e98b4f590f219ef2d852e3b',
-      'projet.json': '268b904fd43762de6b44f6e11d282286a857bdadfee34a2de5b5e67d8a06cb83',
-      'plan.pdf': 'aee7b746e973ec0c304110005cbdc13e59211e95189217b75a094a8ef5992957',
-      'dossier.pdf': 'bd4d0a27bfbc3781519eea5316dcb6bb321d0d0bdd7c5d3a7759e23cfbe1b0cb'
+      'resume.txt': '9dc1a707beddf7df7c323a70ab0499ea396d338fde6af00a90f1b46bf0d1d888',
+      'plan.svg': 'af44e1518b7a8b295708b169292c30dfdf5569f0ba3872641586333b615bad2c',
+      'plan.dxf': 'b4530e242dad74a67f72198c657e0198bd7e18f2b5da8e212b80e91e9c5cbff5',
+      'projet.json': '99b47db04aac629569ae27078da1a67598d7eaaed21ae34f63115058289620bf',
+      'plan.pdf': 'a27f204257360b9b82c70175a4ead1212ca4aefd8643259802588b8b9f8bc6cc',
+      'dossier.pdf': '6e664a3911bccf1d37c26a9fb2b49c017f4978d630eca50b57adeba8b58e545c'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

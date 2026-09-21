@@ -10,6 +10,7 @@ import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerCartesOmbre, ombreInstantanee, type ContexteSoleil } from '../engine/parasol.js';
 import type { PtBrut , ObjetPlan } from '../model/types.js';
+import { enCercle } from '../model/formes.js';
 
 /**
  * Ce que le calque des parasols lit d'un objet.
@@ -94,7 +95,7 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
     if(par.matDeporte){
       // Un trait relie le pied au centre de la toile : sans lui, sur un deporte, on ne voit pas
       // a quel parasol appartient ce pied quand plusieurs se chevauchent.
-      const sc = versEcran(scene, par.center!);
+      const sc = versEcran(scene, enCercle(par).center);
       const l = creerSvg('line');
       l.setAttribute('x1', String(s.x)); l.setAttribute('y1', String(s.y));
       l.setAttribute('x2', String(sc.x)); l.setAttribute('y2', String(sc.y));

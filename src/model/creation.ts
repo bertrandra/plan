@@ -18,6 +18,7 @@
 import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan } from './types.js';
+import { enPoints } from './formes.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -192,7 +193,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   function centreParcelle() {
     const pc = etat.objects.find(o => o.key === 'parcelle');
     // La parcelle est un polygone : elle porte toujours `pts`.
-    return pc ? centroid(pc.pts!) : { x: 0, y: 0 };
+    return pc ? centroid(enPoints(pc).pts) : { x: 0, y: 0 };
   }
 
   function cle(prefixe: string) {
@@ -234,7 +235,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse')
                 || etat.objects.find(o => o.key === 'parcelle');
-      const c = terr ? centroid(terr.pts!) : { x: 0, y: 0 };
+      const c = terr ? centroid(enPoints(terr).pts) : { x: 0, y: 0 };
       const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
@@ -262,8 +263,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
       const clone = ctx.normalizeObjects([plain])[0]!;
-      if (clone.type === 'circle') clone.center!.x -= 5;
-      else clone.pts!.forEach(p => { p.x -= 5; });
+      if (clone.type === 'circle') clone.center.x -= 5;
+      else clone.pts.forEach(p => { p.x -= 5; });
       inserer({ obj: clone, onglet: 'objet' });
     },
 

@@ -88,7 +88,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const vNames = isOwn && el.getAttribute('data-vertex-names') ? el.getAttribute('data-vertex-names')!.split(NAME_SEP) : pts.map((_,i)=>'Coin '+(i+1));
     const sNames = isOwn && el.getAttribute('data-segment-names') ? el.getAttribute('data-segment-names')!.split(NAME_SEP) : pts.map((_,i)=>'Cote '+(i+1));
     const newObj = {
-      key, type:'polygon', name,
+      key, type:'polygon' as const, name,
       fill: el.getAttribute('fill')||'#8fb3d9', fillOpacity: parseFloat(el.getAttribute('fill-opacity')!)||0.75,
       stroke: el.getAttribute('stroke')||'#2a4d6e',
       pts, vertexNames:vNames, segmentNames:sNames, frozenVertices: pts.map(()=>false),
@@ -122,7 +122,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const width = isOwn ? (parseFloat(el.getAttribute('data-width')!)||1) : (parseFloat(el.getAttribute('stroke-width')!)||1);
     const curve = isOwn ? (el.getAttribute('data-curve')==='true') : false;
     const newObj = {
-      key, type:'path', name,
+      key, type:'path' as const, name,
       fill: el.getAttribute('stroke')||'#c9a15a', fillOpacity:1, stroke: el.getAttribute('stroke')||'#c9a15a',
       pts, vertexNames:vNames, segmentNames:sNames, frozenVertices: pts.map(()=>false),
       width, curve,
@@ -150,7 +150,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
     const key = (replaceMode && isOwn && origKey) ? origKey : cleObjet('imp', etat);
     const name = isOwn ? (el.getAttribute('data-name')||'Cercle importe') : ('Cercle importe '+imported);
     const newObj = {
-      key, type:'circle', name,
+      key, type:'circle' as const, name,
       fill: el.getAttribute('fill')||'#5bc8f5', fillOpacity: parseFloat(el.getAttribute('fill-opacity')!)||0.9,
       stroke: el.getAttribute('stroke')||'#0a3d5c',
       center, r,

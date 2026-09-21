@@ -23,7 +23,8 @@ import { showErrBanner } from '../shell/dialogs.js';
 import { elOpt } from '../shell/dom.js';
 import { estMesh } from './gardes.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, PtBrut, Construction } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction } from '../model/types.js';
+import { aDesSommets, enPoints, enCercle } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
@@ -107,9 +108,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   const layers = obj ? computeTerrasseLayers(obj, etat.objects) : null;
   // Le centre de la scene se prend sur la terrasse ; a defaut sur la parcelle, sinon sur
   // l'ensemble des objets - la camera doit regarder quelque chose dans tous les cas.
-  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan)=>o.pts && o.pts.length);
+  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan)=>aDesSommets(o) && o.pts.length);
   const cen = objetCentre
-    ? (objetCentre.type === 'circle' ? {x:objetCentre.center!.x, y:objetCentre.center!.y} : centroid(objetCentre.pts!))
+    ? (objetCentre.type === 'circle' ? {x:objetCentre.center.x, y:objetCentre.center.y} : centroid(objetCentre.pts))
     : {x:0, y:0};
   // La case suit la valeur du projet, pas l'inverse : un projet rouvert retrouve son reglage.
   const cbF = elOpt<HTMLInputElement>('terrasse3dFilaire');
@@ -147,7 +148,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // En mode "tous les objets", la camera et le sol doivent couvrir tout le plan, pas seulement
   // cette terrasse - sinon la maison ou la parcelle se retrouvent hors champ ou sous un sol trop
   // petit pour les recevoir.
-  const ptsPourEtendue = obj ? obj.pts!.slice() : [];
+  const ptsPourEtendue = obj ? enPoints(obj).pts.slice() : [];
   // Sans terrasse, "tous les objets" n'est pas une option : ils sont la seule chose a montrer.
   if(vue3d.tousLesObjets || !obj){
     etat.objects.forEach((o: ObjetPlan)=>{
@@ -156,8 +157,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       else if(o.pts) ptsPourEtendue.push(...o.pts);
     });
   }
-  function cerclePointsExtent(o: ObjetPlan){
-    const ce = o.center!, r = o.r!;
+  function cerclePointsExtent(o: ObjetCercle){
+    const ce = o.center, r = o.r;
     return [{x:ce.x-r,y:ce.y},{x:ce.x+r,y:ce.y},
             {x:ce.x,y:ce.y-r},{x:ce.x,y:ce.y+r}];
   }
@@ -245,7 +246,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // Visible outline of the terrasse's real footprint at ground level, so the boards'
   // orientation above can be checked against the actual polygon angle at a glance.
   if(obj){
-    const outlinePts = obj.pts!.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
+    const outlinePts = enPoints(obj).pts.map((p: PtBrut)=>{ const l=toLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
     outlinePts.push(outlinePts[0]!.clone());
     const outline = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(outlinePts),
@@ -532,12 +533,12 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // Every piece is cut to the outline it stops on, so an oblique edge reads as one diagonal
   // line instead of a flight of steps.
   const cadreH = plotSimple ? lambH : soliveH;
-  layers.solives.forEach(seg=>addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, obj.pts));
+  layers.solives.forEach(seg=>addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, enPoints(obj).pts));
   // The frame sits at the same level as the beams it belongs to, following the outline.
   addBande(layers.bandes.cadre, hauteurVisM, cadreH, 0x4a2f18);
   let lameBase = hauteurVisM + (plotSimple ? 0 : soliveH);
   if(layers.lambourdes.length){
-    layers.lambourdes.forEach(seg=>addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, obj.pts));
+    layers.lambourdes.forEach(seg=>addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, enPoints(obj).pts));
     lameBase += lambH;
   }
   // En filaire les lames ne sont plus qu'un contour : on voit d'un coup l'implantation des
@@ -580,7 +581,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       if(o===obj) return;
       if(ctx.objetMasque(o)) return; // masque dans le plan = masque partout, y compris ici (voisinage compris)
       if(o.key==='parcelle' || o.fonction==='terrain'){
-        addRibbonFlat(o.pts, o.fill||'#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
+        addRibbonFlat(enPoints(o).pts, o.fill||'#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
         return;
       }
       // Un point de vue est un repere de navigation, pas un objet physique du jardin : rien a
@@ -608,8 +609,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       // comme les autres objets en ferait un cylindre opaque de 3 m de diametre au milieu de la
       // terrasse - exactement ce qu'on cherche a ne PAS voir quand on juge son implantation.
       if(o.fonction === 'parasol'){
+        const par = enCercle(o);
         const hMat = hauteurParasolDe(o);
-        const pl = toLocal(o.center!);
+        const pl = toLocal(par.center);
         // Le mat se dresse a SA position (le centre pour un parasol droit, le bord de toile pour un
         // deporte) ; la toile, elle, reste centree sur o.center.
         const plMat = toLocal(ctx.positionMat(o));
@@ -637,14 +639,14 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
         if(urlToile) matToile.map = ctx.chargerTexturePolyhaven(urlToile);
         // Cone tres plat pose sur le mat : la silhouette d'un parasol ouvert, et surtout la meme
         // emprise circulaire au sol que le rayon utilise pour calculer l'ombre en 2D.
-        const toile = new THREE.Mesh(new THREE.ConeGeometry(o.r!, Math.max(0.15, o.r!*0.28), 24), matToile);
-        toile.position.set(pl.x, hMat + Math.max(0.15, o.r!*0.28)/2, pl.z);
+        const toile = new THREE.Mesh(new THREE.ConeGeometry(par.r, Math.max(0.15, par.r*0.28), 24), matToile);
+        toile.position.set(pl.x, hMat + Math.max(0.15, par.r*0.28)/2, pl.z);
         scene.add(toile);
         return;
       }
       const h = ctx.elevationOf(o);
       if(h <= 0) return;
-      const footprint = o.type==='circle' ? cerclePoly(o.center!, o.r!) : o.pts;
+      const footprint = o.type==='circle' ? cerclePoly(o.center, o.r) : o.pts;
       // `fill` est facultatif sur `ObjetPlan` : un objet sans couleur arrive tel quel a Three, qui
       // ignore la valeur absente (avec un avertissement console) et garde sa couleur par defaut.
       addPrism(footprint, 0, h, o.fill as CouleurTrois, false, opaciteDe(o), texturesDe(o));
@@ -653,7 +655,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
         // hauteur h) : son centre remonte d'un rayon au-dessus de h pour qu'elle touche le tronc
         // sans le traverser ni flotter au-dessus. Diametre/couleur/texture sont propres au
         // feuillage (champs "arbre" du panneau Objet), independants de la silhouette du tronc.
-        const centreArbre = o.type==='circle' ? o.center! : centroid(o.pts!);
+        const centreArbre = o.type==='circle' ? o.center : centroid(o.pts);
         const rayon = Math.max(0.05, (o.diametreArbre !== undefined && o.diametreArbre !== null ? o.diametreArbre : 3) / 2);
         const matSphere = new THREE.MeshStandardMaterial({color: o.couleurArbre || '#4a7c3a'});
         const opacite = opaciteDe(o);
@@ -680,7 +682,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // la terrasse et avec sa propre hauteur/couleur/texture reglables depuis le bandeau au-dessus
   // du rendu 3D.
   const parcelleCloture = ctx.trouverParcelleCloture();
-  if(parcelleCloture && parcelleCloture.clotureActive && parcelleCloture.pts && parcelleCloture.pts.length>=3){
+  if(parcelleCloture && parcelleCloture.clotureActive && aDesSommets(parcelleCloture) && parcelleCloture.pts.length>=3){
     const EPAISSEUR_CLOTURE = 0.05;
     const hauteurCloture = Math.max(0.1, parcelleCloture.clotureHauteur || 1.8);
     const couleurCloture = parcelleCloture.clotureCouleur || '#6b4a2a';

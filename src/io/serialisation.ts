@@ -43,12 +43,12 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       voisinage: !!o.voisinage
     };
     if(o.type==='circle'){
-      out.center = {x:o.center!.x, y:o.center!.y}; out.r = o.r;
+      out.center = {x:o.center.x, y:o.center.y}; out.r = o.r;
     } else {
-      out.pts = o.pts!.map(p=>({x:p.x,y:p.y}));
+      out.pts = o.pts.map(p=>({x:p.x,y:p.y}));
       out.vertexNames = [...o.vertexNames!];
       out.segmentNames = [...o.segmentNames!];
-      out.frozenVertices = o.frozenVertices ? [...o.frozenVertices] : o.pts!.map(()=>false);
+      out.frozenVertices = o.frozenVertices ? [...o.frozenVertices] : o.pts.map(()=>false);
       if(o.type==='path'){ out.width = o.width; out.curve = !!o.curve; }
     }
     if(o.construction) out.construction = JSON.parse(JSON.stringify(o.construction));

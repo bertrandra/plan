@@ -8,14 +8,14 @@ import type { ObjetBrut } from '../../../src/model/types.js';
 
 describe('clonage', () => {
   it('ne partage aucun point avec la source', () => {
-    const src = [{ type: 'polygon', pts: [{ x: 1, y: 2 }] }];
+    const src = [{ type: 'polygon' as const, pts: [{ x: 1, y: 2 }] }];
     const out = normalizeObjects(src);
     out[0]!.pts[0]!.x = 99;
     expect(src[0]!.pts[0]!.x).toBe(1);
   });
 
   it('ne partage pas non plus le centre d un cercle', () => {
-    const src = [{ type: 'circle', center: { x: 3, y: 4 }, r: 1 }];
+    const src = [{ type: 'circle' as const, center: { x: 3, y: 4 }, r: 1 }];
     const out = normalizeObjects(src);
     out[0]!.center.y = 99;
     expect(src[0]!.center.y).toBe(4);
@@ -78,7 +78,7 @@ describe('completion des tableaux', () => {
   });
 
   it('garde les noms fournis, sans les partager', () => {
-    const src = [{ type: 'polygon', pts: [{ x: 0, y: 0 }], vertexNames: ['Apex'], segmentNames: ['Nord'] }];
+    const src = [{ type: 'polygon' as const, pts: [{ x: 0, y: 0 }], vertexNames: ['Apex'], segmentNames: ['Nord'] }];
     const out = normalizeObjects(src);
     out[0]!.vertexNames[0] = 'Autre';
     expect(src[0]!.vertexNames[0]).toBe('Apex');

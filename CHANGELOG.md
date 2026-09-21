@@ -3,17 +3,45 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
-## [Non publié]
+## [1.1.0-alpha.17] — 2026-09-21
+
+**`ObjetPlan` est une union discriminée** (MD/DEFAUTS.md, D-3 ; spec §12). Polygone, chemin et
+cercle sont trois types que `type` distingue : le compilateur ne laisse lire `pts` qu'après avoir
+écarté le cercle, `center` et `r` qu'après l'avoir reconnu. Les quatre signatures d'index
+(`ObjetPlan`, `Construction`, `LigneBom`, `Mesure`) ont disparu. Aucun octet exporté ne bouge :
+six empreintes sur six inchangées à version égale.
 
 ### Corrigé
 
-- **Un projet ancien s'ouvre avec une construction complète.** `ensureConstruction` ne comblait que 40 des
-  53 réglages ; les treize autres n'étaient posés que sur une terrasse neuve, et un projet enregistré
-  avant leur existence arrivait au moteur avec `soliveSection`, `soliveEntraxe`, `lambourdeEntraxe`,
-  `essenceBois`… à `undefined` — un débit bois titré « (undefined) », une marge de zone spa en `NaN`
-  (MD/DEFAUTS.md, D-1). Les douze sont comblés à l'ouverture avec la valeur que chaque lecture du
-  moteur prenait déjà par `||` en leur absence, donc aucun nombre ne bouge pour ces projets ; l'essence
-  reste « autre », le tarif qu'ils ont toujours eu. Seul `bom`, un résultat, reste à `computeBOM`.
+- **Un projet ancien s'ouvre avec une construction complète** (D-1). `ensureConstruction` ne
+  comblait que 40 des 53 réglages ; les treize autres n'étaient posés que sur une terrasse neuve, et
+  un projet enregistré avant leur existence arrivait au moteur avec `soliveSection`,
+  `soliveEntraxe`, `lambourdeEntraxe`, `essenceBois`… à `undefined` — un débit bois titré
+  « (undefined) », une marge de zone spa en `NaN`. Les douze sont comblés à l'ouverture avec la
+  valeur que chaque lecture du moteur prenait déjà par `||` en leur absence, donc aucun nombre ne
+  bouge ; l'essence reste « autre », le tarif que ces projets ont toujours eu. Seul `bom`, un
+  résultat, reste à `computeBOM`.
+
+### Interne
+
+- `model/types.ts` : `ObjetCommun` porte ce qui est partagé ; `ObjetPolygone`, `ObjetChemin`,
+  `ObjetCercle` ce qui distingue ; `ObjetPlan` est leur union, `ObjetAPoints` celle des deux
+  premiers, `ObjetBrut` reste `Partial<ObjetPlan>`. `voisinage` et `Mesure.id`, lus depuis toujours
+  et jamais déclarés, le sont.
+- `model/formes.ts` : quatre aides — `estCercle`, `aDesSommets` (gardes), `sommetsDe` (`obj.pts || []`
+  sous un nom), `enPoints`/`enCercle` (l'ancien `!` sous un nom qu'on peut chercher).
+- **258 assertions `!` sur `pts`/`center`/`r` → 25**, toutes restantes sur des types partiels ou des
+  interfaces locales, jamais sur l'union. La plupart sont tombées d'elles-mêmes dans des branches
+  déjà écrites sur `type` ; les autres sont devenues une garde nommée de même valeur de vérité, ou
+  `enPoints`/`enCercle` là où le contexte garantit la forme.
+- Les vues partielles `ObjetCote` (render), `ObjetMesurable` (engine) et `ObjetASurface` (export)
+  sont des formes structurelles explicites : un `Pick` sur l'union n'existe plus quand la clé manque
+  à un membre.
+- Le filtre des terrasses du dossier PDF est un prédicat de type ; `cerclePointsExtent` (three) prend
+  un `ObjetCercle` ; `PointDeVue.pts` (three) dit `ObjetAPoints['pts']`.
+- Ce que l'union a révélé sans le corriger — un parasol désigné par `fonction` et non par `type`,
+  qui planterait si l'on faisait « parasol » d'un polygone (D-14) — est dans `MD/DEFAUTS.md`.
+- 548 tests.
 
 ## [1.1.0-alpha.16] — 2026-09-20
 

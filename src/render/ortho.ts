@@ -17,6 +17,7 @@ import { centroid } from '../geometry/basic.js';
 import { projecteurLocal, tuileX, tuileY, lonDeTuile, latDeTuile } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
+import { aDesSommets } from '../model/formes.js';
 import type { Lieu } from '../model/lieu.js';
 
 /** Ce que le fond orthophoto demande à l'application — la parcelle, le lieu, la vue. */
@@ -156,7 +157,7 @@ interface ReferenceGeo {
 
 export function referenceGeoPlan(ctx: ContexteOrtho): ReferenceGeo | null {
   const p = ctx.trouverParcelleCloture();
-  if(!p || !p.pts || !p.pts.length) return null;
+  if(!p || !aDesSommets(p) || !p.pts.length) return null;
   if(p.cadastre && p.cadastre.origineLat !== undefined && p.cadastre.origineLat !== null){
     return { lat:p.cadastre.origineLat, lon:p.cadastre.origineLon as number, x:0, y:0, exact:true };
   }
@@ -205,7 +206,7 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   ctx.etat.objects.forEach(o=>{
     const pts: PtBrut[] = o.type === 'circle'
-      ? [{x:o.center!.x-(o.r||0), y:o.center!.y-(o.r||0)}, {x:o.center!.x+(o.r||0), y:o.center!.y+(o.r||0)}]
+      ? [{x:o.center.x-(o.r||0), y:o.center.y-(o.r||0)}, {x:o.center.x+(o.r||0), y:o.center.y+(o.r||0)}]
       : (o.pts || []);
     pts.forEach(p=>{
       minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);

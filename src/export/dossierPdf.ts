@@ -16,7 +16,8 @@ import {
   A4_L, A4_H, MARGE_PDF, PT_PAR_METRE, assemblerPDF, pdfTexte, pdfPolygone, pdfCercle,
   pdfFlecheNord, pdfEchelleGraphique, echelleQuiTient, hexToRgb01
 } from './pdf/writer.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
+import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
@@ -36,14 +37,14 @@ interface OptionsAngles { taille?: number }
 
 function dimensionsObjet(o: ObjetPlan){
   if(o.type === 'circle'){
-    return { libelle: 'diametre ' + (o.r!*2).toFixed(2).replace('.',',') + ' m',
-             surface: Math.PI*o.r!*o.r!, largeur: o.r!*2, longueur: o.r!*2 };
+    return { libelle: 'diametre ' + (o.r*2).toFixed(2).replace('.',',') + ' m',
+             surface: Math.PI*o.r*o.r, largeur: o.r*2, longueur: o.r*2 };
   }
   const xs = (o.pts||[]).map(p=>p.x), ys = (o.pts||[]).map(p=>p.y);
   const l = Math.max(...xs)-Math.min(...xs), h = Math.max(...ys)-Math.min(...ys);
   if(o.type === 'path'){
     let L = 0;
-    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(o.pts![i]!, o.pts![i+1]!);
+    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(o.pts[i]!, o.pts[i+1]!);
     return { libelle: 'longueur ' + L.toFixed(2).replace('.',',') + ' m x ' + (o.width||0.5).toFixed(2).replace('.',',') + ' m',
              surface: L*(o.width||0.5), largeur:o.width||0.5, longueur:L };
   }
@@ -126,12 +127,12 @@ export function equipementsSurTerrasse(objets: ObjetPlan[], terrasse: ObjetPlan)
   return objets.filter(o=>{
     if(o === terrasse || o.hidden) return false;
     if(FONCTIONS_HORS_EQUIPEMENT.indexOf(o.fonction as string) >= 0) return false;
-    const c = o.type === 'circle' ? o.center! : centroid(o.pts||[]);
-    return pointInPolygon(c, terrasse.pts||[]);
+    const c = o.type === 'circle' ? o.center : centroid(o.pts||[]);
+    return pointInPolygon(c, sommetsDe(terrasse));
   });
 }
 
-function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipementsParTerrasse: Map<string, ObjetPlan[]>, avecEquipements: boolean, meta: MetaDossier): PagePdf {
+function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipementsParTerrasse: Map<string, ObjetPlan[]>, avecEquipements: boolean, meta: MetaDossier): PagePdf {
   const parcelle = objets.find(o=>o.key==='parcelle') || objets.find(o=>o.fonction==='terrain');
   // Un plan de masse ne montre QUE la propriete : ni les parcelles voisines - seule la parcelle
   // principale est tracee -, ni le bati qui leur appartient. Trois marqueurs distinguent ce bati
@@ -144,7 +145,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
     const bdtopo = o.bdtopo as { surParcellePrincipale?: boolean } | undefined;
     if(bdtopo && bdtopo.surParcellePrincipale === false) return false;
     if(!parcelle) return true;
-    return pointInPolygon(o.type === 'circle' ? o.center! : centroid(o.pts||[]), parcelle.pts||[]);
+    return pointInPolygon(o.type === 'circle' ? o.center : centroid(o.pts||[]), sommetsDe(parcelle));
   };
   const batiments = objets.filter(o=>(o.fonction === 'batiment' || o.fonction === 'annexe') && !o.hidden && surPropriete(o));
   const aDessiner: ObjetPlan[] = [];
@@ -154,7 +155,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
   if(avecEquipements) terrasses.forEach(t=>(equipementsParTerrasse.get(t.key)||[]).forEach(e=>aDessiner.push(e)));
   const pts: PtBrut[] = [];
   aDessiner.forEach(o=>{
-    if(o.type === 'circle'){ pts.push({x:o.center!.x-o.r!,y:o.center!.y-o.r!}, {x:o.center!.x+o.r!,y:o.center!.y+o.r!}); }
+    if(o.type === 'circle'){ pts.push({x:o.center.x-o.r,y:o.center.y-o.r}, {x:o.center.x+o.r,y:o.center.y+o.r}); }
     else (o.pts||[]).forEach(p=>pts.push(p));
   });
   if(!pts.length) throw new Error('rien a dessiner');
@@ -176,8 +177,8 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
   aDessiner.forEach(o=>{
     const fond = hexToRgb01(o.fill!), trait = hexToRgb01(o.stroke!);
     if(o.type === 'circle'){
-      const q = P(o.center!);
-      c += pdfCercle(q.x, q.y, o.r!*k, fond, trait, 0.9);
+      const q = P(o.center);
+      c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.9);
     } else if(o.type === 'path'){
       c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6, (o.width||0.5)*k), 1);
     } else {
@@ -186,7 +187,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
     }
   });
   // Dimensions des cotes de la parcelle : c'est la cotation attendue sur un plan de masse.
-  if(parcelle) c += cotationPolygone(parcelle.pts||[], P, {decalage:20, taille:7.5});
+  if(parcelle) c += cotationPolygone(sommetsDe(parcelle), P, {decalage:20, taille:7.5});
   // Reperes de section : le lecteur doit pouvoir relier une terrasse du plan de masse a sa page.
   terrasses.forEach((t, i)=>{
     const q = P(centroid(t.pts||[]));
@@ -203,7 +204,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
   const cad = parcelle && parcelle.cadastre as { section?: string; numero?: string } | undefined;
   const ligneCad = cad ? ('Parcelle ' + (cad.section||'') + ' ' + String(cad.numero||'').replace(/^0+/,'') + (lieu ? ' - ' + lieu : '')) : lieu;
   if(ligneCad) c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 46, 9, ligneCad, [0.35,0.3,0.24]);
-  if(parcelle) c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 60, 9, 'Surface parcelle : ' + shoelace(parcelle.pts||[]).toFixed(1).replace('.',',') + ' m2', [0.35,0.3,0.24]);
+  if(parcelle) c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 60, 9, 'Surface parcelle : ' + shoelace(sommetsDe(parcelle)).toFixed(1).replace('.',',') + ' m2', [0.35,0.3,0.24]);
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 74, 9,
     terrasses.length + ' terrasse(s) au dossier : ' + terrasses.map((t,i)=>'S' + (i+1) + ' ' + t.name).join(', '), [0.35,0.3,0.24]);
   c += pdfTexte(MARGE_PDF, MARGE_PDF - 8, 7,
@@ -211,10 +212,10 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPlan[], equipement
   return { l:A4_L, h:A4_H, contenu:c };
 }
 
-function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier): PagePdf {
+function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier): PagePdf {
   const pts: PtBrut[] = (terrasse.pts||[]).slice();
   equipements.forEach(o=>{
-    if(o.type === 'circle'){ pts.push({x:o.center!.x-o.r!,y:o.center!.y-o.r!}, {x:o.center!.x+o.r!,y:o.center!.y+o.r!}); }
+    if(o.type === 'circle'){ pts.push({x:o.center.x-o.r,y:o.center.y-o.r}, {x:o.center.x+o.r,y:o.center.y+o.r}); }
     else (o.pts||[]).forEach(p=>pts.push(p));
   });
   const minx = Math.min(...pts.map(p=>p.x)), maxx = Math.max(...pts.map(p=>p.x));
@@ -239,7 +240,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
   c += pdfPolygone((terrasse.pts||[]).map(P), hexToRgb01(terrasse.fill!), hexToRgb01(terrasse.stroke!), 1.2, 0.9);
   equipements.forEach(o=>{
     const fond = hexToRgb01(o.fill!), trait = hexToRgb01(o.stroke!);
-    if(o.type === 'circle'){ const q = P(o.center!); c += pdfCercle(q.x, q.y, o.r!*k, fond, trait, 0.75); }
+    if(o.type === 'circle'){ const q = P(o.center); c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.75); }
     else if(o.type === 'path') c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6,(o.width||0.5)*k), 1);
     else c += pdfPolygone((o.pts||[]).map(P), fond, trait, 0.8, 0.75);
   });
@@ -250,7 +251,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
   c += cotationPolygone(terrasse.pts||[], P, {decalage:18, taille:7.5});
   c += anglesPolygone(terrasse.pts||[], P, {taille:6.5});
   equipements.forEach(o=>{
-    const q = P(o.type === 'circle' ? o.center! : centroid(o.pts||[]));
+    const q = P(o.type === 'circle' ? o.center : centroid(o.pts||[]));
     c += pdfTexte(q.x - 14, q.y - 3, 7, o.name, [0.15,0.12,0.08]);
   });
   // Fleche et echelle calees sur la PAGE, pas sur la zone de dessin recentree : avec un petit
@@ -304,7 +305,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
       y -= 12;
     });
     const empriseEquip = equipements.reduce((s,o)=>s + dimensionsObjet(o).surface, 0);
-    const surfT = shoelace(terrasse.pts!);
+    const surfT = shoelace(terrasse.pts);
     c += pdfTexte(colA, y, 8, 'Emprise equipements', [0.35,0.3,0.24]) +
          pdfTexte(colC, y, 8, empriseEquip.toFixed(2).replace('.',',') + ' m2', [0.35,0.3,0.24]) +
          pdfTexte(colD, y, 8, surfT > 0 ? (empriseEquip/surfT*100).toFixed(0) + ' %' : '-', [0.35,0.3,0.24]);
@@ -321,7 +322,7 @@ function pageTerrasse(terrasse: ObjetPlan, equipements: ObjetPlan[], indice: num
 // cochees.
 
 export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEquipements: boolean, meta: MetaDossier) {
-  const terrasses = objets.filter(o=>o.fonction === 'terrasse' && o.type === 'polygon' && cles.indexOf(o.key) >= 0);
+  const terrasses = objets.filter((o): o is ObjetPolygone => o.fonction === 'terrasse' && o.type === 'polygon' && cles.indexOf(o.key) >= 0);
   if(!terrasses.length) throw new Error('aucune terrasse selectionnee');
   const equipements = new Map<string, ObjetPlan[]>();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));

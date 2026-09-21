@@ -8,6 +8,7 @@
 // ecrivain, c'est exactement ce qui merite une frontiere explicite.
 
 import type { PtBrut, ObjetPlan } from '../model/types.js';
+import { enPoints } from '../model/formes.js';
 import type { CoteCible } from '../geometry/alignement.js';
 
 /** Un cote designe sur le plan : la cle de l'objet et l'indice du cote. */
@@ -70,7 +71,8 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
   const idx = ctx.nearestSegmentIndex(obj, target);
   if (idx < 0) return;
   const distance = distanceSaisie.trim() === '' ? null : parseFloat(distanceSaisie);
-  const newPts = ctx.alignerSurCote(obj.pts!, idx, target, distance);
+  const forme = enPoints(obj);
+  const newPts = ctx.alignerSurCote(forme.pts, idx, target, distance);
 
   const bound = ctx.contourDeContrainte(obj);
   if (bound && !newPts.every(p => ctx.pointInPolygon(p, bound))) {
@@ -78,7 +80,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
     return;
   }
   ctx.pushHistory();
-  obj.pts = newPts;
+  forme.pts = newPts;
   ctx.rebuildHandles(obj);
   ctx.render();
 }

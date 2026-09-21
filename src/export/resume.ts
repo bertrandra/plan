@@ -12,10 +12,15 @@
 
 import { dist, shoelace } from '../geometry/basic.js';
 import { interiorAngleDeg } from '../geometry/angles.js';
-import type { ObjetPlan, Mesure } from '../model/types.js';
+import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
+import { sommetsDe } from '../model/formes.js';
 
-/** Ce que `surfaceDe` lit, et rien de plus : les tests l'appellent sur des objets partiels. */
-export type ObjetASurface = Pick<ObjetPlan, 'type' | 'pts' | 'r' | 'width'>;
+/**
+ * Ce que `surfaceDe` lit, et rien de plus : les tests l'appellent sur des objets partiels. Forme
+ * structurelle plutot qu'un `Pick` sur l'union : chaque membre d'`ObjetPlan` y reste assignable
+ * alors qu'un `Pick` exige que chaque cle existe sur chacun d'eux.
+ */
+export type ObjetASurface = { type?: string; pts?: readonly PtBrut[]; r?: number; width?: number };
 
 /** Ce que le resume doit pouvoir demander au reste du programme. */
 export interface ContexteResume {
@@ -56,7 +61,7 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
   // La parcelle est exclue du total : c'est le denominateur, pas un objet pose dessus. Le
   // pourcentage qui suit n'aurait sinon aucun sens.
   const parcelle = objets.find((o: ObjetPlan) => o.key === 'parcelle');
-  const sParcelle = parcelle ? shoelace(parcelle.pts || []) : 0;
+  const sParcelle = parcelle ? shoelace(sommetsDe(parcelle)) : 0;
   let total = 0;
   objets.forEach((obj: ObjetPlan) => {
     const s = surfaceDe(obj);
@@ -68,7 +73,7 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
   objets.forEach((obj: ObjetPlan) => {
     out += '--- ' + obj.name + ' (' + obj.key + ') ---\n';
     if (obj.type === 'circle') {
-      out += '  Centre: X=' + obj.center!.x.toFixed(3) + ' Y=' + obj.center!.y.toFixed(3) + '  Rayon=' + (obj.r as number).toFixed(2) + ' m\n\n';
+      out += '  Centre: X=' + obj.center.x.toFixed(3) + ' Y=' + obj.center.y.toFixed(3) + '  Rayon=' + obj.r.toFixed(2) + ' m\n\n';
     } else if (obj.type === 'path') {
       const ptsC = obj.pts || [], vnC = obj.vertexNames || [], snC = obj.segmentNames || [];
       out += '  Largeur: ' + (obj.width || 1).toFixed(2) + ' m' + (obj.curve ? ' (courbe)' : ' (droit)') + '\n';
@@ -87,7 +92,7 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
       const ptsP = obj.pts || [], vnP = obj.vertexNames || [], snP = obj.segmentNames || [];
       const n = ptsP.length;
       ptsP.forEach((p, i) => {
-        out += '  ' + vnP[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '  Angle=' + interiorAngleDeg(obj as { pts: typeof ptsP }, i).toFixed(1) + ' deg\n';
+        out += '  ' + vnP[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '  Angle=' + interiorAngleDeg(obj, i).toFixed(1) + ' deg\n';
       });
       for (let i = 0; i < n; i++) {
         out += '  ' + snP[i] + ' (' + vnP[i] + ' -> ' + vnP[(i + 1) % n] + '): ' + dist(ptsP[i]!, ptsP[(i + 1) % n]!).toFixed(2) + ' m\n';

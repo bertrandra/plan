@@ -11,7 +11,7 @@ import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
-import type { PtBrut, ObjetPlan, Mesure } from '../model/types.js';
+import type { PtBrut, Mesure } from '../model/types.js';
 
 /**
  * Ce qu'une cote a besoin de connaitre d'un objet : sa cle, et de quoi retrouver sa geometrie.
@@ -21,7 +21,7 @@ import type { PtBrut, ObjetPlan, Mesure } from '../model/types.js';
  * propre interface **nommee `ObjetPlan`**, homonyme de celle du modele et differente d'elle — deux
  * verites sous un seul nom. Le nom dit maintenant ce qui est demande.
  */
-export type ObjetCote = Pick<ObjetPlan, 'key' | 'type' | 'pts' | 'center'>;
+export type ObjetCote = { key: string; type?: string | undefined; pts?: readonly PtBrut[] | undefined; center?: PtBrut | undefined };
 
 export type { Mesure };
 

@@ -36,7 +36,7 @@ describe('etat de l application', () => {
   });
 
   it('normalise les objets par la fonction fournie', () => {
-    const normaliser = vi.fn(() => [{ key: 'a', name: 'A', normalise: true }]);
+    const normaliser = vi.fn((): ObjetPlan[] => [{ key: 'a', name: 'A', type: 'polygon', pts: [], normalise: true } as ObjetPlan]);
     const etat = creerEtat({ objects: [{ key: 'brut', name: 'Brut' }] }, normaliser);
     expect(normaliser).toHaveBeenCalledWith([{ key: 'brut', name: 'Brut' }]);
     expect((etat.objects[0] as { normalise?: boolean }).normalise).toBe(true);

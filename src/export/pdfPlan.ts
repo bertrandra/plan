@@ -15,6 +15,7 @@ import { niceStep } from '../util/format.js';
 import { dist, centroid, angleInterieurDeg, shoelace } from '../geometry/basic.js';
 import { geometrieMesure, ancrageHorsContour, type Mesure } from '../render/measures.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { enPoints } from '../model/formes.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
 import { pdfEscape, horodatagePdfInfo, hexToRgb01 } from './pdf/writer.js';
 /** Ce que la mise en page doit savoir en plus des objets : de quoi remplir le cartouche. */
@@ -34,7 +35,7 @@ export function construirePDF(
   const allPts: PtBrut[] = [];
   objets.forEach(o=>{
     if(o.type==='polygon'||o.type==='path') (o.pts||[]).forEach(p=>allPts.push(p));
-    else { allPts.push({x:o.center!.x-o.r!,y:o.center!.y-o.r!}); allPts.push({x:o.center!.x+o.r!,y:o.center!.y+o.r!}); }
+    else { allPts.push({x:o.center.x-o.r,y:o.center.y-o.r}); allPts.push({x:o.center.x+o.r,y:o.center.y+o.r}); }
   });
   // also account for visible measure labels, which are placed outside the parcel and
   // would otherwise fall outside the page's computed bounding box (invisible/clipped)
@@ -44,7 +45,7 @@ export function construirePDF(
       if(!m.show) return;
       const g = geometrieMesure(objets, m);
       if(!g) return;
-      const anchor = ancrageHorsContour(g.p, pcObjForBBox.pts!, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+      const anchor = ancrageHorsContour(g.p, enPoints(pcObjForBBox).pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
       // pad a little extra so the label TEXT (not just its anchor point) stays on the page
       allPts.push({x:anchor.x+anchor.dirX*0.6, y:anchor.y+anchor.dirY*0.6});
       allPts.push({x:g.p.x, y:g.p.y});
@@ -95,15 +96,15 @@ export function construirePDF(
       content += '/'+gsName(obj.fillOpacity!=null?obj.fillOpacity:1)+' gs\n';
       content += fr.toFixed(3)+' '+fg.toFixed(3)+' '+fb.toFixed(3)+' rg\n';
       content += sr.toFixed(3)+' '+sg.toFixed(3)+' '+sb.toFixed(3)+' RG\n';
-      obj.pts!.forEach((p,i)=>{
+      obj.pts.forEach((p,i)=>{
         const pp = toPdf(p);
         content += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
       });
       content += 'h B\n';
       content += '/'+gsName(1)+' gs\n';
-      const n = obj.pts!.length;
+      const n = obj.pts.length;
       for(let i=0;i<n;i++){
-        const a=obj.pts![i]!, b=obj.pts![(i+1)%n]!;
+        const a=obj.pts[i]!, b=obj.pts[(i+1)%n]!;
         const pa=toPdf(a), pb=toPdf(b);
         const segTxt = etiquetteComposee(obj.segmentNames![i]!, longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
@@ -111,7 +112,7 @@ export function construirePDF(
           content += 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(segTxt)+') Tj ET\n';
         }
         const vName = obj.vertexNames![i]||'';
-        const angleTxt = obj.showAngles ? angleEnDegres(angleInterieurDeg(obj.pts!,i), DEGRE_EXPORT) : '';
+        const angleTxt = obj.showAngles ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_EXPORT) : '';
         const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, obj.showAngles, SEP_EXPORT);
         if(vertTxt){
           content += 'BT /F1 6.5 Tf 0.2 0.2 0.2 rg '+(pa.x+3).toFixed(2)+' '+(pa.y+3).toFixed(2)+' Td ('+pdfEscape(vertTxt)+') Tj ET\n';
@@ -121,10 +122,10 @@ export function construirePDF(
       const [sr,sg,sb] = hexToRgb01(obj.stroke);
       content += sr.toFixed(3)+' '+sg.toFixed(3)+' '+sb.toFixed(3)+' RG\n';
       content += Math.max(0.5,(obj.width||1)*ptsPerMeter).toFixed(2)+' w\n';
-      content += pdfPathD(obj.pts!, !!obj.curve);
+      content += pdfPathD(obj.pts, !!obj.curve);
       content += 'S\n1 w\n';
-      for(let i=0;i<obj.pts!.length-1;i++){
-        const a=obj.pts![i]!, b=obj.pts![i+1]!;
+      for(let i=0;i<obj.pts.length-1;i++){
+        const a=obj.pts[i]!, b=obj.pts[i+1]!;
         const pa=toPdf(a), pb=toPdf(b);
         const segTxt = etiquetteComposee(obj.segmentNames![i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
@@ -133,7 +134,7 @@ export function construirePDF(
         }
       }
       if(obj.showVertNames){
-        obj.pts!.forEach((p,i)=>{
+        obj.pts.forEach((p,i)=>{
           const pp = toPdf(p);
           content += 'BT /F1 6.5 Tf 0.2 0.2 0.2 rg '+(pp.x+3).toFixed(2)+' '+(pp.y+3).toFixed(2)+' Td ('+pdfEscape(obj.vertexNames![i]||'')+') Tj ET\n';
         });
@@ -145,8 +146,8 @@ export function construirePDF(
       content += fr.toFixed(3)+' '+fg.toFixed(3)+' '+fb.toFixed(3)+' rg\n';
       content += sr.toFixed(3)+' '+sg.toFixed(3)+' '+sb.toFixed(3)+' RG\n';
       content += '0.6 w\n';
-      const c = toPdf(obj.center!);
-      const r = obj.r!*ptsPerMeter, k = 0.5523;
+      const c = toPdf(obj.center);
+      const r = obj.r*ptsPerMeter, k = 0.5523;
       content += (c.x+r).toFixed(2)+' '+c.y.toFixed(2)+' m\n';
       [[c.x+r,c.y+r*k,c.x+r*k,c.y+r,c.x,c.y+r],
        [c.x-r*k,c.y+r,c.x-r,c.y+r*k,c.x-r,c.y],
@@ -158,7 +159,7 @@ export function construirePDF(
       content += '/'+gsName(1)+' gs\n';
     }
     if(obj.showName){
-      const cen = (obj.type==='polygon'||obj.type==='path') ? centroid(obj.pts!) : obj.center!;
+      const cen = (obj.type==='polygon'||obj.type==='path') ? centroid(obj.pts) : obj.center;
       const cp = toPdf(cen);
       const [sr,sg,sb] = hexToRgb01(obj.stroke);
       content += 'BT /F1 9 Tf '+sr.toFixed(3)+' '+sg.toFixed(3)+' '+sb.toFixed(3)+' rg '+cp.x.toFixed(2)+' '+cp.y.toFixed(2)+' Td ('+pdfEscape(obj.name)+') Tj ET\n';
@@ -171,7 +172,7 @@ export function construirePDF(
     if(!m.show || !pcObjPdf) return;
     const g = geometrieMesure(objets, m);
     if(!g) return;
-    const anchor = ancrageHorsContour(g.p, pcObjPdf.pts!, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, enPoints(pcObjPdf).pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = toPdf(g.p), pAnchor = toPdf(anchor);
     content += '0.118 0.420 0.549 RG\n0.8 w [3 2] 0 d\n';
     content += pPt.x.toFixed(2)+' '+pPt.y.toFixed(2)+' m '+pAnchor.x.toFixed(2)+' '+pAnchor.y.toFixed(2)+' l S\n';
@@ -207,12 +208,12 @@ export function construirePDF(
 
   // ---- second page: surfaces summary table ----
   const pcObjSurf = objets.find(o=>o.key==='parcelle');
-  const sParcelleSurf = pcObjSurf ? shoelace(pcObjSurf.pts!) : 0;
+  const sParcelleSurf = pcObjSurf ? shoelace(enPoints(pcObjSurf).pts) : 0;
   const surfRows = objets.map(o=>{
     let s;
-    if(o.type==='polygon') s = shoelace(o.pts!);
-    else if(o.type==='circle') s = Math.PI*o.r!*o.r!;
-    else { let L=0; for(let i=0;i<o.pts!.length-1;i++) L+=dist(o.pts![i]!,o.pts![i+1]!); s = L*(o.width||1); }
+    if(o.type==='polygon') s = shoelace(o.pts);
+    else if(o.type==='circle') s = Math.PI*o.r*o.r;
+    else { let L=0; for(let i=0;i<o.pts.length-1;i++) L+=dist(o.pts[i]!,o.pts[i+1]!); s = L*(o.width||1); }
     return {name:o.name, key:o.key, s};
   });
   let totalHors = 0;

@@ -21,6 +21,7 @@ import { showToast } from '../shell/dialogs.js';
 import { ouvrirSelecteurTexture } from './texturePicker.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol, type ContexteSoleil } from '../engine/parasol.js';
 import type { EtatApp } from '../core/state.js';
+import { enPoints, enCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut, TextureAppliquee } from '../model/types.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 
@@ -76,7 +77,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     tbl.innerHTML = '<tr><td style="padding:10px; color:#8a8a80;">Clique sur un objet (ou son bouton ci-dessus) pour l\'éditer.</td></tr>';
     return;
   }
-  const titleSurf = obj.type==='polygon' ? shoelace(obj.pts!) : (obj.type==='circle' ? Math.PI*obj.r!*obj.r! : null);
+  const titleSurf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
   document.getElementById('attrTitle')!.textContent = ctx.libelleTypeObjet(obj) + ' — ' + obj.name + (titleSurf!==null ? '  (' + titleSurf.toFixed(2) + ' m²)' : '');
 
   // --- name table (always visible, not tabbed) ---
@@ -137,8 +138,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
   if(etat.attrTab==='objet'){
     const parcelleForSurf = etat.objects.find((o: ObjetPlan)=>o.key==='parcelle');
-    const sParcelle = parcelleForSurf ? shoelace(parcelleForSurf.pts!) : 0;
-    const surf = obj.type==='polygon' ? shoelace(obj.pts!) : (obj.type==='circle' ? Math.PI*obj.r!*obj.r! : null);
+    const sParcelle = parcelleForSurf ? shoelace(enPoints(parcelleForSurf).pts) : 0;
+    const surf = obj.type==='polygon' ? shoelace(obj.pts) : (obj.type==='circle' ? Math.PI*obj.r*obj.r : null);
     const addRow = (label: string, valueEl: HTMLElement) => {
       const tr=document.createElement('tr');
       const td0=document.createElement('td'); td0.textContent=label;
@@ -428,7 +429,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
             optBtn.disabled = false; optBtn.textContent = 'Placer au mieux';
             if(!res){ showToast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
             ctx.pushHistory();
-            obj.center!.x = res.x; obj.center!.y = res.y;
+            // Un parasol nait cercle (model/creation.ts) : le `!` d'origine l'affirmait deja.
+            const toile = enCercle(obj); toile.center.x = res.x; toile.center.y = res.y;
             if(obj.matDeporte && res.angleDeg !== undefined) obj.matAngleDeg = res.angleDeg;
             ctx.render();
             ctx.renderAttrTable();
@@ -452,7 +454,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     lockCb.addEventListener('change', ()=>{ ctx.pushHistory(); obj.locked = lockCb.checked; ctx.render(); });
     addRow('Verrouiller objet', lockCb);
 
-    if(obj.type==='polygon' && obj.pts!.length===4){
+    if(obj.type==='polygon' && obj.pts.length===4){
       const rectCb = document.createElement('input'); rectCb.type='checkbox';
       // Derived from the freeze state rather than a separate stored flag: freezing all 4
       // corners is what actually blocks angle/length edits elsewhere in the app (Coins/
@@ -464,13 +466,13 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         if(rectCb.checked){
           // Deja d'equerre : on verrouille tel quel, sans redresser. Une terrasse rectangulaire
           // mais orientee a 30 degres n'a aucune raison de basculer sur les axes de l'ecran.
-          if(ctx.dejaRectangle(obj.pts!)){
+          if(ctx.dejaRectangle(obj.pts)){
             ctx.pushHistory();
             obj.frozenVertices = obj.frozenVertices!.map(()=>true);
             ctx.render();
             return;
           }
-          const xs = obj.pts!.map((p: PtBrut)=>p.x), ys = obj.pts!.map((p: PtBrut)=>p.y);
+          const xs = obj.pts.map((p: PtBrut)=>p.x), ys = obj.pts.map((p: PtBrut)=>p.y);
           const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
           // Envoyer chaque point vers le coin le plus proche selon les medianes parait naturel,
           // mais sur une forme oblique (losange, parallelogramme) deux points atterrissent sur le
@@ -478,11 +480,11 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
           // l'ordre de parcours, en partant de celui le plus proche du premier point : quatre
           // coins distincts, et le sens de rotation conserve.
           const coins = [{x:minX,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:minX,y:maxY}];
-          if(signedArea(obj.pts!) < 0) coins.reverse();
+          if(signedArea(obj.pts) < 0) coins.reverse();
           let depart = 0, meilleure = Infinity;
-          coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts![0]!); if(d < meilleure){ meilleure = d; depart = k; } });
-          const newPts = obj.pts!.map((_: PtBrut, i: number)=>({ ...coins[(depart+i)%4]! }));
-          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!.pts : null;
+          coins.forEach((cc,k)=>{ const d = dist(cc, obj.pts[0]!); if(d < meilleure){ meilleure = d; depart = k; } });
+          const newPts = obj.pts.map((_: PtBrut, i: number)=>({ ...coins[(depart+i)%4]! }));
+          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? enPoints(etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!).pts : null;
           if(bound && !newPts.every((p: PtBrut)=>pointInPolygon(p,bound))){
             showToast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
             rectCb.checked = false;
@@ -503,22 +505,22 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
     if(obj.type==='circle'){
       const rr=document.createElement('input'); rr.type='number'; rr.step='0.01'; rr.min='0.1';
-      rr.value = obj.r!.toFixed(2);
+      rr.value = obj.r.toFixed(2);
       rr.addEventListener('change', ()=>{
         const v = parseFloat(rr.value);
         if(!isNaN(v) && v>0.05){
           ctx.pushHistory();
-          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!.pts : null;
+          const bound = (obj.constrained && etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')) ? enPoints(etat.objects.find((o: ObjetPlan)=>o.key==='parcelle')!).pts : null;
           let ok = !bound;
           if(bound){
             ok = true;
             for(let a=0;a<16;a++){
               const ang=a/16*2*Math.PI;
-              const bp={x:obj.center!.x+v*Math.cos(ang), y:obj.center!.y+v*Math.sin(ang)};
+              const bp={x:obj.center.x+v*Math.cos(ang), y:obj.center.y+v*Math.sin(ang)};
               if(!pointInPolygon(bp,bound)){ ok=false; break; }
             }
           }
-          if(ok) obj.r=v; else rr.value=obj.r!.toFixed(2);
+          if(ok) obj.r=v; else rr.value=obj.r.toFixed(2);
           ctx.render();
         }
       });
@@ -527,7 +529,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
 
     if(obj.type==='path' && obj.fonction!=='camera'){
       let totalLen = 0;
-      for(let i=0;i<obj.pts!.length-1;i++) totalLen += dist(obj.pts![i]!, obj.pts![i+1]!);
+      for(let i=0;i<obj.pts.length-1;i++) totalLen += dist(obj.pts[i]!, obj.pts[i+1]!);
       const lenSpan = document.createElement('span'); lenSpan.textContent = totalLen.toFixed(2) + ' m';
       addRow('Longueur totale', lenSpan);
 
@@ -556,7 +558,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       altInp.addEventListener('change', ()=>{ obj.altitude = Math.max(0.1, parseFloat(altInp.value)||1.6); ctx.markDirty(); });
       addRow('Altitude (m)', altInp);
 
-      const ddx = obj.pts![1]!.x-obj.pts![0]!.x, ddy = obj.pts![1]!.y-obj.pts![0]!.y;
+      const ddx = obj.pts[1]!.x-obj.pts[0]!.x, ddy = obj.pts[1]!.y-obj.pts[0]!.y;
       const distDir = Math.hypot(ddx,ddy) || 2;
       const dirActuel = Math.atan2(ddy,ddx)*180/Math.PI;
       const dirInp = document.createElement('input'); dirInp.type='number'; dirInp.step='5';
@@ -564,7 +566,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       dirInp.title = 'Direction visee, en degres : 0° = Est, 90° = Nord. Deplace le point "Direction" sur le plan - ce champ le suit, ou le repositionne.';
       dirInp.addEventListener('change', ()=>{
         const rad = (parseFloat(dirInp.value)||0)*Math.PI/180;
-        obj.pts![1] = { x: obj.pts![0]!.x+Math.cos(rad)*distDir, y: obj.pts![0]!.y+Math.sin(rad)*distDir };
+        obj.pts[1] = { x: obj.pts[0]!.x+Math.cos(rad)*distDir, y: obj.pts[0]!.y+Math.sin(rad)*distDir };
         ctx.markDirty();
         ctx.render();
       });
@@ -678,8 +680,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const delBtnV = document.createElement('button');
       delBtnV.textContent = 'Supprimer'; delBtnV.className='secondary small';
       delBtnV.style.marginLeft = '6px';
-      delBtnV.disabled = obj.pts!.length <= 3 || frozen;
-      delBtnV.title = obj.pts!.length<=3 ? 'Impossible: il faut garder au moins 3 sommets' : (frozen ? 'Coin fige' : 'Supprime ce coin (fusionne les deux cotes voisins)');
+      delBtnV.disabled = obj.pts.length <= 3 || frozen;
+      delBtnV.title = obj.pts.length<=3 ? 'Impossible: il faut garder au moins 3 sommets' : (frozen ? 'Coin fige' : 'Supprime ce coin (fusionne les deux cotes voisins)');
       delBtnV.addEventListener('click', ()=>{ ctx.deleteVertex(obj, i); });
       td2.appendChild(delBtnV);
       const td3 = document.createElement('td');
@@ -709,8 +711,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         const td2=document.createElement('td');
         const delBtnP = document.createElement('button');
         delBtnP.textContent = 'Supprimer'; delBtnP.className='secondary small';
-        delBtnP.disabled = obj.pts!.length <= 2;
-        delBtnP.title = obj.pts!.length<=2 ? 'Impossible: il faut garder au moins 2 points' : 'Supprime ce point';
+        delBtnP.disabled = obj.pts.length <= 2;
+        delBtnP.title = obj.pts.length<=2 ? 'Impossible: il faut garder au moins 2 points' : 'Supprime ce point';
         delBtnP.addEventListener('click', ()=>{ ctx.deleteVertex(obj, i); });
         td2.appendChild(delBtnP);
         tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
@@ -719,7 +721,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
     }
     const minPts = obj.type==='path' ? 2 : 3;
     (obj.segmentNames||[]).forEach((sn: string, i: number)=>{
-      const n = obj.pts!.length;
+      const n = obj.pts.length;
       if(obj.type==='path' && i >= n-1) return; // no closing segment for open paths
       const tr=document.createElement('tr');
       if(etat.highlight.type==='segment' && etat.highlight.index===i) tr.className='highlightRow';
@@ -729,7 +731,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       ii.addEventListener('input', ()=>{
         obj.segmentNames![i] = ii.value;
         if(vue(obj).segLabelEls && vue(obj).segLabelEls[i]){
-          const a=obj.pts![i]!, b=obj.pts![(i+1)%obj.pts!.length]!;
+          const a=obj.pts[i]!, b=obj.pts[(i+1)%obj.pts.length]!;
           vue(obj).segLabelEls[i]!.textContent = etiquetteComposee(
             obj.segmentNames![i]!, longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_ECRAN
           );
@@ -738,7 +740,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       td1.appendChild(ii);
       const td2=document.createElement('td');
       const len=document.createElement('input'); len.type='number'; len.step='0.01'; len.min='0.05';
-      len.value = dist(obj.pts![i]!, obj.pts![(i+1)%n]!).toFixed(2);
+      len.value = dist(obj.pts[i]!, obj.pts[(i+1)%n]!).toFixed(2);
       const aFrozenUi = !!obj.frozenVertices![i];
       const bFrozenUi = !!obj.frozenVertices![(i+1)%n];
       const bothFrozenUi = aFrozenUi && bFrozenUi;
@@ -749,7 +751,7 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
         if(!isNaN(v) && v>0){
           ctx.pushHistory();
           const ok = ctx.applyLengthEdit(obj,i,v);
-          if(!ok) len.value = dist(obj.pts![i]!, obj.pts![(i+1)%n]!).toFixed(2); // reverted
+          if(!ok) len.value = dist(obj.pts[i]!, obj.pts[(i+1)%n]!).toFixed(2); // reverted
           ctx.rebuildHandles(obj); ctx.render();
         }
       });
@@ -758,8 +760,8 @@ export function renderAttrTable(etat: EtatApp, ctx: ContexteAttrPanel): void {
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Supprimer'; delBtn.className='secondary small';
       delBtn.style.marginLeft = '6px';
-      delBtn.disabled = obj.pts!.length <= minPts;
-      delBtn.title = obj.pts!.length<=minPts ? 'Impossible: nombre minimum de sommets atteint' : 'Supprime ce cote (fusionne les deux sommets voisins)';
+      delBtn.disabled = obj.pts.length <= minPts;
+      delBtn.title = obj.pts.length<=minPts ? 'Impossible: nombre minimum de sommets atteint' : 'Supprime ce cote (fusionne les deux sommets voisins)';
       delBtn.addEventListener('click', ()=>{ ctx.deleteVertex(obj, (i+1)%n); });
       td2.appendChild(delBtn);
       tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);

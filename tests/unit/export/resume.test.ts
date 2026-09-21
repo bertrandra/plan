@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { construireResume, surfaceDe, type ContexteResume } from '../../../src/export/resume.js';
+import type { ObjetPolygone } from '../../../src/model/types.js';
 
 // Le resume est un des six artefacts de reference et n'avait aucun test : les empreintes disaient
 // qu'il ne changeait pas, jamais ce qu'il devait dire.
@@ -13,7 +14,7 @@ const CTX: ContexteResume = {
 };
 
 /** Un carre de 4 m de cote, tourne dans le sens horaire. */
-function carre(key = 'c', name = 'Carre') {
+function carre(key = 'c', name = 'Carre'): ObjetPolygone {
   return { key, name, type: 'polygon',
     pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }],
     vertexNames: ['A', 'B', 'C', 'D'], segmentNames: ['S1', 'S2', 'S3', 'S4'] };
@@ -65,7 +66,7 @@ describe('recapitulatif des surfaces', () => {
   });
 
   it('signale qu un chemin est compte en longueur x largeur', () => {
-    const chemin = { key: 'p', name: 'Allee', type: 'path', width: 1, pts: [{ x: 0, y: 0 }, { x: 3, y: 0 }], vertexNames: ['A', 'B'], segmentNames: ['S1'] };
+    const chemin = { key: 'p', name: 'Allee', type: 'path' as const, width: 1, pts: [{ x: 0, y: 0 }, { x: 3, y: 0 }], vertexNames: ['A', 'B'], segmentNames: ['S1'] };
     expect(construireResume([chemin], [], CTX)).toContain('Allee (p): 3.00 m2 (longueur x largeur)');
   });
 });
@@ -83,7 +84,7 @@ describe('detail objet par objet', () => {
   });
 
   it('laisse le chemin ouvert, et donne sa longueur totale', () => {
-    const chemin = { key: 'p', name: 'Allee', type: 'path', width: 1.2, curve: false,
+    const chemin = { key: 'p', name: 'Allee', type: 'path' as const, width: 1.2, curve: false,
       pts: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 4 }], vertexNames: ['A', 'B', 'C'], segmentNames: ['S1', 'S2'] };
     const t = construireResume([chemin], [], CTX);
     expect(t).toContain('  Largeur: 1.20 m (droit)');
@@ -93,18 +94,18 @@ describe('detail objet par objet', () => {
   });
 
   it('dit qu un chemin est courbe quand il l est', () => {
-    const chemin = { key: 'p', name: 'Allee', type: 'path', width: 1, curve: true,
+    const chemin = { key: 'p', name: 'Allee', type: 'path' as const, width: 1, curve: true,
       pts: [{ x: 0, y: 0 }, { x: 3, y: 0 }], vertexNames: ['A', 'B'], segmentNames: ['S1'] };
     expect(construireResume([chemin], [], CTX)).toContain('(courbe)');
   });
 
   it('decrit un cercle par son centre et son rayon', () => {
-    const c = { key: 'o', name: 'Bac', type: 'circle', center: { x: 1.5, y: -2.25 }, r: 0.8 };
+    const c = { key: 'o', name: 'Bac', type: 'circle' as const, center: { x: 1.5, y: -2.25 }, r: 0.8 };
     expect(construireResume([c], [], CTX)).toContain('  Centre: X=1.500 Y=-2.250  Rayon=0.80 m');
   });
 
   it('nomme un cote sans nom par son rang', () => {
-    const chemin = { key: 'p', name: 'Allee', type: 'path', width: 1,
+    const chemin = { key: 'p', name: 'Allee', type: 'path' as const, width: 1,
       pts: [{ x: 0, y: 0 }, { x: 3, y: 0 }], vertexNames: ['A', 'B'], segmentNames: [] as string[] };
     expect(construireResume([chemin], [], CTX)).toContain('  Cote 1 (A -> B): 3.00 m');
   });

@@ -6,6 +6,7 @@
 
 import { positionSoleil } from '../geo/soleil.js';
 import { pointInPolygon, shoelace } from '../geometry/basic.js';
+import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 /**
@@ -99,9 +100,10 @@ export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): C
   });
   const cartes: CarteOmbre[] = [];
   parTerrasse.forEach(({terr, liste})=>{
-    const aire = Math.abs(shoelace(terr.pts!));
+    const poly = enPoints(terr).pts;
+    const aire = Math.abs(shoelace(poly));
     const pas = Math.max(0.15, Math.sqrt(aire/400));
-    const pts = grillePolygone(terr.pts!, pas);
+    const pts = grillePolygone(poly, pas);
     const geos = ech.map(e=>liste.map(p=>geometrieOmbre(p, e)));
     const cells = pts.map(p=>{
       let n = 0;
@@ -124,18 +126,19 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
   if(!terr) return null;
   const ech = echantillonsSoleilParasol(ctx);
   if(!ech.length) return null;
-  const aire = Math.abs(shoelace(terr.pts!));
-  const cibles = grillePolygone(terr.pts!, Math.max(0.2, Math.sqrt(aire/250)));
+  const poly = enPoints(terr).pts;
+  const aire = Math.abs(shoelace(poly));
+  const cibles = grillePolygone(poly, Math.max(0.2, Math.sqrt(aire/250)));
   // Positions candidates du PIED : le pourtour seul si le mat doit y rester, sinon toute la
   // surface. Un deporte ajoute une seconde dimension de recherche (l'orientation du bras), d'ou
   // des quadrillages plus larges pour que le produit des deux reste calculable en ~1 s.
   const deporte = !!par.matDeporte;
   const angles = deporte ? Array.from({length:12}, (_,i)=>i*30) : [matAngleDe(par)];
   const candidats = par.matSurPerimetre
-    ? pointsPerimetre(terr.pts!, Math.max(0.25, Math.sqrt(aire)/6))
-    : grillePolygone(terr.pts!, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
+    ? pointsPerimetre(poly, Math.max(0.25, Math.sqrt(aire)/6))
+    : grillePolygone(poly, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
   if(!cibles.length || !candidats.length) return null;
-  const h = hauteurParasolDe(par), r = par.r!;
+  const h = hauteurParasolDe(par), r = enCercle(par).r;
   // `null as ...` : affecte dans une fermeture, que le compilateur ne suit pas — sans cette forme il
   // retrecit `best` a `null` pour de bon.
   let best = null as CandidatPosition | null;
@@ -168,13 +171,13 @@ export function hauteurParasolDe(par: ObjetPlan): number {
 }
 
 export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): GeometrieOmbre {
-  const h = hauteurParasolDe(par);
+  const h = hauteurParasolDe(par), toile = enCercle(par);
   return {
-    cx: par.center!.x + h*ech.decalageParMetre*ech.ux,
-    cy: par.center!.y + h*ech.decalageParMetre*ech.uy,
+    cx: toile.center.x + h*ech.decalageParMetre*ech.ux,
+    cy: toile.center.y + h*ech.decalageParMetre*ech.uy,
     ux: ech.ux, uy: ech.uy,
-    demiGrand: par.r! * ech.etirement,
-    demiPetit: par.r!
+    demiGrand: toile.r * ech.etirement,
+    demiPetit: toile.r
   };
 }
 
@@ -191,16 +194,17 @@ export function matAngleDe(par: ObjetPlan): number {
  * deporte, un point de son bord.
  */
 export function positionMat(par: ObjetPlan): PtBrut {
-  if(!par.matDeporte) return { x: par.center!.x, y: par.center!.y };
+  const toile = enCercle(par);
+  if(!par.matDeporte) return { x: toile.center.x, y: toile.center.y };
   const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.center!.x + par.r!*Math.cos(a), y: par.center!.y + par.r!*Math.sin(a) };
+  return { x: toile.center.x + toile.r*Math.cos(a), y: toile.center.y + toile.r*Math.sin(a) };
 }
 
 /** Decalage centre-de-toile → mat, pour replacer la toile a partir d'un pied impose. */
 export function decalageMat(par: ObjetPlan): PtBrut {
   if(!par.matDeporte) return { x:0, y:0 };
   const a = matAngleDe(par) * Math.PI/180;
-  return { x: par.r!*Math.cos(a), y: par.r!*Math.sin(a) };
+  return { x: enCercle(par).r*Math.cos(a), y: enCercle(par).r*Math.sin(a) };
 }
 
 /**
@@ -236,12 +240,13 @@ export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: 
   objets.forEach(par=>{
     if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
     const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
-    if(!terr || !terr.pts || terr.pts.length<3) return;
+    if(!terr || !aDesSommets(terr) || terr.pts.length<3) return;
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
     if(!cible) return;
-    par.center!.x += cible.x - mat.x;
-    par.center!.y += cible.y - mat.y;
+    const toile = enCercle(par);
+    toile.center.x += cible.x - mat.x;
+    toile.center.y += cible.y - mat.y;
   });
 }
 
@@ -277,8 +282,8 @@ export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseS
   }
   // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre
   // fonction : on retombe sur celle qui contient physiquement le parasol, puis sur la premiere.
-  if(par && par.center){
-    const dessous = objets.find(o=>o.fonction==='terrasse' && o.pts && pointInPolygon(par.center!, o.pts));
+  if(par && estCercle(par)){
+    const dessous = objets.find(o=>o.fonction==='terrasse' && aDesSommets(o) && pointInPolygon(par.center, o.pts));
     if(dessous) return dessous;
   }
   return objets.find(o=>o.key===terrasseSelectionnee && o.fonction==='terrasse')

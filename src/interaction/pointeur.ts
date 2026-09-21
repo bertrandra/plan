@@ -25,6 +25,7 @@ import { mesure } from './outilMesure.js';
 import { definirCibleAlignement } from './outilAlignement.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
+import { enCercle } from '../model/formes.js';
 
 /**
  * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
@@ -192,7 +193,7 @@ svg.addEventListener('pointerdown', e=>{
       //
       // `startScreen` n'a pas suivi : ce champ n'etait lu nulle part pour ces deux gestes (seul
       // le pan le lit, plus bas) - verifie a l'occasion du typage et retire (spec §10.3).
-      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center!}, moved:false};
+      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center}, moved:false};
     } else {
       const objP = obj as ObjetAPoints;
       activeDrag = {type:'shapeMove', obj: objP, startWorld:w, startPts: objP.pts.map(p=>({...p})), moved:false};
@@ -241,7 +242,7 @@ svg.addEventListener('pointerdown', e=>{
     if(obj.locked) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
-    activeDrag = {type:'radius', obj, startWorld:w, startR:obj.r!};
+    activeDrag = {type:'radius', obj, startWorld:w, startR:enCercle(obj as ObjetPlan).r};
   }
   if(activeDrag) e.preventDefault();
   ctx.render();

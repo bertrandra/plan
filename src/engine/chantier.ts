@@ -8,6 +8,7 @@ import { dist, shoelace } from '../geometry/basic.js';
 import { computeAssise } from './bom.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
+import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
 import type { CouchesTerrasse } from './layers.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
@@ -59,7 +60,7 @@ export function cadenceDe(c: Construction, cle: PosteChantier): number {
 // ligne par ligne plutot qu'a prendre ou a laisser.
 export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts!) || 0;
+  const surf = shoelace(enPoints(obj).pts) || 0;
   const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
   const nbAppuis = layers.vis.length;
   const debitL = computeDebitLames(obj, layers);

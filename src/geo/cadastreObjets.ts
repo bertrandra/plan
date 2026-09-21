@@ -169,7 +169,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   // La liste melange des polygones (parcelles, batiments, haies, vegetation) et des cercles
   // (arbres estimes) : `ObjetPlan` les couvre tous, `key` et `name` etant ses seuls champs requis.
   const objets: ObjetPlan[] = [Object.assign({
-    key:'parcelle', type:'polygon',
+    key:'parcelle', type:'polygon' as const,
     name:'Parcelle ' + parcellesFusionnees.map(libelleParcelle).join(' + '),
     fill:'#FBF3D9', fillOpacity:1, stroke:'#3B2E1F',
     showDims:true,
@@ -214,7 +214,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
     }
     clesPrises.add(cle);
     objets.push(Object.assign({
-      key:cle, type:'polygon', name: libelleParcelle(c),
+      key:cle, type:'polygon' as const, name: libelleParcelle(c),
       fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
       // Les cotes de trois voisines par-dessus le plan le rendent illisible : la parcelle
       // principale garde ses dimensions, les voisines sont un decor de reference.
@@ -240,7 +240,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
     extra?: { locked?: boolean; bdtopo?: unknown };
   }
   const formeIgn = (pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn) => Object.assign({
-    key: cleUnique(opts.cle), type:'polygon', name: nom,
+    key: cleUnique(opts.cle), type:'polygon' as const, name: nom,
     fill, fillOpacity: opts.opacite !== undefined ? opts.opacite : 0.9, stroke,
     pts,
     vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
@@ -322,7 +322,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
           const c2 = dec(a);
           objets.push({
             key: cleUnique('arbre-' + (v.id || 'veg').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '-' + (i+1)),
-            type:'circle', name:'Arbre (estime)',
+            type:'circle' as const, name:'Arbre (estime)',
             fill:'#6E8B4E', fillOpacity:0.7, stroke:'#3F5C33',
             center:{x:c2.x, y:c2.y}, r: 2.5,
             showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,

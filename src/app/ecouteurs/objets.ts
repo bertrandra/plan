@@ -5,6 +5,7 @@
 
 import { showToast, showConfirm } from '../../shell/dialogs.js';
 import { centroid } from '../../geometry/basic.js';
+import { enPoints, enCercle } from '../../model/formes.js';
 import type { Atelier } from '../atelier.js';
 
 export function brancherObjets(a: Atelier): void {
@@ -57,12 +58,12 @@ export function brancherObjets(a: Atelier): void {
     if (!init) { showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
     a.pushHistory();
     if (obj.type === 'circle') {
-      obj.center = { ...init.center! };
+      obj.center = { ...enCercle(init).center };
     } else {
-      const initC = centroid(init.pts!);
-      const curC = centroid(obj.pts!);
+      const initC = centroid(enPoints(init).pts);
+      const curC = centroid(obj.pts);
       const d = { x: initC.x - curC.x, y: initC.y - curC.y };
-      obj.pts!.forEach(p => { p.x += d.x; p.y += d.y; });
+      obj.pts.forEach(p => { p.x += d.x; p.y += d.y; });
     }
     a.render();
   });

@@ -9,6 +9,7 @@ import { longueursBois, longueursDispo, longueursLambourde } from './bom.js';
 import { ensureConstruction } from './construction.js';
 import { longueurLameReelle } from './lames.js';
 import { dimsSection, porteeVisM, sectionLambourde } from './structure.js';
+import { enPoints } from '../model/formes.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ProduitBarre } from './bom.js';
 import type { ObjetPlan, Segment } from '../model/types.js';
@@ -166,10 +167,10 @@ export function computeDebitsBois(obj: ObjetPlan, layers: CouchesTerrasse): Grou
                 porteeVisM(c), c.jointsBoisSurAppui !== false ] as [number, number, boolean];
   // Same rule as the lames: a beam ending on an oblique edge is cut to its longest side. The
   // cadre follows the outline and is already mitred, so its own centreline is the right measure.
-  const runsLamb = layers.lambourdes.map(s=>longueurLameReelle(s.a, s.b, wL, obj.pts));
+  const runsLamb = layers.lambourdes.map(s=>longueurLameReelle(s.a, s.b, wL, enPoints(obj).pts));
   const runsPorteur = ([] as number[]).concat(
     layers.cadre.map(s=>dist(s.a,s.b)),
-    layers.solives.map(s=>longueurLameReelle(s.a, s.b, wS, obj.pts)),
+    layers.solives.map(s=>longueurLameReelle(s.a, s.b, wS, enPoints(obj).pts)),
     separe ? [] : runsLamb
   );
   const avecLamb = layers.lambourdes.length > 0 && !separe;
