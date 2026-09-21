@@ -61,7 +61,7 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
  * qui porte un index de champs libres, et qu'une interface ne satisfait jamais.
  */
 export type MesureSerialisee = {
-  id: unknown;
+  id: string;
   refObjKey: string;
   refSegIndex: number;
   startEnd: string;

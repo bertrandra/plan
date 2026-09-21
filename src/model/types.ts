@@ -89,6 +89,11 @@ export interface ObjetPlan {
 
   hidden?: boolean;
   locked?: boolean;
+  /**
+   * Arrive par « Actualiser IGN » avec les parcelles adjacentes : masquable d'un coup (bascule
+   * « voisinage »), jamais supprime par la bascule. L'import initial depuis une adresse ne le pose pas.
+   */
+  voisinage?: boolean;
   /** Contraint a rester dans la parcelle. */
   constrained?: boolean;
   /** Ordre d'empilement au dessin. */
@@ -198,7 +203,6 @@ export interface ObjetPlan {
   diametreArbre?: number;
   couleurArbre?: string;
 
-  [autreChamp: string]: unknown;
 }
 
 /**
@@ -223,7 +227,6 @@ export interface LigneBom {
   /** Prix retenu, ou `null` quand la fourchette n'a pas ete tranchee. */
   prixReel?: number | null;
   calcule?: string;
-  [autreChamp: string]: unknown;
 }
 
 /** Une vue 3D enregistree sur la terrasse : d'ou l'on regarde, et ce que l'on vise. */
@@ -334,7 +337,6 @@ export interface Construction {
   bom?: LigneBom[];
   vues3d?: VueEnregistree[];
 
-  [autreChamp: string]: unknown;
 }
 
 /**
@@ -407,6 +409,8 @@ export interface ZonagePlu {
  * `render/` pour se decrire remonterait la pile a l'envers.
  */
 export interface Mesure {
+  /** Pose par `idMesure()` a la creation, toujours present sur une cote de l'etat. */
+  id: string;
   refObjKey: string;
   refSegIndex: number;
   startEnd: string;
@@ -416,5 +420,4 @@ export interface Mesure {
   show?: boolean;
   /** Ce qui s'ecrit au bout du trait de rappel : distance perpendiculaire, le long du cote, ou les deux. */
   displayMode?: string;
-  [autreChamp: string]: unknown;
 }

@@ -121,11 +121,11 @@ export function rebuildSelector(etat: EtatApp, ctx: ContexteSelecteur): void {
 export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
   const tbl = el<HTMLTableElement>('dispTable');
   const cols = [
-    {field:'showName', label:'Nom'},
-    {field:'showSegNames', label:'Nom segment'},
-    {field:'showVertNames', label:'Nom coin'},
-    {field:'showDims', label:'Dimension'},
-    {field:'showAngles', label:'Angle'}
+    {field:'showName' as const, label:'Nom'},
+    {field:'showSegNames' as const, label:'Nom segment'},
+    {field:'showVertNames' as const, label:'Nom coin'},
+    {field:'showDims' as const, label:'Dimension'},
+    {field:'showAngles' as const, label:'Angle'}
   ];
   // Chaque case appelle ctx.render(), qui rappelle cette fonction : tout reconstruire detachait du
   // DOM la case qu'on venait de cocher, et le focus clavier repartait au debut de la page. Tant
@@ -138,7 +138,7 @@ export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
       if(cbHide) cbHide.checked = !!obj.hidden;
       cols.forEach((col,c)=>{
         const cb = cells[c+2]!.firstChild as HTMLInputElement | null;
-        if(cb) cb.checked = !!(obj as Record<string, unknown>)[col.field];
+        if(cb) cb.checked = !!obj[col.field];
       });
     });
     return;
@@ -166,9 +166,9 @@ export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
     th.style.cursor = 'pointer';
     th.title = "Cliquer pour appliquer a tous les objets";
     th.addEventListener('click', ()=>{
-      const allChecked = etat.objects.every((o: ObjetPlan)=>(o as Record<string, unknown>)[col.field]);
+      const allChecked = etat.objects.every((o: ObjetPlan)=>o[col.field]);
       const newVal = !allChecked;
-      etat.objects.forEach((o: ObjetPlan)=>{ (o as Record<string, unknown>)[col.field] = newVal; });
+      etat.objects.forEach((o: ObjetPlan)=>{ o[col.field] = newVal; });
       ctx.markDirty();
       ctx.render();
     });
@@ -193,8 +193,8 @@ export function renderDispTable(etat: EtatApp, ctx: ContexteSelecteur): void {
     tr.appendChild(tdHide);
     cols.forEach(col=>{
       const td=document.createElement('td');
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!(obj as Record<string, unknown>)[col.field];
-      cb.addEventListener('change', ()=>{ const o=cible(); if(!o) return; (o as Record<string, unknown>)[col.field]=cb.checked; ctx.markDirty(); ctx.render(); });
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!obj[col.field];
+      cb.addEventListener('change', ()=>{ const o=cible(); if(!o) return; o[col.field]=cb.checked; ctx.markDirty(); ctx.render(); });
       td.appendChild(cb);
       tr.appendChild(td);
     });

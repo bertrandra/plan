@@ -111,7 +111,7 @@ describe('detail objet par objet', () => {
 });
 
 describe('les cotes', () => {
-  const mesure = { refObjKey: 'a', refSegIndex: 0, targetObjKey: 'b', targetPtIndex: 2,
+  const mesure = { id: 'm1', refObjKey: 'a', refSegIndex: 0, targetObjKey: 'b', targetPtIndex: 2,
     startEnd: 'start', displayMode: 'perp', show: true };
 
   it('n ecrit pas de section quand il n y en a aucune', () => {

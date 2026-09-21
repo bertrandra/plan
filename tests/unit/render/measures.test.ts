@@ -10,9 +10,9 @@ const objets = [
 ];
 
 const mesure = (p: Partial<Parameters<typeof geometrieMesure>[1]> = {}) => ({
-  refObjKey: 'parcelle', refSegIndex: 0, startEnd: 'A',
+  id: 'm-test', refObjKey: 'parcelle', refSegIndex: 0, startEnd: 'A',
   targetObjKey: 'table', targetPtIndex: 0, ...p
-});
+}) as Parameters<typeof geometrieMesure>[1];
 
 describe('coordonneesCote', () => {
   it('rend les deux extremites du cote demande', () => {
