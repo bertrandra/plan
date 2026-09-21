@@ -3,6 +3,18 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [Non publié]
+
+### Corrigé
+
+- **Un projet ancien s'ouvre avec une construction complète.** `ensureConstruction` ne comblait que 40 des
+  53 réglages ; les treize autres n'étaient posés que sur une terrasse neuve, et un projet enregistré
+  avant leur existence arrivait au moteur avec `soliveSection`, `soliveEntraxe`, `lambourdeEntraxe`,
+  `essenceBois`… à `undefined` — un débit bois titré « (undefined) », une marge de zone spa en `NaN`
+  (MD/DEFAUTS.md, D-1). Les douze sont comblés à l'ouverture avec la valeur que chaque lecture du
+  moteur prenait déjà par `||` en leur absence, donc aucun nombre ne bouge pour ces projets ; l'essence
+  reste « autre », le tarif qu'ils ont toujours eu. Seul `bom`, un résultat, reste à `computeBOM`.
+
 ## [1.1.0-alpha.16] — 2026-09-20
 
 **Trois corrections que le typage strict avait mises au jour** (voir `MD/MIGRATION-JOURNAL.md`,

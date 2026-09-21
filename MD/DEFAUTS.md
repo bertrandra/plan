@@ -18,7 +18,6 @@ du durcissement (spec §12), pas de la migration.
 
 | # | Priorité | Où | Quoi | Depuis |
 |---|---|---|---|---|
-| D-1 | P1 | `engine/construction.ts`, `model/types.ts` | Quatre champs de `Construction` — `soliveSection`, `soliveEntraxe`, `lambourdeEntraxe`, `essenceBois` — ne sont posés que par `defaultConstruction()`, jamais comblés par `ensureConstruction` à l'ouverture. Un projet enregistré avant leur existence produirait `section: undefined` dans le débit bois et un titre « (undefined) ». Aucun projet connu n'est dans ce cas ; le jour où l'un d'eux change de nom, c'est ici qu'il faudra regarder. | phase 7 |
 | D-2 | P2 | `three/exportGlb.ts` | Si la scène WebGL n'a pas pu se créer (contexte refusé), l'export GLB échoue sur un `TypeError` rattrapé en bannière : « Cannot read properties of null ». Le flux est correct, le message ne dit pas la cause. | phase 7 |
 | D-3 | P3 | `model/types.ts` | `ObjetPlan` modélise polygone, chemin et cercle en une seule forme à champs facultatifs, avec un index `[autreChamp: string]: unknown`. « `type === 'polygon'` implique `pts` », « `type === 'circle'` implique `center` et `r` », « `vertexNames`/`segmentNames` alignés sur `pts` » sont tenus par `normalizeObjects` seul : une soixantaine de `!` dans `ui/attrPanel.ts`, et partout dans `render/`, `export/`, `three/`, `engine/parasol.ts`. L'union discriminée est le chantier qui les fait tous disparaître. | phase 4 |
 | D-4 | P3 | `geometry/rect.ts`, `geometry/alignement.ts`, `interaction/editing.ts` | `rect.ts` suppose `pts.length === 4`, garanti par `estRectangle` chez l'appelant ; `alignement.ts` et `editing.ts` reçoivent un indice de l'interface sans le borner. Un tuple `[PtBrut, PtBrut, PtBrut, PtBrut]` et une borne à l'entrée diraient la vérité. | phase 7 |
@@ -31,3 +30,9 @@ du durcissement (spec §12), pas de la migration.
 | D-11 | P3 | `interaction/pointeur.ts` | `ContextePointeur.sendObjectBackward` est typé `(obj: ObjetPlan)` alors que `objByKey` peut rendre `undefined` si l'élément DOM survit à l'objet ; `reculerObjet` tolère `undefined` à l'exécution. `GlisserEnCours.startR` n'est lu nulle part. | phase 7 |
 | D-12 | P3 | `ui/*.ts` | Les quatre fonctions surdimensionnées de la spec §6.4 — `ouvrirImportCadastre` (`cadastreDialog.ts`), `renderAttrTable` (`attrPanel.ts`), `renderTerrasseConfigurator` (`terrassePanels.ts`), `buildThreeScene` (`three/scene.ts`) — sont toujours monolithiques. Le découpage du configurateur en descripteurs de champs typés est le plus utile : il rend le panneau vérifié par le compilateur contre `Construction`. | phase 5 |
 | D-13 | P3 | `app/ecouteurs/exports.ts` | Défaut d'origine documenté sur place : l'URL d'un export est révoquée une seconde après le clic, donc le lien de secours qui la réutilise cesse de fonctionner passé ce délai. Corriger demande de révoquer les deux usages séparément. | 1.0.0 |
+
+## Fermés
+
+| # | Fermé le | Comment |
+|---|---|---|
+| D-1 | 2026-09-21 | `ensureConstruction` comble désormais les douze réglages que seule `defaultConstruction()` posait, avec la valeur que chaque lecture du moteur prenait déjà en leur absence ; l'essence reste « autre », le tarif que ces projets ont toujours eu. Test dans `tests/unit/engine/moteur.test.ts`. |

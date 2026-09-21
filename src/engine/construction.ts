@@ -42,9 +42,9 @@ export function defaultConstruction(): Construction {
 /**
  * Comble les manques d'une construction enregistree, et la rend.
  *
- * A savoir avant de s'y fier : elle comble **40 des 53 champs** de `Construction`. Les treize autres
- * ne sont poses que par `defaultConstruction()`, donc uniquement sur une terrasse neuve — voir la
- * note du type dans `model/types.ts`.
+ * Elle comble **52 des 53 champs** de `Construction` (depuis le 21 septembre 2026 ; avant, 40, et
+ * les treize autres n'etaient poses que par `defaultConstruction()`). Le seul qu'elle ne pose pas est
+ * `bom`, qui est un resultat : `computeBOM` le recalcule.
  *
  * Le parametre n'exige pas un `ObjetPlan` complet, seulement ce qui porte la construction. Ce n'est
  * pas de la complaisance : `evaluerStructure` evalue des configurations candidates sur un objet
@@ -101,6 +101,24 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(k.lames3dFilaire===undefined) k.lames3dFilaire = false;
   if(k.prixVisUnite===undefined) k.prixVisUnite = (VIS_PRICE.bas+VIS_PRICE.haut)/2;
   if(k.visParBoite===undefined) k.visParBoite = 1;
+  // Les douze reglages que seule `defaultConstruction()` posait (MD/DEFAUTS.md, D-1). Un projet
+  // enregistre avant leur existence recoit ici ce que le moteur lisait deja en leur absence : chaque
+  // `||` de lecture repete la meme valeur, donc aucun nombre ne bouge. Sauf l'essence, qui reste
+  // « autre » : c'est le tarif que ces projets ont toujours eu (`ESSENCE_PRICES.autre`), et leur
+  // donner le pin classe 4 deplacerait un chiffrage. Elle est posee apres `coefRaideurLame`, qui
+  // lit l'essence : « autre » n'a pas de raideur propre, comme l'absence n'en avait pas.
+  if(k.visEntraxe===undefined) k.visEntraxe = 100;
+  if(k.visEntraxeZoneSpa===undefined) k.visEntraxeZoneSpa = 60;
+  if(k.visMargeZoneSpa===undefined) k.visMargeZoneSpa = 30;
+  if(k.soliveEntraxe===undefined) k.soliveEntraxe = 40;
+  if(k.soliveSection===undefined) k.soliveSection = '45x70';
+  if(k.avecLambourde===undefined) k.avecLambourde = false;
+  if(k.lambourdeEntraxe===undefined) k.lambourdeEntraxe = 40;
+  if(k.sensPose===undefined) k.sensPose = 0;
+  if(k.segmentReference===undefined) k.segmentReference = 0;
+  if(k.essenceBois===undefined) k.essenceBois = 'autre';
+  if(k.largeurLame===undefined) k.largeurLame = 140;
+  if(k.epaisseurLame===undefined) k.epaisseurLame = 25;
   return obj.construction;
 }
 

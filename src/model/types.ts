@@ -243,14 +243,13 @@ export interface VueEnregistree {
  *
  * Deux choses a savoir avant de s'y fier :
  *
- * 1. `ensureConstruction` comble **40 de ces champs, pas les 53**. Les treize autres — `visEntraxe`,
- *    `soliveSection`, `avecLambourde`, `essenceBois`, `largeurLame`, `sensPose`… — ne sont poses que
- *    par `defaultConstruction()`, donc uniquement sur une terrasse neuve. Ils datent de la premiere
- *    version et n'ont jamais eu besoin d'etre retro-remplis ; le jour ou l'un d'eux change de nom,
- *    c'est ici qu'il faudra regarder.
- * 2. La distinction « avant » / « apres `ensureConstruction` » n'est pas encore dans le type. Elle le
- *    deviendra au barreau 3 (`strictNullChecks`), ou lire un champ facultatif sans le verifier
- *    cessera d'etre gratuit.
+ * 1. `ensureConstruction` comble **52 de ces champs** ; le seul qu'elle ne pose pas est `bom`, un
+ *    resultat que `computeBOM` recalcule. Jusqu'au 21 septembre 2026 elle en laissait treize a
+ *    `defaultConstruction()` seule (MD/DEFAUTS.md, D-1).
+ * 2. La distinction « avant » / « apres `ensureConstruction` » n'est pas dans le type : les lectures
+ *    du moteur posent un `!` la ou `ensureConstruction` est passee avant. Un type « construction
+ *    complete » (`Required<Construction>` rendu par `ensureConstruction`) est le chantier qui les
+ *    fera disparaitre.
  */
 export interface Construction {
   // ---- Pose et fondation ----------------------------------------------------------------------

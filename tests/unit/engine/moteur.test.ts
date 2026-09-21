@@ -41,6 +41,24 @@ describe('construction', () => {
     expect(c.avecLameRive).toBe(false);
   });
 
+  it('comble aussi les reglages que seule une terrasse neuve recevait, sans deplacer un chiffrage', () => {
+    // D-1 (MD/DEFAUTS.md) : un projet enregistre avant ces reglages recoit ce que le moteur lisait
+    // deja en leur absence. L'essence reste « autre », le tarif que ce projet a toujours eu.
+    const obj = { key: 't', type: 'polygon', pts: carre(3), construction: {} } as never;
+    const c = ensureConstruction(obj);
+    expect([c.soliveSection, c.soliveEntraxe, c.lambourdeEntraxe, c.avecLambourde]).toEqual(['45x70', 40, 40, false]);
+    expect([c.visEntraxe, c.visEntraxeZoneSpa, c.visMargeZoneSpa]).toEqual([100, 60, 30]);
+    expect([c.largeurLame, c.epaisseurLame, c.sensPose, c.segmentReference]).toEqual([140, 25, 0, 0]);
+    expect(c.essenceBois).toBe('autre');
+    expect(c.coefRaideurLame).toBe(1);
+    // Une essence deja choisie n'est jamais ecrasee.
+    const d = ensureConstruction({ key: 'u', type: 'polygon', pts: carre(3), construction: { essenceBois: 'douglas' } } as never);
+    expect(d.essenceBois).toBe('douglas');
+    // Tout ce que defaultConstruction() pose est desormais pose a l'ouverture, sauf le BOM calcule.
+    const manquants = Object.keys(defaultConstruction()).filter(k => (c as Record<string, unknown>)[k] === undefined);
+    expect(manquants).toEqual(['bom']);
+  });
+
   it('donne une construction complete et independante a chaque appel', () => {
     const a = defaultConstruction();
     const b = defaultConstruction();
