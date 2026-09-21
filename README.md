@@ -89,6 +89,7 @@ mais un éditeur complet ; sans CDN, pas de 3D mais tout le reste.
 | `MD/RELEASE.md` | Politique de version : application (SemVer), schéma du projet, API. |
 | `MD/roadmap.md` | Trois horizons : exploiter, croître, transformer. |
 | `MD/DEFAUTS.md` | Les défauts connus, trouvés et non corrigés, triés en trois priorités. |
+| `MD/spec-ihm-zones.md` | Le découpage de l'interface en neuf zones pour sa reconstruction : inventaire, affectation de chaque commande, contrat avec le Core, ordre de mise en œuvre. |
 | `MD/spec-plateforme-multitenant.md` | Multi-organisations, authentification, catalogue de fonctionnalités, marque blanche. |
 | `MD/spec-data-strategy.md` | Ce qui est stocké où, performance et évolution. |
 | `MD/spec_import_cadastre_et_json.md` | Import cadastral IGN et format du fichier projet. |
