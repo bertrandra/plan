@@ -20,6 +20,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - La `2.0.0` passe de 28 jours à 23, et la `2.2.0` (marque blanche) quitte la feuille de route
   faute de décision. `MD/roadmap.md` et `MD/spec-data-strategy.md` sont amendées en conséquence :
   les forfaits, le paiement et la facturation ne sont plus le travail de ce dépôt.
+- **L'ordre de mise en œuvre est posé en sept étapes**, chacune laissant l'application utilisable et
+  les six empreintes intactes. Un drapeau de configuration rend les quatre premières livrables avant
+  que la plateforme ne porte le produit — et il est supprimé du code à l'étape 4, pas seulement de la
+  configuration, parce qu'un déploiement qui l'oublierait garderait `api.php` et `data/` ouverts.
+- **Correction d'une affirmation fausse de la spec** : une capacité ne réduit pas le fichier livré.
+  Le build inline tout, y compris les morceaux derrière un `import()` dynamique — `src/main.ts` en
+  utilise déjà un et la page bâtie ne contient qu'un script en ligne et aucun script distant. Ce
+  qu'une capacité empêche vraiment, c'est l'appel au réseau : three.js et ses trois aides ne
+  quittent pas le CDN, les appels IGN n'ont pas lieu, le catalogue de textures n'est pas demandé.
 
 ### Corrigé — le serveur
 

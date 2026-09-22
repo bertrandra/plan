@@ -53,8 +53,18 @@ Verified on 22 September 2026, against the live hosts:
 
 Two of these are defects to fix whatever happens with the platform. The unauthenticated project list
 is the reason this specification exists. The 180-day cache on `plan.html` means a returning visitor
-keeps an old application for half a year; it must become `no-cache` on the HTML, with the long cache
-reserved for fingerprinted assets — and the build produces a single file, so there are none.
+keeps an old application for half a year.
+
+A third, found while fixing them: **`data/` is served by the web.** `api.php` keeps the projects
+beside itself, inside the document root, so `GET /data/<id>.json` returned a whole project without
+going through the API — 106 062 bytes in the clear.
+
+All three are **fixed in the repository** and wait only to be deployed: `deploy/htaccess.template`,
+completed at build time with the SHA-256 fingerprint of the inline script, closes `data/`, puts
+`plan.html` on `no-cache` and sets the headers of §1. `npm run verifier-deploiement <host>` checks
+all of it against a live host, and reported seven failures out of eleven on 22 September. The
+content policy it carries already names every origin of §14.4, which is the part of §1 this
+specification no longer has to ask for.
 
 ---
 
@@ -89,6 +99,8 @@ https://<platform host>            backprod: the shell and /api/v1
 
   `connect-src` must name the platform origin, or every call from the page is blocked. It must also
   name the IGN and texture hosts, which the platform's own template does not — see §14.4.
+  These headers are not a wish: they are `deploy/htaccess.template`, produced into `dist/.htaccess`
+  by the build. What step 0 of §16 adds to it is the platform origin, and nothing else.
 - **No CORS of Plan's own**: Plan serves one static file and calls only outward, and the platform
   allows the origin `https://plan.raillard.org` in its `CORS_ALLOWED_ORIGINS`.
 
@@ -234,20 +246,27 @@ administrator, or wait for the period to turn.
 Beyond it, the capabilities Plan proposes for the platform's catalogue, each mapped to the commands
 and the modules it governs. The mapping is the point: a capability that names no code is marketing.
 
-| Capability | Commands | Modules it keeps out of the bundle |
+| Capability | Commands | What it also stops the browser fetching |
 |---|---|---|
 | `plan.access` | all | — |
-| `plan.cadastre` | `projet.depuisAdresse`, `projet.actualiserIgn` | `geo/cadastre`, `geo/bdtopo` |
-| `plan.ortho` | `affichage.orthophoto` and its two sliders | `geo/wmts` |
-| `plan.plu` | `plu.interroger` | `geo/plu` |
-| `plan.terrasse` | the seven `terrasse.*` commands, the five terrace tabs of the drawer | `engine/**` stays; the panels do not render |
-| `plan.3d` | `vue.3d`, `visionneuse.*` | `three/**`, the GLB exporter |
-| `plan.export.dxf` | `export.dxf` | `export/dxf` |
-| `plan.export.dossier` | `dossier.pdf` | `export/pdf/dossier` |
+| `plan.cadastre` | `projet.depuisAdresse`, `projet.actualiserIgn` | `api-adresse.data.gouv.fr`, `apicarto.ign.fr`, the `data.geopf.fr` WFS |
+| `plan.ortho` | `affichage.orthophoto` and its two sliders | the `data.geopf.fr` WMTS tiles |
+| `plan.plu` | `plu.interroger` | the `apicarto.ign.fr` GPU calls |
+| `plan.terrasse` | the seven `terrasse.*` commands, the five terrace tabs of the drawer | nothing — the engine is local |
+| `plan.3d` | `vue.3d`, `visionneuse.*` | three.js r128 from cdnjs, `OrbitControls`, `GLTFLoader` and `GLTFExporter` from jsdelivr, the Poly Haven texture catalogue |
+| `plan.export.dxf` | `export.dxf` | nothing |
+| `plan.export.dossier` | `dossier.pdf` | nothing |
 
-The modules in the third column go behind a dynamic `import()` guarded by the capability, so a
-tenant without `plan.3d` never downloads three.js. This keeps the single-file budget honest and is
-the one place where a right has a performance consequence.
+> **A capability does not make the bundle smaller, and the third column says so honestly.** The
+> build produces one file: `vite-plugin-singlefile` inlines every chunk, including the ones behind a
+> dynamic `import()` — `src/main.ts` already uses one and the built page still contains exactly one
+> inline script and no remote script. So gating `export/dxf` hides the command and ships the code
+> anyway. What a capability genuinely prevents is the **runtime fetch**: three.js and its three
+> helpers never leave the CDN, the IGN calls never happen, the texture catalogue is never asked
+> for. That is a real saving on a slow connection and a real reduction in what the page talks to,
+> which is also why those origins are in the content policy (§1). It is not a saving on the
+> download of the application itself, and a capability sold on that promise would be sold on a
+> false one.
 
 > **`engine/**` and `geometry/**` keep their purity rule: no entitlement check inside the engine.**
 > A function that refuses to compute because of a licence is untestable. Gating happens in the
@@ -558,7 +577,62 @@ These are real and must not be papered over.
 
 ---
 
-## 16. Effort, and what it does to the roadmap
+## 16. Order of work
+
+Seven steps, each leaving the application usable and the six exported artefacts untouched. The
+invariant is the one every release in this repository is measured against: **connecting to a
+platform must not move a byte of an export.** A step whose empreintes move has done something it
+was not asked to do, and stops there.
+
+### 16.1 The switch that makes it incremental
+
+Steps 0 to 3 ship while the platform may not yet hold the product. They are made shippable by one
+rule, and one only:
+
+> **When `BACKPROD_API_URL` is empty, Plan behaves exactly as `1.2.0` did** — no sign-in, no
+> context, projects through `api.php`.
+
+That keeps every step deployable and every step reversible. It is also a trap, and the specification
+says so before anybody builds it: a deployment that forgets to set the variable keeps the open
+`api.php` and the open `data/` of §0.3. **The switch is therefore temporary and is deleted in step
+4** — removed from the code, not merely set in the configuration. A release that ships step 4 with
+the switch still present has not shipped step 4.
+
+### 16.2 The steps
+
+| Step | Deliverable | What moves | Proof |
+|---|---|---|---|
+| 0 | The contract in the build | `src/plateforme/` generated from the platform's `openapi.json` at a pinned commit; `gate:client`; the two build-time constants; the platform origin joins `connect-src` in `deploy/htaccess.template` | Nothing on screen. Six empreintes identical. `gate:client` fails against a doctored `openapi.json`. `tsc`, `eslint`, `cliquet`, `vitest` green |
+| 1 | The session, with no gate in front of it | `plateforme/session.ts`: refresh with `credentials: 'include'`, token in memory, renewal 60 s before expiry, one retry on `401`. No screen depends on it yet | Unit tests on renewal, on the single retry, and on the `401` that must not discard an unsaved plan. The application still boots with no platform. Empreintes |
+| 2 | The gate | The sign-in form; the "this account holds no Plan" page; `/me/context` read once and cached until `token_expires_at` | Single sign-on both ways against a staging platform; sign out on either signs out of both; a lapsed session lands on the form. `403` and `404` tell apart. Each refusal shows its `request_id` |
+| 3 | Rights on the command registry | `capacite` and `permission` on the 47 commands; `EtatCommande`; the two sentences; absent versus visible-and-explaining | A person without `projects.write` gets a read-only Plan; a tenant without a capability does not see the command at all. Empreintes — **nothing a right touches may reach an export** |
+| 4 | Projects move to the platform | `io/api.ts` rewritten against `/api/v1/projects`; the migration script; `api.php` and `data/` removed from the host; **the switch of §16.1 deleted** | Create, open, save, duplicate, delete, restore, versions. A project id from another tenant answers `404`. Migration: count matches, ten round-trips byte-identical, mapping printed. The smoke checklist 25/25 with sign-in in front. Empreintes |
+| 5 | What a capability really stops | The CDN loads behind `plan.3d`; the IGN calls behind `plan.cadastre`, `plan.ortho`, `plan.plu`; the texture catalogue | Network observed: with the capability absent, not one request leaves for that origin. With it present, the feature works as it does today |
+| 6 | The host opened | `.htaccess` deployed; basic authentication removed from `plan.raillard.org`; the shell's `app_url` points at it | `npm run verifier-deploiement https://plan.raillard.org` — eleven checks green, including the served file's fingerprint and the policy naming the served script |
+
+### 16.3 What has to be true before step 2
+
+Steps 0 and 1 need nothing from the operator. **Step 2 cannot be tested until §11 is done**: the
+product `plan` created and assigned, at least the `plan.access` capability in the catalogue, and
+`https://plan.raillard.org` in the platform's `CORS_ALLOWED_ORIGINS`. Building steps 0 and 1 first
+is therefore not an arbitrary order — it is the work that does not wait on anybody.
+
+### 16.4 Where this order can go wrong
+
+- **Step 4 is the only hard cutover.** Projects cannot live half here and half there, so it is one
+  step, done once, with the migration verified before the old files are removed and kept read-only
+  for 90 days afterwards (§6.3).
+- **Step 3 before step 4, not after.** Gating commands while storage is still local is safe; gating
+  them while storage is moving means two unfinished things in one release.
+- **Step 5 last among the code steps**, because it is the one that changes what the page fetches,
+  and a network change is easiest to judge when nothing else moved.
+- **Step 6 needs the content policy of step 0.** The platform origin has to be in `connect-src`
+  before the first real call, and the developer server sends no policy at all, so this is the
+  failure that only appears in production (§14.4).
+
+---
+
+## 17. Effort, and what it does to the roadmap
 
 | Step | Days |
 |---|---|
@@ -566,7 +640,7 @@ These are real and must not be papered over.
 | Boot, sign-in form, renewal, the `401` rule | 4 |
 | `/me/context`, capabilities and permissions on the command registry, the two refusal sentences | 4 |
 | `io/api.ts` against the platform's projects; `api.php` and `data/` retired | 4 |
-| Capability-guarded dynamic imports for `three/**`, `geo/**`, `export/dxf` | 2 |
+| Capability gating of the remote loads: the CDN scripts, the IGN calls, the texture catalogue | 2 |
 | The host: headers, cache policy, basic authentication removed | 1 |
 | The migration script and its verification | 2 |
 | The definition of done (§12), including the smoke checklist with sign-in | 3 |
