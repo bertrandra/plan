@@ -120,8 +120,8 @@ in none of the six exported artefacts — an export must not change because the 
 
 A product key (`BACKPROD_PRODUCT_KEY=bpk_…`) and a webhook secret (`BACKPROD_WEBHOOK_SECRET=bwh_…`)
 are **server-only**, and Plan has no server in `2.0.0` (§6, §8). They are therefore absent, and a
-build gate proves it: `scripts/verify-dist.mjs` greps the built `plan.html` for `bpk_` and `bwh_`
-and fails on a hit. The gate runs while no key exists, so it cannot be forgotten the day one does.
+build gate proves it: `scripts/verifier-paquet.mjs` (`npm run verifier-paquet`) greps the built
+`plan.html` for a product key, a webhook secret and a frozen session token, and fails on a hit. The gate runs while no key exists, so it cannot be forgotten the day one does.
 
 > The platform's production host is **not decided** in either repository: `backprod/.env` carries a
 > development value and the production template leaves `CORS_ALLOWED_ORIGINS` empty. Open decision,
@@ -332,7 +332,7 @@ designed, already built, already isolated per tenant.
 GET    /api/v1/projects                       → the tenant's list        (projects.read)
 POST   /api/v1/projects                       { name, description?, schema_version, document } → 201
 GET    /api/v1/projects/{id}                  → the project with its document
-PUT    /api/v1/projects/{id}                  → save
+PATCH  /api/v1/projects/{id}                  → save  (PATCH, pas PUT : le contrat le dit)
 POST   /api/v1/projects/{id}/duplicate
 DELETE /api/v1/projects/{id}                  → soft delete: a date, not a cascade
 GET    /api/v1/projects/{id}/versions         → history
@@ -602,7 +602,7 @@ the switch still present has not shipped step 4.
 
 | Step | Deliverable | What moves | Proof |
 |---|---|---|---|
-| 0 | The contract in the build | `src/plateforme/` generated from the platform's `openapi.json` at a pinned commit; `gate:client`; the two build-time constants; the platform origin joins `connect-src` in `deploy/htaccess.template` | Nothing on screen. Six empreintes identical. `gate:client` fails against a doctored `openapi.json`. `tsc`, `eslint`, `cliquet`, `vitest` green |
+| 0 | The contract in the build | `src/plateforme/` generated from the platform's `openapi.json` at a pinned commit; `gate:client`; the two build-time constants; the platform origin joins `connect-src` in `deploy/htaccess.template` | **✅ 22/09/2026** — `contrat/` pinned at backprod `ce0642c`, 13 operations, 7 schemas; `src/plateforme/contrat.ts` generated, `src/plateforme/config.ts`; `npm run gate:client` and `npm run verifier-paquet`; 582 tests; **the built file is byte-identical to the `1.2.0` artefact**, so nothing on screen and no empreinte moved |
 | 1 | The session, with no gate in front of it | `plateforme/session.ts`: refresh with `credentials: 'include'`, token in memory, renewal 60 s before expiry, one retry on `401`. No screen depends on it yet | Unit tests on renewal, on the single retry, and on the `401` that must not discard an unsaved plan. The application still boots with no platform. Empreintes |
 | 2 | The gate | The sign-in form; the "this account holds no Plan" page; `/me/context` read once and cached until `token_expires_at` | Single sign-on both ways against a staging platform; sign out on either signs out of both; a lapsed session lands on the form. `403` and `404` tell apart. Each refusal shows its `request_id` |
 | 3 | Rights on the command registry | `capacite` and `permission` on the 47 commands; `EtatCommande`; the two sentences; absent versus visible-and-explaining | A person without `projects.write` gets a read-only Plan; a tenant without a capability does not see the command at all. Empreintes — **nothing a right touches may reach an export** |

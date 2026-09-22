@@ -16,7 +16,10 @@
     "test:watch": "vitest",
     "lint": "eslint src tests",
     "cliquet": "node scripts/cliquet.mjs",
-    "verifier-deploiement": "node scripts/verifier-deploiement.mjs"
+    "verifier-deploiement": "node scripts/verifier-deploiement.mjs",
+    "gate:client": "node scripts/generer-client.mjs --verifier",
+    "contrat": "node scripts/extraire-contrat.mjs",
+    "verifier-paquet": "node scripts/verifier-paquet.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

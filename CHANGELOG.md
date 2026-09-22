@@ -30,6 +30,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   qu'une capacité empêche vraiment, c'est l'appel au réseau : three.js et ses trois aides ne
   quittent pas le CDN, les appels IGN n'ont pas lieu, le catalogue de textures n'est pas demandé.
 
+### Ajouté — étape 0 de la connexion à la plateforme
+
+- **Le contrat de la plateforme est épinglé et engendre le client.** `contrat/` porte la fermeture
+  transitive des treize opérations que Plan appelle, extraite de backprod au commit `ce0642c` :
+  34 Ko relisibles plutôt que les 676 Ko du contrat entier, qui décrit cinq produits, une console et
+  une chaîne de vente. `src/plateforme/contrat.ts` en est engendré et suivi par git — on veut voir
+  le diff. `npm run gate:client` échoue si les deux ne correspondent plus, et un test le prouve en
+  abîmant le fichier exprès.
+- **Deux constantes de build**, les deux seuls faits publics que le paquet porte sur la plateforme.
+  Vides, Plan se comporte exactement comme en `1.2.0`. `npm run verifier-paquet` refuse une clé
+  produit, un secret de webhook ou un jeton figé dans le fichier livré, et il tourne alors qu'aucune
+  clé n'existe encore : le jour où il y en aura une, la question ne sera plus s'il faut vérifier.
+- **L'origine de la plateforme rejoint `connect-src`** quand une plateforme est branchée, et rien
+  n'est ajouté sinon — une source vide dans une politique de contenu est invalide, pas permissive.
+
+**Le fichier livré n'a pas bougé d'un octet.** C'est la preuve que l'étape demandait : rien à
+l'écran, aucune empreinte déplacée. 582 tests.
+
+Deux erreurs de la spécification trouvées en la mettant en œuvre, ce à quoi cette étape sert :
+enregistrer un projet est un `PATCH` et non un `PUT`, et le contrat mélange les deux conventions
+de nullabilité — douze `nullable: true` contre onze types-tableaux — si bien qu'un générateur qui
+n'en lit qu'une produit un `email: string` là où la plateforme rend `null`.
+
 ### Corrigé — le serveur
 
 - **Le build produit un `.htaccess`**, à partir de `deploy/htaccess.template`, qui se dépose à côté

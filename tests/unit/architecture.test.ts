@@ -24,7 +24,10 @@ const src = resolve(__dirname, '../../src');
 const NIVEAU: Record<string, number> = {
   shell: 0, util: 0,
   geometry: 1,
-  model: 2,
+  // plateforme/ decrit le contrat de backprod : des types engendres et deux constantes, sans une
+  // seule dependance. Meme rang que model/, qui decrit le domaine — l'un dit ce que la plateforme
+  // promet, l'autre ce que le plan est.
+  model: 2, plateforme: 2,
   engine: 3, geo: 3,
   core: 4, io: 4, render: 4, export: 4, three: 4, interaction: 4,
   ui: 5,

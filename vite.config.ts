@@ -24,9 +24,19 @@ function empreintesDesScriptsEnLigne(html: string): string[] {
   return empreintes;
 }
 
+// Les deux seuls faits publics que le paquet porte sur la plateforme (spec-connexion-plateforme §2).
+// Vides par defaut : Plan se comporte alors exactement comme en 1.2.0, ce qui rend les etapes 0 a 3
+// livrables avant que la plateforme ne porte le produit.
+const BACKPROD_API_URL = (process.env.BACKPROD_API_URL || '').replace(/\/+$/, '');
+const BACKPROD_PRODUCT_CODE = process.env.BACKPROD_PRODUCT_CODE || 'plan';
+
 // Le deploiement de cette application, c'est « copier un fichier sur le serveur » : la sortie doit
 // rester un seul HTML, sinon tout le mode d'emploi change (spec 3.1).
 export default defineConfig({
+  define: {
+    __BACKPROD_API_URL__: JSON.stringify(BACKPROD_API_URL),
+    __BACKPROD_PRODUCT_CODE__: JSON.stringify(BACKPROD_PRODUCT_CODE)
+  },
   plugins: [
     // Etape 0 de la reconstruction de l'interface (MD/spec-ihm-zones.md, section 6) : React est
     // branche, rien ne l'utilise encore ; il n'entre pas dans le build tant qu'aucun composant n'existe.
@@ -59,7 +69,12 @@ export default defineConfig({
         const jeton = '@@HACHES_SCRIPT@@';
         const combien = texte.split(jeton).length - 1;
         if (combien !== 1) throw new Error('.htaccess : ' + combien + ' occurrence(s) du jeton dans le modele, il en faut une');
-        writeFileSync(resolve(__dirname, 'dist/.htaccess'), texte.replace(jeton, empreintes.join(' ')));
+        // L'origine de la plateforme rejoint connect-src, ou rien quand aucune n'est branchee : une
+        // source vide dans la politique serait invalide, pas permissive.
+        const jetonOrigine = '@@ORIGINE_PLATEFORME@@';
+        if (texte.split(jetonOrigine).length - 1 !== 1) throw new Error('.htaccess : le modele doit porter une seule fois ' + jetonOrigine);
+        writeFileSync(resolve(__dirname, 'dist/.htaccess'),
+          texte.replace(jeton, empreintes.join(' ')).replace(jetonOrigine, BACKPROD_API_URL ? ' ' + BACKPROD_API_URL : ''));
       }
     }
   ],
