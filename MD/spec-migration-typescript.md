@@ -1373,7 +1373,8 @@ This specification covers the TypeScript migration only, ending at version `1.1.
 | Document | Content | Releases |
 |---|---|---|
 | `RELEASE.md` | Versioning policy (application / project schema / API), increment rules, changelog, release checklist, rollback, stale-client detection | all |
-| `spec-plateforme-multitenant.md` | Multi-tenancy and isolation, authentication with TOTP MFA, feature catalog and entitlements, tenant branding | `2.0.0` – `2.3.0` |
+| `spec-connexion-plateforme.md` | Plan as a product of the backprod platform: session, capabilities, permissions, projects on the platform | `2.0.0` |
+| `spec-plateforme-multitenant.md` | *Superseded* by the line above | — |
 
 Two dependencies run backwards into this document and should be honoured during the migration, at no extra cost:
 

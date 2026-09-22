@@ -10,7 +10,8 @@
 |---|---|
 | **this document** | How the system is put together, and why |
 | `spec-migration-typescript.md` | How the client gets from one HTML file to a typed module graph |
-| `spec-plateforme-multitenant.md` | Tenancy, authentication with MFA, feature catalog, branding |
+| `spec-connexion-plateforme.md` | How Plan connects to the backprod platform as one of its products |
+| `spec-plateforme-multitenant.md` | *Superseded.* Tenancy, authentication with MFA, feature catalog, branding, as they were designed before the platform decision |
 | `spec-data-strategy.md` | What is stored where, and how it performs and evolves |
 | `RELEASE.md` | How versions increment and releases ship |
 
@@ -398,7 +399,11 @@ Browser ──cookie (HttpOnly·Secure·SameSite=Strict)──▶ API
                                                       │    a query without a TenantContext
 ```
 
-Six checks, three of them independent isolation layers. TOTP MFA, step-up re-authentication for sensitive operations, append-only audit. Detail in `spec-plateforme-multitenant.md`.
+That view described a platform Plan was going to build. It no longer does: identity, tenancy and
+entitlements belong to backprod, and Plan reads the platform's answer on every session rather than
+keeping one of its own. The browser holds a platform access token in memory only; the tenant comes
+from `GET /api/v1/me/context`; the projects live on the platform's own resource, isolated by the
+platform's own tests. Detail in `spec-connexion-plateforme.md`.
 
 ### 5.5 Deployment view
 

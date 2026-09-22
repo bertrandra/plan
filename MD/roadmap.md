@@ -2,7 +2,7 @@
 
 **Version:** 1.0 — proposal for review
 **Horizon model:** H1 run · H2 grow · H3 transform
-**Companions:** `architecture.md`, `spec-migration-typescript.md`, `spec-plateforme-multitenant.md`, `spec-data-strategy.md`, `RELEASE.md`
+**Companions:** `architecture.md`, `spec-migration-typescript.md`, `spec-ihm-zones.md`, `spec-connexion-plateforme.md`, `spec-data-strategy.md`, `RELEASE.md`
 
 ---
 
@@ -46,25 +46,52 @@ The domain engine is the asset. Everything else is scaffolding to be built.
 
 Fully specified in the companion documents. Compressed here for sequence only.
 
+> **Amended 22 September 2026.** `1.2.0` shipped, and the platform decision
+> (`spec-connexion-plateforme.md`) replaced most of what follows. Plan is one product of the
+> backprod platform: it builds no accounts, no tenancy, no entitlement store and no billing, because
+> the platform owns all four. The table and the gate below are restated accordingly; the original
+> figures are kept in the second table so the size of the change stays visible.
+
 | Release | Outcome | Effort |
 |---|---|---|
-| `1.1.0` | TypeScript, modular, tested, strict — zero behaviour change | 54 d |
+| `1.1.0` | TypeScript, modular, tested, strict — zero behaviour change | 54 d *(done, 21 Sept 2026)* |
+| `1.2.0` | The interface rebuilt by zones; the terrace becomes a context of the plan | 2 d *(done, 22 Sept 2026)* |
+| `2.0.0` | Connection to the backprod platform: session, capabilities, permissions, projects on the platform's own resource; `api.php` retired | 23 d |
+| `2.1.0` | Interface translated (five languages, English as the key); the domain stays French | 8 d |
+| `2.2.0` | *Withdrawn.* Branding is nobody's decision yet — `spec-connexion-plateforme.md` §15, open decision 3 | — |
+| `2.3.0` | PDF logo, PostGIS if the geometry work needs it | 6 d |
+| | **Total H1** | **~37 d remaining** |
+
+What that replaced, for scale:
+
+| Release | Outcome as first planned | Effort |
+|---|---|---|
 | `2.0.0` | Backend, sessions, TOTP MFA, tenancy with three-layer isolation, data migration | 28 d |
 | `2.1.0` | Feature catalog, entitlements, server-side enforcement, quotas, admin screens | 17 d |
 | `2.2.0` | Tenant branding, including the SVG token rework | 14 d |
 | `2.3.0` | PDF logo, platform console, PostGIS, audit automation | 11 d |
-| | **Total H1** | **~124 d** |
+| | **Total as planned** | **~124 d** |
 
-**H1 exit criteria — the gate to H2.** All must hold:
+**H1 exit criteria — the gate to H2.** Restated for what Plan can now prove itself. Isolation,
+metering and backups are the platform's to prove, and asking Plan to demonstrate them would be
+asking it to duplicate the authority it just gave up.
 
-- [ ] Cross-tenant isolation suite green; RLS verified on every tenant-scoped table
-- [ ] Golden fixtures byte-identical across the whole migration
-- [ ] Feature catalog live, with server-side enforcement tested on every gated endpoint
-- [ ] `tenant_usage` metering in production and observed to be accurate
-- [ ] At least **two real tenants** in production, one of them external
-- [ ] Backup restore drill passed
+- [ ] Golden fixtures byte-identical across the whole migration, `1.0.0` through `2.x`
+- [ ] Single sign-on working both ways against the platform, and out on either signing out of both
+- [ ] The two refusals correct: an unbought capability absent, a missing permission explaining itself
+- [ ] Every project on the platform's resource; `api.php` and `data/` gone from the host
+- [ ] No key, no secret and no token in the built `plan.html`; the headers of `spec-connexion-plateforme.md` §1 live
+- [ ] At least **one real tenant** using Plan through the platform, with a second product sold to it
 
-The two-tenant condition matters more than the rest. Packaging designed without a second customer is packaging designed against an imagination.
+The last condition still matters most, and for the same reason as before — packaging designed
+without a customer is packaging designed against an imagination. What changed is who has to be
+convinced: the second *product* on one tenant now proves more about the platform's packaging than a
+second tenant on one product would.
+
+**H2 is no longer this repository's work.** Packages, payment, invoicing and e-invoicing are the
+platform's, built there. What remains of H2 for Plan is whatever Plan must expose so the platform
+can sell it: the capability list of `spec-connexion-plateforme.md` §4.3, and a quota the platform
+can enforce if it ever decides to (§7).
 
 ---
 
@@ -335,9 +362,16 @@ H3 │                                        ░░░spike░░░  ▲gate  
    │                                        ▲ NL configuration (cheap win, late H2)
 ```
 
+> The diagram above is the plan as it stood before 22 September 2026. The H2 band — packages,
+> payment, invoicing, the September 2027 e-invoicing deadline — is backprod's band now, not this
+> repository's. Plan's own line ends with `2.3.0`, and its dependency on the platform is a
+> dependency on somebody else's schedule, which is a different kind of risk and belongs in §5.
+
 Critical path and hard dependencies:
 
-1. **Feature catalog (2.1.0) → packages.** Nothing about H2 packaging is possible before it.
+1. **The platform's catalogue → packages.** Nothing about packaging is possible before the
+   capabilities of `spec-connexion-plateforme.md` §4.3 exist on the platform. *(Was: Plan's own
+   feature catalog in 2.1.0.)*
 2. **Metering (2.1.0) → usage billing and AI credits.** Three months of observed usage before prices are fixed.
 3. **H2 credits/quota → H3 launch.** Rendering without cost governance is an open cost line.
 4. **September 2027 → H2 completion.** The only externally imposed date in this roadmap. Work backwards from it.

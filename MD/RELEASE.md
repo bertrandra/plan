@@ -2,7 +2,7 @@
 
 **Applies to:** the `plan-interactif` application (single-file client), `api` (backend), and the project-file format.
 **Status:** proposal for review
-**Companion documents:** `spec-migration-typescript.md`, `spec-plateforme-multitenant.md`
+**Companion documents:** `spec-migration-typescript.md`, `spec-ihm-zones.md`, `spec-connexion-plateforme.md`
 
 ---
 
@@ -33,7 +33,7 @@ The public surface of this application is: the UI, the exported artefacts (SVG /
 | A computed quantity changes value for unchanged inputs | **MAJOR** | Correcting `porteeVisM` or `maxEntraxeLameCm`; changing rounding in `computeBOM`. A user has already sent a supplier a BOM produced by the old version. |
 | A field is removed from, or made mandatory in, the project JSON | **MAJOR** | Dropping `construction.bom` from the persisted payload |
 | An export format changes such that a downstream tool breaks | **MAJOR** | Restructuring the DXF entity table; changing the PDF page-size rule |
-| Authentication or tenancy becomes required | **MAJOR** | The 2.0.0 release (`spec-plateforme-multitenant.md`) |
+| Authentication or tenancy becomes required | **MAJOR** | The 2.0.0 release (`spec-connexion-plateforme.md`): Plan becomes a product of the backprod platform and asks who you are |
 | A feature is removed or moved behind an entitlement it was not behind before | **MAJOR** | Putting `view.3d` behind a paid tier for existing tenants |
 | New feature, new panel, new export, new entitlement key | **MINOR** | Adding a BOM `poste`; adding `export.ifc`; adding a construction parameter with a default |
 | New optional field in the project JSON, old files still load | **MINOR** | Adding `construction.plotMarque` |

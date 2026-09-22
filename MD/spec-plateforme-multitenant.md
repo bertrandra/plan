@@ -1,3 +1,20 @@
+> **SUPERSEDED on 22 September 2026 by [`spec-connexion-plateforme.md`](spec-connexion-plateforme.md).**
+>
+> This document designed Plan as a platform of its own: tenants, users, memberships, roles, TOTP,
+> sessions, a feature catalogue resolved locally, admin screens, and a PostgreSQL schema for all of
+> it. That decision was overtaken. Plan is **one product of the backprod platform**
+> (`backprod/docs/plan-service.md`, accepted 20 September 2026, with ADR-051), which owns every one
+> of those things and names them as things a product must not implement.
+>
+> The document is kept because its reasoning is still worth reading and because five of its
+> decisions survived — the feature catalogue mapped to code regions, the rule that an unbought
+> feature is absent while a refused one explains itself, the rule that a `401` must never discard
+> an unsaved plan, the tenant coming from the session rather than the request, and the observation
+> that the SVG plan does not read the page's CSS tokens. Where each went is listed in
+> `spec-connexion-plateforme.md` §13.
+>
+> **Nothing below is a plan of record.** Read it as history.
+
 # Specification — Multi-tenancy, authentication, feature catalog, branding
 
 **Target release:** `2.0.0` (tenancy + auth), `2.1.0` (feature catalog), `2.2.0` (branding)

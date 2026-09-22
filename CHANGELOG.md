@@ -3,6 +3,32 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [Non publié]
+
+### Décidé
+
+- **Plan est un produit de la plateforme backprod, pas une plateforme.** La nouvelle
+  [`MD/spec-connexion-plateforme.md`](MD/spec-connexion-plateforme.md) remplace
+  `MD/spec-plateforme-multitenant.md`, qui construisait comptes, mots de passe, TOTP, rôles,
+  catalogue et schéma PostgreSQL — tout ce que le contrat de la plateforme interdit à un produit.
+  L'identité, l'organisation et les droits se lisent en direct sur `/me/context` ; les projets
+  vivent dans la ressource `projects` de la plateforme, qui stocke déjà un document opaque avec sa
+  version de schéma. `api.php` et `data/` disparaissent, et Plan n'a besoin d'aucune base.
+- **Le droit s'accroche à la commande**, pas au bouton : les 47 commandes du registre issu de la
+  `1.2.0` portent une capacité et une permission. Une capacité non achetée efface la commande ;
+  une permission manquante la laisse visible et s'explique.
+- La `2.0.0` passe de 28 jours à 23, et la `2.2.0` (marque blanche) quitte la feuille de route
+  faute de décision. `MD/roadmap.md` et `MD/spec-data-strategy.md` sont amendées en conséquence :
+  les forfaits, le paiement et la facturation ne sont plus le travail de ce dépôt.
+
+### Constaté en production
+
+- `plan1.raillard.org/api.php?action=list` rend la liste des projets **à qui la demande**. C'est la
+  raison d'être de la `2.0.0`.
+- `plan.html` est servi avec `Cache-Control: max-age=15552000` : un visiteur qui revient garde
+  l'ancienne application six mois. À passer en `no-cache`.
+- Aucun en-tête de sécurité sur les deux hôtes, et `plan1.raillard.org` n'a aucune protection.
+
 ## [1.2.0] — 2026-09-22
 
 **L'interface est reconstruite par zones.** Neuf paliers `alpha` en deux jours, chacun prouvé par les

@@ -91,7 +91,8 @@ mais un éditeur complet ; sans CDN, pas de 3D mais tout le reste.
 | `MD/roadmap.md` | Trois horizons : exploiter, croître, transformer. |
 | `MD/DEFAUTS.md` | Les défauts connus, trouvés et non corrigés, triés en trois priorités. |
 | `MD/spec-ihm-zones.md` | Le découpage de l'interface en neuf zones pour sa reconstruction : inventaire, affectation de chaque commande, contrat avec le Core, ordre de mise en œuvre. |
-| `MD/spec-plateforme-multitenant.md` | Multi-organisations, authentification, catalogue de fonctionnalités, marque blanche. |
+| `MD/spec-connexion-plateforme.md` | Connexion à la plateforme backprod : Plan est un de ses produits, pas une plateforme. |
+| `MD/spec-plateforme-multitenant.md` | *Remplacée.* Ce que l'on avait prévu de construire avant cette décision. |
 | `MD/spec-data-strategy.md` | Ce qui est stocké où, performance et évolution. |
 | `MD/spec_import_cadastre_et_json.md` | Import cadastral IGN et format du fichier projet. |
 | `MD/spec_address_to_cadastral_parcel_api.md` | De l'adresse à la parcelle. |

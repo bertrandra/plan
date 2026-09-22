@@ -1,8 +1,29 @@
 # Data strategy — Plan interactif
 
 **Scope:** storage model, performance envelope, flexibility mechanisms, and evolution path for releases `1.1.0` → `2.3.0` and beyond.
-**Companions:** `spec-migration-typescript.md`, `spec-plateforme-multitenant.md`, `RELEASE.md`
+**Companions:** `spec-migration-typescript.md`, `spec-connexion-plateforme.md`, `RELEASE.md`
 **Engine:** PostgreSQL 15+ (the strategy assumes `jsonb`, RLS, generated columns, lz4 TOAST compression, declarative partitioning)
+
+> **Whose database is this? — amended 22 September 2026.** Since `spec-connexion-plateforme.md`,
+> Plan runs no database of its own: its projects live in the backprod platform's `projects`
+> resource, which stores exactly the opaque document with a schema version that §4.1 designs. This
+> document therefore stops being a build plan for Plan and becomes two things: **the reasoning the
+> platform's storage must satisfy**, against which its behaviour can be checked, and **the design
+> Plan would implement if it ever grew a server of its own** (`spec-connexion-plateforme.md` §7,
+> option 3).
+>
+> What changes, concretely: **T1 loses everything about identity.** Tenants, users, memberships,
+> sessions, MFA credentials and recovery codes are the platform's, not a tier of Plan's. What
+> remains of T1 for Plan is the project envelope and its versions, and the platform holds those too.
+> **T5 loses the session and feature caches** for the same reason; Plan's only cache is the
+> `/me/context` answer, in memory, until `token_expires_at`. And §4.3's `tenant_usage` table stops
+> being a counter Plan owns and becomes a **report Plan sends** — `POST /product/tenants/{id}/usage`,
+> idempotent by a key derived from the fact — which Plan does not send at all in `2.0.0`, because
+> reporting needs a product key and a product key needs a server.
+>
+> Everything else stands unchanged, and is the better part of the document: the one rule of §1, the
+> tiers T2 to T4, the sizing model of §3, TOAST in §5.1, the promotion path of §6.2, the derived-data
+> policy of §8.
 
 ---
 
@@ -23,7 +44,7 @@ Five tiers, each holding what it is good at.
 
 | Tier | Technology | Holds | Why here |
 |---|---|---|---|
-| **T1 — Relational core** | Postgres tables | tenants, users, memberships, sessions, MFA credentials, recovery codes, features, tenant_features, quotas, project envelopes, version envelopes, asset metadata | Constraints, foreign keys, transactions, indexes, RLS. Everything authorisation depends on. |
+| **T1 — Relational core** | Postgres tables | project envelopes, version envelopes, asset metadata. *Before the platform decision, also: tenants, users, memberships, sessions, MFA credentials, recovery codes, features, tenant_features, quotas — all of which are now backprod's.* | Constraints, foreign keys, transactions, indexes, RLS. Everything authorisation depends on. |
 | **T2 — Document payload** | `jsonb` columns | `projects.data` (objects, measures, meta), `tenant_branding.tokens_*`, `audit_events.metadata` | Shape changes with the product; never filtered on; read and written whole. |
 | **T3 — Derived / projection** | `jsonb` `summary` column +, later, projection tables | counts, surfaces, BOM totals, commune, essence used | Serves lists and reporting without detoasting the payload. Rebuildable from T2 at any time. |
 | **T4 — Binary assets** | Object storage (S3 / MinIO), metadata row in T1 | tenant logos, favicons, and later server-generated GLB/PDF artefacts | Streaming, CDN, lifecycle rules, backups that don't bloat the database. Never `bytea`. |
