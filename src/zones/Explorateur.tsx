@@ -2,7 +2,8 @@
 //
 // Etape 3 de la reconstruction : il remplace le selecteur d'objets au-dessus du plan, la table
 // d'affichage de l'onglet Affichage, la barre de choix de la terrasse et les cases des couches du
-// mode Terrasse. Trois sections — les objets par categorie, le voisinage, les terrasses — et une
+// mode Terrasse. Trois sections — les objets par categorie, le voisinage, et, pour une terrasse
+// selectionnee seulement, les terrasses — et une
 // regle : selectionner ici, c'est selectionner sur le canevas ; masquer ici, c'est masquer partout.
 // La zone ne fait rien elle-meme : elle lit le magasin et demande a l'explorateur (app/).
 //
@@ -21,7 +22,7 @@ import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
 import { TERRASSE_LAYER_DEFS, terrasseLayerVisible } from '../render/terrasseCouches.js';
 import { clesDossier, dossierSelection } from '../ui/tables.js';
-import { estTerrasse } from '../core/contexteTerrasse.js';
+import { estTerrasse, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
@@ -228,7 +229,9 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
               </div>
             </section>
           )}
-          <Terrasses etat={etat} explorateur={explorateur} />
+          {/* La section Terrasses n'existe que pour une terrasse selectionnee : le reste du temps, la
+              categorie Terrasse des objets suffit a en choisir une. */}
+          {terrasseSelectionnee(etat) && <Terrasses etat={etat} explorateur={explorateur} />}
         </>
       )}
     </aside>

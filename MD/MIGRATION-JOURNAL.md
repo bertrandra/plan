@@ -2358,5 +2358,8 @@ menus, vues, titre — au lieu de trois rangées qui prenaient au plan une haute
 **Les deux colonnes s'alignent sur le plan** : la rangée de l'atelier publie la hauteur du plan à la
 feuille de style, l'explorateur et l'inspecteur ne la dépassent pas et défilent en dedans, leur
 en-tête restant visible. Repliés, chacun ne garde que sa poignée, et le plan reprend la largeur.
+**La section Terrasses de l'explorateur** (`1.2.0-alpha.10`) n'apparaît que pour une terrasse
+sélectionnée : un arbre sélectionné n'a rien à en dire, et la catégorie Terrasse des objets suffit
+à en choisir une.
 
 Six empreintes identiques à l'`alpha.8` par la preuve forte.

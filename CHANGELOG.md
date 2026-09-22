@@ -3,6 +3,15 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.10] — 2026-09-22
+
+### Modifié
+
+- **La section Terrasses de l'explorateur n'apparaît que pour une terrasse sélectionnée** — sa
+  structure sur le plan disparaît avec la sélection, comme les onglets du tiroir. Le reste du temps,
+  la catégorie Terrasse des objets suffit à en choisir une. Les six artefacts sont identiques à ceux
+  de l'`alpha.9`.
+
 ## [1.2.0-alpha.9] — 2026-09-22
 
 Deux retours d'usage sur la nouvelle interface. Les six artefacts sont identiques à ceux de l'`alpha.8`.
@@ -27,8 +36,7 @@ Deux retours d'usage sur la nouvelle interface. Les six artefacts sont identique
   et leur en-tête reste visible pendant qu'ils défilent.
 - **Les menus se referment** quand on clique ailleurs ou par Échap, et en ouvrir un ferme les autres.
 - **L'explorateur ne met en avant une terrasse, et ne propose sa structure sur le plan, que tant
-  qu'elle est sélectionnée** — la structure dessinée disparaît avec la sélection, comme les onglets
-  du tiroir.
+  qu'elle est sélectionnée.**
 
 ## [1.2.0-alpha.8] — 2026-09-22
 
