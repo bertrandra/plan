@@ -10,15 +10,15 @@
 // apparait une seconde avant d'etre remplace par un formulaire a montre le plan de quelqu'un
 // d'autre pendant une seconde.
 //
-// Tant que `BACKPROD_API_URL` est vide, cette porte n'existe pas et Plan demarre exactement comme
-// en 1.2.0 (spec §16.1). Ce drapeau est temporaire : l'etape 4 le retire.
+// Depuis l'etape 4, il n'y a plus de « sans plateforme » : les projets vivent chez elle, et le
+// build refuse de produire un fichier sans son origine.
 
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { Porte } from '../zones/Porte.js';
 import { creerSession, EchecPlateforme, type Session } from '../plateforme/session.js';
 import { creerContexte, fermetureDe, type Contexte, type Fermeture, type ServiceContexte } from '../plateforme/contexte.js';
-import { BACKPROD_API_URL, plateformeBranchee } from '../plateforme/config.js';
+import { BACKPROD_API_URL } from '../plateforme/config.js';
 
 export interface Acces {
   session: Session;
@@ -38,14 +38,8 @@ function conteneur(): HTMLElement {
   return e;
 }
 
-/**
- * Ouvre la porte, et ne rend la main que lorsqu'elle est franchie.
- *
- * Rend `null` quand aucune plateforme n'est branchee : l'appelant demarre alors comme avant.
- */
-export async function franchirLaPorte(): Promise<Acces | null> {
-  if (!plateformeBranchee()) return null;
-
+/** Ouvre la porte, et ne rend la main que lorsqu'elle est franchie. */
+export async function franchirLaPorte(): Promise<Acces> {
   let racine: Root | null = null;
   let resoudre: ((a: Acces) => void) | null = null;
 

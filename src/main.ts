@@ -22,18 +22,20 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
-    // La porte (spec-connexion-plateforme §16, etape 2), quand une plateforme est branchee. Elle ne
-    // rend la main qu'une fois franchie ; sans plateforme, elle rend `null` tout de suite et Plan
-    // demarre exactement comme en 1.2.0. L'import est dynamique pour la meme raison que celui de
-    // boot.ts : un echec de chargement doit se voir dans le bandeau, pas en page blanche.
+    // La porte (spec-connexion-plateforme §16, etape 2). Elle ne rend la main qu'une fois
+    // franchie. L'import est dynamique pour la meme raison que celui de boot.ts : un echec de
+    // chargement doit se voir dans le bandeau, pas en page blanche.
     const { franchirLaPorte } = await import('./app/porte.js');
     const acces = await franchirLaPorte();
-    if (acces) {
-      // Le point de rendez-vous : boot.ts lira les droits la (app/acces.ts). Pose avant l'import
-      // de boot, parce que le registre des commandes se construit pendant cet import.
-      const { poserAcces } = await import('./app/acces.js');
-      poserAcces(acces.session, acces.contexte);
-    }
+    // Le point de rendez-vous : boot.ts lira les droits la (app/acces.ts). Pose avant l'import de
+    // boot, parce que le registre des commandes se construit pendant cet import.
+    const { poserAcces } = await import('./app/acces.js');
+    poserAcces(acces.session, acces.contexte);
+    // Le depot des projets, pose ici parce que c'est ici que la session existe : io/ ne remonte pas
+    // vers app/ pour aller la chercher (spec-connexion-plateforme §16, etape 4).
+    const { creerDepotPlateforme } = await import('./io/depotPlateforme.js');
+    const { definirDepot } = await import('./io/api.js');
+    definirDepot(creerDepotPlateforme(acces.session));
     const { boot, loadInitialProject } = await import('./app/boot.js');
     try {
       const seed = await loadInitialProject();

@@ -28,7 +28,7 @@ Prérequis : Node 20 ou plus.
 ```bash
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
-npm run build        # produit dist/index.html (fichier unique) et dist/api.php
+npm run build        # produit dist/index.html (fichier unique) et dist/.htaccess
 npm test             # 554 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
@@ -66,25 +66,34 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 | `src/core/`, `src/io/`, `src/util/` | État, historique d'annulation, lecture et écriture de projet, utilitaires. |
 | `tests/unit/` | Un dossier par module de `src/`. |
 | `tests/fixtures/golden/` | Les artefacts de référence et leurs empreintes (`EMPREINTES.md`). |
-| `api.php`, `data/` | Persistance minimale : un fichier JSON par projet, pas de base de données. |
+| `contrat/` | La part du contrat de la plateforme que Plan utilise, épinglée à un commit. |
 | `deploy/htaccess.template` | La configuration Apache de la racine web, complétée au build par les empreintes des scripts. |
 | `legacy/` | Le fichier HTML d'origine, figé, jamais modifié. |
 | `MD/` | Toute la documentation, voir ci-dessous. |
 
 ## Déploiement
 
-Copier quatre choses sur un hébergement PHP : `dist/index.html` (renommé `plan.html` si l'URL doit
-rester la même), `dist/api.php`, `dist/.htaccess` et un dossier `data/` accessible en écriture.
-Rien d'autre. Le `plan.html` et le `.htaccess` à la racine du dépôt sont ces mêmes sorties de build,
-copiées à chaque palier.
+Copier deux choses sur un hébergement statique : `dist/index.html` (renommé `plan.html` si l'URL
+doit rester la même) et `dist/.htaccess`. Plus de PHP, plus de dossier `data/` : depuis la `2.0.0`
+les projets vivent chez la plateforme backprod, décrite par
+[`MD/spec-connexion-plateforme.md`](MD/spec-connexion-plateforme.md). Le build exige l'origine de
+la plateforme et refuse de produire un fichier sans elle.
+
+```bash
+BACKPROD_API_URL=https://votre-plateforme npm run build
+```
+
+Le `plan.html` et le `.htaccess` à la racine du dépôt sont ces mêmes sorties de build, copiées à
+chaque palier.
 
 **Le `.htaccess` n'est pas optionnel.** Il est produit par le build à partir de
 [`deploy/htaccess.template`](deploy/htaccess.template), et il porte trois choses qu'une copie de
 fichiers seule ne donne pas :
 
-- **Il refuse `data/`.** `api.php` range les projets à côté de lui, donc dans la racine web :
-  sans cette règle, `GET /data/<id>.json` rend le projet entier sans passer par l'API. Constaté en
-  ligne le 22 septembre 2026.
+- **Il refuse `data/`.** L'ancien `api.php` rangeait les projets à côté de lui, donc dans la racine
+  web : `GET /data/<id>.json` rendait le projet entier sans passer par l'API, constaté en ligne le
+  22 septembre 2026. Les deux ont disparu à la `2.0.0`, la règle reste : un hébergement qui garde
+  d'anciens fichiers ne les sert pas pour autant.
 - **Il coupe le cache sur `plan.html`.** Le fichier livré porte toujours le même nom : c'est
   exactement celui qu'il ne faut pas mettre en cache. Il était servi avec six mois de validité, donc
   une mise en ligne n'atteignait pas les gens qui reviennent.

@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { OPERATIONS } from '../../../src/plateforme/contrat.js';
-import { BACKPROD_API_URL, BACKPROD_PRODUCT_CODE, plateformeBranchee, adresse } from '../../../src/plateforme/config.js';
+import { BACKPROD_API_URL, BACKPROD_PRODUCT_CODE, adresse } from '../../../src/plateforme/config.js';
 
 // Etape 0 de MD/spec-connexion-plateforme.md §16 : le contrat entre dans le build, et rien n'entre
 // a l'ecran. Ce que ces tests figent, c'est que personne n'ecrira une URL a la main et que le
@@ -51,9 +51,11 @@ describe('la table des operations', () => {
 });
 
 describe('la configuration du paquet', () => {
-  it('ne porte aucune plateforme tant qu\'on ne lui en donne pas', () => {
-    expect(BACKPROD_API_URL).toBe('');
-    expect(plateformeBranchee()).toBe(false);
+  it('porte l origine que le build lui a donnee', () => {
+    // Sous vitest aucune origine n'est injectee, donc la chaine est vide. Ce n'est plus un mode
+    // depuis l'etape 4 : le build refuse de produire un fichier sans origine, et c'est la que la
+    // regle est tenue, pas ici.
+    expect(typeof BACKPROD_API_URL).toBe('string');
   });
 
   it('dit « plan » a X-Product', () => {

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import react from '@vitejs/plugin-react';
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
@@ -25,10 +25,19 @@ function empreintesDesScriptsEnLigne(html: string): string[] {
 }
 
 // Les deux seuls faits publics que le paquet porte sur la plateforme (spec-connexion-plateforme §2).
-// Vides par defaut : Plan se comporte alors exactement comme en 1.2.0, ce qui rend les etapes 0 a 3
-// livrables avant que la plateforme ne porte le produit.
 const BACKPROD_API_URL = (process.env.BACKPROD_API_URL || '').replace(/\/+$/, '');
 const BACKPROD_PRODUCT_CODE = process.env.BACKPROD_PRODUCT_CODE || 'plan';
+
+// Depuis l'etape 4, Plan ne sait plus se passer de la plateforme : ses projets y vivent. Un build
+// sans origine produirait un fichier qui demande un mot de passe a une adresse vide, ce qui est
+// pire qu'un build qui refuse. Le drapeau du §16.1 est retire du code, et non seulement de la
+// configuration — c'est ce que la specification exigeait, et c'est ici que cela se voit.
+if (!BACKPROD_API_URL) {
+  throw new Error(
+    "BACKPROD_API_URL est vide. Plan est un produit de la plateforme depuis la 2.0.0 :\n" +
+    "  BACKPROD_API_URL=https://<hote de la plateforme> npm run build"
+  );
+}
 
 // Le deploiement de cette application, c'est « copier un fichier sur le serveur » : la sortie doit
 // rester un seul HTML, sinon tout le mode d'emploi change (spec 3.1).
@@ -43,18 +52,9 @@ export default defineConfig({
     react(),
     viteSingleFile(),
     {
-      // api.php reste a la racine du depot, la ou il est deploye ; on le copie dans dist pour que
-      // le dossier soit livrable tel quel, sans en garder deux exemplaires dans le depot.
-      name: 'copier-api-php',
-      closeBundle() {
-        const src = resolve(__dirname, 'api.php');
-        if (existsSync(src)) copyFileSync(src, resolve(__dirname, 'dist/api.php'));
-      }
-    },
-    {
       // La configuration Apache se deduit du build : les empreintes des scripts en ligne changent a
       // chaque compilation, donc le `.htaccess` ne peut pas etre un fichier fige. Il se depose a
-      // cote de plan.html et d'api.php, et c'est lui qui coupe le cache de six mois, refuse
+      // cote de plan.html, et c'est lui qui coupe le cache de six mois, refuse
       // `data/` au public et pose les en-tetes de securite.
       name: 'ecrire-htaccess',
       closeBundle() {

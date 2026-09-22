@@ -12,24 +12,17 @@
 // plateforme fait partie de ce qu'on livre, pas de ce qu'on configure sur l'hote.
 
 /**
- * L'origine de la plateforme, sans chemin final. Vide tant qu'aucune plateforme n'est branchee.
+ * L'origine de la plateforme, sans chemin final.
  *
- * **Le vide n'est pas un defaut de configuration, c'est un mode.** Tant que cette chaine est vide,
- * Plan se comporte exactement comme en `1.2.0` : pas de connexion, pas de contexte, les projets par
- * `api.php`. C'est ce qui rend les etapes 0 a 3 livrables avant que la plateforme ne porte le
- * produit — et c'est aussi un piege, puisqu'un deploiement qui oublierait la variable garderait
- * l'`api.php` ouvert. Le drapeau est donc temporaire : l'etape 4 le retire du code
- * (MD/spec-connexion-plateforme.md §16.1).
+ * Jamais vide : depuis l'etape 4, le build refuse de produire un fichier sans elle
+ * (`vite.config.ts`). Le drapeau qui faisait de l'absence un mode — Plan se comportant comme en
+ * `1.2.0` — a ete retire du code en meme temps qu'`api.php`, parce qu'un deploiement qui l'aurait
+ * oublie aurait garde ouverts l'API et le dossier des donnees.
  */
 export const BACKPROD_API_URL: string = __BACKPROD_API_URL__;
 
 /** Ce que dit l'en-tete `X-Product` sur chaque appel a la plateforme. */
 export const BACKPROD_PRODUCT_CODE: string = __BACKPROD_PRODUCT_CODE__;
-
-/** Vrai quand une plateforme est branchee. Le seul test a faire : personne ne relit l'URL. */
-export function plateformeBranchee(): boolean {
-  return BACKPROD_API_URL.length > 0;
-}
 
 /**
  * L'adresse complete d'une operation, a partir de son chemin de contrat.

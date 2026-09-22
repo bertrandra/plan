@@ -559,6 +559,21 @@ These are real and must not be papered over.
 8. **`X-Tenant` is typed `uuid` but a slug is accepted.** Plan sends the uuid.
 9. **`PRODUCT_KEY_INVALID` does not exist.** ADR-051 §4 names it; the platform answers
    `401 UNAUTHENTICATED`. This only matters if Plan ever grows a server.
+11. **A project stored on the platform carries an identity, and `projet.json` says so.** The golden
+    was captured from the demo fallback, where `meta` is `{id: null, name: "Plan interactif",
+    updatedAt: null}`. A project on the platform has a uuid, its own name and a real
+    `updated_at` — 57 bytes more. The other five artefacts are **bit for bit identical**, measured
+    on 22 September 2026 from a project migrated out of `plan1.raillard.org`. Nothing computed
+    moved; what moved is that a project now exists somewhere and has a name. Recapturing the
+    `projet.json` golden belongs to the `2.0.0` release ceremony, with this as its stated reason.
+12. **`jsonb` does not preserve key order, whatever the contract says.** `ProjectDocument` promises
+    "Key order is preserved"; PostgreSQL reorders keys, and a round trip of the demonstration plan
+    came back the same 41 693 bytes with a first divergence at character 31. The content is
+    preserved, the order is not. It does not reach an export — `projet.json` is written by Plan's
+    serialiser from the model in memory, never copied from the stored document — but a product that
+    believed the promise would be wrong, and the migration script compares canonical forms because
+    of it.
+
 10. **Two timestamp formats in one integration.** `token_expires_at` ends in `Z`; `valid_until` and
     the webhook `occurred_at` carry a numeric offset. Both are RFC 3339; a strict parser configured
     for one fails on the other.
@@ -569,10 +584,10 @@ These are real and must not be papered over.
 
 | # | Decision | Who |
 |---|---|---|
-| 1 | The platform's production host. Nothing in either repository names it. | operator |
-| 2 | Quotas: sell none, or gate the platform's own `projects` route (§7). | operator |
-| 3 | Branding. Neither `plan-service.md` nor ADR-051 covers a product's own theme. Is a tenant's palette the platform's to publish, and where would a product read it? | operator, with the platform |
-| 4 | Whether `subscription.cancellation_scheduled` is ever published. The mapping names it; ADR-051 §5's own list omits it. Only matters once Plan has a server. | platform |
+| 1 | The platform's production host. Nothing in either repository names it. | **✅ 22/09/2026** — `plateforme/session.ts` ; eprouve contre la plateforme lancee en local : ouverture, cookie, reprise, `401` rattrape en un renouvellement, fermeture qui revoque la famille. Fichier livre identique au bit pres a la `1.2.0` |
+| 2 | Quotas: sell none, or gate the platform's own `projects` route (§7). | **✅ 22/09/2026** — `plateforme/contexte.ts`, `zones/Porte.tsx`, `app/porte.ts` ; les trois refus releves contre la plateforme (`403 NO_TENANT_ACCESS`, `404 PRODUCT_NOT_FOUND`, `400 PRODUCT_CONTEXT_REQUIRED`), chacun avec son `request_id`. **Il n'existe pas de capacite `plan.access`** : c'est le `200` qui vaut acces |
+| 3 | Branding. Neither `plan-service.md` nor ADR-051 covers a product's own theme. Is a tenant's palette the platform's to publish, and where would a product read it? | **✅ 22/09/2026** — `capacite`, `permission`, `quota` et `EtatCommande` sur le registre ; `projects.write` sur les quatre commandes qui ecrivent, `plan.documents` sur les deux qui creent. Lacune nommee : le monde de demonstration n'a aucun compte en lecture seule, donc le refus de permission n'est prouve que par les tests |
+| 4 | Whether `subscription.cancellation_scheduled` is ever published. The mapping names it; ADR-051 §5's own list omits it. Only matters once Plan has a server. | **✅ 22/09/2026** — `io/depotPlateforme.ts`, `api.php` et `data/` retires, drapeau supprime du code (le build refuse une origine vide). Projet reel migre depuis `plan1.raillard.org` : **cinq des six artefacts bit pour bit identiques** depuis un projet stocke par la plateforme ; `projet.json` gagne 57 octets, qui sont l'identite du projet (§14.11) |
 | 5 | Whether Plan registers permission codes of its own, or keeps borrowing `projects.read` and `projects.write`. | operator |
 
 ---

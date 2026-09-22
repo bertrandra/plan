@@ -53,6 +53,32 @@ enregistrer un projet est un `PATCH` et non un `PUT`, et le contrat mélange les
 de nullabilité — douze `nullable: true` contre onze types-tableaux — si bien qu'un générateur qui
 n'en lit qu'une produit un `email: string` là où la plateforme rend `null`.
 
+### Ajouté — étapes 1 à 4 de la connexion à la plateforme
+
+- **La session** (`src/plateforme/session.ts`). Le jeton ne quitte jamais la mémoire, un `401` donne
+  droit à un renouvellement et un seul, l'expiration est convertie en instant dès la réponse.
+- **La porte** : rien ne s'affiche avant que `/me/context` ait répondu. Trois écrans — le formulaire,
+  « ce compte ne tient pas Plan », le bandeau de panne — chacun avec son `request_id`.
+- **Les droits sur le registre des commandes.** Une capacité non achetée efface la commande, une
+  permission manquante ou un quota épuisé la laissent visible et s'expliquent.
+- **Les projets vivent chez la plateforme.** `api.php` et `data/` sont retirés, le drapeau qui faisait
+  de l'absence de plateforme un mode est supprimé du code : le build refuse une origine vide.
+- `scripts/migrer-projets.mjs`, à blanc par défaut, qui relit et compare chaque projet migré.
+
+**Cinq des six artefacts sont identiques au bit près** depuis un projet réel migré de
+`plan1.raillard.org` vers une plateforme, puis rouvert par Plan. `projet.json` gagne 57 octets, qui
+sont l'identité du projet : un vrai identifiant, un vrai nom, une vraie date, là où le témoin avait
+été capturé sur le jeu de démonstration sans projet ouvert. Rien de calculé n'a bougé.
+
+Quatre découvertes, faites en branchant :
+
+- **Il n'existe aucune capacité `plan.access`.** Ce qui vaut accès, c'est que `/me/context` réponde.
+- **Enregistrer un projet est un `PATCH`**, pas le `PUT` que la spécification annonçait.
+- **`jsonb` ne préserve pas l'ordre des clés**, contrairement à ce que le contrat promet. Même
+  longueur, première divergence au 31ᵉ caractère. Cela n'atteint aucun export.
+- **Le contrat mélange deux conventions de nullabilité**, si bien qu'un générateur qui n'en lit
+  qu'une déclare obligatoire une adresse que la plateforme rend nulle.
+
 ### Corrigé — le serveur
 
 - **Le build produit un `.htaccess`**, à partir de `deploy/htaccess.template`, qui se dépose à côté

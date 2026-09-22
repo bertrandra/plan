@@ -1,29 +1,37 @@
-// Client de `api.php` : les projets enregistres cote serveur (spec §3.2, io/).
+// Les projets enregistres : la ressource `projects` de la plateforme (spec-connexion-plateforme §6).
 //
-// Le serveur est **facultatif**. Si `api.php` est absent ou injoignable — fichier ouvert en local,
-// hebergement sans backend — l'application reste entierement utilisable avec le jeu de
-// demonstration. C'est ce que decide `chargerProjetInitial()`, et c'est la seule vraie subtilite de
-// ce module.
+// Ce module etait le client d'`api.php`, un fichier PHP pose a cote du HTML qui rangeait un JSON
+// par projet dans un dossier `data/`. Depuis l'etape 4, il delegue au depot de la plateforme
+// (io/depotPlateforme.ts). Ce qu'il garde, et qui n'a jamais ete du transport : la forme des
+// resumes, la lecture de `?projet=`, la memoire du dernier projet ouvert, et surtout la regle de
+// demarrage de `chargerProjetInitial()`, qui est la vraie subtilite de ce fichier.
 //
 // Chaque erreur porte un `motif` (`network`, `notfound`, `server`, `badjson`) : l'appelant en a
-// besoin pour distinguer « le serveur n'existe pas » de « le serveur a repondu de travers », et ne
-// pas afficher le meme ecran dans les deux cas.
-//
-// Toute requete porte la version du client. Le serveur peut ainsi reperer un onglet laisse ouvert
-// plusieurs versions durant, et refuser une ecriture trop ancienne (RELEASE.md §5.3).
+// besoin pour distinguer « injoignable » de « a repondu de travers », et ne pas afficher le meme
+// ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
-import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
+import type { DepotProjets } from './depotPlateforme.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
-const API_URL = 'api.php';
+/**
+ * Le depot, pose par la racine de composition une fois la porte franchie.
+ *
+ * Injecte, et non construit ici : le depot a besoin d'une session, la session vient de la porte, et
+ * la porte est au niveau de l'application. Aller la chercher depuis `io/` serait un import
+ * remontant, que le test d'architecture refuse a juste titre — c'est exactement le genre de
+ * dependance qui transforme une couche basse en racine de composition deguisee.
+ */
+let depot: DepotProjets | null = null;
+
+export function definirDepot(d: DepotProjets): void { depot = d; }
+
+function leDepot(): DepotProjets {
+  if (!depot) throw Object.assign(new Error('Aucun depot : la porte n a pas ete franchie.'), { reason: 'network' as const });
+  return depot;
+}
 
 /** Cle localStorage du dernier projet ouvert, pour retrouver son travail en revenant. */
 export const LS_LAST_PROJECT = 'planInteractif.lastProjectId';
-
-const ENTETES_VERSION = {
-  'X-App-Version': APP_VERSION,
-  'X-Schema-Version': String(SCHEMA_VERSION)
-};
 
 /**
  * Une ligne de la liste des projets du serveur — et aussi ce que porte `meta` pour le projet
@@ -42,10 +50,6 @@ export interface ProjetServeur { objects: ObjetBrut[]; measures?: Mesure[]; meta
 /** Motif d'echec, pour que l'appelant sache quoi montrer. */
 export type MotifEchec = 'network' | 'notfound' | 'server' | 'badjson';
 
-function echec(message: string, motif: MotifEchec): Error & { reason: MotifEchec } {
-  return Object.assign(new Error(message), { reason: motif });
-}
-
 export function getProjectIdFromUrl(): string | null {
   return new URLSearchParams(location.search).get('projet');
 }
@@ -57,46 +61,23 @@ export function withProjectParam(id: string): string {
   return url.toString();
 }
 
-/** Lecture commune aux deux GET : meme distinction reseau / HTTP / JSON illisible. */
-async function lireJson(url: string, quoi: string): Promise<unknown> {
-  let r: Response;
-  try {
-    r = await fetch(url, { cache: 'no-store', headers: ENTETES_VERSION });
-  } catch (e) {
-    throw echec('API injoignable (reseau) : ' + ((e as Error).message || e), 'network');
-  }
-  if (!r.ok) throw echec(quoi + ' HTTP ' + r.status, r.status === 404 ? 'notfound' : 'server');
-  try {
-    return await r.json();
-  } catch {
-    throw echec('Reponse invalide (JSON illisible) : ' + quoi, 'badjson');
-  }
+// `async`, et pas seulement parce que le depot l'est : un depot absent doit se voir comme une
+// promesse rejetee et non comme une exception jetee a l'appel, sinon le `.catch()` de l'appelant ne
+// l'attrape pas et la page tombe.
+export async function apiList(): Promise<ProjetResume[]> {
+  return leDepot().lister();
 }
 
-export function apiList(): Promise<ProjetResume[]> {
-  return lireJson(API_URL + '?action=list', 'api list') as Promise<ProjetResume[]>;
+export async function apiLoad(id: string): Promise<ProjetServeur> {
+  return leDepot().ouvrir(id);
 }
 
-export function apiLoad(id: string): Promise<ProjetServeur> {
-  return lireJson(API_URL + '?action=load&id=' + encodeURIComponent(id), 'api load') as Promise<ProjetServeur>;
+export async function apiSave(payload: unknown): Promise<{ id: string; updatedAt?: string }> {
+  return leDepot().enregistrer(payload as Parameters<DepotProjets['enregistrer']>[0]);
 }
 
-async function ecrire(action: string, corps: unknown): Promise<{ id: string }> {
-  const r = await fetch(API_URL + '?action=' + action, {
-    method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json' }, ENTETES_VERSION),
-    body: JSON.stringify(corps)
-  });
-  if (!r.ok) throw new Error('api ' + action + ' HTTP ' + r.status);
-  return r.json();
-}
-
-export function apiSave(payload: unknown): Promise<{ id: string }> {
-  return ecrire('save', payload);
-}
-
-export function apiDelete(id: string): Promise<unknown> {
-  return ecrire('delete', { id });
+export async function apiDelete(id: string): Promise<unknown> {
+  return leDepot().supprimer(id);
 }
 
 /**

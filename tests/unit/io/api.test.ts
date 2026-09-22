@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { chargerProjetInitial, apiList, apiSave, LS_LAST_PROJECT } from '../../../src/io/api.js';
+import { chargerProjetInitial, apiList, apiSave, definirDepot, LS_LAST_PROJECT } from '../../../src/io/api.js';
+import type { DepotProjets } from '../../../src/io/depotPlateforme.js';
 
 // La regle testee ici est la seule vraie subtilite du module, et elle a ete apprise a l'usage :
 // on ne retombe sur le jeu de demonstration QUE si ce navigateur n'a jamais ouvert de projet.
@@ -10,17 +11,22 @@ import { chargerProjetInitial, apiList, apiSave, LS_LAST_PROJECT } from '../../.
 const DEMO = [{ key: 'demo' }];
 const MESURES = [{ id: 'm' }];
 
-function reponse(corps: unknown, ok = true, status = 200): Response {
-  return { ok, status, json: async () => corps } as Response;
+/** Une defaillance telle que le depot la traduit : un message et un motif, jamais un statut brut. */
+function echec(motif: 'network' | 'notfound' | 'server' | 'badjson', message = 'injoignable') {
+  return Object.assign(new Error(message), { reason: motif });
 }
 
-let fetchSimule: ReturnType<typeof vi.fn>;
+let lister: ReturnType<typeof vi.fn>;
+let ouvrir: ReturnType<typeof vi.fn>;
+let enregistrer: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   localStorage.clear();
   history.replaceState(null, '', '/');
-  fetchSimule = vi.fn();
-  vi.stubGlobal('fetch', fetchSimule);
+  lister = vi.fn();
+  ouvrir = vi.fn();
+  enregistrer = vi.fn().mockResolvedValue({ id: 'neuf' });
+  definirDepot({ lister, ouvrir, enregistrer, supprimer: vi.fn() } as unknown as DepotProjets);
 });
 
 afterEach(() => {
@@ -29,7 +35,7 @@ afterEach(() => {
 
 describe('quand ce navigateur n a jamais ouvert de projet', () => {
   it('demarre sur la demonstration si l API est injoignable', async () => {
-    fetchSimule.mockRejectedValue(new Error('offline'));
+    lister.mockRejectedValue(echec('network'));
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.apiAvailable).toBe(false);
     expect(r.objects).toEqual(DEMO);
@@ -38,14 +44,14 @@ describe('quand ce navigateur n a jamais ouvert de projet', () => {
 
   it('copie le jeu de demonstration plutot que de le partager', async () => {
     // Sans copie, la premiere modification du plan abimerait le jeu de demonstration pour de bon.
-    fetchSimule.mockRejectedValue(new Error('offline'));
+    lister.mockRejectedValue(echec('network'));
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.objects).not.toBe(DEMO);
     expect(r.objects[0]).not.toBe(DEMO[0]);
   });
 
-  it('demarre aussi sur la demonstration quand api.php repond du charabia', async () => {
-    fetchSimule.mockResolvedValue({ ok: true, status: 200, json: async () => { throw new Error('pas du JSON'); } } as unknown as Response);
+  it('demarre aussi sur la demonstration quand la plateforme repond du charabia', async () => {
+    lister.mockRejectedValue(echec('badjson', 'reponse illisible'));
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.apiAvailable).toBe(false);
   });
@@ -55,92 +61,89 @@ describe('quand un projet est connu', () => {
   it('remonte l echec au lieu de servir la demonstration', async () => {
     // C'est le coeur de la regle : un vrai projet existe peut-etre cote serveur.
     localStorage.setItem(LS_LAST_PROJECT, 'p1');
-    fetchSimule.mockRejectedValue(new Error('offline'));
+    lister.mockRejectedValue(echec('network'));
     await expect(chargerProjetInitial(DEMO, MESURES)).rejects.toThrow(/injoignable/);
   });
 
   it('porte le motif reseau, pour que l appelant sache quoi montrer', async () => {
     localStorage.setItem(LS_LAST_PROJECT, 'p1');
-    fetchSimule.mockRejectedValue(new Error('offline'));
+    lister.mockRejectedValue(echec('network'));
     const erreur = await chargerProjetInitial(DEMO, MESURES).catch((e) => e);
     expect(erreur.reason).toBe('network');
   });
 
-  it('distingue un 404 d une panne serveur', async () => {
-    fetchSimule.mockResolvedValue(reponse(null, false, 404));
-    const e404 = await apiList().catch((e) => e);
-    expect(e404.reason).toBe('notfound');
-    fetchSimule.mockResolvedValue(reponse(null, false, 500));
-    const e500 = await apiList().catch((e) => e);
-    expect(e500.reason).toBe('server');
+  it('distingue un projet absent d une panne de la plateforme', async () => {
+    lister.mockRejectedValueOnce(echec('notfound', 'projet absent'));
+    expect((await apiList().catch((e) => e)).reason).toBe('notfound');
+    lister.mockRejectedValueOnce(echec('server', 'la plateforme a repondu de travers'));
+    expect((await apiList().catch((e) => e)).reason).toBe('server');
   });
 });
 
 describe('choix du projet a ouvrir', () => {
   it('ouvre celui de localStorage quand il existe encore', async () => {
     localStorage.setItem(LS_LAST_PROJECT, 'p2');
-    fetchSimule
-      .mockResolvedValueOnce(reponse([{ id: 'p1' }, { id: 'p2' }]))
-      .mockResolvedValueOnce(reponse({ objects: [{ key: 'x' }], measures: [], meta: { name: 'deux' } }));
+    lister.mockResolvedValue([{ id: 'p1', name: 'un' }, { id: 'p2', name: 'deux' }]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'x' }], measures: [], meta: { id: 'p2', name: 'deux' } });
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.apiAvailable).toBe(true);
     expect((r.meta as { name: string }).name).toBe('deux');
+    expect(ouvrir).toHaveBeenCalledWith('p2');
   });
 
   it('retombe sur le premier de la liste quand le projet retenu a disparu', async () => {
     localStorage.setItem(LS_LAST_PROJECT, 'efface');
-    fetchSimule
-      .mockResolvedValueOnce(reponse([{ id: 'p1' }]))
-      .mockResolvedValueOnce(reponse({ objects: [], measures: [] }));
+    lister.mockResolvedValue([{ id: 'p1', name: 'un' }]);
+    ouvrir.mockResolvedValue({ objects: [], measures: [] });
     await chargerProjetInitial(DEMO, MESURES);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p1');
   });
 
-  it('cree un projet de demonstration quand le serveur est vide', async () => {
-    fetchSimule
-      .mockResolvedValueOnce(reponse([]))                    // list : rien
-      .mockResolvedValueOnce(reponse({ id: 'neuf' }))        // save
-      .mockResolvedValueOnce(reponse([{ id: 'neuf' }]))      // list a nouveau
-      .mockResolvedValueOnce(reponse({ objects: [], measures: [] }));
+  it('cree un projet de demonstration quand la plateforme n en a aucun', async () => {
+    lister.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'neuf', name: 'demo' }]);
+    ouvrir.mockResolvedValue({ objects: [], measures: [] });
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.apiAvailable).toBe(true);
+    expect(enregistrer).toHaveBeenCalled();
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('neuf');
   });
 
   it('retient le projet ouvert, pour le retrouver au retour', async () => {
-    fetchSimule
-      .mockResolvedValueOnce(reponse([{ id: 'p9' }]))
-      .mockResolvedValueOnce(reponse({ objects: [], measures: [] }));
+    lister.mockResolvedValue([{ id: 'p9', name: 'neuf' }]);
+    ouvrir.mockResolvedValue({ objects: [], measures: [] });
     await chargerProjetInitial(DEMO, MESURES);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p9');
   });
 
   it('rend une liste de mesures vide quand le projet n en a pas', async () => {
-    fetchSimule
-      .mockResolvedValueOnce(reponse([{ id: 'p1' }]))
-      .mockResolvedValueOnce(reponse({ objects: [] }));
+    lister.mockResolvedValue([{ id: 'p1', name: 'un' }]);
+    ouvrir.mockResolvedValue({ objects: [] });
     const r = await chargerProjetInitial(DEMO, MESURES);
     expect(r.measures).toEqual([]);
   });
 });
 
-describe('les requetes', () => {
-  it('portent la version du client, pour qu un onglet trop vieux soit reperable', async () => {
-    fetchSimule.mockResolvedValue(reponse([]));
-    await apiList();
-    const entetes = fetchSimule.mock.calls[0]![1].headers;
-    expect(entetes['X-App-Version']).toBeTruthy();
-    expect(entetes['X-Schema-Version']).toBeTruthy();
+describe('sans depot', () => {
+  it('refuse tout de suite plutot que d echouer plus loin', async () => {
+    // Un appel avant que la porte soit franchie est un defaut de cablage, pas une panne reseau :
+    // il vaut mieux qu'il le dise a l'endroit ou il se produit.
+    definirDepot(undefined as unknown as DepotProjets);
+    await expect(apiList()).rejects.toThrow(/porte/);
+  });
+});
+
+describe('ce que le depot rend', () => {
+  it('relaie l enregistrement sans rien y ajouter', async () => {
+    enregistrer.mockResolvedValue({ id: 'p1', updatedAt: '2026-09-22T10:00:00Z' });
+    const r = await apiSave({ id: 'p1', name: 'un', objects: [] });
+    expect(r).toEqual({ id: 'p1', updatedAt: '2026-09-22T10:00:00Z' });
+    expect(enregistrer).toHaveBeenCalledWith({ id: 'p1', name: 'un', objects: [] });
   });
 
-  it('n utilisent jamais le cache : un projet relu doit etre a jour', async () => {
-    fetchSimule.mockResolvedValue(reponse([]));
-    await apiList();
-    expect(fetchSimule.mock.calls[0]![1].cache).toBe('no-store');
-  });
-
-  it('signalent un echec d ecriture', async () => {
-    fetchSimule.mockResolvedValue(reponse(null, false, 500));
-    await expect(apiSave({})).rejects.toThrow(/api save HTTP 500/);
+  it('remonte un echec d ecriture avec son motif', async () => {
+    enregistrer.mockRejectedValue(echec('server', 'enregistrement du projet : QUOTA_EXCEEDED'));
+    const e = await apiSave({ objects: [] }).catch((x) => x);
+    expect(e.reason).toBe('server');
+    expect(String(e.message)).toContain('QUOTA_EXCEEDED');
   });
 });
