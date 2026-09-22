@@ -236,12 +236,16 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 [ ] CHANGELOG.md section written in French, dated
 [ ] package.json version bumped, committed, tagged vX.Y.Z (annotated, signed)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
+[ ] .htaccess régénéré par le build et déployé avec plan.html — les empreintes des scripts
+    changent à chaque build, donc un .htaccess recopié d'un build précédent bloque la page
 [ ] Deployed to staging next to a copy of production data
 [ ] Manual smoke checklist (25 items) passed on staging
 [ ] Multi-tenant releases: cross-tenant isolation suite green on staging
 [ ] minClientVersion updated in server config if this release is mandatory
 [ ] Deployed to production
 [ ] Post-deploy: open an existing production project, edit, save, reload
+[ ] Post-deploy: en-têtes vérifiés en ligne — CSP présente, plan.html en no-cache,
+    GET /data/<id>.json refusé, et la console sans violation de politique
 [ ] GitHub release published with the changelog section
 ```
 

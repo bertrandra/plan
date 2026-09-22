@@ -21,6 +21,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   faute de décision. `MD/roadmap.md` et `MD/spec-data-strategy.md` sont amendées en conséquence :
   les forfaits, le paiement et la facturation ne sont plus le travail de ce dépôt.
 
+### Corrigé — le serveur
+
+- **Le build produit un `.htaccess`**, à partir de `deploy/htaccess.template`, qui se dépose à côté
+  de `plan.html` et d'`api.php`. Il corrige les trois défauts constatés plus bas, et il doit être
+  redéployé à chaque palier : les empreintes qu'il contient changent avec le build.
+- **`data/` n'est plus servi.** Les projets ne se lisent que par l'API. Le dossier est à côté
+  d'`api.php`, donc dans la racine web, et `GET /data/<id>.json` rendait le projet entier — 106 062
+  octets en clair, vérifiés en ligne.
+- **`plan.html` passe en `no-cache`.** Il était servi avec six mois de validité : une mise en ligne
+  n'atteignait pas les gens qui reviennent. `api.php` passe en `no-store`.
+- **Les en-têtes de sécurité sont posés** : `X-Content-Type-Options`, `Referrer-Policy`,
+  `X-Frame-Options`, `Permissions-Policy`, `Strict-Transport-Security` en HTTPS. Aucun n'était
+  présent.
+- **Une politique de contenu qui nomme le programme par son empreinte SHA-256** plutôt que
+  d'autoriser l'inline en bloc — le build produit un fichier unique, donc tout le programme est un
+  script en ligne, et `'unsafe-inline'` aurait désactivé la seule protection utile. Chaque origine
+  externe est nommée avec la fonction qui en dépend : les deux CDN pour three.js, IGN et la BAN pour
+  le cadastre, l'orthophoto et le PLU, Poly Haven pour les textures. Éprouvée au navigateur sous les
+  en-têtes réels avant livraison : vue 3D, export GLB, orthophoto, adresse, cadastre, PLU et
+  textures, sans une seule violation.
+
 ### Constaté en production
 
 - `plan1.raillard.org/api.php?action=list` rend la liste des projets **à qui la demande**. C'est la

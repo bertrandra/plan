@@ -67,16 +67,35 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 | `tests/unit/` | Un dossier par module de `src/`. |
 | `tests/fixtures/golden/` | Les artefacts de référence et leurs empreintes (`EMPREINTES.md`). |
 | `api.php`, `data/` | Persistance minimale : un fichier JSON par projet, pas de base de données. |
+| `deploy/htaccess.template` | La configuration Apache de la racine web, complétée au build par les empreintes des scripts. |
 | `legacy/` | Le fichier HTML d'origine, figé, jamais modifié. |
 | `MD/` | Toute la documentation, voir ci-dessous. |
 
 ## Déploiement
 
-Copier trois choses sur un hébergement PHP : `dist/index.html` (renommé `plan.html` si l'URL doit
-rester la même), `dist/api.php` et un dossier `data/` accessible en écriture. Rien d'autre. Le
-`plan.html` à la racine du dépôt est cette même sortie de build, copiée à chaque palier. Les dépendances externes (IGN, BAN, CDN three.js, textures
-Poly Haven) sont des dépendances de disponibilité, pas de données : sans IGN, pas d'import cadastre
-mais un éditeur complet ; sans CDN, pas de 3D mais tout le reste.
+Copier quatre choses sur un hébergement PHP : `dist/index.html` (renommé `plan.html` si l'URL doit
+rester la même), `dist/api.php`, `dist/.htaccess` et un dossier `data/` accessible en écriture.
+Rien d'autre. Le `plan.html` et le `.htaccess` à la racine du dépôt sont ces mêmes sorties de build,
+copiées à chaque palier.
+
+**Le `.htaccess` n'est pas optionnel.** Il est produit par le build à partir de
+[`deploy/htaccess.template`](deploy/htaccess.template), et il porte trois choses qu'une copie de
+fichiers seule ne donne pas :
+
+- **Il refuse `data/`.** `api.php` range les projets à côté de lui, donc dans la racine web :
+  sans cette règle, `GET /data/<id>.json` rend le projet entier sans passer par l'API. Constaté en
+  ligne le 22 septembre 2026.
+- **Il coupe le cache sur `plan.html`.** Le fichier livré porte toujours le même nom : c'est
+  exactement celui qu'il ne faut pas mettre en cache. Il était servi avec six mois de validité, donc
+  une mise en ligne n'atteignait pas les gens qui reviennent.
+- **Il pose les en-têtes de sécurité**, dont une politique de contenu qui nomme le programme par son
+  empreinte SHA-256 plutôt que d'autoriser l'inline en bloc. L'empreinte change à chaque build,
+  d'où la génération : un `.htaccess` recopié d'un build précédent empêche la page de s'exécuter.
+
+Les dépendances externes (IGN, BAN, CDN three.js, textures Poly Haven) sont des dépendances de
+disponibilité, pas de données : sans IGN, pas d'import cadastre mais un éditeur complet ; sans CDN,
+pas de 3D mais tout le reste. Chacune est nommée dans la politique de contenu, et une origine
+ajoutée au code sans être ajoutée au modèle casse la fonction en production seulement.
 
 ## Documentation
 

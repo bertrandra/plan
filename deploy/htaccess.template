@@ -1,0 +1,97 @@
+# Plan interactif — configuration Apache de la racine web.
+#
+# Ce fichier est un MODELE : `npm run build` le lit, remplace le jeton de la politique plus bas par
+# les empreintes SHA-256 des scripts en ligne de `plan.html`, et ecrit le resultat dans
+# `dist/.htaccess`. Le jeton doit rester unique dans le fichier, sinon c'est la premiere occurrence
+# qui serait substituee — le build le verifie et echoue sinon. Le resultat se
+# depose a cote de `plan.html` et d'`api.php`. Une modification faite ici se perd au prochain build ;
+# c'est le modele qu'il faut changer.
+#
+# Pourquoi des empreintes plutot que `'unsafe-inline'` : le build produit un fichier unique, donc
+# tout le programme est un `<script>` en ligne. Autoriser l'inline en bloc reviendrait a desactiver
+# la seule protection que la politique apporte vraiment. Les empreintes changent a chaque build,
+# d'ou la generation. Attention : des qu'une empreinte est presente, le navigateur IGNORE
+# `'unsafe-inline'` pour les scripts — les deux ne se cumulent pas.
+
+Options -Indexes
+DirectoryIndex plan.html
+
+# 1. Les projets ne se lisent que par l'API.
+#
+# `api.php` range les projets dans `data/`, a cote de lui, donc dans la racine web : sans cette
+# regle, `GET /data/<id>.json` rend le projet entier sans passer par l'API, et `.bak` avec. Verifie
+# le 22 septembre 2026 sur plan1.raillard.org : 106 062 octets servis en clair.
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(json|bak)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+RedirectMatch 404 ^/data(/|$)
+
+# 2. Rien qui commence par un point, et rien qui ne serait la que par erreur.
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(env|ini|log|sql|sh|swp|dist|lock|ts|tsx|map)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  # 3. Le cache.
+  #
+  # `plan.html` est un fichier unique dont le nom ne change jamais : c'est donc exactement le
+  # fichier a ne pas mettre en cache. Il etait servi avec `max-age=15552000` — six mois — ce qui
+  # veut dire qu'une mise en ligne n'atteignait pas les gens qui reviennent. Un deploiement que
+  # personne ne telecharge n'est pas un deploiement.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header unset Expires
+    Header unset Pragma
+  </FilesMatch>
+
+  # `api.php` repond des donnees vivantes : jamais de cache, ni navigateur ni proxy.
+  <FilesMatch "\.php$">
+    Header set Cache-Control "no-store"
+    Header unset Expires
+  </FilesMatch>
+
+  # Il n'y a pas d'autre fichier : le build inline tout. Si une image ou une police apparaissent un
+  # jour a cote, elles ne portent pas d'empreinte dans leur nom et ne peuvent donc pas etre gardees
+  # indefiniment — une semaine est le compromis raisonnable.
+  <FilesMatch "\.(png|jpg|jpeg|webp|avif|svg|woff2?|ico)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+
+  # 4. Les en-tetes de securite. Aucun n'etait present.
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+  # Un an sans redemander en clair, une fois vu en HTTPS. Pas de `includeSubDomains` : ce plan ne
+  # possede pas les hotes freres de raillard.org. Pas de `preload` : c'est un registre dans lequel
+  # l'operateur s'inscrit, pas un en-tete.
+  Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
+
+  # 5. La politique de contenu, source par source. Chacune est la parce qu'une fonction precise en
+  # depend ; une origine retiree casse cette fonction-la, en production seulement, puisque le
+  # serveur de developpement n'envoie aucune politique.
+  #
+  #   script-src   les empreintes : le programme lui-meme, en ligne.
+  #                cdnjs + jsdelivr : three.js r128, OrbitControls, GLTFLoader, GLTFExporter, que
+  #                `three/chargeurs.ts` et `three/glbViewer.ts` ajoutent en <script> a l'execution.
+  #   style-src    'unsafe-inline' : la feuille est inlinee, et le programme pose des styles.
+  #                Les scripts n'ont pas cette permission, donc l'injection qui compte reste refusee.
+  #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles
+  #                de l'orthophoto ; polyhaven pour les textures.
+  #   connect-src  api-adresse pour l'adresse, apicarto pour le cadastre et le PLU, data.geopf.fr
+  #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures.
+  #                En 2.0.0, l'origine de la plateforme backprod s'ajoute ici (spec-connexion-plateforme §1).
+  #   frame-ancestors 'none'  rien ici n'est fait pour etre encadre.
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' @@HACHES_SCRIPT@@ https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org; font-src 'self'; connect-src 'self' https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org; worker-src 'self' blob:"
+</IfModule>
+
+# Compression si l'hote la propose. SiteGround, oui ; un hote qui ne l'a pas sert les octets tels quels.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml application/javascript application/json image/svg+xml
+</IfModule>
