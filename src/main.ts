@@ -22,6 +22,12 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
+    // La porte (spec-connexion-plateforme §16, etape 2), quand une plateforme est branchee. Elle ne
+    // rend la main qu'une fois franchie ; sans plateforme, elle rend `null` tout de suite et Plan
+    // demarre exactement comme en 1.2.0. L'import est dynamique pour la meme raison que celui de
+    // boot.ts : un echec de chargement doit se voir dans le bandeau, pas en page blanche.
+    const { franchirLaPorte } = await import('./app/porte.js');
+    await franchirLaPorte();
     const { boot, loadInitialProject } = await import('./app/boot.js');
     try {
       const seed = await loadInitialProject();

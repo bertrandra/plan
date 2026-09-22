@@ -407,3 +407,38 @@
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
     padding:14px 18px; overflow:auto; margin:0;
   }
+
+  /* ---------------------------------------------------------------------------------------------
+     La porte (zones/Porte.tsx) : ce qui couvre la page tant que la plateforme n'a pas repondu.
+     Voile opaque et non translucide : derriere, l'atelier n'est pas encore monte, et laisser
+     deviner une page vide n'aide personne. --------------------------------------------------- */
+  #zonePorte:empty{ display:none; }
+  .porteVoile{
+    position:fixed; inset:0; z-index:4000; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); padding:16px;
+  }
+  .porteBoite{
+    width:min(380px, 100%); background:var(--panel-bg); border:1px solid var(--border);
+    border-radius:4px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.12);
+  }
+  .porteTitre{ margin:0; font-family:"Georgia",serif; font-size:1.15rem; color:var(--ink); }
+  .porteSous{ margin:0; font-size:0.85rem; color:var(--ink-soft); line-height:1.45; }
+  .porteRefus{
+    margin:0; padding:8px 10px; border-radius:3px; font-size:0.85rem;
+    background:var(--accent-light); color:var(--ink); border:1px solid var(--rule);
+  }
+  .porteChamp{ display:flex; flex-direction:column; gap:4px; font-size:0.8rem; color:var(--ink-soft); }
+  .porteChamp input{
+    padding:7px 8px; font-size:0.95rem; border:1px solid var(--border); border-radius:3px;
+    background:var(--input-bg); color:var(--ink);
+  }
+  .porteBouton{
+    margin-top:4px; padding:9px 12px; font-size:0.9rem; font-weight:700; cursor:pointer;
+    background:var(--accent); color:var(--paper); border:none; border-radius:3px;
+  }
+  .porteBouton:disabled{ opacity:0.6; cursor:default; }
+  .porteLiens{ margin:0; font-size:0.8rem; }
+  .porteLiens a{ color:var(--ink-soft); }
+  /* La reference de requete : discrete, mais selectionnable — c'est fait pour etre recopie. */
+  .porteRef{ margin:0; font-family:ui-monospace,monospace; font-size:0.7rem; color:var(--ink-soft); user-select:all; }
