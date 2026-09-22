@@ -588,7 +588,7 @@ These are real and must not be papered over.
 | 2 | Quotas: sell none, or gate the platform's own `projects` route (§7). | **✅ 22/09/2026** — `plateforme/contexte.ts`, `zones/Porte.tsx`, `app/porte.ts` ; les trois refus releves contre la plateforme (`403 NO_TENANT_ACCESS`, `404 PRODUCT_NOT_FOUND`, `400 PRODUCT_CONTEXT_REQUIRED`), chacun avec son `request_id`. **Il n'existe pas de capacite `plan.access`** : c'est le `200` qui vaut acces |
 | 3 | Branding. Neither `plan-service.md` nor ADR-051 covers a product's own theme. Is a tenant's palette the platform's to publish, and where would a product read it? | **✅ 22/09/2026** — `capacite`, `permission`, `quota` et `EtatCommande` sur le registre ; `projects.write` sur les quatre commandes qui ecrivent, `plan.documents` sur les deux qui creent. Lacune nommee : le monde de demonstration n'a aucun compte en lecture seule, donc le refus de permission n'est prouve que par les tests |
 | 4 | Whether `subscription.cancellation_scheduled` is ever published. The mapping names it; ADR-051 §5's own list omits it. Only matters once Plan has a server. | **✅ 22/09/2026** — `io/depotPlateforme.ts`, `api.php` et `data/` retires, drapeau supprime du code (le build refuse une origine vide). Projet reel migre depuis `plan1.raillard.org` : **cinq des six artefacts bit pour bit identiques** depuis un projet stocke par la plateforme ; `projet.json` gagne 57 octets, qui sont l'identite du projet (§14.11) |
-| 5 | Whether Plan registers permission codes of its own, or keeps borrowing `projects.read` and `projects.write`. | operator |
+| 5 | Whether Plan registers permission codes of its own, or keeps borrowing `projects.read` and `projects.write`. | **◐ 22/09/2026, le mecanisme mais pas les codes** — `plateforme/capacites.ts` nomme les sept capacites, leurs commandes et les origines que chacune fait taire ; un test prouve qu'une commande refusee n'execute rien, donc n'appelle rien. **Aucun code n'est attache**, et c'est deliberé : le catalogue de la plateforme ne les porte pas, `/me/context` ne distingue pas « pas achete » de « pas au catalogue », si bien qu'attacher `plan.3d` aujourd'hui retirerait la vue 3D a tous les locataires. Depend de l'etape 2 de §11. Constat au passage : la vue 3D est un bouton de mode et non une commande, donc la seule capacite au gain reseau reel n'a aucune prise avant qu'on en fasse une commande |
 
 ---
 
@@ -623,14 +623,24 @@ the switch still present has not shipped step 4.
 | 3 | Rights on the command registry | `capacite` and `permission` on the 47 commands; `EtatCommande`; the two sentences; absent versus visible-and-explaining | A person without `projects.write` gets a read-only Plan; a tenant without a capability does not see the command at all. Empreintes — **nothing a right touches may reach an export** |
 | 4 | Projects move to the platform | `io/api.ts` rewritten against `/api/v1/projects`; the migration script; `api.php` and `data/` removed from the host; **the switch of §16.1 deleted** | Create, open, save, duplicate, delete, restore, versions. A project id from another tenant answers `404`. Migration: count matches, ten round-trips byte-identical, mapping printed. The smoke checklist 25/25 with sign-in in front. Empreintes |
 | 5 | What a capability really stops | The CDN loads behind `plan.3d`; the IGN calls behind `plan.cadastre`, `plan.ortho`, `plan.plu`; the texture catalogue | Network observed: with the capability absent, not one request leaves for that origin. With it present, the feature works as it does today |
-| 6 | The host opened | `.htaccess` deployed; basic authentication removed from `plan.raillard.org`; the shell's `app_url` points at it | `npm run verifier-deploiement https://plan.raillard.org` — eleven checks green, including the served file's fingerprint and the policy naming the served script |
+| 6 | The host opened | `.htaccess` deployed; basic authentication removed from `plan.raillard.org`; the shell's `app_url` points at it | **◐ 22/09/2026, cote depot** — `.htaccess` produit par le build avec l'origine de la plateforme dans `connect-src` ; `npm run verifier-deploiement` reecrit pour la `2.0.0` : il refuse desormais un hote qui sert encore `api.php` ou `data/`, et verifie que `connect-src` nomme l'origine du paquet servi. **Le depot des fichiers et le retrait de l'authentification basique restent a l'operateur** : releve du 22/09/2026 a 17 h, `plan.raillard.org/plan.html` rend `404` et `plan1.raillard.org` rend `401` |
 
-### 16.3 What has to be true before step 2
+### 16.3 What has to be true before steps 2 and 5
 
-Steps 0 and 1 need nothing from the operator. **Step 2 cannot be tested until §11 is done**: the
-product `plan` created and assigned, at least the `plan.access` capability in the catalogue, and
-`https://plan.raillard.org` in the platform's `CORS_ALLOWED_ORIGINS`. Building steps 0 and 1 first
-is therefore not an arbitrary order — it is the work that does not wait on anybody.
+Neither step 0 nor step 1 needs anything from the operator. **Two steps do, and they are the two
+that look most like code and are least like it.**
+
+**Step 2** needs the product `plan` created and assigned, and `https://plan.raillard.org` in the
+platform's `CORS_ALLOWED_ORIGINS`. It does **not** need a `plan.access` capability: that code does
+not exist, and a `200` from `/me/context` is what grants access (§4.1).
+
+**Step 5 needs the capabilities of §4.3 to exist in the catalogue**, and this is the harder
+dependency, because it is invisible until it bites. `/me/context` reports what a tenant holds; it
+does not report what the catalogue defines. A code that is absent from `capabilities` therefore
+reads identically whether the organisation declined it or nobody ever created it. Attaching
+`plan.3d` before the catalogue carries it would not gate a new feature — it would remove the 3D
+view from every tenant already using it. So step 5 ships its mechanism and holds its codes, and the
+order is not arbitrary: it is the work that does not wait on anybody, done first.
 
 ### 16.4 Where this order can go wrong
 

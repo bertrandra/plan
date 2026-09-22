@@ -79,6 +79,25 @@ Quatre découvertes, faites en branchant :
 - **Le contrat mélange deux conventions de nullabilité**, si bien qu'un générateur qui n'en lit
   qu'une déclare obligatoire une adresse que la plateforme rend nulle.
 
+### Ajouté — étapes 5 et 6, le mécanisme sans les codes
+
+- **La table des capacités** que Plan propose au catalogue, avec pour chacune les commandes qu'elle
+  gouverne et les origines qu'elle fait taire. Un test prouve qu'une commande refusée n'exécute rien
+  et n'appelle donc rien : le chargement de three.js, les appels IGN et le catalogue de textures
+  partent tous de l'exécution d'une commande, et un seul refus les arrête tous.
+- **Aucun code n'est attaché**, délibérément. Le catalogue de la plateforme ne les porte pas, et le
+  contexte ne distingue pas « pas acheté » de « pas au catalogue » : attacher la capacité 3D
+  aujourd'hui retirerait la vue 3D à tous les locataires qui l'utilisent. Un test garde la décision
+  visible et tombera le jour où l'opérateur créera les codes.
+- **Le vérificateur de déploiement est réécrit pour la `2.0.0`** : il refuse un hôte qui sert encore
+  l'ancienne API ou son dossier de données, et il vérifie que la politique de contenu nomme bien
+  l'origine de la plateforme du paquet servi. Sans elle, chaque appel est bloqué par le navigateur,
+  et seulement en production.
+
+Un constat de plus : **passer en vue 3D est un bouton de mode, pas une commande.** C'est la seule
+capacité dont le gain réseau serait réel, puisque three.js vient d'un CDN, et c'est justement celle
+qui n'a aucune prise tant que ce basculement n'est pas une commande.
+
 ### Corrigé — le serveur
 
 - **Le build produit un `.htaccess`**, à partir de `deploy/htaccess.template`, qui se dépose à côté

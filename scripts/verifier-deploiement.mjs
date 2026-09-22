@@ -23,6 +23,7 @@ if (!base) {
 }
 
 const resultats = [];
+let cspServie = '';
 const noter = (nom, ok, detail) => { resultats.push({ nom, ok, detail }); };
 
 /** Un GET qui ne suit pas les redirections : on veut la reponse de cet hote, pas d'un autre. */
@@ -73,6 +74,7 @@ try {
 
     // La politique doit nommer le programme par l'empreinte du script en ligne servi.
     const csp = r.entetes.get('content-security-policy') || '';
+    cspServie = csp;
     if (!csp) {
       noter('politique de contenu', false, 'absente');
     } else {
@@ -92,26 +94,38 @@ try {
 }
 
 // ---------------------------------------------------------------------------------------------
-// 2. Les projets ne se lisent que par l'API.
+// 2. Ce qui ne doit plus etre la du tout.
+//
+// Depuis la 2.0.0 les projets vivent chez la plateforme : `api.php` et `data/` ont disparu du
+// depot. Un hote qui les sert encore sert les fichiers d'une version precedente — et `data/` rendait
+// un projet entier en clair a qui le demandait.
 // ---------------------------------------------------------------------------------------------
 try {
-  const liste = await demander('/api.php?action=list');
-  let ids = [];
-  if (liste.statut === 200) {
-    try { ids = (await liste.corps.json()).map((p) => p.id).filter(Boolean); } catch { /* pas du JSON */ }
+  for (const [nom, chemin] of [['api.php n est plus servi', '/api.php?action=list'], ['data/ est ferme', '/data/parcelle-ae-101.json']]) {
+    const r = await demander(chemin);
+    noter(nom, r.statut === 403 || r.statut === 404, 'HTTP ' + r.statut + (r.statut === 200 ? " : d'une version precedente, a retirer de l'hote" : ''));
   }
-  noter('api.php repond', liste.statut === 200, 'HTTP ' + liste.statut + (ids.length ? ' — ' + ids.length + ' projet(s)' : ''));
-
-  // On essaie de lire directement le premier projet connu, et un nom generique s'il n'y en a pas.
-  const cible = '/data/' + (ids[0] || 'parcelle-ae-101') + '.json';
-  const direct = await demander(cible);
-  noter('data/ est ferme au public', direct.statut === 403 || direct.statut === 404,
-    'GET ' + cible + ' → HTTP ' + direct.statut + (direct.statut === 200 ? ' : le projet est telechargeable sans passer par l\'API' : ''));
-
-  const bak = await demander('/data/' + (ids[0] || 'parcelle-ae-101') + '.json.bak');
-  noter('les sauvegardes .bak sont fermees', bak.statut === 403 || bak.statut === 404, 'HTTP ' + bak.statut);
 } catch (e) {
-  noter('api.php repond', false, String(e).slice(0, 120));
+  noter('les restes de la 1.x', false, String(e).slice(0, 120));
+}
+
+// ---------------------------------------------------------------------------------------------
+// 3. La politique nomme bien la plateforme.
+//
+// Sans son origine dans `connect-src`, chaque appel de la page est bloque par le navigateur — et
+// seulement en production, puisque le serveur de developpement n'envoie aucune politique. C'est la
+// facon la plus probable de livrer une version cassee (spec-connexion-plateforme §14.4).
+// ---------------------------------------------------------------------------------------------
+if (page) {
+  const html = page.toString('utf8');
+  const origine = (/https:\/\/[a-z0-9.-]+(?=\/api\/v1)/.exec(html) || [])[0];
+  const csp = cspServie;
+  if (!origine) {
+    noter("l'origine de la plateforme est dans le paquet", false, 'introuvable dans le fichier servi');
+  } else {
+    noter("l'origine de la plateforme est dans le paquet", true, origine);
+    noter("connect-src nomme la plateforme", csp.includes(origine), csp ? (csp.includes(origine) ? origine + ' autorise' : origine + " ABSENT de connect-src : tous les appels seront bloques") : 'aucune politique');
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
