@@ -72,8 +72,13 @@ specification no longer has to ask for.
 
 ```text
 https://plan.raillard.org          Plan: one HTML file, served static
-https://<platform host>            backprod: the shell and /api/v1
+https://www.raillard.org           backprod: the shell and /api/v1
 ```
+
+**Both hosts were settled on 22 September 2026**, and they satisfy the condition above by
+construction: `plan` and `www` are siblings under `raillard.org`, so a request from one carries the
+other's `SameSite=Strict` cookie. The platform is live —
+`GET https://www.raillard.org/api/v1/auth/jwks` answers `200`.
 
 - **A sibling subdomain of the platform's host, over HTTPS.** This is the condition for single
   sign-on: the platform's refresh cookie is `HttpOnly; SameSite=Strict; Path=/api/v1/auth` with no
@@ -123,9 +128,10 @@ are **server-only**, and Plan has no server in `2.0.0` (§6, §8). They are ther
 build gate proves it: `scripts/verifier-paquet.mjs` (`npm run verifier-paquet`) greps the built
 `plan.html` for a product key, a webhook secret and a frozen session token, and fails on a hit. The gate runs while no key exists, so it cannot be forgotten the day one does.
 
-> The platform's production host is **not decided** in either repository: `backprod/.env` carries a
-> development value and the production template leaves `CORS_ALLOWED_ORIGINS` empty. Open decision,
-> §15.
+> Settled on 22 September 2026: `BACKPROD_API_URL=https://www.raillard.org`. The value is the origin
+> alone — the contract's paths are appended at runtime — and it reaches exactly two places, both
+> produced by the same build: the bundle, and `connect-src` in the `.htaccess`. Changing it means
+> rebuilding and redeploying **both files together**, never one without the other.
 
 ---
 
@@ -477,7 +483,10 @@ own: that is the platform's profile screen, one click away.
 4. **Remove the basic authentication** in front of `plan.raillard.org`, and add the headers of §1.
 5. **Fix the cache policy** on `plan.html`, and put basic authentication in front of
    `plan1.raillard.org` (§0.3).
-6. Decide the platform's production host and put it in Plan's build configuration (§15).
+6. ~~Decide the platform's production host.~~ Done: `https://www.raillard.org`. What remains of
+   this step is point 3 above — on 22 September 2026 the platform still answered a preflight from
+   `https://plan.raillard.org` **without** `Access-Control-Allow-Origin`, so every call from Plan's
+   page would be blocked by the browser.
 
 No product key and no webhook secret are issued for `2.0.0`: Plan has no server to put them in, and
 a secret issued for nobody is a secret to leak.
@@ -584,7 +593,7 @@ These are real and must not be papered over.
 
 | # | Decision | Who |
 |---|---|---|
-| 1 | The platform's production host. Nothing in either repository names it. | **✅ 22/09/2026** — `plateforme/session.ts` ; eprouve contre la plateforme lancee en local : ouverture, cookie, reprise, `401` rattrape en un renouvellement, fermeture qui revoque la famille. Fichier livre identique au bit pres a la `1.2.0` |
+| 1 | ~~The platform's production host.~~ **Settled 22/09/2026: `https://www.raillard.org`, with Plan at `https://plan.raillard.org`.** | done |
 | 2 | Quotas: sell none, or gate the platform's own `projects` route (§7). | **✅ 22/09/2026** — `plateforme/contexte.ts`, `zones/Porte.tsx`, `app/porte.ts` ; les trois refus releves contre la plateforme (`403 NO_TENANT_ACCESS`, `404 PRODUCT_NOT_FOUND`, `400 PRODUCT_CONTEXT_REQUIRED`), chacun avec son `request_id`. **Il n'existe pas de capacite `plan.access`** : c'est le `200` qui vaut acces |
 | 3 | Branding. Neither `plan-service.md` nor ADR-051 covers a product's own theme. Is a tenant's palette the platform's to publish, and where would a product read it? | **✅ 22/09/2026** — `capacite`, `permission`, `quota` et `EtatCommande` sur le registre ; `projects.write` sur les quatre commandes qui ecrivent, `plan.documents` sur les deux qui creent. Lacune nommee : le monde de demonstration n'a aucun compte en lecture seule, donc le refus de permission n'est prouve que par les tests |
 | 4 | Whether `subscription.cancellation_scheduled` is ever published. The mapping names it; ADR-051 §5's own list omits it. Only matters once Plan has a server. | **✅ 22/09/2026** — `io/depotPlateforme.ts`, `api.php` et `data/` retires, drapeau supprime du code (le build refuse une origine vide). Projet reel migre depuis `plan1.raillard.org` : **cinq des six artefacts bit pour bit identiques** depuis un projet stocke par la plateforme ; `projet.json` gagne 57 octets, qui sont l'identite du projet (§14.11) |
@@ -618,7 +627,7 @@ the switch still present has not shipped step 4.
 | Step | Deliverable | What moves | Proof |
 |---|---|---|---|
 | 0 | The contract in the build | `src/plateforme/` generated from the platform's `openapi.json` at a pinned commit; `gate:client`; the two build-time constants; the platform origin joins `connect-src` in `deploy/htaccess.template` | **✅ 22/09/2026** — `contrat/` pinned at backprod `ce0642c`, 13 operations, 7 schemas; `src/plateforme/contrat.ts` generated, `src/plateforme/config.ts`; `npm run gate:client` and `npm run verifier-paquet`; 582 tests; **the built file is byte-identical to the `1.2.0` artefact**, so nothing on screen and no empreinte moved |
-| 1 | The session, with no gate in front of it | `plateforme/session.ts`: refresh with `credentials: 'include'`, token in memory, renewal 60 s before expiry, one retry on `401`. No screen depends on it yet | Unit tests on renewal, on the single retry, and on the `401` that must not discard an unsaved plan. The application still boots with no platform. Empreintes |
+| 1 | The session, with no gate in front of it | `plateforme/session.ts`: refresh with `credentials: 'include'`, token in memory, renewal 60 s before expiry, one retry on `401`. No screen depends on it yet | **✅ 22/09/2026** — `plateforme/session.ts` ; eprouve contre la plateforme lancee en local : ouverture, cookie, reprise, `401` rattrape en un renouvellement, fermeture qui revoque la famille. Fichier livre identique au bit pres a la `1.2.0` |
 | 2 | The gate | The sign-in form; the "this account holds no Plan" page; `/me/context` read once and cached until `token_expires_at` | Single sign-on both ways against a staging platform; sign out on either signs out of both; a lapsed session lands on the form. `403` and `404` tell apart. Each refusal shows its `request_id` |
 | 3 | Rights on the command registry | `capacite` and `permission` on the 47 commands; `EtatCommande`; the two sentences; absent versus visible-and-explaining | A person without `projects.write` gets a read-only Plan; a tenant without a capability does not see the command at all. Empreintes — **nothing a right touches may reach an export** |
 | 4 | Projects move to the platform | `io/api.ts` rewritten against `/api/v1/projects`; the migration script; `api.php` and `data/` removed from the host; **the switch of §16.1 deleted** | Create, open, save, duplicate, delete, restore, versions. A project id from another tenant answers `404`. Migration: count matches, ten round-trips byte-identical, mapping printed. The smoke checklist 25/25 with sign-in in front. Empreintes |

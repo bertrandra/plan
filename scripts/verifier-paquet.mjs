@@ -43,7 +43,14 @@ const trouves = INTERDITS.filter((i) => i.motif.test(paquet));
 // Les deux constantes publiques doivent, elles, etre reconnaissables : si une plateforme est
 // branchee, son origine est forcement dans le paquet, et c'est normal. On le dit, pour que la
 // sortie du garde-fou serve aussi de releve de ce qu'on livre.
-const origine = /https:\/\/[a-z0-9.-]+\/api\/v1/.exec(paquet);
+//
+// L'origine est stockee SEULE : les chemins du contrat s'y ajoutent a l'execution. Chercher
+// `https://…/api/v1` ne trouvait donc jamais rien, et le garde-fou annoncait « aucune plateforme »
+// sur un paquet qui en portait une. On cherche une origine qui ne soit aucune des origines
+// tierces que le programme nomme par ailleurs (IGN, BAN, CDN, textures).
+const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
+const origine = [...new Set((paquet.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map((s) => s.slice(1, -1)))]
+  .filter((o) => !TIERCES.test(o)).map((o) => [o]).find(Boolean);
 
 console.log('\n' + cible.replace(racine, '.') + '  ' + paquet.length.toLocaleString('fr-FR') + ' octets');
 console.log(origine ? '  origine de la plateforme presente : ' + origine[0] : '  aucune plateforme branchee dans ce paquet');
