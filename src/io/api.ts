@@ -118,7 +118,24 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
   }
 
   // Un echec ici remonte aussi, plutot que de retomber sur la demonstration.
-  const complet = await apiLoad(voulu);
+  //
+  // Une exception : un projet que Plan a CHOISI lui-meme et dont le document n'est pas un plan.
+  // La ressource de la plateforme est partagee par tous les produits, et rien n'oblige un projet
+  // qui s'y trouve a etre un plan — le monde de demonstration en porte deux qui n'en sont pas.
+  // Mourir la-dessus empecherait de demarrer sur un locataire parfaitement sain. On en cree donc
+  // un, comme lorsque la liste est vide. Si c'est l'utilisateur qui a NOMME ce projet, par l'URL
+  // ou par le dernier ouvert, l'echec remonte : il a demande celui-la, pas un autre.
+  let complet;
+  try {
+    complet = await apiLoad(voulu);
+  } catch (e) {
+    const choisiParPlan = voulu !== projetConnu;
+    if (!choisiParPlan || (e as { reason?: string }).reason !== 'badjson') throw e;
+    const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
+    voulu = cree.id;
+    liste = await apiList();
+    complet = await apiLoad(voulu);
+  }
   localStorage.setItem(LS_LAST_PROJECT, voulu);
   return { apiAvailable: true, list: liste, objects: complet.objects, measures: complet.measures || [], meta: complet.meta };
 }

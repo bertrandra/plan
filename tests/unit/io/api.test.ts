@@ -123,6 +123,32 @@ describe('choix du projet a ouvrir', () => {
   });
 });
 
+describe('un document qui n est pas un plan', () => {
+  it('en cree un plutot que de bloquer, quand c est Plan qui a choisi le projet', async () => {
+    // La ressource de la plateforme est partagee par tous les produits : rien n'oblige un projet
+    // qui s'y trouve a etre un plan, et le monde de demonstration en porte deux qui n'en sont pas.
+    // Mourir la-dessus empecherait de demarrer sur un locataire parfaitement sain.
+    lister.mockResolvedValueOnce([{ id: 'etranger', name: 'Abri de jardin' }])
+      .mockResolvedValueOnce([{ id: 'neuf', name: 'Parcelle AE 101' }]);
+    ouvrir.mockRejectedValueOnce(echec('badjson', 'pas la forme d un plan'))
+      .mockResolvedValueOnce({ objects: [{ key: 'demo' }], measures: [] });
+    const r = await chargerProjetInitial(DEMO, MESURES);
+    expect(enregistrer).toHaveBeenCalled();
+    expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('neuf');
+    expect(r.apiAvailable).toBe(true);
+  });
+
+  it('remonte l echec quand c est l utilisateur qui a nomme ce projet', async () => {
+    // Il a demande celui-la, pas un autre : lui en substituer un ferait croire que le sien a ete
+    // perdu ou remplace, ce qui est la regle que ce module tient depuis le debut.
+    localStorage.setItem(LS_LAST_PROJECT, 'etranger');
+    lister.mockResolvedValue([{ id: 'etranger', name: 'Abri de jardin' }]);
+    ouvrir.mockRejectedValue(echec('badjson', 'pas la forme d un plan'));
+    await expect(chargerProjetInitial(DEMO, MESURES)).rejects.toThrow(/plan/);
+    expect(enregistrer).not.toHaveBeenCalled();
+  });
+});
+
 describe('sans depot', () => {
   it('refuse tout de suite plutot que d echouer plus loin', async () => {
     // Un appel avant que la porte soit franchie est un defaut de cablage, pas une panne reseau :

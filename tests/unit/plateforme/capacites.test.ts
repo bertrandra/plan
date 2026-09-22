@@ -42,14 +42,24 @@ describe('la table des capacites', () => {
     }
   });
 
-  it('n est attachee a aucune commande, tant que le catalogue ne porte pas ces codes', () => {
-    // Le catalogue releve le 22 septembre 2026 porte exports, max_projects, plan.documents, users
-    // et white_label. `/me/context` ne distingue pas « pas achete » de « pas au catalogue » : les
-    // attacher maintenant retirerait la 3D a tous les locataires existants. Ce test garde la
-    // decision visible — le jour ou l'operateur cree les codes, il tombera, et c'est le signal.
-    const sources = ['src/app/projet.ts', 'src/app/ecouteurs/affichage.ts', 'src/app/ecouteurs/divers.ts', 'src/app/ecouteurs/vue3d.ts']
-      .map((f) => readFileSync(resolve(__dirname, '../../..', f), 'utf8')).join('\n');
-    for (const code of CODES_CAPACITES) expect(sources, code).not.toContain("capacite: '" + code + "'");
+  it('est attachee a ses commandes, depuis que le catalogue porte les codes', () => {
+    // Le 22 septembre 2026, l'operateur a cree les sept au catalogue de la plateforme
+    // (`backprod/src/Demo/Domain/DemoWorld.php`, cle `capabilities` du produit `plan`). Avant cela
+    // les attacher aurait retire la 3D a tous les locataires, puisque `/me/context` ne distingue
+    // pas « pas achete » de « pas au catalogue ». Maintenant, chaque code doit avoir sa prise.
+    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts']
+      .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
+    const sansPrise: string[] = [];
+    for (const [nom, c] of Object.entries(CAPACITES)) {
+      if (!c.commandes.length) continue;               // la vue 3D, qui n'est pas une commande
+      if (!sources.includes('CAPACITES.' + nom + '.code')) sansPrise.push(c.code);
+    }
+    expect(sansPrise, 'capacites du catalogue sans commande attachee').toEqual([]);
+  });
+
+  it('ne laisse la vue 3D sans prise que parce qu elle n est pas une commande', () => {
+    expect(CODES_CAPACITES).toContain('plan.3d');
+    expect(CAPACITES.vue3d.commandes).toEqual([]);
   });
 });
 

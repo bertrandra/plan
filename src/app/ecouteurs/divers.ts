@@ -4,6 +4,7 @@
 // fourre-tout : c'est ce qui reste quand tout le reste a trouvé sa place, et le dire évite d'inventer
 // des modules d'un seul élément.
 
+import { CAPACITES } from '../../plateforme/capacites.js';
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
@@ -94,14 +95,14 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     ctx.startPick('ref', false, 'align');
   } });
 
-  cmd.bouton('pluInterrogerBtn', { id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', executer: (source) => ctx.interrogerPluDepuisBouton(source as HTMLButtonElement) });
+  cmd.bouton('pluInterrogerBtn', { id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code, executer: (source) => ctx.interrogerPluDepuisBouton(source as HTMLButtonElement) });
 
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on
    * peut ainsi voir monter ou descendre la configuration qu'on est en train d'éditer. C'est
    * l'inspecteur (zones/) qui montre le bouton et le tableau ; ici, seulement la bascule.
    */
-  cmd.declarer({ id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', executer: () => {
+  cmd.declarer({ id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', capacite: CAPACITES.terrasse.code, executer: () => {
     ctx.basculerOptimisation();
     ctx.rafraichirInspecteur();
   } });

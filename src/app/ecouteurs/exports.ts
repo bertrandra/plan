@@ -15,6 +15,7 @@
 // Les trois formats texte n'en utilisent pas les mêmes : le PDF n'a pas de contenu lisible à
 // afficher, le DXF n'a pas de lien de secours — un fichier CAO ne s'ouvre pas dans un onglet.
 
+import { CAPACITES } from '../../plateforme/capacites.js';
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
@@ -49,8 +50,8 @@ function direTelechargement(nomFichier: string): void {
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
   // Les exports sont des entrees du menu Exporter (zones/BarreApplication.tsx) : des commandes sans
   // bouton dans le balisage. Seul « Générer le résumé » garde le sien, dans l'onglet Résumé du tiroir.
-  const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void) =>
-    cmd.declarer({ id, libelle, groupe: 'export', executer: (source) => action(source as HTMLButtonElement) });
+  const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
+    cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;
@@ -114,7 +115,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     } catch (err) {
       showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
     }
-  });
+  }, CAPACITES.exportDxf.code);
 
   // Pas d'affichage dans la zone : un PDF n'a pas de contenu lisible à copier.
   surClic('exportPdfBtn', 'export.pdf', 'Exporter en PDF', () => {
@@ -139,7 +140,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     const nbEquip = [...res.equipements.values()].reduce((s, l) => s + l.length, 0);
     showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
       ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
-  });
+  }, CAPACITES.exportDossier.code);
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.

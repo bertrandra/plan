@@ -5,6 +5,7 @@
 // intéressantes : masquer le voisinage peut retirer de l'écran l'objet en cours d'édition, et la 3D
 // se construit à partir des objets visibles, donc elle se **reconstruit** au lieu de se redessiner.
 
+import { CAPACITES } from '../../plateforme/capacites.js';
 import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, syncControlesOrtho } from '../../render/ortho.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
@@ -61,12 +62,12 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
   // — c'est elle qui redessine quand elle a fini.
-  cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
     void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho());
   } });
 
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
-  cmd.declarer({ id: 'affichage.orthoOpacite', libelle: 'Opacité de la photo', groupe: 'affichage', executer: (source) => {
+  cmd.declarer({ id: 'affichage.orthoOpacite', libelle: 'Opacité de la photo', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.opacite = v / 100;
@@ -77,7 +78,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     enregistrerConfigOrtho(ctx.ctxOrtho());
   } });
 
-  cmd.declarer({ id: 'affichage.orthoParcelleOpacite', libelle: 'Remplissage de la parcelle', groupe: 'affichage', executer: (source) => {
+  cmd.declarer({ id: 'affichage.orthoParcelleOpacite', libelle: 'Remplissage de la parcelle', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.parcelleOpacite = v / 100;

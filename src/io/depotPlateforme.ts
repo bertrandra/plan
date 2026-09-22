@@ -45,6 +45,11 @@ function echec(message: string, motif: MotifEchec): Error & { reason: MotifEchec
  * projet d'un autre locataire, et l'interface doit dire la meme chose dans les deux cas.
  */
 function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
+  // Une defaillance qui porte deja son motif est une defaillance que ce module a levee lui-meme —
+  // le refus d'un document qui n'est pas un plan, par exemple. La retraduire en « reseau » ferait
+  // dire au programme que la plateforme n'a pas repondu alors qu'elle a tres bien repondu, et le
+  // repli qui depend de ce motif ne se declencherait jamais.
+  if (e && typeof e === 'object' && 'reason' in e) return e as Error & { reason: MotifEchec };
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
