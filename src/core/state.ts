@@ -43,6 +43,14 @@ export interface EtatApp {
   terrasseSelectedKey: string | null;
   /** Les couches de la terrasse courante (vis, solives, lames…) dessinees sur le plan. */
   calquesVisibles: boolean;
+  /**
+   * Le plan ne peut pas etre modifie : la personne n'a pas `projects.write` sur la plateforme.
+   *
+   * Pose ici et non lu depuis les droits, parce que les gestes du pointeur vivent dans
+   * `interaction/` et n'ont rien a savoir d'une plateforme. La racine de composition le remplit
+   * une fois le contexte lu ; hors plateforme, il reste faux.
+   */
+  lectureSeule: boolean;
 
   // Transformation de la scene (deja sortie en phase 4b)
   scene: EtatScene;
@@ -91,6 +99,7 @@ export function creerEtat(
     // Les cotes plutot qu'un onglet de terrasse : ceux-la recalculent le chiffrage et l'ecrivent
     // dans le projet des qu'ils s'ouvrent, ce que l'ancien mode Terrasse ne faisait qu'a la demande.
     panelTab: 'mesure',
+    lectureSeule: false,
     terrasseSelectedKey: null,
     calquesVisibles: false,
 

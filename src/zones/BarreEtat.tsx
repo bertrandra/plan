@@ -26,6 +26,12 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   return (
     <>
       <span id="projectStatus" className={p.statut === 'local' ? 'local' : ''}>{statut}</span>
+      {/* Un plan qu'on ne peut pas enregistrer doit le dire avant qu'on l'ait modifie pour rien. */}
+      {etat.lectureSeule && (
+        <span className="etatLectureSeule" title="Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.">
+          Lecture seule
+        </span>
+      )}
       <span className="etatSelection" title="Objet selectionne">{selection ? selection.name : 'Aucune selection'}</span>
       <span className="etatEchelle" title="Echelle du plan a l'ecran">1 m = {Math.round(etat.scene.scale)} px</span>
       <span className="etatPointeur" title="Position du pointeur sur le plan, en metres">

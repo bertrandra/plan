@@ -19,6 +19,19 @@ export function poserAcces(s: Session, c: ServiceContexte): void {
   contexte = c;
 }
 
+/** Le droit d'ecrire sur l'organisation, tel que la plateforme le nomme. */
+export const PERMISSION_ECRITURE = 'projects.write';
+
+/**
+ * Le plan est-il en lecture seule ?
+ *
+ * Vrai quand une plateforme a repondu et que cette personne n'a pas `projects.write`. Hors
+ * plateforme — sous vitest, par exemple — faux : il n'y a personne a qui demander.
+ */
+export function enLectureSeule(): boolean {
+  return contexte !== null && !contexte.aPermission(PERMISSION_ECRITURE);
+}
+
 export function sessionCourante(): Session | null { return session; }
 export function contexteCourant(): ServiceContexte | null { return contexte; }
 

@@ -41,7 +41,7 @@ import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
-import { droitsCourants } from './acces.js';
+import { droitsCourants, enLectureSeule } from './acces.js';
 import { creerMagasin } from './magasin.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
@@ -186,6 +186,10 @@ function boot(seed: GraineDemarrage): void {
 // fermeture l'a rejoint au fil de la migration. La normalisation est passee en parametre parce
 // que c'est ici, et non dans core/, qu'on decide de quoi normaliser (§3.3).
 const etat = creerEtat(seed, normaliserEnObjetsDuPlan);
+// Lecture seule : la personne n'a pas `projects.write` sur la plateforme. Pose sur l'etat parce
+// que les gestes du pointeur (interaction/) le lisent, et qu'ils n'ont rien a savoir d'une
+// plateforme. Hors plateforme, faux.
+etat.lectureSeule = enLectureSeule();
 // Etape 0 de la reconstruction de l'interface (spec-ihm-zones §6) : le magasin observe l'etat, le
 // registre nomme les commandes. Ni l'un ni l'autre ne change l'ecran.
 const magasin = creerMagasin(etat);

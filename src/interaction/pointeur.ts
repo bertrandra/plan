@@ -168,7 +168,9 @@ svg.addEventListener('pointerdown', e=>{
       // further down in this same handler, for the drag-start case, suppresses it)
       lastObjClick = {key:null, time:0, x:0, y:0};
       const objDbl = objByKey(key)!;
-      ctx.sendObjectBackward(objDbl);
+      // Reculer un objet change l'ordre d'empilement, qui fait partie du projet : c'est une
+      // modification comme une autre, et la lecture seule la refuse comme les autres.
+      if(!etat.lectureSeule) ctx.sendObjectBackward(objDbl);
       e.preventDefault();
       return;
     }
@@ -180,6 +182,10 @@ svg.addEventListener('pointerdown', e=>{
     }
     const obj = objByKey(key)!;
     if(obj.locked) return; // locked: selectable/viewable but not movable
+    // Lecture seule : on selectionne, on regarde, on exporte — on ne deplace rien. Le refus est
+    // ici plutot que plus bas pour qu'aucun pas d'annulation ne soit empile pour un geste qui
+    // n'aura pas lieu.
+    if(etat.lectureSeule) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
     if(obj.type==='circle'){
@@ -197,6 +203,7 @@ svg.addEventListener('pointerdown', e=>{
     if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key) as ObjetAPoints; const idx=parseInt(ds.index!,10);
     if(obj.locked) return;
+    if(etat.lectureSeule) return;
     const nowTp = Date.now();
     if(lastPointClick.key===ds.key && lastPointClick.index===idx && (nowTp-lastPointClick.time)<400){
       lastPointClick = {key:null, index:null, time:0};
@@ -216,6 +223,7 @@ svg.addEventListener('pointerdown', e=>{
     if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key) as ObjetAPoints; const i=parseInt(ds.index!,10); const n=obj.pts.length; const j=(i+1)%n;
     if(obj.locked) return;
+    if(etat.lectureSeule) return;
     const nowT = Date.now();
     if(lastEdgeClick.key===ds.key && lastEdgeClick.index===i && (nowT-lastEdgeClick.time)<400){
       lastEdgeClick = {key:null, index:null, time:0};
@@ -233,6 +241,7 @@ svg.addEventListener('pointerdown', e=>{
     if(ds.key !== etat.selectedKey) return;
     const obj = objByKey(ds.key) as ObjetAPoints;
     if(obj.locked) return;
+    if(etat.lectureSeule) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
     activeDrag = {type:'radius', obj, startWorld:w, startR:enCercle(obj as ObjetPlan).r};

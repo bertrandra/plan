@@ -442,3 +442,17 @@
   .porteLiens a{ color:var(--ink-soft); }
   /* La reference de requete : discrete, mais selectionnable — c'est fait pour etre recopie. */
   .porteRef{ margin:0; font-family:ui-monospace,monospace; font-size:0.7rem; color:var(--ink-soft); user-select:all; }
+
+  /* Lecture seule : visible sans etre alarmant — c'est un etat, pas une panne. */
+  .etatLectureSeule{
+    padding:1px 7px; border-radius:9px; font-weight:700; font-size:0.72rem;
+    background:var(--accent-light); color:var(--ink); border:1px solid var(--rule);
+  }
+
+  /* La pastille de la porte : l'etat de la plateforme avant qu'on saisisse quoi que ce soit.
+     La couleur ne porte pas seule — le mot a cote dit la meme chose, pour qui ne la voit pas. */
+  .portePastille{ margin:0; display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--ink-soft); }
+  .porteDot{ width:8px; height:8px; border-radius:50%; flex:none; }
+  .porteDot--oui{ background:#2e7d32; }
+  .porteDot--non{ background:#c62828; }
+  .porteDot--essai{ background:var(--ink-soft); opacity:0.45; }

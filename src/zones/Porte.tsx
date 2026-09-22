@@ -9,7 +9,7 @@
 // compte, le choix de la langue. Ce sont les ecrans de la plateforme, atteints par un lien
 // ordinaire. Les reimplementer ferait de Plan une seconde autorite (spec §10).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Fermeture } from '../plateforme/contexte.js';
 
 export interface PropsPorte {
@@ -18,6 +18,49 @@ export interface PropsPorte {
   ouvrir: (email: string, motDePasse: string) => Promise<string | null>;
   /** L'origine de la plateforme, pour les liens qui lui appartiennent. */
   plateforme: string;
+}
+
+/**
+ * La pastille : la plateforme repond-elle, ici et maintenant ?
+ *
+ * Elle ne remplace pas le message d'erreur d'une tentative — elle le precede. Quelqu'un qui voit
+ * « adresse ou mot de passe refuse » sur une plateforme injoignable cherchera son mot de passe
+ * pendant dix minutes ; la pastille lui dit en une seconde que le probleme est ailleurs.
+ *
+ * On interroge `GET /auth/jwks`, qui est publique, sans corps et sans effet : c'est la seule route
+ * du contrat qu'on puisse appeler sans session et sans rien deranger.
+ */
+type Joignable = 'essai' | 'oui' | 'non';
+
+function Pastille({ plateforme }: { plateforme: string }) {
+  const [etat, setEtat] = useState<Joignable>('essai');
+
+  useEffect(() => {
+    let vivant = true;
+    const stop = new AbortController();
+    // Huit secondes : au-dela, une plateforme qui ne repond pas est une plateforme injoignable
+    // pour qui attend devant un formulaire, quelle qu'en soit la raison.
+    const minuterie = setTimeout(() => { stop.abort(); }, 8000);
+    // `cache: 'no-store'` n'est pas un detail : la plateforme declare ses cles publiques
+    // cachables cinq minutes, et sans cela le navigateur repondait 200 depuis son cache alors que
+    // la plateforme etait eteinte. Une pastille qui dit « connectee » sur une plateforme arretee
+    // est pire que pas de pastille du tout.
+    fetch(plateforme.replace(/\/+$/, '') + '/api/v1/auth/jwks', { signal: stop.signal, cache: 'no-store' })
+      .then((r) => { if (vivant) setEtat(r.ok ? 'oui' : 'non'); })
+      .catch(() => { if (vivant) setEtat('non'); })
+      .finally(() => { clearTimeout(minuterie); });
+    return () => { vivant = false; stop.abort(); clearTimeout(minuterie); };
+  }, [plateforme]);
+
+  const titre = etat === 'oui' ? 'La plateforme repond : ' + plateforme
+    : etat === 'non' ? 'La plateforme ne repond pas : ' + plateforme
+    : 'Test de la plateforme en cours…';
+  return (
+    <p className="portePastille" title={titre}>
+      <span className={'porteDot porteDot--' + etat} aria-hidden="true" />
+      {etat === 'oui' ? 'Plateforme connectée' : etat === 'non' ? 'Plateforme injoignable' : 'Plateforme…'}
+    </p>
+  );
 }
 
 export function Porte({ fermeture, ouvrir, plateforme }: PropsPorte) {
@@ -50,6 +93,7 @@ function Formulaire({ ouvrir, plateforme }: { ouvrir: PropsPorte['ouvrir']; plat
       <form className="porteBoite" onSubmit={(e) => { void soumettre(e); }}>
         <h2 className="porteTitre">Plan interactif</h2>
         <p className="porteSous">Votre compte est celui de la plateforme.</p>
+        <Pastille plateforme={plateforme} />
         {refus && <p className="porteRefus" role="alert">{refus}</p>}
         <label className="porteChamp">
           <span>Adresse</span>
@@ -64,8 +108,14 @@ function Formulaire({ ouvrir, plateforme }: { ouvrir: PropsPorte['ouvrir']; plat
         <button type="submit" className="porteBouton" disabled={enCours}>
           {enCours ? 'Connexion…' : 'Se connecter'}
         </button>
+        {/*
+          * Le mot de passe oublié est un écran de la plateforme, et il n’a pas d’adresse à lui :
+          * c’est un bouton de son écran de connexion. On envoie donc à sa racine, où un visiteur
+          * sans session tombe précisément dessus. Refaire le formulaire ici ferait de Plan une
+          * seconde autorité sur les mots de passe, ce que le §10 de la spécification interdit.
+          */}
         <p className="porteLiens">
-          <a href={plateforme.replace(/\/api\/v1$/, '') + '/forgot-password'}>Mot de passe oublié</a>
+          <a href={plateforme}>Mot de passe oublié, sur la plateforme</a>
         </p>
       </form>
     </div>
