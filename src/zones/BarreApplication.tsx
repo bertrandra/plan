@@ -46,10 +46,14 @@ interface PropsMenu { magasin: Magasin; commandes: RegistreCommandes }
 /** Une entree de menu qui execute une commande, grisee si la commande ne l'est pas. */
 function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes: RegistreCommandes; id: string; libelle: string; idDom?: string; apres?: () => void; raccourci?: string }) {
   const c = commandes.obtenir(id);
-  const actif = !!c && (!c.actif || c.actif());
+  const etat = commandes.etat(id);
+  // Effacee plutot que grisee quand l'organisation n'a pas achete la fonction (spec §4.2).
+  if (!etat.utilisable && etat.raison === 'capacite') return null;
+  const actif = etat.utilisable;
+  const refus = !etat.utilisable && 'message' in etat ? etat.message : null;
   return (
     <li role="menuitem">
-      <button type="button" id={idDom} data-commande={id} disabled={!actif} title={c?.description}
+      <button type="button" id={idDom} data-commande={id} disabled={!actif} title={refus || c?.description}
         onClick={(e) => { commandes.executer(id, e.currentTarget); if (apres) apres(); fermer(e); }}>
         <span className="coche" aria-hidden="true" />{libelle}
         {raccourci && <kbd>{raccourci}</kbd>}

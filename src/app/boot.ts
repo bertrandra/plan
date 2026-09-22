@@ -41,6 +41,7 @@ import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
+import { droitsCourants } from './acces.js';
 import { creerMagasin } from './magasin.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
@@ -188,7 +189,9 @@ const etat = creerEtat(seed, normaliserEnObjetsDuPlan);
 // Etape 0 de la reconstruction de l'interface (spec-ihm-zones §6) : le magasin observe l'etat, le
 // registre nomme les commandes. Ni l'un ni l'autre ne change l'ecran.
 const magasin = creerMagasin(etat);
-const commandes = creerRegistre();
+// Les droits viennent de la plateforme quand il y en a une, et laissent tout passer sinon
+// (app/acces.ts). Le registre les consulte a chaque etat de commande, jamais une fois pour toutes.
+const commandes = creerRegistre(document, droitsCourants());
 
 // Ce dont la barre de projet, l'actualisation cadastrale et le panneau PLU ont besoin. Fabrique a
 // chaque appel : ce contexte porte des fonctions qui n'existent qu'une fois boot() lance.

@@ -50,9 +50,14 @@ export function Palette({ magasin, commandes }: PropsPalette) {
         <div key={g.titre} className="paletteGroupe" role="group" aria-label={g.titre}>
           {g.outils.map((o) => {
             const c = commandes.obtenir(o.id);
+            const etat = commandes.etat(o.id);
+            // Une capacite non achetee efface l'outil : un outil de travail n'est pas une publicite.
+            if (!etat.utilisable && etat.raison === 'capacite') return null;
             // L'annulation ne connait sa pile que par le magasin : l'historique la lui signale.
-            const actif = o.id === 'objet.annuler' ? peutAnnuler : !!c && (!c.actif || c.actif());
-            const titre = (c ? c.libelle : o.libelle) + (c && c.raccourci ? ' (' + c.raccourci + ')' : '');
+            const actif = o.id === 'objet.annuler' ? peutAnnuler : etat.utilisable;
+            const refus = !etat.utilisable && 'message' in etat ? etat.message : null;
+            const titre = (c ? c.libelle : o.libelle) + (c && c.raccourci ? ' (' + c.raccourci + ')' : '')
+              + (refus ? ' — ' + refus : '');
             return (
               <button key={o.id} type="button" className="outil" id={o.id === 'objet.annuler' ? 'undoBtn' : undefined}
                 title={titre} aria-label={titre} disabled={!actif} data-commande={o.id}

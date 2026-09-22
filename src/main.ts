@@ -27,7 +27,13 @@ async function demarrer(): Promise<void> {
     // demarre exactement comme en 1.2.0. L'import est dynamique pour la meme raison que celui de
     // boot.ts : un echec de chargement doit se voir dans le bandeau, pas en page blanche.
     const { franchirLaPorte } = await import('./app/porte.js');
-    await franchirLaPorte();
+    const acces = await franchirLaPorte();
+    if (acces) {
+      // Le point de rendez-vous : boot.ts lira les droits la (app/acces.ts). Pose avant l'import
+      // de boot, parce que le registre des commandes se construit pendant cet import.
+      const { poserAcces } = await import('./app/acces.js');
+      poserAcces(acces.session, acces.contexte);
+    }
     const { boot, loadInitialProject } = await import('./app/boot.js');
     try {
       const seed = await loadInitialProject();

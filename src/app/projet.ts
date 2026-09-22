@@ -74,6 +74,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Nouveau projet', groupe: 'projet',
+    permission: 'projects.write', quota: 'plan.documents',
     description: 'Cree un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
     executer: () => {
@@ -90,6 +91,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet', raccourci: 'Ctrl+S',
+    permission: 'projects.write',
     actif: () => seed.apiAvailable && !!courant,
     executer: async () => {
       if (!courant) return;
@@ -113,6 +115,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.supprimer', libelle: 'Supprimer', groupe: 'projet',
+    permission: 'projects.write',
     description: 'Supprimer ce projet du serveur',
     actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
     executer: () => {
@@ -134,6 +137,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.
   cmd.declarer({
     id: 'projet.depuisAdresse', libelle: 'Depuis une adresse', groupe: 'projet',
+    permission: 'projects.write', quota: 'plan.documents',
     description: 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines',
     executer: () => {
       if (ctx.etat.dirty && seed.apiAvailable) {
