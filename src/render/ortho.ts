@@ -10,7 +10,7 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
-import { el, elOpt } from '../shell/dom.js';
+import { elOpt } from '../shell/dom.js';
 import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
@@ -125,7 +125,7 @@ export function syncControlesOrtho(){
   if(p) p.value = String(Math.round(ortho.parcelleOpacite*100));
   const pt = document.getElementById('orthoParcelleOpaciteTexte');
   if(pt) pt.textContent = Math.round(ortho.parcelleOpacite*100) + ' %';
-  const cb = el<HTMLInputElement>('chkOrtho');
+  const cb = elOpt<HTMLInputElement>('chkOrtho');
   if(cb) cb.checked = ortho.actif;
 }
 // Au chargement d'un projet : on restitue les reglages, et on rallume le fond s'il etait actif.
@@ -289,12 +289,12 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
 }
 export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho): Promise<void> {
   ortho.actif = actif;
-  const cbHaut = el<HTMLInputElement>('chkOrtho');
+  const cbHaut = elOpt<HTMLInputElement>('chkOrtho');
   if(cbHaut) cbHaut.checked = actif;
   if(!actif){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
   if(ortho.tuiles.length){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
   ortho.chargement = true;
-  const cb = el<HTMLInputElement>('chkOrtho');
+  const cb = elOpt<HTMLInputElement>('chkOrtho');
   if(cb) cb.disabled = true;
   try {
     const r = await chargerOrthophoto(ctx);

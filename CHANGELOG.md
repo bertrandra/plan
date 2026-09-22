@@ -3,6 +3,40 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.8] — 2026-09-22
+
+**Reconstruction de l'IHM : les menus de la barre d'application** (`MD/spec-ihm-zones.md` §4.1).
+Fichier, Exporter, Affichage et Aide ; le tiroir ne garde que les résultats. Les six artefacts sont
+identiques à ceux de l'`alpha.7`.
+
+### Modifié
+
+- **Fichier** : nouveau projet, enregistrer (Ctrl+S), supprimer — quand il y a un serveur — ;
+  nouveau plan depuis une adresse, actualiser depuis l'IGN ; importer un SVG, importer ou exporter le
+  projet JSON, avec leurs options (remplacer, sans la parcelle) en cases du menu. Les boutons de
+  l'ancienne barre de projet disparaissent ; restent le choix du projet et Enregistrer.
+- **Exporter** : résumé (qui ouvre l'onglet Résumé du tiroir), SVG, PNG, DXF, PDF avec son échelle,
+  dossier PDF des terrasses avec l'option des équipements, GLB.
+- **Affichage** gagne les deux opacités du fond orthophoto et le remplissage conseillé, qui
+  étaient au fond de l'onglet Affichage.
+- **Aide** : la méthode de calcul (l'onglet du tiroir, pour une terrasse sélectionnée) et la
+  version.
+- **Le tiroir** ne porte plus que Cotes, PLU, Résumé et, pour une terrasse sélectionnée, ses
+  résultats. Il s'ouvre sur Cotes.
+
+### Interne
+
+- `zones/BarreApplication.tsx` : les quatre menus ; les réglages qui accompagnent une commande
+  (échelle du PDF, cases des imports, curseurs du fond) sont des champs non contrôlés qui gardent
+  leur identifiant, par lequel la commande les lit au moment d'agir.
+- Les commandes d'export, d'import et de fond sont déclarées sans bouton (`app/ecouteurs/exports.ts`,
+  `fichiers.ts`, `affichage.ts`) ; les curseurs sont deux commandes qui lisent leur `source`.
+  `render/ortho.ts` tolère l'absence de la case du fond.
+- `zones/monter.tsx` rend les zones en `flushSync` : le démarrage lit les curseurs des menus par
+  leur identifiant juste après.
+- Supprimés d'`index.html` : `#panelAffichage`, `#panelExport` ; les deux champs de fichier cachés
+  remontent en tête de page.
+
 ## [1.2.0-alpha.7] — 2026-09-22
 
 **Reconstruction de l'IHM, étape 6 : les dialogues et les notifications** (`MD/spec-ihm-zones.md`

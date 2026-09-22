@@ -47,8 +47,10 @@ function direTelechargement(nomFichier: string): void {
 }
 
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
-  const surClic = (idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void) =>
-    cmd.bouton(idDom, { id, libelle, groupe: 'export', executer: (source) => action(source as HTMLButtonElement) });
+  // Les exports sont des entrees du menu Exporter (zones/BarreApplication.tsx) : des commandes sans
+  // bouton dans le balisage. Seul « Générer le résumé » garde le sien, dans l'onglet Résumé du tiroir.
+  const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void) =>
+    cmd.declarer({ id, libelle, groupe: 'export', executer: (source) => action(source as HTMLButtonElement) });
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;
@@ -99,7 +101,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   });
 
   // Le résumé ne se télécharge pas : il est fait pour être copié dans un message.
-  surClic('exportBtn', 'export.resume', 'Générer le résumé', () => { afficherDansLaBoite(ctx.construireResume()); });
+  cmd.bouton('exportBtn', { id: 'export.resume', libelle: 'Générer le résumé', groupe: 'export', executer: () => { afficherDansLaBoite(ctx.construireResume()); } });
 
   surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;

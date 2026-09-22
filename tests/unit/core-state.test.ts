@@ -46,7 +46,7 @@ describe('etat de l application', () => {
     const etat = creerEtat({}, identite);
     expect(etat.terrasseSelectedKey).toBeNull();
     expect(etat.calquesVisibles).toBe(false);
-    expect(etat.panelTab).toBe('affichage');
+    expect(etat.panelTab).toBe('mesure');
     expect(etat.grilleVisible).toBe(true);
     expect(etat.voisinageVisible).toBe(true);
     expect(etat.showNorth).toBe(true);

@@ -12,9 +12,6 @@
 // selectionnee (decision 4 de la spec) : la terrasse courante, elle, survit a la selection d'un
 // parasol pour que l'inspecteur et la 3D gardent leur contexte, mais les resultats sont ceux de
 // ce qu'on a sous la main — sinon un plan a une terrasse montrerait son chiffrage en permanence.
-//
-// Deux onglets ne sont pas des resultats — Affichage et Export / Import — et attendent les menus
-// de la barre d'application (§4.1) : ils restent ici en attendant, a part, pour ne rien perdre.
 
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -27,8 +24,8 @@ export interface Onglet {
   libelle: string;
   /** Le panneau d'index.html que l'onglet montre. */
   panneau: string;
-  /** `terrasse` : n'existe qu'avec une terrasse selectionnee ; `reglages` : en attente des menus de Z1. */
-  groupe: 'terrasse' | 'plan' | 'reglages';
+  /** `terrasse` : n'existe qu'avec une terrasse selectionnee. */
+  groupe: 'terrasse' | 'plan';
 }
 
 export const ONGLETS: Onglet[] = [
@@ -39,9 +36,7 @@ export const ONGLETS: Onglet[] = [
   { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },
   { id: 'mesure', libelle: 'Cotes', panneau: 'panelMesure', groupe: 'plan' },
   { id: 'plu', libelle: 'PLU', panneau: 'panelPlu', groupe: 'plan' },
-  { id: 'resume', libelle: 'Résumé', panneau: 'panelResume', groupe: 'plan' },
-  { id: 'affichage', libelle: 'Affichage', panneau: 'panelAffichage', groupe: 'reglages' },
-  { id: 'export', libelle: 'Export / Import', panneau: 'panelExport', groupe: 'reglages' }
+  { id: 'resume', libelle: 'Résumé', panneau: 'panelResume', groupe: 'plan' }
 ];
 
 /** Les onglets qui se montrent : ceux d'une terrasse seulement quand une terrasse est selectionnee. */

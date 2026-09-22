@@ -55,7 +55,7 @@
   details.menu > summary::-webkit-details-marker{ display:none; }
   details.menu[open] > summary{ background:var(--accent-light); }
   details.menu > ul{
-    position:absolute; top:100%; left:0; z-index:60; margin:4px 0 0; padding:4px; list-style:none; min-width:200px;
+    position:absolute; top:100%; left:0; z-index:60; margin:4px 0 0; padding:4px; list-style:none; min-width:240px;
     background:var(--panel-bg); border:1px solid var(--border); border-radius:4px; box-shadow:0 4px 12px rgba(59,46,31,0.18);
   }
   details.menu li button{
@@ -64,6 +64,17 @@
   }
   details.menu li button:hover{ background:var(--accent-light); opacity:1; }
   details.menu .coche{ display:inline-block; width:1.1em; color:var(--accent); font-weight:700; }
+  details.menu li button kbd{ margin-left:auto; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.68rem; color:var(--ink-soft); }
+  details.menu li button:disabled{ opacity:0.4; cursor:not-allowed; }
+  details.menu li.separateur{ height:1px; background:var(--rule); margin:4px 6px; }
+  details.menu li.menuCase label, details.menu li.menuReglage label{
+    display:flex; align-items:center; gap:8px; padding:6px 10px 6px 12px; min-height:32px; cursor:pointer; font-size:0.76rem; color:var(--ink);
+  }
+  details.menu li.menuCase input{ width:18px; height:18px; margin:0; }
+  details.menu li.menuReglage input[type=number]{ width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink); }
+  details.menu li.menuReglage input[type=range]{ flex:1; min-width:90px; }
+  details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
+  details.menu li.menuAide{ padding:4px 12px 6px; font-family:"Georgia",serif; font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
   /* Z7 : la barre d'etat, fixee en bas de la fenetre, jamais cliquable. */
   #zoneEtat{
     position:fixed; left:0; right:0; bottom:0; z-index:50;

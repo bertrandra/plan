@@ -2301,3 +2301,39 @@ téléchargement à l'export SVG, sans lien de secours ; confirmation de suppres
 bouton, par Échap, puis confirmée ; bandeau d'erreur qui reste et se ferme ; un polygone passé en
 « parasol » sans section Parasol ; les onglets de terrasse qui suivent la sélection. 570 tests,
 dont sept pour les deux listes observables.
+
+## Reconstruction de l'IHM — les menus de la barre d'application (22 septembre 2026, `1.2.0-alpha.8`)
+
+**Ce qui restait.** Les six étapes du §6 étaient faites, mais le tiroir portait encore deux onglets
+qui n'étaient pas des résultats — Affichage et Export / Import — parce que la spec les destine aux
+menus de Z1 (§4.1) et que ces menus n'existaient pas. Les voici : Fichier, Exporter, Affichage,
+Aide, dans `zones/BarreApplication.tsx`.
+
+**Une commande, et son réglage à côté.** Plusieurs commandes lisent un réglage au moment d'agir :
+l'échelle du PDF, « remplacer le plan » à l'import, « sans la parcelle » à l'export, l'emprise des
+équipements pour le dossier, les deux opacités du fond. Ces réglages sont des champs non contrôlés
+dans le menu, qui gardent l'identifiant qu'ils avaient dans l'onglet : c'est par lui que la
+commande les lit (`pdfScaleInput`, `chkJsonRemplace`…) et que `render/ortho.ts` remet les curseurs
+en accord quand un projet restitue son fond. Rien à réécrire dans les commandes, et un réglage
+qui reste sous la main de qui l'a demandé.
+
+**Le démarrage lit les menus.** `restaurerOrthoDuProjet` remet les curseurs par leur identifiant
+juste après le montage des zones ; React ne s'engage pas à avoir rendu au retour de `render()`.
+`zones/monter.tsx` enveloppe le montage dans `flushSync`, et les champs existent au retour.
+
+**La barre de projet** ne garde que le choix du projet et Enregistrer, les gestes de chaque
+session ; nouveau, supprimer, depuis une adresse, actualiser IGN sont dans Fichier.
+
+### Ce que ça change d'usage
+
+Tout ce qui concerne le fichier et le projet est dans Fichier, tout ce qui en sort dans Exporter,
+tout ce qu'on voit dans Affichage. Le tiroir ne montre que des résultats et s'ouvre sur Cotes.
+« Aide › Méthode de calcul » ouvre la méthode de la terrasse sélectionnée.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.7` par la preuve forte — les identifiants des
+exports étant conservés, le protocole de capture n'a pas changé. Sur le build : les quatre menus
+et leurs entrées, l'export SVG depuis le menu avec son toast, le résumé qui ouvre l'onglet du
+tiroir, les curseurs du fond qui changent leur valeur, la version dans Aide, le tiroir à trois
+onglets sans terrasse sélectionnée. 570 tests.

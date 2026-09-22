@@ -32,8 +32,7 @@ export function Resultats({ magasin, tiroir }: PropsResultats) {
         groupePrecedent = o.groupe;
         return (
           <button key={o.id} type="button" role="tab" data-onglet={o.id} aria-selected={o.id === actif}
-            className={'ongletResultats' + (o.id === actif ? ' active' : '') + (separateur ? ' debutGroupe' : '') + (o.groupe === 'reglages' ? ' reglages' : '')}
-            title={o.groupe === 'reglages' ? 'Réglage, en attente des menus de la barre d\'application' : undefined}
+            className={'ongletResultats' + (o.id === actif ? ' active' : '') + (separateur ? ' debutGroupe' : '')}
             onClick={() => tiroir.activer(o.id)}>
             {o.libelle}
           </button>

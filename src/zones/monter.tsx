@@ -3,6 +3,7 @@
 // Une racine par zone : elles n'ont rien a partager entre elles, tout passe par le magasin et le
 // registre. Un conteneur absent est une erreur de balisage, pas un cas a tolerer.
 
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { BarreApplication } from './BarreApplication.js';
 import { BarreEtat } from './BarreEtat.js';
@@ -36,7 +37,10 @@ function conteneur(id: string): HTMLElement {
 }
 
 export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir }: DependancesZones): void {
-  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} />);
+  // Rendu force synchrone : le code qui suit dans boot() lit des champs des menus par leur
+  // identifiant (curseurs du fond orthophoto), qui doivent donc exister au retour.
+  flushSync(() => {
+  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} tiroir={tiroir} />);
   createRoot(conteneur('zonePalette')).render(<Palette magasin={magasin} commandes={commandes} />);
   createRoot(conteneur('zoneExplorateur')).render(<Explorateur magasin={magasin} commandes={commandes} explorateur={explorateur} />);
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} />);
@@ -45,4 +49,5 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
   createRoot(conteneur('zoneDialogues')).render(<Dialogues />);
   createRoot(conteneur('zoneNotifications')).render(<Notifications />);
+  });
 }

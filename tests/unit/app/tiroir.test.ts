@@ -4,7 +4,7 @@ import { ONGLETS, ongletsVisibles } from '../../../src/app/tiroir.js';
 describe('les onglets du tiroir', () => {
   it('cachent ceux de la terrasse quand aucune n est selectionnee', () => {
     const sans = ongletsVisibles(false).map(o => o.id);
-    expect(sans).toEqual(['mesure', 'plu', 'resume', 'affichage', 'export']);
+    expect(sans).toEqual(['mesure', 'plu', 'resume']);
   });
 
   it('les montrent tous avec une terrasse selectionnee, la terrasse en premier', () => {

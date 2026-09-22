@@ -9,6 +9,9 @@
 
 <!-- Z1, la barre d'application (zones/BarreApplication.tsx) : projet, vues, titre. -->
 <div id="zoneBarre"></div>
+<!-- Les selecteurs de fichiers des imports (menu Fichier) : caches, declenches par leur commande. -->
+<input type="file" id="importSvgFile" accept=".svg,image/svg+xml" style="display:none;">
+<input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;">
 
 <!-- Z2, la palette (zones/Palette.tsx), Z3, l'explorateur (zones/Explorateur.tsx), Z4, le canevas
      avec ses commandes en surimpression (zones/Surimpression.tsx), et Z5, l'inspecteur (zones/Inspecteur.tsx). -->
@@ -228,82 +231,6 @@
     </div>
     <div class="hint">Le résumé décrit le plan en texte : parcelle, objets, surfaces, terrasses et cotes. Il se copie tel quel.</div>
     <textarea id="exportBox" readonly></textarea>
-  </div>
-
-  <div id="panelAffichage" style="display:none;">
-    <!-- Voisinage et fond orthophoto : deplaces de l'ancienne barre de vues a l'etape 1 ; ils rejoindront
-         le menu Affichage de la barre d'application (spec-ihm-zones §4.1). -->
-  <div class="controls" style="display:inline-flex; align-items:center; gap:16px;">
-    <label id="voisinageToggle" style="display:none; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Masque les parcelles adjacentes et tout ce qui a ete importe avec elles (bati, vegetation, arbres estimes), sur le plan comme en 3D. Rien n'est supprime.">
-      <input type="checkbox" id="chkVoisinage" checked> 🏘️ Voisinage
-    </label>
-    <label id="orthoToggle" style="display:inline-flex; align-items:center; gap:6px; font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap;" title="Photographie aerienne IGN posee sous le plan et sous la Vue 3D, calee sur la position reelle de la parcelle. Reglages (opacites) dans l'onglet Affichage.">
-      <input type="checkbox" id="chkOrtho"> 🛰️ Fond orthophoto
-    </label>
-  </div>
-    <div class="controls">
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkNorth" checked> Afficher la flèche Nord</label>
-    </div>
-    <div class="sectionTitle">Fond orthophoto (IGN)</div>
-    <div class="controls" style="align-items:center;">
-      <span style="font-size:0.82rem;" title="Opacite de la photo aerienne elle-meme">Photo</span>
-      <input type="range" id="orthoOpacite" min="20" max="100" step="5" value="85" style="max-width:150px;">
-      <span id="orthoOpaciteTexte" style="font-size:0.82rem; font-variant-numeric:tabular-nums; min-width:44px;">85 %</span>
-      <span style="font-size:0.82rem; margin-left:18px;" title="Remplissage du terrain par-dessus la photo : a 100 % la parcelle masque exactement ce qu'on veut voir">Remplissage parcelle</span>
-      <input type="range" id="orthoParcelleOpacite" min="0" max="100" step="5" value="15" style="max-width:150px;">
-      <span id="orthoParcelleOpaciteTexte" style="font-size:0.82rem; font-variant-numeric:tabular-nums; min-width:44px;">15 %</span>
-      <button id="orthoParcelleDefaut" class="secondary small" title="Revenir a la valeur conseillee">15 % conseillé</button>
-    </div>
-    <div class="hint">La case d'activation est en haut de page, à côté des modes. Le remplissage de la parcelle s'applique <b>uniquement</b> quand le fond est affiché : le contour et les cotes restent intacts, seul le fond de couleur s'efface pour laisser voir la photo. Décocher le fond rend au terrain son remplissage d'origine.</div>
-    <div class="hint">Le calage est exact sur un plan importé depuis une adresse ; ailleurs, il suit le lieu déclaré de la parcelle. Les tuiles ne sont pas enregistrées dans le projet (elles sont retéléchargées), mais ces réglages, eux, le sont.</div>
-  </div>
-
-
-  <div id="panelExport" style="display:none;">
-    <div class="sectionTitle">Export / Import</div>
-    <div class="controls">
-      <button id="exportSvgBtn" class="secondary">Exporter en SVG</button>
-      <button id="exportPngBtn" class="secondary">Exporter en PNG</button>
-      <button id="exportDxfBtn" class="secondary">Exporter en DXF</button>
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;">
-        Échelle 1/<input type="number" id="pdfScaleInput" value="200" min="1" step="1" style="width:70px; padding:3px 5px; border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);">
-      </label>
-      <button id="exportPdfBtn" class="secondary">Exporter en PDF</button>
-    </div>
-    <div class="hint">L'échelle du PDF (1/200 par défaut) fixe la taille de la page en fonction de l'étendue du plan : à 1/200, 1 m réel = 5 mm sur papier.</div>
-    <div class="sectionTitle">Dossier PDF (plan de masse + terrasses)</div>
-    <div class="controls" style="align-items:flex-start;">
-      <span class="hint" style="margin:0;">Les terrasses du dossier se cochent dans l'explorateur, à gauche du plan.</span>
-    </div>
-    <div class="controls" style="align-items:center;">
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;" title="Spa, mobilier, parasol... : tout objet dont le centre tombe sur la terrasse"><input type="checkbox" id="chkDossierEquipements" checked> Inclure l'emprise des équipements posés sur la terrasse</label>
-      <button id="dossierPdfBtn" class="secondary" style="margin-left:14px;">Générer le dossier PDF</button>
-    </div>
-    <div class="hint">Page 1 : plan de masse à l'échelle, avec la parcelle, les bâtiments, les terrasses retenues (repérées S1, S2…) et leurs équipements. Puis une section par terrasse : son plan coté, l'emprise des équipements, et le tableau des dimensions. Format A4, échelle choisie automatiquement pour chaque page et rappelée sous le dessin.</div>
-
-    <div class="controls">
-      <button id="exportGlbBtn" class="secondary" title="Exporte la scene 3D de la terrasse selectionnee (avec les reglages actuels : tous les objets, textures, opacite) en fichier .glb">Exporter en GLB (3D)</button>
-    </div>
-    <div class="hint">Le GLB reprend la scene 3D telle que reglee dans l'onglet Vue 3D (filaire, tous les objets, textures, opacite) - ouvrable dans Blender, un visualiseur GLB, ou tout logiciel qui lit le format.</div>
-    <div class="controls">
-      <button id="importSvgBtn" class="secondary">Importer un SVG</button>
-      <input type="file" id="importSvgFile" accept=".svg,image/svg+xml" style="display:none;">
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkReplaceOnImport"> Supprimer les objets existants avant d'importer</label>
-    </div>
-    <div class="hint">L'import fonctionne de façon exacte pour les fichiers exportés par cette appli (formes + noms + attributs récupérés). Pour un SVG externe, seules les formes (polygon/path/circle) sont importées, en unités = mètres, sans les noms/attributs.</div>
-    <div class="hint">Le DXF (format CAO ouvert, compatible AutoCAD/QGIS/etc.) est proposé à la place du DWG : le DWG est un format binaire propriétaire Autodesk qui ne peut pas être généré de façon fiable sans leur SDK. Le DXF s'ouvre dans la quasi-totalité des logiciels de CAO, y compris AutoCAD.</div>
-    <div class="sectionTitle">Projet (JSON)</div>
-    <div class="controls">
-      <button id="exportJsonBtn" class="secondary">Exporter le projet (JSON)</button>
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkExportSansParcelle"> Exporter sans la parcelle</label>
-    </div>
-    <div class="controls">
-      <button id="importJsonBtn" class="secondary">Importer un projet (JSON)</button>
-      <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;">
-      <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkJsonRemplace" checked> Remplacer le plan actuel</label>
-    </div>
-    <div class="hint">Le JSON est le format de sauvegarde de l'application : un export réimporté redonne le plan à l'identique (formes, noms, mesures, terrasse, textures, clôture). L'import n'écrit rien sur le serveur : le projet passe en « modifications non enregistrées » jusqu'à ce que vous cliquiez sur Enregistrer.</div>
-    <div class="hint">« Sans la parcelle » retire la parcelle et les parcelles voisines, ainsi que les mesures qui s'y appuient et la clôture qui leur est attachée : utile pour transmettre un aménagement sans divulguer la localisation.</div>
   </div>
 
   </div>

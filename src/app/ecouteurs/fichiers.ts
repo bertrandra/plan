@@ -2,7 +2,7 @@
 //
 // Les deux imports partagent une mécanique et un piège.
 //
-// **La mécanique** : un bouton visible déclenche le clic d'un `<input type="file">` caché — c'est la
+// **La mécanique** : une entrée de menu déclenche le clic d'un `<input type="file">` caché — c'est la
 // seule façon d'obtenir un sélecteur de fichiers avec l'apparence du reste.
 //
 // **Le piège** : il faut vider `input.value` après **chaque** lecture, réussie ou non. Sans cela,
@@ -49,7 +49,9 @@ function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSuc
 export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
-  cmd.bouton('importSvgBtn', { id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', executer: () => el('importSvgFile').click() });
+  // Les trois commandes sont des entrees du menu Fichier (zones/BarreApplication.tsx) ; seuls les
+  // deux champs de fichier caches restent dans le balisage.
+  cmd.declarer({ id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', executer: () => el('importSvgFile').click() });
 
   el('importSvgFile').addEventListener('change', function () {
     lireFichierTexte(this, 'Erreur de lecture du fichier SVG.', contenu => {
@@ -58,12 +60,12 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
     });
   });
 
-  cmd.bouton('exportJsonBtn', { id: 'fichier.exporterJson', libelle: 'Exporter le projet (JSON)', groupe: 'fichier', executer: () => {
+  cmd.declarer({ id: 'fichier.exporterJson', libelle: 'Exporter le projet (JSON)', groupe: 'fichier', executer: () => {
     try { ctx.exportProjetJSON(); }
     catch (e) { showErrBanner('Echec de l\'export JSON : ' + ((e as Error).message || e)); }
   } });
 
-  cmd.bouton('importJsonBtn', { id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', executer: () => el('importJsonFile').click() });
+  cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', executer: () => el('importJsonFile').click() });
 
   el('importJsonFile').addEventListener('change', function () {
     const file = this.files![0];

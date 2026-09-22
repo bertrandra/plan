@@ -88,9 +88,9 @@ export function creerEtat(
         ? objects[0]!.key
         : null,
     highlight: { type: null, index: null },
-    // Affichage plutot que Terrasse : l'onglet Terrasse recalcule le chiffrage et l'ecrit dans le
-    // projet des qu'il s'ouvre, ce que l'ancien mode Terrasse ne faisait qu'a la demande.
-    panelTab: 'affichage',
+    // Les cotes plutot qu'un onglet de terrasse : ceux-la recalculent le chiffrage et l'ecrivent
+    // dans le projet des qu'ils s'ouvrent, ce que l'ancien mode Terrasse ne faisait qu'a la demande.
+    panelTab: 'mesure',
     terrasseSelectedKey: null,
     calquesVisibles: false,
 
