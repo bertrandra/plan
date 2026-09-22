@@ -3,6 +3,24 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [Non publié]
+
+### Corrigé
+
+- **Les onglets de terrasse du tiroir — BOM, Plan de coupe, Implantation, Chantier, Méthode — ne
+  s'affichent que pour une terrasse sélectionnée**, comme la décision 4 de `MD/spec-ihm-zones.md`
+  le dit. Ils suivaient la terrasse *courante*, qui survit à la sélection d'un parasol et se rabat
+  sur la première terrasse du plan : un plan qui en avait une montrait son chiffrage en permanence,
+  quoi qu'on ait sous la main. La terrasse courante garde ce comportement pour l'inspecteur et la
+  3D ; le tiroir lit la sélection, et un onglet de terrasse ouvert se replie sur Cotes dès que la
+  sélection n'en est plus une.
+
+### Interne
+
+- `core/contexteTerrasse.ts` : `terrasseSelectionnee(etat)`, à côté de `terrasseCourante`.
+  `app/tiroir.ts` : `synchroniser(contexteChange)` remplace `apresChangementDeContexte()` et se
+  fait appeler à chaque rendu.
+
 ## [1.2.0-alpha.6] — 2026-09-22
 
 **Reconstruction de l'IHM, étape 5 : le tiroir des résultats** (`MD/spec-ihm-zones.md` §4.6, option A

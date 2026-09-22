@@ -42,3 +42,13 @@ export function synchroniserContexteTerrasse(etat: EtatContexteTerrasse): boolea
 export function terrasseCourante(etat: EtatContexteTerrasse): ObjetPlan | undefined {
   return etat.objects.find(o => o.key === etat.terrasseSelectedKey && estTerrasse(o));
 }
+
+/**
+ * La terrasse selectionnee, ou `undefined` : la selection est autre chose, ou rien. Plus etroit
+ * que la terrasse courante, qui survit a la selection d'un parasol — c'est ce que lisent les
+ * resultats (Z6), qui n'apparaissent que pour une terrasse selectionnee (decision 4).
+ */
+export function terrasseSelectionnee(etat: EtatContexteTerrasse): ObjetPlan | undefined {
+  const selection = etat.objects.find(o => o.key === etat.selectedKey);
+  return selection && estTerrasse(selection) ? selection : undefined;
+}

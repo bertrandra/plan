@@ -8,7 +8,10 @@
 // La barre d'onglets est une zone React (zones/Resultats.tsx) ; les panneaux, eux, restent du
 // balisage que `ui/` remplit — tables du BOM, coupe, implantation. Ce service tient la liste des
 // onglets, montre le panneau choisi, rafraichit ce qui doit l'etre a l'ouverture, et pose la
-// hauteur sur son conteneur. Les onglets d'une terrasse n'existent que s'il y en a une.
+// hauteur sur son conteneur. Les onglets d'une terrasse n'existent que quand une terrasse est
+// selectionnee (decision 4 de la spec) : la terrasse courante, elle, survit a la selection d'un
+// parasol pour que l'inspecteur et la 3D gardent leur contexte, mais les resultats sont ceux de
+// ce qu'on a sous la main — sinon un plan a une terrasse montrerait son chiffrage en permanence.
 //
 // Deux onglets ne sont pas des resultats — Affichage et Export / Import — et attendent les menus
 // de la barre d'application (§4.1) : ils restent ici en attendant, a part, pour ne rien perdre.
@@ -24,7 +27,7 @@ export interface Onglet {
   libelle: string;
   /** Le panneau d'index.html que l'onglet montre. */
   panneau: string;
-  /** `terrasse` : n'existe qu'avec une terrasse courante ; `reglages` : en attente des menus de Z1. */
+  /** `terrasse` : n'existe qu'avec une terrasse selectionnee ; `reglages` : en attente des menus de Z1. */
   groupe: 'terrasse' | 'plan' | 'reglages';
 }
 
@@ -41,9 +44,9 @@ export const ONGLETS: Onglet[] = [
   { id: 'export', libelle: 'Export / Import', panneau: 'panelExport', groupe: 'reglages' }
 ];
 
-/** Les onglets qui se montrent : ceux d'une terrasse seulement quand il y en a une. */
-export function ongletsVisibles(aUneTerrasse: boolean): Onglet[] {
-  return ONGLETS.filter(o => o.groupe !== 'terrasse' || aUneTerrasse);
+/** Les onglets qui se montrent : ceux d'une terrasse seulement quand une terrasse est selectionnee. */
+export function ongletsVisibles(terrasseSelectionnee: boolean): Onglet[] {
+  return ONGLETS.filter(o => o.groupe !== 'terrasse' || terrasseSelectionnee);
 }
 
 export const HAUTEURS: HauteurTiroir[] = ['replie', 'mi', 'plein'];
@@ -56,7 +59,8 @@ export interface ContexteTiroir {
   renderPanneauPlu: () => void;
   /** Les panneaux de la terrasse courante : chiffrage, coupe, implantation, chantier, methode. */
   refreshTerrasseView: () => void;
-  terrasseCourante: () => ObjetPlan | undefined;
+  /** La selection quand c'est une terrasse ; ce qui decide des onglets. */
+  terrasseSelectionnee: () => ObjetPlan | undefined;
 }
 
 export interface Tiroir {
@@ -64,8 +68,12 @@ export interface Tiroir {
   /** Montre un onglet et rafraichit ce qu'il doit ; `ouvrir` deplie un tiroir replie. */
   activer(id: string, ouvrir?: boolean): void;
   definirHauteur(h: HauteurTiroir): void;
-  /** A appeler quand la terrasse courante a change : ses panneaux se refont, ou l'onglet se replie. */
-  apresChangementDeContexte(): void;
+  /**
+   * A appeler apres chaque rendu, avec `contexteChange` quand la terrasse courante a change : un
+   * onglet de terrasse ouvert se refait pour elle, ou se replie sur Cotes quand plus aucune
+   * terrasse n'est selectionnee.
+   */
+  synchroniser(contexteChange: boolean): void;
 }
 
 function hauteurMemorisee(): HauteurTiroir {
@@ -76,7 +84,7 @@ function hauteurMemorisee(): HauteurTiroir {
 }
 
 export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin): Tiroir {
-  const aUneTerrasse = () => !!ctx.terrasseCourante();
+  const terrasseSelectionnee = () => !!ctx.terrasseSelectionnee();
   const estOngletTerrasse = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'terrasse');
 
   function montrer(id: string): void {
@@ -100,8 +108,8 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   }
 
   function activer(id: string, ouvrir = true): void {
-    // Un onglet de terrasse sans terrasse : les cotes, l'onglet du plan le plus proche.
-    if (estOngletTerrasse(id) && !aUneTerrasse()) id = 'mesure';
+    // Un onglet de terrasse sans terrasse selectionnee : les cotes, l'onglet du plan le plus proche.
+    if (estOngletTerrasse(id) && !terrasseSelectionnee()) id = 'mesure';
     etat.panelTab = id;
     montrer(id);
     rafraichir(id);
@@ -112,13 +120,13 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   definirHauteur(hauteurMemorisee());
 
   return {
-    onglets: () => ongletsVisibles(aUneTerrasse()),
+    onglets: () => ongletsVisibles(terrasseSelectionnee()),
     activer,
     definirHauteur,
-    apresChangementDeContexte() {
+    synchroniser(contexteChange) {
       if (!estOngletTerrasse(etat.panelTab)) return;
-      if (aUneTerrasse()) ctx.refreshTerrasseView();
-      else activer('mesure', false);
+      if (!terrasseSelectionnee()) activer('mesure', false);
+      else if (contexteChange) ctx.refreshTerrasseView();
     }
   };
 }

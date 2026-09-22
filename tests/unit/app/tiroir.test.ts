@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { ONGLETS, ongletsVisibles } from '../../../src/app/tiroir.js';
 
 describe('les onglets du tiroir', () => {
-  it('cachent ceux de la terrasse quand il n y en a pas', () => {
+  it('cachent ceux de la terrasse quand aucune n est selectionnee', () => {
     const sans = ongletsVisibles(false).map(o => o.id);
     expect(sans).toEqual(['mesure', 'plu', 'resume', 'affichage', 'export']);
   });
 
-  it('les montrent tous avec une terrasse, la terrasse en premier', () => {
+  it('les montrent tous avec une terrasse selectionnee, la terrasse en premier', () => {
     const avec = ongletsVisibles(true).map(o => o.id);
     expect(avec).toEqual(ONGLETS.map(o => o.id));
     expect(avec.slice(0, 5)).toEqual(['bom', 'coupe', 'implantation', 'chantier', 'methode']);

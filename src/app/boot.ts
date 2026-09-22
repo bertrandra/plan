@@ -78,7 +78,7 @@ import {
   startPick as demarrerPointage, rebuildMeasurePanel as construirePanneauMesure,
   renderMeasureResults as construireResultatsMesure
 } from '../ui/mesurePanel.js';
-import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe } from '../core/contexteTerrasse.js';
+import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
 import { creerExplorateur } from './explorateur.js';
 
 import {
@@ -288,7 +288,7 @@ const tiroir = creerTiroir(etat, {
   rebuildMeasurePanel, renderMeasureResults,
   renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
   refreshTerrasseView,
-  terrasseCourante: ()=>terrasseCouranteDe(etat)
+  terrasseSelectionnee: ()=>terrasseSelectionneeDe(etat)
 }, magasin);
 
 // Un quadrilatere deja d'equerre, meme tourne, est deja un rectangle : le redresser sur les axes
@@ -448,11 +448,12 @@ function renderParasolOverlay(){
 // Le dessin du plan est orchestre dans render/pipeline.ts ; cette enveloppe lui fournit l'etat et
 // les briques qu'il assemble.
 function render(){
-  // La terrasse courante suit la selection (core/contexteTerrasse.ts) ; quand elle change alors que
-  // un de ses onglets est ouvert dans le tiroir, ses panneaux se refont pour elle.
+  // La terrasse courante suit la selection (core/contexteTerrasse.ts). Le tiroir, lui, suit la
+  // selection a chaque rendu : ses onglets de terrasse n'existent que pour une terrasse
+  // selectionnee, et un onglet ouvert se refait quand la terrasse courante change.
   const contexteChange = synchroniserContexteTerrasse(etat);
   rendreScene(etat, ctxRendu());
-  if(contexteChange) tiroir.apresChangementDeContexte();
+  tiroir.synchroniser(contexteChange);
   magasin.notifier();
 }
 function ctxRendu(){

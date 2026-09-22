@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { synchroniserContexteTerrasse, terrasseCourante } from '../../../src/core/contexteTerrasse.js';
+import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee, type EtatContexteTerrasse } from '../../../src/core/contexteTerrasse.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 const objets = (): ObjetPlan[] => [
@@ -39,6 +39,22 @@ describe('synchroniserContexteTerrasse', () => {
     expect(synchroniserContexteTerrasse(etat)).toBe(true);
     expect(etat.terrasseSelectedKey).toBeNull();
     expect(terrasseCourante(etat)).toBeUndefined();
+  });
+
+  it('distingue la terrasse selectionnee de la terrasse courante', () => {
+    // Un parasol selectionne : la terrasse courante reste t2, mais rien n'est selectionne qui soit
+    // une terrasse — ce que les resultats lisent, pour n'apparaitre que pour une terrasse.
+    const etat: EtatContexteTerrasse = { objects: objets(), selectedKey: 'parasol', terrasseSelectedKey: 't2' };
+    synchroniserContexteTerrasse(etat);
+    expect(terrasseCourante(etat)?.key).toBe('t2');
+    expect(terrasseSelectionnee(etat)).toBeUndefined();
+
+    etat.selectedKey = 't1';
+    synchroniserContexteTerrasse(etat);
+    expect(terrasseSelectionnee(etat)?.key).toBe('t1');
+
+    etat.selectedKey = null;
+    expect(terrasseSelectionnee(etat)).toBeUndefined();
   });
 
   it('ignore une cle courante qui n est plus une terrasse', () => {
