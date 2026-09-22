@@ -41,7 +41,8 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
   const { groupeOmbres, groupeMats, racine, etat, ctxSoleil, positionMat } = opts;
   const scene = etat.scene;
   groupeOmbres.innerHTML = '';
-  const parasols = etat.objects.filter(o=>o.fonction==='parasol' && !o.hidden);
+  // Un parasol est un cercle (DEFAUTS D-14) : rien a projeter d'un polygone dit « parasol ».
+  const parasols = etat.objects.filter(o=>o.fonction==='parasol' && o.type==='circle' && !o.hidden);
   if(!parasols.length) return;
 
   if(etat.parasol.carteAffichee){

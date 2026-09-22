@@ -10,6 +10,8 @@ import { Palette } from './Palette.js';
 import { Explorateur } from './Explorateur.js';
 import { Inspecteur } from './Inspecteur.js';
 import { Resultats } from './Resultats.js';
+import { Dialogues } from './Dialogues.js';
+import { Notifications } from './Notifications.js';
 import { Surimpression } from './Surimpression.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -41,4 +43,6 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} />);
   createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} />);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
+  createRoot(conteneur('zoneDialogues')).render(<Dialogues />);
+  createRoot(conteneur('zoneNotifications')).render(<Notifications />);
 }

@@ -59,7 +59,7 @@ export function ouvrirSelecteurTexture(
 ){
   options = options || {};
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center;';
+  overlay.className = 'dialogueVoile';
   const box = document.createElement('div');
   box.style.cssText = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:18px 20px; border-radius:8px; ' +
     'width:min(760px,94vw); height:min(600px,88vh); display:flex; flex-direction:column; ' +

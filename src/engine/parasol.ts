@@ -87,7 +87,8 @@ export function grillePolygone(poly: PtBrut[], pas: number): PtBrut[] {
 // Une carte par terrasse ayant au moins un parasol rattache, chacune ombragee uniquement par SES
 // parasols : sur un jardin a plusieurs terrasses, chacune se lit independamment.
 export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): CarteOmbre[] {
-  const parasols = objets.filter(o=>o.fonction==='parasol' && !o.hidden);
+  // Un parasol est un cercle (DEFAUTS D-14).
+  const parasols = objets.filter(o=>o.fonction==='parasol' && o.type==='circle' && !o.hidden);
   if(!parasols.length) return [];
   const ech = echantillonsSoleilParasol(ctx);
   if(!ech.length) return [];

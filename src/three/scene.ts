@@ -603,7 +603,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       // Un parasol n'est pas un volume plein : un mat fin porte une toile a sa hauteur. L'extruder
       // comme les autres objets en ferait un cylindre opaque de 3 m de diametre au milieu de la
       // terrasse - exactement ce qu'on cherche a ne PAS voir quand on juge son implantation.
-      if(o.fonction === 'parasol'){
+      // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
+      if(o.fonction === 'parasol' && o.type === 'circle'){
         const par = enCercle(o);
         const hMat = hauteurParasolDe(o);
         const pl = toLocal(par.center);

@@ -2255,3 +2255,49 @@ avec une terrasse, cinq sans ; BOM (sept lignes, totaux) et coupe (SVG) remplis 
 replié cache les panneaux et se mémorise, un clic sur Cotes rouvre à mi-hauteur, plein monte à
 78 vh ; le Résumé se génère dans son onglet ; la cote de la palette ouvre Cotes ; les deux
 terrasses passées en dalle font disparaître leurs onglets et replient BOM sur Cotes. 563 tests.
+
+## Reconstruction de l'IHM — étape 6 : dialogues et notifications (22 septembre 2026, `1.2.0-alpha.7`)
+
+**Z8 et Z9** sont les deux dernières zones de la spec, et les plus petites : cinq fonctions de
+`shell/dialogs.ts` qui fabriquaient chacune leur DOM, avec leurs styles en ligne, et que tout le
+programme appelle — cent onze appels, jusque dans `model/creation.ts`. Les réécrire en React posait
+une question de sens des dépendances : `shell/` est au niveau zéro, il ne peut rien savoir des
+zones. La réponse est une **liste observable** par famille (`shell/notifications.ts`,
+`shell/dialogues.ts`) : les fonctions y déposent le message ou le dialogue, la zone s'y abonne et
+le rend. Sans abonné — au point d'entrée, quand l'application n'a pas démarré — chaque fonction
+garde son repli en DOM brut : un échec de chargement doit s'afficher même si rien d'autre n'a chargé.
+
+**Les notifications** (`zones/Notifications.tsx`) : les toasts s'empilent et s'effacent seuls, la
+durée restant proportionnelle au texte ; les erreurs de programme restent en bandeau, avec un
+bouton pour les fermer, là où l'ancien bandeau s'accumulait en bas de page sans jamais partir.
+
+**Les dialogues** (`zones/Dialogues.tsx`) : une question à la fois, modale, fermable par Échap ou
+par le voile — sauf l'écran de reprise, qui n'a rien derrière lui. Les trois parcours en plusieurs
+étapes (import cadastre, actualisation IGN, textures) restent des dialogues DOM, comme la spec le
+prévoit, et prennent le même voile (`.dialogueVoile`).
+
+**Ce que §8 laissait au passage.** D-13 : le lien de secours des exports SVG et PDF réutilisait une
+URL révoquée une seconde après le clic ; il n'a jamais pu fonctionner, il disparaît, et un toast
+dit le nom du fichier qui part. D-14 : un parasol est un cercle ; la section Parasol, la Vue 3D et
+le calque des ombres filtrent désormais sur le type, et un polygone dont la fonction dirait
+« parasol » ne plante plus rien.
+
+**Une correction glissée avant l'étape.** Les onglets de terrasse du tiroir suivaient la terrasse
+*courante*, qui survit à la sélection d'un parasol et se rabat sur la première terrasse du plan :
+un plan qui en avait une montrait son chiffrage en permanence. La décision 4 dit « une terrasse
+sélectionnée » ; `core/contexteTerrasse.ts` distingue maintenant les deux, l'inspecteur et la 3D
+gardant la terrasse courante, le tiroir lisant la sélection.
+
+### Ce que ça change d'usage
+
+Les messages se lisent au même endroit, au-dessus de la barre d'état, et une erreur se ferme.
+Une confirmation s'annule par Échap. Le chiffrage d'une terrasse n'apparaît que quand on l'a
+sélectionnée.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.6` par la preuve forte. Sur le build : toast de
+téléchargement à l'export SVG, sans lien de secours ; confirmation de suppression annulée par le
+bouton, par Échap, puis confirmée ; bandeau d'erreur qui reste et se ferme ; un polygone passé en
+« parasol » sans section Parasol ; les onglets de terrasse qui suivent la sélection. 570 tests,
+dont sept pour les deux listes observables.

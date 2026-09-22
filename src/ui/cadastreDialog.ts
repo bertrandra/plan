@@ -100,7 +100,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
   };
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center; padding:14px;';
+  overlay.className = 'dialogueVoile';
   const box = document.createElement('div');
   box.style.cssText = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:18px 20px; border-radius:8px; width:min(700px,96vw); max-height:92vh; overflow:auto; font-family:"Helvetica Neue",Arial,sans-serif; box-shadow:0 4px 24px rgba(0,0,0,0.3); font-size:0.88rem;';
   const titre = document.createElement('div');

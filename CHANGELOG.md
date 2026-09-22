@@ -3,23 +3,43 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
-## [Non publié]
+## [1.2.0-alpha.7] — 2026-09-22
+
+**Reconstruction de l'IHM, étape 6 : les dialogues et les notifications** (`MD/spec-ihm-zones.md`
+§4.8), et les deux chantiers que §8 laissait au passage — D-13 et D-14 de `MD/DEFAUTS.md`. Les six
+artefacts sont identiques à ceux de l'`alpha.6`.
+
+### Modifié
+
+- **Les notifications** (Z9) : les toasts s'empilent au-dessus de la barre d'état et s'effacent
+  seuls ; une erreur de programme reste en bandeau jusqu'à ce qu'on la ferme, au lieu de
+  s'accumuler en bas de page sans bouton.
+- **Les dialogues** (Z8) : confirmations, invites et écran de reprise sont un composant, modal, un
+  seul à la fois, fermable par Échap ou par un clic sur le voile. L'écran de reprise, lui, ne se
+  ferme pas. Les trois parcours — import cadastre, actualisation IGN, textures — restent des
+  dialogues à part et prennent le même voile.
+- **Les onglets de terrasse du tiroir ne s'affichent que pour une terrasse sélectionnée** (BOM,
+  Plan de coupe, Implantation, Chantier, Méthode), comme la décision 4 le dit. Ils suivaient la
+  terrasse *courante*, qui survit à la sélection d'un parasol : un plan qui en avait une montrait son
+  chiffrage en permanence. Un onglet de terrasse ouvert se replie sur Cotes dès que la sélection
+  n'en est plus une.
 
 ### Corrigé
 
-- **Les onglets de terrasse du tiroir — BOM, Plan de coupe, Implantation, Chantier, Méthode — ne
-  s'affichent que pour une terrasse sélectionnée**, comme la décision 4 de `MD/spec-ihm-zones.md`
-  le dit. Ils suivaient la terrasse *courante*, qui survit à la sélection d'un parasol et se rabat
-  sur la première terrasse du plan : un plan qui en avait une montrait son chiffrage en permanence,
-  quoi qu'on ait sous la main. La terrasse courante garde ce comportement pour l'inspecteur et la
-  3D ; le tiroir lit la sélection, et un onglet de terrasse ouvert se replie sur Cotes dès que la
-  sélection n'en est plus une.
+- **D-13** — le lien de secours des exports SVG et PDF réutilisait une URL révoquée une seconde
+  après le clic : il ne fonctionnait jamais. Il disparaît ; un toast dit le nom du fichier qui part.
+- **D-14** — un parasol est un cercle. La section Parasol de l'inspecteur, la Vue 3D et le calque
+  des ombres n'y voient plus un polygone dont la fonction dirait « parasol ».
 
 ### Interne
 
-- `core/contexteTerrasse.ts` : `terrasseSelectionnee(etat)`, à côté de `terrasseCourante`.
-  `app/tiroir.ts` : `synchroniser(contexteChange)` remplace `apresChangementDeContexte()` et se
-  fait appeler à chaque rendu.
+- `shell/notifications.ts` et `shell/dialogues.ts` : deux listes observables au niveau zéro ;
+  `shell/dialogs.ts` y confie ses cinq fonctions et garde un repli en DOM brut pour le point
+  d'entrée, qui doit afficher un échec de chargement avant que l'application n'ait démarré.
+- `zones/Notifications.tsx`, `zones/Dialogues.tsx` ; `#zoneDialogues`, `#zoneNotifications` ;
+  styles `.dialogueVoile`, `.dialogueBoite`, `.toast`, `.bandeauErreur`.
+- `core/contexteTerrasse.ts` : `terrasseSelectionnee(etat)` ; `app/tiroir.ts` : `synchroniser` à
+  chaque rendu.
 
 ## [1.2.0-alpha.6] — 2026-09-22
 

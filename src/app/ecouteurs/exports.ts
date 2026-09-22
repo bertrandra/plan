@@ -41,43 +41,9 @@ function afficherDansLaBoite(contenu: string): HTMLTextAreaElement {
   return box;
 }
 
-/**
- * Télécharge un blob et rend l'URL utilisée, pour qu'un lien de secours pointe sur le **même**
- * contenu plutôt que d'en refabriquer un second.
- *
- * ⚠️ **Défaut connu, reproduit tel quel.** L'URL est révoquée une seconde après le clic — sinon
- * certains navigateurs interrompent le téléchargement en cours. Le lien de secours qui la réutilise
- * cesse donc de fonctionner passé ce délai, ce qui vide de sens le troisième filet. Le corriger
- * demande de révoquer les deux usages séparément ; ce n'est pas fait ici pour ne pas changer un
- * comportement en même temps qu'on déplace du code.
- */
-function telechargerEtPartagerUrl(nomFichier: string, blob: Blob): string {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = nomFichier; a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-  return url;
-}
-
-/**
- * Pose (ou met à jour) le lien de secours sous la zone de texte.
- *
- * Il est créé une seule fois et réutilisé : un lien par export s'accumulerait sous le panneau.
- */
-function lienDeSecours(id: string, url: string, texte: string, apres: Element): void {
-  let lien = document.getElementById(id) as HTMLAnchorElement | null;
-  if (!lien) {
-    lien = document.createElement('a');
-    lien.id = id;
-    lien.target = '_blank'; lien.rel = 'noopener';
-    lien.className = 'hint';
-    lien.style.display = 'block'; lien.style.marginTop = '4px';
-    apres.insertAdjacentElement('afterend', lien);
-  }
-  lien.href = url;
-  lien.textContent = texte;
+/** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
+function direTelechargement(nomFichier: string): void {
+  showToast('Téléchargement lancé : ' + nomFichier + '.');
 }
 
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
@@ -88,11 +54,10 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
     catch (err) { showErrBanner('Erreur export SVG: ' + (err as Error).message); return; }
-    const box = afficherDansLaBoite(svgStr);
+    afficherDansLaBoite(svgStr);
     try {
-      const url = telechargerEtPartagerUrl('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
-      lienDeSecours('svgOpenLink', url,
-        "Le telechargement automatique n'a pas demarre ? Cliquer ici pour ouvrir le SVG dans un nouvel onglet (puis Enregistrer sous).", box);
+      telechargerBlob('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
+      direTelechargement('plan_interactif_export.svg');
     } catch (err) {
       showErrBanner('Le contenu SVG est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
     }
@@ -120,6 +85,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         canvas.toBlob(blob => {
           if (!blob) { showErrBanner('Erreur export PNG: conversion en image impossible.'); return; }
           telechargerBlob('plan_interactif_export.png', blob);
+          direTelechargement('plan_interactif_export.png');
         }, 'image/png');
       } catch (err) {
         showErrBanner('Erreur export PNG: ' + (err as Error).message);
@@ -135,7 +101,6 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // Le résumé ne se télécharge pas : il est fait pour être copié dans un message.
   surClic('exportBtn', 'export.resume', 'Générer le résumé', () => { afficherDansLaBoite(ctx.construireResume()); });
 
-  // Pas de lien de secours : un fichier CAO ne s'ouvre pas dans un onglet.
   surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;
     try { dxfStr = ctx.buildExportDXF(); }
@@ -143,6 +108,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     afficherDansLaBoite(dxfStr);
     try {
       telechargerBlob('plan_interactif_export.dxf', new Blob([dxfStr], { type: 'application/dxf' }));
+      direTelechargement('plan_interactif_export.dxf');
     } catch (err) {
       showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
     }
@@ -155,10 +121,8 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     try { pdfStr = ctx.buildExportPDF(echelle); }
     catch (err) { showErrBanner('Erreur export PDF: ' + (err as Error).message); return; }
     try {
-      const url = telechargerEtPartagerUrl('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
-      lienDeSecours('pdfOpenLink', url,
-        "Le telechargement automatique n'a pas demarre ? Cliquer ici pour ouvrir le PDF dans un nouvel onglet.",
-        document.getElementById('exportBox')!);
+      telechargerBlob('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
+      direTelechargement('plan_interactif_export.pdf');
     } catch (err) {
       showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
     }

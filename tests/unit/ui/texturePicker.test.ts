@@ -12,7 +12,7 @@ const CATALOGUE = {
 };
 
 const overlay = () =>
-  [...document.body.children].filter((e) => (e as HTMLElement).style.zIndex === '9998')[0];
+  [...document.body.children].filter((e) => e.classList.contains('dialogueVoile'))[0];
 const bouton = (texte: string) =>
   [...overlay()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === texte)!;
 const attendre = () => new Promise((r) => setTimeout(r, 0));

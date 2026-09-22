@@ -25,7 +25,8 @@ const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif
 let distanceAlignement = '';
 export const distanceAlignementSaisie = (): string => distanceAlignement;
 
-const estParasol = (o: ObjetPlan) => o.fonction === 'parasol';
+// Un parasol est un cercle (DEFAUTS D-14) : la fonction se dit d'un polygone, la section non.
+const estParasol = (o: ObjetPlan) => o.fonction === 'parasol' && o.type === 'circle';
 const estPointDeVue = (o: ObjetPlan) => o.fonction === 'camera';
 const estArbre = (o: ObjetPlan) => o.fonction === 'arbre';
 const estTerrasse = (o: ObjetPlan) => o.fonction === 'terrasse' && o.type === 'polygon';
