@@ -82,10 +82,6 @@ function objByKey(key: string | null): ObjetPlan | undefined { return etat.objec
 
 svg.addEventListener('pointerdown', e=>{
   const ds = (e.target as HTMLElement).dataset;
-  // Mode Terrasse is read-only over the plan geometry (construction config lives in its
-  // own panel): block shape/point/edge/radius interaction, but let a blank-background
-  // pointerdown fall through so pan still works.
-  if(etat.appMode==='terrasse' && ds && ds.role){ e.preventDefault(); return; }
 
   // ---- Measurement tool / Alignment tool: intercept clicks while picking a reference segment / target point(s) ----
   if(mesure.pointage){

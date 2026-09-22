@@ -29,7 +29,6 @@ export interface OptionsCalqueParasols {
   groupeMats: SVGElement;
   racine: SVGElement;
   etat: {
-    appMode: string;
     objects: ObjetParasol[];
     scene: EtatScene;
     parasol: { ombreAffichee: boolean; carteAffichee: boolean };
@@ -42,7 +41,6 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
   const { groupeOmbres, groupeMats, racine, etat, ctxSoleil, positionMat } = opts;
   const scene = etat.scene;
   groupeOmbres.innerHTML = '';
-  if(etat.appMode !== 'plan') return;
   const parasols = etat.objects.filter(o=>o.fonction==='parasol' && !o.hidden);
   if(!parasols.length) return;
 

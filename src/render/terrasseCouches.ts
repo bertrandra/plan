@@ -5,10 +5,10 @@
 // tombent les vis sous les solives, par exemple — et un onglet unique l'interdirait.
 //
 // Le calcul des couches appartient au moteur (`engine/layers.ts`) ; ici, on ne fait que le dessiner.
+// Les cases a cocher, elles, sont dans l'explorateur (zones/Explorateur.tsx) depuis l'etape 3 de la
+// reconstruction de l'interface : ce module publie la liste des couches et leur visibilite.
 
 import { computeTerrasseLayers } from '../engine/layers.js';
-import { ensureConstruction } from '../engine/construction.js';
-import { estPlots } from '../engine/constantes.js';
 import type { Appui } from '../engine/structure.js';
 import type { ObjetPlan, PtBrut, PtEcran, Segment } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
@@ -35,40 +35,6 @@ export const terrasseLayerVisible: Record<string, boolean> = {
 const VIS_ROLE_COLOR: Record<string, string> = { rive: '#0f3d49', spa: '#a8452a', courant: '#235e6e' };
 
 /**
- * Construit les cases a cocher des couches, et le texte qui explique ce que chacune montre.
- *
- * Deux libelles dependent du mode d'appui : « Vis » devient « Plots », et les solives disparaissent
- * completement d'une pose simple sur plots — ou elles n'existent pas. Proposer une case qui ne
- * dessinerait jamais rien laisserait croire a un bug.
- */
-export function renderTerrasseLayerTabs(obj: ObjetPlan, redessiner: () => void): void {
-  const div = document.getElementById('terrasseLayerTabs')!;
-  div.innerHTML = '';
-  const c = ensureConstruction(obj);
-  TERRASSE_LAYER_DEFS.forEach(([key, libelle, couleur]) => {
-    let label = libelle;
-    if (key === 'vis') label = estPlots(c) ? 'Plots' : 'Vis';
-    if (key === 'solives' && estPlots(c) && !c.plotAvecSolives) return;
-    const wrap = document.createElement('label');
-    wrap.style.cssText = 'display:inline-flex; align-items:center; gap:5px; margin-right:16px; font-size:0.85rem; cursor:pointer;';
-    const swatch = document.createElement('span');
-    swatch.style.cssText = 'display:inline-block; width:10px; height:10px; border-radius:2px; background:' + couleur + ';';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = terrasseLayerVisible[key]!;
-    cb.addEventListener('change', () => { terrasseLayerVisible[key] = cb.checked; redessiner(); });
-    wrap.appendChild(cb); wrap.appendChild(swatch); wrap.appendChild(document.createTextNode(label));
-    div.appendChild(wrap);
-  });
-  document.getElementById('terrasseLayerHint')!.textContent =
-    (estPlots(c)
-      ? 'Vis : implantation des plots (resserree sous tout objet de fonction equipement). Solives : structure primaire, absente en pose simple sur plots. '
-      : 'Vis : grille de fondation (resserree sous tout objet de fonction equipement). Solives : structure primaire. ')
-    + 'Lambourdes : structure secondaire, seulement si activee dans Construction. Lames : sens de pose des lames. '
-    + 'Lame de rive (verticale) : planche sur chant suspendue sous les lames, cache la structure. '
-    + 'Planche plate (horizontale) : cadre pose a plat au niveau des lames. Les deux font le tour '
-    + 'et ne sont dessinees que si activees dans Construction.';
-}
-
-/**
  * Dessine les couches visibles dans le groupe donne.
  *
  * Les traits **maigrissent** — et les lames passent en pointille — des que plus d'une couche est
@@ -82,7 +48,7 @@ export function renderTerrasseLayerView(
   groupe: SVGGElement, obj: ObjetPlan | null | undefined, etat: EtatApp, toScreen: (p: PtBrut) => PtEcran
 ): void {
   groupe.innerHTML = '';
-  if (etat.appMode !== 'terrasse' || !obj) return;
+  if (!obj) return;
   const layers = computeTerrasseLayers(obj, etat.objects);
   const multi = Object.values(terrasseLayerVisible).filter(Boolean).length > 1;
 

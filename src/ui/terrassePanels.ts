@@ -38,68 +38,6 @@ export interface ContexteTerrassePanels {
   pushHistory: () => void;
 }
 
-/** Ce que les panneaux Terrasse lisent et ecrivent sur l'etat du plan. */
-interface EtatTerrassePanels { objects: ObjetPlan[]; terrasseSelectedKey: string | null }
-
-
-/**
- * La barre de choix de la terrasse, en tete du mode Terrasse.
- *
- * Rend `false` quand il n'y a rien a montrer — l'appelant affiche alors le message d'accueil.
- *
- * Un cas merite d'etre lu : **sans aucune terrasse, la Vue 3D reste accessible**. Un plan de
- * parcelle avec ses batiments se regarde en 3D tel quel ; les autres sous-onglets (construction,
- * debit, coupe…) n'auraient rien a decrire et restent, eux, derriere l'accueil.
- *
- * La selection se repare toute seule : si la terrasse retenue a disparu — supprimee, ou passee a
- * une autre fonction — on retombe sur la premiere plutot que de rester sur une cle morte.
- */
-/** Ce que la barre de choix de la terrasse lit, et rien de plus. */
-export type ContexteSelecteurTerrasse = Pick<ContexteTerrassePanels, 'refreshTerrasseView' | 'hauteurFinieMm'>;
-
-export function renderTerrasseSelector(etat: EtatTerrassePanels, sousOnglet: string, ctx: ContexteSelecteurTerrasse): boolean {
-  const div = document.getElementById('terrasseSelector')!;
-  div.innerHTML = '';
-  const terrasses = etat.objects.filter((o: ObjetPlan) => o.fonction === 'terrasse');
-  const empty = document.getElementById('terrasseEmpty')!;
-  const content = document.getElementById('terrasseContent')!;
-  if (terrasses.length === 0) {
-    etat.terrasseSelectedKey = null;
-    if (sousOnglet === '3d') {
-      empty.style.display = 'none'; content.style.display = 'block';
-      const note = document.createElement('span');
-      note.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft);';
-      note.textContent = 'Plan sans terrasse — vue 3D du terrain et des objets.';
-      div.appendChild(note);
-      return true;
-    }
-    empty.style.display = 'block'; content.style.display = 'none';
-    return false;
-  }
-  empty.style.display = 'none'; content.style.display = 'block';
-  if (!etat.terrasseSelectedKey || !terrasses.some((o: ObjetPlan) => o.key === etat.terrasseSelectedKey)) etat.terrasseSelectedKey = terrasses[0]!.key;
-  terrasses.forEach((o: ObjetPlan) => {
-    const b = document.createElement('button');
-    b.className = 'objbtn' + (o.key === etat.terrasseSelectedKey ? ' active' : '');
-    b.textContent = o.name;
-    b.addEventListener('click', () => { etat.terrasseSelectedKey = o.key; ctx.refreshTerrasseView(); });
-    div.appendChild(b);
-  });
-  const selectedObj = terrasses.find((o: ObjetPlan) => o.key === etat.terrasseSelectedKey);
-  if (selectedObj) {
-    const surf = document.createElement('span');
-    surf.style.cssText = 'font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; color:var(--ink-soft); margin-left:8px;';
-    const hMm = ctx.hauteurFinieMm(selectedObj);
-    surf.textContent = 'Surface : ' + shoelace(sommetsDe(selectedObj)).toFixed(2) + ' m²' +
-      '  (hauteur finie ' + (hMm / 10).toFixed(1).replace(/\.0$/, '') + ' cm)';
-    surf.title = 'Hauteur du sol fini au dessus des lames : ' +
-      (estPlots(ensureConstruction(selectedObj)) ? 'plot' : 'depassement de tete de vis') +
-      ' + structure + lame';
-    div.appendChild(surf);
-  }
-  return true;
-}
-
 // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement : on
 // peut ainsi voir monter ou descendre la configuration qu'on est en train d'editer.
 let optimVisible = false;

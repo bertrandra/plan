@@ -3,6 +3,44 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.4] — 2026-09-22
+
+**Reconstruction de l'IHM, étape 3 : l'explorateur, et la terrasse comme contexte du plan**
+(`MD/spec-ihm-zones.md` §6, décision 4 de §7). Le sélecteur d'objets au-dessus du plan, la table
+d'affichage et le mode Terrasse disparaissent ; une colonne à gauche du plan les remplace. Les six
+artefacts sont identiques à ceux de l'`alpha.3`.
+
+### Modifié
+
+- **L'explorateur** (Z3), entre la palette et le plan : les objets par catégorie avec leur compte,
+  la sélection (qui est celle du canevas, dans les deux sens), le masquage par objet et pour tous,
+  les cinq étiquettes de l'objet sélectionné et de tous, le voisinage, les terrasses avec leur
+  surface et leur hauteur finie, la terrasse courante, les terrasses du dossier PDF, et la structure
+  de la terrasse courante dessinée sur le plan, couche par couche. Il se replie d'un clic et rend sa
+  largeur au plan ; sous 1 024 px il s'escamote.
+- **Plus de mode Terrasse.** Il n'y a que trois vues : Plan, Vue 3D, Visionneuse. La terrasse
+  courante suit la sélection — sélectionner une terrasse sur le plan ou dans l'explorateur la rend
+  courante, sélectionner autre chose la garde — et son onglet **Terrasse** du panneau (Construction,
+  BOM, Plan de coupe, Implantation, Chantier, Méthode) la décrit. La Vue 3D est une vue à part
+  entière, sans terrasse s'il n'y en a pas.
+- **Le plan reste modifiable quand une terrasse est courante** : le verrou du mode Terrasse (formes,
+  points et côtés bloqués) n'a plus lieu d'être. La sélection reste dessinée.
+- **La structure d'une terrasse ne s'affiche que sur demande** (« Structure sur le plan » dans
+  l'explorateur) ; le mode Terrasse la dessinait d'office sur son sous-onglet Canevas, qui disparaît.
+
+### Interne
+
+- `core/contexteTerrasse.ts` : la règle de la terrasse courante, appliquée avant chaque rendu ;
+  `etat.appMode` disparaît, `etat.calquesVisibles` apparaît.
+- `app/explorateur.ts` (ce que la zone demande au plan), `zones/Explorateur.tsx`. `ui/selector.ts`
+  disparaît ; `ui/tables.ts` garde la sélection du dossier et expose `clesDossier`, réparée à la
+  lecture (rien de coché veut dire toutes) ; `ui/terrassePanels.ts` perd la barre de choix.
+- `app/modes.ts` ne pilote plus que trois vues et les sous-onglets de l'onglet Terrasse ; le
+  déplacement physique du `<svg>` (`#stageParking`, `#stageHost`) disparaît, comme `#terrasseTopBar`,
+  `#selector`, `#dispTable`, `#dossierTerrasses` et le sous-onglet Canevas. `#terrasseTab3d` devient
+  `#vue3dPanel`, `#terrassePanel` devient `#panelTerrasse` dans le panneau.
+- Le magasin porte `explorateurOuvert` ; `computeSize` retranche la largeur de l'explorateur déplié.
+
 ## [1.2.0-alpha.3] — 2026-09-21
 
 **Reconstruction de l'IHM, étape 2 : la palette d'outils et le canevas** (`MD/spec-ihm-zones.md` §6).

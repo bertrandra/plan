@@ -10,169 +10,102 @@
 <!-- Z1, la barre d'application (zones/BarreApplication.tsx) : projet, vues, titre. -->
 <div id="zoneBarre"></div>
 
-<div id="selector"></div>
-<div id="terrasseTopBar" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
-  <div id="terrasseSelector" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;"></div>
-</div>
-<div id="stageParking" style="display:none;"></div>
-<!-- Z2, la palette (zones/Palette.tsx), et Z4, le canevas avec ses commandes en surimpression
-     (zones/Surimpression.tsx). Le plan est deplace entre ses conteneurs par app/modes.ts ; la palette reste. -->
+<!-- Z2, la palette (zones/Palette.tsx), Z3, l'explorateur (zones/Explorateur.tsx), et Z4, le canevas
+     avec ses commandes en surimpression (zones/Surimpression.tsx). -->
 <div id="zoneAtelier">
   <div id="zonePalette"></div>
+  <div id="zoneExplorateur"></div>
   <div id="stage">
     <div id="zoneSurimpression"></div>
   </div>
 </div>
 
-<div id="terrassePanel" style="display:none; width:98vw; max-width:1600px; margin:0 auto;">
-  <div id="terrasseEmpty" class="hint" style="display:none;">Aucun objet avec Fonction = terrasse pour l'instant. Retourne en Mode Plan, ouvre l'onglet Objet de l'element concerne, et regle "Fonction" sur "terrasse".</div>
-  <div id="terrasseContent" style="display:none;">
-    <div id="terrasseSubTabs" style="display:flex; gap:4px; width:98vw; max-width:1600px; margin:14px auto 0;"></div>
-    <div class="panelBox">
-
-      <div id="terrasseTabConstruction">
-        <div class="sectionTitle">Construction</div>
-        <table class="attrTable" id="terrasseConfigTable"></table>
-        <div id="terrasseAvertBox"></div>
-        <div class="controls">
-          <button id="terrasseOptimBtn" class="objbtn">Optimisation des parametres</button>
-        </div>
-        <div id="terrasseOptimResult" style="display:none;"></div>
-        <div class="sectionTitle" style="margin-top:18px;">Paramètres de calcul</div>
-        <div class="hint">Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l'usage du métier (voir l'onglet Méthode).</div>
-        <div id="terrasseParamsBox"></div>
+<!-- La Vue 3D : une vue a part entiere depuis l'etape 3 (app/modes.ts), montree a la place de l'atelier. -->
+<div id="vue3dPanel" class="panelBox" style="display:none;">
+  <div class="sectionTitle" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+    <span>Vue 3D</span>
+    <button id="terrasse3dFullPageBtn" type="button" class="secondary small" title="Agrandir en pleine page">⛶ Plein écran</button>
+  </div>
+  <div class="controls">
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+      <input type="checkbox" id="terrasse3dFilaire">
+      Lames en filaire — voir la structure dessous
+    </label>
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
+      <input type="checkbox" id="terrasse3dAllObjects" checked>
+      Afficher tous les objets du plan
+    </label>
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
+      <input type="checkbox" id="terrasse3dObjectsOpaque" checked>
+      Objets opaques (sinon opacite du plan)
+    </label>
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet">
+      <input type="checkbox" id="terrasse3dTextures" checked>
+      Texture (sinon couleur unie)
+    </label>
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, decoche par defaut">
+      <input type="checkbox" id="terrasse3dShadows">
+      Ombre portée
+    </label>
+  </div>
+  <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+      <input type="checkbox" id="terrasse3dCloture">
+      Clôture autour de la parcelle
+    </label>
+    <span style="display:inline-flex; align-items:center; gap:4px; margin-left:14px;">
+      <label for="terrasse3dClotureHauteur" style="font-size:0.82rem; color:var(--ink-soft);">Hauteur (m)</label>
+      <input type="number" id="terrasse3dClotureHauteur" step="0.1" min="0.1" value="1.8" style="width:62px;">
+    </span>
+    <input type="color" id="terrasse3dClotureCouleur" value="#6b4a2a" title="Couleur de la cloture" style="margin-left:10px; width:32px; height:26px; padding:0; border:1px solid var(--rule); cursor:pointer;">
+    <img id="terrasse3dClotureTexVignette" style="width:24px; height:24px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); margin-left:10px; visibility:hidden;">
+    <span id="terrasse3dClotureTexNom" style="font-size:0.8rem; color:var(--ink-soft); margin-left:6px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Aucune (couleur unie)</span>
+    <button id="terrasse3dClotureTexBtn" type="button" class="secondary small" style="margin-left:6px;">Choisir une texture…</button>
+    <button id="terrasse3dClotureTexClear" type="button" class="secondary small" style="display:none;" title="Retirer cette texture">×</button>
+  </div>
+  <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+    <span style="font-size:0.88rem;" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique a droite">☀️ Soleil</span>
+    <label for="vue3dDate" style="font-size:0.82rem; color:var(--ink-soft); margin-left:6px;">Date</label>
+    <input type="date" id="vue3dDate">
+    <input type="range" id="vue3dSemaine" min="0" max="52" value="0" step="1" title="Semaine de l'annee - avance/recule de 7 jours a chaque cran" style="width:110px;">
+    <span id="vue3dLieu" style="font-size:0.8rem; color:var(--ink-soft); margin-left:10px;"></span>
+  </div>
+  <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
+    <span style="font-size:0.88rem;">🕐 Heure</span>
+    <input type="range" id="vue3dHeure" min="0" max="1439" step="5" value="720" style="flex:1; max-width:260px;">
+    <span id="vue3dHeureTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">12:00</span>
+    <span id="vue3dSoleilInfo" style="font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px;" title="Hauteur du soleil au-dessus de l'horizon et direction d'ou il vient, pour la date, l'heure et le lieu choisis"></span>
+    <span style="font-size:0.88rem; margin-left:18px;" title="Multiplie l'intensite du soleil - 100 % = eclairage physique pour l'heure choisie ; au-dela, la scene est volontairement sureclairee pour mieux voir les details">☀️ Intensité</span>
+    <input type="range" id="vue3dIntensite" min="25" max="300" step="5" value="100" style="flex:1; max-width:160px;">
+    <span id="vue3dIntensiteTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">100 %</span>
+    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Lumieres autres que le soleil (l'appoint qui eclaire faiblement le cote a l'ombre, et l'ambiante generale) - decoche pour un eclairage entierement au soleil, jusqu'au noir complet une fois couche">
+      <input type="checkbox" id="vue3dLumiereAppoint" checked>
+      Lumière d'appoint
+    </label>
+  </div>
+  <div class="controls" style="align-items:center; margin-top:6px;">
+    <button id="terrasse3dSaveViewBtn" type="button" class="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera">📷 Enregistrer la vue comme point de vue</button>
+    <select id="terrasse3dViewSelect" style="margin-left:10px;">
+      <option value="">Aller a un point de vue enregistre…</option>
+    </select>
+  </div>
+  <div id="terrasse3dLoading" class="hint">Chargement de la bibliotheque 3D…</div>
+  <div id="terrasse3dWrap" style="display:none; margin-top:10px;">
+    <div id="terrasse3dCanvasHost" style="position:relative; width:100%; height:420px; border:1px solid var(--border); border-radius:4px; overflow:hidden; background:#dfe7ea;">
+      <div id="terrasse3dZoomControls" style="position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px;">
+        <button id="terrasse3dZoomIn" type="button" title="Zoom avant" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">+</button>
+        <button id="terrasse3dZoomOut" type="button" title="Zoom arriere" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">−</button>
+        <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+        <button id="terrasse3dModeOrbit" type="button" title="Tourner (glisser fait pivoter la vue) — mode par defaut" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">⟳</button>
+        <button id="terrasse3dModePan" type="button" title="Deplacer (glisser translate la vue, un seul doigt suffit)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">✋</button>
+        <button id="terrasse3dModeZoom" type="button" title="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🔍</button>
+        <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+        <button id="terrasse3dSavePng" type="button" title="Enregistrer la vue actuelle en PNG" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">💾</button>
+        <div style="height:1px; background:var(--border); margin:2px 0;"></div>
+        <button id="terrasse3dEyeLevel" type="button" title="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🧍</button>
       </div>
-
-      <div id="terrasseTabBom" style="display:none;">
-        <div class="sectionTitle">Liste de matériaux (BOM)</div>
-        <table class="attrTable" id="terrasseBomTable"></table>
-        <div class="controls">
-          <span id="terrasseBomTotals" style="font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif;"></span>
-        </div>
-        <div class="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
-        <div class="sectionTitle" style="margin-top:18px;">Débit des lames</div>
-        <div id="terrasseDebitBox"></div>
-        <div class="sectionTitle" style="margin-top:18px;">Débit du bois porteur et appuis</div>
-        <div id="terrasseDebitBoisBox"></div>
-      </div>
-
-      <div id="terrasseTabCanevas" style="display:none;">
-        <div class="sectionTitle">Canevas</div>
-        <div id="terrasseLayerTabs" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;"></div>
-        <div class="hint" id="terrasseLayerHint"></div>
-        <div id="stageHost" style="margin-top:10px;"></div>
-      </div>
-
-      <div id="terrasseTab3d" style="display:none;">
-        <div class="sectionTitle" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Vue 3D</span>
-          <button id="terrasse3dFullPageBtn" type="button" class="secondary small" title="Agrandir en pleine page">⛶ Plein écran</button>
-        </div>
-        <div class="controls">
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
-            <input type="checkbox" id="terrasse3dFilaire">
-            Lames en filaire — voir la structure dessous
-          </label>
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
-            <input type="checkbox" id="terrasse3dAllObjects" checked>
-            Afficher tous les objets du plan
-          </label>
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;">
-            <input type="checkbox" id="terrasse3dObjectsOpaque" checked>
-            Objets opaques (sinon opacite du plan)
-          </label>
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet">
-            <input type="checkbox" id="terrasse3dTextures" checked>
-            Texture (sinon couleur unie)
-          </label>
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, decoche par defaut">
-            <input type="checkbox" id="terrasse3dShadows">
-            Ombre portée
-          </label>
-        </div>
-        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
-            <input type="checkbox" id="terrasse3dCloture">
-            Clôture autour de la parcelle
-          </label>
-          <span style="display:inline-flex; align-items:center; gap:4px; margin-left:14px;">
-            <label for="terrasse3dClotureHauteur" style="font-size:0.82rem; color:var(--ink-soft);">Hauteur (m)</label>
-            <input type="number" id="terrasse3dClotureHauteur" step="0.1" min="0.1" value="1.8" style="width:62px;">
-          </span>
-          <input type="color" id="terrasse3dClotureCouleur" value="#6b4a2a" title="Couleur de la cloture" style="margin-left:10px; width:32px; height:26px; padding:0; border:1px solid var(--rule); cursor:pointer;">
-          <img id="terrasse3dClotureTexVignette" style="width:24px; height:24px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); margin-left:10px; visibility:hidden;">
-          <span id="terrasse3dClotureTexNom" style="font-size:0.8rem; color:var(--ink-soft); margin-left:6px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Aucune (couleur unie)</span>
-          <button id="terrasse3dClotureTexBtn" type="button" class="secondary small" style="margin-left:6px;">Choisir une texture…</button>
-          <button id="terrasse3dClotureTexClear" type="button" class="secondary small" style="display:none;" title="Retirer cette texture">×</button>
-        </div>
-        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
-          <span style="font-size:0.88rem;" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique a droite">☀️ Soleil</span>
-          <label for="vue3dDate" style="font-size:0.82rem; color:var(--ink-soft); margin-left:6px;">Date</label>
-          <input type="date" id="vue3dDate">
-          <input type="range" id="vue3dSemaine" min="0" max="52" value="0" step="1" title="Semaine de l'annee - avance/recule de 7 jours a chaque cran" style="width:110px;">
-          <span id="vue3dLieu" style="font-size:0.8rem; color:var(--ink-soft); margin-left:10px;"></span>
-        </div>
-        <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
-          <span style="font-size:0.88rem;">🕐 Heure</span>
-          <input type="range" id="vue3dHeure" min="0" max="1439" step="5" value="720" style="flex:1; max-width:260px;">
-          <span id="vue3dHeureTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">12:00</span>
-          <span id="vue3dSoleilInfo" style="font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px;" title="Hauteur du soleil au-dessus de l'horizon et direction d'ou il vient, pour la date, l'heure et le lieu choisis"></span>
-          <span style="font-size:0.88rem; margin-left:18px;" title="Multiplie l'intensite du soleil - 100 % = eclairage physique pour l'heure choisie ; au-dela, la scene est volontairement sureclairee pour mieux voir les details">☀️ Intensité</span>
-          <input type="range" id="vue3dIntensite" min="25" max="300" step="5" value="100" style="flex:1; max-width:160px;">
-          <span id="vue3dIntensiteTexte" style="font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums;">100 %</span>
-          <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin-left:18px;" title="Lumieres autres que le soleil (l'appoint qui eclaire faiblement le cote a l'ombre, et l'ambiante generale) - decoche pour un eclairage entierement au soleil, jusqu'au noir complet une fois couche">
-            <input type="checkbox" id="vue3dLumiereAppoint" checked>
-            Lumière d'appoint
-          </label>
-        </div>
-        <div class="controls" style="align-items:center; margin-top:6px;">
-          <button id="terrasse3dSaveViewBtn" type="button" class="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera">📷 Enregistrer la vue comme point de vue</button>
-          <select id="terrasse3dViewSelect" style="margin-left:10px;">
-            <option value="">Aller a un point de vue enregistre…</option>
-          </select>
-        </div>
-        <div id="terrasse3dLoading" class="hint">Chargement de la bibliotheque 3D…</div>
-        <div id="terrasse3dWrap" style="display:none; margin-top:10px;">
-          <div id="terrasse3dCanvasHost" style="position:relative; width:100%; height:420px; border:1px solid var(--border); border-radius:4px; overflow:hidden; background:#dfe7ea;">
-            <div id="terrasse3dZoomControls" style="position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px;">
-              <button id="terrasse3dZoomIn" type="button" title="Zoom avant" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">+</button>
-              <button id="terrasse3dZoomOut" type="button" title="Zoom arriere" style="width:30px; height:30px; padding:0; font-size:1.1rem; line-height:1;">−</button>
-              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
-              <button id="terrasse3dModeOrbit" type="button" title="Tourner (glisser fait pivoter la vue) — mode par defaut" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">⟳</button>
-              <button id="terrasse3dModePan" type="button" title="Deplacer (glisser translate la vue, un seul doigt suffit)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">✋</button>
-              <button id="terrasse3dModeZoom" type="button" title="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🔍</button>
-              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
-              <button id="terrasse3dSavePng" type="button" title="Enregistrer la vue actuelle en PNG" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">💾</button>
-              <div style="height:1px; background:var(--border); margin:2px 0;"></div>
-              <button id="terrasse3dEyeLevel" type="button" title="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" style="width:30px; height:30px; padding:0; font-size:1rem; line-height:1;">🧍</button>
-            </div>
-          </div>
-          <div class="hint" id="terrasse3dHint">Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons ⟳ / ✋ / 🔍 changent ce que fait le glisser a un seul doigt — pratique sur tablette. Les points de vue se posent et se renomment en Mode Plan ("+ Point de vue"). Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
-        </div>
-      </div>
-
-      <div id="terrasseTabCoupe" style="display:none;">
-        <div class="sectionTitle">Plan de coupe</div>
-        <div id="terrasseCoupeWrap" style="overflow-x:auto;"></div>
-        <div class="hint">Empilement des couches a l'endroit le plus charge (appui / solive / lambourde / lame), a l'echelle. Le fut de la vis est enterre : seul son depassement de tete souleve la terrasse. Tout se regle dans Construction.</div>
-      </div>
-
-      <div id="terrasseTabImplantation" style="display:none;">
-        <div class="sectionTitle">Plan d'implantation</div>
-        <div id="terrasseImplantWrap"></div>
-      </div>
-
-      <div id="terrasseTabChantier" style="display:none;">
-        <div class="sectionTitle">Chantier — activités et durées</div>
-        <div id="terrasseChantierWrap"></div>
-      </div>
-
-      <div id="terrasseTabMethode" style="display:none;">
-        <div class="sectionTitle">Méthode de calcul</div>
-        <div id="terrasseMethodeWrap"></div>
-      </div>
-
     </div>
+    <div class="hint" id="terrasse3dHint">Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons ⟳ / ✋ / 🔍 changent ce que fait le glisser a un seul doigt — pratique sur tablette. Les points de vue se posent et se renomment en Mode Plan ("+ Point de vue"). Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
   </div>
 </div>
 
@@ -256,6 +189,62 @@
     <div class="hint">Glisse un point pour l'ajuster, un côté pour déplacer ses deux extrémités, l'intérieur d'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).</div>
   </div>
 
+  <!-- L'onglet Terrasse : la terrasse courante (core/contexteTerrasse.ts), ses sous-onglets par app/modes.ts. -->
+  <div id="panelTerrasse" style="display:none;">
+  <div id="terrasseEmpty" class="hint" style="display:none;">Aucun objet avec Fonction = terrasse pour l'instant. Ouvre l'onglet Objet de l'element concerne, et regle "Fonction" sur "terrasse".</div>
+  <div id="terrasseContent" style="display:none;">
+    <div id="terrasseSubTabs" style="display:flex; gap:4px; margin:0 0 10px;"></div>
+
+    <div id="terrasseTabConstruction">
+      <div class="sectionTitle">Construction</div>
+      <table class="attrTable" id="terrasseConfigTable"></table>
+      <div id="terrasseAvertBox"></div>
+      <div class="controls">
+        <button id="terrasseOptimBtn" class="objbtn">Optimisation des parametres</button>
+      </div>
+      <div id="terrasseOptimResult" style="display:none;"></div>
+      <div class="sectionTitle" style="margin-top:18px;">Paramètres de calcul</div>
+      <div class="hint">Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l'usage du métier (voir l'onglet Méthode).</div>
+      <div id="terrasseParamsBox"></div>
+    </div>
+
+    <div id="terrasseTabBom" style="display:none;">
+      <div class="sectionTitle">Liste de matériaux (BOM)</div>
+      <table class="attrTable" id="terrasseBomTable"></table>
+      <div class="controls">
+        <span id="terrasseBomTotals" style="font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif;"></span>
+      </div>
+      <div class="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
+      <div class="sectionTitle" style="margin-top:18px;">Débit des lames</div>
+      <div id="terrasseDebitBox"></div>
+      <div class="sectionTitle" style="margin-top:18px;">Débit du bois porteur et appuis</div>
+      <div id="terrasseDebitBoisBox"></div>
+    </div>
+
+    <div id="terrasseTabCoupe" style="display:none;">
+      <div class="sectionTitle">Plan de coupe</div>
+      <div id="terrasseCoupeWrap" style="overflow-x:auto;"></div>
+      <div class="hint">Empilement des couches a l'endroit le plus charge (appui / solive / lambourde / lame), a l'echelle. Le fut de la vis est enterre : seul son depassement de tete souleve la terrasse. Tout se regle dans Construction.</div>
+    </div>
+
+    <div id="terrasseTabImplantation" style="display:none;">
+      <div class="sectionTitle">Plan d'implantation</div>
+      <div id="terrasseImplantWrap"></div>
+    </div>
+
+    <div id="terrasseTabChantier" style="display:none;">
+      <div class="sectionTitle">Chantier — activités et durées</div>
+      <div id="terrasseChantierWrap"></div>
+    </div>
+
+    <div id="terrasseTabMethode" style="display:none;">
+      <div class="sectionTitle">Méthode de calcul</div>
+      <div id="terrasseMethodeWrap"></div>
+    </div>
+
+  </div>
+  </div>
+
   <div id="panelAffichage" style="display:none;">
     <!-- Voisinage et fond orthophoto : deplaces de l'ancienne barre de vues a l'etape 1 ; ils rejoindront
          le menu Affichage de la barre d'application (spec-ihm-zones §4.1). -->
@@ -267,9 +256,6 @@
       <input type="checkbox" id="chkOrtho"> 🛰️ Fond orthophoto
     </label>
   </div>
-    <div class="sectionTitle">Affichage par objet</div>
-    <table class="dispTable" id="dispTable"></table>
-
     <div class="controls">
       <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;"><input type="checkbox" id="chkNorth" checked> Afficher la flèche Nord</label>
     </div>
@@ -302,7 +288,7 @@
     <div class="hint">L'échelle du PDF (1/200 par défaut) fixe la taille de la page en fonction de l'étendue du plan : à 1/200, 1 m réel = 5 mm sur papier.</div>
     <div class="sectionTitle">Dossier PDF (plan de masse + terrasses)</div>
     <div class="controls" style="align-items:flex-start;">
-      <div id="dossierTerrasses" style="display:flex; flex-direction:column; gap:3px; font-size:0.82rem;"></div>
+      <span class="hint" style="margin:0;">Les terrasses du dossier se cochent dans l'explorateur, à gauche du plan.</span>
     </div>
     <div class="controls" style="align-items:center;">
       <label style="display:flex; align-items:center; gap:5px; font-size:0.82rem;" title="Spa, mobilier, parasol... : tout objet dont le centre tombe sur la terrasse"><input type="checkbox" id="chkDossierEquipements" checked> Inclure l'emprise des équipements posés sur la terrasse</label>

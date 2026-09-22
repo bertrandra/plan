@@ -2130,3 +2130,43 @@ Six empreintes identiques à celles de l'`alpha.2` par la preuve forte. Sur le b
 six formes depuis la palette, duplication, suppression avec confirmation, annulation jusqu'au vide
 avec le bouton qui se grise, grille et cadrage depuis la surimpression, les quatre bascules du menu
 Affichage, la cote et l'alignement depuis la palette. 554 tests.
+
+## Reconstruction de l'IHM — étape 3 : l'explorateur et le contexte terrasse (22 septembre 2026, `1.2.0-alpha.4`)
+
+**Z3, l'explorateur** (`zones/Explorateur.tsx`) prend la place de quatre choses qui parlaient du
+même plan à quatre endroits : le sélecteur d'objets au-dessus du plan, la table d'affichage de
+l'onglet Affichage, la barre de choix de la terrasse et les cases des couches du mode Terrasse. Une
+colonne entre la palette et le plan, trois sections — les objets par catégorie, le voisinage, les
+terrasses — et une règle : sélectionner ici, c'est sélectionner sur le canevas, masquer ici, c'est
+masquer partout. La zone ne fait rien elle-même : `app/explorateur.ts` est ce qu'elle demande au
+plan, et elle lit tout dans le magasin.
+
+**La terrasse est un contexte du plan** (décision 4 de la spec). Le mode Terrasse déplaçait
+physiquement le `<svg>` entre deux conteneurs, verrouillait le plan et cachait la sélection ; il
+avait sa barre de choix, ses huit sous-onglets et sa propre copie de la question « quelle terrasse ? ».
+Il en reste une règle, `core/contexteTerrasse.ts`, appliquée avant chaque rendu : la terrasse
+courante suit la sélection quand c'est une terrasse, ne bouge pas sinon, et se répare quand elle
+disparaît. L'onglet **Terrasse** du panneau (Construction, BOM, Plan de coupe, Implantation,
+Chantier, Méthode) la décrit ; la Vue 3D devient une vue à part entière, sans terrasse s'il n'y en
+a pas. `app/modes.ts` n'a plus que trois vues et les sous-onglets de cet onglet.
+
+**Les couches sur demande.** Le sous-onglet Canevas dessinait d'office la structure de la terrasse
+sur le plan ; l'explorateur la dessine quand on le lui demande (« Structure sur le plan »), couche
+par couche, et `etat.calquesVisibles` remplace `etat.appMode`. Le plan reste modifiable pendant ce
+temps : le verrou de `pointeur.ts` (« Mode Terrasse is read-only ») n'a plus lieu d'être — la spec
+prévoit qu'il redevienne un choix explicite de la palette, si le besoin se confirme.
+
+### Ce que ça change d'usage
+
+Il n'y a plus de bouton Terrasse. On clique une terrasse, sur le plan ou dans l'explorateur, et
+l'onglet Terrasse parle d'elle ; on clique un parasol, et elle reste la terrasse courante. La
+sélection du dossier PDF se fait dans l'explorateur, à côté de chaque terrasse, au lieu de l'onglet
+Export. Le plan a perdu la largeur de l'explorateur ; un clic sur sa poignée la lui rend.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.3` par la preuve forte. Sur le build : sélection
+depuis l'explorateur (la liste suit le canevas, et inversement), masquage et étiquettes, structure
+sur le plan couche par couche, onglet Terrasse avec ses six sous-onglets remplis, repli de
+l'explorateur (le plan passe de 920 à 1 168 px), Vue 3D et retour. 560 tests, dont six pour la
+règle du contexte terrasse.

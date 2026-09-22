@@ -134,48 +134,69 @@
     border:1px solid var(--border); border-radius:4px; background:var(--input-bg); color:var(--ink);
   }
 
-  #selector{
-    display:flex; flex-direction:column; gap:6px; align-items:stretch;
-    width:98vw; max-width:1600px; margin-bottom:10px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+  /* Z3, l'explorateur (zones/Explorateur.tsx) : une colonne entre la palette et le plan. Replie,
+     il ne garde que sa poignee ; sous 1 024 px il s'escamote comme la palette. */
+  #zoneExplorateur{
+    flex:none; width:240px; max-height:780px; overflow-y:auto; margin:6px 0 16px;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
   }
-  /* Deux niveaux distincts a l'oeil : la CATEGORIE (fonction) se choisit en haut, en pastilles
-     sans serif ; les OBJETS de la categorie sont les boutons du plan, en serif comme le reste du
-     document. Sur un plan importe du cadastre, la liste a plat depassait 60 boutons. */
-  .selectorFamilles{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
-  .selectorRangee{ display:flex; gap:10px; align-items:flex-start; }
-  .selectorLegende{
-    font-size:0.6rem; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--ink-soft); opacity:.7; margin-right:2px; align-self:center; white-space:nowrap;
+  #zoneExplorateur.replie{ width:22px; overflow:hidden; }
+  @media (max-width: 1023px){ #zoneExplorateur{ display:none; } }
+  .explorateurEntete{
+    display:flex; align-items:center; justify-content:space-between; padding:6px 8px 6px 10px;
+    font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; border-bottom:1px solid var(--rule);
   }
-  /* La selection courante quitte la liste : elle a sa place fixe, a gauche, toujours au meme
-     endroit quel que soit le filtre - on sait ce qu'on edite sans le chercher parmi 60 boutons. */
-  .selectorSelection{
-    display:flex; flex-direction:column; gap:1px; flex:none; max-width:230px;
-    padding:3px 10px; border:1px solid var(--accent); background:var(--accent-light);
-    border-radius:2px; cursor:pointer;
+  #zoneExplorateur.replie .explorateurEntete{ padding:6px 2px; justify-content:center; border-bottom:none; }
+  .explorateurPli{
+    border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:1.1rem;
+    line-height:1; padding:2px 6px; border-radius:2px;
   }
-  .selectorSelection.vide{ border-style:dashed; border-color:var(--rule); background:transparent; cursor:default; }
-  .selectorSelectionNom{
-    font-family:"Georgia",serif; font-size:0.82rem; font-weight:700; color:var(--ink);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  .explorateurPli:hover{ background:var(--accent-light); color:var(--ink); }
+  .explorateurSection{ padding:6px 8px 8px; border-bottom:1px solid var(--rule); }
+  .explorateurSection:last-child{ border-bottom:none; }
+  .explorateurSection h3{
+    margin:0 0 6px; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.62rem; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--ink-soft); font-weight:600;
   }
-  .selectorSelectionFam{ font-size:0.6rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
-  .selectorListe{
-    display:flex; gap:6px; flex-wrap:wrap; align-content:flex-start;
-    max-height:5.4rem; overflow-y:auto; flex:1;
-  }
-  /* Selecteur descendant obligatoire : .objbtn est declare plus bas dans la feuille et, a
-     specificite egale, c'est lui qui l'emporterait - la pastille de categorie reprendrait alors
-     la police serif et les angles droits des boutons d'objet, et les deux niveaux se
-     confondraient a nouveau. */
-  .selectorFamilles .fambtn{
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.68rem; padding:3px 11px;
+  .explorateurCompte{ opacity:.6; margin-left:4px; font-variant-numeric:tabular-nums; }
+  .explorateurFamilles{ display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; }
+  .explorateurFamilles .fambtn{
+    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.62rem; padding:3px 8px; cursor:pointer;
     text-transform:uppercase; letter-spacing:.05em; border-radius:11px; opacity:0.92;
+    border:1px solid var(--rule); background:#fff; color:var(--ink-soft);
   }
-  .selectorFamilles .fambtn .fambtnN{ opacity:.6; margin-left:5px; font-variant-numeric:tabular-nums; }
-  .selectorFamilles .fambtn.active{ opacity:1; }
-  .selectorFamilles .fambtn.active .fambtnN{ opacity:.85; }
+  .explorateurFamilles .fambtn .fambtnN{ opacity:.6; margin-left:4px; font-variant-numeric:tabular-nums; }
+  .explorateurFamilles .fambtn.active{ opacity:1; border-color:var(--accent); background:var(--accent); color:#fff; font-weight:700; }
+  .explorateurFamilles .fambtn.active .fambtnN{ opacity:.85; }
+  .explorateurTous{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .explorateurTous details.menu > summary{ padding:3px 8px; font-size:0.72rem; }
+  .explorateurListe{ list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto; }
+  .explorateurLigne{ display:flex; align-items:center; gap:4px; min-height:40px; }
+  .explorateurNom{
+    flex:1; min-width:0; text-align:left; border:1px solid transparent; background:transparent; cursor:pointer;
+    font-family:"Georgia",serif; font-size:0.8rem; color:var(--ink); padding:4px 8px; border-radius:2px;
+    display:flex; flex-direction:column; gap:1px; line-height:1.25;
+  }
+  .explorateurNom > span, .explorateurNom{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .explorateurNom small{ font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.66rem; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .explorateurNom:hover{ background:var(--accent-light); }
+  .explorateurListe li.active > .explorateurLigne .explorateurNom{ border-color:var(--accent); background:var(--accent-light); font-weight:700; }
+  .explorateurListe li.masque .explorateurNom{ color:var(--ink-soft); font-style:italic; }
+  .oeil{
+    flex:none; width:32px; height:32px; border:1px solid transparent; background:transparent; cursor:pointer;
+    border-radius:2px; font-size:0.95rem; line-height:1; color:var(--ink-soft);
+  }
+  .oeil:hover{ background:var(--accent-light); color:var(--ink); }
+  .oeil[aria-pressed="false"]{ opacity:.55; }
+  .explorateurEtiquettes{ display:flex; flex-wrap:wrap; gap:2px 10px; padding:0 8px 6px 12px; font-size:0.72rem; }
+  .explorateurEtiquettes label, .explorateurCalques label, .explorateurDossier{ display:inline-flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; }
+  .explorateurEtiquettes input, .explorateurCalques input, .explorateurDossier input{ width:18px; height:18px; margin:0; }
+  .explorateurDossier{ flex:none; font-size:0.7rem; color:var(--ink-soft); padding-right:4px; }
+  .explorateurVide{ margin:0; color:var(--ink-soft); font-size:0.74rem; line-height:1.35; }
+  .explorateurCalques{ display:flex; flex-direction:column; gap:5px; margin-top:8px; padding:8px 8px 4px; border-top:1px dashed var(--rule); font-size:0.74rem; }
+  .explorateurCalquesMaitre{ font-weight:600; }
+  .explorateurCouleur{ display:inline-block; width:10px; height:10px; border-radius:2px; }
   .objbtn{
     font-family:"Georgia",serif; font-size:0.76rem; padding:6px 13px;
     border:1px solid var(--rule); background:#fff; color:var(--ink-soft); cursor:pointer; border-radius:2px;
@@ -223,16 +244,10 @@
   /* Alternance de fond : sur des tableaux de vingt a cent lignes, c'est ce qui permet de suivre
      une ligne jusqu'au bout sans se tromper de rangee. Les lignes qui portent deja un fond -
      titres de section, phases, config courante - gardent le leur. */
-  table.attrTable tr:nth-child(even):not(.sectionRow),
-  table.dispTable tr:nth-child(even){ background:var(--zebra); }
-  table.attrTable tr:hover:not(.sectionRow),
-  table.dispTable tr:hover{ background:var(--zebra-hover); }
+  table.attrTable tr:nth-child(even):not(.sectionRow){ background:var(--zebra); }
+  table.attrTable tr:hover:not(.sectionRow){ background:var(--zebra-hover); }
   table.attrTable tr.sectionRow{ background:transparent; }
 
-  .dispTable{width:100%; border-collapse:collapse; font-size:0.78rem; margin-top:6px;}
-  .dispTable th,.dispTable td{padding:4px 6px; border-bottom:1px solid var(--paper-deep); text-align:center;}
-  .dispTable th{color:var(--accent); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1.5px solid var(--rule);}
-  .dispTable td:first-child, .dispTable th:first-child{text-align:left;}
 
   .controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
   button{
@@ -264,7 +279,7 @@
   /* Plein page de la Vue 3D : sort du flux normal et couvre tout le viewport, par-dessus le
      reste de l'appli (sidebar, autres onglets) - aucun autre element n'a besoin d'etre cache
      explicitement, le recouvrement suffit. */
-  #terrasseTab3d.pleinePage{
+  #vue3dPanel.pleinePage{
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
     padding:14px 18px; overflow:auto; margin:0;
   }

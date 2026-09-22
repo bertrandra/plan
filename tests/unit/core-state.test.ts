@@ -44,7 +44,8 @@ describe('etat de l application', () => {
 
   it('part sur des reglages d affichage previsibles', () => {
     const etat = creerEtat({}, identite);
-    expect(etat.appMode).toBe('plan');
+    expect(etat.terrasseSelectedKey).toBeNull();
+    expect(etat.calquesVisibles).toBe(false);
     expect(etat.panelTab).toBe('edition');
     expect(etat.grilleVisible).toBe(true);
     expect(etat.voisinageVisible).toBe(true);

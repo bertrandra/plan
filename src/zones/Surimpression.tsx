@@ -14,7 +14,7 @@ export function Surimpression({ magasin, commandes }: { magasin: Magasin; comman
   const etat = magasin.store.getState().etat;
   const grille = etat.grilleVisible;
   // Le cadrage a un sens des qu'un objet est selectionne — ou, en mode Terrasse, la terrasse courante.
-  const cadrable = !!etat.selectedKey || etat.appMode === 'terrasse';
+  const cadrable = !!etat.selectedKey;
   return (
     <>
       <button type="button" id="gridBtn" className={grille ? '' : 'off'} aria-pressed={grille}

@@ -332,7 +332,10 @@ parameters forbidden) with zero errors across `src/` and `tests/`.
 `1.2.0-alpha.1` (21 September), `app/` also holds `commandes` (the command registry) and `magasin`
 (the Zustand bridge over `EtatApp`) — the first two modules of the UI rebuild, `spec-ihm-zones.md`. Since `1.2.0-alpha.2`, a `zones/`
 folder at the same level as `app/` holds the React zones (`BarreApplication`, `BarreEtat`, `monter`), and
-`app/projet.ts` carries the project commands that `ui/projectBar.ts` used to render itself.
+`app/projet.ts` carries the project commands that `ui/projectBar.ts` used to render itself. Since
+`1.2.0-alpha.3`, `zones/` also holds `Palette` and `Surimpression`; since `1.2.0-alpha.4` (22 September),
+`Explorateur` — backed by `app/explorateur.ts` — replaces `ui/selector.ts`, and `core/contexteTerrasse.ts`
+carries the rule that made the Terrasse mode redundant (the terrace is a context of the plan, not a view).
 
 **What changed since 29 August.** `legacy.ts` (1 500 lines) is gone: `app/` grew from one module
 to thirteen — the composition root `boot.ts`, the named `atelier` it builds, and ten listener groups

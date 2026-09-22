@@ -1,7 +1,8 @@
 // Z1, la barre d'application (spec-ihm-zones §4.1) : le projet, l'affichage, les vues, le titre.
 //
 // Etape 1 de la reconstruction : cette zone remplace `#projectBar`, `#modeBar` et le `<h1>`
-// d'index.html. Etape 2 : elle gagne le menu Affichage. Elle ne sait rien faire par elle-meme —
+// d'index.html. Etape 2 : elle gagne le menu Affichage. Etape 3 : le bouton Terrasse disparait, la
+// terrasse etant un contexte du plan et non une vue (spec-ihm-zones §7, decision 4). Elle ne sait rien faire par elle-meme —
 // chaque bouton execute une commande du registre, le `<select>` demande au projet de s'ouvrir — et
 // elle lit tout dans le magasin. Les identifiants `projectSelect`, `saveProjectBtn`,
 // `modePlanBtn`… restent les memes que dans l'ancien balisage : la checklist de fumee et les
@@ -22,11 +23,10 @@ export interface PropsBarreApplication {
 
 const VUES: [Vue, string, string, string][] = [
   ['plan', 'modePlanBtn', 'Plan', ''],
-  ['terrasse', 'modeTerrasseBtn', 'Terrasse', ''],
-  ['vue3d', 'mode3dBtn', 'Vue 3D', 'Vue 3D de la terrasse actuellement selectionnee'],
+  ['vue3d', 'mode3dBtn', 'Vue 3D', 'Vue 3D du plan et de la terrasse courante'],
   ['visionneuse', 'glbViewerBtn', 'Visionneuse GLB', 'Relit le dernier fichier GLB exporte (onglet Export), pour verifier le fichier reel avant de le partager']
 ];
-const COMMANDE_DE_VUE: Record<Vue, string> = { plan: 'vue.plan', terrasse: 'vue.terrasse', vue3d: 'vue.3d', visionneuse: 'vue.visionneuse' };
+const COMMANDE_DE_VUE: Record<Vue, string> = { plan: 'vue.plan', vue3d: 'vue.3d', visionneuse: 'vue.visionneuse' };
 
 /** Le menu Affichage : quatre bascules, chacune une commande, cochee d'apres l'etat du plan. */
 function MenuAffichage({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {

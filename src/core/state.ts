@@ -38,10 +38,12 @@ export interface EtatApp {
   // Selection et modes
   selectedKey: string | null;
   highlight: Surbrillance;
-  appMode: string;
   panelTab: string;
   attrTab: string;
+  /** La terrasse courante : un contexte du plan, tenu par core/contexteTerrasse.ts. */
   terrasseSelectedKey: string | null;
+  /** Les couches de la terrasse courante (vis, solives, lames…) dessinees sur le plan. */
+  calquesVisibles: boolean;
 
   // Transformation de la scene (deja sortie en phase 4b)
   scene: EtatScene;
@@ -87,10 +89,10 @@ export function creerEtat(
         ? objects[0]!.key
         : null,
     highlight: { type: null, index: null },
-    appMode: 'plan',
     panelTab: 'edition',
     attrTab: 'segments',
     terrasseSelectedKey: null,
+    calquesVisibles: false,
 
     scene: creerScene(),
 

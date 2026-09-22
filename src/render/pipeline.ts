@@ -32,12 +32,11 @@ export interface ContexteRendu extends ContexteOrtho {
   objetMasque: (obj: ObjetPlan) => boolean;
   rebuildHandles: (obj: ObjetRendu) => void;
   renderAttrTable: () => void;
-  renderDispTable: () => void;
   drawScaleBar: () => void;
   drawNorthArrow: () => void;
   drawMeasures: () => void;
   renderMeasureResults: () => void;
-  renderTerrasseLayerView: (obj: ObjetPlan) => void;
+  renderTerrasseLayerView: (obj: ObjetPlan | null | undefined) => void;
   estTerrain: (obj: ObjetRendu) => boolean;
 }
 
@@ -45,10 +44,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   placerOrthophoto(ctx);
   ctx.drawGrid();
   ctx.renderParasolOverlay();
-  // In Mode Terrasse the plan is a backdrop for the layer overlay, not something being edited:
-  // the selection handles and vertex labels would sit on top of the vis and solives and make
-  // the canevas unreadable. The choice made in Mode Plan is kept, just not drawn here.
-  const activeSel = (etat.appMode==='terrasse') ? null : etat.selectedKey;
+  const activeSel = etat.selectedKey;
   if(activeSel && activeSel !== 'parcelle'){
     const sel = etat.objects.find(o=>o.key===activeSel);
     if(sel) ctx.amenerPoigneesDevant(sel);
@@ -77,17 +73,14 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   // ---- surfaces: computed on demand in the "Objet" tab (see renderAttrTable) ----
 
   ctx.renderAttrTable();
-  ctx.renderDispTable();
   ctx.drawScaleBar();
   ctx.drawNorthArrow();
   ctx.drawMeasures();
   if(etat.panelTab==='mesure') ctx.renderMeasureResults();
 
-  // Mode Terrasse's construction overlay is drawn in screen space (toScreen), same as
-  // everything else here: without this, panning/zooming the plan moves the real shapes
-  // but leaves the vis/solives/lambourdes/lames overlay stuck at its old screen position.
-  if(etat.appMode==='terrasse'){
-    const terrasseObj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-    if(terrasseObj) ctx.renderTerrasseLayerView(terrasseObj);
-  }
+  // Les couches de la terrasse courante (vis, solives, lames…) sont dessinees en coordonnees
+  // d'ecran comme tout le reste : sans cela, deplacer ou zoomer le plan laisserait le calque a son
+  // ancienne place. Elles ne s'affichent que si l'explorateur les a demandees ; sinon le calque
+  // est vide — c'est ce que fait un appel sans objet.
+  ctx.renderTerrasseLayerView(etat.calquesVisibles ? etat.objects.find(o=>o.key===etat.terrasseSelectedKey) : null);
 }

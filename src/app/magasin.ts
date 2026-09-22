@@ -43,6 +43,8 @@ export interface EtatMagasin {
   pointeur: PtBrut | null;
   /** La pile d'annulation a quelque chose a rendre. */
   peutAnnuler: boolean;
+  /** L'explorateur (Z3) est deplie ; replie, il rend sa largeur au plan. */
+  explorateurOuvert: boolean;
 }
 
 export interface Magasin {
@@ -55,6 +57,7 @@ export interface Magasin {
   definirProjet(projet: Partial<ProjetObservable>): void;
   definirPointeur(p: PtBrut | null): void;
   definirPeutAnnuler(peut: boolean): void;
+  definirExplorateurOuvert(ouvert: boolean): void;
 }
 
 export function creerMagasin(etat: EtatApp): Magasin {
@@ -65,7 +68,8 @@ export function creerMagasin(etat: EtatApp): Magasin {
     lieu: '',
     projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '' },
     pointeur: null,
-    peutAnnuler: false
+    peutAnnuler: false,
+    explorateurOuvert: true
   }));
   return {
     store,
@@ -75,6 +79,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirLieu: (lieu) => store.setState({ lieu }),
     definirProjet: (projet) => store.setState((s) => ({ projet: { ...s.projet, ...projet } })),
     definirPointeur: (pointeur) => store.setState({ pointeur }),
-    definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler })
+    definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler }),
+    definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert })
   };
 }

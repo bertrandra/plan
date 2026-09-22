@@ -50,13 +50,9 @@ const APAISEMENT_RESIZE_MS = 150;
 export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCommandes): void {
   const el = (id: string) => document.getElementById(id) as HTMLButtonElement;
 
-  /**
-   * « Cadrer » : sur l'objet sélectionné, et c'est le mode qui dit lequel — en mode Terrasse la
-   * sélection qui compte est celle de la terrasse, pas celle du plan.
-   */
+  /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
   cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
-    const cle = a.etat.appMode === 'terrasse' ? a.etat.terrasseSelectedKey : a.etat.selectedKey;
-    a.fitToObject(a.etat.objects.find(o => o.key === cle) || null);
+    a.fitToObject(a.etat.objects.find(o => o.key === a.etat.selectedKey) || null);
   } });
 
   /**

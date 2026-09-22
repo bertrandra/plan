@@ -248,7 +248,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
 
     setVue3dPleinePage(actif: boolean) {
       vue3dPleinePage = actif;
-      pleinePage(actif, 'terrasseTab3d', 'terrasse3dCanvasHost', 'terrasse3dFullPageBtn', 'la vue 3D', resizeThreeScene);
+      pleinePage(actif, 'vue3dPanel', 'terrasse3dCanvasHost', 'terrasse3dFullPageBtn', 'la vue 3D', resizeThreeScene);
     },
     setGlbViewerPleinePage(actif: boolean) {
       glbViewerPleinePage = actif;

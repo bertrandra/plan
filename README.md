@@ -12,7 +12,7 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.2.0-alpha.3`, reconstruction de l'interface en cours (`MD/spec-ihm-zones.md`). **La migration
+Version `1.2.0-alpha.4`, reconstruction de l'interface en cours (`MD/spec-ihm-zones.md`). **La migration
 TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier HTML
 unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
 compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact

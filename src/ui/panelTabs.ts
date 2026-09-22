@@ -1,6 +1,7 @@
 // Les onglets du panneau lateral, en mode Plan (spec §6.4, ui/).
 //
-// Cinq onglets qui parlent du meme plan sous cinq angles. Trois d'entre eux ne se contentent pas
+// Six onglets qui parlent du meme plan sous six angles — l'onglet Terrasse decrit la terrasse
+// courante, un contexte du plan depuis l'etape 3 de la reconstruction de l'interface. Quatre d'entre eux ne se contentent pas
 // d'apparaitre : ils **se reconstruisent a l'ouverture**, parce que leur contenu depend de ce qui
 // s'est passe pendant qu'ils etaient caches — une cote posee, une parcelle importee, une terrasse
 // renommee. Les remplir une fois pour toutes donnerait un panneau perime sans que rien ne le dise.
@@ -8,6 +9,7 @@
 /** Les onglets, dans l'ordre, avec le panneau que chacun montre. */
 const ONGLETS: [string, string, string][] = [
   ['edition', 'Édition', 'panelEdition'],
+  ['terrasse', 'Terrasse', 'panelTerrasse'],
   ['affichage', 'Affichage', 'panelAffichage'],
   ['mesure', 'Mesure', 'panelMesure'],
   ['plu', 'PLU', 'panelPlu'],
@@ -19,8 +21,8 @@ export interface ContexteOnglets {
   rebuildMeasurePanel: () => void;
   renderMeasureResults: () => void;
   renderPanneauPlu: () => void;
-  /** La liste des terrasses du dossier : une terrasse ajoutee ou renommee doit y figurer. */
-  construireListeDossier: () => void;
+  /** Les panneaux de la terrasse courante : construction, chiffrage, coupe, implantation, chantier. */
+  refreshTerrasseView: () => void;
 }
 
 /** Ce que les onglets lisent et ecrivent : quel onglet est actif. */
@@ -34,7 +36,7 @@ export function activerOnglet(key: string, etat: EtatOnglets, ctx: ContexteOngle
   });
   if (key === 'mesure') { ctx.rebuildMeasurePanel(); ctx.renderMeasureResults(); }
   if (key === 'plu') ctx.renderPanneauPlu();
-  if (key === 'export') ctx.construireListeDossier();
+  if (key === 'terrasse') ctx.refreshTerrasseView();
   // Se reconstruit pour se remettre en surbrillance : l'onglet actif est lu depuis `etat`.
   rebuildPanelTabs(etat, ctx);
 }

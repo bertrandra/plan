@@ -4,18 +4,15 @@
 // le metre (quantites et prix), et le debit de bois (les pieces a commander). Aucune ne calcule :
 // elles mettent en page ce que `engine/` a produit.
 //
-// La selection du dossier vit ici parce qu'elle ne concerne que ce panneau - cocher une terrasse
-// pour le PDF n'est pas une donnee du plan.
+// La selection du dossier vit ici parce que cocher une terrasse pour le PDF n'est pas une donnee
+// du plan : elle ne s'enregistre pas.
 
-import { shoelace } from '../geometry/basic.js';
 import { computeBOM, coutDebit, prixBarre, prixM2De, prixPersonnalise, setPrixBarre, setPrixM2, type ProduitBarre } from '../engine/bom.js';
 import { computeTerrasseLayers, type CouchesTerrasse } from '../engine/layers.js';
 import { computeDebitLames, type Debit } from '../engine/debit.js';
 import { ESSENCE_PRICES } from '../engine/constantes.js';
 import { ensureConstruction } from '../engine/construction.js';
-import { equipementsSurTerrasse } from '../export/dossierPdf.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
-import { sommetsDe } from '../model/formes.js';
 import type { ObjetPlan, Construction, LigneBom } from '../model/types.js';
 
 /** Ce que ces trois tables doivent pouvoir declencher ailleurs. */
@@ -25,41 +22,20 @@ export interface ContexteTables {
   renderDebitBois: (obj: ObjetPlan, layers: CouchesTerrasse) => void;
 }
 
-// Terrasses cochees pour le dossier PDF. Par defaut, toutes.
+// Terrasses cochees pour le dossier PDF — dans l'explorateur (zones/Explorateur.tsx) depuis
+// l'etape 3 de la reconstruction de l'interface. Par defaut, toutes.
 export const dossierSelection = new Set<string>();
-export function renderDossierTerrasses(etat: { objects: ObjetPlan[] }): void {
-  const hote = document.getElementById('dossierTerrasses');
-  if(!hote) return;
-  hote.innerHTML = '';
-  const terrasses = etat.objects.filter((o: ObjetPlan)=>o.fonction === 'terrasse' && o.type === 'polygon');
-  if(!terrasses.length){
-    const p = document.createElement('span');
-    p.className = 'hint';
-    p.style.margin = '0';
-    p.textContent = 'Aucune terrasse dans ce plan : regle « Fonction » sur « terrasse » pour l\'objet concerne.';
-    hote.appendChild(p);
-    return;
-  }
+
+/**
+ * Les cles des terrasses retenues, apres reparation : une terrasse disparue sort de la selection,
+ * et rien de coche veut dire toutes — un dossier vide n'est pas un dossier.
+ */
+export function clesDossier(objects: ObjetPlan[]): string[] {
+  const terrasses = objects.filter((o: ObjetPlan)=>o.fonction === 'terrasse' && o.type === 'polygon');
   const cles = new Set(terrasses.map((t: ObjetPlan)=>t.key));
   [...dossierSelection].forEach(k=>{ if(!cles.has(k)) dossierSelection.delete(k); });
   if(!dossierSelection.size) terrasses.forEach((t: ObjetPlan)=>dossierSelection.add(t.key));
-  terrasses.forEach((t: ObjetPlan)=>{
-    const lab = document.createElement('label');
-    lab.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer;';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = dossierSelection.has(t.key);
-    cb.addEventListener('change', ()=>{
-      if(cb.checked) dossierSelection.add(t.key); else dossierSelection.delete(t.key);
-    });
-    const equip = equipementsSurTerrasse(etat.objects, t);
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(
-      t.name + ' — ' + shoelace(sommetsDe(t)).toFixed(2).replace('.',',') + ' m²' +
-      (equip.length ? ' — ' + equip.length + ' équipement(s) : ' + equip.map((e: ObjetPlan)=>e.name).join(', ') : ' — aucun équipement')
-    ));
-    hote.appendChild(lab);
-  });
+  return [...dossierSelection];
 }
 
 export function debitTable(host: HTMLElement, c: Construction, d: Debit, lengths: number[], cle: ProduitBarre, ctx: ContexteTables): void {

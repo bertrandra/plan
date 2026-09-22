@@ -66,7 +66,7 @@ import { rendreScene } from '../render/pipeline.js';
 import { creerHistorique } from '../core/historique.js';
 import { LS_LAST_PROJECT, withProjectParam, apiSave, apiDelete, chargerProjetInitial } from '../io/api.js';
 import {
-  dossierSelection, renderDossierTerrasses as construireListeDossier,
+  clesDossier,
   debitTable as construireTableDebit, renderBOMTable as construireTableBom,
   champLongueurs as construireChampLongueurs, bilanDebit, prixPersonnaliseplot,
   renderDebitLames as construireDebitLames
@@ -77,7 +77,8 @@ import {
   startPick as demarrerPointage, rebuildMeasurePanel as construirePanneauMesure,
   renderMeasureResults as construireResultatsMesure
 } from '../ui/mesurePanel.js';
-import { rebuildSelector as construireSelecteur, renderDispTable as construireTableAffichage } from '../ui/selector.js';
+import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe } from '../core/contexteTerrasse.js';
+import { creerExplorateur } from './explorateur.js';
 
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d,
@@ -85,10 +86,7 @@ import {
   appliquer as appliquerSoleilVue3d
 } from '../three/soleilVue3d.js';
 import { chargerTexturePolyhaven } from '../three/chargeurs.js';
-import {
-  renderTerrasseLayerTabs as construireOngletsCouches,
-  renderTerrasseLayerView as dessinerCouches
-} from '../render/terrasseCouches.js';
+import { renderTerrasseLayerView as dessinerCouches } from '../render/terrasseCouches.js';
 import { trouverParcelleCloture as chercherParcelleCloture, syncClotureControls } from '../ui/cloture.js';
 import {
   ensureThreeLoaded, disposeThreeScene, disposeGlbViewerScene, appliquerLumiereGlb, syncSemaineGlb,
@@ -103,8 +101,7 @@ import { creerProjet } from './projet.js';
 import { monterZones } from '../zones/monter.js';
 import {
   renderTerrasseConfigurator, renderTerrasseCoupe, renderDebitBois, renderImplantation,
-  renderChantier, renderMethode, renderOptimResult, basculerOptimisation,
-  renderTerrasseSelector as construireSelecteurTerrasse
+  renderChantier, renderMethode, renderOptimResult, basculerOptimisation
 } from '../ui/terrassePanels.js';
 import { interrogerPluDepuisBouton } from '../ui/projectBar.js';
 import { buildThreeScene as construireScene3D } from '../three/scene.js';
@@ -194,10 +191,10 @@ const commandes = creerRegistre();
 
 // Ce dont la barre de projet, l'actualisation cadastrale et le panneau PLU ont besoin. Fabrique a
 // chaque appel : ce contexte porte des fonctions qui n'existent qu'une fois boot() lance.
-// Le selecteur et la table d'affichage vivent dans ui/selector.ts ; ces enveloppes leur passent
-// l'etat et ce qu'ils doivent pouvoir declencher.
-function rebuildSelector(){ construireSelecteur(etat, ctxListes()); }
-function renderDispTable(){ construireTableAffichage(etat, ctxListes()); }
+// Le selecteur d'objets est l'explorateur (zones/Explorateur.tsx) depuis l'etape 3 de la
+// reconstruction : il se redessine sur le magasin. Les modules qui demandaient a « reconstruire le
+// selecteur » le previennent, et c'est tout ce qu'il reste a faire.
+function rebuildSelector(){ magasin.notifier(); }
 // Le chargement d'un projet importe vit dans io/projet.ts ; ces enveloppes lui passent l'etat et
 // ce qu'il doit pouvoir declencher.
 function ctxProjetImporte(){
@@ -221,7 +218,6 @@ function ctxPanneauxTerrasse(){
     hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView,
     objets: ()=>etat.objects };
 }
-function ctxListes(){ return { markDirty, render, restoreState }; }
 
 // L'outil de cotation vit dans ui/mesurePanel.ts ; ces enveloppes lui passent l'etat et ce qu'il
 // doit pouvoir declencher.
@@ -261,8 +257,7 @@ function contexteSoleilParasol(){
   const lieu = lieuActuel();
   return { dateStr: etat.parasol.dateStr, minutes: etat.parasol.minutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
 }
-// appMode : dans `etat` (spec 6.1).
-// terrasseSelectedKey : dans `etat` (spec 6.1).
+// terrasseSelectedKey : dans `etat`, tenu par core/contexteTerrasse.ts (spec 6.1).
 
 
 // ================= Undo history =================
@@ -291,7 +286,7 @@ function ctxOnglets(){
   return {
     rebuildMeasurePanel, renderMeasureResults,
     renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
-    construireListeDossier: ()=>construireListeDossier(etat)
+    refreshTerrasseView
   };
 }
 function rebuildPanelTabs(){ construireOngletsPanneau(etat, ctxOnglets()); }
@@ -337,8 +332,12 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 // W et H : dans `etat.scene` (spec 6.1) - la taille utile de la scene.
 // La palette (zones/Palette.tsx) prend sa largeur a gauche du plan ; sous 1 024 px elle s'escamote.
 const LARGEUR_PALETTE = 72;
+const LARGEUR_EXPLORATEUR = 248;
 function computeSize(){
-  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE : 0);
+  // La palette et l'explorateur (zones/) prennent leur largeur au plan des 1 024 px ; en dessous, la
+  // feuille de style les escamote. L'explorateur replie la rend.
+  const explorateur = magasin.store.getState().explorateurOuvert ? LARGEUR_EXPLORATEUR : 0;
+  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur : 0);
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
@@ -414,21 +413,8 @@ etat.objects.slice().sort(parPriorite).forEach(createObjectDOM);
 
 etat.objects.forEach(rebuildHandles);
 
-// ================= Selector buttons =================
-// Etat d'affichage lu des le premier rebuildSelector(), appele quelques lignes plus bas pendant
-// le boot : ces declarations restent ICI et non dans les sections qui les pilotent, plus bas.
-// Les ranger "pres de leur code" a deja provoque un plantage au chargement (zone morte
-// temporelle) que le jeu de demonstration ne revelait pas.
 // voisinageVisible : dans `etat` (spec 6.1).
 // grilleVisible : dans `etat` (spec 6.1).
-
-// Un bouton par objet reste la selection la plus directe, mais un plan importe du cadastre en
-// compte facilement 60 (les arbres estimes a eux seuls) : la rangee occupait alors la moitie de
-// l'ecran. Les objets sont donc groupes par fonction, une seule famille depliee a la fois, et la
-// liste elle-meme est bornee en hauteur.
-// Filtre d'ouverture : le terrain. C'est la parcelle qu'on regarde en arrivant, et sur un plan
-// cadastre les 60 autres boutons n'ont aucune raison d'occuper l'ecran avant qu'on les demande.
-rebuildSelector();
 
 
 // L'ordre d'empilement vit dans render/empilement.ts ; ces enveloppes lui passent la racine SVG et
@@ -451,7 +437,6 @@ function sendObjectBackward(obj: ObjetPlan){
 // Le dessin du calque parasol vit dans render/parasolOverlay.ts. La contrainte de position, elle,
 // modifie les objets : elle reste ici et s'execute avant le dessin, comme avant.
 function renderParasolOverlay(){
-  if(etat.appMode !== 'plan'){ parasolGroup.innerHTML = ''; return; }
   contraindreParasols(etat.objects, etat.terrasseSelectedKey);
   dessinerCalqueParasols({
     groupeOmbres: parasolGroup, groupeMats: parasolMatGroup, racine: svg,
@@ -462,10 +447,17 @@ function renderParasolOverlay(){
 
 // Le dessin du plan est orchestre dans render/pipeline.ts ; cette enveloppe lui fournit l'etat et
 // les briques qu'il assemble.
-function render(){ rendreScene(etat, ctxRendu()); magasin.notifier(); }
+function render(){
+  // La terrasse courante suit la selection (core/contexteTerrasse.ts) ; quand elle change alors que
+  // l'onglet Terrasse est ouvert, ses panneaux se refont pour elle.
+  const contexteChange = synchroniserContexteTerrasse(etat);
+  rendreScene(etat, ctxRendu());
+  if(contexteChange && etat.panelTab === 'terrasse') refreshTerrasseView();
+  magasin.notifier();
+}
 function ctxRendu(){
   return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
-    renderAttrTable, renderDispTable, drawScaleBar, drawNorthArrow, drawMeasures,
+    renderAttrTable, drawScaleBar, drawNorthArrow, drawMeasures,
     renderMeasureResults, renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
     toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup };
 }
@@ -694,10 +686,10 @@ brancherExports({
   construireResume: ()=>construireResume(etat.objects, etat.measures, {
     appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
   }),
-  construireDossier: ()=>construireDossierPDF(etat.objects, [...dossierSelection],
+  construireDossier: ()=>construireDossierPDF(etat.objects, clesDossier(etat.objects),
     el<HTMLInputElement>('chkDossierEquipements').checked,
     { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
-  clesDossier: ()=>[...dossierSelection],
+  clesDossier: ()=>clesDossier(etat.objects),
   nomProjet: ()=>(seed && seed.meta && seed.meta.name)
 }, commandes);
 
@@ -864,20 +856,15 @@ function enregistrerAffichage(){
 // Les hauteurs (appui, hauteur finie, elevation) vivent dans engine/hauteurs.ts : elles sont lues
 // par le plan de coupe, la 3D, le dossier PDF et le chiffrage, et doivent rester une seule regle.
 
-// La barre de choix de la terrasse vit dans ui/terrassePanels.ts.
-function rebuildTerrasseSelector(){
-  return construireSelecteurTerrasse(etat, modes.sousOnglet, { refreshTerrasseView, hauteurFinieMm });
-}
 
 
 
-// Le calque des couches vit dans render/terrasseCouches.ts ; ces enveloppes lui fournissent son
-// groupe SVG, l'etat et la transformation d'ecran.
+// Le calque des couches vit dans render/terrasseCouches.ts ; cette enveloppe lui fournit son groupe
+// SVG, l'etat et la transformation d'ecran. Les couches ne se dessinent que si l'explorateur les a
+// demandees (`etat.calquesVisibles`) : un appel sans objet vide le calque.
 const terrasseLayerGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(terrasseLayerGroup);
-
-function renderTerrasseLayerTabs(obj: ObjetPlan){ construireOngletsCouches(obj, ()=>renderTerrasseLayerView(obj)); }
-function renderTerrasseLayerView(obj: ObjetPlan | null | undefined){ dessinerCouches(terrasseLayerGroup, obj, etat, toScreen); }
+function renderTerrasseLayerView(obj: ObjetPlan | null | undefined){ dessinerCouches(terrasseLayerGroup, etat.calquesVisibles ? obj : null, etat, toScreen); }
 
 
 // ================= Coupe verticale (empilement des couches, a l'echelle) =================
@@ -1005,16 +992,15 @@ brancherVue3d(atelier, {
   resizeThreeScene, resizeGlbViewerScene
 }, commandes);
 
-// Le pilotage des modes vit dans app/modes.ts ; ces enveloppes gardent les noms qu'utilisent les
-// ecouteurs et les panneaux.
-const modes = creerModes(etat, {
-  stage, terrasseLayerGroup, rebuildTerrasseSelector, fitToObject,
+// Le pilotage des vues et de l'onglet Terrasse vit dans app/modes.ts ; ces enveloppes gardent les
+// noms qu'utilisent les ecouteurs et les panneaux.
+const modes = creerModes({
+  terrasseCourante: ()=>terrasseCouranteDe(etat),
   ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
   preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
   signalerVue: (vue)=>magasin.definirVue(vue),
   rendrePanneauxTerrasse(obj){
     renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
-    renderTerrasseLayerTabs(obj);
     renderTerrasseLayerView(obj);
     renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
     construireTableBom(obj, etat, ctxTables());
@@ -1035,7 +1021,6 @@ brancherCloture({
 }, commandes);
 brancherBoutonsDeVue({
   allerAuPlan: ()=>modes.allerAuPlan(),
-  allerAuModeTerrasse: ()=>modes.allerAuModeTerrasse(),
   goVue3D: ()=>modes.goVue3D(),
   ouvrirVisionneuse: ()=>modes.ouvrirVisionneuse()
 }, commandes);
@@ -1068,7 +1053,9 @@ const projet = creerProjet(seed, {
   ouvrirImportCadastre: ()=>ouvrirImportCadastre(ctxProjet().contexteImport()),
   ouvrirDialogueActualisation: (b)=>ouvrirDialogueActualisation(b, ctxProjet())
 }, magasin, commandes);
-monterZones({ magasin, commandes, projet });
+// L'explorateur (zones/) demande au plan par ce service ; il lit le reste dans le magasin.
+const explorateur = creerExplorateur(etat, { render, markDirty, redimensionner: redimensionnerLePlan }, magasin);
+monterZones({ magasin, commandes, projet, explorateur });
 render();
 // Cadrage d'ouverture sur le terrain quand il vient du cadastre : sa taille reelle n'a aucune
 // raison de tomber sur l'echelle par defaut du plan de demonstration. Un plan dessine a la main

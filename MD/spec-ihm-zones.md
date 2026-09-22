@@ -277,7 +277,7 @@ Zone par zone, chaque étape laissant l'application utilisable et les empreintes
 | 0 | La table des commandes (`commandes.ts`) et l'état observable | `app/ecouteurs/*` deviennent des lignes de table ; aucun changement d'écran | 548 tests, six empreintes — **✅ 21/09/2026, `1.2.0-alpha.1`** : `app/commandes.ts` (47 commandes, 12 groupes), `app/magasin.ts`, React et Zustand installés, six empreintes identiques hors numéro |
 | 1 | La coquille (Z1, Z7) autour du canevas existant | `index.html` : barre d'application et barre d'état ; R1, R2 et le titre disparaissent | Checklist de fumée — **✅ 21/09/2026, `1.2.0-alpha.2`** : `zones/BarreApplication.tsx`, `zones/BarreEtat.tsx`, `app/projet.ts` ; vues, pointeur, sélection, dialogues et cycle serveur vérifiés ; empreintes identiques |
 | 2 | Z2 Palette et Z4 surimpressions | `#planActions`, `fitBtn`, `gridBtn`, le curseur solaire unifié | Points 1 à 11, 22 — **✅ 21/09/2026, `1.2.0-alpha.3`** : `zones/Palette.tsx` (13 outils, grisés selon la commande), `zones/Surimpression.tsx`, menu Affichage ; création, duplication, suppression, annulation, grille, cadrage, cote et alignement vérifiés ; empreintes identiques. Le curseur solaire unifié attend l'étape 5 |
-| 3 | Z3 Explorateur | `#selector`, `dispTable`, `terrasseSelector`, calques, sélection dossier | Points 13, 25 |
+| 3 | Z3 Explorateur | `#selector`, `dispTable`, `terrasseSelector`, calques, sélection dossier | Points 13, 25 — **✅ 22/09/2026, `1.2.0-alpha.4`** : `zones/Explorateur.tsx`, `app/explorateur.ts`, `core/contexteTerrasse.ts` ; le mode Terrasse, `#stageParking` et le sous-onglet Canevas ont disparu, l'onglet Terrasse du panneau porte les six sous-onglets ; sélection, masquage, étiquettes, couches, dossier, repli, Vue 3D vérifiés ; empreintes identiques |
 | 4 | Z5 Inspecteur par descripteurs | `attrPanel.ts` et `renderTerrasseConfigurator` réécrits en descripteurs (D-12) | Points 8, 10, 16, 17 ; oracle du moteur |
 | 5 | Z6 Résultats | les sous-onglets BOM…Chantier, Mesure, PLU, Résumé | Points 18 à 21, 11, 15 |
 | 6 | Z8 et Z9 | dialogues et notifications sur le design system | Points 12, 14, 23, 24 |
@@ -311,7 +311,11 @@ Prises le 21 septembre 2026 pour les quatre premières ; la cinquième est ouver
    disparaissent. Conséquence à vérifier à l'étape 3 : le plan reste éditable pendant qu'une
    terrasse est sélectionnée, alors que le mode Terrasse le verrouillait (`pointeur.ts`, « Mode
    Terrasse is read-only over the plan geometry ») — ce verrou devient un choix explicite de Z2
-   (outil de sélection actif ou non), pas un effet de bord du mode.
+   (outil de sélection actif ou non), pas un effet de bord du mode. *Fait le 22 septembre 2026
+   (`1.2.0-alpha.4`) : le verrou est retiré, le plan est modifiable avec une terrasse courante ; le
+   choix explicite de Z2 attend qu'un besoin le réclame. En attendant Z5 et Z6, les panneaux de la
+   terrasse sont l'onglet Terrasse du panneau, et sa structure ne se dessine sur le plan que sur
+   demande de Z3.*
 5. **Les résultats (Z6) sont un tiroir en bas du canevas**, repliable, pleine largeur — option A de §7.1.
 
 ### 7.1 Z6 en bas ou dans l'inspecteur : ce que chaque option coûtait
