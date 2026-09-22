@@ -456,3 +456,13 @@
   .porteDot--oui{ background:#2e7d32; }
   .porteDot--non{ background:#c62828; }
   .porteDot--essai{ background:var(--ink-soft); opacity:0.45; }
+
+  /* Le lien vers la plateforme (zones/BarreApplication.tsx, §5.5) : discret, mais toujours la.
+     Il n'ouvre pas dans cet onglet — un plan non enregistre ne doit pas disparaitre parce qu'on
+     est alle voir ses factures. */
+  #compteBar{ display:flex; align-items:center; margin-left:4px; }
+  .compteLien{
+    padding:3px 9px; border-radius:3px; font-size:0.8rem; white-space:nowrap;
+    color:var(--ink-soft); text-decoration:none; border:1px solid var(--border);
+  }
+  .compteLien:hover{ background:var(--accent-light); color:var(--ink); }

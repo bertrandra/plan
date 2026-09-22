@@ -11,6 +11,8 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
+import { contexteCourant } from '../app/acces.js';
+import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
@@ -194,6 +196,37 @@ function useFermetureDesMenus(): void {
   }, []);
 }
 
+/**
+ * Le lien vers la plateforme : qui est connecte, et ou sont ses projets.
+ *
+ * Le §5.5 de la specification pose la regle : Plan renvoie a la coquille de la plateforme pour
+ * tout ce qui lui appartient — l'abonnement, les factures, les membres, le profil — par des liens
+ * ordinaires, et ne reimplemente aucun de ces ecrans. C'est le premier de ces liens.
+ *
+ * L'adresse est `<plateforme>/<slug>/projects` : chaque organisation vit a sa racine, sauf celle
+ * de l'exploitant qui occupe la racine nue — mais sa forme avec slug resout aussi, parce que le
+ * premier segment est lu comme un slug des lors qu'il n'est pas un segment reserve de la
+ * coquille, et que le serveur deduit le locataire de l'adhesion de toute facon.
+ *
+ * Rien ne s'affiche hors plateforme : sous vitest, ou avant que la porte soit franchie, il n'y a
+ * personne a nommer.
+ */
+function Compte() {
+  const c = contexteCourant()?.courant();
+  if (!c) return null;
+  const qui = c.user.display_name || c.user.email || 'Compte';
+  const ou = c.tenant.name || c.tenant.slug || '';
+  const projets = BACKPROD_API_URL.replace(/\/+$/, '') + (c.tenant.slug ? '/' + c.tenant.slug : '') + '/projects';
+  return (
+    <div id="compteBar">
+      <a className="compteLien" href={projets} target="_blank" rel="noopener"
+        title={'Les projets de ' + (ou || 'votre organisation') + ' sur la plateforme, comme ' + qui}>
+        Mes projets<span aria-hidden="true"> ↗</span>
+      </a>
+    </div>
+  );
+}
+
 export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBarreApplication) {
   useFermetureDesMenus();
   const p = useStore(magasin.store, (s) => s.projet);
@@ -220,6 +253,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
         <MenuAffichage magasin={magasin} commandes={commandes} />
         <MenuAide magasin={magasin} tiroir={tiroir} />
       </div>
+      <Compte />
       <div id="modeBar">
         {VUES.map(([cle, id, libelle, titre]) => (
           <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>{libelle}</button>
