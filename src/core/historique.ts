@@ -62,6 +62,12 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
   boutonAnnuler: () => HTMLButtonElement | null;
   /** Dit si la pile est vide, a chaque changement : c'est ce que la palette (zones/) lit. */
   signalerPile?: (vide: boolean) => void;
+  /**
+   * Refait les panneaux de resultats (le tiroir, Z6) apres une restauration. Une annulation qui
+   * rend sa valeur d'avant a un champ de construction ne change ni la selection ni le contexte :
+   * sans ce rappel, le BOM affiche encore les quantites de l'etat annule.
+   */
+  rafraichirResultats?: () => void;
 }
 
 /** Ce que l'historique lit et ecrit dans l'etat du plan — rien de plus. */
@@ -122,6 +128,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     }
     ctx.rebuildSelector();
     ctx.renderMeasureResults();
+    if (ctx.rafraichirResultats) ctx.rafraichirResultats();
     ctx.render();
     majBoutonAnnuler();
   }

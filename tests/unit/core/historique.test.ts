@@ -15,7 +15,7 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
     dirty: false
   };
   const bouton = { disabled: true } as HTMLButtonElement;
-  const appels = { render: 0, selecteur: 0, vuesDetruites: 0, domCrees: 0, pile: [] as boolean[] };
+  const appels = { render: 0, selecteur: 0, vuesDetruites: 0, domCrees: 0, resultats: 0, pile: [] as boolean[] };
   const ctx = {
     // Copie profonde volontaire : c'est ce que fait la vraie serialisation.
     serializeObjects: (o: unknown[]) => JSON.parse(JSON.stringify(o)),
@@ -29,7 +29,8 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
     renderMeasureResults: () => {},
     render: () => { appels.render++; },
     boutonAnnuler: () => bouton,
-    signalerPile: (vide: boolean) => { appels.pile.push(vide); }
+    signalerPile: (vide: boolean) => { appels.pile.push(vide); },
+    rafraichirResultats: () => { appels.resultats++; }
   };
   return { etat, ctx, bouton, appels, h: creerHistorique(etat, ctx) };
 }
@@ -117,6 +118,16 @@ describe('empiler et annuler', () => {
     expect(appels.vuesDetruites).toBe(2);
     expect(appels.domCrees).toBe(2);
     expect(appels.selecteur).toBe(1);
+  });
+
+  it('refait les panneaux de resultats : le tiroir montre l etat restaure, pas l annule', () => {
+    // Annuler un champ de construction ne change ni la selection ni le contexte de terrasse : sans
+    // ce rappel, le BOM du tiroir garderait les quantites de l'etat qu'on vient d'annuler.
+    const { h, appels } = monter();
+    h.empiler();
+    expect(appels.resultats).toBe(0);
+    h.annuler();
+    expect(appels.resultats).toBe(1);
   });
 
   it('remonte plusieurs pas, un par annulation', () => {

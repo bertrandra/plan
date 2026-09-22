@@ -272,7 +272,8 @@ const historique = creerHistorique(etat, {
   // Le bouton Annuler est rendu par la palette (zones/) d'apres `peutAnnuler` : l'historique n'a
   // plus d'element a desarmer lui-meme, il signale.
   boutonAnnuler: ()=>null,
-  signalerPile: (vide)=>magasin.definirPeutAnnuler(!vide)
+  signalerPile: (vide)=>magasin.definirPeutAnnuler(!vide),
+  rafraichirResultats: ()=>refreshTerrasseView()
 });
 historique.brancherRaccourci();
 

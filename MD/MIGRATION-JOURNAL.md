@@ -2363,3 +2363,25 @@ sélectionnée : un arbre sélectionné n'a rien à en dire, et la catégorie Te
 à en choisir une.
 
 Six empreintes identiques à l'`alpha.8` par la preuve forte.
+
+## L'interface reconstruite par zones — publication (22 septembre 2026, `1.2.0`)
+
+Neuf paliers `alpha` en deux jours, du `1.2.0-alpha.2` au `1.2.0-alpha.10`, puis le numéro
+définitif. `MD/spec-ihm-zones.md` est cochée en entier : les six étapes de son §6 et les menus de
+son §4.1. Le mode Terrasse a disparu ; la terrasse est un contexte du plan, et ses résultats vivent
+dans un tiroir sous le canevas.
+
+Ce que la publication a ajouté aux paliers :
+
+- **La liste de fumée en entier sur le build `1.2.0`**, 25 sur 25, avec les valeurs du passage de
+  la `1.1.0` retrouvées une à une : 37 → 45 vis à l'entraxe 55 cm, 38 plots au 1/200, « Appuis
+  11,5 h », three r128, huit compteurs GLB identiques à `glb-structure.json`, dossier de 3 pages,
+  Rennes AC 530 avec ses dix candidates, zone psmv type U.
+- **Un défaut trouvé en la déroulant** : une annulation remettait sa valeur d'avant au champ de
+  construction sans refaire le BOM du tiroir. La restauration (`core/historique.ts`) rappelle
+  désormais les panneaux de résultats, et un test le fige. Le défaut existait avant la `1.2.0`,
+  invisible tant que ces panneaux n'apparaissaient qu'en mode Terrasse.
+- **La preuve de la rupture** : `1.2.0` est plus court que `1.2.0-alpha.10` de neuf octets, une
+  fois par fichier texte, deux fois dans `plan.pdf`, quatre fois dans `dossier.pdf` — exactement
+  les écarts de taille mesurés. Hors numéro, aucune ligne ne diffère dans les quatre textes, et les
+  deux PDF gardent leurs objets, leurs pages et leurs textes.

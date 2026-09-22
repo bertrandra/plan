@@ -286,6 +286,12 @@ Zone par zone, chaque étape laissant l'application utilisable et les empreintes
 À chaque étape, la région remplacée est supprimée d'`index.html` — pas masquée — pour que la
 carte des modules (`architecture.md` §5.2.2) reste vraie.
 
+**Publiée en `1.2.0` le 22 septembre 2026.** Les huit étapes sont cochées, plus deux tours de
+retours d'usage (`alpha.9` et `alpha.10`). La liste de fumée est passée en entier sur le build,
+25 sur 25, avec les valeurs de la `1.1.0` retrouvées une à une
+([`../tests/CHECKLIST-FUMEE.md`](../tests/CHECKLIST-FUMEE.md)). Les six artefacts exportés sont
+identiques à ceux de la `1.1.0` hors numéro de version.
+
 ---
 
 ## 7. Décisions

@@ -3,6 +3,48 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0] — 2026-09-22
+
+**L'interface est reconstruite par zones.** Neuf paliers `alpha` en deux jours, chacun prouvé par les
+six artefacts exportés — identiques à ceux de la `1.1.0` à la version près — et vérifié sur le build.
+`MD/spec-ihm-zones.md` est cochée en entier : les six étapes de son §6 et les menus de son §4.1.
+
+Ce que l'utilisateur voit changer par rapport à la `1.1.0` :
+
+- **Une barre d'application** sur une ligne : le projet, les menus Fichier, Exporter, Affichage et
+  Aide, les trois vues — Plan, Vue 3D, Visionneuse — et le titre avec le lieu.
+- **Une palette d'outils** à gauche du plan, grisée selon ce qui a un sens.
+- **Un explorateur**, repliable : les objets par catégorie, la sélection dans les deux sens avec le
+  canevas, le masquage, les étiquettes, le voisinage, et pour une terrasse sélectionnée sa
+  structure sur le plan et sa place au dossier.
+- **Un inspecteur**, repliable, à droite du plan : tout ce qui décrit l'objet sélectionné en
+  sections, et pour une terrasse ses six sections de construction — décrites par des descripteurs
+  de champs que le compilateur vérifie contre le modèle. La saisie garde le focus.
+- **Un tiroir de résultats** sous le plan, en trois hauteurs mémorisées : BOM, plan de coupe,
+  implantation, chantier, méthode pour la terrasse sélectionnée ; cotes, PLU, résumé.
+- **Plus de mode Terrasse** : la terrasse est un contexte du plan, qui reste modifiable.
+- **Des notifications** qui s'empilent et s'effacent, un bandeau d'erreur qui se ferme, des dialogues
+  fermables par Échap.
+- Le budget du fichier livré passe à 5 Mo ; il fait 687 Ko.
+
+Aucune quantité, aucun octet exporté ne bouge pour un projet valide — d'où une version MINEURE,
+comme `MD/RELEASE.md` §2.3 le prévoit. Trois défauts de `MD/DEFAUTS.md` sont clos au passage : D-12
+pour les deux panneaux, D-13, D-14. Le détail est dans les paliers `alpha` ci-dessous.
+
+### Corrigé
+
+- **Une annulation rafraîchit le tiroir** : annuler un champ de construction remettait sa valeur
+  d'avant dans l'inspecteur, mais le BOM gardait les quantités de l'état annulé. La restauration
+  refait les panneaux de résultats. Le défaut ne se voyait pas avant la `1.2.0`, où ces panneaux
+  n'étaient visibles qu'en mode Terrasse ; il se voit dès qu'ils sont toujours là.
+
+### Interne
+
+- `BUILD_AT` passe au 22 septembre 2026 ; la pastille affiche `v1.2.0`.
+- Le numéro final est plus court que `1.2.0-alpha.10` : les quatre fichiers texte sont identiques
+  hors numéro, et les deux PDF ont le même contenu une fois neutralisés numéro, dates, décalages et
+  longueurs de flux.
+
 ## [1.2.0-alpha.10] — 2026-09-22
 
 ### Modifié
