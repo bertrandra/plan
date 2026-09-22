@@ -50,8 +50,21 @@ export interface ProjetServeur { objects: ObjetBrut[]; measures?: Mesure[]; meta
 /** Motif d'echec, pour que l'appelant sache quoi montrer. */
 export type MotifEchec = 'network' | 'notfound' | 'server' | 'badjson';
 
+/**
+ * Le projet demande par l'adresse, s'il y en a un.
+ *
+ * Deux orthographes, et c'est voulu (2026-09-22). `projet` est celle de
+ * Plan, qu'il ecrit lui-meme dans la barre d'adresse depuis toujours ;
+ * `project` est celle de la plateforme, qui l'ajoute quand on quitte un
+ * projet pour venir ici (ADR-051 §3, `docs/plan-service.md` §5.5). Le
+ * contrat de passage est le sien et il est le meme mot sur tous ses
+ * produits, donc c'est Plan qui apprend l'anglais, pas la plateforme qui
+ * apprend le francais. La forme locale gagne : c'est celle que la page a
+ * pu reecrire apres coup.
+ */
 export function getProjectIdFromUrl(): string | null {
-  return new URLSearchParams(location.search).get('projet');
+  const parametres = new URLSearchParams(location.search);
+  return parametres.get('projet') ?? parametres.get('project');
 }
 
 /** L'URL courante avec le projet demande : ce qu'on met dans la barre d'adresse apres un import. */

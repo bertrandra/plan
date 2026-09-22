@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { chargerProjetInitial, apiList, apiSave, definirDepot, LS_LAST_PROJECT } from '../../../src/io/api.js';
+import { chargerProjetInitial, apiList, apiSave, definirDepot, getProjectIdFromUrl, LS_LAST_PROJECT } from '../../../src/io/api.js';
 import type { DepotProjets } from '../../../src/io/depotPlateforme.js';
 
 // La regle testee ici est la seule vraie subtilite du module, et elle a ete apprise a l'usage :
@@ -77,6 +77,37 @@ describe('quand un projet est connu', () => {
     expect((await apiList().catch((e) => e)).reason).toBe('notfound');
     lister.mockRejectedValueOnce(echec('server', 'la plateforme a repondu de travers'));
     expect((await apiList().catch((e) => e)).reason).toBe('server');
+  });
+});
+
+describe('le projet demande par l adresse', () => {
+  it('se lit dans les deux orthographes, la plateforme envoyant la sienne', () => {
+    // `projet` est celle de Plan, `project` celle de la plateforme quand on
+    // quitte un projet chez elle (ADR-051 §3). Sans la seconde, le bouton
+    // « Ouvrir dans Plan » ouvrait le dernier projet vu ici, pas celui qui
+    // etait a l'ecran — une reponse fausse qui a l'air d'une reponse.
+    history.replaceState(null, '', '/?projet=p1');
+    expect(getProjectIdFromUrl()).toBe('p1');
+    history.replaceState(null, '', '/?product=plan&lang=fr&project=p2');
+    expect(getProjectIdFromUrl()).toBe('p2');
+    history.replaceState(null, '', '/?product=plan');
+    expect(getProjectIdFromUrl()).toBeNull();
+  });
+
+  it('prefere la forme locale, que la page a pu reecrire apres coup', () => {
+    history.replaceState(null, '', '/?project=venu-de-la-plateforme&projet=ouvert-ici');
+    expect(getProjectIdFromUrl()).toBe('ouvert-ici');
+  });
+
+  it('ouvre celui que l adresse nomme, meme si ce navigateur en connait un autre', async () => {
+    localStorage.setItem(LS_LAST_PROJECT, 'p2');
+    history.replaceState(null, '', '/?project=p1');
+    lister.mockResolvedValue([{ id: 'p1', name: 'un' }, { id: 'p2', name: 'deux' }]);
+    ouvrir.mockResolvedValue({ objects: [], measures: [], meta: { id: 'p1', name: 'un' } });
+
+    await chargerProjetInitial(DEMO, MESURES);
+
+    expect(ouvrir).toHaveBeenCalledWith('p1');
   });
 });
 
