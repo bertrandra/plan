@@ -2337,3 +2337,26 @@ exports étant conservés, le protocole de capture n'a pas changé. Sur le build
 et leurs entrées, l'export SVG depuis le menu avec son toast, le résumé qui ouvre l'onglet du
 tiroir, les curseurs du fond qui changent leur valeur, la version dans Aide, le tiroir à trois
 onglets sans terrasse sélectionnée. 570 tests.
+
+## Reconstruction de l'IHM — premiers retours d'usage (22 septembre 2026, `1.2.0-alpha.9`)
+
+**L'explorateur replié ne se rouvrait plus.** La cause n'était pas le bouton mais la mise en page :
+le composant rendait `<aside id="zoneExplorateur">` à l'intérieur du conteneur d'`index.html` qui
+porte déjà cet identifiant. La règle de largeur s'appliquait aux deux ; au repli, le panneau
+intérieur passait à 22 px, le conteneur restait à 240 px, le plan s'élargissait d'autant, la rangée
+centrée débordait et la poignée partait hors de l'écran, à gauche. Le repli est maintenant une
+classe que le service pose sur le conteneur, comme le tiroir pose sa hauteur ; les panneaux de
+l'explorateur et de l'inspecteur n'ont plus d'identifiant, et la vérification sur le build compte
+désormais les identifiants en double.
+
+**L'en-tête de l'inspecteur replie ou déplie tout.** Onze sections pour une terrasse, c'est long à
+plier une à une : un clic sur le titre les replie toutes si l'une au moins est ouverte, et les
+déplie toutes sinon. L'état des sections reste celui du DOM, comme avant. **Et l'inspecteur se
+replie** comme l'explorateur, par une poignée à droite de son en-tête, le plan reprenant sa largeur ;
+la classe de repli est sur le conteneur, posée par le service. **L'en-tête tient sur une ligne** —
+menus, vues, titre — au lieu de trois rangées qui prenaient au plan une hauteur qu'il rend au canevas.
+**Les deux colonnes s'alignent sur le plan** : la rangée de l'atelier publie la hauteur du plan à la
+feuille de style, l'explorateur et l'inspecteur ne la dépassent pas et défilent en dedans, leur
+en-tête restant visible. Repliés, chacun ne garde que sa poignée, et le plan reprend la largeur.
+
+Six empreintes identiques à l'`alpha.8` par la preuve forte.

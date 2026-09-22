@@ -7,6 +7,9 @@
 // La zone ne fait rien elle-meme : elle lit le magasin et demande a l'explorateur (app/).
 //
 // Tactile : lignes de 40 px, cases de 20 px ; sous 1 024 px la colonne s'escamote (feuille de style).
+//
+// Le repli est une classe du conteneur (#zoneExplorateur, index.html), posee par le service : c'est
+// lui qui a une largeur dans la rangee de l'atelier, pas le panneau que React y rend.
 
 import { useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -135,10 +138,12 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
   );
 }
 
-/** Les terrasses : laquelle est courante, ses couches sur le plan, celles du dossier. */
+/** Les terrasses : laquelle est selectionnee, ses couches sur le plan, celles du dossier. */
 function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExplorateur }) {
   const terrasses = etat.objects.filter(estTerrasse);
-  const courante = terrasses.find(t => t.key === etat.terrasseSelectedKey);
+  // La terrasse selectionnee, et non la courante : ses couches et sa mise en avant ne se montrent
+  // que tant qu'on l'a sous la main, comme les onglets du tiroir.
+  const courante = terrasses.find(t => t.key === etat.selectedKey);
   // La selection du dossier se repare a la lecture : rien de coche veut dire toutes.
   clesDossier(etat.objects);
   const construction = courante ? ensureConstruction(courante) : null;
@@ -150,12 +155,12 @@ function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceE
       )}
       <ul className="explorateurListe">
         {terrasses.map(t => {
-          const estCourante = t.key === etat.terrasseSelectedKey;
+          const estCourante = t.key === etat.selectedKey;
           const hMm = hauteurFinieMm(t);
           return (
             <li key={t.key} className={estCourante ? 'active' : ''}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse courante : la construction, le chiffrage et la 3D la décrivent' : 'En faire la terrasse courante'} onClick={() => explorateur.selectionner(t.key)}>
+                <button type="button" className="explorateurNom" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => explorateur.selectionner(t.key)}>
                   <span>{t.name}</span>
                   <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
@@ -170,7 +175,7 @@ function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceE
       </ul>
       {courante && construction && (
         <div className="explorateurCalques">
-          <label className="explorateurCalquesMaitre" title="Dessine la structure de la terrasse courante par-dessus le plan">
+          <label className="explorateurCalquesMaitre" title="Dessine la structure de la terrasse sélectionnée par-dessus le plan">
             <input type="checkbox" checked={etat.calquesVisibles} onChange={() => explorateur.basculerCalques()} />
             Structure sur le plan
           </label>
@@ -201,7 +206,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
   const nVoisinage = etat.objects.filter(o => o.voisinage).length;
 
   return (
-    <aside id="zoneExplorateur" className={ouvert ? '' : 'replie'} aria-label="Explorateur">
+    <aside className="explorateurPanneau" aria-label="Explorateur">
       <div className="explorateurEntete">
         {ouvert && <span>Explorateur</span>}
         <button type="button" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>

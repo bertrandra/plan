@@ -1,4 +1,4 @@
-Plan interactif 1.2.0-alpha.8 - export (repere local, metres) - 22/09/2026
+Plan interactif 1.2.0-alpha.9 - export (repere local, metres) - 22/09/2026
 Origine (0,0) = Apex, le sommet Coin Nord de la parcelle (le point le plus au nord).
 Axe X+ = Est ; Axe Y+ = Nord (correspond au "haut" de l'affichage a l'ecran).
 Pour reimporter/recaler ce plan ailleurs, aligner Apex sur Coin Nord et orienter Y+ vers le nord.

@@ -65,7 +65,11 @@ export function creerExplorateur(etat: EtatApp, ctx: ContexteExplorateur, magasi
       magasin.notifier();
     },
     basculerOuverture() {
-      magasin.definirExplorateurOuvert(!magasin.store.getState().explorateurOuvert);
+      const ouvert = !magasin.store.getState().explorateurOuvert;
+      magasin.definirExplorateurOuvert(ouvert);
+      // Le conteneur de la zone (index.html) porte le repli : c'est lui qui a une largeur dans la
+      // rangee de l'atelier. Le composant, lui, ne fait que lire l'etat.
+      document.getElementById('zoneExplorateur')?.classList.toggle('replie', !ouvert);
       ctx.redimensionner();
     }
   };

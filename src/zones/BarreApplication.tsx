@@ -11,6 +11,7 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
+import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { versionLongue } from '../model/version.js';
@@ -175,7 +176,22 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
   );
 }
 
+/** Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres. */
+function useFermetureDesMenus(): void {
+  useEffect(() => {
+    const ouverts = () => [...document.querySelectorAll<HTMLDetailsElement>('#projectBar details.menu[open]')];
+    const surPointeur = (e: PointerEvent) => { ouverts().forEach(d => { if (!d.contains(e.target as Node)) d.removeAttribute('open'); }); };
+    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') ouverts().forEach(d => d.removeAttribute('open')); };
+    const surBascule = (e: Event) => { const d = e.target as HTMLDetailsElement; if (d.open) ouverts().forEach(a => { if (a !== d) a.removeAttribute('open'); }); };
+    document.addEventListener('pointerdown', surPointeur);
+    document.addEventListener('keydown', surTouche);
+    document.addEventListener('toggle', surBascule, true);
+    return () => { document.removeEventListener('pointerdown', surPointeur); document.removeEventListener('keydown', surTouche); document.removeEventListener('toggle', surBascule, true); };
+  }, []);
+}
+
 export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBarreApplication) {
+  useFermetureDesMenus();
   const p = useStore(magasin.store, (s) => s.projet);
   const vue = useStore(magasin.store, (s) => s.vue);
   const lieu = useStore(magasin.store, (s) => s.lieu);

@@ -48,6 +48,8 @@ export interface EtatMagasin {
   explorateurOuvert: boolean;
   /** La hauteur du tiroir des resultats (Z6). */
   tiroir: HauteurTiroir;
+  /** L'inspecteur (Z5) est deplie ; replie, il rend sa largeur au plan. */
+  inspecteurOuvert: boolean;
 }
 
 export interface Magasin {
@@ -62,6 +64,7 @@ export interface Magasin {
   definirPeutAnnuler(peut: boolean): void;
   definirExplorateurOuvert(ouvert: boolean): void;
   definirTiroir(hauteur: HauteurTiroir): void;
+  definirInspecteurOuvert(ouvert: boolean): void;
 }
 
 export function creerMagasin(etat: EtatApp): Magasin {
@@ -74,7 +77,8 @@ export function creerMagasin(etat: EtatApp): Magasin {
     pointeur: null,
     peutAnnuler: false,
     explorateurOuvert: true,
-    tiroir: 'mi'
+    tiroir: 'mi',
+    inspecteurOuvert: true
   }));
   return {
     store,
@@ -86,6 +90,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirPointeur: (pointeur) => store.setState({ pointeur }),
     definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler }),
     definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert }),
-    definirTiroir: (tiroir) => store.setState({ tiroir })
+    definirTiroir: (tiroir) => store.setState({ tiroir }),
+    definirInspecteurOuvert: (inspecteurOuvert) => store.setState({ inspecteurOuvert })
   };
 }

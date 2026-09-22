@@ -155,14 +155,39 @@ function SectionVue({ section, c, inspecteur }: { section: Section; c: ContexteC
   );
 }
 
+/** Un clic sur le titre replie toutes les sections si l'une au moins est ouverte, et les deplie sinon. */
+function basculerSections(e: React.SyntheticEvent<HTMLElement>): void {
+  const sections = [...(e.currentTarget.closest('.inspecteurPanneau')?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+  const ouvrir = !sections.some(s => s.open);
+  sections.forEach(s => { s.open = ouvrir; });
+}
+
+/** La poignee de repli, a droite de l'en-tete ; repliee, la zone ne montre qu'elle. */
+function Pli({ ouvert, inspecteur }: { ouvert: boolean; inspecteur: ServiceInspecteur }) {
+  return (
+    <button type="button" className="inspecteurPli" title={ouvert ? 'Replier l\'inspecteur' : 'Déplier l\'inspecteur'} aria-expanded={ouvert}
+      onClick={(e) => { e.stopPropagation(); inspecteur.basculerOuverture(); }}>
+      {ouvert ? '›' : '‹'}
+    </button>
+  );
+}
+
 export function Inspecteur({ magasin, commandes, inspecteur }: PropsInspecteur) {
   useStore(magasin.store, (s) => s.version);
+  const ouvert = useStore(magasin.store, (s) => s.inspecteurOuvert);
   const obj = inspecteur.objet();
   const executer = (id: string) => () => { commandes.executer(id); };
+  if (!ouvert) {
+    return (
+      <aside className="inspecteurPanneau replie" aria-label="Inspecteur">
+        <div className="inspecteurEntete"><Pli ouvert={false} inspecteur={inspecteur} /></div>
+      </aside>
+    );
+  }
   if (!obj) {
     return (
-      <aside id="zoneInspecteur" aria-label="Inspecteur">
-        <div className="inspecteurEntete"><span>Aucune sélection</span></div>
+      <aside className="inspecteurPanneau" aria-label="Inspecteur">
+        <div className="inspecteurEntete"><span className="inspecteurTitre">Aucune sélection</span><Pli ouvert inspecteur={inspecteur} /></div>
         <p className="hint" style={{ padding: '0 10px' }}>Clique un objet sur le plan ou dans l'explorateur pour l'éditer.</p>
         <div className="inspecteurPied">
           <button type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
@@ -172,8 +197,14 @@ export function Inspecteur({ magasin, commandes, inspecteur }: PropsInspecteur) 
   }
   const c = inspecteur.contexte(obj);
   return (
-    <aside id="zoneInspecteur" aria-label="Inspecteur">
-      <div className="inspecteurEntete" id="attrTitle">{inspecteur.titre(c)}</div>
+    <aside className="inspecteurPanneau" aria-label="Inspecteur">
+      <div className="inspecteurEntete">
+        <span className="inspecteurTitre" id="attrTitle" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
+          onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
+          {inspecteur.titre(c)}
+        </span>
+        <Pli ouvert inspecteur={inspecteur} />
+      </div>
       {inspecteur.sections(c).map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} />)}
       <div className="inspecteurPied">
         <button type="button" className="secondary small" disabled={!commandes.obtenir('objet.positionInitiale')?.actif?.()} onClick={executer('objet.positionInitiale')}>Réinitialiser la position</button>

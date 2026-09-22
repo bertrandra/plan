@@ -333,11 +333,15 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 const LARGEUR_PALETTE = 72;
 const LARGEUR_EXPLORATEUR = 248;
 const LARGEUR_INSPECTEUR = 348;
+/** Replie, chacun ne garde que sa poignee : 22 px et l'espace de la rangee. */
+const LARGEUR_REPLIEE = 30;
 function computeSize(){
   // La palette, l'explorateur et l'inspecteur (zones/) prennent leur largeur au plan des 1 024 px ;
-  // en dessous, la feuille de style les escamote ou les passe sous le plan. L'explorateur replie la rend.
-  const explorateur = magasin.store.getState().explorateurOuvert ? LARGEUR_EXPLORATEUR : 0;
-  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur + LARGEUR_INSPECTEUR : 0);
+  // en dessous, la feuille de style les escamote ou les passe sous le plan. Replies, l'explorateur et
+  // l'inspecteur la rendent.
+  const explorateur = magasin.store.getState().explorateurOuvert ? LARGEUR_EXPLORATEUR : LARGEUR_REPLIEE;
+  const inspecteurL = magasin.store.getState().inspecteurOuvert ? LARGEUR_INSPECTEUR : LARGEUR_REPLIEE;
+  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur + inspecteurL : 0);
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
@@ -351,7 +355,13 @@ function objByKey(key: string | null){ return etat.objects.find(o=>o.key===key);
 
 // ================= Build SVG =================
 const stage = document.getElementById('stage')!;
-stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+appliquerTailleDuPlan();
+// L'explorateur et l'inspecteur, de part et d'autre du plan, ne depassent jamais sa hauteur : la
+// rangee de l'atelier la publie a la feuille de style.
+function appliquerTailleDuPlan(){
+  stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+  document.getElementById('zoneAtelier')?.style.setProperty('--hauteur-plan', etat.scene.H+'px');
+}
 // svgNS : dans render/svg.ts
 const svg = document.createElementNS(svgNS,'svg');
 svg.setAttribute('width', String(etat.scene.W)); svg.setAttribute('height', String(etat.scene.H));
@@ -554,7 +564,7 @@ brancherPointeur(svg, stage, etat, {
 function redimensionnerLePlan(){
   const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
   computeSize();
-  stage.style.width = etat.scene.W+'px'; stage.style.height = etat.scene.H+'px';
+  appliquerTailleDuPlan();
   svg.setAttribute('width', String(etat.scene.W)); svg.setAttribute('height', String(etat.scene.H));
   etat.scene.origine = {
     x: etat.scene.W/2 - centreAvant.x*etat.scene.scale,
@@ -1039,7 +1049,8 @@ const inspecteur = creerInspecteur(etat, {
   applyAngleEdit, applyLengthEdit, deleteVertex, alignObjectByRotation, allerAuPointDeVue, startPick,
   pushHistory, render, markDirty, refreshTerrasseView, buildThreeScene, reapplyStackingOrder, rebuildHandles,
   trouverParcelle: trouverParcelleCloture,
-  optimisation: { panneaux: ctxPanneauxTerrasse() }
+  optimisation: { panneaux: ctxPanneauxTerrasse() },
+  redimensionner: redimensionnerLePlan
 }, magasin, commandes);
 monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir });
 // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.

@@ -21,12 +21,17 @@
     margin:0; font-family:"Georgia","Iowan Old Style",serif;
     background:var(--paper); color:var(--ink);
     display:flex; flex-direction:column; align-items:center;
-    padding:18px 12px 52px;
+    padding:8px 12px 52px;
     overscroll-behavior-y:contain;
   }
   /* Z1 : la barre d'application, en tete de colonne, meme largeur que le reste. */
-  #zoneBarre{ width:98vw; max-width:1600px; align-self:center; }
-  #modeBar{ display:flex; gap:6px; margin:0 0 8px; }
+  /* Une seule ligne : les menus a gauche, les vues au milieu, le titre a droite. Sous 1 024 px, la
+     ligne se replie sur deux et le titre passe dessous. */
+  #zoneBarre{
+    width:98vw; max-width:1600px; align-self:center; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:2px 0 6px; margin-bottom:2px; border-bottom:2px solid var(--accent);
+  }
+  #modeBar{ display:flex; gap:6px; margin:0; }
   /* Z2 + Z4 : la palette a gauche du plan, sur une meme rangee. */
   #zoneAtelier{ display:flex; align-items:flex-start; gap:8px; }
   #zonePalette{
@@ -85,10 +90,10 @@
   #zoneEtat .etatPointeur{ font-variant-numeric:tabular-nums; min-width:14ch; }
   #zoneEtat #projectStatus.local{ color:var(--accent); font-style:normal; }
   h1{
-    font-size:1.3rem; font-weight:400; margin:0 0 14px; letter-spacing:0.02em;
-    padding-bottom:8px; border-bottom:2px solid var(--accent);
-    width:98vw; max-width:1600px; text-align:center;
+    font-size:1.05rem; font-weight:400; margin:0 0 0 auto; letter-spacing:0.02em; text-align:right;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
   }
+  @media (max-width: 1023px){ h1{ margin-left:0; width:100%; text-align:left; } }
   /* Le lieu du plan, sur la meme ligne que le titre : c'est lui qui cale le soleil, l'orthophoto
      et le PLU - le voir en permanence evite de travailler sur une position qu'on croit juste. */
   #titreLieu{
@@ -124,8 +129,7 @@
   svg:active{cursor:grabbing;}
 
   #projectBar{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    width:98vw; max-width:1600px; margin:0 0 10px; align-self:flex-start;
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0;
     font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
   }
   #projectBar select{
@@ -183,13 +187,16 @@
   /* Z3, l'explorateur (zones/Explorateur.tsx) : une colonne entre la palette et le plan. Replie,
      il ne garde que sa poignee ; sous 1 024 px il s'escamote comme la palette. */
   #zoneExplorateur{
-    flex:none; width:240px; max-height:780px; overflow-y:auto; margin:6px 0 16px;
+    flex:none; width:240px; max-height:calc(var(--hauteur-plan, 780px) + 2px); overflow-y:auto; margin:6px 0 16px;
     background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
     font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
   }
   #zoneExplorateur.replie{ width:22px; overflow:hidden; }
+  .explorateurPanneau, .inspecteurPanneau{ width:100%; }
   @media (max-width: 1023px){ #zoneExplorateur{ display:none; } }
+  /* L'en-tete reste visible quand la colonne defile. */
   .explorateurEntete{
+    position:sticky; top:0; z-index:2; background:var(--panel-bg);
     display:flex; align-items:center; justify-content:space-between; padding:6px 8px 6px 10px;
     font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; border-bottom:1px solid var(--rule);
   }
@@ -246,15 +253,27 @@
   /* Z5, l'inspecteur (zones/Inspecteur.tsx) : une colonne a droite du plan, des sections repliables,
      un champ par ligne — libelle a gauche, commande et note a droite. Sous 1 024 px il passe sous le plan. */
   #zoneInspecteur{
-    flex:none; width:340px; max-height:780px; overflow-y:auto; margin:6px 0 16px;
+    flex:none; width:340px; max-height:calc(var(--hauteur-plan, 780px) + 2px); overflow-y:auto; margin:6px 0 16px;
     background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
     font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
   }
   @media (max-width: 1023px){ #zoneAtelier{ flex-wrap:wrap; } #zoneInspecteur{ width:100%; max-height:none; } }
+  #zoneInspecteur.replie{ width:22px; overflow:hidden; }
+  /* L'en-tete reste visible quand la colonne defile. */
   .inspecteurEntete{
-    padding:8px 10px; font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; color:var(--ink);
-    border-bottom:1px solid var(--rule); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    position:sticky; top:0; z-index:2; background:var(--panel-bg);
+    display:flex; align-items:center; gap:4px; padding:6px 4px 6px 10px; font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; color:var(--ink);
+    border-bottom:1px solid var(--rule);
   }
+  .inspecteurPanneau.replie .inspecteurEntete{ padding:6px 2px; justify-content:center; border-bottom:none; }
+  .inspecteurTitre{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; border-radius:2px; }
+  .inspecteurTitre[role=button]{ cursor:pointer; }
+  .inspecteurTitre[role=button]:hover{ background:var(--accent-light); }
+  .inspecteurPli{
+    flex:none; border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:1.1rem;
+    line-height:1; padding:2px 6px; border-radius:2px;
+  }
+  .inspecteurPli:hover{ background:var(--accent-light); color:var(--ink); }
   .inspecteurSection{ border-bottom:1px solid var(--rule); }
   .inspecteurSection > summary{
     list-style:none; cursor:pointer; padding:7px 10px; font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase;

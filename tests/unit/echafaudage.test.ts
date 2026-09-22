@@ -46,12 +46,12 @@ describe('phase 1 - echafaudage', () => {
   // porte la version (voir EMPREINTES.md, « La rupture » et la recapture de rattrapage).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '5ce75c96a4bc30bffefe44cd5a5ff4edb9b761fa387ddeb2513cb1efc80c495d',
-      'plan.svg': '9d28492a3d0136f69e7cc37430cfb84a5fea5277e63e00f21071462b40c36595',
-      'plan.dxf': '123cf26d4954595fe665604e8ce5ba1bda4c5347b6134b519ef1b739e8745fc9',
-      'projet.json': 'c311ba80dd725144d7a7fa7538ec718709682cc81d37146cfa08a1d90bd5342f',
-      'plan.pdf': '110e742ba671637880d49a8d818a4d0bd3d4b749b3c5636cecc64e04d413720a',
-      'dossier.pdf': '00704c6cca9a3236a725a9e8f87b101d7242797e9876716704a611d7547d1195'
+      'resume.txt': 'e43380282ac287d09a3695d3bccb2d44c05a9e8bc5cc1e68ed1c69217466e9f5',
+      'plan.svg': 'b9e088e9e351d0c7f6528b46d5d84956719b9f2bd3901bf45490ba8fe065d96c',
+      'plan.dxf': '87cc601a68ba6be85cb23fc1101c590565609cbb9c747639566007dc141c6c1a',
+      'projet.json': 'aceb6629b97066b35ce431e0b8110ebcb2b7ebc769e89c96298c17e27ca64434',
+      'plan.pdf': '9ef9bec4491b7e788a6b8b1e215c91490ad0049feecac4c264b2f3634eb7781b',
+      'dossier.pdf': '3e657bbe32df3827b0d463dd737e892ee88d6bdeb096b72c01725d21d5849cc0'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

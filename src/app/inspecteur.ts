@@ -31,6 +31,8 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
   rebuildHandles: (obj: ObjetPlan) => void;
   trouverParcelle: () => ObjetPlan | undefined;
   optimisation: ContexteOptimisation;
+  /** Le plan reprend ou rend la largeur de l'inspecteur. */
+  redimensionner: () => void;
 }
 
 export interface Inspecteur {
@@ -42,6 +44,8 @@ export interface Inspecteur {
   /** Applique une ecriture et ce qui doit la suivre ; `false` quand le champ l'a refusee. */
   appliquer(champ: Champ, c: ContexteChamps, ecrire: () => void | boolean): boolean;
   executer(champ: Champ, c: ContexteChamps): void;
+  /** Replie ou deplie la zone : le conteneur (index.html) porte la classe, le plan reprend la largeur. */
+  basculerOuverture(): void;
 }
 
 export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin: Magasin, commandes: RegistreCommandes): Inspecteur {
@@ -94,6 +98,12 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     },
     executer(champ, c) {
       if (champ.type === 'bouton') { champ.executer(c); magasin.notifier(); }
+    },
+    basculerOuverture() {
+      const ouvert = !magasin.store.getState().inspecteurOuvert;
+      magasin.definirInspecteurOuvert(ouvert);
+      document.getElementById('zoneInspecteur')?.classList.toggle('replie', !ouvert);
+      ctx.redimensionner();
     }
   };
 }

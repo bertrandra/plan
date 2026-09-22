@@ -76,7 +76,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
 
   // Les couches de la terrasse courante (vis, solives, lames…) sont dessinees en coordonnees
   // d'ecran comme tout le reste : sans cela, deplacer ou zoomer le plan laisserait le calque a son
-  // ancienne place. Elles ne s'affichent que si l'explorateur les a demandees ; sinon le calque
-  // est vide — c'est ce que fait un appel sans objet.
-  ctx.renderTerrasseLayerView(etat.calquesVisibles ? etat.objects.find(o=>o.key===etat.terrasseSelectedKey) : null);
+  // ancienne place. Elles ne s'affichent que si l'explorateur les a demandees et tant que la
+  // terrasse est selectionnee ; sinon le calque est vide — c'est ce que fait un appel sans objet.
+  ctx.renderTerrasseLayerView(etat.calquesVisibles && etat.selectedKey === etat.terrasseSelectedKey ? etat.objects.find(o=>o.key===etat.terrasseSelectedKey) : null);
 }

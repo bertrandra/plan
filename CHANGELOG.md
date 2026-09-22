@@ -3,6 +3,33 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.9] — 2026-09-22
+
+Deux retours d'usage sur la nouvelle interface. Les six artefacts sont identiques à ceux de l'`alpha.8`.
+
+### Corrigé
+
+- **L'explorateur replié ne se rouvrait pas.** Le composant rendait un panneau portant le même
+  identifiant que son conteneur ; au repli, le panneau passait à 22 px mais le conteneur gardait ses
+  240 px, la rangée de l'atelier débordait et la poignée sortait de l'écran par la gauche. Le repli
+  est désormais une classe du conteneur, posée par le service ; les panneaux de l'explorateur et de
+  l'inspecteur n'ont plus d'identifiant en double.
+
+### Ajouté
+
+- **Un clic sur le titre de l'inspecteur replie ou déplie toutes ses sections** : repliées si
+  l'une au moins est ouverte, dépliées sinon.
+- **L'inspecteur se replie**, comme l'explorateur : une poignée à droite de son en-tête, et le plan
+  reprend sa largeur.
+- **L'en-tête tient sur une ligne** : menus à gauche, vues au milieu, titre et lieu à droite, au lieu
+  de trois rangées ; le plan gagne la hauteur.
+- **L'explorateur et l'inspecteur ne dépassent plus la hauteur du plan** : ils défilent en dedans,
+  et leur en-tête reste visible pendant qu'ils défilent.
+- **Les menus se referment** quand on clique ailleurs ou par Échap, et en ouvrir un ferme les autres.
+- **L'explorateur ne met en avant une terrasse, et ne propose sa structure sur le plan, que tant
+  qu'elle est sélectionnée** — la structure dessinée disparaît avec la sélection, comme les onglets
+  du tiroir.
+
 ## [1.2.0-alpha.8] — 2026-09-22
 
 **Reconstruction de l'IHM : les menus de la barre d'application** (`MD/spec-ihm-zones.md` §4.1).
