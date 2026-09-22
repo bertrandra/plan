@@ -338,7 +338,8 @@ folder at the same level as `app/` holds the React zones (`BarreApplication`, `B
 carries the rule that made the Terrasse mode redundant (the terrace is a context of the plan, not a view).
 Since `1.2.0-alpha.5`, `ui/champs/` holds the field descriptors (`types`, `objet`, `construction`) that
 `zones/Inspecteur.tsx` renders through `app/inspecteur.ts`; `ui/attrPanel.ts` and the terrace configurator
-are gone (D-12 closed).
+are gone (D-12 closed). Since `1.2.0-alpha.6`, `app/tiroir.ts` and `zones/Resultats.tsx` carry the results
+drawer that replaced `ui/panelTabs.ts`.
 
 **What changed since 29 August.** `legacy.ts` (1 500 lines) is gone: `app/` grew from one module
 to thirteen — the composition root `boot.ts`, the named `atelier` it builds, and ten listener groups

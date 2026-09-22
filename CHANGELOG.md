@@ -3,6 +3,34 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.6] — 2026-09-22
+
+**Reconstruction de l'IHM, étape 5 : le tiroir des résultats** (`MD/spec-ihm-zones.md` §4.6, option A
+de §7.1). Les onglets du panneau du bas deviennent un tiroir sous le plan, repliable en trois
+hauteurs mémorisées. Les six artefacts sont identiques à ceux de l'`alpha.5`.
+
+### Modifié
+
+- **Le tiroir** (Z6), pleine largeur sous le plan : BOM, Plan de coupe, Implantation, Chantier,
+  Méthode quand une terrasse est courante, puis Cotes, PLU, Résumé. Trois hauteurs — replié (la
+  barre d'onglets seule), mi-hauteur, plein — mémorisées dans le navigateur. Cliquer un onglet
+  d'un tiroir replié le déplie.
+- **Les onglets de terrasse suivent le contexte** : ils n'existent que s'il y a une terrasse, et
+  un onglet de terrasse ouvert se replie sur Cotes quand la dernière terrasse change de fonction.
+- **Le Résumé** a son onglet ; il n'est plus au fond d'Export.
+- **Affichage et Export / Import** restent dans le tiroir, à part et en italique : ce sont des
+  réglages, attendus dans les menus de la barre d'application (§4.1). Rien n'est perdu.
+
+### Interne
+
+- `app/tiroir.ts` : la liste des onglets, leur visibilité, ce qu'ils rafraîchissent à l'ouverture,
+  la hauteur et sa mémoire locale (`plan.tiroir`). `zones/Resultats.tsx` rend la barre ; les
+  panneaux restent du balisage que `ui/` remplit.
+- `app/modes.ts` ne porte plus de sous-onglets ; le magasin porte `tiroir`.
+- Supprimés : `ui/panelTabs.ts`, `#panelTabs`, `#panel`, `#panelTerrasse`, `#terrasseSubTabs`,
+  `#terrasseEmpty`. Les panneaux `terrasseTab*` deviennent `panelBom`, `panelCoupe`,
+  `panelImplantation`, `panelChantier`, `panelMethode` ; `panelResume` apparaît.
+
 ## [1.2.0-alpha.5] — 2026-09-22
 
 **Reconstruction de l'IHM, étape 4 : l'inspecteur par descripteurs de champs** (`MD/spec-ihm-zones.md`

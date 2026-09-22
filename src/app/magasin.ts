@@ -17,6 +17,7 @@ import type { EtatApp } from '../core/state.js';
 import type { PtBrut } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import type { Vue } from './modes.js';
+import type { HauteurTiroir } from './tiroir.js';
 
 /** Ou en est le projet vis-a-vis du serveur. `local` : pas de serveur, jeu de demonstration. */
 export type StatutProjet = 'local' | 'a-jour' | 'modifie' | 'enregistrement';
@@ -45,6 +46,8 @@ export interface EtatMagasin {
   peutAnnuler: boolean;
   /** L'explorateur (Z3) est deplie ; replie, il rend sa largeur au plan. */
   explorateurOuvert: boolean;
+  /** La hauteur du tiroir des resultats (Z6). */
+  tiroir: HauteurTiroir;
 }
 
 export interface Magasin {
@@ -58,6 +61,7 @@ export interface Magasin {
   definirPointeur(p: PtBrut | null): void;
   definirPeutAnnuler(peut: boolean): void;
   definirExplorateurOuvert(ouvert: boolean): void;
+  definirTiroir(hauteur: HauteurTiroir): void;
 }
 
 export function creerMagasin(etat: EtatApp): Magasin {
@@ -69,7 +73,8 @@ export function creerMagasin(etat: EtatApp): Magasin {
     projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '' },
     pointeur: null,
     peutAnnuler: false,
-    explorateurOuvert: true
+    explorateurOuvert: true,
+    tiroir: 'mi'
   }));
   return {
     store,
@@ -80,6 +85,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirProjet: (projet) => store.setState((s) => ({ projet: { ...s.projet, ...projet } })),
     definirPointeur: (pointeur) => store.setState({ pointeur }),
     definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler }),
-    definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert })
+    definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert }),
+    definirTiroir: (tiroir) => store.setState({ tiroir })
   };
 }

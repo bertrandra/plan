@@ -26,7 +26,7 @@ import { lieuDeParcelle, libelleLieuTexte } from '../model/lieu.js';
 import { normalizeObjects } from '../model/normalisation.js';
 import { creerCreation } from '../model/creation.js';
 import { construireResume } from '../export/resume.js';
-import { rebuildPanelTabs as construireOngletsPanneau, activerOnglet as activerOngletPanneau } from '../ui/panelTabs.js';
+import { creerTiroir } from './tiroir.js';
 import { alignerObjetParRotation } from '../interaction/outilAlignement.js';
 import { exporterProjetJSON } from '../io/exportProjet.js';
 import { genererGlb as genererGlbModule } from '../three/exportGlb.js';
@@ -282,16 +282,14 @@ function restoreState(snapshot: Instantane){ historique.restaurer(snapshot); }
 function undo(){ historique.annuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
 // panelTab, selectedKey et highlight vivent desormais dans `etat` (spec §6.1).
-// Les onglets du panneau lateral vivent dans ui/panelTabs.ts.
-function ctxOnglets(){
-  return {
-    rebuildMeasurePanel, renderMeasureResults,
-    renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
-    refreshTerrasseView
-  };
-}
-function rebuildPanelTabs(){ construireOngletsPanneau(etat, ctxOnglets()); }
-rebuildPanelTabs();
+// Les onglets du bas sont le tiroir des resultats (app/tiroir.ts, zones/Resultats.tsx) : ce
+// service montre le panneau choisi et rafraichit ce qui doit l'etre a l'ouverture.
+const tiroir = creerTiroir(etat, {
+  rebuildMeasurePanel, renderMeasureResults,
+  renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
+  refreshTerrasseView,
+  terrasseCourante: ()=>terrasseCouranteDe(etat)
+}, magasin);
 
 // Un quadrilatere deja d'equerre, meme tourne, est deja un rectangle : le redresser sur les axes
 // n'aurait aucun sens et le ferait souvent sortir de la parcelle.
@@ -451,10 +449,10 @@ function renderParasolOverlay(){
 // les briques qu'il assemble.
 function render(){
   // La terrasse courante suit la selection (core/contexteTerrasse.ts) ; quand elle change alors que
-  // l'onglet Terrasse est ouvert, ses panneaux se refont pour elle.
+  // un de ses onglets est ouvert dans le tiroir, ses panneaux se refont pour elle.
   const contexteChange = synchroniserContexteTerrasse(etat);
   rendreScene(etat, ctxRendu());
-  if(contexteChange && etat.panelTab === 'terrasse') refreshTerrasseView();
+  if(contexteChange) tiroir.apresChangementDeContexte();
   magasin.notifier();
 }
 function ctxRendu(){
@@ -591,7 +589,7 @@ brancherDivers(atelier, {
   interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
   basculerOptimisation,
   rafraichirInspecteur: ()=>magasin.notifier(),
-  activerOnglet: (onglet)=>activerOngletPanneau(onglet, etat, ctxOnglets()),
+  activerOnglet: (onglet)=>tiroir.activer(onglet),
   startPick
 }, commandes);
 brancherFichiers({
@@ -1042,9 +1040,9 @@ const inspecteur = creerInspecteur(etat, {
   trouverParcelle: trouverParcelleCloture,
   optimisation: { panneaux: ctxPanneauxTerrasse() }
 }, magasin, commandes);
-monterZones({ magasin, commandes, projet, explorateur, inspecteur });
-// Les panneaux du bas ont un onglet actif des l'ouverture : le balisage n'en montre aucun.
-activerOngletPanneau(etat.panelTab, etat, ctxOnglets());
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir });
+// Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
+tiroir.activer(etat.panelTab, false);
 render();
 // Cadrage d'ouverture sur le terrain quand il vient du cadastre : sa taille reelle n'a aucune
 // raison de tomber sur l'echelle par defaut du plan de demonstration. Un plan dessine a la main

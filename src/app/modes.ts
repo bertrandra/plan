@@ -9,10 +9,10 @@
 // « mode Terrasse » qui deplacait physiquement le `<svg>` entre deux conteneurs, verrouillait le
 // plan et cachait la selection. Elle est devenue un contexte du plan (spec-ihm-zones §7, decision
 // 4) : la terrasse courante suit la selection (core/contexteTerrasse.ts), ses resultats — chiffrage,
-// coupe, implantation, chantier, methode — sont l'onglet Terrasse du panneau, sa construction se
-// regle dans l'inspecteur (etape 4), et ses
-// couches se dessinent sur le plan quand l'explorateur les demande. Ce module ne garde de l'ancien
-// mode que les sous-onglets de cet onglet, et la Vue 3D qui en etait l'un d'eux.
+// coupe, implantation, chantier, methode — sont des onglets du tiroir (app/tiroir.ts, etape 5), sa
+// construction se regle dans l'inspecteur (etape 4), et ses couches se dessinent sur le plan quand
+// l'explorateur les demande. Ce module ne garde de l'ancien mode que la Vue 3D, qui en etait un
+// sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
 import { glb, chargement } from '../three/etat3d.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
@@ -21,16 +21,7 @@ import type { ObjetPlan, Construction } from '../model/types.js';
 export type Vue = 'plan' | 'vue3d' | 'visionneuse';
 
 /** Les zones de la vue Plan : montrees ensemble, cachees ensemble. */
-const ZONES_PLAN = ['zoneAtelier', 'panelTabs', 'panel'];
-
-/** Les sous-onglets de l'onglet Terrasse : leur cle, leur libelle, et le panneau qu'ils montrent. */
-const SOUS_ONGLETS: [string, string, string][] = [
-  ['bom', 'BOM', 'terrasseTabBom'],
-  ['coupe', 'Plan de coupe', 'terrasseTabCoupe'],
-  ['implantation', 'Implantation', 'terrasseTabImplantation'],
-  ['chantier', 'Chantier', 'terrasseTabChantier'],
-  ['methode', 'Méthode', 'terrasseTabMethode']
-];
+const ZONES_PLAN = ['zoneAtelier', 'zoneResultats'];
 
 /** Ce que le pilotage des vues doit pouvoir declencher ailleurs. */
 export interface ContexteModes {
@@ -41,7 +32,7 @@ export interface ContexteModes {
   buildThreeScene: (obj: ObjetPlan | null) => void;
   disposeThreeScene: () => void;
   render: () => void;
-  /** Les panneaux a remplir pour la terrasse courante. */
+  /** Les panneaux du tiroir a remplir pour la terrasse courante. */
   rendrePanneauxTerrasse: (obj: ObjetPlan) => void;
   /** Charge et affiche le dernier .glb exporte, une fois son panneau visible. */
   preparerVisionneuse: () => void;
@@ -55,7 +46,6 @@ export interface ContexteModes {
 
 export function creerModes(ctx: ContexteModes) {
   let vueCourante: Vue = 'plan';
-  let terrasseSubTab = 'bom';
 
   function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
     ids.forEach(id => { document.getElementById(id)!.style.display = visible ? valeurVisible : 'none'; });
@@ -119,37 +109,11 @@ export function creerModes(ctx: ContexteModes) {
     ctx.disposeGlbViewerScene();
   }
 
-  // ------------------------------------------------------------------------------------------
-  // L'onglet Terrasse et ses sous-onglets
-  // ------------------------------------------------------------------------------------------
-
-  /** Reconstruit la rangee de sous-onglets et montre le panneau choisi. */
-  function rebuildTerrasseSubTabs(): void {
-    const div = document.getElementById('terrasseSubTabs')!;
-    div.innerHTML = '';
-    SOUS_ONGLETS.forEach(([key, label]) => {
-      const b = document.createElement('button');
-      b.className = 'panelTabBtn' + (terrasseSubTab === key ? ' active' : '');
-      b.textContent = label;
-      b.addEventListener('click', () => { terrasseSubTab = key; rebuildTerrasseSubTabs(); });
-      div.appendChild(b);
-    });
-    SOUS_ONGLETS.forEach(([key, , panelId]) => {
-      document.getElementById(panelId)!.style.display = (terrasseSubTab === key) ? '' : 'none';
-    });
-  }
-
-  /**
-   * Remet a jour tout l'onglet Terrasse pour la terrasse courante. Sans terrasse, le message
-   * d'accueil dit comment en obtenir une.
-   */
+  /** Refait les panneaux de la terrasse courante — chiffrage, coupe, implantation, chantier, methode. */
   function refreshTerrasseView(): void {
     const obj = ctx.terrasseCourante();
-    document.getElementById('terrasseEmpty')!.style.display = obj ? 'none' : 'block';
-    document.getElementById('terrasseContent')!.style.display = obj ? 'block' : 'none';
     if (!obj) return;
     ctx.ensureConstruction(obj);
-    rebuildTerrasseSubTabs();
     ctx.rendrePanneauxTerrasse(obj);
   }
 

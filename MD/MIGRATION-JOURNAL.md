@@ -2218,3 +2218,40 @@ pour la terrasse, frappe du nom sans perte de focus (le plan et l'explorateur su
 vis → plots (les champs changent, le BOM se refait, l'annulation s'arme), largeur de lame validée
 par Entrée, optimisation affichée et masquée, longueur d'un côté modifiée puis annulée, section
 Parcelle avec lieu et clôture, section Parasol avec ses dix champs. 560 tests.
+
+## Reconstruction de l'IHM — étape 5 : le tiroir des résultats (22 septembre 2026, `1.2.0-alpha.6`)
+
+**Z6, le tiroir** (`zones/Resultats.tsx`, `app/tiroir.ts`) est l'option A retenue en §7.1 : ce
+que le moteur calcule se lit sous le plan, pleine largeur, pendant que l'inspecteur règle à droite.
+La boucle réglage → chiffrage se voit d'un seul regard, et c'était le reproche fait à l'ancienne
+disposition, où Construction et BOM étaient des sous-onglets frères qui ne se voyaient jamais.
+
+**Une liste d'onglets, pas deux niveaux.** Les cinq sous-onglets de l'ancien onglet Terrasse et
+les trois onglets du plan sont sur une même barre, en groupes : ceux de la terrasse n'existent que
+si une terrasse est courante, et un onglet de terrasse ouvert se replie sur Cotes quand la
+dernière terrasse disparaît. Le tiroir sait ce que chaque onglet doit rafraîchir à l'ouverture —
+les cotes et le PLU se reconstruisent, les panneaux de la terrasse se refont — ce que faisait
+`ui/panelTabs.ts`, qui disparaît.
+
+**Trois hauteurs**, mémorisées dans le navigateur : replié, la barre seule ; mi-hauteur ; plein.
+La hauteur est un réglage de l'utilisateur, pas une donnée du plan, elle vit dans le magasin et
+dans `localStorage`. Cliquer un onglet d'un tiroir replié le déplie : un clic qui ne montrerait
+rien se lirait comme un clic cassé.
+
+**Ce qui n'est pas un résultat.** Affichage et Export / Import sont des réglages ; la spec les
+destine aux menus de la barre d'application (§4.1). Ils restent dans le tiroir, à part, en
+attendant : les retirer maintenant aurait retiré des commandes sans les remettre ailleurs.
+
+### Ce que ça change d'usage
+
+Les résultats de la terrasse se lisent sous le plan pendant qu'on la règle à droite. Le Résumé a
+son onglet. Le tiroir se replie d'un clic quand on veut tout le plan, et revient à la hauteur
+laissée à la session précédente.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.5` par la preuve forte. Sur le build : dix onglets
+avec une terrasse, cinq sans ; BOM (sept lignes, totaux) et coupe (SVG) remplis à l'ouverture ;
+replié cache les panneaux et se mémorise, un clic sur Cotes rouvre à mi-hauteur, plein monte à
+78 vh ; le Résumé se génère dans son onglet ; la cote de la palette ouvre Cotes ; les deux
+terrasses passées en dalle font disparaître leurs onglets et replient BOM sur Cotes. 563 tests.
