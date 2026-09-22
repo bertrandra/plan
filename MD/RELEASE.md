@@ -244,8 +244,8 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 [ ] minClientVersion updated in server config if this release is mandatory
 [ ] Deployed to production
 [ ] Post-deploy: open an existing production project, edit, save, reload
-[ ] Post-deploy: en-têtes vérifiés en ligne — CSP présente, plan.html en no-cache,
-    GET /data/<id>.json refusé, et la console sans violation de politique
+[ ] Post-deploy: npm run verifier-deploiement https://<hôte> — onze contrôles verts, dont
+    l'empreinte du fichier servi, les en-têtes, le cache et data/ fermé
 [ ] GitHub release published with the changelog section
 ```
 

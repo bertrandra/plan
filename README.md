@@ -92,6 +92,13 @@ fichiers seule ne donne pas :
   empreinte SHA-256 plutôt que d'autoriser l'inline en bloc. L'empreinte change à chaque build,
   d'où la génération : un `.htaccess` recopié d'un build précédent empêche la page de s'exécuter.
 
+Après chaque mise en ligne, onze contrôles vérifient ce que le serveur rend vraiment — l'empreinte
+du fichier servi, les en-têtes, le cache, et `data/` fermé :
+
+```bash
+npm run verifier-deploiement https://plan1.raillard.org
+```
+
 Les dépendances externes (IGN, BAN, CDN three.js, textures Poly Haven) sont des dépendances de
 disponibilité, pas de données : sans IGN, pas d'import cadastre mais un éditeur complet ; sans CDN,
 pas de 3D mais tout le reste. Chacune est nommée dans la politique de contenu, et une origine
