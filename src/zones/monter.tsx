@@ -8,17 +8,20 @@ import { BarreApplication } from './BarreApplication.js';
 import { BarreEtat } from './BarreEtat.js';
 import { Palette } from './Palette.js';
 import { Explorateur } from './Explorateur.js';
+import { Inspecteur } from './Inspecteur.js';
 import { Surimpression } from './Surimpression.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Explorateur as ServiceExplorateur } from '../app/explorateur.js';
+import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 
 export interface DependancesZones {
   magasin: Magasin;
   commandes: RegistreCommandes;
   projet: Projet;
   explorateur: ServiceExplorateur;
+  inspecteur: ServiceInspecteur;
 }
 
 function conteneur(id: string): HTMLElement {
@@ -27,10 +30,11 @@ function conteneur(id: string): HTMLElement {
   return el;
 }
 
-export function monterZones({ magasin, commandes, projet, explorateur }: DependancesZones): void {
+export function monterZones({ magasin, commandes, projet, explorateur, inspecteur }: DependancesZones): void {
   createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} />);
   createRoot(conteneur('zonePalette')).render(<Palette magasin={magasin} commandes={commandes} />);
   createRoot(conteneur('zoneExplorateur')).render(<Explorateur magasin={magasin} commandes={commandes} explorateur={explorateur} />);
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} />);
+  createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} />);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
 }

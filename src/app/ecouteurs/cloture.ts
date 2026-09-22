@@ -1,33 +1,20 @@
-// La clôture, et les deux listes de points de vue (spec §6.4, app/).
+// Les deux listes de points de vue des vues 3D (spec §6.4, app/).
 //
-// Ces commandes partagent une propriété qui explique leur forme : **elles modifient le projet, pas
-// l'affichage**. La clôture est rangée sur la parcelle, comme le lieu et le zonage PLU — elle se
-// sauvegarde donc avec le plan, et chaque réglage marque le projet modifié. C'est ce qui les
-// distingue des cases de la Vue 3D, qui ne touchent qu'à ce qu'on regarde.
-//
-// Conséquence pratique : les cinq commandes commencent toutes par chercher la parcelle, et
-// s'abstiennent s'il n'y en a pas. Une clôture sans terrain n'a nulle part où se poser.
+// La clôture, qui vivait ici avec elles, se règle depuis l'étape 4 dans la section Parcelle de
+// l'inspecteur (ui/champs/objet.ts) : elle est rangée sur la parcelle, comme le lieu, et se
+// sauvegarde avec le plan.
 
-import { ouvrirSelecteurTexture } from '../../ui/texturePicker.js';
 import type { ObjetPlan } from '../../model/types.js';
-import type { RegistreCommandes } from '../commandes.js';
 
-/** Ce que les commandes de clôture et de points de vue déclenchent. */
+/** Ce que les listes de points de vue déclenchent. */
 export interface ContexteCloture {
-  /** La parcelle qui porte la clôture, ou `undefined`. */
-  trouverParcelle: () => ObjetPlan | undefined;
-  /** Remet les commandes en accord avec ce que porte la parcelle. */
-  syncControles: (parcelle: ObjetPlan) => void;
-  /** Reconstruit la scène 3D — la clôture en fait partie. */
-  rafraichirApresCloture: () => void;
-  markDirty: () => void;
   /** Un objet du plan par sa clé. */
   objByKey: (cle: string) => ObjetPlan | undefined;
   allerAuPointDeVue: (vp: ObjetPlan) => void;
   allerAuPointDeVueGlb: (vp: ObjetPlan) => void;
 }
 
-export function brancherCloture(ctx: ContexteCloture, cmd: RegistreCommandes): void {
+export function brancherCloture(ctx: ContexteCloture): void {
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
   /**
@@ -44,51 +31,4 @@ export function brancherCloture(ctx: ContexteCloture, cmd: RegistreCommandes): v
   };
   brancherListeDeVues('terrasse3dViewSelect', ctx.allerAuPointDeVue);
   brancherListeDeVues('glbViewerViewSelect', ctx.allerAuPointDeVueGlb);
-
-  /** Applique une modification à la parcelle porteuse, ou ne fait rien s'il n'y en a pas. */
-  const surParcelle = (modifier: (p: ObjetPlan) => void, resynchroniser = false) => {
-    const p = ctx.trouverParcelle();
-    if (!p) return;
-    modifier(p);
-    ctx.markDirty();
-    if (resynchroniser) ctx.syncControles(p);
-    ctx.rafraichirApresCloture();
-  };
-
-  // Resynchronise : cocher la case active ou grise les trois autres commandes.
-  el('terrasse3dCloture').addEventListener('change', function () {
-    surParcelle(p => { p.clotureActive = this.checked; }, true);
-  });
-
-  /**
-   * Hauteur plafonnée par le bas à 0,10 m, et repliée sur 1,80 m si la saisie n'est pas un nombre.
-   * Le champ est réécrit avec la valeur retenue : sans cela, `-3` resterait affiché alors que la
-   * clôture mesure 0,10 m.
-   */
-  el('terrasse3dClotureHauteur').addEventListener('change', function () {
-    surParcelle(p => {
-      p.clotureHauteur = Math.max(0.1, parseFloat(this.value)) || 1.8;
-      this.value = String(p.clotureHauteur);
-    });
-  });
-
-  // `input` et non `change` : la couleur suit le sélecteur en direct.
-  el('terrasse3dClotureCouleur').addEventListener('input', function () {
-    surParcelle(p => { p.clotureCouleur = this.value; });
-  });
-
-  cmd.bouton('terrasse3dClotureTexBtn', { id: 'cloture.choisirTexture', libelle: 'Choisir une texture…', groupe: 'cloture', executer: () => {
-    const p = ctx.trouverParcelle();
-    if (!p) return;
-    ouvrirSelecteurTexture('Clôture', choix => {
-      p.clotureTexture = choix;
-      ctx.markDirty();
-      ctx.syncControles(p);
-      ctx.rafraichirApresCloture();
-    });
-  } });
-
-  cmd.bouton('terrasse3dClotureTexClear', { id: 'cloture.retirerTexture', libelle: 'Retirer la texture', groupe: 'cloture', executer: () => {
-    surParcelle(p => { p.clotureTexture = null; }, true);
-  } });
 }

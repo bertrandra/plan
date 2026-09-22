@@ -63,7 +63,6 @@ export interface ContexteScene3d {
   /** La parcelle qui porte la cloture, s'il y en a une. */
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
   /** Remet les controles de cloture en accord avec la parcelle affichee. */
-  syncClotureControls: (parcelle: ObjetPlan) => void;
   /** Hauteur de ce sur quoi la structure repose, en millimetres. */
   hauteurAppuiMm: (c: Construction) => number;
   /** Altitude d'un objet du plan, en metres. */
@@ -126,10 +125,6 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   if(cbTextures) cbTextures.checked = vue3d.textures;
   const cbShadows = elOpt<HTMLInputElement>('terrasse3dShadows');
   if(cbShadows) cbShadows.checked = vue3d.ombres;
-  // La cloture est une donnee du projet (rattachee a la parcelle), pas une preference d'affichage
-  // volatile comme les cases ci-dessus : elle survit a une fermeture/reouverture du fichier.
-  const parcelleObjCtrl = ctx.trouverParcelleCloture();
-  if(parcelleObjCtrl) ctx.syncClotureControls(parcelleObjCtrl);
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c)/1000;

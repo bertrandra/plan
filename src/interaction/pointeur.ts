@@ -55,7 +55,6 @@ type ObjetAPoints = ObjetPlan & { pts: PtBrut[] };
 export interface ContextePointeur {
   toWorld: (p: PtEcran) => PtBrut;
   render: () => void;
-  renderAttrTable: () => void;
   rebuildMeasurePanel: () => void;
   rebuildSelector: () => void;
   pushHistory: () => void;
@@ -90,7 +89,7 @@ svg.addEventListener('pointerdown', e=>{
       if(mesure.pointage.purpose==='align'){
         definirCibleAlignement(picked);
         mesure.pointage = null;
-        ctx.renderAttrTable(); ctx.render();
+        ctx.render();
       } else {
         mesure.ref = picked;
         mesure.pointage = null;
@@ -211,7 +210,6 @@ svg.addEventListener('pointerdown', e=>{
     // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
     if(obj.frozenVertices![idx] && !estRectangle(obj)) return;
     etat.highlight = {type:'vertex', index:idx};
-    etat.attrTab = 'angles';
     ctx.pushHistory();
     activeDrag = {type:'point', obj, idx, startWorld:w, startPt:{...obj.pts[idx]!}};
   } else if(ds.role === 'edge'){
@@ -229,7 +227,6 @@ svg.addEventListener('pointerdown', e=>{
     // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
     if((obj.frozenVertices![i] || obj.frozenVertices![j]) && !estRectangle(obj)) return;
     etat.highlight = {type:'segment', index:i};
-    etat.attrTab = 'segments';
     ctx.pushHistory();
     activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...obj.pts[i]!}, startB:{...obj.pts[j]!}};
   } else if(ds.role === 'radius'){

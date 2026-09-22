@@ -2,8 +2,8 @@
 //
 // Presque toutes se contentent d'appeler l'atelier. Les trois qui font autre chose le font pour une
 // raison, et elle est écrite en face. Depuis l'étape 2 de la reconstruction de l'interface, c'est la
-// palette (zones/Palette.tsx) qui les déclenche ; elles sont déclarées ici sans bouton, sauf les deux
-// qui vivent encore dans le panneau Édition. Une commande inactive — rien de sélectionné, rien à
+// palette (zones/Palette.tsx) et l'inspecteur (zones/Inspecteur.tsx) qui les déclenchent ; elles sont
+// déclarées ici sans bouton. Une commande inactive — rien de sélectionné, rien à
 // annuler — grise son bouton, là où l'ancienne rangée répondait par un message.
 
 import { showToast, showConfirm } from '../../shell/dialogs.js';
@@ -16,8 +16,6 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selection = () => !!a.etat.selectedKey;
   const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean } = {}) =>
     cmd.declarer({ id, libelle, groupe: 'objet', executer, ...extra });
-  const bouton = (idDom: string, id: string, libelle: string, executer: () => void) =>
-    cmd.bouton(idDom, { id, libelle, groupe: 'objet', executer, actif: selection });
 
   commande('objet.annuler', 'Annuler', a.undo, { raccourci: 'Ctrl+Z' });
 
@@ -60,7 +58,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    * d'origine : un objet déplacé *et* redimensionné garde ce qu'on lui a fait, et retrouve seulement
    * sa position. Un objet créé après le chargement n'a pas de référence, et le bouton le dit.
    */
-  bouton('resetPosBtn', 'objet.positionInitiale', 'Réinitialiser la position', () => {
+  commande('objet.positionInitiale', 'Réinitialiser la position', () => {
     const obj = a.objByKey(a.etat.selectedKey);
     if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
     const init = a.initialState().find(o => o.key === a.etat.selectedKey);
@@ -75,7 +73,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
       obj.pts.forEach(p => { p.x += d.x; p.y += d.y; });
     }
     a.render();
-  });
+  }, { actif: selection });
 
   /**
    * Tout réinitialiser, par le même mécanisme que l'annulation : on repose l'instantané pris au
@@ -89,7 +87,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    *
    * D'où la confirmation : ce bouton efface d'un clic tout le travail fait depuis le chargement.
    */
-  cmd.bouton('resetBtn', { id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', executer: () => {
+  cmd.declarer({ id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', executer: () => {
     showConfirm('Reinitialiser tout le plan ? Les objets et les mesures reviennent a leur etat du chargement (annulable par Ctrl+Z).', () => {
       a.pushHistory();
       a.restoreState({ objects: a.initialState(), measures: a.initialMeasures() });

@@ -2170,3 +2170,51 @@ depuis l'explorateur (la liste suit le canevas, et inversement), masquage et ét
 sur le plan couche par couche, onglet Terrasse avec ses six sous-onglets remplis, repli de
 l'explorateur (le plan passe de 920 à 1 168 px), Vue 3D et retour. 560 tests, dont six pour la
 règle du contexte terrasse.
+
+## Reconstruction de l'IHM — étape 4 : l'inspecteur par descripteurs (22 septembre 2026, `1.2.0-alpha.5`)
+
+**Z5, l'inspecteur** (`zones/Inspecteur.tsx`) remplace l'onglet Édition du panneau : le panneau
+d'attributs (`ui/attrPanel.ts`, 771 lignes) et le configurateur de terrasse
+(`renderTerrasseConfigurator` et `renderParametresCalcul`, 450 lignes). Ces deux fonctions étaient
+les plus grosses du programme, et D-12 les visait depuis la migration : chaque champ y était un
+bloc de DOM — créer l'élément, lire la valeur, brancher l'écouteur, empiler l'historique, marquer le
+projet modifié, redessiner — et le panneau se reconstruisait entièrement à chaque rendu, ce qui
+obligeait à des mises à jour ciblées partout où l'on tapait du texte, pour ne pas perdre le focus.
+
+**Un champ est une donnée** (`ui/champs/types.ts`) : sa clé, son libellé, son type, ses bornes, la
+condition qui le montre, celle qui l'active, ce qu'il lit, ce qu'il écrit, et ce qui doit suivre —
+l'historique, le rendu du plan, les panneaux de la terrasse, la scène 3D. Un seul composant les
+rend tous, et un seul service (`app/inspecteur.ts`) applique une écriture. Les règles d'autrefois
+sont restées des règles, mais à côté du champ : le mode rectangle refuse un rectangle qui
+sortirait de la parcelle, le rayon d'un cercle aussi, un coin figé ne se supprime pas.
+
+**`CHAMPS_CONSTRUCTION`** (`ui/champs/construction.ts`) est un objet indexé par toutes les clés de
+`Construction`. Chaque clé y a son descripteur, ou la mention de l'onglet qui l'édite (les prix et
+longueurs dans le BOM, les cadences dans Chantier, l'échelle dans Implantation, les vues dans la
+Vue 3D). Ajouter une propriété au modèle sans passer ici ne compile pas : c'est la garantie que
+la spec demandait.
+
+**La clôture** rejoint la section Parcelle de l'inspecteur, où sont déjà le lieu et le cadastre :
+elle est rangée sur la parcelle et se sauvegarde avec le plan, elle n'avait rien à faire dans les
+réglages d'affichage de la Vue 3D.
+
+**Un piège évité.** Le premier build ouvrait le panneau du bas sur l'onglet Terrasse, et le
+`projet.json` exporté différait de cinq octets : le tableau BOM recalcule le chiffrage et l'écrit
+dans la construction dès qu'il se dessine, et le jeu de démonstration porte un chiffrage plus
+ancien. L'ancien mode Terrasse faisait la même écriture, mais seulement quand on y entrait. Le
+panneau s'ouvre donc sur Affichage, et les six empreintes sont retrouvées.
+
+### Ce que ça change d'usage
+
+Tout ce qui décrit l'objet sélectionné est à droite du plan, en sections qu'on replie ; le nom, une
+longueur, un angle se corrigent sans perdre le curseur. Une terrasse sélectionnée ajoute ses six
+sections de construction sous les sections communes. Le panneau du bas ne garde que les résultats
+et les outils : Terrasse, Affichage, Mesure, PLU, Export.
+
+### La preuve
+
+Six empreintes identiques à celles de l'`alpha.4` par la preuve forte. Sur le build : onze sections
+pour la terrasse, frappe du nom sans perte de focus (le plan et l'explorateur suivent), type de pose
+vis → plots (les champs changent, le BOM se refait, l'annulation s'arme), largeur de lame validée
+par Entrée, optimisation affichée et masquée, longueur d'un côté modifiée puis annulée, section
+Parcelle avec lieu et clôture, section Parasol avec ses dix champs. 560 tests.

@@ -1,14 +1,14 @@
 // Les onglets du panneau lateral, en mode Plan (spec §6.4, ui/).
 //
-// Six onglets qui parlent du meme plan sous six angles — l'onglet Terrasse decrit la terrasse
-// courante, un contexte du plan depuis l'etape 3 de la reconstruction de l'interface. Quatre d'entre eux ne se contentent pas
+// Cinq onglets qui parlent du meme plan sous cinq angles — l'onglet Terrasse decrit la terrasse
+// courante, un contexte du plan depuis l'etape 3 de la reconstruction de l'interface ; l'onglet
+// Édition est devenu l'inspecteur (zones/) a l'etape 4. Quatre d'entre eux ne se contentent pas
 // d'apparaitre : ils **se reconstruisent a l'ouverture**, parce que leur contenu depend de ce qui
 // s'est passe pendant qu'ils etaient caches — une cote posee, une parcelle importee, une terrasse
 // renommee. Les remplir une fois pour toutes donnerait un panneau perime sans que rien ne le dise.
 
 /** Les onglets, dans l'ordre, avec le panneau que chacun montre. */
 const ONGLETS: [string, string, string][] = [
-  ['edition', 'Édition', 'panelEdition'],
   ['terrasse', 'Terrasse', 'panelTerrasse'],
   ['affichage', 'Affichage', 'panelAffichage'],
   ['mesure', 'Mesure', 'panelMesure'],

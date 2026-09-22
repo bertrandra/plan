@@ -118,7 +118,7 @@ type ObjetTest = ObjetPlan;
 
 /** Un plan minimal et des dependances qui ne font que compter leurs appels. */
 function monter(objets: ObjetTest[] = [{ key: 'parcelle', name: 'Parcelle', fonction: 'terrain', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }]) {
-  const etat: EtatCreation = { objects: [...objets], selectedKey: null, attrTab: 'objet', terrasseSelectedKey: null, newObjCounter: 0 };
+  const etat: EtatCreation = { objects: [...objets], selectedKey: null, terrasseSelectedKey: null, newObjCounter: 0 };
   const appels: string[] = [];
   const ctx: ContexteCreation = {
     pushHistory: () => appels.push('historique'),

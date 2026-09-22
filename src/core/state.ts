@@ -39,7 +39,6 @@ export interface EtatApp {
   selectedKey: string | null;
   highlight: Surbrillance;
   panelTab: string;
-  attrTab: string;
   /** La terrasse courante : un contexte du plan, tenu par core/contexteTerrasse.ts. */
   terrasseSelectedKey: string | null;
   /** Les couches de la terrasse courante (vis, solives, lames…) dessinees sur le plan. */
@@ -89,8 +88,9 @@ export function creerEtat(
         ? objects[0]!.key
         : null,
     highlight: { type: null, index: null },
-    panelTab: 'edition',
-    attrTab: 'segments',
+    // Affichage plutot que Terrasse : l'onglet Terrasse recalcule le chiffrage et l'ecrit dans le
+    // projet des qu'il s'ouvre, ce que l'ancien mode Terrasse ne faisait qu'a la demande.
+    panelTab: 'affichage',
     terrasseSelectedKey: null,
     calquesVisibles: false,
 

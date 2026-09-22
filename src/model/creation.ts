@@ -31,13 +31,12 @@ import { enPoints } from './formes.js';
 export interface EtatCreation {
   objects: ObjetPlan[];
   selectedKey: string | null;
-  attrTab: string;
   terrasseSelectedKey: string | null;
   /** Consomme par `cleObjet` a chaque objet neuf. */
   newObjCounter: number;
 }
 
-/** L'onglet du panneau d'attributs a ouvrir apres la creation. */
+/** La section de l'inspecteur que la creation designe : les cotes d'une forme libre, l'objet d'un rectangle. */
 export type OngletAttribut = 'objet' | 'segments';
 
 /** Une forme neuve, et l'onglet qui doit l'accompagner. */
@@ -201,13 +200,12 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   }
 
   /** Les sept gestes de l'insertion, dans l'ordre — aucun n'est facultatif. */
-  function inserer({ obj, onglet }: ObjetNeuf) {
+  function inserer({ obj }: ObjetNeuf) {
     etat.objects.push(obj);
     ctx.createObjectDOM(obj);
     ctx.rebuildHandles(obj);
     ctx.reapplyStackingOrder();
     etat.selectedKey = obj.key;
-    etat.attrTab = onglet;
     ctx.rebuildSelector();
     ctx.render();
   }

@@ -10,14 +10,15 @@
 <!-- Z1, la barre d'application (zones/BarreApplication.tsx) : projet, vues, titre. -->
 <div id="zoneBarre"></div>
 
-<!-- Z2, la palette (zones/Palette.tsx), Z3, l'explorateur (zones/Explorateur.tsx), et Z4, le canevas
-     avec ses commandes en surimpression (zones/Surimpression.tsx). -->
+<!-- Z2, la palette (zones/Palette.tsx), Z3, l'explorateur (zones/Explorateur.tsx), Z4, le canevas
+     avec ses commandes en surimpression (zones/Surimpression.tsx), et Z5, l'inspecteur (zones/Inspecteur.tsx). -->
 <div id="zoneAtelier">
   <div id="zonePalette"></div>
   <div id="zoneExplorateur"></div>
   <div id="stage">
     <div id="zoneSurimpression"></div>
   </div>
+  <div id="zoneInspecteur"></div>
 </div>
 
 <!-- La Vue 3D : une vue a part entiere depuis l'etape 3 (app/modes.ts), montree a la place de l'atelier. -->
@@ -47,21 +48,6 @@
       <input type="checkbox" id="terrasse3dShadows">
       Ombre portée
     </label>
-  </div>
-  <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
-    <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
-      <input type="checkbox" id="terrasse3dCloture">
-      Clôture autour de la parcelle
-    </label>
-    <span style="display:inline-flex; align-items:center; gap:4px; margin-left:14px;">
-      <label for="terrasse3dClotureHauteur" style="font-size:0.82rem; color:var(--ink-soft);">Hauteur (m)</label>
-      <input type="number" id="terrasse3dClotureHauteur" step="0.1" min="0.1" value="1.8" style="width:62px;">
-    </span>
-    <input type="color" id="terrasse3dClotureCouleur" value="#6b4a2a" title="Couleur de la cloture" style="margin-left:10px; width:32px; height:26px; padding:0; border:1px solid var(--rule); cursor:pointer;">
-    <img id="terrasse3dClotureTexVignette" style="width:24px; height:24px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); margin-left:10px; visibility:hidden;">
-    <span id="terrasse3dClotureTexNom" style="font-size:0.8rem; color:var(--ink-soft); margin-left:6px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Aucune (couleur unie)</span>
-    <button id="terrasse3dClotureTexBtn" type="button" class="secondary small" style="margin-left:6px;">Choisir une texture…</button>
-    <button id="terrasse3dClotureTexClear" type="button" class="secondary small" style="display:none;" title="Retirer cette texture">×</button>
   </div>
   <div class="controls" style="align-items:center; margin-top:6px; flex-wrap:wrap;">
     <span style="font-size:0.88rem;" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique a droite">☀️ Soleil</span>
@@ -176,37 +162,11 @@
 <div id="panelTabs"></div>
 
 <div id="panel">
-  <div id="panelEdition">
-    <div class="sectionTitle" id="attrTitle">Attributs</div>
-    <table class="attrTable" id="attrNameTable"></table>
-    <div id="attrTabs" style="display:flex; gap:6px; margin:8px 0 4px;"></div>
-    <table class="attrTable" id="attrTable"></table>
-
-    <div class="controls">
-      <button id="resetPosBtn" class="secondary">Réinitialiser la position</button>
-      <button id="resetBtn" class="secondary">Réinitialiser tout</button>
-    </div>
-    <div class="hint">Glisse un point pour l'ajuster, un côté pour déplacer ses deux extrémités, l'intérieur d'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).</div>
-  </div>
-
   <!-- L'onglet Terrasse : la terrasse courante (core/contexteTerrasse.ts), ses sous-onglets par app/modes.ts. -->
   <div id="panelTerrasse" style="display:none;">
   <div id="terrasseEmpty" class="hint" style="display:none;">Aucun objet avec Fonction = terrasse pour l'instant. Ouvre l'onglet Objet de l'element concerne, et regle "Fonction" sur "terrasse".</div>
   <div id="terrasseContent" style="display:none;">
     <div id="terrasseSubTabs" style="display:flex; gap:4px; margin:0 0 10px;"></div>
-
-    <div id="terrasseTabConstruction">
-      <div class="sectionTitle">Construction</div>
-      <table class="attrTable" id="terrasseConfigTable"></table>
-      <div id="terrasseAvertBox"></div>
-      <div class="controls">
-        <button id="terrasseOptimBtn" class="objbtn">Optimisation des parametres</button>
-      </div>
-      <div id="terrasseOptimResult" style="display:none;"></div>
-      <div class="sectionTitle" style="margin-top:18px;">Paramètres de calcul</div>
-      <div class="hint">Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l'usage du métier (voir l'onglet Méthode).</div>
-      <div id="terrasseParamsBox"></div>
-    </div>
 
     <div id="terrasseTabBom" style="display:none;">
       <div class="sectionTitle">Liste de matériaux (BOM)</div>

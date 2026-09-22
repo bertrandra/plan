@@ -176,6 +176,11 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   la terrasse devient un contexte du plan, le mode Terrasse disparaît). Même protocole, preuve forte :
   les six anciennes empreintes retrouvées au bit près.
 
+- **22 septembre 2026**, `plan.html` v1.2.0-alpha.5 : reconstruction de l'IHM, étape 4 (inspecteur par
+  descripteurs de champs, D-12). Même protocole, preuve forte : les six anciennes empreintes retrouvées
+  au bit près — après avoir remis le panneau du bas sur Affichage, l'onglet Terrasse réécrivant le
+  chiffrage dans le projet à l'ouverture.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -187,12 +192,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `5bf079c058fc9e41292af86a6f27c778f6763dfe0b59f16344f3a4fa0b298827` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `0814260b8c1a79ee31d1c6b5086e09431c29ef95105fdeeb2a6a61b2c016d0bd` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `f4e5b0a0a68aa877e2cc9a41f75bc477f3ba87e5feac81a1559ce4a49f91a6ff` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `e39e4e2cb92f6522802b7eb082c86d56c5e1f183450f8422ae6715c3956dae90` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `e24592d246362b940f9d3fb5a20d22fb1b8088e8e7c8eba07c235225b70d787c` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `406dc0099062c25884881b947e3270ef742b5ebf489afb5ee666c03ed574f4b5` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 331 | `77c42ad3c2d9f151280fe86900255d186cd92b805627c3c50488fe549eef9d45` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 117 | `ccccac7bdf3a6621a804788864acc1fb0507cccb51f8c730ba62d230fbe94ab0` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 372 | `e70da7880a9eb127d3e4863d0f90fccfc0f80559f0f163d26e2367c140f77509` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 71 982 | `80c1a09418b9e60453513a0f4dc3ae65872aac76b130dc1fa1bdd9ae967646e4` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 178 | `d6e3f80de4de4dc98bacffdb2edfd501a20835a8d8552f7af67ab07ceac81087` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 286 | `343c12773d949784c21e5b905bc01d7e28e80938ace38780fdf9b64c4417756c` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

@@ -8,8 +8,9 @@
 // Jusqu'a l'etape 3 de la reconstruction de l'interface, la terrasse etait une quatrieme vue — un
 // « mode Terrasse » qui deplacait physiquement le `<svg>` entre deux conteneurs, verrouillait le
 // plan et cachait la selection. Elle est devenue un contexte du plan (spec-ihm-zones §7, decision
-// 4) : la terrasse courante suit la selection (core/contexteTerrasse.ts), ses panneaux — construction,
-// chiffrage, coupe, implantation, chantier, methode — sont l'onglet Terrasse du panneau, et ses
+// 4) : la terrasse courante suit la selection (core/contexteTerrasse.ts), ses resultats — chiffrage,
+// coupe, implantation, chantier, methode — sont l'onglet Terrasse du panneau, sa construction se
+// regle dans l'inspecteur (etape 4), et ses
 // couches se dessinent sur le plan quand l'explorateur les demande. Ce module ne garde de l'ancien
 // mode que les sous-onglets de cet onglet, et la Vue 3D qui en etait l'un d'eux.
 
@@ -24,7 +25,6 @@ const ZONES_PLAN = ['zoneAtelier', 'panelTabs', 'panel'];
 
 /** Les sous-onglets de l'onglet Terrasse : leur cle, leur libelle, et le panneau qu'ils montrent. */
 const SOUS_ONGLETS: [string, string, string][] = [
-  ['construction', 'Construction', 'terrasseTabConstruction'],
   ['bom', 'BOM', 'terrasseTabBom'],
   ['coupe', 'Plan de coupe', 'terrasseTabCoupe'],
   ['implantation', 'Implantation', 'terrasseTabImplantation'],
@@ -55,7 +55,7 @@ export interface ContexteModes {
 
 export function creerModes(ctx: ContexteModes) {
   let vueCourante: Vue = 'plan';
-  let terrasseSubTab = 'construction';
+  let terrasseSubTab = 'bom';
 
   function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
     ids.forEach(id => { document.getElementById(id)!.style.display = visible ? valeurVisible : 'none'; });

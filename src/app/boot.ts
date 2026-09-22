@@ -57,8 +57,9 @@ import { geometrieMesure, coordonneesCote, dessinerCotes } from '../render/measu
 import { editerAngle, editerLongueur, contourDeContrainte } from '../interaction/editing.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../model/sommets.js';
 import { alignerSurCote } from '../geometry/alignement.js';
-import { renderAttrTable as renderAttrTablePanneau } from '../ui/attrPanel.js';
-import { vue3d, glb, soleilVue3d } from '../three/etat3d.js';
+import { creerInspecteur } from './inspecteur.js';
+import { distanceAlignementSaisie } from '../ui/champs/objet.js';
+import { glb, soleilVue3d } from '../three/etat3d.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -87,7 +88,7 @@ import {
 } from '../three/soleilVue3d.js';
 import { chargerTexturePolyhaven } from '../three/chargeurs.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../render/terrasseCouches.js';
-import { trouverParcelleCloture as chercherParcelleCloture, syncClotureControls } from '../ui/cloture.js';
+import { trouverParcelleCloture as chercherParcelleCloture } from '../ui/cloture.js';
 import {
   ensureThreeLoaded, disposeThreeScene, disposeGlbViewerScene, appliquerLumiereGlb, syncSemaineGlb,
   syncControlesGlb, rafraichirVisionneuseGlb as rafraichirSceneGlb
@@ -100,8 +101,8 @@ import { ouvrirImportCadastre } from '../ui/cadastreDialog.js';
 import { creerProjet } from './projet.js';
 import { monterZones } from '../zones/monter.js';
 import {
-  renderTerrasseConfigurator, renderTerrasseCoupe, renderDebitBois, renderImplantation,
-  renderChantier, renderMethode, renderOptimResult, basculerOptimisation
+  renderTerrasseCoupe, renderDebitBois, renderImplantation,
+  renderChantier, renderMethode, basculerOptimisation
 } from '../ui/terrassePanels.js';
 import { interrogerPluDepuisBouton } from '../ui/projectBar.js';
 import { buildThreeScene as construireScene3D } from '../three/scene.js';
@@ -280,7 +281,7 @@ function pushHistory(){ historique.empiler(); }
 function restoreState(snapshot: Instantane){ historique.restaurer(snapshot); }
 function undo(){ historique.annuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
-// panelTab, selectedKey, highlight et attrTab vivent desormais dans `etat` (spec §6.1).
+// panelTab, selectedKey et highlight vivent desormais dans `etat` (spec §6.1).
 // Les onglets du panneau lateral vivent dans ui/panelTabs.ts.
 function ctxOnglets(){
   return {
@@ -333,11 +334,12 @@ const initialState = JSON.parse(JSON.stringify(etat.objects));
 // La palette (zones/Palette.tsx) prend sa largeur a gauche du plan ; sous 1 024 px elle s'escamote.
 const LARGEUR_PALETTE = 72;
 const LARGEUR_EXPLORATEUR = 248;
+const LARGEUR_INSPECTEUR = 348;
 function computeSize(){
-  // La palette et l'explorateur (zones/) prennent leur largeur au plan des 1 024 px ; en dessous, la
-  // feuille de style les escamote. L'explorateur replie la rend.
+  // La palette, l'explorateur et l'inspecteur (zones/) prennent leur largeur au plan des 1 024 px ;
+  // en dessous, la feuille de style les escamote ou les passe sous le plan. L'explorateur replie la rend.
   const explorateur = magasin.store.getState().explorateurOuvert ? LARGEUR_EXPLORATEUR : 0;
-  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur : 0);
+  const margin = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur + LARGEUR_INSPECTEUR : 0);
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
@@ -457,7 +459,7 @@ function render(){
 }
 function ctxRendu(){
   return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
-    renderAttrTable, drawScaleBar, drawNorthArrow, drawMeasures,
+    drawScaleBar, drawNorthArrow, drawMeasures,
     renderMeasureResults, renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
     toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup };
 }
@@ -487,22 +489,8 @@ function libelleTypeObjet(obj: ObjetPlan){
   return obj.type==='polygon' ? 'Polygone' : (obj.type==='path' ? 'Chemin' : 'Cercle');
 }
 
-// Le panneau d'attributs vit dans ui/attrPanel.ts ; cette enveloppe lui fournit l'etat et tout
-// ce qu'il doit pouvoir declencher.
-function renderAttrTable(){
-  renderAttrTablePanneau(etat, {
-    alignObjectByRotation, allerAuPointDeVue, applyAngleEdit, applyLengthEdit, buildThreeScene,
-    contexteSoleilParasol, dejaRectangle, deleteVertex, elevationOf,
-    libelleTypeObjet, markDirty, measureSegCoords, pushHistory, reapplyStackingOrder,
-    rebuildHandles, rebuildSelector, refLabel, render, renderAttrTable, startPick,
-    interiorAngleDeg: (obj, i)=>interiorAngleDeg(aPoints(obj), i),
-    pickState: ()=>mesure.pointage,
-    vue3dOuverte: ()=>!!vue3d.scene
-  });
-}
-
-
-// ================= Display toggle table per object =================
+// Le panneau d'attributs est l'inspecteur (zones/Inspecteur.tsx) depuis l'etape 4 : il se
+// redessine sur le magasin, comme l'explorateur.
 
 // ---- North arrow (fixed screen position, toggleable) ----
 // showNorth : dans `etat` (spec 6.1).
@@ -535,6 +523,7 @@ function insertPointOnSegment(obj: ObjetPlan, segIndex: number, clickWorld: PtBr
   rebuildHandles(obj);
   render();
 }
+
 function deleteVertex(obj: ObjetPlan, idx: number){
   if(obj.locked) return;
   if(enPoints(obj).pts.length <= minimumSommets(obj.type)) return; // keep at least a valid shape
@@ -555,7 +544,7 @@ stage.addEventListener('pointerleave', ()=>magasin.definirPointeur(null));
 // l'etat et tout ce qu'ils doivent pouvoir declencher.
 brancherPointeur(svg, stage, etat, {
   insertPointOnSegment, pushHistory,
-  rebuildMeasurePanel, rebuildSelector, render, renderAttrTable, sendObjectBackward,
+  rebuildMeasurePanel, rebuildSelector, render, sendObjectBackward,
   toWorld
 });
 
@@ -601,10 +590,9 @@ brancherDivers(atelier, {
   renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
   interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
   basculerOptimisation,
-  renderOptimResult: (obj)=>renderOptimResult(obj, ctxPanneauxTerrasse()),
+  rafraichirInspecteur: ()=>magasin.notifier(),
   activerOnglet: (onglet)=>activerOngletPanneau(onglet, etat, ctxOnglets()),
-  startPick,
-  ouvrirOngletObjet: ()=>{ etat.attrTab = 'objet'; renderAttrTable(); }
+  startPick
 }, commandes);
 brancherFichiers({
   exportProjetJSON, validerProjetJSON, appliquerProjetImporte,
@@ -733,8 +721,7 @@ function targetLabel(t: { objKey: string; ptIndex: number }){
 
 // L'alignement vit dans interaction/outilAlignement.ts, a cote du cote de reference qu'il lit.
 function alignObjectByRotation(obj: ObjetPlan){
-  const champ = elOpt<HTMLInputElement>('alignDistanceInput');
-  alignerObjetParRotation(obj, etat, champ ? champ.value : '', {
+  alignerObjetParRotation(obj, etat, distanceAlignementSaisie(), {
     measureSegCoords, alignerSurCote, pointInPolygon,
     nearestSegmentIndex: (obj, cible)=>nearestSegmentIndex(aPoints(obj), cible),
     contourDeContrainte: (o)=>contourDeContrainte(etat.objects, aPoints(o)),
@@ -933,7 +920,7 @@ function quitterPleinPageVisionneuse(){
 function buildThreeScene(obj: ObjetPlan | null){
   construireScene3D(obj, etat, {
     appliquerLumiereVue3d, applyMode3D, chargerTexturePolyhaven, disposeThreeScene, elevationOf,
-    hauteurAppuiMm, objetMasque, positionMat, renderVue3DSelect, syncClotureControls,
+    hauteurAppuiMm, objetMasque, positionMat, renderVue3DSelect,
     syncControlesSoleilVue3d, trouverParcelleCloture,
     orthoActif: ()=>ortho.actif,
     orthoTuiles: ()=>ortho.tuiles
@@ -961,11 +948,6 @@ function renderVue3DSelect(){
 // champs Texture d'un objet, et non comme une simple preference d'affichage de la Vue 3D.
 // La cloture et sa parcelle porteuse vivent dans ui/cloture.ts.
 function trouverParcelleCloture(){ return chercherParcelleCloture(etat.objects); }
-function rafraichirApresCloture(){
-  const obj = etat.objects.find(o=>o.key===etat.terrasseSelectedKey);
-  // obj peut etre null (Vue 3D sans terrasse) : la scene se reconstruit quand meme.
-  if(vue3d.scene) buildThreeScene(obj || null);
-}
 // Explicit zoom buttons: move the camera along its current line of sight to the orbit
 // target, rather than relying only on OrbitControls' own wheel handling.
 // Le pilotage des deux vues 3D (zoom, mode du glisser, points de vue, plein page) vit dans
@@ -1000,11 +982,9 @@ const modes = creerModes({
   preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
   signalerVue: (vue)=>magasin.definirVue(vue),
   rendrePanneauxTerrasse(obj){
-    renderTerrasseConfigurator(obj, ctxPanneauxTerrasse());
     renderTerrasseLayerView(obj);
     renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
     construireTableBom(obj, etat, ctxTables());
-    renderOptimResult(obj, ctxPanneauxTerrasse());
     renderImplantation(obj, ctxPanneauxTerrasse());
     renderChantier(obj, ctxPanneauxTerrasse());
     renderMethode(obj, ctxPanneauxTerrasse());
@@ -1014,11 +994,7 @@ function refreshTerrasseView(){ modes.refreshTerrasseView(); }
 
 
 
-brancherCloture({
-  trouverParcelle: trouverParcelleCloture, syncControles: syncClotureControls,
-  rafraichirApresCloture, markDirty, objByKey,
-  allerAuPointDeVue, allerAuPointDeVueGlb
-}, commandes);
+brancherCloture({ objByKey, allerAuPointDeVue, allerAuPointDeVueGlb });
 brancherBoutonsDeVue({
   allerAuPlan: ()=>modes.allerAuPlan(),
   goVue3D: ()=>modes.goVue3D(),
@@ -1055,7 +1031,20 @@ const projet = creerProjet(seed, {
 }, magasin, commandes);
 // L'explorateur (zones/) demande au plan par ce service ; il lit le reste dans le magasin.
 const explorateur = creerExplorateur(etat, { render, markDirty, redimensionner: redimensionnerLePlan }, magasin);
-monterZones({ magasin, commandes, projet, explorateur });
+// L'inspecteur (zones/) rend des descripteurs de champs (ui/champs/) ; ce service leur donne leur
+// contexte et applique leurs ecritures.
+const inspecteur = creerInspecteur(etat, {
+  libelleType: libelleTypeObjet, elevationOf, refLabel, measureSegCoords, dejaRectangle,
+  interiorAngleDeg: (obj, i)=>interiorAngleDeg(aPoints(obj), i),
+  contexteSoleil: contexteSoleilParasol,
+  applyAngleEdit, applyLengthEdit, deleteVertex, alignObjectByRotation, allerAuPointDeVue, startPick,
+  pushHistory, render, markDirty, refreshTerrasseView, buildThreeScene, reapplyStackingOrder, rebuildHandles,
+  trouverParcelle: trouverParcelleCloture,
+  optimisation: { panneaux: ctxPanneauxTerrasse() }
+}, magasin, commandes);
+monterZones({ magasin, commandes, projet, explorateur, inspecteur });
+// Les panneaux du bas ont un onglet actif des l'ouverture : le balisage n'en montre aucun.
+activerOngletPanneau(etat.panelTab, etat, ctxOnglets());
 render();
 // Cadrage d'ouverture sur le terrain quand il vient du cadastre : sa taille reelle n'a aucune
 // raison de tomber sur l'echelle par defaut du plan de demonstration. Un plan dessine a la main

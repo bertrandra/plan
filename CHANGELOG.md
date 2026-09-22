@@ -3,6 +3,47 @@
 Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionnement selon
 [`MD/RELEASE.md`](MD/RELEASE.md). Les versions les plus récentes en premier.
 
+## [1.2.0-alpha.5] — 2026-09-22
+
+**Reconstruction de l'IHM, étape 4 : l'inspecteur par descripteurs de champs** (`MD/spec-ihm-zones.md`
+§4.5, `MD/DEFAUTS.md` D-12). Le panneau d'attributs et le configurateur de terrasse — huit cents lignes
+de DOM impératif, un bloc par champ — deviennent des descripteurs rendus par un seul composant, dans
+une colonne à droite du plan. Les six artefacts sont identiques à ceux de l'`alpha.4`.
+
+### Modifié
+
+- **L'inspecteur** (Z5), à droite du plan : les propriétés de ce qui est sélectionné, par sections
+  repliables — Objet, Parcelle (lieu, cadastre, clôture), Apparence, Parasol, Point de vue, Côtés,
+  Coins, Alignement, et pour une terrasse Fondation et appuis, Structure porteuse, Lames et sens de
+  pose, Finitions du tour, Optimisation, Paramètres de calcul. Chaque champ garde son infobulle et
+  la note du métier que le configurateur affichait.
+- **Les champs texte et nombre gardent le focus** pendant la frappe : le nom, un côté, une longueur
+  se corrigent sans que le panneau ne se reconstruise sous le curseur. Un nombre se valide par
+  Entrée ou en quittant le champ, et revient à sa valeur si elle est refusée (rayon ou rectangle qui
+  sortirait de la parcelle).
+- **La clôture se règle sur la parcelle**, dans l'inspecteur, et non plus dans la Vue 3D.
+- **Le panneau du bas** n'a plus d'onglet Édition ; son onglet Terrasse ne porte plus que les
+  résultats (BOM, Plan de coupe, Implantation, Chantier, Méthode). Il s'ouvre sur Affichage : l'onglet
+  Terrasse recalcule le chiffrage et l'écrit dans le projet dès qu'il s'ouvre, comme l'ancien mode.
+- Le mode Terrasse ne pouvant plus verrouiller le plan, « Aligner par rotation » de la palette lance
+  directement le pointage du côté cible.
+
+### Interne
+
+- `ui/champs/types.ts` : les descripteurs (`texte`, `nombre`, `case`, `choix`, `couleur`, `date`,
+  `curseur`, `lecture`, `texture`, `bouton`, `alerte`, `hote`, `ligne`), leur contexte et leurs
+  effets (`rendu`, `inspecteur`, `terrasse`, `scene3d`, `empilement`, `poignees`).
+- `ui/champs/objet.ts` : les sections de l'objet ; `ui/champs/construction.ts` :
+  `CHAMPS_CONSTRUCTION`, un objet indexé par **toutes** les clés de `Construction` — une propriété
+  ajoutée au modèle sans descripteur, ni mention de l'onglet qui l'édite, ne compile pas.
+- `app/inspecteur.ts` applique une écriture : historique si le champ le demande, marquage
+  « modifié », effets déclarés. `zones/Inspecteur.tsx` rend les sections.
+- Supprimés : `ui/attrPanel.ts`, `renderTerrasseConfigurator` et `renderParametresCalcul`
+  (`ui/terrassePanels.ts`), `syncClotureControls` (`ui/cloture.ts`), les commandes de clôture de
+  `app/ecouteurs/cloture.ts`, `etat.attrTab`, `#panelEdition`, le sous-onglet Construction et les
+  contrôles de clôture de la Vue 3D dans `index.html`.
+- `computeSize` retranche la largeur de l'inspecteur au plan ; sous 1 024 px il passe sous le plan.
+
 ## [1.2.0-alpha.4] — 2026-09-22
 
 **Reconstruction de l'IHM, étape 3 : l'explorateur, et la terrasse comme contexte du plan**

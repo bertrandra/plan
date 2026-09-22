@@ -31,7 +31,6 @@ export interface ContexteRendu extends ContexteOrtho {
   amenerPoigneesDevant: (obj: ObjetPlan) => void;
   objetMasque: (obj: ObjetPlan) => boolean;
   rebuildHandles: (obj: ObjetRendu) => void;
-  renderAttrTable: () => void;
   drawScaleBar: () => void;
   drawNorthArrow: () => void;
   drawMeasures: () => void;
@@ -70,9 +69,6 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
     });
   });
 
-  // ---- surfaces: computed on demand in the "Objet" tab (see renderAttrTable) ----
-
-  ctx.renderAttrTable();
   ctx.drawScaleBar();
   ctx.drawNorthArrow();
   ctx.drawMeasures();

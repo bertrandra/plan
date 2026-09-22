@@ -8,7 +8,6 @@ import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que ces commandes déclenchent. */
 export interface ContexteDivers {
@@ -17,15 +16,14 @@ export interface ContexteDivers {
   renderPanneauPlu: () => void;
   interrogerPluDepuisBouton: (bouton: HTMLButtonElement) => void;
   basculerOptimisation: () => boolean;
-  renderOptimResult: (obj: ObjetPlan) => void;
   /** Recalcule la taille du plan et le redessine autour de son centre. */
   redimensionnerLePlan: () => void;
   /** Montre un onglet du panneau lateral (ui/panelTabs.ts). */
   activerOnglet: (onglet: string) => void;
+  /** Rafraichit l'inspecteur (zones/), qui affiche l'optimisation. */
+  rafraichirInspecteur: () => void;
   /** Demarre un pointage : un cote de reference (`ref`) ou des sommets (`target`), pour une cote ou un alignement. */
   startPick: (mode: 'ref' | 'target', multi: boolean, purpose?: 'align' | 'measure') => void;
-  /** Passe le panneau d'attributs sur l'onglet Objet, ou vit l'alignement. */
-  ouvrirOngletObjet: () => void;
 }
 
 /**
@@ -48,7 +46,6 @@ export function brancherFiletsDErreur(): void {
 const APAISEMENT_RESIZE_MS = 150;
 
 export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCommandes): void {
-  const el = (id: string) => document.getElementById(id) as HTMLButtonElement;
 
   /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
   cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
@@ -94,8 +91,6 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     ctx.startPick('ref', false);
   } });
   cmd.declarer({ id: 'objet.aligner', libelle: 'Aligner par rotation', groupe: 'objet', description: 'Choisir un côté cible sur le plan : l\'objet sélectionné pivote pour lui devenir parallèle', actif: () => !!a.etat.selectedKey, executer: () => {
-    ctx.activerOnglet('edition');
-    ctx.ouvrirOngletObjet();
     ctx.startPick('ref', false, 'align');
   } });
 
@@ -103,14 +98,11 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
 
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on
-   * peut ainsi voir monter ou descendre la configuration qu'on est en train d'éditer.
+   * peut ainsi voir monter ou descendre la configuration qu'on est en train d'éditer. C'est
+   * l'inspecteur (zones/) qui montre le bouton et le tableau ; ici, seulement la bascule.
    */
-  cmd.bouton('terrasseOptimBtn', { id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', executer: () => {
-    const obj = a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
-    if (!obj) return;
-    el('terrasseOptimBtn').textContent = ctx.basculerOptimisation()
-      ? 'Masquer l\'optimisation'
-      : 'Optimisation des parametres';
-    ctx.renderOptimResult(obj);
+  cmd.declarer({ id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', executer: () => {
+    ctx.basculerOptimisation();
+    ctx.rafraichirInspecteur();
   } });
 }
