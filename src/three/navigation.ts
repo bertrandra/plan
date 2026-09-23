@@ -9,9 +9,8 @@
 // celle-ci tourne sur `requestAnimationFrame`, que le navigateur met en pause des que l'onglet passe
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
-import { vue3d, glb, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
-import type { PtBrut } from '../model/types.js';
-import { enPoints } from '../model/formes.js';
+import { vue3d, glb, cleDeVue, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
+
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 
 /** Hauteur des yeux au-dessus du platelage fini, en metres. */
@@ -30,9 +29,11 @@ export type Mode3D = 'orbit' | 'pan' | 'zoom';
  * La cible est posee a 1,50 m devant, une distance de conversation courante : assez loin pour que
  * l'orbite ait un centre credible, assez pres pour qu'on regarde bien ce qu'on visait.
  *
- * La conversion plan → repere local se fait **ici, au moment du clic**, avec le centroide de la
- * terrasse courante : un point de vue n'appartient a aucune terrasse en particulier, donc rien ne
- * peut etre precalcule ni fige a l'avance.
+ * La conversion plan → repere local se fait **ici, au moment du clic**, avec le centre sur lequel
+ * la scene est cadree : un point de vue n'appartient a aucune terrasse en particulier, donc rien
+ * ne peut etre precalcule ni fige a l'avance. Ce centre est celui que la scene a retenu, jamais un
+ * centroide recalcule — c'est le meme nombre qui a servi a enregistrer le point de vue, et deux
+ * facons de l'obtenir sont deja une de trop (D-15).
  */
 export function cameraDepuisPointDeVue(vp: PointDeVue, centroide: { x: number; y: number }) {
   const pts = vp.pts!;
@@ -56,12 +57,20 @@ function poserCamera(sc: SceneTroisBase, vp: PointDeVue, centroide: { x: number;
   sc.renderer.render(sc.scene, sc.camera);
 }
 
-/** Ce dont la navigation a besoin du reste du programme. */
+/**
+ * Ce dont la navigation a besoin du reste du programme.
+ *
+ * Le centroide n'en fait plus partie depuis D-15 : les deux gestes qui le demandaient prennent
+ * desormais le centre la ou il a reellement ete pose — sur la scene, ou avec le modele exporte —
+ * au lieu de le refabriquer a partir d'une terrasse qui n'etait pas forcement la bonne.
+ */
 export interface ContexteNavigation {
-  showToast: (message: string) => void;
+  /**
+   * La banniere d'erreur, pour le seul echec que la navigation puisse rencontrer : une scene qui
+   * n'arrive pas. Le `showToast` d'a cote a disparu avec D-15 — le seul message que ce module
+   * emettait etait le refus « cree d'abord une terrasse », et ce refus etait le defaut.
+   */
   showErrBanner: (message: string) => void;
-  /** Centroide d'un polygone du plan. */
-  centroid: (pts: PtBrut[]) => { x: number; y: number };
   /** Hauteur finie d'une terrasse, en millimetres. */
   hauteurFinieMm: (obj: ObjetMesurable) => number;
   /** Bascule en mode Terrasse, sous-onglet 3D — pour « aller au point de vue » depuis le plan. */
@@ -208,7 +217,20 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     },
 
     /**
-     * Depuis le panneau d'un point de vue, en mode Plan : bascule en Vue 3D et y place la camera.
+     * Depuis le panneau d'un point de vue, ou depuis la liste des vues : bascule en Vue 3D et y
+     * place la camera.
+     *
+     * **Le centre est celui de la scene, pas un centroide recalcule** (correction de D-15). Un
+     * point de vue est enregistre en coordonnees du plan a partir de `scene.cen` ; l'y ramener
+     * demande exactement le meme nombre, et le seul endroit ou il est sur de le trouver est la
+     * scene qui vient d'etre batie. Le recalculer sur la terrasse donnait la bonne reponse tant
+     * qu'il y avait une terrasse et qu'elle etait bien l'objet sur lequel la scene s'etait
+     * centree — deux conditions que rien ne garantissait.
+     *
+     * **Aucune terrasse n'est exigee.** La Vue 3D s'ouvre sur un plan qui n'en a pas, et « 📷
+     * Enregistrer la vue » y cree des points de vue : les refuser au retour, par un message qui
+     * reclamait une terrasse, revenait a jeter ce que le meme ecran venait de fabriquer. C'est le
+     * defaut trouve par l'item 23 de la liste de fumee, sur un plan importe par adresse.
      *
      * La scene n'existe pas encore au moment du clic, et sa construction est asynchrone : d'ou
      * l'attente active, dix secondes au plus. Elle guette `dernierObjKey` et pas seulement la
@@ -218,14 +240,15 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     allerAuPointDeVue(vp: PointDeVue) {
       const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
                 || etat.objects.find(o => o.fonction === 'terrasse');
-      if (!terr) { ctx.showToast('Cree d\'abord une terrasse pour pouvoir y aller en Vue 3D.'); return; }
-      etat.terrasseSelectedKey = terr.key;
+      if (terr) etat.terrasseSelectedKey = terr.key;
+      const cleAttendue = cleDeVue(terr);
       ctx.ouvrirVue3d();
       let tentatives = 0;
       (function essayer() {
         tentatives++;
-        if (vue3d.scene && vue3d.dernierObjKey === terr.key) {
-          poserCamera(vue3d.scene, vp, ctx.centroid(enPoints(terr).pts));
+        const sc: SceneVue3d | null = vue3d.scene;
+        if (sc && vue3d.dernierObjKey === cleAttendue) {
+          poserCamera(sc, vp, sc.cen);
           return;
         }
         if (tentatives < 100) setTimeout(essayer, 100);
@@ -235,15 +258,16 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
 
     /**
      * Meme geste dans la visionneuse GLB — sans changement d'onglet ni attente : sa scene est deja
-     * active quand ce bouton est visible. La terrasse ne sert que de reference pour le centroide ;
-     * le GLB affiche etant son export, les deux reperes coincident.
+     * active quand ce bouton est visible.
+     *
+     * Le centre est celui **que l'export a utilise**, retenu avec le modele. L'exporteur recopie la
+     * scene de la Vue 3D telle quelle, donc l'origine du .glb est le `cen` de cette scene-la. Le
+     * redeviner en cherchant une terrasse visait la terrasse *courante*, qui peut avoir change
+     * depuis — ou ne plus exister.
      */
     allerAuPointDeVueGlb(vp: PointDeVue) {
-      if (!glb.scene) return;
-      const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
-                || etat.objects.find(o => o.fonction === 'terrasse');
-      if (!terr) return;
-      poserCamera(glb.scene, vp, ctx.centroid(enPoints(terr).pts));
+      if (!glb.scene || !glb.dernierExporte) return;
+      poserCamera(glb.scene, vp, glb.dernierExporte.centre);
     },
 
     setVue3dPleinePage(actif: boolean) {

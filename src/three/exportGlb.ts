@@ -79,7 +79,9 @@ export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null,
               // ici, et toute la suite en depend deja : le telechargement en `model/gltf-binary`
               // comme la relecture par `GLTFLoader.parse` dans la visionneuse.
               const binaire = result as ArrayBuffer;
-              glb.dernierExporte = { buffer: binaire, nomTerrasse: terr.name, date: new Date() };
+              // Le centre part avec le modele : c'est l'origine du .glb, et le seul moment ou on
+              // le connait a coup sur. Voir `dernierExporte` dans etat3d.ts.
+              glb.dernierExporte = { buffer: binaire, nomTerrasse: terr.name, date: new Date(), centre: vue3d.scene!.cen };
               if (telecharger) {
                 ctx.telechargerBinaire('terrasse_' + nomFichierTerrasse(terr.name) + '.glb', binaire, 'model/gltf-binary');
               }

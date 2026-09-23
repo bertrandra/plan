@@ -14,7 +14,7 @@
 // Pas de bus d'evenements (§6.3 l'esquissait, jamais construit) : `render()` reste appele
 // directement depuis chaque enveloppe qui modifie le plan, exactement comme avant. §6.3
 // l'autorisait deja explicitement ("Keep that — do not introduce reactivity").
-import { centroid, pointInPolygon } from '../geometry/basic.js';
+import { pointInPolygon } from '../geometry/basic.js';
 import { formatHeureMin } from '../util/format.js';
 import { telechargerTexte } from '../shell/download.js';
 import { el, elOpt } from '../shell/dom.js';
@@ -970,7 +970,7 @@ function trouverParcelleCloture(){ return chercherParcelleCloture(etat.objects);
 // Le pilotage des deux vues 3D (zoom, mode du glisser, points de vue, plein page) vit dans
 // three/navigation.ts ; ces enveloppes gardent les noms qu'utilisent les ecouteurs.
 const nav3d = creerNavigation3d(etat, {
-  showToast, showErrBanner, centroid, hauteurFinieMm,
+  showErrBanner, hauteurFinieMm,
   ouvrirVue3d: ()=>modes.goVue3D()
 });
 function zoom3D(factor: number){ nav3d.zoom3D(factor); }
@@ -988,7 +988,7 @@ brancherVue3d(atelier, {
   setVue3dPleinePage, setGlbViewerPleinePage,
   vue3dPleinePage: ()=>nav3d.vue3dPleinePage,
   glbViewerPleinePage: ()=>nav3d.glbViewerPleinePage,
-  resizeThreeScene, resizeGlbViewerScene
+  resizeThreeScene, resizeGlbViewerScene, renderVue3DSelect
 }, commandes);
 
 // Le pilotage des vues et de l'onglet Terrasse vit dans app/modes.ts ; ces enveloppes gardent les

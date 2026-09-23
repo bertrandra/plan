@@ -67,8 +67,15 @@ export const glb: {
   ombres: boolean;
   /** Fond de la visionneuse : « clair » ou « sombre ». */
   fond: string;
-  /** Le dernier modele exporte, garde pour pouvoir le reafficher sans le recalculer. */
-  dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: Date } | null;
+  /**
+   * Le dernier modele exporte, garde pour pouvoir le reafficher sans le recalculer.
+   *
+   * `centre` est le centroide du plan sur lequel la scene exportee etait cadree, donc l'origine du
+   * .glb : l'exporteur recopie la scene telle quelle, sans la recentrer. Sans ce champ, revenir a
+   * un point de vue dans la visionneuse devait retrouver ce centre en cherchant une terrasse — la
+   * terrasse *courante*, qui n'est pas forcement celle qu'on avait exportee.
+   */
+  dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: Date; centre: { x: number; y: number } } | null;
 
   /** Date et heure de la course du soleil dans la visionneuse, independantes de celles du plan. */
   dateStr: string;
@@ -128,9 +135,27 @@ export const chargement = {
   lecteurGltf: false
 };
 
+/**
+ * Ce que `dernierObjKey` vaut quand la scene a ete construite **sans terrasse**.
+ *
+ * La Vue 3D s'ouvre aussi sur un plan qui n'en a pas : une parcelle avec ses batiments se regarde
+ * en 3D telle quelle. Il faut donc une valeur qui ne soit la cle d'aucun objet — et une seule.
+ * Tant qu'elle n'etait ecrite qu'a l'endroit qui construit la scene, quiconque voulait savoir « la
+ * scene attendue est-elle la ? » devait la redeviner, et personne ne l'a devinee (D-15).
+ */
+export const CLE_SANS_TERRASSE = '__plan_sans_terrasse__';
+
+/** La cle sous laquelle une scene est construite : celle de sa terrasse, ou celle du plan nu. */
+export function cleDeVue(terrasse: { key: string } | null | undefined): string {
+  return terrasse ? terrasse.key : CLE_SANS_TERRASSE;
+}
+
 export const vue3d: {
   scene: SceneVue3d | null;
-  /** Cle de l'objet modelise, pour savoir si on reconstruit la MEME terrasse. */
+  /**
+   * Cle de l'objet modelise, pour savoir si on reconstruit la MEME terrasse.
+   * Vaut `CLE_SANS_TERRASSE` quand le plan n'en a pas.
+   */
   dernierObjKey: string | null;
   tousLesObjets: boolean;
   objetsOpaques: boolean;

@@ -36,6 +36,8 @@ export interface ContexteVue3d {
   glbViewerPleinePage: () => boolean;
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
+  /** Remplit les deux listes de points de vue depuis les objets du plan. */
+  renderVue3DSelect: () => void;
 }
 
 export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): void {
@@ -127,6 +129,11 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     a.rebuildHandles(newObj);
     a.reapplyStackingOrder();
     a.rebuildSelector();
+    // La liste « Aller a un point de vue enregistre… » ne se remplissait qu'a la construction de la
+    // scene : le point de vue qu'on venait de creer n'y figurait pas, et il fallait sortir de la
+    // Vue 3D puis y revenir pour le trouver. Une liste vide juste apres un « cree » est un
+    // dementi, pas une attente.
+    ctx.renderVue3DSelect();
     showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
   });
 

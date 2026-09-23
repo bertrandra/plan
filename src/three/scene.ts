@@ -9,7 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
-import { vue3d } from './etat3d.js';
+import { vue3d, cleDeVue } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots } from '../engine/constantes.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
@@ -93,7 +93,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   // `obj` peut etre null : la Vue 3D s'ouvre aussi sur un plan SANS terrasse (une parcelle avec
   // ses batiments, par exemple). Tout ce qui suit doit donc tenir sans terrasse - seule la
   // modelisation de la structure (plots, solives, lames) est sautee.
-  const cleVue = obj ? obj.key : '__plan_sans_terrasse__';
+  const cleVue = cleDeVue(obj);
   const camaraAConserver = (vue3d.scene && vue3d.dernierObjKey === cleVue)
     ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
     : null;
