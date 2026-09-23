@@ -85,11 +85,18 @@ other's `SameSite=Strict` cookie. The platform is live —
   `Domain` attribute, and `SameSite=Strict` is a rule about the *site* (`raillard.org`). A request
   from `plan.raillard.org` carries it. A product on another registrable domain would not, and this
   specification does not cover that case.
-- **The basic authentication in front of `plan.raillard.org` is removed** before Plan is offered to
-  anybody the platform signs in. A browser challenged with `401 Basic` never reaches the
-  application, and the platform's shell cannot send a person to a page that asks a second password.
-- **`plan1.raillard.org` is the staging host.** It must gain basic authentication of its own, since
-  it has none today, and must therefore hold nothing real until it does.
+- **Nothing asks for a second password in front of the page.** A browser challenged with
+  `401 Basic` never reaches the application, and the platform's shell cannot send somebody to a
+  page that asks again what they have already answered. This was written as a thing to remove,
+  because `plan.raillard.org` once carried such a challenge; it no longer does — the check of
+  22 September found the host answering `404` on `plan.html` and `403` on the root, and no
+  `WWW-Authenticate` at all. The rule stays a rule and no longer describes this host.
+- **`plan.raillard.org` is the target, and the only one this specification covers.** The `2.0.0`
+  deployment goes there, beside `www.raillard.org`, and `verifier-deploiement` is pointed at it.
+  `plan1.raillard.org` is where the `1.x` application still runs on its own `api.php`; the
+  CHANGELOG records what was found there on 22 September — a project listing served to whoever
+  asks, `data/` readable in the clear, no security header. Nothing here deploys to it, and what
+  becomes of it is the operator's decision, not this document's.
 - **Response headers**, on Plan's host, mirroring the platform's:
 
   ```text
@@ -480,9 +487,14 @@ own: that is the platform's profile screen, one click away.
 2. **Console → Catalogue for `plan`:** the capabilities of §4.3 as boolean features, at least one
    plan, one offer, one published version, advertised.
 3. **Platform `.env`:** `CORS_ALLOWED_ORIGINS` gains `https://plan.raillard.org`.
-4. **Remove the basic authentication** in front of `plan.raillard.org`, and add the headers of §1.
-5. **Fix the cache policy** on `plan.html`, and put basic authentication in front of
-   `plan1.raillard.org` (§0.3).
+4. **Deploy to `plan.raillard.org`** — the target, and the only host this specification covers —
+   with the headers of §1 and `Cache-Control: no-cache` on `plan.html`. ~~Remove the basic
+   authentication.~~ There is none: the host answers no `WWW-Authenticate`, and the check of
+   22 September found `404` on `plan.html`, which is the state of a host with nothing deployed
+   rather than one behind a password.
+5. ~~Put basic authentication in front of `plan1.raillard.org`.~~ Out of scope: `plan1` runs the
+   `1.x` application on its own `api.php` and nothing here deploys to it (§0.3). What it holds and
+   what becomes of it are the operator's to decide — the CHANGELOG says what was found there.
 6. ~~Decide the platform's production host.~~ Done: `https://www.raillard.org`. What remains of
    this step is point 3 above — on 22 September 2026 the platform still answered a preflight from
    `https://plan.raillard.org` **without** `Access-Control-Allow-Origin`, so every call from Plan's

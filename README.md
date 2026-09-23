@@ -105,7 +105,7 @@ Après chaque mise en ligne, onze contrôles vérifient ce que le serveur rend v
 du fichier servi, les en-têtes, le cache, et `data/` fermé :
 
 ```bash
-npm run verifier-deploiement https://plan1.raillard.org
+npm run verifier-deploiement https://plan.raillard.org
 ```
 
 Les dépendances externes (IGN, BAN, CDN three.js, textures Poly Haven) sont des dépendances de

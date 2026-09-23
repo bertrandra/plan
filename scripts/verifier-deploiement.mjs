@@ -1,6 +1,6 @@
 // Verifie un deploiement en ligne : ce que le serveur rend vraiment, pas ce qu'on croit avoir mis.
 //
-//   node scripts/verifier-deploiement.mjs https://plan1.raillard.org
+//   node scripts/verifier-deploiement.mjs https://plan.raillard.org
 //
 // La liste de sortie (MD/RELEASE.md §8.2) demande de verifier les en-tetes en ligne apres chaque
 // mise en production. Le faire a la main, c'est le faire une fois. Les huit controles ci-dessous
