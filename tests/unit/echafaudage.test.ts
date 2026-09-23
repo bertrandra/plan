@@ -49,7 +49,7 @@ describe('phase 1 - echafaudage', () => {
       'resume.txt': '5adf98492194a1e390040ec8ec227bb00b01c36014239b34cdf5a6c81a32c93f',
       'plan.svg': '42befb23ef27bf7410f96c8e9c0037214c2f8456293ef3f38bcac22d42072c87',
       'plan.dxf': '6738e5639daba6ec6731f451e7f422a3601a4ac01f2ba890384462e20dd13851',
-      'projet.json': '812dce92dc8d37b4415c9ad4a90341f26c7a1c0b228977be75b704067c23e8b4',
+      'projet.json': 'f3921fa38c661eceeb036a1439f384b88772f88e6c4b4468ddb39ce30aa1ee19',
       'plan.pdf': '0bff842a0ad7073a1285884db9549302a14949c3e11af8a7fca49a158f4b41f1',
       'dossier.pdf': 'ba858818159059897afa872f09c20e6394f1be59aeaa5f760ddf00ef5f2db993'
     };
@@ -60,7 +60,15 @@ describe('phase 1 - echafaudage', () => {
       const norme = brut
         .replace(/\d{2}\/\d{2}\/\d{4}/g, 'JJ/MM/AAAA')
         .replace(/D:\d{14}/g, 'D:AAAAMMJJHHMMSS')
-        .replace(/"(exportedAt|writtenAt)":\s*"[^"]*"/g, '"$1":"HORODATAGE"');
+        .replace(/"(exportedAt|writtenAt)":\s*"[^"]*"/g, '"$1":"HORODATAGE"')
+        // L'identite que la plateforme attribue au projet : un uuid neuf a chaque semis, une date
+        // de modification qui bouge a chaque enregistrement. Sans cela, le temoin ne serait
+        // reproductible par personne. Neutralisee DANS le bloc `meta` seulement, parce que les
+        // cotes portent aussi un `id` et que celui-la doit rester verifie.
+        .replace(/"meta":\{[^}]*\}/, (bloc) => bloc
+          .replace(/"id":\s*("[^"]*"|null)/, '"id":"IDENTITE"')
+          .replace(/"createdAt":\s*("[^"]*"|null)/, '"createdAt":"HORODATAGE"')
+          .replace(/"updatedAt":\s*("[^"]*"|null)/, '"updatedAt":"HORODATAGE"'));
       const calcule = createHash('sha256').update(Buffer.from(norme, 'latin1')).digest('hex');
       expect(calcule, nom + ' a change').toBe(sha);
     }

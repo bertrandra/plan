@@ -208,6 +208,25 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   et longueurs de flux. Neuf paliers `alpha` séparent cette capture de la `1.1.0` : aucun n'a
   déplacé un octet pour une autre raison que son propre numéro.
 
+- **23 septembre 2026**, recapture de `projet.json` **seul** : le projet vit desormais chez la
+  plateforme, et deux choses en decoulent qu'aucune normalisation ne couvrait.
+
+  **Il porte une identite.** Le temoin precedent avait ete capture sur le jeu de demonstration sans
+  projet ouvert : `id` nul, `updatedAt` nul, nom « Plan interactif ». Un projet stocke a un uuid,
+  une date de modification et le nom qu'on lui a donne. La normalisation neutralise donc `id`,
+  `createdAt` et `updatedAt` **dans le bloc `meta` seulement** — les cotes portent aussi un `id`,
+  et celui-la doit rester verifie. Sans cela le temoin ne serait reproductible par personne, un
+  uuid neuf naissant a chaque semis.
+
+  **L'ordre des cles de `jsonb` l'atteint.** On avait ecrit le contraire : `projet.json` est bien
+  produit par le serialiseur de Plan depuis le modele en memoire, mais ce serialiseur recopie
+  certains objets imbriques tels quels — `clotureTexture`, par exemple. PostgreSQL les rend dans
+  SON ordre (longueur de la cle, puis alphabetique), si bien que `vignette` et `url` ont echange
+  leur place. Le contenu est identique une fois les cles triees, les 35 objets et les 11 cotes
+  aussi, et cet ordre est deterministe — donc le temoin reste reproductible.
+
+  Les cinq autres artefacts n'ont pas bouge : ils ne recopient aucun objet stocke.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -222,7 +241,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `5adf98492194a1e390040ec8ec227bb00b01c36014239b34cdf5a6c81a32c93f` |
 | [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `42befb23ef27bf7410f96c8e9c0037214c2f8456293ef3f38bcac22d42072c87` |
 | [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `6738e5639daba6ec6731f451e7f422a3601a4ac01f2ba890384462e20dd13851` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 71 974 | `812dce92dc8d37b4415c9ad4a90341f26c7a1c0b228977be75b704067c23e8b4` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `f3921fa38c661eceeb036a1439f384b88772f88e6c4b4468ddb39ce30aa1ee19` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `0bff842a0ad7073a1285884db9549302a14949c3e11af8a7fca49a158f4b41f1` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `ba858818159059897afa872f09c20e6394f1be59aeaa5f760ddf00ef5f2db993` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |

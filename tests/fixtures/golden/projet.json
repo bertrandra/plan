@@ -1,14 +1,14 @@
 {
   "meta": {
-    "id": null,
-    "name": "Plan interactif",
+    "id": "4d4ee63e-d27f-4472-9640-e5a2ceff5948",
+    "name": "Parcelle AE 101",
     "createdAt": null,
-    "updatedAt": null,
-    "exportedAt": "2026-09-22T12:32:56.041Z",
+    "updatedAt": "2026-09-23T09:29:15+00:00",
+    "exportedAt": "2026-09-23T09:37:30.946Z",
     "exportedBy": "plan.html",
     "appVersion": "1.2.0",
     "schemaVersion": 1,
-    "writtenAt": "2026-09-22T12:32:56.041Z"
+    "writtenAt": "2026-09-23T09:37:30.946Z"
   },
   "objects": [
     {
@@ -37,8 +37,8 @@
       "clotureTexture": {
         "id": "oak_veneer_01",
         "nom": "Oak Veneer 01",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256"
       },
       "textureArbre": null,
       "latitude": 48.905189,
@@ -49,23 +49,23 @@
       "matDeporte": false,
       "cadastre": {
         "idu": "78650000AE0101",
-        "codeInsee": "78650",
-        "commune": "Le Vésinet",
-        "section": "AE",
         "numero": "0101",
-        "contenanceM2": 716,
-        "source": "IGN/API Carto/PCI",
-        "recupereLe": "2026-08-27T10:19:24Z",
-        "adresse": "2 Allee des Limites 78110 Le Vesinet",
-        "origineLat": 48.9053664,
-        "origineLon": 2.1328776,
-        "simplifieM": 0,
         "recale": {
           "depuis": "plan dessine a la main",
-          "rotationDeg": 16.033,
           "echelle": 1.004124,
-          "ecartMoyenM": 0.064
+          "ecartMoyenM": 0.064,
+          "rotationDeg": 16.033
         },
+        "source": "IGN/API Carto/PCI",
+        "adresse": "2 Allee des Limites 78110 Le Vesinet",
+        "commune": "Le Vésinet",
+        "section": "AE",
+        "codeInsee": "78650",
+        "origineLat": 48.9053664,
+        "origineLon": 2.1328776,
+        "recupereLe": "2026-08-27T10:19:24Z",
+        "simplifieM": 0,
+        "contenanceM2": 716,
         "geometrieSource": {
           "type": "Polygon",
           "coordinates": [
@@ -104,79 +104,79 @@
       },
       "bdtopo": null,
       "plu": {
-        "zones": [
-          {
-            "libelle": "UFb",
-            "libelong": "Quartier residentiel a parcellaire plus resserre",
-            "typezone": "U",
-            "partition": "DU_78650",
-            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf",
-            "nomfic": "78650_reglement_20251229.pdf",
-            "datappro": ""
-          }
-        ],
-        "prescriptions": [],
-        "informations": [
-          {
-            "libelle": "Droit de preemption urbain renforce",
-            "typeinf": "04",
-            "nomfic": "78650_info_surf_99_notice_20251229.pdf",
-            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_info_surf_99_notice_20251229.pdf"
-          }
-        ],
-        "servitudes": [
-          {
-            "type": "AC2",
-            "nom": "Secteur résidentiel d'habitations individuelles de la commune",
-            "assiette": "Enceinte du site",
-            "forme": "surfacique",
-            "generateur": "Site",
-            "nature": "Inscrit",
-            "source": "BD-PARCELLAIRE",
-            "fichier": "AC2_SI6012_19700710_act.pdf",
-            "partition": "130029325_SUP_R11_AC2",
-            "urlreg": ""
-          },
-          {
-            "type": "AC4",
-            "nom": "Site patrimonial remarquable du Vésinet",
-            "assiette": "Périmètre du SPR",
-            "forme": "surfacique",
-            "generateur": "SPR",
-            "nature": "",
-            "source": "Plus précis que le cadastre",
-            "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
-            "partition": "172014607_SUP_78_AC4",
-            "urlreg": ""
-          }
-        ],
+        "lat": 48.905189,
+        "lon": 2.132811,
         "spr": [
           {
-            "type": "AC4",
             "nom": "Site patrimonial remarquable du Vésinet",
-            "assiette": "Périmètre du SPR",
+            "type": "AC4",
             "forme": "surfacique",
-            "generateur": "SPR",
             "nature": "",
             "source": "Plus précis que le cadastre",
+            "urlreg": "",
             "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+            "assiette": "Périmètre du SPR",
             "partition": "172014607_SUP_78_AC4",
-            "urlreg": ""
+            "generateur": "SPR"
           }
         ],
+        "zones": [
+          {
+            "nomfic": "78650_reglement_20251229.pdf",
+            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf",
+            "libelle": "UFb",
+            "datappro": "",
+            "libelong": "Quartier residentiel a parcellaire plus resserre",
+            "typezone": "U",
+            "partition": "DU_78650"
+          }
+        ],
+        "commune": {
+          "nom": "LE VESINET",
+          "rnu": false,
+          "insee": "78650"
+        },
         "document": {
           "nom": "78650_PLU_20251229",
           "type": "PLU",
           "partition": "DU_78650"
         },
-        "commune": {
-          "nom": "LE VESINET",
-          "insee": "78650",
-          "rnu": false
-        },
+        "servitudes": [
+          {
+            "nom": "Secteur résidentiel d'habitations individuelles de la commune",
+            "type": "AC2",
+            "forme": "surfacique",
+            "nature": "Inscrit",
+            "source": "BD-PARCELLAIRE",
+            "urlreg": "",
+            "fichier": "AC2_SI6012_19700710_act.pdf",
+            "assiette": "Enceinte du site",
+            "partition": "130029325_SUP_R11_AC2",
+            "generateur": "Site"
+          },
+          {
+            "nom": "Site patrimonial remarquable du Vésinet",
+            "type": "AC4",
+            "forme": "surfacique",
+            "nature": "",
+            "source": "Plus précis que le cadastre",
+            "urlreg": "",
+            "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+            "assiette": "Périmètre du SPR",
+            "partition": "172014607_SUP_78_AC4",
+            "generateur": "SPR"
+          }
+        ],
         "interrogeLe": "2026-08-27T10:43:05Z",
-        "lon": 2.132811,
-        "lat": 48.905189
+        "informations": [
+          {
+            "nomfic": "78650_info_surf_99_notice_20251229.pdf",
+            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_info_surf_99_notice_20251229.pdf",
+            "libelle": "Droit de preemption urbain renforce",
+            "typeinf": "04"
+          }
+        ],
+        "prescriptions": []
       },
       "ortho": null,
       "affichage": null,
@@ -252,14 +252,14 @@
       "textureVerticale": {
         "id": "teak_veneer",
         "nom": "Teak Veneer",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "teak_veneer",
         "nom": "Teak Veneer",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -325,43 +325,67 @@
         false
       ],
       "construction": {
-        "typePose": "vis-fondation",
-        "hauteurVis": 40,
-        "depassementVis": 0,
-        "visModeAuto": true,
-        "chargeNormale": 250,
-        "chargeSpa": 500,
-        "kPortee": 25.8,
-        "kEntraxeLame": 18.5,
-        "coefRaideurLame": 1,
-        "jeuLames": 6,
-        "epaisseurLameRive": 22,
-        "longueursLames": "3, 2.5, 2, 1.7, 1.5",
-        "chuteMinReutilisable": 50,
-        "jointsSurAppui": true,
-        "prixLongueurs": [],
-        "longueursBois": "5, 4, 3, 2.5, 2",
-        "prixLongueursBois": [],
-        "jointsBoisSurAppui": true,
-        "lambourdeSection": "45x70",
-        "longueursLambourde": "5, 4, 3, 2.5, 2",
-        "prixLongueursLambourde": [],
-        "prixVisUnite": 35,
-        "visParBoite": 1,
-        "hauteurPlot": 10,
-        "plotModele": "auto",
-        "plotEntraxe": 65,
-        "plotEntraxeAuto": true,
-        "plotAvecSolives": false,
-        "plotSurfaceAssise": 300,
-        "prixPlots": [],
-        "supportType": "concasse",
-        "supportDecaissement": 15,
-        "cadences": [],
+        "bom": [
+          {
+            "qte": 37,
+            "label": "Vis de fondation",
+            "poste": "vis",
+            "unite": "u",
+            "calcule": "calcule — 35.00 € x 37",
+            "prixBas": 25,
+            "prixHaut": 45,
+            "prixReel": 1295
+          },
+          {
+            "qte": 92.5,
+            "label": "Cadre, solives (63x175) — barres achetees",
+            "poste": "bois",
+            "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit 63x175",
+            "prixBas": 4,
+            "prixHaut": 7,
+            "prixReel": 508.75
+          },
+          {
+            "qte": 93,
+            "label": "Lambourdes (45x70) — barres achetees",
+            "poste": "lambourde",
+            "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit 45x70",
+            "prixBas": 4,
+            "prixHaut": 7,
+            "prixReel": 511.5
+          },
+          {
+            "qte": 267.49999999999994,
+            "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+            "poste": "lames",
+            "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit des lames",
+            "prixBas": 3.5000000000000004,
+            "prixHaut": 5.6000000000000005,
+            "prixReel": 1217.54
+          },
+          {
+            "qte": 34.71880026736693,
+            "label": "Visserie / fixations",
+            "poste": "visserie",
+            "unite": "m²",
+            "prixBas": 4,
+            "prixHaut": 6,
+            "prixReel": null
+          },
+          {
+            "qte": 28.496314844329063,
+            "label": "Lame de rive (finition)",
+            "poste": "lameRive",
+            "unite": "ml",
+            "prixBas": 10,
+            "prixHaut": 20,
+            "prixReel": null
+          }
+        ],
         "equipe": 2,
-        "heuresJour": 7,
-        "echelleImplant": 200,
-        "lames3dFilaire": false,
         "vues3d": [
           {
             "nom": "vers terrasse",
@@ -429,81 +453,57 @@
             }
           }
         ],
+        "kPortee": 25.8,
+        "cadences": [],
+        "jeuLames": 6,
+        "sensPose": 0,
+        "typePose": "vis-fondation",
+        "chargeSpa": 500,
+        "prixPlots": [],
+        "hauteurVis": 40,
+        "heuresJour": 7,
+        "plotModele": "auto",
         "visEntraxe": 100,
-        "visEntraxeZoneSpa": 60,
-        "visMargeZoneSpa": 30,
+        "essenceBois": "pin-classe4",
+        "hauteurPlot": 10,
+        "largeurLame": 140,
+        "plotEntraxe": 65,
+        "supportType": "concasse",
+        "visModeAuto": true,
+        "visParBoite": 1,
+        "avecLamePlat": true,
+        "avecLameRive": true,
+        "kEntraxeLame": 18.5,
+        "prixVisUnite": 35,
+        "avecLambourde": true,
+        "chargeNormale": 250,
+        "epaisseurLame": 25,
+        "longueursBois": "5, 4, 3, 2.5, 2",
+        "prixLongueurs": [],
         "soliveEntraxe": 65,
         "soliveSection": "63x175",
-        "avecLambourde": true,
-        "lambourdeEntraxe": 45,
-        "sensPose": 0,
-        "segmentReference": 0,
-        "essenceBois": "pin-classe4",
-        "largeurLame": 140,
-        "epaisseurLame": 25,
-        "avecLameRive": true,
+        "depassementVis": 0,
+        "echelleImplant": 200,
+        "jointsSurAppui": true,
+        "lames3dFilaire": false,
+        "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+        "coefRaideurLame": 1,
         "hauteurLameRive": 270,
-        "avecLamePlat": true,
-        "bom": [
-          {
-            "poste": "vis",
-            "label": "Vis de fondation",
-            "qte": 37,
-            "unite": "u",
-            "prixBas": 25,
-            "prixHaut": 45,
-            "prixReel": 1295,
-            "calcule": "calcule — 35.00 € x 37"
-          },
-          {
-            "poste": "bois",
-            "label": "Cadre, solives (63x175) — barres achetees",
-            "qte": 92.5,
-            "unite": "ml",
-            "prixBas": 4,
-            "prixHaut": 7,
-            "prixReel": 508.75,
-            "calcule": "calcule — prix par longueur, debit 63x175"
-          },
-          {
-            "poste": "lambourde",
-            "label": "Lambourdes (45x70) — barres achetees",
-            "qte": 93,
-            "unite": "ml",
-            "prixBas": 4,
-            "prixHaut": 7,
-            "prixReel": 511.5,
-            "calcule": "calcule — prix par longueur, debit 45x70"
-          },
-          {
-            "poste": "lames",
-            "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
-            "qte": 267.49999999999994,
-            "unite": "ml",
-            "prixBas": 3.5000000000000004,
-            "prixHaut": 5.6000000000000005,
-            "prixReel": 1217.54,
-            "calcule": "calcule — prix par longueur, debit des lames"
-          },
-          {
-            "poste": "visserie",
-            "label": "Visserie / fixations",
-            "qte": 34.71880026736693,
-            "unite": "m²",
-            "prixBas": 4,
-            "prixHaut": 6,
-            "prixReel": null
-          },
-          {
-            "poste": "lameRive",
-            "label": "Lame de rive (finition)",
-            "qte": 28.496314844329063,
-            "unite": "ml",
-            "prixBas": 10,
-            "prixHaut": 20,
-            "prixReel": null
-          }
-        ]
+        "plotAvecSolives": false,
+        "plotEntraxeAuto": true,
+        "visMargeZoneSpa": 30,
+        "lambourdeEntraxe": 45,
+        "lambourdeSection": "45x70",
+        "segmentReference": 0,
+        "epaisseurLameRive": 22,
+        "plotSurfaceAssise": 300,
+        "prixLongueursBois": [],
+        "visEntraxeZoneSpa": 60,
+        "jointsBoisSurAppui": true,
+        "longueursLambourde": "5, 4, 3, 2.5, 2",
+        "supportDecaissement": 15,
+        "chuteMinReutilisable": 50,
+        "prixLongueursLambourde": []
       }
     },
     {
@@ -526,14 +526,14 @@
       "textureVerticale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -795,14 +795,14 @@
       "textureVerticale": {
         "id": "concrete_floor_02",
         "nom": "Concrete Floor 02",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "concrete_floor_02",
         "nom": "Concrete Floor 02",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/concrete_floor_02.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -957,14 +957,14 @@
       "textureVerticale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1096,14 +1096,14 @@
       "textureVerticale": {
         "id": "teak_veneer",
         "nom": "Teak Veneer",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "teak_veneer",
         "nom": "Teak Veneer",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1155,119 +1155,119 @@
         false
       ],
       "construction": {
-        "typePose": "vis-fondation",
-        "hauteurVis": 40,
-        "depassementVis": 0,
-        "visModeAuto": true,
-        "chargeNormale": 250,
-        "chargeSpa": 500,
-        "kPortee": 25.8,
-        "kEntraxeLame": 18.5,
-        "coefRaideurLame": 1,
-        "jeuLames": 6,
-        "epaisseurLameRive": 22,
-        "longueursLames": "3, 2.5, 2, 1.7, 1.5",
-        "chuteMinReutilisable": 50,
-        "jointsSurAppui": true,
-        "prixLongueurs": [],
-        "longueursBois": "5, 4, 3, 2.5, 2",
-        "prixLongueursBois": [],
-        "jointsBoisSurAppui": true,
-        "lambourdeSection": "45x70",
-        "longueursLambourde": "5, 4, 3, 2.5, 2",
-        "prixLongueursLambourde": [],
-        "prixVisUnite": 35,
-        "visParBoite": 1,
-        "hauteurPlot": 10,
-        "plotModele": "auto",
-        "plotEntraxe": 65,
-        "plotEntraxeAuto": true,
-        "plotAvecSolives": false,
-        "plotSurfaceAssise": 300,
-        "prixPlots": [],
-        "supportType": "concasse",
-        "supportDecaissement": 15,
-        "cadences": [],
-        "equipe": 2,
-        "heuresJour": 7,
-        "echelleImplant": 200,
-        "lames3dFilaire": false,
-        "vues3d": [],
-        "visEntraxe": 100,
-        "visEntraxeZoneSpa": 60,
-        "visMargeZoneSpa": 30,
-        "soliveEntraxe": 70,
-        "soliveSection": "63x175",
-        "avecLambourde": true,
-        "lambourdeEntraxe": 45,
-        "sensPose": 0,
-        "segmentReference": 0,
-        "essenceBois": "pin-classe4",
-        "largeurLame": 140,
-        "epaisseurLame": 25,
-        "avecLameRive": true,
-        "hauteurLameRive": 270,
-        "avecLamePlat": true,
         "bom": [
           {
-            "poste": "vis",
-            "label": "Vis de fondation",
             "qte": 13,
+            "label": "Vis de fondation",
+            "poste": "vis",
             "unite": "u",
+            "calcule": "calcule — 35.00 € x 13",
             "prixBas": 25,
             "prixHaut": 45,
-            "prixReel": 455,
-            "calcule": "calcule — 35.00 € x 13"
+            "prixReel": 455
           },
           {
-            "poste": "bois",
-            "label": "Cadre, solives (63x175) — barres achetees",
             "qte": 31,
+            "label": "Cadre, solives (63x175) — barres achetees",
+            "poste": "bois",
             "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit 63x175",
             "prixBas": 4,
             "prixHaut": 7,
-            "prixReel": 170.5,
-            "calcule": "calcule — prix par longueur, debit 63x175"
+            "prixReel": 170.5
           },
           {
-            "poste": "lambourde",
-            "label": "Lambourdes (45x70) — barres achetees",
             "qte": 24,
+            "label": "Lambourdes (45x70) — barres achetees",
+            "poste": "lambourde",
             "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit 45x70",
             "prixBas": 4,
             "prixHaut": 7,
-            "prixReel": 132,
-            "calcule": "calcule — prix par longueur, debit 45x70"
+            "prixReel": 132
           },
           {
-            "poste": "lames",
-            "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
             "qte": 89.4,
+            "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+            "poste": "lames",
             "unite": "ml",
+            "calcule": "calcule — prix par longueur, debit des lames",
             "prixBas": 3.5000000000000004,
             "prixHaut": 5.6000000000000005,
-            "prixReel": 406.79,
-            "calcule": "calcule — prix par longueur, debit des lames"
+            "prixReel": 406.79
           },
           {
-            "poste": "visserie",
-            "label": "Visserie / fixations",
             "qte": 11.998120999999998,
+            "label": "Visserie / fixations",
+            "poste": "visserie",
             "unite": "m²",
             "prixBas": 4,
             "prixHaut": 6,
             "prixReel": null
           },
           {
-            "poste": "lameRive",
-            "label": "Lame de rive (finition)",
             "qte": 14.08682724964751,
+            "label": "Lame de rive (finition)",
+            "poste": "lameRive",
             "unite": "ml",
             "prixBas": 10,
             "prixHaut": 20,
             "prixReel": null
           }
-        ]
+        ],
+        "equipe": 2,
+        "vues3d": [],
+        "kPortee": 25.8,
+        "cadences": [],
+        "jeuLames": 6,
+        "sensPose": 0,
+        "typePose": "vis-fondation",
+        "chargeSpa": 500,
+        "prixPlots": [],
+        "hauteurVis": 40,
+        "heuresJour": 7,
+        "plotModele": "auto",
+        "visEntraxe": 100,
+        "essenceBois": "pin-classe4",
+        "hauteurPlot": 10,
+        "largeurLame": 140,
+        "plotEntraxe": 65,
+        "supportType": "concasse",
+        "visModeAuto": true,
+        "visParBoite": 1,
+        "avecLamePlat": true,
+        "avecLameRive": true,
+        "kEntraxeLame": 18.5,
+        "prixVisUnite": 35,
+        "avecLambourde": true,
+        "chargeNormale": 250,
+        "epaisseurLame": 25,
+        "longueursBois": "5, 4, 3, 2.5, 2",
+        "prixLongueurs": [],
+        "soliveEntraxe": 70,
+        "soliveSection": "63x175",
+        "depassementVis": 0,
+        "echelleImplant": 200,
+        "jointsSurAppui": true,
+        "lames3dFilaire": false,
+        "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+        "coefRaideurLame": 1,
+        "hauteurLameRive": 270,
+        "plotAvecSolives": false,
+        "plotEntraxeAuto": true,
+        "visMargeZoneSpa": 30,
+        "lambourdeEntraxe": 45,
+        "lambourdeSection": "45x70",
+        "segmentReference": 0,
+        "epaisseurLameRive": 22,
+        "plotSurfaceAssise": 300,
+        "prixLongueursBois": [],
+        "visEntraxeZoneSpa": 60,
+        "jointsBoisSurAppui": true,
+        "longueursLambourde": "5, 4, 3, 2.5, 2",
+        "supportDecaissement": 15,
+        "chuteMinReutilisable": 50,
+        "prixLongueursLambourde": []
       }
     },
     {
@@ -1291,14 +1291,14 @@
       "textureVerticale": {
         "id": "beige_wall_001",
         "nom": "Beige Wall 001",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "beige_wall_001",
         "nom": "Beige Wall 001",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/beige_wall_001.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1370,14 +1370,14 @@
       "textureVerticale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1450,14 +1450,14 @@
       "textureVerticale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1524,14 +1524,14 @@
       "textureVerticale": {
         "id": "jolcham_oak_bark_01",
         "nom": "Jolcham Oak Bark 01",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "bark_brown_02",
         "nom": "Bark Brown 02",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/bark_brown_02.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/bark_brown_02.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1574,8 +1574,8 @@
       "textureVerticale": {
         "id": "tree_bark_03",
         "nom": "Tree Bark 03",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/tree_bark_03.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/tree_bark_03/tree_bark_03_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/tree_bark_03/tree_bark_03_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/tree_bark_03.png?width=256&height=256"
       },
       "textureHorizontale": null,
       "hidden": false,
@@ -1619,14 +1619,14 @@
       "textureVerticale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "pine_bark",
         "nom": "Pine Bark",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/pine_bark.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,
@@ -1686,14 +1686,14 @@
       "textureVerticale": {
         "id": "jolcham_oak_bark_01",
         "nom": "Jolcham Oak Bark 01",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256"
       },
       "textureHorizontale": {
         "id": "jolcham_oak_bark_01",
         "nom": "Jolcham Oak Bark 01",
-        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg"
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/jolcham_oak_bark_01/jolcham_oak_bark_01_diff_1k.jpg",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/jolcham_oak_bark_01.png?width=256&height=256"
       },
       "hidden": false,
       "clotureActive": false,

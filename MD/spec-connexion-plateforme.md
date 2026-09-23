@@ -575,13 +575,20 @@ These are real and must not be papered over.
     on 22 September 2026 from a project migrated out of `plan1.raillard.org`. Nothing computed
     moved; what moved is that a project now exists somewhere and has a name. Recapturing the
     `projet.json` golden belongs to the `2.0.0` release ceremony, with this as its stated reason.
-12. **`jsonb` does not preserve key order, whatever the contract says.** `ProjectDocument` promises
-    "Key order is preserved"; PostgreSQL reorders keys, and a round trip of the demonstration plan
-    came back the same 41 693 bytes with a first divergence at character 31. The content is
-    preserved, the order is not. It does not reach an export — `projet.json` is written by Plan's
-    serialiser from the model in memory, never copied from the stored document — but a product that
-    believed the promise would be wrong, and the migration script compares canonical forms because
-    of it.
+12. **`jsonb` does not preserve key order, whatever the contract says — and it does reach an
+    export.** `ProjectDocument` promises "Key order is preserved"; PostgreSQL reorders them by key
+    length then alphabetically, and a round trip of the demonstration plan came back the same
+    41 693 bytes with a first divergence at character 31.
+
+    This paragraph said the reordering stopped at the database, because `projet.json` is written by
+    Plan's serialiser from the model in memory. That was half true and therefore wrong: the
+    serialiser copies some nested objects **as they are** — `clotureTexture` is one — so their keys
+    come out in PostgreSQL's order. Recapturing the golden on 23 September 2026 showed exactly
+    that, `vignette` and `url` having swapped places.
+
+    It costs nothing, because the order is deterministic and the content is identical once sorted,
+    but it means a golden captured before the platform cannot be compared byte for byte with one
+    captured after. The migration script compares canonical forms for the same reason.
 
 10. **Two timestamp formats in one integration.** `token_expires_at` ends in `Z`; `valid_until` and
     the webhook `occurred_at` carry a numeric offset. Both are RFC 3339; a strict parser configured
