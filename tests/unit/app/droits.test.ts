@@ -115,7 +115,9 @@ describe('les commandes du projet portent bien leurs droits', () => {
     const source = readFileSync(resolve(__dirname, '../../../src/app/projet.ts'), 'utf8');
     for (const id of ['projet.nouveau', 'projet.enregistrer', 'projet.supprimer', 'projet.depuisAdresse']) {
       const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 220);
-      expect(bloc, id).toContain("permission: 'projects.write'");
+      // Le code de permission est nomme une seule fois, dans app/acces.ts : on cherche la
+      // constante, pas la chaine, sinon deux ecritures du meme droit pourraient diverger.
+      expect(bloc, id).toContain('permission: PERMISSION_ECRITURE');
     }
   });
 

@@ -5,6 +5,7 @@
 // des modules d'un seul élément.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
+import { PERMISSION_ECRITURE } from '../acces.js';
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
@@ -75,7 +76,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
    * Vider les cotes. La confirmation n'est demandée que s'il y en a : confirmer la suppression de
    * rien est une question sans objet.
    */
-  cmd.bouton('clearMeasureBtn', { id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', executer: () => {
+  cmd.bouton('clearMeasureBtn', { id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', permission: PERMISSION_ECRITURE, executer: () => {
     const vider = () => {
       a.etat.measures = [];
       mesure.cibles = []; mesure.ref = null; mesure.pointage = null;
@@ -87,11 +88,11 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
 
   // Les deux outils de la palette : une cote, un alignement. Chacun ouvre l'onglet ou le geste se
   // poursuit, puis attend le clic sur le plan — c'est `interaction/outilMesure.ts` qui sait quoi en faire.
-  cmd.declarer({ id: 'mesure.nouvelle', libelle: 'Nouvelle cote', groupe: 'mesure', description: 'Choisir un côté de référence, puis les coins à coter', executer: () => {
+  cmd.declarer({ id: 'mesure.nouvelle', libelle: 'Nouvelle cote', groupe: 'mesure', description: 'Choisir un côté de référence, puis les coins à coter', permission: PERMISSION_ECRITURE, executer: () => {
     ctx.activerOnglet('mesure');
     ctx.startPick('ref', false);
   } });
-  cmd.declarer({ id: 'objet.aligner', libelle: 'Aligner par rotation', groupe: 'objet', description: 'Choisir un côté cible sur le plan : l\'objet sélectionné pivote pour lui devenir parallèle', actif: () => !!a.etat.selectedKey, executer: () => {
+  cmd.declarer({ id: 'objet.aligner', libelle: 'Aligner par rotation', groupe: 'objet', description: 'Choisir un côté cible sur le plan : l\'objet sélectionné pivote pour lui devenir parallèle', permission: PERMISSION_ECRITURE, actif: () => !!a.etat.selectedKey, executer: () => {
     ctx.startPick('ref', false, 'align');
   } });
 

@@ -9,6 +9,7 @@
 // avec `?projet=…`, exactement comme avant ; enregistrer remet a zero l'etat initial qui sert au
 // bouton « Reinitialiser » ; supprimer retire le parametre d'URL et recharge.
 
+import { PERMISSION_ECRITURE } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
@@ -75,7 +76,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Nouveau projet', groupe: 'projet',
-    permission: 'projects.write', quota: 'plan.documents',
+    permission: PERMISSION_ECRITURE, quota: 'plan.documents',
     description: 'Cree un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
     executer: () => {
@@ -92,7 +93,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet', raccourci: 'Ctrl+S',
-    permission: 'projects.write',
+    permission: PERMISSION_ECRITURE,
     actif: () => seed.apiAvailable && !!courant,
     executer: async () => {
       if (!courant) return;
@@ -116,7 +117,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.supprimer', libelle: 'Supprimer', groupe: 'projet',
-    permission: 'projects.write',
+    permission: PERMISSION_ECRITURE,
     description: 'Supprimer ce projet du serveur',
     actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
     executer: () => {
@@ -138,7 +139,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.
   cmd.declarer({
     id: 'projet.depuisAdresse', libelle: 'Depuis une adresse', groupe: 'projet',
-    capacite: CAPACITES.cadastre.code, permission: 'projects.write', quota: 'plan.documents',
+    capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE, quota: 'plan.documents',
     description: 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines',
     executer: () => {
       if (ctx.etat.dirty && seed.apiAvailable) {
@@ -153,7 +154,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.actualiserIgn', libelle: 'Actualiser IGN', groupe: 'projet',
     capacite: CAPACITES.cadastre.code,
     description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.',
-    executer: (source) => { if (source) ctx.ouvrirDialogueActualisation(source as HTMLButtonElement); }
+    permission: PERMISSION_ECRITURE, executer: (source) => { if (source) ctx.ouvrirDialogueActualisation(source as HTMLButtonElement); }
   });
 
   return {

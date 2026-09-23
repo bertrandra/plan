@@ -51,3 +51,52 @@ describe('ce que la lecture seule ne touche pas', () => {
     expect(gardeAvantPan).toBe(false);
   });
 });
+
+describe('toute commande qui change le dessin demande le droit d ecrire', () => {
+  // La lecture seule mentait : la barre d'etat l'annoncait, et la palette restait entiere. Un
+  // lecteur ajoutait un rectangle, puis decouvrait qu'il ne pouvait ni le deplacer ni enregistrer.
+  // Ce test tient la liste, parce qu'une commande ajoutee demain sans son droit refera le meme
+  // mensonge sans que personne le remarque.
+  const sources = ['ecouteurs/objets.ts', 'ecouteurs/divers.ts', 'ecouteurs/fichiers.ts', 'projet.ts']
+    .map((n) => readFileSync(resolve(__dirname, '../../../src/app', n), 'utf8')).join('\n');
+
+  const DOIVENT = [
+    'projet.nouveau', 'projet.enregistrer', 'projet.supprimer', 'projet.reinitialiser',
+    'projet.depuisAdresse', 'projet.actualiserIgn',
+    'fichier.importerSvg', 'fichier.importerJson',
+    'mesure.nouvelle', 'mesure.effacer', 'objet.aligner'
+  ];
+
+  it('nomme projects.write sur chaque commande qui touche au projet', () => {
+    const sans: string[] = [];
+    for (const id of DOIVENT) {
+      const i = sources.indexOf("id: '" + id + "'");
+      if (i < 0) { sans.push(id + ' (introuvable)'); continue; }
+      const jusqua = sources.indexOf('executer', i);
+      if (!sources.slice(i, jusqua).includes('PERMISSION_ECRITURE')) sans.push(id);
+    }
+    expect(sans, 'commandes qui changent le dessin sans droit').toEqual([]);
+  });
+
+  it('pose le droit une fois pour tout le groupe des objets, et non ligne par ligne', () => {
+    // Ajouter, dupliquer, supprimer, reculer, remettre en place : l'aide locale les couvre toutes,
+    // donc une commande d'objet ajoutee demain l'aura sans qu'on y pense.
+    const objets = readFileSync(resolve(__dirname, '../../../src/app/ecouteurs/objets.ts'), 'utf8');
+    expect(objets).toContain('sansDroit ? {} : { permission: PERMISSION_ECRITURE }');
+  });
+
+  it('dispense l annulation, et elle seule', () => {
+    // Elle ne peut defaire que ce qu'on a eu le droit de faire : en lecture seule sa pile est vide.
+    const objets = readFileSync(resolve(__dirname, '../../../src/app/ecouteurs/objets.ts'), 'utf8');
+    expect(objets).toContain("sansDroit: true");
+    expect(objets.split('sansDroit: true').length - 1).toBe(1);
+  });
+
+  it('laisse les reglages de vue disponibles', () => {
+    // Grille, Nord, voisinage, orthophoto : ils ne changent que ce que CE navigateur montre, et
+    // rien ne peut etre enregistre de toute facon. Les griser ferait passer un plan consultable
+    // pour un plan casse.
+    const affichage = readFileSync(resolve(__dirname, '../../../src/app/ecouteurs/affichage.ts'), 'utf8');
+    expect(affichage).not.toContain('PERMISSION_ECRITURE');
+  });
+});

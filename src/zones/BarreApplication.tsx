@@ -11,13 +11,13 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant } from '../app/acces.js';
+import { contexteCourant, sessionCourante } from '../app/acces.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { versionLongue } from '../model/version.js';
-import { showToast } from '../shell/dialogs.js';
+import { showConfirm, showToast } from '../shell/dialogs.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -211,9 +211,30 @@ function useFermetureDesMenus(): void {
  * Rien ne s'affiche hors plateforme : sous vitest, ou avant que la porte soit franchie, il n'y a
  * personne a nommer.
  */
-function Compte() {
+function Compte({ magasin }: { magasin: Magasin }) {
   const c = contexteCourant()?.courant();
   if (!c) return null;
+
+  /**
+   * Se deconnecter ferme la session de la PLATEFORME, pas celle de Plan : il n'y a pas de
+   * « se deconnecter de Plan seulement » (spec §3.3). On le dit dans l'infobulle plutot que de
+   * le laisser decouvrir.
+   *
+   * Le plan non enregistre passe avant : la session fermee, la porte se repose par-dessus et le
+   * travail est derriere, mais personne ne devrait avoir a le deviner. On demande d'abord.
+   */
+  const sortir = () => {
+    const s = sessionCourante();
+    if (!s) return;
+    const partir = () => {
+      void s.fermer().finally(() => { location.reload(); });
+    };
+    if (magasin.store.getState().etat.dirty) {
+      showConfirm('Ce plan porte des modifications non enregistrees. Se deconnecter maintenant les perd. Continuer ?', partir);
+      return;
+    }
+    partir();
+  };
   const qui = c.user.display_name || c.user.email || 'Compte';
   const ou = c.tenant.name || c.tenant.slug || '';
   const projets = BACKPROD_API_URL.replace(/\/+$/, '') + (c.tenant.slug ? '/' + c.tenant.slug : '') + '/projects';
@@ -223,6 +244,10 @@ function Compte() {
         title={'Les projets de ' + (ou || 'votre organisation') + ' sur la plateforme, comme ' + qui}>
         Mes projets<span aria-hidden="true"> ↗</span>
       </a>
+      <button type="button" className="compteLien compteSortie" onClick={sortir}
+        title={'Fermer la session de ' + qui + '. La deconnexion vaut pour la plateforme entiere, pas seulement pour Plan.'}>
+        Se déconnecter
+      </button>
     </div>
   );
 }
@@ -253,7 +278,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
         <MenuAffichage magasin={magasin} commandes={commandes} />
         <MenuAide magasin={magasin} tiroir={tiroir} />
       </div>
-      <Compte />
+      <Compte magasin={magasin} />
       <div id="modeBar">
         {VUES.map(([cle, id, libelle, titre]) => (
           <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>{libelle}</button>

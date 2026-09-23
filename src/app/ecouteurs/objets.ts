@@ -6,6 +6,7 @@
 // déclarées ici sans bouton. Une commande inactive — rien de sélectionné, rien à
 // annuler — grise son bouton, là où l'ancienne rangée répondait par un message.
 
+import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast, showConfirm } from '../../shell/dialogs.js';
 import { centroid } from '../../geometry/basic.js';
 import { enPoints, enCercle } from '../../model/formes.js';
@@ -14,10 +15,20 @@ import type { RegistreCommandes } from '../commandes.js';
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selection = () => !!a.etat.selectedKey;
-  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean } = {}) =>
-    cmd.declarer({ id, libelle, groupe: 'objet', executer, ...extra });
+  /**
+   * Toute commande de ce groupe change le dessin, donc toute commande de ce groupe demande le
+   * droit d'ecrire. C'est pose ici, une fois, plutot que ligne par ligne : une commande ajoutee
+   * demain l'aura sans qu'on y pense, ce qui est exactement la garantie qu'on veut.
+   *
+   * `sansDroit` sert a l'annulation, et a elle seule : elle ne peut defaire que ce qu'on a eu le
+   * droit de faire, donc en lecture seule sa pile est vide et la grisier serait un bruit de plus.
+   */
+  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean } = {}) => {
+    const { sansDroit, ...reste } = extra;
+    cmd.declarer({ id, libelle, groupe: 'objet', executer, ...reste, ...(sansDroit ? {} : { permission: PERMISSION_ECRITURE }) });
+  };
 
-  commande('objet.annuler', 'Annuler', a.undo, { raccourci: 'Ctrl+Z' });
+  commande('objet.annuler', 'Annuler', a.undo, { raccourci: 'Ctrl+Z', sansDroit: true });
 
   // Des flèches explicites, et non `addEventListener('click', a.addNewObject)` : celui-ci passerait
   // l'événement en premier argument — un objet toujours vrai — et le polygone libre naîtrait en
@@ -87,7 +98,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    *
    * D'où la confirmation : ce bouton efface d'un clic tout le travail fait depuis le chargement.
    */
-  cmd.declarer({ id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', executer: () => {
+  cmd.declarer({ id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', permission: PERMISSION_ECRITURE, executer: () => {
     showConfirm('Reinitialiser tout le plan ? Les objets et les mesures reviennent a leur etat du chargement (annulable par Ctrl+Z).', () => {
       a.pushHistory();
       a.restoreState({ objects: a.initialState(), measures: a.initialMeasures() });

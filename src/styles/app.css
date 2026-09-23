@@ -466,3 +466,4 @@
     color:var(--ink-soft); text-decoration:none; border:1px solid var(--border);
   }
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }
+  .compteSortie{ background:transparent; cursor:pointer; font-family:inherit; }

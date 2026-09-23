@@ -10,6 +10,7 @@
 // l'utilisateur clique, rien ne se passe, et rien ne l'explique. C'est pour cette raison que
 // `onerror` existe autant que `onload` : un échec de lecture ne déclenche jamais `onload`.
 
+import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import type { ProjetValide } from '../../io/validation.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -51,7 +52,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
 
   // Les trois commandes sont des entrees du menu Fichier (zones/BarreApplication.tsx) ; seuls les
   // deux champs de fichier caches restent dans le balisage.
-  cmd.declarer({ id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', executer: () => el('importSvgFile').click() });
+  cmd.declarer({ id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importSvgFile').click() });
 
   el('importSvgFile').addEventListener('change', function () {
     lireFichierTexte(this, 'Erreur de lecture du fichier SVG.', contenu => {
@@ -65,7 +66,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
     catch (e) { showErrBanner('Echec de l\'export JSON : ' + ((e as Error).message || e)); }
   } });
 
-  cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', executer: () => el('importJsonFile').click() });
+  cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importJsonFile').click() });
 
   el('importJsonFile').addEventListener('change', function () {
     const file = this.files![0];
