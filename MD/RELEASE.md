@@ -61,7 +61,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 | `1.0.x-alpha.N` | TypeScript migration phases 1–6, one prerelease per merged phase | Golden fixtures byte-identical — ✅ `alpha.1` … `alpha.47` |
 | `1.1.0-alpha.N` | The **built** file ships in place of the single-page original. Phase 7 in progress | Golden fixtures identical *up to the version string*, and that proved before recapture — ✅ 29/08/2026 |
 | `1.1.0` | Migration complete. **No behaviour change** — hence MINOR, not MAJOR | Definition of done, `spec-migration-typescript.md` §14 — ✅ 21/09/2026, dix cases sur dix ; trois correctifs (`alpha.16`) et un remplissage de construction (`alpha.17`) documentés comme PATCH dans le CHANGELOG |
-| `2.0.0` | Authentication + MFA + multi-tenancy. Breaking: anonymous access ends, storage moves to the database | Cross-tenant isolation tests green |
+| `2.0.0` | Plan devient un produit de la plateforme backprod : l'accès anonyme cesse, les projets quittent `data/` pour la ressource `projects`, `api.php` disparaît. Ni comptes, ni mots de passe, ni TOTP, ni base — c'est la plateforme qui les tient | Six témoins recapturés avec la preuve forte (ancien numéro remis dans les octets frais → six anciennes empreintes au bit près) — ✅ 23/09/2026. Isolation entre organisations : tenue par la plateforme, pas par ce dépôt |
 | `2.1.0` | Feature catalog and entitlements | Server-side enforcement tests green |
 | `2.2.0` | Tenant branding | Contrast and sanitisation tests green |
 

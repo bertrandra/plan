@@ -227,6 +227,31 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
 
   Les cinq autres artefacts n'ont pas bouge : ils ne recopient aucun objet stocke.
 
+- **23 septembre 2026**, `plan.html` v2.0.0 : **Plan devient un produit de la plateforme**. Les six
+  temoins sont recaptures sur le projet `4d4ee63e-…` « Parcelle AE 101 », celui-la meme que la
+  plateforme stocke, avec ses 35 objets et ses 11 cotes.
+
+  **La preuve forte, six sur six.** Le numero garde sa longueur (`1.2.0` → `2.0.0`, cinq octets) et
+  la date de build aussi (`2026-09-22` → `2026-09-23`, dix octets) : on peut donc remettre les
+  anciennes valeurs dans les octets frais sans deplacer un seul decalage interne des PDF. Les six
+  anciennes empreintes reviennent alors au bit pres. Et a version neutralisee, aucune ligne ne
+  differe dans aucun des six — les deux PDF gardent leurs comptes exacts, 14 objets / 2 pages /
+  143 textes et 15 / 3 / 107 — et les six tailles sont identiques a l'octet.
+
+  Autrement dit : la connexion a la plateforme n'a deplace aucun octet de ce que Plan produit. Ce
+  qui change est le numero qu'il y inscrit.
+
+  **Le dossier PDF a demande un harnais.** `plan.export.dossier` se vend a partir de Scale, et
+  aucun locataire du jeu de demonstration n'y est : la commande est *effacee* pour tout le monde.
+  Le relais d'essai ajoute donc cette capacite a la reponse de `/me/context` — il n'y a ni base
+  touchee ni code modifie, et le chemin traverse reste le vrai. Un temoin doit decrire ce que Plan
+  **calcule**, pas ce qu'un locataire de demonstration a achete.
+
+  **Une neutralisation morte est reparee au passage.** Celle du bloc `meta`, ecrite le matin meme,
+  exigeait `"meta":{` sans espace alors que le fichier est indente : elle ne trouvait rien, et
+  l'empreinte de `projet.json` figeait un uuid et une date de modification. C'est la preuve forte
+  qui l'a revelee, en butant sur cette date. Le motif accepte desormais l'espace.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -238,12 +263,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `5adf98492194a1e390040ec8ec227bb00b01c36014239b34cdf5a6c81a32c93f` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `42befb23ef27bf7410f96c8e9c0037214c2f8456293ef3f38bcac22d42072c87` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `6738e5639daba6ec6731f451e7f422a3601a4ac01f2ba890384462e20dd13851` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `f3921fa38c661eceeb036a1439f384b88772f88e6c4b4468ddb39ce30aa1ee19` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `0bff842a0ad7073a1285884db9549302a14949c3e11af8a7fca49a158f4b41f1` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `ba858818159059897afa872f09c20e6394f1be59aeaa5f760ddf00ef5f2db993` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `f96f2a5741b04037fc044e0ac1c1527dd984855b239c1000c09fd0d6fe3fb80d` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `82a159e930bfd018d101e6baa61654221c8c93dc12de6a075b3edd548c2562f2` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `8410f4c67c703ba5cd238f8c7f8e11c9b111e2de90a8729586dda714e6a185c7` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `14392ea9ebbf20e9e55848454bf00a308db6338e334717218421a73946d43eee` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `937f6117a7f2c17a656b8048b9897589e39cd3180cab1ae4bc5dca6f56777f09` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a596ef358e8a844c5107c03ed256ecfd40b1b3e1433675917cbf68324986b72b` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

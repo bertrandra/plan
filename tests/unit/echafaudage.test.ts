@@ -39,19 +39,19 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 21 septembre 2026, a la version 1.2.0-alpha.2. Le seul ecart avec les empreintes de
-  // la 1.0.0 est le numero de version, et cela a ete prouve avant chaque recapture : le meme build,
-  // estampille de l'ancien numero, reproduisait les anciennes empreintes au bit pres, et une
-  // comparaison ligne a ligne ne montrait qu'une ligne differente par artefact texte — celle qui
-  // porte la version (voir EMPREINTES.md, « La rupture » et la recapture de rattrapage).
+  // Recapturees le 23 septembre 2026, a la version 2.0.0. Le seul ecart avec les empreintes de la
+  // 1.0.0 est le numero de version — et, depuis la 2.0.0, la date de build qui l'accompagne. Cela a
+  // ete prouve avant chaque recapture : le meme build, estampille de l'ancien numero, reproduit les
+  // anciennes empreintes au bit pres, et une comparaison ligne a ligne ne montre aucune ligne
+  // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '5adf98492194a1e390040ec8ec227bb00b01c36014239b34cdf5a6c81a32c93f',
-      'plan.svg': '42befb23ef27bf7410f96c8e9c0037214c2f8456293ef3f38bcac22d42072c87',
-      'plan.dxf': '6738e5639daba6ec6731f451e7f422a3601a4ac01f2ba890384462e20dd13851',
-      'projet.json': 'f3921fa38c661eceeb036a1439f384b88772f88e6c4b4468ddb39ce30aa1ee19',
-      'plan.pdf': '0bff842a0ad7073a1285884db9549302a14949c3e11af8a7fca49a158f4b41f1',
-      'dossier.pdf': 'ba858818159059897afa872f09c20e6394f1be59aeaa5f760ddf00ef5f2db993'
+      'resume.txt': 'f96f2a5741b04037fc044e0ac1c1527dd984855b239c1000c09fd0d6fe3fb80d',
+      'plan.svg': '82a159e930bfd018d101e6baa61654221c8c93dc12de6a075b3edd548c2562f2',
+      'plan.dxf': '8410f4c67c703ba5cd238f8c7f8e11c9b111e2de90a8729586dda714e6a185c7',
+      'projet.json': '14392ea9ebbf20e9e55848454bf00a308db6338e334717218421a73946d43eee',
+      'plan.pdf': '937f6117a7f2c17a656b8048b9897589e39cd3180cab1ae4bc5dca6f56777f09',
+      'dossier.pdf': 'a596ef358e8a844c5107c03ed256ecfd40b1b3e1433675917cbf68324986b72b'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un
@@ -65,7 +65,12 @@ describe('phase 1 - echafaudage', () => {
         // de modification qui bouge a chaque enregistrement. Sans cela, le temoin ne serait
         // reproductible par personne. Neutralisee DANS le bloc `meta` seulement, parce que les
         // cotes portent aussi un `id` et que celui-la doit rester verifie.
-        .replace(/"meta":\{[^}]*\}/, (bloc) => bloc
+        //
+        // Le `\s*` apres le deux-points a manque au premier jet, le 23 septembre 2026 : le fichier
+        // est indente, il porte `"meta": {` avec une espace, et le motif ne trouvait donc rien. La
+        // neutralisation etait ecrite, commentee, et morte — l'empreinte figeait un uuid. Trouve en
+        // refaisant la preuve forte pour la 2.0.0, qui a bute sur cette date-la.
+        .replace(/"meta":\s*\{[^}]*\}/, (bloc) => bloc
           .replace(/"id":\s*("[^"]*"|null)/, '"id":"IDENTITE"')
           .replace(/"createdAt":\s*("[^"]*"|null)/, '"createdAt":"HORODATAGE"')
           .replace(/"updatedAt":\s*("[^"]*"|null)/, '"updatedAt":"HORODATAGE"'));

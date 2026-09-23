@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.0.0] — 2026-09-23
+
+**Plan demande qui vous êtes.** L'accès anonyme est terminé : l'application est un produit de la
+plateforme backprod, elle s'ouvre sur une porte, et les projets ne vivent plus dans un dossier à
+côté du programme mais dans la ressource `projects` de la plateforme. C'est la rupture qui donne son
+numéro majeur à cette version. Un plan enregistré par la `1.2.0` s'ouvre tel quel — le schéma du
+fichier de projet ne bouge pas — mais l'URL d'où on l'ouvrait, elle, a disparu.
+
+Ce que Plan **calcule** n'a pas bougé d'un octet. Les six témoins ont été recapturés à ce numéro, et
+la preuve a été faite avant : l'ancien numéro remis dans les octets frais retrouve les six anciennes
+empreintes au bit près, et à version neutralisée aucune ligne ne diffère dans aucun des six.
+
 ### Décidé
 
 - **Plan est un produit de la plateforme backprod, pas une plateforme.** La nouvelle
@@ -85,10 +97,12 @@ Quatre découvertes, faites en branchant :
   gouverne et les origines qu'elle fait taire. Un test prouve qu'une commande refusée n'exécute rien
   et n'appelle donc rien : le chargement de three.js, les appels IGN et le catalogue de textures
   partent tous de l'exécution d'une commande, et un seul refus les arrête tous.
-- **Aucun code n'est attaché**, délibérément. Le catalogue de la plateforme ne les porte pas, et le
-  contexte ne distingue pas « pas acheté » de « pas au catalogue » : attacher la capacité 3D
-  aujourd'hui retirerait la vue 3D à tous les locataires qui l'utilisent. Un test garde la décision
-  visible et tombera le jour où l'opérateur créera les codes.
+- **Les codes sont attachés, une fois le catalogue créé.** Ils ne l'étaient pas au premier jet, et
+  délibérément : le contexte ne distingue pas « pas acheté » de « pas au catalogue », si bien
+  qu'attacher la capacité 3D avant que le catalogue la porte aurait retiré la vue 3D à tous les
+  locataires qui l'utilisent. L'opérateur a créé les sept codes le 22 septembre, et un test vérifie
+  désormais que chacun a sa prise. Il en reste un sans : passer en vue 3D est un bouton de mode, pas
+  une commande, et c'est justement la capacité dont le gain réseau serait le plus réel.
 - **Le vérificateur de déploiement est réécrit pour la `2.0.0`** : il refuse un hôte qui sert encore
   l'ancienne API ou son dossier de données, et il vérifie que la politique de contenu nomme bien
   l'origine de la plateforme du paquet servi. Sans elle, chaque appel est bloqué par le navigateur,
@@ -97,6 +111,36 @@ Quatre découvertes, faites en branchant :
 Un constat de plus : **passer en vue 3D est un bouton de mode, pas une commande.** C'est la seule
 capacité dont le gain réseau serait réel, puisque three.js vient d'un CDN, et c'est justement celle
 qui n'a aucune prise tant que ce basculement n'est pas une commande.
+
+### Ajouté — ce que la porte montre et ce qu'on peut en faire
+
+- **Un mode lecture seule.** Une personne sans le droit d'écrire, ou qui tient un siège de lecture,
+  voit le plan entier et ne peut rien y changer. La règle est posée **à un seul endroit** : la barre
+  d'état et la palette de commandes en dérivent toutes les deux, après s'être contredites une fois —
+  badge « Lecture seule » et palette entière, un lecteur ajoutait un rectangle puis découvrait qu'il
+  ne pouvait ni le déplacer ni l'enregistrer. Les gestes au pointeur refusent **avant** d'empiler
+  l'historique : un pas d'annulation posé pour un déplacement qui n'a pas eu lieu se défait en ne
+  faisant rien. Regarder, sélectionner, déplacer la vue et exporter restent permis.
+- **Un témoin vert ou rouge sur la boîte de connexion**, qui dit si la plateforme répond. Il
+  interroge `/auth/jwks` sans cache : la première version lisait une réponse en cache et annonçait
+  « connectée » devant une plateforme arrêtée.
+- **« Mes projets » et « Se déconnecter »** dans la barre d'application. Le premier ouvre l'écran des
+  projets de l'organisation connectée, dans un nouvel onglet. Le second révoque la famille de jetons
+  côté plateforme, et demande confirmation si le plan porte des modifications non enregistrées.
+- **Le mot de passe oublié se règle sur la plateforme**, pas ici. Le lien pointe vers sa racine : un
+  produit n'a pas à savoir réinitialiser un mot de passe qu'il ne détient pas.
+
+### Corrigé
+
+- **Revenir à un point de vue enregistré ne déplaçait pas la caméra sur un plan sans terrasse**
+  (D-15). Le geste réclamait une terrasse, alors que la Vue 3D s'ouvre sur une parcelle nue et que
+  « Enregistrer la vue » y crée des points de vue : Plan fabriquait des points de vue auxquels il
+  refusait de revenir. Deux défauts voisins corrigés avec lui — le centre était recalculé sur cette
+  terrasse au lieu d'être repris de la scène, qui est le nombre ayant servi à enregistrer le point
+  de vue ; et la liste déroulante ne se remplissait qu'à la construction de la scène, si bien qu'un
+  point de vue tout juste créé n'y figurait pas.
+- **L'annulation laissait le tiroir des résultats périmé** : le chiffrage revenait en arrière sans
+  que la table le suive.
 
 ### Corrigé — le serveur
 
@@ -126,6 +170,22 @@ qui n'a aucune prise tant que ce basculement n'est pas une commande.
 - `plan.html` est servi avec `Cache-Control: max-age=15552000` : un visiteur qui revient garde
   l'ancienne application six mois. À passer en `no-cache`.
 - Aucun en-tête de sécurité sur les deux hôtes, et `plan1.raillard.org` n'a aucune protection.
+
+### Schéma projet
+
+- Inchangé, version 1. Un plan enregistré par la `1.2.0` s'ouvre dans la `2.0.0`, et l'inverse aussi.
+  La rupture porte sur l'accès et sur l'endroit où le fichier est rangé, pas sur ce qu'il contient.
+
+### Ce qui reste ouvert
+
+- **Quatre des vingt-cinq points de la liste de fumée n'ont pas été rejoués** sur ce build : ceux qui
+  demandent de saisir une poignée de sept pixels. Le détail et la raison sont dans le journal de
+  `tests/CHECKLIST-FUMEE.md`.
+- **Le dossier PDF n'est vendu qu'à partir de Scale**, et aucun locataire du jeu de démonstration n'y
+  est : personne ne peut l'exercer là-bas. La grille des capacités fonctionne comme voulu ; c'est le
+  palier qu'il faudra revoir si on veut garder ce point testable.
+- **Quatre décisions de la spécification restent à prendre** : les quotas, la marque, l'événement
+  d'annulation d'abonnement, et les codes de permission propres à Plan.
 
 ## [1.2.0] — 2026-09-22
 
