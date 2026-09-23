@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { CAPACITES, CODES_CAPACITES } from '../../../src/plateforme/capacites.js';
+import { CAPACITES, CAPACITE_LECTURE_SEULE, CODES_CAPACITES } from '../../../src/plateforme/capacites.js';
 import { creerRegistre, type Droits } from '../../../src/app/commandes.js';
 
 // Etape 5 de MD/spec-connexion-plateforme.md §16 : ce qu'une capacite empeche vraiment.
@@ -112,5 +112,43 @@ describe('ce que les commandes nommees existent vraiment', () => {
     // prise. Ce test tombera le jour ou quelqu'un en fera une commande : c'est le signal attendu.
     expect(CAPACITES.vue3d.commandes).toEqual([]);
     expect(CAPACITES.vue3d.origines.length).toBeGreaterThan(0);
+  });
+});
+
+describe('la capacite qui retire au lieu de donner', () => {
+  it('ne figure pas dans la table des capacites qui gouvernent des commandes', () => {
+    // Les sept autres deverrouillent une fonction : sans elles, la commande disparait. Celle-ci
+    // fait l'inverse, donc l'attacher a une commande la ferait disparaitre chez ceux qui la
+    // tiennent — exactement le contraire de ce qu'elle veut dire.
+    expect(CODES_CAPACITES).not.toContain(CAPACITE_LECTURE_SEULE);
+    for (const c of Object.values(CAPACITES)) expect(c.code).not.toBe(CAPACITE_LECTURE_SEULE);
+  });
+
+  it('porte le code que le catalogue de la plateforme vend', () => {
+    // Le plan « Lecture » de backprod le grant par un siege qui appartient a une seule personne.
+    expect(CAPACITE_LECTURE_SEULE).toBe('plan.readonly');
+  });
+
+  it('se lit a l envers parce que les capacites sont une union', () => {
+    // Une capacite ABSENTE ne pourrait pas vouloir dire « lecture seule » : tout le monde en
+    // manque par defaut. C'est sa PRESENCE qui restreint, et le commentaire du module le dit.
+    const source = readFileSync(resolve(__dirname, '../../../src/plateforme/capacites.ts'), 'utf8');
+    expect(source).toMatch(/UNION|union/);
+  });
+});
+
+describe('qui peut ecrire', () => {
+  it('demande la permission ET l absence du siege de lecture', () => {
+    // Une seule question, un seul endroit : le badge de la barre d'etat et le registre des
+    // commandes en derivent tous les deux. Ils se sont contredits une fois — badge « Lecture
+    // seule » et palette entiere — et c'est ce que cette regle unique empeche de refaire.
+    const acces = readFileSync(resolve(__dirname, '../../../src/app/acces.ts'), 'utf8');
+    expect(acces).toContain('aPermission(PERMISSION_ECRITURE) && !contexte.aCapacite(CAPACITE_LECTURE_SEULE)');
+    expect(acces).toContain('code === PERMISSION_ECRITURE ? peutEcrire()');
+  });
+
+  it('laisse tout passer hors plateforme', () => {
+    const acces = readFileSync(resolve(__dirname, '../../../src/app/acces.ts'), 'utf8');
+    expect(acces).toContain('if (contexte === null) return true;');
   });
 });

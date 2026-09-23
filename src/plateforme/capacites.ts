@@ -32,6 +32,20 @@ export interface CapaciteProposee {
   origines: readonly string[];
 }
 
+/**
+ * La seule capacite qui RETIRE au lieu de donner.
+ *
+ * Toutes les autres deverrouillent une fonction : sans elle, la commande disparait. Celle-ci fait
+ * l'inverse — la tenir veut dire que la personne consulte et ne modifie pas. Elle se vend par un
+ * plan a part (« Lecture ») et par un siege qui appartient a UNE personne, si bien qu'un collegue
+ * qui lit coute une fraction de celui qui travaille.
+ *
+ * Il faut la lire a l'envers parce que les capacites sont une UNION : l'organisation garde son
+ * abonnement complet pour tout le monde, et le siege ajoute ce code par-dessus. Une capacite
+ * absente ne pourrait pas signifier « lecture seule », puisque tout le monde en manque par defaut.
+ */
+export const CAPACITE_LECTURE_SEULE = 'plan.readonly';
+
 export const CAPACITES = {
   cadastre: {
     code: 'plan.cadastre',
