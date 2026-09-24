@@ -1,6 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  chargerTexturePolyhaven, libererTexturesPartagees, nombreDeTexturesPartagees,
+  estTexturePartagee, METRES_PAR_CARREAU
+} from '../../../src/three/chargeurs.js';
 
 // Le partage des textures (24 septembre 2026), et la possession qui va avec.
 //
@@ -30,8 +34,16 @@ function textureFactice(url: string) {
 
 const rendus: ReturnType<typeof textureFactice>[] = [];
 
+// Le module est importe **une fois**, et le cache vide entre deux essais par sa propre porte de
+// sortie. La premiere ecriture reimportait le module a chaque cas, apres `vi.resetModules()` : le
+// premier essai payait alors une recompilation qui allait de 300 ms a 3,4 s selon la charge de la
+// machine, sous un plafond de 5 s. Il a fini par le depasser, et un essai qui tombe pour cette
+// raison-la ne dit plus rien de ce qu'il verifie.
+//
+// Rien n'est perdu : `chargerTexturePolyhaven` lit `THREE` au moment de l'appel, pas de l'import,
+// et `libererTexturesPartagees` est exactement la remise a zero demandee — celle que le programme
+// utilise vraiment.
 beforeEach(() => {
-  vi.resetModules();
   rendus.length = 0;
   (globalThis as Record<string, unknown>).THREE = {
     RepeatWrapping: 1000,
@@ -39,59 +51,48 @@ beforeEach(() => {
       load(url: string) { const t = textureFactice(url); rendus.push(t); return t; }
     }
   };
+  libererTexturesPartagees();
 });
 
-async function chargeurs() {
-  // Reimporte a chaque essai : le cache est un etat de module, et un essai ne doit pas heriter de
-  // celui du precedent.
-  return await import('../../../src/three/chargeurs.js');
-}
-
 describe('le cache des textures', () => {
-  it('rend la MEME instance pour la meme URL', async () => {
-    const { chargerTexturePolyhaven } = await chargeurs();
+  it('rend la MEME instance pour la meme URL', () => {
     const a = chargerTexturePolyhaven('https://exemple/chene.jpg');
     const b = chargerTexturePolyhaven('https://exemple/chene.jpg');
     expect(b).toBe(a);
     expect(rendus.length, 'une seule vraie instance fabriquee').toBe(1);
   });
 
-  it('separe deux URL differentes', async () => {
-    const { chargerTexturePolyhaven, nombreDeTexturesPartagees } = await chargeurs();
+  it('separe deux URL differentes', () => {
     chargerTexturePolyhaven('https://exemple/chene.jpg');
     chargerTexturePolyhaven('https://exemple/teck.jpg');
     expect(nombreDeTexturesPartagees()).toBe(2);
   });
 
-  it('reproduit le rapport du plan de demonstration : huit images, cent soixante-dix-huit usages', async () => {
+  it('reproduit le rapport du plan de demonstration : huit images, cent soixante-dix-huit usages', () => {
     // Le chiffre vient du temoin `glb-structure.json` (178 textures) et du temoin `projet.json`
     // (huit URL distinctes). C'est la mesure qui a designe le coupable.
-    const { chargerTexturePolyhaven, nombreDeTexturesPartagees } = await chargeurs();
     const huit = Array.from({ length: 8 }, (_, i) => 'https://exemple/image' + i + '.jpg');
     for (let i = 0; i < 178; i++) chargerTexturePolyhaven(huit[i % 8]!);
     expect(nombreDeTexturesPartagees()).toBe(8);
     expect(rendus.length).toBe(8);
   });
 
-  it('pose la repetition lui-meme : aucun appelant n a plus a toucher l instance', async () => {
-    const { chargerTexturePolyhaven, METRES_PAR_CARREAU } = await chargeurs();
+  it('pose la repetition lui-meme : aucun appelant n a plus a toucher l instance', () => {
     const carreau = chargerTexturePolyhaven('https://exemple/chene.jpg', 1 / METRES_PAR_CARREAU);
     expect(METRES_PAR_CARREAU).toBe(2);
     expect(carreau.repeat.x).toBeCloseTo(0.5, 9);
     expect(carreau.repeat.y).toBeCloseTo(0.5, 9);
   });
 
-  it('fait le tour une fois par defaut : un cone et une sphere ne se mesurent pas en metres', async () => {
-    const { chargerTexturePolyhaven } = await chargeurs();
+  it('fait le tour une fois par defaut : un cone et une sphere ne se mesurent pas en metres', () => {
     const enroulee = chargerTexturePolyhaven('https://exemple/ecorce.jpg');
     expect(enroulee.repeat.x).toBe(1);
   });
 
-  it('separe les deux echelles d une meme image, parce que Three porte la repetition sur la texture', async () => {
+  it('separe les deux echelles d une meme image, parce que Three porte la repetition sur la texture', () => {
     // C'est le piege qui a failli passer : une seule instance par URL aurait donne au cone d'un
     // parasol et a la sphere d'un arbre l'echelle du carreau, alors que leurs coordonnees de
     // texture sont normalisees. On aurait corrige le plantage en abimant deux objets.
-    const { chargerTexturePolyhaven, METRES_PAR_CARREAU, nombreDeTexturesPartagees } = await chargeurs();
     const mur = chargerTexturePolyhaven('https://exemple/chene.jpg', 1 / METRES_PAR_CARREAU);
     const arbre = chargerTexturePolyhaven('https://exemple/chene.jpg');
     expect(arbre).not.toBe(mur);
@@ -100,8 +101,7 @@ describe('le cache des textures', () => {
     expect(nombreDeTexturesPartagees(), 'deux echelles, deux instances, pas une de plus').toBe(2);
   });
 
-  it('marque ce qu il possede, et rien d autre', async () => {
-    const { chargerTexturePolyhaven, estTexturePartagee } = await chargeurs();
+  it('marque ce qu il possede, et rien d autre', () => {
     const mienne = chargerTexturePolyhaven('https://exemple/chene.jpg');
     const etrangere = textureFactice('tuile-orthophoto');
     expect(estTexturePartagee(mienne as never)).toBe(true);
@@ -110,8 +110,7 @@ describe('le cache des textures', () => {
 });
 
 describe('qui a le droit de detruire une texture', () => {
-  it('la liberation vide le cache et rend chaque instance', async () => {
-    const { chargerTexturePolyhaven, libererTexturesPartagees, nombreDeTexturesPartagees } = await chargeurs();
+  it('la liberation vide le cache et rend chaque instance', () => {
     chargerTexturePolyhaven('https://exemple/chene.jpg');
     chargerTexturePolyhaven('https://exemple/teck.jpg');
     libererTexturesPartagees();
@@ -119,10 +118,9 @@ describe('qui a le droit de detruire une texture', () => {
     expect(rendus.map((t) => t.libere)).toEqual([1, 1]);
   });
 
-  it('une URL rechargee apres liberation donne une instance neuve', async () => {
+  it('une URL rechargee apres liberation donne une instance neuve', () => {
     // Sinon on distribuerait une texture deja rendue a la carte graphique, et la scene suivante
     // afficherait du noir — l'autre facon de se tromper.
-    const { chargerTexturePolyhaven, libererTexturesPartagees } = await chargeurs();
     const avant = chargerTexturePolyhaven('https://exemple/chene.jpg');
     libererTexturesPartagees();
     const apres = chargerTexturePolyhaven('https://exemple/chene.jpg');

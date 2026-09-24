@@ -5,6 +5,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.0.1] — 2026-09-24
+
 ### Corrigé
 
 - **La vue 3D faisait planter le navigateur sur téléphone.** Chaque matériau demandait sa propre
@@ -39,6 +41,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `glb-structure.json` vont baisser. Tous les autres doivent rester identiques. C'est écrit dans
   `tests/fixtures/golden/EMPREINTES.md` avant le mouvement, pour que personne ne le prenne pour une
   régression.
+
+  C'est aussi pourquoi cette version n'est pas une simple correction au sens strict de
+  `MD/RELEASE.md` §2.1 : des octets exportés changent. Aucun outil en aval n'en casse — le fichier
+  reste un glTF valide, de même géométrie et de mêmes matériaux, avec moins d'images en double — et
+  le numéro retenu est donc un correctif.
+
+### Non fait, et su
+
+- **Les six témoins d'export n'ont pas été recapturés à ce numéro.** Ils restent estampillés
+  `2.0.0` et `2026-09-23`. La capture demande une session ouverte sur la plateforme de
+  démonstration, et celle du poste a été révoquée. L'écart attendu est écrit dans
+  `tests/fixtures/golden/EMPREINTES.md` : deux substitutions de même longueur, et rien d'autre.
 
 ## [2.0.0] — 2026-09-23
 

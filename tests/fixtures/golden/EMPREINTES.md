@@ -269,6 +269,29 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   plateforme de démonstration, et que celle du poste était expirée. À faire au prochain passage en
   vue 3D, en vérifiant les six compteurs invariants ci-dessus.
 
+- **24 septembre 2026 — les six témoins ne sont PAS recapturés pour la `2.0.1`.** Ils portent
+  encore `2.0.0` et la date de build `2026-09-23`, alors que le paquet livré dit `2.0.1` et
+  `2026-09-24`.
+
+  **Pourquoi.** La capture demande une session ouverte sur la plateforme de démonstration, puisque
+  les projets y vivent depuis la `2.0.0`, et celle du poste a été révoquée. Reprendre la main
+  demandait un mot de passe.
+
+  **L'écart attendu, écrit avant qu'il soit mesuré.** Deux substitutions, chacune de longueur
+  constante, donc sans effet sur les décalages internes des PDF : `2.0.0` → `2.0.1` et
+  `2026-09-23` → `2026-09-24`. Rien d'autre ne doit avoir bougé — la correction de cette version ne
+  touche que les textures de la vue 3D, et aucun des six artefacts n'en porte.
+
+  **Comment refermer.** Remettre l'ancien numéro et l'ancienne date dans les octets frais doit
+  rendre les six empreintes de la `2.0.0` au bit près, et une comparaison ligne à ligne à version
+  neutralisée ne doit montrer aucune ligne différente. C'est le protocole habituel ; ici il sert de
+  quittance plutôt que de preuve d'avant-recapture.
+
+  **Ce que cela coûte en attendant.** Les six témoins continuent de protéger contre un changement
+  de contenu — le test compare bien les fichiers à leurs empreintes — mais ils ne prouvent plus que
+  le build courant les reproduit. C'est une dette, pas une dérive silencieuse : elle est datée,
+  chiffrée et refermable en une session.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
