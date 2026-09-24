@@ -5,22 +5,66 @@
 
 import { chargement } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import type * as THREE_NS from 'three';
 
 /**
- * Charge une texture, et la redimensionne si l'image decodee depasse 1024 px.
+ * Combien de metres reels une image de texture represente.
  *
- * Ce plafond n'est pas un reglage de qualite mais un garde-fou memoire : une image 4096 × 4096 non
- * compressee occupe environ 64 Mo de memoire graphique **pour une seule carte d'un seul objet**.
- * Sur un telephone, c'est une grande part du budget de l'onglet, et le depassement tue la page sans
- * erreur rattrapable — le systeme met fin au processus.
- *
- * Une instance par usage, plutot qu'un cache partage : cloner une texture avant la fin de son
- * chargement la prive **definitivement** de son image (verifie — le clone garde un `.image` vide
- * meme apres coup, `TextureLoader` ne relie pas les deux de facon vivante). Chaque objet a de toute
- * facon son propre `repeat` a regler selon sa taille, et le second telechargement de la meme URL
- * passe par le cache HTTP du navigateur.
+ * La meme regle partout — murs, sol, lames — pour qu'un carreau ait la meme taille visuelle quel
+ * que soit l'objet sur lequel il tombe. Elle vit ici, avec le chargeur, parce que c'est le chargeur
+ * qui pose la repetition : voir `chargerTexturePolyhaven`.
  */
-export function chargerTexturePolyhaven(url: string) {
+export const METRES_PAR_CARREAU = 2;
+
+/**
+ * Les textures deja chargees, par URL. **Elles appartiennent a ce module, pas aux scenes.**
+ *
+ * C'est le coeur de la correction du 24 septembre 2026. Avant, chaque materiau appelait le chargeur
+ * et recevait une instance neuve : le plan de demonstration ne reference que **huit** images, et la
+ * scene en fabriquait **178** — une par face de lame, de solive, de lambourde. Une image 1024 × 1024
+ * occupe 4 Mio en memoire graphique, pres de 5,3 Mio avec ses niveaux de detail : environ 950 Mio
+ * au lieu de 43. Un onglet de telephone en a quelques centaines, et le depassement ne leve aucune
+ * erreur rattrapable — le systeme met fin au processus, ce qui se voit comme un plantage a
+ * l'affichage de la vue 3D.
+ *
+ * **Partager, et non cloner.** L'ancien commentaire donnait deux raisons de ne pas mutualiser. La
+ * premiere tient toujours : cloner une texture avant la fin de son chargement la prive
+ * definitivement de son image — le clone garde un `.image` vide meme apres coup, `TextureLoader` ne
+ * relie pas les deux de facon vivante. Elle ne s'applique pas ici, puisqu'on rend la **meme**
+ * instance. La seconde — « chaque objet a son propre `repeat` a regler selon sa taille » — avait
+ * cesse d'etre vraie : la repetition est une constante depuis qu'on a constate que la
+ * reproportionner selon la taille etait faux. C'est pourquoi elle est posee ici, une fois, et
+ * qu'aucun appelant n'a plus a y toucher.
+ */
+const partagees = new Map<string, THREE_NS.Texture>();
+
+/**
+ * Lesquelles sont partagees, pour que la demolition de scene sache ce qu'elle n'a fait qu'emprunter.
+ *
+ * Un ensemble faible plutot qu'une marque posee sur la texture : rien d'exterieur ne peut se
+ * declarer partage par erreur, et la reponse vient de celui qui possede reellement les instances.
+ */
+const marquees = new WeakSet<THREE_NS.Texture>();
+
+/** Cette texture appartient-elle au cache ? Si oui, personne d'autre n'a le droit de la detruire. */
+export function estTexturePartagee(tex: THREE_NS.Texture): boolean {
+  return marquees.has(tex);
+}
+
+/**
+ * Charge une texture, ou rend celle qui porte deja cette URL.
+ *
+ * Le plafond de 1024 px n'est pas un reglage de qualite mais un garde-fou memoire : une image
+ * 4096 × 4096 non compressee occupe environ 64 Mio de memoire graphique **pour une seule carte**.
+ *
+ * **Ne disposez pas ce qu'on vous rend.** La scene ne possede pas ces textures ; elle les emprunte.
+ * `estTexturePartagee` le dit a la demolition de scene, qui libere tout le reste. Seul
+ * `libererTexturesPartagees` a le droit de les detruire.
+ */
+export function chargerTexturePolyhaven(url: string): THREE_NS.Texture {
+  const dejaLa = partagees.get(url);
+  if (dejaLa) return dejaLa;
+
   const tex = new THREE.TextureLoader().load(url, () => {
     const MAX_DIM = 1024;
     const img0 = tex.image;
@@ -34,7 +78,27 @@ export function chargerTexturePolyhaven(url: string) {
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1 / METRES_PAR_CARREAU, 1 / METRES_PAR_CARREAU);
+  marquees.add(tex);
+  partagees.set(url, tex);
   return tex;
+}
+
+/**
+ * Rend les textures partagees a la carte graphique. A n'appeler que lorsqu'**aucune** scene 3D
+ * n'est vivante.
+ *
+ * Le moment est le retour au plan, pas la demolition de scene : `buildThreeScene` demolit la scene
+ * precedente avant d'en batir une neuve, et liberer la aurait vide le cache a chaque case cochee.
+ */
+export function libererTexturesPartagees(): void {
+  partagees.forEach((t) => t.dispose());
+  partagees.clear();
+}
+
+/** Combien de textures le cache tient. Lu par les tests, et utile a qui mesure. */
+export function nombreDeTexturesPartagees(): number {
+  return partagees.size;
 }
 
 /**

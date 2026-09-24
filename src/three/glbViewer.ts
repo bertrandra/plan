@@ -13,7 +13,7 @@ import { vue3d, glb, chargement } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
-import { ensureGLTFLoaderLoaded } from './chargeurs.js';
+import { ensureGLTFLoaderLoaded, estTexturePartagee } from './chargeurs.js';
 import { estMesh, estLumiere, estTexture } from './gardes.js';
 
 /**
@@ -122,7 +122,11 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
       // sont des textures est plus sur que d'enumerer les noms connus.
       Object.keys(mat).forEach(key=>{
         const v = (mat as unknown as Record<string, unknown>)[key];
-        if(estTexture(v)) v.dispose();
+        // Une texture partagee est EMPRUNTEE a `chargeurs.ts`, qui la distribue a toutes les
+        // scenes et la garde entre deux. La detruire ici la retirerait sous les pieds de la scene
+        // suivante — un materiau garderait une carte vide, et la terrasse s'afficherait en noir.
+        // C'est le piege exact que le partage introduit, et cette marque est ce qui l'evite.
+        if(estTexture(v) && !estTexturePartagee(v)) v.dispose();
       });
       mat.dispose();
     });
@@ -130,7 +134,7 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
   // scene.background can itself be a texture (the GLB viewer's "damier" checkerboard uses a
   // CanvasTexture) rather than a plain THREE.Color - traverse() never visits it since it isn't
   // part of the object graph, so it needs disposing separately or it leaks like any other texture.
-  if(estTexture(scene.background)) scene.background.dispose();
+  if(estTexture(scene.background) && !estTexturePartagee(scene.background)) scene.background.dispose();
 }
 
 export function disposeThreeScene(){

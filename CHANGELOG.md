@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **La vue 3D faisait planter le navigateur sur téléphone.** Chaque matériau demandait sa propre
+  copie de texture : le plan de démonstration ne référence que huit images, et la scène en
+  fabriquait 178, une par face de lame, de solive, de lambourde. Une image 1024 × 1024 occupe 4 Mio
+  en mémoire graphique, près de 5,3 Mio avec ses niveaux de détail — soit environ 950 Mio au lieu
+  de 43. Un onglet de téléphone en a quelques centaines, et le dépassement ne lève aucune erreur
+  rattrapable : le système met fin au processus, ce qui se voit comme un plantage à l'affichage.
+
+  Les textures sont désormais partagées par URL. **Elles appartiennent au chargeur, plus à la
+  scène** : la démolition de scène libérait toute texture rencontrée et aurait retiré à la scène
+  suivante celle qu'elle attend, ce qui aurait échangé un plantage contre une terrasse noire. Un
+  ensemble faible dit lesquelles sont empruntées, et le seul moment où elles sont rendues est le
+  retour au plan, quand aucune scène 3D n'est vivante.
+
+  La règle du carreau (combien de mètres réels une image représente) a suivi la texture chez le
+  chargeur, puisque c'est lui qui possède l'instance. C'est ce qui rendait le partage possible :
+  cette répétition avait cessé de dépendre de l'objet, et la raison invoquée pour ne pas mutualiser
+  n'existait donc plus.
+
+  **Conséquence à connaître :** l'export GLB écrit une image par instance de texture. Le fichier va
+  donc maigrir fortement, et les compteurs `textures`, `images` et `octetsTotal` du témoin
+  `glb-structure.json` vont baisser. Tous les autres doivent rester identiques. C'est écrit dans
+  `tests/fixtures/golden/EMPREINTES.md` avant le mouvement, pour que personne ne le prenne pour une
+  régression.
+
 ## [2.0.0] — 2026-09-23
 
 **Plan demande qui vous êtes.** L'accès anonyme est terminé : l'application est un produit de la

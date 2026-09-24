@@ -278,10 +278,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     });
   }
 
-  // Une image de texture represente environ METRES_PAR_CARREAU m de facade reelle - la meme
-  // regle partout (murs, sol, lames), pour qu'un carreau ait la meme taille visuelle quel que
-  // soit l'objet sur lequel il tombe.
-  const METRES_PAR_CARREAU = 2;
+  // La regle du carreau (combien de metres reels une image represente) a suivi la texture chez
+  // `chargeurs.ts` : c'est lui qui pose la repetition, parce que c'est lui qui possede l'instance.
   // Extrudes a plan-space footprint upward. ExtrudeGeometry builds in XY and pushes along +Z,
   // so the shape is laid out as (x, -z) and rotated a quarter turn about X to stand it up.
   // `opacity` : passe undefined pour les pieces de la terrasse elle-meme (toujours pleines),
@@ -335,16 +333,13 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
         const mat = new THREE.MeshStandardMaterial({color});
         if(opacity !== undefined && opacity < 1){ mat.transparent = true; mat.opacity = Math.max(0.15, opacity); }
         const urlTex = urlTexture(texRef);
-        if(urlTex){
-          mat.map = ctx.chargerTexturePolyhaven(urlTex);
-          // Les UV valent deja des metres reels (deroule du perimetre ci-dessus pour les faces
-          // laterales, coordonnees brutes du plan pour les capuchons) : un repeat de
-          // 1/METRES_PAR_CARREAU suffit a caler une image sur METRES_PAR_CARREAU m, quelle que
-          // soit la taille de l'objet - pas besoin (et surtout pas correct) de reproportionner
-          // en plus selon sa taille, ce qui doublait l'echelle et donnait un quadrillage bien
-          // trop dense sur les grands objets (parcelle, terrasse).
-          mat.map.repeat.set(1/METRES_PAR_CARREAU, 1/METRES_PAR_CARREAU);
-        }
+        // Les UV valent deja des metres reels (deroule du perimetre ci-dessus pour les faces
+        // laterales, coordonnees brutes du plan pour les capuchons) : la repetition posee par le
+        // chargeur cale une image sur METRES_PAR_CARREAU m, quelle que soit la taille de l'objet —
+        // pas besoin (et surtout pas correct) de reproportionner en plus selon sa taille, ce qui
+        // doublait l'echelle et donnait un quadrillage bien trop dense sur les grands objets.
+        // C'est parce que ce reglage ne depend plus de l'objet que la texture peut etre partagee.
+        if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex);
         return mat;
       };
       if(textures && (textures.horizontale || textures.vertical)){
@@ -434,13 +429,10 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     const mat = new THREE.MeshStandardMaterial({color, side:THREE.DoubleSide});
     if(opacity !== undefined && opacity < 1){ mat.transparent = true; mat.opacity = Math.max(0.15, opacity); }
     const urlTex = urlTexture(texRef);
-    if(urlTex){
-      mat.map = ctx.chargerTexturePolyhaven(urlTex);
-      // ShapeGeometry pousse deja les coordonnees locales brutes (des metres reels) comme UV -
-      // meme correction qu'addPrism plus haut : 1/METRES_PAR_CARREAU cale une image sur
-      // METRES_PAR_CARREAU m sans reproportionner en plus selon la taille de la forme.
-      mat.map.repeat.set(1/METRES_PAR_CARREAU, 1/METRES_PAR_CARREAU);
-    }
+    // ShapeGeometry pousse deja les coordonnees locales brutes (des metres reels) comme UV : la
+    // repetition posee par le chargeur cale une image sur METRES_PAR_CARREAU m sans qu'on ait a
+    // reproportionner selon la taille de la forme.
+    if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);

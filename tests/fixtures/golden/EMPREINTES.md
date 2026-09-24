@@ -252,6 +252,23 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   l'empreinte de `projet.json` figeait un uuid et une date de modification. C'est la preuve forte
   qui l'a revelee, en butant sur cette date. Le motif accepte desormais l'espace.
 
+- **24 septembre 2026 — un témoin sciemment en retard : `glb-structure.json`.** Les textures de la
+  vue 3D sont désormais partagées par URL au lieu d'être réinstanciées à chaque matériau. La scène
+  ne change ni de géométrie, ni de matériaux, ni d'apparence, mais l'exportateur écrit **une image
+  par instance de texture** : il en écrivait 178 pour les huit images que le plan référence, il n'en
+  écrira plus que le nombre d'images distinctes réellement employées. Les compteurs `textures`,
+  `images` et `octetsTotal` de ce témoin vont donc baisser, et le fichier maigrir très fortement.
+
+  **Ce n'est pas une régression, et il faut le lire ici avant de le découvrir là-bas.** La règle de
+  ce dossier dit qu'une empreinte qui bouge sans explication est un changement majeur ; en voici
+  l'explication, écrite avant le mouvement. Les autres compteurs — nœuds, mailles, matériaux,
+  accesseurs, vues tampon, scènes — ne doivent pas bouger d'une unité : si l'un d'eux bouge, c'est
+  autre chose, et il faut chercher.
+
+  Le témoin n'a pas été recapturé parce que la capture demande une session ouverte sur la
+  plateforme de démonstration, et que celle du poste était expirée. À faire au prochain passage en
+  vue 3D, en vérifiant les six compteurs invariants ci-dessus.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 

@@ -15,6 +15,7 @@
 // sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
 import { glb, chargement } from '../three/etat3d.js';
+import { libererTexturesPartagees } from '../three/chargeurs.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
 
 /** Ce que l'utilisateur regarde. Trois vues, un seul bouton allume. */
@@ -68,6 +69,11 @@ export function creerModes(ctx: ContexteModes) {
     afficher(['vue3dPanel'], !surLePlan, 'block');
     if (surLePlan) {
       ctx.disposeThreeScene();
+      // Le seul endroit d'ou les textures partagees peuvent etre rendues a la carte graphique :
+      // ici, aucune scene 3D n'est vivante — la visionneuse a ete fermee en tete de fonction, et
+      // la Vue 3D vient d'etre demolie. Le faire dans `disposeThreeScene` aurait vide le cache a
+      // chaque case cochee, puisque reconstruire une scene commence par demolir la precedente.
+      libererTexturesPartagees();
       document.getElementById('terrasse3dWrap')!.style.display = 'none';
       ctx.render();
     } else {
