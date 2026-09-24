@@ -236,16 +236,18 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 [ ] CHANGELOG.md section written in French, dated
 [ ] package.json version bumped, committed, tagged vX.Y.Z (annotated, signed)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
-[ ] .htaccess régénéré par le build et déployé avec plan.html — les empreintes des scripts
-    changent à chaque build, donc un .htaccess recopié d'un build précédent bloque la page
+[ ] Les deux fichiers de `livraison/` — `index.html` et `.htaccess` — déposés ENSEMBLE à la racine
+    web. Les empreintes des scripts changent à chaque build, donc un .htaccess recopié d'un build
+    précédent bloque la page entière, et en production seulement
 [ ] Deployed to staging next to a copy of production data
 [ ] Manual smoke checklist (25 items) passed on staging
 [ ] Multi-tenant releases: cross-tenant isolation suite green on staging
 [ ] minClientVersion updated in server config if this release is mandatory
 [ ] Deployed to production
 [ ] Post-deploy: open an existing production project, edit, save, reload
-[ ] Post-deploy: npm run verifier-deploiement https://<hôte> — onze contrôles verts, dont
-    l'empreinte du fichier servi, les en-têtes, le cache et data/ fermé
+[ ] Post-deploy: npm run verifier-deploiement https://<hôte> — quatorze contrôles verts, dont
+    l'empreinte du fichier servi à la RACINE, la redirection permanente de l'ancienne adresse
+    `/plan.html` avec sa chaîne de requête, les en-têtes, le cache et data/ fermé
 [ ] GitHub release published with the changelog section
 ```
 

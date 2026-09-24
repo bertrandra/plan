@@ -37,7 +37,10 @@ async function demander(chemin, options = {}) {
 // ---------------------------------------------------------------------------------------------
 let page = null;
 try {
-  const r = await demander('/plan.html');
+  // La racine, pas un nom de fichier : c'est l'adresse que la plateforme distribue (`app_url`),
+  // celle qu'on doit donc verifier. Demander `/index.html` passerait a cote d'un `DirectoryIndex`
+  // absent ou mal regle, qui est precisement le defaut que ce controle doit attraper.
+  const r = await demander('/');
   if (r.statut === 401) {
     noter('la page repond', false, '401 : authentification basique encore en place devant cet hote');
   } else if (r.statut !== 200) {
@@ -47,7 +50,7 @@ try {
     noter('la page repond', true, page.length.toLocaleString('fr-FR') + ' octets');
   }
 
-  const local = resolve(racineDepot, 'plan.html');
+  const local = resolve(racineDepot, 'livraison/index.html');
   if (page && existsSync(local)) {
     const enLigne = createHash('sha256').update(page).digest('hex');
     const ici = createHash('sha256').update(readFileSync(local)).digest('hex');
@@ -59,7 +62,7 @@ try {
     const cache = r.entetes.get('cache-control') || '';
     const longue = /max-age=(\d+)/.exec(cache);
     const tropLong = longue && Number(longue[1]) > 3600;
-    noter('plan.html n\'est pas mis en cache', /no-cache|no-store/.test(cache) && !tropLong,
+    noter('la page n\'est pas mise en cache', /no-cache|no-store/.test(cache) && !tropLong,
       cache || 'aucun Cache-Control');
 
     for (const [entete, attendu] of [
@@ -91,6 +94,26 @@ try {
   }
 } catch (e) {
   noter('la page repond', false, String(e).slice(0, 120));
+}
+
+// ---------------------------------------------------------------------------------------------
+// 1 bis. L'ancienne adresse mene toujours a la nouvelle.
+//
+// La page s'appelait `plan.html` jusqu'a la 2.0.1. Des signets existent, et un lien profond porte
+// `?projet=<uuid>` : la redirection doit donc etre permanente ET reporter la chaine de requete,
+// sans quoi elle renvoie sur un plan que la personne n'a pas demande.
+// ---------------------------------------------------------------------------------------------
+try {
+  const r = await demander('/plan.html?projet=witness');
+  const ou = r.entetes.get('location') || '';
+  noter('l ancienne adresse redirige', r.statut === 301,
+    r.statut === 301 ? '301 vers ' + (ou || '(sans Location)') : 'HTTP ' + r.statut);
+  if (r.statut === 301) {
+    noter('la redirection garde le projet demande', /\?projet=witness/.test(ou),
+      ou || 'aucun Location');
+  }
+} catch (e) {
+  noter('l ancienne adresse redirige', false, e.message);
 }
 
 // ---------------------------------------------------------------------------------------------

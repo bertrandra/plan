@@ -5,6 +5,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié — le déploiement, pas l'application
+
+- **La page livrée s'appelle `index.html`**, et l'adresse canonique de Plan devient la racine de son
+  sous-domaine. C'est celle que la plateforme distribue : elle range une **origine** pour le produit,
+  sans chemin ni nom de fichier, et un navigateur résout une origine nue vers l'index du répertoire.
+  Tant que la page s'appelait `plan.html`, cette résolution tenait à une seule ligne `DirectoryIndex`
+  embarquée dans un fichier qui doit être redéployé à chaque build : le perdre, ou passer à nginx ou
+  à un CDN, et l'adresse même que la plateforme donne cessait de répondre.
+- **L'ancienne adresse redirige définitivement**, en reportant la chaîne de requête, si bien qu'un
+  lien profond `/plan.html?projet=<uuid>` arrive entier. Le vérificateur de déploiement le contrôle,
+  et il interroge désormais la racine plutôt qu'un nom de fichier — demander `/index.html` passerait
+  à côté d'un `DirectoryIndex` absent, qui est précisément le défaut à attraper.
+- **Les deux fichiers à déposer vivent dans `livraison/`**, et nulle part ailleurs : `index.html` et
+  `.htaccess`. Ils partent ensemble, comme toujours.
+
+  **Le fichier livré n'a pas bougé d'un octet** : ce sont les octets de la `2.0.1`. C'est un
+  changement de déploiement, pas de produit, et il ne porte donc pas de numéro à lui.
+
+  N'a **pas** suivi le renommage, délibérément : le littéral `plan.html` dans ce que Plan exporte —
+  le `/Creator` des deux PDF et le champ `exportedBy` du projet JSON. Il identifie l'artefact, pas
+  une URL, et il est figé dans deux des six témoins.
+
 ## [2.0.1] — 2026-09-24
 
 ### Corrigé

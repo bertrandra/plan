@@ -54,7 +54,7 @@ export default defineConfig({
     {
       // La configuration Apache se deduit du build : les empreintes des scripts en ligne changent a
       // chaque compilation, donc le `.htaccess` ne peut pas etre un fichier fige. Il se depose a
-      // cote de plan.html, et c'est lui qui coupe le cache de six mois, refuse
+      // cote d'index.html a la racine web, et c'est lui qui coupe le cache de six mois, refuse
       // `data/` au public et pose les en-tetes de securite.
       name: 'ecrire-htaccess',
       closeBundle() {

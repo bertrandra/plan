@@ -1,7 +1,7 @@
 // Aucun secret dans le fichier livre.
 //
 //   node scripts/verifier-paquet.mjs          verifie dist/index.html
-//   node scripts/verifier-paquet.mjs plan.html
+//   node scripts/verifier-paquet.mjs livraison/index.html
 //
 // MD/spec-connexion-plateforme.md §2 : le paquet ne porte que deux faits, tous deux publics —
 // l'origine de la plateforme et le code produit. La cle produit `bpk_…` et le secret de webhook

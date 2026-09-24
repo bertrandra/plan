@@ -1,11 +1,11 @@
 # Plan interactif — configuration Apache de la racine web.
 #
 # Ce fichier est un MODELE : `npm run build` le lit, remplace le jeton de la politique plus bas par
-# les empreintes SHA-256 des scripts en ligne de `plan.html`, et ecrit le resultat dans
-# `dist/.htaccess`. Le jeton doit rester unique dans le fichier, sinon c'est la premiere occurrence
-# qui serait substituee — le build le verifie et echoue sinon. Le resultat se
-# depose a cote de `plan.html` et d'`api.php`. Une modification faite ici se perd au prochain build ;
-# c'est le modele qu'il faut changer.
+# les empreintes SHA-256 du script en ligne de la page, et ecrit le resultat dans `dist/.htaccess`.
+# Le jeton doit rester unique dans le fichier, sinon c'est la premiere occurrence qui serait
+# substituee — le build le verifie et echoue sinon. Le resultat se depose a la racine web, a cote
+# d'`index.html`. Une modification faite ici se perd au prochain build ; c'est le modele qu'il faut
+# changer.
 #
 # Pourquoi des empreintes plutot que `'unsafe-inline'` : le build produit un fichier unique, donc
 # tout le programme est un `<script>` en ligne. Autoriser l'inline en bloc reviendrait a desactiver
@@ -14,7 +14,23 @@
 # `'unsafe-inline'` pour les scripts — les deux ne se cumulent pas.
 
 Options -Indexes
-DirectoryIndex plan.html
+
+# La page s'appelle `index.html` depuis la 2.0.2, et l'adresse canonique de Plan est donc la racine
+# de son sous-domaine : `https://plan.raillard.org/`.
+#
+# C'est celle que la plateforme distribue — elle range une ORIGINE pour le produit (`app_url`), sans
+# chemin ni nom de fichier — et c'est celle que le web resout par defaut, sur Apache comme ailleurs.
+# Tant que la page s'appelait `plan.html`, cette resolution tenait a la ligne ci-dessous et a elle
+# seule : un `.htaccess` manquant, un passage a nginx ou a un CDN, et la racine cessait de repondre
+# a l'adresse meme que la plateforme donne. La ligne reste, explicite, mais elle ne porte plus rien.
+DirectoryIndex index.html
+
+# L'ancienne adresse continue de mener a la nouvelle, definitivement.
+#
+# `plan.raillard.org/plan.html` a ete l'adresse de Plan jusqu'a la 2.0.1, et `plan1.raillard.org`
+# avant elle. Des signets existent. `Redirect` de mod_alias reporte la chaine de requete telle
+# quelle, donc un lien profond `/plan.html?projet=<uuid>` arrive entier sur `/?projet=<uuid>`.
+Redirect 301 /plan.html /
 
 # 1. Les projets ne se lisent que par l'API.
 #
@@ -39,7 +55,7 @@ RedirectMatch 404 ^/data(/|$)
 <IfModule mod_headers.c>
   # 3. Le cache.
   #
-  # `plan.html` est un fichier unique dont le nom ne change jamais : c'est donc exactement le
+  # `index.html` est un fichier unique dont le nom ne change jamais : c'est donc exactement le
   # fichier a ne pas mettre en cache. Il etait servi avec `max-age=15552000` — six mois — ce qui
   # veut dire qu'une mise en ligne n'atteignait pas les gens qui reviennent. Un deploiement que
   # personne ne telecharge n'est pas un deploiement.

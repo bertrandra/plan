@@ -66,6 +66,20 @@ all of it against a live host, and reported seven failures out of eleven on 22 S
 content policy it carries already names every origin of §14.4, which is the part of §1 this
 specification no longer has to ask for.
 
+**The page is `index.html` since 24 September 2026, and the canonical address of Plan is the root
+of its subdomain.** That is what the platform hands out: it stores an *origin* for the product
+(`app_url`, no path, no filename), and the browser resolves a bare origin to the directory index by
+default. While the page was called `plan.html`, that resolution rested on a single `DirectoryIndex`
+line shipped inside a file that has to be redeployed at every build — lose it, or move to nginx or
+a CDN, and the very address the platform distributes stops answering. The old address redirects
+permanently and carries its query string, so a deep link `/plan.html?projet=<uuid>` still lands on
+the project it names. Mentions of `plan.html` further down this document are observations dated
+before the rename, and are left as they were written.
+
+One thing deliberately did **not** follow: the literal `plan.html` inside what Plan exports — the
+`/Creator` of both PDFs and `exportedBy` in the project JSON. It identifies the artefact, not a
+URL, and it is frozen into two of the six witnesses. Renaming the served file leaves it untouched.
+
 ---
 
 ## 1. Deployment
