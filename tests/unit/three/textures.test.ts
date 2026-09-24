@@ -75,10 +75,29 @@ describe('le cache des textures', () => {
 
   it('pose la repetition lui-meme : aucun appelant n a plus a toucher l instance', async () => {
     const { chargerTexturePolyhaven, METRES_PAR_CARREAU } = await chargeurs();
-    const t = chargerTexturePolyhaven('https://exemple/chene.jpg');
+    const carreau = chargerTexturePolyhaven('https://exemple/chene.jpg', 1 / METRES_PAR_CARREAU);
     expect(METRES_PAR_CARREAU).toBe(2);
-    expect(t.repeat.x).toBeCloseTo(1 / METRES_PAR_CARREAU, 9);
-    expect(t.repeat.y).toBeCloseTo(1 / METRES_PAR_CARREAU, 9);
+    expect(carreau.repeat.x).toBeCloseTo(0.5, 9);
+    expect(carreau.repeat.y).toBeCloseTo(0.5, 9);
+  });
+
+  it('fait le tour une fois par defaut : un cone et une sphere ne se mesurent pas en metres', async () => {
+    const { chargerTexturePolyhaven } = await chargeurs();
+    const enroulee = chargerTexturePolyhaven('https://exemple/ecorce.jpg');
+    expect(enroulee.repeat.x).toBe(1);
+  });
+
+  it('separe les deux echelles d une meme image, parce que Three porte la repetition sur la texture', async () => {
+    // C'est le piege qui a failli passer : une seule instance par URL aurait donne au cone d'un
+    // parasol et a la sphere d'un arbre l'echelle du carreau, alors que leurs coordonnees de
+    // texture sont normalisees. On aurait corrige le plantage en abimant deux objets.
+    const { chargerTexturePolyhaven, METRES_PAR_CARREAU, nombreDeTexturesPartagees } = await chargeurs();
+    const mur = chargerTexturePolyhaven('https://exemple/chene.jpg', 1 / METRES_PAR_CARREAU);
+    const arbre = chargerTexturePolyhaven('https://exemple/chene.jpg');
+    expect(arbre).not.toBe(mur);
+    expect(mur.repeat.x).toBeCloseTo(0.5, 9);
+    expect(arbre.repeat.x).toBe(1);
+    expect(nombreDeTexturesPartagees(), 'deux echelles, deux instances, pas une de plus').toBe(2);
   });
 
   it('marque ce qu il possede, et rien d autre', async () => {
@@ -118,15 +137,44 @@ describe('ce que la source doit continuer de dire', () => {
 
   it('la scene ne regle plus la repetition d une texture qu elle emprunte', () => {
     // C'etait vrai a deux endroits, et cela rendait le partage impossible : deux objets auraient
-    // reecrit la meme instance. Si quelqu'un le refait, ce test tombe avant l'affichage.
+    // reecrit la meme instance. Elle la DEMANDE desormais, elle ne la pose plus.
     expect(sansCommentaires).not.toMatch(/\.map\.repeat\.set/);
-    expect(sansCommentaires).not.toMatch(/METRES_PAR_CARREAU/);
+  });
+
+  it('demande l echelle du carreau la ou les coordonnees sont des metres, et nulle part ailleurs', () => {
+    // Deux familles, et le compte de chacune. Un appel de plus dans la mauvaise colonne remettrait
+    // un cone de parasol ou une sphere d'arbre a l'echelle d'un mur.
+    const appels = sansCommentaires.match(/chargerTexturePolyhaven\([^)]*\)/g) || [];
+    const avecCarreau = appels.filter((a) => a.includes('METRES_PAR_CARREAU'));
+    const sansCarreau = appels.filter((a) => !a.includes('METRES_PAR_CARREAU'));
+    expect(avecCarreau.length, 'prisme et ruban : leurs UV sont des metres').toBe(2);
+    expect(sansCarreau.length, 'toile de parasol et feuillage : leurs UV sont normalises').toBe(2);
   });
 
   it('la demolition de scene epargne ce qu elle a emprunte', () => {
     const viewer = readFileSync(resolve(__dirname, '../../../src/three/glbViewer.ts'), 'utf8');
     expect(viewer).toContain('estTexture(v) && !estTexturePartagee(v)');
     expect(viewer).toContain('!estTexturePartagee(scene.background)');
+  });
+
+  it('l export GLB serialise la scene de la Vue 3D, donc il herite du partage', () => {
+    // C'est ce qui rend la correction valable pour les trois chemins d'un seul geste. L'exportateur
+    // de Three range ses textures dans un cache indexe par l'INSTANCE (`cache.textures.has(map)`) :
+    // 178 instances distinctes donnaient 178 images embarquees, huit instances en donnent huit.
+    const exportGlb = readFileSync(resolve(__dirname, '../../../src/three/exportGlb.ts'), 'utf8');
+    expect(exportGlb).toContain('exporteur.parse(vue3d.scene!.scene');
+  });
+
+  it('la visionneuse ne montre que ce que Plan vient d exporter', () => {
+    // Elle fabrique ses propres textures, par le lecteur glTF, a partir des images du fichier :
+    // elles ne sont ni partagees ni marquees, donc la demolition les libere comme avant. Son gain
+    // est indirect et entier — le fichier qu'elle relit ne porte plus les images en double.
+    const viewer = readFileSync(resolve(__dirname, '../../../src/three/glbViewer.ts'), 'utf8');
+    expect(viewer).toContain('loader.parse(glb.dernierExporte.buffer');
+    // Une seule lecture de modele, et c'est celle-la : le jour ou une seconde apparait — un fichier
+    // choisi sur le disque, par exemple — le raisonnement ci-dessus cesse de tenir, et ce compte le
+    // dira avant qu'un .glb etranger ne fasse revivre le probleme.
+    expect(viewer.split('loader.parse(').length - 1, 'une seule source de modele').toBe(1);
   });
 
   it('libere au retour au plan, jamais a la demolition d une scene', () => {

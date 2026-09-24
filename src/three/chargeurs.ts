@@ -10,14 +10,17 @@ import type * as THREE_NS from 'three';
 /**
  * Combien de metres reels une image de texture represente.
  *
- * La meme regle partout — murs, sol, lames — pour qu'un carreau ait la meme taille visuelle quel
- * que soit l'objet sur lequel il tombe. Elle vit ici, avec le chargeur, parce que c'est le chargeur
- * qui pose la repetition : voir `chargerTexturePolyhaven`.
+ * La meme regle pour tout ce dont les coordonnees de texture sont **des metres** — murs, sol,
+ * lames, bandes — pour qu'un carreau ait la meme taille visuelle quel que soit l'objet sur lequel
+ * il tombe. Un cone de parasol ou une sphere d'arbre ne sont pas dans ce cas : leurs coordonnees
+ * sont deja normalisees, et l'image doit en faire le tour une fois. D'ou le second argument de
+ * `chargerTexturePolyhaven`, qui distingue ces deux familles.
  */
 export const METRES_PAR_CARREAU = 2;
 
 /**
- * Les textures deja chargees, par URL. **Elles appartiennent a ce module, pas aux scenes.**
+ * Les textures deja chargees, par URL **et repetition**. Elles appartiennent a ce module, pas aux
+ * scenes.
  *
  * C'est le coeur de la correction du 24 septembre 2026. Avant, chaque materiau appelait le chargeur
  * et recevait une instance neuve : le plan de demonstration ne reference que **huit** images, et la
@@ -32,9 +35,9 @@ export const METRES_PAR_CARREAU = 2;
  * definitivement de son image — le clone garde un `.image` vide meme apres coup, `TextureLoader` ne
  * relie pas les deux de facon vivante. Elle ne s'applique pas ici, puisqu'on rend la **meme**
  * instance. La seconde — « chaque objet a son propre `repeat` a regler selon sa taille » — avait
- * cesse d'etre vraie : la repetition est une constante depuis qu'on a constate que la
- * reproportionner selon la taille etait faux. C'est pourquoi elle est posee ici, une fois, et
- * qu'aucun appelant n'a plus a y toucher.
+ * cesse d'etre vraie : la repetition ne depend plus de la taille de l'objet, seulement de la nature
+ * de ses coordonnees de texture, et elle ne prend que deux valeurs. C'est pourquoi elle est posee
+ * ici, une fois par valeur, et qu'aucun appelant n'a plus a toucher une instance qu'il partage.
  */
 const partagees = new Map<string, THREE_NS.Texture>();
 
@@ -52,17 +55,31 @@ export function estTexturePartagee(tex: THREE_NS.Texture): boolean {
 }
 
 /**
- * Charge une texture, ou rend celle qui porte deja cette URL.
+ * Charge une texture, ou rend celle qui porte deja cette URL **et cette repetition**.
  *
  * Le plafond de 1024 px n'est pas un reglage de qualite mais un garde-fou memoire : une image
  * 4096 × 4096 non compressee occupe environ 64 Mio de memoire graphique **pour une seule carte**.
  *
+ * **La repetition fait partie de la cle, parce que Three la porte sur la texture et non sur le
+ * materiau.** Deux objets qui veulent la meme image a deux echelles ne peuvent donc pas partager
+ * une instance : ils en recoivent une chacun. C'est le prix exact du partage, et il est petit —
+ * deux familles d'echelle au plus, donc au pire le double de huit instances au lieu de 178.
+ *
+ * Ce detail a failli passer : mutualiser en posant une repetition unique aurait donne au cone d'un
+ * parasol et a la sphere d'un arbre l'echelle du carreau, alors que leurs coordonnees sont
+ * normalisees et attendent 1. Le plantage aurait ete corrige au prix de deux objets mal textures.
+ *
  * **Ne disposez pas ce qu'on vous rend.** La scene ne possede pas ces textures ; elle les emprunte.
  * `estTexturePartagee` le dit a la demolition de scene, qui libere tout le reste. Seul
  * `libererTexturesPartagees` a le droit de les detruire.
+ *
+ * @param repetition combien de fois l'image se repete sur une unite de coordonnees de texture.
+ *                   `1` pour une geometrie dont les coordonnees sont normalisees (cone, sphere) ;
+ *                   `1 / METRES_PAR_CARREAU` pour celles dont les coordonnees sont des metres.
  */
-export function chargerTexturePolyhaven(url: string): THREE_NS.Texture {
-  const dejaLa = partagees.get(url);
+export function chargerTexturePolyhaven(url: string, repetition = 1): THREE_NS.Texture {
+  const cle = url + ' @' + repetition;
+  const dejaLa = partagees.get(cle);
   if (dejaLa) return dejaLa;
 
   const tex = new THREE.TextureLoader().load(url, () => {
@@ -78,9 +95,9 @@ export function chargerTexturePolyhaven(url: string): THREE_NS.Texture {
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1 / METRES_PAR_CARREAU, 1 / METRES_PAR_CARREAU);
+  tex.repeat.set(repetition, repetition);
   marquees.add(tex);
-  partagees.set(url, tex);
+  partagees.set(cle, tex);
   return tex;
 }
 

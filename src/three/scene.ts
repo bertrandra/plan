@@ -22,6 +22,7 @@ import { PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { elOpt } from '../shell/dom.js';
 import { estMesh } from './gardes.js';
+import { METRES_PAR_CARREAU } from './chargeurs.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan, ObjetCercle, PtBrut, Construction } from '../model/types.js';
 import { aDesSommets, enPoints, enCercle } from '../model/formes.js';
@@ -74,7 +75,8 @@ export interface ContexteScene3d {
   /** Le fond orthophoto sert aussi de sol a la 3D. */
   orthoActif: () => boolean;
   orthoTuiles: () => TuileOrtho[];
-  chargerTexturePolyhaven: (url: string) => THREE_NS.Texture;
+  /** Une texture Poly Haven, partagee par URL et repetition (three/chargeurs.ts). */
+  chargerTexturePolyhaven: (url: string, repetition?: number) => THREE_NS.Texture;
   /** Demonte la scene precedente avant d'en construire une nouvelle. */
   disposeThreeScene: () => void;
   /** Repose le soleil une fois la scene batie. */
@@ -278,8 +280,10 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     });
   }
 
-  // La regle du carreau (combien de metres reels une image represente) a suivi la texture chez
-  // `chargeurs.ts` : c'est lui qui pose la repetition, parce que c'est lui qui possede l'instance.
+  // La regle du carreau vit avec le chargeur (`chargeurs.ts`), qui pose la repetition parce que
+  // c'est lui qui possede l'instance. On la lui demande ici pour les geometries dont les
+  // coordonnees de texture sont des metres ; le cone d'un parasol et la sphere d'un arbre, dont
+  // les coordonnees sont normalisees, gardent la repetition par defaut de 1.
   // Extrudes a plan-space footprint upward. ExtrudeGeometry builds in XY and pushes along +Z,
   // so the shape is laid out as (x, -z) and rotated a quarter turn about X to stand it up.
   // `opacity` : passe undefined pour les pieces de la terrasse elle-meme (toujours pleines),
@@ -339,7 +343,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
         // pas besoin (et surtout pas correct) de reproportionner en plus selon sa taille, ce qui
         // doublait l'echelle et donnait un quadrillage bien trop dense sur les grands objets.
         // C'est parce que ce reglage ne depend plus de l'objet que la texture peut etre partagee.
-        if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex);
+        if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex, 1/METRES_PAR_CARREAU);
         return mat;
       };
       if(textures && (textures.horizontale || textures.vertical)){
@@ -430,9 +434,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     if(opacity !== undefined && opacity < 1){ mat.transparent = true; mat.opacity = Math.max(0.15, opacity); }
     const urlTex = urlTexture(texRef);
     // ShapeGeometry pousse deja les coordonnees locales brutes (des metres reels) comme UV : la
-    // repetition posee par le chargeur cale une image sur METRES_PAR_CARREAU m sans qu'on ait a
+    // repetition demandee ici cale une image sur METRES_PAR_CARREAU m sans qu'on ait a
     // reproportionner selon la taille de la forme.
-    if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex);
+    if(urlTex) mat.map = ctx.chargerTexturePolyhaven(urlTex, 1/METRES_PAR_CARREAU);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);

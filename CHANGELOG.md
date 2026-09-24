@@ -22,8 +22,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
   La règle du carreau (combien de mètres réels une image représente) a suivi la texture chez le
   chargeur, puisque c'est lui qui possède l'instance. C'est ce qui rendait le partage possible :
-  cette répétition avait cessé de dépendre de l'objet, et la raison invoquée pour ne pas mutualiser
-  n'existait donc plus.
+  cette répétition avait cessé de dépendre de la taille de l'objet. Elle dépend en revanche de la
+  nature de ses coordonnées de texture, et **la répétition fait donc partie de la clé du cache** :
+  un mur, dont les coordonnées sont des mètres, et un arbre, dont la sphère est normalisée, ne
+  partagent pas la même instance d'une même image. Sans cela, la correction du plantage aurait été
+  payée par deux objets mal texturés.
+
+  **Les trois chemins sont couverts d'un seul geste.** La vue 3D directement ; l'export GLB parce
+  qu'il sérialise cette scène-là et que l'exportateur indexe ses textures par instance, donc les
+  images cessent d'y être écrites en double ; la visionneuse parce qu'elle ne relit que ce que Plan
+  vient d'exporter. Elle fabrique ses propres textures et n'en emprunte aucune, si bien que sa
+  démolition reste inchangée.
 
   **Conséquence à connaître :** l'export GLB écrit une image par instance de texture. Le fichier va
   donc maigrir fortement, et les compteurs `textures`, `images` et `octetsTotal` du témoin
