@@ -5,6 +5,37 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.6] — 2026-09-25
+
+**IHM mobile, étape M5** : les propriétés et les résultats sur téléphone et tablette.
+
+### Ajouté
+
+- **La feuille Propriétés** (téléphone) : l'inspecteur entier, ses quatorze sections dans le même
+  ordre, précédées de pastilles qui mènent à chaque section. Sur téléphone et tablette, **les
+  champs prennent une forme tactile** sans changer de descripteur : un nombre devient un pas à pas
+  (− et + de 44 px ; la valeur reste saisissable, virgule comprise ; un appui maintenu répète, et
+  ne laisse qu'un instantané d'annulation par appui), une case un interrupteur, un choix de trois
+  options courtes une commande segmentée. L'aide d'un champ grisé s'écrit sous lui.
+- **Le bandeau de chiffrage** en pied de l'inspecteur d'une terrasse : appuis, lames, fourchette
+  estimée, recalculés à chaque réglage, et un geste vers la nomenclature. La boucle
+  réglage → chiffrage se voit sur un seul écran de téléphone.
+- **La feuille Résultats** (téléphone) : les onglets en pastilles défilantes, le sélecteur de
+  terrasse (« 1 sur 2 »), et **les tableaux en cartes** — une ligne, une carte, chaque valeur
+  précédée du nom de sa colonne ; les prix, longueurs, cadences et boutons des cotes restent
+  éditables dans la carte. Sur tablette, les tableaux gardent leurs colonnes et défilent.
+- **Un bouton Copier** dans l'onglet Résumé.
+
+### Corrigé
+
+- **Le filet copiable des exports SVG et DXF s'écrivait dans un onglet fermé** : l'onglet Résumé
+  s'ouvre désormais quand il sert (D5).
+
+### Interne
+
+- `ui/tableau.ts` pose sur chaque cellule le nom de sa colonne (`data-label`) après chaque rendu des
+  panneaux, sans toucher à leur calcul ni à leurs écouteurs.
+
 ## [2.1.0-alpha.5] — 2026-09-25
 
 **IHM mobile, étape M4** : les outils et l'explorateur sur téléphone et tablette.

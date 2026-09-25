@@ -834,3 +834,136 @@
   html[data-classe="moyen"] #zoneResultats[data-hauteur="plein"] #tiroirPanneaux{ max-height:calc(100dvh - var(--reserve-haut) - var(--hauteur-barre-tiroir) - var(--hauteur-etat) - 16px); }
   html[data-classe="moyen"] #zoneEtat{ height:calc(var(--hauteur-etat) + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); z-index:36; overflow-x:auto; white-space:nowrap; }
   html[data-classe="moyen"] .feuilleSelection{ left:calc(88px + env(safe-area-inset-left)); bottom:calc(var(--reserve-bas) + 12px); }
+
+  /* ---- Les champs tactiles de l'inspecteur (spec-ihm-mobile §7.1), telephone et tablette ------ */
+  .pas{ display:inline-flex; align-items:stretch; border:1px solid var(--border); border-radius:var(--r-bouton); overflow:hidden; background:var(--input-bg); }
+  .pasBouton{
+    width:44px; min-height:44px; padding:0; flex:none; display:flex; align-items:center; justify-content:center;
+    border:none; border-radius:0; background:var(--panel-2); color:var(--ink); touch-action:manipulation; user-select:none;
+  }
+  .pasBouton:hover{ background:var(--accent-light); opacity:1; }
+  .pasBouton:disabled{ opacity:0.4; }
+  .pasValeur{ display:flex; align-items:center; justify-content:center; gap:3px; min-width:84px; padding:0 4px; }
+  .pas input[type=text]{
+    width:5.2ch; min-height:0; padding:0; border:none; background:transparent; color:var(--ink); text-align:right;
+    font-family:var(--sans); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;
+  }
+  .pas input[type=text]:focus{ outline:none; }
+  .pas:focus-within{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .pas .unite{ font-size:12px; color:var(--ink-soft); }
+  .interrupteur{ position:relative; display:inline-flex; width:52px; height:32px; flex:none; cursor:pointer; }
+  .interrupteur input{ position:absolute; inset:0; opacity:0; margin:0; width:100%; height:100%; cursor:pointer; }
+  .interrupteur .piste{ width:52px; height:32px; border-radius:16px; background:var(--rule); transition:background .15s; position:relative; }
+  .interrupteur .piste::after{ content:''; position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%; background:var(--panel-bg); box-shadow:var(--ombre); transition:transform .15s; }
+  .interrupteur input:checked + .piste{ background:var(--ok); }
+  .interrupteur input:checked + .piste::after{ transform:translateX(20px); }
+  .interrupteur input:focus-visible + .piste{ outline:2px solid var(--accent); outline-offset:2px; }
+  .interrupteur input:disabled + .piste{ opacity:0.45; }
+  .segmente{ display:inline-flex; flex-wrap:wrap; gap:2px; padding:3px; border-radius:var(--r-bouton); background:var(--segment-bg); }
+  .segmente button{
+    min-height:38px; padding:0 12px; border:none; border-radius:10px; background:transparent; color:var(--ink);
+    font-family:var(--sans); font-size:13px;
+  }
+  .segmente button.actif{ background:var(--ink); color:var(--on-ink); font-weight:600; }
+  .segmente button:hover{ opacity:1; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ{
+    grid-template-columns:minmax(0, 1fr) auto; min-height:52px; padding:6px 0; gap:6px 12px; border-bottom:1px solid var(--hairline); border-radius:0;
+  }
+  html:not([data-classe="large"]) #zoneInspecteur .champ .libelle{ font-size:14px; color:var(--ink); }
+  html:not([data-classe="large"]) #zoneInspecteur .champ .commande{ justify-self:end; text-align:right; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ .note{ font-size:12px; text-align:right; }
+  /* Les commandes larges passent sous leur libelle, pleine largeur. */
+  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne, .champ-lecture){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne) .commande{ justify-self:stretch; text-align:left; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture .commande{ justify-self:start; text-align:left; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture{ min-height:0; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select), html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .commande{ justify-self:stretch; text-align:left; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .note{ text-align:left; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select) .commande{ justify-self:stretch; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ .note:empty{ display:none; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=text]:not(.pas input),
+  html:not([data-classe="large"]) #zoneInspecteur .champ select,
+  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
+  html:not([data-classe="large"]) #zoneInspecteur .champCurseur input[type=range]{ height:32px; }
+  html:not([data-classe="large"]) #zoneInspecteur .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
+  html:not([data-classe="large"]) #zoneInspecteur .champTexture button, html:not([data-classe="large"]) #zoneInspecteur .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }
+  html:not([data-classe="large"]) #zoneInspecteur .champ.pleineLargeur .champBouton button{ width:100%; }
+  /* Une ligne (un cote, un coin) devient une carte : nom, puis longueur ou angle, puis fige et supprimer. */
+  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champsEnLigne{ gap:8px; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champsEnLigne > input[type=text]{ flex:1 1 100%; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champBouton button{ min-height:44px; }
+  html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection > summary{ min-height:44px; font-size:12px; padding:0 4px; }
+  html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection .champs{ padding:0 4px 10px; }
+  html:not([data-classe="large"]) #zoneInspecteur .inspecteurPied button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
+  html[data-classe="compact"] #zoneInspecteur .inspecteurPanneau{ display:flex; flex-direction:column; flex:1; min-height:0; }
+  html[data-classe="compact"] #zoneInspecteur .corpsFeuille{ padding:0 16px 16px; }
+  html[data-classe="compact"] #zoneInspecteur .inspecteurPied{ padding:12px 0 4px; }
+  .sautsSections{ flex:none; display:flex; gap:6px; overflow-x:auto; padding:2px 16px 8px; scrollbar-width:none; }
+  .pastille{
+    flex:none; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px;
+    background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:12.5px; white-space:nowrap;
+  }
+  .pastille:hover{ background:var(--accent-light); opacity:1; }
+  .bandeauChiffrage{
+    flex:none; display:flex; align-items:center; gap:10px; margin:6px 12px 10px; padding:10px 14px; min-height:60px; text-align:left;
+    border:none; border-radius:var(--r-panneau); background:var(--ink); color:var(--on-ink); font-family:var(--sans);
+    position:sticky; bottom:8px; box-shadow:var(--ombre-flottante);
+  }
+  .bandeauChiffrage:hover{ opacity:0.94; }
+  .bandeauChiffrageTextes{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .bandeauChiffrageTitre{ font-size:12px; opacity:0.8; }
+  .bandeauChiffrageValeurs{ font-size:14.5px; font-weight:600; font-variant-numeric:tabular-nums; }
+
+  /* ---- Telephone : la feuille Resultats (zones/Resultats.tsx) -------------------------------- */
+  html[data-classe="compact"] #zoneResultatsBarre{ flex:none; }
+  html[data-classe="compact"] .resultatsBarre{
+    flex-wrap:nowrap; overflow-x:auto; gap:6px; padding:0 16px 10px; border-bottom:1px solid var(--hairline); scrollbar-width:none;
+  }
+  html[data-classe="compact"] .ongletResultats, html[data-classe="compact"] .ongletResultats.debutGroupe{
+    flex:none; margin:0; min-height:38px; padding:0 14px; border:1px solid var(--border); border-radius:999px;
+    background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:13px;
+  }
+  html[data-classe="compact"] .ongletResultats.active{ background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
+  html[data-classe="compact"] #zoneResultats #tiroirPanneaux{
+    display:block; flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; overscroll-behavior:contain;
+    border:none; box-shadow:none; padding:12px 16px 20px; font-family:var(--sans);
+  }
+  .selecteurTerrasse{ min-height:40px; display:inline-flex; align-items:center; gap:4px; padding:0 10px; font-family:var(--sans); font-size:13px; border-radius:var(--r-bouton); }
+  html[data-classe="compact"] #tiroirPanneaux .controls button, html[data-classe="compact"] #tiroirPanneaux button.secondary,
+  html[data-classe="compact"] #tiroirPanneaux #exportBtn, html[data-classe="compact"] #tiroirPanneaux #measureControls button{
+    min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton);
+  }
+  html[data-classe="compact"] #tiroirPanneaux input[type=number], html[data-classe="compact"] #tiroirPanneaux input[type=text],
+  html[data-classe="compact"] #tiroirPanneaux select{ min-height:40px; font-size:15px; border-radius:var(--r-champ); }
+  html[data-classe="compact"] #tiroirPanneaux svg{ max-width:100%; height:auto; }
+  html[data-classe="compact"] #tiroirPanneaux #exportBox{ width:100%; min-height:40dvh; }
+  /* Les tableaux deviennent des cartes : une ligne, une carte ; la premiere colonne en titre, les
+     autres precedees du nom de leur colonne (ui/tableau.ts pose ce nom). */
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes,
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tbody,
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr,
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td{ display:block; width:auto; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr.enteteTableau{ display:none; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr{
+    margin:0 0 8px; padding:8px 12px; border:1px solid var(--hairline); border-radius:var(--r-tuile); background:var(--panel-bg);
+  }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr:nth-child(even):not(.sectionRow){ background:var(--panel-bg); }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; padding:5px 0; border:none; text-align:right; font-size:14px;
+  }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td::before{
+    content:attr(data-label); flex:0 1 50%; text-align:left; color:var(--ink-soft); font-size:12px; text-transform:none; letter-spacing:0;
+  }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td:first-child{ font-weight:600; font-size:15px; justify-content:flex-start; text-align:left; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td:first-child::before,
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td[data-label=""]::before{ display:none; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr.ligneTitre,
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes tr.sectionRow{ border:none; background:transparent; padding:12px 0 2px; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td:empty{ display:none; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td{ flex-wrap:wrap; }
+  html[data-classe="compact"] #tiroirPanneaux table.tableauCartes td > div{ flex-basis:100%; text-align:right; }
+  /* Tablette et bureau etroit : les tableaux gardent leurs colonnes et defilent a l'horizontale. */
+  html[data-classe="moyen"] #tiroirPanneaux table{ display:block; overflow-x:auto; max-width:100%; }
+  html[data-classe="moyen"] #terrasseOptimResult, html[data-classe="compact"] #terrasseOptimResult{ overflow-x:auto; }

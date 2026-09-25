@@ -43,7 +43,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
   if (o.fonction === 'terrasse' && o.type === 'polygon') {
     liste.push(['Hauteur finie', nombre(hauteurFinieMm(o) / 10, 1).replace(/,0$/, '') + ' cm']);
     const r = resumerChiffrage(o, objets);
-    if (r) liste.push(['Estimation', r.reel !== null ? euros(r.reel) : euros(r.bas) + ' – ' + euros(r.haut)]);
+    if (r) liste.push(['Estimation', euros(r.bas) + ' – ' + euros(r.haut)]);
   }
   return liste.slice(0, 3);
 }

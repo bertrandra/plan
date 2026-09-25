@@ -733,7 +733,11 @@ brancherExports({
     el<HTMLInputElement>('chkDossierEquipements').checked,
     { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
   clesDossier: ()=>clesDossier(etat.objects),
-  nomProjet: ()=>(seed && seed.meta && seed.meta.name)
+  nomProjet: ()=>(seed && seed.meta && seed.meta.name),
+  montrerLaBoite: ()=>{
+    tiroir.activer('resume');
+    if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
+  }
 }, commandes);
 
 // ================= Measurement tool (click-to-pick, persistent measures) =================

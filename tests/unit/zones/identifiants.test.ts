@@ -29,7 +29,7 @@ export const IDENTIFIANTS_HORS_REGISTRE = [
   // Panneaux du tiroir
   'terrasseBomTable', 'terrasseBomTotals', 'terrasseDebitBox', 'terrasseDebitBoisBox', 'terrasseCoupeWrap',
   'terrasseImplantWrap', 'terrasseChantierWrap', 'terrasseMethodeWrap', 'measureControls', 'measureResultsTable',
-  'pluContenu', 'pluGeoportailLien', 'exportBox',
+  'pluContenu', 'pluGeoportailLien', 'exportBox', 'copierResumeBtn',
   // Z1 hors registre
   'projectSelect'
 ];
