@@ -269,8 +269,9 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   plateforme de démonstration, et que celle du poste était expirée. À faire au prochain passage en
   vue 3D, en vérifiant les six compteurs invariants ci-dessus.
 
-- **24 septembre 2026 — les six témoins ne sont PAS recapturés pour la `2.0.1`.** Ils portent
-  encore `2.0.0` et la date de build `2026-09-23`, alors que le paquet livré dit `2.0.1` et
+- **24 septembre 2026 — les six témoins ne sont PAS recapturés pour la `2.0.1`.** *Dette refermée le
+  lendemain ; l'entrée reste, parce que la façon dont on s'en sort vaut d'être lue.* Ils portaient
+  encore `2.0.0` et la date de build `2026-09-23`, alors que le paquet livré disait `2.0.1` et
   `2026-09-24`.
 
   **Pourquoi.** La capture demande une session ouverte sur la plateforme de démonstration, puisque
@@ -292,6 +293,34 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   le build courant les reproduit. C'est une dette, pas une dérive silencieuse : elle est datée,
   chiffrée et refermable en une session.
 
+- **25 septembre 2026**, `plan.html` v2.0.2 : **la dette est refermée, et par un chemin qui ne
+  demande plus de session.**
+
+  **Le décor.** La capture exige un projet ouvert, donc une plateforme. Plutôt que de dépendre
+  d'une session de démonstration — qui expire, qu'on révoque, et dont la reprise demande un mot de
+  passe — un serveur d'essai du bac à sable répond aux quatre routes que la porte et le dépôt
+  appellent, et sert **le témoin `projet.json` lui-même** comme unique projet. Il accorde aussi
+  `plan.export.dossier`, que le catalogue vend à partir de Scale et qu'aucun locataire de
+  démonstration ne tient.
+
+  **Ce que cela vaudrait, si on s'arrêtait là : pas grand-chose.** Capturer les témoins depuis un
+  décor qu'on écrit soi-même, c'est se donner la réponse. La question était donc : un artefact
+  produit derrière ce décor est-il le même que celui produit derrière la vraie plateforme ?
+
+  **La preuve forte y répond, et c'est elle qui donne sa valeur à la capture.** L'ancien numéro et
+  l'ancienne date remis dans les octets frais — `2.0.2` → `2.0.0`, `2026-09-25` → `2026-09-23`,
+  deux substitutions de longueur constante — rendent les six empreintes du 23 septembre **au bit
+  près**. Or celles-là ont été capturées derrière une **vraie** plateforme backprod, sur un projet
+  réellement stocké en PostgreSQL. Le décor est donc prouvé équivalent, pour ce que les témoins
+  mesurent : les six tailles sont identiques à l'octet, aucune ligne ne diffère à version
+  neutralisée, et les deux PDF gardent leurs comptes exacts — 14 objets / 2 pages / 143 textes, et
+  15 / 3 / 107.
+
+  Ce que cela ne prouve pas, et qu'il faut continuer de vérifier ailleurs : que la vraie plateforme
+  rende le document tel qu'on le lui a confié. C'est l'affaire de la liste de fumée, pas des
+  témoins — et le document servi par le décor est justement celui qui a fait l'aller-retour par
+  PostgreSQL le 23 septembre, avec l'ordre de clés que cette base impose.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -303,12 +332,12 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `f96f2a5741b04037fc044e0ac1c1527dd984855b239c1000c09fd0d6fe3fb80d` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `82a159e930bfd018d101e6baa61654221c8c93dc12de6a075b3edd548c2562f2` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `8410f4c67c703ba5cd238f8c7f8e11c9b111e2de90a8729586dda714e6a185c7` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `14392ea9ebbf20e9e55848454bf00a308db6338e334717218421a73946d43eee` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `937f6117a7f2c17a656b8048b9897589e39cd3180cab1ae4bc5dca6f56777f09` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a596ef358e8a844c5107c03ed256ecfd40b1b3e1433675917cbf68324986b72b` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `272fa9085871800393d3f84cc34116494ecb41c0d42345e204e5fe4e90695b32` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `66338527a82421908df0c1fa1ca861e71f933c7f45593806f7fd6f1c76cbca4e` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `5375cf2da7f69d02862fb2dca9502db894c1f20ea2957462f5476a9fd4ab16ba` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 

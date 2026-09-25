@@ -5,6 +5,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.0.2] — 2026-09-25
+
 ### Ajouté
 
 - **À l'ouverture, quand il n'y a aucun plan, Plan demande par quoi commencer.** Il fabriquait le
@@ -54,6 +56,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   N'a **pas** suivi le renommage, délibérément : le littéral `plan.html` dans ce que Plan exporte —
   le `/Creator` des deux PDF et le champ `exportedBy` du projet JSON. Il identifie l'artefact, pas
   une URL, et il est figé dans deux des six témoins.
+
+### Interne
+
+- **Les six témoins d'export sont recapturés, et la dette de la `2.0.1` est refermée.** Ils
+  portaient encore le numéro de la `2.0.0`, faute d'une session ouverte sur la plateforme de
+  démonstration. La capture passe désormais par un décor d'essai qui répond aux quatre routes
+  nécessaires et sert le témoin lui-même comme unique projet : plus aucun mot de passe en jeu.
+
+  Ce que vaut une capture derrière un décor qu'on écrit soi-même ? Rien, prise isolément. C'est la
+  preuve forte qui lui donne sa valeur : l'ancien numéro remis dans les octets frais rend les six
+  empreintes du 23 septembre **au bit près**, et celles-là avaient été capturées derrière une vraie
+  plateforme, sur un projet réellement stocké. Le décor est donc prouvé équivalent pour ce que les
+  témoins mesurent. Les six tailles sont identiques à l'octet et les deux PDF gardent leurs comptes.
 
 ## [2.0.1] — 2026-09-24
 

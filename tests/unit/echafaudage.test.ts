@@ -39,19 +39,19 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 23 septembre 2026, a la version 2.0.0. Le seul ecart avec les empreintes de la
+  // Recapturees le 25 septembre 2026, a la version 2.0.2. Le seul ecart avec les empreintes de la
   // 1.0.0 est le numero de version — et, depuis la 2.0.0, la date de build qui l'accompagne. Cela a
   // ete prouve avant chaque recapture : le meme build, estampille de l'ancien numero, reproduit les
   // anciennes empreintes au bit pres, et une comparaison ligne a ligne ne montre aucune ligne
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': 'f96f2a5741b04037fc044e0ac1c1527dd984855b239c1000c09fd0d6fe3fb80d',
-      'plan.svg': '82a159e930bfd018d101e6baa61654221c8c93dc12de6a075b3edd548c2562f2',
-      'plan.dxf': '8410f4c67c703ba5cd238f8c7f8e11c9b111e2de90a8729586dda714e6a185c7',
-      'projet.json': '14392ea9ebbf20e9e55848454bf00a308db6338e334717218421a73946d43eee',
-      'plan.pdf': '937f6117a7f2c17a656b8048b9897589e39cd3180cab1ae4bc5dca6f56777f09',
-      'dossier.pdf': 'a596ef358e8a844c5107c03ed256ecfd40b1b3e1433675917cbf68324986b72b'
+      'resume.txt': '272fa9085871800393d3f84cc34116494ecb41c0d42345e204e5fe4e90695b32',
+      'plan.svg': '66338527a82421908df0c1fa1ca861e71f933c7f45593806f7fd6f1c76cbca4e',
+      'plan.dxf': '5375cf2da7f69d02862fb2dca9502db894c1f20ea2957462f5476a9fd4ab16ba',
+      'projet.json': 'f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa',
+      'plan.pdf': 'b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81',
+      'dossier.pdf': 'a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

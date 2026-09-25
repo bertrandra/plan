@@ -1,6 +1,6 @@
 {
   "name": "plan-interactif",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "type": "module",
   "description": "Plan de masse interactif : edition 2D, vue 3D, import cadastral IGN, exports SVG/DXF/PDF/GLB.",
