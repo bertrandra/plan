@@ -42,7 +42,7 @@ import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
 import { droitsCourants, enLectureSeule } from './acces.js';
-import { creerMagasin } from './magasin.js';
+import { creerMagasin, type Feuille } from './magasin.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
   parPriorite, amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, reculerObjet,
@@ -76,12 +76,14 @@ import {
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from '../io/projet.js';
 import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
 import {
-  startPick as demarrerPointage, rebuildMeasurePanel as construirePanneauMesure,
+  startPick as demarrerPointage, cancelPick, rebuildMeasurePanel as construirePanneauMesure,
   renderMeasureResults as construireResultatsMesure
 } from '../ui/mesurePanel.js';
 import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
 import { creerExplorateur } from './explorateur.js';
 import { demanderPremierPas } from './premierPas.js';
+import { appliquerClasse } from './classe.js';
+import { brancherClavier } from './clavier.js';
 
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d,
@@ -287,7 +289,6 @@ const historique = creerHistorique(etat, {
   signalerPile: (vide)=>magasin.definirPeutAnnuler(!vide),
   rafraichirResultats: ()=>refreshTerrasseView()
 });
-historique.brancherRaccourci();
 
 function markDirty(){ historique.marquerModifie(); }
 function pushHistory(){ historique.empiler(); }
@@ -349,6 +350,17 @@ const LARGEUR_INSPECTEUR = 348;
 /** Replie, chacun ne garde que sa poignee : 22 px et l'espace de la rangee. */
 const LARGEUR_REPLIEE = 30;
 function computeSize(){
+  // Telephone et tablette (spec-ihm-mobile §9.2) : le plan occupe le cadre que la feuille de style
+  // reserve entre les barres (#zoneCadre), et on le mesure plutot que de refaire ici le calcul des
+  // barres, de l'encoche et de la barre de gestes. Les feuilles et panneaux flottants le recouvrent
+  // sans le reduire.
+  const cadre = magasin.store.getState().classe === 'large' ? null : document.getElementById('zoneCadre');
+  if (cadre) {
+    const r = cadre.getBoundingClientRect();
+    etat.scene.W = Math.max(240, Math.round(r.width));
+    etat.scene.H = Math.max(240, Math.round(r.height));
+    return;
+  }
   // La palette, l'explorateur et l'inspecteur (zones/) prennent leur largeur au plan des 1 024 px ;
   // en dessous, la feuille de style les escamote ou les passe sous le plan. Replies, l'explorateur et
   // l'inspecteur la rendent.
@@ -358,6 +370,7 @@ function computeSize(){
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
+appliquerClasse(magasin);
 computeSize();
 
 function toScreen(p: PtBrut): PtEcran { return versEcran(etat.scene, p); }
@@ -572,9 +585,31 @@ brancherPointeur(svg, stage, etat, {
 
 
 // ================= Responsive resize =================
+let derniereLargeur = window.innerWidth;
+/**
+ * En arrivant sur tablette, l'explorateur et l'inspecteur se replient — sauf celui qu'on etait en
+ * train d'utiliser : la feuille ouverte sur telephone, ou le panneau ou un champ a le focus. Tourner
+ * un telephone avec un brouillon en cours ne doit pas le perdre (point 39 de la liste de fumee).
+ */
+function replierPourTablette(feuilleAvant: Feuille | null = null){
+  if (magasin.store.getState().classe !== 'moyen') return;
+  const focus = document.activeElement;
+  const garde = (id: string) => !!focus && !!document.getElementById(id)?.contains(focus);
+  if (magasin.store.getState().explorateurOuvert && feuilleAvant !== 'objets' && !garde('zoneExplorateur')) explorateur.basculerOuverture();
+  if (magasin.store.getState().inspecteurOuvert && feuilleAvant !== 'proprietes' && !garde('zoneInspecteur')) inspecteur.basculerOuverture();
+}
 // Le centre du monde est releve AVANT le changement de taille et remis au centre apres : sans cela,
 // agrandir la fenetre ferait deriver le plan hors de l'ecran au lieu de l'elargir.
 function redimensionnerLePlan(){
+  // Le clavier virtuel qui s'ouvre sous un champ redimensionne la fenetre en hauteur seulement :
+  // redessiner le plan a ce moment-la ferait perdre le focus du champ (spec-ihm-mobile §9.3).
+  const focus = document.activeElement;
+  const saisie = !!focus && /^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName);
+  const feuilleAvant = magasin.store.getState().feuille;
+  const classeChangee = appliquerClasse(magasin);
+  if (saisie && !classeChangee && magasin.store.getState().classe !== 'large' && window.innerWidth === derniereLargeur) return;
+  derniereLargeur = window.innerWidth;
+  if (classeChangee) replierPourTablette(feuilleAvant);
   const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
   computeSize();
   appliquerTailleDuPlan();
@@ -600,6 +635,9 @@ const atelier = {
   duplicateSelectedObject, deleteSelectedObject, sendObjectBackward
 };
 brancherObjets(atelier, commandes);
+// Ctrl+Z et Ctrl+S passent par le registre (app/clavier.ts). Pas de Ctrl+Y : il n'y a pas de
+// retablissement (core/historique.ts, point 5 en tete).
+brancherClavier(commandes);
 
 function ctxOrtho(){
   return { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup };
@@ -671,8 +709,21 @@ function fitToObject(obj: ObjetPlan | null){
     : (etat.objects.find(o=>o.key==='parcelle') ? [etat.objects.find(o=>o.key==='parcelle')!] : etat.objects);
   const emprise = empriseDe(formes);
   if(!emprise) return;
-  etat.scene = cadrerSur(etat.scene, emprise);
+  // Sur telephone et tablette, la feuille de selection recouvre le bas du plan : on cadre dans ce
+  // qui reste visible au-dessus d'elle (spec-ihm-mobile §6.4, point 36 de la liste de fumee).
+  const masque = masqueBasDuPlan();
+  const cadree = cadrerSur({ ...etat.scene, H: etat.scene.H - masque }, emprise);
+  etat.scene = { ...cadree, H: etat.scene.H };
   render();
+}
+/** La hauteur, en pixels, du bas du plan que la feuille de selection recouvre. */
+function masqueBasDuPlan(): number {
+  if (magasin.store.getState().classe !== 'compact') return 0;
+  const sel = document.querySelector('.feuilleSelection');
+  if (!sel) return 0;
+  const r = sel.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  if (!r.height || r.top >= s.bottom) return 0;
+  return Math.max(0, Math.min(etat.scene.H - 120, s.bottom - r.top));
 }
 
 
@@ -706,7 +757,11 @@ brancherExports({
     el<HTMLInputElement>('chkDossierEquipements').checked,
     { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
   clesDossier: ()=>clesDossier(etat.objects),
-  nomProjet: ()=>(seed && seed.meta && seed.meta.name)
+  nomProjet: ()=>(seed && seed.meta && seed.meta.name),
+  montrerLaBoite: ()=>{
+    tiroir.activer('resume');
+    if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
+  }
 }, commandes);
 
 // ================= Measurement tool (click-to-pick, persistent measures) =================
@@ -1071,7 +1126,13 @@ const inspecteur = creerInspecteur(etat, {
   optimisation: { panneaux: ctxPanneauxTerrasse() },
   redimensionner: redimensionnerLePlan
 }, magasin, commandes);
-monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir });
+// Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap
+// (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
+const pointage = { courant: () => mesure.pointage, arreter: () => cancelPick(etat, ctxMesure()) };
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage });
+// Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
+// couvriraient les deux tiers. Ils s'ouvrent a la demande — la poignee, ou la feuille de selection.
+replierPourTablette();
 // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
 tiroir.activer(etat.panelTab, false);
 render();
@@ -1094,6 +1155,26 @@ restaurerAffichageDuProjet();
 // contourne. Le plan etant vierge, la confirmation « modifications non enregistrees » ne se
 // declenche pas.
 if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
+
+// Les poignees des captures de reference (scripts/captures.mjs, spec-ihm-mobile §3.5). En
+// developpement seulement : `import.meta.env.DEV` est une constante du build, et le fichier livre ne
+// les porte pas.
+if (import.meta.env.DEV) {
+  (window as unknown as { __plan?: unknown }).__plan = {
+    executer: (id: string) => commandes.executer(id),
+    selectionnerPremiere: (fonction: string) => {
+      const o = etat.objects.find(x => x.fonction === fonction);
+      if (o) explorateur.selectionner(o.key);
+    },
+    ouvrirFeuille: (feuille: Feuille) => magasin.definirFeuille(feuille),
+    ouvrirResultats: (onglet: string) => tiroir.activer(onglet),
+    // Lecture seule, pour la liste de fumee automatisee (scripts/fumee.mjs) : ce qu'un geste a
+    // change se mesure dans l'etat, pas a l'oeil.
+    etat: () => etat,
+    selectionnerCle: (cle: string | null) => explorateur.selectionner(cle),
+    magasin: () => magasin.store.getState()
+  };
+}
 
 }
 

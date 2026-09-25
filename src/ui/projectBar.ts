@@ -219,7 +219,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
-    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « + Depuis une adresse » pour pouvoir l\'actualiser.');
+    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
   // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
@@ -392,7 +392,7 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
-    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « + Depuis une adresse » pour pouvoir l\'actualiser.');
+    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
   // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
@@ -405,8 +405,13 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
 
   const overlay = document.createElement('div');
   overlay.className = 'dialogueVoile';
+  // Echap ferme, comme les autres dialogues (spec-ihm-mobile, D11).
+  const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); } };
+  function fermer(){ document.removeEventListener('keydown', surTouche); overlay.remove(); }
+  document.addEventListener('keydown', surTouche);
   const box = document.createElement('div');
-  box.style.cssText = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:18px 20px; border-radius:8px; width:min(520px,96vw); font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.88rem; box-shadow:0 4px 24px rgba(0,0,0,0.3);';
+  box.className = 'dialogueImperatif dialogueActualisation';
+  box.style.cssText = 'background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:16px; width:min(520px,96vw); max-height:92vh; overflow:auto; font-family:var(--sans); font-size:0.88rem; box-shadow:var(--ombre-forte);';
   const titre = document.createElement('div');
   titre.style.cssText = 'font-weight:600; font-size:1.02rem; margin-bottom:4px;';
   titre.textContent = 'Actualiser depuis l\'IGN';
@@ -469,7 +474,7 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
   box.appendChild(sousOptions);
   const noteMasquer = document.createElement('div');
   noteMasquer.style.cssText = 'margin:8px 0 0 26px; font-size:0.78rem; opacity:0.78; line-height:1.35;';
-  noteMasquer.textContent = 'Tout ce qui arrive par cet import est marque « voisinage » : la case en haut a droite le masque d\'un coup, sans le supprimer.';
+  noteMasquer.textContent = 'Tout ce qui arrive par cet import est marque « voisinage » : l\'oeil « Voisinage » de l\'explorateur (ou Affichage › Voisinage) le masque d\'un coup, sans le supprimer.';
   box.appendChild(noteMasquer);
 
   const majSousOptions = ()=>{
@@ -484,7 +489,7 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
   pied.style.cssText = 'display:flex; gap:8px; justify-content:flex-end; margin-top:16px;';
   const annuler = document.createElement('button');
   annuler.type = 'button'; annuler.className = 'secondary'; annuler.textContent = 'Annuler';
-  annuler.addEventListener('click', ()=>overlay.remove());
+  annuler.addEventListener('click', ()=>fermer());
   const valider = document.createElement('button');
   valider.type = 'button'; valider.textContent = 'Actualiser';
   valider.addEventListener('click', ()=>{
@@ -494,13 +499,13 @@ export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: Cont
         ? { actif:true, batiments:cbBati.checked, vegetation:cbVeg.checked, arbres:cbArbres.checked }
         : { actif:false }
     };
-    overlay.remove();
+    fermer();
     void actualiserDepuisIgn(options, bouton, ctx);
   });
   pied.appendChild(annuler); pied.appendChild(valider);
   box.appendChild(pied);
   overlay.appendChild(box);
-  overlay.addEventListener('click', e=>{ if(e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', e=>{ if(e.target === overlay) fermer(); });
   document.body.appendChild(overlay);
 }
 

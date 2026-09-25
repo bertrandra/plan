@@ -16,13 +16,16 @@ import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
-import { versionLongue } from '../model/version.js';
 import { showConfirm, showToast } from '../shell/dialogs.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
+import { Icone } from './icones.js';
+import { EnteteFeuille } from './composants/Feuille.js';
+import { texteStatutCourt } from './statut.js';
+import { APP_VERSION, versionLongue } from '../model/version.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
@@ -38,9 +41,13 @@ const VUES: [Vue, string, string, string][] = [
 ];
 const COMMANDE_DE_VUE: Record<Vue, string> = { plan: 'vue.plan', vue3d: 'vue.3d', visionneuse: 'vue.visionneuse' };
 
-/** Referme le menu qui contient l'element : une entree choisie, le menu s'en va. */
+/**
+ * Referme le menu qui contient l'element : une entree choisie, le menu s'en va. Sur telephone, les
+ * menus vivent dans la feuille Projet, qui se ferme aussi (l'evenement est ecoute par la barre).
+ */
 function fermer(e: React.SyntheticEvent<HTMLElement>): void {
   e.currentTarget.closest('details')?.removeAttribute('open');
+  document.dispatchEvent(new CustomEvent('plan:entreeChoisie'));
 }
 
 interface PropsMenu { magasin: Magasin; commandes: RegistreCommandes }
@@ -128,12 +135,14 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   useStore(magasin.store, (s) => s.version);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
-  const bascules: [string, string, boolean, boolean][] = [
+  // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
+  // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
+  const bascules: [string, string, boolean, boolean][] = ([
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
     ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
-  ];
+  ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
@@ -182,12 +191,21 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
   );
 }
 
-/** Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres. */
+/**
+ * Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres.
+ * Tous les menus deroulants de la page : ceux de la barre, et le menu Etiquettes de l'explorateur,
+ * qui ne se fermait ni par Echap ni par un clic ailleurs (spec-ihm-mobile, D11).
+ */
 function useFermetureDesMenus(): void {
   useEffect(() => {
-    const ouverts = () => [...document.querySelectorAll<HTMLDetailsElement>('#projectBar details.menu[open]')];
+    const ouverts = () => [...document.querySelectorAll<HTMLDetailsElement>('details.menu[open]')];
     const surPointeur = (e: PointerEvent) => { ouverts().forEach(d => { if (!d.contains(e.target as Node)) d.removeAttribute('open'); }); };
-    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') ouverts().forEach(d => d.removeAttribute('open')); };
+    const surTouche = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const o = ouverts();
+      // Echap ferme d'abord le menu ouvert ; la feuille qui le porte ne se ferme qu'au suivant.
+      if (o.length) { e.preventDefault(); o.forEach(d => d.removeAttribute('open')); }
+    };
     const surBascule = (e: Event) => { const d = e.target as HTMLDetailsElement; if (d.open) ouverts().forEach(a => { if (a !== d) a.removeAttribute('open'); }); };
     document.addEventListener('pointerdown', surPointeur);
     document.addEventListener('keydown', surTouche);
@@ -257,33 +275,112 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   const p = useStore(magasin.store, (s) => s.projet);
   const vue = useStore(magasin.store, (s) => s.vue);
   const lieu = useStore(magasin.store, (s) => s.lieu);
+  const classe = useStore(magasin.store, (s) => s.classe);
+  const feuille = useStore(magasin.store, (s) => s.feuille);
+  const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
+  useStore(magasin.store, (s) => s.version);
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   const enregistrement = p.statut === 'enregistrement';
+  const compact = classe === 'compact';
+  // Telephone et tablette partagent la barre haute ; la feuille Projet devient sur tablette un
+  // panneau deroulant sous le bouton ☰ (spec-ihm-mobile §6.1).
+  const tactile = classe !== 'large';
+
+  // Sur telephone, une entree de menu choisie ferme aussi la feuille Projet qui porte les menus.
+  useEffect(() => {
+    if (!tactile) return;
+    const surChoix = () => { if (magasin.store.getState().feuille === 'projet') magasin.definirFeuille(null); };
+    document.addEventListener('plan:entreeChoisie', surChoix);
+    return () => document.removeEventListener('plan:entreeChoisie', surChoix);
+  }, [tactile, magasin]);
+
+  const nom = p.courant ? p.courant.name : 'Nouveau plan';
+  const lectureSeule = magasin.store.getState().etat.lectureSeule;
+
+  /** Ouvre la feuille Projet sur un menu donne, deplie. */
+  const ouvrirProjet = (menu?: string) => {
+    magasin.definirFeuille('projet');
+    if (menu) requestAnimationFrame(() => document.getElementById(menu)?.setAttribute('open', ''));
+  };
+
+  const vues = (
+    <div id="modeBar" role="group" aria-label="Vue">
+      {VUES.map(([cle, id, libelle, titre]) => (
+        <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
+          title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>
+          {compact && cle === 'vue3d' ? '3D' : compact && cle === 'visionneuse' ? 'Visionneuse' : libelle}
+        </button>
+      ))}
+    </div>
+  );
+
+  const menus = (
+    <>
+      {p.apiDisponible && (
+        <select id="projectSelect" title="Choisir un projet" aria-label="Choisir un projet" value={p.courant ? p.courant.id : ''} onChange={(e) => projet.ouvrir(e.target.value)}>
+          {p.liste.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}
+      {p.apiDisponible && (
+        <button type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
+          {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      )}
+      <MenuFichier magasin={magasin} commandes={commandes} />
+      <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
+      <MenuAffichage magasin={magasin} commandes={commandes} />
+      <MenuAide magasin={magasin} tiroir={tiroir} />
+    </>
+  );
+
+  if (tactile) {
+    return (
+      <>
+        {/* La barre haute du telephone (spec-ihm-mobile §6.1) : le projet, son statut, Annuler, Exporter. */}
+        <div className="barreCompacte">
+          <button type="button" className="boutonIcone" aria-label="Projet et menus" aria-expanded={feuille === 'projet'} onClick={() => feuille === 'projet' ? magasin.definirFeuille(null) : ouvrirProjet()}>
+            <Icone nom="menu" />
+          </button>
+          <div className="barreTitre">
+            <span className="nomProjet">{nom}</span>
+            <span className={'statutProjet statut-' + p.statut}>
+              <span className="pointStatut" aria-hidden="true" />{texteStatutCourt(p)}
+              {lectureSeule && <span className="etatLectureSeule">Lecture seule</span>}
+            </span>
+          </div>
+          {!commandes.effacee('objet.annuler') && (
+            <button type="button" className="boutonIcone" data-commande="objet.annuler" aria-label="Annuler (Ctrl+Z)" disabled={!peutAnnuler}
+              onClick={() => { commandes.executer('objet.annuler'); }}>
+              <Icone nom="annuler" />
+            </button>
+          )}
+          {!compact && vues}
+          <button type="button" className="boutonIcone" aria-label="Exporter" onClick={() => ouvrirProjet('menuExporter')}>
+            <Icone nom="exporter" />
+          </button>
+        </div>
+        {compact && vues}
+        {/* La feuille Projet : les memes menus, les memes cases, dans le meme ordre (§6.1). */}
+        <div id="projectBar" className={'feuilleProjet' + (p.apiDisponible ? '' : ' localMode')} role="dialog" aria-modal={feuille === 'projet'} aria-label="Projet">
+          <EnteteFeuille magasin={magasin} titre={nom} sousTitre={lieu || undefined} />
+          <div className="corpsFeuille">
+            {menus}
+            <Compte magasin={magasin} />
+            {lectureSeule && <p className="hint">Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.</p>}
+            <p className="versionFeuille" title={versionLongue()}>Plan interactif v{APP_VERSION}</p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <div id="projectBar" className={p.apiDisponible ? '' : 'localMode'}>
-        {p.apiDisponible && (
-          <select id="projectSelect" title="Choisir un projet" value={p.courant ? p.courant.id : ''} onChange={(e) => projet.ouvrir(e.target.value)}>
-            {p.liste.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        )}
-        {p.apiDisponible && (
-          <button type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
-            {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-        )}
-        <MenuFichier magasin={magasin} commandes={commandes} />
-        <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
-        <MenuAffichage magasin={magasin} commandes={commandes} />
-        <MenuAide magasin={magasin} tiroir={tiroir} />
+        {menus}
       </div>
       <Compte magasin={magasin} />
-      <div id="modeBar">
-        {VUES.map(([cle, id, libelle, titre]) => (
-          <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>{libelle}</button>
-        ))}
-      </div>
+      {vues}
       <h1>
         {/* Sans projet ouvert, le titre ne doit pas en nommer un. Le repli etait « Parcelle AE 101 »,
             le nom du jeu de demonstration : il ne trompait personne tant que Plan ouvrait toujours

@@ -12,8 +12,12 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `1.2.0`, **l'interface est reconstruite par zones** (`MD/spec-ihm-zones.md`, cochée en
-entier). **La migration TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier
+Version `2.1.0`, **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
+sombre (`MD/spec-ihm-mobile.md`) : sur téléphone, le plan occupe l'écran et chaque zone devient une
+feuille qui monte du bas ; sur tablette, les panneaux flottent sur le plan. Rien n'a été perdu en
+route — une carte d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe
+d'écran — et aucun nombre n'a bougé. Elle s'appuie sur l'interface reconstruite par zones en `1.2.0`
+(`MD/spec-ihm-zones.md`) et sur la connexion à la plateforme de la `2.0.0`. **La migration TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier
 HTML unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
 compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact
 livré reste un seul fichier `plan.html`, **produit par le build** et non plus édité à la main. Le fichier
@@ -29,10 +33,19 @@ Prérequis : Node 20 ou plus.
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
 npm run build        # produit dist/index.html (fichier unique) et dist/.htaccess
-npm test             # 554 tests Vitest, dont la comparaison aux golden files
+npm test             # 736 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
 npm run cliquet      # le cliquet de rigueur, voir ci-dessous
+```
+
+Pour voir l'interface sans plateforme, ou la vérifier à trois largeurs d'écran, deux scripts
+Playwright simulent la plateforme sur le jeu de démonstration (Chromium doit être installé) :
+
+```bash
+BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 &
+node scripts/captures.mjs    # 36 captures : 390 / 820 / 1 440 px, clair et sombre, six états
+node scripts/fumee.mjs       # la liste de fumée (tests/CHECKLIST-FUMEE.md), pilotée et mesurée
 ```
 
 Pour ouvrir `plan.html` tel quel, sans Vite, il faut un serveur HTTP : en `file://` les navigateurs

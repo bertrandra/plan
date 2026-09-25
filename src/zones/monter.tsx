@@ -13,7 +13,10 @@ import { Inspecteur } from './Inspecteur.js';
 import { Resultats } from './Resultats.js';
 import { Dialogues } from './Dialogues.js';
 import { Notifications } from './Notifications.js';
-import { Surimpression } from './Surimpression.js';
+import { Surimpression, type ServicePointage } from './Surimpression.js';
+import { BarreNavigation } from './BarreNavigation.js';
+import { FeuilleSelection } from './FeuilleSelection.js';
+import { Voile } from './composants/Feuille.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -28,6 +31,7 @@ export interface DependancesZones {
   explorateur: ServiceExplorateur;
   inspecteur: ServiceInspecteur;
   tiroir: Tiroir;
+  pointage: ServicePointage;
 }
 
 function conteneur(id: string): HTMLElement {
@@ -36,18 +40,23 @@ function conteneur(id: string): HTMLElement {
   return el;
 }
 
-export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir }: DependancesZones): void {
+export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage }: DependancesZones): void {
   // Rendu force synchrone : le code qui suit dans boot() lit des champs des menus par leur
   // identifiant (curseurs du fond orthophoto), qui doivent donc exister au retour.
   flushSync(() => {
   createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} tiroir={tiroir} />);
   createRoot(conteneur('zonePalette')).render(<Palette magasin={magasin} commandes={commandes} />);
   createRoot(conteneur('zoneExplorateur')).render(<Explorateur magasin={magasin} commandes={commandes} explorateur={explorateur} />);
-  createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} />);
-  createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} />);
-  createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} />);
+  createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} pointage={pointage} />);
+  createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} tiroir={tiroir} />);
+  createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} explorateur={explorateur} />);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
   createRoot(conteneur('zoneDialogues')).render(<Dialogues />);
   createRoot(conteneur('zoneNotifications')).render(<Notifications />);
+  // Le telephone et la tablette (spec-ihm-mobile §6) : la barre de navigation, la feuille de
+  // selection, et le voile des feuilles. Rien a l'ecran sur bureau.
+  createRoot(conteneur('zoneNavigation')).render(<BarreNavigation magasin={magasin} commandes={commandes} />);
+  createRoot(conteneur('zoneSelection')).render(<FeuilleSelection magasin={magasin} commandes={commandes} explorateur={explorateur} tiroir={tiroir} />);
+  createRoot(conteneur('zoneFeuilles')).render(<Voile magasin={magasin} />);
   });
 }

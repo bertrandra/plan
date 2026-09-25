@@ -28,6 +28,8 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
+import { Icone } from './icones.js';
+import { EnteteFeuille } from './composants/Feuille.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 
@@ -48,7 +50,7 @@ function fermerMenu(e: React.SyntheticEvent<HTMLElement>): void {
 }
 
 /** Les objets, par categorie, avec leur visibilite. */
-function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExplorateur }) {
+function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; apresSelection: () => void }) {
   // Le voisinage masque n'est pas liste : proposer un objet qu'on ne voit pas n'aurait pas de
   // sens, et les compteurs decriraient un plan qui n'est pas celui affiche. Un objet masque
   // individuellement reste, lui, dans la liste : c'est ici qu'on le demasque.
@@ -89,8 +91,8 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
         </div>
       )}
       <div className="explorateurTous">
-        <button type="button" className="oeil" aria-pressed={!tousMasques} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
-          {tousMasques ? '◌' : '👁'}
+        <button type="button" className="oeil" aria-pressed={!tousMasques} aria-label={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
+          <Icone nom={tousMasques ? 'oeilBarre' : 'oeil'} taille={18} />
         </button>
         <details className="menu">
           <summary title="Les étiquettes de tous les objets">Étiquettes</summary>
@@ -114,11 +116,11 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
           return (
             <li key={o.key} className={(actif ? 'active' : '') + (o.hidden ? ' masque' : '')}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => explorateur.selectionner(actif ? null : o.key)}>
+                <button type="button" className="explorateurNom" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
                   {o.name}
                 </button>
-                <button type="button" className="oeil" aria-pressed={!o.hidden} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
-                  {o.hidden ? '◌' : '👁'}
+                <button type="button" className="oeil" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
+                  <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
                 </button>
               </div>
               {actif && (
@@ -140,7 +142,7 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
 }
 
 /** Les terrasses : laquelle est selectionnee, ses couches sur le plan, celles du dossier. */
-function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExplorateur }) {
+function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; apresSelection: () => void }) {
   const terrasses = etat.objects.filter(estTerrasse);
   // La terrasse selectionnee, et non la courante : ses couches et sa mise en avant ne se montrent
   // que tant qu'on l'a sous la main, comme les onglets du tiroir.
@@ -161,7 +163,7 @@ function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceE
           return (
             <li key={t.key} className={estCourante ? 'active' : ''}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => explorateur.selectionner(t.key)}>
+                <button type="button" className="explorateurNom" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
                   <span>{t.name}</span>
                   <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
@@ -202,38 +204,56 @@ function Terrasses({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceE
 
 export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateur) {
   useStore(magasin.store, (s) => s.version);
-  const ouvert = useStore(magasin.store, (s) => s.explorateurOuvert);
+  const ouvertStore = useStore(magasin.store, (s) => s.explorateurOuvert);
+  const classe = useStore(magasin.store, (s) => s.classe);
+  const compact = classe === 'compact';
+  // Sur telephone, l'explorateur est la feuille Objets : il n'a pas de repli, la feuille se ferme.
+  const ouvert = compact || ouvertStore;
   const etat = magasin.store.getState().etat;
   const nVoisinage = etat.objects.filter(o => o.voisinage).length;
+  // Sur telephone, choisir un objet dans la liste referme la feuille : on le voit alors sur le plan,
+  // avec la feuille de selection (spec-ihm-mobile §6.3).
+  const apresSelection = () => { if (compact) magasin.definirFeuille(null); };
+
+  const sections = (
+    <>
+      <Objets etat={etat} explorateur={explorateur} apresSelection={apresSelection} />
+      {nVoisinage > 0 && (
+        <section className="explorateurSection" aria-label="Voisinage">
+          <div className="explorateurLigne">
+            <span className="explorateurNom" title={'Les ' + nVoisinage + ' objets importés avec les parcelles adjacentes (bâti, végétation, arbres estimés)'}>
+              Voisinage <span className="explorateurCompte">{nVoisinage}</span>
+            </span>
+            <button type="button" className="oeil" aria-pressed={etat.voisinageVisible} aria-label={etat.voisinageVisible ? 'Masquer le voisinage' : 'Afficher le voisinage'} title={etat.voisinageVisible ? 'Masquer le voisinage (rien n\'est supprimé)' : 'Afficher le voisinage'} onClick={() => commandes.executer('affichage.voisinage')}>
+              <Icone nom={etat.voisinageVisible ? 'oeil' : 'oeilBarre'} taille={18} />
+            </button>
+          </div>
+        </section>
+      )}
+      {/* La section Terrasses n'existe que pour une terrasse selectionnee : le reste du temps, la
+          categorie Terrasse des objets suffit a en choisir une. */}
+      {terrasseSelectionnee(etat) && <Terrasses etat={etat} explorateur={explorateur} apresSelection={apresSelection} />}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <aside className="explorateurPanneau" aria-label="Objets du plan">
+        <EnteteFeuille magasin={magasin} titre="Objets" sousTitre={etat.objects.length + ' objets dans le plan'} />
+        <div className="corpsFeuille">{sections}</div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="explorateurPanneau" aria-label="Explorateur">
       <div className="explorateurEntete">
         {ouvert && <span>Explorateur</span>}
-        <button type="button" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>
+        <button type="button" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-label={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>
           {ouvert ? '‹' : '›'}
         </button>
       </div>
-      {ouvert && (
-        <>
-          <Objets etat={etat} explorateur={explorateur} />
-          {nVoisinage > 0 && (
-            <section className="explorateurSection" aria-label="Voisinage">
-              <div className="explorateurLigne">
-                <span className="explorateurNom" title={'Les ' + nVoisinage + ' objets importés avec les parcelles adjacentes (bâti, végétation, arbres estimés)'}>
-                  Voisinage <span className="explorateurCompte">{nVoisinage}</span>
-                </span>
-                <button type="button" className="oeil" aria-pressed={etat.voisinageVisible} title={etat.voisinageVisible ? 'Masquer le voisinage (rien n\'est supprimé)' : 'Afficher le voisinage'} onClick={() => commandes.executer('affichage.voisinage')}>
-                  {etat.voisinageVisible ? '👁' : '◌'}
-                </button>
-              </div>
-            </section>
-          )}
-          {/* La section Terrasses n'existe que pour une terrasse selectionnee : le reste du temps, la
-              categorie Terrasse des objets suffit a en choisir une. */}
-          {terrasseSelectionnee(etat) && <Terrasses etat={etat} explorateur={explorateur} />}
-        </>
-      )}
+      {ouvert && sections}
     </aside>
   );
 }

@@ -33,6 +33,11 @@ export interface ContexteExports {
   clesDossier: () => string[];
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
+  /**
+   * Montre la zone de texte copiable (l'onglet Resume, et sa feuille sur telephone). Sans cela, le
+   * filet des exports SVG et DXF ecrivait dans un onglet ferme (spec-ihm-mobile, D5).
+   */
+  montrerLaBoite: () => void;
 }
 
 /** Affiche un contenu dans la zone de texte, sélectionné pour un copier-coller immédiat. */
@@ -57,6 +62,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
     catch (err) { showErrBanner('Erreur export SVG: ' + (err as Error).message); return; }
+    ctx.montrerLaBoite();
     afficherDansLaBoite(svgStr);
     try {
       telechargerBlob('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
@@ -104,10 +110,23 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // Le résumé ne se télécharge pas : il est fait pour être copié dans un message.
   cmd.bouton('exportBtn', { id: 'export.resume', libelle: 'Générer le résumé', groupe: 'export', executer: () => { afficherDansLaBoite(ctx.construireResume()); } });
 
+  // Copier ce que montre la zone de texte, d'un geste : au doigt, sélectionner cent lignes pour les
+  // copier est une épreuve (spec-ihm-mobile §7.3). La sélection automatique reste, pour le clavier.
+  document.getElementById('copierResumeBtn')?.addEventListener('click', () => {
+    const box = document.getElementById('exportBox') as HTMLTextAreaElement;
+    if (!box.value) afficherDansLaBoite(ctx.construireResume());
+    const texte = box.value;
+    const repli = () => { box.focus(); box.select(); showToast('Texte sélectionné : copiez-le avec le menu du système.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texte).then(() => showToast('Copié dans le presse-papiers.'), repli);
+    } else repli();
+  });
+
   surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;
     try { dxfStr = ctx.buildExportDXF(); }
     catch (err) { showErrBanner('Erreur export DXF: ' + (err as Error).message); return; }
+    ctx.montrerLaBoite();
     afficherDansLaBoite(dxfStr);
     try {
       telechargerBlob('plan_interactif_export.dxf', new Blob([dxfStr], { type: 'application/dxf' }));

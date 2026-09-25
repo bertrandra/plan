@@ -102,16 +102,18 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
   const overlay = document.createElement('div');
   overlay.className = 'dialogueVoile';
   const box = document.createElement('div');
-  box.style.cssText = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:18px 20px; border-radius:8px; width:min(700px,96vw); max-height:92vh; overflow:auto; font-family:"Helvetica Neue",Arial,sans-serif; box-shadow:0 4px 24px rgba(0,0,0,0.3); font-size:0.88rem;';
+  box.className = 'dialogueImperatif dialogueCadastre';
+  box.style.cssText = 'background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:16px; width:min(700px,96vw); max-height:92vh; overflow:auto; font-family:var(--sans); box-shadow:var(--ombre-forte); font-size:0.88rem;';
   const titre = document.createElement('div');
   titre.style.cssText = 'font-weight:600; font-size:1.05rem; margin-bottom:10px;';
   const corps = document.createElement('div');
   const etatLigne = document.createElement('div');
   etatLigne.style.cssText = 'margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35;';
   const pied = document.createElement('div');
+  pied.className = 'piedDialogue';
   pied.style.cssText = 'display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;';
   const mention = document.createElement('div');
-  mention.style.cssText = 'margin-top:12px; font-size:0.74rem; line-height:1.35; opacity:0.75; border-top:1px solid var(--border,#ddd); padding-top:8px;';
+  mention.style.cssText = 'margin-top:12px; font-size:0.74rem; line-height:1.35; opacity:0.75; border-top:1px solid var(--border); padding-top:8px;';
   mention.textContent = 'Le plan cadastral (PCI, IGN) est un document fiscal de reference : il ne vaut pas bornage. Seul un geometre-expert peut etablir les limites reelles de propriete.';
   box.appendChild(titre); box.appendChild(corps); box.appendChild(etatLigne); box.appendChild(pied); box.appendChild(mention);
   overlay.appendChild(box);
@@ -176,7 +178,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     const w = maxX-minX, h = maxY-minY;
     const svgEl = document.createElementNS(svgNS, 'svg');
     svgEl.setAttribute('viewBox', '0 0 ' + w.toFixed(2) + ' ' + h.toFixed(2));
-    svgEl.style.cssText = 'width:100%; height:min(46vh,340px); background:var(--input-bg,#fff); border:1px solid var(--border,#ddd); border-radius:4px; display:block;';
+    svgEl.style.cssText = 'width:100%; height:min(46vh,340px); background:var(--input-bg); border:1px solid var(--border); border-radius:10px; display:block;';
     const trait = Math.max(0.08, w/500);
     lots.slice().reverse().forEach(l=>{
       const poly = document.createElementNS(svgNS, 'polygon');
@@ -336,7 +338,7 @@ export function ouvrirImportCadastre(ctx: ContexteImportCadastre): void {
     blocIgn.appendChild(plu);
     if(etatImport.ignErreur){
       const e = document.createElement('div');
-      e.style.cssText = 'font-size:0.8rem; color:#a02020; margin-top:6px;';
+      e.style.cssText = 'font-size:0.8rem; color:var(--danger); margin-top:6px;';
       e.textContent = etatImport.ignErreur;
       blocIgn.appendChild(e);
     }

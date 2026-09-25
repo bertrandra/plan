@@ -5,6 +5,290 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0] — 2026-09-25
+
+**L'interface s'adapte au téléphone, à la tablette et au bureau, en clair et en sombre**
+(`MD/spec-ihm-mobile.md`). Neuf paliers `alpha`, puis une recette. Rien n'a été perdu : une carte
+d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe d'écran, et un
+autre test vérifie que l'inspecteur rend les mêmes champs partout. Aucun nombre n'a bougé : les six
+artefacts exportés sont identiques aux témoins hors numéro de version.
+
+### En bref
+
+- **Téléphone** : le plan occupe l'écran ; une barre haute (projet, statut, Annuler, Exporter) et
+  une barre de navigation (Objets, Coter, **+**, Propriétés, Résultats) ; chaque zone devient une
+  feuille qui monte du bas ; une feuille de sélection résume l'objet touché ; les champs sont
+  tactiles ; un bandeau recalcule le chiffrage à chaque réglage ; les tableaux deviennent des cartes.
+- **Tablette** : rail d'outils, explorateur et inspecteur flottants, tiroir en bas.
+- **Bureau** : la disposition en colonnes, avec la nouvelle palette et les icônes.
+- **Défauts corrigés** : « Ajuster à la sélection » invisible partout (D1), aucun moyen de sortir
+  d'un pointage de cote (D3), filet copiable des exports écrit dans un onglet fermé (D5), Ctrl+S
+  affiché mais sans effet (D2), Ctrl+Z hors registre (D6), fond orthophoto visible sans la capacité
+  (D8), libellés périmés (D10), dialogues qu'Échap ne fermait pas (D11).
+
+### Corrigé par la recette
+
+- **Valider un nombre par Entrée écrivait deux fois** : Entrée validait, puis la sortie du champ
+  validait à nouveau, avec deux instantanés d'annulation — un Ctrl+Z semblait alors ne rien faire.
+  Présent depuis la `1.2.0`. Entrée quitte désormais le champ, et c'est la sortie qui valide ; un
+  test le verrouille.
+- Sur tablette, le tiroir des résultats ouvert recouvrait le bas de l'inspecteur et du rail, et le
+  bandeau de pointage : les panneaux passent au-dessus du tiroir, le bandeau se pose en haut du plan.
+- Le bouton des réglages 3D n'apparaissait qu'une fois la bibliothèque 3D chargée : il est sorti
+  du cadre de la scène.
+- Sur téléphone, « Ajuster à la sélection » cadre l'objet au-dessus de la feuille de sélection.
+- Tourner le téléphone avec un champ en cours de saisie ne replie plus l'inspecteur et garde le
+  brouillon.
+
+### Recette
+
+- **La liste de fumée passe à 40 points**, joués dans les trois classes et les deux thèmes :
+  **134 passés, aucun échec, 45 non joués** sur 179 — les points qui demandent le réseau (cadastre,
+  voisinage, orthophoto, PLU, 3D, GLB), que l'environnement de recette n'avait pas. Ils restent à
+  passer à la main. Détail dans `tests/CHECKLIST-FUMEE.md`.
+- `scripts/fumee.mjs` pilote la liste avec de vrais évènements de pointeur, de doigts et de clavier,
+  et mesure chaque geste dans l'état du plan ; `scripts/captures.mjs` produit 36 captures de
+  référence.
+- Trois défauts relevés et laissés hors du périmètre sont inscrits à `MD/DEFAUTS.md` (D-16 à D-18).
+- **Empreintes** : `plan.svg`, `plan.dxf`, `resume.txt`, `plan.pdf` et `dossier.pdf`, rejoués depuis
+  l'interface, sont identiques au bit près aux témoins une fois le numéro neutralisé ; `projet.json`
+  porte les mêmes objets et les mêmes mesures. Les témoins ne sont pas recapturés.
+- 736 tests (709 + 27). Fichier livré : 787 Ko.
+
+## [2.1.0-alpha.9] — 2026-09-25
+
+**IHM mobile, étape M8** : la vue 3D et la visionneuse sur téléphone et tablette.
+
+### Modifié
+
+- **Sur téléphone et tablette, la scène 3D prend l'écran** sous la barre haute, au lieu d'un cadre
+  de 420 px. Les commandes de caméra (zoom, tourner, déplacer, zoom au glisser, PNG, hauteur des
+  yeux) sont une colonne de boutons de 44 px posée sur la scène, avec un bouton ⚙ qui ouvre les
+  **réglages** — feuille sur téléphone, panneau sur tablette : filaire, objets, opacité, textures,
+  ombres, date et semaine, intensité, lumière d'appoint, points de vue, aide. **L'heure a sa propre
+  barre** en bas de la scène, pour la faire défiler au pouce. Même disposition pour la visionneuse.
+- Sur bureau, le cadre de la scène suit la hauteur de la fenêtre (420 px au moins), et le plein
+  écran reste. Sur téléphone et tablette, le plein écran n'a plus d'objet et disparaît.
+- Les émojis des boutons 3D deviennent des icônes ; le mode actif (tourner, déplacer, zoom) se
+  colore selon le thème.
+
+### Corrigé
+
+- Libellés périmés de l'aide 3D (D10) : « Mode Plan », « + Point de vue », et les émojis ⟳ ✋ 🔍
+  cités dans le texte.
+
+### Preuve
+
+- **Les exports n'ont pas bougé.** Rejoués depuis l'interface sur le jeu de démonstration, numéro de
+  version neutralisé : `plan.svg`, `plan.dxf` et `resume.txt` sont identiques au bit près aux
+  témoins ; `plan.pdf` et `dossier.pdf` ne diffèrent que par le numéro, les longueurs de flux et la
+  table des décalages qu'il décale de huit octets ; `projet.json` a les mêmes objets et les mêmes
+  mesures, son bloc `meta` ne différant que par l'identité, les dates et le numéro.
+
+## [2.1.0-alpha.8] — 2026-09-25
+
+**IHM mobile, étape M7** : les menus de Z1 et le clavier. La feuille Projet (téléphone) et son
+panneau déroulant (tablette) sont arrivés aux étapes M3 et M4 ; la carte d'exposition place
+maintenant chaque entrée des menus dans la feuille Projet sur téléphone.
+
+### Corrigé
+
+- **Ctrl+S enregistre** (Cmd+S sur Mac). Le raccourci était affiché dans le menu Fichier sans que
+  rien ne l'écoute : le navigateur ouvrait « Enregistrer la page » (D2).
+- **Ctrl+Z passe par la commande Annuler**, avec ses conditions, au lieu d'appeler l'historique à
+  côté du registre (D6). Le geste ne change pas.
+- **Le fond orthophoto s'efface du menu Affichage quand l'organisation n'a pas la fonction**, comme
+  toute entrée de menu ; il restait visible (D8).
+
+### Interne
+
+- `app/clavier.ts` : table des raccourcis, branchée sur le registre ; `core/historique.ts` n'écoute
+  plus le clavier.
+
+## [2.1.0-alpha.7] — 2026-09-25
+
+**IHM mobile, étape M6** : dialogues, notifications, porte et premier pas sur téléphone.
+
+### Modifié
+
+- **Sur téléphone, une confirmation monte du bas**, boutons pleine largeur de 48 px, action
+  principale au-dessus. Les parcours — import cadastre en trois étapes, sélecteur de textures —
+  prennent l'écran entier ; les boutons de l'import restent collés en bas pendant qu'on défile.
+  L'actualisation IGN devient une feuille.
+- Les toasts se posent au-dessus de la barre de navigation ; le bandeau d'erreur passe en haut de
+  l'écran, le bas étant pris.
+- La porte et le premier pas prennent la largeur du téléphone, champs et boutons de 48 px.
+- Les boîtes imperatives passent sur les jetons : elles suivent enfin le thème sombre.
+
+### Corrigé
+
+- **L'actualisation IGN et le sélecteur de textures se ferment par Échap**, comme les autres
+  dialogues (D11).
+- Libellés périmés (D10) : les toasts de l'actualisation IGN citaient « + Depuis une adresse »
+  (c'est « Fichier › Nouveau plan depuis une adresse »), et la note sur le voisinage parlait d'une
+  case « en haut à droite » qui n'existe plus.
+
+## [2.1.0-alpha.6] — 2026-09-25
+
+**IHM mobile, étape M5** : les propriétés et les résultats sur téléphone et tablette.
+
+### Ajouté
+
+- **La feuille Propriétés** (téléphone) : l'inspecteur entier, ses quatorze sections dans le même
+  ordre, précédées de pastilles qui mènent à chaque section. Sur téléphone et tablette, **les
+  champs prennent une forme tactile** sans changer de descripteur : un nombre devient un pas à pas
+  (− et + de 44 px ; la valeur reste saisissable, virgule comprise ; un appui maintenu répète, et
+  ne laisse qu'un instantané d'annulation par appui), une case un interrupteur, un choix de trois
+  options courtes une commande segmentée. L'aide d'un champ grisé s'écrit sous lui.
+- **Le bandeau de chiffrage** en pied de l'inspecteur d'une terrasse : appuis, lames, fourchette
+  estimée, recalculés à chaque réglage, et un geste vers la nomenclature. La boucle
+  réglage → chiffrage se voit sur un seul écran de téléphone.
+- **La feuille Résultats** (téléphone) : les onglets en pastilles défilantes, le sélecteur de
+  terrasse (« 1 sur 2 »), et **les tableaux en cartes** — une ligne, une carte, chaque valeur
+  précédée du nom de sa colonne ; les prix, longueurs, cadences et boutons des cotes restent
+  éditables dans la carte. Sur tablette, les tableaux gardent leurs colonnes et défilent.
+- **Un bouton Copier** dans l'onglet Résumé.
+
+### Corrigé
+
+- **Le filet copiable des exports SVG et DXF s'écrivait dans un onglet fermé** : l'onglet Résumé
+  s'ouvre désormais quand il sert (D5).
+
+### Interne
+
+- `ui/tableau.ts` pose sur chaque cellule le nom de sa colonne (`data-label`) après chaque rendu des
+  panneaux, sans toucher à leur calcul ni à leurs écouteurs.
+
+## [2.1.0-alpha.5] — 2026-09-25
+
+**IHM mobile, étape M4** : les outils et l'explorateur sur téléphone et tablette.
+
+### Ajouté
+
+- **La feuille Outils** (téléphone, bouton **+**) : les six créations en tuiles, puis « Éditer ·
+  *la sélection* » (Dupliquer, Supprimer en rouge, Reculer, Position initiale), puis Cote et
+  Aligner. Un outil refusé par un droit ou un quota reste visible, grisé avec un cadenas, et **la
+  raison est écrite sous le groupe** : au doigt, l'infobulle ne s'affiche pas. Choisir un outil
+  referme la feuille.
+- **La feuille Objets** (téléphone) : l'explorateur entier — familles en pastilles défilantes,
+  liste, œil par objet, masquer tout, étiquettes, voisinage, terrasses, cases du dossier, calques de
+  la terrasse. Toucher un objet le sélectionne et referme la feuille. **Un objet masqué se réaffiche**
+  depuis cette liste : sur téléphone, c'était impossible.
+- **Sur tablette**, le plan occupe l'écran : la palette devient un **rail d'outils** posé à gauche,
+  l'explorateur et l'inspecteur des **panneaux flottants** repliés en poignée à l'ouverture, le
+  tiroir des résultats se pose en bas au-dessus de la barre d'état. Le bouton ☰ ouvre les menus dans
+  un panneau déroulant.
+
+### Corrigé
+
+- **Sur téléphone et petite tablette, la palette et l'explorateur étaient masqués sans
+  remplacement** : pas d'Annuler, pas de création, ni duplication ni suppression d'objet, pas de
+  sélection par nom.
+- Le menu Étiquettes de l'explorateur se ferme par Échap et par un clic ailleurs, comme ceux de la
+  barre (D11, en partie).
+
+## [2.1.0-alpha.4] — 2026-09-25
+
+**IHM mobile, étape M3** : le plan et la navigation du téléphone.
+
+### Ajouté
+
+- **Sur téléphone, le plan occupe l'écran** entre une barre haute et une barre de navigation.
+  La barre haute porte le nom du projet, son statut d'enregistrement, **Annuler** et Exporter ; le
+  bouton ☰ ouvre la **feuille Projet**, qui porte les menus Fichier, Exporter, Affichage et Aide
+  avec les mêmes entrées, les mêmes cases et le même ordre. La barre de navigation ouvre les
+  feuilles Objets, Outils (**+**), Propriétés et Résultats, et lance **Coter**.
+- **Les feuilles** : une zone existante posée en bas de l'écran, avec une poignée qu'on glisse pour
+  passer de l'aperçu à mi-hauteur puis au plein écran (ou pour fermer), un voile qui la ferme au
+  toucher, Échap, et le focus qui y entre puis revient au bouton d'origine.
+- **La feuille de sélection** : nom, fonction, trois chiffres (surface, hauteur finie, estimation du
+  chiffrage pour une terrasse), Dupliquer, Supprimer, Désélectionner, et les boutons Propriétés et
+  Chiffrage. Sur tablette, une carte en bas à gauche.
+- **Sur le plan, un groupe flottant** Ajuster, Grille, Nord, et une pastille d'échelle qui donne
+  aussi la position du doigt pendant un glisser.
+- **Un bandeau pendant un pointage** (Cote, Aligner) : il dit quoi désigner, et **Annuler** ou
+  **Terminer** en sortent. Échap aussi, sur toutes les tailles d'écran.
+
+### Corrigé
+
+- **« Ajuster à la sélection » était invisible partout** : le bouton était rendu, puis masqué par
+  la feuille de style. La commande `vue.ajuster` n'avait donc aucun point d'accès (D1).
+- **Rien ne permettait de sortir d'un pointage de cote** : tout clic hors d'un côté était avalé, et
+  le glisser de la vue bloqué, jusqu'à ce qu'on désigne un côté (D3).
+
+### Interne
+
+- `zones/BarreNavigation.tsx`, `zones/FeuilleSelection.tsx`, `zones/composants/Feuille.tsx`
+  (entête et voile), `zones/statut.ts` (le statut en mots, partagé avec la barre d'état),
+  `ui/chiffrage.ts` (le résumé du BOM, calculé sans rien écrire et mis en cache).
+- La carte d'exposition place Annuler dans la barre haute, Coter dans la navigation, Dupliquer et
+  Supprimer dans la feuille de sélection, Nord dans le groupe flottant.
+
+## [2.1.0-alpha.3] — 2026-09-25
+
+**IHM mobile, étape M2** : la page se déclare mobile, et connaît sa classe d'écran.
+
+### Corrigé
+
+- **Sur téléphone, la page n'est plus rendue en réduction.** Faute de balise `viewport`, un
+  téléphone l'affichait sur 980 px virtuels puis la rétrécissait d'environ 0,4× : les boutons de
+  44 px tombaient vers 17 px. La page occupe maintenant la largeur réelle de l'écran, et le plan
+  toute cette largeur. Le zoom de la page reste permis ; le pincement sur le plan reste capturé.
+
+### Interne
+
+- `app/classe.ts` : trois classes d'écran, `compact` sous 600 px, `moyen` jusqu'à 1 023 px, `large`
+  au-delà, posées sur `<html data-classe>` et dans le magasin, recalculées au redimensionnement.
+- Le magasin gagne `classe`, `feuille` et `hauteurFeuille` (les feuilles du téléphone arrivent aux
+  étapes suivantes) ; la feuille ouverte se lit aussi sur `<html data-feuille>`.
+- `computeSize` mesure, sur téléphone et tablette, un cadre que la feuille de style place
+  (`#zoneCadre`) au lieu de retrancher des largeurs de colonnes codées en dur ; le bureau garde sa
+  règle. Le clavier virtuel qui s'ouvre sous un champ ne redessine plus le plan.
+
+## [2.1.0-alpha.2] — 2026-09-25
+
+**IHM mobile, étape M1** : les jetons et le thème. L'interface change de teinte, pas de place.
+
+### Modifié
+
+- **Une palette rafraîchie, en clair et en sombre**, qui garde la famille papier, encre et bois :
+  encre plus profonde, panneaux ivoire, accent bois `#7A5C31` (ambre `#E0B564` en sombre). Les
+  valeurs vivent dans `src/styles/jetons.ts` et `app.css` les déclare ; un test vérifie que les deux
+  concordent et que chaque paire texte/fond atteint 4,5:1.
+- **Plus aucune couleur en dur dans la feuille de style** : les blancs, le rouge des erreurs, le
+  brun des toasts passent par des jetons (`--on-accent`, `--on-ink`, `--danger`, `--toast-bg`…).
+  Cela corrige au passage le **bouton principal en thème sombre**, qui écrivait en blanc sur un fond
+  devenu clair.
+- **Les glyphes et émojis des boutons deviennent des icônes SVG en trait** (`zones/icones.tsx`) :
+  palette, grille, œil de l'explorateur. Elles suivent la couleur du texte et l'état grisé.
+- Polices par variables (`--serif`, `--sans`, `--mono`) sur les piles système ; rayons plus doux.
+- Les encres du plan à l'écran (trait, grille, halo) suivent les jetons ; les couleurs des objets
+  restent celles du projet, et les exports gardent les leurs.
+- Le skill `design-ui` décrit les nouveaux jetons.
+
+## [2.1.0-alpha.1] — 2026-09-25
+
+**IHM mobile, étape M0** (`MD/spec-ihm-mobile.md` §12) : les garde-fous avant tout changement
+d'écran. Rien ne bouge à l'écran ; les six artefacts sont identiques hors numéro de version.
+
+### Interne
+
+- `app/exposition.ts` : la **carte d'exposition** dit, pour chacune des **59 commandes** du registre,
+  où elle s'expose sur téléphone, sur tablette et sur bureau. Elle décrit ici l'existant, identique
+  dans les trois classes ; chaque étape suivante la fait évoluer dans le même commit que l'écran.
+- `tests/unit/app/exposition.test.ts` lit le registre dans le code et échoue quand une commande
+  déclarée n'a pas de ligne, quand une classe n'a aucun emplacement pour elle, ou quand l'emplacement
+  nommé ne cite pas la commande dans son code.
+- `tests/unit/zones/inspecteur-champs.test.ts` monte l'inspecteur dans jsdom avec un champ de chaque
+  type et vérifie que chacun est rendu une fois dans chaque classe : le téléphone changera la forme
+  d'un champ, jamais sa présence. Les lignes de champ portent `data-cle`.
+- `tests/unit/zones/identifiants.test.ts` tient la liste des identifiants DOM des écouteurs hors
+  registre (3D, visionneuse, soleil, fichiers, panneaux du tiroir) : ils changeront de place, jamais
+  de nom.
+- `scripts/captures.mjs` : 36 captures de référence (trois largeurs, clair et sombre, six états),
+  plateforme simulée par Playwright ; `window.__plan` expose en développement seulement les gestes
+  qu'il rejoue.
+
 ## [2.0.2] — 2026-09-25
 
 ### Ajouté
