@@ -10,7 +10,7 @@
 //     navigation n'existe que sur telephone, un nombre devient un pas a pas).
 //
 // Passer d'une classe a l'autre ne perd rien : selection, onglet, brouillons restent. Seule la
-// feuille ouverte se referme en quittant le telephone, puisque les feuilles n'existent que la.
+// feuille ouverte se referme en quittant le telephone, sauf celles que la tablette montre aussi.
 
 import type { Classe } from './exposition.js';
 import type { Magasin } from './magasin.js';
@@ -36,6 +36,9 @@ export function appliquerClasse(magasin: Magasin, largeur: number = window.inner
   document.documentElement.dataset.classe = classe;
   if (classe === avant) return false;
   magasin.definirClasse(classe);
-  if (classe !== 'compact' && magasin.store.getState().feuille) magasin.definirFeuille(null);
+  // Les feuilles du telephone ne survivent pas au changement de classe, sauf les deux que la
+  // tablette montre aussi (en panneau deroulant) : Projet et Reglages 3D.
+  const f = magasin.store.getState().feuille;
+  if (f && (classe === 'large' || (classe === 'moyen' && f !== 'projet' && f !== 'reglages3d'))) magasin.definirFeuille(null);
   return true;
 }

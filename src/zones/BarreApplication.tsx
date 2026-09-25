@@ -189,12 +189,21 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
   );
 }
 
-/** Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres. */
+/**
+ * Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres.
+ * Tous les menus deroulants de la page : ceux de la barre, et le menu Etiquettes de l'explorateur,
+ * qui ne se fermait ni par Echap ni par un clic ailleurs (spec-ihm-mobile, D11).
+ */
 function useFermetureDesMenus(): void {
   useEffect(() => {
-    const ouverts = () => [...document.querySelectorAll<HTMLDetailsElement>('#projectBar details.menu[open]')];
+    const ouverts = () => [...document.querySelectorAll<HTMLDetailsElement>('details.menu[open]')];
     const surPointeur = (e: PointerEvent) => { ouverts().forEach(d => { if (!d.contains(e.target as Node)) d.removeAttribute('open'); }); };
-    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') ouverts().forEach(d => d.removeAttribute('open')); };
+    const surTouche = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const o = ouverts();
+      // Echap ferme d'abord le menu ouvert ; la feuille qui le porte ne se ferme qu'au suivant.
+      if (o.length) { e.preventDefault(); o.forEach(d => d.removeAttribute('open')); }
+    };
     const surBascule = (e: Event) => { const d = e.target as HTMLDetailsElement; if (d.open) ouverts().forEach(a => { if (a !== d) a.removeAttribute('open'); }); };
     document.addEventListener('pointerdown', surPointeur);
     document.addEventListener('keydown', surTouche);
@@ -271,14 +280,17 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   const enregistrement = p.statut === 'enregistrement';
   const compact = classe === 'compact';
+  // Telephone et tablette partagent la barre haute ; la feuille Projet devient sur tablette un
+  // panneau deroulant sous le bouton ☰ (spec-ihm-mobile §6.1).
+  const tactile = classe !== 'large';
 
   // Sur telephone, une entree de menu choisie ferme aussi la feuille Projet qui porte les menus.
   useEffect(() => {
-    if (!compact) return;
+    if (!tactile) return;
     const surChoix = () => { if (magasin.store.getState().feuille === 'projet') magasin.definirFeuille(null); };
     document.addEventListener('plan:entreeChoisie', surChoix);
     return () => document.removeEventListener('plan:entreeChoisie', surChoix);
-  }, [compact, magasin]);
+  }, [tactile, magasin]);
 
   const nom = p.courant ? p.courant.name : 'Nouveau plan';
   const lectureSeule = magasin.store.getState().etat.lectureSeule;
@@ -319,7 +331,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
     </>
   );
 
-  if (compact) {
+  if (tactile) {
     return (
       <>
         {/* La barre haute du telephone (spec-ihm-mobile §6.1) : le projet, son statut, Annuler, Exporter. */}
@@ -340,11 +352,12 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
               <Icone nom="annuler" />
             </button>
           )}
+          {!compact && vues}
           <button type="button" className="boutonIcone" aria-label="Exporter" onClick={() => ouvrirProjet('menuExporter')}>
             <Icone nom="exporter" />
           </button>
         </div>
-        {vues}
+        {compact && vues}
         {/* La feuille Projet : les memes menus, les memes cases, dans le meme ordre (§6.1). */}
         <div id="projectBar" className={'feuilleProjet' + (p.apiDisponible ? '' : ' localMode')} role="dialog" aria-modal={feuille === 'projet'} aria-label="Projet">
           <EnteteFeuille magasin={magasin} titre={nom} sousTitre={lieu || undefined} />

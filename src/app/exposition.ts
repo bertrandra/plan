@@ -31,20 +31,25 @@ type Ligne = Record<Classe, Emplacement[]>;
 /** La meme exposition dans les trois classes. */
 const partout = (...e: Emplacement[]): Ligne => ({ compact: e, moyen: e, large: e });
 
+/** Un outil de la palette : feuille Outils sur telephone, rail sur tablette, palette sur bureau. */
+const outil = (...autres: Emplacement[]): Ligne => ({
+  compact: ['feuilleOutils', ...autres], moyen: ['rail', ...autres], large: ['palette', ...autres]
+});
+
 export const EXPOSITION: Record<string, Ligne> = {
   // ---- Objets (Z2) ----------------------------------------------------------------------------
-  'objet.annuler': { compact: ['barreHaute'], moyen: ['palette'], large: ['palette'] },
-  'objet.ajouter.polygone': partout('palette'),
-  'objet.ajouter.rectangle': partout('palette'),
-  'objet.ajouter.chemin': partout('palette'),
-  'objet.ajouter.cercle': partout('palette'),
-  'objet.ajouter.parasol': partout('palette'),
-  'objet.ajouter.pointDeVue': partout('palette'),
-  'objet.dupliquer': { compact: ['palette', 'selection'], moyen: ['palette', 'selection'], large: ['palette'] },
-  'objet.supprimer': { compact: ['palette', 'selection'], moyen: ['palette', 'selection'], large: ['palette'] },
-  'objet.reculer': partout('palette'),
-  'objet.positionInitiale': partout('palette', 'inspecteur'),
-  'objet.aligner': partout('palette'),
+  'objet.annuler': { compact: ['barreHaute'], moyen: ['rail'], large: ['palette'] },
+  'objet.ajouter.polygone': outil(),
+  'objet.ajouter.rectangle': outil(),
+  'objet.ajouter.chemin': outil(),
+  'objet.ajouter.cercle': outil(),
+  'objet.ajouter.parasol': outil(),
+  'objet.ajouter.pointDeVue': outil(),
+  'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
+  'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
+  'objet.reculer': outil(),
+  'objet.positionInitiale': outil('inspecteur'),
+  'objet.aligner': outil(),
 
   // ---- Projet (Z1, Z5) ------------------------------------------------------------------------
   'projet.reinitialiser': partout('inspecteur'),
@@ -72,7 +77,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // ---- Cotes, PLU, terrasse -------------------------------------------------------------------
   'mesure.recalculer': partout('html:recalcMeasureBtn'),
   'mesure.effacer': partout('html:clearMeasureBtn'),
-  'mesure.nouvelle': { compact: ['navigation', 'palette'], moyen: ['palette'], large: ['palette'] },
+  'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('html:pluInterrogerBtn'),
   'terrasse.optimisation': partout('inspecteur'),
 

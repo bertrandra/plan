@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.5] — 2026-09-25
+
+**IHM mobile, étape M4** : les outils et l'explorateur sur téléphone et tablette.
+
+### Ajouté
+
+- **La feuille Outils** (téléphone, bouton **+**) : les six créations en tuiles, puis « Éditer ·
+  *la sélection* » (Dupliquer, Supprimer en rouge, Reculer, Position initiale), puis Cote et
+  Aligner. Un outil refusé par un droit ou un quota reste visible, grisé avec un cadenas, et **la
+  raison est écrite sous le groupe** : au doigt, l'infobulle ne s'affiche pas. Choisir un outil
+  referme la feuille.
+- **La feuille Objets** (téléphone) : l'explorateur entier — familles en pastilles défilantes,
+  liste, œil par objet, masquer tout, étiquettes, voisinage, terrasses, cases du dossier, calques de
+  la terrasse. Toucher un objet le sélectionne et referme la feuille. **Un objet masqué se réaffiche**
+  depuis cette liste : sur téléphone, c'était impossible.
+- **Sur tablette**, le plan occupe l'écran : la palette devient un **rail d'outils** posé à gauche,
+  l'explorateur et l'inspecteur des **panneaux flottants** repliés en poignée à l'ouverture, le
+  tiroir des résultats se pose en bas au-dessus de la barre d'état. Le bouton ☰ ouvre les menus dans
+  un panneau déroulant.
+
+### Corrigé
+
+- **Sur téléphone et petite tablette, la palette et l'explorateur étaient masqués sans
+  remplacement** : pas d'Annuler, pas de création, ni duplication ni suppression d'objet, pas de
+  sélection par nom.
+- Le menu Étiquettes de l'explorateur se ferme par Échap et par un clic ailleurs, comme ceux de la
+  barre (D11, en partie).
+
 ## [2.1.0-alpha.4] — 2026-09-25
 
 **IHM mobile, étape M3** : le plan et la navigation du téléphone.

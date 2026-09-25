@@ -586,6 +586,11 @@ brancherPointeur(svg, stage, etat, {
 
 // ================= Responsive resize =================
 let derniereLargeur = window.innerWidth;
+function replierPourTablette(){
+  if (magasin.store.getState().classe !== 'moyen') return;
+  if (magasin.store.getState().explorateurOuvert) explorateur.basculerOuverture();
+  if (magasin.store.getState().inspecteurOuvert) inspecteur.basculerOuverture();
+}
 // Le centre du monde est releve AVANT le changement de taille et remis au centre apres : sans cela,
 // agrandir la fenetre ferait deriver le plan hors de l'ecran au lieu de l'elargir.
 function redimensionnerLePlan(){
@@ -596,6 +601,7 @@ function redimensionnerLePlan(){
   const classeChangee = appliquerClasse(magasin);
   if (saisie && !classeChangee && magasin.store.getState().classe !== 'large' && window.innerWidth === derniereLargeur) return;
   derniereLargeur = window.innerWidth;
+  if (classeChangee) replierPourTablette();
   const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
   computeSize();
   appliquerTailleDuPlan();
@@ -1096,6 +1102,9 @@ const inspecteur = creerInspecteur(etat, {
 // (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
 const pointage = { courant: () => mesure.pointage, arreter: () => cancelPick(etat, ctxMesure()) };
 monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage });
+// Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
+// couvriraient les deux tiers. Ils s'ouvrent a la demande — la poignee, ou la feuille de selection.
+replierPourTablette();
 // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
 tiroir.activer(etat.panelTab, false);
 render();

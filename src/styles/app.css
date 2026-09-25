@@ -63,6 +63,7 @@
   }
   .paletteGroupe{ display:flex; flex-direction:column; gap:2px; padding-bottom:8px; border-bottom:1px solid var(--rule); }
   .paletteGroupe:last-child{ border-bottom:none; padding-bottom:0; }
+  .paletteOutils{ display:flex; flex-direction:column; gap:2px; }
   #zonePalette .outil{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
     min-width:44px; min-height:44px; padding:4px 2px; border:1px solid transparent; border-radius:10px;
@@ -720,7 +721,116 @@
   html[data-classe="compact"] .compteLien{ min-height:44px; display:inline-flex; align-items:center; padding:0 14px; font-size:14px; }
   .versionFeuille{ margin:12px 0 0; font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
 
-  /* ---- Tablette : la mise en page (spec-ihm-mobile §6) --------------------------------------- */
-  html[data-classe="moyen"] #zonePalette, html[data-classe="moyen"] #zoneExplorateur{ display:none; }
-  html[data-classe="moyen"] #zoneAtelier{ flex-wrap:wrap; }
-  html[data-classe="moyen"] #zoneInspecteur{ width:100%; max-height:none; }
+
+  /* ---- Telephone : la feuille Outils (zones/Palette.tsx) ------------------------------------- */
+  .paletteTuiles{ display:flex; flex-direction:column; gap:16px; }
+  .paletteTuiles .paletteGroupe{ display:flex; flex-direction:column; gap:8px; padding:0; border:none; }
+  .paletteTitre{
+    margin:0; font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .paletteTuiles .paletteOutils{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+  .paletteTuiles .groupe-4 .paletteOutils{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  .paletteTuiles .groupe-2 .paletteOutils{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  html[data-classe="compact"] #zonePalette .outil{
+    position:relative; min-height:72px; padding:6px 4px; gap:6px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink);
+  }
+  html[data-classe="compact"] #zonePalette .outil .libelle{ font-family:var(--sans); font-size:12.5px; color:var(--ink); line-height:1.15; }
+  html[data-classe="compact"] #zonePalette .outil:hover{ background:var(--accent-light); }
+  html[data-classe="compact"] #zonePalette .outil:disabled{ opacity:1; color:var(--ink-soft); background:var(--panel-2); border-style:dashed; }
+  html[data-classe="compact"] #zonePalette .outil:disabled .libelle{ color:var(--ink-soft); }
+  html[data-classe="compact"] #zonePalette .outilDanger:not(:disabled){ color:var(--danger); background:var(--danger-bg); }
+  html[data-classe="compact"] #zonePalette .outilDanger:not(:disabled) .libelle{ color:var(--danger); }
+  .cadenas{ position:absolute; top:6px; right:6px; color:var(--ink-soft); }
+  .paletteRefus{ margin:0; font-family:var(--sans); font-size:12.5px; line-height:1.4; color:var(--ink-soft); }
+
+  /* ---- Telephone : la feuille Objets (zones/Explorateur.tsx) --------------------------------- */
+  html[data-classe="compact"] #zoneExplorateur .explorateurPanneau{ display:flex; flex-direction:column; flex:1; min-height:0; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurSection{ padding:10px 0 12px; border-bottom:1px solid var(--hairline); font-size:15px; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurSection h3{ font-size:12px; margin-bottom:8px; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurFamilles{ flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurFamilles .fambtn{ flex:none; min-height:36px; padding:0 12px; font-size:12px; border-radius:999px; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurListe{ max-height:none; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurLigne{ min-height:48px; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurNom{ font-size:15px; min-height:44px; padding:6px 10px; border-radius:var(--r-champ); }
+  html[data-classe="compact"] #zoneExplorateur .explorateurNom small{ font-size:12px; }
+  html[data-classe="compact"] #zoneExplorateur .oeil{ width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-champ); }
+  html[data-classe="compact"] #zoneExplorateur .explorateurEtiquettes{ gap:4px 14px; padding:4px 10px 10px; font-size:14px; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurEtiquettes label,
+  html[data-classe="compact"] #zoneExplorateur .explorateurCalques label,
+  html[data-classe="compact"] #zoneExplorateur .explorateurDossier{ min-height:40px; font-size:14px; }
+  html[data-classe="compact"] #zoneExplorateur details.menu > summary{ min-height:40px; display:flex; align-items:center; padding:0 12px; font-size:14px; }
+  html[data-classe="compact"] #zoneExplorateur details.menu > ul{ position:static; min-width:0; box-shadow:none; }
+  html[data-classe="compact"] #zoneExplorateur .explorateurTous{ flex-wrap:wrap; }
+
+  /* ---- Tablette : la mise en page (spec-ihm-mobile §6) ---------------------------------------
+     Le plan occupe l'ecran sous la barre haute ; le rail d'outils, l'explorateur et l'inspecteur
+     flottent dessus ; le tiroir des resultats est pose en bas, au-dessus de la barre d'etat. */
+  html[data-classe="moyen"]{
+    --reserve-haut:calc(56px + env(safe-area-inset-top));
+    --hauteur-etat:30px; --hauteur-barre-tiroir:50px;
+    --reserve-bas:calc(var(--hauteur-etat) + var(--hauteur-barre-tiroir) + env(safe-area-inset-bottom));
+    --haut-panneaux:calc(var(--reserve-haut) + 8px);
+    --hauteur-panneaux:calc(100dvh - var(--reserve-haut) - var(--reserve-bas) - 16px);
+  }
+  html[data-classe="moyen"] body{ padding:0; height:100dvh; overflow:hidden; background:var(--stage-bg); }
+  html[data-classe="moyen"] #zoneCadre{ top:var(--reserve-haut); bottom:var(--reserve-bas); height:auto; left:env(safe-area-inset-left); right:env(safe-area-inset-right); }
+  html[data-classe="moyen"] #stage{ position:fixed; top:var(--reserve-haut); left:env(safe-area-inset-left); margin:0; border:none; box-shadow:none; background:var(--stage-bg); }
+  html[data-classe="moyen"] #zoneBarre{
+    position:fixed; top:0; left:0; right:0; z-index:60; margin:0; width:auto; max-width:none;
+    display:block; padding:env(safe-area-inset-top) 8px 0; height:var(--reserve-haut);
+    background:var(--panel-bg); border-bottom:1px solid var(--border);
+  }
+  html[data-classe="moyen"] #modeBar{ display:flex; gap:2px; padding:3px; margin:0 6px; background:var(--segment-bg); border-radius:12px; }
+  html[data-classe="moyen"] #modeBar .objbtn{ min-height:36px; padding:0 12px; border:none; border-radius:10px; background:transparent; color:var(--ink); font-family:var(--sans); font-size:13px; }
+  html[data-classe="moyen"] #modeBar .objbtn.active{ background:var(--ink); color:var(--on-ink); font-weight:600; }
+  /* La feuille Projet devient un panneau deroulant sous le bouton ☰. */
+  html[data-classe="moyen"] #projectBar{
+    position:fixed; top:calc(var(--reserve-haut) + 6px); left:8px; z-index:85; width:380px; max-height:calc(100dvh - var(--reserve-haut) - 24px);
+    display:none; flex-direction:column; align-items:stretch; flex-wrap:nowrap; overflow:hidden;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:var(--r-panneau); box-shadow:var(--ombre-menu); font-family:var(--sans);
+  }
+  html[data-classe="moyen"][data-feuille="projet"] #projectBar{ display:flex; }
+  html[data-classe="moyen"] #projectBar .corpsFeuille{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:4px 14px 14px; display:flex; flex-direction:column; gap:8px; }
+  html[data-classe="moyen"] #projectBar .poigneeFeuille{ display:none; }
+  html[data-classe="moyen"] #projectBar details.menu > summary{ min-height:44px; display:flex; align-items:center; padding:0 12px; font-weight:600; background:var(--panel-2); border-color:var(--border); }
+  html[data-classe="moyen"] #projectBar details.menu > ul{ position:static; min-width:0; box-shadow:none; border:none; background:transparent; }
+  html[data-classe="moyen"] #projectBar details.menu li button{ min-height:44px; font-family:var(--sans); }
+  html[data-classe="moyen"] #projectBar #projectSelect{ max-width:none; min-height:40px; }
+  .voileTransparent{ background:transparent; }
+  /* Le rail d'outils. */
+  html[data-classe="moyen"] #zonePalette{
+    position:fixed; left:calc(8px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:30; width:64px;
+    max-height:var(--hauteur-panneaux); overflow-y:auto; box-shadow:var(--ombre-flottante);
+  }
+  html[data-classe="moyen"] #zonePalette .libelle{ display:none; }
+  /* L'explorateur et l'inspecteur, panneaux flottants repliables en poignee. */
+  html[data-classe="moyen"] #zoneExplorateur{
+    position:fixed; left:calc(80px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:30; width:280px;
+    max-height:var(--hauteur-panneaux); margin:0; border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
+  }
+  html[data-classe="moyen"] #zoneInspecteur{
+    position:fixed; right:calc(8px + env(safe-area-inset-right)); top:var(--haut-panneaux); z-index:30; width:340px;
+    max-height:var(--hauteur-panneaux); margin:0; border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
+  }
+  html[data-classe="moyen"] #zoneExplorateur.replie, html[data-classe="moyen"] #zoneInspecteur.replie{ width:44px; }
+  html[data-classe="moyen"] :is(#zoneExplorateur, #zoneInspecteur).replie :is(.explorateurPli, .inspecteurPli){ width:44px; height:44px; font-size:1.3rem; }
+  html[data-classe="moyen"] .explorateurPli, html[data-classe="moyen"] .inspecteurPli{ min-width:36px; min-height:36px; }
+  /* Le groupe flottant et la pastille evitent le rail. */
+  html[data-classe="moyen"] .groupeFlottant{ top:64px; }
+  /* Le tiroir ouvert recouvre le bas du plan : la carte de selection lui cede la place. */
+  html[data-classe="moyen"] #zoneResultats:not([data-hauteur="replie"]) ~ #zoneSelection .feuilleSelection{ display:none; }
+  html[data-classe="moyen"] .pastilleEchelle{ left:auto; right:64px; top:12px; }
+  html[data-classe="moyen"] .bandeauMode{ left:88px; }
+  /* Le tiroir des resultats, en bas, par-dessus le plan. */
+  html[data-classe="moyen"] #zoneResultats{
+    position:fixed; left:0; right:0; bottom:calc(var(--hauteur-etat) + env(safe-area-inset-bottom)); z-index:35; width:auto; max-width:none; margin:0;
+    background:var(--panel-bg); border-top:1px solid var(--border); box-shadow:var(--ombre-feuille);
+  }
+  html[data-classe="moyen"] .resultatsBarre{ flex-wrap:nowrap; overflow-x:auto; padding:6px 8px 0; min-height:var(--hauteur-barre-tiroir); align-items:center; scrollbar-width:none; }
+  html[data-classe="moyen"] .ongletResultats{ flex:none; }
+  html[data-classe="moyen"] #zoneResultats[data-hauteur="mi"] #tiroirPanneaux{ max-height:42dvh; }
+  html[data-classe="moyen"] #zoneResultats[data-hauteur="plein"] #tiroirPanneaux{ max-height:calc(100dvh - var(--reserve-haut) - var(--hauteur-barre-tiroir) - var(--hauteur-etat) - 16px); }
+  html[data-classe="moyen"] #zoneEtat{ height:calc(var(--hauteur-etat) + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); z-index:36; overflow-x:auto; white-space:nowrap; }
+  html[data-classe="moyen"] .feuilleSelection{ left:calc(88px + env(safe-area-inset-left)); bottom:calc(var(--reserve-bas) + 12px); }

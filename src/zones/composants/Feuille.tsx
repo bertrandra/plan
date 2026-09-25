@@ -97,7 +97,7 @@ export function Voile({ magasin }: { magasin: Magasin }) {
   useEffect(() => {
     if (!feuille) return;
     const surTouche = (e: KeyboardEvent) => {
-      if (magasin.store.getState().classe !== 'compact') return;
+      if (magasin.store.getState().classe === 'large') return;
       if (document.querySelector('.dialogueVoile')) return;
       if (e.key === 'Escape' && !e.defaultPrevented) { magasin.definirFeuille(null); return; }
       // Le focus reste dans la feuille : Tab au dernier element revient au premier, et l'inverse.
@@ -116,6 +116,8 @@ export function Voile({ magasin }: { magasin: Magasin }) {
     return () => window.removeEventListener('keydown', surTouche);
   }, [feuille, magasin]);
 
-  if (classe !== 'compact' || !feuille) return null;
-  return <div className="voileFeuille" aria-hidden="true" onClick={() => magasin.definirFeuille(null)} />;
+  if (!feuille || classe === 'large') return null;
+  // Sur tablette, les panneaux deroulants (Projet, Reglages 3D) n'assombrissent pas le plan : le
+  // voile est transparent, il ne sert qu'a fermer au toucher ailleurs.
+  return <div className={'voileFeuille' + (classe === 'moyen' ? ' voileTransparent' : '')} aria-hidden="true" onClick={() => magasin.definirFeuille(null)} />;
 }
