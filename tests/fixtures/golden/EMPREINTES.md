@@ -252,12 +252,14 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   l'empreinte de `projet.json` figeait un uuid et une date de modification. C'est la preuve forte
   qui l'a revelee, en butant sur cette date. Le motif accepte desormais l'espace.
 
-- **24 septembre 2026 — un témoin sciemment en retard : `glb-structure.json`.** Les textures de la
-  vue 3D sont désormais partagées par URL au lieu d'être réinstanciées à chaque matériau. La scène
-  ne change ni de géométrie, ni de matériaux, ni d'apparence, mais l'exportateur écrit **une image
-  par instance de texture** : il en écrivait 178 pour les huit images que le plan référence, il n'en
-  écrira plus que le nombre d'images distinctes réellement employées. Les compteurs `textures`,
-  `images` et `octetsTotal` de ce témoin vont donc baisser, et le fichier maigrir très fortement.
+- **24 septembre 2026 — un témoin sciemment en retard : `glb-structure.json`.** *Recapturé le
+  26 ; l'entrée reste, et sa prédiction avec, parce qu'elle s'est révélée incomplète d'un compteur.*
+  Les textures de la vue 3D sont désormais partagées par URL au lieu d'être réinstanciées à chaque
+  matériau. La scène ne change ni de géométrie, ni de matériaux, ni d'apparence, mais l'exportateur
+  écrit **une image par instance de texture** : il en écrivait 178 pour les huit images que le plan
+  référence, il n'en écrira plus que le nombre d'images distinctes réellement employées. Les
+  compteurs `textures`, `images` et `octetsTotal` de ce témoin vont donc baisser, et le fichier
+  maigrir très fortement.
 
   **Ce n'est pas une régression, et il faut le lire ici avant de le découvrir là-bas.** La règle de
   ce dossier dit qu'une empreinte qui bouge sans explication est un changement majeur ; en voici
@@ -265,9 +267,21 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   accesseurs, vues tampon, scènes — ne doivent pas bouger d'une unité : si l'un d'eux bouge, c'est
   autre chose, et il faut chercher.
 
-  Le témoin n'a pas été recapturé parce que la capture demande une session ouverte sur la
-  plateforme de démonstration, et que celle du poste était expirée. À faire au prochain passage en
-  vue 3D, en vérifiant les six compteurs invariants ci-dessus.
+- **26 septembre 2026, `glb-structure.json` recapturé — et la prédiction de la veille corrigée.**
+  L'export mesuré par la liste de fumée : **3 234 100 octets** au lieu de 41 473 604, **8 textures
+  et 8 images** au lieu de 178. Nœuds, mailles, matériaux, accesseurs et scènes n'ont pas bougé
+  d'une unité, comme annoncé.
+
+  **Mais les vues tampon ont bougé aussi, et l'annonce ne les citait pas : 829 → 659.** Dans un
+  `.glb`, chaque image embarquée occupe sa propre vue tampon ; en retirer 170 en retire 170, et la
+  soustraction tombe juste. Ce n'est donc pas « autre chose » au sens du paragraphe ci-dessus, c'est
+  la même cause vue d'un autre compteur — mais la veille, je n'avais nommé que trois compteurs là
+  où il y en avait quatre. C'est l'exécution qui l'a montré, pas la relecture.
+
+  Le point 24 de la liste de fumée vérifie désormais cette **arithmétique** plutôt que l'immobilité :
+  `vuesTampon` attendu vaut `829 − (178 − images)`. Un écart là serait une vraie surprise. Et la
+  recapture se fait par ce même point, sous `RECAPTURER_GLB=1` : il n'y a pas d'autre façon de
+  capturer ce témoin, puisqu'il décrit un fichier que seule la vue 3D sait produire.
 
 - **24 septembre 2026 — les six témoins ne sont PAS recapturés pour la `2.0.1`.** *Dette refermée le
   lendemain ; l'entrée reste, parce que la façon dont on s'en sort vaut d'être lue.* Ils portaient

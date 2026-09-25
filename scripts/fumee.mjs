@@ -12,7 +12,7 @@
 //   node scripts/fumee.mjs [http://localhost:5199] [points…]
 
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { ouvrirDemo, FORMATS } from './captures.mjs';
 
 const require = createRequire(import.meta.url);
@@ -133,6 +133,17 @@ async function telecharger(page, action) {
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), action()]);
   return readFileSync(await dl.path(), 'latin1');
 }
+/** Le meme, en octets : un .glb se lit binaire, pas en latin1. */
+async function telechargerOctets(page, action, delai = 60000) {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: delai }), action()]);
+  return readFileSync(await dl.path());
+}
+
+/**
+ * L'adresse des points cadastraux, la meme depuis la `1.1.0` : c'est elle qui rend les valeurs que
+ * le journal de la liste de fumee cite, et en changer rendrait les passages incomparables.
+ */
+const ADRESSE = 'Place de la Mairie 35000 Rennes';
 
 const TERRASSE = "o.fonction === 'terrasse' && o.type === 'polygon' && o.name === 'Terrasse'";
 const DALLE = "o.name === 'Dalle beton'";
@@ -141,7 +152,11 @@ const PARASOL = "o.fonction === 'parasol' && o.type === 'circle'";
 // ---- Les points --------------------------------------------------------------------------------
 // Chacun rend { ok, mesure } ; `ok: null` veut dire non joue, et `mesure` dit pourquoi.
 
-const RESEAU = (quoi) => async () => ({ ok: null, mesure: 'non joué : ' + quoi + ' (réseau sortant fermé dans cet environnement)' });
+// `RESEAU`, qui rendait « non joué » sans essayer, a disparu le 25 septembre 2026 : les huit points
+// qu'il couvrait — 12 à 15, 22 à 24, 38 — s'essaient maintenant pour de bon. Un environnement sans
+// réseau sortant les verra échouer, avec la mesure qui dit où ça s'est arrêté, et c'est ce qu'on
+// veut : un refus mesuré se lit, un refus décrété se recopie d'un passage à l'autre sans que
+// personne ne le rejoue jamais.
 
 const POINTS = {
   1: async (page) => {
@@ -320,10 +335,124 @@ const POINTS = {
     const apres = (await lireEtat(page)).measures.length;
     return { ok: apres === avant + 2, mesure: `référence « Dalle beton : côté ${i} », deux coins de la terrasse, Terminer par le bandeau ; cotes ${avant} → ${apres}` };
   },
-  12: RESEAU('import cadastre par adresse'),
-  13: RESEAU('voisinage — le jeu de démonstration n\'en a pas, il faut un import cadastre'),
-  14: RESEAU('tuiles de l\'orthophoto IGN'),
-  15: RESEAU('interrogation du Géoportail de l\'urbanisme'),
+  // ---- Les points que le reseau porte ------------------------------------------------------------
+  //
+  // Ils etaient declares injouables : la recette de la 2.1.0 tournait sans reseau sortant, et le
+  // pilote rendait « non joue » sans essayer. Ils s'essaient desormais, et disent pourquoi quand le
+  // reseau manque — un refus mesure vaut mieux qu'un refus decrete.
+  //
+  // Ce qu'ils appellent vraiment : la BAN pour l'adresse, `apicarto` pour le cadastre et le PLU,
+  // `data.geopf.fr` pour la BD TOPO et les tuiles, les deux CDN pour three.js. La plateforme, elle,
+  // reste simulee : ce n'est pas elle qu'on eprouve ici.
+  //
+  // Les quatre premiers partagent un import : 13, 14 et 15 n'ont rien a mesurer sur le jeu de
+  // demonstration, qui n'a ni voisinage, ni lieu cadastral, ni zonage. Ils rejouent donc 12 et
+  // remontent son echec tel quel plutot que d'en inventer un a eux.
+  12: async (page) => {
+    const avant = (await lireEtat(page)).objects.length;
+    await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
+    const boite = page.locator('.dialogueCadastre');
+    await boite.waitFor({ timeout: 15000 });
+    await boite.locator('input.promptInput').first().fill(ADRESSE);
+    // La saisie declenche le geocodage au bout de 250 ms ; Entree prend la premiere suggestion.
+    await page.waitForTimeout(2000);
+    await boite.locator('input.promptInput').first().press('Enter');
+    await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvee (2/3)' }).waitFor({ timeout: 30000 });
+    await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
+    await page.locator('.dialogueCadastre', { hasText: 'creation (3/3)' }).waitFor({ timeout: 30000 });
+    // Aucune mitoyenne n'est cochee : l'import initial ne pose pas le drapeau « voisinage » de
+    // toute facon (voir le point 13), et en importer une trentaine pour rien allongerait chaque
+    // passage sans rien prouver.
+    await boite.getByRole('button', { name: /Creer le projet/ }).click();
+    await page.waitForTimeout(5000);
+    const etat = await lireEtat(page);
+    const pc = objet(etat, (o) => o.key === 'parcelle');
+    const batiments = etat.objects.filter((o) => o.fonction === 'batiment').length;
+    // La parcelle se nomme depuis l'ETAT, jamais depuis le texte du dialogue : celui-ci liste aussi
+    // les mitoyennes, et la premiere qu'on y lit n'est pas forcement la principale.
+    const c = pc && pc.cadastre;
+    return {
+      ok: !!c && etat.objects.length !== avant,
+      mesure: `« ${ADRESSE} » → ${c ? c.section + ' ' + c.numero + ' (' + c.idu + '), ' + c.contenanceM2 + ' m²' : 'AUCUNE parcelle cadastrée'}, `
+        + `${etat.objects.length} objets dont ${batiments} bâtiment(s)`
+    };
+  },
+  13: async (page, contexte) => {
+    const imp = await POINTS[12](page, contexte);
+    if (!imp.ok) return { ok: imp.ok, mesure: 'import préalable : ' + imp.mesure };
+    // Le drapeau « voisinage » vient d'« Actualiser IGN », pas de l'import initial : le type le dit
+    // (`model/types.ts`), et l'import ne le pose pas. Cocher les mitoyennes a l'etape 3 du cadastre
+    // ajoute bien des objets — treize au total — mais aucun n'est masquable, et la bascule ne peut
+    // alors rien faire. C'est ce que le premier essai de ce point a montre : 13 → 13, zero masque.
+    //
+    // La commande recoit sa SOURCE et ne fait rien sans elle (`if (source)`), d'ou le clic sur
+    // l'entree de menu plutot que l'appel nu. Le clic est emis DANS la page : l'entree vit dans un
+    // menu replie, et Playwright refuse de cliquer hors du cadre visible, meme force. Un `.click()`
+    // du DOM declenche le meme gestionnaire avec la meme `currentTarget` — c'est la commande qu'on
+    // eprouve ici, pas le depliage du menu, dont les points 26 a 40 se chargent.
+    await page.evaluate(() => document.querySelector('[data-commande="projet.actualiserIgn"]').click());
+    const boiteIgn = page.locator('.dialogueVoile', { hasText: "Actualiser depuis l'IGN" });
+    await boiteIgn.waitFor({ timeout: 15000 });
+    await boiteIgn.getByText('Ajouter les parcelles adjacentes').click();
+    await boiteIgn.getByRole('button', { name: /^Actualiser$/ }).click();
+    await page.waitForTimeout(20000);
+    // Un objet masque n'est pas retire du DOM : le rendu lui pose `display:none` (render/objects.ts),
+    // pour qu'il reste choisissable dans l'explorateur et qu'on puisse le demasquer. On compte donc
+    // ce qui est DESSINE, pas ce qui est present — la premiere version comptait les noeuds et
+    // trouvait 13 avant comme apres.
+    const dessines = () => page.evaluate(() => [...document.querySelectorAll('#stage svg [data-role="obj"]')].filter((e) => e.style.display !== 'none').length);
+    const voisins = (await lireEtat(page)).objects.filter((o) => o.voisinage).length;
+    const avant = await dessines();
+    await page.evaluate(() => window.__plan.executer('affichage.voisinage'));
+    await page.waitForTimeout(500);
+    const apres = await dessines();
+    await page.evaluate(() => window.__plan.executer('affichage.voisinage'));
+    await page.waitForTimeout(500);
+    const retour = await dessines();
+    return {
+      ok: voisins > 0 && apres === avant - voisins && retour === avant,
+      mesure: `${voisins} objet(s) de voisinage importé(s) ; dessinés ${avant} → ${apres} (${avant - apres} masqués), retour ${retour}`
+    };
+  },
+  14: async (page) => {
+    const imp = await POINTS[12](page);
+    if (!imp.ok) return { ok: imp.ok, mesure: 'import préalable : ' + imp.mesure };
+    await page.evaluate(() => window.__plan.executer('affichage.orthophoto'));
+    await page.waitForTimeout(8000);
+    const tuiles = await page.evaluate(() => document.querySelectorAll('#stage svg image').length);
+    const json = await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson')));
+    const porteur = JSON.parse(json).objects.find((x) => x.ortho);
+    return {
+      ok: tuiles > 0 && !!porteur && porteur.ortho.actif === true,
+      mesure: `${tuiles} tuile(s) posée(s), enregistré dans le projet : ${porteur ? JSON.stringify(porteur.ortho) : 'ABSENT'}`
+    };
+  },
+  15: async (page) => {
+    const imp = await POINTS[12](page);
+    if (!imp.ok) return { ok: imp.ok, mesure: 'import préalable : ' + imp.mesure };
+    if (await classe(page) === 'compact') await feuille(page, 'resultats');
+    await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
+    await page.waitForTimeout(400);
+    // Le bouton, et non la commande nue : `plu.interroger` reçoit sa SOURCE et s'en sert pour se
+    // désarmer pendant l'appel (`bouton.disabled = true`). L'exécuter sans source la fait lever —
+    // « Cannot set properties of undefined » — et le panneau restait vide sans qu'on sache pourquoi.
+    // Clic emis dans la page, pour la meme raison qu'au point 13 : le bouton peut etre hors cadre.
+    await page.evaluate(() => document.getElementById('pluInterrogerBtn').click());
+    await page.waitForTimeout(18000);
+    // Le resultat se lit dans l'ETAT, ou `interrogerPluDepuisBouton` le range (`parcelle.plu`), et
+    // non dans le texte du panneau : celui-ci porte son titre et son bouton meme vide, si bien
+    // qu'une recherche de « zone » dans sa prose passait sur un panneau qui n'avait rien recu.
+    const plu = objet(await lireEtat(page), (o) => o.key === 'parcelle')?.plu;
+    const zone = plu && plu.zones && plu.zones[0];
+    return {
+      ok: !!plu && Array.isArray(plu.zones) && plu.zones.length > 0,
+      mesure: plu
+        ? `zone ${zone ? zone.libelle + ' type ' + zone.typezone : 'AUCUNE'}, `
+          + `${(plu.servitudes || []).length} servitude(s), ${(plu.spr || []).length} SPR, `
+          + `commune ${plu.commune ? plu.commune.nom + ' (' + plu.commune.insee + ')' : '?'}`
+        : 'aucun PLU rangé sur la parcelle'
+    };
+  },
   16: async (page) => {
     await selectionner(page, PARASOL);
     const svg = () => page.evaluate(() => document.querySelector('#stage > svg').innerHTML.length + ':' + [...document.querySelectorAll('#stage svg polygon, #stage svg path')].map((e) => e.getAttribute('points') || e.getAttribute('d')).join('|').length);
@@ -396,9 +525,95 @@ const POINTS = {
     const appuis = /Appuis[^\d]*11[,.]5\s*h/.test(t);
     return { ok: appuis, mesure: `${lignes} lignes, « Appuis 11,5 h » ${appuis ? 'présent' : 'ABSENT'}` };
   },
-  22: RESEAU('bibliothèque 3D (three.js, CDN)'),
-  23: RESEAU('bibliothèque 3D (three.js, CDN)'),
-  24: RESEAU('export GLB, qui charge la bibliothèque 3D'),
+  22: async (page) => {
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForTimeout(3500);
+    const r = await page.evaluate(() => {
+      const c = document.querySelector('#terrasse3dCanvasHost canvas');
+      const texte = document.getElementById('vue3dPanel')?.innerText || '';
+      return { trois: window.THREE ? window.THREE.REVISION : null, taille: c ? c.width + '×' + c.height : null, soleil: (/\d{2}:\d{2}[^\n]{0,40}/.exec(texte) || [''])[0] };
+    });
+    return { ok: !!r.trois && !!r.taille, mesure: `three r${r.trois}, canevas ${r.taille}, ${r.soleil}` };
+  },
+  23: async (page) => {
+    const vue = await POINTS[22](page);
+    if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    // `preserveDrawingBuffer: true` a la creation du rendu (three/scene.ts) : l'image du canevas est
+    // donc relisible apres coup, ce qui est tout ce qui permet de mesurer ce point autrement qu'a
+    // l'oeil. Sans ce reglage, `toDataURL` rendrait un cliche vide.
+    const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
+    const enregistrer = () => page.evaluate(() => window.__plan.executer('3d.enregistrerPointDeVue'));
+    await enregistrer();
+    for (let i = 0; i < 6; i++) await page.evaluate(() => window.__plan.executer('3d.zoomArriere'));
+    await page.waitForTimeout(500);
+    await enregistrer();
+    const vues = (await lireEtat(page)).objects.filter((o) => o.fonction === 'camera');
+    if (vues.length < 2) return { ok: false, mesure: `${vues.length} point(s) de vue créé(s), il en faut deux` };
+    // La liste des points de vue vit dans la feuille des reglages 3D depuis la `2.1.0` : sur
+    // telephone elle est repliee, et `selectOption` attend en vain qu'elle devienne visible. On
+    // pose la valeur et on emet `change`, ce qui traverse le meme gestionnaire — c'est la liste
+    // qu'on eprouve ici, pas la feuille qui la porte (le point 38 s'en charge).
+    const choisir = (cle) => page.evaluate((cle) => {
+      const s = document.getElementById('terrasse3dViewSelect');
+      s.value = cle;
+      s.dispatchEvent(new Event('change', { bubbles: true }));
+    }, cle);
+    await choisir(vues[0].key); await page.waitForTimeout(2500);
+    const a = await image();
+    await choisir(vues[1].key); await page.waitForTimeout(2500);
+    const b = await image();
+    await choisir(vues[0].key); await page.waitForTimeout(2500);
+    const c = await image();
+    return {
+      ok: a !== b && a === c,
+      mesure: `${vues.length} points de vue ; deux vues ${a === b ? 'IDENTIQUES (la caméra n a pas bougé)' : 'différentes'}, rappel reproductible : ${a === c}`
+    };
+  },
+  24: async (page) => {
+    const vue = await POINTS[22](page);
+    if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    const glb = await telechargerOctets(page, () => page.evaluate(() => window.__plan.executer('export.glb')), 120000);
+    const attendu = JSON.parse(readFileSync('tests/fixtures/golden/glb-structure.json', 'utf8')).compteurs;
+    // En-tete glTF binaire : 12 octets, puis la longueur du morceau JSON sur 4 octets.
+    const g = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'));
+    const c = {
+      noeuds: g.nodes?.length, mailles: g.meshes?.length, materiaux: g.materials?.length,
+      textures: g.textures?.length, images: g.images?.length,
+      accesseurs: g.accessors?.length, vuesTampon: g.bufferViews?.length, scenes: g.scenes?.length
+    };
+    // Les images ont cesse d'etre ecrites en double a la `2.0.1` (partage des textures) : `textures`,
+    // `images` et la taille baissent, et c'est annonce dans EMPREINTES.md.
+    //
+    // LES VUES TAMPON BAISSENT AUSSI, D'AUTANT EXACTEMENT. Dans un .glb, chaque image embarquee
+    // occupe sa propre vue tampon : en retirer 170 en retire 170. L'annonce d'EMPREINTES.md ne
+    // citait que trois compteurs, elle en oubliait un — et c'est ce point qui l'a montre, la
+    // soustraction tombant juste au premier essai (829 - 170 = 659, pour 178 images ramenees a 8).
+    // On verifie donc l'arithmetique, pas l'immobilite : un ecart ici serait une vraie surprise.
+    // `RECAPTURER_GLB=1` reecrit le temoin structurel depuis CE .glb. Il n'y a pas d'autre facon de
+    // le capturer : il decrit un fichier que seule la vue 3D sait produire, et le produire demande
+    // le reseau. La recapture reste un geste demande, jamais automatique — un temoin qui se
+    // reecrirait tout seul ne serait plus un temoin.
+    if (process.env.RECAPTURER_GLB === '1') {
+      const noms = (l, cle) => [...new Set((l || []).map((x) => x[cle] || '(sans nom)'))];
+      writeFileSync('tests/fixtures/golden/glb-structure.json', JSON.stringify({
+        magic: glb.subarray(0, 4).toString('utf8'), version: glb.readUInt32LE(4),
+        octetsTotal: glb.length, generator: g.asset?.generator, versionGltf: g.asset?.version,
+        compteurs: c,
+        nomsMailles: noms(g.meshes, 'name'), nombreNomsMaillesDistincts: noms(g.meshes, 'name').length,
+        nomsMateriaux: noms(g.materials, 'name'), nombreMateriauxDistincts: noms(g.materials, 'name').length
+      }, null, 2) + '\n');
+    }
+    const vuesAttendues = attendu.vuesTampon - (attendu.images - c.images);
+    const stables = ['noeuds', 'mailles', 'materiaux', 'accesseurs', 'scenes'].filter((k) => c[k] !== attendu[k]);
+    const vuesJustes = c.vuesTampon === vuesAttendues;
+    return {
+      ok: stables.length === 0 && vuesJustes && c.images <= attendu.images,
+      mesure: `GLB ${glb.length} octets ; ${c.noeuds} nœuds, ${c.mailles} mailles, ${c.materiaux} matériaux, ${c.textures} textures et ${c.images} images (témoin ${attendu.textures}/${attendu.images}), ${c.accesseurs} accesseurs, ${c.vuesTampon} vues tampon (attendu ${vuesAttendues})`
+        + (stables.length ? ` ; ONT BOUGÉ : ${stables.join(', ')}` : '')
+        + (vuesJustes ? '' : ' ; VUES TAMPON hors compte')
+    };
+  },
   25: async (page) => {
     const pdf = await telecharger(page, () => page.evaluate(() => window.__plan.executer('export.dossier')));
     const m = pdf.match(/\/Count (\d+)/);
@@ -558,7 +773,25 @@ const POINTS = {
     const heure = await page.evaluate(() => document.getElementById('vue3dHeureTexte').textContent);
     await page.locator('#reglages3dBtn').click({ force: true }); await page.waitForTimeout(300);
     const ouverte = await page.evaluate(() => window.__plan.magasin().feuille === 'reglages3d' && getComputedStyle(document.getElementById('zoneReglages3d')).visibility === 'visible');
-    return { ok: null, mesure: `partiel : curseur d'heure avancé de 36 crans → « ${heure} », feuille des réglages ${ouverte ? 'ouverte' : 'FERMÉE'} ; l'éclairage n'est pas vérifiable sans la bibliothèque 3D (réseau)` };
+    // L'eclairage se mesure enfin, depuis que le reseau est joue : on attend la scene, on relit
+    // l'image a deux heures eloignees, et elles doivent differer. Le texte de l'heure ne dit que
+    // ce que le curseur vaut ; l'image dit ce que le soleil fait.
+    let eclairage = "l'éclairage n'a pas pu être mesuré : la scène 3D n'est pas venue";
+    let bouge = null;
+    const canevas = page.locator('#terrasse3dCanvasHost canvas');
+    if (await canevas.count().then((n) => n > 0).catch(() => false) || await canevas.waitFor({ timeout: 40000 }).then(() => true).catch(() => false)) {
+      await page.waitForTimeout(3000);
+      const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
+      const regler = (v) => page.evaluate((v) => { const c = document.getElementById('vue3dHeure'); c.value = String(v); c.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+      await regler(9 * 60); await page.waitForTimeout(1200); const matin = await image();
+      await regler(18 * 60); await page.waitForTimeout(1200); const soir = await image();
+      bouge = matin !== soir;
+      eclairage = `éclairage 09:00 ≠ 18:00 : ${bouge}`;
+    }
+    return {
+      ok: bouge === null ? null : (bouge && ouverte),
+      mesure: `curseur d'heure avancé de 36 crans → « ${heure} », feuille des réglages ${ouverte ? 'ouverte' : 'FERMÉE'} ; ${eclairage}`
+    };
   },
   39: async (page, contexte) => {
     await selectionner(page, TERRASSE);

@@ -5,6 +5,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Interne
+
+- **Les quarante points de la liste de fumée se jouent, réseau compris.** Huit d'entre eux — import
+  cadastre, voisinage, orthophoto, PLU, vue 3D, rappel de point de vue, export GLB et éclairage sur
+  téléphone — rendaient « non joué » **sans rien tenter** : une constante du pilote le décrétait,
+  parce que la recette de la `2.1.0` tournait sans réseau sortant. Ils ont maintenant une vraie
+  implémentation, et un environnement sans réseau les verra échouer avec la mesure qui dit où ça
+  s'est arrêté. Un refus mesuré se lit ; un refus décrété se recopie d'un passage à l'autre sans
+  que personne ne le rejoue jamais.
+
+  **44 passés, 0 échec, 0 non joué sur 44**, dans les trois classes d'écran et les deux thèmes. Les
+  valeurs sont celles des passages manuels de la `1.1.0` et de la `1.2.0` — AC 0530 et 418 m² pour
+  l'adresse, neuf objets de voisinage masqués d'un coup, quatre tuiles d'orthophoto, zone psmv
+  type U — donc les campagnes redeviennent comparables. Le point 23 tient désormais le défaut D-15,
+  qui n'était prouvé que par une vérification à la main.
+
+  Sept corrections ont été nécessaires, **toutes dans le pilote et aucune dans le produit**. La plus
+  instructive : le drapeau qui rend un objet masquable vient de l'actualisation IGN et non de
+  l'import cadastre, ce que le type du modèle disait déjà.
+
+- **Le témoin `glb-structure.json` est recapturé**, et la note qui annonçait son mouvement est
+  corrigée. Le fichier passe de 41 473 604 à 3 234 100 octets, avec 8 images au lieu de 178, comme
+  prévu. Mais les vues tampon baissent aussi, de 829 à 659, ce que l'annonce avait omis : chaque
+  image embarquée occupe la sienne. Le point 24 vérifie cette arithmétique au lieu de l'immobilité.
+
 ## [2.1.0] — 2026-09-25
 
 **L'interface s'adapte au téléphone, à la tablette et au bureau, en clair et en sombre**
