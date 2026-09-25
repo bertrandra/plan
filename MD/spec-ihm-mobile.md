@@ -1,7 +1,9 @@
 # IHM mobile et moderne — spécification de migration
 
 **Version :** 0.1 — proposition à discuter, 25 septembre 2026
-**Statut :** document vivant ; chaque étape du §12 se coche ici, comme dans `spec-ihm-zones.md` §6
+**Statut :** **publiée en `2.1.0` le 25 septembre 2026**, les dix étapes du §12 cochées. Restent à
+passer à la main, avec le réseau, les points de fumée 12 à 15 et 22 à 24 ; et les décisions ouvertes
+du §14 (seule la première est tranchée : piles système).
 **Point de départ :** `2.0.2`. L'interface est découpée en neuf zones (`spec-ihm-zones.md`, entièrement
 cochée) ; elle est pensée pour un écran de bureau et se dégrade mal en dessous de 1 024 px.
 **Cible :** `2.1.0`. Une seule application qui s'adapte au téléphone (portrait, une main), à la
@@ -629,7 +631,7 @@ sous une version `2.1.0-alpha.N`. À chaque étape, la carte d'exposition (§3.1
 | **M6** | Dialogues, notifications, porte, premier pas | formes compactes (§6.8, §6.9) ; Échap partout (corrige D11) ; textes périmés de l'actualisation IGN (D10) | points 12, 14, 23, 24 en `compact` — **✅ 25/09/2026, `2.1.0-alpha.7`** |
 | **M7** | Z1 en feuille Projet, clavier | feuille Projet ; Ctrl+S (D2) ; Ctrl+Z par le registre (D6) ; effacement de l'orthophoto sans capacité (D8) | point 37 ; carte d'exposition complète pour Z1 — **✅ 25/09/2026, `2.1.0-alpha.8`** |
 | **M8** | Vue 3D et visionneuse | canevas plein écran, colonne de boutons de 44 px, feuille Réglages 3D, barre du soleil ; textes d'aide (D10) | points 22, 23, 24 et 38 — **✅ 25/09/2026, `2.1.0-alpha.9`** (scène non rendue ici : three.js vient d'un CDN que l'environnement de test ne joint pas) |
-| **M9** | Recette | liste de fumée complète (40 points) dans les trois classes, en clair et en sombre ; captures ; `CHANGELOG`, `README`, `spec-ihm-zones.md` ; publication `2.1.0` | 40 × 3 points ; empreintes identiques hors numéro |
+| **M9** | Recette | liste de fumée complète (40 points) dans les trois classes, en clair et en sombre ; captures ; `CHANGELOG`, `README`, `spec-ihm-zones.md` ; publication `2.1.0` | 40 × 3 points ; empreintes identiques hors numéro — **✅ 25/09/2026, `2.1.0`** : liste pilotée par `scripts/fumee.mjs`, 134 passés, 0 échec, 45 non joués (réseau) sur 179 ; cinq défauts trouvés et corrigés (voir `CHANGELOG.md`) |
 
 Une étape ne commence pas tant que la précédente n'a pas passé ses preuves. Les étapes M3 à M8
 peuvent se réordonner si le besoin le demande ; M0 à M2 non.

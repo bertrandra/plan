@@ -5,6 +5,56 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0] — 2026-09-25
+
+**L'interface s'adapte au téléphone, à la tablette et au bureau, en clair et en sombre**
+(`MD/spec-ihm-mobile.md`). Neuf paliers `alpha`, puis une recette. Rien n'a été perdu : une carte
+d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe d'écran, et un
+autre test vérifie que l'inspecteur rend les mêmes champs partout. Aucun nombre n'a bougé : les six
+artefacts exportés sont identiques aux témoins hors numéro de version.
+
+### En bref
+
+- **Téléphone** : le plan occupe l'écran ; une barre haute (projet, statut, Annuler, Exporter) et
+  une barre de navigation (Objets, Coter, **+**, Propriétés, Résultats) ; chaque zone devient une
+  feuille qui monte du bas ; une feuille de sélection résume l'objet touché ; les champs sont
+  tactiles ; un bandeau recalcule le chiffrage à chaque réglage ; les tableaux deviennent des cartes.
+- **Tablette** : rail d'outils, explorateur et inspecteur flottants, tiroir en bas.
+- **Bureau** : la disposition en colonnes, avec la nouvelle palette et les icônes.
+- **Défauts corrigés** : « Ajuster à la sélection » invisible partout (D1), aucun moyen de sortir
+  d'un pointage de cote (D3), filet copiable des exports écrit dans un onglet fermé (D5), Ctrl+S
+  affiché mais sans effet (D2), Ctrl+Z hors registre (D6), fond orthophoto visible sans la capacité
+  (D8), libellés périmés (D10), dialogues qu'Échap ne fermait pas (D11).
+
+### Corrigé par la recette
+
+- **Valider un nombre par Entrée écrivait deux fois** : Entrée validait, puis la sortie du champ
+  validait à nouveau, avec deux instantanés d'annulation — un Ctrl+Z semblait alors ne rien faire.
+  Présent depuis la `1.2.0`. Entrée quitte désormais le champ, et c'est la sortie qui valide ; un
+  test le verrouille.
+- Sur tablette, le tiroir des résultats ouvert recouvrait le bas de l'inspecteur et du rail, et le
+  bandeau de pointage : les panneaux passent au-dessus du tiroir, le bandeau se pose en haut du plan.
+- Le bouton des réglages 3D n'apparaissait qu'une fois la bibliothèque 3D chargée : il est sorti
+  du cadre de la scène.
+- Sur téléphone, « Ajuster à la sélection » cadre l'objet au-dessus de la feuille de sélection.
+- Tourner le téléphone avec un champ en cours de saisie ne replie plus l'inspecteur et garde le
+  brouillon.
+
+### Recette
+
+- **La liste de fumée passe à 40 points**, joués dans les trois classes et les deux thèmes :
+  **134 passés, aucun échec, 45 non joués** sur 179 — les points qui demandent le réseau (cadastre,
+  voisinage, orthophoto, PLU, 3D, GLB), que l'environnement de recette n'avait pas. Ils restent à
+  passer à la main. Détail dans `tests/CHECKLIST-FUMEE.md`.
+- `scripts/fumee.mjs` pilote la liste avec de vrais évènements de pointeur, de doigts et de clavier,
+  et mesure chaque geste dans l'état du plan ; `scripts/captures.mjs` produit 36 captures de
+  référence.
+- Trois défauts relevés et laissés hors du périmètre sont inscrits à `MD/DEFAUTS.md` (D-16 à D-18).
+- **Empreintes** : `plan.svg`, `plan.dxf`, `resume.txt`, `plan.pdf` et `dossier.pdf`, rejoués depuis
+  l'interface, sont identiques au bit près aux témoins une fois le numéro neutralisé ; `projet.json`
+  porte les mêmes objets et les mêmes mesures. Les témoins ne sont pas recapturés.
+- 736 tests (709 + 27). Fichier livré : 787 Ko.
+
 ## [2.1.0-alpha.9] — 2026-09-25
 
 **IHM mobile, étape M8** : la vue 3D et la visionneuse sur téléphone et tablette.
