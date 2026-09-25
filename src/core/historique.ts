@@ -145,16 +145,6 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     if (ctx.signalerPile) ctx.signalerPile(pile.vide);
   }
 
-  /** Ctrl+Z / Cmd+Z. Pas de Ctrl+Y : il n'y a pas de retablissement (voir le point 5 en tete). */
-  function brancherRaccourci(): void {
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-        e.preventDefault();
-        annuler();
-      }
-    });
-  }
-
   return {
     instantane,
     marquerModifie,
@@ -162,7 +152,6 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     restaurer,
     annuler,
     majBoutonAnnuler,
-    brancherRaccourci,
     definirRafraichisseurStatut(f: () => void) { rafraichirStatut = f; },
     /** Redemande l'affichage du statut, sans rien marquer comme modifie. */
     declencherRafraichissementStatut() { rafraichirStatut(); },

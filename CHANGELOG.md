@@ -5,6 +5,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.8] — 2026-09-25
+
+**IHM mobile, étape M7** : les menus de Z1 et le clavier. La feuille Projet (téléphone) et son
+panneau déroulant (tablette) sont arrivés aux étapes M3 et M4 ; la carte d'exposition place
+maintenant chaque entrée des menus dans la feuille Projet sur téléphone.
+
+### Corrigé
+
+- **Ctrl+S enregistre** (Cmd+S sur Mac). Le raccourci était affiché dans le menu Fichier sans que
+  rien ne l'écoute : le navigateur ouvrait « Enregistrer la page » (D2).
+- **Ctrl+Z passe par la commande Annuler**, avec ses conditions, au lieu d'appeler l'historique à
+  côté du registre (D6). Le geste ne change pas.
+- **Le fond orthophoto s'efface du menu Affichage quand l'organisation n'a pas la fonction**, comme
+  toute entrée de menu ; il restait visible (D8).
+
+### Interne
+
+- `app/clavier.ts` : table des raccourcis, branchée sur le registre ; `core/historique.ts` n'écoute
+  plus le clavier.
+
 ## [2.1.0-alpha.7] — 2026-09-25
 
 **IHM mobile, étape M6** : dialogues, notifications, porte et premier pas sur téléphone.

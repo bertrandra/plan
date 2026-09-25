@@ -83,6 +83,7 @@ import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, t
 import { creerExplorateur } from './explorateur.js';
 import { demanderPremierPas } from './premierPas.js';
 import { appliquerClasse } from './classe.js';
+import { brancherClavier } from './clavier.js';
 
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d,
@@ -288,7 +289,6 @@ const historique = creerHistorique(etat, {
   signalerPile: (vide)=>magasin.definirPeutAnnuler(!vide),
   rafraichirResultats: ()=>refreshTerrasseView()
 });
-historique.brancherRaccourci();
 
 function markDirty(){ historique.marquerModifie(); }
 function pushHistory(){ historique.empiler(); }
@@ -627,6 +627,9 @@ const atelier = {
   duplicateSelectedObject, deleteSelectedObject, sendObjectBackward
 };
 brancherObjets(atelier, commandes);
+// Ctrl+Z et Ctrl+S passent par le registre (app/clavier.ts). Pas de Ctrl+Y : il n'y a pas de
+// retablissement (core/historique.ts, point 5 en tete).
+brancherClavier(commandes);
 
 function ctxOrtho(){
   return { trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup };

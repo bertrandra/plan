@@ -36,9 +36,14 @@ const outil = (...autres: Emplacement[]): Ligne => ({
   compact: ['feuilleOutils', ...autres], moyen: ['rail', ...autres], large: ['palette', ...autres]
 });
 
+/** Une entree d'un menu de Z1 : feuille Projet sur telephone, menu (deroulant) ailleurs. */
+const menu = (m: Emplacement, ...autres: Emplacement[]): Ligne => ({
+  compact: ['feuilleProjet', ...autres], moyen: [m, ...autres], large: [m, ...autres]
+});
+
 export const EXPOSITION: Record<string, Ligne> = {
   // ---- Objets (Z2) ----------------------------------------------------------------------------
-  'objet.annuler': { compact: ['barreHaute'], moyen: ['rail'], large: ['palette'] },
+  'objet.annuler': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
   'objet.ajouter.polygone': outil(),
   'objet.ajouter.rectangle': outil(),
   'objet.ajouter.chemin': outil(),
@@ -53,20 +58,20 @@ export const EXPOSITION: Record<string, Ligne> = {
 
   // ---- Projet (Z1, Z5) ------------------------------------------------------------------------
   'projet.reinitialiser': partout('inspecteur'),
-  'projet.nouveau': partout('menuFichier'),
-  'projet.enregistrer': partout('menuFichier', 'barreHaute'),
-  'projet.supprimer': partout('menuFichier'),
-  'projet.depuisAdresse': partout('menuFichier', 'premierPas'),
-  'projet.actualiserIgn': partout('menuFichier'),
+  'projet.nouveau': menu('menuFichier'),
+  'projet.enregistrer': { compact: ['feuilleProjet', 'clavier'], moyen: ['menuFichier', 'clavier'], large: ['menuFichier', 'barreHaute', 'clavier'] },
+  'projet.supprimer': menu('menuFichier'),
+  'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
+  'projet.actualiserIgn': menu('menuFichier'),
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
-  'affichage.voisinage': partout('menuAffichage', 'explorateur'),
-  'affichage.grille': partout('menuAffichage', 'surimpression'),
-  'affichage.orthophoto': partout('menuAffichage'),
-  'affichage.orthoOpacite': partout('menuAffichage'),
-  'affichage.orthoParcelleOpacite': partout('menuAffichage'),
-  'affichage.orthoParcelleDefaut': partout('menuAffichage'),
+  'affichage.voisinage': menu('menuAffichage', 'explorateur'),
+  'affichage.grille': menu('menuAffichage', 'surimpression'),
+  'affichage.orthophoto': menu('menuAffichage'),
+  'affichage.orthoOpacite': menu('menuAffichage'),
+  'affichage.orthoParcelleOpacite': menu('menuAffichage'),
+  'affichage.orthoParcelleDefaut': menu('menuAffichage'),
 
   // ---- Vues -----------------------------------------------------------------------------------
   'vue.ajuster': partout('surimpression'),
@@ -82,16 +87,16 @@ export const EXPOSITION: Record<string, Ligne> = {
   'terrasse.optimisation': partout('inspecteur'),
 
   // ---- Fichier et exports ---------------------------------------------------------------------
-  'fichier.importerSvg': partout('menuFichier'),
-  'fichier.exporterJson': partout('menuFichier'),
-  'fichier.importerJson': partout('menuFichier'),
-  'export.svg': partout('menuExporter'),
-  'export.png': partout('menuExporter'),
-  'export.resume': partout('menuExporter', 'html:exportBtn'),
-  'export.dxf': partout('menuExporter'),
-  'export.pdf': partout('menuExporter'),
-  'export.dossier': partout('menuExporter'),
-  'export.glb': partout('menuExporter'),
+  'fichier.importerSvg': menu('menuFichier'),
+  'fichier.exporterJson': menu('menuFichier'),
+  'fichier.importerJson': menu('menuFichier'),
+  'export.svg': menu('menuExporter'),
+  'export.png': menu('menuExporter'),
+  'export.resume': menu('menuExporter', 'html:exportBtn'),
+  'export.dxf': menu('menuExporter'),
+  'export.pdf': menu('menuExporter'),
+  'export.dossier': menu('menuExporter'),
+  'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------
   '3d.zoomAvant': partout('html:terrasse3dZoomIn'),

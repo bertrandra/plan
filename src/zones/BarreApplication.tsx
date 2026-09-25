@@ -135,12 +135,14 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   useStore(magasin.store, (s) => s.version);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
-  const bascules: [string, string, boolean, boolean][] = [
+  // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
+  // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
+  const bascules: [string, string, boolean, boolean][] = ([
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
     ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
-  ];
+  ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
