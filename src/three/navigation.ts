@@ -142,15 +142,16 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       const b = document.getElementById(id);
       if (!b) return;
       const actif = mode3D === m;
-      b.style.background = actif ? 'var(--accent, #2a6b7a)' : '';
-      b.style.color = actif ? '#fff' : '';
+      // L'etat actif est une classe et un attribut : la feuille de style le colore selon le theme.
+      b.classList.toggle('actif', actif);
+      b.setAttribute('aria-pressed', String(actif));
     });
     const hint = document.getElementById('terrasse3dHint');
     if (hint) hint.textContent = mode3D === 'pan'
-      ? 'Mode deplacer : glisser (un doigt) translate la vue. Molette ou boutons +/− = zoom. Reprends ⟳ pour tourner.'
+      ? 'Mode deplacer : glisser (un doigt) translate la vue. Molette ou boutons +/− = zoom. Reprends le bouton « tourner » pour tourner.'
       : mode3D === 'zoom'
-      ? 'Mode zoom : glisser vers le haut rapproche, vers le bas eloigne. Reprends ⟳ pour tourner.'
-      : 'Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons ⟳ / ✋ / 🔍 changent ce que fait le glisser a un seul doigt — pratique sur tablette.';
+      ? 'Mode zoom : glisser vers le haut rapproche, vers le bas eloigne. Reprends le bouton « tourner » pour tourner.'
+      : 'Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons tourner / deplacer / zoom changent ce que fait le glisser a un seul doigt — pratique sur tablette.';
   }
 
   /**
@@ -175,8 +176,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   /**
    * Passe une vue en plein page, ou l'en fait revenir.
    *
-   * La hauteur est posee en **inline** parce que le HTML la fixe ainsi : une regle de classe seule
-   * perdrait contre elle.
+   * La hauteur plein page est posee en **inline** ; hors plein page, elle revient a la feuille de
+   * style (`.hote3d`), qui la regle selon la classe d'ecran (spec-ihm-mobile §6.10).
    *
    * Il n'y a pas besoin d'attendre une frame avant de redimensionner : lire une propriete de mise en
    * page — `clientHeight`, dans le redimensionnement — force le navigateur a recalculer la mise en
@@ -187,8 +188,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     const host = document.getElementById(idHote)!;
     const btn = document.getElementById(idBouton)!;
     conteneur.classList.toggle('pleinePage', actif);
-    host.style.height = actif ? 'calc(100vh - 210px)' : '420px';
-    btn.textContent = actif ? '🗗 Format normal' : '⛶ Plein écran';
+    host.style.height = actif ? 'calc(100vh - 210px)' : '';
+    btn.textContent = actif ? 'Format normal' : 'Plein écran';
     btn.title = actif ? 'Revenir a l\'affichage normal' : 'Agrandir ' + quoi + ' en pleine page';
     redim();
   }

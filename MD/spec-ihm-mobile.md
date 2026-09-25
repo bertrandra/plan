@@ -628,7 +628,7 @@ sous une version `2.1.0-alpha.N`. À chaque étape, la carte d'exposition (§3.1
 | **M5** | Propriétés et Résultats | Z5 en feuille et panneau ; formes tactiles des champs (§7.1) ; bandeau de chiffrage ; Z6 en feuille ; `ui/tableau.ts` ; filet d'export visible (corrige D5) | points 32 à 34 ; carte des champs identique dans les trois classes ; points 17 à 21 en `compact` — **✅ 25/09/2026, `2.1.0-alpha.6`** |
 | **M6** | Dialogues, notifications, porte, premier pas | formes compactes (§6.8, §6.9) ; Échap partout (corrige D11) ; textes périmés de l'actualisation IGN (D10) | points 12, 14, 23, 24 en `compact` — **✅ 25/09/2026, `2.1.0-alpha.7`** |
 | **M7** | Z1 en feuille Projet, clavier | feuille Projet ; Ctrl+S (D2) ; Ctrl+Z par le registre (D6) ; effacement de l'orthophoto sans capacité (D8) | point 37 ; carte d'exposition complète pour Z1 — **✅ 25/09/2026, `2.1.0-alpha.8`** |
-| **M8** | Vue 3D et visionneuse | canevas plein écran, colonne de boutons de 44 px, feuille Réglages 3D, barre du soleil ; textes d'aide (D10) | points 22, 23, 24 et 38 |
+| **M8** | Vue 3D et visionneuse | canevas plein écran, colonne de boutons de 44 px, feuille Réglages 3D, barre du soleil ; textes d'aide (D10) | points 22, 23, 24 et 38 — **✅ 25/09/2026, `2.1.0-alpha.9`** (scène non rendue ici : three.js vient d'un CDN que l'environnement de test ne joint pas) |
 | **M9** | Recette | liste de fumée complète (40 points) dans les trois classes, en clair et en sombre ; captures ; `CHANGELOG`, `README`, `spec-ihm-zones.md` ; publication `2.1.0` | 40 × 3 points ; empreintes identiques hors numéro |
 
 Une étape ne commence pas tant que la précédente n'a pas passé ses preuves. Les étapes M3 à M8
@@ -725,13 +725,13 @@ visionneuse ; **Rail** rail d'outils ; **Pal** palette ; **M:x** menu x ; **Suri
 | `3d.hauteurDesYeux` | Hauteur des yeux | 3D (colonne) | 3D | 3D |
 | `3d.enregistrerPng` | Enregistrer en PNG | 3D (colonne) | 3D | 3D |
 | `3d.enregistrerPointDeVue` | Enregistrer la vue | 3D › Réglages | 3D | 3D |
-| `3d.pleinePage` | Plein écran | sans objet : la vue est déjà plein écran (la commande reste déclarée et exposée par ⌨ Échap) | 3D | 3D |
+| `3d.pleinePage` | Plein écran | sans objet : la vue est déjà plein écran | sans objet (idem, précisé à l'étape M8) | 3D |
 | `visionneuse.generer` | Générer le modèle 3D | Vis (état vide) | Vis | Vis |
 | `visionneuse.regenerer` | Régénérer depuis le plan | Vis › Réglages | Vis | Vis |
 | `visionneuse.zoomAvant` | Zoom avant | Vis (colonne) | Vis | Vis |
 | `visionneuse.zoomArriere` | Zoom arrière | Vis (colonne) | Vis | Vis |
 | `visionneuse.hauteurDesYeux` | Hauteur des yeux | Vis (colonne) | Vis | Vis |
-| `visionneuse.pleinePage` | Plein écran | sans objet, comme `3d.pleinePage` | Vis | Vis |
+| `visionneuse.pleinePage` | Plein écran | sans objet, comme `3d.pleinePage` | sans objet | Vis |
 
 Actions hors registre de Z1, à conserver aussi : sélecteur de projet (`projet.ouvrir`), Aide ›
 Méthode de calcul, Aide › Version, « Mes projets », « Se déconnecter ». En `compact` : FP.

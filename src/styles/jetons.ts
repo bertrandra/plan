@@ -12,7 +12,7 @@
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast';
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
   clair: {
@@ -39,7 +39,8 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger-bg': '#FBF1EE',
     'alerte': '#A8442F',
     'toast-bg': '#2B2117',
-    'on-toast': '#FFFDF8'
+    'on-toast': '#FFFDF8',
+    'fond-3d': '#DFE7EA'
   },
   sombre: {
     'ink': '#F1E7D0',
@@ -65,7 +66,8 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger-bg': '#3A1E18',
     'alerte': '#E08A6E',
     'toast-bg': '#F1E7D0',
-    'on-toast': '#1C1610'
+    'on-toast': '#1C1610',
+    'fond-3d': '#1F2426'
   }
 };
 

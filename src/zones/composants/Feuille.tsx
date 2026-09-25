@@ -74,10 +74,22 @@ export const HOTE_DE_FEUILLE: Record<Feuille, string> = {
   resultats: 'zoneResultats', reglages3d: 'zoneReglages3d'
 };
 
+/** Le conteneur de la feuille ; les reglages sont ceux de la vue 3D ou de la visionneuse. */
+function hote(feuille: Feuille, vue: string): HTMLElement | null {
+  if (feuille === 'reglages3d' && vue === 'visionneuse') return document.getElementById('zoneReglagesGlb');
+  return document.getElementById(HOTE_DE_FEUILLE[feuille]);
+}
+
 export function Voile({ magasin }: { magasin: Magasin }) {
   const feuille = useStore(magasin.store, (s) => s.feuille);
   const classe = useStore(magasin.store, (s) => s.classe);
+  const vue = useStore(magasin.store, (s) => s.vue);
   const origine = useRef<HTMLElement | null>(null);
+
+  // Les reglages 3D n'ont plus d'objet quand on revient au plan.
+  useEffect(() => {
+    if (vue === 'plan' && magasin.store.getState().feuille === 'reglages3d') magasin.definirFeuille(null);
+  }, [vue, magasin]);
 
   // Le focus entre dans la feuille a l'ouverture, et revient au bouton d'origine a la fermeture.
   useEffect(() => {
@@ -87,11 +99,10 @@ export function Voile({ magasin }: { magasin: Magasin }) {
       return;
     }
     if (!origine.current) origine.current = document.activeElement as HTMLElement | null;
-    const hote = document.getElementById(HOTE_DE_FEUILLE[feuille]);
-    const cible = hote?.querySelector<HTMLElement>('.fermerFeuille');
+    const cible = hote(feuille, magasin.store.getState().vue)?.querySelector<HTMLElement>('.fermerFeuille');
     // Apres le rendu de la zone, qui vient de recevoir son entete.
     requestAnimationFrame(() => cible?.focus({ preventScroll: true }));
-  }, [feuille]);
+  }, [feuille, magasin]);
 
   // Echap ferme la feuille — sauf quand un menu ou un dialogue ouvert par-dessus s'en occupe.
   useEffect(() => {
@@ -102,19 +113,33 @@ export function Voile({ magasin }: { magasin: Magasin }) {
       if (e.key === 'Escape' && !e.defaultPrevented) { magasin.definirFeuille(null); return; }
       // Le focus reste dans la feuille : Tab au dernier element revient au premier, et l'inverse.
       if (e.key !== 'Tab') return;
-      const hote = document.getElementById(HOTE_DE_FEUILLE[feuille]);
-      if (!hote) return;
-      const focusables = [...hote.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+      const conteneur = hote(feuille, magasin.store.getState().vue);
+      if (!conteneur) return;
+      const focusables = [...conteneur.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
         .filter(el => !(el as HTMLButtonElement).disabled && el.offsetParent !== null);
       if (!focusables.length) return;
       const premier = focusables[0]!, dernier = focusables[focusables.length - 1]!;
       if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
       else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
-      else if (!hote.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }
+      else if (!conteneur.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }
     };
     window.addEventListener('keydown', surTouche);
     return () => window.removeEventListener('keydown', surTouche);
   }, [feuille, magasin]);
+
+  // Les boutons de fermeture des feuilles ecrites dans index.html (les reglages 3D) et les boutons
+  // qui les ouvrent : du balisage statique, branche ici une fois.
+  useEffect(() => {
+    const surClic = (e: MouseEvent) => {
+      const cible = e.target as Element | null;
+      if (cible?.closest('[data-fermer-feuille]')) magasin.definirFeuille(null);
+      else if (cible?.closest('#reglages3dBtn, #reglagesGlbBtn')) {
+        magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d');
+      }
+    };
+    document.addEventListener('click', surClic);
+    return () => document.removeEventListener('click', surClic);
+  }, [magasin]);
 
   if (!feuille || classe === 'large') return null;
   // Sur tablette, les panneaux deroulants (Projet, Reglages 3D) n'assombrissent pas le plan : le

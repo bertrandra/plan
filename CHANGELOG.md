@@ -5,6 +5,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.9] — 2026-09-25
+
+**IHM mobile, étape M8** : la vue 3D et la visionneuse sur téléphone et tablette.
+
+### Modifié
+
+- **Sur téléphone et tablette, la scène 3D prend l'écran** sous la barre haute, au lieu d'un cadre
+  de 420 px. Les commandes de caméra (zoom, tourner, déplacer, zoom au glisser, PNG, hauteur des
+  yeux) sont une colonne de boutons de 44 px posée sur la scène, avec un bouton ⚙ qui ouvre les
+  **réglages** — feuille sur téléphone, panneau sur tablette : filaire, objets, opacité, textures,
+  ombres, date et semaine, intensité, lumière d'appoint, points de vue, aide. **L'heure a sa propre
+  barre** en bas de la scène, pour la faire défiler au pouce. Même disposition pour la visionneuse.
+- Sur bureau, le cadre de la scène suit la hauteur de la fenêtre (420 px au moins), et le plein
+  écran reste. Sur téléphone et tablette, le plein écran n'a plus d'objet et disparaît.
+- Les émojis des boutons 3D deviennent des icônes ; le mode actif (tourner, déplacer, zoom) se
+  colore selon le thème.
+
+### Corrigé
+
+- Libellés périmés de l'aide 3D (D10) : « Mode Plan », « + Point de vue », et les émojis ⟳ ✋ 🔍
+  cités dans le texte.
+
+### Preuve
+
+- **Les exports n'ont pas bougé.** Rejoués depuis l'interface sur le jeu de démonstration, numéro de
+  version neutralisé : `plan.svg`, `plan.dxf` et `resume.txt` sont identiques au bit près aux
+  témoins ; `plan.pdf` et `dossier.pdf` ne diffèrent que par le numéro, les longueurs de flux et la
+  table des décalages qu'il décale de huit octets ; `projet.json` a les mêmes objets et les mêmes
+  mesures, son bloc `meta` ne différant que par l'identité, les dates et le numéro.
+
 ## [2.1.0-alpha.8] — 2026-09-25
 
 **IHM mobile, étape M7** : les menus de Z1 et le clavier. La feuille Projet (téléphone) et son

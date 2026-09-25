@@ -107,7 +107,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.hauteurDesYeux': partout('html:terrasse3dEyeLevel'),
   '3d.enregistrerPng': partout('html:terrasse3dSavePng'),
   '3d.enregistrerPointDeVue': partout('html:terrasse3dSaveViewBtn'),
-  '3d.pleinePage': partout('html:terrasse3dFullPageBtn'),
+  '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['html:terrasse3dFullPageBtn'] },
 
   // ---- Visionneuse ----------------------------------------------------------------------------
   'visionneuse.generer': partout('html:glbViewerExporterBtn'),
@@ -115,7 +115,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'visionneuse.zoomAvant': partout('html:glbViewerZoomIn'),
   'visionneuse.zoomArriere': partout('html:glbViewerZoomOut'),
   'visionneuse.hauteurDesYeux': partout('html:glbViewerEyeLevel'),
-  'visionneuse.pleinePage': partout('html:glbViewerFullPageBtn')
+  'visionneuse.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['html:glbViewerFullPageBtn'] }
 };
 
 /**
@@ -123,6 +123,6 @@ export const EXPOSITION: Record<string, Ligne> = {
  * fermee : le test refuse toute autre commande marquee ainsi.
  */
 export const SANS_OBJET_ADMIS: Record<string, string> = {
-  '3d.pleinePage': 'Sur telephone, la vue 3D occupe deja tout l\'ecran.',
-  'visionneuse.pleinePage': 'Sur telephone, la visionneuse occupe deja tout l\'ecran.'
+  '3d.pleinePage': 'Sur telephone et tablette, la vue 3D occupe deja tout l\'ecran.',
+  'visionneuse.pleinePage': 'Sur telephone et tablette, la visionneuse occupe deja tout l\'ecran.'
 };
