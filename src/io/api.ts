@@ -94,7 +94,19 @@ export async function apiDelete(id: string): Promise<unknown> {
 }
 
 /**
- * Decide avec quoi demarrer : un projet du serveur, ou le jeu de demonstration.
+ * La question posee quand il n'y a aucun plan a ouvrir, et ce qu'elle rend.
+ *
+ * Injectee, et non importee : l'ecran vit dans `zones/`, une couche plus haute, et `io/` n'y
+ * remonte pas. Absente — sous vitest, par exemple — le jeu de demonstration est cree sans rien
+ * demander, ce qui etait le comportement jusqu'au 25 septembre 2026.
+ *
+ * @param projetsEtrangers vrai quand l'organisation a des projets, mais qu'aucun n'est un plan :
+ *                         la phrase a dire n'est pas la meme que sur une organisation neuve.
+ */
+export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 'adresse'>;
+
+/**
+ * Decide avec quoi demarrer : un projet du serveur, le jeu de demonstration, ou rien du tout.
  *
  * La regle qui compte, et qui a ete apprise a l'usage : on ne retombe sur la demonstration que si
  * **ce navigateur n'a jamais ouvert aucun projet**. Dans ce cas seulement, « API absente » et
@@ -103,9 +115,13 @@ export async function apiDelete(id: string): Promise<unknown> {
  * remonte a l'utilisateur : substituer la demonstration faisait croire qu'un vrai projet avait ete
  * perdu ou remplace alors que l'API avait seulement hoquete.
  */
-export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: unknown[]) {
+export async function chargerProjetInitial(
+  demoObjets: unknown[],
+  demoMesures: unknown[],
+  demanderPremierPas?: DemandePremierPas
+) {
   const projetConnu = getProjectIdFromUrl() || localStorage.getItem(LS_LAST_PROJECT);
-  let liste;
+  let liste: ProjetResume[];
   try {
     liste = await apiList();
   } catch (e) {
@@ -113,9 +129,12 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
       return {
         apiAvailable: false,
         list: [] as ProjetResume[],
-        objects: JSON.parse(JSON.stringify(demoObjets)),
-        measures: JSON.parse(JSON.stringify(demoMesures)),
-        meta: null as ProjetResume | null
+        objects: JSON.parse(JSON.stringify(demoObjets)) as ObjetBrut[],
+        measures: JSON.parse(JSON.stringify(demoMesures)) as Mesure[],
+        meta: null as ProjetResume | null,
+        // Pas de plateforme, donc pas d'import cadastre a ouvrir : le champ existe sur toutes les
+        // branches pour que l'appelant n'ait jamais a se demander s'il est la.
+        ouvrirAdresse: false
       };
     }
     throw e;
@@ -124,10 +143,27 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
   let voulu = projetConnu;
   if (voulu && !liste.some((p) => p.id === voulu)) voulu = null;
   if (!voulu && liste.length) voulu = liste[0]!.id;
-  if (!voulu) {
+
+  /** Le jeu de demonstration, enregistre comme un vrai projet : c'est ce qu'il devient. */
+  const creerLaDemo = async (): Promise<string> => {
     const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
-    voulu = cree.id;
     liste = await apiList();
+    return cree.id;
+  };
+
+  /** Un plan vide, sans projet : l'etat depuis lequel l'import cadastre va en creer un. */
+  const planVierge = () => ({
+    apiAvailable: true,
+    list: liste,
+    objects: [] as ObjetBrut[],
+    measures: [] as Mesure[],
+    meta: null as ProjetResume | null,
+    ouvrirAdresse: true
+  });
+
+  if (!voulu) {
+    if (demanderPremierPas && (await demanderPremierPas(liste.length > 0)) === 'adresse') return planVierge();
+    voulu = await creerLaDemo();
   }
 
   // Un echec ici remonte aussi, plutot que de retomber sur la demonstration.
@@ -135,20 +171,27 @@ export async function chargerProjetInitial(demoObjets: unknown[], demoMesures: u
   // Une exception : un projet que Plan a CHOISI lui-meme et dont le document n'est pas un plan.
   // La ressource de la plateforme est partagee par tous les produits, et rien n'oblige un projet
   // qui s'y trouve a etre un plan — le monde de demonstration en porte deux qui n'en sont pas.
-  // Mourir la-dessus empecherait de demarrer sur un locataire parfaitement sain. On en cree donc
-  // un, comme lorsque la liste est vide. Si c'est l'utilisateur qui a NOMME ce projet, par l'URL
-  // ou par le dernier ouvert, l'echec remonte : il a demande celui-la, pas un autre.
+  // Mourir la-dessus empecherait de demarrer sur un locataire parfaitement sain. C'est la meme
+  // situation que la liste vide, vue de la personne : rien a ouvrir. On pose donc la meme question.
+  // Si c'est l'utilisateur qui a NOMME ce projet, par l'URL ou par le dernier ouvert, l'echec
+  // remonte : il a demande celui-la, pas un autre.
   let complet;
   try {
     complet = await apiLoad(voulu);
   } catch (e) {
     const choisiParPlan = voulu !== projetConnu;
     if (!choisiParPlan || (e as { reason?: string }).reason !== 'badjson') throw e;
-    const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
-    voulu = cree.id;
-    liste = await apiList();
+    if (demanderPremierPas && (await demanderPremierPas(true)) === 'adresse') return planVierge();
+    voulu = await creerLaDemo();
     complet = await apiLoad(voulu);
   }
   localStorage.setItem(LS_LAST_PROJECT, voulu);
-  return { apiAvailable: true, list: liste, objects: complet.objects, measures: complet.measures || [], meta: complet.meta };
+  return {
+    apiAvailable: true,
+    list: liste,
+    objects: complet.objects,
+    measures: complet.measures || [],
+    meta: complet.meta ?? null,
+    ouvrirAdresse: false
+  };
 }

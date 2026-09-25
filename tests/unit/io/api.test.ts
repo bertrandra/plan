@@ -204,3 +204,90 @@ describe('ce que le depot rend', () => {
     expect(String(e.message)).toContain('QUOTA_EXCEEDED');
   });
 });
+
+// ------------------------------------------------------------------------------------------------
+// Le premier pas (25 septembre 2026) : quand il n'y a aucun plan a ouvrir, Plan DEMANDE.
+//
+// Il fabriquait le jeu de demonstration en silence. Quelqu'un qui arrivait avec une vraie parcelle
+// en tete trouvait donc un plan qui n'etait pas le sien, sans qu'on lui ait rien demande. La
+// question est injectee — l'ecran vit dans `zones/`, une couche plus haute — et son absence garde
+// l'ancien comportement, qui est ce que les essais d'a cote decrivent encore.
+describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
+  it('demande, au lieu de fabriquer la demonstration tout seul', async () => {
+    lister.mockResolvedValue([]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
+    const demande = vi.fn().mockResolvedValue('demo');
+    await chargerProjetInitial(DEMO, MESURES, demande);
+    expect(demande).toHaveBeenCalledOnce();
+  });
+
+  it('cree la demonstration quand c est ce qu on repond', async () => {
+    lister.mockResolvedValue([]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
+    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn().mockResolvedValue('demo'));
+    expect(enregistrer).toHaveBeenCalledOnce();
+    expect(enregistrer.mock.calls[0]![0]).toMatchObject({ name: 'Parcelle AE 101', objects: DEMO });
+    expect(r.ouvrirAdresse).toBe(false);
+  });
+
+  it('rend un plan vierge et demande l import cadastre quand on repond « adresse »', async () => {
+    lister.mockResolvedValue([]);
+    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn().mockResolvedValue('adresse'));
+    expect(r.ouvrirAdresse).toBe(true);
+    expect(r.objects).toEqual([]);
+    expect(r.measures).toEqual([]);
+    expect(r.meta).toBe(null);
+    // Rien n'a ete cree : c'est l'import cadastre qui creera le projet, a la fin de son parcours.
+    expect(enregistrer).not.toHaveBeenCalled();
+    // Et rien n'est retenu comme « dernier projet ouvert » : il n'y en a pas.
+    expect(localStorage.getItem(LS_LAST_PROJECT)).toBe(null);
+  });
+
+  it('pose la meme question quand l organisation n a que des projets d un autre produit', async () => {
+    // Vu de la personne, c'est la meme situation : rien a ouvrir. La phrase a dire differe, d'ou
+    // le drapeau passe a la question.
+    lister.mockResolvedValue([{ id: 'p1', name: 'North wall' }]);
+    ouvrir.mockRejectedValue(echec('badjson', 'donnees corrompues'));
+    const demande = vi.fn().mockResolvedValue('adresse');
+    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    expect(demande).toHaveBeenCalledWith(true);
+    expect(r.ouvrirAdresse).toBe(true);
+  });
+
+  it('dit que l organisation est neuve quand elle n a vraiment aucun projet', async () => {
+    lister.mockResolvedValue([]);
+    const demande = vi.fn().mockResolvedValue('adresse');
+    await chargerProjetInitial(DEMO, MESURES, demande);
+    expect(demande).toHaveBeenCalledWith(false);
+  });
+
+  it('ne demande rien quand un plan est la : on l ouvre, comme avant', async () => {
+    lister.mockResolvedValue([{ id: 'p1', name: 'un plan' }]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [], meta: { id: 'p1', name: 'un plan' } });
+    const demande = vi.fn();
+    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    expect(demande).not.toHaveBeenCalled();
+    expect(r.ouvrirAdresse).toBe(false);
+    expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p1');
+  });
+
+  it('ne demande rien quand la personne a NOMME un projet qui echoue : l echec remonte', async () => {
+    // Elle a demande celui-la. Lui proposer d'en creer un autre serait repondre a cote, et la
+    // laisser croire que le sien a disparu.
+    localStorage.setItem(LS_LAST_PROJECT, 'p1');
+    lister.mockResolvedValue([{ id: 'p1', name: 'le sien' }]);
+    ouvrir.mockRejectedValue(echec('badjson', 'donnees corrompues'));
+    const demande = vi.fn();
+    await expect(chargerProjetInitial(DEMO, MESURES, demande)).rejects.toThrow(/corrompues/);
+    expect(demande).not.toHaveBeenCalled();
+  });
+
+  it('garde l ancien comportement quand personne ne repond a la question', async () => {
+    // Sans question injectee — sous vitest, ou pour tout appelant qui n'en fournit pas — la
+    // demonstration se cree comme avant. C'est ce que decrivent les essais du haut de ce fichier.
+    lister.mockResolvedValue([]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
+    await chargerProjetInitial(DEMO, MESURES);
+    expect(enregistrer).toHaveBeenCalledOnce();
+  });
+});

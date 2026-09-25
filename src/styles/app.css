@@ -443,6 +443,36 @@
   /* La reference de requete : discrete, mais selectionnable — c'est fait pour etre recopie. */
   .porteRef{ margin:0; font-family:ui-monospace,monospace; font-size:0.7rem; color:var(--ink-soft); user-select:all; }
 
+  /* Le premier pas (zones/PremierPas.tsx) : par quoi commencer quand il n'y a aucun plan.
+     Il emprunte le voile et la boite de la porte — c'est le meme moment de la sequence, avant que
+     l'atelier n'existe — mais la boite est plus large : deux options a lire, pas un formulaire. */
+  #zonePremierPas:empty{ display:none; }
+  .premierVoile{
+    position:fixed; inset:0; z-index:4000; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); padding:16px;
+  }
+  .premierBoite{
+    width:min(520px, 100%); background:var(--panel-bg); border:1px solid var(--border);
+    border-radius:4px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.12);
+  }
+  .premierTitre{ margin:0; font-family:"Georgia",serif; font-size:1.15rem; color:var(--ink); }
+  .premierSous{ margin:0 0 4px; font-size:0.85rem; color:var(--ink-soft); line-height:1.45; }
+  /* Une option est un bouton, pas une carte cliquable : le clavier et les lecteurs d'ecran la
+     trouvent sans qu'on ait a leur reexpliquer ce qu'est un bouton. */
+  .premierChoix{
+    display:flex; flex-direction:column; gap:4px; text-align:left; cursor:pointer;
+    padding:12px 14px; border:1px solid var(--border); border-radius:3px;
+    background:var(--input-bg); color:var(--ink); font:inherit;
+  }
+  .premierChoix:hover{ border-color:var(--accent); }
+  .premierChoix:disabled{ opacity:0.6; cursor:default; }
+  /* La premiere option est celle qu'on veut pour de bon ; la seconde est pour regarder. */
+  .premierChoix--premier{ background:var(--accent); color:var(--paper); border-color:var(--accent); }
+  .premierChoix--premier .premierChoixTexte{ color:var(--paper); opacity:0.88; }
+  .premierChoixTitre{ font-weight:700; font-size:0.95rem; }
+  .premierChoixTexte{ font-size:0.8rem; line-height:1.45; color:var(--ink-soft); }
+
   /* Lecture seule : visible sans etre alarmant — c'est un etat, pas une panne. */
   .etatLectureSeule{
     padding:1px 7px; border-radius:9px; font-weight:700; font-size:0.72rem;

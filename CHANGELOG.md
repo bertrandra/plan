@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **À l'ouverture, quand il n'y a aucun plan, Plan demande par quoi commencer.** Il fabriquait le
+  jeu de démonstration en silence : quelqu'un qui arrivait avec une vraie parcelle en tête trouvait
+  donc un plan qui n'était pas le sien, sans qu'on lui ait rien demandé, et devait comprendre seul
+  qu'il fallait le remplacer. Deux options, et elles ne sont pas symétriques — **partir d'une
+  adresse** est l'action principale, puisque c'est ce qu'on veut faire pour de bon, et elle ouvre
+  directement la boîte du cadastre sur un plan vierge ; **ouvrir le plan de démonstration** reste là
+  pour qui veut regarder sans rien saisir.
+- **La même question se pose quand l'organisation n'a que des projets d'un autre produit.** La
+  ressource de la plateforme est partagée, et rien n'oblige un projet à être un plan. Vu de la
+  personne, c'est la même situation : rien à ouvrir. Seule la phrase change.
+- **Une impasse est dite comme telle.** Une place de lecture ne peut rien créer, et un quota atteint
+  non plus : l'écran l'explique au lieu de montrer deux boutons qui échouent. Les taire aurait fait
+  croire que c'est le geste qui rate.
+
+  L'import cadastre s'ouvre par la **commande**, pas par la fonction : elle porte la capacité, la
+  permission et le quota, et un premier pas ne doit pas être le seul chemin qui les contourne.
+
+### Corrigé — deux défauts que le plan vide a réveillés
+
+- **Le démarrage tombait sur un plan sans objets.** Le cadrage d'ouverture cherchait la parcelle et
+  lisait ses points sans vérifier qu'elle existe. L'assertion posée là n'avait jamais menti tant que
+  Plan ouvrait toujours un projet ; elle a menti le jour où l'atelier a pu s'ouvrir sur le vide.
+  Sans parcelle, le cadrage par défaut suffit : il n'y a rien à cadrer.
+- **L'en-tête nommait un projet qui n'était pas ouvert.** Son repli était « Parcelle AE 101 », le
+  nom du jeu de démonstration. Il dit maintenant « nouveau plan ».
+
 ### Modifié — le déploiement, pas l'application
 
 - **La page livrée s'appelle `index.html`**, et l'adresse canonique de Plan devient la racine de son

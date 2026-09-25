@@ -285,7 +285,11 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
         ))}
       </div>
       <h1>
-        Plan interactif — {p.courant ? p.courant.name : 'Parcelle AE 101'}
+        {/* Sans projet ouvert, le titre ne doit pas en nommer un. Le repli etait « Parcelle AE 101 »,
+            le nom du jeu de demonstration : il ne trompait personne tant que Plan ouvrait toujours
+            un projet, et il s'est mis a mentir le jour ou l'atelier a pu s'ouvrir sur un plan vide
+            — « partir d'une adresse », 25 septembre 2026. */}
+        Plan interactif{p.courant ? ' — ' + p.courant.name : ' — nouveau plan'}
         <span id="titreLieu" title={lieu ? 'Position de la parcelle : elle cale la course du soleil, le fond orthophoto et l\'interrogation du PLU.' : undefined}>{lieu}</span>
       </h1>
     </>

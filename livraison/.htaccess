@@ -15,8 +15,11 @@
 
 Options -Indexes
 
-# La page s'appelle `index.html` depuis la 2.0.2, et l'adresse canonique de Plan est donc la racine
-# de son sous-domaine : `https://plan.raillard.org/`.
+# La page s'appelle `index.html` depuis le 24 septembre 2026, et l'adresse canonique de Plan est
+# donc la racine de son sous-domaine : `https://plan.raillard.org/`.
+#
+# Le renommage ne touche pas l'application : les octets livres sont ceux de la `2.0.1`, au bit pres.
+# C'est un changement de deploiement, pas de produit, et il ne porte donc pas de numero a lui.
 #
 # C'est celle que la plateforme distribue — elle range une ORIGINE pour le produit (`app_url`), sans
 # chemin ni nom de fichier — et c'est celle que le web resout par defaut, sur Apache comme ailleurs.
@@ -104,7 +107,7 @@ RedirectMatch 404 ^/data(/|$)
   #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures.
   #                En 2.0.0, l'origine de la plateforme backprod s'ajoute ici (spec-connexion-plateforme §1).
   #   frame-ancestors 'none'  rien ici n'est fait pour etre encadre.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-IMXhxvh4YKlX+4/sWsGSxn4LJEwGNHcQQGCSm5tPQSc=' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org; font-src 'self'; connect-src 'self' https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org; worker-src 'self' blob:"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-cfzEHrwDz6lBPUYQj9o2M7Vydhd43LCGVs0Hmk4b/7I=' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org; font-src 'self'; connect-src 'self' https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org; worker-src 'self' blob:"
 </IfModule>
 
 # Compression si l'hote la propose. SiteGround, oui ; un hote qui ne l'a pas sert les octets tels quels.

@@ -81,6 +81,7 @@ import {
 } from '../ui/mesurePanel.js';
 import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
 import { creerExplorateur } from './explorateur.js';
+import { demanderPremierPas } from './premierPas.js';
 
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d,
@@ -172,9 +173,13 @@ function aDessiner(obj: ObjetPlan): ObjetRendu {
 // backend deploye...), l'appli reste 100% fonctionnelle avec le jeu de donnees de
 // demonstration ci-dessous, exactement comme avant l'ajout de la persistance.
 
-// Le client de api.php vit dans io/api.ts. Cette enveloppe lui fournit le jeu de demonstration :
-// c'est le seul endroit qui decide de quoi demarrer quand il n'y a pas de serveur.
-async function loadInitialProject(){ return chargerProjetInitial(DEMO_OBJECTS, DEMO_MEASURES); }
+// Le depot des projets vit dans io/api.ts. Cette enveloppe lui fournit les deux choses qu'il ne
+// peut pas aller chercher lui-meme : le jeu de demonstration, et l'ecran qui demande par quoi
+// commencer quand il n'y a aucun plan a ouvrir. Les deux viennent de couches plus hautes que la
+// sienne, d'ou l'injection.
+async function loadInitialProject(){
+  return chargerProjetInitial(DEMO_OBJECTS, DEMO_MEASURES, demanderPremierPas);
+}
 
 /** Ce que `boot()` recoit : le derive de la fonction qui le produit, pas une forme ecrite a part. */
 type GraineDemarrage = Awaited<ReturnType<typeof loadInitialProject>>;
@@ -644,7 +649,13 @@ function buildExportSVG(){
 // center the initial view on the parcel, using the actual responsive canvas size
 (function centerInitialView(){
   const parcelle = etat.objects.find(o=>o.key==='parcelle');
-  const xs = enPoints(parcelle!).pts.map(p=>p.x), ys = enPoints(parcelle!).pts.map(p=>p.y);
+  // Le `!` qui etait pose ici mentait, et il a fallu que le plan puisse etre VIDE pour qu'on s'en
+  // apercoive : « partir d'une adresse » ouvre l'atelier sans aucun objet, le temps que l'import
+  // cadastre en cree (25 septembre 2026). Sans cette garde, le demarrage tombait sur un
+  // « Cannot read properties of undefined (reading 'pts') » et la page restait sur le bandeau.
+  // Sans parcelle, le cadrage par defaut de l'etat fait l'affaire : il n'y a rien a cadrer.
+  if(!parcelle || !aDesSommets(parcelle) || !parcelle.pts.length) return;
+  const xs = enPoints(parcelle).pts.map(p=>p.x), ys = enPoints(parcelle).pts.map(p=>p.y);
   const midX = (Math.min(...xs)+Math.max(...xs))/2;
   const midY = (Math.min(...ys)+Math.max(...ys))/2;
   const spanX = Math.max(...xs)-Math.min(...xs), spanY = Math.max(...ys)-Math.min(...ys);
@@ -1076,6 +1087,13 @@ render();
 restaurerOrthoDuProjet({ trouverParcelleCloture, render, toScreen, markDirty, lieuActuel, etat, orthoGroup: ()=>orthoGroup });
 // Masquage du voisinage : meme mecanique, meme rangement sur la parcelle.
 restaurerAffichageDuProjet();
+
+// « Partir d'une adresse » au premier pas : l'atelier est monte sur un plan vide, et la boite du
+// cadastre s'ouvre par-dessus. On passe par la COMMANDE et non par la fonction : elle porte la
+// capacite, la permission et le quota, et un premier pas ne doit pas etre le seul chemin qui les
+// contourne. Le plan etant vierge, la confirmation « modifications non enregistrees » ne se
+// declenche pas.
+if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
 
 }
 
