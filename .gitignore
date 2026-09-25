@@ -18,3 +18,6 @@ dist/
 
 # Rapport de couverture, regenere par npm run test -- --coverage
 coverage/
+
+# Captures de reference de l interface (scripts/captures.mjs) : regenerees a chaque etape, jointes a la PR.
+tests/captures/

@@ -5,6 +5,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.1] — 2026-09-25
+
+**IHM mobile, étape M0** (`MD/spec-ihm-mobile.md` §12) : les garde-fous avant tout changement
+d'écran. Rien ne bouge à l'écran ; les six artefacts sont identiques hors numéro de version.
+
+### Interne
+
+- `app/exposition.ts` : la **carte d'exposition** dit, pour chacune des **59 commandes** du registre,
+  où elle s'expose sur téléphone, sur tablette et sur bureau. Elle décrit ici l'existant, identique
+  dans les trois classes ; chaque étape suivante la fait évoluer dans le même commit que l'écran.
+- `tests/unit/app/exposition.test.ts` lit le registre dans le code et échoue quand une commande
+  déclarée n'a pas de ligne, quand une classe n'a aucun emplacement pour elle, ou quand l'emplacement
+  nommé ne cite pas la commande dans son code.
+- `tests/unit/zones/inspecteur-champs.test.ts` monte l'inspecteur dans jsdom avec un champ de chaque
+  type et vérifie que chacun est rendu une fois dans chaque classe : le téléphone changera la forme
+  d'un champ, jamais sa présence. Les lignes de champ portent `data-cle`.
+- `tests/unit/zones/identifiants.test.ts` tient la liste des identifiants DOM des écouteurs hors
+  registre (3D, visionneuse, soleil, fichiers, panneaux du tiroir) : ils changeront de place, jamais
+  de nom.
+- `scripts/captures.mjs` : 36 captures de référence (trois largeurs, clair et sombre, six états),
+  plateforme simulée par Playwright ; `window.__plan` expose en développement seulement les gestes
+  qu'il rejoue.
+
 ## [2.0.2] — 2026-09-25
 
 ### Ajouté

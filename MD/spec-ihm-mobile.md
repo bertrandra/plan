@@ -618,7 +618,7 @@ sous une version `2.1.0-alpha.N`. À chaque étape, la carte d'exposition (§3.1
 
 | Étape | Livrable | Ce qui bouge | Preuve |
 |---|---|---|---|
-| **M0** | Les garde-fous d'abord | `app/exposition.ts` (carte de l'existant, trois classes identiques), `exposition.test.ts`, test de la carte des champs, `scripts/captures.mjs` ; aucune modification visible | tests verts ; captures de référence `2.0.2` |
+| **M0** | Les garde-fous d'abord | `app/exposition.ts` (carte de l'existant, trois classes identiques), `exposition.test.ts`, test de la carte des champs, `scripts/captures.mjs` ; aucune modification visible | tests verts ; captures de référence `2.0.2` — **✅ 25/09/2026, `2.1.0-alpha.1`** |
 | **M1** | Jetons et thème | `jetons.ts`, `app.css` (§5.1–5.3), `render/theme.ts` (écran seulement), icônes SVG ; skill `design-ui` mis à jour | test de contraste ; empreintes ; points 1 à 25 en `large` |
 | **M2** | Viewport et classes | `meta viewport`, `app/classe.ts`, `data-classe`, `computeSize` par mesure du conteneur, `safe-area` | point 26 ; redimensionnement sans perte de centre |
 | **M3** | Canevas et navigation compact | `BarreNavigation`, barre haute compacte, groupe flottant Ajuster/Grille/Nord (corrige D1), pastille d'échelle, `BandeauMode` (corrige D3), feuille de sélection | points 27, 35, 36 |

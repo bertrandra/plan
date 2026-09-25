@@ -127,9 +127,9 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   const note = champ.note ? champ.note(c) : '';
   const pleineLargeur = champ.type === 'alerte' || champ.type === 'hote' || (champ.type === 'bouton' && !champ.libelle);
   const classes = ['champ', 'champ-' + champ.type, champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
-  if (pleineLargeur) return <div className={classes + ' pleineLargeur'}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
+  if (pleineLargeur) return <div className={classes + ' pleineLargeur'} data-cle={champ.cle}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
   return (
-    <div className={classes}>
+    <div className={classes} data-cle={champ.cle}>
       <label className="libelle" title={champ.aide}>{champ.libelle}</label>
       <div className="commande">
         <Commande champ={champ} c={c} inspecteur={inspecteur} />

@@ -1095,6 +1095,21 @@ restaurerAffichageDuProjet();
 // declenche pas.
 if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
 
+// Les poignees des captures de reference (scripts/captures.mjs, spec-ihm-mobile §3.5). En
+// developpement seulement : `import.meta.env.DEV` est une constante du build, et le fichier livre ne
+// les porte pas.
+if (import.meta.env.DEV) {
+  (window as unknown as { __plan?: unknown }).__plan = {
+    executer: (id: string) => commandes.executer(id),
+    selectionnerPremiere: (fonction: string) => {
+      const o = etat.objects.find(x => x.fonction === fonction);
+      if (o) explorateur.selectionner(o.key);
+    },
+    ouvrirFeuille: () => undefined,
+    ouvrirResultats: (onglet: string) => tiroir.activer(onglet)
+  };
+}
+
 }
 
 // main.ts n'a plus besoin que de ces deux points d'entree : l'ecran de reprise vient desormais
