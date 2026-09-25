@@ -11,31 +11,32 @@
 import { useStore } from 'zustand';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
+import { Icone, type NomIcone } from './icones.js';
 
 export interface PropsPalette { magasin: Magasin; commandes: RegistreCommandes }
 
-interface Outil { id: string; glyphe: string; libelle: string }
+interface Outil { id: string; icone: NomIcone; libelle: string }
 interface Groupe { titre: string; outils: Outil[] }
 
 const GROUPES: Groupe[] = [
-  { titre: 'Historique', outils: [{ id: 'objet.annuler', glyphe: '↶', libelle: 'Annuler' }] },
+  { titre: 'Historique', outils: [{ id: 'objet.annuler', icone: 'annuler', libelle: 'Annuler' }] },
   { titre: 'Créer', outils: [
-    { id: 'objet.ajouter.polygone', glyphe: '⬠', libelle: 'Polygone' },
-    { id: 'objet.ajouter.rectangle', glyphe: '▭', libelle: 'Rectangle' },
-    { id: 'objet.ajouter.chemin', glyphe: '⟋', libelle: 'Chemin' },
-    { id: 'objet.ajouter.cercle', glyphe: '○', libelle: 'Cercle' },
-    { id: 'objet.ajouter.parasol', glyphe: '☂', libelle: 'Parasol' },
-    { id: 'objet.ajouter.pointDeVue', glyphe: '👁', libelle: 'Point de vue' }
+    { id: 'objet.ajouter.polygone', icone: 'polygone', libelle: 'Polygone' },
+    { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
+    { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
+    { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' },
+    { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
+    { id: 'objet.ajouter.pointDeVue', icone: 'pointDeVue', libelle: 'Point de vue' }
   ] },
   { titre: 'Éditer', outils: [
-    { id: 'objet.dupliquer', glyphe: '⧉', libelle: 'Dupliquer' },
-    { id: 'objet.supprimer', glyphe: '✕', libelle: 'Supprimer' },
-    { id: 'objet.reculer', glyphe: '⤓', libelle: 'Reculer' },
-    { id: 'objet.positionInitiale', glyphe: '↺', libelle: 'Position initiale' }
+    { id: 'objet.dupliquer', icone: 'dupliquer', libelle: 'Dupliquer' },
+    { id: 'objet.supprimer', icone: 'supprimer', libelle: 'Supprimer' },
+    { id: 'objet.reculer', icone: 'reculer', libelle: 'Reculer' },
+    { id: 'objet.positionInitiale', icone: 'positionInitiale', libelle: 'Position initiale' }
   ] },
   { titre: 'Outils', outils: [
-    { id: 'mesure.nouvelle', glyphe: '📐', libelle: 'Cote' },
-    { id: 'objet.aligner', glyphe: '⟲', libelle: 'Aligner' }
+    { id: 'mesure.nouvelle', icone: 'cote', libelle: 'Cote' },
+    { id: 'objet.aligner', icone: 'aligner', libelle: 'Aligner' }
   ] }
 ];
 
@@ -62,7 +63,7 @@ export function Palette({ magasin, commandes }: PropsPalette) {
               <button key={o.id} type="button" className="outil" id={o.id === 'objet.annuler' ? 'undoBtn' : undefined}
                 title={titre} aria-label={titre} disabled={!actif} data-commande={o.id}
                 onClick={(e) => { commandes.executer(o.id, e.currentTarget); }}>
-                <span className="glyphe" aria-hidden="true">{o.glyphe}</span>
+                <span className="glyphe"><Icone nom={o.icone} /></span>
                 <span className="libelle">{o.libelle}</span>
               </button>
             );

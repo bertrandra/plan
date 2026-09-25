@@ -1,24 +1,46 @@
+  /* Les jetons (MD/spec-ihm-mobile.md §5.1). Les couleurs viennent de src/styles/jetons.ts, qu'un
+     test confronte a ces deux blocs : une couleur se change aux deux endroits, et nulle part
+     ailleurs dans la feuille. */
   :root{
     color-scheme: light dark;
-    --ink:#3B2E1F; --ink-soft:#6b5a41; --paper:#FBF7EE; --paper-deep:#F3ECDA;
-    --rule:#C9B98C; --border:#D9CBA8; --accent:#8B6B3D; --accent-light:#EDE0C0;
-    --stage-bg:#FDFBF5; --panel-bg:#fff; --input-bg:#FEFDFA;
+    --ink:#2B2117; --ink-soft:#6B5A41; --paper:#F7F2E7; --paper-deep:#EFE8D8;
+    --stage-bg:#F1EBDC; --stage-trame:#D9CDB2; --panel-bg:#FFFDF8; --panel-2:#F7F2E7;
+    --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3;
+    --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
+    --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
+    --toast-bg:#2B2117; --on-toast:#FFFDF8;
     /* Teinte d'alternance : une nuance de l'accent, assez faible pour guider l'oeil le long
        d'une ligne sans decouper le tableau en bandes. */
-    --zebra:rgba(139,107,61,0.05); --zebra-hover:rgba(139,107,61,0.11);
+    --zebra:rgba(122,92,49,0.05); --zebra-hover:rgba(122,92,49,0.11);
+    /* Ombres douces et chaudes ; le voile derriere une feuille ou un dialogue. */
+    --ombre:0 1px 3px rgba(43,33,23,0.08); --ombre-flottante:0 4px 14px rgba(43,33,23,0.10);
+    --ombre-menu:0 4px 12px rgba(43,33,23,0.18); --ombre-forte:0 4px 24px rgba(43,33,23,0.28);
+    --ombre-feuille:0 -6px 24px rgba(43,33,23,0.14); --scrim:rgba(43,33,23,0.32);
+    /* Deux familles, deux roles : le serif pour le document, le sans pour l'instrument (§5.2). */
+    --serif:Georgia,"Iowan Old Style",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+    /* Rayons (§5.3). */
+    --r-champ:10px; --r-bouton:12px; --r-tuile:14px; --r-panneau:16px; --r-feuille:22px;
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --ink:#EFE4C8; --ink-soft:#C9B98C; --paper:#241C13; --paper-deep:#2E241830;
-      --rule:#6b5a41; --border:#4a3d2a; --accent:#E0B564; --accent-light:#4a3d2a;
-      --stage-bg:#2A2118; --panel-bg:#2A2118; --input-bg:#332818;
+      --ink:#F1E7D0; --ink-soft:#BFAE8C; --paper:#1C1610; --paper-deep:#231C14;
+      --stage-bg:#1C1610; --stage-trame:#3A2F22; --panel-bg:#262017; --panel-2:#2F271C;
+      --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F;
+      --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
+      --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
+      --toast-bg:#F1E7D0; --on-toast:#1C1610;
       --zebra:rgba(224,181,100,0.06); --zebra-hover:rgba(224,181,100,0.13);
+      --ombre:0 1px 3px rgba(0,0,0,0.35); --ombre-flottante:0 4px 14px rgba(0,0,0,0.4);
+      --ombre-menu:0 4px 12px rgba(0,0,0,0.5); --ombre-forte:0 4px 24px rgba(0,0,0,0.55);
+      --ombre-feuille:0 -6px 24px rgba(0,0,0,0.5); --scrim:rgba(0,0,0,0.5);
     }
   }
   *{box-sizing:border-box;}
   html{ overscroll-behavior-y:contain; }
   body{
-    margin:0; font-family:"Georgia","Iowan Old Style",serif;
+    margin:0; font-family:var(--serif);
     background:var(--paper); color:var(--ink);
     display:flex; flex-direction:column; align-items:center;
     padding:8px 12px 52px;
@@ -36,55 +58,55 @@
   #zoneAtelier{ display:flex; align-items:flex-start; gap:8px; }
   #zonePalette{
     display:flex; flex-direction:column; gap:10px; width:64px; flex:none;
-    padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--panel-bg);
-    box-shadow:0 1px 3px rgba(59,46,31,0.06);
+    padding:6px 4px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg);
+    box-shadow:var(--ombre);
   }
   .paletteGroupe{ display:flex; flex-direction:column; gap:2px; padding-bottom:8px; border-bottom:1px solid var(--rule); }
   .paletteGroupe:last-child{ border-bottom:none; padding-bottom:0; }
   #zonePalette .outil{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-    min-width:44px; min-height:44px; padding:4px 2px; border:1px solid transparent; border-radius:4px;
+    min-width:44px; min-height:44px; padding:4px 2px; border:1px solid transparent; border-radius:10px;
     background:transparent; color:var(--ink); cursor:pointer;
   }
   #zonePalette .outil:hover{ background:var(--accent-light); border-color:var(--border); opacity:1; }
   #zonePalette .outil:disabled{ opacity:0.35; cursor:not-allowed; }
   #zonePalette .glyphe{ font-size:1.15rem; line-height:1; }
-  #zonePalette .libelle{ font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.58rem; line-height:1.1; text-align:center; color:var(--ink-soft); }
+  #zonePalette .libelle{ font-family:var(--sans); font-size:0.58rem; line-height:1.1; text-align:center; color:var(--ink-soft); }
   @media (max-width: 1023px){ #zonePalette{ display:none; } }
   /* Le menu Affichage de la barre d'application. */
-  details.menu{ position:relative; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem; }
+  details.menu{ position:relative; font-family:var(--sans); font-size:0.8rem; }
   details.menu > summary{
-    list-style:none; cursor:pointer; padding:5px 10px; border:1px solid var(--rule); border-radius:2px;
+    list-style:none; cursor:pointer; padding:5px 10px; border:1px solid var(--rule); border-radius:6px;
     background:var(--panel-bg); color:var(--ink); user-select:none;
   }
   details.menu > summary::-webkit-details-marker{ display:none; }
   details.menu[open] > summary{ background:var(--accent-light); }
   details.menu > ul{
     position:absolute; top:100%; left:0; z-index:60; margin:4px 0 0; padding:4px; list-style:none; min-width:240px;
-    background:var(--panel-bg); border:1px solid var(--border); border-radius:4px; box-shadow:0 4px 12px rgba(59,46,31,0.18);
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:10px; box-shadow:var(--ombre-menu);
   }
   details.menu li button{
     display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px; text-align:left;
-    background:transparent; color:var(--ink); border:none; border-radius:3px; font-size:0.8rem; min-height:36px;
+    background:transparent; color:var(--ink); border:none; border-radius:8px; font-size:0.8rem; min-height:36px;
   }
   details.menu li button:hover{ background:var(--accent-light); opacity:1; }
   details.menu .coche{ display:inline-block; width:1.1em; color:var(--accent); font-weight:700; }
-  details.menu li button kbd{ margin-left:auto; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.68rem; color:var(--ink-soft); }
+  details.menu li button kbd{ margin-left:auto; font-family:var(--sans); font-size:0.68rem; color:var(--ink-soft); }
   details.menu li button:disabled{ opacity:0.4; cursor:not-allowed; }
   details.menu li.separateur{ height:1px; background:var(--rule); margin:4px 6px; }
   details.menu li.menuCase label, details.menu li.menuReglage label{
     display:flex; align-items:center; gap:8px; padding:6px 10px 6px 12px; min-height:32px; cursor:pointer; font-size:0.76rem; color:var(--ink);
   }
   details.menu li.menuCase input{ width:18px; height:18px; margin:0; }
-  details.menu li.menuReglage input[type=number]{ width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink); }
+  details.menu li.menuReglage input[type=number]{ width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--ink); }
   details.menu li.menuReglage input[type=range]{ flex:1; min-width:90px; }
   details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
-  details.menu li.menuAide{ padding:4px 12px 6px; font-family:"Georgia",serif; font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
+  details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
   /* Z7 : la barre d'etat, fixee en bas de la fenetre, jamais cliquable. */
   #zoneEtat{
     position:fixed; left:0; right:0; bottom:0; z-index:50;
     display:flex; align-items:center; gap:16px; padding:5px 14px;
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.76rem; color:var(--ink-soft);
+    font-family:var(--sans); font-size:0.76rem; color:var(--ink-soft);
     background:var(--paper-deep); border-top:1px solid var(--border);
   }
   #zoneEtat .etatPointeur{ font-variant-numeric:tabular-nums; min-width:14ch; }
@@ -97,44 +119,47 @@
   /* Le lieu du plan, sur la meme ligne que le titre : c'est lui qui cale le soleil, l'orthophoto
      et le PLU - le voir en permanence evite de travailler sur une position qu'on croit juste. */
   #titreLieu{
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.78rem; color:var(--ink-soft);
+    font-family:var(--sans); font-size:0.78rem; color:var(--ink-soft);
     letter-spacing:0; margin-left:14px; white-space:nowrap;
   }
   #stage{
     position:relative; background:var(--stage-bg); border:1px solid var(--border);
-    box-shadow:0 1px 3px rgba(59,46,31,0.12), 0 0 0 6px #fff, 0 0 0 7px var(--border);
+    box-shadow:var(--ombre), 0 0 0 6px var(--panel-bg), 0 0 0 7px var(--border);
     touch-action:none; overscroll-behavior:none; overflow:hidden; margin:6px 0 16px;
   }
   #stage svg, #stage svg *{ touch-action:none; }
   #fitBtn{
     position:absolute; left:10px; bottom:10px; z-index:5; display:none;
-    font-family:'Helvetica Neue',Arial,sans-serif; font-size:0.82rem;
-    padding:7px 12px; border:1px solid var(--border); border-radius:4px;
-    background:var(--btn-bg,#fff); color:var(--ink); cursor:pointer;
-    box-shadow:0 1px 3px rgba(59,46,31,0.2);
+    font-family:var(--sans); font-size:0.82rem;
+    padding:7px 12px; border:1px solid var(--border); border-radius:10px;
+    background:var(--panel-bg); color:var(--ink); cursor:pointer;
+    box-shadow:var(--ombre-flottante);
   }
-  #fitBtn:hover{ background:var(--accent-soft,#f0e6d2); }
+  #fitBtn:hover{ background:var(--accent-light); }
   /* Bascule de la grille, posee sur le canevas lui-meme : c'est un reglage qu'on actionne en
      regardant le plan, pas en fouillant un panneau. */
   #gridBtn{
     position:absolute; left:10px; top:10px; z-index:5;
     width:32px; height:32px; padding:0; line-height:1; font-size:1rem;
-    border:1px solid var(--border); border-radius:4px;
-    background:var(--btn-bg,#fff); color:var(--ink-soft); cursor:pointer;
-    box-shadow:0 1px 3px rgba(59,46,31,0.2);
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--border); border-radius:10px;
+    background:var(--panel-bg); color:var(--ink-soft); cursor:pointer;
+    box-shadow:var(--ombre-flottante);
   }
-  #gridBtn:hover{ background:var(--accent-soft,#f0e6d2); }
+  #gridBtn:hover{ background:var(--accent-light); }
   #gridBtn.off{ color:var(--rule); opacity:0.75; }
   svg{display:block; cursor:grab;}
   svg:active{cursor:grabbing;}
+  /* Les icones (zones/icones.tsx) ne sont pas des plans : elles suivent le texte du bouton. */
+  svg.icone, svg.icone:active{ display:inline-block; vertical-align:middle; flex:none; cursor:inherit; }
 
   #projectBar{
     display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0;
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
+    font-family:var(--sans); font-size:0.8rem;
   }
   #projectBar select{
     font-family:inherit; font-size:0.8rem; padding:5px 8px; max-width:280px;
-    border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);
+    border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--ink);
   }
   #projectStatus{ color:var(--ink-soft); font-style:italic; }
   /* Version : poussee a droite de la barre, discrete mais toujours lisible - on la lit surtout
@@ -146,13 +171,13 @@
   }
   /* Z8, les dialogues (zones/Dialogues.tsx), et les trois parcours DOM qui partagent le voile. */
   .dialogueVoile{
-    position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998;
+    position:fixed; inset:0; background:var(--scrim); z-index:9998;
     display:flex; align-items:center; justify-content:center; padding:14px;
   }
   .dialogueBoite{
-    background:var(--panel-bg,#fff); color:var(--ink,#222); padding:20px 22px; border-radius:8px;
-    max-width:360px; width:min(90vw, 360px); font-family:"Helvetica Neue",Arial,sans-serif;
-    box-shadow:0 4px 24px rgba(0,0,0,0.3);
+    background:var(--panel-bg); color:var(--ink); padding:20px 22px; border-radius:8px;
+    max-width:360px; width:min(90vw, 360px); font-family:var(--sans);
+    box-shadow:var(--ombre-forte);
   }
   .dialogueBoite.erreur{ max-width:420px; width:min(90vw, 420px); text-align:center; }
   .dialogueTitre{ font-weight:600; margin-bottom:8px; font-size:1.05rem; }
@@ -160,7 +185,7 @@
   .dialogueBoutons{ display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
   .dialogueBoutons.centre{ justify-content:center; }
   .dialogueBoutons button{ min-height:36px; }
-  button.danger{ background:#a02020; border-color:#a02020; color:#fff; }
+  button.danger{ background:var(--danger); border-color:var(--danger); color:var(--danger-bg); }
   /* Z9, les notifications (zones/Notifications.tsx) : les toasts empiles au-dessus de la barre
      d'etat, les erreurs en bandeau plein pied jusqu'a ce qu'on les ferme. */
   .notificationsToasts{
@@ -168,28 +193,28 @@
     display:flex; flex-direction:column-reverse; gap:6px; align-items:center; max-width:80vw; pointer-events:none;
   }
   .toast{
-    background:#2b2118; color:#fff; padding:10px 18px; border-radius:6px; pointer-events:auto; cursor:pointer;
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.85rem; box-shadow:0 2px 10px rgba(0,0,0,0.3); text-align:center;
+    background:var(--toast-bg); color:var(--on-toast); padding:10px 18px; border-radius:6px; pointer-events:auto; cursor:pointer;
+    font-family:var(--sans); font-size:0.85rem; box-shadow:var(--ombre-forte); text-align:center;
     animation:toastEntre 0.2s ease-out;
   }
   @keyframes toastEntre{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
   .bandeauErreur{
     position:fixed; bottom:0; left:0; right:0; z-index:9999; display:flex; align-items:flex-start; gap:12px;
-    background:#a02020; color:#fff; padding:10px 14px; font-family:monospace; font-size:12px; max-height:40vh; overflow:auto;
+    background:var(--danger); color:var(--danger-bg); padding:10px 14px; font-family:var(--mono); font-size:12px; max-height:40vh; overflow:auto;
   }
   .bandeauErreur .texte{ flex:1; white-space:pre-wrap; }
-  .bandeauErreur .fermer{ flex:none; background:transparent; border:1px solid rgba(255,255,255,0.6); color:#fff; padding:2px 8px; min-height:28px; }
+  .bandeauErreur .fermer{ flex:none; background:transparent; border:1px solid currentColor; color:inherit; padding:2px 8px; min-height:28px; }
   .promptInput{
     width:100%; font-family:inherit; font-size:0.9rem; padding:6px 8px; margin-top:8px;
-    border:1px solid var(--border); border-radius:4px; background:var(--input-bg); color:var(--ink);
+    border:1px solid var(--border); border-radius:10px; background:var(--input-bg); color:var(--ink);
   }
 
   /* Z3, l'explorateur (zones/Explorateur.tsx) : une colonne entre la palette et le plan. Replie,
      il ne garde que sa poignee ; sous 1 024 px il s'escamote comme la palette. */
   #zoneExplorateur{
     flex:none; width:240px; max-height:calc(var(--hauteur-plan, 780px) + 2px); overflow-y:auto; margin:6px 0 16px;
-    background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:10px;
+    font-family:var(--sans); font-size:0.8rem;
   }
   #zoneExplorateur.replie{ width:22px; overflow:hidden; }
   .explorateurPanneau, .inspecteurPanneau{ width:100%; }
@@ -198,29 +223,29 @@
   .explorateurEntete{
     position:sticky; top:0; z-index:2; background:var(--panel-bg);
     display:flex; align-items:center; justify-content:space-between; padding:6px 8px 6px 10px;
-    font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; border-bottom:1px solid var(--rule);
+    font-family:var(--serif); font-weight:700; font-size:0.85rem; border-bottom:1px solid var(--rule);
   }
   #zoneExplorateur.replie .explorateurEntete{ padding:6px 2px; justify-content:center; border-bottom:none; }
   .explorateurPli{
     border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:1.1rem;
-    line-height:1; padding:2px 6px; border-radius:2px;
+    line-height:1; padding:2px 6px; border-radius:6px;
   }
   .explorateurPli:hover{ background:var(--accent-light); color:var(--ink); }
   .explorateurSection{ padding:6px 8px 8px; border-bottom:1px solid var(--rule); }
   .explorateurSection:last-child{ border-bottom:none; }
   .explorateurSection h3{
-    margin:0 0 6px; font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.62rem; letter-spacing:.1em;
+    margin:0 0 6px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em;
     text-transform:uppercase; color:var(--ink-soft); font-weight:600;
   }
   .explorateurCompte{ opacity:.6; margin-left:4px; font-variant-numeric:tabular-nums; }
   .explorateurFamilles{ display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; }
   .explorateurFamilles .fambtn{
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.62rem; padding:3px 8px; cursor:pointer;
+    font-family:var(--sans); font-size:0.62rem; padding:3px 8px; cursor:pointer;
     text-transform:uppercase; letter-spacing:.05em; border-radius:11px; opacity:0.92;
-    border:1px solid var(--rule); background:#fff; color:var(--ink-soft);
+    border:1px solid var(--rule); background:var(--panel-bg); color:var(--ink-soft);
   }
   .explorateurFamilles .fambtn .fambtnN{ opacity:.6; margin-left:4px; font-variant-numeric:tabular-nums; }
-  .explorateurFamilles .fambtn.active{ opacity:1; border-color:var(--accent); background:var(--accent); color:#fff; font-weight:700; }
+  .explorateurFamilles .fambtn.active{ opacity:1; border-color:var(--accent); background:var(--accent); color:var(--on-accent); font-weight:700; }
   .explorateurFamilles .fambtn.active .fambtnN{ opacity:.85; }
   .explorateurTous{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
   .explorateurTous details.menu > summary{ padding:3px 8px; font-size:0.72rem; }
@@ -228,17 +253,17 @@
   .explorateurLigne{ display:flex; align-items:center; gap:4px; min-height:40px; }
   .explorateurNom{
     flex:1; min-width:0; text-align:left; border:1px solid transparent; background:transparent; cursor:pointer;
-    font-family:"Georgia",serif; font-size:0.8rem; color:var(--ink); padding:4px 8px; border-radius:2px;
+    font-family:var(--serif); font-size:0.8rem; color:var(--ink); padding:4px 8px; border-radius:6px;
     display:flex; flex-direction:column; gap:1px; line-height:1.25;
   }
   .explorateurNom > span, .explorateurNom{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .explorateurNom small{ font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.66rem; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .explorateurNom small{ font-family:var(--sans); font-size:0.66rem; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .explorateurNom:hover{ background:var(--accent-light); }
   .explorateurListe li.active > .explorateurLigne .explorateurNom{ border-color:var(--accent); background:var(--accent-light); font-weight:700; }
   .explorateurListe li.masque .explorateurNom{ color:var(--ink-soft); font-style:italic; }
   .oeil{
     flex:none; width:32px; height:32px; border:1px solid transparent; background:transparent; cursor:pointer;
-    border-radius:2px; font-size:0.95rem; line-height:1; color:var(--ink-soft);
+    border-radius:6px; font-size:0.95rem; line-height:1; color:var(--ink-soft);
   }
   .oeil:hover{ background:var(--accent-light); color:var(--ink); }
   .oeil[aria-pressed="false"]{ opacity:.55; }
@@ -249,29 +274,29 @@
   .explorateurVide{ margin:0; color:var(--ink-soft); font-size:0.74rem; line-height:1.35; }
   .explorateurCalques{ display:flex; flex-direction:column; gap:5px; margin-top:8px; padding:8px 8px 4px; border-top:1px dashed var(--rule); font-size:0.74rem; }
   .explorateurCalquesMaitre{ font-weight:600; }
-  .explorateurCouleur{ display:inline-block; width:10px; height:10px; border-radius:2px; }
+  .explorateurCouleur{ display:inline-block; width:10px; height:10px; border-radius:6px; }
   /* Z5, l'inspecteur (zones/Inspecteur.tsx) : une colonne a droite du plan, des sections repliables,
      un champ par ligne — libelle a gauche, commande et note a droite. Sous 1 024 px il passe sous le plan. */
   #zoneInspecteur{
     flex:none; width:340px; max-height:calc(var(--hauteur-plan, 780px) + 2px); overflow-y:auto; margin:6px 0 16px;
-    background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
-    font-family:"Helvetica Neue",Arial,sans-serif; font-size:0.8rem;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:10px;
+    font-family:var(--sans); font-size:0.8rem;
   }
   @media (max-width: 1023px){ #zoneAtelier{ flex-wrap:wrap; } #zoneInspecteur{ width:100%; max-height:none; } }
   #zoneInspecteur.replie{ width:22px; overflow:hidden; }
   /* L'en-tete reste visible quand la colonne defile. */
   .inspecteurEntete{
     position:sticky; top:0; z-index:2; background:var(--panel-bg);
-    display:flex; align-items:center; gap:4px; padding:6px 4px 6px 10px; font-family:"Georgia",serif; font-weight:700; font-size:0.85rem; color:var(--ink);
+    display:flex; align-items:center; gap:4px; padding:6px 4px 6px 10px; font-family:var(--serif); font-weight:700; font-size:0.85rem; color:var(--ink);
     border-bottom:1px solid var(--rule);
   }
   .inspecteurPanneau.replie .inspecteurEntete{ padding:6px 2px; justify-content:center; border-bottom:none; }
-  .inspecteurTitre{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; border-radius:2px; }
+  .inspecteurTitre{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:2px 4px; border-radius:6px; }
   .inspecteurTitre[role=button]{ cursor:pointer; }
   .inspecteurTitre[role=button]:hover{ background:var(--accent-light); }
   .inspecteurPli{
     flex:none; border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:1.1rem;
-    line-height:1; padding:2px 6px; border-radius:2px;
+    line-height:1; padding:2px 6px; border-radius:6px;
   }
   .inspecteurPli:hover{ background:var(--accent-light); color:var(--ink); }
   .inspecteurSection{ border-bottom:1px solid var(--rule); }
@@ -284,13 +309,13 @@
   .inspecteurSection[open] > summary::before{ transform:rotate(90deg); }
   .inspecteurSection > .hint{ margin:0 10px 6px; }
   .inspecteurSection .champs{ padding:0 10px 8px; display:flex; flex-direction:column; gap:3px; }
-  .champ{ display:grid; grid-template-columns:118px 1fr; gap:4px 8px; align-items:center; min-height:32px; padding:2px 4px; border-radius:2px; }
+  .champ{ display:grid; grid-template-columns:118px 1fr; gap:4px 8px; align-items:center; min-height:32px; padding:2px 4px; border-radius:6px; }
   .champ.pleineLargeur{ display:block; }
   .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; }
   .champ .commande{ min-width:0; }
   .champ .note{ font-size:0.68rem; color:var(--ink-soft); margin-top:2px; line-height:1.25; }
   .champ input[type=text], .champ input[type=number], .champ input[type=date], .champ select{
-    font-family:inherit; font-size:0.8rem; padding:5px 6px; border:1px solid var(--border); border-radius:2px;
+    font-family:inherit; font-size:0.8rem; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background:var(--input-bg); color:var(--ink); min-height:32px; box-sizing:border-box; max-width:100%;
   }
   .champ input[type=text]{ width:100%; }
@@ -305,12 +330,12 @@
   .champCurseur .valeurCurseur{ min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
   .champ .lecture{ font-variant-numeric:tabular-nums; color:var(--ink); line-height:1.3; }
   .champTexture{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .champTexture .vignette{ width:28px; height:28px; object-fit:cover; border-radius:2px; border:1px solid var(--rule); background:var(--accent-light,#eee); }
+  .champTexture .vignette{ width:28px; height:28px; object-fit:cover; border-radius:6px; border:1px solid var(--rule); background:var(--accent-light); }
   .champTexture .nomTexture{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.76rem; }
   .champBouton{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .champBouton .explication{ font-size:0.7rem; color:var(--ink-soft); }
   .champ.pleineLargeur .champBouton{ padding:2px 0; }
-  .champ .alerte{ border-left:3px solid #A8442F; padding-left:12px; margin:4px 0; }
+  .champ .alerte{ border-left:3px solid var(--alerte); padding-left:12px; margin:4px 0; }
   .champsEnLigne{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .champsEnLigne input[type=text]{ width:90px; flex:1; }
   .champsEnLigne .champNombre input{ width:78px; }
@@ -318,19 +343,19 @@
   .inspecteurPied{ padding:8px 10px 10px; display:flex; gap:6px; flex-wrap:wrap; }
   .inspecteurPied .hint{ width:100%; margin-top:6px; }
   .objbtn{
-    font-family:"Georgia",serif; font-size:0.76rem; padding:6px 13px;
-    border:1px solid var(--rule); background:#fff; color:var(--ink-soft); cursor:pointer; border-radius:2px;
+    font-family:var(--serif); font-size:0.76rem; padding:6px 13px;
+    border:1px solid var(--rule); background:var(--panel-bg); color:var(--ink-soft); cursor:pointer; border-radius:6px;
     transition:background 0.12s, color 0.12s;
   }
   .objbtn:hover{background:var(--accent-light);}
-  .objbtn.active{border-color:var(--accent); background:var(--accent); color:#fff; font-weight:700;}
+  .objbtn.active{border-color:var(--accent); background:var(--accent); color:var(--on-accent); font-weight:700;}
 
   /* Z6, le tiroir des resultats (zones/Resultats.tsx) : une barre d'onglets, et dessous les panneaux
      que ui/ remplit. Trois hauteurs (data-hauteur) : replie, la barre seule ; mi ; plein. */
-  #zoneResultats{ width:98vw; max-width:1600px; margin-top:0; font-family:"Helvetica Neue",Arial,sans-serif; }
+  #zoneResultats{ width:98vw; max-width:1600px; margin-top:0; font-family:var(--sans); }
   .resultatsBarre{ display:flex; gap:3px; align-items:flex-end; flex-wrap:wrap; }
   .ongletResultats{
-    font-family:"Georgia",serif; font-size:0.82rem; padding:8px 16px; min-height:36px;
+    font-family:var(--serif); font-size:0.82rem; padding:8px 16px; min-height:36px;
     border:1px solid var(--border); border-bottom:none; background:var(--paper-deep); color:var(--ink-soft);
     cursor:pointer; border-radius:6px 6px 0 0; margin-bottom:-1px; transition:background 0.12s, color 0.12s;
   }
@@ -341,21 +366,21 @@
   .resultatsHauteurs{ margin-left:auto; display:inline-flex; gap:2px; padding-bottom:3px; }
   .hauteurTiroir{
     width:36px; height:32px; padding:0; border:1px solid var(--rule); background:var(--panel-bg); color:var(--ink-soft);
-    cursor:pointer; border-radius:2px; font-size:0.7rem; line-height:1;
+    cursor:pointer; border-radius:6px; font-size:0.7rem; line-height:1;
   }
   .hauteurTiroir:hover{ background:var(--accent-light); }
-  .hauteurTiroir.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .hauteurTiroir.active{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   #tiroirPanneaux{
     background:var(--panel-bg); border:1px solid var(--border); padding:14px 18px;
-    box-shadow:0 1px 3px rgba(59,46,31,0.06); position:relative; z-index:0; overflow-y:auto;
+    box-shadow:var(--ombre); position:relative; z-index:0; overflow-y:auto;
   }
   #zoneResultats[data-hauteur="replie"] #tiroirPanneaux{ display:none; }
   #zoneResultats[data-hauteur="mi"] #tiroirPanneaux{ max-height:38vh; }
   #zoneResultats[data-hauteur="plein"] #tiroirPanneaux{ max-height:78vh; }
   .panelBox{
     margin-top:0; width:98vw; max-width:1600px; background:var(--panel-bg); border:1px solid var(--border);
-    padding:14px 18px; font-family:"Helvetica Neue",Arial,sans-serif;
-    box-shadow:0 1px 3px rgba(59,46,31,0.06);
+    padding:14px 18px; font-family:var(--sans);
+    box-shadow:var(--ombre);
   }
   .surfaces{display:flex; gap:18px; flex-wrap:wrap; font-size:0.86rem; margin-bottom:12px;}
   .surfaces b{display:block; font-size:1.0rem; color:var(--accent);}
@@ -365,7 +390,7 @@
   table.attrTable th{color:var(--accent); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; border-bottom:1.5px solid var(--rule);}
   table.attrTable input[type=text]{
     width:100%; font-family:inherit; font-size:0.82rem; padding:3px 5px;
-    border:1px solid var(--border); border-radius:2px; background:var(--input-bg); color:var(--ink);
+    border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--ink);
   }
   /* Alternance de fond : sur des tableaux de vingt a cent lignes, c'est ce qui permet de suivre
      une ligne jusqu'au bout sans se tromper de rangee. Les lignes qui portent deja un fond -
@@ -377,22 +402,22 @@
 
   .controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
   button{
-    font-family:"Georgia",serif; font-size:0.8rem; padding:7px 14px;
-    border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; border-radius:2px;
+    font-family:var(--serif); font-size:0.8rem; padding:7px 14px;
+    border:1px solid var(--ink); background:var(--ink); color:var(--on-ink); cursor:pointer; border-radius:6px;
   }
   button.secondary{background:var(--panel-bg); color:var(--ink); border-color:var(--rule);}
   button.small{padding:4px 10px; font-size:0.72rem;}
   button:hover{opacity:0.82;}
   button:disabled{opacity:0.35; cursor:not-allowed;}
   #exportBox{
-    width:100%; margin-top:10px; font-family:"SF Mono","Menlo",monospace; font-size:0.74rem;
+    width:100%; margin-top:10px; font-family:var(--mono); font-size:0.74rem;
     padding:10px; border:1px solid var(--border); background:var(--paper-deep); white-space:pre;
     min-height:160px; display:none;
   }
-  .hint{font-family:"Georgia",serif; font-style:italic; font-size:0.74rem; color:var(--ink-soft); margin-top:6px;}
+  .hint{font-family:var(--serif); font-style:italic; font-size:0.74rem; color:var(--ink-soft); margin-top:6px;}
   .highlightRow{background:var(--accent-light) !important;}
   .sectionTitle{
-    font-family:"Georgia",serif; font-weight:700; font-size:0.9rem; margin:12px 0 6px;
+    font-family:var(--serif); font-weight:700; font-size:0.9rem; margin:12px 0 6px;
     color:var(--ink); letter-spacing:0.01em;
     border-bottom:1px solid var(--rule); padding-bottom:3px;
   }
@@ -400,11 +425,11 @@
      reste de l'appli (sidebar, autres onglets) - aucun autre element n'a besoin d'etre cache
      explicitement, le recouvrement suffit. */
   #vue3dPanel.pleinePage{
-    position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
+    position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
     padding:14px 18px; overflow:auto; margin:0;
   }
   #glbViewerPanel.pleinePage{
-    position:fixed; inset:0; z-index:9990; background:var(--panel-bg,#fff);
+    position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
     padding:14px 18px; overflow:auto; margin:0;
   }
 
@@ -419,29 +444,29 @@
   }
   .porteBoite{
     width:min(380px, 100%); background:var(--panel-bg); border:1px solid var(--border);
-    border-radius:4px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
-    box-shadow:0 2px 12px rgba(0,0,0,0.12);
+    border-radius:10px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
+    box-shadow:var(--ombre-forte);
   }
-  .porteTitre{ margin:0; font-family:"Georgia",serif; font-size:1.15rem; color:var(--ink); }
+  .porteTitre{ margin:0; font-family:var(--serif); font-size:1.15rem; color:var(--ink); }
   .porteSous{ margin:0; font-size:0.85rem; color:var(--ink-soft); line-height:1.45; }
   .porteRefus{
-    margin:0; padding:8px 10px; border-radius:3px; font-size:0.85rem;
+    margin:0; padding:8px 10px; border-radius:8px; font-size:0.85rem;
     background:var(--accent-light); color:var(--ink); border:1px solid var(--rule);
   }
   .porteChamp{ display:flex; flex-direction:column; gap:4px; font-size:0.8rem; color:var(--ink-soft); }
   .porteChamp input{
-    padding:7px 8px; font-size:0.95rem; border:1px solid var(--border); border-radius:3px;
+    padding:7px 8px; font-size:0.95rem; border:1px solid var(--border); border-radius:8px;
     background:var(--input-bg); color:var(--ink);
   }
   .porteBouton{
     margin-top:4px; padding:9px 12px; font-size:0.9rem; font-weight:700; cursor:pointer;
-    background:var(--accent); color:var(--paper); border:none; border-radius:3px;
+    background:var(--accent); color:var(--paper); border:none; border-radius:8px;
   }
   .porteBouton:disabled{ opacity:0.6; cursor:default; }
   .porteLiens{ margin:0; font-size:0.8rem; }
   .porteLiens a{ color:var(--ink-soft); }
   /* La reference de requete : discrete, mais selectionnable — c'est fait pour etre recopie. */
-  .porteRef{ margin:0; font-family:ui-monospace,monospace; font-size:0.7rem; color:var(--ink-soft); user-select:all; }
+  .porteRef{ margin:0; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); user-select:all; }
 
   /* Le premier pas (zones/PremierPas.tsx) : par quoi commencer quand il n'y a aucun plan.
      Il emprunte le voile et la boite de la porte — c'est le meme moment de la sequence, avant que
@@ -453,16 +478,16 @@
   }
   .premierBoite{
     width:min(520px, 100%); background:var(--panel-bg); border:1px solid var(--border);
-    border-radius:4px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
-    box-shadow:0 2px 12px rgba(0,0,0,0.12);
+    border-radius:10px; padding:22px 20px; display:flex; flex-direction:column; gap:12px;
+    box-shadow:var(--ombre-forte);
   }
-  .premierTitre{ margin:0; font-family:"Georgia",serif; font-size:1.15rem; color:var(--ink); }
+  .premierTitre{ margin:0; font-family:var(--serif); font-size:1.15rem; color:var(--ink); }
   .premierSous{ margin:0 0 4px; font-size:0.85rem; color:var(--ink-soft); line-height:1.45; }
   /* Une option est un bouton, pas une carte cliquable : le clavier et les lecteurs d'ecran la
      trouvent sans qu'on ait a leur reexpliquer ce qu'est un bouton. */
   .premierChoix{
     display:flex; flex-direction:column; gap:4px; text-align:left; cursor:pointer;
-    padding:12px 14px; border:1px solid var(--border); border-radius:3px;
+    padding:12px 14px; border:1px solid var(--border); border-radius:8px;
     background:var(--input-bg); color:var(--ink); font:inherit;
   }
   .premierChoix:hover{ border-color:var(--accent); }
@@ -483,8 +508,8 @@
      La couleur ne porte pas seule — le mot a cote dit la meme chose, pour qui ne la voit pas. */
   .portePastille{ margin:0; display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--ink-soft); }
   .porteDot{ width:8px; height:8px; border-radius:50%; flex:none; }
-  .porteDot--oui{ background:#2e7d32; }
-  .porteDot--non{ background:#c62828; }
+  .porteDot--oui{ background:var(--ok); }
+  .porteDot--non{ background:var(--danger); }
   .porteDot--essai{ background:var(--ink-soft); opacity:0.45; }
 
   /* Le lien vers la plateforme (zones/BarreApplication.tsx, §5.5) : discret, mais toujours la.
@@ -492,7 +517,7 @@
      est alle voir ses factures. */
   #compteBar{ display:flex; align-items:center; margin-left:4px; }
   .compteLien{
-    padding:3px 9px; border-radius:3px; font-size:0.8rem; white-space:nowrap;
+    padding:3px 9px; border-radius:8px; font-size:0.8rem; white-space:nowrap;
     color:var(--ink-soft); text-decoration:none; border:1px solid var(--border);
   }
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }

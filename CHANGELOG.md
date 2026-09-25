@@ -5,6 +5,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.2] — 2026-09-25
+
+**IHM mobile, étape M1** : les jetons et le thème. L'interface change de teinte, pas de place.
+
+### Modifié
+
+- **Une palette rafraîchie, en clair et en sombre**, qui garde la famille papier, encre et bois :
+  encre plus profonde, panneaux ivoire, accent bois `#7A5C31` (ambre `#E0B564` en sombre). Les
+  valeurs vivent dans `src/styles/jetons.ts` et `app.css` les déclare ; un test vérifie que les deux
+  concordent et que chaque paire texte/fond atteint 4,5:1.
+- **Plus aucune couleur en dur dans la feuille de style** : les blancs, le rouge des erreurs, le
+  brun des toasts passent par des jetons (`--on-accent`, `--on-ink`, `--danger`, `--toast-bg`…).
+  Cela corrige au passage le **bouton principal en thème sombre**, qui écrivait en blanc sur un fond
+  devenu clair.
+- **Les glyphes et émojis des boutons deviennent des icônes SVG en trait** (`zones/icones.tsx`) :
+  palette, grille, œil de l'explorateur. Elles suivent la couleur du texte et l'état grisé.
+- Polices par variables (`--serif`, `--sans`, `--mono`) sur les piles système ; rayons plus doux.
+- Les encres du plan à l'écran (trait, grille, halo) suivent les jetons ; les couleurs des objets
+  restent celles du projet, et les exports gardent les leurs.
+- Le skill `design-ui` décrit les nouveaux jetons.
+
 ## [2.1.0-alpha.1] — 2026-09-25
 
 **IHM mobile, étape M0** (`MD/spec-ihm-mobile.md` §12) : les garde-fous avant tout changement

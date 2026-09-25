@@ -61,25 +61,38 @@ Règles :
 
 ### Couleurs — uniquement par les jetons de `:root`
 
+Les valeurs vivent dans `src/styles/jetons.ts` et sont déclarées dans `app.css` (bloc `:root` clair,
+bloc `prefers-color-scheme: dark`). `tests/unit/styles/jetons.test.ts` vérifie que les deux
+concordent, que les paires texte/fond atteignent 4,5:1 (3:1 pour `--ok` et `--alerte`), et **qu'aucune
+couleur hexadécimale ne traîne hors des blocs de jetons**.
+
 | Jeton | Rôle |
 |---|---|
 | `--ink`, `--ink-soft` | Texte, texte secondaire (libellés, notes, unités) |
+| `--on-ink` | Texte posé sur `--ink` (bouton principal, choix actif) |
 | `--paper`, `--paper-deep` | Fond de page, fonds en retrait (barre d'état, onglets inactifs) |
-| `--panel-bg`, `--stage-bg`, `--input-bg` | Panneaux, canevas, champs |
-| `--rule`, `--border` | Filets de séparation, bordures de panneaux et de champs |
-| `--accent`, `--accent-light` | État actif, sélection, survol |
+| `--panel-bg`, `--panel-2`, `--segment-bg` | Panneaux et feuilles ; tuiles, chiffres clés, boutons − et + ; fond d'une commande segmentée |
+| `--stage-bg`, `--stage-trame`, `--input-bg` | Canevas et sa trame ; champs |
+| `--border`, `--rule`, `--hairline` | Bordures de panneaux ; contours de commandes et filets de titre ; filets entre lignes |
+| `--accent`, `--on-accent` | État actif, sélection, bouton Créer, total ; le texte posé dessus |
+| `--accent-light`, `--on-accent-light` | État actif doux, pastilles, survol ; le texte posé dessus |
+| `--ok`, `--danger`, `--danger-bg`, `--alerte` | Enregistré ; suppression et erreurs ; bordure des alertes |
+| `--toast-bg`, `--on-toast` | Notifications |
 | `--zebra`, `--zebra-hover` | Alternance des lignes de tableau |
+| `--ombre`, `--ombre-flottante`, `--ombre-menu`, `--ombre-forte`, `--ombre-feuille`, `--scrim` | Ombres et voile |
+| `--r-champ`, `--r-bouton`, `--r-tuile`, `--r-panneau`, `--r-feuille` | Rayons (10, 12, 14, 16, 22) |
 
-- Chaque jeton a sa valeur sombre dans `@media (prefers-color-scheme: dark)`. **Un nouveau jeton
-  se déclare dans les deux blocs**, sinon le thème sombre casse.
-- Pas de couleur en dur, sauf les trois sémantiques déjà établies : danger `#a02020`
-  (`button.danger`, bandeau d'erreur), alerte `#A8442F` (`.champ .alerte`), pastilles d'état vert
-  `#2e7d32` / rouge `#c62828`. Proscrire les `#fff` codés en dur dans les nouveaux styles :
-  utiliser `--panel-bg`.
-- **La couleur ne porte jamais seule** une information : un mot ou un glyphe l'accompagne.
+- Un nouveau jeton se déclare dans `jetons.ts` **et** dans les deux blocs de `app.css`.
+- **Jamais de couleur en dur** dans la feuille : le test le refuse. Texte blanc sur l'accent ou
+  sur l'encre : `--on-accent`, `--on-ink` (en sombre ils deviennent foncés).
+- Le plan à l'écran lit ses encres dans `src/render/theme.ts` (trait, grille, halo) ; les couleurs des
+  objets sont celles du projet ; **les exports gardent leurs propres encres** (empreintes).
+- **La couleur ne porte jamais seule** une information : un mot ou une icône l'accompagne.
 
 ### Typographie — deux familles, deux rôles
 
+- Les familles passent par `--serif`, `--sans`, `--mono` (piles système : décision 1 de
+  `MD/spec-ihm-mobile.md` §14).
 - **Serif** (`Georgia`, `Iowan Old Style`) : le document et ses titres — noms d'objets, titres de
   panneaux, boutons principaux, onglets de résultats, indications en italique (`.hint`).
 - **Sans** (`Helvetica Neue`, Arial) : l'instrument — menus, palette, barre d'état, libellés de
@@ -91,8 +104,11 @@ Règles :
 
 ### Formes et densité
 
-- Rayons : `2px` champs et boutons, `4px` panneaux, `6px` onglets et toasts, `8px` dialogues,
-  `999px` pastilles.
+- Rayons : 6 px pour les petits contrôles du bureau, 10 à 16 px pour les panneaux et cartes, 22 px
+  pour le haut des feuilles, `999px` pour les pastilles ; les nouveaux composants passent par les
+  jetons `--r-*`.
+- **Icônes** : `src/zones/icones.tsx`, un seul jeu en trait sur 24 px, `currentColor`, toujours
+  `aria-hidden`. Plus de glyphes Unicode ni d'émojis dans les boutons.
 - Ombres douces et chaudes : `0 1px 3px rgba(59,46,31,0.06–0.2)` ; `0 4px 12px` pour un menu
   ouvert ; les dialogues seuls ont une ombre franche.
 - Interface **dense** : c'est un logiciel métier. Champ de l'inspecteur = grille

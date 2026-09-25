@@ -195,10 +195,12 @@ Règles :
   deviennent des jetons.
 - Le contraste texte/fond atteint 4,5:1 (3:1 au-delà de 24 px). Un test lit les paires déclarées dans
   `src/styles/jetons.ts` (nouveau, source des valeurs) et vérifie les rapports.
-- **Le plan SVG** (`render/theme.ts`) suit les mêmes teintes en sombre : parcelle `#252B1C` / trait
-  `#8C9A68`, bâti `#3A3024`, végétation `#3B4629`, terrasse `#5A4526`, sélection et poignées
-  `--accent`, pastilles de cote sur `--ink`. Ces couleurs sont **celles de l'écran** : les exports
-  gardent les leurs (empreintes).
+- **Le plan SVG** (`render/theme.ts`) suit les jetons pour ses encres : trait sur `--ink`, grille
+  sur `--rule`, halo des étiquettes sur `--paper`. Les couleurs des objets (parcelle, bâti,
+  végétation, terrasse) sont **celles du projet** : elles ne changent pas avec le thème, parce que
+  l'utilisateur les a choisies. Ces encres sont **celles de l'écran** : les exports gardent les
+  leurs (empreintes). *(Précisé à l'étape M1 : la maquette assombrissait aussi les objets, ce qui
+  aurait réécrit à l'écran des couleurs choisies par l'utilisateur.)*
 
 ### 5.2 Typographie
 
@@ -619,7 +621,7 @@ sous une version `2.1.0-alpha.N`. À chaque étape, la carte d'exposition (§3.1
 | Étape | Livrable | Ce qui bouge | Preuve |
 |---|---|---|---|
 | **M0** | Les garde-fous d'abord | `app/exposition.ts` (carte de l'existant, trois classes identiques), `exposition.test.ts`, test de la carte des champs, `scripts/captures.mjs` ; aucune modification visible | tests verts ; captures de référence `2.0.2` — **✅ 25/09/2026, `2.1.0-alpha.1`** |
-| **M1** | Jetons et thème | `jetons.ts`, `app.css` (§5.1–5.3), `render/theme.ts` (écran seulement), icônes SVG ; skill `design-ui` mis à jour | test de contraste ; empreintes ; points 1 à 25 en `large` |
+| **M1** | Jetons et thème | `jetons.ts`, `app.css` (§5.1–5.3), `render/theme.ts` (écran seulement), icônes SVG ; skill `design-ui` mis à jour | test de contraste ; empreintes ; points 1 à 25 en `large` — **✅ 25/09/2026, `2.1.0-alpha.2`** |
 | **M2** | Viewport et classes | `meta viewport`, `app/classe.ts`, `data-classe`, `computeSize` par mesure du conteneur, `safe-area` | point 26 ; redimensionnement sans perte de centre |
 | **M3** | Canevas et navigation compact | `BarreNavigation`, barre haute compacte, groupe flottant Ajuster/Grille/Nord (corrige D1), pastille d'échelle, `BandeauMode` (corrige D3), feuille de sélection | points 27, 35, 36 |
 | **M4** | Feuilles Outils et Objets | composant `Feuille` ; Z2 et Z3 rendus en feuille en `compact`, en rail et panneau flottant en `moyen` ; suppression des `display:none` | points 28 à 31 ; carte d'exposition pour Z2 et Z3 en `compact` et `moyen` |

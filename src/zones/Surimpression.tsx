@@ -8,6 +8,7 @@
 import { useStore } from 'zustand';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
+import { Icone } from './icones.js';
 
 export function Surimpression({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
   useStore(magasin.store, (s) => s.version);
@@ -19,10 +20,10 @@ export function Surimpression({ magasin, commandes }: { magasin: Magasin; comman
     <>
       <button type="button" id="gridBtn" className={grille ? '' : 'off'} aria-pressed={grille}
         title={(grille ? 'Masquer' : 'Afficher') + ' la grille du plan'}
-        onClick={() => { commandes.executer('affichage.grille'); }}>▦</button>
+        onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={18} /></button>
       {cadrable && (
         <button type="button" id="fitBtn" title="Ajuster la vue à l'objet sélectionné"
-          onClick={() => { commandes.executer('vue.ajuster'); }}>⤢ Ajuster à la sélection</button>
+          onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
       )}
     </>
   );

@@ -28,6 +28,7 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
+import { Icone } from './icones.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 
@@ -90,7 +91,7 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
       )}
       <div className="explorateurTous">
         <button type="button" className="oeil" aria-pressed={!tousMasques} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
-          {tousMasques ? '◌' : '👁'}
+          <Icone nom={tousMasques ? 'oeilBarre' : 'oeil'} taille={18} />
         </button>
         <details className="menu">
           <summary title="Les étiquettes de tous les objets">Étiquettes</summary>
@@ -118,7 +119,7 @@ function Objets({ etat, explorateur }: { etat: EtatApp; explorateur: ServiceExpl
                   {o.name}
                 </button>
                 <button type="button" className="oeil" aria-pressed={!o.hidden} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
-                  {o.hidden ? '◌' : '👁'}
+                  <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
                 </button>
               </div>
               {actif && (
@@ -224,7 +225,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
                   Voisinage <span className="explorateurCompte">{nVoisinage}</span>
                 </span>
                 <button type="button" className="oeil" aria-pressed={etat.voisinageVisible} title={etat.voisinageVisible ? 'Masquer le voisinage (rien n\'est supprimé)' : 'Afficher le voisinage'} onClick={() => commandes.executer('affichage.voisinage')}>
-                  {etat.voisinageVisible ? '👁' : '◌'}
+                  <Icone nom={etat.voisinageVisible ? 'oeil' : 'oeilBarre'} taille={18} />
                 </button>
               </div>
             </section>
