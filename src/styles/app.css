@@ -522,3 +522,18 @@
   }
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }
   .compteSortie{ background:transparent; cursor:pointer; font-family:inherit; }
+
+  /* ---------------------------------------------------------------------------------------------
+     Les trois classes d'ecran (MD/spec-ihm-mobile.md §4), posees par app/classe.ts sur
+     <html data-classe>. Bureau (`large`) : la disposition en colonnes ci-dessus, inchangee.
+     Telephone (`compact`) et tablette (`moyen`) : les regles qui suivent.
+     --------------------------------------------------------------------------------------------- */
+
+  /* Le cadre du plan : invisible, mesure par computeSize (app/boot.ts). Sur bureau il ne sert pas. */
+  #zoneCadre{ position:fixed; visibility:hidden; pointer-events:none; left:0; right:0; top:0; height:62vh; }
+  html[data-classe="large"] #zoneCadre{ display:none; }
+  /* Sur telephone et tablette, la page ne deborde plus de l'ecran : le plan prend toute la largeur. */
+  html[data-classe="compact"] body, html[data-classe="moyen"] body{ padding-left:0; padding-right:0; }
+  html[data-classe="compact"] #stage, html[data-classe="moyen"] #stage{ margin:0; border-left:none; border-right:none; box-shadow:none; }
+  html[data-classe="compact"] #zoneBarre, html[data-classe="moyen"] #zoneBarre,
+  html[data-classe="compact"] #zoneResultats, html[data-classe="moyen"] #zoneResultats{ width:100%; }

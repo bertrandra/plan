@@ -5,6 +5,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.3] — 2026-09-25
+
+**IHM mobile, étape M2** : la page se déclare mobile, et connaît sa classe d'écran.
+
+### Corrigé
+
+- **Sur téléphone, la page n'est plus rendue en réduction.** Faute de balise `viewport`, un
+  téléphone l'affichait sur 980 px virtuels puis la rétrécissait d'environ 0,4× : les boutons de
+  44 px tombaient vers 17 px. La page occupe maintenant la largeur réelle de l'écran, et le plan
+  toute cette largeur. Le zoom de la page reste permis ; le pincement sur le plan reste capturé.
+
+### Interne
+
+- `app/classe.ts` : trois classes d'écran, `compact` sous 600 px, `moyen` jusqu'à 1 023 px, `large`
+  au-delà, posées sur `<html data-classe>` et dans le magasin, recalculées au redimensionnement.
+- Le magasin gagne `classe`, `feuille` et `hauteurFeuille` (les feuilles du téléphone arrivent aux
+  étapes suivantes) ; la feuille ouverte se lit aussi sur `<html data-feuille>`.
+- `computeSize` mesure, sur téléphone et tablette, un cadre que la feuille de style place
+  (`#zoneCadre`) au lieu de retrancher des largeurs de colonnes codées en dur ; le bureau garde sa
+  règle. Le clavier virtuel qui s'ouvre sous un champ ne redessine plus le plan.
+
 ## [2.1.0-alpha.2] — 2026-09-25
 
 **IHM mobile, étape M1** : les jetons et le thème. L'interface change de teinte, pas de place.

@@ -18,6 +18,16 @@ import type { PtBrut } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import type { Vue } from './modes.js';
 import type { HauteurTiroir } from './tiroir.js';
+import type { Classe } from './exposition.js';
+
+/**
+ * Les feuilles du telephone (spec-ihm-mobile §5.5) : une seule ouverte a la fois. Chacune porte une
+ * zone existante — la palette, l'explorateur, l'inspecteur, le tiroir, les menus — sous une autre
+ * forme ; aucune n'ajoute de commande.
+ */
+export type Feuille = 'projet' | 'outils' | 'objets' | 'proprietes' | 'resultats' | 'reglages3d';
+/** La hauteur d'une feuille : un apercu, la moitie de l'ecran, l'ecran entier. */
+export type HauteurFeuille = 'apercu' | 'mi' | 'plein';
 
 /** Ou en est le projet vis-a-vis du serveur. `local` : pas de serveur, jeu de demonstration. */
 export type StatutProjet = 'local' | 'a-jour' | 'modifie' | 'enregistrement';
@@ -50,6 +60,11 @@ export interface EtatMagasin {
   tiroir: HauteurTiroir;
   /** L'inspecteur (Z5) est deplie ; replie, il rend sa largeur au plan. */
   inspecteurOuvert: boolean;
+  /** La classe d'ecran (app/classe.ts). */
+  classe: Classe;
+  /** La feuille ouverte sur telephone, ou aucune. */
+  feuille: Feuille | null;
+  hauteurFeuille: HauteurFeuille;
 }
 
 export interface Magasin {
@@ -65,7 +80,16 @@ export interface Magasin {
   definirExplorateurOuvert(ouvert: boolean): void;
   definirTiroir(hauteur: HauteurTiroir): void;
   definirInspecteurOuvert(ouvert: boolean): void;
+  definirClasse(classe: Classe): void;
+  /** Ouvre une feuille (et ferme la precedente), ou ferme tout avec `null`. */
+  definirFeuille(feuille: Feuille | null, hauteur?: HauteurFeuille): void;
+  definirHauteurFeuille(hauteur: HauteurFeuille): void;
 }
+
+/** La hauteur d'ouverture de chaque feuille : les listes a mi-hauteur, les resultats en entier. */
+export const HAUTEUR_PAR_DEFAUT: Record<Feuille, HauteurFeuille> = {
+  projet: 'plein', outils: 'mi', objets: 'mi', proprietes: 'mi', resultats: 'plein', reglages3d: 'mi'
+};
 
 export function creerMagasin(etat: EtatApp): Magasin {
   const store = createStore<EtatMagasin>(() => ({
@@ -78,8 +102,18 @@ export function creerMagasin(etat: EtatApp): Magasin {
     peutAnnuler: false,
     explorateurOuvert: true,
     tiroir: 'mi',
-    inspecteurOuvert: true
+    inspecteurOuvert: true,
+    classe: 'large',
+    feuille: null,
+    hauteurFeuille: 'mi'
   }));
+  // La feuille ouverte se lit aussi sur `<html data-feuille>` : la feuille de style montre la zone
+  // qui la porte. Hors navigateur (tests Node), il n'y a pas de document a marquer.
+  const marquer = (f: Feuille | null, h: HauteurFeuille) => {
+    if (typeof document === 'undefined') return;
+    if (f) { document.documentElement.dataset.feuille = f; document.documentElement.dataset.hauteurFeuille = h; }
+    else { delete document.documentElement.dataset.feuille; delete document.documentElement.dataset.hauteurFeuille; }
+  };
   return {
     store,
     notifier: () => store.setState((s) => ({ version: s.version + 1 })),
@@ -91,6 +125,16 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler }),
     definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert }),
     definirTiroir: (tiroir) => store.setState({ tiroir }),
-    definirInspecteurOuvert: (inspecteurOuvert) => store.setState({ inspecteurOuvert })
+    definirInspecteurOuvert: (inspecteurOuvert) => store.setState({ inspecteurOuvert }),
+    definirClasse: (classe) => store.setState({ classe }),
+    definirFeuille: (feuille, hauteur) => {
+      const h = hauteur ?? (feuille ? HAUTEUR_PAR_DEFAUT[feuille] : 'mi');
+      store.setState({ feuille, hauteurFeuille: h });
+      marquer(feuille, h);
+    },
+    definirHauteurFeuille: (hauteurFeuille) => {
+      store.setState({ hauteurFeuille });
+      marquer(store.getState().feuille, hauteurFeuille);
+    }
   };
 }

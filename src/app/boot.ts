@@ -42,7 +42,7 @@ import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
 import { droitsCourants, enLectureSeule } from './acces.js';
-import { creerMagasin } from './magasin.js';
+import { creerMagasin, type Feuille } from './magasin.js';
 import { telechargerBinaire } from '../shell/download.js';
 import {
   parPriorite, amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, reculerObjet,
@@ -82,6 +82,7 @@ import {
 import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
 import { creerExplorateur } from './explorateur.js';
 import { demanderPremierPas } from './premierPas.js';
+import { appliquerClasse } from './classe.js';
 
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d,
@@ -349,6 +350,17 @@ const LARGEUR_INSPECTEUR = 348;
 /** Replie, chacun ne garde que sa poignee : 22 px et l'espace de la rangee. */
 const LARGEUR_REPLIEE = 30;
 function computeSize(){
+  // Telephone et tablette (spec-ihm-mobile §9.2) : le plan occupe le cadre que la feuille de style
+  // reserve entre les barres (#zoneCadre), et on le mesure plutot que de refaire ici le calcul des
+  // barres, de l'encoche et de la barre de gestes. Les feuilles et panneaux flottants le recouvrent
+  // sans le reduire.
+  const cadre = magasin.store.getState().classe === 'large' ? null : document.getElementById('zoneCadre');
+  if (cadre) {
+    const r = cadre.getBoundingClientRect();
+    etat.scene.W = Math.max(240, Math.round(r.width));
+    etat.scene.H = Math.max(240, Math.round(r.height));
+    return;
+  }
   // La palette, l'explorateur et l'inspecteur (zones/) prennent leur largeur au plan des 1 024 px ;
   // en dessous, la feuille de style les escamote ou les passe sous le plan. Replies, l'explorateur et
   // l'inspecteur la rendent.
@@ -358,6 +370,7 @@ function computeSize(){
   etat.scene.W = Math.max(320, Math.min(window.innerWidth - margin, 1600));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight*0.62), 780));
 }
+appliquerClasse(magasin);
 computeSize();
 
 function toScreen(p: PtBrut): PtEcran { return versEcran(etat.scene, p); }
@@ -572,9 +585,17 @@ brancherPointeur(svg, stage, etat, {
 
 
 // ================= Responsive resize =================
+let derniereLargeur = window.innerWidth;
 // Le centre du monde est releve AVANT le changement de taille et remis au centre apres : sans cela,
 // agrandir la fenetre ferait deriver le plan hors de l'ecran au lieu de l'elargir.
 function redimensionnerLePlan(){
+  // Le clavier virtuel qui s'ouvre sous un champ redimensionne la fenetre en hauteur seulement :
+  // redessiner le plan a ce moment-la ferait perdre le focus du champ (spec-ihm-mobile §9.3).
+  const focus = document.activeElement;
+  const saisie = !!focus && /^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName);
+  const classeChangee = appliquerClasse(magasin);
+  if (saisie && !classeChangee && magasin.store.getState().classe !== 'large' && window.innerWidth === derniereLargeur) return;
+  derniereLargeur = window.innerWidth;
   const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
   computeSize();
   appliquerTailleDuPlan();
@@ -1105,7 +1126,7 @@ if (import.meta.env.DEV) {
       const o = etat.objects.find(x => x.fonction === fonction);
       if (o) explorateur.selectionner(o.key);
     },
-    ouvrirFeuille: () => undefined,
+    ouvrirFeuille: (feuille: Feuille) => magasin.definirFeuille(feuille),
     ouvrirResultats: (onglet: string) => tiroir.activer(onglet)
   };
 }

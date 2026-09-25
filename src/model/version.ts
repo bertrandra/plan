@@ -25,7 +25,7 @@
 // Le SCHEMA du projet, lui, ne bouge pas : un fichier enregistre par l'ancienne version s'ouvre
 // dans la nouvelle, et l'inverse aussi. La rupture porte sur l'artefact livre, pas sur les donnees.
 
-export const APP_VERSION = '2.1.0-alpha.2';
+export const APP_VERSION = '2.1.0-alpha.3';
 export const SCHEMA_VERSION = 1;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-09-25';
