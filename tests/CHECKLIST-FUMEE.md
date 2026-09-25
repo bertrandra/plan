@@ -1,12 +1,21 @@
-# Liste de fumée — 25 interactions, à dérouler avant chaque fusion de phase
+# Liste de fumée — 40 interactions, à dérouler avant chaque fusion de phase
 
-Source : [`../MD/spec-migration-typescript.md`](../MD/spec-migration-typescript.md) §11.3. Ces
-gestes ne seront couverts par aucun test automatique : ils mettent en jeu le pointeur, three.js et
-le rendu PDF. La liste est **fixe** — on ne l'allège pas d'une phase à l'autre, sinon elle cesse
+Source : [`../MD/spec-migration-typescript.md`](../MD/spec-migration-typescript.md) §11.3 pour les
+points 1 à 25, [`../MD/spec-ihm-mobile.md`](../MD/spec-ihm-mobile.md) §11.3 pour les points 26 à 40.
+Ces gestes ne sont couverts par aucun test unitaire : ils mettent en jeu le pointeur, three.js et le
+rendu PDF. La liste est **fixe** — on ne l'allège pas d'une phase à l'autre, sinon elle cesse
 d'être comparable.
 
-Mode d'emploi : `pwsh -File servir.ps1`, ouvrir `http://localhost:8765/plan.html` sur le jeu de
-démonstration, dérouler dans l'ordre. Un point qui échoue bloque la fusion.
+Depuis la `2.1.0`, les points 1 à 25 se jouent **dans les trois classes d'écran** — téléphone
+(390 px), tablette (820 px), bureau (1 440 px) — et en thème clair et sombre ; les points 26 à 40
+sur téléphone.
+
+Mode d'emploi : à la main, `pwsh -File servir.ps1`, ouvrir `http://localhost:8765/plan.html` sur le
+jeu de démonstration, dérouler dans l'ordre. Par un navigateur piloté :
+`BACKPROD_API_URL=http://plateforme.test npx vite --port 5199`, puis `node scripts/fumee.mjs` —
+il simule la plateforme, pilote de vrais évènements de pointeur et de doigts, mesure chaque geste
+dans l'état du plan, et dit « non joué » pour ce qu'il ne sait pas jouer (le réseau). Un point qui
+échoue bloque la fusion.
 
 ## Manipulation directe du plan
 
@@ -52,6 +61,26 @@ démonstration, dérouler dans l'ordre. Un point qui échoue bloque la fusion.
 | 23 | Enregistrer un point de vue, puis le rappeler | la caméra revient exactement à la position enregistrée |
 | 24 | Exporter en GLB, rouvrir dans la visionneuse | le modèle se recharge, compteurs conformes à `fixtures/golden/glb-structure.json` |
 | 25 | Dossier PDF avec deux terrasses | 3 pages : plan de masse + une section par terrasse, cotes hors des contours |
+
+## Téléphone et tablette (depuis la 2.1.0)
+
+| # | Geste | Attendu |
+|---|---|---|
+| 26 | Ouvrir sur un téléphone (390 px) | page à l'échelle 1, aucune barre de défilement horizontale, plan plein écran |
+| 27 | Annuler depuis la barre haute après un glisser | le glisser est défait |
+| 28 | Créer chacun des six objets depuis la feuille Outils | l'objet apparaît, sélectionné, et la feuille se referme |
+| 29 | Dupliquer puis supprimer depuis la feuille Outils | la copie apparaît, puis disparaît après confirmation |
+| 30 | Masquer un objet dans la feuille Objets, puis le réafficher | l'objet disparaît du plan puis revient |
+| 31 | Étiquettes et calques de terrasse depuis la feuille Objets | les étiquettes et les calques suivent les cases |
+| 32 | Modifier l'entraxe au − et + dans Propriétés | le bandeau de chiffrage change à chaque pas ; un appui long fait un seul instantané d'annulation |
+| 33 | Saisir une longueur de côté au clavier virtuel | le champ garde le focus ; la valeur (virgule acceptée) s'applique à la validation |
+| 34 | Ouvrir Résultats › BOM, saisir un prix réel | le total réel change ; la carte reste éditable |
+| 35 | Nouvelle cote : Annuler le pointage depuis le bandeau | le mode s'arrête, le glisser de la vue refonctionne |
+| 36 | Ajuster à la sélection | la vue cadre l'objet dans la partie visible au-dessus de la feuille de sélection |
+| 37 | Feuille Projet : Exporter › PDF avec une échelle de 1/100 | le PDF sort à 1/100 |
+| 38 | Vue 3D au téléphone : heure au curseur, réglages dans la feuille | l'éclairage suit ; les cases s'appliquent |
+| 39 | Passer du portrait au paysage avec la feuille Propriétés ouverte et un champ en brouillon | la classe devient `moyen`, la sélection et le brouillon restent |
+| 40 | Thème sombre du système sur les points 26 à 39 | tout est lisible, rien n'est blanc sur blanc ni noir sur noir |
 
 ## Journal des passages
 

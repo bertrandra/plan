@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
 
 const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'hote', 'ligne', 'dansRepliee'];
 
-function monter(classe: string): { racine: Root; hote: HTMLElement } {
+function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
   const etat = { objects: [obj], selectedKey: 'o1' } as unknown as EtatApp;
   const magasin = creerMagasin(etat);
@@ -67,7 +67,7 @@ function monter(classe: string): { racine: Root; hote: HTMLElement } {
     contexte: () => c,
     titre: () => 'Polygone — Terrasse',
     sections: () => SECTIONS,
-    appliquer: () => true,
+    appliquer,
     executer: rien,
     basculerOuverture: rien
   };
@@ -97,6 +97,26 @@ describe('la carte des champs de l inspecteur', () => {
       expect(ligne.textContent).toContain('Supprimer');
       // Le nombre garde une saisie directe, quelle que soit sa forme (champ ou pas a pas).
       expect(ligne.querySelector('input[type="number"], input[inputmode="decimal"]')).not.toBeNull();
+    });
+  }
+});
+
+describe('la saisie d un nombre', () => {
+  for (const classe of CLASSES) {
+    it('n ecrit qu une fois quand on valide par Entree, en ' + classe, () => {
+      // Entree validait, puis la sortie du champ validait une seconde fois : deux ecritures, deux
+      // instantanes d'annulation, et un Ctrl+Z qui semblait ne rien faire (trouve par la liste de
+      // fumee de la 2.1.0, point 17).
+      let ecritures = 0;
+      const m = monter(classe, (_ch, _c, ecrire) => { ecritures++; ecrire(); return true; });
+      const champ = m.hote.querySelector<HTMLInputElement>('[data-cle="nombre"] input')!;
+      act(() => { champ.focus(); });
+      const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      act(() => { poser.call(champ, '55'); champ.dispatchEvent(new Event('input', { bubbles: true })); });
+      act(() => { champ.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+      act(() => { champ.blur(); });
+      expect(ecritures).toBe(1);
+      act(() => m.racine.unmount()); m.hote.remove();
     });
   }
 });

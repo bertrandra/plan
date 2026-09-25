@@ -103,6 +103,9 @@
     <span id="vue3dHeureTexte" class="valeurReglage">12:00</span>
     <span id="vue3dSoleilInfo" class="infoSoleil" title="Hauteur du soleil au-dessus de l'horizon et direction d'ou il vient, pour la date, l'heure et le lieu choisis"></span>
   </div>
+  <!-- Hors du cadre de la scene : les reglages restent accessibles pendant le chargement de la
+       bibliotheque 3D, et meme si elle ne se charge pas. -->
+  <button id="reglages3dBtn" type="button" class="bouton3d boutonReglages boutonReglagesFlottant" aria-label="Réglages de la vue 3D"><svg class="icone" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
   <div id="terrasse3dLoading" class="hint">Chargement de la bibliotheque 3D…</div>
   <div id="terrasse3dWrap" style="display:none; margin-top:10px;">
     <div id="terrasse3dCanvasHost" class="hote3d">
@@ -117,7 +120,6 @@
         <button id="terrasse3dSavePng" type="button" class="bouton3d" title="Enregistrer la vue actuelle en PNG" aria-label="Enregistrer la vue en PNG"><svg class="icone" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8.5 8"/></svg></button>
         <div class="separateur3d"></div>
         <button id="terrasse3dEyeLevel" type="button" class="bouton3d" title="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" aria-label="Hauteur des yeux"><svg class="icone" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="2.2"/><path d="M12 8v7M8.5 21l3.5-6 3.5 6M8 11h8"/></svg></button>
-        <button id="reglages3dBtn" type="button" class="bouton3d boutonReglages" aria-label="Réglages de la vue 3D"><svg class="icone" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
       </div>
     </div>
   </div>

@@ -41,6 +41,32 @@ Règles :
 - **Remplacer, c'est supprimer** : une région remplacée disparaît d'`index.html`, elle n'est pas
   masquée.
 
+## 1 bis. Trois classes d'écran
+
+Depuis la `2.1.0` (`MD/spec-ihm-mobile.md`), chaque zone a une forme par classe, posée par
+`app/classe.ts` sur `<html data-classe>` et dans le magasin (`classe`) :
+
+| Classe | Largeur | Forme |
+|---|---|---|
+| `compact` | < 600 px | plan plein écran, barre haute, barre de navigation ; les zones sont des **feuilles** (`<html data-feuille>`) |
+| `moyen` | 600 – 1 023 px | plan plein écran, rail d'outils, explorateur et inspecteur flottants, tiroir en bas |
+| `large` | ≥ 1 024 px | colonnes, comme avant la 2.1.0 |
+
+- **Une commande ajoutée s'inscrit dans `app/exposition.ts`** avec un emplacement dans chacune des
+  trois classes ; `tests/unit/app/exposition.test.ts` échoue sinon. `sansObjet` n'est admis que pour
+  les commandes listées dans `SANS_OBJET_ADMIS`.
+- **Un champ de l'inspecteur ne dépend jamais de la classe** : seule sa forme change (nombre → pas à
+  pas, case → interrupteur, choix court → commande segmentée). Test : `inspecteur-champs.test.ts`.
+- Une zone qui devient feuille rend `EnteteFeuille` (`zones/composants/Feuille.tsx`) en tête et son
+  contenu dans `.corpsFeuille`. Le voile, Échap, le piège à focus et le retour du focus sont faits
+  par `Voile`, une fois.
+- Au doigt, **l'infobulle n'existe pas** : la raison d'un refus s'écrit sous le groupe, l'aide d'un
+  champ grisé sous le champ.
+- Cibles de 44 px sur `compact` et `moyen`, partout. Tout `position:fixed` d'une zone passe par les
+  réserves `--reserve-haut` / `--reserve-bas` (encoche comprise) ; le plan mesure `#zoneCadre`.
+- Vérifier à 390, 820 et 1 440 px, en clair et en sombre : `scripts/captures.mjs` (36 captures) et
+  `scripts/fumee.mjs` (la liste de fumée pilotée).
+
 ## 2. Câbler : commandes et descripteurs, jamais d'écouteur isolé
 
 - **Un bouton est une liaison vers une commande** de `app/commandes.ts` : identifiant stable
@@ -150,12 +176,14 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
 ## 5. Vérifier avant de livrer
 
 ```bash
-npm run typecheck && npm run lint && npm test   # dont architecture.test.ts et les empreintes
+npm run typecheck && npm run lint && npm test   # dont architecture.test.ts, exposition, jetons, empreintes
 npm run cliquet
-npm run dev                                      # voir le changement, clair ET sombre, et à 1 000 px
+BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 &
+node scripts/captures.mjs                        # 36 captures : 390 / 820 / 1 440 px, clair et sombre
+node scripts/fumee.mjs                           # la liste de fumée pilotée, dans les trois classes
 ```
 
-- Regarder le rendu dans les deux thèmes et sous 1 024 px (Playwright peut capturer les trois).
+- Relire les captures dans les deux thèmes et les trois classes.
 - Dérouler les points concernés de `tests/CHECKLIST-FUMEE.md` ; un point qui échoue bloque.
 - Les empreintes golden doivent rester identiques hors numéro de version : **une modification
   d'IHM qui change un export n'est pas une modification d'IHM**.

@@ -6,6 +6,9 @@
 `export`) ne dépend ni du DOM ni d'un cadre d'affichage ; tout ce que ce document redistribue est
 dans `ui/` (4 867 lignes, dix modules), `app/` (la racine de composition et dix groupes
 d'écouteurs) et `index.html` (le balisage).
+**Suite :** la forme de chaque zone sur téléphone et tablette est décrite par
+[`spec-ihm-mobile.md`](spec-ihm-mobile.md) (`2.1.0`) ; les règles de ce document — une commande, une
+zone ; les zones ne se parlent pas — y restent entières.
 **Cible :** l'App Shell de `architecture-v2-react-typescript-php-saas.md` §22 — TopBar, Tools,
 Canvas, Properties, Status — et son modèle de commandes (§6).
 

@@ -586,10 +586,17 @@ brancherPointeur(svg, stage, etat, {
 
 // ================= Responsive resize =================
 let derniereLargeur = window.innerWidth;
-function replierPourTablette(){
+/**
+ * En arrivant sur tablette, l'explorateur et l'inspecteur se replient — sauf celui qu'on etait en
+ * train d'utiliser : la feuille ouverte sur telephone, ou le panneau ou un champ a le focus. Tourner
+ * un telephone avec un brouillon en cours ne doit pas le perdre (point 39 de la liste de fumee).
+ */
+function replierPourTablette(feuilleAvant: Feuille | null = null){
   if (magasin.store.getState().classe !== 'moyen') return;
-  if (magasin.store.getState().explorateurOuvert) explorateur.basculerOuverture();
-  if (magasin.store.getState().inspecteurOuvert) inspecteur.basculerOuverture();
+  const focus = document.activeElement;
+  const garde = (id: string) => !!focus && !!document.getElementById(id)?.contains(focus);
+  if (magasin.store.getState().explorateurOuvert && feuilleAvant !== 'objets' && !garde('zoneExplorateur')) explorateur.basculerOuverture();
+  if (magasin.store.getState().inspecteurOuvert && feuilleAvant !== 'proprietes' && !garde('zoneInspecteur')) inspecteur.basculerOuverture();
 }
 // Le centre du monde est releve AVANT le changement de taille et remis au centre apres : sans cela,
 // agrandir la fenetre ferait deriver le plan hors de l'ecran au lieu de l'elargir.
@@ -598,10 +605,11 @@ function redimensionnerLePlan(){
   // redessiner le plan a ce moment-la ferait perdre le focus du champ (spec-ihm-mobile §9.3).
   const focus = document.activeElement;
   const saisie = !!focus && /^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName);
+  const feuilleAvant = magasin.store.getState().feuille;
   const classeChangee = appliquerClasse(magasin);
   if (saisie && !classeChangee && magasin.store.getState().classe !== 'large' && window.innerWidth === derniereLargeur) return;
   derniereLargeur = window.innerWidth;
-  if (classeChangee) replierPourTablette();
+  if (classeChangee) replierPourTablette(feuilleAvant);
   const centreAvant = toWorld({x: etat.scene.W/2, y: etat.scene.H/2});
   computeSize();
   appliquerTailleDuPlan();
@@ -701,8 +709,21 @@ function fitToObject(obj: ObjetPlan | null){
     : (etat.objects.find(o=>o.key==='parcelle') ? [etat.objects.find(o=>o.key==='parcelle')!] : etat.objects);
   const emprise = empriseDe(formes);
   if(!emprise) return;
-  etat.scene = cadrerSur(etat.scene, emprise);
+  // Sur telephone et tablette, la feuille de selection recouvre le bas du plan : on cadre dans ce
+  // qui reste visible au-dessus d'elle (spec-ihm-mobile §6.4, point 36 de la liste de fumee).
+  const masque = masqueBasDuPlan();
+  const cadree = cadrerSur({ ...etat.scene, H: etat.scene.H - masque }, emprise);
+  etat.scene = { ...cadree, H: etat.scene.H };
   render();
+}
+/** La hauteur, en pixels, du bas du plan que la feuille de selection recouvre. */
+function masqueBasDuPlan(): number {
+  if (magasin.store.getState().classe !== 'compact') return 0;
+  const sel = document.querySelector('.feuilleSelection');
+  if (!sel) return 0;
+  const r = sel.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  if (!r.height || r.top >= s.bottom) return 0;
+  return Math.max(0, Math.min(etat.scene.H - 120, s.bottom - r.top));
 }
 
 
@@ -1146,7 +1167,12 @@ if (import.meta.env.DEV) {
       if (o) explorateur.selectionner(o.key);
     },
     ouvrirFeuille: (feuille: Feuille) => magasin.definirFeuille(feuille),
-    ouvrirResultats: (onglet: string) => tiroir.activer(onglet)
+    ouvrirResultats: (onglet: string) => tiroir.activer(onglet),
+    // Lecture seule, pour la liste de fumee automatisee (scripts/fumee.mjs) : ce qu'un geste a
+    // change se mesure dans l'etat, pas a l'oeil.
+    etat: () => etat,
+    selectionnerCle: (cle: string | null) => explorateur.selectionner(cle),
+    magasin: () => magasin.store.getState()
   };
 }
 

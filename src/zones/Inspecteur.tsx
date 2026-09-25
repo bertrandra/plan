@@ -54,7 +54,9 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
     inspecteur.appliquer(champ, c, () => champ.ecrire(c, v));
   };
   const touches = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { valider(); (e.target as HTMLInputElement).blur(); }
+    // Entree quitte le champ, et c'est la sortie qui valide : valider ici puis a la sortie ecrivait
+    // deux fois, avec deux instantanes d'annulation — un Ctrl+Z semblait alors ne rien faire.
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
     if (e.key === 'Escape') { setBrouillon(null); e.preventDefault(); }
     if (tactile && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); pas(e.key === 'ArrowUp' ? 1 : -1, true); }
   };
@@ -352,32 +354,25 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} />);
   const chiffrage = tactile && tiroir ? <BandeauChiffrage c={c} ouvrir={ouvrirChiffrage} /> : null;
 
-  if (compact) {
-    return (
-      <Tactile.Provider value>
-        <aside className="inspecteurPanneau" aria-label="Propriétés">
-          <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={inspecteur.titre(c)}
-            actions={<button type="button" className="boutonIcone" id="attrTitle" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
-          <Sauts sections={sections} c={c} />
-          <div className="corpsFeuille">{corps}{pied}</div>
-          {chiffrage}
-        </aside>
-      </Tactile.Provider>
-    );
-  }
-
+  // Un seul arbre pour les trois classes : tourner un telephone (compact → moyen) ne demonte aucun
+  // champ, et un brouillon en cours survit (point 39 de la liste de fumee). Seuls l'entete et les
+  // pastilles de saut changent.
+  const entete = compact
+    ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={inspecteur.titre(c)}
+        actions={<button type="button" className="boutonIcone" id="attrTitle" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
+    : <div className="inspecteurEntete">
+        <span className="inspecteurTitre" id="attrTitle" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
+          onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
+          {inspecteur.titre(c)}
+        </span>
+        <Pli ouvert inspecteur={inspecteur} />
+      </div>;
   return (
     <Tactile.Provider value={tactile}>
-      <aside className="inspecteurPanneau" aria-label="Inspecteur">
-        <div className="inspecteurEntete">
-          <span className="inspecteurTitre" id="attrTitle" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
-            onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
-            {inspecteur.titre(c)}
-          </span>
-          <Pli ouvert inspecteur={inspecteur} />
-        </div>
-        {corps}
-        {pied}
+      <aside className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'}>
+        {entete}
+        {compact ? <Sauts sections={sections} c={c} /> : null}
+        <div className={compact ? 'corpsFeuille' : 'corpsInspecteur'}>{corps}{pied}</div>
         {chiffrage}
       </aside>
     </Tactile.Provider>

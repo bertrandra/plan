@@ -673,7 +673,9 @@
     flex:none; min-height:40px; padding:0 14px; border:none; border-radius:10px;
     background:var(--on-toast); color:var(--toast-bg); font-family:var(--sans); font-weight:600;
   }
-  html[data-classe="compact"] .bandeauMode, html[data-classe="moyen"] .bandeauMode{ left:10px; top:auto; bottom:12px; }
+  html[data-classe="compact"] .bandeauMode{ left:10px; top:auto; bottom:12px; }
+  /* Sur tablette, le bas du plan est sous le tiroir des resultats : le bandeau se pose en haut. */
+  html[data-classe="moyen"] .bandeauMode{ top:12px; bottom:auto; }
   html[data-pointage] .feuilleSelection{ display:none; }
 
   /* La feuille de selection (zones/FeuilleSelection.tsx). */
@@ -800,18 +802,19 @@
   html[data-classe="moyen"] #projectBar #projectSelect{ max-width:none; min-height:40px; }
   .voileTransparent{ background:transparent; }
   /* Le rail d'outils. */
+  /* Le rail et les panneaux passent au-dessus du tiroir ouvert : on les a ouverts pour s'en servir. */
   html[data-classe="moyen"] #zonePalette{
-    position:fixed; left:calc(8px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:30; width:64px;
+    position:fixed; left:calc(8px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:40; width:64px;
     max-height:var(--hauteur-panneaux); overflow-y:auto; box-shadow:var(--ombre-flottante);
   }
   html[data-classe="moyen"] #zonePalette .libelle{ display:none; }
   /* L'explorateur et l'inspecteur, panneaux flottants repliables en poignee. */
   html[data-classe="moyen"] #zoneExplorateur{
-    position:fixed; left:calc(80px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:30; width:280px;
+    position:fixed; left:calc(80px + env(safe-area-inset-left)); top:var(--haut-panneaux); z-index:40; width:280px;
     max-height:var(--hauteur-panneaux); margin:0; border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
   }
   html[data-classe="moyen"] #zoneInspecteur{
-    position:fixed; right:calc(8px + env(safe-area-inset-right)); top:var(--haut-panneaux); z-index:30; width:340px;
+    position:fixed; right:calc(8px + env(safe-area-inset-right)); top:var(--haut-panneaux); z-index:40; width:340px;
     max-height:var(--hauteur-panneaux); margin:0; border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
   }
   html[data-classe="moyen"] #zoneExplorateur.replie, html[data-classe="moyen"] #zoneInspecteur.replie{ width:44px; }
@@ -1045,7 +1048,9 @@
   html:not([data-classe="large"]) .vue3dPanneau .titre3d{ display:none !important; }
   html:not([data-classe="large"]) #terrasse3dWrap, html:not([data-classe="large"]) #glbViewerContent{ position:absolute; inset:0; margin:0 !important; }
   html:not([data-classe="large"]) .hote3d{ position:absolute; inset:0; height:auto !important; margin:0 !important; border:none; border-radius:0; }
-  html:not([data-classe="large"]) .commandes3d{ top:calc(56px + 8px); right:10px; gap:6px; }
+  html:not([data-classe="large"]) .commandes3d{ top:calc(56px + 8px + 52px); right:10px; gap:6px; }
+  html:not([data-classe="large"]) .boutonReglagesFlottant{ position:absolute; top:calc(56px + 8px); right:10px; z-index:5; }
+  html:not([data-classe="large"]) #glbViewerCanvasHost .commandes3d{ top:calc(56px + 8px); }
   html:not([data-classe="large"]) .bouton3d{ width:44px; height:44px; border-radius:var(--r-bouton); box-shadow:var(--ombre-flottante); }
   html:not([data-classe="large"]) .separateur3d{ display:none; }
   html:not([data-classe="large"]) .barreSoleil{
