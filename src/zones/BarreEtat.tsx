@@ -7,6 +7,7 @@
 import { useStore } from 'zustand';
 import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import type { Magasin } from '../app/magasin.js';
+import { texteStatut } from './statut.js';
 
 const metres = (v: number) => (Math.round(v * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -17,11 +18,7 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   const etat = magasin.store.getState().etat;
   const selection = etat.selectedKey ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
 
-  const statut = p.statut === 'local'
-    ? 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).'
-    : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? 'Modifications non enregistrees'
-    : (p.enregistreA || 'A jour');
+  const statut = texteStatut(p);
 
   return (
     <>

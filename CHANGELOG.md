@@ -5,6 +5,43 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.4] — 2026-09-25
+
+**IHM mobile, étape M3** : le plan et la navigation du téléphone.
+
+### Ajouté
+
+- **Sur téléphone, le plan occupe l'écran** entre une barre haute et une barre de navigation.
+  La barre haute porte le nom du projet, son statut d'enregistrement, **Annuler** et Exporter ; le
+  bouton ☰ ouvre la **feuille Projet**, qui porte les menus Fichier, Exporter, Affichage et Aide
+  avec les mêmes entrées, les mêmes cases et le même ordre. La barre de navigation ouvre les
+  feuilles Objets, Outils (**+**), Propriétés et Résultats, et lance **Coter**.
+- **Les feuilles** : une zone existante posée en bas de l'écran, avec une poignée qu'on glisse pour
+  passer de l'aperçu à mi-hauteur puis au plein écran (ou pour fermer), un voile qui la ferme au
+  toucher, Échap, et le focus qui y entre puis revient au bouton d'origine.
+- **La feuille de sélection** : nom, fonction, trois chiffres (surface, hauteur finie, estimation du
+  chiffrage pour une terrasse), Dupliquer, Supprimer, Désélectionner, et les boutons Propriétés et
+  Chiffrage. Sur tablette, une carte en bas à gauche.
+- **Sur le plan, un groupe flottant** Ajuster, Grille, Nord, et une pastille d'échelle qui donne
+  aussi la position du doigt pendant un glisser.
+- **Un bandeau pendant un pointage** (Cote, Aligner) : il dit quoi désigner, et **Annuler** ou
+  **Terminer** en sortent. Échap aussi, sur toutes les tailles d'écran.
+
+### Corrigé
+
+- **« Ajuster à la sélection » était invisible partout** : le bouton était rendu, puis masqué par
+  la feuille de style. La commande `vue.ajuster` n'avait donc aucun point d'accès (D1).
+- **Rien ne permettait de sortir d'un pointage de cote** : tout clic hors d'un côté était avalé, et
+  le glisser de la vue bloqué, jusqu'à ce qu'on désigne un côté (D3).
+
+### Interne
+
+- `zones/BarreNavigation.tsx`, `zones/FeuilleSelection.tsx`, `zones/composants/Feuille.tsx`
+  (entête et voile), `zones/statut.ts` (le statut en mots, partagé avec la barre d'état),
+  `ui/chiffrage.ts` (le résumé du BOM, calculé sans rien écrire et mis en cache).
+- La carte d'exposition place Annuler dans la barre haute, Coter dans la navigation, Dupliquer et
+  Supprimer dans la feuille de sélection, Nord dans le groupe flottant.
+
 ## [2.1.0-alpha.3] — 2026-09-25
 
 **IHM mobile, étape M2** : la page se déclare mobile, et connaît sa classe d'écran.

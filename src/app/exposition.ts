@@ -33,15 +33,15 @@ const partout = (...e: Emplacement[]): Ligne => ({ compact: e, moyen: e, large: 
 
 export const EXPOSITION: Record<string, Ligne> = {
   // ---- Objets (Z2) ----------------------------------------------------------------------------
-  'objet.annuler': partout('palette'),
+  'objet.annuler': { compact: ['barreHaute'], moyen: ['palette'], large: ['palette'] },
   'objet.ajouter.polygone': partout('palette'),
   'objet.ajouter.rectangle': partout('palette'),
   'objet.ajouter.chemin': partout('palette'),
   'objet.ajouter.cercle': partout('palette'),
   'objet.ajouter.parasol': partout('palette'),
   'objet.ajouter.pointDeVue': partout('palette'),
-  'objet.dupliquer': partout('palette'),
-  'objet.supprimer': partout('palette'),
+  'objet.dupliquer': { compact: ['palette', 'selection'], moyen: ['palette', 'selection'], large: ['palette'] },
+  'objet.supprimer': { compact: ['palette', 'selection'], moyen: ['palette', 'selection'], large: ['palette'] },
   'objet.reculer': partout('palette'),
   'objet.positionInitiale': partout('palette', 'inspecteur'),
   'objet.aligner': partout('palette'),
@@ -55,7 +55,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.actualiserIgn': partout('menuFichier'),
 
   // ---- Affichage ------------------------------------------------------------------------------
-  'affichage.nord': partout('menuAffichage'),
+  'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
   'affichage.voisinage': partout('menuAffichage', 'explorateur'),
   'affichage.grille': partout('menuAffichage', 'surimpression'),
   'affichage.orthophoto': partout('menuAffichage'),
@@ -72,7 +72,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // ---- Cotes, PLU, terrasse -------------------------------------------------------------------
   'mesure.recalculer': partout('html:recalcMeasureBtn'),
   'mesure.effacer': partout('html:clearMeasureBtn'),
-  'mesure.nouvelle': partout('palette'),
+  'mesure.nouvelle': { compact: ['navigation', 'palette'], moyen: ['palette'], large: ['palette'] },
   'plu.interroger': partout('html:pluInterrogerBtn'),
   'terrasse.optimisation': partout('inspecteur'),
 

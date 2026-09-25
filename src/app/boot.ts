@@ -76,7 +76,7 @@ import {
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from '../io/projet.js';
 import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
 import {
-  startPick as demarrerPointage, rebuildMeasurePanel as construirePanneauMesure,
+  startPick as demarrerPointage, cancelPick, rebuildMeasurePanel as construirePanneauMesure,
   renderMeasureResults as construireResultatsMesure
 } from '../ui/mesurePanel.js';
 import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
@@ -1092,7 +1092,10 @@ const inspecteur = creerInspecteur(etat, {
   optimisation: { panneaux: ctxPanneauxTerrasse() },
   redimensionner: redimensionnerLePlan
 }, magasin, commandes);
-monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir });
+// Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap
+// (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
+const pointage = { courant: () => mesure.pointage, arreter: () => cancelPick(etat, ctxMesure()) };
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage });
 // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
 tiroir.activer(etat.panelTab, false);
 render();
