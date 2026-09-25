@@ -967,3 +967,48 @@
   /* Tablette et bureau etroit : les tableaux gardent leurs colonnes et defilent a l'horizontale. */
   html[data-classe="moyen"] #tiroirPanneaux table{ display:block; overflow-x:auto; max-width:100%; }
   html[data-classe="moyen"] #terrasseOptimResult, html[data-classe="compact"] #terrasseOptimResult{ overflow-x:auto; }
+
+  /* ---- Telephone : dialogues, notifications, porte et premier pas (spec-ihm-mobile §6.8, §6.9) --
+     Une confirmation devient une feuille modale en bas, boutons pleine largeur ; les parcours
+     (cadastre, textures, actualisation IGN) prennent l'ecran entier. Les boites imperatives portent
+     leur mise en forme en ligne : ici, !important est le seul moyen de la reprendre. */
+  html[data-classe="compact"] .dialogueVoile{ align-items:flex-end; padding:0; }
+  html[data-classe="compact"] .dialogueBoite, html[data-classe="compact"] .dialogueBoite.erreur{
+    width:100%; max-width:none; border-radius:var(--r-feuille) var(--r-feuille) 0 0; padding:20px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  html[data-classe="compact"] .dialogueTitre{ font-family:var(--serif); font-size:20px; }
+  html[data-classe="compact"] .dialogueTexte{ font-size:15px; }
+  html[data-classe="compact"] .dialogueBoutons{ flex-direction:column-reverse; }
+  html[data-classe="compact"] .dialogueBoutons button{ width:100%; min-height:48px; font-family:var(--sans); font-size:15px; border-radius:var(--r-bouton); }
+  html[data-classe="compact"] .promptInput{ min-height:48px; font-size:16px; border-radius:var(--r-champ); }
+  html[data-classe="compact"] .dialogueImperatif{
+    width:100% !important; max-width:none !important; height:100dvh !important; max-height:none !important;
+    border-radius:0 !important; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) !important;
+    font-size:15px !important; box-shadow:none !important;
+  }
+  html[data-classe="compact"] .dialogueActualisation{ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
+  html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
+  html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }
+  html[data-classe="compact"] .dialogueImperatif input[type=checkbox], html[data-classe="compact"] .dialogueImperatif input[type=radio]{ width:20px; height:20px; }
+  html[data-classe="compact"] .dialogueCadastre .piedDialogue{
+    position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); margin:14px -16px 0 !important; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:var(--panel-bg); border-top:1px solid var(--hairline);
+  }
+  html[data-classe="compact"] .dialogueCadastre .piedDialogue button{ flex:1 1 auto; }
+  /* Le selecteur de textures : la grille passe au-dessus de l'apercu, trois colonnes. */
+  html[data-classe="compact"] .dialogueTextures > div:nth-child(4){ flex-direction:column !important; }
+  html[data-classe="compact"] .dialogueTextures > div:nth-child(4) > div:first-child{ grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+  /* Les toasts au-dessus de la barre de navigation ; le bandeau d'erreur en haut, le bas etant pris. */
+  html[data-classe="compact"] .notificationsToasts{ bottom:calc(var(--reserve-bas) + 12px); max-width:calc(100vw - 32px); }
+  html[data-classe="compact"] .toast{ font-size:14px; border-radius:var(--r-bouton); padding:12px 16px; }
+  html[data-classe="compact"] .bandeauErreur{ bottom:auto; top:0; padding-top:calc(10px + env(safe-area-inset-top)); }
+  html[data-classe="compact"] .bandeauErreur .fermer{ min-width:44px; min-height:44px; }
+  /* La porte et le premier pas : la boite prend la largeur, champs et boutons au doigt. */
+  html[data-classe="compact"] :is(.porteBoite, .premierBoite){ width:100%; padding:22px 16px; border-radius:var(--r-panneau); }
+  html[data-classe="compact"] .porteChamp input{ min-height:48px; font-size:16px; border-radius:var(--r-champ); }
+  html[data-classe="compact"] .porteBouton{ min-height:48px; font-size:16px; border-radius:var(--r-bouton); }
+  html[data-classe="compact"] .premierChoix{ padding:14px 16px; border-radius:var(--r-tuile); }
+  html[data-classe="compact"] .premierChoixTitre{ font-size:16px; }
+  html[data-classe="compact"] .premierChoixTexte{ font-size:14px; }
+  html[data-classe="compact"] .porteLiens a{ display:inline-block; min-height:44px; line-height:44px; }

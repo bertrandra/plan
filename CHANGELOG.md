@@ -5,6 +5,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.0-alpha.7] — 2026-09-25
+
+**IHM mobile, étape M6** : dialogues, notifications, porte et premier pas sur téléphone.
+
+### Modifié
+
+- **Sur téléphone, une confirmation monte du bas**, boutons pleine largeur de 48 px, action
+  principale au-dessus. Les parcours — import cadastre en trois étapes, sélecteur de textures —
+  prennent l'écran entier ; les boutons de l'import restent collés en bas pendant qu'on défile.
+  L'actualisation IGN devient une feuille.
+- Les toasts se posent au-dessus de la barre de navigation ; le bandeau d'erreur passe en haut de
+  l'écran, le bas étant pris.
+- La porte et le premier pas prennent la largeur du téléphone, champs et boutons de 48 px.
+- Les boîtes imperatives passent sur les jetons : elles suivent enfin le thème sombre.
+
+### Corrigé
+
+- **L'actualisation IGN et le sélecteur de textures se ferment par Échap**, comme les autres
+  dialogues (D11).
+- Libellés périmés (D10) : les toasts de l'actualisation IGN citaient « + Depuis une adresse »
+  (c'est « Fichier › Nouveau plan depuis une adresse »), et la note sur le voisinage parlait d'une
+  case « en haut à droite » qui n'existe plus.
+
 ## [2.1.0-alpha.6] — 2026-09-25
 
 **IHM mobile, étape M5** : les propriétés et les résultats sur téléphone et tablette.

@@ -60,17 +60,22 @@ export function ouvrirSelecteurTexture(
   options = options || {};
   const overlay = document.createElement('div');
   overlay.className = 'dialogueVoile';
+  // Echap ferme, comme les autres dialogues (spec-ihm-mobile, D11).
+  const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); } };
+  function fermer(){ document.removeEventListener('keydown', surTouche); overlay.remove(); }
+  document.addEventListener('keydown', surTouche);
   const box = document.createElement('div');
-  box.style.cssText = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:18px 20px; border-radius:8px; ' +
+  box.className = 'dialogueImperatif dialogueTextures';
+  box.style.cssText = 'background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:16px; ' +
     'width:min(760px,94vw); height:min(600px,88vh); display:flex; flex-direction:column; ' +
-    'font-family:"Helvetica Neue",Arial,sans-serif; box-shadow:0 4px 24px rgba(0,0,0,0.3);';
+    'font-family:var(--sans); box-shadow:var(--ombre-forte);';
 
   const head = document.createElement('div');
   head.style.cssText = 'display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;';
   const h = document.createElement('div'); h.style.cssText='font-weight:700; font-size:1rem;';
   h.textContent = titre + ' — textures Poly Haven (CC0)';
   const fermerX = document.createElement('button'); fermerX.type='button'; fermerX.className='secondary small';
-  fermerX.textContent = '✕'; fermerX.addEventListener('click', ()=>overlay.remove());
+  fermerX.textContent = '✕'; fermerX.setAttribute('aria-label', 'Fermer'); fermerX.addEventListener('click', ()=>fermer());
   head.appendChild(h); head.appendChild(fermerX);
 
   const recherche = document.createElement('input');
@@ -105,8 +110,8 @@ export function ouvrirSelecteurTexture(
   }
   const annulerBtn = document.createElement('button'); annulerBtn.className='secondary'; annulerBtn.textContent='Annuler';
   const enregistrerBtn = document.createElement('button'); enregistrerBtn.textContent='Enregistrer'; enregistrerBtn.disabled = true;
-  annulerBtn.addEventListener('click', ()=>overlay.remove());
-  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  annulerBtn.addEventListener('click', ()=>fermer());
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) fermer(); });
   piedPage.appendChild(annulerBtn); piedPage.appendChild(enregistrerBtn);
 
   box.appendChild(head); box.appendChild(recherche); box.appendChild(statut); box.appendChild(corps); box.appendChild(piedPage);
@@ -133,7 +138,7 @@ export function ouvrirSelecteurTexture(
     entries.slice(0,60).forEach(([id,data])=>{
       const b = document.createElement('button');
       b.type = 'button'; b.dataset.id = id;
-      b.style.cssText = 'padding:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; cursor:pointer; background:#fff;';
+      b.style.cssText = 'padding:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; cursor:pointer; background:var(--panel-bg);';
       b.title = data.name;
       const img = document.createElement('img');
       img.src = data.thumbnail_url!; img.loading = 'lazy';
@@ -201,7 +206,7 @@ export function ouvrirSelecteurTexture(
         const reso = diff && (diff[resKeys[0]!] || Object.values(diff)[0]);
         const url = reso && reso.jpg && reso.jpg.url;
         if(!url) throw new Error('Pas de carte de couleur (Diffuse) disponible pour cette texture');
-        overlay.remove();
+        fermer();
         onChoisi({ id:selectionId!, nom:data.name, vignette:data.thumbnail_url, url }, !!(appliquerTousCb && appliquerTousCb.checked));
       })
       .catch(err=>{
