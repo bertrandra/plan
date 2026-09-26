@@ -662,7 +662,9 @@
     position:absolute; left:10px; top:64px; z-index:5; padding:5px 10px; border-radius:10px;
     background:var(--panel-bg); border:1px solid var(--border); font-family:var(--sans); font-size:12px;
     color:var(--ink-soft); font-variant-numeric:tabular-nums; pointer-events:none; opacity:0.94;
+    display:flex; align-items:center; gap:6px;
   }
+  .barreEchelle{ display:inline-block; height:6px; border:1.5px solid var(--ink-soft); border-top:none; box-sizing:border-box; }
   .bandeauMode{
     position:absolute; left:52px; right:10px; top:10px; z-index:6; display:flex; align-items:center; gap:10px;
     padding:8px 8px 8px 14px; border-radius:14px; background:var(--toast-bg); color:var(--on-toast);
@@ -692,7 +694,9 @@
   .selectionChiffres{ margin:0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
   .chiffreCle{ display:flex; flex-direction:column; gap:2px; min-width:0; }
   .chiffreCle dt{ font-size:12px; color:var(--ink-soft); }
-  .chiffreCle dd{ margin:0; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chiffreCle dd{ margin:0; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; line-height:1.2; }
+  /* L'estimation est une fourchette : elle passe sur deux lignes plutot que d'etre coupee. */
+  .chiffreEstimation dd{ color:var(--accent); }
   .selectionActions{ display:flex; gap:8px; }
   .selectionActions button{ flex:1; min-height:44px; border-radius:var(--r-bouton); font-family:var(--sans); font-size:14px; font-weight:600; }
   html[data-classe="moyen"] .feuilleSelection{
@@ -870,24 +874,31 @@
   .segmente button.actif{ background:var(--ink); color:var(--on-ink); font-weight:600; }
   .segmente button:hover{ opacity:1; }
   html:not([data-classe="large"]) #zoneInspecteur .champ{
-    grid-template-columns:minmax(0, 1fr) auto; min-height:52px; padding:6px 0; gap:6px 12px; border-bottom:1px solid var(--hairline); border-radius:0;
+    grid-template-columns:minmax(9em, 1fr) minmax(0, auto); min-height:52px; padding:6px 0; gap:6px 12px; border-bottom:1px solid var(--hairline); border-radius:0;
   }
   html:not([data-classe="large"]) #zoneInspecteur .champ .libelle{ font-size:14px; color:var(--ink); }
   html:not([data-classe="large"]) #zoneInspecteur .champ .commande{ justify-self:end; text-align:right; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ .note{ font-size:12px; text-align:right; }
+  /* La note passe sous la ligne entiere : a droite, elle ecrasait le libelle sur trois lignes. */
+  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur) > .commande{ display:contents; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur) > .commande > :first-child{ justify-self:end; text-align:right; min-width:0; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ .note{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
   /* Les commandes larges passent sous leur libelle, pleine largeur. */
-  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne, .champ-lecture){ grid-template-columns:1fr; }
-  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne) .commande{ justify-self:stretch; text-align:left; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture .commande{ justify-self:start; text-align:left; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture{ min-height:0; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select), html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente){ grid-template-columns:1fr; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .commande{ justify-self:stretch; text-align:left; }
+  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne) .commande > :first-child{ justify-self:stretch; text-align:left; }
+  /* Libelle a gauche, commande a droite (maquette) : une lecture et une liste deroulante restent
+     sur la ligne de leur libelle ; seule une commande segmentee trop large passe dessous. */
+  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture .lecture{ font-weight:600; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .commande > :first-child{ justify-self:start; text-align:left; }
   html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .note{ text-align:left; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select) .commande{ justify-self:stretch; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select) .commande > select{ max-width:62vw; }
   html:not([data-classe="large"]) #zoneInspecteur .champ .note:empty{ display:none; }
   html:not([data-classe="large"]) #zoneInspecteur .champ input[type=text]:not(.pas input),
-  html:not([data-classe="large"]) #zoneInspecteur .champ select,
   html:not([data-classe="large"]) #zoneInspecteur .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
+  html:not([data-classe="large"]) #zoneInspecteur .champ select{
+    min-height:44px; max-width:100%; width:auto; padding:0 10px; font-size:14px; font-weight:500; border-radius:var(--r-bouton);
+    border:1px solid var(--border); text-overflow:ellipsis;
+  }
   html:not([data-classe="large"]) #zoneInspecteur .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) #zoneInspecteur .champCurseur input[type=range]{ height:32px; }
   html:not([data-classe="large"]) #zoneInspecteur .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
@@ -903,7 +914,14 @@
   html[data-classe="compact"] #zoneInspecteur .inspecteurPanneau{ display:flex; flex-direction:column; flex:1; min-height:0; }
   html[data-classe="compact"] #zoneInspecteur .corpsFeuille{ padding:0 16px 16px; }
   html[data-classe="compact"] #zoneInspecteur .inspecteurPied{ padding:12px 0 4px; }
-  .sautsSections{ flex:none; display:flex; gap:6px; overflow-x:auto; padding:2px 16px 8px; scrollbar-width:none; }
+  /* Les trois familles (Objet, Geometrie, Construction) : une commande segmentee pleine largeur ;
+     l'onglet actif est une tuile claire en relief, comme dans la maquette. */
+  .famillesSections{ flex:none; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); margin:0 16px 6px; }
+  .famillesSections button{ color:var(--ink-soft); font-weight:500; }
+  .famillesSections button.actif{ background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre); }
+  #zoneInspecteur [data-famille-active="objet"] details.inspecteurSection:not([data-famille="objet"]),
+  #zoneInspecteur [data-famille-active="geometrie"] details.inspecteurSection:not([data-famille="geometrie"]),
+  #zoneInspecteur [data-famille-active="construction"] details.inspecteurSection:not([data-famille="construction"]){ display:none; }
   .pastille{
     flex:none; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px;
     background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:12.5px; white-space:nowrap;
@@ -933,6 +951,43 @@
     display:block; flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; overscroll-behavior:contain;
     border:none; box-shadow:none; padding:12px 16px 20px; font-family:var(--sans);
   }
+  /* Les chiffres cles et le pied du chiffrage (maquette Resultats, 2.1.1). */
+  html[data-classe="compact"] .tuilesChiffrage{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; padding:12px 16px 4px; }
+  .tuileChiffrage{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:var(--r-tuile); background:var(--panel-2); }
+  .tuileLibelle{ font-size:12px; color:var(--ink-soft); }
+  .tuileValeur{ font-family:var(--serif); font-size:22px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; }
+  #zoneResultatsPied:empty{ display:none; }
+  html:not([data-classe="compact"]) #zoneResultatsPied{ display:none; }
+  html[data-classe="compact"] #zoneResultatsPied{ flex:none; padding:10px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--hairline); background:var(--panel-bg); }
+  .piedChiffrage{ display:flex; flex-direction:column; gap:10px; }
+  .piedChiffrageTotal{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .piedChiffrageLibelle{ font-size:14px; color:var(--ink-soft); }
+  .piedChiffrageValeur{ font-family:var(--serif); font-size:22px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; text-align:right; }
+  .piedChiffrageActions{ display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:8px; }
+  .piedChiffrageActions button{
+    min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    font-family:var(--sans); font-size:14px; font-weight:600; border-radius:var(--r-bouton);
+  }
+  .boutonAccent{ background:var(--accent); color:var(--on-accent); border:none; }
+  /* La nomenclature en liste (maquette) : le poste et son prix sur la premiere ligne, la quantite et
+     la fourchette dessous, en petit. Les cellules restent celles du tableau : ce que lit le code
+     (quantites, champ de prix reel) ne bouge pas. */
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes tr:not(.enteteTableau){
+    display:flex; flex-wrap:wrap; align-items:baseline; column-gap:6px; row-gap:2px;
+    margin:0; padding:12px 0; border:none; border-bottom:1px solid var(--hairline); border-radius:0; background:transparent;
+  }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td{ display:block; padding:0; font-size:12px; color:var(--ink-soft); text-align:left; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td::before{ display:none; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(1){ order:1; flex:1 1 0; min-width:0; font-size:15px; font-weight:500; color:var(--ink); }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(5){ order:2; flex:0 0 auto; max-width:42%; text-align:right; font-size:15px; font-weight:600; color:var(--ink); }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(5) > div{ font-size:11px; font-weight:400; color:var(--ink-soft); }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(5) input{ width:120px; text-align:right; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes tr:not(.enteteTableau)::after{ content:''; order:2; flex-basis:100%; height:0; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(2),
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(3),
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(4){ order:3; flex:none; height:auto; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(2)::after{ content:' ·'; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(3)::after{ content:' –'; }
   .selecteurTerrasse{ min-height:40px; display:inline-flex; align-items:center; gap:4px; padding:0 10px; font-family:var(--sans); font-size:13px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] #tiroirPanneaux .controls button, html[data-classe="compact"] #tiroirPanneaux button.secondary,
   html[data-classe="compact"] #tiroirPanneaux #exportBtn, html[data-classe="compact"] #tiroirPanneaux #measureControls button{

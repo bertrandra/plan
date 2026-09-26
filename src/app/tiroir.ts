@@ -29,8 +29,8 @@ export interface Onglet {
 }
 
 export const ONGLETS: Onglet[] = [
-  { id: 'bom', libelle: 'BOM', panneau: 'panelBom', groupe: 'terrasse' },
-  { id: 'coupe', libelle: 'Plan de coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
+  { id: 'bom', libelle: 'Nomenclature', panneau: 'panelBom', groupe: 'terrasse' },
+  { id: 'coupe', libelle: 'Coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
   { id: 'implantation', libelle: 'Implantation', panneau: 'panelImplantation', groupe: 'terrasse' },
   { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse' },
   { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },

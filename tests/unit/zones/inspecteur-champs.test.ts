@@ -120,3 +120,12 @@ describe('la saisie d un nombre', () => {
     });
   }
 });
+
+describe('les familles de sections', () => {
+  it('rangent chaque section dans Objet, Geometrie ou Construction', async () => {
+    const { familleDe } = await import('../../../src/zones/Inspecteur.js');
+    expect(['objet', 'apparence', 'parasol', 'pointDeVue', 'parcelle'].map(familleDe)).toEqual(Array(5).fill('objet'));
+    expect(['cotes', 'coins', 'alignement'].map(familleDe)).toEqual(Array(3).fill('geometrie'));
+    expect(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres'].map(familleDe)).toEqual(Array(6).fill('construction'));
+  });
+});

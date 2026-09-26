@@ -5,8 +5,44 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.1.1] — 2026-09-26
+
+Mise en conformité de l'interface avec la maquette de la `2.1.0`. Une revue écran par écran, sur
+téléphone, a montré que la structure suivait la maquette mais que trois écrans et le plan lui-même
+en restaient loin. **Aucun export ne change** : les six empreintes ne bougent que par le numéro de
+version.
+
+### Modifié
+
+- **Propriétés.** Les sections se rangent en trois familles, Objet, Géométrie et Construction,
+  choisies par une commande segmentée ; au doigt, une seule famille se montre à la fois. Les
+  sections des autres familles restent montées : aucun champ ne disparaît, et un brouillon survit
+  au changement de famille. Chaque champ tient sur une ligne, libellé à gauche et commande à droite ;
+  les listes déroulantes et les lectures y restent, la note passe sous la ligne. La feuille s'ouvre
+  en pleine hauteur. Les décimales s'écrivent à la française (« 35,01 m² »), valeurs des pas à pas
+  comprises.
+- **Chiffrage.** Quatre chiffres clés en tuiles au-dessus de la nomenclature : appuis, lames, bois
+  porteur, surface. La nomenclature devient une liste : le poste et son prix, puis la quantité et
+  la fourchette en petit. Un pied fixe porte l'estimation HT et deux actions, *Copier le résumé* et
+  *Dossier PDF*. Les onglets s'appellent *Nomenclature* et *Coupe*.
+- **Plan à l'écran.** Les poignées sont des anneaux à l'accent, les longueurs des côtés des pastilles
+  d'encre ; une pastille plus longue que son côté attend qu'on zoome. La trame est un semis de
+  points, les axes restent tracés. L'échelle est un trait gradué (« Échelle ── 5 m ») : un rapport
+  « 1:100 » dépendrait de la densité de l'écran. Les couleurs des objets restent celles du projet.
+- **Feuille de sélection.** Le sous-titre d'une terrasse donne l'essence des lames ; l'estimation
+  passe sur deux lignes au lieu d'être coupée.
+- **Outils.** Le groupe *Outils* devient *Mesurer*, *Cote* devient *Coter*, comme dans la barre du
+  bas ; *Supprimer* ferme le groupe *Éditer*.
+- **Accents et décimales** dans les résultats : « Enregistré à », « Qté », « Prix réel », « Estimé »,
+  « Réel saisi », et les libellés du moteur (« achetées », « calculé », « débit ») à l'écran
+  seulement. Le résumé, fait pour être copié, n'est pas touché.
+
 ### Interne
 
+- `scripts/captures.mjs` ouvre vraiment la feuille Chiffrage : la capture de référence de la `2.1.0`
+  montrait le plan à sa place, et c'est ainsi que l'écart est passé inaperçu.
+- Le pilote de la liste de fumée touche la famille d'une section avant de l'ouvrir, comme un
+  utilisateur.
 - **Les quarante points de la liste de fumée se jouent, réseau compris.** Huit d'entre eux — import
   cadastre, voisinage, orthophoto, PLU, vue 3D, rappel de point de vue, export GLB et éclairage sur
   téléphone — rendaient « non joué » **sans rien tenter** : une constante du pilote le décrétait,

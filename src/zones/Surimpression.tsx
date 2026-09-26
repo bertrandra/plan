@@ -15,6 +15,7 @@ import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import { Icone } from './icones.js';
+import { niceStep } from '../util/format.js';
 
 /** Le pointage en cours de l'outil de cotation ou d'alignement, et le moyen d'en sortir. */
 export interface ServicePointage {
@@ -81,6 +82,9 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
     );
   }
 
+  // Une echelle graphique plutot qu'un rapport : « 1:100 » depend de la densite de l'ecran, un
+  // trait de 5 m reste vrai sur tous. Le trait vise 48 px et tombe sur une longueur ronde.
+  const pasEchelle = niceStep(48 / etat.scene.scale);
   return (
     <>
       <div className="groupeFlottant" role="group" aria-label="Vue du plan">
@@ -91,8 +95,10 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
         <button type="button" className={etat.showNorth ? 'actif' : ''} aria-pressed={etat.showNorth} aria-label="Flèche Nord"
           data-commande="affichage.nord" onClick={() => { commandes.executer('affichage.nord'); }}><Icone nom="nord" taille={20} /></button>
       </div>
-      <div className="pastilleEchelle" aria-live="off">
-        1 m = {Math.round(etat.scene.scale)} px{pointeur ? ' · x ' + metres(pointeur.x) + ' · y ' + metres(pointeur.y) + ' m' : ''}
+      <div className="pastilleEchelle" aria-live="off" title={'1 m = ' + Math.round(etat.scene.scale) + ' px'}>
+        {pointeur
+          ? 'x ' + metres(pointeur.x) + ' · y ' + metres(pointeur.y) + ' m'
+          : <>Échelle <span className="barreEchelle" style={{ width: Math.round(pasEchelle * etat.scene.scale) + 'px' }} aria-hidden="true" /> {pasEchelle.toLocaleString('fr-FR')} m</>}
       </div>
       {bandeau}
     </>

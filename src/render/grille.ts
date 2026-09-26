@@ -4,7 +4,7 @@
 // donc avec l'etat en parametre, avant le reste du rendu.
 
 import { creerSvg } from './svg.js';
-import { SVG_GRID_MAJOR, SVG_GRID_MINOR } from './theme.js';
+import { SVG_GRID_MAJOR } from './theme.js';
 import { niceStep } from '../util/format.js';
 import { versEcran, versMonde, type EtatScene } from '../geometry/vue.js';
 
@@ -19,8 +19,10 @@ export interface EtatGrille {
  * Le pas vise 60 px puis tombe sur une valeur ronde : une grille au pas de 3,7 m ne permettrait
  * pas d'estimer une distance a l'oeil, ce qui est sa seule raison d'etre.
  *
- * Les axes X = 0 et Y = 0 sont traces plus fort que les autres : ils reperent l'origine du plan,
- * c'est-a-dire le sommet nord de la parcelle.
+ * Depuis la 2.1.1, la trame est un semis de points aux croisements (le papier pointe de la
+ * maquette) : elle se lit aussi bien pour estimer une distance, et elle charge moins le plan. Les
+ * axes X = 0 et Y = 0 restent des traits : ils reperent l'origine du plan, c'est-a-dire le sommet
+ * nord de la parcelle. Les points sont un motif SVG, un seul rectangle quelle que soit la vue.
  */
 export function dessinerGrille(groupe: SVGElement, etat: EtatGrille): void {
   groupe.innerHTML = '';
@@ -43,12 +45,23 @@ export function dessinerGrille(groupe: SVGElement, etat: EtatGrille): void {
     groupe.appendChild(
       creerSvg('line', {
         x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
-        stroke: surAxe ? SVG_GRID_MAJOR : SVG_GRID_MINOR,
+        stroke: SVG_GRID_MAJOR,
         'stroke-width': surAxe ? 1.3 : 0.8
       })
     );
   };
 
-  for (let x = xMin; x <= xMax + 1e-9; x += pasM) ligne({ x, y: yMin }, { x, y: yMax }, Math.abs(x) < 1e-6);
-  for (let y = yMin; y <= yMax + 1e-9; y += pasM) ligne({ x: xMin, y }, { x: xMax, y }, Math.abs(y) < 1e-6);
+  const pasPx = pasM * scene.scale;
+  const origine = versEcran(scene, { x: 0, y: 0 });
+  const motif = creerSvg('pattern', {
+    id: 'trameGrille', patternUnits: 'userSpaceOnUse', width: pasPx, height: pasPx,
+    x: ((origine.x % pasPx) + pasPx) % pasPx - pasPx / 2, y: ((origine.y % pasPx) + pasPx) % pasPx - pasPx / 2
+  });
+  motif.appendChild(creerSvg('circle', { cx: pasPx / 2, cy: pasPx / 2, r: 1.3, fill: SVG_GRID_MAJOR }));
+  const defs = creerSvg('defs');
+  defs.appendChild(motif);
+  groupe.appendChild(defs);
+  groupe.appendChild(creerSvg('rect', { x: 0, y: 0, width: scene.W, height: scene.H, fill: 'url(#trameGrille)' }));
+  if (xMin <= 0 && xMax >= 0) ligne({ x: 0, y: yMin }, { x: 0, y: yMax }, true);
+  if (yMin <= 0 && yMax >= 0) ligne({ x: xMin, y: 0 }, { x: xMax, y: 0 }, true);
 }

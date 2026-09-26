@@ -113,7 +113,7 @@ const ETATS = [
   { nom: '2-terrasse', faire: selectionnerTerrasse },
   { nom: '3-outils', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirFeuille('outils')); } },
   { nom: '4-proprietes', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirFeuille('proprietes')); } },
-  { nom: '5-resultats', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirResultats('bom')); } },
+  { nom: '5-resultats', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => { window.__plan?.ouvrirResultats('bom'); window.__plan?.ouvrirFeuille(document.documentElement.dataset.classe === 'compact' ? 'resultats' : null); }); } },
   { nom: '6-vue3d', faire: async (p) => { await p.evaluate(() => window.__plan?.executer('vue.3d')); await p.waitForTimeout(800); } }
 ];
 

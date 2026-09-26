@@ -10,7 +10,7 @@
 import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
-import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
+import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO, aLaVirgule } from './theme.js';
 import type { PtBrut, Mesure } from '../model/types.js';
 
 /**
@@ -206,7 +206,7 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); t.setAttribute('font-size','11');
     t.setAttribute('fill',SVG_MEASURE_TEXT); t.setAttribute('font-weight','700');
     t.setAttribute('paint-order','stroke'); t.setAttribute('stroke',SVG_LABEL_HALO); t.setAttribute('stroke-width','4');
-    t.textContent = prefix + value.toFixed(2)+' m';
+    t.textContent = prefix + aLaVirgule(value.toFixed(2))+' m';
     groupe.appendChild(t);
   });
 

@@ -31,12 +31,12 @@ const GROUPES: Groupe[] = [
   ] },
   { titre: 'Éditer', outils: [
     { id: 'objet.dupliquer', icone: 'dupliquer', libelle: 'Dupliquer' },
-    { id: 'objet.supprimer', icone: 'supprimer', libelle: 'Supprimer' },
     { id: 'objet.reculer', icone: 'reculer', libelle: 'Reculer' },
-    { id: 'objet.positionInitiale', icone: 'positionInitiale', libelle: 'Position initiale' }
+    { id: 'objet.positionInitiale', icone: 'positionInitiale', libelle: 'Position initiale' },
+    { id: 'objet.supprimer', icone: 'supprimer', libelle: 'Supprimer' }
   ] },
-  { titre: 'Outils', outils: [
-    { id: 'mesure.nouvelle', icone: 'cote', libelle: 'Cote' },
+  { titre: 'Mesurer', outils: [
+    { id: 'mesure.nouvelle', icone: 'cote', libelle: 'Coter' },
     { id: 'objet.aligner', icone: 'aligner', libelle: 'Aligner' }
   ] }
 ];

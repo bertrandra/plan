@@ -53,7 +53,7 @@ const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR'
 
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
-  let enregistreA = courant && courant.updatedAt ? 'Enregistre a ' + heure(courant.updatedAt) : '';
+  let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
 
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
@@ -101,7 +101,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       try {
         const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...charge() });
         ctx.etat.dirty = false;
-        enregistreA = 'Enregistre a ' + heure(res.updatedAt || Date.now());
+        enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now());
         ctx.initialState().length = 0;
         ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
         ctx.initialMeasures().length = 0;
