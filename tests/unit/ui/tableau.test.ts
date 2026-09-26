@@ -28,3 +28,22 @@ describe('l etiquetage des tableaux', () => {
     expect(document.querySelector('table')!.classList.contains('tableauCartes')).toBe(false);
   });
 });
+
+describe('franciserDecimales', () => {
+  it('ecrit la virgule et les accents a l ecran, sans toucher au resume ni aux champs', async () => {
+    const { franciserDecimales } = await import('../../../src/ui/tableau.js');
+    document.body.innerHTML = `
+      <div id="r">
+        <table><tr><td>Lames — barres achetees</td><td>92.50 ml</td><td>calcule — prix par longueur, debit 45x70</td><td><input value="12.5"></td></tr></table>
+        <p>Type de pose : v2</p>
+        <div id="panelResume"><textarea>3.5 m</textarea><span>4.25 m</span></div>
+      </div>`;
+    franciserDecimales(document.getElementById('r')!);
+    const cellules = [...document.querySelectorAll('td')].map(td => td.textContent);
+    expect(cellules.slice(0, 3)).toEqual(['Lames — barres achetées', '92,50 ml', 'calculé — prix par longueur, débit 45x70']);
+    expect(document.querySelector('input')!.value).toBe('12.5');
+    expect(document.querySelector('p')!.textContent).toBe('Type de pose : v2');
+    expect(document.querySelector('#panelResume span')!.textContent).toBe('4.25 m');
+    expect(document.querySelector('textarea')!.value).toBe('3.5 m');
+  });
+});

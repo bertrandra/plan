@@ -27,3 +27,11 @@ export const SVG_LABEL_HALO = themeSombre ? '#1C1610cc' : '#F7F2E7cc';
 export const SVG_MEASURE_LINE = themeSombre ? '#8FC7DE' : '#1E6B8C';
 export const SVG_MEASURE_LINE_SOFT = themeSombre ? '#5C93A8' : '#6B9CB0';
 export const SVG_MEASURE_TEXT = themeSombre ? '#B8E4F7' : '#0F4C63';
+/** Les poignees d'un objet selectionne : un anneau a l'accent sur fond clair (maquette, 2.1.1). */
+export const SVG_POIGNEE = themeSombre ? '#E0B564' : '#7A5C31';
+export const SVG_POIGNEE_FOND = themeSombre ? '#262017' : '#FFFDF8';
+/** Les longueurs des cotes d'un objet selectionne : texte clair dans une pastille d'encre. */
+export const SVG_PASTILLE = themeSombre ? '#F1E7D0' : '#2B2117';
+export const SVG_PASTILLE_TEXTE = themeSombre ? '#1C1610' : '#FFFDF8';
+/** Les decimales a l'ecran s'ecrivent a la francaise ; les exports gardent le point (empreintes). */
+export const aLaVirgule = (texte: string) => texte.replace(/(\d)\.(\d)/g, '$1,$2');

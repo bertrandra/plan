@@ -494,6 +494,15 @@ Emprise totale hors parcelle de référence : **408,4 m² (56,5 % de la parcelle
 
 ## Rejouer la capture
 
+> **Depuis la 2.1.1, le plan de démonstration que l'utilisateur ouvre porte les couleurs de la
+> maquette** (`DEMO_OBJECTS`, `src/model/demo.ts`). Les témoins se capturent sur le plan d'origine,
+> `DEMO_TEMOIN_OBJECTS`, que le serveur de développement ouvre par `http://localhost:5199/?temoin`.
+> Les deux ne diffèrent que par le remplissage et le trait des objets (`tests/unit/model/demo.test.ts`).
+> Vérifié à la 2.1.1 : sur `?temoin`, `plan.svg`, `plan.dxf`, `resume.txt`, `plan.pdf` et
+> `dossier.pdf` sont identiques aux témoins, numéro neutralisé, et `projet.json` a les mêmes objets
+> et les mêmes mesures. Sur la démonstration recolorée, le SVG diffère de 48 lignes, toutes des
+> couleurs, et le résumé et le DXF restent identiques.
+
 Sans Node ni chaîne de test à ce stade, la capture passe par le navigateur et le serveur de
 développement du dépôt :
 

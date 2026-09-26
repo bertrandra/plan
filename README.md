@@ -12,7 +12,7 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `2.1.0`, **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
+Version `2.1.1`, **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
 sombre (`MD/spec-ihm-mobile.md`) : sur téléphone, le plan occupe l'écran et chaque zone devient une
 feuille qui monte du bas ; sur tablette, les panneaux flottent sur le plan. Rien n'a été perdu en
 route — une carte d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe

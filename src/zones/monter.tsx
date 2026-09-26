@@ -49,7 +49,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneExplorateur')).render(<Explorateur magasin={magasin} commandes={commandes} explorateur={explorateur} />);
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} pointage={pointage} />);
   createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} tiroir={tiroir} />);
-  createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} explorateur={explorateur} />);
+  createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} explorateur={explorateur} commandes={commandes} />);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
   createRoot(conteneur('zoneDialogues')).render(<Dialogues />);
   createRoot(conteneur('zoneNotifications')).render(<Notifications />);

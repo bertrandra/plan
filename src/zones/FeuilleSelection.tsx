@@ -15,12 +15,17 @@ import { shoelace } from '../geometry/basic.js';
 import { LIBELLE_FONCTION } from '../model/defaults.js';
 import { hauteurFinieMm } from '../engine/hauteurs.js';
 import { resumerChiffrage, euros } from '../ui/chiffrage.js';
+import { ESSENCE_PRICES } from '../engine/constantes.js';
+import { ensureConstruction } from '../engine/construction.js';
 import { Icone } from './icones.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
+
+/** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
+const essenceDe = (o: ObjetPlan) => (ESSENCE_PRICES[ensureConstruction(o).essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label.toLowerCase() ?? '';
 
 export interface PropsFeuilleSelection { magasin: Magasin; commandes: RegistreCommandes; explorateur: Explorateur; tiroir: Tiroir }
 
@@ -82,7 +87,7 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
       <div className="selectionEntete">
         <div className="selectionTitres">
           <h2 className="selectionNom">{o.name}</h2>
-          <span className="selectionFonction">{LIBELLE_FONCTION[o.fonction || 'autre'] || o.fonction || 'Objet'}{o.locked ? ' · verrouillé' : ''}</span>
+          <span className="selectionFonction">{LIBELLE_FONCTION[o.fonction || 'autre'] || o.fonction || 'Objet'}{terrasse ? ' · ' + essenceDe(o) : ''}{o.locked ? ' · verrouillé' : ''}</span>
         </div>
         {bouton('objet.dupliquer', 'dupliquer', 'Dupliquer')}
         {bouton('objet.supprimer', 'supprimer', 'Supprimer')}
@@ -92,7 +97,7 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
       </div>
       <dl className="selectionChiffres">
         {chiffres(o, etat.objects).map(([l, v]) => (
-          <div key={l} className="chiffreCle"><dt>{l}</dt><dd>{v}</dd></div>
+          <div key={l} className={'chiffreCle' + (l === 'Estimation' ? ' chiffreEstimation' : '')}><dt>{l}</dt><dd>{v}</dd></div>
         ))}
       </dl>
       <div className="selectionActions">

@@ -111,7 +111,7 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
   const tbl = document.getElementById('terrasseBomTable')!;
   tbl.innerHTML = '';
   const head = document.createElement('tr');
-  head.innerHTML = '<th>Poste</th><th>Qte</th><th>Prix bas</th><th>Prix haut</th><th>Prix reel (total ligne)</th>';
+  head.innerHTML = '<th>Poste</th><th>Qté</th><th>Prix bas</th><th>Prix haut</th><th>Prix réel (total ligne)</th>';
   tbl.appendChild(head);
 
   let totalBas=0, totalHaut=0;
@@ -119,8 +119,8 @@ export function renderBOMTable(obj: ObjetPlan, etat: { objects: ObjetPlan[] }, c
     let reelSum=0, anyReel=false;
     lines.forEach((l: LigneBom)=>{ if(l.prixReel!==null && l.prixReel!==undefined){ reelSum+=l.prixReel; anyReel=true; } });
     document.getElementById('terrasseBomTotals')!.textContent =
-      'Estime : ' + totalBas.toFixed(0) + ' € – ' + totalHaut.toFixed(0) + ' €' +
-      (anyReel ? '   |   Reel saisi : ' + reelSum.toFixed(2) + ' €' : '');
+      'Estimé : ' + totalBas.toFixed(0) + ' € – ' + totalHaut.toFixed(0) + ' €' +
+      (anyReel ? '   |   Réel saisi : ' + reelSum.toFixed(2).replace('.', ',') + ' €' : '');
   };
 
   lines.forEach((l: LigneBom)=>{

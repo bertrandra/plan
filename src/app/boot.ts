@@ -19,7 +19,7 @@ import { formatHeureMin } from '../util/format.js';
 import { telechargerTexte } from '../shell/download.js';
 import { el, elOpt } from '../shell/dom.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../geometry/segments.js';
-import { DEMO_OBJECTS, DEMO_MEASURES } from '../model/demo.js';
+import { DEMO_OBJECTS, DEMO_TEMOIN_OBJECTS, DEMO_MEASURES } from '../model/demo.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from '../engine/hauteurs.js';
 import { lieuDeParcelle, libelleLieuTexte } from '../model/lieu.js';
@@ -180,7 +180,10 @@ function aDessiner(obj: ObjetPlan): ObjetRendu {
 // commencer quand il n'y a aucun plan a ouvrir. Les deux viennent de couches plus hautes que la
 // sienne, d'ou l'injection.
 async function loadInitialProject(){
-  return chargerProjetInitial(DEMO_OBJECTS, DEMO_MEASURES, demanderPremierPas);
+  // En developpement, `?temoin` ouvre le plan de demonstration d'origine, celui dont les golden
+  // files sont captures (tests/fixtures/golden/EMPREINTES.md) ; le fichier livre ne le propose pas.
+  const temoin = import.meta.env.DEV && new URLSearchParams(location.search).has('temoin');
+  return chargerProjetInitial(temoin ? DEMO_TEMOIN_OBJECTS : DEMO_OBJECTS, DEMO_MEASURES, demanderPremierPas);
 }
 
 /** Ce que `boot()` recoit : le derive de la fonction qui le produit, pas une forme ecrite a part. */
@@ -712,14 +715,36 @@ function fitToObject(obj: ObjetPlan | null){
   // Sur telephone et tablette, la feuille de selection recouvre le bas du plan : on cadre dans ce
   // qui reste visible au-dessus d'elle (spec-ihm-mobile §6.4, point 36 de la liste de fumee).
   const masque = masqueBasDuPlan();
-  const cadree = cadrerSur({ ...etat.scene, H: etat.scene.H - masque }, emprise);
-  etat.scene = { ...cadree, H: etat.scene.H };
+  // Sur tablette, le rail a gauche et l'inspecteur ouvert a droite recouvrent aussi le plan : on
+  // cadre entre eux (2.1.1), sinon l'objet choisi finit sous l'inspecteur qui le decrit.
+  const { gauche, droite } = masquesLateraux();
+  const cadree = cadrerSur({ ...etat.scene, W: etat.scene.W - gauche - droite, H: etat.scene.H - masque }, emprise);
+  etat.scene = { ...cadree, W: etat.scene.W, H: etat.scene.H, origine: { x: cadree.origine.x + gauche, y: cadree.origine.y } };
   render();
 }
-/** La hauteur, en pixels, du bas du plan que la feuille de selection recouvre. */
+/** Les largeurs, en pixels, que les panneaux flottants de la tablette prennent sur les bords du plan. */
+function masquesLateraux(): { gauche: number; droite: number } {
+  if (magasin.store.getState().classe !== 'moyen') return { gauche: 0, droite: 0 };
+  const s = stage.getBoundingClientRect();
+  let gauche = 0, droite = 0;
+  for (const id of ['zonePalette', 'zoneExplorateur']) {
+    const r = document.getElementById(id)?.getBoundingClientRect();
+    if (r && r.width && r.right > s.left && r.right < s.left + s.width / 2) gauche = Math.max(gauche, r.right - s.left);
+  }
+  const insp = document.getElementById('zoneInspecteur')?.getBoundingClientRect();
+  if (insp && insp.width > 60 && insp.left > s.left + s.width / 2) droite = s.right - insp.left;
+  // Jamais plus que la moitie du plan : un cadrage dans une fente ne montrerait rien.
+  const total = gauche + droite, max = s.width / 2;
+  return total > max ? { gauche: gauche * max / total, droite: droite * max / total } : { gauche, droite };
+}
+/**
+ * La hauteur, en pixels, du bas du plan que la feuille de selection (telephone) ou le tiroir des
+ * resultats (tablette, 2.1.1) recouvre.
+ */
 function masqueBasDuPlan(): number {
-  if (magasin.store.getState().classe !== 'compact') return 0;
-  const sel = document.querySelector('.feuilleSelection');
+  const classe = magasin.store.getState().classe;
+  if (classe === 'large') return 0;
+  const sel = document.querySelector(classe === 'compact' ? '.feuilleSelection' : '#zoneResultats');
   if (!sel) return 0;
   const r = sel.getBoundingClientRect(), s = stage.getBoundingClientRect();
   if (!r.height || r.top >= s.bottom) return 0;

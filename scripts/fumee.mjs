@@ -103,6 +103,13 @@ async function inspecteur(page) {
   await page.waitForTimeout(150);
 }
 async function ouvrirSection(page, id) {
+  // Au doigt, les sections se rangent en trois familles (2.1.1) : on touche d'abord la bonne.
+  await page.evaluate((id) => {
+    const d = document.querySelector('#zoneInspecteur details[data-section="' + id + '"]');
+    const onglet = d && document.querySelector('#zoneInspecteur .famillesSections [data-famille="' + d.dataset.famille + '"]');
+    if (onglet && onglet.getAttribute('aria-selected') !== 'true') onglet.click();
+  }, id);
+  await page.waitForTimeout(80);
   await page.evaluate((id) => { const d = document.querySelector('#zoneInspecteur details[data-section="' + id + '"]'); if (d) { d.open = true; d.scrollIntoView(); } }, id);
   await page.waitForTimeout(80);
 }
@@ -730,7 +737,7 @@ const POINTS = {
     await champ.fill('123.45'); await champ.press('Enter'); await champ.dispatchEvent('change'); await page.waitForTimeout(150);
     const t = await page.evaluate(() => document.getElementById('terrasseBomTotals').textContent);
     const carte = await page.evaluate(() => getComputedStyle(document.querySelector('#terrasseBomTable tr:nth-child(2)')).display);
-    return { ok: /Reel saisi/.test(t), mesure: `prix réel saisi dans une carte (${carte}) : « ${t} »` };
+    return { ok: /R[ée]el saisi/.test(t), mesure: `prix réel saisi dans une carte (${carte}) : « ${t} »` };
   },
   35: async (page) => {
     await page.evaluate(() => window.__plan.executer('mesure.nouvelle')); await page.waitForTimeout(150);

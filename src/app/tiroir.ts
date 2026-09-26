@@ -16,6 +16,7 @@
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { Magasin } from './magasin.js';
+import { classePour, toucherSeul } from './classe.js';
 
 export type HauteurTiroir = 'replie' | 'mi' | 'plein';
 
@@ -29,8 +30,8 @@ export interface Onglet {
 }
 
 export const ONGLETS: Onglet[] = [
-  { id: 'bom', libelle: 'BOM', panneau: 'panelBom', groupe: 'terrasse' },
-  { id: 'coupe', libelle: 'Plan de coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
+  { id: 'bom', libelle: 'Nomenclature', panneau: 'panelBom', groupe: 'terrasse' },
+  { id: 'coupe', libelle: 'Coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
   { id: 'implantation', libelle: 'Implantation', panneau: 'panelImplantation', groupe: 'terrasse' },
   { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse' },
   { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },
@@ -71,11 +72,16 @@ export interface Tiroir {
   synchroniser(contexteChange: boolean): void;
 }
 
+/**
+ * La hauteur memorisee, sinon celle par defaut : replie sur tablette, ou le plan est plein ecran et
+ * le tiroir replie montre deja les chiffres cles (maquette Tablette, 2.1.1) ; mi-hauteur ailleurs.
+ */
 function hauteurMemorisee(): HauteurTiroir {
+  const defaut: HauteurTiroir = typeof window !== 'undefined' && classePour(window.innerWidth, toucherSeul()) === 'moyen' ? 'replie' : 'mi';
   try {
     const v = localStorage.getItem(CLE_LOCALE);
-    return HAUTEURS.includes(v as HauteurTiroir) ? (v as HauteurTiroir) : 'mi';
-  } catch { return 'mi'; }
+    return HAUTEURS.includes(v as HauteurTiroir) ? (v as HauteurTiroir) : defaut;
+  } catch { return defaut; }
 }
 
 export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin): Tiroir {

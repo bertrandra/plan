@@ -10,7 +10,7 @@
 
 import { vue } from './vues.js';
 import { creerSvg } from './svg.js';
-import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
+import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE, SVG_PASTILLE_TEXTE, aLaVirgule } from './theme.js';
 import { versEcran } from '../geometry/vue.js';
 import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
@@ -141,14 +141,17 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
 
       const sl=creerSvg('text');
       sl.setAttribute('text-anchor','middle'); sl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-      sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_INK);
-      sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_LABEL_HALO); sl.setAttribute('stroke-width','3');
+      // Une pastille d'encre, texte clair (maquette) : le trait epais aux jointures rondes, peint sous
+      // le texte, dessine le fond arrondi sans element de plus.
+      sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_PASTILLE_TEXTE);
+      sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_PASTILLE); sl.setAttribute('stroke-width','12');
+      sl.setAttribute('stroke-linejoin','round'); sl.setAttribute('stroke-linecap','round'); sl.setAttribute('dominant-baseline','middle');
       sl.style.pointerEvents = 'none';
       racine.appendChild(sl); v.segLabelEls.push(sl);
     }
     for(let i=0;i<n;i++){
       const c=creerSvg('circle');
-      c.setAttribute('r',String(6.5)); c.setAttribute('fill','#fff'); c.setAttribute('stroke',obj.stroke); c.setAttribute('stroke-width','2');
+      c.setAttribute('r',String(6.5)); c.setAttribute('fill',SVG_POIGNEE_FOND); c.setAttribute('stroke',SVG_POIGNEE); c.setAttribute('stroke-width','2.5');
       c.setAttribute('pointer-events','all'); c.style.cursor='crosshair'; titreInerte(c, 'Modifier ce coin (glisser = deplacer, double-clic = figer/degeler)');
       c.dataset.role='point'; c.dataset.key=obj.key; c.dataset.index=String(i);
       racine.appendChild(c); v.pointEls.push(c);
@@ -160,7 +163,7 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
     }
   } else {
     const rh=creerSvg('circle');
-    rh.setAttribute('r',String(6)); rh.setAttribute('fill','#fff'); rh.setAttribute('stroke',obj.stroke); rh.setAttribute('stroke-width','2');
+    rh.setAttribute('r',String(6)); rh.setAttribute('fill',SVG_POIGNEE_FOND); rh.setAttribute('stroke',SVG_POIGNEE); rh.setAttribute('stroke-width','2.5');
     rh.setAttribute('pointer-events','all'); rh.style.cursor='ew-resize';
     rh.dataset.role='radius'; rh.dataset.key=obj.key;
     racine.appendChild(rh); v.radiusHandle = rh;
@@ -253,7 +256,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
         const showPtForPick = ctx.pointageSommets;
         v.pointEls[i]!.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
         const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-        v.pointEls[i]!.setAttribute('fill', isFrozen ? obj.stroke : '#fff');
+        v.pointEls[i]!.setAttribute('fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
         v.pointEls[i]!.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
 
         // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
@@ -275,7 +278,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
         // chaque objet a chaque image.
         const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
         const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
-        v.ptLabelEls[i]!.textContent = vertTxt;
+        v.ptLabelEls[i]!.textContent = aLaVirgule(vertTxt);
         v.ptLabelEls[i]!.style.display = vertTxt ? '' : 'none';
 
         if(i < edgeCount){
@@ -288,13 +291,16 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
           v.edgeEls[i]!.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
 
           const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-          v.segLabelEls[i]!.setAttribute('x', String(mid.x)); v.segLabelEls[i]!.setAttribute('y', String(mid.y-5));
+          v.segLabelEls[i]!.setAttribute('x', String(mid.x)); v.segLabelEls[i]!.setAttribute('y', String(mid.y));
           const segTxt = etiquetteComposee(
             obj.segmentNames![i]!, longueurEnMetres(dist(a,b)),
             obj.showSegNames, obj.showDims, SEP_ECRAN
           );
-          v.segLabelEls[i]!.textContent = segTxt;
-          v.segLabelEls[i]!.style.display = segTxt ? '' : 'none';
+          v.segLabelEls[i]!.textContent = aLaVirgule(segTxt);
+          // Une pastille plus longue que son cote a l'ecran chevauche ses voisines et ne se lit plus :
+          // elle attend qu'on zoome (Ajuster, pincer). La largeur se compte a ~6,5 px par caractere.
+          const tropCourt = Math.hypot(pb.x-pa.x, pb.y-pa.y) < segTxt.length*6.5 + 12;
+          v.segLabelEls[i]!.style.display = segTxt && !tropCourt ? '' : 'none';
         }
       }
       v.el!.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');

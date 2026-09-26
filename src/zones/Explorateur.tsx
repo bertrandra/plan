@@ -213,7 +213,14 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
   const nVoisinage = etat.objects.filter(o => o.voisinage).length;
   // Sur telephone, choisir un objet dans la liste referme la feuille : on le voit alors sur le plan,
   // avec la feuille de selection (spec-ihm-mobile §6.3).
-  const apresSelection = () => { if (compact) magasin.definirFeuille(null); };
+  // Sur telephone et tablette, on cadre ensuite la vue sur l'objet choisi (maquette, 2.1.1) : un
+  // plan entier sur 390 px rend l'objet trop petit pour etre edite, et ses etiquettes s'empilent. Le
+  // cadrage attend que la feuille de selection soit posee, pour cadrer au-dessus d'elle. Toucher un
+  // objet sur le plan, lui, ne bouge pas la vue : le geste qui suit pourrait etre un glisser.
+  const apresSelection = () => {
+    if (compact) magasin.definirFeuille(null);
+    if (classe !== 'large') requestAnimationFrame(() => requestAnimationFrame(() => { commandes.executer('vue.ajuster'); }));
+  };
 
   const sections = (
     <>
