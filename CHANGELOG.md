@@ -9,8 +9,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 Mise en conformité de l'interface avec la maquette de la `2.1.0`. Une revue écran par écran, sur
 téléphone, a montré que la structure suivait la maquette mais que trois écrans et le plan lui-même
-en restaient loin. **Aucun export ne change** : les six empreintes ne bougent que par le numéro de
-version.
+en restaient loin. **Le code ne change aucun export** : sur le plan témoin, les six empreintes ne
+bougent que par le numéro de version.
 
 ### Modifié
 
@@ -29,6 +29,21 @@ version.
   d'encre ; une pastille plus longue que son côté attend qu'on zoome. La trame est un semis de
   points, les axes restent tracés. L'échelle est un trait gradué (« Échelle ── 5 m ») : un rapport
   « 1:100 » dépendrait de la densité de l'écran. Les couleurs des objets restent celles du projet.
+- **Choisir un objet cadre la vue dessus**, sur téléphone et sur tablette, quand on le choisit
+  dans Objets : sur 390 px, le plan entier rendait la terrasse minuscule et empilait ses
+  étiquettes. Toucher un objet sur le plan ne bouge pas la vue, le geste suivant pouvant être un
+  glisser. Sur tablette, le cadrage se fait entre le rail et l'inspecteur, au-dessus du tiroir.
+- **Tablette.** Une tablette en paysage (jusqu'à 1 399 px, au doigt seul) reçoit la disposition
+  tablette et non plus les colonnes du bureau, comme dans la maquette. Le tiroir des résultats
+  flotte à droite du rail, qui masquait ses premiers onglets (défaut présent depuis la `2.1.0`) ;
+  ses onglets sont des pastilles ; replié — sa hauteur par défaut sur tablette —, il garde les
+  chiffres clés de la terrasse et l'estimation HT. Ouvert à mi-hauteur, les panneaux flottants
+  s'arrêtent au-dessus de lui ; en pleine hauteur, il passe devant. La carte de sélection s'efface
+  quand l'inspecteur est ouvert.
+- **Le plan de démonstration prend les couleurs de la maquette** : sauge pour le terrain, bois
+  clair pour les terrasses, papier pour la maison. Seules les couleurs changent. Le plan d'origine
+  reste la source des golden files, sous le nom `DEMO_TEMOIN_OBJECTS` (`?temoin` en
+  développement) : les six exports y sont identiques aux témoins.
 - **Feuille de sélection.** Le sous-titre d'une terrasse donne l'essence des lames ; l'estimation
   passe sur deux lignes au lieu d'être coupée.
 - **Outils.** Le groupe *Outils* devient *Mesurer*, *Cote* devient *Coter*, comme dans la barre du

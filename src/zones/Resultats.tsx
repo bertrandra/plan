@@ -51,6 +51,24 @@ function Tuiles({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[]
   );
 }
 
+/** Les chiffres cles et l'estimation, sur une ligne, sous les onglets du tiroir replie. */
+function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[] }) {
+  const r = resumerChiffrage(terrasse, objets);
+  if (!r) return null;
+  const tuiles: [string, string][] = [
+    [r.natureAppuis === 'plots' ? 'Plots' : 'Vis', String(r.appuis)],
+    ['Lames', nombre(r.lamesMl, 0) + ' ml'],
+    ['Bois porteur', nombre(r.porteurMl, 0) + ' ml'],
+    ['Surface', nombre(r.surface, 1) + ' m²']
+  ];
+  return (
+    <div className="resumeTiroir">
+      {tuiles.map(([l, v]) => <div key={l} className="tuileChiffrage"><span className="tuileLibelle">{l}</span><span className="tuileValeur">{v}</span></div>)}
+      <div className="tuileChiffrage resumeTiroirTotal"><span className="tuileLibelle">Estimation HT</span><span className="tuileValeur">{euros(r.bas)} – {euros(r.haut)}</span></div>
+    </div>
+  );
+}
+
 /**
  * Le pied de la feuille Chiffrage : l'estimation et les deux gestes qui suivent un chiffrage —
  * copier le resume, sortir le dossier. L'estimation reste une fourchette : la somme des prix reels
@@ -126,7 +144,11 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
       )}
     </div>
   );
-  if (classe !== 'compact') return barre;
+  if (classe !== 'compact') {
+    // Sur tablette, le tiroir replie garde les chiffres cles de la terrasse (maquette Tablette).
+    const t = classe === 'moyen' && hauteur === 'replie' ? terrasseSelectionnee(etat) : undefined;
+    return t ? <>{barre}<ResumeTiroir terrasse={t} objets={etat.objects} /></> : barre;
+  }
 
   // Le selecteur de terrasse (§6.6) : il selectionne la suivante, comme l'explorateur.
   const terrasse = terrasseSelectionnee(etat);

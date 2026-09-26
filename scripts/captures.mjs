@@ -93,19 +93,27 @@ export async function simulerPlateforme(page) {
   });
 }
 
-/** Ouvre le plan de demonstration et attend l'atelier. */
-export async function ouvrirDemo(page) {
+/**
+ * Ouvre le plan de demonstration et attend l'atelier. `temoin` ouvre celui d'origine, dont les golden
+ * files sont captures (2.1.1 : l'utilisateur ouvre le meme plan aux couleurs de la maquette).
+ */
+export async function ouvrirDemo(page, { temoin = false } = {}) {
   await simulerPlateforme(page);
-  await page.goto(BASE + '/');
+  await page.goto(BASE + (temoin ? '/?temoin' : '/'));
   await page.getByRole('button', { name: /d[ée]monstration/i }).click();
   await page.waitForSelector('#stage svg');
   await page.waitForTimeout(300);
 }
 
-/** Selectionne la premiere terrasse du plan, par le magasin expose en developpement. */
+/**
+ * Selectionne la premiere terrasse du plan, par le magasin expose en developpement, puis cadre
+ * dessus sur telephone et tablette, comme le fait un choix dans la feuille Objets (2.1.1).
+ */
 async function selectionnerTerrasse(page) {
   await page.evaluate(() => window.__plan?.selectionnerPremiere('terrasse'));
   await page.waitForTimeout(200);
+  await page.evaluate(() => { if (document.documentElement.dataset.classe !== 'large') window.__plan?.executer('vue.ajuster'); });
+  await page.waitForTimeout(100);
 }
 
 const ETATS = [
