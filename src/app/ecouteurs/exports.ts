@@ -29,7 +29,7 @@ export interface ContexteExports {
   buildExportPDF: (echelle: number) => string;
   construireResume: () => string;
   construireDossier: () => { pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> };
-  genererGlb: (bouton: HTMLButtonElement, telecharger: boolean) => void;
+  genererGlb: (telecharger: boolean) => void;
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
   /** Le nom du projet, pour nommer le dossier PDF. */
@@ -148,5 +148,5 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.
-  surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', bouton => ctx.genererGlb(bouton, true));
+  surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', () => ctx.genererGlb(true));
 }

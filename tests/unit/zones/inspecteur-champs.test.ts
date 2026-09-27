@@ -60,7 +60,7 @@ function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () =
   const magasin = creerMagasin(etat);
   const avecClasse = magasin as unknown as { definirClasse?: (c: string) => void };
   if (avecClasse.definirClasse) avecClasse.definirClasse(classe);
-  const commandes = creerRegistre({ getElementById: () => null });
+  const commandes = creerRegistre();
   const c = { etat, obj } as unknown as ContexteChamps;
   const service: ServiceInspecteur = {
     objet: () => obj,

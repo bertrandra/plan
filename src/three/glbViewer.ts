@@ -9,7 +9,7 @@
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
 import type * as THREE_NS from 'three';
-import { vue3d, glb, chargement } from './etat3d.js';
+import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
@@ -36,8 +36,6 @@ export interface TailleHote { w: number; h: number }
 export interface ContexteVisionneuseGlb {
   /** Le lieu du plan, pour la course du soleil. */
   lieuActuel: () => { latitude: number; longitude: number };
-  /** La liste deroulante de choix de terrasse de la Vue 3D, a redessiner. */
-  renderVue3DSelect: () => void;
 }
 
 function damierGlbViewer(){
@@ -185,26 +183,18 @@ export function fondGlbViewer(){
   return new THREE.Color(0xdfe7ea);
 }
 
-/** Recale le curseur « semaine » de la visionneuse sur sa date, et retient sa position. */
+/** Recale la position du curseur « semaine » de la visionneuse sur sa date. */
 export function syncSemaineGlb(): void {
-  const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
-  glb.semaineAffichee = semaine;
-  const s = document.getElementById('glbViewerSemaine') as HTMLInputElement;
-  s.value = String(semaine);
+  glb.semaineAffichee = anneeEtSemaineDepuisDate(glb.dateStr).semaine;
 }
 
-/** Remet les commandes de la visionneuse en accord avec son etat, a l'ouverture du panneau. */
-export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
-  const dateInp = document.getElementById('glbViewerDate') as HTMLInputElement | null;
-  // Seulement si elle est vide : une date deja choisie ne doit pas etre effacee par une
-  // reouverture du panneau.
-  if (dateInp && !dateInp.value) dateInp.value = glb.dateStr;
+/**
+ * Remet les commandes de la visionneuse en accord avec son etat, a l'ouverture du panneau : le
+ * panneau (zones/vue3d/) les relit dans `glb`.
+ */
+export function syncControlesGlb(): void {
   syncSemaineGlb();
-  (document.getElementById('glbViewerHeure') as HTMLInputElement).value = String(glb.minutes);
-  document.getElementById('glbViewerHeureTexte')!.textContent = formatHeureMin(glb.minutes);
-  const pourcent = Math.round(glb.intensiteSoleil * 100);
-  (document.getElementById('glbViewerIntensite') as HTMLInputElement).value = String(pourcent);
-  document.getElementById('glbViewerIntensiteTexte')!.textContent = pourcent + ' %';
+  signaler3d();
 }
 
 /**
@@ -219,16 +209,15 @@ export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
  * taille par defaut, meme en plein ecran.
  */
 export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx: ContexteVisionneuseGlb): void {
-  const empty = document.getElementById('glbViewerEmpty')!;
-  const content = document.getElementById('glbViewerContent')!;
-  const loading = document.getElementById('glbViewerLoading')!;
   if (!glb.dernierExporte) {
-    empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
+    affichage3d.glb = 'vide';
+    signaler3d();
     return;
   }
-  const host = document.getElementById('glbViewerCanvasHost')!;
-  const tailleHost = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
-  empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
+  const host = hotes3d.glb;
+  const tailleHost = { w: host?.clientWidth || 0, h: host?.clientHeight || 0 };
+  affichage3d.glb = 'chargement';
+  signaler3d();
   ensureThreeLoaded(() => {
     ensureGLTFLoaderLoaded(() => {
       buildGlbViewerScene(camaraAConserver, tailleHost, ctx);
@@ -247,7 +236,8 @@ export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
 export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHost: TailleHote | null, ctx: ContexteVisionneuseGlb): void {
   disposeGlbViewerScene();
   if(!glb.dernierExporte) return;
-  const host = document.getElementById('glbViewerCanvasHost')!;
+  const host = hotes3d.glb;
+  if(!host) return;
   // Tant qu'un rechargement est en cours, #glbViewerContent (l'ancetre du host) est cache pour
   // laisser la place au sablier - un ancetre display:none ecrase clientWidth/clientHeight a 0 pour
   // TOUS ses descendants, host compris, ce qui retombe silencieusement sur les tailles par defaut
@@ -342,15 +332,15 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     appliquerLumiereGlb(ctx);
     animate();
 
-    const hint = document.getElementById('glbViewerHint');
     // `dernierExporte` etait verifie a l'entree ; le compilateur ne suit pas cette garde dans le
     // rappel asynchrone du lecteur.
-    if(hint) hint.textContent = 'Terrasse : ' + (glb.dernierExporte!.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte!.date.toLocaleString();
-    ctx.renderVue3DSelect();
-    document.getElementById('glbViewerLoading')!.style.display = 'none';
-    document.getElementById('glbViewerContent')!.style.display = 'block';
+    affichage3d.indicationGlb = 'Terrasse : ' + (glb.dernierExporte!.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte!.date.toLocaleString();
+    affichage3d.glb = 'pret';
+    signaler3d();
   }, (err)=>{
-    document.getElementById('glbViewerLoading')!.style.display = 'none';
+    // Le modele illisible n'est pas montre : on revient a « aucun modele », d'ou le regenerer.
+    affichage3d.glb = 'vide';
+    signaler3d();
     showErrBanner('Visionneuse GLB : ' + (err && err.message ? err.message : 'fichier illisible'));
   });
 }

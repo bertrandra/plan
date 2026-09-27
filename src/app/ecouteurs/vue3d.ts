@@ -10,7 +10,7 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d } from '../../three/etat3d.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/exportGlb.js';
@@ -36,13 +36,22 @@ export interface ContexteVue3d {
   glbViewerPleinePage: () => boolean;
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
-  /** Remplit les deux listes de points de vue depuis les objets du plan. */
-  renderVue3DSelect: () => void;
 }
 
-export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): void {
-  const el = (id: string) => document.getElementById(id) as HTMLInputElement;
-  const cam = (idDom: string, id: string, libelle: string, executer: () => void) => cmd.bouton(idDom, { id, libelle, groupe: '3d', executer });
+/** Les cases du panneau de la Vue 3D (zones/vue3d/) : ce qu'il y a dans la scène. */
+export interface ReglagesVue3d {
+  /** Le filaire est une donnée de la terrasse (`construction.lames3dFilaire`), pas une préférence. */
+  filaire(): boolean;
+  basculerFilaire(actif: boolean): void;
+  basculerTousLesObjets(actif: boolean): void;
+  basculerOpaques(actif: boolean): void;
+  basculerTextures(actif: boolean): void;
+  basculerOmbres(actif: boolean): void;
+}
+
+export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): ReglagesVue3d {
+  // Les boutons sont dans le panneau (zones/vue3d/Vue3d.tsx) : des commandes sans element a lier.
+  const cam = (_idDom: string, id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: '3d', executer });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
@@ -55,32 +64,6 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   cam('terrasse3dModePan', '3d.modeDeplacement', 'Déplacement', () => ctx.setMode3D('pan'));
   cam('terrasse3dModeZoom', '3d.modeZoom', 'Zoom', () => ctx.setMode3D('zoom'));
   cam('terrasse3dEyeLevel', '3d.hauteurDesYeux', 'Hauteur des yeux', () => ctx.hauteurDesYeux());
-
-  // ---- Changer ce qu'il y a dans la scène ------------------------------------------------------
-
-  /** Le filaire change la géométrie des lames, pas seulement leur matériau : d'où la reconstruction. */
-  el('terrasse3dFilaire').addEventListener('change', function () {
-    const obj = terrasseCourante();
-    if (!obj) return;
-    ensureConstruction(obj).lames3dFilaire = this.checked;
-    if (vue3d.scene) ctx.buildThreeScene(obj);
-  });
-
-  el('terrasse3dAllObjects').addEventListener('change', function () { vue3d.tousLesObjets = this.checked; reconstruire(); });
-  el('terrasse3dObjectsOpaque').addEventListener('change', function () { vue3d.objetsOpaques = this.checked; reconstruire(); });
-
-  /**
-   * Cochée par défaut. La décocher revient à la couleur unie du plan sans avoir à retirer la texture
-   * de chaque objet un par un — pratique pour comparer les deux rendus, ou pour un aperçu qui
-   * n'attend pas le chargement des images.
-   */
-  el('terrasse3dTextures').addEventListener('change', function () { vue3d.textures = this.checked; reconstruire(); });
-
-  /**
-   * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
-   * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
-   */
-  el('terrasse3dShadows').addEventListener('change', function () { vue3d.ombres = this.checked; reconstruire(); });
 
   // ---- Sortir quelque chose de la vue ----------------------------------------------------------
 
@@ -129,17 +112,15 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     a.rebuildHandles(newObj);
     a.reapplyStackingOrder();
     a.rebuildSelector();
-    // La liste « Aller a un point de vue enregistre… » ne se remplissait qu'a la construction de la
-    // scene : le point de vue qu'on venait de creer n'y figurait pas, et il fallait sortir de la
-    // Vue 3D puis y revenir pour le trouver. Une liste vide juste apres un « cree » est un
-    // dementi, pas une attente.
-    ctx.renderVue3DSelect();
+    // La liste « Aller a un point de vue enregistre… » se lit dans les objets du plan : le point
+    // de vue qu'on vient de creer y figure des ce signal (D-15).
+    signaler3d();
     showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
   });
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
   cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));
-  cmd.bouton('glbViewerFullPageBtn', { id: 'visionneuse.pleinePage', libelle: 'Plein écran', groupe: 'visionneuse', executer: () => ctx.setGlbViewerPleinePage(!ctx.glbViewerPleinePage()) });
+  cmd.declarer({ id: 'visionneuse.pleinePage', libelle: 'Plein écran', groupe: 'visionneuse', executer: () => ctx.setGlbViewerPleinePage(!ctx.glbViewerPleinePage()) });
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && ctx.vue3dPleinePage()) ctx.setVue3dPleinePage(false);
     if (e.key === 'Escape' && ctx.glbViewerPleinePage()) ctx.setGlbViewerPleinePage(false);
@@ -151,4 +132,31 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     if (vue3d.scene) ctx.resizeThreeScene();
     if (glb.scene) ctx.resizeGlbViewerScene();
   });
+
+  // ---- Changer ce qu'il y a dans la scène ------------------------------------------------------
+  // Chaque case reconstruit la scène : il n'y a pas de mise à jour partielle (en-tête).
+  const preference = (ecrire: () => void) => { ecrire(); signaler3d(); reconstruire(); };
+  return {
+    filaire: () => { const obj = terrasseCourante(); return !!(obj && ensureConstruction(obj).lames3dFilaire); },
+    /** Le filaire change la géométrie des lames, pas seulement leur matériau : d'où la reconstruction. */
+    basculerFilaire(actif) {
+      const obj = terrasseCourante();
+      if (!obj) return;
+      ensureConstruction(obj).lames3dFilaire = actif;
+      signaler3d();
+      if (vue3d.scene) ctx.buildThreeScene(obj);
+    },
+    basculerTousLesObjets: (actif) => preference(() => { vue3d.tousLesObjets = actif; }),
+    basculerOpaques: (actif) => preference(() => { vue3d.objetsOpaques = actif; }),
+    /**
+     * Cochée par défaut. La décocher revient à la couleur unie du plan sans avoir à retirer la
+     * texture de chaque objet un par un — pratique pour comparer les deux rendus.
+     */
+    basculerTextures: (actif) => preference(() => { vue3d.textures = actif; }),
+    /**
+     * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
+     * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
+     */
+    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; })
+  };
 }

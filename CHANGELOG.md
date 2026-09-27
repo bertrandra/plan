@@ -17,12 +17,22 @@ moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
 - **Le chiffrage refait par le tiroir ne dépend plus de l'onglet ouvert** : `construction.bom`
   s'écrit au rafraîchissement (`app/resultats.ts`), jamais pendant un rendu.
 
+- **La Vue 3D et la visionneuse sont en React** (`zones/vue3d/`) : réglages, soleil, points de vue,
+  boutons de caméra, plein écran. La scène reste du WebGL natif ; son hôte s'enregistre dans
+  `three/etat3d.ts` (`hotes3d`), et `three/` ne lit ni n'écrit plus aucun identifiant de la page :
+  il publie ce que les panneaux affichent (`affichage3d`, `signaler3d`). Leur balisage quitte
+  `index.html`, `app/ecouteurs/cloture.ts` disparaît, le registre des commandes ne lie plus
+  d'élément du DOM (`lier`, `bouton`).
+
 ### Corrigé
 
 - **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par
   barre et au m², longueurs achetables, prix des vis et des plots, conditionnement, équipe, heures,
   cadences, échelle d'implantation, et toutes les actions du panneau Cotes. Elles passent toutes par
   `app/resultats.ts`.
+- **Générer un .glb ne réécrit plus le texte du bouton qui l'a lancé.** C'était un bouton React (menu
+  Exporter, visionneuse) : réécrire son texte détruisait des nœuds que React croyait à lui.
+  L'opération en cours se publie (`affichage3d.generation`) et les boutons la lisent.
 - **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
   bouton d'un autre panneau.
 

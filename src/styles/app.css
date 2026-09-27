@@ -1122,6 +1122,12 @@
   .valeurReglage{ font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
   .infoSoleil{ font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px; }
   .barreSoleil{ align-items:center; margin-top:6px; flex-wrap:wrap; }
+  /* Le conteneur des deux panneaux 3D (zones/vue3d/) ne compte pas dans la mise en page. */
+  #zoneVues3d{ display:contents; }
+  .titreAvecAction{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .panneauVisionneuse{ width:98vw; max-width:1600px; margin:0 auto; }
+  .boutonGenerer{ margin-left:8px; }
+  .hoteVisionneuse{ margin-top:6px; }
   .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 380px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
   .commandes3d{ position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px; }
   .bouton3d{

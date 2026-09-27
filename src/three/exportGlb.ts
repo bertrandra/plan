@@ -7,7 +7,7 @@
 // Le .glb sort de la scene reellement affichee, jamais d'une reconstruction parallele — c'est ce
 // qui garantit que le fichier livre montre ce que l'utilisateur a vu.
 
-import { vue3d, glb, type PlanVuDeLa3d } from './etat3d.js';
+import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d.js';
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -38,18 +38,23 @@ export function nomFichierTerrasse(nom: string | undefined): string {
  * - **La scene n'est construite que si elle ne l'est pas deja**, et n'est demontee que si on l'a
  *   construite pour l'occasion. Exporter depuis la Vue 3D ouverte ne doit pas la faire disparaitre
  *   sous les yeux de l'utilisateur.
- * - **Un filet de securite remet le bouton en etat.** `GLTFExporter` en r128 n'a pas de rappel
+ * - **Un filet de securite remet l'etat en place.** `GLTFExporter` en r128 n'a pas de rappel
  *   d'erreur separe — `parse(input, onDone, options)` et rien d'autre : un echec silencieux
- *   laisserait le bouton bloque sur « Export en cours… » indefiniment.
+ *   laisserait les boutons bloques sur « Export en cours… » indefiniment.
+ *
+ * L'operation en cours se publie dans `affichage3d.generation` : les boutons qui la lancent la
+ * lisent pour se griser et changer de libelle. Ils ne sont plus touches directement — ce sont des
+ * boutons React, et reecrire leur texte detruisait des noeuds que React croyait encore a lui.
  */
-export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null, telecharger: boolean, ctx: ContexteExportGlb): void {
+export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: ContexteExportGlb): void {
   const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
             || etat.objects.find(o => o.fonction === 'terrasse');
   if (!terr) { showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
 
-  const libelleAvant = bouton ? bouton.textContent : '';
-  if (bouton) { bouton.disabled = true; bouton.textContent = telecharger ? 'Export en cours…' : 'Génération…'; }
-  const restaurer = () => { if (bouton) { bouton.disabled = false; bouton.textContent = libelleAvant; } };
+  if (affichage3d.generation) return;
+  affichage3d.generation = telecharger ? 'export' : 'generation';
+  signaler3d();
+  const restaurer = () => { affichage3d.generation = null; signaler3d(); };
 
   ensureThreeLoaded(() => {
     ensureGLTFExporterLoaded(() => {
@@ -58,7 +63,7 @@ export function genererGlb(etat: PlanVuDeLa3d, bouton: HTMLButtonElement | null,
         if (!dejaActive) ctx.buildThreeScene(terr);
         // `void` : cette promesse ne peut pas etre rejetee — `attendreTexturesPretes` ne fait que
         // resoudre, a l'arrivee des textures ou au bout du delai. La suite est deliberement laissee
-        // en arriere-plan, le bouton etant deja desarme.
+        // en arriere-plan, les boutons etant deja desarmes.
         // La scene vient d'etre construite (ou l'etait deja) ; si `buildThreeScene` a renonce
         // (contexte WebGL refuse), l'acces echoue et le `catch` ci-dessous affiche l'erreur.
         void attendreTexturesPretes(vue3d.scene!.scene, ATTENTE_TEXTURES_MS).then(() => {

@@ -9,7 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
-import { vue3d, cleDeVue } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots } from '../engine/constantes.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
@@ -21,7 +21,6 @@ import { hauteurParasolDe } from '../engine/parasol.js';
 import { lineLineIntersect } from '../geometry/segments.js';
 import { PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { showErrBanner } from '../shell/dialogs.js';
-import { elOpt } from '../shell/dom.js';
 import { estMesh } from './gardes.js';
 import { METRES_PAR_CARREAU } from './chargeurs.js';
 import type * as THREE_NS from 'three';
@@ -83,7 +82,6 @@ export interface ContexteScene3d {
   /** Repose le soleil une fois la scene batie. */
   appliquerLumiereVue3d: () => void;
   applyMode3D: () => void;
-  renderVue3DSelect: () => void;
   syncControlesSoleilVue3d: () => void;
 }
 
@@ -101,7 +99,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
     : null;
   ctx.disposeThreeScene(); // removes the previous canvas (if any); leaves the zoom-buttons overlay in place
-  const host = elOpt<HTMLInputElement>('terrasse3dCanvasHost')!;
+  // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
+  const host = hotes3d.vue3d;
+  if(!host) return;
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
 
   // Sans terrasse : une construction par defaut jetable (aucun objet du plan n'est touche) sert
@@ -114,20 +114,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   const cen = objetCentre
     ? (objetCentre.type === 'circle' ? {x:objetCentre.center.x, y:objetCentre.center.y} : centroid(objetCentre.pts))
     : {x:0, y:0};
-  // La case suit la valeur du projet, pas l'inverse : un projet rouvert retrouve son reglage.
-  const cbF = elOpt<HTMLInputElement>('terrasse3dFilaire');
-  if(cbF) cbF.checked = !!c.lames3dFilaire;
-  // "Afficher tous les objets" est une preference d'affichage, pas une donnee du chantier : elle
-  // ne fait pas partie de `construction` (qui decrit la terrasse a construire) et n'est pas
-  // sauvegardee avec le projet, comme le mode de glisser (orbiter/deplacer/zoom) plus haut.
-  const cbAll = elOpt<HTMLInputElement>('terrasse3dAllObjects');
-  if(cbAll) cbAll.checked = vue3d.tousLesObjets;
-  const cbOpaque = elOpt<HTMLInputElement>('terrasse3dObjectsOpaque');
-  if(cbOpaque) cbOpaque.checked = vue3d.objetsOpaques;
-  const cbTextures = elOpt<HTMLInputElement>('terrasse3dTextures');
-  if(cbTextures) cbTextures.checked = vue3d.textures;
-  const cbShadows = elOpt<HTMLInputElement>('terrasse3dShadows');
-  if(cbShadows) cbShadows.checked = vue3d.ombres;
+  // Les cases du panneau suivent `construction.lames3dFilaire` et les preferences de `vue3d` : il les
+  // relit a chaque signal, un projet rouvert retrouve donc son reglage.
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c)/1000;
@@ -709,7 +697,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   const sceneCourante = vue3d.scene;
   animate();
   ctx.applyMode3D();
-  ctx.renderVue3DSelect();
+  // Le panneau relit tout, y compris la liste des points de vue : un point de vue ajoute ou renomme
+  // sur le plan depuis la derniere scene y apparait.
   ctx.syncControlesSoleilVue3d();
   ctx.appliquerLumiereVue3d();   // pose les lumieres ET rend une premiere image
 

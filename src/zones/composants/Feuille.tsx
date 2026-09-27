@@ -68,7 +68,7 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
   );
 }
 
-/** Les conteneurs d'index.html qui portent chaque feuille : c'est la que le focus entre. */
+/** Les conteneurs qui portent chaque feuille : c'est la que le focus entre. */
 export const HOTE_DE_FEUILLE: Record<Feuille, string> = {
   projet: 'projectBar', outils: 'zonePalette', objets: 'zoneExplorateur', proprietes: 'zoneInspecteur',
   resultats: 'zoneResultats', reglages3d: 'zoneReglages3d'
@@ -126,20 +126,6 @@ export function Voile({ magasin }: { magasin: Magasin }) {
     window.addEventListener('keydown', surTouche);
     return () => window.removeEventListener('keydown', surTouche);
   }, [feuille, magasin]);
-
-  // Les boutons de fermeture des feuilles ecrites dans index.html (les reglages 3D) et les boutons
-  // qui les ouvrent : du balisage statique, branche ici une fois.
-  useEffect(() => {
-    const surClic = (e: MouseEvent) => {
-      const cible = e.target as Element | null;
-      if (cible?.closest('[data-fermer-feuille]')) magasin.definirFeuille(null);
-      else if (cible?.closest('#reglages3dBtn, #reglagesGlbBtn')) {
-        magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d');
-      }
-    };
-    document.addEventListener('click', surClic);
-    return () => document.removeEventListener('click', surClic);
-  }, [magasin]);
 
   if (!feuille || classe === 'large') return null;
   // Sur tablette, les panneaux deroulants (Projet, Reglages 3D) n'assombrissent pas le plan : le

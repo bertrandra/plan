@@ -9,15 +9,14 @@
 // celle-ci tourne sur `requestAnimationFrame`, que le navigateur met en pause des que l'onglet passe
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
-import { vue3d, glb, cleDeVue, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
+import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 
 /** Hauteur des yeux au-dessus du platelage fini, en metres. */
 export const HAUTEUR_YEUX_M = 1.6;
 
-/** Ce qui fait avancer le glisser a un seul doigt. */
-export type Mode3D = 'orbit' | 'pan' | 'zoom';
+export type { Mode3D } from './etat3d.js';
 
 /**
  * Position et cible de camera pour un point de vue du plan.
@@ -80,8 +79,6 @@ export interface ContexteNavigation {
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
-  let vue3dPleinePage = false;
-  let glbViewerPleinePage = false;
 
   /**
    * Rapproche (`factor` < 1) ou eloigne la camera de sa cible.
@@ -138,20 +135,14 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       controls.mouseButtons.LEFT = mode3D === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
       controls.touches.ONE = mode3D === 'pan' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
     }
-    ([['terrasse3dModeOrbit', 'orbit'], ['terrasse3dModePan', 'pan'], ['terrasse3dModeZoom', 'zoom']] as const).forEach(([id, m]) => {
-      const b = document.getElementById(id);
-      if (!b) return;
-      const actif = mode3D === m;
-      // L'etat actif est une classe et un attribut : la feuille de style le colore selon le theme.
-      b.classList.toggle('actif', actif);
-      b.setAttribute('aria-pressed', String(actif));
-    });
-    const hint = document.getElementById('terrasse3dHint');
-    if (hint) hint.textContent = mode3D === 'pan'
+    // Le panneau (zones/vue3d/) allume le bouton du mode et affiche l'aide qui va avec.
+    affichage3d.mode = mode3D;
+    affichage3d.indication3d = mode3D === 'pan'
       ? 'Mode deplacer : glisser (un doigt) translate la vue. Molette ou boutons +/− = zoom. Reprends le bouton « tourner » pour tourner.'
       : mode3D === 'zoom'
       ? 'Mode zoom : glisser vers le haut rapproche, vers le bas eloigne. Reprends le bouton « tourner » pour tourner.'
       : 'Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons tourner / deplacer / zoom changent ce que fait le glisser a un seul doigt — pratique sur tablette.';
+    signaler3d();
   }
 
   /**
@@ -161,39 +152,22 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    * renderer ni la camera ne suivent une resize CSS tout seuls — sans cet appel explicite, l'image
    * reste a l'ancienne taille, etiree ou bordee de bandes vides.
    */
-  function redimensionner(sc: SceneTroisBase | null, idHote: string): void {
-    if (!sc) return;
-    const host = document.getElementById(idHote)!;
+  function redimensionner(sc: SceneTroisBase | null, host: HTMLElement | null): void {
+    if (!sc || !host) return;
     const w = host.clientWidth || 600, h = host.clientHeight || 420;
     sc.camera.aspect = w / h;
     sc.camera.updateProjectionMatrix();
     sc.renderer.setSize(w, h);
     sc.renderer.render(sc.scene, sc.camera);
   }
-  function resizeThreeScene(): void { redimensionner(vue3d.scene, 'terrasse3dCanvasHost'); }
-  function resizeGlbViewerScene(): void { redimensionner(glb.scene, 'glbViewerCanvasHost'); }
+  function resizeThreeScene(): void { redimensionner(vue3d.scene, hotes3d.vue3d); }
+  function resizeGlbViewerScene(): void { redimensionner(glb.scene, hotes3d.glb); }
 
   /**
-   * Passe une vue en plein page, ou l'en fait revenir.
-   *
-   * La hauteur plein page est posee en **inline** ; hors plein page, elle revient a la feuille de
-   * style (`.hote3d`), qui la regle selon la classe d'ecran (spec-ihm-mobile §6.10).
-   *
-   * Il n'y a pas besoin d'attendre une frame avant de redimensionner : lire une propriete de mise en
-   * page — `clientHeight`, dans le redimensionnement — force le navigateur a recalculer la mise en
-   * page jusqu'a ce point du script, donc la valeur lue est deja la nouvelle.
+   * Passe une vue en plein page, ou l'en fait revenir. Le panneau (zones/vue3d/) pose la classe, la
+   * hauteur de l'hote et le libelle du bouton, puis redimensionne la scene une fois la mise en page
+   * faite : le renderer et la camera ne suivent pas une taille CSS tout seuls.
    */
-  function pleinePage(actif: boolean, idConteneur: string, idHote: string, idBouton: string, quoi: string, redim: () => void): void {
-    const conteneur = document.getElementById(idConteneur)!;
-    const host = document.getElementById(idHote)!;
-    const btn = document.getElementById(idBouton)!;
-    conteneur.classList.toggle('pleinePage', actif);
-    host.style.height = actif ? 'calc(100vh - 210px)' : '';
-    btn.textContent = actif ? 'Format normal' : 'Plein écran';
-    btn.title = actif ? 'Revenir a l\'affichage normal' : 'Agrandir ' + quoi + ' en pleine page';
-    redim();
-  }
-
   return {
     zoom3D,
     applyMode3D,
@@ -271,15 +245,9 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       poserCamera(glb.scene, vp, glb.dernierExporte.centre);
     },
 
-    setVue3dPleinePage(actif: boolean) {
-      vue3dPleinePage = actif;
-      pleinePage(actif, 'vue3dPanel', 'terrasse3dCanvasHost', 'terrasse3dFullPageBtn', 'la vue 3D', resizeThreeScene);
-    },
-    setGlbViewerPleinePage(actif: boolean) {
-      glbViewerPleinePage = actif;
-      pleinePage(actif, 'glbViewerPanel', 'glbViewerCanvasHost', 'glbViewerFullPageBtn', 'la visionneuse', resizeGlbViewerScene);
-    },
-    get vue3dPleinePage() { return vue3dPleinePage; },
-    get glbViewerPleinePage() { return glbViewerPleinePage; }
+    setVue3dPleinePage(actif: boolean) { affichage3d.pleinePage3d = actif; signaler3d(); },
+    setGlbViewerPleinePage(actif: boolean) { affichage3d.pleinePageGlb = actif; signaler3d(); },
+    get vue3dPleinePage() { return affichage3d.pleinePage3d; },
+    get glbViewerPleinePage() { return affichage3d.pleinePageGlb; }
   };
 }

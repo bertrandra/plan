@@ -14,7 +14,7 @@
 // l'explorateur les demande. Ce module ne garde de l'ancien mode que la Vue 3D, qui en etait un
 // sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
-import { glb, chargement } from '../three/etat3d.js';
+import { glb, chargement, affichage3d, signaler3d } from '../three/etat3d.js';
 import { libererTexturesPartagees } from '../three/chargeurs.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
 
@@ -41,8 +41,13 @@ export interface ContexteModes {
   quitterPleinPageVisionneuse: () => void;
   /** Libere la scene de la visionneuse. */
   disposeGlbViewerScene: () => void;
-  /** Publie la vue courante : c'est la barre d'application (zones/) qui allume le bon bouton. */
+  /** Publie la vue courante : la barre d'application allume le bon bouton, les panneaux 3D s'affichent. */
   signalerVue: (vue: Vue) => void;
+  /**
+   * Applique un changement d'affichage et rend les zones tout de suite. La scene 3D mesure son hote
+   * juste apres : il doit etre deja affiche et a sa taille, pas au prochain rendu de React.
+   */
+  rendreMaintenant: (changer: () => void) => void;
 }
 
 export function creerModes(ctx: ContexteModes) {
@@ -61,12 +66,11 @@ export function creerModes(ctx: ContexteModes) {
   function appliquerVue(vue: Vue): void {
     if (vueCourante === 'visionneuse' && vue !== 'visionneuse') fermerVisionneuse();
     vueCourante = vue;
-    ctx.signalerVue(vue);
+    ctx.rendreMaintenant(() => ctx.signalerVue(vue));
     if (vue === 'visionneuse') return;
 
     const surLePlan = vue === 'plan';
     afficher(ZONES_PLAN, surLePlan);
-    afficher(['vue3dPanel'], !surLePlan, 'block');
     if (surLePlan) {
       ctx.disposeThreeScene();
       // Le seul endroit d'ou les textures partagees peuvent etre rendues a la carte graphique :
@@ -74,7 +78,8 @@ export function creerModes(ctx: ContexteModes) {
       // la Vue 3D vient d'etre demolie. Le faire dans `disposeThreeScene` aurait vide le cache a
       // chaque case cochee, puisque reconstruire une scene commence par demolir la precedente.
       libererTexturesPartagees();
-      document.getElementById('terrasse3dWrap')!.style.display = 'none';
+      affichage3d.vue3d = 'ferme';
+      signaler3d();
       ctx.render();
     } else {
       construireVue3d();
@@ -89,10 +94,9 @@ export function creerModes(ctx: ContexteModes) {
    */
   function construireVue3d(): void {
     const obj = ctx.terrasseCourante() || null;
-    document.getElementById('terrasse3dLoading')!.style.display = chargement.three ? 'none' : '';
+    if (!chargement.three) { affichage3d.vue3d = 'chargement'; signaler3d(); }
     ctx.ensureThreeLoaded(() => {
-      document.getElementById('terrasse3dLoading')!.style.display = 'none';
-      document.getElementById('terrasse3dWrap')!.style.display = 'block';
+      ctx.rendreMaintenant(() => { affichage3d.vue3d = 'pret'; signaler3d(); });
       ctx.buildThreeScene(obj);
     });
   }
@@ -101,8 +105,6 @@ export function creerModes(ctx: ContexteModes) {
     glb.ouvert = true;
     appliquerVue('visionneuse');
     afficher(ZONES_PLAN, false);
-    afficher(['vue3dPanel'], false);
-    document.getElementById('glbViewerPanel')!.style.display = 'block';
     ctx.preparerVisionneuse();
   }
 
@@ -111,7 +113,6 @@ export function creerModes(ctx: ContexteModes) {
     glb.ouvert = false;
     // Avant de cacher le panneau : sinon la reouverture repartirait directement en plein page.
     ctx.quitterPleinPageVisionneuse();
-    document.getElementById('glbViewerPanel')!.style.display = 'none';
     ctx.disposeGlbViewerScene();
   }
 

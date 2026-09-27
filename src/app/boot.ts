@@ -35,10 +35,11 @@ import { brancherAffichage } from './ecouteurs/affichage.js';
 import { brancherVue3d } from './ecouteurs/vue3d.js';
 import { brancherBoutonsDeVue } from './ecouteurs/modes.js';
 import { brancherVisionneuse } from './ecouteurs/visionneuse.js';
-import { brancherCommandesSoleil } from './ecouteurs/soleil.js';
+import { reglagesSoleil } from './ecouteurs/soleil.js';
+import { flushSync } from 'react-dom';
+import { signaler3d } from '../three/etat3d.js';
 import { brancherExports } from './ecouteurs/exports.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
-import { brancherCloture } from './ecouteurs/cloture.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
 import { droitsCourants, enLectureSeule } from './acces.js';
@@ -189,7 +190,7 @@ etat.lectureSeule = enLectureSeule();
 const magasin = creerMagasin(etat);
 // Les droits viennent de la plateforme quand il y en a une, et laissent tout passer sinon
 // (app/acces.ts). Le registre les consulte a chaque etat de commande, jamais une fois pour toutes.
-const commandes = creerRegistre(document, droitsCourants());
+const commandes = creerRegistre(droitsCourants());
 
 // Ce dont la barre de projet, l'actualisation cadastrale et le panneau PLU ont besoin. Fabrique a
 // chaque appel : ce contexte porte des fonctions qui n'existent qu'une fois boot() lance.
@@ -740,8 +741,8 @@ function buildExportPDF(scaleDenom: number){
 }
 
 // L'export GLB vit dans three/exportGlb.ts.
-function genererGlb(btn: HTMLButtonElement | null, telecharger: boolean){
-  genererGlbModule(etat, btn, telecharger, {
+function genererGlb(telecharger: boolean){
+  genererGlbModule(etat, telecharger, {
     buildThreeScene, rafraichirVisionneuseGlbSiOuverte, telechargerBinaire
   });
 }
@@ -942,9 +943,9 @@ function renderTerrasseLayerView(obj: ObjetPlan | null | undefined){ dessinerCou
 
 // Le soleil de la Vue 3D vit dans three/soleilVue3d.ts, son etat dans `soleilVue3d` (etat3d.ts),
 // dans les memes champs que celui de la visionneuse et volontairement separe de lui.
-function ctxSoleilVue3d(){ return { lieuActuel, libelleLieu, formatHeureMin }; }
+function ctxSoleilVue3d(){ return { lieuActuel }; }
 function syncSemaineVue3dDepuisDate(){ syncSemaineSoleilVue3d(); }
-function syncControlesSoleilVue3d(){ syncControlesSoleil(ctxSoleilVue3d()); }
+function syncControlesSoleilVue3d(){ syncControlesSoleil(); }
 function appliquerLumiereVue3d(){ appliquerSoleilVue3d(ctxSoleilVue3d()); }
 
 // ================= Visionneuse GLB (relit le dernier .glb reellement exporte) =================
@@ -961,10 +962,6 @@ function appliquerLumiereVue3d(){ appliquerSoleilVue3d(ctxSoleilVue3d()); }
 // projet sans faire transiter une nouvelle cle par api.php.
 function lieuActuel(){ return lieuDeParcelle(trouverParcelleCloture()); }
 function libelleLieu(){ return libelleLieuTexte(lieuActuel()); }
-function syncLieuGlbViewer(){
-  const el = document.getElementById('glbViewerLieu');
-  if(el) el.textContent = libelleLieu();
-}
 // Entete du plan : le lieu se met a jour quand la parcelle change (import cadastre, import JSON,
 // actualisation IGN), pas seulement au demarrage.
 // Le lieu s'affiche dans la barre d'application (zones/), qui le lit dans le magasin.
@@ -975,7 +972,7 @@ function syncLieuTitre(){
 // Le curseur "semaine" et le rafraichissement de la visionneuse vivent dans three/glbViewer.ts.
 function syncSemaineDepuisDate(){ syncSemaineGlb(); }
 function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee = null){
-  rafraichirSceneGlb(camaraAConserver, { lieuActuel, renderVue3DSelect });
+  rafraichirSceneGlb(camaraAConserver, { lieuActuel });
 }
 // Un nouvel export pendant que l'onglet est deja ouvert doit se refleter sans que l'utilisateur
 // ait besoin de le rouvrir - mais ne construit rien si l'onglet n'est pas affiche (pas de scene
@@ -987,8 +984,7 @@ function rafraichirVisionneuseGlbSiOuverte(){
 // c'est la qu'on decide qui recouvre la page. Ne reste ici que ce qui lui est propre.
 function preparerVisionneuse(){
   disposeThreeScene(); // une seule scene 3D active a la fois
-  syncLieuGlbViewer();
-  syncControlesGlb(formatHeureMin);
+  syncControlesGlb();
   rafraichirVisionneuseGlb();
 }
 function quitterPleinPageVisionneuse(){
@@ -1000,29 +996,12 @@ function quitterPleinPageVisionneuse(){
 function buildThreeScene(obj: ObjetPlan | null){
   construireScene3D(obj, etat, {
     appliquerLumiereVue3d, applyMode3D, chargerTexturePolyhaven, disposeThreeScene, elevationOf,
-    hauteurAppuiMm, objetMasque, positionMat, renderVue3DSelect,
+    hauteurAppuiMm, objetMasque, positionMat,
     syncControlesSoleilVue3d, trouverParcelleCloture,
     orthoActif: ()=>ortho.actif,
     orthoTuiles: ()=>ortho.tuiles
   });
 }
-// Liste deroulante des points de vue enregistres (objets Fonction=camera, globaux au plan, pas
-// propres a une terrasse) - re-remplie a chaque construction de la scene pour refleter tout ajout,
-// renommage ou suppression fait depuis Mode Plan entre-temps.
-function renderVue3DSelect(){
-  const vues = etat.objects.filter(o=>o.fonction==='camera');
-  ['terrasse3dViewSelect','glbViewerViewSelect'].forEach(id=>{
-    const sel = elOpt<HTMLSelectElement>(id);
-    if(!sel) return;
-    sel.innerHTML = '<option value="">Aller a un point de vue enregistre…</option>';
-    vues.forEach(v=>{
-      const o = document.createElement('option'); o.value = v.key; o.textContent = v.name;
-      sel.appendChild(o);
-    });
-    sel.disabled = vues.length===0;
-  });
-}
-
 // La cloture est rattachee a la parcelle (objet key==='parcelle', ou a defaut le premier objet
 // fonction==='terrain') plutot qu'a un etat global : elle se sauvegarde avec le projet comme les
 // champs Texture d'un objet, et non comme une simple preference d'affichage de la Vue 3D.
@@ -1045,13 +1024,13 @@ function resizeThreeScene(){ nav3d.resizeThreeScene(); }
 function resizeGlbViewerScene(){ nav3d.resizeGlbViewerScene(); }
 function setVue3dPleinePage(actif: boolean){ nav3d.setVue3dPleinePage(actif); }
 function setGlbViewerPleinePage(actif: boolean){ nav3d.setGlbViewerPleinePage(actif); }
-brancherVue3d(atelier, {
+const reglagesVue3d = brancherVue3d(atelier, {
   zoom3D, setMode3D, buildThreeScene, createObjectDOM,
   hauteurDesYeux: ()=>nav3d.hauteurDesYeux(),
   setVue3dPleinePage, setGlbViewerPleinePage,
   vue3dPleinePage: ()=>nav3d.vue3dPleinePage,
   glbViewerPleinePage: ()=>nav3d.glbViewerPleinePage,
-  resizeThreeScene, resizeGlbViewerScene, renderVue3DSelect
+  resizeThreeScene, resizeGlbViewerScene
 }, commandes);
 
 // Le pilotage des vues et de l'onglet Terrasse vit dans app/modes.ts ; ces enveloppes gardent les
@@ -1061,35 +1040,37 @@ const modes = creerModes({
   ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
   preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
   signalerVue: (vue)=>magasin.definirVue(vue),
+  rendreMaintenant: (changer)=>flushSync(changer),
   rendrePanneauxTerrasse(obj){ resultats.actualiserTerrasse(obj); }
 });
 function refreshTerrasseView(){ modes.refreshTerrasseView(); }
 
 
 
-brancherCloture({ objByKey, allerAuPointDeVue, allerAuPointDeVueGlb });
 brancherBoutonsDeVue({
   allerAuPlan: ()=>modes.allerAuPlan(),
   goVue3D: ()=>modes.goVue3D(),
   ouvrirVisionneuse: ()=>modes.ouvrirVisionneuse()
 }, commandes);
-brancherVisionneuse(atelier, {
+const reglagesVisionneuse = brancherVisionneuse(atelier, {
   genererGlb,
   rafraichir: (cam)=>rafraichirVisionneuseGlb(cam),
-  appliquerLumiere: ()=>appliquerLumiereGlb({ lieuActuel, renderVue3DSelect }),
+  appliquerLumiere: ()=>appliquerLumiereGlb({ lieuActuel }),
   hauteurFinieMm, hauteurYeuxM: HAUTEUR_YEUX_M
 }, commandes);
-// Les memes cinq commandes, deux fois : les deux vues reglent leur soleil separement.
-brancherCommandesSoleil({
-  prefixe: 'glbViewer', etat: glb, formatHeureMin,
-  syncSemaine: syncSemaineDepuisDate,
-  appliquer: ()=>appliquerLumiereGlb({ lieuActuel, renderVue3DSelect })
-});
-brancherCommandesSoleil({
-  prefixe: 'vue3d', etat: soleilVue3d, formatHeureMin,
-  syncSemaine: syncSemaineVue3dDepuisDate,
-  appliquer: appliquerLumiereVue3d
-});
+// Les deux panneaux 3D (zones/vue3d/) : les memes cinq reglages de soleil, deux fois — les deux vues
+// reglent leur soleil separement —, les cases de chaque vue, et les points de vue.
+const vues3d = {
+  reglages: reglagesVue3d,
+  visionneuse: reglagesVisionneuse,
+  soleilGlb: reglagesSoleil({ etat: glb, syncSemaine: syncSemaineDepuisDate, signaler: signaler3d,
+    appliquer: ()=>appliquerLumiereGlb({ lieuActuel }) }),
+  soleil3d: reglagesSoleil({ etat: soleilVue3d, syncSemaine: syncSemaineVue3dDepuisDate, signaler: signaler3d,
+    appliquer: appliquerLumiereVue3d }),
+  allerAuPointDeVue, allerAuPointDeVueGlb,
+  libelleLieu, formatHeure: formatHeureMin,
+  redimensionner3d: resizeThreeScene, redimensionnerGlb: resizeGlbViewerScene
+};
 
 // Le projet cote serveur devient des commandes (app/projet.ts) ; la barre d'application et la barre
 // d'etat (zones/) les affichent. Montees en dernier : tout ce qu'elles lisent existe alors.
@@ -1120,7 +1101,7 @@ const inspecteur = creerInspecteur(etat, {
 // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap
 // (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
 const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
-monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats });
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d });
 // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
 // couvriraient les deux tiers. Ils s'ouvrent a la demande — la poignee, ou la feuille de selection.
 replierPourTablette();
