@@ -16,7 +16,6 @@ import type { ObjetPlan, PtBrut, Construction, TextureAppliquee } from '../../mo
 import type { Pointage } from '../../interaction/outilMesure.js';
 import type { CoteDesigne } from '../../interaction/outilAlignement.js';
 import type { ContexteSoleil } from '../../engine/parasol.js';
-import type { OptionsSelecteur } from '../texturePicker.js';
 
 /** Ce qui doit suivre une ecriture. */
 export type Effet =
@@ -58,7 +57,7 @@ export interface ContexteChamps {
   alignObjectByRotation: (obj: ObjetPlan) => void;
   allerAuPointDeVue: (obj: ObjetPlan) => void;
   startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']) => void;
-  choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: OptionsSelecteur) => void;
+  choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: { checkboxLabel?: string }) => void;
   executerCommande: (id: string) => void;
   pushHistory: () => void;
   render: () => void;

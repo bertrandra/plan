@@ -58,8 +58,7 @@ function resoudre(depuis: string, specifiant: string): string {
 }
 
 /** Les dependances d'un fichier vers d'autres fichiers de src/. */
-function dependances(chemin: string): Dependance[] {
-  const texte = readFileSync(chemin, 'utf8');
+function dependances(chemin: string, texte = readFileSync(chemin, 'utf8')): Dependance[] {
   const out: Dependance[] = [];
   for (const m of texte.matchAll(STATIQUE)) {
     // `import type` et `export type` sont effaces au build : ils ne creent aucune dependance reelle.
@@ -103,8 +102,9 @@ describe('les fleches ne pointent que vers le bas', () => {
     const cibles = (f: string) => dependances(join(src, f)).filter(d => !d.type).map(d => relative(src, d.cible));
     expect(cibles('app/ecouteurs/exports.ts').some(c => !c.startsWith('app')), 'chemin ../../').toBe(true);
     expect(cibles('main.ts'), 'import dynamique').toContain(join('app', 'boot'));
-    expect(dependances(join(src, 'ui/projectBar.ts')).filter(d => d.dynamique).every(d => d.type),
-      'import(…).Type est un type').toBe(true);
+    // Plus aucun module n'ecrit `import('…').Type` : la forme est verifiee sur un texte temoin.
+    const temoin = dependances(join(src, 'ui/temoin.ts'), "const f = (p: import('../model/types.js').PtBrut) => p;\nvoid import('../app/boot.js').then(m => m);");
+    expect(temoin.map(d => d.type), 'import(…).Type est un type, import(…).then une valeur').toEqual([true, false]);
   });
 
   it('range chaque dossier de src/ dans une couche connue', () => {

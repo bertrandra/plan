@@ -41,8 +41,9 @@ export interface ContexteProjet {
   /** Branche le rafraichissement du statut sur l'historique, qui sait quand le plan devient sale. */
   definirRafraichisseurStatut: (f: () => void) => void;
   ouvrirImportCadastre: () => void;
-  /** Le bouton qui a demande l'actualisation : le dialogue le desarme pendant l'appel. */
-  ouvrirDialogueActualisation: (bouton: HTMLButtonElement) => void;
+  ouvrirDialogueActualisation: () => void;
+  /** Une actualisation tourne : la commande se grise, une seule a la fois. */
+  actualisationEnCours: () => boolean;
 }
 
 export interface Projet {
@@ -155,7 +156,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.actualiserIgn', libelle: 'Actualiser IGN', groupe: 'projet',
     capacite: CAPACITES.cadastre.code,
     description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.',
-    permission: PERMISSION_ECRITURE, executer: (source) => { if (source) ctx.ouvrirDialogueActualisation(source as HTMLButtonElement); }
+    permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirDialogueActualisation()
   });
 
   return {

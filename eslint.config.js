@@ -44,16 +44,12 @@ export default [
   // jamais : quand une fonction est decoupee, on baisse le plafond ou on retire la ligne.
   ...Object.entries({
     'src/app/boot.ts': 1013,             // boot()
-    'src/ui/cadastreDialog.ts': 766,     // ouvrirImportCadastre()
     'src/three/scene.ts': 638,           // buildThreeScene()
     'src/interaction/pointeur.ts': 281,
-    'src/ui/terrassePanels.ts': 278,
     'src/export/pdfPlan.ts': 257,
     'src/geo/cadastreObjets.ts': 244,
     'src/three/navigation.ts': 206,
-    'src/ui/projectBar.ts': 173,
     'src/io/importSvg.ts': 165,
-    'src/ui/texturePicker.ts': 163
   }).map(([fichier, max]) => ({ files: [fichier], rules: { 'max-lines-per-function': ['error', { max }] } })),
   {
     // Les tests s'executent sous Node : ils utilisent __dirname, Buffer et process.

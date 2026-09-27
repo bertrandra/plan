@@ -24,6 +24,15 @@ moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
   `index.html`, `app/ecouteurs/cloture.ts` disparaît, le registre des commandes ne lie plus
   d'élément du DOM (`lier`, `bouton`).
 
+- **Les trois parcours du Z8 sont en React** (`zones/Parcours.tsx`, `zones/parcours/`) : import
+  cadastral en trois étapes, actualisation IGN, choix d'une texture. Leur logique quitte `ui/` :
+  `app/importCadastre.ts` (l'état et les gestes de l'import, sans DOM), `app/actualisationIgn.ts`,
+  `io/polyhaven.ts`. Un seul parcours ouvert à la fois (`app/parcours.ts`), fermé par Échap ou le
+  voile. `ui/cadastreDialog.ts` (dont une fonction de 766 lignes), `ui/projectBar.ts` et
+  `ui/texturePicker.ts` disparaissent ; les styles en ligne deviennent des classes à jetons.
+- **« Actualiser IGN » se grise pendant une actualisation** au lieu de réécrire le libellé du bouton
+  qui l'avait lancée ; la commande ne dépend plus d'un bouton source.
+
 ### Corrigé
 
 - **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par

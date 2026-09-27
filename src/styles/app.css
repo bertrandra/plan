@@ -169,7 +169,7 @@
     font-variant-numeric:tabular-nums; padding:2px 7px; border:1px solid var(--border);
     border-radius:999px; background:var(--paper-deep); white-space:nowrap; cursor:help;
   }
-  /* Z8, les dialogues (zones/Dialogues.tsx), et les trois parcours DOM qui partagent le voile. */
+  /* Z8, les dialogues (zones/Dialogues.tsx), et les trois parcours (zones/Parcours.tsx) qui partagent le voile. */
   .dialogueVoile{
     position:fixed; inset:0; background:var(--scrim); z-index:9998;
     display:flex; align-items:center; justify-content:center; padding:14px;
@@ -208,6 +208,73 @@
     width:100%; font-family:inherit; font-size:0.9rem; padding:6px 8px; margin-top:8px;
     border:1px solid var(--border); border-radius:10px; background:var(--input-bg); color:var(--ink);
   }
+  /* Les parcours (zones/parcours/) : import cadastral, actualisation IGN, textures. */
+  .dialogueImperatif{
+    background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:var(--r-panneau);
+    font-family:var(--sans); box-shadow:var(--ombre-forte); font-size:0.88rem;
+  }
+  .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueTextures{ width:min(760px,94vw); height:min(600px,88vh); display:flex; flex-direction:column; }
+  .titreParcours{ font-weight:600; font-size:1.05rem; margin-bottom:10px; }
+  .sousTitreParcours{ font-size:0.8rem; opacity:0.8; margin:-6px 0 12px; line-height:1.4; }
+  .libelleChamp{ margin:12px 0 4px; }
+  .corpsParcours > .libelleChamp:first-child{ margin-top:0; }
+  .suggestionsAdresse, .listeParcelles{ margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+  .suggestionsAdresse button, .listeParcelles button{ text-align:left; font-size:0.84rem; padding:6px 8px; }
+  .listeParcelles{ gap:3px; max-height:22vh; overflow:auto; }
+  .apercuCadastre{ width:100%; height:min(46vh,340px); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--r-champ); display:block; }
+  .infoParcelle{ margin-top:10px; line-height:1.5; }
+  .titreListe{ margin-top:12px; font-weight:600; }
+  .caseParcours{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:0.82rem; cursor:pointer; }
+  .caseParcours.vide{ opacity:0.55; }
+  .resumePropriete{ margin-top:8px; font-size:0.82rem; font-weight:600; line-height:1.4; }
+  .resumePropriete.alerte, .erreurParcours{ color:var(--danger); }
+  .erreurParcours{ font-size:0.8rem; margin-top:6px; }
+  .aideParcours{ margin-top:8px; font-size:0.82rem; opacity:0.8; }
+  .barreSelection{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .listeVoisines{ margin-top:8px; display:flex; flex-direction:column; gap:3px; max-height:26vh; overflow:auto; }
+  .titreGroupe{ font-weight:600; margin-top:6px; font-size:0.82rem; }
+  .ligneVoisine{ display:flex; align-items:center; gap:10px; font-size:0.82rem; padding:2px 0; }
+  .ligneVoisine.survolee{ background:var(--accent-light); }
+  .ligneVoisine label{ display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; }
+  .texteVoisine{ cursor:pointer; flex:1; }
+  button.petitBouton{ font-size:0.72rem; padding:2px 7px; white-space:nowrap; }
+  .blocIgn{ margin-top:4px; display:flex; flex-direction:column; gap:3px; }
+  .detailIgn{ font-size:0.78rem; opacity:0.75; margin:-2px 0 2px 22px; }
+  .pluParcours{ font-size:0.8rem; margin-top:8px; line-height:1.45; }
+  .pluParcours .discret{ opacity:0.75; }
+  .etatParcours{ margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35; }
+  .etatParcours.erreur{ color:var(--danger); }
+  .piedDialogue{ display:flex; gap:8px; justify-content:flex-end; align-items:center; margin:14px 0 0; flex-wrap:wrap; border:none; padding:0; min-width:0; }
+  .mentionCadastre{ margin-top:12px; font-size:0.74rem; line-height:1.35; opacity:0.75; border-top:1px solid var(--border); padding-top:8px; }
+  .choixRadio{ display:flex; gap:8px; align-items:flex-start; padding:6px 0; cursor:pointer; }
+  .choixRadio input{ margin-top:3px; }
+  .aideChoix{ font-size:0.78rem; opacity:0.78; }
+  .separateurParcours{ border-top:1px solid var(--border); margin:10px 0 8px; }
+  .sousOptions{ margin:6px 0 0 26px; display:flex; flex-direction:column; gap:3px; font-size:0.82rem; }
+  .sousOptions label{ display:flex; gap:6px; align-items:center; cursor:pointer; }
+  .noteVoisinage{ margin:8px 0 0 26px; font-size:0.78rem; opacity:0.78; line-height:1.35; }
+  .sousOptions.inactives{ opacity:0.5; }
+  .noteVoisinage.inactives{ opacity:0.4; }
+  .enteteTextures{ display:flex; align-items:center; justify-content:space-between; }
+  .enteteTextures .titreParcours{ margin:0; }
+  .rechercheTextures{ padding:8px 10px; font-size:0.9rem; margin:10px 0 8px; }
+  .statutTextures{ font-size:0.78rem; color:var(--ink-soft); margin-bottom:6px; min-height:1.2em; }
+  .corpsTextures{ flex:1; display:flex; gap:12px; min-height:0; }
+  .grilleTextures{
+    flex:1.3; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+    gap:6px; align-content:start; border:1px solid var(--rule); border-radius:4px; padding:6px;
+  }
+  button.vignetteTexture{ padding:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; background:var(--panel-bg); color:var(--ink); }
+  button.vignetteTexture.choisie{ outline:3px solid var(--accent); }
+  .vignetteTexture img{ width:100%; height:64px; object-fit:cover; display:block; }
+  .vignetteTexture div{ font-size:0.66rem; padding:2px 3px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .apercuTexture{ flex:1; border:1px solid var(--rule); border-radius:4px; padding:10px; display:flex; flex-direction:column; align-items:center; text-align:center; overflow-y:auto; }
+  .apercuTexture img{ max-width:100%; border-radius:4px; margin-bottom:8px; }
+  .nomTexture{ font-weight:600; margin-bottom:4px; }
+  .noteTexture{ font-size:0.78rem; color:var(--ink-soft); margin-bottom:6px; }
+  .caseTous{ display:flex; align-items:center; gap:6px; font-size:0.82rem; margin-right:auto; cursor:pointer; }
 
   /* Z3, l'explorateur (zones/Explorateur.tsx) : une colonne entre la palette et le plan. Replie,
      il ne garde que sa poignee ; sous 1 024 px il s'escamote comme la palette. */
@@ -1098,8 +1165,8 @@
   }
   html[data-classe="compact"] .dialogueCadastre .piedDialogue button{ flex:1 1 auto; }
   /* Le selecteur de textures : la grille passe au-dessus de l'apercu, trois colonnes. */
-  html[data-classe="compact"] .dialogueTextures > div:nth-child(4){ flex-direction:column !important; }
-  html[data-classe="compact"] .dialogueTextures > div:nth-child(4) > div:first-child{ grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+  html[data-classe="compact"] .corpsTextures{ flex-direction:column; }
+  html[data-classe="compact"] .grilleTextures{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
   /* Les toasts au-dessus de la barre de navigation ; le bandeau d'erreur en haut, le bas etant pris. */
   html[data-classe="compact"] .notificationsToasts{ bottom:calc(var(--reserve-bas) + 12px); max-width:calc(100vw - 32px); }
   html[data-classe="compact"] .toast{ font-size:14px; border-radius:var(--r-bouton); padding:12px 16px; }

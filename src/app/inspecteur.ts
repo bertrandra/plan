@@ -9,7 +9,7 @@ import { mesure } from '../interaction/outilMesure.js';
 import { cibleAlignement } from '../interaction/outilAlignement.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
-import { ouvrirSelecteurTexture } from '../ui/texturePicker.js';
+import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';

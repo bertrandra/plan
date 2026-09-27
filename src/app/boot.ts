@@ -93,8 +93,9 @@ import {
 import type { CameraConservee } from '../three/glbViewer.js';
 import { serializeObjects, serializeMeasures } from '../io/serialisation.js';
 import { importSVGString as importerSVG } from '../io/importSvg.js';
-import { actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from '../ui/projectBar.js';
-import { ouvrirImportCadastre } from '../ui/cadastreDialog.js';
+import { actualisation, ouvrirDialogueActualisation } from './actualisationIgn.js';
+import { creerImportCadastre } from './importCadastre.js';
+import { parcours } from './parcours.js';
 import { creerProjet } from './projet.js';
 import { monterZones } from '../zones/monter.js';
 import { buildThreeScene as construireScene3D } from '../three/scene.js';
@@ -118,7 +119,6 @@ import type { ObjetRendu } from '../render/objects.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { Mode3D } from '../three/navigation.js';
 import type { PointDeVue } from '../three/etat3d.js';
-import type { OptionsActualisation } from '../ui/projectBar.js';
 import type { ProjetValide } from '../io/validation.js';
 import type { Instantane } from '../core/history.js';
 
@@ -210,21 +210,18 @@ function restaurerAffichageDuProjet(){ restaurerAffichage(etat, ctxProjetImporte
 // Le pointage de l'outil de cotation (et de l'alignement) passe par le service du tiroir.
 function startPick(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']){ resultats.pointer(mode, multi, purpose); }
 
-function ctxProjet(){
-  return {
-    etat, apiDelete, apiSave, lieuActuel, markDirty, pushHistory, rebuildSelector,
-    refreshProjectStatus: ()=>historique.declencherRafraichissementStatut(),
-    render, restoreState, serializeMeasures, serializeObjects, syncBasculeVoisinage,
-    syncLieuTitre, trouverParcelleCloture, withProjectParam,
-    initialState: ()=>initialState,
-    initialMeasures: ()=>initialMeasures,
-    cleDernierProjet: LS_LAST_PROJECT,
-    ouvrirDialogueActualisation: (b: HTMLButtonElement)=>ouvrirDialogueActualisation(b, ctxProjet()),
-    actualiserDepuisIgn: (o: OptionsActualisation | null, b: HTMLButtonElement | null)=>actualiserDepuisIgn(o, b, ctxProjet()),
-    construireVoisinage,
-    definirRafraichisseurStatut: (f: () => void)=>historique.definirRafraichisseurStatut(f),
-    contexteImport: ()=>({ apiSave, appliquerProjetImporte, withProjectParam, apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT })
-  };
+// L'actualisation IGN et l'import depuis une adresse sont des parcours (app/parcours.ts) : ces
+// fabriques leur passent ce qu'ils doivent pouvoir declencher.
+function ctxActualisation(){
+  return { etat, markDirty, pushHistory, rebuildSelector, render, restoreState, serializeMeasures,
+    serializeObjects, syncBasculeVoisinage, syncLieuTitre, trouverParcelleCloture };
+}
+// La commande « Actualiser IGN » se grise pendant une actualisation : les zones doivent le voir.
+actualisation.abonner(()=>magasin.notifier());
+function ouvrirImportCadastre(){
+  const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
+    apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT }, ()=>parcours.fermer());
+  parcours.ouvrir({ type: 'cadastre', importe });
 }
 // Etat d'affichage des parasols et du mode Terrasse. Ces variables sont restees ici quand le
 // moteur est parti en phase 3 : elles decrivent ce que l'utilisateur regarde, pas un calcul.
@@ -1080,8 +1077,9 @@ const projet = creerProjet(seed, {
   initialMeasures: ()=>initialMeasures,
   cleDernierProjet: LS_LAST_PROJECT,
   definirRafraichisseurStatut: (f)=>historique.definirRafraichisseurStatut(f),
-  ouvrirImportCadastre: ()=>ouvrirImportCadastre(ctxProjet().contexteImport()),
-  ouvrirDialogueActualisation: (b)=>ouvrirDialogueActualisation(b, ctxProjet())
+  ouvrirImportCadastre,
+  ouvrirDialogueActualisation: ()=>ouvrirDialogueActualisation(ctxActualisation()),
+  actualisationEnCours: ()=>actualisation.enCours()
 }, magasin, commandes);
 // L'explorateur (zones/) demande au plan par ce service ; il lit le reste dans le magasin.
 const explorateur = creerExplorateur(etat, { render, markDirty, redimensionner: redimensionnerLePlan }, magasin);

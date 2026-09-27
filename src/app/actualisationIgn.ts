@@ -1,22 +1,18 @@
-// Actualisation cadastrale et panneau PLU (spec §3.2, ui/).
+// L'actualisation IGN d'un plan cree depuis une adresse (spec §3.2, app/).
 //
-// Deux choses qui parlent du projet plutot que du plan : d'ou viennent ses donnees cadastrales, et
-// ce que le PLU dit de sa parcelle. La barre de projet elle-meme — ouvrir, creer, enregistrer,
-// supprimer — est devenue des commandes (app/projet.ts) affichees par zones/BarreApplication.tsx
-// a l'etape 1 de la reconstruction de l'interface (MD/spec-ihm-zones.md).
+// C'est le geste delicat du lot : elle rejoue l'import IGN sur un plan qui a deja ete modifie. Ce qui
+// vient du cadastre est remplace, ce que l'utilisateur a dessine est conserve — et c'est pour cela
+// qu'elle passe par l'historique avant de toucher quoi que ce soit. Le dialogue qui la regle est un
+// parcours (app/parcours.ts, zones/parcours/Actualisation.tsx) ; ce module fait le travail.
 //
-// L'actualisation est le geste delicat du lot : elle rejoue l'import IGN sur un plan qui a deja ete
-// modifie. Ce qui vient du cadastre est remplace, ce que l'utilisateur a dessine est conserve - et
-// c'est pour cela qu'elle passe par l'historique avant de toucher quoi que ce soit.
+// Une seule actualisation a la fois : la commande se grise pendant qu'elle tourne (`enCours`).
 
-import { escapeHtml } from '../util/escape.js';
 import { nombreFr } from '../util/format.js';
-import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
+import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { showToast } from '../shell/dialogs.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
-import { libelleParcelle } from '../geo/bdtopo.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
   interrogerCadastre, construireCandidats, trierVoisines,
@@ -25,35 +21,20 @@ import {
   interrogerPlu,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
+import { sommetsDe } from '../model/formes.js';
+import { parcours } from './parcours.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
-import { sommetsDe } from '../model/formes.js';
-import type { ObjetPlan, ObjetBrut, ObjetPolygone } from '../model/types.js';
-import type { Lieu } from '../model/lieu.js';
-import type { ProjetValide } from '../io/validation.js';
+import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../model/types.js';
 
-/** Ce que le choix depuis une adresse ouvre : voir `cadastreDialog.ts`. */
-export interface ContexteImportCadastre {
-  apiSave: (payload: unknown) => Promise<{ id: string }>;
-  appliquerProjetImporte: (valide: ProjetValide, remplacer: boolean) => void;
-  withProjectParam: (id: string) => string;
-  apiDisponible: boolean;
-  cleDernierProjet: string;
-}
-
-/** Ce que la barre de projet, le PLU et l'actualisation IGN demandent au reste du programme. */
-export interface ContexteProjectBar {
+/** Ce que l'actualisation demande au reste du programme. */
+export interface ContexteActualisation {
   etat: EtatApp;
-  apiDelete: (id: string) => Promise<unknown>;
-  /** Le serveur ne promet que `{id}`, mais rend en pratique `updatedAt` — voir `io/api.ts`. */
-  apiSave: (payload: unknown) => Promise<{ id: string; updatedAt?: string }>;
-  lieuActuel: () => Lieu;
   markDirty: () => void;
   pushHistory: () => void;
   rebuildSelector: () => void;
-  refreshProjectStatus: () => void;
   render: () => void;
   restoreState: (instantane: { objects: ObjetBrut[]; measures: unknown[] }) => void;
   serializeMeasures: (ms: EtatApp['measures']) => unknown[];
@@ -61,12 +42,6 @@ export interface ContexteProjectBar {
   syncBasculeVoisinage: () => void;
   syncLieuTitre: () => void;
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
-  withProjectParam: (id: string) => string;
-  initialState: () => unknown[];
-  initialMeasures: () => unknown[];
-  cleDernierProjet: string;
-  definirRafraichisseurStatut: (f: () => void) => void;
-  contexteImport: () => ContexteImportCadastre;
 }
 
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
@@ -75,24 +50,99 @@ export interface OptionsActualisation {
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean };
 }
 
-export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, bouton: HTMLButtonElement | null, ctx: ContexteProjectBar): Promise<void> {
-  options = options || { portee:'tout', voisinage:{actif:false} };
+/** Ce que le dialogue affiche du plan avant d'actualiser. */
+export interface InfosActualisation {
+  /** « Parcelle AB 123 — Le Vesinet ». */
+  parcelle: string;
+  /** Objets importes de la BD TOPO deja presents. */
+  nbIgn: number;
+  /** Parcelles voisines deja presentes : elles ne seront pas dupliquees. */
+  nbVoisines: number;
+}
+
+type Cadastre = NonNullable<ObjetPlan['cadastre']>;
+
+let enCours = false;
+const abonnes = new Set<() => void>();
+function signaler(): void { abonnes.forEach(f => f()); }
+export const actualisation = {
+  enCours: (): boolean => enCours,
+  abonner(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
+};
+
+/** Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN. */
+function origineValide(cad: Cadastre): boolean {
+  return cad.origineLat !== undefined && cad.origineLat !== null && cad.origineLon !== undefined && cad.origineLon !== null;
+}
+
+/**
+ * Ouvre le dialogue d'actualisation — ou dit pourquoi on ne peut pas : un plan qui ne vient pas du
+ * cadastre n'a rien a actualiser, et un plan sans point de calage verrait tout son contenu deplace.
+ */
+export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
     showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
-  // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
-  if(cad.origineLat === undefined || cad.origineLat === null || cad.origineLon === undefined || cad.origineLon === null){
+  if(!origineValide(cad)){
     showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
     return;
   }
-  const libelleInitial = bouton ? bouton.textContent : '';
-  if(bouton){ bouton.disabled = true; bouton.textContent = 'Actualisation…'; }
+  parcours.ouvrir({
+    type: 'actualisation',
+    infos: {
+      parcelle: 'Parcelle ' + (cad.section || '') + ' ' + String(cad.numero || '').replace(/^0+/, '') + ' — ' + (cad.commune || ''),
+      nbIgn: ctx.etat.objects.filter(o => coucheIgn(o) !== null).length,
+      nbVoisines: ctx.etat.objects.filter(o => o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length
+    },
+    lancer: (options) => { parcours.fermer(); void actualiserDepuisIgn(options, ctx); }
+  });
+}
+
+/** La couche BD TOPO d'un objet importe, ou `null` pour un objet dessine ou un arbre estime. */
+function coucheIgn(o: ObjetPlan): string | null {
+  // `bdtopo` reste `unknown` sur ObjetPlan : sa forme varie selon la couche (model/types.ts).
+  const couche = (o.bdtopo as { couche?: unknown } | null | undefined)?.couche;
+  return typeof couche === 'string' && couche !== 'estimation' ? couche : null;
+}
+
+/**
+ * Les objets BD TOPO frais, par identifiant, pour chaque couche deja presente dans le plan. Une
+ * couche indisponible ne bloque pas les autres : elle est notee au bilan, ses objets restent tels
+ * quels.
+ */
+async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan: string[]): Promise<Record<string, FeatureGeoJSON>> {
+  const fraiches: Record<string, FeatureGeoJSON> = {};
+  const couches = [...new Set(objets.map(coucheIgn).filter((c): c is string => c !== null))];
+  const anneaux: Anneau[] = [];
+  objets.forEach(o => { if (o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]!); });
+  if (!couches.length || !anneaux.length) return fraiches;
+  const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
+  for (const couche of couches) {
+    try {
+      const feats = await interrogerWfs(couche, bbox, 80);
+      feats.forEach(f => {
+        const p = f.properties || {};
+        const id = (f.id as string) || (p.cleabs as string);
+        if (id) fraiches[id] = f;
+      });
+    } catch { bilan.push('couche ' + couche + ' indisponible'); }
+  }
+  return fraiches;
+}
+
+export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
+  options = options || { portee:'tout', voisinage:{actif:false} };
+  const parcelle = ctx.trouverParcelleCloture();
+  const cad = parcelle && parcelle.cadastre;
+  if(!parcelle || !cad || !origineValide(cad) || enCours) return;
+  enCours = true;
+  signaler();
   const bilan = [];
   try {
-    const proj = projecteurLocal(cad.origineLat, cad.origineLon);
+    const proj = projecteurLocal(cad.origineLat as number, cad.origineLon as number);
     const simplifier = !!cad.simplifieM;
 
     // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
@@ -100,8 +150,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // autres, dont ceux-ci, arrivent par l'index signature en `unknown`.
     const urlParcelle = CADASTRE_URL + '?code_insee=' + encodeURIComponent(cad.codeInsee as string) +
       '&section=' + encodeURIComponent(cad.section as string) + '&numero=' + encodeURIComponent(cad.numero as string) + '&_limit=5';
-    // `fetchJSONReseau` rend du JSON arbitraire (`unknown`) : ce module (ui/, pas encore type)
-    // continue de le lire sans verification, comme avant le typage de geo/apiIgn.ts.
+    // `fetchJSONReseau` rend du JSON arbitraire (`unknown`) : la reponse est lue comme la collection
+    // GeoJSON que l'API renvoie, sans verification, comme avant le typage de geo/apiIgn.ts.
     const repParcelle = await fetchJSONReseau(urlParcelle) as CollectionGeoJSON;
     const featParcelle = ((repParcelle && repParcelle.features) || [])[0];
     let ptsParcelle = null;
@@ -117,31 +167,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       ptsParcelle = null;
     }
 
-    // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee "tout" seulement)
-    // `bdtopo` reste `unknown` sur ObjetPlan (sa forme varie selon la couche, voir model/types.ts) :
-    // ce module le lit sans verification, comme avant le typage de geo/.
-    const objsIgn: { bdtopo: { couche: string } }[] = options.portee === 'tout'
-      ? ctx.etat.objects.filter((o: ObjetPlan) => o.bdtopo && (o.bdtopo as { couche?: string }).couche && (o.bdtopo as { couche?: string }).couche !== 'estimation') as unknown as { bdtopo: { couche: string } }[]
-      : [];
-    const couches: string[] = [...new Set(objsIgn.map(o => o.bdtopo.couche))];
-    const fraiches: Record<string, FeatureGeoJSON> = {};
-    if(couches.length){
-      const anneaux: Anneau[] = [];
-      ctx.etat.objects.forEach((o: ObjetPlan)=>{ if(o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]!); });
-      if(anneaux.length){
-        const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
-        for(const couche of couches){
-          try {
-            const feats = await interrogerWfs(couche, bbox, 80);
-            feats.forEach(f=>{
-              const p = f.properties || {};
-              const id = (f.id as string) || (p.cleabs as string);
-              if(id) fraiches[id] = f;
-            });
-          } catch { bilan.push('couche ' + couche + ' indisponible'); }
-        }
-      }
-    }
+    // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee « tout » seulement)
+    const fraiches = options.portee === 'tout' ? await couchesFraiches(ctx.etat.objects, proj, bilan) : {};
 
     // ---- 3. Application
     ctx.pushHistory();
@@ -244,129 +271,9 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   } catch(e){
     showToast('Actualisation impossible : ' + ((e as Error).message || e));
   } finally {
-    if(bouton){ bouton.disabled = false; bouton.textContent = libelleInitial; }
+    enCours = false;
+    signaler();
   }
-}
-
-export function ouvrirDialogueActualisation(bouton: HTMLButtonElement, ctx: ContexteProjectBar): void {
-  const parcelle = ctx.trouverParcelleCloture();
-  const cad = parcelle && parcelle.cadastre;
-  if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
-    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l\'actualiser.');
-    return;
-  }
-  // Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN.
-  if(cad.origineLat === undefined || cad.origineLat === null || cad.origineLon === undefined || cad.origineLon === null){
-    showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
-    return;
-  }
-  const nbIgn = ctx.etat.objects.filter((o: ObjetPlan)=>o.bdtopo && (o.bdtopo as { couche?: string }).couche && (o.bdtopo as { couche?: string }).couche !== 'estimation').length;
-  const nbVoisines = ctx.etat.objects.filter((o: ObjetPlan)=>o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length;
-
-  const overlay = document.createElement('div');
-  overlay.className = 'dialogueVoile';
-  // Echap ferme, comme les autres dialogues (spec-ihm-mobile, D11).
-  const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); fermer(); } };
-  function fermer(){ document.removeEventListener('keydown', surTouche); overlay.remove(); }
-  document.addEventListener('keydown', surTouche);
-  const box = document.createElement('div');
-  box.className = 'dialogueImperatif dialogueActualisation';
-  box.style.cssText = 'background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:16px; width:min(520px,96vw); max-height:92vh; overflow:auto; font-family:var(--sans); font-size:0.88rem; box-shadow:var(--ombre-forte);';
-  const titre = document.createElement('div');
-  titre.style.cssText = 'font-weight:600; font-size:1.02rem; margin-bottom:4px;';
-  titre.textContent = 'Actualiser depuis l\'IGN';
-  const sous = document.createElement('div');
-  sous.style.cssText = 'font-size:0.8rem; opacity:0.8; margin-bottom:12px; line-height:1.4;';
-  sous.textContent = 'Parcelle ' + (cad.section || '') + ' ' + String(cad.numero || '').replace(/^0+/,'') +
-    ' — ' + (cad.commune || '') + '. Les objets dessines a la main ne sont jamais touches.';
-  box.appendChild(titre); box.appendChild(sous);
-
-  const radio = (valeur: string, libelle: string, aide: string, coche: boolean) => {
-    const lab = document.createElement('label');
-    lab.style.cssText = 'display:flex; gap:8px; align-items:flex-start; padding:6px 0; cursor:pointer;';
-    const r = document.createElement('input');
-    r.type = 'radio'; r.name = 'porteeActualisation'; r.value = valeur; r.checked = coche;
-    r.style.marginTop = '3px';
-    const txt = document.createElement('span');
-    txt.innerHTML = '<b>' + escapeHtml(libelle) + '</b><br><span style="font-size:0.78rem; opacity:0.78;">' + escapeHtml(aide) + '</span>';
-    lab.appendChild(r); lab.appendChild(txt);
-    box.appendChild(lab);
-    return r;
-  };
-  // Le premier bouton radio est coche par defaut ; sa reference ne sert pas ensuite.
-  radio('parcelle', 'La parcelle seule',
-    'Contour cadastral de la parcelle et zonage PLU. Rien d\'autre n\'est interroge.', true);
-  const rTout = radio('tout', 'Tout ce qui vient de l\'IGN',
-    'La parcelle, le PLU, et les ' + nbIgn + ' objet(s) importes de la BD TOPO (batiments, vegetation) deja presents dans ce plan.', false);
-
-  const sep = document.createElement('div');
-  sep.style.cssText = 'border-top:1px solid var(--border,#ddd); margin:10px 0 8px;';
-  box.appendChild(sep);
-
-  const labVois = document.createElement('label');
-  labVois.style.cssText = 'display:flex; gap:8px; align-items:flex-start; cursor:pointer;';
-  const cbVois = document.createElement('input');
-  cbVois.type = 'checkbox'; cbVois.style.marginTop = '3px';
-  const txtVois = document.createElement('span');
-  txtVois.innerHTML = '<b>Ajouter les parcelles adjacentes</b><br><span style="font-size:0.78rem; opacity:0.78;">' +
-    'Import de voisinage : les parcelles mitoyennes absentes du plan' +
-    (nbVoisines ? ' (' + nbVoisines + ' deja presente(s), elles ne seront pas dupliquees)' : '') + '.</span>';
-  labVois.appendChild(cbVois); labVois.appendChild(txtVois);
-  box.appendChild(labVois);
-
-  const sousOptions = document.createElement('div');
-  sousOptions.style.cssText = 'margin:6px 0 0 26px; display:flex; flex-direction:column; gap:3px; font-size:0.82rem;';
-  const sousCase = (libelle: string, coche: boolean, titreAide: string) => {
-    const l = document.createElement('label');
-    l.style.cssText = 'display:flex; gap:6px; align-items:center; cursor:pointer;';
-    if(titreAide) l.title = titreAide;
-    const c = document.createElement('input');
-    c.type = 'checkbox'; c.checked = coche; c.disabled = true;
-    l.appendChild(c); l.appendChild(document.createTextNode(libelle));
-    sousOptions.appendChild(l);
-    return c;
-  };
-  const cbBati = sousCase('Bâti principal et annexes (BD TOPO, avec hauteur)', true,
-    'Emprise et hauteur reelles ; les batiments des voisins arrivent verrouilles.');
-  const cbVeg = sousCase('Haies et zones de végétation', true, 'Couches haie et zone_de_vegetation de la BD TOPO.');
-  const cbArbres = sousCase('Arbres estimés dans ces zones', false,
-    'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille d\'un arbre pour 64 m2 est repartie dans les zones de vegetation.');
-  box.appendChild(sousOptions);
-  const noteMasquer = document.createElement('div');
-  noteMasquer.style.cssText = 'margin:8px 0 0 26px; font-size:0.78rem; opacity:0.78; line-height:1.35;';
-  noteMasquer.textContent = 'Tout ce qui arrive par cet import est marque « voisinage » : l\'oeil « Voisinage » de l\'explorateur (ou Affichage › Voisinage) le masque d\'un coup, sans le supprimer.';
-  box.appendChild(noteMasquer);
-
-  const majSousOptions = ()=>{
-    [cbBati, cbVeg, cbArbres].forEach(c=>{ c.disabled = !cbVois.checked; });
-    sousOptions.style.opacity = cbVois.checked ? '1' : '0.5';
-    noteMasquer.style.opacity = cbVois.checked ? '0.78' : '0.4';
-  };
-  cbVois.addEventListener('change', majSousOptions);
-  majSousOptions();
-
-  const pied = document.createElement('div');
-  pied.style.cssText = 'display:flex; gap:8px; justify-content:flex-end; margin-top:16px;';
-  const annuler = document.createElement('button');
-  annuler.type = 'button'; annuler.className = 'secondary'; annuler.textContent = 'Annuler';
-  annuler.addEventListener('click', ()=>fermer());
-  const valider = document.createElement('button');
-  valider.type = 'button'; valider.textContent = 'Actualiser';
-  valider.addEventListener('click', ()=>{
-    const options: OptionsActualisation = {
-      portee: rTout.checked ? 'tout' : 'parcelle',
-      voisinage: cbVois.checked
-        ? { actif:true, batiments:cbBati.checked, vegetation:cbVeg.checked, arbres:cbArbres.checked }
-        : { actif:false }
-    };
-    fermer();
-    void actualiserDepuisIgn(options, bouton, ctx);
-  });
-  pied.appendChild(annuler); pied.appendChild(valider);
-  box.appendChild(pied);
-  overlay.appendChild(box);
-  overlay.addEventListener('click', e=>{ if(e.target === overlay) fermer(); });
-  document.body.appendChild(overlay);
 }
 
 export async function construireVoisinage(
@@ -433,7 +340,7 @@ export async function construireVoisinage(
   // BD TOPO sur les seules parcelles qui viennent d'entrer dans le plan.
   const bbox = bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
-  const surNouvelles = (e: { pts: import('../model/types.js').PtBrut[] }) => nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  const surNouvelles = (e: { pts: PtBrut[] }) => nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
 
   if(choix.batiments){
     const feats2 = await interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch((): FeatureGeoJSON[]=>[]);
