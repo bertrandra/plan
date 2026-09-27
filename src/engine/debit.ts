@@ -5,13 +5,13 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist } from '../geometry/basic.js';
-import { longueursBois, longueursDispo, longueursLambourde } from './bom.js';
+import { longueursBois, longueursDispo, longueursLambourde } from './prix.js';
 import { ensureConstruction } from './construction.js';
 import { longueurLameReelle } from './lames.js';
-import { dimsSection, porteeVisM, sectionLambourde } from './structure.js';
+import { dimsSection, porteeVisM, sectionLambourde } from './portees.js';
 import { enPoints } from '../model/formes.js';
 import type { CouchesTerrasse } from './layers.js';
-import type { ProduitBarre } from './bom.js';
+import type { ProduitBarre } from './prix.js';
 import type { ObjetPlan, Segment } from '../model/types.js';
 
 /**

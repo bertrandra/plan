@@ -6,7 +6,7 @@
 
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, sectionLambourde } from './structure.js';
+import { dimsSection, sectionLambourde } from './portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
 import type { Construction, PtBrut } from '../model/types.js';
 

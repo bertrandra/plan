@@ -129,7 +129,7 @@ import type { FormeASommets } from '../model/sommets.js';
 import type { ObjetRendu } from '../render/objects.js';
 import type { CouchesTerrasse } from '../engine/layers.js';
 import type { Debit } from '../engine/debit.js';
-import type { ProduitBarre } from '../engine/bom.js';
+import type { ProduitBarre } from '../engine/prix.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { Mode3D } from '../three/navigation.js';
 import type { PointDeVue } from '../three/etat3d.js';

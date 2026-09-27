@@ -12,18 +12,20 @@ import { escapeHtml } from '../util/escape.js';
 import { svgNS } from '../render/svg.js';
 import { showToast } from '../shell/dialogs.js';
 import { dist, shoelace } from '../geometry/basic.js';
-import { achatPlots, achatVis, coutDebit, prixPersonnalise, prixPlotUnite, prixVisUnite } from '../engine/bom.js';
+import { achatPlots, achatVis, coutDebit, prixPersonnalise, prixPlotUnite, prixVisUnite } from '../engine/prix.js';
 import { CADENCES, CHANTIER_PHASES, computeChantier } from '../engine/chantier.js';
 import { ESSENCE_PRICES, estPlots, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_PRICE } from '../engine/constantes.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { computeDebitsBois } from '../engine/debit.js';
 import { computeImplantation } from '../engine/implantation.js';
 import { computeTerrasseLayers, type CouchesTerrasse } from '../engine/layers.js';
-import { buildVisGrid, coefRaideurLame, computeStructure, dimsSection, ENTRAXE_LAME_K, evaluerStructure, LAME_RAIDEUR, lamesAngleOf, maxEntraxeLameCm, maxPorteeVisM, optimiserParametres, PORTEE_VIS_K, porteeVisM, porteeVisSpaM, prixUnitaire, sectionLambourde, SOLIVE_SECTION_DIMS, structureVide } from '../engine/structure.js';
+import { buildVisGrid, computeStructure, lamesAngleOf, prixUnitaire, structureVide } from '../engine/structure.js';
+import { coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeVisM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../engine/portees.js';
+import { evaluerStructure, optimiserParametres } from '../engine/optimisation.js';
 import { aDesSommets, sommetsDe } from '../model/formes.js';
 import type { ObjetPlan, Construction, PtBrut } from '../model/types.js';
 import type { Debit } from '../engine/debit.js';
-import type { ProduitBarre } from '../engine/bom.js';
+import type { ProduitBarre } from '../engine/prix.js';
 
 /** Ce que ces huit panneaux demandent au reste du programme. */
 export interface ContexteTerrassePanels {

@@ -5,7 +5,7 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist, shoelace } from '../geometry/basic.js';
-import { computeAssise } from './bom.js';
+import { computeAssise } from './prix.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';

@@ -4,9 +4,9 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
-import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT } from './bom.js';
+import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT } from './prix.js';
 import { LAME_RIVE_EPAISSEUR_M, PLOT_ASSISE_MIN_CM2, VIS_PRICE } from './constantes.js';
-import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAME_RAIDEUR, PORTEE_VIS_K } from './structure.js';
+import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAME_RAIDEUR, PORTEE_VIS_K } from './portees.js';
 import type { Construction } from '../model/types.js';
 
 /** Ce qui porte des parametres de construction : une terrasse du plan, ou une candidate a l'etude. */

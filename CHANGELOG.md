@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement** : le
+moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
+
+### Modifié
+
+- **Le moteur n'a plus d'import circulaire** (FF-1). `construction`, `bom`, `debit`, `structure` et
+  `layers` s'importaient en quatre boucles. Trois modules en sortent, sans retouche du code :
+  `engine/portees.ts` (sections, portées, charges), `engine/prix.ts` (prix et longueurs de stock) et
+  `engine/optimisation.ts` (l'optimiseur de structure).
+- **`tests/unit/architecture.test.ts` lit toutes les formes d'import** : sur plusieurs lignes, les
+  re-exports, `import()` et les chemins `../../`. Les modules des sous-dossiers échappaient jusqu'ici
+  à la règle des couches. Le même fichier vérifie maintenant l'absence de cycle.
+- **ESLint porte FF-9 et FF-10** : aucun `any` dans `model`, `engine` et `geometry`, et aucune
+  fonction de plus de 150 lignes, avec un cliquet par fichier pour les onze qui en ont déjà une.
+- **ADR-16** (`docs/adr/0016-react-and-zustand-for-the-zones.md`) remplace ADR-2 : React et Zustand
+  pour les zones, le plan et les gestes restent en DOM natif. `architecture.md` gagne une carte des
+  modules au 27 septembre (§5.2.3), et §9 dit quelles fonctions d'aptitude tournent réellement.
+
 ## [2.1.1] — 2026-09-26
 
 Mise en conformité de l'interface avec la maquette de la `2.1.0`. Une revue écran par écran, sur

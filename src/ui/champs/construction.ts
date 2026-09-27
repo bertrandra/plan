@@ -12,9 +12,10 @@
 
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
-import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/bom.js';
+import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, findSpaZones, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS, zoneToucheTerrasse } from '../../engine/structure.js';
+import { buildVisGrid, findSpaZones, zoneToucheTerrasse } from '../../engine/structure.js';
+import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import { optimisationVisible, renderOptimResult, type ContexteTerrassePanels } from '../terrassePanels.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';

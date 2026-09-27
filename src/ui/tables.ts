@@ -7,7 +7,8 @@
 // La selection du dossier vit ici parce que cocher une terrasse pour le PDF n'est pas une donnee
 // du plan : elle ne s'enregistre pas.
 
-import { computeBOM, coutDebit, prixBarre, prixM2De, prixPersonnalise, setPrixBarre, setPrixM2, type ProduitBarre } from '../engine/bom.js';
+import { computeBOM } from '../engine/bom.js';
+import { coutDebit, prixBarre, prixM2De, prixPersonnalise, setPrixBarre, setPrixM2, type ProduitBarre } from '../engine/prix.js';
 import { computeTerrasseLayers, type CouchesTerrasse } from '../engine/layers.js';
 import { computeDebitLames, type Debit } from '../engine/debit.js';
 import { ESSENCE_PRICES } from '../engine/constantes.js';
