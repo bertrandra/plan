@@ -76,6 +76,62 @@ export interface ContexteNavigation {
   ouvrirVue3d: () => void;
 }
 
+/**
+ * Redimensionne une scene apres un changement de taille de son hote.
+ *
+ * Le canvas garde sa taille CSS (100 % de l'hote) : c'est donc l'**hote** qui grandit. Mais ni le
+ * renderer ni la camera ne suivent une resize CSS tout seuls — sans cet appel explicite, l'image
+ * reste a l'ancienne taille, etiree ou bordee de bandes vides.
+ */
+function redimensionner(sc: SceneTroisBase | null, host: HTMLElement | null): void {
+  if (!sc || !host) return;
+  const w = host.clientWidth || 600, h = host.clientHeight || 420;
+  sc.camera.aspect = w / h;
+  sc.camera.updateProjectionMatrix();
+  sc.renderer.setSize(w, h);
+  sc.renderer.render(sc.scene, sc.camera);
+}
+
+/**
+ * Depuis le panneau d'un point de vue, ou depuis la liste des vues : bascule en Vue 3D et y
+ * place la camera.
+ *
+ * **Le centre est celui de la scene, pas un centroide recalcule** (correction de D-15). Un
+ * point de vue est enregistre en coordonnees du plan a partir de `scene.cen` ; l'y ramener
+ * demande exactement le meme nombre, et le seul endroit ou il est sur de le trouver est la
+ * scene qui vient d'etre batie. Le recalculer sur la terrasse donnait la bonne reponse tant
+ * qu'il y avait une terrasse et qu'elle etait bien l'objet sur lequel la scene s'etait
+ * centree — deux conditions que rien ne garantissait.
+ *
+ * **Aucune terrasse n'est exigee.** La Vue 3D s'ouvre sur un plan qui n'en a pas, et « 📷
+ * Enregistrer la vue » y cree des points de vue : les refuser au retour, par un message qui
+ * reclamait une terrasse, revenait a jeter ce que le meme ecran venait de fabriquer. C'est le
+ * defaut trouve par l'item 23 de la liste de fumee, sur un plan importe par adresse.
+ *
+ * La scene n'existe pas encore au moment du clic, et sa construction est asynchrone : d'ou
+ * l'attente active, dix secondes au plus. Elle guette `dernierObjKey` et pas seulement la
+ * presence d'une scene — sinon on poserait la camera dans la scene **precedente**, celle d'une
+ * autre terrasse, juste avant qu'elle soit remplacee.
+ */
+function allerAuPointDeVue(etat: PlanVuDeLa3d, ctx: ContexteNavigation, vp: PointDeVue): void {
+  const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
+            || etat.objects.find(o => o.fonction === 'terrasse');
+  if (terr) etat.terrasseSelectedKey = terr.key;
+  const cleAttendue = cleDeVue(terr);
+  ctx.ouvrirVue3d();
+  let tentatives = 0;
+  (function essayer() {
+    tentatives++;
+    const sc: SceneVue3d | null = vue3d.scene;
+    if (sc && vue3d.dernierObjKey === cleAttendue) {
+      poserCamera(sc, vp, sc.cen);
+      return;
+    }
+    if (tentatives < 100) setTimeout(essayer, 100);
+    else ctx.showErrBanner('Vue 3D : chargement trop long, reessaie.');
+  })();
+}
+
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
@@ -145,21 +201,6 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     signaler3d();
   }
 
-  /**
-   * Redimensionne une scene apres un changement de taille de son hote.
-   *
-   * Le canvas garde sa taille CSS (100 % de l'hote) : c'est donc l'**hote** qui grandit. Mais ni le
-   * renderer ni la camera ne suivent une resize CSS tout seuls — sans cet appel explicite, l'image
-   * reste a l'ancienne taille, etiree ou bordee de bandes vides.
-   */
-  function redimensionner(sc: SceneTroisBase | null, host: HTMLElement | null): void {
-    if (!sc || !host) return;
-    const w = host.clientWidth || 600, h = host.clientHeight || 420;
-    sc.camera.aspect = w / h;
-    sc.camera.updateProjectionMatrix();
-    sc.renderer.setSize(w, h);
-    sc.renderer.render(sc.scene, sc.camera);
-  }
   function resizeThreeScene(): void { redimensionner(vue3d.scene, hotes3d.vue3d); }
   function resizeGlbViewerScene(): void { redimensionner(glb.scene, hotes3d.glb); }
 
@@ -191,45 +232,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
       renderer.render(scene, camera);
     },
 
-    /**
-     * Depuis le panneau d'un point de vue, ou depuis la liste des vues : bascule en Vue 3D et y
-     * place la camera.
-     *
-     * **Le centre est celui de la scene, pas un centroide recalcule** (correction de D-15). Un
-     * point de vue est enregistre en coordonnees du plan a partir de `scene.cen` ; l'y ramener
-     * demande exactement le meme nombre, et le seul endroit ou il est sur de le trouver est la
-     * scene qui vient d'etre batie. Le recalculer sur la terrasse donnait la bonne reponse tant
-     * qu'il y avait une terrasse et qu'elle etait bien l'objet sur lequel la scene s'etait
-     * centree — deux conditions que rien ne garantissait.
-     *
-     * **Aucune terrasse n'est exigee.** La Vue 3D s'ouvre sur un plan qui n'en a pas, et « 📷
-     * Enregistrer la vue » y cree des points de vue : les refuser au retour, par un message qui
-     * reclamait une terrasse, revenait a jeter ce que le meme ecran venait de fabriquer. C'est le
-     * defaut trouve par l'item 23 de la liste de fumee, sur un plan importe par adresse.
-     *
-     * La scene n'existe pas encore au moment du clic, et sa construction est asynchrone : d'ou
-     * l'attente active, dix secondes au plus. Elle guette `dernierObjKey` et pas seulement la
-     * presence d'une scene — sinon on poserait la camera dans la scene **precedente**, celle d'une
-     * autre terrasse, juste avant qu'elle soit remplacee.
-     */
-    allerAuPointDeVue(vp: PointDeVue) {
-      const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
-                || etat.objects.find(o => o.fonction === 'terrasse');
-      if (terr) etat.terrasseSelectedKey = terr.key;
-      const cleAttendue = cleDeVue(terr);
-      ctx.ouvrirVue3d();
-      let tentatives = 0;
-      (function essayer() {
-        tentatives++;
-        const sc: SceneVue3d | null = vue3d.scene;
-        if (sc && vue3d.dernierObjKey === cleAttendue) {
-          poserCamera(sc, vp, sc.cen);
-          return;
-        }
-        if (tentatives < 100) setTimeout(essayer, 100);
-        else ctx.showErrBanner('Vue 3D : chargement trop long, reessaie.');
-      })();
-    },
+    allerAuPointDeVue: (vp: PointDeVue) => allerAuPointDeVue(etat, ctx, vp),
 
     /**
      * Meme geste dans la visionneuse GLB — sans changement d'onglet ni attente : sa scene est deja

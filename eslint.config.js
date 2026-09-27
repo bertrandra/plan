@@ -43,12 +43,10 @@ export default [
   // chacun a pour plafond sa plus longue d'alors. Une entree ne s'ajoute jamais, un plafond ne monte
   // jamais : quand une fonction est decoupee, on baisse le plafond ou on retire la ligne.
   ...Object.entries({
-    'src/app/boot.ts': 1013,             // boot()
     'src/three/scene.ts': 638,           // buildThreeScene()
     'src/interaction/pointeur.ts': 281,
     'src/export/pdfPlan.ts': 257,
     'src/geo/cadastreObjets.ts': 244,
-    'src/three/navigation.ts': 206,
     'src/io/importSvg.ts': 165,
   }).map(([fichier, max]) => ({ files: [fichier], rules: { 'max-lines-per-function': ['error', { max }] } })),
   {
