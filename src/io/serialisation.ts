@@ -52,7 +52,10 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       if(o.type==='path'){ out.width = o.width; out.curve = !!o.curve; }
     }
     if(o.construction) out.construction = JSON.parse(JSON.stringify(o.construction));
-    return out;
+    // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des
+    // clefs est celui du fichier enregistre (empreinte projet.json). Ce qu'elle ecrit est un
+    // `ObjetBrut` : chaque champ vient de `o`, les absents valent `null`, que le modele admet.
+    return out as ObjetSerialise;
   });
 }
 /**

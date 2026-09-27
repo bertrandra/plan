@@ -628,7 +628,7 @@ P6 in practice. Each runs in CI and fails the build. This is what makes the word
 | FF-6 | `FeatureKey` union matches the seeded catalog exactly | QA-F2 | Drift test against the DB |
 | FF-7 | Every entitlement-gated route has a 403-without-entitlement test | QA-Q4 | Route registry × test registry reconciliation |
 | FF-8 | RLS enabled on every tenant-scoped table | ASR-4 | `pg_class.relrowsecurity` introspection test |
-| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js` |
+| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js`; inline `eslint-disable` refused in those folders |
 | FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function`, with a per-file ceiling list in `eslint.config.js` that only shrinks |
 | FF-11 | Every `SCHEMA_VERSION` has a migration and an N/N+1 fixture | ASR-2 | Test enumerating the chain |
 | FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging |

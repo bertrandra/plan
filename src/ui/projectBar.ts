@@ -26,6 +26,7 @@ import {
   interrogerPlu, lienGeoportailUrbanisme, lienTerritoireUrbanisme,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
+import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
@@ -57,7 +58,7 @@ export interface ContexteProjectBar {
   render: () => void;
   restoreState: (instantane: { objects: ObjetBrut[]; measures: unknown[] }) => void;
   serializeMeasures: (ms: EtatApp['measures']) => unknown[];
-  serializeObjects: (objs: ObjetPlan[]) => ObjetBrut[];
+  serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
   syncBasculeVoisinage: () => void;
   syncLieuTitre: () => void;
   trouverParcelleCloture: () => ObjetPlan | null | undefined;

@@ -17,7 +17,7 @@
 
 import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
-import type { PtBrut, ObjetPlan } from './types.js';
+import type { PtBrut, ObjetPlan, ObjetBrut } from './types.js';
 import { enPoints } from './formes.js';
 
 /**
@@ -162,8 +162,7 @@ export function nouveauPointDeVue(
  * Un objet passe par la serialisation : des donnees pures, sans element SVG. Non decrit plus
  * finement ici — la forme exacte appartient a `io/serialisation.ts` et a sa liste blanche.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ObjetSerialise = Record<string, any>;
+export type ObjetSerialise = ObjetBrut & { key: string };
 
 /** Ce que la creation doit pouvoir faire au plan et a l'interface. */
 export interface ContexteCreation {

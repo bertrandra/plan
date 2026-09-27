@@ -27,8 +27,10 @@ export default [
   },
   {
     // FF-9 : le domaine ne connait pas `any`. C'est la ou un nombre faux devient un devis faux, et le
-    // compteur est a zero : la regle garde ce zero.
+    // compteur est a zero : la regle garde ce zero. Pas de commentaire `eslint-disable` non plus dans
+    // ces dossiers : c'est par la qu'un `any` y avait survecu a la premiere version de cette regle.
     files: ['src/model/**/*.ts', 'src/engine/**/*.ts', 'src/geometry/**/*.ts'],
+    linterOptions: { noInlineConfig: true },
     rules: { '@typescript-eslint/no-explicit-any': 'error' }
   },
   {

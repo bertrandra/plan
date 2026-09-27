@@ -13,6 +13,7 @@ import { PERMISSION_ECRITURE } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
+import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
 import type { ProjetResume } from '../io/api.js';
 import type { ObjetBrut, ObjetPlan, Mesure } from '../model/types.js';
@@ -31,7 +32,7 @@ export interface ContexteProjet {
   etat: EtatApp;
   apiSave: (payload: unknown) => Promise<{ id: string; updatedAt?: string }>;
   apiDelete: (id: string) => Promise<unknown>;
-  serializeObjects: (objs: ObjetPlan[]) => ObjetBrut[];
+  serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
   serializeMeasures: (ms: Mesure[]) => unknown[];
   initialState: () => ObjetBrut[];
   initialMeasures: () => unknown[];

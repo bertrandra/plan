@@ -150,7 +150,7 @@ interface ObjetCommun {
     actif?: boolean;
     opacite?: number;
     parcelleOpacite?: number;
-  };
+  } | null;
 
   /**
    * Bascules d'affichage rattachees a la parcelle, comme le fond orthophoto : masquage du
@@ -160,7 +160,7 @@ interface ObjetCommun {
   affichage?: {
     voisinage?: boolean;
     grille?: boolean;
-  };
+  } | null;
 
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;
