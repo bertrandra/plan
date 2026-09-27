@@ -11,7 +11,6 @@
 
 import { escapeHtml } from '../util/escape.js';
 import { nombreFr } from '../util/format.js';
-import { el } from '../shell/dom.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { showToast } from '../shell/dialogs.js';
@@ -23,7 +22,7 @@ import {
   interrogerCadastre, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
-  interrogerPlu, lienGeoportailUrbanisme, lienTerritoireUrbanisme,
+  interrogerPlu,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
 import type { ObjetSerialise } from '../model/creation.js';
@@ -74,145 +73,6 @@ export interface ContexteProjectBar {
 export interface OptionsActualisation {
   portee: 'tout' | 'parcelle';
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean };
-}
-
-/**
- * Interroge le Geoportail de l'urbanisme au centre de la parcelle, et range le zonage **sur la
- * parcelle** (champ `plu`) — comme la cloture et le lieu. Il se sauvegarde ainsi avec le projet
- * sans nouvelle cle a faire transiter par `api.php`, et il suit la parcelle si le plan est exporte.
- *
- * Le bouton est desarme pendant l'appel : le service est lent, et deux interrogations lancees coup
- * sur coup empileraient deux instantanes d'annulation pour un seul geste.
- *
- * Un point sans zonage n'est pas une erreur — toutes les communes n'ont pas de PLU numerise. Le
- * message le dit, plutot que de laisser croire a une panne.
- */
-export async function interrogerPluDepuisBouton(bouton: HTMLButtonElement, ctx: ContexteProjectBar): Promise<void> {
-  const parcelle = ctx.trouverParcelleCloture();
-  if (!parcelle) return;
-  const lieu = ctx.lieuActuel();
-  bouton.disabled = true;
-  const libelleInitial = bouton.textContent;
-  bouton.textContent = 'Interrogation…';
-  try {
-    const plu = await interrogerPlu(lieu.longitude, lieu.latitude);
-    ctx.pushHistory();
-    parcelle.plu = plu;
-    ctx.markDirty();
-    renderPanneauPlu(ctx);
-    const n = plu.zones.length;
-    showToast(n ? ('PLU : zone ' + plu.zones[0]!.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
-                : 'PLU : aucun zonage renvoye pour ce point.');
-  } catch (e) {
-    showToast('Interrogation du PLU impossible : ' + ((e as Error).message || e));
-  } finally {
-    bouton.disabled = false;
-    bouton.textContent = libelleInitial;
-  }
-}
-
-export function renderPanneauPlu(ctx: ContexteProjectBar): void {
-  const hote = document.getElementById('pluContenu');
-  const lien = el<HTMLAnchorElement>('pluGeoportailLien');
-  const btn = el<HTMLButtonElement>('pluInterrogerBtn');
-  if(!hote) return;
-  hote.innerHTML = '';
-  const parcelle = ctx.trouverParcelleCloture();
-  if(!parcelle){
-    btn.disabled = true;
-    lien.style.display = 'none';
-    const p = document.createElement('div');
-    p.className = 'hint';
-    p.textContent = 'Aucune parcelle dans ce plan : le PLU s\'interroge au centre de la parcelle. Importe une parcelle depuis une adresse, ou regle "Fonction" sur "terrain" pour l\'objet concerne.';
-    hote.appendChild(p);
-    return;
-  }
-  btn.disabled = false;
-  const lieu = ctx.lieuActuel();
-  lien.href = lienGeoportailUrbanisme(lieu.longitude, lieu.latitude);
-  lien.style.display = '';
-
-  const coord = document.createElement('div');
-  coord.className = 'hint';
-  coord.textContent = 'Point interroge : ' + lieu.latitude.toFixed(6).replace('.',',') + '° N, ' +
-    lieu.longitude.toFixed(6).replace('.',',') + '° E (centre de « ' + parcelle.name + ' »).';
-  hote.appendChild(coord);
-
-  const plu = parcelle.plu;
-  if(!plu){
-    const p = document.createElement('div');
-    p.className = 'hint';
-    p.textContent = 'Aucun zonage enregistre pour cette parcelle. Clique sur « Interroger le Geoportail de l\'urbanisme ».';
-    hote.appendChild(p);
-    return;
-  }
-  const tbl = document.createElement('table');
-  tbl.className = 'attrTable';
-  const ligne = (cle: string, valeurHtml: string) => {
-    const tr = document.createElement('tr');
-    const td1 = document.createElement('td');
-    td1.textContent = cle;
-    td1.style.cssText = 'white-space:nowrap; color:var(--ink-soft);';
-    const td2 = document.createElement('td');
-    td2.innerHTML = valeurHtml;
-    tr.appendChild(td1); tr.appendChild(td2);
-    tbl.appendChild(tr);
-  };
-  if(plu.commune) ligne('Commune', escapeHtml(plu.commune.nom) + ' (INSEE ' + escapeHtml(plu.commune.insee) + ')' + (plu.commune.rnu ? ' — au RNU' : ''));
-  if(!plu.zones.length){
-    ligne('Zonage', plu.commune && plu.commune.rnu
-      ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les regles nationales qui s\'appliquent.'
-      : 'Aucune zone renvoyee pour ce point (document non verse au Geoportail, ou parcelle hors zonage).');
-  }
-  plu.zones.forEach((z, i: number)=>{
-    const prefixe = plu.zones.length > 1 ? 'Zone ' + (i+1) : 'Zone';
-    ligne(prefixe, '<b>' + escapeHtml(z.libelle) + '</b>' + (z.typezone ? ' — type ' + escapeHtml(z.typezone) : ''));
-    if(z.libelong) ligne('Libellé', escapeHtml(z.libelong));
-    if(z.datappro) ligne('Approbation', escapeHtml(z.datappro));
-    if(z.urlfic) ligne('Règlement', '<a href="' + escapeHtml(z.urlfic) + '" target="_blank" rel="noopener">' + escapeHtml(z.nomfic || 'document PDF') + ' ↗</a>');
-    if(z.partition) ligne('Document', escapeHtml(z.partition));
-  });
-  (plu.prescriptions || []).forEach((p, i: number)=>{
-    ligne('Prescription ' + (i+1), escapeHtml((p.libelle || '') + (p.typepsc ? ' (' + p.typepsc + ')' : '')) +
-      (p.urlfic ? ' <a href="' + escapeHtml(p.urlfic) + '" target="_blank" rel="noopener">↗</a>' : ''));
-  });
-  (plu.informations || []).forEach((info, i: number)=>{
-    ligne('Information ' + (i+1), escapeHtml(info.libelle || '') +
-      (info.urlfic ? ' <a href="' + escapeHtml(info.urlfic) + '" target="_blank" rel="noopener">' + escapeHtml(info.nomfic || 'notice') + ' ↗</a>' : ''));
-  });
-  // Servitudes d'utilite publique : le SPR (AC4) est mis en avant separement - c'est celle qui
-  // change le plus concretement ce qu'on a le droit de construire et l'aspect impose.
-  (plu.spr || []).forEach((s)=>{
-    ligne('SPR', '<b>' + escapeHtml(s.nom) + '</b>' +
-      (s.assiette ? ' — ' + escapeHtml(s.assiette) : '') +
-      (s.source ? '<br><span style="opacity:0.75;">Précision de la limite : ' + escapeHtml(s.source) + '</span>' : '') +
-      (s.fichier ? '<br><span style="opacity:0.75;">Acte : ' + escapeHtml(s.fichier) + '</span>' : '') +
-      '<br><span style="opacity:0.75;">Site patrimonial remarquable : tous les travaux visibles depuis l\'espace public sont soumis à l\'avis de l\'Architecte des Bâtiments de France.</span>');
-  });
-  // Comparaison par contenu et non par identite d'objet : apres un aller-retour JSON (projet
-  // enregistre puis rouvert), `spr` et `servitudes` sont deux copies distinctes, et un includes()
-  // sur les references reafficherait le SPR une seconde fois en bas de liste.
-  const cleSup = (s: { type?: string; nom?: string; fichier?: string }) => (s.type || '') + '|' + (s.nom || '') + '|' + (s.fichier || '');
-  const clesSpr = new Set((plu.spr || []).map(cleSup));
-  const autresSup = (plu.servitudes || []).filter(s=>!clesSpr.has(cleSup(s)));
-  autresSup.forEach((s, i: number)=>{
-    ligne('Servitude ' + (i+1) + (s.type ? ' (' + s.type + ')' : ''),
-      '<b>' + escapeHtml(s.nom) + '</b>' +
-      (s.generateur ? ' — ' + escapeHtml(s.generateur) : '') +
-      (s.nature ? ' ' + escapeHtml(s.nature) : '') +
-      (s.assiette ? '<br><span style="opacity:0.75;">Assiette : ' + escapeHtml(s.assiette) + ' (' + escapeHtml(s.forme) + ')</span>' : '') +
-      (s.fichier ? '<br><span style="opacity:0.75;">Acte : ' + escapeHtml(s.fichier) + '</span>' : ''));
-  });
-  if(!(plu.servitudes || []).length) ligne('Servitudes', 'Aucune servitude d\'utilité publique renvoyée pour ce point.');
-  if(plu.document) ligne('Document d\'urbanisme', escapeHtml(plu.document.nom) + (plu.document.type ? ' (' + escapeHtml(plu.document.type) + ')' : ''));
-  // Les actes des servitudes et les annexes n'ont pas d'URL directe dans l'API : la page
-  // territoire de la commune est le seul endroit qui les rassemble tous.
-  if(plu.commune && plu.commune.insee){
-    ligne('Tous les documents', '<a href="' + escapeHtml(lienTerritoireUrbanisme(plu.commune.insee)) + '" target="_blank" rel="noopener">Page territoire ' +
-      escapeHtml(plu.commune.insee) + ' — règlement, annexes, actes des servitudes ↗</a>');
-  }
-  if(plu.interrogeLe) ligne('Interrogé le', escapeHtml(new Date(plu.interrogeLe).toLocaleString('fr-FR')));
-  hote.appendChild(tbl);
 }
 
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, bouton: HTMLButtonElement | null, ctx: ContexteProjectBar): Promise<void> {
@@ -368,7 +228,6 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         if(cible.plu.zones.length) bilan.push('PLU : zone ' + cible.plu.zones[0]!.libelle);
         else bilan.push('PLU : aucun zonage');
       } catch { bilan.push('PLU indisponible'); }
-      renderPanneauPlu(ctx);
     }
     ctx.markDirty();
     // La case « Voisinage » n'apparait que s'il y a du voisinage : elle vient peut-etre d'en

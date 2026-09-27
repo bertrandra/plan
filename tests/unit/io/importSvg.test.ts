@@ -17,7 +17,7 @@ function etatVide(): EtatApp {
 }
 const ctx = {
   pushHistory: () => {}, createObjectDOM: () => {}, rebuildHandles: () => {},
-  reapplyStackingOrder: () => {}, rebuildSelector: () => {}, renderMeasureResults: () => {}, render: () => {}
+  reapplyStackingOrder: () => {}, rebuildSelector: () => {}, render: () => {}
 };
 
 /** Reecrit le noeud `measures-data` du SVG dore avec les cotes donnees, telles quelles. */

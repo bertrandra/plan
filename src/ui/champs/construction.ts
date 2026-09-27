@@ -16,7 +16,6 @@ import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlot
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
 import { buildVisGrid, findSpaZones, zoneToucheTerrasse } from '../../engine/structure.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
-import { optimisationVisible, renderOptimResult, type ContexteTerrassePanels } from '../terrassePanels.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 
@@ -303,7 +302,8 @@ const alertes: Champ[] = [
 ];
 
 /** Ce que l'optimisation demande au module des panneaux, sans DOM ici. */
-export interface ContexteOptimisation { panneaux: ContexteTerrassePanels }
+/** L'ouverture du bloc d'optimisation : un pli de l'interface (app/resultats.ts), pas une donnee du projet. */
+export interface ContexteOptimisation { visible: () => boolean }
 
 export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] {
   const fondation: Section = {
@@ -331,8 +331,8 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   const optimisation: Section = {
     id: 'optimisation', titre: 'Optimisation',
     champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => optimisationVisible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', executer: (cx) => cx.executerCommande('terrasse.optimisation') },
-      { type: 'hote', cle: 'resultat', libelle: '', idDom: 'terrasseOptimResult', remplir: (cx) => renderOptimResult(cx.obj, ctxOptim.panneaux) }
+      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', executer: (cx) => cx.executerCommande('terrasse.optimisation') },
+      { type: 'optimisation', cle: 'resultat', libelle: '' }
     ]
   };
   const parametres: Section = {

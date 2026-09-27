@@ -22,7 +22,7 @@ export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
   | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide'
-  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur'
+  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir'
   | 'clavier' | 'premierPas' | 'sansObjet'
   | `html:${string}`;
 
@@ -80,10 +80,10 @@ export const EXPOSITION: Record<string, Ligne> = {
   'vue.visionneuse': partout('barreHaute'),
 
   // ---- Cotes, PLU, terrasse -------------------------------------------------------------------
-  'mesure.recalculer': partout('html:recalcMeasureBtn'),
-  'mesure.effacer': partout('html:clearMeasureBtn'),
+  'mesure.recalculer': partout('tiroir'),
+  'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
-  'plu.interroger': partout('html:pluInterrogerBtn'),
+  'plu.interroger': partout('tiroir'),
   'terrasse.optimisation': partout('inspecteur'),
 
   // ---- Fichier et exports ---------------------------------------------------------------------
@@ -92,7 +92,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'fichier.importerJson': menu('menuFichier'),
   'export.svg': menu('menuExporter'),
   'export.png': menu('menuExporter'),
-  'export.resume': menu('menuExporter', 'html:exportBtn'),
+  'export.resume': menu('menuExporter', 'tiroir'),
+  'export.copierResume': partout('tiroir'),
   'export.dxf': menu('menuExporter'),
   'export.pdf': menu('menuExporter'),
   'export.dossier': menu('menuExporter'),

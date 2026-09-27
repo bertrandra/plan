@@ -51,6 +51,7 @@ const SOURCES: Record<Exclude<Emplacement, `html:${string}` | 'sansObjet'>, stri
   selection: ['src/zones/FeuilleSelection.tsx'],
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
   explorateur: ['src/zones/Explorateur.tsx'],
+  tiroir: ['src/zones/Resultats.tsx', ...fichiers('src/zones/resultats')],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts']
 };

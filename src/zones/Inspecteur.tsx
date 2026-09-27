@@ -13,7 +13,7 @@
 // presence d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps, Section } from '../ui/champs/types.js';
@@ -22,6 +22,7 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import { EnteteFeuille } from './composants/Feuille.js';
+import { Optimisation } from './resultats/Optimisation.js';
 import { Icone } from './icones.js';
 import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 
@@ -143,11 +144,7 @@ function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
   );
 }
 
-/** Un conteneur rempli hors React : le tableau d'optimisation, dessine par le module des panneaux. */
-function Hote({ champ, c }: PropsChamp<Extract<Champ, { type: 'hote' }>>) {
-  useEffect(() => { champ.remplir(c); });
-  return <div id={champ.idDom} className="champHote" />;
-}
+
 
 /** La commande d'un champ, selon son type. */
 function Commande({ champ, c, inspecteur }: PropsChamp) {
@@ -206,8 +203,8 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
       return <Bouton champ={champ} c={c} inspecteur={inspecteur} />;
     case 'alerte':
       return <div className="hint alerte">{champ.texte(c)}</div>;
-    case 'hote':
-      return <Hote champ={champ} c={c} inspecteur={inspecteur} />;
+    case 'optimisation':
+      return inspecteur.resultats ? <Optimisation obj={c.obj} resultats={inspecteur.resultats} /> : null;
     case 'ligne':
       return <span className="champsEnLigne">
         {champsVisibles({ id: champ.cle, titre: '', champs: champ.champs }, c).map(sous => <Commande key={sous.cle} champ={sous} c={c} inspecteur={inspecteur} inline />)}
@@ -221,7 +218,7 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   const grise = !!champ.actif && !champ.actif(c);
   const brute = [champ.note ? champ.note(c) : '', tactile && grise && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
   const note = tactile ? aLaFrancaise(brute) : brute;
-  const pleineLargeur = champ.type === 'alerte' || champ.type === 'hote' || (champ.type === 'bouton' && !champ.libelle);
+  const pleineLargeur = champ.type === 'alerte' || champ.type === 'optimisation' || (champ.type === 'bouton' && !champ.libelle);
   const classes = ['champ', 'champ-' + champ.type, champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
   if (pleineLargeur) return <div className={classes + ' pleineLargeur'} data-cle={champ.cle}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
   return (

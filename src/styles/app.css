@@ -413,6 +413,24 @@
     min-height:160px; display:none;
   }
   .hint{font-family:var(--serif); font-style:italic; font-size:0.74rem; color:var(--ink-soft); margin-top:6px;}
+  /* Le tiroir des resultats (zones/resultats/) : chiffres alignes, notes de ligne, estimations. */
+  #tiroirPanneaux .nombre{ font-variant-numeric:tabular-nums; }
+  .noteLigne{ font-size:0.8rem; color:var(--ink-soft); }
+  #tiroirPanneaux .petit{ font-size:0.84rem; }
+  #tiroirPanneaux .unite{ font-size:0.78rem; color:var(--ink-soft); }
+  #tiroirPanneaux .discret{ opacity:0.75; }
+  #tiroirPanneaux .cleTableau{ white-space:nowrap; color:var(--ink-soft); }
+  input.saisieEstimee{ opacity:0.7; }
+  .totauxBom{ font-weight:600; font-family:var(--sans); }
+  .tailleImpression{ margin-left:14px; font-size:0.84rem; color:var(--ink-soft); }
+  /* Le plan d'implantation s'imprime : il garde le fond du papier, quel que soit le theme. */
+  .planImplantation{ background:white; border:1px solid var(--rule); max-width:100%; }
+  .reglageChantier{ margin-right:18px; font-size:0.88rem; }
+  table.attrTable tr.lignePhase, table.attrTable tr.ligneCourante{ font-weight:600; background:var(--accent-light); }
+  .texteMethode{ line-height:1.55; }
+  .formuleMethode{ text-align:center; font-size:1.05rem; margin:10px 0; }
+  .infoCote{ font-size:0.8rem; margin:6px 0; }
+  .origineCote{ display:block; font-size:0.8rem; margin:8px 0; }
   .highlightRow{background:var(--accent-light) !important;}
   .sectionTitle{
     font-family:var(--serif); font-weight:700; font-size:0.9rem; margin:12px 0 6px;

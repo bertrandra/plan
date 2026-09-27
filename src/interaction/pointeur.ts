@@ -55,7 +55,6 @@ type ObjetAPoints = ObjetPlan & { pts: PtBrut[] };
 export interface ContextePointeur {
   toWorld: (p: PtEcran) => PtBrut;
   render: () => void;
-  rebuildMeasurePanel: () => void;
   rebuildSelector: () => void;
   pushHistory: () => void;
   sendObjectBackward: (obj: ObjetPlan) => void;
@@ -93,7 +92,7 @@ svg.addEventListener('pointerdown', e=>{
       } else {
         mesure.ref = picked;
         mesure.pointage = null;
-        ctx.rebuildMeasurePanel(); ctx.render();
+        ctx.render();
       }
       e.preventDefault();
       return;
@@ -110,11 +109,11 @@ svg.addEventListener('pointerdown', e=>{
         if(mesure.pointage.multi){
           const i = mesure.cibles.findIndex(x=>x.objKey===t.objKey && x.ptIndex===t.ptIndex);
           if(i>=0) mesure.cibles.splice(i,1); else mesure.cibles.push(t);
-          ctx.rebuildMeasurePanel(); ctx.render();
+          ctx.render();
         } else {
           mesure.cibles = [t];
           mesure.pointage = null;
-          ctx.rebuildMeasurePanel(); ctx.render();
+          ctx.render();
         }
         e.preventDefault();
         return;

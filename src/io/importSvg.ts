@@ -26,7 +26,6 @@ export interface ContexteImportSvg {
   rebuildHandles: (obj: ObjetPlan) => void;
   reapplyStackingOrder: () => void;
   rebuildSelector: () => void;
-  renderMeasureResults: () => void;
   render: () => void;
 }
 
@@ -192,7 +191,6 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
 
   ctx.reapplyStackingOrder();
   ctx.rebuildSelector();
-  ctx.renderMeasureResults();
   ctx.render();
   let msg = imported + ' objet(s) importe(s).';
   if(!isOwn) msg += ' (SVG externe : noms/attributs par defaut, verifie les proportions.)';

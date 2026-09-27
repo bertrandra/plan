@@ -59,6 +59,7 @@ import { editerAngle, editerLongueur, contourDeContrainte } from '../interaction
 import { insererSommet, supprimerSommet, minimumSommets } from '../model/sommets.js';
 import { alignerSurCote } from '../geometry/alignement.js';
 import { creerInspecteur } from './inspecteur.js';
+import { creerResultats } from './resultats.js';
 import { distanceAlignementSaisie } from '../ui/champs/objet.js';
 import { glb, soleilVue3d } from '../three/etat3d.js';
 import { mesure } from '../interaction/outilMesure.js';
@@ -67,18 +68,9 @@ import { validerProjetJSON } from '../io/validation.js';
 import { rendreScene } from '../render/pipeline.js';
 import { creerHistorique } from '../core/historique.js';
 import { LS_LAST_PROJECT, withProjectParam, apiSave, apiDelete, chargerProjetInitial } from '../io/api.js';
-import {
-  clesDossier,
-  debitTable as construireTableDebit, renderBOMTable as construireTableBom,
-  champLongueurs as construireChampLongueurs, bilanDebit, prixPersonnaliseplot,
-  renderDebitLames as construireDebitLames
-} from '../ui/tables.js';
+import { clesDossier } from './dossier.js';
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet as restaurerAffichage } from '../io/projet.js';
 import { ortho, restaurerOrthoDuProjet } from '../render/ortho.js';
-import {
-  startPick as demarrerPointage, cancelPick, rebuildMeasurePanel as construirePanneauMesure,
-  renderMeasureResults as construireResultatsMesure
-} from '../ui/mesurePanel.js';
 import { synchroniserContexteTerrasse, terrasseCourante as terrasseCouranteDe, terrasseSelectionnee as terrasseSelectionneeDe } from '../core/contexteTerrasse.js';
 import { creerExplorateur } from './explorateur.js';
 import { demanderPremierPas } from './premierPas.js';
@@ -100,15 +92,10 @@ import {
 import type { CameraConservee } from '../three/glbViewer.js';
 import { serializeObjects, serializeMeasures } from '../io/serialisation.js';
 import { importSVGString as importerSVG } from '../io/importSvg.js';
-import { renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from '../ui/projectBar.js';
+import { actualiserDepuisIgn, ouvrirDialogueActualisation, construireVoisinage } from '../ui/projectBar.js';
 import { ouvrirImportCadastre } from '../ui/cadastreDialog.js';
 import { creerProjet } from './projet.js';
 import { monterZones } from '../zones/monter.js';
-import {
-  renderTerrasseCoupe, renderDebitBois, renderImplantation,
-  renderChantier, renderMethode, basculerOptimisation
-} from '../ui/terrassePanels.js';
-import { interrogerPluDepuisBouton } from '../ui/projectBar.js';
 import { buildThreeScene as construireScene3D } from '../three/scene.js';
 import { cadrerSur, empriseDe } from '../interaction/navigation.js';
 import { creerDomObjet, reconstruirePoignees } from '../render/objects.js';
@@ -124,12 +111,9 @@ import { construireSVG } from '../export/svgPlan.js';
 import { construirePDF } from '../export/pdfPlan.js';
 import { construireDossierPDF } from '../export/dossierPdf.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
-import type { ObjetPlan, ObjetAPoints, ObjetBrut, PtBrut, PtEcran, Mesure, Construction } from '../model/types.js';
+import type { ObjetPlan, ObjetAPoints, ObjetBrut, PtBrut, PtEcran, Mesure } from '../model/types.js';
 import type { FormeASommets } from '../model/sommets.js';
 import type { ObjetRendu } from '../render/objects.js';
-import type { CouchesTerrasse } from '../engine/layers.js';
-import type { Debit } from '../engine/debit.js';
-import type { ProduitBarre } from '../engine/prix.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { Mode3D } from '../three/navigation.js';
 import type { PointDeVue } from '../three/etat3d.js';
@@ -222,27 +206,8 @@ function ctxProjetImporte(){
 }
 function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean){ chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte()); }
 function restaurerAffichageDuProjet(){ restaurerAffichage(etat, ctxProjetImporte()); }
-// Les tables du dossier et du chiffrage vivent dans ui/tables.ts, les panneaux du mode Terrasse
-// dans ui/terrassePanels.ts : ces deux fabriques leur passent ce qu'ils doivent pouvoir declencher.
-function ctxTables(){
-  return { refreshTerrasseView,
-    renderDebitLames: (o: ObjetPlan, l: CouchesTerrasse)=>construireDebitLames(o, l, ctxTables()),
-    renderDebitBois: (o: ObjetPlan, l: CouchesTerrasse)=>renderDebitBois(o, l, ctxPanneauxTerrasse()) };
-}
-function ctxPanneauxTerrasse(){
-  return { bilanDebit,
-    champLongueurs: (c: Construction, ch: string, lib: string)=>construireChampLongueurs(c, ch, lib, ctxTables()),
-    debitTable: (h: HTMLElement, c: Construction, d: Debit, l: number[], k: ProduitBarre)=>construireTableDebit(h,c,d,l,k,ctxTables()),
-    hauteurAppuiMm, hauteurFinieMm, prixPersonnaliseplot, pushHistory, refreshTerrasseView,
-    objets: ()=>etat.objects };
-}
-
-// L'outil de cotation vit dans ui/mesurePanel.ts ; ces enveloppes lui passent l'etat et ce qu'il
-// doit pouvoir declencher.
-function ctxMesure(){ return { render, computeMeasureGeom, refLabel, targetLabel }; }
-function rebuildMeasurePanel(){ construirePanneauMesure(etat, ctxMesure()); }
-function renderMeasureResults(){ construireResultatsMesure(etat, ctxMesure()); }
-function startPick(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']){ demarrerPointage(mode, multi, purpose, etat, ctxMesure()); }
+// Le pointage de l'outil de cotation (et de l'alignement) passe par le service du tiroir.
+function startPick(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']){ resultats.pointer(mode, multi, purpose); }
 
 function ctxProjet(){
   return {
@@ -284,7 +249,7 @@ function contexteSoleilParasol(){
 // meme liste blanche que l'enregistrement).
 const historique = creerHistorique(etat, {
   serializeObjects, serializeMeasures, detruireVue, createObjectDOM,
-  rebuildHandles, reapplyStackingOrder, rebuildSelector, renderMeasureResults, render,
+  rebuildHandles, reapplyStackingOrder, rebuildSelector, render,
   normalizeObjects: normaliserEnObjetsDuPlan,
   // Le bouton Annuler est rendu par la palette (zones/) d'apres `peutAnnuler` : l'historique n'a
   // plus d'element a desarmer lui-meme, il signale.
@@ -300,12 +265,25 @@ function undo(){ historique.annuler(); }
 // ================= Top-level panel tabs (Edition / Affichage / Mesure / Export) =================
 // panelTab, selectedKey et highlight vivent desormais dans `etat` (spec §6.1).
 // Les onglets du bas sont le tiroir des resultats (app/tiroir.ts, zones/Resultats.tsx) : ce
-// service montre le panneau choisi et rafraichit ce qui doit l'etre a l'ouverture.
+// service tient les onglets et refait le chiffrage a l'ouverture d'un onglet de terrasse.
 const tiroir = creerTiroir(etat, {
-  rebuildMeasurePanel, renderMeasureResults,
-  renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
   refreshTerrasseView,
   terrasseSelectionnee: ()=>terrasseSelectionneeDe(etat)
+}, magasin);
+// Les panneaux du tiroir (zones/resultats/) ecrivent par ce service : chaque saisie s'annule et
+// marque le projet modifie.
+const resultats = creerResultats(etat, {
+  pushHistory, markDirty, render, renderTerrasseLayerView,
+  terrasseCourante: ()=>terrasseCouranteDe(etat),
+  trouverParcelle: trouverParcelleCloture, lieuActuel,
+  construireResume: ()=>construireResume(etat.objects, etat.measures, {
+    appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
+  }),
+  refLabel, targetLabel, computeMeasureGeom,
+  montrerResume: ()=>{
+    tiroir.activer('resume');
+    if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
+  }
 }, magasin);
 
 // Un quadrilatere deja d'equerre, meme tourne, est deja un rectangle : le redresser sur les axes
@@ -498,7 +476,7 @@ function render(){
 function ctxRendu(){
   return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
     drawScaleBar, drawNorthArrow, drawMeasures,
-    renderMeasureResults, renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
+    renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
     toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup };
 }
 
@@ -582,7 +560,7 @@ stage.addEventListener('pointerleave', ()=>magasin.definirPointeur(null));
 // l'etat et tout ce qu'ils doivent pouvoir declencher.
 brancherPointeur(svg, stage, etat, {
   insertPointOnSegment, pushHistory,
-  rebuildMeasurePanel, rebuildSelector, render, sendObjectBackward,
+  rebuildSelector, render, sendObjectBackward,
   toWorld
 });
 
@@ -649,10 +627,7 @@ brancherAffichage(atelier, { enregistrerAffichage, syncBasculeGrille, ctxOrtho, 
 // Branche AVANT les commandes 3D : le redimensionnement du plan etait enregistre en premier, et
 // deux ecouteurs de `resize` s'executent dans leur ordre d'enregistrement.
 brancherDivers(atelier, {
-  renderMeasureResults, rebuildMeasurePanel, redimensionnerLePlan,
-  renderPanneauPlu: ()=>renderPanneauPlu(ctxProjet()),
-  interrogerPluDepuisBouton: (b)=>interrogerPluDepuisBouton(b, ctxProjet()),
-  basculerOptimisation,
+  resultats, redimensionnerLePlan,
   rafraichirInspecteur: ()=>magasin.notifier(),
   activerOnglet: (onglet)=>tiroir.activer(onglet),
   startPick
@@ -661,7 +636,7 @@ brancherFichiers({
   exportProjetJSON, validerProjetJSON, appliquerProjetImporte,
   importerSVG: (contenu)=>importerSVG(contenu, etat, {
     pushHistory, createObjectDOM, rebuildHandles, reapplyStackingOrder, rebuildSelector,
-    render, renderMeasureResults
+    render
   })
 }, commandes);
 
@@ -778,15 +753,12 @@ brancherExports({
   construireResume: ()=>construireResume(etat.objects, etat.measures, {
     appVersion: APP_VERSION, computeMeasureGeom, refLabel, targetLabel
   }),
+  resultats,
   construireDossier: ()=>construireDossierPDF(etat.objects, clesDossier(etat.objects),
     el<HTMLInputElement>('chkDossierEquipements').checked,
     { nomProjet: (seed && seed.meta && seed.meta.name), appVersion: APP_VERSION }),
   clesDossier: ()=>clesDossier(etat.objects),
-  nomProjet: ()=>(seed && seed.meta && seed.meta.name),
-  montrerLaBoite: ()=>{
-    tiroir.activer('resume');
-    if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
-  }
+  nomProjet: ()=>(seed && seed.meta && seed.meta.name)
 }, commandes);
 
 // ================= Measurement tool (click-to-pick, persistent measures) =================
@@ -1089,14 +1061,7 @@ const modes = creerModes({
   ensureConstruction, ensureThreeLoaded, buildThreeScene, disposeThreeScene, render,
   preparerVisionneuse, quitterPleinPageVisionneuse, disposeGlbViewerScene,
   signalerVue: (vue)=>magasin.definirVue(vue),
-  rendrePanneauxTerrasse(obj){
-    renderTerrasseLayerView(obj);
-    renderTerrasseCoupe(obj, ctxPanneauxTerrasse());
-    construireTableBom(obj, etat, ctxTables());
-    renderImplantation(obj, ctxPanneauxTerrasse());
-    renderChantier(obj, ctxPanneauxTerrasse());
-    renderMethode(obj, ctxPanneauxTerrasse());
-  }
+  rendrePanneauxTerrasse(obj){ resultats.actualiserTerrasse(obj); }
 });
 function refreshTerrasseView(){ modes.refreshTerrasseView(); }
 
@@ -1148,13 +1113,14 @@ const inspecteur = creerInspecteur(etat, {
   applyAngleEdit, applyLengthEdit, deleteVertex, alignObjectByRotation, allerAuPointDeVue, startPick,
   pushHistory, render, markDirty, refreshTerrasseView, buildThreeScene, reapplyStackingOrder, rebuildHandles,
   trouverParcelle: trouverParcelleCloture,
-  optimisation: { panneaux: ctxPanneauxTerrasse() },
+  optimisation: { visible: ()=>resultats.optimisationVisible() },
+  resultats,
   redimensionner: redimensionnerLePlan
 }, magasin, commandes);
 // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap
 // (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
-const pointage = { courant: () => mesure.pointage, arreter: () => cancelPick(etat, ctxMesure()) };
-monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage });
+const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats });
 // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
 // couvriraient les deux tiers. Ils s'ouvrent a la demande — la poignee, ou la feuille de selection.
 replierPourTablette();

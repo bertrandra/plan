@@ -10,6 +10,24 @@ moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
 
 ### Modifié
 
+- **Le tiroir des résultats est en React** (`zones/resultats/`) : nomenclature et débits, coupe,
+  implantation, chantier, méthode, cotes, PLU et résumé, plus le tableau d'optimisation de
+  l'inspecteur. Les panneaux gardent leurs identifiants et leurs textes. `ui/terrassePanels.ts`,
+  `ui/mesurePanel.ts` et `ui/tables.ts` disparaissent ; le balisage des panneaux quitte `index.html`.
+- **Le chiffrage refait par le tiroir ne dépend plus de l'onglet ouvert** : `construction.bom`
+  s'écrit au rafraîchissement (`app/resultats.ts`), jamais pendant un rendu.
+
+### Corrigé
+
+- **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par
+  barre et au m², longueurs achetables, prix des vis et des plots, conditionnement, équipe, heures,
+  cadences, échelle d'implantation, et toutes les actions du panneau Cotes. Elles passent toutes par
+  `app/resultats.ts`.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+
+### Modifié (architecture)
+
 - **Le moteur n'a plus d'import circulaire** (FF-1). `construction`, `bom`, `debit`, `structure` et
   `layers` s'importaient en quatre boucles. Trois modules en sortent, sans retouche du code :
   `engine/portees.ts` (sections, portées, charges), `engine/prix.ts` (prix et longueurs de stock) et

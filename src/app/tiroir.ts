@@ -5,10 +5,9 @@
 // replie (la barre d'onglets seule), mi-hauteur, plein. C'est l'option A de la spec : la boucle
 // reglage → chiffrage se voit d'un seul regard, l'inspecteur a droite et le tiroir en bas.
 //
-// La barre d'onglets est une zone React (zones/Resultats.tsx) ; les panneaux, eux, restent du
-// balisage que `ui/` remplit — tables du BOM, coupe, implantation. Ce service tient la liste des
-// onglets, montre le panneau choisi, rafraichit ce qui doit l'etre a l'ouverture, et pose la
-// hauteur sur son conteneur. Les onglets d'une terrasse n'existent que quand une terrasse est
+// La barre d'onglets (zones/Resultats.tsx) et les panneaux (zones/resultats/) sont des zones React
+// qui lisent l'onglet actif dans l'etat. Ce service tient la liste des onglets, refait le chiffrage
+// a l'ouverture d'un onglet de terrasse, et pose la hauteur sur son conteneur. Les onglets d'une terrasse n'existent que quand une terrasse est
 // selectionnee (decision 4 de la spec) : la terrasse courante, elle, survit a la selection d'un
 // parasol pour que l'inspecteur et la 3D gardent leur contexte, mais les resultats sont ceux de
 // ce qu'on a sous la main — sinon un plan a une terrasse montrerait son chiffrage en permanence.
@@ -23,7 +22,7 @@ export type HauteurTiroir = 'replie' | 'mi' | 'plein';
 export interface Onglet {
   id: string;
   libelle: string;
-  /** Le panneau d'index.html que l'onglet montre. */
+  /** L'identifiant du panneau (zones/resultats/Panneaux.tsx). */
   panneau: string;
   /** `terrasse` : n'existe qu'avec une terrasse selectionnee. */
   groupe: 'terrasse' | 'plan';
@@ -50,9 +49,6 @@ const CLE_LOCALE = 'plan.tiroir';
 
 /** Ce que le tiroir doit pouvoir declencher a l'ouverture d'un onglet. */
 export interface ContexteTiroir {
-  rebuildMeasurePanel: () => void;
-  renderMeasureResults: () => void;
-  renderPanneauPlu: () => void;
   /** Les panneaux de la terrasse courante : chiffrage, coupe, implantation, chantier, methode. */
   refreshTerrasseView: () => void;
   /** La selection quand c'est une terrasse ; ce qui decide des onglets. */
@@ -88,18 +84,6 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   const terrasseSelectionnee = () => !!ctx.terrasseSelectionnee();
   const estOngletTerrasse = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'terrasse');
 
-  function montrer(id: string): void {
-    ONGLETS.forEach(o => {
-      const el = document.getElementById(o.panneau);
-      if (el) el.style.display = o.id === id ? '' : 'none';
-    });
-  }
-
-  function rafraichir(id: string): void {
-    if (id === 'mesure') { ctx.rebuildMeasurePanel(); ctx.renderMeasureResults(); }
-    else if (id === 'plu') ctx.renderPanneauPlu();
-    else if (estOngletTerrasse(id)) ctx.refreshTerrasseView();
-  }
 
   function definirHauteur(h: HauteurTiroir): void {
     magasin.definirTiroir(h);
@@ -112,8 +96,8 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
     // Un onglet de terrasse sans terrasse selectionnee : les cotes, l'onglet du plan le plus proche.
     if (estOngletTerrasse(id) && !terrasseSelectionnee()) id = 'mesure';
     etat.panelTab = id;
-    montrer(id);
-    rafraichir(id);
+    // Le chiffrage part dans le projet enregistre : il se refait a l'ouverture, pas au rendu.
+    if (estOngletTerrasse(id)) ctx.refreshTerrasseView();
     if (ouvrir && magasin.store.getState().tiroir === 'replie') definirHauteur('mi');
     magasin.notifier();
   }

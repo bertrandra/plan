@@ -17,12 +17,14 @@ import { Surimpression, type ServicePointage } from './Surimpression.js';
 import { BarreNavigation } from './BarreNavigation.js';
 import { FeuilleSelection } from './FeuilleSelection.js';
 import { Voile } from './composants/Feuille.js';
+import { PanneauxResultats } from './resultats/Panneaux.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
+import type { Resultats as ServiceResultats } from '../app/resultats.js';
 
 export interface DependancesZones {
   magasin: Magasin;
@@ -32,6 +34,7 @@ export interface DependancesZones {
   inspecteur: ServiceInspecteur;
   tiroir: Tiroir;
   pointage: ServicePointage;
+  resultats: ServiceResultats;
 }
 
 function conteneur(id: string): HTMLElement {
@@ -40,7 +43,7 @@ function conteneur(id: string): HTMLElement {
   return el;
 }
 
-export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage }: DependancesZones): void {
+export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats }: DependancesZones): void {
   // Rendu force synchrone : le code qui suit dans boot() lit des champs des menus par leur
   // identifiant (curseurs du fond orthophoto), qui doivent donc exister au retour.
   flushSync(() => {
@@ -50,6 +53,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} pointage={pointage} />);
   createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} tiroir={tiroir} />);
   createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} explorateur={explorateur} commandes={commandes} />);
+  createRoot(conteneur('tiroirPanneaux')).render(<PanneauxResultats magasin={magasin} resultats={resultats} commandes={commandes} />);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
   createRoot(conteneur('zoneDialogues')).render(<Dialogues />);
   createRoot(conteneur('zoneNotifications')).render(<Notifications />);

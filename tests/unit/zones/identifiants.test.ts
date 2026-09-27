@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 // Les ecouteurs hors registre (MD/spec-ihm-mobile.md annexe D). Ils ne deviennent pas des commandes
 // dans la migration mobile : les controles changent de place et de forme, jamais d'identifiant,
@@ -8,9 +8,13 @@ import { resolve } from 'node:path';
 // liste : un identifiant qui disparait du balisage casse un reglage sans qu'aucune commande le dise.
 
 const racine = resolve(__dirname, '../../..');
+const tsx = (dossier: string): string[] => readdirSync(dossier).flatMap(n => {
+  const p = join(dossier, n);
+  return statSync(p).isDirectory() ? tsx(p) : p.endsWith('.tsx') ? [p] : [];
+});
 const sources = [
   readFileSync(resolve(racine, 'index.html'), 'utf8'),
-  ...readdirSync(resolve(racine, 'src/zones')).filter(f => f.endsWith('.tsx')).map(f => readFileSync(resolve(racine, 'src/zones', f), 'utf8'))
+  ...tsx(resolve(racine, 'src/zones')).map(f => readFileSync(f, 'utf8'))
 ].join('\n');
 
 export const IDENTIFIANTS_HORS_REGISTRE = [

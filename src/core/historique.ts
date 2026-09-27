@@ -56,7 +56,6 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
   rebuildHandles: (obj: O) => void;
   reapplyStackingOrder: () => void;
   rebuildSelector: () => void;
-  renderMeasureResults: () => void;
   render: () => void;
   /** Le bouton « Annuler » de la barre d'outils, s'il existe. */
   boutonAnnuler: () => HTMLButtonElement | null;
@@ -127,7 +126,6 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
       etat.selectedKey = etat.objects.length ? etat.objects[0]!.key : null;
     }
     ctx.rebuildSelector();
-    ctx.renderMeasureResults();
     if (ctx.rafraichirResultats) ctx.rafraichirResultats();
     ctx.render();
     majBoutonAnnuler();

@@ -341,7 +341,7 @@ export interface Construction {
   prixLongueursBois?: PrixParLongueur;
   prixLongueursLambourde?: PrixParLongueur;
   prixPlots?: PrixParLongueur;
-  /** `undefined` explicite quand l'utilisateur efface le prix saisi (ui/terrassePanels). */
+  /** `undefined` explicite quand l'utilisateur efface le prix saisi (zones/resultats/Nomenclature.tsx). */
   prixVisUnite?: number | undefined;
   visParBoite?: number;
 

@@ -205,75 +205,8 @@
      panneaux restent du balisage que ui/ remplit. Trois hauteurs, posees sur data-hauteur. -->
 <section id="zoneResultats" data-hauteur="mi">
   <div id="zoneResultatsBarre"></div>
-  <div id="tiroirPanneaux">
-  <div id="panelBom" style="display:none;">
-    <div class="sectionTitle">Nomenclature</div>
-    <table class="attrTable" id="terrasseBomTable"></table>
-    <div class="controls">
-      <span id="terrasseBomTotals" style="font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif;"></span>
-    </div>
-    <div class="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
-    <div class="sectionTitle" style="margin-top:18px;">Débit des lames</div>
-    <div id="terrasseDebitBox"></div>
-    <div class="sectionTitle" style="margin-top:18px;">Débit du bois porteur et appuis</div>
-    <div id="terrasseDebitBoisBox"></div>
-  </div>
-
-  <div id="panelCoupe" style="display:none;">
-    <div class="sectionTitle">Plan de coupe</div>
-    <div id="terrasseCoupeWrap" style="overflow-x:auto;"></div>
-    <div class="hint">Empilement des couches a l'endroit le plus charge (appui / solive / lambourde / lame), a l'echelle. Le fut de la vis est enterre : seul son depassement de tete souleve la terrasse. Tout se regle dans Construction.</div>
-  </div>
-
-  <div id="panelImplantation" style="display:none;">
-    <div class="sectionTitle">Plan d'implantation</div>
-    <div id="terrasseImplantWrap"></div>
-  </div>
-
-  <div id="panelChantier" style="display:none;">
-    <div class="sectionTitle">Chantier — activités et durées</div>
-    <div id="terrasseChantierWrap"></div>
-  </div>
-
-  <div id="panelMethode" style="display:none;">
-    <div class="sectionTitle">Méthode de calcul</div>
-    <div id="terrasseMethodeWrap"></div>
-  </div>
-
-  <div id="panelMesure" style="display:none;">
-    <div class="sectionTitle">Mesure</div>
-    <div id="measureControls"></div>
-    <table class="attrTable" id="measureResultsTable"></table>
-    <div class="controls">
-      <button id="recalcMeasureBtn" class="secondary small">Recalculer les mesures</button>
-      <button id="clearMeasureBtn" class="secondary small">Effacer les mesures</button>
-    </div>
-    <div class="hint">Les mesures se recalculent automatiquement à chaque modification du plan ; ce bouton force un rafraîchissement immédiat du tableau si besoin.</div>
-    <div class="hint">Mesure perpendiculaire à un segment de référence (souvent un côté de la parcelle). Les traits fins gris et les cotes s'affichent sur le plan, à l'extérieur de la parcelle.</div>
-  </div>
-
-  <div id="panelPlu" style="display:none;">
-    <div class="sectionTitle">PLU — règles d'urbanisme de la parcelle</div>
-    <div class="controls">
-      <button id="pluInterrogerBtn" class="secondary">Interroger le Géoportail de l'urbanisme</button>
-      <a id="pluGeoportailLien" href="#" target="_blank" rel="noopener" class="hint" style="display:none;">Ouvrir la parcelle sur le Géoportail de l'urbanisme ↗</a>
-    </div>
-    <div id="pluContenu"></div>
-    <div class="hint">Le zonage vient du Géoportail de l'urbanisme (données versées par la commune) et reste attaché à la parcelle : il se sauvegarde avec le projet. C'est une information de repérage, pas une autorisation : seul le règlement complet, et le service urbanisme de la commune, font foi.</div>
-  </div>
-
-
-  <div id="panelResume" style="display:none;">
-    <div class="sectionTitle">Résumé</div>
-    <div class="controls">
-      <button id="exportBtn">Générer le résumé à copier</button>
-      <button id="copierResumeBtn" type="button" class="secondary">Copier</button>
-    </div>
-    <div class="hint">Le résumé décrit le plan en texte : parcelle, objets, surfaces, terrasses et cotes. Il se copie tel quel.</div>
-    <textarea id="exportBox" readonly></textarea>
-  </div>
-
-  </div>
+  <!-- Les panneaux du tiroir : zones/resultats/Panneaux.tsx. -->
+  <div id="tiroirPanneaux"></div>
   <div id="zoneResultatsPied"></div>
 </section>
 

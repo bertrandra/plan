@@ -20,6 +20,7 @@ import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
+import type { Resultats } from '../resultats.js';
 
 /** Ce que la livraison d'un fichier demande au reste du programme. */
 export interface ContexteExports {
@@ -34,18 +35,12 @@ export interface ContexteExports {
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
   /**
-   * Montre la zone de texte copiable (l'onglet Resume, et sa feuille sur telephone). Sans cela, le
-   * filet des exports SVG et DXF ecrivait dans un onglet ferme (spec-ihm-mobile, D5).
+   * La zone de texte copiable (l'onglet Resume du tiroir) : le resume, et le filet des exports SVG et
+   * DXF quand le telechargement echoue. Elle s'ouvre en s'affichant (spec-ihm-mobile, D5).
    */
-  montrerLaBoite: () => void;
+  resultats: Resultats;
 }
 
-/** Affiche un contenu dans la zone de texte, sélectionné pour un copier-coller immédiat. */
-function afficherDansLaBoite(contenu: string): HTMLTextAreaElement {
-  const box = document.getElementById('exportBox') as HTMLTextAreaElement;
-  box.style.display = 'block'; box.value = contenu; box.focus(); box.select();
-  return box;
-}
 
 /** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
 function direTelechargement(nomFichier: string): void {
@@ -54,7 +49,7 @@ function direTelechargement(nomFichier: string): void {
 
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
   // Les exports sont des entrees du menu Exporter (zones/BarreApplication.tsx) : des commandes sans
-  // bouton dans le balisage. Seul « Générer le résumé » garde le sien, dans l'onglet Résumé du tiroir.
+  // bouton dans le balisage. « Générer le résumé » a aussi le sien, dans l'onglet Résumé du tiroir.
   const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
     cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
 
@@ -62,8 +57,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
     catch (err) { showErrBanner('Erreur export SVG: ' + (err as Error).message); return; }
-    ctx.montrerLaBoite();
-    afficherDansLaBoite(svgStr);
+    ctx.resultats.afficherResume(svgStr);
     try {
       telechargerBlob('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
       direTelechargement('plan_interactif_export.svg');
@@ -108,26 +102,17 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   });
 
   // Le résumé ne se télécharge pas : il est fait pour être copié dans un message.
-  cmd.bouton('exportBtn', { id: 'export.resume', libelle: 'Générer le résumé', groupe: 'export', executer: () => { afficherDansLaBoite(ctx.construireResume()); } });
-
-  // Copier ce que montre la zone de texte, d'un geste : au doigt, sélectionner cent lignes pour les
-  // copier est une épreuve (spec-ihm-mobile §7.3). La sélection automatique reste, pour le clavier.
-  document.getElementById('copierResumeBtn')?.addEventListener('click', () => {
-    const box = document.getElementById('exportBox') as HTMLTextAreaElement;
-    if (!box.value) afficherDansLaBoite(ctx.construireResume());
-    const texte = box.value;
-    const repli = () => { box.focus(); box.select(); showToast('Texte sélectionné : copiez-le avec le menu du système.'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(texte).then(() => showToast('Copié dans le presse-papiers.'), repli);
-    } else repli();
-  });
+  // Le résumé ne se télécharge pas : il est fait pour être copié dans un message. Il s'affiche dans
+  // l'onglet Résumé du tiroir (zones/resultats/Resume.tsx), sélectionné pour un copier-coller immédiat.
+  cmd.declarer({ id: 'export.resume', libelle: 'Générer le résumé', groupe: 'export', executer: () => { ctx.resultats.afficherResume(ctx.construireResume()); } });
+  // Copier d'un geste : au doigt, sélectionner cent lignes pour les copier est une épreuve.
+  cmd.declarer({ id: 'export.copierResume', libelle: 'Copier le résumé', groupe: 'export', executer: () => { ctx.resultats.copierResume(); } });
 
   surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;
     try { dxfStr = ctx.buildExportDXF(); }
     catch (err) { showErrBanner('Erreur export DXF: ' + (err as Error).message); return; }
-    ctx.montrerLaBoite();
-    afficherDansLaBoite(dxfStr);
+    ctx.resultats.afficherResume(dxfStr);
     try {
       telechargerBlob('plan_interactif_export.dxf', new Blob([dxfStr], { type: 'application/dxf' }));
       direTelechargement('plan_interactif_export.dxf');

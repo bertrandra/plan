@@ -164,11 +164,9 @@ export interface ChampAlerte extends ChampBase {
   texte: (c: ContexteChamps) => string;
 }
 
-/** Un conteneur que du code hors React remplit (le tableau d'optimisation). */
-export interface ChampHote extends ChampBase {
-  type: 'hote';
-  idDom: string;
-  remplir: (c: ContexteChamps) => void;
+/** Le tableau d'optimisation de la structure (zones/resultats/Optimisation.tsx), sous son bouton. */
+export interface ChampOptimisation extends ChampBase {
+  type: 'optimisation';
 }
 
 /** Plusieurs commandes sur une ligne : un cote, son nom, sa longueur, son bouton. */
@@ -179,7 +177,7 @@ export interface ChampLigne extends ChampBase {
 
 export type Champ =
   | ChampTexte | ChampNombre | ChampCase | ChampChoix | ChampCouleur | ChampDate | ChampCurseur
-  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampHote | ChampLigne;
+  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampLigne;
 
 export interface Section {
   id: string;

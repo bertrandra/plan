@@ -19,6 +19,7 @@ import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 import type { RegistreCommandes } from './commandes.js';
+import type { Resultats } from './resultats.js';
 
 /** Ce que l'inspecteur doit pouvoir declencher ailleurs. */
 export interface ContexteInspecteur extends Pick<ContexteChamps,
@@ -31,6 +32,7 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
   rebuildHandles: (obj: ObjetPlan) => void;
   trouverParcelle: () => ObjetPlan | undefined;
   optimisation: ContexteOptimisation;
+  resultats: Resultats;
   /** Le plan reprend ou rend la largeur de l'inspecteur. */
   redimensionner: () => void;
 }
@@ -46,6 +48,8 @@ export interface Inspecteur {
   executer(champ: Champ, c: ContexteChamps): void;
   /** Replie ou deplie la zone : le conteneur (index.html) porte la classe, le plan reprend la largeur. */
   basculerOuverture(): void;
+  /** Le service du tiroir, pour le tableau d'optimisation et ses « Appliquer ». */
+  resultats?: Resultats;
 }
 
 export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin: Magasin, commandes: RegistreCommandes): Inspecteur {
@@ -81,6 +85,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
   return {
     objet,
     contexte,
+    resultats: ctx.resultats,
     titre: titreObjet,
     sections(c) {
       const sections = sectionsObjet(c);
