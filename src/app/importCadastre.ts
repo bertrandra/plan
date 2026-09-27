@@ -322,11 +322,12 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
         signaler(); return;
       }
       const cands = classerCandidats(construireCandidats(features, pr, ptRef, e.simplifier));
-      if (!cands.length) { e.erreur = 'Geometrie inexploitable renvoyee par le service cadastre.'; signaler(); return; }
+      const premiere = cands[0];
+      if (!premiere) { e.erreur = 'Geometrie inexploitable renvoyee par le service cadastre.'; signaler(); return; }
       // Le filtre geom pourrait etre ignore sans que rien ne le signale : une « plus proche » parcelle
       // a 200 m de l'adresse trahirait ce cas mieux que n'importe quel code HTTP.
-      if (cands[0]!.distance > 120) {
-        e.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(cands[0]!.distance) + ' m de l\'adresse).';
+      if (premiere.distance > 120) {
+        e.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(premiere.distance) + ' m de l\'adresse).';
         signaler(); return;
       }
       e.proj = pr;
@@ -336,14 +337,14 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
       e.voisinageCharge = new Set();
       occuper(true, 'Recherche des parcelles voisines…');
       try {
-        await chargerVoisinage(cands[0]!);
+        await chargerVoisinage(premiere);
       } catch (err) {
         // Le voisinage est un complement : son echec ne doit pas emporter la parcelle trouvee.
         e.erreur = 'Parcelles voisines non chargees : ' + ((err as Error).message || err);
       }
       occuper(false);
-      appliquerPrincipale(cands[0]!);
-      await chargerIgnAvecMessage(cands[0]!);
+      appliquerPrincipale(premiere);
+      await chargerIgnAvecMessage(premiere);
       e.etape = 2;
       signaler();
     } catch (err) {
@@ -357,7 +358,7 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
     if (!texte || texte.length < 3) { e.erreur = 'Saisis une adresse (au moins 3 caracteres).'; signaler(); return; }
     const m = texte.match(RE_COORDS);
     if (m) {
-      const lat = parseFloat(m[1]!.replace(',', '.')), lon = parseFloat(m[2]!.replace(',', '.'));
+      const lat = parseFloat((m[1] ?? '').replace(',', '.')), lon = parseFloat((m[2] ?? '').replace(',', '.'));
       void choisirAdresse({ label: 'Point ' + lat.toFixed(6) + ', ' + lon.toFixed(6), score: 1, genre: 'coordonnees', citycode: '', ville: '', lon, lat });
       return;
     }
@@ -365,9 +366,10 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
     try {
       const res = await geocoderBAN(texte, false);
       occuper(false);
-      if (!res.length) { e.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; signaler(); return; }
+      const meilleure = res[0];
+      if (!meilleure) { e.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; signaler(); return; }
       e.suggestions = res;
-      void choisirAdresse(res[0]!);
+      void choisirAdresse(meilleure);
     } catch (err) {
       occuper(false);
       e.erreur = 'Geocodage impossible : ' + ((err as Error).message || err);
@@ -521,7 +523,12 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     if (actif) e.erreur = '';
     signaler();
   };
-  const n: Noyau = { e, signaler, occuper, principale: () => e.principale!, proj: () => e.proj! };
+  // Les gestes de l'etape 2 ne s'ouvrent qu'une parcelle choisie et projetee : les lire avant est une erreur.
+  const exiger = <T,>(v: T | null | undefined, quoi: string): T => {
+    if (v === null || v === undefined) throw new Error(quoi + ' : pas encore choisie.');
+    return v;
+  };
+  const n: Noyau = { e, signaler, occuper, principale: () => exiger(e.principale, 'Parcelle principale'), proj: () => exiger(e.proj, 'Projection locale') };
   const l = lectures(n);
   const ch = chargements(n);
   return {

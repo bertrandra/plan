@@ -72,7 +72,8 @@ export async function resoudreTexture(id: string, data: TexturePolyhaven): Promi
   const f = await r.json() as { Diffuse?: Record<string, { jpg?: { url?: string } }>; diffuse?: Record<string, { jpg?: { url?: string } }> };
   const diff = f.Diffuse || f.diffuse;
   const resolutions = diff ? Object.keys(diff).filter(k => /^\d+k$/i.test(k)).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)) : [];
-  const reso = diff && (diff[resolutions[0]!] || Object.values(diff)[0]);
+  const plusPetite = resolutions[0];
+  const reso = diff && ((plusPetite !== undefined ? diff[plusPetite] : undefined) || Object.values(diff)[0]);
   const url = reso && reso.jpg && reso.jpg.url;
   if (!url) throw new Error('Pas de carte de couleur (Diffuse) disponible pour cette texture');
   return { id, nom: data.name, vignette: data.thumbnail_url, url };

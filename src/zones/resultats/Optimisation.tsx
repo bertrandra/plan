@@ -22,7 +22,8 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const objets = resultats.etat.objects;
   const c = ensureConstruction(obj);
   const res = optimiserParametres(obj, objets);
-  if (!res.length) return <div id="terrasseOptimResult"><div className="hint">Aucune configuration exploitable.</div></div>;
+  const meilleur = res[0];
+  if (!meilleur) return <div id="terrasseOptimResult"><div className="hint">Aucune configuration exploitable.</div></div>;
 
   const surPlots = estPlots(c);
   const estActuelle = (r: CandidatStructure) => surPlots
@@ -58,7 +59,6 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
     }
   });
 
-  const meilleur = res[0]!;
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c, 'vis', VIS_PRICE),
     prixUnitaire(c, 'bois', SOLIVE_PRICE),
@@ -68,7 +68,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   return (
     <div id="terrasseOptimResult">
       <div className="hint">
-        {'Lames de ' + (c.epaisseurLame || 25) + ' mm en ' + ((ESSENCE_PRICES[c.essenceBois!] || { label: undefined }).label || c.essenceBois) +
+        {'Lames de ' + (c.epaisseurLame || 25) + ' mm en ' + ((ESSENCE_PRICES[c.essenceBois ?? ''] || { label: undefined }).label || c.essenceBois) +
           ' : appuis a ' + maxEntraxeLameCm(c) + ' cm maximum. Une ligne par strategie de construction (section × avec ou sans lambourdes), ' +
           'a chaque fois son meilleur entraxe ; toutes respectent cette limite et la portee de chaque piece. Classement par cout de structure ' +
           '(vis + bois porteur) : les lames sont identiques dans tous les cas, donc exclues. Detail du calcul dans l\'onglet Methode.'}

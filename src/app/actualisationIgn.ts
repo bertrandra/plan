@@ -71,7 +71,7 @@ export const actualisation = {
 };
 
 /** Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN. */
-function origineValide(cad: Cadastre): boolean {
+function origineValide(cad: Cadastre): cad is Cadastre & { origineLat: number; origineLon: number } {
   return cad.origineLat !== undefined && cad.origineLat !== null && cad.origineLon !== undefined && cad.origineLon !== null;
 }
 
@@ -117,7 +117,10 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   const fraiches: Record<string, FeatureGeoJSON> = {};
   const couches = [...new Set(objets.map(coucheIgn).filter((c): c is string => c !== null))];
   const anneaux: Anneau[] = [];
-  objets.forEach(o => { if (o.cadastre && o.cadastre.geometrieSource) anneaux.push((o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0]!); });
+  objets.forEach(o => {
+    const anneau = o.cadastre && o.cadastre.geometrieSource ? (o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0] : undefined;
+    if (anneau) anneaux.push(anneau);
+  });
   if (!couches.length || !anneaux.length) return fraiches;
   const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
   for (const couche of couches) {
@@ -142,7 +145,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   signaler();
   const bilan = [];
   try {
-    const proj = projecteurLocal(cad.origineLat as number, cad.origineLon as number);
+    const proj = projecteurLocal(cad.origineLat, cad.origineLon);
     const simplifier = !!cad.simplifieM;
 
     // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
@@ -173,21 +176,23 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // ---- 3. Application
     ctx.pushHistory();
     let nMaj = 0, nAbsents = 0, ecartMax = 0;
+    // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
+    const contour = ptsParcelle, relue = featParcelle;
     const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((o: ObjetBrut)=>{
-      if(o.key === parcelle.key && ptsParcelle){
+      if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
-        ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, ptsParcelle!)); });
+        ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, contour)); });
         const copie: ObjetBrut = Object.assign({}, o, {
-          pts: ptsParcelle,
-          vertexNames: ptsParcelle.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
-          segmentNames: ptsParcelle.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
-          frozenVertices: ptsParcelle.map(()=>false)
+          pts: contour,
+          vertexNames: contour.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
+          segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
+          frozenVertices: contour.map(()=>false)
         });
-        const pp: Record<string, unknown> = featParcelle!.properties || {};
+        const pp: Record<string, unknown> = relue.properties || {};
         copie.cadastre = Object.assign({}, o.cadastre, {
           contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
           recupereLe: new Date().toISOString(),
-          geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(featParcelle!.geometry)] }
+          geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(relue.geometry)] }
         });
         return copie;
       }
@@ -252,7 +257,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       const deg = proj.versDegres(centre.x, centre.y);
       try {
         cible.plu = await interrogerPlu(deg.lon, deg.lat);
-        if(cible.plu.zones.length) bilan.push('PLU : zone ' + cible.plu.zones[0]!.libelle);
+        const zone = cible.plu.zones[0];
+        if(zone) bilan.push('PLU : zone ' + zone.libelle);
         else bilan.push('PLU : aucun zonage');
       } catch { bilan.push('PLU indisponible'); }
     }
@@ -278,7 +284,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 
 export async function construireVoisinage(
   parcelle: ObjetPlan,
-  cad: { idu?: string; codeInsee?: string; origineLat?: number; origineLon?: number; geometrieSource?: { coordinates?: Anneau[] } },
+  cad: { idu?: string; codeInsee?: string; origineLat: number; origineLon: number; geometrieSource?: { coordinates?: Anneau[] } },
   proj: ProjecteurLocal,
   simplifier: boolean,
   choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean },
@@ -300,7 +306,7 @@ export async function construireVoisinage(
   const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
   const tri = trierVoisines(principale, candidats);
 
-  const iduPresents = new Set(dejaSerialises.filter(o=>o.cadastre && o.cadastre.idu).map(o=>o.cadastre!.idu as string));
+  const iduPresents = new Set(dejaSerialises.flatMap(o=>o.cadastre && o.cadastre.idu ? [o.cadastre.idu as string] : []));
   iduPresents.add(cad.idu as string);
   const clesPrises = new Set(dejaSerialises.map(o=>o.key));
   const cleUnique = (base: string | undefined) => {
@@ -328,7 +334,7 @@ export async function construireVoisinage(
       cadastre: {
         idu:c.idu, codeInsee:c.codeInsee, commune:c.commune, section:c.section, numero:c.numero,
         contenanceM2:c.contenance, source:'IGN/API Carto/PCI', recupereLe,
-        origineLat:cad.origineLat!, origineLon:cad.origineLon!,
+        origineLat:cad.origineLat, origineLon:cad.origineLon,
         simplifieM: simplifier ? SIMPLIF_M : 0,
         geometrieSource:{ type:'Polygon', coordinates:[c.anneauDeg] }
       }

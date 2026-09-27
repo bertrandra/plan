@@ -4,6 +4,7 @@
 // transformation de la vue, qui n'existait pas encore comme objet. Elles l'ont rejointe en phase 4
 // et vivent maintenant ici, la scene passee en parametre (voir plus bas).
 
+import { sommetDe } from './anneau.js';
 import type { PtBrut } from '../model/types.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 
@@ -22,9 +23,11 @@ export function parseSvgPathPoints(d: string): PtBrut[] {
   let cur = {x:0,y:0}, start = {x:0,y:0};
   let cmd: string | null = null, i = 0;
   const isCmdTok = (t: string) => /^[MLHVCSQTAZ]$/i.test(t);
-  const num = ()=>{ const v = parseFloat(tokens[i++]!); return Number.isFinite(v) ? v : 0; };
+  // Un chemin tronque lit au-dela de sa fin : le nombre manquant vaut 0, comme un nombre illisible.
+  const num = ()=>{ const v = parseFloat(tokens[i++] ?? ''); return Number.isFinite(v) ? v : 0; };
   while(i < tokens.length){
-    if(isCmdTok(tokens[i]!)){ cmd = tokens[i]!; i++; }
+    const jeton = tokens[i];
+    if(jeton !== undefined && isCmdTok(jeton)){ cmd = jeton; i++; }
     if(cmd===null) break;
     const rel: boolean = cmd === cmd.toLowerCase();
     const C = cmd.toUpperCase();
@@ -104,12 +107,14 @@ export function pathD(scene: EtatScene, pts: PtBrut[], curve?: boolean): string 
   if (!curve || s.length < 3) {
     return 'M ' + s.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L ');
   }
-  let d = 'M ' + s[0]!.x.toFixed(1) + ',' + s[0]!.y.toFixed(1) + ' ';
+  // Les extremites se repetent : le premier et le dernier arc n'ont qu'un voisin.
+  const borne = (i: number) => sommetDe(s, Math.max(0, Math.min(s.length - 1, i)));
+  let d = 'M ' + borne(0).x.toFixed(1) + ',' + borne(0).y.toFixed(1) + ' ';
   for (let i = 0; i < s.length - 1; i++) {
-    const p0 = s[Math.max(0, i - 1)]!,
-      p1 = s[i]!,
-      p2 = s[i + 1]!,
-      p3 = s[Math.min(s.length - 1, i + 2)]!;
+    const p0 = borne(i - 1),
+      p1 = borne(i),
+      p2 = borne(i + 1),
+      p3 = borne(i + 2);
     const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
     const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
     d +=

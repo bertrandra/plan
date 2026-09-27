@@ -29,13 +29,15 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
   const terrasse = onglet.groupe === 'terrasse' ? resultats.terrasse() : undefined;
   if (onglet.groupe === 'terrasse' && !terrasse) return null;
 
+  // Les onglets de terrasse ne s'ouvrent que sur une terrasse selectionnee (verifie juste au-dessus).
+  const pourTerrasse = (rendre: (t: NonNullable<typeof terrasse>) => React.ReactNode) => terrasse ? rendre(terrasse) : null;
   let contenu: React.ReactNode;
   switch (onglet.id) {
-    case 'bom': contenu = <Nomenclature obj={terrasse!} resultats={resultats} />; break;
-    case 'coupe': contenu = <Coupe obj={terrasse!} />; break;
-    case 'implantation': contenu = <Implantation obj={terrasse!} resultats={resultats} />; break;
-    case 'chantier': contenu = <Chantier obj={terrasse!} resultats={resultats} />; break;
-    case 'methode': contenu = <Methode obj={terrasse!} resultats={resultats} />; break;
+    case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
+    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} />); break;
+    case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
+    case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;
+    case 'methode': contenu = pourTerrasse(t => <Methode obj={t} resultats={resultats} />); break;
     case 'mesure': contenu = <Cotes resultats={resultats} commandes={commandes} />; break;
     case 'plu': contenu = <Plu resultats={resultats} commandes={commandes} />; break;
     case 'resume': contenu = <Resume resultats={resultats} commandes={commandes} />; break;

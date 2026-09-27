@@ -17,6 +17,7 @@ import { nomFichierTerrasse } from '../../three/exportGlb.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { nouveauPointDeVue } from '../../model/creation.js';
 import { cleObjet } from '../../model/cles.js';
+import { PERMISSION_ECRITURE } from '../acces.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
@@ -51,7 +52,8 @@ export interface ReglagesVue3d {
 
 export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): ReglagesVue3d {
   // Les boutons sont dans le panneau (zones/vue3d/Vue3d.tsx) : des commandes sans element a lier.
-  const cam = (_idDom: string, id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: '3d', executer });
+  const cam = (_idDom: string, id: string, libelle: string, executer: () => void, permission?: string) =>
+    cmd.declarer({ id, libelle, groupe: '3d', executer, ...(permission ? { permission } : {}) });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
@@ -116,7 +118,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     // de vue qu'on vient de creer y figure des ce signal (D-15).
     signaler3d();
     showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
-  });
+  // Il ajoute un objet au plan : en lecture seule, le geste est refuse comme toute ecriture (D-17).
+  }, PERMISSION_ECRITURE);
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
   cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));

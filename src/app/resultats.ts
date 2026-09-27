@@ -184,8 +184,8 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
         ctx.pushHistory();
         parcelle.plu = plu;
         ctx.markDirty();
-        const n = plu.zones.length;
-        showToast(n ? ('PLU : zone ' + plu.zones[0]!.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
+        const n = plu.zones.length, zone = plu.zones[0];
+        showToast(zone ? ('PLU : zone ' + zone.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
                     : 'PLU : aucun zonage renvoye pour ce point.');
       } catch (e) {
         showToast('Interrogation du PLU impossible : ' + ((e as Error).message || e));

@@ -314,7 +314,8 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
             // Une famille dont toutes les sections sont repliees (Geometrie) s'ouvrirait sur trois
             // titres : on deplie la premiere, le reste garde le pli de l'utilisateur.
             const sections = [...(e.currentTarget.closest('.inspecteurPanneau')?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection[data-famille="' + f.id + '"]') ?? [])];
-            if (sections.length && !sections.some(d => d.open)) sections[0]!.open = true;
+            const premiere = sections[0];
+            if (premiere && !sections.some(d => d.open)) premiere.open = true;
           }}>{f.libelle}</button>
       ))}
     </div>

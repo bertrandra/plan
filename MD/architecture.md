@@ -372,28 +372,29 @@ not change the layer picture above.
 
 ### 5.2.3 Module map, as built — 27 September 2026
 
-Taken at `2.1.1`, one week after §5.2.2. Seven layers plus `plateforme/`, **159 modules, about
-23 450 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
+Taken at `2.1.1`, one week after §5.2.2, and updated the same day once the last `ui/` panels had
+moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **188 modules, about
+23 700 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
 tokens in `jetons.ts`) sit outside the layers.
 
 | Layer | Folder | Modules | Lines | What it holds |
 |---:|---|---:|---:|---|
 | 0 | `shell/` | 5 | 349 | `dialogs` · `dialogues` · `dom` · `download` · `notifications` |
-| 0 | `util/` | 3 | 119 | `escape` · `format` · `semaine` |
-| 1 | `geometry/` | 10 | 860 | `alignement` · `angles` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
-| 2 | `model/` | 14 | 1 308 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `formes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
+| 0 | `util/` | 4 | 136 | `date` · `escape` · `format` · `semaine` |
+| 1 | `geometry/` | 11 | 892 | `alignement` · `angles` · `anneau` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
+| 2 | `model/` | 14 | 1 307 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `formes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
 | 2 | `plateforme/` | 6 | 743 | `capacites` · `config` · `contexte` · `contrat` (generated) · `global.d` · `session` |
-| 3 | `engine/` | 14 | 2 010 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `optimisation` · `parasol` · `portees` · `prix` · `structure` |
-| 3 | `geo/` | 6 | 986 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
-| 4 | `core/` | 4 | 387 | `contexteTerrasse` · `historique` · `history` · `state` |
-| 4 | `io/` | 7 | 926 | `api` · `depotPlateforme` · `exportProjet` · `importSvg` · `projet` · `serialisation` · `validation` |
-| 4 | `render/` | 12 | 1 485 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
+| 3 | `engine/` | 14 | 2 013 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `optimisation` · `parasol` · `portees` · `prix` · `structure` |
+| 3 | `geo/` | 6 | 993 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
+| 4 | `core/` | 4 | 385 | `contexteTerrasse` · `historique` · `history` · `state` |
+| 4 | `io/` | 8 | 1 021 | `api` · `depotPlateforme` · `exportProjet` · `importSvg` · `polyhaven` · `projet` · `serialisation` · `validation` |
+| 4 | `render/` | 12 | 1 494 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
 | 4 | `export/` | 8 | 1 144 | `dossierPdf` · `dxf` · `dxfPlan` · `pdf/writer` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` |
-| 4 | `three/` | 10 | 2 062 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
-| 4 | `interaction/` | 6 | 884 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
-| 5 | `ui/` | 12 | 4 275 | `cadastreDialog` · `champs/` (`construction` · `objet` · `types`) · `chiffrage` · `cloture` · `mesurePanel` · `projectBar` · `tableau` · `tables` · `terrassePanels` · `texturePicker` |
-| 6 | `app/` | 25 | 3 613 | `acces` · `atelier` · `boot` · `classe` · `clavier` · `commandes` · `explorateur` · `exposition` · `inspecteur` · `magasin` · `modes` · `porte` · `premierPas` · `projet` · `tiroir` · `ecouteurs/` (ten listener groups) |
-| 6 | `zones/` | 17 | 2 300 | `BarreApplication` · `BarreEtat` · `BarreNavigation` · `Dialogues` · `Explorateur` · `FeuilleSelection` · `Inspecteur` · `Notifications` · `Palette` · `Porte` · `PremierPas` · `Resultats` · `Surimpression` · `composants/Feuille` · `icones` · `monter` · `statut` |
+| 4 | `three/` | 10 | 2 043 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
+| 4 | `interaction/` | 6 | 903 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
+| 5 | `ui/` | 6 | 1 165 | `champs/` (`construction` · `objet` · `types`) · `chiffrage` · `cloture` · `tableau` |
+| 6 | `app/` | 38 | 4 700 | `acces` · `actualisationIgn` · `atelier` · `boot` · `classe` · `clavier` · `commandes` · `dossier` · `explorateur` · `exposition` · `importCadastre` · `inspecteur` · `magasin` · `modes` · `parcours` · `porte` · `premierPas` · `projet` · `resultats` · `tiroir` · `assemblage/` (`affichage` · `cadrage` · `dessin` · `exports` · `formes` · `gestes` · `mesures` · `surface` · `vues3d`) · `ecouteurs/` (nine listener groups) |
+| 6 | `zones/` | 36 | 4 443 | `BarreApplication` · `BarreEtat` · `BarreNavigation` · `Dialogues` · `Explorateur` · `FeuilleSelection` · `Inspecteur` · `Notifications` · `Palette` · `Parcours` · `Porte` · `PremierPas` · `Resultats` · `Surimpression` · `icones` · `monter` · `statut` · `composants/` (`BoutonCommande` · `Feuille` · `Saisie`) · `parcours/` (`Actualisation` · `ChoixTexture` · `ImportCadastre`) · `resultats/` (eleven panels) · `vue3d/` (`Vue3d` · `Visionneuse` · `communs`) |
 
 **What changed since 20 September.**
 
@@ -409,6 +410,22 @@ tokens in `jetons.ts`) sit outside the layers.
   code they carry: `portees` (sections, spans, load constants), `prix` (prices and stock lengths)
   and `optimisation` (the structure optimiser, which needs `layers`, which needs `structure`). The
   engine oracle is unchanged.
+
+- **No panel is built by hand in the DOM any more** (27 September, evening). The results drawer
+  (`zones/resultats/`, closing D-16), the two 3D settings panels (`zones/vue3d/`) and the three
+  multi-step dialogs (`zones/parcours/`, Z8) are React components. Each writes through one service
+  in `app/` — `resultats`, the `Reglages*` objects the listener groups return, and the dialog
+  controllers `importCadastre` and `actualisationIgn` behind `parcours`. `ui/` keeps only the
+  field descriptors and three pure helpers; `three/` no longer looks up a DOM id and takes its
+  settings as parameters. `app/exposition.ts` has no `html:` placement left.
+- **`boot()` is a composition, not a closure.** Its sixty wrappers moved to `app/assemblage/` by
+  family (the SVG surface and its layers, drawing, display toggles, framing, measures, edits, the
+  two 3D views, exports), and `boot.ts` composes them in five functions, none over 150 lines. The
+  order in which listeners are registered and SVG layers are appended is unchanged, and the smoke
+  list plays the same before and after. The FF-10 ceiling list went from seven files to four.
+- **Assertions are down to what the code proves** (D-4 to D-11 closed). Ring vertices are read
+  through `geometry/anneau.ts`, dates through `util/date.ts`, SVG attributes through named readers
+  that say what an absent attribute gives. No `as unknown as` remains in `src/`.
 
 **The dependency rules, as enforced now.** `tests/unit/architecture.test.ts` reads every import form
 in the code base: multi-line imports, `export … from`, side-effect imports, dynamic `import()`,

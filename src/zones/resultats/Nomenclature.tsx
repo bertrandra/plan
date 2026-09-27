@@ -46,7 +46,7 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
       <tbody>
         <tr><th>Longueur</th><th>Qte</th><th>Metre</th><th>Prix / barre</th><th>Prix / m²</th><th>Total</th><th>Usage</th></tr>
         {longueurs.map(L => {
-          const n = d.achats[L]!, r = d.roles[L] || { entiere: 0, ajustee: 0, recoupee: 0, troncon: 0, rebutMl: 0, potMl: 0 };
+          const n = d.achats[L] ?? 0, r = d.roles[L] || { entiere: 0, ajustee: 0, recoupee: 0, troncon: 0, rebutMl: 0, potMl: 0 };
           const parts: string[] = [];
           if (r.entiere) parts.push(r.entiere + ' posee entiere (tombe juste)');
           if (r.ajustee) parts.push(r.ajustee + ' arasee, chute ' + Math.round(100 * r.rebutMl / r.ajustee) + ' cm au rebut');
@@ -68,7 +68,7 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
           );
         })}
         <tr style={{ fontWeight: 600 }}>
-          <td>Total</td><td>{longueurs.reduce((s, L) => s + d.achats[L]!, 0) + ' barres'}</td><td>{d.achatMl.toFixed(2) + ' ml'}</td>
+          <td>Total</td><td>{longueurs.reduce((s, L) => s + (d.achats[L] ?? 0), 0) + ' barres'}</td><td>{d.achatMl.toFixed(2) + ' ml'}</td>
           <td></td><td></td><td>{coutDebit(c, d, cle).toFixed(2) + ' €'}</td><td></td>
         </tr>
       </tbody>
@@ -121,7 +121,7 @@ function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesT
               {l.calcule
                 // Chiffre depuis le debit, longueur par longueur : le saisir ici aussi ferait deux
                 // sources de verite qui peuvent diverger.
-                ? <td className="nombre">{l.prixReel!.toFixed(2) + ' €'}<div className="noteLigne">{typeof l.calcule === 'string' ? l.calcule : 'calcule'}</div></td>
+                ? <td className="nombre">{(l.prixReel ?? 0).toFixed(2) + ' €'}<div className="noteLigne">{typeof l.calcule === 'string' ? l.calcule : 'calcule'}</div></td>
                 : <td><SaisieNombre valeur={l.prixReel !== null && l.prixReel !== undefined ? String(l.prixReel) : ''} placeholder="non saisi"
                     libelle={'Prix réel : ' + l.label} largeur={110} onValider={(t) => saisirReel(l.poste, t)} /></td>}
             </tr>
@@ -158,7 +158,7 @@ function DebitLames({ obj, layers, resultats }: PropsTerrasse & { layers: Couche
       <TableDebit c={c} d={d} cle="lames" resultats={resultats} />
       <div className="hint">
         {'Prix par barre : ' + (perso ? perso + ' sur ' + longueurs.length + ' saisis, les autres estimes' : 'tous estimes') +
-          ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!).label +
+          ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label +
           ') pour une lame de ' + (c.largeurLame || 140) + ' mm — soit ' + (cout / (d.achatMl || 1)).toFixed(2) + ' €/ml en moyenne, ou ' +
           (cout / (d.reelMl || 1)).toFixed(2) + ' €/ml rapporte au lineaire reellement pose. ' +
           'Saisis le tarif du fournisseur pour chaque longueur : le total alimente la ligne « Lames » du BOM au-dessus, qui n\'est donc pas saisissable a la main.'}
@@ -206,8 +206,8 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
           {ligne('A acheter', ap.unites + ' plots', prixSaisi ? 'prix saisi' : 'prix estime', ap.cout.toFixed(2) + ' €')}
         </tbody></table>
         <div className="hint">
-          {'Le prix d\'un plot depend surtout de sa hauteur de reglage : compter ' + PLOT_MODELES[0]!.prix.toFixed(2) + ' a ' +
-            PLOT_MODELES[PLOT_MODELES.length - 1]!.prix.toFixed(2) + ' € piece selon la gamme. Le prix est memorise par modele : changer de hauteur change de ' +
+          {'Le prix d\'un plot depend surtout de sa hauteur de reglage : compter ' + (PLOT_MODELES[0]?.prix ?? 0).toFixed(2) + ' a ' +
+            (PLOT_MODELES[PLOT_MODELES.length - 1]?.prix ?? 0).toFixed(2) + ' € piece selon la gamme. Le prix est memorise par modele : changer de hauteur change de ' +
             'modele, et donc de prix. L\'assise est chiffree separement au BOM ci-dessus.'}
         </div>
       </>
@@ -246,7 +246,7 @@ function DebitBois({ obj, layers, resultats }: PropsTerrasse & { layers: Couches
       {groupes.map((g, i) => {
         const d = g.debit;
         const longueurs = Object.keys(d.achats).map(parseFloat);
-        const detail = Object.keys(g.parts).map(k => k + ' ' + g.parts[k]!.toFixed(2) + ' ml').join(', ');
+        const detail = Object.entries(g.parts).map(([k, ml]) => k + ' ' + ml.toFixed(2) + ' ml').join(', ');
         const cout = coutDebit(c, d, g.cle);
         const perso = longueurs.filter(L => prixPersonnalise(c, g.cle, L)).length;
         return (

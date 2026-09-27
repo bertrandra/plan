@@ -5,6 +5,7 @@
 // nord, l'echelle, les cotes et les couches de la terrasse. Ces quatre-la ne sont poses qu'une fois
 // les objets crees (`poserCalquesDuDessus`) : c'est ce qui les garde devant.
 
+import { el } from '../../shell/dom.js';
 import { svgNS } from '../../render/svg.js';
 import type { EtatApp } from '../../core/state.js';
 
@@ -33,7 +34,7 @@ const groupe = (inerte = false): SVGGElement => {
 };
 
 export function creerSurface(etat: EtatApp): Surface {
-  const stage = document.getElementById('stage')!;
+  const stage = el('stage');
   const svg = document.createElementNS(svgNS, 'svg');
   // Pointe de fleche pour les points de vue (point + vecteur) : marker-end + orient="auto" suit
   // nativement la tangente du trait, pas besoin de recalculer un angle a chaque deplacement.

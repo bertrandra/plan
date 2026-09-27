@@ -5,8 +5,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement** : le
-moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
+Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement hors les
+défauts corrigés ci-dessous** : le moteur n'est que déplacé, l'oracle et les six empreintes ne
+bougent pas.
 
 ### Modifié
 
@@ -44,6 +45,15 @@ moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
   L'opération en cours se publie (`affichage3d.generation`) et les boutons la lisent.
 - **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
   bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
 
 ### Modifié (architecture)
 
@@ -56,7 +66,27 @@ moteur n'est que déplacé, l'oracle et les six empreintes ne bougent pas.
   à la règle des couches. Le même fichier vérifie maintenant l'absence de cycle.
 - **ESLint porte FF-9 et FF-10** : aucun `any` dans `model`, `engine` et `geometry`, et aucune
   fonction de plus de 150 lignes, avec un cliquet par fichier pour les onze qui en ont déjà une.
-- **ADR-16** (`docs/adr/0016-react-and-zustand-for-the-zones.md`) remplace ADR-2 : React et Zustand
+- **`boot()` n'est plus une fermeture de mille lignes** : ses enveloppes rejoignent
+  `app/assemblage/` par famille (surface et calques, dessin, affichage, cadrage, cotes, gestes, vues
+  3D, exports), et `boot.ts` les compose en cinq fonctions. L'ordre d'enregistrement des écouteurs et
+  d'empilement des calques est inchangé ; la liste de fumée se joue à l'identique avant et après. Le
+  cliquet FF-10 passe de sept fichiers à quatre, aux plafonds abaissés.
+- **Les assertions `!` des défauts D-4 à D-11 disparaissent**, et avec elles les trois derniers
+  `as unknown as` : `geometry/anneau.ts` lit un sommet d'un contour fermé, `util/date.ts` une date
+  `AAAA-MM-JJ`, `io/importSvg.ts` ses attributs par des lecteurs nommés ; `Anneau` est un tableau de
+  positions GeoJSON typées.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
+ : React et Zustand
   pour les zones, le plan et les gestes restent en DOM natif. `architecture.md` gagne une carte des
   modules au 27 septembre (§5.2.3), et §9 dit quelles fonctions d'aptitude tournent réellement.
 

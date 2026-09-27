@@ -37,12 +37,14 @@ export function syncControles(): void {
 export function appliquer(ctx: ContexteSoleilVue3d): void {
   if (!vue3d.scene || !vue3d.scene.dirLight) return;
   const { dirLight, dirFill, hemiLight, extent } = vue3d.scene;
-  const { elevRad, azRad } = reglerSoleil(
+  const position = reglerSoleil(
     { dirLight, dirFill, hemiLight, rayon: extent },
     soleilVue3d,
     ctx.lieuActuel()
   );
-  affichage3d.soleilInfo = libelleSoleil(elevRad, azRad);
+  // Une date illisible laisse le soleil ou il etait, et son libelle avec.
+  if (!position) return;
+  affichage3d.soleilInfo = libelleSoleil(position.elevRad, position.azRad);
   signaler3d();
   // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
   // requestAnimationFrame, que le navigateur met en pause des que l'onglet passe en arriere-plan —

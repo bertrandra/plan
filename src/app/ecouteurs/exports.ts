@@ -84,7 +84,9 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth * FACTEUR;
         canvas.height = img.naturalHeight * FACTEUR;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const contexte = canvas.getContext('2d');
+        if (!contexte) { showErrBanner('Erreur export PNG: dessin sur canvas indisponible.'); return; }
+        contexte.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
           if (!blob) { showErrBanner('Erreur export PNG: conversion en image impossible.'); return; }
           telechargerBlob('plan_interactif_export.png', blob);

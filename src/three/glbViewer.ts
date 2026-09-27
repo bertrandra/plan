@@ -118,8 +118,8 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
       // Parcours a l'aveugle des proprietes du materiau : une texture peut etre posee sur `map`,
       // `normalMap`, `roughnessMap`... et la liste depend du type de materiau. Chercher celles qui
       // sont des textures est plus sur que d'enumerer les noms connus.
-      Object.keys(mat).forEach(key=>{
-        const v = (mat as unknown as Record<string, unknown>)[key];
+      const valeurs: unknown[] = Object.values(mat);
+      valeurs.forEach(v=>{
         // Une texture partagee est EMPRUNTEE a `chargeurs.ts`, qui la distribue a toutes les
         // scenes et la garde entre deux. La detruire ici la retirerait sous les pieds de la scene
         // suivante — un materiau garderait une carte vide, et la terrasse s'afficherait en noir.

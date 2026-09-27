@@ -4,6 +4,7 @@
 // Le calcul vit dans interaction/, model/ et geometry/ ; ces gestes y ajoutent ce que ces modules ne
 // connaissent pas : l'historique, les poignees a refaire, le rendu.
 
+import { sommetDe } from '../../geometry/anneau.js';
 import { pointInPolygon } from '../../geometry/basic.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../../geometry/segments.js';
 import { alignerSurCote } from '../../geometry/alignement.js';
@@ -47,7 +48,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       // Un point de vue a exactement 2 points (position, direction) : un 3e casserait sa lecture.
       if (obj.locked || obj.fonction === 'camera') return;
       const pts = enPoints(obj).pts;
-      const nouveau = projectOntoSegment(clic, pts[segIndex]!, pts[(segIndex + 1) % pts.length]!);
+      const nouveau = projectOntoSegment(clic, sommetDe(pts, segIndex), sommetDe(pts, segIndex + 1));
       const borne = contour(obj);
       if (borne && !pointInPolygon(nouveau, borne)) return;
       d.pushHistory();
@@ -108,7 +109,7 @@ export function dejaRectangle(pts: PtBrut[] | undefined, tolDeg?: number): boole
   if (!pts || pts.length !== 4) return false;
   const tol = tolDeg || 1;
   return pts.every((_, i) => {
-    const a = pts[(i - 1 + 4) % 4]!, b = pts[i]!, c = pts[(i + 1) % 4]!;
+    const a = sommetDe(pts, i - 1), b = sommetDe(pts, i), c = sommetDe(pts, i + 1);
     const u = { x: a.x - b.x, y: a.y - b.y }, v = { x: c.x - b.x, y: c.y - b.y };
     const n = Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y);
     if (n < 1e-9) return false;

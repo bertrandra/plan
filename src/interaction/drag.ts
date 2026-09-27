@@ -32,7 +32,6 @@ export interface GlisserEnCours {
   startPt?: PtBrut;
   startA?: PtBrut;
   startB?: PtBrut;
-  startR?: number;
   idx?: number;
   i?: number;
   j?: number;

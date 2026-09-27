@@ -40,6 +40,13 @@ describe('ou le refus est pose dans les gestes du pointeur', () => {
   it('refuse aussi le recul au double-clic, qui change l ordre d empilement', () => {
     expect(source).toContain('if(!etat.lectureSeule) ctx.sendObjectBackward(objDbl);');
   });
+
+  it('refuse le recul au double toucher aussi, comme a la souris (D-18)', () => {
+    expect(source).toContain('if(recule && !etat.lectureSeule) ctx.sendObjectBackward(recule);');
+    // Chaque recul du fichier passe par une garde de lecture seule, sur la meme ligne.
+    const reculs = source.split('\n').filter((l) => l.includes('ctx.sendObjectBackward(') && !l.trim().startsWith('//'));
+    for (const l of reculs) expect(l, l.trim()).toContain('etat.lectureSeule');
+  });
 });
 
 describe('ce que la lecture seule ne touche pas', () => {

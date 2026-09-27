@@ -3,13 +3,8 @@
 // Les deux vues reglent leur soleil separement, mais avec la meme convention. Elle tenait en deux
 // morceaux dupliques dans chaque ecouteur ; la voici en un seul endroit.
 
-/** Une date `AAAA-MM-JJ` decoupee, sans passer par `new Date()` et son fuseau. */
-function partsDe(dateStr: string): [number, number, number] {
-  const [annee, mois, jour] = dateStr.split('-').map(Number);
-  // Une date mal formee donnerait `undefined`, que `Date.UTC` transforme en NaN — comportement
-  // d'origine, conserve.
-  return [annee!, mois!, jour!];
-}
+import { lireDate } from './date.js';
+
 
 /**
  * Position du curseur pour une date : le rang du bloc de 7 jours depuis le 1er janvier, plafonne
@@ -21,7 +16,8 @@ function partsDe(dateStr: string): [number, number, number] {
  * parfois en decembre, ferait sauter le curseur pour rien.
  */
 export function anneeEtSemaineDepuisDate(dateStr: string): { annee: number; semaine: number } {
-  const [annee, mois, jour] = partsDe(dateStr);
+  // Une date illisible met le curseur en tete de l'annee en cours plutot que sur NaN.
+  const { annee, mois, jour } = lireDate(dateStr) ?? { annee: new Date().getUTCFullYear(), mois: 1, jour: 1 };
   const jours = Math.floor((Date.UTC(annee, mois - 1, jour) - Date.UTC(annee, 0, 1)) / 86400000);
   return { annee, semaine: Math.min(52, Math.floor(jours / 7)) };
 }
@@ -36,6 +32,9 @@ export function anneeEtSemaineDepuisDate(dateStr: string): { annee: number; sema
  * plus forcement celle que `anneeEtSemaineDepuisDate` rendrait.
  */
 export function dateDecaleeDeSemaines(dateStr: string, deltaSemaines: number): string {
-  const [annee, mois, jour] = partsDe(dateStr);
+  // Une date illisible ne se decale pas : `toISOString()` leverait sur la date invalide.
+  const d = lireDate(dateStr);
+  if (!d) return dateStr;
+  const { annee, mois, jour } = d;
   return new Date(Date.UTC(annee, mois - 1, jour) + deltaSemaines * 7 * 86400000).toISOString().slice(0, 10);
 }

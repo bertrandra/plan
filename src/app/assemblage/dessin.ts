@@ -46,8 +46,8 @@ export interface DependancesDessin {
 export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): Dessin {
   const toScreen = (p: PtBrut) => versEcran(etat.scene, p);
   const toWorld = (p: PtEcran) => versMonde(etat.scene, p);
-  // La vue d'un objet empile a toujours son `el` : `creerDomObjet` l'a pose avant.
-  const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => s.svg.appendChild(el!) }, vue });
+  // La vue d'un objet empile a son `el` des que `creerDomObjet` l'a pose ; avant, il n'y a rien a empiler.
+  const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) s.svg.appendChild(el); } }, vue });
   return {
     toScreen, toWorld,
     createObjectDOM: (obj) => creerDomObjet(s.svg, aDessiner(obj), etat.scene),

@@ -10,6 +10,7 @@
 // Le contour de contrainte est passe en parametre : ces fonctions ne connaissent pas la parcelle,
 // ni la liste des objets.
 
+import { indiceValide, sommetDe } from '../geometry/anneau.js';
 import { signedArea, pointInPolygon } from '../geometry/basic.js';
 import type { PtBrut } from '../model/types.js';
 
@@ -46,11 +47,13 @@ export function editerAngle(
   nouvelAngleDeg: number,
   contour: PtBrut[] | null
 ): boolean {
+  // L'indice vient de l'inspecteur : un sommet qui n'existe pas ne s'edite pas.
+  if (!indiceValide(obj.pts, i)) return false;
   const n = obj.pts.length;
   if (obj.frozenVertices && obj.frozenVertices[(i + 1) % n]) return false;
-  const prec = obj.pts[(i - 1 + n) % n]!,
-    cur = obj.pts[i]!,
-    suiv = obj.pts[(i + 1) % n]!;
+  const prec = sommetDe(obj.pts, i - 1),
+    cur = sommetDe(obj.pts, i),
+    suiv = sommetDe(obj.pts, i + 1);
   const u = { x: prec.x - cur.x, y: prec.y - cur.y };
   const v = { x: suiv.x - cur.x, y: suiv.y - cur.y };
   const L = Math.hypot(v.x, v.y);
@@ -78,14 +81,15 @@ export function editerLongueur(
   nouvelleLongueur: number,
   contour: PtBrut[] | null
 ): boolean {
+  if (!indiceValide(obj.pts, i)) return false;
   const n = obj.pts.length;
   const j = (i + 1) % n;
   const aGele = !!(obj.frozenVertices && obj.frozenVertices[i]);
   const bGele = !!(obj.frozenVertices && obj.frozenVertices[j]);
   if (aGele && bGele) return false; // les deux extremites verrouillees : rien ne peut bouger
 
-  const a = obj.pts[i]!,
-    b = obj.pts[j]!;
+  const a = sommetDe(obj.pts, i),
+    b = sommetDe(obj.pts, j);
 
   if (bGele) {
     const dx = a.x - b.x,

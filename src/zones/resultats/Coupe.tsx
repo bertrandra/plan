@@ -27,7 +27,7 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
   const lambourdeH = (c.avecLambourde || estPlots(c)) ? dimsSection(sectionLambourde(c)).h : 0;
   const lameH = c.epaisseurLame || 25;
   // L'assise n'existe que sur plots, et se dessine sous le niveau du sol fini.
-  const assiseH = estPlots(c) && (SUPPORT_TYPES[c.supportType!] || { concasse: false }).concasse ? (c.supportDecaissement || 15) * 10 : 0;
+  const assiseH = estPlots(c) && (SUPPORT_TYPES[c.supportType ?? ''] || { concasse: false }).concasse ? (c.supportDecaissement || 15) * 10 : 0;
   const totalH = hauteurFinieMm(obj);
 
   // Il faut de la place SOUS la ligne de sol : la vis y descend, l'assise aussi.

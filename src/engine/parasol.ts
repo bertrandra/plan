@@ -4,6 +4,7 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { lireDate } from '../util/date.js';
 import { positionSoleil } from '../geo/soleil.js';
 import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
@@ -58,9 +59,11 @@ interface CandidatPosition { x: number; y: number; angleDeg: number; score: numb
 
 
 export function ombreInstantanee(par: ObjetPlan, ctx: ContexteSoleil): GeometrieOmbre | null {
-  const [annee, mois, jour] = ctx.dateStr.split('-').map(Number);
+  // Sans date lisible, pas de soleil a placer : pas d'ombre.
+  const date = lireDate(ctx.dateStr);
+  if(!date) return null;
   const lieu = ctx.lieu;
-  const { elevRad, azRad } = positionSoleil(annee!, mois!, jour!, ctx.minutes/60, lieu.latitude, lieu.longitude);
+  const { elevRad, azRad } = positionSoleil(date.annee, date.mois, date.jour, ctx.minutes/60, lieu.latitude, lieu.longitude);
   if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return null;
   return geometrieOmbre(par, {
     ux: -Math.sin(azRad), uy: -Math.cos(azRad),

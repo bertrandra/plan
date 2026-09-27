@@ -33,8 +33,8 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
   const debut = useRef<{ y: number; id: number } | null>(null);
   const hauteur = useStore(magasin.store, (s) => s.hauteurFeuille);
   const fermer = () => magasin.definirFeuille(null);
-  const monter = () => { const i = ORDRE.indexOf(hauteur); if (i < ORDRE.length - 1) magasin.definirHauteurFeuille(ORDRE[i + 1]!); };
-  const descendre = () => { const i = ORDRE.indexOf(hauteur); if (i <= 0) fermer(); else magasin.definirHauteurFeuille(ORDRE[i - 1]!); };
+  const monter = () => { const suivante = ORDRE[ORDRE.indexOf(hauteur) + 1]; if (suivante) magasin.definirHauteurFeuille(suivante); };
+  const descendre = () => { const i = ORDRE.indexOf(hauteur); const precedente = i > 0 ? ORDRE[i - 1] : undefined; if (precedente) magasin.definirHauteurFeuille(precedente); else fermer(); };
   return (
     <div className="enteteFeuille">
       {/* La poignee se glisse au doigt ; au clavier, c'est un bouton qui fait passer d'une hauteur a
@@ -117,8 +117,8 @@ export function Voile({ magasin }: { magasin: Magasin }) {
       if (!conteneur) return;
       const focusables = [...conteneur.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
         .filter(el => !(el as HTMLButtonElement).disabled && el.offsetParent !== null);
-      if (!focusables.length) return;
-      const premier = focusables[0]!, dernier = focusables[focusables.length - 1]!;
+      const premier = focusables[0], dernier = focusables[focusables.length - 1];
+      if (!premier || !dernier) return;
       if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
       else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
       else if (!conteneur.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }

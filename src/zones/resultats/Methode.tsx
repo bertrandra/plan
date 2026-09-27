@@ -31,7 +31,8 @@ const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s, l) => s + dist(l.a, l
 
 /** §1 a §3 : charges, portee d'une piece, ecartement sous les lames. */
 function Portees({ c, span }: Donnees) {
-  const cal = (e: number) => ({ soliveSection: '', soliveEntraxe: e, kPortee: c.kPortee!, chargeNormale: c.chargeNormale! });
+  // La portee ne lit que la section, l'entraxe, le coefficient et la charge : le reste de `c` est sans effet.
+  const cal = (e: number) => ({ ...c, soliveSection: '', soliveEntraxe: e });
   return (
     <>
         <div className="hint" style={{ marginBottom: 14 }}><b>Ce que fait ce calcul, et ce qu'il ne fait pas.</b> Il s'agit d'un pré-dimensionnement
@@ -68,7 +69,8 @@ function Portees({ c, span }: Donnees) {
         <table className="attrTable"><tbody>
           <tr><th>Section</th><th>b × h (mm)</th><th>entraxe 40</th><th>entraxe 50</th><th>entraxe 70</th></tr>
           {SOLIVE_SECTIONS.map(s => {
-            const d = SOLIVE_SECTION_DIMS[s]!;
+            const d = SOLIVE_SECTION_DIMS[s];
+            if (!d) return null;
             const p = (e: number) => Math.round(maxPorteeVisM({ ...cal(e), soliveSection: s }) * 100) + ' cm';
             return <tr key={s}><td>{s + ' mm'}</td><td>{d.b + ' × ' + d.h}</td><td>{p(40)}</td><td>{p(50)}</td><td>{p(70)}</td></tr>;
           })}
@@ -78,14 +80,14 @@ function Portees({ c, span }: Donnees) {
         <div className="sectionTitle">3. Écartement maximal des appuis sous les lames</div>
         <p>Le NF DTU 51.4 donne cet écartement en fonction de l'épaisseur, de la largeur et de la classe de la lame. Sur la plage courante
           l'abaque se résume à un rapport quasi constant — 22 mm avec 40 cm, 24 mm avec 45 cm, 27 mm avec 50 cm — soit environ <b>{(c.kEntraxeLame || ENTRAXE_LAME_K) + ' × l\'épaisseur'}</b>,
-          arrondi à 5 cm, multiplié par un coefficient de raideur propre à la lame. Le composite flue nettement plus ({LAME_RAIDEUR.composite!.toFixed(2)} par
-          défaut), les bois exotiques denses un peu moins ({LAME_RAIDEUR.exotique!.toFixed(2)}). Ce coefficient est modifiable pour l'essence
+          arrondi à 5 cm, multiplié par un coefficient de raideur propre à la lame. Le composite flue nettement plus ({(LAME_RAIDEUR.composite ?? 1).toFixed(2)} par
+          défaut), les bois exotiques denses un peu moins ({(LAME_RAIDEUR.exotique ?? 1).toFixed(2)}). Ce coefficient est modifiable pour l'essence
           sélectionnée dans l'onglet Construction — il vaut actuellement <b>{coefRaideurLame(c).toFixed(2)}</b>, soit des appuis à {maxEntraxeLameCm(c) + ' cm'}.</p>
         <table className="attrTable"><tbody>
           <tr><th>Épaisseur lame</th><th>Bois résineux</th><th>Exotique</th><th>Composite</th></tr>
           {[19, 21, 22, 24, 25, 27, 28].map(ep => {
-            const K = c.kEntraxeLame!;
-            const e = (essenceBois: string) => maxEntraxeLameCm({ epaisseurLame: ep, essenceBois, kEntraxeLame: K }) + ' cm';
+            const K = c.kEntraxeLame !== undefined ? { kEntraxeLame: c.kEntraxeLame } : {};
+            const e = (essenceBois: string) => maxEntraxeLameCm({ epaisseurLame: ep, essenceBois, ...K }) + ' cm';
             return <tr key={ep}><td>{ep + ' mm'}</td><td>{e('pin-classe4')}</td><td>{e('exotique')}</td><td>{e('composite')}</td></tr>;
           })}
         </tbody></table>
@@ -168,7 +170,7 @@ function Cadre({ span, S, vis, roles, surf }: Donnees) {
         </ol>
         <p><b>Cette terrasse :</b> {surf.toFixed(2) + ' m², portée ' + Math.round(span * 100) + ' cm → '}<b>{vis.length + ' vis'}</b>
           {' (' + roles.rive + ' sous cadre, ' + roles.courant + ' sous solives, ' + roles.spa + ' en zone d\'équipement), soit ' +
-            (vis.length / surf).toFixed(2) + ' vis/m² au total et ' + ((vis.length - roles.spa!) / surf).toFixed(2) + ' vis/m² hors équipement. ' +
+            (vis.length / surf).toFixed(2) + ' vis/m² au total et ' + ((vis.length - (roles.spa ?? 0)) / surf).toFixed(2) + ' vis/m² hors équipement. ' +
             'C\'est ce second chiffre qui se compare à l\'usage du métier, entre 1,0 et 1,5 vis/m². Bois porteur : ' + ml(S.cadre).toFixed(1) +
             ' ml de cadre, ' + ml(S.solives).toFixed(1) + ' ml de solives' +
             (S.solivesSpa.length ? ' (+ ' + ml(S.solivesSpa).toFixed(1) + ' ml de renfort sous équipement)' : '') +

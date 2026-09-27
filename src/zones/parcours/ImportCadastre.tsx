@@ -34,8 +34,9 @@ function Apercu({ importe }: Props) {
   const retenues = new Set([e.principale.idu].concat(importe.voisinesRetenues().map(v => v.idu)));
   const cliquer = (c: Candidate) => {
     if (e.etape === 2) void importe.choisirPrincipale(c);
-    else if (c.idu !== e.principale!.idu) importe.basculerVoisine(c);
+    else if (c.idu !== e.principale?.idu) importe.basculerVoisine(c);
   };
+  const cliquable = (c: Candidate | undefined) => c ? () => cliquer(c) : undefined;
   return (
     <svg viewBox={'0 0 ' + w.toFixed(2) + ' ' + h.toFixed(2)} className="apercuCadastre" role="img" aria-label="Aperçu des parcelles">
       {lots.slice().reverse().map(l => {
@@ -50,7 +51,7 @@ function Apercu({ importe }: Props) {
               style={l.cliquable ? { cursor: 'pointer' } : undefined}
               onMouseEnter={l.cliquable ? () => importe.survoler(l.idu) : undefined}
               onMouseLeave={l.cliquable ? () => { if (e.survol === l.idu) importe.survoler(null); } : undefined}
-              onClick={l.candidate ? () => cliquer(l.candidate!) : undefined} />
+              onClick={cliquable(l.candidate)} />
             <text x={(c.x - minX).toFixed(2)} y={(maxY - c.y).toFixed(2)} textAnchor="middle" fontSize={Math.max(0.9, w / 40).toFixed(2)} fill="#3B2E1F" pointerEvents="none">{l.libelle}</text>
           </g>
         );
@@ -87,7 +88,8 @@ function Etape1({ importe }: Props) {
           onKeyDown={(ev) => {
             if (ev.key !== 'Enter') return;
             ev.preventDefault();
-            if (e.suggestions.length) void importe.choisirAdresse(e.suggestions[0]!);
+            const suggestion = e.suggestions[0];
+            if (suggestion) void importe.choisirAdresse(suggestion);
             else void importe.rechercher(texte.trim());
           }} />
         <div className="suggestionsAdresse">
@@ -108,9 +110,11 @@ function Etape1({ importe }: Props) {
 
 function Etape2({ importe }: Props) {
   const e = importe.etat();
-  const p = e.principale!;
-  const geo = e.geo!;
-  const ecartAuto = e.candidats.length > 1 ? (e.candidats[1]!.distance - e.candidats[0]!.distance) : Infinity;
+  // L'etape 2 ne s'ouvre qu'une parcelle choisie et l'adresse geocodee : sans elles, rien a montrer.
+  const { principale: p, geo } = e;
+  if (!p || !geo) return null;
+  const [premier, second] = e.candidats;
+  const ecartAuto = premier && second ? second.distance - premier.distance : Infinity;
   return (
     <>
       <div className="corpsParcours">
@@ -194,8 +198,8 @@ function DonneesIgn({ importe }: Props) {
       {ligne('importerArbres', 'Arbres estimés dans ces zones (~' + importe.nombreArbresEstimes() + ')', vegs.length,
         'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille reguliere d\'un arbre pour 64 m2 est repartie dans les zones de vegetation - un ordre de grandeur du couvert, pas un releve.')}
       <div className="pluParcours">
-        {plu && plu.zones && plu.zones.length ? (() => {
-          const z = plu.zones[0]!;
+        {plu?.zones?.[0] ? (() => {
+          const z = plu.zones[0];
           return <><b>PLU</b>{' — zone ' + z.libelle + (z.typezone ? ' (type ' + z.typezone + ')' : '')}
             {z.libelong && <><br />{z.libelong}</>}
             {z.urlfic && <><br /><a href={z.urlfic} target="_blank" rel="noopener">Règlement (PDF)</a></>}

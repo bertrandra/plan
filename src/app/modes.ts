@@ -14,6 +14,7 @@
 // l'explorateur les demande. Ce module ne garde de l'ancien mode que la Vue 3D, qui en etait un
 // sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
+import { el } from '../shell/dom.js';
 import { glb, chargement, affichage3d, signaler3d } from '../three/etat3d.js';
 import { libererTexturesPartagees } from '../three/chargeurs.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
@@ -54,7 +55,7 @@ export function creerModes(ctx: ContexteModes) {
   let vueCourante: Vue = 'plan';
 
   function afficher(ids: string[], visible: boolean, valeurVisible = ''): void {
-    ids.forEach(id => { document.getElementById(id)!.style.display = visible ? valeurVisible : 'none'; });
+    ids.forEach(id => { el(id).style.display = visible ? valeurVisible : 'none'; });
   }
 
   /**

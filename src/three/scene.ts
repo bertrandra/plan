@@ -35,6 +35,8 @@ import type { PlanVuDeLa3d } from './etat3d.js';
  * (`o.fill`), ou un entier 0xRRGGBB ecrit ici pour les pieces de structure.
  */
 type CouleurTrois = string | number;
+/** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
+const BLANC_PAR_DEFAUT = 0xffffff;
 
 /** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
 interface AnneauMitre { ext: PtBrut[]; int: PtBrut[] }
@@ -628,9 +630,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       const h = ctx.elevationOf(o);
       if(h <= 0) return;
       const footprint = o.type==='circle' ? cerclePoly(o.center, o.r) : o.pts;
-      // `fill` est facultatif sur `ObjetPlan` : un objet sans couleur arrive tel quel a Three, qui
-      // ignore la valeur absente (avec un avertissement console) et garde sa couleur par defaut.
-      addPrism(footprint, 0, h, o.fill as CouleurTrois, false, opaciteDe(o), texturesDe(o));
+      // `fill` est facultatif sur `ObjetPlan` : sans couleur, l'objet prend le blanc que Three lui
+      // aurait laisse par defaut — dit ici, plutot que de passer `undefined` et son avertissement.
+      addPrism(footprint, 0, h, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o));
       if(o.fonction === 'arbre'){
         // Feuillage = une sphere posee sur le sommet du tronc (le prisme juste au-dessus, de
         // hauteur h) : son centre remonte d'un rayon au-dessus de h pour qu'elle touche le tronc

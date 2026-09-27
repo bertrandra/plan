@@ -4,6 +4,7 @@
 // l'echelle choisie. L'impression ouvre une fenetre autonome qui reprend le dessin ET les tableaux :
 // sur le chantier, ce sont les tableaux qui portent les cotes.
 
+import { sommetDe } from '../../geometry/anneau.js';
 import { useRef } from 'react';
 import { dist } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
@@ -47,14 +48,14 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const pts = obj.pts;
   const layers = computeTerrasseLayers(obj, resultats.etat.objects);
   const I = computeImplantation(obj, layers);
-  const ech = ECHELLES.includes(c.echelleImplant!) ? c.echelleImplant! : 200;
+  const ech = ECHELLES.find(e => e === c.echelleImplant) ?? 200;
   const mm = (m: number) => m * 1000 / ech;                       // metres reels -> mm sur le papier
   const marge = 18;                                               // mm, place pour les cotes
   const W = mm(I.bbox.x1 - I.bbox.x0) + marge * 2;
   const H = mm(I.bbox.y1 - I.bbox.y0) + marge * 2;
   const P = (p: PtBrut) => ({ x: marge + mm(p.x - I.bbox.x0), y: marge + mm(p.y - I.bbox.y0) });
   const nom = estPlots(c) ? 'plots' : 'vis';
-  const cote = (i: number) => dist(pts[i]!, pts[(i + 1) % pts.length]!);
+  const cote = (i: number) => dist(sommetDe(pts, i), sommetDe(pts, i + 1));
   const txt = (key: string, x: number, y: number, t: string, taille = 2.2, couleur = NOIR, ancre: 'start' | 'middle' = 'start', transform?: string) =>
     <text key={key} x={x} y={y} fontSize={taille} fill={couleur} fontFamily={POLICE} textAnchor={ancre} transform={transform}>{t}</text>;
 
@@ -89,14 +90,14 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
             {porteuses.map((seg, i) => { const a = P(I.R.vers(seg.a)), b = P(I.R.vers(seg.b));
               return <line key={'p' + i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9aa6b0" strokeWidth={0.25} strokeDasharray="2 1.5" />; })}
             {/* diagonales de controle */}
-            {I.diagonales.map((d, i) => { const a = P(I.sommets[d.de]!), b = P(I.sommets[d.a]!);
+            {I.diagonales.map((d, i) => { const a = P(sommetDe(I.sommets, d.de)), b = P(sommetDe(I.sommets, d.a));
               return <g key={'d' + i}>
                 <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={ROUGE} strokeWidth={0.25} strokeDasharray="3 2" />
                 {txt('dt' + i, (a.x + b.x) / 2, (a.y + b.y) / 2 - 0.8, d.d.toFixed(3) + ' m', 2, ROUGE, 'middle')}
               </g>; })}
             {/* cotes du contour, cote par cote */}
             {I.sommets.map((v, i) => {
-              const a = P(v), b = P(I.sommets[(i + 1) % I.sommets.length]!);
+              const a = P(v), b = P(sommetDe(I.sommets, i + 1));
               const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
               return txt('c' + i, 0, -1.2, cote(i).toFixed(3) + ' m', 2.4, NOIR, 'middle',
                 'translate(' + (a.x + b.x) / 2 + ',' + (a.y + b.y) / 2 + ') rotate(' + (ang > 90 || ang < -90 ? ang + 180 : ang) + ')');
@@ -104,7 +105,7 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
             {/* appuis numerotes */}
             {I.appuis.map((a, i) => { const q = P(a);
               return <g key={'a' + i}>
-                <circle cx={q.x} cy={q.y} r={ech <= 50 ? 1.6 : 1.0} fill={COULEUR_APPUI[a.role!] || '#235e6e'} stroke="#fff" strokeWidth={0.2} />
+                <circle cx={q.x} cy={q.y} r={ech <= 50 ? 1.6 : 1.0} fill={COULEUR_APPUI[a.role ?? ''] || '#235e6e'} stroke="#fff" strokeWidth={0.2} />
                 {ech <= 100 && txt('n' + i, q.x, q.y - 2.0, String(a.n), ech <= 50 ? 2.0 : 1.5, NOIR, 'middle')}
               </g>; })}
             {/* repere et axes de tracage */}
@@ -129,8 +130,10 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
             {I.diagonales.map((d, i) => (
               <tr key={i}><td>{'Diagonale sommet ' + (d.de + 1) + ' → ' + (d.a + 1)}</td><td>{d.d.toFixed(3) + ' m'}</td><td>a mesurer au ruban avant de fixer quoi que ce soit</td></tr>
             ))}
-            {I.diagonales.length === 2 && (() => {
-              const ecart = Math.abs(I.diagonales[0]!.d - I.diagonales[1]!.d);
+            {(() => {
+              const [d1, d2, ...autres] = I.diagonales;
+              if (!d1 || !d2 || autres.length) return null;
+              const ecart = Math.abs(d1.d - d2.d);
               return <tr style={{ fontWeight: 600 }}><td>Ecart entre diagonales</td><td>{(ecart * 1000).toFixed(0) + ' mm'}</td>
                 <td>{ecart < 0.005 ? 'contour d\'equerre' : 'contour non rectangle — normal si la forme ne l\'est pas'}</td></tr>;
             })()}
