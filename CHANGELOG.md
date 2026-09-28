@@ -48,6 +48,10 @@ bougent pas.
 - **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
   commande est grisée, avec le motif, comme toute écriture.
 - **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
 - **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
   `captures.mjs`, qui ouvrait toujours `localhost:5199`.
 - **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
@@ -71,6 +75,9 @@ bougent pas.
   3D, exports), et `boot.ts` les compose en cinq fonctions. L'ordre d'enregistrement des écouteurs et
   d'empilement des calques est inchangé ; la liste de fumée se joue à l'identique avant et après. Le
   cliquet FF-10 passe de sept fichiers à quatre, aux plafonds abaissés.
+- **`buildThreeScene` passe de 629 lignes à moins de 100** (D-12) : les briques de la scène vont dans
+  `three/primitives.ts`, et la scène se compose de fonctions nommées. Les rendus de la Vue 3D sont
+  identiques octet pour octet. Le cliquet FF-10 n'a plus que trois fichiers.
 - **Les assertions `!` des défauts D-4 à D-11 disparaissent**, et avec elles les trois derniers
   `as unknown as` : `geometry/anneau.ts` lit un sommet d'un contour fermé, `util/date.ts` une date
   `AAAA-MM-JJ`, `io/importSvg.ts` ses attributs par des lecteurs nommés ; `Anneau` est un tableau de
@@ -80,6 +87,10 @@ bougent pas.
 - **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
   commande est grisée, avec le motif, comme toute écriture.
 - **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
 - **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
   `captures.mjs`, qui ouvrait toujours `localhost:5199`.
 - **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une

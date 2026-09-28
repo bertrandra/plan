@@ -43,7 +43,6 @@ export default [
   // chacun a pour plafond sa plus longue d'alors. Une entree ne s'ajoute jamais, un plafond ne monte
   // jamais : quand une fonction est decoupee, on baisse le plafond ou on retire la ligne.
   ...Object.entries({
-    'src/three/scene.ts': 629,           // buildThreeScene()
     'src/interaction/pointeur.ts': 243,
     'src/export/pdfPlan.ts': 257,
     'src/geo/cadastreObjets.ts': 244,

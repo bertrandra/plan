@@ -373,8 +373,8 @@ not change the layer picture above.
 ### 5.2.3 Module map, as built — 27 September 2026
 
 Taken at `2.1.1`, one week after §5.2.2, and updated the same day once the last `ui/` panels had
-moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **188 modules, about
-23 700 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
+moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **189 modules, about
+23 750 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
 tokens in `jetons.ts`) sit outside the layers.
 
 | Layer | Folder | Modules | Lines | What it holds |
@@ -390,7 +390,7 @@ tokens in `jetons.ts`) sit outside the layers.
 | 4 | `io/` | 8 | 1 021 | `api` · `depotPlateforme` · `exportProjet` · `importSvg` · `polyhaven` · `projet` · `serialisation` · `validation` |
 | 4 | `render/` | 12 | 1 494 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
 | 4 | `export/` | 8 | 1 144 | `dossierPdf` · `dxf` · `dxfPlan` · `pdf/writer` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` |
-| 4 | `three/` | 10 | 2 043 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `scene` · `soleilVue3d` |
+| 4 | `three/` | 11 | 2 080 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `primitives` · `scene` · `soleilVue3d` |
 | 4 | `interaction/` | 6 | 903 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
 | 5 | `ui/` | 6 | 1 165 | `champs/` (`construction` · `objet` · `types`) · `chiffrage` · `cloture` · `tableau` |
 | 6 | `app/` | 38 | 4 700 | `acces` · `actualisationIgn` · `atelier` · `boot` · `classe` · `clavier` · `commandes` · `dossier` · `explorateur` · `exposition` · `importCadastre` · `inspecteur` · `magasin` · `modes` · `parcours` · `porte` · `premierPas` · `projet` · `resultats` · `tiroir` · `assemblage/` (`affichage` · `cadrage` · `dessin` · `exports` · `formes` · `gestes` · `mesures` · `surface` · `vues3d`) · `ecouteurs/` (nine listener groups) |
@@ -422,7 +422,8 @@ tokens in `jetons.ts`) sit outside the layers.
   family (the SVG surface and its layers, drawing, display toggles, framing, measures, edits, the
   two 3D views, exports), and `boot.ts` composes them in five functions, none over 150 lines. The
   order in which listeners are registered and SVG layers are appended is unchanged, and the smoke
-  list plays the same before and after. The FF-10 ceiling list went from seven files to four.
+  list plays the same before and after. The FF-10 ceiling list went from seven files to three once `buildThreeScene` was split as well (its
+  bricks live in `three/primitives.ts`).
 - **Assertions are down to what the code proves** (D-4 to D-11 closed). Ring vertices are read
   through `geometry/anneau.ts`, dates through `util/date.ts`, SVG attributes through named readers
   that say what an absent attribute gives. No `as unknown as` remains in `src/`.

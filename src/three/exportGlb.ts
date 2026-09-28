@@ -10,6 +10,8 @@
 import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d.js';
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
+import { estMesh } from './gardes.js';
+import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 
 /** Delai maximal d'attente des textures, puis de reponse de l'exporteur, en millisecondes. */
@@ -22,6 +24,29 @@ export interface ContexteExportGlb {
   /** Un nouvel export doit se refleter dans la visionneuse si elle est ouverte. */
   rafraichirVisionneuseGlbSiOuverte: () => void;
   telechargerBinaire: (nomFichier: string, donnees: ArrayBuffer, mime: string) => void;
+}
+
+type MateriauCarte = THREE_NS.Material & { map?: THREE_NS.Texture | null };
+
+/**
+ * Retire, le temps de l'export, les cartes dont l'image n'est jamais arrivee (Poly Haven injoignable,
+ * hors ligne) : `GLTFExporter` lit `image.width` sans garde, et l'export entier tombait sur « Cannot
+ * read properties of undefined (reading 'width') ». Ces objets partent en couleur unie — c'est deja
+ * ce que la Vue 3D montrait d'eux. Rend le nombre de cartes retirees et de quoi les remettre.
+ */
+export function detacherCartesSansImage(scene: THREE_NS.Object3D): { nombre: number; remettre: () => void } {
+  const retirees: [MateriauCarte, THREE_NS.Texture][] = [];
+  scene.traverse(o => {
+    if (!estMesh(o)) return;
+    const materiaux: MateriauCarte[] = Array.isArray(o.material) ? o.material : [o.material];
+    materiaux.forEach(m => {
+      if (m && m.map && !m.map.image) { retirees.push([m, m.map]); m.map = null; }
+    });
+  });
+  return {
+    nombre: new Set(retirees.map(([, t]) => t)).size,
+    remettre: () => { retirees.forEach(([m, t]) => { m.map = t; }); retirees.length = 0; }
+  };
 }
 
 /** Un nom de fichier sur : sans accents, sans espaces, sans rien qui gene un systeme de fichiers. */
@@ -61,23 +86,36 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
       try {
         const dejaActive = vue3d.scene && vue3d.dernierObjKey === terr.key;
         if (!dejaActive) ctx.buildThreeScene(terr);
+        // Sans scene, `buildThreeScene` a renonce : le navigateur a refuse le contexte WebGL. On le
+        // dit, plutot que de laisser tomber un « Cannot read properties of null » (D-2).
+        const sc = vue3d.scene;
+        if (!sc) {
+          showErrBanner('Export GLB : la scene 3D n\'a pas pu etre creee - le navigateur a refuse WebGL (acceleration materielle desactivee, ou trop de vues 3D ouvertes). Fermez d\'autres onglets 3D ou reactivez l\'acceleration, puis reessayez.');
+          restaurer();
+          return;
+        }
         // `void` : cette promesse ne peut pas etre rejetee — `attendreTexturesPretes` ne fait que
         // resoudre, a l'arrivee des textures ou au bout du delai. La suite est deliberement laissee
         // en arriere-plan, les boutons etant deja desarmes.
-        // La scene vient d'etre construite (ou l'etait deja) ; si `buildThreeScene` a renonce
-        // (contexte WebGL refuse), l'acces echoue et le `catch` ci-dessous affiche l'erreur.
-        void attendreTexturesPretes(vue3d.scene!.scene, ATTENTE_TEXTURES_MS).then(() => {
+        void attendreTexturesPretes(sc.scene, ATTENTE_TEXTURES_MS).then(() => {
+          // Rien n'est retire tant que `detacherCartesSansImage` n'a pas tourne.
+          let remettreSiBesoin = () => {};
           try {
             const exporteur = new THREE.GLTFExporter();
+            const sansImage = detacherCartesSansImage(sc.scene);
+            remettreSiBesoin = sansImage.remettre;
             let fini = false;
             const filet = setTimeout(() => {
               if (fini) return; fini = true;
+              sansImage.remettre();
               showErrBanner('Export GLB : pas de reponse - reessaie.');
               if (!dejaActive) disposeThreeScene();
               restaurer();
             }, ATTENTE_EXPORTEUR_MS);
-            exporteur.parse(vue3d.scene!.scene, (result) => {
+            exporteur.parse(sc.scene, (result) => {
               if (fini) return; fini = true; clearTimeout(filet);
+              sansImage.remettre();
+              if (sansImage.nombre) showToast(sansImage.nombre + ' texture(s) indisponible(s) : exportee(s) en couleur unie.');
               // `parse` rend `object` : sa signature ne distingue pas les deux sorties possibles,
               // alors que c'est l'option qui en decide - `{ binary: true }` (plus bas) donne un
               // ArrayBuffer, son absence donnerait le JSON glTF. C'est donc bien un ArrayBuffer
@@ -86,7 +124,7 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
               const binaire = result as ArrayBuffer;
               // Le centre part avec le modele : c'est l'origine du .glb, et le seul moment ou on
               // le connait a coup sur. Voir `dernierExporte` dans etat3d.ts.
-              glb.dernierExporte = { buffer: binaire, nomTerrasse: terr.name, date: new Date(), centre: vue3d.scene!.cen };
+              glb.dernierExporte = { buffer: binaire, nomTerrasse: terr.name, date: new Date(), centre: sc.cen };
               if (telecharger) {
                 ctx.telechargerBinaire('terrasse_' + nomFichierTerrasse(terr.name) + '.glb', binaire, 'model/gltf-binary');
               }
@@ -96,6 +134,7 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
               ctx.rafraichirVisionneuseGlbSiOuverte();
             }, { binary: true });
           } catch (err) {
+            remettreSiBesoin();
             showErrBanner('Export GLB : ' + (err as Error).message);
             if (!dejaActive) disposeThreeScene();
             restaurer();
