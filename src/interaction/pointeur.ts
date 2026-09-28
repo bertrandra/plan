@@ -31,28 +31,14 @@ import { sommetDe } from '../geometry/anneau.js';
 /**
  * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
  * doigt), qui n'a ni objet ni position monde — il ecrit dans la scene, pas dans le plan.
- *
- * `GlisserEnCours` admet `'pan'` dans son propre champ `type` (une imprecision restee de son
- * ecriture initiale), ce qui rendrait le discriminant ambigu ici : sans l'intersection ci-dessous,
- * `activeDrag.type === 'pan'` ne suffirait pas a exclure la branche `GlisserEnCours` du narrowing,
- * et `startOrigin`/`startScreen` resteraient inaccessibles apres le test.
  */
-type Geste =
-  | (GlisserEnCours & { type: 'shapeMove' | 'circleMove' | 'point' | 'edge' | 'radius' })
-  | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut };
+type Geste = GlisserEnCours | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut };
 
 /** Le dernier clic sur un cote, un sommet, ou un objet — pour reconnaitre un double-tap. */
 interface DernierClic { key: string | null; index: number | null; time: number }
 interface DernierClicObjet { key: string | null; time: number; x: number; y: number }
 
 /** Ce que le cablage des evenements de pointeur demande au reste de l'application. */
-/**
- * Un objet a coins : ce que `drag.ts` et `estRectangle` demandent (`pts` garanti), quand `ObjetPlan`
- * le laisse facultatif. Chaque branche ci-dessous ne l'utilise qu'apres avoir teste `obj.type`, donc
- * la garantie est reelle a cet endroit — seul le type ne le sait pas encore.
- */
-type ObjetAPoints = ObjetPlan & { pts: PtBrut[] };
-
 export interface ContextePointeur {
   toWorld: (p: PtEcran) => PtBrut;
   render: () => void;
@@ -205,15 +191,9 @@ svg.addEventListener('pointerdown', e=>{
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();
     if(obj.type==='circle'){
-      // `GlisserEnCours.obj` exige `pts`, meme pour un cercle qui n'en a pas : imprecision
-      // preexistante de drag.ts (§10.3), non touchee ici pour ne pas deplacer le probleme.
-      //
-      // `startScreen` n'a pas suivi : ce champ n'etait lu nulle part pour ces deux gestes (seul
-      // le pan le lit, plus bas) - verifie a l'occasion du typage et retire (spec §10.3).
-      activeDrag = {type:'circleMove', obj: obj as ObjetAPoints, startWorld:w, startCenter:{...obj.center}, moved:false};
+      activeDrag = {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, moved:false};
     } else {
-      const objP = obj as ObjetAPoints;
-      activeDrag = {type:'shapeMove', obj: objP, startWorld:w, startPts: objP.pts.map(p=>({...p})), moved:false};
+      activeDrag = {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(p=>({...p})), moved:false};
     }
   } else if(ds.role === 'point'){
     if(ds.key !== etat.selectedKey) return;
@@ -256,8 +236,8 @@ svg.addEventListener('pointerdown', e=>{
     activeDrag = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
   } else if(ds.role === 'radius'){
     if(ds.key !== etat.selectedKey) return;
-    const obj = objByKey(ds.key) as ObjetAPoints;
-    if(obj.locked) return;
+    const obj = objByKey(ds.key);
+    if(!obj || obj.type !== 'circle' || obj.locked) return;
     if(etat.lectureSeule) return;
     etat.highlight = {type:null, index:null};
     ctx.pushHistory();

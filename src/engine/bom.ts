@@ -5,7 +5,7 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist, shoelace } from '../geometry/basic.js';
-import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
+import { CONCASSE_PRICE, DALLE_STAB_PRICE, essenceDe, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
@@ -18,7 +18,7 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   const c = ensureConstruction(obj);
   const surf = shoelace(enPoints(obj).pts);
   const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const essence = ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!;
+  const essence = essenceDe(c.essenceBois);
   // Essence prices are per m2 (like the main lames); convert to a per-ml price for the
   // perimeter board using its width, rather than reusing the m2 figure directly.
   const lameWidthM = (c.largeurLame||140)/1000;
@@ -71,11 +71,11 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
     calcules[g.cle] = { cout: coutDebit(c, g.debit, g.cle),
                         note: 'calcule — prix par longueur, debit ' + g.section };
   });
-  Object.keys(calcules).forEach(poste=>{
+  Object.entries(calcules).forEach(([poste, calcul])=>{
     const l = lines.find(x=>x.poste===poste);
     if(l){
-      l.prixReel = Math.round(calcules[poste]!.cout*100)/100;
-      l.calcule = calcules[poste]!.note;
+      l.prixReel = Math.round(calcul.cout*100)/100;
+      l.calcule = calcul.note;
     }
   });
   return lines;

@@ -34,6 +34,14 @@ export default [
     rules: { '@typescript-eslint/no-explicit-any': 'error' }
   },
   {
+    // Aucune assertion `!` dans le code livre (28 septembre 2026 : de 506 a 0). Un `!` affirme ce
+    // que le compilateur ne peut pas prouver et le laisse passer en `undefined` s'il se trompe ; les
+    // remplacants disent ce qu'ils supposent — `au` et `sommetDe` levent une RangeError nommee, une
+    // garde de type retrecit, un repli nomme sa valeur par defaut. La regle garde ce zero.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'error' }
+  },
+  {
     // FF-10 : une fonction de plus de 150 lignes ne se relit plus en une fois, et deux personnes
     // finissent par y travailler en meme temps.
     files: ['src/**/*.ts', 'src/**/*.tsx'],

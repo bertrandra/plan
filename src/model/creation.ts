@@ -15,6 +15,7 @@
 // placement, de selection et d'export. Seule leur `fonction` les distingue, et c'est elle que les
 // panneaux et la Vue 3D lisent pour les traiter a part.
 
+import { au } from '../util/tableaux.js';
 import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan, ObjetBrut } from './types.js';
@@ -256,10 +257,10 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const src = etat.objects.find(o => o.key === etat.selectedKey);
       if (!src) { ctx.showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
       ctx.pushHistory();
-      const plain = ctx.serializeObjects([src])[0]!;
+      const plain = au(ctx.serializeObjects([src]), 0);
       plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
-      const clone = ctx.normalizeObjects([plain])[0]!;
+      const clone = au(ctx.normalizeObjects([plain]), 0);
       if (clone.type === 'circle') clone.center.x -= 5;
       else clone.pts.forEach(p => { p.x -= 5; });
       inserer({ obj: clone, onglet: 'objet' });
@@ -276,7 +277,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       if (etat.selectedKey === 'parcelle') { ctx.showToast('La parcelle ne peut pas être supprimée.'); return; }
       const idx = etat.objects.findIndex(o => o.key === etat.selectedKey);
       if (idx === -1) return;
-      const obj = etat.objects[idx]!;
+      const obj = au(etat.objects, idx);
       if (obj.locked) { ctx.showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
       ctx.showConfirm('Supprimer definitivement "' + obj.name + '" ?', () => {
         ctx.pushHistory();

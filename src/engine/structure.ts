@@ -4,12 +4,13 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
-import { SOLIVE_SECTION_DIMS, dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
+import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
@@ -21,7 +22,7 @@ import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js
  * de type, soit une clef et un nom inventes pour satisfaire le compilateur.
  */
 export interface TerrasseEtudiee {
-  pts?: PtBrut[] | undefined;
+  pts: PtBrut[];
   construction?: Construction;
 }
 
@@ -74,7 +75,8 @@ export interface CandidatStructure {
 export function prixUnitaire(c: Construction, poste: string, range: Fourchette): number {
   const line = (c.bom||[]).find(l=>l.poste===poste);
   // prixReel is the total for the line, not a rate: divide it back down before using it as one.
-  if(line && line.prixReel!>0 && line.qte>0) return line.prixReel!/line.qte;
+  const prixReel = line?.prixReel ?? 0;
+  if(line && prixReel>0 && line.qte>0) return prixReel/line.qte;
   return (range.bas+range.haut)/2;
 }
 // Breaks a-b up so no gap exceeds maxGap. The start point is always emitted (it is a corner
@@ -218,10 +220,10 @@ export function generateSpanningLines(poly: PtBrut[], angleDeg: number, maxSpaci
 // the deck rests on nothing and the perimeter screws carry thin air.
 export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const c = ensureConstruction(obj);
-  const poly = obj.pts!;
+  const poly = obj.pts;
   const n = poly.length;
   const lamesAngle = lamesAngleOf(obj);
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
+  const dims = dimsSection(c.soliveSection);
   const soliveW = dims.b/1000;
 
   // Centreline pulled in half a section so the outer face of the frame sits flush with the
@@ -234,7 +236,7 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   // lambourdes. Topologie double (plots sous solives) : identique au mode vis.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
-  const perim = poly.reduce((s,p,i)=>s+dist(p, poly[(i+1)%n]!), 0) || 1;
+  const perim = poly.reduce((s,p,i)=>s+dist(p, au(poly, (i+1)%n)), 0) || 1;
   const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
   const cadre = ringSegments(safeOffset(poly, cadreOff));
 
@@ -305,7 +307,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   const dx = (seg.b.x-seg.a.x)/L, dy = (seg.b.y-seg.a.y)/L;
   const ts = [0, L];
   for(let i=0;i<poly.length;i++){
-    const p = poly[i]!, q = poly[(i+1)%poly.length]!;
+    const p = au(poly, i), q = au(poly, (i+1)%poly.length);
     const ex = q.x-p.x, ey = q.y-p.y;
     const den = dx*ey - dy*ex;
     if(Math.abs(den) < 1e-12) continue;   // piece parallele a l'arete : pas de franchissement
@@ -316,7 +318,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   ts.sort((a,b)=>a-b);
   const out: Intervalle[] = [];
   for(let i=0;i<ts.length-1;i++){
-    const d0 = ts[i]!, d1 = ts[i+1]!;
+    const d0 = au(ts, i), d1 = au(ts, i+1);
     if(d1-d0 < 1e-6) continue;
     const mid = { x:seg.a.x+dx*(d0+d1)/2, y:seg.a.y+dy*(d0+d1)/2 };
     if(!pointInPolygon(mid, poly)) continue;
@@ -375,9 +377,9 @@ export function buildVisGrid(obj: TerrasseEtudiee, structure: Structure | null, 
 // Direction the lames run in: the reference side, turned by the chosen sens de pose.
 export function lamesAngleOf(obj: TerrasseEtudiee): number {
   const c = ensureConstruction(obj);
-  const n = obj.pts!.length;
+  const n = obj.pts.length;
   const refIdx = Math.min(c.segmentReference||0, n-1);
-  const a = obj.pts![refIdx]!, b = obj.pts![(refIdx+1)%n]!;
+  const a = au(obj.pts, refIdx), b = au(obj.pts, (refIdx+1)%n);
   return angleOfSegment(a,b)*180/Math.PI + (c.sensPose||0);
 }
 // Screw count on its own, for the density readout in the configurator.

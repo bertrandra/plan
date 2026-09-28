@@ -27,7 +27,7 @@ export interface FormeEditable {
  */
 export function contourDeContrainte(
   objets: { key: string; pts?: PtBrut[] }[],
-  obj: FormeEditable
+  obj: { constrained?: boolean; pts?: PtBrut[] }
 ): PtBrut[] | null {
   if (!obj.constrained) return null;
   const parcelle = objets.find((o) => o.key === 'parcelle');

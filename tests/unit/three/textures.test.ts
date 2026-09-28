@@ -171,7 +171,8 @@ describe('ce que la source doit continuer de dire', () => {
     // elles ne sont ni partagees ni marquees, donc la demolition les libere comme avant. Son gain
     // est indirect et entier — le fichier qu'elle relit ne porte plus les images en double.
     const viewer = readFileSync(resolve(__dirname, '../../../src/three/glbViewer.ts'), 'utf8');
-    expect(viewer).toContain('loader.parse(glb.dernierExporte.buffer');
+    expect(viewer).toContain('const exporte = glb.dernierExporte;');
+    expect(viewer).toContain('loader.parse(exporte.buffer');
     // Une seule lecture de modele, et c'est celle-la : le jour ou une seconde apparait — un fichier
     // choisi sur le disque, par exemple — le raisonnement ci-dessus cesse de tenir, et ce compte le
     // dira avant qu'un .glb etranger ne fasse revivre le probleme.

@@ -373,14 +373,14 @@ not change the layer picture above.
 ### 5.2.3 Module map, as built — 27 September 2026
 
 Taken at `2.1.1`, one week after §5.2.2, and updated the same day once the last `ui/` panels had
-moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **189 modules, about
-23 750 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
+moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **190 modules, about
+23 800 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
 tokens in `jetons.ts`) sit outside the layers.
 
 | Layer | Folder | Modules | Lines | What it holds |
 |---:|---|---:|---:|---|
 | 0 | `shell/` | 5 | 349 | `dialogs` · `dialogues` · `dom` · `download` · `notifications` |
-| 0 | `util/` | 4 | 136 | `date` · `escape` · `format` · `semaine` |
+| 0 | `util/` | 5 | 154 | `date` · `escape` · `format` · `semaine` · `tableaux` |
 | 1 | `geometry/` | 11 | 892 | `alignement` · `angles` · `anneau` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
 | 2 | `model/` | 14 | 1 307 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `formes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
 | 2 | `plateforme/` | 6 | 743 | `capacites` · `config` · `contexte` · `contrat` (generated) · `global.d` · `session` |
@@ -424,9 +424,13 @@ tokens in `jetons.ts`) sit outside the layers.
   order in which listeners are registered and SVG layers are appended is unchanged, and the smoke
   list plays the same before and after. The FF-10 ceiling list went from seven files to three once `buildThreeScene` was split as well (its
   bricks live in `three/primitives.ts`).
-- **Assertions are down to what the code proves** (D-4 to D-11 closed). Ring vertices are read
-  through `geometry/anneau.ts`, dates through `util/date.ts`, SVG attributes through named readers
-  that say what an absent attribute gives. No `as unknown as` remains in `src/`.
+- **No non-null assertion is left in `src/`** (506 on 27 September, 0 on the 28th), and
+  `@typescript-eslint/no-non-null-assertion` keeps it that way. An index the code knows to be valid
+  is read through `util/tableaux.ts` (`au`) or, on a closed ring, `geometry/anneau.ts` (`sommetDe`):
+  both throw a named `RangeError` where `!` let `undefined` through. Catalogue lookups go through
+  accessors that name their fallback (`essenceDe`, `supportDe`, `dimsSection`, `raideurDe`); the
+  arrays alongside the vertices through `gelsDe`, `nomsSommetsDe`, `nomsCotesDe`; the drag gesture
+  is a discriminated union. D-4 to D-11 are closed, and no `as unknown as` remains in `src/`.
 
 **The dependency rules, as enforced now.** `tests/unit/architecture.test.ts` reads every import form
 in the code base: multi-line imports, `export … from`, side-effect imports, dynamic `import()`,

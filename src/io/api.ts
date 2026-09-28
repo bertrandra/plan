@@ -10,6 +10,7 @@
 // besoin pour distinguer « injoignable » de « a repondu de travers », et ne pas afficher le meme
 // ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
+import { au } from '../util/tableaux.js';
 import type { DepotProjets } from './depotPlateforme.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
@@ -142,7 +143,7 @@ export async function chargerProjetInitial(
 
   let voulu = projetConnu;
   if (voulu && !liste.some((p) => p.id === voulu)) voulu = null;
-  if (!voulu && liste.length) voulu = liste[0]!.id;
+  if (!voulu && liste.length) voulu = au(liste, 0).id;
 
   /** Le jeu de demonstration, enregistre comme un vrai projet : c'est ce qu'il devient. */
   const creerLaDemo = async (): Promise<string> => {

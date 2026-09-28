@@ -46,8 +46,9 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       out.center = {x:o.center.x, y:o.center.y}; out.r = o.r;
     } else {
       out.pts = o.pts.map(p=>({x:p.x,y:p.y}));
-      out.vertexNames = [...o.vertexNames!];
-      out.segmentNames = [...o.segmentNames!];
+      // Poses par la normalisation ; les memes valeurs par defaut si un objet arrive sans.
+      out.vertexNames = o.vertexNames ? [...o.vertexNames] : o.pts.map((_,i)=>'Point '+(i+1));
+      out.segmentNames = o.segmentNames ? [...o.segmentNames] : o.pts.map((_,i)=>'Cote '+(i+1));
       out.frozenVertices = o.frozenVertices ? [...o.frozenVertices] : o.pts.map(()=>false);
       if(o.type==='path'){ out.width = o.width; out.curve = !!o.curve; }
     }

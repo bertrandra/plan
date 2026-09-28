@@ -4,7 +4,7 @@
 // chez bom, qui les lisait en retour, et les modules tournaient en rond. Ce module ne depend que des
 // constantes et des portees.
 
-import { ESSENCE_PRICES, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, VIS_PRICE, estPlots, plotModele } from './constantes.js';
+import { essenceDe, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele } from './constantes.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './portees.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
 import type { Debit } from './debit.js';
@@ -32,7 +32,7 @@ export function largeurProduit(c: Construction, cle: ProduitBarre): number {
 }
 export function prixBarreDefaut(c: Construction, cle: ProduitBarre, L: number): number {
   if(cle === 'lames'){
-    const essence = ESSENCE_PRICES[c.essenceBois!] || ESSENCE_PRICES.autre!;
+    const essence = essenceDe(c.essenceBois);
     return Math.round(((essence.bas+essence.haut)/2) * largeurProduit(c,'lames') * L * 100)/100;
   }
   return Math.round(((SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2) * L * 100)/100;
@@ -91,7 +91,7 @@ export function computeAssise(c: Construction, surfM2: number, nbPlots: number){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
   if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
-  const t = SUPPORT_TYPES[c.supportType!] || SUPPORT_TYPES.concasse!;
+  const t = supportDe(c.supportType);
   const ep = Math.max(0, c.supportDecaissement||15)/100;
   return {
     type:t,
@@ -111,8 +111,8 @@ export function chargePlot(c: Construction, nbPlots: number, surfM2: number){
 }
 // What a cut-list actually costs, at the per-length prices in force.
 export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): number {
-  return Object.keys(debit.achats)
-    .reduce((s,L)=>s + debit.achats[L]!*prixBarre(c, cle, parseFloat(L)), 0);
+  return Object.entries(debit.achats)
+    .reduce((s,[L, n])=>s + n*prixBarre(c, cle, parseFloat(L)), 0);
 }
 export const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];
 // "3, 2.5, 2" -> [3, 2.5, 2], longest first. Tolerates commas, semicolons, spaces and the

@@ -10,14 +10,16 @@ import type { Construction } from '../model/types.js';
 // Nominal section of a solive in mm, laid on edge: b = width, h = height.
 /** Les dimensions d'une section de bois, en millimetres : base et hauteur. */
 export interface DimsSection { b: number; h: number }
+const DIMS_45X70: DimsSection = {b:45,h:70};
 export const SOLIVE_SECTION_DIMS: Record<string, DimsSection> = {
   '40x60':{b:40,h:60}, '45x45':{b:45,h:45},
-  '45x70':{b:45,h:70}, '45x95':{b:45,h:95}, '63x175':{b:63,h:175}
+  '45x70':DIMS_45X70, '45x95':{b:45,h:95}, '63x175':{b:63,h:175}
 };
 // Lambourdes carry only the lames over a short span, so the range starts smaller than for the
 // solives; the bigger sections stay available for a build where they share one section.
 export const LAMBOURDE_SECTIONS = ['40x60','45x45','45x70','45x95','63x175'];
-export function dimsSection(sec: string | undefined): DimsSection { return SOLIVE_SECTION_DIMS[sec!] || SOLIVE_SECTION_DIMS['45x70']!; }
+/** Les dimensions d'une section ; celles du 45x70, la section par defaut, si elle n'est pas connue. */
+export function dimsSection(sec: string | undefined): DimsSection { return SOLIVE_SECTION_DIMS[sec ?? ''] || DIMS_45X70; }
 export function sectionLambourde(c: Construction): string { return c.lambourdeSection || c.soliveSection || '45x70'; }
 // Bending deflection makes the admissible span of a beam vary as (E*I/charge)^(1/3); with
 // I = b*h^3/12 and the load carried proportional to the entraxe, that collapses to
@@ -34,7 +36,7 @@ export const CHARGE_REF = 250;
 export const CHARGE_NORMALE_DEFAUT = 250;
 export const CHARGE_SPA_DEFAUT = 500;   // spa rempli + occupe : ~1,5 a 2 t sur 3 a 4 m2
 export function maxPorteeVisM(c: Construction): number {
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
+  const dims = dimsSection(c.soliveSection);
   const entraxeMm = Math.max(200, (c.soliveEntraxe||40)*10);
   const k = c.kPortee || PORTEE_VIS_K;
   const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
@@ -55,7 +57,8 @@ export function porteeAppuiM(c: Construction): number {
     return Math.max(0.2, Math.min(PLOT_ENTRAXE_MAX_M, (c.plotEntraxe||65)/100));
   }
   // La piece posee sur les plots est la solive en structure double, la lambourde sinon.
-  const sec = c.plotAvecSolives ? c.soliveSection! : sectionLambourde(c);
+  // Sans section, la portee se lit sur celle par defaut : `dimsSection` fait le meme repli.
+  const sec = c.plotAvecSolives ? (c.soliveSection ?? '45x70') : sectionLambourde(c);
   const ent = c.plotAvecSolives ? (c.soliveEntraxe||40) : maxEntraxeLameCm(c);
   return Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ ...c, soliveSection:sec, soliveEntraxe:ent }));
 }
@@ -79,11 +82,13 @@ export const ENTRAXE_LAME_K = 18.5;
 // Composite creeps a great deal more than timber; dense tropicals rather less.
 // Meme raison que pour ESSENCE_PRICES : la clef vient du projet, et la lecture porte son repli.
 export const LAME_RAIDEUR: Record<string, number> = { 'pin-classe4':1.00, 'douglas':1.00, 'exotique':1.05, 'composite':0.80, 'autre':1.00 };
+/** Le coefficient de raideur d'une essence ; 1 si elle n'est pas au tableau. */
+export function raideurDe(essence: string | undefined): number { return LAME_RAIDEUR[essence ?? ''] ?? 1; }
 // Furthest apart the supports carrying the lames may sit - the lambourdes when there are any,
 // otherwise the solives themselves. Rounded to 5 cm because that is how a deck gets set out.
 export function coefRaideurLame(c: Construction): number {
   return (c.coefRaideurLame !== undefined && c.coefRaideurLame !== null)
-    ? c.coefRaideurLame : (LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1);
+    ? c.coefRaideurLame : raideurDe(c.essenceBois);
 }
 export function maxEntraxeLameCm(c: Construction): number {
   const ep = Math.max(15, c.epaisseurLame||25);

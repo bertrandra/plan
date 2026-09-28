@@ -10,6 +10,7 @@
 // centroide peut tomber du mauvais cote d'un cote rentrant, et la cote partait alors vers
 // l'interieur, par-dessus le trait.
 
+import { au } from '../util/tableaux.js';
 import { dist, centroid, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { FONCTIONS_HORS_EQUIPEMENT } from '../model/defaults.js';
 import {
@@ -44,7 +45,7 @@ function dimensionsObjet(o: ObjetPlan){
   const l = Math.max(...xs)-Math.min(...xs), h = Math.max(...ys)-Math.min(...ys);
   if(o.type === 'path'){
     let L = 0;
-    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(o.pts[i]!, o.pts[i+1]!);
+    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(au(o.pts, i), au(o.pts, i+1));
     return { libelle: 'longueur ' + L.toFixed(2).replace('.',',') + ' m x ' + (o.width||0.5).toFixed(2).replace('.',',') + ' m',
              surface: L*(o.width||0.5), largeur:o.width||0.5, longueur:L };
   }
@@ -57,7 +58,7 @@ function dimensionsObjet(o: ObjetPlan){
 // Angle interieur au sommet i, en degres.
 function angleSommetDeg(pts: PtBrut[], i: number): number | null {
   const n = pts.length;
-  const a = pts[(i-1+n)%n]!, b = pts[i]!, c = pts[(i+1)%n]!;
+  const a = au(pts, (i-1+n)%n), b = au(pts, i), c = au(pts, (i+1)%n);
   const u = {x:a.x-b.x, y:a.y-b.y}, v = {x:c.x-b.x, y:c.y-b.y};
   const nu = Math.hypot(u.x,u.y), nv = Math.hypot(v.x,v.y);
   if(nu < 1e-9 || nv < 1e-9) return null;
@@ -79,7 +80,7 @@ function cotationPolygone(pts: PtBrut[], P: Projeteur, opts?: OptionsCotation): 
   const sens = signedArea(pts) > 0 ? 1 : -1;   // +1 = sens trigonometrique
   let c = '';
   pts.forEach((a, i)=>{
-    const b = pts[(i+1) % pts.length]!;
+    const b = au(pts, (i+1) % pts.length);
     const lon = dist(a,b);
     if(lon < (o.longueurMin || 0.05)) return;
     const dx = (b.x-a.x)/lon, dy = (b.y-a.y)/lon;
@@ -111,7 +112,7 @@ function anglesPolygone(pts: PtBrut[], P: Projeteur, opts?: OptionsAngles): stri
     const ang = angleSommetDeg(pts, i);
     if(ang === null) return;
     const n = pts.length;
-    const a = pts[(i-1+n)%n]!, b = pts[(i+1)%n]!;
+    const a = au(pts, (i-1+n)%n), b = au(pts, (i+1)%n);
     const u = {x:a.x-s.x, y:a.y-s.y}, v = {x:b.x-s.x, y:b.y-s.y};
     const nu = Math.hypot(u.x,u.y) || 1, nv = Math.hypot(v.x,v.y) || 1;
     let bx = u.x/nu + v.x/nv, by = u.y/nu + v.y/nv;
@@ -175,7 +176,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
 
   let c = '';
   aDessiner.forEach(o=>{
-    const fond = hexToRgb01(o.fill!), trait = hexToRgb01(o.stroke!);
+    const fond = hexToRgb01(o.fill), trait = hexToRgb01(o.stroke);
     if(o.type === 'circle'){
       const q = P(o.center);
       c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.9);
@@ -237,9 +238,9 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   const P: Projeteur = p => ({ x: decX + (p.x-minx)*k, y: decY + (p.y-miny)*k });
 
   let c = '';
-  c += pdfPolygone((terrasse.pts||[]).map(P), hexToRgb01(terrasse.fill!), hexToRgb01(terrasse.stroke!), 1.2, 0.9);
+  c += pdfPolygone((terrasse.pts||[]).map(P), hexToRgb01(terrasse.fill), hexToRgb01(terrasse.stroke), 1.2, 0.9);
   equipements.forEach(o=>{
-    const fond = hexToRgb01(o.fill!), trait = hexToRgb01(o.stroke!);
+    const fond = hexToRgb01(o.fill), trait = hexToRgb01(o.stroke);
     if(o.type === 'circle'){ const q = P(o.center); c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.75); }
     else if(o.type === 'path') c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6,(o.width||0.5)*k), 1);
     else c += pdfPolygone((o.pts||[]).map(P), fond, trait, 0.8, 0.75);
@@ -265,7 +266,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   const cons = terrasse.construction;
   const ptsSousTitre = terrasse.pts||[];
   const sousTitre = 'Surface ' + shoelace(ptsSousTitre).toFixed(2).replace('.',',') + ' m2' +
-    ' - perimetre ' + ptsSousTitre.reduce((s,p,i)=>s + dist(p, ptsSousTitre[(i+1)%ptsSousTitre.length]!), 0).toFixed(2).replace('.',',') + ' m' +
+    ' - perimetre ' + ptsSousTitre.reduce((s,p,i)=>s + dist(p, au(ptsSousTitre, (i+1)%ptsSousTitre.length)), 0).toFixed(2).replace('.',',') + ' m' +
     (cons && cons.essenceBois ? ' - ' + cons.essenceBois : '');
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 30, 9, sousTitre, [0.35,0.3,0.24]);
 
@@ -280,7 +281,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   y -= 13;
   const ptsTableau = terrasse.pts||[];
   ptsTableau.forEach((a, i)=>{
-    const b = ptsTableau[(i+1) % ptsTableau.length]!;
+    const b = au(ptsTableau, (i+1) % ptsTableau.length);
     const nom =(terrasse.segmentNames && terrasse.segmentNames[i]) || ('Cote ' + (i+1));
     const ang = angleSommetDeg(ptsTableau, i);
     // L'angle porte sur le sommet ou le cote commence : c'est ce qu'on trace en premier sur place.
@@ -289,7 +290,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
     y -= 12;
   });
   let perimetre = 0;
-  ptsTableau.forEach((a,i)=>{ perimetre += dist(a, ptsTableau[(i+1)%ptsTableau.length]!); });
+  ptsTableau.forEach((a,i)=>{ perimetre += dist(a, au(ptsTableau, (i+1)%ptsTableau.length)); });
   c += '0.7 0.65 0.58 RG 0.5 w\n' + colA.toFixed(2)+' '+(y+9).toFixed(2)+' m '+(A4_L-MARGE_PDF).toFixed(2)+' '+(y+9).toFixed(2)+' l S\n';
   c += pdfTexte(colA, y, 8, 'Terrasse ' + terrasse.name) +
        pdfTexte(colB, y, 8, 'perimetre ' + perimetre.toFixed(2).replace('.',',') + ' m') +
@@ -327,7 +328,7 @@ export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEq
   const equipements = new Map<string, ObjetPlan[]>();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));
   const pages = [ pagePlanDeMasse(objets, terrasses, equipements, avecEquipements, meta) ];
-  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key)!, i+1, terrasses.length, meta)));
+  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta)));
   return { pdf: assemblerPDF(pages), pages: pages.length, terrasses, equipements };
 }
 

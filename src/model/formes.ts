@@ -39,3 +39,23 @@ export function enPoints(o: ObjetPlan): ObjetAPoints {
 export function enCercle(o: ObjetPlan): ObjetCercle {
   return o as ObjetCercle;
 }
+
+// Les trois tableaux paralleles aux sommets. `normalizeObjects` les pose toujours, aux valeurs
+// ci-dessous ; le type les garde facultatifs parce qu'un objet brut peut arriver sans. Ces lecteurs
+// les rendent, et les completent aux memes valeurs par defaut s'ils manquent — au lieu du `!` qui
+// les affirmait presents.
+
+/** Les sommets geles, un par sommet. */
+export function gelsDe(o: ObjetAPoints): boolean[] {
+  return o.frozenVertices ??= o.pts.map(() => false);
+}
+
+/** Les noms des sommets. */
+export function nomsSommetsDe(o: ObjetAPoints): string[] {
+  return o.vertexNames ??= o.pts.map((_, i) => 'Point ' + (i + 1));
+}
+
+/** Les noms des cotes. */
+export function nomsCotesDe(o: ObjetAPoints): string[] {
+  return o.segmentNames ??= o.pts.map((_, i) => 'Cote ' + (i + 1));
+}

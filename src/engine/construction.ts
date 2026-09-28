@@ -6,7 +6,7 @@
 
 import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT } from './prix.js';
 import { LAME_RIVE_EPAISSEUR_M, PLOT_ASSISE_MIN_CM2, VIS_PRICE } from './constantes.js';
-import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, LAME_RAIDEUR, PORTEE_VIS_K } from './portees.js';
+import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, raideurDe, PORTEE_VIS_K } from './portees.js';
 import type { Construction } from '../model/types.js';
 
 /** Ce qui porte des parametres de construction : une terrasse du plan, ou une candidate a l'etude. */
@@ -68,7 +68,7 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(k.chargeSpa===undefined) k.chargeSpa = CHARGE_SPA_DEFAUT;
   if(k.kPortee===undefined) k.kPortee = PORTEE_VIS_K;
   if(k.kEntraxeLame===undefined) k.kEntraxeLame = ENTRAXE_LAME_K;
-  if(k.coefRaideurLame===undefined) k.coefRaideurLame = LAME_RAIDEUR[k.essenceBois!] !== undefined ? LAME_RAIDEUR[k.essenceBois!]! : 1;
+  if(k.coefRaideurLame===undefined) k.coefRaideurLame = raideurDe(k.essenceBois);
   if(k.jeuLames===undefined) k.jeuLames = 6;
   if(k.epaisseurLameRive===undefined) k.epaisseurLameRive = Math.round(LAME_RIVE_EPAISSEUR_M*1000);
   if(k.longueursLames===undefined) k.longueursLames = LONGUEURS_LAMES_DEFAUT.join(', ');

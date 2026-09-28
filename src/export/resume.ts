@@ -10,6 +10,7 @@
 // les surfaces et les longueurs, trois pour les coordonnees — un millimetre, ce qui est la precision
 // au-dela de laquelle un releve de terrain ne veut plus rien dire.
 
+import { au } from '../util/tableaux.js';
 import { dist, shoelace } from '../geometry/basic.js';
 import { interiorAngleDeg } from '../geometry/angles.js';
 import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
@@ -43,11 +44,11 @@ export interface ContexteResume {
  * explicitement en face du nombre. C'est l'emprise au sol, la seule grandeur comparable aux autres.
  */
 export function surfaceDe(obj: ObjetASurface): number {
-  if (obj.type === 'polygon') return shoelace(obj.pts!);
-  if (obj.type === 'circle') return Math.PI * obj.r! * obj.r!;
+  if (obj.type === 'polygon') return shoelace(obj.pts ?? []);
+  if (obj.type === 'circle') { const r = obj.r ?? 0; return Math.PI * r * r; }
   let L = 0;
   const pts = obj.pts || [];
-  for (let i = 0; i < pts.length - 1; i++) L += dist(pts[i]!, pts[i + 1]!);
+  for (let i = 0; i < pts.length - 1; i++) L += dist(au(pts, i), au(pts, i + 1));
   return L * (obj.width || 1);
 }
 
@@ -83,7 +84,7 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
       // Un chemin est ouvert : ses segments s'arretent au dernier point, sans refermer.
       let totalLen = 0;
       for (let i = 0; i < ptsC.length - 1; i++) {
-        const L = dist(ptsC[i]!, ptsC[i + 1]!); totalLen += L;
+        const L = dist(au(ptsC, i), au(ptsC, i + 1)); totalLen += L;
         out += '  ' + (snC[i] || ('Cote ' + (i + 1))) + ' (' + vnC[i] + ' -> ' + vnC[i + 1] + '): ' + L.toFixed(2) + ' m\n';
       }
       out += '  Longueur totale: ' + totalLen.toFixed(2) + ' m\n\n';
@@ -95,7 +96,7 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
         out += '  ' + vnP[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '  Angle=' + interiorAngleDeg(obj, i).toFixed(1) + ' deg\n';
       });
       for (let i = 0; i < n; i++) {
-        out += '  ' + snP[i] + ' (' + vnP[i] + ' -> ' + vnP[(i + 1) % n] + '): ' + dist(ptsP[i]!, ptsP[(i + 1) % n]!).toFixed(2) + ' m\n';
+        out += '  ' + snP[i] + ' (' + vnP[i] + ' -> ' + vnP[(i + 1) % n] + '): ' + dist(au(ptsP, i), au(ptsP, (i + 1) % n)).toFixed(2) + ' m\n';
       }
       out += '\n';
     }

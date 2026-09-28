@@ -1,6 +1,7 @@
 // Anneaux : fusion de parcelles mitoyennes par annulation des cotes partages
 // (spec §3.2, geometry/rings.ts). Deplace depuis legacy.ts sans retouche.
 
+import { au } from '../util/tableaux.js';
 import type { PtBrut } from '../model/types.js';
 import { distancePointSegment } from './segments.js';
 
@@ -40,7 +41,7 @@ export function memePoint(a: PtBrut, b: PtBrut, tol: number): boolean { return M
 export function decouperAnneau(anneau: PtBrut[], sommetsAutres: PtBrut[], tol: number): PtBrut[] {
   const out: PtBrut[] = [];
   for(let i=0;i<anneau.length;i++){
-    const a = anneau[i]!, b = anneau[(i+1)%anneau.length]!;
+    const a = au(anneau, i), b = au(anneau, (i+1)%anneau.length);
     out.push(a);
     const len = Math.hypot(b.x-a.x, b.y-a.y);
     if(len < tol) continue;
@@ -52,7 +53,7 @@ export function decouperAnneau(anneau: PtBrut[], sommetsAutres: PtBrut[], tol: n
       if(t > 0 && t < 1) inseres.push({ t, p:{x:s.x, y:s.y} });
     });
     inseres.sort((u,v)=>u.t-v.t);
-    inseres.forEach((u,k)=>{ if(k===0 || u.t - inseres[k-1]!.t > 1e-9) out.push(u.p); });
+    inseres.forEach((u,k)=>{ if(k===0 || u.t - au(inseres, k-1).t > 1e-9) out.push(u.p); });
   }
   return out;
 }
@@ -71,7 +72,7 @@ export function chainerSegments(segments: LimiteBrute[], tol: number): PtBrut[][
       avance = false;
       for(const autre of restants){
         if(autre.pris) continue;
-        const fin = chaine[chaine.length-1]!, debut = chaine[0]!;
+        const fin = au(chaine, chaine.length-1), debut = au(chaine, 0);
         if(memePoint(autre.a, fin, tol)){ chaine.push(autre.b); autre.pris = true; avance = true; }
         else if(memePoint(autre.b, fin, tol)){ chaine.push(autre.a); autre.pris = true; avance = true; }
         else if(memePoint(autre.b, debut, tol)){ chaine.unshift(autre.a); autre.pris = true; avance = true; }
@@ -84,13 +85,13 @@ export function chainerSegments(segments: LimiteBrute[], tol: number): PtBrut[][
 }
 
 export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusionnes | null {
-  if(anneaux.length === 1) return { contour: anneaux[0]!.map(p=>({x:p.x,y:p.y})), limites: [] };
+  if(anneaux.length === 1) return { contour: au(anneaux, 0).map(p=>({x:p.x,y:p.y})), limites: [] };
   const tousSommets = ([] as PtBrut[]).concat(...anneaux);
   const decoupes = anneaux.map(a=>decouperAnneau(a, tousSommets, tol));
   const aretes: AreteAnneau[] = [];
   decoupes.forEach((anneau, idx)=>{
     for(let i=0;i<anneau.length;i++){
-      aretes.push({ a: anneau[i]!, b: anneau[(i+1)%anneau.length]!, anneau: idx, interne:false, utilisee:false });
+      aretes.push({ a: au(anneau, i), b: au(anneau, (i+1)%anneau.length), anneau: idx, interne:false, utilisee:false });
     }
   });
   // Deux anneaux voisins parcourus dans le meme sens traversent leur limite commune en sens
@@ -109,7 +110,7 @@ export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusio
   if(!restantes.length) return null;
   // Chainage du contour exterieur.
   const contour: PtBrut[] = [];
-  let courante = restantes[0]!;
+  let courante = au(restantes, 0);
   courante.utilisee = true;
   contour.push({x:courante.a.x, y:courante.a.y});
   const depart = courante.a;
@@ -138,9 +139,9 @@ export function simplifierContour(pts: PtBrut[], seuil: number): PtBrut[] {
   if(pts.length <= 4) return pts;
   const out: PtBrut[] = [];
   for(let i=0;i<pts.length;i++){
-    const prec = out.length ? out[out.length-1]! : pts[(i-1+pts.length)%pts.length]!;
-    const suiv = pts[(i+1)%pts.length]!;
-    if(distancePointSegment(pts[i]!, prec, suiv) >= seuil) out.push(pts[i]!);
+    const prec = out.length ? au(out, out.length-1) : au(pts, (i-1+pts.length)%pts.length);
+    const suiv = au(pts, (i+1)%pts.length);
+    if(distancePointSegment(au(pts, i), prec, suiv) >= seuil) out.push(au(pts, i));
   }
   return out.length >= 3 ? out : pts;
 }

@@ -38,6 +38,7 @@
 // selectionne n'existe plus dans l'instantane restaure, la selection glisse sur le premier objet
 // disponible plutot que de rester pendante.
 
+import { au } from '../util/tableaux.js';
 import { PileAnnulation, type Instantane } from './history.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
@@ -123,7 +124,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
       etat.measures = (snap.measures as M[]).map((m) => ({ ...m }));
     }
     if (!etat.objects.some((o: { key: string }) => o.key === etat.selectedKey)) {
-      etat.selectedKey = etat.objects.length ? etat.objects[0]!.key : null;
+      etat.selectedKey = etat.objects.length ? au(etat.objects, 0).key : null;
     }
     ctx.rebuildSelector();
     if (ctx.rafraichirResultats) ctx.rafraichirResultats();

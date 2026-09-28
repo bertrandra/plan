@@ -9,6 +9,7 @@
 // celle-ci tourne sur `requestAnimationFrame`, que le navigateur met en pause des que l'onglet passe
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
+import { au } from '../util/tableaux.js';
 import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type { ObjetMesurable } from '../engine/hauteurs.js';
@@ -35,12 +36,12 @@ export type { Mode3D } from './etat3d.js';
  * facons de l'obtenir sont deja une de trop (D-15).
  */
 export function cameraDepuisPointDeVue(vp: PointDeVue, centroide: { x: number; y: number }) {
-  const pts = vp.pts!;
-  const ddx = pts[1]!.x - pts[0]!.x, ddy = pts[1]!.y - pts[0]!.y;
+  const pts = vp.pts ?? [];
+  const ddx = au(pts, 1).x - au(pts, 0).x, ddy = au(pts, 1).y - au(pts, 0).y;
   const dl = Math.hypot(ddx, ddy) || 1;
   const rad = Math.atan2(ddy / dl, ddx / dl);
   const eyeY = vp.altitude || 1.6;
-  const lx = pts[0]!.x - centroide.x, lz = centroide.y - pts[0]!.y;
+  const lx = au(pts, 0).x - centroide.x, lz = centroide.y - au(pts, 0).y;
   return {
     position: { x: lx, y: eyeY, z: lz },
     cible: { x: lx + Math.cos(rad) * 1.5, y: eyeY, z: lz - Math.sin(rad) * 1.5 }

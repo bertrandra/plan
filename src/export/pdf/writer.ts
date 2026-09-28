@@ -7,6 +7,7 @@
 // Les producteurs (export/pdfPlan.ts, export/dossierPdf.ts) lisent l'etat du plan. Seules les
 // primitives d'ecriture, qui ne lisent que leurs arguments, sont ici.
 
+import { au } from '../../util/tableaux.js';
 import { APP_VERSION, BUILD_AT } from '../../model/version.js';
 import { niceStep } from '../../util/format.js';
 
@@ -135,7 +136,7 @@ export function echelleQuiTient(largeurM: number, hauteurM: number, dispoL: numb
     const k = PT_PAR_METRE/d;
     if(largeurM*k <= dispoL && hauteurM*k <= dispoH) return d;
   }
-  return ECHELLES_DOSSIER[ECHELLES_DOSSIER.length-1]!;
+  return au(ECHELLES_DOSSIER, ECHELLES_DOSSIER.length-1);
 }
 
 export function pdfEchelleGraphique(x: number, y: number, ptsParMetre: number, denom: number): string {

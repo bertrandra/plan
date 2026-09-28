@@ -9,7 +9,7 @@
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
 import type * as THREE_NS from 'three';
-import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d } from './etat3d.js';
+import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
@@ -40,9 +40,10 @@ export interface ContexteVisionneuseGlb {
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-  const ctx = c.getContext('2d')!;
+  // Sans contexte 2D (tres rare), le damier reste un fond uni : la scene s'affiche quand meme.
+  const ctx = c.getContext('2d');
   const taille = 8;
-  for(let y=0;y<64;y+=taille){
+  for(let y=0;ctx && y<64;y+=taille){
     for(let x=0;x<64;x+=taille){
       ctx.fillStyle = ((x/taille + y/taille) % 2 === 0) ? '#c9c9c9' : '#a3a3a3';
       ctx.fillRect(x,y,taille,taille);
@@ -137,7 +138,7 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
 
 export function disposeThreeScene(){
   if(vue3d.scene){
-    cancelAnimationFrame(vue3d.scene.raf!);
+    if(vue3d.scene.raf !== null) cancelAnimationFrame(vue3d.scene.raf);
     // OrbitControls (r128) attaches its drag-continuation listeners to `document`/`window`, not
     // just to the canvas being removed below - without an explicit dispose(), those listeners
     // (and everything they close over: this camera, this scene, this renderer) are never
@@ -163,7 +164,7 @@ export function disposeThreeScene(){
 
 export function disposeGlbViewerScene(){
   if(glb.scene){
-    cancelAnimationFrame(glb.scene.raf!);
+    if(glb.scene.raf !== null) cancelAnimationFrame(glb.scene.raf);
     // see the comment in disposeThreeScene(): without this, OrbitControls keeps its
     // document/window-level listeners alive, pinning the whole previous scene in memory.
     if(glb.scene.controls && glb.scene.controls.dispose) glb.scene.controls.dispose();
@@ -235,7 +236,9 @@ export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
 
 export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHost: TailleHote | null, ctx: ContexteVisionneuseGlb): void {
   disposeGlbViewerScene();
-  if(!glb.dernierExporte) return;
+  // Lu une fois : le rappel du lecteur, plus bas, decrit le modele qu'on lui a donne a lire.
+  const exporte = glb.dernierExporte;
+  if(!exporte) return;
   const host = hotes3d.glb;
   if(!host) return;
   // Tant qu'un rechargement est en cours, #glbViewerContent (l'ancetre du host) est cache pour
@@ -246,7 +249,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
   const w = (tailleHost && tailleHost.w) || host.clientWidth || 600;
   const h = (tailleHost && tailleHost.h) || host.clientHeight || 420;
   const loader = new THREE.GLTFLoader();
-  loader.parse(glb.dernierExporte.buffer, '', (gltf)=>{
+  loader.parse(exporte.buffer, '', (gltf)=>{
     const scene = new THREE.Scene();
     scene.background = fondGlbViewer();
     // GLTFExporter embarque les lumieres directionnelles de la scene source dans le .glb (via
@@ -323,18 +326,17 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
       }
     });
 
+    const sc: SceneGlb = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, centre, rayon };
     function animate(){
-      glb.scene!.raf = requestAnimationFrame(animate);
+      sc.raf = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
-    glb.scene = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, centre, rayon };
+    glb.scene = sc;
     appliquerLumiereGlb(ctx);
     animate();
 
-    // `dernierExporte` etait verifie a l'entree ; le compilateur ne suit pas cette garde dans le
-    // rappel asynchrone du lecteur.
-    affichage3d.indicationGlb = 'Terrasse : ' + (glb.dernierExporte!.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte!.date.toLocaleString();
+    affichage3d.indicationGlb = 'Terrasse : ' + (exporte.nomTerrasse||'') + ' — modele genere le ' + exporte.date.toLocaleString();
     affichage3d.glb = 'pret';
     signaler3d();
   }, (err)=>{

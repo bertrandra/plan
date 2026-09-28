@@ -66,8 +66,8 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   let mesuresOk = 0, mesuresIgnorees = 0;
   valide.mesures.forEach(m=>{
     if(!m || typeof m !== 'object'){ mesuresIgnorees++; return; }
-    const ref = renommages[m.refObjKey!] || m.refObjKey;
-    const tgt = renommages[m.targetObjKey!] || m.targetObjKey;
+    const ref = renommages[m.refObjKey ?? ''] || m.refObjKey;
+    const tgt = renommages[m.targetObjKey ?? ''] || m.targetObjKey;
     // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import, et
     // si ses indices tombent dans leurs polygones : c'est `referencesDeCote` qui en juge, le meme
     // pour l'import SVG.
@@ -89,11 +89,12 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   ctx.restoreState({ objects: objsBase.concat(ajoutes), measures: mesuresFinales });
 
   const lieu = valide.meta && valide.meta.lieu;
-  if(lieu && Number.isFinite(lieu.latitude) && Number.isFinite(lieu.longitude)){
+  const latitude = lieu ? lieu.latitude : undefined, longitude = lieu ? lieu.longitude : undefined;
+  if(lieu && typeof latitude === 'number' && typeof longitude === 'number' && Number.isFinite(latitude) && Number.isFinite(longitude)){
     const pc = ctx.trouverParcelleCloture();
     if(pc && (pc.latitude === undefined || pc.latitude === null)){
-      pc.latitude = lieu.latitude!;
-      pc.longitude = lieu.longitude!;
+      pc.latitude = latitude;
+      pc.longitude = longitude;
       if(lieu.nomLieu) pc.nomLieu = lieu.nomLieu;
     }
   }

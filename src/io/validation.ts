@@ -13,7 +13,7 @@
 // abime reste chargeable, et l'utilisateur apprend combien de formes ont ete laissees de cote.
 
 import { SCHEMA_VERSION } from '../model/version.js';
-import type { ObjetBrut, ObjetAPoints, Mesure } from '../model/types.js';
+import type { ObjetBrut, ObjetAPoints, Mesure, PtBrut } from '../model/types.js';
 
 /**
  * Un projet, tel qu'il sort de `JSON.parse` : rien n'est garanti, tout reste a verifier champ par
@@ -71,9 +71,10 @@ export function validerProjetJSON(data: unknown): ProjetValide {
   if(!objets.length) throw new Error('Aucun objet exploitable : formes absentes ou coordonnees invalides.');
   // Une coordonnee absurde signe un fichier dans une autre unite (millimetres, pixels...) :
   // mieux vaut refuser que de charger un plan de 12 km de large impossible a retrouver a l'ecran.
+  const loin = (p: PtBrut) => Math.abs(p.x) > 100000 || Math.abs(p.y) > 100000;
   const horsLimite = objets.some(o => o.type === 'circle'
-    ? (Math.abs(o.center!.x) > 100000 || Math.abs(o.center!.y) > 100000)
-    : (o as Partial<ObjetAPoints>).pts!.some(p => Math.abs(p.x) > 100000 || Math.abs(p.y) > 100000));
+    ? !!o.center && loin(o.center)
+    : ((o as Partial<ObjetAPoints>).pts ?? []).some(loin));
   if(horsLimite) throw new Error('Coordonnees aberrantes (au-dela de 100 000 m) : le fichier n\'est probablement pas en metres.');
   return { meta, objets, mesures: Array.isArray(brut.measures) ? brut.measures as Partial<Mesure>[] : [], ignores };
 }

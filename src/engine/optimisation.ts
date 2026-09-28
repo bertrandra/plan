@@ -45,16 +45,20 @@ export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prix
   const coutBois = mlPorteur*tarifSection(prixBois, trial.soliveSection)
                  + mlCadre  *tarifSection(prixBois, secCadre)
                  + mlLamb   *tarifSection(prixBois, sectionLambourde(trial));
-  return { section:trial.soliveSection!, avecLambourde:!!trial.avecLambourde,
-           soliveEntraxe:trial.soliveEntraxe!, lambourdeEntraxe:trial.lambourdeEntraxe!,
+  // `computeStructure` vient de passer `trial` par `ensureConstruction` : ces trois champs sont poses,
+  // et les replis ci-dessous sont ses valeurs par defaut.
+  return { section:trial.soliveSection ?? '45x70', avecLambourde:!!trial.avecLambourde,
+           soliveEntraxe:trial.soliveEntraxe ?? 40, lambourdeEntraxe:trial.lambourdeEntraxe ?? 40,
            vis:vis.length, ml:+(mlPorteur+mlCadre+mlLamb).toFixed(1),
            densite:+(vis.length/surf).toFixed(2),
            portee:Math.round(porteeAppuiM(trial)*100),
            cout:Math.round(vis.length*prixVis + coutBois) };
 }
-export function optimiserParametres(obj: ObjetPlan, objets: ObjetPlan[]): CandidatStructure[] {
+export function optimiserParametres(terrasse: ObjetPlan, objets: ObjetPlan[]): CandidatStructure[] {
+  // Une terrasse est un polygone : l'appelant ne l'optimise qu'apres l'avoir verifie.
+  const obj = enPoints(terrasse);
   const c = ensureConstruction(obj);
-  const surf = shoelace(enPoints(obj).pts) || 1;
+  const surf = shoelace(obj.pts) || 1;
   // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
   // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
   // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the

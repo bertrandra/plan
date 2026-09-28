@@ -78,6 +78,11 @@ bougent pas.
 - **`buildThreeScene` passe de 629 lignes à moins de 100** (D-12) : les briques de la scène vont dans
   `three/primitives.ts`, et la scène se compose de fonctions nommées. Les rendus de la Vue 3D sont
   identiques octet pour octet. Le cliquet FF-10 n'a plus que trois fichiers.
+- **Plus aucune assertion `!` dans `src/`** (506 → 0), et ESLint le garde
+  (`@typescript-eslint/no-non-null-assertion`). Un indice qu'on sait valide se lit par `au`
+  (`util/tableaux.ts`) ou `sommetDe`, qui lèvent une `RangeError` nommée là où `!` laissait passer
+  `undefined` ; les tables du moteur par des lecteurs qui nomment leur repli (`essenceDe`,
+  `supportDe`, `dimsSection`, `raideurDe`) ; le glisser en cours est une union discriminée.
 - **Les assertions `!` des défauts D-4 à D-11 disparaissent**, et avec elles les trois derniers
   `as unknown as` : `geometry/anneau.ts` lit un sommet d'un contour fermé, `util/date.ts` une date
   `AAAA-MM-JJ`, `io/importSvg.ts` ses attributs par des lecteurs nommés ; `Anneau` est un tableau de
