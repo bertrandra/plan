@@ -37,6 +37,8 @@ export interface ContexteRendu extends ContexteOrtho {
   renderMeasureResults: () => void;
   renderTerrasseLayerView: (obj: ObjetPlan | null | undefined) => void;
   estTerrain: (obj: ObjetRendu) => boolean;
+  /** Les ouvertures relevees sur les facades (render/releve.ts). */
+  renderReleves?: () => void;
 }
 
 export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
@@ -69,6 +71,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
     });
   });
 
+  ctx.renderReleves?.();
   ctx.drawScaleBar();
   ctx.drawNorthArrow();
   ctx.drawMeasures();

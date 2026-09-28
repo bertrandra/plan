@@ -49,6 +49,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
+    if (c.facades) c.facades = JSON.parse(JSON.stringify(c.facades));
+    if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     return c as T & ObjetBrut;
   });
 }

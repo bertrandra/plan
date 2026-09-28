@@ -23,6 +23,7 @@ import { showErrBanner } from '../shell/dialogs.js';
 import { elOpt } from '../shell/dom.js';
 import { estMesh } from './gardes.js';
 import { METRES_PAR_CARREAU } from './chargeurs.js';
+import { ajouterReleve3d } from './releve3d.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan, ObjetCercle, PtBrut, Construction } from '../model/types.js';
 import { aDesSommets, enPoints, enCercle } from '../model/formes.js';
@@ -642,6 +643,10 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
       // `fill` est facultatif sur `ObjetPlan` : un objet sans couleur arrive tel quel a Three, qui
       // ignore la valeur absente (avec un avertissement console) et garde sa couleur par defaut.
       addPrism(footprint, 0, h, o.fill as CouleurTrois, false, opaciteDe(o), texturesDe(o));
+      // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme.
+      if(o.type==='polygon' && (o.facades?.length || o.toit)){
+        ajouterReleve3d({ scene, toLocal, couleurMur: (o.fill || '#cccccc') as CouleurTrois, textures: vue3d.textures }, o, h);
+      }
       if(o.fonction === 'arbre'){
         // Feuillage = une sphere posee sur le sommet du tronc (le prisme juste au-dessus, de
         // hauteur h) : son centre remonte d'un rayon au-dessus de h pour qu'elle touche le tronc

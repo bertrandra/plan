@@ -208,6 +208,10 @@ Enregistrer.
 
 Les trois parcours restent des dialogues : import cadastre (trois étapes, `cadastreDialog.ts`),
 actualisation IGN (`ouvrirDialogueActualisation`), sélecteur de textures (`texturePicker.ts`).
+Un quatrième s'y ajoute en `2.2.0`, en React et plein écran : le **relevé de façade**
+(`zones/Releve.tsx`, [`spec-releve-facade.md`](spec-releve-facade.md) §4), ouvert par la commande
+`facade.relever` depuis la section « Façades et toit » de Z5 — seul endroit où elle vit, avec
+`facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 

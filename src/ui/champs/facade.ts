@@ -1,0 +1,161 @@
+// Section « Facades et toit » de l'inspecteur, pour un batiment (spec-releve-facade §4).
+//
+// Une ligne par mur : son orientation, sa longueur, ce que le releve en a retenu, et le bouton qui
+// ouvre le releve sur ce mur. Puis le toit, en champs ordinaires : la forme que la photo a proposee
+// se corrige ici, comme n'importe quelle propriete.
+
+import { enPoints } from '../../model/formes.js';
+import { facadesDuContour } from '../../facade/geometrie.js';
+import { designerFacade } from '../../facade/choix.js';
+import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
+import type { ObjetPlan, FormeToit, Toit } from '../../model/types.js';
+import type { Champ, ContexteChamps, Section } from './types.js';
+
+/** Un batiment : le seul objet qui porte des facades et un toit. */
+export const estBatiment = (o: ObjetPlan) => o.type === 'polygon' && (o.fonction === 'batiment' || o.fonction === 'annexe');
+
+const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+function toitDe(c: ContexteChamps): Toit {
+  const o = enPoints(c.obj);
+  if (!c.obj.toit) c.obj.toit = { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(o.pts), source: 'saisie' };
+  return c.obj.toit;
+}
+
+const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
+
+export function sectionReleve(c: ContexteChamps): Section {
+  const o = enPoints(c.obj);
+  const facades = facadesDuContour(o.pts, c.elevationOf(c.obj));
+  const champs: Champ[] = [
+    {
+      type: 'bouton',
+      cle: 'relever',
+      libelle: '',
+      texte: () => 'Relever une façade…',
+      explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
+      executer: (cx) => {
+        designerFacade(null);
+        cx.executerCommande('facade.relever');
+      },
+    },
+  ];
+  facades.forEach((f) => {
+    const i = f.cote;
+    const releve = () => (c.obj.facades || []).find((r) => r.cote === i);
+    champs.push({
+      type: 'ligne',
+      cle: 'facade' + i,
+      libelle: `${f.orientation}`,
+      surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
+      champs: [
+        {
+          type: 'lecture',
+          cle: 'etat',
+          libelle: 'Relevé',
+          valeur: () => {
+            const r = releve();
+            const nom = o.segmentNames?.[i] ? `${o.segmentNames[i]} · ` : '';
+            return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}` : `${nom}${fr(f.largeur)} m · non relevée`;
+          },
+        },
+        {
+          type: 'bouton',
+          cle: 'relever',
+          libelle: 'Relever',
+          texte: () => (releve() ? 'Refaire' : 'Relever'),
+          aide: `Relever la façade ${f.orientation.toLowerCase()}`,
+          executer: (cx) => {
+            designerFacade(i);
+            cx.executerCommande('facade.relever');
+          },
+        },
+        {
+          type: 'bouton',
+          cle: 'retirer',
+          libelle: 'Retirer',
+          visible: () => !!releve(),
+          aide: 'Retirer la photo et les ouvertures de ce mur (Ctrl+Z pour revenir)',
+          executer: (cx) => {
+            designerFacade(i);
+            cx.executerCommande('facade.retirer');
+          },
+        },
+      ],
+    });
+  });
+
+  const aToit = (cc: ContexteChamps) => !!cc.obj.toit;
+  const aPente = (cc: ContexteChamps) => !!cc.obj.toit && cc.obj.toit.forme !== 'plat';
+  champs.push(
+    {
+      type: 'choix',
+      cle: 'toitForme',
+      libelle: 'Toit',
+      historique: true,
+      effets: effetsToit,
+      options: () => [{ valeur: '', libelle: 'Non modélisé' }, ...(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] }))],
+      lire: (cc) => cc.obj.toit?.forme || '',
+      ecrire: (cc, v) => {
+        if (!v) {
+          delete cc.obj.toit;
+          return;
+        }
+        toitDe(cc).forme = v as FormeToit;
+        cc.obj.toit!.source = 'saisie';
+      },
+    },
+    {
+      type: 'nombre',
+      cle: 'toitHauteur',
+      libelle: 'Hauteur du faîtage',
+      unite: 'm',
+      pas: 0.1,
+      min: 0,
+      max: 20,
+      decimales: 2,
+      visible: aPente,
+      historique: true,
+      effets: effetsToit,
+      note: (cc) => (cc.obj.toit ? `pente ${fr(penteDeg(enPoints(cc.obj).pts, cc.obj.toit), 0)}°` : ''),
+      aide: "Au-dessus de l'égout",
+      lire: (cc) => cc.obj.toit?.hauteur ?? 0,
+      ecrire: (cc, v) => {
+        if (!(v >= 0)) return false;
+        toitDe(cc).hauteur = v;
+      },
+    },
+    {
+      type: 'nombre',
+      cle: 'toitFaitage',
+      libelle: 'Direction du faîtage',
+      unite: '°',
+      pas: 1,
+      min: 0,
+      max: 179,
+      decimales: 0,
+      visible: aPente,
+      historique: true,
+      effets: effetsToit,
+      aide: "Angle du faîtage depuis l'est, dans le sens inverse des aiguilles d'une montre",
+      lire: (cc) => Math.round(cc.obj.toit?.angleFaitage ?? 0),
+      ecrire: (cc, v) => {
+        toitDe(cc).angleFaitage = ((v % 180) + 180) % 180;
+      },
+    },
+    {
+      type: 'couleur',
+      cle: 'toitCouleur',
+      libelle: 'Couverture',
+      visible: aToit,
+      historique: true,
+      effets: effetsToit,
+      lire: (cc) => cc.obj.toit?.couleur || COULEUR_TOIT_DEFAUT,
+      ecrire: (cc, v) => {
+        toitDe(cc).couleur = v;
+      },
+    },
+  );
+  return { id: 'releve', titre: 'Façades et toit', champs };
+}

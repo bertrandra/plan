@@ -104,6 +104,9 @@ import { renderPanneauPlu, actualiserDepuisIgn, ouvrirDialogueActualisation, con
 import { ouvrirImportCadastre } from '../ui/cadastreDialog.js';
 import { creerProjet } from './projet.js';
 import { monterZones } from '../zones/monter.js';
+import { creerServiceReleve } from './releve.js';
+import { dessinerReleves } from '../render/releve.js';
+import { brancherFacade } from './ecouteurs/facade.js';
 import {
   renderTerrasseCoupe, renderDebitBois, renderImplantation,
   renderChantier, renderMethode, basculerOptimisation
@@ -496,7 +499,8 @@ function ctxRendu(){
   return { drawGrid, renderParasolOverlay, amenerPoigneesDevant, objetMasque, rebuildHandles,
     drawScaleBar, drawNorthArrow, drawMeasures,
     renderMeasureResults, renderTerrasseLayerView, estTerrain, trouverParcelleCloture,
-    toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup };
+    toScreen, markDirty, lieuActuel, render, etat, orthoGroup: ()=>orthoGroup,
+    renderReleves: ()=>dessinerReleves(releveGroup, etat, toScreen, objetMasque) };
 }
 
 // ================= Attribute table for selected object =================
@@ -932,6 +936,10 @@ function enregistrerAffichage(){
 // Le calque des couches vit dans render/terrasseCouches.ts ; cette enveloppe lui fournit son groupe
 // SVG, l'etat et la transformation d'ecran. Les couches ne se dessinent que si l'explorateur les a
 // demandees (`etat.calquesVisibles`) : un appel sans objet vide le calque.
+// Les ouvertures relevees sur les facades des batiments (render/releve.ts) : par-dessus les objets.
+const releveGroup = document.createElementNS(svgNS,'g') as SVGGElement;
+releveGroup.setAttribute('pointer-events','none');
+svg.appendChild(releveGroup);
 const terrasseLayerGroup = document.createElementNS(svgNS,'g');
 svg.appendChild(terrasseLayerGroup);
 function renderTerrasseLayerView(obj: ObjetPlan | null | undefined){ dessinerCouches(terrasseLayerGroup, etat.calquesVisibles ? obj : null, etat, toScreen); }
@@ -1129,7 +1137,10 @@ const inspecteur = creerInspecteur(etat, {
 // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap
 // (spec-ihm-mobile §2.3, D3). Arreter garde ce qui est deja designe, comme le bouton du panneau.
 const pointage = { courant: () => mesure.pointage, arreter: () => cancelPick(etat, ctxMesure()) };
-monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage });
+// Le releve de facade : le dialogue de prise de vue (zones/Releve.tsx) et ses deux commandes.
+const releve = creerServiceReleve({ etat, pushHistory, render, buildThreeScene, elevationOf });
+brancherFacade({ etat, releve, pushHistory, render, buildThreeScene }, commandes);
+monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, releve });
 // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
 // couvriraient les deux tiers. Ils s'ouvrent a la demande — la poignee, ou la feuille de selection.
 replierPourTablette();

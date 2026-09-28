@@ -52,6 +52,10 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       if(o.type==='path'){ out.width = o.width; out.curve = !!o.curve; }
     }
     if(o.construction) out.construction = JSON.parse(JSON.stringify(o.construction));
+    // Releve de facade et toit : poses seulement quand ils existent, pour qu'un projet qui n'en a
+    // pas garde au bit pres la forme d'avant (empreinte de projet.json).
+    if(o.facades && o.facades.length) out.facades = JSON.parse(JSON.stringify(o.facades));
+    if(o.toit) out.toit = JSON.parse(JSON.stringify(o.toit));
     return out;
   });
 }
