@@ -23,7 +23,8 @@ describe('ou le refus est pose dans les gestes du pointeur', () => {
   it('garde les quatre entrees d edition : le corps et les trois poignees', () => {
     // Deplacer un objet, tirer un sommet, tirer une arete, tirer un rayon. Si une cinquieme
     // apparait un jour sans sa garde, ce compte le dira.
-    expect(source.split('if(etat.lectureSeule) return;').length - 1).toBe(4);
+    // Chaque entree est une fonction (`surObjet`, `surSommet`, `surCote`, `surRayon`) qui rend 'rien'.
+    expect(source.split("if(etat.lectureSeule) return 'rien';").length - 1).toBe(4);
   });
 
   it('refuse avant d empiler l historique, jamais apres', () => {
@@ -42,7 +43,7 @@ describe('ou le refus est pose dans les gestes du pointeur', () => {
   });
 
   it('refuse le recul au double toucher aussi, comme a la souris (D-18)', () => {
-    expect(source).toContain('if(recule && !etat.lectureSeule) ctx.sendObjectBackward(recule);');
+    expect(source).toContain('if(recule && !p.etat.lectureSeule) p.ctx.sendObjectBackward(recule);');
     // Chaque recul du fichier passe par une garde de lecture seule, sur la meme ligne.
     const reculs = source.split('\n').filter((l) => l.includes('ctx.sendObjectBackward(') && !l.trim().startsWith('//'));
     for (const l of reculs) expect(l, l.trim()).toContain('etat.lectureSeule');

@@ -422,8 +422,9 @@ tokens in `jetons.ts`) sit outside the layers.
   family (the SVG surface and its layers, drawing, display toggles, framing, measures, edits, the
   two 3D views, exports), and `boot.ts` composes them in five functions, none over 150 lines. The
   order in which listeners are registered and SVG layers are appended is unchanged, and the smoke
-  list plays the same before and after. The FF-10 ceiling list went from seven files to three once `buildThreeScene` was split as well (its
-  bricks live in `three/primitives.ts`).
+  list plays the same before and after. The FF-10 ceiling list is gone: every function in `src/` is under 150 lines, `buildThreeScene`,
+  `construirePDF`, `objetsDepuisCadastre` and `brancherPointeur` included (`three/primitives.ts`
+  holds the scene's bricks).
 - **No non-null assertion is left in `src/`** (506 on 27 September, 0 on the 28th), and
   `@typescript-eslint/no-non-null-assertion` keeps it that way. An index the code knows to be valid
   is read through `util/tableaux.ts` (`au`) or, on a closed ring, `geometry/anneau.ts` (`sommetDe`):
@@ -645,13 +646,13 @@ P6 in practice. Each runs in CI and fails the build. This is what makes the word
 | FF-1 | No import cycles | layering | Acyclic value-import graph, `tests/unit/architecture.test.ts` |
 | FF-2 | `engine/**`, `geometry/**`, `model/**` import nothing from `ui`, `render`, `three`, `geo`, `persistence`, or the DOM | P2, QA-F4 | Layer rule and purity rule, `tests/unit/architecture.test.ts` |
 | FF-3 | No query selects `projects.data` without a single-row predicate | QA-P1 | Query-log assertion in the integration suite |
-| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | Fixture diff, release gate |
+| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | `tests/unit/export/regeneration.test.ts` regenerates five of the six exports from the code and compares them to the fixtures |
 | FF-5 | Bundle ≤ 5 MB (ADR-16); no gated module in the main chunk | QA-P6, QA-P5 | Rollup output analysis |
 | FF-6 | `FeatureKey` union matches the seeded catalog exactly | QA-F2 | Drift test against the DB |
 | FF-7 | Every entitlement-gated route has a 403-without-entitlement test | QA-Q4 | Route registry × test registry reconciliation |
 | FF-8 | RLS enabled on every tenant-scoped table | ASR-4 | `pg_class.relrowsecurity` introspection test |
 | FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js`; inline `eslint-disable` refused in those folders |
-| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function`, with a per-file ceiling list in `eslint.config.js` that only shrinks |
+| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function` in `eslint.config.js`, no exception |
 | FF-11 | Every `SCHEMA_VERSION` has a migration and an N/N+1 fixture | ASR-2 | Test enumerating the chain |
 | FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging |
 | FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check |

@@ -43,18 +43,11 @@ export default [
   },
   {
     // FF-10 : une fonction de plus de 150 lignes ne se relit plus en une fois, et deux personnes
-    // finissent par y travailler en meme temps.
+    // finissent par y travailler en meme temps. Sans exception depuis le 28 septembre 2026 : le
+    // cliquet ouvert le 27 avec onze fichiers (boot() en tete, 1 013 lignes) est vide.
     files: ['src/**/*.ts', 'src/**/*.tsx'],
     rules: { 'max-lines-per-function': ['error', { max: 150 }] }
   },
-  // Le cliquet de FF-10. Ces fichiers portaient deja une fonction plus longue le 27 septembre 2026 ;
-  // chacun a pour plafond sa plus longue d'alors. Une entree ne s'ajoute jamais, un plafond ne monte
-  // jamais : quand une fonction est decoupee, on baisse le plafond ou on retire la ligne.
-  ...Object.entries({
-    'src/interaction/pointeur.ts': 243,
-    'src/export/pdfPlan.ts': 257,
-    'src/geo/cadastreObjets.ts': 244,
-  }).map(([fichier, max]) => ({ files: [fichier], rules: { 'max-lines-per-function': ['error', { max }] } })),
   {
     // Les tests s'executent sous Node : ils utilisent __dirname, Buffer et process.
     files: ['tests/**/*.ts'],

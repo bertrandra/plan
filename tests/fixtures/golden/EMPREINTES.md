@@ -492,6 +492,30 @@ changé, là où le SHA-256 dit seulement que quelque chose a changé.
 
 Emprise totale hors parcelle de référence : **408,4 m² (56,5 % de la parcelle)**.
 
+## Regénérées à chaque `npm test` (28 septembre 2026)
+
+Jusqu'au 27 septembre, `tests/unit/echafaudage.test.ts` hachait les **fichiers témoins** : il
+prouvait qu'on ne les avait pas retouchés, pas que le code les produisait encore. La preuve de
+régénération se faisait à la main, à chaque recapture. Depuis le 28,
+`tests/unit/export/regeneration.test.ts` regénère **cinq des six** exports depuis le code, sur
+`DEMO_TEMOIN_OBJECTS`, et compare leurs empreintes normalisées à celles des témoins :
+
+- `plan.svg`, `plan.dxf`, `resume.txt`, `plan.pdf` et `dossier.pdf` ;
+- la version et la date de build sont celles du témoin (2.0.2, 2026-09-25), passées en paramètre ;
+  le dictionnaire `/Info` du dossier, qui les lit dans `model/version.ts`, est ramené aux mêmes
+  valeurs, à longueur égale pour ne pas décaler la table xref ;
+- l'horloge est posée au jour de la capture ; le texte est encodé en UTF-8, comme le fait le
+  `Blob` du navigateur ;
+- les parasols sont contraints à leur terrasse avant l'export, comme le premier rendu le fait
+  dans l'application (`contraindreParasols`) : sans cela, `plan.pdf` diffère au centième de point
+  sur deux cercles.
+
+`projet.json` n'est pas regénéré : son bloc `meta` vient du serveur (identité, dates), et le test
+le neutraliserait presque entièrement. Le GLB reste comparé structurellement (plus haut).
+
+Premier passage : les cinq identiques, sur le code du 28 septembre — après la sortie de `boot()`,
+le découpage de `buildThreeScene` et de `construirePDF`, et le retrait des 506 assertions `!`.
+
 ## Rejouer la capture
 
 > **Depuis la 2.1.1, le plan de démonstration que l'utilisateur ouvre porte les couleurs de la
