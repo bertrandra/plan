@@ -657,11 +657,14 @@ P6 in practice. Each runs in CI and fails the build. This is what makes the word
 | FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check |
 | FF-14 | Engine benchmark: full terrace recompute < 150 ms | QA-P4 | Vitest bench, threshold |
 
-**What runs today (27 September 2026).** FF-1, FF-2 and FF-4 run with `npm test`, and FF-9 and
-FF-10 with `npm run lint`. The others (FF-3, FF-5 to FF-8 and FF-11 to FF-14) are not yet wired to
-anything. Most of them wait on parts of the system Plan now takes from the backprod platform
-(§5.4). There is no CI workflow in the repository yet, so "fails the build" currently means the
-checks a contributor runs before pushing.
+**What runs today (28 September 2026).** FF-1, FF-2 and FF-4 run with `npm test`, FF-9 and FF-10
+with `npm run lint`, and FF-5 (the 5 MB budget) as a size check on the built file. All of them run
+in CI (`.github/workflows/ci.yml`) on every pull request and every push to `main`, together with the
+type check, the strictness ratchet, the generated-client gate and the no-secret check on the
+shipped file. The others (FF-3, FF-6 to FF-8 and FF-11 to FF-14) are not yet wired to anything.
+Most of them wait on parts of the system Plan now takes from the backprod platform (§5.4). The
+browser smoke list (`scripts/fumee.mjs`) is not in CI: several of its points need the cadastre,
+IGN and Poly Haven services.
 
 A fitness function that fires often and is routinely overridden is worse than none — it teaches the team that the build lies. Each one above is either fixable in minutes or genuinely wants a design conversation.
 
