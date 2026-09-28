@@ -9,16 +9,7 @@
 import { dxfNum } from './dxf.js';
 import { escapeXml } from '../util/escape.js';
 import { geometrieMesure, type Mesure } from '../render/measures.js';
-import type { PtBrut } from '../model/types.js';
-
-interface ObjetPlan {
-  key: string;
-  type?: string;
-  name: string;
-  pts?: PtBrut[];
-  center?: PtBrut;
-  r?: number;
-}
+import type { ObjetPlan } from '../model/types.js';
 
 /** Nom de calque DXF : un nom d'objet ne peut pas y garder ses espaces ni ses accents. */
 function calque(nom: string): string {
@@ -41,18 +32,18 @@ export function construireDXF(
   objets.forEach((obj) => {
     if (obj.type === 'polygon') {
       // 70/1 = polyligne fermee : un terrain ou une terrasse est un contour, pas une ligne brisee.
-      ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + obj.pts!.length + '\n70\n1\n';
-      obj.pts!.forEach((p) => {
+      ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + obj.pts.length + '\n70\n1\n';
+      obj.pts.forEach((p) => {
         ents += '10\n' + dxfNum(p.x) + '\n20\n' + dxfNum(p.y) + '\n';
       });
     } else if (obj.type === 'path') {
       // 70/0 = polyligne ouverte : un cheminement ou une limite ne se referme pas.
-      ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + obj.pts!.length + '\n70\n0\n';
-      obj.pts!.forEach((p) => {
+      ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + obj.pts.length + '\n70\n0\n';
+      obj.pts.forEach((p) => {
         ents += '10\n' + dxfNum(p.x) + '\n20\n' + dxfNum(p.y) + '\n';
       });
     } else {
-      ents += '0\nCIRCLE\n8\n' + calque(obj.name) + '\n10\n' + dxfNum(obj.center!.x) + '\n20\n' + dxfNum(obj.center!.y) + '\n40\n' + dxfNum(obj.r!) + '\n';
+      ents += '0\nCIRCLE\n8\n' + calque(obj.name) + '\n10\n' + dxfNum(obj.center.x) + '\n20\n' + dxfNum(obj.center.y) + '\n40\n' + dxfNum(obj.r) + '\n';
     }
   });
 

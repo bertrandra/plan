@@ -4,6 +4,8 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { au } from '../util/tableaux.js';
+import { lireDate } from '../util/date.js';
 import { positionSoleil } from '../geo/soleil.js';
 import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
@@ -58,9 +60,11 @@ interface CandidatPosition { x: number; y: number; angleDeg: number; score: numb
 
 
 export function ombreInstantanee(par: ObjetPlan, ctx: ContexteSoleil): GeometrieOmbre | null {
-  const [annee, mois, jour] = ctx.dateStr.split('-').map(Number);
+  // Sans date lisible, pas de soleil a placer : pas d'ombre.
+  const date = lireDate(ctx.dateStr);
+  if(!date) return null;
   const lieu = ctx.lieu;
-  const { elevRad, azRad } = positionSoleil(annee!, mois!, jour!, ctx.minutes/60, lieu.latitude, lieu.longitude);
+  const { elevRad, azRad } = positionSoleil(date.annee, date.mois, date.jour, ctx.minutes/60, lieu.latitude, lieu.longitude);
   if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return null;
   return geometrieOmbre(par, {
     ux: -Math.sin(azRad), uy: -Math.cos(azRad),
@@ -96,8 +100,9 @@ export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): C
   parasols.forEach(p=>{
     const t = terrasseDuParasol(p, objets);
     if(!t) return;
-    if(!parTerrasse.has(t.key)) parTerrasse.set(t.key, { terr:t, liste:[] });
-    parTerrasse.get(t.key)!.liste.push(p);
+    const groupe = parTerrasse.get(t.key);
+    if(groupe) groupe.liste.push(p);
+    else parTerrasse.set(t.key, { terr:t, liste:[p] });
   });
   const cartes: CarteOmbre[] = [];
   parTerrasse.forEach(({terr, liste})=>{
@@ -109,8 +114,8 @@ export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): C
     const cells = pts.map(p=>{
       let n = 0;
       for(let i=0;i<geos.length;i++){
-        for(let j=0;j<geos[i]!.length;j++){
-          if(pointDansOmbre(p.x, p.y, geos[i]![j]!)){ n++; break; }
+        for(let j=0;j<au(geos, i).length;j++){
+          if(pointDansOmbre(p.x, p.y, au(au(geos, i), j))){ n++; break; }
         }
       }
       return { x:p.x, y:p.y, frac: n/ech.length };
@@ -151,11 +156,11 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
       const toileY = deporte ? pied.y - r*Math.sin(a) : pied.y;
       let score = 0;
       for(let i=0;i<ech.length;i++){
-        const e = ech[i]!;
+        const e = au(ech, i);
         const cx = toileX + h*e.decalageParMetre*e.ux, cy = toileY + h*e.decalageParMetre*e.uy;
         const aa = r*e.etirement, a2 = aa*aa, r2 = r*r;
         for(let k=0;k<cibles.length;k++){
-          const dx = cibles[k]!.x-cx, dy = cibles[k]!.y-cy;
+          const dx = au(cibles, k).x-cx, dy = au(cibles, k).y-cy;
           const le = dx*e.ux + dy*e.uy, tr = -dx*e.uy + dy*e.ux;
           if((le*le)/a2 + (tr*tr)/r2 <= 1) score++;
         }
@@ -215,7 +220,7 @@ export function decalageMat(par: ObjetPlan): PtBrut {
 export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null {
   let best: PtBrut | null = null, bestD2 = Infinity;
   for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j]!.x, ay=poly[j]!.y, bx=poly[i]!.x, by=poly[i]!.y;
+    const ax=au(poly, j).x, ay=au(poly, j).y, bx=au(poly, i).x, by=au(poly, i).y;
     const ex=bx-ax, ey=by-ay;
     const L2 = ex*ex+ey*ey;
     let t = L2 ? ((pt.x-ax)*ex + (pt.y-ay)*ey)/L2 : 0;
@@ -256,7 +261,7 @@ export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: 
 export function pointsPerimetre(poly: PtBrut[], pas: number): PtBrut[] {
   const out: PtBrut[] = [];
   for(let i=0, j=poly.length-1; i<poly.length; j=i++){
-    const ax=poly[j]!.x, ay=poly[j]!.y, bx=poly[i]!.x, by=poly[i]!.y;
+    const ax=au(poly, j).x, ay=au(poly, j).y, bx=au(poly, i).x, by=au(poly, i).y;
     const L = Math.hypot(bx-ax, by-ay);
     const n = Math.max(1, Math.round(L/pas));
     for(let k=0;k<n;k++){

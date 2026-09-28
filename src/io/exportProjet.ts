@@ -8,12 +8,13 @@
 import { slugFichier, horodatageFichier } from '../util/format.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
 import type { ObjetSerialise } from '../model/creation.js';
+import type { MesureSerialisee } from './serialisation.js';
 import type { EtatApp } from '../core/state.js';
 
 /** Ce qu'un export doit pouvoir demander au reste du programme. */
 export interface ContexteExportProjet {
   serializeObjects: (objets: ObjetPlan[]) => ObjetSerialise[];
-  serializeMeasures: (mesures: Mesure[]) => ObjetSerialise[];
+  serializeMeasures: (mesures: Mesure[]) => MesureSerialisee[];
   telechargerTexte: (nom: string, texte: string, mime: string) => void;
   showToast: (message: string) => void;
   appVersion: string;
@@ -36,7 +37,7 @@ export interface ContexteExportProjet {
  * c'est lui qui cale la course du soleil. La cloture au contraire decrit la limite de propriete :
  * elle part avec la parcelle, et c'est voulu.
  */
-export function filtrerSansParcelle(objsSer: ObjetSerialise[], msSer: ObjetSerialise[]) {
+export function filtrerSansParcelle(objsSer: ObjetSerialise[], msSer: MesureSerialisee[]) {
   const retirees = new Set(objsSer.filter(o => o.key === 'parcelle' || o.fonction === 'terrain').map(o => o.key));
   const objets = objsSer.filter(o => !retirees.has(o.key)).map(o =>
     (o.terrasseLieeKey && retirees.has(o.terrasseLieeKey)) ? { ...o, terrasseLieeKey: null } : o
@@ -58,7 +59,7 @@ export function filtrerSansParcelle(objsSer: ObjetSerialise[], msSer: ObjetSeria
  * ils expliquent, deux ans plus tard, un fichier qui se comporte autrement que prevu
  * (RELEASE.md §5.2).
  */
-export function construireFichierProjet(objets: ObjetSerialise[], mesures: ObjetSerialise[], sansParcelle: boolean, ctx: ContexteExportProjet) {
+export function construireFichierProjet(objets: ObjetSerialise[], mesures: MesureSerialisee[], sansParcelle: boolean, ctx: ContexteExportProjet) {
   const maintenant = (ctx.maintenant || (() => new Date().toISOString()))();
   const src = ctx.metaProjet() || {};
   const meta: Record<string, unknown> = {

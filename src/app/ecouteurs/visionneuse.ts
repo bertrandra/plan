@@ -5,7 +5,7 @@
 // modèle en gardant la caméra**. Refaire la scène sans conserver le point de vue renverrait
 // l'utilisateur au cadrage d'origine à chaque case cochée, ce qui rend une comparaison impossible.
 
-import { glb } from '../../three/etat3d.js';
+import { glb, affichage3d, signaler3d } from '../../three/etat3d.js';
 import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
 import { estTexture } from '../../three/gardes.js';
 import type { Atelier } from '../atelier.js';
@@ -15,7 +15,7 @@ import type { ObjetMesurable } from '../../engine/hauteurs.js';
 /** Ce que les commandes de la visionneuse pilotent, en plus de l'atelier. */
 export interface ContexteVisionneuse {
   /** Produit le .glb depuis la scène courante. Le bouton passé est désarmé pendant l'opération. */
-  genererGlb: (bouton: HTMLButtonElement, telecharger: boolean) => void;
+  genererGlb: (telecharger: boolean) => void;
   /**
    * Recharge la visionneuse, en conservant la caméra qu'on lui passe : sa position et le point
    * qu'elle vise. `null` quand il n'y a pas encore de scène, donc rien à conserver.
@@ -29,8 +29,14 @@ export interface ContexteVisionneuse {
   hauteurYeuxM: number;
 }
 
-export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: RegistreCommandes): void {
-  const el = (id: string) => document.getElementById(id) as HTMLInputElement;
+/** Les reglages du panneau de la visionneuse (zones/vue3d/) : ce qui recharge ou repeint le modele. */
+export interface ReglagesVisionneuse {
+  basculerFilaire(actif: boolean): void;
+  basculerOmbres(actif: boolean): void;
+  choisirFond(fond: string): void;
+}
+
+export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: RegistreCommandes): ReglagesVisionneuse {
 
   /** La caméra actuelle, à rendre à la scène rechargée. `null` quand il n'y a pas encore de scène. */
   const cameraCourante = () => glb.scene && {
@@ -50,9 +56,12 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
 
   // Les deux boutons produisent le modèle sans écrire de fichier : la visionneuse n'a besoin que des
   // données, et déposer un .glb dans les téléchargements à chaque ouverture n'aurait aucun sens.
-  const vis = (idDom: string, id: string, libelle: string, executer: (source?: HTMLElement) => void) => cmd.bouton(idDom, { id, libelle, groupe: 'visionneuse', executer });
-  vis('glbViewerExporterBtn', 'visionneuse.generer', 'Générer le modèle 3D', (source) => ctx.genererGlb(source as HTMLButtonElement, false));
-  vis('glbViewerRegenBtn', 'visionneuse.regenerer', 'Régénérer depuis le plan', (source) => ctx.genererGlb(source as HTMLButtonElement, false));
+  // Les boutons sont dans le panneau (zones/vue3d/Visionneuse.tsx) : des commandes sans element a lier.
+  const vis = (_idDom: string, id: string, libelle: string, executer: (source?: HTMLElement) => void) => cmd.declarer({ id, libelle, groupe: 'visionneuse', executer });
+  // Grisees pendant une production en cours : une seule a la fois (three/exportGlb.ts).
+  const libre = () => !affichage3d.generation;
+  cmd.declarer({ id: 'visionneuse.generer', libelle: 'Générer le modèle 3D', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
+  cmd.declarer({ id: 'visionneuse.regenerer', libelle: 'Régénérer depuis le plan', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
 
   vis('glbViewerZoomIn', 'visionneuse.zoomAvant', 'Zoom avant', () => zoom(0.8));
   vis('glbViewerZoomOut', 'visionneuse.zoomArriere', 'Zoom arrière', () => zoom(1.25));
@@ -75,26 +84,30 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
     renderer.render(scene, camera);
   });
 
-  // Filaire et ombres changent la géométrie ou l'état du renderer : il faut relire le modèle.
-  el('glbViewerFilaire').addEventListener('change', function () {
-    glb.filaire = this.checked;
-    if (glb.ouvert) ctx.rafraichir(cameraCourante());
-  });
-  el('glbViewerShadows').addEventListener('change', function () {
-    glb.ombres = this.checked;
-    if (glb.ouvert) ctx.rafraichir(cameraCourante());
-  });
-
-  /**
-   * Le fond se remplace à chaud. L'ancien est **libéré s'il s'agit d'une texture** — le damier en
-   * est une : `traverse()` ne visite pas l'arrière-plan, il ne fait pas partie du graphe d'objets,
-   * donc rien d'autre ne le libérerait et il fuirait comme n'importe quelle texture.
-   */
-  el('glbViewerFond').addEventListener('change', function () {
-    glb.fond = this.value;
-    if (glb.scene) {
-      if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
-      glb.scene.scene.background = fondGlbViewer();
+  return {
+    // Filaire et ombres changent la géométrie ou l'état du renderer : il faut relire le modèle.
+    basculerFilaire(actif) {
+      glb.filaire = actif;
+      signaler3d();
+      if (glb.ouvert) ctx.rafraichir(cameraCourante());
+    },
+    basculerOmbres(actif) {
+      glb.ombres = actif;
+      signaler3d();
+      if (glb.ouvert) ctx.rafraichir(cameraCourante());
+    },
+    /**
+     * Le fond se remplace à chaud. L'ancien est **libéré s'il s'agit d'une texture** — le damier en
+     * est une : `traverse()` ne visite pas l'arrière-plan, il ne fait pas partie du graphe d'objets,
+     * donc rien d'autre ne le libérerait et il fuirait comme n'importe quelle texture.
+     */
+    choisirFond(fond) {
+      glb.fond = fond;
+      signaler3d();
+      if (glb.scene) {
+        if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
+        glb.scene.scene.background = fondGlbViewer();
+      }
     }
-  });
+  };
 }

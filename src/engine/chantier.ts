@@ -5,7 +5,7 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist, shoelace } from '../geometry/basic.js';
-import { computeAssise } from './bom.js';
+import { computeAssise } from './prix.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
@@ -65,8 +65,8 @@ export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const nbAppuis = layers.vis.length;
   const debitL = computeDebitLames(obj, layers);
   const groupes = computeDebitsBois(obj, layers);
-  const nbBarresBois = groupes.reduce((s,g)=>s + Object.keys(g.debit.achats).reduce((t,L)=>t+g.debit.achats[L]!,0), 0);
-  const nbBarresLames = Object.keys(debitL.achats).reduce((t,L)=>t+debitL.achats[L]!, 0);
+  const nbBarresBois = groupes.reduce((s,g)=>s + Object.values(g.debit.achats).reduce((t,n)=>t+n,0), 0);
+  const nbBarresLames = Object.values(debitL.achats).reduce((t,n)=>t+n, 0);
   const assise = computeAssise(c, surf, nbAppuis);
   const perim = ml(layers.cadre);
   const plots = estPlots(c);

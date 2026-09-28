@@ -180,7 +180,8 @@ export function urlTuileOrtho(z: number, x: number, y: number): string {
 // l'export PNG - et l'export SVG ne serait plus autonome.
 export async function chargerTuileOrtho(z: number, x: number, y: number): Promise<string> {
   const cle = z + '/' + x + '/' + y;
-  if(ortho.cache.has(cle)) return ortho.cache.get(cle)!;
+  const enCache = ortho.cache.get(cle);
+  if(enCache !== undefined) return enCache;
   const r = await fetch(urlTuileOrtho(z, x, y), {cache:'force-cache'});
   if(!r.ok) throw new Error('tuile ' + cle + ' : HTTP ' + r.status);
   const blob = await r.blob();
@@ -270,8 +271,9 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     ortho.tuiles.forEach(t=>{
       const img = document.createElementNS(svgNS, 'image');
       // `ortho.tuiles` ne recoit que les tuiles retenues par `chargerOrthophoto`, donc chargees.
-      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', t.dataUri!);
-      img.setAttribute('href', t.dataUri!);
+      const uri = t.dataUri ?? '';
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', uri);
+      img.setAttribute('href', uri);
       img.setAttribute('preserveAspectRatio', 'none');
       t.el = img;
       ctx.orthoGroup().appendChild(img);

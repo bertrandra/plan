@@ -198,7 +198,8 @@ describe('D-15 — la liste des points de vue', () => {
   // enregistre… » ne se remplissait qu'a la construction de la scene. On creait un point de vue, la
   // liste restait vide, et il fallait sortir de la Vue 3D puis y revenir pour le voir apparaitre.
   // C'est ce decalage qui a fait croire, pendant la liste de fumee, que la liste portait les cles
-  // d'un autre plan.
+  // d'un autre plan. Depuis, la liste est rendue par le panneau (zones/vue3d/communs.tsx) a partir
+  // des objets du plan : il suffit que la creation le signale.
   it('se remplit des qu un point de vue est cree, sans attendre une reconstruction', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
@@ -206,6 +207,6 @@ describe('D-15 — la liste des points de vue', () => {
     const i = source.indexOf("'3d.enregistrerPointDeVue'");
     expect(i, 'la commande a ete renommee').toBeGreaterThan(0);
     const bloc = source.slice(i, source.indexOf('showToast(', i));
-    expect(bloc).toContain('ctx.renderVue3DSelect()');
+    expect(bloc).toContain('signaler3d()');
   });
 });

@@ -4,27 +4,25 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { coutDebit, prixPlotUnite, prixVisUnite } from './bom.js';
-import { PLOT_ENTRAXE_MAX_M, SOLIVE_PRICE, SOLIVE_SECTIONS, estPlots } from './constantes.js';
+import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
-import { computeDebitsBois } from './debit.js';
-import { computeTerrasseLayers } from './layers.js';
-import { enPoints } from '../model/formes.js';
+import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
  * Ce qu'une etude de structure a besoin de connaitre d'une terrasse : son contour et ses parametres.
  *
- * L'exigence est nommee parce que le module s'en sert deja : `evaluerStructure` mesure des
+ * L'exigence est nommee parce que le module s'en sert deja : `evaluerStructure` (`optimisation.ts`) mesure des
  * configurations candidates sur un objet fabrique pour l'occasion — `{ pts, construction }` — qui
  * n'est pas un `ObjetPlan` et n'a pas a l'etre. Exiger l'objet complet aurait force soit un mensonge
  * de type, soit une clef et un nom inventes pour satisfaire le compilateur.
  */
 export interface TerrasseEtudiee {
-  pts?: PtBrut[] | undefined;
+  pts: PtBrut[];
   construction?: Construction;
 }
 
@@ -72,209 +70,14 @@ export interface CandidatStructure {
   topologie?: string;
 }
 
-// Nominal section of a solive in mm, laid on edge: b = width, h = height.
-/** Les dimensions d'une section de bois, en millimetres : base et hauteur. */
-export interface DimsSection { b: number; h: number }
-export const SOLIVE_SECTION_DIMS: Record<string, DimsSection> = {
-  '40x60':{b:40,h:60}, '45x45':{b:45,h:45},
-  '45x70':{b:45,h:70}, '45x95':{b:45,h:95}, '63x175':{b:63,h:175}
-};
-// Lambourdes carry only the lames over a short span, so the range starts smaller than for the
-// solives; the bigger sections stay available for a build where they share one section.
-export const LAMBOURDE_SECTIONS = ['40x60','45x45','45x70','45x95','63x175'];
-export function dimsSection(sec: string | undefined): DimsSection { return SOLIVE_SECTION_DIMS[sec!] || SOLIVE_SECTION_DIMS['45x70']!; }
-export function sectionLambourde(c: Construction): string { return c.lambourdeSection || c.soliveSection || '45x70'; }
-// Bending deflection makes the admissible span of a beam vary as (E*I/charge)^(1/3); with
-// I = b*h^3/12 and the load carried proportional to the entraxe, that collapses to
-//     portee = K * h * (b/entraxe)^(1/3)
-// K is calibrated against trade practice rather than derived, so that the two reference cases
-// come out right: a 45x70 at 70 cm entraxe lands on the 70 cm between supports that NF DTU
-// 51.4 caps lambourdes at, and a 45x145 at 70 cm lands on the ~1.50 m used for solives borne
-// on foundation screws. Both give K = 25.8 with lengths in mm.
-// This is a pre-dimensioning aid on a 250 kg/m2 basis, not a substitute for a design note.
-export const PORTEE_VIS_K = 25.8;
-// The load K was calibrated against. Asking for more than this shortens the admissible span by
-// the cube root of the ratio, which is the same exponent the rest of the formula runs on.
-export const CHARGE_REF = 250;
-export const CHARGE_NORMALE_DEFAUT = 250;
-export const CHARGE_SPA_DEFAUT = 500;   // spa rempli + occupe : ~1,5 a 2 t sur 3 a 4 m2
-export function maxPorteeVisM(c: Construction): number {
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
-  const entraxeMm = Math.max(200, (c.soliveEntraxe||40)*10);
-  const k = c.kPortee || PORTEE_VIS_K;
-  const q = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
-  const mm = k * dims.h * Math.cbrt(dims.b/entraxeMm) * Math.cbrt(CHARGE_REF/q);
-  return Math.max(0.5, Math.min(2.5, mm/1000));
-}
-// Distance allowed between two screws along one solive: derived from the section by default,
-// or forced by hand when the user knows better than the table.
-export function porteeVisM(c: Construction): number {
-  return c.visModeAuto===false ? Math.max(0.3, (c.visEntraxe||100)/100) : maxPorteeVisM(c);
-}
-// Distance entre deux appuis, quel que soit le mode de fondation. Sur vis, la section decide.
-// Sur plots, le NF DTU 51.4 plafonne a 70 cm sous lambourdes quoi qu'en dise la section : un
-// plot ne se compare pas a une vis, c'est l'appui du platelage lui-meme.
-export function porteeAppuiM(c: Construction): number {
-  if(!estPlots(c)) return porteeVisM(c);
-  if(c.plotEntraxeAuto === false){
-    return Math.max(0.2, Math.min(PLOT_ENTRAXE_MAX_M, (c.plotEntraxe||65)/100));
-  }
-  // La piece posee sur les plots est la solive en structure double, la lambourde sinon.
-  const sec = c.plotAvecSolives ? c.soliveSection! : sectionLambourde(c);
-  const ent = c.plotAvecSolives ? (c.soliveEntraxe||40) : maxEntraxeLameCm(c);
-  return Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ ...c, soliveSection:sec, soliveEntraxe:ent }));
-}
-// Nom du poste d'appui, pour les libelles partages entre les deux modes.
-export function libelleAppui(c: Construction, pluriel: boolean): string {
-  return estPlots(c) ? (pluriel ? 'plots' : 'plot') : (pluriel ? 'vis' : 'vis');
-}
-// Spacing under a spa. Rather than a bare number, it is the same span shortened for the heavier
-// load it has to carry - so raising the target load tightens the grid on its own.
-export function porteeVisSpaM(c: Construction): number {
-  const span = porteeVisM(c);
-  if(c.visModeAuto===false) return Math.min(span, Math.max(0.2, (c.visEntraxeZoneSpa||60)/100));
-  const qN = Math.max(50, c.chargeNormale || CHARGE_NORMALE_DEFAUT);
-  const qS = Math.max(qN, c.chargeSpa || CHARGE_SPA_DEFAUT);
-  return Math.max(0.2, Math.min(span, span * Math.cbrt(qN/qS)));
-}
-// NF DTU 51.4 sets the spacing of the supports under a lame from its thickness, width and
-// class. Across the usual range the table collapses to a near-constant ratio - 22 mm goes with
-// 40 cm, 24 mm with 45 cm, 27 mm with 50 cm - that is, about 18.5 times the thickness.
-export const ENTRAXE_LAME_K = 18.5;
-// Composite creeps a great deal more than timber; dense tropicals rather less.
-// Meme raison que pour ESSENCE_PRICES : la clef vient du projet, et la lecture porte son repli.
-export const LAME_RAIDEUR: Record<string, number> = { 'pin-classe4':1.00, 'douglas':1.00, 'exotique':1.05, 'composite':0.80, 'autre':1.00 };
-// Furthest apart the supports carrying the lames may sit - the lambourdes when there are any,
-// otherwise the solives themselves. Rounded to 5 cm because that is how a deck gets set out.
-export function coefRaideurLame(c: Construction): number {
-  return (c.coefRaideurLame !== undefined && c.coefRaideurLame !== null)
-    ? c.coefRaideurLame : (LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1);
-}
-export function maxEntraxeLameCm(c: Construction): number {
-  const ep = Math.max(15, c.epaisseurLame||25);
-  const k = Math.max(0.3, Math.min(2, coefRaideurLame(c)));
-  const K = c.kEntraxeLame || ENTRAXE_LAME_K;
-  return Math.max(30, Math.min(55, Math.round(ep*K*k/10/5)*5));
-}
 // Unit price for a poste: the real price once the user has entered one in the BOM, otherwise
 // the middle of the indicative range.
 export function prixUnitaire(c: Construction, poste: string, range: Fourchette): number {
   const line = (c.bom||[]).find(l=>l.poste===poste);
   // prixReel is the total for the line, not a rate: divide it back down before using it as one.
-  if(line && line.prixReel!>0 && line.qte>0) return line.prixReel!/line.qte;
+  const prixReel = line?.prixReel ?? 0;
+  if(line && prixReel>0 && line.qte>0) return prixReel/line.qte;
   return (range.bas+range.haut)/2;
-}
-// Walks the configurations that satisfy both rules at once - the lames must not span further
-// than their thickness allows, and every beam must reach from one support to the next - and
-// ranks them by what the structure they imply would cost. Quantities are measured with the
-// same functions that draw the plan, so a figure quoted here is the figure you would read off
-// the drawing, not a parallel estimate that can drift away from it.
-// Measures one candidate structure: real line lengths and a real screw layout, priced. Shared
-// by the optimiser and by the "where do I stand today" comparison, so the two can never be
-// computed on different bases.
-// `prixBois` est le tarif au ml de la section de reference 45x70. Le prix reel suit le volume :
-// une 63x175 fait 3,5 fois la matiere d'une 40x60 et ne peut pas etre comparee au meme tarif,
-// sinon l'optimiseur choisit systematiquement la plus grosse section « gratuitement ».
-export const SECTION_REF_AIRE = 45*70;
-export function tarifSection(prixBoisRef: number, sec: string | undefined): number {
-  const d = dimsSection(sec);
-  return prixBoisRef * (d.b*d.h) / SECTION_REF_AIRE;
-}
-export function evaluerStructure(obj: TerrasseEtudiee, trial: Construction, prixVis: number, prixBois: number, _lamesAngle: number, surf: number, objets: ObjetPlan[]): CandidatStructure {
-  const probe = { pts:obj.pts, construction:trial };
-  const S = computeStructure(probe, objets);
-  const vis = buildVisGrid(probe, S, objets);
-  const ml = (a: Segment[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  // Every load-bearing piece counts towards the timber: the frame is part of the structure,
-  // and the spa reinforcement is real wood that has to be bought. Chaque famille est chiffree
-  // au tarif de sa propre section.
-  const secCadre = S.plotSimple ? sectionLambourde(trial) : trial.soliveSection;
-  const mlPorteur = ml(S.solives) + ml(S.solivesSpa);
-  const mlCadre = ml(S.cadre);
-  const mlLamb = ml(S.lambourdes);
-  const coutBois = mlPorteur*tarifSection(prixBois, trial.soliveSection)
-                 + mlCadre  *tarifSection(prixBois, secCadre)
-                 + mlLamb   *tarifSection(prixBois, sectionLambourde(trial));
-  return { section:trial.soliveSection!, avecLambourde:!!trial.avecLambourde,
-           soliveEntraxe:trial.soliveEntraxe!, lambourdeEntraxe:trial.lambourdeEntraxe!,
-           vis:vis.length, ml:+(mlPorteur+mlCadre+mlLamb).toFixed(1),
-           densite:+(vis.length/surf).toFixed(2),
-           portee:Math.round(porteeAppuiM(trial)*100),
-           cout:Math.round(vis.length*prixVis + coutBois) };
-}
-export function optimiserParametres(obj: ObjetPlan, objets: ObjetPlan[]): CandidatStructure[] {
-  const c = ensureConstruction(obj);
-  const surf = shoelace(enPoints(obj).pts) || 1;
-  // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
-  // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
-  // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the
-  // ranking does not turn on it.
-  const prixVis = estPlots(c) ? prixPlotUnite(c) : prixVisUnite(c);
-  // Averaged over every timber group, so a build whose lambourdes are a separate product is
-  // compared on what its wood really costs rather than on the solives' rate alone.
-  // Ramene au tarif de la section de reference, en divisant par le volume : c'est ce tarif-la
-  // que evaluerStructure redimensionne ensuite pour chaque section candidate.
-  const groupesRef = computeDebitsBois(obj, computeTerrasseLayers(obj, objets));
-  let refCout = 0, refMlAire = 0;
-  groupesRef.forEach(g=>{
-    const d = dimsSection(g.section);
-    refCout += coutDebit(c, g.debit, g.cle);
-    refMlAire += g.debit.reelMl * d.b * d.h;
-  });
-  const prixBois = refMlAire > 0
-    ? refCout/refMlAire*SECTION_REF_AIRE
-    : (SOLIVE_PRICE.bas+SOLIVE_PRICE.haut)/2;
-  const entraxeLame = maxEntraxeLameCm(c);
-  const lamesAngle = lamesAngleOf(obj);
-
-  const evaluate = (section: string, avecLambourde: boolean, soliveEntraxe: number) => evaluerStructure(obj,
-    { ...c, soliveSection:section, avecLambourde, soliveEntraxe,
-      lambourdeEntraxe:entraxeLame, visModeAuto:true },
-    prixVis, prixBois, lamesAngle, surf, objets);
-
-  const out: CandidatStructure[] = [];
-  // Sur plots, l'arbitrage n'est pas le meme : l'appui coute cinq a dix fois moins cher que la
-  // vis, et son entraxe est plafonne par le DTU quoi qu'on fasse. La question devient donc
-  // « pose simple ou structure double », et non « quelle section de solive porte le plus loin ».
-  if(estPlots(c)){
-    // Pose simple : les lambourdes portent les lames, plots dessous. Une entree par section de
-    // lambourde, puisque c'est elle qui travaille.
-    LAMBOURDE_SECTIONS.forEach(section=>{
-      out.push(Object.assign(
-        evaluerStructure(obj, { ...c, lambourdeSection:section, plotAvecSolives:false,
-                                avecLambourde:true, lambourdeEntraxe:entraxeLame, plotEntraxeAuto:true },
-          prixVis, prixBois, lamesAngle, surf, objets),
-        { section, avecLambourde:false, topologie:'simple', soliveEntraxe:entraxeLame }));
-    });
-    // Structure double : plots sous solives, lambourdes au-dessus. Plus de bois, moins de plots.
-    SOLIVE_SECTIONS.forEach(section=>{
-      const porteeLamb = maxPorteeVisM({ ...c, soliveSection:sectionLambourde(c), soliveEntraxe:entraxeLame });
-      const maxSolive = Math.floor(porteeLamb*100/5)*5;
-      for(let se=entraxeLame; se<=maxSolive; se+=5){
-        out.push(Object.assign(
-          evaluerStructure(obj, { ...c, soliveSection:section, plotAvecSolives:true,
-                                  avecLambourde:true, soliveEntraxe:se,
-                                  lambourdeEntraxe:entraxeLame, plotEntraxeAuto:true },
-            prixVis, prixBois, lamesAngle, surf, objets),
-          { section, avecLambourde:true, topologie:'double', soliveEntraxe:se }));
-      }
-    });
-    return out.sort((a,b)=>a.cout-b.cout);
-  }
-  // Without lambourdes the solives carry the lames themselves, so their spacing is pinned by
-  // the lame thickness and the section is the only free variable.
-  SOLIVE_SECTIONS.forEach(section=>out.push(evaluate(section, false, entraxeLame)));
-  // With lambourdes the lames rest on the lambourdes instead, which frees the solives to
-  // spread out as far as a lambourde of that section will reach between them. Same span
-  // formula, applied one storey down: here the tributary width is the lambourde entraxe.
-  SOLIVE_SECTIONS.forEach(section=>{
-    // How far the solives may spread is set by what a LAMBOURDE of its own section can reach
-    // between them, not by the solive's section.
-    const porteeLambourde = maxPorteeVisM({ ...c, soliveSection:sectionLambourde(c), soliveEntraxe:entraxeLame });
-    const maxSolive = Math.floor(porteeLambourde*100/5)*5;
-    for(let se=entraxeLame; se<=maxSolive; se+=5) out.push(evaluate(section, true, se));
-  });
-  return out.sort((a,b)=>a.cout-b.cout);
 }
 // Breaks a-b up so no gap exceeds maxGap. The start point is always emitted (it is a corner
 // of the ring, where two edge beams meet); the end belongs to the next segment.
@@ -417,10 +220,10 @@ export function generateSpanningLines(poly: PtBrut[], angleDeg: number, maxSpaci
 // the deck rests on nothing and the perimeter screws carry thin air.
 export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const c = ensureConstruction(obj);
-  const poly = obj.pts!;
+  const poly = obj.pts;
   const n = poly.length;
   const lamesAngle = lamesAngleOf(obj);
-  const dims = SOLIVE_SECTION_DIMS[c.soliveSection!] || SOLIVE_SECTION_DIMS['45x70']!;
+  const dims = dimsSection(c.soliveSection);
   const soliveW = dims.b/1000;
 
   // Centreline pulled in half a section so the outer face of the frame sits flush with the
@@ -433,7 +236,7 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   // lambourdes. Topologie double (plots sous solives) : identique au mode vis.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
-  const perim = poly.reduce((s,p,i)=>s+dist(p, poly[(i+1)%n]!), 0) || 1;
+  const perim = poly.reduce((s,p,i)=>s+dist(p, au(poly, (i+1)%n)), 0) || 1;
   const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
   const cadre = ringSegments(safeOffset(poly, cadreOff));
 
@@ -504,7 +307,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   const dx = (seg.b.x-seg.a.x)/L, dy = (seg.b.y-seg.a.y)/L;
   const ts = [0, L];
   for(let i=0;i<poly.length;i++){
-    const p = poly[i]!, q = poly[(i+1)%poly.length]!;
+    const p = au(poly, i), q = au(poly, (i+1)%poly.length);
     const ex = q.x-p.x, ey = q.y-p.y;
     const den = dx*ey - dy*ex;
     if(Math.abs(den) < 1e-12) continue;   // piece parallele a l'arete : pas de franchissement
@@ -515,7 +318,7 @@ export function segmentZoneRanges(seg: Segment, zone: ZoneEquipement | null | un
   ts.sort((a,b)=>a-b);
   const out: Intervalle[] = [];
   for(let i=0;i<ts.length-1;i++){
-    const d0 = ts[i]!, d1 = ts[i+1]!;
+    const d0 = au(ts, i), d1 = au(ts, i+1);
     if(d1-d0 < 1e-6) continue;
     const mid = { x:seg.a.x+dx*(d0+d1)/2, y:seg.a.y+dy*(d0+d1)/2 };
     if(!pointInPolygon(mid, poly)) continue;
@@ -574,9 +377,9 @@ export function buildVisGrid(obj: TerrasseEtudiee, structure: Structure | null, 
 // Direction the lames run in: the reference side, turned by the chosen sens de pose.
 export function lamesAngleOf(obj: TerrasseEtudiee): number {
   const c = ensureConstruction(obj);
-  const n = obj.pts!.length;
+  const n = obj.pts.length;
   const refIdx = Math.min(c.segmentReference||0, n-1);
-  const a = obj.pts![refIdx]!, b = obj.pts![(refIdx+1)%n]!;
+  const a = au(obj.pts, refIdx), b = au(obj.pts, (refIdx+1)%n);
   return angleOfSegment(a,b)*180/Math.PI + (c.sensPose||0);
 }
 // Screw count on its own, for the density readout in the configurator.

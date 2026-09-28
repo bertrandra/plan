@@ -11,6 +11,7 @@
 // Les primitives d'ecriture (echappement, assemblage, table xref) vivent dans `pdf/writer.ts` ;
 // ici, la mise en page.
 
+import { au } from '../util/tableaux.js';
 import { niceStep } from '../util/format.js';
 import { dist, centroid, angleInterieurDeg, shoelace } from '../geometry/basic.js';
 import { geometrieMesure, ancrageHorsContour, type Mesure } from '../render/measures.js';
@@ -71,9 +72,9 @@ export function construirePDF(
       s.forEach((p,i)=>{ cmds.push(p.x.toFixed(2)+' '+p.y.toFixed(2)+' '+(i===0?'m':'l')); });
       return cmds.join('\n')+'\n';
     }
-    cmds.push(s[0]!.x.toFixed(2)+' '+s[0]!.y.toFixed(2)+' m');
+    cmds.push(au(s, 0).x.toFixed(2)+' '+au(s, 0).y.toFixed(2)+' m');
     for(let i=0;i<s.length-1;i++){
-      const p0=s[Math.max(0,i-1)]!, p1=s[i]!, p2=s[i+1]!, p3=s[Math.min(s.length-1,i+2)]!;
+      const p0=au(s, Math.max(0,i-1)), p1=au(s, i), p2=au(s, i+1), p3=au(s, Math.min(s.length-1,i+2));
       const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
       const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
       cmds.push(c1.x.toFixed(2)+' '+c1.y.toFixed(2)+' '+c2.x.toFixed(2)+' '+c2.y.toFixed(2)+' '+p2.x.toFixed(2)+' '+p2.y.toFixed(2)+' c');
@@ -104,14 +105,14 @@ export function construirePDF(
       content += '/'+gsName(1)+' gs\n';
       const n = obj.pts.length;
       for(let i=0;i<n;i++){
-        const a=obj.pts[i]!, b=obj.pts[(i+1)%n]!;
+        const a=au(obj.pts, i), b=au(obj.pts, (i+1)%n);
         const pa=toPdf(a), pb=toPdf(b);
-        const segTxt = etiquetteComposee(obj.segmentNames![i]!, longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
+        const segTxt = etiquetteComposee(obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           content += 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(segTxt)+') Tj ET\n';
         }
-        const vName = obj.vertexNames![i]||'';
+        const vName = obj.vertexNames?.[i]||'';
         const angleTxt = obj.showAngles ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_EXPORT) : '';
         const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, obj.showAngles, SEP_EXPORT);
         if(vertTxt){
@@ -125,9 +126,9 @@ export function construirePDF(
       content += pdfPathD(obj.pts, !!obj.curve);
       content += 'S\n1 w\n';
       for(let i=0;i<obj.pts.length-1;i++){
-        const a=obj.pts[i]!, b=obj.pts[i+1]!;
+        const a=au(obj.pts, i), b=au(obj.pts, i+1);
         const pa=toPdf(a), pb=toPdf(b);
-        const segTxt = etiquetteComposee(obj.segmentNames![i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
+        const segTxt = etiquetteComposee(obj.segmentNames?.[i]||('Cote '+(i+1)), longueurEnMetres(dist(a,b)), obj.showSegNames, obj.showDims, SEP_EXPORT);
         if(segTxt){
           const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
           content += 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(segTxt)+') Tj ET\n';
@@ -136,7 +137,7 @@ export function construirePDF(
       if(obj.showVertNames){
         obj.pts.forEach((p,i)=>{
           const pp = toPdf(p);
-          content += 'BT /F1 6.5 Tf 0.2 0.2 0.2 rg '+(pp.x+3).toFixed(2)+' '+(pp.y+3).toFixed(2)+' Td ('+pdfEscape(obj.vertexNames![i]||'')+') Tj ET\n';
+          content += 'BT /F1 6.5 Tf 0.2 0.2 0.2 rg '+(pp.x+3).toFixed(2)+' '+(pp.y+3).toFixed(2)+' Td ('+pdfEscape(obj.vertexNames?.[i]||'')+') Tj ET\n';
         });
       }
     } else {
@@ -213,7 +214,7 @@ export function construirePDF(
     let s;
     if(o.type==='polygon') s = shoelace(o.pts);
     else if(o.type==='circle') s = Math.PI*o.r*o.r;
-    else { let L=0; for(let i=0;i<o.pts.length-1;i++) L+=dist(o.pts[i]!,o.pts[i+1]!); s = L*(o.width||1); }
+    else { let L=0; for(let i=0;i<o.pts.length-1;i++) L+=dist(au(o.pts, i),au(o.pts, i+1)); s = L*(o.width||1); }
     return {name:o.name, key:o.key, s};
   });
   let totalHors = 0;

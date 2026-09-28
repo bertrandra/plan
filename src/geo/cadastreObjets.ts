@@ -14,6 +14,7 @@ import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
+import type { Anneau } from './apiIgn.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
 export interface ParcelleCadastrale {
@@ -25,7 +26,7 @@ export interface ParcelleCadastrale {
   /** Contenance officielle, en m². `null` quand l'API n'en fournit pas (garde son sens dans le JSON exporte). */
   contenance?: number | null;
   /** Contour en degres WGS84, pour la fiche cadastrale (`cadastre.geometrieSource`). */
-  anneauDeg: number[][];
+  anneauDeg: Anneau;
   /** Contour en metres, repere local. */
   pts: PtBrut[];
   /** Distance a l'adresse recherchee, pour la fiche de la parcelle principale. */
@@ -112,8 +113,8 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   const limitesInternes = fusion ? fusion.limites : [];
   const parcellesFusionnees = fusion ? parcellesPropriete : [principale];
 
-  let nord = ptsFusion[0]!;
-  ptsFusion.forEach(p=>{ if(p.y > nord.y) nord = p; });
+  const nord = ptsFusion.reduce<PtBrut | undefined>((n, p)=>(!n || p.y > n.y) ? p : n, undefined);
+  if(!nord) throw new Error('Parcelle sans contour : rien a importer.');
   const dec = (p: PtBrut) => ({ x: Math.round((p.x - nord.x)*1000)/1000, y: Math.round((p.y - nord.y)*1000)/1000 });
   const proj = importe.proj;
   const origineDeg = proj.versDegres(nord.x, nord.y);
@@ -138,7 +139,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
       info.adresseLat = importe.geo.lat;
       info.adresseScore = importe.geo.score;
       info.rayonM = importe.rayon;
-      info.distanceBordM = Math.round(c.distance!*100)/100;
+      if(c.distance !== undefined) info.distanceBordM = Math.round(c.distance*100)/100;
     }
     return info;
   }
@@ -336,7 +337,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   }
   // Le zonage PLU se range sur la parcelle : c'est elle qu'il qualifie, et il suit donc le projet
   // sans nouvelle cle a faire transiter par api.php.
-  if(importe.plu) objets[0]!.plu = importe.plu;
+  const parcelle = objets[0]; if(importe.plu && parcelle) parcelle.plu = importe.plu;
   return objets;
 }
 

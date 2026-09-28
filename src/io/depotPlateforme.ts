@@ -26,7 +26,8 @@ import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
-  meta?: Record<string, unknown> | null;
+  /** Ecrit tel que le projet le porte, jamais relu : la barre de projet reconstruit `meta` depuis les colonnes. */
+  meta?: unknown;
   objects: ObjetBrut[];
   measures?: Mesure[];
 }
@@ -101,7 +102,7 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
 
     async enregistrer(charge) {
       const { id, name, ...reste } = charge;
-      const document = reste as unknown as DocumentPlan;
+      const document: DocumentPlan = reste;
       try {
         if (id) {
           const p = await session.appeler<ResumeApi>('updateProject', {

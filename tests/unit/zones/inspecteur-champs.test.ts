@@ -37,7 +37,7 @@ function champs(): Champ[] {
     { type: 'bouton', cle: 'bouton', libelle: 'Bouton', executer: rien },
     { type: 'bouton', cle: 'boutonLarge', libelle: '', texte: () => 'Bouton pleine largeur', executer: rien },
     { type: 'alerte', cle: 'alerte', libelle: '', texte: () => 'Attention' },
-    { type: 'hote', cle: 'hote', libelle: '', idDom: 'hoteDeTest', remplir: rien },
+    { type: 'optimisation', cle: 'optimisation', libelle: '' },
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
       { type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', lire: () => 3.2, ecrire: rien },
@@ -52,7 +52,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'hote', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'optimisation', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -60,7 +60,7 @@ function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () =
   const magasin = creerMagasin(etat);
   const avecClasse = magasin as unknown as { definirClasse?: (c: string) => void };
   if (avecClasse.definirClasse) avecClasse.definirClasse(classe);
-  const commandes = creerRegistre({ getElementById: () => null });
+  const commandes = creerRegistre();
   const c = { etat, obj } as unknown as ContexteChamps;
   const service: ServiceInspecteur = {
     objet: () => obj,

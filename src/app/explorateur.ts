@@ -6,7 +6,7 @@
 // redessine a son tour en lisant le magasin. Rien ici ne touche au DOM.
 
 import { terrasseLayerVisible } from '../render/terrasseCouches.js';
-import { dossierSelection } from '../ui/tables.js';
+import { dossierSelection } from './dossier.js';
 import type { EtatApp } from '../core/state.js';
 import type { Magasin } from './magasin.js';
 

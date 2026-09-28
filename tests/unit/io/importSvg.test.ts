@@ -17,7 +17,7 @@ function etatVide(): EtatApp {
 }
 const ctx = {
   pushHistory: () => {}, createObjectDOM: () => {}, rebuildHandles: () => {},
-  reapplyStackingOrder: () => {}, rebuildSelector: () => {}, renderMeasureResults: () => {}, render: () => {}
+  reapplyStackingOrder: () => {}, rebuildSelector: () => {}, render: () => {}
 };
 
 /** Reecrit le noeud `measures-data` du SVG dore avec les cotes donnees, telles quelles. */
@@ -77,5 +77,25 @@ describe('importSVGString — restauration des cotes', () => {
     importSVGString(new XMLSerializer().serializeToString(doc), etat, ctx);
     expect(etat.objects).toHaveLength(35);
     expect(etat.measures).toHaveLength(0);
+  });
+});
+
+describe('importSVGString — attributs absents d un SVG etranger (D-6)', () => {
+  it('ecarte les points illisibles au lieu de poser des coordonnees undefined', () => {
+    document.body.innerHTML = '<input type="checkbox" id="chkReplaceOnImport">';
+    const etat = etatVide();
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<polygon points="0,0 4,0 4 4,3 0,3" />' +
+      '<circle cx="1" cy="1" />' +
+      '<circle cx="1" cy="1" r="2" />' +
+      '</svg>';
+    importSVGString(svg, etat, ctx);
+    const [poly, cercle, ...reste] = etat.objects;
+    expect(reste).toHaveLength(0);
+    // « 4 » seul n'a pas de y : ce jeton est ecarte, les quatre coins restent.
+    expect(poly && 'pts' in poly && poly.pts).toEqual([{ x: 0, y: -0 }, { x: 4, y: -0 }, { x: 4, y: -3 }, { x: 0, y: -3 }]);
+    // Sans rayon, le premier cercle n'est pas importe ; le second l'est, avec l'opacite par defaut.
+    expect(cercle && 'r' in cercle && cercle.r).toBe(2);
+    expect(cercle?.fillOpacity).toBe(0.9);
   });
 });

@@ -11,7 +11,6 @@ import { creerRegistre, type Droits } from '../../../src/app/commandes.js';
 // Ce qu'elle empeche, c'est l'appel au reseau. Ces tests figent les deux moities : que la table
 // nomme les bonnes origines, et qu'une commande refusee n'appelle rien du tout.
 
-const doc = { getElementById: () => null } as unknown as Document;
 const refusTout: Droits = { branchee: () => true, aCapacite: () => false, aPermission: () => true, reste: () => null };
 const toutOuvert: Droits = { branchee: () => true, aCapacite: () => true, aPermission: () => true, reste: () => null };
 
@@ -69,7 +68,7 @@ describe('une commande refusee n appelle rien', () => {
     // textures partent tous depuis l'execution d'une commande. Un refus au registre les arrete
     // tous d'un coup, et il n'y a pas de second endroit a garder.
     const appelReseau = vi.fn();
-    const r = creerRegistre(doc, refusTout);
+    const r = creerRegistre(refusTout);
     r.declarer({ id: 'vue.3d', libelle: 'Vue 3D', groupe: '3d', capacite: 'plan.3d', executer: appelReseau });
     expect(r.executer('vue.3d')).toBe(false);
     expect(appelReseau).not.toHaveBeenCalled();
@@ -77,14 +76,14 @@ describe('une commande refusee n appelle rien', () => {
 
   it('execute normalement quand la capacite est la', () => {
     const appelReseau = vi.fn();
-    const r = creerRegistre(doc, toutOuvert);
+    const r = creerRegistre(toutOuvert);
     r.declarer({ id: 'vue.3d', libelle: 'Vue 3D', groupe: '3d', capacite: 'plan.3d', executer: appelReseau });
     expect(r.executer('vue.3d')).toBe(true);
     expect(appelReseau).toHaveBeenCalledOnce();
   });
 
   it('efface la commande de l ecran plutot que de la griser', () => {
-    const r = creerRegistre(doc, refusTout);
+    const r = creerRegistre(refusTout);
     r.declarer({ id: 'vue.3d', libelle: 'Vue 3D', groupe: '3d', capacite: 'plan.3d', executer: () => undefined });
     expect(r.effacee('vue.3d')).toBe(true);
   });

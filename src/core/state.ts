@@ -12,6 +12,7 @@
 // Cet objet grandit au fil de la migration : chaque variable libre qui rejoint `EtatApp` est une
 // dependance qui cesse d'etre invisible. Ce qui n'y est pas encore vit toujours dans `boot()`.
 
+import { au } from '../util/tableaux.js';
 import { creerScene, type EtatScene } from '../geometry/vue.js';
 import { PileAnnulation } from './history.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
@@ -93,7 +94,7 @@ export function creerEtat(
     selectedKey: objects.some((o) => o.key === 'terrasse')
       ? 'terrasse'
       : objects.length
-        ? objects[0]!.key
+        ? au(objects, 0).key
         : null,
     highlight: { type: null, index: null },
     // Les cotes plutot qu'un onglet de terrasse : ceux-la recalculent le chiffrage et l'ecrivent

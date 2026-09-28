@@ -90,17 +90,13 @@ export interface RegistreCommandes {
   /** Vrai quand la commande doit disparaitre plutot que d'etre grisee. */
   effacee(id: string): boolean;
   lister(groupe?: GroupeCommande): Commande[];
-  /** Lie un element du DOM a une commande : un clic l'execute, l'element lui est passe en source. */
-  lier(idDom: string, idCommande: string): void;
-  /** Declare puis lie, en un geste — la forme courante dans les ecouteurs. */
-  bouton(idDom: string, commande: Commande): void;
 }
 
-/** Le document est injectable pour les tests ; par defaut, celui de la page. */
-export function creerRegistre(
-  doc: Pick<Document, 'getElementById'> = document,
-  droits: Droits = DROITS_OUVERTS
-): RegistreCommandes {
+/**
+ * Les boutons sont des zones React (zones/) qui appellent `executer` avec leur element en source : le
+ * registre ne cherche plus rien dans la page.
+ */
+export function creerRegistre(droits: Droits = DROITS_OUVERTS): RegistreCommandes {
   const commandes = new Map<string, Commande>();
   const registre: RegistreCommandes = {
     declarer(c) {
@@ -135,17 +131,7 @@ export function creerRegistre(
       const e = registre.etat(id);
       return !e.utilisable && e.raison === 'capacite';
     },
-    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe),
-    lier(idDom, idCommande) {
-      if (!commandes.has(idCommande)) throw new Error('Commande inconnue : ' + idCommande);
-      const el = doc.getElementById(idDom);
-      if (!el) throw new Error('Element introuvable pour ' + idCommande + ' : #' + idDom);
-      el.addEventListener('click', () => { registre.executer(idCommande, el); });
-    },
-    bouton(idDom, commande) {
-      registre.declarer(commande);
-      registre.lier(idDom, commande.id);
-    }
+    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe)
   };
   return registre;
 }

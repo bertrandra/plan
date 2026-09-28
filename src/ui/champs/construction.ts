@@ -10,12 +10,13 @@
 // accompagnent chaque champ sont celles du metier : ce que vaut la portee calculee, quand un plot
 // sort du domaine du DTU, combien de vis la grille compte.
 
+import { au } from '../../util/tableaux.js';
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
-import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/bom.js';
+import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, findSpaZones, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS, zoneToucheTerrasse } from '../../engine/structure.js';
-import { optimisationVisible, renderOptimResult, type ContexteTerrassePanels } from '../terrassePanels.js';
+import { buildVisGrid, findSpaZones, zoneToucheTerrasse } from '../../engine/structure.js';
+import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 
@@ -51,19 +52,21 @@ function lire(cx: ContexteChamps): Lecture {
 
 /** Un reglage de la construction : historique, puis les panneaux de la terrasse se refont. */
 const reglage = (ch: Champ): Champ => ({ ...ch, historique: true, effets: ['terrasse'] });
-const nombre = (cle: keyof Construction, libelle: string, opts: { pas: number; min?: number; max?: number; unite?: string; aide?: string; defaut: number; note?: (l: Lecture) => string; visible?: (l: Lecture) => boolean; actif?: (l: Lecture) => boolean; lire?: (l: Lecture) => number }): Champ =>
-  reglage({
+const nombre = (cle: keyof Construction, libelle: string, opts: { pas: number; min?: number; max?: number; unite?: string; aide?: string; defaut: number; note?: (l: Lecture) => string; visible?: (l: Lecture) => boolean; actif?: (l: Lecture) => boolean; lire?: (l: Lecture) => number }): Champ => {
+  const { note, visible, actif, lire: lireOpt } = opts;
+  return reglage({
     type: 'nombre', cle, libelle, pas: opts.pas, decimales: 0,
     ...(opts.min !== undefined ? { min: opts.min } : {}),
     ...(opts.max !== undefined ? { max: opts.max } : {}),
     ...(opts.unite ? { unite: opts.unite } : {}),
     ...(opts.aide ? { aide: opts.aide } : {}),
-    ...(opts.note ? { note: (cx: ContexteChamps) => opts.note!(lire(cx)) } : {}),
-    ...(opts.visible ? { visible: (cx: ContexteChamps) => opts.visible!(lire(cx)) } : {}),
-    ...(opts.actif ? { actif: (cx: ContexteChamps) => opts.actif!(lire(cx)) } : {}),
-    lire: opts.lire ? (cx) => opts.lire!(lire(cx)) : (cx) => (cx.construction()[cle] as number | undefined) ?? opts.defaut,
+    ...(note ? { note: (cx: ContexteChamps) => note(lire(cx)) } : {}),
+    ...(visible ? { visible: (cx: ContexteChamps) => visible(lire(cx)) } : {}),
+    ...(actif ? { actif: (cx: ContexteChamps) => actif(lire(cx)) } : {}),
+    lire: lireOpt ? (cx) => lireOpt(lire(cx)) : (cx) => (cx.construction()[cle] as number | undefined) ?? opts.defaut,
     ecrire: (cx, v) => { (cx.construction() as Record<string, unknown>)[cle] = v || opts.defaut; }
   });
+};
 const alerte = (l: Lecture) => l.plots ? 'plots' : 'vis';
 
 /** Ou se regle une propriete de `Construction` quand ce n'est pas ici. */
@@ -116,15 +119,15 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   }),
   supportType: reglage({
     type: 'choix', cle: 'supportType', libelle: 'Assise sous les plots', visible: (cx) => lire(cx).plots, note: () => 'chiffrée au BOM',
-    options: () => Object.keys(SUPPORT_TYPES).map(k => ({ valeur: k, libelle: SUPPORT_TYPES[k]!.label })),
+    options: () => Object.entries(SUPPORT_TYPES).map(([k, t]) => ({ valeur: k, libelle: t.label })),
     lire: (cx) => cx.construction().supportType || 'concasse', ecrire: (cx, v) => { cx.construction().supportType = v; }
   }),
   supportDecaissement: nombre('supportDecaissement', 'Décaissement / concassé', { pas: 5, min: 0, unite: 'cm', defaut: 15, visible: l => l.plots,
-    actif: l => !!(SUPPORT_TYPES[l.c.supportType!] || SUPPORT_TYPES.concasse!).concasse,
+    actif: l => !!(SUPPORT_TYPES[l.c.supportType ?? ''] ?? SUPPORT_TYPES.concasse)?.concasse,
     aide: 'Épaisseur de concassé compacté sous les plots', note: () => 'usage : 15 cm minimum sur sol meuble' }),
   plotSurfaceAssise: nombre('plotSurfaceAssise', 'Surface d\'assise du plot', { pas: 10, min: 50, unite: 'cm²', defaut: PLOT_ASSISE_MIN_CM2, visible: l => l.plots,
     aide: 'Surface d\'assise du plot au contact du support',
-    note: l => (l.c.plotSurfaceAssise! < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²' }),
+    note: l => ((l.c.plotSurfaceAssise ?? 0) < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²' }),
   chargeNormale: nombre('chargeNormale', 'Charge cible — zone courante', { pas: 25, min: 100, unite: 'kg/m²', defaut: 250,
     aide: 'Charge d\'exploitation visée hors zone renforcée. 250 kg/m² = usage courant d\'une terrasse privative.', note: () => 'usage : 250 kg/m²' }),
   chargeSpa: nombre('chargeSpa', 'Charge cible — zone équipement', { pas: 25, min: 100, unite: 'kg/m²', defaut: 500,
@@ -198,14 +201,14 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   // valeur forcee appartient au type de lame pour lequel elle a ete saisie, pas au projet.
   essenceBois: reglage({
     type: 'choix', cle: 'essenceBois', libelle: 'Essence de bois',
-    options: () => Object.keys(ESSENCE_PRICES).map(k => ({ valeur: k, libelle: ESSENCE_PRICES[k]!.label })),
+    options: () => Object.entries(ESSENCE_PRICES).map(([k, e]) => ({ valeur: k, libelle: e.label })),
     lire: (cx) => cx.construction().essenceBois || '',
-    ecrire: (cx, v) => { const c = cx.construction(); c.essenceBois = v; c.coefRaideurLame = LAME_RAIDEUR[v] !== undefined ? LAME_RAIDEUR[v]! : 1; }
+    ecrire: (cx, v) => { const c = cx.construction(); c.essenceBois = v; c.coefRaideurLame = LAME_RAIDEUR[v] ?? 1; }
   }),
   coefRaideurLame: reglage({
     type: 'nombre', cle: 'coefRaideurLame', libelle: 'Coefficient raideur lame', pas: 0.05, min: 0.3, max: 2, decimales: 2,
     aide: 'Raideur de la lame par rapport au résineux (1,00). Multiplie l\'écartement admissible des appuis.',
-    note: (cx) => { const c = cx.construction(); const defaut = LAME_RAIDEUR[c.essenceBois!] !== undefined ? LAME_RAIDEUR[c.essenceBois!]! : 1;
+    note: (cx) => { const c = cx.construction(); const defaut = LAME_RAIDEUR[c.essenceBois ?? ''] ?? 1;
       return 'défaut ' + defaut.toFixed(2) + ' · appuis à ' + maxEntraxeLameCm(c) + ' cm' + (Math.abs(coefRaideurLame(c) - defaut) > 1e-9 ? ' (modifié)' : ''); },
     lire: (cx) => coefRaideurLame(cx.construction()), ecrire: (cx, v) => { cx.construction().coefRaideurLame = v || 1; }
   }),
@@ -280,7 +283,7 @@ const chargeParPlot: Champ = {
   type: 'lecture', cle: 'chargeParPlot', libelle: 'Charge par plot', visible: (cx) => lire(cx).plots,
   valeur: (cx) => { const l = lire(cx); const ch = chargePlot(l.c, l.visCount, l.surfM2);
     return ch.charge.toFixed(0) + ' kg — ' + ch.tributaire.toFixed(2) + ' m² repris · ' + ch.pression.toFixed(2) + ' kg/cm² sur ' + ch.assise + ' cm²' +
-      ((SUPPORT_TYPES[l.c.supportType!] || {}).dalles ? '' : (l.c.supportType === 'dalle' ? ' — sur dalle, sans objet' : ' — sur concassé, vérifier le poinçonnement')); }
+      ((SUPPORT_TYPES[l.c.supportType ?? ''] || {}).dalles ? '' : (l.c.supportType === 'dalle' ? ' — sur dalle, sans objet' : ' — sur concassé, vérifier le poinçonnement')); }
 };
 
 // Un equipement lourd sur plots : on laisse passer, mais on dit clairement pourquoi c'est douteux.
@@ -302,7 +305,8 @@ const alertes: Champ[] = [
 ];
 
 /** Ce que l'optimisation demande au module des panneaux, sans DOM ici. */
-export interface ContexteOptimisation { panneaux: ContexteTerrassePanels }
+/** L'ouverture du bloc d'optimisation : un pli de l'interface (app/resultats.ts), pas une donnee du projet. */
+export interface ContexteOptimisation { visible: () => boolean }
 
 export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] {
   const fondation: Section = {
@@ -330,8 +334,8 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   const optimisation: Section = {
     id: 'optimisation', titre: 'Optimisation',
     champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => optimisationVisible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', executer: (cx) => cx.executerCommande('terrasse.optimisation') },
-      { type: 'hote', cle: 'resultat', libelle: '', idDom: 'terrasseOptimResult', remplir: (cx) => renderOptimResult(cx.obj, ctxOptim.panneaux) }
+      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', executer: (cx) => cx.executerCommande('terrasse.optimisation') },
+      { type: 'optimisation', cle: 'resultat', libelle: '' }
     ]
   };
   const parametres: Section = {
@@ -343,8 +347,8 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
       champ('jeuLames'),
       { type: 'lecture', cle: 'longueurs', libelle: 'Longueurs achetables', valeur: (cx) => { const c = cx.construction(); return 'lames ' + longueursDispo(c).join(' / ') + '  ·  bois ' + longueursBois(c).join(' / ') + (sectionLambourde(c) !== c.soliveSection ? '  ·  lambourdes ' + longueursLambourde(c).join(' / ') : '') + ' — se règlent au-dessus de chaque tableau de débit, onglet BOM'; } },
       champ('jointsBoisSurAppui'), champ('chuteMinReutilisable'), champ('jointsSurAppui'), champ('epaisseurLameRive'),
-      { type: 'lecture', cle: 'raideurs', libelle: 'Raideur par essence', valeur: () => Object.keys(LAME_RAIDEUR).map(k => k.replace('-classe4', '') + ' ' + LAME_RAIDEUR[k]!.toFixed(2)).join(' · ') },
-      { type: 'lecture', cle: 'sections', libelle: 'Sections de solive', valeur: () => SOLIVE_SECTIONS.map(s => s + ' (' + SOLIVE_SECTION_DIMS[s]!.b + '×' + SOLIVE_SECTION_DIMS[s]!.h + ')').join(' · ') + ' — largeur × hauteur en mm, posée sur chant' },
+      { type: 'lecture', cle: 'raideurs', libelle: 'Raideur par essence', valeur: () => Object.entries(LAME_RAIDEUR).map(([k, r]) => k.replace('-classe4', '') + ' ' + r.toFixed(2)).join(' · ') },
+      { type: 'lecture', cle: 'sections', libelle: 'Sections de solive', valeur: () => SOLIVE_SECTIONS.map(s => { const d = SOLIVE_SECTION_DIMS[s]; return s + (d ? ' (' + d.b + '×' + d.h + ')' : ''); }).join(' · ') + ' — largeur × hauteur en mm, posée sur chant' },
       { type: 'lecture', cle: 'bornesPortee', libelle: 'Bornes de portée', valeur: () => '50 à 250 cm' },
       { type: 'lecture', cle: 'bornesEntraxe', libelle: 'Bornes entraxe lame', valeur: () => '30 à 55 cm' },
       { type: 'lecture', cle: 'fusion', libelle: 'Fusion des appuis', valeur: (cx) => Math.round(Math.min(0.35, porteeVisSpaM(cx.construction()) * 0.45) * 100) + ' cm — deux appuis plus proches n\'en font qu\'un (10 cm en rive)' },
@@ -352,7 +356,7 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
       // Chaque mode ne montre que ses propres tarifs.
       { type: 'lecture', cle: 'plafondPlots', libelle: 'Plafond d\'entraxe des plots', visible: (cx) => lire(cx).plots, valeur: () => Math.round(PLOT_ENTRAXE_MAX_M * 100) + ' cm — NF DTU 51.4, appuis sous lambourdes' },
       { type: 'lecture', cle: 'domainePlots', libelle: 'Domaine d\'emploi', visible: (cx) => lire(cx).plots, valeur: () => PLOT_HAUTEUR_DTU_CM + ' cm / ' + PLOT_HAUTEUR_MAX_CM + ' cm — plot réglable / hauteur du platelage au-dessus du support' },
-      { type: 'lecture', cle: 'prixPlots', libelle: 'Prix indicatifs', visible: (cx) => lire(cx).plots, valeur: () => 'plots ' + PLOT_MODELES[0]!.prix.toFixed(2) + '-' + PLOT_MODELES[PLOT_MODELES.length - 1]!.prix.toFixed(2) + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · géotextile ' + GEOTEXTILE_PRICE.bas + '-' + GEOTEXTILE_PRICE.haut + ' €/m² · concassé ' + CONCASSE_PRICE.bas + '-' + CONCASSE_PRICE.haut + ' €/m³ · dalle stab ' + DALLE_STAB_PRICE.bas + '-' + DALLE_STAB_PRICE.haut + ' €/u — utilisés tant qu\'aucun prix réel n\'est saisi' },
+      { type: 'lecture', cle: 'prixPlots', libelle: 'Prix indicatifs', visible: (cx) => lire(cx).plots, valeur: () => 'plots ' + au(PLOT_MODELES, 0).prix.toFixed(2) + '-' + au(PLOT_MODELES, PLOT_MODELES.length - 1).prix.toFixed(2) + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · géotextile ' + GEOTEXTILE_PRICE.bas + '-' + GEOTEXTILE_PRICE.haut + ' €/m² · concassé ' + CONCASSE_PRICE.bas + '-' + CONCASSE_PRICE.haut + ' €/m³ · dalle stab ' + DALLE_STAB_PRICE.bas + '-' + DALLE_STAB_PRICE.haut + ' €/u — utilisés tant qu\'aucun prix réel n\'est saisi' },
       { type: 'lecture', cle: 'courseVis', libelle: 'Course de tête réglable', visible: (cx) => !lire(cx).plots, valeur: () => VIS_DEPASSEMENT_USUEL_CM + ' cm / ' + VIS_DEPASSEMENT_MAX_CM + ' cm — dépassement usuel / limite au-delà de laquelle la vis devient un poteau' },
       { type: 'lecture', cle: 'prixVis', libelle: 'Prix indicatifs', visible: (cx) => !lire(cx).plots, valeur: () => 'vis ' + VIS_PRICE.bas + '-' + VIS_PRICE.haut + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · visserie ' + VISSERIE_PRICE.bas + '-' + VISSERIE_PRICE.haut + ' €/m² · rive ' + LAME_RIVE_PRICE.bas + '-' + LAME_RIVE_PRICE.haut + ' €/ml — utilisés tant qu\'aucun prix réel n\'est saisi' }
     ]

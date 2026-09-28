@@ -130,7 +130,9 @@ describe('qui a le droit de detruire une texture', () => {
 });
 
 describe('ce que la source doit continuer de dire', () => {
-  const scene = readFileSync(resolve(__dirname, '../../../src/three/scene.ts'), 'utf8');
+  // La scene et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde.
+  const scene = ['scene.ts', 'primitives.ts']
+    .map((f) => readFileSync(resolve(__dirname, '../../../src/three/' + f), 'utf8')).join('\n');
   const sansCommentaires = scene.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('la scene ne regle plus la repetition d une texture qu elle emprunte', () => {
@@ -142,7 +144,7 @@ describe('ce que la source doit continuer de dire', () => {
   it('demande l echelle du carreau la ou les coordonnees sont des metres, et nulle part ailleurs', () => {
     // Deux familles, et le compte de chacune. Un appel de plus dans la mauvaise colonne remettrait
     // un cone de parasol ou une sphere d'arbre a l'echelle d'un mur.
-    const appels = sansCommentaires.match(/chargerTexturePolyhaven\([^)]*\)/g) || [];
+    const appels = sansCommentaires.match(/chargerTexture(?:Polyhaven)?\([^)]*\)/g) || [];
     const avecCarreau = appels.filter((a) => a.includes('METRES_PAR_CARREAU'));
     const sansCarreau = appels.filter((a) => !a.includes('METRES_PAR_CARREAU'));
     expect(avecCarreau.length, 'prisme et ruban : leurs UV sont des metres').toBe(2);
@@ -160,7 +162,8 @@ describe('ce que la source doit continuer de dire', () => {
     // de Three range ses textures dans un cache indexe par l'INSTANCE (`cache.textures.has(map)`) :
     // 178 instances distinctes donnaient 178 images embarquees, huit instances en donnent huit.
     const exportGlb = readFileSync(resolve(__dirname, '../../../src/three/exportGlb.ts'), 'utf8');
-    expect(exportGlb).toContain('exporteur.parse(vue3d.scene!.scene');
+    expect(exportGlb).toContain('const sc = vue3d.scene;');
+    expect(exportGlb).toContain('exporteur.parse(sc.scene');
   });
 
   it('la visionneuse ne montre que ce que Plan vient d exporter', () => {
@@ -168,7 +171,8 @@ describe('ce que la source doit continuer de dire', () => {
     // elles ne sont ni partagees ni marquees, donc la demolition les libere comme avant. Son gain
     // est indirect et entier — le fichier qu'elle relit ne porte plus les images en double.
     const viewer = readFileSync(resolve(__dirname, '../../../src/three/glbViewer.ts'), 'utf8');
-    expect(viewer).toContain('loader.parse(glb.dernierExporte.buffer');
+    expect(viewer).toContain('const exporte = glb.dernierExporte;');
+    expect(viewer).toContain('loader.parse(exporte.buffer');
     // Une seule lecture de modele, et c'est celle-la : le jour ou une seconde apparait — un fichier
     // choisi sur le disque, par exemple — le raisonnement ci-dessus cesse de tenir, et ce compte le
     // dira avant qu'un .glb etranger ne fasse revivre le probleme.

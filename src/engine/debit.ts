@@ -4,14 +4,15 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { au } from '../util/tableaux.js';
 import { dist } from '../geometry/basic.js';
-import { longueursBois, longueursDispo, longueursLambourde } from './bom.js';
+import { longueursBois, longueursDispo, longueursLambourde } from './prix.js';
 import { ensureConstruction } from './construction.js';
 import { longueurLameReelle } from './lames.js';
-import { dimsSection, porteeVisM, sectionLambourde } from './structure.js';
+import { dimsSection, porteeVisM, sectionLambourde } from './portees.js';
 import { enPoints } from '../model/formes.js';
 import type { CouchesTerrasse } from './layers.js';
-import type { ProduitBarre } from './bom.js';
+import type { ProduitBarre } from './prix.js';
 import type { ObjetPlan, Segment } from '../model/types.js';
 
 /**
@@ -110,7 +111,7 @@ export function optimiserDebitLames(
         if(reste >= -tol && reste < meilleurReste){ meilleurReste = reste; idx = i; }
       });
       if(idx >= 0){
-        const L = pool.splice(idx,1)[0]!;
+        const L = au(pool.splice(idx,1), 0);
         const rem = L - pc.u;
         if(rem >= minReuseM) pool.push(rem); else perdueMl += rem;
         return;                                   // rien achete pour cette piece
@@ -158,7 +159,8 @@ export interface GroupeDebit {
 export function computeDebitsBois(obj: ObjetPlan, layers: CouchesTerrasse): GroupeDebit[] {
   const c = ensureConstruction(obj);
   const ml = (a: Segment[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
-  const secS = c.soliveSection!, secL = sectionLambourde(c);
+  // `ensureConstruction` pose toujours la section de solive ; le repli est sa valeur par defaut.
+  const secS = c.soliveSection ?? '45x70', secL = sectionLambourde(c);
   const wS = dimsSection(secS).b/1000, wL = dimsSection(secL).b/1000;
   const separe = secL !== secS && layers.lambourdes.length > 0;
   // Tuple et non tableau : ces trois valeurs sont etalees dans optimiserDebitLames, dont la

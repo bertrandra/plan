@@ -4,6 +4,7 @@
 // le raisonnement qui a coute cher (pourquoi la normale vient du sens de parcours et non d'un
 // sondage, pourquoi les coins convexes s'arrondissent au lieu de s'onglet).
 
+import { au } from '../util/tableaux.js';
 import type { PtBrut } from '../model/types.js';
 import { signedArea, pointInPolygon } from './basic.js';
 import { lineSegIntersect, lineLineIntersect } from './segments.js';
@@ -20,17 +21,17 @@ interface FormeAPoints {
 export function clipLineToPolygon(origin: PtBrut, dir: PtBrut, poly: PtBrut[]): { a: PtBrut; b: PtBrut }[] {
   const hits=[]; const n=poly.length;
   for(let i=0;i<n;i++){
-    const hit = lineSegIntersect(origin, dir, poly[i]!, poly[(i+1)%n]!);
+    const hit = lineSegIntersect(origin, dir, au(poly, i), au(poly, (i+1)%n));
     if(hit) hits.push(hit);
   }
   if(hits.length<2) return [];
   hits.sort((a,b)=>a.t-b.t);
   const out=[];
   for(let i=0;i<hits.length-1;i++){
-    const t0=hits[i]!.t, t1=hits[i+1]!.t;
+    const t0=au(hits, i).t, t1=au(hits, i+1).t;
     if(t1-t0 < 1e-7) continue;
     const mid = {x:origin.x+dir.x*(t0+t1)/2, y:origin.y+dir.y*(t0+t1)/2};
-    if(pointInPolygon(mid, poly)) out.push({ a:hits[i]!.point, b:hits[i+1]!.point });
+    if(pointInPolygon(mid, poly)) out.push({ a:au(hits, i).point, b:au(hits, i+1).point });
   }
   return out;
 }
@@ -51,14 +52,14 @@ export function polygonOffset(pts: PtBrut[], distM: number): PtBrut[] {
   if(Math.abs(distM) < 1e-9) return pts.map(p=>({...p}));
   const ccw = signedArea(pts) > 0;
   const offsetLines = pts.map((p,i)=>{
-    const a=p, b=pts[(i+1)%n]!;
+    const a=p, b=au(pts, (i+1)%n);
     const ex=b.x-a.x, ey=b.y-a.y; const L=Math.hypot(ex,ey)||1;
     const nx = ccw ? -ey/L :  ey/L;
     const ny = ccw ?  ex/L : -ex/L;
     return { origin:{x:a.x+nx*distM, y:a.y+ny*distM}, dir:{x:ex/L, y:ey/L} };
   });
   return pts.map((p,i)=>{
-    const prev = offsetLines[(i-1+n)%n]!, cur = offsetLines[i]!;
+    const prev = au(offsetLines, (i-1+n)%n), cur = au(offsetLines, i);
     const pt = lineLineIntersect(prev.origin, prev.dir, cur.origin, cur.dir);
     return pt || {...p};
   });
@@ -66,7 +67,7 @@ export function polygonOffset(pts: PtBrut[], distM: number): PtBrut[] {
 
 // A closed ring of points as the list of its edges.
 export function ringSegments(ring: PtBrut[]): { a: PtBrut; b: PtBrut }[] {
-  return ring.map((p,i)=>({ a:p, b:ring[(i+1)%ring.length]! }));
+  return ring.map((p,i)=>({ a:p, b:au(ring, (i+1)%ring.length) }));
 }
 
 // Sutherland-Hodgman. The subject may be concave - an L-shaped terrasse is - but the clip has
@@ -79,13 +80,13 @@ export function clipPolygonByConvex(subject: PtBrut[], clip: PtBrut[]): PtBrut[]
   const n = clip.length;
   const ccw = signedArea(clip) > 0;
   for(let i=0; i<n && out.length; i++){
-    const a = clip[i]!, b = clip[(i+1)%n]!;
+    const a = au(clip, i), b = au(clip, (i+1)%n);
     const ex = b.x-a.x, ey = b.y-a.y;
     const cote = (p: PtBrut) => (ex*(p.y-a.y) - ey*(p.x-a.x)) * (ccw ? 1 : -1);
     const dedans = (p: PtBrut) => cote(p) >= -1e-9;
     const input = out; out = [];
     for(let j=0; j<input.length; j++){
-      const P = input[j]!, Q = input[(j+1)%input.length]!;
+      const P = au(input, j), Q = au(input, (j+1)%input.length);
       const pin = dedans(P), qin = dedans(Q);
       if(pin) out.push(P);
       if(pin !== qin){
@@ -103,7 +104,7 @@ export function clipPolygonByConvex(subject: PtBrut[], clip: PtBrut[]): PtBrut[]
 
 export function exteriorBisector(obj: FormeAPoints, i: number): PtBrut {
   const n = obj.pts.length;
-  const prev = obj.pts[(i-1+n)%n]!, cur = obj.pts[i]!, next = obj.pts[(i+1)%n]!;
+  const prev = au(obj.pts, (i-1+n)%n), cur = au(obj.pts, i), next = au(obj.pts, (i+1)%n);
   const u = {x:prev.x-cur.x, y:prev.y-cur.y}; const ul = Math.hypot(u.x,u.y)||1;
   const v = {x:next.x-cur.x, y:next.y-cur.y}; const vl = Math.hypot(v.x,v.y)||1;
   const un = {x:u.x/ul, y:u.y/ul}, vn = {x:v.x/vl, y:v.y/vl};
@@ -129,15 +130,15 @@ export function offsetZone(poly: PtBrut[], marge: number): PtBrut[] {
   if(!(marge > 1e-9) || n < 3) return poly.map(p=>({...p}));
   const ccw = signedArea(poly) > 0;
   const bords = poly.map((p,i)=>{
-    const q = poly[(i+1)%n]!;
+    const q = au(poly, (i+1)%n);
     const ex = q.x-p.x, ey = q.y-p.y, L = Math.hypot(ex,ey)||1;
     // Normale sortante : l'oppose de la normale interieure de polygonOffset.
     return { nx: ccw ? ey/L : -ey/L, ny: ccw ? -ex/L : ex/L, dx:ex/L, dy:ey/L };
   });
   const out = [];
   for(let i=0;i<n;i++){
-    const p = poly[i]!;
-    const a = bords[(i-1+n)%n]!, b = bords[i]!;
+    const p = au(poly, i);
+    const a = au(bords, (i-1+n)%n), b = au(bords, i);
     const oa = { x:p.x + a.nx*marge, y:p.y + a.ny*marge };
     const ob = { x:p.x + b.nx*marge, y:p.y + b.ny*marge };
     const tourne = a.dx*b.dy - a.dy*b.dx;

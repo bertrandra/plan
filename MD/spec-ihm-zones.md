@@ -206,8 +206,10 @@ Enregistrer.
 
 ### 4.8 Z8 — Dialogues et Z9 — Notifications
 
-Les trois parcours restent des dialogues : import cadastre (trois étapes, `cadastreDialog.ts`),
-actualisation IGN (`ouvrirDialogueActualisation`), sélecteur de textures (`texturePicker.ts`).
+Les trois parcours restent des dialogues : import cadastre (trois étapes), actualisation IGN,
+sélecteur de textures. Depuis le 27 septembre 2026, ce sont des composants React
+(`zones/Parcours.tsx`, `zones/parcours/`) ouverts un à la fois par `app/parcours.ts` ; leur logique
+vit sans DOM dans `app/importCadastre.ts`, `app/actualisationIgn.ts` et `io/polyhaven.ts`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 

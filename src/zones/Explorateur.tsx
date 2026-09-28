@@ -21,7 +21,7 @@ import { hauteurFinieMm } from '../engine/hauteurs.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
 import { TERRASSE_LAYER_DEFS, terrasseLayerVisible } from '../render/terrasseCouches.js';
-import { clesDossier, dossierSelection } from '../ui/tables.js';
+import { clesDossier, dossierSelection } from '../app/dossier.js';
 import { estTerrasse, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';

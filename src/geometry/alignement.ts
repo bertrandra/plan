@@ -8,6 +8,7 @@
 // Le module ne fait que le calcul : il rend de nouveaux points, sans toucher a la forme ni decider
 // si le resultat est acceptable. La verification du contour et l'historique restent a l'appelant.
 
+import { indiceValide, sommetDe } from './anneau.js';
 import { angleOfSegment } from './segments.js';
 import type { PtBrut } from '../model/types.js';
 
@@ -66,9 +67,10 @@ export function alignerSurCote(
   cible: CoteCible,
   distance: number | null = null
 ): PtBrut[] {
-  const n = pts.length;
-  const a = pts[indexCote]!,
-    b = pts[(indexCote + 1) % n]!;
+  // L'indice vient de l'interface : un cote qui n'existe pas laisse la forme telle quelle.
+  if (!indiceValide(pts, indexCote)) return pts.map(p => ({ ...p }));
+  const a = sommetDe(pts, indexCote),
+    b = sommetDe(pts, indexCote + 1);
   const pivot = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const tournes = tourner(pts, pivot, rotationDAlignement(a, b, cible));
   if (distance === null || !(distance >= 0)) return tournes;

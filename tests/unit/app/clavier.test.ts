@@ -7,7 +7,7 @@ import { creerRegistre } from '../../../src/app/commandes.js';
 function monter() {
   let ecouteur: ((e: Event) => void) | null = null;
   const cible = { addEventListener: (_t: string, f: EventListenerOrEventListenerObject) => { ecouteur = f as (e: Event) => void; } } as unknown as Window;
-  const commandes = creerRegistre({ getElementById: () => null });
+  const commandes = creerRegistre();
   const faits: string[] = [];
   commandes.declarer({ id: 'objet.annuler', libelle: 'Annuler', groupe: 'objet', executer: () => faits.push('annuler') });
   commandes.declarer({ id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet', executer: () => faits.push('enregistrer') });
