@@ -1,0 +1,676 @@
+{
+ "fusionEchouee": false,
+ "objets": [
+  {
+   "key": "parcelle",
+   "type": "polygon",
+   "name": "Parcelle AE 101 + AE 102",
+   "fill": "#FBF3D9",
+   "fillOpacity": 1,
+   "stroke": "#3B2E1F",
+   "showDims": true,
+   "latitude": 48.900135,
+   "longitude": 2.150239,
+   "nomLieu": "Le Vesinet",
+   "cadastre": {
+    "idu": "78650000AE0101",
+    "codeInsee": "78650",
+    "commune": "Le Vesinet",
+    "section": "AE",
+    "numero": "0101",
+    "contenanceM2": 1050,
+    "source": "IGN/API Carto/PCI",
+    "recupereLe": "2026-09-28T08:00:00.000Z",
+    "origineLat": 48.90026976525005,
+    "origineLon": 2.150477371446367,
+    "simplifieM": 0.02,
+    "geometrieSource": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        2.15,
+        48.9
+       ],
+       [
+        2.150272783683638,
+        48.9
+       ],
+       [
+        2.150272783683638,
+        48.90026976525005
+       ],
+       [
+        2.15,
+        48.90026976525005
+       ]
+      ]
+     ]
+    },
+    "adresse": "1 rue des Tilleuls 78110 Le Vesinet",
+    "adresseLon": 2.15,
+    "adresseLat": 48.9,
+    "adresseScore": 0.93,
+    "rayonM": 60,
+    "distanceBordM": 3.46,
+    "fusionDe": [
+     {
+      "idu": "78650000AE0101",
+      "section": "AE",
+      "numero": "0101",
+      "contenanceM2": 600,
+      "geometrieSource": {
+       "type": "Polygon",
+       "coordinates": [
+        [
+         [
+          2.15,
+          48.9
+         ],
+         [
+          2.150272783683638,
+          48.9
+         ],
+         [
+          2.150272783683638,
+          48.90026976525005
+         ],
+         [
+          2.15,
+          48.90026976525005
+         ]
+        ]
+       ]
+      }
+     },
+     {
+      "idu": "78650000AE0102",
+      "section": "AE",
+      "numero": "0102",
+      "contenanceM2": 450,
+      "geometrieSource": {
+       "type": "Polygon",
+       "coordinates": [
+        [
+         [
+          2.150272783683638,
+          48.9
+         ],
+         [
+          2.150477371446367,
+          48.9
+         ],
+         [
+          2.150477371446367,
+          48.90026976525005
+         ],
+         [
+          2.150272783683638,
+          48.90026976525005
+         ]
+        ]
+       ]
+      }
+     }
+    ]
+   },
+   "pts": [
+    {
+     "x": -35,
+     "y": -30
+    },
+    {
+     "x": 0,
+     "y": -30
+    },
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": -35,
+     "y": 0
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showAngles": false,
+   "fonction": "terrain",
+   "matiere": "",
+   "priority": 0,
+   "locked": true,
+   "constrained": false,
+   "plu": {
+    "zones": [
+     {
+      "libelle": "UG",
+      "typezone": "U"
+     }
+    ]
+   }
+  },
+  {
+   "key": "limite-1",
+   "type": "path",
+   "name": "Limite cadastrale 1",
+   "fill": "#8A7B63",
+   "fillOpacity": 1,
+   "stroke": "#8A7B63",
+   "pts": [
+    {
+     "x": -15,
+     "y": -30
+    },
+    {
+     "x": -15,
+     "y": 0
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2"
+   ],
+   "segmentNames": [
+    "Cote 1"
+   ],
+   "frozenVertices": [
+    false,
+    false
+   ],
+   "width": 0.12,
+   "curve": false,
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "limite",
+   "matiere": "",
+   "priority": 1,
+   "locked": true,
+   "elevation": 0
+  },
+  {
+   "key": "parcelle-ae-103",
+   "type": "polygon",
+   "name": "AE 103",
+   "fill": "#EFE8D5",
+   "fillOpacity": 0.45,
+   "stroke": "#8A7B63",
+   "showDims": false,
+   "cadastre": {
+    "idu": "78650000AE0103",
+    "codeInsee": "78650",
+    "commune": "Le Vesinet",
+    "section": "AE",
+    "numero": "0103",
+    "contenanceM2": 540,
+    "source": "IGN/API Carto/PCI",
+    "recupereLe": "2026-09-28T08:00:00.000Z",
+    "origineLat": 48.90026976525005,
+    "origineLon": 2.150477371446367,
+    "simplifieM": 0.02,
+    "geometrieSource": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        2.150477371446367,
+        48.9
+       ],
+       [
+        2.1507228767616415,
+        48.9
+       ],
+       [
+        2.1507228767616415,
+        48.90026976525005
+       ],
+       [
+        2.150477371446367,
+        48.90026976525005
+       ]
+      ]
+     ]
+    }
+   },
+   "pts": [
+    {
+     "x": 0,
+     "y": -30
+    },
+    {
+     "x": 18,
+     "y": -30
+    },
+    {
+     "x": 18,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 0
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showAngles": false,
+   "fonction": "terrain",
+   "matiere": "",
+   "priority": 0,
+   "locked": true,
+   "constrained": false
+  },
+  {
+   "key": "bati-batiment0001",
+   "type": "polygon",
+   "name": "Residentiel (2 niv.)",
+   "fill": "#D9B694",
+   "fillOpacity": 0.92,
+   "stroke": "#7A4A2A",
+   "pts": [
+    {
+     "x": -31,
+     "y": -22
+    },
+    {
+     "x": -21,
+     "y": -22
+    },
+    {
+     "x": -21,
+     "y": -13
+    },
+    {
+     "x": -31,
+     "y": -13
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "batiment",
+   "matiere": "",
+   "priority": 2,
+   "elevation": 6.5,
+   "locked": false,
+   "bdtopo": {
+    "couche": "BDTOPO_V3:batiment",
+    "id": "BATIMENT0001",
+    "cleabs": "BAT01",
+    "nature": null,
+    "usage1": "Residentiel",
+    "usage2": null,
+    "hauteurM": 6.5,
+    "hauteurRetenueM": 6.5,
+    "nombreEtages": 2,
+    "nombreLogements": null,
+    "altitudeSolM": null,
+    "altitudeToitM": null,
+    "constructionLegere": false,
+    "etat": null,
+    "dateApparition": null,
+    "identifiantRnb": null,
+    "surParcellePrincipale": true,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "bati-batiment0002",
+   "type": "polygon",
+   "name": "Indifferenciee",
+   "fill": "#CFC3B4",
+   "fillOpacity": 0.6,
+   "stroke": "#8A7B63",
+   "pts": [
+    {
+     "x": 5,
+     "y": -20
+    },
+    {
+     "x": 13,
+     "y": -20
+    },
+    {
+     "x": 13,
+     "y": -12
+    },
+    {
+     "x": 5,
+     "y": -12
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "batiment",
+   "matiere": "",
+   "priority": 2,
+   "elevation": 2.5,
+   "locked": true,
+   "bdtopo": {
+    "couche": "BDTOPO_V3:batiment",
+    "id": "BATIMENT0002",
+    "cleabs": null,
+    "nature": "Indifferenciee",
+    "usage1": null,
+    "usage2": null,
+    "hauteurM": null,
+    "hauteurRetenueM": 2.5,
+    "nombreEtages": null,
+    "nombreLogements": null,
+    "altitudeSolM": null,
+    "altitudeToitM": null,
+    "constructionLegere": false,
+    "etat": null,
+    "dateApparition": null,
+    "identifiantRnb": null,
+    "surParcellePrincipale": false,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "haie-haie0001",
+   "type": "polygon",
+   "name": "Haie",
+   "fill": "#7FA86B",
+   "fillOpacity": 0.8,
+   "stroke": "#3F5C33",
+   "pts": [
+    {
+     "x": -35,
+     "y": -1
+    },
+    {
+     "x": 0,
+     "y": -1
+    },
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": -35,
+     "y": 0
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "elevation": 1.8,
+   "bdtopo": {
+    "couche": "BDTOPO_V3:haie",
+    "id": "HAIE0001",
+    "cleabs": null,
+    "nature": "Haie",
+    "hauteurM": 1.8,
+    "hauteurRetenueM": 1.8,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "vegetation-veg0001",
+   "type": "polygon",
+   "name": "Bois",
+   "fill": "#A9BE8E",
+   "fillOpacity": 0.55,
+   "stroke": "#4A6B32",
+   "pts": [
+    {
+     "x": -13,
+     "y": -28
+    },
+    {
+     "x": -2,
+     "y": -28
+    },
+    {
+     "x": -2,
+     "y": -16
+    },
+    {
+     "x": -13,
+     "y": -16
+    }
+   ],
+   "vertexNames": [
+    "Point 1",
+    "Point 2",
+    "Point 3",
+    "Point 4"
+   ],
+   "segmentNames": [
+    "Cote 1",
+    "Cote 2",
+    "Cote 3",
+    "Cote 4"
+   ],
+   "frozenVertices": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "showName": true,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "massif",
+   "matiere": "",
+   "priority": 2,
+   "elevation": 12,
+   "bdtopo": {
+    "couche": "BDTOPO_V3:zone_de_vegetation",
+    "id": "VEG0001",
+    "cleabs": null,
+    "nature": "Bois",
+    "hauteurRetenueM": 12,
+    "hauteurM": null,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "arbre-veg0001-1",
+   "type": "circle",
+   "name": "Arbre (estime)",
+   "fill": "#6E8B4E",
+   "fillOpacity": 0.7,
+   "stroke": "#3F5C33",
+   "center": {
+    "x": -11.4,
+    "y": -26.4
+   },
+   "r": 2.5,
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "elevation": 12,
+   "diametreArbre": 5,
+   "bdtopo": {
+    "couche": "estimation",
+    "origine": "VEG0001",
+    "estime": true,
+    "hauteurRetenueM": 12,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "arbre-veg0001-2",
+   "type": "circle",
+   "name": "Arbre (estime)",
+   "fill": "#6E8B4E",
+   "fillOpacity": 0.7,
+   "stroke": "#3F5C33",
+   "center": {
+    "x": -7.47,
+    "y": -16.84
+   },
+   "r": 2.5,
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "elevation": 12,
+   "diametreArbre": 5,
+   "bdtopo": {
+    "couche": "estimation",
+    "origine": "VEG0001",
+    "estime": true,
+    "hauteurRetenueM": 12,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  },
+  {
+   "key": "arbre-veg0001-3",
+   "type": "circle",
+   "name": "Arbre (estime)",
+   "fill": "#6E8B4E",
+   "fillOpacity": 0.7,
+   "stroke": "#3F5C33",
+   "center": {
+    "x": -2.9,
+    "y": -17.9
+   },
+   "r": 2.5,
+   "showName": false,
+   "showSegNames": false,
+   "showVertNames": false,
+   "showDims": false,
+   "showAngles": false,
+   "constrained": false,
+   "fonction": "arbre",
+   "matiere": "",
+   "priority": 3,
+   "locked": false,
+   "elevation": 12,
+   "diametreArbre": 5,
+   "bdtopo": {
+    "couche": "estimation",
+    "origine": "VEG0001",
+    "estime": true,
+    "hauteurRetenueM": 12,
+    "recupereLe": "2026-09-28T08:00:00.000Z"
+   }
+  }
+ ]
+}

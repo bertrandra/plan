@@ -61,6 +61,16 @@ bougent pas.
 
 ### Modifié (architecture)
 
+- **Plus aucune fonction de plus de 150 lignes** (FF-10 sans exception) : `construirePDF`,
+  `objetsDepuisCadastre` et `brancherPointeur` se découpent en fonctions nommées — une par
+  morceau de page, par famille d'objets importés, par poignée. Le cliquet de onze fichiers ouvert
+  le 27 septembre est vide.
+- **Les exports sont regénérés à chaque `npm test`** (FF-4) : SVG, DXF, résumé, plan PDF et
+  dossier PDF sortent du code et se comparent aux témoins. Le test d'avant hachait seulement les
+  fichiers témoins. Premier passage : les cinq identiques.
+- **`objetsDepuisCadastre` a un témoin** (`tests/fixtures/golden/cadastre-objets.json`) : un
+  import complet figé — propriété fusionnée, limite interne, voisine, bâti, haie, végétation,
+  arbres estimés, PLU — dont la sortie doit rester identique.
 - **Intégration continue** (`.github/workflows/ci.yml`) : types, lint, cliquet, client de la
   plateforme, tests, build, absence de secret dans le fichier livré et budget de 5 Mo (FF-5), sur
   chaque demande de fusion et chaque poussée sur `main`. Jusqu'ici, ces vérifications ne tournaient
@@ -81,7 +91,7 @@ bougent pas.
   cliquet FF-10 passe de sept fichiers à quatre, aux plafonds abaissés.
 - **`buildThreeScene` passe de 629 lignes à moins de 100** (D-12) : les briques de la scène vont dans
   `three/primitives.ts`, et la scène se compose de fonctions nommées. Les rendus de la Vue 3D sont
-  identiques octet pour octet. Le cliquet FF-10 n'a plus que trois fichiers.
+  identiques octet pour octet.
 - **Plus aucune assertion `!` dans `src/`** (506 → 0), et ESLint le garde
   (`@typescript-eslint/no-non-null-assertion`). Un indice qu'on sait valide se lit par `au`
   (`util/tableaux.ts`) ou `sommetDe`, qui lèvent une `RangeError` nommée là où `!` laissait passer
