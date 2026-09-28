@@ -61,6 +61,10 @@ bougent pas.
 
 ### Modifié (architecture)
 
+- **Intégration continue** (`.github/workflows/ci.yml`) : types, lint, cliquet, client de la
+  plateforme, tests, build, absence de secret dans le fichier livré et budget de 5 Mo (FF-5), sur
+  chaque demande de fusion et chaque poussée sur `main`. Jusqu'ici, ces vérifications ne tournaient
+  que chez qui pensait à les lancer.
 - **Le moteur n'a plus d'import circulaire** (FF-1). `construction`, `bom`, `debit`, `structure` et
   `layers` s'importaient en quatre boucles. Trois modules en sortent, sans retouche du code :
   `engine/portees.ts` (sections, portées, charges), `engine/prix.ts` (prix et longueurs de stock) et
