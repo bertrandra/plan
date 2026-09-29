@@ -235,6 +235,9 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 [ ] Bump proposed by tooling, confirmed by release manager
 [ ] Golden-fixture diff reviewed — any unexplained diff blocks the release
 [ ] Schema bump? migration written + fixture at N and N+1 + round-trip test
+[ ] Schema bump? contrat/plan-produit.json régénéré et recopié dans backprod, et le nouveau numéro
+    ajouté à `project_schema_versions` du produit Plan EN PRODUCTION avant le dépôt — sinon chaque
+    enregistrement d'un document au nouveau schéma répond 422 (contrat/SOURCE-PRODUIT.md)
 [ ] CHANGELOG.md section written in French, dated
 [ ] package.json version bumped, committed, tagged vX.Y.Z (annotated, signed)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)

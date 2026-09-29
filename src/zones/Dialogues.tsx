@@ -51,6 +51,19 @@ export function Dialogues() {
           </>
         )}
         {d.type === 'invite' && <Invite key={d.texte + d.valeur} d={d} />}
+        {d.type === 'choix' && (
+          <>
+            <div className="dialogueTitre">{d.titre}</div>
+            <p className="dialogueTexte">{d.texte}</p>
+            {d.points && d.points.length > 0 && (
+              <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
+            )}
+            <div className="dialogueBoutons">
+              <button type="button" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
+              <button type="button" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>
+            </div>
+          </>
+        )}
         {d.type === 'erreurChargement' && (
           <>
             <div className="dialogueTitre">{d.titre}</div>

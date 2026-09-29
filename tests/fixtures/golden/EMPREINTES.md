@@ -357,6 +357,18 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   sans relevé (`three/releve3d.ts`, testé). Il n'a pas été rejoué ici : le pilote de fumée demande
   Playwright, absent de ce poste.
 
+- **29 septembre 2026**, toujours `2.2.0` (jamais déployée) : **un document s'écrit au plus petit
+  schéma qui le décrit** (`model/migrations.ts`). Écrire `2` sur un plan sans relevé le faisait
+  refuser par une plateforme restée à `[1]` — c'est ce qui empêchait la démonstration de s'ouvrir.
+  Le témoin n'a ni relevé ni toit : son schéma redevient `1`, dans `projet.json` et dans
+  `plan.svg`, une substitution de longueur constante chacune. Les quatre autres témoins ne portent
+  pas le schéma et ne bougent pas.
+
+  **La preuve forte, sur les deux fichiers touchés.** `2.2.0` → `2.0.2` et `2026-09-28` →
+  `2026-09-25` remis dans les nouveaux octets rendent les empreintes de la `2.0.2` **au bit
+  près** (`66338527…` et `f560cbca…`) : à numéro de version près, ce que la 2.2.0 écrit pour un plan
+  sans relevé est ce que la 2.0.2 écrivait.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 

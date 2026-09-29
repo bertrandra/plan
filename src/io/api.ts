@@ -46,7 +46,13 @@ export interface ProjetResume { id: string; name: string; updatedAt?: string }
  * que rien n'y soit verifie a la lecture : c'est `normalizeObjects`, via `creerEtat()`, qui fait
  * franchir la frontiere (core/state.ts).
  */
-export interface ProjetServeur { objects: ObjetBrut[]; measures?: Mesure[]; meta?: ProjetResume | null }
+export interface ProjetServeur {
+  objects: ObjetBrut[];
+  measures?: Mesure[];
+  meta?: ProjetResume | null;
+  /** Le schema que la plateforme a enregistre pour ce document (colonne `schema_version`). */
+  schemaVersion?: number | null;
+}
 
 /** Motif d'echec, pour que l'appelant sache quoi montrer. */
 export type MotifEchec = 'network' | 'notfound' | 'server' | 'badjson';
@@ -133,6 +139,7 @@ export async function chargerProjetInitial(
         objects: JSON.parse(JSON.stringify(demoObjets)) as ObjetBrut[],
         measures: JSON.parse(JSON.stringify(demoMesures)) as Mesure[],
         meta: null as ProjetResume | null,
+        schemaVersion: null as number | null,
         // Pas de plateforme, donc pas d'import cadastre a ouvrir : le champ existe sur toutes les
         // branches pour que l'appelant n'ait jamais a se demander s'il est la.
         ouvrirAdresse: false
@@ -159,6 +166,7 @@ export async function chargerProjetInitial(
     objects: [] as ObjetBrut[],
     measures: [] as Mesure[],
     meta: null as ProjetResume | null,
+    schemaVersion: null as number | null,
     ouvrirAdresse: true
   });
 
@@ -193,6 +201,7 @@ export async function chargerProjetInitial(
     objects: complet.objects,
     measures: complet.measures || [],
     meta: complet.meta ?? null,
+    schemaVersion: complet.schemaVersion ?? null,
     ouvrirAdresse: false
   };
 }

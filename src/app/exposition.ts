@@ -61,6 +61,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.nouveau': menu('menuFichier'),
   'projet.enregistrer': { compact: ['feuilleProjet', 'clavier'], moyen: ['menuFichier', 'clavier'], large: ['menuFichier', 'barreHaute', 'clavier'] },
   'projet.supprimer': menu('menuFichier'),
+  'projet.mettreAJourModele': menu('menuFichier'),
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
 

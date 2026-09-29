@@ -293,7 +293,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
-  return { explorateur, inspecteur };
+  return { explorateur, inspecteur, projet };
 }
 
 function boot(seed: GraineDemarrage): void {
@@ -308,7 +308,7 @@ function boot(seed: GraineDemarrage): void {
   cadrage.centrerSurParcelle();
   const vues = creerVues3d(atelier, magasin, commandes, { affichage: p.affichage, createObjectDOM: p.dessin.createObjectDOM, resultats: p.resultats });
   tardifs.vues = vues;
-  const { explorateur, inspecteur } = monterLesPanneaux(p, atelier, ch, vues, seed);
+  const { explorateur, inspecteur, projet } = monterLesPanneaux(p, atelier, ch, vues, seed);
   tardifs.explorateur = explorateur;
   tardifs.inspecteur = inspecteur;
   // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
@@ -327,6 +327,8 @@ function boot(seed: GraineDemarrage): void {
   // « Partir d'une adresse » au premier pas passe par la COMMANDE : elle porte la capacite, la
   // permission et le quota, et un premier pas ne doit pas etre le seul chemin qui les contourne.
   if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
+  // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
+  else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
 }
 

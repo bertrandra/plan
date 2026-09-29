@@ -39,18 +39,19 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 28 septembre 2026, a la version 2.2.0 (schema 2). Le seul ecart avec les empreintes
-  // de la 1.0.0 est le numero de version — et, depuis la 2.0.0, la date de build qui l'accompagne ;
-  // depuis la 2.2.0, le numero de schema aussi, dans projet.json et dans plan.svg. Cela a
+  // Recapturees le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
+  // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'a pas de
+  // releve. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
+  // 2.0.0, la date de build qui l'accompagne. Cela a
   // ete prouve avant chaque recapture : le meme build, estampille de l'ancien numero, reproduit les
   // anciennes empreintes au bit pres, et une comparaison ligne a ligne ne montre aucune ligne
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
       'resume.txt': '22f9bf93b2235a8eaad580ddf0bb25a12e936dbad3282bac9d9561c6ab9b70f6',
-      'plan.svg': '09200d788da15297aa26788b33d67a7ad13eb8f30dcd0bc80c364ffe397a9d42',
+      'plan.svg': 'c96a3d978484037f2c44cca8edc2e666e9b2299ac095fbb9c5a8c541b91f543c',
       'plan.dxf': '2d64f95aea0782ef84f142119e7dcfcc0263cf659239c9124c760c3931a9f944',
-      'projet.json': '8d8929bd9972c06b014dc3da82b8b0c6091af7c5e6eea357df25c96e2e9663eb',
+      'projet.json': 'c73bdda5d1caa386a75c1bd9e6a2ed15f7310b173562505bfe8695cbfd2d937f',
       'plan.pdf': '9a183ea635b12ea7fe3a9dc00bbcac569316006de74957579088859b12bb123a',
       'dossier.pdf': 'dc5db12b6e5ca21f32b31b85308c750d10f832cb909ee2870860c88a06075968'
     };

@@ -39,6 +39,8 @@ export interface ProjetObservable {
   statut: StatutProjet;
   /** « Enregistré à 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
   enregistreA: string;
+  /** Le projet ouvert est d'un schema anterieur au programme : « Mettre a jour le modele » s'offre. */
+  schemaEnRetard: boolean;
 }
 
 export interface EtatMagasin {
@@ -97,7 +99,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     version: 0,
     vue: 'plan',
     lieu: '',
-    projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '' },
+    projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '', schemaEnRetard: false },
     pointeur: null,
     peutAnnuler: false,
     explorateurOuvert: true,

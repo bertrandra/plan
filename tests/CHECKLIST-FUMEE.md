@@ -95,6 +95,7 @@ rejoue jamais.
 | 45 | Vue 3D après un relevé | la photo sur le mur et son pignon, les encadrements des baies, le toit ; Texture décochée : les vitres et vantails remplacent la photo |
 | 46 | Enregistrer, recharger la page | le relevé, sa photo et le toit sont relus ; la ligne du mur dit « n ouvertures » |
 | 47 | Sur iPhone, dans Plan Capture (`native/ios/`) | la distance porte « LiDAR », la photo est prise par le module ; hors module, rien ne change |
+| 48 | Ouvrir un projet enregistré au schéma 1 (la démonstration d'une organisation neuve) | « Mettre à jour le modèle ? » ; « Garder tel quel » : la question ne revient pas au rechargement ; Fichier › Mettre à jour le modèle : enregistré au schéma 2, ou, si la plateforme ne l'accepte pas, un bandeau qui dit à qui s'adresser et le projet reste au schéma 1 |
 
 ## Journal des passages
 

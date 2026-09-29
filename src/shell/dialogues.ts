@@ -31,7 +31,22 @@ export interface DialogueErreurChargement {
   executer: () => void;
 }
 
-export type Dialogue = DialogueConfirmation | DialogueInvite | DialogueErreurChargement;
+/**
+ * Deux issues, aucune destructive : ni « Confirmer » ni bouton rouge. La mise a jour du modele a
+ * l'ouverture en est un : « Mettre a jour » et « Garder tel quel » sont deux reponses legitimes, et
+ * Echap n'en choisit aucune — la question reviendra a la prochaine ouverture.
+ */
+export interface DialogueChoix {
+  type: 'choix';
+  titre: string;
+  texte: string;
+  /** Une liste courte sous le texte (ce qu'apporte une version, par exemple). */
+  points?: string[];
+  principal: { libelle: string; executer: () => void };
+  secondaire: { libelle: string; executer: () => void };
+}
+
+export type Dialogue = DialogueConfirmation | DialogueInvite | DialogueErreurChargement | DialogueChoix;
 
 type Abonne = (courant: Dialogue | null) => void;
 
@@ -59,7 +74,7 @@ export const dialogues = {
     courant = null;
     publier();
   },
-  /** Repond au dialogue courant, puis le ferme. Une invite vide ne repond pas. */
+  /** Repond au dialogue courant, puis le ferme. Une invite vide ne repond pas ; un choix prend le principal. */
   repondre(valeur?: string): void {
     const d = courant;
     if (!d) return;
@@ -67,6 +82,15 @@ export const dialogues = {
     publier();
     if (d.type === 'confirmation') d.confirmer();
     else if (d.type === 'invite') { const v = (valeur ?? '').trim(); if (v) d.valider(v); }
+    else if (d.type === 'choix') d.principal.executer();
     else d.executer();
+  },
+  /** Prend l'issue secondaire d'un choix, puis le ferme. Sans choix ouvert, ne fait rien. */
+  repondreSecondaire(): void {
+    const d = courant;
+    if (d?.type !== 'choix') return;
+    courant = null;
+    publier();
+    d.secondaire.executer();
   }
 };

@@ -12,6 +12,8 @@
 import { PERMISSION_ECRITURE } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
+import { dialogues } from '../shell/dialogues.js';
+import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
@@ -49,6 +51,85 @@ export interface ContexteProjet {
 export interface Projet {
   /** Change de projet ; demande confirmation si le plan courant a des modifications. */
   ouvrir(id: string): void;
+  /**
+   * A l'ouverture : si le projet est d'un schema anterieur, propose de le mettre a jour — sauf si
+   * la personne a deja repondu « Garder tel quel » pour ce projet et ce schema.
+   */
+  proposerMiseAJour(): void;
+}
+
+/** Cle localStorage d'un refus de mise a jour : par projet, et pour le schema propose. */
+const cleRefus = (id: string) => 'planInteractif.modeleGarde.' + id;
+
+/** Retient « Garder tel quel » pour ce projet et ce schema, ou l'oublie (`null`). Sans stockage, la question reviendra. */
+function retenirRefus(id: string, schema: number | null): void {
+  try {
+    if (schema === null) localStorage.removeItem(cleRefus(id));
+    else localStorage.setItem(cleRefus(id), String(schema));
+  } catch { /* navigation privee, stockage plein : rien a retenir */ }
+}
+
+/** Vrai si la personne a deja garde ce projet tel quel, pour le schema que ce programme propose. */
+function refusRetenu(id: string): boolean {
+  try { return localStorage.getItem(cleRefus(id)) === String(SCHEMA_VERSION); } catch { return false; }
+}
+
+// Le schema ecrit est celui qui decrit le document, jamais sous celui ou le projet a ete monte
+// (model/migrations.ts). La plateforme le recoit dans `schema_version` (io/depotPlateforme.ts).
+function chargeDuProjet(ctx: ContexteProjet) {
+  const objects = ctx.serializeObjects(ctx.etat.objects);
+  return {
+    appVersion: APP_VERSION, schemaVersion: schemaAEcrire(objects, ctx.etat.schemaProjet),
+    objects, measures: ctx.serializeMeasures(ctx.etat.measures)
+  };
+}
+
+/**
+ * « Mettre a jour le modele » : la commande du menu Fichier, et la question posee a l'ouverture.
+ * Rend la fonction qui pose cette question si elle a lieu d'etre.
+ *
+ * Le document a deja ete lu dans la forme courante (les migrations s'appliquent a la lecture) :
+ * mettre a jour, c'est l'enregistrer en declarant le schema du programme. Si la plateforme refuse
+ * ce schema, le projet reste a l'ancien, et le bandeau d'erreur dit a qui s'adresser.
+ */
+function declarerMiseAJour(cmd: RegistreCommandes, etat: EtatApp, courant: ProjetResume | null, p: {
+  enRetard: () => boolean; enregistrer: (annonce: string) => Promise<boolean>; publier: () => void;
+}): () => void {
+  async function mettreAJour(): Promise<void> {
+    const avant = etat.schemaProjet;
+    etat.schemaProjet = SCHEMA_VERSION;
+    const ok = await p.enregistrer('Modèle mis à jour : le projet est au schéma ' + SCHEMA_VERSION + '.');
+    if (!ok) { etat.schemaProjet = avant; p.publier(); }
+    else if (courant) retenirRefus(courant.id, null);
+  }
+  const demander = () => { if (courant) ouvrirDialogueMiseAJour(courant.id, etat.schemaProjet, mettreAJour); };
+  cmd.declarer({
+    id: 'projet.mettreAJourModele', libelle: 'Mettre à jour le modèle', groupe: 'projet',
+    permission: PERMISSION_ECRITURE,
+    description: 'Enregistre le projet au schema de cette version de Plan',
+    actif: p.enRetard,
+    executer: demander
+  });
+  return () => {
+    if (!courant || !cmd.etat('projet.mettreAJourModele').utilisable || refusRetenu(courant.id)) return;
+    demander();
+  };
+}
+
+/** La question posee a l'ouverture d'un projet de schema `de` anterieur au programme. */
+function ouvrirDialogueMiseAJour(id: string, de: number, mettreAJour: () => Promise<void>): void {
+  dialogues.ouvrir({
+    type: 'choix',
+    titre: 'Mettre à jour le modèle ?',
+    texte: 'Ce projet a été enregistré au schéma ' + de + ' ; Plan ' + APP_VERSION + ' écrit le schéma ' + SCHEMA_VERSION
+      + '. La mise à jour ne change rien au plan : elle l’enregistre dans la forme actuelle, qui apporte :',
+    points: [
+      ...migrationsDepuis(de).map((m) => m.apporte.charAt(0).toUpperCase() + m.apporte.slice(1) + '.'),
+      'Tel quel, il reste lisible par les versions précédentes de Plan ; il sera mis à jour de lui-même le jour où vous y ajouterez un relevé.'
+    ],
+    principal: { libelle: 'Mettre à jour le modèle', executer: () => { void mettreAJour(); } },
+    secondaire: { libelle: 'Garder tel quel', executer: () => retenirRefus(id, SCHEMA_VERSION) }
+  });
 }
 
 const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -60,6 +141,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
       apiDisponible: seed.apiAvailable, courant, liste: seed.list, enregistreA,
+      schemaEnRetard: enRetard(),
       statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty ? 'modifie' : 'a-jour')
     });
   }
@@ -71,10 +153,39 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     location.href = ctx.withProjectParam(id);
   }
 
-  const charge = () => ({
-    appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION,
-    objects: ctx.serializeObjects(ctx.etat.objects), measures: ctx.serializeMeasures(ctx.etat.measures)
-  });
+  /** Le projet ouvert est d'un schema anterieur au programme, et ce qu'il porte ne l'a pas deja monte. */
+  function enRetard(): boolean {
+    return seed.apiAvailable && !!courant && schemaAEcrire(ctx.etat.objects, ctx.etat.schemaProjet) < SCHEMA_VERSION;
+  }
+
+  const charge = () => chargeDuProjet(ctx);
+
+  /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. */
+  async function enregistrer(annonce: string): Promise<boolean> {
+    if (!courant) return false;
+    publier('enregistrement');
+    try {
+      const donnees = charge();
+      const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...donnees });
+      // Ce qui a ete ecrit devient le plancher : un releve ajoute puis retire ne redescend pas le projet.
+      ctx.etat.schemaProjet = donnees.schemaVersion;
+      ctx.etat.dirty = false;
+      enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now());
+      ctx.initialState().length = 0;
+      ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
+      ctx.initialMeasures().length = 0;
+      ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
+      showToast(annonce);
+      return true;
+    } catch (e) {
+      showErrBanner('Echec de l\'enregistrement : ' + ((e as Error).message || e));
+      return false;
+    } finally {
+      publier();
+    }
+  }
+
+  const proposerMiseAJour = declarerMiseAJour(cmd, ctx.etat, courant, { enRetard, enregistrer, publier });
 
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Nouveau projet', groupe: 'projet',
@@ -97,24 +208,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet', raccourci: 'Ctrl+S',
     permission: PERMISSION_ECRITURE,
     actif: () => seed.apiAvailable && !!courant,
-    executer: async () => {
-      if (!courant) return;
-      publier('enregistrement');
-      try {
-        const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...charge() });
-        ctx.etat.dirty = false;
-        enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now());
-        ctx.initialState().length = 0;
-        ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
-        ctx.initialMeasures().length = 0;
-        ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
-        showToast('Projet enregistre.');
-      } catch (e) {
-        showErrBanner('Echec de l\'enregistrement : ' + ((e as Error).message || e));
-      } finally {
-        publier();
-      }
-    }
+    executer: () => { void enregistrer('Projet enregistre.'); }
   });
 
   cmd.declarer({
@@ -160,6 +254,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   });
 
   return {
+    proposerMiseAJour,
     ouvrir(id) {
       if (ctx.etat.dirty) {
         showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));

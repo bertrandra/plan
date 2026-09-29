@@ -13,6 +13,7 @@
 // abime reste chargeable, et l'utilisateur apprend combien de formes ont ete laissees de cote.
 
 import { SCHEMA_VERSION } from '../model/version.js';
+import { migrer } from '../model/migrations.js';
 import type { ObjetBrut, ObjetAPoints, Mesure, PtBrut } from '../model/types.js';
 
 /**
@@ -76,5 +77,8 @@ export function validerProjetJSON(data: unknown): ProjetValide {
     ? !!o.center && loin(o.center)
     : ((o as Partial<ObjetAPoints>).pts ?? []).some(loin));
   if(horsLimite) throw new Error('Coordonnees aberrantes (au-dela de 100 000 m) : le fichier n\'est probablement pas en metres.');
-  return { meta, objets, mesures: Array.isArray(brut.measures) ? brut.measures as Partial<Mesure>[] : [], ignores };
+  // Un fichier ancien est lu dans la forme courante (model/migrations.ts) : le reste du programme
+  // n'en connait qu'une.
+  const lu = migrer({ objects: objets, measures: Array.isArray(brut.measures) ? brut.measures : [] }, schemaFichier);
+  return { meta, objets: lu.objects, mesures: (lu.measures ?? []) as Partial<Mesure>[], ignores };
 }
