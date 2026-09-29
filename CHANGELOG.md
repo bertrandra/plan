@@ -9,6 +9,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Mettre à jour le modèle ».** À l'ouverture d'un projet enregistré à un schéma antérieur,
+  Plan propose de l'enregistrer dans la forme actuelle, en disant ce qu'elle apporte ; « Garder tel
+  quel » est retenu pour ce projet et ne revient pas. La même commande est dans le menu Fichier tant
+  que le projet est en retard. Les migrations d'un schéma au suivant s'appliquent à la lecture
+  (`src/model/migrations.ts`) : mettre à jour ne transforme rien, cela déclare.
+- **`contrat/plan-produit.json`** : ce que Plan attend de la plateforme — les schémas qu'il écrit et
+  le document de la démonstration —, engendré et vérifié par un test. Backprod le recopie pour que
+  sa configuration et son monde d'essai ne prennent plus de retard sans que rien ne le dise
+  (`contrat/SOURCE-PRODUIT.md`).
+
+
 - **Le relevé de façade.** On sélectionne un bâtiment, on choisit un de ses murs, le téléphone le
   photographie, et Plan en tire, **dans le navigateur, sans serveur** : l'élévation redressée à
   l'échelle, les **ouvertures** (fenêtres, portes-fenêtres, portes, garages) avec leurs **cotes au
@@ -80,6 +91,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   image avec chaque mesure. Spécification §5.4.
 
 ### Corrigé
+
+- **La démonstration ne s'ouvrait pas** sur une plateforme dont le produit Plan n'accepte que le
+  schéma 1 : Plan écrivait `2` sur tout document. Un document s'écrit désormais au **plus petit
+  schéma qui le décrit** — 1 sans relevé ni toit, 2 avec —, jamais sous celui d'un projet mis à jour.
+  Les témoins `projet.json` et `plan.svg` reviennent au schéma 1 ; ramenés au numéro de version
+  de la 2.0.2, ils rendent ses empreintes au bit près.
+- Un refus `422 UNSUPPORTED_SCHEMA_VERSION` se dit en clair : quel schéma, lesquels sont acceptés,
+  et qu'un administrateur doit l'ajouter à `project_schema_versions` du produit Plan.
+
 
 - **Vue 3D : le fond orthophoto ne scintille plus avec le socle du terrain.** Le sol, le terrain,
   l'orthophoto et les chemins à plat étaient posés à quelques millimètres les uns des autres ; vus de

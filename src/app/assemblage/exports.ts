@@ -11,7 +11,8 @@ import { construireDossierPDF } from '../../export/dossierPdf.js';
 import { construireResume } from '../../export/resume.js';
 import { exporterProjetJSON } from '../../io/exportProjet.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
-import { APP_VERSION, SCHEMA_VERSION, BUILD_AT, signatureExport } from '../../model/version.js';
+import { APP_VERSION, BUILD_AT, signatureExport } from '../../model/version.js';
+import { schemaAEcrire } from '../../model/migrations.js';
 import { brancherExports } from '../ecouteurs/exports.js';
 import { clesDossier } from '../dossier.js';
 import type { ProjetResume } from '../../io/api.js';
@@ -34,7 +35,7 @@ export function resumeDuProjet(etat: EtatApp, m: Mesures): string {
 export function exporterLeProjet(etat: EtatApp, seed: MetaProjet): void {
   exporterProjetJSON(etat, el<HTMLInputElement>('chkExportSansParcelle').checked, {
     serializeObjects, serializeMeasures, telechargerTexte, showToast,
-    appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION,
+    appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet),
     metaProjet: () => seed.meta || {}
   });
 }
@@ -44,7 +45,7 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
 }): void {
   const nomProjet = () => seed.meta?.name;
   brancherExports({
-    buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION }),
+    buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
     buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
     buildExportPDF: (echelle) => construirePDF(etat.objects, etat.measures, echelle, {
       appVersion: APP_VERSION, buildAt: BUILD_AT, montrerNord: etat.showNorth

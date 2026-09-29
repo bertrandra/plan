@@ -61,6 +61,12 @@ export interface EtatApp {
   grilleVisible: boolean;
   voisinageVisible: boolean;
 
+  /**
+   * Le schema auquel le projet ouvert a ete lu (plateforme ou fichier), ou auquel on l'a mis a jour.
+   * Un document n'est jamais reecrit plus bas (model/migrations.ts, `schemaAEcrire`).
+   */
+  schemaProjet: number;
+
   // Edition
   dirty: boolean;
   newObjCounter: number;
@@ -71,6 +77,8 @@ export interface EtatApp {
 export interface GraineProjet {
   objects?: ObjetBrut[];
   measures?: Mesure[];
+  /** Le schema declare par ce qui a rendu le projet ; absent, c'est un projet de schema 1. */
+  schemaVersion?: number | null;
 }
 
 /**
@@ -110,6 +118,7 @@ export function creerEtat(
     grilleVisible: true,
     voisinageVisible: true,
 
+    schemaProjet: seed.schemaVersion ?? 1,
     dirty: false,
     newObjCounter: 1,
     undoStack: new PileAnnulation(),
