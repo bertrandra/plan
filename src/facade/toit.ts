@@ -125,7 +125,7 @@ export function hauteurToitEn(plans: readonly PlanToit[], q: PtBrut): number {
 }
 
 /** Coupe un polygone (convexe ou non) par le demi-plan f(p) <= 0, avec f affine. */
-function couperDemiPlan(poly: PtBrut[], f: (p: PtBrut) => number): PtBrut[] {
+export function couperDemiPlan(poly: PtBrut[], f: (p: PtBrut) => number): PtBrut[] {
   const out: PtBrut[] = [];
   for (let i = 0; i < poly.length; i++) {
     const P = au(poly, i),

@@ -134,3 +134,43 @@ describe('ajouterReleve3d', () => {
     expect(ajoutes).toHaveLength(9);
   });
 });
+
+const p = (x: number, y: number) => ({ x, y });
+
+describe('ajouterReleve3d, mur en L', () => {
+  // Maison 6 x 8 m et garage 4 x 5 m a l'est, moins profond ; facade sud (cote 0) relevee en L.
+  const L = { key: 'maison', name: 'Maison', type: 'polygon' as const, fonction: 'batiment', pts: [p(0, 0), p(10, 0), p(10, 5), p(6, 5), p(6, 8), p(0, 8)] };
+  const releveL = {
+    cote: 0,
+    largeur: 10,
+    hauteur: 6,
+    texture: 'data:image/jpeg;base64,AA',
+    hauteurTexture: 9,
+    ouvertures: [
+      { type: 'fenetre' as const, x: 1, y: 3.8, l: 1.2, h: 1.2 },
+      { type: 'garage' as const, x: 7, y: 0, l: 2.4, h: 2.1 },
+      { type: 'fenetre' as const, x: 7, y: 3.8, l: 1.2, h: 1.2 }, // au-dessus du garage : dans le vide
+    ],
+    distance: 12,
+    sourceDistance: 'lidar' as const,
+    releveLe: '',
+    partieBasse: { debut: 6, fin: 10, hauteur: 3 },
+  };
+
+  it('pose la photo en L, et omet ce qui depasse de la partie basse', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...L, facades: [releveL] }, 6);
+    const mur = ajoutes.find((m) => m.name === 'releve-facade')!;
+    expect(mur.geometry.attributes.position!.array).toHaveLength(6 * 3);
+    // Fenetre haute : 4 pieces d'encadrement ; garage : 3 ; la fenetre dans le vide : aucune.
+    expect(ajoutes.filter((m) => m.name === '')).toHaveLength(7);
+  });
+
+  it('coiffe la partie haute seulement', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...L, facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } }, 6);
+    const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    // Repere local de ce test : x du plan tel quel. Aucun pan au-dela de la maison (x > 6).
+    expect(Math.max(...xs)).toBeLessThanOrEqual(6 + 1e-9);
+  });
+});

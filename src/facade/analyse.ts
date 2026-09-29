@@ -9,7 +9,8 @@ import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image, type P2 } from './homographie.js';
 import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toit.js';
-import type { PtBrut, Toit } from '../model/types.js';
+import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
+import type { PtBrut, Toit, PartieBasse } from '../model/types.js';
 
 export interface EntreeAnalyse {
   photo: Image;
@@ -22,6 +23,8 @@ export interface EntreeAnalyse {
   cote: number;
   /** Distance de prise de vue, si connue : corrige la fuite d'un toit vu de l'egout. */
   distance: number | null;
+  /** Mur a deux hauteurs d'egout : le decrochement pose sur la photo (facade/profil.ts). */
+  decrochement?: Decrochement | null;
 }
 
 export interface ResultatAnalyse {
@@ -40,6 +43,8 @@ export interface ResultatAnalyse {
   ouvertures: OuvertureDetectee[];
   toitEstime: ToitEstime | null;
   toitPropose: Toit | null;
+  /** La partie basse d'un mur en L, mesuree sur la photo ; `null` pour un mur rectangulaire. */
+  partieBasse: PartieBasse | null;
 }
 
 /** Hauteur de la bande analysee au-dessus de l'egout : de quoi contenir un pignon raide. */
@@ -68,6 +73,15 @@ export function teinteMediane(img: Image, vu: Uint8Array): number[] {
 }
 
 export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
+  // Un mur en L se redresse sur son rectangle englobant, dont le coin cache se construit ; le
+  // decrochement, ramene dans le plan du mur, donne la partie basse.
+  let partie: PartieBasse | null = null;
+  if (e.decrochement) {
+    const englobants = coinsEnglobants(e.coins, e.decrochement);
+    if (!englobants) return null;
+    partie = mesurerPartieBasse(englobants, e.decrochement, e.largeur, e.hauteur);
+    e = { ...e, coins: englobants };
+  }
   // Elevation (x depuis la gauche, y depuis l'egout vers le bas) -> photo.
   const H = homographie(
     [
@@ -92,19 +106,59 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
   const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
   const r = redresser(e.photo, coinsEtendus, e.largeur, e.hauteur + E, pxParM);
   if (!r) return null;
+  return finaliserReleve(r.image, r.vu, E, pxParM, e, partie);
+}
+
+/** Ce que le releve exige du mur, quelle que soit la facon dont l'elevation a ete obtenue. */
+export type MurDuReleve = Pick<EntreeAnalyse, 'hauteur' | 'contour' | 'cote' | 'distance'>;
+
+/**
+ * La suite commune a une photo et a plusieurs : l'elevation etendue (le mur, et la bande de `E`
+ * metres au-dessus de l'egout) a `pxParM`, et son masque de pixels vus, donnent les ouvertures, le
+ * toit propose et la texture, dont le ciel au-dessus de l'egout est repeint a la teinte du mur.
+ */
+/** Les colonnes `x0` a `x1` d'une image (et de son masque). */
+function colonnes(img: Image, vu: Uint8Array, x0: number, x1: number): { image: Image; vu: Uint8Array } {
+  const L = img.largeur,
+    l = Math.max(1, x1 - x0);
+  const donnees = new Uint8ClampedArray(l * img.hauteur * 4),
+    v = new Uint8Array(l * img.hauteur);
+  for (let y = 0; y < img.hauteur; y++) {
+    donnees.set(img.donnees.subarray((y * L + x0) * 4, (y * L + x0 + l) * 4), y * l * 4);
+    v.set(vu.subarray(y * L + x0, y * L + x0 + l), y * l);
+  }
+  return { image: { largeur: l, hauteur: img.hauteur, donnees }, vu: v };
+}
+
+export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null): ResultatAnalyse {
+  const r = { image: texture, vu };
   const egout = Math.round(E * pxParM);
   const mur = rogner(r.image, r.vu, egout, r.image.hauteur);
   const bande = rogner(r.image, r.vu, 0, egout);
-  const vusMur = mur.vu.reduce((s, v) => s + v, 0);
-  const vusBande = bande.vu.reduce((s, v) => s + v, 0);
-  const ouvertures = detecterOuvertures(mur.image, pxParM, mur.vu);
+  // La couverture ne compte que le mur : sur un mur en L, pas le vide au-dessus de la partie basse.
+  let vusMur = 0,
+    pixelsMur = 0;
+  for (let y = 0; y < mur.image.hauteur; y++) {
+    const hauteurPx = (mur.image.hauteur - y) / pxParM;
+    for (let x = 0; x < mur.image.largeur; x++) {
+      if (hauteurPx > egoutEn(x / pxParM, e.hauteur, partie)) continue;
+      pixelsMur++;
+      vusMur += mur.vu[y * mur.image.largeur + x] ?? 0;
+    }
+  }
+  const ouvertures = ouverturesDansLeMur(detecterOuvertures(mur.image, pxParM, mur.vu), e.hauteur, partie);
+  // Le toit se lit au-dessus de la partie haute seulement : au-dessus de la partie basse, la bande
+  // montre le mur de la partie haute, pas une silhouette de toit.
+  const haute = partie ? (partie.debut > 0 ? [0, partie.debut] : [partie.fin, texture.largeur / pxParM]) : null;
+  const bandeToit = haute ? colonnes(bande.image, bande.vu, Math.round(au(haute, 0) * pxParM), Math.round(au(haute, 1) * pxParM)) : bande;
+  const vusBande = bandeToit.vu.reduce((s, v) => s + v, 0);
 
   // Moins d'un tiers de la bande vu : le toit est hors cadre, on ne propose rien plutot que de
   // conclure a un toit plat.
   let toitEstime: ToitEstime | null = null;
   let toitPropose: Toit | null = null;
-  if (vusBande >= 0.33 * bande.vu.length) {
-    toitEstime = classerProfil(profilSilhouette(bande.image, pxParM, 60, bande.vu));
+  if (vusBande >= 0.33 * bandeToit.vu.length) {
+    toitEstime = classerProfil(profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu));
     toitPropose = toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance);
   }
   // La teinte du mur (mediane de ce qui en a ete vu) remplace le ciel au-dessus de l'egout.
@@ -114,10 +168,11 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
     texture: r.image,
     hauteurTexture: e.hauteur + egout / pxParM,
     pxParM,
-    couverture: vusMur / Math.max(1, mur.vu.length),
+    couverture: vusMur / Math.max(1, pixelsMur),
     ouvertures,
     toitEstime,
     toitPropose,
+    partieBasse: partie,
   };
 }
 

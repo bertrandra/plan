@@ -20,7 +20,7 @@ module par la présence de `window.webkit.messageHandlers.planCapture`.
 | Sens | Forme | Contenu |
 |---|---|---|
 | page → natif | `window.webkit.messageHandlers.planCapture.postMessage({ action })` | `demarrer` (lance la session AR et la mesure), `arreter`, `photo` |
-| natif → page | `CustomEvent('plan:profondeur', { detail })` | `{ distance: mètres, confiance: 0..2 }` — la page ignore une confiance < 1 |
+| natif → page | `CustomEvent('plan:profondeur', { detail })` | `{ distance: mètres, confiance: 0..2, largeurPx, hauteurPx, focalePx }` — la page ignore une confiance < 1 ; la géométrie de l'image (portrait, réduite comme la photo) lui sert à calculer ce que la photo couvrira |
 | natif → page | `CustomEvent('plan:photo', { detail })` | `{ dataUrl: 'data:image/jpeg;base64,…', focalePx }` — focale en pixels de l'image livrée |
 
 Côté page : `src/ui/releve/profondeur.ts` (écoute et commandes) et `src/ui/releve/camera.ts`

@@ -20,6 +20,7 @@ import { hauteurParasolDe } from '../engine/parasol.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
+import { volumesDuBatiment } from '../facade/profil.js';
 import {
   creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite,
   type Primitives, type VersLocal
@@ -356,7 +357,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
     // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
-    prim.addPrism(footprint, 0, h, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o));
+    // Un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun a sa hauteur
+    // (facade/profil.ts) ; tout autre objet reste un seul prisme.
+    const volumes = o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
+    volumes.forEach((v) => prim.addPrism(v.pts, 0, v.hauteur, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o)));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme.
     if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
       ajouterReleve3d({ scene: co.scene, toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);

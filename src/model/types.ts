@@ -488,6 +488,19 @@ export interface ReleveFacade {
   sourceDistance: 'lidar' | 'webxr' | 'cadrage' | null;
   /** Date du releve, ISO 8601. */
   releveLe: string;
+  /**
+   * Un mur a deux hauteurs d'egout (en L) : la partie basse, de `debut` a `fin` metres depuis la
+   * gauche, a son egout a `hauteur` ; la `hauteur` du releve est alors l'egout le plus haut. La
+   * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
+   */
+  partieBasse?: PartieBasse | null;
+}
+
+/** La partie basse d'un mur en L, dans le repere de sa facade (metres). */
+export interface PartieBasse {
+  debut: number;
+  fin: number;
+  hauteur: number;
 }
 
 /** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */

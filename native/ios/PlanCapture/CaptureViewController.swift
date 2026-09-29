@@ -92,7 +92,15 @@ final class CaptureViewController: UIViewController, ARSessionDelegate, WKScript
         derniereMesure = Date()
         guard let profondeur = frame.sceneDepth else { return }
         guard let (distance, confiance) = profondeurAuCentre(profondeur) else { return }
-        envoyer("plan:profondeur", ["distance": distance, "confiance": confiance])
+        // L'image telle que la photo sera livree : en portrait (cotes echanges), reduite a
+        // photoMaxPx, avec sa focale. La page en deduit ce que la photo couvrira du mur.
+        let res = frame.camera.imageResolution
+        let k = min(1, photoMaxPx / max(res.width, res.height))
+        envoyer("plan:profondeur", [
+            "distance": distance, "confiance": confiance,
+            "largeurPx": Double(res.height * k), "hauteurPx": Double(res.width * k),
+            "focalePx": Double(frame.camera.intrinsics[0][0]) * Double(k),
+        ])
     }
 
     /// Mediane d'une fenetre de 7 x 7 au centre de la carte de profondeur, et la confiance la plus basse.

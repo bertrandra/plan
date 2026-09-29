@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/facade/geometrie.js';
-import { focalePx, distanceParCadrage, consigneDistance, distancePourToutCadrer, etalonnerChamp, consigneAplomb } from '../../../src/facade/cadrage.js';
+import { focalePx, distanceParCadrage, distancePourToutCadrer, etalonnerChamp, consigneAplomb, planDePrise, consignePrise } from '../../../src/facade/cadrage.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/homographie.js';
 import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection.js';
 
@@ -57,13 +57,6 @@ describe('cadrage', () => {
 
   it('refuse une mesure de quelques pixels', () => {
     expect(distanceParCadrage(4, 2, f)).toBeNull();
-  });
-
-  it('dit d avancer, de reculer, ou que c est bon', () => {
-    expect(consigneDistance(3.1).bon).toBe(true);
-    expect(consigneDistance(3.8).message).toBe('3,8 m : avancez de 0,8 m');
-    expect(consigneDistance(2.4).message).toBe('2,4 m : reculez de 0,6 m');
-    expect(consigneDistance(null).bon).toBe(false);
   });
 
   it('calcule la distance pour tout cadrer', () => {
@@ -213,5 +206,36 @@ describe('redresser puis detecter', () => {
     expect(r.couverture).toBeCloseTo(0.5, 1);
     const o = (10 * r.image.largeur + 90) * 4;
     expect(r.image.donnees[o]).toBeCloseTo(ENDUIT[0], -1);
+  });
+});
+
+describe('plan de prise', () => {
+  // Telephone en portrait, 3024 x 4032, objectif principal : a 3 m, ~3 m de large et ~4 m de haut.
+  const f = focalePx(3024, 4032, 67);
+
+  it('une photo quand tout tient', () => {
+    const pl = planDePrise(2.5, 3, 3, 3024, 4032, f);
+    expect(pl.photos).toBe(1);
+    expect(pl.hauteurTient).toBe(true);
+    expect(consignePrise(pl, 0, false).ton).toBe('bon');
+  });
+
+  it('plusieurs photos quand la largeur ne tient pas, avec le pas le long du mur', () => {
+    const pl = planDePrise(8, 3, 3, 3024, 4032, f);
+    expect(pl.photos).toBe(4);
+    expect(pl.pas).toBeGreaterThan(1.5);
+    expect(pl.pas).toBeLessThan(pl.couvre.largeur);
+    expect(consignePrise(pl, 0, false).message).toMatch(/4 photos/);
+    expect(consignePrise(pl, 3, false).message).toMatch(/coin droit/);
+  });
+
+  it('alerte quand la hauteur ne tient pas, et dit a quelle distance reculer', () => {
+    const pl = planDePrise(8, 6, 3, 3024, 4032, f);
+    expect(pl.hauteurTient).toBe(false);
+    const c = consignePrise(pl, 0, true);
+    expect(c.ton).toBe('alerte');
+    expect(c.message).toMatch(/grand-angle/);
+    expect(pl.reculPourHauteur).toBeGreaterThan(3);
+    expect(planDePrise(8, 6, pl.reculPourHauteur + 0.01, 3024, 4032, f).hauteurTient).toBe(true);
   });
 });

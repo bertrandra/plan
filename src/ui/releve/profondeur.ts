@@ -19,6 +19,11 @@ export type SourceDistance = 'lidar' | 'webxr' | 'cadrage';
 export interface MesureDistance {
   distance: number;
   source: SourceDistance;
+  /**
+   * La geometrie de l'image que voit le capteur, quand il la donne (module natif) : sans video dans
+   * la page, c'est elle - et non la taille de l'ecran - qui dit ce que la photo couvrira.
+   */
+  camera?: { largeurPx: number; hauteurPx: number; focalePx: number };
 }
 
 /** Le canal de messages que le module natif installe dans sa vue web (WKScriptMessageHandler). */
@@ -43,12 +48,15 @@ export function commanderNatif(action: 'demarrer' | 'arreter' | 'photo'): void {
 
 /**
  * S'abonne aux mesures du module natif. Renvoie de quoi se desabonner. L'evenement porte
- * `{ distance: metres, confiance: 0..2 }` (la confiance ARKit de la carte de profondeur).
+ * `{ distance: metres, confiance: 0..2 }` (la confiance ARKit de la carte de profondeur), et
+ * `largeurPx`, `hauteurPx`, `focalePx` : l'image du capteur, telle que la photo sera livree.
  */
 export function ecouterNatif(surMesure: (m: MesureDistance) => void): () => void {
   const f = (e: Event) => {
-    const d = (e as CustomEvent<{ distance?: number; confiance?: number }>).detail;
-    if (d && typeof d.distance === 'number' && d.distance > 0 && (d.confiance ?? 2) >= 1) surMesure({ distance: d.distance, source: 'lidar' });
+    const d = (e as CustomEvent<{ distance?: number; confiance?: number; largeurPx?: number; hauteurPx?: number; focalePx?: number }>).detail;
+    if (!d || typeof d.distance !== 'number' || !(d.distance > 0) || (d.confiance ?? 2) < 1) return;
+    const camera = d.largeurPx && d.hauteurPx && d.focalePx ? { largeurPx: d.largeurPx, hauteurPx: d.hauteurPx, focalePx: d.focalePx } : undefined;
+    surMesure(camera ? { distance: d.distance, source: 'lidar', camera } : { distance: d.distance, source: 'lidar' });
   };
   window.addEventListener('plan:profondeur', f);
   commanderNatif('demarrer');
