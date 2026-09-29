@@ -23,8 +23,9 @@ photographie. Plan en tire, **dans le navigateur, sans serveur** :
    posé sur le bâtiment ; et sur le **plan 2D**, les ouvertures du rez-de-chaussée à la manière d'un
    plan d'architecte.
 
-Une **aide au positionnement** guide la prise de vue à une distance cible (**3 m par défaut**),
-avec la distance mesurée par le **LiDAR** quand Plan tourne dans le module natif iOS.
+Une **aide au positionnement** mesure la distance au mur — au **LiDAR** quand Plan tourne dans le
+module natif iOS — et dit ce qu'elle permet : une photo, plusieurs en se décalant le long du mur
+quand on manque de recul, ou reculer ; une alerte quand rien ne peut mesurer.
 
 ### 1.1 Ce qui a été décidé avant d'écrire une ligne
 
@@ -116,10 +117,11 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
 
 1. **Choisir le mur** — le contour du bâtiment, nord en haut, chaque côté une cible de 44 px, et la
    même liste en boutons. Sauté si l'inspecteur a désigné le mur.
-2. **Se placer** — la caméra arrière, la distance au mur et sa source, la consigne (« 3,8 m :
-   avancez de 0,8 m », « 3,1 m, bonne distance »), l'aplomb du téléphone. Le déclencheur, et
-   « Importer » pour une photo déjà prise. Voir §5.
-3. **Placer les coins** — la photo, avec une marge tout autour : les quatre coins du mur (égout en
+2. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
+   permet (« une photo suffit », « 3 photos, de gauche à droite », ou l'alerte « reculez à au moins
+   Y m »), une alerte quand rien ne mesure, l'aplomb du téléphone, le choix de l'objectif (0,5× / 1×).
+   Le déclencheur, et « Importer » pour une photo déjà prise. Voir §5.
+3. **Placer les coins** — la photo (ou chaque photo de la série, en vignettes, §6.1), avec une marge tout autour : les quatre coins du mur (égout en
    haut, pied du mur en bas) sont proposés d'après la distance (§5.4), et se déplacent au doigt
    avec une **loupe**. Un coin caché ou hors cadre se place là où il serait. La hauteur à l'égout
    se corrige ici ; la largeur vient du plan.
@@ -161,12 +163,26 @@ dans la visée, et le réglage reste sur l'appareil (`localStorage`, jamais dans
 - Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/exif.ts`).
 - Module natif : les intrinsèques ARKit donnent la focale en pixels, livrée avec la photo.
 
-### 5.4 La distance cible et les coins proposés
+### 5.4 La distance mesurée, et ce qu'elle permet
 
-La cible est **3 m** par défaut, réglable par pas de 0,5 m, avec une tolérance de ± 0,25 m. La
-visée dit aussi à partir de quelle distance le mur entier tient dans l'image : à 3 m, un mur à étage
-déborde, et **c'est prévu** — ses coins se placeront au-delà de la photo, et la partie non vue est
-complétée à la teinte du mur (§6).
+Il n'y a **pas de distance cible** : on mesure où l'on est, et Plan calcule ce que cette distance
+permet (`planDePrise`, `consignePrise` dans `facade/cadrage.ts`). L'image couvre
+`d · largeurPx / f` × `d · hauteurPx / f` mètres de mur ; d'où trois cas :
+
+| À cette distance | Consigne |
+|---|---|
+| tout le mur tient (10 % de marge) | « Tout le mur tient dans l'image : une photo suffit. » |
+| la hauteur tient, pas la largeur | « Le mur ne tient pas en largeur : N photos, de gauche à droite (ou reculez à X m pour une seule). » puis, photo après photo, « décalez-vous d'environ P m vers la droite, en gardant un tiers de la photo précédente » (§6.1) |
+| la hauteur ne tient pas | **alerte** : « La hauteur du mur ne tient pas : l'image n'en couvre que H m. Reculez à au moins Y m (ou passez au grand-angle). » — les photos s'assemblent côte à côte, pas l'une au-dessus de l'autre |
+
+La géométrie de l'image est celle de la vidéo dans la page ; dans le module natif, sans vidéo, c'est
+celle que le module envoie avec chaque mesure (taille de la photo livrée et focale).
+
+**Sans mesure, une alerte.** Si aucun capteur ne répond — Safari sur iPhone n'a pas accès au LiDAR,
+un iPhone sans LiDAR dans le module natif —, la visée l'annonce : « Distance non mesurée : ce
+navigateur n'a pas accès au LiDAR. Ouvrez Plan dans l'application Plan Capture, ou mesurez en réalité
+augmentée ; à défaut, placez les repères pour l'estimer. » Les repères du cadrage (§5.2) restent
+en secours, et leur distance est affichée « estimée, non mesurée ».
 
 À distance connue et téléphone d'aplomb, le mur se projette en un rectangle centré, le sol à
 hauteur d'œil (1,5 m) sous l'horizon : ce sont les coins proposés. Les repères du cadrage, quand
@@ -218,6 +234,35 @@ dans le plan du mur, il est donc redressé à la même échelle.
 - **Dans la bande au-dessus de l'égout, le ciel est repeint à la teinte du mur.** La 3D plaque
   cette bande sur le pignon modélisé ; s'il déborde de celui de la photo (faîtage décentré sur un
   contour irrégulier, pente corrigée à la main), il montre du mur, pas un morceau de ciel.
+
+### 6.1 Plusieurs photos pour un mur
+
+Sans recul, on photographie le mur par morceaux qui se recouvrent, de gauche à droite
+(`facade/mosaique.ts`). Chaque morceau est un rectangle du mur — de l'égout au pied, entre deux
+verticales : la première photo tient le coin gauche, la dernière le coin droit, celles du milieu
+deux verticales quelconques près des bords de l'image.
+
+1. **La largeur de chaque morceau.** Sa hauteur est connue (sol → égout) ; son rapport
+   largeur/hauteur se lit sur la photo parce que la focale est connue : l'image d'un rectangle en
+   perspective en fixe les proportions à une focale près (Zhang et He, « Whiteboard scanning », 2004).
+   Chaque morceau est redressé, avec la bande au-dessus de l'égout, à la même échelle.
+2. **Sa place.** Deux morceaux voisins se recouvrent : leur décalage est celui où leurs pixels
+   communs se ressemblent le plus (corrélation normalisée), cherché à 10 px/m puis affiné au pixel.
+   Dans un recouvrement, chaque morceau pèse d'autant plus qu'on s'éloigne de son bord.
+3. **La largeur du tout** est recalée sur celle du plan.
+
+L'assemblage rend ce qu'il a trouvé à redire, affiché avant validation : deux photos qui se
+ressemblent mal sur leur partie commune (corrélation < 0,5 : « reprenez-en une en gardant un tiers
+de mur en commun »), ou une largeur totale à plus de 6 % de celle du plan (« vérifiez les coins »).
+Ensuite tout se passe comme pour une photo : ouvertures (§7), toit (§8), texture.
+
+Au pas-à-pas, l'étape des coins montre la série en vignettes (reprendre, retirer, choisir la photo
+à ajuster), dit combien de photos restent d'après la distance mesurée, et propose « Ajouter une
+photo » tant qu'il en manque. Sur les images de test (trois photos à 5 m d'un mur de 8 m, prises de
+biais de −3 à +4°), les ouvertures sont retrouvées à 1–2 cm.
+
+**Limite.** À courte distance et téléphone d'aplomb, le haut de l'image s'arrête souvent sous le
+pignon : le toit n'est alors pas proposé (§8.2), plutôt que deviné.
 
 ---
 
@@ -345,7 +390,7 @@ interface ReleveFacade {
 
 | Limite | Effet | Suite possible |
 |---|---|---|
-| Une photo par façade | à 3 m, un mur à étage déborde ; ses coins se placent hors photo et le non-vu est complété à la teinte du mur | assemblage de plusieurs photos le long du mur |
+| Photos côte à côte seulement | un mur trop haut pour la distance disponible ne s'assemble pas en hauteur ; la visée demande de reculer | assemblage en hauteur, photos inclinées |
 | Détection par écart à la teinte du mur | un volet de la couleur de l'enduit, une baie à contre-jour claire peuvent échapper ; une grande ombre portée peut être prise pour une baie | la correction au doigt est là pour ça ; un modèle de segmentation (serveur) plus tard |
 | Toit sur l'enveloppe du contour entier | sur un contour en L, une seule toiture couvre les deux ailes | toitures par volume |
 | Pignon de la photo et pignon modélisé | sur un contour irrégulier, le faîtage n'est pas au milieu du mur photographié : la photo s'étire, le ciel est repeint en mur | faîtage décalé sur le mur relevé |

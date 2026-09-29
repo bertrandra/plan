@@ -1399,3 +1399,15 @@
   html.releveNatif body > *:not(#zoneReleve){ visibility:hidden; }
   html.releveNatif .releve.camera, html.releveNatif .releveScene{ background:transparent; }
   html.releveNatif .releve.camera .releveEntete, html.releveNatif .releveOutils{ background:var(--camera-voile); }
+
+  /* Plusieurs photos pour un mur (spec-releve-facade §6.1) : la serie en vignettes, de gauche a
+     droite ; la choisie porte l'accent. Et la consigne neutre de la visee (plan de prise). */
+  .releveConsigneCamera.info{ color:var(--on-camera); }
+  .releveMorceaux{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .releveMorceau{ display:flex; flex-direction:column; align-items:center; gap:4px; flex:none; }
+  .releveVignette{ position:relative; width:72px; height:72px; padding:0; border-radius:var(--r-champ);
+    overflow:hidden; border:2px solid var(--rule); background:var(--camera-bg); }
+  .releveVignette img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .releveVignette span{ position:absolute; left:4px; top:4px; min-width:20px; height:20px; border-radius:999px;
+    background:var(--camera-voile); color:var(--on-camera); font-size:0.7rem; line-height:20px; text-align:center; font-variant-numeric:tabular-nums; }
+  .releveMorceau.choisi .releveVignette{ border-color:var(--accent); }

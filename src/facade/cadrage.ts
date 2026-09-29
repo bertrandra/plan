@@ -16,12 +16,6 @@
  */
 export const CHAMP_GRAND_COTE_DEFAUT = 67;
 
-/** Distance de prise de vue proposee par defaut, en metres. */
-export const DISTANCE_CIBLE_DEFAUT = 3;
-
-/** Ecart toleree autour de la distance cible, en metres. */
-export const TOLERANCE_DISTANCE = 0.25;
-
 const rad = (d: number) => (d * Math.PI) / 180;
 const degres = (r: number) => (r * 180) / Math.PI;
 
@@ -72,29 +66,7 @@ export function etalonnerChamp(distance: number, tailleReelle: number, taillePx:
   return champPx(grandCotePx, focale);
 }
 
-/** Etat du guidage de distance, tel que l'affiche la surimpression de la camera. */
-export interface ConsigneDistance {
-  /** `true` quand on est dans la tolerance autour de la cible. */
-  bon: boolean;
-  /** Ecart signe en metres : positif = trop loin, il faut avancer. */
-  ecart: number;
-  /** Phrase courte a afficher. */
-  message: string;
-}
-
 const fr = (v: number) => v.toFixed(1).replace('.', ',');
-
-/** Ce qu'il faut dire a l'utilisateur, a `distance` metres d'un mur, pour une cible donnee. */
-export function consigneDistance(distance: number | null, cible = DISTANCE_CIBLE_DEFAUT, tolerance = TOLERANCE_DISTANCE): ConsigneDistance {
-  if (distance === null || !Number.isFinite(distance)) {
-    return { bon: false, ecart: NaN, message: 'Distance inconnue' };
-  }
-  const ecart = distance - cible;
-  if (Math.abs(ecart) <= tolerance) return { bon: true, ecart, message: `${fr(distance)} m, bonne distance` };
-  return ecart > 0
-    ? { bon: false, ecart, message: `${fr(distance)} m : avancez de ${fr(ecart)} m` }
-    : { bon: false, ecart, message: `${fr(distance)} m : reculez de ${fr(-ecart)} m` };
-}
 
 /**
  * Consigne d'aplomb, depuis l'inclinaison du telephone (`DeviceOrientationEvent.beta`, en degres :
@@ -106,4 +78,76 @@ export function consigneAplomb(beta: number | null, tolerance = 6): { bon: boole
   const ecart = beta - 90;
   if (Math.abs(ecart) <= tolerance) return { bon: true, message: 'Téléphone droit' };
   return ecart > 0 ? { bon: false, message: 'Ramenez le haut du téléphone vers vous' } : { bon: false, message: 'Inclinez le haut du téléphone vers le mur' };
+}
+
+/**
+ * Ce que la distance mesuree permet, pour un mur de `largeur` x `hauteur` metres (spec §5.4). Il n'y
+ * a plus de distance cible : on mesure ou l'on est, et l'on en deduit s'il faut une photo, plusieurs
+ * en se decalant le long du mur, ou reculer parce que la hauteur ne tient pas - le releve assemble
+ * des photos cote a cote, pas l'une au-dessus de l'autre.
+ */
+export interface PlanDePrise {
+  /** Ce que l'image couvre du mur a cette distance, en metres. */
+  couvre: { largeur: number; hauteur: number };
+  /** Toute la hauteur du mur, avec 10 % de marge, tient dans l'image. */
+  hauteurTient: boolean;
+  /** Nombre de photos pour couvrir la largeur, en se recouvrant d'un tiers. */
+  photos: number;
+  /** Decalage le long du mur entre deux photos, en metres (0 pour une seule). */
+  pas: number;
+  /** Distance a partir de laquelle tout le mur tient dans une photo. */
+  reculPourUne: number;
+  /** Distance a partir de laquelle la hauteur tient. */
+  reculPourHauteur: number;
+}
+
+export const RECOUVREMENT = 1 / 3;
+
+export function planDePrise(largeur: number, hauteur: number, distance: number, largeurPx: number, hauteurPx: number, focale: number): PlanDePrise {
+  const couvre = couverture(distance, largeurPx, hauteurPx, focale);
+  const hauteurTient = couvre.hauteur >= hauteur * 1.1;
+  // Largeur utile d'une photo : ce qu'elle couvre, moins une petite marge pour attraper les coins.
+  const utile = couvre.largeur * 0.9;
+  let photos = 1,
+    pas = 0;
+  if (utile < largeur) {
+    photos = Math.ceil((largeur - utile) / (utile * (1 - RECOUVREMENT))) + 1;
+    pas = (largeur - utile) / (photos - 1);
+  }
+  return {
+    couvre,
+    hauteurTient,
+    photos,
+    pas,
+    reculPourUne: distancePourToutCadrer(largeur, hauteur, largeurPx, hauteurPx, focale),
+    reculPourHauteur: (hauteur * 1.1 * focale) / hauteurPx,
+  };
+}
+
+/** Une consigne de prise de vue : ce qui s'affiche sous la distance, et son ton. */
+export interface ConsignePrise {
+  ton: 'bon' | 'info' | 'alerte';
+  message: string;
+}
+
+/** La consigne d'apres le plan de prise, la photo en cours (0 = la premiere) et l'objectif. */
+export function consignePrise(plan: PlanDePrise, faites: number, grandAngleDisponible: boolean): ConsignePrise {
+  if (!plan.hauteurTient) {
+    return {
+      ton: 'alerte',
+      message: `La hauteur du mur ne tient pas : l'image n'en couvre que ${fr(plan.couvre.hauteur)} m. Reculez à au moins ${fr(plan.reculPourHauteur)} m${grandAngleDisponible ? ', ou passez au grand-angle' : ''}.`,
+    };
+  }
+  if (plan.photos === 1) return { ton: 'bon', message: faites ? 'Tout le mur tient dans l’image : une photo suffisait.' : 'Tout le mur tient dans l’image : une photo suffit.' };
+  if (faites === 0) {
+    return {
+      ton: 'info',
+      message: `Le mur ne tient pas en largeur : ${plan.photos} photos, de gauche à droite (ou reculez à ${fr(plan.reculPourUne)} m pour une seule). Photo 1 : cadrez le coin gauche du mur.`,
+    };
+  }
+  const derniere = faites + 1 >= plan.photos;
+  return {
+    ton: 'info',
+    message: `Photo ${faites + 1} sur ${plan.photos} : décalez-vous d’environ ${fr(plan.pas)} m vers la droite, en gardant un tiers de la photo précédente${derniere ? ' ; cadrez le coin droit du mur' : ''}.`,
+  };
 }

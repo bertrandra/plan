@@ -92,6 +92,19 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
   const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
   const r = redresser(e.photo, coinsEtendus, e.largeur, e.hauteur + E, pxParM);
   if (!r) return null;
+  return finaliserReleve(r.image, r.vu, E, pxParM, e);
+}
+
+/** Ce que le releve exige du mur, quelle que soit la facon dont l'elevation a ete obtenue. */
+export type MurDuReleve = Pick<EntreeAnalyse, 'hauteur' | 'contour' | 'cote' | 'distance'>;
+
+/**
+ * La suite commune a une photo et a plusieurs : l'elevation etendue (le mur, et la bande de `E`
+ * metres au-dessus de l'egout) a `pxParM`, et son masque de pixels vus, donnent les ouvertures, le
+ * toit propose et la texture, dont le ciel au-dessus de l'egout est repeint a la teinte du mur.
+ */
+export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve): ResultatAnalyse {
+  const r = { image: texture, vu };
   const egout = Math.round(E * pxParM);
   const mur = rogner(r.image, r.vu, egout, r.image.hauteur);
   const bande = rogner(r.image, r.vu, 0, egout);

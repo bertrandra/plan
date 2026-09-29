@@ -118,12 +118,15 @@ export function saisir(video: HTMLVideoElement): Photo | null {
 }
 
 /** Charge une image depuis une URL (fichier, data:) dans un canevas. */
-async function chargerUrl(url: string): Promise<HTMLImageElement> {
-  const img = new window.Image();
-  img.decoding = 'async';
-  img.src = url;
-  await img.decode();
-  return img;
+// Par `onload` et non `img.decode()` : `decode()` attend que la page soit visible, et une vue web
+// cachee un instant (bascule d'application, module natif qui reprend la main) le laissait suspendu.
+function chargerUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("L'image n'a pas pu être lue."));
+    img.src = url;
+  });
 }
 
 /** Lit une photo choisie dans un fichier : l'orientation EXIF est appliquee par le navigateur. */
