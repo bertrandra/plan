@@ -5,45 +5,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-### Ajouté
-
-- **Le grand-angle (0,5×) dans la prise de vue du relevé de façade.** À 3 m, il voit deux fois plus
-  de mur que l'objectif principal. Sur iPhone, Plan reconnaît l'ultra grand-angle parmi les caméras
-  et l'ouvre ; sur Android, il applique le zoom inférieur à 1 que la caméra accepte. Le choix
-  « 0,5× grand-angle / 1× » n'apparaît que si le téléphone l'offre, et le champ de l'objectif se
-  règle et se retient pour chacun (108° par défaut pour un 13 mm, déduit du zoom sur Android).
-  Spécification : `MD/spec-releve-facade.md` §5.6, avec sa limite — la distorsion d'un
-  grand-angle Android non corrigée.
-- **Plusieurs photos pour une façade, quand on manque de recul.** On photographie le mur par
-  morceaux qui se recouvrent, de gauche à droite ; Plan redresse chacun à la même échelle (ses
-  proportions se lisent sur la photo grâce à la focale), les aligne sur leur partie commune et les
-  assemble en une seule élévation, recalée sur la largeur du mur. Il dit quand deux photos se
-  raccordent mal. L'étape des coins montre la série en vignettes, avec « Ajouter une photo ».
-  Spécification §6.1.
-
-- **Les murs en L : deux hauteurs d'égout sur un même mur.** Une partie à étage prolongée par une
-  partie basse (garage, extension) se relève en posant, en plus des coins, deux points au
-  décrochement. Plan en mesure la position et la hauteur d'égout de la partie basse (le coin caché
-  au-dessus d'elle se construit par intersection de droites, il n'est pas deviné), écarte ce qui
-  dépasse de son égout, lit le toit au-dessus de la partie haute seulement, et coupe le bâtiment en
-  deux volumes en 3D : la partie basse prend la profondeur du pignon adjacent, la photo se pose en L.
-  Spécification §6.2.
-
-### Modifié
-
-- **Plus de distance cible : la distance est mesurée, et Plan dit ce qu'elle permet.** Au LiDAR
-  (module natif) ou en réalité augmentée, il calcule ce que l'image couvre : une photo suffit, ou
-  N photos en se décalant d'environ P m, ou — alerte — la hauteur ne tient pas et il faut reculer à
-  Y m. **Sans capteur, une alerte le dit** (Safari n'a pas accès au LiDAR), et les repères restent
-  pour une estimation affichée comme telle. Le module natif envoie désormais la géométrie de son
-  image avec chaque mesure. Spécification §5.4.
-
-### Corrigé
-
-- Une photo livrée par le module natif restait en attente si la page était un instant cachée :
-  l'image se chargeait par `decode()`, qui attend que la page soit visible. Elle se charge
-  maintenant par `onload`.
-
 ## [2.2.0] — 2026-09-29
 
 ### Ajouté
@@ -79,6 +40,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   du faîtage avec sa pente, direction du faîtage, couverture. Deux commandes, `facade.relever` et
   `facade.retirer`, placées dans les trois classes d'écran.
 
+- **Le grand-angle (0,5×) dans la prise de vue du relevé de façade.** À 3 m, il voit deux fois plus
+  de mur que l'objectif principal. Sur iPhone, Plan reconnaît l'ultra grand-angle parmi les caméras
+  et l'ouvre ; sur Android, il applique le zoom inférieur à 1 que la caméra accepte. Le choix
+  « 0,5× grand-angle / 1× » n'apparaît que si le téléphone l'offre, et le champ de l'objectif se
+  règle et se retient pour chacun (108° par défaut pour un 13 mm, déduit du zoom sur Android).
+  Spécification : `MD/spec-releve-facade.md` §5.6, avec sa limite — la distorsion d'un
+  grand-angle Android non corrigée.
+- **Plusieurs photos pour une façade, quand on manque de recul.** On photographie le mur par
+  morceaux qui se recouvrent, de gauche à droite ; Plan redresse chacun à la même échelle (ses
+  proportions se lisent sur la photo grâce à la focale), les aligne sur leur partie commune et les
+  assemble en une seule élévation, recalée sur la largeur du mur. Il dit quand deux photos se
+  raccordent mal. L'étape des coins montre la série en vignettes, avec « Ajouter une photo ».
+  Spécification §6.1.
+
+- **Les murs en L : deux hauteurs d'égout sur un même mur.** Une partie à étage prolongée par une
+  partie basse (garage, extension) se relève en posant, en plus des coins, deux points au
+  décrochement. Plan en mesure la position et la hauteur d'égout de la partie basse (le coin caché
+  au-dessus d'elle se construit par intersection de droites, il n'est pas deviné), écarte ce qui
+  dépasse de son égout, lit le toit au-dessus de la partie haute seulement, et coupe le bâtiment en
+  deux volumes en 3D : la partie basse prend la profondeur du pignon adjacent, la photo se pose en L.
+  Spécification §6.2.
+
 ### Modifié
 
 - **Le schéma du projet passe à 2** (`RELEASE.md` §3.1) : un bâtiment peut porter `facades` et
@@ -89,15 +72,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `--camera-ok`, `--camera-alerte`), identiques dans les deux thèmes : une caméra se regarde sur
   fond sombre. Leurs contrastes sont vérifiés par le test des jetons.
 
+- **Plus de distance cible : la distance est mesurée, et Plan dit ce qu'elle permet.** Au LiDAR
+  (module natif) ou en réalité augmentée, il calcule ce que l'image couvre : une photo suffit, ou
+  N photos en se décalant d'environ P m, ou — alerte — la hauteur ne tient pas et il faut reculer à
+  Y m. **Sans capteur, une alerte le dit** (Safari n'a pas accès au LiDAR), et les repères restent
+  pour une estimation affichée comme telle. Le module natif envoie désormais la géométrie de son
+  image avec chaque mesure. Spécification §5.4.
+
+### Corrigé
+
+- Une photo livrée par le module natif restait en attente si la page était un instant cachée :
+  l'image se chargeait par `decode()`, qui attend que la page soit visible. Elle se charge
+  maintenant par `onload`.
+
 ### Interne
 
 - **Les six témoins sont recapturés à la `2.2.0`, avec la preuve forte** : ancien numéro,
   ancienne date de build et ancien numéro de schéma remis dans les octets frais, les six empreintes
   de la `2.0.2` reviennent au bit près, à tailles identiques. Le relevé de façade — et la `2.1.0`,
   que la dernière capture n'avait pas vue — n'ont déplacé aucun octet exporté.
-- 791 tests (55 de plus) : géométrie des façades, cadrage, homographie, redressement d'une photo
+- 852 tests, dont 84 pour le relevé : géométrie des façades, cadrage, objectifs, homographie, redressement d'une photo
   synthétique en perspective, ouvertures au centimètre, pignon reconnu et faîtage orienté, EXIF,
-  sérialisation conditionnelle, mailles et coordonnées de texture 3D.
+  sérialisation conditionnelle, mailles et coordonnées de texture 3D, assemblage de plusieurs
+  photos, plan de prise, murs en L et découpe du bâtiment.
 
 Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement hors les
 défauts corrigés ci-dessous** : le moteur n'est que déplacé, l'oracle et les six empreintes ne
