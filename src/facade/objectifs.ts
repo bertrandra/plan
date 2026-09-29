@@ -24,17 +24,20 @@ export type GenreCamera = 'avant' | 'grand-angle' | 'tele' | 'virtuelle' | 'arri
 export function genreCamera(libelle: string): GenreCamera {
   const l = libelle.toLowerCase();
   if (/front|avant|facetime|user|selfie/.test(l)) return 'avant';
+  // Les cameras « Dual » et « Triple » d'un iPhone sont virtuelles : iOS y choisit l'objectif seul,
+  // selon le zoom et la lumiere, et commence a 1x. On ne s'y fie pas pour savoir quel champ on a. Le
+  // test passe avant celui du grand-angle : en francais, la « Dual Wide » s'appelle « Caméra arrière
+  // double grand-angle », et elle etait prise pour l'ultra grand-angle.
+  if (/dual|triple|double/.test(l)) return 'virtuelle';
   if (/ultra ?wide|ultra[- ]grand|grand[- ]angle|0[.,]5\s*x/.test(l)) return 'grand-angle';
   if (/tele|téléobjectif/.test(l)) return 'tele';
-  // Les cameras « Dual » et « Triple » d'un iPhone sont virtuelles : iOS y choisit l'objectif seul,
-  // selon le zoom et la lumiere. On ne s'y fie pas pour savoir quel champ on a.
-  if (/dual|triple|double/.test(l)) return 'virtuelle';
   return 'arriere';
 }
 
-/** L'identifiant du grand-angle parmi les cameras connues, s'il y en a un. */
+/** L'identifiant du grand-angle parmi les cameras connues, s'il y en a un ; un « ultra » d'abord. */
 export function grandAngleParmi(cameras: readonly { deviceId: string; label: string }[]): string | null {
-  const c = cameras.find((x) => genreCamera(x.label) === 'grand-angle');
+  const grands = cameras.filter((x) => genreCamera(x.label) === 'grand-angle');
+  const c = grands.find((x) => /ultra/i.test(x.label)) ?? grands[0];
   return c ? c.deviceId : null;
 }
 

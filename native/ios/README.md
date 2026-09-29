@@ -1,5 +1,12 @@
 # Plan Capture — module natif iOS du relevé de façade
 
+> **Désactivé.** Depuis la 1.1 du relevé (`MD/spec-releve-facade.md` §5.1), la page ne se sert plus
+> du LiDAR : sa portée, environ 5 m, est en deçà du recul qu'il faut pour photographier une façade
+> avec son pignon. `LIDAR_ACTIF` vaut `false` dans `src/ui/releve/profondeur.ts` ; dans ce module, la
+> page se comporte comme dans Safari (caméra du navigateur, distance au cadrage) et ne lui envoie
+> aucune commande. La hauteur du mur, elle, se mesure sur la photo, sans capteur. Les sources restent
+> ici pour le jour où l'on rallumerait le LiDAR.
+
 Safari n'expose pas le LiDAR de l'iPhone à une page web. Ce module est une application iOS
 minimale qui **héberge Plan tel quel** dans une vue web transparente posée sur une vue ARKit :
 

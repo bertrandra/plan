@@ -1,20 +1,24 @@
 // Z8, le releve de facade (spec-releve-facade §4 a §10) : un parcours plein ecran en cinq temps.
 //
 // 1. **Mur** : choisir la facade sur le contour du batiment (sautee si l'inspecteur l'a designee).
-// 2. **Visee** : la camera, avec l'aide au positionnement - la distance au mur mesuree (LiDAR par
-//    le module natif, realite augmentee sur Android ; sinon une alerte, et les reperes pour l'estimer),
-//    ce qu'elle permet (une photo, plusieurs en se decalant, ou reculer) et l'aplomb du telephone.
+// 2. **Visee** : la camera, avec l'aide au positionnement - la distance au mur (realite augmentee
+//    sur Android ; sinon une alerte, et les reperes sur les bords du mur pour l'estimer), ce qu'elle
+//    permet (une photo, plusieurs en se decalant, ou reculer) et l'aplomb du telephone. Le LiDAR est
+//    eteint (ui/releve/profondeur.ts).
 // 3. **Coins** : les quatre coins du mur (ou du morceau de mur) sur chaque photo, proposes d'apres
 //    la distance, ajustes au doigt avec une loupe. Ils peuvent deborder de la photo. Plusieurs photos
 //    se prennent l'une apres l'autre, et s'assemblent a l'analyse (facade/mosaique.ts).
-// 4. **Analyse** : redressement, ouvertures, silhouette du toit (facade/analyse.ts).
-// 5. **Resultat** : la facade a l'echelle, les ouvertures corrigeables, le toit propose ; Valider
-//    ecrit le tout dans le projet par le service (app/releve.ts), en un seul pas d'historique.
+// 4. **Analyse** : hauteur du mur, redressement, ouvertures, silhouette du toit (facade/analyse.ts).
+//    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une
+//    estimation, c'est la photo qui mesure la hauteur a l'egout - et, sur un pignon, son triangle.
+// 5. **Resultat** : la facade a l'echelle, sa hauteur mesuree, les ouvertures corrigeables, le toit
+//    lu sur la facade ; Valider ecrit le tout dans le projet par le service (app/releve.ts), en un
+//    seul pas d'historique. Le toit lu sur la facade remplace celui du batiment.
 //
 // Rien n'est ecrit dans le plan avant Valider : fermer le parcours ne laisse aucune trace.
 
 import { au } from '../util/tableaux.js';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as PE } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as PE } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
 import { facadesDuContour, type Facade } from '../facade/geometrie.js';
@@ -23,7 +27,7 @@ import { analyserReleve, coinsProposes, type ResultatAnalyse } from '../facade/a
 import { analyserMosaique } from '../facade/mosaique.js';
 import { type CoteBas, type Decrochement } from '../facade/profil.js';
 import { classer } from '../facade/detection.js';
-import { LIBELLES_FORME_TOIT, penteDeg } from '../facade/toit.js';
+import { LIBELLES_FORME_TOIT, penteDeg, hauteurPignon } from '../facade/toit.js';
 import type { P2 } from '../facade/homographie.js';
 import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, saisir, lireFichier, lirePhotoNative, versJpeg, type Photo, type ChoixCamera, type OffreGrandAngle } from '../ui/releve/camera.js';
 import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../facade/objectifs.js';
@@ -38,7 +42,7 @@ import {
   type MesureDistance,
 } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
-import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse, ReleveFacade } from '../model/types.js';
 
 const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
 
@@ -164,8 +168,11 @@ function ChoixMur({ bat, facades, onChoisir }: { bat: ObjetPolygone; facades: Fa
  * 2. La visee
  * --------------------------------------------------------------------------------------------- */
 
+/**
+ * Les deux reperes a poser sur les bords du mur : sa largeur est la seule taille connue (le plan), la
+ * distance s'en deduit. La hauteur, elle, ne l'est pas - c'est la photo qui la mesure.
+ */
 interface Reperes {
-  mode: 'bords' | 'hauteur';
   a: number;
   b: number;
   touches: boolean;
@@ -195,16 +202,17 @@ function useObjectif() {
   const champGrandAngle = champs.grandAngle || (offre?.deviceId || !offre?.zoom ? CHAMP_GRAND_ANGLE_DEFAUT : champAvecZoom(champs.principal, offre.zoom));
   const champ = actif === 'grand-angle' ? champGrandAngle : champs.principal;
   const choix: ChoixCamera = actif === 'grand-angle' && offre ? (offre.deviceId ? { deviceId: offre.deviceId } : { zoom: offre.zoom }) : {};
+  const choisir = useCallback((o: Objectif) => {
+    setObjectif(o);
+    ecrireReglage('objectif', o === 'grand-angle' ? 0.5 : 1);
+  }, []);
   return {
     objectif: actif,
     disponible,
     choix,
     champ,
     setOffre,
-    choisir(o: Objectif) {
-      setObjectif(o);
-      ecrireReglage('objectif', o === 'grand-angle' ? 0.5 : 1);
-    },
+    choisir,
     setChamp(v: number) {
       setChamps((c) => (actif === 'grand-angle' ? { ...c, grandAngle: v } : { ...c, principal: v }));
       ecrireReglage(actif === 'grand-angle' ? 'champ-grand-angle' : 'champ', v);
@@ -222,6 +230,8 @@ function useCamera(
   setCapteur: (m: MesureDistance) => void,
   choix: ChoixCamera,
   surOffre: (o: OffreGrandAngle) => void,
+  /** Le grand-angle n'a pas pu s'ouvrir : revenir a l'objectif principal plutot qu'a un ecran noir. */
+  surEchecGrandAngle: () => void,
 ) {
   const [erreur, setErreur] = useState<string | null>(null);
   const deviceId = choix.deviceId ?? null,
@@ -252,12 +262,16 @@ function useCamera(
         setErreur(null);
         if (!deviceId && !zoom) void decouvrirGrandAngle(f).then(surOffre);
       })
-      .catch(() => setErreur("La caméra n'a pas pu s'ouvrir. Autorisez-la dans les réglages du navigateur, ou importez une photo."));
+      .catch(() => {
+        if (fini) return;
+        if (deviceId || zoom) surEchecGrandAngle();
+        else setErreur("La caméra n'a pas pu s'ouvrir. Autorisez-la dans les réglages du navigateur, ou importez une photo.");
+      });
     return () => {
       fini = true;
       fermerCamera(flux);
     };
-  }, [natif, video, setCapteur, deviceId, zoom, surOffre]);
+  }, [natif, video, setCapteur, deviceId, zoom, surOffre, surEchecGrandAngle]);
   return { erreur, setErreur };
 }
 
@@ -344,7 +358,7 @@ function useWebxr(natif: boolean, scene: React.RefObject<HTMLDivElement | null>,
 
 type Cadre = { l: number; h: number; x: number; y: number };
 
-/** Les deux reperes a faire glisser sur les bords du mur (ou sur l'egout et le pied). */
+/** Les deux reperes a faire glisser sur les bords du mur. */
 function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; setReperes: React.Dispatch<React.SetStateAction<Reperes>>; cadre: Cadre; scene: React.RefObject<HTMLDivElement | null> }) {
   const glisser = (quel: 'a' | 'b') => (e: PE<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -352,7 +366,7 @@ function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; 
     const bouger = (ev: PointerEvent) => {
       const r = scene.current?.getBoundingClientRect();
       if (!r) return;
-      const t = reperes.mode === 'bords' ? (ev.clientX - r.left - cadre.x) / cadre.l : (ev.clientY - r.top - cadre.y) / cadre.h;
+      const t = (ev.clientX - r.left - cadre.x) / cadre.l;
       setReperes((p) => ({ ...p, [quel]: Math.max(0, Math.min(1, t)), touches: true }));
     };
     const lacher = () => {
@@ -364,17 +378,16 @@ function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; 
     el.addEventListener('pointerup', lacher);
     el.addEventListener('pointercancel', lacher);
   };
-  const vertical = reperes.mode === 'bords';
   return (
     <div className="releveReperes" style={{ left: cadre.x, top: cadre.y, width: cadre.l, height: cadre.h }}>
       {(['a', 'b'] as const).map((q) => {
         const v = reperes[q];
-        const nom = vertical ? (q === 'a' ? 'Bord gauche' : 'Bord droit') : q === 'a' ? 'Égout' : 'Sol';
+        const nom = q === 'a' ? 'Bord gauche' : 'Bord droit';
         return (
           <div
             key={q}
-            className={'releveRepere ' + (vertical ? 'vertical' : 'horizontal')}
-            style={vertical ? { left: `${v * 100}%` } : { top: `${v * 100}%` }}
+            className="releveRepere vertical"
+            style={{ left: `${v * 100}%` }}
             onPointerDown={glisser(q)}
             role="slider"
             aria-label={nom}
@@ -383,7 +396,7 @@ function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; 
             aria-valuenow={Math.round(v * 100)}
             tabIndex={0}
             onKeyDown={(e) => {
-              const pas = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 0.01 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -0.01 : 0;
+              const pas = e.key === 'ArrowRight' ? 0.01 : e.key === 'ArrowLeft' ? -0.01 : 0;
               if (pas) setReperes((p) => ({ ...p, [q]: Math.max(0, Math.min(1, p[q] + pas)), touches: true }));
             }}
           >
@@ -396,8 +409,8 @@ function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; 
 }
 
 /**
- * La distance et ce qu'elle permet, en haut de l'image. Mesuree (LiDAR, realite augmentee) : le plan
- * de prise en decoule. Sans mesure, une alerte le dit ; les reperes restent, pour une estimation
+ * La distance et ce qu'elle permet, en haut de l'image. Mesuree (realite augmentee) : le plan de
+ * prise en decoule. Sans mesure, une alerte le dit ; les reperes restent, pour une estimation
  * annoncee comme telle.
  */
 function MesureVisee({
@@ -405,14 +418,15 @@ function MesureVisee({
   consigne,
   mesuree,
   natif,
-  modeReperes,
+  xr,
   beta,
 }: {
   mesure: MesureDistance | null;
   consigne: ConsignePrise | null;
   mesuree: boolean;
   natif: boolean;
-  modeReperes: Reperes['mode'];
+  /** La realite augmentee est-elle disponible pour mesurer ? */
+  xr: boolean;
   beta: number | null;
 }) {
   const aplomb = consigneAplomb(beta);
@@ -421,7 +435,9 @@ function MesureVisee({
     ? null
     : natif
       ? "Le LiDAR ne répond pas : cet iPhone n'en a peut-être pas. Placez les repères pour estimer la distance."
-      : "Distance non mesurée : ce navigateur n'a pas accès au LiDAR. Ouvrez Plan dans l'application Plan Capture (iPhone Pro), ou mesurez en réalité augmentée ; à défaut, placez les repères pour l'estimer.";
+      : xr
+        ? 'Distance non mesurée : mesurez-la en réalité augmentée, ou estimez-la avec les repères.'
+        : 'Distance non mesurée : estimez-la avec les repères.';
   return (
     <div className="releveMesure" aria-live="polite">
       <div className="releveMesureLigne">
@@ -443,7 +459,7 @@ function MesureVisee({
         !mesuree && (
           <div className="releveConsigneCamera info">
             <Icone nom="info" taille={16} />
-            {modeReperes === 'bords' ? 'Faites glisser les deux repères sur les bords du mur.' : "Faites glisser les repères sur l'égout et le pied du mur."}
+            Faites glisser les deux repères sur les bords du mur.
           </div>
         )
       )}
@@ -456,21 +472,6 @@ function MesureVisee({
     </div>
   );
 }
-
-/** La nature des reperes d'estimation, quand aucun capteur ne mesure. */
-function ChoixReperes({ reperes, setReperes }: { reperes: Reperes; setReperes: (r: Reperes) => void }) {
-  return (
-    <div className="releveSegment" role="group" aria-label="Repères">
-      <button type="button" aria-pressed={reperes.mode === 'bords'} onClick={() => setReperes({ mode: 'bords', a: 0.2, b: 0.8, touches: false })}>
-        Bords
-      </button>
-      <button type="button" aria-pressed={reperes.mode === 'hauteur'} onClick={() => setReperes({ mode: 'hauteur', a: 0.25, b: 0.75, touches: false })}>
-        Égout et sol
-      </button>
-    </div>
-  );
-}
-
 
 /** Le choix de l'objectif, quand le telephone a un grand-angle que la page peut atteindre. */
 function ChoixObjectif({ objectif, choisir }: { objectif: Objectif; choisir: (o: Objectif) => void }) {
@@ -540,29 +541,40 @@ function usePrise(natif: boolean, video: React.RefObject<HTMLVideoElement | null
   return { enCours, declencher, importer };
 }
 
-function Visee({ facade, hauteurMur, faites, onPrise, onRetour }: { facade: Facade; hauteurMur: number; faites: number; onPrise: (p: Prise) => void; onRetour: () => void }) {
+/**
+ * `hauteurACadrer` : ce que la photo doit contenir en hauteur - l'egout estime (cadastre) et, sur un
+ * pignon, le triangle du toit, sans lequel ni la hauteur de la facade ni le toit ne se lisent.
+ */
+function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { facade: Facade; hauteurACadrer: number; faites: number; onPrise: (p: Prise) => void; onRetour: () => void }) {
   const natif = useMemo(() => natifDisponible(), []);
   const video = useRef<HTMLVideoElement>(null);
   const scene = useRef<HTMLDivElement>(null);
   const fichier = useRef<HTMLInputElement>(null);
   const [capteur, setCapteur] = useState<MesureDistance | null>(null);
-  const [reperes, setReperes] = useState<Reperes>({ mode: 'bords', a: 0.2, b: 0.8, touches: false });
+  const [reperes, setReperes] = useState<Reperes>({ a: 0.2, b: 0.8, touches: false });
   const obj = useObjectif();
   const champ = obj.champ;
-  const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre);
+  const { choisir } = obj;
+  // Le message survit a la reouverture de l'objectif principal, qui efface les erreurs de camera.
+  const [repli, setRepli] = useState(false);
+  const surEchecGrandAngle = useCallback(() => {
+    choisir('principal');
+    setRepli(true);
+  }, [choisir]);
+  const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre, surEchecGrandAngle);
   const niveau = useInclinaison();
   const { taille, cadre } = useCadreVideo(video, scene);
   const ar = useWebxr(natif, scene, setCapteur, setErreur);
 
   const f = taille.vw ? focalePx(taille.vw, taille.vh, champ) : 0;
-  const tailleReelle = reperes.mode === 'bords' ? facade.largeur : hauteurMur;
-  const px = Math.abs(reperes.b - reperes.a) * (reperes.mode === 'bords' ? taille.vw : taille.vh);
-  const dCadrage = reperes.touches && f ? distanceParCadrage(tailleReelle, px, f) : null;
+  // La largeur du mur est la seule taille connue : c'est elle que les reperes encadrent.
+  const px = Math.abs(reperes.b - reperes.a) * taille.vw;
+  const dCadrage = reperes.touches && f ? distanceParCadrage(facade.largeur, px, f) : null;
   const mesure: MesureDistance | null = capteur ?? (dCadrage ? { distance: dCadrage, source: 'cadrage' } : null);
   // La distance mesuree (ou estimee) dit combien de photos il faut, ou s'il faut reculer.
   // L'image de reference : celle du capteur natif s'il la donne, sinon la video de la page.
   const img = capteur?.camera ?? (f ? { largeurPx: taille.vw, hauteurPx: taille.vh, focalePx: f } : null);
-  const plan = mesure && img ? planDePrise(facade.largeur, hauteurMur, mesure.distance, img.largeurPx, img.hauteurPx, img.focalePx) : null;
+  const plan = mesure && img ? planDePrise(facade.largeur, hauteurACadrer, mesure.distance, img.largeurPx, img.hauteurPx, img.focalePx) : null;
   const consigne = plan ? consignePrise(plan, faites, obj.disponible && obj.objectif !== 'grand-angle') : null;
   const photosPrevues = plan?.photos ?? null;
   const prise = usePrise(natif, video, setErreur, (photo, importee) =>
@@ -579,17 +591,24 @@ function Visee({ facade, hauteurMur, faites, onPrise, onRetour }: { facade: Faca
         {!natif && <video ref={video} className="releveVideo" playsInline muted aria-label="Caméra" />}
         {!capteur && taille.vw > 0 && <RepereVisee reperes={reperes} setReperes={setReperes} cadre={cadre} scene={scene} />}
         <div className="releveViseur" aria-hidden="true" />
-        <MesureVisee mesure={mesure} consigne={consigne} mesuree={!!capteur} natif={natif} modeReperes={reperes.mode} beta={niveau.beta} />
-        {erreur && (
+        <MesureVisee mesure={mesure} consigne={consigne} mesuree={!!capteur} natif={natif} xr={ar.xr} beta={niveau.beta} />
+        {(erreur || repli) && (
           <div className="releveErreur" role="alert">
-            {erreur}
+            {erreur || "Le grand-angle n'a pas pu s'ouvrir : retour à l'objectif principal."}
           </div>
         )}
       </div>
       <div className="releveOutils">
         <div className="releveRangee">
-          {!natif && obj.disponible && <ChoixObjectif objectif={obj.objectif} choisir={obj.choisir} />}
-          {!capteur && <ChoixReperes reperes={reperes} setReperes={setReperes} />}
+          {!natif && obj.disponible && (
+            <ChoixObjectif
+              objectif={obj.objectif}
+              choisir={(o) => {
+                setRepli(false);
+                obj.choisir(o);
+              }}
+            />
+          )}
         </div>
         <div className="releveRangee releveDeclenchement">
           <button type="button" className="secondary" onClick={onRetour}>
@@ -862,6 +881,8 @@ interface Resultat {
   partieBasse: PartieBasse | null;
   texture: string;
   hauteurTexture: number;
+  /** La hauteur a-t-elle ete mesuree sur la photo (sinon, c'est celle du cadastre) ? */
+  hauteurMesuree: boolean;
   couverture: number;
   toitPropose: Toit | null;
   /** Ce que l'assemblage de plusieurs photos a trouve a redire, s'il y a lieu. */
@@ -877,27 +898,22 @@ interface Morceau {
 }
 
 /**
- * Les coins proposes pour une prise : projection d'apres la distance, ou les reperes poses sur la
- * video, qui disent exactement ou sont les bords (ou l'egout et le sol) et l'emportent. Quand le mur
+ * Les coins proposes pour une prise : projection d'apres la distance (et la hauteur estimee), ou les
+ * reperes poses sur la video, qui disent exactement ou sont les bords et l'emportent. Quand le mur
  * se photographie en plusieurs fois, le rectangle propose est la part de mur que l'image couvre, pas
  * le mur entier.
  */
-function coinsDePrise(p: Prise, largeurMur: number, hauteurMur: number, partiel: boolean): P2[] {
+function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean): P2[] {
   const w = p.photo.image.largeur,
     h = p.photo.image.hauteur;
   const f = p.photo.focalePx ?? focalePx(w, h, p.photo.champ ?? p.champ);
   const d = p.mesure?.distance ?? null;
   const visible = d ? (d * w) / f : largeurMur;
-  const c = coinsProposes(w, h, f, d, partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur, hauteurMur);
+  const c = coinsProposes(w, h, f, d, partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur, hauteurEstimee);
   if (p.reperes) {
     const [a, b] = [Math.min(p.reperes.a, p.reperes.b), Math.max(p.reperes.a, p.reperes.b)];
-    if (p.reperes.mode === 'bords') {
-      au(c, 0).x = au(c, 3).x = a * w;
-      au(c, 1).x = au(c, 2).x = b * w;
-    } else {
-      au(c, 0).y = au(c, 1).y = a * h;
-      au(c, 2).y = au(c, 3).y = b * h;
-    }
+    au(c, 0).x = au(c, 3).x = a * w;
+    au(c, 1).x = au(c, 2).x = b * w;
   }
   // A courte distance, le mur deborde de l'image : les coins projetes tombent loin hors cadre.
   // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>).
@@ -964,8 +980,6 @@ function EtapeCoins({
   setDecrochement,
   prevues,
   avis,
-  hauteurMur,
-  setHauteurMur,
   largeur,
   onReprendre,
   onAjouter,
@@ -979,8 +993,6 @@ function EtapeCoins({
   setDecrochement: (d: Decrochement | null) => void;
   prevues: number;
   avis: string | null;
-  hauteurMur: number;
-  setHauteurMur: (v: number) => void;
   largeur: number;
   onReprendre: () => void;
   onAjouter: () => void;
@@ -1020,26 +1032,7 @@ function EtapeCoins({
         ) : (
           <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} />
         )}
-        <div className="releveChamps">
-          <label className="releveCm">
-            <span>Hauteur à l'égout</span>
-            <span className="champNombre">
-              <input
-                type="number"
-                step={0.05}
-                min={1}
-                max={30}
-                value={hauteurMur}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (v > 0) setHauteurMur(v);
-                }}
-              />
-              <span className="unite">m</span>
-            </span>
-          </label>
-          <span className="releveNote">Largeur du mur : {fr(largeur)} m, lue sur le plan.</span>
-        </div>
+        <p className="releveNote">Largeur du mur : {fr(largeur)} m, lue sur le plan. La hauteur se mesure sur la photo, d'après ces coins.</p>
         {manque > 0 && (
           <p className="releveNote">
             D'après la distance mesurée, il reste {manque} photo{manque > 1 ? 's' : ''} à prendre pour couvrir le mur.
@@ -1067,6 +1060,7 @@ function EtapeAnalyse() {
       <div className="releveSablier" aria-hidden="true" />
       <p className="releveConsigne">Analyse de votre façade…</p>
       <ul>
+        <li>Mesure de la hauteur du mur</li>
         <li>Redressement de la photo à l'échelle</li>
         <li>Recherche des fenêtres et des portes</li>
         <li>Lecture de la silhouette du toit</li>
@@ -1099,8 +1093,28 @@ function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: Ouverture
   );
 }
 
-/** Le toit propose d'apres la photo, a appliquer ou non, corrigeable. */
-function CarteToit({ toit, setToit, appliquer, setAppliquer, contour }: { toit: Toit | null; setToit: (t: Toit) => void; appliquer: boolean; setAppliquer: (v: boolean) => void; contour: PtBrut[] }) {
+/**
+ * Le toit lu sur la facade, corrigeable. Il remplace celui du batiment (celui du cadastre, ou d'un
+ * releve precedent) : c'est la derniere facade relevee qui definit le toit. Sur un pignon, la facade
+ * porte le triangle du toit, dont la hauteur s'ajoute a celle de l'egout.
+ */
+function CarteToit({
+  toit,
+  setToit,
+  appliquer,
+  setAppliquer,
+  contour,
+  cote,
+  hauteurMur,
+}: {
+  toit: Toit | null;
+  setToit: (t: Toit) => void;
+  appliquer: boolean;
+  setAppliquer: (v: boolean) => void;
+  contour: PtBrut[];
+  cote: number;
+  hauteurMur: number;
+}) {
   if (!toit) {
     return (
       <div className="releveToit">
@@ -1109,16 +1123,18 @@ function CarteToit({ toit, setToit, appliquer, setAppliquer, contour }: { toit: 
       </div>
     );
   }
+  const pignon = hauteurPignon(contour, toit, cote);
   return (
     <div className="releveToit">
       <div className="releveSousTitre">Toit</div>
       <p className="releveNote">
-        Proposé d'après la photo : {LIBELLES_FORME_TOIT[toit.forme].toLowerCase()}
+        Lu sur la façade : {LIBELLES_FORME_TOIT[toit.forme].toLowerCase()}
         {toit.forme !== 'plat' ? `, faîtage à ${fr(toit.hauteur)} m au-dessus de l'égout (pente ${fr(penteDeg(contour, toit), 0)}°)` : ''}.
+        {pignon > 0.01 ? ` Ce mur est un pignon : la façade monte à ${fr(hauteurMur + pignon)} m au faîtage.` : ''}
       </p>
       <label className="releveCase">
         <input type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
-        Appliquer ce toit au bâtiment
+        Remplacer le toit du bâtiment par celui-ci
       </label>
       {appliquer && (
         <div className="releveChamps">
@@ -1171,8 +1187,67 @@ interface Verification {
   appliquerToit: boolean;
   setAppliquerToit: (v: boolean) => void;
   contour: PtBrut[];
+  cote: number;
   partieBasse: PartieBasse | null;
   setPartieBasse: (p: PartieBasse) => void;
+  /** La hauteur d'egout du batiment avant ce releve (cadastre, ou releve precedent), pour comparaison. */
+  hauteurEstimee: number;
+  hauteurMesuree: boolean;
+  /** Corrige la hauteur mesuree : la facade s'etire en hauteur, sa largeur (le plan) ne bouge pas. */
+  corrigerHauteur: (v: number) => void;
+}
+
+/** La hauteur du mur, mesuree sur la photo ; corrigeable si l'on connait mieux. */
+function CarteHauteur({ v }: { v: Verification }) {
+  return (
+    <div className="releveToit">
+      <div className="releveSousTitre">Hauteur</div>
+      <p className="releveNote">
+        {v.hauteurMesuree
+          ? `Mesurée sur la photo, à l'échelle de la largeur du plan (${fr(v.largeur)} m). Le bâtiment avait jusqu'ici ${fr(v.hauteurEstimee)} m (cadastre ou relevé précédent).`
+          : `La photo ne permettait pas de la mesurer : c'est celle du bâtiment jusqu'ici (cadastre ou relevé précédent). Corrigez-la si vous la connaissez.`}
+      </p>
+      <div className="releveChamps">
+        <ChampHauteur valeur={v.hauteurMur} onChange={v.corrigerHauteur} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La hauteur a l'egout, en metres. Elle ne s'applique qu'a la validation du champ (Entree, ou en le
+ * quittant) : chaque correction etire les ouvertures, une frappe intermediaire (« 5 » avant « 5,8 »)
+ * ne doit pas le faire.
+ */
+function ChampHauteur({ valeur, onChange }: { valeur: number; onChange: (v: number) => void }) {
+  const [texte, setTexte] = useState(valeur.toFixed(2));
+  useEffect(() => setTexte(valeur.toFixed(2)), [valeur]);
+  const appliquer = () => {
+    const v = parseFloat(texte.replace(',', '.'));
+    if (Number.isFinite(v) && v >= 1 && v <= 60 && Math.abs(v - valeur) >= 0.005) onChange(Math.round(v * 100) / 100);
+    else setTexte(valeur.toFixed(2));
+  };
+  return (
+    <label className="releveCm">
+      <span>À l'égout</span>
+      <span className="champNombre">
+        <input
+          type="number"
+          inputMode="decimal"
+          step={0.01}
+          min={1}
+          max={60}
+          value={texte}
+          onChange={(e) => setTexte(e.target.value)}
+          onBlur={appliquer}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') appliquer();
+          }}
+        />
+        <span className="unite">m</span>
+      </span>
+    </label>
+  );
 }
 
 /** La partie basse d'un mur en L, telle que la photo l'a mesuree : la position du decrochement et l'egout bas. */
@@ -1239,8 +1314,9 @@ function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: 
             }}
           />
         )}
+        <CarteHauteur v={v} />
         {v.partieBasse && <CartePartieBasse p={v.partieBasse} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartieBasse} />}
-        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} />
+        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} cote={v.cote} hauteurMur={hauteurMur} />
       </div>
       <div className="relevePied">
         <button type="button" className="secondary" onClick={onRevoir}>
@@ -1267,40 +1343,90 @@ function useEchapFerme(releve: ServiceReleve) {
 
 const LIBELLES_ETAPE: Record<Etape, string> = { mur: 'Choisir le mur', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' };
 
+/** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
+function focaleDe(m: Morceau): number {
+  const img = m.prise.photo.image;
+  return m.prise.photo.focalePx ?? focalePx(img.largeur, img.hauteur, m.prise.photo.champ ?? m.prise.champ);
+}
+
+/**
+ * Ce que la hauteur mesuree a d'etonnant : loin de l'estimation (cadastre, ou releve precedent), c'est
+ * le plus souvent un coin mal place (ou une focale mal reglee) ; non mesuree, l'estimation reste.
+ */
+function avisHauteur(r: ResultatAnalyse, hauteurEstimee: number): string | null {
+  if (!r.hauteurMesuree) return `La hauteur n'a pas pu se mesurer sur la photo : celle du bâtiment (${fr(hauteurEstimee)} m) est gardée.`;
+  if (hauteurEstimee > 0 && Math.abs(r.hauteur - hauteurEstimee) / hauteurEstimee > 0.25)
+    return `Hauteur mesurée : ${fr(r.hauteur)} m, pour ${fr(hauteurEstimee)} m jusqu'ici. Si l'écart vous étonne, vérifiez les coins du haut et du bas, et le champ de l'objectif.`;
+  return null;
+}
+
 /**
  * Analyse une serie : une photo, c'est le mur entier entre ses coins ; plusieurs, ce sont des
- * morceaux a assembler. L'assemblage dit ce qu'il a trouve a redire : largeur totale loin de celle
- * du plan, ou deux photos voisines qui se ressemblent mal sur leur partie commune.
+ * morceaux a assembler. Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ;
+ * `hauteurEstimee` (le cadastre) ne sert que de depart et de repli. L'analyse dit ce qu'elle a trouve
+ * a redire : deux photos voisines qui se ressemblent mal sur leur partie commune, une hauteur loin de
+ * celle du cadastre.
  */
-function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurMur: number, bat: ObjetPolygone): { r: ResultatAnalyse; avis: string | null } | null {
-  const commun = { largeur: facade.largeur, hauteur: hauteurMur, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
+function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone): { r: ResultatAnalyse; avis: string | null } | null {
+  const commun = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
   if (morceaux.length === 1) {
     const m = au(morceaux, 0);
-    const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins, decrochement: m.decrochement ?? null });
-    return r ? { r, avis: null } : null;
+    const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null });
+    return r ? { r, avis: avisHauteur(r, hauteurEstimee) } : null;
   }
   const r = analyserMosaique({
     ...commun,
-    morceaux: morceaux.map((m) => {
-      const img = m.prise.photo.image;
-      return { photo: img, coins: m.coins, focalePx: m.prise.photo.focalePx ?? focalePx(img.largeur, img.hauteur, m.prise.photo.champ ?? m.prise.champ) };
-    }),
+    morceaux: morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m) })),
   });
   if (!r) return null;
   const mauvaise = r.jointures.findIndex((s) => s < 0.5);
   let avis: string | null = null;
   if (mauvaise >= 0) avis = `Les photos ${mauvaise + 1} et ${mauvaise + 2} se raccordent mal : reprenez-en une en gardant un tiers de mur en commun.`;
-  else if (Math.abs(r.rapportLargeur - 1) > 0.06)
-    avis = `L'assemblage mesurait ${fr(r.rapportLargeur * facade.largeur)} m pour ${fr(facade.largeur)} m sur le plan : vérifiez les coins, surtout ceux des extrémités.`;
+  else if (Math.abs(r.rapportLargeur - 1) > 0.06) avis = "Les photos s'assemblent mal : vérifiez les coins, surtout ceux des extrémités.";
+  else avis = avisHauteur(r, hauteurEstimee);
   return { r, avis };
 }
 
+/**
+ * Corrige la hauteur mesuree d'un facteur `k`. La largeur est celle du plan : c'est la hauteur seule
+ * qui etait fausse, donc la facade s'etire en hauteur - ouvertures, partie basse, bande du pignon et
+ * toit lu dessus, tous du meme facteur.
+ */
+function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit: Toit | null, k: number): { resultat: Resultat; ouvertures: OuvertureFacade[]; toit: Toit | null } {
+  const cm = (x: number) => Math.round(x * k * 100) / 100;
+  return {
+    resultat: { ...r, hauteurTexture: r.hauteurTexture * k, partieBasse: r.partieBasse ? { ...r.partieBasse, hauteur: cm(r.partieBasse.hauteur) } : null },
+    ouvertures: ouvertures.map((o) => ({ ...o, y: cm(o.y), h: cm(o.h) })),
+    toit: toit ? { ...toit, hauteur: cm(toit.hauteur) } : null,
+  };
+}
+
+/** Ce qui s'ecrit pour le mur : sa hauteur mesuree (ou corrigee), sa photo, ses ouvertures. */
+function releveDuMur(facade: Facade, r: Resultat, ouvertures: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null): ReleveFacade {
+  const cm = (v: number) => Math.round(v * 100) / 100;
+  return {
+    cote: facade.cote,
+    largeur: cm(facade.largeur),
+    hauteur,
+    texture: r.texture,
+    hauteurTexture: cm(r.hauteurTexture),
+    ouvertures,
+    distance: mesure ? cm(mesure.distance) : null,
+    sourceDistance: mesure?.source ?? null,
+    releveLe: new Date().toISOString(),
+    partieBasse: r.partieBasse,
+  };
+}
+
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
-  const hauteurInitiale = releve.hauteurMur();
-  const facades = useMemo(() => facadesDuContour(enPoints(bat).pts, hauteurInitiale), [bat, hauteurInitiale]);
+  // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
+  // viser et propose les coins ; la photo mesure la vraie.
+  const hauteurEstimee = releve.hauteurMur();
+  const facades = useMemo(() => facadesDuContour(enPoints(bat).pts, hauteurEstimee), [bat, hauteurEstimee]);
   const [cote, setCote] = useState<number | null>(coteInitial !== null && facades.some((f) => f.cote === coteInitial) ? coteInitial : null);
   const [etape, setEtape] = useState<Etape>(cote === null ? 'mur' : 'visee');
-  const [hauteurMur, setHauteurMur] = useState(hauteurInitiale);
+  // La hauteur mesuree a l'analyse, corrigeable ensuite.
+  const [hauteurMur, setHauteurMur] = useState(hauteurEstimee);
   const [morceaux, setMorceaux] = useState<Morceau[]>([]);
   const [courant, setCourant] = useState(0);
   // Pendant la visee : la photo a remplacer (« Reprendre »), ou null pour en ajouter une.
@@ -1312,13 +1438,15 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const [appliquerToit, setAppliquerToit] = useState(true);
   const [avis, setAvis] = useState<string | null>(null);
   const facade = facades.find((f) => f.cote === cote) || null;
+  // Ce que la photo doit cadrer en hauteur : l'egout et, sur un pignon du toit connu, son triangle.
+  const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.toit, facade.cote) : hauteurEstimee;
   const prevues = Math.max(1, ...morceaux.map((m) => m.prise.photosPrevues ?? 1));
   useEchapFerme(releve);
 
   const surPrise = (p: Prise) => {
     if (!facade) return;
     const partiel = (p.photosPrevues ?? 1) > 1 || morceaux.length > 0;
-    const m: Morceau = { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurMur, partiel) };
+    const m: Morceau = { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel) };
     const k = aRemplacer ?? morceaux.length;
     setMorceaux(aRemplacer === null ? [...morceaux, m] : morceaux.map((x, i) => (i === aRemplacer ? m : x)));
     setCourant(k);
@@ -1331,18 +1459,20 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     setEtape('analyse');
     // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
     setTimeout(() => {
-      const a = analyserSerie(morceaux, facade, hauteurMur, bat);
+      const a = analyserSerie(morceaux, facade, hauteurEstimee, bat);
       if (!a) {
         setAvis('Les quatre coins ne forment pas un quadrilatère : reprenez-les.');
         setEtape('coins');
         return;
       }
       const { r } = a;
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse });
+      setHauteurMur(r.hauteur);
+      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse });
       setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
       setToit(r.toitPropose);
-      // Un toit saisi a la main ne s'ecrase pas d'office par une estimation.
-      setAppliquerToit(!!r.toitPropose && bat.toit?.source !== 'saisie');
+      // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
+      // par defaut (cadastre, saisie, releve precedent). Decocher la case garde l'ancien.
+      setAppliquerToit(!!r.toitPropose);
       setChoisie(null);
       setEtape('resultat');
     }, 40);
@@ -1350,35 +1480,27 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
 
   const valider = () => {
     if (!facade || !resultat) return;
-    const cm = (v: number) => Math.round(v * 100) / 100;
-    const mesure = morceaux[0]?.prise.mesure ?? null;
-    releve.valider(
-      {
-        cote: facade.cote,
-        largeur: cm(facade.largeur),
-        hauteur: hauteurMur,
-        texture: resultat.texture,
-        hauteurTexture: cm(resultat.hauteurTexture),
-        ouvertures,
-        distance: mesure ? cm(mesure.distance) : null,
-        sourceDistance: mesure?.source ?? null,
-        releveLe: new Date().toISOString(),
-        partieBasse: resultat.partieBasse,
-      },
-      appliquerToit ? toit : null,
-      hauteurMur,
-    );
+    releve.valider(releveDuMur(facade, resultat, ouvertures, hauteurMur, morceaux[0]?.prise.mesure ?? null), appliquerToit ? toit : null, hauteurMur);
   };
 
   const viser = (remplacer: number | null) => {
     setARemplacer(remplacer);
     setEtape('visee');
   };
-  const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)} × ${fr(hauteurMur)} m` : 'Relever une façade';
+  const corrigerHauteur = (v: number) => {
+    if (!resultat || !(hauteurMur > 0)) return;
+    const e = etirerEnHauteur(resultat, ouvertures, toit, v / hauteurMur);
+    setHauteurMur(v);
+    setResultat(e.resultat);
+    setOuvertures(e.ouvertures);
+    setToit(e.toit);
+  };
+  // Avant l'analyse, seule la largeur est connue ; la hauteur s'affiche une fois mesuree.
+  const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)}${resultat ? ` × ${fr(hauteurMur)}` : ''} m` : 'Relever une façade';
   const verification: Verification | null =
     resultat && facade
-      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts,
-          partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }) }
+      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts, cote: facade.cote,
+          partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }), hauteurEstimee, hauteurMesuree: resultat.hauteurMesuree, corrigerHauteur }
       : null;
 
   return (
@@ -1405,7 +1527,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       {etape === 'visee' && facade && (
         <Visee
           facade={facade}
-          hauteurMur={hauteurMur}
+          hauteurACadrer={hauteurACadrer}
           faites={aRemplacer ?? morceaux.length}
           onPrise={surPrise}
           onRetour={() => (morceaux.length ? setEtape('coins') : coteInitial === null ? setEtape('mur') : releve.fermer())}
@@ -1424,8 +1546,6 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
           setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
           prevues={prevues}
           avis={avis}
-          hauteurMur={hauteurMur}
-          setHauteurMur={setHauteurMur}
           largeur={facade.largeur}
           onReprendre={() => viser(courant)}
           onAjouter={() => viser(null)}

@@ -1,13 +1,14 @@
 // Distance au mur et cadrage, sans capteur de profondeur (MD/spec-releve-facade.md §5).
 //
-// Une page web sur iPhone n'a pas acces au LiDAR. Elle connait pourtant deux choses : la taille
-// reelle de la facade, lue sur le plan, et le champ de la camera. Un mur de 4,20 m qui occupe
-// 60 % de la largeur de l'image est a une distance que la trigonometrie donne a quelques
-// centimetres pres - le modele du stenope suffit, les objectifs principaux des telephones
-// corrigent leur distorsion avant de livrer l'image.
+// Une page web sur iPhone n'a pas acces au LiDAR (et Plan ne s'en sert plus : il ne porte qu'a 5 m
+// environ). Elle connait pourtant deux choses : la largeur de la facade, lue sur le plan - la seule
+// taille connue, la hauteur du cadastre n'etant qu'une estimation -, et le champ de la camera. Un
+// mur de 4,20 m qui occupe 60 % de la largeur de l'image est a une distance que la trigonometrie
+// donne a quelques centimetres pres - le modele du stenope suffit, les objectifs principaux des
+// telephones corrigent leur distorsion avant de livrer l'image.
 //
-// Quand un vrai capteur repond (LiDAR par le module natif, profondeur WebXR sur Android), sa
-// mesure remplace l'estimation : `facade/profondeur.ts` choisit la source.
+// Quand un vrai capteur repond (profondeur WebXR sur Android), sa mesure remplace l'estimation :
+// `ui/releve/profondeur.ts` choisit la source.
 
 /**
  * Champ horizontal par defaut du grand cote de l'image, en degres : l'objectif principal d'un

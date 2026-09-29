@@ -145,6 +145,30 @@ describe('mur en L : analyse complete', () => {
   });
 });
 
+describe('mur en L : la hauteur se mesure sur la photo', () => {
+  const { photo, cam } = photographier();
+  const coins = [cam.projeter(0, 6), cam.projeter(10, 3), cam.projeter(10, 0), cam.projeter(0, 0)];
+  // Le cadastre dit 7,5 m : l'egout haut est en fait a 6 m, le garage a 3 m.
+  const r = analyserReleve({
+    photo,
+    coins,
+    largeur: 10,
+    hauteur: 7.5,
+    focalePx: cam.f,
+    contour: [p(0, 0), p(10, 0), p(10, 8), p(0, 8)],
+    cote: 0,
+    distance: 12,
+    decrochement: { cote: 'droite', haut: cam.projeter(6, 6), bas: cam.projeter(6, 3) },
+  })!;
+
+  it('mesure l egout haut sur le rectangle englobant, puis la partie basse a cette echelle', () => {
+    expect(r.hauteurMesuree).toBe(true);
+    expect(Math.abs(r.hauteur - 6)).toBeLessThan(0.03);
+    expect(Math.abs(r.partieBasse!.debut - 6)).toBeLessThan(0.03);
+    expect(Math.abs(r.partieBasse!.hauteur - 3)).toBeLessThan(0.03);
+  });
+});
+
 describe('volumes du batiment', () => {
   // Maison 6 x 8 m prolongee a l'est par un garage de 4 x 5 m, moins profond : l'encoche est au plan.
   const L = [p(0, 0), p(10, 0), p(10, 5), p(6, 5), p(6, 8), p(0, 8)];

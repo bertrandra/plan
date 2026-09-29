@@ -5,22 +5,27 @@
 // deux verticales quelconques - dont l'utilisateur place les quatre coins. Trois choses font de ces
 // morceaux une seule elevation :
 //
-// 1. **La largeur de chaque morceau.** Sa hauteur est connue (du sol a l'egout) ; son rapport
-//    largeur/hauteur se retrouve sur la photo, parce que la focale est connue : l'image d'un
-//    rectangle en perspective fixe ses proportions a une focale pres (Zhang et He, « Whiteboard
-//    scanning », 2004). Chaque morceau est donc redresse a la meme echelle, en pixels par metre.
+// 1. **La largeur de chaque morceau, en hauteurs de mur.** Tous les morceaux ont la meme hauteur
+//    (du sol a l'egout) ; le rapport largeur/hauteur de chacun se retrouve sur la photo, parce que
+//    la focale est connue : l'image d'un rectangle en perspective fixe ses proportions a une focale
+//    pres (Zhang et He, « Whiteboard scanning », 2004). Chaque morceau est donc redresse a la meme
+//    echelle.
 // 2. **Sa place.** Deux morceaux voisins se recouvrent : le decalage horizontal qui les fait
 //    coincider est celui ou leurs pixels communs se ressemblent le plus (correlation normalisee),
 //    cherche grossierement a 10 px/m puis affine au pixel.
-// 3. **La largeur du tout**, lue sur le plan : l'assemblage y est recale, ce qui absorbe les petites
-//    erreurs de focale ou d'alignement. L'ecart avant recalage est rendu : au-dela de quelques pour
-//    cent, les photos se recouvraient mal.
+// 3. **La hauteur du mur.** Seule la largeur est connue - lue sur le plan ; la hauteur du cadastre
+//    n'est qu'une estimation. Une premiere passe a cette hauteur donne la largeur de l'assemblage ;
+//    le rapport a la largeur du plan corrige la hauteur (tout est proportionnel), et une seconde
+//    passe redresse a la hauteur mesuree. Le petit ecart qui reste (decalages au pixel pres) est
+//    absorbe par un recalage sur la largeur du plan.
 //
 // Pas de navigateur ici : tout opere sur des images brutes et se teste sous Node.
 
 import { au } from '../util/tableaux.js';
-import { homographie, appliquer, redresser, resolutionTexture, type Image, type P2 } from './homographie.js';
-import { finaliserReleve, hauteurBande, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './homographie.js';
+import { finaliserReleve, hauteurBande, HAUTEUR_MIN, HAUTEUR_MAX, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+
+export { rapportRectangle };
 
 /** Une photo d'un morceau du mur, ses coins (haut gauche, haut droit, bas droit, bas gauche) et sa focale. */
 export interface MorceauPhoto {
@@ -37,43 +42,10 @@ export interface EntreeMosaique extends MurDuReleve {
 }
 
 export interface ResultatMosaique extends ResultatAnalyse {
-  /** Largeur totale avant recalage, rapportee a la largeur du plan (1 = parfait). */
+  /** Largeur totale de la seconde passe avant recalage, rapportee a la largeur du plan (1 = parfait). */
   rapportLargeur: number;
   /** Pour chaque jointure entre deux photos : la ressemblance de leur partie commune, de -1 a 1. */
   jointures: number[];
-}
-
-type V3 = [number, number, number];
-const croix = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const scal = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-
-/**
- * Rapport largeur / hauteur du rectangle reel dont \`coins\` est l'image, pour une focale \`f\` en
- * pixels et un point principal au centre de l'image (\`cx\`, \`cy\`). \`null\` si la configuration est
- * degeneree. Coins dans l'ordre haut gauche, haut droit, bas droit, bas gauche.
- */
-export function rapportRectangle(coins: readonly P2[], f: number, cx: number, cy: number): number | null {
-  const h = (p: P2): V3 => [p.x, p.y, 1];
-  // Notation de Zhang et He : m1 m2 en haut, m3 m4 en bas, m1 m3 a gauche.
-  const m1 = h(au(coins, 0)),
-    m2 = h(au(coins, 1)),
-    m4 = h(au(coins, 2)),
-    m3 = h(au(coins, 3));
-  const d2 = scal(croix(m2, m4), m3),
-    d3 = scal(croix(m3, m4), m2);
-  if (Math.abs(d2) < 1e-12 || Math.abs(d3) < 1e-12) return null;
-  const k2 = scal(croix(m1, m4), m3) / d2;
-  const k3 = scal(croix(m1, m4), m2) / d3;
-  const n2: V3 = [k2 * m2[0] - m1[0], k2 * m2[1] - m1[1], k2 * m2[2] - m1[2]];
-  const n3: V3 = [k3 * m3[0] - m1[0], k3 * m3[1] - m1[1], k3 * m3[2] - m1[2]];
-  // Longueurs dans le repere camera : A^-1 n, avec A = [[f,0,cx],[0,f,cy],[0,0,1]].
-  const metrique = (n: V3) => {
-    const x = (n[0] - cx * n[2]) / f,
-      y = (n[1] - cy * n[2]) / f;
-    return x * x + y * y + n[2] * n[2];
-  };
-  const r = Math.sqrt(metrique(n2) / metrique(n3));
-  return Number.isFinite(r) && r > 0 ? r : null;
 }
 
 /** Repli sans focale : le rapport des longueurs moyennes des cotes sur l'image. */
@@ -150,26 +122,34 @@ function correlation(A: ReturnType<typeof luminance>, B: ReturnType<typeof lumin
 }
 
 /**
- * Le decalage (en pixels de \`A\`) ou \`B\` commence, et la ressemblance obtenue. \`B\` doit recouvrir
- * \`A\` sur au moins \`recouvrementMin\` metres.
+ * Le decalage (en pixels de `A`) ou `B` commence, et la ressemblance obtenue. `B` doit recouvrir
+ * `A` sur au moins `recouvrementMin` metres.
+ *
+ * La recherche grossiere (a 10 px/m) ne garde pas son seul meilleur decalage : le pic de
+ * ressemblance d'un mur uni perce de baies nettes est plus etroit qu'une case grossiere, et un vrai
+ * decalage qui tombe entre deux cases y parait mediocre. Les meilleurs pics locaux sont donc tous
+ * affines au pixel, et c'est l'affinage qui tranche.
  */
-export function decalage(A: Bande, B: Bande, depuis: number, pxParM: number, recouvrementMin = 0.4): { dx: number; score: number } {
+export function decalage(A: Bande, B: Bande, depuis: number, pxParM: number, recouvrementMin = 0.4, pics = 6): { dx: number; score: number } {
   const facteur = Math.max(1, Math.round(pxParM / 10));
   const a = luminance(A, depuis, facteur),
     b = luminance(B, depuis, facteur);
   const minRec = Math.max(2, Math.round((recouvrementMin * pxParM) / facteur));
-  let meilleur = { dx: 0, score: -2 };
-  for (let dx = 1; dx <= a.l - minRec; dx++) {
-    const s = correlation(a, b, dx);
-    if (s > meilleur.score) meilleur = { dx, score: s };
-  }
-  // Affinage au pixel pres, autour du meilleur decalage grossier.
+  const grossier: number[] = [];
+  for (let dx = 1; dx <= a.l - minRec; dx++) grossier[dx] = correlation(a, b, dx);
+  const s = (dx: number) => grossier[dx] ?? -2;
+  const candidats: number[] = [];
+  for (let dx = 1; dx <= a.l - minRec; dx++) if (s(dx) >= s(dx - 1) && s(dx) >= s(dx + 1)) candidats.push(dx);
+  candidats.sort((x, y) => s(y) - s(x));
+  // Affinage au pixel pres, autour de chaque pic retenu.
   const A1 = luminance(A, depuis, 1),
     B1 = luminance(B, depuis, 1);
-  let fin = { dx: meilleur.dx * facteur, score: -2 };
-  for (let dx = Math.max(1, (meilleur.dx - 1) * facteur); dx <= Math.min(A1.l - 2, (meilleur.dx + 1) * facteur); dx++) {
-    const s = correlation(A1, B1, dx, 2);
-    if (s > fin.score) fin = { dx, score: s };
+  let fin = { dx: (candidats[0] ?? 1) * facteur, score: -2 };
+  for (const c of candidats.slice(0, pics)) {
+    for (let dx = Math.max(1, (c - 1) * facteur); dx <= Math.min(A1.l - 2, (c + 1) * facteur); dx++) {
+      const r = correlation(A1, B1, dx, 2);
+      if (r > fin.score) fin = { dx, score: r };
+    }
   }
   return fin;
 }
@@ -232,21 +212,18 @@ function assembler(bandes: Bande[], positions: number[]): Bande {
   return { image: { largeur: L, hauteur: H, donnees }, vu };
 }
 
-/** Plusieurs photos d'un meme mur, de gauche a droite, assemblees en un seul releve. */
-export function analyserMosaique(e: EntreeMosaique): ResultatMosaique | null {
-  if (!e.morceaux.length) return null;
-  const E = hauteurBande(e.largeur);
-  const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
+/** Les morceaux redresses a la hauteur `hauteur`, poses a leurs decalages et fondus. */
+function assemblerA(e: EntreeMosaique, hauteur: number, E: number, pxParM: number): { brut: Bande; jointures: number[] } | null {
   const bandes: Bande[] = [];
   for (const m of e.morceaux) {
     const r = rapportRectangle(m.coins, m.focalePx, m.photo.largeur / 2, m.photo.hauteur / 2) ?? rapportApparent(m.coins);
-    const largeur = e.hauteur * r;
+    const largeur = hauteur * r;
     const H = homographie(
       [
         { x: 0, y: 0 },
         { x: largeur, y: 0 },
-        { x: largeur, y: e.hauteur },
-        { x: 0, y: e.hauteur },
+        { x: largeur, y: hauteur },
+        { x: 0, y: hauteur },
       ],
       m.coins,
     );
@@ -254,10 +231,10 @@ export function analyserMosaique(e: EntreeMosaique): ResultatMosaique | null {
     const etendus = [
       { x: 0, y: -E },
       { x: largeur, y: -E },
-      { x: largeur, y: e.hauteur },
-      { x: 0, y: e.hauteur },
+      { x: largeur, y: hauteur },
+      { x: 0, y: hauteur },
     ].map((q) => appliquer(H, q));
-    const b = redresser(m.photo, etendus, largeur, e.hauteur + E, pxParM);
+    const b = redresser(m.photo, etendus, largeur, hauteur + E, pxParM);
     if (!b) return null;
     bandes.push({ image: b.image, vu: b.vu });
   }
@@ -270,9 +247,28 @@ export function analyserMosaique(e: EntreeMosaique): ResultatMosaique | null {
     positions.push(au(positions, k - 1) + dx);
     jointures.push(score);
   }
-  const brut = assembler(bandes, positions);
+  return { brut: assembler(bandes, positions), jointures };
+}
+
+/** Plusieurs photos d'un meme mur, de gauche a droite, assemblees en un seul releve. */
+export function analyserMosaique(e: EntreeMosaique): ResultatMosaique | null {
+  if (!e.morceaux.length) return null;
+  const E = hauteurBande(e.largeur);
+  // Premiere passe, a la hauteur estimee : la largeur de l'assemblage, rapportee a celle du plan,
+  // donne la hauteur reelle. Une largeur de morceau est proportionnelle a la hauteur supposee.
+  const px0 = resolutionTexture(e.largeur, e.hauteur + E);
+  const premiere = assemblerA(e, e.hauteur, E, px0);
+  if (!premiere) return null;
+  const largeurVue = premiere.brut.image.largeur / px0;
+  const mesuree = largeurVue > 0 ? Math.round(((e.hauteur * e.largeur) / largeurVue) * 100) / 100 : 0;
+  const hauteurMesuree = mesuree >= HAUTEUR_MIN && mesuree <= HAUTEUR_MAX;
+  const hauteur = hauteurMesuree ? mesuree : e.hauteur;
+  const pxParM = resolutionTexture(e.largeur, hauteur + E);
+  const seconde = hauteurMesuree ? assemblerA(e, hauteur, E, pxParM) : premiere;
+  if (!seconde) return null;
+  const { brut, jointures } = seconde;
   const cible = Math.max(1, Math.round(e.largeur * pxParM));
   const recale = etirer(brut, cible);
-  const res = finaliserReleve(recale.image, recale.vu, E, pxParM, e);
+  const res = finaliserReleve(recale.image, recale.vu, E, pxParM, { ...e, hauteur }, null, hauteurMesuree);
   return { ...res, rapportLargeur: brut.image.largeur / cible, jointures };
 }

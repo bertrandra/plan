@@ -1,12 +1,17 @@
 // De la photo au releve : l'enchainement complet, sans navigateur (spec-releve-facade §6 a §8).
 //
-// Entree : une photo, les quatre coins du mur designes dessus, la taille du mur. Sortie :
-// l'elevation redressee a l'echelle (la future texture), les ouvertures trouvees, et ce que la
-// silhouette au-dessus de l'egout dit du toit. Le dialogue n'a plus qu'a afficher et laisser
-// corriger.
+// Entree : une photo, les quatre coins du mur designes dessus, la largeur du mur. Sortie : la hauteur
+// du mur a l'egout, mesuree sur la photo ; l'elevation redressee a l'echelle (la future texture), les
+// ouvertures trouvees, et ce que la silhouette au-dessus de l'egout dit du toit - pour un pignon, le
+// triangle au-dessus du mur. Le dialogue n'a plus qu'a afficher et laisser corriger.
+//
+// **Seule la largeur est connue** : elle se lit sur le plan. La hauteur du cadastre n'est qu'une
+// estimation (le batiment est extrude a cette valeur par defaut) ; c'est la photo qui la mesure. Les
+// quatre coins sont l'image d'un rectangle, dont la perspective fixe les proportions quand la focale
+// est connue (`rapportRectangle`) : la largeur les met a l'echelle, la hauteur en decoule.
 
 import { au } from '../util/tableaux.js';
-import { homographie, appliquer, redresser, resolutionTexture, type Image, type P2 } from './homographie.js';
+import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './homographie.js';
 import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
@@ -16,8 +21,16 @@ export interface EntreeAnalyse {
   photo: Image;
   /** Coins du mur sur la photo : haut gauche, haut droit, bas droit, bas gauche (egout en haut). */
   coins: P2[];
+  /** Largeur du mur, lue sur le plan : c'est elle qui met la photo a l'echelle. */
   largeur: number;
+  /**
+   * Hauteur a l'egout estimee (celle du cadastre). Avec la focale, la photo la mesure et cette valeur
+   * ne sert que de repli, si les coins ne se pretent pas a la mesure ; sans focale, elle est prise
+   * telle quelle.
+   */
   hauteur: number;
+  /** Focale de la photo, en pixels : c'est elle qui permet de mesurer la hauteur. */
+  focalePx?: number | null;
   /** Contour du batiment et cote photographie : pour orienter le toit. */
   contour: PtBrut[];
   cote: number;
@@ -28,6 +41,10 @@ export interface EntreeAnalyse {
 }
 
 export interface ResultatAnalyse {
+  /** Hauteur du mur a l'egout (l'egout le plus haut d'un mur en L), en metres. */
+  hauteur: number;
+  /** La hauteur a-t-elle ete mesuree sur la photo, ou est-ce l'estimation d'entree ? */
+  hauteurMesuree: boolean;
   /** Le mur seul, du sol a l'egout : ce que la detection a lu. */
   elevation: Image;
   /**
@@ -45,6 +62,23 @@ export interface ResultatAnalyse {
   toitPropose: Toit | null;
   /** La partie basse d'un mur en L, mesuree sur la photo ; `null` pour un mur rectangulaire. */
   partieBasse: PartieBasse | null;
+}
+
+/** Au-dela, une hauteur « mesuree » trahit des coins mal places : on garde l'estimation. */
+export const HAUTEUR_MIN = 1,
+  HAUTEUR_MAX = 60;
+
+/**
+ * Hauteur d'un mur de `largeur` metres dont `coins` (haut gauche, haut droit, bas droit, bas gauche)
+ * sont les coins sur une photo de `largeurPx` x `hauteurPx`, prise a la focale `focale` (pixels,
+ * point principal au centre). `null` si les coins ne permettent pas la mesure.
+ */
+export function mesurerHauteur(coins: readonly P2[], largeur: number, focale: number, largeurPx: number, hauteurPx: number): number | null {
+  if (!(largeur > 0) || !(focale > 0)) return null;
+  const r = rapportRectangle(coins, focale, largeurPx / 2, hauteurPx / 2);
+  if (!r) return null;
+  const h = largeur / r;
+  return h >= HAUTEUR_MIN && h <= HAUTEUR_MAX ? Math.round(h * 100) / 100 : null;
 }
 
 /** Hauteur de la bande analysee au-dessus de l'egout : de quoi contenir un pignon raide. */
@@ -79,8 +113,14 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
   if (e.decrochement) {
     const englobants = coinsEnglobants(e.coins, e.decrochement);
     if (!englobants) return null;
-    partie = mesurerPartieBasse(englobants, e.decrochement, e.largeur, e.hauteur);
     e = { ...e, coins: englobants };
+  }
+  // La hauteur du mur (du rectangle englobant, pour un L) se mesure sur la photo ; l'estimation
+  // d'entree ne sert que de repli.
+  const mesuree = e.focalePx ? mesurerHauteur(e.coins, e.largeur, e.focalePx, e.photo.largeur, e.photo.hauteur) : null;
+  if (mesuree) e = { ...e, hauteur: mesuree };
+  if (e.decrochement) {
+    partie = mesurerPartieBasse(e.coins, e.decrochement, e.largeur, e.hauteur);
   }
   // Elevation (x depuis la gauche, y depuis l'egout vers le bas) -> photo.
   const H = homographie(
@@ -106,7 +146,7 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
   const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
   const r = redresser(e.photo, coinsEtendus, e.largeur, e.hauteur + E, pxParM);
   if (!r) return null;
-  return finaliserReleve(r.image, r.vu, E, pxParM, e, partie);
+  return finaliserReleve(r.image, r.vu, E, pxParM, e, partie, !!mesuree);
 }
 
 /** Ce que le releve exige du mur, quelle que soit la facon dont l'elevation a ete obtenue. */
@@ -130,7 +170,7 @@ function colonnes(img: Image, vu: Uint8Array, x0: number, x1: number): { image: 
   return { image: { largeur: l, hauteur: img.hauteur, donnees }, vu: v };
 }
 
-export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null): ResultatAnalyse {
+export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null, hauteurMesuree = false): ResultatAnalyse {
   const r = { image: texture, vu };
   const egout = Math.round(E * pxParM);
   const mur = rogner(r.image, r.vu, egout, r.image.hauteur);
@@ -164,6 +204,8 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
   // La teinte du mur (mediane de ce qui en a ete vu) remplace le ciel au-dessus de l'egout.
   effacerCiel(r.image, egout, teinteMediane(mur.image, mur.vu), r.vu);
   return {
+    hauteur: e.hauteur,
+    hauteurMesuree,
     elevation: mur.image,
     texture: r.image,
     hauteurTexture: e.hauteur + egout / pxParM,
