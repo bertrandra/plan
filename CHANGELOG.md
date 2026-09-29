@@ -21,6 +21,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   raccordent mal. L'étape des coins montre la série en vignettes, avec « Ajouter une photo ».
   Spécification §6.1.
 
+- **Les murs en L : deux hauteurs d'égout sur un même mur.** Une partie à étage prolongée par une
+  partie basse (garage, extension) se relève en posant, en plus des coins, deux points au
+  décrochement. Plan en mesure la position et la hauteur d'égout de la partie basse (le coin caché
+  au-dessus d'elle se construit par intersection de droites, il n'est pas deviné), écarte ce qui
+  dépasse de son égout, lit le toit au-dessus de la partie haute seulement, et coupe le bâtiment en
+  deux volumes en 3D : la partie basse prend la profondeur du pignon adjacent, la photo se pose en L.
+  Spécification §6.2.
+
 ### Modifié
 
 - **Plus de distance cible : la distance est mesurée, et Plan dit ce qu'elle permet.** Au LiDAR

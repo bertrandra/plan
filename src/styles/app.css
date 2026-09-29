@@ -1411,3 +1411,5 @@
   .releveVignette span{ position:absolute; left:4px; top:4px; min-width:20px; height:20px; border-radius:999px;
     background:var(--camera-voile); color:var(--on-camera); font-size:0.7rem; line-height:20px; text-align:center; font-variant-numeric:tabular-nums; }
   .releveMorceau.choisi .releveVignette{ border-color:var(--accent); }
+  /* Mur en L (§6.2) : au-dessus de la partie basse, il n'y a pas de mur ; la zone se voile. */
+  .releveVide{ fill:var(--scrim); }

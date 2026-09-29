@@ -264,6 +264,37 @@ biais de −3 à +4°), les ouvertures sont retrouvées à 1–2 cm.
 **Limite.** À courte distance et téléphone d'aplomb, le haut de l'image s'arrête souvent sous le
 pignon : le toit n'est alors pas proposé (§8.2), plutôt que deviné.
 
+### 6.2 Un mur à deux hauteurs d'égout (en L)
+
+Une partie à étage prolongée, sur le même alignement, par une partie basse — garage, extension :
+vu de face, le mur est un L (`facade/profil.ts`). À l'étape des coins, **« En L, bas à gauche /
+à droite »** (une photo) ajoute deux poignées : on pose les quatre coins visibles du L (le pied aux
+deux bouts, l'égout haut au bout haut, l'égout bas au bout bas) et **les deux points du
+décrochement**, sur l'égout haut et l'égout bas là où la hauteur change.
+
+- **Le coin caché** du rectangle englobant, au-dessus de la partie basse, n'est pas à deviner :
+  c'est l'intersection de la ligne d'égout haute prolongée et de l'arête verticale du bout bas — une
+  perspective conserve les droites et leurs intersections. Le rectangle englobant (du sol à l'égout
+  haut) se redresse comme d'habitude.
+- **La mesure** : les deux points du décrochement, ramenés dans le plan du mur, donnent sa position
+  et la hauteur d'égout de la partie basse (`partieBasse` du relevé : début, fin, hauteur).
+  Corrigeables avant validation.
+- **L'analyse** ignore ce qui monte au-dessus de l'égout bas sur la partie basse (sa toiture, le
+  ciel) : ce n'est pas une baie. Le toit se lit au-dessus de la partie haute seulement. La
+  couverture ne compte que le L ; la zone vide est voilée dans l'éditeur.
+- **La 3D** coupe le bâtiment en deux volumes. La partie basse va du décrochement au bout bas, et
+  **sa profondeur est celle du pignon adjacent** : le mur du contour qui part du coin C du bout bas
+  vers le sommet suivant E. Avec S le décrochement sur la façade, la partie basse est S, C, E,
+  S′ = E + (S − C) ; la partie haute est le contour où C et E sont remplacés par S et S′, l'encoche.
+  Un contour qui porte déjà l'encoche (garage moins profond que la maison) retombe sur ses propres
+  murs ; sur un contour rectangle, le pignon adjacent est tout le côté. La photo se pose en L, le
+  toit coiffe la partie haute, la partie basse garde un toit plat, et les murs de la partie basse
+  (son pignon, son mur arrière) prennent sa hauteur.
+
+Sur les images de test (mur de 10 m, partie haute à 6 m, garage à 3 m, vu de biais), le
+décrochement et l'égout bas sont retrouvés exacts au centimètre ; dans l'application, avec des
+poignées posées au doigt, 4,99 m pour 5,00 et 3,00 m pour 3,00.
+
 ---
 
 ## 7. Les ouvertures (`facade/detection.ts`)
@@ -392,6 +423,8 @@ interface ReleveFacade {
 |---|---|---|
 | Photos côte à côte seulement | un mur trop haut pour la distance disponible ne s'assemble pas en hauteur ; la visée demande de reculer | assemblage en hauteur, photos inclinées |
 | Détection par écart à la teinte du mur | un volet de la couleur de l'enduit, une baie à contre-jour claire peuvent échapper ; une grande ombre portée peut être prise pour une baie | la correction au doigt est là pour ça ; un modèle de segmentation (serveur) plus tard |
+| Mur en L : un seul décrochement, une seule photo | un mur en U (partie basse au milieu) ou à trois hauteurs ne se relève pas ; un L trop long pour une photo non plus | plusieurs décrochements, L en plusieurs photos |
+| Partie basse à toit plat | le toit d'un garage (appentis) n'est pas lu | lire sa silhouette au-dessus de l'égout bas |
 | Toit sur l'enveloppe du contour entier | sur un contour en L, une seule toiture couvre les deux ailes | toitures par volume |
 | Pignon de la photo et pignon modélisé | sur un contour irrégulier, le faîtage n'est pas au milieu du mur photographié : la photo s'étire, le ciel est repeint en mur | faîtage décalé sur le mur relevé |
 | Textures dans `projet.json` | le document grossit d'environ 100 Ko par façade | stockage d'actifs de la plateforme (`contrat/backprod.openapi.json` : « Large assets … belong in storage ») |

@@ -21,6 +21,7 @@ import { facadesDuContour, type Facade } from '../facade/geometrie.js';
 import { focalePx, distanceParCadrage, consigneAplomb, planDePrise, consignePrise, CHAMP_GRAND_COTE_DEFAUT, type ConsignePrise } from '../facade/cadrage.js';
 import { analyserReleve, coinsProposes, type ResultatAnalyse } from '../facade/analyse.js';
 import { analyserMosaique } from '../facade/mosaique.js';
+import { type CoteBas, type Decrochement } from '../facade/profil.js';
 import { classer } from '../facade/detection.js';
 import { LIBELLES_FORME_TOIT, penteDeg } from '../facade/toit.js';
 import type { P2 } from '../facade/homographie.js';
@@ -37,7 +38,7 @@ import {
   type MesureDistance,
 } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
-import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut } from '../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../model/types.js';
 
 const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
 
@@ -626,7 +627,29 @@ function Visee({ facade, hauteurMur, faites, onPrise, onRetour }: { facade: Faca
 
 const NOMS_COINS = ['Égout, à gauche', 'Égout, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche'];
 
-function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins: (c: P2[]) => void }) {
+/** Les poignees d'un mur en L : les quatre coins visibles du L, puis les deux points du decrochement. */
+function nomsEnL(cote: CoteBas): string[] {
+  return cote === 'droite'
+    ? ['Égout haut, à gauche', 'Égout bas, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche', 'Décrochement, égout haut', 'Décrochement, égout bas']
+    : ['Égout bas, à gauche', 'Égout haut, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche', 'Décrochement, égout haut', 'Décrochement, égout bas'];
+}
+
+/** Ordre de trace du contour : le rectangle, ou le L en passant par le decrochement. */
+function ordreDuContour(decro: Decrochement | null | undefined): number[] {
+  if (!decro) return [0, 1, 2, 3];
+  return decro.cote === 'droite' ? [0, 4, 5, 1, 2, 3] : [0, 5, 4, 1, 2, 3];
+}
+
+/** Le decrochement propose quand on bascule en L : aux trois cinquiemes du mur, cote bas. */
+function decrochementPropose(coins: readonly P2[], cote: CoteBas): Decrochement {
+  const t = cote === 'droite' ? 0.6 : 0.4;
+  const lerp = (a: P2, b: P2, k: number) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+  const haut = lerp(au(coins, 0), au(coins, 1), t);
+  const pied = lerp(au(coins, 3), au(coins, 2), t);
+  return { cote, haut, bas: lerp(haut, pied, 0.5) };
+}
+
+function Coins({ photo, coins, setCoins, noms = NOMS_COINS, ordre = [0, 1, 2, 3] }: { photo: Photo; coins: P2[]; setCoins: (c: P2[]) => void; noms?: string[]; ordre?: number[] }) {
   const W = photo.image.largeur,
     H = photo.image.hauteur;
   const m = Math.max(W, H) * 0.22;
@@ -672,7 +695,7 @@ function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins
       <svg ref={svg} className="releveCoins" viewBox={`${-m} ${-m} ${W + 2 * m} ${H + 2 * m}`} aria-label="Photo : placez les quatre coins du mur">
         <rect x={-m} y={-m} width={W + 2 * m} height={H + 2 * m} className="releveCoinsFond" />
         <image href={photo.url} x={0} y={0} width={W} height={H} preserveAspectRatio="none" />
-        <polygon points={coins.map((c) => `${c.x},${c.y}`).join(' ')} className="releveQuad" vectorEffect="non-scaling-stroke" />
+        <polygon points={ordre.map((i) => au(coins, i)).map((c) => `${c.x},${c.y}`).join(' ')} className="releveQuad" vectorEffect="non-scaling-stroke" />
         <text x={haut.x} y={haut.y - r * 1.6} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
           Égout
         </text>
@@ -681,7 +704,7 @@ function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins
         </text>
         {coins.map((c, i) => (
           <g key={i}>
-            <circle cx={c.x} cy={c.y} r={r * 1.7} className="releveCoinCible" onPointerDown={saisirCoin(i)} role="slider" aria-label={NOMS_COINS[i]} aria-valuenow={0} tabIndex={0} />
+            <circle cx={c.x} cy={c.y} r={r * 1.7} className="releveCoinCible" onPointerDown={saisirCoin(i)} role="slider" aria-label={noms[i]} aria-valuenow={0} tabIndex={0} />
             <circle cx={c.x} cy={c.y} r={r * 0.35} className="releveCoinCentre" pointerEvents="none" />
           </g>
         ))}
@@ -703,6 +726,7 @@ function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins
 
 function Elevation({
   texture,
+  partie,
   Ht,
   L,
   H,
@@ -714,6 +738,8 @@ function Elevation({
   texture: string;
   /** Hauteur couverte par la texture : le mur, et au-dessus la bande du pignon, hors du cadre. */
   Ht: number;
+  /** Mur en L : au-dessus de la partie basse, il n'y a pas de mur. */
+  partie?: PartieBasse | null;
   L: number;
   H: number;
   ouvertures: OuvertureFacade[];
@@ -778,6 +804,7 @@ function Elevation({
         <image href={texture} x={0} y={H - Ht} width={L} height={Ht} preserveAspectRatio="none" />
       </svg>
       <rect x={0} y={0} width={L} height={H} className="releveElevationCadre" vectorEffect="non-scaling-stroke" />
+      {partie && <rect x={partie.debut} y={0} width={partie.fin - partie.debut} height={H - partie.hauteur} className="releveVide" pointerEvents="none" />}
       {ouvertures.map((o, i) => {
         const y = H - o.y - o.h;
         const sel = i === choisie;
@@ -831,6 +858,8 @@ function ChampCm({ libelle, valeur, onChange }: { libelle: string; valeur: numbe
 type Etape = 'mur' | 'visee' | 'coins' | 'analyse' | 'resultat';
 
 interface Resultat {
+  /** La partie basse d'un mur en L, mesuree ; corrigeable avant de valider. */
+  partieBasse: PartieBasse | null;
   texture: string;
   hauteurTexture: number;
   couverture: number;
@@ -843,6 +872,8 @@ interface Resultat {
 interface Morceau {
   prise: Prise;
   coins: P2[];
+  /** Mur a deux hauteurs d'egout : le decrochement pose sur la photo (une seule photo). */
+  decrochement?: Decrochement | null;
 }
 
 /**
@@ -907,12 +938,30 @@ function BandeauMorceaux({ morceaux, courant, choisir, retirer }: { morceaux: Mo
   );
 }
 
+/** Rectangle, ou mur en L avec la partie basse a gauche ou a droite. */
+function FormeDuMur({ decro, choisir }: { decro: Decrochement | null; choisir: (c: CoteBas | null) => void }) {
+  return (
+    <div className="releveSegment" role="group" aria-label="Forme du mur">
+      <button type="button" aria-pressed={!decro} onClick={() => choisir(null)}>
+        Rectangle
+      </button>
+      <button type="button" aria-pressed={decro?.cote === 'gauche'} onClick={() => choisir('gauche')}>
+        En L, bas à gauche
+      </button>
+      <button type="button" aria-pressed={decro?.cote === 'droite'} onClick={() => choisir('droite')}>
+        En L, bas à droite
+      </button>
+    </div>
+  );
+}
+
 function EtapeCoins({
   morceaux,
   courant,
   choisir,
   retirer,
   setCoins,
+  setDecrochement,
   prevues,
   avis,
   hauteurMur,
@@ -927,6 +976,7 @@ function EtapeCoins({
   choisir: (k: number) => void;
   retirer: (k: number) => void;
   setCoins: (c: P2[]) => void;
+  setDecrochement: (d: Decrochement | null) => void;
   prevues: number;
   avis: string | null;
   hauteurMur: number;
@@ -943,13 +993,33 @@ function EtapeCoins({
     <>
       <div className="releveCorps releveCorpsPhoto">
         {total > 1 && <BandeauMorceaux morceaux={morceaux} courant={courant} choisir={choisir} retirer={retirer} />}
-        <p className="releveConsigne">{consigneCoins(courant, total)}</p>
+        <p className="releveConsigne">
+          {m.decrochement
+            ? "Mur en L : les coins du pied aux deux bouts, l'égout haut au bout haut, l'égout bas au bout bas ; puis les deux ronds du décrochement, sur l'égout haut et l'égout bas, là où la hauteur change."
+            : consigneCoins(courant, total)}
+        </p>
         {avis && (
           <p className="releveAvis" role="alert">
             {avis}
           </p>
         )}
-        <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} />
+        {total === 1 && <FormeDuMur decro={m.decrochement ?? null} choisir={(c) => setDecrochement(c ? decrochementPropose(m.coins, c) : null)} />}
+        {m.decrochement ? (
+          <Coins
+            key={courant + m.decrochement.cote}
+            photo={m.prise.photo}
+            coins={[...m.coins, m.decrochement.haut, m.decrochement.bas]}
+            setCoins={(c) => {
+              setCoins(c.slice(0, 4));
+              const d = m.decrochement;
+              if (d) setDecrochement({ ...d, haut: au(c, 4), bas: au(c, 5) });
+            }}
+            noms={nomsEnL(m.decrochement.cote)}
+            ordre={ordreDuContour(m.decrochement)}
+          />
+        ) : (
+          <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} />
+        )}
         <div className="releveChamps">
           <label className="releveCm">
             <span>Hauteur à l'égout</span>
@@ -1101,6 +1171,29 @@ interface Verification {
   appliquerToit: boolean;
   setAppliquerToit: (v: boolean) => void;
   contour: PtBrut[];
+  partieBasse: PartieBasse | null;
+  setPartieBasse: (p: PartieBasse) => void;
+}
+
+/** La partie basse d'un mur en L, telle que la photo l'a mesuree : la position du decrochement et l'egout bas. */
+function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; largeur: number; hauteurMur: number; maj: (p: PartieBasse) => void }) {
+  const aDroite = p.debut > 0;
+  const x = aDroite ? p.debut : p.fin;
+  return (
+    <div className="releveToit">
+      <div className="releveSousTitre">Mur en L</div>
+      <p className="releveNote">
+        Partie basse {aDroite ? 'à droite' : 'à gauche'}, sur {fr(p.fin - p.debut)} m ; elle va jusqu'au pignon voisin.
+      </p>
+      <div className="releveChamps">
+        <ChampCm libelle="Décrochement à" valeur={x} onChange={(v) => {
+          const c = Math.max(0.1, Math.min(largeur - 0.1, v));
+          maj(aDroite ? { ...p, debut: c } : { ...p, fin: c });
+        }} />
+        <ChampCm libelle="Égout bas" valeur={p.hauteur} onChange={(v) => maj({ ...p, hauteur: Math.max(0.5, Math.min(hauteurMur - 0.1, v)) })} />
+      </div>
+    </div>
+  );
 }
 
 function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: () => void; onValider: () => void }) {
@@ -1127,7 +1220,7 @@ function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: 
           </p>
         )}
         {resultat.couverture < 0.9 && <p className="releveAvis">La photo couvrait {Math.round(resultat.couverture * 100)} % du mur ; le reste est complété à la teinte du mur.</p>}
-        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
+        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
         <div className="releveBarre">
           <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
           <button type="button" className="secondary small" onClick={ajouter}>
@@ -1146,6 +1239,7 @@ function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: 
             }}
           />
         )}
+        {v.partieBasse && <CartePartieBasse p={v.partieBasse} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartieBasse} />}
         <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} />
       </div>
       <div className="relevePied">
@@ -1182,7 +1276,7 @@ function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurMur: number, 
   const commun = { largeur: facade.largeur, hauteur: hauteurMur, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
   if (morceaux.length === 1) {
     const m = au(morceaux, 0);
-    const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins });
+    const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins, decrochement: m.decrochement ?? null });
     return r ? { r, avis: null } : null;
   }
   const r = analyserMosaique({
@@ -1244,7 +1338,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
         return;
       }
       const { r } = a;
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis });
+      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse });
       setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
       setToit(r.toitPropose);
       // Un toit saisi a la main ne s'ecrase pas d'office par une estimation.
@@ -1269,6 +1363,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
         distance: mesure ? cm(mesure.distance) : null,
         sourceDistance: mesure?.source ?? null,
         releveLe: new Date().toISOString(),
+        partieBasse: resultat.partieBasse,
       },
       appliquerToit ? toit : null,
       hauteurMur,
@@ -1282,7 +1377,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)} × ${fr(hauteurMur)} m` : 'Relever une façade';
   const verification: Verification | null =
     resultat && facade
-      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts }
+      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts,
+          partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }) }
       : null;
 
   return (
@@ -1324,7 +1420,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
             setMorceaux(morceaux.filter((_, i) => i !== k));
             setCourant(Math.max(0, Math.min(courant, morceaux.length - 2)));
           }}
-          setCoins={(c) => setMorceaux(morceaux.map((m, i) => (i === courant ? { ...m, coins: c } : m)))}
+          setCoins={(c) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c } : m)))}
+          setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
           prevues={prevues}
           avis={avis}
           hauteurMur={hauteurMur}
