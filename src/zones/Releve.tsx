@@ -18,7 +18,7 @@
 // Rien n'est ecrit dans le plan avant Valider : fermer le parcours ne laisse aucune trace.
 
 import { au } from '../util/tableaux.js';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as PE } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as PE } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
 import { facadesDuContour, type Facade } from '../facade/geometrie.js';
@@ -202,16 +202,17 @@ function useObjectif() {
   const champGrandAngle = champs.grandAngle || (offre?.deviceId || !offre?.zoom ? CHAMP_GRAND_ANGLE_DEFAUT : champAvecZoom(champs.principal, offre.zoom));
   const champ = actif === 'grand-angle' ? champGrandAngle : champs.principal;
   const choix: ChoixCamera = actif === 'grand-angle' && offre ? (offre.deviceId ? { deviceId: offre.deviceId } : { zoom: offre.zoom }) : {};
+  const choisir = useCallback((o: Objectif) => {
+    setObjectif(o);
+    ecrireReglage('objectif', o === 'grand-angle' ? 0.5 : 1);
+  }, []);
   return {
     objectif: actif,
     disponible,
     choix,
     champ,
     setOffre,
-    choisir(o: Objectif) {
-      setObjectif(o);
-      ecrireReglage('objectif', o === 'grand-angle' ? 0.5 : 1);
-    },
+    choisir,
     setChamp(v: number) {
       setChamps((c) => (actif === 'grand-angle' ? { ...c, grandAngle: v } : { ...c, principal: v }));
       ecrireReglage(actif === 'grand-angle' ? 'champ-grand-angle' : 'champ', v);
@@ -229,6 +230,8 @@ function useCamera(
   setCapteur: (m: MesureDistance) => void,
   choix: ChoixCamera,
   surOffre: (o: OffreGrandAngle) => void,
+  /** Le grand-angle n'a pas pu s'ouvrir : revenir a l'objectif principal plutot qu'a un ecran noir. */
+  surEchecGrandAngle: () => void,
 ) {
   const [erreur, setErreur] = useState<string | null>(null);
   const deviceId = choix.deviceId ?? null,
@@ -259,12 +262,16 @@ function useCamera(
         setErreur(null);
         if (!deviceId && !zoom) void decouvrirGrandAngle(f).then(surOffre);
       })
-      .catch(() => setErreur("La caméra n'a pas pu s'ouvrir. Autorisez-la dans les réglages du navigateur, ou importez une photo."));
+      .catch(() => {
+        if (fini) return;
+        if (deviceId || zoom) surEchecGrandAngle();
+        else setErreur("La caméra n'a pas pu s'ouvrir. Autorisez-la dans les réglages du navigateur, ou importez une photo.");
+      });
     return () => {
       fini = true;
       fermerCamera(flux);
     };
-  }, [natif, video, setCapteur, deviceId, zoom, surOffre]);
+  }, [natif, video, setCapteur, deviceId, zoom, surOffre, surEchecGrandAngle]);
   return { erreur, setErreur };
 }
 
@@ -547,7 +554,14 @@ function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { facade: 
   const [reperes, setReperes] = useState<Reperes>({ a: 0.2, b: 0.8, touches: false });
   const obj = useObjectif();
   const champ = obj.champ;
-  const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre);
+  const { choisir } = obj;
+  // Le message survit a la reouverture de l'objectif principal, qui efface les erreurs de camera.
+  const [repli, setRepli] = useState(false);
+  const surEchecGrandAngle = useCallback(() => {
+    choisir('principal');
+    setRepli(true);
+  }, [choisir]);
+  const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre, surEchecGrandAngle);
   const niveau = useInclinaison();
   const { taille, cadre } = useCadreVideo(video, scene);
   const ar = useWebxr(natif, scene, setCapteur, setErreur);
@@ -578,15 +592,23 @@ function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { facade: 
         {!capteur && taille.vw > 0 && <RepereVisee reperes={reperes} setReperes={setReperes} cadre={cadre} scene={scene} />}
         <div className="releveViseur" aria-hidden="true" />
         <MesureVisee mesure={mesure} consigne={consigne} mesuree={!!capteur} natif={natif} xr={ar.xr} beta={niveau.beta} />
-        {erreur && (
+        {(erreur || repli) && (
           <div className="releveErreur" role="alert">
-            {erreur}
+            {erreur || "Le grand-angle n'a pas pu s'ouvrir : retour à l'objectif principal."}
           </div>
         )}
       </div>
       <div className="releveOutils">
         <div className="releveRangee">
-          {!natif && obj.disponible && <ChoixObjectif objectif={obj.objectif} choisir={obj.choisir} />}
+          {!natif && obj.disponible && (
+            <ChoixObjectif
+              objectif={obj.objectif}
+              choisir={(o) => {
+                setRepli(false);
+                obj.choisir(o);
+              }}
+            />
+          )}
         </div>
         <div className="releveRangee releveDeclenchement">
           <button type="button" className="secondary" onClick={onRetour}>

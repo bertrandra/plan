@@ -31,6 +31,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le grand-angle d'un iPhone en français ouvrait la mauvaise caméra.** iOS y nomme sa caméra
+  virtuelle « Dual Wide » « Caméra arrière double grand-angle » : Plan la prenait pour l'ultra
+  grand-angle, et comme iOS la démarre à 1×, le bouton « 0,5× » ne changeait rien au cadrage — avec
+  un champ de 108° appliqué à une image de 67°, donc des distances fausses. Les caméras virtuelles
+  (double, triple) sont maintenant reconnues avant le grand-angle, et un nom en « ultra » passe
+  devant (`facade/objectifs.ts`). Si le grand-angle refuse de s'ouvrir, la visée revient à
+  l'objectif principal et le dit, au lieu de rester noire.
 - **Assemblage de plusieurs photos : un décalage entre deux cases n'est plus manqué.** La recherche
   grossière ne gardait que son meilleur décalage à 10 cm près ; le pic de ressemblance d'un mur uni
   percé de baies nettes est plus étroit, et un vrai décalage tombé entre deux cases y paraissait

@@ -13,6 +13,13 @@ describe('genreCamera', () => {
     expect(genreCamera('Front Camera')).toBe('avant');
   });
 
+  it('ne prend pas la camera virtuelle « double grand-angle » d un iPhone en francais pour l ultra grand-angle', () => {
+    expect(genreCamera('Caméra arrière double grand-angle')).toBe('virtuelle');
+    expect(genreCamera('Caméra arrière double grand angle')).toBe('virtuelle');
+    expect(genreCamera('Caméra arrière triple')).toBe('virtuelle');
+    expect(genreCamera('Caméra arrière téléobjectif')).toBe('tele');
+  });
+
   it('ne devine rien sur un nom Android anonyme', () => {
     expect(genreCamera('camera2 2, facing back')).toBe('arriere');
   });
@@ -26,6 +33,17 @@ describe('grandAngleParmi', () => {
       { deviceId: 'c', label: 'Back Ultra Wide Camera' },
     ];
     expect(grandAngleParmi(cameras)).toBe('c');
+  });
+
+  it('choisit l ultra grand-angle, meme liste apres la camera double d un iPhone en francais', () => {
+    const cameras = [
+      { deviceId: 'avant', label: 'Caméra avant' },
+      { deviceId: 'arriere', label: 'Caméra arrière' },
+      { deviceId: 'triple', label: 'Caméra arrière triple' },
+      { deviceId: 'double', label: 'Caméra arrière double grand-angle' },
+      { deviceId: 'ultra', label: 'Caméra arrière ultra grand-angle' },
+    ];
+    expect(grandAngleParmi(cameras)).toBe('ultra');
   });
 
   it('ne trouve rien avant la permission (noms vides)', () => {

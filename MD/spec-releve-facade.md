@@ -240,7 +240,11 @@ Le choix **« 0,5× grand-angle / 1× »** n'apparaît que si l'une des deux voi
 retenu sur l'appareil, et **le champ se règle et se mémorise par objectif** (ce n'est pas le même
 verre). La photo emporte le champ de l'objectif qui l'a prise, et les coins proposés en dépendent.
 Les caméras « Dual » et « Triple » d'un iPhone sont virtuelles (iOS y change d'objectif seul) : elles
-ne sont jamais choisies pour cette raison.
+ne sont jamais choisies pour cette raison. Elles sont reconnues **avant** le grand-angle : en
+français, la « Dual Wide » s'appelle « Caméra arrière double grand-angle », et la 1.0 la prenait
+pour l'ultra grand-angle (le bouton 0,5× ne changeait alors rien). Parmi plusieurs candidates, un
+nom en « ultra » l'emporte. Si le grand-angle ne s'ouvre pas, la visée revient au principal et le
+dit.
 
 **Limite.** Un grand-angle déforme davantage : les murs droits se courbent un peu vers les bords de
 l'image. iOS corrige d'office la distorsion de son ultra grand-angle ; tous les Android ne le font
