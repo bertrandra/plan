@@ -55,7 +55,7 @@ export async function franchirLaPorte(): Promise<Acces> {
 
   function afficher(fermeture: Fermeture): void {
     racine ||= createRoot(conteneur());
-    racine.render(createElement(Porte, { fermeture, ouvrir, plateforme: BACKPROD_API_URL }));
+    racine.render(createElement(Porte, { fermeture, ouvrir, reessayer: () => { void demarrer(); }, plateforme: BACKPROD_API_URL }));
   }
 
   function refermer(): void {
@@ -92,10 +92,29 @@ export async function franchirLaPorte(): Promise<Acces> {
 
   const attendu = new Promise<Acces>((r) => { resoudre = r; });
 
-  // Le cookie de la plateforme est `SameSite=Strict` sur son hote : une page servie par un
-  // sous-domaine frere le porte. C'est toute la condition du signe unique (spec §1).
-  const repris = await session.reprendre().catch(() => false);
-  if (repris) { if (await entrer()) return attendu; } else afficher({ raison: 'anonyme' });
+  /**
+   * Reprend la session par le cookie, puis entre ; sinon, dit pourquoi.
+   *
+   * Le cookie de la plateforme est `SameSite=Strict; Domain=raillard.org` : une page servie par un
+   * sous-domaine frere le porte. C'est toute la condition du signe unique (spec §1).
+   *
+   * **Seul un `401` montre le formulaire** (2.2.1). Une plateforme injoignable, un `5xx` ou un appel
+   * que le navigateur a bloque ne disent pas que personne n'est connecte : les confondre envoyait
+   * sur le formulaire quelqu'un dont la session etait intacte, avec une pastille verte a cote. On
+   * montre la panne, avec de quoi reessayer sans recharger la page.
+   */
+  async function demarrer(): Promise<void> {
+    let repris: boolean;
+    try {
+      repris = await session.reprendre();
+    } catch (e) {
+      afficher(e instanceof EchecPlateforme ? fermetureDe(e.erreur)
+        : { raison: 'panne', code: 'INJOIGNABLE', message: 'La plateforme n’a pas pu reprendre votre session : ' + String((e as Error)?.message || e), requestId: '' });
+      return;
+    }
+    if (repris) await entrer(); else afficher({ raison: 'anonyme' });
+  }
 
+  await demarrer();
   return attendu;
 }

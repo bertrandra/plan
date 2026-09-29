@@ -18,6 +18,8 @@ export interface PropsPorte {
   ouvrir: (email: string, motDePasse: string) => Promise<string | null>;
   /** L'origine de la plateforme, pour les liens qui lui appartiennent. */
   plateforme: string;
+  /** Refait la reprise de session, depuis l'ecran de panne, sans recharger la page. */
+  reessayer?: () => void;
 }
 
 /**
@@ -63,9 +65,9 @@ function Pastille({ plateforme }: { plateforme: string }) {
   );
 }
 
-export function Porte({ fermeture, ouvrir, plateforme }: PropsPorte) {
+export function Porte({ fermeture, ouvrir, plateforme, reessayer }: PropsPorte) {
   if (fermeture.raison === 'sansPlan') return <SansPlan fermeture={fermeture} plateforme={plateforme} />;
-  if (fermeture.raison === 'panne') return <Panne fermeture={fermeture} />;
+  if (fermeture.raison === 'panne') return <Panne fermeture={fermeture} reessayer={reessayer} />;
   return <Formulaire ouvrir={ouvrir} plateforme={plateforme} />;
 }
 
@@ -140,7 +142,7 @@ function SansPlan({ fermeture, plateforme }: { fermeture: Extract<Fermeture, { r
   );
 }
 
-function Panne({ fermeture }: { fermeture: Extract<Fermeture, { raison: 'panne' }> }) {
+function Panne({ fermeture, reessayer }: { fermeture: Extract<Fermeture, { raison: 'panne' }>; reessayer: (() => void) | undefined }) {
   return (
     <div className="porteVoile">
       <div className="porteBoite">
@@ -151,6 +153,7 @@ function Panne({ fermeture }: { fermeture: Extract<Fermeture, { raison: 'panne' 
           qui permet de retrouver la requête.
         </p>
         <p className="porteRef">{fermeture.code}{fermeture.requestId && ' · ' + fermeture.requestId}</p>
+        {reessayer && <button type="button" className="porteBouton" onClick={reessayer}>Réessayer</button>}
       </div>
     </div>
   );

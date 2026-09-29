@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { creerSession, EchecPlateforme, MARGE_RENOUVELLEMENT_MS, type ContexteSession } from '../../../src/plateforme/session.js';
+import { creerSession, EchecPlateforme, MARGE_RENOUVELLEMENT_MS, REESSAI_RENOUVELLEMENT_MS, type ContexteSession } from '../../../src/plateforme/session.js';
 
 // Etape 1 de MD/spec-connexion-plateforme.md §16 : la session existe, aucun ecran n'en depend.
 // Ce que ces tests figent, ce sont les quatre regles ecrites en tete du module — et surtout celle
 // qui compte le jour ou elle servira : un `401` ne doit pas tourner en boucle.
 
 /** Une plateforme de papier : elle rend ce qu'on lui dit de rendre, et note ce qu'on lui demande. */
-function monter(reponses: Array<{ statut: number; corps?: unknown }> = []) {
+function monter(reponses: Array<{ statut: number; corps?: unknown; reseau?: boolean }> = []) {
   const appels: Array<{ url: string; methode: string; entetes: Record<string, string>; corps?: string }> = [];
   const file = [...reponses];
   const taches: Array<{ quand: number; quoi: () => void }> = [];
@@ -23,6 +23,8 @@ function monter(reponses: Array<{ statut: number; corps?: unknown }> = []) {
         ...(typeof init.body === 'string' ? { corps: init.body } : {})
       });
       const r = file.shift() || { statut: 200, corps: {} };
+      // Un appel que le reseau (ou le navigateur, pour une regle CORS) n'a pas laisse aboutir.
+      if (r.reseau) throw new TypeError('Failed to fetch');
       return {
         ok: r.statut >= 200 && r.statut < 300,
         status: r.statut,
@@ -249,3 +251,48 @@ describe('l horloge', () => {
 // Un garde-fou de forme : vi est importe pour la symetrie des autres suites, mais ce module
 // n'espionne rien — tout passe par le contexte injecte, ce qui est la raison d'etre de celui-ci.
 void vi;
+
+describe('seul un 401 ferme la session', () => {
+  // Le symptome de septembre 2026 : « deja connecte a la plateforme et j'arrive sur la page de login
+  // dans Plan ». Une panne passagere du renouvellement ne dit pas que la session est morte.
+  const PANNE = { statut: 503, corps: { error: { code: 'UNAVAILABLE', message: 'Plus tard.' } } };
+
+  it('garde la session quand le renouvellement qui suit un 401 tombe en 5xx', async () => {
+    const { session, pertes } = monter([SESSION_OK, { statut: 401 }, PANNE]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    await expect(session.appeler('listProjects')).rejects.toBeInstanceOf(EchecPlateforme);
+    expect(pertes).toHaveLength(0);
+    expect(session.jeton()?.valeur).toBe('jeton-a');
+  });
+
+  it('garde la session quand le renouvellement qui suit un 401 n atteint pas la plateforme', async () => {
+    const { session, pertes } = monter([SESSION_OK, { statut: 401 }, { statut: 0, reseau: true }]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    await expect(session.appeler('listProjects')).rejects.toThrow('Failed to fetch');
+    expect(pertes).toHaveLength(0);
+  });
+
+  it('ferme la session quand le renouvellement repond 401', async () => {
+    const { session, pertes } = monter([SESSION_OK, { statut: 401 }, { statut: 401 }]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    await expect(session.appeler('listProjects')).rejects.toBeInstanceOf(EchecPlateforme);
+    expect(pertes).toHaveLength(1);
+    expect(session.jeton()).toBeNull();
+  });
+
+  it('reessaie le renouvellement anticipe qui n a pas abouti, sans rien fermer', async () => {
+    const { session, taches, pertes } = monter([SESSION_OK, PANNE]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    taches.shift()!.quoi();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pertes).toHaveLength(0);
+    expect(taches.map((t) => t.quand)).toEqual([REESSAI_RENOUVELLEMENT_MS]);
+  });
+
+  it('fait un seul renouvellement pour deux appels qui prennent un 401 ensemble', async () => {
+    const { session, appels } = monter([SESSION_OK, { statut: 401 }, { statut: 401 }, SESSION_OK]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    await Promise.allSettled([session.appeler('listProjects'), session.appeler('listProjects')]);
+    expect(appels.filter((a) => a.url.endsWith('/auth/refresh'))).toHaveLength(1);
+  });
+});

@@ -16,6 +16,15 @@
 // session morte fait un deni de service contre sa propre plateforme. Apres l'echec, la session est
 // close et l'appelant est prevenu une fois.
 //
+// **2 bis. Seul un `401` ferme la session** (2.2.1, comme le frontend de la plateforme depuis son
+// ADR-062). Un renouvellement qui echoue sur le reseau, un `429` ou un `5xx` ne dit rien de la
+// session : elle est gardee, l'appel echoue, et le renouvellement anticipe se reessaie. Les confondre
+// renvoyait sur le formulaire de connexion quelqu'un dont la session etait intacte — le symptome
+// « deja connecte a la plateforme et j'arrive sur la page de login dans Plan ».
+//
+// **2 ter. Un renouvellement a la fois.** Deux appels qui prennent un `401` ensemble partagent le
+// meme renouvellement au lieu d'en lancer deux avec le meme cookie.
+//
 // **3. Le renouvellement anticipe de soixante secondes.** `expires_in` est une duree, pas une date :
 // on la convertit tout de suite, sinon une page laissee ouverte pendant la marge repart sur un
 // jeton perime.
@@ -61,6 +70,8 @@ export interface ContexteSession {
 
 /** Marge avant expiration : on renouvelle pendant que le jeton courant vaut encore (regle 3). */
 export const MARGE_RENOUVELLEMENT_MS = 60_000;
+/** Apres un renouvellement anticipe qui n'a pas abouti (reseau, 5xx), on reessaie dans ce delai. */
+export const REESSAI_RENOUVELLEMENT_MS = 15_000;
 
 export interface Session {
   /** Le jeton courant, ou rien. Rendu pour les tests et pour l'en-tete : personne ne le range. */
@@ -68,7 +79,11 @@ export interface Session {
   ouverte(): boolean;
   /** `POST /auth/token`. La plateforme pose son cookie ; Plan garde le jeton en memoire. */
   ouvrir(email: string, motDePasse: string): Promise<void>;
-  /** `POST /auth/refresh`. Sans corps : la preuve est le cookie. `false` quand personne n'est connecte. */
+  /**
+   * `POST /auth/refresh`. Sans corps : la preuve est le cookie. `false` quand personne n'est connecte
+   * (`401`) ; leve une `EchecPlateforme` sur toute autre reponse, et l'erreur du reseau telle quelle —
+   * la session, elle, n'est pas touchee (regle 2 bis).
+   */
   reprendre(): Promise<boolean>;
   /** `POST /auth/sign-out` — `204`, sans corps. Il n'y a pas de « se deconnecter de Plan seulement ». */
   fermer(): Promise<void>;
@@ -112,7 +127,15 @@ export function creerSession(ctx: ContexteSession): Session {
     if (annulerRenouvellement) annulerRenouvellement();
     if (!jeton) { annulerRenouvellement = null; return; }
     const dans = Math.max(0, jeton.expireA - ctx.maintenant() - MARGE_RENOUVELLEMENT_MS);
-    annulerRenouvellement = ctx.planifier(dans, () => { void reprendre(); });
+    annulerRenouvellement = ctx.planifier(dans, renouvelerAvantTerme);
+  }
+
+  /** Le renouvellement anticipe : un echec qui n'est pas un `401` se reessaie, il ne ferme rien. */
+  function renouvelerAvantTerme(): void {
+    reprendre().catch(() => {
+      if (!jeton) return;
+      annulerRenouvellement = ctx.planifier(REESSAI_RENOUVELLEMENT_MS, renouvelerAvantTerme);
+    });
   }
 
   /** Lit l'enveloppe d'erreur, ou en fabrique une : une reponse illisible reste une defaillance nommee. */
@@ -146,7 +169,15 @@ export function creerSession(ctx: ContexteSession): Session {
     poser((await r.json()) as { access_token: string; expires_in: number });
   }
 
-  async function reprendre(): Promise<boolean> {
+  /** Le renouvellement en cours, partage par ceux qui le demandent en meme temps (regle 2 ter). */
+  let enCours: Promise<boolean> | null = null;
+
+  function reprendre(): Promise<boolean> {
+    if (!enCours) enCours = renouveler().finally(() => { enCours = null; });
+    return enCours;
+  }
+
+  async function renouveler(): Promise<boolean> {
     const r = await ctx.fetch(adresse(OPERATIONS.refreshSession.chemin), {
       method: 'POST',
       credentials: 'include',
@@ -190,8 +221,9 @@ export function creerSession(ctx: ContexteSession): Session {
   async function appeler<T>(id: IdOperation, options: OptionsAppel = {}): Promise<T> {
     let r = await envoyer(id, options);
     if (r.status === 401) {
-      // Un renouvellement, un reessai, puis on s'arrete (regle 2).
-      const repris = await reprendre().catch(() => false);
+      // Un renouvellement, un reessai, puis on s'arrete (regle 2). Un renouvellement qui leve n'a
+      // pas dit que la session etait morte : l'appel echoue, la session reste (regle 2 bis).
+      const repris = await reprendre();
       if (!repris) { perdre(); throw await echec(r); }
       r = await envoyer(id, options);
       if (r.status === 401) { perdre(); throw await echec(r); }
