@@ -12,7 +12,8 @@
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d';
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d'
+  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
   clair: {
@@ -40,7 +41,13 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'alerte': '#A8442F',
     'toast-bg': '#2B2117',
     'on-toast': '#FFFDF8',
-    'fond-3d': '#DFE7EA'
+    'fond-3d': '#DFE7EA',
+    // La scene de prise de vue du releve de facade : une camera se regarde sur fond sombre, quel que
+    // soit le theme - un cadre clair autour de l'image eblouit et fausse le jugement de l'exposition.
+    'camera-bg': '#14100B',
+    'on-camera': '#FFFDF8',
+    'camera-ok': '#8FD49B',
+    'camera-alerte': '#F2B38F'
   },
   sombre: {
     'ink': '#F1E7D0',
@@ -67,7 +74,11 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'alerte': '#E08A6E',
     'toast-bg': '#F1E7D0',
     'on-toast': '#1C1610',
-    'fond-3d': '#1F2426'
+    'fond-3d': '#1F2426',
+    'camera-bg': '#14100B',
+    'on-camera': '#FFFDF8',
+    'camera-ok': '#8FD49B',
+    'camera-alerte': '#F2B38F'
   }
 };
 
@@ -93,7 +104,10 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['danger', 'panel-bg', 4.5],
   ['on-toast', 'toast-bg', 4.5],
   ['ok', 'panel-bg', 3],
-  ['alerte', 'panel-bg', 3]
+  ['alerte', 'panel-bg', 3],
+  ['on-camera', 'camera-bg', 4.5],
+  ['camera-ok', 'camera-bg', 4.5],
+  ['camera-alerte', 'camera-bg', 4.5]
 ];
 
 /** Luminance relative WCAG 2.1 d'une couleur `#RRGGBB`. */

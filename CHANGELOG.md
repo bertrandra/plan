@@ -5,11 +5,66 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.2.0] — 2026-09-29
+
+### Ajouté
+
+- **Le relevé de façade.** On sélectionne un bâtiment, on choisit un de ses murs, le téléphone le
+  photographie, et Plan en tire, **dans le navigateur, sans serveur** : l'élévation redressée à
+  l'échelle, les **ouvertures** (fenêtres, portes-fenêtres, portes, garages) avec leurs **cotes au
+  centimètre**, et la **forme du toit** (plat, appentis, deux ou quatre pans) avec la hauteur de son
+  faîtage. La photo est posée sur le mur **et sur son pignon** en 3D, les ouvertures y ont un
+  encadrement en relief, le toit coiffe le bâtiment ; sur le plan, les baies du rez-de-chaussée
+  coupent le trait du mur comme sur un plan d'architecte. Spécification :
+  [`MD/spec-releve-facade.md`](MD/spec-releve-facade.md).
+
+  Le parcours tient en cinq temps, plein écran dans les trois classes d'écran : choisir le mur sur le
+  contour, **se placer** — distance au mur, consigne pour atteindre la **distance cible (3 m par
+  défaut)**, aplomb du téléphone —, placer les quatre coins (proposés d'après la distance, avec une
+  loupe, et qui peuvent déborder de la photo), analyse, vérification. Tout se corrige au doigt, rien
+  n'est écrit avant « Valider », qui écrit en un seul pas d'historique.
+
+  **La distance vient de la meilleure source disponible** : le **LiDAR** de l'iPhone par le nouveau
+  module natif (`native/ios/`, voir plus bas), la réalité augmentée WebXR sur Android, et partout
+  ailleurs la taille connue du mur rapportée à sa taille dans l'image. Une photo importée donne sa
+  focale exacte par son EXIF.
+
+- **Plan Capture, le module natif iOS** (`native/ios/`). Safari ne donne pas accès au LiDAR : une
+  application minimale héberge Plan tel quel dans une vue web transparente posée sur une vue ARKit,
+  envoie la profondeur mesurée au centre de l'image dix fois par seconde, et prend la photo avec la
+  focale exacte de l'objectif. Plan le détecte seul ; rien ne change pour le navigateur. **Les sources
+  Swift n'ont pas été compilées** (écrites sans Xcode) — le README dit quoi vérifier en premier.
+
+- **Section « Façades et toit » dans l'inspecteur d'un bâtiment** : une ligne par mur (orientation,
+  longueur, ouvertures relevées, Relever / Refaire / Retirer) et les champs du toit — forme, hauteur
+  du faîtage avec sa pente, direction du faîtage, couverture. Deux commandes, `facade.relever` et
+  `facade.retirer`, placées dans les trois classes d'écran.
+
+### Modifié
+
+- **Le schéma du projet passe à 2** (`RELEASE.md` §3.1) : un bâtiment peut porter `facades` et
+  `toit`. Ils ne sont écrits que s'ils existent, donc un projet sans relevé garde exactement sa forme.
+  Un fichier de schéma 1 s'ouvre sans migration ; un fichier de schéma 2 est refusé par la `2.1.0`,
+  qui en perdrait les relevés au premier enregistrement.
+- Quatre jetons de couleur pour la scène de prise de vue (`--camera-bg`, `--on-camera`,
+  `--camera-ok`, `--camera-alerte`), identiques dans les deux thèmes : une caméra se regarde sur
+  fond sombre. Leurs contrastes sont vérifiés par le test des jetons.
+
+### Interne
+
+- **Les six témoins sont recapturés à la `2.2.0`, avec la preuve forte** : ancien numéro,
+  ancienne date de build et ancien numéro de schéma remis dans les octets frais, les six empreintes
+  de la `2.0.2` reviennent au bit près, à tailles identiques. Le relevé de façade — et la `2.1.0`,
+  que la dernière capture n'avait pas vue — n'ont déplacé aucun octet exporté.
+- 791 tests (55 de plus) : géométrie des façades, cadrage, homographie, redressement d'une photo
+  synthétique en perspective, ouvertures au centimètre, pignon reconnu et faîtage orienté, EXIF,
+  sérialisation conditionnelle, mailles et coordonnées de texture 3D.
+
 Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement hors les
 défauts corrigés ci-dessous** : le moteur n'est que déplacé, l'oracle et les six empreintes ne
 bougent pas.
 
-### Modifié
+### Modifié (depuis la 2.1.1)
 
 - **Le tiroir des résultats est en React** (`zones/resultats/`) : nomenclature et débits, coupe,
   implantation, chantier, méthode, cotes, PLU et résumé, plus le tableau d'optimisation de
@@ -34,7 +89,7 @@ bougent pas.
 - **« Actualiser IGN » se grise pendant une actualisation** au lieu de réécrire le libellé du bouton
   qui l'avait lancée ; la commande ne dépend plus d'un bouton source.
 
-### Corrigé
+### Corrigé (depuis la 2.1.1)
 
 - **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par
   barre et au m², longueurs achetables, prix des vis et des plots, conditionnement, équipe, heures,
@@ -59,7 +114,7 @@ bougent pas.
   « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
   l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
 
-### Modifié (architecture)
+### Modifié (architecture) (depuis la 2.1.1)
 
 - **Plus aucune fonction de plus de 150 lignes** (FF-10 sans exception) : `construirePDF`,
   `objetsDepuisCadastre` et `brancherPointeur` se découpent en fonctions nommées — une par

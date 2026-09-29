@@ -29,9 +29,9 @@ const enOctets = (s: string) => Buffer.from(s, 'utf8').toString('latin1');
 const ecrire = (nom: string, s: string) => { const o = enOctets(s); if (process.env.SORTIE) writeFileSync(process.env.SORTIE + '/' + nom, o, 'latin1'); return o; };
 const empreinte = (s: string) => createHash('sha256').update(Buffer.from(neutraliser(s), 'latin1')).digest('hex');
 
-// Les temoins ont ete captures a la 2.0.2, build du 25 septembre 2026 : les generateurs recoivent
-// ces valeurs en parametre, et l'horloge est posee au jour de la capture.
-const VERSION = '2.0.2', BUILD = '2026-09-25';
+// Les temoins ont ete recaptures a la 2.2.0, build du 28 septembre 2026, schema 2 (EMPREINTES.md) :
+// les generateurs recoivent ces valeurs en parametre, et l'horloge est posee au jour de la capture.
+const VERSION = '2.2.0', BUILD = '2026-09-28', SCHEMA = 2;
 
 function etatTemoin() {
   const etat = creerEtat({ objects: DEMO_TEMOIN_OBJECTS, measures: DEMO_MEASURES } as Parameters<typeof creerEtat>[0],
@@ -42,17 +42,17 @@ function etatTemoin() {
   return etat;
 }
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-25T14:48:03')); });
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-28T23:22:00')); });
 afterAll(() => { vi.useRealTimers(); });
 
 describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', () => {
   it('plan.svg', () => {
     const e = etatTemoin();
-    expect(empreinte(ecrire('plan.svg', construireSVG(e.objects, e.measures, { appVersion: VERSION, schemaVersion: 1 })))).toBe(empreinte(lire('plan.svg')));
+    expect(empreinte(ecrire('plan.svg', construireSVG(e.objects, e.measures, { appVersion: VERSION, schemaVersion: SCHEMA })))).toBe(empreinte(lire('plan.svg')));
   });
   it('plan.dxf', () => {
     const e = etatTemoin();
-    expect(empreinte(ecrire('plan.dxf', construireDXF(e.objects, e.measures, 'Plan interactif ' + VERSION + ' — 25/09/2026')))).toBe(empreinte(lire('plan.dxf')));
+    expect(empreinte(ecrire('plan.dxf', construireDXF(e.objects, e.measures, 'Plan interactif ' + VERSION + ' — 28/09/2026')))).toBe(empreinte(lire('plan.dxf')));
   });
   it('resume.txt', () => {
     const e = etatTemoin();

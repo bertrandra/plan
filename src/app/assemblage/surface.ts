@@ -22,6 +22,8 @@ export interface Surface {
   echelle: SVGGElement;
   cotes: SVGGElement;
   couches: SVGGElement;
+  /** Les ouvertures relevees sur les facades (render/releve.ts) : par-dessus les objets. */
+  releves: SVGGElement;
   /** Pose la taille de la scene sur le plan, sa racine, et la publie a la feuille de style. */
   appliquerTaille(): void;
   poserCalquesDuDessus(): void;
@@ -46,7 +48,7 @@ export function creerSurface(etat: EtatApp): Surface {
     // Le fond orthophoto est un calque de reference : il ne doit jamais masquer le trace du plan.
     ortho: groupe(true), grille: groupe(),
     parasols: groupe(true), mats: groupe(true),
-    nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(),
+    nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(), releves: groupe(true),
     appliquerTaille() {
       stage.style.width = etat.scene.W + 'px'; stage.style.height = etat.scene.H + 'px';
       // L'explorateur et l'inspecteur, de part et d'autre du plan, ne depassent jamais sa hauteur.
@@ -57,6 +59,6 @@ export function creerSurface(etat: EtatApp): Surface {
   };
   s.appliquerTaille();
   stage.appendChild(svg);
-  svg.append(defs, s.ortho, s.grille, s.parasols, s.mats);
+  svg.append(defs, s.ortho, s.grille, s.parasols, s.mats, s.releves);
   return s;
 }

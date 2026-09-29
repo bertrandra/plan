@@ -12,7 +12,9 @@ un nombre est un événement de version majeure, pas une correction de bug (voir
 
 ## État du projet
 
-Version `2.1.1`, **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
+Version `2.2.0` : **le relevé de façade** — on photographie un mur d'un bâtiment, Plan le redresse
+à l'échelle, en retrouve les ouvertures au centimètre et la forme du toit, et les pose en 3D
+(`MD/spec-releve-facade.md`). Depuis la `2.1.0` (et sa révision `2.1.1`), **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
 sombre (`MD/spec-ihm-mobile.md`) : sur téléphone, le plan occupe l'écran et chaque zone devient une
 feuille qui monte du bas ; sur tablette, les panneaux flottent sur le plan. Rien n'a été perdu en
 route — une carte d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe

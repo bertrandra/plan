@@ -85,6 +85,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('tiroir'),
   'terrasse.optimisation': partout('inspecteur'),
+  // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
+  'facade.relever': partout('inspecteur'),
+  'facade.retirer': partout('inspecteur'),
 
   // ---- Fichier et exports ---------------------------------------------------------------------
   'fichier.importerSvg': menu('menuFichier'),

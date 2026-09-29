@@ -210,6 +210,9 @@ Les trois parcours restent des dialogues : import cadastre (trois étapes), actu
 sélecteur de textures. Depuis le 27 septembre 2026, ce sont des composants React
 (`zones/Parcours.tsx`, `zones/parcours/`) ouverts un à la fois par `app/parcours.ts` ; leur logique
 vit sans DOM dans `app/importCadastre.ts`, `app/actualisationIgn.ts` et `io/polyhaven.ts`.
+Un quatrième s'y ajoute en `2.2.0`, plein écran : le **relevé de façade** (`zones/Releve.tsx`,
+[`spec-releve-facade.md`](spec-releve-facade.md) §4), ouvert par la commande `facade.relever`
+depuis la section « Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 

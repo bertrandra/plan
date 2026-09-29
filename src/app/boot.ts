@@ -56,6 +56,9 @@ import { creerGestes, libelleTypeObjet, dejaRectangle } from './assemblage/geste
 import { creerVues3d, type Vues3d } from './assemblage/vues3d.js';
 import { brancherLesExports, exporterLeProjet, resumeDuProjet } from './assemblage/exports.js';
 import { monterZones } from '../zones/monter.js';
+import { dessinerReleves } from '../render/releve.js';
+import { creerServiceReleve } from './releve.js';
+import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { Pointage } from '../interaction/outilMesure.js';
@@ -142,7 +145,10 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
   function render(): void {
     const contexteChange = synchroniserContexteTerrasse(etat);
-    rendreScene(etat, { ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho });
+    rendreScene(etat, {
+      ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
+      renderReleves: () => dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque)
+    });
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
   }
@@ -283,7 +289,10 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   }, magasin, commandes);
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
   const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
-  monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d });
+  // Le releve de facade : le parcours de prise de vue (zones/Releve.tsx) et ses deux commandes.
+  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf });
+  brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
+  monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur };
 }
 

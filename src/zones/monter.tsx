@@ -22,6 +22,8 @@ import { PanneauxResultats } from './resultats/Panneaux.js';
 import { Vue3d } from './vue3d/Vue3d.js';
 import { Visionneuse } from './vue3d/Visionneuse.js';
 import type { ServiceVues3d } from './vue3d/communs.js';
+import { Releve } from './Releve.js';
+import type { ServiceReleve } from '../app/releve.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -40,6 +42,7 @@ export interface DependancesZones {
   pointage: ServicePointage;
   resultats: ServiceResultats;
   vues3d: ServiceVues3d;
+  releve: ServiceReleve;
 }
 
 function conteneur(id: string): HTMLElement {
@@ -48,7 +51,7 @@ function conteneur(id: string): HTMLElement {
   return el;
 }
 
-export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d }: DependancesZones): void {
+export function monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d, releve }: DependancesZones): void {
   // Rendu force synchrone : le code qui suit dans boot() lit des champs des menus par leur
   // identifiant (curseurs du fond orthophoto), qui doivent donc exister au retour.
   flushSync(() => {
@@ -69,5 +72,6 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneNavigation')).render(<BarreNavigation magasin={magasin} commandes={commandes} />);
   createRoot(conteneur('zoneSelection')).render(<FeuilleSelection magasin={magasin} commandes={commandes} explorateur={explorateur} tiroir={tiroir} />);
   createRoot(conteneur('zoneFeuilles')).render(<Voile magasin={magasin} />);
+  createRoot(conteneur('zoneReleve')).render(<Releve releve={releve} />);
   });
 }

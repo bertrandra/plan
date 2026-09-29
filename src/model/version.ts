@@ -25,10 +25,13 @@
 // Le SCHEMA du projet, lui, ne bouge pas : un fichier enregistre par l'ancienne version s'ouvre
 // dans la nouvelle, et l'inverse aussi. La rupture porte sur l'artefact livre, pas sur les donnees.
 
-export const APP_VERSION = '2.1.1';
-export const SCHEMA_VERSION = 1;
+export const APP_VERSION = '2.2.0';
+// 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
+// qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
+// premier enregistrement, d'ou le refus (RELEASE.md §3.1).
+export const SCHEMA_VERSION = 2;
 export const API_VERSION = 'v1';
-export const BUILD_AT = '2026-09-25';
+export const BUILD_AT = '2026-09-28';
 export const BUILD_SHA: string | null = null;
 
 export function versionLongue(): string {

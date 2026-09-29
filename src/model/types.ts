@@ -195,6 +195,14 @@ interface ObjetCommun {
   /** Diametre estime d'un arbre importe, en metres. */
   diametreArbre?: number;
   couleurArbre?: string;
+  /**
+   * Releves de facade d'un batiment : un par mur photographie, rattache au cote du contour qui le
+   * porte (`MD/spec-releve-facade.md`). Absent tant que rien n'a ete releve - le fichier de projet
+   * d'un plan sans releve garde alors exactement sa forme d'avant.
+   */
+  facades?: ReleveFacade[] | null;
+  /** Forme du toit d'un batiment ; absente, le batiment reste le bloc plat d'avant. */
+  toit?: Toit | null;
 }
 
 /** Un polygone ferme : la parcelle, une terrasse, un batiment, une dalle. */
@@ -441,4 +449,58 @@ export interface Mesure {
   show?: boolean;
   /** Ce qui s'ecrit au bout du trait de rappel : distance perpendiculaire, le long du cote, ou les deux. */
   displayMode?: string;
+}
+
+/** Nature d'une ouverture relevee sur une facade. */
+export type TypeOuverture = 'fenetre' | 'porte-fenetre' | 'porte' | 'garage';
+
+/**
+ * Une ouverture dans le repere de sa facade, en metres : `x` depuis le bord gauche du mur vu de
+ * dehors, `y` depuis le sol (hauteur d'appui), `l` x `h` le tableau.
+ */
+export interface OuvertureFacade {
+  type: TypeOuverture;
+  x: number;
+  y: number;
+  l: number;
+  h: number;
+}
+
+/**
+ * Ce qu'un releve photographique a retenu d'un mur. La texture est l'elevation redressee, a
+ * l'echelle, en JPEG : elle couvre exactement `largeur` x `hauteur` metres, du sol a l'egout.
+ */
+export interface ReleveFacade {
+  /** Indice du cote du contour : de `pts[cote]` a `pts[cote + 1]`. */
+  cote: number;
+  largeur: number;
+  hauteur: number;
+  /** Elevation redressee, `data:image/jpeg;base64,...`, ou `null` si le releve est sans photo. */
+  texture: string | null;
+  /**
+   * Hauteur couverte par la texture depuis le sol, en metres : au-dela de `hauteur`, c'est la bande
+   * au-dessus de l'egout, que la 3D plaque sur le pignon. Absente, la texture s'arrete a l'egout.
+   */
+  hauteurTexture?: number;
+  ouvertures: OuvertureFacade[];
+  /** Distance de prise de vue, en metres, et l'instrument qui l'a donnee. */
+  distance: number | null;
+  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | null;
+  /** Date du releve, ISO 8601. */
+  releveLe: string;
+}
+
+/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */
+export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans';
+
+export interface Toit {
+  forme: FormeToit;
+  /** Hauteur du faitage au-dessus de l'egout, en metres. */
+  hauteur: number;
+  /** Direction du faitage dans le plan, en degres depuis l'est, sens trigonometrique ; modulo 180. */
+  angleFaitage: number;
+  /** Couleur de la couverture. */
+  couleur?: string;
+  /** D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ou saisie. */
+  source?: 'photo' | 'bdtopo' | 'saisie';
 }

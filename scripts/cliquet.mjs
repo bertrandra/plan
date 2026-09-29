@@ -32,7 +32,7 @@ const DRAPEAUX = [];
  * aussi (dette héritée des paliers precedents, soldée le 30 août 2026) et n'a pas de raison d'y
  * revenir sans que ce script le remarque.
  */
-const PROPRES = ['core', 'util', 'shell', 'geometry', 'model', 'engine', 'render', 'io', 'interaction', 'app', 'geo', 'three', 'export', 'ui', 'tests'];
+const PROPRES = ['core', 'util', 'shell', 'geometry', 'model', 'engine', 'render', 'io', 'interaction', 'app', 'geo', 'three', 'export', 'ui', 'facade', 'tests'];
 
 const sortie = (() => {
   try {

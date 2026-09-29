@@ -13,7 +13,7 @@
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
-  | '3d' | 'visionneuse' | 'cloture' | 'plu';
+  | '3d' | 'visionneuse' | 'cloture' | 'plu' | 'facade';
 
 /**
  * Ce que la plateforme accorde, vu du registre.

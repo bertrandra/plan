@@ -19,6 +19,7 @@ import { safeOffset } from '../engine/structure.js';
 import { hauteurParasolDe } from '../engine/parasol.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { estMesh } from './gardes.js';
+import { ajouterReleve3d } from './releve3d.js';
 import {
   creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite,
   type Primitives, type VersLocal
@@ -356,6 +357,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
     // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
     prim.addPrism(footprint, 0, h, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o));
+    // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme.
+    if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
+      ajouterReleve3d({ scene: co.scene, toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);
+    }
     if (o.fonction === 'arbre') ajouterFeuillage(o, h, co);
   });
 }

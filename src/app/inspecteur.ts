@@ -14,6 +14,7 @@ import { showToast } from '../shell/dialogs.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';
 import { sectionsConstruction, type ContexteOptimisation } from '../ui/champs/construction.js';
+import { sectionReleve, estBatiment } from '../ui/champs/facade.js';
 import type { Champ, ContexteChamps, Effet, Section } from '../ui/champs/types.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -90,6 +91,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     sections(c) {
       const sections = sectionsObjet(c);
       if (c.obj.fonction === 'terrasse' && c.obj.type === 'polygon') sections.push(...sectionsConstruction(ctx.optimisation));
+      if (estBatiment(c.obj)) sections.push(sectionReleve(c));
       return sections;
     },
     appliquer(champ, c, ecrire) {
