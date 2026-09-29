@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Seul un `401` ferme la session.** « Déjà connecté à la plateforme, j'arrive sur la page de
+  connexion de Plan, avec la pastille verte. » La reprise de session au démarrage confondait toute
+  défaillance avec « personne n'est connecté » : une plateforme lente, un `5xx`, un appel bloqué par
+  le navigateur menaient au formulaire. Ils mènent maintenant à l'écran de panne, avec sa référence
+  et un bouton **Réessayer** qui refait la reprise sans recharger la page. En cours de travail, un
+  renouvellement qui échoue autrement que par un `401` garde la session : l'appel échoue, et le
+  renouvellement anticipé se réessaie quinze secondes plus tard. C'est la règle que le frontend de
+  la plateforme a adoptée avec son ADR-062 (`src/plateforme/session.ts`, `src/app/porte.ts`).
+- **Un renouvellement à la fois.** Deux appels qui prennent un `401` ensemble partagent le même
+  `POST /auth/refresh` au lieu d'en envoyer deux avec le même cookie.
+
+  Les deux autres causes du symptôme étaient côté plateforme et y sont corrigées (backprod,
+  26-27 septembre) : le cookie resté sans `Domain` après la pose d'`AUTH_COOKIE_DOMAIN`, lu comme un
+  vol et révoquant toutes les sessions du compte, et la course entre la plateforme et Plan qui
+  renouvellent ensemble le même cookie.
+
 ## [2.2.0] — 2026-09-29
 
 ### Ajouté
