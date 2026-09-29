@@ -17,6 +17,24 @@ import type { PtBrut } from '../model/types.js';
  * Une couleur telle que Three.js l'accepte a la r128 : un nom ou un hexadecimal CSS venant du plan
  * (`o.fill`), ou un entier 0xRRGGBB ecrit ici pour les pieces de structure.
  */
+
+/**
+ * Les couches posees a plat au sol, de la plus basse a la plus haute. Le sol vert (0), le terrain, le
+ * fond orthophoto, les chemins non sureleves sont a quelques millimetres les uns des autres : vue de
+ * quelques dizaines de metres, la precision du tampon de profondeur (plan proche a 5 cm) ne les
+ * separe plus, et deux couches voisines se disputent chaque pixel - le scintillement du fond
+ * orthophoto avec le socle du terrain. Un decalage de polygone par couche fixe leur ordre quelle que
+ * soit la distance ; les hauteurs restent, pour les ombres et pour l'export GLB.
+ */
+export const COUCHES_SOL = { terrain: 1, ortho: 2, chemin: 3, surMur: 2 } as const;
+
+/** Range un materiau dans sa couche : il gagne le test de profondeur contre les couches plus basses. */
+export function poserEnCouche(mat: THREE_NS.Material, couche: number): void {
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -couche;
+  mat.polygonOffsetUnits = -4 * couche;
+}
+
 export type CouleurTrois = string | number;
 
 /** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
@@ -198,8 +216,9 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   }
 
   // Ruban plat au sol (chemin non sureleve, le cas courant) : une forme remplie, sans extrusion,
-  // posee legerement au-dessus du sol pour eviter le scintillement (z-fighting).
-  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown): void {
+  // posee legerement au-dessus du sol, et rangee dans sa couche (`couche`, voir COUCHES_SOL) : quelques
+  // millimetres ne suffisent pas a eviter le scintillement vu de loin.
+  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number): void {
     if (!poly || poly.length < 3) return;
     const shape = new THREE.Shape();
     poly.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
@@ -211,6 +230,7 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
     const urlTex = urlTexture(texRef);
     // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : meme echelle.
     if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
+    if (couche) poserEnCouche(mat, couche);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);

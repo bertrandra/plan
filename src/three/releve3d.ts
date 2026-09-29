@@ -13,6 +13,7 @@ import type { ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
 import { contourDuMur, egoutEn, volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { pointInPolygon } from '../geometry/basic.js';
+import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, trianguler, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -122,6 +123,7 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
       [0, 1, 2, 0, 2, 3],
       new THREE.MeshStandardMaterial({ color: plein ? COULEUR_PORTE : COULEUR_VITRE, roughness: plein ? 0.8 : 0.15, metalness: plein ? 0 : 0.3 }),
     );
+    poserEnCouche(m.material as THREE_NS.Material, COUCHES_SOL.surMur);
     ctx.scene.add(m);
   }
 }
@@ -201,7 +203,10 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     if (photo) {
       const tex = new THREE.TextureLoader().load(photo);
       tex.anisotropy = 4;
-      const hab = { f, mat: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide }), hauteurTexture: r.hauteurTexture || r.hauteur };
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide });
+      // 1 cm devant le mur ne suffit pas vu de loin : la photo gagne le test de profondeur (COUCHES_SOL).
+      poserEnCouche(mat, COUCHES_SOL.surMur);
+      const hab = { f, mat, hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.push(hab);
       plaquerTexture(ctx, hab, hMur, partie);
     }

@@ -22,7 +22,7 @@ import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite,
+  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
@@ -197,7 +197,10 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     // remplacer par l'ancien couple `sRGBEncoding`/`encoding` changerait le rendu des tuiles.
     const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
     if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
-    const dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 }));
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+    // Au-dessus du terrain, sous les chemins : une couche, pas seulement un millimetre (COUCHES_SOL).
+    poserEnCouche(mat, COUCHES_SOL.ortho);
+    const dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), mat);
     dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
     const l = versLocal({ x: t.xMin + t.largeur / 2, y: t.yMin + t.hauteur / 2 });
     dalle.position.set(l.x, 0.004, l.z);
@@ -274,7 +277,7 @@ function ajouterChemin(o: ObjetPlan, { prim, ctx }: ContexteObjets): void {
   const h = ctx.elevationOf(o);
   const couleur = o.fill || o.stroke || '#888888';
   if (poly && h > 0) prim.addPrism(poly, 0, h, couleur, false, opaciteDe(o), texturesDe(o));
-  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
+  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin);
   else prim.addGroundOutline(trace, o.stroke || couleur, false);
 }
 
@@ -344,7 +347,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o === obj) return;
     if (ctx.objetMasque(o)) return; // masque dans le plan = masque partout, voisinage compris
     if (o.key === 'parcelle' || o.fonction === 'terrain') {
-      if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null);
+      if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
       return;
     }
     // Un point de vue pilote la camera, une limite cadastrale interne est une information de plan :
