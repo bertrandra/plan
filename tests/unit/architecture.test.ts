@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 // Une regle d'architecture qu'aucun test ne verifie n'est pas une regle, c'est un souhait. Celle-ci
 // tient aujourd'hui ; ce fichier est ce qui la fera tenir demain (architecture.md §9).
@@ -42,30 +42,69 @@ function fichiersTs(dir: string): string[] {
   });
 }
 
-/** Les imports d'un fichier vers une autre couche, hors imports de type (effaces au build). */
-function importsInterCouches(chemin: string): string[] {
-  return readFileSync(chemin, 'utf8').split('\n')
-    .filter(l => !/^\s*import type /.test(l))
-    .map(l => /from '\.\.\/(\w+)\//.exec(l))
-    .filter((m): m is RegExpExecArray => m !== null)
-    .map(m => m[1]!);
+/** Une dependance d'un fichier vers un autre, resolue en chemin absolu sans extension. */
+interface Dependance { cible: string; type: boolean; dynamique: boolean }
+
+// Toutes les formes qu'un import prend dans ce depot, sur plusieurs lignes au besoin :
+//   import { a } from '…'   import type { A } from '…'   import '…'
+//   export { a } from '…'   export type { A } from '…'   import('…')
+// L'ancienne version ne lisait que `from '../x/'` sur une seule ligne : un module de `app/ecouteurs/`
+// ou de `ui/champs/` ecrit `../../x/`, et echappait a la regle sans que personne ne le voie.
+const STATIQUE = /\b(import|export)(\s+type)?\s+(?:[^'";]*?\s+from\s+)?['"](\.[^'"]+)['"]/g;
+const DYNAMIQUE = /\bimport\(\s*['"](\.[^'"]+)['"]\s*\)(\.(?!then\b)\w+)?/g;
+
+function resoudre(depuis: string, specifiant: string): string {
+  return resolve(dirname(depuis), specifiant).replace(/\.(js|tsx?)$/, '');
 }
+
+/** Les dependances d'un fichier vers d'autres fichiers de src/. */
+function dependances(chemin: string, texte = readFileSync(chemin, 'utf8')): Dependance[] {
+  const out: Dependance[] = [];
+  for (const m of texte.matchAll(STATIQUE)) {
+    // `import type` et `export type` sont effaces au build : ils ne creent aucune dependance reelle.
+    out.push({ cible: resoudre(chemin, m[3]!), type: m[2] !== undefined, dynamique: false });
+  }
+  for (const m of texte.matchAll(DYNAMIQUE)) {
+    // `import('../model/types.js').PtBrut` est une reference de type ecrite en syntaxe d'import.
+    out.push({ cible: resoudre(chemin, m[1]!), type: m[2] !== undefined, dynamique: true });
+  }
+  return out.filter(d => d.cible.startsWith(src + sep));
+}
+
+/** La couche d'un chemin sous src/ : son premier dossier, ou undefined hors dossier (main.ts). */
+function couche(chemin: string): string | undefined {
+  const morceaux = relative(src, chemin).split(sep);
+  return morceaux.length > 1 ? morceaux[0] : undefined;
+}
+
+const tous = fichiersTs(src);
 
 describe('les fleches ne pointent que vers le bas', () => {
   it('aucun module n importe d une couche plus haute que la sienne', () => {
     const violations: string[] = [];
-    for (const couche of Object.keys(NIVEAU)) {
-      let fichiers: string[];
-      try { fichiers = fichiersTs(join(src, couche)); } catch { continue; }
-      for (const f of fichiers) {
-        for (const cible of importsInterCouches(f)) {
-          if (NIVEAU[cible] !== undefined && NIVEAU[cible] > NIVEAU[couche]!) {
-            violations.push(`${couche}/${f.split(/[\\/]/).pop()} -> ${cible}/ (niveau ${NIVEAU[couche]} vers ${NIVEAU[cible]})`);
-          }
+    for (const f of tous) {
+      const de = couche(f);
+      if (de === undefined || NIVEAU[de] === undefined) continue;
+      for (const d of dependances(f)) {
+        if (d.type) continue;
+        const vers = couche(d.cible);
+        if (vers !== undefined && NIVEAU[vers] !== undefined && NIVEAU[vers] > NIVEAU[de]!) {
+          violations.push(`${relative(src, f)} -> ${relative(src, d.cible)} (niveau ${NIVEAU[de]} vers ${NIVEAU[vers]})`);
         }
       }
     }
     expect(violations, 'dependances remontantes').toEqual([]);
+  });
+
+  it('voit les imports sur plusieurs lignes, les re-exports, les imports dynamiques et les chemins profonds', () => {
+    // Le test ci-dessus ne vaut que ce que vaut sa lecture des imports : ce cas-ci la garde honnete.
+    // Des modules reels, choisis pour chaque forme — s'ils changent, choisir d'autres temoins.
+    const cibles = (f: string) => dependances(join(src, f)).filter(d => !d.type).map(d => relative(src, d.cible));
+    expect(cibles('app/ecouteurs/exports.ts').some(c => !c.startsWith('app')), 'chemin ../../').toBe(true);
+    expect(cibles('main.ts'), 'import dynamique').toContain(join('app', 'boot'));
+    // Plus aucun module n'ecrit `import('…').Type` : la forme est verifiee sur un texte temoin.
+    const temoin = dependances(join(src, 'ui/temoin.ts'), "const f = (p: import('../model/types.js').PtBrut) => p;\nvoid import('../app/boot.js').then(m => m);");
+    expect(temoin.map(d => d.type), 'import(…).Type est un type, import(…).then une valeur').toEqual([true, false]);
   });
 
   it('range chaque dossier de src/ dans une couche connue', () => {
@@ -74,6 +113,32 @@ describe('les fleches ne pointent que vers le bas', () => {
       try { return statSync(join(src, n)).isDirectory(); } catch { return false; }
     }).filter(n => n !== 'styles');
     expect(dossiers.filter(d => NIVEAU[d] === undefined), 'dossiers hors couches').toEqual([]);
+  });
+});
+
+describe('aucun cycle d import (architecture.md §9, FF-1)', () => {
+  it('le graphe des imports de valeur est acyclique', () => {
+    // Un cycle marche jusqu'au jour ou l'ordre d'evaluation change et qu'une constante est lue avant
+    // d'exister. Les imports de type ne comptent pas (effaces), ni les imports dynamiques : ils sont
+    // resolus apres le chargement, et c'est justement l'outil qui sert a couper une boucle.
+    const index = new Map(tous.map(f => [f.replace(/\.tsx?$/, ''), f]));
+    const voisins = new Map(tous.map(f => [f, dependances(f)
+      .filter(d => !d.type && !d.dynamique)
+      .map(d => index.get(d.cible) ?? index.get(join(d.cible, 'index')))
+      .filter((c): c is string => c !== undefined)]));
+    const etat = new Map<string, 1 | 2>();
+    const pile: string[] = [];
+    const cycles: string[] = [];
+    const visiter = (f: string): void => {
+      etat.set(f, 1); pile.push(f);
+      for (const v of voisins.get(f)!) {
+        if (etat.get(v) === 1) cycles.push([...pile.slice(pile.indexOf(v)), v].map(x => relative(src, x)).join(' > '));
+        else if (!etat.has(v)) visiter(v);
+      }
+      pile.pop(); etat.set(f, 2);
+    };
+    for (const f of tous) if (!etat.has(f)) visiter(f);
+    expect(cycles, 'cycles').toEqual([]);
   });
 });
 
@@ -94,14 +159,7 @@ describe('ce qui doit rester pur', () => {
 
   it('aucune couche n importe legacy.ts', () => {
     // La dependance va dans l'autre sens, et doit y rester : legacy.ts se vide, il ne se remplit pas.
-    const coupables: string[] = [];
-    for (const couche of Object.keys(NIVEAU)) {
-      let fichiers: string[];
-      try { fichiers = fichiersTs(join(src, couche)); } catch { continue; }
-      for (const f of fichiers) {
-        if (/from '\.\.\/legacy\.js'/.test(readFileSync(f, 'utf8'))) coupables.push(f);
-      }
-    }
+    const coupables = tous.filter(f => dependances(f).some(d => d.cible === join(src, 'legacy')));
     expect(coupables).toEqual([]);
   });
 });

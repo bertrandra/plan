@@ -12,6 +12,7 @@
 //
 // Rien n'est ecrit dans le plan avant Valider : fermer le parcours ne laisse aucune trace.
 
+import { au } from '../util/tableaux.js';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as PE } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
@@ -33,7 +34,7 @@ import {
   type MesureDistance,
 } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
-import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit } from '../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut } from '../model/types.js';
 
 const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
 
@@ -173,25 +174,9 @@ interface Prise {
   champ: number;
 }
 
-function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; hauteurMur: number; onPrise: (p: Prise) => void; onRetour: () => void }) {
-  const natif = useMemo(() => natifDisponible(), []);
-  const video = useRef<HTMLVideoElement>(null);
-  const scene = useRef<HTMLDivElement>(null);
+/** La camera, ou le module natif : ouverte au montage, fermee au demontage. */
+function useCamera(natif: boolean, video: React.RefObject<HTMLVideoElement | null>, setCapteur: (m: MesureDistance) => void) {
   const [erreur, setErreur] = useState<string | null>(null);
-  const [taille, setTaille] = useState({ vw: 0, vh: 0, ew: 0, eh: 0 });
-  const [capteur, setCapteur] = useState<MesureDistance | null>(null);
-  const [beta, setBeta] = useState<number | null>(null);
-  const [niveauADemander, setNiveauADemander] = useState(false);
-  const [xr, setXr] = useState(false);
-  const [arActif, setArActif] = useState(false);
-  const finAr = useRef<(() => void) | null>(null);
-  const [cible, setCible] = useState(() => lireReglage('cible', DISTANCE_CIBLE_DEFAUT));
-  const [champ, setChamp] = useState(() => lireReglage('champ', CHAMP_GRAND_COTE_DEFAUT));
-  const [reperes, setReperes] = useState<Reperes>({ mode: 'bords', a: 0.2, b: 0.8, touches: false });
-  const [prise, setPrise] = useState(false);
-  const fichier = useRef<HTMLInputElement>(null);
-
-  // La camera (ou le module natif), et le nettoyage a la sortie.
   useEffect(() => {
     let flux: MediaStream | null = null;
     let fini = false;
@@ -203,11 +188,12 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
         document.documentElement.classList.remove('releveNatif');
       };
     }
-    if (!cameraDisponible()) {
+    const el = video.current;
+    if (!cameraDisponible() || !el) {
       setErreur("Cet appareil ne donne pas accès à une caméra. Importez une photo prise face au mur.");
       return;
     }
-    ouvrirCamera(video.current!)
+    ouvrirCamera(el)
       .then((f) => {
         if (fini) fermerCamera(f);
         else flux = f;
@@ -217,31 +203,34 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
       fini = true;
       fermerCamera(flux);
     };
-  }, [natif]);
+  }, [natif, video, setCapteur]);
+  return { erreur, setErreur };
+}
 
-  useEffect(() => {
-    let vivant = true;
-    webxrDisponible()
-      .then((ok) => vivant && setXr(ok && !natif))
-      .catch(() => undefined);
-    return () => {
-      vivant = false;
-      finAr.current?.();
-    };
-  }, [natif]);
-
-  // L'inclinaison : directe sur Android ; sur iOS, elle attend un geste (bouton « Niveau »).
+/** L'inclinaison : directe sur Android ; sur iOS, elle attend un geste (bouton « Activer le niveau »). */
+function useInclinaison() {
+  const [beta, setBeta] = useState<number | null>(null);
+  const [aDemander, setADemander] = useState(false);
   useEffect(() => {
     const D = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: unknown } }).DeviceOrientationEvent;
     if (!D) return;
     if (typeof D.requestPermission === 'function') {
-      setNiveauADemander(true);
+      setADemander(true);
       return;
     }
     return suivreInclinaison(setBeta);
   }, []);
+  const activer = () =>
+    void demanderPermissionOrientation().then((ok) => {
+      if (ok) suivreInclinaison(setBeta);
+      setADemander(false);
+    });
+  return { beta, aDemander: aDemander && beta === null, activer };
+}
 
-  // Tailles de la video et de la scene, pour placer les reperes sur l'image et non sur les bandes.
+/** Tailles de la video et de la scene, pour placer les reperes sur l'image et non sur les bandes. */
+function useCadreVideo(video: React.RefObject<HTMLVideoElement | null>, scene: React.RefObject<HTMLDivElement | null>) {
+  const [taille, setTaille] = useState({ vw: 0, vh: 0, ew: 0, eh: 0 });
   useEffect(() => {
     const maj = () => {
       const v = video.current,
@@ -258,25 +247,57 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
       ro.disconnect();
       v?.removeEventListener('loadedmetadata', maj);
     };
-  }, []);
-
+  }, [video, scene]);
   const k = taille.vw && taille.vh ? Math.min(taille.ew / taille.vw, taille.eh / taille.vh) : 1;
   const cadre = { l: taille.vw * k, h: taille.vh * k, x: (taille.ew - taille.vw * k) / 2, y: (taille.eh - taille.vh * k) / 2 };
-  const f = taille.vw ? focalePx(taille.vw, taille.vh, champ) : 0;
-  const tailleReelle = reperes.mode === 'bords' ? facade.largeur : hauteurMur;
-  const px = Math.abs(reperes.b - reperes.a) * (reperes.mode === 'bords' ? taille.vw : taille.vh);
-  const dCadrage = reperes.touches && f ? distanceParCadrage(tailleReelle, px, f) : null;
-  const mesure: MesureDistance | null = capteur ?? (dCadrage ? { distance: dCadrage, source: 'cadrage' } : null);
-  const consigne = consigneDistance(mesure?.distance ?? null, cible);
-  const aplomb = consigneAplomb(beta);
-  const pourTout = f ? distancePourToutCadrer(facade.largeur, hauteurMur, taille.vw, taille.vh, f) : null;
-  const sourceLibelle = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée au cadrage' }[mesure.source] : '';
+  return { taille, cadre };
+}
 
+/** La mesure en realite augmentee (Android) : disponible ou non, en cours ou non. */
+function useWebxr(natif: boolean, scene: React.RefObject<HTMLDivElement | null>, setCapteur: (m: MesureDistance | null) => void, setErreur: (e: string) => void) {
+  const [xr, setXr] = useState(false);
+  const [actif, setActif] = useState(false);
+  const fin = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    webxrDisponible()
+      .then((ok) => vivant && setXr(ok && !natif))
+      .catch(() => undefined);
+    return () => {
+      vivant = false;
+      fin.current?.();
+    };
+  }, [natif]);
+  const basculer = async () => {
+    if (actif) {
+      fin.current?.();
+      return;
+    }
+    const racine = scene.current;
+    if (!racine) return;
+    try {
+      fin.current = await mesurerWebXR(racine, setCapteur, () => {
+        setActif(false);
+        fin.current = null;
+      });
+      setActif(true);
+    } catch {
+      setErreur("La réalité augmentée n'a pas pu démarrer. La distance reste estimée au cadrage.");
+    }
+  };
+  return { xr, actif, basculer };
+}
+
+type Cadre = { l: number; h: number; x: number; y: number };
+
+/** Les deux reperes a faire glisser sur les bords du mur (ou sur l'egout et le pied). */
+function RepereVisee({ reperes, setReperes, cadre, scene }: { reperes: Reperes; setReperes: React.Dispatch<React.SetStateAction<Reperes>>; cadre: Cadre; scene: React.RefObject<HTMLDivElement | null> }) {
   const glisser = (quel: 'a' | 'b') => (e: PE<HTMLDivElement>) => {
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const bouger = (ev: PointerEvent) => {
-      const r = scene.current!.getBoundingClientRect();
+      const r = scene.current?.getBoundingClientRect();
+      if (!r) return;
       const t = reperes.mode === 'bords' ? (ev.clientX - r.left - cadre.x) / cadre.l : (ev.clientY - r.top - cadre.y) / cadre.h;
       setReperes((p) => ({ ...p, [quel]: Math.max(0, Math.min(1, t)), touches: true }));
     };
@@ -289,16 +310,146 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
     el.addEventListener('pointerup', lacher);
     el.addEventListener('pointercancel', lacher);
   };
+  const vertical = reperes.mode === 'bords';
+  return (
+    <div className="releveReperes" style={{ left: cadre.x, top: cadre.y, width: cadre.l, height: cadre.h }}>
+      {(['a', 'b'] as const).map((q) => {
+        const v = reperes[q];
+        const nom = vertical ? (q === 'a' ? 'Bord gauche' : 'Bord droit') : q === 'a' ? 'Égout' : 'Sol';
+        return (
+          <div
+            key={q}
+            className={'releveRepere ' + (vertical ? 'vertical' : 'horizontal')}
+            style={vertical ? { left: `${v * 100}%` } : { top: `${v * 100}%` }}
+            onPointerDown={glisser(q)}
+            role="slider"
+            aria-label={nom}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(v * 100)}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              const pas = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 0.01 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -0.01 : 0;
+              if (pas) setReperes((p) => ({ ...p, [q]: Math.max(0, Math.min(1, p[q] + pas)), touches: true }));
+            }}
+          >
+            <span className="releveRepereEtiquette">{nom}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-  const changerCible = (d: number) => {
-    const v = Math.max(1, Math.min(30, Math.round((cible + d) * 2) / 2));
-    setCible(v);
-    ecrireReglage('cible', v);
-  };
+/** La lecture de la distance, sa source, la consigne et l'aplomb, en haut de l'image. */
+function MesureVisee({ mesure, cible, modeReperes, beta }: { mesure: MesureDistance | null; cible: number; modeReperes: Reperes['mode']; beta: number | null }) {
+  const consigne = consigneDistance(mesure?.distance ?? null, cible);
+  const aplomb = consigneAplomb(beta);
+  const source = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée au cadrage' }[mesure.source] : '';
+  return (
+    <div className="releveMesure" aria-live="polite">
+      <div className="releveMesureLigne">
+        <span className="releveDistance">{mesure ? `${fr(mesure.distance, 1)} m` : '— m'}</span>
+        {mesure && <span className="releveSource">{source}</span>}
+      </div>
+      <div className={'releveConsigneCamera ' + (consigne.bon ? 'bon' : 'aregler')}>
+        <Icone nom={consigne.bon ? 'coche' : 'info'} taille={16} />
+        {mesure ? consigne.message : modeReperes === 'bords' ? 'Faites glisser les deux repères sur les bords du mur' : "Faites glisser les repères sur l'égout et le pied du mur"}
+      </div>
+      {aplomb.message && (
+        <div className={'releveConsigneCamera ' + (aplomb.bon ? 'bon' : 'aregler')}>
+          <Icone nom={aplomb.bon ? 'coche' : 'info'} taille={16} />
+          {aplomb.message}
+        </div>
+      )}
+    </div>
+  );
+}
 
+/** Les reglages de la visee : distance cible, nature des reperes, et ce que la cible permet de cadrer. */
+function ReglagesVisee({
+  cible,
+  changerCible,
+  reperes,
+  setReperes,
+  avecReperes,
+  pourTout,
+  facade,
+  hauteurMur,
+}: {
+  cible: number;
+  changerCible: (d: number) => void;
+  reperes: Reperes;
+  setReperes: (r: Reperes) => void;
+  avecReperes: boolean;
+  pourTout: number | null;
+  facade: Facade;
+  hauteurMur: number;
+}) {
+  return (
+    <>
+      <div className="releveRangee">
+        <div className="releveCible" role="group" aria-label="Distance cible">
+          <span>Cible</span>
+          <button type="button" className="secondary small" aria-label="Diminuer la distance cible" onClick={() => changerCible(-0.5)}>
+            <Icone nom="moins" taille={16} />
+          </button>
+          <strong>{fr(cible, 1)} m</strong>
+          <button type="button" className="secondary small" aria-label="Augmenter la distance cible" onClick={() => changerCible(0.5)}>
+            <Icone nom="plus" taille={16} />
+          </button>
+        </div>
+        {avecReperes && (
+          <div className="releveSegment" role="group" aria-label="Repères">
+            <button type="button" aria-pressed={reperes.mode === 'bords'} onClick={() => setReperes({ mode: 'bords', a: 0.2, b: 0.8, touches: false })}>
+              Bords
+            </button>
+            <button type="button" aria-pressed={reperes.mode === 'hauteur'} onClick={() => setReperes({ mode: 'hauteur', a: 0.25, b: 0.75, touches: false })}>
+              Égout et sol
+            </button>
+          </div>
+        )}
+      </div>
+      {pourTout !== null && (
+        <p className="releveNote">
+          Mur de {fr(facade.largeur)} × {fr(hauteurMur)} m : il tient en entier dans l'image à partir de {fr(pourTout, 1)} m.
+          {pourTout > cible + 0.3 ? ' À la distance cible, les coins pourront sortir du cadre : vous les placerez au-delà de la photo.' : ''}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Le champ de l'objectif, reglage de l'appareil (jamais du projet). */
+function ChampObjectif({ champ, setChamp }: { champ: number; setChamp: (v: number) => void }) {
+  return (
+    <label className="releveChamp">
+      Champ de l'objectif
+      <input
+        type="number"
+        min={30}
+        max={120}
+        step={1}
+        value={Math.round(champ)}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (v >= 30 && v <= 120) {
+            setChamp(v);
+            ecrireReglage('champ', v);
+          }
+        }}
+      />
+      °
+    </label>
+  );
+}
+
+/** Prendre la photo (camera ou module natif), ou en importer une. */
+function usePrise(natif: boolean, video: React.RefObject<HTMLVideoElement | null>, setErreur: (e: string) => void, onPhoto: (p: Photo, importee: boolean) => void) {
+  const [enCours, setEnCours] = useState(false);
   const declencher = async () => {
-    if (prise) return;
-    setPrise(true);
+    if (enCours) return;
+    setEnCours(true);
     try {
       let photo: Photo | null = null;
       if (natif) {
@@ -309,89 +460,59 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
         setErreur("La photo n'a pas pu être prise. Réessayez, ou importez une photo.");
         return;
       }
-      onPrise({ photo, mesure, reperes: reperes.touches && !capteur ? reperes : null, champ });
+      onPhoto(photo, false);
     } finally {
-      setPrise(false);
+      setEnCours(false);
     }
   };
-
   const importer = async (fichiers: FileList | null) => {
     const fi = fichiers?.[0];
     if (!fi) return;
     try {
-      const photo = await lireFichier(fi);
-      onPrise({ photo, mesure: capteur, reperes: null, champ: photo.champ ?? champ });
+      onPhoto(await lireFichier(fi), true);
     } catch {
       setErreur("Cette image n'a pas pu être lue. Choisissez une photo JPEG ou PNG.");
     }
   };
+  return { enCours, declencher, importer };
+}
 
-  const basculerAr = async () => {
-    if (arActif) {
-      finAr.current?.();
-      return;
-    }
-    try {
-      finAr.current = await mesurerWebXR(scene.current!, (m) => setCapteur(m), () => {
-        setArActif(false);
-        finAr.current = null;
-      });
-      setArActif(true);
-    } catch {
-      setErreur("La réalité augmentée n'a pas pu démarrer. La distance reste estimée au cadrage.");
-    }
+function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; hauteurMur: number; onPrise: (p: Prise) => void; onRetour: () => void }) {
+  const natif = useMemo(() => natifDisponible(), []);
+  const video = useRef<HTMLVideoElement>(null);
+  const scene = useRef<HTMLDivElement>(null);
+  const fichier = useRef<HTMLInputElement>(null);
+  const [capteur, setCapteur] = useState<MesureDistance | null>(null);
+  const [cible, setCible] = useState(() => lireReglage('cible', DISTANCE_CIBLE_DEFAUT));
+  const [champ, setChamp] = useState(() => lireReglage('champ', CHAMP_GRAND_COTE_DEFAUT));
+  const [reperes, setReperes] = useState<Reperes>({ mode: 'bords', a: 0.2, b: 0.8, touches: false });
+  const { erreur, setErreur } = useCamera(natif, video, setCapteur);
+  const niveau = useInclinaison();
+  const { taille, cadre } = useCadreVideo(video, scene);
+  const ar = useWebxr(natif, scene, setCapteur, setErreur);
+
+  const f = taille.vw ? focalePx(taille.vw, taille.vh, champ) : 0;
+  const tailleReelle = reperes.mode === 'bords' ? facade.largeur : hauteurMur;
+  const px = Math.abs(reperes.b - reperes.a) * (reperes.mode === 'bords' ? taille.vw : taille.vh);
+  const dCadrage = reperes.touches && f ? distanceParCadrage(tailleReelle, px, f) : null;
+  const mesure: MesureDistance | null = capteur ?? (dCadrage ? { distance: dCadrage, source: 'cadrage' } : null);
+  const pourTout = f ? distancePourToutCadrer(facade.largeur, hauteurMur, taille.vw, taille.vh, f) : null;
+  const prise = usePrise(natif, video, setErreur, (photo, importee) =>
+    onPrise(importee ? { photo, mesure: capteur, reperes: null, champ: photo.champ ?? champ } : { photo, mesure, reperes: reperes.touches && !capteur ? reperes : null, champ }),
+  );
+  const changerCible = (d: number) => {
+    const v = Math.max(1, Math.min(30, Math.round((cible + d) * 2) / 2));
+    setCible(v);
+    ecrireReglage('cible', v);
   };
 
   return (
     <div className="releveCamera">
       <div className="releveScene" ref={scene}>
         {!natif && <video ref={video} className="releveVideo" playsInline muted aria-label="Caméra" />}
-        {!capteur && taille.vw > 0 && (
-          <div className="releveReperes" style={{ left: cadre.x, top: cadre.y, width: cadre.l, height: cadre.h }}>
-            {(['a', 'b'] as const).map((q) => {
-              const v = reperes[q];
-              const vertical = reperes.mode === 'bords';
-              const nom = vertical ? (q === 'a' ? 'Bord gauche' : 'Bord droit') : q === 'a' ? 'Égout' : 'Sol';
-              return (
-                <div
-                  key={q}
-                  className={'releveRepere ' + (vertical ? 'vertical' : 'horizontal')}
-                  style={vertical ? { left: `${v * 100}%` } : { top: `${v * 100}%` }}
-                  onPointerDown={glisser(q)}
-                  role="slider"
-                  aria-label={nom}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(v * 100)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    const pas = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 0.01 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -0.01 : 0;
-                    if (pas) setReperes((p) => ({ ...p, [q]: Math.max(0, Math.min(1, p[q] + pas)), touches: true }));
-                  }}
-                >
-                  <span className="releveRepereEtiquette">{nom}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {!capteur && taille.vw > 0 && <RepereVisee reperes={reperes} setReperes={setReperes} cadre={cadre} scene={scene} />}
         <div className="releveViseur" aria-hidden="true" />
-        <div className="releveMesure" aria-live="polite">
-          <div className="releveMesureLigne">
-            <span className="releveDistance">{mesure ? `${fr(mesure.distance, 1)} m` : '— m'}</span>
-            {mesure && <span className="releveSource">{sourceLibelle}</span>}
-          </div>
-          <div className={'releveConsigneCamera ' + (consigne.bon ? 'bon' : 'aregler')}>
-            <Icone nom={consigne.bon ? 'coche' : 'info'} taille={16} />
-            {mesure ? consigne.message : reperes.mode === 'bords' ? 'Faites glisser les deux repères sur les bords du mur' : "Faites glisser les repères sur l'égout et le pied du mur"}
-          </div>
-          {aplomb.message && (
-            <div className={'releveConsigneCamera ' + (aplomb.bon ? 'bon' : 'aregler')}>
-              <Icone nom={aplomb.bon ? 'coche' : 'info'} taille={16} />
-              {aplomb.message}
-            </div>
-          )}
-        </div>
+        <MesureVisee mesure={mesure} cible={cible} modeReperes={reperes.mode} beta={niveau.beta} />
         {erreur && (
           <div className="releveErreur" role="alert">
             {erreur}
@@ -399,84 +520,31 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
         )}
       </div>
       <div className="releveOutils">
-        <div className="releveRangee">
-          <div className="releveCible" role="group" aria-label="Distance cible">
-            <span>Cible</span>
-            <button type="button" className="secondary small" aria-label="Diminuer la distance cible" onClick={() => changerCible(-0.5)}>
-              <Icone nom="moins" taille={16} />
-            </button>
-            <strong>{fr(cible, 1)} m</strong>
-            <button type="button" className="secondary small" aria-label="Augmenter la distance cible" onClick={() => changerCible(0.5)}>
-              <Icone nom="plus" taille={16} />
-            </button>
-          </div>
-          {!capteur && (
-            <div className="releveSegment" role="group" aria-label="Repères">
-              <button type="button" aria-pressed={reperes.mode === 'bords'} onClick={() => setReperes({ mode: 'bords', a: 0.2, b: 0.8, touches: false })}>
-                Bords
-              </button>
-              <button type="button" aria-pressed={reperes.mode === 'hauteur'} onClick={() => setReperes({ mode: 'hauteur', a: 0.25, b: 0.75, touches: false })}>
-                Égout et sol
-              </button>
-            </div>
-          )}
-        </div>
-        {pourTout !== null && (
-          <p className="releveNote">
-            Mur de {fr(facade.largeur)} × {fr(hauteurMur)} m : il tient en entier dans l'image à partir de {fr(pourTout, 1)} m.
-            {pourTout > cible + 0.3 ? ' À la distance cible, les coins pourront sortir du cadre : vous les placerez au-delà de la photo.' : ''}
-          </p>
-        )}
+        <ReglagesVisee cible={cible} changerCible={changerCible} reperes={reperes} setReperes={setReperes} avecReperes={!capteur} pourTout={pourTout} facade={facade} hauteurMur={hauteurMur} />
         <div className="releveRangee releveDeclenchement">
           <button type="button" className="secondary" onClick={onRetour}>
             Retour
           </button>
-          <button type="button" className="releveDeclencheur" aria-label="Prendre la photo" disabled={prise || (!natif && !!erreur && !cameraDisponible())} onClick={() => void declencher()}>
+          <button type="button" className="releveDeclencheur" aria-label="Prendre la photo" disabled={prise.enCours || (!natif && !!erreur && !cameraDisponible())} onClick={() => void prise.declencher()}>
             <Icone nom="camera" taille={30} />
           </button>
           <button type="button" className="secondary" onClick={() => fichier.current?.click()}>
             <Icone nom="image" taille={18} /> Importer
           </button>
-          <input ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void importer(e.target.files)} />
+          <input ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void prise.importer(e.target.files)} />
         </div>
         <div className="releveRangee releveSecondaire">
-          {xr && (
-            <button type="button" className="secondary small" aria-pressed={arActif} onClick={() => void basculerAr()}>
-              {arActif ? 'Arrêter la mesure AR' : 'Mesurer en réalité augmentée'}
+          {ar.xr && (
+            <button type="button" className="secondary small" aria-pressed={ar.actif} onClick={() => void ar.basculer()}>
+              {ar.actif ? 'Arrêter la mesure AR' : 'Mesurer en réalité augmentée'}
             </button>
           )}
-          {niveauADemander && beta === null && (
-            <button
-              type="button"
-              className="secondary small"
-              onClick={() =>
-                void demanderPermissionOrientation().then((ok) => {
-                  if (ok) suivreInclinaison(setBeta);
-                  setNiveauADemander(false);
-                })
-              }
-            >
+          {niveau.aDemander && (
+            <button type="button" className="secondary small" onClick={niveau.activer}>
               Activer le niveau
             </button>
           )}
-          <label className="releveChamp">
-            Champ de l'objectif
-            <input
-              type="number"
-              min={30}
-              max={120}
-              step={1}
-              value={Math.round(champ)}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (v >= 30 && v <= 120) {
-                  setChamp(v);
-                  ecrireReglage('champ', v);
-                }
-              }}
-            />
-            °
-          </label>
+          <ChampObjectif champ={champ} setChamp={setChamp} />
         </div>
       </div>
     </div>
@@ -503,10 +571,12 @@ function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     setActif(i);
-    const depart = pointSvg(svg.current!, e);
-    const origine = coins[i]!;
+    const racine = svg.current;
+    if (!racine) return;
+    const depart = pointSvg(racine, e);
+    const origine = au(coins, i);
     const bouger = (ev: PointerEvent) => {
-      const q = pointSvg(svg.current!, ev);
+      const q = pointSvg(racine, ev);
       const n = [...coins];
       n[i] = { x: Math.max(-m, Math.min(W + m, origine.x + q.x - depart.x)), y: Math.max(-m, Math.min(H + m, origine.y + q.y - depart.y)) };
       setCoins(n);
@@ -523,9 +593,9 @@ function Coins({ photo, coins, setCoins }: { photo: Photo; coins: P2[]; setCoins
   };
 
   const milieu = (a: P2, b: P2) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-  const haut = milieu(coins[0]!, coins[1]!),
-    bas = milieu(coins[2]!, coins[3]!);
-  const loupe = actif !== null ? coins[actif]! : null;
+  const haut = milieu(au(coins, 0), au(coins, 1)),
+    bas = milieu(au(coins, 2), au(coins, 3));
+  const loupe = actif !== null ? au(coins, actif) : null;
   const fen = Math.max(W, H) * 0.06;
 
   return (
@@ -593,10 +663,12 @@ function Elevation({
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     setChoisie(i);
-    const depart = pointSvg(svg.current!, e);
-    const o0 = ouvertures[i]!;
+    const racine = svg.current;
+    if (!racine) return;
+    const depart = pointSvg(racine, e);
+    const o0 = au(ouvertures, i);
     const bouger = (ev: PointerEvent) => {
-      const q = pointSvg(svg.current!, ev);
+      const q = pointSvg(racine, ev);
       const dx = q.x - depart.x,
         dy = -(q.y - depart.y); // SVG vers le bas, facade vers le haut
       const o = { ...o0 };
@@ -696,6 +768,274 @@ interface Resultat {
   toitPropose: Toit | null;
 }
 
+/**
+ * Les coins proposes pour une prise : projection d'apres la distance, ou les reperes poses sur la
+ * video, qui disent exactement ou sont les bords (ou l'egout et le sol) et l'emportent.
+ */
+function coinsDePrise(p: Prise, largeurMur: number, hauteurMur: number): P2[] {
+  const w = p.photo.image.largeur,
+    h = p.photo.image.hauteur;
+  const f = p.photo.focalePx ?? focalePx(w, h, p.photo.champ ?? p.champ);
+  const c = coinsProposes(w, h, f, p.mesure?.distance ?? null, largeurMur, hauteurMur);
+  if (p.reperes) {
+    const [a, b] = [Math.min(p.reperes.a, p.reperes.b), Math.max(p.reperes.a, p.reperes.b)];
+    if (p.reperes.mode === 'bords') {
+      au(c, 0).x = au(c, 3).x = a * w;
+      au(c, 1).x = au(c, 2).x = b * w;
+    } else {
+      au(c, 0).y = au(c, 1).y = a * h;
+      au(c, 2).y = au(c, 3).y = b * h;
+    }
+  }
+  // A courte distance, le mur deborde de l'image : les coins projetes tombent loin hors cadre.
+  // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>).
+  const m = Math.max(w, h) * 0.2;
+  return c.map((q) => ({ x: Math.max(-m, Math.min(w + m, q.x)), y: Math.max(-m, Math.min(h + m, q.y)) }));
+}
+
+function EtapeCoins({
+  prise,
+  coins,
+  setCoins,
+  avis,
+  hauteurMur,
+  setHauteurMur,
+  largeur,
+  onReprendre,
+  onAnalyser,
+}: {
+  prise: Prise;
+  coins: P2[];
+  setCoins: (c: P2[]) => void;
+  avis: string | null;
+  hauteurMur: number;
+  setHauteurMur: (v: number) => void;
+  largeur: number;
+  onReprendre: () => void;
+  onAnalyser: () => void;
+}) {
+  return (
+    <>
+      <div className="releveCorps releveCorpsPhoto">
+        <p className="releveConsigne">
+          Placez chaque rond sur un coin du mur : les deux du haut à l'égout, les deux du bas au pied du mur. Un coin caché ou hors cadre se place là où il serait.
+        </p>
+        {avis && (
+          <p className="releveAvis" role="alert">
+            {avis}
+          </p>
+        )}
+        <Coins photo={prise.photo} coins={coins} setCoins={setCoins} />
+        <div className="releveChamps">
+          <label className="releveCm">
+            <span>Hauteur à l'égout</span>
+            <span className="champNombre">
+              <input
+                type="number"
+                step={0.05}
+                min={1}
+                max={30}
+                value={hauteurMur}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (v > 0) setHauteurMur(v);
+                }}
+              />
+              <span className="unite">m</span>
+            </span>
+          </label>
+          <span className="releveNote">Largeur du mur : {fr(largeur)} m, lue sur le plan.</span>
+        </div>
+      </div>
+      <div className="relevePied">
+        <button type="button" className="secondary" onClick={onReprendre}>
+          Reprendre la photo
+        </button>
+        <button type="button" onClick={onAnalyser}>
+          Analyser
+        </button>
+      </div>
+    </>
+  );
+}
+
+function EtapeAnalyse() {
+  return (
+    <div className="releveCorps releveAnalyse" aria-live="polite">
+      <div className="releveSablier" aria-hidden="true" />
+      <p className="releveConsigne">Analyse de votre façade…</p>
+      <ul>
+        <li>Redressement de la photo à l'échelle</li>
+        <li>Recherche des fenêtres et des portes</li>
+        <li>Lecture de la silhouette du toit</li>
+      </ul>
+    </div>
+  );
+}
+
+/** La fiche de l'ouverture choisie : nature, cotes au centimetre, retrait. */
+function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: OuvertureFacade; largeur: number; hauteurMur: number; maj: (c: Partial<OuvertureFacade>) => void; retirer: () => void }) {
+  return (
+    <div className="releveFiche" role="group" aria-label="Ouverture choisie">
+      <div className="releveSegment" role="group" aria-label="Nature">
+        {(Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[]).map((t) => (
+          <button key={t} type="button" aria-pressed={o.type === t} onClick={() => maj({ type: t })}>
+            {LIBELLES_OUVERTURE[t]}
+          </button>
+        ))}
+      </div>
+      <div className="releveChamps">
+        <ChampCm libelle="Depuis la gauche" valeur={o.x} onChange={(v) => maj({ x: Math.min(v, largeur - o.l) })} />
+        <ChampCm libelle="Appui" valeur={o.y} onChange={(v) => maj({ y: Math.min(v, hauteurMur - o.h) })} />
+        <ChampCm libelle="Largeur" valeur={o.l} onChange={(v) => maj({ l: Math.max(0.1, Math.min(v, largeur - o.x)) })} />
+        <ChampCm libelle="Hauteur" valeur={o.h} onChange={(v) => maj({ h: Math.max(0.1, Math.min(v, hauteurMur - o.y)) })} />
+      </div>
+      <button type="button" className="secondary small" onClick={retirer}>
+        <Icone nom="supprimer" taille={16} /> Retirer cette ouverture
+      </button>
+    </div>
+  );
+}
+
+/** Le toit propose d'apres la photo, a appliquer ou non, corrigeable. */
+function CarteToit({ toit, setToit, appliquer, setAppliquer, contour }: { toit: Toit | null; setToit: (t: Toit) => void; appliquer: boolean; setAppliquer: (v: boolean) => void; contour: PtBrut[] }) {
+  if (!toit) {
+    return (
+      <div className="releveToit">
+        <div className="releveSousTitre">Toit</div>
+        <p className="releveNote">Le toit n'est pas assez visible sur la photo : celui du bâtiment reste tel quel.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="releveToit">
+      <div className="releveSousTitre">Toit</div>
+      <p className="releveNote">
+        Proposé d'après la photo : {LIBELLES_FORME_TOIT[toit.forme].toLowerCase()}
+        {toit.forme !== 'plat' ? `, faîtage à ${fr(toit.hauteur)} m au-dessus de l'égout (pente ${fr(penteDeg(contour, toit), 0)}°)` : ''}.
+      </p>
+      <label className="releveCase">
+        <input type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
+        Appliquer ce toit au bâtiment
+      </label>
+      {appliquer && (
+        <div className="releveChamps">
+          <label className="releveCm">
+            <span>Forme</span>
+            <select value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
+              {(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => (
+                <option key={k} value={k}>
+                  {LIBELLES_FORME_TOIT[k]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {toit.forme !== 'plat' && (
+            <label className="releveCm">
+              <span>Faîtage</span>
+              <span className="champNombre">
+                <input
+                  type="number"
+                  step={0.05}
+                  min={0}
+                  max={20}
+                  value={toit.hauteur}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (v >= 0) setToit({ ...toit, hauteur: v });
+                  }}
+                />
+                <span className="unite">m</span>
+              </span>
+            </label>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Ce que l'etape Verifier lit et modifie. */
+interface Verification {
+  resultat: Resultat;
+  largeur: number;
+  hauteurMur: number;
+  ouvertures: OuvertureFacade[];
+  setOuvertures: (o: OuvertureFacade[]) => void;
+  choisie: number | null;
+  setChoisie: (i: number | null) => void;
+  toit: Toit | null;
+  setToit: (t: Toit) => void;
+  appliquerToit: boolean;
+  setAppliquerToit: (v: boolean) => void;
+  contour: PtBrut[];
+}
+
+function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: () => void; onValider: () => void }) {
+  const { resultat, largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
+  const o = choisie !== null ? ouvertures[choisie] : undefined;
+  const decompte = (Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[])
+    .map((t) => [t, ouvertures.filter((x) => x.type === t).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([t, n]) => `${n} ${LIBELLES_OUVERTURE[t].toLowerCase()}${n > 1 ? 's' : ''}`)
+    .join(', ');
+  const maj = (i: number, champ: Partial<OuvertureFacade>) => setOuvertures(ouvertures.map((x, k) => (k === i ? { ...x, ...champ } : x)));
+  const ajouter = () => {
+    const l = Math.min(1, largeur * 0.3),
+      h = Math.min(1.2, hauteurMur * 0.4);
+    setOuvertures([...ouvertures, { type: classer(1, l, h), x: Math.round((largeur - l) * 50) / 100, y: 1, l, h }]);
+    setChoisie(ouvertures.length);
+  };
+  return (
+    <>
+      <div className="releveCorps releveCorpsPhoto">
+        {resultat.couverture < 0.9 && <p className="releveAvis">La photo couvrait {Math.round(resultat.couverture * 100)} % du mur ; le reste est complété à la teinte du mur.</p>}
+        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
+        <div className="releveBarre">
+          <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
+          <button type="button" className="secondary small" onClick={ajouter}>
+            <Icone nom="plus" taille={16} /> Ajouter une ouverture
+          </button>
+        </div>
+        {o && choisie !== null && (
+          <FicheOuverture
+            o={o}
+            largeur={largeur}
+            hauteurMur={hauteurMur}
+            maj={(c) => maj(choisie, c)}
+            retirer={() => {
+              setOuvertures(ouvertures.filter((_, k) => k !== choisie));
+              setChoisie(null);
+            }}
+          />
+        )}
+        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} />
+      </div>
+      <div className="relevePied">
+        <button type="button" className="secondary" onClick={onRevoir}>
+          Revoir les coins
+        </button>
+        <button type="button" onClick={onValider}>
+          Valider le relevé
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Echap ferme le parcours, sans rien ecrire. */
+function useEchapFerme(releve: ServiceReleve) {
+  useEffect(() => {
+    const surTouche = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') releve.fermer();
+    };
+    window.addEventListener('keydown', surTouche);
+    return () => window.removeEventListener('keydown', surTouche);
+  }, [releve]);
+}
+
+const LIBELLES_ETAPE: Record<Etape, string> = { mur: 'Choisir le mur', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' };
+
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
   const hauteurInitiale = releve.hauteurMur();
   const facades = useMemo(() => facadesDuContour(enPoints(bat).pts, hauteurInitiale), [bat, hauteurInitiale]);
@@ -711,37 +1051,12 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const [appliquerToit, setAppliquerToit] = useState(true);
   const [avis, setAvis] = useState<string | null>(null);
   const facade = facades.find((f) => f.cote === cote) || null;
-
-  useEffect(() => {
-    const surTouche = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') releve.fermer();
-    };
-    window.addEventListener('keydown', surTouche);
-    return () => window.removeEventListener('keydown', surTouche);
-  }, [releve]);
+  useEchapFerme(releve);
 
   const surPrise = (p: Prise) => {
-    const w = p.photo.image.largeur,
-      h = p.photo.image.hauteur;
-    const f = p.photo.focalePx ?? focalePx(w, h, p.photo.champ ?? p.champ);
-    const c = coinsProposes(w, h, f, p.mesure?.distance ?? null, facade!.largeur, hauteurMur);
-    // Les reperes poses sur la video disent exactement ou sont les bords (ou l'egout et le sol) :
-    // ils l'emportent sur la projection calculee.
-    if (p.reperes) {
-      const [a, b] = [Math.min(p.reperes.a, p.reperes.b), Math.max(p.reperes.a, p.reperes.b)];
-      if (p.reperes.mode === 'bords') {
-        c[0]!.x = c[3]!.x = a * w;
-        c[1]!.x = c[2]!.x = b * w;
-      } else {
-        c[0]!.y = c[1]!.y = a * h;
-        c[2]!.y = c[3]!.y = b * h;
-      }
-    }
-    // A courte distance, le mur deborde de l'image : les coins projetes tombent loin hors cadre.
-    // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>).
-    const m = Math.max(w, h) * 0.2;
+    if (!facade) return;
     setPrise(p);
-    setCoins(c.map((q) => ({ x: Math.max(-m, Math.min(w + m, q.x)), y: Math.max(-m, Math.min(h + m, q.y)) })));
+    setCoins(coinsDePrise(p, facade.largeur, hauteurMur));
     setAvis(null);
     setEtape('coins');
   };
@@ -751,15 +1066,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     setEtape('analyse');
     // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
     setTimeout(() => {
-      const r = analyserReleve({
-        photo: prise.photo.image,
-        coins,
-        largeur: facade.largeur,
-        hauteur: hauteurMur,
-        contour: bat.pts,
-        cote: facade.cote,
-        distance: prise.mesure?.distance ?? null,
-      });
+      const r = analyserReleve({ photo: prise.photo.image, coins, largeur: facade.largeur, hauteur: hauteurMur, contour: bat.pts, cote: facade.cote, distance: prise.mesure?.distance ?? null });
       if (!r) {
         setAvis('Les quatre coins ne forment pas un quadrilatère : reprenez-les.');
         setEtape('coins');
@@ -777,15 +1084,16 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
 
   const valider = () => {
     if (!facade || !resultat) return;
+    const cm = (v: number) => Math.round(v * 100) / 100;
     releve.valider(
       {
         cote: facade.cote,
-        largeur: Math.round(facade.largeur * 100) / 100,
+        largeur: cm(facade.largeur),
         hauteur: hauteurMur,
         texture: resultat.texture,
-        hauteurTexture: Math.round(resultat.hauteurTexture * 100) / 100,
+        hauteurTexture: cm(resultat.hauteurTexture),
         ouvertures,
-        distance: prise?.mesure ? Math.round(prise.mesure.distance * 100) / 100 : null,
+        distance: prise?.mesure ? cm(prise.mesure.distance) : null,
         sourceDistance: prise?.mesure?.source ?? null,
         releveLe: new Date().toISOString(),
       },
@@ -794,34 +1102,23 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     );
   };
 
-  const majOuverture = (i: number, champ: Partial<OuvertureFacade>) => {
-    const n = [...ouvertures];
-    const o = { ...n[i]!, ...champ };
-    n[i] = o;
-    setOuvertures(n);
-  };
-
   const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)} × ${fr(hauteurMur)} m` : 'Relever une façade';
-  const camera = etape === 'visee';
-  const o = choisie !== null ? ouvertures[choisie] : undefined;
-  const decompte = (Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[])
-    .map((t) => [t, ouvertures.filter((x) => x.type === t).length] as const)
-    .filter(([, n]) => n > 0)
-    .map(([t, n]) => `${n} ${LIBELLES_OUVERTURE[t].toLowerCase()}${n > 1 ? 's' : ''}`)
-    .join(', ');
+  const verification: Verification | null =
+    resultat && facade
+      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts }
+      : null;
 
   return (
-    <div className={'releve' + (camera ? ' camera' : '')} role="dialog" aria-modal="true" aria-label={titre}>
+    <div className={'releve' + (etape === 'visee' ? ' camera' : '')} role="dialog" aria-modal="true" aria-label={titre}>
       <div className="releveEntete">
         <div className="releveTitre">
-          <span className="releveEtape">{{ mur: 'Choisir le mur', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' }[etape]}</span>
+          <span className="releveEtape">{LIBELLES_ETAPE[etape]}</span>
           <span>{titre}</span>
         </div>
         <button type="button" className="releveFermer" aria-label="Fermer le relevé" title="Fermer (Échap)" onClick={() => releve.fermer()}>
           <Icone nom="fermer" taille={22} />
         </button>
       </div>
-
       {etape === 'mur' && (
         <ChoixMur
           bat={bat}
@@ -832,177 +1129,12 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
           }}
         />
       )}
-
       {etape === 'visee' && facade && <Visee facade={facade} hauteurMur={hauteurMur} onPrise={surPrise} onRetour={() => (coteInitial === null ? setEtape('mur') : releve.fermer())} />}
-
       {etape === 'coins' && prise && facade && (
-        <>
-          <div className="releveCorps releveCorpsPhoto">
-            <p className="releveConsigne">
-              Placez chaque rond sur un coin du mur : les deux du haut à l'égout, les deux du bas au pied du mur. Un coin caché ou hors cadre se place là où il serait.
-            </p>
-            {avis && (
-              <p className="releveAvis" role="alert">
-                {avis}
-              </p>
-            )}
-            <Coins photo={prise.photo} coins={coins} setCoins={setCoins} />
-            <div className="releveChamps">
-              <label className="releveCm">
-                <span>Hauteur à l'égout</span>
-                <span className="champNombre">
-                  <input
-                    type="number"
-                    step={0.05}
-                    min={1}
-                    max={30}
-                    value={hauteurMur}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (v > 0) setHauteurMur(v);
-                    }}
-                  />
-                  <span className="unite">m</span>
-                </span>
-              </label>
-              <span className="releveNote">Largeur du mur : {fr(facade.largeur)} m, lue sur le plan.</span>
-            </div>
-          </div>
-          <div className="relevePied">
-            <button type="button" className="secondary" onClick={() => setEtape('visee')}>
-              Reprendre la photo
-            </button>
-            <button type="button" onClick={analyser}>
-              Analyser
-            </button>
-          </div>
-        </>
+        <EtapeCoins prise={prise} coins={coins} setCoins={setCoins} avis={avis} hauteurMur={hauteurMur} setHauteurMur={setHauteurMur} largeur={facade.largeur} onReprendre={() => setEtape('visee')} onAnalyser={analyser} />
       )}
-
-      {etape === 'analyse' && (
-        <div className="releveCorps releveAnalyse" aria-live="polite">
-          <div className="releveSablier" aria-hidden="true" />
-          <p className="releveConsigne">Analyse de votre façade…</p>
-          <ul>
-            <li>Redressement de la photo à l'échelle</li>
-            <li>Recherche des fenêtres et des portes</li>
-            <li>Lecture de la silhouette du toit</li>
-          </ul>
-        </div>
-      )}
-
-      {etape === 'resultat' && resultat && facade && (
-        <>
-          <div className="releveCorps releveCorpsPhoto">
-            {resultat.couverture < 0.9 && (
-              <p className="releveAvis">
-                La photo couvrait {Math.round(resultat.couverture * 100)} % du mur ; le reste est complété à la teinte du mur.
-              </p>
-            )}
-            <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={facade.largeur} H={hauteurMur} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
-            <div className="releveBarre">
-              <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
-              <button
-                type="button"
-                className="secondary small"
-                onClick={() => {
-                  const l = Math.min(1, facade.largeur * 0.3),
-                    h = Math.min(1.2, hauteurMur * 0.4);
-                  setOuvertures([...ouvertures, { type: classer(1, l, h), x: Math.round((facade.largeur - l) * 50) / 100, y: 1, l, h }]);
-                  setChoisie(ouvertures.length);
-                }}
-              >
-                <Icone nom="plus" taille={16} /> Ajouter une ouverture
-              </button>
-            </div>
-            {o && choisie !== null && (
-              <div className="releveFiche" role="group" aria-label="Ouverture choisie">
-                <div className="releveSegment" role="group" aria-label="Nature">
-                  {(Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[]).map((t) => (
-                    <button key={t} type="button" aria-pressed={o.type === t} onClick={() => majOuverture(choisie, { type: t })}>
-                      {LIBELLES_OUVERTURE[t]}
-                    </button>
-                  ))}
-                </div>
-                <div className="releveChamps">
-                  <ChampCm libelle="Depuis la gauche" valeur={o.x} onChange={(v) => majOuverture(choisie, { x: Math.min(v, facade.largeur - o.l) })} />
-                  <ChampCm libelle="Appui" valeur={o.y} onChange={(v) => majOuverture(choisie, { y: Math.min(v, hauteurMur - o.h) })} />
-                  <ChampCm libelle="Largeur" valeur={o.l} onChange={(v) => majOuverture(choisie, { l: Math.max(0.1, Math.min(v, facade.largeur - o.x)) })} />
-                  <ChampCm libelle="Hauteur" valeur={o.h} onChange={(v) => majOuverture(choisie, { h: Math.max(0.1, Math.min(v, hauteurMur - o.y)) })} />
-                </div>
-                <button
-                  type="button"
-                  className="secondary small"
-                  onClick={() => {
-                    setOuvertures(ouvertures.filter((_, k) => k !== choisie));
-                    setChoisie(null);
-                  }}
-                >
-                  <Icone nom="supprimer" taille={16} /> Retirer cette ouverture
-                </button>
-              </div>
-            )}
-            <div className="releveToit">
-              <div className="releveSousTitre">Toit</div>
-              {toit ? (
-                <>
-                  <p className="releveNote">
-                    Proposé d'après la photo : {LIBELLES_FORME_TOIT[toit.forme].toLowerCase()}
-                    {toit.forme !== 'plat' ? `, faîtage à ${fr(toit.hauteur)} m au-dessus de l'égout (pente ${fr(penteDeg(bat.pts, toit), 0)}°)` : ''}.
-                  </p>
-                  <label className="releveCase">
-                    <input type="checkbox" checked={appliquerToit} onChange={(e) => setAppliquerToit(e.target.checked)} />
-                    Appliquer ce toit au bâtiment
-                  </label>
-                  {appliquerToit && (
-                    <div className="releveChamps">
-                      <label className="releveCm">
-                        <span>Forme</span>
-                        <select value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
-                          {(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => (
-                            <option key={k} value={k}>
-                              {LIBELLES_FORME_TOIT[k]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {toit.forme !== 'plat' && (
-                        <label className="releveCm">
-                          <span>Faîtage</span>
-                          <span className="champNombre">
-                            <input
-                              type="number"
-                              step={0.05}
-                              min={0}
-                              max={20}
-                              value={toit.hauteur}
-                              onChange={(e) => {
-                                const v = parseFloat(e.target.value);
-                                if (v >= 0) setToit({ ...toit, hauteur: v });
-                              }}
-                            />
-                            <span className="unite">m</span>
-                          </span>
-                        </label>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="releveNote">Le toit n'est pas assez visible sur la photo : celui du bâtiment reste tel quel.</p>
-              )}
-            </div>
-          </div>
-          <div className="relevePied">
-            <button type="button" className="secondary" onClick={() => setEtape('coins')}>
-              Revoir les coins
-            </button>
-            <button type="button" onClick={valider}>
-              Valider le relevé
-            </button>
-          </div>
-        </>
-      )}
+      {etape === 'analyse' && <EtapeAnalyse />}
+      {etape === 'resultat' && verification && <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} />}
     </div>
   );
 }

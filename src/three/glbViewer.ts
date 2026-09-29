@@ -9,7 +9,7 @@
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
 import type * as THREE_NS from 'three';
-import { vue3d, glb, chargement } from './etat3d.js';
+import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
@@ -36,15 +36,14 @@ export interface TailleHote { w: number; h: number }
 export interface ContexteVisionneuseGlb {
   /** Le lieu du plan, pour la course du soleil. */
   lieuActuel: () => { latitude: number; longitude: number };
-  /** La liste deroulante de choix de terrasse de la Vue 3D, a redessiner. */
-  renderVue3DSelect: () => void;
 }
 
 function damierGlbViewer(){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-  const ctx = c.getContext('2d')!;
+  // Sans contexte 2D (tres rare), le damier reste un fond uni : la scene s'affiche quand meme.
+  const ctx = c.getContext('2d');
   const taille = 8;
-  for(let y=0;y<64;y+=taille){
+  for(let y=0;ctx && y<64;y+=taille){
     for(let x=0;x<64;x+=taille){
       ctx.fillStyle = ((x/taille + y/taille) % 2 === 0) ? '#c9c9c9' : '#a3a3a3';
       ctx.fillRect(x,y,taille,taille);
@@ -120,8 +119,8 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
       // Parcours a l'aveugle des proprietes du materiau : une texture peut etre posee sur `map`,
       // `normalMap`, `roughnessMap`... et la liste depend du type de materiau. Chercher celles qui
       // sont des textures est plus sur que d'enumerer les noms connus.
-      Object.keys(mat).forEach(key=>{
-        const v = (mat as unknown as Record<string, unknown>)[key];
+      const valeurs: unknown[] = Object.values(mat);
+      valeurs.forEach(v=>{
         // Une texture partagee est EMPRUNTEE a `chargeurs.ts`, qui la distribue a toutes les
         // scenes et la garde entre deux. La detruire ici la retirerait sous les pieds de la scene
         // suivante — un materiau garderait une carte vide, et la terrasse s'afficherait en noir.
@@ -139,7 +138,7 @@ export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefi
 
 export function disposeThreeScene(){
   if(vue3d.scene){
-    cancelAnimationFrame(vue3d.scene.raf!);
+    if(vue3d.scene.raf !== null) cancelAnimationFrame(vue3d.scene.raf);
     // OrbitControls (r128) attaches its drag-continuation listeners to `document`/`window`, not
     // just to the canvas being removed below - without an explicit dispose(), those listeners
     // (and everything they close over: this camera, this scene, this renderer) are never
@@ -165,7 +164,7 @@ export function disposeThreeScene(){
 
 export function disposeGlbViewerScene(){
   if(glb.scene){
-    cancelAnimationFrame(glb.scene.raf!);
+    if(glb.scene.raf !== null) cancelAnimationFrame(glb.scene.raf);
     // see the comment in disposeThreeScene(): without this, OrbitControls keeps its
     // document/window-level listeners alive, pinning the whole previous scene in memory.
     if(glb.scene.controls && glb.scene.controls.dispose) glb.scene.controls.dispose();
@@ -185,26 +184,18 @@ export function fondGlbViewer(){
   return new THREE.Color(0xdfe7ea);
 }
 
-/** Recale le curseur « semaine » de la visionneuse sur sa date, et retient sa position. */
+/** Recale la position du curseur « semaine » de la visionneuse sur sa date. */
 export function syncSemaineGlb(): void {
-  const { semaine } = anneeEtSemaineDepuisDate(glb.dateStr);
-  glb.semaineAffichee = semaine;
-  const s = document.getElementById('glbViewerSemaine') as HTMLInputElement;
-  s.value = String(semaine);
+  glb.semaineAffichee = anneeEtSemaineDepuisDate(glb.dateStr).semaine;
 }
 
-/** Remet les commandes de la visionneuse en accord avec son etat, a l'ouverture du panneau. */
-export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
-  const dateInp = document.getElementById('glbViewerDate') as HTMLInputElement | null;
-  // Seulement si elle est vide : une date deja choisie ne doit pas etre effacee par une
-  // reouverture du panneau.
-  if (dateInp && !dateInp.value) dateInp.value = glb.dateStr;
+/**
+ * Remet les commandes de la visionneuse en accord avec son etat, a l'ouverture du panneau : le
+ * panneau (zones/vue3d/) les relit dans `glb`.
+ */
+export function syncControlesGlb(): void {
   syncSemaineGlb();
-  (document.getElementById('glbViewerHeure') as HTMLInputElement).value = String(glb.minutes);
-  document.getElementById('glbViewerHeureTexte')!.textContent = formatHeureMin(glb.minutes);
-  const pourcent = Math.round(glb.intensiteSoleil * 100);
-  (document.getElementById('glbViewerIntensite') as HTMLInputElement).value = String(pourcent);
-  document.getElementById('glbViewerIntensiteTexte')!.textContent = pourcent + ' %';
+  signaler3d();
 }
 
 /**
@@ -219,16 +210,15 @@ export function syncControlesGlb(formatHeureMin: (m: number) => string): void {
  * taille par defaut, meme en plein ecran.
  */
 export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx: ContexteVisionneuseGlb): void {
-  const empty = document.getElementById('glbViewerEmpty')!;
-  const content = document.getElementById('glbViewerContent')!;
-  const loading = document.getElementById('glbViewerLoading')!;
   if (!glb.dernierExporte) {
-    empty.style.display = 'block'; content.style.display = 'none'; loading.style.display = 'none';
+    affichage3d.glb = 'vide';
+    signaler3d();
     return;
   }
-  const host = document.getElementById('glbViewerCanvasHost')!;
-  const tailleHost = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
-  empty.style.display = 'none'; content.style.display = 'none'; loading.style.display = 'block';
+  const host = hotes3d.glb;
+  const tailleHost = { w: host?.clientWidth || 0, h: host?.clientHeight || 0 };
+  affichage3d.glb = 'chargement';
+  signaler3d();
   ensureThreeLoaded(() => {
     ensureGLTFLoaderLoaded(() => {
       buildGlbViewerScene(camaraAConserver, tailleHost, ctx);
@@ -246,8 +236,11 @@ export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
 
 export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHost: TailleHote | null, ctx: ContexteVisionneuseGlb): void {
   disposeGlbViewerScene();
-  if(!glb.dernierExporte) return;
-  const host = document.getElementById('glbViewerCanvasHost')!;
+  // Lu une fois : le rappel du lecteur, plus bas, decrit le modele qu'on lui a donne a lire.
+  const exporte = glb.dernierExporte;
+  if(!exporte) return;
+  const host = hotes3d.glb;
+  if(!host) return;
   // Tant qu'un rechargement est en cours, #glbViewerContent (l'ancetre du host) est cache pour
   // laisser la place au sablier - un ancetre display:none ecrase clientWidth/clientHeight a 0 pour
   // TOUS ses descendants, host compris, ce qui retombe silencieusement sur les tailles par defaut
@@ -256,7 +249,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
   const w = (tailleHost && tailleHost.w) || host.clientWidth || 600;
   const h = (tailleHost && tailleHost.h) || host.clientHeight || 420;
   const loader = new THREE.GLTFLoader();
-  loader.parse(glb.dernierExporte.buffer, '', (gltf)=>{
+  loader.parse(exporte.buffer, '', (gltf)=>{
     const scene = new THREE.Scene();
     scene.background = fondGlbViewer();
     // GLTFExporter embarque les lumieres directionnelles de la scene source dans le .glb (via
@@ -333,24 +326,23 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
       }
     });
 
+    const sc: SceneGlb = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, centre, rayon };
     function animate(){
-      glb.scene!.raf = requestAnimationFrame(animate);
+      sc.raf = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
-    glb.scene = { renderer, scene, camera, controls, raf:null, dirLight, dirFill, hemiLight, centre, rayon };
+    glb.scene = sc;
     appliquerLumiereGlb(ctx);
     animate();
 
-    const hint = document.getElementById('glbViewerHint');
-    // `dernierExporte` etait verifie a l'entree ; le compilateur ne suit pas cette garde dans le
-    // rappel asynchrone du lecteur.
-    if(hint) hint.textContent = 'Terrasse : ' + (glb.dernierExporte!.nomTerrasse||'') + ' — modele genere le ' + glb.dernierExporte!.date.toLocaleString();
-    ctx.renderVue3DSelect();
-    document.getElementById('glbViewerLoading')!.style.display = 'none';
-    document.getElementById('glbViewerContent')!.style.display = 'block';
+    affichage3d.indicationGlb = 'Terrasse : ' + (exporte.nomTerrasse||'') + ' — modele genere le ' + exporte.date.toLocaleString();
+    affichage3d.glb = 'pret';
+    signaler3d();
   }, (err)=>{
-    document.getElementById('glbViewerLoading')!.style.display = 'none';
+    // Le modele illisible n'est pas montre : on revient a « aucun modele », d'ou le regenerer.
+    affichage3d.glb = 'vide';
+    signaler3d();
     showErrBanner('Visionneuse GLB : ' + (err && err.message ? err.message : 'fichier illisible'));
   });
 }

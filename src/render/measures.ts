@@ -7,10 +7,11 @@
 // Consequence : ces fonctions ont besoin de la liste des objets. Elle est passee en parametre,
 // comme partout depuis la phase 3, au lieu d'etre lue dans la fermeture.
 
+import { au } from '../util/tableaux.js';
 import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
-import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO } from './theme.js';
+import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO, aLaVirgule } from './theme.js';
 import type { PtBrut, Mesure } from '../model/types.js';
 
 /**
@@ -45,7 +46,7 @@ export function coordonneesCote(
   const obj = objets.find((o) => o.key === ref.objKey);
   if (!obj || !obj.pts) return null;
   const n = obj.pts.length;
-  return { a: obj.pts[ref.segIndex]!, b: obj.pts[(ref.segIndex + 1) % n]! };
+  return { a: au(obj.pts, ref.segIndex), b: au(obj.pts, (ref.segIndex + 1) % n) };
 }
 
 /** Le point designe : un sommet, ou le centre s'il s'agit d'un cercle. */
@@ -93,8 +94,8 @@ export function distanceSortiePolygone(depuis: PtBrut, dir: PtBrut, poly: readon
   let maxT = 0;
   const n = poly.length;
   for (let i = 0; i < n; i++) {
-    const a = poly[i]!,
-      b = poly[(i + 1) % n]!;
+    const a = au(poly, i),
+      b = au(poly, (i + 1) % n);
     const ex = b.x - a.x,
       ey = b.y - a.y;
     const det = ex * dir.y - ey * dir.x;
@@ -153,7 +154,9 @@ export interface ContexteCotes {
  */
 export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
   groupe.innerHTML = '';
-  const pc = ctx.objets.find(o=>o.key==='parcelle');
+  // Le contour de la parcelle, s'il y en a une a sommets : les etiquettes des cotes s'ancrent hors de lui.
+  const pcObj = ctx.objets.find(o=>o.key==='parcelle');
+  const pc = pcObj && pcObj.pts ? { pts: pcObj.pts } : null;
 
   // draft (in-progress) picks: highlight ref segment and picked targets
   if(ctx.brouillonRef){
@@ -180,7 +183,7 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     if(!m.show || !pc) return;
     const g = geometrieMesure(ctx.objets, m);
     if(!g) return;
-    const anchor = ancrageHorsContour(g.p, pc.pts!, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
+    const anchor = ancrageHorsContour(g.p, pc.pts, 2, {x:g.B.x-g.A.x, y:g.B.y-g.A.y});
     const pPt = versEcran(ctx.scene, g.p), pAnchor = versEcran(ctx.scene, anchor);
 
     // witness line starts at the measured point and heads toward the reference segment
@@ -206,7 +209,7 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); t.setAttribute('font-size','11');
     t.setAttribute('fill',SVG_MEASURE_TEXT); t.setAttribute('font-weight','700');
     t.setAttribute('paint-order','stroke'); t.setAttribute('stroke',SVG_LABEL_HALO); t.setAttribute('stroke-width','4');
-    t.textContent = prefix + value.toFixed(2)+' m';
+    t.textContent = prefix + aLaVirgule(value.toFixed(2))+' m';
     groupe.appendChild(t);
   });
 

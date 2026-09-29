@@ -19,11 +19,24 @@ import type { Magasin } from './magasin.js';
 export const SEUIL_MOYEN = 600;
 /** A partir de : bureau. Le seuil de la spec des zones (§7, decision 3). */
 export const SEUIL_LARGE = 1024;
+/**
+ * A partir de : bureau, pour un ecran qu'on ne pilote qu'au doigt (2.1.1). Une tablette en paysage
+ * fait 1 180 a 1 366 px : a la largeur seule, elle recevait les colonnes du bureau, petites cibles et
+ * menus deroulants compris. La maquette la dessine en tablette — plan plein ecran, panneaux
+ * flottants — et c'est ce qu'elle recoit desormais.
+ */
+export const SEUIL_LARGE_TACTILE = 1400;
 
-export function classePour(largeur: number): Classe {
+export function classePour(largeur: number, toucherSeul = false): Classe {
   if (largeur < SEUIL_MOYEN) return 'compact';
-  if (largeur < SEUIL_LARGE) return 'moyen';
+  if (largeur < (toucherSeul ? SEUIL_LARGE_TACTILE : SEUIL_LARGE)) return 'moyen';
   return 'large';
+}
+
+/** Vrai quand l'ecran n'a que le doigt : ni souris ni pave tactile (une tablette sans clavier). */
+export function toucherSeul(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches;
 }
 
 /**
@@ -31,7 +44,7 @@ export function classePour(largeur: number): Classe {
  * ferme en quittant le telephone.
  */
 export function appliquerClasse(magasin: Magasin, largeur: number = window.innerWidth): boolean {
-  const classe = classePour(largeur);
+  const classe = classePour(largeur, toucherSeul());
   const avant = magasin.store.getState().classe;
   document.documentElement.dataset.classe = classe;
   if (classe === avant) return false;

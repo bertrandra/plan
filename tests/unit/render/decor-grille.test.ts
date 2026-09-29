@@ -62,10 +62,16 @@ describe('grille', () => {
     expect(g.children).toHaveLength(0);
   });
 
-  it('couvre toute la vue, verticales et horizontales', () => {
+  it('couvre toute la vue d un semis de points', () => {
+    // Depuis la 2.1.1, la trame est un motif de points (le papier pointe de la maquette) pose sur
+    // un rectangle de la taille de la vue.
     const g = groupe();
-    dessinerGrille(g, { scene: scene(), grilleVisible: true });
-    expect(g.children.length).toBeGreaterThan(10);
+    const s = scene();
+    dessinerGrille(g, { scene: s, grilleVisible: true });
+    const fond = [...g.querySelectorAll('rect')].find((r) => r.getAttribute('fill') === 'url(#trameGrille)')!;
+    expect(fond.getAttribute('width')).toBe(String(s.W));
+    expect(fond.getAttribute('height')).toBe(String(s.H));
+    expect(g.querySelector('pattern#trameGrille circle')).not.toBeNull();
   });
 
   it('marque les axes de l origine plus fort que le reste', () => {
@@ -82,8 +88,7 @@ describe('grille', () => {
     for (const scale of [4, 16.5, 60, 220]) {
       const g = groupe();
       dessinerGrille(g, { scene: { ...scene(), scale }, grilleVisible: true });
-      const verticales = [...g.querySelectorAll('line')].filter((l) => l.getAttribute('x1') === l.getAttribute('x2'));
-      const ecart = Math.abs(Number(verticales[1]!.getAttribute('x1')) - Number(verticales[0]!.getAttribute('x1')));
+      const ecart = Number(g.querySelector('pattern#trameGrille')!.getAttribute('width'));
       expect(ecart).toBeGreaterThan(30);
       expect(ecart).toBeLessThan(130);
     }

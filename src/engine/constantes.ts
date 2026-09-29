@@ -4,6 +4,8 @@
 // les modifier change des nombres qu'un utilisateur a peut-etre deja envoyes a un fournisseur.
 // Toute evolution est un changement MAJEUR au sens de MD/RELEASE.md §2.1.
 
+import { au } from '../util/tableaux.js';
+
 
 /** Une essence au catalogue : son libelle et sa fourchette de prix au m². */
 export interface Essence { label: string; bas: number; haut: number }
@@ -11,13 +13,16 @@ export interface Essence { label: string; bas: number; haut: number }
 // Indexe par une chaine venue d'un projet enregistre : elle n'est pas garantie d'etre au catalogue,
 // et chaque lecture porte donc son repli. Record<string, …> dit cela ; figer les cinq clefs
 // obligerait a valider la saisie en amont, ce qui n'est pas le contrat d'aujourd'hui.
+const ESSENCE_AUTRE: Essence = { label:'Autre (prix libre)', bas:0, haut:0 };
 export const ESSENCE_PRICES: Record<string, Essence> = {
   'pin-classe4': { label:'Pin classe 4 (autoclave)', bas:25, haut:40 },
   'douglas':     { label:'Douglas',                   bas:35, haut:55 },
   'composite':   { label:'Composite',                 bas:50, haut:90 },
   'exotique':    { label:'Exotique (cumaru, ipe...)',  bas:60, haut:120 },
-  'autre':       { label:'Autre (prix libre)',         bas:0,  haut:0 }
+  'autre':       ESSENCE_AUTRE
 };
+/** L'essence d'une construction ; « autre » (prix libre) si la clef n'est pas au catalogue. */
+export function essenceDe(cle: string | undefined): Essence { return ESSENCE_PRICES[cle ?? ''] || ESSENCE_AUTRE; }
 export const SOLIVE_SECTIONS = ['45x70','45x95','63x175'];
 export const VIS_PRICE = { bas:25, haut:45 };
 // Une vis de fondation se termine par une tete reglable (platine ou U) qui sort du sol pour
@@ -43,11 +48,14 @@ export const PLOT_HAUTEUR_MAX_CM = 100;   // au-dela, le platelage entier sort d
 export const PLOT_ASSISE_MIN_CM2 = 300;   // surface d'assise minimale, NF DTU 51.4 / 43.1
 /** Un type de support et ce qu'il implique en preparation de sol. */
 export interface TypeSupport { label: string; decaissement: boolean; geotextile: boolean; concasse: boolean; dalles: boolean }
+const SUPPORT_CONCASSE: TypeSupport = { label:'Decaissement + concasse compacte', decaissement:true, geotextile:true, concasse:true, dalles:false };
 export const SUPPORT_TYPES: Record<string, TypeSupport> = {
   'dalle':       { label:'Dalle ou chape existante',        decaissement:false, geotextile:false, concasse:false, dalles:false },
-  'concasse':    { label:'Decaissement + concasse compacte', decaissement:true,  geotextile:true,  concasse:true,  dalles:false },
+  'concasse':    SUPPORT_CONCASSE,
   'plots-beton': { label:'Dalles stabilisatrices sous plots',decaissement:true,  geotextile:true,  concasse:true,  dalles:true  }
 };
+/** Le support d'une construction ; le concasse, le cas par defaut, si la clef n'est pas connue. */
+export function supportDe(cle: string | undefined): TypeSupport { return SUPPORT_TYPES[cle ?? ''] || SUPPORT_CONCASSE; }
 export const GEOTEXTILE_PRICE = { bas:1,  haut:3  };   // €/m²
 export const CONCASSE_PRICE   = { bas:35, haut:60 };   // €/m³
 export const DALLE_STAB_PRICE = { bas:3,  haut:7  };   // €/u
@@ -60,7 +68,7 @@ export function plotModele(c: { hauteurPlot?: number; plotModele?: string }): { 
   }
   // Support suppose plan : une seule hauteur, donc le modele le moins cher qui la couvre.
   return PLOT_MODELES.find(m=>h >= m.min-1e-9 && h <= m.max+1e-9)
-      || PLOT_MODELES[PLOT_MODELES.length-1]!;
+      || au(PLOT_MODELES, PLOT_MODELES.length-1);
 }
 export const SOLIVE_PRICE = { bas:4, haut:7 };
 export const VISSERIE_PRICE = { bas:4, haut:6 };

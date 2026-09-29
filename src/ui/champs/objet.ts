@@ -7,10 +7,11 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
+import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
-import { enPoints, enCercle } from '../../model/formes.js';
+import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
@@ -66,8 +67,10 @@ const sectionObjet: Section = {
       type: 'choix', cle: 'fonction', libelle: 'Fonction', effets: ['rendu'],
       // Plusieurs champs (elevation, textures, arbre, parasol) n'apparaissent que selon la
       // fonction : le rendu qui suit les fait paraitre aussitot.
-      options: (c) => (FONCTIONS.includes(c.obj.fonction || '') || !c.obj.fonction ? FONCTIONS : [...FONCTIONS, c.obj.fonction!])
-        .map(f => ({ valeur: f, libelle: LIBELLE_FONCTION[f] || f })),
+      options: (c) => {
+        const f = c.obj.fonction;
+        return (!f || FONCTIONS.includes(f) ? FONCTIONS : [...FONCTIONS, f]).map(v => ({ valeur: v, libelle: LIBELLE_FONCTION[v] || v }));
+      },
       lire: (c) => c.obj.fonction || '', ecrire: (c, v) => { c.obj.fonction = v; }
     },
     {
@@ -95,14 +98,14 @@ const sectionObjet: Section = {
       type: 'lecture', cle: 'surface', libelle: 'Surface',
       visible: (c) => surface(c.obj) !== null && !estPointDeVue(c.obj),
       valeur: (c) => {
-        const s = surface(c.obj)!;
+        const s = surface(c.obj) ?? 0;
         const sp = c.parcelle ? shoelace(enPoints(c.parcelle).pts) : 0;
         return s.toFixed(2) + ' m²' + (c.obj.key !== 'parcelle' && sp > 0 ? '  (' + (s / sp * 100).toFixed(1) + ' % de la parcelle)' : '');
       }
     },
     {
       type: 'lecture', cle: 'longueur', libelle: 'Longueur totale', visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
-      valeur: (c) => { const pts = enPoints(c.obj).pts; let t = 0; for (let i = 0; i < pts.length - 1; i++) t += dist(pts[i]!, pts[i + 1]!); return t.toFixed(2) + ' m'; }
+      valeur: (c) => { const pts = enPoints(c.obj).pts; let t = 0; for (let i = 0; i < pts.length - 1; i++) t += dist(au(pts, i), au(pts, i + 1)); return t.toFixed(2) + ' m'; }
     },
     {
       type: 'nombre', cle: 'width', libelle: 'Largeur', unite: 'm', pas: 0.05, min: 0.05, decimales: 2, historique: true, effets: ['rendu'],
@@ -142,13 +145,13 @@ const sectionObjet: Section = {
       visible: (c) => c.obj.type === 'polygon' && c.obj.pts.length === 4,
       // Derive de l'etat des coins figes plutot que d'un drapeau a part : figer les quatre coins est
       // ce qui bloque reellement les cotes et les angles ailleurs dans le programme.
-      lire: (c) => enPoints(c.obj).frozenVertices!.every(Boolean),
+      lire: (c) => gelsDe(enPoints(c.obj)).every(Boolean),
       ecrire: (c, v) => {
         const obj = enPoints(c.obj);
-        if (!v) { c.pushHistory(); obj.frozenVertices = obj.frozenVertices!.map(() => false); return; }
+        if (!v) { c.pushHistory(); obj.frozenVertices = gelsDe(obj).map(() => false); return; }
         // Deja d'equerre : on verrouille tel quel, sans redresser. Une terrasse rectangulaire mais
         // orientee a 30 degres n'a aucune raison de basculer sur les axes de l'ecran.
-        if (c.dejaRectangle(obj.pts)) { c.pushHistory(); obj.frozenVertices = obj.frozenVertices!.map(() => true); return; }
+        if (c.dejaRectangle(obj.pts)) { c.pushHistory(); obj.frozenVertices = gelsDe(obj).map(() => true); return; }
         const xs = obj.pts.map(p => p.x), ys = obj.pts.map(p => p.y);
         const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
         // Les quatre coins sont attribues dans l'ordre de parcours, en partant du plus proche du
@@ -157,8 +160,8 @@ const sectionObjet: Section = {
         const coins = [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }];
         if (signedArea(obj.pts) < 0) coins.reverse();
         let depart = 0, meilleure = Infinity;
-        coins.forEach((cc, k) => { const d = dist(cc, obj.pts[0]!); if (d < meilleure) { meilleure = d; depart = k; } });
-        const nouveaux = obj.pts.map((_, i) => ({ ...coins[(depart + i) % 4]! }));
+        coins.forEach((cc, k) => { const d = dist(cc, au(obj.pts, 0)); if (d < meilleure) { meilleure = d; depart = k; } });
+        const nouveaux = obj.pts.map((_, i) => ({ ...au(coins, (depart + i) % 4) }));
         const contour = contourParcelle(c);
         if (contour && !nouveaux.every(p => pointInPolygon(p, contour))) {
           c.toast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
@@ -166,7 +169,7 @@ const sectionObjet: Section = {
         }
         c.pushHistory();
         obj.pts = nouveaux;
-        obj.frozenVertices = obj.frozenVertices!.map(() => true);
+        obj.frozenVertices = gelsDe(obj).map(() => true);
       }
     }
   ]
@@ -282,12 +285,12 @@ const sectionPointDeVue: Section = {
     {
       type: 'nombre', cle: 'direction', libelle: 'Direction', unite: '°', pas: 5, decimales: 0, effets: ['rendu'],
       aide: 'Direction visée : 0° = Est, 90° = Nord. Déplace le point « Direction » sur le plan, ce champ le suit, ou le repositionne.',
-      lire: (c) => { const p = enPoints(c.obj).pts; return Math.round(Math.atan2(p[1]!.y - p[0]!.y, p[1]!.x - p[0]!.x) * 180 / Math.PI); },
+      lire: (c) => { const p = enPoints(c.obj).pts; return Math.round(Math.atan2(au(p, 1).y - au(p, 0).y, au(p, 1).x - au(p, 0).x) * 180 / Math.PI); },
       ecrire: (c, v) => {
         const p = enPoints(c.obj).pts;
-        const d = Math.hypot(p[1]!.x - p[0]!.x, p[1]!.y - p[0]!.y) || 2;
+        const d = Math.hypot(au(p, 1).x - au(p, 0).x, au(p, 1).y - au(p, 0).y) || 2;
         const rad = (v || 0) * Math.PI / 180;
-        p[1] = { x: p[0]!.x + Math.cos(rad) * d, y: p[0]!.y + Math.sin(rad) * d };
+        p[1] = { x: au(p, 0).x + Math.cos(rad) * d, y: au(p, 0).y + Math.sin(rad) * d };
       }
     },
     { type: 'bouton', cle: 'aller', libelle: '', texte: () => 'Aller à cette vue en Vue 3D', executer: (c) => c.allerAuPointDeVue(c.obj) }
@@ -309,7 +312,7 @@ function sectionCotes(c: ContexteChamps): Section {
       type: 'ligne', cle: 'point' + i, libelle: 'Point ' + (i + 1),
       surbrillance: (cc) => cc.etat.highlight.type === 'vertex' && cc.etat.highlight.index === i,
       champs: [
-        nomDe('nom', 'Nom', (cc) => enPoints(cc.obj).vertexNames![i] || '', (cc, v) => { enPoints(cc.obj).vertexNames![i] = v; }),
+        nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
         { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 2, aide: n <= 2 ? 'Impossible : il faut garder au moins 2 points' : 'Supprime ce point', executer: (cc) => cc.deleteVertex(cc.obj, i) }
       ]
     }));
@@ -317,12 +320,12 @@ function sectionCotes(c: ContexteChamps): Section {
   (obj.segmentNames || []).forEach((_, i) => {
     if (obj.type === 'path' && i >= n - 1) return; // pas de cote de fermeture sur un chemin ouvert
     const j = (i + 1) % n;
-    const aFige = !!obj.frozenVertices![i], bFige = !!obj.frozenVertices![j];
+    const aFige = !!gelsDe(obj)[i], bFige = !!gelsDe(obj)[j];
     const longueur: ChampNombre = {
       type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2,
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
-      lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(p[i]!, p[j % p.length]!); },
+      lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
       ecrire: (cc, v) => { if (!(v > 0)) return false; cc.pushHistory(); return cc.applyLengthEdit(cc.obj, i, v); },
       effets: ['poignees', 'rendu']
     };
@@ -330,7 +333,7 @@ function sectionCotes(c: ContexteChamps): Section {
       type: 'ligne', cle: 'cote' + i, libelle: 'Côté ' + (i + 1),
       surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
       champs: [
-        nomDe('nom', 'Nom', (cc) => enPoints(cc.obj).segmentNames![i] || '', (cc, v) => { enPoints(cc.obj).segmentNames![i] = v; }),
+        nomDe('nom', 'Nom', (cc) => nomsCotesDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsCotesDe(enPoints(cc.obj))[i] = v; }),
         longueur,
         { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > minPts, aide: n <= minPts ? 'Impossible : nombre minimum de sommets atteint' : 'Supprime ce côté (fusionne les deux sommets voisins)', executer: (cc) => cc.deleteVertex(cc.obj, j) }
       ]
@@ -344,12 +347,12 @@ function sectionCoins(c: ContexteChamps): Section {
   const obj = enPoints(c.obj);
   const n = obj.pts.length;
   const champs: Champ[] = (obj.vertexNames || []).map((_, i) => {
-    const fige = !!obj.frozenVertices![i];
+    const fige = !!gelsDe(obj)[i];
     return {
       type: 'ligne', cle: 'coin' + i, libelle: 'Coin ' + (i + 1),
       surbrillance: (cc) => cc.etat.highlight.type === 'vertex' && cc.etat.highlight.index === i,
       champs: [
-        nomDe('nom', 'Nom', (cc) => enPoints(cc.obj).vertexNames![i] || '', (cc, v) => { enPoints(cc.obj).vertexNames![i] = v; }),
+        nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
         {
           type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, actif: () => !fige,
           aide: fige ? 'Angle figé : décoche « figé » pour le modifier' : 'Angle intérieur',
@@ -360,7 +363,7 @@ function sectionCoins(c: ContexteChamps): Section {
         {
           type: 'case', cle: 'fige', libelle: 'Figé', effets: ['rendu'],
           aide: 'Figer cet angle : empêche de le déplacer (glisser, longueur adjacente, angle) pour faciliter les autres modifications',
-          lire: (cc) => !!enPoints(cc.obj).frozenVertices![i], ecrire: (cc, v) => { enPoints(cc.obj).frozenVertices![i] = v; }
+          lire: (cc) => !!gelsDe(enPoints(cc.obj))[i], ecrire: (cc, v) => { gelsDe(enPoints(cc.obj))[i] = v; }
         },
         { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 3 && !fige, aide: n <= 3 ? 'Impossible : il faut garder au moins 3 sommets' : (fige ? 'Coin figé' : 'Supprime ce coin (fusionne les deux côtés voisins)'), executer: (cc) => cc.deleteVertex(cc.obj, i) }
       ]
@@ -389,7 +392,7 @@ const sectionAlignement: Section = {
           if (tgt) {
             const obj = enPoints(c.obj);
             const idx = nearestSegmentIndex({ type: obj.type, pts: obj.pts }, tgt);
-            if (idx >= 0) proche = obj.segmentNames![idx] || ('Cote ' + (idx + 1));
+            if (idx >= 0) proche = obj.segmentNames?.[idx] || ('Cote ' + (idx + 1));
           }
         }
         return c.refLabel(cible) + '  |  côté le plus proche de « ' + c.obj.name + ' » : ' + proche;
@@ -413,7 +416,7 @@ const sectionParcelle: Section = {
   id: 'parcelle', titre: 'Parcelle',
   champs: [
     { type: 'lecture', cle: 'lieu', libelle: 'Lieu', valeur: (c) => { const l = lieuDeParcelle(c.obj); return l.nom + ' — ' + l.latitude.toFixed(4) + '° N, ' + l.longitude.toFixed(4) + '° E'; } },
-    { type: 'lecture', cle: 'cadastre', libelle: 'Cadastre', visible: (c) => !!c.obj.cadastre, valeur: (c) => { const k = c.obj.cadastre!; return [k.commune, k.section, k.numero].filter(v => typeof v === 'string' && v).join(' ') || 'parcelle importée'; } },
+    { type: 'lecture', cle: 'cadastre', libelle: 'Cadastre', visible: (c) => !!c.obj.cadastre, valeur: (c) => { const k = c.obj.cadastre ?? {}; return [k.commune, k.section, k.numero].filter(v => typeof v === 'string' && v).join(' ') || 'parcelle importée'; } },
     { type: 'case', cle: 'clotureActive', libelle: 'Clôture autour de la parcelle', effets: ['inspecteur', 'scene3d'], lire: (c) => !!c.obj.clotureActive, ecrire: (c, v) => { c.obj.clotureActive = v; } },
     // Hauteur plafonnee par le bas a 0,10 m, repliee sur 1,80 m si la saisie n'est pas un nombre.
     { type: 'nombre', cle: 'clotureHauteur', libelle: 'Hauteur de la clôture', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureHauteur ?? 1.8, ecrire: (c, v) => { c.obj.clotureHauteur = Math.max(0.1, v) || 1.8; } },

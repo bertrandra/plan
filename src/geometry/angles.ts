@@ -1,5 +1,6 @@
 // Angles d'un polygone (spec §3.2, geometry/).
 
+import { au } from '../util/tableaux.js';
 import { signedArea } from './basic.js';
 
 /**
@@ -16,7 +17,7 @@ import { signedArea } from './basic.js';
  */
 export function interiorAngleDeg(obj: { pts: { x: number; y: number }[] }, i: number): number {
   const n = obj.pts.length;
-  const prev = obj.pts[(i - 1 + n) % n]!, cur = obj.pts[i]!, next = obj.pts[(i + 1) % n]!;
+  const prev = au(obj.pts, (i - 1 + n) % n), cur = au(obj.pts, i), next = au(obj.pts, (i + 1) % n);
   const u = { x: prev.x - cur.x, y: prev.y - cur.y };
   const v = { x: next.x - cur.x, y: next.y - cur.y };
   let a = (Math.atan2(v.y, v.x) - Math.atan2(u.y, u.x)) * 180 / Math.PI;

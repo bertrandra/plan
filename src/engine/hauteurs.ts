@@ -6,7 +6,7 @@
 
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, sectionLambourde } from './structure.js';
+import { dimsSection, sectionLambourde } from './portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
 import type { Construction, PtBrut } from '../model/types.js';
 
@@ -70,5 +70,5 @@ export function elevationOf(o: ObjetMesurable): number {
   if (o.fonction === 'terrasse' && o.type === 'polygon' && o.pts && o.pts.length >= 3) {
     return hauteurFinieMm(o) / 1000;
   }
-  return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction!);
+  return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction ?? '');
 }

@@ -3,7 +3,7 @@
 // Sur telephone, le tiroir des resultats n'est pas visible en meme temps que l'inspecteur : la
 // boucle reglage → chiffrage de la spec des zones (§7.1) se perdrait. La feuille de selection et le
 // bandeau de l'inspecteur rendent donc un resume — le meme calcul que la table du BOM
-// (tables.ts, `renderBOMTable`), sans rien ecrire : ni `construction.bom`, ni le DOM.
+// (zones/resultats/Nomenclature.tsx), sans rien ecrire : ni `construction.bom`, ni le DOM.
 //
 // Le calcul refait les couches de la terrasse ; il est donc mis en cache sur ce qui le determine
 // (l'objet et ses voisins), pour qu'un glisser qui redessine a chaque image ne le relance pas.
@@ -25,6 +25,10 @@ export interface ResumeChiffrage {
   natureAppuis: 'plots' | 'vis';
   /** Les lames achetees, en metres lineaires. */
   lamesMl: number;
+  /** Le bois porteur achete (solives, lambourdes, cadre), en metres lineaires. */
+  porteurMl: number;
+  /** La surface couverte, en m² (le poste de visserie est compte au m²). */
+  surface: number;
 }
 
 let cache: { cle: string; resume: ResumeChiffrage } | null = null;
@@ -46,7 +50,9 @@ export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChi
     bas, haut, reel: auMoinsUnReel ? reel : null,
     appuis: couches.vis.length,
     natureAppuis: estPlots(c) ? 'plots' : 'vis',
-    lamesMl: lignes.find(l => l.poste === 'lames')?.qte ?? 0
+    lamesMl: lignes.find(l => l.poste === 'lames')?.qte ?? 0,
+    porteurMl: lignes.filter(l => l.unite === 'ml' && l.poste !== 'lames' && l.poste !== 'lameRive').reduce((s, l) => s + l.qte, 0),
+    surface: lignes.find(l => l.poste === 'visserie')?.qte ?? 0
   };
   cache = { cle: cle + obj.key, resume };
   return resume;
@@ -54,3 +60,6 @@ export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChi
 
 /** « 1 842 € », a la francaise. */
 export const euros = (v: number) => Math.round(v).toLocaleString('fr-FR') + ' €';
+
+/** « 269,4 », a la francaise, sans decimale superflue. */
+export const nombre = (v: number, decimales = 1) => v.toLocaleString('fr-FR', { maximumFractionDigits: decimales });

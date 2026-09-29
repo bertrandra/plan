@@ -14,17 +14,17 @@ export type Classe = 'compact' | 'moyen' | 'large';
 export const CLASSES: Classe[] = ['compact', 'moyen', 'large'];
 
 /**
- * Un endroit ou une commande peut s'exposer. `html:<id>` : un element d'index.html lie a la commande
- * par le registre (`cmd.bouton`). `sansObjet` : la commande n'a pas de sens dans cette classe, et le
- * dit (seul le plein ecran des vues 3D y a droit, voir le test).
+ * Un endroit ou une commande peut s'exposer : une zone, ou `sansObjet` quand la commande n'a pas de
+ * sens dans cette classe, et le dit (seul le plein ecran des vues 3D y a droit, voir le test).
+ * Depuis que le tiroir et les vues 3D sont des zones, plus aucune commande n'est liee a un element
+ * d'index.html.
  */
 export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
   | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide'
-  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur'
-  | 'clavier' | 'premierPas' | 'sansObjet'
-  | `html:${string}`;
+  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
+  | 'clavier' | 'premierPas' | 'sansObjet';
 
 type Ligne = Record<Classe, Emplacement[]>;
 
@@ -80,10 +80,10 @@ export const EXPOSITION: Record<string, Ligne> = {
   'vue.visionneuse': partout('barreHaute'),
 
   // ---- Cotes, PLU, terrasse -------------------------------------------------------------------
-  'mesure.recalculer': partout('html:recalcMeasureBtn'),
-  'mesure.effacer': partout('html:clearMeasureBtn'),
+  'mesure.recalculer': partout('tiroir'),
+  'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
-  'plu.interroger': partout('html:pluInterrogerBtn'),
+  'plu.interroger': partout('tiroir'),
   'terrasse.optimisation': partout('inspecteur'),
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
@@ -95,30 +95,31 @@ export const EXPOSITION: Record<string, Ligne> = {
   'fichier.importerJson': menu('menuFichier'),
   'export.svg': menu('menuExporter'),
   'export.png': menu('menuExporter'),
-  'export.resume': menu('menuExporter', 'html:exportBtn'),
+  'export.resume': menu('menuExporter', 'tiroir'),
+  'export.copierResume': partout('tiroir'),
   'export.dxf': menu('menuExporter'),
   'export.pdf': menu('menuExporter'),
   'export.dossier': menu('menuExporter'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------
-  '3d.zoomAvant': partout('html:terrasse3dZoomIn'),
-  '3d.zoomArriere': partout('html:terrasse3dZoomOut'),
-  '3d.modeOrbite': partout('html:terrasse3dModeOrbit'),
-  '3d.modeDeplacement': partout('html:terrasse3dModePan'),
-  '3d.modeZoom': partout('html:terrasse3dModeZoom'),
-  '3d.hauteurDesYeux': partout('html:terrasse3dEyeLevel'),
-  '3d.enregistrerPng': partout('html:terrasse3dSavePng'),
-  '3d.enregistrerPointDeVue': partout('html:terrasse3dSaveViewBtn'),
-  '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['html:terrasse3dFullPageBtn'] },
+  '3d.zoomAvant': partout('vue3d'),
+  '3d.zoomArriere': partout('vue3d'),
+  '3d.modeOrbite': partout('vue3d'),
+  '3d.modeDeplacement': partout('vue3d'),
+  '3d.modeZoom': partout('vue3d'),
+  '3d.hauteurDesYeux': partout('vue3d'),
+  '3d.enregistrerPng': partout('vue3d'),
+  '3d.enregistrerPointDeVue': partout('vue3d'),
+  '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['vue3d'] },
 
   // ---- Visionneuse ----------------------------------------------------------------------------
-  'visionneuse.generer': partout('html:glbViewerExporterBtn'),
-  'visionneuse.regenerer': partout('html:glbViewerRegenBtn'),
-  'visionneuse.zoomAvant': partout('html:glbViewerZoomIn'),
-  'visionneuse.zoomArriere': partout('html:glbViewerZoomOut'),
-  'visionneuse.hauteurDesYeux': partout('html:glbViewerEyeLevel'),
-  'visionneuse.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['html:glbViewerFullPageBtn'] }
+  'visionneuse.generer': partout('visionneuse'),
+  'visionneuse.regenerer': partout('visionneuse'),
+  'visionneuse.zoomAvant': partout('visionneuse'),
+  'visionneuse.zoomArriere': partout('visionneuse'),
+  'visionneuse.hauteurDesYeux': partout('visionneuse'),
+  'visionneuse.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['visionneuse'] }
 };
 
 /**

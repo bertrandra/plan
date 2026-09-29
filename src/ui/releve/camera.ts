@@ -45,6 +45,13 @@ export function fermerCamera(flux: MediaStream | null): void {
   flux?.getTracks().forEach((t) => t.stop());
 }
 
+/** Le contexte 2D d'un canevas : sans lui (memoire epuisee, canevas trop grand), rien ne se dessine. */
+function contexte2d(c: HTMLCanvasElement, lecturesFrequentes = false): CanvasRenderingContext2D {
+  const ctx = c.getContext('2d', { willReadFrequently: lecturesFrequentes });
+  if (!ctx) throw new Error("Le navigateur n'a pas pu ouvrir un canevas de " + c.width + ' x ' + c.height + ' pixels.');
+  return ctx;
+}
+
 /** Un canevas a la taille voulue, reduit si besoin pour ne pas depasser `PHOTO_MAX_PX`. */
 function canevasPour(l: number, h: number): { c: HTMLCanvasElement; k: number } {
   const k = Math.min(1, PHOTO_MAX_PX / Math.max(l, h));
@@ -55,7 +62,7 @@ function canevasPour(l: number, h: number): { c: HTMLCanvasElement; k: number } 
 }
 
 function imageDuCanevas(c: HTMLCanvasElement): Image {
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  const ctx = contexte2d(c, true);
   const d = ctx.getImageData(0, 0, c.width, c.height);
   return { largeur: c.width, hauteur: c.height, donnees: d.data };
 }
@@ -66,7 +73,7 @@ export function saisir(video: HTMLVideoElement): Photo | null {
     h = video.videoHeight;
   if (!l || !h) return null;
   const { c } = canevasPour(l, h);
-  c.getContext('2d')!.drawImage(video, 0, 0, c.width, c.height);
+  contexte2d(c).drawImage(video, 0, 0, c.width, c.height);
   return { image: imageDuCanevas(c), url: c.toDataURL('image/jpeg', 0.85), champ: null, focalePx: null };
 }
 
@@ -86,7 +93,7 @@ export async function lireFichier(fichier: File): Promise<Photo> {
   const url = URL.createObjectURL(fichier);
   const img = await chargerUrl(url);
   const { c } = canevasPour(img.naturalWidth, img.naturalHeight);
-  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  contexte2d(c).drawImage(img, 0, 0, c.width, c.height);
   return { image: imageDuCanevas(c), url, champ: f35 ? champDepuisFocale35(f35) : null, focalePx: null };
 }
 
@@ -94,7 +101,7 @@ export async function lireFichier(fichier: File): Promise<Photo> {
 export async function lirePhotoNative(dataUrl: string, focalePx: number | null): Promise<Photo> {
   const img = await chargerUrl(dataUrl);
   const { c, k } = canevasPour(img.naturalWidth, img.naturalHeight);
-  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  contexte2d(c).drawImage(img, 0, 0, c.width, c.height);
   return { image: imageDuCanevas(c), url: dataUrl, champ: null, focalePx: focalePx ? focalePx * k : null };
 }
 
@@ -103,7 +110,7 @@ export function versJpeg(img: Image, qualite = 0.82): string {
   const c = document.createElement('canvas');
   c.width = img.largeur;
   c.height = img.hauteur;
-  const ctx = c.getContext('2d')!;
+  const ctx = contexte2d(c);
   const d = ctx.createImageData(img.largeur, img.hauteur);
   d.data.set(img.donnees);
   ctx.putImageData(d, 0, 0);

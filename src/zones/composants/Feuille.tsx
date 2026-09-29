@@ -33,8 +33,8 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
   const debut = useRef<{ y: number; id: number } | null>(null);
   const hauteur = useStore(magasin.store, (s) => s.hauteurFeuille);
   const fermer = () => magasin.definirFeuille(null);
-  const monter = () => { const i = ORDRE.indexOf(hauteur); if (i < ORDRE.length - 1) magasin.definirHauteurFeuille(ORDRE[i + 1]!); };
-  const descendre = () => { const i = ORDRE.indexOf(hauteur); if (i <= 0) fermer(); else magasin.definirHauteurFeuille(ORDRE[i - 1]!); };
+  const monter = () => { const suivante = ORDRE[ORDRE.indexOf(hauteur) + 1]; if (suivante) magasin.definirHauteurFeuille(suivante); };
+  const descendre = () => { const i = ORDRE.indexOf(hauteur); const precedente = i > 0 ? ORDRE[i - 1] : undefined; if (precedente) magasin.definirHauteurFeuille(precedente); else fermer(); };
   return (
     <div className="enteteFeuille">
       {/* La poignee se glisse au doigt ; au clavier, c'est un bouton qui fait passer d'une hauteur a
@@ -68,7 +68,7 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
   );
 }
 
-/** Les conteneurs d'index.html qui portent chaque feuille : c'est la que le focus entre. */
+/** Les conteneurs qui portent chaque feuille : c'est la que le focus entre. */
 export const HOTE_DE_FEUILLE: Record<Feuille, string> = {
   projet: 'projectBar', outils: 'zonePalette', objets: 'zoneExplorateur', proprietes: 'zoneInspecteur',
   resultats: 'zoneResultats', reglages3d: 'zoneReglages3d'
@@ -117,8 +117,8 @@ export function Voile({ magasin }: { magasin: Magasin }) {
       if (!conteneur) return;
       const focusables = [...conteneur.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
         .filter(el => !(el as HTMLButtonElement).disabled && el.offsetParent !== null);
-      if (!focusables.length) return;
-      const premier = focusables[0]!, dernier = focusables[focusables.length - 1]!;
+      const premier = focusables[0], dernier = focusables[focusables.length - 1];
+      if (!premier || !dernier) return;
       if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
       else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
       else if (!conteneur.contains(document.activeElement)) { e.preventDefault(); premier.focus(); }
@@ -126,20 +126,6 @@ export function Voile({ magasin }: { magasin: Magasin }) {
     window.addEventListener('keydown', surTouche);
     return () => window.removeEventListener('keydown', surTouche);
   }, [feuille, magasin]);
-
-  // Les boutons de fermeture des feuilles ecrites dans index.html (les reglages 3D) et les boutons
-  // qui les ouvrent : du balisage statique, branche ici une fois.
-  useEffect(() => {
-    const surClic = (e: MouseEvent) => {
-      const cible = e.target as Element | null;
-      if (cible?.closest('[data-fermer-feuille]')) magasin.definirFeuille(null);
-      else if (cible?.closest('#reglages3dBtn, #reglagesGlbBtn')) {
-        magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d');
-      }
-    };
-    document.addEventListener('click', surClic);
-    return () => document.removeEventListener('click', surClic);
-  }, [magasin]);
 
   if (!feuille || classe === 'large') return null;
   // Sur tablette, les panneaux deroulants (Projet, Reglages 3D) n'assombrissent pas le plan : le

@@ -4,6 +4,7 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
+import { au } from '../util/tableaux.js';
 import { centroid } from '../geometry/basic.js';
 import { clipLineToPolygon, clipPolygonByConvex } from '../geometry/polygon.js';
 import type { PtBrut, Segment } from '../model/types.js';
@@ -20,7 +21,7 @@ export function etendueLame(a: PtBrut, b: PtBrut, largeurM: number, poly: PtBrut
     if(!poly || poly.length < 3) return 0;
     let best: Segment | null = null, bestD = Infinity;
     for(let i=0;i<poly.length;i++){
-      const p = poly[i]!, q = poly[(i+1)%poly.length]!;
+      const p = au(poly, i), q = au(poly, (i+1)%poly.length);
       const abx = q.x-p.x, aby = q.y-p.y;
       const l2 = abx*abx + aby*aby || 1e-12;
       let t = ((pt.x-p.x)*abx + (pt.y-p.y)*aby)/l2;

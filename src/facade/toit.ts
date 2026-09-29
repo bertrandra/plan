@@ -10,6 +10,8 @@
 // Le repere est celui du faitage : `u` le long du faitage, `v` en travers. Les etendues du contour
 // sur ces deux axes donnent la demi-largeur (du bord au faitage) et la demi-longueur.
 
+import { au } from '../util/tableaux.js';
+import { sommetDe } from '../geometry/anneau.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
 import { signedArea } from '../geometry/basic.js';
 
@@ -45,8 +47,8 @@ export function angleDuPlusLongCote(pts: readonly PtBrut[]): number {
   let best = 0,
     ang = 0;
   for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!,
-      b = pts[(i + 1) % pts.length]!;
+    const a = au(pts, i),
+      b = sommetDe(pts, i + 1);
     const l = Math.hypot(b.x - a.x, b.y - a.y);
     if (l > best) {
       best = l;
@@ -126,8 +128,8 @@ export function hauteurToitEn(plans: readonly PlanToit[], q: PtBrut): number {
 function couperDemiPlan(poly: PtBrut[], f: (p: PtBrut) => number): PtBrut[] {
   const out: PtBrut[] = [];
   for (let i = 0; i < poly.length; i++) {
-    const P = poly[i]!,
-      Q = poly[(i + 1) % poly.length]!;
+    const P = au(poly, i),
+      Q = sommetDe(poly, i + 1);
     const fp = f(P),
       fq = f(Q);
     if (fp <= 1e-9) out.push(P);
@@ -152,17 +154,17 @@ export function trianguler(poly: readonly PtBrut[]): [number, number, number][] 
   while (idx.length > 3 && garde++ < 10000) {
     let coupe = false;
     for (let k = 0; k < idx.length; k++) {
-      const i0 = idx[(k - 1 + idx.length) % idx.length]!,
-        i1 = idx[k]!,
-        i2 = idx[(k + 1) % idx.length]!;
-      const a = poly[i0]!,
-        b = poly[i1]!,
-        c = poly[i2]!;
+      const i0 = sommetDe(idx, k - 1),
+        i1 = au(idx, k),
+        i2 = sommetDe(idx, k + 1);
+      const a = au(poly, i0),
+        b = au(poly, i1),
+        c = au(poly, i2);
       if (croix(a, b, c) <= 1e-12) continue;
       let vide = true;
       for (const j of idx) {
         if (j === i0 || j === i1 || j === i2) continue;
-        if (dedans(poly[j]!, a, b, c)) {
+        if (dedans(au(poly, j), a, b, c)) {
           vide = false;
           break;
         }
@@ -176,7 +178,7 @@ export function trianguler(poly: readonly PtBrut[]): [number, number, number][] 
     // Polygone degenere (points alignes) : on retire un sommet plat plutot que de boucler.
     if (!coupe) idx.splice(0, 1);
   }
-  if (idx.length === 3) res.push([idx[0]!, idx[1]!, idx[2]!]);
+  if (idx.length === 3) res.push([au(idx, 0), au(idx, 1), au(idx, 2)]);
   return res;
 }
 
@@ -205,7 +207,7 @@ export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[];
     });
     // Nettoyage : points confondus consecutifs.
     poly = poly.filter((q, i) => {
-      const r = poly[(i + 1) % poly.length]!;
+      const r = sommetDe(poly, i + 1);
       return Math.hypot(q.x - r.x, q.y - r.y) > 1e-6;
     });
     if (poly.length < 3 || Math.abs(signedArea(poly)) < 1e-6) return;
@@ -215,8 +217,8 @@ export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[];
   const pignons: Pignon[] = [];
   const n = pts.length;
   for (let i = 0; i < n; i++) {
-    const a = pts[i]!,
-      b = pts[(i + 1) % n]!;
+    const a = au(pts, i),
+      b = sommetDe(pts, i + 1);
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     if (L < 1e-6) continue;
     const at = (t: number) => ({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
@@ -224,8 +226,8 @@ export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[];
     const ts = new Set<number>([0, 1]);
     for (let j = 0; j < plans.length; j++) {
       for (let k = j + 1; k < plans.length; k++) {
-        const g0 = zDe(plans[j]!, a) - zDe(plans[k]!, a),
-          g1 = zDe(plans[j]!, b) - zDe(plans[k]!, b);
+        const g0 = zDe(au(plans, j), a) - zDe(au(plans, k), a),
+          g1 = zDe(au(plans, j), b) - zDe(au(plans, k), b);
         if (Math.abs(g0 - g1) > 1e-12) {
           const t = g0 / (g0 - g1);
           if (t > 1e-6 && t < 1 - 1e-6) ts.add(t);
@@ -269,24 +271,24 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   const hmax = Math.max(...profil);
   if (hmax < 0.3) return { ...plat, ecart: Math.sqrt(profil.reduce((s, v) => s + v * v, 0) / n) };
   const t = profil.map((_, i) => (i + 0.5) / n);
-  const eqm = (f: (x: number) => number) => Math.sqrt(profil.reduce((s, v, i) => s + (v - f(t[i]!)) ** 2, 0) / n);
+  const eqm = (f: (x: number) => number) => Math.sqrt(profil.reduce((s, v, i) => s + (v - f(au(t, i))) ** 2, 0) / n);
 
   // Triangle : h(x) = H (1 - |2x - 1|), H par moindres carres.
   const tri = t.map((x) => 1 - Math.abs(2 * x - 1));
-  const Htri = profil.reduce((s, v, i) => s + v * tri[i]!, 0) / tri.reduce((s, w) => s + w * w, 0);
+  const Htri = profil.reduce((s, v, i) => s + v * au(tri, i), 0) / tri.reduce((s, w) => s + w * w, 0);
   // Bande : la mediane, robuste aux cheminees.
-  const Hband = [...profil].sort((a, b) => a - b)[Math.floor(n / 2)]!;
+  const Hband = au([...profil].sort((a, b) => a - b), Math.floor(n / 2));
   // Rampe : droite par moindres carres, dans un sens ou l'autre.
   const mx = t.reduce((s, x) => s + x, 0) / n,
     my = profil.reduce((s, v) => s + v, 0) / n;
-  const pente = t.reduce((s, x, i) => s + (x - mx) * (profil[i]! - my), 0) / t.reduce((s, x) => s + (x - mx) ** 2, 0);
+  const pente = t.reduce((s, x, i) => s + (x - mx) * (au(profil, i) - my), 0) / t.reduce((s, x) => s + (x - mx) ** 2, 0);
   const ord = my - pente * mx;
   // Trapeze : monte sur une fraction r de chaque cote puis plateau. On balaye r.
   let meilleurTrap = { e: Infinity, H: 0 };
   for (let r = 0.1; r <= 0.45; r += 0.05) {
     const w = t.map((x) => Math.min(1, x / r, (1 - x) / r));
-    const H = profil.reduce((s, v, i) => s + v * w[i]!, 0) / w.reduce((s, q) => s + q * q, 0);
-    const e = Math.sqrt(profil.reduce((s, v, i) => s + (v - H * w[i]!) ** 2, 0) / n);
+    const H = profil.reduce((s, v, i) => s + v * au(w, i), 0) / w.reduce((s, q) => s + q * q, 0);
+    const e = Math.sqrt(profil.reduce((s, v, i) => s + (v - H * au(w, i)) ** 2, 0) / n);
     if (e < meilleurTrap.e) meilleurTrap = { e, H };
   }
 
@@ -304,7 +306,7 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   ];
   candidats.forEach((c) => (c.cout += c.ecart));
   candidats.sort((a, b) => a.cout - b.cout);
-  const { forme, faitage, hauteur, ecart } = candidats[0]!;
+  const { forme, faitage, hauteur, ecart } = au(candidats, 0);
   return { forme, faitage, hauteur, ecart };
 }
 
@@ -325,8 +327,8 @@ export function corrigerFuite(bande: number, hauteurMur: number, distance: numbe
  * mur prend l'angle de ce mur, perpendiculaire l'angle plus 90 degres.
  */
 export function toitDepuisEstimation(pts: readonly PtBrut[], cote: number, e: ToitEstime, hauteurMur: number, distance: number | null): Toit {
-  const a = pts[cote]!,
-    b = pts[(cote + 1) % pts.length]!;
+  const a = au(pts, cote),
+    b = sommetDe(pts, cote + 1);
   const angleMur = (((Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI) % 180 + 180) % 180;
   const angleFaitage = e.faitage === 'parallele' ? angleMur : (angleMur + 90) % 180;
   let hauteur = e.hauteur;
@@ -354,25 +356,25 @@ export function testeurCiel(img: ImageBrute, vu: Uint8Array | null = null): (x: 
   const { largeur: L, hauteur: H, donnees: d } = img;
   const px = (x: number, y: number) => {
     const o = (y * L + x) * 4;
-    return [d[o]!, d[o + 1]!, d[o + 2]!] as const;
+    return [(d[o] ?? 0), (d[o + 1] ?? 0), (d[o + 2] ?? 0)] as const;
   };
   const ech: number[][] = [[], [], []];
   for (let y = 0; y < Math.min(3, H); y++)
     for (let x = 0; x < L; x++) {
       if (vu && !vu[y * L + x]) continue;
       const c = px(x, y);
-      for (let k = 0; k < 3; k++) ech[k]!.push(c[k]!);
+      for (let k = 0; k < 3; k++) au(ech, k).push(au(c, k));
     }
   const med = ech.map((v) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? 0);
-  const lum = (c: readonly number[]) => 0.299 * c[0]! + 0.587 * c[1]! + 0.114 * c[2]!;
-  const refCiel = lum(med) > 110 && med[2]! >= med[0]! - 12;
+  const lum = (c: readonly number[]) => 0.299 * au(c, 0) + 0.587 * au(c, 1) + 0.114 * au(c, 2);
+  const refCiel = lum(med) > 110 && au(med, 2) >= au(med, 0) - 12;
   return (x, y) => {
     if (vu && !vu[y * L + x]) return true;
     const c = px(x, y);
     const sat = Math.max(...c) - Math.min(...c);
     if (lum(c) > 200 && sat < 40) return true;
-    if (c[2]! > c[0]! + 15 && lum(c) > 120) return true;
-    return refCiel && Math.hypot(c[0]! - med[0]!, c[1]! - med[1]!, c[2]! - med[2]!) < 30;
+    if (au(c, 2) > au(c, 0) + 15 && lum(c) > 120) return true;
+    return refCiel && Math.hypot(au(c, 0) - au(med, 0), au(c, 1) - au(med, 1), au(c, 2) - au(med, 2)) < 30;
   };
 }
 
@@ -388,9 +390,9 @@ export function effacerCiel(img: ImageBrute, lignes: number, teinte: readonly nu
     for (let x = 0; x < img.largeur; x++) {
       if (!ciel(x, y)) continue;
       const o = (y * img.largeur + x) * 4;
-      img.donnees[o] = teinte[0]!;
-      img.donnees[o + 1] = teinte[1]!;
-      img.donnees[o + 2] = teinte[2]!;
+      img.donnees[o] = au(teinte, 0);
+      img.donnees[o + 1] = au(teinte, 1);
+      img.donnees[o + 2] = au(teinte, 2);
     }
 }
 
@@ -421,6 +423,6 @@ export function profilSilhouette(img: ImageBrute, pxParM: number, colonnes = 60,
   // Filtre median sur 5 colonnes : une antenne ou une branche ne fait pas un faitage.
   return res.map((_, i) => {
     const v = res.slice(Math.max(0, i - 2), i + 3).sort((a, b) => a - b);
-    return v[Math.floor(v.length / 2)]!;
+    return au(v, Math.floor(v.length / 2));
   });
 }

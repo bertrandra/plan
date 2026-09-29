@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classePour, SEUIL_MOYEN, SEUIL_LARGE } from '../../../src/app/classe.js';
+import { classePour, SEUIL_MOYEN, SEUIL_LARGE, SEUIL_LARGE_TACTILE } from '../../../src/app/classe.js';
 import { creerMagasin } from '../../../src/app/magasin.js';
 import type { EtatApp } from '../../../src/core/state.js';
 
@@ -26,5 +26,15 @@ describe('la classe d ecran', () => {
     expect(m.store.getState().hauteurFeuille).toBe('plein');
     m.definirFeuille(null);
     expect(m.store.getState().feuille).toBeNull();
+  });
+});
+
+describe('une tablette en paysage', () => {
+  it('reste une tablette au doigt seul, et devient un bureau avec une souris', () => {
+    expect(classePour(1180, true)).toBe('moyen');
+    expect(classePour(1366, true)).toBe('moyen');
+    expect(classePour(SEUIL_LARGE_TACTILE, true)).toBe('large');
+    expect(classePour(1180, false)).toBe('large');
+    expect(classePour(390, true)).toBe('compact');
   });
 });

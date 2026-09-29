@@ -109,7 +109,8 @@ function xr(): XRSystemMin | null {
 
 export async function webxrDisponible(): Promise<boolean> {
   try {
-    return !!xr() && (await xr()!.isSessionSupported('immersive-ar'));
+    const sys = xr();
+    return !!sys && (await sys.isSessionSupported('immersive-ar'));
   } catch {
     return false;
   }

@@ -44,8 +44,9 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
   const annoncer = () => abonnes.forEach((cb) => cb());
 
   const batiment = (): ObjetPolygone | null => {
-    if (!courant) return null;
-    const o = ctx.etat.objects.find((x) => x.key === courant!.objKey);
+    const ouvert = courant;
+    if (!ouvert) return null;
+    const o = ctx.etat.objects.find((x) => x.key === ouvert.objKey);
     return o && o.type === 'polygon' ? o : null;
   };
 

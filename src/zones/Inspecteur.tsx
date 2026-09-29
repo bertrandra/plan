@@ -13,7 +13,7 @@
 // presence d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps, Section } from '../ui/champs/types.js';
@@ -22,6 +22,7 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import { EnteteFeuille } from './composants/Feuille.js';
+import { Optimisation } from './resultats/Optimisation.js';
 import { Icone } from './icones.js';
 import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 
@@ -34,6 +35,8 @@ interface PropsChamp<T extends Champ = Champ> { champ: T; c: ContexteChamps; ins
 
 const formater = (v: number, decimales: number | undefined) => Number.isFinite(v) ? (decimales === undefined ? String(v) : v.toFixed(decimales)) : '';
 
+/** Ecrit les decimales a la francaise, pour l'affichage seulement (« 35.01 m² » → « 35,01 m² »). */
+export const aLaFrancaise = (texte: string) => texte.replace(/(\d)\.(\d)/g, '$1,$2');
 /** Lit une saisie a la francaise : la virgule vaut le point. */
 const lireNombre = (texte: string) => parseFloat(texte.replace(',', '.'));
 /** Le delai avant qu'un appui maintenu sur − ou + se repete, puis la cadence. */
@@ -50,7 +53,7 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
     if (brouillon === null) return;
     const v = lireNombre(brouillon);
     setBrouillon(null);
-    if (isNaN(v) || brouillon === valeur) return;
+    if (isNaN(v) || brouillon === valeur || brouillon === aLaFrancaise(valeur)) return;
     inspecteur.appliquer(champ, c, () => champ.ecrire(c, v));
   };
   const touches = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -103,7 +106,7 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
     <span className="pas" role="group" aria-label={champ.libelle}>
       {bouton(-1)}
       <span className="pasValeur">
-        <input type="text" inputMode="decimal" role="spinbutton" value={brouillon ?? valeur} disabled={!actif} title={champ.aide}
+        <input type="text" inputMode="decimal" role="spinbutton" value={brouillon ?? aLaFrancaise(valeur)} disabled={!actif} title={champ.aide}
           aria-label={champ.libelle} aria-valuenow={champ.lire(c)} aria-valuemin={champ.min} aria-valuemax={champ.max}
           onChange={(e) => setBrouillon(e.target.value)} onBlur={valider} onKeyDown={touches} onFocus={(e) => e.currentTarget.select()} />
         {champ.unite && <span className="unite">{champ.unite}</span>}
@@ -141,11 +144,7 @@ function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
   );
 }
 
-/** Un conteneur rempli hors React : le tableau d'optimisation, dessine par le module des panneaux. */
-function Hote({ champ, c }: PropsChamp<Extract<Champ, { type: 'hote' }>>) {
-  useEffect(() => { champ.remplir(c); });
-  return <div id={champ.idDom} className="champHote" />;
-}
+
 
 /** La commande d'un champ, selon son type. */
 function Commande({ champ, c, inspecteur }: PropsChamp) {
@@ -197,15 +196,15 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
         <span className="valeurCurseur">{champ.format(champ.lire(c))}</span>
       </span>;
     case 'lecture':
-      return <span className="lecture">{champ.valeur(c)}</span>;
+      return <span className="lecture">{tactile ? aLaFrancaise(champ.valeur(c)) : champ.valeur(c)}</span>;
     case 'texture':
       return <Texture champ={champ} c={c} inspecteur={inspecteur} />;
     case 'bouton':
       return <Bouton champ={champ} c={c} inspecteur={inspecteur} />;
     case 'alerte':
       return <div className="hint alerte">{champ.texte(c)}</div>;
-    case 'hote':
-      return <Hote champ={champ} c={c} inspecteur={inspecteur} />;
+    case 'optimisation':
+      return inspecteur.resultats ? <Optimisation obj={c.obj} resultats={inspecteur.resultats} /> : null;
     case 'ligne':
       return <span className="champsEnLigne">
         {champsVisibles({ id: champ.cle, titre: '', champs: champ.champs }, c).map(sous => <Commande key={sous.cle} champ={sous} c={c} inspecteur={inspecteur} inline />)}
@@ -217,8 +216,9 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   const tactile = useContext(Tactile);
   // Au doigt, l'infobulle ne s'affiche pas : l'aide d'un champ grise s'ecrit sous lui (§8).
   const grise = !!champ.actif && !champ.actif(c);
-  const note = [champ.note ? champ.note(c) : '', tactile && grise && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
-  const pleineLargeur = champ.type === 'alerte' || champ.type === 'hote' || (champ.type === 'bouton' && !champ.libelle);
+  const brute = [champ.note ? champ.note(c) : '', tactile && grise && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
+  const note = tactile ? aLaFrancaise(brute) : brute;
+  const pleineLargeur = champ.type === 'alerte' || champ.type === 'optimisation' || (champ.type === 'bouton' && !champ.libelle);
   const classes = ['champ', 'champ-' + champ.type, champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
   if (pleineLargeur) return <div className={classes + ' pleineLargeur'} data-cle={champ.cle}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
   return (
@@ -238,7 +238,7 @@ function SectionVue({ section, c, inspecteur }: { section: Section; c: ContexteC
   // `open` n'est pose qu'au montage : React ne le reimpose pas a chaque rendu, le pli de
   // l'utilisateur survit donc aux rendus du plan tant que la section reste montee.
   return (
-    <details className="inspecteurSection" open={!section.repliee} data-section={section.id}>
+    <details className="inspecteurSection" open={!section.repliee} data-section={section.id} data-famille={familleDe(section.id)}>
       <summary>{section.titre}</summary>
       {section.explication && <p className="hint">{section.explication}</p>}
       <div className="champs">
@@ -283,19 +283,41 @@ function BandeauChiffrage({ c, ouvrir }: { c: ContexteChamps; ouvrir: () => void
   );
 }
 
-/** Les sections visibles, en pastilles : toucher l'une la deplie et y amene la feuille (§6.5). */
-function Sauts({ sections, c }: { sections: Section[]; c: ContexteChamps }) {
-  const visibles = sections.filter(s => champsVisibles(s, c).length);
-  if (visibles.length < 3) return null;
-  const aller = (id: string) => {
-    const d = document.querySelector<HTMLDetailsElement>('#zoneInspecteur details.inspecteurSection[data-section="' + id + '"]');
-    if (!d) return;
-    d.open = true;
-    d.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  };
+/**
+ * Les trois familles de sections, en commande segmentee (maquette Inspecteur, 2.1.1) : l'objet, sa
+ * geometrie, sa construction. Au doigt, une seule famille se montre a la fois. Les sections des
+ * autres restent MONTEES (masquees par la feuille de style) : un champ ne disparait jamais selon la
+ * classe, et un brouillon en cours survit au changement de famille.
+ */
+export type Famille = 'objet' | 'geometrie' | 'construction';
+const FAMILLES: { id: Famille; libelle: string }[] = [
+  { id: 'objet', libelle: 'Objet' },
+  { id: 'geometrie', libelle: 'Géométrie' },
+  { id: 'construction', libelle: 'Construction' }
+];
+const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins', 'alignement']);
+const SECTIONS_CONSTRUCTION = new Set(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres']);
+export function familleDe(idSection: string): Famille {
+  if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
+  if (SECTIONS_CONSTRUCTION.has(idSection)) return 'construction';
+  return 'objet';
+}
+
+function Familles({ presentes, active, choisir }: { presentes: Famille[]; active: Famille; choisir: (f: Famille) => void }) {
+  if (presentes.length < 2) return null;
   return (
-    <div className="sautsSections" role="navigation" aria-label="Aller à une section">
-      {visibles.map(s => <button key={s.id} type="button" className="pastille" onClick={() => aller(s.id)}>{s.titre}</button>)}
+    <div className="famillesSections segmente" role="tablist" aria-label="Sections">
+      {FAMILLES.filter(f => presentes.includes(f.id)).map(f => (
+        <button key={f.id} type="button" role="tab" data-famille={f.id} aria-selected={f.id === active} className={f.id === active ? 'actif' : ''}
+          onClick={(e) => {
+            choisir(f.id);
+            // Une famille dont toutes les sections sont repliees (Geometrie) s'ouvrirait sur trois
+            // titres : on deplie la premiere, le reste garde le pli de l'utilisateur.
+            const sections = [...(e.currentTarget.closest('.inspecteurPanneau')?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection[data-famille="' + f.id + '"]') ?? [])];
+            const premiere = sections[0];
+            if (premiere && !sections.some(d => d.open)) premiere.open = true;
+          }}>{f.libelle}</button>
+      ))}
     </div>
   );
 }
@@ -306,6 +328,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';
   const tactile = classe !== 'large';
+  const [famille, choisirFamille] = useState<Famille>('objet');
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
@@ -352,26 +375,30 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     </div>
   );
   const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} />);
+  const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
+  // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.
+  const active = presentes.includes(famille) ? famille : (presentes[0] ?? 'objet');
+  const filtre = tactile && presentes.length > 1 ? active : undefined;
   const chiffrage = tactile && tiroir ? <BandeauChiffrage c={c} ouvrir={ouvrirChiffrage} /> : null;
 
   // Un seul arbre pour les trois classes : tourner un telephone (compact → moyen) ne demonte aucun
   // champ, et un brouillon en cours survit (point 39 de la liste de fumee). Seuls l'entete et les
   // pastilles de saut changent.
   const entete = compact
-    ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={inspecteur.titre(c)}
+    ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={aLaFrancaise(inspecteur.titre(c))}
         actions={<button type="button" className="boutonIcone" id="attrTitle" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
     : <div className="inspecteurEntete">
         <span className="inspecteurTitre" id="attrTitle" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
           onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
-          {inspecteur.titre(c)}
+          {tactile ? aLaFrancaise(inspecteur.titre(c)) : inspecteur.titre(c)}
         </span>
         <Pli ouvert inspecteur={inspecteur} />
       </div>;
   return (
     <Tactile.Provider value={tactile}>
-      <aside className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'}>
+      <aside className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'} data-famille-active={filtre}>
         {entete}
-        {compact ? <Sauts sections={sections} c={c} /> : null}
+        {tactile ? <Familles presentes={presentes} active={active} choisir={choisirFamille} /> : null}
         <div className={compact ? 'corpsFeuille' : 'corpsInspecteur'}>{corps}{pied}</div>
         {chiffrage}
       </aside>

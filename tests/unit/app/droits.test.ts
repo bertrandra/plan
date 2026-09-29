@@ -7,14 +7,13 @@ import {
 // bouton. Ce que ces tests figent, c'est la regle d'affichage — une capacite non achetee efface,
 // une permission manquante explique — et le fait que sans plateforme, rien ne change.
 
-const doc = { getElementById: () => null } as unknown as Document;
 
 function droits(partiel: Partial<Droits>): Droits {
   return { branchee: () => true, aCapacite: () => true, aPermission: () => true, reste: () => null, ...partiel };
 }
 
 function registre(d: Droits = DROITS_OUVERTS) {
-  const r = creerRegistre(doc, d);
+  const r = creerRegistre(d);
   let executions = 0;
   r.declarer({ id: 'libre', libelle: 'Libre', groupe: 'projet', executer: () => { executions++; } });
   r.declarer({ id: 'ecrire', libelle: 'Enregistrer', groupe: 'projet', permission: 'projects.write', executer: () => { executions++; } });

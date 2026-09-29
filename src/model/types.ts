@@ -150,7 +150,7 @@ interface ObjetCommun {
     actif?: boolean;
     opacite?: number;
     parcelleOpacite?: number;
-  };
+  } | null;
 
   /**
    * Bascules d'affichage rattachees a la parcelle, comme le fond orthophoto : masquage du
@@ -160,7 +160,7 @@ interface ObjetCommun {
   affichage?: {
     voisinage?: boolean;
     grille?: boolean;
-  };
+  } | null;
 
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;
@@ -349,7 +349,7 @@ export interface Construction {
   prixLongueursBois?: PrixParLongueur;
   prixLongueursLambourde?: PrixParLongueur;
   prixPlots?: PrixParLongueur;
-  /** `undefined` explicite quand l'utilisateur efface le prix saisi (ui/terrassePanels). */
+  /** `undefined` explicite quand l'utilisateur efface le prix saisi (zones/resultats/Nomenclature.tsx). */
   prixVisUnite?: number | undefined;
   visParBoite?: number;
 

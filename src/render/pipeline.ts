@@ -34,7 +34,6 @@ export interface ContexteRendu extends ContexteOrtho {
   drawScaleBar: () => void;
   drawNorthArrow: () => void;
   drawMeasures: () => void;
-  renderMeasureResults: () => void;
   renderTerrasseLayerView: (obj: ObjetPlan | null | undefined) => void;
   estTerrain: (obj: ObjetRendu) => boolean;
   /** Les ouvertures relevees sur les facades (render/releve.ts). */
@@ -75,7 +74,6 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   ctx.drawScaleBar();
   ctx.drawNorthArrow();
   ctx.drawMeasures();
-  if(etat.panelTab==='mesure') ctx.renderMeasureResults();
 
   // Les couches de la terrasse courante (vis, solives, lames…) sont dessinees en coordonnees
   // d'ecran comme tout le reste : sans cela, deplacer ou zoomer le plan laisserait le calque a son

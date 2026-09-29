@@ -16,10 +16,10 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   const pts = enPoints(obj).pts;
   // `const n = obj.pts.length` : variable morte dans le fichier d origine, retiree - son
   // initialisation ne fait que lire une longueur, donc aucun effet de bord perdu.
-  const S = computeStructure(obj, objets);
+  const S = computeStructure(enPoints(obj), objets);
   const lamesAngle = S.lamesAngle;
 
-  const vis = buildVisGrid(obj, S, objets);
+  const vis = buildVisGrid(enPoints(obj), S, objets);
   const cadre = S.cadre;
   // The spa reinforcement beams are solives like any other once they exist: same section, same
   // price, drawn on the same layer.

@@ -66,6 +66,12 @@ Depuis la `2.1.0` (`MD/spec-ihm-mobile.md`), chaque zone a une forme par classe,
   réserves `--reserve-haut` / `--reserve-bas` (encoche comprise) ; le plan mesure `#zoneCadre`.
 - Vérifier à 390, 820 et 1 440 px, en clair et en sombre : `scripts/captures.mjs` (36 captures) et
   `scripts/fumee.mjs` (la liste de fumée pilotée).
+- **Au doigt, l'inspecteur range ses sections en trois familles** (Objet, Géométrie, Construction,
+  `familleDe` dans `zones/Inspecteur.tsx`). Une nouvelle section s'y inscrit ; les familles non
+  choisies sont masquées par la feuille de style, jamais démontées.
+- **Comparer à la maquette, écran par écran**, avant de dire qu'un écran est fait
+  (https://claude.ai/artifact/1HGs8FN1nB4T3HCr5n1VWt) : la `2.1.0` avait la structure mais pas le
+  rendu de Propriétés, de Chiffrage ni du plan, et les tests ne le voyaient pas.
 
 ## 2. Câbler : commandes et descripteurs, jamais d'écouteur isolé
 

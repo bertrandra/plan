@@ -8,6 +8,7 @@
 // pour rester dans la gamme deja reglee a l'oeil : changer l'un des deux change l'aspect de toutes
 // les images produites.
 
+import { lireDate } from '../util/date.js';
 import type * as THREE_NS from 'three';
 import { positionSoleil } from '../geo/soleil.js';
 
@@ -80,8 +81,10 @@ const ORIGINE = { x: 0, y: 0, z: 0 };
 export function reglerSoleil(lum: EclairageSoleil, r: ReglagesSoleil, lieu: { latitude: number; longitude: number }) {
   const { dirLight, dirFill, hemiLight } = lum;
   const centre = lum.centre || ORIGINE;
-  const [annee, mois, jour] = r.dateStr.split('-').map(Number);
-  const { elevRad, azRad } = positionSoleil(annee!, mois!, jour!, r.minutes / 60, lieu.latitude, lieu.longitude);
+  // Une date illisible laisse l'eclairage tel qu'il etait, plutot que de poser le soleil en NaN.
+  const date = lireDate(r.dateStr);
+  if (!date) return null;
+  const { elevRad, azRad } = positionSoleil(date.annee, date.mois, date.jour, r.minutes / 60, lieu.latitude, lieu.longitude);
   const facteurJour = Math.max(0, Math.min(1, (elevRad * 180 / Math.PI) / 10));
   const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
   const dist = SOLEIL_DIST_FACTOR * lum.rayon;

@@ -9,6 +9,8 @@
 // horaire met l'exterieur a gauche du cote, un contour trigonometrique a droite. C'est l'aire
 // signee qui tranche, comme pour les cotes du PDF (geometry/basic.ts).
 
+import { au } from '../util/tableaux.js';
+import { sommetDe } from '../geometry/anneau.js';
 import type { PtBrut } from '../model/types.js';
 import { signedArea } from '../geometry/basic.js';
 
@@ -37,7 +39,7 @@ const HUIT_VENTS = ['Nord', 'Nord-Est', 'Est', 'Sud-Est', 'Sud', 'Sud-Ouest', 'O
 /** Le point cardinal le plus proche d'un azimut, parmi huit. */
 export function nomOrientation(azimut: number): string {
   const a = ((azimut % 360) + 360) % 360;
-  return HUIT_VENTS[Math.round(a / 45) % 8]!;
+  return au(HUIT_VENTS, Math.round(a / 45) % 8);
 }
 
 /**
@@ -53,8 +55,8 @@ export function facadesDuContour(pts: readonly PtBrut[], hauteur: number): Facad
   const trigo = signedArea(pts) > 0;
   const res: Facade[] = [];
   for (let i = 0; i < n; i++) {
-    const a = pts[i]!,
-      b = pts[(i + 1) % n]!;
+    const a = au(pts, i),
+      b = sommetDe(pts, i + 1);
     const dx = b.x - a.x,
       dy = b.y - a.y;
     const largeur = Math.hypot(dx, dy);

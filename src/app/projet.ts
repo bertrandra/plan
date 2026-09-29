@@ -13,6 +13,7 @@ import { PERMISSION_ECRITURE } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
+import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
 import type { ProjetResume } from '../io/api.js';
 import type { ObjetBrut, ObjetPlan, Mesure } from '../model/types.js';
@@ -31,7 +32,7 @@ export interface ContexteProjet {
   etat: EtatApp;
   apiSave: (payload: unknown) => Promise<{ id: string; updatedAt?: string }>;
   apiDelete: (id: string) => Promise<unknown>;
-  serializeObjects: (objs: ObjetPlan[]) => ObjetBrut[];
+  serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
   serializeMeasures: (ms: Mesure[]) => unknown[];
   initialState: () => ObjetBrut[];
   initialMeasures: () => unknown[];
@@ -40,8 +41,9 @@ export interface ContexteProjet {
   /** Branche le rafraichissement du statut sur l'historique, qui sait quand le plan devient sale. */
   definirRafraichisseurStatut: (f: () => void) => void;
   ouvrirImportCadastre: () => void;
-  /** Le bouton qui a demande l'actualisation : le dialogue le desarme pendant l'appel. */
-  ouvrirDialogueActualisation: (bouton: HTMLButtonElement) => void;
+  ouvrirDialogueActualisation: () => void;
+  /** Une actualisation tourne : la commande se grise, une seule a la fois. */
+  actualisationEnCours: () => boolean;
 }
 
 export interface Projet {
@@ -53,7 +55,7 @@ const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR'
 
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
-  let enregistreA = courant && courant.updatedAt ? 'Enregistre a ' + heure(courant.updatedAt) : '';
+  let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
 
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
@@ -101,7 +103,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       try {
         const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...charge() });
         ctx.etat.dirty = false;
-        enregistreA = 'Enregistre a ' + heure(res.updatedAt || Date.now());
+        enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now());
         ctx.initialState().length = 0;
         ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
         ctx.initialMeasures().length = 0;
@@ -154,7 +156,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.actualiserIgn', libelle: 'Actualiser IGN', groupe: 'projet',
     capacite: CAPACITES.cadastre.code,
     description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.',
-    permission: PERMISSION_ECRITURE, executer: (source) => { if (source) ctx.ouvrirDialogueActualisation(source as HTMLButtonElement); }
+    permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirDialogueActualisation()
   });
 
   return {

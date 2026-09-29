@@ -8,6 +8,7 @@
 // C'est la seule raison d'etre de ce module : faire la chirurgie des quatre tableaux au meme
 // endroit, une fois, plutot qu'a chaque appel.
 
+import { au } from '../util/tableaux.js';
 import { projectOntoSegment } from '../geometry/segments.js';
 import type { PtBrut } from '../model/types.js';
 
@@ -35,8 +36,8 @@ export function minimumSommets(type: string | undefined): number {
  */
 export function insererSommet(forme: FormeASommets, indexCote: number, clicMonde: PtBrut): PtBrut {
   const n = forme.pts.length;
-  const a = forme.pts[indexCote]!;
-  const b = forme.pts[(indexCote + 1) % n]!;
+  const a = au(forme.pts, indexCote);
+  const b = au(forme.pts, (indexCote + 1) % n);
   const point = projectOntoSegment(clicMonde, a, b);
   forme.pts.splice(indexCote + 1, 0, point);
   // Les noms par defaut suivent le NOUVEAU nombre de sommets, pas la position d'insertion : deux

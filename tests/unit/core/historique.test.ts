@@ -26,7 +26,6 @@ function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 
     rebuildHandles: () => {},
     reapplyStackingOrder: () => {},
     rebuildSelector: () => { appels.selecteur++; },
-    renderMeasureResults: () => {},
     render: () => { appels.render++; },
     boutonAnnuler: () => bouton,
     signalerPile: (vide: boolean) => { appels.pile.push(vide); },

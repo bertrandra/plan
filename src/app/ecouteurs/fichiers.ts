@@ -33,11 +33,11 @@ export interface ContexteFichiers {
  * `surSucces` reçoit le contenu ; les erreurs de lecture passent par `messageErreur`.
  */
 function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSucces: (contenu: string) => void): void {
-  const file = input.files![0];
+  const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
-    surSucces(String(ev.target!.result));
+  reader.onload = () => {
+    surSucces(String(reader.result));
     input.value = '';
   };
   reader.onerror = () => {
@@ -69,7 +69,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
   cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importJsonFile').click() });
 
   el('importJsonFile').addEventListener('change', function () {
-    const file = this.files![0];
+    const file = this.files?.[0];
     if (!file) return;
     // Refusé avant lecture : charger cinq mégaoctets pour découvrir ensuite qu'on les refuse
     // ferait attendre pour rien, et un fichier de projet de cette taille n'en est pas un.

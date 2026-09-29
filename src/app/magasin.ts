@@ -37,7 +37,7 @@ export interface ProjetObservable {
   courant: ProjetResume | null;
   liste: ProjetResume[];
   statut: StatutProjet;
-  /** « Enregistre a 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
+  /** « Enregistré à 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
   enregistreA: string;
 }
 
@@ -88,7 +88,7 @@ export interface Magasin {
 
 /** La hauteur d'ouverture de chaque feuille : les listes a mi-hauteur, les resultats en entier. */
 export const HAUTEUR_PAR_DEFAUT: Record<Feuille, HauteurFeuille> = {
-  projet: 'plein', outils: 'mi', objets: 'mi', proprietes: 'mi', resultats: 'plein', reglages3d: 'mi'
+  projet: 'plein', outils: 'mi', objets: 'mi', proprietes: 'plein', resultats: 'plein', reglages3d: 'mi'
 };
 
 export function creerMagasin(etat: EtatApp): Magasin {

@@ -15,6 +15,7 @@
 // qui est un reglage explicite — se trouve contredite des qu'on clique quelque part, et le recul
 // obtenu par double-clic est annule au clic suivant.
 
+import { au } from '../util/tableaux.js';
 import type { ObjetPlan } from '../model/types.js';
 
 /**
@@ -90,10 +91,10 @@ export function reculerObjet(obj: ObjetPlan | null, objets: ObjetPlan[]): boolea
   const idx = objets.indexOf(obj);
   let swapIdx = -1;
   for (let i = idx - 1; i >= 0; i--) {
-    if (objets[i]!.key === 'parcelle') continue;
-    if ((objets[i]!.priority || 0) === (obj.priority || 0)) { swapIdx = i; break; }
+    if (au(objets, i).key === 'parcelle') continue;
+    if ((au(objets, i).priority || 0) === (obj.priority || 0)) { swapIdx = i; break; }
   }
   if (swapIdx === -1) return false; // deja le plus en arriere de son niveau
-  [objets[swapIdx], objets[idx]] = [objets[idx]!, objets[swapIdx]!];
+  [objets[swapIdx], objets[idx]] = [au(objets, idx), au(objets, swapIdx)];
   return true;
 }

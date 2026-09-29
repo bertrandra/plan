@@ -10,6 +10,7 @@
 // pas inventer - une detection qui propose trois fausses fenetres coute plus de gestes qu'une
 // detection qui en oublie une.
 
+import { au } from '../util/tableaux.js';
 import type { Image } from './homographie.js';
 import type { TypeOuverture } from '../model/types.js';
 
@@ -49,18 +50,18 @@ function reduire(img: Image, pxParM: number, vu: Uint8Array | null): { rgb: Floa
       const i = y * img.largeur + x;
       if (vu && !vu[i]) continue;
       const r = ry * l + Math.min(l - 1, Math.floor(x / f));
-      rgb[r * 3] = rgb[r * 3]! + img.donnees[i * 4]!;
-      rgb[r * 3 + 1] = rgb[r * 3 + 1]! + img.donnees[i * 4 + 1]!;
-      rgb[r * 3 + 2] = rgb[r * 3 + 2]! + img.donnees[i * 4 + 2]!;
-      n[r]! += 1;
+      rgb[r * 3] = (rgb[r * 3] ?? 0) + (img.donnees[i * 4] ?? 0);
+      rgb[r * 3 + 1] = (rgb[r * 3 + 1] ?? 0) + (img.donnees[i * 4 + 1] ?? 0);
+      rgb[r * 3 + 2] = (rgb[r * 3 + 2] ?? 0) + (img.donnees[i * 4 + 2] ?? 0);
+      n[r] = (n[r] ?? 0) + 1;
     }
   }
   const vuR = new Uint8Array(l * h);
   for (let i = 0; i < l * h; i++) {
-    if (n[i]! > 0) {
-      rgb[i * 3] = rgb[i * 3]! / n[i]!;
-      rgb[i * 3 + 1] = rgb[i * 3 + 1]! / n[i]!;
-      rgb[i * 3 + 2] = rgb[i * 3 + 2]! / n[i]!;
+    if ((n[i] ?? 0) > 0) {
+      rgb[i * 3] = (rgb[i * 3] ?? 0) / (n[i] ?? 0);
+      rgb[i * 3 + 1] = (rgb[i * 3 + 1] ?? 0) / (n[i] ?? 0);
+      rgb[i * 3 + 2] = (rgb[i * 3 + 2] ?? 0) / (n[i] ?? 0);
       vuR[i] = 1;
     }
   }
@@ -70,7 +71,7 @@ function reduire(img: Image, pxParM: number, vu: Uint8Array | null): { rgb: Floa
 function mediane(valeurs: number[]): number {
   if (!valeurs.length) return 0;
   const s = [...valeurs].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)]!;
+  return au(s, Math.floor(s.length / 2));
 }
 
 /** Dilatation (max) ou erosion (min) d'une carte binaire, sur un voisinage 3x3. */
@@ -86,7 +87,7 @@ function morpho(b: Uint8Array, l: number, h: number, dilater: boolean): Uint8Arr
           // Hors de l'image : neutre pour la dilatation, et pour l'erosion aussi - une fenetre qui
           // touche le bord de la photo ne doit pas etre rongee par ce bord.
           if (xx < 0 || yy < 0 || xx >= l || yy >= h) continue;
-          const p = b[yy * l + xx]!;
+          const p = (b[yy * l + xx] ?? 0);
           if (dilater ? p : !p) v = dilater ? 1 : 0;
         }
       }
@@ -115,7 +116,8 @@ function taches(b: Uint8Array, l: number, h: number): Tache[] {
     vu[i] = 1;
     pile.push(i);
     while (pile.length) {
-      const j = pile.pop()!;
+      const j = pile.pop();
+      if (j === undefined) break;
       const x = j % l,
         y = (j - x) / l;
       t.n++;
@@ -151,7 +153,7 @@ export function aligner(valeurs: number[], tol: number): number[] {
   const res = [...valeurs];
   let debut = 0;
   for (let k = 1; k <= ordre.length; k++) {
-    if (k === ordre.length || ordre[k]!.v - ordre[k - 1]!.v > tol) {
+    if (k === ordre.length || au(ordre, k).v - au(ordre, k - 1).v > tol) {
       const groupe = ordre.slice(debut, k);
       const moy = groupe.reduce((s, g) => s + g.v, 0) / groupe.length;
       groupe.forEach((g) => (res[g.i] = moy));
@@ -176,7 +178,7 @@ function affiner(img: Image, pxParM: number, mur: number[], seuil: number, o: { 
     d = img.donnees;
   const hors = (x: number, y: number) => {
     const k = (y * L + x) * 4;
-    return Math.hypot(d[k]! - mur[0]!, d[k + 1]! - mur[1]!, d[k + 2]! - mur[2]!) > seuil;
+    return Math.hypot((d[k] ?? 0) - au(mur, 0), (d[k + 1] ?? 0) - au(mur, 1), (d[k + 2] ?? 0) - au(mur, 2)) > seuil;
   };
   let X0 = Math.round(o.x * pxParM),
     X1 = Math.round((o.x + o.l) * pxParM),
@@ -228,16 +230,16 @@ export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | 
   const canaux: number[][] = [[], [], []];
   for (let i = 0; i < l * h; i++) {
     if (!R.vu[i]) continue;
-    for (let c = 0; c < 3; c++) canaux[c]!.push(R.rgb[i * 3 + c]!);
+    for (let c = 0; c < 3; c++) au(canaux, c).push((R.rgb[i * 3 + c] ?? 0));
   }
-  if (!canaux[0]!.length) return [];
+  if (!au(canaux, 0).length) return [];
   const mur = canaux.map(mediane);
 
   const ecart: Carte = { l, h, v: new Float32Array(l * h) };
   const ecarts: number[] = [];
   for (let i = 0; i < l * h; i++) {
     if (!R.vu[i]) continue;
-    const d = Math.hypot(R.rgb[i * 3]! - mur[0]!, R.rgb[i * 3 + 1]! - mur[1]!, R.rgb[i * 3 + 2]! - mur[2]!);
+    const d = Math.hypot((R.rgb[i * 3] ?? 0) - au(mur, 0), (R.rgb[i * 3 + 1] ?? 0) - au(mur, 1), (R.rgb[i * 3 + 2] ?? 0) - au(mur, 2));
     ecart.v[i] = d;
     ecarts.push(d);
   }
@@ -245,7 +247,7 @@ export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | 
   // moins de 28 niveaux - en dessous, on detecterait les ombres portees d'une gouttiere.
   const seuil = Math.max(28, 3 * mediane(ecarts));
   let b: Uint8Array = new Uint8Array(l * h);
-  for (let i = 0; i < l * h; i++) b[i] = R.vu[i] && ecart.v[i]! > seuil ? 1 : 0;
+  for (let i = 0; i < l * h; i++) b[i] = R.vu[i] && (ecart.v[i] ?? 0) > seuil ? 1 : 0;
 
   // Fermeture puis ouverture : recoller les carreaux d'une fenetre separes par leurs petits bois,
   // puis effacer les grains isoles.
@@ -283,8 +285,8 @@ export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | 
   );
   return brutes
     .map((o, i) => {
-      const y = Math.max(0, bas[i]! < 0.1 ? 0 : bas[i]!);
-      const hTot = hauts[i]! - y;
+      const y = Math.max(0, au(bas, i) < 0.1 ? 0 : au(bas, i));
+      const hTot = au(hauts, i) - y;
       const res = { ...o, x: cm(o.x), y: cm(y), l: cm(o.l), h: cm(hTot) };
       res.type = classer(res.y, res.l, res.h);
       return res;

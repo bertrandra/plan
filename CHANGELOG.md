@@ -5,7 +5,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-## [2.2.0] — 2026-09-28
+## [2.2.0] — 2026-09-29
 
 ### Ajouté
 
@@ -60,6 +60,174 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   synthétique en perspective, ouvertures au centimètre, pignon reconnu et faîtage orienté, EXIF,
   sérialisation conditionnelle, mailles et coordonnées de texture 3D.
 
+Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement hors les
+défauts corrigés ci-dessous** : le moteur n'est que déplacé, l'oracle et les six empreintes ne
+bougent pas.
+
+### Modifié (depuis la 2.1.1)
+
+- **Le tiroir des résultats est en React** (`zones/resultats/`) : nomenclature et débits, coupe,
+  implantation, chantier, méthode, cotes, PLU et résumé, plus le tableau d'optimisation de
+  l'inspecteur. Les panneaux gardent leurs identifiants et leurs textes. `ui/terrassePanels.ts`,
+  `ui/mesurePanel.ts` et `ui/tables.ts` disparaissent ; le balisage des panneaux quitte `index.html`.
+- **Le chiffrage refait par le tiroir ne dépend plus de l'onglet ouvert** : `construction.bom`
+  s'écrit au rafraîchissement (`app/resultats.ts`), jamais pendant un rendu.
+
+- **La Vue 3D et la visionneuse sont en React** (`zones/vue3d/`) : réglages, soleil, points de vue,
+  boutons de caméra, plein écran. La scène reste du WebGL natif ; son hôte s'enregistre dans
+  `three/etat3d.ts` (`hotes3d`), et `three/` ne lit ni n'écrit plus aucun identifiant de la page :
+  il publie ce que les panneaux affichent (`affichage3d`, `signaler3d`). Leur balisage quitte
+  `index.html`, `app/ecouteurs/cloture.ts` disparaît, le registre des commandes ne lie plus
+  d'élément du DOM (`lier`, `bouton`).
+
+- **Les trois parcours du Z8 sont en React** (`zones/Parcours.tsx`, `zones/parcours/`) : import
+  cadastral en trois étapes, actualisation IGN, choix d'une texture. Leur logique quitte `ui/` :
+  `app/importCadastre.ts` (l'état et les gestes de l'import, sans DOM), `app/actualisationIgn.ts`,
+  `io/polyhaven.ts`. Un seul parcours ouvert à la fois (`app/parcours.ts`), fermé par Échap ou le
+  voile. `ui/cadastreDialog.ts` (dont une fonction de 766 lignes), `ui/projectBar.ts` et
+  `ui/texturePicker.ts` disparaissent ; les styles en ligne deviennent des classes à jetons.
+- **« Actualiser IGN » se grise pendant une actualisation** au lieu de réécrire le libellé du bouton
+  qui l'avait lancée ; la commande ne dépend plus d'un bouton source.
+
+### Corrigé (depuis la 2.1.1)
+
+- **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par
+  barre et au m², longueurs achetables, prix des vis et des plots, conditionnement, équipe, heures,
+  cadences, échelle d'implantation, et toutes les actions du panneau Cotes. Elles passent toutes par
+  `app/resultats.ts`.
+- **Générer un .glb ne réécrit plus le texte du bouton qui l'a lancé.** C'était un bouton React (menu
+  Exporter, visionneuse) : réécrire son texte détruisait des nœuds que React croyait à lui.
+  L'opération en cours se publie (`affichage3d.generation`) et les boutons la lisent.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
+
+### Modifié (architecture) (depuis la 2.1.1)
+
+- **Plus aucune fonction de plus de 150 lignes** (FF-10 sans exception) : `construirePDF`,
+  `objetsDepuisCadastre` et `brancherPointeur` se découpent en fonctions nommées — une par
+  morceau de page, par famille d'objets importés, par poignée. Le cliquet de onze fichiers ouvert
+  le 27 septembre est vide.
+- **Les exports sont regénérés à chaque `npm test`** (FF-4) : SVG, DXF, résumé, plan PDF et
+  dossier PDF sortent du code et se comparent aux témoins. Le test d'avant hachait seulement les
+  fichiers témoins. Premier passage : les cinq identiques.
+- **`objetsDepuisCadastre` a un témoin** (`tests/fixtures/golden/cadastre-objets.json`) : un
+  import complet figé — propriété fusionnée, limite interne, voisine, bâti, haie, végétation,
+  arbres estimés, PLU — dont la sortie doit rester identique.
+- **Intégration continue** (`.github/workflows/ci.yml`) : types, lint, cliquet, client de la
+  plateforme, tests, build, absence de secret dans le fichier livré et budget de 5 Mo (FF-5), sur
+  chaque demande de fusion et chaque poussée sur `main`. Jusqu'ici, ces vérifications ne tournaient
+  que chez qui pensait à les lancer.
+- **Le moteur n'a plus d'import circulaire** (FF-1). `construction`, `bom`, `debit`, `structure` et
+  `layers` s'importaient en quatre boucles. Trois modules en sortent, sans retouche du code :
+  `engine/portees.ts` (sections, portées, charges), `engine/prix.ts` (prix et longueurs de stock) et
+  `engine/optimisation.ts` (l'optimiseur de structure).
+- **`tests/unit/architecture.test.ts` lit toutes les formes d'import** : sur plusieurs lignes, les
+  re-exports, `import()` et les chemins `../../`. Les modules des sous-dossiers échappaient jusqu'ici
+  à la règle des couches. Le même fichier vérifie maintenant l'absence de cycle.
+- **ESLint porte FF-9 et FF-10** : aucun `any` dans `model`, `engine` et `geometry`, et aucune
+  fonction de plus de 150 lignes, avec un cliquet par fichier pour les onze qui en ont déjà une.
+- **`boot()` n'est plus une fermeture de mille lignes** : ses enveloppes rejoignent
+  `app/assemblage/` par famille (surface et calques, dessin, affichage, cadrage, cotes, gestes, vues
+  3D, exports), et `boot.ts` les compose en cinq fonctions. L'ordre d'enregistrement des écouteurs et
+  d'empilement des calques est inchangé ; la liste de fumée se joue à l'identique avant et après. Le
+  cliquet FF-10 passe de sept fichiers à quatre, aux plafonds abaissés.
+- **`buildThreeScene` passe de 629 lignes à moins de 100** (D-12) : les briques de la scène vont dans
+  `three/primitives.ts`, et la scène se compose de fonctions nommées. Les rendus de la Vue 3D sont
+  identiques octet pour octet.
+- **Plus aucune assertion `!` dans `src/`** (506 → 0), et ESLint le garde
+  (`@typescript-eslint/no-non-null-assertion`). Un indice qu'on sait valide se lit par `au`
+  (`util/tableaux.ts`) ou `sommetDe`, qui lèvent une `RangeError` nommée là où `!` laissait passer
+  `undefined` ; les tables du moteur par des lecteurs qui nomment leur repli (`essenceDe`,
+  `supportDe`, `dimsSection`, `raideurDe`) ; le glisser en cours est une union discriminée.
+- **Les assertions `!` des défauts D-4 à D-11 disparaissent**, et avec elles les trois derniers
+  `as unknown as` : `geometry/anneau.ts` lit un sommet d'un contour fermé, `util/date.ts` une date
+  `AAAA-MM-JJ`, `io/importSvg.ts` ses attributs par des lecteurs nommés ; `Anneau` est un tableau de
+  positions GeoJSON typées.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
+ : React et Zustand
+  pour les zones, le plan et les gestes restent en DOM natif. `architecture.md` gagne une carte des
+  modules au 27 septembre (§5.2.3), et §9 dit quelles fonctions d'aptitude tournent réellement.
+
+## [2.1.1] — 2026-09-26
+
+Mise en conformité de l'interface avec la maquette de la `2.1.0`. Une revue écran par écran, sur
+téléphone, a montré que la structure suivait la maquette mais que trois écrans et le plan lui-même
+en restaient loin. **Le code ne change aucun export** : sur le plan témoin, les six empreintes ne
+bougent que par le numéro de version.
+
+### Modifié
+
+- **Propriétés.** Les sections se rangent en trois familles, Objet, Géométrie et Construction,
+  choisies par une commande segmentée ; au doigt, une seule famille se montre à la fois. Les
+  sections des autres familles restent montées : aucun champ ne disparaît, et un brouillon survit
+  au changement de famille. Chaque champ tient sur une ligne, libellé à gauche et commande à droite ;
+  les listes déroulantes et les lectures y restent, la note passe sous la ligne. La feuille s'ouvre
+  en pleine hauteur. Les décimales s'écrivent à la française (« 35,01 m² »), valeurs des pas à pas
+  comprises.
+- **Chiffrage.** Quatre chiffres clés en tuiles au-dessus de la nomenclature : appuis, lames, bois
+  porteur, surface. La nomenclature devient une liste : le poste et son prix, puis la quantité et
+  la fourchette en petit. Un pied fixe porte l'estimation HT et deux actions, *Copier le résumé* et
+  *Dossier PDF*. Les onglets s'appellent *Nomenclature* et *Coupe*.
+- **Plan à l'écran.** Les poignées sont des anneaux à l'accent, les longueurs des côtés des pastilles
+  d'encre ; une pastille plus longue que son côté attend qu'on zoome. La trame est un semis de
+  points, les axes restent tracés. L'échelle est un trait gradué (« Échelle ── 5 m ») : un rapport
+  « 1:100 » dépendrait de la densité de l'écran. Les couleurs des objets restent celles du projet.
+- **Choisir un objet cadre la vue dessus**, sur téléphone et sur tablette, quand on le choisit
+  dans Objets : sur 390 px, le plan entier rendait la terrasse minuscule et empilait ses
+  étiquettes. Toucher un objet sur le plan ne bouge pas la vue, le geste suivant pouvant être un
+  glisser. Sur tablette, le cadrage se fait entre le rail et l'inspecteur, au-dessus du tiroir.
+- **Tablette.** Une tablette en paysage (jusqu'à 1 399 px, au doigt seul) reçoit la disposition
+  tablette et non plus les colonnes du bureau, comme dans la maquette. Le tiroir des résultats
+  flotte à droite du rail, qui masquait ses premiers onglets (défaut présent depuis la `2.1.0`) ;
+  ses onglets sont des pastilles ; replié — sa hauteur par défaut sur tablette —, il garde les
+  chiffres clés de la terrasse et l'estimation HT. Ouvert à mi-hauteur, les panneaux flottants
+  s'arrêtent au-dessus de lui ; en pleine hauteur, il passe devant. La carte de sélection s'efface
+  quand l'inspecteur est ouvert.
+- **Le plan de démonstration prend les couleurs de la maquette** : sauge pour le terrain, bois
+  clair pour les terrasses, papier pour la maison. Seules les couleurs changent. Le plan d'origine
+  reste la source des golden files, sous le nom `DEMO_TEMOIN_OBJECTS` (`?temoin` en
+  développement) : les six exports y sont identiques aux témoins.
+- **Feuille de sélection.** Le sous-titre d'une terrasse donne l'essence des lames ; l'estimation
+  passe sur deux lignes au lieu d'être coupée.
+- **Outils.** Le groupe *Outils* devient *Mesurer*, *Cote* devient *Coter*, comme dans la barre du
+  bas ; *Supprimer* ferme le groupe *Éditer*.
+- **Accents et décimales** dans les résultats : « Enregistré à », « Qté », « Prix réel », « Estimé »,
+  « Réel saisi », et les libellés du moteur (« achetées », « calculé », « débit ») à l'écran
+  seulement. Le résumé, fait pour être copié, n'est pas touché.
+
+### Interne
+
+- `scripts/captures.mjs` ouvre vraiment la feuille Chiffrage : la capture de référence de la `2.1.0`
+  montrait le plan à sa place, et c'est ainsi que l'écart est passé inaperçu.
+- Le pilote de la liste de fumée touche la famille d'une section avant de l'ouvrir, comme un
+  utilisateur.
 - **Les quarante points de la liste de fumée se jouent, réseau compris.** Huit d'entre eux — import
   cadastre, voisinage, orthophoto, PLU, vue 3D, rappel de point de vue, export GLB et éclairage sur
   téléphone — rendaient « non joué » **sans rien tenter** : une constante du pilote le décrétait,

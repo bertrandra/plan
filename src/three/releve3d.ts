@@ -6,6 +6,8 @@
 // de l'egout. Rien n'est ajoute a un batiment sans releve : la scene d'un plan qui n'en a pas garde
 // exactement ses mailles (fumee, point 24 : structure du GLB).
 
+import { au } from '../util/tableaux.js';
+import { sommetDe } from '../geometry/anneau.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPolygone, PtBrut, OuvertureFacade } from '../model/types.js';
 import { facadesDuContour, type Facade } from '../facade/geometrie.js';
@@ -101,8 +103,8 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
 
 /** Les pans du toit et les pignons, au-dessus de l'egout `h`. */
 function poserToit(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, habillages: Map<number, Habillage>) {
-  const toit = o.toit!;
-  if (toit.forme === 'plat' || toit.hauteur <= 0) return;
+  const toit = o.toit;
+  if (!toit || toit.forme === 'plat' || toit.hauteur <= 0) return;
   const { pans, pignons } = facettesToit(o.pts, toit);
   const matToit = new THREE.MeshStandardMaterial({ color: toit.couleur || COULEUR_TOIT_DEFAUT, roughness: 0.85, side: THREE.DoubleSide });
   pans.forEach((pan) => {
@@ -116,10 +118,9 @@ function poserToit(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, habillage
     ctx.scene.add(m);
   });
   const matMur = new THREE.MeshStandardMaterial({ color: ctx.couleurMur, side: THREE.DoubleSide });
-  const n = o.pts.length;
   pignons.forEach((g) => {
-    const a = o.pts[g.cote]!,
-      b = o.pts[(g.cote + 1) % n]!;
+    const a = au(o.pts, g.cote),
+      b = sommetDe(o.pts, g.cote + 1);
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     // Le pignon est le polygone (d, z) : le bas le long de l'egout, le haut suivant le profil.
     const poly = [{ x: 0, y: 0 }, { x: L, y: 0 }, ...[...g.profil].reverse().filter((q) => q.z > 1e-6).map((q) => ({ x: q.d, y: q.z }))];
@@ -155,9 +156,10 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     if (!f) return;
     // Le mur a pu changer depuis le releve (sommet deplace) : la photo s'etire sur sa nouvelle
     // largeur, les ouvertures gardent leur cote depuis la gauche et celles qui sortent sont omises.
-    const avecPhoto = !!(ctx.textures && r.texture);
-    if (avecPhoto) {
-      const tex = new THREE.TextureLoader().load(r.texture!);
+    const photo = ctx.textures ? r.texture : null;
+    const avecPhoto = !!photo;
+    if (photo) {
+      const tex = new THREE.TextureLoader().load(photo);
       tex.anisotropy = 4;
       const hab = { f, mat: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide }), hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.set(r.cote, hab);

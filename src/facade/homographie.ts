@@ -1,3 +1,5 @@
+import { au } from '../util/tableaux.js';
+
 // Redressement d'une photo de facade (MD/spec-releve-facade.md §6).
 //
 // Un mur plan photographie de biais est une homographie de son elevation : quatre coins designes
@@ -26,20 +28,22 @@ export type Homographie = [number, number, number, number, number, number, numbe
 /** Resout A x = b par elimination de Gauss avec pivot partiel. `null` si le systeme est singulier. */
 function resoudre(A: number[][], b: number[]): number[] | null {
   const n = b.length;
-  const M = A.map((ligne, i) => [...ligne, b[i]!]);
+  const M = A.map((ligne, i) => [...ligne, au(b, i)]);
   for (let c = 0; c < n; c++) {
     let piv = c;
-    for (let r = c + 1; r < n; r++) if (Math.abs(M[r]![c]!) > Math.abs(M[piv]![c]!)) piv = r;
-    if (Math.abs(M[piv]![c]!) < 1e-12) return null;
-    [M[c], M[piv]] = [M[piv]!, M[c]!];
+    for (let r = c + 1; r < n; r++) if (Math.abs(au(au(M, r), c)) > Math.abs(au(au(M, piv), c))) piv = r;
+    if (Math.abs(au(au(M, piv), c)) < 1e-12) return null;
+    [M[c], M[piv]] = [au(M, piv), au(M, c)];
+    const pivot = au(M, c);
     for (let r = 0; r < n; r++) {
       if (r === c) continue;
-      const f = M[r]![c]! / M[c]![c]!;
+      const ligne = au(M, r);
+      const f = au(ligne, c) / au(pivot, c);
       if (f === 0) continue;
-      for (let k = c; k <= n; k++) M[r]![k]! -= f * M[c]![k]!;
+      for (let k = c; k <= n; k++) ligne[k] = au(ligne, k) - f * au(pivot, k);
     }
   }
-  return M.map((ligne, i) => ligne[n]! / ligne[i]!);
+  return M.map((ligne, i) => au(ligne, n) / au(ligne, i));
 }
 
 /**
@@ -51,8 +55,8 @@ export function homographie(de: readonly P2[], vers: readonly P2[]): Homographie
   const A: number[][] = [];
   const b: number[] = [];
   for (let i = 0; i < 4; i++) {
-    const { x, y } = de[i]!;
-    const { x: u, y: v } = vers[i]!;
+    const { x, y } = au(de, i);
+    const { x: u, y: v } = au(vers, i);
     A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
     b.push(u);
     A.push([0, 0, 0, x, y, 1, -v * x, -v * y]);
@@ -60,7 +64,7 @@ export function homographie(de: readonly P2[], vers: readonly P2[]): Homographie
   }
   const h = resoudre(A, b);
   if (!h || h.some((v) => !Number.isFinite(v))) return null;
-  return [h[0]!, h[1]!, h[2]!, h[3]!, h[4]!, h[5]!, h[6]!, h[7]!, 1];
+  return [au(h, 0), au(h, 1), au(h, 2), au(h, 3), au(h, 4), au(h, 5), au(h, 6), au(h, 7), 1];
 }
 
 /** Applique une homographie a un point. */
@@ -85,8 +89,8 @@ function echantillon(img: Image, x: number, y: number, sortie: Uint8ClampedArray
     i01 = (y1 * L + x0) * 4,
     i11 = (y1 * L + x1) * 4;
   for (let k = 0; k < 3; k++) {
-    const haut = d[i00 + k]! * (1 - fx) + d[i10 + k]! * fx;
-    const bas = d[i01 + k]! * (1 - fx) + d[i11 + k]! * fx;
+    const haut = (d[i00 + k] ?? 0) * (1 - fx) + (d[i10 + k] ?? 0) * fx;
+    const bas = (d[i01 + k] ?? 0) * (1 - fx) + (d[i11 + k] ?? 0) * fx;
     sortie[o + k] = haut * (1 - fy) + bas * fy;
   }
   sortie[o + 3] = 255;
@@ -140,9 +144,9 @@ export function redresser(photo: Image, coins: readonly P2[], largeurM: number, 
       if (echantillon(photo, p.x - 0.5, p.y - 0.5, donnees, o)) {
         vu[y * L + x] = 1;
         n++;
-        sr += donnees[o]!;
-        sg += donnees[o + 1]!;
-        sb += donnees[o + 2]!;
+        sr += (donnees[o] ?? 0);
+        sg += (donnees[o + 1] ?? 0);
+        sb += (donnees[o + 2] ?? 0);
       }
     }
   }
@@ -151,9 +155,9 @@ export function redresser(photo: Image, coins: readonly P2[], largeurM: number, 
   if (n < L * Hh) {
     for (let i = 0; i < L * Hh; i++) {
       if (vu[i]) continue;
-      donnees[i * 4] = moy[0]!;
-      donnees[i * 4 + 1] = moy[1]!;
-      donnees[i * 4 + 2] = moy[2]!;
+      donnees[i * 4] = au(moy, 0);
+      donnees[i * 4 + 1] = au(moy, 1);
+      donnees[i * 4 + 2] = au(moy, 2);
       donnees[i * 4 + 3] = 255;
     }
   }

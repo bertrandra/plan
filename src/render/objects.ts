@@ -8,9 +8,10 @@
 // La racine SVG est recue en parametre, et le double-clic sur un cote est delegue a l'appelant :
 // ce module ne connait ni la selection courante, ni la transformation de la vue.
 
+import { sommetDe } from '../geometry/anneau.js';
 import { vue } from './vues.js';
 import { creerSvg } from './svg.js';
-import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
+import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE, SVG_PASTILLE_TEXTE, aLaVirgule } from './theme.js';
 import { versEcran } from '../geometry/vue.js';
 import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
@@ -53,7 +54,7 @@ export interface ContextePoignees {
  * consignee dans MD/MIGRATION-JOURNAL.md pour apres la migration.
  */
 function titreInerte(el: SVGElement | null, texte: string): void {
-  if (el) (el as unknown as { title: string }).title = texte;
+  if (el) Object.assign(el, { title: texte });
 }
 
 
@@ -141,14 +142,17 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
 
       const sl=creerSvg('text');
       sl.setAttribute('text-anchor','middle'); sl.setAttribute('font-family','Helvetica Neue, Arial, sans-serif');
-      sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_INK);
-      sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_LABEL_HALO); sl.setAttribute('stroke-width','3');
+      // Une pastille d'encre, texte clair (maquette) : le trait epais aux jointures rondes, peint sous
+      // le texte, dessine le fond arrondi sans element de plus.
+      sl.setAttribute('font-size','11'); sl.setAttribute('font-weight','700'); sl.setAttribute('fill',SVG_PASTILLE_TEXTE);
+      sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_PASTILLE); sl.setAttribute('stroke-width','12');
+      sl.setAttribute('stroke-linejoin','round'); sl.setAttribute('stroke-linecap','round'); sl.setAttribute('dominant-baseline','middle');
       sl.style.pointerEvents = 'none';
       racine.appendChild(sl); v.segLabelEls.push(sl);
     }
     for(let i=0;i<n;i++){
       const c=creerSvg('circle');
-      c.setAttribute('r',String(6.5)); c.setAttribute('fill','#fff'); c.setAttribute('stroke',obj.stroke); c.setAttribute('stroke-width','2');
+      c.setAttribute('r',String(6.5)); c.setAttribute('fill',SVG_POIGNEE_FOND); c.setAttribute('stroke',SVG_POIGNEE); c.setAttribute('stroke-width','2.5');
       c.setAttribute('pointer-events','all'); c.style.cursor='crosshair'; titreInerte(c, 'Modifier ce coin (glisser = deplacer, double-clic = figer/degeler)');
       c.dataset.role='point'; c.dataset.key=obj.key; c.dataset.index=String(i);
       racine.appendChild(c); v.pointEls.push(c);
@@ -160,7 +164,7 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
     }
   } else {
     const rh=creerSvg('circle');
-    rh.setAttribute('r',String(6)); rh.setAttribute('fill','#fff'); rh.setAttribute('stroke',obj.stroke); rh.setAttribute('stroke-width','2');
+    rh.setAttribute('r',String(6)); rh.setAttribute('fill',SVG_POIGNEE_FOND); rh.setAttribute('stroke',SVG_POIGNEE); rh.setAttribute('stroke-width','2.5');
     rh.setAttribute('pointer-events','all'); rh.style.cursor='ew-resize';
     rh.dataset.role='radius'; rh.dataset.key=obj.key;
     racine.appendChild(rh); v.radiusHandle = rh;
@@ -192,13 +196,17 @@ export interface ContextePositionnement {
  */
 export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): void {
   const v = vue(obj);
+  // `creerDomObjet` pose le contour et le nom avant tout rendu : une vue qui ne les a pas encore n'a
+  // rien a placer.
+  const { el, nameEl } = v;
+  if(!el || !nameEl) return;
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus
     // deroutant qu'utile. Il reste choisissable depuis la barre laterale pour le demasquer.
     if(ctx.masque){
-      v.el!.style.display = 'none';
-      v.nameEl!.style.display = 'none';
+      el.style.display = 'none';
+      nameEl.style.display = 'none';
       if(v.camMarkerEl) v.camMarkerEl.style.display = 'none';
       v.pointEls.forEach(e=>e.style.display='none');
       v.ptLabelEls.forEach(e=>e.style.display='none');
@@ -207,39 +215,39 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
       if(v.radiusHandle) v.radiusHandle.style.display='none';
       return;
     }
-    v.el!.style.display = '';
-    v.nameEl!.style.display = '';
+    el.style.display = '';
+    nameEl.style.display = '';
     if(v.camMarkerEl) v.camMarkerEl.style.display = '';
 
     if(obj.type==='polygon'){
-      v.el!.setAttribute('points', polyStr(ctx.scene, obj.pts));
+      el.setAttribute('points', polyStr(ctx.scene, obj.pts));
     } else if(obj.type==='path'){
-      v.el!.setAttribute('d', pathD(ctx.scene, obj.pts, !!obj.curve));
-      v.el!.setAttribute('stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
+      el.setAttribute('d', pathD(ctx.scene, obj.pts, !!obj.curve));
+      el.setAttribute('stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
       if(v.camMarkerEl){
-        const p0 = versEcran(ctx.scene, obj.pts[0]!);
+        const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
         v.camMarkerEl.setAttribute('cx', String(p0.x)); v.camMarkerEl.setAttribute('cy', String(p0.y));
       }
     } else {
       const c = versEcran(ctx.scene, obj.center);
-      v.el!.setAttribute('cx', String(c.x)); v.el!.setAttribute('cy', String(c.y)); v.el!.setAttribute('r', String(obj.r*ctx.scene.scale));
+      el.setAttribute('cx', String(c.x)); el.setAttribute('cy', String(c.y)); el.setAttribute('r', String(obj.r*ctx.scene.scale));
     }
-    if(obj.type!=='path') v.el!.setAttribute('stroke-width', String(ctx.selectionnee ? '3' : (obj.type==='circle'?'0.08':'1.8')));
-    else v.el!.setAttribute('stroke-opacity', ctx.selectionnee ? '1' : '0.85');
+    if(obj.type!=='path') el.setAttribute('stroke-width', String(ctx.selectionnee ? '3' : (obj.type==='circle'?'0.08':'1.8')));
+    else el.setAttribute('stroke-opacity', ctx.selectionnee ? '1' : '0.85');
 
     // Avec le fond orthophoto, un terrain rempli a 100 % masque exactement ce qu'on est venu
     // voir. La transparence est appliquee A L'AFFICHAGE, sans toucher au fillOpacity de l'objet :
     // le projet n'est pas modifie, rien a re-enregistrer, et decocher le fond rend au terrain son
     // remplissage d'origine. Le contour, lui, ne bouge pas : c'est lui qui porte l'information.
     if(obj.type==='polygon' && ctx.estTerrain(obj)){
-      v.el!.setAttribute('fill-opacity', String(ctx.ortho.actif ? ctx.ortho.parcelleOpacite : obj.fillOpacity));
+      el.setAttribute('fill-opacity', String(ctx.ortho.actif ? ctx.ortho.parcelleOpacite : obj.fillOpacity));
     }
 
     const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);
     const cs = versEcran(ctx.scene, cen);
-    v.nameEl!.setAttribute('x', String(cs.x)); v.nameEl!.setAttribute('y', String(cs.y));
-    v.nameEl!.setAttribute('font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
-    v.nameEl!.textContent = obj.showName ? obj.name : '';
+    nameEl.setAttribute('x', String(cs.x)); nameEl.setAttribute('y', String(cs.y));
+    nameEl.setAttribute('font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
+    nameEl.textContent = obj.showName ? obj.name : '';
 
     if(obj.type==='polygon' || obj.type==='path'){
       const n = obj.pts.length;
@@ -247,62 +255,71 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
       if(v.pointEls.length !== n) ctx.reconstruirePoignees(obj);
       // (const objCenter = cen : variable morte dans le fichier d'origine, retiree - cen est
       // deja calcule au-dessus et utilise pour l'etiquette.)
-      for(let i=0;i<n;i++){
-        const p = versEcran(ctx.scene, obj.pts[i]!);
-        v.pointEls[i]!.setAttribute('cx', String(p.x)); v.pointEls[i]!.setAttribute('cy', String(p.y));
+      obj.pts.forEach((pt, i) => {
+        // Reconstruites juste au-dessus si leur nombre ne suivait plus celui des sommets.
+        const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i];
+        if(!poignee || !etiquette) return;
+        const p = versEcran(ctx.scene, pt);
+        poignee.setAttribute('cx', String(p.x)); poignee.setAttribute('cy', String(p.y));
         const showPtForPick = ctx.pointageSommets;
-        v.pointEls[i]!.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
+        poignee.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
         const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-        v.pointEls[i]!.setAttribute('fill', isFrozen ? obj.stroke : '#fff');
-        v.pointEls[i]!.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
+        poignee.setAttribute('fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
+        poignee.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
 
         // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
         let ext;
         if(obj.type==='polygon'){
           ext = exteriorBisector({ pts: obj.pts }, i);
         } else {
-          const nb = obj.pts[Math.min(i+1,n-1)]!, pb2 = obj.pts[Math.max(i-1,0)]!;
+          const nb = sommetDe(obj.pts, Math.min(i+1,n-1)), pb2 = sommetDe(obj.pts, Math.max(i-1,0));
           const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
           ext = {x:-dy/L, y:dx/L};
         }
-        v.ptLabelEls[i]!.setAttribute('x', String(p.x + ext.x*13));
-        v.ptLabelEls[i]!.setAttribute('y', String(p.y - ext.y*13 + 3));
-        v.ptLabelEls[i]!.setAttribute('text-anchor','middle');
-        const vName = obj.vertexNames![i] || ('P'+(i+1));
+        etiquette.setAttribute('x', String(p.x + ext.x*13));
+        etiquette.setAttribute('y', String(p.y - ext.y*13 + 3));
+        etiquette.setAttribute('text-anchor','middle');
+        const vName = obj.vertexNames?.[i] || ('P'+(i+1));
         // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
         const showAngleHere = obj.showAngles && obj.type==='polygon';
         // L'angle n'est calcule que s'il doit etre affiche : ce rendu passe sur chaque point de
         // chaque objet a chaque image.
         const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
         const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
-        v.ptLabelEls[i]!.textContent = vertTxt;
-        v.ptLabelEls[i]!.style.display = vertTxt ? '' : 'none';
+        etiquette.textContent = aLaVirgule(vertTxt);
+        etiquette.style.display = vertTxt ? '' : 'none';
 
-        if(i < edgeCount){
-          const a=obj.pts[i]!, b=obj.pts[(i+1)%n]!;
+        const cote = v.edgeEls[i], etiquetteCote = v.segLabelEls[i];
+        if(i < edgeCount && cote && etiquetteCote){
+          const a=pt, b=sommetDe(obj.pts, i+1);
           const pa=versEcran(ctx.scene, a), pb=versEcran(ctx.scene, b);
-          v.edgeEls[i]!.setAttribute('x1', String(pa.x)); v.edgeEls[i]!.setAttribute('y1', String(pa.y));
-          v.edgeEls[i]!.setAttribute('x2', String(pb.x)); v.edgeEls[i]!.setAttribute('y2', String(pb.y));
+          cote.setAttribute('x1', String(pa.x)); cote.setAttribute('y1', String(pa.y));
+          cote.setAttribute('x2', String(pb.x)); cote.setAttribute('y2', String(pb.y));
           const showEdgeForPick = ctx.pointageCotes;
-          v.edgeEls[i]!.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
-          v.edgeEls[i]!.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
+          cote.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
+          cote.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
 
           const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-          v.segLabelEls[i]!.setAttribute('x', String(mid.x)); v.segLabelEls[i]!.setAttribute('y', String(mid.y-5));
+          etiquetteCote.setAttribute('x', String(mid.x)); etiquetteCote.setAttribute('y', String(mid.y));
           const segTxt = etiquetteComposee(
-            obj.segmentNames![i]!, longueurEnMetres(dist(a,b)),
+            obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)),
             obj.showSegNames, obj.showDims, SEP_ECRAN
           );
-          v.segLabelEls[i]!.textContent = segTxt;
-          v.segLabelEls[i]!.style.display = segTxt ? '' : 'none';
+          etiquetteCote.textContent = aLaVirgule(segTxt);
+          // Une pastille plus longue que son cote a l'ecran chevauche ses voisines et ne se lit plus :
+          // elle attend qu'on zoome (Ajuster, pincer). La largeur se compte a ~6,5 px par caractere.
+          const tropCourt = Math.hypot(pb.x-pa.x, pb.y-pa.y) < segTxt.length*6.5 + 12;
+          etiquetteCote.style.display = segTxt && !tropCourt ? '' : 'none';
         }
-      }
-      v.el!.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+      });
+      el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
     } else {
       const rp = versEcran(ctx.scene, {x:obj.center.x+obj.r, y:obj.center.y});
-      v.radiusHandle!.setAttribute('cx', String(rp.x)); v.radiusHandle!.setAttribute('cy', String(rp.y));
-      v.radiusHandle!.style.display = ctx.selectionnee ? '' : 'none';
-      v.el!.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+      if(v.radiusHandle){
+        v.radiusHandle.setAttribute('cx', String(rp.x)); v.radiusHandle.setAttribute('cy', String(rp.y));
+        v.radiusHandle.style.display = ctx.selectionnee ? '' : 'none';
+      }
+      el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
     }
 
 }

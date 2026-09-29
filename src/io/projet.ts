@@ -7,7 +7,7 @@
 // masquage du voisinage). L'inverse restaurerait des reglages sur des objets qui n'existent plus.
 
 import { ortho, restaurerOrthoDuProjet, type ContexteOrtho } from '../render/ortho.js';
-import { serializeObjects, serializeMeasures } from './serialisation.js';
+import { serializeObjects, serializeMeasures, type MesureSerialisee } from './serialisation.js';
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
 import { idMesure } from '../model/cles.js';
@@ -33,7 +33,7 @@ export interface ContexteImportProjet extends ContexteOrtho {
 export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean, etat: EtatApp, ctx: ContexteImportProjet): void {
   ctx.pushHistory();
   const objsBase: ObjetSerialise[] = remplacer ? [] : serializeObjects(etat.objects);
-  const msBase: ObjetSerialise[] = remplacer ? [] : serializeMeasures(etat.measures);
+  const msBase: MesureSerialisee[] = remplacer ? [] : serializeMeasures(etat.measures);
   const clesPrises = new Set(objsBase.map(o=>o.key));
   const renommages: Record<string, string> = {};
   const ajoutes: ObjetSerialise[] = [];
@@ -55,19 +55,19 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
     ajoutes.push(copie);
   });
   ajoutes.forEach(o=>{
-    if(o.terrasseLieeKey && renommages[o.terrasseLieeKey]) o.terrasseLieeKey = renommages[o.terrasseLieeKey];
+    const renommee = o.terrasseLieeKey ? renommages[o.terrasseLieeKey] : undefined;
+    if(renommee) o.terrasseLieeKey = renommee;
   });
 
   const idsPris = new Set(msBase.map(m=>m.id));
   const mesuresFinales = msBase.slice();
-  // `ObjetSerialise` est un `Record` sans forme : ce que `serializeObjects` ecrit porte bien `key`,
-  // `type` et `pts`, et c'est tout ce que le validateur des cotes lit.
-  const objetsFinaux = objsBase.concat(ajoutes) as ObjetCotable[];
+  // `ObjetSerialise` nomme `key`, `type` et `pts` : c'est tout ce que le validateur des cotes lit.
+  const objetsFinaux: ObjetCotable[] = objsBase.concat(ajoutes);
   let mesuresOk = 0, mesuresIgnorees = 0;
   valide.mesures.forEach(m=>{
     if(!m || typeof m !== 'object'){ mesuresIgnorees++; return; }
-    const ref = renommages[m.refObjKey!] || m.refObjKey;
-    const tgt = renommages[m.targetObjKey!] || m.targetObjKey;
+    const ref = renommages[m.refObjKey ?? ''] || m.refObjKey;
+    const tgt = renommages[m.targetObjKey ?? ''] || m.targetObjKey;
     // Une mesure ne se restaure que si ses DEUX objets de reference existent apres l'import, et
     // si ses indices tombent dans leurs polygones : c'est `referencesDeCote` qui en juge, le meme
     // pour l'import SVG.
@@ -89,11 +89,12 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   ctx.restoreState({ objects: objsBase.concat(ajoutes), measures: mesuresFinales });
 
   const lieu = valide.meta && valide.meta.lieu;
-  if(lieu && Number.isFinite(lieu.latitude) && Number.isFinite(lieu.longitude)){
+  const latitude = lieu ? lieu.latitude : undefined, longitude = lieu ? lieu.longitude : undefined;
+  if(lieu && typeof latitude === 'number' && typeof longitude === 'number' && Number.isFinite(latitude) && Number.isFinite(longitude)){
     const pc = ctx.trouverParcelleCloture();
     if(pc && (pc.latitude === undefined || pc.latitude === null)){
-      pc.latitude = lieu.latitude!;
-      pc.longitude = lieu.longitude!;
+      pc.latitude = latitude;
+      pc.longitude = longitude;
       if(lieu.nomLieu) pc.nomLieu = lieu.nomLieu;
     }
   }

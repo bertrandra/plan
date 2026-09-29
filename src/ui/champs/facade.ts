@@ -102,8 +102,9 @@ export function sectionReleve(c: ContexteChamps): Section {
           delete cc.obj.toit;
           return;
         }
-        toitDe(cc).forme = v as FormeToit;
-        cc.obj.toit!.source = 'saisie';
+        const toit = toitDe(cc);
+        toit.forme = v as FormeToit;
+        toit.source = 'saisie';
       },
     },
     {

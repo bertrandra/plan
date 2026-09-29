@@ -5,6 +5,7 @@
 // silhouette au-dessus de l'egout dit du toit. Le dialogue n'a plus qu'a afficher et laisser
 // corriger.
 
+import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image, type P2 } from './homographie.js';
 import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toit.js';
@@ -61,9 +62,9 @@ export function teinteMediane(img: Image, vu: Uint8Array): number[] {
   // Un pixel sur quatre suffit a une mediane et divise le tri par seize.
   for (let i = 0; i < vu.length; i += 4) {
     if (!vu[i]) continue;
-    for (let k = 0; k < 3; k++) canaux[k]!.push(img.donnees[i * 4 + k]!);
+    for (let k = 0; k < 3; k++) au(canaux, k).push((img.donnees[i * 4 + k] ?? 0));
   }
-  return canaux.map((c) => (c.length ? c.sort((a, b) => a - b)[Math.floor(c.length / 2)]! : 200));
+  return canaux.map((c) => (c.length ? au(c.sort((a, b) => a - b), Math.floor(c.length / 2)) : 200));
 }
 
 export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {

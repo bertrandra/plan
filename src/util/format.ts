@@ -1,5 +1,7 @@
 // Formatage et conversions de saisie (spec §3.2, util/format.ts).
 
+import { au } from './tableaux.js';
+
 /**
  * Lit un nombre saisi a la francaise : la virgule vaut point decimal. Rend `null` - et non NaN -
  * quand la saisie est vide ou illisible, ce qui permet aux appelants de distinguer « rien saisi »
@@ -40,7 +42,7 @@ export function horodatageFichier(): string {
  */
 export function niceStep(target: number): number {
   const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
-  let best = steps[0]!,
+  let best = au(steps, 0),
     bd = Infinity;
   steps.forEach((s) => {
     const d = Math.abs(s - target);

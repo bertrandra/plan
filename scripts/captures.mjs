@@ -29,7 +29,11 @@ try {
 }
 
 const principalLance = import.meta.url === 'file://' + process.argv[1];
-const BASE = (principalLance && process.argv[2]) || process.env.PLAN_URL || 'http://localhost:5199';
+// Les deux scripts prennent l'adresse en premier argument : `fumee.mjs` importe ce module, et son
+// argument doit valoir ici aussi — sans quoi `node scripts/fumee.mjs http://localhost:5200` jouait
+// en silence contre le 5199.
+const argUrl = process.argv[2] && /^https?:\/\//.test(process.argv[2]) ? process.argv[2] : null;
+const BASE = argUrl || process.env.PLAN_URL || 'http://localhost:5199';
 const SORTIE = resolve((principalLance && process.argv[3]) || 'tests/captures');
 const PLATEFORME = 'http://plateforme.test';
 
@@ -93,19 +97,27 @@ export async function simulerPlateforme(page) {
   });
 }
 
-/** Ouvre le plan de demonstration et attend l'atelier. */
-export async function ouvrirDemo(page) {
+/**
+ * Ouvre le plan de demonstration et attend l'atelier. `temoin` ouvre celui d'origine, dont les golden
+ * files sont captures (2.1.1 : l'utilisateur ouvre le meme plan aux couleurs de la maquette).
+ */
+export async function ouvrirDemo(page, { temoin = false } = {}) {
   await simulerPlateforme(page);
-  await page.goto(BASE + '/');
+  await page.goto(BASE + (temoin ? '/?temoin' : '/'));
   await page.getByRole('button', { name: /d[ée]monstration/i }).click();
   await page.waitForSelector('#stage svg');
   await page.waitForTimeout(300);
 }
 
-/** Selectionne la premiere terrasse du plan, par le magasin expose en developpement. */
+/**
+ * Selectionne la premiere terrasse du plan, par le magasin expose en developpement, puis cadre
+ * dessus sur telephone et tablette, comme le fait un choix dans la feuille Objets (2.1.1).
+ */
 async function selectionnerTerrasse(page) {
   await page.evaluate(() => window.__plan?.selectionnerPremiere('terrasse'));
   await page.waitForTimeout(200);
+  await page.evaluate(() => { if (document.documentElement.dataset.classe !== 'large') window.__plan?.executer('vue.ajuster'); });
+  await page.waitForTimeout(100);
 }
 
 const ETATS = [
@@ -113,7 +125,7 @@ const ETATS = [
   { nom: '2-terrasse', faire: selectionnerTerrasse },
   { nom: '3-outils', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirFeuille('outils')); } },
   { nom: '4-proprietes', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirFeuille('proprietes')); } },
-  { nom: '5-resultats', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => window.__plan?.ouvrirResultats('bom')); } },
+  { nom: '5-resultats', faire: async (p) => { await selectionnerTerrasse(p); await p.evaluate(() => { window.__plan?.ouvrirResultats('bom'); window.__plan?.ouvrirFeuille(document.documentElement.dataset.classe === 'compact' ? 'resultats' : null); }); } },
   { nom: '6-vue3d', faire: async (p) => { await p.evaluate(() => window.__plan?.executer('vue.3d')); await p.waitForTimeout(800); } }
 ];
 
