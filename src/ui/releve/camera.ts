@@ -6,6 +6,7 @@
 
 import type { Image } from '../../facade/homographie.js';
 import { focale35mm, champDepuisFocale35 } from '../../facade/exif.js';
+import { grandAngleParmi, zoomGrandAngle } from '../../facade/objectifs.js';
 
 /** Plus grand cote d'une photo traitee : au-dela, le redressement ne gagne rien et coute. */
 export const PHOTO_MAX_PX = 2400;
@@ -25,20 +26,59 @@ export function cameraDisponible(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 }
 
+/** Quel objectif ouvrir : une camera par son identifiant (iPhone), ou la principale avec un zoom (Android). */
+export interface ChoixCamera {
+  deviceId?: string | null;
+  zoom?: number | null;
+}
+
+/** Ce que le telephone offre pour le grand-angle, decouvert apres une premiere ouverture. */
+export interface OffreGrandAngle {
+  /** Une camera a part (iPhone) : son identifiant. */
+  deviceId: string | null;
+  /** Un zoom inferieur a 1 sur la camera ouverte (Android). */
+  zoom: number | null;
+}
+
+type CapacitesZoom = MediaTrackCapabilities & { zoom?: { min?: number; max?: number } };
+
 /**
  * Ouvre la camera arriere dans `video`. On demande la plus grande definition que le telephone
- * accepte : c'est elle qui fixe la finesse de la texture.
+ * accepte : c'est elle qui fixe la finesse de la texture. Avec un identifiant, c'est cette camera-la
+ * (le grand-angle d'un iPhone) ; avec un zoom, il est applique a la piste une fois ouverte.
  */
-export async function ouvrirCamera(video: HTMLVideoElement): Promise<MediaStream> {
+export async function ouvrirCamera(video: HTMLVideoElement, choix: ChoixCamera = {}): Promise<MediaStream> {
+  const taille = { width: { ideal: 3840 }, height: { ideal: 2160 } };
   const flux = await navigator.mediaDevices.getUserMedia({
     audio: false,
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+    video: choix.deviceId ? { deviceId: { exact: choix.deviceId }, ...taille } : { facingMode: { ideal: 'environment' }, ...taille },
   });
+  const piste = flux.getVideoTracks()[0];
+  if (choix.zoom && piste) {
+    // `zoom` n'est pas dans les types du DOM : Chrome Android le connait, Safari l'ignore.
+    await piste.applyConstraints({ advanced: [{ zoom: choix.zoom } as MediaTrackConstraintSet] }).catch(() => undefined);
+  }
   video.srcObject = flux;
   video.setAttribute('playsinline', 'true');
   video.muted = true;
   await video.play().catch(() => undefined);
   return flux;
+}
+
+/**
+ * Ce que le telephone offre pour le grand-angle. A appeler camera ouverte : avant la permission, les
+ * noms des cameras sont vides et on ne reconnaitrait rien.
+ */
+export async function decouvrirGrandAngle(flux: MediaStream): Promise<OffreGrandAngle> {
+  const piste = flux.getVideoTracks()[0];
+  const capacites = (piste?.getCapabilities?.() ?? {}) as CapacitesZoom;
+  let cameras: { deviceId: string; label: string }[] = [];
+  try {
+    cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+  } catch {
+    /* sans liste, on garde le zoom */
+  }
+  return { deviceId: grandAngleParmi(cameras), zoom: zoomGrandAngle(capacites.zoom?.min) };
 }
 
 export function fermerCamera(flux: MediaStream | null): void {

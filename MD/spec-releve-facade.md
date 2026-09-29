@@ -178,6 +178,30 @@ la marge saisissable.
 L'inclinaison avant-arrière (`deviceorientation`, `beta`) : 90° ± 6° est « Téléphone droit ».
 Sur iOS, la permission se demande par un geste (« Activer le niveau »).
 
+### 5.6 Le grand-angle (0,5×)
+
+À 3 m, l'objectif principal (≈ 67° sur le grand côté) voit 4 m de mur ; le grand-angle d'un
+téléphone (13 mm équivalent, ≈ 108°) en voit 8. La page ne reçoit pourtant que « la caméra
+arrière » : elle va chercher le grand-angle elle-même (`facade/objectifs.ts`,
+`ui/releve/camera.ts`) :
+
+| Téléphone | Comment | Champ retenu |
+|---|---|---|
+| iPhone (Safari) | caméra à part dans `enumerateDevices`, reconnue à son nom (« Back Ultra Wide Camera », « ultra grand-angle ») une fois la permission donnée ; ouverte par son identifiant | 108° par défaut |
+| Android (Chrome) | zoom inférieur à 1 sur la caméra principale (`getCapabilities().zoom.min`, souvent 0,5 ou 0,6), appliqué à la piste | déduit du champ du principal : `2·atan(tan(champ/2) / zoom)`, 96° pour 67° à 0,6 |
+
+Le choix **« 0,5× grand-angle / 1× »** n'apparaît que si l'une des deux voies existe ; il est
+retenu sur l'appareil, et **le champ se règle et se mémorise par objectif** (ce n'est pas le même
+verre). La photo emporte le champ de l'objectif qui l'a prise, et les coins proposés en dépendent.
+Les caméras « Dual » et « Triple » d'un iPhone sont virtuelles (iOS y change d'objectif seul) : elles
+ne sont jamais choisies pour cette raison.
+
+**Limite.** Un grand-angle déforme davantage : les murs droits se courbent un peu vers les bords de
+l'image. iOS corrige d'office la distorsion de son ultra grand-angle ; tous les Android ne le font
+pas, et le redressement (un modèle sans distorsion) ne la rattrape pas. Garder le mur au centre de
+l'image, loin des bords, limite l'écart. Le module natif iOS reste sur l'objectif principal : c'est
+celui dont ARKit aligne la carte de profondeur LiDAR.
+
 ---
 
 ## 6. Le redressement (`facade/homographie.ts`, `facade/analyse.ts`)

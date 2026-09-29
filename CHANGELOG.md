@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Le grand-angle (0,5×) dans la prise de vue du relevé de façade.** À 3 m, il voit deux fois plus
+  de mur que l'objectif principal. Sur iPhone, Plan reconnaît l'ultra grand-angle parmi les caméras
+  et l'ouvre ; sur Android, il applique le zoom inférieur à 1 que la caméra accepte. Le choix
+  « 0,5× grand-angle / 1× » n'apparaît que si le téléphone l'offre, et le champ de l'objectif se
+  règle et se retient pour chacun (108° par défaut pour un 13 mm, déduit du zoom sur Android).
+  Spécification : `MD/spec-releve-facade.md` §5.6, avec sa limite — la distorsion d'un
+  grand-angle Android non corrigée.
+
 ## [2.2.0] — 2026-09-29
 
 ### Ajouté

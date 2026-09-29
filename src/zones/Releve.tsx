@@ -22,7 +22,8 @@ import { analyserReleve, coinsProposes } from '../facade/analyse.js';
 import { classer } from '../facade/detection.js';
 import { LIBELLES_FORME_TOIT, penteDeg } from '../facade/toit.js';
 import type { P2 } from '../facade/homographie.js';
-import { cameraDisponible, ouvrirCamera, fermerCamera, saisir, lireFichier, lirePhotoNative, versJpeg, type Photo } from '../ui/releve/camera.js';
+import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, saisir, lireFichier, lirePhotoNative, versJpeg, type Photo, type ChoixCamera, type OffreGrandAngle } from '../ui/releve/camera.js';
+import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../facade/objectifs.js';
 import {
   natifDisponible,
   ecouterNatif,
@@ -174,9 +175,52 @@ interface Prise {
   champ: number;
 }
 
-/** La camera, ou le module natif : ouverte au montage, fermee au demontage. */
-function useCamera(natif: boolean, video: React.RefObject<HTMLVideoElement | null>, setCapteur: (m: MesureDistance) => void) {
+/**
+ * L'objectif choisi (principal ou grand-angle), ce que le telephone offre pour le grand-angle, et le
+ * champ de chacun. Le champ se regle et se retient par objectif : ce n'est pas le meme verre.
+ */
+function useObjectif() {
+  const [objectif, setObjectif] = useState<Objectif>(() => (lireReglage('objectif', 1) < 1 ? 'grand-angle' : 'principal'));
+  const [offre, setOffre] = useState<OffreGrandAngle | null>(null);
+  const [champs, setChamps] = useState(() => ({ principal: lireReglage('champ', CHAMP_GRAND_COTE_DEFAUT), grandAngle: lireReglage('champ-grand-angle', 0) }));
+  const disponible = !!offre && (!!offre.deviceId || !!offre.zoom);
+  const actif: Objectif = objectif === 'grand-angle' && disponible ? 'grand-angle' : 'principal';
+  // Sans reglage retenu, le grand-angle d'un iPhone vaut 13 mm ; atteint par un zoom (Android), il
+  // se deduit du champ du principal.
+  const champGrandAngle = champs.grandAngle || (offre?.deviceId || !offre?.zoom ? CHAMP_GRAND_ANGLE_DEFAUT : champAvecZoom(champs.principal, offre.zoom));
+  const champ = actif === 'grand-angle' ? champGrandAngle : champs.principal;
+  const choix: ChoixCamera = actif === 'grand-angle' && offre ? (offre.deviceId ? { deviceId: offre.deviceId } : { zoom: offre.zoom }) : {};
+  return {
+    objectif: actif,
+    disponible,
+    choix,
+    champ,
+    setOffre,
+    choisir(o: Objectif) {
+      setObjectif(o);
+      ecrireReglage('objectif', o === 'grand-angle' ? 0.5 : 1);
+    },
+    setChamp(v: number) {
+      setChamps((c) => (actif === 'grand-angle' ? { ...c, grandAngle: v } : { ...c, principal: v }));
+      ecrireReglage(actif === 'grand-angle' ? 'champ-grand-angle' : 'champ', v);
+    },
+  };
+}
+
+/**
+ * La camera, ou le module natif : ouverte au montage et a chaque changement d'objectif, fermee au
+ * demontage. A la premiere ouverture, elle dit ce que le telephone offre pour le grand-angle.
+ */
+function useCamera(
+  natif: boolean,
+  video: React.RefObject<HTMLVideoElement | null>,
+  setCapteur: (m: MesureDistance) => void,
+  choix: ChoixCamera,
+  surOffre: (o: OffreGrandAngle) => void,
+) {
   const [erreur, setErreur] = useState<string | null>(null);
+  const deviceId = choix.deviceId ?? null,
+    zoom = choix.zoom ?? null;
   useEffect(() => {
     let flux: MediaStream | null = null;
     let fini = false;
@@ -193,17 +237,22 @@ function useCamera(natif: boolean, video: React.RefObject<HTMLVideoElement | nul
       setErreur("Cet appareil ne donne pas accès à une caméra. Importez une photo prise face au mur.");
       return;
     }
-    ouvrirCamera(el)
+    ouvrirCamera(el, { deviceId, zoom })
       .then((f) => {
-        if (fini) fermerCamera(f);
-        else flux = f;
+        if (fini) {
+          fermerCamera(f);
+          return;
+        }
+        flux = f;
+        setErreur(null);
+        if (!deviceId && !zoom) void decouvrirGrandAngle(f).then(surOffre);
       })
       .catch(() => setErreur("La caméra n'a pas pu s'ouvrir. Autorisez-la dans les réglages du navigateur, ou importez une photo."));
     return () => {
       fini = true;
       fermerCamera(flux);
     };
-  }, [natif, video, setCapteur]);
+  }, [natif, video, setCapteur, deviceId, zoom, surOffre]);
   return { erreur, setErreur };
 }
 
@@ -420,7 +469,21 @@ function ReglagesVisee({
   );
 }
 
-/** Le champ de l'objectif, reglage de l'appareil (jamais du projet). */
+/** Le choix de l'objectif, quand le telephone a un grand-angle que la page peut atteindre. */
+function ChoixObjectif({ objectif, choisir }: { objectif: Objectif; choisir: (o: Objectif) => void }) {
+  return (
+    <div className="releveSegment" role="group" aria-label="Objectif">
+      <button type="button" aria-pressed={objectif === 'grand-angle'} onClick={() => choisir('grand-angle')}>
+        0,5× grand-angle
+      </button>
+      <button type="button" aria-pressed={objectif === 'principal'} onClick={() => choisir('principal')}>
+        1×
+      </button>
+    </div>
+  );
+}
+
+/** Le champ de l'objectif en cours, reglage de l'appareil (jamais du projet). */
 function ChampObjectif({ champ, setChamp }: { champ: number; setChamp: (v: number) => void }) {
   return (
     <label className="releveChamp">
@@ -428,15 +491,12 @@ function ChampObjectif({ champ, setChamp }: { champ: number; setChamp: (v: numbe
       <input
         type="number"
         min={30}
-        max={120}
+        max={140}
         step={1}
         value={Math.round(champ)}
         onChange={(e) => {
           const v = parseFloat(e.target.value);
-          if (v >= 30 && v <= 120) {
-            setChamp(v);
-            ecrireReglage('champ', v);
-          }
+          if (v >= 30 && v <= 140) setChamp(v);
         }}
       />
       °
@@ -484,9 +544,10 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
   const fichier = useRef<HTMLInputElement>(null);
   const [capteur, setCapteur] = useState<MesureDistance | null>(null);
   const [cible, setCible] = useState(() => lireReglage('cible', DISTANCE_CIBLE_DEFAUT));
-  const [champ, setChamp] = useState(() => lireReglage('champ', CHAMP_GRAND_COTE_DEFAUT));
   const [reperes, setReperes] = useState<Reperes>({ mode: 'bords', a: 0.2, b: 0.8, touches: false });
-  const { erreur, setErreur } = useCamera(natif, video, setCapteur);
+  const obj = useObjectif();
+  const champ = obj.champ;
+  const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre);
   const niveau = useInclinaison();
   const { taille, cadre } = useCadreVideo(video, scene);
   const ar = useWebxr(natif, scene, setCapteur, setErreur);
@@ -544,7 +605,8 @@ function Visee({ facade, hauteurMur, onPrise, onRetour }: { facade: Facade; haut
               Activer le niveau
             </button>
           )}
-          <ChampObjectif champ={champ} setChamp={setChamp} />
+          {!natif && obj.disponible && <ChoixObjectif objectif={obj.objectif} choisir={obj.choisir} />}
+          <ChampObjectif champ={champ} setChamp={obj.setChamp} />
         </div>
       </div>
     </div>
