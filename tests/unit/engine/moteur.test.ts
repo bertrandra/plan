@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { defaultConstruction, ensureConstruction } from '../../../src/engine/construction.js';
-import { porteeVisM, porteeAppuiM, maxEntraxeLameCm, optimiserParametres } from '../../../src/engine/structure.js';
-import { achatVis, achatPlots, computeAssise, parseLongueurs } from '../../../src/engine/bom.js';
+import { porteeVisM, porteeAppuiM, maxEntraxeLameCm } from '../../../src/engine/portees.js';
+import { optimiserParametres } from '../../../src/engine/optimisation.js';
+import { achatVis, achatPlots, computeAssise, parseLongueurs } from '../../../src/engine/prix.js';
 import { optimiserDebitLames } from '../../../src/engine/debit.js';
 import {
   ombreInstantanee, geometrieOmbre, hauteurParasolDe, PARASOL_ELEV_MIN_DEG,

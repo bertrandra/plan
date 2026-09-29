@@ -7,17 +7,14 @@
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
-import { mesure } from '../../interaction/outilMesure.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
+import type { Resultats } from '../resultats.js';
 
 /** Ce que ces commandes déclenchent. */
 export interface ContexteDivers {
-  renderMeasureResults: () => void;
-  rebuildMeasurePanel: () => void;
-  renderPanneauPlu: () => void;
-  interrogerPluDepuisBouton: (bouton: HTMLButtonElement) => void;
-  basculerOptimisation: () => boolean;
+  /** Le tiroir des resultats : cotes, PLU, optimisation (app/resultats.ts). */
+  resultats: Resultats;
   /** Recalcule la taille du plan et le redessine autour de son centre. */
   redimensionnerLePlan: () => void;
   /** Montre un onglet du panneau lateral (ui/panelTabs.ts). */
@@ -67,21 +64,14 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     apaisement = setTimeout(ctx.redimensionnerLePlan, APAISEMENT_RESIZE_MS);
   });
 
-  cmd.bouton('recalcMeasureBtn', { id: 'mesure.recalculer', libelle: 'Recalculer les mesures', groupe: 'mesure', executer: () => {
-    ctx.renderMeasureResults();
-    a.render();
-  } });
+  cmd.declarer({ id: 'mesure.recalculer', libelle: 'Recalculer les mesures', groupe: 'mesure', executer: () => { a.render(); } });
 
   /**
    * Vider les cotes. La confirmation n'est demandée que s'il y en a : confirmer la suppression de
    * rien est une question sans objet.
    */
-  cmd.bouton('clearMeasureBtn', { id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', permission: PERMISSION_ECRITURE, executer: () => {
-    const vider = () => {
-      a.etat.measures = [];
-      mesure.cibles = []; mesure.ref = null; mesure.pointage = null;
-      ctx.renderMeasureResults(); ctx.rebuildMeasurePanel(); a.render();
-    };
+  cmd.declarer({ id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', permission: PERMISSION_ECRITURE, executer: () => {
+    const vider = () => ctx.resultats.effacerCotes();
     if (a.etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', vider);
     else vider();
   } });
@@ -96,7 +86,10 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     ctx.startPick('ref', false, 'align');
   } });
 
-  cmd.bouton('pluInterrogerBtn', { id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code, executer: (source) => ctx.interrogerPluDepuisBouton(source as HTMLButtonElement) });
+  // Grise sans parcelle : le PLU s'interroge en son centre.
+  cmd.declarer({ id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code,
+    actif: () => !!ctx.resultats.parcelle() && !ctx.resultats.pluEnCours(),
+    executer: () => { void ctx.resultats.interrogerPlu(); } });
 
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on
@@ -104,7 +97,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
    * l'inspecteur (zones/) qui montre le bouton et le tableau ; ici, seulement la bascule.
    */
   cmd.declarer({ id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', capacite: CAPACITES.terrasse.code, executer: () => {
-    ctx.basculerOptimisation();
+    ctx.resultats.basculerOptimisation();
     ctx.rafraichirInspecteur();
   } });
 }

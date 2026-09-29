@@ -335,6 +335,28 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   témoins — et le document servi par le décor est justement celui qui a fait l'aller-retour par
   PostgreSQL le 23 septembre, avec l'ordre de clés que cette base impose.
 
+- **28 septembre 2026**, `plan.html` v2.2.0 : **le relevé de façade**, et le schéma du projet
+  passe à 2. Les six témoins sont recapturés sur le build `dist/index.html`, derrière le même
+  décor d'essai que le 25 septembre (le témoin `projet.json` servi comme unique projet,
+  `plan.export.dossier` accordé).
+
+  **L'écart attendu, écrit avant d'être mesuré.** Trois substitutions, chacune de longueur
+  constante : `2.0.2` → `2.2.0`, `2026-09-25` → `2026-09-28`, et le numéro de schéma
+  `1` → `2` là où il est écrit — `"schemaVersion"` dans `projet.json`, `data-schema-version`
+  dans `plan.svg`. Rien d'autre : le jeu de démonstration n'a ni relevé ni toit, et
+  `serializeObjects` n'écrit `facades` et `toit` que s'ils existent. Les deux versions sautées
+  depuis la dernière capture (`2.1.0`, l'IHM mobile) ne touchent aucun export.
+
+  **La preuve forte, six sur six.** Les anciennes valeurs remises dans les octets frais rendent les
+  six empreintes de la `2.0.2` **au bit près** ; les six tailles sont identiques à l'octet (15 323,
+  25 109, 5 364, 72 031, 16 162 et 15 254), et à version neutralisée aucune ligne ne diffère.
+  Occurrences du numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans
+  `dossier.pdf` — comme aux recaptures précédentes.
+
+  Le témoin `glb-structure.json` ne bouge pas : la vue 3D n'ajoute aucune maille à un bâtiment
+  sans relevé (`three/releve3d.ts`, testé). Il n'a pas été rejoué ici : le pilote de fumée demande
+  Playwright, absent de ce poste.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -491,6 +513,30 @@ objet. C'est le fichier à regarder en premier quand une empreinte bouge : il di
 changé, là où le SHA-256 dit seulement que quelque chose a changé.
 
 Emprise totale hors parcelle de référence : **408,4 m² (56,5 % de la parcelle)**.
+
+## Regénérées à chaque `npm test` (28 septembre 2026)
+
+Jusqu'au 27 septembre, `tests/unit/echafaudage.test.ts` hachait les **fichiers témoins** : il
+prouvait qu'on ne les avait pas retouchés, pas que le code les produisait encore. La preuve de
+régénération se faisait à la main, à chaque recapture. Depuis le 28,
+`tests/unit/export/regeneration.test.ts` regénère **cinq des six** exports depuis le code, sur
+`DEMO_TEMOIN_OBJECTS`, et compare leurs empreintes normalisées à celles des témoins :
+
+- `plan.svg`, `plan.dxf`, `resume.txt`, `plan.pdf` et `dossier.pdf` ;
+- la version et la date de build sont celles du témoin (2.0.2, 2026-09-25), passées en paramètre ;
+  le dictionnaire `/Info` du dossier, qui les lit dans `model/version.ts`, est ramené aux mêmes
+  valeurs, à longueur égale pour ne pas décaler la table xref ;
+- l'horloge est posée au jour de la capture ; le texte est encodé en UTF-8, comme le fait le
+  `Blob` du navigateur ;
+- les parasols sont contraints à leur terrasse avant l'export, comme le premier rendu le fait
+  dans l'application (`contraindreParasols`) : sans cela, `plan.pdf` diffère au centième de point
+  sur deux cercles.
+
+`projet.json` n'est pas regénéré : son bloc `meta` vient du serveur (identité, dates), et le test
+le neutraliserait presque entièrement. Le GLB reste comparé structurellement (plus haut).
+
+Premier passage : les cinq identiques, sur le code du 28 septembre — après la sortie de `boot()`,
+le découpage de `buildThreeScene` et de `construirePDF`, et le retrait des 506 assertions `!`.
 
 ## Rejouer la capture
 

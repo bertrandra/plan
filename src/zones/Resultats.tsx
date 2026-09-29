@@ -2,7 +2,7 @@
 //
 // Etape 5 de la reconstruction : les onglets du panneau du bas deviennent un tiroir sous le plan,
 // repliable en trois hauteurs. Cette zone ne rend que la barre — les panneaux restent du balisage
-// que `ui/` remplit — et demande tout au tiroir (app/tiroir.ts) : quel onglet montrer, quelle
+// rendus par zones/resultats/Panneaux.tsx — et demande tout au tiroir (app/tiroir.ts) : quel onglet montrer, quelle
 // hauteur prendre. L'onglet actif se lit dans l'etat du plan, la hauteur dans le magasin.
 //
 // Sur telephone (spec-ihm-mobile §6.6), le tiroir est la feuille Resultats : un entete avec la
@@ -86,7 +86,7 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
         <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
       </div>
       <div className="piedChiffrageActions">
-        <button type="button" className="secondary" onClick={() => document.getElementById('copierResumeBtn')?.click()}>Copier le résumé</button>
+        {commandes && <button type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
         {!dossierEfface && commandes && (
           <button type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
             onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>

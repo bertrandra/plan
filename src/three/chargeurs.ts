@@ -89,9 +89,13 @@ export function chargerTexturePolyhaven(url: string, repetition = 1): THREE_NS.T
       const scale = MAX_DIM / Math.max(img0.width, img0.height);
       const c = document.createElement('canvas');
       c.width = Math.round(img0.width * scale); c.height = Math.round(img0.height * scale);
-      c.getContext('2d')!.drawImage(img0, 0, 0, c.width, c.height);
-      tex.image = c;
-      tex.needsUpdate = true;
+      // Sans contexte 2D, l'image garde sa taille d'origine : plus lourde, mais affichee.
+      const ctx2d = c.getContext('2d');
+      if (ctx2d) {
+        ctx2d.drawImage(img0, 0, 0, c.width, c.height);
+        tex.image = c;
+        tex.needsUpdate = true;
+      }
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;

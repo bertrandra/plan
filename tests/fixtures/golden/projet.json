@@ -4,11 +4,11 @@
     "name": "Parcelle AE 101",
     "createdAt": null,
     "updatedAt": "2026-09-23T09:29:15+00:00",
-    "exportedAt": "2026-09-25T12:47:57.676Z",
+    "exportedAt": "2026-09-28T21:22:41.109Z",
     "exportedBy": "plan.html",
-    "appVersion": "2.0.2",
-    "schemaVersion": 1,
-    "writtenAt": "2026-09-25T12:47:57.676Z"
+    "appVersion": "2.2.0",
+    "schemaVersion": 2,
+    "writtenAt": "2026-09-28T21:22:41.109Z"
   },
   "objects": [
     {

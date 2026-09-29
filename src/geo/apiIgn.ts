@@ -9,6 +9,7 @@
 // pas au lieu de renvoyer une erreur, si bien qu'une requete mal formee degenere en vidage national
 // avec un franc 200 OK.
 
+import { sommetDe } from '../geometry/anneau.js';
 import { simplifierContour } from '../geometry/rings.js';
 import { signedArea, shoelace, centroid, pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour, distanceContours, longueurFrontiere } from '../geometry/proximite.js';
@@ -17,8 +18,10 @@ import type { PtBrut, ZoneUrba, PrescriptionPlu, InformationPlu, ServitudePlu, Z
 import type { ParcelleCadastrale, ObjetBdTopo, AdresseRecherchee } from './cadastreObjets.js';
 import type { ProjecteurLocal } from './projection.js';
 
-/** Un anneau de coordonnees GeoJSON : `[lon, lat]` (ou `[lon, lat, alt]`), non ferme cote appli. */
-export type Anneau = number[][];
+/** Une position GeoJSON : `[lon, lat]`, parfois suivie de l'altitude — jamais moins de deux nombres. */
+export type Position = [number, number, ...number[]];
+/** Un anneau de coordonnees GeoJSON, non ferme cote appli. */
+export type Anneau = Position[];
 
 /** Une geometrie GeoJSON telle que la rendent API Carto et le WFS — Polygon ou MultiPolygon. */
 export interface GeometrieGeoJSON {
@@ -120,22 +123,24 @@ export function anneauExterieur(geometry: GeometrieGeoJSON | null | undefined): 
     const anneau = poly && poly[0];
     if(!Array.isArray(anneau) || anneau.length < 4) return;
     let s = 0;
-    for(let i=0;i<anneau.length;i++){
-      const p1 = anneau[i]!, p2 = anneau[(i+1)%anneau.length]!;
-      s += p1[0]!*p2[1]! - p2[0]!*p1[1]!;
-    }
+    anneau.forEach((p1, i)=>{
+      const p2 = sommetDe(anneau, i+1);
+      s += p1[0]*p2[1] - p2[0]*p1[1];
+    });
     const a = Math.abs(s/2);
     if(a > aireMax){ aireMax = a; meilleur = anneau; }
   });
   return meilleur;
 }
 export function anneauVersPts(anneau: Anneau, proj: ProjecteurLocal, simplifier: boolean): PtBrut[] {
-  let pts = anneau.map(c=>proj.versMetres(c[0]!, c[1]!));
+  let pts = anneau.map(c=>proj.versMetres(c[0], c[1]));
   // GeoJSON ferme l'anneau ; l'appli, elle, garde des pts implicitement fermes.
-  if(pts.length > 1 && Math.hypot(pts[0]!.x-pts[pts.length-1]!.x, pts[0]!.y-pts[pts.length-1]!.y) < 1e-6) pts.pop();
+  const premier = pts[0], dernier = pts[pts.length-1];
+  if(pts.length > 1 && premier && dernier && Math.hypot(premier.x-dernier.x, premier.y-dernier.y) < 1e-6) pts.pop();
   const nets: PtBrut[] = [];
   pts.forEach(p=>{
-    if(!nets.length || Math.hypot(p.x-nets[nets.length-1]!.x, p.y-nets[nets.length-1]!.y) > 0.01) nets.push(p);
+    const prec = nets[nets.length-1];
+    if(!prec || Math.hypot(p.x-prec.x, p.y-prec.y) > 0.01) nets.push(p);
   });
   pts = simplifier ? simplifierContour(nets, SIMPLIF_M) : nets;
   // Sens horaire, comme les parcelles des projets existants (l'aire, elle, est en valeur absolue).
@@ -170,8 +175,8 @@ export function empriseGeoJSON(lon: number, lat: number, proj: ProjecteurLocal, 
 export function empriseAutourAnneau(anneau: Anneau, proj: ProjecteurLocal, margeM: number): EmpriseGeoJSON {
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
   anneau.forEach(c=>{
-    lonMin = Math.min(lonMin, c[0]!); lonMax = Math.max(lonMax, c[0]!);
-    latMin = Math.min(latMin, c[1]!); latMax = Math.max(latMax, c[1]!);
+    lonMin = Math.min(lonMin, c[0]); lonMax = Math.max(lonMax, c[0]);
+    latMin = Math.min(latMin, c[1]); latMax = Math.max(latMax, c[1]);
   });
   const dLon = margeM/proj.kx, dLat = margeM/proj.ky;
   return { type:'Polygon', coordinates:[[
@@ -269,8 +274,9 @@ export function trierVoisines(principale: ParcellePrincipale, cands: Candidate[]
       autres.push(c);
     }
   });
-  adjacentes.sort((a,b)=> (b.frontiere! - a.frontiere!) || (b.aire - a.aire));
-  autres.sort((a,b)=> a.distancePrincipale! - b.distancePrincipale!);
+  // Les deux champs viennent d'etre poses sur chaque candidat trie.
+  adjacentes.sort((a,b)=> ((b.frontiere ?? 0) - (a.frontiere ?? 0)) || (b.aire - a.aire));
+  autres.sort((a,b)=> (a.distancePrincipale ?? Infinity) - (b.distancePrincipale ?? Infinity));
   return {
     adjacentes: adjacentes.slice(0, MAX_VOISINES),
     autres: autres.slice(0, MAX_VOISINES),
@@ -291,8 +297,8 @@ export const COUCHE_HAIE = 'BDTOPO_V3:haie';
 export function bboxDegDesAnneaux(anneaux: Anneau[], proj: ProjecteurLocal, margeM: number): BboxDeg {
   let lonMin = Infinity, lonMax = -Infinity, latMin = Infinity, latMax = -Infinity;
   anneaux.forEach(anneau=>anneau.forEach(c=>{
-    lonMin = Math.min(lonMin, c[0]!); lonMax = Math.max(lonMax, c[0]!);
-    latMin = Math.min(latMin, c[1]!); latMax = Math.max(latMax, c[1]!);
+    lonMin = Math.min(lonMin, c[0]); lonMax = Math.max(lonMax, c[0]);
+    latMin = Math.min(latMin, c[1]); latMax = Math.max(latMax, c[1]);
   }));
   const dLon = margeM/proj.kx, dLat = margeM/proj.ky;
   return { lonMin:lonMin-dLon, lonMax:lonMax+dLon, latMin:latMin-dLat, latMax:latMax+dLat };

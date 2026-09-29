@@ -39,7 +39,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
     liste.push(['Surface', nombre(Math.PI * o.r * o.r) + ' m²']);
   } else if (o.type === 'path') {
     let L = 0;
-    for (let i = 1; i < o.pts.length; i++) L += Math.hypot(o.pts[i]!.x - o.pts[i - 1]!.x, o.pts[i]!.y - o.pts[i - 1]!.y);
+    o.pts.forEach((p, i) => { const q = o.pts[i - 1]; if (q) L += Math.hypot(p.x - q.x, p.y - q.y); });
     liste.push(['Longueur', nombre(L) + ' m']);
     if (o.width) liste.push(['Largeur', nombre(o.width) + ' m']);
   } else {

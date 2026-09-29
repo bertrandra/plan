@@ -9,6 +9,8 @@
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA;
+    --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
+    --camera-voile:rgba(20,16,11,0.62);
     /* Teinte d'alternance : une nuance de l'accent, assez faible pour guider l'oeil le long
        d'une ligne sans decouper le tableau en bandes. */
     --zebra:rgba(122,92,49,0.05); --zebra-hover:rgba(122,92,49,0.11);
@@ -31,6 +33,8 @@
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426;
+      --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
+      --camera-voile:rgba(20,16,11,0.62);
       --zebra:rgba(224,181,100,0.06); --zebra-hover:rgba(224,181,100,0.13);
       --ombre:0 1px 3px rgba(0,0,0,0.35); --ombre-flottante:0 4px 14px rgba(0,0,0,0.4);
       --ombre-menu:0 4px 12px rgba(0,0,0,0.5); --ombre-forte:0 4px 24px rgba(0,0,0,0.55);
@@ -169,7 +173,7 @@
     font-variant-numeric:tabular-nums; padding:2px 7px; border:1px solid var(--border);
     border-radius:999px; background:var(--paper-deep); white-space:nowrap; cursor:help;
   }
-  /* Z8, les dialogues (zones/Dialogues.tsx), et les trois parcours DOM qui partagent le voile. */
+  /* Z8, les dialogues (zones/Dialogues.tsx), et les trois parcours (zones/Parcours.tsx) qui partagent le voile. */
   .dialogueVoile{
     position:fixed; inset:0; background:var(--scrim); z-index:9998;
     display:flex; align-items:center; justify-content:center; padding:14px;
@@ -208,6 +212,73 @@
     width:100%; font-family:inherit; font-size:0.9rem; padding:6px 8px; margin-top:8px;
     border:1px solid var(--border); border-radius:10px; background:var(--input-bg); color:var(--ink);
   }
+  /* Les parcours (zones/parcours/) : import cadastral, actualisation IGN, textures. */
+  .dialogueImperatif{
+    background:var(--panel-bg); color:var(--ink); padding:18px 20px; border-radius:var(--r-panneau);
+    font-family:var(--sans); box-shadow:var(--ombre-forte); font-size:0.88rem;
+  }
+  .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueTextures{ width:min(760px,94vw); height:min(600px,88vh); display:flex; flex-direction:column; }
+  .titreParcours{ font-weight:600; font-size:1.05rem; margin-bottom:10px; }
+  .sousTitreParcours{ font-size:0.8rem; opacity:0.8; margin:-6px 0 12px; line-height:1.4; }
+  .libelleChamp{ margin:12px 0 4px; }
+  .corpsParcours > .libelleChamp:first-child{ margin-top:0; }
+  .suggestionsAdresse, .listeParcelles{ margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+  .suggestionsAdresse button, .listeParcelles button{ text-align:left; font-size:0.84rem; padding:6px 8px; }
+  .listeParcelles{ gap:3px; max-height:22vh; overflow:auto; }
+  .apercuCadastre{ width:100%; height:min(46vh,340px); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--r-champ); display:block; }
+  .infoParcelle{ margin-top:10px; line-height:1.5; }
+  .titreListe{ margin-top:12px; font-weight:600; }
+  .caseParcours{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:0.82rem; cursor:pointer; }
+  .caseParcours.vide{ opacity:0.55; }
+  .resumePropriete{ margin-top:8px; font-size:0.82rem; font-weight:600; line-height:1.4; }
+  .resumePropriete.alerte, .erreurParcours{ color:var(--danger); }
+  .erreurParcours{ font-size:0.8rem; margin-top:6px; }
+  .aideParcours{ margin-top:8px; font-size:0.82rem; opacity:0.8; }
+  .barreSelection{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .listeVoisines{ margin-top:8px; display:flex; flex-direction:column; gap:3px; max-height:26vh; overflow:auto; }
+  .titreGroupe{ font-weight:600; margin-top:6px; font-size:0.82rem; }
+  .ligneVoisine{ display:flex; align-items:center; gap:10px; font-size:0.82rem; padding:2px 0; }
+  .ligneVoisine.survolee{ background:var(--accent-light); }
+  .ligneVoisine label{ display:flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; }
+  .texteVoisine{ cursor:pointer; flex:1; }
+  button.petitBouton{ font-size:0.72rem; padding:2px 7px; white-space:nowrap; }
+  .blocIgn{ margin-top:4px; display:flex; flex-direction:column; gap:3px; }
+  .detailIgn{ font-size:0.78rem; opacity:0.75; margin:-2px 0 2px 22px; }
+  .pluParcours{ font-size:0.8rem; margin-top:8px; line-height:1.45; }
+  .pluParcours .discret{ opacity:0.75; }
+  .etatParcours{ margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35; }
+  .etatParcours.erreur{ color:var(--danger); }
+  .piedDialogue{ display:flex; gap:8px; justify-content:flex-end; align-items:center; margin:14px 0 0; flex-wrap:wrap; border:none; padding:0; min-width:0; }
+  .mentionCadastre{ margin-top:12px; font-size:0.74rem; line-height:1.35; opacity:0.75; border-top:1px solid var(--border); padding-top:8px; }
+  .choixRadio{ display:flex; gap:8px; align-items:flex-start; padding:6px 0; cursor:pointer; }
+  .choixRadio input{ margin-top:3px; }
+  .aideChoix{ font-size:0.78rem; opacity:0.78; }
+  .separateurParcours{ border-top:1px solid var(--border); margin:10px 0 8px; }
+  .sousOptions{ margin:6px 0 0 26px; display:flex; flex-direction:column; gap:3px; font-size:0.82rem; }
+  .sousOptions label{ display:flex; gap:6px; align-items:center; cursor:pointer; }
+  .noteVoisinage{ margin:8px 0 0 26px; font-size:0.78rem; opacity:0.78; line-height:1.35; }
+  .sousOptions.inactives{ opacity:0.5; }
+  .noteVoisinage.inactives{ opacity:0.4; }
+  .enteteTextures{ display:flex; align-items:center; justify-content:space-between; }
+  .enteteTextures .titreParcours{ margin:0; }
+  .rechercheTextures{ padding:8px 10px; font-size:0.9rem; margin:10px 0 8px; }
+  .statutTextures{ font-size:0.78rem; color:var(--ink-soft); margin-bottom:6px; min-height:1.2em; }
+  .corpsTextures{ flex:1; display:flex; gap:12px; min-height:0; }
+  .grilleTextures{
+    flex:1.3; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+    gap:6px; align-content:start; border:1px solid var(--rule); border-radius:4px; padding:6px;
+  }
+  button.vignetteTexture{ padding:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; background:var(--panel-bg); color:var(--ink); }
+  button.vignetteTexture.choisie{ outline:3px solid var(--accent); }
+  .vignetteTexture img{ width:100%; height:64px; object-fit:cover; display:block; }
+  .vignetteTexture div{ font-size:0.66rem; padding:2px 3px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .apercuTexture{ flex:1; border:1px solid var(--rule); border-radius:4px; padding:10px; display:flex; flex-direction:column; align-items:center; text-align:center; overflow-y:auto; }
+  .apercuTexture img{ max-width:100%; border-radius:4px; margin-bottom:8px; }
+  .nomTexture{ font-weight:600; margin-bottom:4px; }
+  .noteTexture{ font-size:0.78rem; color:var(--ink-soft); margin-bottom:6px; }
+  .caseTous{ display:flex; align-items:center; gap:6px; font-size:0.82rem; margin-right:auto; cursor:pointer; }
 
   /* Z3, l'explorateur (zones/Explorateur.tsx) : une colonne entre la palette et le plan. Replie,
      il ne garde que sa poignee ; sous 1 024 px il s'escamote comme la palette. */
@@ -413,6 +484,24 @@
     min-height:160px; display:none;
   }
   .hint{font-family:var(--serif); font-style:italic; font-size:0.74rem; color:var(--ink-soft); margin-top:6px;}
+  /* Le tiroir des resultats (zones/resultats/) : chiffres alignes, notes de ligne, estimations. */
+  #tiroirPanneaux .nombre{ font-variant-numeric:tabular-nums; }
+  .noteLigne{ font-size:0.8rem; color:var(--ink-soft); }
+  #tiroirPanneaux .petit{ font-size:0.84rem; }
+  #tiroirPanneaux .unite{ font-size:0.78rem; color:var(--ink-soft); }
+  #tiroirPanneaux .discret{ opacity:0.75; }
+  #tiroirPanneaux .cleTableau{ white-space:nowrap; color:var(--ink-soft); }
+  input.saisieEstimee{ opacity:0.7; }
+  .totauxBom{ font-weight:600; font-family:var(--sans); }
+  .tailleImpression{ margin-left:14px; font-size:0.84rem; color:var(--ink-soft); }
+  /* Le plan d'implantation s'imprime : il garde le fond du papier, quel que soit le theme. */
+  .planImplantation{ background:white; border:1px solid var(--rule); max-width:100%; }
+  .reglageChantier{ margin-right:18px; font-size:0.88rem; }
+  table.attrTable tr.lignePhase, table.attrTable tr.ligneCourante{ font-weight:600; background:var(--accent-light); }
+  .texteMethode{ line-height:1.55; }
+  .formuleMethode{ text-align:center; font-size:1.05rem; margin:10px 0; }
+  .infoCote{ font-size:0.8rem; margin:6px 0; }
+  .origineCote{ display:block; font-size:0.8rem; margin:8px 0; }
   .highlightRow{background:var(--accent-light) !important;}
   .sectionTitle{
     font-family:var(--serif); font-weight:700; font-size:0.9rem; margin:12px 0 6px;
@@ -1080,8 +1169,8 @@
   }
   html[data-classe="compact"] .dialogueCadastre .piedDialogue button{ flex:1 1 auto; }
   /* Le selecteur de textures : la grille passe au-dessus de l'apercu, trois colonnes. */
-  html[data-classe="compact"] .dialogueTextures > div:nth-child(4){ flex-direction:column !important; }
-  html[data-classe="compact"] .dialogueTextures > div:nth-child(4) > div:first-child{ grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+  html[data-classe="compact"] .corpsTextures{ flex-direction:column; }
+  html[data-classe="compact"] .grilleTextures{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
   /* Les toasts au-dessus de la barre de navigation ; le bandeau d'erreur en haut, le bas etant pris. */
   html[data-classe="compact"] .notificationsToasts{ bottom:calc(var(--reserve-bas) + 12px); max-width:calc(100vw - 32px); }
   html[data-classe="compact"] .toast{ font-size:14px; border-radius:var(--r-bouton); padding:12px 16px; }
@@ -1104,6 +1193,12 @@
   .valeurReglage{ font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
   .infoSoleil{ font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px; }
   .barreSoleil{ align-items:center; margin-top:6px; flex-wrap:wrap; }
+  /* Le conteneur des deux panneaux 3D (zones/vue3d/) ne compte pas dans la mise en page. */
+  #zoneVues3d{ display:contents; }
+  .titreAvecAction{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .panneauVisionneuse{ width:98vw; max-width:1600px; margin:0 auto; }
+  .boutonGenerer{ margin-left:8px; }
+  .hoteVisionneuse{ margin-top:6px; }
   .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 380px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
   .commandes3d{ position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px; }
   .bouton3d{
@@ -1168,3 +1263,139 @@
   /* Le voile et la feuille passent au-dessus de la scene 3D, qui forme son propre contexte. */
   html[data-classe="compact"][data-feuille="reglages3d"] .vue3dPanneau, html[data-classe="moyen"][data-feuille="reglages3d"] .vue3dPanneau{ z-index:90; }
   html[data-classe="compact"][data-feuille="reglages3d"] .vue3dPanneau::before{ content:''; position:absolute; inset:0; z-index:70; background:var(--scrim); pointer-events:none; }
+
+  /* Z8, le releve de facade (zones/Releve.tsx) : un parcours plein ecran, dans les trois classes.
+     La visee se fait sur fond sombre quel que soit le theme (jetons --camera-*), le reste sur le
+     papier du document. Au-dessus de tout sauf des toasts, qui annoncent le resultat. */
+  .releve{
+    position:fixed; inset:0; z-index:9996; display:flex; flex-direction:column;
+    background:var(--panel-bg); color:var(--ink); font-family:var(--sans);
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  .releve.camera{ background:var(--camera-bg); color:var(--on-camera); }
+  .releveEntete{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--border); }
+  .releve.camera .releveEntete{ border-bottom-color:transparent; }
+  .releveTitre{ flex:1; display:flex; flex-direction:column; gap:2px; font-family:var(--serif); font-size:1.05rem; min-width:0; }
+  .releveTitre > span:last-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .releveEtape{ font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .releve.camera .releveEtape{ color:var(--on-camera); opacity:.8; }
+  .releveFermer{ min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center;
+    background:transparent; color:inherit; border:1px solid var(--rule); border-radius:var(--r-bouton); padding:0; }
+  .releve.camera .releveFermer{ border-color:var(--camera-voile); background:var(--camera-voile); }
+  .releveCorps{ flex:1; overflow:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+  .releveConsigne{ margin:0; font-family:var(--serif); font-style:italic; font-size:0.9rem; line-height:1.4; }
+  .releveNote{ margin:0; color:var(--ink-soft); font-size:0.74rem; line-height:1.4; font-variant-numeric:tabular-nums; }
+  .releve.camera .releveNote{ color:var(--on-camera); opacity:.85; }
+  .releveAvis{ margin:0; padding:8px 10px; border-left:3px solid var(--alerte); background:var(--panel-2); font-size:0.8rem; border-radius:var(--r-champ); }
+  .relevePied{ display:flex; gap:10px; justify-content:flex-end; padding:10px 16px; border-top:1px solid var(--border); }
+  .relevePied button{ min-height:44px; padding:0 18px; }
+
+  /* 1. Le mur : le contour, chaque cote une cible epaisse. */
+  .releveMur{ width:100%; max-height:46vh; min-height:220px; background:var(--stage-bg); border-radius:var(--r-panneau); }
+  .releveMurContour{ fill:var(--accent-light); stroke:var(--rule); stroke-width:1; }
+  .releveMurCote{ cursor:pointer; outline:none; }
+  .releveMurCible{ stroke:transparent; stroke-width:44; stroke-linecap:round; }
+  .releveMurTrait{ stroke:var(--ink-soft); stroke-width:4; stroke-linecap:round; }
+  .releveMurCote.releve .releveMurTrait{ stroke:var(--ok); }
+  .releveMurCote:hover .releveMurTrait, .releveMurCote:focus-visible .releveMurTrait{ stroke:var(--accent); stroke-width:7; }
+  .releveMurCote text{ fill:var(--ink); font-family:var(--sans); }
+  .releveListe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
+  .releveListe button{ min-height:44px; display:flex; justify-content:space-between; align-items:center; gap:8px; text-align:left; font-variant-numeric:tabular-nums; }
+  .releveDeja{ display:inline-flex; align-items:center; gap:4px; color:var(--ok); font-size:0.74rem; }
+
+  /* 2. La visee. La video garde toute l'image (contain) : les reperes se posent sur l'image, pas
+     sur les bandes, sinon la distance deduite serait fausse. */
+  .releveCamera{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  .releveScene{ position:relative; flex:1; overflow:hidden; background:var(--camera-bg); touch-action:none; }
+  .releveVideo{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+  .releveReperes{ position:absolute; }
+  .releveRepere{ position:absolute; touch-action:none; cursor:grab; outline:none; }
+  .releveRepere.vertical{ top:0; bottom:0; width:44px; margin-left:-22px; }
+  .releveRepere.horizontal{ left:0; right:0; height:44px; margin-top:-22px; }
+  .releveRepere::after{ content:""; position:absolute; background:var(--camera-ok); box-shadow:0 0 0 1px var(--camera-bg); }
+  .releveRepere.vertical::after{ left:21px; top:0; bottom:0; width:2px; }
+  .releveRepere.horizontal::after{ top:21px; left:0; right:0; height:2px; }
+  .releveRepere:focus-visible::after{ background:var(--on-camera); }
+  .releveRepereEtiquette{ position:absolute; font-size:0.7rem; padding:2px 6px; border-radius:999px; background:var(--camera-voile); color:var(--on-camera); white-space:nowrap; }
+  .releveRepere.vertical .releveRepereEtiquette{ top:50%; left:26px; }
+  .releveRepere.horizontal .releveRepereEtiquette{ left:12px; top:26px; }
+  .releveViseur{ position:absolute; left:50%; top:50%; width:28px; height:28px; margin:-14px 0 0 -14px; pointer-events:none;
+    border:2px solid var(--on-camera); border-radius:50%; opacity:.7; }
+  .releveMesure{ position:absolute; left:12px; right:12px; top:12px; padding:10px 12px; border-radius:var(--r-tuile);
+    background:var(--camera-voile); display:flex; flex-direction:column; gap:4px; pointer-events:none; }
+  .releveMesureLigne{ display:flex; align-items:baseline; gap:10px; }
+  .releveDistance{ font-family:var(--serif); font-size:2rem; font-variant-numeric:tabular-nums; line-height:1; }
+  .releveSource{ font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; opacity:.85; }
+  .releveConsigneCamera{ display:flex; align-items:center; gap:6px; font-size:0.85rem; }
+  .releveConsigneCamera.bon{ color:var(--camera-ok); }
+  .releveConsigneCamera.aregler{ color:var(--camera-alerte); }
+  .releveErreur{ position:absolute; left:12px; right:12px; bottom:12px; padding:10px 12px; border-radius:var(--r-tuile);
+    background:var(--camera-voile); color:var(--camera-alerte); font-size:0.85rem; }
+  .releveOutils{ padding:10px 14px 12px; display:flex; flex-direction:column; gap:8px; }
+  .releveRangee{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .releveCible{ display:flex; align-items:center; gap:8px; font-size:0.8rem; }
+  .releveCible strong{ font-variant-numeric:tabular-nums; min-width:48px; text-align:center; }
+  .releve.camera button.secondary{ background:var(--camera-voile); color:var(--on-camera); border-color:var(--camera-voile); }
+  .releve button.small{ min-height:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
+  .releveSegment{ display:inline-flex; border-radius:var(--r-bouton); overflow:hidden; border:1px solid var(--rule); background:var(--segment-bg); flex-wrap:wrap; }
+  .releveSegment button{ min-height:36px; padding:0 12px; border:0; border-radius:0; background:transparent; color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
+  .releveSegment button[aria-pressed="true"]{ background:var(--ink); color:var(--on-ink); }
+  .releve.camera .releveSegment{ border-color:var(--camera-voile); background:var(--camera-voile); }
+  .releve.camera .releveSegment button{ color:var(--on-camera); }
+  .releve.camera .releveSegment button[aria-pressed="true"]{ background:var(--on-camera); color:var(--camera-bg); }
+  .releveDeclenchement{ justify-content:space-around; }
+  .releveDeclenchement > button.secondary{ min-height:44px; min-width:96px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  .releveDeclencheur{ width:72px; height:72px; border-radius:50%; padding:0; display:inline-flex; align-items:center; justify-content:center;
+    background:var(--on-camera); color:var(--camera-bg); border:4px solid var(--camera-bg); box-shadow:0 0 0 3px var(--on-camera); }
+  .releveDeclencheur:disabled{ opacity:.5; }
+  .releveSecondaire{ justify-content:flex-start; }
+  .releveChamp{ display:inline-flex; align-items:center; gap:6px; font-size:0.74rem; }
+  .releveChamp input{ width:58px; min-height:32px; }
+
+  /* 3. Les coins : la photo avec une marge autour, pour les coins hors cadre, et une loupe. */
+  .releveCoinsZone{ position:relative; }
+  .releveCoins{ width:100%; max-height:58vh; display:block; touch-action:none; border-radius:var(--r-panneau); }
+  .releveCoinsFond{ fill:var(--camera-bg); }
+  .releveQuad{ fill:var(--zebra-hover); stroke:var(--camera-ok); stroke-width:2; }
+  .releveQuadEtiquette{ fill:var(--camera-ok); font-family:var(--sans); }
+  .releveCoinCible{ fill:var(--camera-voile); stroke:var(--camera-ok); stroke-width:2; vector-effect:non-scaling-stroke; cursor:grab; touch-action:none; }
+  .releveCoinCentre{ fill:var(--camera-ok); }
+  .releveLoupe{ position:absolute; top:8px; left:8px; width:132px; height:132px; border-radius:50%; border:3px solid var(--on-camera);
+    box-shadow:var(--ombre-forte); pointer-events:none; background:var(--camera-bg); }
+  .releveLoupeCroix{ stroke:var(--camera-ok); stroke-width:1; }
+  .releveChamps{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; }
+  .releveCm{ display:inline-flex; align-items:center; gap:8px; font-size:0.78rem; }
+  .releveCm > span:first-child{ color:var(--ink-soft); }
+  .releveCm input{ width:84px; min-height:36px; font-variant-numeric:tabular-nums; }
+  .releveCm select{ min-height:36px; }
+
+  /* 4. L'analyse. */
+  .releveAnalyse{ align-items:center; justify-content:center; text-align:center; }
+  .releveAnalyse ul{ margin:0; padding:0; list-style:none; color:var(--ink-soft); font-size:0.85rem; line-height:1.8; }
+  .releveSablier{ width:44px; height:44px; border-radius:50%; border:4px solid var(--accent-light); border-top-color:var(--accent);
+    animation:releveTourne 1s linear infinite; }
+  @keyframes releveTourne{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .releveSablier{ animation:none; } }
+
+  /* 5. Le resultat : l'elevation a l'echelle, les ouvertures comme des cadres a saisir. */
+  .releveElevation{ width:100%; max-height:52vh; display:block; touch-action:none; background:var(--stage-bg); border-radius:var(--r-panneau); }
+  .releveElevationCadre{ fill:none; stroke:var(--rule); stroke-width:1; }
+  .releveOuverture rect{ fill:transparent; stroke:var(--camera-ok); stroke-width:2; cursor:move; }
+  .releveOuverture.choisie rect{ stroke:var(--accent); stroke-width:3; fill:var(--zebra-hover); }
+  .releveOuverture text{ fill:var(--on-camera); font-family:var(--sans); font-variant-numeric:tabular-nums;
+    paint-order:stroke; stroke:var(--camera-bg); }
+  .relevePoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2; vector-effect:non-scaling-stroke; cursor:nwse-resize; }
+  .releveBarre{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .releveFiche{ display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .releveFiche > button{ align-self:flex-start; }
+  .releveToit{ display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:1px solid var(--hairline); }
+  .releveSousTitre{ font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .releveCase{ display:inline-flex; align-items:center; gap:8px; font-size:0.85rem; min-height:36px; }
+  .releveCase input{ width:20px; height:20px; }
+
+  /* Dans le module natif iOS, la camera AR est SOUS la vue web : la page s'efface pendant la visee
+     pour la laisser voir, et seule la surimpression du releve reste. */
+  html.releveNatif, html.releveNatif body{ background:transparent; }
+  html.releveNatif body > *:not(#zoneReleve){ visibility:hidden; }
+  html.releveNatif .releve.camera, html.releveNatif .releveScene{ background:transparent; }
+  html.releveNatif .releve.camera .releveEntete, html.releveNatif .releveOutils{ background:var(--camera-voile); }

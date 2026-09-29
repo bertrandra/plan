@@ -5,6 +5,176 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [2.2.0] — 2026-09-29
+
+### Ajouté
+
+- **Le relevé de façade.** On sélectionne un bâtiment, on choisit un de ses murs, le téléphone le
+  photographie, et Plan en tire, **dans le navigateur, sans serveur** : l'élévation redressée à
+  l'échelle, les **ouvertures** (fenêtres, portes-fenêtres, portes, garages) avec leurs **cotes au
+  centimètre**, et la **forme du toit** (plat, appentis, deux ou quatre pans) avec la hauteur de son
+  faîtage. La photo est posée sur le mur **et sur son pignon** en 3D, les ouvertures y ont un
+  encadrement en relief, le toit coiffe le bâtiment ; sur le plan, les baies du rez-de-chaussée
+  coupent le trait du mur comme sur un plan d'architecte. Spécification :
+  [`MD/spec-releve-facade.md`](MD/spec-releve-facade.md).
+
+  Le parcours tient en cinq temps, plein écran dans les trois classes d'écran : choisir le mur sur le
+  contour, **se placer** — distance au mur, consigne pour atteindre la **distance cible (3 m par
+  défaut)**, aplomb du téléphone —, placer les quatre coins (proposés d'après la distance, avec une
+  loupe, et qui peuvent déborder de la photo), analyse, vérification. Tout se corrige au doigt, rien
+  n'est écrit avant « Valider », qui écrit en un seul pas d'historique.
+
+  **La distance vient de la meilleure source disponible** : le **LiDAR** de l'iPhone par le nouveau
+  module natif (`native/ios/`, voir plus bas), la réalité augmentée WebXR sur Android, et partout
+  ailleurs la taille connue du mur rapportée à sa taille dans l'image. Une photo importée donne sa
+  focale exacte par son EXIF.
+
+- **Plan Capture, le module natif iOS** (`native/ios/`). Safari ne donne pas accès au LiDAR : une
+  application minimale héberge Plan tel quel dans une vue web transparente posée sur une vue ARKit,
+  envoie la profondeur mesurée au centre de l'image dix fois par seconde, et prend la photo avec la
+  focale exacte de l'objectif. Plan le détecte seul ; rien ne change pour le navigateur. **Les sources
+  Swift n'ont pas été compilées** (écrites sans Xcode) — le README dit quoi vérifier en premier.
+
+- **Section « Façades et toit » dans l'inspecteur d'un bâtiment** : une ligne par mur (orientation,
+  longueur, ouvertures relevées, Relever / Refaire / Retirer) et les champs du toit — forme, hauteur
+  du faîtage avec sa pente, direction du faîtage, couverture. Deux commandes, `facade.relever` et
+  `facade.retirer`, placées dans les trois classes d'écran.
+
+### Modifié
+
+- **Le schéma du projet passe à 2** (`RELEASE.md` §3.1) : un bâtiment peut porter `facades` et
+  `toit`. Ils ne sont écrits que s'ils existent, donc un projet sans relevé garde exactement sa forme.
+  Un fichier de schéma 1 s'ouvre sans migration ; un fichier de schéma 2 est refusé par la `2.1.0`,
+  qui en perdrait les relevés au premier enregistrement.
+- Quatre jetons de couleur pour la scène de prise de vue (`--camera-bg`, `--on-camera`,
+  `--camera-ok`, `--camera-alerte`), identiques dans les deux thèmes : une caméra se regarde sur
+  fond sombre. Leurs contrastes sont vérifiés par le test des jetons.
+
+### Interne
+
+- **Les six témoins sont recapturés à la `2.2.0`, avec la preuve forte** : ancien numéro,
+  ancienne date de build et ancien numéro de schéma remis dans les octets frais, les six empreintes
+  de la `2.0.2` reviennent au bit près, à tailles identiques. Le relevé de façade — et la `2.1.0`,
+  que la dernière capture n'avait pas vue — n'ont déplacé aucun octet exporté.
+- 791 tests (55 de plus) : géométrie des façades, cadrage, homographie, redressement d'une photo
+  synthétique en perspective, ouvertures au centimètre, pignon reconnu et faîtage orienté, EXIF,
+  sérialisation conditionnelle, mailles et coordonnées de texture 3D.
+
+Alignement sur l'architecture (`MD/architecture.md`). **Aucun changement de comportement hors les
+défauts corrigés ci-dessous** : le moteur n'est que déplacé, l'oracle et les six empreintes ne
+bougent pas.
+
+### Modifié (depuis la 2.1.1)
+
+- **Le tiroir des résultats est en React** (`zones/resultats/`) : nomenclature et débits, coupe,
+  implantation, chantier, méthode, cotes, PLU et résumé, plus le tableau d'optimisation de
+  l'inspecteur. Les panneaux gardent leurs identifiants et leurs textes. `ui/terrassePanels.ts`,
+  `ui/mesurePanel.ts` et `ui/tables.ts` disparaissent ; le balisage des panneaux quitte `index.html`.
+- **Le chiffrage refait par le tiroir ne dépend plus de l'onglet ouvert** : `construction.bom`
+  s'écrit au rafraîchissement (`app/resultats.ts`), jamais pendant un rendu.
+
+- **La Vue 3D et la visionneuse sont en React** (`zones/vue3d/`) : réglages, soleil, points de vue,
+  boutons de caméra, plein écran. La scène reste du WebGL natif ; son hôte s'enregistre dans
+  `three/etat3d.ts` (`hotes3d`), et `three/` ne lit ni n'écrit plus aucun identifiant de la page :
+  il publie ce que les panneaux affichent (`affichage3d`, `signaler3d`). Leur balisage quitte
+  `index.html`, `app/ecouteurs/cloture.ts` disparaît, le registre des commandes ne lie plus
+  d'élément du DOM (`lier`, `bouton`).
+
+- **Les trois parcours du Z8 sont en React** (`zones/Parcours.tsx`, `zones/parcours/`) : import
+  cadastral en trois étapes, actualisation IGN, choix d'une texture. Leur logique quitte `ui/` :
+  `app/importCadastre.ts` (l'état et les gestes de l'import, sans DOM), `app/actualisationIgn.ts`,
+  `io/polyhaven.ts`. Un seul parcours ouvert à la fois (`app/parcours.ts`), fermé par Échap ou le
+  voile. `ui/cadastreDialog.ts` (dont une fonction de 766 lignes), `ui/projectBar.ts` et
+  `ui/texturePicker.ts` disparaissent ; les styles en ligne deviennent des classes à jetons.
+- **« Actualiser IGN » se grise pendant une actualisation** au lieu de réécrire le libellé du bouton
+  qui l'avait lancée ; la commande ne dépend plus d'un bouton source.
+
+### Corrigé (depuis la 2.1.1)
+
+- **D-16 : les saisies du tiroir s'annulent et marquent le projet modifié** — prix réels, prix par
+  barre et au m², longueurs achetables, prix des vis et des plots, conditionnement, équipe, heures,
+  cadences, échelle d'implantation, et toutes les actions du panneau Cotes. Elles passent toutes par
+  `app/resultats.ts`.
+- **Générer un .glb ne réécrit plus le texte du bouton qui l'a lancé.** C'était un bouton React (menu
+  Exporter, visionneuse) : réécrire son texte détruisait des nœuds que React croyait à lui.
+  L'opération en cours se publie (`affichage3d.generation`) et les boutons la lisent.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
+
+### Modifié (architecture) (depuis la 2.1.1)
+
+- **Plus aucune fonction de plus de 150 lignes** (FF-10 sans exception) : `construirePDF`,
+  `objetsDepuisCadastre` et `brancherPointeur` se découpent en fonctions nommées — une par
+  morceau de page, par famille d'objets importés, par poignée. Le cliquet de onze fichiers ouvert
+  le 27 septembre est vide.
+- **Les exports sont regénérés à chaque `npm test`** (FF-4) : SVG, DXF, résumé, plan PDF et
+  dossier PDF sortent du code et se comparent aux témoins. Le test d'avant hachait seulement les
+  fichiers témoins. Premier passage : les cinq identiques.
+- **`objetsDepuisCadastre` a un témoin** (`tests/fixtures/golden/cadastre-objets.json`) : un
+  import complet figé — propriété fusionnée, limite interne, voisine, bâti, haie, végétation,
+  arbres estimés, PLU — dont la sortie doit rester identique.
+- **Intégration continue** (`.github/workflows/ci.yml`) : types, lint, cliquet, client de la
+  plateforme, tests, build, absence de secret dans le fichier livré et budget de 5 Mo (FF-5), sur
+  chaque demande de fusion et chaque poussée sur `main`. Jusqu'ici, ces vérifications ne tournaient
+  que chez qui pensait à les lancer.
+- **Le moteur n'a plus d'import circulaire** (FF-1). `construction`, `bom`, `debit`, `structure` et
+  `layers` s'importaient en quatre boucles. Trois modules en sortent, sans retouche du code :
+  `engine/portees.ts` (sections, portées, charges), `engine/prix.ts` (prix et longueurs de stock) et
+  `engine/optimisation.ts` (l'optimiseur de structure).
+- **`tests/unit/architecture.test.ts` lit toutes les formes d'import** : sur plusieurs lignes, les
+  re-exports, `import()` et les chemins `../../`. Les modules des sous-dossiers échappaient jusqu'ici
+  à la règle des couches. Le même fichier vérifie maintenant l'absence de cycle.
+- **ESLint porte FF-9 et FF-10** : aucun `any` dans `model`, `engine` et `geometry`, et aucune
+  fonction de plus de 150 lignes, avec un cliquet par fichier pour les onze qui en ont déjà une.
+- **`boot()` n'est plus une fermeture de mille lignes** : ses enveloppes rejoignent
+  `app/assemblage/` par famille (surface et calques, dessin, affichage, cadrage, cotes, gestes, vues
+  3D, exports), et `boot.ts` les compose en cinq fonctions. L'ordre d'enregistrement des écouteurs et
+  d'empilement des calques est inchangé ; la liste de fumée se joue à l'identique avant et après. Le
+  cliquet FF-10 passe de sept fichiers à quatre, aux plafonds abaissés.
+- **`buildThreeScene` passe de 629 lignes à moins de 100** (D-12) : les briques de la scène vont dans
+  `three/primitives.ts`, et la scène se compose de fonctions nommées. Les rendus de la Vue 3D sont
+  identiques octet pour octet.
+- **Plus aucune assertion `!` dans `src/`** (506 → 0), et ESLint le garde
+  (`@typescript-eslint/no-non-null-assertion`). Un indice qu'on sait valide se lit par `au`
+  (`util/tableaux.ts`) ou `sommetDe`, qui lèvent une `RangeError` nommée là où `!` laissait passer
+  `undefined` ; les tables du moteur par des lecteurs qui nomment leur repli (`essenceDe`,
+  `supportDe`, `dimsSection`, `raideurDe`) ; le glisser en cours est une union discriminée.
+- **Les assertions `!` des défauts D-4 à D-11 disparaissent**, et avec elles les trois derniers
+  `as unknown as` : `geometry/anneau.ts` lit un sommet d'un contour fermé, `util/date.ts` une date
+  `AAAA-MM-JJ`, `io/importSvg.ts` ses attributs par des lecteurs nommés ; `Anneau` est un tableau de
+  positions GeoJSON typées.
+- **« Copier le résumé » est une commande** (`export.copierResume`) et non plus un clic simulé sur un
+  bouton d'un autre panneau.
+- **D-17 : « Enregistrer la vue comme point de vue » exige le droit d'écrire** : en lecture seule, la
+  commande est grisée, avec le motif, comme toute écriture.
+- **D-18 : le double toucher ne recule plus un objet en lecture seule**, comme le double-clic.
+- **D-19 : l'export GLB ne tombe plus quand une texture n'a pas pu se charger** (hors ligne, Poly
+  Haven injoignable) : ces objets partent en couleur unie, et un message dit combien.
+- **D-2 : un export GLB sans scène 3D dit pourquoi** — le navigateur a refusé WebGL — au lieu de
+  « Cannot read properties of null ».
+- **`node scripts/fumee.mjs <adresse>` joue contre l'adresse donnée** : l'argument n'atteignait pas
+  `captures.mjs`, qui ouvrait toujours `localhost:5199`.
+- **D-4 à D-11 : une donnée mal formée est refusée au lieu de passer en `undefined` ou `NaN`.** Une
+  date illisible ne fait plus lever le curseur de semaine ni poser le soleil en `NaN` ; un point
+  « x,y » incomplet d'un SVG importé est écarté ; un indice de côté ou de sommet hors de la forme ne
+  l'édite pas ; un objet sans couleur est blanc en 3D sans avertissement de Three.
+ : React et Zustand
+  pour les zones, le plan et les gestes restent en DOM natif. `architecture.md` gagne une carte des
+  modules au 27 septembre (§5.2.3), et §9 dit quelles fonctions d'aptitude tournent réellement.
+
 ## [2.1.1] — 2026-09-26
 
 Mise en conformité de l'interface avec la maquette de la `2.1.0`. Une revue écran par écran, sur

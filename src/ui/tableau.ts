@@ -6,9 +6,9 @@
 // module ne fait que poser, sur chaque cellule, le nom de sa colonne (`data-label`), lu dans la
 // ligne d'en-tete.
 //
-// Il ne touche ni aux calculs ni aux ecouteurs des panneaux (tables.ts, terrassePanels.ts,
-// mesurePanel.ts) : les cellules editables le restent, dans la carte comme dans le tableau. Il
-// passe apres eux, a chaque fois qu'ils redessinent un tableau.
+// Il ne touche ni aux calculs ni aux saisies des panneaux (zones/resultats/) : il n'ecrit que des
+// attributs que React ne gere pas (`data-label`, une classe de mise en page), et passe apres chaque
+// rendu. Les cellules editables le restent, dans la carte comme dans le tableau.
 
 /** Pose le nom de colonne sur chaque cellule des tableaux du conteneur. */
 export function etiqueterTableaux(racine: ParentNode): void {

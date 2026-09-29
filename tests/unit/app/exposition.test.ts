@@ -26,7 +26,7 @@ function fichiers(dossier: string): string[] {
  * `surClic` qui prennent l'element avant l'identifiant.
  */
 function commandesDeclarees(): string[] {
-  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu)\.[A-Za-z0-9.]+)'/g;
+  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade).[A-Za-z0-9.]+)'/g;
   const ids = new Set<string>();
   for (const f of fichiers('src/app').filter((f) => f.endsWith('.ts'))) {
     const texte = lire(f);
@@ -36,7 +36,7 @@ function commandesDeclarees(): string[] {
 }
 
 /** Les fichiers dont le code doit nommer la commande pour qu'un emplacement soit vrai. */
-const SOURCES: Record<Exclude<Emplacement, `html:${string}` | 'sansObjet'>, string[]> = {
+const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   palette: ['src/zones/Palette.tsx'],
   rail: ['src/zones/Palette.tsx'],
   feuilleOutils: ['src/zones/Palette.tsx'],
@@ -51,6 +51,9 @@ const SOURCES: Record<Exclude<Emplacement, `html:${string}` | 'sansObjet'>, stri
   selection: ['src/zones/FeuilleSelection.tsx'],
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
   explorateur: ['src/zones/Explorateur.tsx'],
+  tiroir: ['src/zones/Resultats.tsx', ...fichiers('src/zones/resultats')],
+  vue3d: ['src/zones/vue3d/Vue3d.tsx'],
+  visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts']
 };
@@ -88,17 +91,11 @@ describe('la carte d exposition des commandes', () => {
   });
 
   it('ne cite que des emplacements dont le code nomme bien la commande', () => {
-    const html = lire('index.html');
     const faux: string[] = [];
     for (const [id, ligne] of Object.entries(EXPOSITION)) {
       for (const classe of CLASSES) {
         for (const e of ligne[classe]) {
           if (e === 'sansObjet') continue;
-          if (e.startsWith('html:')) {
-            const idDom = e.slice(5);
-            if (!html.includes('id="' + idDom + '"')) faux.push(id + ' : #' + idDom + ' absent d\'index.html');
-            continue;
-          }
           const sources = SOURCES[e as keyof typeof SOURCES];
           const trouve = sources.some((f) => existsSync(resolve(racine, f)) && lire(f).includes('\'' + id + '\'') || existsSync(resolve(racine, f)) && lire(f).includes('"' + id + '"'));
           if (!trouve) faux.push(id + ' en ' + classe + ' : ' + e + ' (' + sources.join(', ') + ') ne la nomme pas');

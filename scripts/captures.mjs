@@ -29,7 +29,11 @@ try {
 }
 
 const principalLance = import.meta.url === 'file://' + process.argv[1];
-const BASE = (principalLance && process.argv[2]) || process.env.PLAN_URL || 'http://localhost:5199';
+// Les deux scripts prennent l'adresse en premier argument : `fumee.mjs` importe ce module, et son
+// argument doit valoir ici aussi — sans quoi `node scripts/fumee.mjs http://localhost:5200` jouait
+// en silence contre le 5199.
+const argUrl = process.argv[2] && /^https?:\/\//.test(process.argv[2]) ? process.argv[2] : null;
+const BASE = argUrl || process.env.PLAN_URL || 'http://localhost:5199';
 const SORTIE = resolve((principalLance && process.argv[3]) || 'tests/captures');
 const PLATEFORME = 'http://plateforme.test';
 

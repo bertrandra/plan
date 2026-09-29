@@ -198,3 +198,45 @@ export interface PointDeVue {
   pts?: ObjetAPoints['pts'] | undefined;
   altitude?: ObjetPlan['altitude'] | undefined;
 }
+
+/** Ce qui fait avancer le glisser a un seul doigt dans la Vue 3D. */
+export type Mode3D = 'orbit' | 'pan' | 'zoom';
+
+/** L'aide de la Vue 3D avant le premier choix de mode : le texte d'origine du panneau. */
+export const INDICATION_3D_DEFAUT = 'Glisser = tourner, molette ou boutons +/− = zoom, clic droit + glisser = deplacer. Les boutons orbite / deplacer / zoom changent ce que fait le glisser a un seul doigt — pratique sur tablette. Les points de vue se posent et se renomment sur le plan (outil « Point de vue »), ou avec « Enregistrer la vue comme point de vue ». Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).';
+
+/**
+ * Ce que les panneaux des deux vues (zones/vue3d/) montrent de l'etat de la 3D : le chargement, la
+ * position du soleil en clair, l'aide du mode de glisser, le plein page.
+ *
+ * `three/` ne touche plus au balisage : il pose ces champs et le signale (`signaler3d`), les zones
+ * relisent. C'est la meme forme que le magasin (app/magasin.ts), sans que `three/` depende de `app/`.
+ */
+export const affichage3d = {
+  /** La Vue 3D : fermee, en attente de la bibliotheque, ou prete (la scene est dans son hote). */
+  vue3d: 'ferme' as 'ferme' | 'chargement' | 'pret',
+  indication3d: INDICATION_3D_DEFAUT,
+  mode: 'orbit' as Mode3D,
+  /** « Soleil a 32° au-dessus de l'horizon, plein sud », ou vide avant la premiere scene. */
+  soleilInfo: '',
+  pleinePage3d: false,
+  /** La visionneuse : aucun modele, chargement, ou modele affiche. */
+  glb: 'vide' as 'vide' | 'chargement' | 'pret',
+  indicationGlb: '',
+  pleinePageGlb: false,
+  /** Un .glb en cours de production : pour le telecharger (`export`) ou pour la visionneuse. */
+  generation: null as null | 'export' | 'generation'
+};
+
+/**
+ * Les elements qui recoivent le canvas de chaque vue. Les zones les enregistrent en se montant ;
+ * `three/` y dessine sans les chercher par identifiant.
+ */
+export const hotes3d: { vue3d: HTMLElement | null; glb: HTMLElement | null } = { vue3d: null, glb: null };
+
+let version = 0;
+const abonnes = new Set<() => void>();
+/** Dit aux zones que `affichage3d` (ou un reglage de `vue3d`, `glb`, `soleilVue3d`) a change. */
+export function signaler3d(): void { version++; abonnes.forEach(f => f()); }
+export function abonner3d(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
+export const version3d = (): number => version;

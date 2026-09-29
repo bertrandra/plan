@@ -100,7 +100,7 @@ The four drivers, expressed as scenarios with numbers. A scenario without a numb
 | QA-P3 | User drags a vertex on a 12-object plan | sustained **60 fps**; ≥ 30 fps at 100 objects | rAF-coalesced redraw; drag-time partial update (§4.3 — a known gap today) |
 | QA-P4 | User changes a terrace parameter (50 m², plots + joists) | full recompute **< 150 ms** | Synchronous pure engine; memoised structure between BOM and débit passes |
 | QA-P5 | User opens the 3D view | scene ready **< 2 s** on 4G; **0 bytes** downloaded for tenants without `view.3d` | Dynamic `import()` behind `can()`; three.js from CDN, cached |
-| QA-P6 | First visit, cold cache | artefact **≤ 1.2 MB**, TTI **< 3 s** on 4G | Single-file budget in CI; gated regions code-split out of the main bundle |
+| QA-P6 | First visit, cold cache | artefact **≤ 5 MB** (1.2 MB before React, ADR-16), TTI **< 3 s** on 4G | Single-file budget in CI; gated regions code-split out of the main bundle |
 | QA-P7 | Cadastre import with full neighbourhood | **< 6 s** end to end | Parallel fan-out to API Carto + WFS; per-call timeouts; partial results usable |
 | QA-P8 | Session bootstrap (every page load) | p95 **< 20 ms**, < 2 ms cached | Resolved feature set cached in T5, invalidated on entitlement/role/branding change |
 
@@ -370,6 +370,77 @@ in `three/`. `ObjetPlan` became a discriminated union on 21 September (`1.1.0-al
 `model/formes.ts` holds the named guards. The UI decomposition is post-migration work, and it does
 not change the layer picture above.
 
+### 5.2.3 Module map, as built — 27 September 2026
+
+Taken at `2.1.1`, one week after §5.2.2, and updated the same day once the last `ui/` panels had
+moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **190 modules, about
+23 800 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
+tokens in `jetons.ts`) sit outside the layers.
+
+| Layer | Folder | Modules | Lines | What it holds |
+|---:|---|---:|---:|---|
+| 0 | `shell/` | 5 | 349 | `dialogs` · `dialogues` · `dom` · `download` · `notifications` |
+| 0 | `util/` | 5 | 154 | `date` · `escape` · `format` · `semaine` · `tableaux` |
+| 1 | `geometry/` | 11 | 892 | `alignement` · `angles` · `anneau` · `basic` · `path` · `polygon` · `proximite` · `rect` · `rings` · `segments` · `vue` |
+| 2 | `model/` | 14 | 1 307 | `cles` · `creation` · `defaults` · `demo` · `dictionnaire` · `etiquettes` · `formes` · `lieu` · `mesures` · `normalisation` · `sommets` · `types` · `units` · `version` |
+| 2 | `plateforme/` | 6 | 743 | `capacites` · `config` · `contexte` · `contrat` (generated) · `global.d` · `session` |
+| 3 | `engine/` | 14 | 2 013 | `bom` · `chantier` · `constantes` · `construction` · `debit` · `hauteurs` · `implantation` · `lames` · `layers` · `optimisation` · `parasol` · `portees` · `prix` · `structure` |
+| 3 | `geo/` | 6 | 993 | `apiIgn` · `bdtopo` · `cadastreObjets` · `constantesCadastre` · `projection` · `soleil` |
+| 4 | `core/` | 4 | 385 | `contexteTerrasse` · `historique` · `history` · `state` |
+| 4 | `io/` | 8 | 1 021 | `api` · `depotPlateforme` · `exportProjet` · `importSvg` · `polyhaven` · `projet` · `serialisation` · `validation` |
+| 4 | `render/` | 12 | 1 494 | `decor` · `empilement` · `grille` · `measures` · `objects` · `ortho` · `parasolOverlay` · `pipeline` · `svg` · `terrasseCouches` · `theme` · `vues` |
+| 4 | `export/` | 8 | 1 144 | `dossierPdf` · `dxf` · `dxfPlan` · `pdf/writer` · `pdfPlan` · `resume` · `separateurs` · `svgPlan` |
+| 4 | `three/` | 11 | 2 080 | `chargeurs` · `etat3d` · `exportGlb` · `gardes` · `glbViewer` · `global.d` · `lumiere` · `navigation` · `primitives` · `scene` · `soleilVue3d` |
+| 4 | `interaction/` | 6 | 903 | `drag` · `editing` · `navigation` · `outilAlignement` · `outilMesure` · `pointeur` |
+| 5 | `ui/` | 6 | 1 165 | `champs/` (`construction` · `objet` · `types`) · `chiffrage` · `cloture` · `tableau` |
+| 6 | `app/` | 38 | 4 700 | `acces` · `actualisationIgn` · `atelier` · `boot` · `classe` · `clavier` · `commandes` · `dossier` · `explorateur` · `exposition` · `importCadastre` · `inspecteur` · `magasin` · `modes` · `parcours` · `porte` · `premierPas` · `projet` · `resultats` · `tiroir` · `assemblage/` (`affichage` · `cadrage` · `dessin` · `exports` · `formes` · `gestes` · `mesures` · `surface` · `vues3d`) · `ecouteurs/` (nine listener groups) |
+| 6 | `zones/` | 36 | 4 443 | `BarreApplication` · `BarreEtat` · `BarreNavigation` · `Dialogues` · `Explorateur` · `FeuilleSelection` · `Inspecteur` · `Notifications` · `Palette` · `Parcours` · `Porte` · `PremierPas` · `Resultats` · `Surimpression` · `icones` · `monter` · `statut` · `composants/` (`BoutonCommande` · `Feuille` · `Saisie`) · `parcours/` (`Actualisation` · `ChoixTexture` · `ImportCadastre`) · `resultats/` (eleven panels) · `vue3d/` (`Vue3d` · `Visionneuse` · `communs`) |
+
+**What changed since 20 September.**
+
+- **`plateforme/` is a layer-2 folder.** It describes the backprod contract (`contrat.ts` is generated
+  by `npm run contrat`, and `gate:client` checks it) and holds the session. It sits at the same rank
+  as `model/`: one says what the platform promises, the other what a plan is. It is not held to
+  the purity rule, because `session.ts` does network I/O. That I/O goes through a `fetch` passed in
+  as a parameter, so its tests need no network.
+- **`zones/` is the React layer** (ADR-16, superseding ADR-2) at level 6 beside `app/`. `app/` grew from
+  13 to 25 modules as the command table, the store bridge and the gate (`porte`, `acces`) arrived.
+- **`engine/` has no import cycles** (FF-1). `construction`, `bom`, `debit`, `structure` and `layers`
+  used to import from each other in four loops. Three modules were extracted, without changing the
+  code they carry: `portees` (sections, spans, load constants), `prix` (prices and stock lengths)
+  and `optimisation` (the structure optimiser, which needs `layers`, which needs `structure`). The
+  engine oracle is unchanged.
+
+- **No panel is built by hand in the DOM any more** (27 September, evening). The results drawer
+  (`zones/resultats/`, closing D-16), the two 3D settings panels (`zones/vue3d/`) and the three
+  multi-step dialogs (`zones/parcours/`, Z8) are React components. Each writes through one service
+  in `app/` — `resultats`, the `Reglages*` objects the listener groups return, and the dialog
+  controllers `importCadastre` and `actualisationIgn` behind `parcours`. `ui/` keeps only the
+  field descriptors and three pure helpers; `three/` no longer looks up a DOM id and takes its
+  settings as parameters. `app/exposition.ts` has no `html:` placement left.
+- **`boot()` is a composition, not a closure.** Its sixty wrappers moved to `app/assemblage/` by
+  family (the SVG surface and its layers, drawing, display toggles, framing, measures, edits, the
+  two 3D views, exports), and `boot.ts` composes them in five functions, none over 150 lines. The
+  order in which listeners are registered and SVG layers are appended is unchanged, and the smoke
+  list plays the same before and after. The FF-10 ceiling list is gone: every function in `src/` is under 150 lines, `buildThreeScene`,
+  `construirePDF`, `objetsDepuisCadastre` and `brancherPointeur` included (`three/primitives.ts`
+  holds the scene's bricks).
+- **No non-null assertion is left in `src/`** (506 on 27 September, 0 on the 28th), and
+  `@typescript-eslint/no-non-null-assertion` keeps it that way. An index the code knows to be valid
+  is read through `util/tableaux.ts` (`au`) or, on a closed ring, `geometry/anneau.ts` (`sommetDe`):
+  both throw a named `RangeError` where `!` let `undefined` through. Catalogue lookups go through
+  accessors that name their fallback (`essenceDe`, `supportDe`, `dimsSection`, `raideurDe`); the
+  arrays alongside the vertices through `gelsDe`, `nomsSommetsDe`, `nomsCotesDe`; the drag gesture
+  is a discriminated union. D-4 to D-11 are closed, and no `as unknown as` remains in `src/`.
+
+**The dependency rules, as enforced now.** `tests/unit/architecture.test.ts` reads every import form
+in the code base: multi-line imports, `export … from`, side-effect imports, dynamic `import()`,
+and paths of any depth. The §5.2.2 version only matched `from '../x/'` on one line, so files in
+`app/ecouteurs/`, `ui/champs/`, `export/pdf/` and `zones/composants/` (which write `../../x/`) were
+never checked. A self-test pins the parser to real modules for each form. The same file now
+carries FF-1: the graph of value imports must be acyclic. Type-only imports are erased at build
+time and don't count. Dynamic imports are resolved after load and don't count either.
+
 ### 5.3 Data view
 
 Five tiers, per `spec-data-strategy.md`:
@@ -572,20 +643,29 @@ P6 in practice. Each runs in CI and fails the build. This is what makes the word
 
 | # | Fitness function | Protects | Mechanism |
 |---|---|---|---|
-| FF-1 | No import cycles | layering | `import/no-cycle`, error |
-| FF-2 | `engine/**`, `geometry/**`, `model/**` import nothing from `ui`, `render`, `three`, `geo`, `persistence`, or the DOM | P2, QA-F4 | `no-restricted-imports` + dependency-cruiser rule |
+| FF-1 | No import cycles | layering | Acyclic value-import graph, `tests/unit/architecture.test.ts` |
+| FF-2 | `engine/**`, `geometry/**`, `model/**` import nothing from `ui`, `render`, `three`, `geo`, `persistence`, or the DOM | P2, QA-F4 | Layer rule and purity rule, `tests/unit/architecture.test.ts` |
 | FF-3 | No query selects `projects.data` without a single-row predicate | QA-P1 | Query-log assertion in the integration suite |
-| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | Fixture diff, release gate |
-| FF-5 | Bundle ≤ 1.2 MB; no gated module in the main chunk | QA-P6, QA-P5 | Rollup output analysis |
+| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | `tests/unit/export/regeneration.test.ts` regenerates five of the six exports from the code and compares them to the fixtures |
+| FF-5 | Bundle ≤ 5 MB (ADR-16); no gated module in the main chunk | QA-P6, QA-P5 | Rollup output analysis |
 | FF-6 | `FeatureKey` union matches the seeded catalog exactly | QA-F2 | Drift test against the DB |
 | FF-7 | Every entitlement-gated route has a 403-without-entitlement test | QA-Q4 | Route registry × test registry reconciliation |
 | FF-8 | RLS enabled on every tenant-scoped table | ASR-4 | `pg_class.relrowsecurity` introspection test |
-| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | ESLint, scoped |
-| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function`, ratcheted after Phase 7 |
+| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js`; inline `eslint-disable` refused in those folders |
+| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function` in `eslint.config.js`, no exception |
 | FF-11 | Every `SCHEMA_VERSION` has a migration and an N/N+1 fixture | ASR-2 | Test enumerating the chain |
 | FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging |
 | FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check |
 | FF-14 | Engine benchmark: full terrace recompute < 150 ms | QA-P4 | Vitest bench, threshold |
+
+**What runs today (28 September 2026).** FF-1, FF-2 and FF-4 run with `npm test`, FF-9 and FF-10
+with `npm run lint`, and FF-5 (the 5 MB budget) as a size check on the built file. All of them run
+in CI (`.github/workflows/ci.yml`) on every pull request and every push to `main`, together with the
+type check, the strictness ratchet, the generated-client gate and the no-secret check on the
+shipped file. The others (FF-3, FF-6 to FF-8 and FF-11 to FF-14) are not yet wired to anything.
+Most of them wait on parts of the system Plan now takes from the backprod platform (§5.4). The
+browser smoke list (`scripts/fumee.mjs`) is not in CI: several of its points need the cadastre,
+IGN and Poly Haven services.
 
 A fitness function that fires often and is routinely overridden is worse than none — it teaches the team that the build lies. Each one above is either fixable in minutes or genuinely wants a design conversation.
 
@@ -596,7 +676,7 @@ A fitness function that fires often and is routinely overridden is worse than no
 | ADR | Decision | Alternative rejected | Driver |
 |---|---|---|---|
 | ADR-1 | TypeScript migration in place, module by module | Rewrite; framework adoption | ASR-1 (golden-file adjudication is only possible in place) |
-| ADR-2 | No UI framework; SVG + direct DOM | React / Svelte | Regression attributability; QA-P3 is about draw strategy, not virtual DOM |
+| ADR-2 | ~~No UI framework; SVG + direct DOM~~ — *superseded by ADR-16* | React / Svelte | Regression attributability; QA-P3 is about draw strategy, not virtual DOM |
 | ADR-3 | Node + TypeScript API | Keep PHP; Go; Python | P2 — server-side engine reuse at zero cost (QA-F4) |
 | ADR-4 | Single-file client artefact preserved | Conventional multi-asset SPA | ASR-3 |
 | ADR-5 | PostgreSQL, single instance | Mongo; S3-as-database; sharding | 5 GB at target scale; RLS and jsonb both needed |
@@ -610,6 +690,7 @@ A fitness function that fires often and is routinely overridden is worse than no
 | ADR-13 | Optimistic locking on `row_version` | Last-write-wins; pessimistic locks | Whole-document writes make silent loss the default |
 | ADR-14 | Full-copy version history | Diffs; none | ~7 KB per save; one-step restore |
 | ADR-15 | Audit partitioned from day one | Single table | Cannot be retrofitted cheaply |
+| ADR-16 | React + Zustand for the interface zones; plan and gestures stay native DOM ([`docs/adr/0016`](../docs/adr/0016-react-and-zustand-for-the-zones.md)) | Keep hand-built panels (ADR-2) | One state and one command table for nine zones; touch acceptance |
 
 Each ADR gets its own file under `docs/adr/NNNN-*.md` in the Nygard format, with status (`proposed` / `accepted` / `superseded`). An ADR is never edited after acceptance — it is superseded by a new one, so the reasoning history survives.
 

@@ -1,0 +1,61 @@
+// Ce que le plan produit pour sortir de l'application (app/assemblage/) : SVG, DXF, PDF, dossier,
+// resume, projet JSON. Les formats vivent dans export/ et io/ ; les boutons dans app/ecouteurs/exports.ts.
+
+import { el } from '../../shell/dom.js';
+import { telechargerTexte } from '../../shell/download.js';
+import { showToast } from '../../shell/dialogs.js';
+import { construireDXF } from '../../export/dxfPlan.js';
+import { construireSVG } from '../../export/svgPlan.js';
+import { construirePDF } from '../../export/pdfPlan.js';
+import { construireDossierPDF } from '../../export/dossierPdf.js';
+import { construireResume } from '../../export/resume.js';
+import { exporterProjetJSON } from '../../io/exportProjet.js';
+import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
+import { APP_VERSION, SCHEMA_VERSION, BUILD_AT, signatureExport } from '../../model/version.js';
+import { brancherExports } from '../ecouteurs/exports.js';
+import { clesDossier } from '../dossier.js';
+import type { ProjetResume } from '../../io/api.js';
+import type { Mesures } from './mesures.js';
+import type { EtatApp } from '../../core/state.js';
+import type { RegistreCommandes } from '../commandes.js';
+import type { Resultats } from '../resultats.js';
+
+/** Le nom et les metadonnees du projet ouvert, tels que le serveur les a rendus. */
+export interface MetaProjet { meta?: ProjetResume | null }
+
+/** Le resume texte du projet : le tiroir le montre, le presse-papiers le recoit. */
+export function resumeDuProjet(etat: EtatApp, m: Mesures): string {
+  return construireResume(etat.objects, etat.measures, {
+    appVersion: APP_VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel
+  });
+}
+
+/** Le projet en JSON, tel que api.php le rend : ce qui sort d'ici se recharge tel quel. */
+export function exporterLeProjet(etat: EtatApp, seed: MetaProjet): void {
+  exporterProjetJSON(etat, el<HTMLInputElement>('chkExportSansParcelle').checked, {
+    serializeObjects, serializeMeasures, telechargerTexte, showToast,
+    appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION,
+    metaProjet: () => seed.meta || {}
+  });
+}
+
+export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: RegistreCommandes, d: {
+  mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void;
+}): void {
+  const nomProjet = () => seed.meta?.name;
+  brancherExports({
+    buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION }),
+    buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
+    buildExportPDF: (echelle) => construirePDF(etat.objects, etat.measures, echelle, {
+      appVersion: APP_VERSION, buildAt: BUILD_AT, montrerNord: etat.showNorth
+    }),
+    genererGlb: d.genererGlb,
+    construireResume: () => resumeDuProjet(etat, d.mesures),
+    resultats: d.resultats,
+    construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
+      el<HTMLInputElement>('chkDossierEquipements').checked,
+      { nomProjet: nomProjet(), appVersion: APP_VERSION }),
+    clesDossier: () => clesDossier(etat.objects),
+    nomProjet
+  }, commandes);
+}

@@ -16,7 +16,6 @@ import type { ObjetPlan, PtBrut, Construction, TextureAppliquee } from '../../mo
 import type { Pointage } from '../../interaction/outilMesure.js';
 import type { CoteDesigne } from '../../interaction/outilAlignement.js';
 import type { ContexteSoleil } from '../../engine/parasol.js';
-import type { OptionsSelecteur } from '../texturePicker.js';
 
 /** Ce qui doit suivre une ecriture. */
 export type Effet =
@@ -58,7 +57,7 @@ export interface ContexteChamps {
   alignObjectByRotation: (obj: ObjetPlan) => void;
   allerAuPointDeVue: (obj: ObjetPlan) => void;
   startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']) => void;
-  choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: OptionsSelecteur) => void;
+  choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: { checkboxLabel?: string }) => void;
   executerCommande: (id: string) => void;
   pushHistory: () => void;
   render: () => void;
@@ -164,11 +163,9 @@ export interface ChampAlerte extends ChampBase {
   texte: (c: ContexteChamps) => string;
 }
 
-/** Un conteneur que du code hors React remplit (le tableau d'optimisation). */
-export interface ChampHote extends ChampBase {
-  type: 'hote';
-  idDom: string;
-  remplir: (c: ContexteChamps) => void;
+/** Le tableau d'optimisation de la structure (zones/resultats/Optimisation.tsx), sous son bouton. */
+export interface ChampOptimisation extends ChampBase {
+  type: 'optimisation';
 }
 
 /** Plusieurs commandes sur une ligne : un cote, son nom, sa longueur, son bouton. */
@@ -179,7 +176,7 @@ export interface ChampLigne extends ChampBase {
 
 export type Champ =
   | ChampTexte | ChampNombre | ChampCase | ChampChoix | ChampCouleur | ChampDate | ChampCurseur
-  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampHote | ChampLigne;
+  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampLigne;
 
 export interface Section {
   id: string;

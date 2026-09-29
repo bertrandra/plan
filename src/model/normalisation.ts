@@ -33,12 +33,15 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
   return raw.map(o => {
     const c: ObjetBrut = { ...o };
     if (c.type === 'circle') {
-      c.center = { x: c.center!.x, y: c.center!.y };
+      // La validation (io/validation.ts) ecarte un cercle sans centre avant d'arriver ici.
+      if (!c.center) throw new Error('Cercle sans centre : ' + String(c.key ?? c.name ?? '?'));
+      c.center = { x: c.center.x, y: c.center.y };
     } else {
       // Tout ce qui n'est pas un cercle a des sommets — y compris un objet sans `type`, que le
       // programme a toujours traite comme un polygone.
       const p = c as Partial<ObjetAPoints>;
-      p.pts = p.pts!.map(q => ({ x: q.x, y: q.y }));
+      if (!p.pts) throw new Error('Forme sans sommets : ' + String(c.key ?? c.name ?? '?'));
+      p.pts = p.pts.map(q => ({ x: q.x, y: q.y }));
       p.vertexNames = p.vertexNames ? [...p.vertexNames] : p.pts.map((_, i) => 'Point ' + (i + 1));
       p.segmentNames = p.segmentNames ? [...p.segmentNames] : p.pts.map((_, i) => 'Cote ' + (i + 1));
       p.frozenVertices = (p.frozenVertices && p.frozenVertices.length === p.pts.length) ? [...p.frozenVertices] : p.pts.map(() => false);
@@ -49,6 +52,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
+    if (c.facades) c.facades = JSON.parse(JSON.stringify(c.facades));
+    if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     return c as T & ObjetBrut;
   });
 }

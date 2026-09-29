@@ -3,7 +3,7 @@
 // Sur telephone, le tiroir des resultats n'est pas visible en meme temps que l'inspecteur : la
 // boucle reglage → chiffrage de la spec des zones (§7.1) se perdrait. La feuille de selection et le
 // bandeau de l'inspecteur rendent donc un resume — le meme calcul que la table du BOM
-// (tables.ts, `renderBOMTable`), sans rien ecrire : ni `construction.bom`, ni le DOM.
+// (zones/resultats/Nomenclature.tsx), sans rien ecrire : ni `construction.bom`, ni le DOM.
 //
 // Le calcul refait les couches de la terrasse ; il est donc mis en cache sur ce qui le determine
 // (l'objet et ses voisins), pour qu'un glisser qui redessine a chaque image ne le relance pas.

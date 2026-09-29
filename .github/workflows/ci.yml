@@ -1,0 +1,50 @@
+# Integration continue : ce qu'un contributeur lance avant de pousser, lance pour lui.
+#
+# Jusqu'ici « echouer au build » voulait dire « echouer chez celui qui pense a lancer les
+# verifications » (architecture.md §9). Chaque etape ci-dessous est une commande de package.json ;
+# aucune ne demande le reseau ni la plateforme.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Types
+        run: npm run typecheck
+      - name: Lint (FF-9, FF-10, aucune assertion `!`)
+        run: npm run lint
+      - name: Cliquet de rigueur
+        run: npm run cliquet
+      - name: Client de la plateforme a jour
+        run: npm run gate:client
+      - name: Tests (couches, cycles, oracle du moteur, empreintes)
+        run: npm test
+      - name: Build
+        # L'adresse de la plateforme est lue au build ; une adresse factice suffit a verifier que le
+        # fichier se construit. Le deploiement reconstruit avec la vraie.
+        run: npm run build
+        env:
+          BACKPROD_API_URL: http://plateforme.test
+      - name: Aucun secret dans le fichier livre
+        run: npm run verifier-paquet
+      - name: Budget du fichier livre (FF-5, 5 Mo)
+        run: |
+          taille=$(stat -c %s dist/index.html)
+          echo "dist/index.html : $taille octets"
+          test "$taille" -le 5242880
