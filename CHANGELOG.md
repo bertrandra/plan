@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Vue 3D : le fond orthophoto ne scintille plus avec le socle du terrain.** Le sol, le terrain,
+  l'orthophoto et les chemins à plat étaient posés à quelques millimètres les uns des autres ; vus de
+  loin ou en rasant, surtout sur téléphone où le tampon de profondeur est moins fin, deux couches
+  voisines se disputaient les mêmes pixels. Chacune a maintenant son rang (décalage de polygone,
+  `COUCHES_SOL` dans `three/primitives.ts`), qui fixe leur ordre à toute distance ; les photos du
+  relevé posées devant les murs en profitent aussi.
+
 ## [2.2.0] — 2026-09-29
 
 ### Ajouté
