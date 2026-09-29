@@ -1,18 +1,18 @@
 // Les capteurs de distance du releve (spec-releve-facade §5.1).
 //
-// Trois sources, de la meilleure a la plus modeste :
+// Deux sources actives :
 //
-// 1. **LiDAR, par le module natif iOS** (`native/ios/`). Safari ne donne pas acces au LiDAR ; une
-//    petite application native heberge Plan dans une vue web et lui envoie la profondeur mesuree
-//    au centre de l'image, dix fois par seconde, par un evenement `plan:profondeur`. Elle livre
-//    aussi la photo, avec la focale exacte, par `plan:photo`.
-// 2. **WebXR sur Android** (Chrome) : une seance de realite augmentee lance un rayon depuis le
+// 1. **WebXR sur Android** (Chrome) : une seance de realite augmentee lance un rayon depuis le
 //    centre de l'ecran et rend la distance au premier plan touche - le mur.
-// 3. **Le cadrage** : partout ailleurs, la distance se deduit de la taille connue du mur et de la
-//    place qu'il occupe dans l'image (facade/cadrage.ts). C'est le repli, toujours
-//    disponible.
+// 2. **Le cadrage** : partout ailleurs, la distance se deduit de la largeur connue du mur (lue sur
+//    le plan) et de la place qu'elle occupe dans l'image (facade/cadrage.ts). C'est le repli,
+//    toujours disponible.
 //
-// Le module natif est optionnel : sans lui, rien ne change pour la page.
+// **Le LiDAR est desactive** (`LIDAR_ACTIF`). Safari n'y donne pas acces, et le module natif iOS
+// (`native/ios/`) qui l'apportait n'y change pas l'essentiel : le LiDAR d'un iPhone ne porte qu'a
+// environ 5 m, quand une facade se photographie le plus souvent de plus loin. Le code du canal reste
+// ici, eteint : dans le module natif, la page se comporte comme dans Safari (camera du navigateur,
+// cadrage), et ne lui envoie aucune commande.
 
 export type SourceDistance = 'lidar' | 'webxr' | 'cadrage';
 
@@ -36,14 +36,21 @@ function canalNatif(): CanalNatif | null {
   return w.webkit?.messageHandlers?.planCapture ?? null;
 }
 
-/** Plan tourne-t-il dans le module natif de capture ? */
+/**
+ * Le LiDAR par le module natif iOS. Eteint : sa portee (environ 5 m) est en deca du recul qu'il faut
+ * pour photographier une facade, pignon compris. Le rallumer rend au module natif la visee AR et la
+ * photo a focale exacte.
+ */
+export const LIDAR_ACTIF = false;
+
+/** Plan tourne-t-il dans le module natif de capture, LiDAR allume ? */
 export function natifDisponible(): boolean {
-  return canalNatif() !== null;
+  return LIDAR_ACTIF && canalNatif() !== null;
 }
 
-/** Demande au module natif de commencer (ou d'arreter) a mesurer. */
+/** Demande au module natif de commencer (ou d'arreter) a mesurer. Rien tant que le LiDAR est eteint. */
 export function commanderNatif(action: 'demarrer' | 'arreter' | 'photo'): void {
-  canalNatif()?.postMessage({ action });
+  if (LIDAR_ACTIF) canalNatif()?.postMessage({ action });
 }
 
 /**

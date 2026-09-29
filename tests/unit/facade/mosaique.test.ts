@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { analyserMosaique, rapportRectangle, type MorceauPhoto } from '../../../src/facade/mosaique.js';
 import { homographie, appliquer } from '../../../src/facade/homographie.js';
 import { focalePx } from '../../../src/facade/cadrage.js';
+import { analyserReleve, mesurerHauteur } from '../../../src/facade/analyse.js';
 
 const p = (x: number, y: number) => ({ x, y });
 
@@ -131,5 +132,69 @@ describe('analyserMosaique', () => {
     // A 4 m, telephone d'aplomb, l'image s'arrete a 4,15 m de haut : le pignon est hors cadre. Plan
     // ne conclut pas a un toit plat, il ne propose rien - celui du batiment reste tel quel.
     expect(r.toitPropose).toBeNull();
+  });
+});
+
+describe('la hauteur se mesure, seule la largeur est connue', () => {
+  const e = elevation();
+  const prises = [
+    { cam: camera(1.6, 4, -4), de: 0, a: 3.4 },
+    { cam: camera(4.0, 4, 2), de: 2.2, a: 5.8 },
+    { cam: camera(6.4, 4, 5), de: 4.6, a: 8 },
+  ];
+  const morceaux: MorceauPhoto[] = prises.map(({ cam, de, a }) => ({
+    photo: photographier(cam, e),
+    coins: [p(de, 4), p(a, 4), p(a, 0), p(de, 0)].map((q) => cam.projeter(q.x, q.y)),
+    focalePx: cam.f,
+  }));
+
+  it('plusieurs photos : la largeur du plan corrige la hauteur du cadastre', () => {
+    // Le cadastre dit 5,5 m ; le mur en fait 4.
+    const r = analyserMosaique({ morceaux, largeur: 8, hauteur: 5.5, contour: [p(0, 0), p(8, 0), p(8, 6), p(0, 6)], cote: 0, distance: 4 })!;
+    expect(r.hauteurMesuree).toBe(true);
+    expect(Math.abs(r.hauteur - 4)).toBeLessThan(0.05);
+    expect(r.elevation.hauteur / r.pxParM).toBeCloseTo(r.hauteur, 1);
+    const porte = r.ouvertures.find((o) => o.type === 'porte')!;
+    expect(Math.abs(porte.h - 2.15)).toBeLessThan(0.06);
+  });
+
+  it('une photo : la hauteur du mur et le triangle du pignon, a l echelle de la largeur', () => {
+    // A 10 m, tout le mur et son pignon tiennent dans l'image.
+    const cam = camera(4, 10, 8);
+    const coins = [p(0, 4), p(8, 4), p(8, 0), p(0, 0)].map((q) => cam.projeter(q.x, q.y));
+    const r = analyserReleve({
+      photo: photographier(cam, e),
+      coins,
+      largeur: 8,
+      hauteur: 5.5,
+      focalePx: cam.f,
+      contour: [p(0, 0), p(8, 0), p(8, 6), p(0, 6)],
+      cote: 0,
+      distance: 10,
+    })!;
+    expect(r.hauteurMesuree).toBe(true);
+    expect(Math.abs(r.hauteur - 4)).toBeLessThan(0.03);
+    expect(r.ouvertures.map((o) => o.type)).toEqual(['fenetre', 'porte', 'fenetre']);
+    expect(Math.abs(r.ouvertures[0]!.y - 0.9)).toBeLessThan(0.05);
+    // Le pignon est dans le plan du mur : son triangle se lit a la meme echelle, 3 m au-dessus de l'egout.
+    expect(r.toitPropose?.forme).toBe('deux-pans');
+    expect(Math.abs(r.toitPropose!.hauteur - 3)).toBeLessThan(0.2);
+  });
+
+  it('sans focale, l estimation est gardee telle quelle', () => {
+    const cam = camera(4, 10, 8);
+    const coins = [p(0, 4), p(8, 4), p(8, 0), p(0, 0)].map((q) => cam.projeter(q.x, q.y));
+    const r = analyserReleve({ photo: photographier(cam, e), coins, largeur: 8, hauteur: 5.5, contour: [p(0, 0), p(8, 0), p(8, 6), p(0, 6)], cote: 0, distance: 10 })!;
+    expect(r.hauteurMesuree).toBe(false);
+    expect(r.hauteur).toBe(5.5);
+  });
+
+  it('des coins aberrants ne donnent pas de mesure', () => {
+    const cam = camera(4, 10, 8);
+    const coins = [p(0, 4), p(8, 4), p(8, 0), p(0, 0)].map((q) => cam.projeter(q.x, q.y));
+    expect(mesurerHauteur(coins, 8, cam.f, cam.W, cam.Hp)).toBeCloseTo(4, 1);
+    // Les quatre coins presque sur une ligne : le mur ferait des dizaines de metres de haut, ou rien.
+    const plats = [p(100, 800), p(1100, 800), p(1100, 801), p(100, 801)];
+    expect(mesurerHauteur(plats, 8, cam.f, cam.W, cam.Hp)).toBeNull();
   });
 });

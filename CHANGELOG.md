@@ -5,7 +5,37 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Relevé de façade : la hauteur du mur se mesure sur la photo.** Seule la largeur est connue — elle
+  se lit sur le plan ; la hauteur du cadastre, à laquelle le bâtiment est extrudé par défaut, n'est
+  qu'une estimation. Les quatre coins posés sur la photo sont l'image d'un rectangle, dont la
+  perspective fixe les proportions quand la focale est connue (Zhang et He) : la largeur du plan les
+  met à l'échelle, la hauteur à l'égout en découle. Sur plusieurs photos, une première passe à la
+  hauteur estimée donne la largeur de l'assemblage, et le rapport à la largeur du plan corrige la
+  hauteur. L'étape des coins ne demande plus la hauteur ; l'étape Vérifier l'affiche, mesurée, à côté
+  de celle du bâtiment jusqu'ici, et la corrige si besoin — la façade s'étire alors en hauteur,
+  ouvertures comprises. Un écart de plus de 25 % est signalé (`facade/analyse.ts`,
+  `facade/mosaique.ts`, `zones/Releve.tsx`).
+- **Chaque façade relevée redéfinit le toit du bâtiment.** Sur un pignon, la photo porte le triangle
+  du toit, lu à la même échelle que le mur : la façade donne la hauteur à l'égout et celle du
+  faîtage. Le toit lu sur la façade remplace celui du bâtiment — y compris un toit saisi à la main ;
+  la case « Remplacer le toit du bâtiment par celui-ci » part cochée et se décoche pour garder
+  l'ancien. La visée cadre aussi le pignon d'un toit déjà connu (`hauteurPignon`, `facade/toit.ts`).
+- **Le LiDAR est désactivé** (`LIDAR_ACTIF`, `ui/releve/profondeur.ts`). Safari n'y a pas accès, et
+  même dans le module natif iOS sa portée — environ 5 m — est en deçà du recul qu'il faut pour
+  photographier une façade avec son pignon. Dans le module natif, la page se comporte désormais comme
+  dans Safari ; le code du canal reste, éteint. La visée n'annonce plus le LiDAR ni Plan Capture.
+- **Les repères de la visée encadrent les bords du mur, seulement.** Le mode « Égout et sol »
+  supposait la hauteur connue ; il disparaît.
+
 ### Corrigé
+
+- **Assemblage de plusieurs photos : un décalage entre deux cases n'est plus manqué.** La recherche
+  grossière ne gardait que son meilleur décalage à 10 cm près ; le pic de ressemblance d'un mur uni
+  percé de baies nettes est plus étroit, et un vrai décalage tombé entre deux cases y paraissait
+  médiocre — deux photos se posaient alors l'une sur l'autre. Les meilleurs pics locaux sont
+  maintenant tous affinés au pixel (`decalage`, `facade/mosaique.ts`).
 
 - **Seul un `401` ferme la session.** « Déjà connecté à la plateforme, j'arrive sur la page de
   connexion de Plan, avec la pastille verte. » La reprise de session au démarrage confondait toute

@@ -1,6 +1,7 @@
 # Relevé de façade — spécification
 
-**Version :** 1.0 — livrée en `2.2.0` (28 septembre 2026)
+**Version :** 1.1 — non publiée (1.0 livrée en `2.2.0`, 28 septembre 2026) : hauteur mesurée sur la
+photo, toit redéfini par chaque façade, LiDAR désactivé
 **Statut :** spécification de référence du relevé photographique d'une façade
 **Compagnons :** [`PLAN_Facade_Scan_Specification_V1_updated.md`](PLAN_Facade_Scan_Specification_V1_updated.md) (la vision produit),
 [`spec-ihm-zones.md`](spec-ihm-zones.md), [`spec-ihm-mobile.md`](spec-ihm-mobile.md), [`RELEASE.md`](RELEASE.md),
@@ -13,25 +14,32 @@
 On sélectionne un bâtiment sur le plan, on choisit une de ses façades, et le téléphone la
 photographie. Plan en tire, **dans le navigateur, sans serveur** :
 
-1. une **élévation redressée à l'échelle** — la photo, corrigée de sa perspective, à un nombre fixe
+1. la **hauteur du mur à l'égout**, mesurée — seule la largeur est connue, lue sur le plan (§6.0) ;
+   et une **élévation redressée à l'échelle** — la photo, corrigée de sa perspective, à un nombre fixe
    de pixels par mètre ;
 2. les **ouvertures** — fenêtres, portes-fenêtres, portes, portes de garage — avec leur position
    et leurs **dimensions au centimètre**, corrigeables au doigt ;
 3. la **forme du toit** — plat, appentis, deux pans, quatre pans — et la hauteur de son faîtage,
-   lues sur la silhouette au-dessus de l'égout ;
+   lues sur la silhouette au-dessus de l'égout ; sur un pignon, c'est le triangle du toit, dans le
+   plan du mur et donc à la même échelle. **Le toit lu sur la façade remplace celui du bâtiment**
+   (§8.3) ;
 4. la **3D** : la photo plaquée sur le mur et sur son pignon, les ouvertures en relief, le toit
    posé sur le bâtiment ; et sur le **plan 2D**, les ouvertures du rez-de-chaussée à la manière d'un
    plan d'architecte.
 
-Une **aide au positionnement** mesure la distance au mur — au **LiDAR** quand Plan tourne dans le
-module natif iOS — et dit ce qu'elle permet : une photo, plusieurs en se décalant le long du mur
-quand on manque de recul, ou reculer ; une alerte quand rien ne peut mesurer.
+Une **aide au positionnement** mesure la distance au mur — en réalité augmentée sur Android, sinon
+estimée d'après la largeur du mur dans l'image — et dit ce qu'elle permet : une photo, plusieurs en
+se décalant le long du mur quand on manque de recul, ou reculer ; une alerte quand rien ne mesure.
+**Le LiDAR est désactivé** (§5.1).
 
 ### 1.1 Ce qui a été décidé avant d'écrire une ligne
 
 | Question | Décision | Pourquoi |
 |---|---|---|
 | Le LiDAR de l'iPhone n'est pas accessible depuis une page web | **Les deux** : le web avec un repli (cadrage, WebXR sur Android), et un module natif iOS qui apporte le LiDAR | Le web fonctionne partout et se teste ici ; le natif apporte la mesure réelle sans rien changer à Plan |
+| *Révisé en 1.1* : le LiDAR ne porte qu'à 5 m environ | **LiDAR désactivé** (`LIDAR_ACTIF`) ; le module natif reste dans le dépôt, la page ne s'en sert plus | Une façade avec son pignon se photographie le plus souvent de plus loin : le LiDAR se tait justement quand Plan conseille de reculer |
+| Quelle taille met la photo à l'échelle ? | **La largeur seule**, lue sur le plan ; la hauteur se mesure (§6.0) | La hauteur du cadastre (celle de l'extrusion par défaut) est une estimation, souvent à un mètre près |
+| Qui définit le toit ? | **Chaque façade relevée** : son toit remplace celui du bâtiment (§8.3) | La photo d'un pignon en donne le triangle exact ; c'est la meilleure information disponible |
 | Qui détecte les ouvertures et le toit ? | **Localement, dans le navigateur**, puis correction au doigt | Aucun serveur, aucun coût par photo, aucune donnée qui quitte l'appareil |
 | Où ranger les photos ? | **Dans `projet.json`** : l'élévation redressée en JPEG, pas les photos brutes | Le relevé suit le projet, l'export JSON et la plateforme sans rien de plus |
 
@@ -58,7 +66,7 @@ quand on manque de recul, ou reculer ; une alerte quand rien ne peut mesurer.
 | | `analyse.ts` | l'enchaînement complet photo → relevé ; coins proposés |
 | | `exif.ts` | focale 24×36 d'un JPEG importé |
 | | `choix.ts` | le mur désigné avant d'ouvrir le relevé |
-| `ui/releve/` (niveau 5) | `camera.ts`, `profondeur.ts` | caméra, fichiers, JPEG ; LiDAR natif, WebXR, inclinaison |
+| `ui/releve/` (niveau 5) | `camera.ts`, `profondeur.ts` | caméra, fichiers, JPEG ; WebXR, inclinaison ; LiDAR natif (désactivé) |
 | `ui/champs/facade.ts` | | la section « Façades et toit » de l'inspecteur |
 | `render/releve.ts` | | les ouvertures sur le plan à l'écran |
 | `three/releve3d.ts` | | façades texturées, encadrements, pans et pignons |
@@ -80,7 +88,9 @@ Un bâtiment est un polygone de fonction `batiment` (ou `annexe`) extrudé à sa
   sur le sens de saisie — un contour horaire met l'extérieur à gauche du côté, un contour
   trigonométrique à droite ; c'est l'aire signée qui tranche ;
 - la **normale sortante** et l'**azimut** (0 = nord, sens horaire), d'où le nom « Sud », « Nord-Est »… ;
-- la largeur, lue sur le plan : **c'est elle qui met la photo à l'échelle**.
+- la largeur, lue sur le plan : **c'est elle qui met la photo à l'échelle**. La hauteur, elle,
+  n'est pas connue : le bâtiment est extrudé par défaut à la hauteur du cadastre, une estimation que
+  le relevé remplace par une mesure (§6.0).
 
 Un côté de moins de 10 cm est un reliquat de saisie : il est écarté, sans renuméroter les autres.
 
@@ -120,40 +130,53 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
 2. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
    permet (« une photo suffit », « 3 photos, de gauche à droite », ou l'alerte « reculez à au moins
    Y m »), une alerte quand rien ne mesure, l'aplomb du téléphone, le choix de l'objectif (0,5× / 1×).
+   La hauteur à cadrer est l'égout estimé plus, sur un pignon d'un toit déjà connu, son triangle.
    Le déclencheur, et « Importer » pour une photo déjà prise. Voir §5.
 3. **Placer les coins** — la photo (ou chaque photo de la série, en vignettes, §6.1), avec une marge tout autour : les quatre coins du mur (égout en
    haut, pied du mur en bas) sont proposés d'après la distance (§5.4), et se déplacent au doigt
-   avec une **loupe**. Un coin caché ou hors cadre se place là où il serait. La hauteur à l'égout
-   se corrige ici ; la largeur vient du plan.
+   avec une **loupe**. Un coin caché ou hors cadre se place là où il serait. La largeur vient du
+   plan ; la hauteur ne se saisit pas, elle se mesure d'après ces coins.
 4. **Analyse** — une seconde environ (§6 à §8).
 5. **Vérifier** — la façade redressée à l'échelle, chaque ouverture un cadre qu'on déplace, qu'on
    redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on retire ;
-   « Ajouter une ouverture ». Le toit proposé, avec sa pente, qu'on applique ou non, et qu'on
-   corrige. **Valider** écrit le tout en **un seul pas d'historique**.
+   « Ajouter une ouverture ». La **hauteur mesurée**, à côté de celle du bâtiment jusqu'ici
+   (cadastre, ou relevé d'une autre façade), corrigeable : la
+   façade s'étire alors en hauteur, ouvertures, partie basse, bande du pignon et toit compris (la
+   largeur, elle, est celle du plan). Le toit lu sur la façade, avec sa pente et, sur un pignon, la
+   hauteur de la façade au faîtage ; « Remplacer le toit du bâtiment par celui-ci » part cochée.
+   **Valider** écrit le tout en **un seul pas d'historique**.
 
 ---
 
 ## 5. La distance au mur
 
-### 5.1 Trois sources, de la meilleure à la plus modeste (`ui/releve/profondeur.ts`)
+### 5.1 Les sources (`ui/releve/profondeur.ts`)
 
 | Source | Où | Comment |
 |---|---|---|
-| **LiDAR** | module natif iOS (`native/ios/`) | médiane d'une fenêtre 7 × 7 au centre de la carte de profondeur ARKit, dix fois par seconde ; une mesure de confiance < 1 est ignorée |
+| ~~**LiDAR**~~ | module natif iOS (`native/ios/`) — **désactivé** | médiane d'une fenêtre 7 × 7 au centre de la carte de profondeur ARKit, dix fois par seconde ; une mesure de confiance < 1 est ignorée |
 | **Réalité augmentée** | Chrome Android (WebXR `immersive-ar` + `hit-test`) | rayon depuis le centre de l'écran jusqu'au premier plan touché ; distance horizontale |
-| **Cadrage** | partout | la taille réelle du mur (plan) et la place qu'il occupe dans l'image |
+| **Cadrage** | partout | la largeur réelle du mur (plan) et la place qu'elle occupe dans l'image |
 
-Le module natif et WebXR n'ont pas pu être essayés sur un appareil pendant le développement : le
-code est écrit contre leurs API documentées, et le côté page du module natif est vérifié en
-simulant son canal (voir §12).
+**Le LiDAR est désactivé** (`LIDAR_ACTIF = false`). Safari n'y donne pas accès, et le module natif
+qui l'apportait ne change pas l'essentiel : le LiDAR d'un iPhone ne porte qu'à **5 m environ**. Or
+une façade se photographie le plus souvent de plus loin — un mur de 6 m jusqu'au faîtage demande
+déjà 5 m de recul avec l'objectif principal, un mur de 10 m en une photo 11 m : le LiDAR se tait
+précisément quand Plan conseille de reculer. `natifDisponible()` rend donc `false` et aucune
+commande ne part vers le module ; dans le module natif, la page se comporte comme dans Safari
+(caméra du navigateur, cadrage). Le code du canal reste, éteint : le rallumer rend au module la
+visée AR et la photo à focale exacte.
+
+WebXR n'a pas pu être essayé sur un appareil pendant le développement : le code est écrit contre
+son API documentée.
 
 ### 5.2 Le cadrage (`facade/cadrage.ts`)
 
 Modèle du sténopé : un objet de `T` mètres qui occupe `p` pixels est à `d = T · f / p`, avec la
 focale en pixels `f = (grand côté / 2) / tan(champ / 2)`. Deux repères glissent sur la vidéo :
-**les deux bords du mur** (sa largeur est connue), ou **l'égout et le pied du mur** (sa hauteur
-l'est). La vidéo garde toute l'image (`object-fit: contain`) pour que les repères se posent sur
-l'image et non sur des bandes.
+**les deux bords du mur**, parce que sa largeur est la seule taille connue. (Le mode « égout et
+pied du mur » de la 1.0 supposait la hauteur connue ; il a disparu.) La vidéo garde toute l'image
+(`object-fit: contain`) pour que les repères se posent sur l'image et non sur des bandes.
 
 Le **champ** du grand côté vaut 67° par défaut (objectif principal 26 mm équivalent) ; il se règle
 dans la visée, et le réglage reste sur l'appareil (`localStorage`, jamais dans le projet).
@@ -161,7 +184,11 @@ dans la visée, et le réglage reste sur l'appareil (`localStorage`, jamais dans
 ### 5.3 La focale exacte, quand on la connaît
 
 - Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/exif.ts`).
-- Module natif : les intrinsèques ARKit donnent la focale en pixels, livrée avec la photo.
+- Module natif (désactivé, §5.1) : les intrinsèques ARKit donnaient la focale en pixels, livrée
+  avec la photo.
+
+La focale sert aussi à **mesurer la hauteur du mur** (§6.0) : un champ mal réglé fausse la
+hauteur mesurée d'une photo prise de biais (de face, les proportions n'en dépendent pas).
 
 ### 5.4 La distance mesurée, et ce qu'elle permet
 
@@ -178,11 +205,14 @@ permet (`planDePrise`, `consignePrise` dans `facade/cadrage.ts`). L'image couvre
 La géométrie de l'image est celle de la vidéo dans la page ; dans le module natif, sans vidéo, c'est
 celle que le module envoie avec chaque mesure (taille de la photo livrée et focale).
 
-**Sans mesure, une alerte.** Si aucun capteur ne répond — Safari sur iPhone n'a pas accès au LiDAR,
-un iPhone sans LiDAR dans le module natif —, la visée l'annonce : « Distance non mesurée : ce
-navigateur n'a pas accès au LiDAR. Ouvrez Plan dans l'application Plan Capture, ou mesurez en réalité
-augmentée ; à défaut, placez les repères pour l'estimer. » Les repères du cadrage (§5.2) restent
-en secours, et leur distance est affichée « estimée, non mesurée ».
+Le plan de prise vise la **hauteur à cadrer** : l'égout estimé (cadastre) et, si le mur est un
+pignon du toit déjà connu, son triangle (`hauteurPignon`, `facade/toit.ts`) — sans lui, ni la
+hauteur de la façade au faîtage ni le toit ne se lisent.
+
+**Sans mesure, une alerte.** Si aucun capteur ne répond — tout iPhone, puisque le LiDAR est
+désactivé —, la visée l'annonce : « Distance non mesurée : estimez-la avec les repères. » (« mesurez-la
+en réalité augmentée, ou estimez-la avec les repères » quand WebXR est là). Les repères du cadrage
+(§5.2) restent en secours, et leur distance est affichée « estimée, non mesurée ».
 
 À distance connue et téléphone d'aplomb, le mur se projette en un rectangle centré, le sol à
 hauteur d'œil (1,5 m) sous l'horizon : ce sont les coins proposés. Les repères du cadrage, quand
@@ -215,12 +245,37 @@ ne sont jamais choisies pour cette raison.
 **Limite.** Un grand-angle déforme davantage : les murs droits se courbent un peu vers les bords de
 l'image. iOS corrige d'office la distorsion de son ultra grand-angle ; tous les Android ne le font
 pas, et le redressement (un modèle sans distorsion) ne la rattrape pas. Garder le mur au centre de
-l'image, loin des bords, limite l'écart. Le module natif iOS reste sur l'objectif principal : c'est
+l'image, loin des bords, limite l'écart. Le module natif iOS (désactivé) restait sur l'objectif principal : c'est
 celui dont ARKit aligne la carte de profondeur LiDAR.
 
 ---
 
 ## 6. Le redressement (`facade/homographie.ts`, `facade/analyse.ts`)
+
+### 6.0 La hauteur du mur, mesurée
+
+**Seule la largeur du mur est connue** : elle se lit sur le plan. La hauteur à laquelle le bâtiment
+est extrudé par défaut vient du cadastre (BD TOPO) : c'est une estimation, qui ne sert plus qu'à
+viser, à proposer les coins et de repli.
+
+Les quatre coins posés sur la photo sont l'image d'un rectangle. Avec la focale (point principal au
+centre de l'image), la perspective en fixe les proportions : `rapportRectangle`, d'après Zhang et He
+(« Whiteboard scanning », 2004). La largeur du plan met ce rapport à l'échelle, d'où la hauteur à
+l'égout (`mesurerHauteur`, arrondie au centimètre). Pour un mur en L, c'est la hauteur du rectangle
+englobant, donc l'égout haut ; la partie basse se mesure ensuite à cette échelle.
+
+- **Repli.** Des coins qui ne se prêtent pas à la mesure (quadrilatère dégénéré, hauteur hors de
+  1 à 60 m) laissent l'estimation en place, et l'étape Vérifier le dit.
+- **Avis.** Une hauteur mesurée à plus de 25 % de celle du bâtiment jusqu'ici (cadastre, ou relevé
+  d'une autre façade) est signalée : c'est le plus souvent un coin mal placé, ou un champ d'objectif
+  mal réglé.
+- **Correction.** La hauteur se corrige à l'étape Vérifier. La largeur étant celle du plan, c'est la
+  hauteur seule qui était fausse : la façade s'étire en hauteur, ouvertures, partie basse, bande du
+  pignon et toit lu dessus, tous du même facteur.
+
+Sur les images de test (mur de 8 m, 4 m à l'égout, cadastre à 5,5 m ; mur en L de 6 m, cadastre à
+7,5 m), la hauteur est retrouvée à 3 cm près ; dans l'application, sur une photo générée à 13 m
+(5,20 m à l'égout, cadastre à 6,00 m, pignon de 3 m), 5,20 m et un faîtage à 2,98 m.
 
 Un mur plan photographié de biais est une **homographie** de son élévation : quatre coins suffisent
 à la retrouver (système 8 × 8, pivot partiel). On redresse **une seule fois, du sol jusqu'à une
@@ -242,18 +297,24 @@ Sans recul, on photographie le mur par morceaux qui se recouvrent, de gauche à 
 verticales : la première photo tient le coin gauche, la dernière le coin droit, celles du milieu
 deux verticales quelconques près des bords de l'image.
 
-1. **La largeur de chaque morceau.** Sa hauteur est connue (sol → égout) ; son rapport
-   largeur/hauteur se lit sur la photo parce que la focale est connue : l'image d'un rectangle en
-   perspective en fixe les proportions à une focale près (Zhang et He, « Whiteboard scanning », 2004).
-   Chaque morceau est redressé, avec la bande au-dessus de l'égout, à la même échelle.
+1. **La largeur de chaque morceau, en hauteurs de mur.** Tous les morceaux ont la même hauteur
+   (sol → égout) ; le rapport largeur/hauteur de chacun se lit sur la photo parce que la focale est
+   connue (§6.0). Chaque morceau est redressé, avec la bande au-dessus de l'égout, à la même échelle.
 2. **Sa place.** Deux morceaux voisins se recouvrent : leur décalage est celui où leurs pixels
    communs se ressemblent le plus (corrélation normalisée), cherché à 10 px/m puis affiné au pixel.
-   Dans un recouvrement, chaque morceau pèse d'autant plus qu'on s'éloigne de son bord.
-3. **La largeur du tout** est recalée sur celle du plan.
+   Les six meilleurs pics locaux de la recherche grossière sont tous affinés : le pic d'un mur uni
+   percé de baies nettes est plus étroit qu'une case de 10 cm, et un vrai décalage tombé entre deux
+   cases y paraît médiocre. Dans un recouvrement, chaque morceau pèse d'autant plus qu'on s'éloigne
+   de son bord.
+3. **La hauteur du mur.** Une première passe à la hauteur estimée donne la largeur de
+   l'assemblage ; tout y est proportionnel à la hauteur supposée, donc le rapport à la largeur du
+   plan donne la hauteur mesurée. Une seconde passe redresse à cette hauteur, et le petit écart qui
+   reste (décalages au pixel près) est recalé sur la largeur du plan.
 
 L'assemblage rend ce qu'il a trouvé à redire, affiché avant validation : deux photos qui se
 ressemblent mal sur leur partie commune (corrélation < 0,5 : « reprenez-en une en gardant un tiers
-de mur en commun »), ou une largeur totale à plus de 6 % de celle du plan (« vérifiez les coins »).
+de mur en commun »), une seconde passe à plus de 6 % de la largeur du plan (« vérifiez les coins »),
+ou une hauteur loin de celle du cadastre (§6.0).
 Ensuite tout se passe comme pour une photo : ouvertures (§7), toit (§8), texture.
 
 Au pas-à-pas, l'étape des coins montre la série en vignettes (reprendre, retirer, choisir la photo
@@ -359,8 +420,19 @@ projette plus bas qu'il n'est. `corrigerFuite` remonte la hauteur apparente avec
 mesurée et la demi-largeur du bâtiment. Moins d'un tiers de la bande vu : aucun toit n'est proposé,
 plutôt que de conclure à un toit plat.
 
-Un toit **saisi à la main** n'est pas écrasé d'office par une estimation : la case « Appliquer »
-part décochée.
+### 8.3 Chaque façade redéfinit le toit
+
+Le bâtiment par défaut est le contour du cadastre extrudé à la hauteur du cadastre, avec le toit
+qu'on lui connaît (ou aucun). **Chaque façade relevée le redéfinit** : sa hauteur à l'égout mesurée
+remplace celle du bâtiment (§10), et **le toit lu sur la façade remplace celui du bâtiment** — y
+compris un toit saisi à la main, ou lu sur une façade relevée avant. La case « Remplacer le toit du
+bâtiment par celui-ci » part donc cochée ; la décocher garde l'ancien. Sans toit lisible (moins
+d'un tiers de la bande vu), le toit du bâtiment reste tel quel.
+
+Sur un **pignon**, la façade porte le triangle du toit (le trapèze d'un appentis vu de côté) : il
+est dans le plan du mur, redressé à la même échelle que lui, et sa hauteur s'ajoute à celle de
+l'égout — l'étape Vérifier donne la hauteur de la façade au faîtage. C'est la lecture la plus sûre
+du toit : aucune fuite à corriger.
 
 ---
 
@@ -413,7 +485,9 @@ interface ReleveFacade {
 - Poids : 60 à 120 Ko de JPEG par façade (qualité 0,82, 1 024 px au plus). La plateforme refuse un
   document trop gros (413) : une dizaine de façades reste loin de cette limite, mais ce sera la
   première à surveiller si les relevés se multiplient (§11).
-- La hauteur d'égout retenue au redressement remplace l'élévation du bâtiment.
+- La hauteur d'égout **mesurée** sur la photo (§6.0), ou corrigée à la main, remplace l'élévation
+  du bâtiment (celle du cadastre). `sourceDistance` peut encore valoir `lidar` dans un projet relevé
+  en `2.2.0` ; plus aucun relevé ne l'écrit.
 
 ---
 
@@ -428,7 +502,10 @@ interface ReleveFacade {
 | Toit sur l'enveloppe du contour entier | sur un contour en L, une seule toiture couvre les deux ailes | toitures par volume |
 | Pignon de la photo et pignon modélisé | sur un contour irrégulier, le faîtage n'est pas au milieu du mur photographié : la photo s'étire, le ciel est repeint en mur | faîtage décalé sur le mur relevé |
 | Textures dans `projet.json` | le document grossit d'environ 100 Ko par façade | stockage d'actifs de la plateforme (`contrat/backprod.openapi.json` : « Large assets … belong in storage ») |
-| Module natif non compilé | écrit sous Windows, sans Xcode | le compiler et le signer (`native/ios/README.md`) |
+| LiDAR désactivé | sur iPhone, la distance est toujours estimée au cadrage ; la hauteur, elle, se mesure sans lui (§6.0) | le rallumer (`LIDAR_ACTIF`) pour une mesure de près, sous 5 m, si le besoin s'en fait sentir |
+| Hauteur mesurée d'une seule façade | le bâtiment prend la hauteur de la dernière façade relevée ; un terrain en pente (égouts différents d'une façade à l'autre) n'est pas rendu | une hauteur par mur dans la 3D |
+| Toit redéfini par la dernière façade | une façade vue depuis l'égout (faîtage corrigé de sa fuite) remplace un toit lu, plus sûrement, sur un pignon | décocher la case ; ou combiner les lectures de plusieurs façades |
+| Module natif non compilé | écrit sous Windows, sans Xcode ; désactivé depuis la 1.1 | le compiler et le signer (`native/ios/README.md`) s'il est rallumé |
 | WebXR non essayé | aucun appareil Android ARCore disponible pendant le développement | le dérouler sur un téléphone Android |
 
 ---
@@ -450,6 +527,14 @@ interface ReleveFacade {
   canal du module natif est simulé (`window.webkit.messageHandlers.planCapture`) : distances LiDAR
   et consignes, mesure de faible confiance ignorée, photo livrée par `plan:photo`, séquence
   `demarrer` → `photo` → `arreter`.
+- **Version 1.1** : tests unitaires de la hauteur mesurée (une photo, plusieurs, mur en L, cadastre
+  faux de 1,5 m), de la focale absente (l'estimation reste), des coins dégénérés, et de
+  `hauteurPignon`. Dans l'application (serveur de développement, plateforme simulée, 1 280 et
+  390 px) : photo générée d'un mur de 8 m à 5,20 m d'égout, cadastre à 6,00 m, pignon de 3 m, coins
+  posés par de vrais glisser : hauteur mesurée 5,20 m, faîtage 2,98 m, ouvertures 120 × 136,
+  120 × 120 et 90 × 216 pour 120 × 135, 120 × 120 et 90 × 215 ; correction à 6,00 m puis retour,
+  cotes rendues à l'identique ; validation : élévation 5,20 m, toit à deux pans remplacé. La visée
+  n'annonce plus le LiDAR ; le canal natif n'est plus appelé.
 - **Empreintes** : les six artefacts du jeu de démonstration, recapturés à la `2.2.0` ; l'ancien
   numéro, l'ancienne date de build et l'ancien numéro de schéma remis dans les octets frais rendent
   les six empreintes de la `2.0.2` au bit près (`tests/fixtures/golden/EMPREINTES.md`).

@@ -173,3 +173,44 @@ export function resolutionTexture(largeurM: number, hauteurM: number, maxPx = 10
   const grand = Math.max(largeurM, hauteurM, 0.01);
   return Math.min(cible, maxPx / grand);
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Proportions d'un rectangle vu en perspective
+ *
+ * L'image d'un rectangle en perspective en fixe les proportions a une focale pres (Zhang et He,
+ * « Whiteboard scanning », 2004). C'est ce qui mesure la hauteur d'un mur dont on ne connait que la
+ * largeur (lue sur le plan), et la largeur de chaque morceau d'un mur photographie en plusieurs fois.
+ * --------------------------------------------------------------------------------------------- */
+
+type V3 = [number, number, number];
+const croix = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const scal = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/**
+ * Rapport largeur / hauteur du rectangle reel dont `coins` est l'image, pour une focale `f` en
+ * pixels et un point principal au centre de l'image (`cx`, `cy`). `null` si la configuration est
+ * degeneree. Coins dans l'ordre haut gauche, haut droit, bas droit, bas gauche.
+ */
+export function rapportRectangle(coins: readonly P2[], f: number, cx: number, cy: number): number | null {
+  const h = (p: P2): V3 => [p.x, p.y, 1];
+  // Notation de Zhang et He : m1 m2 en haut, m3 m4 en bas, m1 m3 a gauche.
+  const m1 = h(au(coins, 0)),
+    m2 = h(au(coins, 1)),
+    m4 = h(au(coins, 2)),
+    m3 = h(au(coins, 3));
+  const d2 = scal(croix(m2, m4), m3),
+    d3 = scal(croix(m3, m4), m2);
+  if (Math.abs(d2) < 1e-12 || Math.abs(d3) < 1e-12) return null;
+  const k2 = scal(croix(m1, m4), m3) / d2;
+  const k3 = scal(croix(m1, m4), m2) / d3;
+  const n2: V3 = [k2 * m2[0] - m1[0], k2 * m2[1] - m1[1], k2 * m2[2] - m1[2]];
+  const n3: V3 = [k3 * m3[0] - m1[0], k3 * m3[1] - m1[1], k3 * m3[2] - m1[2]];
+  // Longueurs dans le repere camera : A^-1 n, avec A = [[f,0,cx],[0,f,cy],[0,0,1]].
+  const metrique = (n: V3) => {
+    const x = (n[0] - cx * n[2]) / f,
+      y = (n[1] - cy * n[2]) / f;
+    return x * x + y * y + n[2] * n[2];
+  };
+  const r = Math.sqrt(metrique(n2) / metrique(n3));
+  return Number.isFinite(r) && r > 0 ? r : null;
+}

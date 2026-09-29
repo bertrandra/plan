@@ -4,6 +4,11 @@
 // plan. Ce service lui dit sur quel batiment il travaille, et c'est lui seul qui ecrit le resultat
 // dans le projet : un instantane d'historique d'abord (Ctrl+Z defait un releve comme n'importe quel
 // geste), puis le releve, le toit, la hauteur d'egout mesuree, et les rendus qui doivent suivre.
+//
+// Le batiment par defaut est le contour du cadastre extrude a la hauteur du cadastre, avec le toit
+// qu'on lui connait. **Chaque facade relevee le redefinit** : la hauteur a l'egout mesuree sur la
+// photo remplace celle du cadastre, et le toit lu sur la facade - le triangle d'un pignon, ou le pan
+// vu depuis l'egout - remplace le toit du batiment.
 
 import { vue3d } from '../three/etat3d.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
@@ -34,7 +39,10 @@ export interface ServiceReleve {
   /** Le batiment du releve ouvert, tel qu'il est maintenant dans le plan. */
   batiment(): ObjetPolygone | null;
   hauteurMur(): number;
-  /** Ecrit le releve dans le projet. `hauteur` est la hauteur d'egout retenue au redressement. */
+  /**
+   * Ecrit le releve dans le projet. `hauteur` est la hauteur d'egout mesuree sur la photo ; `toit`,
+   * s'il est donne, remplace celui du batiment.
+   */
   valider(releve: ReleveFacade, toit: Toit | null, hauteur: number): void;
 }
 
@@ -75,14 +83,15 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       ctx.pushHistory();
       o.facades = [...(o.facades || []).filter((r) => r.cote !== releve.cote), releve].sort((a, b) => a.cote - b.cote);
       if (toit) o.toit = toit;
-      // La hauteur d'egout lue sur la photo remplace la hauteur estimee par la BD TOPO ; les autres
-      // releves du meme batiment gardent la leur, puisqu'elle a ete mesuree sur leur mur.
+      // La hauteur d'egout mesuree sur la photo remplace celle du cadastre (ou d'un releve precedent) ;
+      // les autres releves du meme batiment gardent la leur, puisqu'elle a ete mesuree sur leur mur.
       if (hauteur > 0 && Math.abs(hauteur - ctx.elevationOf(o)) > 0.005) o.elevation = Math.round(hauteur * 100) / 100;
       ctx.render();
       if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
       const f = facadesDuContour(o.pts, hauteur).find((x) => x.cote === releve.cote);
       const n = releve.ouvertures.length;
-      showToast(`Façade ${f ? f.orientation.toLowerCase() : ''} relevée : ${n} ouverture${n > 1 ? 's' : ''}${toit ? ', toit mis à jour' : ''}.`);
+      const hm = (Math.round(hauteur * 100) / 100).toFixed(2).replace('.', ',');
+      showToast(`Façade ${f ? f.orientation.toLowerCase() : ''} relevée : ${hm} m à l'égout, ${n} ouverture${n > 1 ? 's' : ''}${toit ? ', toit remplacé' : ''}.`);
       courant = null;
       annoncer();
     },
