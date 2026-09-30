@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { lireVitrine, poserVitrine, DIMENSION_MIN, DIMENSION_MAX } from '../../../src/app/vitrine.js';
+import { lireVitrine, poserVitrine, appliquerZoom, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
 
 // La vitrine publique (src/app/vitrine.ts) : la Vue 3D de la demonstration, encadree par la page
 // d'accueil du catalogue de la plateforme.
@@ -12,25 +12,64 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768 });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768 }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
+  });
+});
+
+describe('le zoom de la vitrine', () => {
+  it('se lit en facteur, virgule ou point, borne', () => {
+    expect(lireVitrine('?mode=demo&zoom=2')!.zoom).toBe(2);
+    expect(lireVitrine('?mode=demo&zoom=1.5')!.zoom).toBe(1.5);
+    expect(lireVitrine('?mode=demo&zoom=0,5')!.zoom).toBe(0.5);
+    expect(lireVitrine('?mode=demo&zoom=0.01')!.zoom).toBe(ZOOM_MIN);
+    expect(lireVitrine('?mode=demo&zoom=50')!.zoom).toBe(ZOOM_MAX);
+  });
+
+  it('ignore ce qui n est pas un nombre positif', () => {
+    for (const z of ['abc', '-2', '0', '', '1e3', '2x']) expect(lireVitrine('?mode=demo&zoom=' + z)!.zoom, z).toBeNull();
+  });
+
+  it('rapproche la camera de ce qu elle vise, sans deplacer la cible', () => {
+    class V {
+      constructor(public x: number, public y: number, public z: number) {}
+      clone() { return new V(this.x, this.y, this.z); }
+      sub(v: V) { this.x -= v.x; this.y -= v.y; this.z -= v.z; return this; }
+      add(v: V) { this.x += v.x; this.y += v.y; this.z += v.z; return this; }
+      multiplyScalar(k: number) { this.x *= k; this.y *= k; this.z *= k; return this; }
+      copy(v: V) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
+    }
+    let misAJour = 0;
+    const sc = { camera: { position: new V(10, 20, 30) }, controls: { target: new V(2, 4, 6), update: () => { misAJour++; } } };
+    appliquerZoom(sc as unknown as SceneZoomable, 2);
+    expect([sc.camera.position.x, sc.camera.position.y, sc.camera.position.z]).toEqual([6, 12, 18]);
+    expect([sc.controls.target.x, sc.controls.target.y, sc.controls.target.z]).toEqual([2, 4, 6]);
+    expect(misAJour).toBe(1);
+  });
+});
+
+describe('l orthophoto de la vitrine', () => {
+  it('s allume avec y, et reste eteinte sinon', () => {
+    for (const v of ['y', 'Y', 'o', 'oui', '1', 'true']) expect(lireVitrine('?mode=demo&orthophoto=' + v)!.orthophoto, v).toBe(true);
+    for (const v of ['n', 'non', '0', 'false', '', 'peut-etre']) expect(lireVitrine('?mode=demo&orthophoto=' + v)!.orthophoto, v).toBe(false);
+    expect(lireVitrine('?mode=demo')!.orthophoto).toBe(false);
   });
 });
 
