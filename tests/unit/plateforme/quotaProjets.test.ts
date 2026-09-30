@@ -73,3 +73,18 @@ describe('le compteur visible (Projets 1/X)', () => {
     expect(limiteProjetsCourante()).toBe(null);
   });
 });
+
+describe('le compteur, toujours la une fois la plateforme branchee', () => {
+  it('limite : les nombres de la plateforme', async () => {
+    const { compteProjets } = await import('../../../src/plateforme/quotaProjets.js');
+    expect(compteProjets(q(3, 1), 1)).toEqual({ utilise: 1, limite: 3, illimite: false });
+  });
+  it('illimite : le nombre, et l infini', async () => {
+    const { compteProjets } = await import('../../../src/plateforme/quotaProjets.js');
+    expect(compteProjets(q(null, 4, true), 2)).toEqual({ utilise: 4, limite: null, illimite: true });
+  });
+  it('sans quota de projets sur l offre : les projets vus dans la liste', async () => {
+    const { compteProjets } = await import('../../../src/plateforme/quotaProjets.js');
+    expect(compteProjets(null, 2)).toEqual({ utilise: 2, limite: null, illimite: false });
+  });
+});

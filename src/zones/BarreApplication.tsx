@@ -278,14 +278,20 @@ function Compte({ magasin }: { magasin: Magasin }) {
  * La limite se voit avant d'etre rencontree, pas seulement au refus. A la limite, le mot le dit
  * aussi — la bordure seule ne porterait pas l'information.
  */
-function CompteurProjets({ quota }: { quota: { utilise: number; limite: number } }) {
-  const plein = quota.utilise >= quota.limite;
-  const titre = quota.utilise + ' projet' + (quota.utilise > 1 ? 's' : '') + ' sur ' + quota.limite
-    + ' autorisé' + (quota.limite > 1 ? 's' : '') + ' par l’abonnement de votre organisation'
-    + (plein ? ' : limite atteinte. Supprimez un projet ou changez d’offre sur la plateforme pour en créer un nouveau.' : '.');
+function CompteurProjets({ quota }: { quota: { utilise: number; limite: number | null; illimite: boolean } }) {
+  const { utilise, limite } = quota;
+  const plein = limite !== null && utilise >= limite;
+  const nProjets = utilise + ' projet' + (utilise > 1 ? 's' : '');
+  const titre = limite !== null
+    ? nProjets + ' sur ' + limite + ' autorisé' + (limite > 1 ? 's' : '') + ' par l’abonnement de votre organisation'
+      + (plein ? ' : limite atteinte. Supprimez un projet ou changez d’offre sur la plateforme pour en créer un nouveau.' : '.')
+    : quota.illimite ? nProjets + ' ; l’abonnement de votre organisation n’en limite pas le nombre.'
+      : nProjets + ' dans votre organisation.';
+  // Illimite : « 4/∞ » ; aucun quota de projets sur l'offre : le nombre seul.
+  const nombre = utilise + (limite !== null ? '/' + limite : quota.illimite ? '/∞' : '');
   return (
     <span id="compteurProjets" className={'compteurProjets' + (plein ? ' plein' : '')} title={titre} aria-label={titre}>
-      Projets <span className="nombre">{quota.utilise}/{quota.limite}</span>
+      Projets <span className="nombre">{nombre}</span>
       {plein && <span className="motLimite"> · limite atteinte</span>}
     </span>
   );
