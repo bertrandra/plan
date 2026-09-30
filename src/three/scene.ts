@@ -132,7 +132,11 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   }
   const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(extent * 4, extent * 4), new THREE.MeshStandardMaterial({ color: 0x9fb98c }));
+  const matSol = new THREE.MeshStandardMaterial({ color: 0x9fb98c });
+  // Le sol est la couche la plus basse : on le recule plutot que de tirer vers la camera ce qui est
+  // pose dessus (COUCHES_SOL).
+  poserEnCouche(matSol, COUCHES_SOL.fond);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(extent * 4, extent * 4), matSol);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = vue3d.ombres;
   scene.add(ground);
@@ -199,6 +203,9 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
     // Au-dessus du terrain, sous les chemins : une couche, pas seulement un millimetre (COUCHES_SOL).
+    // Aucun decalage : c'est le sol vert, dessous, qui est recule (COUCHES_SOL). Tiree vers la
+    // camera, la photo passait devant les objets bas vus de loin et de biais — les massifs de 20 cm
+    // scintillaient (2.2.1).
     poserEnCouche(mat, COUCHES_SOL.ortho);
     const dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), mat);
     dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
@@ -347,6 +354,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o === obj) return;
     if (ctx.objetMasque(o)) return; // masque dans le plan = masque partout, voisinage compris
     if (o.key === 'parcelle' || o.fonction === 'terrain') {
+      // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
+      // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
+      if (ctx.orthoActif() && ctx.orthoTuiles().length) return;
       if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
       return;
     }
