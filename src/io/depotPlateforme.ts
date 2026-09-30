@@ -23,6 +23,7 @@ import { schemaMinimal, migrer } from '../model/migrations.js';
 import { EchecPlateforme, type Session } from '../plateforme/session.js';
 import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
+import { phraseLimite } from '../plateforme/quotaProjets.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
@@ -35,6 +36,11 @@ interface DocumentPlan {
 }
 
 interface ResumeApi { id: string; name: string; updated_at: string; deleted_at: string | null; schema_version?: number }
+
+/** `{}`, ou rien : le document d'un projet cree mais jamais ecrit. */
+export function documentVide(d: unknown): boolean {
+  return d === null || d === undefined || (typeof d === 'object' && !Array.isArray(d) && Object.keys(d).length === 0);
+}
 
 function echec(message: string, motif: MotifEchec): Error & { reason: MotifEchec } {
   return Object.assign(new Error(message), { reason: motif });
@@ -54,12 +60,24 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   // repli qui depend de ce motif ne se declencherait jamais.
   if (e && typeof e === 'object' && 'reason' in e) return e as Error & { reason: MotifEchec };
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
     return echec(quoi + ' : ' + e.erreur.code + ref, motif);
   }
   return echec(quoi + ' : ' + ((e as Error).message || String(e)), 'network');
+}
+
+/**
+ * La plateforme refuse un projet de plus : l'organisation a atteint la limite de son abonnement
+ * (`403 QUOTA_EXCEEDED`, avec `details.limit` et `details.used`). La phrase est celle que Plan dit
+ * quand il voit la limite lui-meme, avec les nombres de la plateforme, qui font foi.
+ */
+function refusDeQuota(e: EchecPlateforme): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const l = typeof d.limit === 'number' && typeof d.used === 'number' ? { limite: d.limit, utilise: d.used } : null;
+  return Object.assign(echec(phraseLimite(l), 'server'), { quota: true as const });
 }
 
 /**
@@ -103,6 +121,12 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
       try {
         const p = await session.appeler<ResumeApi & { document: DocumentPlan }>('showProject', { params: { projectId: id } });
         const d = p.document;
+        // Un document vide, `{}` : un projet que la plateforme vient de creer pour Plan, et que
+        // personne n'a encore rempli. Ce n'est pas un document etranger, c'est un plan neuf — rendu
+        // vide, et marque comme tel, pour que le demarrage propose d'en saisir l'adresse.
+        if (documentVide(d)) {
+          return { objects: [], measures: [], schemaVersion: p.schema_version ?? null, nouveau: true, meta: { id: p.id, name: p.name, updatedAt: p.updated_at } };
+        }
         // La plateforme ne connait pas la forme du document et ne la validera jamais : elle stocke
         // ce qu'on lui donne. Un projet cree par autre chose que Plan s'ouvrirait donc en plan
         // vide, sans un mot — le pire des deux mondes. On le dit.

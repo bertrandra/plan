@@ -621,6 +621,17 @@
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }
   .compteSortie{ background:transparent; cursor:pointer; font-family:inherit; }
 
+  /* Le compteur de projets (« Projets 1/3 ») : la limite de l'abonnement se voit avant d'etre
+     rencontree. A la limite, bordure d'alerte ET mots « limite atteinte ». */
+  .compteurProjets{
+    display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:999px;
+    font-family:var(--sans); font-size:0.74rem; white-space:nowrap; color:var(--ink-soft);
+    background:var(--panel-2); border:1px solid var(--rule);
+  }
+  .compteurProjets .nombre{ font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .compteurProjets.plein{ border-color:var(--alerte); color:var(--ink); }
+  html[data-classe="compact"] #projectBar .compteurProjets{ align-self:flex-start; min-height:32px; font-size:0.85rem; padding:0 12px; }
+
   /* ---------------------------------------------------------------------------------------------
      Les trois classes d'ecran (MD/spec-ihm-mobile.md §4), posees par app/classe.ts sur
      <html data-classe>. Bureau (`large`) : la disposition en colonnes ci-dessus, inchangee.

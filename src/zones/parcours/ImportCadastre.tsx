@@ -247,7 +247,7 @@ function Etape3({ importe }: Props) {
       <Pied importe={importe}>
         <Bouton onClick={importe.fermer}>Annuler</Bouton>
         <Bouton onClick={() => importe.allerA(2)}>← Retour</Bouton>
-        <Bouton principal onClick={() => void importe.creerProjet(nom)}>Creer le projet</Bouton>
+        <Bouton principal onClick={() => void importe.creerProjet(nom)}>{importe.projetCible() ? 'Remplir le projet' : 'Creer le projet'}</Bouton>
       </Pied>
     </>
   );

@@ -13,9 +13,8 @@ import { createElement } from 'react';
 import { PremierPas, type Choix, type Empechement } from '../zones/PremierPas.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { peutEcrire, droitsCourants } from './acces.js';
+import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 
-/** Le quota que consomme un plan, tel que la plateforme le nomme. */
-const QUOTA_PLANS = 'plan.documents';
 
 /**
  * Ce qui empeche de creer, s'il y a lieu.
@@ -26,7 +25,8 @@ const QUOTA_PLANS = 'plan.documents';
  */
 export function empechementCourant(): Empechement | null {
   if (!peutEcrire()) return { raison: 'lecture' };
-  return droitsCourants().reste(QUOTA_PLANS) === 0 ? { raison: 'quota' } : null;
+  const droits = droitsCourants();
+  return droits.reste(QUOTA_PROJETS) === 0 ? { raison: 'quota', message: droits.phraseQuota?.(QUOTA_PROJETS) ?? '' } : null;
 }
 
 /** L'element qui porte l'ecran. Cree a la demande : la plupart des sessions n'en ont pas besoin. */

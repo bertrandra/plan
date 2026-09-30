@@ -7,6 +7,30 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La limite de projets est celle de la plateforme, et se dit.** Plan lit désormais le quota que
+  backprod applique à la création et à la copie d'un projet, `max_projects`, au lieu de
+  `plan.documents`, un compteur que rien n'alimente : il ne se croyait jamais à la limite. Il compte
+  comme la plateforme (refus dès `utilisés >= limite`), en prenant aussi les projets qu'il voit dans
+  la liste, car le contexte mis en cache peut retarder. À la limite, « Nouveau projet » (copie) et
+  « Nouveau plan depuis une adresse… » restent cliquables et ouvrent un dialogue « Limite de projets
+  atteinte ». Il donne les nombres (« 3 projets pour 3 autorisés par son abonnement »), dit quoi
+  faire et renvoie à la plateforme. Un refus `QUOTA_EXCEEDED` de la plateforme se dit par la même
+  phrase, avec ses nombres, au lieu du code brut. L'écran du premier pas reprend cette phrase.
+  Remplir un projet neuf (document `{}`) ne crée rien et n'est donc pas limité
+  (`plateforme/quotaProjets.ts`, `app/limiteProjets.ts`).
+
+- **Le nombre de projets se voit : « Projets 1/3 ».** Une pastille à côté du choix du projet (barre
+  du bureau, feuille Projet sur téléphone et tablette) montre combien de projets l'organisation
+  tient sur combien son abonnement en autorise, compté comme la plateforme. À la limite, elle dit
+  « limite atteinte » et prend une bordure d'alerte. Une offre illimitée n'en affiche pas.
+
+- **Un projet reçu vide (`{}`) est un projet neuf.** Quand la plateforme rend un projet dont le
+  document est vide — créé pour Plan, jamais rempli —, Plan l'ouvre en plan vierge, sous son nom, et
+  propose aussitôt la saisie d'une adresse (import cadastre). À la fin du parcours, le plan est
+  enregistré **dans ce projet-là** (« Remplir le projet »), sous le nom donné chez la plateforme, au
+  lieu d'en créer un second. Un document d'un autre produit reste refusé comme avant
+  (`io/depotPlateforme.ts`, `io/api.ts`, `app/importCadastre.ts`).
+
 - **Isoler la terrasse.** Une terrasse sélectionnée s'isole d'un bouton : sur le plan, à côté
   d'« Ajuster à la sélection » (bureau) ou dans le groupe flottant (téléphone, tablette) ; en 3D,
   dans les commandes de la scène. Elle seule reste affichée. Les autres objets, leurs ombres de

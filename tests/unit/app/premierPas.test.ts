@@ -40,8 +40,8 @@ describe('ce qui empeche de commencer', () => {
   });
 
   it('nomme le quota epuise', () => {
-    poserAcces(session, contexte({ quota: () => ({ reste: 0 }) as never }));
-    expect(empechementCourant()).toEqual({ raison: 'quota' });
+    poserAcces(session, contexte({ quota: () => ({ limite: 1, illimite: false, utilise: 1, reste: 0 }) }));
+    expect(empechementCourant()).toMatchObject({ raison: 'quota', message: expect.stringMatching(/1 projet pour 1 autorisé/) })
   });
 
   it('laisse passer un quota qui n est pas atteint', () => {

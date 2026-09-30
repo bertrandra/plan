@@ -52,6 +52,8 @@ export interface ProjetServeur {
   meta?: ProjetResume | null;
   /** Le schema que la plateforme a enregistre pour ce document (colonne `schema_version`). */
   schemaVersion?: number | null;
+  /** Vrai quand le document est vide (`{}`) : un projet neuf, a remplir depuis une adresse. */
+  nouveau?: boolean;
 }
 
 /** Motif d'echec, pour que l'appelant sache quoi montrer. */
@@ -195,6 +197,12 @@ export async function chargerProjetInitial(
     complet = await apiLoad(voulu);
   }
   localStorage.setItem(LS_LAST_PROJECT, voulu);
+  // Un projet neuf, au document vide : c'est bien celui-la qu'on ouvre — il a son nom et sa place
+  // chez la plateforme —, mais il n'y a rien a y montrer. On propose d'en saisir l'adresse, et
+  // l'import cadastre ecrira dans ce projet-ci au lieu d'en creer un autre.
+  if (complet.nouveau) {
+    return { ...planVierge(), meta: complet.meta ?? null, schemaVersion: complet.schemaVersion ?? null };
+  }
   return {
     apiAvailable: true,
     list: liste,

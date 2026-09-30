@@ -39,7 +39,9 @@ import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
 import { creerInspecteur, type Inspecteur } from './inspecteur.js';
 import { creerExplorateur, type Explorateur } from './explorateur.js';
-import { creerProjet } from './projet.js';
+import { creerProjet, projetARemplir } from './projet.js';
+import { retenirProjetsConnus } from '../plateforme/quotaProjets.js';
+import { signalerLimiteProjets } from './limiteProjets.js';
 import { actualisation, ouvrirDialogueActualisation } from './actualisationIgn.js';
 import { creerImportCadastre } from './importCadastre.js';
 import { parcours } from './parcours.js';
@@ -121,7 +123,9 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   etat.lectureSeule = enLectureSeule();
   const magasin = creerMagasin(etat);
   // Les droits viennent de la plateforme quand il y en a une, et laissent tout passer sinon.
-  const commandes = creerRegistre(droitsCourants());
+  // Le nombre de projets vus : la limite se compte aussi sur eux (plateforme/quotaProjets.ts).
+  retenirProjetsConnus(seed.list.length);
+  const commandes = creerRegistre(droitsCourants(), (_id, message) => signalerLimiteProjets(message));
   // Le selecteur d'objets est l'explorateur (zones/) : il se redessine sur le magasin.
   const rebuildSelector = () => magasin.notifier();
   const refreshTerrasseView = () => tardifs.vues?.refreshTerrasseView();
@@ -225,7 +229,9 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
-        apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT }, () => parcours.fermer());
+        apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT,
+        // Un projet neuf (document `{}`) se remplit, tant que rien n'y a ete dessine.
+        projetCible: () => projetARemplir(seed, etat) }, () => parcours.fermer());
       parcours.ouvrir({ type: 'cadastre', importe });
     },
     ouvrirActualisation: () => ouvrirDialogueActualisation({

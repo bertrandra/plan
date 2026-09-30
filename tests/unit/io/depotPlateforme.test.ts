@@ -77,3 +77,39 @@ describe('un schema que la plateforme ne connait pas encore', () => {
     expect(e.message).toMatch(/VALIDATION_FAILED/);
   });
 });
+
+describe('un projet neuf, au document vide', () => {
+  it('s ouvre en plan vide, marque nouveau, avec le nom de la plateforme', async () => {
+    const { s } = session(() => ({ ...RESUME, document: {} }));
+    const p = await creerDepotPlateforme(s).ouvrir('p1');
+    expect(p.nouveau).toBe(true);
+    expect(p.objects).toEqual([]);
+    expect(p.meta).toEqual({ id: 'p1', name: 'Jardin', updatedAt: RESUME.updated_at });
+  });
+
+  it('de meme sans document du tout', async () => {
+    const { s } = session(() => ({ ...RESUME, document: null }));
+    expect((await creerDepotPlateforme(s).ouvrir('p1')).nouveau).toBe(true);
+  });
+
+  it('mais un document d un autre produit reste refuse', async () => {
+    const { s } = session(() => ({ ...RESUME, document: { walls: [] } }));
+    await expect(creerDepotPlateforme(s).ouvrir('p1')).rejects.toMatchObject({ reason: 'badjson' });
+  });
+
+  it('un plan ouvert normalement n est pas marque nouveau', async () => {
+    const { s } = session(() => ({ ...RESUME, document: { objects: plan } }));
+    expect((await creerDepotPlateforme(s).ouvrir('p1')).nouveau).toBeUndefined();
+  });
+});
+
+describe('la limite de projets, vue de la plateforme', () => {
+  it('traduit QUOTA_EXCEEDED en phrase, avec ses nombres', async () => {
+    const refus = new EchecPlateforme({ code: 'QUOTA_EXCEEDED', message: 'The tenant has used all of this allowance.', statut: 403,
+      details: { capability: 'max_projects', limit: 1, used: 1 }, requestId: 'req-7' });
+    const { s } = session(() => { throw refus; });
+    const e = await creerDepotPlateforme(s).enregistrer({ name: 'Copie', objects: plan }).catch((x: Error) => x) as Error;
+    expect(e.message).toContain('1 projet pour 1 autorisé');
+    expect(e.message).not.toContain('QUOTA_EXCEEDED');
+  });
+});

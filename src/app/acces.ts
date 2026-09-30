@@ -8,9 +8,10 @@
 // comportement de la 1.2.0, et ce que le drapeau de l'etape 4 finira par rendre impossible.
 
 import { CAPACITE_LECTURE_SEULE } from '../plateforme/capacites.js';
-import type { Droits } from './commandes.js';
+import { PHRASE_QUOTA, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
+import { QUOTA_PROJETS, limiteProjets, phraseLimite, type LimiteProjets } from '../plateforme/quotaProjets.js';
 
 let session: Session | null = null;
 let contexte: ServiceContexte | null = null;
@@ -60,6 +61,11 @@ export function entrerEnVitrine(): void { vitrine = true; }
 export function sessionCourante(): Session | null { return session; }
 export function contexteCourant(): ServiceContexte | null { return contexte; }
 
+/** La limite de projets de l'organisation, alignee sur la plateforme ; `null` : illimite, ou hors plateforme. */
+export function limiteProjetsCourante(): LimiteProjets | null {
+  return limiteProjets(contexte?.quota(QUOTA_PROJETS) ?? null);
+}
+
 /**
  * Les droits que le registre des commandes consulte.
  *
@@ -73,6 +79,14 @@ export function droitsCourants(): Droits {
     // Le droit d'ecrire passe par `peutEcrire`, pour que le registre et le badge ne puissent pas
     // se contredire. Les autres permissions se lisent telles quelles.
     aPermission: (code) => (code === PERMISSION_ECRITURE ? peutEcrire() : (contexte?.aPermission(code) ?? true)),
-    reste: (feature) => contexte?.quota(feature)?.reste ?? null
+    // Le quota des projets s'aligne sur ce que la plateforme applique (plateforme/quotaProjets.ts).
+    reste: (feature) => {
+      const q = contexte?.quota(feature) ?? null;
+      if (feature === QUOTA_PROJETS && q) return q.illimite ? null : (limiteProjets(q)?.reste ?? q.reste);
+      return q?.reste ?? null;
+    },
+    phraseQuota: (feature) => (feature === QUOTA_PROJETS
+      ? phraseLimite(limiteProjets(contexte?.quota(feature) ?? null))
+      : PHRASE_QUOTA)
   };
 }
