@@ -17,15 +17,24 @@
 //
 // `x` et `y` sont la largeur et la hauteur de la scene, en pixels CSS, bornees ; sans elles, la
 // scene prend la fenetre (ce qui est le cas utile dans un <iframe> deja dimensionne).
+//
+// `zoom` rapproche (> 1) ou eloigne (< 1) la camera du cadrage par defaut : `zoom=2` la met a mi-
+// distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Borne de 0,25 a 8 ; la virgule vaut
+// le point.
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
 export const DIMENSION_MIN = 200;
 export const DIMENSION_MAX = 3840;
+/** Les bornes du zoom : au-dela, la camera traverse la scene ou la perd de vue. */
+export const ZOOM_MIN = 0.25;
+export const ZOOM_MAX = 8;
 
 export interface Vitrine {
   /** Largeur et hauteur demandees, en pixels CSS ; `null` : la fenetre. */
   largeur: number | null;
   hauteur: number | null;
+  /** Facteur de rapprochement de la camera ; `null` : le cadrage par defaut. */
+  zoom: number | null;
 }
 
 function dimension(brute: string | null): number | null {
@@ -33,11 +42,17 @@ function dimension(brute: string | null): number | null {
   return Math.min(DIMENSION_MAX, Math.max(DIMENSION_MIN, parseInt(brute, 10)));
 }
 
+function facteurDeZoom(brut: string | null): number | null {
+  if (brut === null || !/^\d{1,2}([.,]\d{1,3})?$/.test(brut.trim())) return null;
+  const v = parseFloat(brut.replace(',', '.'));
+  return v > 0 ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v)) : null;
+}
+
 /** La vitrine demandee par l'adresse, ou `null` pour l'atelier. */
 export function lireVitrine(recherche: string): Vitrine | null {
   const p = new URLSearchParams(recherche);
   if (p.get('mode') !== 'demo') return null;
-  return { largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')) };
+  return { largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')), zoom: facteurDeZoom(p.get('zoom')) };
 }
 
 /**
@@ -48,4 +63,32 @@ export function poserVitrine(v: Vitrine, racine: HTMLElement = document.document
   racine.dataset.vitrine = '';
   if (v.largeur !== null) racine.style.setProperty('--vitrine-largeur', v.largeur + 'px');
   if (v.hauteur !== null) racine.style.setProperty('--vitrine-hauteur', v.hauteur + 'px');
+}
+
+/** Ce que le zoom demande de la scene : une camera, et le point que les controles visent. */
+interface Vecteur { clone(): Vecteur; sub(v: Vecteur): Vecteur; multiplyScalar(k: number): Vecteur; copy(v: Vecteur): Vecteur; add(v: Vecteur): Vecteur }
+export interface SceneZoomable {
+  camera: { position: Vecteur };
+  controls: { target: Vecteur; update(): void };
+}
+
+/** Rapproche la camera de ce qu'elle vise, d'un facteur `zoom` (> 1 : plus pres). */
+export function appliquerZoom(sc: SceneZoomable, zoom: number): void {
+  const ecart = sc.camera.position.clone().sub(sc.controls.target).multiplyScalar(1 / zoom);
+  sc.camera.position.copy(sc.controls.target).add(ecart);
+  sc.controls.update();
+}
+
+/**
+ * Attend la scene 3D — la bibliotheque se charge a la demande, depuis un CDN — puis y applique le
+ * zoom, une fois. Abandonne apres `delaiMs` : une scene qui ne vient pas n'a rien a zoomer.
+ */
+export function zoomerQuandPrete(scene: () => SceneZoomable | null, zoom: number, delaiMs = 30_000): void {
+  const debut = Date.now();
+  const essayer = () => {
+    const sc = scene();
+    if (sc) { appliquerZoom(sc, zoom); return; }
+    if (Date.now() - debut < delaiMs) setTimeout(essayer, 100);
+  };
+  essayer();
 }

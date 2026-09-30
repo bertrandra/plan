@@ -15,6 +15,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   3 840). Sans eux, la scène prend la fenêtre, ce qui convient à un `<iframe>` déjà dimensionné.
   On peut tourner et zoomer, mais pas enregistrer d'image ni poser de point de vue
   (`src/app/vitrine.ts`).
+- **`zoom=` règle le cadrage de la vitrine** : `?mode=demo&x=1024&y=768&zoom=2` place la caméra à
+  mi-distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Le facteur est borné de 0,25 à 8
+  et accepte la virgule. Il s'applique une fois la scène prête, la bibliothèque 3D se chargeant à
+  la demande.
 - **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
   restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
 - **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,

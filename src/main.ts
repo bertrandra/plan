@@ -31,7 +31,7 @@ async function demarrer(): Promise<void> {
       const { entrerEnVitrine } = await import('./app/acces.js');
       entrerEnVitrine();
       const { boot, graineVitrine } = await import('./app/boot.js');
-      boot(graineVitrine(), { vitrine: true });
+      boot(graineVitrine(), { vitrine });
       return;
     }
 

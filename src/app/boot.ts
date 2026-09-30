@@ -63,6 +63,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
+import { zoomerQuandPrete, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 
@@ -315,7 +316,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   return { explorateur, inspecteur, projet };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: boolean } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
@@ -353,6 +354,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: boolean } = {}): void 
     const terrasse = etat.objects.find(o => o.fonction === 'terrasse' && o.type === 'polygon');
     if (terrasse) explorateur.selectionner(terrasse.key);
     commandes.executer('vue.3d');
+    if (options.vitrine.zoom) zoomerQuandPrete(() => vue3d.scene as SceneZoomable | null, options.vitrine.zoom);
   }
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
