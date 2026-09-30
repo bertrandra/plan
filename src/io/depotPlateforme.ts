@@ -23,6 +23,7 @@ import { schemaMinimal, migrer } from '../model/migrations.js';
 import { EchecPlateforme, type Session } from '../plateforme/session.js';
 import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
+import { phraseLimite } from '../plateforme/quotaProjets.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
@@ -59,12 +60,24 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   // repli qui depend de ce motif ne se declencherait jamais.
   if (e && typeof e === 'object' && 'reason' in e) return e as Error & { reason: MotifEchec };
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
     return echec(quoi + ' : ' + e.erreur.code + ref, motif);
   }
   return echec(quoi + ' : ' + ((e as Error).message || String(e)), 'network');
+}
+
+/**
+ * La plateforme refuse un projet de plus : l'organisation a atteint la limite de son abonnement
+ * (`403 QUOTA_EXCEEDED`, avec `details.limit` et `details.used`). La phrase est celle que Plan dit
+ * quand il voit la limite lui-meme, avec les nombres de la plateforme, qui font foi.
+ */
+function refusDeQuota(e: EchecPlateforme): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const l = typeof d.limit === 'number' && typeof d.used === 'number' ? { limite: d.limit, utilise: d.used } : null;
+  return Object.assign(echec(phraseLimite(l), 'server'), { quota: true as const });
 }
 
 /**

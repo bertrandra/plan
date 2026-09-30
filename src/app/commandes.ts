@@ -31,6 +31,8 @@ export interface Droits {
   aPermission(code: string): boolean;
   /** Ce qu'il reste d'un quota, ou rien quand ce n'en est pas un. */
   reste(feature: string): number | null;
+  /** La phrase a dire quand ce quota est atteint ; absente : la phrase generale. */
+  phraseQuota?(feature: string): string;
 }
 
 /** Tout est permis : la forme que prend l'absence de plateforme. */
@@ -73,8 +75,11 @@ export interface Commande {
   capacite?: string;
   /** Le droit que la personne doit tenir. Absente : aucun droit particulier. */
   permission?: string;
-  /** Le quota que la commande consomme. Absente : elle n'en consomme aucun. */
-  quota?: string;
+  /**
+   * Le quota que la commande consomme. Absente : elle n'en consomme aucun. Une fonction quand cela
+   * depend du moment : remplir un projet neuf n'en cree pas un de plus (elle rend alors `null`).
+   */
+  quota?: string | (() => string | null);
   /** `source` est l'element qui a declenche la commande, pour celles qui changent son etat. */
   executer: (source?: HTMLElement) => void;
 }
@@ -96,7 +101,7 @@ export interface RegistreCommandes {
  * Les boutons sont des zones React (zones/) qui appellent `executer` avec leur element en source : le
  * registre ne cherche plus rien dans la page.
  */
-export function creerRegistre(droits: Droits = DROITS_OUVERTS): RegistreCommandes {
+export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (id: string, message: string) => void): RegistreCommandes {
   const commandes = new Map<string, Commande>();
   const registre: RegistreCommandes = {
     declarer(c) {
@@ -108,7 +113,14 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS): RegistreCommande
       // On n'envoie pas une commande qu'on sait refusee. Ce n'est pas la securite — la plateforme
       // refuse pour de bon sur ses propres routes — c'est la politesse : un aller-retour pour se
       // faire dire non est un aller-retour de trop.
-      if (!c || !registre.etat(id).utilisable) return false;
+      if (!c) return false;
+      const e = registre.etat(id);
+      if (!e.utilisable) {
+        // Un quota atteint se dit, au geste meme : la personne a clique pour creer, elle doit savoir
+        // pourquoi rien ne se cree — une info-bulle ne se voit pas sur un ecran tactile.
+        if (e.raison === 'quota' && surRefusQuota) surRefusQuota(id, e.message);
+        return false;
+      }
       c.executer(source);
       return true;
     },
@@ -119,9 +131,10 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS): RegistreCommande
       if (droits.branchee()) {
         if (c.capacite && !droits.aCapacite(c.capacite)) return { utilisable: false, raison: 'capacite', message: PHRASE_CAPACITE };
         if (c.permission && !droits.aPermission(c.permission)) return { utilisable: false, raison: 'permission', message: PHRASE_PERMISSION };
-        if (c.quota) {
-          const reste = droits.reste(c.quota);
-          if (reste !== null && reste <= 0) return { utilisable: false, raison: 'quota', message: PHRASE_QUOTA };
+        const quota = typeof c.quota === 'function' ? c.quota() : c.quota;
+        if (quota) {
+          const reste = droits.reste(quota);
+          if (reste !== null && reste <= 0) return { utilisable: false, raison: 'quota', message: droits.phraseQuota?.(quota) ?? PHRASE_QUOTA };
         }
       }
       if (c.actif && !c.actif()) return { utilisable: false, raison: 'contexte' };

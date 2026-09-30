@@ -120,13 +120,14 @@ describe('les commandes du projet portent bien leurs droits', () => {
     }
   });
 
-  it('met le quota des documents sur les deux commandes qui en creent un', async () => {
+  it('met le quota des projets — celui que la plateforme applique — sur les deux commandes qui en creent un', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const source = readFileSync(resolve(__dirname, '../../../src/app/projet.ts'), 'utf8');
     for (const id of ['projet.nouveau', 'projet.depuisAdresse']) {
       const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 220);
-      expect(bloc, id).toContain("quota: 'plan.documents'");
+      // `max_projects`, le quota que backprod verifie a la creation et a la copie — pas `plan.documents`.
+      expect(bloc, id).toContain('QUOTA_PROJETS');
     }
   });
 });

@@ -10,6 +10,7 @@
 // bouton « Reinitialiser » ; supprimer retire le parametre d'URL et recharge.
 
 import { PERMISSION_ECRITURE } from './acces.js';
+import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { dialogues } from '../shell/dialogues.js';
@@ -27,6 +28,16 @@ export interface SeedProjet {
   apiAvailable: boolean;
   meta?: ProjetResume | null | undefined;
   list: ProjetResume[];
+  /** Vrai quand le demarrage demande l'import cadastre (un plan vierge, ou un projet neuf a remplir). */
+  ouvrirAdresse?: boolean;
+}
+
+/**
+ * Le projet neuf que l'import cadastre remplira, s'il y en a un : ouvert avec un document vide
+ * (`{}`), et ou rien n'a encore ete dessine. Le remplir ne cree pas de projet : aucun quota.
+ */
+export function projetARemplir(seed: SeedProjet, etat: EtatApp): ProjetResume | null {
+  return seed.ouvrirAdresse && seed.meta && etat.objects.length === 0 ? seed.meta : null;
 }
 
 /** Ce que les commandes de projet demandent au reste du programme. */
@@ -189,7 +200,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Nouveau projet', groupe: 'projet',
-    permission: PERMISSION_ECRITURE, quota: 'plan.documents',
+    permission: PERMISSION_ECRITURE, quota: QUOTA_PROJETS,
     description: 'Cree un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
     executer: () => {
@@ -235,7 +246,8 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.
   cmd.declarer({
     id: 'projet.depuisAdresse', libelle: 'Depuis une adresse', groupe: 'projet',
-    capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE, quota: 'plan.documents',
+    capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE,
+    quota: () => (projetARemplir(seed, ctx.etat) ? null : QUOTA_PROJETS),
     description: 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines',
     executer: () => {
       if (ctx.etat.dirty && seed.apiAvailable) {

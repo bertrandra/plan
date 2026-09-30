@@ -18,7 +18,7 @@ export type Choix = 'adresse' | 'demo';
 /** Pourquoi, le cas echeant, elle ne peut repondre ni l'un ni l'autre. */
 export type Empechement =
   | { raison: 'lecture' }
-  | { raison: 'quota' };
+  | { raison: 'quota'; message: string };
 
 export interface PropsPremierPas {
   /** `null` quand les deux options sont ouvertes. */
@@ -36,7 +36,7 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
     // pire : la personne s'y reprendrait a trois fois avant de soupconner que ce n'est pas elle.
     const texte = empechement.raison === 'lecture'
       ? "Votre place est une place de lecture : vous pouvez consulter des plans, pas en creer. Demandez a un administrateur de votre organisation de vous en partager un, ou de changer votre place."
-      : "Votre organisation a atteint le nombre de plans que son abonnement prevoit. Un administrateur peut en supprimer un, ou changer d'offre.";
+      : empechement.message || "Votre organisation a atteint le nombre de plans que son abonnement prevoit. Un administrateur peut en supprimer un, ou changer d'offre.";
     return (
       <div className="premierVoile">
         <div className="premierBoite">

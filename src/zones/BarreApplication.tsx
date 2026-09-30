@@ -58,11 +58,13 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
   const etat = commandes.etat(id);
   // Effacee plutot que grisee quand l'organisation n'a pas achete la fonction (spec §4.2).
   if (!etat.utilisable && etat.raison === 'capacite') return null;
-  const actif = etat.utilisable;
+  // Un quota atteint laisse l'entree cliquable : le clic dit la limite (app/limiteProjets.ts).
+  const quota = !etat.utilisable && etat.raison === 'quota';
+  const actif = etat.utilisable || quota;
   const refus = !etat.utilisable && 'message' in etat ? etat.message : null;
   return (
     <li role="menuitem">
-      <button type="button" id={idDom} data-commande={id} disabled={!actif} title={refus || c?.description}
+      <button type="button" id={idDom} data-commande={id} disabled={!actif} data-limite={quota || undefined} title={refus || c?.description}
         onClick={(e) => { commandes.executer(id, e.currentTarget); if (apres) apres(); fermer(e); }}>
         <span className="coche" aria-hidden="true" />{libelle}
         {raccourci && <kbd>{raccourci}</kbd>}

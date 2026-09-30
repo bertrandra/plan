@@ -102,3 +102,14 @@ describe('un projet neuf, au document vide', () => {
     expect((await creerDepotPlateforme(s).ouvrir('p1')).nouveau).toBeUndefined();
   });
 });
+
+describe('la limite de projets, vue de la plateforme', () => {
+  it('traduit QUOTA_EXCEEDED en phrase, avec ses nombres', async () => {
+    const refus = new EchecPlateforme({ code: 'QUOTA_EXCEEDED', message: 'The tenant has used all of this allowance.', statut: 403,
+      details: { capability: 'max_projects', limit: 1, used: 1 }, requestId: 'req-7' });
+    const { s } = session(() => { throw refus; });
+    const e = await creerDepotPlateforme(s).enregistrer({ name: 'Copie', objects: plan }).catch((x: Error) => x) as Error;
+    expect(e.message).toContain('1 projet pour 1 autorisé');
+    expect(e.message).not.toContain('QUOTA_EXCEEDED');
+  });
+});
