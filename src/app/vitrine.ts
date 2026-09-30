@@ -21,6 +21,10 @@
 // `zoom` rapproche (> 1) ou eloigne (< 1) la camera du cadrage par defaut : `zoom=2` la met a mi-
 // distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Borne de 0,25 a 8 ; la virgule vaut
 // le point.
+//
+// `orthophoto=y` pose la photo aerienne de l'IGN sous la scene, comme le fond orthophoto de
+// l'atelier ; `orthophoto=n`, ou rien, s'en passe. Les tuiles viennent de data.geopf.fr : la scene
+// s'ouvre sans elles, puis se reconstruit quand elles sont la, a la meme place de camera.
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
 export const DIMENSION_MIN = 200;
@@ -35,6 +39,8 @@ export interface Vitrine {
   hauteur: number | null;
   /** Facteur de rapprochement de la camera ; `null` : le cadrage par defaut. */
   zoom: number | null;
+  /** La photo aerienne sous la scene. Faux par defaut. */
+  orthophoto: boolean;
 }
 
 function dimension(brute: string | null): number | null {
@@ -52,7 +58,10 @@ function facteurDeZoom(brut: string | null): number | null {
 export function lireVitrine(recherche: string): Vitrine | null {
   const p = new URLSearchParams(recherche);
   if (p.get('mode') !== 'demo') return null;
-  return { largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')), zoom: facteurDeZoom(p.get('zoom')) };
+  return {
+    largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')), zoom: facteurDeZoom(p.get('zoom')),
+    orthophoto: /^(y|o|oui|yes|1|true)$/i.test((p.get('orthophoto') ?? '').trim())
+  };
 }
 
 /**

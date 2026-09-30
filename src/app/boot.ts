@@ -20,7 +20,7 @@ import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } 
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
 import { rendreScene } from '../render/pipeline.js';
-import { restaurerOrthoDuProjet } from '../render/ortho.js';
+import { restaurerOrthoDuProjet, basculerOrthophoto, ortho } from '../render/ortho.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -355,6 +355,11 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
     if (terrasse) explorateur.selectionner(terrasse.key);
     commandes.executer('vue.3d');
     if (options.vitrine.zoom) zoomerQuandPrete(() => vue3d.scene as SceneZoomable | null, options.vitrine.zoom);
+    // La photo aerienne se telecharge : la scene s'ouvre sans, et se refait quand les tuiles sont
+    // la. Meme terrasse, donc meme camera : le zoom demande est garde (three/scene.ts).
+    if (options.vitrine.orthophoto) {
+      void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
+    }
   }
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.

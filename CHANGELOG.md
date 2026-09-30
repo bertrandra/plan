@@ -19,6 +19,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   mi-distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Le facteur est borné de 0,25 à 8
   et accepte la virgule. Il s'applique une fois la scène prête, la bibliothèque 3D se chargeant à
   la demande.
+- **`orthophoto=y` pose la photo aérienne de l'IGN sous la scène de la vitrine** ; `orthophoto=n`,
+  ou rien, s'en passe. Les tuiles viennent de data.geopf.fr, déjà autorisé par la politique de
+  contenu. La scène s'ouvre sans elles, puis se reconstruit quand elles arrivent, à la même place de
+  caméra : le `zoom` demandé est gardé.
 - **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
   restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
 - **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,
