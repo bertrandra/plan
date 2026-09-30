@@ -354,6 +354,13 @@
    "priority": 2,
    "elevation": 6.5,
    "locked": false,
+   "toit": {
+    "forme": "croupes",
+    "hauteur": 3.15,
+    "angleFaitage": 0,
+    "source": "bdtopo",
+    "estime": true
+   },
    "bdtopo": {
     "couche": "BDTOPO_V3:batiment",
     "id": "BATIMENT0001",
@@ -367,6 +374,7 @@
     "nombreLogements": null,
     "altitudeSolM": null,
     "altitudeToitM": null,
+    "altitudeToitMaxM": null,
     "constructionLegere": false,
     "etat": null,
     "dateApparition": null,
@@ -429,6 +437,13 @@
    "priority": 2,
    "elevation": 2.5,
    "locked": true,
+   "toit": {
+    "forme": "croupes",
+    "hauteur": 2.8,
+    "angleFaitage": 0,
+    "source": "bdtopo",
+    "estime": true
+   },
    "bdtopo": {
     "couche": "BDTOPO_V3:batiment",
     "id": "BATIMENT0002",
@@ -442,6 +457,7 @@
     "nombreLogements": null,
     "altitudeSolM": null,
     "altitudeToitM": null,
+    "altitudeToitMaxM": null,
     "constructionLegere": false,
     "etat": null,
     "dateApparition": null,

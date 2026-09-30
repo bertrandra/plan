@@ -7,6 +7,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Chaque bâtiment IGN a un toit, rouge, posé sur son contour réel** (`MD/spec-toit-ign.md`). À
+  l'import d'une adresse, à l'actualisation IGN et à l'import du voisinage, la hauteur du toit est
+  lue dans la BD TOPO (`altitude_maximale_toit − altitude_minimale_toit`) et posée sur le
+  **squelette droit** du contour (`geometry/squelette.ts`) : un toit à croupes qui vaut pour un L,
+  un T ou un U — un faîtage par aile, une noue à chaque angle rentrant —, et qui se confond avec le
+  quatre pans sur un rectangle. La pente se déduit (`atan(H / profondeur du squelette)`) ; sept
+  règles traitent les cas limites : construction légère ou toit trop bas, toit plat ; hauteur absente,
+  35° estimés et dits ; pente au-delà de 55°, écrêtée à 45° (`model/toitBdTopo.ts`). Un toit lu sur
+  une photo ou saisi n'est jamais remplacé par l'actualisation ; un toit BD TOPO y est recalculé en
+  gardant sa couleur. La couverture par défaut passe au **rouge tuile** (`#B0432F`), pour tout toit
+  sans couleur choisie. Dans l'inspecteur : la forme « Croupes (pans sur chaque mur) », la pente et
+  l'origine de la hauteur en note (« déduite de la BD TOPO (± 1 m) », ou « estimée »), plus
+  d'orientation de faîtage pour elle ; « Non modélisé » ne se choisit plus sur un bâtiment qui a un
+  toit (« Toit plat » le remplace, et l'actualisation le respecte).
+
+- **Schéma de projet 3 : un plan d'une version précédente reçoit ses toits à l'ouverture.** La
+  migration 2 → 3 pose le toit BD TOPO sur chaque bâtiment importé qui n'en avait pas ; l'altitude
+  maximale du toit n'étant pas enregistrée avant, sa hauteur est estimée (35°) jusqu'à la prochaine
+  actualisation, qui la lit. Le projet s'enregistre au schéma 3 à la modification suivante.
+  `contrat/plan-produit.json` accepte désormais `[1, 2, 3]` : **à recopier dans backprod avant la
+  livraison**, sans quoi la plateforme refusera l'enregistrement (`422 UNSUPPORTED_SCHEMA_VERSION`).
+
 - **La limite de projets est celle de la plateforme, et se dit.** Plan lit désormais le quota que
   backprod applique à la création et à la copie d'un projet, `max_projects`, au lieu de
   `plan.documents`, un compteur que rien n'alimente : il ne se croyait jamais à la limite. Il compte

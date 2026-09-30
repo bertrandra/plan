@@ -27,11 +27,51 @@ describe('la chaine des migrations', () => {
   });
 });
 
+describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
+  const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
+  const ign = (extra: Partial<ObjetBrut> = {}, bdtopo: Record<string, unknown> = {}) =>
+    batiment({ pts: rect, bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'B1', altitudeToitM: 52.1, ...bdtopo }, ...extra });
+
+  it('pose un toit estime sur un batiment importe avant le schema 3', () => {
+    const lu = migrer({ objects: [ign()] }, 2);
+    expect(lu.objects[0]!.toit).toMatchObject({ forme: 'croupes', source: 'bdtopo', estime: true });
+    expect(lu.objects[0]!.toit!.hauteur).toBeCloseTo(3 * Math.tan((35 * Math.PI) / 180), 2);
+    // Depuis le schema 1 aussi : la chaine passe par 2.
+    expect(migrer({ objects: [ign()] }, 1).objects[0]!.toit!.forme).toBe('croupes');
+  });
+
+  it('lit la hauteur quand elle est enregistree, et laisse plat une construction legere', () => {
+    expect(migrer({ objects: [ign({}, { altitudeToitMaxM: 55.1 })] }, 2).objects[0]!.toit).toEqual({ forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' });
+    expect(migrer({ objects: [ign({}, { constructionLegere: true })] }, 2).objects[0]!.toit!.forme).toBe('plat');
+  });
+
+  it('ne touche ni un toit existant, ni un objet dessine, ni une zone de vegetation', () => {
+    const photo = { forme: 'deux-pans' as const, hauteur: 2.8, angleFaitage: 90, source: 'photo' as const };
+    const d = {
+      objects: [
+        ign({ toit: photo }),
+        batiment({ pts: rect }),
+        batiment({ pts: rect, bdtopo: { couche: 'BDTOPO_V3:zone_de_vegetation', id: 'V1' } })
+      ]
+    };
+    expect(migrer(structuredClone(d), 2)).toEqual(d);
+  });
+
+  it('ne rejoue rien sur un document deja au schema 3', () => {
+    const d = { objects: [ign()] };
+    expect(migrer(structuredClone(d), 3)).toEqual(d);
+  });
+});
+
 describe('le schema qu un document ecrit', () => {
   it('est 1 pour un plan sans releve ni toit : la demonstration s ouvre sur une plateforme restee a [1]', () => {
     expect(schemaMinimal(DEMO_OBJECTS)).toBe(1);
     expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(1);
     expect(schemaMinimal([batiment({ facades: [] })])).toBe(1);
+  });
+
+  it('est 3 des qu un toit est a croupes', () => {
+    expect(schemaMinimal([batiment({ toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } })])).toBe(3);
   });
 
   it('est 2 des qu un batiment porte un releve ou un toit', () => {

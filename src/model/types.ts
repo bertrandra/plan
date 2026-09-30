@@ -504,7 +504,7 @@ export interface PartieBasse {
 }
 
 /** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */
-export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans';
+export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
 
 export interface Toit {
   forme: FormeToit;
@@ -516,4 +516,11 @@ export interface Toit {
   couleur?: string;
   /** D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ou saisie. */
   source?: 'photo' | 'bdtopo' | 'saisie';
+  /**
+   * `croupes` seulement : une pente imposee, en degres. Absente, la pente se deduit de `hauteur` et
+   * du contour ; presente, le toit est ecrete a `hauteur` (MD/spec-toit-ign.md §3.3).
+   */
+  pente?: number;
+  /** La hauteur n'a pas ete lue mais estimee (MD/spec-toit-ign.md §4, regle 3). */
+  estime?: boolean;
 }

@@ -1,6 +1,6 @@
 # Toit d'un bâtiment IGN — spécification
 
-**Version :** 1.0 — non implémentée
+**Version :** 1.0 — implémentée, non publiée (schéma de projet 3)
 **Statut :** spécification de référence : **le standard pour construire ou actualiser un bâtiment
 depuis l'IGN**, toit compris
 **Compagnons :** [`spec-releve-facade.md`](spec-releve-facade.md) (§8 : le toit lu sur une photo),
@@ -36,7 +36,7 @@ saisie aussi.
 | Quelle pente ? | **Déduite** : `atan(H / dmax)`, bornée (§4) | Deux nombres BD TOPO et le contour suffisent ; rien à saisir |
 | Quelle couleur ? | **Rouge tuile** `#B0432F`, pour tout toit sans couleur choisie | Demande produit ; c'est aussi la couverture la plus courante des maisons |
 | Quels bâtiments ? | **Tous** ceux qu'on importe ou actualise : la propriété et le voisinage | Les ombres portées et la vue 3D du voisinage en profitent autant |
-| Quand est-il calculé ? | **À l'import et à l'actualisation**, puis enregistré dans le bâtiment. Jamais au chargement ni au rendu | Un plan existant n'est pas modifié tant qu'on ne l'actualise pas ; le jeu de démonstration et ses empreintes restent intacts |
+| Quand est-il calculé ? | **À l'import et à l'actualisation**, puis enregistré dans le bâtiment ; **et une fois, à l'ouverture d'un plan d'une version précédente** (migration 2 → 3, §5.6). Jamais au rendu | Un plan d'avant reçoit ses toits sans rien demander ; le jeu de démonstration, qui n'est pas importé de l'IGN, et ses empreintes restent intacts |
 | Qui l'emporte ? | Photo et saisie **sur** BD TOPO | La photo mesure, la BD TOPO estime (§5.3) |
 | Une bibliothèque ? | **Non** : `geometry/squelette.ts`, en TypeScript | Le projet n'a que trois dépendances ; un contour de maison compte rarement plus de 30 sommets après simplification (`SIMPLIF_M`) |
 
@@ -132,10 +132,16 @@ interface Squelette {
 }
 ```
 
-Front d'onde à événements (Felkel & Obdržálek) : **événements d'arête** (un mur du front se réduit
-à rien) et **événements de partage** (un sommet rentrant perce un mur opposé). Tolérance 1 mm ;
-deux événements à moins de 1 mm l'un de l'autre sont traités ensemble. Un contour qui ne se
-résout pas (auto-intersection, sommets confondus, plus de 200 sommets) rend `null`.
+Front d'onde à événements (Felkel & Obdržálek) : **événements d'arête** (un morceau de front se
+réduit à rien) et **événements de partage** (un sommet rentrant perce un côté d'en face). À chaque
+pas, tous les événements sont recalculés et le plus proche est traité (O(n³), sans importance à
+trente sommets) ; à égalité, l'arête passe avant le partage. Un anneau du front **d'aire nulle** —
+deux morceaux opposés se sont rejoints — est clos : ses morceaux deviennent le faîtage. Le résultat
+est **vérifié** : chaque point d'un pan est à la distance `t` de son mur (le pan est un plan), et
+les aires des pans se somment à celle du contour. Un contour qui ne se résout pas, ou dont le
+squelette ne se vérifie pas (auto-intersection, sommets confondus, plus de 200 sommets), rend
+`null`. Essayé sur 4 954 contours simples tirés au hasard (étoiles, escaliers orthogonaux tournés
+et déplacés à 650 km de l'origine) : aucun échec ; 300 d'entre eux sont rejoués par les tests.
 
 **Repli** : `null` → le « quatre pans » actuel (`plansDuToit`, faîtage sur `angleDuPlusLongCote`),
 même `H`. Le toit est toujours posé, jamais une exception.
@@ -210,6 +216,19 @@ devient « Toit plat » ; l'entrée vide disparaît.
 Inchangé (`spec-releve-facade.md` §8.3) : le toit lu sur la façade remplace le toit du bâtiment,
 celui de la BD TOPO compris. La case « Remplacer le toit du bâtiment par celui-ci » part cochée.
 
+### 5.6 Un plan d'une version précédente
+
+Un projet de schéma 1 ou 2 est lu à travers la chaîne des migrations (`model/migrations.ts`). La
+migration **2 → 3** pose `toitBdTopo` sur chaque objet dont `bdtopo.couche` est
+`BDTOPO_V3:batiment` et qui n'a pas de toit ; elle ne touche ni un toit existant (photo, saisie),
+ni un objet dessiné, ni la végétation. `altitudeToitMaxM` n'était pas enregistré avant le schéma 3 :
+ces toits tombent sous la règle 3 (35°, `estime: true`) jusqu'à la prochaine actualisation IGN, qui
+lit la vraie hauteur. Une construction légère enregistrée comme telle reste plate.
+
+Le document ainsi lu porte des toits `croupes` : il s'enregistre au schéma 3 à la modification
+suivante (`schemaAEcrire`). Le dialogue « Mettre à jour le modèle ? » n'a pas lieu d'être : le
+contenu demande déjà le schéma 3.
+
 ---
 
 ## 6. Données et persistance
@@ -237,15 +256,18 @@ export interface Toit {
   choisie devient rouge, ceux d'un relevé compris.
 - **Schéma 3.** Un lecteur de schéma 2 ne connaît pas `'croupes'` : `plansDuToit` le prendrait pour
   un quatre-pans sur l'enveloppe, faux sur un L. Suivant `RELEASE.md` §3.1, `SCHEMA_VERSION` passe
-  à 3 ; `schemaMinimal` rend 3 dès qu'un toit a la forme `'croupes'`. Migration 2 → 3 : l'identité
-  (les champs sont facultatifs).
+  à 3 ; `schemaMinimal` rend 3 dès qu'un toit a la forme `'croupes'`. Migration 2 → 3 : le toit des
+  bâtiments BD TOPO (§5.6).
 - **Conséquence plateforme.** Tout plan créé depuis une adresse porte désormais un toit, donc un
   schéma 3. Une plateforme qui n'accepte pas encore 3 le refusera (`422
   UNSUPPORTED_SCHEMA_VERSION`) : **la plateforme doit accepter le schéma 3 avant la livraison**.
+  `contrat/plan-produit.json` le déclare (`schema_versions: [1, 2, 3]`) ; il reste à le recopier
+  dans backprod.
 - **Poids** : quelques dizaines d'octets par bâtiment. Rien à surveiller.
-- **Empreintes** : le jeu de démonstration n'est pas importé, il ne porte aucun toit. Ses six
-  artefacts ne bougent que par la version (`tests/fixtures/golden/EMPREINTES.md`), sauf si
-  l'actualisation est rejouée dessus.
+- **Empreintes** : le jeu de démonstration n'est pas importé, il ne porte aucun toit, et la migration
+  ne lui en donne pas. Ses six artefacts ne bougent pas. Le témoin de l'import cadastral
+  (`tests/fixtures/golden/cadastre-objets.json`) a été recapturé : ses deux bâtiments portent
+  désormais leur toit et `altitudeToitMaxM`, rien d'autre ne change.
 
 ---
 
@@ -254,8 +276,8 @@ export interface Toit {
 Section « Façades et toit » de l'inspecteur (`ui/champs/facade.ts`), charger `design-ui` avant de la
 toucher :
 
-- **Forme** : « Croupes (pans sur chaque mur) » s'ajoute aux quatre formes. « Toit plat » remplace
-  l'entrée vide (§5.4).
+- **Forme** : « Croupes (pans sur chaque mur) » s'ajoute aux quatre formes. L'entrée « Non modélisé »
+  n'est proposée qu'à un bâtiment sans toit ; ensuite, « Toit plat » dit « pas de toit » (§5.4).
 - **Hauteur au faîtage** : note « déduite de la BD TOPO (± 1 m) » quand `source: 'bdtopo'`,
   « estimée : pas de hauteur dans la BD TOPO » quand `estime: true`. Modifier la hauteur fait
   passer la source à `'saisie'`.
@@ -283,7 +305,8 @@ que d'écrêtage : à rediscuter avant d'implémenter.
 
 ### 8.2 Tests unitaires
 
-`tests/unit/geometry/squelette.test.ts`, `tests/unit/geo/toit-bdtopo.test.ts` :
+`tests/unit/geometry/squelette.test.ts`, `tests/unit/model/toitBdTopo.test.ts`,
+`tests/unit/model/migrations.test.ts`, `tests/unit/three/releve3d.test.ts` :
 
 - **rectangle** : pans et hauteurs égaux au « quatre pans » de `plansDuToit` à 1 mm près ;
 - **carré** : une pyramide, un seul sommet à `H` ;
@@ -294,9 +317,18 @@ que d'écrêtage : à rediscuter avant d'implémenter.
 - **écrêtage** : pan horizontal à `H`, aucun point au-dessus ;
 - **actualisation** : toit `photo` gardé, toit `bdtopo` recalculé avec sa couleur gardée, toit absent
   ajouté ;
-- **schéma** : 3 dès qu'un toit `'croupes'` existe, 1 ou 2 sinon ; migration 2 → 3 sans perte.
+- **schéma** : 3 dès qu'un toit `'croupes'` existe, 1 ou 2 sinon ; migration 2 → 3 : toit posé sur
+  un bâtiment BD TOPO, rien d'autre touché, rien rejoué sur un document déjà au schéma 3.
 
 ### 8.3 Dans l'application
+
+**Fait** (serveur de développement, plateforme simulée, 1 440 px, Three.js r128 servi localement) :
+un projet de schéma 2 portant trois bâtiments BD TOPO sans toit — en L, en T, un rectangle —
+s'ouvre avec trois toits à croupes rouges, 2,10 m estimés (demi-largeur 3 m, 35°), aucune erreur ;
+Vue 3D : un faîtage par aile, noues aux angles rentrants ; inspecteur : « Croupes (pans sur chaque
+mur) », « pente 35° · estimée : pas de hauteur dans la BD TOPO », pas d'orientation de faîtage.
+
+**Reste à faire** (réseau IGN requis) :
 
 Nouveau plan depuis une adresse d'un pavillon en L : vue 3D, toit rouge sur les deux ailes, noue à
 l'angle ; actualisation : toits recalculés, bilan qui les compte ; relevé d'un pignon : le toit

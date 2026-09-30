@@ -3,9 +3,10 @@
   "app_version": "2.2.0",
   "schema_versions": [
     1,
-    2
+    2,
+    3
   ],
-  "current_schema_version": 2,
+  "current_schema_version": 3,
   "demo_project": {
     "name": "Parcelle AE 101",
     "schema_version": 1,

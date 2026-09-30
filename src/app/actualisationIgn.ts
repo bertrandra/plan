@@ -10,6 +10,7 @@
 import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
+import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { showToast } from '../shell/dialogs.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
@@ -175,7 +176,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 
     // ---- 3. Application
     ctx.pushHistory();
-    let nMaj = 0, nAbsents = 0, ecartMax = 0;
+    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
     const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((o: ObjetBrut)=>{
@@ -211,17 +212,21 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         const haut = bdtopo.couche === COUCHE_BATIMENT
           ? hauteurBatiment(p)
           : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
+        const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.toit, pts, attributsToitBdTopo(p)) : undefined;
+        if(toit && toit !== o.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
         return Object.assign({}, o, {
           pts,
           vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
           segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
           frozenVertices: pts.map(()=>false),
           elevation: haut,
+          ...(toit ? { toit } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
             nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
             altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
+            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True',
             etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
             identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
             recupereLe: new Date().toISOString()
@@ -271,6 +276,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     ctx.render();
 
     if(ptsParcelle) bilan.unshift('parcelle actualisee (ecart max ' + Math.round(ecartMax*100) + ' cm)');
+    if(nToits) bilan.push(nToits + ' toit(s) deduit(s) de la BD TOPO');
     if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
     showToast('Actualisation IGN — ' + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
@@ -367,10 +373,12 @@ export async function construireVoisinage(
         showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'batiment', matiere:'', priority:2, locked:true, voisinage:true,
         elevation: haut,
+        toit: toitBdTopo(pts, attributsToitBdTopo(p)),
         bdtopo: { couche:COUCHE_BATIMENT, id:b.id, cleabs:p.cleabs || null, nature:p.nature || null,
           usage1:p.usage_1 || null, usage2:p.usage_2 || null, hauteurM:nombreFr(p.hauteur), hauteurRetenueM:haut,
           nombreEtages:nombreFr(p.nombre_d_etages), nombreLogements:nombreFr(p.nombre_de_logements),
           altitudeSolM:nombreFr(p.altitude_minimale_sol), altitudeToitM:nombreFr(p.altitude_minimale_toit),
+          altitudeToitMaxM:nombreFr(p.altitude_maximale_toit), constructionLegere:String(p.construction_legere) === 'True',
           etat:p.etat_de_l_objet || null, identifiantRnb:p.identifiants_rnb || null,
           surParcellePrincipale:false, recupereLe }
       });

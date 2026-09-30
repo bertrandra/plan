@@ -25,7 +25,8 @@
 // l'ecriture, qu'il est desormais de la forme courante.
 
 import { SCHEMA_VERSION } from './version.js';
-import type { ObjetBrut } from './types.js';
+import { toitBdTopo, COUCHE_BATIMENT_BDTOPO } from './toitBdTopo.js';
+import type { ObjetBrut, PtBrut } from './types.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
 export interface DocumentBrut {
@@ -52,11 +53,41 @@ export const MIGRATIONS: readonly Migration[] = [
     // Le schema 2 n'ajoute que deux champs facultatifs a un batiment : un document 1 est deja un
     // document 2 valide. La migration existe pour que la chaine soit complete, pas pour transformer.
     migrer: (d) => d
+  },
+  {
+    de: 2,
+    apporte: 'un toit pour chaque bâtiment importé de l’IGN, déduit de la BD TOPO et posé sur son contour réel (MD/spec-toit-ign.md)',
+    migrer: (d) => ({ ...d, objects: d.objects.map(poserToitBdTopo) })
   }
 ];
 
-/** Le plus petit schema qui decrit ces objets : 2 des qu'un batiment porte un releve ou un toit. */
+/**
+ * Un batiment importe de la BD TOPO avant le schema 3 n'a pas de toit : il recoit celui que l'import
+ * lui donnerait aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
+ * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
+ */
+function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
+  const b = o.bdtopo as { couche?: unknown; altitudeToitM?: unknown; altitudeToitMaxM?: unknown; constructionLegere?: unknown } | null | undefined;
+  const pts = (o as { pts?: unknown }).pts;
+  if (o.toit || !b || b.couche !== COUCHE_BATIMENT_BDTOPO || o.type !== 'polygon' || !Array.isArray(pts) || pts.length < 3) return o;
+  const nombre = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  return {
+    ...o,
+    toit: toitBdTopo(pts as PtBrut[], {
+      altitudeToitMinM: nombre(b.altitudeToitM),
+      altitudeToitMaxM: nombre(b.altitudeToitMaxM),
+      constructionLegere: b.constructionLegere === true
+    })
+  };
+}
+
+/**
+ * Le plus petit schema qui decrit ces objets : 3 des qu'un toit est a croupes (un lecteur 2 le
+ * dessinerait en quatre pans sur l'enveloppe, faux sur un L), 2 des qu'un batiment porte un releve
+ * ou un toit.
+ */
 export function schemaMinimal(objets: readonly ObjetBrut[]): number {
+  if (objets.some((o) => o.toit?.forme === 'croupes')) return 3;
   const releve = objets.some((o) => (Array.isArray(o.facades) && o.facades.length > 0) || !!o.toit);
   return releve ? 2 : 1;
 }
