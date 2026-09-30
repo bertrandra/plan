@@ -63,7 +63,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
-import { zoomerQuandPrete, type SceneZoomable, type Vitrine } from './vitrine.js';
+import { zoomerQuandPrete, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 
@@ -357,6 +357,11 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
     if (options.vitrine.zoom) zoomerQuandPrete(() => vue3d.scene as SceneZoomable | null, options.vitrine.zoom);
     // La photo aerienne se telecharge : la scene s'ouvre sans, et se refait quand les tuiles sont
     // la. Meme terrasse, donc meme camera : le zoom demande est garde (three/scene.ts).
+    // Le soleil court sur la journee du jour (heureauto=y) : la date d'abord, puis l'heure a chaque pas.
+    if (options.vitrine.heureAuto) {
+      vues.vues3d.soleil3d.date(dateDuJour());
+      animerHeure(options.vitrine.heureAuto, (m) => vues.vues3d.soleil3d.heure(m));
+    }
     if (options.vitrine.orthophoto) {
       void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
     }

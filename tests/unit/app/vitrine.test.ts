@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { lireVitrine, poserVitrine, appliquerZoom, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
+import { lireVitrine, poserVitrine, appliquerZoom, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
 
 // La vitrine publique (src/app/vitrine.ts) : la Vue 3D de la demonstration, encadree par la page
 // d'accueil du catalogue de la plateforme.
@@ -12,22 +12,22 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
@@ -70,6 +70,52 @@ describe('l orthophoto de la vitrine', () => {
     for (const v of ['y', 'Y', 'o', 'oui', '1', 'true']) expect(lireVitrine('?mode=demo&orthophoto=' + v)!.orthophoto, v).toBe(true);
     for (const v of ['n', 'non', '0', 'false', '', 'peut-etre']) expect(lireVitrine('?mode=demo&orthophoto=' + v)!.orthophoto, v).toBe(false);
     expect(lireVitrine('?mode=demo')!.orthophoto).toBe(false);
+  });
+});
+
+describe('la course du soleil de la vitrine', () => {
+  it('lit une heure en 14, 14:30 ou 14h30', () => {
+    expect(lireHeure('14')).toBe(840);
+    expect(lireHeure('14:30')).toBe(870);
+    expect(lireHeure('7h05')).toBe(425);
+    expect(lireHeure('24')).toBe(1440);
+    for (const v of ['25', '14:60', '24:10', 'midi', '', null]) expect(lireHeure(v), String(v)).toBeNull();
+  });
+
+  it('ne court qu avec heureauto=y, de 7 h a 20 h par defaut', () => {
+    expect(lireVitrine('?mode=demo')!.heureAuto).toBeNull();
+    expect(lireVitrine('?mode=demo&heureauto=n&hrsstart=8')!.heureAuto).toBeNull();
+    expect(lireVitrine('?mode=demo&heureauto=y')!.heureAuto).toEqual({ debut: HEURE_DEBUT_DEFAUT, fin: HEURE_FIN_DEFAUT });
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=9&hrsend=18:30')!.heureAuto).toEqual({ debut: 540, fin: 1110 });
+  });
+
+  it('lit des bornes inversees dans l ordre, et ne court pas entre deux heures egales', () => {
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=19&hrsend=8')!.heureAuto).toEqual({ debut: 480, fin: 1140 });
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=12&hrsend=12')!.heureAuto).toBeNull();
+  });
+
+  it('avance avec l horloge et boucle', () => {
+    const c = { debut: 600, fin: 1200 };
+    expect(heureALInstant(c, 0)).toBe(600);
+    expect(heureALInstant(c, DUREE_JOURNEE_MS / 2)).toBe(900);
+    expect(heureALInstant(c, DUREE_JOURNEE_MS * 1.25)).toBe(750);
+  });
+
+  it('pose l heure a chaque minute nouvelle, et s arrete', () => {
+    vi.useFakeTimers();
+    let t = 0;
+    const posees: number[] = [];
+    const arreter = animerHeure({ debut: 600, fin: 1200 }, (m) => posees.push(m), () => t, 100);
+    t = DUREE_JOURNEE_MS / 4; vi.advanceTimersByTime(100);
+    t = DUREE_JOURNEE_MS / 4; vi.advanceTimersByTime(100);
+    arreter();
+    t = DUREE_JOURNEE_MS / 2; vi.advanceTimersByTime(500);
+    expect(posees).toEqual([600, 750]);
+    vi.useRealTimers();
+  });
+
+  it('prend la date du jour en local', () => {
+    expect(dateDuJour(new Date(2026, 8, 30, 23, 30))).toBe('2026-09-30');
   });
 });
 
