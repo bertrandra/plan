@@ -11,7 +11,7 @@ import { CAPACITE_LECTURE_SEULE } from '../plateforme/capacites.js';
 import { PHRASE_QUOTA, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
-import { QUOTA_PROJETS, limiteProjets, phraseLimite } from '../plateforme/quotaProjets.js';
+import { QUOTA_PROJETS, limiteProjets, phraseLimite, type LimiteProjets } from '../plateforme/quotaProjets.js';
 
 let session: Session | null = null;
 let contexte: ServiceContexte | null = null;
@@ -60,6 +60,11 @@ export function entrerEnVitrine(): void { vitrine = true; }
 
 export function sessionCourante(): Session | null { return session; }
 export function contexteCourant(): ServiceContexte | null { return contexte; }
+
+/** La limite de projets de l'organisation, alignee sur la plateforme ; `null` : illimite, ou hors plateforme. */
+export function limiteProjetsCourante(): LimiteProjets | null {
+  return limiteProjets(contexte?.quota(QUOTA_PROJETS) ?? null);
+}
 
 /**
  * Les droits que le registre des commandes consulte.

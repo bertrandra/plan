@@ -273,6 +273,24 @@ function Compte({ magasin }: { magasin: Magasin }) {
   );
 }
 
+/**
+ * Combien de projets l'organisation tient, sur combien que son abonnement autorise : « 1/3 ».
+ * La limite se voit avant d'etre rencontree, pas seulement au refus. A la limite, le mot le dit
+ * aussi — la bordure seule ne porterait pas l'information.
+ */
+function CompteurProjets({ quota }: { quota: { utilise: number; limite: number } }) {
+  const plein = quota.utilise >= quota.limite;
+  const titre = quota.utilise + ' projet' + (quota.utilise > 1 ? 's' : '') + ' sur ' + quota.limite
+    + ' autorisé' + (quota.limite > 1 ? 's' : '') + ' par l’abonnement de votre organisation'
+    + (plein ? ' : limite atteinte. Supprimez un projet ou changez d’offre sur la plateforme pour en créer un nouveau.' : '.');
+  return (
+    <span id="compteurProjets" className={'compteurProjets' + (plein ? ' plein' : '')} title={titre} aria-label={titre}>
+      Projets <span className="nombre">{quota.utilise}/{quota.limite}</span>
+      {plein && <span className="motLimite"> · limite atteinte</span>}
+    </span>
+  );
+}
+
 export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBarreApplication) {
   useFermetureDesMenus();
   const p = useStore(magasin.store, (s) => s.projet);
@@ -324,6 +342,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
           {p.liste.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       )}
+      {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
         <button type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}

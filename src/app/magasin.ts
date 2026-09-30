@@ -41,6 +41,8 @@ export interface ProjetObservable {
   enregistreA: string;
   /** Le projet ouvert est d'un schema anterieur au programme : « Mettre a jour le modele » s'offre. */
   schemaEnRetard: boolean;
+  /** Les projets de l'organisation et ce que l'abonnement en autorise ; `null` : pas de limite. */
+  quota: { utilise: number; limite: number } | null;
 }
 
 export interface EtatMagasin {
@@ -99,7 +101,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     version: 0,
     vue: 'plan',
     lieu: '',
-    projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '', schemaEnRetard: false },
+    projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '', schemaEnRetard: false, quota: null },
     pointeur: null,
     peutAnnuler: false,
     explorateurOuvert: true,

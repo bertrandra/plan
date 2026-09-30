@@ -9,7 +9,7 @@
 // avec `?projet=…`, exactement comme avant ; enregistrer remet a zero l'etat initial qui sert au
 // bouton « Reinitialiser » ; supprimer retire le parametre d'URL et recharge.
 
-import { PERMISSION_ECRITURE } from './acces.js';
+import { PERMISSION_ECRITURE, limiteProjetsCourante } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
@@ -153,6 +153,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     magasin.definirProjet({
       apiDisponible: seed.apiAvailable, courant, liste: seed.list, enregistreA,
       schemaEnRetard: enRetard(),
+      quota: seed.apiAvailable ? limiteProjetsCourante() : null,
       statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty ? 'modifie' : 'a-jour')
     });
   }

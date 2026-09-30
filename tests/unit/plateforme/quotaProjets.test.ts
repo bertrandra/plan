@@ -61,3 +61,15 @@ describe('le refus au geste', () => {
     expect(executer).toHaveBeenCalled();
   });
 });
+
+describe('le compteur visible (Projets 1/X)', () => {
+  it('rend les projets de l organisation et la limite de l abonnement', async () => {
+    const { poserAcces, limiteProjetsCourante } = await import('../../../src/app/acces.js');
+    const { retenirProjetsConnus } = await import('../../../src/plateforme/quotaProjets.js');
+    retenirProjetsConnus(1);
+    poserAcces({} as never, { quota: (f: string) => (f === QUOTA_PROJETS ? q(3, 1) : null) } as never);
+    expect(limiteProjetsCourante()).toEqual({ limite: 3, utilise: 1, reste: 2 });
+    poserAcces({} as never, { quota: () => q(null, 4, true) } as never);
+    expect(limiteProjetsCourante()).toBe(null);
+  });
+});

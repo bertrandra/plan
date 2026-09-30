@@ -19,6 +19,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Remplir un projet neuf (document `{}`) ne crée rien et n'est donc pas limité
   (`plateforme/quotaProjets.ts`, `app/limiteProjets.ts`).
 
+- **Le nombre de projets se voit : « Projets 1/3 ».** Une pastille à côté du choix du projet (barre
+  du bureau, feuille Projet sur téléphone et tablette) montre combien de projets l'organisation
+  tient sur combien son abonnement en autorise, compté comme la plateforme. À la limite, elle dit
+  « limite atteinte » et prend une bordure d'alerte. Une offre illimitée n'en affiche pas.
+
 - **Un projet reçu vide (`{}`) est un projet neuf.** Quand la plateforme rend un projet dont le
   document est vide — créé pour Plan, jamais rempli —, Plan l'ouvre en plan vierge, sous son nom, et
   propose aussitôt la saisie d'une adresse (import cadastre). À la fin du parcours, le plan est
