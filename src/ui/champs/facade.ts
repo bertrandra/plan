@@ -25,6 +25,12 @@ function toitDe(c: ContexteChamps): Toit {
 
 const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
 
+/** D'ou vient la hauteur d'un toit deduit de la BD TOPO : on dit que c'est une estimation. */
+function origineHauteur(toit: Toit): string {
+  if (toit.source !== 'bdtopo') return '';
+  return toit.estime ? ' · estimée : pas de hauteur dans la BD TOPO' : ' · déduite de la BD TOPO (± 1 m)';
+}
+
 export function sectionReleve(c: ContexteChamps): Section {
   const o = enPoints(c.obj);
   const facades = facadesDuContour(o.pts, c.elevationOf(c.obj));
@@ -95,16 +101,19 @@ export function sectionReleve(c: ContexteChamps): Section {
       libelle: 'Toit',
       historique: true,
       effets: effetsToit,
-      options: () => [{ valeur: '', libelle: 'Non modélisé' }, ...(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] }))],
+      // « Non modelise » ne se choisit plus : un toit plat saisi dit « pas de toit » d'une facon que
+      // l'actualisation IGN respecte, la ou un toit absent serait remplace (MD/spec-toit-ign.md §5.4).
+      options: (cc) => [
+        ...(cc.obj.toit ? [] : [{ valeur: '', libelle: 'Non modélisé' }]),
+        ...(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
+      ],
       lire: (cc) => cc.obj.toit?.forme || '',
       ecrire: (cc, v) => {
-        if (!v) {
-          delete cc.obj.toit;
-          return;
-        }
+        if (!v) return;
         const toit = toitDe(cc);
         toit.forme = v as FormeToit;
         toit.source = 'saisie';
+        if (toit.forme !== 'croupes') delete toit.pente;
       },
     },
     {
@@ -119,12 +128,15 @@ export function sectionReleve(c: ContexteChamps): Section {
       visible: aPente,
       historique: true,
       effets: effetsToit,
-      note: (cc) => (cc.obj.toit ? `pente ${fr(penteDeg(enPoints(cc.obj).pts, cc.obj.toit), 0)}°` : ''),
+      note: (cc) => (cc.obj.toit ? `pente ${fr(penteDeg(enPoints(cc.obj).pts, cc.obj.toit), 0)}°${origineHauteur(cc.obj.toit)}` : ''),
       aide: "Au-dessus de l'égout",
       lire: (cc) => cc.obj.toit?.hauteur ?? 0,
       ecrire: (cc, v) => {
         if (!(v >= 0)) return false;
-        toitDe(cc).hauteur = v;
+        const toit = toitDe(cc);
+        toit.hauteur = v;
+        toit.source = 'saisie';
+        delete toit.estime;
       },
     },
     {
@@ -136,7 +148,8 @@ export function sectionReleve(c: ContexteChamps): Section {
       min: 0,
       max: 179,
       decimales: 0,
-      visible: aPente,
+      // Un toit a croupes n'a pas un faitage mais un par aile : il suit le contour.
+      visible: (cc) => aPente(cc) && cc.obj.toit?.forme !== 'croupes',
       historique: true,
       effets: effetsToit,
       aide: "Angle du faîtage depuis l'est, dans le sens inverse des aiguilles d'une montre",

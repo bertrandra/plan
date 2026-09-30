@@ -83,6 +83,17 @@ describe('ajouterReleve3d', () => {
     expect(Math.min(...ys)).toBeCloseTo(3, 9);
   });
 
+  it('pose un toit a croupes, sans pignon (spec-toit-ign)', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, 3);
+    const toits = ajoutes.filter((m) => m.name === 'releve-toit');
+    expect(toits.length).toBeGreaterThanOrEqual(4);
+    expect(ajoutes.some((m) => m.name === 'releve-pignon')).toBe(false);
+    const ys = toits.flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 1));
+    expect(Math.max(...ys)).toBeLessThanOrEqual(6 + 1e-9);
+    expect(Math.min(...ys)).toBeCloseTo(3, 9);
+  });
+
   it('plaque la photo sur le mur jusqu a l egout et sur son pignon au-dessus', () => {
     const { ajoutes, ctx } = scene();
     ajouterReleve3d(

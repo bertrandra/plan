@@ -32,8 +32,8 @@ const empreinte = (s: string) => createHash('sha256').update(Buffer.from(neutral
 
 // Les temoins ont ete recaptures a la 2.2.0, build du 28 septembre 2026 (EMPREINTES.md) : les
 // generateurs recoivent ces valeurs en parametre, et l'horloge est posee au jour de la capture. Le
-// schema est celui que l'application ecrit pour ce plan : le plus petit qui le decrit, 1 — le jeu
-// de demonstration n'a ni releve ni toit (model/migrations.ts).
+// schema est celui que l'application ecrit pour ce plan : le plus petit qui le decrit, 3 depuis que
+// sa maison porte un toit a croupes (model/migrations.ts, MD/spec-toit-ign.md).
 const VERSION = '2.2.0', BUILD = '2026-09-28', SCHEMA = schemaMinimal(DEMO_TEMOIN_OBJECTS);
 
 function etatTemoin() {
