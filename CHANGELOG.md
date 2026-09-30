@@ -23,6 +23,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ou rien, s'en passe. Les tuiles viennent de data.geopf.fr, déjà autorisé par la politique de
   contenu. La scène s'ouvre sans elles, puis se reconstruit quand elles arrivent, à la même place de
   caméra : le `zoom` demandé est gardé.
+- **`heureauto=y` fait courir le soleil sur la journée du jour** dans la vitrine, de `hrsstart` à
+  `hrsend`, puis recommence. Les heures sont locales et s'écrivent `14`, `14:30` ou `14h30` ; par
+  défaut, de 7 h à 20 h. Une course dure 30 secondes, et les ombres suivent. La progression se règle
+  sur l'horloge et non sur le nombre d'images : un onglet ralenti reprend à la bonne heure. Des
+  bornes inversées se lisent dans l'ordre ; deux heures égales, ou `heureauto=n`, laissent le soleil
+  immobile.
 - **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
   restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
 - **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,
