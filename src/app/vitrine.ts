@@ -73,7 +73,7 @@ const OUI = /^(y|o|oui|yes|1|true)$/i;
 export function lireHeure(brute: string | null): number | null {
   const m = /^(\d{1,2})(?:[:h](\d{2}))?$/i.exec((brute ?? '').trim());
   if (!m) return null;
-  const h = parseInt(m[1]!, 10), min = m[2] ? parseInt(m[2], 10) : 0;
+  const h = parseInt(m[1] ?? '', 10), min = m[2] ? parseInt(m[2], 10) : 0;
   if (h > 24 || min > 59 || (h === 24 && min > 0)) return null;
   return h * 60 + min;
 }
