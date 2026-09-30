@@ -22,6 +22,19 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
+    // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
+    // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
+    const { lireVitrine, poserVitrine } = await import('./app/vitrine.js');
+    const vitrine = lireVitrine(location.search);
+    if (vitrine) {
+      poserVitrine(vitrine);
+      const { entrerEnVitrine } = await import('./app/acces.js');
+      entrerEnVitrine();
+      const { boot, graineVitrine } = await import('./app/boot.js');
+      boot(graineVitrine(), { vitrine: true });
+      return;
+    }
+
     // La porte (spec-connexion-plateforme §16, etape 2). Elle ne rend la main qu'une fois
     // franchie. L'import est dynamique pour la meme raison que celui de boot.ts : un echec de
     // chargement doit se voir dans le bandeau, pas en page blanche.

@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Une vitrine publique : la Vue 3D du plan de démonstration**, à
+  `https://plan.raillard.org/?mode=demo&x=1024&y=768`, pour la page d'accueil du catalogue de la
+  plateforme. Elle ne passe pas par la porte : elle ne demande aucun compte, n'appelle pas la
+  plateforme et n'écrit nulle part. Elle montre la démonstration embarquée, en lecture seule, avec
+  la terrasse sélectionnée. `x` et `y` donnent la taille de la scène en pixels (bornée de 200 à
+  3 840). Sans eux, la scène prend la fenêtre, ce qui convient à un `<iframe>` déjà dimensionné.
+  On peut tourner et zoomer, mais pas enregistrer d'image ni poser de point de vue
+  (`src/app/vitrine.ts`).
+- **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
+  restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
+- **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,
+  il retire `X-Frame-Options` et remplace `frame-ancestors 'none'` par l'origine de la plateforme
+  et sa jumelle (`https://www.raillard.org https://raillard.org`). L'atelier reste non encadrable.
+  `npm run verifier-deploiement` contrôle les deux en ligne. Côté backprod, la page d'accueil doit
+  autoriser `https://plan.raillard.org` dans son propre `frame-src`.
+
 ### Modifié
 
 - **Relevé de façade : la hauteur du mur se mesure sur la photo.** Seule la largeur est connue — elle

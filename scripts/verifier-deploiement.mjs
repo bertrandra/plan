@@ -3,7 +3,7 @@
 //   node scripts/verifier-deploiement.mjs https://plan.raillard.org
 //
 // La liste de sortie (MD/RELEASE.md §8.2) demande de verifier les en-tetes en ligne apres chaque
-// mise en production. Le faire a la main, c'est le faire une fois. Les huit controles ci-dessous
+// mise en production. Le faire a la main, c'est le faire une fois. Les controles ci-dessous
 // sont exactement les defauts constates le 22 septembre 2026, plus la verification que le fichier
 // servi est bien celui qu'on a construit : une copie oubliee est le mode d'echec le plus courant,
 // et le seul que des en-tetes corrects ne revelent pas.
@@ -114,6 +114,27 @@ try {
   }
 } catch (e) {
   noter('l ancienne adresse redirige', false, e.message);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 1 ter. La vitrine publique se laisse encadrer par la plateforme, et le reste non.
+//
+// `?mode=demo` est la Vue 3D de la demonstration que la page d'accueil du catalogue montre dans un
+// <iframe> (app/vitrine.ts). Le `.htaccess` y retire `X-Frame-Options` et ouvre `frame-ancestors`
+// a la plateforme seule ; un hote sans `<If>` ni mod_headers la laisserait refusee, ou pire, ouvrirait
+// l'atelier entier a l'encadrement.
+// ---------------------------------------------------------------------------------------------
+try {
+  const r = await demander('/?mode=demo&x=1024&y=768');
+  const csp = r.entetes.get('content-security-policy') || '';
+  const cadre = (/frame-ancestors ([^;]*)/.exec(csp) || [])[1] || '';
+  noter('la vitrine repond', r.statut === 200, 'HTTP ' + r.statut);
+  noter('la vitrine se laisse encadrer par la plateforme', !r.entetes.get('x-frame-options') && /https:\/\//.test(cadre) && !/\*/.test(cadre),
+    'X-Frame-Options ' + (r.entetes.get('x-frame-options') || 'absent') + ' ; frame-ancestors ' + (cadre || 'absent'));
+  noter("l'atelier refuse toujours l'encadrement", /'none'/.test((/frame-ancestors ([^;]*)/.exec(cspServie) || [])[1] || ''),
+    'frame-ancestors ' + ((/frame-ancestors ([^;]*)/.exec(cspServie) || [])[1] || 'absent'));
+} catch (e) {
+  noter('la vitrine repond', false, String(e).slice(0, 120));
 }
 
 // ---------------------------------------------------------------------------------------------
