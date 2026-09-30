@@ -31,6 +31,11 @@
 // de 5 a 3 600), puis recommence. La progression suit l'horloge, pas le nombre d'images : un onglet ralenti par le
 // navigateur reprend a la bonne heure au lieu de rattraper son retard. `heureauto=n`, ou rien : le
 // soleil reste a l'heure par defaut.
+//
+// `pdv` place la camera sur un point de vue du plan (les objets « Point de vue », fonction
+// `camera`) : par son nom, sans egard aux majuscules ni aux accents (`pdv=entree`, `pdv=Fenetre
+// cuisine`), ou par son rang dans la liste, a partir de 1 (`pdv=2`). Un point de vue inconnu laisse
+// le cadrage par defaut. `zoom` s'applique ensuite, depuis ce point de vue.
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
 export const DIMENSION_MIN = 200;
@@ -59,6 +64,8 @@ export interface Vitrine {
    * `null` : le soleil ne bouge pas.
    */
   heureAuto: { debut: number; fin: number; dureeMs: number } | null;
+  /** Le point de vue demande, tel qu'ecrit dans l'adresse ; `null` : le cadrage par defaut. */
+  pdv: string | null;
 }
 
 function dimension(brute: string | null): number | null {
@@ -106,7 +113,8 @@ export function lireVitrine(recherche: string): Vitrine | null {
   return {
     largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')), zoom: facteurDeZoom(p.get('zoom')),
     orthophoto: OUI.test((p.get('orthophoto') ?? '').trim()),
-    heureAuto: courseDuSoleil(p)
+    heureAuto: courseDuSoleil(p),
+    pdv: (p.get('pdv') ?? '').trim().slice(0, 80) || null
   };
 }
 
@@ -135,17 +143,34 @@ export function appliquerZoom(sc: SceneZoomable, zoom: number): void {
 }
 
 /**
- * Attend la scene 3D — la bibliotheque se charge a la demande, depuis un CDN — puis y applique le
- * zoom, une fois. Abandonne apres `delaiMs` : une scene qui ne vient pas n'a rien a zoomer.
+ * Attend la scene 3D — la bibliotheque se charge a la demande, depuis un CDN — puis y fait `faire`,
+ * une fois. Abandonne apres `delaiMs` : une scene qui ne vient pas n'a rien a cadrer.
  */
-export function zoomerQuandPrete(scene: () => SceneZoomable | null, zoom: number, delaiMs = 30_000): void {
+export function quandScenePrete<S>(scene: () => S | null, faire: (sc: S) => void, delaiMs = 30_000): void {
   const debut = Date.now();
   const essayer = () => {
     const sc = scene();
-    if (sc) { appliquerZoom(sc, zoom); return; }
+    if (sc) { faire(sc); return; }
     if (Date.now() - debut < delaiMs) setTimeout(essayer, 100);
   };
   essayer();
+}
+
+/** Un nom tel qu'on le tape : sans majuscules, sans accents, espaces resserres. */
+const normaliser = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * Le point de vue que l'adresse designe, parmi ceux du plan : par son nom exact (a la casse et aux
+ * accents pres), sinon par son rang a partir de 1, sinon par un debut de nom s'il n'y en a qu'un.
+ */
+export function trouverPointDeVue<T extends { name?: string }>(pointsDeVue: T[], demande: string | null): T | null {
+  if (!demande) return null;
+  const cle = normaliser(demande);
+  const exact = pointsDeVue.find((v) => normaliser(v.name ?? '') === cle);
+  if (exact) return exact;
+  if (/^\d{1,3}$/.test(cle)) return pointsDeVue[parseInt(cle, 10) - 1] ?? null;
+  const debuts = pointsDeVue.filter((v) => normaliser(v.name ?? '').startsWith(cle));
+  return debuts.length === 1 ? debuts[0] ?? null : null;
 }
 
 /** L'heure de la course a l'instant `ecouleMs` depuis son depart, en minutes entieres ; elle boucle. */

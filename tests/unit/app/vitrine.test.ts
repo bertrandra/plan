@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { lireVitrine, poserVitrine, appliquerZoom, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DUREE_MIN_S, DUREE_MAX_S, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
+import { lireVitrine, poserVitrine, appliquerZoom, trouverPointDeVue, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DUREE_MIN_S, DUREE_MAX_S, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
 
 // La vitrine publique (src/app/vitrine.ts) : la Vue 3D de la demonstration, encadree par la page
 // d'accueil du catalogue de la plateforme.
@@ -12,22 +12,22 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
@@ -127,6 +127,37 @@ describe('la course du soleil de la vitrine', () => {
 
   it('prend la date du jour en local', () => {
     expect(dateDuJour(new Date(2026, 8, 30, 23, 30))).toBe('2026-09-30');
+  });
+});
+
+describe('le point de vue de la vitrine', () => {
+  const vues = [{ name: 'Coin entrant terrasse' }, { name: 'Arriere terrasse' }, { name: 'Fenetre cuisine' }, { name: 'Entrée' }, { name: 'Chène' }];
+
+  it('se lit tel qu ecrit, borne a 80 caracteres', () => {
+    expect(lireVitrine('?mode=demo')!.pdv).toBeNull();
+    expect(lireVitrine('?mode=demo&pdv=Fenetre%20cuisine')!.pdv).toBe('Fenetre cuisine');
+    expect(lireVitrine('?mode=demo&pdv=' + 'a'.repeat(200))!.pdv).toHaveLength(80);
+  });
+
+  it('se trouve par son nom, sans egard aux majuscules ni aux accents', () => {
+    expect(trouverPointDeVue(vues, 'fenetre CUISINE')).toBe(vues[2]);
+    expect(trouverPointDeVue(vues, 'entree')).toBe(vues[3]);
+    expect(trouverPointDeVue(vues, 'Chene')).toBe(vues[4]);
+  });
+
+  it('se trouve par son rang, a partir de 1', () => {
+    expect(trouverPointDeVue(vues, '2')).toBe(vues[1]);
+    expect(trouverPointDeVue(vues, '9')).toBeNull();
+  });
+
+  it('se trouve par un debut de nom seulement s il n y en a qu un', () => {
+    expect(trouverPointDeVue(vues, 'fen')).toBe(vues[2]);
+    expect(trouverPointDeVue(vues, 'c')).toBeNull();
+  });
+
+  it('laisse le cadrage par defaut quand il est inconnu', () => {
+    expect(trouverPointDeVue(vues, 'piscine')).toBeNull();
+    expect(trouverPointDeVue(vues, null)).toBeNull();
   });
 });
 
