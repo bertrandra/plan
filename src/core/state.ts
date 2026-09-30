@@ -45,6 +45,11 @@ export interface EtatApp {
   /** Les couches de la terrasse courante (vis, solives, lames…) dessinees sur le plan. */
   calquesVisibles: boolean;
   /**
+   * La terrasse isolee (app/isolement.ts) : seule dessinee, en transparence, en 2D comme en 3D ;
+   * `null` hors isolement. Etat d'affichage, jamais enregistre dans le projet.
+   */
+  isolement: string | null;
+  /**
    * Le plan ne peut pas etre modifie : la personne n'a pas `projects.write` sur la plateforme.
    *
    * Pose ici et non lu depuis les droits, parce que les gestes du pointeur vivent dans
@@ -111,6 +116,7 @@ export function creerEtat(
     lectureSeule: false,
     terrasseSelectedKey: null,
     calquesVisibles: false,
+    isolement: null,
 
     scene: creerScene(),
 

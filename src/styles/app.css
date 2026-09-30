@@ -140,6 +140,16 @@
     box-shadow:var(--ombre-flottante);
   }
   #fitBtn:hover{ background:var(--accent-light); }
+  /* Sur bureau, les gestes de la selection se rangent ensemble en bas a gauche du plan. */
+  .actionsSelection{ position:absolute; left:10px; bottom:10px; z-index:5; display:flex; gap:8px; }
+  .actionsSelection #fitBtn{ position:static; }
+  .actionsSelection #isolerBtn{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--sans); font-size:0.82rem;
+    padding:7px 12px; border:1px solid var(--border); border-radius:10px;
+    background:var(--panel-bg); color:var(--ink); cursor:pointer; box-shadow:var(--ombre-flottante);
+  }
+  .actionsSelection #isolerBtn:hover{ background:var(--accent-light); }
+  .actionsSelection #isolerBtn.actif{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   /* Bascule de la grille, posee sur le canevas lui-meme : c'est un reglage qu'on actionne en
      regardant le plan, pas en fouillant un panneau. */
   #gridBtn{

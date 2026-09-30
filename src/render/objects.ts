@@ -171,6 +171,9 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
   }
 }
 
+/** Le remplissage d'une terrasse isolee : assez pour la situer, assez peu pour voir sa structure. */
+export const OPACITE_ISOLEMENT = 0.2;
+
 /** Ce que positionner un objet demande de savoir, en plus de l'objet lui-meme. */
 export interface ContextePositionnement {
   scene: EtatScene;
@@ -178,6 +181,8 @@ export interface ContextePositionnement {
   selectionnee: boolean;
   /** Objet masque : rien ne se dessine, poignees comprises. */
   masque: boolean;
+  /** La terrasse isolee se dessine en transparence, pour laisser voir sa structure (app/isolement.ts). */
+  transparent?: boolean;
   /** Fond orthophoto : la transparence du terrain est appliquee A L'AFFICHAGE, pas dans l'objet. */
   ortho: { actif: boolean; parcelleOpacite: number };
   estTerrain: (obj: ObjetRendu) => boolean;
@@ -241,6 +246,9 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     // remplissage d'origine. Le contour, lui, ne bouge pas : c'est lui qui porte l'information.
     if(obj.type==='polygon' && ctx.estTerrain(obj)){
       el.setAttribute('fill-opacity', String(ctx.ortho.actif ? ctx.ortho.parcelleOpacite : obj.fillOpacity));
+    } else if(obj.type==='polygon'){
+      // Meme regle pour la terrasse isolee : transparente A L'AFFICHAGE, son fillOpacity intact.
+      el.setAttribute('fill-opacity', String(ctx.transparent ? OPACITE_ISOLEMENT : obj.fillOpacity));
     }
 
     const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);

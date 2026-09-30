@@ -182,6 +182,8 @@ export const vue3d: {
 export interface PlanVuDeLa3d {
   objects: ObjetPlan[];
   terrasseSelectedKey: string | null;
+  /** La terrasse isolee : seule dans la scene, cadree sur elle, ses lames en transparence. */
+  isolement?: string | null;
 }
 
 /**

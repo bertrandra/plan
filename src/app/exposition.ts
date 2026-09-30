@@ -75,6 +75,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.orthoParcelleDefaut': menu('menuAffichage'),
 
   // ---- Vues -----------------------------------------------------------------------------------
+  // Avec une terrasse selectionnee : sur le plan, dans le groupe flottant ; en 3D, dans les commandes de la scene.
+  'terrasse.isoler': partout('surimpression', 'vue3d'),
   'vue.ajuster': partout('surimpression'),
   'vue.plan': partout('barreHaute'),
   'vue.3d': partout('barreHaute'),

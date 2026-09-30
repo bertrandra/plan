@@ -44,7 +44,9 @@ export function creerAffichage(etat: EtatApp, magasin: Magasin, markDirty: () =>
     estTerrain: (o) => o.key === 'parcelle' || o.fonction === 'terrain',
     // Masquer le voisinage ne touche pas au `hidden` de chaque objet : sinon decocher puis recocher
     // effacerait les objets que l'utilisateur avait masques lui-meme.
-    objetMasque: (o) => !!o.hidden || !!(o.voisinage && !etat.voisinageVisible),
+    // Une terrasse isolee (app/isolement.ts) masque tout le reste, a l'affichage seulement : le
+    // `hidden` des objets n'est pas touche, et sortir de l'isolement rend le plan tel qu'il etait.
+    objetMasque: (o) => !!o.hidden || !!(o.voisinage && !etat.voisinageVisible) || (etat.isolement !== null && o.key !== etat.isolement),
     syncBasculeGrille() {
       const b = document.getElementById('gridBtn');
       if (!b) return;

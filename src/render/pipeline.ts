@@ -62,6 +62,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
       scene: etat.scene,
       selectionnee: obj.key === activeSel,
       masque: ctx.objetMasque(obj),
+      transparent: obj.key === etat.isolement,
       ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
       estTerrain: ctx.estTerrain,
       pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
@@ -79,5 +80,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   // d'ecran comme tout le reste : sans cela, deplacer ou zoomer le plan laisserait le calque a son
   // ancienne place. Elles ne s'affichent que si l'explorateur les a demandees et tant que la
   // terrasse est selectionnee ; sinon le calque est vide — c'est ce que fait un appel sans objet.
-  ctx.renderTerrasseLayerView(etat.calquesVisibles && etat.selectedKey === etat.terrasseSelectedKey ? etat.objects.find(o=>o.key===etat.terrasseSelectedKey) : null);
+  // Une terrasse isolee montre toujours ses couches : c'est ce que la transparence laisse voir.
+  const calques = (etat.calquesVisibles || (etat.isolement !== null && etat.isolement === etat.terrasseSelectedKey)) && etat.selectedKey === etat.terrasseSelectedKey;
+  ctx.renderTerrasseLayerView(calques ? etat.objects.find(o=>o.key===etat.terrasseSelectedKey) : null);
 }

@@ -75,6 +75,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat, ctxSoleil: d.contexteSoleil(), positionMat });
     },
     // Les couches ne se dessinent que si l'explorateur les a demandees : un appel sans objet vide le calque.
-    renderTerrasseLayerView: (obj) => dessinerCouches(s.couches, etat.calquesVisibles ? obj : null, etat, toScreen)
+    // Une terrasse isolee les montre toujours : c'est ce que sa transparence laisse voir (app/isolement.ts).
+    renderTerrasseLayerView: (obj) => dessinerCouches(s.couches, etat.calquesVisibles || (obj && obj.key === etat.isolement) ? obj : null, etat, toScreen)
   };
 }

@@ -63,6 +63,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
+import { creerIsolement } from './isolement.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
@@ -328,6 +329,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
   cadrage.centrerSurParcelle();
   const vues = creerVues3d(atelier, magasin, commandes, { affichage: p.affichage, createObjectDOM: p.dessin.createObjectDOM, resultats: p.resultats });
   tardifs.vues = vues;
+  brancherIsolement(p);
   const { explorateur, inspecteur, projet } = monterLesPanneaux(p, atelier, ch, vues, seed);
   tardifs.explorateur = explorateur;
   tardifs.inspecteur = inspecteur;
@@ -379,6 +381,50 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
   else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
+}
+
+/**
+ * La bascule « Isoler la terrasse » (app/isolement.ts) : la commande, et la sortie automatique quand
+ * la terrasse isolee n'est plus selectionnee.
+ */
+function brancherIsolement(p: Plan): void {
+  const { etat, magasin, cadrage, commandes } = p;
+  const isolement = creerIsolement({
+    etat,
+    render: () => p.render(),
+    cadrer: (obj) => cadrage.cadrer(obj),
+    vue3dOuverte: () => magasin.store.getState().vue === 'vue3d',
+    reconstruire3d(recadrer) {
+      // Sans cle de vue, la scene reconstruite ne reprend pas la camera : elle se cadre sur ce
+      // qu'elle montre (three/scene.ts).
+      if (recadrer) vue3d.dernierObjKey = null;
+      commandes.executer('vue.3d');
+    },
+    lireCamera() {
+      const sc = vue3d.scene;
+      if (!sc) return null;
+      const { x, y, z } = sc.camera.position, t = sc.controls.target;
+      return { pos: { x, y, z }, cible: { x: t.x, y: t.y, z: t.z } };
+    },
+    poserCamera(c) {
+      const sc = vue3d.scene;
+      if (!sc) return;
+      sc.camera.position.set(c.pos.x, c.pos.y, c.pos.z);
+      sc.controls.target.set(c.cible.x, c.cible.y, c.cible.z);
+      sc.controls.update();
+      sc.renderer.render(sc.scene, sc.camera);
+    },
+    notifier: () => magasin.notifier()
+  });
+  commandes.declarer({
+    id: 'terrasse.isoler', libelle: 'Isoler la terrasse', groupe: 'terrasse',
+    description: 'Ne montre que la terrasse sélectionnée, en transparence, et cadre la vue sur elle. Rebasculer, ou désélectionner la terrasse, rend la vue d\'avant.',
+    actif: () => isolement.actif() || !!terrasseSelectionnee(etat),
+    executer: () => isolement.basculer()
+  });
+  // La selection change par le plan, l'explorateur, le clavier : le magasin est le seul endroit ou
+  // tous ces chemins se retrouvent.
+  magasin.store.subscribe(() => isolement.suivreSelection());
 }
 
 /**
