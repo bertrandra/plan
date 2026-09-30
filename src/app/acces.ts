@@ -40,14 +40,22 @@ export const PERMISSION_ECRITURE = 'projects.write';
  * demander, et Plan se comporte comme il le faisait seul.
  */
 export function peutEcrire(): boolean {
+  if (vitrine) return false;
   if (contexte === null) return true;
   return contexte.aPermission(PERMISSION_ECRITURE) && !contexte.aCapacite(CAPACITE_LECTURE_SEULE);
 }
 
 /** Le plan ne peut pas etre modifie. L'envers de `peutEcrire`, une fois la plateforme la. */
 export function enLectureSeule(): boolean {
-  return contexte !== null && !peutEcrire();
+  return vitrine || (contexte !== null && !peutEcrire());
 }
+
+/**
+ * La vitrine publique (app/vitrine.ts) : pas de plateforme, et pourtant pas « tout permis ». Le plan
+ * de demonstration s'y regarde, il ne s'y modifie pas.
+ */
+let vitrine = false;
+export function entrerEnVitrine(): void { vitrine = true; }
 
 export function sessionCourante(): Session | null { return session; }
 export function contexteCourant(): ServiceContexte | null { return contexte; }

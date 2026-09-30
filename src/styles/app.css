@@ -1414,3 +1414,19 @@
   .releveMorceau.choisi .releveVignette{ border-color:var(--accent); }
   /* Mur en L (§6.2) : au-dessus de la partie basse, il n'y a pas de mur ; la zone se voile. */
   .releveVide{ fill:var(--scrim); }
+
+  /* ---- La vitrine publique (app/vitrine.ts, ?mode=demo) --------------------------------------
+     Ne reste que la scene 3D, a la taille demandee (x, y) ou a celle de la fenetre — le cas d'un
+     <iframe> deja dimensionne. Le reste de l'atelier est monte mais invisible : il n'est pas
+     retire, la Vue 3D en depend. `visibility` plutot que `display` : un parent masque par
+     `display:none` emporterait la scene avec lui. */
+  html[data-vitrine], html[data-vitrine] body{ margin:0; padding:0; overflow:hidden; background:var(--stage-bg); }
+  html[data-vitrine] body *{ visibility:hidden; }
+  html[data-vitrine] #terrasse3dCanvasHost, html[data-vitrine] #terrasse3dCanvasHost *{ visibility:visible; }
+  html[data-vitrine] #terrasse3dCanvasHost{
+    position:fixed !important; left:0; top:0; z-index:1000; margin:0; border:none; border-radius:0;
+    width:var(--vitrine-largeur, 100vw) !important; height:var(--vitrine-hauteur, 100vh) !important;
+  }
+  /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
+  html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,
+  html[data-vitrine] #terrasse3dZoomControls .separateur3d:nth-last-of-type(-n+2){ display:none; }

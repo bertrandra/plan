@@ -26,6 +26,14 @@ function empreintesDesScriptsEnLigne(html: string): string[] {
 
 // Les deux seuls faits publics que le paquet porte sur la plateforme (spec-connexion-plateforme §2).
 const BACKPROD_API_URL = (process.env.BACKPROD_API_URL || '').replace(/\/+$/, '');
+
+/** L'origine de la plateforme et sa jumelle www/apex, pour `frame-ancestors` ; `'none'` sans plateforme. */
+function originesCadre(url: string): string {
+  if (!url) return "'none'";
+  const u = new URL(url);
+  const jumelle = u.hostname.startsWith('www.') ? u.hostname.slice(4) : 'www.' + u.hostname;
+  return u.origin + ' ' + u.protocol + '//' + jumelle + (u.port ? ':' + u.port : '');
+}
 const BACKPROD_PRODUCT_CODE = process.env.BACKPROD_PRODUCT_CODE || 'plan';
 
 // Depuis l'etape 4, Plan ne sait plus se passer de la plateforme : ses projets y vivent. Un build
@@ -73,8 +81,13 @@ export default defineConfig({
         // source vide dans la politique serait invalide, pas permissive.
         const jetonOrigine = '@@ORIGINE_PLATEFORME@@';
         if (texte.split(jetonOrigine).length - 1 !== 1) throw new Error('.htaccess : le modele doit porter une seule fois ' + jetonOrigine);
+        // Ceux qui peuvent encadrer la vitrine : la plateforme, sous ses deux adresses (www et
+        // l'apex repondent tous deux, sans redirection de l'une vers l'autre).
+        const jetonCadre = '@@ORIGINES_CADRE@@';
+        if (texte.split(jetonCadre).length - 1 !== 1) throw new Error('.htaccess : le modele doit porter une seule fois ' + jetonCadre);
         writeFileSync(resolve(__dirname, 'dist/.htaccess'),
-          texte.replace(jeton, empreintes.join(' ')).replace(jetonOrigine, BACKPROD_API_URL ? ' ' + BACKPROD_API_URL : ''));
+          texte.replace(jeton, empreintes.join(' ')).replace(jetonOrigine, BACKPROD_API_URL ? ' ' + BACKPROD_API_URL : '')
+            .replace(jetonCadre, originesCadre(BACKPROD_API_URL)));
       }
     }
   ],

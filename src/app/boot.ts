@@ -60,7 +60,9 @@ import { dessinerReleves } from '../render/releve.js';
 import { creerServiceReleve } from './releve.js';
 import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
-import type { ObjetPlan } from '../model/types.js';
+import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
+import type { ProjetResume } from '../io/api.js';
+import { vue3d } from '../three/etat3d.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 
@@ -78,6 +80,23 @@ async function loadInitialProject(){
   // files sont captures (tests/fixtures/golden/EMPREINTES.md) ; le fichier livre ne le propose pas.
   const temoin = import.meta.env.DEV && new URLSearchParams(location.search).has('temoin');
   return chargerProjetInitial(temoin ? DEMO_TEMOIN_OBJECTS : DEMO_OBJECTS, DEMO_MEASURES, demanderPremierPas);
+}
+
+/**
+ * La graine de la vitrine (app/vitrine.ts) : le plan de demonstration, sans rien demander a
+ * personne — ni plateforme, ni stockage du navigateur. La forme est celle que rend
+ * `chargerProjetInitial` quand aucune API ne repond.
+ */
+function graineVitrine(){
+  return {
+    apiAvailable: false,
+    list: [] as ProjetResume[],
+    objects: JSON.parse(JSON.stringify(DEMO_OBJECTS)) as ObjetBrut[],
+    measures: JSON.parse(JSON.stringify(DEMO_MEASURES)) as Mesure[],
+    meta: null as ProjetResume | null,
+    schemaVersion: null as number | null,
+    ouvrirAdresse: false
+  } satisfies GraineDemarrage;
 }
 
 /** Ce que `boot()` recoit : le derive de la fonction qui le produit, pas une forme ecrite a part. */
@@ -296,7 +315,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   return { explorateur, inspecteur, projet };
 }
 
-function boot(seed: GraineDemarrage): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: boolean } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
@@ -326,7 +345,16 @@ function boot(seed: GraineDemarrage): void {
   ch.restaurerAffichage();
   // « Partir d'une adresse » au premier pas passe par la COMMANDE : elle porte la capacite, la
   // permission et le quota, et un premier pas ne doit pas etre le seul chemin qui les contourne.
-  if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
+  if (options.vitrine) {
+    // La vitrine ne montre que la Vue 3D, ombres cochees d'office (app/vitrine.ts). Rien a proposer :
+    // le plan ne s'y enregistre pas.
+    vue3d.ombres = true;
+    // La terrasse choisie, sinon la Vue 3D montrerait le terrain sans sa structure.
+    const terrasse = etat.objects.find(o => o.fonction === 'terrasse' && o.type === 'polygon');
+    if (terrasse) explorateur.selectionner(terrasse.key);
+    commandes.executer('vue.3d');
+  }
+  else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
   else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
@@ -354,4 +382,4 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
 }
 
 // main.ts n'a besoin que de ces deux points d'entree.
-export { boot, loadInitialProject };
+export { boot, loadInitialProject, graineVitrine };
