@@ -63,7 +63,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
-import { zoomerQuandPrete, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
+import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 
@@ -354,7 +354,16 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
     const terrasse = etat.objects.find(o => o.fonction === 'terrasse' && o.type === 'polygon');
     if (terrasse) explorateur.selectionner(terrasse.key);
     commandes.executer('vue.3d');
-    if (options.vitrine.zoom) zoomerQuandPrete(() => vue3d.scene as SceneZoomable | null, options.vitrine.zoom);
+    // Le point de vue d'abord, le zoom ensuite, depuis lui. Une fois la scene la : poser la camera
+    // avant, c'est la poser sur une scene que la construction remplacera.
+    const pdv = trouverPointDeVue(etat.objects.filter(o => o.fonction === 'camera'), options.vitrine.pdv);
+    const zoom = options.vitrine.zoom;
+    if (pdv || zoom) {
+      quandScenePrete(() => vue3d.scene as SceneZoomable | null, (sc) => {
+        if (pdv) vues.allerAuPointDeVue(pdv);
+        if (zoom) appliquerZoom(vue3d.scene as SceneZoomable | null ?? sc, zoom);
+      });
+    }
     // La photo aerienne se telecharge : la scene s'ouvre sans, et se refait quand les tuiles sont
     // la. Meme terrasse, donc meme camera : le zoom demande est garde (three/scene.ts).
     // Le soleil court sur la journee du jour (heureauto=y) : la date d'abord, puis l'heure a chaque pas.

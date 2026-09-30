@@ -31,6 +31,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   immobile.
 - **`duree=` règle la vitesse du soleil de la vitrine** : le nombre de secondes d'une course de
   `hrsstart` à `hrsend`. Par défaut 30, borné de 5 à 3 600, virgule acceptée.
+- **`pdv=` place la caméra de la vitrine sur un point de vue du plan.** On le désigne par son nom,
+  sans égard aux majuscules ni aux accents (`pdv=entree`, `pdv=Fenetre%20cuisine`), par son rang à
+  partir de 1 (`pdv=2`), ou par un début de nom s'il n'y en a qu'un. Un point de vue inconnu laisse
+  le cadrage par défaut. `zoom` s'applique ensuite, depuis le point de vue.
 - **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
   restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
 - **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,
