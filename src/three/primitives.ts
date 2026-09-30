@@ -26,7 +26,14 @@ import type { PtBrut } from '../model/types.js';
  * orthophoto avec le socle du terrain. Un decalage de polygone par couche fixe leur ordre quelle que
  * soit la distance ; les hauteurs restent, pour les ombres et pour l'export GLB.
  */
-export const COUCHES_SOL = { terrain: 1, ortho: 2, chemin: 3, surMur: 2 } as const;
+//
+// 2.2.1 : le sol vert est RECULE (`fond`, negatif) et la photo aerienne n'a plus de decalage. Un
+// decalage vers la camera croit avec la pente du plan vu de biais — une couche vaut environ un
+// pixel d'ecran : la photo, a deux couches, passait devant les volumes de moins de deux pixels de
+// haut, et les massifs de 20 cm scintillaient vus de loin. Reculer la couche la plus basse ne peut
+// rien faire passer devant quoi que ce soit. Sous la photo, le terrain n'est pas dessine
+// (three/scene.ts) : il n'y a donc rien entre le sol et elle.
+export const COUCHES_SOL = { fond: -1, terrain: 1, ortho: 0, chemin: 3, surMur: 2 } as const;
 
 /** Range un materiau dans sa couche : il gagne le test de profondeur contre les couches plus basses. */
 export function poserEnCouche(mat: THREE_NS.Material, couche: number): void {

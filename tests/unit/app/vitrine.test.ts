@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { lireVitrine, poserVitrine, appliquerZoom, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
+import { lireVitrine, poserVitrine, appliquerZoom, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DUREE_MIN_S, DUREE_MAX_S, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
 
 // La vitrine publique (src/app/vitrine.ts) : la Vue 3D de la demonstration, encadree par la page
 // d'accueil du catalogue de la plateforme.
@@ -85,13 +85,23 @@ describe('la course du soleil de la vitrine', () => {
   it('ne court qu avec heureauto=y, de 7 h a 20 h par defaut', () => {
     expect(lireVitrine('?mode=demo')!.heureAuto).toBeNull();
     expect(lireVitrine('?mode=demo&heureauto=n&hrsstart=8')!.heureAuto).toBeNull();
-    expect(lireVitrine('?mode=demo&heureauto=y')!.heureAuto).toEqual({ debut: HEURE_DEBUT_DEFAUT, fin: HEURE_FIN_DEFAUT });
-    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=9&hrsend=18:30')!.heureAuto).toEqual({ debut: 540, fin: 1110 });
+    expect(lireVitrine('?mode=demo&heureauto=y')!.heureAuto).toEqual({ debut: HEURE_DEBUT_DEFAUT, fin: HEURE_FIN_DEFAUT, dureeMs: DUREE_JOURNEE_MS });
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=9&hrsend=18:30')!.heureAuto).toEqual({ debut: 540, fin: 1110, dureeMs: DUREE_JOURNEE_MS });
   });
 
   it('lit des bornes inversees dans l ordre, et ne court pas entre deux heures egales', () => {
-    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=19&hrsend=8')!.heureAuto).toEqual({ debut: 480, fin: 1140 });
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=19&hrsend=8')!.heureAuto).toEqual({ debut: 480, fin: 1140, dureeMs: DUREE_JOURNEE_MS });
     expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=12&hrsend=12')!.heureAuto).toBeNull();
+  });
+
+  it('dure duree secondes, bornees', () => {
+    const d = (q: string) => lireVitrine('?mode=demo&heureauto=y' + q)!.heureAuto!.dureeMs;
+    expect(d('&duree=60')).toBe(60_000);
+    expect(d('&duree=12,5')).toBe(12_500);
+    expect(d('&duree=1')).toBe(DUREE_MIN_S * 1000);
+    expect(d('&duree=99999')).toBe(DUREE_MAX_S * 1000);
+    expect(d('&duree=vite')).toBe(DUREE_JOURNEE_MS);
+    expect(d('')).toBe(DUREE_JOURNEE_MS);
   });
 
   it('avance avec l horloge et boucle', () => {
@@ -99,6 +109,7 @@ describe('la course du soleil de la vitrine', () => {
     expect(heureALInstant(c, 0)).toBe(600);
     expect(heureALInstant(c, DUREE_JOURNEE_MS / 2)).toBe(900);
     expect(heureALInstant(c, DUREE_JOURNEE_MS * 1.25)).toBe(750);
+    expect(heureALInstant(c, 60_000, 120_000)).toBe(900);
   });
 
   it('pose l heure a chaque minute nouvelle, et s arrete', () => {

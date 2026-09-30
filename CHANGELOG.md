@@ -29,6 +29,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sur l'horloge et non sur le nombre d'images : un onglet ralenti reprend à la bonne heure. Des
   bornes inversées se lisent dans l'ordre ; deux heures égales, ou `heureauto=n`, laissent le soleil
   immobile.
+- **`duree=` règle la vitesse du soleil de la vitrine** : le nombre de secondes d'une course de
+  `hrsstart` à `hrsend`. Par défaut 30, borné de 5 à 3 600, virgule acceptée.
 - **Les ombres sont cochées d'office dans la vitrine, et seulement là.** Dans l'atelier, elles
   restent à la demande : elles coûtent cher à calculer et changent à chaque heure.
 - **Le `.htaccess` laisse la plateforme encadrer la vitrine, et elle seule.** Pour `?mode=demo`,
@@ -62,6 +64,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   supposait la hauteur connue ; il disparaît.
 
 ### Corrigé
+
+- **Les massifs ne scintillent plus sur la photo aérienne en Vue 3D.** La photo était tirée vers la
+  caméra par un décalage de profondeur, pour passer devant le terrain posé 1 mm plus bas. Ce
+  décalage croît avec la pente du sol vu de biais, et une couche vaut environ un pixel d'écran. De
+  loin et de bas, la photo passait donc devant tout volume de moins de deux pixels de haut : un
+  massif de 20 cm vu à 80 m. C'est le sol vert, la couche la plus basse, qui est désormais reculé ;
+  la photo n'a plus de décalage, et le terrain qu'elle recouvre n'est plus dessiné sous elle.
+  Mesuré sur le plan de démonstration : la photo recouvrait jusqu'à 41 % des pixels des massifs,
+  caméra à 80 m et à 2 m de haut, et 81 % à 100 m et 1,5 m. Désormais, aucun, à toutes les
+  distances mesurées ; et le sol ne perce jamais la photo, jusqu'à 150 m à 1 m de haut.
 
 - **Le grand-angle d'un iPhone en français ouvrait la mauvaise caméra.** iOS y nomme sa caméra
   virtuelle « Dual Wide » « Caméra arrière double grand-angle » : Plan la prenait pour l'ultra

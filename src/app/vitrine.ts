@@ -27,8 +27,8 @@
 // s'ouvre sans elles, puis se reconstruit quand elles sont la, a la meme place de camera.
 //
 // `heureauto=y` fait courir le soleil sur la journee du jour, de `hrsstart` a `hrsend` (heures
-// locales, `14`, `14:30` ou `14h30` ; par defaut 7 h et 20 h), en `DUREE_JOURNEE_MS`, puis
-// recommence. La progression suit l'horloge, pas le nombre d'images : un onglet ralenti par le
+// locales, `14`, `14:30` ou `14h30` ; par defaut 7 h et 20 h), en `duree` secondes (30 par defaut,
+// de 5 a 3 600), puis recommence. La progression suit l'horloge, pas le nombre d'images : un onglet ralenti par le
 // navigateur reprend a la bonne heure au lieu de rattraper son retard. `heureauto=n`, ou rien : le
 // soleil reste a l'heure par defaut.
 
@@ -41,8 +41,10 @@ export const ZOOM_MAX = 8;
 /** Les heures par defaut de la course du soleil, en minutes depuis minuit. */
 export const HEURE_DEBUT_DEFAUT = 7 * 60;
 export const HEURE_FIN_DEFAUT = 20 * 60;
-/** Le temps d'une journee de vitrine, de `hrsstart` a `hrsend`. */
+/** Le temps d'une journee de vitrine, de `hrsstart` a `hrsend`, par defaut, et ses bornes (`duree`). */
 export const DUREE_JOURNEE_MS = 30_000;
+export const DUREE_MIN_S = 5;
+export const DUREE_MAX_S = 3600;
 
 export interface Vitrine {
   /** Largeur et hauteur demandees, en pixels CSS ; `null` : la fenetre. */
@@ -52,8 +54,11 @@ export interface Vitrine {
   zoom: number | null;
   /** La photo aerienne sous la scene. Faux par defaut. */
   orthophoto: boolean;
-  /** La course du soleil, en minutes depuis minuit ; `null` : le soleil ne bouge pas. */
-  heureAuto: { debut: number; fin: number } | null;
+  /**
+   * La course du soleil, en minutes depuis minuit, et le temps qu'elle prend en millisecondes ;
+   * `null` : le soleil ne bouge pas.
+   */
+  heureAuto: { debut: number; fin: number; dureeMs: number } | null;
 }
 
 function dimension(brute: string | null): number | null {
@@ -78,13 +83,20 @@ export function lireHeure(brute: string | null): number | null {
   return h * 60 + min;
 }
 
-function courseDuSoleil(p: URLSearchParams): { debut: number; fin: number } | null {
+/** `duree` en secondes, entiere ou decimale, bornee ; la duree par defaut sinon. */
+function dureeDeLaCourse(brute: string | null): number {
+  if (brute === null || !/^\d{1,6}([.,]\d{1,3})?$/.test(brute.trim())) return DUREE_JOURNEE_MS;
+  const s = parseFloat(brute.replace(',', '.'));
+  return Math.round(Math.min(DUREE_MAX_S, Math.max(DUREE_MIN_S, s)) * 1000);
+}
+
+function courseDuSoleil(p: URLSearchParams): { debut: number; fin: number; dureeMs: number } | null {
   if (!OUI.test((p.get('heureauto') ?? '').trim())) return null;
   const debut = lireHeure(p.get('hrsstart')) ?? HEURE_DEBUT_DEFAUT;
   const fin = lireHeure(p.get('hrsend')) ?? HEURE_FIN_DEFAUT;
   // Des bornes inversees se lisent dans l'ordre ; egales, il n'y a pas de course a faire.
   if (debut === fin) return null;
-  return { debut: Math.min(debut, fin), fin: Math.max(debut, fin) };
+  return { debut: Math.min(debut, fin), fin: Math.max(debut, fin), dureeMs: dureeDeLaCourse(p.get('duree')) };
 }
 
 /** La vitrine demandee par l'adresse, ou `null` pour l'atelier. */
@@ -151,12 +163,12 @@ export function dateDuJour(d: Date = new Date()): string {
  * Fait courir le soleil : pose l'heure a chaque pas, seulement quand elle change d'une minute.
  * Rend de quoi l'arreter.
  */
-export function animerHeure(course: { debut: number; fin: number }, poserHeure: (minutes: number) => void,
+export function animerHeure(course: { debut: number; fin: number; dureeMs?: number }, poserHeure: (minutes: number) => void,
   maintenant: () => number = () => performance.now(), pasMs = 100): () => void {
   const depart = maintenant();
   let derniere = -1;
   const pas = () => {
-    const m = heureALInstant(course, maintenant() - depart);
+    const m = heureALInstant(course, maintenant() - depart, course.dureeMs);
     if (m !== derniere) { derniere = m; poserHeure(m); }
   };
   pas();
