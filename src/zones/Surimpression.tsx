@@ -74,8 +74,17 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
           title={(grille ? 'Masquer' : 'Afficher') + ' la grille du plan'}
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={18} /></button>
         {cadrable && (
-          <button type="button" id="fitBtn" title="Ajuster la vue à l'objet sélectionné"
-            onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
+          <div className="actionsSelection">
+            <button type="button" id="fitBtn" title="Ajuster la vue à l'objet sélectionné"
+              onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
+            {commandes.etat('terrasse.isoler').utilisable && (
+              <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
+                title="Ne montrer que la terrasse, en transparence, et cadrer sur elle — rebasculer ou désélectionner rend la vue d'avant"
+                data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}>
+                <Icone nom="isoler" taille={16} /> {etat.isolement !== null ? 'Tout afficher' : 'Isoler la terrasse'}
+              </button>
+            )}
+          </div>
         )}
         {bandeau}
       </>
@@ -94,6 +103,12 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={20} /></button>
         <button type="button" className={etat.showNorth ? 'actif' : ''} aria-pressed={etat.showNorth} aria-label="Flèche Nord"
           data-commande="affichage.nord" onClick={() => { commandes.executer('affichage.nord'); }}><Icone nom="nord" taille={20} /></button>
+        {/* N'apparait qu'avec une terrasse selectionnee (ou isolee) : c'est elle qu'il isole. */}
+        {commandes.etat('terrasse.isoler').utilisable && (
+          <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
+            aria-label="Isoler la terrasse" title="Isoler la terrasse : elle seule, en transparence, cadrée — rebasculer ou désélectionner rend la vue d'avant"
+            data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}><Icone nom="isoler" taille={20} /></button>
+        )}
       </div>
       <div className="pastilleEchelle" aria-live="off" title={'1 m = ' + Math.round(etat.scene.scale) + ' px'}>
         {pointeur

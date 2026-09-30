@@ -244,9 +244,9 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   }
 
   // Une piece de bois, coupee au contour dans lequel elle s'arrete plutot qu'a 90 degres.
-  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null): void {
+  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null, opacity?: number): void {
     if (dist(a, b) < 0.02) return;
-    addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, undefined, textures);
+    addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, opacity, textures);
   }
 
   // Une bande perimetrale mitree : chaque cote devient le quadrilatere entre les deux anneaux, et les

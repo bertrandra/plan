@@ -107,6 +107,11 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
             <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
             <div className="separateur3d"></div>
             <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+            {commandes.etat('terrasse.isoler').utilisable && (
+              <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle="Isoler la terrasse"
+                titre="Isoler la terrasse : elle seule, en transparence, cadrée — rebasculer rend la vue d'avant"
+                actif={magasin.store.getState().etat.isolement !== null} />
+            )}
           </div>
         </div>
       </div>

@@ -85,7 +85,8 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
     { x: o.center.x - o.r, y: o.center.y }, { x: o.center.x + o.r, y: o.center.y },
     { x: o.center.x, y: o.center.y - o.r }, { x: o.center.x, y: o.center.y + o.r }
   ];
-  if (vue3d.tousLesObjets || !obj) {
+  // Isolee, la terrasse est seule dans la scene : la camera et le sol se reglent sur elle.
+  if ((vue3d.tousLesObjets || !obj) && !(obj && etat.isolement === obj.key)) {
     etat.objects.forEach((o: ObjetPlan) => {
       if (o === obj) return;
       if (o.type === 'circle') pts.push(...cercle(o));
@@ -223,7 +224,7 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
  * le platelage se pose. Chaque piece est coupee au contour ou elle s'arrete : un bord oblique se
  * lit comme une diagonale, pas comme un escalier.
  */
-function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d): void {
+function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d, isolee = false): void {
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c) / 1000;
@@ -255,8 +256,10 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // Les deux textures de la terrasse : le dessus sur le platelage, le vertical sur la lame de rive —
   // les seules surfaces qu'on regarde vraiment.
   const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
+  // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
+  const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
-    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse));
+    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames));
   if (c.avecLameRive) {
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;
@@ -264,6 +267,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   }
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
 }
+
+/** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
+export const OPACITE_LAMES_ISOLEMENT = 0.35;
 
 /** Ce que chaque objet du plan rendu en contexte recoit. */
 interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d }
@@ -433,7 +439,8 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal);
   ajouterOrtho(scene, versLocal, ctx);
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx });
-  ajouterCloture(prim, ctx);
+  // La cloture est celle de la parcelle : masquee avec elle quand la terrasse est isolee.
+  if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, ctx);
   appliquerOmbres(scene, ground);
 
   const sc: SceneVue3d = {
@@ -454,7 +461,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx);
+    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key);
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
     renderer.render(scene, camera);
   }, 0);

@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Isoler la terrasse.** Une terrasse sélectionnée s'isole d'un bouton : sur le plan, à côté
+  d'« Ajuster à la sélection » (bureau) ou dans le groupe flottant (téléphone, tablette) ; en 3D,
+  dans les commandes de la scène. Elle seule reste affichée. Les autres objets, leurs ombres de
+  parasol et la clôture de la parcelle sont masqués à l'affichage, sans toucher à leur `hidden`.
+  La terrasse passe en transparence pour montrer sa structure : ses couches sur le plan, ses
+  lambourdes et ses solives sous des lames translucides en 3D. La vue se cadre sur elle.
+  Rebasculer, ou sélectionner autre chose, ou rien, rend exactement la vue d'avant : le cadrage du
+  plan et, en 3D, la position de la caméra. L'isolement n'entre pas dans le projet
+  (`src/app/isolement.ts`, commande `terrasse.isoler`).
+
 - **Une vitrine publique : la Vue 3D du plan de démonstration**, à
   `https://plan.raillard.org/?mode=demo&x=1024&y=768`, pour la page d'accueil du catalogue de la
   plateforme. Elle ne passe pas par la porte : elle ne demande aucun compte, n'appelle pas la
