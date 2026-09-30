@@ -22,6 +22,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   d'orientation de faîtage pour elle ; « Non modélisé » ne se choisit plus sur un bâtiment qui a un
   toit (« Toit plat » le remplace, et l'actualisation le respecte).
 
+- **La maison de la démonstration a son toit.** Un toit à croupes rouge de 3 m, saisi, sur son
+  contour à quatorze côtés (`model/demo.ts`). La démonstration s'écrit désormais au **schéma 3** :
+  la plateforme doit l'accepter pour l'ouvrir — la copie publiée (`contrat/plan-produit.json`,
+  `demo_project`) porte ce toit et ce schéma. Témoins : `projet.json` (le toit, le schéma) et
+  `plan.svg` (le schéma) recapturés, `glb-structure.json` calculé (+14 mailles, un pan par côté)
+  en attendant une recapture avec le réseau ; les quatre autres inchangés
+  (`tests/fixtures/golden/EMPREINTES.md`).
+
 - **Schéma de projet 3 : un plan d'une version précédente reçoit ses toits à l'ouverture.** La
   migration 2 → 3 pose le toit BD TOPO sur chaque bâtiment importé qui n'en avait pas ; l'altitude
   maximale du toit n'étant pas enregistrée avant, sa hauteur est estimée (35°) jusqu'à la prochaine

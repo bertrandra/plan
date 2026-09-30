@@ -36,7 +36,7 @@ saisie aussi.
 | Quelle pente ? | **Déduite** : `atan(H / dmax)`, bornée (§4) | Deux nombres BD TOPO et le contour suffisent ; rien à saisir |
 | Quelle couleur ? | **Rouge tuile** `#B0432F`, pour tout toit sans couleur choisie | Demande produit ; c'est aussi la couverture la plus courante des maisons |
 | Quels bâtiments ? | **Tous** ceux qu'on importe ou actualise : la propriété et le voisinage | Les ombres portées et la vue 3D du voisinage en profitent autant |
-| Quand est-il calculé ? | **À l'import et à l'actualisation**, puis enregistré dans le bâtiment ; **et une fois, à l'ouverture d'un plan d'une version précédente** (migration 2 → 3, §5.6). Jamais au rendu | Un plan d'avant reçoit ses toits sans rien demander ; le jeu de démonstration, qui n'est pas importé de l'IGN, et ses empreintes restent intacts |
+| Quand est-il calculé ? | **À l'import et à l'actualisation**, puis enregistré dans le bâtiment ; **et une fois, à l'ouverture d'un plan d'une version précédente** (migration 2 → 3, §5.6). Jamais au rendu | Un plan d'avant reçoit ses toits sans rien demander. Le jeu de démonstration n'est pas importé de l'IGN : la migration ne le touche pas ; sa maison porte un toit saisi |
 | Qui l'emporte ? | Photo et saisie **sur** BD TOPO | La photo mesure, la BD TOPO estime (§5.3) |
 | Une bibliothèque ? | **Non** : `geometry/squelette.ts`, en TypeScript | Le projet n'a que trois dépendances ; un contour de maison compte rarement plus de 30 sommets après simplification (`SIMPLIF_M`) |
 
@@ -264,8 +264,10 @@ export interface Toit {
   `contrat/plan-produit.json` le déclare (`schema_versions: [1, 2, 3]`) ; il reste à le recopier
   dans backprod.
 - **Poids** : quelques dizaines d'octets par bâtiment. Rien à surveiller.
-- **Empreintes** : le jeu de démonstration n'est pas importé, il ne porte aucun toit, et la migration
-  ne lui en donne pas. Ses six artefacts ne bougent pas. Le témoin de l'import cadastral
+- **Démonstration** : elle n'est pas importée de l'IGN, et la migration ne lui donne rien. Mais sa
+  maison porte désormais un toit **saisi** — croupes, 3 m (`model/demo.ts`) : la démonstration
+  s'écrit au schéma 3. Témoins recapturés ou calculés en conséquence
+  (`tests/fixtures/golden/EMPREINTES.md`, 30 septembre 2026). Le témoin de l'import cadastral
   (`tests/fixtures/golden/cadastre-objets.json`) a été recapturé : ses deux bâtiments portent
   désormais leur toit et `altitudeToitMaxM`, rien d'autre ne change.
 

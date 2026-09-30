@@ -7,7 +7,7 @@
     "exportedAt": "2026-09-28T21:22:41.109Z",
     "exportedBy": "plan.html",
     "appVersion": "2.2.0",
-    "schemaVersion": 1,
+    "schemaVersion": 3,
     "writtenAt": "2026-09-28T21:22:41.109Z"
   },
   "objects": [
@@ -773,7 +773,13 @@
         false,
         false,
         false
-      ]
+      ],
+      "toit": {
+        "forme": "croupes",
+        "hauteur": 3,
+        "angleFaitage": 0,
+        "source": "saisie"
+      }
     },
     {
       "key": "dalle",

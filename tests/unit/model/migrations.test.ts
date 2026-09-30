@@ -64,10 +64,14 @@ describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
 });
 
 describe('le schema qu un document ecrit', () => {
-  it('est 1 pour un plan sans releve ni toit : la demonstration s ouvre sur une plateforme restee a [1]', () => {
-    expect(schemaMinimal(DEMO_OBJECTS)).toBe(1);
-    expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(1);
+  it('est 1 pour un plan sans releve ni toit', () => {
+    expect(schemaMinimal([batiment()])).toBe(1);
     expect(schemaMinimal([batiment({ facades: [] })])).toBe(1);
+  });
+
+  it('est 3 pour la demonstration, dont la maison porte un toit a croupes : la plateforme doit accepter 3', () => {
+    expect(schemaMinimal(DEMO_OBJECTS)).toBe(3);
+    expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(3);
   });
 
   it('est 3 des qu un toit est a croupes', () => {
