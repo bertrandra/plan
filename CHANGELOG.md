@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Sur le plan, l'ombre des parasols passe devant.** Elle était dessinée sous les objets, et une
+  terrasse ou un massif la cachait justement là où elle compte. Elle se pose maintenant sur ce
+  qu'elle couvre, carte d'ensoleillement comprise. La toile des parasols, leurs mâts, les cotes et
+  les poignées de la sélection restent au-dessus. Le calque reste inerte : les clics le traversent.
+
 ### Ajouté
 
 - **La limite de projets est celle de la plateforme, et se dit.** Plan lit désormais le quota que

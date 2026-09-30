@@ -7,7 +7,7 @@
 
 import { versEcran, versMonde } from '../../geometry/vue.js';
 import { creerDomObjet, reconstruirePoignees } from '../../render/objects.js';
-import { amenerPoigneesDevant as remonterPoignees, reappliquerEmpilement, type ContexteEmpilement } from '../../render/empilement.js';
+import { amenerPoigneesDevant as remonterPoignees, amenerDevant, reappliquerEmpilement, type ContexteEmpilement } from '../../render/empilement.js';
 import { vue } from '../../render/vues.js';
 import { dessinerGrille } from '../../render/grille.js';
 import { dessinerFlecheNord, dessinerEchelle } from '../../render/decor.js';
@@ -73,6 +73,16 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     renderParasolOverlay() {
       contraindreParasols(etat.objects, etat.terrasseSelectedKey);
       dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat, ctxSoleil: d.contexteSoleil(), positionMat });
+      // L'ombre passe DEVANT les objets : une ombre portee se lit sur ce qu'elle couvre — la
+      // terrasse, un massif, la pelouse —, pas dessous. Le calque est inerte, les clics le
+      // traversent. Seuls restent au-dessus : la toile des parasols (une ombre ne couvre pas ce qui
+      // la projette), leurs mats, puis les calques du dessus (nord, echelle, cotes, couches) ; les
+      // poignees de la selection sont remontees ensuite par le rendu.
+      s.svg.appendChild(s.parasols);
+      const ctx = ctxEmpilement();
+      etat.objects.forEach((o) => { if (o.fonction === 'parasol') amenerDevant(o, ctx); });
+      s.svg.appendChild(s.mats);
+      s.svg.append(s.nord, s.echelle, s.cotes, s.couches);
     },
     // Les couches ne se dessinent que si l'explorateur les a demandees : un appel sans objet vide le calque.
     // Une terrasse isolee les montre toujours : c'est ce que sa transparence laisse voir (app/isolement.ts).
