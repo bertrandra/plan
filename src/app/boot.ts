@@ -225,7 +225,9 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
-        apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT }, () => parcours.fermer());
+        apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT,
+        // Un projet neuf (document `{}`) se remplit, tant que rien n'y a ete dessine.
+        projetCible: () => (seed.ouvrirAdresse && seed.meta && etat.objects.length === 0 ? seed.meta : null) }, () => parcours.fermer());
       parcours.ouvrir({ type: 'cadastre', importe });
     },
     ouvrirActualisation: () => ouvrirDialogueActualisation({

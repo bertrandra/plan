@@ -36,6 +36,11 @@ interface DocumentPlan {
 
 interface ResumeApi { id: string; name: string; updated_at: string; deleted_at: string | null; schema_version?: number }
 
+/** `{}`, ou rien : le document d'un projet cree mais jamais ecrit. */
+export function documentVide(d: unknown): boolean {
+  return d === null || d === undefined || (typeof d === 'object' && !Array.isArray(d) && Object.keys(d).length === 0);
+}
+
 function echec(message: string, motif: MotifEchec): Error & { reason: MotifEchec } {
   return Object.assign(new Error(message), { reason: motif });
 }
@@ -103,6 +108,12 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
       try {
         const p = await session.appeler<ResumeApi & { document: DocumentPlan }>('showProject', { params: { projectId: id } });
         const d = p.document;
+        // Un document vide, `{}` : un projet que la plateforme vient de creer pour Plan, et que
+        // personne n'a encore rempli. Ce n'est pas un document etranger, c'est un plan neuf — rendu
+        // vide, et marque comme tel, pour que le demarrage propose d'en saisir l'adresse.
+        if (documentVide(d)) {
+          return { objects: [], measures: [], schemaVersion: p.schema_version ?? null, nouveau: true, meta: { id: p.id, name: p.name, updatedAt: p.updated_at } };
+        }
         // La plateforme ne connait pas la forme du document et ne la validera jamais : elle stocke
         // ce qu'on lui donne. Un projet cree par autre chose que Plan s'ouvrirait donc en plan
         // vide, sans un mot — le pire des deux mondes. On le dit.

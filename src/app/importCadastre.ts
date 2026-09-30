@@ -38,6 +38,11 @@ export interface ContexteImportCadastre {
   withProjectParam: (id: string) => string;
   apiDisponible: boolean;
   cleDernierProjet: string;
+  /**
+   * Le projet a remplir, quand il y en a un : un projet neuf de la plateforme, ouvert avec un
+   * document vide (`{}`). L'import y ecrit au lieu d'en creer un second. Absent : un projet est cree.
+   */
+  projetCible?: () => { id: string; name: string } | null;
 }
 
 export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres';
@@ -128,6 +133,8 @@ export interface ImportCadastre {
   hauteursPropriete(): number[];
   nombreArbresEstimes(): number;
   nomParDefaut(): string;
+  /** Le projet que l'import remplit, ou `null` s'il en cree un. */
+  projetCible(): { id: string; name: string } | null;
 }
 
 const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
@@ -489,14 +496,15 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         showToast('Mode local : le plan cadastral est charge mais ne sera pas enregistre. Utilise Export JSON pour le conserver.');
         return;
       }
-      occuper(true, 'Creation du projet…');
+      const cible = ctx.projetCible?.() ?? null;
+      occuper(true, cible ? 'Enregistrement du projet…' : 'Creation du projet…');
       try {
-        const cree = await ctx.apiSave({ name: nom, objects: objets, measures: [] });
+        const cree = await ctx.apiSave({ ...(cible ? { id: cible.id } : {}), name: nom, objects: objets, measures: [] });
         localStorage.setItem(ctx.cleDernierProjet, cree.id);
         location.href = ctx.withProjectParam(cree.id);
       } catch (err) {
         occuper(false);
-        e.erreur = 'Impossible de creer le projet : ' + ((err as Error).message || err);
+        e.erreur = (cible ? 'Impossible d enregistrer le projet : ' : 'Impossible de creer le projet : ') + ((err as Error).message || err);
         signaler();
       }
     }
@@ -539,6 +547,9 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     ...gestesAdresse(n, ch),
     ...gestesSelection(n, ch),
     ...gesteCreation(n, l, ctx, fermer),
-    ...l
+    ...l,
+    // Un projet a remplir garde le nom qu'on lui a donne chez la plateforme.
+    nomParDefaut: () => ctx.projetCible?.()?.name || l.nomParDefaut(),
+    projetCible: () => ctx.projetCible?.() ?? null
   };
 }

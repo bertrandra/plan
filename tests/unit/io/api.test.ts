@@ -291,3 +291,30 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     expect(enregistrer).toHaveBeenCalledOnce();
   });
 });
+
+describe('un projet recu avec un document vide ({})', () => {
+  const NEUF = { objects: [], measures: [], nouveau: true, schemaVersion: null, meta: { id: 'p9', name: 'Maison Dupont' } };
+
+  it('est un projet neuf : plan vide, import cadastre propose, projet garde', async () => {
+    history.replaceState(null, '', '/?project=p9');
+    lister.mockResolvedValue([{ id: 'p9', name: 'Maison Dupont' }]);
+    ouvrir.mockResolvedValue(NEUF);
+    const demande = vi.fn();
+    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    expect(r.ouvrirAdresse).toBe(true);
+    expect(r.objects).toEqual([]);
+    expect(r.meta).toEqual({ id: 'p9', name: 'Maison Dupont' });
+    // Pas de question « demonstration ou adresse » : le projet existe, il s'agit de le remplir.
+    expect(demande).not.toHaveBeenCalled();
+    expect(enregistrer).not.toHaveBeenCalled();
+    expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p9');
+  });
+
+  it('de meme quand c est Plan qui l a choisi, premier de la liste', async () => {
+    lister.mockResolvedValue([{ id: 'p9', name: 'Maison Dupont' }]);
+    ouvrir.mockResolvedValue(NEUF);
+    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn());
+    expect(r.ouvrirAdresse).toBe(true);
+    expect(r.meta?.id).toBe('p9');
+  });
+});

@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Un projet reçu vide (`{}`) est un projet neuf.** Quand la plateforme rend un projet dont le
+  document est vide — créé pour Plan, jamais rempli —, Plan l'ouvre en plan vierge, sous son nom, et
+  propose aussitôt la saisie d'une adresse (import cadastre). À la fin du parcours, le plan est
+  enregistré **dans ce projet-là** (« Remplir le projet »), sous le nom donné chez la plateforme, au
+  lieu d'en créer un second. Un document d'un autre produit reste refusé comme avant
+  (`io/depotPlateforme.ts`, `io/api.ts`, `app/importCadastre.ts`).
+
 - **Isoler la terrasse.** Une terrasse sélectionnée s'isole d'un bouton : sur le plan, à côté
   d'« Ajuster à la sélection » (bureau) ou dans le groupe flottant (téléphone, tablette) ; en 3D,
   dans les commandes de la scène. Elle seule reste affichée. Les autres objets, leurs ombres de
