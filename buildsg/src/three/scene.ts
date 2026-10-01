@@ -1,0 +1,468 @@
+// Construction de la scene Three.js (spec §6.4, three/).
+//
+// Le plan est en metres, Y vers le nord ; la 3D est en metres, Y vers le HAUT et Z vers le sud.
+// Toute la conversion tient dans les quelques lignes qui posent les sommets : `{x, y}` du plan
+// devient `{x, hauteur, -y}`. C'est la seule chose a garder en tete en lisant ce qui suit.
+//
+// La fonction reconstruit tout a chaque appel - cocher une case rebatit la scene entiere. C'est
+// assume : la scene est petite, et une reconstruction complete evite toute une classe de bugs
+// d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
+// terrasse, la camera reste ou l'utilisateur l'avait laissee.
+
+import { vue3d, cleDeVue, hotes3d, type SceneVue3d } from './etat3d.js';
+import { centroid, dist } from '../geometry/basic.js';
+import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
+import { computeTerrasseLayers } from '../engine/layers.js';
+import { ensureConstruction } from '../engine/construction.js';
+import { dimsSection, sectionLambourde } from '../engine/portees.js';
+import { safeOffset } from '../engine/structure.js';
+import { hauteurParasolDe } from '../engine/parasol.js';
+import { showErrBanner } from '../shell/dialogs.js';
+import { estMesh } from './gardes.js';
+import { ajouterReleve3d } from './releve3d.js';
+import { volumesDuBatiment } from '../facade/profil.js';
+import {
+  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL,
+  type Primitives, type VersLocal
+} from './primitives.js';
+import type * as THREE_NS from 'three';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction } from '../model/types.js';
+import { aDesSommets, enPoints } from '../model/formes.js';
+import type { ObjetMesurable } from '../engine/hauteurs.js';
+import type { TuileOrtho } from '../render/ortho.js';
+import type { PlanVuDeLa3d } from './etat3d.js';
+
+/** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
+const BLANC_PAR_DEFAUT = 0xffffff;
+
+/** Ce que la construction de la scene 3D demande au reste du programme. */
+export interface ContexteScene3d {
+  /** La parcelle qui porte la cloture, s'il y en a une. */
+  trouverParcelleCloture: () => ObjetPlan | null | undefined;
+  /** Remet les controles de cloture en accord avec la parcelle affichee. */
+  /** Hauteur de ce sur quoi la structure repose, en millimetres. */
+  hauteurAppuiMm: (c: Construction) => number;
+  /** Altitude d'un objet du plan, en metres. */
+  elevationOf: (o: ObjetMesurable) => number;
+  /** Un objet masque ne se modelise pas. */
+  objetMasque: (o: ObjetPlan) => boolean;
+  /** Position du mat d'un parasol, en coordonnees du plan. */
+  positionMat: (par: ObjetPlan) => PtBrut;
+  /** Le fond orthophoto sert aussi de sol a la 3D. */
+  orthoActif: () => boolean;
+  orthoTuiles: () => TuileOrtho[];
+  /** Une texture Poly Haven, partagee par URL et repetition (three/chargeurs.ts). */
+  chargerTexturePolyhaven: (url: string, repetition?: number) => THREE_NS.Texture;
+  /** Demonte la scene precedente avant d'en construire une nouvelle. */
+  disposeThreeScene: () => void;
+  /** Repose le soleil une fois la scene batie. */
+  appliquerLumiereVue3d: () => void;
+  applyMode3D: () => void;
+  syncControlesSoleilVue3d: () => void;
+}
+
+/** Les couches calculees de la terrasse (engine/layers.ts). */
+type Couches = ReturnType<typeof computeTerrasseLayers>;
+
+/**
+ * Le centre de la scene : la terrasse ; a defaut la parcelle, sinon le premier objet a sommets — la
+ * camera doit regarder quelque chose dans tous les cas.
+ */
+function centreDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d): PtBrut {
+  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan) => aDesSommets(o) && o.pts.length);
+  if (!objetCentre) return { x: 0, y: 0 };
+  return objetCentre.type === 'circle' ? { x: objetCentre.center.x, y: objetCentre.center.y } : centroid(objetCentre.pts);
+}
+
+/**
+ * L'etendue que la camera et le sol doivent couvrir. En mode « tous les objets » — et toujours sans
+ * terrasse, ou ils sont la seule chose a montrer —, c'est tout le plan : sinon la maison ou la
+ * parcelle se retrouveraient hors champ ou sous un sol trop petit.
+ */
+function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut): number {
+  const pts = obj ? enPoints(obj).pts.slice() : [];
+  const cercle = (o: ObjetCercle) => [
+    { x: o.center.x - o.r, y: o.center.y }, { x: o.center.x + o.r, y: o.center.y },
+    { x: o.center.x, y: o.center.y - o.r }, { x: o.center.x, y: o.center.y + o.r }
+  ];
+  // Isolee, la terrasse est seule dans la scene : la camera et le sol se reglent sur elle.
+  if ((vue3d.tousLesObjets || !obj) && !(obj && etat.isolement === obj.key)) {
+    etat.objects.forEach((o: ObjetPlan) => {
+      if (o === obj) return;
+      if (o.type === 'circle') pts.push(...cercle(o));
+      else if (o.pts) pts.push(...o.pts);
+    });
+  }
+  const maxRadius = pts.reduce((m: number, p: PtBrut) => Math.max(m, dist(p, cen)), 0);
+  return Math.max(3, maxRadius * 2);
+}
+
+type CameraConservee = { pos: THREE_NS.Vector3; cible: THREE_NS.Vector3 } | null;
+
+/**
+ * La scene, sa camera, son rendu et ses lumieres, le sol. `null` si le navigateur refuse le
+ * contexte WebGL : sur iOS Safari, passe le plafond de contextes vivants, le constructeur reussit
+ * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
+ * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
+ */
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee) {
+  const w = host.clientWidth || 600, h = host.clientHeight || 420;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xdfe7ea);
+  const camera = new THREE.PerspectiveCamera(45, w / h, 0.05, 500);
+  camera.position.set(extent * 0.9, extent * 0.9, extent * 0.9);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  const glCtx3d = renderer.getContext && renderer.getContext();
+  if (!glCtx3d || (glCtx3d.isContextLost && glCtx3d.isContextLost())) {
+    showErrBanner('Vue 3D : le navigateur a refuse de creer un contexte 3D (trop d\'onglets/vues 3D ouverts ?). Ferme quelques onglets ou recharge la page, puis reessaie.');
+    return null;
+  }
+  renderer.setSize(w, h);
+  renderer.shadowMap.enabled = vue3d.ombres;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  host.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0, 0);
+  controls.update();
+  // Meme terrasse reconstruite (une case a cocher) : la camera reste ou l'utilisateur l'avait laissee.
+  if (conservee) {
+    camera.position.copy(conservee.pos);
+    controls.target.copy(conservee.cible);
+    controls.update();
+  }
+  const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent);
+
+  const matSol = new THREE.MeshStandardMaterial({ color: 0x9fb98c });
+  // Le sol est la couche la plus basse : on le recule plutot que de tirer vers la camera ce qui est
+  // pose dessus (COUCHES_SOL).
+  poserEnCouche(matSol, COUCHES_SOL.fond);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(extent * 4, extent * 4), matSol);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = vue3d.ombres;
+  scene.add(ground);
+  return { scene, camera, renderer, controls, hemiLight, dirLight, dirFill, ground };
+}
+
+/**
+ * Une seule lumiere directionnelle laisse tout ce qui lui tourne le dos eclaire par l'ambiante
+ * plate : un angle rentrant se lit alors comme une seule tache. HemisphereLight (ciel/sol, degrade
+ * selon que la face regarde vers le haut ou le bas) remplace l'ambiante, et une seconde
+ * directionnelle plus faible, a l'oppose, degrade meme les faces que le soleil n'atteint pas.
+ * Position, intensite et couleur sont posees ensuite par `appliquerLumiereVue3d`, d'apres la date,
+ * l'heure et le lieu : les valeurs d'ici ne servent qu'a exister.
+ */
+function poserLumieres(scene: THREE_NS.Scene, extent: number) {
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
+  scene.add(hemiLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  dirLight.position.set(extent, extent * 1.5, extent * 0.6);
+  if (vue3d.ombres) {
+    // Le cadrage de la shadow map suit l'etendue de LA scene affichee, et la depasse : une ombre de
+    // fin de journee s'allonge bien au-dela de l'objet qui la projette. Seule la lumiere principale
+    // projette — une deuxieme direction d'ombres ajouterait de la confusion pour peu de gain.
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    const d = extent * 1.8;
+    dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = extent * 9;
+    dirLight.shadow.bias = -0.0005;
+  }
+  scene.add(dirLight);
+  const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
+  dirFill.position.set(-extent * 0.8, extent * 1.1, -extent * 0.5);
+  scene.add(dirFill);
+  return { hemiLight, dirLight, dirFill };
+}
+
+/** Le contour reel de la terrasse au sol : on y verifie d'un coup d'oeil le sens des lames. */
+function ajouterContourTerrasse(scene: THREE_NS.Scene, obj: ObjetPlan, versLocal: VersLocal): void {
+  const pts = enPoints(obj).pts.map((p: PtBrut) => { const l = versLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
+  const premier = pts[0];
+  if (premier) pts.push(premier.clone());
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2a2a })));
+}
+
+/**
+ * Le calque orthophoto du plan sert aussi de sol a la 3D : une dalle par tuile, juste au-dessus du
+ * sol vert. Materiau eclaire pour que la photo suive le soleil — une image en pleine lumiere sur une
+ * scene de nuit trahirait l'heure choisie.
+ */
+function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d): void {
+  if (!ctx.orthoActif() || !ctx.orthoTuiles().length) return;
+  const chargeurOrtho = new THREE.TextureLoader();
+  ctx.orthoTuiles().forEach((t: TuileOrtho) => {
+    // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
+    if (!t.dataUri) return;
+    const tex = chargeurOrtho.load(t.dataUri);
+    // `SRGBColorSpace` / `colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la r128, donc
+    // cette ligne ne fait rien aujourd'hui. Garde-fou tourne vers l'avenir, ecrit ainsi expres : le
+    // remplacer par l'ancien couple `sRGBEncoding`/`encoding` changerait le rendu des tuiles.
+    const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
+    if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+    // Au-dessus du terrain, sous les chemins : une couche, pas seulement un millimetre (COUCHES_SOL).
+    // Aucun decalage : c'est le sol vert, dessous, qui est recule (COUCHES_SOL). Tiree vers la
+    // camera, la photo passait devant les objets bas vus de loin et de biais — les massifs de 20 cm
+    // scintillaient (2.2.1).
+    poserEnCouche(mat, COUCHES_SOL.ortho);
+    const dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), mat);
+    dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
+    const l = versLocal({ x: t.xMin + t.largeur / 2, y: t.yMin + t.hauteur / 2 });
+    dalle.position.set(l.x, 0.004, l.z);
+    dalle.receiveShadow = vue3d.ombres;
+    scene.add(dalle);
+  });
+}
+
+/**
+ * Toute la structure de la terrasse (appuis, solives, lambourdes, lames). Executee APRES la premiere
+ * image : c'est le morceau le plus long (~360 ms sur une terrasse de 35 m², une piece de bois = un
+ * mesh), et le terrain, les batiments et la camera sont prets avant — on navigue deja pendant que
+ * le platelage se pose. Chaque piece est coupee au contour ou elle s'arrete : un bord oblique se
+ * lit comme une diagonale, pas comme un escalier.
+ */
+function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d, isolee = false): void {
+  // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
+  // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
+  const hauteurVisM = ctx.hauteurAppuiMm(c) / 1000;
+  const enterreM = estPlots(c) ? 0 : (c.hauteurVis || 40) / 100;
+  const soliveDims = (c.soliveSection || '45x70').split('x').map(n => parseInt(n, 10) || 0);
+  const soliveH = (soliveDims[1] || 70) / 1000, soliveW = (soliveDims[0] || 45) / 1000;
+  const lambDims = dimsSection(sectionLambourde(c));
+  const lambH = c.avecLambourde ? lambDims.h / 1000 : 0;
+  const lambW = lambDims.b / 1000;
+  const lameH = (c.epaisseurLame || 25) / 1000;
+  const lameW = (c.largeurLame || 140) / 1000;
+  const contour = enPoints(obj).pts;
+  // En pose simple sur plots il n'y a pas de solive : les lambourdes reposent sur les plots, et le
+  // cadre est une lambourde de rive. L'empilement perd une couche au milieu.
+  const plotSimple = estPlots(c) && !c.plotAvecSolives;
+  if (estPlots(c)) layers.vis.forEach(p => prim.addPlot(p, hauteurVisM, 0x6E7A84, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2));
+  else layers.vis.forEach(p => prim.addPost(p, enterreM, hauteurVisM, 0.03, 0x8a96a8));
+  layers.solives.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, contour));
+  // Le cadre est au niveau des pieces auxquelles il appartient, et suit le contour.
+  prim.addBande(layers.bandes.cadre, hauteurVisM, plotSimple ? lambH : soliveH, 0x4a2f18);
+  let lameBase = hauteurVisM + (plotSimple ? 0 : soliveH);
+  if (layers.lambourdes.length) {
+    layers.lambourdes.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, contour));
+    lameBase += lambH;
+  }
+  // En filaire, les lames ne sont plus qu'un contour : on voit l'implantation des appuis et le sens
+  // des solives, que le platelage plein masque.
+  const lamesFilaire = !!c.lames3dFilaire;
+  // Les deux textures de la terrasse : le dessus sur le platelage, le vertical sur la lame de rive —
+  // les seules surfaces qu'on regarde vraiment.
+  const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
+  // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
+  const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
+  layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
+    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames));
+  if (c.avecLameRive) {
+    // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
+    const riveH = (c.hauteurLameRive || 200) / 1000;
+    prim.addBande(layers.bandes.lameRive, lameBase - riveH, riveH, 0x5c3a1e, texturesTerrasse);
+  }
+  if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
+}
+
+/** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
+export const OPACITE_LAMES_ISOLEMENT = 0.35;
+
+/** Ce que chaque objet du plan rendu en contexte recoit. */
+interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d }
+
+// « Objets opaques » ignore l'opacite du plan 2D, souvent < 1 pour voir a travers en mode Plan.
+const opaciteDe = (o: ObjetPlan) => vue3d.objetsOpaques ? undefined : o.fillOpacity;
+// « Texture » decoche revient a la couleur unie sans retirer la texture de chaque objet.
+const texturesDe = (o: ObjetPlan) => vue3d.textures ? { horizontale: o.textureHorizontale, vertical: o.textureVerticale } : null;
+
+/**
+ * Un chemin a sa largeur reelle (le meme champ que le trait du plan 2D), pas son seul axe, et suit
+ * le reglage « Point / Courbe » comme en 2D.
+ */
+function ajouterChemin(o: ObjetPlan, { prim, ctx }: ContexteObjets): void {
+  if (!aDesSommets(o) || o.pts.length < 2) return;
+  const trace = courbePolyligne(o.pts, !!o.curve);
+  const poly = ribbonChemin(trace, o.width || 1);
+  const h = ctx.elevationOf(o);
+  const couleur = o.fill || o.stroke || '#888888';
+  if (poly && h > 0) prim.addPrism(poly, 0, h, couleur, false, opaciteDe(o), texturesDe(o));
+  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin);
+  else prim.addGroundOutline(trace, o.stroke || couleur, false);
+}
+
+/**
+ * Un parasol n'est pas un volume plein : un mat fin porte une toile a sa hauteur. L'extruder en
+ * ferait un cylindre opaque de 3 m au milieu de la terrasse — exactement ce qu'on ne veut pas voir
+ * quand on juge son implantation. Le mat se dresse a SA position (le bord de toile pour un
+ * deporte) ; la toile reste centree.
+ */
+function ajouterParasol(par: ObjetCercle, { scene, versLocal, ctx }: ContexteObjets): void {
+  const hMat = hauteurParasolDe(par);
+  const pl = versLocal(par.center);
+  const plMat = versLocal(ctx.positionMat(par));
+  const matMat = new THREE.MeshStandardMaterial({ color: 0x6b5a44 });
+  const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hMat, 10), matMat);
+  mat.position.set(plMat.x, hMat / 2, plMat.z);
+  scene.add(mat);
+  if (par.matDeporte) {
+    // Le bras horizontal qui rattrape le deport, sinon la toile flotte sans lien visible.
+    const dx = pl.x - plMat.x, dz = pl.z - plMat.z;
+    const L = Math.hypot(dx, dz);
+    if (L > 0.01) {
+      const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, L, 8), matMat);
+      bras.position.set((pl.x + plMat.x) / 2, hMat, (pl.z + plMat.z) / 2);
+      bras.rotation.z = Math.PI / 2;
+      bras.rotation.y = -Math.atan2(dz, dx);
+      scene.add(bras);
+    }
+  }
+  const matToile = new THREE.MeshStandardMaterial({ color: par.fill || '#7a9e6b', side: THREE.DoubleSide });
+  appliquerOpacite(matToile, opaciteDe(par));
+  const urlToile = urlTexture(vue3d.textures ? (par.textureHorizontale || par.textureVerticale) : null);
+  if (urlToile) matToile.map = ctx.chargerTexturePolyhaven(urlToile);
+  // Cone tres plat : la silhouette d'un parasol ouvert, et la meme emprise au sol que l'ombre en 2D.
+  const hToile = Math.max(0.15, par.r * 0.28);
+  const toile = new THREE.Mesh(new THREE.ConeGeometry(par.r, hToile, 24), matToile);
+  toile.position.set(pl.x, hMat + hToile / 2, pl.z);
+  scene.add(toile);
+}
+
+/**
+ * Le feuillage d'un arbre : une sphere sur le tronc, enfoncee d'un tiers de son rayon pour
+ * l'envelopper — posee pile au sommet, elle ne le toucherait qu'en un point, une fine arete visible.
+ * Diametre, couleur et texture sont propres au feuillage.
+ */
+function ajouterFeuillage(o: ObjetPlan, hTronc: number, { scene, versLocal, ctx }: ContexteObjets): void {
+  const centreArbre = o.type === 'circle' ? o.center : centroid(o.pts);
+  const rayon = Math.max(0.05, (o.diametreArbre !== undefined && o.diametreArbre !== null ? o.diametreArbre : 3) / 2);
+  const matSphere = new THREE.MeshStandardMaterial({ color: o.couleurArbre || '#4a7c3a' });
+  appliquerOpacite(matSphere, opaciteDe(o));
+  const urlArbre = vue3d.textures ? urlTexture(o.textureArbre) : undefined;
+  if (urlArbre) matSphere.map = ctx.chargerTexturePolyhaven(urlArbre);
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(rayon, 20, 16), matSphere);
+  const pLocal = versLocal(centreArbre);
+  sphere.position.set(pLocal.x, hTronc + rayon * 0.67, pLocal.z);
+  scene.add(sphere);
+}
+
+/**
+ * Le reste du plan, en contexte : chaque objet devient un bloc simple a sa hauteur — ni toit ni
+ * ouvertures, de quoi juger l'implantation. Une AUTRE terrasse recoit sa hauteur, pas sa structure.
+ * La parcelle n'a pas de volume : un ruban au sol suffit a la situer.
+ */
+function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
+  const { prim, ctx } = co;
+  etat.objects.forEach(o => {
+    if (o === obj) return;
+    if (ctx.objetMasque(o)) return; // masque dans le plan = masque partout, voisinage compris
+    if (o.key === 'parcelle' || o.fonction === 'terrain') {
+      // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
+      // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
+      if (ctx.orthoActif() && ctx.orthoTuiles().length) return;
+      if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
+      return;
+    }
+    // Un point de vue pilote la camera, une limite cadastrale interne est une information de plan :
+    // ni l'un ni l'autre n'est un ouvrage a construire.
+    if (o.fonction === 'camera' || o.fonction === 'limite') return;
+    if (o.type === 'path') { ajouterChemin(o, co); return; }
+    // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
+    if (o.fonction === 'parasol' && o.type === 'circle') { ajouterParasol(o, co); return; }
+    const h = ctx.elevationOf(o);
+    if (h <= 0) return;
+    const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
+    // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
+    // Un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun a sa hauteur
+    // (facade/profil.ts) ; tout autre objet reste un seul prisme.
+    const volumes = o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
+    volumes.forEach((v) => prim.addPrism(v.pts, 0, v.hauteur, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o)));
+    // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme.
+    if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
+      ajouterReleve3d({ scene: co.scene, toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);
+    }
+    if (o.fonction === 'arbre') ajouterFeuillage(o, h, co);
+  });
+}
+
+/**
+ * La cloture perimetrale, independante de « tous les objets » (elle borne la parcelle) : une fine
+ * bande mitree tout le tour, comme la lame de rive, avec sa hauteur, sa couleur et sa texture.
+ */
+function ajouterCloture(prim: Primitives, ctx: ContexteScene3d): void {
+  const p = ctx.trouverParcelleCloture();
+  if (!p || !p.clotureActive || !aDesSommets(p) || p.pts.length < 3) return;
+  const EPAISSEUR_CLOTURE = 0.05;
+  const texturesCloture = vue3d.textures && p.clotureTexture ? { vertical: p.clotureTexture } : null;
+  prim.addBande({ ext: p.pts, int: safeOffset(p.pts, EPAISSEUR_CLOTURE) },
+    0, Math.max(0.1, p.clotureHauteur || 1.8), p.clotureCouleur || '#6b4a2a', texturesCloture);
+}
+
+/**
+ * Les ombres, en un seul parcours de la scene complete plutot qu'a travers chaque brique : cela ne
+ * peut pas en oublier une. Le sol recoit mais ne projette pas (auto-ombrage aux angles rasants).
+ */
+function appliquerOmbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
+  if (!vue3d.ombres) return;
+  scene.traverse(o => { if (estMesh(o)) { o.castShadow = true; o.receiveShadow = true; } });
+  ground.castShadow = false;
+}
+
+export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d){
+  // Meme terrasse reconstruite (une case a cocher, pas un changement d'objet) : la camera reste ou
+  // l'utilisateur l'avait laissee. Autre terrasse : `cen` change, une position copiee telle quelle
+  // viserait ailleurs — la le cadrage par defaut est correct. `obj` peut etre null : la Vue 3D
+  // s'ouvre aussi sur un plan SANS terrasse ; seule la structure est alors sautee.
+  const cleVue = cleDeVue(obj);
+  const conservee = (vue3d.scene && vue3d.dernierObjKey === cleVue)
+    ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
+    : null;
+  ctx.disposeThreeScene();
+  // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
+  const host = hotes3d.vue3d;
+  if(!host) return;
+  // Sans terrasse, une construction par defaut jetable garde les constantes de section definies.
+  const c = obj ? ensureConstruction(obj) : ensureConstruction({});
+  const layers = obj ? computeTerrasseLayers(obj, etat.objects) : null;
+  const cen = centreDeLaScene(obj, etat, ctx);
+  const extent = etendueDeLaScene(obj, etat, cen);
+  const base = monterScene(host, extent, conservee);
+  if(!base) return;
+  vue3d.dernierObjKey = cleVue;
+  const { scene, camera, renderer, controls, ground } = base;
+  const versLocal = versLocalDepuis(cen);
+  const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
+
+  if(obj) ajouterContourTerrasse(scene, obj, versLocal);
+  ajouterOrtho(scene, versLocal, ctx);
+  if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx });
+  // La cloture est celle de la parcelle : masquee avec elle quand la terrasse est isolee.
+  if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, ctx);
+  appliquerOmbres(scene, ground);
+
+  const sc: SceneVue3d = {
+    renderer, scene, camera, controls, raf: null,
+    dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
+  };
+  vue3d.scene = sc;
+  const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); };
+  animate();
+  ctx.applyMode3D();
+  // Le panneau relit tout, y compris la liste des points de vue.
+  ctx.syncControlesSoleilVue3d();
+  ctx.appliquerLumiereVue3d();   // pose les lumieres ET rend une premiere image
+
+  // La structure se construit apres cette premiere image. setTimeout et non requestAnimationFrame :
+  // rAF ne se declenche pas quand l'onglet est en arriere-plan, et la terrasse ne serait jamais posee.
+  setTimeout(()=>{
+    // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
+    // meshes orphelins et un canevas noir.
+    if(vue3d.scene !== sc) return;
+    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key);
+    appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
+    renderer.render(scene, camera);
+  }, 0);
+}
