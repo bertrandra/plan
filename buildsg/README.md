@@ -45,3 +45,19 @@ empreintes des scripts de ce build-là. Puis, sur le port `PORT` :
 - En-têtes : `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`,
   HSTS quand la requête est arrivée en HTTPS (`X-Forwarded-Proto`), la politique de contenu.
 - `?mode=demo` : sans `X-Frame-Options`, `frame-ancestors` ouvert à la plateforme seule.
+
+## Variante : site statique SiteGround (Framework preset React)
+
+L'écran « Build configuration » exécute une commande `npm …` à la racine du dépôt puis publie un
+dossier. Aucun serveur Node ne tourne : c'est le `.htaccess` du build qui pose les en-têtes.
+
+| Champ | Valeur |
+|---|---|
+| Branch | `main` |
+| Node version | `22` |
+| Package manager | `npm` |
+| Build command | `run build:siteground` |
+| Output directory | `buildsg/dist` |
+
+`npm run build:siteground` installe les paquets de `buildsg/` puis lance son build ; `buildsg/dist`
+contient `index.html` et `.htaccess`.
