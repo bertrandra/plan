@@ -14,6 +14,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Plan se décrit à la plateforme, dans sa propre page.** Le build écrit dans `<head>` d'`index.html`
+  un bloc de données `<script type="application/json" id="plan-produit">{"product":"plan",
+  "app_version":"2.2.0","schema_versions":[1,2]}</script>`. Il est calculé depuis `APP_VERSION` et la
+  chaîne des migrations, et ne peut donc pas dériver du code. La plateforme le lit sans exécuter de
+  JavaScript : elle récupère `https://plan.raillard.org/` et extrait le bloc par son `id`. C'est de
+  quoi tenir `project_schema_versions` à jour sans saisie. `/?version` montre le même JSON dans un
+  navigateur, sans porte ni appel à la plateforme. Le bloc n'est pas un script exécuté : la politique
+  de contenu ne le nomme pas. `verifier-paquet` refuse un paquet qui ne le porte pas, et
+  `verifier-deploiement` le contrôle en ligne (`src/model/produit.ts`, `src/app/version.ts`).
+
 - **La limite de projets est celle de la plateforme, et se dit.** Plan lit désormais le quota que
   backprod applique à la création et à la copie d'un projet, `max_projects`, au lieu de
   `plan.documents`, un compteur que rien n'alimente : il ne se croyait jamais à la limite. Il compte
