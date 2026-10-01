@@ -76,12 +76,11 @@ export const CAPACITES = {
   vue3d: {
     code: 'plan.3d',
     libelle: 'Vue 3D et visionneuse GLB',
-    // **Vide, et c'est un constat, pas un oubli.** Passer en vue 3D est un bouton de la barre de
-    // modes (app/modes.ts), pas une commande du registre : une capacite posee ici n'arreterait donc
-    // PAS le chargement de three.js depuis le CDN, qui est pourtant le seul vrai gain reseau de
-    // toute la table. Faire de ce basculement une commande est le prealable a cette capacite-la, et
-    // c'est un travail de l'interface, pas des droits. Le test le garde visible.
-    commandes: [],
+    // Les trois portes d'entree de three.js : la Vue 3D, la visionneuse, l'export GLB. Toutes trois
+    // sont des commandes du registre (app/ecouteurs/modes.ts, exports.ts) ; sans la capacite, elles
+    // disparaissent, et three.js n'est jamais demande au CDN — le seul vrai gain reseau de la table.
+    // Les commandes internes a la Vue 3D et a la visionneuse ne sont joignables qu'une fois dedans.
+    commandes: ['vue.3d', 'vue.visionneuse', 'export.glb'],
     origines: ['https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net', 'https://api.polyhaven.com', 'https://cdn.polyhaven.com', 'https://dl.polyhaven.org']
   },
   exportDxf: {

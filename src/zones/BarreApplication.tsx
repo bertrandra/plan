@@ -332,7 +332,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
 
   const vues = (
     <div id="modeBar" role="group" aria-label="Vue">
-      {VUES.map(([cle, id, libelle, titre]) => (
+      {/* Une vue que l'offre ne comprend pas (`plan.3d`) n'a pas de bouton. */}
+      {VUES.filter(([cle]) => !commandes.effacee(COMMANDE_DE_VUE[cle])).map(([cle, id, libelle, titre]) => (
         <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
           title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>
           {compact && cle === 'vue3d' ? '3D' : compact && cle === 'visionneuse' ? 'Visionneuse' : libelle}

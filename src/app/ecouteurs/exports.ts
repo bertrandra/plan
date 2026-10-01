@@ -150,5 +150,5 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.
-  surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', () => ctx.genererGlb(true));
+  surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', () => ctx.genererGlb(true), CAPACITES.vue3d.code);
 }

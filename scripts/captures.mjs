@@ -107,6 +107,12 @@ export async function ouvrirDemo(page, { temoin = false } = {}) {
   await page.getByRole('button', { name: /d[ée]monstration/i }).click();
   await page.waitForSelector('#stage svg');
   await page.waitForTimeout(300);
+  // Un plan ecrit a un schema anterieur ouvre « Mettre a jour le modele ? » par-dessus l'atelier, et
+  // son voile intercepte tous les gestes qui suivent : c'est ce qui faisait echouer les points 1, 3,
+  // 17 et 31 de la fumee quand la demonstration etait au schema 1. On la referme comme le ferait
+  // la personne, sans rien mettre a jour : ce n'est pas ce qu'on eprouve ici.
+  const garder = page.getByRole('button', { name: 'Garder tel quel' });
+  if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
 }
 
 /**
