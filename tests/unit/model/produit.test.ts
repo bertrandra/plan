@@ -38,3 +38,13 @@ describe('/?version', () => {
     expect(document.getElementById('descriptionProduit')?.textContent).toBe(texte);
   });
 });
+
+describe('la copie publiee du contrat', () => {
+  it('annonce les memes schemas que la page (contrat/plan-produit.json)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const contrat = JSON.parse(readFileSync(resolve(__dirname, '../../../contrat/plan-produit.json'), 'utf8'));
+    expect(contrat.schema_versions).toEqual(descriptionProduit('plan').schema_versions);
+    expect(contrat.app_version).toBe(APP_VERSION);
+  });
+});

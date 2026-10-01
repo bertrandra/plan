@@ -41,8 +41,9 @@ describe('phase 1 - echafaudage', () => {
   });
 
   // Recapturees le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
-  // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'a pas de
-  // releve. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
+  // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'avait pas de
+  // releve. Le 30, la maison du temoin a recu son toit a croupes (MD/spec-toit-ign.md) : `projet.json`
+  // gagne ce toit et le schema 3, `plan.svg` le schema 3 ; les quatre autres ne bougent pas. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
   // 2.0.0, la date de build qui l'accompagne. Cela a
   // ete prouve avant chaque recapture : le meme build, estampille de l'ancien numero, reproduit les
   // anciennes empreintes au bit pres, et une comparaison ligne a ligne ne montre aucune ligne
@@ -50,9 +51,9 @@ describe('phase 1 - echafaudage', () => {
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
       'resume.txt': '22f9bf93b2235a8eaad580ddf0bb25a12e936dbad3282bac9d9561c6ab9b70f6',
-      'plan.svg': 'c96a3d978484037f2c44cca8edc2e666e9b2299ac095fbb9c5a8c541b91f543c',
+      'plan.svg': '42deb271e4a6d28e9981ccb4e98d5cdb198ed2939a4f652de0e609ad2491e2d8',
       'plan.dxf': '2d64f95aea0782ef84f142119e7dcfcc0263cf659239c9124c760c3931a9f944',
-      'projet.json': 'c73bdda5d1caa386a75c1bd9e6a2ed15f7310b173562505bfe8695cbfd2d937f',
+      'projet.json': 'da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2',
       'plan.pdf': '9a183ea635b12ea7fe3a9dc00bbcac569316006de74957579088859b12bb123a',
       'dossier.pdf': 'dc5db12b6e5ca21f32b31b85308c750d10f832cb909ee2870860c88a06075968'
     };

@@ -12,8 +12,9 @@ import { fusionnerAnneaux, chainerSegments, type LimiteBrute } from '../geometry
 import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
+import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
-import type { PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
+import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
 import type { Anneau } from './apiIgn.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
@@ -224,7 +225,7 @@ interface OptionsFormeIgn {
   cle: string;
   hauteur: number;
   opacite?: number;
-  extra?: { locked?: boolean; bdtopo?: unknown };
+  extra?: { locked?: boolean; bdtopo?: unknown; toit?: Toit };
 }
 
 function formeIgn(x: ContexteImport, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
@@ -256,7 +257,8 @@ function batiments(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean, parce
     const p = b.props || {};
     const surPrincipale = [...b.parcelles].some(idu=>iduPropriete.has(idu));
     const usage = p.usage_1 || p.nature || 'Batiment';
-    return formeIgn(x, b.pts.map(x.dec), 'batiment',
+    const pts = b.pts.map(x.dec);
+    return formeIgn(x, pts, 'batiment',
       usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
       surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
         cle: 'bati-' + identifiant(b.id),
@@ -264,12 +266,15 @@ function batiments(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean, parce
         opacite: surPrincipale ? 0.92 : 0.6,
         extra: {
           locked: !surPrincipale,
+          // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un.
+          toit: toitBdTopo(pts, attributsToitBdTopo(p)),
           bdtopo: {
             couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
             nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: hauteurBatiment(p),
             nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
             altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
+            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
             constructionLegere: String(p.construction_legere) === 'True',
             etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
             identifiantRnb: p.identifiants_rnb || null,

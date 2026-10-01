@@ -369,6 +369,41 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   près** (`66338527…` et `f560cbca…`) : à numéro de version près, ce que la 2.2.0 écrit pour un plan
   sans relevé est ce que la 2.0.2 écrivait.
 
+- **30 septembre 2026**, toujours `2.2.0` (jamais déployée) : **la maison du témoin reçoit un toit à
+  croupes** (`MD/spec-toit-ign.md`), saisi — `{"forme":"croupes","hauteur":3,"angleFaitage":0,
+  "source":"saisie"}` —, et le schéma passe à 3. C'est un changement voulu du contenu, pas de la
+  version : il est annoncé ici, fichier par fichier, avec ce qui ne doit pas bouger.
+
+  **Ce qui bouge.** `projet.json` : le bloc `toit` de la maison, écrit en dernier par
+  `serializeObjects` (après `frozenVertices`), et `"schemaVersion": 3` — 72 031 → 72 160 octets.
+  `plan.svg` : `data-schema-version="3"`, une substitution de longueur constante. Rien d'autre :
+  le plan 2D ne dessine pas les toits.
+
+  **Ce qui ne bouge pas, vérifié.** `plan.dxf`, `resume.txt`, `plan.pdf`, `dossier.pdf` : régénérés
+  depuis le code (`tests/unit/export/regeneration.test.ts`, sous `SORTIE`), identiques au témoin à
+  dates neutralisées. Ni les PDF ni le DXF ne portent le schéma ou le toit.
+
+  **La preuve pour `projet.json`.** Le nouveau témoin a été servi comme unique projet derrière le
+  décor d'essai habituel (serveur de développement, plateforme simulée), ouvert, puis exporté par
+  « Exporter le projet (JSON) » : **72 160 octets, identiques au témoin** une fois le bloc `meta`
+  neutralisé comme dans `echafaudage.test.ts`. Le toit fait donc l'aller-retour lecture → modèle →
+  sérialisation sans changer d'un octet, à sa place dans l'ordre des clés.
+
+  **`glb-structure.json` : calculé, pas recapturé — un témoin sciemment en retard sur ses octets.**
+  Le point 24 de la liste de fumée ne peut pas le produire depuis le poste de cette session : les
+  huit images de Poly Haven et Three.js viennent du réseau, que la politique de l'environnement
+  refuse (Three.js r128 a été servi depuis le paquet npm, les images non). On a donc mesuré **l'effet
+  du toit** : deux exports GLB du même témoin, hors ligne, sans puis avec le toit. Sans toit, les
+  compteurs sont **exactement** ceux du témoin, images mises à part — 203 nœuds, 200 mailles,
+  288 matériaux, 651 accesseurs, et 651 vues tampon, soit 659 − 8 images. Le décor hors ligne est
+  donc équivalent pour tout ce qui n'est pas image. Avec le toit : **+14 nœuds, +14 mailles** (un
+  pan par côté de la maison, qui en a quatorze), **+1 matériau** (la couverture, partagée par les
+  quatorze pans), **+42 accesseurs et +42 vues tampon** (position, normale, indices par pan), et
+  **+13 292 octets**. Le témoin porte ces sommes : 217 / 214 / 289 / 8 / 8 / 693 / 701 / 1,
+  3 247 392 octets. Les compteurs sont sûrs ; la taille est une addition, que le point 24 ne
+  vérifie pas. **À refermer** par le point 24 sous `RECAPTURER_GLB=1` sur un poste qui a le réseau :
+  seul `octetsTotal` peut alors bouger, et de quelques octets d'alignement au plus.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -383,7 +418,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `272fa9085871800393d3f84cc34116494ecb41c0d42345e204e5fe4e90695b32` |
 | [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `66338527a82421908df0c1fa1ca861e71f933c7f45593806f7fd6f1c76cbca4e` |
 | [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `5375cf2da7f69d02862fb2dca9502db894c1f20ea2957462f5476a9fd4ab16ba` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 72 031 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |

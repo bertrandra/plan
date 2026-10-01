@@ -9,6 +9,7 @@
 // pas au lieu de renvoyer une erreur, si bien qu'une requete mal formee degenere en vidage national
 // avec un franc 200 OK.
 
+import { COUCHE_BATIMENT_BDTOPO } from '../model/toitBdTopo.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { simplifierContour } from '../geometry/rings.js';
 import { signedArea, shoelace, centroid, pointInPolygon } from '../geometry/basic.js';
@@ -290,7 +291,7 @@ export function trierVoisines(principale: ParcellePrincipale, cands: Candidate[]
 //   - les nombres arrivent en texte a virgule francaise ("5,2"), parseFloat les tronque a 5.
 export const WFS_URL = 'https://data.geopf.fr/wfs/ows';
 export const GPU_URL = 'https://apicarto.ign.fr/api/gpu';
-export const COUCHE_BATIMENT = 'BDTOPO_V3:batiment';
+export const COUCHE_BATIMENT = COUCHE_BATIMENT_BDTOPO;
 export const COUCHE_VEGETATION = 'BDTOPO_V3:zone_de_vegetation';
 export const COUCHE_HAIE = 'BDTOPO_V3:haie';
 

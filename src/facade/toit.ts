@@ -7,6 +7,10 @@
 // son plan est le plus bas, et les pignons sont les murs sous lesquels la hauteur du toit n'est pas
 // nulle.
 //
+// La forme `croupes` est a part : un pan par mur, tous de meme pente, poses sur le squelette droit du
+// contour (geometry/squelette.ts, MD/spec-toit-ign.md §3). C'est le toit qu'on deduit de la BD TOPO ;
+// sur un rectangle, il se confond avec le quatre pans.
+//
 // Le repere est celui du faitage : `u` le long du faitage, `v` en travers. Les etendues du contour
 // sur ces deux axes donnent la demi-largeur (du bord au faitage) et la demi-longueur.
 
@@ -14,17 +18,19 @@ import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
 import { signedArea } from '../geometry/basic.js';
+import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 
 export type { Toit, FormeToit };
 
-/** Couleur par defaut d'une couverture : tuile terre cuite. */
-export const COULEUR_TOIT_DEFAUT = '#9a5b44';
+/** Couleur par defaut d'une couverture : tuile rouge (MD/spec-toit-ign.md §6). */
+export const COULEUR_TOIT_DEFAUT = '#B0432F';
 
 export const LIBELLES_FORME_TOIT: Record<FormeToit, string> = {
   plat: 'Toit plat',
   appentis: 'Appentis (un pan)',
   'deux-pans': 'Deux pans',
   'quatre-pans': 'Quatre pans',
+  croupes: 'Croupes (pans sur chaque mur)',
 };
 
 /** Un plan de toit : z = a x + b y + c, en metres au-dessus de l'egout. */
@@ -82,6 +88,11 @@ export function repereFaitage(pts: readonly PtBrut[], angleFaitage: number) {
 /** Pente d'un toit, en degres, pour affichage. */
 export function penteDeg(pts: readonly PtBrut[], toit: Toit): number {
   if (toit.forme === 'plat' || toit.hauteur <= 0) return 0;
+  if (toit.forme === 'croupes') {
+    if (toit.pente !== undefined) return toit.pente;
+    const d = profondeurToit(pts);
+    return d > 0 ? (Math.atan(toit.hauteur / d) * 180) / Math.PI : 0;
+  }
   const r = repereFaitage(pts, toit.angleFaitage);
   const course = toit.forme === 'appentis' ? 2 * r.hw : r.hw;
   return course > 0 ? (Math.atan(toit.hauteur / course) * 180) / Math.PI : 0;
@@ -93,6 +104,8 @@ export function penteDeg(pts: readonly PtBrut[], toit: Toit): number {
  */
 export function plansDuToit(pts: readonly PtBrut[], toit: Toit): PlanToit[] {
   const H = Math.max(0, toit.hauteur);
+  // Des croupes decrites en plans : le quatre pans sur l'enveloppe, qui les approche. Seul
+  // `facettesToit` pose les vraies (le squelette).
   if (toit.forme === 'plat' || H === 0) return [{ a: 0, b: 0, c: 0 }];
   const r = repereFaitage(pts, toit.angleFaitage);
   if (r.hw <= 0) return [{ a: 0, b: 0, c: 0 }];
@@ -194,8 +207,50 @@ export interface Pignon {
   profil: { d: number; z: number }[];
 }
 
+/** La profondeur du squelette : la distance du bord au point le plus haut d'un toit a croupes. */
+export function profondeurToit(pts: readonly PtBrut[]): number {
+  return squeletteDroit(pts)?.dmax ?? demiLargeurApprochee(pts);
+}
+
+/**
+ * Un toit a croupes sur le squelette droit du contour. Le point le plus haut est a `hauteur` ; si
+ * la pente est imposee (ecretage, MD/spec-toit-ign.md §3.3), les pans sont coupes a `hauteur` et
+ * ce qui depasse devient un pan horizontal. Sans squelette, le quatre pans d'avant.
+ */
+function facettesCroupes(pts: readonly PtBrut[], toit: Toit): { pans: Pan[]; pignons: Pignon[] } {
+  const sq = squeletteDroit(pts);
+  if (!sq) return facettesToit(pts, { ...toit, forme: 'quatre-pans', angleFaitage: angleDuPlusLongCote(pts) });
+  const H = Math.max(0, toit.hauteur);
+  const tan = toit.pente !== undefined ? Math.tan(rad(toit.pente)) : sq.dmax > 0 ? H / sq.dmax : 0;
+  const pans: Pan[] = [];
+  const poser = (poly: PtBrut[], z: (q: PtBrut) => number) => {
+    poly = poly.filter((q, i) => {
+      const r = sommetDe(poly, i + 1);
+      return Math.hypot(q.x - r.x, q.y - r.y) > 1e-6;
+    });
+    if (poly.length < 3 || Math.abs(signedArea(poly)) < 1e-6) return;
+    pans.push({ contour: poly.map((q) => ({ x: q.x, y: q.y, z: z(q) })), triangles: trianguler(poly) });
+  };
+  for (const pan of sq.pans) {
+    const a = au(pts, pan.cote),
+      b = sommetDe(pts, pan.cote + 1);
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    // La hauteur d'un point du pan : sa distance au mur, fois la pente.
+    const z = (q: PtBrut) => (tan * Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x))) / l;
+    const poly = pan.contour.map((q) => ({ x: q.x, y: q.y }));
+    if (tan * sq.dmax <= H + 1e-9) {
+      poser(poly, (q) => z(q));
+      continue;
+    }
+    poser(couperDemiPlan(poly, (q) => z(q) - H), (q) => Math.min(H, z(q)));
+    poser(couperDemiPlan(poly, (q) => H - z(q)), () => H);
+  }
+  return { pans, pignons: [] };
+}
+
 /** Les pans et les pignons d'un toit pose sur un contour. */
 export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[]; pignons: Pignon[] } {
+  if (toit.forme === 'croupes' && toit.hauteur > 0) return facettesCroupes(pts, toit);
   const plans = plansDuToit(pts, toit);
   const pans: Pan[] = [];
   plans.forEach((p, k) => {
