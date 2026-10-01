@@ -22,6 +22,14 @@ function texteErreur(err: unknown): string {
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
+    // `?version` : ce que Plan dit de lui-meme a la plateforme (model/produit.ts), montre tel quel.
+    // Rien d'autre ne demarre — ni porte, ni session.
+    if (new URLSearchParams(location.search).has('version')) {
+      const { afficherDescription } = await import('./app/version.js');
+      afficherDescription();
+      return;
+    }
+
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
     const { lireVitrine, poserVitrine } = await import('./app/vitrine.js');

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
+import { blocDescription } from './src/model/produit.js';
 
 /**
  * Les empreintes des scripts en ligne, pour la politique de contenu (deploy/htaccess.template).
@@ -15,7 +16,9 @@ import { resolve } from 'node:path';
  */
 function empreintesDesScriptsEnLigne(html: string): string[] {
   const empreintes: string[] = [];
-  const motif = /<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  // Un bloc de donnees (`type="application/json"`, model/produit.ts) n'est pas un script : le
+  // navigateur ne l'execute pas, la politique n'a pas a le nommer.
+  const motif = /<script(?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g;
   for (let m = motif.exec(html); m; m = motif.exec(html)) {
     const code = m[1] ?? '';
     if (!code) continue;
@@ -59,6 +62,15 @@ export default defineConfig({
     // branche, rien ne l'utilise encore ; il n'entre pas dans le build tant qu'aucun composant n'existe.
     react(),
     viteSingleFile(),
+    {
+      // Ce que Plan dit de lui-meme a la plateforme (model/produit.ts) : ecrit dans la page, au
+      // build, pour qu'un client HTTP le lise sans executer quoi que ce soit.
+      name: 'decrire-le-produit',
+      transformIndexHtml(html: string) {
+        if (!html.includes('</head>')) throw new Error('index.html : pas de </head> ou poser la description du produit');
+        return html.replace('</head>', blocDescription(BACKPROD_PRODUCT_CODE) + '\n</head>');
+      }
+    },
     {
       // La configuration Apache se deduit du build : les empreintes des scripts en ligne changent a
       // chaque compilation, donc le `.htaccess` ne peut pas etre un fichier fige. Il se depose a

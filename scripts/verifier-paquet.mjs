@@ -54,6 +54,15 @@ const origine = [...new Set((paquet.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map
 
 console.log('\n' + cible.replace(racine, '.') + '  ' + paquet.length.toLocaleString('fr-FR') + ' octets');
 console.log(origine ? '  origine de la plateforme presente : ' + origine[0] : '  aucune plateforme branchee dans ce paquet');
+
+// La description du produit (src/model/produit.ts) doit etre la, lisible sans executer la page :
+// c'est elle que la plateforme lit pour connaitre les schemas acceptes.
+const bloc = /<script type="application\/json" id="plan-produit">([\s\S]*?)<\/script>/.exec(paquet);
+let description = null;
+try { description = bloc ? JSON.parse(bloc[1]) : null; } catch { description = null; }
+const descriptionOk = !!(description && typeof description.app_version === 'string' && Array.isArray(description.schema_versions));
+console.log('  ' + (descriptionOk ? 'OK   ' : 'REFUS') + '  description du produit'
+  + (descriptionOk ? ' : ' + JSON.stringify(description) : ' absente ou illisible'));
 for (const i of INTERDITS) {
   const mauvais = i.motif.test(paquet);
   console.log('  ' + (mauvais ? 'REFUS' : 'OK   ') + '  ' + i.nom);
@@ -63,6 +72,10 @@ console.log('');
 
 if (trouves.length) {
   console.error('verifier-paquet : ' + trouves.length + ' secret(s) dans le fichier livre. Ce paquet ne part pas.');
+  process.exit(1);
+}
+if (!descriptionOk) {
+  console.error('verifier-paquet : la description du produit (plan-produit) manque. La plateforme ne saurait pas quels schemas accepter.');
   process.exit(1);
 }
 process.exit(0);
