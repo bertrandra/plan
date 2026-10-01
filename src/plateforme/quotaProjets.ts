@@ -31,6 +31,19 @@ export function limiteProjets(q: ReturnType<ServiceContexte['quota']>, connus = 
   return { limite: q.limite, utilise, reste: Math.max(0, q.limite - utilise) };
 }
 
+/** Ce que le compteur montre : les projets tenus, et la limite (`null` : illimite, ou aucun quota). */
+export interface CompteProjets { utilise: number; limite: number | null; illimite: boolean }
+
+/**
+ * Le compteur « Projets 1/3 », toujours montre une fois la plateforme la : sur une offre limitee,
+ * les nombres de la plateforme ; illimitee, « 4/∞ » ; sans quota de projets, le nombre seul.
+ */
+export function compteProjets(q: ReturnType<ServiceContexte['quota']>, connus = projetsConnus): CompteProjets {
+  const l = limiteProjets(q, connus);
+  if (l) return { utilise: l.utilise, limite: l.limite, illimite: false };
+  return { utilise: Math.max(q?.utilise ?? 0, connus), limite: null, illimite: !!q?.illimite };
+}
+
 const projets = (n: number) => n + (n > 1 ? ' projets' : ' projet');
 
 /** La phrase a dire quand la limite est atteinte. */
