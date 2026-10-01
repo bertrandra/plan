@@ -1,53 +1,67 @@
-// Le second deploiement : Plan servi par Node.js sur SiteGround (Site Tools > Devs > Node.js),
-// a cote du deploiement Apache de `livraison/`.
+// Le second deploiement : Plan comme application Node.js sur SiteGround (Site Tools > Devs >
+// Node.js), construite SUR le serveur, a cote du deploiement Apache de `livraison/`.
 //
-//   node scripts/generer-buildsg.mjs              depuis livraison/ (index.html + .htaccess)
-//   node scripts/generer-buildsg.mjs dist         depuis la sortie d'un build frais
+//   npm run buildsg
 //
-// Il n'y a pas de `.htaccess` sous Node : c'est `buildsg/app.js` qui pose les en-tetes. Mais la
-// politique de contenu porte les empreintes des scripts du build, et l'origine de la plateforme —
-// elle ne peut donc pas etre ecrite a la main dans le serveur. On la LIT dans le `.htaccess` produit
-// par le meme build, au caractere pres, et on l'ecrit dans `buildsg/entetes.json`. Les deux
-// deploiements servent ainsi la meme politique, et un `index.html` d'un autre build est refuse ici
-// plutot qu'en production.
+// `buildsg/` est un projet Node autonome : les sources de Plan, la configuration de Vite, un
+// `package.json` reduit a ce que le build demande, et `app.js` (ecrit a la main, jamais touche
+// ici). Sur l'hote : `npm install`, puis `node app.js`, qui construit `dist/` au premier
+// demarrage et le sert. Aucun HTML pre-construit ne voyage.
+//
+// Ce script recopie les sources telles qu'elles sont dans le depot : il se relance a chaque
+// version, comme on recopiait `livraison/`.
 
-import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, rmSync, cpSync, mkdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const source = resolve(racine, process.argv[2] || 'livraison');
 const cible = resolve(racine, 'buildsg');
 
-const page = resolve(source, 'index.html');
-const htaccess = resolve(source, '.htaccess');
-for (const f of [page, htaccess]) {
-  if (!existsSync(f)) {
-    console.error('generer-buildsg : ' + f + ' est absent.');
-    process.exit(2);
-  }
+// Ce que `vite build` lit, et rien d'autre : pas de tests, pas de documentation.
+const COPIES = ['src', 'index.html', 'vite.config.ts', 'tsconfig.json', 'deploy/htaccess.template'];
+// Les seuls paquets que le build importe. `three` n'est importe qu'en types : la page le charge
+// depuis un CDN a l'execution. Tout va dans `dependencies` : un `npm install` de production
+// ignorerait des `devDependencies`, et le build ne se ferait pas.
+const PAQUETS = ['react', 'react-dom', 'zustand', 'vite', '@vitejs/plugin-react', 'vite-plugin-singlefile'];
+
+for (const chemin of [...COPIES, 'package-lock.json', 'SOURCE']) rmSync(resolve(cible, chemin), { recursive: true, force: true });
+rmSync(resolve(cible, 'deploy'), { recursive: true, force: true });
+mkdirSync(resolve(cible, 'deploy'), { recursive: true });
+for (const chemin of COPIES) cpSync(resolve(racine, chemin), resolve(cible, chemin), { recursive: true });
+
+const depot = JSON.parse(readFileSync(resolve(racine, 'package.json'), 'utf8'));
+const versions = { ...depot.devDependencies, ...depot.dependencies };
+const dependencies = {};
+for (const p of PAQUETS) {
+  if (!versions[p]) throw new Error('generer-buildsg : ' + p + ' absent du package.json du depot');
+  dependencies[p] = versions[p];
 }
-
-const apache = readFileSync(htaccess, 'utf8');
-const csp = (/Header always set Content-Security-Policy "([^"]+)"/.exec(apache) || [])[1];
-if (!csp) throw new Error('generer-buildsg : aucune Content-Security-Policy dans ' + htaccess);
-const cadre = /Header always edit Content-Security-Policy "(frame-ancestors [^"]+)" "(frame-ancestors [^"]+)"/.exec(apache);
-if (!cadre) throw new Error('generer-buildsg : la regle de la vitrine (?mode=demo) est absente de ' + htaccess);
-if (!csp.includes(cadre[1])) throw new Error('generer-buildsg : la politique ne porte pas « ' + cadre[1] + ' »');
-
-// Le .htaccess et la page doivent venir du meme build : sinon la page ne s'executerait pas.
-const html = readFileSync(page, 'utf8');
-const motif = /<script(?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g;
-for (let m = motif.exec(html); m; m = motif.exec(html)) {
-  if (!m[1]) continue;
-  const empreinte = "'sha256-" + createHash('sha256').update(m[1], 'utf8').digest('base64') + "'";
-  if (!csp.includes(empreinte)) throw new Error('generer-buildsg : ' + htaccess + ' ne vient pas du build de ' + page);
-}
-
-copyFileSync(page, resolve(cible, 'index.html'));
-writeFileSync(resolve(cible, 'entetes.json'), JSON.stringify({
-  csp,
-  cspVitrine: csp.replace(cadre[1], cadre[2])
+writeFileSync(resolve(cible, 'package.json'), JSON.stringify({
+  name: depot.name + '-siteground',
+  version: depot.version,
+  private: true,
+  type: 'module',
+  description: 'Plan interactif, application Node.js pour SiteGround : construit sur le serveur, servi par app.js.',
+  main: 'app.js',
+  engines: depot.engines,
+  scripts: {
+    start: 'node app.js',
+    build: 'node app.js --build'
+  },
+  dependencies
 }, null, 2) + '\n');
-console.log('buildsg/ : index.html et entetes.json ecrits depuis ' + source);
+
+// L'empreinte de ce qui a ete recopie : `app.js` reconstruit quand elle change, et seulement alors.
+let commit = 'inconnu';
+try { commit = execSync('git rev-parse HEAD', { cwd: racine, encoding: 'utf8' }).trim(); } catch { /* hors depot git */ }
+writeFileSync(resolve(cible, 'SOURCE'), depot.version + ' ' + commit + '\n');
+
+// Le verrou, pour que l'hote installe les memes versions qu'ici.
+try {
+  execSync('npm install --package-lock-only --ignore-scripts --no-audit --no-fund', { cwd: cible, stdio: 'ignore' });
+} catch {
+  console.warn('generer-buildsg : package-lock.json non genere (reseau ?), l\'hote resoudra les versions lui-meme.');
+}
+console.log('buildsg/ : sources ' + depot.version + ' (' + commit.slice(0, 7) + ') recopiees.');

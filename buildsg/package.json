@@ -2,12 +2,22 @@
   "name": "plan-interactif-siteground",
   "version": "2.2.0",
   "private": true,
-  "description": "Plan interactif servi par Node.js sur SiteGround : index.html du build et en-tetes du .htaccess.",
+  "type": "module",
+  "description": "Plan interactif, application Node.js pour SiteGround : construit sur le serveur, servi par app.js.",
   "main": "app.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "build": "node app.js --build"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zustand": "^5.0.15",
+    "vite": "^5.4.11",
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite-plugin-singlefile": "^2.0.3"
   }
 }
