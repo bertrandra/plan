@@ -25,6 +25,17 @@ function toitDe(c: ContexteChamps): Toit {
 
 const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
 
+/** D'ou vient la couleur d'une couverture que Plan a posee (MD/spec-toit-ign.md §6.1). */
+function origineCouleur(toit: Toit | null | undefined): string {
+  switch (toit?.origineCouleur) {
+    case 'orthophoto': return 'lue sur l’orthophoto';
+    case 'rouge': return 'tuile rouge : orthophoto peu lisible';
+    case 'brun': return 'tuile brune : orthophoto peu lisible';
+    case 'gris': return 'couverture grise : orthophoto peu lisible';
+    default: return '';
+  }
+}
+
 /** D'ou vient la hauteur d'un toit deduit de la BD TOPO : on dit que c'est une estimation. */
 function origineHauteur(toit: Toit): string {
   if (toit.source !== 'bdtopo') return '';
@@ -166,8 +177,12 @@ export function sectionReleve(c: ContexteChamps): Section {
       historique: true,
       effets: effetsToit,
       lire: (cc) => cc.obj.toit?.couleur || COULEUR_TOIT_DEFAUT,
+      note: (cc) => origineCouleur(cc.obj.toit),
       ecrire: (cc, v) => {
-        toitDe(cc).couleur = v;
+        const toit = toitDe(cc);
+        toit.couleur = v;
+        // Choisie : plus rien ne la recalcule, ni l'orthophoto ni l'actualisation.
+        delete toit.origineCouleur;
       },
     },
   );

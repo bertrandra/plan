@@ -271,6 +271,54 @@ export interface Toit {
   (`tests/fixtures/golden/cadastre-objets.json`) a été recapturé : ses deux bâtiments portent
   désormais leur toit et `altitudeToitMaxM`, rien d'autre ne change.
 
+### 6.1 La couleur lue sur l'orthophoto
+
+La couverture n'est plus rouge par principe : elle est **lue sur l'orthophoto IGN**
+(`ORTHOIMAGERY.ORTHOPHOTOS`, niveau 19, ~20 cm/pixel ; repli au 18), à la création d'un plan depuis
+une adresse et à chaque actualisation IGN.
+
+1. **Les pixels** : ceux qui tombent sous le contour, **à 0,6 m en retrait des murs** (rive,
+   gouttière, ombre du mur). Un contour trop étroit pour ce retrait est lu entier
+   (`render/couleurToitOrtho.ts`).
+2. **La cohérence** (`model/couleurToit.ts`) : la teinte dominante est la médiane des pixels qui ne
+   sont pas du feuillage. Elle est retenue telle quelle si :
+   - au moins **40 pixels** sont lus ;
+   - le feuillage couvre **au plus 20 %** du toit ;
+   - **au moins 60 %** des pixels sont à moins de 42 (distance RGB) de la teinte dominante — deux pans,
+     l'un au soleil, l'autre à l'ombre, échouent ici ;
+   - la teinte n'est **ni une ombre** (luminance < 40) **ni un éblouissement** (> 235).
+3. **Sinon, le repli** : la couverture courante la plus proche de la teinte dominante.
+
+| Couverture | Couleur | Quand |
+|---|---|---|
+| Tuile rouge | `#B0432F` | terre cuite vive (teinte < 22° ou ≥ 340°, saturation ≥ 0,35, assez claire) ; aussi sans aucun pixel |
+| Tuile brune | `#6E4B36` | terre cuite sombre ou tirant sur l'ocre (teinte < 50°) |
+| Couverture grise | `#6F7275` | peu saturée (< 0,2) — ardoise, zinc, bac acier — ou d'une teinte qui n'est pas celle d'une terre cuite |
+
+Le toit enregistre `couleur` et **`origineCouleur`** (`'orthophoto' | 'rouge' | 'brun' | 'gris'`).
+Une couleur **sans** `origineCouleur` a été choisie dans l'inspecteur : ni la lecture ni
+l'actualisation ne la touchent. Une couleur posée par Plan est relue à l'actualisation.
+
+Un WMTS injoignable ne bloque rien : au bout de 20 s, les toits restants gardent la tuile rouge par
+défaut (`COULEUR_TOIT_DEFAUT`), sans `couleur` enregistrée. Le champ est facultatif : il ne change
+pas le schéma (un lecteur de schéma 3 garde le toit tel quel).
+
+### 6.2 Tuiles ou ardoises en 3D
+
+La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur :
+
+| Couverture | Texture |
+|---|---|
+| repli `rouge` ou `brun` | **tuiles** romanes : 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur |
+| repli `gris` | **ardoises** : 4 par mètre, 8 rangs, joints croisés, nuance par ardoise |
+| lue sur l'orthophoto, ou choisie | celle de son repli (`couvertureRepli`) : ardoise si la teinte est grise, tuile sinon |
+| sans couleur | tuiles (rouge par défaut) |
+
+`materiauCouverture` (`model/couleurToit.ts`) choisit ; `three/couverture.ts` dessine la texture sur
+un canevas, sans réseau ; `uvDuPan` (`facade/toit.ts`) la pose sur chaque pan, en mètres : `u` le
+long de l'égout, `v` dans la pente en vraie grandeur. Les rangs suivent ainsi l'égout de chaque pan.
+Case « Texture » décochée : la couleur unie, comme avant.
+
 ---
 
 ## 7. L'interface
@@ -285,7 +333,9 @@ toucher :
   passer la source à `'saisie'`.
 - **Pente** : affichée (`penteDeg`, étendue au squelette), en lecture seule pour `'croupes'`.
 - **Orientation du faîtage** : cachée pour `'croupes'`.
-- **Couleur** : rouge tuile par défaut.
+- **Couleur** : lue sur l'orthophoto (§6.1), rouge tuile à défaut ; la note dit « lue sur
+  l'orthophoto » ou « tuile rouge / brune, couverture grise : orthophoto peu lisible ». La changer
+  efface `origineCouleur`.
 
 La section s'affiche pour tout bâtiment qui porte un toit, même sans façade relevée.
 

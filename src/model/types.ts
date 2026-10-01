@@ -514,6 +514,12 @@ export interface Toit {
   angleFaitage: number;
   /** Couleur de la couverture. */
   couleur?: string;
+  /**
+   * D'ou vient `couleur` quand Plan l'a posee : lue sur l'orthophoto, ou couverture de repli quand la
+   * photo n'est pas concluante (MD/spec-toit-ign.md §6.1). Absente avec une couleur : l'utilisateur
+   * l'a choisie, et rien ne la recalcule.
+   */
+  origineCouleur?: 'orthophoto' | 'rouge' | 'brun' | 'gris';
   /** D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ou saisie. */
   source?: 'photo' | 'bdtopo' | 'saisie';
   /**

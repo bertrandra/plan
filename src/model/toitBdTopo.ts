@@ -74,5 +74,8 @@ export function toitBdTopo(pts: readonly PtBrut[], a: AttributsToit): Toit {
 export function toitActualise(ancien: Toit | null | undefined, pts: readonly PtBrut[], a: AttributsToit): Toit {
   if (ancien && ancien.source !== 'bdtopo') return ancien;
   const neuf = toitBdTopo(pts, a);
-  return ancien?.couleur ? { ...neuf, couleur: ancien.couleur } : neuf;
+  if (!ancien?.couleur) return neuf;
+  // Une couleur posee par Plan (orthophoto ou repli) suit le toit avec son origine : la lecture de
+  // l'orthophoto qui suit l'actualisation la revoit. Une couleur choisie n'a pas d'origine et reste.
+  return ancien.origineCouleur ? { ...neuf, couleur: ancien.couleur, origineCouleur: ancien.origineCouleur } : { ...neuf, couleur: ancien.couleur };
 }

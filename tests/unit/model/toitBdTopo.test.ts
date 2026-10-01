@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { toitBdTopo, toitActualise, attributsToitBdTopo, type AttributsToit } from '../../../src/model/toitBdTopo.js';
-import { facettesToit, penteDeg, plansDuToit, hauteurToitEn, COULEUR_TOIT_DEFAUT } from '../../../src/facade/toit.js';
+import { facettesToit, penteDeg, plansDuToit, hauteurToitEn, uvDuPan, COULEUR_TOIT_DEFAUT } from '../../../src/facade/toit.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
 
 const p = (x: number, y: number): PtBrut => ({ x, y });
@@ -97,5 +97,28 @@ describe('l actualisation (spec-toit-ign §5.3)', () => {
     const ancien: Toit = { forme: 'croupes', hauteur: 2.1, angleFaitage: 0, source: 'bdtopo', estime: true, couleur: '#445566' };
     expect(toitActualise(ancien, maison, attr(100, 103))).toEqual({ forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo', couleur: '#445566' });
     expect(toitActualise(undefined, maison, attr(100, 103)).hauteur).toBe(3);
+  });
+});
+
+describe('l actualisation et la couleur lue sur l orthophoto (spec-toit-ign §6.1)', () => {
+  it('garde la couleur posee par Plan avec son origine, pour que la lecture suivante la revoie', () => {
+    const ancien: Toit = { forme: 'croupes', hauteur: 2.1, angleFaitage: 0, source: 'bdtopo', couleur: '#6F7275', origineCouleur: 'gris' };
+    expect(toitActualise(ancien, maison, attr(100, 103))).toMatchObject({ couleur: '#6F7275', origineCouleur: 'gris' });
+  });
+});
+
+describe('les coordonnees de texture d un pan (spec-toit-ign §6.2)', () => {
+  it('les rangs suivent l egout, le pas se mesure dans la pente', () => {
+    const t: Toit = { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' };
+    facettesToit(maison, t).pans.forEach((pan) => {
+      const uv = uvDuPan(pan.contour);
+      const egout = pan.contour.map((q, i) => ({ q, v: uv[2 * i + 1]! })).filter((e) => Math.abs(e.q.z) < 1e-9);
+      // Tous les points de l egout sont sur le meme rang.
+      egout.forEach((e) => expect(e.v).toBeCloseTo(egout[0]!.v, 6));
+      // Du bas au haut du pan, v parcourt la longueur rampante.
+      const haut = pan.contour.reduce((a, q, i) => (q.z > a.z ? { z: q.z, i } : a), { z: -1, i: 0 });
+      const pente = (penteDeg(maison, t) * Math.PI) / 180;
+      expect(uv[2 * haut.i + 1]! - egout[0]!.v).toBeCloseTo(3 / Math.sin(pente), 3);
+    });
   });
 });
