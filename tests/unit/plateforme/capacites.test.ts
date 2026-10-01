@@ -46,19 +46,19 @@ describe('la table des capacites', () => {
     // (`backprod/src/Demo/Domain/DemoWorld.php`, cle `capabilities` du produit `plan`). Avant cela
     // les attacher aurait retire la 3D a tous les locataires, puisque `/me/context` ne distingue
     // pas « pas achete » de « pas au catalogue ». Maintenant, chaque code doit avoir sa prise.
-    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts']
+    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts', 'ecouteurs/modes.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const sansPrise: string[] = [];
     for (const [nom, c] of Object.entries(CAPACITES)) {
-      if (!c.commandes.length) continue;               // la vue 3D, qui n'est pas une commande
+      if (!c.commandes.length) continue;
       if (!sources.includes('CAPACITES.' + nom + '.code')) sansPrise.push(c.code);
     }
     expect(sansPrise, 'capacites du catalogue sans commande attachee').toEqual([]);
   });
 
-  it('ne laisse la vue 3D sans prise que parce qu elle n est pas une commande', () => {
+  it('tient la vue 3D par ses trois portes : Vue 3D, visionneuse, export GLB', () => {
     expect(CODES_CAPACITES).toContain('plan.3d');
-    expect(CAPACITES.vue3d.commandes).toEqual([]);
+    expect(CAPACITES.vue3d.commandes).toEqual(['vue.3d', 'vue.visionneuse', 'export.glb']);
   });
 });
 
@@ -105,11 +105,10 @@ describe('ce que les commandes nommees existent vraiment', () => {
     expect(manquantes, 'commandes nommees mais jamais declarees').toEqual([]);
   });
 
-  it('constate que la vue 3D n est pas une commande, donc qu une capacite ne l arreterait pas', () => {
-    // Le basculement en vue 3D est un bouton de la barre de modes. C'est la seule capacite dont le
-    // gain reseau serait reel — three.js vient d'un CDN — et c'est justement celle qui n'a aucune
-    // prise. Ce test tombera le jour ou quelqu'un en fera une commande : c'est le signal attendu.
-    expect(CAPACITES.vue3d.commandes).toEqual([]);
+  it('arrete three.js a la source : la capacite 3D gouverne des commandes, et donc le CDN', () => {
+    // three.js vient d'un CDN : c'est le seul vrai gain reseau de la table. La Vue 3D est devenue
+    // une commande ; sans `plan.3d`, elle n'est pas executee et rien n'est demande.
+    expect(CAPACITES.vue3d.commandes.length).toBeGreaterThan(0);
     expect(CAPACITES.vue3d.origines.length).toBeGreaterThan(0);
   });
 });

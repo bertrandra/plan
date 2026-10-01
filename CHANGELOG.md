@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **La 3D est une fonction de l'offre (`plan.3d`).** La Vue 3D, la visionneuse GLB et l'export GLB,
+  les trois portes de three.js, sont gouvernées par la capacité `plan.3d`, que le catalogue de la
+  plateforme vend à partir de Pro. Sans elle, les boutons « Vue 3D » et « Visionneuse GLB » et
+  l'entrée « GLB (scène 3D) » disparaissent, et three.js n'est jamais demandé au CDN : c'est le seul
+  vrai gain réseau des capacités. « Voir ce point de vue » en 3D passe par la même commande. Sans
+  plateforme branchée (vitrine, essais), rien ne change.
+
+### Corrigé
+
+- **Fumée : un dialogue de mise à jour du modèle ne bloque plus le pilote.** Les points 1, 3, 17 et
+  31 échouaient quand le plan de démonstration était d'un schéma antérieur : le dialogue « Mettre à
+  jour le modèle ? » interceptait les gestes. `ouvrirDemo` (scripts/captures.mjs) le referme
+  désormais par « Garder tel quel ». Les quatre points passent dans les trois classes et les deux
+  thèmes (20 sur 20).
+
 ### Corrigé
 
 - **Sur le plan, l'ombre des parasols passe devant.** Elle était dessinée sous les objets, et une

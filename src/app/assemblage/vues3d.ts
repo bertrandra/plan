@@ -60,7 +60,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     orthoTuiles: () => ortho.tuiles
   });
   // Le pilotage des deux vues (zoom, mode du glisser, points de vue, plein page) vit dans three/navigation.ts.
-  const nav3d = creerNavigation3d(etat, { showErrBanner, hauteurFinieMm, ouvrirVue3d: () => modes.goVue3D() });
+  const nav3d = creerNavigation3d(etat, { showErrBanner, hauteurFinieMm, ouvrirVue3d: () => { commandes.executer('vue.3d'); } });
   const reglagesVue3d = brancherVue3d(atelier, {
     zoom3D: (f) => nav3d.zoom3D(f), setMode3D: (m) => nav3d.setMode3D(m), buildThreeScene,
     createObjectDOM: d.createObjectDOM,
