@@ -492,3 +492,33 @@ export function profilSilhouette(img: ImageBrute, pxParM: number, colonnes = 60,
     return au(v, Math.floor(v.length / 2));
   });
 }
+
+/**
+ * Les coordonnees de texture d'un pan, en metres : `u` le long de l'egout, `v` dans la pente, en
+ * vraie grandeur. Les rangs de tuiles ou d'ardoises suivent ainsi l'egout de chaque pan, et leur
+ * pas ne s'etire pas sur un pan raide. Un pan horizontal se lit dans le repere du plan.
+ */
+export function uvDuPan(contour: readonly P3[]): number[] {
+  // Normale de Newell : robuste sur un polygone a sommets alignes.
+  let nx = 0,
+    ny = 0,
+    nz = 0;
+  contour.forEach((a, i) => {
+    const b = sommetDe(contour, i + 1);
+    nx += (a.y - b.y) * (a.z + b.z);
+    ny += (a.z - b.z) * (a.x + b.x);
+    nz += (a.x - b.x) * (a.y + b.y);
+  });
+  const n = Math.hypot(nx, ny, nz);
+  const horizontal = n < 1e-9 || Math.hypot(nx, ny) < 1e-6 * n;
+  // Ligne de plus grande pente, dans le plan : vers le bas du pan.
+  const s = nz < 0 ? -1 : 1;
+  const gx = horizontal ? 0 : s * nx,
+    gy = horizontal ? 1 : s * ny;
+  const g = Math.hypot(gx, gy);
+  const dx = gx / g,
+    dy = gy / g;
+  // Allongement de la pente : la distance dans le plan, rapportee a la longueur sur le pan.
+  const k = horizontal ? 1 : n / Math.abs(nz || 1e-9);
+  return contour.flatMap((q) => [q.x * -dy + q.y * dx, -(q.x * dx + q.y * dy) * k]);
+}

@@ -121,3 +121,26 @@ export function couleurToitDepuisPixels(rgba: ArrayLike<number>): CouleurToitLue
   if (lum < LUMINANCE_MIN || lum > LUMINANCE_MAX) return repli(teinte);
   return { couleur: versHex(teinte), origine: 'orthophoto' };
 }
+
+/** Le materiau dessine sur la couverture en 3D : tuiles pour une terre cuite, ardoises sinon. */
+export type MateriauCouverture = 'tuile' | 'ardoise';
+
+function rgbDeHex(hex: string): Rgb | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m?.[1]) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/**
+ * Tuile ou ardoise, d'apres la couverture : le repli gris est une ardoise, le rouge et le brun des
+ * tuiles. Une couleur lue sur l'orthophoto, ou choisie, se classe comme le serait son repli. Sans
+ * couleur, c'est la tuile rouge par defaut.
+ */
+export function materiauCouverture(toit: { couleur?: string; origineCouleur?: string } | null | undefined): MateriauCouverture {
+  if (toit?.origineCouleur === 'gris') return 'ardoise';
+  if (toit?.origineCouleur === 'rouge' || toit?.origineCouleur === 'brun') return 'tuile';
+  const rgb = toit?.couleur ? rgbDeHex(toit.couleur) : null;
+  if (!rgb) return 'tuile';
+  return couvertureRepli(rgb) === 'gris' ? 'ardoise' : 'tuile';
+}

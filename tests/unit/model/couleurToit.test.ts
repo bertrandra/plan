@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { couleurToitDepuisPixels, couvertureRepli, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
+import { couleurToitDepuisPixels, couvertureRepli, materiauCouverture, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
 
 type Rgb = [number, number, number];
 /** `n` pixels opaques de la couleur `c`, en RGBA a plat. */
@@ -54,5 +54,21 @@ describe('la couverture de repli', () => {
     expect(couvertureRepli([160, 110, 60])).toBe('brun');
     expect(couvertureRepli([110, 112, 117])).toBe('gris');
     expect(couvertureRepli([60, 90, 140])).toBe('gris');
+  });
+});
+
+describe('tuile ou ardoise en 3D (spec-toit-ign §6.2)', () => {
+  it('ardoise pour le repli gris, tuile pour le rouge et le brun', () => {
+    expect(materiauCouverture({ couleur: COULEURS_TOIT_REPLI.gris, origineCouleur: 'gris' })).toBe('ardoise');
+    expect(materiauCouverture({ couleur: COULEURS_TOIT_REPLI.rouge, origineCouleur: 'rouge' })).toBe('tuile');
+    expect(materiauCouverture({ couleur: COULEURS_TOIT_REPLI.brun, origineCouleur: 'brun' })).toBe('tuile');
+  });
+
+  it('classe une couleur lue ou choisie comme son repli ; sans couleur, la tuile rouge', () => {
+    expect(materiauCouverture({ couleur: '#575D66', origineCouleur: 'orthophoto' })).toBe('ardoise');
+    expect(materiauCouverture({ couleur: '#A3553E', origineCouleur: 'orthophoto' })).toBe('tuile');
+    expect(materiauCouverture({ couleur: '#2E4A62' })).toBe('ardoise');
+    expect(materiauCouverture({})).toBe('tuile');
+    expect(materiauCouverture(null)).toBe('tuile');
   });
 });

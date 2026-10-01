@@ -13,6 +13,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Sinon, elle prend la couverture courante la plus proche : tuile rouge, tuile brune ou couverture
   grise. Une couleur choisie dans l'inspecteur n'est jamais recalculée ; sans orthophoto, la tuile
   rouge reste le défaut. L'inspecteur dit d'où vient la couleur (MD/spec-toit-ign.md §6.1).
+- **Tuiles ou ardoises sur les toits en 3D.** Une couverture rouge ou brune porte des tuiles, une
+  couverture grise des ardoises, teintées par sa couleur ; les rangs suivent l'égout de chaque pan.
+  Les textures sont dessinées par l'application, sans téléchargement (MD/spec-toit-ign.md §6.2).
 
 ### Modifié
 

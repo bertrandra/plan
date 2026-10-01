@@ -303,6 +303,22 @@ Un WMTS injoignable ne bloque rien : au bout de 20 s, les toits restants gardent
 défaut (`COULEUR_TOIT_DEFAUT`), sans `couleur` enregistrée. Le champ est facultatif : il ne change
 pas le schéma (un lecteur de schéma 3 garde le toit tel quel).
 
+### 6.2 Tuiles ou ardoises en 3D
+
+La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur :
+
+| Couverture | Texture |
+|---|---|
+| repli `rouge` ou `brun` | **tuiles** romanes : 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur |
+| repli `gris` | **ardoises** : 4 par mètre, 8 rangs, joints croisés, nuance par ardoise |
+| lue sur l'orthophoto, ou choisie | celle de son repli (`couvertureRepli`) : ardoise si la teinte est grise, tuile sinon |
+| sans couleur | tuiles (rouge par défaut) |
+
+`materiauCouverture` (`model/couleurToit.ts`) choisit ; `three/couverture.ts` dessine la texture sur
+un canevas, sans réseau ; `uvDuPan` (`facade/toit.ts`) la pose sur chaque pan, en mètres : `u` le
+long de l'égout, `v` dans la pente en vraie grandeur. Les rangs suivent ainsi l'égout de chaque pan.
+Case « Texture » décochée : la couleur unie, comme avant.
+
 ---
 
 ## 7. L'interface

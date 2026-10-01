@@ -14,7 +14,9 @@ import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometri
 import { contourDuMur, egoutEn, volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
-import { facettesToit, trianguler, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
+import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
+import { materiauCouverture } from '../model/couleurToit.js';
+import { textureCouverture } from './couverture.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -132,14 +134,22 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
 function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: number, habillages: readonly Habillage[]) {
   if (toit.forme === 'plat' || toit.hauteur <= 0) return;
   const { pans, pignons } = facettesToit(contour, toit);
-  const matToit = new THREE.MeshStandardMaterial({ color: toit.couleur || COULEUR_TOIT_DEFAUT, roughness: 0.85, side: THREE.DoubleSide });
+  // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).
+  const materiau = materiauCouverture(toit);
+  const tex = ctx.textures ? textureCouverture(materiau) : null;
+  const matToit = new THREE.MeshStandardMaterial({
+    color: toit.couleur || COULEUR_TOIT_DEFAUT,
+    roughness: materiau === 'ardoise' ? 0.7 : 0.85,
+    side: THREE.DoubleSide,
+    ...(tex ? { map: tex } : {}),
+  });
   pans.forEach((pan) => {
     const sommets: number[] = [];
     pan.contour.forEach((q) => {
       const l = ctx.toLocal(q);
       sommets.push(l.x, h + q.z, l.z);
     });
-    const m = maillage(sommets, pan.triangles.flat(), matToit);
+    const m = maillage(sommets, pan.triangles.flat(), matToit, tex ? uvDuPan(pan.contour) : undefined);
     m.name = 'releve-toit';
     ctx.scene.add(m);
   });
