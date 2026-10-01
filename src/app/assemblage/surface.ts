@@ -1,7 +1,8 @@
 // La surface du plan : l'element qui le porte, sa racine SVG et ses calques (app/assemblage/).
 //
 // L'ordre des calques est l'ordre de lecture du plan, du fond vers l'avant : le fond orthophoto, la
-// grille, les ombres des parasols et leurs mats, puis les objets — et, par-dessus eux, la fleche du
+// grille, les objets, puis les ombres des parasols (remises devant a chaque rendu), la toile des
+// parasols et leurs mats — et, par-dessus, la fleche du
 // nord, l'echelle, les cotes et les couches de la terrasse. Ces quatre-la ne sont poses qu'une fois
 // les objets crees (`poserCalquesDuDessus`) : c'est ce qui les garde devant.
 
@@ -14,7 +15,7 @@ export interface Surface {
   svg: SVGSVGElement;
   ortho: SVGGElement;
   grille: SVGGElement;
-  /** Ombres des parasols et carte de chaleur : sous les objets. */
+  /** Ombres des parasols et carte de chaleur : devant les objets, sous la toile des parasols (assemblage/dessin.ts). */
   parasols: SVGGElement;
   /** Les mats des parasols : remis en fin de SVG a chaque rendu, pour rester lisibles. */
   mats: SVGGElement;

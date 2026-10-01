@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Sur le plan, l'ombre des parasols passe devant.** Elle était dessinée sous les objets, et une
+  terrasse ou un massif la cachait justement là où elle compte. Elle se pose maintenant sur ce
+  qu'elle couvre, carte d'ensoleillement comprise. La toile des parasols, leurs mâts, les cotes et
+  les poignées de la sélection restent au-dessus. Le calque reste inerte : les clics le traversent.
+
 ### Ajouté
 
 - **Chaque bâtiment IGN a un toit, rouge, posé sur son contour réel** (`MD/spec-toit-ign.md`). À
@@ -52,7 +59,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Le nombre de projets se voit : « Projets 1/3 ».** Une pastille à côté du choix du projet (barre
   du bureau, feuille Projet sur téléphone et tablette) montre combien de projets l'organisation
   tient sur combien son abonnement en autorise, compté comme la plateforme. À la limite, elle dit
-  « limite atteinte » et prend une bordure d'alerte. Une offre illimitée n'en affiche pas.
+  « limite atteinte » et prend une bordure d'alerte. Le compteur est affiché dès que la plateforme
+  est branchée : « Projets 4/∞ » sur une offre illimitée, « Projets 4 » sur une offre sans quota de
+  projets (il était d'abord masqué dans ces deux cas, et donc invisible sur un compte Scale).
 
 - **Un projet reçu vide (`{}`) est un projet neuf.** Quand la plateforme rend un projet dont le
   document est vide — créé pour Plan, jamais rempli —, Plan l'ouvre en plan vierge, sous son nom, et

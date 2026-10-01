@@ -11,7 +11,7 @@ import { CAPACITE_LECTURE_SEULE } from '../plateforme/capacites.js';
 import { PHRASE_QUOTA, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
-import { QUOTA_PROJETS, limiteProjets, phraseLimite, type LimiteProjets } from '../plateforme/quotaProjets.js';
+import { QUOTA_PROJETS, limiteProjets, compteProjets, phraseLimite, type LimiteProjets, type CompteProjets } from '../plateforme/quotaProjets.js';
 
 let session: Session | null = null;
 let contexte: ServiceContexte | null = null;
@@ -64,6 +64,11 @@ export function contexteCourant(): ServiceContexte | null { return contexte; }
 /** La limite de projets de l'organisation, alignee sur la plateforme ; `null` : illimite, ou hors plateforme. */
 export function limiteProjetsCourante(): LimiteProjets | null {
   return limiteProjets(contexte?.quota(QUOTA_PROJETS) ?? null);
+}
+
+/** Le compteur de projets a montrer ; `null` hors plateforme. */
+export function compteProjetsCourant(): CompteProjets | null {
+  return contexte ? compteProjets(contexte.quota(QUOTA_PROJETS)) : null;
 }
 
 /**
