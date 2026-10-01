@@ -1,0 +1,13 @@
+{
+  "name": "plan-interactif-siteground",
+  "version": "2.2.0",
+  "private": true,
+  "description": "Plan interactif servi par Node.js sur SiteGround : index.html du build et en-tetes du .htaccess.",
+  "main": "app.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node app.js"
+  }
+}
