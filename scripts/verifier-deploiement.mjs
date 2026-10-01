@@ -59,6 +59,14 @@ try {
   }
 
   if (page) {
+    // La description du produit (src/model/produit.ts) : ce que la plateforme lit pour connaitre
+    // les schemas de document que cette version accepte.
+    const bloc = /<script type="application\/json" id="plan-produit">([\s\S]*?)<\/script>/.exec(page.toString('utf8'));
+    let d = null;
+    try { d = bloc ? JSON.parse(bloc[1]) : null; } catch { d = null; }
+    noter('la page se decrit (plan-produit)', !!(d && d.app_version && Array.isArray(d.schema_versions)),
+      d ? d.product + ' ' + d.app_version + ', schemas ' + JSON.stringify(d.schema_versions) : 'bloc absent ou illisible');
+
     const cache = r.entetes.get('cache-control') || '';
     const longue = /max-age=(\d+)/.exec(cache);
     const tropLong = longue && Number(longue[1]) > 3600;
@@ -82,7 +90,7 @@ try {
       noter('politique de contenu', false, 'absente');
     } else {
       const html = page.toString('utf8');
-      const m = /<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/.exec(html);
+      const m = /<script(?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/.exec(html);
       const empreinte = m ? createHash('sha256').update(m[1], 'utf8').digest('base64') : null;
       const nomme = empreinte ? csp.includes("'sha256-" + empreinte + "'") : false;
       noter('politique de contenu', nomme,

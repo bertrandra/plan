@@ -66,6 +66,12 @@ export function schemaAEcrire(objets: readonly ObjetBrut[], plancher: number | n
   return Math.min(SCHEMA_VERSION, Math.max(schemaMinimal(objets), plancher ?? 1));
 }
 
+/** Les schemas que ce programme sait lire : 1, puis chaque version ou une migration mene. */
+export function schemasLisibles(): number[] {
+  const v = new Set([1, ...MIGRATIONS.map((m) => m.de + 1)]);
+  return [...v].filter((n) => n <= SCHEMA_VERSION).sort((a, b) => a - b);
+}
+
 /** Les migrations a appliquer pour lire un document de schema `de`. */
 export function migrationsDepuis(de: number): Migration[] {
   return MIGRATIONS.filter((m) => m.de >= de && m.de < SCHEMA_VERSION);
