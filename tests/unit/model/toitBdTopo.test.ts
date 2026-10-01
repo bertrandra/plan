@@ -99,3 +99,10 @@ describe('l actualisation (spec-toit-ign §5.3)', () => {
     expect(toitActualise(undefined, maison, attr(100, 103)).hauteur).toBe(3);
   });
 });
+
+describe('l actualisation et la couleur lue sur l orthophoto (spec-toit-ign §6.1)', () => {
+  it('garde la couleur posee par Plan avec son origine, pour que la lecture suivante la revoie', () => {
+    const ancien: Toit = { forme: 'croupes', hauteur: 2.1, angleFaitage: 0, source: 'bdtopo', couleur: '#6F7275', origineCouleur: 'gris' };
+    expect(toitActualise(ancien, maison, attr(100, 103))).toMatchObject({ couleur: '#6F7275', origineCouleur: 'gris' });
+  });
+});

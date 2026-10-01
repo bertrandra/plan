@@ -12,6 +12,7 @@ import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M,
 import { distancePointContour } from '../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { showToast } from '../shell/dialogs.js';
+import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
@@ -137,6 +138,26 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   return fraiches;
 }
 
+/** Ce que l'import du voisinage a ajoute, au bilan. */
+function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number }, bilan: string[]): void {
+  if(ajouts.parcelles) bilan.push(ajouts.parcelles + ' parcelle(s) adjacente(s) ajoutee(s)');
+  if(ajouts.batiments) bilan.push(ajouts.batiments + ' batiment(s) ajoute(s)');
+  if(ajouts.vegetation) bilan.push(ajouts.vegetation + ' zone(s) de vegetation ajoutee(s)');
+  if(ajouts.arbres) bilan.push(ajouts.arbres + ' arbre(s) estime(s)');
+  if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau a ajouter');
+}
+
+/**
+ * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
+ * l'utilisateur n'est pas touchee ; un WMTS injoignable laisse les toits tels quels.
+ */
+async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[]): Promise<void> {
+  const c = await couleursToitsDepuisOrtho(objets, proj).catch(() => null);
+  if(!c || !(c.lus + c.replis)) return;
+  bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
+    (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
+}
+
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
   options = options || { portee:'tout', voisinage:{actif:false} };
   const parcelle = ctx.trouverParcelleCloture();
@@ -243,16 +264,14 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     if(options.voisinage && options.voisinage.actif){
       try {
         ajouts = await construireVoisinage(parcelle, cad, proj, simplifier, options.voisinage, serialises);
-        if(ajouts.parcelles) bilan.push(ajouts.parcelles + ' parcelle(s) adjacente(s) ajoutee(s)');
-        if(ajouts.batiments) bilan.push(ajouts.batiments + ' batiment(s) ajoute(s)');
-        if(ajouts.vegetation) bilan.push(ajouts.vegetation + ' zone(s) de vegetation ajoutee(s)');
-        if(ajouts.arbres) bilan.push(ajouts.arbres + ' arbre(s) estime(s)');
-        if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau a ajouter');
+        bilanVoisinage(ajouts, bilan);
         serialises.push(...ajouts.objets);
       } catch(e){
         bilan.push('voisinage non ajoute : ' + ((e as Error).message || e));
       }
     }
+    // ---- 3 ter. La couverture des toits, lue sur l'orthophoto
+    await couleursDesToits(serialises, proj, bilan);
     ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle

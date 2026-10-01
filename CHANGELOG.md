@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **La couleur des toits est lue sur l'orthophoto.** À la création d'un plan depuis une adresse et à
+  l'actualisation IGN, Plan regarde l'orthophoto sous le contour de chaque bâtiment (en retrait des
+  murs). Une couverture d'une seule teinte, sans arbre ni ombre qui la masque, prend cette teinte.
+  Sinon, elle prend la couverture courante la plus proche : tuile rouge, tuile brune ou couverture
+  grise. Une couleur choisie dans l'inspecteur n'est jamais recalculée ; sans orthophoto, la tuile
+  rouge reste le défaut. L'inspecteur dit d'où vient la couleur (MD/spec-toit-ign.md §6.1).
+
 ### Modifié
 
 - **La 3D est une fonction de l'offre (`plan.3d`).** La Vue 3D, la visionneuse GLB et l'export GLB,

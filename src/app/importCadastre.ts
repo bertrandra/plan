@@ -18,6 +18,7 @@ import { distancePointContour } from '../geometry/proximite.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
 import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
+import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
@@ -488,6 +489,11 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         e.erreur = 'Construction du plan impossible : ' + ((err as Error).message || err);
         signaler(); return;
       }
+      // La couverture de chaque toit, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1). Sans
+      // reponse du WMTS, les toits gardent la tuile rouge par defaut : rien n'est bloque.
+      occuper(true, 'Couleur des toits sur l’orthophoto…');
+      await couleursToitsDepuisOrtho(objets, proj()).catch(() => null);
+      occuper(false);
       if (!ctx.apiDisponible) {
         // Mode local : pas de serveur ou ecrire. On charge quand meme le plan (meme chemin que l'import
         // JSON), en le disant clairement plutot que de faire semblant d'enregistrer.
