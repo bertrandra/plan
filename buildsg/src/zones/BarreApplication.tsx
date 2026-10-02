@@ -149,7 +149,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
-        <input type="range" id={idDom} min={min} max={100} step={5} defaultValue={valeur} onInput={(e) => commandes.executer(id, e.currentTarget)} />
+        <input type="range" id={idDom} data-commande={id} min={min} max={100} step={5} defaultValue={valeur} onInput={(e) => commandes.executer(id, e.currentTarget)} />
         <span id={idTexte} className="valeur">{valeur} %</span>
       </label>
     </li>
@@ -362,7 +362,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
     <div id="modeBar" role="group" aria-label="Vue">
       {/* Une vue que l'offre ne comprend pas (`plan.3d`) n'a pas de bouton. */}
       {VUES.filter(([cle]) => !commandes.effacee(COMMANDE_DE_VUE[cle])).map(([cle, id, libelle, titre]) => (
-        <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
+        <button data-commande={COMMANDE_DE_VUE[cle]} key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
           title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>
           {compact && cle === 'vue3d' ? '3D' : compact && cle === 'visionneuse' ? 'Visionneuse' : libelle}
         </button>
@@ -379,7 +379,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       )}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
-        <button type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
+        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       )}

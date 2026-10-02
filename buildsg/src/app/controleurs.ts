@@ -13,8 +13,9 @@
 import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
 import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
+import type { ControleEcran } from './inventaireEcran.js';
 
-export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option';
+export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
 
 export interface Noeud {
   /** La cle du controleur dans son parent : l'identifiant de la commande, la cle du champ… */
@@ -46,6 +47,8 @@ export interface SourceControleurs {
    * valeurs permises d'une liste de choix (elles dependent de l'objet). `null` : illisible.
    */
   inspecteur: { cle: string; nom: string; sections: Section[]; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
+  /** L'inventaire de la page (app/inventaireEcran.ts) : les controles affiches hors registre. */
+  ecran?: { horsRegistre: ControleEcran[]; rattaches: number };
 }
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
@@ -242,9 +245,55 @@ export function construireArbre(s: SourceControleurs): Noeud {
     enfants: [
       { cle: 'zones', nom: 'Zones de l’écran', genre: 'branche', enfants: zones },
       { cle: 'commandes', nom: 'Registre des commandes', genre: 'branche', enfants: registre },
-      { cle: 'inspecteur', nom: 'Champs de l’inspecteur', genre: 'branche', enfants: inspecteur }
+      { cle: 'inspecteur', nom: 'Champs de l’inspecteur', genre: 'branche', enfants: inspecteur },
+      horsRegistre(s, inspecteur)
     ]
   };
+}
+
+/**
+ * Ce que le registre ne couvre pas, mesure pour etre suivi d'une decouverte a l'autre :
+ *   - les controles affiches qui ne declenchent ni une commande ni un champ (app/inventaireEcran.ts) ;
+ *   - les fonctions d'objet que la demonstration ne contient pas : leurs champs propres ne sont
+ *     jamais demandes a l'inspecteur, donc jamais decouverts.
+ */
+function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
+  const enfants: Noeud[] = [];
+  if (s.ecran) {
+    const parZone = new Map<string, ControleEcran[]>();
+    for (const c of s.ecran.horsRegistre) parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), c]);
+    enfants.push({
+      cle: 'ecran', nom: 'Contrôles affichés sans commande ni champ', genre: 'branche',
+      details: {
+        horsRegistre: String(s.ecran.horsRegistre.length),
+        rattaches: String(s.ecran.rattaches),
+        portee: 'ce qui est affiché au moment de la découverte : un dialogue, un parcours ou le relevé de façade fermés ne se voient pas'
+      },
+      enfants: [...parZone].sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([zone, cs]): Noeud => ({
+        cle: zone.replace(/[\s/]+/g, '-'), nom: zone, genre: 'zone',
+        enfants: sansDoublons(cs.map((c): Noeud => ({
+          cle: c.cle, nom: c.nom, genre: 'controle',
+          // Le nombre d'exemplaires suit les donnees de la demo : il n'entre pas dans la comparaison.
+          details: { sorte: c.sorte, ...(c.repete ? { portee: 'répété sur chaque ligne (objet, cote…)' } : {}) }
+        })))
+      }))
+    });
+  }
+  // Les fonctions proposees par la liste « fonction » de l'inspecteur, moins celles rencontrees.
+  const presentes = new Set(inspecteur.map((f) => f.cle.split('.')[1]));
+  const proposees = new Map<string, string>();
+  for (const f of inspecteur) {
+    for (const [, n] of aplatir(f)) {
+      if (n.genre === 'champ' && n.cle === 'fonction') for (const o of n.enfants ?? []) if (o.genre === 'option') proposees.set(o.cle, o.nom);
+    }
+  }
+  const absentes = [...proposees].filter(([v]) => !presentes.has(v));
+  enfants.push({
+    cle: 'sortesAbsentes', nom: 'Fonctions d’objet absentes de la démonstration', genre: 'branche',
+    details: { consequence: 'leurs champs propres ne sont jamais demandés à l’inspecteur, donc pas découverts' },
+    enfants: absentes.map(([v, nom]): Noeud => ({ cle: v, nom, genre: 'manque' }))
+  });
+  return { cle: 'horsRegistre', nom: 'Hors registre', genre: 'branche', enfants };
 }
 
 /** Chaque noeud sous son chemin de cles, `plan/zones/Z1/menuFichier/projet.enregistrer`. */

@@ -356,7 +356,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
           <div className={compact ? 'corpsFeuille' : undefined}>
             <p className="hint" style={{ padding: '0 10px' }}>{compact ? 'Touchez un objet sur le plan, ou choisissez-le dans Objets, pour l\'éditer.' : 'Clique un objet sur le plan ou dans l\'explorateur pour l\'éditer.'}</p>
             <div className="inspecteurPied">
-              <button type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
+              <button data-commande="projet.reinitialiser" type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
             </div>
           </div>
         </aside>
@@ -367,8 +367,8 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const sections = inspecteur.sections(c);
   const pied = (
     <div className="inspecteurPied">
-      <button type="button" className="secondary small" disabled={!commandes.obtenir('objet.positionInitiale')?.actif?.()} onClick={executer('objet.positionInitiale')}>Réinitialiser la position</button>
-      <button type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
+      <button data-commande="objet.positionInitiale" type="button" className="secondary small" disabled={!commandes.obtenir('objet.positionInitiale')?.actif?.()} onClick={executer('objet.positionInitiale')}>Réinitialiser la position</button>
+      <button data-commande="projet.reinitialiser" type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
       <p className="hint">{tactile
         ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>

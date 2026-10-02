@@ -23,7 +23,7 @@ const IDS_SOLEIL: IdsSoleil = {
 
 function Bouton3d({ commandes, id, domId, icone, libelle, titre }: { commandes: RegistreCommandes; id: string; domId: string; icone: 'plus' | 'moins' | 'personne'; libelle: string; titre: string }) {
   return (
-    <button id={domId} type="button" className="bouton3d" title={titre} aria-label={libelle} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
+    <button id={domId} data-commande={id} type="button" className="bouton3d" title={titre} aria-label={libelle} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       <Icone nom={icone} taille={20} />
     </button>
   );

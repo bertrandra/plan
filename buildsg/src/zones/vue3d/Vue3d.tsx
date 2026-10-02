@@ -38,7 +38,7 @@ function Case({ id, libelle, coche, titre, onChange }: { id: string; libelle: st
 /** Un bouton de camera sur le canevas : une commande, une icone, son etat actif le cas echeant. */
 function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { commandes: RegistreCommandes; id: string; domId: string; icone: Parameters<typeof Icone>[0]['nom']; libelle: string; titre: string; actif?: boolean }) {
   return (
-    <button id={domId} type="button" className={'bouton3d' + (actif ? ' actif' : '')} title={titre} aria-label={libelle}
+    <button id={domId} data-commande={id} type="button" className={'bouton3d' + (actif ? ' actif' : '')} title={titre} aria-label={libelle}
       aria-pressed={actif === undefined ? undefined : actif} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       <Icone nom={icone} taille={20} />
     </button>
@@ -76,7 +76,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
           </div>
           <Soleil ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           <div className="controls ligneReglage">
-            <button id="terrasse3dSaveViewBtn" type="button" className="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera"
+            <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera"
               disabled={!commandes.etat('3d.enregistrerPointDeVue').utilisable}
               onClick={(e) => { commandes.executer('3d.enregistrerPointDeVue', e.currentTarget); }}>
               <Icone nom="camera" taille={20} /> Enregistrer la vue comme point de vue

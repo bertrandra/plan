@@ -70,12 +70,12 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
   if (classe === 'large') {
     return (
       <>
-        <button type="button" id="gridBtn" className={grille ? '' : 'off'} aria-pressed={grille}
+        <button data-commande="affichage.grille" type="button" id="gridBtn" className={grille ? '' : 'off'} aria-pressed={grille}
           title={(grille ? 'Masquer' : 'Afficher') + ' la grille du plan'}
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={18} /></button>
         {cadrable && (
           <div className="actionsSelection">
-            <button type="button" id="fitBtn" title="Ajuster la vue à l'objet sélectionné"
+            <button data-commande="vue.ajuster" type="button" id="fitBtn" title="Ajuster la vue à l'objet sélectionné"
               onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
             {commandes.etat('terrasse.isoler').utilisable && (
               <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
@@ -97,9 +97,9 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
   return (
     <>
       <div className="groupeFlottant" role="group" aria-label="Vue du plan">
-        <button type="button" id="fitBtn" disabled={!cadrable} aria-label="Ajuster la vue à la sélection" title="Ajuster la vue à la sélection"
+        <button data-commande="vue.ajuster" type="button" id="fitBtn" disabled={!cadrable} aria-label="Ajuster la vue à la sélection" title="Ajuster la vue à la sélection"
           onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={20} /></button>
-        <button type="button" id="gridBtn" className={grille ? 'actif' : ''} aria-pressed={grille} aria-label="Grille du plan"
+        <button data-commande="affichage.grille" type="button" id="gridBtn" className={grille ? 'actif' : ''} aria-pressed={grille} aria-label="Grille du plan"
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={20} /></button>
         <button type="button" className={etat.showNorth ? 'actif' : ''} aria-pressed={etat.showNorth} aria-label="Flèche Nord"
           data-commande="affichage.nord" onClick={() => { commandes.executer('affichage.nord'); }}><Icone nom="nord" taille={20} /></button>

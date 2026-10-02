@@ -86,9 +86,9 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
         <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
       </div>
       <div className="piedChiffrageActions">
-        {commandes && <button type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
+        {commandes && <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
         {!dossierEfface && commandes && (
-          <button type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
+          <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
             onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
             <Icone nom="exporter" taille={18} />Dossier PDF
           </button>

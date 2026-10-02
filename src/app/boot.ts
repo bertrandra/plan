@@ -69,6 +69,7 @@ import { creerIsolement } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
 import type { SourceControleurs } from './controleurs.js';
+import { inventorierEcran } from './inventaireEcran.js';
 import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
@@ -341,6 +342,8 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
   }
   return {
     appVersion: APP_VERSION,
+    // Ce que la page affiche sans le rattacher au registre : lu, rien n'est clique.
+    ecran: inventorierEcran(document),
     commandes: commandes.lister(),
     exposition: EXPOSITION,
     inspecteur: [...sortes].sort(([a], [b]) => a.localeCompare(b)).map(([cle, o]) => {

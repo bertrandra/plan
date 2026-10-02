@@ -29,7 +29,7 @@ export interface PropsEcranControleurs {
 
 const GENRES: Record<Noeud['genre'], string> = {
   racine: 'racine', branche: 'branche', zone: 'zone', emplacement: 'emplacement', groupe: 'groupe',
-  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ', option: 'valeur'
+  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ', option: 'valeur', controle: 'hors registre', manque: 'absente'
 };
 /** Les libelles des details, tels que le panneau les montre ; une cle inconnue se montre telle quelle. */
 const NOMS_DETAILS: Record<string, string> = {
@@ -38,14 +38,15 @@ const NOMS_DETAILS: Record<string, string> = {
   emplacements: 'Emplacements', atteinte: 'Atteinte', type: 'Type', unite: 'Unité', min: 'Minimum', max: 'Maximum',
   pas: 'Pas', decimales: 'Décimales', modifie: 'Modifie', annulable: 'Annulable', effets: 'Effets',
   conditionnel: 'Conditionnel', activable: 'Activable', explication: 'Explication', appliquerATous: 'Appliquer à tous',
-  aide: 'Aide', valeurs: 'Valeurs permises', ouverture: 'À l’ouverture'
+  aide: 'Aide', valeurs: 'Valeurs permises', ouverture: 'À l’ouverture', sorte: 'Sorte',
+  horsRegistre: 'Hors registre', rattaches: 'Rattachés au registre', portee: 'Portée', consequence: 'Conséquence'
 };
 const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau', retire: 'Retiré', modifie: 'Modifié' };
 
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** Les genres qu'on peut chercher, dans l'ordre de l'arbre. */
-const GENRES_FILTRE: GenreNoeud[] = ['zone', 'emplacement', 'groupe', 'commande', 'famille', 'section', 'champ', 'option'];
+const GENRES_FILTRE: GenreNoeud[] = ['zone', 'emplacement', 'groupe', 'commande', 'famille', 'section', 'champ', 'option', 'controle', 'manque'];
 
 export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEcranControleurs) {
   const [registre, setRegistre] = useState(enregistre);
@@ -309,7 +310,7 @@ function Detail({ noeud, chemin, statut, tous, nav, aller }: {
           <tr><th scope="row">Chemin</th><td><code className="ctlChemin">{chemin}</code></td></tr>
           <tr><th scope="row">Genre</th><td>{GENRES[noeud.genre]} · niveau {fil.length}</td></tr>
           {statut && statut !== 'inchange' && <tr><th scope="row">État</th><td>{STATUTS[statut]}</td></tr>}
-          {noeud.enfants && <tr><th scope="row">Contrôleurs</th><td>{compterFeuilles(noeud)}</td></tr>}
+          {noeud.enfants && compterFeuilles(noeud) > 0 && <tr><th scope="row">Contrôleurs</th><td>{compterFeuilles(noeud)}</td></tr>}
           {Object.entries(noeud.details ?? {}).map(([k, v]) => <tr key={k}><th scope="row">{NOMS_DETAILS[k] ?? k}</th><td>{v}</td></tr>)}
         </tbody>
       </table>

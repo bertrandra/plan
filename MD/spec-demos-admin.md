@@ -116,6 +116,19 @@ enregistre.
     *ligne composée* : ses sous-champs en nœuds enfants ;
   - *section* : repliée à l'ouverture, explication ; *sorte d'objet* : nommée par sa forme et sa
     fonction (« Cercle — Arbre »).
+- **Hors registre** (4ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
+  découverte à l'autre.
+  - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
+    curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,
+    avec le nombre de contrôles rattachés pour comparaison. Un contrôle est rattaché quand lui ou un
+    parent porte `data-commande` (il déclenche une commande), `data-cle` ou `data-section` (champ ou
+    section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
+    cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
+    `data-compte` marque un compteur à ne pas prendre pour un nom. **Portée** : ce qui est monté au
+    moment de la découverte ; un dialogue, un parcours, le relevé de façade, un onglet du tiroir
+    fermés ne se voient pas.
+  - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
+    qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
 - **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).

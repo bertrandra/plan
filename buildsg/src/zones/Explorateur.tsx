@@ -81,11 +81,11 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
       {familles.length > 1 && (
         <div className="explorateurFamilles" role="tablist">
           <button type="button" role="tab" className={'fambtn' + (filtreEffectif === 'tout' ? ' active' : '')} aria-selected={filtreEffectif === 'tout'} onClick={() => setFiltre('tout')}>
-            Tout<span className="fambtnN">{listables.length}</span>
+            Tout<span className="fambtnN" data-compte>{listables.length}</span>
           </button>
           {familles.map(f => (
             <button key={f} type="button" role="tab" className={'fambtn' + (filtreEffectif === f ? ' active' : '')} aria-selected={filtreEffectif === f} onClick={() => setFiltre(f)}>
-              {libelleFamille(f)}<span className="fambtnN">{listables.filter(o => famille(o) === f).length}</span>
+              {libelleFamille(f)}<span className="fambtnN" data-compte>{listables.filter(o => famille(o) === f).length}</span>
             </button>
           ))}
         </div>
@@ -114,12 +114,12 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
         {visibles.map(o => {
           const actif = o.key === etat.selectedKey;
           return (
-            <li key={o.key} className={(actif ? 'active' : '') + (o.hidden ? ' masque' : '')}>
+            <li key={o.key} data-instance={o.name} className={(actif ? 'active' : '') + (o.hidden ? ' masque' : '')}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
+                <button type="button" className="explorateurNom" data-nom="Sélectionner l’objet" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
                   {o.name}
                 </button>
-                <button type="button" className="oeil" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
+                <button type="button" className="oeil" data-nom="Masquer / afficher l’objet" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
                   <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
                 </button>
               </div>
@@ -161,9 +161,9 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
           const estCourante = t.key === etat.selectedKey;
           const hMm = hauteurFinieMm(t);
           return (
-            <li key={t.key} className={estCourante ? 'active' : ''}>
+            <li key={t.key} data-instance={t.name} className={estCourante ? 'active' : ''}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
+                <button type="button" className="explorateurNom" data-nom="Choisir la terrasse" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
                   <span>{t.name}</span>
                   <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
@@ -231,7 +231,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
             <span className="explorateurNom" title={'Les ' + nVoisinage + ' objets importés avec les parcelles adjacentes (bâti, végétation, arbres estimés)'}>
               Voisinage <span className="explorateurCompte">{nVoisinage}</span>
             </span>
-            <button type="button" className="oeil" aria-pressed={etat.voisinageVisible} aria-label={etat.voisinageVisible ? 'Masquer le voisinage' : 'Afficher le voisinage'} title={etat.voisinageVisible ? 'Masquer le voisinage (rien n\'est supprimé)' : 'Afficher le voisinage'} onClick={() => commandes.executer('affichage.voisinage')}>
+            <button data-commande="affichage.voisinage" type="button" className="oeil" aria-pressed={etat.voisinageVisible} aria-label={etat.voisinageVisible ? 'Masquer le voisinage' : 'Afficher le voisinage'} title={etat.voisinageVisible ? 'Masquer le voisinage (rien n\'est supprimé)' : 'Afficher le voisinage'} onClick={() => commandes.executer('affichage.voisinage')}>
               <Icone nom={etat.voisinageVisible ? 'oeil' : 'oeilBarre'} taille={18} />
             </button>
           </div>

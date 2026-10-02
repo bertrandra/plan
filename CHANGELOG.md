@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs : branche « Hors registre ».** La découverte mesure aussi ce que le registre ne
+  couvre pas : les contrôles affichés qui ne déclenchent ni une commande ni un champ de l'inspecteur,
+  rangés par zone (77 dans la démo, contre 145 rattachés), et les fonctions d'objet absentes de la
+  démonstration (mobilier, limite), dont les champs ne sont donc pas découverts. Les boutons qui
+  déclenchent une commande portent désormais tous `data-commande` ; les lignes répétées de
+  l'explorateur et des cotes sont comptées une fois.
 - **Contrôleurs de l'écran, pour l'admin** (`?admin&ecran=controleurs`, MD/spec-demos-admin.md).
   Un écran à part découvre dans Plan en marche l'arbre de ses contrôleurs — zones et emplacements,
   registre des commandes, champs de l'inspecteur —, chacun avec sa clé et son nom explicite,

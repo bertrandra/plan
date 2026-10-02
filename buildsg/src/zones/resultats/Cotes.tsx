@@ -54,14 +54,14 @@ export function Cotes({ resultats, commandes }: { resultats: Resultats; commande
           const g = resultats.geometrieCote(m);
           const mode = m.displayMode || 'along';
           return (
-            <tr key={m.id}>
+            <tr key={m.id} data-instance={m.id}>
               <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
               <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
-              <td><button type="button" className="secondary small" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
+              <td><button type="button" className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
                 onClick={() => resultats.modifierCote(m.id, x => { x.startEnd = x.startEnd === 'A' ? 'B' : 'A'; })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
               <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
               <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
-              <td><button type="button" className="secondary small" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
+              <td><button type="button" className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
                 onClick={() => resultats.modifierCote(m.id, x => { x.displayMode = (x.displayMode || 'along') === 'along' ? 'perp' : 'along'; })}>
                 {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
               <td><input type="checkbox" checked={!!m.show} aria-label="Afficher sur le plan"

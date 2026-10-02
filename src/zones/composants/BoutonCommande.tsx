@@ -19,7 +19,7 @@ export function BoutonCommande({ commandes, id, className, children, enCours, do
   const etat = commandes.etat(id);
   const message = 'message' in etat ? etat.message : undefined;
   return (
-    <button type="button" id={domId} className={className} disabled={!etat.utilisable || !!enCours} title={message}
+    <button type="button" id={domId} data-commande={id} className={className} disabled={!etat.utilisable || !!enCours} title={message}
       onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       {enCours || children}
     </button>
