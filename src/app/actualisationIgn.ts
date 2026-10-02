@@ -41,7 +41,6 @@ export interface ContexteActualisation {
   restoreState: (instantane: { objects: ObjetBrut[]; measures: unknown[] }) => void;
   serializeMeasures: (ms: EtatApp['measures']) => unknown[];
   serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
-  syncBasculeVoisinage: () => void;
   syncLieuTitre: () => void;
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
 }
@@ -287,9 +286,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       } catch { bilan.push('PLU indisponible'); }
     }
     ctx.markDirty();
-    // La case « Voisinage » n'apparait que s'il y a du voisinage : elle vient peut-etre d'en
-    // gagner (ou d'en perdre, si l'utilisateur annule).
-    ctx.syncBasculeVoisinage();
+    // Le menu Affichage ne propose « Voisinage » que s'il y en a : il vient peut-etre d'en gagner
+    // (ou d'en perdre, si l'utilisateur annule). Le magasin le redit aux zones.
     ctx.rebuildSelector();
     ctx.syncLieuTitre();
     ctx.render();

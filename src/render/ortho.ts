@@ -10,7 +10,6 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
-import { elOpt } from '../shell/dom.js';
 import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
@@ -126,18 +125,6 @@ export function enregistrerConfigOrtho(ctx: ContexteOrtho): void {
   c.parcelleOpacite = ortho.parcelleOpacite;
   ctx.markDirty();
 }
-export function syncControlesOrtho(){
-  const o = elOpt<HTMLInputElement>('orthoOpacite');
-  if(o) o.value = String(Math.round(ortho.opacite*100));
-  const ot = document.getElementById('orthoOpaciteTexte');
-  if(ot) ot.textContent = Math.round(ortho.opacite*100) + ' %';
-  const p = elOpt<HTMLInputElement>('orthoParcelleOpacite');
-  if(p) p.value = String(Math.round(ortho.parcelleOpacite*100));
-  const pt = document.getElementById('orthoParcelleOpaciteTexte');
-  if(pt) pt.textContent = Math.round(ortho.parcelleOpacite*100) + ' %';
-  const cb = elOpt<HTMLInputElement>('chkOrtho');
-  if(cb) cb.checked = ortho.actif;
-}
 // Au chargement d'un projet : on restitue les reglages, et on rallume le fond s'il etait actif.
 export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   const c = configOrtho(false, ctx);
@@ -150,7 +137,7 @@ export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   }
   ortho.opacite = c.opacite;
   ortho.parcelleOpacite = c.parcelleOpacite;
-  syncControlesOrtho();
+  // Les curseurs du menu Affichage lisent `ortho` a chaque rendu des zones (zones/BarreApplication.tsx).
   if(c.actif) void basculerOrthophoto(true, ctx);
   else if(ortho.actif) void basculerOrthophoto(false, ctx);
 }
@@ -306,14 +293,11 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
  * case reste decochee, la personne peut reessayer.
  */
 export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, discret = false): Promise<void> {
+  // La bascule du menu Affichage lit `ortho.actif` a chaque rendu : rien a cocher a la main.
   ortho.actif = actif;
-  const cbHaut = elOpt<HTMLInputElement>('chkOrtho');
-  if(cbHaut) cbHaut.checked = actif;
   if(!actif){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
   if(ortho.tuiles.length){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
   ortho.chargement = true;
-  const cb = elOpt<HTMLInputElement>('chkOrtho');
-  if(cb) cb.disabled = true;
   try {
     const r = await chargerOrthophoto(ctx);
     ctx.render();
@@ -322,11 +306,11 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, dis
       (r.exact ? '.' : ' — calage approximatif (plan sans import cadastre : le fond est posé sur le lieu déclaré de la parcelle).'));
   } catch(e){
     ortho.actif = false;
-    if(cb) cb.checked = false;
+    // Le rendu redit au menu que le fond est eteint.
+    ctx.render();
     if(!discret) showToast('Orthophoto indisponible : ' + ((e as Error).message || e));
   } finally {
     ortho.chargement = false;
-    if(cb) cb.disabled = false;
   }
 }
 

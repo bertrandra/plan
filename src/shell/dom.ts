@@ -9,7 +9,7 @@
 //                         index.html declare : si l'element n'est pas la, c'est un bug de
 //                         structure, et echouer bruyamment au demarrage vaut mieux qu'un
 //                         `if (!x) return;` qui rend la fonction silencieusement inerte.
-//   elOpt('gridBtn')   -> l'element ou null, pour ce qui est cree dynamiquement.
+//   elOpt('id')        -> l'element ou null, pour ce qui n'est pas toujours dans la page.
 //
 // Les 246 sites migreront progressivement ; ce module est en place pour que le code neuf n'en
 // ajoute pas de nouveau.

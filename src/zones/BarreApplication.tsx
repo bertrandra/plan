@@ -17,7 +17,7 @@ import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
-import type { Magasin } from '../app/magasin.js';
+import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
@@ -75,11 +75,23 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
 
 /** Une case a cocher de reglage, non controlee : la commande qui s'en sert la lit par son identifiant. */
 /** Une case d'option dans un menu : elle regle la commande qui suit (app/controlesInterface.ts). */
-function Case({ idDom, controle, libelle, defaut, titre }: { idDom: string; controle: string; libelle: string; defaut: boolean; titre?: string }) {
+/** Une option d'une commande du menu : le magasin la tient (`options`), la commande la lit la. */
+type OptionCase = { [K in keyof OptionsCommandes]: OptionsCommandes[K] extends boolean ? K : never }[keyof OptionsCommandes];
+function Case({ magasin, option, idDom, controle, libelle, titre }: { magasin: Magasin; option: OptionCase; idDom: string; controle: string; libelle: string; titre?: string }) {
+  const coche = useStore(magasin.store, (s) => s.options[option]);
   return (
-    <li className="menuCase" role="menuitemcheckbox">
-      <label title={titre}><input type="checkbox" id={idDom} data-controle={controle} defaultChecked={defaut} />{libelle}</label>
+    <li className="menuCase" role="menuitemcheckbox" aria-checked={coche}>
+      <label title={titre}><input type="checkbox" id={idDom} data-controle={controle} checked={coche} onChange={(e) => magasin.definirOption(option, e.target.checked)} />{libelle}</label>
     </li>
+  );
+}
+
+/** L'echelle du PDF : un brouillon libre pendant la frappe, l'option ne retient qu'un entier positif. */
+function EchellePdf({ magasin }: { magasin: Magasin }) {
+  const echelle = useStore(magasin.store, (s) => s.options.echellePdf);
+  return (
+    <input type="number" id="pdfScaleInput" data-controle="export.option.echellePdf" defaultValue={echelle} min={1} step={1}
+      onChange={(e) => { const v = parseInt(e.target.value, 10); if (v > 0) magasin.definirOption('echellePdf', v); }} />
   );
 }
 
@@ -98,18 +110,18 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
-        <Case idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" defaut={false} />
+        <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />
         <Entree commandes={commandes} id="fichier.importerJson" libelle="Importer un projet (JSON)…" idDom="importJsonBtn" />
-        <Case idDom="chkJsonRemplace" controle="fichier.option.remplacerImportJson" libelle="Remplacer le plan actuel" defaut={true} titre="Décoché : les objets du fichier s'ajoutent au plan" />
+        <Case magasin={magasin} option="remplacerImportJson" idDom="chkJsonRemplace" controle="fichier.option.remplacerImportJson" libelle="Remplacer le plan actuel" titre="Décoché : les objets du fichier s'ajoutent au plan" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.exporterJson" libelle="Exporter le projet (JSON)" idDom="exportJsonBtn" />
-        <Case idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" defaut={false} titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
+        <Case magasin={magasin} option="exportSansParcelle" idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
       </ul>
     </details>
   );
 }
 
-function MenuExporter({ commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
+function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
   return (
     <details className="menu" id="menuExporter">
       <summary>Exporter</summary>
@@ -120,12 +132,12 @@ function MenuExporter({ commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
         <Entree commandes={commandes} id="export.png" libelle="PNG" idDom="exportPngBtn" />
         <Entree commandes={commandes} id="export.dxf" libelle="DXF" idDom="exportDxfBtn" />
         <li className="menuReglage">
-          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<input type="number" id="pdfScaleInput" data-controle="export.option.echellePdf" defaultValue={200} min={1} step={1} /></label>
+          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<EchellePdf magasin={magasin} /></label>
         </li>
         <Entree commandes={commandes} id="export.pdf" libelle="PDF du plan" idDom="exportPdfBtn" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.dossier" libelle="Dossier PDF des terrasses" idDom="dossierPdfBtn" />
-        <Case idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" defaut={true} titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
+        <Case magasin={magasin} option="dossierEquipements" idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
         <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
@@ -150,7 +162,8 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
-        <input type="range" id={idDom} data-commande={id} min={min} max={100} step={5} defaultValue={valeur} onInput={(e) => commandes.executer(id, e.currentTarget)} />
+        <input type="range" id={idDom} data-commande={id} min={min} max={100} step={5} value={valeur}
+          onChange={(e) => { commandes.executer(id, e.currentTarget); magasin.notifier(); }} />
         <span id={idTexte} className="valeur">{valeur} %</span>
       </label>
     </li>

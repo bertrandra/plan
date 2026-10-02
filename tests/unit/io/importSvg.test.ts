@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { importSVGString } from '../../../src/io/importSvg.js';
@@ -32,15 +32,11 @@ function cotesDuFichier(): Record<string, unknown>[] {
   return JSON.parse(doc.getElementById('measures-data')!.getAttribute('data-measures')!);
 }
 
-beforeEach(() => {
-  // Le mode « remplacement » est une case de la page : sans elle, les cotes du fichier sont ignorees.
-  document.body.innerHTML = '<input type="checkbox" id="chkReplaceOnImport" checked>';
-});
-
 describe('importSVGString — restauration des cotes', () => {
   it('restaure les onze cotes du fichier dore, references intactes', () => {
     const etat = etatVide();
-    importSVGString(svgDore, etat, ctx);
+    // Le mode « remplacement » (option du menu Fichier) : sans lui, les cotes du fichier sont ignorees.
+    importSVGString(svgDore, etat, ctx, true);
     expect(etat.objects).toHaveLength(35);
     expect(etat.measures).toHaveLength(11);
     const attendues = cotesDuFichier();
@@ -63,7 +59,7 @@ describe('importSVGString — restauration des cotes', () => {
       { ...seconde, startEnd: 'nimporte' }                          // intacte, startEnd normalise
     ];
     const etat = etatVide();
-    importSVGString(svgAvecCotes(abimees), etat, ctx);
+    importSVGString(svgAvecCotes(abimees), etat, ctx, true);
     expect(etat.measures).toHaveLength(2);
     expect(etat.measures[0]!.refSegIndex).toBe(premiere!.refSegIndex);
     expect(etat.measures[1]!.startEnd).toBe('A');
@@ -74,7 +70,7 @@ describe('importSVGString — restauration des cotes', () => {
     const doc = new DOMParser().parseFromString(svgDore, 'image/svg+xml');
     doc.getElementById('measures-data')!.setAttribute('data-measures', '{"pas":"un tableau"}');
     const etat = etatVide();
-    importSVGString(new XMLSerializer().serializeToString(doc), etat, ctx);
+    importSVGString(new XMLSerializer().serializeToString(doc), etat, ctx, true);
     expect(etat.objects).toHaveLength(35);
     expect(etat.measures).toHaveLength(0);
   });
@@ -82,14 +78,13 @@ describe('importSVGString — restauration des cotes', () => {
 
 describe('importSVGString — attributs absents d un SVG etranger (D-6)', () => {
   it('ecarte les points illisibles au lieu de poser des coordonnees undefined', () => {
-    document.body.innerHTML = '<input type="checkbox" id="chkReplaceOnImport">';
     const etat = etatVide();
     const svg = '<svg xmlns="http://www.w3.org/2000/svg">' +
       '<polygon points="0,0 4,0 4 4,3 0,3" />' +
       '<circle cx="1" cy="1" />' +
       '<circle cx="1" cy="1" r="2" />' +
       '</svg>';
-    importSVGString(svg, etat, ctx);
+    importSVGString(svg, etat, ctx, false);
     const [poly, cercle, ...reste] = etat.objects;
     expect(reste).toHaveLength(0);
     // « 4 » seul n'a pas de y : ce jeton est ecarte, les quatre coins restent.

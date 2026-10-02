@@ -15,7 +15,6 @@ import { referencesDeCote } from '../model/mesures.js';
 import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
 import { showToast } from '../shell/dialogs.js';
-import { elOpt } from '../shell/dom.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
 
@@ -62,7 +61,8 @@ function viderLePlan(etat: EtatApp): void {
   etat.selectedKey = null;
 }
 
-export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImportSvg): void {
+/** `remplacer` : supprimer les objets existants avant d'importer (option du menu Fichier). */
+export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImportSvg, remplacer: boolean): void {
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
   const perr = doc.querySelector('parsererror');
   if(perr) throw new Error('SVG invalide ou mal forme');
@@ -71,7 +71,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
   const minx = nombre(root, 'data-minx');
   const pad = nombre(root, 'data-pad');
   const maxy = nombre(root, 'data-maxy');
-  const replaceMode = !!elOpt<HTMLInputElement>('chkReplaceOnImport')?.checked;
+  const replaceMode = remplacer;
 
   function svgToWorld(x: number, y: number): { x: number; y: number } {
     if(isOwn && Number.isFinite(minx) && Number.isFinite(pad) && Number.isFinite(maxy)){

@@ -27,7 +27,7 @@ export const IDENTIFIANTS_HORS_REGISTRE = [
   'glbViewerFilaire', 'glbViewerShadows', 'glbViewerFond', 'glbViewerViewSelect', 'glbViewerDate', 'glbViewerSemaine',
   'glbViewerHeure', 'glbViewerHeureTexte', 'glbViewerIntensite', 'glbViewerIntensiteTexte', 'glbViewerLumiereAppoint',
   'glbViewerLieu', 'glbViewerCanvasHost', 'glbViewerEmpty', 'glbViewerLoading', 'glbViewerContent', 'glbViewerHint',
-  // Fichiers et reglages lus a l'action
+  // Champs fichier caches, options des menus (le magasin les tient ; l'identifiant sert a la fumee)
   'importSvgFile', 'importJsonFile', 'chkReplaceOnImport', 'chkJsonRemplace', 'chkExportSansParcelle',
   'chkDossierEquipements', 'pdfScaleInput', 'orthoOpacite', 'orthoParcelleOpacite',
   // Panneaux du tiroir
