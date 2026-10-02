@@ -23,9 +23,9 @@ function estRegistre(d: unknown): d is RegistreControleurs {
 }
 
 /** La lecture des controleurs de Plan, une fois Plan demarre. Il ne demarre qu'une fois par page. */
-let lecture: Promise<() => SourceControleurs> | null = null;
+let lecture: Promise<() => Promise<SourceControleurs>> | null = null;
 
-function demarrerPlan(): Promise<() => SourceControleurs> {
+function demarrerPlan(): Promise<() => Promise<SourceControleurs>> {
   lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(([{ boot, graineVitrine }, { FONCTIONS }]) => new Promise((resoudre) => {
     // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
     const graine = graineVitrine();
@@ -37,7 +37,7 @@ function demarrerPlan(): Promise<() => SourceControleurs> {
 
 async function decouvrir(): Promise<Decouverte> {
   const lire = await demarrerPlan();
-  const source = lire();
+  const source = await lire();
   return { arbre: construireArbre(source), le: new Date().toISOString(), appVersion: source.appVersion };
 }
 

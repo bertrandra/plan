@@ -12,10 +12,10 @@ import type { RegistreCommandes } from '../app/commandes.js';
 
 export interface PropsBarreNavigation { magasin: Magasin; commandes: RegistreCommandes }
 
-function Onglet({ feuille, libelle, icone, magasin }: { feuille: Feuille; libelle: string; icone: NomIcone; magasin: Magasin }) {
+function Onglet({ feuille, libelle, icone, controle, magasin }: { feuille: Feuille; libelle: string; icone: NomIcone; controle: string; magasin: Magasin }) {
   const ouverte = useStore(magasin.store, (s) => s.feuille) === feuille;
   return (
-    <button type="button" className={'ongletNavigation' + (ouverte ? ' actif' : '')} aria-expanded={ouverte}
+    <button type="button" className={'ongletNavigation' + (ouverte ? ' actif' : '')} data-controle={controle} aria-expanded={ouverte}
       onClick={() => magasin.definirFeuille(ouverte ? null : feuille)}>
       <Icone nom={icone} />
       <span>{libelle}</span>
@@ -33,7 +33,7 @@ export function BarreNavigation({ magasin, commandes }: PropsBarreNavigation) {
   const refusCoter = !coter.utilisable && 'message' in coter ? coter.message : undefined;
   return (
     <nav className="barreNavigation" aria-label="Navigation principale">
-      <Onglet feuille="objets" libelle="Objets" icone="objets" magasin={magasin} />
+      <Onglet feuille="objets" libelle="Objets" icone="objets" controle="navigation.objets" magasin={magasin} />
       {!commandes.effacee('mesure.nouvelle') && (
         <button type="button" className="ongletNavigation" data-commande="mesure.nouvelle" disabled={!coter.utilisable}
           title={refusCoter} onClick={() => { magasin.definirFeuille(null); commandes.executer('mesure.nouvelle'); }}>
@@ -41,12 +41,12 @@ export function BarreNavigation({ magasin, commandes }: PropsBarreNavigation) {
           <span>Coter</span>
         </button>
       )}
-      <button type="button" className={'boutonCreer' + (feuille === 'outils' ? ' actif' : '')} aria-label="Créer et éditer" aria-expanded={feuille === 'outils'}
+      <button type="button" className={'boutonCreer' + (feuille === 'outils' ? ' actif' : '')} data-controle="navigation.creer" aria-label="Créer et éditer" aria-expanded={feuille === 'outils'}
         onClick={() => magasin.definirFeuille(feuille === 'outils' ? null : 'outils')}>
         <Icone nom="plus" taille={26} />
       </button>
-      <Onglet feuille="proprietes" libelle="Propriétés" icone="reglages" magasin={magasin} />
-      <Onglet feuille="resultats" libelle="Résultats" icone="resultats" magasin={magasin} />
+      <Onglet feuille="proprietes" libelle="Propriétés" icone="reglages" controle="navigation.proprietes" magasin={magasin} />
+      <Onglet feuille="resultats" libelle="Résultats" icone="resultats" controle="navigation.resultats" magasin={magasin} />
     </nav>
   );
 }

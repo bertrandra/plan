@@ -50,7 +50,7 @@ export interface SourceControleurs {
    */
   inspecteur: { cle: string; nom: string; sections: Section[]; echantillon?: boolean; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
   /** L'inventaire de la page (app/inventaireEcran.ts) : les controles affiches hors registre. */
-  ecran?: { horsRegistre: ControleEcran[]; rattaches: number };
+  ecran?: { horsRegistre: ControleEcran[]; rattaches: number; classes?: string[] };
 }
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
@@ -283,9 +283,13 @@ function controlesInterface(): Noeud {
  *   - les fonctions d'objet que la demonstration ne contient pas : leurs champs propres ne sont
  *     jamais demandes a l'inspecteur, donc jamais decouverts.
  */
+/** Le nom d'une classe d'ecran, tel que l'admin le lit. */
+const nomClasse = (c: string) => (NOMS_CLASSES as Record<string, string>)[c] ?? c;
+
 function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
   const enfants: Noeud[] = [];
   if (s.ecran) {
+    const classes = s.ecran.classes ?? [];
     const parZone = new Map<string, ControleEcran[]>();
     for (const c of s.ecran.horsRegistre) parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), c]);
     enfants.push({
@@ -293,6 +297,7 @@ function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
       details: {
         horsRegistre: String(s.ecran.horsRegistre.length),
         rattaches: String(s.ecran.rattaches),
+        ...(classes.length ? { classes: classes.map(nomClasse).join(', ') } : {}),
         portee: 'ce qui est affiché au moment de la découverte : un dialogue, un parcours ou le relevé de façade fermés ne se voient pas'
       },
       enfants: [...parZone].sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([zone, cs]): Noeud => ({
@@ -300,7 +305,11 @@ function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
         enfants: sansDoublons(cs.map((c): Noeud => ({
           cle: c.cle, nom: c.nom, genre: 'controle',
           // Le nombre d'exemplaires suit les donnees de la demo : il n'entre pas dans la comparaison.
-          details: { sorte: c.sorte, ...(c.repete ? { portee: 'répété sur chaque ligne (objet, cote…)' } : {}) }
+          details: {
+            sorte: c.sorte, ...(c.repete ? { portee: 'répété sur chaque ligne (objet, cote…)' } : {}),
+            // Un controle propre a certaines dispositions (le telephone seul…) le dit.
+            ...(c.classes && c.classes.length < classes.length ? { classes: c.classes.map(nomClasse).join(', ') } : {})
+          }
         })))
       }))
     });

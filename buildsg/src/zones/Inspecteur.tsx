@@ -273,7 +273,7 @@ function BandeauChiffrage({ c, ouvrir }: { c: ContexteChamps; ouvrir: () => void
   // lignes ou un prix existe, et la montrer seule ferait croire a un total.
   const prix = euros(r.bas) + ' – ' + euros(r.haut);
   return (
-    <button type="button" className="bandeauChiffrage" onClick={ouvrir}>
+    <button type="button" className="bandeauChiffrage" data-controle="inspecteur.chiffrage" onClick={ouvrir}>
       <span className="bandeauChiffrageTextes">
         <span className="bandeauChiffrageTitre">Chiffrage recalculé</span>
         <span className="bandeauChiffrageValeurs">{r.appuis} {r.natureAppuis} · {Math.round(r.lamesMl)} ml de lames · {prix}</span>
@@ -308,7 +308,7 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
   return (
     <div className="famillesSections segmente" role="tablist" aria-label="Sections">
       {FAMILLES.filter(f => presentes.includes(f.id)).map(f => (
-        <button key={f.id} type="button" role="tab" data-famille={f.id} aria-selected={f.id === active} className={f.id === active ? 'actif' : ''}
+        <button key={f.id} type="button" role="tab" data-famille={f.id} data-controle={'inspecteur.famille.' + f.id} aria-selected={f.id === active} className={f.id === active ? 'actif' : ''}
           onClick={(e) => {
             choisir(f.id);
             // Une famille dont toutes les sections sont repliees (Geometrie) s'ouvrirait sur trois

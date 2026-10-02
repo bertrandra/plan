@@ -91,7 +91,7 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
         </div>
         {bouton('objet.dupliquer', 'dupliquer', 'Dupliquer')}
         {bouton('objet.supprimer', 'supprimer', 'Supprimer')}
-        <button type="button" className="boutonIcone" aria-label="Désélectionner" title="Désélectionner" onClick={() => explorateur.selectionner(null)}>
+        <button type="button" className="boutonIcone" data-controle="selection.deselectionner" aria-label="Désélectionner" title="Désélectionner" onClick={() => explorateur.selectionner(null)}>
           <Icone nom="fermer" taille={20} />
         </button>
       </div>
@@ -101,8 +101,8 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
         ))}
       </dl>
       <div className="selectionActions">
-        <button type="button" className="secondary" onClick={ouvrirProprietes}>Propriétés</button>
-        <button type="button" onClick={ouvrirResultats}>{terrasse ? 'Chiffrage' : 'Résultats'}</button>
+        <button type="button" className="secondary" data-controle="selection.proprietes" onClick={ouvrirProprietes}>Propriétés</button>
+        <button type="button" data-controle="selection.resultats" onClick={ouvrirResultats}>{terrasse ? 'Chiffrage' : 'Résultats'}</button>
       </div>
     </section>
   );

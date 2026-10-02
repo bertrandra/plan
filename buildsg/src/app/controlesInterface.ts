@@ -45,6 +45,7 @@ export interface ControleInterface {
 
 const Z1 = 'Z1 Barre d’application', Z3 = 'Z3 Explorateur', Z4 = 'Z4 Vues 3D', Z5 = 'Z5 Inspecteur', Z6 = 'Z6 Résultats';
 const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Relevé de façade', FEUILLES = 'Feuilles (téléphone)';
+const SELECTION = 'Z4 Barre de sélection', NAVIGATION = 'Navigation (téléphone)';
 
 /** Une etape d'un ecran qui ne s'ouvre qu'a la demande : on ne la voit pas tant qu'il est ferme. */
 const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<ControleInterface> = {}): ControleInterface =>
@@ -78,6 +79,10 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'export.option.dossierEquipements': { libelle: 'Inclure l’emprise des équipements (dossier PDF)', zone: Z1, nature: 'option' },
   'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir' },
   'aide.version': { libelle: 'Version', zone: Z1, nature: 'sortie' },
+  'projet.choisir': { libelle: 'Choisir le projet à ouvrir', zone: Z1, nature: 'navigation', description: 'Ouvre un autre projet (ou une autre démo, en admin) ; le projet courant n’est pas modifié' },
+  'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },
+  'barre.projetEtMenus': { libelle: 'Projet et menus (tablette, téléphone)', zone: Z1, nature: 'navigation', description: 'Ouvre la feuille Projet, qui porte les menus du bureau' },
+  'barre.exporter': { libelle: 'Exporter (tablette, téléphone)', zone: Z1, nature: 'navigation', description: 'Ouvre la feuille Projet sur le menu Exporter' },
 
   // ---- Z3 : l'explorateur ----------------------------------------------------------------------
   'explorateur.replier': { libelle: 'Replier ou déplier l’explorateur', zone: Z3, nature: 'navigation' },
@@ -99,6 +104,10 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Z5 : l'inspecteur -------------------------------------------------------------------------
   'inspecteur.replier': { libelle: 'Replier ou déplier l’inspecteur', zone: Z5, nature: 'navigation' },
   'inspecteur.replierSections': { libelle: 'Replier ou déplier toutes les sections', zone: Z5, nature: 'navigation' },
+  'inspecteur.famille.objet': { libelle: 'Sections de l’objet (au doigt)', zone: Z5, nature: 'navigation' },
+  'inspecteur.famille.geometrie': { libelle: 'Sections de géométrie (au doigt)', zone: Z5, nature: 'navigation' },
+  'inspecteur.famille.construction': { libelle: 'Sections de construction (au doigt)', zone: Z5, nature: 'navigation' },
+  'inspecteur.chiffrage': { libelle: 'Bandeau du chiffrage recalculé', zone: Z5, nature: 'navigation', description: 'Résume le chiffrage de la terrasse ; ouvre son détail' },
 
   // ---- Z6 : le tiroir des resultats ----------------------------------------------------------------
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
@@ -115,6 +124,15 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Feuilles et notifications : les cadres communs ------------------------------------------
   'feuille.hauteur': { libelle: 'Hauteur de la feuille (glisser la poignée)', zone: FEUILLES, nature: 'navigation', repete: true },
   'feuille.fermer': { libelle: 'Fermer la feuille', zone: FEUILLES, nature: 'navigation', repete: true },
+
+  // ---- Barre de sélection et navigation du bas (tablette, téléphone) ------------------------------
+  'selection.deselectionner': { libelle: 'Désélectionner', zone: SELECTION, nature: 'navigation' },
+  'selection.proprietes': { libelle: 'Propriétés de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre l’inspecteur' },
+  'selection.resultats': { libelle: 'Chiffrage ou résultats de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre le tiroir des résultats' },
+  'navigation.objets': { libelle: 'Objets', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de l’explorateur' },
+  'navigation.creer': { libelle: 'Créer et éditer', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de la palette' },
+  'navigation.proprietes': { libelle: 'Propriétés', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de l’inspecteur' },
+  'navigation.resultats': { libelle: 'Résultats', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille du tiroir' },
   'notification.fermer': { libelle: 'Fermer une erreur', zone: Z9, nature: 'navigation', repete: true },
 
   // ---- Z8 : les ecrans qui ne s'ouvrent qu'a la demande ----------------------------------------

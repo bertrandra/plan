@@ -18,7 +18,7 @@ const sources = fichiers('src/zones').filter((f) => f.endsWith('.tsx')).map((f) 
 /** Les cles ecrites en toutes lettres : `data-controle="…"` et la prop `controle="…"`. */
 const litterales = new Set([...sources.matchAll(/\b(?:data-controle|controle)="([^"]+)"/g)].map((m) => m[1]!));
 /** Les cles composees : un prefixe et une variable, `'explorateur.etiquettesTous.' + champ`. */
-const prefixes = [...sources.matchAll(/data-controle=\{'([^']+\.)' \+ \w+\}/g)].map((m) => m[1]!);
+const prefixes = [...sources.matchAll(/data-controle=\{'([^']+\.)' \+ [\w.]+\}/g)].map((m) => m[1]!);
 /** Les cles d'une vue 3D : `vue + '.date'`, `ids.vue + '.date'`, pour la Vue 3D et la visionneuse. */
 const suffixes = [...sources.matchAll(/data-controle=\{(?:ids\.)?vue \+ '(\.[A-Za-z]+)'\}/g)].map((m) => m[1]!);
 

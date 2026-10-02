@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { inventorierEcran } from '../../../src/app/inventaireEcran.js';
+import { inventorierEcran, fusionnerInventaires } from '../../../src/app/inventaireEcran.js';
 import { construireArbre, aplatir } from '../../../src/app/controleurs.js';
 import { EXPOSITION } from '../../../src/app/exposition.js';
 import type { Section } from '../../../src/ui/champs/types.js';
@@ -86,5 +86,32 @@ describe('branche « Hors registre » de l arbre', () => {
   it('liste les fonctions d objet absentes de la demo', () => {
     const absentes = tous.get('plan/horsRegistre/sortesAbsentes')?.enfants?.map((n) => n.cle + '=' + n.nom);
     expect(absentes).toEqual(['mobilier=Mobilier', 'limite=Limite']);
+  });
+});
+
+describe('fusion des releves de plusieurs classes d ecran', () => {
+  const desel = { zone: 'Z4 Barre de sélection', cle: 'bouton:deselectionner', nom: 'Désélectionner', sorte: 'bouton' };
+  const fusion = fusionnerInventaires([
+    { classe: 'large', rattaches: 260, horsRegistre: [] },
+    { classe: 'moyen', rattaches: 240, horsRegistre: [desel, { zone: 'Z3 Explorateur', cle: 'bouton:masquer', nom: 'Masquer …', sorte: 'bouton', repete: 3 }] },
+    { classe: 'compact', rattaches: 250, horsRegistre: [desel, { zone: 'Z3 Explorateur', cle: 'bouton:masquer', nom: 'Masquer …', sorte: 'bouton', repete: 5 }] },
+    { classe: 'compact', rattaches: 255, horsRegistre: [desel] }
+  ]);
+
+  it('compte un controle une fois, avec les classes ou il s affiche', () => {
+    expect(fusion.classes).toEqual(['large', 'moyen', 'compact']);
+    expect(fusion.horsRegistre).toHaveLength(2);
+    expect(fusion.horsRegistre[0]).toMatchObject({ cle: 'bouton:deselectionner', classes: ['moyen', 'compact'] });
+    expect(fusion.horsRegistre[1]).toMatchObject({ repete: 5 });
+  });
+
+  it('garde le releve le plus fourni pour les rattaches, sans additionner', () => {
+    expect(fusion.rattaches).toBe(260);
+  });
+
+  it('dit dans l arbre les classes parcourues, et celles d un controle qui n est pas partout', () => {
+    const tous = aplatir(construireArbre({ appVersion: '9', commandes: [], exposition: EXPOSITION, inspecteur: [], ecran: fusion }));
+    expect(tous.get('plan/horsRegistre/ecran')?.details?.classes).toBe('bureau, tablette, téléphone');
+    expect(tous.get('plan/horsRegistre/ecran/Z4-Barre-de-sélection/bouton:deselectionner')?.details?.classes).toBe('tablette, téléphone');
   });
 });

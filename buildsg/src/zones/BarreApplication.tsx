@@ -318,7 +318,7 @@ function SortieAdmin({ magasin }: { magasin: Magasin }) {
   return (
     <div id="compteBar">
       <span className="compteLien compteAdmin">Admin des démos</span>
-      <button type="button" id="sortieAdminBtn" className="compteLien compteSortie" onClick={sortir}
+      <button type="button" id="sortieAdminBtn" data-controle="admin.seDeconnecter" className="compteLien compteSortie" onClick={sortir}
         title="Fermer la session admin. Le mot de passe sera redemandé.">
         Se déconnecter
       </button>
@@ -374,7 +374,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   const menus = (
     <>
       {p.apiDisponible && (
-        <select id="projectSelect" title="Choisir un projet" aria-label="Choisir un projet" value={p.courant ? p.courant.id : ''} onChange={(e) => projet.ouvrir(e.target.value)}>
+        <select id="projectSelect" data-controle="projet.choisir" title="Choisir un projet" aria-label="Choisir un projet" value={p.courant ? p.courant.id : ''} onChange={(e) => projet.ouvrir(e.target.value)}>
           {p.liste.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       )}
@@ -396,7 +396,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <>
         {/* La barre haute du telephone (spec-ihm-mobile §6.1) : le projet, son statut, Annuler, Exporter. */}
         <div className="barreCompacte">
-          <button type="button" className="boutonIcone" aria-label="Projet et menus" aria-expanded={feuille === 'projet'} onClick={() => feuille === 'projet' ? magasin.definirFeuille(null) : ouvrirProjet()}>
+          <button type="button" className="boutonIcone" data-controle="barre.projetEtMenus" aria-label="Projet et menus" aria-expanded={feuille === 'projet'} onClick={() => feuille === 'projet' ? magasin.definirFeuille(null) : ouvrirProjet()}>
             <Icone nom="menu" />
           </button>
           <div className="barreTitre">
@@ -413,7 +413,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
             </button>
           )}
           {!compact && vues}
-          <button type="button" className="boutonIcone" aria-label="Exporter" onClick={() => ouvrirProjet('menuExporter')}>
+          <button type="button" className="boutonIcone" data-controle="barre.exporter" aria-label="Exporter" onClick={() => ouvrirProjet('menuExporter')}>
             <Icone nom="exporter" />
           </button>
         </div>

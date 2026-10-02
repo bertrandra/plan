@@ -18,6 +18,8 @@
 //
 // Limite assumee, et dite dans l'arbre : seul ce qui est monte au moment de la decouverte se voit.
 // Un dialogue ferme, un parcours non ouvert, l'ecran de releve n'existent pas encore dans la page.
+// La disposition, elle, n'est plus une limite : la decouverte releve la page dans chaque classe
+// d'ecran (app/decouverteClasses.ts) et `fusionnerInventaires` reunit les releves.
 
 /** Un controle de l'ecran, hors registre. */
 export interface ControleEcran {
@@ -31,7 +33,12 @@ export interface ControleEcran {
   sorte: string;
   /** Un controle repete d'une ligne a l'autre (une par objet, par cote…) : combien de fois. */
   repete?: number;
+  /** Les classes d'ecran ou il s'affiche, quand la decouverte en a parcouru plusieurs. */
+  classes?: string[];
 }
+
+/** Un releve de la page dans une classe d'ecran. */
+export interface Releve { classe: string; horsRegistre: ControleEcran[]; rattaches: number }
 
 /** Les conteneurs d'index.html et la zone qu'ils portent (MD/spec-ihm-zones.md §3). */
 export const ZONES_DOM: Record<string, string> = {
@@ -141,4 +148,27 @@ export function inventorierEcran(doc: Document): { horsRegistre: ControleEcran[]
     horsRegistre.push({ zone, cle: cleDe(el.id, nom, sorte), nom, sorte });
   }
   return { horsRegistre, rattaches };
+}
+
+/**
+ * Reunit les releves de plusieurs dispositions : un controle vu dans plusieurs classes n'est compte
+ * qu'une fois, avec les classes ou il s'affiche. Les rattaches ne s'additionnent pas (le meme
+ * controle se retrouve d'une classe a l'autre) : on garde le releve le plus fourni.
+ */
+export function fusionnerInventaires(releves: Releve[]): { horsRegistre: ControleEcran[]; rattaches: number; classes: string[] } {
+  const parCle = new Map<string, ControleEcran>();
+  const classes: string[] = [];
+  let rattaches = 0;
+  for (const r of releves) {
+    if (!classes.includes(r.classe)) classes.push(r.classe);
+    rattaches = Math.max(rattaches, r.rattaches);
+    for (const c of r.horsRegistre) {
+      const k = c.zone + '\u0000' + c.cle;
+      const deja = parCle.get(k);
+      if (!deja) { parCle.set(k, { ...c, classes: [r.classe] }); continue; }
+      if (!deja.classes?.includes(r.classe)) deja.classes = [...(deja.classes ?? []), r.classe];
+      if (c.repete) deja.repete = Math.max(deja.repete ?? 1, c.repete);
+    }
+  }
+  return { horsRegistre: [...parCle.values()], rattaches, classes };
 }
