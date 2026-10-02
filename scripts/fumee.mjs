@@ -939,15 +939,43 @@ const POINTS = {
     voir(branche('inspecteur'));
     const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && Number(sansAnnulation) <= 1 && nommesParCle === 0;
     return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation} ; champs nommés par leur clé ${nommesParCle}` };
+  },
+  54: async (page) => {
+    // Le releve de facade de bout en bout, sans camera : une facade synthetique (mur enduit, deux
+    // fenetres et une porte) importee, coins proposes, analyse, Valider ; un Ctrl+Z le retire d'un coup.
+    const dessin = await page.context().newPage();
+    await dessin.setViewportSize({ width: 1600, height: 1200 });
+    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+      + "const x=document.getElementById('c').getContext('2d');"
+      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6b6b5a';x.fillRect(0,1000,1600,200);"
+      + "x.fillStyle='#e8dcc4';x.fillRect(200,250,1200,750);"
+      + "x.fillStyle='#2b3440';x.fillRect(380,450,220,300);x.fillRect(1000,450,220,300);x.fillRect(700,620,200,380);"
+      + '</script></body>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const avant = await facades();
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 15000 });
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, ouvertures: o.facades.map((f) => f.ouvertures.length) })));
+    await annuler(page);
+    const retour = (await facades()) === avant;
+    const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
+    return { ok: ecrit.length === 1 && ouvertures >= 2 && retour, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous (49 a 53). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : [])];
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : [])];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
