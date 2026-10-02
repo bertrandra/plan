@@ -999,11 +999,11 @@ function pointsPour(nomClasse) {
 async function servirThreeLocal(page) {
   if (process.env.FUMEE_CDN === '1') return;
   const racine = new URL('../node_modules/three/', import.meta.url).pathname;
-  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) => {
-    const fichier = racine + route.request().url().split('three@0.128.0/')[1].split('?')[0];
-    if (!existsSync(fichier)) return route.continue();
-    return route.fulfill({ path: fichier, contentType: 'application/javascript' });
-  });
+  const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'application/javascript' }) : route.continue();
+  // La bibliotheque vient de cdnjs, ses exemples de jsDelivr (three/glbViewer.ts, three/chargeurs.ts).
+  await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/r128\/three\.min\.js/, (route) => servir(route, racine + 'build/three.min.js'));
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) =>
+    servir(route, racine + route.request().url().split('three@0.128.0/')[1].split('?')[0]));
 }
 
 async function principal() {
