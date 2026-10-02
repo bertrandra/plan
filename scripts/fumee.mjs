@@ -13,7 +13,7 @@
 
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { ouvrirDemo, FORMATS } from './captures.mjs';
+import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -116,6 +116,15 @@ async function ouvrirSection(page, id) {
 /** Ecrit un nombre de l'inspecteur par sa saisie directe, comme au clavier. */
 async function saisirNombre(page, cle, valeur) {
   const champ = page.locator('#zoneInspecteur [data-cle="' + cle + '"] input[type="number"], #zoneInspecteur [data-cle="' + cle + '"] input[inputmode="decimal"]').first();
+  await champ.scrollIntoViewIfNeeded();
+  await champ.click();
+  await champ.fill(String(valeur));
+  await champ.press('Enter');
+  await page.waitForTimeout(150);
+}
+/** Ecrit un sous-champ d'une ligne de l'inspecteur (la longueur d'un cote, l'angle d'un coin). */
+async function saisirSousChamp(page, ligne, libelle, valeur) {
+  const champ = page.locator('#zoneInspecteur [data-cle="' + ligne + '"] input[aria-label="' + libelle + '"]').first();
   await champ.scrollIntoViewIfNeeded();
   await champ.click();
   await champ.fill(String(valeur));
@@ -818,14 +827,128 @@ const POINTS = {
     const nom = objet(await lireEtat(page), (o) => o.key === r.sel)?.name;
     return { ok: r.classe === 'moyen' && nom === 'Terrasse' && r.brouillon === '47', mesure: `paysage → ${r.classe}, sélection « ${nom} », inspecteur ${r.ouvert ? 'ouvert' : 'replié'}, brouillon « ${r.brouillon} »` };
   },
-  40: async () => ({ ok: null, mesure: 'couvert par le passage en thème sombre de tous les points ci-dessus' })
+  40: async () => ({ ok: null, mesure: 'couvert par le passage en thème sombre de tous les points ci-dessus' }),
+
+  // ---- Garde-fous de l'inspecteur et des controleurs (2.2.0, MD/spec-demos-admin.md) ------------
+  // Les regressions qu'ils gardent ont existe : un Ctrl+Z vide apres une longueur ou un angle (#34),
+  // des champs et des boutons modifiables en lecture seule.
+
+  49: async (page) => {
+    // Deux modifications de deux champs differents se defont en deux Ctrl+Z, ni plus ni moins.
+    await selectionner(page, TERRASSE);
+    const depart = objet(await lireEtat(page), (o) => o.name === 'Terrasse');
+    await inspecteur(page);
+    await ouvrirSection(page, 'cotes');
+    await saisirSousChamp(page, 'cote0', 'Longueur', '3.9');
+    await ouvrirSection(page, 'coins');
+    await saisirSousChamp(page, 'coin1', 'Angle', '95');
+    const modifie = objet(await lireEtat(page), (o) => o.key === depart.key);
+    await feuille(page, null);
+    await annuler(page);
+    const un = objet(await lireEtat(page), (o) => o.key === depart.key);
+    await annuler(page);
+    const deux = objet(await lireEtat(page), (o) => o.key === depart.key);
+    const memes = (a, b) => a.pts.every((p, k) => proches(p.x, b.pts[k].x, 1e-9) && proches(p.y, b.pts[k].y, 1e-9));
+    const ok = !memes(modifie, depart) && !memes(un, depart) && memes(deux, depart);
+    return { ok, mesure: `longueur puis angle modifiés ; après un Ctrl+Z ${memes(un, depart) ? 'DÉJÀ revenu (un geste perdu)' : 'reste la longueur'}, après deux ${memes(deux, depart) ? 'retour exact au départ' : 'PAS revenu (étape vide dans la pile)'}` };
+  },
+  50: async (page) => {
+    // Un nom tape lettre a lettre est un seul geste : un seul Ctrl+Z le defait.
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    const champ = page.locator('#zoneInspecteur [data-cle="name"] input').first();
+    await champ.scrollIntoViewIfNeeded();
+    const avant = await champ.inputValue();
+    await champ.click(); await champ.press('End');
+    await champ.pressSequentially('XYZ', { delay: 60 }); await page.waitForTimeout(150);
+    const tape = objet(await lireEtat(page), (o) => o.fonction === 'terrasse' && o.type === 'polygon').name;
+    await champ.blur(); await feuille(page, null);
+    await annuler(page);
+    const apres = objet(await lireEtat(page), (o) => o.fonction === 'terrasse' && o.type === 'polygon').name;
+    return { ok: tape === avant + 'XYZ' && apres === avant, mesure: `« ${avant} » → « ${tape} » → un Ctrl+Z → « ${apres} »` };
+  },
+  51: async (page) => {
+    // Une ecriture refusee (longueur 0) ne laisse pas d'etape vide : le Ctrl+Z suivant defait le
+    // geste d'avant.
+    await selectionner(page, TERRASSE);
+    const depart = objet(await lireEtat(page), (o) => o.name === 'Terrasse');
+    await inspecteur(page);
+    await ouvrirSection(page, 'coins');
+    await saisirSousChamp(page, 'coin1', 'Angle', '95');
+    await ouvrirSection(page, 'cotes');
+    await saisirSousChamp(page, 'cote0', 'Longueur', '0');
+    await feuille(page, null);
+    await annuler(page);
+    const apres = objet(await lireEtat(page), (o) => o.key === depart.key);
+    const revenu = apres.pts.every((p, k) => proches(p.x, depart.pts[k].x, 1e-9) && proches(p.y, depart.pts[k].y, 1e-9));
+    return { ok: revenu, mesure: `angle modifié, longueur 0 refusée, un Ctrl+Z : ${revenu ? 'angle défait' : 'RIEN défait (étape vide)'}` };
+  },
+  52: async (page) => {
+    // La vitrine est en lecture seule : tout ce qui ecrit le projet est grise — champs, boutons de
+    // l'inspecteur, saisies du tiroir —, les reglages d'affichage restent libres.
+    // La vitrine s'ouvre en Vue 3D : le plan n'y est pas dessine, on attend que Plan soit monte.
+    await page.goto(BASE + '/?mode=demo');
+    await page.waitForFunction(() => window.__plan && window.__plan.etat().objects.length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    await selectionner(page, TERRASSE);
+    // Sur tablette, l'inspecteur demarre replie : ses champs ne sont montes qu'ouvert.
+    await inspecteur(page);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    await page.waitForTimeout(200);
+    const r = await page.evaluate(() => {
+      const actifs = (sel) => [...document.querySelectorAll(sel)].filter((e) => !e.disabled);
+      return {
+        champs: document.querySelectorAll('#zoneInspecteur [data-cle] input, #zoneInspecteur [data-cle] select').length,
+        champsActifs: actifs('#zoneInspecteur [data-cle] input, #zoneInspecteur [data-cle] select').map((e) => e.closest('[data-cle]').getAttribute('data-cle')),
+        supprimer: document.querySelectorAll('#zoneInspecteur [data-cle^="co"] button').length,
+        supprimerActifs: actifs('#zoneInspecteur [data-cle^="cote"] button, #zoneInspecteur [data-cle^="coin"] button').length,
+        saisies: document.querySelectorAll('#zoneResultats input[data-controle]').length,
+        saisiesActives: actifs('#zoneResultats input[data-controle]').length
+      };
+    });
+    // Seul un reglage d'affichage peut rester actif (« Distance au segment » de l'alignement).
+    const libres = r.champsActifs.filter((k) => k !== 'distance');
+    const ok = r.champs > 0 && !libres.length && r.supprimerActifs === 0 && r.saisies > 0 && r.saisiesActives === 0;
+    return { ok, mesure: `${r.champs - r.champsActifs.length}/${r.champs} champs grisés (actifs : ${r.champsActifs.join(', ') || 'aucun'}), boutons supprimer actifs : ${r.supprimerActifs}, saisies du tiroir ${r.saisies - r.saisiesActives}/${r.saisies} grisées` };
+  },
+  53: async (page) => {
+    // La decouverte des controleurs, dans les trois classes d'ecran : rien hors registre, rien hors
+    // de sa zone, aucune ecriture sans droits. Les routes `admin/…` sont simulees : la session est
+    // ouverte, aucun registre n'est enregistre, et celui qu'on enregistre est lu ici.
+    let registre = null;
+    await page.route(/\/admin\//, async (route) => {
+      const req = route.request(), chemin = new URL(req.url()).pathname;
+      if (chemin.endsWith('/admin/session')) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      if (chemin.endsWith('/admin/controleurs') && req.method() === 'PUT') { registre = JSON.parse(req.postData() || 'null'); return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); }
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto(BASE + '/?admin&ecran=controleurs');
+    await page.getByRole('button', { name: 'Lancer la découverte' }).click();
+    const enregistrer = page.getByRole('button', { name: 'Enregistrer la découverte' });
+    await enregistrer.waitFor({ timeout: 60000 });
+    await enregistrer.click();
+    await page.waitForTimeout(500);
+    if (!registre) return { ok: false, mesure: 'aucun registre enregistré' };
+    const branche = (...cles) => cles.reduce((n, k) => n?.enfants?.find((e) => e.cle === k), registre.arbre);
+    const ecran = branche('horsRegistre', 'ecran')?.details ?? {};
+    const ecarts = branche('horsRegistre', 'ecartsZone')?.details?.nombre;
+    const sansDroits = branche('ecritures', 'sansDroits')?.details?.nombre;
+    const sansAnnulation = branche('ecritures', 'sansAnnulation')?.details?.nombre;
+    let nommesParCle = 0;
+    const voir = (n) => { if (n.genre === 'champ' && n.nom === n.cle) nommesParCle++; (n.enfants || []).forEach(voir); };
+    voir(branche('inspecteur'));
+    const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && Number(sansAnnulation) <= 1 && nommesParCle === 0;
+    return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation} ; champs nommés par leur clé ${nommesParCle}` };
+  }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone. */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous (49 a 53). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
-  const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : [])];
+  // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : [])];
+  const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
 
