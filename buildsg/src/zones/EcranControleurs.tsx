@@ -8,9 +8,13 @@
 //
 // L'arbre suit le motif ARIA « tree » : une seule ligne dans l'ordre de tabulation, les fleches
 // pour circuler (haut, bas ; droite ouvre ou descend ; gauche ferme ou remonte), Debut et Fin.
+// S'y ajoutent les outils de navigation (zones/navigationArbre.ts) : deplier jusqu'a un niveau,
+// filtrer par cle, nom, genre ou changement et sauter d'un resultat a l'autre, montrer une branche
+// seule, et, dans le detail, le fil d'Ariane et les enfants du noeud choisi.
 
 import { useMemo, useRef, useState } from 'react';
-import { aplatir, comparer, compterFeuilles, type Comparaison, type Noeud, type RegistreControleurs, type Statut } from '../app/controleurs.js';
+import { aplatir, comparer, compterFeuilles, type Comparaison, type GenreNoeud, type Noeud, type RegistreControleurs, type Statut } from '../app/controleurs.js';
+import { ancetres, profondeur, useNavigationArbre, type NavigationArbre } from './navigationArbre.js';
 
 /** Ce qu'une decouverte rapporte. */
 export interface Decouverte { arbre: Noeud; le: string; appVersion: string }
@@ -40,22 +44,8 @@ const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau
 
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
-/** Les chemins qui restent visibles apres le filtre : un noeud qui correspond, et ses ancetres. `null` : pas de filtre. */
-function visibles(tous: Map<string, Noeud>, statuts: Map<string, Statut> | undefined, filtre: string, changementsSeuls: boolean): Set<string> | null {
-  const f = filtre.trim().toLowerCase();
-  if (!f && !changementsSeuls) return null;
-  const g = new Set<string>();
-  for (const [chemin, n] of tous) {
-    const texte = !f || n.cle.toLowerCase().includes(f) || n.nom.toLowerCase().includes(f);
-    const change = !changementsSeuls || (statuts?.get(chemin) ?? 'inchange') !== 'inchange';
-    if (!texte || !change) continue;
-    const morceaux = chemin.split('/');
-    for (let i = 1; i <= morceaux.length; i++) g.add(morceaux.slice(0, i).join('/'));
-  }
-  return g;
-}
-
-interface Ligne { chemin: string; noeud: Noeud; niveau: number; parent: string | null; ouvrable: boolean }
+/** Les genres qu'on peut chercher, dans l'ordre de l'arbre. */
+const GENRES_FILTRE: GenreNoeud[] = ['zone', 'emplacement', 'groupe', 'commande', 'famille', 'section', 'champ', 'option'];
 
 export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEcranControleurs) {
   const [registre, setRegistre] = useState(enregistre);
@@ -67,65 +57,23 @@ export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEc
   const tous = useMemo(() => cmp ? aplatir(cmp.arbre) : new Map<string, Noeud>(), [cmp]);
   // Les etats ne se montrent que lorsqu'il y a de quoi comparer : une decouverte ET un registre.
   const compare = !!decouverte && !!registre;
-  const [ouverts, setOuverts] = useState<Set<string>>(() => new Set(['plan', 'plan/zones', 'plan/commandes', 'plan/inspecteur']));
-  const [choisi, setChoisi] = useState('plan');
-  const [filtre, setFiltre] = useState('');
-  const [changementsSeuls, setChangementsSeuls] = useState(false);
+  const nav = useNavigationArbre(cmp ? cmp.arbre : null, tous, compare ? cmp?.statuts : undefined);
   const [message, setMessage] = useState<{ texte: string; erreur: boolean } | null>(null);
   const [enCours, setEnCours] = useState(false);
   const arbreRef = useRef<HTMLUListElement>(null);
+  const filtreRef = useRef<HTMLInputElement>(null);
 
-  const garde = useMemo(() => visibles(tous, cmp?.statuts, filtre, changementsSeuls), [filtre, changementsSeuls, tous, cmp]);
-
-  // Les lignes visibles, dans l'ordre : c'est sur elles que les fleches circulent.
-  const lignes = useMemo(() => {
-    const l: Ligne[] = [];
-    const parcourir = (n: Noeud, chemin: string, niveau: number, parent: string | null) => {
-      if (garde && !garde.has(chemin)) return;
-      const enfants = (n.enfants ?? []).filter((e) => !garde || garde.has(chemin + '/' + e.cle));
-      l.push({ chemin, noeud: n, niveau, parent, ouvrable: enfants.length > 0 });
-      if (enfants.length && (ouverts.has(chemin) || garde)) for (const e of enfants) parcourir(e, chemin + '/' + e.cle, niveau + 1, chemin);
-    };
-    if (cmp) parcourir(cmp.arbre, cmp.arbre.cle, 1, null);
-    return l;
-  }, [cmp, ouverts, garde]);
-
-  const basculer = (chemin: string, ouvrir?: boolean) => setOuverts((o) => {
-    const n = new Set(o);
-    if (ouvrir ?? !n.has(chemin)) n.add(chemin); else n.delete(chemin);
-    return n;
-  });
-
+  /** Choisit un noeud, le rend visible (ancetres ouverts, branche montree), et y met le focus. */
   const aller = (chemin: string) => {
-    setChoisi(chemin);
-    requestAnimationFrame(() => arbreRef.current?.querySelector<HTMLElement>('[data-chemin="' + CSS.escape(chemin) + '"]')?.focus());
+    if (nav.vue !== 'plan' && chemin !== nav.vue && !chemin.startsWith(nav.vue + '/')) nav.toutMontrer();
+    nav.reveler(chemin);
+    nav.setChoisi(chemin);
+    requestAnimationFrame(() => {
+      const el = arbreRef.current?.querySelector<HTMLElement>('[data-chemin="' + CSS.escape(chemin) + '"]');
+      el?.focus();
+      el?.scrollIntoView({ block: 'nearest' });
+    });
   };
-
-  function clavier(e: React.KeyboardEvent): void {
-    const i = lignes.findIndex((l) => l.chemin === choisi);
-    const l = lignes[i];
-    if (!l) return;
-    const ouvert = ouverts.has(l.chemin) || !!garde;
-    let fait = true;
-    const suivante = lignes[i + 1], precedente = lignes[i - 1], premiere = lignes[0], derniere = lignes[lignes.length - 1];
-    switch (e.key) {
-      case 'ArrowDown': if (suivante) aller(suivante.chemin); break;
-      case 'ArrowUp': if (precedente) aller(precedente.chemin); break;
-      case 'ArrowRight':
-        if (l.ouvrable && !ouvert) basculer(l.chemin, true);
-        else if (l.ouvrable && suivante) aller(suivante.chemin);
-        break;
-      case 'ArrowLeft':
-        if (l.ouvrable && ouvert && !garde) basculer(l.chemin, false);
-        else if (l.parent) aller(l.parent);
-        break;
-      case 'Home': if (premiere) aller(premiere.chemin); break;
-      case 'End': if (derniere) aller(derniere.chemin); break;
-      case 'Enter': case ' ': if (l.ouvrable) basculer(l.chemin); break;
-      default: fait = false;
-    }
-    if (fait) e.preventDefault();
-  }
 
   async function lancer(): Promise<void> {
     setEnDecouverte(true);
@@ -152,9 +100,8 @@ export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEc
     setMessage({ texte: compterFeuilles(doc.arbre) + ' contrôleurs enregistrés.', erreur: false });
   }
 
-  const tout = () => setOuverts(new Set([...tous].filter(([, n]) => n.enfants && n.enfants.length).map(([k]) => k)));
-  const noeudChoisi = tous.get(choisi) ?? null;
-  const statutChoisi = compare ? cmp?.statuts.get(choisi) : undefined;
+  const noeudChoisi = tous.get(nav.choisi) ?? null;
+  const statutChoisi = compare ? cmp?.statuts.get(nav.choisi) : undefined;
 
   return (
     <div className="ctlEcran">
@@ -162,38 +109,135 @@ export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEc
         enregistrer={() => { void enregistrerDecouverte(); }} lancer={() => { void lancer(); }} />
       {message && <p className={message.erreur ? 'ctlMessage ctlMessage--erreur' : 'ctlMessage'} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
 
-      <Outils filtre={filtre} setFiltre={setFiltre} changementsSeuls={changementsSeuls} setChangementsSeuls={setChangementsSeuls}
-        compare={compare} filtreActif={!!garde} deplier={tout} replier={() => setOuverts(new Set(['plan']))} />
+      <BarreNavigation nav={nav} compare={compare} aller={aller} filtreRef={filtreRef} />
 
       <div className="ctlCorps">
-        <ul className="ctlArbre" role="tree" aria-label="Arbre des contrôleurs" ref={arbreRef} onKeyDown={clavier}>
-          {lignes.map((l) => {
-            // Sans registre, tout est nouveau : le bilan le dit une fois, pas sur chaque ligne.
-            const st = compare ? cmp?.statuts.get(l.chemin) ?? 'inchange' : 'inchange';
-            const ouvert = l.ouvrable && (ouverts.has(l.chemin) || !!garde);
-            return (
-              <li key={l.chemin} role="treeitem" aria-level={l.niveau} aria-selected={l.chemin === choisi}
-                {...(l.ouvrable ? { 'aria-expanded': ouvert } : {})}
-                tabIndex={l.chemin === choisi ? 0 : -1} data-chemin={l.chemin}
-                className={'ctlLigne ctlLigne--' + st + (l.chemin === choisi ? ' choisie' : '')}
-                style={{ paddingLeft: (l.niveau - 1) * 18 + 6 }}
-                onClick={() => { setChoisi(l.chemin); if (l.ouvrable) basculer(l.chemin); }}
-                onFocus={() => setChoisi(l.chemin)}>
-                <span className={'ctlChevron' + (ouvert ? ' ouvert' : '')} aria-hidden="true">{l.ouvrable ? '›' : ''}</span>
-                <code className="ctlCle">{l.noeud.cle}</code>
-                <span className="ctlNom">{l.noeud.nom}</span>
-                <span className="ctlGenre">{GENRES[l.noeud.genre]}</span>
-                {l.ouvrable && <span className="ctlCompte">{l.noeud.enfants?.length ?? 0}</span>}
-                {st !== 'inchange' && <span className={'ctlStatut ctlStatut--' + st}>{STATUTS[st]}</span>}
-              </li>
-            );
-          })}
-          {lignes.length === 0 && <li className="ctlVide" role="none">
-            {cmp ? 'Aucun contrôleur ne correspond.' : 'Aucun registre enregistré. « Lancer la découverte » lit les contrôleurs de Plan.'}
-          </li>}
-        </ul>
+        <Arbre nav={nav} cmp={cmp} compare={compare} aller={aller} arbreRef={arbreRef} filtreRef={filtreRef} />
+        <Detail noeud={noeudChoisi} chemin={nav.choisi} statut={statutChoisi} tous={tous} nav={nav} aller={aller} />
+      </div>
+    </div>
+  );
+}
 
-        <Detail noeud={noeudChoisi} chemin={choisi} statut={statutChoisi} />
+/** Les touches de l'arbre, au-dela des fleches : niveaux, branche, recherche. */
+function clavier(e: React.KeyboardEvent, nav: NavigationArbre, aller: (c: string) => void, filtreRef: React.RefObject<HTMLInputElement | null>): void {
+  const { lignes, choisi } = nav;
+  const i = lignes.findIndex((l) => l.chemin === choisi);
+  const l = lignes[i];
+  if (!l) return;
+  const ouvert = nav.ouverts.has(l.chemin) || !!nav.garde;
+  const suivante = lignes[i + 1], precedente = lignes[i - 1], premiere = lignes[0], derniere = lignes[lignes.length - 1];
+  let fait = true;
+  if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { nav.niveau(Number(e.key)); e.preventDefault(); return; }
+  switch (e.key) {
+    case 'ArrowDown': if (suivante) aller(suivante.chemin); break;
+    case 'ArrowUp': if (precedente) aller(precedente.chemin); break;
+    case 'ArrowRight':
+      if (l.ouvrable && !ouvert) nav.basculer(l.chemin, true);
+      else if (l.ouvrable && suivante) aller(suivante.chemin);
+      break;
+    case 'ArrowLeft':
+      if (l.ouvrable && ouvert && !nav.garde) nav.basculer(l.chemin, false);
+      else if (l.parent) aller(l.parent);
+      break;
+    case 'Home': if (premiere) aller(premiere.chemin); break;
+    case 'End': if (derniere) aller(derniere.chemin); break;
+    case 'Enter': case ' ': if (l.ouvrable) nav.basculer(l.chemin); break;
+    case '*': nav.deplierBranche(l.chemin); break;
+    case '-': nav.replierBranche(l.chemin); break;
+    case '/': filtreRef.current?.focus(); break;
+    default: fait = false;
+  }
+  if (fait) e.preventDefault();
+}
+
+function Arbre({ nav, cmp, compare, aller, arbreRef, filtreRef }: {
+  nav: NavigationArbre; cmp: Comparaison | null; compare: boolean; aller: (c: string) => void;
+  arbreRef: React.RefObject<HTMLUListElement | null>; filtreRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const trouves = useMemo(() => new Set(nav.trouves), [nav.trouves]);
+  return (
+    <ul className="ctlArbre" role="tree" aria-label="Arbre des contrôleurs" ref={arbreRef} onKeyDown={(e) => clavier(e, nav, aller, filtreRef)}>
+      {nav.lignes.map((l) => {
+        // Sans registre, tout est nouveau : le bilan le dit une fois, pas sur chaque ligne.
+        const st = compare ? cmp?.statuts.get(l.chemin) ?? 'inchange' : 'inchange';
+        const ouvert = l.ouvrable && (nav.ouverts.has(l.chemin) || !!nav.garde);
+        const classe = 'ctlLigne ctlLigne--' + st + (l.chemin === nav.choisi ? ' choisie' : '') + (nav.garde && trouves.has(l.chemin) ? ' trouvee' : '');
+        return (
+          <li key={l.chemin} role="treeitem" aria-level={l.niveau} aria-selected={l.chemin === nav.choisi}
+            {...(l.ouvrable ? { 'aria-expanded': ouvert } : {})}
+            tabIndex={l.chemin === nav.choisi ? 0 : -1} data-chemin={l.chemin} className={classe}
+            style={{ paddingLeft: (l.niveau - 1) * 18 + 6 }}
+            onClick={() => { nav.setChoisi(l.chemin); if (l.ouvrable) nav.basculer(l.chemin); }}
+            onFocus={() => nav.setChoisi(l.chemin)}>
+            <span className={'ctlChevron' + (ouvert ? ' ouvert' : '')} aria-hidden="true">{l.ouvrable ? '›' : ''}</span>
+            <span className="ctlNiveau" title={'Niveau ' + profondeur(l.chemin)}>N{profondeur(l.chemin)}</span>
+            <code className="ctlCle">{l.noeud.cle}</code>
+            <span className="ctlNom">{l.noeud.nom}</span>
+            <span className="ctlGenre">{GENRES[l.noeud.genre]}</span>
+            {l.ouvrable && <span className="ctlCompte">{l.noeud.enfants?.length ?? 0}</span>}
+            {st !== 'inchange' && <span className={'ctlStatut ctlStatut--' + st}>{STATUTS[st]}</span>}
+          </li>
+        );
+      })}
+      {nav.lignes.length === 0 && <li className="ctlVide" role="none">
+        {cmp ? 'Aucun contrôleur ne correspond.' : 'Aucun registre enregistré. « Lancer la découverte » lit les contrôleurs de Plan.'}
+      </li>}
+    </ul>
+  );
+}
+
+function BarreNavigation({ nav, compare, aller, filtreRef }: {
+  nav: NavigationArbre; compare: boolean; aller: (c: string) => void; filtreRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const [rang, setRang] = useState(-1);
+  const n = nav.trouves.length;
+  // Sauter au resultat suivant (ou precedent), en boucle.
+  const sauter = (pas: number) => {
+    if (!n) return;
+    const r = ((rang + pas) % n + n) % n;
+    setRang(r);
+    const cible = nav.trouves[r];
+    if (cible) aller(cible);
+  };
+  const filtrer = (f: Parameters<NavigationArbre['filtrer']>[0]) => { setRang(-1); nav.filtrer(f); };
+  const niveaux = Array.from({ length: Math.max(1, nav.niveauMax - nav.niveauMin + 1) }, (_, i) => nav.niveauMin + i);
+  return (
+    <div className="ctlOutils">
+      <div className="ctlRecherche">
+        <input ref={filtreRef} type="search" className="ctlFiltre" placeholder="Filtrer par clé ou nom ( / )" aria-label="Filtrer par clé ou nom"
+          value={nav.filtres.texte} onChange={(e) => filtrer({ texte: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sauter(e.shiftKey ? -1 : 1); } }} />
+        <select className="ctlSelect" aria-label="Genre" value={nav.filtres.genre} onChange={(e) => filtrer({ genre: e.target.value as GenreNoeud | '' })}>
+          <option value="">Tous les genres</option>
+          {GENRES_FILTRE.map((g) => <option key={g} value={g}>{GENRES[g]}</option>)}
+        </select>
+        {nav.garde && (
+          <span className="ctlResultats" aria-live="polite">
+            <span className="ctlCompteur">{n ? (rang >= 0 ? rang + 1 + ' / ' : '') + n + ' trouvé' + (n > 1 ? 's' : '') : 'aucun'}</span>
+            <button type="button" className="secondary small" onClick={() => sauter(-1)} disabled={!n} aria-label="Résultat précédent" title="Résultat précédent (Maj+Entrée)">‹</button>
+            <button type="button" className="secondary small" onClick={() => sauter(1)} disabled={!n} aria-label="Résultat suivant" title="Résultat suivant (Entrée)">›</button>
+            <button type="button" className="secondary small" onClick={() => filtrer({ texte: '', genre: '', changementsSeuls: false })}>Effacer</button>
+          </span>
+        )}
+        <label className="ctlCase">
+          <input type="checkbox" checked={nav.filtres.changementsSeuls} onChange={(e) => filtrer({ changementsSeuls: e.target.checked })} disabled={!compare} />
+          Seulement les changements
+        </label>
+      </div>
+      <div className="ctlNiveaux" role="group" aria-label="Déplier jusqu’au niveau">
+        <span className="ctlEtiquette">Niveau</span>
+        {niveaux.map((k) => (
+          <button key={k} type="button" className="secondary small ctlNiveauBouton" onClick={() => nav.niveau(k)} disabled={!!nav.garde}
+            title={'Déplier jusqu’au niveau ' + k + ' (touche ' + k + ')'}>{k}</button>
+        ))}
+        <button type="button" className="secondary small" onClick={() => nav.niveau(99)} disabled={!!nav.garde} title="Tout déplier">Tout</button>
+        {nav.vue !== 'plan' && (
+          <span className="ctlBrancheVue">
+            Branche <code>{nav.vue}</code>
+            <button type="button" className="secondary small" onClick={nav.toutMontrer}>Tout montrer</button>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -234,42 +278,55 @@ function Entete({ decouverte, registre, cmp, enCours, enDecouverte, enregistrer,
   );
 }
 
-function Detail({ noeud, chemin, statut }: { noeud: Noeud | null; chemin: string; statut: Statut | undefined }) {
+
+function Detail({ noeud, chemin, statut, tous, nav, aller }: {
+  noeud: Noeud | null; chemin: string; statut: Statut | undefined; tous: Map<string, Noeud>; nav: NavigationArbre; aller: (c: string) => void;
+}) {
+  if (!noeud) return <aside className="ctlDetail" aria-label="Détail du contrôleur" />;
+  const fil = ancetres(chemin);
   return (
     <aside className="ctlDetail" aria-label="Détail du contrôleur">
-      {noeud && (
+      <nav aria-label="Fil d’Ariane" className="ctlFil">
+        {fil.map((c, i) => (
+          <span key={c}>
+            {i > 0 && <span className="ctlFilSep" aria-hidden="true">›</span>}
+            {c === chemin ? <code aria-current="true">{tous.get(c)?.cle}</code>
+              : <button type="button" className="ctlFilLien" onClick={() => aller(c)} title={tous.get(c)?.nom}>{tous.get(c)?.cle}</button>}
+          </span>
+        ))}
+      </nav>
+      <h2 className="ctlDetailTitre">{noeud.nom}</h2>
+      {noeud.enfants && noeud.enfants.length > 0 && (
+        <div className="ctlBranche" role="group" aria-label="Branche">
+          <button type="button" className="secondary small" onClick={() => nav.deplierBranche(chemin)} title="Déplier toute la branche (*)">Déplier</button>
+          <button type="button" className="secondary small" onClick={() => nav.replierBranche(chemin)} title="Replier toute la branche (-)">Replier</button>
+          <button type="button" className="secondary small" onClick={() => nav.montrerSeule(chemin)} disabled={nav.vue === chemin}>Montrer seule</button>
+        </div>
+      )}
+      <table className="attrTable ctlTable">
+        <tbody>
+          <tr><th scope="row">Clé</th><td><code>{noeud.cle}</code></td></tr>
+          <tr><th scope="row">Chemin</th><td><code className="ctlChemin">{chemin}</code></td></tr>
+          <tr><th scope="row">Genre</th><td>{GENRES[noeud.genre]} · niveau {fil.length}</td></tr>
+          {statut && statut !== 'inchange' && <tr><th scope="row">État</th><td>{STATUTS[statut]}</td></tr>}
+          {noeud.enfants && <tr><th scope="row">Contrôleurs</th><td>{compterFeuilles(noeud)}</td></tr>}
+          {Object.entries(noeud.details ?? {}).map(([k, v]) => <tr key={k}><th scope="row">{NOMS_DETAILS[k] ?? k}</th><td>{v}</td></tr>)}
+        </tbody>
+      </table>
+      {noeud.enfants && noeud.enfants.length > 0 && (
         <>
-          <h2 className="ctlDetailTitre">{noeud.nom}</h2>
-          <table className="attrTable ctlTable">
-            <tbody>
-              <tr><th scope="row">Clé</th><td><code>{noeud.cle}</code></td></tr>
-              <tr><th scope="row">Chemin</th><td><code className="ctlChemin">{chemin}</code></td></tr>
-              <tr><th scope="row">Genre</th><td>{GENRES[noeud.genre]}</td></tr>
-              {statut && statut !== 'inchange' && <tr><th scope="row">État</th><td>{STATUTS[statut]}</td></tr>}
-              {noeud.enfants && <tr><th scope="row">Contrôleurs</th><td>{compterFeuilles(noeud)}</td></tr>}
-              {Object.entries(noeud.details ?? {}).map(([k, v]) => <tr key={k}><th scope="row">{NOMS_DETAILS[k] ?? k}</th><td>{v}</td></tr>)}
-            </tbody>
-          </table>
+          <h3 className="ctlSousTitre">Enfants ({noeud.enfants.length})</h3>
+          <ul className="ctlEnfants">
+            {noeud.enfants.map((e) => (
+              <li key={e.cle}>
+                <button type="button" className="ctlEnfant" onClick={() => aller(chemin + '/' + e.cle)}>
+                  <code>{e.cle}</code> <span>{e.nom}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </aside>
-  );
-}
-
-function Outils({ filtre, setFiltre, changementsSeuls, setChangementsSeuls, compare, filtreActif, deplier, replier }: {
-  filtre: string; setFiltre: (v: string) => void; changementsSeuls: boolean; setChangementsSeuls: (v: boolean) => void;
-  compare: boolean; filtreActif: boolean; deplier: () => void; replier: () => void;
-}) {
-  return (
-    <div className="ctlOutils">
-      <input type="search" className="ctlFiltre" placeholder="Filtrer par clé ou nom" aria-label="Filtrer par clé ou nom"
-        value={filtre} onChange={(e) => setFiltre(e.target.value)} />
-      <label className="ctlCase">
-        <input type="checkbox" checked={changementsSeuls} onChange={(e) => setChangementsSeuls(e.target.checked)} disabled={!compare} />
-        Seulement les changements
-      </label>
-      <button type="button" className="secondary small" onClick={deplier} disabled={filtreActif}>Tout déplier</button>
-      <button type="button" className="secondary small" onClick={replier} disabled={filtreActif}>Tout replier</button>
-    </div>
   );
 }

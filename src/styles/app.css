@@ -1480,7 +1480,28 @@
   .ctlLien{ font-size:0.8rem; color:var(--ink-soft); }
   .ctlMessage{ margin:10px 0 0; padding:8px 12px; border-radius:var(--r-champ); background:var(--panel-2); font-size:0.8rem; }
   .ctlMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
-  .ctlOutils{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:14px 0 10px; }
+  .ctlOutils{ display:flex; flex-direction:column; gap:8px; margin:14px 0 10px; }
+  .ctlRecherche, .ctlNiveaux{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .ctlSelect{ min-height:32px; padding:4px 8px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
+  .ctlResultats{ display:inline-flex; gap:4px; align-items:center; }
+  .ctlCompteur{ font-family:var(--sans); font-size:0.78rem; font-variant-numeric:tabular-nums; color:var(--ink-soft); margin-right:4px; }
+  .ctlEtiquette{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .ctlNiveauBouton{ min-width:32px; font-variant-numeric:tabular-nums; }
+  .ctlBrancheVue{ display:inline-flex; gap:6px; align-items:center; margin-left:8px; padding:2px 4px 2px 10px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); font-family:var(--sans); font-size:0.78rem; }
+  .ctlNiveau{ flex:none; width:24px; font-family:var(--mono); font-size:0.62rem; color:var(--ink-soft); }
+  .ctlLigne.trouvee .ctlCle, .ctlLigne.trouvee .ctlNom{ color:var(--ink); font-weight:600; }
+  .ctlLigne.trouvee{ background:var(--panel-2); }
+  .ctlFil{ display:flex; flex-wrap:wrap; gap:2px; align-items:center; margin:0 0 8px; font-size:0.72rem; font-family:var(--mono); }
+  .ctlFilSep{ margin:0 4px; color:var(--ink-soft); }
+  .ctlFilLien{ padding:0; border:none; background:none; color:var(--ink-soft); font:inherit; text-decoration:underline; cursor:pointer; min-height:0; }
+  .ctlFilLien:hover{ color:var(--ink); }
+  .ctlBranche{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+  .ctlSousTitre{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin:12px 0 4px; font-weight:600; }
+  .ctlEnfants{ list-style:none; margin:0; padding:0; max-height:320px; overflow:auto; }
+  .ctlEnfant{ display:flex; gap:8px; width:100%; min-height:28px; padding:2px 6px; border:none; border-radius:6px; background:none; color:var(--ink); text-align:left; font-family:var(--sans); font-size:0.78rem; cursor:pointer; }
+  .ctlEnfant:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .ctlEnfant code{ font-size:0.74rem; }
+  .ctlEnfant span{ color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ctlFiltre{ flex:1 1 220px; max-width:360px; min-height:32px; padding:4px 10px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); }
   .ctlCase{ display:inline-flex; gap:6px; align-items:center; font-size:0.8rem; font-family:var(--sans); }
   .ctlCorps{ display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:16px; align-items:start; }
@@ -1511,5 +1532,7 @@
     .ctlCorps{ grid-template-columns:minmax(0, 1fr); }
     .ctlDetail{ position:static; }
     .ctlLigne{ min-height:44px; }
-    .ctlGenre{ display:none; }
+    .ctlGenre, .ctlNiveau{ display:none; }
+    .ctlEnfant, .ctlNiveaux button, .ctlResultats button, .ctlBranche button, .ctlSelect{ min-height:44px; }
+    .ctlNiveauBouton{ min-width:44px; }
   }

@@ -15,6 +15,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   demande, au bouton. Aucune action sur le plan. Chaque commande dit son quota, ce qu'elle devient
   sans les droits, si elle est conditionnelle et ses emplacements par classe ; chaque champ, sa
   précision, ce qu'il modifie, s'il s'annule et ce qu'il recalcule ; une liste, ses valeurs permises.
+  Pour naviguer : niveau de chaque ligne et « déplier jusqu'au niveau N » (touches 1 à 9), filtre
+  par genre, saut d'un résultat à l'autre, branche montrée seule, fil d'Ariane et enfants cliquables.
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,

@@ -117,8 +117,16 @@ enregistre.
   « Seulement les changements » ne montre qu'eux ; « Enregistrer la découverte » en fait la
   nouvelle référence.
 - **Navigation** : motif ARIA *tree* — flèches haut/bas, droite ouvre ou descend, gauche ferme ou
-  remonte, Début/Fin, Entrée. Filtre par clé ou nom. Le détail du nœud choisi est à droite (sous
-  l'arbre sur téléphone et tablette).
+  remonte, Début/Fin, Entrée. Le détail du nœud choisi est à droite (sous l'arbre sur téléphone et
+  tablette). Outils (`zones/navigationArbre.ts`) :
+  - **niveaux** : chaque ligne porte son niveau absolu (N1 = `plan`) ; « Niveau 1…6 / Tout » déplie
+    jusqu'au niveau choisi (touches **1** à **9** dans l'arbre) ;
+  - **filtres** : texte (clé ou nom, touche **/** pour y aller), **genre** (zone, emplacement,
+    groupe, commande, objet, section, champ, valeur), seulement les changements ; compteur de
+    résultats, **‹ ›** ou **Entrée / Maj+Entrée** pour sauter de l'un à l'autre, « Effacer » ;
+  - **branche** : dans le détail, « Déplier » / « Replier » toute la branche (touches **\*** et
+    **-**), « Montrer seule » pour n'afficher qu'elle (« Tout montrer » pour revenir) ;
+  - **fil d'Ariane** cliquable et liste des **enfants** cliquables dans le détail.
 
 ## Hors périmètre, pour la suite
 
