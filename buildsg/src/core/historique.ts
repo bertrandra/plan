@@ -110,6 +110,20 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     marquerModifie();
   }
 
+  /**
+   * Prend l'instantane MAINTENANT et rend de quoi l'empiler une fois l'ecriture faite. Une ecriture
+   * qui peut etre refusee (une longueur impossible, un rectangle qui sortirait de la parcelle)
+   * n'empile alors rien : pas d'etape d'annulation vide, ou Ctrl+Z semblerait ne rien faire.
+   */
+  function preparer(): () => void {
+    const snap = instantane();
+    return () => {
+      pile.empiler(snap);
+      majBoutonAnnuler();
+      marquerModifie();
+    };
+  }
+
   function restaurer(snap: Instantane): void {
     etat.objects.forEach(ctx.detruireVue);
     const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
@@ -148,6 +162,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     instantane,
     marquerModifie,
     empiler,
+    preparer,
     restaurer,
     annuler,
     majBoutonAnnuler,

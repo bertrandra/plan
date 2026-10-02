@@ -147,6 +147,10 @@ function detailsChamp(ch: Champ): Record<string, string> {
   if (ch.effets && ch.effets.length) d.effets = ch.effets.map((e) => NOMS_EFFETS[e]).join(', ');
   if (ch.visible) d.conditionnel = 'n’apparaît que dans certains cas';
   if (ch.actif) d.activable = 'grisé selon le contexte';
+  if (ch.type === 'bouton') {
+    d.agit = typeof ch.agit === 'object' ? 'la commande ' + ch.agit.commande + ' (ses droits, son annulation)'
+      : ch.agit === 'projet' ? 'le projet, avec sa propre annulation ; refusé en lecture seule' : 'l’interface seulement';
+  }
   if (ch.type === 'bouton' && ch.explication) d.explication = ch.explication;
   if (ch.type === 'texture' && ch.appliquerATous) d.appliquerATous = ch.appliquerATous.libelle;
   if (ch.aide) d.aide = ch.aide;

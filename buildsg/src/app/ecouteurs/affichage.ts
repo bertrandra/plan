@@ -62,12 +62,12 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
   // — c'est elle qui redessine quand elle a fini.
-  cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
+  cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
     void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho());
   } });
 
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
-  cmd.declarer({ id: 'affichage.orthoOpacite', libelle: 'Opacité de la photo', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
+  cmd.declarer({ id: 'affichage.orthoOpacite', libelle: 'Opacité de la photo', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.opacite = v / 100;
@@ -78,7 +78,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     enregistrerConfigOrtho(ctx.ctxOrtho());
   } });
 
-  cmd.declarer({ id: 'affichage.orthoParcelleOpacite', libelle: 'Remplissage de la parcelle', groupe: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
+  cmd.declarer({ id: 'affichage.orthoParcelleOpacite', libelle: 'Remplissage de la parcelle', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.parcelleOpacite = v / 100;
@@ -90,7 +90,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     enregistrerConfigOrtho(ctx.ctxOrtho());
   } });
 
-  cmd.declarer({ id: 'affichage.orthoParcelleDefaut', libelle: 'Opacité de parcelle conseillée', groupe: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.orthoParcelleDefaut', libelle: 'Opacité de parcelle conseillée', groupe: 'affichage', ecrit: 'affichage', executer: () => {
     ortho.parcelleOpacite = 0.15;
     syncControlesOrtho();
     if (ortho.actif) a.render();

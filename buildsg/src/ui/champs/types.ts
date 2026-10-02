@@ -59,6 +59,8 @@ export interface ContexteChamps {
   startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']) => void;
   choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: { checkboxLabel?: string }) => void;
   executerCommande: (id: string) => void;
+  /** La commande est-elle utilisable (droits, quota, contexte) ? Un bouton qui la declenche se grise sinon. */
+  commandeUtilisable: (id: string) => boolean;
   pushHistory: () => void;
   render: () => void;
   toast: (message: string) => void;
@@ -155,6 +157,15 @@ export interface ChampBouton extends ChampBase {
   /** Le texte du bouton, quand il differe du libelle. */
   texte?: (c: ContexteChamps) => string;
   explication?: string;
+  /**
+   * Sur quoi le bouton agit — obligatoire, pour qu'aucun bouton n'echappe aux droits (app/ecritures.ts) :
+   *   - `{ commande }` : il declenche cette commande du registre, qui porte droits et annulation ; le
+   *     bouton se grise quand elle n'est pas utilisable ;
+   *   - `projet` : il ecrit le projet lui-meme et empile son propre instantane ; grise et refuse en
+   *     lecture seule ;
+   *   - `interface` : il ne touche pas au projet (aller a une vue, designer une cible).
+   */
+  agit: 'projet' | 'interface' | { commande: string };
   executer: (c: ContexteChamps) => void;
 }
 
