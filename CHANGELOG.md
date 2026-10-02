@@ -16,9 +16,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Tuiles ou ardoises sur les toits en 3D.** Une couverture rouge ou brune porte des tuiles, une
   couverture grise des ardoises, teintées par sa couleur ; les rangs suivent l'égout de chaque pan.
   Les textures sont dessinées par l'application, sans téléchargement (MD/spec-toit-ign.md §6.2).
+- **Une horloge suit la course du soleil en Vue 3D.** Quand l'ombre portée est cochée, une horloge
+  à aiguilles, doublée de l'heure en chiffres, s'affiche en haut à gauche de la scène. Elle tourne
+  avec le curseur d'heure (et avec la journée qui court dans la vitrine) : on lit l'instant pour
+  lequel les ombres sont calculées.
 
 ### Modifié
 
+- **L'ombre portée est cochée par défaut en Vue 3D.** C'est ce qu'on vient y voir : la course du
+  soleil sur la terrasse. La case reste dans les réglages pour l'éteindre sur un poste lent.
+- **Le fond orthophoto est allumé par défaut** sur un plan calé par le cadastre (créé depuis une
+  adresse ou un import cadastral) qui n'a pas encore de réglage enregistré. Un plan dessiné à la
+  main reste sans fond : il n'est posé que sur le lieu par défaut. Si les tuiles ne se chargent pas
+  (hors ligne, hors couverture), le fond s'éteint sans message ; la case permet de réessayer. Un
+  fond éteint à la main s'enregistre avec le projet et le reste.
 - **La 3D est une fonction de l'offre (`plan.3d`).** La Vue 3D, la visionneuse GLB et l'export GLB,
   les trois portes de three.js, sont gouvernées par la capacité `plan.3d`, que le catalogue de la
   plateforme vend à partir de Pro. Sans elle, les boutons « Vue 3D » et « Visionneuse GLB » et
