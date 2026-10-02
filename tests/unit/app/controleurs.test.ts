@@ -85,7 +85,7 @@ describe('attributs declares', () => {
       { type: 'choix', cle: 'essence', libelle: 'Essence', options: () => [{ valeur: 'ipe', libelle: 'Ipé' }, { valeur: 'pin', libelle: 'Pin traité' }], lire: () => 'ipe', ecrire: () => {} },
       { type: 'ligne', cle: 'cote0', libelle: 'Côté 1', champs: [
         { type: 'nombre', cle: 'longueur', libelle: 'Longueur', lire: () => 1, ecrire: () => {} },
-        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', explication: 'Retire le sommet.', executer: () => {} }
+        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', explication: 'Retire le sommet.', agit: 'interface', executer: () => {} }
       ] }
     ] };
     const src = source([], [sec]);
@@ -187,5 +187,26 @@ describe('branche « Écritures à surveiller »', () => {
     const controle = (k: string) => [...tous.values()].find((n) => n.cle === k && n.genre === 'controle');
     expect(controle('releve.valider')?.details).toMatchObject({ modifie: 'le projet', droits: 'ceux de la commande qui ouvre l’écran' });
     expect(controle('nomenclature.prix')?.details).toMatchObject({ annulable: 'oui (Annuler le défait)', droits: 'refusés en lecture seule' });
+  });
+});
+
+describe('boutons de l inspecteur dans l arbre', () => {
+  const section: Section = { id: 'cotes', titre: 'Côtés', champs: [
+    { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', agit: 'projet', executer: () => {} },
+    { type: 'bouton', cle: 'relever', libelle: 'Relever', agit: { commande: 'facade.relever' }, executer: () => {} },
+    { type: 'bouton', cle: 'aller', libelle: 'Aller', agit: 'interface', executer: () => {} }
+  ] };
+  const tous = aplatir(construireArbre({ appVersion: '9', commandes: [], exposition: EXPOSITION, inspecteur: [{ cle: 'polygon.terrasse', nom: 'Polygone', sections: [section] }] }));
+  const agit = (cle: string) => [...tous.values()].find((n) => n.genre === 'champ' && n.cle === cle)?.details?.agit;
+
+  it('dit sur quoi chaque bouton agit', () => {
+    expect(agit('supprimer')).toContain('refusé en lecture seule');
+    expect(agit('relever')).toContain('facade.relever');
+    expect(agit('aller')).toBe('l’interface seulement');
+  });
+
+  it('ne range pas dans les ecritures a surveiller un bouton qui porte son annulation et ses droits', () => {
+    const ecritures = [...tous.keys()].filter((k) => k.startsWith('plan/ecritures/') && k.includes('champ:'));
+    expect(ecritures).toEqual([]);
   });
 });

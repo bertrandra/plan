@@ -52,6 +52,7 @@ export function sectionReleve(c: ContexteChamps): Section {
       libelle: '',
       texte: () => 'Relever une façade…',
       explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
+      agit: { commande: 'facade.relever' },
       executer: (cx) => {
         designerFacade(null);
         cx.executerCommande('facade.relever');
@@ -83,6 +84,7 @@ export function sectionReleve(c: ContexteChamps): Section {
           libelle: 'Relever',
           texte: () => (releve() ? 'Refaire' : 'Relever'),
           aide: `Relever la façade ${f.orientation.toLowerCase()}`,
+          agit: { commande: 'facade.relever' },
           executer: (cx) => {
             designerFacade(i);
             cx.executerCommande('facade.relever');
@@ -94,6 +96,7 @@ export function sectionReleve(c: ContexteChamps): Section {
           libelle: 'Retirer',
           visible: () => !!releve(),
           aide: 'Retirer la photo et les ouvertures de ce mur (Ctrl+Z pour revenir)',
+          agit: { commande: 'facade.retirer' },
           executer: (cx) => {
             designerFacade(i);
             cx.executerCommande('facade.retirer');

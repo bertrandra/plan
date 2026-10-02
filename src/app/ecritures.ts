@@ -20,8 +20,9 @@ import { CONTROLES } from './controlesInterface.js';
 /** Les types de champ qui ecrivent : les autres montrent, ou declenchent. */
 export const ECRIVENT = new Set<Champ['type']>(['texte', 'nombre', 'case', 'choix', 'couleur', 'date', 'curseur', 'texture']);
 
-/** Un champ qui modifie le projet, et pas seulement l'affichage. */
-export const ecritLeProjet = (ch: Champ): boolean => ECRIVENT.has(ch.type) && ch.sale !== false;
+/** Un champ qui modifie le projet, et pas seulement l'affichage ; un bouton qui l'ecrit lui-meme. */
+export const ecritLeProjet = (ch: Champ): boolean =>
+  ch.type === 'bouton' ? ch.agit === 'projet' : ECRIVENT.has(ch.type) && ch.sale !== false;
 
 /**
  * Un champ s'annule quand il ecrit dans le projet : l'inspecteur empile un instantane avant (et
@@ -30,9 +31,16 @@ export const ecritLeProjet = (ch: Champ): boolean => ECRIVENT.has(ch.type) && ch
  */
 export const champAnnulable = (ch: Champ): boolean => ch.historique === true || (ch.historique !== false && ecritLeProjet(ch));
 
-/** Un champ utilisable : actif selon son contexte, et refuse en lecture seule s'il ecrit le projet. */
-export const champActif = (ch: Champ, c: ContexteChamps): boolean =>
-  (!ch.actif || ch.actif(c)) && !(c.etat.lectureSeule && ecritLeProjet(ch));
+/**
+ * Un champ utilisable : actif selon son contexte, refuse en lecture seule s'il ecrit le projet, et,
+ * pour un bouton qui declenche une commande, grise quand le registre ne la permet pas.
+ */
+export function champActif(ch: Champ, c: ContexteChamps): boolean {
+  if (ch.actif && !ch.actif(c)) return false;
+  if (c.etat.lectureSeule && ecritLeProjet(ch)) return false;
+  if (ch.type === 'bouton' && typeof ch.agit === 'object' && c.commandeUtilisable) return c.commandeUtilisable(ch.agit.commande);
+  return true;
+}
 
 interface ChampEcrit { nom: string; annulable: boolean; sortes: Set<string> }
 

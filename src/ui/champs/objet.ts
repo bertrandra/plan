@@ -149,10 +149,10 @@ const sectionObjet: Section = {
       lire: (c) => gelsDe(enPoints(c.obj)).every(Boolean),
       ecrire: (c, v) => {
         const obj = enPoints(c.obj);
-        if (!v) { c.pushHistory(); obj.frozenVertices = gelsDe(obj).map(() => false); return; }
+        if (!v) { obj.frozenVertices = gelsDe(obj).map(() => false); return; }
         // Deja d'equerre : on verrouille tel quel, sans redresser. Une terrasse rectangulaire mais
         // orientee a 30 degres n'a aucune raison de basculer sur les axes de l'ecran.
-        if (c.dejaRectangle(obj.pts)) { c.pushHistory(); obj.frozenVertices = gelsDe(obj).map(() => true); return; }
+        if (c.dejaRectangle(obj.pts)) { obj.frozenVertices = gelsDe(obj).map(() => true); return; }
         const xs = obj.pts.map(p => p.x), ys = obj.pts.map(p => p.y);
         const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
         // Les quatre coins sont attribues dans l'ordre de parcours, en partant du plus proche du
@@ -168,7 +168,6 @@ const sectionObjet: Section = {
           c.toast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
           return false;
         }
-        c.pushHistory();
         obj.pts = nouveaux;
         obj.frozenVertices = gelsDe(obj).map(() => true);
       }
@@ -253,6 +252,7 @@ const sectionParasol: Section = {
     {
       type: 'bouton', cle: 'placerAuMieux', libelle: 'Meilleure position', texte: () => 'Placer au mieux',
       explication: 'Cherche sur la terrasse la position qui ombrage le plus, mai→sept. 12h–18h.',
+      agit: 'projet',
       executer: (c) => {
         const obj = c.obj;
         const terr = terrasseDuParasol(obj, c.objets, c.etat.terrasseSelectedKey);
@@ -294,7 +294,7 @@ const sectionPointDeVue: Section = {
         p[1] = { x: au(p, 0).x + Math.cos(rad) * d, y: au(p, 0).y + Math.sin(rad) * d };
       }
     },
-    { type: 'bouton', cle: 'aller', libelle: '', texte: () => 'Aller à cette vue en Vue 3D', executer: (c) => c.allerAuPointDeVue(c.obj) }
+    { type: 'bouton', cle: 'aller', libelle: '', texte: () => 'Aller à cette vue en Vue 3D', agit: 'interface', executer: (c) => c.allerAuPointDeVue(c.obj) }
   ]
 };
 
@@ -314,7 +314,7 @@ function sectionCotes(c: ContexteChamps): Section {
       surbrillance: (cc) => cc.etat.highlight.type === 'vertex' && cc.etat.highlight.index === i,
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
-        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 2, aide: n <= 2 ? 'Impossible : il faut garder au moins 2 points' : 'Supprime ce point', executer: (cc) => cc.deleteVertex(cc.obj, i) }
+        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 2, aide: n <= 2 ? 'Impossible : il faut garder au moins 2 points' : 'Supprime ce point', agit: 'projet', executer: (cc) => cc.deleteVertex(cc.obj, i) }
       ]
     }));
   }
@@ -327,7 +327,7 @@ function sectionCotes(c: ContexteChamps): Section {
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
       lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
-      ecrire: (cc, v) => { if (!(v > 0)) return false; cc.pushHistory(); return cc.applyLengthEdit(cc.obj, i, v); },
+      ecrire: (cc, v) => (v > 0 ? cc.applyLengthEdit(cc.obj, i, v) : false),
       effets: ['poignees', 'rendu']
     };
     champs.push({
@@ -336,7 +336,7 @@ function sectionCotes(c: ContexteChamps): Section {
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsCotesDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsCotesDe(enPoints(cc.obj))[i] = v; }),
         longueur,
-        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > minPts, aide: n <= minPts ? 'Impossible : nombre minimum de sommets atteint' : 'Supprime ce côté (fusionne les deux sommets voisins)', executer: (cc) => cc.deleteVertex(cc.obj, j) }
+        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > minPts, aide: n <= minPts ? 'Impossible : nombre minimum de sommets atteint' : 'Supprime ce côté (fusionne les deux sommets voisins)', agit: 'projet', executer: (cc) => cc.deleteVertex(cc.obj, j) }
       ]
     });
   });
@@ -358,7 +358,7 @@ function sectionCoins(c: ContexteChamps): Section {
           type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, actif: () => !fige,
           aide: fige ? 'Angle figé : décoche « figé » pour le modifier' : 'Angle intérieur',
           lire: (cc) => cc.interiorAngleDeg(cc.obj, i),
-          ecrire: (cc, v) => { cc.pushHistory(); return cc.applyAngleEdit(cc.obj, i, v); },
+          ecrire: (cc, v) => cc.applyAngleEdit(cc.obj, i, v),
           effets: ['poignees', 'rendu']
         },
         {
@@ -366,7 +366,7 @@ function sectionCoins(c: ContexteChamps): Section {
           aide: 'Figer cet angle : empêche de le déplacer (glisser, longueur adjacente, angle) pour faciliter les autres modifications',
           lire: (cc) => !!gelsDe(enPoints(cc.obj))[i], ecrire: (cc, v) => { gelsDe(enPoints(cc.obj))[i] = v; }
         },
-        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 3 && !fige, aide: n <= 3 ? 'Impossible : il faut garder au moins 3 sommets' : (fige ? 'Coin figé' : 'Supprime ce coin (fusionne les deux côtés voisins)'), executer: (cc) => cc.deleteVertex(cc.obj, i) }
+        { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', actif: () => n > 3 && !fige, aide: n <= 3 ? 'Impossible : il faut garder au moins 3 sommets' : (fige ? 'Coin figé' : 'Supprime ce coin (fusionne les deux côtés voisins)'), agit: 'projet', executer: (cc) => cc.deleteVertex(cc.obj, i) }
       ]
     };
   });
@@ -381,6 +381,7 @@ const sectionAlignement: Section = {
       type: 'bouton', cle: 'choisir', libelle: 'Segment cible',
       texte: (c) => c.pointage()?.purpose === 'align' ? 'Clique un segment sur le plan…' : 'Choisir un segment cible',
       actif: (c) => c.pointage()?.purpose !== 'align',
+      agit: 'interface',
       executer: (c) => c.startPick('ref', false, 'align')
     },
     {
@@ -407,6 +408,7 @@ const sectionAlignement: Section = {
       type: 'bouton', cle: 'aligner', libelle: '', texte: () => 'Aligner par rotation',
       actif: (c) => !!c.cibleAlignement() && !c.obj.locked,
       aide: 'Nécessite un segment cible et un objet non verrouillé',
+      agit: 'projet',
       executer: (c) => c.alignObjectByRotation(c.obj)
     }
   ]
