@@ -22,7 +22,8 @@ let cookie: string;
 function navigateur(entree: string, init: RequestInit = {}): Promise<Response> {
   const entetes = new Headers(init.headers);
   if (cookie) entetes.set('Cookie', cookie);
-  return fetch(base + entree, { ...init, headers: entetes }).then((r) => {
+  // La page appelle `admin/…`, relatif a son adresse : ici, a la racine du serveur.
+  return fetch(base + '/' + entree.replace(/^\//, ''), { ...init, headers: entetes }).then((r) => {
     const pose = r.headers.get('set-cookie');
     if (pose) cookie = pose.split(';')[0] ?? '';
     return r;

@@ -1,6 +1,12 @@
 # Admin des démos — fichiers de démonstration hors du HTML
 
-Décidé le 2 octobre 2026. Déploiement concerné : `buildsg/app.js` (SiteGround, Node).
+Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait pas lequel lui répond :
+
+- **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
+  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `LISEZMOI-DEPLOIEMENT.txt`).
+  `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
+  `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
+- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DEMOS_DIR`.
 
 ## Ce que c'est
 
@@ -34,22 +40,28 @@ lecture). Un export se dépose tel quel dans le dossier des démos, et une démo
 Le mot de passe est **vérifié par le serveur**, jamais par la page : le fichier livré se lit en
 entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 
-- `ADMIN_PASSWORD` (variable d'environnement de l'application dans Site Tools). Absente : toutes
-  les routes `/admin/…` répondent 404, l'admin n'existe pas.
-- Session : cookie aléatoire `HttpOnly`, `SameSite=Strict`, `Path=/admin/`, `Secure` derrière HTTPS,
-  8 heures, en mémoire (un redémarrage demande de se reconnecter).
+- Apache : `motDePasse` dans `plan-admin-config.php` (en clair ou `password_hash`). Node :
+  `ADMIN_PASSWORD`. Absent (ou « A-CHANGER ») : toutes les routes `admin/…` répondent 404,
+  l'admin n'existe pas.
+- Session : cookie aléatoire `HttpOnly`, `SameSite=Strict`, limité à `admin/` à côté de la page,
+  `Secure` derrière HTTPS, 8 heures (session PHP sous Apache ; en mémoire sous Node, où un
+  redémarrage demande de se reconnecter).
 - Toute écriture exige l'en-tête `X-Plan-Admin: 1`, qu'un autre site ne peut pas poser.
 - Cinq mots de passe faux en dix minutes depuis une adresse la bloquent dix minutes.
 - Identifiants limités à `[A-Za-z0-9_-]{1,64}` ; 25 Mo au plus par fichier ; écriture atomique.
 
 ## Où vivent les fichiers
 
-`DEMOS_DIR`, par défaut `demos/` dans le dossier de l'application. **Le placer hors de ce dossier**
+Apache : `dossierDemos` de la configuration, par défaut `plan-demos/` à côté d'elle, donc hors de la
+racine web ; `.htaccess` refuse de toute façon `plan-demos/` et `demos/`. Node : `DEMOS_DIR`, par
+défaut `demos/` dans le dossier de l'application. **Le placer hors de ce dossier**
 (par exemple `/home/<compte>/plan-demos`) : une mise en ligne qui remplace le dossier de
 l'application emporterait sinon les démos enregistrées depuis. Ce dossier n'est jamais servi
 directement : seules les routes `/admin/demos…`, derrière la session, le lisent.
 
-## Routes (buildsg/demosAdmin.mjs)
+## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
+
+Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un sous-dossier.
 
 | Méthode et chemin | Effet |
 |---|---|
