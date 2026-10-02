@@ -10,6 +10,7 @@ pré-construit** : `buildsg/` est un projet Node complet, construit sur l'hôte 
 | `package.json`, `package-lock.json` | Les six paquets du build (Vite, React, zustand…), tous en `dependencies`. |
 | `src/`, `index.html`, `vite.config.ts`, `tsconfig.json`, `deploy/` | Les sources de Plan, recopiées du dépôt. |
 | `SOURCE` | Version et commit des sources recopiées. |
+| `demosAdmin.mjs` | Écrit à la main : l'admin des fichiers de démo (`/admin/…`), importé par `app.js`. |
 
 `index.html` est ici l'entrée de Vite (3 Ko), pas la page construite.
 
@@ -27,6 +28,9 @@ sont jamais touchés.
 1. Site Tools → **Devs → Node.js** → créer une application : Node ≥ 20, dossier de l'application =
    celui où l'on dépose le contenu de `buildsg/`, fichier de démarrage `app.js`.
 2. Variable d'environnement facultative `BACKPROD_API_URL` (défaut : `https://www.raillard.org`).
+   Pour l'admin des démos (`?admin`, `?demofile=<id>`, voir `MD/spec-demos-admin.md`) :
+   `ADMIN_PASSWORD` (sans elle, l'admin n'existe pas) et `DEMOS_DIR`, un dossier **hors** de celui
+   de l'application pour qu'une mise en ligne n'efface pas les démos.
 3. Déposer le dossier (sans `node_modules/` ni `dist/`), lancer **npm install**.
 4. Démarrer / redémarrer l'application. Au premier démarrage, `app.js` lance `vite build`
    (quelques secondes) ; aux suivants, il reprend `dist/` tant que `SOURCE` et

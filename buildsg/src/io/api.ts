@@ -24,7 +24,18 @@ import type { ObjetBrut, Mesure } from '../model/types.js';
  */
 let depot: DepotProjets | null = null;
 
-export function definirDepot(d: DepotProjets): void { depot = d; }
+/**
+ * Vrai quand le depot est celui des fichiers de demo de l'admin (io/depotDemos.ts). Trois choses
+ * changent alors, et seulement elles : le parametre d'adresse (`demofile` au lieu de `projet`), et
+ * la cle du dernier ouvert — un identifiant de demo garde sous la cle des projets serait cherche
+ * chez la plateforme a la visite suivante, et ne s'y trouverait pas.
+ */
+let depotDemos = false;
+
+export function definirDepot(d: DepotProjets, options: { demos?: boolean } = {}): void {
+  depot = d;
+  depotDemos = options.demos === true;
+}
 
 function leDepot(): DepotProjets {
   if (!depot) throw Object.assign(new Error('Aucun depot : la porte n a pas ete franchie.'), { reason: 'network' as const });
@@ -33,6 +44,11 @@ function leDepot(): DepotProjets {
 
 /** Cle localStorage du dernier projet ouvert, pour retrouver son travail en revenant. */
 export const LS_LAST_PROJECT = 'planInteractif.lastProjectId';
+/** La meme chose pour l'admin des demos : son dernier fichier de demo ouvert. */
+export const LS_LAST_DEMO = 'planInteractif.admin.lastDemoId';
+
+/** La cle du dernier ouvert, selon le depot en place. */
+export function cleDernierProjet(): string { return depotDemos ? LS_LAST_DEMO : LS_LAST_PROJECT; }
 
 /**
  * Une ligne de la liste des projets du serveur — et aussi ce que porte `meta` pour le projet
@@ -73,13 +89,14 @@ export type MotifEchec = 'network' | 'notfound' | 'server' | 'badjson';
  */
 export function getProjectIdFromUrl(): string | null {
   const parametres = new URLSearchParams(location.search);
+  if (depotDemos) return parametres.get('demofile');
   return parametres.get('projet') ?? parametres.get('project');
 }
 
 /** L'URL courante avec le projet demande : ce qu'on met dans la barre d'adresse apres un import. */
 export function withProjectParam(id: string): string {
   const url = new URL(location.href);
-  url.searchParams.set('projet', id);
+  url.searchParams.set(depotDemos ? 'demofile' : 'projet', id);
   return url.toString();
 }
 
@@ -129,7 +146,7 @@ export async function chargerProjetInitial(
   demoMesures: unknown[],
   demanderPremierPas?: DemandePremierPas
 ) {
-  const projetConnu = getProjectIdFromUrl() || localStorage.getItem(LS_LAST_PROJECT);
+  const projetConnu = getProjectIdFromUrl() || localStorage.getItem(cleDernierProjet());
   let liste: ProjetResume[];
   try {
     liste = await apiList();
@@ -196,7 +213,7 @@ export async function chargerProjetInitial(
     voulu = await creerLaDemo();
     complet = await apiLoad(voulu);
   }
-  localStorage.setItem(LS_LAST_PROJECT, voulu);
+  localStorage.setItem(cleDernierProjet(), voulu);
   // Un projet neuf, au document vide : c'est bien celui-la qu'on ouvre — il a son nom et sa place
   // chez la plateforme —, mais il n'y a rien a y montrer. On propose d'en saisir l'adresse, et
   // l'import cadastre ecrira dans ce projet-ci au lieu d'en creer un autre.

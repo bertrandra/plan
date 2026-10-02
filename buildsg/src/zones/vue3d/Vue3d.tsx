@@ -13,6 +13,7 @@ import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { Icone } from '../icones.js';
+import { Horloge } from './Horloge.js';
 import { EnteteReglages, ListePointsDeVue, ReglagesSoleil as Soleil, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -71,7 +72,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
             <Case id="terrasse3dTextures" libelle="Texture (sinon couleur unie)" coche={vue3d.textures} onChange={r.basculerTextures}
               titre="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet" />
             <Case id="terrasse3dShadows" libelle="Ombre portée" coche={vue3d.ombres} onChange={r.basculerOmbres}
-              titre="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, decoche par defaut" />
+              titre="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, coche par defaut" />
           </div>
           <Soleil ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           <div className="controls ligneReglage">
@@ -96,6 +97,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 10 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
+          {vue3d.ombres && <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} />}
           <div id="terrasse3dZoomControls" className="commandes3d">
             <Bouton3d commandes={commandes} id="3d.zoomAvant" domId="terrasse3dZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
             <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />

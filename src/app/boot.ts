@@ -26,7 +26,7 @@ import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
 import { importSVGString as importerSVG } from '../io/importSvg.js';
 import { serializeObjects, serializeMeasures } from '../io/serialisation.js';
-import { LS_LAST_PROJECT, withProjectParam, apiSave, apiDelete, chargerProjetInitial } from '../io/api.js';
+import { cleDernierProjet, withProjectParam, apiSave, apiDelete, chargerProjetInitial } from '../io/api.js';
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet } from '../io/projet.js';
 import { brancherObjets } from './ecouteurs/objets.js';
 import { brancherAffichage } from './ecouteurs/affichage.js';
@@ -229,7 +229,7 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
-        apiDisponible: seed.apiAvailable, cleDernierProjet: LS_LAST_PROJECT,
+        apiDisponible: seed.apiAvailable, cleDernierProjet: cleDernierProjet(),
         // Un projet neuf (document `{}`) se remplit, tant que rien n'y a ete dessine.
         projetCible: () => projetARemplir(seed, etat) }, () => parcours.fermer());
       parcours.ouvrir({ type: 'cadastre', importe });
@@ -292,7 +292,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   const projet = creerProjet(seed, {
     etat, apiSave, apiDelete, serializeObjects, serializeMeasures, withProjectParam,
     initialState: atelier.initialState, initialMeasures: atelier.initialMeasures,
-    cleDernierProjet: LS_LAST_PROJECT,
+    cleDernierProjet: cleDernierProjet(),
     definirRafraichisseurStatut: (f) => historique.definirRafraichisseurStatut(f),
     ouvrirImportCadastre: ch.ouvrirImportCadastre,
     ouvrirDialogueActualisation: ch.ouvrirActualisation,

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { chargerProjetInitial, apiList, apiSave, definirDepot, getProjectIdFromUrl, LS_LAST_PROJECT } from '../../../src/io/api.js';
+import { chargerProjetInitial, apiList, apiSave, definirDepot, getProjectIdFromUrl, withProjectParam, cleDernierProjet, LS_LAST_PROJECT, LS_LAST_DEMO } from '../../../src/io/api.js';
 import type { DepotProjets } from '../../../src/io/depotPlateforme.js';
 
 // La regle testee ici est la seule vraie subtilite du module, et elle a ete apprise a l'usage :
@@ -316,5 +316,23 @@ describe('un projet recu avec un document vide ({})', () => {
     const r = await chargerProjetInitial(DEMO, MESURES, vi.fn());
     expect(r.ouvrirAdresse).toBe(true);
     expect(r.meta?.id).toBe('p9');
+  });
+});
+
+describe('depot des demos de l admin', () => {
+  afterEach(() => { definirDepot({ lister, ouvrir, enregistrer, supprimer: vi.fn() } as unknown as DepotProjets); });
+
+  it('lit et ecrit demofile, et garde son dernier ouvert a part de celui des projets', async () => {
+    definirDepot({ lister, ouvrir, enregistrer, supprimer: vi.fn() } as unknown as DepotProjets, { demos: true });
+    history.replaceState(null, '', '/?admin&demofile=2&projet=p1');
+    expect(getProjectIdFromUrl()).toBe('2');
+    expect(new URL(withProjectParam('3')).searchParams.get('demofile')).toBe('3');
+    expect(cleDernierProjet()).toBe(LS_LAST_DEMO);
+    lister.mockResolvedValue([{ id: '2', name: 'Démo 2' }]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'x' }], meta: { id: '2', name: 'Démo 2' } });
+    await chargerProjetInitial(DEMO, MESURES);
+    expect(ouvrir).toHaveBeenCalledWith('2');
+    expect(localStorage.getItem(LS_LAST_DEMO)).toBe('2');
+    expect(localStorage.getItem(LS_LAST_PROJECT)).toBe(null);
   });
 });
