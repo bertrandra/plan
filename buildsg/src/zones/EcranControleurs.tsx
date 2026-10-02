@@ -34,7 +34,7 @@ const GENRES: Record<Noeud['genre'], string> = {
 /** Les libelles des details, tels que le panneau les montre ; une cle inconnue se montre telle quelle. */
 const NOMS_DETAILS: Record<string, string> = {
   groupe: 'Groupe', raccourci: 'Raccourci', description: 'Description', capacite: 'Capacité', permission: 'Permission',
-  quota: 'Quota', refus: 'Sans les droits', conditionnelle: 'Conditionnelle', classes: 'Classes d’écran',
+  quota: 'Quota', cible: 'Porte sur', refus: 'Sans les droits', conditionnelle: 'Conditionnelle', classes: 'Classes d’écran',
   emplacements: 'Emplacements', atteinte: 'Atteinte', type: 'Type', unite: 'Unité', min: 'Minimum', max: 'Maximum',
   pas: 'Pas', decimales: 'Décimales', modifie: 'Modifie', annulable: 'Annulable', effets: 'Effets',
   conditionnel: 'Conditionnel', activable: 'Activable', explication: 'Explication', appliquerATous: 'Appliquer à tous',

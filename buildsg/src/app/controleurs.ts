@@ -95,6 +95,7 @@ function detailsCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Record
   if (c.capacite) d.capacite = c.capacite;
   if (c.permission) d.permission = c.permission;
   if (c.quota) d.quota = typeof c.quota === 'string' ? c.quota : 'selon le contexte';
+  if (c.parametre) d.cible = c.parametre === 'objet' ? 'un objet du plan, désigné par le bouton' : 'une cote, désignée par sa ligne';
   // Les trois refus ne se montrent pas pareil (app/commandes.ts) : c'est la carte de l'offre.
   const refus = [
     c.capacite && 'effacée sans la capacité',

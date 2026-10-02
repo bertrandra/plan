@@ -55,6 +55,8 @@ describe('attributs declares', () => {
     expect(nouveau.refus).toMatch(/grisée sans la permission/);
     expect(nouveau.refus).toMatch(/quota/);
     expect(nouveau.emplacements).toMatch(/téléphone \d+, tablette \d+, bureau \d+/);
+    const cible = aplatir(construireArbre(source([cmd('mesure.supprimer', 'Supprimer la cote', 'mesure', { parametre: 'cote' })])));
+    expect(cible.get('plan/commandes/mesure/mesure.supprimer')?.details?.cible).toMatch(/une cote/);
     const dossier = tous.get('plan/commandes/export/export.dossier')?.details ?? {};
     expect(dossier.quota).toBe('selon le contexte');
     expect(dossier.refus).toBe('effacée sans la capacité ; grisée au quota atteint, avec explication');

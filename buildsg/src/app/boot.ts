@@ -39,6 +39,7 @@ import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
 import { creerInspecteur, type Inspecteur } from './inspecteur.js';
 import { creerExplorateur, type Explorateur } from './explorateur.js';
+import { brancherCommandesCiblees } from './ecouteurs/cibles.js';
 import { creerProjet, projetARemplir } from './projet.js';
 import { retenirProjetsConnus } from '../plateforme/quotaProjets.js';
 import { signalerLimiteProjets } from './limiteProjets.js';
@@ -305,7 +306,9 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
     actualisationEnCours: () => actualisation.enCours()
   }, magasin, commandes);
-  const explorateur = creerExplorateur(etat, { render: p.render, markDirty: p.markDirty, redimensionner: p.cadrage.redimensionner }, magasin);
+  const explorateur = creerExplorateur(etat, { render: p.render, markDirty: p.markDirty, pushHistory: () => historique.empiler(), redimensionner: p.cadrage.redimensionner }, magasin);
+  // Les commandes qui portent sur un objet ou une cote : l'explorateur et le tiroir les declenchent.
+  brancherCommandesCiblees(commandes, { etat, explorateur, resultats });
   // L'inspecteur rend des descripteurs de champs (ui/champs/) ; ce service leur donne leur contexte.
   const inspecteur = creerInspecteur(etat, {
     libelleType: libelleTypeObjet, elevationOf, refLabel: mesures.refLabel, measureSegCoords: mesures.measureSegCoords, dejaRectangle,

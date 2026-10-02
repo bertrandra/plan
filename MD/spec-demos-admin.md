@@ -126,7 +126,17 @@ enregistre.
   `tests/unit/app/controlesInterface.test.ts` vérifie que les deux concordent dans les deux sens.
   Pourquoi pas des commandes : une commande est un geste sur le plan, sans paramètre, que le
   registre peut refuser selon les droits ; un onglet ou « supprimer *cette* cote » n'en sont pas.
-- **Hors registre** (5ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
+- **Commandes ciblées** (`app/ecouteurs/cibles.ts`) : le registre accepte une **cible**
+  (`Cible` : `objet`, `cote`, `valeur`). Une commande qui déclare `parametre: 'objet' | 'cote'` est
+  refusée sans sa cible ; le bouton la passe : `commandes.executer('mesure.supprimer', source,
+  { cote: m.id })`. Les anciens contrôles de nature *objet* sont devenus des commandes, avec la
+  permission d'écrire (grisés et expliqués sans elle) et l'annulation : `objet.visibilite`,
+  `objet.etiquette`, `objet.masquerTous`, `objet.etiquettesTous`, `mesure.choisirReference`,
+  `mesure.origine`, `mesure.selectionnerCoins`, `mesure.ajouter`, `mesure.inverserOrigine`,
+  `mesure.valeurAffichee`, `mesure.afficher`, `mesure.supprimer`. L'explorateur empile désormais un
+  instantané avant de masquer un objet ou de changer ses étiquettes. Dans l'arbre, une commande
+  ciblée dit sur quoi elle porte (« Porte sur »).
+- **Hors registre** (6ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
   découverte à l'autre.
   - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
     curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,

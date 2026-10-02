@@ -14,8 +14,10 @@
 // code est declaree ici, et toute declaration est utilisee dans le code. La decouverte les montre
 // dans la branche « Controles d'interface », et l'inventaire les compte comme rattaches.
 //
-// La nature `objet` signale ce qui modifie le projet sans passer par le registre : ce sont les
-// candidats a devenir des commandes le jour ou le registre acceptera un parametre.
+// La nature `objet` signale ce qui modifierait le projet sans passer par le registre : un tel
+// controle doit devenir une commande. C'est fait depuis que le registre accepte une cible
+// (app/commandes.ts `Cible`, app/ecouteurs/cibles.ts) : masquer un objet, ses etiquettes, chaque
+// geste sur les cotes sont des commandes. Il n'en reste aucun ; la nature reste pour le dire.
 
 export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'objet' | 'donnee';
 
@@ -57,8 +59,6 @@ function reglagesVue(vue: 'vue3d' | 'visionneuse', nom: string): Record<string, 
   };
 }
 
-const ETIQUETTES: [string, string][] = [['showName', 'Nom'], ['showSegNames', 'Côtés'], ['showVertNames', 'Coins'], ['showDims', 'Cotes'], ['showAngles', 'Angles']];
-
 export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Z1 : options des commandes de fichier et d'export, aide ---------------------------------
   'fichier.option.remplacerImportSvg': { libelle: 'Supprimer les objets existants avant d’importer (SVG)', zone: Z1, nature: 'option' },
@@ -72,11 +72,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Z3 : l'explorateur ----------------------------------------------------------------------
   'explorateur.replier': { libelle: 'Replier ou déplier l’explorateur', zone: Z3, nature: 'navigation' },
   'explorateur.filtreFamille': { libelle: 'Filtrer par famille', zone: Z3, nature: 'navigation', repete: true },
-  'explorateur.masquerTous': { libelle: 'Masquer ou afficher tous les objets', zone: Z3, nature: 'affichage' },
-  ...Object.fromEntries(ETIQUETTES.map(([champ, nom]) => ['explorateur.etiquettesTous.' + champ, { libelle: 'Étiquettes de tous les objets : ' + nom, zone: Z3, nature: 'affichage' } satisfies ControleInterface])),
   'explorateur.selectionnerObjet': { libelle: 'Sélectionner l’objet', zone: Z3, nature: 'navigation', repete: true },
-  'explorateur.visibiliteObjet': { libelle: 'Masquer ou afficher l’objet', zone: Z3, nature: 'objet', repete: true },
-  'explorateur.etiquettesObjet': { libelle: 'Étiquettes de l’objet sélectionné', zone: Z3, nature: 'objet', repete: true },
   'explorateur.choisirTerrasse': { libelle: 'Choisir la terrasse', zone: Z3, nature: 'navigation', repete: true },
   'explorateur.dossierTerrasse': { libelle: 'Retenir la terrasse pour le dossier PDF', zone: Z3, nature: 'option', repete: true },
   'explorateur.structureSurPlan': { libelle: 'Structure sur le plan', zone: Z3, nature: 'affichage' },
@@ -98,14 +94,6 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.hauteur': { libelle: 'Hauteur du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.terrasseSuivante': { libelle: 'Passer à la terrasse suivante', zone: Z6, nature: 'navigation' },
-  'cotes.choisirReference': { libelle: 'Choisir le segment de référence', zone: Z6, nature: 'objet' },
-  'cotes.origine': { libelle: 'Origine (extrémité du segment)', zone: Z6, nature: 'objet' },
-  'cotes.selectionnerCoins': { libelle: 'Sélectionner des coins', zone: Z6, nature: 'objet' },
-  'cotes.ajouter': { libelle: 'Ajouter les mesures', zone: Z6, nature: 'objet' },
-  'cotes.inverserOrigine': { libelle: 'Inverser l’origine d’une cote', zone: Z6, nature: 'objet', repete: true },
-  'cotes.valeurAffichee': { libelle: 'Valeur affichée d’une cote (le long ou perpendiculaire)', zone: Z6, nature: 'objet', repete: true },
-  'cotes.afficher': { libelle: 'Afficher une cote sur le plan', zone: Z6, nature: 'objet', repete: true },
-  'cotes.supprimer': { libelle: 'Supprimer une cote', zone: Z6, nature: 'objet', repete: true },
   'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true },
   'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true },
   'nomenclature.conditionnement': { libelle: 'Conditionnement des vis', zone: Z6, nature: 'donnee' },

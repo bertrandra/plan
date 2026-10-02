@@ -50,7 +50,10 @@ function fermerMenu(e: React.SyntheticEvent<HTMLElement>): void {
 }
 
 /** Les objets, par categorie, avec leur visibilite. */
-function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; apresSelection: () => void }) {
+function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; commandes: RegistreCommandes; apresSelection: () => void }) {
+  // Masquer un objet ou changer ses etiquettes modifie le projet : ce sont des commandes, grisees
+  // sans le droit d'ecrire (app/ecouteurs/cibles.ts).
+  const ecrire = commandes.etat('objet.visibilite').utilisable;
   // Le voisinage masque n'est pas liste : proposer un objet qu'on ne voit pas n'aurait pas de
   // sens, et les compteurs decriraient un plan qui n'est pas celui affiche. Un objet masque
   // individuellement reste, lui, dans la liste : c'est ici qu'on le demasque.
@@ -91,7 +94,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
         </div>
       )}
       <div className="explorateurTous">
-        <button type="button" className="oeil" data-controle="explorateur.masquerTous" aria-pressed={!tousMasques} aria-label={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
+        <button type="button" className="oeil" data-commande="objet.masquerTous" disabled={!ecrire} aria-pressed={!tousMasques} aria-label={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => commandes.executer('objet.masquerTous')}>
           <Icone nom={tousMasques ? 'oeilBarre' : 'oeil'} taille={18} />
         </button>
         <details className="menu">
@@ -101,7 +104,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
               const tous = listables.length > 0 && listables.every(o => o[champ]);
               return (
                 <li key={champ} role="menuitemcheckbox" aria-checked={tous}>
-                  <button type="button" data-controle={'explorateur.etiquettesTous.' + champ} title={titre} onClick={(e) => { explorateur.definirVisibiliteTous(champ, !tous); fermerMenu(e); }}>
+                  <button type="button" data-commande="objet.etiquettesTous" data-nom={'Étiquettes de tous les objets : ' + libelle} disabled={!ecrire} title={titre} onClick={(e) => { commandes.executer('objet.etiquettesTous', e.currentTarget, { valeur: champ }); fermerMenu(e); }}>
                     <span className="coche" aria-hidden="true">{tous ? '✓' : ''}</span>{libelle}
                   </button>
                 </li>
@@ -119,7 +122,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
                 <button type="button" className="explorateurNom" data-controle="explorateur.selectionnerObjet" data-nom="Sélectionner l’objet" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
                   {o.name}
                 </button>
-                <button type="button" className="oeil" data-controle="explorateur.visibiliteObjet" data-nom="Masquer / afficher l’objet" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
+                <button type="button" className="oeil" data-commande="objet.visibilite" data-nom="Masquer / afficher l’objet" disabled={!ecrire} aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => commandes.executer('objet.visibilite', undefined, { objet: o.key })}>
                   <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
                 </button>
               </div>
@@ -127,7 +130,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
                 <div className="explorateurEtiquettes">
                   {ETIQUETTES.map(([champ, libelle, titre]) => (
                     <label key={champ} title={titre}>
-                      <input type="checkbox" data-controle="explorateur.etiquettesObjet" checked={!!o[champ]} onChange={(e) => explorateur.definirVisibilite(o.key, champ, e.target.checked)} />
+                      <input type="checkbox" data-commande="objet.etiquette" disabled={!ecrire} checked={!!o[champ]} onChange={() => commandes.executer('objet.etiquette', undefined, { objet: o.key, valeur: champ })} />
                       {libelle}
                     </label>
                   ))}
@@ -224,7 +227,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
 
   const sections = (
     <>
-      <Objets etat={etat} explorateur={explorateur} apresSelection={apresSelection} />
+      <Objets etat={etat} explorateur={explorateur} commandes={commandes} apresSelection={apresSelection} />
       {nVoisinage > 0 && (
         <section className="explorateurSection" aria-label="Voisinage">
           <div className="explorateurLigne">
