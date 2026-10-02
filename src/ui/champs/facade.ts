@@ -50,6 +50,7 @@ export function sectionReleve(c: ContexteChamps): Section {
       type: 'bouton',
       cle: 'relever',
       libelle: '',
+      nom: 'Relever une façade',
       texte: () => 'Relever une façade…',
       explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
       agit: { commande: 'facade.relever' },

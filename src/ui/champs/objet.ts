@@ -294,7 +294,7 @@ const sectionPointDeVue: Section = {
         p[1] = { x: au(p, 0).x + Math.cos(rad) * d, y: au(p, 0).y + Math.sin(rad) * d };
       }
     },
-    { type: 'bouton', cle: 'aller', libelle: '', texte: () => 'Aller à cette vue en Vue 3D', agit: 'interface', executer: (c) => c.allerAuPointDeVue(c.obj) }
+    { type: 'bouton', cle: 'aller', libelle: '', nom: 'Aller à cette vue en Vue 3D', texte: () => 'Aller à cette vue en Vue 3D', agit: 'interface', executer: (c) => c.allerAuPointDeVue(c.obj) }
   ]
 };
 
@@ -405,7 +405,7 @@ const sectionAlignement: Section = {
       lire: () => distanceAlignement, ecrire: (_c, v) => { distanceAlignement = v; }
     },
     {
-      type: 'bouton', cle: 'aligner', libelle: '', texte: () => 'Aligner par rotation',
+      type: 'bouton', cle: 'aligner', libelle: '', nom: 'Aligner par rotation', texte: () => 'Aligner par rotation',
       actif: (c) => !!c.cibleAlignement() && !c.obj.locked,
       aide: 'Nécessite un segment cible et un objet non verrouillé',
       agit: 'projet',

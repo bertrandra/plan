@@ -167,6 +167,11 @@ enregistre.
     moment de la découverte ; un dialogue, un parcours, le relevé de façade fermés ne se voient pas
     (ils sont déclarés, nature *parcours*). Les contrôles propres à l'admin (choix de la démo,
     déconnexion) n'existent pas dans la découverte, qui tourne sans dépôt : ils sont déclarés aussi.
+  - *Contrôles affichés hors de leur zone déclarée* (`ecartsDeZone`) : une commande affichée dans
+    une zone qu'aucune classe d'écran ne lui donne (`app/exposition.ts`, conteneurs
+    `CONTENEURS_EMPLACEMENTS`), un contrôle d'interface ailleurs que dans la zone du catalogue. Un
+    contrôle porté par chaque feuille du téléphone le déclare (`dansChaqueZone`) ; un élément hors
+    de toute zone (les champs fichier cachés d'`index.html`) n'est pas compté ;
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
 - **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé

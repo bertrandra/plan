@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { inventorierEcran, fusionnerInventaires } from '../../../src/app/inventaireEcran.js';
+import { inventorierEcran, fusionnerInventaires, ecartsDeZone } from '../../../src/app/inventaireEcran.js';
 import { construireArbre, aplatir } from '../../../src/app/controleurs.js';
 import { EXPOSITION } from '../../../src/app/exposition.js';
 import type { Section } from '../../../src/ui/champs/types.js';
@@ -113,5 +113,30 @@ describe('fusion des releves de plusieurs classes d ecran', () => {
     const tous = aplatir(construireArbre({ appVersion: '9', commandes: [], exposition: EXPOSITION, inspecteur: [], ecran: fusion }));
     expect(tous.get('plan/horsRegistre/ecran')?.details?.classes).toBe('bureau, tablette, téléphone');
     expect(tous.get('plan/horsRegistre/ecran/Z4-Barre-de-sélection/bouton:deselectionner')?.details?.classes).toBe('tablette, téléphone');
+  });
+});
+
+describe('ecarts de zone : un controle affiche ailleurs que la ou il est declare', () => {
+  it('signale une commande hors des zones de la carte d exposition, et un controle hors de sa zone', () => {
+    const doc = page(`
+      <div id="zoneBarre"><button data-commande="projet.enregistrer">ok</button><button data-controle="tiroir.onglet">mal place</button>
+        <div class="feuille"><button data-controle="feuille.fermer">×</button></div></div>
+      <div id="zoneInspecteur"><button data-commande="projet.enregistrer">mal place</button></div>
+      <div id="zoneResultats"><div id="zoneResultatsBarre"><button data-controle="tiroir.onglet">ok, sous-conteneur</button></div></div>
+      <input type="file" data-commande="fichier.importerJson">`);
+    const e = ecartsDeZone(doc).map((x) => x.cle + ' @ ' + x.affiche);
+    expect(e).toEqual(['controle:tiroir.onglet @ Z1 Barre d’application', 'commande:projet.enregistrer @ Z5 Inspecteur']);
+  });
+
+  it('remonte les ecarts de chaque classe, une fois chacun, jusqu a l arbre', () => {
+    const ecart = { cle: 'controle:tiroir.onglet', affiche: 'Z1 Barre d’application', attendu: 'Z6 Résultats' };
+    const f = fusionnerInventaires([
+      { classe: 'large', rattaches: 1, horsRegistre: [], ecarts: [ecart] },
+      { classe: 'compact', rattaches: 1, horsRegistre: [], ecarts: [ecart] }
+    ]);
+    expect(f.ecarts).toEqual([ecart]);
+    const tous = aplatir(construireArbre({ appVersion: '9', commandes: [], exposition: EXPOSITION, inspecteur: [], ecran: f }));
+    expect(tous.get('plan/horsRegistre/ecartsZone')?.details?.nombre).toBe('1');
+    expect(tous.get('plan/horsRegistre/ecartsZone/controle:tiroir.onglet')?.details).toEqual({ affiche: 'Z1 Barre d’application', attendu: 'Z6 Résultats' });
   });
 });

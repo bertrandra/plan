@@ -224,7 +224,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   });
 
   cmd.declarer({
-    id: 'projet.supprimer', libelle: 'Supprimer', groupe: 'projet',
+    id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
     permission: PERMISSION_ECRITURE,
     description: 'Supprimer ce projet du serveur',
     actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,

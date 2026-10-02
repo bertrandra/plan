@@ -43,7 +43,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   // ni ne se supprime, un objet verrouille ne se supprime pas.
   const selectionne = () => a.objByKey(a.etat.selectedKey);
   commande('objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle'; } });
-  commande('objet.supprimer', 'Supprimer', () => a.deleteSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle' && !o.locked; } });
+  commande('objet.supprimer', 'Supprimer l’objet', () => a.deleteSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle' && !o.locked; } });
 
   /**
    * Reculer d'un cran. Le double-clic sur la forme fait la même chose, mais c'est un geste fragile
