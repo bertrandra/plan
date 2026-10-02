@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La livraison porte une première démo pour l'admin.** `npm run livraison` écrit
+  `livraison/plan-demos/1.json` : la démonstration intégrée (« Parcelle AE 101 »), au format de
+  l'export, tirée de `contrat/plan-produit.json`. Ce contrat est déjà gardé identique au code, donc
+  la démo n'a pas à être compilée. Le LISEZMOI dit de copier `plan-demos/` à côté de
+  `plan-admin-config.php`, hors du dossier publié, sans écraser des démos existantes. Laissé dans
+  `public_html/`, il reste refusé par `.htaccess`. Le fichier est vérifié contre le code et relu par
+  le validateur de projet (`tests/unit/livraison-demo.test.ts`), et servi par `admin.php` sous PHP.
+
+### Ajouté
+
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,
