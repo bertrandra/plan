@@ -28,6 +28,8 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
   'libelleType' | 'elevationOf' | 'interiorAngleDeg' | 'refLabel' | 'measureSegCoords' | 'contexteSoleil' | 'dejaRectangle'
   | 'applyAngleEdit' | 'applyLengthEdit' | 'deleteVertex' | 'alignObjectByRotation' | 'allerAuPointDeVue' | 'startPick' | 'pushHistory' | 'render'> {
   markDirty: () => void;
+  /** L'instantane d'avant l'ecriture, empile seulement si elle reussit (core/historique.ts `preparer`). */
+  preparerHistorique: () => () => void;
   refreshTerrasseView: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   reapplyStackingOrder: () => void;
@@ -65,13 +67,11 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
    * meme objet n'en empilent qu'un, Ctrl+Z defait le geste entier. `historique: true` empile toujours.
    */
   let dernier: { cle: string; t: number } | null = null;
+  const cleDe = (champ: Champ, c: ContexteChamps) => c.obj.key + '\u0000' + champ.cle;
   function doitEmpiler(champ: Champ, c: ContexteChamps): boolean {
     if (!champAnnulable(champ)) return false;
     if (champ.historique === true) return true;
-    const cle = c.obj.key + '\u0000' + champ.cle, t = Date.now();
-    const suite = !!dernier && dernier.cle === cle && t - dernier.t < REGROUPEMENT_MS;
-    dernier = { cle, t };
-    return !suite;
+    return !(dernier && dernier.cle === cleDe(champ, c) && Date.now() - dernier.t < REGROUPEMENT_MS);
   }
 
   function contexte(obj: ObjetPlan): ContexteChamps {
@@ -86,6 +86,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       alignObjectByRotation: ctx.alignObjectByRotation, allerAuPointDeVue: ctx.allerAuPointDeVue, startPick: ctx.startPick,
       choisirTexture: ouvrirSelecteurTexture,
       executerCommande: (id) => { commandes.executer(id); },
+      commandeUtilisable: (id) => commandes.etat(id).utilisable,
       pushHistory: ctx.pushHistory, render: ctx.render, toast: showToast
     };
   }
@@ -115,8 +116,11 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     appliquer(champ, c, ecrire) {
       // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.
       if (etat.lectureSeule && ecritLeProjet(champ)) { magasin.notifier(); return false; }
-      if (doitEmpiler(champ, c)) ctx.pushHistory();
+      // L'instantane est pris avant d'ecrire, et empile seulement si l'ecriture n'est pas refusee.
+      const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique() : null;
       if (ecrire() === false) { magasin.notifier(); return false; }
+      if (empiler) empiler();
+      if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
       if (champ.sale !== false) ctx.markDirty();
       (champ.effets || []).forEach(e => effet(e, c));
       // Une ecriture sans effet declare doit quand meme se voir : l'inspecteur relit l'etat.
@@ -124,7 +128,10 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       return true;
     },
     executer(champ, c) {
-      if (champ.type === 'bouton') { champ.executer(c); magasin.notifier(); }
+      // Un bouton qui ecrit le projet est grise en lecture seule ; il est refuse ici aussi.
+      if (champ.type !== 'bouton' || (etat.lectureSeule && ecritLeProjet(champ))) return;
+      champ.executer(c);
+      magasin.notifier();
     },
     basculerOuverture() {
       const ouvert = !magasin.store.getState().inspecteurOuvert;

@@ -9,7 +9,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Contrôleurs : écritures à surveiller.** Une nouvelle branche de l'arbre classe ce qui modifie
   le projet sans pouvoir être annulé et sans contrôle des droits. L'échelle du plan d'implantation,
-  qui écrit dans le projet, passe de la nature « option » à « donnée ».
+  qui écrit dans le projet, passe de la nature « option » à « donnée ». Les réglages du fond
+  orthophoto, enregistrés avec le projet, sont déclarés préférences d'affichage.
 
 - **Contrôleurs : la découverte voit le bureau, la tablette et le téléphone.** Elle ne relevait
   l'écran que dans la disposition du bureau, et ignorait ce qui n'existe qu'au doigt. Elle pose
@@ -117,6 +118,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un Ctrl+Z de trop après une longueur, un angle ou le mode rectangle.** Ces trois champs
+  empilaient leur propre instantané, et l'inspecteur le sien depuis qu'il les rend tous annulables :
+  après deux modifications, il fallait trois Ctrl+Z, le deuxième ne faisant rien. L'inspecteur
+  prend désormais l'instantané avant d'écrire et ne l'empile que si l'écriture est acceptée : une
+  longueur impossible ne laisse plus d'étape vide. Un test interdit à un champ d'empiler le sien.
+- **Les boutons de l'inspecteur respectent la lecture seule.** Supprimer un point, un côté ou un
+  coin, « Aligner par rotation » et « Placer au mieux » restaient actifs en lecture seule ; ils sont
+  grisés et refusés. Les boutons qui déclenchent une commande (relever, retirer une façade) se
+  grisent quand elle n'est pas permise. Chaque bouton déclare désormais sur quoi il agit.
 - **Annuler défait tout champ de l'inspecteur.** Seuls quelques champs empilaient un instantané :
   changer une hauteur, un nom, une couleur ne s'annulait pas. Tout champ qui écrit le projet
   s'annule désormais ; une frappe ou un curseur qu'on glisse ne forme qu'un geste, défait d'un seul

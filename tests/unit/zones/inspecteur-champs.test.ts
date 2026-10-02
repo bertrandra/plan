@@ -34,14 +34,14 @@ function champs(): Champ[] {
     { type: 'curseur', cle: 'curseur', libelle: 'Curseur', min: 0, max: 100, pas: 5, format: (v) => v + ' %', lire: () => 50, ecrire: rien },
     { type: 'lecture', cle: 'lecture', libelle: 'Lecture', valeur: () => '12,5 m²' },
     { type: 'texture', cle: 'texture', libelle: 'Texture', lire: () => null, ecrire: rien },
-    { type: 'bouton', cle: 'bouton', libelle: 'Bouton', executer: rien },
-    { type: 'bouton', cle: 'boutonLarge', libelle: '', texte: () => 'Bouton pleine largeur', executer: rien },
+    { type: 'bouton', cle: 'bouton', libelle: 'Bouton', agit: 'interface', executer: rien },
+    { type: 'bouton', cle: 'boutonLarge', libelle: '', texte: () => 'Bouton pleine largeur', agit: 'interface', executer: rien },
     { type: 'alerte', cle: 'alerte', libelle: '', texte: () => 'Attention' },
     { type: 'optimisation', cle: 'optimisation', libelle: '' },
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
       { type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', lire: () => 3.2, ecrire: rien },
-      { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', executer: rien }
+      { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', agit: 'projet', executer: rien }
     ] },
     { type: 'texte', cle: 'invisible', libelle: 'Invisible', visible: () => false, lire: () => '', ecrire: rien }
   ];

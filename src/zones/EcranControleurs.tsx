@@ -40,7 +40,7 @@ const NOMS_DETAILS: Record<string, string> = {
   conditionnel: 'Conditionnel', activable: 'Activable', explication: 'Explication', appliquerATous: 'Appliquer à tous',
   aide: 'Aide', valeurs: 'Valeurs permises', ouverture: 'À l’ouverture', sorte: 'Sorte',
   nature: 'Nature', ouvertPar: 'Ouvert par', echantillon: 'Échantillon', horsRegistre: 'Hors registre', rattaches: 'Rattachés au registre', portee: 'Portée', consequence: 'Conséquence',
-  droits: 'Droits', ecrit: 'Écrit', origine: 'Origine', sortes: 'Sortes d’objet', nombre: 'Nombre'
+  droits: 'Droits', ecrit: 'Écrit', agit: 'Agit sur', origine: 'Origine', sortes: 'Sortes d’objet', nombre: 'Nombre'
 };
 const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau', retire: 'Retiré', modifie: 'Modifié' };
 

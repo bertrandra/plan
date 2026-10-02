@@ -334,7 +334,7 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   const optimisation: Section = {
     id: 'optimisation', titre: 'Optimisation',
     champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', executer: (cx) => cx.executerCommande('terrasse.optimisation') },
+      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
       { type: 'optimisation', cle: 'resultat', libelle: '' }
     ]
   };

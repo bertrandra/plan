@@ -172,14 +172,19 @@ enregistre.
 - **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé
   dans Plan. Ce qui modifie le projet hors des deux garde-fous du registre :
   - *sans annulation* : Ctrl+Z ne le défait pas. Un champ de l'inspecteur qui écrit le projet
-    empile un instantané (`champAnnulable`), sauf `historique: false` ; les écritures rapprochées
+    s'annule (`champAnnulable`), sauf `historique: false` : l'inspecteur prend l'instantané avant
+    d'écrire et ne l'empile que si l'écriture n'est pas refusée (`historique.preparer`) ; un champ
+    n'empile jamais le sien dans `ecrire` (un test le garde), ce qui ferait deux étapes ; les écritures rapprochées
     d'un même champ du même objet (1,5 s : une frappe, un curseur qu'on glisse) n'en empilent
     qu'un, un Ctrl+Z défait le geste entier. Une saisie du tiroir passe par `resultats.saisir`, qui
     l'empile ; une commande qui porte la permission d'écrire empile elle-même ;
   - *sans contrôle des droits* : rien ne le refuse en lecture seule (vitrine comprise). Le registre
     grise une commande qui porte la permission d'écrire ; l'inspecteur grise et refuse un champ qui
     écrit le projet (`champActif`, `appliquer`) ; `resultats.saisir` refuse une saisie du tiroir,
-    grisée elle aussi. Les réglages d'affichage (`sale: false`) restent libres.
+    grisée elle aussi. Les réglages d'affichage (`sale: false`) restent libres. Un **bouton** de
+    l'inspecteur déclare obligatoirement sur quoi il agit (`agit`) : `{ commande }` (grisé quand le
+    registre ne la permet pas), `projet` (il porte sa propre annulation ; grisé et refusé en lecture
+    seule) ou `interface`. L'arbre le montre (« Agit sur »).
 
   Les sources : les champs (lus dans leurs déclarations), les contrôles du catalogue qui déclarent
   `ecrit: { annulable, droits }` (`droits: 'commande'` quand la commande qui ouvre leur écran porte
