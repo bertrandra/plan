@@ -39,7 +39,6 @@ const BLANC_PAR_DEFAUT = 0xffffff;
 export interface ContexteScene3d {
   /** La parcelle qui porte la cloture, s'il y en a une. */
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
-  /** Remet les controles de cloture en accord avec la parcelle affichee. */
   /** Hauteur de ce sur quoi la structure repose, en millimetres. */
   hauteurAppuiMm: (c: Construction) => number;
   /** Altitude d'un objet du plan, en metres. */
