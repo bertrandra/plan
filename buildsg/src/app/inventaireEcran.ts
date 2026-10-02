@@ -34,7 +34,7 @@ export interface ControleEcran {
 }
 
 /** Les conteneurs d'index.html et la zone qu'ils portent (MD/spec-ihm-zones.md §3). */
-const ZONES_DOM: Record<string, string> = {
+export const ZONES_DOM: Record<string, string> = {
   zoneBarre: 'Z1 Barre d’application', zonePalette: 'Z2 Palette', zoneExplorateur: 'Z3 Explorateur',
   zoneSurimpression: 'Z4 Canevas', stage: 'Z4 Canevas', zoneVues3d: 'Z4 Vues 3D', zoneSelection: 'Z4 Barre de sélection',
   zoneInspecteur: 'Z5 Inspecteur', zoneResultats: 'Z6 Résultats', zoneEtat: 'Z7 Barre d’état',

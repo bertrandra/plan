@@ -19,7 +19,8 @@ import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 
 /** Les fonctions qu'on peut donner a un objet, dans l'ordre du menu d'autrefois. */
-const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'limite', 'autre'];
+/** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur. */
+export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'limite', 'autre'];
 
 // La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
 // pas une donnee du plan, seulement le brouillon d'un geste.

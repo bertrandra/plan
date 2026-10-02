@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { CONTROLES, NATURES } from '../../../src/app/controlesInterface.js';
+import { ZONES_DOM } from '../../../src/app/inventaireEcran.js';
 
 // Le catalogue des controles d'interface (app/controlesInterface.ts) et le code qui les affiche se
 // tiennent l'un l'autre, comme le registre et la carte d'exposition (exposition.test.ts) : toute
@@ -41,8 +42,11 @@ describe('catalogue des controles d interface', () => {
   it('chaque controle a un libelle, une zone et une nature connue', () => {
     for (const [cle, c] of Object.entries(CONTROLES)) {
       expect(c.libelle.length, cle).toBeGreaterThan(2);
-      expect(c.zone, cle).toMatch(/^Z\d /);
+      // Une zone de l'ecran telle que l'inventaire la nomme : les deux branches se recoupent.
+      expect(Object.values(ZONES_DOM), cle).toContain(c.zone);
       expect(NATURES[c.nature], cle).toBeDefined();
+      // Un controle de parcours dit qui ouvre son ecran.
+      if (c.nature === 'parcours') expect(c.ouvertPar, cle).toBeTruthy();
     }
   });
 });

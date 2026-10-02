@@ -69,7 +69,7 @@ import { vue3d } from '../three/etat3d.js';
 import { creerIsolement } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
-import type { SourceControleurs } from './controleurs.js';
+import { PREFIXE_ECHANTILLON, type SourceControleurs } from './controleurs.js';
 import { inventorierEcran } from './inventaireEcran.js';
 import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
@@ -354,7 +354,7 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
       // Les valeurs permises d'une liste dependent de l'objet : on les demande pour celui-ci. Une
       // liste qui ne se laisse pas lire est signalee vide plutot que de casser la decouverte.
       const optionsDe = (ch: ChampChoix) => { try { return ch.options(c); } catch { return null; } };
-      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c), optionsDe };
+      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c), optionsDe, echantillon: o.key.startsWith(PREFIXE_ECHANTILLON) };
     })
   };
 }

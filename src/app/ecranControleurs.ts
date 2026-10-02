@@ -8,7 +8,7 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranControleurs, type Decouverte } from '../zones/EcranControleurs.js';
-import { construireArbre, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
+import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
 import { lireControleurs, enregistrerControleurs } from '../io/depotDemos.js';
 import { showErrBanner } from '../shell/dialogs.js';
 
@@ -26,8 +26,11 @@ function estRegistre(d: unknown): d is RegistreControleurs {
 let lecture: Promise<() => SourceControleurs> | null = null;
 
 function demarrerPlan(): Promise<() => SourceControleurs> {
-  lecture ||= import('./boot.js').then(({ boot, graineVitrine }) => new Promise((resoudre) => {
-    boot(graineVitrine(), { controleurs: resoudre });
+  lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(([{ boot, graineVitrine }, { FONCTIONS }]) => new Promise((resoudre) => {
+    // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
+    const graine = graineVitrine();
+    graine.objects.push(...echantillonsDecouverte(graine.objects, FONCTIONS));
+    boot(graine, { controleurs: resoudre });
   }));
   return lecture;
 }

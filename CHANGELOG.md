@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs : les écrans ouverts à la demande et les fonctions absentes de la démo.** Les
+  dialogues, le premier pas, l'import cadastral, l'actualisation IGN, le choix de texture et le
+  relevé de façade (75 contrôles) sont déclarés dans le catalogue des contrôles d'interface, avec la
+  commande qui ouvre chaque écran : la découverte les montre même fermés. Pour chaque fonction
+  d'objet que la démonstration ne porte pas (mobilier, limite), la découverte ajoute en mémoire un
+  échantillon, dont les champs sont donc découverts ; la démonstration n'est pas modifiée.
 - **Commandes ciblées : masquer un objet, ses étiquettes et chaque geste sur les cotes passent par
   le registre.** Le registre des commandes accepte une cible (un objet, une cote, une valeur). Douze
   gestes qui modifiaient le projet en dehors de lui sont devenus des commandes : ils sont **grisés

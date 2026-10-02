@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { construireArbre, comparer, aplatir, compterFeuilles, type SourceControleurs } from '../../../src/app/controleurs.js';
+import { construireArbre, comparer, aplatir, compterFeuilles, echantillonsDecouverte, type SourceControleurs } from '../../../src/app/controleurs.js';
 import { EXPOSITION } from '../../../src/app/exposition.js';
 import type { Commande } from '../../../src/app/commandes.js';
 import type { Section } from '../../../src/ui/champs/types.js';
@@ -125,5 +125,28 @@ describe('comparaison avec le registre enregistre', () => {
     // Le retire reste dans l'arbre montre, sous son ancien parent.
     expect(aplatir(c.arbre).get('plan/commandes/projet/projet.supprimer')?.nom).toBe('Supprimer');
     expect(compterFeuilles(apres)).toBeLessThan(compterFeuilles(c.arbre));
+  });
+});
+
+describe('echantillons de decouverte', () => {
+  const objets = [
+    { key: 't', type: 'polygon', fonction: 'terrasse' }, { key: 'a', type: 'polygon', fonction: 'autre', fill: '#123' },
+    { key: 'c', type: 'path', fonction: 'chemin' }, { key: 'r', type: 'circle', fonction: 'arbre' }
+  ] as never[];
+
+  it('ajoute un objet par fonction absente, de la bonne forme, sans toucher aux objets donnes', () => {
+    const e = echantillonsDecouverte(objets, ['terrasse', 'autre', 'chemin', 'arbre', 'mobilier', 'limite']);
+    expect(e.map((o) => [o.key, o.type, o.fonction])).toEqual([
+      ['decouverte-mobilier', 'polygon', 'mobilier'],
+      ['decouverte-limite', 'path', 'limite']
+    ]);
+    // Le modele neutre (« autre ») est copie, pas la terrasse ; l'original n'est pas modifie.
+    expect(e[0]?.fill).toBe('#123');
+    expect(JSON.stringify(objets)).not.toContain('decouverte-');
+  });
+
+  it('ne rend rien quand toutes les fonctions sont la, ou sans modele de la bonne forme', () => {
+    expect(echantillonsDecouverte(objets, ['terrasse', 'chemin'])).toEqual([]);
+    expect(echantillonsDecouverte([{ key: 'x', type: 'circle', fonction: 'arbre' }] as never[], ['limite'])).toEqual([]);
   });
 });

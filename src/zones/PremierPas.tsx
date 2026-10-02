@@ -60,7 +60,7 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
             : "Votre organisation n'a encore aucun plan."}
         </p>
 
-        <button type="button" className="premierChoix premierChoix--premier" onClick={() => { choisir('adresse'); }}>
+        <button type="button" data-controle="premierPas.adresse" className="premierChoix premierChoix--premier" onClick={() => { choisir('adresse'); }}>
           <span className="premierChoixTitre">Partir d'une adresse</span>
           <span className="premierChoixTexte">
             La parcelle et les batiments viennent du cadastre. C'est la facon de commencer un vrai
@@ -68,7 +68,7 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
           </span>
         </button>
 
-        <button type="button" className="premierChoix" onClick={() => { choisir('demo'); }}>
+        <button type="button" data-controle="premierPas.demo" className="premierChoix" onClick={() => { choisir('demo'); }}>
           <span className="premierChoixTitre">Ouvrir le plan de demonstration</span>
           <span className="premierChoixTexte">
             Une parcelle complete avec sa terrasse, ses arbres et ses cotes. Pour voir ce que Plan
