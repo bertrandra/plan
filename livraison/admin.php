@@ -10,6 +10,8 @@
 //   GET    admin/demos            {demos: [{id, name, updatedAt}]}
 //   POST   admin/demos            cree la demo au premier numero libre
 //   GET|PUT|DELETE admin/demos/<id>
+//   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
+//                                 publique montre (`?mode=demo&file=<id>`)
 //
 // **Le mot de passe se verifie ici, jamais dans la page** : le fichier livre se lit en entier.
 // Il vit dans un fichier de configuration (admin-config.exemple.php), de preference HORS du dossier
@@ -63,6 +65,25 @@ $lecture = $methode === 'GET' || $methode === 'HEAD';
 $chemin = trim((string)($_GET['chemin'] ?? ''), '/');
 
 if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
+
+// --- La vitrine ---------------------------------------------------------------------------------
+// Une demo se montre au public par la vitrine (`?mode=demo&file=<id>`) : en lecture seule, sans
+// session, et avant elle — ni cookie pose, ni session ouverte pour un visiteur. Une demo est faite
+// pour etre montree ; ce qu'elle ne doit pas etre, c'est modifiable, et rien ici n'ecrit.
+if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
+    if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $id = rawurldecode($m[1]);
+    if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
+    $f = $dossier . '/' . $id . '.json';
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune démo « ' . $id . ' ».');
+    // Une minute de cache : la page d'accueil qui l'encadre ne redemande pas le fichier a chaque
+    // visite, et une demo reenregistree se voit vite.
+    header('Cache-Control: public, max-age=60');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
 
 // --- La session ---------------------------------------------------------------------------------
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')

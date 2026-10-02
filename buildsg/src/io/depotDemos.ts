@@ -19,7 +19,11 @@ interface FichierDemo {
   measures?: Mesure[];
 }
 
-export const RACINE_ADMIN = '/admin';
+/**
+ * Relatif a la page, et non `/admin` : Plan peut etre depose dans un sous-dossier de l'hote. Sous
+ * Apache, `.htaccess` renvoie `admin/…` vers `admin.php` ; sous Node, `app.js` le sert lui-meme.
+ */
+export const RACINE_ADMIN = 'admin';
 /** L'en-tete que le serveur exige sur toute ecriture : un autre site ne peut pas le poser. */
 export const ENTETE_ADMIN = { 'X-Plan-Admin': '1' } as const;
 

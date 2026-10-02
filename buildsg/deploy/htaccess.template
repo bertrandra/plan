@@ -47,6 +47,20 @@ Redirect 301 /plan.html /
 </IfModule>
 RedirectMatch 404 ^/data(/|$)
 
+# 1 bis. L'admin des demos (MD/spec-demos-admin.md). La page appelle `admin/…`, relatif a son
+# adresse : Apache le confie a `admin.php`, qui seul verifie le mot de passe. Sa configuration et
+# les fichiers de demo ne se servent jamais directement, meme poses par erreur dans ce dossier.
+# Les chemins de `RewriteRule` sont relatifs au dossier de ce fichier : tout marche aussi dans un
+# sous-dossier de l'hote.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(plan-demos|demos)(/|$) - [R=404,L]
+  RewriteRule ^admin/(.*)$ admin.php?chemin=$1 [QSA,L]
+</IfModule>
+<FilesMatch "^(plan-)?admin-config(\.exemple)?\.php$">
+  Require all denied
+</FilesMatch>
+
 # 2. Rien qui commence par un point, et rien qui ne serait la que par erreur.
 <FilesMatch "^\.">
   Require all denied
