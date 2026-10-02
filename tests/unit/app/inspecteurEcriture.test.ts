@@ -105,4 +105,17 @@ describe('descripteurs de champs (ui/champs)', () => {
       }
     }
   });
+
+  // Un bouton, une alerte ou un tableau sur toute la largeur n'a pas de libelle : sans nom, l'arbre
+  // des controleurs ne montrerait que sa cle (« aller », « resultat »).
+  it('donne un nom a tout champ sans libelle', () => {
+    const dossier = resolve(__dirname, '../../../src/ui/champs');
+    for (const nom of readdirSync(dossier).filter((n) => n.endsWith('.ts'))) {
+      const src = readFileSync(resolve(dossier, nom), 'utf8');
+      for (let i = src.indexOf("libelle: ''"); i >= 0; i = src.indexOf("libelle: ''", i + 1)) {
+        const suite = src.slice(i, i + 120);
+        expect(suite, nom + ' @' + i).toMatch(/nom: '/);
+      }
+    }
+  });
 });

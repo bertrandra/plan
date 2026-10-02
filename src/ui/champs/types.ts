@@ -70,6 +70,11 @@ interface ChampBase {
   /** Identifiant stable dans sa section : la cle de la propriete, ou un nom pour ce qui n'en a pas. */
   cle: string;
   libelle: string;
+  /**
+   * Le nom explicite du champ quand son libelle est vide (bouton, alerte ou tableau sur toute la
+   * largeur) : l'arbre des controleurs le montre a la place de la cle. Un test l'exige.
+   */
+  nom?: string;
   /** L'infobulle. */
   aide?: string;
   /** Un mot sur la valeur : ce que le configurateur ecrivait dans sa colonne du milieu. */

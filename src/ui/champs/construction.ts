@@ -289,17 +289,17 @@ const chargeParPlot: Champ = {
 // Un equipement lourd sur plots : on laisse passer, mais on dit clairement pourquoi c'est douteux.
 const alertes: Champ[] = [
   {
-    type: 'alerte', cle: 'alerteEquipement', libelle: '', visible: (cx) => { const l = lire(cx); return l.plots && l.visSpa > 0; },
+    type: 'alerte', cle: 'alerteEquipement', libelle: '', nom: 'Alerte : équipement lourd sur plots', visible: (cx) => { const l = lire(cx); return l.plots && l.visSpa > 0; },
     texte: (cx) => { const l = lire(cx); return '⚠ Équipement lourd sur plots' + (l.nomsEquip ? ' — ' + l.nomsEquip : '') + '. Les ' + l.visSpa + ' appuis de la zone sont resserrés comme en mode vis, mais un plot n\'est pas ancré et reporte sa charge sur une assise qui peut tasser de façon différentielle. Un spa rempli et occupé, c\'est 1,5 à 2 t sur 3 à 4 m², et une cuve ou un bac maçonné sont du même ordre. La solution du métier est une dalle béton dédiée, fondée pour elle-même, le platelage étant construit autour. Le chiffrage décrit un ouvrage que je ne recommande pas en l\'état.'; }
   },
   {
-    type: 'alerte', cle: 'alertePlot', libelle: '', visible: (cx) => { const l = lire(cx); return l.plots && (l.c.hauteurPlot || 10) > PLOT_HAUTEUR_DTU_CM; },
+    type: 'alerte', cle: 'alertePlot', libelle: '', nom: 'Alerte : plot hors du NF DTU 51.4', visible: (cx) => { const l = lire(cx); return l.plots && (l.c.hauteurPlot || 10) > PLOT_HAUTEUR_DTU_CM; },
     texte: (cx) => { const h = cx.construction().hauteurPlot || 10; return 'Hauteur de plot ' + h + ' cm : au-delà de ' + PLOT_HAUTEUR_DTU_CM + ' cm le plot réglable sort du domaine du NF DTU 51.4' + (h > PLOT_HAUTEUR_MAX_CM ? ', et au-delà d\'1 m c\'est le platelage entier qui en sort.' : '.'); }
   },
   // Une tete qui depasse trop transforme la vis en poteau : la charge n'arrive plus dans l'axe du
   // sol mais au bout d'un bras de levier, et c'est le sol autour du fut qui encaisse.
   {
-    type: 'alerte', cle: 'alerteVis', libelle: '', visible: (cx) => { const l = lire(cx); return !l.plots && (l.c.depassementVis || 0) > VIS_DEPASSEMENT_USUEL_CM; },
+    type: 'alerte', cle: 'alerteVis', libelle: '', nom: 'Alerte : dépassement de tête de vis', visible: (cx) => { const l = lire(cx); return !l.plots && (l.c.depassementVis || 0) > VIS_DEPASSEMENT_USUEL_CM; },
     texte: (cx) => { const dep = cx.construction().depassementVis || 0; return 'Dépassement de tête ' + dep + ' cm : au-delà de ' + VIS_DEPASSEMENT_USUEL_CM + ' cm on sort de la course des têtes réglables du commerce' + (dep > VIS_DEPASSEMENT_MAX_CM ? ', et à ' + dep + ' cm ce n\'est plus une tête mais un poteau : il faut alors un contreventement et une vérification du moment en pied, que ce calcul ne couvre pas.' : ', et la longueur enterrée doit rester nettement supérieure à la partie hors sol.'); }
   }
 ];
@@ -334,8 +334,8 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   const optimisation: Section = {
     id: 'optimisation', titre: 'Optimisation',
     champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
-      { type: 'optimisation', cle: 'resultat', libelle: '' }
+      { type: 'bouton', cle: 'optimiser', libelle: '', nom: 'Optimisation des paramètres (afficher ou masquer)', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
+      { type: 'optimisation', cle: 'resultat', libelle: '', nom: 'Tableau d’optimisation' }
     ]
   };
   const parametres: Section = {

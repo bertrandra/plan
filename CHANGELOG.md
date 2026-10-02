@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs : cohérence des déclarations.** La découverte signale un contrôle affiché hors de
+  la zone que sa déclaration prévoit (aucun aujourd'hui, dans les trois classes d'écran). Les
+  contrôles de feuille le déclarent : ils s'affichent dans chaque zone ouverte en feuille. Les
+  boutons, alertes et tableaux sans libellé portent un nom explicite dans l'arbre (« Aligner par
+  rotation » au lieu de « aligner ») ; un test l'exige. Les deux commandes « Supprimer » se
+  distinguent dans le registre (« Supprimer l'objet », « Supprimer le projet ») ; le groupe
+  « Clôture », sans commande, et la nature « objet », vide, sont retirés.
 - **Contrôleurs : écritures à surveiller.** Une nouvelle branche de l'arbre classe ce qui modifie
   le projet sans pouvoir être annulé et sans contrôle des droits. L'échelle du plan d'implantation,
   qui écrit dans le projet, passe de la nature « option » à « donnée ». Les réglages du fond

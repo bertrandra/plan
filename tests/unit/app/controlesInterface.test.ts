@@ -51,10 +51,6 @@ describe('catalogue des controles d interface', () => {
     }
   });
 
-  it('ne garde aucun controle de nature objet : ils sont devenus des commandes', () => {
-    expect(Object.entries(CONTROLES).filter(([, c]) => c.nature === 'objet').map(([k]) => k)).toEqual([]);
-  });
-
   it('classe ce qu ecrit chaque saisie de donnee du projet', () => {
     for (const [cle, c] of Object.entries(CONTROLES)) if (c.nature === 'donnee') expect(c.ecrit, cle).toBeDefined();
   });
