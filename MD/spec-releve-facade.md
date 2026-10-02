@@ -71,7 +71,8 @@ se décalant le long du mur quand on manque de recul, ou reculer ; une alerte qu
 | `render/releve.ts` | | les ouvertures sur le plan à l'écran |
 | `three/releve3d.ts` | | façades texturées, encadrements, pans et pignons |
 | `app/releve.ts`, `app/ecouteurs/facade.ts` | | le service qui écrit dans le projet ; les deux commandes |
-| `zones/Releve.tsx` | | le parcours plein écran (Z8) |
+| `zones/Releve.tsx` | | le parcours plein écran (Z8) : l'enchaînement des cinq temps |
+| `zones/releve/` | | chaque temps et ses outils : `ChoixMur`, `capteurs` et `Visee`, `Coins`, `EtapeCoins`, `Elevation` et `EtapeResultat` ; sans React, `serie` (coins proposés, consignes) et `analyse` (analyser une série, écrire le relevé d'un mur), testés seuls |
 | `native/ios/` | | le module natif, hors de l'application web |
 
 Le calcul (`facade/`) ne touche ni au DOM ni au réseau : tout se teste sous Node, sur des images
@@ -120,7 +121,7 @@ Une commande ne prend pas d'argument : le bouton d'une ligne **désigne** d'abor
 (`facade/choix.ts`), puis exécute la commande, qui le reprend — le même schéma que la cible
 d'alignement.
 
-### 4.2 Les cinq temps (`zones/Releve.tsx`)
+### 4.2 Les cinq temps (`zones/Releve.tsx`, `zones/releve/`)
 
 Plein écran, dans les trois classes, fermable par Échap ou la croix. **Rien n'est écrit dans le
 plan avant « Valider »** : fermer ne laisse aucune trace.
