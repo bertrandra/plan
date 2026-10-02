@@ -26,11 +26,6 @@ export function elOpt<T extends HTMLElement = HTMLElement>(id: string): T | null
   return document.getElementById(id) as T | null;
 }
 
-/** Tous les elements correspondant au selecteur, sous forme de tableau. */
-export function els<T extends Element = Element>(selecteur: string, racine: ParentNode = document): T[] {
-  return Array.from(racine.querySelectorAll(selecteur)) as T[];
-}
-
 /** Abonnement type : evite les `as` a chaque addEventListener sur un evenement connu. */
 export function on<K extends keyof HTMLElementEventMap>(
   cible: HTMLElement,

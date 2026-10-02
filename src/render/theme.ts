@@ -21,11 +21,9 @@ export const themeSombre =
 
 export const SVG_INK = themeSombre ? '#F1E7D0' : '#2B2117';
 export const SVG_GRID_MAJOR = themeSombre ? '#4A3F30' : '#D9CDB2';
-export const SVG_GRID_MINOR = themeSombre ? '#2A2219' : '#EAE2D0';
 /** Halo pose derriere les etiquettes pour qu'elles restent lisibles au-dessus d'un objet. */
 export const SVG_LABEL_HALO = themeSombre ? '#1C1610cc' : '#F7F2E7cc';
 export const SVG_MEASURE_LINE = themeSombre ? '#8FC7DE' : '#1E6B8C';
-export const SVG_MEASURE_LINE_SOFT = themeSombre ? '#5C93A8' : '#6B9CB0';
 export const SVG_MEASURE_TEXT = themeSombre ? '#B8E4F7' : '#0F4C63';
 /** Les poignees d'un objet selectionne : un anneau a l'accent sur fond clair (maquette, 2.1.1). */
 export const SVG_POIGNEE = themeSombre ? '#E0B564' : '#7A5C31';

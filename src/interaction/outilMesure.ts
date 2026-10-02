@@ -33,11 +33,3 @@ export const mesure: {
   startEnd: 'A',
   cibles: []
 };
-
-/** Abandonne le brouillon en cours. Le plan revient a son etat normal au prochain rendu. */
-export function annulerMesureEnCours(): void {
-  mesure.pointage = null;
-  mesure.ref = null;
-  mesure.startEnd = 'A';
-  mesure.cibles = [];
-}
