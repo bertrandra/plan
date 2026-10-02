@@ -1,9 +1,10 @@
 // L'ecran des controleurs de l'admin (`?admin&ecran=controleurs`, MD/spec-demos-admin.md).
 //
 // Un ecran a part, sur toute la page : l'arbre de ce par quoi l'ecran de Plan agit — zones et
-// emplacements, registre des commandes, champs de l'inspecteur —, decouvert dans Plan en marche
-// (app/controleurs.ts) et compare au registre enregistre sur le serveur. Il ne fait rien sur le plan :
-// il montre, compare et enregistre.
+// emplacements, registre des commandes, champs de l'inspecteur. A l'ouverture, il montre le registre
+// enregistre sur le serveur, rien de plus. La decouverte ne se fait que sur demande, au bouton :
+// Plan demarre alors, cache (app/controleurs.ts), et l'ecran compare ce qu'il trouve au registre.
+// Il ne fait rien sur le plan : il montre, compare et enregistre.
 //
 // L'arbre suit le motif ARIA « tree » : une seule ligne dans l'ordre de tabulation, les fleches
 // pour circuler (haut, bas ; droite ouvre ou descend ; gauche ferme ou remonte), Debut et Fin.
@@ -11,15 +12,15 @@
 import { useMemo, useRef, useState } from 'react';
 import { aplatir, comparer, compterFeuilles, type Comparaison, type Noeud, type RegistreControleurs, type Statut } from '../app/controleurs.js';
 
+/** Ce qu'une decouverte rapporte. */
+export interface Decouverte { arbre: Noeud; le: string; appVersion: string }
+
 export interface PropsEcranControleurs {
-  decouvert: Noeud;
-  decouvertLe: string;
-  appVersion: string;
   enregistre: RegistreControleurs | null;
+  /** Lance la decouverte, sur demande seulement : demarre Plan cache la premiere fois. */
+  decouvrir: () => Promise<Decouverte>;
   /** Rend le message d'echec, ou `null` une fois enregistre. */
   enregistrer: (registre: RegistreControleurs) => Promise<string | null>;
-  /** Recharge la page : la decouverte relit Plan tel qu'il est maintenant deploye. */
-  redecouvrir: () => void;
 }
 
 const GENRES: Record<Noeud['genre'], string> = {
@@ -30,12 +31,33 @@ const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau
 
 const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
+/** Les chemins qui restent visibles apres le filtre : un noeud qui correspond, et ses ancetres. `null` : pas de filtre. */
+function visibles(tous: Map<string, Noeud>, statuts: Map<string, Statut> | undefined, filtre: string, changementsSeuls: boolean): Set<string> | null {
+  const f = filtre.trim().toLowerCase();
+  if (!f && !changementsSeuls) return null;
+  const g = new Set<string>();
+  for (const [chemin, n] of tous) {
+    const texte = !f || n.cle.toLowerCase().includes(f) || n.nom.toLowerCase().includes(f);
+    const change = !changementsSeuls || (statuts?.get(chemin) ?? 'inchange') !== 'inchange';
+    if (!texte || !change) continue;
+    const morceaux = chemin.split('/');
+    for (let i = 1; i <= morceaux.length; i++) g.add(morceaux.slice(0, i).join('/'));
+  }
+  return g;
+}
+
 interface Ligne { chemin: string; noeud: Noeud; niveau: number; parent: string | null; ouvrable: boolean }
 
-export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistre, enregistrer, redecouvrir }: PropsEcranControleurs) {
+export function EcranControleurs({ enregistre, decouvrir, enregistrer }: PropsEcranControleurs) {
   const [registre, setRegistre] = useState(enregistre);
-  const cmp = useMemo(() => comparer(registre ? registre.arbre : null, decouvert), [registre, decouvert]);
-  const tous = useMemo(() => aplatir(cmp.arbre), [cmp]);
+  const [decouverte, setDecouverte] = useState<Decouverte | null>(null);
+  const [enDecouverte, setEnDecouverte] = useState(false);
+  // Avant toute decouverte : le registre seul, sans etat. Apres : la decouverte comparee au registre.
+  const cmp = useMemo(() => decouverte ? comparer(registre ? registre.arbre : null, decouverte.arbre)
+    : registre ? comparer(registre.arbre, registre.arbre) : null, [registre, decouverte]);
+  const tous = useMemo(() => cmp ? aplatir(cmp.arbre) : new Map<string, Noeud>(), [cmp]);
+  // Les etats ne se montrent que lorsqu'il y a de quoi comparer : une decouverte ET un registre.
+  const compare = !!decouverte && !!registre;
   const [ouverts, setOuverts] = useState<Set<string>>(() => new Set(['plan', 'plan/zones', 'plan/commandes', 'plan/inspecteur']));
   const [choisi, setChoisi] = useState('plan');
   const [filtre, setFiltre] = useState('');
@@ -44,22 +66,7 @@ export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistr
   const [enCours, setEnCours] = useState(false);
   const arbreRef = useRef<HTMLUListElement>(null);
 
-  // Ce qui reste visible apres le filtre : un noeud qui correspond, et ses ancetres.
-  const garde = useMemo(() => {
-    const f = filtre.trim().toLowerCase();
-    if (!f && !changementsSeuls) return null;
-    const g = new Set<string>();
-    for (const [chemin, n] of tous) {
-      const st = cmp.statuts.get(chemin) ?? 'inchange';
-      const texte = !f || n.cle.toLowerCase().includes(f) || n.nom.toLowerCase().includes(f);
-      const change = !changementsSeuls || st !== 'inchange';
-      if (texte && change) {
-        const morceaux = chemin.split('/');
-        for (let i = 1; i <= morceaux.length; i++) g.add(morceaux.slice(0, i).join('/'));
-      }
-    }
-    return g;
-  }, [filtre, changementsSeuls, tous, cmp]);
+  const garde = useMemo(() => visibles(tous, cmp?.statuts, filtre, changementsSeuls), [filtre, changementsSeuls, tous, cmp]);
 
   // Les lignes visibles, dans l'ordre : c'est sur elles que les fleches circulent.
   const lignes = useMemo(() => {
@@ -70,7 +77,7 @@ export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistr
       l.push({ chemin, noeud: n, niveau, parent, ouvrable: enfants.length > 0 });
       if (enfants.length && (ouverts.has(chemin) || garde)) for (const e of enfants) parcourir(e, chemin + '/' + e.cle, niveau + 1, chemin);
     };
-    parcourir(cmp.arbre, cmp.arbre.cle, 1, null);
+    if (cmp) parcourir(cmp.arbre, cmp.arbre.cle, 1, null);
     return l;
   }, [cmp, ouverts, garde]);
 
@@ -111,43 +118,49 @@ export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistr
     if (fait) e.preventDefault();
   }
 
+  async function lancer(): Promise<void> {
+    setEnDecouverte(true);
+    setMessage(null);
+    try {
+      setDecouverte(await decouvrir());
+    } catch (e) {
+      setMessage({ texte: 'Découverte impossible : ' + ((e as Error).message || String(e)), erreur: true });
+    } finally {
+      setEnDecouverte(false);
+    }
+  }
+
   async function enregistrerDecouverte(): Promise<void> {
+    if (!decouverte) return;
     setEnCours(true);
     setMessage(null);
-    const doc: RegistreControleurs = { format: 'plan-controleurs', version: 1, appVersion, decouvertLe, arbre: decouvert };
+    const doc: RegistreControleurs = { format: 'plan-controleurs', version: 1, appVersion: decouverte.appVersion, decouvertLe: decouverte.le, arbre: decouverte.arbre };
     const refus = await enregistrer(doc);
     setEnCours(false);
     if (refus) { setMessage({ texte: refus, erreur: true }); return; }
     setRegistre(doc);
-    setMessage({ texte: compterFeuilles(decouvert) + ' contrôleurs enregistrés.', erreur: false });
+    setDecouverte(null);
+    setMessage({ texte: compterFeuilles(doc.arbre) + ' contrôleurs enregistrés.', erreur: false });
   }
 
   const tout = () => setOuverts(new Set([...tous].filter(([, n]) => n.enfants && n.enfants.length).map(([k]) => k)));
   const noeudChoisi = tous.get(choisi) ?? null;
-  const statutChoisi = registre ? cmp.statuts.get(choisi) : undefined;
+  const statutChoisi = compare ? cmp?.statuts.get(choisi) : undefined;
 
   return (
     <div className="ctlEcran">
-      <Entete decouvert={decouvert} decouvertLe={decouvertLe} appVersion={appVersion} registre={registre} cmp={cmp}
-        enCours={enCours} enregistrer={() => { void enregistrerDecouverte(); }} redecouvrir={redecouvrir} />
+      <Entete decouverte={decouverte} registre={registre} cmp={cmp} enCours={enCours} enDecouverte={enDecouverte}
+        enregistrer={() => { void enregistrerDecouverte(); }} lancer={() => { void lancer(); }} />
       {message && <p className={message.erreur ? 'ctlMessage ctlMessage--erreur' : 'ctlMessage'} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
 
-      <div className="ctlOutils">
-        <input type="search" className="ctlFiltre" placeholder="Filtrer par clé ou nom" aria-label="Filtrer par clé ou nom"
-          value={filtre} onChange={(e) => setFiltre(e.target.value)} />
-        <label className="ctlCase">
-          <input type="checkbox" checked={changementsSeuls} onChange={(e) => setChangementsSeuls(e.target.checked)} disabled={!registre} />
-          Seulement les changements
-        </label>
-        <button type="button" className="secondary small" onClick={tout} disabled={!!garde}>Tout déplier</button>
-        <button type="button" className="secondary small" onClick={() => setOuverts(new Set(['plan']))} disabled={!!garde}>Tout replier</button>
-      </div>
+      <Outils filtre={filtre} setFiltre={setFiltre} changementsSeuls={changementsSeuls} setChangementsSeuls={setChangementsSeuls}
+        compare={compare} filtreActif={!!garde} deplier={tout} replier={() => setOuverts(new Set(['plan']))} />
 
       <div className="ctlCorps">
         <ul className="ctlArbre" role="tree" aria-label="Arbre des contrôleurs" ref={arbreRef} onKeyDown={clavier}>
           {lignes.map((l) => {
             // Sans registre, tout est nouveau : le bilan le dit une fois, pas sur chaque ligne.
-            const st = registre ? cmp.statuts.get(l.chemin) ?? 'inchange' : 'inchange';
+            const st = compare ? cmp?.statuts.get(l.chemin) ?? 'inchange' : 'inchange';
             const ouvert = l.ouvrable && (ouverts.has(l.chemin) || !!garde);
             return (
               <li key={l.chemin} role="treeitem" aria-level={l.niveau} aria-selected={l.chemin === choisi}
@@ -166,7 +179,9 @@ export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistr
               </li>
             );
           })}
-          {lignes.length === 0 && <li className="ctlVide" role="none">Aucun contrôleur ne correspond.</li>}
+          {lignes.length === 0 && <li className="ctlVide" role="none">
+            {cmp ? 'Aucun contrôleur ne correspond.' : 'Aucun registre enregistré. « Lancer la découverte » lit les contrôleurs de Plan.'}
+          </li>}
         </ul>
 
         <Detail noeud={noeudChoisi} chemin={choisi} statut={statutChoisi} />
@@ -175,30 +190,35 @@ export function EcranControleurs({ decouvert, decouvertLe, appVersion, enregistr
   );
 }
 
-function Entete({ decouvert, decouvertLe, appVersion, registre, cmp, enCours, enregistrer, redecouvrir }: {
-  decouvert: Noeud; decouvertLe: string; appVersion: string; registre: RegistreControleurs | null; cmp: Comparaison;
-  enCours: boolean; enregistrer: () => void; redecouvrir: () => void;
+function Entete({ decouverte, registre, cmp, enCours, enDecouverte, enregistrer, lancer }: {
+  decouverte: Decouverte | null; registre: RegistreControleurs | null; cmp: Comparaison | null;
+  enCours: boolean; enDecouverte: boolean; enregistrer: () => void; lancer: () => void;
 }) {
-  const changements = cmp.nouveaux + cmp.retires + cmp.modifies;
+  const changements = cmp ? cmp.nouveaux + cmp.retires + cmp.modifies : 0;
+  const bilan = !decouverte
+    ? (registre ? 'Lancez la découverte pour comparer ce registre à Plan tel qu’il est déployé.' : 'Lancez la découverte pour lire les contrôleurs de Plan.')
+    : !registre ? 'Tout est nouveau : enregistrez cette découverte pour en faire la référence.'
+    : changements === 0 ? 'Aucun changement depuis l’enregistrement.'
+    : [cmp?.nouveaux && cmp.nouveaux + ' nouveau(x)', cmp?.retires && cmp.retires + ' retiré(s)', cmp?.modifies && cmp.modifies + ' modifié(s)'].filter(Boolean).join(', ') + ' depuis l’enregistrement.';
   return (
     <header className="ctlEntete">
       <div>
         <h1 className="ctlTitre">Contrôleurs de l’écran</h1>
         <p className="ctlSous">
-          Découverts dans Plan {appVersion} le {date(decouvertLe)} — {compterFeuilles(decouvert)} contrôleurs.{' '}
-          {registre ? 'Registre enregistré le ' + date(registre.decouvertLe) + ' (Plan ' + registre.appVersion + ').' : 'Aucun registre enregistré.'}
+          {registre ? 'Registre enregistré le ' + date(registre.decouvertLe) + ' (Plan ' + registre.appVersion + ') — ' + compterFeuilles(registre.arbre) + ' contrôleurs.' : 'Aucun registre enregistré.'}
+          {decouverte && ' Découverte du ' + date(decouverte.le) + ' (Plan ' + decouverte.appVersion + ') — ' + compterFeuilles(decouverte.arbre) + ' contrôleurs.'}
         </p>
-        <p className="ctlBilan" aria-live="polite">
-          {!registre ? 'Tout est nouveau : enregistrez cette découverte pour en faire la référence.'
-            : changements === 0 ? 'Aucun changement depuis l’enregistrement.'
-            : [cmp.nouveaux && cmp.nouveaux + ' nouveau(x)', cmp.retires && cmp.retires + ' retiré(s)', cmp.modifies && cmp.modifies + ' modifié(s)'].filter(Boolean).join(', ') + ' depuis l’enregistrement.'}
-        </p>
+        <p className="ctlBilan" aria-live="polite">{bilan}</p>
       </div>
       <div className="ctlActions">
-        <button type="button" onClick={enregistrer} disabled={enCours || (!!registre && changements === 0)}>
-          {enCours ? 'Enregistrement…' : 'Enregistrer la découverte'}
+        <button type="button" className={decouverte ? 'secondary' : undefined} onClick={lancer} disabled={enDecouverte}>
+          {enDecouverte ? 'Découverte…' : decouverte ? 'Relancer la découverte' : 'Lancer la découverte'}
         </button>
-        <button type="button" className="secondary" onClick={redecouvrir}>Relancer la découverte</button>
+        {decouverte && (
+          <button type="button" onClick={enregistrer} disabled={enCours || (!!registre && changements === 0)}>
+            {enCours ? 'Enregistrement…' : 'Enregistrer la découverte'}
+          </button>
+        )}
         <a className="ctlLien" href="?admin">Admin des démos</a>
       </div>
     </header>
@@ -224,5 +244,23 @@ function Detail({ noeud, chemin, statut }: { noeud: Noeud | null; chemin: string
         </>
       )}
     </aside>
+  );
+}
+
+function Outils({ filtre, setFiltre, changementsSeuls, setChangementsSeuls, compare, filtreActif, deplier, replier }: {
+  filtre: string; setFiltre: (v: string) => void; changementsSeuls: boolean; setChangementsSeuls: (v: boolean) => void;
+  compare: boolean; filtreActif: boolean; deplier: () => void; replier: () => void;
+}) {
+  return (
+    <div className="ctlOutils">
+      <input type="search" className="ctlFiltre" placeholder="Filtrer par clé ou nom" aria-label="Filtrer par clé ou nom"
+        value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+      <label className="ctlCase">
+        <input type="checkbox" checked={changementsSeuls} onChange={(e) => setChangementsSeuls(e.target.checked)} disabled={!compare} />
+        Seulement les changements
+      </label>
+      <button type="button" className="secondary small" onClick={deplier} disabled={filtreActif}>Tout déplier</button>
+      <button type="button" className="secondary small" onClick={replier} disabled={filtreActif}>Tout replier</button>
+    </div>
   );
 }

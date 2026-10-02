@@ -348,7 +348,7 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
   };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (source: SourceControleurs) => void } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (lire: () => SourceControleurs) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
@@ -412,7 +412,8 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
   else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
-  if (options.controleurs) options.controleurs(sourceControleurs(commandes, inspecteur, etat.objects));
+  // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
+  if (options.controleurs) options.controleurs(() => sourceControleurs(commandes, inspecteur, etat.objects));
 }
 
 /**

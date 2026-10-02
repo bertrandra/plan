@@ -11,7 +11,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Un écran à part découvre dans Plan en marche l'arbre de ses contrôleurs — zones et emplacements,
   registre des commandes, champs de l'inspecteur —, chacun avec sa clé et son nom explicite,
   l'enregistre en JSON sur le serveur, et à la redécouverte signale les nouveaux, les retirés et
-  les modifiés. Aucune action sur le plan.
+  les modifiés. L'écran s'ouvre sur le registre enregistré ; la découverte ne se fait que sur
+  demande, au bouton. Aucune action sur le plan.
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,

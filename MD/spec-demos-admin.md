@@ -87,8 +87,10 @@ Un écran à part, sur toute la page, qui **découvre** et **enregistre** l'arbr
 Plan : ce par quoi l'écran agit sur le plan. Il n'agit pas sur le plan : il montre, compare,
 enregistre.
 
-- **Découverte** : Plan démarre caché, sur la démonstration intégrée, en mémoire et sans dépôt
-  (rien ne peut s'y enregistrer). `app/controleurs.ts` lit ce qu'il a monté : le registre des
+- **À l'ouverture**, l'écran montre le registre enregistré, rien de plus : Plan ne démarre pas.
+- **Découverte, sur demande seulement** (bouton « Lancer la découverte ») : Plan démarre alors,
+  caché, sur la démonstration intégrée, en mémoire et sans dépôt (rien ne peut s'y enregistrer) ;
+  les relances suivantes relisent ce qu'il a déjà monté. `app/controleurs.ts` lit ce qu'il a monté : le registre des
   commandes, la carte d'exposition (`app/exposition.ts`) et les sections de l'inspecteur, une par
   sorte d'objet du plan. Aucune commande n'est exécutée, aucun champ lu ni écrit.
 - **L'arbre** : Zones de l'écran (Z1 à Z8 et clavier) → emplacements → commandes ; Registre des
@@ -98,8 +100,7 @@ enregistre.
   chemin de clés (`plan/zones/Z1/menuFichier/projet.enregistrer`) l'identifie.
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
-- **Redécouverte** : « Relancer la découverte » relit Plan tel qu'il est déployé et compare au
-  registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).
+- **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).
   « Seulement les changements » ne montre qu'eux ; « Enregistrer la découverte » en fait la
   nouvelle référence.
 - **Navigation** : motif ARIA *tree* — flèches haut/bas, droite ouvre ou descend, gauche ferme ou
