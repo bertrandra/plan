@@ -39,7 +39,7 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
     <div className="enteteFeuille">
       {/* La poignee se glisse au doigt ; au clavier, c'est un bouton qui fait passer d'une hauteur a
           l'autre (fleches haut et bas). */}
-      <button type="button" className="poigneeFeuille" aria-label={'Hauteur de la feuille : ' + (hauteur === 'plein' ? 'plein écran' : hauteur === 'mi' ? 'mi-hauteur' : 'aperçu')}
+      <button type="button" data-controle="feuille.hauteur" className="poigneeFeuille" aria-label={'Hauteur de la feuille : ' + (hauteur === 'plein' ? 'plein écran' : hauteur === 'mi' ? 'mi-hauteur' : 'aperçu')}
         onPointerDown={(e) => { debut.current = { y: e.clientY, id: e.pointerId }; e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerUp={(e) => {
           const d = debut.current; debut.current = null;
@@ -60,7 +60,7 @@ export function EnteteFeuille({ magasin, titre, sousTitre, actions }: PropsEntet
           {sousTitre && <span className="sousTitreFeuille">{sousTitre}</span>}
         </div>
         {actions}
-        <button type="button" className="boutonIcone fermerFeuille" aria-label="Fermer" onClick={fermer}>
+        <button type="button" data-controle="feuille.fermer" className="boutonIcone fermerFeuille" aria-label="Fermer" onClick={fermer}>
           <Icone nom="fermer" taille={20} />
         </button>
       </div>

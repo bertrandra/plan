@@ -15,8 +15,9 @@ import type { PtBrut } from '../../model/types.js';
 
 type Props = { importe: Controleur };
 
-function Bouton({ principal, onClick, children, disabled }: { principal?: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
-  return <button type="button" className={principal ? undefined : 'secondary'} disabled={disabled} onClick={onClick}>{children}</button>;
+/** Un bouton du parcours ; `controle` est sa cle dans le catalogue (app/controlesInterface.ts). */
+function Bouton({ controle, principal, onClick, children, disabled }: { controle: string; principal?: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
+  return <button type="button" data-controle={controle} className={principal ? undefined : 'secondary'} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 
 /** L'apercu : la propriete (fusionnee s'il le faut), les voisines, les couches BD TOPO, le point d'adresse. */
@@ -83,7 +84,7 @@ function Etape1({ importe }: Props) {
     <>
       <div className="corpsParcours">
         <div className="libelleChamp">Adresse du terrain (ou coordonnees « latitude, longitude ») :</div>
-        <input ref={champ} type="text" className="promptInput" placeholder="2 allee des Limites 78110 Le Vesinet" value={texte}
+        <input ref={champ} type="text" data-controle="cadastre.adresse" className="promptInput" placeholder="2 allee des Limites 78110 Le Vesinet" value={texte}
           onChange={(ev) => { setTexte(ev.target.value); importe.saisirAdresse(ev.target.value); }}
           onKeyDown={(ev) => {
             if (ev.key !== 'Enter') return;
@@ -94,15 +95,15 @@ function Etape1({ importe }: Props) {
           }} />
         <div className="suggestionsAdresse">
           {e.suggestions.map((s, i) => (
-            <button key={i} type="button" className="secondary" onClick={() => void importe.choisirAdresse(s)}>
+            <button key={i} type="button" data-controle="cadastre.suggestion" className="secondary" onClick={() => void importe.choisirAdresse(s)}>
               {s.label + (s.genre && s.genre !== 'housenumber' ? '  (niveau ' + s.genre + ')' : '')}
             </button>
           ))}
         </div>
       </div>
       <Pied importe={importe}>
-        <Bouton onClick={importe.fermer}>Annuler</Bouton>
-        <Bouton principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>
+        <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
+        <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>
       </Pied>
     </>
   );
@@ -130,7 +131,7 @@ function Etape2({ importe }: Props) {
         <div className="titreListe">Autre parcelle ? (clic sur l'apercu ou dans la liste)</div>
         <div className="listeParcelles">
           {e.candidats.map(c => (
-            <button key={c.idu} type="button" className={c.idu === p.idu ? undefined : 'secondary'}
+            <button key={c.idu} type="button" data-controle="cadastre.parcelle" className={c.idu === p.idu ? undefined : 'secondary'}
               onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => importe.survoler(null)}
               onClick={() => void importe.choisirPrincipale(c)}>
               {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + ' — ' + c.distance.toFixed(2) + ' m de l\'adresse'}
@@ -138,14 +139,14 @@ function Etape2({ importe }: Props) {
           ))}
         </div>
         <label className="caseParcours">
-          <input type="checkbox" checked={e.simplifier} onChange={(ev) => importe.basculerSimplifier(ev.target.checked)} />
+          <input type="checkbox" data-controle="cadastre.simplifier" checked={e.simplifier} onChange={(ev) => importe.basculerSimplifier(ev.target.checked)} />
           Simplifier les contours (sommets alignes a moins de 2 cm)
         </label>
       </div>
       <Pied importe={importe}>
-        <Bouton onClick={importe.fermer}>Annuler</Bouton>
-        <Bouton onClick={() => importe.allerA(1)}>← Changer d'adresse</Bouton>
-        <Bouton principal onClick={() => importe.allerA(3)}>Parcelles voisines →</Bouton>
+        <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
+        <Bouton controle="cadastre.changerAdresse" onClick={() => importe.allerA(1)}>← Changer d'adresse</Bouton>
+        <Bouton controle="cadastre.voisines" principal onClick={() => importe.allerA(3)}>Parcelles voisines →</Bouton>
       </Pied>
     </>
   );
@@ -159,17 +160,17 @@ function LigneVoisine({ importe, c }: Props & { c: Candidate }) {
     <div className={'ligneVoisine' + (e.survol === c.idu ? ' survolee' : '')}
       onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => { if (e.survol === c.idu) importe.survoler(null); }}>
       <label title="Cette parcelle fait partie de la propriete : elle sera fusionnee avec la parcelle principale, sa limite interne restant en pointille.">
-        <input type="checkbox" checked={prop} onChange={() => importe.basculerPropriete(c)} /> propriété
+        <input type="checkbox" data-controle="cadastre.propriete" checked={prop} onChange={() => importe.basculerPropriete(c)} /> propriété
       </label>
       <label title="Importer cette parcelle comme voisine, en decor de reference.">
-        <input type="checkbox" checked={e.selection.has(c.idu) || prop} disabled={prop} onChange={() => importe.basculerVoisine(c)} /> importer
+        <input type="checkbox" data-controle="cadastre.importerVoisine" checked={e.selection.has(c.idu) || prop} disabled={prop} onChange={() => importe.basculerVoisine(c)} /> importer
       </label>
       <span className="texteVoisine" onClick={() => importe.basculerVoisine(c)}>
         {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + c.frontiere.toFixed(1) + ' m de limite commune' : ' — a ' + (c.distancePrincipale || 0).toFixed(1) + ' m')}
       </span>
       {/* Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage en
           entier, donc ici qu'on se rend compte qu'on a designe la mauvaise parcelle. */}
-      <button type="button" className="secondary petitBouton"
+      <button type="button" data-controle="cadastre.principale" className="secondary petitBouton"
         title="En faire la parcelle principale : celle qui porte l'adresse, l'origine du plan et le zonage PLU. L'actuelle redevient une voisine."
         onClick={(ev) => { ev.stopPropagation(); void importe.choisirPrincipale(c); }}>↑ principale</button>
     </div>
@@ -180,7 +181,7 @@ function DonneesIgn({ importe }: Props) {
   const e = importe.etat();
   const ligne = (cle: CaseIgn, libelle: string, n: number, titre: string) => (
     <label className={'caseParcours' + (n === 0 ? ' vide' : '')} title={titre}>
-      <input type="checkbox" checked={e[cle]} disabled={n === 0} onChange={(ev) => importe.basculerCaseIgn(cle, ev.target.checked)} />
+      <input type="checkbox" data-controle="cadastre.coucheIgn" checked={e[cle]} disabled={n === 0} onChange={(ev) => importe.basculerCaseIgn(cle, ev.target.checked)} />
       {libelle + ' — ' + n}
     </label>
   );
@@ -231,8 +232,8 @@ function Etape3({ importe }: Props) {
           enferme dans la parcelle principale : pour construire a cheval sur une voisine, decoche cette contrainte dans le panneau Objet.
         </div>
         <div className="barreSelection">
-          <Bouton onClick={importe.cocherMitoyennes}>Cocher toutes les mitoyennes</Bouton>
-          <Bouton onClick={importe.toutDecocher}>Tout decocher</Bouton>
+          <Bouton controle="cadastre.cocherMitoyennes" onClick={importe.cocherMitoyennes}>Cocher toutes les mitoyennes</Bouton>
+          <Bouton controle="cadastre.toutDecocher" onClick={importe.toutDecocher}>Tout decocher</Bouton>
         </div>
         <div className="listeVoisines">
           {groupe('Parcelles mitoyennes', e.adjacentes)}
@@ -242,12 +243,12 @@ function Etape3({ importe }: Props) {
         <div className="titreListe">Données IGN à importer sur les parcelles retenues</div>
         <DonneesIgn importe={importe} />
         <div className="libelleChamp">Nom du projet :</div>
-        <input type="text" className="promptInput" value={nom} onChange={(ev) => setNom(ev.target.value)} />
+        <input type="text" data-controle="cadastre.nomProjet" className="promptInput" value={nom} onChange={(ev) => setNom(ev.target.value)} />
       </div>
       <Pied importe={importe}>
-        <Bouton onClick={importe.fermer}>Annuler</Bouton>
-        <Bouton onClick={() => importe.allerA(2)}>← Retour</Bouton>
-        <Bouton principal onClick={() => void importe.creerProjet(nom)}>{importe.projetCible() ? 'Remplir le projet' : 'Creer le projet'}</Bouton>
+        <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
+        <Bouton controle="cadastre.retour" onClick={() => importe.allerA(2)}>← Retour</Bouton>
+        <Bouton controle="cadastre.creerProjet" principal onClick={() => void importe.creerProjet(nom)}>{importe.projetCible() ? 'Remplir le projet' : 'Creer le projet'}</Bouton>
       </Pied>
     </>
   );

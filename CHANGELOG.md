@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs : la découverte voit le bureau, la tablette et le téléphone.** Elle ne relevait
+  l'écran que dans la disposition du bureau, et ignorait ce qui n'existe qu'au doigt. Elle pose
+  désormais chaque classe d'écran tour à tour, avec un objet sélectionné et chaque feuille du
+  téléphone ouverte, et dit dans quelles classes s'affiche un contrôle qui n'est pas partout. Les
+  quatorze contrôles qu'elle a trouvés sont déclarés : barre compacte (Projet et menus, Exporter),
+  barre de sélection (Désélectionner, Propriétés, Chiffrage), navigation du bas, familles de
+  sections et bandeau de chiffrage de l'inspecteur, choix du projet et déconnexion de l'admin.
+- **Contrôleurs : les écrans ouverts à la demande et les fonctions absentes de la démo.** Les
+  dialogues, le premier pas, l'import cadastral, l'actualisation IGN, le choix de texture et le
+  relevé de façade (75 contrôles) sont déclarés dans le catalogue des contrôles d'interface, avec la
+  commande qui ouvre chaque écran : la découverte les montre même fermés. Pour chaque fonction
+  d'objet que la démonstration ne porte pas (mobilier, limite), la découverte ajoute en mémoire un
+  échantillon, dont les champs sont donc découverts ; la démonstration n'est pas modifiée.
 - **Commandes ciblées : masquer un objet, ses étiquettes et chaque geste sur les cotes passent par
   le registre.** Le registre des commandes accepte une cible (un objet, une cote, une valeur). Douze
   gestes qui modifiaient le projet en dehors de lui sont devenus des commandes : ils sont **grisés

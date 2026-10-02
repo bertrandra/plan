@@ -69,8 +69,8 @@ import { vue3d } from '../three/etat3d.js';
 import { creerIsolement } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
-import type { SourceControleurs } from './controleurs.js';
-import { inventorierEcran } from './inventaireEcran.js';
+import { PREFIXE_ECHANTILLON, type SourceControleurs } from './controleurs.js';
+import { inventorierLesClasses } from './decouverteClasses.js';
 import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
@@ -337,7 +337,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
  * La decouverte des controleurs (app/controleurs.ts) : ce que Plan a monte, lu sans rien executer.
  * Les sections de l'inspecteur dependent de l'objet : on en demande une par sorte d'objet du plan.
  */
-function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur, objets: ObjetPlan[]): SourceControleurs {
+function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur, objets: ObjetPlan[], ecran: NonNullable<SourceControleurs['ecran']>): SourceControleurs {
   const sortes = new Map<string, ObjetPlan>();
   for (const o of objets) {
     const cle = o.type + '.' + (o.fonction || 'aucune');
@@ -345,8 +345,8 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
   }
   return {
     appVersion: APP_VERSION,
-    // Ce que la page affiche sans le rattacher au registre : lu, rien n'est clique.
-    ecran: inventorierEcran(document),
+    // Ce que la page affiche sans le rattacher au registre, dans chaque classe d'ecran.
+    ecran,
     commandes: commandes.lister(),
     exposition: EXPOSITION,
     inspecteur: [...sortes].sort(([a], [b]) => a.localeCompare(b)).map(([cle, o]) => {
@@ -354,12 +354,12 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
       // Les valeurs permises d'une liste dependent de l'objet : on les demande pour celui-ci. Une
       // liste qui ne se laisse pas lire est signalee vide plutot que de casser la decouverte.
       const optionsDe = (ch: ChampChoix) => { try { return ch.options(c); } catch { return null; } };
-      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c), optionsDe };
+      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c), optionsDe, echantillon: o.key.startsWith(PREFIXE_ECHANTILLON) };
     })
   };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (lire: () => SourceControleurs) => void } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
@@ -424,7 +424,10 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
-  if (options.controleurs) options.controleurs(() => sourceControleurs(commandes, inspecteur, etat.objects));
+  if (options.controleurs) {
+    options.controleurs(async () => sourceControleurs(commandes, inspecteur, etat.objects,
+      await inventorierLesClasses(magasin, etat, (cle) => explorateur.selectionner(cle))));
+  }
 }
 
 /**

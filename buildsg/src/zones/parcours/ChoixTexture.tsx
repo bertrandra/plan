@@ -50,16 +50,16 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
     <div className="dialogueImperatif dialogueTextures" role="dialog" aria-modal="true" aria-label={titre + ' — textures Poly Haven'}>
       <div className="enteteTextures">
         <div className="titreParcours">{titre + ' — textures Poly Haven (CC0)'}</div>
-        <button type="button" className="secondary small" aria-label="Fermer" onClick={fermer}>✕</button>
+        <button type="button" data-controle="texture.fermer" className="secondary small" aria-label="Fermer" onClick={fermer}>✕</button>
       </div>
-      <input ref={champ} type="text" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, beton, gazon...)" value={recherche}
+      <input ref={champ} type="text" data-controle="texture.recherche" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, beton, gazon...)" value={recherche}
         onChange={(e) => setRecherche(e.target.value)} />
       <div className="statutTextures">{statut}</div>
       <div className="corpsTextures">
         <div className="grilleTextures">
           {erreur && <div className="hint erreurParcours">{erreur}</div>}
           {resultats.slice(0, VIGNETTES_MAX).map(([id, d]) => (
-            <button key={id} type="button" data-id={id} title={d.name} className={'vignetteTexture' + (id === selection ? ' choisie' : '')} onClick={() => setSelection(id)}>
+            <button key={id} type="button" data-controle="texture.vignette" data-id={id} title={d.name} className={'vignetteTexture' + (id === selection ? ' choisie' : '')} onClick={() => setSelection(id)}>
               <img src={d.thumbnail_url} alt="" loading="lazy" />
               <div>{d.name}</div>
             </button>
@@ -75,9 +75,9 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
         </div>
       </div>
       <div className="piedDialogue">
-        {caseLibelle && <label className="caseTous"><input type="checkbox" checked={tous} onChange={(e) => setTous(e.target.checked)} /> {caseLibelle}</label>}
-        <button type="button" className="secondary" onClick={fermer}>Annuler</button>
-        <button type="button" disabled={!choisie || enregistrement} onClick={enregistrer}>{enregistrement ? 'Enregistrement…' : 'Enregistrer'}</button>
+        {caseLibelle && <label className="caseTous"><input type="checkbox" data-controle="texture.appliquerATous" checked={tous} onChange={(e) => setTous(e.target.checked)} /> {caseLibelle}</label>}
+        <button type="button" data-controle="texture.annuler" className="secondary" onClick={fermer}>Annuler</button>
+        <button type="button" data-controle="texture.enregistrer" disabled={!choisie || enregistrement} onClick={enregistrer}>{enregistrement ? 'Enregistrement…' : 'Enregistrer'}</button>
       </div>
     </div>
   );

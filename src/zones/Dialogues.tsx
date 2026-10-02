@@ -18,11 +18,11 @@ function Invite({ d }: { d: Extract<Dialogue, { type: 'invite' }> }) {
   return (
     <>
       <p className="dialogueTexte">{d.texte}</p>
-      <input ref={champ} type="text" className="promptInput" value={valeur} onChange={e => setValeur(e.target.value)}
+      <input ref={champ} type="text" data-controle="dialogue.saisie" className="promptInput" value={valeur} onChange={e => setValeur(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') dialogues.repondre(valeur); }} />
       <div className="dialogueBoutons">
-        <button type="button" className="secondary" onClick={() => dialogues.fermer()}>Annuler</button>
-        <button type="button" onClick={() => dialogues.repondre(valeur)}>Valider</button>
+        <button type="button" data-controle="dialogue.annuler" className="secondary" onClick={() => dialogues.fermer()}>Annuler</button>
+        <button type="button" data-controle="dialogue.valider" onClick={() => dialogues.repondre(valeur)}>Valider</button>
       </div>
     </>
   );
@@ -45,8 +45,8 @@ export function Dialogues() {
           <>
             <p className="dialogueTexte">{d.texte}</p>
             <div className="dialogueBoutons">
-              <button type="button" className="secondary" onClick={() => dialogues.fermer()}>Annuler</button>
-              <button type="button" className="danger" onClick={() => dialogues.repondre()}>Confirmer</button>
+              <button type="button" data-controle="dialogue.annuler" className="secondary" onClick={() => dialogues.fermer()}>Annuler</button>
+              <button type="button" data-controle="dialogue.confirmer" className="danger" onClick={() => dialogues.repondre()}>Confirmer</button>
             </div>
           </>
         )}
@@ -59,8 +59,8 @@ export function Dialogues() {
               <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
             <div className="dialogueBoutons">
-              <button type="button" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
-              <button type="button" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>
+              <button type="button" data-controle="dialogue.secondaire" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
+              <button type="button" data-controle="dialogue.principal" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>
             </div>
           </>
         )}
@@ -69,7 +69,7 @@ export function Dialogues() {
             <div className="dialogueTitre">{d.titre}</div>
             <p className="dialogueTexte">{d.texte}</p>
             <div className="dialogueBoutons centre">
-              <button type="button" onClick={() => dialogues.repondre()}>{d.action}</button>
+              <button type="button" data-controle="dialogue.action" onClick={() => dialogues.repondre()}>{d.action}</button>
             </div>
           </>
         )}

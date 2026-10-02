@@ -126,6 +126,18 @@ enregistre.
   `tests/unit/app/controlesInterface.test.ts` vérifie que les deux concordent dans les deux sens.
   Pourquoi pas des commandes : une commande est un geste sur le plan, sans paramètre, que le
   registre peut refuser selon les droits ; un onglet ou « supprimer *cette* cote » n'en sont pas.
+- **Écrans ouverts à la demande** : les dialogues, le premier pas, l'import cadastral,
+  l'actualisation IGN, le choix de texture et le relevé de façade sont déclarés dans le même
+  catalogue, avec la nature *parcours* (« étape d'un écran ouvert par une commande : c'est la
+  commande qui porte les droits ») et `ouvertPar`, la commande qui ouvre l'écran (« Ouvert par »
+  dans l'arbre). La découverte les montre même fermés, puisqu'ils sont déclarés. Les cadres
+  communs (poignée et fermeture des feuilles, fermeture d'une erreur) aussi.
+- **Échantillons de découverte** : pour chaque fonction d'objet que la démonstration ne porte pas
+  (aujourd'hui *mobilier* et *limite*), la découverte ajoute **en mémoire** une copie d'un objet de
+  la bonne forme portant cette fonction (`echantillonsDecouverte`, clé `decouverte-<fonction>`) ;
+  leurs champs sont donc découverts, et la sorte d'objet est marquée « Échantillon » dans l'arbre.
+  La démonstration elle-même n'est pas modifiée : elle fait foi pour les empreintes golden et c'est
+  elle que voit le public.
 - **Commandes ciblées** (`app/ecouteurs/cibles.ts`) : le registre accepte une **cible**
   (`Cible` : `objet`, `cote`, `valeur`). Une commande qui déclare `parametre: 'objet' | 'cote'` est
   refusée sans sa cible ; le bouton la passe : `commandes.executer('mesure.supprimer', source,
@@ -145,9 +157,16 @@ enregistre.
     déclaré), `data-cle` ou `data-section` (champ ou
     section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
     cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
-    `data-compte` marque un compteur à ne pas prendre pour un nom. **Portée** : ce qui est monté au
-    moment de la découverte ; un dialogue, un parcours, le relevé de façade, un onglet du tiroir
-    fermés ne se voient pas.
+    `data-compte` marque un compteur à ne pas prendre pour un nom. **Trois dispositions**
+    (`app/decouverteClasses.ts`) : Plan ne rend pas les mêmes contrôles au bureau, sur tablette et
+    sur téléphone (barre compacte, barre de sélection, navigation du bas, familles de sections de
+    l'inspecteur). La découverte pose donc tour à tour chaque classe d'écran dans le magasin, avec un
+    objet sélectionné (une terrasse de préférence) et, au téléphone, chaque feuille ouverte ; puis
+    remet tout comme avant. Les relevés sont fusionnés : un contrôle compte une fois, avec les
+    classes où il s'affiche quand il n'est pas partout. **Portée** : ce qui est monté au
+    moment de la découverte ; un dialogue, un parcours, le relevé de façade fermés ne se voient pas
+    (ils sont déclarés, nature *parcours*). Les contrôles propres à l'admin (choix de la démo,
+    déconnexion) n'existent pas dans la découverte, qui tourne sans dépôt : ils sont déclarés aussi.
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,

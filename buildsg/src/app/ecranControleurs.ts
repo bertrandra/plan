@@ -8,7 +8,7 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranControleurs, type Decouverte } from '../zones/EcranControleurs.js';
-import { construireArbre, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
+import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
 import { lireControleurs, enregistrerControleurs } from '../io/depotDemos.js';
 import { showErrBanner } from '../shell/dialogs.js';
 
@@ -23,18 +23,21 @@ function estRegistre(d: unknown): d is RegistreControleurs {
 }
 
 /** La lecture des controleurs de Plan, une fois Plan demarre. Il ne demarre qu'une fois par page. */
-let lecture: Promise<() => SourceControleurs> | null = null;
+let lecture: Promise<() => Promise<SourceControleurs>> | null = null;
 
-function demarrerPlan(): Promise<() => SourceControleurs> {
-  lecture ||= import('./boot.js').then(({ boot, graineVitrine }) => new Promise((resoudre) => {
-    boot(graineVitrine(), { controleurs: resoudre });
+function demarrerPlan(): Promise<() => Promise<SourceControleurs>> {
+  lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(([{ boot, graineVitrine }, { FONCTIONS }]) => new Promise((resoudre) => {
+    // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
+    const graine = graineVitrine();
+    graine.objects.push(...echantillonsDecouverte(graine.objects, FONCTIONS));
+    boot(graine, { controleurs: resoudre });
   }));
   return lecture;
 }
 
 async function decouvrir(): Promise<Decouverte> {
   const lire = await demarrerPlan();
-  const source = lire();
+  const source = await lire();
   return { arbre: construireArbre(source), le: new Date().toISOString(), appVersion: source.appVersion };
 }
 

@@ -14,6 +14,7 @@ import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
 import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
 import type { ControleEcran } from './inventaireEcran.js';
+import type { ObjetBrut } from '../model/types.js';
 import { CONTROLES, NATURES } from './controlesInterface.js';
 
 export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
@@ -47,9 +48,9 @@ export interface SourceControleurs {
    * Une entree par sorte d'objet rencontree : ses sections d'inspecteur, et de quoi lister les
    * valeurs permises d'une liste de choix (elles dependent de l'objet). `null` : illisible.
    */
-  inspecteur: { cle: string; nom: string; sections: Section[]; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
+  inspecteur: { cle: string; nom: string; sections: Section[]; echantillon?: boolean; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
   /** L'inventaire de la page (app/inventaireEcran.ts) : les controles affiches hors registre. */
-  ecran?: { horsRegistre: ControleEcran[]; rattaches: number };
+  ecran?: { horsRegistre: ControleEcran[]; rattaches: number; classes?: string[] };
 }
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
@@ -233,6 +234,7 @@ export function construireArbre(s: SourceControleurs): Noeud {
   // 3. L'inspecteur : pour chaque sorte d'objet, ses sections et leurs champs.
   const inspecteur: Noeud[] = s.inspecteur.map((f) => nommerFamille({
     cle: f.cle, nom: f.nom, genre: 'famille' as const,
+    ...(f.echantillon ? { details: { echantillon: 'absente de la démo : un objet a été ajouté pour la découverte, en mémoire seulement' } } : {}),
     enfants: sansDoublons(f.sections.map((sec): Noeud => {
       const details = detailsSection(sec);
       return {
@@ -264,6 +266,7 @@ function controlesInterface(): Noeud {
     const details: Record<string, string> = { nature: NATURES[c.nature] };
     if (c.repete) details.portee = 'répété sur chaque ligne (objet, cote, onglet…)';
     if (c.description) details.description = c.description;
+    if (c.ouvertPar) details.ouvertPar = c.ouvertPar;
     parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), { cle, nom: c.libelle, genre: 'controle', details }]);
   }
   return {
@@ -280,9 +283,13 @@ function controlesInterface(): Noeud {
  *   - les fonctions d'objet que la demonstration ne contient pas : leurs champs propres ne sont
  *     jamais demandes a l'inspecteur, donc jamais decouverts.
  */
+/** Le nom d'une classe d'ecran, tel que l'admin le lit. */
+const nomClasse = (c: string) => (NOMS_CLASSES as Record<string, string>)[c] ?? c;
+
 function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
   const enfants: Noeud[] = [];
   if (s.ecran) {
+    const classes = s.ecran.classes ?? [];
     const parZone = new Map<string, ControleEcran[]>();
     for (const c of s.ecran.horsRegistre) parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), c]);
     enfants.push({
@@ -290,6 +297,7 @@ function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
       details: {
         horsRegistre: String(s.ecran.horsRegistre.length),
         rattaches: String(s.ecran.rattaches),
+        ...(classes.length ? { classes: classes.map(nomClasse).join(', ') } : {}),
         portee: 'ce qui est affiché au moment de la découverte : un dialogue, un parcours ou le relevé de façade fermés ne se voient pas'
       },
       enfants: [...parZone].sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([zone, cs]): Noeud => ({
@@ -297,7 +305,11 @@ function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
         enfants: sansDoublons(cs.map((c): Noeud => ({
           cle: c.cle, nom: c.nom, genre: 'controle',
           // Le nombre d'exemplaires suit les donnees de la demo : il n'entre pas dans la comparaison.
-          details: { sorte: c.sorte, ...(c.repete ? { portee: 'répété sur chaque ligne (objet, cote…)' } : {}) }
+          details: {
+            sorte: c.sorte, ...(c.repete ? { portee: 'répété sur chaque ligne (objet, cote…)' } : {}),
+            // Un controle propre a certaines dispositions (le telephone seul…) le dit.
+            ...(c.classes && c.classes.length < classes.length ? { classes: c.classes.map(nomClasse).join(', ') } : {})
+          }
         })))
       }))
     });
@@ -380,4 +392,33 @@ export function compterFeuilles(n: Noeud): number {
   // Un controle d'interface declare compte ; un controle hors registre, non : il n'est que mesure.
   if (n.genre === 'controle') return n.details?.nature ? 1 : 0;
   return (n.enfants ?? []).reduce((t, e) => t + compterFeuilles(e), 0);
+}
+
+/** La forme qu'un objet prend d'ordinaire pour une fonction donnee ; a defaut, un polygone. */
+const FORME_PAR_FONCTION: Record<string, 'polygon' | 'path' | 'circle'> = {
+  limite: 'path', chemin: 'path', camera: 'path', arbre: 'circle', parasol: 'circle', equipement: 'circle'
+};
+/** Prefixe des cles des echantillons : la decouverte les reconnait a lui. */
+export const PREFIXE_ECHANTILLON = 'decouverte-';
+
+/**
+ * Les echantillons de decouverte : un objet pour chaque fonction que la demonstration ne porte pas.
+ *
+ * Les champs propres a une fonction (ceux d'un mobilier, d'une limite) ne se demandent a l'inspecteur
+ * que pour un objet de cette fonction. Plutot que de modifier la demonstration — elle fait foi pour
+ * les empreintes de tests/fixtures/golden/ et c'est elle que voit le public —, la decouverte ajoute,
+ * en memoire seulement, une copie d'un objet de la bonne forme portant la fonction manquante. Rien
+ * n'est enregistre : Plan demarre ici sans depot.
+ */
+export function echantillonsDecouverte(objets: ObjetBrut[], fonctions: readonly string[]): ObjetBrut[] {
+  const presentes = new Set(objets.map((o) => o.fonction));
+  return fonctions.filter((f) => !presentes.has(f)).flatMap((f): ObjetBrut[] => {
+    const forme = FORME_PAR_FONCTION[f] ?? 'polygon';
+    const deForme = objets.filter((o) => o.type === forme);
+    // Un modele neutre de preference : ni la terrasse (elle porte une construction), ni le terrain.
+    const modele = deForme.find((o) => o.fonction === 'autre') ?? deForme.find((o) => o.fonction !== 'terrasse' && o.fonction !== 'terrain') ?? deForme[0];
+    if (!modele) return [];
+    const copie = JSON.parse(JSON.stringify(modele)) as ObjetBrut;
+    return [{ ...copie, key: PREFIXE_ECHANTILLON + f, name: 'Échantillon de découverte — ' + f, fonction: f }];
+  });
 }

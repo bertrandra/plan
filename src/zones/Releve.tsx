@@ -148,7 +148,7 @@ function ChoixMur({ bat, facades, onChoisir }: { bat: ObjetPolygone; facades: Fa
       </svg>
       <div className="releveListe" role="group" aria-label="Façades">
         {facades.map((f) => (
-          <button key={f.cote} type="button" className="secondary" onClick={() => onChoisir(f.cote)}>
+          <button data-controle="releve.choisirMur" key={f.cote} type="button" className="secondary" onClick={() => onChoisir(f.cote)}>
             <span>
               Façade {f.orientation.toLowerCase()} · {fr(f.largeur)} m
             </span>
@@ -477,10 +477,10 @@ function MesureVisee({
 function ChoixObjectif({ objectif, choisir }: { objectif: Objectif; choisir: (o: Objectif) => void }) {
   return (
     <div className="releveSegment" role="group" aria-label="Objectif">
-      <button type="button" aria-pressed={objectif === 'grand-angle'} onClick={() => choisir('grand-angle')}>
+      <button data-controle="releve.objectif" type="button" aria-pressed={objectif === 'grand-angle'} onClick={() => choisir('grand-angle')}>
         0,5× grand-angle
       </button>
-      <button type="button" aria-pressed={objectif === 'principal'} onClick={() => choisir('principal')}>
+      <button data-controle="releve.objectif" type="button" aria-pressed={objectif === 'principal'} onClick={() => choisir('principal')}>
         1×
       </button>
     </div>
@@ -492,7 +492,7 @@ function ChampObjectif({ champ, setChamp }: { champ: number; setChamp: (v: numbe
   return (
     <label className="releveChamp">
       Champ de l'objectif
-      <input
+      <input data-controle="releve.champObjectif"
         type="number"
         min={30}
         max={140}
@@ -611,25 +611,25 @@ function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { facade: 
           )}
         </div>
         <div className="releveRangee releveDeclenchement">
-          <button type="button" className="secondary" onClick={onRetour}>
+          <button data-controle="releve.retour" type="button" className="secondary" onClick={onRetour}>
             Retour
           </button>
-          <button type="button" className="releveDeclencheur" aria-label="Prendre la photo" disabled={prise.enCours || (!natif && !!erreur && !cameraDisponible())} onClick={() => void prise.declencher()}>
+          <button data-controle="releve.declencher" type="button" className="releveDeclencheur" aria-label="Prendre la photo" disabled={prise.enCours || (!natif && !!erreur && !cameraDisponible())} onClick={() => void prise.declencher()}>
             <Icone nom="camera" taille={30} />
           </button>
-          <button type="button" className="secondary" onClick={() => fichier.current?.click()}>
+          <button data-controle="releve.importerPhoto" type="button" className="secondary" onClick={() => fichier.current?.click()}>
             <Icone nom="image" taille={18} /> Importer
           </button>
-          <input ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void prise.importer(e.target.files)} />
+          <input data-controle="releve.importerPhoto" ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void prise.importer(e.target.files)} />
         </div>
         <div className="releveRangee releveSecondaire">
           {ar.xr && (
-            <button type="button" className="secondary small" aria-pressed={ar.actif} onClick={() => void ar.basculer()}>
+            <button data-controle="releve.realiteAugmentee" type="button" className="secondary small" aria-pressed={ar.actif} onClick={() => void ar.basculer()}>
               {ar.actif ? 'Arrêter la mesure AR' : 'Mesurer en réalité augmentée'}
             </button>
           )}
           {niveau.aDemander && (
-            <button type="button" className="secondary small" onClick={niveau.activer}>
+            <button data-controle="releve.niveau" type="button" className="secondary small" onClick={niveau.activer}>
               Activer le niveau
             </button>
           )}
@@ -854,7 +854,7 @@ function ChampCm({ libelle, valeur, onChange }: { libelle: string; valeur: numbe
     <label className="releveCm">
       <span>{libelle}</span>
       <span className="champNombre">
-        <input
+        <input data-controle="releve.cote"
           type="number"
           inputMode="numeric"
           value={texte}
@@ -939,12 +939,12 @@ function BandeauMorceaux({ morceaux, courant, choisir, retirer }: { morceaux: Mo
     <div className="releveMorceaux" role="group" aria-label="Photos de la façade">
       {morceaux.map((m, k) => (
         <div key={k} className={'releveMorceau' + (k === courant ? ' choisi' : '')}>
-          <button type="button" className="releveVignette" aria-pressed={k === courant} aria-label={`Photo ${k + 1}`} onClick={() => choisir(k)}>
+          <button data-controle="releve.vignette" type="button" className="releveVignette" aria-pressed={k === courant} aria-label={`Photo ${k + 1}`} onClick={() => choisir(k)}>
             <img src={m.prise.photo.url} alt="" />
             <span>{k + 1}</span>
           </button>
           {morceaux.length > 1 && (
-            <button type="button" className="secondary small" aria-label={`Retirer la photo ${k + 1}`} onClick={() => retirer(k)}>
+            <button data-controle="releve.retirerPhoto" type="button" className="secondary small" aria-label={`Retirer la photo ${k + 1}`} onClick={() => retirer(k)}>
               <Icone nom="supprimer" taille={14} />
             </button>
           )}
@@ -958,13 +958,13 @@ function BandeauMorceaux({ morceaux, courant, choisir, retirer }: { morceaux: Mo
 function FormeDuMur({ decro, choisir }: { decro: Decrochement | null; choisir: (c: CoteBas | null) => void }) {
   return (
     <div className="releveSegment" role="group" aria-label="Forme du mur">
-      <button type="button" aria-pressed={!decro} onClick={() => choisir(null)}>
+      <button data-controle="releve.formeMur" type="button" aria-pressed={!decro} onClick={() => choisir(null)}>
         Rectangle
       </button>
-      <button type="button" aria-pressed={decro?.cote === 'gauche'} onClick={() => choisir('gauche')}>
+      <button data-controle="releve.formeMur" type="button" aria-pressed={decro?.cote === 'gauche'} onClick={() => choisir('gauche')}>
         En L, bas à gauche
       </button>
-      <button type="button" aria-pressed={decro?.cote === 'droite'} onClick={() => choisir('droite')}>
+      <button data-controle="releve.formeMur" type="button" aria-pressed={decro?.cote === 'droite'} onClick={() => choisir('droite')}>
         En L, bas à droite
       </button>
     </div>
@@ -1040,13 +1040,13 @@ function EtapeCoins({
         )}
       </div>
       <div className="relevePied">
-        <button type="button" className="secondary" onClick={onReprendre}>
+        <button data-controle="releve.reprendre" type="button" className="secondary" onClick={onReprendre}>
           Reprendre cette photo
         </button>
-        <button type="button" className={manque > 0 ? '' : 'secondary'} onClick={onAjouter}>
+        <button data-controle="releve.ajouterPhoto" type="button" className={manque > 0 ? '' : 'secondary'} onClick={onAjouter}>
           <Icone nom="plus" taille={16} /> Ajouter une photo
         </button>
-        <button type="button" className={manque > 0 ? 'secondary' : ''} onClick={onAnalyser}>
+        <button data-controle="releve.analyser" type="button" className={manque > 0 ? 'secondary' : ''} onClick={onAnalyser}>
           Analyser
         </button>
       </div>
@@ -1075,7 +1075,7 @@ function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: Ouverture
     <div className="releveFiche" role="group" aria-label="Ouverture choisie">
       <div className="releveSegment" role="group" aria-label="Nature">
         {(Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[]).map((t) => (
-          <button key={t} type="button" aria-pressed={o.type === t} onClick={() => maj({ type: t })}>
+          <button data-controle="releve.typeOuverture" key={t} type="button" aria-pressed={o.type === t} onClick={() => maj({ type: t })}>
             {LIBELLES_OUVERTURE[t]}
           </button>
         ))}
@@ -1086,7 +1086,7 @@ function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: Ouverture
         <ChampCm libelle="Largeur" valeur={o.l} onChange={(v) => maj({ l: Math.max(0.1, Math.min(v, largeur - o.x)) })} />
         <ChampCm libelle="Hauteur" valeur={o.h} onChange={(v) => maj({ h: Math.max(0.1, Math.min(v, hauteurMur - o.y)) })} />
       </div>
-      <button type="button" className="secondary small" onClick={retirer}>
+      <button data-controle="releve.retirerOuverture" type="button" className="secondary small" onClick={retirer}>
         <Icone nom="supprimer" taille={16} /> Retirer cette ouverture
       </button>
     </div>
@@ -1133,14 +1133,14 @@ function CarteToit({
         {pignon > 0.01 ? ` Ce mur est un pignon : la façade monte à ${fr(hauteurMur + pignon)} m au faîtage.` : ''}
       </p>
       <label className="releveCase">
-        <input type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
+        <input data-controle="releve.appliquerToit" type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
         Remplacer le toit du bâtiment par celui-ci
       </label>
       {appliquer && (
         <div className="releveChamps">
           <label className="releveCm">
             <span>Forme</span>
-            <select value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
+            <select data-controle="releve.formeToit" value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
               {(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => (
                 <option key={k} value={k}>
                   {LIBELLES_FORME_TOIT[k]}
@@ -1152,7 +1152,7 @@ function CarteToit({
             <label className="releveCm">
               <span>Faîtage</span>
               <span className="champNombre">
-                <input
+                <input data-controle="releve.faitage"
                   type="number"
                   step={0.05}
                   min={0}
@@ -1231,7 +1231,7 @@ function ChampHauteur({ valeur, onChange }: { valeur: number; onChange: (v: numb
     <label className="releveCm">
       <span>À l'égout</span>
       <span className="champNombre">
-        <input
+        <input data-controle="releve.hauteur"
           type="number"
           inputMode="decimal"
           step={0.01}
@@ -1298,7 +1298,7 @@ function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: 
         <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
         <div className="releveBarre">
           <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
-          <button type="button" className="secondary small" onClick={ajouter}>
+          <button data-controle="releve.ajouterOuverture" type="button" className="secondary small" onClick={ajouter}>
             <Icone nom="plus" taille={16} /> Ajouter une ouverture
           </button>
         </div>
@@ -1319,10 +1319,10 @@ function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: 
         <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} cote={v.cote} hauteurMur={hauteurMur} />
       </div>
       <div className="relevePied">
-        <button type="button" className="secondary" onClick={onRevoir}>
+        <button data-controle="releve.revoir" type="button" className="secondary" onClick={onRevoir}>
           Revoir les coins
         </button>
-        <button type="button" onClick={onValider}>
+        <button data-controle="releve.valider" type="button" onClick={onValider}>
           Valider le relevé
         </button>
       </div>
@@ -1510,7 +1510,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
           <span className="releveEtape">{LIBELLES_ETAPE[etape]}</span>
           <span>{titre}</span>
         </div>
-        <button type="button" className="releveFermer" aria-label="Fermer le relevé" title="Fermer (Échap)" onClick={() => releve.fermer()}>
+        <button data-controle="releve.fermer" type="button" className="releveFermer" aria-label="Fermer le relevé" title="Fermer (Échap)" onClick={() => releve.fermer()}>
           <Icone nom="fermer" taille={22} />
         </button>
       </div>
