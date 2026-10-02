@@ -25,7 +25,16 @@ export interface PropsEcranControleurs {
 
 const GENRES: Record<Noeud['genre'], string> = {
   racine: 'racine', branche: 'branche', zone: 'zone', emplacement: 'emplacement', groupe: 'groupe',
-  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ'
+  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ', option: 'valeur'
+};
+/** Les libelles des details, tels que le panneau les montre ; une cle inconnue se montre telle quelle. */
+const NOMS_DETAILS: Record<string, string> = {
+  groupe: 'Groupe', raccourci: 'Raccourci', description: 'Description', capacite: 'Capacité', permission: 'Permission',
+  quota: 'Quota', refus: 'Sans les droits', conditionnelle: 'Conditionnelle', classes: 'Classes d’écran',
+  emplacements: 'Emplacements', atteinte: 'Atteinte', type: 'Type', unite: 'Unité', min: 'Minimum', max: 'Maximum',
+  pas: 'Pas', decimales: 'Décimales', modifie: 'Modifie', annulable: 'Annulable', effets: 'Effets',
+  conditionnel: 'Conditionnel', activable: 'Activable', explication: 'Explication', appliquerATous: 'Appliquer à tous',
+  aide: 'Aide', valeurs: 'Valeurs permises', ouverture: 'À l’ouverture'
 };
 const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau', retire: 'Retiré', modifie: 'Modifié' };
 
@@ -238,7 +247,7 @@ function Detail({ noeud, chemin, statut }: { noeud: Noeud | null; chemin: string
               <tr><th scope="row">Genre</th><td>{GENRES[noeud.genre]}</td></tr>
               {statut && statut !== 'inchange' && <tr><th scope="row">État</th><td>{STATUTS[statut]}</td></tr>}
               {noeud.enfants && <tr><th scope="row">Contrôleurs</th><td>{compterFeuilles(noeud)}</td></tr>}
-              {Object.entries(noeud.details ?? {}).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}
+              {Object.entries(noeud.details ?? {}).map(([k, v]) => <tr key={k}><th scope="row">{NOMS_DETAILS[k] ?? k}</th><td>{v}</td></tr>)}
             </tbody>
           </table>
         </>

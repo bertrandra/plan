@@ -69,6 +69,7 @@ import { creerIsolement } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
 import type { SourceControleurs } from './controleurs.js';
+import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
@@ -343,7 +344,10 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
     exposition: EXPOSITION,
     inspecteur: [...sortes].sort(([a], [b]) => a.localeCompare(b)).map(([cle, o]) => {
       const c = inspecteur.contexte(o);
-      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c) };
+      // Les valeurs permises d'une liste dependent de l'objet : on les demande pour celui-ci. Une
+      // liste qui ne se laisse pas lire est signalee vide plutot que de casser la decouverte.
+      const optionsDe = (ch: ChampChoix) => { try { return ch.options(c); } catch { return null; } };
+      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c), optionsDe };
     })
   };
 }

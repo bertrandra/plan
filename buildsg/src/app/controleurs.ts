@@ -12,9 +12,9 @@
 
 import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
-import type { Section } from '../ui/champs/types.js';
+import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
 
-export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ';
+export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option';
 
 export interface Noeud {
   /** La cle du controleur dans son parent : l'identifiant de la commande, la cle du champ… */
@@ -41,8 +41,11 @@ export interface SourceControleurs {
   appVersion: string;
   commandes: Commande[];
   exposition: Record<string, Record<Classe, Emplacement[]>>;
-  /** Une entree par sorte d'objet rencontree : ses sections d'inspecteur. */
-  inspecteur: { cle: string; nom: string; sections: Section[] }[];
+  /**
+   * Une entree par sorte d'objet rencontree : ses sections d'inspecteur, et de quoi lister les
+   * valeurs permises d'une liste de choix (elles dependent de l'objet). `null` : illisible.
+   */
+  inspecteur: { cle: string; nom: string; sections: Section[]; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
 }
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
@@ -75,27 +78,110 @@ const NOMS_GROUPES: Record<string, string> = {
 const CLASSES: Classe[] = ['compact', 'moyen', 'large'];
 const NOMS_CLASSES: Record<Classe, string> = { compact: 'téléphone', moyen: 'tablette', large: 'bureau' };
 
-function detailsCommande(c: Commande, classes?: Classe[]): Record<string, string> {
+type Ligne = Record<Classe, Emplacement[]>;
+
+/**
+ * Ce que la declaration d'une commande dit d'elle. Rien n'est appele : `actif` et un `quota` en
+ * fonction dependent du moment, on dit seulement qu'ils existent.
+ */
+function detailsCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Record<string, string> {
   const d: Record<string, string> = { groupe: NOMS_GROUPES[c.groupe] ?? c.groupe };
   if (c.raccourci) d.raccourci = c.raccourci;
   if (c.description) d.description = c.description;
   if (c.capacite) d.capacite = c.capacite;
   if (c.permission) d.permission = c.permission;
+  if (c.quota) d.quota = typeof c.quota === 'string' ? c.quota : 'selon le contexte';
+  // Les trois refus ne se montrent pas pareil (app/commandes.ts) : c'est la carte de l'offre.
+  const refus = [
+    c.capacite && 'effacée sans la capacité',
+    c.permission && 'grisée sans la permission, avec explication',
+    c.quota && 'grisée au quota atteint, avec explication'
+  ].filter(Boolean);
+  if (refus.length) d.refus = refus.join(' ; ');
+  if (c.actif) d.conditionnelle = 'oui, selon le contexte (sélection, état du plan…)';
   if (classes) d.classes = classes.map((k) => NOMS_CLASSES[k]).join(', ');
+  if (ligne) {
+    d.emplacements = CLASSES.map((k) => NOMS_CLASSES[k] + ' ' + ligne[k].filter((e) => e !== 'sansObjet').length).join(', ');
+    const rares = CLASSES.filter((k) => ligne[k].filter((e) => e !== 'sansObjet' && e !== 'clavier').length === 0 && !ligne[k].includes('sansObjet'));
+    if (rares.length) d.atteinte = 'au clavier seulement sur ' + rares.map((k) => NOMS_CLASSES[k]).join(', ');
+  }
   return d;
 }
 
-function noeudCommande(c: Commande, classes?: Classe[]): Noeud {
-  return { cle: c.id, nom: c.libelle, genre: 'commande', details: detailsCommande(c, classes) };
+function noeudCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Noeud {
+  return { cle: c.id, nom: c.libelle, genre: 'commande', details: detailsCommande(c, classes, ligne) };
 }
 
-function detailsChamp(ch: Section['champs'][number]): Record<string, string> {
-  const d: Record<string, string> = { type: ch.type };
+const NOMS_TYPES: Record<Champ['type'], string> = {
+  texte: 'texte', nombre: 'nombre', case: 'case à cocher', choix: 'liste de choix', couleur: 'couleur', date: 'date',
+  curseur: 'curseur', lecture: 'lecture seule', texture: 'texture', bouton: 'bouton', alerte: 'alerte',
+  optimisation: 'tableau d’optimisation', ligne: 'ligne composée'
+};
+
+const NOMS_EFFETS: Record<Effet, string> = {
+  rendu: 'redessine le plan', inspecteur: 'rafraîchit l’inspecteur', terrasse: 'recalcule la terrasse (chiffrage, coupe…)',
+  scene3d: 'reconstruit la 3D', empilement: 'réordonne l’empilement', poignees: 'refait les poignées'
+};
+
+/** Les types qui ecrivent : les autres montrent, ou declenchent. */
+const ECRIVENT = new Set<Champ['type']>(['texte', 'nombre', 'case', 'choix', 'couleur', 'date', 'curseur', 'texture']);
+
+/** Ce que la declaration d'un champ dit de lui. Ni `lire`, ni `ecrire`, ni `visible` ne sont appeles. */
+function detailsChamp(ch: Champ): Record<string, string> {
+  const d: Record<string, string> = { type: NOMS_TYPES[ch.type] };
   if ('unite' in ch && ch.unite) d.unite = ch.unite;
   if ('min' in ch && ch.min !== undefined) d.min = String(ch.min);
   if ('max' in ch && ch.max !== undefined) d.max = String(ch.max);
+  if ('pas' in ch && ch.pas !== undefined) d.pas = String(ch.pas);
+  if ('decimales' in ch && ch.decimales !== undefined) d.decimales = String(ch.decimales);
+  if (ECRIVENT.has(ch.type)) {
+    d.modifie = ch.sale === false ? 'l’affichage seulement (le projet reste enregistré)' : 'le projet';
+    d.annulable = ch.historique ? 'oui (Annuler le défait)' : 'non';
+  }
+  if (ch.effets && ch.effets.length) d.effets = ch.effets.map((e) => NOMS_EFFETS[e]).join(', ');
+  if (ch.visible) d.conditionnel = 'n’apparaît que dans certains cas';
+  if (ch.actif) d.activable = 'grisé selon le contexte';
+  if (ch.type === 'bouton' && ch.explication) d.explication = ch.explication;
+  if (ch.type === 'texture' && ch.appliquerATous) d.appliquerATous = ch.appliquerATous.libelle;
   if (ch.aide) d.aide = ch.aide;
   return d;
+}
+
+type OptionsDe = SourceControleurs['inspecteur'][number]['optionsDe'];
+
+/** Un champ, et sous lui ce qu'il contient : les valeurs d'une liste de choix, les champs d'une ligne. */
+function noeudChamp(ch: Champ, optionsDe: OptionsDe): Noeud {
+  const n: Noeud = { cle: ch.cle, nom: ch.libelle || ch.cle, genre: 'champ', details: detailsChamp(ch) };
+  if (ch.type === 'ligne') n.enfants = sansDoublons(ch.champs.map((c) => noeudChamp(c, optionsDe)));
+  if (ch.type === 'choix') {
+    const options = optionsDe ? optionsDe(ch) : null;
+    if (options && options.length) {
+      n.enfants = sansDoublons(options.map((o): Noeud => ({ cle: o.valeur || '(vide)', nom: o.libelle || o.valeur, genre: 'option' })));
+      if (n.details) n.details.valeurs = String(options.length);
+    }
+  }
+  return n;
+}
+
+/**
+ * Le nom explicite d'une sorte d'objet : sa forme et sa fonction, « Cercle — Arbre ». Le libelle de
+ * la fonction est celui que l'inspecteur propose dans sa liste « fonction » : pas de seconde liste.
+ */
+function nommerFamille(n: Noeud): Noeud {
+  const fonction = n.cle.split('.')[1];
+  for (const [, x] of aplatir(n)) {
+    if (x.genre !== 'champ' || x.cle !== 'fonction') continue;
+    const o = (x.enfants ?? []).find((e) => e.genre === 'option' && e.cle === fonction);
+    if (o) return { ...n, nom: n.nom + ' — ' + o.nom };
+  }
+  return fonction && fonction !== 'aucune' ? { ...n, nom: n.nom + ' — ' + fonction } : n;
+}
+
+function detailsSection(sec: Section): Record<string, string> | undefined {
+  const d: Record<string, string> = {};
+  if (sec.repliee) d.ouverture = 'repliée';
+  if (sec.explication) d.explication = sec.explication;
+  return Object.keys(d).length ? d : undefined;
 }
 
 /** Les cles en double dans un meme parent : la seconde porte son rang, pour rester unique. */
@@ -122,7 +208,7 @@ export function construireArbre(s: SourceControleurs): Noeud {
         const c = parId.get(id);
         if (!ligne || !c) return [];
         const classes = CLASSES.filter((k) => ligne[k].includes(e));
-        return classes.length ? [noeudCommande(c, classes)] : [];
+        return classes.length ? [noeudCommande(c, classes, ligne)] : [];
       });
       return { cle: e, nom: NOMS_EMPLACEMENTS[e], genre: 'emplacement', enfants: commandes };
     }).filter((n) => n.enfants && n.enfants.length)
@@ -136,16 +222,19 @@ export function construireArbre(s: SourceControleurs): Noeud {
   const groupes = [...new Set(s.commandes.map((c) => c.groupe))].sort();
   const registre: Noeud[] = groupes.map((g) => ({
     cle: g, nom: NOMS_GROUPES[g] ?? g, genre: 'groupe' as const,
-    enfants: s.commandes.filter((c) => c.groupe === g).sort((a, b) => a.id.localeCompare(b.id)).map((c) => noeudCommande(c))
+    enfants: s.commandes.filter((c) => c.groupe === g).sort((a, b) => a.id.localeCompare(b.id)).map((c) => noeudCommande(c, undefined, s.exposition[c.id]))
   }));
 
   // 3. L'inspecteur : pour chaque sorte d'objet, ses sections et leurs champs.
-  const inspecteur: Noeud[] = s.inspecteur.map((f) => ({
+  const inspecteur: Noeud[] = s.inspecteur.map((f) => nommerFamille({
     cle: f.cle, nom: f.nom, genre: 'famille' as const,
-    enfants: sansDoublons(f.sections.map((sec): Noeud => ({
-      cle: sec.id, nom: sec.titre, genre: 'section',
-      enfants: sansDoublons(sec.champs.map((ch): Noeud => ({ cle: ch.cle, nom: ch.libelle || ch.cle, genre: 'champ', details: detailsChamp(ch) })))
-    })))
+    enfants: sansDoublons(f.sections.map((sec): Noeud => {
+      const details = detailsSection(sec);
+      return {
+        cle: sec.id, nom: sec.titre, genre: 'section', ...(details ? { details } : {}),
+        enfants: sansDoublons(sec.champs.map((ch) => noeudChamp(ch, f.optionsDe)))
+      };
+    }))
   }));
 
   return {
@@ -214,5 +303,7 @@ export function comparer(enregistre: Noeud | null, decouvert: Noeud): Comparaiso
 
 /** Le nombre de controleurs feuilles (commandes et champs) d'un arbre. */
 export function compterFeuilles(n: Noeud): number {
-  return n.enfants && n.enfants.length ? n.enfants.reduce((t, e) => t + compterFeuilles(e), 0) : (n.genre === 'commande' || n.genre === 'champ' ? 1 : 0);
+  // Un champ compte pour un, valeurs permises comprises ; une ligne composee compte ses sous-champs.
+  if (n.genre === 'commande' || (n.genre === 'champ' && !(n.enfants ?? []).some((e) => e.genre === 'champ'))) return 1;
+  return (n.enfants ?? []).reduce((t, e) => t + compterFeuilles(e), 0);
 }

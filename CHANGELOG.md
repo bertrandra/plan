@@ -12,7 +12,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   registre des commandes, champs de l'inspecteur —, chacun avec sa clé et son nom explicite,
   l'enregistre en JSON sur le serveur, et à la redécouverte signale les nouveaux, les retirés et
   les modifiés. L'écran s'ouvre sur le registre enregistré ; la découverte ne se fait que sur
-  demande, au bouton. Aucune action sur le plan.
+  demande, au bouton. Aucune action sur le plan. Chaque commande dit son quota, ce qu'elle devient
+  sans les droits, si elle est conditionnelle et ses emplacements par classe ; chaque champ, sa
+  précision, ce qu'il modifie, s'il s'annule et ce qu'il recalcule ; une liste, ses valeurs permises.
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,

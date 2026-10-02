@@ -98,6 +98,19 @@ enregistre.
   Chaque nœud a sa **clé** (l'identifiant de la commande, la clé du champ…) et son **nom
   explicite**, plus quelques détails (raccourci, classes d'écran, type, unité, permission…). Son
   chemin de clés (`plan/zones/Z1/menuFichier/projet.enregistrer`) l'identifie.
+- **Attributs déclarés** (lus dans les déclarations, rien n'est appelé sauf la liste des valeurs
+  d'un choix, qui dépend de l'objet) :
+  - *commande* : groupe, raccourci, description, capacité, permission, **quota** (nom, ou « selon
+    le contexte »), **sans les droits** (effacée sans la capacité ; grisée avec explication sans la
+    permission ou au quota), **conditionnelle** (`actif` déclaré), **emplacements** par classe
+    d'écran, et **atteinte** quand une classe ne l'offre qu'au clavier ;
+  - *champ* : type, unité, minimum, maximum, **pas**, **décimales**, **modifie** (le projet, ou
+    l'affichage seulement), **annulable**, **effets** (redessine le plan, recalcule la terrasse,
+    reconstruit la 3D…), **conditionnel** / **activable**, explication d'un bouton, aide ;
+  - *liste de choix* : ses **valeurs permises**, en nœuds enfants (clé = valeur, nom = libellé) ;
+    *ligne composée* : ses sous-champs en nœuds enfants ;
+  - *section* : repliée à l'ouverture, explication ; *sorte d'objet* : nommée par sa forme et sa
+    fonction (« Cercle — Arbre »).
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
 - **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).
