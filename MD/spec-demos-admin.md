@@ -169,6 +169,26 @@ enregistre.
     déconnexion) n'existent pas dans la découverte, qui tourne sans dépôt : ils sont déclarés aussi.
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
+- **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé
+  dans Plan. Ce qui modifie le projet hors des deux garde-fous du registre :
+  - *sans annulation* : Ctrl+Z ne le défait pas. Un champ de l'inspecteur qui écrit le projet
+    empile un instantané (`champAnnulable`), sauf `historique: false` ; les écritures rapprochées
+    d'un même champ du même objet (1,5 s : une frappe, un curseur qu'on glisse) n'en empilent
+    qu'un, un Ctrl+Z défait le geste entier. Une saisie du tiroir passe par `resultats.saisir`, qui
+    l'empile ; une commande qui porte la permission d'écrire empile elle-même ;
+  - *sans contrôle des droits* : rien ne le refuse en lecture seule (vitrine comprise). Le registre
+    grise une commande qui porte la permission d'écrire ; l'inspecteur grise et refuse un champ qui
+    écrit le projet (`champActif`, `appliquer`) ; `resultats.saisir` refuse une saisie du tiroir,
+    grisée elle aussi. Les réglages d'affichage (`sale: false`) restent libres.
+
+  Les sources : les champs (lus dans leurs déclarations), les contrôles du catalogue qui déclarent
+  `ecrit: { annulable, droits }` (`droits: 'commande'` quand la commande qui ouvre leur écran porte
+  la permission), et les commandes sans permission qui déclarent `ecrit: 'projet'`
+  (`ecrit: 'affichage'` : une préférence d'affichage enregistrée avec le projet, grille et voisinage,
+  qui n'est pas à surveiller). Premier relevé (2 octobre 2026) : 31 écritures sans annulation,
+  81 sans contrôle des droits. Après les deux garde-fous : 1 sans annulation — la création du
+  projet par l'import cadastral, qui ne se défait pas par nature —, 0 sans contrôle des droits.
+  L'interrogation du PLU porte désormais la permission d'écrire (elle s'annulait déjà).
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
 - **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).

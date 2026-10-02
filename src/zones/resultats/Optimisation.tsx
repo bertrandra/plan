@@ -5,6 +5,7 @@
 // Le calcul vit dans `engine/optimisation.ts`. « Appliquer » passe par le service des resultats :
 // c'est une saisie, elle s'annule et marque le projet modifie.
 
+import { enLectureSeule } from '../../app/acces.js';
 import { shoelace } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { ESSENCE_PRICES, estPlots, SOLIVE_PRICE, VIS_PRICE } from '../../engine/constantes.js';
@@ -91,7 +92,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
               <td>{r.cout + ' €'}</td>
               <td>{courante
                 ? <span className="noteLigne">config actuelle</span>
-                : <button type="button" className="objbtn" onClick={() => appliquer(r)}>Appliquer</button>}</td>
+                : <button type="button" className="objbtn" disabled={enLectureSeule()} onClick={() => appliquer(r)}>Appliquer</button>}</td>
             </tr>
           );
         })}

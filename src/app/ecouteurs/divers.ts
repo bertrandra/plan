@@ -87,7 +87,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
   } });
 
   // Grise sans parcelle : le PLU s'interroge en son centre.
-  cmd.declarer({ id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code,
+  cmd.declarer({ id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code, permission: PERMISSION_ECRITURE,
     actif: () => !!ctx.resultats.parcelle() && !ctx.resultats.pluEnCours(),
     executer: () => { void ctx.resultats.interrogerPlu(); } });
 

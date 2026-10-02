@@ -41,7 +41,17 @@ export interface ControleInterface {
   description?: string;
   /** Pour un controle de parcours : la commande, ou le champ, qui ouvre l'ecran ou il vit. */
   ouvertPar?: string;
+  /**
+   * Le controle ecrit dans le projet (classement seul, sans effet sur Plan) : s'il s'annule, et qui
+   * en garde les droits — `commande` : la commande qui ouvre son ecran porte la permission d'ecrire ;
+   * `lectureSeule` : le service qui ecrit le refuse en lecture seule ; `aucun` : rien ne le refuse.
+   */
+  ecrit?: Ecriture;
 }
+
+export interface Ecriture { annulable: boolean; droits: 'commande' | 'lectureSeule' | 'aucun' }
+/** Une saisie du tiroir : `resultats.saisir` empile un instantane, et la refuse en lecture seule. */
+const SAISIE: Ecriture = { annulable: true, droits: 'lectureSeule' };
 
 const Z1 = 'Z1 Barre d’application', Z3 = 'Z3 Explorateur', Z4 = 'Z4 Vues 3D', Z5 = 'Z5 Inspecteur', Z6 = 'Z6 Résultats';
 const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Relevé de façade', FEUILLES = 'Feuilles (téléphone)';
@@ -113,12 +123,12 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.hauteur': { libelle: 'Hauteur du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.terrasseSuivante': { libelle: 'Passer à la terrasse suivante', zone: Z6, nature: 'navigation' },
-  'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true },
-  'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true },
-  'nomenclature.conditionnement': { libelle: 'Conditionnement des vis', zone: Z6, nature: 'donnee' },
-  'chantier.reglage': { libelle: 'Réglage du chantier (équipe, heures par jour…)', zone: Z6, nature: 'donnee', repete: true },
-  'chantier.cadence': { libelle: 'Cadence d’un poste (heures par unité)', zone: Z6, nature: 'donnee', repete: true },
-  'implantation.echelle': { libelle: 'Échelle du plan d’implantation', zone: Z6, nature: 'option' },
+  'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
+  'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
+  'nomenclature.conditionnement': { libelle: 'Conditionnement des vis', zone: Z6, nature: 'donnee', ecrit: SAISIE },
+  'chantier.reglage': { libelle: 'Réglage du chantier (équipe, heures par jour…)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
+  'chantier.cadence': { libelle: 'Cadence d’un poste (heures par unité)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
+  'implantation.echelle': { libelle: 'Échelle du plan d’implantation', zone: Z6, nature: 'donnee', ecrit: SAISIE },
   'implantation.imprimer': { libelle: 'Imprimer le plan d’implantation', zone: Z6, nature: 'sortie' },
 
   // ---- Feuilles et notifications : les cadres communs ------------------------------------------
@@ -164,20 +174,20 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.toutDecocher': etape(Z8, IMPORT, 'Tout décocher'),
   'cadastre.retour': etape(Z8, IMPORT, 'Retour à l’étape précédente'),
   'cadastre.nomProjet': etape(Z8, IMPORT, 'Nom du projet'),
-  'cadastre.creerProjet': etape(Z8, IMPORT, 'Créer (ou remplir) le projet'),
+  'cadastre.creerProjet': etape(Z8, IMPORT, 'Créer (ou remplir) le projet', { ecrit: { annulable: false, droits: 'commande' } }),
   // Actualiser IGN (zones/parcours/Actualisation.tsx).
   'actualisation.portee': etape(Z8, ACTUALISER, 'Portée : la parcelle ou tout le plan', { repete: true }),
   'actualisation.voisinage': etape(Z8, ACTUALISER, 'Actualiser aussi le voisinage'),
   'actualisation.couche': etape(Z8, ACTUALISER, 'Couche du voisinage (bâti, végétation, arbres)', { repete: true }),
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
-  'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser'),
+  'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
   // Choix d'une texture (zones/parcours/ChoixTexture.tsx).
   'texture.fermer': etape(Z8, TEXTURE, 'Fermer le choix de texture'),
   'texture.recherche': etape(Z8, TEXTURE, 'Rechercher une texture'),
   'texture.vignette': etape(Z8, TEXTURE, 'Choisir une texture', { repete: true }),
   'texture.appliquerATous': etape(Z8, TEXTURE, 'Appliquer à tous les objets semblables'),
   'texture.annuler': etape(Z8, TEXTURE, 'Annuler le choix de texture'),
-  'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture'),
+  'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture', { ecrit: { annulable: true, droits: 'lectureSeule' } }),
 
   // ---- Le releve de facade (zones/Releve.tsx), ecran plein --------------------------------------
   'releve.fermer': etape(RELEVE, RELEVER, 'Fermer le relevé'),
@@ -204,5 +214,5 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'releve.faitage': etape(RELEVE, RELEVER, 'Hauteur du faîtage'),
   'releve.hauteur': etape(RELEVE, RELEVER, 'Hauteur du mur'),
   'releve.revoir': etape(RELEVE, RELEVER, 'Revoir le relevé'),
-  'releve.valider': etape(RELEVE, RELEVER, 'Valider le relevé')
+  'releve.valider': etape(RELEVE, RELEVER, 'Valider le relevé', { ecrit: { annulable: true, droits: 'commande' } })
 };

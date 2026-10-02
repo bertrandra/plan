@@ -33,7 +33,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     a.render();
   } });
 
-  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', ecrit: 'affichage', executer: () => {
     a.etat.voisinageVisible = !a.etat.voisinageVisible;
     // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
     // parcelle, ou a defaut sur le premier objet reste visible.
@@ -53,7 +53,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
   } });
 
-  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
     ctx.syncBasculeGrille();
     ctx.enregistrerAffichage();
