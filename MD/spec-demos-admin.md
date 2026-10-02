@@ -169,6 +169,24 @@ enregistre.
     déconnexion) n'existent pas dans la découverte, qui tourne sans dépôt : ils sont déclarés aussi.
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
+- **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé
+  dans Plan. Ce qui modifie le projet hors des deux garde-fous du registre :
+  - *sans annulation* : Ctrl+Z ne le défait pas. Un champ de l'inspecteur n'empile un instantané
+    que s'il le demande (`historique`) ; une saisie du tiroir passe par `resultats.saisir`, qui
+    l'empile ; une commande qui porte la permission d'écrire empile elle-même ;
+  - *sans contrôle des droits* : rien ne le refuse en lecture seule. Le registre grise une commande
+    qui porte la permission d'écrire ; un champ de l'inspecteur, une saisie du tiroir, une commande
+    sans permission qui écrit quand même ne sont pas refusés. La modification reste en mémoire,
+    l'enregistrement est refusé.
+
+  Les sources : les champs (lus dans leurs déclarations), les contrôles du catalogue qui déclarent
+  `ecrit: { annulable, droits }` (`droits: 'commande'` quand la commande qui ouvre leur écran porte
+  la permission), et les commandes sans permission qui déclarent `ecrit: 'projet'`
+  (`ecrit: 'affichage'` : une préférence d'affichage enregistrée avec le projet, grille et voisinage,
+  qui n'est pas à surveiller). Au 2 octobre 2026 : 31 écritures sans annulation (28 champs, la
+  texture, la création du projet par l'import, l'interrogation du PLU), 81 sans contrôle des droits
+  (73 champs, les 6 saisies du tiroir, la texture, le PLU). Prochain chantier recommandé : refuser
+  ces écritures en lecture seule, puis donner l'historique aux champs qui ne l'ont pas.
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
 - **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).

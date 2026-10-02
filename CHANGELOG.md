@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs : écritures à surveiller.** Une nouvelle branche de l'arbre classe ce qui modifie
+  le projet sans pouvoir être annulé (31, dont 28 champs de l'inspecteur) et sans contrôle des
+  droits, donc modifiable en lecture seule même si l'enregistrement reste refusé (81, dont 73 champs
+  et les 6 saisies du tiroir). Classement seul : le comportement de Plan ne change pas. L'échelle du
+  plan d'implantation, qui écrit dans le projet, passe de la nature « option » à « donnée ».
 - **Contrôleurs : la découverte voit le bureau, la tablette et le téléphone.** Elle ne relevait
   l'écran que dans la disposition du bureau, et ignorait ce qui n'existe qu'au doigt. Elle pose
   désormais chaque classe d'écran tour à tour, avec un objet sélectionné et chaque feuille du

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { CONTROLES, NATURES } from '../../../src/app/controlesInterface.js';
 import { ZONES_DOM } from '../../../src/app/inventaireEcran.js';
+import { EXPOSITION } from '../../../src/app/exposition.js';
 
 // Le catalogue des controles d'interface (app/controlesInterface.ts) et le code qui les affiche se
 // tiennent l'un l'autre, comme le registre et la carte d'exposition (exposition.test.ts) : toute
@@ -47,6 +48,23 @@ describe('catalogue des controles d interface', () => {
       expect(NATURES[c.nature], cle).toBeDefined();
       // Un controle de parcours dit qui ouvre son ecran.
       if (c.nature === 'parcours') expect(c.ouvertPar, cle).toBeTruthy();
+    }
+  });
+
+  it('ne garde aucun controle de nature objet : ils sont devenus des commandes', () => {
+    expect(Object.entries(CONTROLES).filter(([, c]) => c.nature === 'objet').map(([k]) => k)).toEqual([]);
+  });
+
+  it('classe ce qu ecrit chaque saisie de donnee du projet', () => {
+    for (const [cle, c] of Object.entries(CONTROLES)) if (c.nature === 'donnee') expect(c.ecrit, cle).toBeDefined();
+  });
+
+  it('ouvre un parcours par une commande qui existe, quand il en nomme une', () => {
+    for (const [cle, c] of Object.entries(CONTROLES)) {
+      const id = c.ouvertPar;
+      if (id && /^[a-z0-9]+\.[A-Za-z]+$/.test(id)) expect(EXPOSITION[id], cle + ' : ' + id).toBeDefined();
+      // Les droits « de la commande » supposent une commande qui ouvre l'ecran.
+      if (c.ecrit?.droits === 'commande') expect(id && id in EXPOSITION, cle).toBe(true);
     }
   });
 });

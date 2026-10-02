@@ -92,6 +92,13 @@ export interface Commande {
    */
   parametre?: 'objet' | 'cote';
   /**
+   * Classement, sans effet sur l'execution (MD/spec-demos-admin.md, « Ecritures a surveiller ») :
+   * une commande SANS permission qui ecrit pourtant dans le projet le declare. `projet` : une donnee
+   * du projet ; `affichage` : une preference d'affichage enregistree avec le projet. Une commande qui
+   * porte la permission d'ecriture n'a pas besoin de le dire.
+   */
+  ecrit?: 'projet' | 'affichage';
+  /**
    * `source` est l'element qui a declenche la commande, pour celles qui changent son etat ; `cible`,
    * ce sur quoi porte une commande parametree.
    */
