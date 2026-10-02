@@ -41,7 +41,11 @@ export interface ContexteVue3d {
 
 /** Les cases du panneau de la Vue 3D (zones/vue3d/) : ce qu'il y a dans la scène. */
 export interface ReglagesVue3d {
-  /** Le filaire est une donnée de la terrasse (`construction.lames3dFilaire`), pas une préférence. */
+  /**
+   * Le filaire est une préférence d'affichage, comme les autres cases : pas d'annulation (Ctrl+Z),
+   * pas de « projet modifié », permis en lecture seule. Il est rangé dans la construction de la
+   * terrasse (`construction.lames3dFilaire`) pour être retrouvé à la réouverture, rien de plus.
+   */
   filaire(): boolean;
   basculerFilaire(actif: boolean): void;
   basculerTousLesObjets(actif: boolean): void;
@@ -141,7 +145,10 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   const preference = (ecrire: () => void) => { ecrire(); signaler3d(); reconstruire(); };
   return {
     filaire: () => { const obj = terrasseCourante(); return !!(obj && ensureConstruction(obj).lames3dFilaire); },
-    /** Le filaire change la géométrie des lames, pas seulement leur matériau : d'où la reconstruction. */
+    /**
+     * Le filaire change la géométrie des lames, pas seulement leur matériau : d'où la reconstruction.
+     * Préférence d'affichage (décision produit) : ni `pushHistory`, ni `markDirty`, ni droit d'écrire.
+     */
     basculerFilaire(actif) {
       const obj = terrasseCourante();
       if (!obj) return;

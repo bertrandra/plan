@@ -109,6 +109,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Vue 3D : « Filaire » est une préférence d'affichage (décision produit).** La case ne passe pas
+  par l'historique (pas de Ctrl+Z), ne marque pas le projet modifié et reste permise en lecture
+  seule ; elle reste rangée dans la construction de la terrasse pour être retrouvée. Deux tests le
+  fixent.
+
 - **Code plus propre et mieux tenu (aucun changement de comportement attendu).**
   - **Relevé de façade découpé** : `zones/Releve.tsx` (1 567 lignes) garde l'enchaînement du parcours
     (198) ; chaque étape et ses outils vivent dans `zones/releve/`. Découpage mécanique, sans cycle ;

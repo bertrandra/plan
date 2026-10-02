@@ -105,11 +105,22 @@ describe('Vue 3D', () => {
     reglages.basculerOmbres(true); reglages.basculerTextures(true);
   });
 
-  it('range le filaire dans la construction de la terrasse', () => {
-    const { reglages } = monter();
+  it('range le filaire dans la construction de la terrasse, comme une preference d affichage', () => {
+    const { a, reglages } = monter();
     expect(reglages.filaire()).toBe(false);
     reglages.basculerFilaire(true);
     expect(reglages.filaire()).toBe(true);
+    // Decision produit : pas de Ctrl+Z ni de « projet modifie » sur le filaire.
+    expect(a.pushHistory).not.toHaveBeenCalled();
+    expect(a.markDirty).not.toHaveBeenCalled();
+    reglages.basculerFilaire(false);
+  });
+
+  it('laisse basculer le filaire en lecture seule', () => {
+    const { reglages } = monter(false);
+    reglages.basculerFilaire(true);
+    expect(reglages.filaire()).toBe(true);
+    reglages.basculerFilaire(false);
   });
 });
 
