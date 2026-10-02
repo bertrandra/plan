@@ -100,6 +100,23 @@ describe('admin des demos, serveur', () => {
   });
 });
 
+describe('la vitrine lit une demo sans session', () => {
+  it('sert admin/vitrine/<id> en lecture seule, sans cookie, et rien d autre', async () => {
+    await demarrer(MDP);
+    fs.writeFileSync(path.join(dossier, '1.json'), JSON.stringify(PLAN));
+    const r = await fetch(base + '/admin/vitrine/1');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('cache-control')).toMatch(/public/);
+    expect((await r.json()).meta.name).toBe('Démo 1');
+    expect((await fetch(base + '/admin/vitrine/9')).status).toBe(404);
+    expect((await fetch(base + '/admin/vitrine/..%2Fconfig')).status).toBe(400);
+    expect((await fetch(base + '/admin/vitrine/1', { method: 'PUT', headers: { 'X-Plan-Admin': '1' }, body: '{}' })).status).toBe(405);
+    // La liste et l'ecriture restent derriere la session.
+    expect((await fetch(base + '/admin/demos')).status).toBe(401);
+  });
+});
+
 describe('admin des demos, la page contre le serveur', () => {
   it('ouvre, enregistre et garde la version precedente', async () => {
     await demarrer(MDP);

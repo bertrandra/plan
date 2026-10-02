@@ -73,6 +73,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `GET /admin/demos` | `{ demos: [{ id, name, updatedAt }] }` |
 | `POST /admin/demos` | crée la démo au premier numéro libre |
 | `GET`, `PUT`, `DELETE /admin/demos/<id>` | lit, réécrit, met de côté |
+| `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page
 
@@ -82,8 +83,17 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
   dernier ouvert (`planInteractif.admin.lastDemoId`), pour ne jamais mélanger démos et projets.
 
-## Hors périmètre, pour la suite
+## La vitrine montre une démo de l'admin
 
-La démonstration publique (« Ouvrir le plan de démonstration », vitrine `?mode=demo`) reste celle
-compilée dans le HTML (`model/demo.ts`). La faire venir d'un fichier de démo publié par l'admin est
-l'étape suivante possible.
+`?mode=demo&file=<id>` (2 octobre 2026) : la vitrine publique lit la démo `<id>` par
+`admin/vitrine/<id>`, la seule route sans session, en lecture seule (`app/vitrine.ts`,
+`chargerDemoVitrine`). Les autres paramètres de la vitrine (`x`, `y`, `zoom`, `orthophoto`,
+`heureauto`, `pdv`…) s'y appliquent de même. Une démo absente, illisible, sans objet ou d'un schéma
+plus récent que le programme laisse la démonstration intégrée : la vitrine encadrée sur une page
+d'accueil n'est jamais vide.
+
+**Conséquence à connaître** : toute démo du dossier se lit publiquement par son numéro. Une démo
+est faite pour être montrée ; n'y ranger rien qui ne doive pas l'être. L'écriture, la liste et la
+suppression restent derrière le mot de passe.
+
+« Ouvrir le plan de démonstration » (le premier pas de l'atelier) reste la démonstration intégrée.

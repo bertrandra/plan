@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La vitrine montre une démo de l'admin : `?mode=demo&file=<n>`.** `file=2` affiche le fichier de
+  démo 2, celui que l'admin enregistre, au lieu de la démonstration intégrée. Les autres paramètres
+  de la vitrine (`x`, `y`, `zoom`, `orthophoto`, `heureauto`, `pdv`…) s'appliquent de même. La page
+  le lit par `admin/vitrine/<n>`, nouvelle route **publique en lecture seule** d'`admin.php` et de
+  `buildsg/demosAdmin.mjs` : sans session, sans cookie posé, une minute de cache. La liste,
+  l'écriture et la suppression restent derrière le mot de passe. Une démo absente ou illisible
+  laisse la démonstration intégrée. Toute démo du dossier devient donc lisible publiquement par son
+  numéro.
+
 - **La livraison porte une première démo pour l'admin.** `npm run livraison` écrit
   `livraison/plan-demos/1.json` : la démonstration intégrée (« Parcelle AE 101 »), au format de
   l'export, tirée de `contrat/plan-produit.json`. Ce contrat est déjà gardé identique au code, donc

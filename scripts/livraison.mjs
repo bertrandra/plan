@@ -76,6 +76,7 @@ Plateforme : ${origine}
    - https://<hote>/?admin           le mot de passe admin, puis les demos
    - https://<hote>/?demofile=1      la demo 1 (admin seulement)
    - https://<hote>/admin/demos      doit repondre 401 sans session
+   - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
    - npm run verifier-deploiement https://<hote>   (depuis le depot)
 
 Une demo est un fichier JSON au format de l'export de Plan ({meta, objects, measures}).

@@ -12,22 +12,22 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
@@ -183,5 +183,37 @@ describe('le .htaccess', () => {
     expect(bloc![1]).toMatch(/Header always unset X-Frame-Options/);
     expect(bloc![1]).toMatch(/frame-ancestors @@ORIGINES_CADRE@@/);
     expect(modele.split('@@ORIGINES_CADRE@@')).toHaveLength(2);
+  });
+});
+
+describe('file : une demo de l admin dans la vitrine', () => {
+  it('lit le numero de la demo, et refuse ce qui sortirait du dossier', async () => {
+    const { lireVitrine } = await import('../../../src/app/vitrine.js');
+    expect(lireVitrine('?mode=demo&file=2')!.fichier).toBe('2');
+    expect(lireVitrine('?mode=demo&file=terrasse-sud')!.fichier).toBe('terrasse-sud');
+    expect(lireVitrine('?mode=demo&file=..%2Fconfig')!.fichier).toBe(null);
+    expect(lireVitrine('?mode=demo')!.fichier).toBe(null);
+  });
+
+  it('charge la demo par la route publique, relative a la page, sans cookie', async () => {
+    const { chargerDemoVitrine } = await import('../../../src/app/vitrine.js');
+    const appels: [string, RequestInit | undefined][] = [];
+    const lire = (async (u: string, init?: RequestInit) => {
+      appels.push([u, init]);
+      return new Response(JSON.stringify({ meta: { schemaVersion: 1 }, objects: [{ key: 'a' }], measures: [{ id: 'm' }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const d = await chargerDemoVitrine('2', lire);
+    expect(appels[0]?.[0]).toBe('admin/vitrine/2');
+    expect(appels[0]?.[1]?.credentials).toBe('omit');
+    expect(d).toEqual({ objects: [{ key: 'a' }], measures: [{ id: 'm' }] });
+  });
+
+  it('rend null — la demonstration integree — si la demo manque ou n est pas un plan', async () => {
+    const { chargerDemoVitrine } = await import('../../../src/app/vitrine.js');
+    const repond = (statut: number, corps: unknown) => (async () => new Response(JSON.stringify(corps), { status: statut })) as unknown as typeof fetch;
+    expect(await chargerDemoVitrine('9', repond(404, { error: {} }))).toBe(null);
+    expect(await chargerDemoVitrine('1', repond(200, { objects: [] }))).toBe(null);
+    expect(await chargerDemoVitrine('1', repond(200, { meta: { schemaVersion: 99 }, objects: [{ key: 'a' }] }))).toBe(null);
+    expect(await chargerDemoVitrine('1', (async () => { throw new Error('reseau'); }) as unknown as typeof fetch)).toBe(null);
   });
 });
