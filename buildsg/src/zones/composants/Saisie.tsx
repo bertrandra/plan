@@ -4,8 +4,10 @@
 // C'est le meme contrat que les nombres de l'inspecteur (zones/Inspecteur.tsx) : une frappe n'est
 // pas une ecriture. Ecrire a chaque touche empilerait un instantane d'annulation par chiffre tape,
 // et referait le chiffrage de la terrasse entre « 1 » et « 12 ». Echap abandonne le brouillon.
+// En lecture seule, la saisie est grisee : `resultats.saisir` la refuserait de toute facon.
 
 import { useState } from 'react';
+import { enLectureSeule } from '../../app/acces.js';
 
 interface PropsSaisie {
   valeur: string;
@@ -38,7 +40,7 @@ function useBrouillon(valeur: string, onValider: (texte: string) => void) {
 export function SaisieNombre({ valeur, onValider, titre, largeur = 85, estime, placeholder, libelle, controle, pas = '0.01', min = '0' }: PropsSaisie & { pas?: string; min?: string }) {
   const b = useBrouillon(valeur, onValider);
   return (
-    <input type="number" data-controle={controle} step={pas} min={min} value={b.texte} title={titre} placeholder={placeholder} aria-label={libelle ?? titre}
+    <input type="number" data-controle={controle} disabled={enLectureSeule()} step={pas} min={min} value={b.texte} title={titre} placeholder={placeholder} aria-label={libelle ?? titre}
       className={estime ? 'saisieEstimee' : undefined} style={{ width: largeur }}
       onChange={(e) => b.changer(e.target.value)} onBlur={b.valider} onKeyDown={b.touches} />
   );
@@ -47,7 +49,7 @@ export function SaisieNombre({ valeur, onValider, titre, largeur = 85, estime, p
 export function SaisieTexte({ valeur, onValider, titre, largeur = 190, libelle, controle }: PropsSaisie) {
   const b = useBrouillon(valeur, onValider);
   return (
-    <input type="text" data-controle={controle} value={b.texte} title={titre} aria-label={libelle ?? titre} style={{ minWidth: largeur }}
+    <input type="text" data-controle={controle} disabled={enLectureSeule()} value={b.texte} title={titre} aria-label={libelle ?? titre} style={{ minWidth: largeur }}
       onChange={(e) => b.changer(e.target.value)} onBlur={b.valider} onKeyDown={b.touches} />
   );
 }

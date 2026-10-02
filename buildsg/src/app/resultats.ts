@@ -116,6 +116,8 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     etat,
     terrasse: ctx.terrasseCourante,
     saisir(ecrire) {
+      // La lecture seule refuse les saisies du tiroir, comme l'inspecteur ses champs.
+      if (etat.lectureSeule) { magasin.notifier(); return; }
       ctx.pushHistory();
       ecrire();
       ctx.markDirty();

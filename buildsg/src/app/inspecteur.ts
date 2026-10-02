@@ -11,6 +11,7 @@ import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
+import { champAnnulable, ecritLeProjet } from './ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';
 import { sectionsConstruction, type ContexteOptimisation } from '../ui/champs/construction.js';
@@ -53,8 +54,25 @@ export interface Inspecteur {
   resultats?: Resultats;
 }
 
+/** Le temps pendant lequel des ecritures d'un meme champ forment un seul geste a annuler. */
+const REGROUPEMENT_MS = 1500;
+
 export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin: Magasin, commandes: RegistreCommandes): Inspecteur {
   const objet = () => etat.objects.find(o => o.key === etat.selectedKey);
+  /**
+   * Un instantane avant d'ecrire, pour tout champ qui ecrit le projet (`champAnnulable`). Un texte
+   * s'ecrit a chaque frappe, un curseur a chaque pas : les ecritures rapprochees d'un meme champ du
+   * meme objet n'en empilent qu'un, Ctrl+Z defait le geste entier. `historique: true` empile toujours.
+   */
+  let dernier: { cle: string; t: number } | null = null;
+  function doitEmpiler(champ: Champ, c: ContexteChamps): boolean {
+    if (!champAnnulable(champ)) return false;
+    if (champ.historique === true) return true;
+    const cle = c.obj.key + '\u0000' + champ.cle, t = Date.now();
+    const suite = !!dernier && dernier.cle === cle && t - dernier.t < REGROUPEMENT_MS;
+    dernier = { cle, t };
+    return !suite;
+  }
 
   function contexte(obj: ObjetPlan): ContexteChamps {
     return {
@@ -95,7 +113,9 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       return sections;
     },
     appliquer(champ, c, ecrire) {
-      if (champ.historique) ctx.pushHistory();
+      // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.
+      if (etat.lectureSeule && ecritLeProjet(champ)) { magasin.notifier(); return false; }
+      if (doitEmpiler(champ, c)) ctx.pushHistory();
       if (ecrire() === false) { magasin.notifier(); return false; }
       if (champ.sale !== false) ctx.markDirty();
       (champ.effets || []).forEach(e => effet(e, c));

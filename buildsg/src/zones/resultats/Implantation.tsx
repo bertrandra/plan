@@ -4,6 +4,7 @@
 // l'echelle choisie. L'impression ouvre une fenetre autonome qui reprend le dessin ET les tableaux :
 // sur le chantier, ce sont les tableaux qui portent les cotes.
 
+import { enLectureSeule } from '../../app/acces.js';
 import { sommetDe } from '../../geometry/anneau.js';
 import { useRef } from 'react';
 import { dist } from '../../geometry/basic.js';
@@ -77,7 +78,7 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
       <div id="terrasseImplantWrap">
         <div className="controls">
           <label style={{ marginRight: 5, fontSize: '0.88rem' }}>Echelle : </label>
-          <select data-controle="implantation.echelle" value={String(ech)} onChange={(e) => { const v = parseInt(e.target.value, 10) || 200; resultats.saisir(() => { c.echelleImplant = v; }); }}>
+          <select data-controle="implantation.echelle" disabled={enLectureSeule()} value={String(ech)} onChange={(e) => { const v = parseInt(e.target.value, 10) || 200; resultats.saisir(() => { c.echelleImplant = v; }); }}>
             {ECHELLES.map(e => <option key={e} value={String(e)}>{'1/' + e}</option>)}
           </select>
           <button type="button" data-controle="implantation.imprimer" className="objbtn" style={{ marginLeft: 14 }} onClick={lancerImpression}>Imprimer le plan</button>

@@ -14,6 +14,7 @@
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
 import { createContext, useContext, useRef, useState } from 'react';
+import { champActif } from '../app/ecritures.js';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps, Section } from '../ui/champs/types.js';
@@ -48,7 +49,7 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
   const [brouillon, setBrouillon] = useState<string | null>(null);
   const minuteur = useRef<number | null>(null);
   const valeur = formater(champ.lire(c), champ.decimales);
-  const actif = !champ.actif || champ.actif(c);
+  const actif = champActif(champ, c);
   const valider = () => {
     if (brouillon === null) return;
     const v = lireNombre(brouillon);
@@ -118,7 +119,7 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
 
 function Texture({ champ, c, inspecteur }: PropsChamp<ChampTexture>) {
   const tex = champ.lire(c);
-  const actif = !champ.actif || champ.actif(c);
+  const actif = champActif(champ, c);
   const choisir = () => c.choisirTexture(champ.libelle, (choix, tous) => {
     inspecteur.appliquer(champ, c, () => { if (tous && champ.appliquerATous) champ.appliquerATous.ecrire(c, choix); else champ.ecrire(c, choix); });
   }, champ.appliquerATous && c.obj.fonction === 'chemin' ? { checkboxLabel: champ.appliquerATous.libelle } : undefined);
@@ -133,7 +134,7 @@ function Texture({ champ, c, inspecteur }: PropsChamp<ChampTexture>) {
 }
 
 function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
-  const actif = !champ.actif || champ.actif(c);
+  const actif = champActif(champ, c);
   return (
     <span className="champBouton">
       <button type="button" className="secondary small" disabled={!actif} title={champ.aide} onClick={() => inspecteur.executer(champ, c)}>
@@ -149,7 +150,7 @@ function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
 /** La commande d'un champ, selon son type. */
 function Commande({ champ, c, inspecteur }: PropsChamp) {
   const tactile = useContext(Tactile);
-  const actif = !champ.actif || champ.actif(c);
+  const actif = champActif(champ, c);
   const ecrire = <V,>(fn: (v: V) => void | boolean) => (v: V) => { inspecteur.appliquer(champ, c, () => fn(v)); };
   switch (champ.type) {
     case 'texte':

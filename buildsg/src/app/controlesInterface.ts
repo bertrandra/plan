@@ -44,15 +44,14 @@ export interface ControleInterface {
   /**
    * Le controle ecrit dans le projet (classement seul, sans effet sur Plan) : s'il s'annule, et qui
    * en garde les droits — `commande` : la commande qui ouvre son ecran porte la permission d'ecrire ;
-   * `aucun` : rien ne le refuse en lecture seule (la modification reste en memoire, l'enregistrement
-   * est refuse).
+   * `lectureSeule` : le service qui ecrit le refuse en lecture seule ; `aucun` : rien ne le refuse.
    */
   ecrit?: Ecriture;
 }
 
-export interface Ecriture { annulable: boolean; droits: 'commande' | 'aucun' }
-/** Une saisie du tiroir : `resultats.saisir` empile un instantane, aucun droit n'est verifie. */
-const SAISIE: Ecriture = { annulable: true, droits: 'aucun' };
+export interface Ecriture { annulable: boolean; droits: 'commande' | 'lectureSeule' | 'aucun' }
+/** Une saisie du tiroir : `resultats.saisir` empile un instantane, et la refuse en lecture seule. */
+const SAISIE: Ecriture = { annulable: true, droits: 'lectureSeule' };
 
 const Z1 = 'Z1 Barre d’application', Z3 = 'Z3 Explorateur', Z4 = 'Z4 Vues 3D', Z5 = 'Z5 Inspecteur', Z6 = 'Z6 Résultats';
 const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Relevé de façade', FEUILLES = 'Feuilles (téléphone)';
@@ -188,7 +187,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'texture.vignette': etape(Z8, TEXTURE, 'Choisir une texture', { repete: true }),
   'texture.appliquerATous': etape(Z8, TEXTURE, 'Appliquer à tous les objets semblables'),
   'texture.annuler': etape(Z8, TEXTURE, 'Annuler le choix de texture'),
-  'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture', { ecrit: { annulable: false, droits: 'aucun' } }),
+  'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture', { ecrit: { annulable: true, droits: 'lectureSeule' } }),
 
   // ---- Le releve de facade (zones/Releve.tsx), ecran plein --------------------------------------
   'releve.fermer': etape(RELEVE, RELEVER, 'Fermer le relevé'),
