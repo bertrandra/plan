@@ -69,7 +69,31 @@ export interface EtatMagasin {
   /** La feuille ouverte sur telephone, ou aucune. */
   feuille: Feuille | null;
   hauteurFeuille: HauteurFeuille;
+  /** Les options des commandes de fichier et d'export : de la session, jamais du projet. */
+  options: OptionsCommandes;
 }
+
+/**
+ * Les options que les menus Fichier et Exporter reglent et que leurs commandes lisent. Elles vivaient
+ * dans des cases de la page, relues par les commandes (et par io/importSvg) avec `getElementById` :
+ * le magasin les tient desormais, les menus les ecrivent, les commandes les recoivent.
+ */
+export interface OptionsCommandes {
+  /** Import SVG : supprimer les objets existants avant d'importer. */
+  remplacerImportSvg: boolean;
+  /** Import JSON : remplacer le plan actuel (decoche, les objets s'ajoutent). */
+  remplacerImportJson: boolean;
+  /** Export JSON : sans la parcelle ni le voisinage. */
+  exportSansParcelle: boolean;
+  /** Dossier PDF : inclure l'emprise des equipements. */
+  dossierEquipements: boolean;
+  /** PDF du plan : le denominateur de l'echelle (1/200). */
+  echellePdf: number;
+}
+
+export const OPTIONS_PAR_DEFAUT: OptionsCommandes = {
+  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200
+};
 
 export interface Magasin {
   store: StoreApi<EtatMagasin>;
@@ -88,6 +112,7 @@ export interface Magasin {
   /** Ouvre une feuille (et ferme la precedente), ou ferme tout avec `null`. */
   definirFeuille(feuille: Feuille | null, hauteur?: HauteurFeuille): void;
   definirHauteurFeuille(hauteur: HauteurFeuille): void;
+  definirOption<K extends keyof OptionsCommandes>(cle: K, valeur: OptionsCommandes[K]): void;
 }
 
 /** La hauteur d'ouverture de chaque feuille : les listes a mi-hauteur, les resultats en entier. */
@@ -109,7 +134,8 @@ export function creerMagasin(etat: EtatApp): Magasin {
     inspecteurOuvert: true,
     classe: 'large',
     feuille: null,
-    hauteurFeuille: 'mi'
+    hauteurFeuille: 'mi',
+    options: { ...OPTIONS_PAR_DEFAUT }
   }));
   // La feuille ouverte se lit aussi sur `<html data-feuille>` : la feuille de style montre la zone
   // qui la porte. Hors navigateur (tests Node), il n'y a pas de document a marquer.
@@ -136,6 +162,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
       store.setState({ feuille, hauteurFeuille: h });
       marquer(feuille, h);
     },
+    definirOption: (cle, valeur) => store.setState((s) => ({ options: { ...s.options, [cle]: valeur } })),
     definirHauteurFeuille: (hauteurFeuille) => {
       store.setState({ hauteurFeuille });
       marquer(store.getState().feuille, hauteurFeuille);

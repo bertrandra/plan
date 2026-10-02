@@ -109,6 +109,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Code plus propre et mieux tenu (aucun changement de comportement attendu).**
+  - **Relevé de façade découpé** : `zones/Releve.tsx` (1 567 lignes) garde l'enchaînement du parcours
+    (198) ; chaque étape et ses outils vivent dans `zones/releve/`. Découpage mécanique, sans cycle ;
+    les calculs sans React (série de photos, analyse) ont leurs tests.
+  - **La logique ne lit plus la page** : les options des menus Fichier et Exporter (remplacer à
+    l'import, exporter sans la parcelle, équipements du dossier, échelle du PDF) sont tenues par le
+    magasin et données aux commandes — `io/importSvg` ne lit plus de case à cocher. Les curseurs
+    orthophoto deviennent des champs contrôlés ; trois synchronisations mortes ou redondantes sont
+    retirées (voisinage, grille, case orthophoto disparue).
+  - **Code mort** : onze exports et deux couleurs jamais utilisés, retirés.
+  - **Descriptions** : les 76 commandes en ont une (glossaire `app/descriptions.ts`) ; les menus et
+    la palette les montrent en infobulle.
+  - **Test instable corrigé** : `adminPhp.test.ts` tirait le port de `php -S` au hasard entre 5390
+    et 5489 ; tombé sur un service déjà là (1 fois sur 100), six tests échouaient. Le port est
+    désormais demandé au système.
+  - **Fumée** : points 49 à 54 — annulation des champs, refus sans étape vide, lecture seule de la
+    vitrine, découverte des contrôleurs, relevé de façade de bout en bout sans caméra.
 - **L'ombre portée est cochée par défaut en Vue 3D.** C'est ce qu'on vient y voir : la course du
   soleil sur la terrasse. La case reste dans les réglages pour l'éteindre sur un poste lent.
 - **Le fond orthophoto est allumé par défaut** sur un plan calé par le cadastre (créé depuis une

@@ -72,7 +72,7 @@ export function Palette({ magasin, commandes }: PropsPalette) {
             + (refus ? ' — ' + refus : '');
           return (
             <button key={o.id} type="button" className={'outil' + (o.id === 'objet.supprimer' ? ' outilDanger' : '')} id={o.id === 'objet.annuler' ? 'undoBtn' : undefined}
-              title={titre} aria-label={titre} disabled={!actif} data-commande={o.id}
+              title={titre + (c?.description && !refus ? ' — ' + c.description : '')} aria-label={titre} disabled={!actif} data-commande={o.id}
               onClick={(e) => {
                 // Sur telephone, un outil choisi referme la feuille : on regarde ensuite le plan.
                 if (compact) magasin.definirFeuille(null);

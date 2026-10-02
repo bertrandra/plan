@@ -206,13 +206,6 @@ export function positionMat(par: ObjetPlan): PtBrut {
   return { x: toile.center.x + toile.r*Math.cos(a), y: toile.center.y + toile.r*Math.sin(a) };
 }
 
-/** Decalage centre-de-toile → mat, pour replacer la toile a partir d'un pied impose. */
-export function decalageMat(par: ObjetPlan): PtBrut {
-  if(!par.matDeporte) return { x:0, y:0 };
-  const a = matAngleDe(par) * Math.PI/180;
-  return { x: enCercle(par).r*Math.cos(a), y: enCercle(par).r*Math.sin(a) };
-}
-
 /**
  * Point du bord du polygone le plus proche de `pt` : on projette sur chaque segment et on garde le
  * meilleur. Sert a coller le pied du parasol sur le pourtour de la terrasse.

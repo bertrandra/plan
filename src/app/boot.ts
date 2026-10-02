@@ -245,7 +245,7 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     ouvrirActualisation: () => ouvrirDialogueActualisation({
       etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
       restoreState: historique.restaurer, serializeMeasures, serializeObjects,
-      syncBasculeVoisinage: affichage.syncBasculeVoisinage, syncLieuTitre: affichage.syncLieuTitre,
+      syncLieuTitre: affichage.syncLieuTitre,
       trouverParcelleCloture: affichage.trouverParcelleCloture
     })
   };
@@ -254,6 +254,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
 /** Les objets deja presents recoivent leur DOM, puis les gestes du pointeur et les commandes du plan. */
 function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargements>, seed: GraineDemarrage, tardifs: Tardifs) {
   const { etat, magasin, commandes, surface, dessin, affichage, resultats, tiroir } = p;
+  /** Les options des menus Fichier et Exporter, telles qu'elles sont a l'instant de la commande. */
+  const options = () => magasin.store.getState().options;
   // Les priorites d'affichage les plus basses d'abord ; a egalite, l'ordre du tableau (tri stable).
   etat.objects.slice().sort(parPriorite).forEach(dessin.createObjectDOM);
   etat.objects.forEach(dessin.rebuildHandles);
@@ -273,7 +275,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.
   brancherClavier(commandes);
   brancherAffichage(atelier, {
-    enregistrerAffichage: affichage.enregistrerAffichage, syncBasculeGrille: affichage.syncBasculeGrille,
+    enregistrerAffichage: affichage.enregistrerAffichage,
     ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
   }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
@@ -285,13 +287,14 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     startPick: (mode: Pointage['mode'], multi: boolean, but?: Pointage['purpose']) => resultats.pointer(mode, multi, but)
   }, commandes);
   brancherFichiers({
-    exportProjetJSON: () => exporterLeProjet(etat, seed), validerProjetJSON, appliquerProjetImporte: ch.appliquerProjetImporte,
+    exportProjetJSON: () => exporterLeProjet(etat, seed, options().exportSansParcelle), validerProjetJSON, appliquerProjetImporte: ch.appliquerProjetImporte,
+    remplacerImportJson: () => options().remplacerImportJson,
     importerSVG: (contenu) => importerSVG(contenu, etat, {
       pushHistory: p.pushHistory, createObjectDOM: dessin.createObjectDOM, rebuildHandles: dessin.rebuildHandles,
       reapplyStackingOrder: dessin.reapplyStackingOrder, rebuildSelector: p.rebuildSelector, render: p.render
-    })
+    }, options().remplacerImportSvg)
   }, commandes);
-  brancherLesExports(etat, seed, commandes, { mesures: p.mesures, resultats, genererGlb: (t) => tardifs.vues?.genererGlb(t) });
+  brancherLesExports(etat, seed, commandes, { mesures: p.mesures, resultats, genererGlb: (t) => tardifs.vues?.genererGlb(t), options });
 }
 
 /** Les panneaux (zones/) et les services qu'ils lisent : projet, explorateur, inspecteur. Montes en dernier. */

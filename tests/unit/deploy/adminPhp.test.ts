@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
@@ -10,8 +11,16 @@ import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireCo
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
-const PORT = 5390 + Math.floor(Math.random() * 100);
-const base = 'http://127.0.0.1:' + PORT;
+// Le port est demande au systeme, libre a coup sur : un port tire au hasard (5390 a 5489) tombait
+// parfois sur un service deja la, et le test parlait a ce service au lieu de php -S.
+let base = '';
+function portLibre(): Promise<number> {
+  return new Promise((ok, ko) => {
+    const s = net.createServer();
+    s.once('error', ko);
+    s.listen(0, '127.0.0.1', () => { const p = (s.address() as net.AddressInfo).port; s.close(() => ok(p)); });
+  });
+}
 const PLAN = { meta: { name: 'Démo 1', schemaVersion: 3 }, objects: [{ key: 'parcelle', type: 'polygon' }], measures: [] };
 
 let tmp: string;
@@ -41,7 +50,9 @@ describe.skipIf(!php)('admin.php', () => {
     config = path.join(tmp, 'config.php');
     fs.mkdirSync(path.join(tmp, 'sessions'));
     configurer('secret-admin');
-    serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + PORT, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
+    const port = await portLibre();
+    base = 'http://127.0.0.1:' + port;
+    serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
       env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), PLAN_ADMIN_CONFIG: config },
       stdio: 'ignore'
     });

@@ -11,6 +11,8 @@
 // l'ecran ne change pas. Les cases a cocher et curseurs (`change`, `input`) restent des reglages
 // lies a l'etat ; ils rejoindront le magasin zone par zone.
 
+import { DESCRIPTIONS } from './descriptions.js';
+
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
   | '3d' | 'visionneuse' | 'plu' | 'facade';
@@ -127,7 +129,9 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
   const registre: RegistreCommandes = {
     declarer(c) {
       if (commandes.has(c.id)) throw new Error('Commande deja declaree : ' + c.id);
-      commandes.set(c.id, c);
+      // Sans description dans sa declaration, la commande prend celle du glossaire (app/descriptions.ts).
+      const description = c.description ?? DESCRIPTIONS[c.id];
+      commandes.set(c.id, description === undefined ? c : { ...c, description });
     },
     executer(id, source, cible) {
       const c = commandes.get(id);

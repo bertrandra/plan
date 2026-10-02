@@ -24,8 +24,6 @@ export interface ContexteImportProjet extends ContexteOrtho {
   restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
   rebuildSelector: () => void;
   fitToObject: (obj: ObjetPlan) => void;
-  syncBasculeVoisinage: () => void;
-  syncBasculeGrille: () => void;
   syncLieuTitre: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
 }
@@ -127,8 +125,6 @@ export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportPro
   const a = p && p.affichage;
   etat.voisinageVisible = !(a && a.voisinage === false);
   etat.grilleVisible = !(a && a.grille === false);
-  ctx.syncBasculeVoisinage();
-  ctx.syncBasculeGrille();
   // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
   // (l'import rend avant de restaurer les reglages). Sans ce rendu, un projet enregistre grille
   // masquee se rouvrait avec le bouton eteint... et la grille bien visible.

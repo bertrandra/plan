@@ -89,7 +89,6 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
   };
 }
 
-export type Gestes = ReturnType<typeof creerGestes>;
 
 /**
  * Le nom d'un objet pour l'inspecteur : un point de vue est techniquement un chemin a 2 points, mais

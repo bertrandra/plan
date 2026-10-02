@@ -57,13 +57,3 @@ export function detruireVue(obj: ObjetAvecCle): void {
   if (v.camMarkerEl) v.camMarkerEl.remove();
   vues.delete(obj.key);
 }
-
-/** Nombre de vues connues - sert aux tests et au diagnostic d'une fuite de poignees. */
-export function nombreDeVues(): number {
-  return vues.size;
-}
-
-/** Oublie toutes les vues sans toucher au document (reconstruction complete). */
-export function viderVues(): void {
-  vues.clear();
-}

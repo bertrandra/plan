@@ -9,7 +9,7 @@
 //                         index.html declare : si l'element n'est pas la, c'est un bug de
 //                         structure, et echouer bruyamment au demarrage vaut mieux qu'un
 //                         `if (!x) return;` qui rend la fonction silencieusement inerte.
-//   elOpt('gridBtn')   -> l'element ou null, pour ce qui est cree dynamiquement.
+//   elOpt('id')        -> l'element ou null, pour ce qui n'est pas toujours dans la page.
 //
 // Les 246 sites migreront progressivement ; ce module est en place pour que le code neuf n'en
 // ajoute pas de nouveau.
@@ -24,11 +24,6 @@ export function el<T extends HTMLElement = HTMLElement>(id: string): T {
 /** L'element s'il existe, sinon null - pour ce qui n'est pas toujours dans la page. */
 export function elOpt<T extends HTMLElement = HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
-}
-
-/** Tous les elements correspondant au selecteur, sous forme de tableau. */
-export function els<T extends Element = Element>(selecteur: string, racine: ParentNode = document): T[] {
-  return Array.from(racine.querySelectorAll(selecteur)) as T[];
 }
 
 /** Abonnement type : evite les `as` a chaque addEventListener sur un evenement connu. */

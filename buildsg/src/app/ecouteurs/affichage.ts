@@ -6,7 +6,7 @@
 // se construit à partir des objets visibles, donc elle se **reconstruit** au lieu de se redessiner.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, syncControlesOrtho } from '../../render/ortho.js';
+import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho } from '../../render/ortho.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -17,7 +17,6 @@ export interface ContexteAffichage {
   /** Range l'état d'affichage sur la parcelle, pour qu'il se sauvegarde avec le projet. */
   enregistrerAffichage: () => void;
   /** Remet le bouton de grille en accord avec l'état. */
-  syncBasculeGrille: () => void;
   /** Le contexte que réclame le fond orthophoto. */
   ctxOrtho: () => Parameters<typeof placerOrthophoto>[0];
   /** Reconstruit la scène 3D — nécessaire quand la liste des objets visibles change. */
@@ -55,7 +54,6 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
 
   cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
-    ctx.syncBasculeGrille();
     ctx.enregistrerAffichage();
     a.render();
   } });
@@ -71,8 +69,6 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.opacite = v / 100;
-    const texte = document.getElementById('orthoOpaciteTexte');
-    if (texte) texte.textContent = v + ' %';
     // L'opacite de la photo est portee par les tuiles : il faut les reposer.
     if (ortho.actif) placerOrthophoto(ctx.ctxOrtho());
     enregistrerConfigOrtho(ctx.ctxOrtho());
@@ -82,8 +78,6 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     const v = valeurDe(source);
     if (isNaN(v)) return;
     ortho.parcelleOpacite = v / 100;
-    const texte = document.getElementById('orthoParcelleOpaciteTexte');
-    if (texte) texte.textContent = v + ' %';
     // Celle-ci ne touche pas aux tuiles : `render()` reapplique l'opacite effective sur les
     // terrains, et cela suffit.
     if (ortho.actif) a.render();
@@ -92,8 +86,8 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
 
   cmd.declarer({ id: 'affichage.orthoParcelleDefaut', libelle: 'Opacité de parcelle conseillée', groupe: 'affichage', ecrit: 'affichage', executer: () => {
     ortho.parcelleOpacite = 0.15;
-    syncControlesOrtho();
-    if (ortho.actif) a.render();
+    // Le rendu redessine les terrains et redit l'opacite au curseur du menu (magasin).
+    a.render();
     enregistrerConfigOrtho(ctx.ctxOrtho());
   } });
 }
