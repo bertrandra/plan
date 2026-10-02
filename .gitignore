@@ -21,3 +21,4 @@ coverage/
 
 # Captures de reference de l interface (scripts/captures.mjs) : regenerees a chaque etape, jointes a la PR.
 tests/captures/
+livraison.zip

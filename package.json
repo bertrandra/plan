@@ -21,7 +21,8 @@
     "build:siteground": "npm ci --prefix buildsg --no-audit --no-fund && npm run build --prefix buildsg",
     "gate:client": "node scripts/generer-client.mjs --verifier",
     "contrat": "node scripts/extraire-contrat.mjs",
-    "verifier-paquet": "node scripts/verifier-paquet.mjs"
+    "verifier-paquet": "node scripts/verifier-paquet.mjs",
+    "livraison": "node scripts/livraison.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

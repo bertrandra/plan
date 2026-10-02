@@ -43,6 +43,30 @@ async function demarrer(): Promise<void> {
       return;
     }
 
+    // L'admin des demos (MD/spec-demos-admin.md) : `?admin` ou `?demofile=<id>`. Pas de plateforme :
+    // les plans sont les fichiers de demo du serveur qui sert la page, derriere son mot de passe.
+    // Ouvrir, Enregistrer, Nouveau et Supprimer passent par le meme depot que d'habitude, pose
+    // sur ces fichiers ; le reste de l'atelier ne sait pas la difference.
+    const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
+    if (demandeAdmin(location.search)) {
+      await franchirLaPorteAdmin();
+      const { creerDepotDemos } = await import('./io/depotDemos.js');
+      const { definirDepot } = await import('./io/api.js');
+      definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
+      const { boot, loadInitialProject } = await import('./app/boot.js');
+      try {
+        const seed = await loadInitialProject();
+        boot(seed);
+        const { showToast } = await import('./shell/dialogs.js');
+        document.title = 'Admin démo — ' + (seed.meta?.name ?? 'Plan');
+        showToast('Admin des démos : « Enregistrer » réécrit le fichier de démo ' + (seed.meta ? '« ' + seed.meta.id + ' »' : '') + ' sur le serveur.');
+      } catch (err) {
+        if (err && (err as { reason?: string }).reason) showProjectLoadError(err as { reason?: string });
+        else showErrBanner(texteErreur(err));
+      }
+      return;
+    }
+
     // La porte (spec-connexion-plateforme §16, etape 2). Elle ne rend la main qu'une fois
     // franchie. L'import est dynamique pour la meme raison que celui de boot.ts : un echec de
     // chargement doit se voir dans le bandeau, pas en page blanche.

@@ -23,6 +23,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { creerAdminDemos } from './demosAdmin.mjs';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(ici, 'dist');
@@ -32,6 +33,14 @@ const dist = path.join(ici, 'dist');
 process.env.BACKPROD_API_URL ||= 'https://www.raillard.org';
 const PORT = Number(process.env.PORT) || 3000;
 const HOTE = process.env.HOST || '0.0.0.0';
+
+// Les fichiers de demonstration de l'admin (demosAdmin.mjs, MD/spec-demos-admin.md). Sans
+// ADMIN_PASSWORD, l'admin n'existe pas. DEMOS_DIR gagne a etre HORS du dossier de l'application :
+// une mise en ligne qui remplace ce dossier emporterait sinon les demos enregistrees depuis.
+const adminDemos = creerAdminDemos({
+  dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
+  motDePasse: process.env.ADMIN_PASSWORD
+});
 
 // ---------------------------------------------------------------------------------------------
 // Le build
@@ -107,7 +116,7 @@ function repondre(req, res, statut, entetes, corps) {
 
 const texte = { 'Content-Type': 'text/plain; charset=utf-8' };
 
-const serveur = http.createServer((req, res) => {
+const serveur = http.createServer(async (req, res) => {
   let url;
   try {
     url = new URL(req.url || '/', 'http://localhost');
@@ -116,6 +125,9 @@ const serveur = http.createServer((req, res) => {
   }
   const vitrine = /(^|&)mode=demo(&|$)/.test(url.search.slice(1));
   const base = securite(req, vitrine);
+
+  // L'admin des demos a ses propres methodes (POST, PUT, DELETE) : il passe avant le filtre.
+  if (await adminDemos.traiter(req, res, url, base)) return;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return repondre(req, res, 405, { ...base, ...texte, Allow: 'GET, HEAD' }, 'Methode non autorisee\n');
@@ -149,5 +161,6 @@ const serveur = http.createServer((req, res) => {
 });
 
 serveur.listen(PORT, HOTE, () => {
-  console.log('Plan : http://' + HOTE + ':' + PORT + '/ (' + page.length + ' octets)');
+  console.log('Plan : http://' + HOTE + ':' + PORT + '/ (' + page.length + ' octets)'
+    + (adminDemos.actif ? ', admin des demos actif' : ', admin des demos inactif (ADMIN_PASSWORD absent)'));
 });

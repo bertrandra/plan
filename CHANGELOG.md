@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
+  `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
+  les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,
+  Nouveau, Projets et Supprimer agissent sur ces fichiers ; la version précédente est gardée en
+  `.bak`. Sans `ADMIN_PASSWORD`, rien ne change.
+- **Déploiement Apache + PHP, sans Node** (`npm run livraison`) : `livraison/` et `livraison.zip`
+  portent `index.html`, `.htaccess`, et `admin.php`, le même admin des démos en PHP. Mot de passe
+  et dossier des démos dans `plan-admin-config.php`, hors de la racine web.
 - **La couleur des toits est lue sur l'orthophoto.** À la création d'un plan depuis une adresse et à
   l'actualisation IGN, Plan regarde l'orthophoto sous le contour de chaque bâtiment (en retrait des
   murs). Une couverture d'une seule teinte, sans arbre ni ombre qui la masque, prend cette teinte.
