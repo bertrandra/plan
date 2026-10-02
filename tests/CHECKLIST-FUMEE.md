@@ -105,7 +105,7 @@ rejoue jamais.
 | 50 | Taper « XYZ » lettre à lettre dans le nom de la terrasse ; un Ctrl+Z | le nom revient d'un coup : une frappe est un seul geste |
 | 51 | Modifier l'angle du coin 2, puis saisir une longueur 0 (refusée) ; un Ctrl+Z | l'angle est défait : un refus ne laisse pas d'étape vide |
 | 52 | Vitrine (`?mode=demo`) : inspecteur de la terrasse et nomenclature | tous les champs qui écrivent le projet et les boutons Supprimer grisés, les saisies du tiroir grisées ; seul un réglage d'affichage (« Distance au segment ») reste libre |
-| 53 | Admin › Contrôleurs : Lancer la découverte, Enregistrer (une fois, au bureau) | relevée dans les trois classes ; 0 hors registre, 0 écart de zone, 0 écriture sans droits, au plus 1 sans annulation (créer le projet), aucun champ nommé par sa clé |
+| 53 | Admin › Contrôleurs : Lancer la découverte, Enregistrer (une fois, au bureau) | relevée dans les trois classes ; 0 hors registre, 0 écart de zone, 0 écriture sans droits, au plus 1 sans annulation (créer le projet), aucun champ nommé par sa clé, aucune commande sans description |
 | 54 | Relevé de façade sans caméra : importer une photo de façade, Analyser, Valider ; un Ctrl+Z | le relevé est écrit sur le bâtiment avec ses ouvertures ; un Ctrl+Z le retire d'un coup |
 
 ## Journal des passages

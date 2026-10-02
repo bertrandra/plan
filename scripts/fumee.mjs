@@ -934,11 +934,13 @@ const POINTS = {
     const ecarts = branche('horsRegistre', 'ecartsZone')?.details?.nombre;
     const sansDroits = branche('ecritures', 'sansDroits')?.details?.nombre;
     const sansAnnulation = branche('ecritures', 'sansAnnulation')?.details?.nombre;
-    let nommesParCle = 0;
+    let nommesParCle = 0, commandes = 0, sansDescription = 0;
     const voir = (n) => { if (n.genre === 'champ' && n.nom === n.cle) nommesParCle++; (n.enfants || []).forEach(voir); };
     voir(branche('inspecteur'));
-    const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && Number(sansAnnulation) <= 1 && nommesParCle === 0;
-    return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation} ; champs nommés par leur clé ${nommesParCle}` };
+    const compter = (n) => { if (n.genre === 'commande') { commandes++; if (!n.details?.description) sansDescription++; } (n.enfants || []).forEach(compter); };
+    compter(branche('commandes'));
+    const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && Number(sansAnnulation) <= 1 && nommesParCle === 0 && sansDescription === 0;
+    return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation} ; champs nommés par leur clé ${nommesParCle} ; commandes sans description ${sansDescription}/${commandes}` };
   },
   54: async (page) => {
     // Le releve de facade de bout en bout, sans camera : une facade synthetique (mur enduit, deux
