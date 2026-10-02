@@ -130,6 +130,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **Test instable corrigé** : `adminPhp.test.ts` tirait le port de `php -S` au hasard entre 5390
     et 5489 ; tombé sur un service déjà là (1 fois sur 100), six tests échouaient. Le port est
     désormais demandé au système.
+  - **Test dépendant du shell corrigé** : `contrat.test.ts` supposait une origine de plateforme vide ;
+    il échouait dès que `BACKPROD_API_URL` était exporté pour construire. Il lit maintenant l'origine
+    du build. La suite passe avec et sans la variable.
   - **Fumée** : points 49 à 54 — annulation des champs, refus sans étape vide, lecture seule de la
     vitrine, découverte des contrôleurs, relevé de façade de bout en bout sans caméra.
 - **L'ombre portée est cochée par défaut en Vue 3D.** C'est ce qu'on vient y voir : la course du

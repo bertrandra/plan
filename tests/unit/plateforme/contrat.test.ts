@@ -74,7 +74,9 @@ describe('la configuration du paquet', () => {
     // Sans plateforme branchee, `adresse` colle quand meme le chemin : ce qu'on fige ici, c'est le
     // refus du parametre manquant, qui sinon donnerait un `/projects/undefined` parti au reseau.
     expect(() => adresse(OPERATIONS.showProject.chemin, {})).toThrow(/projectId/);
-    expect(adresse(OPERATIONS.listProjects.chemin)).toBe('/api/v1/projects');
+    // L'origine est celle du build (BACKPROD_API_URL, posee par vite.config.ts) : vide sous un
+    // `npm test` nu, celle de la plateforme quand la variable est exportee dans le shell.
+    expect(adresse(OPERATIONS.listProjects.chemin)).toBe(BACKPROD_API_URL.replace(/\/+$/, '') + '/api/v1/projects');
   });
 });
 
