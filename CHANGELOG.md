@@ -121,6 +121,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **Code mort** : onze exports et deux couleurs jamais utilisés, retirés.
   - **Descriptions** : les 76 commandes en ont une (glossaire `app/descriptions.ts`) ; les menus et
     la palette les montrent en infobulle.
+  - **Test instable corrigé** : `adminPhp.test.ts` tirait le port de `php -S` au hasard entre 5390
+    et 5489 ; tombé sur un service déjà là (1 fois sur 100), six tests échouaient. Le port est
+    désormais demandé au système.
   - **Fumée** : points 49 à 54 — annulation des champs, refus sans étape vide, lecture seule de la
     vitrine, découverte des contrôleurs, relevé de façade de bout en bout sans caméra.
 - **L'ombre portée est cochée par défaut en Vue 3D.** C'est ce qu'on vient y voir : la course du
