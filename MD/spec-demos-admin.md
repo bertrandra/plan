@@ -71,6 +71,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `GET /admin/demos` | `{ demos: [{ id, name, updatedAt }] }` |
 | `POST /admin/demos` | crée la démo au premier numéro libre |
 | `GET`, `PUT`, `DELETE /admin/demos/<id>` | lit, réécrit, met de côté |
+| `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
 
 ## Côté page
 
@@ -79,6 +80,31 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 - `io/depotDemos.ts` : le dépôt des démos, même contrat que celui de la plateforme
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
   dernier ouvert (`planInteractif.admin.lastDemoId`), pour ne jamais mélanger démos et projets.
+
+## Contrôleurs de l'écran (`?admin&ecran=controleurs`)
+
+Un écran à part, sur toute la page, qui **découvre** et **enregistre** l'arbre des contrôleurs de
+Plan : ce par quoi l'écran agit sur le plan. Il n'agit pas sur le plan : il montre, compare,
+enregistre.
+
+- **Découverte** : Plan démarre caché, sur la démonstration intégrée, en mémoire et sans dépôt
+  (rien ne peut s'y enregistrer). `app/controleurs.ts` lit ce qu'il a monté : le registre des
+  commandes, la carte d'exposition (`app/exposition.ts`) et les sections de l'inspecteur, une par
+  sorte d'objet du plan. Aucune commande n'est exécutée, aucun champ lu ni écrit.
+- **L'arbre** : Zones de l'écran (Z1 à Z8 et clavier) → emplacements → commandes ; Registre des
+  commandes → groupes → commandes ; Champs de l'inspecteur → sortes d'objet → sections → champs.
+  Chaque nœud a sa **clé** (l'identifiant de la commande, la clé du champ…) et son **nom
+  explicite**, plus quelques détails (raccourci, classes d'écran, type, unité, permission…). Son
+  chemin de clés (`plan/zones/Z1/menuFichier/projet.enregistrer`) l'identifie.
+- **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
+  appVersion, decouvertLe, arbre}` rangé à part des démos.
+- **Redécouverte** : « Relancer la découverte » relit Plan tel qu'il est déployé et compare au
+  registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).
+  « Seulement les changements » ne montre qu'eux ; « Enregistrer la découverte » en fait la
+  nouvelle référence.
+- **Navigation** : motif ARIA *tree* — flèches haut/bas, droite ouvre ou descend, gauche ferme ou
+  remonte, Début/Fin, Entrée. Filtre par clé ou nom. Le détail du nœud choisi est à droite (sous
+  l'arbre sur téléphone et tablette).
 
 ## Hors périmètre, pour la suite
 

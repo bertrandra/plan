@@ -146,3 +146,25 @@ export async function connecterAdmin(f: Fetch, motDePasse: string): Promise<stri
     return 'Le serveur ne répond pas : ' + ((e as Error).message || String(e));
   }
 }
+
+/** Le registre des controleurs enregistre (app/controleurs.ts), ou `null` s'il n'y en a pas encore. */
+export async function lireControleurs(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/controleurs', { credentials: 'same-origin', cache: 'no-store' });
+  } catch (e) {
+    throw echec('lecture du registre des contrôleurs : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture du registre des contrôleurs');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace le registre des controleurs ; le serveur garde le precedent en `.bak`. */
+export async function enregistrerControleurs(f: Fetch, registre: unknown): Promise<void> {
+  await appeler(f, '/controleurs', 'enregistrement du registre des contrôleurs', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN },
+    body: JSON.stringify(registre)
+  });
+}

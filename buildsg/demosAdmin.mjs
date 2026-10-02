@@ -189,6 +189,27 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
         return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
       }
 
+      // L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des
+      // demos. Le point en tete le garde hors de la liste des demos.
+      if (url.pathname === '/admin/controleurs') {
+        const f = path.join(dossier, '.controleurs.json');
+        if (lecture) {
+          if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucun registre des contrôleurs enregistré.');
+          res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end(methode === 'HEAD' ? undefined : fs.readFileSync(f, 'utf8'));
+          return true;
+        }
+        if (methode === 'PUT') {
+          const document = verifierRegistre(await lireCorps(req, TAILLE_MAX));
+          if (fs.existsSync(f)) fs.copyFileSync(f, f + '.bak');
+          const tmp = f + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+          fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');
+          fs.renameSync(tmp, f);
+          return json(200, { decouvertLe: document.decouvertLe });
+        }
+        return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+      }
+
       const m = /^\/admin\/demos\/([^/]+)$/.exec(url.pathname);
       if (m) {
         const id = decodeURIComponent(m[1]);
@@ -232,6 +253,16 @@ function verifierDocument(texte) {
   try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
   if (!d || typeof d !== 'object' || Array.isArray(d) || !Array.isArray(d.objects)) {
     throw Object.assign(new Error('Le document n’a pas la forme d’un plan (objects manquant).'), { statut: 400 });
+  }
+  return d;
+}
+
+/** Un registre des controleurs : `{format: 'plan-controleurs', arbre: {...}}`. */
+function verifierRegistre(texte) {
+  let d;
+  try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
+  if (!d || d.format !== 'plan-controleurs' || !d.arbre || typeof d.arbre !== 'object') {
+    throw Object.assign(new Error('Ce n’est pas un registre des contrôleurs.'), { statut: 400 });
   }
   return d;
 }

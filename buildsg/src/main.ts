@@ -50,6 +50,16 @@ async function demarrer(): Promise<void> {
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
     if (demandeAdmin(location.search)) {
       await franchirLaPorteAdmin();
+      // L'ecran des controleurs (`?admin&ecran=controleurs`) : Plan demarre cache, sur la
+      // demonstration integree et sans depot — rien ne s'y enregistre —, le temps qu'on lise ce
+      // qu'il a monte. Aucune commande n'est executee.
+      const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
+      if (demandeEcranControleurs(location.search)) {
+        document.documentElement.dataset.ecran = 'controleurs';
+        const { boot, graineVitrine } = await import('./app/boot.js');
+        boot(graineVitrine(), { controleurs: (source) => { void ouvrirEcranControleurs(source); } });
+        return;
+      }
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });

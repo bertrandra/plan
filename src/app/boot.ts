@@ -66,6 +66,10 @@ import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
 import { creerIsolement } from './isolement.js';
+import { EXPOSITION } from './exposition.js';
+import { APP_VERSION } from '../model/version.js';
+import type { SourceControleurs } from './controleurs.js';
+import type { RegistreCommandes } from './commandes.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
@@ -323,7 +327,28 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   return { explorateur, inspecteur, projet };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void {
+/**
+ * La decouverte des controleurs (app/controleurs.ts) : ce que Plan a monte, lu sans rien executer.
+ * Les sections de l'inspecteur dependent de l'objet : on en demande une par sorte d'objet du plan.
+ */
+function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur, objets: ObjetPlan[]): SourceControleurs {
+  const sortes = new Map<string, ObjetPlan>();
+  for (const o of objets) {
+    const cle = o.type + '.' + (o.fonction || 'aucune');
+    if (!sortes.has(cle)) sortes.set(cle, o);
+  }
+  return {
+    appVersion: APP_VERSION,
+    commandes: commandes.lister(),
+    exposition: EXPOSITION,
+    inspecteur: [...sortes].sort(([a], [b]) => a.localeCompare(b)).map(([cle, o]) => {
+      const c = inspecteur.contexte(o);
+      return { cle, nom: libelleTypeObjet(o), sections: inspecteur.sections(c) };
+    })
+  };
+}
+
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (source: SourceControleurs) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
@@ -387,6 +412,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine } = {}): void 
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
   else projet.proposerMiseAJour();
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
+  if (options.controleurs) options.controleurs(sourceControleurs(commandes, inspecteur, etat.objects));
 }
 
 /**
