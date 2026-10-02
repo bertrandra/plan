@@ -478,12 +478,21 @@ const POINTS = {
     const initiale = await date.inputValue();
     const affichee = page.locator('#zoneInspecteur [data-cle="ombreAffichee"] input[type="checkbox"]');
     if (!(await affichee.isChecked())) await affichee.click({ force: true });
+    // Le fond orthophoto s'allume par defaut (2.2.0) : ses tuiles arrivent - ou echouent, sans reseau -
+    // a un instant quelconque, et l'opacite des terrains change avec lui. On compare donc le plan
+    // sans les tuiles ni les opacites de remplissage : les traces, dont celui de l'ombre, restent.
+    const plan = () => page.evaluate(() => {
+      const c = document.querySelector('#stage > svg').cloneNode(true);
+      c.querySelectorAll('image').forEach((e) => e.remove());
+      c.querySelectorAll('[fill-opacity]').forEach((e) => e.removeAttribute('fill-opacity'));
+      return c.innerHTML;
+    });
     await date.fill('2026-06-21'); await page.waitForTimeout(150);
-    const ete = await page.evaluate(() => document.querySelector('#stage > svg').innerHTML);
+    const ete = await plan();
     await date.fill('2026-12-21'); await page.waitForTimeout(150);
-    const hiver = await page.evaluate(() => document.querySelector('#stage > svg').innerHTML);
+    const hiver = await plan();
     await date.fill('2026-06-21'); await page.waitForTimeout(150);
-    const ete2 = await page.evaluate(() => document.querySelector('#stage > svg').innerHTML);
+    const ete2 = await plan();
     void svg; void initiale;
     return { ok: ete !== hiver && ete === ete2, mesure: `ombre du 21 juin ≠ ombre du 21 décembre ; retour au 21 juin ${ete === ete2 ? 'identique' : 'DIFFÉRENT'}` };
   },
