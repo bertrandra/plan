@@ -7,7 +7,7 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { PorteAdmin } from '../zones/PorteAdmin.js';
-import { sessionAdmin, connecterAdmin } from '../io/depotDemos.js';
+import { sessionAdmin, connecterAdmin, deconnecterAdmin } from '../io/depotDemos.js';
 
 /** L'adresse demande-t-elle l'admin des demos ? */
 export function demandeAdmin(recherche: string): boolean {
@@ -36,4 +36,16 @@ export async function franchirLaPorteAdmin(): Promise<void> {
   });
   racine.unmount();
   hote.remove();
+}
+
+/**
+ * Sort de l'admin : ferme la session cote serveur, puis recharge la page — la porte au mot de passe
+ * revient, rien de l'atelier ne reste affiche. Rend le motif d'echec si le serveur n'a pas repondu :
+ * la session serait alors encore ouverte, et recharger laisserait croire le contraire.
+ */
+export async function quitterAdmin(recharger: () => void = () => location.reload()): Promise<string | null> {
+  const fait = await deconnecterAdmin((entree, init) => fetch(entree, init));
+  if (!fait) return 'Déconnexion impossible : le serveur ne répond pas. La session admin reste ouverte.';
+  recharger();
+  return null;
 }

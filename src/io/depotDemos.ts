@@ -128,6 +128,20 @@ export async function sessionAdmin(f: Fetch): Promise<boolean | null> {
   }
 }
 
+/**
+ * Ferme la session admin (`DELETE admin/session`) : le serveur l'oublie et efface le cookie. Rend
+ * vrai si c'est fait ; faux si le serveur n'a pas repondu — la session reste alors ouverte de son
+ * cote, et il ne faut pas laisser croire le contraire.
+ */
+export async function deconnecterAdmin(f: Fetch): Promise<boolean> {
+  try {
+    const r = await f(RACINE_ADMIN + '/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store', headers: { ...ENTETE_ADMIN } });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Ouvre la session ; rend le message de refus, ou `null` si c'est ouvert. */
 export async function connecterAdmin(f: Fetch, motDePasse: string): Promise<string | null> {
   try {

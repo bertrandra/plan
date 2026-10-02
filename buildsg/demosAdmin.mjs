@@ -148,6 +148,21 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
     if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
 
     try {
+      // --- La vitrine -----------------------------------------------------------------------------
+      // La demo <id> en lecture seule, sans session : ce que montre `?mode=demo&file=<id>`
+      // (deploy/admin.php, meme route). Rien n'y ecrit, et aucun cookie n'y est pose.
+      const v = /^\/admin\/vitrine\/([^/]+)$/.exec(url.pathname);
+      if (v) {
+        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const id = decodeURIComponent(v[1]);
+        if (!ID_VALIDE.test(id)) return erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
+        const f = fichier(id);
+        if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucune démo « ' + id + ' ».');
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'Last-Modified': fs.statSync(f).mtime.toUTCString() });
+        res.end(methode === 'HEAD' ? undefined : fs.readFileSync(f, 'utf8'));
+        return true;
+      }
+
       // --- La session ---------------------------------------------------------------------------
       if (url.pathname === '/admin/session') {
         if (lecture) return sessionValide(req) ? json(200, { admin: true }) : erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');

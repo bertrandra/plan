@@ -3,7 +3,9 @@
 Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait pas lequel lui répond :
 
 - **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
-  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `LISEZMOI-DEPLOIEMENT.txt`).
+  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `plan-demos/1.json`,
+  `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration intégrée, première démo de
+  l'admin, à copier avec le dossier à côté de la configuration.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
 - **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DEMOS_DIR`.
@@ -27,6 +29,8 @@ Dans l'atelier admin, les commandes de projet agissent sur les fichiers de démo
 - **Nouveau projet** crée le premier numéro libre (`1`, `2`, `3`…) ;
 - **Projets** liste les démos ; en choisir une ouvre `?demofile=<id>` ;
 - **Supprimer** renomme le fichier en `<id>.json.supprime-<date>` : rien ne s'efface pour de bon.
+- **Se déconnecter** (barre du haut, ou feuille Projet au doigt) ferme la session chez le serveur,
+  puis recharge la page sur la porte au mot de passe (`app/porteAdmin.ts`, `quitterAdmin`).
 
 ## Format
 
@@ -72,6 +76,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `POST /admin/demos` | crée la démo au premier numéro libre |
 | `GET`, `PUT`, `DELETE /admin/demos/<id>` | lit, réécrit, met de côté |
 | `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
+| `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page
 
@@ -128,8 +133,17 @@ enregistre.
     **-**), « Montrer seule » pour n'afficher qu'elle (« Tout montrer » pour revenir) ;
   - **fil d'Ariane** cliquable et liste des **enfants** cliquables dans le détail.
 
-## Hors périmètre, pour la suite
+## La vitrine montre une démo de l'admin
 
-La démonstration publique (« Ouvrir le plan de démonstration », vitrine `?mode=demo`) reste celle
-compilée dans le HTML (`model/demo.ts`). La faire venir d'un fichier de démo publié par l'admin est
-l'étape suivante possible.
+`?mode=demo&file=<id>` (2 octobre 2026) : la vitrine publique lit la démo `<id>` par
+`admin/vitrine/<id>`, la seule route sans session, en lecture seule (`app/vitrine.ts`,
+`chargerDemoVitrine`). Les autres paramètres de la vitrine (`x`, `y`, `zoom`, `orthophoto`,
+`heureauto`, `pdv`…) s'y appliquent de même. Une démo absente, illisible, sans objet ou d'un schéma
+plus récent que le programme laisse la démonstration intégrée : la vitrine encadrée sur une page
+d'accueil n'est jamais vide.
+
+**Conséquence à connaître** : toute démo du dossier se lit publiquement par son numéro. Une démo
+est faite pour être montrée ; n'y ranger rien qui ne doive pas l'être. L'écriture, la liste et la
+suppression restent derrière le mot de passe.
+
+« Ouvrir le plan de démonstration » (le premier pas de l'atelier) reste la démonstration intégrée.

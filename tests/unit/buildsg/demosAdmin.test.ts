@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
 
 // L'admin des demos (MD/spec-demos-admin.md), cote serveur et cote page, l'un contre l'autre : un
 // vrai serveur HTTP sur un dossier temporaire, et le depot de la page qui lui parle.
@@ -97,6 +97,40 @@ describe('admin des demos, serveur', () => {
     expect(c).toMatch(/HttpOnly/);
     expect(c).toMatch(/SameSite=Strict/);
     expect(c).toMatch(/Path=\/admin\//);
+  });
+});
+
+describe('la vitrine lit une demo sans session', () => {
+  it('sert admin/vitrine/<id> en lecture seule, sans cookie, et rien d autre', async () => {
+    await demarrer(MDP);
+    fs.writeFileSync(path.join(dossier, '1.json'), JSON.stringify(PLAN));
+    const r = await fetch(base + '/admin/vitrine/1');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('cache-control')).toMatch(/public/);
+    expect((await r.json()).meta.name).toBe('Démo 1');
+    expect((await fetch(base + '/admin/vitrine/9')).status).toBe(404);
+    expect((await fetch(base + '/admin/vitrine/..%2Fconfig')).status).toBe(400);
+    expect((await fetch(base + '/admin/vitrine/1', { method: 'PUT', headers: { 'X-Plan-Admin': '1' }, body: '{}' })).status).toBe(405);
+    // La liste et l'ecriture restent derriere la session.
+    expect((await fetch(base + '/admin/demos')).status).toBe(401);
+  });
+});
+
+describe('se deconnecter de l admin', () => {
+  it('ferme la session : le serveur l oublie, le mot de passe est redemande', async () => {
+    await demarrer(MDP);
+    expect(await connecterAdmin(navigateur, MDP)).toBe(null);
+    expect(await sessionAdmin(navigateur)).toBe(true);
+    const ancien = cookie;
+    expect(await deconnecterAdmin(navigateur)).toBe(true);
+    expect(await sessionAdmin(navigateur)).toBe(false);
+    // Le jeton d'avant ne rouvre rien, meme rejoue a la main.
+    expect((await fetch(base + '/admin/demos', { headers: { Cookie: ancien } })).status).toBe(401);
+  });
+
+  it('dit non si le serveur ne repond pas', async () => {
+    expect(await deconnecterAdmin((async () => { throw new Error('reseau'); }) as never)).toBe(false);
   });
 });
 

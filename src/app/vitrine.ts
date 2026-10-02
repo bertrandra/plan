@@ -36,6 +36,15 @@
 // `camera`) : par son nom, sans egard aux majuscules ni aux accents (`pdv=entree`, `pdv=Fenetre
 // cuisine`), ou par son rang dans la liste, a partir de 1 (`pdv=2`). Un point de vue inconnu laisse
 // le cadrage par defaut. `zoom` s'applique ensuite, depuis ce point de vue.
+//
+// `file` montre une demo de l'admin au lieu de la demonstration integree : `file=2` lit le fichier
+// de demo 2 (MD/spec-demos-admin.md) par `admin/vitrine/2`, la route publique, en lecture seule, de
+// admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
+// demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
+
+import { migrer } from '../model/migrations.js';
+import { SCHEMA_VERSION } from '../model/version.js';
+import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
 export const DIMENSION_MIN = 200;
@@ -66,7 +75,12 @@ export interface Vitrine {
   heureAuto: { debut: number; fin: number; dureeMs: number } | null;
   /** Le point de vue demande, tel qu'ecrit dans l'adresse ; `null` : le cadrage par defaut. */
   pdv: string | null;
+  /** La demo de l'admin a montrer (`file`) ; `null` : la demonstration integree. */
+  fichier: string | null;
 }
+
+/** Les identifiants de demo, ceux qu'admin.php et demosAdmin.mjs acceptent. */
+const ID_DEMO = /^[A-Za-z0-9_-]{1,64}$/;
 
 function dimension(brute: string | null): number | null {
   if (brute === null || !/^\d{1,5}$/.test(brute.trim())) return null;
@@ -114,7 +128,8 @@ export function lireVitrine(recherche: string): Vitrine | null {
     largeur: dimension(p.get('x')), hauteur: dimension(p.get('y')), zoom: facteurDeZoom(p.get('zoom')),
     orthophoto: OUI.test((p.get('orthophoto') ?? '').trim()),
     heureAuto: courseDuSoleil(p),
-    pdv: (p.get('pdv') ?? '').trim().slice(0, 80) || null
+    pdv: (p.get('pdv') ?? '').trim().slice(0, 80) || null,
+    fichier: ID_DEMO.test((p.get('file') ?? '').trim()) ? (p.get('file') ?? '').trim() : null
   };
 }
 
@@ -199,4 +214,28 @@ export function animerHeure(course: { debut: number; fin: number; dureeMs?: numb
   pas();
   const id = setInterval(pas, pasMs);
   return () => clearInterval(id);
+}
+
+/** Le document d'une demo, lu pour la vitrine : ses objets et ses cotes, dans la forme courante. */
+export interface DemoVitrine { objects: ObjetBrut[]; measures: Mesure[] }
+
+/**
+ * Lit la demo `id` par la route publique `admin/vitrine/<id>`, relative a la page (Plan peut vivre
+ * dans un sous-dossier). Rend `null` — et la vitrine garde la demonstration integree — si le
+ * fichier manque, ne se lit pas, n'a pas d'objet, ou vient d'un schema plus recent que ce programme.
+ */
+export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch): Promise<DemoVitrine | null> {
+  if (!ID_DEMO.test(id)) return null;
+  try {
+    const r = await lire('admin/vitrine/' + encodeURIComponent(id), { credentials: 'omit', headers: { Accept: 'application/json' } });
+    if (!r.ok) return null;
+    const d = await r.json() as { meta?: { schemaVersion?: unknown } | null; objects?: unknown; measures?: unknown };
+    if (!d || !Array.isArray(d.objects) || !d.objects.length) return null;
+    const schema = typeof d.meta?.schemaVersion === 'number' ? d.meta.schemaVersion : 1;
+    if (schema > SCHEMA_VERSION) return null;
+    const lu = migrer({ objects: d.objects as ObjetBrut[], measures: Array.isArray(d.measures) ? d.measures as Mesure[] : [] }, schema);
+    return { objects: lu.objects, measures: (lu.measures ?? []) as Mesure[] };
+  } catch {
+    return null;
+  }
 }

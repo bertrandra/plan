@@ -17,6 +17,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   précision, ce qu'il modifie, s'il s'annule et ce qu'il recalcule ; une liste, ses valeurs permises.
   Pour naviguer : niveau de chaque ligne et « déplier jusqu'au niveau N » (touches 1 à 9), filtre
   par genre, saut d'un résultat à l'autre, branche montrée seule, fil d'Ariane et enfants cliquables.
+- **Se déconnecter de l'admin des démos.** En mode admin (`?admin`, `?demofile=<n>`), la barre
+  affiche « Admin des démos » et « Se déconnecter » à la place du compte de la plateforme, en haut
+  sur bureau et dans la feuille Projet sur téléphone et tablette. La session est fermée chez le
+  serveur (`DELETE admin/session`, `io/depotDemos.ts` `deconnecterAdmin`), puis la page se recharge
+  sur la porte au mot de passe. Une démo modifiée non enregistrée est demandée avant de partir. Si
+  le serveur ne répond pas, la page ne se recharge pas et le dit : la session reste ouverte.
+
+- **La vitrine montre une démo de l'admin : `?mode=demo&file=<n>`.** `file=2` affiche le fichier de
+  démo 2, celui que l'admin enregistre, au lieu de la démonstration intégrée. Les autres paramètres
+  de la vitrine (`x`, `y`, `zoom`, `orthophoto`, `heureauto`, `pdv`…) s'appliquent de même. La page
+  le lit par `admin/vitrine/<n>`, nouvelle route **publique en lecture seule** d'`admin.php` et de
+  `buildsg/demosAdmin.mjs` : sans session, sans cookie posé, une minute de cache. La liste,
+  l'écriture et la suppression restent derrière le mot de passe. Une démo absente ou illisible
+  laisse la démonstration intégrée. Toute démo du dossier devient donc lisible publiquement par son
+  numéro.
+
+- **La livraison porte une première démo pour l'admin.** `npm run livraison` écrit
+  `livraison/plan-demos/1.json` : la démonstration intégrée (« Parcelle AE 101 »), au format de
+  l'export, tirée de `contrat/plan-produit.json`. Ce contrat est déjà gardé identique au code, donc
+  la démo n'a pas à être compilée. Le LISEZMOI dit de copier `plan-demos/` à côté de
+  `plan-admin-config.php`, hors du dossier publié, sans écraser des démos existantes. Laissé dans
+  `public_html/`, il reste refusé par `.htaccess`. Le fichier est vérifié contre le code et relu par
+  le validateur de projet (`tests/unit/livraison-demo.test.ts`), et servi par `admin.php` sous PHP.
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,
