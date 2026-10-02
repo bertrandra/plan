@@ -14,12 +14,16 @@
 // code est declaree ici, et toute declaration est utilisee dans le code. La decouverte les montre
 // dans la branche « Controles d'interface », et l'inventaire les compte comme rattaches.
 //
-// La nature `objet` signale ce qui modifierait le projet sans passer par le registre : un tel
-// controle doit devenir une commande. C'est fait depuis que le registre accepte une cible
-// (app/commandes.ts `Cible`, app/ecouteurs/cibles.ts) : masquer un objet, ses etiquettes, chaque
-// geste sur les cotes sont des commandes. Il n'en reste aucun ; la nature reste pour le dire.
+// Un controle qui modifierait un objet ou une cote hors du registre n'a pas sa place ici : il doit
+// etre une commande. C'est fait depuis que le registre accepte une cible (app/commandes.ts `Cible`,
+// app/ecouteurs/cibles.ts) : masquer un objet, ses etiquettes, chaque geste sur les cotes. La
+// nature « objet » qui les signalait a ete retiree avec le dernier d'entre eux.
+//
+// La zone declaree est celle ou le controle s'affiche ; la decouverte le verifie (ecarts de zone,
+// app/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
+// s'affiche dans la zone que la feuille porte.
 
-export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'objet' | 'donnee' | 'parcours';
+export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'donnee' | 'parcours';
 
 export const NATURES: Record<NatureControle, string> = {
   navigation: 'Navigation dans l’interface : aucun effet sur le projet',
@@ -27,7 +31,6 @@ export const NATURES: Record<NatureControle, string> = {
   vue: 'Réglage d’une vue 3D, sans modifier le projet',
   option: 'Option d’une commande ou d’un export : elle règle ce qui suit',
   sortie: 'Montre ou imprime une information, sans modifier le projet',
-  objet: 'Modifie un objet ou une cote du projet hors du registre : candidat à devenir une commande',
   donnee: 'Saisie d’une donnée du projet (prix, cadence…)',
   parcours: 'Étape d’un écran ouvert par une commande (dialogue, import, relevé…) : c’est la commande qui porte les droits'
 };
@@ -41,6 +44,8 @@ export interface ControleInterface {
   description?: string;
   /** Pour un controle de parcours : la commande, ou le champ, qui ouvre l'ecran ou il vit. */
   ouvertPar?: string;
+  /** Porte par chaque feuille du telephone : il s'affiche dans la zone que la feuille porte, pas dans `zone`. */
+  dansChaqueZone?: true;
   /**
    * Le controle ecrit dans le projet (classement seul, sans effet sur Plan) : s'il s'annule, et qui
    * en garde les droits — `commande` : la commande qui ouvre son ecran porte la permission d'ecrire ;
@@ -132,8 +137,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'implantation.imprimer': { libelle: 'Imprimer le plan d’implantation', zone: Z6, nature: 'sortie' },
 
   // ---- Feuilles et notifications : les cadres communs ------------------------------------------
-  'feuille.hauteur': { libelle: 'Hauteur de la feuille (glisser la poignée)', zone: FEUILLES, nature: 'navigation', repete: true },
-  'feuille.fermer': { libelle: 'Fermer la feuille', zone: FEUILLES, nature: 'navigation', repete: true },
+  'feuille.hauteur': { libelle: 'Hauteur de la feuille (glisser la poignée)', zone: FEUILLES, nature: 'navigation', repete: true, dansChaqueZone: true },
+  'feuille.fermer': { libelle: 'Fermer la feuille', zone: FEUILLES, nature: 'navigation', repete: true, dansChaqueZone: true },
 
   // ---- Barre de sélection et navigation du bas (tablette, téléphone) ------------------------------
   'selection.deselectionner': { libelle: 'Désélectionner', zone: SELECTION, nature: 'navigation' },

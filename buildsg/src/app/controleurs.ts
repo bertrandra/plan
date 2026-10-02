@@ -13,7 +13,7 @@
 import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
 import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
-import type { ControleEcran } from './inventaireEcran.js';
+import type { ControleEcran, EcartZone } from './inventaireEcran.js';
 import type { ObjetBrut } from '../model/types.js';
 import { CONTROLES, NATURES } from './controlesInterface.js';
 import { ECRIVENT, brancheEcritures, champAnnulable } from './ecritures.js';
@@ -51,7 +51,7 @@ export interface SourceControleurs {
    */
   inspecteur: { cle: string; nom: string; sections: Section[]; echantillon?: boolean; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
   /** L'inventaire de la page (app/inventaireEcran.ts) : les controles affiches hors registre. */
-  ecran?: { horsRegistre: ControleEcran[]; rattaches: number; classes?: string[] };
+  ecran?: { horsRegistre: ControleEcran[]; rattaches: number; classes?: string[]; ecarts?: EcartZone[] };
 }
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
@@ -77,7 +77,7 @@ const NOMS_EMPLACEMENTS: Record<Emplacement, string> = {
 
 const NOMS_GROUPES: Record<string, string> = {
   projet: 'Projet', fichier: 'Fichier', export: 'Exports', objet: 'Objets', vue: 'Vues', affichage: 'Affichage',
-  mesure: 'Mesures', terrasse: 'Terrasse', '3d': 'Vue 3D', visionneuse: 'Visionneuse GLB', cloture: 'Clôture',
+  mesure: 'Mesures', terrasse: 'Terrasse', '3d': 'Vue 3D', visionneuse: 'Visionneuse GLB',
   plu: 'PLU', facade: 'Façade'
 };
 
@@ -161,7 +161,7 @@ type OptionsDe = SourceControleurs['inspecteur'][number]['optionsDe'];
 
 /** Un champ, et sous lui ce qu'il contient : les valeurs d'une liste de choix, les champs d'une ligne. */
 function noeudChamp(ch: Champ, optionsDe: OptionsDe): Noeud {
-  const n: Noeud = { cle: ch.cle, nom: ch.libelle || ch.cle, genre: 'champ', details: detailsChamp(ch) };
+  const n: Noeud = { cle: ch.cle, nom: ch.libelle || ch.nom || ch.cle, genre: 'champ', details: detailsChamp(ch) };
   if (ch.type === 'ligne') n.enfants = sansDoublons(ch.champs.map((c) => noeudChamp(c, optionsDe)));
   if (ch.type === 'choix') {
     const options = optionsDe ? optionsDe(ch) : null;
@@ -272,6 +272,7 @@ function controlesInterface(): Noeud {
     if (c.repete) details.portee = 'répété sur chaque ligne (objet, cote, onglet…)';
     if (c.description) details.description = c.description;
     if (c.ouvertPar) details.ouvertPar = c.ouvertPar;
+    if (c.dansChaqueZone) details.portee = 'dans chaque zone ouverte en feuille (barre, palette, explorateur, inspecteur, tiroir, réglages 3D)';
     if (c.ecrit) {
       details.modifie = 'le projet';
       details.annulable = c.ecrit.annulable ? 'oui (Annuler le défait)' : 'non';
@@ -322,6 +323,16 @@ function horsRegistre(s: SourceControleurs, inspecteur: Noeud[]): Noeud {
           }
         })))
       }))
+    });
+  }
+  // Les controles rattaches affiches ailleurs que la ou leur declaration les place.
+  if (s.ecran?.ecarts) {
+    enfants.push({
+      cle: 'ecartsZone', nom: 'Contrôles affichés hors de leur zone déclarée', genre: 'branche',
+      details: { nombre: String(s.ecran.ecarts.length), consequence: 'la carte d’exposition ou le catalogue ne dit pas où le contrôle se trouve' },
+      enfants: sansDoublons(s.ecran.ecarts.map((e): Noeud => ({
+        cle: e.cle, nom: e.cle.replace(/^\w+:/, ''), genre: 'controle', details: { affiche: e.affiche, attendu: e.attendu }
+      })))
     });
   }
   // Les fonctions proposees par la liste « fonction » de l'inspecteur, moins celles rencontrees.

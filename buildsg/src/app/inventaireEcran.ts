@@ -21,6 +21,9 @@
 // La disposition, elle, n'est plus une limite : la decouverte releve la page dans chaque classe
 // d'ecran (app/decouverteClasses.ts) et `fusionnerInventaires` reunit les releves.
 
+import { CONTROLES as CATALOGUE } from './controlesInterface.js';
+import { EXPOSITION, type Emplacement } from './exposition.js';
+
 /** Un controle de l'ecran, hors registre. */
 export interface ControleEcran {
   /** La zone de l'ecran (Z1…Z9, ou une zone nommee). */
@@ -37,8 +40,18 @@ export interface ControleEcran {
   classes?: string[];
 }
 
+/** Un controle rattache, affiche ailleurs que la ou il est declare. */
+export interface EcartZone {
+  /** `commande:<id>` ou `controle:<cle>`. */
+  cle: string;
+  /** La zone ou il s'affiche. */
+  affiche: string;
+  /** Ce que sa declaration prevoit. */
+  attendu: string;
+}
+
 /** Un releve de la page dans une classe d'ecran. */
-export interface Releve { classe: string; horsRegistre: ControleEcran[]; rattaches: number }
+export interface Releve { classe: string; horsRegistre: ControleEcran[]; rattaches: number; ecarts?: EcartZone[] }
 
 /** Les conteneurs d'index.html et la zone qu'ils portent (MD/spec-ihm-zones.md §3). */
 export const ZONES_DOM: Record<string, string> = {
@@ -48,6 +61,53 @@ export const ZONES_DOM: Record<string, string> = {
   zoneDialogues: 'Z8 Dialogues', zoneNotifications: 'Z9 Notifications', zoneFeuilles: 'Feuilles (téléphone)',
   zoneNavigation: 'Navigation (téléphone)', zoneReleve: 'Relevé de façade'
 };
+
+/**
+ * Les conteneurs ou s'affiche chaque emplacement de la carte d'exposition (app/exposition.ts). Le
+ * clavier n'a pas de conteneur ; `sansObjet` n'en demande pas.
+ */
+export const CONTENEURS_EMPLACEMENTS: Record<Exclude<Emplacement, 'clavier' | 'sansObjet'>, string[]> = {
+  barreHaute: ['zoneBarre'], menuFichier: ['zoneBarre'], menuExporter: ['zoneBarre'], menuAffichage: ['zoneBarre'], menuAide: ['zoneBarre'],
+  feuilleProjet: ['zoneBarre'], navigation: ['zoneNavigation'], palette: ['zonePalette'], rail: ['zonePalette'], feuilleOutils: ['zonePalette'],
+  explorateur: ['zoneExplorateur'], surimpression: ['zoneSurimpression', 'stage'], selection: ['zoneSelection'],
+  vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues']
+};
+
+/** Le conteneur de zone (index.html) qui porte l'element, ou `null` hors de toute zone. */
+function conteneurDe(el: Element): string | null {
+  for (let n: Element | null = el; n; n = n.parentElement) if (n.id && ZONES_DOM[n.id]) return n.id;
+  return null;
+}
+
+/**
+ * Les controles rattaches qui s'affichent hors de la zone que leur declaration prevoit : une commande
+ * dans une zone qu'aucune classe d'ecran ne lui donne (app/exposition.ts), un controle d'interface
+ * ailleurs que dans sa zone (app/controlesInterface.ts). Un element hors de toute zone — les champs
+ * fichier caches d'index.html, que les menus declenchent — n'est pas compte.
+ */
+export function ecartsDeZone(doc: Document): EcartZone[] {
+  const ecarts = new Map<string, EcartZone>();
+  for (const el of Array.from(doc.querySelectorAll('[data-commande], [data-controle]'))) {
+    if (el.closest(EXCLUS)) continue;
+    const id = conteneurDe(el);
+    if (!id) continue;
+    const commande = el.getAttribute('data-commande');
+    if (commande) {
+      const ligne = EXPOSITION[commande];
+      const permis = new Set(ligne ? Object.values(ligne).flat().flatMap((e) => (CONTENEURS_EMPLACEMENTS as Record<string, string[]>)[e] ?? []) : []);
+      if (!permis.has(id)) {
+        const attendu = ligne ? [...permis].map((p) => ZONES_DOM[p]).join(', ') || 'clavier seulement' : 'absente de la carte d’exposition';
+        ecarts.set('commande:' + commande + '@' + id, { cle: 'commande:' + commande, affiche: ZONES_DOM[id] ?? id, attendu });
+      }
+    }
+    const controle = el.getAttribute('data-controle');
+    const c = controle ? CATALOGUE[controle] : undefined;
+    if (controle && c && !c.dansChaqueZone && ZONES_DOM[id] !== c.zone) {
+      ecarts.set('controle:' + controle + '@' + id, { cle: 'controle:' + controle, affiche: ZONES_DOM[id] ?? id, attendu: c.zone });
+    }
+  }
+  return [...ecarts.values()];
+}
 
 /** Ce qui n'est pas Plan : l'ecran des controleurs lui-meme et la porte. */
 const EXCLUS = '#zoneControleurs, #zonePorte';
@@ -155,13 +215,15 @@ export function inventorierEcran(doc: Document): { horsRegistre: ControleEcran[]
  * qu'une fois, avec les classes ou il s'affiche. Les rattaches ne s'additionnent pas (le meme
  * controle se retrouve d'une classe a l'autre) : on garde le releve le plus fourni.
  */
-export function fusionnerInventaires(releves: Releve[]): { horsRegistre: ControleEcran[]; rattaches: number; classes: string[] } {
+export function fusionnerInventaires(releves: Releve[]): { horsRegistre: ControleEcran[]; rattaches: number; classes: string[]; ecarts: EcartZone[] } {
   const parCle = new Map<string, ControleEcran>();
+  const ecarts = new Map<string, EcartZone>();
   const classes: string[] = [];
   let rattaches = 0;
   for (const r of releves) {
     if (!classes.includes(r.classe)) classes.push(r.classe);
     rattaches = Math.max(rattaches, r.rattaches);
+    for (const e of r.ecarts ?? []) ecarts.set(e.cle + '@' + e.affiche, e);
     for (const c of r.horsRegistre) {
       const k = c.zone + '\u0000' + c.cle;
       const deja = parCle.get(k);
@@ -170,5 +232,5 @@ export function fusionnerInventaires(releves: Releve[]): { horsRegistre: Control
       if (c.repete) deja.repete = Math.max(deja.repete ?? 1, c.repete);
     }
   }
-  return { horsRegistre: [...parCle.values()], rattaches, classes };
+  return { horsRegistre: [...parCle.values()], rattaches, classes, ecarts: [...ecarts.values()] };
 }
