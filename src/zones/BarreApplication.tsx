@@ -74,10 +74,11 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
 }
 
 /** Une case a cocher de reglage, non controlee : la commande qui s'en sert la lit par son identifiant. */
-function Case({ idDom, libelle, defaut, titre }: { idDom: string; libelle: string; defaut: boolean; titre?: string }) {
+/** Une case d'option dans un menu : elle regle la commande qui suit (app/controlesInterface.ts). */
+function Case({ idDom, controle, libelle, defaut, titre }: { idDom: string; controle: string; libelle: string; defaut: boolean; titre?: string }) {
   return (
     <li className="menuCase" role="menuitemcheckbox">
-      <label title={titre}><input type="checkbox" id={idDom} defaultChecked={defaut} />{libelle}</label>
+      <label title={titre}><input type="checkbox" id={idDom} data-controle={controle} defaultChecked={defaut} />{libelle}</label>
     </li>
   );
 }
@@ -97,12 +98,12 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
-        <Case idDom="chkReplaceOnImport" libelle="Supprimer les objets existants avant d'importer" defaut={false} />
+        <Case idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" defaut={false} />
         <Entree commandes={commandes} id="fichier.importerJson" libelle="Importer un projet (JSON)…" idDom="importJsonBtn" />
-        <Case idDom="chkJsonRemplace" libelle="Remplacer le plan actuel" defaut={true} titre="Décoché : les objets du fichier s'ajoutent au plan" />
+        <Case idDom="chkJsonRemplace" controle="fichier.option.remplacerImportJson" libelle="Remplacer le plan actuel" defaut={true} titre="Décoché : les objets du fichier s'ajoutent au plan" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.exporterJson" libelle="Exporter le projet (JSON)" idDom="exportJsonBtn" />
-        <Case idDom="chkExportSansParcelle" libelle="Exporter sans la parcelle" defaut={false} titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
+        <Case idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" defaut={false} titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
       </ul>
     </details>
   );
@@ -119,12 +120,12 @@ function MenuExporter({ commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
         <Entree commandes={commandes} id="export.png" libelle="PNG" idDom="exportPngBtn" />
         <Entree commandes={commandes} id="export.dxf" libelle="DXF" idDom="exportDxfBtn" />
         <li className="menuReglage">
-          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<input type="number" id="pdfScaleInput" defaultValue={200} min={1} step={1} /></label>
+          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<input type="number" id="pdfScaleInput" data-controle="export.option.echellePdf" defaultValue={200} min={1} step={1} /></label>
         </li>
         <Entree commandes={commandes} id="export.pdf" libelle="PDF du plan" idDom="exportPdfBtn" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.dossier" libelle="Dossier PDF des terrasses" idDom="dossierPdfBtn" />
-        <Case idDom="chkDossierEquipements" libelle="Inclure l'emprise des équipements" defaut={true} titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
+        <Case idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" defaut={true} titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
         <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
@@ -149,7 +150,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
-        <input type="range" id={idDom} min={min} max={100} step={5} defaultValue={valeur} onInput={(e) => commandes.executer(id, e.currentTarget)} />
+        <input type="range" id={idDom} data-commande={id} min={min} max={100} step={5} defaultValue={valeur} onInput={(e) => commandes.executer(id, e.currentTarget)} />
         <span id={idTexte} className="valeur">{valeur} %</span>
       </label>
     </li>
@@ -182,12 +183,12 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
       <summary>Aide</summary>
       <ul role="menu">
         <li role="menuitem">
-          <button type="button" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
+          <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
             <span className="coche" aria-hidden="true" />Méthode de calcul
           </button>
         </li>
         <li role="menuitem">
-          <button type="button" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
+          <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>
       </ul>
     </details>
@@ -362,7 +363,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
     <div id="modeBar" role="group" aria-label="Vue">
       {/* Une vue que l'offre ne comprend pas (`plan.3d`) n'a pas de bouton. */}
       {VUES.filter(([cle]) => !commandes.effacee(COMMANDE_DE_VUE[cle])).map(([cle, id, libelle, titre]) => (
-        <button key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
+        <button data-commande={COMMANDE_DE_VUE[cle]} key={cle} type="button" id={id} className={'objbtn' + (vue === cle ? ' active' : '')} aria-pressed={vue === cle}
           title={titre || undefined} onClick={executer(COMMANDE_DE_VUE[cle])}>
           {compact && cle === 'vue3d' ? '3D' : compact && cle === 'visionneuse' ? 'Visionneuse' : libelle}
         </button>
@@ -379,7 +380,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       )}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
-        <button type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
+        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       )}

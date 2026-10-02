@@ -116,6 +116,40 @@ enregistre.
     *ligne composée* : ses sous-champs en nœuds enfants ;
   - *section* : repliée à l'ouverture, explication ; *sorte d'objet* : nommée par sa forme et sa
     fonction (« Cercle — Arbre »).
+- **Contrôles d'interface** (4ᵉ branche, `app/controlesInterface.ts`) : ce qui n'est ni une commande
+  ni un champ, mais reste un contrôleur de l'écran — onglets et panneaux à replier (*navigation*),
+  ce que le plan montre (*affichage*), réglages des vues 3D (*vue*), options d'une commande ou d'un
+  export (*option*), version et impression (*sortie*), saisies du tiroir comme les prix et cadences
+  (*donnée*), et ce qui modifie un objet ou une cote hors du registre (*objet* : candidats à
+  devenir des commandes quand le registre acceptera un paramètre). Chacun est **déclaré** (clé, nom
+  explicite, zone, nature, répété ou non) et porté par `data-controle="<clé>"` dans le code ;
+  `tests/unit/app/controlesInterface.test.ts` vérifie que les deux concordent dans les deux sens.
+  Pourquoi pas des commandes : une commande est un geste sur le plan, sans paramètre, que le
+  registre peut refuser selon les droits ; un onglet ou « supprimer *cette* cote » n'en sont pas.
+- **Commandes ciblées** (`app/ecouteurs/cibles.ts`) : le registre accepte une **cible**
+  (`Cible` : `objet`, `cote`, `valeur`). Une commande qui déclare `parametre: 'objet' | 'cote'` est
+  refusée sans sa cible ; le bouton la passe : `commandes.executer('mesure.supprimer', source,
+  { cote: m.id })`. Les anciens contrôles de nature *objet* sont devenus des commandes, avec la
+  permission d'écrire (grisés et expliqués sans elle) et l'annulation : `objet.visibilite`,
+  `objet.etiquette`, `objet.masquerTous`, `objet.etiquettesTous`, `mesure.choisirReference`,
+  `mesure.origine`, `mesure.selectionnerCoins`, `mesure.ajouter`, `mesure.inverserOrigine`,
+  `mesure.valeurAffichee`, `mesure.afficher`, `mesure.supprimer`. L'explorateur empile désormais un
+  instantané avant de masquer un objet ou de changer ses étiquettes. Dans l'arbre, une commande
+  ciblée dit sur quoi elle porte (« Porte sur »).
+- **Hors registre** (6ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
+  découverte à l'autre.
+  - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
+    curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,
+    avec le nombre de contrôles rattachés pour comparaison. Un contrôle est rattaché quand lui ou un
+    parent porte `data-commande` (il déclenche une commande), `data-controle` (contrôle d'interface
+    déclaré), `data-cle` ou `data-section` (champ ou
+    section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
+    cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
+    `data-compte` marque un compteur à ne pas prendre pour un nom. **Portée** : ce qui est monté au
+    moment de la découverte ; un dialogue, un parcours, le relevé de façade, un onglet du tiroir
+    fermés ne se voient pas.
+  - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
+    qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
 - **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
   appVersion, decouvertLe, arbre}` rangé à part des démos.
 - **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).

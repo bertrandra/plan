@@ -61,6 +61,12 @@ export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut v
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
 export const PHRASE_QUOTA = "Votre organisation a atteint ce que son abonnement prevoit.";
 
+/**
+ * Ce sur quoi porte une commande parametree : l'objet du plan, la cote, et une valeur quand le geste
+ * en demande une (l'etiquette a basculer, l'extremite choisie). Les cles sont celles du projet.
+ */
+export interface Cible { objet?: string; cote?: string; valeur?: string }
+
 export interface Commande {
   /** Stable, en `groupe.action` : c'est lui que les menus, la palette et les raccourcis citent. */
   id: string;
@@ -80,15 +86,23 @@ export interface Commande {
    * depend du moment : remplir un projet neuf n'en cree pas un de plus (elle rend alors `null`).
    */
   quota?: string | (() => string | null);
-  /** `source` est l'element qui a declenche la commande, pour celles qui changent son etat. */
-  executer: (source?: HTMLElement) => void;
+  /**
+   * La commande porte sur un objet ou sur une cote : elle n'agit qu'avec cette cible, et le registre
+   * la refuse sans elle. Absente : la commande s'execute telle quelle.
+   */
+  parametre?: 'objet' | 'cote';
+  /**
+   * `source` est l'element qui a declenche la commande, pour celles qui changent son etat ; `cible`,
+   * ce sur quoi porte une commande parametree.
+   */
+  executer: (source?: HTMLElement, cible?: Cible) => void;
 }
 
 export interface RegistreCommandes {
   /** Refuse un identifiant deja pris : deux boutons pour un geste, c'est une commande et deux liaisons. */
   declarer(commande: Commande): void;
-  /** Rend `false` si la commande est inconnue ou inactive ; ne leve jamais. */
-  executer(id: string, source?: HTMLElement): boolean;
+  /** Rend `false` si la commande est inconnue, inactive, ou parametree et sans sa cible ; ne leve jamais. */
+  executer(id: string, source?: HTMLElement, cible?: Cible): boolean;
   obtenir(id: string): Commande | undefined;
   /** Ce que l'ecran doit faire de cette commande : l'activer, l'effacer, ou l'expliquer. */
   etat(id: string): EtatCommande;
@@ -108,7 +122,7 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
       if (commandes.has(c.id)) throw new Error('Commande deja declaree : ' + c.id);
       commandes.set(c.id, c);
     },
-    executer(id, source) {
+    executer(id, source, cible) {
       const c = commandes.get(id);
       // On n'envoie pas une commande qu'on sait refusee. Ce n'est pas la securite — la plateforme
       // refuse pour de bon sur ses propres routes — c'est la politesse : un aller-retour pour se
@@ -121,7 +135,9 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
         if (e.raison === 'quota' && surRefusQuota) surRefusQuota(id, e.message);
         return false;
       }
-      c.executer(source);
+      // Une commande parametree sans sa cible ne devine rien : elle ne fait rien.
+      if (c.parametre && !cible?.[c.parametre]) return false;
+      c.executer(source, cible);
       return true;
     },
     obtenir: (id) => commandes.get(id),

@@ -77,10 +77,10 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
       <div id="terrasseImplantWrap">
         <div className="controls">
           <label style={{ marginRight: 5, fontSize: '0.88rem' }}>Echelle : </label>
-          <select value={String(ech)} onChange={(e) => { const v = parseInt(e.target.value, 10) || 200; resultats.saisir(() => { c.echelleImplant = v; }); }}>
+          <select data-controle="implantation.echelle" value={String(ech)} onChange={(e) => { const v = parseInt(e.target.value, 10) || 200; resultats.saisir(() => { c.echelleImplant = v; }); }}>
             {ECHELLES.map(e => <option key={e} value={String(e)}>{'1/' + e}</option>)}
           </select>
-          <button type="button" className="objbtn" style={{ marginLeft: 14 }} onClick={lancerImpression}>Imprimer le plan</button>
+          <button type="button" data-controle="implantation.imprimer" className="objbtn" style={{ marginLeft: 14 }} onClick={lancerImpression}>Imprimer le plan</button>
           <span className="tailleImpression">{'sur papier : ' + W.toFixed(0) + ' × ' + H.toFixed(0) + ' mm' + format}</span>
         </div>
         <div ref={imprimable}>

@@ -42,6 +42,20 @@ const menu = (m: Emplacement, ...autres: Emplacement[]): Ligne => ({
 });
 
 export const EXPOSITION: Record<string, Ligne> = {
+  // ---- Commandes ciblees (app/ecouteurs/cibles.ts) : un objet de l'explorateur, une cote du tiroir --
+  'objet.visibilite': partout('explorateur'),
+  'objet.etiquette': partout('explorateur'),
+  'objet.masquerTous': partout('explorateur'),
+  'objet.etiquettesTous': partout('explorateur'),
+  'mesure.choisirReference': partout('tiroir'),
+  'mesure.origine': partout('tiroir'),
+  'mesure.selectionnerCoins': partout('tiroir'),
+  'mesure.ajouter': partout('tiroir'),
+  'mesure.inverserOrigine': partout('tiroir'),
+  'mesure.valeurAffichee': partout('tiroir'),
+  'mesure.afficher': partout('tiroir'),
+  'mesure.supprimer': partout('tiroir'),
+
   // ---- Objets (Z2) ----------------------------------------------------------------------------
   'objet.annuler': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
   'objet.ajouter.polygone': outil(),

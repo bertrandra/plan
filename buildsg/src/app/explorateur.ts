@@ -17,6 +17,8 @@ export type ChampVisibilite = 'hidden' | 'showName' | 'showSegNames' | 'showVert
 export interface ContexteExplorateur {
   render: () => void;
   markDirty: () => void;
+  /** Un instantane avant d'ecrire : masquer un objet ou ses etiquettes s'annule (Ctrl+Z). */
+  pushHistory: () => void;
   /** Le plan reprend ou rend la largeur de l'explorateur. */
   redimensionner: () => void;
 }
@@ -43,11 +45,13 @@ export function creerExplorateur(etat: EtatApp, ctx: ContexteExplorateur, magasi
     definirVisibilite(cle, champ, valeur) {
       const o = objet(cle);
       if (!o) return;
+      ctx.pushHistory();
       o[champ] = valeur;
       ctx.markDirty();
       ctx.render();
     },
     definirVisibiliteTous(champ, valeur) {
+      ctx.pushHistory();
       etat.objects.forEach(o => { o[champ] = valeur; });
       ctx.markDirty();
       ctx.render();

@@ -23,14 +23,14 @@ export function useEtat3d(): number { return useSyncExternalStore(abonner3d, ver
 interface Props { magasin: Magasin; commandes: RegistreCommandes; vues: ServiceVues3d }
 
 const IDS_SOLEIL: IdsSoleil = {
-  date: 'vue3dDate', semaine: 'vue3dSemaine', heure: 'vue3dHeure', heureTexte: 'vue3dHeureTexte',
+  vue: 'vue3d', date: 'vue3dDate', semaine: 'vue3dSemaine', heure: 'vue3dHeure', heureTexte: 'vue3dHeureTexte',
   intensite: 'vue3dIntensite', intensiteTexte: 'vue3dIntensiteTexte', appoint: 'vue3dLumiereAppoint', info: 'vue3dSoleilInfo'
 };
 
-function Case({ id, libelle, coche, titre, onChange }: { id: string; libelle: string; coche: boolean; titre?: string; onChange: (v: boolean) => void }) {
+function Case({ id, controle, libelle, coche, titre, onChange }: { id: string; controle: string; libelle: string; coche: boolean; titre?: string; onChange: (v: boolean) => void }) {
   return (
     <label className="caseReglage" title={titre}>
-      <input type="checkbox" id={id} checked={coche} onChange={(e) => onChange(e.target.checked)} /> {libelle}
+      <input type="checkbox" id={id} data-controle={controle} checked={coche} onChange={(e) => onChange(e.target.checked)} /> {libelle}
     </label>
   );
 }
@@ -38,7 +38,7 @@ function Case({ id, libelle, coche, titre, onChange }: { id: string; libelle: st
 /** Un bouton de camera sur le canevas : une commande, une icone, son etat actif le cas echeant. */
 function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { commandes: RegistreCommandes; id: string; domId: string; icone: Parameters<typeof Icone>[0]['nom']; libelle: string; titre: string; actif?: boolean }) {
   return (
-    <button id={domId} type="button" className={'bouton3d' + (actif ? ' actif' : '')} title={titre} aria-label={libelle}
+    <button id={domId} data-commande={id} type="button" className={'bouton3d' + (actif ? ' actif' : '')} title={titre} aria-label={libelle}
       aria-pressed={actif === undefined ? undefined : actif} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       <Icone nom={icone} taille={20} />
     </button>
@@ -63,25 +63,25 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         </BoutonCommande>
       </div>
       <div id="zoneReglages3d" className="reglages3d" role="group" aria-label="Réglages de la vue 3D">
-        <EnteteReglages titre="Réglages de la vue 3D" idLieu="vue3dLieu" lieu={vues.libelleLieu()} magasin={magasin} />
+        <EnteteReglages vue="vue3d" titre="Réglages de la vue 3D" idLieu="vue3dLieu" lieu={vues.libelleLieu()} magasin={magasin} />
         <div className="corpsFeuille">
           <div className="controls">
-            <Case id="terrasse3dFilaire" libelle="Lames en filaire — voir la structure dessous" coche={r.filaire()} onChange={r.basculerFilaire} />
-            <Case id="terrasse3dAllObjects" libelle="Afficher tous les objets du plan" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets} />
-            <Case id="terrasse3dObjectsOpaque" libelle="Objets opaques (sinon opacite du plan)" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques} />
-            <Case id="terrasse3dTextures" libelle="Texture (sinon couleur unie)" coche={vue3d.textures} onChange={r.basculerTextures}
+            <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Lames en filaire — voir la structure dessous" coche={r.filaire()} onChange={r.basculerFilaire} />
+            <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Afficher tous les objets du plan" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets} />
+            <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Objets opaques (sinon opacite du plan)" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques} />
+            <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Texture (sinon couleur unie)" coche={vue3d.textures} onChange={r.basculerTextures}
               titre="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet" />
-            <Case id="terrasse3dShadows" libelle="Ombre portée" coche={vue3d.ombres} onChange={r.basculerOmbres}
+            <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombre portée" coche={vue3d.ombres} onChange={r.basculerOmbres}
               titre="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, coche par defaut" />
           </div>
           <Soleil ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           <div className="controls ligneReglage">
-            <button id="terrasse3dSaveViewBtn" type="button" className="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera"
+            <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera"
               disabled={!commandes.etat('3d.enregistrerPointDeVue').utilisable}
               onClick={(e) => { commandes.executer('3d.enregistrerPointDeVue', e.currentTarget); }}>
               <Icone nom="camera" taille={20} /> Enregistrer la vue comme point de vue
             </button>
-            <ListePointsDeVue id="terrasse3dViewSelect" magasin={magasin} aller={vues.allerAuPointDeVue} />
+            <ListePointsDeVue vue="vue3d" id="terrasse3dViewSelect" magasin={magasin} aller={vues.allerAuPointDeVue} />
           </div>
           <div className="hint" id="terrasse3dHint">{affichage3d.indication3d}</div>
         </div>
@@ -89,7 +89,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
       {/* Hors du cadre de la scene : les reglages restent accessibles pendant le chargement de la
           bibliotheque 3D, et meme si elle ne se charge pas. */}
-      <button id="reglages3dBtn" type="button" className="bouton3d boutonReglages boutonReglagesFlottant" aria-label="Réglages de la vue 3D"
+      <button id="reglages3dBtn" data-controle="vue3d.reglages" type="button" className="bouton3d boutonReglages boutonReglagesFlottant" aria-label="Réglages de la vue 3D"
         onClick={() => magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d')}>
         <Icone nom="reglages" taille={20} />
       </button>

@@ -20,8 +20,8 @@
 <!-- Z1, la barre d'application (zones/BarreApplication.tsx) : projet, vues, titre. -->
 <div id="zoneBarre"></div>
 <!-- Les selecteurs de fichiers des imports (menu Fichier) : caches, declenches par leur commande. -->
-<input type="file" id="importSvgFile" accept=".svg,image/svg+xml" style="display:none;">
-<input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;">
+<input type="file" id="importSvgFile" data-commande="fichier.importerSvg" accept=".svg,image/svg+xml" style="display:none;">
+<input type="file" id="importJsonFile" data-commande="fichier.importerJson" accept=".json,application/json" style="display:none;">
 
 <!-- Z2, la palette (zones/Palette.tsx), Z3, l'explorateur (zones/Explorateur.tsx), Z4, le canevas
      avec ses commandes en surimpression (zones/Surimpression.tsx), et Z5, l'inspecteur (zones/Inspecteur.tsx). -->

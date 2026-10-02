@@ -28,7 +28,7 @@ function Longueurs({ c, champ, resultats }: { c: Construction; champ: ChampLongu
   return (
     <div className="controls">
       <label style={{ fontSize: '0.85rem', marginRight: 6 }}>Longueurs achetables (m) : </label>
-      <SaisieTexte valeur={c[champ] || ''} titre="Longueurs disponibles chez ton fournisseur, en metres, separees par des virgules"
+      <SaisieTexte controle="nomenclature.longueurs" valeur={c[champ] || ''} titre="Longueurs disponibles chez ton fournisseur, en metres, separees par des virgules"
         onValider={(t) => resultats.saisir(() => { c[champ] = t; })} />
     </div>
   );
@@ -58,9 +58,9 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
               <td>{L.toFixed(2).replace(/\.?0+$/, '') + ' m'}</td>
               <td>{n}</td>
               <td>{(n * L).toFixed(2) + ' ml'}</td>
-              <td><SaisieNombre valeur={prixBarre(c, cle, L).toFixed(2)} titre={'Prix d\'une barre de ' + L + ' m'} estime={estime}
+              <td><SaisieNombre controle="nomenclature.prix" valeur={prixBarre(c, cle, L).toFixed(2)} titre={'Prix d\'une barre de ' + L + ' m'} estime={estime}
                 onValider={(t) => { const v = lireNombre(t); resultats.saisir(() => setPrixBarre(c, cle, L, isNaN(v) ? null : v)); }} /></td>
-              <td><SaisieNombre valeur={prixM2De(c, cle, L).toFixed(2)} titre="Prix au m² pour cette longueur — recalcule le prix de la barre" estime={estime}
+              <td><SaisieNombre controle="nomenclature.prix" valeur={prixM2De(c, cle, L).toFixed(2)} titre="Prix au m² pour cette longueur — recalcule le prix de la barre" estime={estime}
                 onValider={(t) => { const v = lireNombre(t); if (!isNaN(v)) resultats.saisir(() => setPrixM2(c, cle, L, v)); }} /></td>
               <td className="nombre">{(n * prixBarre(c, cle, L)).toFixed(2) + ' €'}</td>
               <td className="noteLigne">{parts.join(' · ') || '—'}</td>
@@ -122,7 +122,7 @@ function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesT
                 // Chiffre depuis le debit, longueur par longueur : le saisir ici aussi ferait deux
                 // sources de verite qui peuvent diverger.
                 ? <td className="nombre">{(l.prixReel ?? 0).toFixed(2) + ' €'}<div className="noteLigne">{typeof l.calcule === 'string' ? l.calcule : 'calcule'}</div></td>
-                : <td><SaisieNombre valeur={l.prixReel !== null && l.prixReel !== undefined ? String(l.prixReel) : ''} placeholder="non saisi"
+                : <td><SaisieNombre controle="nomenclature.prix" valeur={l.prixReel !== null && l.prixReel !== undefined ? String(l.prixReel) : ''} placeholder="non saisi"
                     libelle={'Prix réel : ' + l.label} largeur={110} onValider={(t) => saisirReel(l.poste, t)} /></td>}
             </tr>
           ))}
@@ -182,7 +182,7 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
     <tr key={libelle}><td>{libelle}</td><td>{String(qte)}</td><td>{valeur}</td><td className="nombre">{total}</td></tr>
   );
   const prix = (valeur: number, titre: string, ecrire: (v: number | undefined) => void) => (
-    <SaisieNombre valeur={valeur.toFixed(2)} pas="0.5" largeur={90} titre={titre}
+    <SaisieNombre controle="nomenclature.prix" valeur={valeur.toFixed(2)} pas="0.5" largeur={90} titre={titre}
       onValider={(t) => { const v = parseFloat(t); resultats.saisir(() => ecrire((isNaN(v) || v < 0) ? undefined : v)); }} />
   );
   if (estPlots(c)) {
@@ -221,7 +221,7 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
         <tr><th>Poste</th><th>Qte</th><th>Valeur</th><th>Total</th></tr>
         {ligne('Prix unitaire', n + ' vis posees', prix(prixVisUnite(c), 'Prix d\'une vis de fondation, hors pose', v => { c.prixVisUnite = v; }), '')}
         {ligne('Conditionnement', a.parBoite > 1 ? a.boites + ' boite(s)' : 'a l\'unite',
-          <SaisieNombre valeur={String(Math.max(1, Math.round(c.visParBoite || 1)))} pas="1" min="1" largeur={90} titre="Conditionnement. 1 = vendues a l'unite."
+          <SaisieNombre controle="nomenclature.conditionnement" valeur={String(Math.max(1, Math.round(c.visParBoite || 1)))} pas="1" min="1" largeur={90} titre="Conditionnement. 1 = vendues a l'unite."
             onValider={(t) => { const v = parseInt(t, 10); resultats.saisir(() => { c.visParBoite = (isNaN(v) || v < 1) ? 1 : v; }); }} />, '')}
         {ligne('A acheter', a.unites + ' vis', a.parBoite > 1
           ? a.boites + ' × ' + a.parBoite + (a.unites > n ? ' (soit ' + (a.unites - n) + ' d\'avance)' : '')
