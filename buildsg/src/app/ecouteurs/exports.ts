@@ -27,6 +27,8 @@ export interface ContexteExports {
   buildExportSVG: () => string;
   buildExportDXF: () => string;
   buildExportPDF: (echelle: number) => string;
+  /** L'echelle choisie dans le menu Exporter (magasin, `options.echellePdf`). */
+  echellePdf: () => number;
   construireResume: () => string;
   construireDossier: () => { pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> };
   genererGlb: (telecharger: boolean) => void;
@@ -125,7 +127,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
 
   // Pas d'affichage dans la zone : un PDF n'a pas de contenu lisible à copier.
   surClic('exportPdfBtn', 'export.pdf', 'Exporter en PDF', () => {
-    const echelle = parseInt((document.getElementById('pdfScaleInput') as HTMLInputElement).value, 10) || 200;
+    const echelle = ctx.echellePdf() || 200;
     let pdfStr: string;
     try { pdfStr = ctx.buildExportPDF(echelle); }
     catch (err) { showErrBanner('Erreur export PDF: ' + (err as Error).message); return; }

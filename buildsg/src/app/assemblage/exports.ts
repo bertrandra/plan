@@ -1,7 +1,7 @@
 // Ce que le plan produit pour sortir de l'application (app/assemblage/) : SVG, DXF, PDF, dossier,
 // resume, projet JSON. Les formats vivent dans export/ et io/ ; les boutons dans app/ecouteurs/exports.ts.
 
-import { el } from '../../shell/dom.js';
+import type { OptionsCommandes } from '../magasin.js';
 import { telechargerTexte } from '../../shell/download.js';
 import { showToast } from '../../shell/dialogs.js';
 import { construireDXF } from '../../export/dxfPlan.js';
@@ -32,8 +32,8 @@ export function resumeDuProjet(etat: EtatApp, m: Mesures): string {
 }
 
 /** Le projet en JSON, tel que api.php le rend : ce qui sort d'ici se recharge tel quel. */
-export function exporterLeProjet(etat: EtatApp, seed: MetaProjet): void {
-  exporterProjetJSON(etat, el<HTMLInputElement>('chkExportSansParcelle').checked, {
+export function exporterLeProjet(etat: EtatApp, seed: MetaProjet, sansParcelle: boolean): void {
+  exporterProjetJSON(etat, sansParcelle, {
     serializeObjects, serializeMeasures, telechargerTexte, showToast,
     appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet),
     metaProjet: () => seed.meta || {}
@@ -41,12 +41,13 @@ export function exporterLeProjet(etat: EtatApp, seed: MetaProjet): void {
 }
 
 export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: RegistreCommandes, d: {
-  mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void;
+  mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void; options: () => OptionsCommandes;
 }): void {
   const nomProjet = () => seed.meta?.name;
   brancherExports({
     buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
     buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
+    echellePdf: () => d.options().echellePdf,
     buildExportPDF: (echelle) => construirePDF(etat.objects, etat.measures, echelle, {
       appVersion: APP_VERSION, buildAt: BUILD_AT, montrerNord: etat.showNorth
     }),
@@ -54,7 +55,7 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     construireResume: () => resumeDuProjet(etat, d.mesures),
     resultats: d.resultats,
     construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
-      el<HTMLInputElement>('chkDossierEquipements').checked,
+      d.options().dossierEquipements,
       { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
     nomProjet

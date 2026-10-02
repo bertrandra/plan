@@ -62,10 +62,6 @@ export function porteeAppuiM(c: Construction): number {
   const ent = c.plotAvecSolives ? (c.soliveEntraxe||40) : maxEntraxeLameCm(c);
   return Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ ...c, soliveSection:sec, soliveEntraxe:ent }));
 }
-// Nom du poste d'appui, pour les libelles partages entre les deux modes.
-export function libelleAppui(c: Construction, pluriel: boolean): string {
-  return estPlots(c) ? (pluriel ? 'plots' : 'plot') : (pluriel ? 'vis' : 'vis');
-}
 // Spacing under a spa. Rather than a bare number, it is the same span shortened for the heavier
 // load it has to carry - so raising the target load tightens the grid on its own.
 export function porteeVisSpaM(c: Construction): number {

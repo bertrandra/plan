@@ -400,8 +400,3 @@ export function structureVide(): Structure {
   return { cadre:[], solives:[], lambourdes:[], solivesSpa:[], portees:[],
            plotSimple:false, soliveAngle:0, lamesAngle:0, cadreOff:0, soliveW:0 };
 }
-
-export function buildVisGridCount(obj: TerrasseEtudiee, objets: ObjetPlan[]): number {
-  if(!obj.pts || obj.pts.length<3) return 0;
-  return buildVisGrid(obj, null, objets).length;
-}

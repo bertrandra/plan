@@ -25,6 +25,8 @@ export interface ContexteFichiers {
   /** Valide un projet lu ; lève une erreur portant un `motif` si le fichier est refusé. */
   validerProjetJSON: (brut: unknown) => ProjetValide;
   appliquerProjetImporte: (valide: ProjetValide, remplacer: boolean) => void;
+  /** L'option « Remplacer le plan actuel » du menu Fichier (magasin, `options.remplacerImportJson`). */
+  remplacerImportJson: () => boolean;
 }
 
 /**
@@ -79,7 +81,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
       return;
     }
     // Lu avant la lecture du fichier : la case peut changer pendant que le disque répond.
-    const remplacer = (document.getElementById('chkJsonRemplace') as HTMLInputElement).checked;
+    const remplacer = ctx.remplacerImportJson();
     lireFichierTexte(this, 'Erreur de lecture du fichier JSON.', contenu => {
       let valide;
       try {
