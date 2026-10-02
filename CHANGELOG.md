@@ -8,10 +8,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ### Ajouté
 
 - **Contrôleurs : écritures à surveiller.** Une nouvelle branche de l'arbre classe ce qui modifie
-  le projet sans pouvoir être annulé (31, dont 28 champs de l'inspecteur) et sans contrôle des
-  droits, donc modifiable en lecture seule même si l'enregistrement reste refusé (81, dont 73 champs
-  et les 6 saisies du tiroir). Classement seul : le comportement de Plan ne change pas. L'échelle du
-  plan d'implantation, qui écrit dans le projet, passe de la nature « option » à « donnée ».
+  le projet sans pouvoir être annulé et sans contrôle des droits. L'échelle du plan d'implantation,
+  qui écrit dans le projet, passe de la nature « option » à « donnée ».
+
 - **Contrôleurs : la découverte voit le bureau, la tablette et le téléphone.** Elle ne relevait
   l'écran que dans la disposition du bureau, et ignorait ce qui n'existe qu'au doigt. Elle pose
   désormais chaque classe d'écran tour à tour, avec un objet sélectionné et chaque feuille du
@@ -118,6 +117,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Annuler défait tout champ de l'inspecteur.** Seuls quelques champs empilaient un instantané :
+  changer une hauteur, un nom, une couleur ne s'annulait pas. Tout champ qui écrit le projet
+  s'annule désormais ; une frappe ou un curseur qu'on glisse ne forme qu'un geste, défait d'un seul
+  Ctrl+Z. Sur la démo : 31 écritures sans annulation avant, 1 après (créer le projet).
+- **La lecture seule refuse aussi les champs et les saisies.** Elle grisait les commandes, mais
+  laissait modifier à l'écran les champs de l'inspecteur, les prix, cadences et réglages du tiroir
+  (l'enregistrement restait refusé). Ils sont grisés et refusés, en vitrine comme pour un compte en
+  lecture seule ; les réglages d'affichage restent libres. L'interrogation du PLU demande la
+  permission d'écrire. 81 écritures sans contrôle des droits avant, 0 après.
 - **Fumée : un dialogue de mise à jour du modèle ne bloque plus le pilote.** Les points 1, 3, 17 et
   31 échouaient quand le plan de démonstration était d'un schéma antérieur : le dialogue « Mettre à
   jour le modèle ? » interceptait les gestes. `ouvrirDemo` (scripts/captures.mjs) le referme

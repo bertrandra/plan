@@ -16,7 +16,7 @@ import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
 import type { ControleEcran } from './inventaireEcran.js';
 import type { ObjetBrut } from '../model/types.js';
 import { CONTROLES, NATURES } from './controlesInterface.js';
-import { ECRIVENT, brancheEcritures } from './ecritures.js';
+import { ECRIVENT, brancheEcritures, champAnnulable } from './ecritures.js';
 
 export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
 
@@ -142,7 +142,7 @@ function detailsChamp(ch: Champ): Record<string, string> {
   if ('decimales' in ch && ch.decimales !== undefined) d.decimales = String(ch.decimales);
   if (ECRIVENT.has(ch.type)) {
     d.modifie = ch.sale === false ? 'l’affichage seulement (le projet reste enregistré)' : 'le projet';
-    d.annulable = ch.historique ? 'oui (Annuler le défait)' : 'non';
+    d.annulable = champAnnulable(ch) ? 'oui (Annuler le défait)' : 'non';
   }
   if (ch.effets && ch.effets.length) d.effets = ch.effets.map((e) => NOMS_EFFETS[e]).join(', ');
   if (ch.visible) d.conditionnel = 'n’apparaît que dans certains cas';
@@ -271,7 +271,7 @@ function controlesInterface(): Noeud {
     if (c.ecrit) {
       details.modifie = 'le projet';
       details.annulable = c.ecrit.annulable ? 'oui (Annuler le défait)' : 'non';
-      details.droits = c.ecrit.droits === 'commande' ? 'ceux de la commande qui ouvre l’écran' : 'non vérifiés : modifiable en lecture seule';
+      details.droits = { commande: 'ceux de la commande qui ouvre l’écran', lectureSeule: 'refusés en lecture seule', aucun: 'non vérifiés : modifiable en lecture seule' }[c.ecrit.droits];
     }
     parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), { cle, nom: c.libelle, genre: 'controle', details }]);
   }

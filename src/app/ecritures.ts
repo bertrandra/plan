@@ -1,18 +1,18 @@
 // Les ecritures a surveiller (MD/spec-demos-admin.md, « Ecritures a surveiller ») : une branche de
 // l'arbre des controleurs qui classe ce qui modifie le projet hors des deux garde-fous du registre.
 //
-//   - **sans annulation** : Ctrl+Z ne la defait pas. Un champ de l'inspecteur n'empile un instantane
-//     que s'il le demande (`historique`) ; une saisie du tiroir passe par `resultats.saisir`, qui
+//   - **sans annulation** : Ctrl+Z ne la defait pas. Un champ de l'inspecteur qui ecrit le projet
+//     empile un instantane, sauf `historique: false` (`champAnnulable`) ; une saisie du tiroir passe par `resultats.saisir`, qui
 //     l'empile ; une commande avec la permission d'ecrire empile elle-meme.
 //   - **sans controle des droits** : rien ne la refuse en lecture seule. Le registre grise une
-//     commande qui porte la permission d'ecrire ; un champ, une saisie du tiroir, ou une commande
-//     sans permission qui ecrit quand meme ne sont pas refuses. La modification reste en memoire :
-//     l'enregistrement, lui, est refuse.
+//     commande qui porte la permission d'ecrire ; l'inspecteur grise et refuse un champ qui ecrit le
+//     projet, `resultats.saisir` refuse une saisie du tiroir. Restent un controle du catalogue qui
+//     declare `droits: 'aucun'`, ou une commande sans permission qui ecrit quand meme.
 //
-// Classement seul : rien n'est execute, rien n'est change dans Plan. La branche dit ou porter le
-// prochain chantier, et la decouverte suivante dira s'il a ete fait.
+// La branche ne fait que classer : rien n'est execute. `champAnnulable` et `champActif` sont les
+// regles que l'inspecteur applique, ecrites ici pour que le classement et Plan ne divergent pas.
 
-import type { Champ } from '../ui/champs/types.js';
+import type { Champ, ContexteChamps } from '../ui/champs/types.js';
 import type { Commande } from './commandes.js';
 import type { Noeud, SourceControleurs } from './controleurs.js';
 import { CONTROLES } from './controlesInterface.js';
@@ -23,6 +23,17 @@ export const ECRIVENT = new Set<Champ['type']>(['texte', 'nombre', 'case', 'choi
 /** Un champ qui modifie le projet, et pas seulement l'affichage. */
 export const ecritLeProjet = (ch: Champ): boolean => ECRIVENT.has(ch.type) && ch.sale !== false;
 
+/**
+ * Un champ s'annule quand il ecrit dans le projet : l'inspecteur empile un instantane avant (et
+ * regroupe les ecritures rapprochees d'un meme champ, app/inspecteur.ts). `historique: false` l'en
+ * retire ; `historique: true` le demande aussi pour un champ qui n'ecrit pas le projet.
+ */
+export const champAnnulable = (ch: Champ): boolean => ch.historique === true || (ch.historique !== false && ecritLeProjet(ch));
+
+/** Un champ utilisable : actif selon son contexte, et refuse en lecture seule s'il ecrit le projet. */
+export const champActif = (ch: Champ, c: ContexteChamps): boolean =>
+  (!ch.actif || ch.actif(c)) && !(c.etat.lectureSeule && ecritLeProjet(ch));
+
 interface ChampEcrit { nom: string; annulable: boolean; sortes: Set<string> }
 
 /** Les champs de l'inspecteur qui ecrivent dans le projet, une fois par cle, avec les sortes d'objet qui les montrent. */
@@ -32,8 +43,8 @@ function champsQuiEcrivent(s: SourceControleurs): Map<string, ChampEcrit> {
     if (ch.type === 'ligne') { ch.champs.forEach((c) => voir(c, sorte)); return; }
     if (!ecritLeProjet(ch)) return;
     const deja = parCle.get(ch.cle);
-    if (deja) { deja.sortes.add(sorte); deja.annulable &&= !!ch.historique; return; }
-    parCle.set(ch.cle, { nom: ch.libelle || ch.cle, annulable: !!ch.historique, sortes: new Set([sorte]) });
+    if (deja) { deja.sortes.add(sorte); deja.annulable &&= champAnnulable(ch); return; }
+    parCle.set(ch.cle, { nom: ch.libelle || ch.cle, annulable: champAnnulable(ch), sortes: new Set([sorte]) });
   };
   for (const f of s.inspecteur) for (const sec of f.sections) for (const ch of sec.champs) voir(ch, f.cle);
   return parCle;
@@ -62,8 +73,8 @@ export function brancheEcritures(s: SourceControleurs): Noeud {
     ...controles.filter(([, c]) => !c.ecrit?.annulable).map(([k]) => noeudControle(k)),
     ...commandes.map(noeudCommande)
   ];
+  // Les champs n'y sont plus : l'inspecteur refuse toute ecriture du projet en lecture seule.
   const sansDroits: Noeud[] = [
-    ...champs.map(([k, c]) => noeudChamp(k, c)),
     ...controles.filter(([, c]) => c.ecrit?.droits === 'aucun').map(([k]) => noeudControle(k)),
     ...commandes.map(noeudCommande)
   ];

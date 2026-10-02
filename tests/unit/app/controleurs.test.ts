@@ -154,40 +154,38 @@ describe('echantillons de decouverte', () => {
 describe('branche « Écritures à surveiller »', () => {
   const section: Section = { id: 'objet', titre: 'Objet', champs: [
     { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur', lire: () => 0, ecrire: () => {} },
-    { type: 'nombre', cle: 'angle', libelle: 'Angle', historique: true, lire: () => 0, ecrire: () => {} },
+    { type: 'texte', cle: 'nomCoin', libelle: 'Nom du coin', historique: false, lire: () => '', ecrire: () => {} },
     { type: 'case', cle: 'cotes', libelle: 'Afficher les cotes', sale: false, lire: () => true, ecrire: () => {} },
     { type: 'lecture', cle: 'aire', libelle: 'Aire', valeur: () => '1 m²' }
   ] };
-  const plu = { id: 'plu.interroger', libelle: 'Interroger le PLU', groupe: 'plu', ecrit: 'projet', executer: () => {} } as Commande;
+  const ecrivain = { id: 'x.ecrire', libelle: 'Écrire sans droit', groupe: 'plu', ecrit: 'projet', executer: () => {} } as Commande;
+  const permise = { id: 'x.permise', libelle: 'Écrire avec droit', groupe: 'plu', ecrit: 'projet', permission: 'projects.write', executer: () => {} } as Commande;
   const grille = { id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', executer: () => {} } as Commande;
   const tous = aplatir(construireArbre({
-    appVersion: '9', commandes: [plu, grille], exposition: EXPOSITION,
+    appVersion: '9', commandes: [ecrivain, permise, grille], exposition: EXPOSITION,
     inspecteur: [{ cle: 'polygon.terrasse', nom: 'Polygone', sections: [section] }, { cle: 'circle.arbre', nom: 'Cercle', sections: [section] }]
   }));
   const cles = (chemin: string) => (tous.get(chemin)?.enfants ?? []).map((n) => n.cle);
 
-  it('range sans annulation les champs sans historique, une fois par cle, et les saisies non annulables', () => {
+  it('range sans annulation les champs retires de l historique, une fois par cle, et les ecritures non annulables', () => {
     const l = cles('plan/ecritures/sansAnnulation');
-    expect(l).toContain('champ:hauteur');
-    expect(l).not.toContain('champ:angle');
+    expect(l).toContain('champ:nomCoin');
+    expect(l).not.toContain('champ:hauteur');
     expect(l).not.toContain('champ:cotes');
     expect(l).not.toContain('champ:aire');
-    expect(l).toContain('controle:texture.enregistrer');
-    expect(l).not.toContain('controle:nomenclature.prix');
-    expect(l).toContain('commande:plu.interroger');
-    expect(tous.get('plan/ecritures/sansAnnulation/champ:hauteur')?.details?.sortes).toBe('2');
+    expect(l).toContain('controle:cadastre.creerProjet');
+    expect(l).not.toContain('controle:texture.enregistrer');
+    expect(l).toContain('commande:x.ecrire');
+    expect(tous.get('plan/ecritures/sansAnnulation/champ:nomCoin')?.details?.sortes).toBe('2');
   });
 
-  it('range sans controle des droits tout champ qui ecrit, les saisies du tiroir, pas les parcours d une commande', () => {
-    const l = cles('plan/ecritures/sansDroits');
-    expect(l).toEqual(expect.arrayContaining(['champ:hauteur', 'champ:angle', 'controle:nomenclature.prix', 'controle:implantation.echelle', 'commande:plu.interroger']));
-    expect(l).not.toContain('controle:releve.valider');
-    expect(l).not.toContain('commande:affichage.grille');
+  it('ne range sans controle des droits ni les champs ni les saisies du tiroir, refuses en lecture seule', () => {
+    expect(cles('plan/ecritures/sansDroits')).toEqual(['commande:x.ecrire']);
   });
 
-  it('dit sur la commande et le controle ce qu ils ecrivent', () => {
-    expect(tous.get('plan/commandes')).toBeDefined();
-    const releve = [...tous.values()].find((n) => n.cle === 'releve.valider' && n.genre === 'controle');
-    expect(releve?.details).toMatchObject({ modifie: 'le projet', droits: 'ceux de la commande qui ouvre l’écran' });
+  it('dit sur le controle ce qu il ecrit et qui en garde les droits', () => {
+    const controle = (k: string) => [...tous.values()].find((n) => n.cle === k && n.genre === 'controle');
+    expect(controle('releve.valider')?.details).toMatchObject({ modifie: 'le projet', droits: 'ceux de la commande qui ouvre l’écran' });
+    expect(controle('nomenclature.prix')?.details).toMatchObject({ annulable: 'oui (Annuler le défait)', droits: 'refusés en lecture seule' });
   });
 });
