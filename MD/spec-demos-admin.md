@@ -29,6 +29,8 @@ Dans l'atelier admin, les commandes de projet agissent sur les fichiers de démo
 - **Nouveau projet** crée le premier numéro libre (`1`, `2`, `3`…) ;
 - **Projets** liste les démos ; en choisir une ouvre `?demofile=<id>` ;
 - **Supprimer** renomme le fichier en `<id>.json.supprime-<date>` : rien ne s'efface pour de bon.
+- **Se déconnecter** (barre du haut, ou feuille Projet au doigt) ferme la session chez le serveur,
+  puis recharge la page sur la porte au mot de passe (`app/porteAdmin.ts`, `quitterAdmin`).
 
 ## Format
 

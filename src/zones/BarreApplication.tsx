@@ -11,12 +11,12 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant, sessionCourante } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin } from '../app/acces.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
-import { showConfirm, showToast } from '../shell/dialogs.js';
+import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
@@ -233,6 +233,7 @@ function useFermetureDesMenus(): void {
  * personne a nommer.
  */
 function Compte({ magasin }: { magasin: Magasin }) {
+  if (enAdmin()) return <SortieAdmin magasin={magasin} />;
   const c = contexteCourant()?.courant();
   if (!c) return null;
 
@@ -294,6 +295,33 @@ function CompteurProjets({ quota }: { quota: { utilise: number; limite: number |
       Projets <span className="nombre">{nombre}</span>
       {plein && <span className="motLimite"> · limite atteinte</span>}
     </span>
+  );
+}
+
+/**
+ * L'admin des demos n'a pas de plateforme : pas de compte a nommer, mais une session a fermer
+ * (app/porteAdmin.ts). Meme place que « Se deconnecter » de la plateforme, et meme precaution :
+ * un plan non enregistre se demande avant de partir.
+ */
+function SortieAdmin({ magasin }: { magasin: Magasin }) {
+  const sortir = () => {
+    const partir = () => {
+      void import('../app/porteAdmin.js').then(({ quitterAdmin }) => quitterAdmin()).then((refus) => { if (refus) showErrBanner(refus); });
+    };
+    if (magasin.store.getState().etat.dirty) {
+      showConfirm('Cette démo porte des modifications non enregistrées. Se déconnecter maintenant les perd. Continuer ?', partir);
+      return;
+    }
+    partir();
+  };
+  return (
+    <div id="compteBar">
+      <span className="compteLien compteAdmin">Admin des démos</span>
+      <button type="button" id="sortieAdminBtn" className="compteLien compteSortie" onClick={sortir}
+        title="Fermer la session admin. Le mot de passe sera redemandé.">
+        Se déconnecter
+      </button>
+    </div>
   );
 }
 

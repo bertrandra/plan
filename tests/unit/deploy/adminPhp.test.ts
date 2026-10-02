@@ -3,7 +3,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { creerDepotDemos, connecterAdmin, sessionAdmin } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin } from '../../../src/io/depotDemos.js';
 
 // admin.php, l'admin des demos sans Node (deploy/admin.php), contre le depot de la page : memes
 // scenarios que buildsg/demosAdmin.mjs. Lance par le serveur integre de PHP ; saute si PHP manque.
@@ -102,6 +102,14 @@ describe.skipIf(!php)('admin.php', () => {
     expect(fs.readdirSync(demos).some((n) => n.startsWith('2.json.supprime-'))).toBe(true);
     await expect(depot.ouvrir('9')).rejects.toMatchObject({ reason: 'notfound' });
     expect((await navigateur('admin/demos/..%2Fconfig')).status).toBe(400);
+  });
+
+  it('se deconnecte : la session fermee, le mot de passe est redemande', async () => {
+    expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
+    expect(await sessionAdmin(navigateur)).toBe(true);
+    expect(await deconnecterAdmin(navigateur)).toBe(true);
+    expect(await sessionAdmin(navigateur)).toBe(false);
+    expect((await navigateur('admin/demos')).status).toBe(401);
   });
 
   it('sert la vitrine sans session : admin/vitrine/<id>, en lecture seule', async () => {
