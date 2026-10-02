@@ -620,6 +620,8 @@
   }
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }
   .compteSortie{ background:transparent; cursor:pointer; font-family:inherit; }
+  /* L'admin des demos : un etat, pas un lien — dit en mots, et sur la bordure d'accent. */
+  .compteAdmin{ border-color:var(--accent); color:var(--ink); font-weight:600; margin-right:4px; }
 
   /* Le compteur de projets (« Projets 1/3 ») : la limite de l'abonnement se voit avant d'etre
      rencontree. A la limite, bordure d'alerte ET mots « limite atteinte ». */

@@ -52,6 +52,8 @@ async function demarrer(): Promise<void> {
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
     if (demandeAdmin(location.search)) {
       await franchirLaPorteAdmin();
+      const { entrerEnAdmin } = await import('./app/acces.js');
+      entrerEnAdmin();
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
