@@ -12,7 +12,7 @@
 //   node scripts/fumee.mjs [http://localhost:5199] [points…]
 
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
 
 const require = createRequire(import.meta.url);
@@ -991,6 +991,21 @@ function pointsPour(nomClasse) {
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
 
+/**
+ * three.js r128 et ses trois scripts d'exemples, servis depuis `node_modules/three` (la meme version
+ * que le CDN, en devDependency) plutot que depuis jsDelivr : les points de la Vue 3D (22, 23, 24, 38)
+ * se jouent alors sans reseau sortant. `FUMEE_CDN=1` rejoue le vrai CDN.
+ */
+async function servirThreeLocal(page) {
+  if (process.env.FUMEE_CDN === '1') return;
+  const racine = new URL('../node_modules/three/', import.meta.url).pathname;
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) => {
+    const fichier = racine + route.request().url().split('three@0.128.0/')[1].split('?')[0];
+    if (!existsSync(fichier)) return route.continue();
+    return route.fulfill({ path: fichier, contentType: 'application/javascript' });
+  });
+}
+
 async function principal() {
   const navigateur = await chromium.launch();
   const resultats = [];
@@ -1003,6 +1018,7 @@ async function principal() {
           deviceScaleFactor: 1, colorScheme: theme, acceptDownloads: true
         });
         const page = await contexte.newPage();
+        await servirThreeLocal(page);
         const erreurs = [];
         page.on('pageerror', (e) => erreurs.push(e.message));
         page.on('dialog', (d) => d.accept());
