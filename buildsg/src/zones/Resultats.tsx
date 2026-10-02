@@ -126,7 +126,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
         const separateur = o.groupe !== groupePrecedent;
         groupePrecedent = o.groupe;
         return (
-          <button key={o.id} type="button" role="tab" data-onglet={o.id} aria-selected={o.id === actif}
+          <button key={o.id} type="button" role="tab" data-controle="tiroir.onglet" data-onglet={o.id} aria-selected={o.id === actif}
             className={'ongletResultats' + (o.id === actif ? ' active' : '') + (separateur ? ' debutGroupe' : '')}
             onClick={() => tiroir.activer(o.id)}>
             {o.libelle}
@@ -136,7 +136,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
       {classe !== 'compact' && (
         <span className="resultatsHauteurs" role="group" aria-label="Hauteur du tiroir">
           {HAUTEURS.map(h => (
-            <button key={h} type="button" className={'hauteurTiroir' + (h === hauteur ? ' active' : '')} aria-pressed={h === hauteur} title={LIBELLE_HAUTEUR[h][1]} aria-label={LIBELLE_HAUTEUR[h][1]} onClick={() => tiroir.definirHauteur(h)}>
+            <button key={h} type="button" data-controle="tiroir.hauteur" className={'hauteurTiroir' + (h === hauteur ? ' active' : '')} aria-pressed={h === hauteur} title={LIBELLE_HAUTEUR[h][1]} aria-label={LIBELLE_HAUTEUR[h][1]} onClick={() => tiroir.definirHauteur(h)}>
               <span aria-hidden="true">{LIBELLE_HAUTEUR[h][0]}</span>
             </button>
           ))}
@@ -159,7 +159,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
     if (t && explorateur) explorateur.selectionner(t.key);
   };
   const selecteur = terrasse && terrasses.length > 1 && explorateur ? (
-    <button type="button" className="secondary selecteurTerrasse" onClick={suivante} aria-label={'Terrasse ' + (rang + 1) + ' sur ' + terrasses.length + ' : passer à la suivante'}>
+    <button type="button" data-controle="tiroir.terrasseSuivante" className="secondary selecteurTerrasse" onClick={suivante} aria-label={'Terrasse ' + (rang + 1) + ' sur ' + terrasses.length + ' : passer à la suivante'}>
       {rang + 1} sur {terrasses.length} <Icone nom="chevronDroite" taille={16} />
     </button>
   ) : null;

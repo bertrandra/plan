@@ -17,7 +17,7 @@ import type { RegistreCommandes } from '../../app/commandes.js';
 interface Props { magasin: Magasin; commandes: RegistreCommandes; vues: ServiceVues3d }
 
 const IDS_SOLEIL: IdsSoleil = {
-  date: 'glbViewerDate', semaine: 'glbViewerSemaine', heure: 'glbViewerHeure', heureTexte: 'glbViewerHeureTexte',
+  vue: 'visionneuse', date: 'glbViewerDate', semaine: 'glbViewerSemaine', heure: 'glbViewerHeure', heureTexte: 'glbViewerHeureTexte',
   intensite: 'glbViewerIntensite', intensiteTexte: 'glbViewerIntensiteTexte', appoint: 'glbViewerLumiereAppoint'
 };
 
@@ -52,22 +52,22 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
       <div id="glbViewerLoading" className="hint" style={{ display: affichage3d.glb === 'chargement' ? 'block' : 'none' }}>Chargement du modele…</div>
       <div id="glbViewerContent" style={{ display: affichage3d.glb === 'pret' ? 'block' : 'none' }}>
         <div id="zoneReglagesGlb" className="reglages3d" role="group" aria-label="Réglages de la visionneuse">
-          <EnteteReglages titre="Réglages de la visionneuse" idLieu="glbViewerLieu" lieu={vues.libelleLieu()} magasin={magasin} />
+          <EnteteReglages vue="visionneuse" titre="Réglages de la visionneuse" idLieu="glbViewerLieu" lieu={vues.libelleLieu()} magasin={magasin} />
           <div className="corpsFeuille">
             <LigneDate ids={IDS_SOLEIL} soleil={soleil} />
             <div className="controls">
-              <label className="caseReglage"><input type="checkbox" id="glbViewerFilaire" checked={glb.filaire} onChange={(e) => v.basculerFilaire(e.target.checked)} /> Filaire (sinon plein)</label>
-              <label className="caseReglage"><input type="checkbox" id="glbViewerShadows" checked={glb.ombres} onChange={(e) => v.basculerOmbres(e.target.checked)} /> Ombre portée</label>
+              <label className="caseReglage"><input type="checkbox" id="glbViewerFilaire" data-controle="visionneuse.filaire" checked={glb.filaire} onChange={(e) => v.basculerFilaire(e.target.checked)} /> Filaire (sinon plein)</label>
+              <label className="caseReglage"><input type="checkbox" id="glbViewerShadows" data-controle="visionneuse.ombres" checked={glb.ombres} onChange={(e) => v.basculerOmbres(e.target.checked)} /> Ombre portée</label>
               <CaseAppoint ids={IDS_SOLEIL} soleil={soleil} />
               <span className="caseReglage">
                 <label htmlFor="glbViewerFond">Fond</label>
-                <select id="glbViewerFond" value={glb.fond} onChange={(e) => v.choisirFond(e.target.value)}>
+                <select id="glbViewerFond" data-controle="visionneuse.fond" value={glb.fond} onChange={(e) => v.choisirFond(e.target.value)}>
                   <option value="clair">Clair</option>
                   <option value="sombre">Sombre</option>
                   <option value="damier">Damier neutre</option>
                 </select>
               </span>
-              <ListePointsDeVue id="glbViewerViewSelect" magasin={magasin} aller={vues.allerAuPointDeVueGlb} />
+              <ListePointsDeVue vue="visionneuse" id="glbViewerViewSelect" magasin={magasin} aller={vues.allerAuPointDeVueGlb} />
               <BoutonCommande commandes={commandes} id="visionneuse.regenerer" domId="glbViewerRegenBtn" className="objbtn small" enCours={enCours}>
                 <Icone nom="positionInitiale" taille={20} /> Régénérer depuis le plan
               </BoutonCommande>
@@ -85,7 +85,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
             <Bouton3d commandes={commandes} id="visionneuse.zoomArriere" domId="glbViewerZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
             <div className="separateur3d"></div>
             <Bouton3d commandes={commandes} id="visionneuse.hauteurDesYeux" domId="glbViewerEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
-            <button id="reglagesGlbBtn" type="button" className="bouton3d boutonReglages" aria-label="Réglages de la visionneuse"
+            <button id="reglagesGlbBtn" data-controle="visionneuse.reglages" type="button" className="bouton3d boutonReglages" aria-label="Réglages de la visionneuse"
               onClick={() => magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d')}>
               <Icone nom="reglages" taille={20} />
             </button>

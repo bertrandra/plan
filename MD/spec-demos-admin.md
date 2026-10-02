@@ -116,12 +116,23 @@ enregistre.
     *ligne composée* : ses sous-champs en nœuds enfants ;
   - *section* : repliée à l'ouverture, explication ; *sorte d'objet* : nommée par sa forme et sa
     fonction (« Cercle — Arbre »).
-- **Hors registre** (4ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
+- **Contrôles d'interface** (4ᵉ branche, `app/controlesInterface.ts`) : ce qui n'est ni une commande
+  ni un champ, mais reste un contrôleur de l'écran — onglets et panneaux à replier (*navigation*),
+  ce que le plan montre (*affichage*), réglages des vues 3D (*vue*), options d'une commande ou d'un
+  export (*option*), version et impression (*sortie*), saisies du tiroir comme les prix et cadences
+  (*donnée*), et ce qui modifie un objet ou une cote hors du registre (*objet* : candidats à
+  devenir des commandes quand le registre acceptera un paramètre). Chacun est **déclaré** (clé, nom
+  explicite, zone, nature, répété ou non) et porté par `data-controle="<clé>"` dans le code ;
+  `tests/unit/app/controlesInterface.test.ts` vérifie que les deux concordent dans les deux sens.
+  Pourquoi pas des commandes : une commande est un geste sur le plan, sans paramètre, que le
+  registre peut refuser selon les droits ; un onglet ou « supprimer *cette* cote » n'en sont pas.
+- **Hors registre** (5ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
   découverte à l'autre.
   - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
     curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,
     avec le nombre de contrôles rattachés pour comparaison. Un contrôle est rattaché quand lui ou un
-    parent porte `data-commande` (il déclenche une commande), `data-cle` ou `data-section` (champ ou
+    parent porte `data-commande` (il déclenche une commande), `data-controle` (contrôle d'interface
+    déclaré), `data-cle` ou `data-section` (champ ou
     section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
     cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
     `data-compte` marque un compteur à ne pas prendre pour un nom. **Portée** : ce qui est monté au

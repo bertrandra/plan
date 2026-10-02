@@ -258,7 +258,7 @@ function basculerSections(e: React.SyntheticEvent<HTMLElement>): void {
 /** La poignee de repli, a droite de l'en-tete ; repliee, la zone ne montre qu'elle. */
 function Pli({ ouvert, inspecteur }: { ouvert: boolean; inspecteur: ServiceInspecteur }) {
   return (
-    <button type="button" className="inspecteurPli" title={ouvert ? 'Replier l\'inspecteur' : 'Déplier l\'inspecteur'} aria-expanded={ouvert}
+    <button type="button" data-controle="inspecteur.replier" className="inspecteurPli" title={ouvert ? 'Replier l\'inspecteur' : 'Déplier l\'inspecteur'} aria-expanded={ouvert}
       onClick={(e) => { e.stopPropagation(); inspecteur.basculerOuverture(); }}>
       {ouvert ? '›' : '‹'}
     </button>
@@ -386,9 +386,9 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   // pastilles de saut changent.
   const entete = compact
     ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={aLaFrancaise(inspecteur.titre(c))}
-        actions={<button type="button" className="boutonIcone" id="attrTitle" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
+        actions={<button type="button" className="boutonIcone" id="attrTitle" data-controle="inspecteur.replierSections" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
     : <div className="inspecteurEntete">
-        <span className="inspecteurTitre" id="attrTitle" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
+        <span className="inspecteurTitre" id="attrTitle" data-controle="inspecteur.replierSections" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
           onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
           {tactile ? aLaFrancaise(inspecteur.titre(c)) : inspecteur.titre(c)}
         </span>

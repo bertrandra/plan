@@ -23,7 +23,7 @@ export function Chantier({ obj, resultats }: { obj: ObjetPlan; resultats: Result
   const reglage = (libelle: string, valeur: number, pas: string, ecrire: (v: number) => void) => (
     <span className="reglageChantier">
       <label style={{ marginRight: 5 }}>{libelle + ' : '}</label>
-      <SaisieNombre valeur={String(valeur)} pas={pas} min="1" largeur={70} libelle={libelle}
+      <SaisieNombre controle="chantier.reglage" valeur={String(valeur)} pas={pas} min="1" largeur={70} libelle={libelle}
         onValider={(t) => { const v = parseFloat(t); resultats.saisir(() => ecrire(v)); }} />
     </span>
   );
@@ -64,7 +64,7 @@ export function Chantier({ obj, resultats }: { obj: ObjetPlan; resultats: Result
                   <td style={ch.dominant && l.cle === ch.dominant.cle ? { fontWeight: 600 } : undefined}>{'　' + l.label}</td>
                   <td>{l.qte.toFixed(l.unite === 'u' ? 0 : 2) + ' ' + l.unite}</td>
                   <td>
-                    <SaisieNombre valeur={l.cadence.toFixed(2)} largeur={80} titre={'Heures par ' + l.unite} onValider={(t) => saisirCadence(l.cle, t)} />
+                    <SaisieNombre controle="chantier.cadence" valeur={l.cadence.toFixed(2)} largeur={80} titre={'Heures par ' + l.unite} onValider={(t) => saisirCadence(l.cle, t)} />
                     <span className="unite">{' h/' + l.unite}</span>
                   </td>
                   <td className="nombre">{l.heures.toFixed(1) + ' h'}</td>

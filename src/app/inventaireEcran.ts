@@ -13,6 +13,7 @@
 //
 // Un controle est rattache quand lui ou un de ses parents porte :
 //   - `data-commande` : il declenche une commande du registre ;
+//   - `data-controle` : c'est un controle d'interface declare (app/controlesInterface.ts) ;
 //   - `data-cle` ou `data-section` : c'est un champ (ou une section) de l'inspecteur.
 //
 // Limite assumee, et dite dans l'arbre : seul ce qui est monte au moment de la decouverte se voit.
@@ -44,7 +45,7 @@ const ZONES_DOM: Record<string, string> = {
 /** Ce qui n'est pas Plan : l'ecran des controleurs lui-meme et la porte. */
 const EXCLUS = '#zoneControleurs, #zonePorte';
 const CONTROLES = 'button, input:not([type="hidden"]), select, textarea, [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="slider"]';
-const RATTACHE = '[data-commande], [data-cle], [data-section]';
+const RATTACHE = '[data-commande], [data-controle], [data-cle], [data-section]';
 
 function sorteDe(el: Element): string {
   const role = el.getAttribute('role');

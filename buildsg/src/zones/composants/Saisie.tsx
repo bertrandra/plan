@@ -16,6 +16,8 @@ interface PropsSaisie {
   estime?: boolean | undefined;
   placeholder?: string | undefined;
   libelle?: string | undefined;
+  /** La cle du controle dans le catalogue (app/controlesInterface.ts). */
+  controle?: string | undefined;
 }
 
 function useBrouillon(valeur: string, onValider: (texte: string) => void) {
@@ -33,19 +35,19 @@ function useBrouillon(valeur: string, onValider: (texte: string) => void) {
   return { texte: brouillon ?? valeur, changer: (t: string) => setBrouillon(t), valider, touches };
 }
 
-export function SaisieNombre({ valeur, onValider, titre, largeur = 85, estime, placeholder, libelle, pas = '0.01', min = '0' }: PropsSaisie & { pas?: string; min?: string }) {
+export function SaisieNombre({ valeur, onValider, titre, largeur = 85, estime, placeholder, libelle, controle, pas = '0.01', min = '0' }: PropsSaisie & { pas?: string; min?: string }) {
   const b = useBrouillon(valeur, onValider);
   return (
-    <input type="number" step={pas} min={min} value={b.texte} title={titre} placeholder={placeholder} aria-label={libelle ?? titre}
+    <input type="number" data-controle={controle} step={pas} min={min} value={b.texte} title={titre} placeholder={placeholder} aria-label={libelle ?? titre}
       className={estime ? 'saisieEstimee' : undefined} style={{ width: largeur }}
       onChange={(e) => b.changer(e.target.value)} onBlur={b.valider} onKeyDown={b.touches} />
   );
 }
 
-export function SaisieTexte({ valeur, onValider, titre, largeur = 190, libelle }: PropsSaisie) {
+export function SaisieTexte({ valeur, onValider, titre, largeur = 190, libelle, controle }: PropsSaisie) {
   const b = useBrouillon(valeur, onValider);
   return (
-    <input type="text" value={b.texte} title={titre} aria-label={libelle ?? titre} style={{ minWidth: largeur }}
+    <input type="text" data-controle={controle} value={b.texte} title={titre} aria-label={libelle ?? titre} style={{ minWidth: largeur }}
       onChange={(e) => b.changer(e.target.value)} onBlur={b.valider} onKeyDown={b.touches} />
   );
 }

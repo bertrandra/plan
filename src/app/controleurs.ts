@@ -14,6 +14,7 @@ import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
 import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
 import type { ControleEcran } from './inventaireEcran.js';
+import { CONTROLES, NATURES } from './controlesInterface.js';
 
 export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
 
@@ -246,8 +247,29 @@ export function construireArbre(s: SourceControleurs): Noeud {
       { cle: 'zones', nom: 'Zones de l’écran', genre: 'branche', enfants: zones },
       { cle: 'commandes', nom: 'Registre des commandes', genre: 'branche', enfants: registre },
       { cle: 'inspecteur', nom: 'Champs de l’inspecteur', genre: 'branche', enfants: inspecteur },
+      controlesInterface(),
       horsRegistre(s, inspecteur)
     ]
+  };
+}
+
+/**
+ * Les controles d'interface declares (app/controlesInterface.ts), par zone : ni commandes ni champs,
+ * mais des controleurs de l'ecran quand meme — onglets, reglages de vue, options, saisies du tiroir.
+ */
+function controlesInterface(): Noeud {
+  const parZone = new Map<string, Noeud[]>();
+  for (const [cle, c] of Object.entries(CONTROLES)) {
+    const details: Record<string, string> = { nature: NATURES[c.nature] };
+    if (c.repete) details.portee = 'répété sur chaque ligne (objet, cote, onglet…)';
+    if (c.description) details.description = c.description;
+    parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), { cle, nom: c.libelle, genre: 'controle', details }]);
+  }
+  return {
+    cle: 'interface', nom: 'Contrôles d’interface', genre: 'branche',
+    enfants: [...parZone].sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([zone, enfants]): Noeud => ({
+      cle: zone.replace(/[\s/]+/g, '-'), nom: zone, genre: 'zone', enfants
+    }))
   };
 }
 
@@ -354,5 +376,7 @@ export function comparer(enregistre: Noeud | null, decouvert: Noeud): Comparaiso
 export function compterFeuilles(n: Noeud): number {
   // Un champ compte pour un, valeurs permises comprises ; une ligne composee compte ses sous-champs.
   if (n.genre === 'commande' || (n.genre === 'champ' && !(n.enfants ?? []).some((e) => e.genre === 'champ'))) return 1;
+  // Un controle d'interface declare compte ; un controle hors registre, non : il n'est que mesure.
+  if (n.genre === 'controle') return n.details?.nature ? 1 : 0;
   return (n.enfants ?? []).reduce((t, e) => t + compterFeuilles(e), 0);
 }

@@ -17,16 +17,16 @@ function Brouillon({ resultats }: { resultats: Resultats }) {
     <div id="measureControls">
       <div className="hint" style={{ marginBottom: 8 }}>Choisis un segment de référence et l'extrémité d'origine, puis sélectionne un ou plusieurs
         coins sur le plan : pour chacun, la mesure est la distance entre son point projeté (perpendiculaire au segment) et l'origine choisie.</div>
-      <button type="button" className="secondary small" disabled={!!choixRef} onClick={() => resultats.pointer('ref', false)}>
+      <button type="button" data-controle="cotes.choisirReference" className="secondary small" disabled={!!choixRef} onClick={() => resultats.pointer('ref', false)}>
         {choixRef ? 'Clique sur un côté du plan…' : 'Choisir le segment de référence'}
       </button>
       <div className="infoCote">{'Référence : ' + resultats.refLabel(mesure.ref)}</div>
       <label className="origineCote">Origine (extrémité du segment) :{' '}
-        <select value={mesure.startEnd} onChange={(e) => resultats.choisirOrigine(e.target.value)}>
+        <select data-controle="cotes.origine" value={mesure.startEnd} onChange={(e) => resultats.choisirOrigine(e.target.value)}>
           {['A', 'B'].map(v => <option key={v} value={v}>{'Extrémité ' + v}</option>)}
         </select>
       </label>
-      <button type="button" className="secondary small" disabled={!mesure.ref} title={!mesure.ref ? 'Choisis d\'abord le segment de reference' : ''}
+      <button type="button" data-controle="cotes.selectionnerCoins" className="secondary small" disabled={!mesure.ref} title={!mesure.ref ? 'Choisis d\'abord le segment de reference' : ''}
         onClick={() => {
           // Pendant le pointage, le meme bouton termine.
           if (choixCibles) { resultats.arreterPointage(); return; }
@@ -37,7 +37,7 @@ function Brouillon({ resultats }: { resultats: Resultats }) {
       </button>
       <div className="infoCote">{'Points sélectionnés : ' + (mesure.cibles.length ? mesure.cibles.map(resultats.targetLabel).join(', ') : '(aucun)')}</div>
       <br />
-      <button type="button" disabled={!mesure.ref || mesure.cibles.length === 0} onClick={() => resultats.ajouterCotes()}>Ajouter les mesures</button>
+      <button type="button" data-controle="cotes.ajouter" disabled={!mesure.ref || mesure.cibles.length === 0} onClick={() => resultats.ajouterCotes()}>Ajouter les mesures</button>
     </div>
   );
 }
@@ -57,16 +57,16 @@ export function Cotes({ resultats, commandes }: { resultats: Resultats; commande
             <tr key={m.id} data-instance={m.id}>
               <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
               <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
-              <td><button type="button" className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
+              <td><button type="button" data-controle="cotes.inverserOrigine" className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
                 onClick={() => resultats.modifierCote(m.id, x => { x.startEnd = x.startEnd === 'A' ? 'B' : 'A'; })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
               <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
               <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
-              <td><button type="button" className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
+              <td><button type="button" data-controle="cotes.valeurAffichee" className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
                 onClick={() => resultats.modifierCote(m.id, x => { x.displayMode = (x.displayMode || 'along') === 'along' ? 'perp' : 'along'; })}>
                 {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
-              <td><input type="checkbox" checked={!!m.show} aria-label="Afficher sur le plan"
+              <td><input type="checkbox" data-controle="cotes.afficher" checked={!!m.show} aria-label="Afficher sur le plan"
                 onChange={(e) => { const v = e.target.checked; resultats.modifierCote(m.id, x => { x.show = v; }); }} /></td>
-              <td><button type="button" className="secondary small" onClick={() => resultats.supprimerCote(m.id)}>Supprimer</button></td>
+              <td><button type="button" data-controle="cotes.supprimer" className="secondary small" onClick={() => resultats.supprimerCote(m.id)}>Supprimer</button></td>
             </tr>
           );
         })}

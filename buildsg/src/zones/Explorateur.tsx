@@ -80,18 +80,18 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
       <h3>Objets <span className="explorateurCompte">{listables.length}</span></h3>
       {familles.length > 1 && (
         <div className="explorateurFamilles" role="tablist">
-          <button type="button" role="tab" className={'fambtn' + (filtreEffectif === 'tout' ? ' active' : '')} aria-selected={filtreEffectif === 'tout'} onClick={() => setFiltre('tout')}>
+          <button type="button" role="tab" data-controle="explorateur.filtreFamille" className={'fambtn' + (filtreEffectif === 'tout' ? ' active' : '')} aria-selected={filtreEffectif === 'tout'} onClick={() => setFiltre('tout')}>
             Tout<span className="fambtnN" data-compte>{listables.length}</span>
           </button>
           {familles.map(f => (
-            <button key={f} type="button" role="tab" className={'fambtn' + (filtreEffectif === f ? ' active' : '')} aria-selected={filtreEffectif === f} onClick={() => setFiltre(f)}>
+            <button key={f} type="button" role="tab" data-controle="explorateur.filtreFamille" className={'fambtn' + (filtreEffectif === f ? ' active' : '')} aria-selected={filtreEffectif === f} onClick={() => setFiltre(f)}>
               {libelleFamille(f)}<span className="fambtnN" data-compte>{listables.filter(o => famille(o) === f).length}</span>
             </button>
           ))}
         </div>
       )}
       <div className="explorateurTous">
-        <button type="button" className="oeil" aria-pressed={!tousMasques} aria-label={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
+        <button type="button" className="oeil" data-controle="explorateur.masquerTous" aria-pressed={!tousMasques} aria-label={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} title={tousMasques ? 'Afficher tous les objets' : 'Masquer tous les objets'} onClick={() => explorateur.definirVisibiliteTous('hidden', !tousMasques)}>
           <Icone nom={tousMasques ? 'oeilBarre' : 'oeil'} taille={18} />
         </button>
         <details className="menu">
@@ -101,7 +101,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
               const tous = listables.length > 0 && listables.every(o => o[champ]);
               return (
                 <li key={champ} role="menuitemcheckbox" aria-checked={tous}>
-                  <button type="button" title={titre} onClick={(e) => { explorateur.definirVisibiliteTous(champ, !tous); fermerMenu(e); }}>
+                  <button type="button" data-controle={'explorateur.etiquettesTous.' + champ} title={titre} onClick={(e) => { explorateur.definirVisibiliteTous(champ, !tous); fermerMenu(e); }}>
                     <span className="coche" aria-hidden="true">{tous ? '✓' : ''}</span>{libelle}
                   </button>
                 </li>
@@ -116,10 +116,10 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
           return (
             <li key={o.key} data-instance={o.name} className={(actif ? 'active' : '') + (o.hidden ? ' masque' : '')}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-nom="Sélectionner l’objet" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
+                <button type="button" className="explorateurNom" data-controle="explorateur.selectionnerObjet" data-nom="Sélectionner l’objet" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
                   {o.name}
                 </button>
-                <button type="button" className="oeil" data-nom="Masquer / afficher l’objet" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
+                <button type="button" className="oeil" data-controle="explorateur.visibiliteObjet" data-nom="Masquer / afficher l’objet" aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => explorateur.definirVisibilite(o.key, 'hidden', !o.hidden)}>
                   <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
                 </button>
               </div>
@@ -127,7 +127,7 @@ function Objets({ etat, explorateur, apresSelection }: { etat: EtatApp; explorat
                 <div className="explorateurEtiquettes">
                   {ETIQUETTES.map(([champ, libelle, titre]) => (
                     <label key={champ} title={titre}>
-                      <input type="checkbox" checked={!!o[champ]} onChange={(e) => explorateur.definirVisibilite(o.key, champ, e.target.checked)} />
+                      <input type="checkbox" data-controle="explorateur.etiquettesObjet" checked={!!o[champ]} onChange={(e) => explorateur.definirVisibilite(o.key, champ, e.target.checked)} />
                       {libelle}
                     </label>
                   ))}
@@ -163,12 +163,12 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
           return (
             <li key={t.key} data-instance={t.name} className={estCourante ? 'active' : ''}>
               <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-nom="Choisir la terrasse" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
+                <button type="button" className="explorateurNom" data-controle="explorateur.choisirTerrasse" data-nom="Choisir la terrasse" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
                   <span>{t.name}</span>
                   <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
                 <label className="explorateurDossier" title="Retenir cette terrasse pour le dossier PDF (onglet Export)">
-                  <input type="checkbox" checked={dossierSelection.has(t.key)} onChange={() => explorateur.basculerDossier(t.key)} />
+                  <input type="checkbox" data-controle="explorateur.dossierTerrasse" checked={dossierSelection.has(t.key)} onChange={() => explorateur.basculerDossier(t.key)} />
                   Dossier
                 </label>
               </div>
@@ -179,7 +179,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
       {courante && construction && (
         <div className="explorateurCalques">
           <label className="explorateurCalquesMaitre" title="Dessine la structure de la terrasse sélectionnée par-dessus le plan">
-            <input type="checkbox" checked={etat.calquesVisibles} onChange={() => explorateur.basculerCalques()} />
+            <input type="checkbox" data-controle="explorateur.structureSurPlan" checked={etat.calquesVisibles} onChange={() => explorateur.basculerCalques()} />
             Structure sur le plan
           </label>
           {etat.calquesVisibles && TERRASSE_LAYER_DEFS.map(([cle, libelle, couleur]) => {
@@ -190,7 +190,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
             const nom = cle === 'vis' ? (estPlots(construction) ? 'Plots' : 'Vis') : libelle;
             return (
               <label key={cle}>
-                <input type="checkbox" checked={!!terrasseLayerVisible[cle]} onChange={() => explorateur.basculerCalque(cle)} />
+                <input type="checkbox" data-controle="explorateur.calque" checked={!!terrasseLayerVisible[cle]} onChange={() => explorateur.basculerCalque(cle)} />
                 <span className="explorateurCouleur" style={{ background: couleur }} aria-hidden="true" />
                 {nom}
               </label>
@@ -256,7 +256,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
     <aside className="explorateurPanneau" aria-label="Explorateur">
       <div className="explorateurEntete">
         {ouvert && <span>Explorateur</span>}
-        <button type="button" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-label={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>
+        <button type="button" data-controle="explorateur.replier" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-label={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>
           {ouvert ? '‹' : '›'}
         </button>
       </div>

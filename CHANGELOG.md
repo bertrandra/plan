@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôles d'interface déclarés : plus rien hors registre à l'écran.** Les 77 contrôles affichés
+  qui ne passaient ni par une commande ni par un champ sont déclarés dans un catalogue
+  (`app/controlesInterface.ts`, 66 entrées) avec leur clé, leur nom explicite, leur zone et leur
+  nature (navigation, affichage, vue 3D, option, sortie, objet, donnée), et marqués
+  `data-controle` dans le code ; les prix et cadences du tiroir en font partie. La découverte les
+  montre dans la branche « Contrôles d'interface » et l'inventaire « Hors registre » tombe à 0 sur
+  ce qui est affiché. Un test garde le catalogue et le code d'accord dans les deux sens.
 - **Contrôleurs : branche « Hors registre ».** La découverte mesure aussi ce que le registre ne
   couvre pas : les contrôles affichés qui ne déclenchent ni une commande ni un champ de l'inspecteur,
   rangés par zone (77 dans la démo, contre 145 rattachés), et les fonctions d'objet absentes de la

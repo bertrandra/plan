@@ -29,7 +29,7 @@ export interface PropsEcranControleurs {
 
 const GENRES: Record<Noeud['genre'], string> = {
   racine: 'racine', branche: 'branche', zone: 'zone', emplacement: 'emplacement', groupe: 'groupe',
-  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ', option: 'valeur', controle: 'hors registre', manque: 'absente'
+  commande: 'commande', famille: 'objet', section: 'section', champ: 'champ', option: 'valeur', controle: 'contrôle', manque: 'absente'
 };
 /** Les libelles des details, tels que le panneau les montre ; une cle inconnue se montre telle quelle. */
 const NOMS_DETAILS: Record<string, string> = {
@@ -39,7 +39,7 @@ const NOMS_DETAILS: Record<string, string> = {
   pas: 'Pas', decimales: 'Décimales', modifie: 'Modifie', annulable: 'Annulable', effets: 'Effets',
   conditionnel: 'Conditionnel', activable: 'Activable', explication: 'Explication', appliquerATous: 'Appliquer à tous',
   aide: 'Aide', valeurs: 'Valeurs permises', ouverture: 'À l’ouverture', sorte: 'Sorte',
-  horsRegistre: 'Hors registre', rattaches: 'Rattachés au registre', portee: 'Portée', consequence: 'Conséquence'
+  nature: 'Nature', horsRegistre: 'Hors registre', rattaches: 'Rattachés au registre', portee: 'Portée', consequence: 'Conséquence'
 };
 const STATUTS: Record<Exclude<Statut, 'inchange'>, string> = { nouveau: 'Nouveau', retire: 'Retiré', modifie: 'Modifié' };
 
