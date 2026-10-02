@@ -16,6 +16,7 @@ import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
 import type { ControleEcran } from './inventaireEcran.js';
 import type { ObjetBrut } from '../model/types.js';
 import { CONTROLES, NATURES } from './controlesInterface.js';
+import { ECRIVENT, brancheEcritures } from './ecritures.js';
 
 export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
 
@@ -96,6 +97,7 @@ function detailsCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Record
   if (c.capacite) d.capacite = c.capacite;
   if (c.permission) d.permission = c.permission;
   if (c.quota) d.quota = typeof c.quota === 'string' ? c.quota : 'selon le contexte';
+  if (c.ecrit) d.ecrit = c.ecrit === 'projet' ? 'le projet, sans la permission d’écrire' : 'une préférence d’affichage, enregistrée avec le projet';
   if (c.parametre) d.cible = c.parametre === 'objet' ? 'un objet du plan, désigné par le bouton' : 'une cote, désignée par sa ligne';
   // Les trois refus ne se montrent pas pareil (app/commandes.ts) : c'est la carte de l'offre.
   const refus = [
@@ -129,8 +131,6 @@ const NOMS_EFFETS: Record<Effet, string> = {
   scene3d: 'reconstruit la 3D', empilement: 'réordonne l’empilement', poignees: 'refait les poignées'
 };
 
-/** Les types qui ecrivent : les autres montrent, ou declenchent. */
-const ECRIVENT = new Set<Champ['type']>(['texte', 'nombre', 'case', 'choix', 'couleur', 'date', 'curseur', 'texture']);
 
 /** Ce que la declaration d'un champ dit de lui. Ni `lire`, ni `ecrire`, ni `visible` ne sont appeles. */
 function detailsChamp(ch: Champ): Record<string, string> {
@@ -251,7 +251,8 @@ export function construireArbre(s: SourceControleurs): Noeud {
       { cle: 'commandes', nom: 'Registre des commandes', genre: 'branche', enfants: registre },
       { cle: 'inspecteur', nom: 'Champs de l’inspecteur', genre: 'branche', enfants: inspecteur },
       controlesInterface(),
-      horsRegistre(s, inspecteur)
+      horsRegistre(s, inspecteur),
+      brancheEcritures(s)
     ]
   };
 }
@@ -267,6 +268,11 @@ function controlesInterface(): Noeud {
     if (c.repete) details.portee = 'répété sur chaque ligne (objet, cote, onglet…)';
     if (c.description) details.description = c.description;
     if (c.ouvertPar) details.ouvertPar = c.ouvertPar;
+    if (c.ecrit) {
+      details.modifie = 'le projet';
+      details.annulable = c.ecrit.annulable ? 'oui (Annuler le défait)' : 'non';
+      details.droits = c.ecrit.droits === 'commande' ? 'ceux de la commande qui ouvre l’écran' : 'non vérifiés : modifiable en lecture seule';
+    }
     parZone.set(c.zone, [...(parZone.get(c.zone) ?? []), { cle, nom: c.libelle, genre: 'controle', details }]);
   }
   return {
