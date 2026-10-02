@@ -91,12 +91,13 @@ async function loadInitialProject(){
  * personne — ni plateforme, ni stockage du navigateur. La forme est celle que rend
  * `chargerProjetInitial` quand aucune API ne repond.
  */
-function graineVitrine(){
+function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | null){
   return {
     apiAvailable: false,
     list: [] as ProjetResume[],
-    objects: JSON.parse(JSON.stringify(DEMO_OBJECTS)) as ObjetBrut[],
-    measures: JSON.parse(JSON.stringify(DEMO_MEASURES)) as Mesure[],
+    // Une demo de l'admin (`?mode=demo&file=<id>`, app/vitrine.ts), sinon la demonstration integree.
+    objects: JSON.parse(JSON.stringify(demo ? demo.objects : DEMO_OBJECTS)) as ObjetBrut[],
+    measures: JSON.parse(JSON.stringify(demo ? demo.measures : DEMO_MEASURES)) as Mesure[],
     meta: null as ProjetResume | null,
     schemaVersion: null as number | null,
     ouvrirAdresse: false

@@ -32,14 +32,16 @@ async function demarrer(): Promise<void> {
 
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
-    const { lireVitrine, poserVitrine } = await import('./app/vitrine.js');
+    const { lireVitrine, poserVitrine, chargerDemoVitrine } = await import('./app/vitrine.js');
     const vitrine = lireVitrine(location.search);
     if (vitrine) {
       poserVitrine(vitrine);
       const { entrerEnVitrine } = await import('./app/acces.js');
       entrerEnVitrine();
+      // `file=<id>` : une demo de l'admin ; absente ou illisible, la demonstration integree.
+      const demo = vitrine.fichier ? await chargerDemoVitrine(vitrine.fichier) : null;
       const { boot, graineVitrine } = await import('./app/boot.js');
-      boot(graineVitrine(), { vitrine });
+      boot(graineVitrine(demo), { vitrine });
       return;
     }
 
@@ -50,6 +52,8 @@ async function demarrer(): Promise<void> {
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
     if (demandeAdmin(location.search)) {
       await franchirLaPorteAdmin();
+      const { entrerEnAdmin } = await import('./app/acces.js');
+      entrerEnAdmin();
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });

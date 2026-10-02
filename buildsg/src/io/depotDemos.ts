@@ -19,7 +19,11 @@ interface FichierDemo {
   measures?: Mesure[];
 }
 
-export const RACINE_ADMIN = '/admin';
+/**
+ * Relatif a la page, et non `/admin` : Plan peut etre depose dans un sous-dossier de l'hote. Sous
+ * Apache, `.htaccess` renvoie `admin/…` vers `admin.php` ; sous Node, `app.js` le sert lui-meme.
+ */
+export const RACINE_ADMIN = 'admin';
 /** L'en-tete que le serveur exige sur toute ecriture : un autre site ne peut pas le poser. */
 export const ENTETE_ADMIN = { 'X-Plan-Admin': '1' } as const;
 
@@ -121,6 +125,20 @@ export async function sessionAdmin(f: Fetch): Promise<boolean | null> {
     return null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Ferme la session admin (`DELETE admin/session`) : le serveur l'oublie et efface le cookie. Rend
+ * vrai si c'est fait ; faux si le serveur n'a pas repondu — la session reste alors ouverte de son
+ * cote, et il ne faut pas laisser croire le contraire.
+ */
+export async function deconnecterAdmin(f: Fetch): Promise<boolean> {
+  try {
+    const r = await f(RACINE_ADMIN + '/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store', headers: { ...ENTETE_ADMIN } });
+    return r.ok;
+  } catch {
+    return false;
   }
 }
 
