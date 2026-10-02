@@ -16,7 +16,6 @@ import type { ObjetPlan } from '../../model/types.js';
 export interface ContexteAffichage {
   /** Range l'état d'affichage sur la parcelle, pour qu'il se sauvegarde avec le projet. */
   enregistrerAffichage: () => void;
-  /** Remet le bouton de grille en accord avec l'état. */
   /** Le contexte que réclame le fond orthophoto. */
   ctxOrtho: () => Parameters<typeof placerOrthophoto>[0];
   /** Reconstruit la scène 3D — nécessaire quand la liste des objets visibles change. */
