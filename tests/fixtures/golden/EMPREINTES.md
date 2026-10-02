@@ -404,6 +404,16 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   vérifie pas. **À refermer** par le point 24 sous `RECAPTURER_GLB=1` sur un poste qui a le réseau :
   seul `octetsTotal` peut alors bouger, et de quelques octets d'alignement au plus.
 
+  **2 octobre 2026 — tuiles et ardoises sur les toits (`c41e94e`) : compteurs recalculés.** Ce
+  changement voulu, postérieur au témoin, donne à chaque pan de toit des coordonnées de texture et
+  à la couverture sa texture dessinée (`three/couverture.ts`) : **+14 accesseurs** et **+14 vues
+  tampon** (un attribut `uv` par pan, la maison en a quatorze), **+1 texture et +1 image** (la
+  couverture, partagée par les pans), donc **+15 vues tampon** en tout. Mesuré hors ligne par le
+  point 24 (three r128 servi depuis le paquet npm) : 217 nœuds, 214 mailles, 289 matériaux,
+  707 accesseurs, 708 vues tampon pour 1 image — soit, avec les huit images de Poly Haven que le
+  réseau ajoute, 9 / 9 / 707 / 716. `octetsTotal` reste celui d'avant, que le point 24 ne vérifie
+  pas : **à refermer** comme plus haut, sous `RECAPTURER_GLB=1` avec le réseau.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -421,7 +431,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `d7f8ccbf4a29d92a5bd96add6c06d1c4e2374018d8577b165c65466532b0d5da` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `7433e2c2a5d9b8c9e2315e9bb715463629ce9e7d8cd58169d7e01b7793260859` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

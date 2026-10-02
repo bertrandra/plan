@@ -807,7 +807,14 @@ const POINTS = {
     if (await canevas.count().then((n) => n > 0).catch(() => false) || await canevas.waitFor({ timeout: 40000 }).then(() => true).catch(() => false)) {
       await page.waitForTimeout(3000);
       const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
-      const regler = (v) => page.evaluate((v) => { const c = document.getElementById('vue3dHeure'); c.value = String(v); c.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+      // Le curseur est un champ controle par React : ecrire `value` ne lui dit rien, il faut passer
+      // par le setter natif, comme le fait le navigateur sous le doigt. Sans cela l'heure restait a
+      // 12:00 et les deux images etaient identiques — la mesure echouait, pas l'eclairage.
+      const regler = (v) => page.evaluate((v) => {
+        const c = document.getElementById('vue3dHeure');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(c, String(v));
+        c.dispatchEvent(new Event('input', { bubbles: true }));
+      }, v);
       await regler(9 * 60); await page.waitForTimeout(1200); const matin = await image();
       await regler(18 * 60); await page.waitForTimeout(1200); const soir = await image();
       bouge = matin !== soir;
