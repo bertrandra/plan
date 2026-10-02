@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
 
 // L'admin des demos (MD/spec-demos-admin.md), cote serveur et cote page, l'un contre l'autre : un
 // vrai serveur HTTP sur un dossier temporaire, et le depot de la page qui lui parle.
@@ -177,5 +177,16 @@ describe('admin des demos, la page contre le serveur', () => {
     const depot = creerDepotDemos(navigateur);
     await expect(depot.ouvrir('9')).rejects.toMatchObject({ reason: 'notfound' });
     await expect(depot.ouvrir('vide')).rejects.toMatchObject({ reason: 'badjson' });
+  });
+
+  it('enregistre et relit le registre des controleurs, hors de la liste des demos', async () => {
+    await demarrer(MDP);
+    await connecterAdmin(navigateur, MDP);
+    expect(await lireControleurs(navigateur)).toBe(null);
+    const registre = { format: 'plan-controleurs', version: 1, appVersion: '2.2.0', decouvertLe: '2026-10-02T08:00:00.000Z', arbre: { cle: 'plan', nom: 'Plan', genre: 'racine' } };
+    await enregistrerControleurs(navigateur, registre);
+    expect(await lireControleurs(navigateur)).toEqual(registre);
+    expect(await creerDepotDemos(navigateur).lister()).toEqual([]);
+    await expect(enregistrerControleurs(navigateur, { arbre: {} })).rejects.toMatchObject({ reason: 'server' });
   });
 });

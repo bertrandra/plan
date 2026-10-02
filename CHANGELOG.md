@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Contrôleurs de l'écran, pour l'admin** (`?admin&ecran=controleurs`, MD/spec-demos-admin.md).
+  Un écran à part découvre dans Plan en marche l'arbre de ses contrôleurs — zones et emplacements,
+  registre des commandes, champs de l'inspecteur —, chacun avec sa clé et son nom explicite,
+  l'enregistre en JSON sur le serveur, et à la redécouverte signale les nouveaux, les retirés et
+  les modifiés. L'écran s'ouvre sur le registre enregistré ; la découverte ne se fait que sur
+  demande, au bouton. Aucune action sur le plan. Chaque commande dit son quota, ce qu'elle devient
+  sans les droits, si elle est conditionnelle et ses emplacements par classe ; chaque champ, sa
+  précision, ce qu'il modifie, s'il s'annule et ce qu'il recalcule ; une liste, ses valeurs permises.
+  Pour naviguer : niveau de chaque ligne et « déplier jusqu'au niveau N » (touches 1 à 9), filtre
+  par genre, saut d'un résultat à l'autre, branche montrée seule, fil d'Ariane et enfants cliquables.
 - **Se déconnecter de l'admin des démos.** En mode admin (`?admin`, `?demofile=<n>`), la barre
   affiche « Admin des démos » et « Se déconnecter » à la place du compte de la plateforme, en haut
   sur bureau et dans la feuille Projet sur téléphone et tablette. La session est fermée chez le
@@ -30,9 +40,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `plan-admin-config.php`, hors du dossier publié, sans écraser des démos existantes. Laissé dans
   `public_html/`, il reste refusé par `.htaccess`. Le fichier est vérifié contre le code et relu par
   le validateur de projet (`tests/unit/livraison-demo.test.ts`), et servi par `admin.php` sous PHP.
-
-### Ajouté
-
 - **Admin des démos, hors du HTML** (`buildsg/app.js`, MD/spec-demos-admin.md). `?admin` ou
   `?demofile=<id>` demandent un mot de passe vérifié par le serveur (`ADMIN_PASSWORD`), puis ouvrent
   les fichiers de démonstration du dossier `DEMOS_DIR`, au format de l'export JSON. Enregistrer,

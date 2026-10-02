@@ -1467,3 +1467,74 @@
   /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
   html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,
   html[data-vitrine] #terrasse3dZoomControls .separateur3d:nth-last-of-type(-n+2){ display:none; }
+
+  /* L'ecran des controleurs de l'admin (zones/EcranControleurs.tsx). Plan tourne dessous, cache :
+     c'est la qu'on lit ses controleurs, mais on n'y touche pas. */
+  html[data-ecran="controleurs"] body > :not(#zoneControleurs):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="controleurs"], html[data-ecran="controleurs"] body{ overflow:auto; height:auto; background:var(--paper); }
+  .ctlEcran{ max-width:1280px; margin:0 auto; padding:20px 16px 40px; color:var(--ink); }
+  .ctlEntete{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule); padding-bottom:12px; }
+  .ctlEntete, .ctlTitre{ text-align:left; }
+  .ctlTitre{ font-family:var(--serif); font-size:1.4rem; margin:0 0 4px; }
+  .ctlSous, .ctlBilan{ margin:0 0 2px; font-size:0.8rem; color:var(--ink-soft); }
+  .ctlBilan{ color:var(--ink); }
+  .ctlActions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .ctlLien{ font-size:0.8rem; color:var(--ink-soft); }
+  .ctlMessage{ margin:10px 0 0; padding:8px 12px; border-radius:var(--r-champ); background:var(--panel-2); font-size:0.8rem; }
+  .ctlMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
+  .ctlOutils{ display:flex; flex-direction:column; gap:8px; margin:14px 0 10px; }
+  .ctlRecherche, .ctlNiveaux{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .ctlSelect{ min-height:32px; padding:4px 8px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
+  .ctlResultats{ display:inline-flex; gap:4px; align-items:center; }
+  .ctlCompteur{ font-family:var(--sans); font-size:0.78rem; font-variant-numeric:tabular-nums; color:var(--ink-soft); margin-right:4px; }
+  .ctlEtiquette{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .ctlNiveauBouton{ min-width:32px; font-variant-numeric:tabular-nums; }
+  .ctlBrancheVue{ display:inline-flex; gap:6px; align-items:center; margin-left:8px; padding:2px 4px 2px 10px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); font-family:var(--sans); font-size:0.78rem; }
+  .ctlNiveau{ flex:none; width:24px; font-family:var(--mono); font-size:0.62rem; color:var(--ink-soft); }
+  .ctlLigne.trouvee .ctlCle, .ctlLigne.trouvee .ctlNom{ color:var(--ink); font-weight:600; }
+  .ctlLigne.trouvee{ background:var(--panel-2); }
+  .ctlFil{ display:flex; flex-wrap:wrap; gap:2px; align-items:center; margin:0 0 8px; font-size:0.72rem; font-family:var(--mono); }
+  .ctlFilSep{ margin:0 4px; color:var(--ink-soft); }
+  .ctlFilLien{ padding:0; border:none; background:none; color:var(--ink-soft); font:inherit; text-decoration:underline; cursor:pointer; min-height:0; }
+  .ctlFilLien:hover{ color:var(--ink); }
+  .ctlBranche{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+  .ctlSousTitre{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin:12px 0 4px; font-weight:600; }
+  .ctlEnfants{ list-style:none; margin:0; padding:0; max-height:320px; overflow:auto; }
+  .ctlEnfant{ display:flex; gap:8px; width:100%; min-height:28px; padding:2px 6px; border:none; border-radius:6px; background:none; color:var(--ink); text-align:left; font-family:var(--sans); font-size:0.78rem; cursor:pointer; }
+  .ctlEnfant:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .ctlEnfant code{ font-size:0.74rem; }
+  .ctlEnfant span{ color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctlFiltre{ flex:1 1 220px; max-width:360px; min-height:32px; padding:4px 10px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); }
+  .ctlCase{ display:inline-flex; gap:6px; align-items:center; font-size:0.8rem; font-family:var(--sans); }
+  .ctlCorps{ display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:16px; align-items:start; }
+  .ctlArbre{ list-style:none; margin:0; padding:4px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); font-family:var(--sans); font-size:0.8rem; }
+  .ctlLigne{ display:flex; align-items:center; gap:8px; min-height:32px; padding-right:8px; border-radius:6px; cursor:pointer; outline:none; }
+  .ctlLigne:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .ctlLigne.choisie{ background:var(--panel-2); box-shadow:inset 3px 0 0 var(--accent); }
+  .ctlLigne:focus-visible{ box-shadow:inset 0 0 0 2px var(--accent); }
+  .ctlChevron{ width:12px; flex:none; text-align:center; color:var(--ink-soft); transition:transform .15s; }
+  .ctlChevron.ouvert{ transform:rotate(90deg); }
+  .ctlCle{ font-family:var(--mono); font-size:0.76rem; color:var(--ink); }
+  .ctlNom{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); }
+  .ctlGenre{ font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .ctlCompte{ font-variant-numeric:tabular-nums; font-size:0.7rem; padding:0 6px; border-radius:999px; background:var(--panel-2); color:var(--ink-soft); }
+  .ctlStatut{ font-size:0.68rem; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid var(--rule); }
+  .ctlStatut--nouveau{ background:var(--accent-light); color:var(--on-accent-light); border-color:var(--accent); }
+  .ctlStatut--retire{ background:var(--danger-bg); color:var(--danger); border-color:var(--danger); }
+  .ctlStatut--modifie{ background:var(--panel-2); color:var(--ink); border-color:var(--alerte); }
+  .ctlLigne--retire .ctlCle, .ctlLigne--retire .ctlNom{ text-decoration:line-through; }
+  .ctlVide{ padding:12px; color:var(--ink-soft); font-style:italic; }
+  .ctlDetail{ position:sticky; top:12px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); }
+  .ctlDetailTitre{ font-family:var(--serif); font-size:1.05rem; margin:0 0 8px; }
+  .ctlTable th{ width:110px; text-align:left; vertical-align:top; }
+  .ctlTable td{ word-break:break-word; }
+  .ctlChemin{ font-size:0.7rem; }
+  /* Telephone et tablette : le detail passe sous l'arbre, les lignes gagnent leur cible de 44 px. */
+  @media (max-width: 1023px){
+    .ctlCorps{ grid-template-columns:minmax(0, 1fr); }
+    .ctlDetail{ position:static; }
+    .ctlLigne{ min-height:44px; }
+    .ctlGenre, .ctlNiveau{ display:none; }
+    .ctlEnfant, .ctlNiveaux button, .ctlResultats button, .ctlBranche button, .ctlSelect{ min-height:44px; }
+    .ctlNiveauBouton{ min-width:44px; }
+  }

@@ -3,7 +3,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
 
 // admin.php, l'admin des demos sans Node (deploy/admin.php), contre le depot de la page : memes
 // scenarios que buildsg/demosAdmin.mjs. Lance par le serveur integre de PHP ; saute si PHP manque.
@@ -102,6 +102,16 @@ describe.skipIf(!php)('admin.php', () => {
     expect(fs.readdirSync(demos).some((n) => n.startsWith('2.json.supprime-'))).toBe(true);
     await expect(depot.ouvrir('9')).rejects.toMatchObject({ reason: 'notfound' });
     expect((await navigateur('admin/demos/..%2Fconfig')).status).toBe(400);
+  });
+
+  it('enregistre et relit le registre des controleurs, hors de la liste des demos', async () => {
+    await connecterAdmin(navigateur, 'secret-admin');
+    expect(await lireControleurs(navigateur)).toBe(null);
+    const registre = { format: 'plan-controleurs', version: 1, appVersion: '2.2.0', decouvertLe: '2026-10-02T08:00:00.000Z', arbre: { cle: 'plan', nom: 'Plan', genre: 'racine' } };
+    await enregistrerControleurs(navigateur, registre);
+    expect(await lireControleurs(navigateur)).toEqual(registre);
+    expect(await creerDepotDemos(navigateur).lister()).toEqual([]);
+    await expect(enregistrerControleurs(navigateur, { arbre: {} })).rejects.toMatchObject({ reason: 'server' });
   });
 
   it('se deconnecte : la session fermee, le mot de passe est redemande', async () => {

@@ -75,6 +75,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `GET /admin/demos` | `{ demos: [{ id, name, updatedAt }] }` |
 | `POST /admin/demos` | crée la démo au premier numéro libre |
 | `GET`, `PUT`, `DELETE /admin/demos/<id>` | lit, réécrit, met de côté |
+| `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
 | `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page
@@ -84,6 +85,53 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 - `io/depotDemos.ts` : le dépôt des démos, même contrat que celui de la plateforme
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
   dernier ouvert (`planInteractif.admin.lastDemoId`), pour ne jamais mélanger démos et projets.
+
+## Contrôleurs de l'écran (`?admin&ecran=controleurs`)
+
+Un écran à part, sur toute la page, qui **découvre** et **enregistre** l'arbre des contrôleurs de
+Plan : ce par quoi l'écran agit sur le plan. Il n'agit pas sur le plan : il montre, compare,
+enregistre.
+
+- **À l'ouverture**, l'écran montre le registre enregistré, rien de plus : Plan ne démarre pas.
+- **Découverte, sur demande seulement** (bouton « Lancer la découverte ») : Plan démarre alors,
+  caché, sur la démonstration intégrée, en mémoire et sans dépôt (rien ne peut s'y enregistrer) ;
+  les relances suivantes relisent ce qu'il a déjà monté. `app/controleurs.ts` lit ce qu'il a monté : le registre des
+  commandes, la carte d'exposition (`app/exposition.ts`) et les sections de l'inspecteur, une par
+  sorte d'objet du plan. Aucune commande n'est exécutée, aucun champ lu ni écrit.
+- **L'arbre** : Zones de l'écran (Z1 à Z8 et clavier) → emplacements → commandes ; Registre des
+  commandes → groupes → commandes ; Champs de l'inspecteur → sortes d'objet → sections → champs.
+  Chaque nœud a sa **clé** (l'identifiant de la commande, la clé du champ…) et son **nom
+  explicite**, plus quelques détails (raccourci, classes d'écran, type, unité, permission…). Son
+  chemin de clés (`plan/zones/Z1/menuFichier/projet.enregistrer`) l'identifie.
+- **Attributs déclarés** (lus dans les déclarations, rien n'est appelé sauf la liste des valeurs
+  d'un choix, qui dépend de l'objet) :
+  - *commande* : groupe, raccourci, description, capacité, permission, **quota** (nom, ou « selon
+    le contexte »), **sans les droits** (effacée sans la capacité ; grisée avec explication sans la
+    permission ou au quota), **conditionnelle** (`actif` déclaré), **emplacements** par classe
+    d'écran, et **atteinte** quand une classe ne l'offre qu'au clavier ;
+  - *champ* : type, unité, minimum, maximum, **pas**, **décimales**, **modifie** (le projet, ou
+    l'affichage seulement), **annulable**, **effets** (redessine le plan, recalcule la terrasse,
+    reconstruit la 3D…), **conditionnel** / **activable**, explication d'un bouton, aide ;
+  - *liste de choix* : ses **valeurs permises**, en nœuds enfants (clé = valeur, nom = libellé) ;
+    *ligne composée* : ses sous-champs en nœuds enfants ;
+  - *section* : repliée à l'ouverture, explication ; *sorte d'objet* : nommée par sa forme et sa
+    fonction (« Cercle — Arbre »).
+- **Enregistrement** : `admin/controleurs`, un document `{format: 'plan-controleurs', version,
+  appVersion, decouvertLe, arbre}` rangé à part des démos.
+- **Comparaison** : la découverte est comparée au registre : **Nouveau**, **Retiré** (gardé à sa place, barré), **Modifié** (nom ou détails).
+  « Seulement les changements » ne montre qu'eux ; « Enregistrer la découverte » en fait la
+  nouvelle référence.
+- **Navigation** : motif ARIA *tree* — flèches haut/bas, droite ouvre ou descend, gauche ferme ou
+  remonte, Début/Fin, Entrée. Le détail du nœud choisi est à droite (sous l'arbre sur téléphone et
+  tablette). Outils (`zones/navigationArbre.ts`) :
+  - **niveaux** : chaque ligne porte son niveau absolu (N1 = `plan`) ; « Niveau 1…6 / Tout » déplie
+    jusqu'au niveau choisi (touches **1** à **9** dans l'arbre) ;
+  - **filtres** : texte (clé ou nom, touche **/** pour y aller), **genre** (zone, emplacement,
+    groupe, commande, objet, section, champ, valeur), seulement les changements ; compteur de
+    résultats, **‹ ›** ou **Entrée / Maj+Entrée** pour sauter de l'un à l'autre, « Effacer » ;
+  - **branche** : dans le détail, « Déplier » / « Replier » toute la branche (touches **\*** et
+    **-**), « Montrer seule » pour n'afficher qu'elle (« Tout montrer » pour revenir) ;
+  - **fil d'Ariane** cliquable et liste des **enfants** cliquables dans le détail.
 
 ## La vitrine montre une démo de l'admin
 

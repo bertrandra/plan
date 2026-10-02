@@ -52,6 +52,15 @@ async function demarrer(): Promise<void> {
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
     if (demandeAdmin(location.search)) {
       await franchirLaPorteAdmin();
+      // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
+      // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
+      // lance la decouverte (app/ecranControleurs.ts).
+      const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
+      if (demandeEcranControleurs(location.search)) {
+        document.documentElement.dataset.ecran = 'controleurs';
+        await ouvrirEcranControleurs();
+        return;
+      }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
       const { creerDepotDemos } = await import('./io/depotDemos.js');

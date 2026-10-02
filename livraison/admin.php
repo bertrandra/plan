@@ -10,6 +10,7 @@
 //   GET    admin/demos            {demos: [{id, name, updatedAt}]}
 //   POST   admin/demos            cree la demo au premier numero libre
 //   GET|PUT|DELETE admin/demos/<id>
+//   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -202,6 +203,35 @@ if ($chemin === 'demos') {
         while (file_exists(fichier($dossier, (string)$n)) || file_exists(fichier($dossier, (string)$n) . '.bak')) $n++;
         ecrire($dossier, (string)$n, $document);
         repondre(201, resume($dossier, (string)$n));
+    }
+    erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+}
+
+// L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des demos.
+// Le point en tete le garde hors de la liste des demos.
+if ($chemin === 'controleurs') {
+    $f = $dossier . '/.controleurs.json';
+    if ($lecture) {
+        if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun registre des contrôleurs enregistré.');
+        http_response_code(200);
+        if ($methode !== 'HEAD') readfile($f);
+        exit;
+    }
+    if ($methode === 'PUT') {
+        $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+        if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier trop gros (25 Mo au plus).');
+        $d = json_decode($texte, true);
+        if (!is_array($d) || ($d['format'] ?? null) !== 'plan-controleurs' || !isset($d['arbre']) || !is_array($d['arbre'])) {
+            erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas un registre des contrôleurs.');
+        }
+        if (is_file($f)) copy($f, $f . '.bak');
+        $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+        $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
+            @unlink($tmp);
+            erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+        }
+        repondre(200, ['decouvertLe' => $d['decouvertLe'] ?? null]);
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
 }
