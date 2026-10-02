@@ -95,10 +95,20 @@ export function configOrtho(creer: boolean, ctx: ContexteOrtho): ConfigOrthoComp
   }
   if(p.ortho.opacite === undefined || p.ortho.opacite === null) p.ortho.opacite = 0.85;
   if(p.ortho.parcelleOpacite === undefined || p.ortho.parcelleOpacite === null) p.ortho.parcelleOpacite = ORTHO_PARCELLE_OPACITE_CONSEILLEE;
-  if(p.ortho.actif === undefined) p.ortho.actif = false;
+  if(p.ortho.actif === undefined) p.ortho.actif = orthoParDefaut(ctx);
   // Les trois champs viennent d'etre combles : le type ne le sait pas encore (ils restent
   // facultatifs sur ObjetPlan), c'est ce que ce cast affirme.
   return p.ortho as ConfigOrthoComplete;
+}
+/**
+ * Le fond est allume par defaut sur un plan cale par le cadastre : la photo y tombe juste. Un plan
+ * dessine a la main n'a que le lieu par defaut, la photo d'un autre endroit n'y apprendrait rien.
+ * Lu sur la parcelle directement - pas par `referenceGeoPlan`, dont le repli ecrit le lieu dessus.
+ */
+export function orthoParDefaut(ctx: ContexteOrtho): boolean {
+  const p = ctx.trouverParcelleCloture();
+  return !!(p && aDesSommets(p) && p.pts.length && p.cadastre &&
+    p.cadastre.origineLat !== undefined && p.cadastre.origineLat !== null);
 }
 export function enregistrerConfigOrtho(ctx: ContexteOrtho): void {
   // Un projet qui n'a jamais touche au fond ne gagne pas le champ pour rien, et surtout : la
@@ -106,7 +116,7 @@ export function enregistrerConfigOrtho(ctx: ContexteOrtho): void {
   // cette comparaison, tout projet avec un fond actif s'ouvrirait en "modifications non
   // enregistrees" alors que rien n'a change.
   const existante = configOrtho(false, ctx);
-  const auxDefauts = !ortho.actif && ortho.opacite === 0.85 && ortho.parcelleOpacite === ORTHO_PARCELLE_OPACITE_CONSEILLEE;
+  const auxDefauts = ortho.actif === orthoParDefaut(ctx) && ortho.opacite === 0.85 && ortho.parcelleOpacite === ORTHO_PARCELLE_OPACITE_CONSEILLEE;
   if(!existante && auxDefauts) return;
   const c = configOrtho(true, ctx);
   if(!c) return;   // pas de parcelle : rien ou ranger le reglage, il reste valable pour la session
@@ -132,9 +142,10 @@ export function syncControlesOrtho(){
 export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   const c = configOrtho(false, ctx);
   if(!c){
-    // Projet sans reglage enregistre : on eteint proprement plutot que de garder le fond du
-    // projet precedent, qui serait cale sur une autre parcelle.
-    if(ortho.actif) void basculerOrthophoto(false, ctx);
+    // Projet sans reglage enregistre : le fond par defaut (allume si le plan vient du cadastre).
+    // Les tuiles du projet precedent, calees sur une autre parcelle, ne sont jamais reprises.
+    if(orthoParDefaut(ctx)) void basculerOrthophoto(true, ctx, true);
+    else if(ortho.actif) void basculerOrthophoto(false, ctx);
     return;
   }
   ortho.opacite = c.opacite;
@@ -289,7 +300,12 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     t.el.setAttribute('height', String(Math.max(1, t.hauteur*ctx.etat.scene.scale)));
   });
 }
-export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho): Promise<void> {
+/**
+ * `discret` : le fond allume par defaut, sans que personne ne l'ait demande, ne parle pas - ni pour
+ * compter ses tuiles, ni pour dire qu'il n'a pas pu les charger (hors ligne, hors couverture). La
+ * case reste decochee, la personne peut reessayer.
+ */
+export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, discret = false): Promise<void> {
   ortho.actif = actif;
   const cbHaut = elOpt<HTMLInputElement>('chkOrtho');
   if(cbHaut) cbHaut.checked = actif;
@@ -302,12 +318,12 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho): Pr
     const r = await chargerOrthophoto(ctx);
     ctx.render();
     enregistrerConfigOrtho(ctx);
-    showToast('Orthophoto IGN : ' + r.nb + ' tuile(s) au niveau ' + r.z +
+    if(!discret) showToast('Orthophoto IGN : ' + r.nb + ' tuile(s) au niveau ' + r.z +
       (r.exact ? '.' : ' — calage approximatif (plan sans import cadastre : le fond est posé sur le lieu déclaré de la parcelle).'));
   } catch(e){
     ortho.actif = false;
     if(cb) cb.checked = false;
-    showToast('Orthophoto indisponible : ' + ((e as Error).message || e));
+    if(!discret) showToast('Orthophoto indisponible : ' + ((e as Error).message || e));
   } finally {
     ortho.chargement = false;
     if(cb) cb.disabled = false;

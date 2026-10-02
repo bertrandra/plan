@@ -168,8 +168,9 @@ export const vue3d: {
   tousLesObjets: true,
   objetsOpaques: true,
   textures: true,
-  // Les ombres coutent cher a calculer et changent a chaque heure : on les allume a la demande.
-  ombres: false
+  // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
+  // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
+  ombres: true
 };
 
 /**
