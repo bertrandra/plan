@@ -10,6 +10,7 @@
 //   .htaccess                  en-tetes, politique de contenu, renvoi de `admin/…` vers admin.php
 //   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici)
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
+//   plan-demos/1.json          la demonstration integree, premiere demo de l'admin (a poser hors racine)
 //   LISEZMOI-DEPLOIEMENT.txt   les etapes
 
 import { execSync } from 'node:child_process';
@@ -32,6 +33,22 @@ cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 
 const version = JSON.parse(readFileSync(resolve(racine, 'package.json'), 'utf8')).version;
+
+// La premiere demo de l'admin : la demonstration integree, au format de l'export ({meta, objects,
+// measures}). Elle vient de contrat/plan-produit.json, que tests/unit/contrat-produit.test.ts garde
+// identique au code (model/demo.ts) : la livraison n'a pas a compiler du TypeScript pour l'avoir.
+// Pas d'horodatage dans `meta` : deux livraisons du meme commit donnent le meme fichier.
+const contrat = JSON.parse(readFileSync(resolve(racine, 'contrat/plan-produit.json'), 'utf8'));
+const demo = contrat.demo_project;
+if (!demo || !Array.isArray(demo.document?.objects) || !demo.document.objects.length) {
+  throw new Error('contrat/plan-produit.json : pas de demo_project a livrer');
+}
+mkdirSync(resolve(sortie, 'plan-demos'), { recursive: true });
+writeFileSync(resolve(sortie, 'plan-demos/1.json'), JSON.stringify({
+  meta: { id: '1', name: demo.name, appVersion: contrat.app_version, schemaVersion: demo.schema_version, exportedBy: 'livraison' },
+  objects: demo.document.objects,
+  measures: demo.document.measures || []
+}, null, 2) + '\n');
 let commit = 'inconnu';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: racine, encoding: 'utf8' }).trim(); } catch { /* hors git */ }
 
@@ -47,8 +64,11 @@ Plateforme : ${origine}
       web, pas dedans), sous le nom plan-admin-config.php. Cela vaut aussi si Plan est dans un
       sous-dossier de public_html/.
    b. Y remplacer « A-CHANGER » par le mot de passe admin.
-   c. Les demos seront rangees dans plan-demos/, a cote de ce fichier, hors du dossier publie :
-      une nouvelle mise en ligne ne les touche pas.
+   c. Copier aussi le dossier plan-demos/ de cette livraison a cote de plan-admin-config.php,
+      hors du dossier publie. Il contient 1.json, la demonstration integree, premiere demo de
+      l'admin. Les demos enregistrees ensuite y sont rangees : une nouvelle mise en ligne ne les
+      touche pas. Si plan-demos/ existe deja la-bas, ne pas l'ecraser : ce sont vos demos.
+      Laisse dans public_html/, il est refuse par .htaccess (404) et l'admin ne le voit pas.
    Sans ce fichier de configuration, l'admin n'existe pas (admin/... repond 404).
 
 3. Verifier :
@@ -59,7 +79,8 @@ Plateforme : ${origine}
    - npm run verifier-deploiement https://<hote>   (depuis le depot)
 
 Une demo est un fichier JSON au format de l'export de Plan ({meta, objects, measures}).
-Au premier ?admin, sans aucune demo, choisir « Ouvrir le plan de demonstration » cree la demo 1.
+Sans aucune demo (plan-demos/ absent ou vide), le premier ?admin propose d'en creer une : « Ouvrir
+le plan de demonstration » cree la demo 1.
 `);
 
 const zip = resolve(racine, 'livraison.zip');

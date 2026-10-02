@@ -3,7 +3,9 @@
 Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait pas lequel lui répond :
 
 - **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
-  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `LISEZMOI-DEPLOIEMENT.txt`).
+  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `plan-demos/1.json`,
+  `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration intégrée, première démo de
+  l'admin, à copier avec le dossier à côté de la configuration.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
 - **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DEMOS_DIR`.
