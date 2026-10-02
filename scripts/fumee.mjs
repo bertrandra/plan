@@ -12,7 +12,7 @@
 //   node scripts/fumee.mjs [http://localhost:5199] [points…]
 
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
 
 const require = createRequire(import.meta.url);
@@ -807,7 +807,14 @@ const POINTS = {
     if (await canevas.count().then((n) => n > 0).catch(() => false) || await canevas.waitFor({ timeout: 40000 }).then(() => true).catch(() => false)) {
       await page.waitForTimeout(3000);
       const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
-      const regler = (v) => page.evaluate((v) => { const c = document.getElementById('vue3dHeure'); c.value = String(v); c.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+      // Le curseur est un champ controle par React : ecrire `value` ne lui dit rien, il faut passer
+      // par le setter natif, comme le fait le navigateur sous le doigt. Sans cela l'heure restait a
+      // 12:00 et les deux images etaient identiques — la mesure echouait, pas l'eclairage.
+      const regler = (v) => page.evaluate((v) => {
+        const c = document.getElementById('vue3dHeure');
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(c, String(v));
+        c.dispatchEvent(new Event('input', { bubbles: true }));
+      }, v);
       await regler(9 * 60); await page.waitForTimeout(1200); const matin = await image();
       await regler(18 * 60); await page.waitForTimeout(1200); const soir = await image();
       bouge = matin !== soir;
@@ -991,6 +998,21 @@ function pointsPour(nomClasse) {
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
 
+/**
+ * three.js r128 et ses trois scripts d'exemples, servis depuis `node_modules/three` (la meme version
+ * que le CDN, en devDependency) plutot que depuis jsDelivr : les points de la Vue 3D (22, 23, 24, 38)
+ * se jouent alors sans reseau sortant. `FUMEE_CDN=1` rejoue le vrai CDN.
+ */
+async function servirThreeLocal(page) {
+  if (process.env.FUMEE_CDN === '1') return;
+  const racine = new URL('../node_modules/three/', import.meta.url).pathname;
+  const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'application/javascript' }) : route.continue();
+  // La bibliotheque vient de cdnjs, ses exemples de jsDelivr (three/glbViewer.ts, three/chargeurs.ts).
+  await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/r128\/three\.min\.js/, (route) => servir(route, racine + 'build/three.min.js'));
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) =>
+    servir(route, racine + route.request().url().split('three@0.128.0/')[1].split('?')[0]));
+}
+
 async function principal() {
   const navigateur = await chromium.launch();
   const resultats = [];
@@ -1003,6 +1025,7 @@ async function principal() {
           deviceScaleFactor: 1, colorScheme: theme, acceptDownloads: true
         });
         const page = await contexte.newPage();
+        await servirThreeLocal(page);
         const erreurs = [];
         page.on('pageerror', (e) => erreurs.push(e.message));
         page.on('dialog', (d) => d.accept());

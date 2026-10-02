@@ -121,9 +121,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **Code mort** : onze exports et deux couleurs jamais utilisés, retirés.
   - **Descriptions** : les 76 commandes en ont une (glossaire `app/descriptions.ts`) ; les menus et
     la palette les montrent en infobulle.
+  - **Couverture de tests** : écouteurs de commandes 14 % → 86 %, rendu du plan 33 % → 74 %, 3D
+    30 % → 64 % (93 tests de plus). three.js r128 est en devDependency, pour les tests et la fumée
+    seulement : la page le charge toujours depuis le CDN, rien n'entre dans le build.
+  - **Fumée de la Vue 3D sans réseau** : three.js servi depuis le paquet npm ; le témoin du GLB
+    recalculé pour les tuiles et ardoises (`c41e94e`), la mesure de l'éclairage (point 38) passée
+    par le setter natif du curseur. 22, 23, 24 et 38 : 26/26.
   - **Test instable corrigé** : `adminPhp.test.ts` tirait le port de `php -S` au hasard entre 5390
     et 5489 ; tombé sur un service déjà là (1 fois sur 100), six tests échouaient. Le port est
     désormais demandé au système.
+  - **Test dépendant du shell corrigé** : `contrat.test.ts` supposait une origine de plateforme vide ;
+    il échouait dès que `BACKPROD_API_URL` était exporté pour construire. Il lit maintenant l'origine
+    du build. La suite passe avec et sans la variable.
   - **Fumée** : points 49 à 54 — annulation des champs, refus sans étape vide, lecture seule de la
     vitrine, découverte des contrôleurs, relevé de façade de bout en bout sans caméra.
 - **L'ombre portée est cochée par défaut en Vue 3D.** C'est ce qu'on vient y voir : la course du
