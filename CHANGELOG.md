@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Commandes ciblées : masquer un objet, ses étiquettes et chaque geste sur les cotes passent par
+  le registre.** Le registre des commandes accepte une cible (un objet, une cote, une valeur). Douze
+  gestes qui modifiaient le projet en dehors de lui sont devenus des commandes : ils sont **grisés
+  et expliqués sans le droit d'écrire** (une personne en lecture seule pouvait masquer un objet ou
+  supprimer une cote), et **masquer un objet ou changer ses étiquettes s'annule** désormais par
+  Ctrl+Z (ce n'était pas le cas ; les cotes l'étaient déjà). La découverte les range avec les autres
+  commandes et dit sur quoi chacune porte.
 - **Contrôles d'interface déclarés : plus rien hors registre à l'écran.** Les 77 contrôles affichés
   qui ne passaient ni par une commande ni par un champ sont déclarés dans un catalogue
   (`app/controlesInterface.ts`, 66 entrées) avec leur clé, leur nom explicite, leur zone et leur
