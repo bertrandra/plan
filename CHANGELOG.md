@@ -149,6 +149,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Palette : une barre plus claire, et l'on voit ce qu'on enregistre** (refonte, lot 1).
+  - Quatre commandes au lieu de six : « Modèles », « Fichier » (importer, exporter), « Revenir »
+    (annuler les modifications, couleurs d'origine) et « Enregistrer… ». Les menus se ferment par
+    Échap ou par un clic ailleurs.
+  - « Enregistrer… » ouvre un récapitulatif : chaque couleur qui part sur le serveur, avant et
+    après, et l'avertissement si des contrastes restent insuffisants. Rien n'est envoyé avant
+    « Enregistrer sur le serveur ».
+  - L'alerte « n contrastes insuffisants » devient un bouton : il mène au tableau des contrastes,
+    filtré sur les paires en défaut (une case rend le tableau entier).
+  - Sur téléphone, la barre se pose au bas de l'écran, au pouce ; ses menus s'ouvrent vers le haut.
+  - Le code de l'écran est rangé dans `zones/ecranPalette/` : l'état et les gestes
+    (`edition.ts`), la barre (`barre.tsx`), les vues (`vues.tsx`), ce qu'elles partagent
+    (`commun.tsx`) et le sélecteur avancé.
+
+
 - **Inspecteur : un profil par fonction d'objet.** Ce que la fonction d'un objet lui donne (formes
   admises, sections propres) est décrit une fois, dans `model/fonctions.ts`, au lieu de six
   prédicats répartis dans trois fichiers. Le menu « Fonction » ne propose plus que les fonctions
