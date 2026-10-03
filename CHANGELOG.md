@@ -149,6 +149,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Palette : une liste à régler, l'aperçu à côté** (refonte, lot 2).
+  - Quatre onglets : **Couleurs**, **Contrastes**, CSS, Typo. `#palette`, l'ancienne adresse, mène
+    aux couleurs.
+  - Les couleurs sont une liste, une ligne par jeton, rangée par famille : le nom et le rôle, le
+    réglage de chaque thème montré, et l'état écrit en toutes lettres (« contraste 2,67 »,
+    « non enregistrée », « modifiée »). Filtres Toutes, Modifiées, Contraste insuffisant (avec
+    leur nombre), et recherche par nom ou par rôle.
+  - L'aperçu colle à droite pendant qu'on fait défiler la liste : les commandes de l'atelier ou la
+    planche d'ambiance, par thème. Sous 1 024 px il devient une feuille, ouverte par « Aperçu » et
+    fermée par Échap.
+  - La pastille « n contrastes insuffisants » mène à l'onglet Contrastes, filtré.
+- **Palette : la barre et l'aperçu restent vraiment en haut.** Le corps de l'atelier défile
+  lui-même ; sur l'écran de la palette, c'est la page qui défile, sans quoi rien ne pouvait coller.
 - **Palette : une barre plus claire, et l'on voit ce qu'on enregistre** (refonte, lot 1).
   - Quatre commandes au lieu de six : « Modèles », « Fichier » (importer, exporter), « Revenir »
     (annuler les modifications, couleurs d'origine) et « Enregistrer… ». Les menus se ferment par

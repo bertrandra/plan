@@ -1544,7 +1544,10 @@
      panneau de theme pose lui-meme les variables de son theme (style en ligne, valeurs lues dans
      styles/jetons.ts) : ce qui suit ne lit que des var(), et aucune couleur n'y est en dur. */
   html[data-ecran="palette"] body > :not(#zoneEcranPalette):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
-  html[data-ecran="palette"], html[data-ecran="palette"] body{ overflow:auto; height:auto; background:var(--paper); }
+  /* Le corps de l'atelier defile lui-meme (overflow:auto) : ici c'est la page qui defile, sinon la
+     barre et l'apercu, colles en haut, n'ont rien a quoi coller. */
+  html[data-ecran="palette"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="palette"] body{ overflow:visible; height:auto; background:var(--paper); }
   html[data-ecran="palette"] body{ align-items:stretch; }
   .palEcran{ max-width:1280px; width:100%; margin:0 auto; padding:20px 16px 48px; color:var(--ink); }
   .palEntete{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule); padding-bottom:12px; }
@@ -1704,16 +1707,41 @@
   .palTuile--mots{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-content:center; justify-content:flex-start; gap:6px; background:var(--panel-2); }
   .palPastille{ font-family:var(--serif); font-style:italic; font-size:0.95rem; padding:4px 12px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); }
 
-  /* La structure : une famille par bloc, une carte par jeton. */
-  .palFamilles{ display:flex; flex-direction:column; gap:18px; }
-  .palFamilleTitre{ font-family:var(--serif); font-size:1.15rem; margin:0; }
-  .palFamilleIdee{ margin:2px 0 8px; font-size:0.8rem; color:var(--ink-soft); }
-  .palNuancier{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
-  .palCarte{ display:flex; flex-direction:column; gap:4px; padding:8px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); }
-  .palEchantillons{ display:grid; grid-template-columns:1fr 1fr; height:56px; border-radius:var(--r-champ); overflow:hidden; border:1px solid var(--hairline); }
-  .palEchantillon{ display:block; }
-  .palNom{ font-family:var(--mono); font-size:0.78rem; color:var(--ink); }
-  .palRole{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); min-height:2.2em; }
+  /* L'onglet Couleurs : la liste a gauche, l'apercu colle a droite (zones/ecranPalette/liste.tsx). */
+  .palAtelier{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(300px, 380px); gap:20px; align-items:start; margin-top:14px; }
+  .palListeBloc{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .palFiltres{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .palFiltresBoutons{ display:flex; flex-wrap:wrap; gap:4px; }
+  .palFiltre{ min-height:32px; padding:4px 12px; border:1px solid var(--rule); border-radius:999px; background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:0.76rem; cursor:pointer; }
+  .palFiltre[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); color:var(--on-ink); }
+  .palFiltreCompte{ font-variant-numeric:tabular-nums; opacity:.75; margin-left:2px; }
+  .palCherche{ flex:1 1 200px; min-width:0; min-height:32px; padding:4px 10px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
+  .palOuvrirApercu{ display:none; }
+  .palVide{ margin:0; font-family:var(--serif); font-style:italic; color:var(--ink-soft); }
+  .palListe{ border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); overflow:hidden; }
+  .palListeEntete, .palLigneJeton{ display:grid; grid-template-columns:minmax(150px, 1fr) repeat(2, minmax(190px, 230px)) 112px; gap:6px 12px; align-items:center; padding:6px 12px; }
+  .palListeEntete{ background:var(--paper-deep); border-bottom:1px solid var(--rule); font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .palListeFamille{ font-family:var(--serif); font-size:0.95rem; letter-spacing:0; text-transform:none; color:var(--ink); }
+  .palLigneJeton[data-themes="1"], .palListe:has(.palLigneJeton[data-themes="1"]) .palListeEntete{ grid-template-columns:minmax(150px, 1fr) minmax(190px, 260px) 112px; }
+  .palLigneJeton + .palLigneJeton{ border-top:1px solid var(--hairline); }
+  .palLigneJeton:nth-child(odd){ background:var(--zebra); }
+  .palLigneNom{ display:flex; flex-direction:column; min-width:0; }
+  .palLigneNom code{ font-family:var(--mono); font-size:0.78rem; color:var(--ink); }
+  .palLigneNom small{ font-family:var(--sans); font-size:0.7rem; color:var(--ink-soft); }
+  .palLigneJeton .palReglage{ grid-template-columns:32px 28px minmax(0, 1fr) 24px; }
+  .palLigneJeton .palReglageTheme{ display:none; }
+  .palLigneEtat{ white-space:nowrap; font-family:var(--sans); font-size:0.68rem; font-variant-numeric:tabular-nums; justify-self:start; }
+  .palLigneEtat--ko, .palLigneEtat--nonEnregistree, .palLigneEtat--modifiee{ padding:2px 8px; border-radius:999px; }
+  .palLigneEtat--ko{ background:var(--danger-bg); color:var(--danger); font-weight:600; }
+  .palLigneEtat--nonEnregistree{ background:var(--accent-light); color:var(--on-accent-light); }
+  .palLigneEtat--modifiee{ border:1px solid var(--rule); color:var(--ink-soft); }
+
+  .palVueApercu{ position:sticky; top:84px; display:flex; flex-direction:column; gap:10px; max-height:calc(100vh - 100px); overflow:auto; padding:10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); }
+  .palVueApercuEntete{ display:flex; align-items:center; gap:8px; }
+  .palVueApercuTitre{ font-family:var(--serif); font-size:1.05rem; margin-right:auto; }
+  .palVueApercuFermer{ display:none; }
+  .palVueApercu .palThemes--deux{ grid-template-columns:minmax(0, 1fr); }
+  .palVueApercu .palPlanche{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-template-rows:none; grid-auto-rows:minmax(90px, auto); }
 
   /* Les contrastes. */
   .palTableau{ overflow-x:auto; }
@@ -1783,6 +1811,21 @@
     .palBarreActions > button, .palBarre details.menu > summary, .palPastilleContraste, .palConfirmationBoutons button{ min-height:44px; }
     .palBarre details.menu li button{ min-height:44px; }
     .palMenuModeles > ul{ width:min(340px, calc(100vw - 32px)); }
+    /* La liste passe sur une colonne : le nom, puis un reglage par theme, son nom ecrit devant.
+       L'apercu quitte la page et devient une feuille, ouverte par le bouton « Apercu ». */
+    .palAtelier{ grid-template-columns:minmax(0, 1fr); }
+    .palListeEntete{ display:none; }
+    .palLigneJeton, .palLigneJeton[data-themes="1"]{ grid-template-columns:minmax(0, 1fr) auto; padding:8px 12px; }
+    .palLigneJeton .palReglage{ grid-column:1 / -1; grid-template-columns:52px 44px 44px minmax(0, 1fr) 32px; }
+    .palLigneJeton .palReglageTheme{ display:inline; }
+    .palLigneEtat{ grid-row:1; grid-column:2; justify-self:end; }
+    .palFiltre, .palCherche, .palOuvrirApercu{ min-height:44px; }
+    .palOuvrirApercu{ display:inline-flex; align-items:center; gap:6px; }
+    .palVueApercu{ display:none; position:fixed; top:auto; left:0; right:0; bottom:0; z-index:30; max-height:75vh; border-radius:var(--r-feuille) var(--r-feuille) 0 0;
+      padding:12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow:var(--ombre-feuille); }
+    .palVueApercu--ouvert{ display:flex; }
+    .palVueApercuFermer{ display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:999px; background:var(--panel-bg); color:var(--ink); cursor:pointer; }
+    .palVueApercu .segmente button{ min-height:44px; }
   }
   /* Telephone : la barre se pose au bas de l'ecran, au pouce ; ses menus s'ouvrent vers le haut et
      ses messages montent au-dessus des commandes. La page garde de quoi ne rien cacher dessous. */

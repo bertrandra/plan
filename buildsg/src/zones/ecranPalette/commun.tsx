@@ -10,12 +10,13 @@ export type Theme = 'clair' | 'sombre';
 
 export type Choix = Theme | 'deux';
 
-export type Onglet = 'palette' | 'css' | 'typo';
+export type Onglet = 'couleurs' | 'contrastes' | 'css' | 'typo';
 
 export const NOMS_THEMES: Record<Theme, string> = { clair: 'Clair', sombre: 'Sombre' };
 
 export const ONGLETS: { id: Onglet; libelle: string }[] = [
-  { id: 'palette', libelle: 'Palette' },
+  { id: 'couleurs', libelle: 'Couleurs' },
+  { id: 'contrastes', libelle: 'Contrastes' },
   { id: 'css', libelle: 'CSS' },
   { id: 'typo', libelle: 'Typo' }
 ];
@@ -38,10 +39,10 @@ export const date = (iso: string) => new Date(iso).toLocaleString('fr-FR', { dat
 
 export const fr = (n: number) => n.toFixed(2).replace('.', ',');
 
-/** L'onglet demande par l'adresse (`#css`, `#typo`), sinon la palette. */
+/** L'onglet demande par l'adresse (`#contrastes`, `#css`, `#typo`), sinon les couleurs ; `#palette`, l'ancien nom, y mene aussi. */
 export function ongletDeLAdresse(hash: string): Onglet {
   const h = hash.replace(/^#/, '');
-  return ONGLETS.some(o => o.id === h) ? h as Onglet : 'palette';
+  return ONGLETS.some(o => o.id === h) ? h as Onglet : 'couleurs';
 }
 
 export function Section({ titre, idee, children, id }: { titre: string; idee: string; children: ReactNode; id?: string }) {
