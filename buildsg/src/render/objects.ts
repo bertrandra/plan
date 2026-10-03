@@ -205,6 +205,8 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
   // rien a placer.
   const { el, nameEl } = v;
   if(!el || !nameEl) return;
+  // Le halo suit les encres du plan, qui peuvent changer apres la creation (render/theme.ts).
+  nameEl.setAttribute('stroke', SVG_LABEL_HALO);
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus

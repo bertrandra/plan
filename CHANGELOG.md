@@ -149,6 +149,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Palette : le plan suit la palette** (refonte, lot 3). Le trait, la grille, le halo des
+  étiquettes, les poignées et les pastilles de cotes du plan à l'écran reprennent les jetons de la
+  palette du serveur (`--ink`, `--rule`, `--paper`, `--accent`, `--panel-bg`, `--on-ink`) dans le
+  thème affiché, et le plan se redessine quand elle arrive. Les cotes gardent leur bleu. Les exports
+  gardent leurs propres encres : les six empreintes sont inchangées.
 - **Palette : une liste à régler, l'aperçu à côté** (refonte, lot 2).
   - Quatre onglets : **Couleurs**, **Contrastes**, CSS, Typo. `#palette`, l'ancienne adresse, mène
     aux couleurs.

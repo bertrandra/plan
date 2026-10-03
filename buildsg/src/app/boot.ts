@@ -77,6 +77,7 @@ import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJ
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 import { estTerrasse, estVueUtilisable } from '../model/fonctions.js';
+import { EVENEMENT_ENCRES } from '../render/theme.js';
 
 brancherFiletsDErreur();
 
@@ -385,6 +386,9 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
   tiroir.activer(etat.panelTab, false);
   p.render();
+  // La palette du serveur peut arriver apres ce premier rendu : le plan reprend alors ses encres
+  // (app/paletteServeur.ts, render/theme.ts).
+  window.addEventListener(EVENEMENT_ENCRES, () => p.render());
   // Un terrain venu du cadastre est cadre a sa taille reelle ; un plan dessine a la main garde le
   // cadrage historique, ses coordonnees ont ete posees avec.
   const parcelle = etat.objects.find(o => o.key === 'parcelle');
