@@ -1,9 +1,9 @@
-// L'ecran de la palette de l'admin (`?admin&ecran=palette`), a cote de celui des controleurs.
+// L'ecran de la palette (`?palette`), sans porte : il ne montre que les jetons de l'interface.
 //
 // Un ecran a part, sur toute la page, qui montre les couleurs de l'interface : d'abord une planche
 // d'ambiance (ce que la palette evoque), puis sa structure famille par famille (chaque jeton, son
-// role, ses deux valeurs), les contrastes que le test exige, les couleurs en situation sur de vraies
-// commandes, et les formes. Il ne modifie rien : il lit `styles/jetons.ts`, la source que la feuille
+// role, ses deux valeurs), les contrastes que le test exige, les polices et leur echelle, les
+// couleurs en situation sur de vraies commandes, et les formes. Il ne modifie rien : il lit `styles/jetons.ts`, la source que la feuille
 // de style et son test confrontent.
 //
 // Pour montrer un theme quel que soit celui du systeme, chaque panneau pose lui-meme les variables
@@ -11,7 +11,7 @@
 // `var()`, comme l'atelier. Les deux themes se regardent ainsi cote a cote, au pixel pres.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, contraste, type NomJeton } from '../styles/jetons.js';
+import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, ECHELLE_TEXTE, contraste, type NomJeton, type NomPolice } from '../styles/jetons.js';
 
 type Theme = 'clair' | 'sombre';
 type Choix = Theme | 'deux';
@@ -37,7 +37,7 @@ export function EcranPalette() {
         <div>
           <h1 className="palTitre">Palette de l’interface</h1>
           <p className="palSous">
-            {JETONS_ORDONNES.length} jetons de couleur en {FAMILLES_JETONS.length} familles, deux thèmes. Source : <code>src/styles/jetons.ts</code>, déclarée
+            {JETONS_ORDONNES.length} jetons de couleur en {FAMILLES_JETONS.length} familles, {Object.keys(POLICES).length} polices, deux thèmes. Source : <code>src/styles/jetons.ts</code>, déclarée
             dans <code>src/styles/app.css</code> ; un test vérifie que les deux concordent et que les contrastes tiennent.
           </p>
         </div>
@@ -64,6 +64,10 @@ export function EcranPalette() {
 
       <Section titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
         <Contrastes />
+      </Section>
+
+      <Section titre="Typographie" idee="Deux familles, deux rôles — le serif pour le document, le sans pour l’instrument — et le monospace pour ce qui se recopie. Des polices du système : rien n’est téléchargé.">
+        <Themes themes={themes}>{() => <Typographie />}</Themes>
       </Section>
 
       <Section titre="En situation" idee="Les mêmes jetons sur de vraies commandes de l’atelier : panneau, champ, boutons, alerte, notification.">
@@ -140,6 +144,14 @@ function PlancheAmbiance() {
         <span className="palViseur" aria-hidden="true" />
         <span className="palLegende palLegende--camera">Chambre noire</span>
         <span className="palJetons palJetons--camera"><Jeton nom="camera-bg" /> <Jeton nom="camera-ok" /></span>
+      </div>
+      <div className="palTuile palTuile--polices" aria-label="Les trois polices">
+        <span className="palTrio" aria-hidden="true">
+          <span style={{ fontFamily: 'var(--serif)' }}>Aa</span>
+          <span style={{ fontFamily: 'var(--sans)' }}>Aa</span>
+          <span style={{ fontFamily: 'var(--mono)' }}>Aa</span>
+        </span>
+        <span className="palJetons"><code className="palJeton">--serif</code> <code className="palJeton">--sans</code> <code className="palJeton">--mono</code></span>
       </div>
       <div className="palTuile palTuile--plan">
         <span className="palTrame" aria-hidden="true" />
@@ -236,6 +248,49 @@ function EnSituation() {
         <p className="palEtat palEtat--danger">▲ La terrasse sort de la parcelle.</p>
       </div>
       <div className="palToast" role="status">Projet enregistré.</div>
+    </div>
+  );
+}
+
+const ORDRE_POLICES: NomPolice[] = ['serif', 'sans', 'mono'];
+
+/** Les polices : une carte par famille (specimen, pile, role, usages), puis l'echelle des tailles. */
+function Typographie() {
+  return (
+    <div className="palTypo">
+      <div className="palPolices">
+        {ORDRE_POLICES.map(n => {
+          const p = POLICES[n];
+          const famille = { fontFamily: 'var(--' + n + ')' };
+          return (
+            <div key={n} className="palPolice">
+              <span className="palSpecimen" style={famille}>Aa</span>
+              <div className="palPoliceTexte">
+                <p className="palPoliceNom">{p.nom}</p>
+                <code className="palPile">--{n}: {p.pile}</code>
+                <p className="palPoliceRole">{p.role}</p>
+                <p className="palAlphabet" style={famille}>ABCDEFGHIJ abcdefghij àéèêçœ 0123456789 € m² ×</p>
+                <ul className="palUsages" style={famille}>{p.usages.map(u => <li key={u}>{u}</li>)}</ul>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="palEchelle">
+        {ECHELLE_TEXTE.map(e => (
+          <div key={e.taille} className="palEchelleLigne">
+            <code className="palEchelleTaille">{e.taille}</code>
+            <span className="palEchelleUsage">{e.usage}</span>
+            <span className={'palEchelleExemple' + (e.capitales ? ' palEchelleExemple--capitales' : '')}
+              style={{ fontSize: e.taille, fontFamily: 'var(--' + e.police + ')' }}>{e.exemple}</span>
+          </div>
+        ))}
+        <div className="palEchelleLigne">
+          <code className="palEchelleTaille">tabular-nums</code>
+          <span className="palEchelleUsage">Chiffres en colonne</span>
+          <span className="palChiffres"><span>1 295,00 €</span><span>508,75 €</span><span>37 u</span></span>
+        </div>
+      </div>
     </div>
   );
 }

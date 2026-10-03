@@ -133,6 +133,44 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
 };
 
 /**
+ * Les polices : deux familles, deux roles, et le monospace pour ce qui se recopie (spec-ihm-mobile
+ * §5.2, decision 1 : des piles systeme, aucune police telechargee). `app.css` les declare en
+ * `--serif`, `--sans` et `--mono` avec ces piles exactes ; un test le verifie, comme les couleurs.
+ */
+export type NomPolice = 'serif' | 'sans' | 'mono';
+
+export const POLICES: Record<NomPolice, { nom: string; pile: string; role: string; usages: string[] }> = {
+  serif: {
+    nom: 'Serif — le document',
+    pile: 'Georgia,"Iowan Old Style",serif',
+    role: 'Ce qu’on lit comme un document : noms d’objets, titres de panneaux, boutons principaux, indications en italique.',
+    usages: ['Titre d’un panneau', 'Nom d’un objet', 'Indication en italique']
+  },
+  sans: {
+    nom: 'Sans — l’instrument',
+    pile: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    role: 'Ce qu’on manipule : menus, palette, barre d’état, libellés de champs, en-têtes de section en petites capitales.',
+    usages: ['Libellé d’un champ', 'Entrée de menu', 'EN-TÊTE DE SECTION']
+  },
+  mono: {
+    nom: 'Monospace — ce qui se recopie',
+    pile: 'ui-monospace,"SF Mono",Menlo,monospace',
+    role: 'Seulement ce qui se recopie à l’identique : résumé, références de requête, bandeau d’erreur, clés.',
+    usages: ['AE 101 — parcelle', 'projet.enregistrer', '--accent']
+  }
+};
+
+/** L'echelle des tailles, en `rem` : compacte, c'est un logiciel metier. */
+export const ECHELLE_TEXTE: { taille: string; police: NomPolice; usage: string; exemple: string; capitales?: boolean }[] = [
+  { taille: '1.6rem', police: 'serif', usage: 'Titre d’écran', exemple: 'Palette de l’interface' },
+  { taille: '1.15rem', police: 'serif', usage: 'Titre de boîte', exemple: 'Configurer la terrasse' },
+  { taille: '1.05rem', police: 'serif', usage: 'Titre de panneau', exemple: 'Terrasse — 35,01 m²' },
+  { taille: '0.8rem', police: 'sans', usage: 'Corps, libellés', exemple: 'Entraxe des solives' },
+  { taille: '0.72rem', police: 'sans', usage: 'Notes, unités', exemple: 'Les deux coins de ce côté sont figés.' },
+  { taille: '0.62rem', police: 'sans', usage: 'En-tête de section', exemple: 'Fondation', capitales: true }
+];
+
+/**
  * Les paires qui portent du texte : [texte, fond, contraste minimal]. 4,5 pour le corps ; 3 pour les
  * grands chiffres et les bordures de commande, qui ne portent pas de lecture fine.
  */

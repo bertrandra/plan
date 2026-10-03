@@ -4,9 +4,9 @@ import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranPalette } from '../../../src/zones/EcranPalette.js';
 import { demandeEcranPalette } from '../../../src/app/ecranPalette.js';
-import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE } from '../../../src/styles/jetons.js';
+import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, ECHELLE_TEXTE } from '../../../src/styles/jetons.js';
 
-// L'ecran de la palette de l'admin (`?admin&ecran=palette`) : il montre chaque jeton, famille par
+// L'ecran de la palette (`?palette`) : il montre chaque jeton, famille par
 // famille, chaque paire de contraste, et pose sur chaque panneau les variables de son theme.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -23,8 +23,10 @@ describe('l ecran de la palette', () => {
     return hote;
   };
 
-  it('s ouvre sur ?admin&ecran=palette, pas sur l ecran des controleurs', () => {
+  it('s ouvre sur ?palette (et l ancienne adresse), pas sur l ecran des controleurs', () => {
+    expect(demandeEcranPalette('?palette')).toBe(true);
     expect(demandeEcranPalette('?admin&ecran=palette')).toBe(true);
+    expect(demandeEcranPalette('')).toBe(false);
     expect(demandeEcranPalette('?admin&ecran=controleurs')).toBe(false);
   });
 
@@ -51,5 +53,13 @@ describe('l ecran de la palette', () => {
     act(() => { clair.click(); });
     expect(hote.querySelectorAll('[data-theme-montre="sombre"]').length).toBe(0);
     expect(hote.querySelectorAll('[data-theme-montre="clair"]').length).toBeGreaterThan(0);
+  });
+
+  it('montre chaque police et chaque taille de l echelle, dans chaque theme', () => {
+    const hote = monter();
+    const themes = hote.querySelectorAll('.palTypo').length;
+    expect(themes).toBe(2);
+    expect(hote.querySelectorAll('.palPolice').length).toBe(Object.keys(POLICES).length * themes);
+    expect(hote.querySelectorAll('.palEchelleExemple').length).toBe(ECHELLE_TEXTE.length * themes);
   });
 });

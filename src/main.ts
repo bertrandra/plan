@@ -30,6 +30,15 @@ async function demarrer(): Promise<void> {
       return;
     }
 
+    // `?palette` : les couleurs et les polices de l'interface (app/ecranPalette.ts). Ni porte ni
+    // session : l'ecran ne montre que les jetons, rien du projet ni de la plateforme.
+    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+    if (demandeEcranPalette(location.search)) {
+      document.documentElement.dataset.ecran = 'palette';
+      ouvrirEcranPalette();
+      return;
+    }
+
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
     const { lireVitrine, poserVitrine, chargerDemoVitrine } = await import('./app/vitrine.js');
@@ -59,13 +68,6 @@ async function demarrer(): Promise<void> {
       if (demandeEcranControleurs(location.search)) {
         document.documentElement.dataset.ecran = 'controleurs';
         await ouvrirEcranControleurs();
-        return;
-      }
-      // L'ecran de la palette (`?admin&ecran=palette`) : les couleurs de l'interface, sans Plan dessous.
-      const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
-      if (demandeEcranPalette(location.search)) {
-        document.documentElement.dataset.ecran = 'palette';
-        ouvrirEcranPalette();
         return;
       }
       const { entrerEnAdmin } = await import('./app/acces.js');

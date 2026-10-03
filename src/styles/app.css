@@ -1539,7 +1539,7 @@
     .ctlNiveauBouton{ min-width:44px; }
   }
 
-  /* L'ecran de la palette de l'admin (zones/EcranPalette.tsx). Plan ne tourne pas dessous. Chaque
+  /* L'ecran de la palette (`?palette`, zones/EcranPalette.tsx). Plan ne tourne pas dessous. Chaque
      panneau de theme pose lui-meme les variables de son theme (style en ligne, valeurs lues dans
      styles/jetons.ts) : ce qui suit ne lit que des var(), et aucune couleur n'y est en dur. */
   html[data-ecran="palette"] body > :not(#zoneEcranPalette):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
@@ -1597,7 +1597,11 @@
   .palTuile--chambre{ background:var(--camera-bg); border-color:var(--camera-bg); }
   .palViseur{ position:absolute; top:10px; right:12px; width:44px; height:30px; border:2px solid var(--camera-ok); border-radius:4px; }
   .palViseur::after{ content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:var(--camera-alerte); }
-  .palTuile--plan{ grid-column:span 2; background:var(--stage-bg); }
+  .palTuile--plan{ background:var(--stage-bg); }
+  .palTuile--polices{ background:var(--panel-bg); }
+  .palTrio{ display:flex; gap:10px; align-items:baseline; font-size:1.7rem; line-height:1; color:var(--ink); margin-bottom:auto; }
+  .palTrio span:nth-child(2){ color:var(--accent); }
+  .palTrio span:nth-child(3){ font-size:1.4rem; color:var(--ink-soft); }
   .palTrame{ position:absolute; inset:0; background-image:linear-gradient(var(--stage-trame) 1px, transparent 1px), linear-gradient(90deg, var(--stage-trame) 1px, transparent 1px); background-size:16px 16px; opacity:.7; }
   .palTuile--plan > :not(.palTrame){ position:relative; }
   .palTuile--mots{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-content:center; justify-content:flex-start; gap:6px; background:var(--panel-2); }
@@ -1624,6 +1628,27 @@
   .palVerdict{ font-size:0.7rem; padding:1px 8px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); }
   .palVerdict--non{ background:var(--danger-bg); color:var(--danger); }
 
+  /* Les polices et leur echelle. */
+  .palTypo{ display:flex; flex-direction:column; gap:14px; }
+  .palPolices{ display:flex; flex-direction:column; gap:10px; }
+  .palPolice{ display:flex; gap:16px; align-items:flex-start; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); }
+  .palSpecimen{ flex:none; width:84px; font-size:3.4rem; line-height:1; color:var(--accent); text-align:center; }
+  .palPoliceTexte{ min-width:0; display:flex; flex-direction:column; gap:4px; }
+  .palPoliceNom{ margin:0; font-family:var(--serif); font-size:1.05rem; }
+  .palPile{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); word-break:break-word; }
+  .palPoliceRole{ margin:0; font-family:var(--sans); font-size:0.78rem; color:var(--ink-soft); }
+  .palAlphabet{ margin:2px 0 0; font-size:1rem; color:var(--ink); word-break:break-word; }
+  .palUsages{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 0; padding:0; list-style:none; }
+  .palUsages li{ font-size:0.78rem; padding:2px 10px; border-radius:999px; background:var(--panel-2); color:var(--ink); }
+  .palEchelle{ border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); overflow:hidden; }
+  .palEchelleLigne{ display:grid; grid-template-columns:96px 150px minmax(0, 1fr); gap:12px; align-items:baseline; padding:8px 12px; border-bottom:1px solid var(--hairline); }
+  .palEchelleLigne:last-child{ border-bottom:none; }
+  .palEchelleTaille{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .palEchelleUsage{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); }
+  .palEchelleExemple{ color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .palEchelleExemple--capitales{ letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; }
+  .palChiffres{ display:flex; gap:16px; font-family:var(--sans); font-size:0.8rem; font-variant-numeric:tabular-nums; color:var(--ink); }
+
   /* En situation. */
   .palSituation{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
   .palPanneau{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); box-shadow:var(--ombre-flottante); }
@@ -1646,10 +1671,12 @@
   @media (max-width: 1023px){
     .palThemes--deux{ grid-template-columns:minmax(0, 1fr); }
     .palPlanche{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-template-rows:none; grid-auto-rows:minmax(120px, auto); }
+    .palEchelleLigne{ grid-template-columns:minmax(0, 1fr); gap:2px; }
+    .palSpecimen{ width:56px; font-size:2.4rem; }
     .palTuile--mots{ min-height:0; }
     .palActions .segmente button, .palLien{ min-height:44px; display:inline-flex; align-items:center; }
   }
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }
-    .palTuile--bois, .palTuile--plan{ grid-column:span 2; }
+    .palTuile--bois{ grid-column:span 2; }
   }

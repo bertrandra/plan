@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { JETONS, PAIRES_CONTRASTE, contraste } from '../../../src/styles/jetons.js';
+import { JETONS, PAIRES_CONTRASTE, POLICES, contraste } from '../../../src/styles/jetons.js';
 
 // Les jetons de couleur (MD/spec-ihm-mobile.md §5.1) : declares dans la feuille avec la valeur de
 // jetons.ts, dans les deux themes, et lisibles.
@@ -38,5 +38,15 @@ describe('les jetons de couleur', () => {
     const horsJetons = css.slice(0, css.indexOf(':root{')) + css.slice(css.indexOf('}', css.indexOf(':root', debutSombre)) + 1);
     const couleurs = horsJetons.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
     expect(couleurs).toEqual([]);
+  });
+});
+
+describe('les polices', () => {
+  it('sont declarees dans la feuille avec la pile de jetons.ts', () => {
+    const compact = (t: string) => t.replace(/\s+/g, '');
+    const manques = Object.entries(POLICES)
+      .filter(([nom, p]) => !compact(blocClair).includes(compact('--' + nom + ':' + p.pile + ';')))
+      .map(([nom]) => '--' + nom);
+    expect(manques).toEqual([]);
   });
 });

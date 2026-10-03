@@ -274,7 +274,7 @@ function Entete({ decouverte, registre, cmp, enCours, enDecouverte, enregistrer,
             {enCours ? 'Enregistrement…' : 'Enregistrer la découverte'}
           </button>
         )}
-        <a className="ctlLien" href="?admin&ecran=palette">Palette de l’interface</a>
+        <a className="ctlLien" href="?palette">Palette de l’interface</a>
         <a className="ctlLien" href="?admin">Admin des démos</a>
       </div>
     </header>
