@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spécification : la palette dans backprod** (`MD/spec-palette-plateforme.md`). Une palette par
+  produit (« palette admin ») et une par tenant, résolues jeton par jeton sur les couleurs d'origine,
+  réglées par le `PLATFORM_ADMIN` (permission `staff.palette.manage`), le `TENANT_ADMIN` en v2
+  (`skin.manage` + `white_label`). Jetons déclarés par le produit dans son manifeste, palette du
+  tenant rangée avec l'habillage existant, historique restaurable, audit, ordre de travail en neuf
+  étapes. Documentation seulement.
 - **Admin : l'écran de la palette** (`/?palette`, derrière la porte de l'admin comme l'écran des
   contrôleurs ; `?admin&ecran=palette` y mène aussi). Trois onglets :
   - **Palette** : une planche d'ambiance (bois, papier, encre, jardin, brique, ciel, chambre noire,
