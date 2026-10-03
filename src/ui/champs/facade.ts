@@ -10,9 +10,10 @@ import { designerFacade } from '../../facade/choix.js';
 import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import type { ObjetPlan, FormeToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
+import { aParticularite } from '../../model/fonctions.js';
 
 /** Un batiment : le seul objet qui porte des facades et un toit. */
-export const estBatiment = (o: ObjetPlan) => o.type === 'polygon' && (o.fonction === 'batiment' || o.fonction === 'annexe');
+export const estBatiment = (o: ObjetPlan) => aParticularite(o, 'releve');
 
 const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
