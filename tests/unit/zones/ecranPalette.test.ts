@@ -29,6 +29,11 @@ describe('l ecran de la palette', () => {
     return hote;
   };
 
+  const onglet = (hote: HTMLElement, nom: string) => {
+    const b = [...hote.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(e => e.textContent === nom)!;
+    act(() => { b.click(); });
+  };
+
   it('s ouvre sur ?palette (et l ancienne adresse), pas sur l ecran des controleurs', () => {
     expect(demandeEcranPalette('?palette')).toBe(true);
     expect(demandeEcranPalette('?admin&ecran=palette')).toBe(true);
@@ -42,10 +47,12 @@ describe('l ecran de la palette', () => {
     expect(Object.keys(ROLES_JETONS).sort()).toEqual(Object.keys(JETONS.clair).sort());
   });
 
-  it('montre une carte par jeton et une ligne par paire de contraste', () => {
+  it('montre une ligne par jeton, et une ligne par paire de contraste dans son onglet', () => {
     const hote = monter();
-    const noms = [...hote.querySelectorAll('.palCarte .palNom')].map(e => e.textContent);
+    const noms = [...hote.querySelectorAll('.palLigneJeton .palLigneNom code')].map(e => e.textContent);
     expect(noms.sort()).toEqual(Object.keys(ROLES_JETONS).map(n => '--' + n).sort());
+    expect(hote.querySelector('.palContrastes')).toBeNull();
+    onglet(hote, 'Contrastes');
     expect(hote.querySelectorAll('.palContrastes tbody tr').length).toBe(PAIRES_CONTRASTE.length);
     // Le verdict est ecrit en toutes lettres, pas porte par la seule couleur.
     expect(hote.querySelectorAll('.palVerdict--non').length).toBe(0);
@@ -61,22 +68,19 @@ describe('l ecran de la palette', () => {
     expect(hote.querySelectorAll('[data-theme-montre="clair"]').length).toBeGreaterThan(0);
   });
 
-  const onglet = (hote: HTMLElement, nom: string) => {
-    const b = [...hote.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(e => e.textContent === nom)!;
-    act(() => { b.click(); });
-  };
-
-  it('range l ecran en trois onglets : Palette, CSS, Typo', () => {
+  it('range l ecran en quatre onglets : Couleurs, Contrastes, CSS, Typo', () => {
     const hote = monter();
-    expect([...hote.querySelectorAll('[role="tab"]')].map(e => e.textContent)).toEqual(['Palette', 'CSS', 'Typo']);
-    expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Palette');
+    expect([...hote.querySelectorAll('[role="tab"]')].map(e => e.textContent)).toEqual(['Couleurs', 'Contrastes', 'CSS', 'Typo']);
+    expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Couleurs');
     expect(hote.querySelector('.palCodeTexte')).toBeNull();
     onglet(hote, 'CSS');
     expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('CSS');
-    expect(hote.querySelector('.palCarte')).toBeNull();
+    expect(hote.querySelector('.palLigneJeton')).toBeNull();
     expect(hote.querySelector('.palCodeTexte')?.textContent).toContain('--ink: ' + JETONS.clair.ink + ';');
     expect(ongletDeLAdresse('#typo')).toBe('typo');
-    expect(ongletDeLAdresse('#inconnu')).toBe('palette');
+    expect(ongletDeLAdresse('#contrastes')).toBe('contrastes');
+    expect(ongletDeLAdresse('#palette')).toBe('couleurs');
+    expect(ongletDeLAdresse('#inconnu')).toBe('couleurs');
   });
 
   it('a un bouton de retour au plan', () => {
@@ -113,8 +117,8 @@ describe('l ecran de la palette', () => {
   it('donne a chaque couleur un selecteur et un code, par theme', () => {
     const hote = monter();
     const n = Object.keys(ROLES_JETONS).length;
-    expect(hote.querySelectorAll('.palCarte input[type="color"]').length).toBe(n * 2);
-    expect(hote.querySelectorAll('.palCarte .palCodeCouleur').length).toBe(n * 2);
+    expect(hote.querySelectorAll('.palLigneJeton input[type="color"]').length).toBe(n * 2);
+    expect(hote.querySelectorAll('.palLigneJeton .palCodeCouleur').length).toBe(n * 2);
     expect(code(hote, 'accent', 'sombre').value).toBe(JETONS.sombre.accent);
   });
 
@@ -231,11 +235,51 @@ describe('l ecran de la palette', () => {
     const pastille = hote.querySelector<HTMLButtonElement>('.palPastilleContraste')!;
     expect(pastille.textContent).toBe('3 contrastes insuffisants');
     act(() => { pastille.click(); });
+    expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Contrastes');
     const lignes = [...hote.querySelectorAll('.palContrastes tbody tr')];
     expect(lignes).toHaveLength(3);
     expect(lignes.every(l => l.textContent!.includes('--ink-soft'))).toBe(true);
     act(() => { hote.querySelector<HTMLInputElement>('.palFiltreContraste input')!.click(); });
     expect(hote.querySelectorAll('.palContrastes tbody tr').length).toBe(PAIRES_CONTRASTE.length);
+  });
+
+  it('filtre la liste : modifiees, contraste insuffisant, recherche', () => {
+    const hote = monter();
+    const n = Object.keys(ROLES_JETONS).length;
+    const lignes = () => [...hote.querySelectorAll<HTMLElement>('.palLigneJeton')].map(l => l.dataset.jeton);
+    const filtre = (debut: string) => act(() => { [...hote.querySelectorAll<HTMLButtonElement>('.palFiltre')].find(b => b.textContent!.startsWith(debut))!.click(); });
+    expect(lignes()).toHaveLength(n);
+    filtre('Modifiées');
+    expect(lignes()).toHaveLength(0);
+    expect(hote.querySelector('.palVide')?.textContent).toMatch(/Aucune couleur modifiée/);
+    filtre('Toutes');
+    saisir(code(hote, 'accent', 'clair'), '#336699');
+    filtre('Modifiées');
+    expect(lignes()).toEqual(['accent']);
+    expect(hote.querySelector('[data-jeton="accent"] .palLigneEtat')?.textContent).toBe('non enregistrée');
+    filtre('Toutes');
+    saisir(code(hote, 'ink-soft', 'clair'), '#FFFDF8');
+    filtre('Contraste insuffisant');
+    expect(lignes()).toContain('ink-soft');
+    expect(lignes()).not.toContain('accent');
+    expect(hote.querySelector('[data-jeton="ink-soft"] .palLigneEtat')?.textContent).toMatch(/^contraste \d,\d\d$/);
+    filtre('Toutes');
+    saisir(hote.querySelector<HTMLInputElement>('.palCherche')!, 'toast');
+    expect(lignes().length).toBeGreaterThan(0);
+    expect(lignes().every(j => j!.includes('toast'))).toBe(true);
+  });
+
+  it('montre l apercu a cote de la liste : commandes ou planche', () => {
+    const hote = monter();
+    const apercu = hote.querySelector<HTMLElement>('.palVueApercu')!;
+    expect(apercu.querySelectorAll('[data-theme-montre]').length).toBe(2);
+    expect(apercu.querySelector('.palPlanche')).toBeNull();
+    act(() => { [...apercu.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(b => b.textContent === 'Planche')!.click(); });
+    expect(apercu.querySelector('.palPlanche')).not.toBeNull();
+    act(() => { hote.querySelector<HTMLButtonElement>('.palOuvrirApercu')!.click(); });
+    expect(apercu.classList.contains('palVueApercu--ouvert')).toBe(true);
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(apercu.classList.contains('palVueApercu--ouvert')).toBe(false);
   });
 
   it('previent, au recapitulatif, que des contrastes restent insuffisants', () => {

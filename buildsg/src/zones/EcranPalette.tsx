@@ -1,8 +1,10 @@
 // L'ecran de la palette (`?palette`), derriere la porte de l'admin comme celui des controleurs.
 //
-// Un ecran a part, sur toute la page, en trois onglets :
-//   - Palette : une planche d'ambiance (ce que la palette evoque), les couleurs a regler famille par
-//     famille (chaque jeton, son role, ses deux valeurs) et les contrastes exiges ;
+// Un ecran a part, sur toute la page, en quatre onglets :
+//   - Couleurs : la liste des jetons, une ligne par jeton (son role, ses valeurs, son etat), a
+//     filtrer et a chercher, avec a cote un apercu colle (commandes en situation ou planche
+//     d'ambiance) qui suit chaque reglage sans qu'on ait a defiler ;
+//   - Contrastes : les paires exigees, leur rapport et leur verdict ;
 //   - CSS : les variables telles que la feuille les declare, a copier, puis les memes jetons en
 //     situation sur de vraies commandes, et les rayons et ombres ;
 //   - Typo : les polices, leur role et l'echelle des tailles.
@@ -12,13 +14,16 @@
 // en JSON, ou part d'un des modeles. Les valeurs d'origine restent celles de `styles/jetons.ts`.
 //
 // Le dossier ecranPalette/ porte le reste : l'etat et les gestes (edition.ts), la barre (barre.tsx),
-// les vues (vues.tsx), ce qu'elles partagent (commun.tsx) et le selecteur avance.
+// la liste et l'apercu (liste.tsx), les autres vues (vues.tsx), ce qu'elles partagent (commun.tsx) et le selecteur avance.
 
 import { useState } from 'react';
 import { FAMILLES_JETONS, type NomJeton } from '../styles/jetons.js';
 import { useEditionPalette, type OptionsEdition } from './ecranPalette/edition.js';
 import { BarrePalette } from './ecranPalette/barre.js';
-import { CodeCss, Contrastes, EnSituation, Formes, PlancheAmbiance, Structure, Typographie } from './ecranPalette/vues.js';
+import { CodeCss, Contrastes, EnSituation, Formes, Typographie } from './ecranPalette/vues.js';
+import { Apercu, ListeJetons } from './ecranPalette/liste.js';
+import type { Couleurs } from '../styles/paletteServeur.js';
+import type { Defaut } from './ecranPalette/edition.js';
 import { JETONS_ORDONNES, NOMS_THEMES, ONGLETS, ORDRE_POLICES, Palette, Section, Themes, ongletDeLAdresse, type Choix, type Onglet, type Theme } from './ecranPalette/commun.js';
 
 export { texteCss } from './ecranPalette/vues.js';
@@ -29,12 +34,12 @@ export interface PropsEcranPalette extends OptionsEdition {
   retour?: string;
 }
 
-/** L'onglet courant, lu dans l'adresse (`#css`, `#typo`) et ecrit dedans sans entree d'historique. */
+/** L'onglet courant, lu dans l'adresse (`#contrastes`, `#css`, `#typo`) et ecrit dedans sans entree d'historique. */
 function useOnglet(): [Onglet, (o: Onglet) => void] {
-  const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'palette');
+  const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'couleurs');
   const choisir = (o: Onglet) => {
     setOnglet(o);
-    try { history.replaceState(null, '', o === 'palette' ? location.pathname + location.search : '#' + o); } catch { /* sans historique : l'onglet change quand meme */ }
+    try { history.replaceState(null, '', o === 'couleurs' ? location.pathname + location.search : '#' + o); } catch { /* sans historique : l'onglet change quand meme */ }
   };
   return [onglet, choisir];
 }
@@ -45,9 +50,9 @@ export function EcranPalette({ retour = '?admin', ...options }: PropsEcranPalett
   const [seulementDefauts, setSeulementDefauts] = useState(false);
   const e = useEditionPalette(options);
   const themes: Theme[] = choix === 'deux' ? ['clair', 'sombre'] : [choix];
-  /** L'alerte de contraste mene aux paires en defaut : l'onglet Palette, le tableau filtre. */
+  /** L'alerte de contraste mene aux paires en defaut : l'onglet Contrastes, le tableau filtre. */
   const allerAuxContrastes = () => {
-    choisirOnglet('palette');
+    choisirOnglet('contrastes');
     setSeulementDefauts(true);
     requestAnimationFrame(() => document.getElementById('palContrastes')?.scrollIntoView({ block: 'start' }));
   };
@@ -77,17 +82,19 @@ export function EcranPalette({ retour = '?admin', ...options }: PropsEcranPalett
 
       <BarrePalette e={e} allerAuxContrastes={allerAuxContrastes} />
 
-      <Volets themes={themes} regler={e.regler} onglet={onglet} choisir={choisirOnglet} contrastes={{ seulementDefauts, basculer: setSeulementDefauts }} />
+      <Volets themes={themes} regler={e.regler} reference={e.reference} defauts={e.defauts} onglet={onglet} choisir={choisirOnglet} contrastes={{ seulementDefauts, basculer: setSeulementDefauts }} />
     </div>
     </Palette.Provider>
   );
 }
 
-/** Les trois onglets, Palette, CSS et Typo, et le volet de celui qui est choisi. */
-function Volets({ themes, regler, onglet, choisir, contrastes }: {
-  themes: Theme[]; regler: (theme: Theme, nom: NomJeton, valeur: string) => void;
+/** Les quatre onglets, Couleurs, Contrastes, CSS et Typo, et le volet de celui qui est choisi. */
+function Volets({ themes, regler, reference, defauts, onglet, choisir, contrastes }: {
+  themes: Theme[]; regler: (theme: Theme, nom: NomJeton, valeur: string) => void; reference: Couleurs; defauts: Defaut[];
   onglet: Onglet; choisir: (o: Onglet) => void; contrastes: { seulementDefauts: boolean; basculer: (v: boolean) => void };
 }) {
+  // L'apercu au doigt : une feuille ouverte depuis la liste ; au bureau il est toujours la.
+  const [apercu, setApercu] = useState(false);
   const clavier = (e: React.KeyboardEvent) => {
     const i = ONGLETS.findIndex(o => o.id === onglet);
     const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? ONGLETS.length - 1 : -2;
@@ -110,17 +117,18 @@ function Volets({ themes, regler, onglet, choisir, contrastes }: {
         </div>
 
         <div className="palVolet" role="tabpanel" id={'palVolet-' + onglet} aria-labelledby={'palOnglet-' + onglet}>
-          {onglet === 'palette' && <>
-            <Section titre="Planche d’ambiance" idee="Ce que la palette évoque avant d’être un tableau de valeurs : un atelier de menuisier, du papier, de l’encre, un jardin.">
-              <Themes themes={themes}>{() => <PlancheAmbiance />}</Themes>
-            </Section>
-            <Section titre="Couleurs" idee="Chaque jeton, famille par famille : son rôle, et sa valeur dans chaque thème — à régler au sélecteur ou par son code. Les aperçus, les contrastes et le CSS suivent aussitôt.">
-              <Structure regler={regler} />
-            </Section>
+          {onglet === 'couleurs' && (
+            <div className="palAtelier">
+              <ListeJetons themes={themes} regler={regler} reference={reference} defauts={defauts} ouvrirApercu={() => setApercu(true)} />
+              <Apercu themes={themes} ouvert={apercu} fermer={() => setApercu(false)} />
+            </div>
+          )}
+
+          {onglet === 'contrastes' && (
             <Section id="palContrastes" titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
               <Contrastes seulementDefauts={contrastes.seulementDefauts} basculer={contrastes.basculer} />
             </Section>
-          </>}
+          )}
 
           {onglet === 'css' && <>
             <Section titre="Variables" idee="Les jetons de la palette en cours, déclarés comme dans la feuille : le bloc clair sur :root, le bloc sombre sous prefers-color-scheme, puis les polices et les rayons.">

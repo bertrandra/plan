@@ -3,7 +3,7 @@
 // par le contexte `Palette` (commun.tsx), jamais `JETONS` directement.
 
 import { useCallback, useContext, useRef, useState } from 'react';
-import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE, contraste, type NomJeton } from '../../styles/jetons.js';
+import { JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE, contraste, type NomJeton } from '../../styles/jetons.js';
 import { couleursParDefaut, couleurValide, type Couleurs } from '../../styles/paletteServeur.js';
 import { SelecteurCouleur } from './SelecteurCouleur.js';
 import { Icone } from '../icones.js';
@@ -107,43 +107,13 @@ export function PlancheAmbiance() {
   );
 }
 
-/** Les couleurs : une rangee par famille, une carte par jeton, un reglage par theme. */
-export function Structure({ regler }: { regler: (theme: Theme, nom: NomJeton, valeur: string) => void }) {
-  const couleurs = useContext(Palette);
-  return (
-    <div className="palFamilles">
-      {FAMILLES_JETONS.map(f => (
-        <div key={f.id} className="palFamille">
-          <h3 className="palFamilleTitre">{f.titre}</h3>
-          <p className="palFamilleIdee">{f.idee}</p>
-          <ul className="palNuancier">
-            {JETONS_ORDONNES.filter(n => ROLES_JETONS[n].famille === f.id).map(n => (
-              <li key={n} className="palCarte" data-jeton={n}>
-                <span className="palEchantillons" aria-hidden="true">
-                  <span className="palEchantillon" style={{ background: couleurs.clair[n] }} />
-                  <span className="palEchantillon" style={{ background: couleurs.sombre[n] }} />
-                </span>
-                <code className="palNom">--{n}</code>
-                <span className="palRole">{ROLES_JETONS[n].role}</span>
-                {(['clair', 'sombre'] as Theme[]).map(t => (
-                  <ReglageCouleur key={t} nom={n} theme={t} valeur={couleurs[t][n]} regler={regler} />
-                ))}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * Le reglage d'une couleur dans un theme : le selecteur du systeme, le selecteur avance
  * (zones/SelecteurCouleur.tsx) et le code `#RRGGBB`. Le code se saisit en brouillon et ne
  * s'applique que valide ; invalide, il est signale et la couleur ne bouge pas. Un bouton marque la
  * couleur qui differe de l'origine, et la remet a l'origine.
  */
-function ReglageCouleur({ nom, theme, valeur, regler }: { nom: NomJeton; theme: Theme; valeur: string; regler: (theme: Theme, nom: NomJeton, valeur: string) => void }) {
+export function ReglageCouleur({ nom, theme, valeur, regler }: { nom: NomJeton; theme: Theme; valeur: string; regler: (theme: Theme, nom: NomJeton, valeur: string) => void }) {
   const [brouillon, setBrouillon] = useState<string | null>(null);
   const [avance, setAvance] = useState(false);
   const boutonAvance = useRef<HTMLButtonElement>(null);
