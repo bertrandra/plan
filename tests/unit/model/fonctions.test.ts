@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { aParticularite, estTerrain, fonctionAdmise } from '../../../src/model/fonctions.js';
+import { aParticularite, estTerrain, estTerrasse, estVueUtilisable, fonctionAdmise, parcelleDuProjet, terrasseOuPremiere } from '../../../src/model/fonctions.js';
+import { synchroniserContexteTerrasse } from '../../../src/core/contexteTerrasse.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Le profil de chaque fonction (model/fonctions.ts) : les formes ou elle a un sens, et les sections
@@ -38,5 +39,27 @@ describe('profils de fonction', () => {
     expect(estTerrain({ key: 'parcelle', type: 'polygon' } as unknown as ObjetPlan)).toBe(true);
     expect(estTerrain(objet('terrain', 'polygon'))).toBe(true);
     expect(estTerrain(objet('massif', 'polygon'))).toBe(false);
+  });
+
+  it('ne fait pas d un cercle marque terrasse la terrasse courante : son calcul echouerait', () => {
+    const rond = { ...objet('terrasse', 'circle'), key: 'rond' };
+    const vraie = { ...objet('terrasse', 'polygon'), key: 'vraie' };
+    expect(estTerrasse(rond)).toBe(false);
+    expect(terrasseOuPremiere([rond, vraie], 'rond')?.key).toBe('vraie');
+    const etat = { objects: [rond, vraie], selectedKey: 'rond', terrasseSelectedKey: null };
+    synchroniserContexteTerrasse(etat);
+    expect(etat.terrasseSelectedKey).toBe('vraie');
+  });
+
+  it('ne liste comme point de vue que deux points', () => {
+    expect(estVueUtilisable(objet('camera', 'path'))).toBe(true);
+    expect(estVueUtilisable(objet('camera', 'circle'))).toBe(false);
+  });
+
+  it('prend la parcelle du projet avant une voisine, meme rangee apres', () => {
+    const voisine = { ...objet('terrain', 'polygon'), key: 'v1' };
+    const parcelle = { ...objet('terrain', 'polygon'), key: 'parcelle' };
+    expect(parcelleDuProjet([voisine, parcelle])?.key).toBe('parcelle');
+    expect(parcelleDuProjet([voisine])?.key).toBe('v1');
   });
 });

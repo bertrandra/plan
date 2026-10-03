@@ -13,7 +13,7 @@ import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
-import { aParticularite, estPointDeVue, estTerrain, fonctionAdmise } from '../../model/fonctions.js';
+import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
@@ -29,7 +29,7 @@ export const distanceAlignementSaisie = (): string => distanceAlignement;
 
 // Ce que la fonction donne a l'objet (sections, formes admises) est decrit une fois, dans
 // model/fonctions.ts.
-const estTerrasse = (o: ObjetPlan) => aParticularite(o, 'construction');
+const estTerrasse = terrasseCalculable;
 /** La parcelle du projet, celle qui porte la cloture et le lieu — pas une parcelle voisine. */
 const estParcellePrincipale = (c: ContexteChamps) => !!c.parcelle && c.parcelle.key === c.obj.key;
 const aDesPoints = (o: ObjetPlan) => o.type === 'polygon' || o.type === 'path';
@@ -221,8 +221,8 @@ const sectionParasol: Section = {
     // recherche de position. Indispensable des qu'il y a plusieurs terrasses.
     {
       type: 'choix', cle: 'terrasseLieeKey', libelle: 'Terrasse rattachée', effets: ['rendu'],
-      actif: (c) => c.objets.some(o => o.fonction === 'terrasse'),
-      options: (c) => { const t = c.objets.filter(o => o.fonction === 'terrasse'); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
+      actif: (c) => c.objets.some(estTerrasse),
+      options: (c) => { const t = c.objets.filter(estTerrasse); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
       lire: (c) => terrasseDuParasol(c.obj, c.objets, c.etat.terrasseSelectedKey)?.key || '',
       ecrire: (c, v) => { c.obj.terrasseLieeKey = v; }
     },

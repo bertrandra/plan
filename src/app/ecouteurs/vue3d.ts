@@ -22,6 +22,7 @@ import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
+import { estTerrasse } from '../../model/fonctions.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
@@ -58,7 +59,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   // Les boutons sont dans le panneau (zones/vue3d/Vue3d.tsx) : des commandes sans element a lier.
   const cam = (_idDom: string, id: string, libelle: string, executer: () => void, permission?: string) =>
     cmd.declarer({ id, libelle, groupe: '3d', executer, ...(permission ? { permission } : {}) });
-  const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey);
+  const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && estTerrasse(o));
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };

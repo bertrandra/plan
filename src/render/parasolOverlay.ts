@@ -11,6 +11,7 @@ import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerCartesOmbre, ombreInstantanee, type ContexteSoleil } from '../engine/parasol.js';
 import type { PtBrut , ObjetPlan } from '../model/types.js';
 import { enCercle } from '../model/formes.js';
+import { estParasol } from '../model/fonctions.js';
 
 /**
  * Ce que le calque des parasols lit d'un objet.
@@ -45,7 +46,7 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
   groupeOmbres.innerHTML = '';
   // Un parasol est un cercle (DEFAUTS D-14) : rien a projeter d'un polygone dit « parasol ».
   // Un parasol masque — par lui-meme, ou par une terrasse isolee — ne projette rien.
-  const parasols = etat.objects.filter(o=>o.fonction==='parasol' && o.type==='circle' && !o.hidden && (etat.isolement == null || o.key === etat.isolement));
+  const parasols = etat.objects.filter(o=>estParasol(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement));
   if(!parasols.length) return;
 
   if(etat.parasol.carteAffichee){
