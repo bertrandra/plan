@@ -61,6 +61,13 @@ async function demarrer(): Promise<void> {
         await ouvrirEcranControleurs();
         return;
       }
+      // L'ecran de la palette (`?admin&ecran=palette`) : les couleurs de l'interface, sans Plan dessous.
+      const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+      if (demandeEcranPalette(location.search)) {
+        document.documentElement.dataset.ecran = 'palette';
+        ouvrirEcranPalette();
+        return;
+      }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
       const { creerDepotDemos } = await import('./io/depotDemos.js');

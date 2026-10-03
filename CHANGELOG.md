@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin : l'écran de la palette** (`?admin&ecran=palette`), à côté de celui des contrôleurs. Il
+  montre les couleurs de l'interface : une planche d'ambiance (bois, papier, encre, jardin, brique,
+  ciel, chambre noire), la structure des 29 jetons en sept familles avec leur rôle et leurs deux
+  valeurs, les contrastes exigés par le test (verdict écrit en toutes lettres), les couleurs en
+  situation sur de vraies commandes, et les rayons et ombres. Chaque panneau pose les variables de
+  son thème : clair et sombre se comparent côte à côte, quel que soit le thème du système. Les
+  rôles des jetons vivent dans `styles/jetons.ts` (`ROLES_JETONS`, `FAMILLES_JETONS`).
+
 - **Contrôleurs : cohérence des déclarations.** La découverte signale un contrôle affiché hors de
   la zone que sa déclaration prévoit (aucun aujourd'hui, dans les trois classes d'écran). Les
   contrôles de feuille le déclarent : ils s'affichent dans chaque zone ouverte en feuille. Les

@@ -6,8 +6,9 @@
 // les paires texte/fond ci-dessous atteignent le contraste exige. Changer une couleur, c'est donc la
 // changer ici et dans la feuille, et le test dit si l'une a ete oubliee ou si la lecture en souffre.
 //
-// Aucun module de l'application ne lit ce fichier : les exports ont leurs propres encres, figees par
-// les empreintes, et le plan a l'ecran lit les siennes dans render/theme.ts.
+// L'atelier ne lit pas ce fichier : les exports ont leurs propres encres, figees par les empreintes,
+// et le plan a l'ecran lit les siennes dans render/theme.ts. Seul l'ecran de la palette de l'admin
+// (`?admin&ecran=palette`, zones/EcranPalette.tsx) le lit, pour montrer les valeurs et les contrastes.
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
@@ -80,6 +81,55 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'camera-ok': '#8FD49B',
     'camera-alerte': '#F2B38F'
   }
+};
+
+/** Les familles de la palette, dans l'ordre ou l'ecran de la palette les montre. */
+export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes';
+
+export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[] = [
+  { id: 'texte', titre: 'Encres', idee: 'Ce qui se lit : le texte, et le texte posé sur une couleur pleine.' },
+  { id: 'fonds', titre: 'Papiers', idee: 'Les fonds, du plus profond au plus clair : page, plan, panneaux, champs.' },
+  { id: 'traits', titre: 'Traits', idee: 'Bordures et filets : ils séparent sans peser.' },
+  { id: 'accent', titre: 'Bois', idee: 'L’accent : la sélection, l’état actif, le total. Une seule couleur forte.' },
+  { id: 'etats', titre: 'États', idee: 'Enregistré, alerte, danger : toujours accompagnés d’un mot ou d’une icône.' },
+  { id: 'notifications', titre: 'Notifications', idee: 'Le toast, en négatif de la page.' },
+  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' }
+];
+
+/**
+ * Le role de chaque jeton : sa famille et ce qu'il colore. Le type exige une entree par jeton, et
+ * l'ecran de la palette les montre famille par famille.
+ */
+export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: string }> = {
+  'ink': { famille: 'texte', role: 'Texte courant, titres' },
+  'ink-soft': { famille: 'texte', role: 'Libellés, notes, unités' },
+  'on-ink': { famille: 'texte', role: 'Texte sur l’encre (bouton principal)' },
+  'paper': { famille: 'fonds', role: 'Fond de page' },
+  'paper-deep': { famille: 'fonds', role: 'Fonds en retrait : barre d’état, onglets inactifs' },
+  'stage-bg': { famille: 'fonds', role: 'Canevas du plan' },
+  'stage-trame': { famille: 'fonds', role: 'Trame du canevas' },
+  'panel-bg': { famille: 'fonds', role: 'Panneaux et feuilles' },
+  'panel-2': { famille: 'fonds', role: 'Tuiles, chiffres clés, boutons − et +' },
+  'segment-bg': { famille: 'fonds', role: 'Fond d’une commande segmentée' },
+  'input-bg': { famille: 'fonds', role: 'Champs de saisie' },
+  'border': { famille: 'traits', role: 'Bordure des panneaux' },
+  'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
+  'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
+  'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
+  'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
+  'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
+  'on-accent-light': { famille: 'accent', role: 'Texte sur l’accent doux' },
+  'ok': { famille: 'etats', role: 'Enregistré, réussi' },
+  'alerte': { famille: 'etats', role: 'Bordure des alertes' },
+  'danger': { famille: 'etats', role: 'Suppression, erreurs' },
+  'danger-bg': { famille: 'etats', role: 'Fond d’une erreur' },
+  'toast-bg': { famille: 'notifications', role: 'Fond des notifications' },
+  'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
+  'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
+  'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
+  'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
+  'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },
+  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' }
 };
 
 /**
