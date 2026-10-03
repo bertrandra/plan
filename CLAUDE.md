@@ -97,9 +97,7 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   cadastrale ; clôture et lieu appartiennent à la parcelle du projet.
 - **Menu « Fonction »** : ne propose que les fonctions admises par la forme de l'objet ; la
   fonction en place reste proposée pour un ancien fichier.
-
-## Questions ouvertes
-
-- Cases de l'explorateur (masquer, étiquettes) : aujourd'hui elles écrivent le projet (annulables,
-  « projet modifié ») même en lecture seule. Préférence d'affichage ou donnée du projet grisée en
-  lecture seule ? À trancher avant d'y toucher.
+- **Cases de l'explorateur** (masquer un objet, ses étiquettes, et leurs « tous ») : préférences
+  d'affichage, comme « Filaire » — pas de Ctrl+Z, pas de « projet modifié », permises en lecture
+  seule (`app/explorateur.ts`, `app/ecouteurs/cibles.ts`). Elles restent rangées dans l'objet pour
+  être retrouvées à la réouverture.

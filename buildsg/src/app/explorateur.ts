@@ -4,6 +4,10 @@
 // afficher les couches de la terrasse courante, retenir une terrasse pour le dossier. Chaque
 // methode mute l'etat puis redessine — c'est le contrat de tout le programme — et la zone se
 // redessine a son tour en lisant le magasin. Rien ici ne touche au DOM.
+//
+// Masquer un objet et choisir ses etiquettes sont des preferences d'affichage (decision produit,
+// comme le filaire de la Vue 3D) : ni annulation, ni « projet modifie », permis en lecture seule.
+// Les cases restent rangees dans l'objet pour etre retrouvees a la reouverture, rien de plus.
 
 import { terrasseLayerVisible } from '../render/terrasseCouches.js';
 import { dossierSelection } from './dossier.js';
@@ -16,9 +20,6 @@ export type ChampVisibilite = 'hidden' | 'showName' | 'showSegNames' | 'showVert
 /** Ce que l'explorateur doit pouvoir declencher ailleurs. */
 export interface ContexteExplorateur {
   render: () => void;
-  markDirty: () => void;
-  /** Un instantane avant d'ecrire : masquer un objet ou ses etiquettes s'annule (Ctrl+Z). */
-  pushHistory: () => void;
   /** Le plan reprend ou rend la largeur de l'explorateur. */
   redimensionner: () => void;
 }
@@ -45,15 +46,11 @@ export function creerExplorateur(etat: EtatApp, ctx: ContexteExplorateur, magasi
     definirVisibilite(cle, champ, valeur) {
       const o = objet(cle);
       if (!o) return;
-      ctx.pushHistory();
       o[champ] = valeur;
-      ctx.markDirty();
       ctx.render();
     },
     definirVisibiliteTous(champ, valeur) {
-      ctx.pushHistory();
       etat.objects.forEach(o => { o[champ] = valeur; });
-      ctx.markDirty();
       ctx.render();
     },
     basculerCalques() {

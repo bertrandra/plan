@@ -57,27 +57,33 @@ describe('commandes ciblees', () => {
     expect(explorateur.definirVisibiliteTous).toHaveBeenCalledWith('hidden', true);
   });
 
-  it('sont refusees sans le droit d ecrire, et le disent', () => {
-    const { cmd, explorateur, resultats } = monter(false);
-    expect(cmd.etat('objet.visibilite')).toMatchObject({ utilisable: false, raison: 'permission' });
-    expect(cmd.executer('objet.visibilite', undefined, { objet: 'a' })).toBe(false);
+  it('refusent les cotes sans le droit d ecrire, et le disent', () => {
+    const { cmd, resultats } = monter(false);
+    expect(cmd.etat('mesure.supprimer')).toMatchObject({ utilisable: false, raison: 'permission' });
     expect(cmd.executer('mesure.supprimer', undefined, { cote: 'm1' })).toBe(false);
-    expect(explorateur.definirVisibilite).not.toHaveBeenCalled();
     expect(resultats.supprimerCote).not.toHaveBeenCalled();
+  });
+
+  it('permettent de masquer un objet et ses etiquettes en lecture seule : une preference d affichage', () => {
+    const { cmd, explorateur } = monter(false);
+    for (const id of ['objet.visibilite', 'objet.etiquette', 'objet.masquerTous', 'objet.etiquettesTous']) {
+      expect(cmd.etat(id).utilisable).toBe(true);
+    }
+    expect(cmd.executer('objet.visibilite', undefined, { objet: 'a' })).toBe(true);
+    expect(explorateur.definirVisibilite).toHaveBeenCalledWith('a', 'hidden', true);
   });
 });
 
 describe('explorateur', () => {
-  it('empile un instantane avant de masquer un objet ou ses etiquettes : Annuler le defait', () => {
-    const etat = { objects: [{ key: 'a', hidden: false }] } as unknown as EtatApp;
+  it('masque un objet ou ses etiquettes sans annulation ni « projet modifie » : il redessine, rien de plus', () => {
+    const etat = { objects: [{ key: 'a', hidden: false }, { key: 'b' }] } as unknown as EtatApp;
     const ordre: string[] = [];
-    const ex = creerExplorateur(etat, {
-      render: () => ordre.push('render'), markDirty: () => ordre.push('dirty'),
-      pushHistory: () => ordre.push('historique:' + String(etat.objects[0]?.hidden)), redimensionner: () => {}
-    }, { notifier: () => {} } as unknown as Magasin);
+    const ex = creerExplorateur(etat, { render: () => ordre.push('render'), redimensionner: () => {} }, { notifier: () => {} } as unknown as Magasin);
     ex.definirVisibilite('a', 'hidden', true);
     ex.definirVisibiliteTous('showName', true);
-    // L'instantane est pris AVANT l'ecriture : il garde l'objet visible.
-    expect(ordre).toEqual(['historique:false', 'dirty', 'render', 'historique:true', 'dirty', 'render']);
+    expect(ordre).toEqual(['render', 'render']);
+    // La case reste rangee dans l'objet : elle se retrouve a la reouverture.
+    expect(etat.objects[0]).toMatchObject({ hidden: true, showName: true });
+    expect(etat.objects[1]).toMatchObject({ showName: true });
   });
 });

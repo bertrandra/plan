@@ -311,7 +311,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
     actualisationEnCours: () => actualisation.enCours()
   }, magasin, commandes);
-  const explorateur = creerExplorateur(etat, { render: p.render, markDirty: p.markDirty, pushHistory: () => historique.empiler(), redimensionner: p.cadrage.redimensionner }, magasin);
+  const explorateur = creerExplorateur(etat, { render: p.render, redimensionner: p.cadrage.redimensionner }, magasin);
   // Les commandes qui portent sur un objet ou une cote : l'explorateur et le tiroir les declenchent.
   brancherCommandesCiblees(commandes, { etat, explorateur, resultats });
   // L'inspecteur rend des descripteurs de champs (ui/champs/) ; ce service leur donne leur contexte.
