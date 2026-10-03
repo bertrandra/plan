@@ -1575,7 +1575,23 @@
   .palMessage{ flex-basis:100%; margin:0; padding:6px 10px; border-radius:var(--r-champ); background:var(--panel-2); font-family:var(--sans); font-size:0.78rem; }
   .palMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
   /* Le menu des modeles : nom, description, et l'apercu des couleurs dans les deux themes. */
-  .palMenuModeles > summary{ min-height:32px; display:inline-flex; align-items:center; padding:4px 12px; border:1px solid var(--rule); border-radius:var(--r-bouton); background:var(--panel-bg); color:var(--ink); font-weight:600; }
+  .palBarre details.menu > summary{ min-height:32px; display:inline-flex; align-items:center; padding:4px 12px; border:1px solid var(--rule); border-radius:var(--r-bouton); background:var(--panel-bg); color:var(--ink); font-weight:600; }
+  .palBarre details.menu > summary::after{ content:""; width:6px; height:6px; margin-left:8px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:translateY(-2px) rotate(45deg); }
+  .palBarre details.menu > ul{ right:auto; }
+  /* L'alerte de contraste : une pastille qui mene aux paires en defaut, le mot dit l'etat. */
+  .palPastilleContraste{ min-height:32px; padding:4px 12px; border:1px solid var(--danger); border-radius:999px; background:var(--danger-bg); color:var(--danger); font-family:var(--sans); font-size:0.78rem; font-weight:600; cursor:pointer; }
+  .palPastilleContraste:hover{ opacity:1; text-decoration:underline; }
+  /* Le recapitulatif de l'enregistrement : avant, apres, et l'alerte de contraste s'il y a lieu. */
+  .palRecapitulatif{ display:flex; flex-direction:column; gap:8px; border-left:3px solid var(--accent); }
+  .palRecapitulatifTitre{ margin:0; font-family:var(--serif); font-size:0.95rem; color:var(--ink); }
+  .palDifferences{ list-style:none; margin:0; padding:0; max-height:220px; overflow:auto; display:flex; flex-direction:column; gap:3px; }
+  .palDifferences li{ display:grid; grid-template-columns:minmax(0, 180px) 56px 16px 72px 16px 16px 72px; justify-content:start; gap:6px; align-items:center; font-size:0.74rem; }
+  .palDifferences code{ font-family:var(--mono); font-size:0.72rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .palDifferenceTheme{ font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .palPastilleCouleur{ width:16px; height:16px; border-radius:4px; border:1px solid var(--rule); }
+  /* La barre collante ne doit pas masquer la section ou l'alerte de contraste mene. */
+  #palContrastes{ scroll-margin-top:130px; }
+  .palFiltreContraste{ display:inline-flex; gap:8px; align-items:center; margin:0 0 8px; font-family:var(--sans); font-size:0.8rem; }
   .palMenuModeles > ul{ width:340px; max-height:70vh; overflow:auto; }
   .palMenuModeles li button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; }
   .palModeleTextes{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
@@ -1764,8 +1780,21 @@
     .selNuance{ width:28px; height:28px; }
     .palOrigine{ width:32px; height:32px; }
     .palBarre{ position:static; }
-    .palBarreActions button, .palMenuModeles > summary{ min-height:44px; }
+    .palBarreActions > button, .palBarre details.menu > summary, .palPastilleContraste, .palConfirmationBoutons button{ min-height:44px; }
+    .palBarre details.menu li button{ min-height:44px; }
     .palMenuModeles > ul{ width:min(340px, calc(100vw - 32px)); }
+  }
+  /* Telephone : la barre se pose au bas de l'ecran, au pouce ; ses menus s'ouvrent vers le haut et
+     ses messages montent au-dessus des commandes. La page garde de quoi ne rien cacher dessous. */
+  @media (max-width: 599px){
+    .palBarre{ position:fixed; top:auto; left:0; right:0; bottom:0; z-index:20; margin:0; flex-direction:column; align-items:stretch; gap:6px;
+      border-radius:var(--r-feuille) var(--r-feuille) 0 0; padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); box-shadow:var(--ombre-feuille); }
+    .palBarre .palEtatPalette{ font-size:0.72rem; }
+    .palBarre .palBarreActions{ order:3; }
+    .palBarre .palMessage{ order:1; max-height:40vh; overflow:auto; }
+    .palBarre details.menu > ul{ top:auto; bottom:100%; margin:0 0 4px; }
+    .palEcran{ padding-bottom:220px; }
+    .palDifferences li{ grid-template-columns:minmax(0, 1fr) 40px 16px 64px 12px 16px 64px; gap:4px; }
   }
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }

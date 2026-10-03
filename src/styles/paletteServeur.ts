@@ -88,3 +88,8 @@ export function cssPalette(couleurs: Couleurs): string {
   const clair = bloc('clair'), sombre = bloc('sombre');
   return (clair ? '@media not all and (prefers-color-scheme: dark){:root{' + clair + '}}' : '') + (sombre ? '@media (prefers-color-scheme: dark){:root{' + sombre + '}}' : '');
 }
+
+/** Ce qui change de `avant` a `apres`, theme par theme, dans l'ordre des jetons : le recapitulatif de l'enregistrement. */
+export function differences(avant: Couleurs, apres: Couleurs): { theme: Theme; nom: NomJeton; avant: string; apres: string }[] {
+  return THEMES.flatMap(t => NOMS.filter(n => avant[t][n] !== apres[t][n]).map(nom => ({ theme: t, nom, avant: avant[t][nom], apres: apres[t][nom] })));
+}

@@ -8,9 +8,9 @@
 // clic dehors la ferme ; « Revenir » rend la couleur qu'elle avait a l'ouverture.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { PAIRES_CONTRASTE, ROLES_JETONS, contraste, type NomJeton } from '../styles/jetons.js';
-import { hexVersRvb, hexVersTsl, hexVersTsv, rvbVersHex, tslVersHex, tsvVersHex, type Tsv } from '../styles/conversions.js';
-import { Icone } from './icones.js';
+import { PAIRES_CONTRASTE, ROLES_JETONS, contraste, type NomJeton } from '../../styles/jetons.js';
+import { hexVersRvb, hexVersTsl, hexVersTsv, rvbVersHex, tslVersHex, tsvVersHex, type Tsv } from '../../styles/conversions.js';
+import { Icone } from '../icones.js';
 
 export interface PropsSelecteurCouleur {
   nom: NomJeton;

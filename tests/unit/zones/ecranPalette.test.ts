@@ -130,21 +130,31 @@ describe('l ecran de la palette', () => {
     expect(hote.querySelector('[data-theme-montre="clair"]')!.getAttribute('style')).toContain('--ink: ' + JETONS.clair.ink);
     // Un contraste qui tombe se dit dans la barre.
     saisir(code(hote, 'ink-soft', 'clair'), '#FFFDF8');
-    expect(hote.querySelector('.palAlerteContraste')?.textContent).toMatch(/insuffisant/);
+    expect(hote.querySelector('.palPastilleContraste')?.textContent).toMatch(/insuffisant/);
   });
 
   it('enregistre sur le serveur, exporte le JSON, et annule les modifications', async () => {
     const enregistres: unknown[] = [];
     const appliquees: unknown[] = [];
     const hote = monter({ enregistrer: async (d) => { enregistres.push(d); return null; }, appliquer: (c) => { appliquees.push(c); } });
-    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(true);
+    expect(bouton(hote, 'Enregistrer…').disabled).toBe(true);
     saisir(code(hote, 'ok', 'sombre'), '#00FF00');
-    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+    expect(bouton(hote, 'Enregistrer…').disabled).toBe(false);
+    // Le recapitulatif nomme ce qui part sur le serveur, avant et apres, et rien n'est encore envoye.
+    act(() => { bouton(hote, 'Enregistrer…').click(); });
+    const recap = hote.querySelector('.palRecapitulatif')!;
+    expect(recap.getAttribute('role')).toBe('alertdialog');
+    expect(recap.querySelectorAll('.palDifferences li')).toHaveLength(1);
+    expect(recap.textContent).toContain('--ok');
+    expect(recap.textContent).toContain(JETONS.sombre.ok);
+    expect(recap.textContent).toContain('#00FF00');
+    expect(enregistres).toHaveLength(0);
     await act(async () => { bouton(hote, 'Enregistrer sur le serveur').click(); });
     expect(enregistres).toHaveLength(1);
     expect((enregistres[0] as { couleurs: { sombre: { ok: string } } }).couleurs.sombre.ok).toBe('#00FF00');
     expect(appliquees).toHaveLength(1);
-    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(true);
+    expect(hote.querySelector('.palRecapitulatif')).toBeNull();
+    expect(bouton(hote, 'Enregistrer…').disabled).toBe(true);
     act(() => { bouton(hote, 'Exporter le JSON').click(); });
     expect(telecharges.at(-1)?.nom).toBe('plan-palette.json');
     expect(JSON.parse(telecharges.at(-1)!.texte).couleurs.sombre.ok).toBe('#00FF00');
@@ -176,7 +186,7 @@ describe('l ecran de la palette', () => {
     expect(code(hote, 'ink', 'clair').value).toBe(JETONS.clair.ink);
     expect(hote.querySelector('.palMessage')?.textContent).toMatch(/importée de « autre\.json » : 1 couleur/);
     expect(enregistres).toHaveLength(0);
-    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+    expect(bouton(hote, 'Enregistrer…').disabled).toBe(false);
     await deposer('plan.json', JSON.stringify({ objects: [] }));
     expect(hote.querySelector('.palMessage--erreur')?.textContent).toMatch(/n’est pas une palette/);
     expect(code(hote, 'accent', 'clair').value).toBe('#AA2200');
@@ -195,7 +205,7 @@ describe('l ecran de la palette', () => {
     expect(code(hote, 'paper', 'sombre').value).toBe(halloween.couleurs.sombre.paper);
     expect(hote.querySelector('.palMessage')?.textContent).toMatch(/Modèle « Halloween » chargé/);
     expect(enregistres).toHaveLength(0);
-    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+    expect(bouton(hote, 'Enregistrer…').disabled).toBe(false);
   });
 
   it('demande confirmation, dans l ecran, avant de remplacer des reglages non enregistres', () => {
@@ -212,5 +222,28 @@ describe('l ecran de la palette', () => {
     act(() => { zen().click(); });
     act(() => { bouton(hote, 'Charger le modèle').click(); });
     expect(code(hote, 'ink', 'clair').value).toBe(MODELES_PALETTE.find(m => m.id === 'zen')!.couleurs.clair.ink);
+  });
+
+  it('mene des contrastes insuffisants au tableau filtre sur les paires en defaut', () => {
+    const hote = monter();
+    expect(hote.querySelector('.palPastilleContraste')).toBeNull();
+    saisir(code(hote, 'ink-soft', 'clair'), '#FFFDF8');
+    const pastille = hote.querySelector<HTMLButtonElement>('.palPastilleContraste')!;
+    expect(pastille.textContent).toBe('3 contrastes insuffisants');
+    act(() => { pastille.click(); });
+    const lignes = [...hote.querySelectorAll('.palContrastes tbody tr')];
+    expect(lignes).toHaveLength(3);
+    expect(lignes.every(l => l.textContent!.includes('--ink-soft'))).toBe(true);
+    act(() => { hote.querySelector<HTMLInputElement>('.palFiltreContraste input')!.click(); });
+    expect(hote.querySelectorAll('.palContrastes tbody tr').length).toBe(PAIRES_CONTRASTE.length);
+  });
+
+  it('previent, au recapitulatif, que des contrastes restent insuffisants', () => {
+    const hote = monter({ enregistrer: async () => null });
+    saisir(code(hote, 'ink-soft', 'clair'), '#FFFDF8');
+    act(() => { bouton(hote, 'Enregistrer…').click(); });
+    expect(hote.querySelector('.palRecapitulatif')!.textContent).toMatch(/3 contrastes restent insuffisants/);
+    act(() => { bouton(hote, 'Revoir').click(); });
+    expect(hote.querySelector('.palRecapitulatif')).toBeNull();
   });
 });
