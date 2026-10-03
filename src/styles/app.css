@@ -1575,13 +1575,45 @@
   .palMessage{ flex-basis:100%; margin:0; padding:6px 10px; border-radius:var(--r-champ); background:var(--panel-2); font-family:var(--sans); font-size:0.78rem; }
   .palMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
   /* Le reglage d'une couleur : theme, selecteur, code, retour a l'origine. */
-  .palReglage{ display:grid; grid-template-columns:48px 32px minmax(0, 1fr) 24px; gap:6px; align-items:center; }
+  .palReglage{ display:grid; grid-template-columns:44px 32px 28px minmax(0, 1fr) 24px; gap:6px; align-items:center; }
+  .palAvance{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--panel-bg); color:var(--ink-soft); cursor:pointer; }
+  .palAvance:hover, .palAvance[aria-expanded="true"]{ background:var(--accent-light); color:var(--on-accent-light); opacity:1; }
   .palReglageTheme{ font-family:var(--sans); font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
   .palSelecteur{ width:32px; height:28px; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); cursor:pointer; }
   .palCodeCouleur{ min-width:0; min-height:28px; padding:2px 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font-family:var(--mono); font-size:0.76rem; text-transform:uppercase; }
   .palCodeCouleur.invalide{ border-color:var(--danger); color:var(--danger); }
-  .palOrigine{ width:24px; height:24px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); font-size:0.8rem; line-height:1; cursor:pointer; }
+  .palOrigine{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); cursor:pointer; }
   .palOrigine--vide{ display:inline-block; border:none; background:none; }
+
+  /* Le selecteur avance (zones/SelecteurCouleur.tsx) : une fenetre flottante, ancree au reglage. */
+  .selCouleur{ z-index:40; display:flex; flex-direction:column; gap:8px; padding:10px 12px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre-forte); font-family:var(--sans); font-size:0.78rem; max-height:calc(100vh - 16px); overflow:auto; }
+  .selEntete{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .selTitre code{ font-family:var(--mono); font-size:0.78rem; }
+  .selFermer{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-height:0; padding:0; border:none; border-radius:6px; background:none; color:var(--ink-soft); cursor:pointer; }
+  .selFermer:hover{ background:var(--panel-2); color:var(--ink); opacity:1; }
+  .selZone{ position:relative; height:150px; border-radius:var(--r-champ); cursor:crosshair; touch-action:none; outline:none; }
+  .selZone:focus-visible{ box-shadow:0 0 0 2px var(--panel-bg), 0 0 0 4px var(--accent); }
+  .selCurseur{ position:absolute; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); pointer-events:none; }
+  .selLigne, .selChamps{ display:grid; grid-template-columns:40px minmax(0, 1fr) 40px; gap:8px; align-items:center; }
+  .selChamps{ grid-template-columns:40px repeat(3, minmax(0, 1fr)); }
+  .selEtiquette{ font-size:0.64rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+  .selValeur{ font-variant-numeric:tabular-nums; text-align:right; color:var(--ink-soft); }
+  /* La barre de teinte montre le spectre lui-meme : ce ne sont pas des couleurs de l'interface, d'ou
+     des noms CSS et non des jetons. La zone saturation x valeur, elle, est peinte en ligne (sa teinte varie). */
+  .selTeinte{ -webkit-appearance:none; appearance:none; height:12px; border-radius:999px; background:linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red); }
+  .selTeinte::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); background:transparent; cursor:pointer; }
+  .selTeinte::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); background:transparent; cursor:pointer; }
+  .selNombre{ min-width:0; min-height:28px; padding:2px 6px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font-family:var(--mono); font-size:0.76rem; font-variant-numeric:tabular-nums; }
+  .selAvantApres{ display:grid; grid-template-columns:1fr 1fr; border-radius:var(--r-champ); overflow:hidden; border:1px solid var(--hairline); }
+  .selTemoin{ display:flex; flex-direction:column; justify-content:flex-end; gap:2px; height:52px; padding:4px 6px; }
+  .selTemoin span, .selTemoin code{ align-self:flex-start; padding:0 5px; border-radius:4px; background:var(--panel-bg); color:var(--ink); font-size:0.66rem; }
+  .selContrastes{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  .selContrastes li{ display:flex; align-items:center; gap:6px; }
+  .selContrastes code{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .selNuancier{ display:flex; flex-wrap:wrap; gap:4px; }
+  .selNuance{ width:20px; height:20px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:5px; cursor:pointer; }
+  .selNuance:hover, .selNuance:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; opacity:1; }
+  .selActions{ display:flex; gap:6px; justify-content:flex-end; }
 
   /* Les trois volets : des onglets en sans, soulignes par l'accent, comme les onglets du tiroir. */
   .palOnglets{ display:flex; gap:4px; margin:16px 0 0; border-bottom:1px solid var(--rule); }
@@ -1712,7 +1744,10 @@
     .palOnglets{ overflow-x:auto; }
     .palSelecteur{ width:44px; height:44px; }
     .palCodeCouleur{ min-height:44px; }
-    .palReglage{ grid-template-columns:48px 44px minmax(0, 1fr) 32px; }
+    .palReglage{ grid-template-columns:44px 44px 44px minmax(0, 1fr) 32px; }
+    .palAvance{ width:44px; height:44px; }
+    .selCouleur .selNombre, .selCouleur .selActions button, .selFermer{ min-height:44px; }
+    .selNuance{ width:28px; height:28px; }
     .palOrigine{ width:32px; height:32px; }
     .palBarre{ position:static; }
     .palBarreActions button{ min-height:44px; }

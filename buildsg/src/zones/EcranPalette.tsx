@@ -15,10 +15,12 @@
 // CSS de son theme (`--ink`, `--paper`…) depuis la palette en cours : tout ce qu'il contient les lit par
 // `var()`, comme l'atelier. Les deux themes se regardent ainsi cote a cote, au pixel pres.
 
-import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE, contraste, type NomJeton, type NomPolice } from '../styles/jetons.js';
 import { couleursParDefaut, couleurValide, documentPalette, ecartsAuxOrigines, lireDocumentPalette, memesCouleurs, type Couleurs } from '../styles/paletteServeur.js';
 import { telechargerTexte } from '../shell/download.js';
+import { SelecteurCouleur } from './SelecteurCouleur.js';
+import { Icone } from './icones.js';
 
 type Theme = 'clair' | 'sombre';
 type Choix = Theme | 'deux';
@@ -398,12 +400,16 @@ function Structure({ regler }: { regler: (theme: Theme, nom: NomJeton, valeur: s
 }
 
 /**
- * Le reglage d'une couleur dans un theme : le selecteur du systeme et le code `#RRGGBB`. Le code se
- * saisit en brouillon et ne s'applique que valide ; invalide, il est signale et la couleur ne
- * bouge pas. Un point marque la couleur qui differe de l'origine, et la remet a l'origine.
+ * Le reglage d'une couleur dans un theme : le selecteur du systeme, le selecteur avance
+ * (zones/SelecteurCouleur.tsx) et le code `#RRGGBB`. Le code se saisit en brouillon et ne
+ * s'applique que valide ; invalide, il est signale et la couleur ne bouge pas. Un bouton marque la
+ * couleur qui differe de l'origine, et la remet a l'origine.
  */
 function ReglageCouleur({ nom, theme, valeur, regler }: { nom: NomJeton; theme: Theme; valeur: string; regler: (theme: Theme, nom: NomJeton, valeur: string) => void }) {
   const [brouillon, setBrouillon] = useState<string | null>(null);
+  const [avance, setAvance] = useState(false);
+  const boutonAvance = useRef<HTMLButtonElement>(null);
+  const couleursTheme = useContext(Palette)[theme];
   const normal = (v: string) => (v.startsWith('#') ? v : '#' + v).toUpperCase();
   const invalide = brouillon !== null && !couleurValide(normal(brouillon));
   // Un brouillon valide qui ne correspond plus a la couleur a ete depasse (annuler, origine,
@@ -411,6 +417,7 @@ function ReglageCouleur({ nom, theme, valeur, regler }: { nom: NomJeton; theme: 
   const texte = brouillon !== null && (invalide || normal(brouillon) === valeur) ? brouillon : valeur;
   const origine = JETONS[theme][nom];
   const libelle = '--' + nom + ', thème ' + NOMS_THEMES[theme].toLowerCase();
+  const fermerAvance = useCallback(() => setAvance(false), []);
   const saisir = (v: string) => {
     setBrouillon(v);
     const hex = normal(v);
@@ -421,12 +428,18 @@ function ReglageCouleur({ nom, theme, valeur, regler }: { nom: NomJeton; theme: 
       <span className="palReglageTheme">{NOMS_THEMES[theme]}</span>
       <input type="color" className="palSelecteur" value={valeur.toLowerCase()} aria-label={'Couleur ' + libelle}
         onChange={(e) => { setBrouillon(null); regler(theme, nom, e.target.value.toUpperCase()); }} />
+      <button ref={boutonAvance} type="button" className="palAvance" aria-label={'Sélecteur avancé pour ' + libelle} title="Sélecteur avancé : teinte, saturation, TSL, RVB, contrastes"
+        aria-expanded={avance} aria-haspopup="dialog" onClick={() => setAvance(o => !o)}><Icone nom="reglages" taille={16} /></button>
       <input type="text" className={'palCodeCouleur' + (invalide ? ' invalide' : '')} value={texte} maxLength={7} spellCheck={false}
         aria-label={'Code ' + libelle} aria-invalid={invalide || undefined} title={invalide ? 'Un code de couleur s’écrit #RRGGBB' : undefined}
         onChange={(e) => saisir(e.target.value.trim())} onBlur={() => setBrouillon(null)} />
       {valeur !== origine
-        ? <button type="button" className="palOrigine" title={'Revenir à l’origine : ' + origine} aria-label={'Revenir à l’origine pour ' + libelle} onClick={() => { setBrouillon(null); regler(theme, nom, origine); }}>↺</button>
+        ? <button type="button" className="palOrigine" title={'Revenir à l’origine : ' + origine} aria-label={'Revenir à l’origine pour ' + libelle} onClick={() => { setBrouillon(null); regler(theme, nom, origine); }}><Icone nom="annuler" taille={14} /></button>
         : <span className="palOrigine palOrigine--vide" aria-hidden="true" />}
+      {avance && (
+        <SelecteurCouleur nom={nom} theme={NOMS_THEMES[theme].toLowerCase()} valeur={valeur} origine={origine} couleursTheme={couleursTheme}
+          ancre={boutonAvance.current} regler={(hex) => { setBrouillon(null); regler(theme, nom, hex); }} fermer={fermerAvance} />
+      )}
     </span>
   );
 }

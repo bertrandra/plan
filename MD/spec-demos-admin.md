@@ -99,8 +99,10 @@ couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayo
   Chaque page de Plan le lit au démarrage, sans session (`app/paletteServeur.ts`), et pose une
   feuille par-dessus `app.css`. Sans fichier, sans admin configuré ou sans réseau : les couleurs
   d'origine de `styles/jetons.ts`.
-- **Chaque couleur se règle** par thème : sélecteur de couleur et code `#RRGGBB` (un code invalide
-  est signalé et n'est pas appliqué). Les aperçus, les contrastes et le CSS suivent aussitôt ; un
+- **Chaque couleur se règle** par thème : le sélecteur du système, le sélecteur avancé
+  (`zones/SelecteurCouleur.tsx` : zone saturation × valeur, teinte, TSL, RVB, avant/après,
+  contrastes concernés, nuancier du thème) et le code `#RRGGBB` (un code invalide est signalé et
+  n'est pas appliqué). Les conversions sont dans `styles/conversions.ts`. Les aperçus, les contrastes et le CSS suivent aussitôt ; un
   contraste qui tombe sous le minimum se dit dans la barre.
 - **Enregistrer sur le serveur** (session), **Importer un JSON…** (un export, ou un fichier fait
   ailleurs : ses couleurs valides remplacent celles de l'écran, rien n'est enregistré avant
