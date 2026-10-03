@@ -13,6 +13,7 @@ import { au } from '../util/tableaux.js';
 import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type { ObjetMesurable } from '../engine/hauteurs.js';
+import { terrasseOuPremiere } from '../model/fonctions.js';
 
 /** Hauteur des yeux au-dessus du platelage fini, en metres. */
 export const HAUTEUR_YEUX_M = 1.6;
@@ -115,8 +116,7 @@ function redimensionner(sc: SceneTroisBase | null, host: HTMLElement | null): vo
  * autre terrasse, juste avant qu'elle soit remplacee.
  */
 function allerAuPointDeVue(etat: PlanVuDeLa3d, ctx: ContexteNavigation, vp: PointDeVue): void {
-  const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
-            || etat.objects.find(o => o.fonction === 'terrasse');
+  const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
   if (terr) etat.terrasseSelectedKey = terr.key;
   const cleAttendue = cleDeVue(terr);
   ctx.ouvrirVue3d();

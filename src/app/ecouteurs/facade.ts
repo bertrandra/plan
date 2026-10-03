@@ -16,6 +16,7 @@ import type { RegistreCommandes } from '../commandes.js';
 import type { ServiceReleve } from '../releve.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
+import { estBatiment } from '../../model/fonctions.js';
 
 export interface ContexteCommandesFacade {
   etat: EtatApp;
@@ -28,7 +29,7 @@ export interface ContexteCommandesFacade {
 export function brancherFacade(ctx: ContexteCommandesFacade, cmd: RegistreCommandes): void {
   const batiment = () => {
     const o = ctx.etat.objects.find((x) => x.key === ctx.etat.selectedKey);
-    return o && o.type === 'polygon' && (o.fonction === 'batiment' || o.fonction === 'annexe') ? o : null;
+    return o && estBatiment(o) ? o : null;
   };
 
   cmd.declarer({

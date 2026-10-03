@@ -12,6 +12,7 @@
 // C'est la meme reparation que faisait l'ancienne barre de choix du mode Terrasse, sortie du DOM.
 
 import type { ObjetPlan } from '../model/types.js';
+import { estTerrasse } from '../model/fonctions.js';
 
 /** Ce que la regle lit et ecrit. */
 export interface EtatContexteTerrasse {
@@ -20,7 +21,8 @@ export interface EtatContexteTerrasse {
   terrasseSelectedKey: string | null;
 }
 
-export const estTerrasse = (o: ObjetPlan): boolean => o.fonction === 'terrasse';
+// Une terrasse est un polygone de fonction terrasse : la definition est dans model/fonctions.ts.
+export { estTerrasse };
 
 /**
  * Aligne la terrasse courante sur la selection et sur les objets presents. Rend `true` quand elle a

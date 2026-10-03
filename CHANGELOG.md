@@ -166,6 +166,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Une terrasse est un polygone, partout.** Le contexte terrasse, l'explorateur, la Vue 3D, la
+  visionneuse, l'export GLB, le rattachement d'un parasol et la pose d'un nouveau parasol
+  acceptaient n'importe quel objet de fonction `terrasse`, alors que l'inspecteur, les résultats
+  et le dossier exigeaient un polygone. Un cercle marqué « terrasse » (import SVG, ancien fichier)
+  devenait la terrasse courante et faisait échouer le calcul du chiffrage. La définition vit
+  désormais dans `model/fonctions.ts` (`estTerrasse`, `terrasseOuPremiere`), avec celles du
+  parasol, du bâtiment, du point de vue et de la parcelle du projet (`parcelleDuProjet`, qui
+  remplace une copie dans le dossier PDF). La liste des points de vue n'offre plus qu'un objet de
+  deux points.
+
 - **Parcelles voisines : plus de réglages de clôture sans effet.** Une parcelle voisine importée du
   cadastre (`fonction: terrain`) montrait le lieu et les quatre champs de clôture, mais la Vue 3D ne
   dessine que la clôture de la parcelle du projet : la modifier écrivait le projet sans rien

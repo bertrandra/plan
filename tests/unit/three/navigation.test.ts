@@ -150,7 +150,7 @@ describe('D-15 — revenir a un point de vue', () => {
     const f = sceneFactice({ x: 0, y: 0 });
     vue3d.scene = f.scene as never;
     vue3d.dernierObjKey = 'terr1';
-    const terrasse = { key: 'terr1', fonction: 'terrasse', type: 'poly', pts: [{ x: 100, y: 100 }, { x: 102, y: 100 }, { x: 102, y: 102 }] };
+    const terrasse = { key: 'terr1', fonction: 'terrasse', type: 'polygon', pts: [{ x: 100, y: 100 }, { x: 102, y: 100 }, { x: 102, y: 102 }] };
     const { nav } = navigation([terrasse], 'terr1');
     nav.allerAuPointDeVue(pointDeVue as never);
     expect(f.pose.position).toEqual({ x: 13, y: 1.6, z: -27 });
@@ -160,7 +160,7 @@ describe('D-15 — revenir a un point de vue', () => {
     const f = sceneFactice({ x: 0, y: 0 });
     vue3d.scene = f.scene as never;
     vue3d.dernierObjKey = 'terr2';
-    const { nav, etat } = navigation([{ key: 'terr2', fonction: 'terrasse' }], null);
+    const { nav, etat } = navigation([{ key: 'terr2', fonction: 'terrasse', type: 'polygon', pts: [] }], null);
     nav.allerAuPointDeVue(pointDeVue as never);
     expect(etat.terrasseSelectedKey).toBe('terr2');
   });
@@ -169,7 +169,7 @@ describe('D-15 — revenir a un point de vue', () => {
     const f = sceneFactice({ x: 0, y: 0 });
     vue3d.scene = f.scene as never;
     vue3d.dernierObjKey = 'une_autre';
-    const { nav } = navigation([{ key: 'terr3', fonction: 'terrasse' }], 'terr3');
+    const { nav } = navigation([{ key: 'terr3', fonction: 'terrasse', type: 'polygon', pts: [] }], 'terr3');
     nav.allerAuPointDeVue(pointDeVue as never);
     expect(f.pose.position).toBe(null);   // rien n'est pose dans la scene precedente
   });

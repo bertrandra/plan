@@ -13,6 +13,7 @@ import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, di
 import { estMesh } from './gardes.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
+import { terrasseOuPremiere } from '../model/fonctions.js';
 
 /** Delai maximal d'attente des textures, puis de reponse de l'exporteur, en millisecondes. */
 const ATTENTE_TEXTURES_MS = 15000;
@@ -72,8 +73,7 @@ export function nomFichierTerrasse(nom: string | undefined): string {
  * boutons React, et reecrire leur texte detruisait des noeuds que React croyait encore a lui.
  */
 export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: ContexteExportGlb): void {
-  const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
-            || etat.objects.find(o => o.fonction === 'terrasse');
+  const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
   if (!terr) { showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
 
   if (affichage3d.generation) return;
