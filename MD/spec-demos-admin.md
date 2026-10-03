@@ -102,8 +102,10 @@ couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayo
 - **Chaque couleur se règle** par thème : sélecteur de couleur et code `#RRGGBB` (un code invalide
   est signalé et n'est pas appliqué). Les aperçus, les contrastes et le CSS suivent aussitôt ; un
   contraste qui tombe sous le minimum se dit dans la barre.
-- **Enregistrer sur le serveur** (session), **Exporter le JSON** (`plan-palette.json`), **Annuler
-  les modifications**, **Couleurs d'origine**.
+- **Enregistrer sur le serveur** (session), **Importer un JSON…** (un export, ou un fichier fait
+  ailleurs : ses couleurs valides remplacent celles de l'écran, rien n'est enregistré avant
+  « Enregistrer »), **Exporter le JSON** (`plan-palette.json`), **Annuler les modifications**,
+  **Couleurs d'origine**.
 - Le document ne remplace que ce qu'il porte de valide (`styles/paletteServeur.ts`) : un jeton
   inconnu ou une valeur mal formée est ignoré, un jeton absent garde sa valeur d'origine.
 - Le plan dessiné en SVG (`render/theme.ts`) et les exports gardent leurs propres encres : la

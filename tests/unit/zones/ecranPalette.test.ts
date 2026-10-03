@@ -161,4 +161,25 @@ describe('l ecran de la palette', () => {
     expect(code(hote, 'accent', 'clair').value).toBe('#123456');
     expect(hote.textContent).toContain('Palette du serveur, enregistrée le');
   });
+
+  it('importe un JSON de palette sans l enregistrer, et refuse un fichier qui n en est pas un', async () => {
+    const enregistres: unknown[] = [];
+    const hote = monter({ enregistrer: async (d) => { enregistres.push(d); return null; } });
+    const champ = hote.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const deposer = async (nom: string, texte: string) => {
+      Object.defineProperty(champ, 'files', { configurable: true, value: [new File([texte], nom, { type: 'application/json' })] });
+      await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 5)); });
+    };
+    await deposer('autre.json', JSON.stringify({ format: 'plan-palette', couleurs: { clair: { accent: '#AA2200', ink: 'rouge' } } }));
+    expect(code(hote, 'accent', 'clair').value).toBe('#AA2200');
+    expect(code(hote, 'ink', 'clair').value).toBe(JETONS.clair.ink);
+    expect(hote.querySelector('.palMessage')?.textContent).toMatch(/importée de « autre\.json » : 1 couleur/);
+    expect(enregistres).toHaveLength(0);
+    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+    await deposer('plan.json', JSON.stringify({ objects: [] }));
+    expect(hote.querySelector('.palMessage--erreur')?.textContent).toMatch(/n’est pas une palette/);
+    expect(code(hote, 'accent', 'clair').value).toBe('#AA2200');
+    await deposer('casse.json', '{ pas du json');
+    expect(hote.querySelector('.palMessage--erreur')?.textContent).toMatch(/casse\.json/);
+  });
 });

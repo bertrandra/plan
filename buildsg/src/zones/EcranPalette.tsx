@@ -15,9 +15,9 @@
 // CSS de son theme (`--ink`, `--paper`…) depuis la palette en cours : tout ce qu'il contient les lit par
 // `var()`, comme l'atelier. Les deux themes se regardent ainsi cote a cote, au pixel pres.
 
-import { createContext, useContext, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE, contraste, type NomJeton, type NomPolice } from '../styles/jetons.js';
-import { couleursParDefaut, couleurValide, documentPalette, ecartsAuxOrigines, memesCouleurs, type Couleurs } from '../styles/paletteServeur.js';
+import { couleursParDefaut, couleurValide, documentPalette, ecartsAuxOrigines, lireDocumentPalette, memesCouleurs, type Couleurs } from '../styles/paletteServeur.js';
 import { telechargerTexte } from '../shell/download.js';
 
 type Theme = 'clair' | 'sombre';
@@ -96,6 +96,22 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
     setMessage({ texte: 'Palette exportée : plan-palette.json.', erreur: false });
   };
   const ecarts = ecartsAuxOrigines(couleurs).length;
+  /**
+   * Importe un JSON de palette (un export, ou un fichier fait ailleurs) : ses couleurs valides
+   * remplacent celles de l'ecran, le reste garde sa valeur d'origine. Rien n'est enregistre : on
+   * regarde d'abord, et « Enregistrer sur le serveur » l'applique a Plan.
+   */
+  async function importer(fichier: File): Promise<void> {
+    let lue: ReturnType<typeof lireDocumentPalette> = null;
+    try { lue = lireDocumentPalette(JSON.parse(await lireTexte(fichier))); } catch { /* JSON illisible : refus ci-dessous */ }
+    if (!lue) {
+      setMessage({ texte: '« ' + fichier.name + ' » n’est pas une palette de Plan (format plan-palette attendu). Rien n’a changé.', erreur: true });
+      return;
+    }
+    setCouleurs(lue.couleurs);
+    const n = ecartsAuxOrigines(lue.couleurs).length;
+    setMessage({ texte: 'Palette importée de « ' + fichier.name + ' » : ' + n + ' couleur' + (n > 1 ? 's' : '') + ' différente' + (n > 1 ? 's' : '') + ' de l’origine. Vérifiez, puis enregistrez pour l’appliquer à Plan.', erreur: false });
+  }
   const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'palette');
   const themes: Theme[] = choix === 'deux' ? ['clair', 'sombre'] : [choix];
   const choisir = (o: Onglet) => {
@@ -137,21 +153,9 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
         </div>
       </header>
 
-      <div className="palBarre" role="region" aria-label="Enregistrer la palette">
-        <p className="palEtatPalette" aria-live="polite">
-          {surServeur ? 'Palette du serveur' + (modifieLe ? ', enregistrée le ' + date(modifieLe) : '') : 'Aucune palette sur le serveur : couleurs d’origine.'}
-          {' · '}{ecarts ? ecarts + ' couleur' + (ecarts > 1 ? 's' : '') + ' différente' + (ecarts > 1 ? 's' : '') + ' de l’origine' : 'identique à l’origine'}
-          {modifiee && <strong className="palNonEnregistre"> · modifications non enregistrées</strong>}
-          {faibles > 0 && <span className="palAlerteContraste"> · ▲ {faibles} contraste{faibles > 1 ? 's' : ''} insuffisant{faibles > 1 ? 's' : ''}</span>}
-        </p>
-        <div className="palBarreActions">
-          {enregistrer && <button type="button" onClick={() => { void enregistrerSurServeur(); }} disabled={!modifiee || enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer sur le serveur'}</button>}
-          <button type="button" className="secondary" onClick={exporter}>Exporter le JSON</button>
-          <button type="button" className="secondary" onClick={() => { setCouleurs(reference); setMessage(null); }} disabled={!modifiee}>Annuler les modifications</button>
-          <button type="button" className="secondary" onClick={() => { setCouleurs(couleursParDefaut()); setMessage(null); }} disabled={ecarts === 0}>Couleurs d’origine</button>
-        </div>
-        {message && <p className={message.erreur ? 'palMessage palMessage--erreur' : 'palMessage'} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
-      </div>
+      <BarrePalette surServeur={surServeur} modifieLe={modifieLe} ecarts={ecarts} modifiee={modifiee} faibles={faibles} enCours={enCours} message={message}
+        enregistrer={enregistrer ? () => { void enregistrerSurServeur(); } : undefined} importer={(f) => { void importer(f); }} exporter={exporter}
+        annuler={() => { setCouleurs(reference); setMessage(null); }} origine={() => { setCouleurs(couleursParDefaut()); setMessage(null); }} />
 
       <div className="palOnglets" role="tablist" aria-label="Volets de la palette" onKeyDown={clavier}>
         {ONGLETS.map(o => (
@@ -195,6 +199,45 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
       </div>
     </div>
     </Palette.Provider>
+  );
+}
+
+/** Lit un fichier choisi : par FileReader, que tous les navigateurs connaissent. */
+function lireTexte(fichier: File): Promise<string> {
+  return new Promise((ok, ko) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => ok(String(lecteur.result ?? ''));
+    lecteur.onerror = () => ko(lecteur.error);
+    lecteur.readAsText(fichier);
+  });
+}
+
+/** La barre d'enregistrement : l'etat de la palette, ses actions, et le message du dernier geste. */
+function BarrePalette({ surServeur, modifieLe, ecarts, modifiee, faibles, enCours, message, enregistrer, importer, exporter, annuler, origine }: {
+  surServeur: boolean; modifieLe: string | null; ecarts: number; modifiee: boolean; faibles: number; enCours: boolean;
+  message: { texte: string; erreur: boolean } | null;
+  enregistrer: (() => void) | undefined; importer: (f: File) => void; exporter: () => void; annuler: () => void; origine: () => void;
+}) {
+  const choixFichier = useRef<HTMLInputElement>(null);
+  return (
+      <div className="palBarre" role="region" aria-label="Enregistrer la palette">
+        <p className="palEtatPalette" aria-live="polite">
+          {surServeur ? 'Palette du serveur' + (modifieLe ? ', enregistrée le ' + date(modifieLe) : '') : 'Aucune palette sur le serveur : couleurs d’origine.'}
+          {' · '}{ecarts ? ecarts + ' couleur' + (ecarts > 1 ? 's' : '') + ' différente' + (ecarts > 1 ? 's' : '') + ' de l’origine' : 'identique à l’origine'}
+          {modifiee && <strong className="palNonEnregistre"> · modifications non enregistrées</strong>}
+          {faibles > 0 && <span className="palAlerteContraste"> · ▲ {faibles} contraste{faibles > 1 ? 's' : ''} insuffisant{faibles > 1 ? 's' : ''}</span>}
+        </p>
+        <div className="palBarreActions">
+          {enregistrer && <button type="button" onClick={enregistrer} disabled={!modifiee || enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer sur le serveur'}</button>}
+          <button type="button" className="secondary" onClick={() => choixFichier.current?.click()}>Importer un JSON…</button>
+          <input ref={choixFichier} type="file" accept=".json,application/json" hidden aria-label="Fichier de palette à importer"
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importer(f); }} />
+          <button type="button" className="secondary" onClick={exporter}>Exporter le JSON</button>
+          <button type="button" className="secondary" onClick={annuler} disabled={!modifiee}>Annuler les modifications</button>
+          <button type="button" className="secondary" onClick={origine} disabled={ecarts === 0}>Couleurs d’origine</button>
+        </div>
+        {message && <p className={message.erreur ? 'palMessage palMessage--erreur' : 'palMessage'} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
+      </div>
   );
 }
 

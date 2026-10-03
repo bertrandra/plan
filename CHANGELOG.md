@@ -27,7 +27,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `styles/jetons.ts`. Dans l'écran de la palette, chaque couleur a son sélecteur et son code
   `#RRGGBB` par thème (un code invalide est signalé, pas appliqué) ; aperçus, contrastes et CSS
   suivent aussitôt, et un contraste insuffisant se dit dans la barre. « Enregistrer sur le
-  serveur » (session admin), « Exporter le JSON » (`plan-palette.json`), « Annuler les
+  serveur » (session admin), « Importer un JSON… » (ses couleurs valides remplacent celles de
+  l'écran, sans rien enregistrer ; un fichier qui n'est pas une palette est refusé),
+  « Exporter le JSON » (`plan-palette.json`), « Annuler les
   modifications », « Couleurs d'origine ». Le document ne remplace que ce qu'il porte de valide
   (`styles/paletteServeur.ts`), et un réglage du thème clair ne déteint pas sur le sombre. Le plan
   dessiné et les exports gardent leurs propres encres.
