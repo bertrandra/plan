@@ -7,6 +7,46 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin : l'écran de la palette** (`/?palette`, derrière la porte de l'admin comme l'écran des
+  contrôleurs ; `?admin&ecran=palette` y mène aussi). Trois onglets :
+  - **Palette** : une planche d'ambiance (bois, papier, encre, jardin, brique, ciel, chambre noire,
+    les trois polices), la structure des 29 jetons en sept familles avec leur rôle et leurs deux
+    valeurs, et les contrastes exigés par le test (verdict écrit en toutes lettres) ;
+  - **CSS** : les variables telles que la feuille les déclare (clair, sombre, polices, rayons), à
+    copier, puis les jetons en situation sur de vraies commandes, et les rayons et ombres ;
+  - **Typo** : serif, sans et monospace (rôle, pile, alphabet, usages) et l'échelle des tailles.
+
+  Chaque panneau pose les variables de son thème : clair et sombre se comparent côte à côte, quel
+  que soit le thème du système. L'onglet se retrouve par l'adresse (`#css`, `#typo`). Les rôles,
+  les polices et les rayons vivent dans `styles/jetons.ts` ; un test vérifie que la feuille déclare
+  les polices et les rayons à l'identique.
+- **Admin : la palette se règle et vit sur le serveur.** Les couleurs de l'interface sont un fichier
+  JSON sur le serveur web (`admin/palette`, `.palette.json` à côté des démos ; routes ajoutées à
+  `deploy/admin.php` et à `buildsg/demosAdmin.mjs`). Chaque page de Plan le lit au démarrage, sans
+  session, et le pose par-dessus la feuille ; sans fichier, ce sont les couleurs d'origine de
+  `styles/jetons.ts`. Dans l'écran de la palette, chaque couleur a, par thème, le sélecteur du
+  système, un **sélecteur avancé** (zone saturation × valeur à glisser ou à parcourir aux flèches,
+  barre de teinte, champs TSL et RVB, avant/après, contrastes où la couleur intervient, nuancier du
+  thème ; Échap ou un clic dehors le ferme, en feuille sur téléphone) et son code `#RRGGBB` (un
+  code invalide est signalé, pas appliqué) ; aperçus, contrastes et CSS
+  suivent aussitôt, et un contraste insuffisant se dit dans la barre. « Enregistrer sur le
+  serveur » (session admin), « Importer un JSON… » (ses couleurs valides remplacent celles de
+  l'écran, sans rien enregistrer ; un fichier qui n'est pas une palette est refusé),
+  « Exporter le JSON » (`plan-palette.json`), « Annuler les
+  modifications », « Couleurs d'origine ». Le document ne remplace que ce qu'il porte de valide
+  (`styles/paletteServeur.ts`), et un réglage du thème clair ne déteint pas sur le sombre. Le plan
+  dessiné et les exports gardent leurs propres encres.
+- **Admin : huit modèles de palette** dans un menu « Modèles » de l'écran de la palette : Eau vive,
+  Vert jardin, Fleurie, Zen, Monochrome, Multicolore, Psychédélique, Halloween — chacun avec sa
+  description et l'aperçu de ses couleurs dans les deux thèmes. Ce sont des fichiers JSON
+  `plan-palette` (`src/styles/modeles/*.json`, embarqués dans le fichier livré), engendrés par
+  `scripts/generer-modeles-palette.mjs` à partir de quelques teintes : le script pousse chaque
+  couleur de texte jusqu'au contraste exigé, et un test vérifie que chaque modèle est complet et
+  lisible dans les deux thèmes. Choisir un modèle le charge à l'écran sans rien enregistrer ; des
+  réglages non enregistrés demandent confirmation, dans la barre de la palette.
+- **Admin : un menu « Admin » dans la barre de Plan**, en admin des démos seulement, mène aux
+  contrôleurs de l'écran et à la palette. Les deux écrans ont un bouton « Retour au plan ».
+
 - **Contrôleurs : cohérence des déclarations.** La découverte signale un contrôle affiché hors de
   la zone que sa déclaration prévoit (aucun aujourd'hui, dans les trois classes d'écran). Les
   contrôles de feuille le déclarent : ils s'affichent dans chaque zone ouverte en feuille. Les

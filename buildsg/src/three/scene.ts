@@ -31,6 +31,7 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
+import { estParasol } from '../model/fonctions.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -370,7 +371,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.fonction === 'camera' || o.fonction === 'limite') return;
     if (o.type === 'path') { ajouterChemin(o, co); return; }
     // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
-    if (o.fonction === 'parasol' && o.type === 'circle') { ajouterParasol(o, co); return; }
+    if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
     const h = ctx.elevationOf(o);
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;

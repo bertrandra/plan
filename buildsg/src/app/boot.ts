@@ -76,6 +76,7 @@ import type { RegistreCommandes } from './commandes.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
+import { estTerrasse, estVueUtilisable } from '../model/fonctions.js';
 
 brancherFiletsDErreur();
 
@@ -398,12 +399,12 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
     // le plan ne s'y enregistre pas.
     vue3d.ombres = true;
     // La terrasse choisie, sinon la Vue 3D montrerait le terrain sans sa structure.
-    const terrasse = etat.objects.find(o => o.fonction === 'terrasse' && o.type === 'polygon');
+    const terrasse = etat.objects.find(estTerrasse);
     if (terrasse) explorateur.selectionner(terrasse.key);
     commandes.executer('vue.3d');
     // Le point de vue d'abord, le zoom ensuite, depuis lui. Une fois la scene la : poser la camera
     // avant, c'est la poser sur une scene que la construction remplacera.
-    const pdv = trouverPointDeVue(etat.objects.filter(o => o.fonction === 'camera'), options.vitrine.pdv);
+    const pdv = trouverPointDeVue(etat.objects.filter(estVueUtilisable), options.vitrine.pdv);
     const zoom = options.vitrine.zoom;
     if (pdv || zoom) {
       quandScenePrete(() => vue3d.scene as SceneZoomable | null, (sc) => {

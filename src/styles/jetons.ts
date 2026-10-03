@@ -6,8 +6,9 @@
 // les paires texte/fond ci-dessous atteignent le contraste exige. Changer une couleur, c'est donc la
 // changer ici et dans la feuille, et le test dit si l'une a ete oubliee ou si la lecture en souffre.
 //
-// Aucun module de l'application ne lit ce fichier : les exports ont leurs propres encres, figees par
-// les empreintes, et le plan a l'ecran lit les siennes dans render/theme.ts.
+// L'atelier ne lit pas ce fichier : les exports ont leurs propres encres, figees par les empreintes,
+// et le plan a l'ecran lit les siennes dans render/theme.ts. Seul l'ecran de la palette de l'admin
+// (`?admin&ecran=palette`, zones/EcranPalette.tsx) le lit, pour montrer les valeurs et les contrastes.
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
@@ -81,6 +82,98 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'camera-alerte': '#F2B38F'
   }
 };
+
+/** Les familles de la palette, dans l'ordre ou l'ecran de la palette les montre. */
+export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes';
+
+export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[] = [
+  { id: 'texte', titre: 'Encres', idee: 'Ce qui se lit : le texte, et le texte posé sur une couleur pleine.' },
+  { id: 'fonds', titre: 'Papiers', idee: 'Les fonds, du plus profond au plus clair : page, plan, panneaux, champs.' },
+  { id: 'traits', titre: 'Traits', idee: 'Bordures et filets : ils séparent sans peser.' },
+  { id: 'accent', titre: 'Bois', idee: 'L’accent : la sélection, l’état actif, le total. Une seule couleur forte.' },
+  { id: 'etats', titre: 'États', idee: 'Enregistré, alerte, danger : toujours accompagnés d’un mot ou d’une icône.' },
+  { id: 'notifications', titre: 'Notifications', idee: 'Le toast, en négatif de la page.' },
+  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' }
+];
+
+/**
+ * Le role de chaque jeton : sa famille et ce qu'il colore. Le type exige une entree par jeton, et
+ * l'ecran de la palette les montre famille par famille.
+ */
+export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: string }> = {
+  'ink': { famille: 'texte', role: 'Texte courant, titres' },
+  'ink-soft': { famille: 'texte', role: 'Libellés, notes, unités' },
+  'on-ink': { famille: 'texte', role: 'Texte sur l’encre (bouton principal)' },
+  'paper': { famille: 'fonds', role: 'Fond de page' },
+  'paper-deep': { famille: 'fonds', role: 'Fonds en retrait : barre d’état, onglets inactifs' },
+  'stage-bg': { famille: 'fonds', role: 'Canevas du plan' },
+  'stage-trame': { famille: 'fonds', role: 'Trame du canevas' },
+  'panel-bg': { famille: 'fonds', role: 'Panneaux et feuilles' },
+  'panel-2': { famille: 'fonds', role: 'Tuiles, chiffres clés, boutons − et +' },
+  'segment-bg': { famille: 'fonds', role: 'Fond d’une commande segmentée' },
+  'input-bg': { famille: 'fonds', role: 'Champs de saisie' },
+  'border': { famille: 'traits', role: 'Bordure des panneaux' },
+  'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
+  'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
+  'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
+  'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
+  'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
+  'on-accent-light': { famille: 'accent', role: 'Texte sur l’accent doux' },
+  'ok': { famille: 'etats', role: 'Enregistré, réussi' },
+  'alerte': { famille: 'etats', role: 'Bordure des alertes' },
+  'danger': { famille: 'etats', role: 'Suppression, erreurs' },
+  'danger-bg': { famille: 'etats', role: 'Fond d’une erreur' },
+  'toast-bg': { famille: 'notifications', role: 'Fond des notifications' },
+  'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
+  'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
+  'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
+  'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
+  'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },
+  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' }
+};
+
+/**
+ * Les polices : deux familles, deux roles, et le monospace pour ce qui se recopie (spec-ihm-mobile
+ * §5.2, decision 1 : des piles systeme, aucune police telechargee). `app.css` les declare en
+ * `--serif`, `--sans` et `--mono` avec ces piles exactes ; un test le verifie, comme les couleurs.
+ */
+export type NomPolice = 'serif' | 'sans' | 'mono';
+
+export const POLICES: Record<NomPolice, { nom: string; pile: string; role: string; usages: string[] }> = {
+  serif: {
+    nom: 'Serif — le document',
+    pile: 'Georgia,"Iowan Old Style",serif',
+    role: 'Ce qu’on lit comme un document : noms d’objets, titres de panneaux, boutons principaux, indications en italique.',
+    usages: ['Titre d’un panneau', 'Nom d’un objet', 'Indication en italique']
+  },
+  sans: {
+    nom: 'Sans — l’instrument',
+    pile: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    role: 'Ce qu’on manipule : menus, palette, barre d’état, libellés de champs, en-têtes de section en petites capitales.',
+    usages: ['Libellé d’un champ', 'Entrée de menu', 'EN-TÊTE DE SECTION']
+  },
+  mono: {
+    nom: 'Monospace — ce qui se recopie',
+    pile: 'ui-monospace,"SF Mono",Menlo,monospace',
+    role: 'Seulement ce qui se recopie à l’identique : résumé, références de requête, bandeau d’erreur, clés.',
+    usages: ['AE 101 — parcelle', 'projet.enregistrer', '--accent']
+  }
+};
+
+/** Les rayons (spec-ihm-mobile §5.3), declares tels quels dans `app.css` ; un test le verifie. */
+export const RAYONS: Record<'r-champ' | 'r-bouton' | 'r-tuile' | 'r-panneau' | 'r-feuille', string> = {
+  'r-champ': '10px', 'r-bouton': '12px', 'r-tuile': '14px', 'r-panneau': '16px', 'r-feuille': '22px'
+};
+
+/** L'echelle des tailles, en `rem` : compacte, c'est un logiciel metier. */
+export const ECHELLE_TEXTE: { taille: string; police: NomPolice; usage: string; exemple: string; capitales?: boolean }[] = [
+  { taille: '1.6rem', police: 'serif', usage: 'Titre d’écran', exemple: 'Palette de l’interface' },
+  { taille: '1.15rem', police: 'serif', usage: 'Titre de boîte', exemple: 'Configurer la terrasse' },
+  { taille: '1.05rem', police: 'serif', usage: 'Titre de panneau', exemple: 'Terrasse — 35,01 m²' },
+  { taille: '0.8rem', police: 'sans', usage: 'Corps, libellés', exemple: 'Entraxe des solives' },
+  { taille: '0.72rem', police: 'sans', usage: 'Notes, unités', exemple: 'Les deux coins de ce côté sont figés.' },
+  { taille: '0.62rem', police: 'sans', usage: 'En-tête de section', exemple: 'Fondation', capitales: true }
+];
 
 /**
  * Les paires qui portent du texte : [texte, fond, contraste minimal]. 4,5 pour le corps ; 3 pour les

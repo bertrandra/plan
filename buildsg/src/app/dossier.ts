@@ -4,6 +4,7 @@
 // pas. Elle se coche dans l'explorateur (zones/Explorateur.tsx) et se lit a l'export.
 
 import type { ObjetPlan } from '../model/types.js';
+import { estTerrasse } from '../model/fonctions.js';
 
 /** Terrasses cochees pour le dossier PDF. Par defaut, toutes. */
 export const dossierSelection = new Set<string>();
@@ -13,7 +14,7 @@ export const dossierSelection = new Set<string>();
  * et rien de coche veut dire toutes — un dossier vide n'est pas un dossier.
  */
 export function clesDossier(objects: ObjetPlan[]): string[] {
-  const terrasses = objects.filter((o: ObjetPlan)=>o.fonction === 'terrasse' && o.type === 'polygon');
+  const terrasses = objects.filter(estTerrasse);
   const cles = new Set(terrasses.map((t: ObjetPlan)=>t.key));
   [...dossierSelection].forEach(k=>{ if(!cles.has(k)) dossierSelection.delete(k); });
   if(!dossierSelection.size) terrasses.forEach((t: ObjetPlan)=>dossierSelection.add(t.key));

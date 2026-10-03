@@ -1537,4 +1537,237 @@
     .ctlGenre, .ctlNiveau{ display:none; }
     .ctlEnfant, .ctlNiveaux button, .ctlResultats button, .ctlBranche button, .ctlSelect{ min-height:44px; }
     .ctlNiveauBouton{ min-width:44px; }
+    .ctlEntete .ecranRetour{ min-height:44px; }
+  }
+
+  /* L'ecran de la palette (`?palette`, derriere la porte de l'admin, zones/EcranPalette.tsx). Plan ne tourne pas dessous. Chaque
+     panneau de theme pose lui-meme les variables de son theme (style en ligne, valeurs lues dans
+     styles/jetons.ts) : ce qui suit ne lit que des var(), et aucune couleur n'y est en dur. */
+  html[data-ecran="palette"] body > :not(#zoneEcranPalette):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="palette"], html[data-ecran="palette"] body{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="palette"] body{ align-items:stretch; }
+  .palEcran{ max-width:1280px; width:100%; margin:0 auto; padding:20px 16px 48px; color:var(--ink); }
+  .palEntete{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--rule); padding-bottom:12px; }
+  .palEntete, .palTitre, .palSection{ text-align:left; }
+  .palTitre{ font-family:var(--serif); font-size:1.6rem; margin:0 0 4px; }
+  .palSous{ margin:0; max-width:640px; font-size:0.8rem; color:var(--ink-soft); }
+  .palActions{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .palLien{ font-family:var(--sans); font-size:0.8rem; color:var(--ink-soft); }
+  .palSection{ margin-top:28px; }
+  .palSectionTitre{ font-family:var(--sans); font-size:0.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:600; }
+  .palIdee{ margin:0 0 12px; font-size:0.86rem; font-style:italic; color:var(--ink-soft); max-width:720px; }
+
+  /* Un panneau par theme ; cote a cote quand les deux sont montres. */
+  .palThemes{ display:grid; gap:16px; }
+  .palThemes--deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .palTheme{ position:relative; padding:28px 14px 14px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--paper); color:var(--ink); }
+  .palThemeNom{ position:absolute; top:8px; left:14px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+
+  /* Le retour au plan, en tete des deux ecrans secondaires de l'admin (palette, controleurs). */
+  .ecranRetour{ display:inline-flex; align-items:center; gap:6px; min-height:32px; margin:0 0 6px; padding:2px 12px 2px 8px; border:1px solid var(--rule); border-radius:999px; background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; text-decoration:none; }
+  .ecranRetour:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  /* La barre d'enregistrement : l'etat de la palette et ses actions, collee en haut au defilement. */
+  .palBarre{ position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; margin:12px 0 0; padding:8px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); }
+  .palEtatPalette{ margin:0; font-family:var(--sans); font-size:0.78rem; color:var(--ink-soft); }
+  .palNonEnregistre{ color:var(--ink); }
+  .palAlerteContraste{ color:var(--danger); }
+  .palBarreActions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .palMessage{ flex-basis:100%; margin:0; padding:6px 10px; border-radius:var(--r-champ); background:var(--panel-2); font-family:var(--sans); font-size:0.78rem; }
+  .palMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
+  /* Le menu des modeles : nom, description, et l'apercu des couleurs dans les deux themes. */
+  .palMenuModeles > summary{ min-height:32px; display:inline-flex; align-items:center; padding:4px 12px; border:1px solid var(--rule); border-radius:var(--r-bouton); background:var(--panel-bg); color:var(--ink); font-weight:600; }
+  .palMenuModeles > ul{ width:340px; max-height:70vh; overflow:auto; }
+  .palMenuModeles li button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; }
+  .palModeleTextes{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
+  .palModeleNom{ font-family:var(--serif); font-size:0.95rem; color:var(--ink); }
+  .palModeleDescription{ font-size:0.7rem; color:var(--ink-soft); white-space:normal; }
+  .palModeleApercu{ display:flex; flex-direction:column; gap:2px; flex:none; }
+  .palModeleBande{ display:flex; border-radius:4px; overflow:hidden; border:1px solid var(--hairline); }
+  .palModeleBande span{ width:10px; height:12px; }
+
+  .palConfirmation{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; border-left:3px solid var(--alerte); }
+  .palConfirmationBoutons{ display:flex; gap:6px; }
+
+  /* Le reglage d'une couleur : theme, selecteur, code, retour a l'origine. */
+  .palReglage{ display:grid; grid-template-columns:44px 32px 28px minmax(0, 1fr) 24px; gap:6px; align-items:center; }
+  .palAvance{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--panel-bg); color:var(--ink-soft); cursor:pointer; }
+  .palAvance:hover, .palAvance[aria-expanded="true"]{ background:var(--accent-light); color:var(--on-accent-light); opacity:1; }
+  .palReglageTheme{ font-family:var(--sans); font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .palSelecteur{ width:32px; height:28px; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); cursor:pointer; }
+  .palCodeCouleur{ min-width:0; min-height:28px; padding:2px 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font-family:var(--mono); font-size:0.76rem; text-transform:uppercase; }
+  .palCodeCouleur.invalide{ border-color:var(--danger); color:var(--danger); }
+  .palOrigine{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); cursor:pointer; }
+  .palOrigine--vide{ display:inline-block; border:none; background:none; }
+
+  /* Le selecteur avance (zones/SelecteurCouleur.tsx) : une fenetre flottante, ancree au reglage. */
+  .selCouleur{ z-index:40; display:flex; flex-direction:column; gap:8px; padding:10px 12px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre-forte); font-family:var(--sans); font-size:0.78rem; max-height:calc(100vh - 16px); overflow:auto; }
+  .selEntete{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .selTitre code{ font-family:var(--mono); font-size:0.78rem; }
+  .selFermer{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-height:0; padding:0; border:none; border-radius:6px; background:none; color:var(--ink-soft); cursor:pointer; }
+  .selFermer:hover{ background:var(--panel-2); color:var(--ink); opacity:1; }
+  .selZone{ position:relative; height:150px; border-radius:var(--r-champ); cursor:crosshair; touch-action:none; outline:none; }
+  .selZone:focus-visible{ box-shadow:0 0 0 2px var(--panel-bg), 0 0 0 4px var(--accent); }
+  .selCurseur{ position:absolute; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); pointer-events:none; }
+  .selLigne, .selChamps{ display:grid; grid-template-columns:40px minmax(0, 1fr) 40px; gap:8px; align-items:center; }
+  .selChamps{ grid-template-columns:40px repeat(3, minmax(0, 1fr)); }
+  .selEtiquette{ font-size:0.64rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+  .selValeur{ font-variant-numeric:tabular-nums; text-align:right; color:var(--ink-soft); }
+  /* La barre de teinte montre le spectre lui-meme : ce ne sont pas des couleurs de l'interface, d'ou
+     des noms CSS et non des jetons. La zone saturation x valeur, elle, est peinte en ligne (sa teinte varie). */
+  .selTeinte{ -webkit-appearance:none; appearance:none; height:12px; border-radius:999px; background:linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red); }
+  .selTeinte::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); background:transparent; cursor:pointer; }
+  .selTeinte::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; border:2px solid var(--on-ink); box-shadow:0 0 0 1px var(--ink); background:transparent; cursor:pointer; }
+  .selNombre{ min-width:0; min-height:28px; padding:2px 6px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font-family:var(--mono); font-size:0.76rem; font-variant-numeric:tabular-nums; }
+  .selAvantApres{ display:grid; grid-template-columns:1fr 1fr; border-radius:var(--r-champ); overflow:hidden; border:1px solid var(--hairline); }
+  .selTemoin{ display:flex; flex-direction:column; justify-content:flex-end; gap:2px; height:52px; padding:4px 6px; }
+  .selTemoin span, .selTemoin code{ align-self:flex-start; padding:0 5px; border-radius:4px; background:var(--panel-bg); color:var(--ink); font-size:0.66rem; }
+  .selContrastes{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  .selContrastes li{ display:flex; align-items:center; gap:6px; }
+  .selContrastes code{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .selNuancier{ display:flex; flex-wrap:wrap; gap:4px; }
+  .selNuance{ width:20px; height:20px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:5px; cursor:pointer; }
+  .selNuance:hover, .selNuance:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; opacity:1; }
+  .selActions{ display:flex; gap:6px; justify-content:flex-end; }
+
+  /* Les trois volets : des onglets en sans, soulignes par l'accent, comme les onglets du tiroir. */
+  .palOnglets{ display:flex; gap:4px; margin:16px 0 0; border-bottom:1px solid var(--rule); }
+  .palOnglet{ min-height:40px; padding:6px 18px; border:none; border-bottom:3px solid transparent; border-radius:var(--r-champ) var(--r-champ) 0 0; background:none; color:var(--ink-soft); font-family:var(--sans); font-size:0.85rem; font-weight:600; cursor:pointer; }
+  .palOnglet:hover{ background:var(--panel-2); color:var(--ink); opacity:1; }
+  .palOnglet.actif{ color:var(--ink); border-bottom-color:var(--accent); }
+  .palOnglet:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .palVolet > .palSection:first-child{ margin-top:18px; }
+  /* Le code CSS : en monospace, sur le fond de l'encre, a copier tel quel. */
+  .palCode{ border:1px solid var(--border); border-radius:var(--r-tuile); overflow:hidden; background:var(--panel-bg); }
+  .palCodeBarre{ display:flex; gap:10px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--hairline); background:var(--panel-2); }
+  .palCodeNom{ font-family:var(--mono); font-size:0.74rem; color:var(--ink-soft); margin-right:auto; }
+  .palCodeEtat{ font-family:var(--sans); font-size:0.74rem; color:var(--ok); }
+  .palCodeTexte{ margin:0; padding:12px 14px; max-height:520px; overflow:auto; font-family:var(--mono); font-size:0.76rem; line-height:1.55; color:var(--ink); background:var(--panel-bg); tab-size:2; }
+
+  /* La planche d'ambiance : une mosaique de tuiles, chacune une matiere de la palette. */
+  .palPlanche{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); grid-template-rows:repeat(3, 128px) auto; gap:10px; }
+  .palTuile{ position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; padding:10px 12px; border-radius:var(--r-tuile); border:1px solid var(--border); }
+  .palTuile--papier{ grid-column:span 2; grid-row:span 2; justify-content:center; background:var(--panel-bg); }
+  .palMot{ font-family:var(--serif); font-size:2rem; line-height:1.1; color:var(--ink); }
+  .palPhrase{ font-family:var(--serif); font-style:italic; font-size:0.95rem; color:var(--ink-soft); }
+  .palJetons{ display:flex; flex-wrap:wrap; gap:4px; }
+  .palJeton{ font-family:var(--mono); font-size:0.64rem; padding:1px 6px; border-radius:999px; background:var(--panel-bg); color:var(--ink-soft); border:1px solid var(--hairline); }
+  .palJetons--surAccent .palJeton{ background:var(--accent-light); color:var(--on-accent-light); border-color:transparent; }
+  .palJetons--camera .palJeton{ background:var(--camera-bg); color:var(--on-camera); border-color:var(--camera-ok); }
+  .palLegende{ font-family:var(--serif); font-size:1.05rem; color:var(--ink); position:relative; }
+  .palTuile .palJetons{ position:relative; }
+  .palLegende--danger{ color:var(--danger); }
+  .palLegende--camera{ color:var(--on-camera); }
+  /* Le bois : des lames d'accent separees par un joint clair, decalees d'une rangee a l'autre. */
+  .palTuile--bois{ grid-column:span 2; background:var(--accent); }
+  .palLames{ position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 46%, var(--on-accent-light) 46% 47%, transparent 47% 100%),
+      repeating-linear-gradient(0deg, var(--accent) 0 20px, var(--accent-light) 20px 22px, color-mix(in srgb, var(--accent) 88%, var(--ink)) 22px 42px, var(--accent-light) 42px 44px);
+    opacity:.95; }
+  .palTuile--bois .palJetons{ position:relative; }
+  .palTuile--jardin{ background:color-mix(in srgb, var(--ok) 16%, var(--panel-bg)); }
+  .palArbre{ position:absolute; top:10px; right:14px; width:40px; height:40px; border-radius:50%; background:var(--ok); box-shadow:-18px 22px 0 -10px color-mix(in srgb, var(--ok) 70%, var(--panel-bg)); }
+  .palTuile--brique{ background:var(--danger-bg); }
+  .palBriques{ position:absolute; top:10px; right:10px; width:56px; height:30px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 12px, var(--danger-bg) 12px 14px),
+      repeating-linear-gradient(90deg, var(--alerte) 0 26px, var(--danger-bg) 26px 28px);
+    border-radius:4px; }
+  .palTuile--ciel{ background:var(--fond-3d); }
+  .palSoleil{ position:absolute; top:10px; right:14px; width:28px; height:28px; border-radius:50%; background:var(--accent-light); box-shadow:0 0 0 8px color-mix(in srgb, var(--accent-light) 45%, transparent); }
+  .palTuile--chambre{ background:var(--camera-bg); border-color:var(--camera-bg); }
+  .palViseur{ position:absolute; top:10px; right:12px; width:44px; height:30px; border:2px solid var(--camera-ok); border-radius:4px; }
+  .palViseur::after{ content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:var(--camera-alerte); }
+  .palTuile--plan{ background:var(--stage-bg); }
+  .palTuile--polices{ background:var(--panel-bg); }
+  .palTrio{ display:flex; gap:10px; align-items:baseline; font-size:1.7rem; line-height:1; color:var(--ink); margin-bottom:auto; }
+  .palTrio span:nth-child(2){ color:var(--accent); }
+  .palTrio span:nth-child(3){ font-size:1.4rem; color:var(--ink-soft); }
+  .palTrame{ position:absolute; inset:0; background-image:linear-gradient(var(--stage-trame) 1px, transparent 1px), linear-gradient(90deg, var(--stage-trame) 1px, transparent 1px); background-size:16px 16px; opacity:.7; }
+  .palTuile--plan > :not(.palTrame){ position:relative; }
+  .palTuile--mots{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-content:center; justify-content:flex-start; gap:6px; background:var(--panel-2); }
+  .palPastille{ font-family:var(--serif); font-style:italic; font-size:0.95rem; padding:4px 12px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); }
+
+  /* La structure : une famille par bloc, une carte par jeton. */
+  .palFamilles{ display:flex; flex-direction:column; gap:18px; }
+  .palFamilleTitre{ font-family:var(--serif); font-size:1.15rem; margin:0; }
+  .palFamilleIdee{ margin:2px 0 8px; font-size:0.8rem; color:var(--ink-soft); }
+  .palNuancier{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
+  .palCarte{ display:flex; flex-direction:column; gap:4px; padding:8px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); }
+  .palEchantillons{ display:grid; grid-template-columns:1fr 1fr; height:56px; border-radius:var(--r-champ); overflow:hidden; border:1px solid var(--hairline); }
+  .palEchantillon{ display:block; }
+  .palNom{ font-family:var(--mono); font-size:0.78rem; color:var(--ink); }
+  .palRole{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); min-height:2.2em; }
+
+  /* Les contrastes. */
+  .palTableau{ overflow-x:auto; }
+  .palContrastes{ width:100%; font-family:var(--sans); font-size:0.78rem; }
+  .palContrastes td{ white-space:nowrap; }
+  .palApercu{ display:inline-block; min-width:30px; padding:2px 6px; margin-right:8px; border-radius:6px; border:1px solid var(--hairline); font-family:var(--serif); font-weight:600; text-align:center; }
+  .palRatio{ font-variant-numeric:tabular-nums; margin-right:8px; }
+  .palVerdict{ font-size:0.7rem; padding:1px 8px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); }
+  .palVerdict--non{ background:var(--danger-bg); color:var(--danger); }
+
+  /* Les polices et leur echelle. */
+  .palTypo{ display:flex; flex-direction:column; gap:14px; }
+  .palPolices{ display:flex; flex-direction:column; gap:10px; }
+  .palPolice{ display:flex; gap:16px; align-items:flex-start; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); }
+  .palSpecimen{ flex:none; width:84px; font-size:3.4rem; line-height:1; color:var(--accent); text-align:center; }
+  .palPoliceTexte{ min-width:0; display:flex; flex-direction:column; gap:4px; }
+  .palPoliceNom{ margin:0; font-family:var(--serif); font-size:1.05rem; }
+  .palPile{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); word-break:break-word; }
+  .palPoliceRole{ margin:0; font-family:var(--sans); font-size:0.78rem; color:var(--ink-soft); }
+  .palAlphabet{ margin:2px 0 0; font-size:1rem; color:var(--ink); word-break:break-word; }
+  .palUsages{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 0; padding:0; list-style:none; }
+  .palUsages li{ font-size:0.78rem; padding:2px 10px; border-radius:999px; background:var(--panel-2); color:var(--ink); }
+  .palEchelle{ border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); overflow:hidden; }
+  .palEchelleLigne{ display:grid; grid-template-columns:96px 150px minmax(0, 1fr); gap:12px; align-items:baseline; padding:8px 12px; border-bottom:1px solid var(--hairline); }
+  .palEchelleLigne:last-child{ border-bottom:none; }
+  .palEchelleTaille{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .palEchelleUsage{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); }
+  .palEchelleExemple{ color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .palEchelleExemple--capitales{ letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; }
+  .palChiffres{ display:flex; gap:16px; font-family:var(--sans); font-size:0.8rem; font-variant-numeric:tabular-nums; color:var(--ink); }
+
+  /* En situation. */
+  .palSituation{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+  .palPanneau{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); box-shadow:var(--ombre-flottante); }
+  .palPanneauTitre{ margin:0; font-family:var(--serif); font-size:1.05rem; }
+  .palChamp{ display:grid; grid-template-columns:1fr 90px auto; align-items:center; gap:8px; font-family:var(--sans); font-size:0.8rem; color:var(--ink-soft); }
+  .palChamp input{ min-height:32px; padding:4px 8px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font-variant-numeric:tabular-nums; }
+  .palBoutons{ display:flex; gap:8px; flex-wrap:wrap; }
+  .palSegmente{ align-self:flex-start; }
+  .palEtat{ margin:0; font-family:var(--sans); font-size:0.8rem; }
+  .palEtat--ok{ color:var(--ok); }
+  .palEtat--danger{ padding:6px 10px; border-left:3px solid var(--alerte); border-radius:6px; background:var(--danger-bg); color:var(--danger); }
+  .palToast{ padding:8px 14px; border-radius:var(--r-bouton); background:var(--toast-bg); color:var(--on-toast); font-family:var(--sans); font-size:0.8rem; box-shadow:var(--ombre-menu); }
+
+  /* Les formes. */
+  .palFormes{ display:flex; flex-wrap:wrap; gap:12px; }
+  .palForme{ display:flex; align-items:flex-end; width:120px; height:72px; padding:6px 8px; border:1px solid var(--rule); background:var(--panel-bg); font-size:0.7rem; color:var(--ink-soft); }
+  .palForme--ombre{ border-color:var(--hairline); border-radius:var(--r-tuile); }
+
+  /* Telephone et tablette : un theme sous l'autre, une mosaique a deux colonnes. */
+  @media (max-width: 1023px){
+    .palThemes--deux{ grid-template-columns:minmax(0, 1fr); }
+    .palPlanche{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-template-rows:none; grid-auto-rows:minmax(120px, auto); }
+    .palEchelleLigne{ grid-template-columns:minmax(0, 1fr); gap:2px; }
+    .palSpecimen{ width:56px; font-size:2.4rem; }
+    .palTuile--mots{ min-height:0; }
+    .palActions .segmente button, .palLien, .ecranRetour, .palOnglet{ min-height:44px; display:inline-flex; align-items:center; }
+    .palOnglets{ overflow-x:auto; }
+    .palSelecteur{ width:44px; height:44px; }
+    .palCodeCouleur{ min-height:44px; }
+    .palReglage{ grid-template-columns:44px 44px 44px minmax(0, 1fr) 32px; }
+    .palAvance{ width:44px; height:44px; }
+    .selCouleur .selNombre, .selCouleur .selActions button, .selFermer{ min-height:44px; }
+    .selNuance{ width:28px; height:28px; }
+    .palOrigine{ width:32px; height:32px; }
+    .palBarre{ position:static; }
+    .palBarreActions button, .palMenuModeles > summary{ min-height:44px; }
+    .palMenuModeles > ul{ width:min(340px, calc(100vw - 32px)); }
+  }
+  @media (max-width: 599px){
+    .palMot{ font-size:1.5rem; }
+    .palTuile--bois{ grid-column:span 2; }
   }

@@ -76,6 +76,8 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `POST /admin/demos` | crée la démo au premier numéro libre |
 | `GET`, `PUT`, `DELETE /admin/demos/<id>` | lit, réécrit, met de côté |
 | `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
+| `GET /admin/palette` | **sans session** : la palette de l'interface (`.palette.json`), que chaque page de Plan applique au démarrage ; 404 sans palette (couleurs d'origine) |
+| `PUT /admin/palette` | remplace la palette (session ; `{format: 'plan-palette', couleurs: {clair, sombre}}`, chaque couleur `#RRGGBB` ; `.bak` gardé) |
 | `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page
@@ -85,6 +87,35 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 - `io/depotDemos.ts` : le dépôt des démos, même contrat que celui de la plateforme
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
   dernier ouvert (`planInteractif.admin.lastDemoId`), pour ne jamais mélanger démos et projets.
+
+## Palette de l'interface (`?palette`)
+
+Un écran de l'admin, derrière la même porte, ouvert depuis le menu « Admin » de la barre de Plan
+(`zones/EcranPalette.tsx`, `app/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
+couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayons et ombres),
+**Typo** (polices et échelle). Un bouton « Retour au plan » ramène à l'atelier.
+
+- **Les couleurs vivent dans un fichier JSON sur le serveur** (`.palette.json`, à côté des démos).
+  Chaque page de Plan le lit au démarrage, sans session (`app/paletteServeur.ts`), et pose une
+  feuille par-dessus `app.css`. Sans fichier, sans admin configuré ou sans réseau : les couleurs
+  d'origine de `styles/jetons.ts`.
+- **Chaque couleur se règle** par thème : le sélecteur du système, le sélecteur avancé
+  (`zones/SelecteurCouleur.tsx` : zone saturation × valeur, teinte, TSL, RVB, avant/après,
+  contrastes concernés, nuancier du thème) et le code `#RRGGBB` (un code invalide est signalé et
+  n'est pas appliqué). Les conversions sont dans `styles/conversions.ts`. Les aperçus, les contrastes et le CSS suivent aussitôt ; un
+  contraste qui tombe sous le minimum se dit dans la barre.
+- **Enregistrer sur le serveur** (session), **Importer un JSON…** (un export, ou un fichier fait
+  ailleurs : ses couleurs valides remplacent celles de l'écran, rien n'est enregistré avant
+  « Enregistrer »), **Exporter le JSON** (`plan-palette.json`), **Annuler les modifications**,
+  **Couleurs d'origine**.
+- **Modèles** : un menu propose huit palettes toutes faites (`src/styles/modeles/*.json`, engendrées
+  par `scripts/generer-modeles-palette.mjs`, chacune vérifiée complète et lisible dans les deux
+  thèmes). Choisir un modèle le charge à l'écran sans l'enregistrer ; des réglages non enregistrés
+  demandent confirmation dans la barre (la boîte de dialogue commune n'existe pas sur cet écran).
+- Le document ne remplace que ce qu'il porte de valide (`styles/paletteServeur.ts`) : un jeton
+  inconnu ou une valeur mal formée est ignoré, un jeton absent garde sa valeur d'origine.
+- Le plan dessiné en SVG (`render/theme.ts`) et les exports gardent leurs propres encres : la
+  palette règle l'interface, pas les nombres ni les fichiers produits.
 
 ## Contrôleurs de l'écran (`?admin&ecran=controleurs`)
 

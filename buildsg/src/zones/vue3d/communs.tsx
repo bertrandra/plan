@@ -11,6 +11,7 @@ import type { ObjetPlan } from '../../model/types.js';
 import type { ReglagesSoleil as ServiceSoleil } from '../../app/ecouteurs/soleil.js';
 import type { ReglagesVue3d } from '../../app/ecouteurs/vue3d.js';
 import type { ReglagesVisionneuse } from '../../app/ecouteurs/visionneuse.js';
+import { estVueUtilisable } from '../../model/fonctions.js';
 
 /** Ce que les deux panneaux demandent au programme. */
 export interface ServiceVues3d {
@@ -116,7 +117,7 @@ export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSol
  */
 export function ListePointsDeVue({ vue, id, magasin, aller }: { vue: 'vue3d' | 'visionneuse'; id: string; magasin: Magasin; aller: (vp: ObjetPlan) => void }) {
   useStore(magasin.store, (s) => s.version);
-  const vues = magasin.store.getState().etat.objects.filter(o => o.fonction === 'camera');
+  const vues = magasin.store.getState().etat.objects.filter(estVueUtilisable);
   return (
     <select id={id} data-controle={vue + '.pointDeVue'} aria-label="Aller à un point de vue enregistré" value="" disabled={vues.length === 0}
       onChange={(e) => { const vp = vues.find(v => v.key === e.target.value); if (vp) aller(vp); }}>

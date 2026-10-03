@@ -22,6 +22,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 import type { RegistreCommandes } from './commandes.js';
 import type { Resultats } from './resultats.js';
+import { aParticularite } from '../model/fonctions.js';
 
 /** Ce que l'inspecteur doit pouvoir declencher ailleurs. */
 export interface ContexteInspecteur extends Pick<ContexteChamps,
@@ -109,7 +110,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     titre: titreObjet,
     sections(c) {
       const sections = sectionsObjet(c);
-      if (c.obj.fonction === 'terrasse' && c.obj.type === 'polygon') sections.push(...sectionsConstruction(ctx.optimisation));
+      if (aParticularite(c.obj, 'construction')) sections.push(...sectionsConstruction(ctx.optimisation));
       if (estBatiment(c.obj)) sections.push(sectionReleve(c));
       return sections;
     },

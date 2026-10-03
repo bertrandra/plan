@@ -13,13 +13,13 @@ import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
+import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 
-/** Les fonctions qu'on peut donner a un objet, dans l'ordre du menu d'autrefois. */
-/** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur. */
+/** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'limite', 'autre'];
 
 // La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
@@ -27,12 +27,11 @@ export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 
 let distanceAlignement = '';
 export const distanceAlignementSaisie = (): string => distanceAlignement;
 
-// Un parasol est un cercle (DEFAUTS D-14) : la fonction se dit d'un polygone, la section non.
-const estParasol = (o: ObjetPlan) => o.fonction === 'parasol' && o.type === 'circle';
-const estPointDeVue = (o: ObjetPlan) => o.fonction === 'camera';
-const estArbre = (o: ObjetPlan) => o.fonction === 'arbre';
-const estTerrasse = (o: ObjetPlan) => o.fonction === 'terrasse' && o.type === 'polygon';
-const estParcelle = (o: ObjetPlan) => o.key === 'parcelle' || o.fonction === 'terrain';
+// Ce que la fonction donne a l'objet (sections, formes admises) est decrit une fois, dans
+// model/fonctions.ts.
+const estTerrasse = terrasseCalculable;
+/** La parcelle du projet, celle qui porte la cloture et le lieu — pas une parcelle voisine. */
+const estParcellePrincipale = (c: ContexteChamps) => !!c.parcelle && c.parcelle.key === c.obj.key;
 const aDesPoints = (o: ObjetPlan) => o.type === 'polygon' || o.type === 'path';
 const surface = (o: ObjetPlan): number | null => o.type === 'polygon' ? shoelace(o.pts) : o.type === 'circle' ? Math.PI * o.r * o.r : null;
 const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
@@ -67,24 +66,30 @@ const sectionObjet: Section = {
     {
       type: 'choix', cle: 'fonction', libelle: 'Fonction', effets: ['rendu'],
       // Plusieurs champs (elevation, textures, arbre, parasol) n'apparaissent que selon la
-      // fonction : le rendu qui suit les fait paraitre aussitot.
+      // fonction : le rendu qui suit les fait paraitre aussitot. Le menu ne propose que les
+      // fonctions qui ont un sens sur la forme de l'objet (un parasol est un cercle, une terrasse
+      // un polygone) ; la fonction en place reste proposee, meme inadmise, pour qu'un ancien
+      // fichier s'affiche tel qu'il est.
       options: (c) => {
         const f = c.obj.fonction;
-        return (!f || FONCTIONS.includes(f) ? FONCTIONS : [...FONCTIONS, f]).map(v => ({ valeur: v, libelle: LIBELLE_FONCTION[v] || v }));
+        const admises = FONCTIONS.filter(v => fonctionAdmise(v, c.obj.type));
+        return (!f || admises.includes(f) ? admises : [...admises, f]).map(v => ({ valeur: v, libelle: LIBELLE_FONCTION[v] || v }));
       },
       lire: (c) => c.obj.fonction || '', ecrire: (c, v) => { c.obj.fonction = v; }
     },
     {
       type: 'nombre', cle: 'priority', libelle: 'Priorité d\'affichage', pas: 1, effets: ['empilement', 'rendu'],
       aide: 'Plus élevé = dessiné au-dessus des autres (hors objet sélectionné, toujours au premier plan)',
+      // Un point de vue n'est pas une surface : il n'a ni ordre d'empilement utile ni matiere.
+      visible: (c) => !estPointDeVue(c.obj),
       lire: (c) => c.obj.priority || 0, ecrire: (c, v) => { c.obj.priority = Math.round(v) || 0; }
     },
-    { type: 'texte', cle: 'matiere', libelle: 'Matière', placeholder: 'ex : béton, bois, gazon…', lire: (c) => c.obj.matiere || '', ecrire: (c, v) => { c.obj.matiere = v; } },
+    { type: 'texte', cle: 'matiere', libelle: 'Matière', placeholder: 'ex : béton, bois, gazon…', visible: (c) => !estPointDeVue(c.obj), lire: (c) => c.obj.matiere || '', ecrire: (c, v) => { c.obj.matiere = v; } },
     // La hauteur sert la Vue 3D : chaque objet y devient un bloc extrude. Une terrasse fait
     // exception — sa hauteur vient de sa construction — et un terrain n'en a pas.
     {
       type: 'lecture', cle: 'elevationTerrasse', libelle: 'Élévation',
-      visible: (c) => estTerrasse(c.obj) && !estParcelle(c.obj),
+      visible: (c) => estTerrasse(c.obj) && !estTerrain(c.obj),
       // 3 decimales : a 2, 0,095 m arrondit en 0,10 m et fait croire a un centimetre de plus que la
       // construction n'en affiche.
       valeur: (c) => c.elevationOf(c.obj).toFixed(3) + ' m — calculée depuis la construction (appui + structure + lame)'
@@ -92,7 +97,7 @@ const sectionObjet: Section = {
     {
       type: 'nombre', cle: 'elevation', libelle: 'Élévation', unite: 'm', pas: 0.1, min: 0, decimales: 2,
       aide: 'Hauteur au-dessus du sol, utilisée par la Vue 3D',
-      visible: (c) => !estPointDeVue(c.obj) && !estParcelle(c.obj) && !estTerrasse(c.obj),
+      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj),
       lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; }
     },
     {
@@ -186,20 +191,26 @@ const sectionApparence: Section = {
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
     { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj) },
-    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj) },
-    // Le feuillage est une sphere posee sur le tronc : un jeu de champs a part, independant de la
-    // hauteur du tronc, parce qu'un feuillage n'a ni la forme ni la matiere de l'ecorce.
+    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj) }
+  ]
+};
+
+// Le feuillage est une sphere posee sur le tronc : un jeu de champs a part, independant de la
+// hauteur du tronc, parce qu'un feuillage n'a ni la forme ni la matiere de l'ecorce. Une section a
+// lui, comme le parasol : ce sont les reglages de l'arbre, pas son apparence au plan.
+const sectionArbre: Section = {
+  id: 'arbre', titre: 'Arbre',
+  champs: [
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
       aide: 'Diamètre du feuillage (sphère posée sur le tronc), utilisé par la Vue 3D',
-      visible: (c) => estArbre(c.obj),
       lire: (c) => c.obj.diametreArbre ?? 3, ecrire: (c, v) => { c.obj.diametreArbre = Math.max(0.1, v) || 3; }
     },
     {
-      type: 'couleur', cle: 'couleurArbre', libelle: 'Couleur du feuillage', effets: ['scene3d'], visible: (c) => estArbre(c.obj),
+      type: 'couleur', cle: 'couleurArbre', libelle: 'Couleur du feuillage', effets: ['scene3d'],
       lire: (c) => c.obj.couleurArbre || '#4a7c3a', ecrire: (c, v) => { c.obj.couleurArbre = v; }
     },
-    { ...texture('textureArbre', 'Texture du feuillage'), visible: (c) => estArbre(c.obj) }
+    texture('textureArbre', 'Texture du feuillage')
   ]
 };
 
@@ -210,8 +221,8 @@ const sectionParasol: Section = {
     // recherche de position. Indispensable des qu'il y a plusieurs terrasses.
     {
       type: 'choix', cle: 'terrasseLieeKey', libelle: 'Terrasse rattachée', effets: ['rendu'],
-      actif: (c) => c.objets.some(o => o.fonction === 'terrasse'),
-      options: (c) => { const t = c.objets.filter(o => o.fonction === 'terrasse'); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
+      actif: (c) => c.objets.some(estTerrasse),
+      options: (c) => { const t = c.objets.filter(estTerrasse); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
       lire: (c) => terrasseDuParasol(c.obj, c.objets, c.etat.terrasseSelectedKey)?.key || '',
       ecrire: (c, v) => { c.obj.terrasseLieeKey = v; }
     },
@@ -414,17 +425,20 @@ const sectionAlignement: Section = {
   ]
 };
 
-// La cloture est rattachee a la parcelle, comme le lieu : elle se sauvegarde avec le projet.
+// La cloture est rattachee a la parcelle, comme le lieu : elle se sauvegarde avec le projet. Une
+// parcelle voisine (import cadastre, `fonction: terrain` elle aussi) n'en montre que le cadastre :
+// la Vue 3D ne dessine que la cloture de la parcelle du projet (ui/cloture.ts), et le lieu est le
+// sien. Lui offrir ces reglages, c'etait ecrire le projet sans effet visible.
 const sectionParcelle: Section = {
   id: 'parcelle', titre: 'Parcelle',
   champs: [
-    { type: 'lecture', cle: 'lieu', libelle: 'Lieu', valeur: (c) => { const l = lieuDeParcelle(c.obj); return l.nom + ' — ' + l.latitude.toFixed(4) + '° N, ' + l.longitude.toFixed(4) + '° E'; } },
+    { type: 'lecture', cle: 'lieu', libelle: 'Lieu', visible: estParcellePrincipale, valeur: (c) => { const l = lieuDeParcelle(c.obj); return l.nom + ' — ' + l.latitude.toFixed(4) + '° N, ' + l.longitude.toFixed(4) + '° E'; } },
     { type: 'lecture', cle: 'cadastre', libelle: 'Cadastre', visible: (c) => !!c.obj.cadastre, valeur: (c) => { const k = c.obj.cadastre ?? {}; return [k.commune, k.section, k.numero].filter(v => typeof v === 'string' && v).join(' ') || 'parcelle importée'; } },
-    { type: 'case', cle: 'clotureActive', libelle: 'Clôture autour de la parcelle', effets: ['inspecteur', 'scene3d'], lire: (c) => !!c.obj.clotureActive, ecrire: (c, v) => { c.obj.clotureActive = v; } },
+    { type: 'case', cle: 'clotureActive', visible: estParcellePrincipale, libelle: 'Clôture autour de la parcelle', effets: ['inspecteur', 'scene3d'], lire: (c) => !!c.obj.clotureActive, ecrire: (c, v) => { c.obj.clotureActive = v; } },
     // Hauteur plafonnee par le bas a 0,10 m, repliee sur 1,80 m si la saisie n'est pas un nombre.
-    { type: 'nombre', cle: 'clotureHauteur', libelle: 'Hauteur de la clôture', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureHauteur ?? 1.8, ecrire: (c, v) => { c.obj.clotureHauteur = Math.max(0.1, v) || 1.8; } },
-    { type: 'couleur', cle: 'clotureCouleur', libelle: 'Couleur de la clôture', effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureCouleur || '#6b4a2a', ecrire: (c, v) => { c.obj.clotureCouleur = v; } },
-    { type: 'texture', cle: 'clotureTexture', libelle: 'Texture de la clôture', effets: ['inspecteur', 'scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureTexture, ecrire: (c, v) => { c.obj.clotureTexture = v; } }
+    { type: 'nombre', cle: 'clotureHauteur', visible: estParcellePrincipale, libelle: 'Hauteur de la clôture', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureHauteur ?? 1.8, ecrire: (c, v) => { c.obj.clotureHauteur = Math.max(0.1, v) || 1.8; } },
+    { type: 'couleur', cle: 'clotureCouleur', visible: estParcellePrincipale, libelle: 'Couleur de la clôture', effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureCouleur || '#6b4a2a', ecrire: (c, v) => { c.obj.clotureCouleur = v; } },
+    { type: 'texture', cle: 'clotureTexture', visible: estParcellePrincipale, libelle: 'Texture de la clôture', effets: ['inspecteur', 'scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureTexture, ecrire: (c, v) => { c.obj.clotureTexture = v; } }
   ]
 };
 
@@ -432,10 +446,11 @@ const sectionParcelle: Section = {
 export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
-  if (estParcelle(o)) sections.push(sectionParcelle);
+  if (estTerrain(o)) sections.push(sectionParcelle);
   sections.push(sectionApparence);
-  if (estParasol(o)) sections.push(sectionParasol);
-  if (estPointDeVue(o) && o.type === 'path') sections.push(sectionPointDeVue);
+  if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
+  if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
+  if (aParticularite(o, 'pointDeVue')) sections.push(sectionPointDeVue);
   if (aDesPoints(o) && !estPointDeVue(o)) {
     sections.push(sectionCotes(c));
     if (o.type === 'polygon') sections.push(sectionCoins(c));

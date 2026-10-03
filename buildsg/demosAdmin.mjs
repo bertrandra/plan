@@ -163,6 +163,17 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
         return true;
       }
 
+      // --- La palette ---------------------------------------------------------------------------
+      // Les couleurs de l'interface (styles/paletteServeur.ts), lues SANS session par chaque page
+      // (deploy/admin.php, meme route). L'ecriture, plus bas, demande la session.
+      const fPalette = path.join(dossier, '.palette.json');
+      if (url.pathname === '/admin/palette' && lecture) {
+        if (!fs.existsSync(fPalette)) return erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Last-Modified': fs.statSync(fPalette).mtime.toUTCString() });
+        res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fPalette, 'utf8'));
+        return true;
+      }
+
       // --- La session ---------------------------------------------------------------------------
       if (url.pathname === '/admin/session') {
         if (lecture) return sessionValide(req) ? json(200, { admin: true }) : erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
@@ -225,6 +236,16 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
         return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
       }
 
+      if (url.pathname === '/admin/palette') {
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const document = verifierPalette(await lireCorps(req, 65536));
+        if (fs.existsSync(fPalette)) fs.copyFileSync(fPalette, fPalette + '.bak');
+        const tmp = fPalette + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');
+        fs.renameSync(tmp, fPalette);
+        return json(200, { modifieLe: document.modifieLe ?? null });
+      }
+
       const m = /^\/admin\/demos\/([^/]+)$/.exec(url.pathname);
       if (m) {
         const id = decodeURIComponent(m[1]);
@@ -268,6 +289,21 @@ function verifierDocument(texte) {
   try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
   if (!d || typeof d !== 'object' || Array.isArray(d) || !Array.isArray(d.objects)) {
     throw Object.assign(new Error('Le document n’a pas la forme d’un plan (objects manquant).'), { statut: 400 });
+  }
+  return d;
+}
+
+/** Une palette : `{format: 'plan-palette', couleurs: {clair: {nom: '#RRGGBB'}, sombre: {...}}}`. */
+function verifierPalette(texte) {
+  let d;
+  try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
+  const refus = () => Object.assign(new Error('Ce n’est pas une palette (couleurs #RRGGBB, thèmes clair et sombre).'), { statut: 400 });
+  if (!d || d.format !== 'plan-palette' || !d.couleurs || typeof d.couleurs !== 'object' || Array.isArray(d.couleurs)) throw refus();
+  for (const [theme, valeurs] of Object.entries(d.couleurs)) {
+    if (!['clair', 'sombre'].includes(theme) || !valeurs || typeof valeurs !== 'object' || Array.isArray(valeurs)) throw refus();
+    for (const [nom, v] of Object.entries(valeurs)) {
+      if (!/^[a-z0-9-]{1,40}$/.test(nom) || typeof v !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(v)) throw refus();
+    }
   }
   return d;
 }

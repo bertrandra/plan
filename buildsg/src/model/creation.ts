@@ -20,6 +20,7 @@ import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan, ObjetBrut } from './types.js';
 import { enPoints } from './formes.js';
+import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -121,7 +122,7 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
       showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
       constrained: true, fonction: 'parasol', matiere: '', priority: 4, locked: false,
       hauteurParasol: 2.2,
-      terrasseLieeKey: (terrasse && terrasse.fonction === 'terrasse') ? terrasse.key : null
+      terrasseLieeKey: (terrasse && estTerrasse(terrasse)) ? terrasse.key : null
     },
     onglet: 'objet'
   };
@@ -230,8 +231,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       ctx.pushHistory();
       // Pose au centre de la terrasse plutot que de la parcelle : sinon il naît loin de l'endroit ou
       // on veut l'utiliser.
-      const terr = etat.objects.find(o => o.key === etat.terrasseSelectedKey && o.fonction === 'terrasse')
-                || etat.objects.find(o => o.fonction === 'terrasse')
+      const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey)
                 || etat.objects.find(o => o.key === 'parcelle');
       const c = terr ? centroid(enPoints(terr).pts) : { x: 0, y: 0 };
       const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
