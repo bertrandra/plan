@@ -1566,6 +1566,23 @@
   /* Le retour au plan, en tete des deux ecrans secondaires de l'admin (palette, controleurs). */
   .ecranRetour{ display:inline-flex; align-items:center; gap:6px; min-height:32px; margin:0 0 6px; padding:2px 12px 2px 8px; border:1px solid var(--rule); border-radius:999px; background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; text-decoration:none; }
   .ecranRetour:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  /* La barre d'enregistrement : l'etat de la palette et ses actions, collee en haut au defilement. */
+  .palBarre{ position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; margin:12px 0 0; padding:8px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre); }
+  .palEtatPalette{ margin:0; font-family:var(--sans); font-size:0.78rem; color:var(--ink-soft); }
+  .palNonEnregistre{ color:var(--ink); }
+  .palAlerteContraste{ color:var(--danger); }
+  .palBarreActions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .palMessage{ flex-basis:100%; margin:0; padding:6px 10px; border-radius:var(--r-champ); background:var(--panel-2); font-family:var(--sans); font-size:0.78rem; }
+  .palMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
+  /* Le reglage d'une couleur : theme, selecteur, code, retour a l'origine. */
+  .palReglage{ display:grid; grid-template-columns:48px 32px minmax(0, 1fr) 24px; gap:6px; align-items:center; }
+  .palReglageTheme{ font-family:var(--sans); font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .palSelecteur{ width:32px; height:28px; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); cursor:pointer; }
+  .palCodeCouleur{ min-width:0; min-height:28px; padding:2px 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font-family:var(--mono); font-size:0.76rem; text-transform:uppercase; }
+  .palCodeCouleur.invalide{ border-color:var(--danger); color:var(--danger); }
+  .palOrigine{ width:24px; height:24px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); font-size:0.8rem; line-height:1; cursor:pointer; }
+  .palOrigine--vide{ display:inline-block; border:none; background:none; }
+
   /* Les trois volets : des onglets en sans, soulignes par l'accent, comme les onglets du tiroir. */
   .palOnglets{ display:flex; gap:4px; margin:16px 0 0; border-bottom:1px solid var(--rule); }
   .palOnglet{ min-height:40px; padding:6px 18px; border:none; border-bottom:3px solid transparent; border-radius:var(--r-champ) var(--r-champ) 0 0; background:none; color:var(--ink-soft); font-family:var(--sans); font-size:0.85rem; font-weight:600; cursor:pointer; }
@@ -1635,7 +1652,6 @@
   .palEchantillon{ display:block; }
   .palNom{ font-family:var(--mono); font-size:0.78rem; color:var(--ink); }
   .palRole{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); min-height:2.2em; }
-  .palValeurs{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
 
   /* Les contrastes. */
   .palTableau{ overflow-x:auto; }
@@ -1694,6 +1710,12 @@
     .palTuile--mots{ min-height:0; }
     .palActions .segmente button, .palLien, .ecranRetour, .palOnglet{ min-height:44px; display:inline-flex; align-items:center; }
     .palOnglets{ overflow-x:auto; }
+    .palSelecteur{ width:44px; height:44px; }
+    .palCodeCouleur{ min-height:44px; }
+    .palReglage{ grid-template-columns:48px 44px minmax(0, 1fr) 32px; }
+    .palOrigine{ width:32px; height:32px; }
+    .palBarre{ position:static; }
+    .palBarreActions button{ min-height:44px; }
   }
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }

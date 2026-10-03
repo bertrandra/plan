@@ -25,6 +25,7 @@ import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ObjetPlan } from '../model/types.js';
 import { resumerChiffrage, euros, nombre } from '../ui/chiffrage.js';
+import { estTerrasse } from '../model/fonctions.js';
 
 export interface PropsResultats { magasin: Magasin; tiroir: ServiceTiroir; explorateur?: Explorateur; commandes?: RegistreCommandes }
 
@@ -152,7 +153,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
 
   // Le selecteur de terrasse (§6.6) : il selectionne la suivante, comme l'explorateur.
   const terrasse = terrasseSelectionnee(etat);
-  const terrasses = etat.objects.filter(o => o.fonction === 'terrasse' && o.type === 'polygon');
+  const terrasses = etat.objects.filter(estTerrasse);
   const rang = terrasse ? terrasses.indexOf(terrasse) : -1;
   const suivante = () => {
     const t = terrasses[(rang + 1) % terrasses.length];

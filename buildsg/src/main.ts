@@ -30,6 +30,10 @@ async function demarrer(): Promise<void> {
       return;
     }
 
+    // La palette de l'interface enregistree sur le serveur (app/paletteServeur.ts) : chargee sans
+    // attendre, posee sur la page des qu'elle arrive. Sans elle, les couleurs d'origine.
+    void import('./app/paletteServeur.js').then(({ chargerPaletteServeur }) => chargerPaletteServeur());
+
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
     const { lireVitrine, poserVitrine, chargerDemoVitrine } = await import('./app/vitrine.js');
@@ -49,9 +53,16 @@ async function demarrer(): Promise<void> {
     // les plans sont les fichiers de demo du serveur qui sert la page, derriere son mot de passe.
     // Ouvrir, Enregistrer, Nouveau et Supprimer passent par le meme depot que d'habitude, pose
     // sur ces fichiers ; le reste de l'atelier ne sait pas la difference.
+    // L'ecran de la palette (`?palette`) est un ecran de l'admin : meme porte, meme mot de passe.
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
-    if (demandeAdmin(location.search)) {
+    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+    if (demandeAdmin(location.search) || demandeEcranPalette(location.search)) {
       await franchirLaPorteAdmin();
+      if (demandeEcranPalette(location.search)) {
+        document.documentElement.dataset.ecran = 'palette';
+        await ouvrirEcranPalette();
+        return;
+      }
       // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
       // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
       // lance la decouverte (app/ecranControleurs.ts).

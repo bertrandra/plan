@@ -95,6 +95,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir' },
   'aide.version': { libelle: 'Version', zone: Z1, nature: 'sortie' },
   'projet.choisir': { libelle: 'Choisir le projet à ouvrir', zone: Z1, nature: 'navigation', description: 'Ouvre un autre projet (ou une autre démo, en admin) ; le projet courant n’est pas modifié' },
+  'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
+  'admin.palette': { libelle: 'Palette de l’interface', zone: Z1, nature: 'navigation', description: 'Ouvre la palette : couleurs, variables CSS, typographie (admin des démos seulement)' },
   'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },
   'barre.projetEtMenus': { libelle: 'Projet et menus (tablette, téléphone)', zone: Z1, nature: 'navigation', description: 'Ouvre la feuille Projet, qui porte les menus du bureau' },
   'barre.exporter': { libelle: 'Exporter (tablette, téléphone)', zone: Z1, nature: 'navigation', description: 'Ouvre la feuille Projet sur le menu Exporter' },

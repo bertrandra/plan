@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranPalette, ongletDeLAdresse, texteCss } from '../../../src/zones/EcranPalette.js';
@@ -11,14 +11,19 @@ import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYON
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const telecharges: { nom: string; texte: string }[] = [];
+vi.mock('../../../src/shell/download.js', () => ({ telechargerTexte: (nom: string, texte: string) => { telecharges.push({ nom, texte }); } }));
+
 describe('l ecran de la palette', () => {
   let monte: { racine: Root; hote: HTMLElement } | null = null;
   afterEach(() => { if (monte) { const m = monte; act(() => m.racine.unmount()); m.hote.remove(); monte = null; } });
-  const monter = () => {
+  const monter = (props: Parameters<typeof EcranPalette>[0] = {}) => {
+    // L'onglet se lit dans l'adresse : chaque ecran part de la palette.
+    history.replaceState(null, '', '/');
     const hote = document.createElement('div');
     document.body.appendChild(hote);
     const racine = createRoot(hote);
-    act(() => { racine.render(createElement(EcranPalette)); });
+    act(() => { racine.render(createElement(EcranPalette, props)); });
     monte = { racine, hote };
     return hote;
   };
@@ -93,5 +98,67 @@ describe('l ecran de la palette', () => {
     expect(themes).toBe(2);
     expect(hote.querySelectorAll('.palPolice').length).toBe(Object.keys(POLICES).length * themes);
     expect(hote.querySelectorAll('.palEchelleExemple').length).toBe(ECHELLE_TEXTE.length * themes);
+  });
+
+  /** Saisit un code de couleur comme au clavier. */
+  const saisir = (champ: HTMLInputElement, valeur: string) => {
+    const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    act(() => { poser.call(champ, valeur); champ.dispatchEvent(new Event('input', { bubbles: true })); });
+  };
+  const code = (hote: HTMLElement, nom: string, theme: string) =>
+    hote.querySelector<HTMLInputElement>('[data-jeton="' + nom + '"] [data-theme="' + theme + '"] .palCodeCouleur')!;
+  const bouton = (hote: HTMLElement, texte: string) => [...hote.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === texte)!;
+
+  it('donne a chaque couleur un selecteur et un code, par theme', () => {
+    const hote = monter();
+    const n = Object.keys(ROLES_JETONS).length;
+    expect(hote.querySelectorAll('.palCarte input[type="color"]').length).toBe(n * 2);
+    expect(hote.querySelectorAll('.palCarte .palCodeCouleur').length).toBe(n * 2);
+    expect(code(hote, 'accent', 'sombre').value).toBe(JETONS.sombre.accent);
+  });
+
+  it('applique un code valide partout, et signale un code invalide sans rien changer', () => {
+    const hote = monter();
+    saisir(code(hote, 'accent', 'clair'), '#336699');
+    const carte = hote.querySelector('[data-jeton="accent"]')!;
+    expect(carte.querySelector<HTMLInputElement>('[data-theme="clair"] input[type="color"]')!.value).toBe('#336699');
+    expect(hote.querySelector('[data-theme-montre="clair"]')!.getAttribute('style')).toContain('--accent: #336699');
+    expect(hote.textContent).toContain('modifications non enregistrées');
+    saisir(code(hote, 'ink', 'clair'), '#12');
+    expect(code(hote, 'ink', 'clair').getAttribute('aria-invalid')).toBe('true');
+    expect(hote.querySelector('[data-theme-montre="clair"]')!.getAttribute('style')).toContain('--ink: ' + JETONS.clair.ink);
+    // Un contraste qui tombe se dit dans la barre.
+    saisir(code(hote, 'ink-soft', 'clair'), '#FFFDF8');
+    expect(hote.querySelector('.palAlerteContraste')?.textContent).toMatch(/insuffisant/);
+  });
+
+  it('enregistre sur le serveur, exporte le JSON, et annule les modifications', async () => {
+    const enregistres: unknown[] = [];
+    const appliquees: unknown[] = [];
+    const hote = monter({ enregistrer: async (d) => { enregistres.push(d); return null; }, appliquer: (c) => { appliquees.push(c); } });
+    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(true);
+    saisir(code(hote, 'ok', 'sombre'), '#00FF00');
+    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+    await act(async () => { bouton(hote, 'Enregistrer sur le serveur').click(); });
+    expect(enregistres).toHaveLength(1);
+    expect((enregistres[0] as { couleurs: { sombre: { ok: string } } }).couleurs.sombre.ok).toBe('#00FF00');
+    expect(appliquees).toHaveLength(1);
+    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(true);
+    act(() => { bouton(hote, 'Exporter le JSON').click(); });
+    expect(telecharges.at(-1)?.nom).toBe('plan-palette.json');
+    expect(JSON.parse(telecharges.at(-1)!.texte).couleurs.sombre.ok).toBe('#00FF00');
+    saisir(code(hote, 'ok', 'sombre'), '#0000FF');
+    act(() => { bouton(hote, 'Annuler les modifications').click(); });
+    expect(code(hote, 'ok', 'sombre').value).toBe('#00FF00');
+    act(() => { bouton(hote, 'Couleurs d’origine').click(); });
+    expect(code(hote, 'ok', 'sombre').value).toBe(JETONS.sombre.ok);
+  });
+
+  it('part de la palette du serveur quand il y en a une', () => {
+    const c = JSON.parse(JSON.stringify(JETONS));
+    c.clair.accent = '#123456';
+    const hote = monter({ enregistree: { couleurs: c, modifieLe: '2026-10-03T08:00:00.000Z' } });
+    expect(code(hote, 'accent', 'clair').value).toBe('#123456');
+    expect(hote.textContent).toContain('Palette du serveur, enregistrée le');
   });
 });

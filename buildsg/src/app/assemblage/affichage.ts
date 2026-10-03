@@ -11,6 +11,7 @@ import type { EtatApp } from '../../core/state.js';
 import type { Lieu } from '../../model/lieu.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Magasin } from '../magasin.js';
+import { estTerrain } from '../../model/fonctions.js';
 
 export interface Affichage {
   /** La parcelle qui porte la cloture, le lieu et les reglages : `parcelle`, sinon le premier terrain. */
@@ -38,7 +39,7 @@ export function creerAffichage(etat: EtatApp, magasin: Magasin, markDirty: () =>
       const lieu = lieuActuel();
       return { dateStr: etat.parasol.dateStr, minutes: etat.parasol.minutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
     },
-    estTerrain: (o) => o.key === 'parcelle' || o.fonction === 'terrain',
+    estTerrain,
     // Masquer le voisinage ne touche pas au `hidden` de chaque objet : sinon decocher puis recocher
     // effacerait les objets que l'utilisateur avait masques lui-meme.
     // Une terrasse isolee (app/isolement.ts) masque tout le reste, a l'affichage seulement : le

@@ -30,6 +30,10 @@ async function demarrer(): Promise<void> {
       return;
     }
 
+    // La palette de l'interface enregistree sur le serveur (app/paletteServeur.ts) : chargee sans
+    // attendre, posee sur la page des qu'elle arrive. Sans elle, les couleurs d'origine.
+    void import('./app/paletteServeur.js').then(({ chargerPaletteServeur }) => chargerPaletteServeur());
+
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
     const { lireVitrine, poserVitrine, chargerDemoVitrine } = await import('./app/vitrine.js');
@@ -56,7 +60,7 @@ async function demarrer(): Promise<void> {
       await franchirLaPorteAdmin();
       if (demandeEcranPalette(location.search)) {
         document.documentElement.dataset.ecran = 'palette';
-        ouvrirEcranPalette();
+        await ouvrirEcranPalette();
         return;
       }
       // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.

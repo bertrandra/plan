@@ -20,6 +20,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   que soit le thème du système. L'onglet se retrouve par l'adresse (`#css`, `#typo`). Les rôles,
   les polices et les rayons vivent dans `styles/jetons.ts` ; un test vérifie que la feuille déclare
   les polices et les rayons à l'identique.
+- **Admin : la palette se règle et vit sur le serveur.** Les couleurs de l'interface sont un fichier
+  JSON sur le serveur web (`admin/palette`, `.palette.json` à côté des démos ; routes ajoutées à
+  `deploy/admin.php` et à `buildsg/demosAdmin.mjs`). Chaque page de Plan le lit au démarrage, sans
+  session, et le pose par-dessus la feuille ; sans fichier, ce sont les couleurs d'origine de
+  `styles/jetons.ts`. Dans l'écran de la palette, chaque couleur a son sélecteur et son code
+  `#RRGGBB` par thème (un code invalide est signalé, pas appliqué) ; aperçus, contrastes et CSS
+  suivent aussitôt, et un contraste insuffisant se dit dans la barre. « Enregistrer sur le
+  serveur » (session admin), « Exporter le JSON » (`plan-palette.json`), « Annuler les
+  modifications », « Couleurs d'origine ». Le document ne remplace que ce qu'il porte de valide
+  (`styles/paletteServeur.ts`), et un réglage du thème clair ne déteint pas sur le sombre. Le plan
+  dessiné et les exports gardent leurs propres encres.
 - **Admin : un menu « Admin » dans la barre de Plan**, en admin des démos seulement, mène aux
   contrôleurs de l'écran et à la palette. Les deux écrans ont un bouton « Retour au plan ».
 

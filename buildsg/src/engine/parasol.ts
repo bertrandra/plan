@@ -10,6 +10,7 @@ import { positionSoleil } from '../geo/soleil.js';
 import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { estParasol, estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
 
 /**
  * Contexte solaire : ce que les fonctions d'ombre lisaient dans la fermeture de boot() - la date
@@ -92,7 +93,7 @@ export function grillePolygone(poly: PtBrut[], pas: number): PtBrut[] {
 // parasols : sur un jardin a plusieurs terrasses, chacune se lit independamment.
 export function calculerCartesOmbre(ctx: ContexteSoleil, objets: ObjetPlan[]): CarteOmbre[] {
   // Un parasol est un cercle (DEFAUTS D-14).
-  const parasols = objets.filter(o=>o.fonction==='parasol' && o.type==='circle' && !o.hidden);
+  const parasols = objets.filter(o=>estParasol(o) && !o.hidden);
   if(!parasols.length) return [];
   const ech = echantillonsSoleilParasol(ctx);
   if(!ech.length) return [];
@@ -276,17 +277,16 @@ export function pointDansOmbre(px: number, py: number, g: GeometrieOmbre): boole
 // parasols optimises sur la meme (la premiere trouvee), ce qui n'a aucun sens.
 export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseSelectionnee?: string | null): ObjetPlan | undefined {
   if(par && par.terrasseLieeKey){
-    const t = objets.find(o=>o.key===par.terrasseLieeKey && o.fonction==='terrasse');
+    const t = objets.find(o=>o.key===par.terrasseLieeKey && estTerrasse(o));
     if(t) return t;
   }
   // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre
   // fonction : on retombe sur celle qui contient physiquement le parasol, puis sur la premiere.
   if(par && estCercle(par)){
-    const dessous = objets.find(o=>o.fonction==='terrasse' && aDesSommets(o) && pointInPolygon(par.center, o.pts));
+    const dessous = objets.find(o=>estTerrasse(o) && aDesSommets(o) && pointInPolygon(par.center, o.pts));
     if(dessous) return dessous;
   }
-  return objets.find(o=>o.key===terrasseSelectionnee && o.fonction==='terrasse')
-      || objets.find(o=>o.fonction==='terrasse');
+  return terrasseOuPremiere(objets, terrasseSelectionnee);
 }
 
 // Geometrie de l'ombre d'une toile circulaire horizontale, pour une position de soleil donnee :

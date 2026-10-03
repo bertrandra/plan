@@ -258,6 +258,7 @@ function Entete({ decouverte, registre, cmp, enCours, enDecouverte, enregistrer,
   return (
     <header className="ctlEntete">
       <div>
+        <a className="ecranRetour" href="?admin"><span aria-hidden="true">←</span> Retour au plan</a>
         <h1 className="ctlTitre">Contrôleurs de l’écran</h1>
         <p className="ctlSous">
           {registre ? 'Registre enregistré le ' + date(registre.decouvertLe) + ' (Plan ' + registre.appVersion + ') — ' + compterFeuilles(registre.arbre) + ' contrôleurs.' : 'Aucun registre enregistré.'}
@@ -274,7 +275,7 @@ function Entete({ decouverte, registre, cmp, enCours, enDecouverte, enregistrer,
             {enCours ? 'Enregistrement…' : 'Enregistrer la découverte'}
           </button>
         )}
-        <a className="ctlLien" href="?admin">Admin des démos</a>
+        <a className="ctlLien" href="?palette">Palette de l’interface</a>
       </div>
     </header>
   );

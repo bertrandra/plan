@@ -11,6 +11,8 @@
 //   POST   admin/demos            cree la demo au premier numero libre
 //   GET|PUT|DELETE admin/demos/<id>
 //   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
+//   GET    admin/palette          la palette de l'interface, SANS session : chaque page l'applique
+//   PUT    admin/palette          la remplace (session ; styles/paletteServeur.ts)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -80,6 +82,19 @@ if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
     // Une minute de cache : la page d'accueil qui l'encadre ne redemande pas le fichier a chaque
     // visite, et une demo reenregistree se voit vite.
     header('Cache-Control: public, max-age=60');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
+// --- La palette ---------------------------------------------------------------------------------
+// Les couleurs de l'interface (styles/paletteServeur.ts) : chaque page de Plan les lit au demarrage,
+// sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'palette' && $lecture) {
+    $f = $dossier . '/.palette.json';
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
+    header('Cache-Control: no-cache');
     header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
     http_response_code(200);
     if ($methode !== 'HEAD') readfile($f);
@@ -234,6 +249,33 @@ if ($chemin === 'controleurs') {
         repondre(200, ['decouvertLe' => $d['decouvertLe'] ?? null]);
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+}
+
+// La palette, en ecriture : un document `plan-palette` dont chaque couleur est `#RRGGBB`.
+if ($chemin === 'palette') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $dossier . '/.palette.json';
+    $texte = (string)file_get_contents('php://input', false, null, 0, 65537);
+    if (strlen($texte) > 65536) erreur(413, 'TOO_LARGE', 'Palette trop grosse (64 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-palette' && isset($d['couleurs']) && is_array($d['couleurs']);
+    if ($valide) {
+        foreach ($d['couleurs'] as $theme => $valeurs) {
+            if (!in_array($theme, ['clair', 'sombre'], true) || !is_array($valeurs)) { $valide = false; break; }
+            foreach ($valeurs as $nom => $v) {
+                if (!is_string($nom) || !preg_match('/^[a-z0-9-]{1,40}$/', $nom) || !is_string($v) || !preg_match('/^#[0-9A-Fa-f]{6}$/', $v)) { $valide = false; break 2; }
+            }
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une palette (couleurs #RRGGBB, thèmes clair et sombre).');
+    if (is_file($f)) copy($f, $f . '.bak');
+    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
+        @unlink($tmp);
+        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    }
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
 }
 
 if (preg_match('#^demos/([^/]+)$#', $chemin, $m)) {

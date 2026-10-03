@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette } from '../../../src/io/depotDemos.js';
 
 // L'admin des demos (MD/spec-demos-admin.md), cote serveur et cote page, l'un contre l'autre : un
 // vrai serveur HTTP sur un dossier temporaire, et le depot de la page qui lui parle.
@@ -188,5 +188,26 @@ describe('admin des demos, la page contre le serveur', () => {
     expect(await lireControleurs(navigateur)).toEqual(registre);
     expect(await creerDepotDemos(navigateur).lister()).toEqual([]);
     await expect(enregistrerControleurs(navigateur, { arbre: {} })).rejects.toMatchObject({ reason: 'server' });
+  });
+
+  it('sert la palette sans session, et ne l ecrit qu avec la session', async () => {
+    // Sans palette : 404, et la page garde ses couleurs d'origine.
+    await demarrer(MDP);
+    expect(await lirePalette(navigateur)).toBe(null);
+    const palette = { format: 'plan-palette', version: 1, modifieLe: '2026-10-03T08:00:00.000Z', couleurs: { clair: { accent: '#336699' }, sombre: { accent: '#88AACC' } } };
+    // Ecrire demande la session.
+    await expect(enregistrerPalette(navigateur, palette)).rejects.toThrow(/session admin/);
+    await connecterAdmin(navigateur, MDP);
+    await enregistrerPalette(navigateur, palette);
+    // La lire, non : une page sans cookie la recoit.
+    const r = await fetch(base + '/admin/palette');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(await r.json()).toEqual(palette);
+    // Elle reste hors de la liste des demos, et un document qui n'est pas une palette est refuse.
+    expect(await creerDepotDemos(navigateur).lister()).toEqual([]);
+    await expect(enregistrerPalette(navigateur, { format: 'plan-palette', couleurs: { clair: { accent: 'rouge' } } })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerPalette(navigateur, { couleurs: {} })).rejects.toMatchObject({ reason: 'server' });
+    expect(await lirePalette(navigateur)).toEqual(palette);
   });
 });

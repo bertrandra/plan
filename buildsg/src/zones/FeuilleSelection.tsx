@@ -23,6 +23,7 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
+import { estTerrasse } from '../model/fonctions.js';
 
 /** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
 const essenceDe = (o: ObjetPlan) => (ESSENCE_PRICES[ensureConstruction(o).essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label.toLowerCase() ?? '';
@@ -45,7 +46,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
   } else {
     liste.push(['Surface', nombre(shoelace(o.pts)) + ' m²']);
   }
-  if (o.fonction === 'terrasse' && o.type === 'polygon') {
+  if (estTerrasse(o)) {
     liste.push(['Hauteur finie', nombre(hauteurFinieMm(o) / 10, 1).replace(/,0$/, '') + ' cm']);
     const r = resumerChiffrage(o, objets);
     if (r) liste.push(['Estimation', euros(r.bas) + ' – ' + euros(r.haut)]);
@@ -61,7 +62,7 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
   const etat = magasin.store.getState().etat;
   const o = etat.objects.find(x => x.key === etat.selectedKey);
   if (classe === 'large' || vue !== 'plan' || !o || feuille) return null;
-  const terrasse = o.fonction === 'terrasse' && o.type === 'polygon';
+  const terrasse = estTerrasse(o);
   const ouvrirResultats = () => {
     if (terrasse) tiroir.activer('bom');
     if (classe === 'compact') magasin.definirFeuille('resultats');

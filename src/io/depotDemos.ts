@@ -182,3 +182,28 @@ export async function enregistrerControleurs(f: Fetch, registre: unknown): Promi
     body: JSON.stringify(registre)
   });
 }
+
+/**
+ * La palette de l'interface enregistree sur le serveur (`admin/palette`, styles/paletteServeur.ts),
+ * ou `null` s'il n'y en a pas. Lue SANS session : chaque page de Plan l'applique au demarrage.
+ */
+export async function lirePalette(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/palette', { credentials: 'same-origin', cache: 'no-cache' });
+  } catch (e) {
+    throw echec('lecture de la palette : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture de la palette');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace la palette du serveur ; il garde la precedente en `.bak`. */
+export async function enregistrerPalette(f: Fetch, document: unknown): Promise<void> {
+  await appeler(f, '/palette', 'enregistrement de la palette', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN },
+    body: JSON.stringify(document)
+  });
+}

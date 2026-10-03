@@ -209,6 +209,33 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
 }
 
 /**
+ * Le menu Admin : les deux ecrans secondaires de l'admin, l'arbre des controleurs et la palette de
+ * l'interface. Il n'existe qu'en admin des demos (`enAdmin`) : hors admin, ces ecrans demandent le
+ * mot de passe, et un menu qui y mene n'aurait rien a offrir. Chaque ecran a son bouton de retour.
+ */
+export function MenuAdmin() {
+  if (!enAdmin()) return null;
+  const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
+  return (
+    <details className="menu" id="menuAdmin">
+      <summary>Admin</summary>
+      <ul role="menu">
+        <li role="menuitem">
+          <button type="button" data-controle="admin.controleurs" onClick={aller('?admin&ecran=controleurs')}>
+            <span className="coche" aria-hidden="true" />Contrôleurs de l’écran
+          </button>
+        </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.palette" onClick={aller('?palette')}>
+            <span className="coche" aria-hidden="true" />Palette de l’interface
+          </button>
+        </li>
+      </ul>
+    </details>
+  );
+}
+
+/**
  * Un menu ouvert se referme quand on clique ailleurs ou par Echap, et en ouvrir un ferme les autres.
  * Tous les menus deroulants de la page : ceux de la barre, et le menu Etiquettes de l'explorateur,
  * qui ne se fermait ni par Echap ni par un clic ailleurs (spec-ihm-mobile, D11).
@@ -350,6 +377,9 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   useStore(magasin.store, (s) => s.version);
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   const enregistrement = p.statut === 'enregistrement';
+  // Comme toute commande : grise en lecture seule (le droit d'ecrire manque) ou sans projet ouvert,
+  // au lieu d'un clic refuse sans un mot.
+  const etatEnregistrer = commandes.etat('projet.enregistrer');
   const compact = classe === 'compact';
   // Telephone et tablette partagent la barre haute ; la feuille Projet devient sur tablette un
   // panneau deroulant sous le bouton ☰ (spec-ihm-mobile §6.1).
@@ -393,7 +423,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       )}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
-        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
+        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement || !etatEnregistrer.utilisable}
+          title={!etatEnregistrer.utilisable && 'message' in etatEnregistrer ? etatEnregistrer.message : undefined} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       )}
@@ -401,6 +432,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAffichage magasin={magasin} commandes={commandes} />
       <MenuAide magasin={magasin} tiroir={tiroir} />
+      <MenuAdmin />
     </>
   );
 

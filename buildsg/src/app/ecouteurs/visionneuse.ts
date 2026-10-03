@@ -11,6 +11,7 @@ import { estTexture } from '../../three/gardes.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetMesurable } from '../../engine/hauteurs.js';
+import { terrasseOuPremiere } from '../../model/fonctions.js';
 
 /** Ce que les commandes de la visionneuse pilotent, en plus de l'atelier. */
 export interface ContexteVisionneuse {
@@ -75,8 +76,7 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
    */
   vis('glbViewerEyeLevel', 'visionneuse.hauteurDesYeux', 'Hauteur des yeux', () => {
     if (!glb.scene) return;
-    const terr = a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && o.fonction === 'terrasse')
-              || a.etat.objects.find(o => o.fonction === 'terrasse');
+    const terr = terrasseOuPremiere(a.etat.objects, a.etat.terrasseSelectedKey);
     if (!terr) return;
     const { camera, controls, renderer, scene } = glb.scene;
     camera.position.y = ctx.hauteurFinieMm(terr) / 1000 + ctx.hauteurYeuxM;

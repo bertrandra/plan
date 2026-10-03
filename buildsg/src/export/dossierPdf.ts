@@ -20,6 +20,7 @@ import {
 import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
 export interface MetaDossier {
@@ -134,7 +135,7 @@ export function equipementsSurTerrasse(objets: ObjetPlan[], terrasse: ObjetPlan)
 }
 
 function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipementsParTerrasse: Map<string, ObjetPlan[]>, avecEquipements: boolean, meta: MetaDossier): PagePdf {
-  const parcelle = objets.find(o=>o.key==='parcelle') || objets.find(o=>o.fonction==='terrain');
+  const parcelle = parcelleDuProjet(objets);
   // Un plan de masse ne montre QUE la propriete : ni les parcelles voisines - seule la parcelle
   // principale est tracee -, ni le bati qui leur appartient. Trois marqueurs distinguent ce bati
   // secondaire, selon la facon dont il est entre dans le plan :
