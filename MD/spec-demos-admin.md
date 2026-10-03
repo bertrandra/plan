@@ -108,6 +108,10 @@ couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayo
   ailleurs : ses couleurs valides remplacent celles de l'écran, rien n'est enregistré avant
   « Enregistrer »), **Exporter le JSON** (`plan-palette.json`), **Annuler les modifications**,
   **Couleurs d'origine**.
+- **Modèles** : un menu propose huit palettes toutes faites (`src/styles/modeles/*.json`, engendrées
+  par `scripts/generer-modeles-palette.mjs`, chacune vérifiée complète et lisible dans les deux
+  thèmes). Choisir un modèle le charge à l'écran sans l'enregistrer ; des réglages non enregistrés
+  demandent confirmation dans la barre (la boîte de dialogue commune n'existe pas sur cet écran).
 - Le document ne remplace que ce qu'il porte de valide (`styles/paletteServeur.ts`) : un jeton
   inconnu ou une valeur mal formée est ignoré, un jeton absent garde sa valeur d'origine.
 - Le plan dessiné en SVG (`render/theme.ts`) et les exports gardent leurs propres encres : la

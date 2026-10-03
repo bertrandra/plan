@@ -4,6 +4,7 @@ import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranPalette, ongletDeLAdresse, texteCss } from '../../../src/zones/EcranPalette.js';
 import { demandeEcranPalette } from '../../../src/app/ecranPalette.js';
+import { MODELES_PALETTE } from '../../../src/styles/modeles.js';
 import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE } from '../../../src/styles/jetons.js';
 
 // L'ecran de la palette (`?palette`) : il montre chaque jeton, famille par
@@ -181,5 +182,35 @@ describe('l ecran de la palette', () => {
     expect(code(hote, 'accent', 'clair').value).toBe('#AA2200');
     await deposer('casse.json', '{ pas du json');
     expect(hote.querySelector('.palMessage--erreur')?.textContent).toMatch(/casse\.json/);
+  });
+
+  it('propose les huit modeles et en charge un sans l enregistrer', () => {
+    const enregistres: unknown[] = [];
+    const hote = monter({ enregistrer: async (d) => { enregistres.push(d); return null; } });
+    const entrees = [...hote.querySelectorAll<HTMLButtonElement>('.palMenuModeles [data-modele]')];
+    expect(entrees.map(b => b.querySelector('.palModeleNom')?.textContent)).toEqual(['Eau vive', 'Vert jardin', 'Fleurie', 'Zen', 'Monochrome', 'Multicolore', 'Psychédélique', 'Halloween']);
+    const halloween = MODELES_PALETTE.find(m => m.id === 'halloween')!;
+    act(() => { entrees.find(b => b.dataset.modele === 'halloween')!.click(); });
+    expect(code(hote, 'accent', 'clair').value).toBe(halloween.couleurs.clair.accent);
+    expect(code(hote, 'paper', 'sombre').value).toBe(halloween.couleurs.sombre.paper);
+    expect(hote.querySelector('.palMessage')?.textContent).toMatch(/Modèle « Halloween » chargé/);
+    expect(enregistres).toHaveLength(0);
+    expect(bouton(hote, 'Enregistrer sur le serveur').disabled).toBe(false);
+  });
+
+  it('demande confirmation, dans l ecran, avant de remplacer des reglages non enregistres', () => {
+    const hote = monter();
+    saisir(code(hote, 'ink', 'clair'), '#101010');
+    const zen = () => hote.querySelector<HTMLButtonElement>('[data-modele="zen"]')!;
+    act(() => { zen().click(); });
+    const confirmation = hote.querySelector('.palConfirmation')!;
+    expect(confirmation.getAttribute('role')).toBe('alertdialog');
+    expect(code(hote, 'ink', 'clair').value).toBe('#101010');
+    act(() => { bouton(hote, 'Garder mes réglages').click(); });
+    expect(hote.querySelector('.palConfirmation')).toBeNull();
+    expect(code(hote, 'ink', 'clair').value).toBe('#101010');
+    act(() => { zen().click(); });
+    act(() => { bouton(hote, 'Charger le modèle').click(); });
+    expect(code(hote, 'ink', 'clair').value).toBe(MODELES_PALETTE.find(m => m.id === 'zen')!.couleurs.clair.ink);
   });
 });

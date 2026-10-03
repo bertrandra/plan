@@ -36,6 +36,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   modifications », « Couleurs d'origine ». Le document ne remplace que ce qu'il porte de valide
   (`styles/paletteServeur.ts`), et un réglage du thème clair ne déteint pas sur le sombre. Le plan
   dessiné et les exports gardent leurs propres encres.
+- **Admin : huit modèles de palette** dans un menu « Modèles » de l'écran de la palette : Eau vive,
+  Vert jardin, Fleurie, Zen, Monochrome, Multicolore, Psychédélique, Halloween — chacun avec sa
+  description et l'aperçu de ses couleurs dans les deux thèmes. Ce sont des fichiers JSON
+  `plan-palette` (`src/styles/modeles/*.json`, embarqués dans le fichier livré), engendrés par
+  `scripts/generer-modeles-palette.mjs` à partir de quelques teintes : le script pousse chaque
+  couleur de texte jusqu'au contraste exigé, et un test vérifie que chaque modèle est complet et
+  lisible dans les deux thèmes. Choisir un modèle le charge à l'écran sans rien enregistrer ; des
+  réglages non enregistrés demandent confirmation, dans la barre de la palette.
 - **Admin : un menu « Admin » dans la barre de Plan**, en admin des démos seulement, mène aux
   contrôleurs de l'écran et à la palette. Les deux écrans ont un bouton « Retour au plan ».
 

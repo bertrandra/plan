@@ -20,6 +20,7 @@ import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYON
 import { couleursParDefaut, couleurValide, documentPalette, ecartsAuxOrigines, lireDocumentPalette, memesCouleurs, type Couleurs } from '../styles/paletteServeur.js';
 import { telechargerTexte } from '../shell/download.js';
 import { SelecteurCouleur } from './SelecteurCouleur.js';
+import { MODELES_PALETTE, type ModelePalette } from '../styles/modeles.js';
 import { Icone } from './icones.js';
 
 type Theme = 'clair' | 'sombre';
@@ -103,6 +104,20 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
    * remplacent celles de l'ecran, le reste garde sa valeur d'origine. Rien n'est enregistre : on
    * regarde d'abord, et « Enregistrer sur le serveur » l'applique a Plan.
    */
+  /**
+   * Charge un modele (styles/modeles/) a la place des couleurs de l'ecran. Rien n'est enregistre ;
+   * des reglages non enregistres se perdraient, d'ou la confirmation — dans la barre elle-meme : la
+   * boite de dialogue commune se pose sur le `body`, que cet ecran masque.
+   */
+  const [aConfirmer, setAConfirmer] = useState<ModelePalette | null>(null);
+  function chargerModele(m: ModelePalette): void {
+    setAConfirmer(null);
+    setCouleurs(m.couleurs);
+    setMessage({ texte: 'Modèle « ' + m.nom + ' » chargé : ' + m.description + ' Vérifiez, puis enregistrez pour l’appliquer à Plan.', erreur: false });
+  }
+  function choisirModele(m: ModelePalette): void {
+    if (modifiee) { setMessage(null); setAConfirmer(m); } else chargerModele(m);
+  }
   async function importer(fichier: File): Promise<void> {
     let lue: ReturnType<typeof lireDocumentPalette> = null;
     try { lue = lireDocumentPalette(JSON.parse(await lireTexte(fichier))); } catch { /* JSON illisible : refus ci-dessous */ }
@@ -114,23 +129,7 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
     const n = ecartsAuxOrigines(lue.couleurs).length;
     setMessage({ texte: 'Palette importée de « ' + fichier.name + ' » : ' + n + ' couleur' + (n > 1 ? 's' : '') + ' différente' + (n > 1 ? 's' : '') + ' de l’origine. Vérifiez, puis enregistrez pour l’appliquer à Plan.', erreur: false });
   }
-  const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'palette');
   const themes: Theme[] = choix === 'deux' ? ['clair', 'sombre'] : [choix];
-  const choisir = (o: Onglet) => {
-    setOnglet(o);
-    // L'onglet se retrouve au rechargement et se partage par son adresse, sans entree d'historique.
-    try { history.replaceState(null, '', o === 'palette' ? location.pathname + location.search : '#' + o); } catch { /* sans historique : l'onglet change quand meme */ }
-  };
-  const clavier = (e: React.KeyboardEvent) => {
-    const i = ONGLETS.findIndex(o => o.id === onglet);
-    const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? ONGLETS.length - 1 : -2;
-    if (j === -2) return;
-    e.preventDefault();
-    const suivant = ONGLETS[(j + ONGLETS.length) % ONGLETS.length]?.id;
-    if (!suivant) return;
-    choisir(suivant);
-    requestAnimationFrame(() => document.getElementById('palOnglet-' + suivant)?.focus());
-  };
   return (
     <Palette.Provider value={couleurs}>
     <div className="palEcran">
@@ -156,49 +155,11 @@ export function EcranPalette({ retour = '?admin', enregistree = null, enregistre
       </header>
 
       <BarrePalette surServeur={surServeur} modifieLe={modifieLe} ecarts={ecarts} modifiee={modifiee} faibles={faibles} enCours={enCours} message={message}
-        enregistrer={enregistrer ? () => { void enregistrerSurServeur(); } : undefined} importer={(f) => { void importer(f); }} exporter={exporter}
+        enregistrer={enregistrer ? () => { void enregistrerSurServeur(); } : undefined} importer={(f) => { void importer(f); }} exporter={exporter} modele={choisirModele}
+        confirmation={aConfirmer ? { modele: aConfirmer, oui: () => chargerModele(aConfirmer), non: () => setAConfirmer(null) } : null}
         annuler={() => { setCouleurs(reference); setMessage(null); }} origine={() => { setCouleurs(couleursParDefaut()); setMessage(null); }} />
 
-      <div className="palOnglets" role="tablist" aria-label="Volets de la palette" onKeyDown={clavier}>
-        {ONGLETS.map(o => (
-          <button key={o.id} id={'palOnglet-' + o.id} type="button" role="tab" aria-selected={onglet === o.id} aria-controls={'palVolet-' + o.id}
-            tabIndex={onglet === o.id ? 0 : -1} className={'palOnglet' + (onglet === o.id ? ' actif' : '')} onClick={() => choisir(o.id)}>
-            {o.libelle}
-          </button>
-        ))}
-      </div>
-
-      <div className="palVolet" role="tabpanel" id={'palVolet-' + onglet} aria-labelledby={'palOnglet-' + onglet}>
-        {onglet === 'palette' && <>
-          <Section titre="Planche d’ambiance" idee="Ce que la palette évoque avant d’être un tableau de valeurs : un atelier de menuisier, du papier, de l’encre, un jardin.">
-            <Themes themes={themes}>{() => <PlancheAmbiance />}</Themes>
-          </Section>
-          <Section titre="Couleurs" idee="Chaque jeton, famille par famille : son rôle, et sa valeur dans chaque thème — à régler au sélecteur ou par son code. Les aperçus, les contrastes et le CSS suivent aussitôt.">
-            <Structure regler={regler} />
-          </Section>
-          <Section titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
-            <Contrastes />
-          </Section>
-        </>}
-
-        {onglet === 'css' && <>
-          <Section titre="Variables" idee="Les jetons de la palette en cours, déclarés comme dans la feuille : le bloc clair sur :root, le bloc sombre sous prefers-color-scheme, puis les polices et les rayons.">
-            <CodeCss />
-          </Section>
-          <Section titre="En situation" idee="Les mêmes jetons sur de vraies commandes de l’atelier : panneau, champ, boutons, alerte, notification.">
-            <Themes themes={themes}>{() => <EnSituation />}</Themes>
-          </Section>
-          <Section titre="Formes" idee="Les rayons et les ombres qui accompagnent les couleurs.">
-            <Themes themes={themes}>{() => <Formes />}</Themes>
-          </Section>
-        </>}
-
-        {onglet === 'typo' && (
-          <Section titre="Typographie" idee="Deux familles, deux rôles — le serif pour le document, le sans pour l’instrument — et le monospace pour ce qui se recopie. Des polices du système : rien n’est téléchargé.">
-            <Themes themes={themes}>{() => <Typographie />}</Themes>
-          </Section>
-        )}
-      </div>
+      <Volets themes={themes} regler={regler} />
     </div>
     </Palette.Provider>
   );
@@ -214,11 +175,48 @@ function lireTexte(fichier: File): Promise<string> {
   });
 }
 
+/** Les couleurs montrees dans l'apercu d'un modele : un papier, l'encre, l'accent, les etats, le ciel. */
+const APERCU: NomJeton[] = ['paper', 'ink', 'accent', 'accent-light', 'ok', 'danger', 'fond-3d'];
+
+/**
+ * Le menu des modeles : chaque modele avec son nom, une ligne de description et l'apercu de ses
+ * couleurs dans les deux themes. Choisir ferme le menu et charge le modele a l'ecran.
+ */
+function MenuModeles({ choisir }: { choisir: (m: ModelePalette) => void }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  return (
+    <details className="menu palMenuModeles" ref={menu}>
+      <summary>Modèles</summary>
+      <ul role="menu" aria-label="Modèles de palette">
+        {MODELES_PALETTE.map(m => (
+          <li key={m.id} role="menuitem">
+            <button type="button" data-modele={m.id} onClick={() => { if (menu.current) menu.current.open = false; choisir(m); }}>
+              <span className="palModeleTextes">
+                <span className="palModeleNom">{m.nom}</span>
+                <span className="palModeleDescription">{m.description}</span>
+              </span>
+              <span className="palModeleApercu" aria-hidden="true">
+                {(['clair', 'sombre'] as Theme[]).map(t => (
+                  <span key={t} className="palModeleBande">
+                    {APERCU.map(n => <span key={n} style={{ background: m.couleurs[t][n] }} />)}
+                  </span>
+                ))}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /** La barre d'enregistrement : l'etat de la palette, ses actions, et le message du dernier geste. */
-function BarrePalette({ surServeur, modifieLe, ecarts, modifiee, faibles, enCours, message, enregistrer, importer, exporter, annuler, origine }: {
+function BarrePalette({ surServeur, modifieLe, ecarts, modifiee, faibles, enCours, message, enregistrer, importer, exporter, annuler, origine, modele, confirmation }: {
   surServeur: boolean; modifieLe: string | null; ecarts: number; modifiee: boolean; faibles: number; enCours: boolean;
   message: { texte: string; erreur: boolean } | null;
   enregistrer: (() => void) | undefined; importer: (f: File) => void; exporter: () => void; annuler: () => void; origine: () => void;
+  modele: (m: ModelePalette) => void;
+  confirmation: { modele: ModelePalette; oui: () => void; non: () => void } | null;
 }) {
   const choixFichier = useRef<HTMLInputElement>(null);
   return (
@@ -231,6 +229,7 @@ function BarrePalette({ surServeur, modifieLe, ecarts, modifiee, faibles, enCour
         </p>
         <div className="palBarreActions">
           {enregistrer && <button type="button" onClick={enregistrer} disabled={!modifiee || enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer sur le serveur'}</button>}
+          <MenuModeles choisir={modele} />
           <button type="button" className="secondary" onClick={() => choixFichier.current?.click()}>Importer un JSON…</button>
           <input ref={choixFichier} type="file" accept=".json,application/json" hidden aria-label="Fichier de palette à importer"
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importer(f); }} />
@@ -239,7 +238,80 @@ function BarrePalette({ surServeur, modifieLe, ecarts, modifiee, faibles, enCour
           <button type="button" className="secondary" onClick={origine} disabled={ecarts === 0}>Couleurs d’origine</button>
         </div>
         {message && <p className={message.erreur ? 'palMessage palMessage--erreur' : 'palMessage'} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
+        {confirmation && (
+          <div className="palMessage palConfirmation" role="alertdialog" aria-label="Charger un modèle">
+            <span>Charger le modèle « {confirmation.modele.nom} » ? Les réglages non enregistrés seront remplacés.</span>
+            <span className="palConfirmationBoutons">
+              <button type="button" className="small" onClick={confirmation.oui}>Charger le modèle</button>
+              <button type="button" className="secondary small" onClick={confirmation.non}>Garder mes réglages</button>
+            </span>
+          </div>
+        )}
       </div>
+  );
+}
+
+/** Les trois onglets, Palette, CSS et Typo, et le volet de celui qui est choisi. */
+function Volets({ themes, regler }: { themes: Theme[]; regler: (theme: Theme, nom: NomJeton, valeur: string) => void }) {
+  const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'palette');
+  const choisir = (o: Onglet) => {
+    setOnglet(o);
+    // L'onglet se retrouve au rechargement et se partage par son adresse, sans entree d'historique.
+    try { history.replaceState(null, '', o === 'palette' ? location.pathname + location.search : '#' + o); } catch { /* sans historique : l'onglet change quand meme */ }
+  };
+  const clavier = (e: React.KeyboardEvent) => {
+    const i = ONGLETS.findIndex(o => o.id === onglet);
+    const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? ONGLETS.length - 1 : -2;
+    if (j === -2) return;
+    e.preventDefault();
+    const suivant = ONGLETS[(j + ONGLETS.length) % ONGLETS.length]?.id;
+    if (!suivant) return;
+    choisir(suivant);
+    requestAnimationFrame(() => document.getElementById('palOnglet-' + suivant)?.focus());
+  };
+  return (
+    <>
+        <div className="palOnglets" role="tablist" aria-label="Volets de la palette" onKeyDown={clavier}>
+          {ONGLETS.map(o => (
+            <button key={o.id} id={'palOnglet-' + o.id} type="button" role="tab" aria-selected={onglet === o.id} aria-controls={'palVolet-' + o.id}
+              tabIndex={onglet === o.id ? 0 : -1} className={'palOnglet' + (onglet === o.id ? ' actif' : '')} onClick={() => choisir(o.id)}>
+              {o.libelle}
+            </button>
+          ))}
+        </div>
+
+        <div className="palVolet" role="tabpanel" id={'palVolet-' + onglet} aria-labelledby={'palOnglet-' + onglet}>
+          {onglet === 'palette' && <>
+            <Section titre="Planche d’ambiance" idee="Ce que la palette évoque avant d’être un tableau de valeurs : un atelier de menuisier, du papier, de l’encre, un jardin.">
+              <Themes themes={themes}>{() => <PlancheAmbiance />}</Themes>
+            </Section>
+            <Section titre="Couleurs" idee="Chaque jeton, famille par famille : son rôle, et sa valeur dans chaque thème — à régler au sélecteur ou par son code. Les aperçus, les contrastes et le CSS suivent aussitôt.">
+              <Structure regler={regler} />
+            </Section>
+            <Section titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
+              <Contrastes />
+            </Section>
+          </>}
+
+          {onglet === 'css' && <>
+            <Section titre="Variables" idee="Les jetons de la palette en cours, déclarés comme dans la feuille : le bloc clair sur :root, le bloc sombre sous prefers-color-scheme, puis les polices et les rayons.">
+              <CodeCss />
+            </Section>
+            <Section titre="En situation" idee="Les mêmes jetons sur de vraies commandes de l’atelier : panneau, champ, boutons, alerte, notification.">
+              <Themes themes={themes}>{() => <EnSituation />}</Themes>
+            </Section>
+            <Section titre="Formes" idee="Les rayons et les ombres qui accompagnent les couleurs.">
+              <Themes themes={themes}>{() => <Formes />}</Themes>
+            </Section>
+          </>}
+
+          {onglet === 'typo' && (
+            <Section titre="Typographie" idee="Deux familles, deux rôles — le serif pour le document, le sans pour l’instrument — et le monospace pour ce qui se recopie. Des polices du système : rien n’est téléchargé.">
+              <Themes themes={themes}>{() => <Typographie />}</Themes>
+            </Section>
+          )}
+        </div>
+    </>
   );
 }
 

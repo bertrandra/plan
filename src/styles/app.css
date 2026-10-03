@@ -1574,6 +1574,20 @@
   .palBarreActions{ display:flex; flex-wrap:wrap; gap:6px; }
   .palMessage{ flex-basis:100%; margin:0; padding:6px 10px; border-radius:var(--r-champ); background:var(--panel-2); font-family:var(--sans); font-size:0.78rem; }
   .palMessage--erreur{ background:var(--danger-bg); color:var(--danger); }
+  /* Le menu des modeles : nom, description, et l'apercu des couleurs dans les deux themes. */
+  .palMenuModeles > summary{ min-height:32px; display:inline-flex; align-items:center; padding:4px 12px; border:1px solid var(--rule); border-radius:var(--r-bouton); background:var(--panel-bg); color:var(--ink); font-weight:600; }
+  .palMenuModeles > ul{ width:340px; max-height:70vh; overflow:auto; }
+  .palMenuModeles li button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; }
+  .palModeleTextes{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
+  .palModeleNom{ font-family:var(--serif); font-size:0.95rem; color:var(--ink); }
+  .palModeleDescription{ font-size:0.7rem; color:var(--ink-soft); white-space:normal; }
+  .palModeleApercu{ display:flex; flex-direction:column; gap:2px; flex:none; }
+  .palModeleBande{ display:flex; border-radius:4px; overflow:hidden; border:1px solid var(--hairline); }
+  .palModeleBande span{ width:10px; height:12px; }
+
+  .palConfirmation{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; border-left:3px solid var(--alerte); }
+  .palConfirmationBoutons{ display:flex; gap:6px; }
+
   /* Le reglage d'une couleur : theme, selecteur, code, retour a l'origine. */
   .palReglage{ display:grid; grid-template-columns:44px 32px 28px minmax(0, 1fr) 24px; gap:6px; align-items:center; }
   .palAvance{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-height:0; padding:0; border:1px solid var(--rule); border-radius:6px; background:var(--panel-bg); color:var(--ink-soft); cursor:pointer; }
@@ -1750,7 +1764,8 @@
     .selNuance{ width:28px; height:28px; }
     .palOrigine{ width:32px; height:32px; }
     .palBarre{ position:static; }
-    .palBarreActions button{ min-height:44px; }
+    .palBarreActions button, .palMenuModeles > summary{ min-height:44px; }
+    .palMenuModeles > ul{ width:min(340px, calc(100vw - 32px)); }
   }
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }
