@@ -51,8 +51,8 @@ function fermerMenu(e: React.SyntheticEvent<HTMLElement>): void {
 
 /** Les objets, par categorie, avec leur visibilite. */
 function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; commandes: RegistreCommandes; apresSelection: () => void }) {
-  // Masquer un objet ou changer ses etiquettes modifie le projet : ce sont des commandes, grisees
-  // sans le droit d'ecrire (app/ecouteurs/cibles.ts).
+  // Masquer un objet ou changer ses etiquettes est une preference d'affichage, permise en lecture
+  // seule (app/explorateur.ts) ; les commandes restent la seule voie (app/ecouteurs/cibles.ts).
   const ecrire = commandes.etat('objet.visibilite').utilisable;
   // Le voisinage masque n'est pas liste : proposer un objet qu'on ne voit pas n'aurait pas de
   // sens, et les compteurs decriraient un plan qui n'est pas celui affiche. Un objet masque

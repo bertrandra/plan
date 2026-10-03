@@ -149,6 +149,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Explorateur : masquer un objet et choisir ses étiquettes sont des préférences d'affichage**,
+  comme « Filaire » en Vue 3D. Ni annulation (Ctrl+Z), ni « projet modifié », et permis en lecture
+  seule : regarder un plan autrement ne le modifie pas. Les cases restent rangées dans l'objet et se
+  retrouvent à la réouverture d'un projet enregistré. Les cotes, elles, gardent le droit d'écrire.
 - **Palette : le plan suit la palette** (refonte, lot 3). Le trait, la grille, le halo des
   étiquettes, les poignées et les pastilles de cotes du plan à l'écran reprennent les jetons de la
   palette du serveur (`--ink`, `--rule`, `--paper`, `--accent`, `--panel-bg`, `--on-ink`) dans le
