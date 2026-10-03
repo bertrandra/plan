@@ -7,16 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **L'écran de la palette** (`/?palette`, sans porte ; l'ancienne adresse `?admin&ecran=palette`
-  y mène aussi). Il montre les couleurs et les polices de l'interface : une planche d'ambiance (bois,
-  papier, encre, jardin, brique, ciel, chambre noire, les trois polices), la structure des 29 jetons
-  en sept familles avec leur rôle et leurs deux valeurs, les contrastes exigés par le test (verdict
-  écrit en toutes lettres), la typographie (serif, sans, monospace : rôle, pile, alphabet, usages,
-  et l'échelle des tailles), les couleurs en situation sur de vraies commandes, et les rayons et
-  ombres. Chaque panneau pose les variables de son thème : clair et sombre se comparent côte à côte,
-  quel que soit le thème du système. Les rôles des jetons et les polices vivent dans
-  `styles/jetons.ts` (`ROLES_JETONS`, `FAMILLES_JETONS`, `POLICES`, `ECHELLE_TEXTE`) ; un test
-  vérifie que la feuille déclare les trois piles de polices à l'identique.
+- **Admin : l'écran de la palette** (`/?palette`, derrière la porte de l'admin comme l'écran des
+  contrôleurs ; `?admin&ecran=palette` y mène aussi). Trois onglets :
+  - **Palette** : une planche d'ambiance (bois, papier, encre, jardin, brique, ciel, chambre noire,
+    les trois polices), la structure des 29 jetons en sept familles avec leur rôle et leurs deux
+    valeurs, et les contrastes exigés par le test (verdict écrit en toutes lettres) ;
+  - **CSS** : les variables telles que la feuille les déclare (clair, sombre, polices, rayons), à
+    copier, puis les jetons en situation sur de vraies commandes, et les rayons et ombres ;
+  - **Typo** : serif, sans et monospace (rôle, pile, alphabet, usages) et l'échelle des tailles.
+
+  Chaque panneau pose les variables de son thème : clair et sombre se comparent côte à côte, quel
+  que soit le thème du système. L'onglet se retrouve par l'adresse (`#css`, `#typo`). Les rôles,
+  les polices et les rayons vivent dans `styles/jetons.ts` ; un test vérifie que la feuille déclare
+  les polices et les rayons à l'identique.
+- **Admin : un menu « Admin » dans la barre de Plan**, en admin des démos seulement, mène aux
+  contrôleurs de l'écran et à la palette. Les deux écrans ont un bouton « Retour au plan ».
 
 - **Contrôleurs : cohérence des déclarations.** La découverte signale un contrôle affiché hors de
   la zone que sa déclaration prévoit (aucun aujourd'hui, dans les trois classes d'écran). Les

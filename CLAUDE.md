@@ -61,8 +61,8 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 
 ## Interface
 
-- `/?palette` montre les couleurs et les polices (jetons de `src/styles/jetons.ts`) : s'y référer
-  avant de choisir une couleur.
+- `/?palette` (admin, menu « Admin » de la barre) montre les couleurs, les variables CSS et les
+  polices (jetons de `src/styles/jetons.ts`) : s'y référer avant de choisir une couleur.
 - **Charger le skill `design-ui`** (`.claude/skills/design-ui/SKILL.md`) avant tout changement
   d'IHM : zones Z1 à Z9, trois classes d'écran, jetons de couleur, tactile, accessibilité.
 - Un bouton est une liaison vers une commande du registre (`app/commandes.ts`) et lit

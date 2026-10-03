@@ -1537,9 +1537,10 @@
     .ctlGenre, .ctlNiveau{ display:none; }
     .ctlEnfant, .ctlNiveaux button, .ctlResultats button, .ctlBranche button, .ctlSelect{ min-height:44px; }
     .ctlNiveauBouton{ min-width:44px; }
+    .ctlEntete .ecranRetour{ min-height:44px; }
   }
 
-  /* L'ecran de la palette (`?palette`, zones/EcranPalette.tsx). Plan ne tourne pas dessous. Chaque
+  /* L'ecran de la palette (`?palette`, derriere la porte de l'admin, zones/EcranPalette.tsx). Plan ne tourne pas dessous. Chaque
      panneau de theme pose lui-meme les variables de son theme (style en ligne, valeurs lues dans
      styles/jetons.ts) : ce qui suit ne lit que des var(), et aucune couleur n'y est en dur. */
   html[data-ecran="palette"] body > :not(#zoneEcranPalette):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
@@ -1561,6 +1562,23 @@
   .palThemes--deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .palTheme{ position:relative; padding:28px 14px 14px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--paper); color:var(--ink); }
   .palThemeNom{ position:absolute; top:8px; left:14px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+
+  /* Le retour au plan, en tete des deux ecrans secondaires de l'admin (palette, controleurs). */
+  .ecranRetour{ display:inline-flex; align-items:center; gap:6px; min-height:32px; margin:0 0 6px; padding:2px 12px 2px 8px; border:1px solid var(--rule); border-radius:999px; background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:0.8rem; text-decoration:none; }
+  .ecranRetour:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  /* Les trois volets : des onglets en sans, soulignes par l'accent, comme les onglets du tiroir. */
+  .palOnglets{ display:flex; gap:4px; margin:16px 0 0; border-bottom:1px solid var(--rule); }
+  .palOnglet{ min-height:40px; padding:6px 18px; border:none; border-bottom:3px solid transparent; border-radius:var(--r-champ) var(--r-champ) 0 0; background:none; color:var(--ink-soft); font-family:var(--sans); font-size:0.85rem; font-weight:600; cursor:pointer; }
+  .palOnglet:hover{ background:var(--panel-2); color:var(--ink); opacity:1; }
+  .palOnglet.actif{ color:var(--ink); border-bottom-color:var(--accent); }
+  .palOnglet:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .palVolet > .palSection:first-child{ margin-top:18px; }
+  /* Le code CSS : en monospace, sur le fond de l'encre, a copier tel quel. */
+  .palCode{ border:1px solid var(--border); border-radius:var(--r-tuile); overflow:hidden; background:var(--panel-bg); }
+  .palCodeBarre{ display:flex; gap:10px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--hairline); background:var(--panel-2); }
+  .palCodeNom{ font-family:var(--mono); font-size:0.74rem; color:var(--ink-soft); margin-right:auto; }
+  .palCodeEtat{ font-family:var(--sans); font-size:0.74rem; color:var(--ok); }
+  .palCodeTexte{ margin:0; padding:12px 14px; max-height:520px; overflow:auto; font-family:var(--mono); font-size:0.76rem; line-height:1.55; color:var(--ink); background:var(--panel-bg); tab-size:2; }
 
   /* La planche d'ambiance : une mosaique de tuiles, chacune une matiere de la palette. */
   .palPlanche{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); grid-template-rows:repeat(3, 128px) auto; gap:10px; }
@@ -1674,7 +1692,8 @@
     .palEchelleLigne{ grid-template-columns:minmax(0, 1fr); gap:2px; }
     .palSpecimen{ width:56px; font-size:2.4rem; }
     .palTuile--mots{ min-height:0; }
-    .palActions .segmente button, .palLien{ min-height:44px; display:inline-flex; align-items:center; }
+    .palActions .segmente button, .palLien, .ecranRetour, .palOnglet{ min-height:44px; display:inline-flex; align-items:center; }
+    .palOnglets{ overflow-x:auto; }
   }
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }

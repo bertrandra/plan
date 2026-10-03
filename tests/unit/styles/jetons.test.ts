@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { JETONS, PAIRES_CONTRASTE, POLICES, contraste } from '../../../src/styles/jetons.js';
+import { JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, contraste } from '../../../src/styles/jetons.js';
 
 // Les jetons de couleur (MD/spec-ihm-mobile.md §5.1) : declares dans la feuille avec la valeur de
 // jetons.ts, dans les deux themes, et lisibles.
@@ -48,5 +48,10 @@ describe('les polices', () => {
       .filter(([nom, p]) => !compact(blocClair).includes(compact('--' + nom + ':' + p.pile + ';')))
       .map(([nom]) => '--' + nom);
     expect(manques).toEqual([]);
+  });
+
+  it('et les rayons aussi', () => {
+    const compact = blocClair.replace(/\s+/g, '');
+    expect(Object.entries(RAYONS).filter(([nom, v]) => !compact.includes('--' + nom + ':' + v + ';')).map(([nom]) => nom)).toEqual([]);
   });
 });

@@ -1,23 +1,32 @@
-// L'ecran de la palette (`?palette`), sans porte : il ne montre que les jetons de l'interface.
+// L'ecran de la palette (`?palette`), derriere la porte de l'admin comme celui des controleurs.
 //
-// Un ecran a part, sur toute la page, qui montre les couleurs de l'interface : d'abord une planche
-// d'ambiance (ce que la palette evoque), puis sa structure famille par famille (chaque jeton, son
-// role, ses deux valeurs), les contrastes que le test exige, les polices et leur echelle, les
-// couleurs en situation sur de vraies commandes, et les formes. Il ne modifie rien : il lit `styles/jetons.ts`, la source que la feuille
-// de style et son test confrontent.
+// Un ecran a part, sur toute la page, en trois onglets :
+//   - Palette : une planche d'ambiance (ce que la palette evoque), la structure des couleurs
+//     famille par famille (chaque jeton, son role, ses deux valeurs) et les contrastes exiges ;
+//   - CSS : les variables telles que la feuille les declare, a copier, puis les memes jetons en
+//     situation sur de vraies commandes, et les rayons et ombres ;
+//   - Typo : les polices, leur role et l'echelle des tailles.
+// Il ne modifie rien : il lit `styles/jetons.ts`, la source que la feuille et son test confrontent.
 //
 // Pour montrer un theme quel que soit celui du systeme, chaque panneau pose lui-meme les variables
 // CSS de son theme (`--ink`, `--paper`…) depuis `JETONS` : tout ce qu'il contient les lit par
 // `var()`, comme l'atelier. Les deux themes se regardent ainsi cote a cote, au pixel pres.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, ECHELLE_TEXTE, contraste, type NomJeton, type NomPolice } from '../styles/jetons.js';
+import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE, contraste, type NomJeton, type NomPolice } from '../styles/jetons.js';
 
 type Theme = 'clair' | 'sombre';
 type Choix = Theme | 'deux';
+export type Onglet = 'palette' | 'css' | 'typo';
 
 const NOMS_THEMES: Record<Theme, string> = { clair: 'Clair', sombre: 'Sombre' };
+const ONGLETS: { id: Onglet; libelle: string }[] = [
+  { id: 'palette', libelle: 'Palette' },
+  { id: 'css', libelle: 'CSS' },
+  { id: 'typo', libelle: 'Typo' }
+];
 const JETONS_ORDONNES = Object.keys(ROLES_JETONS) as NomJeton[];
+const ORDRE_POLICES: NomPolice[] = ['serif', 'sans', 'mono'];
 
 /** Les variables CSS d'un theme, posees sur son panneau. */
 function variablesDe(theme: Theme): CSSProperties {
@@ -28,16 +37,39 @@ function variablesDe(theme: Theme): CSSProperties {
 
 const fr = (n: number) => n.toFixed(2).replace('.', ',');
 
-export function EcranPalette() {
+/** L'onglet demande par l'adresse (`#css`, `#typo`), sinon la palette. */
+export function ongletDeLAdresse(hash: string): Onglet {
+  const h = hash.replace(/^#/, '');
+  return ONGLETS.some(o => o.id === h) ? h as Onglet : 'palette';
+}
+
+export function EcranPalette({ retour = '?admin' }: { retour?: string }) {
   const [choix, setChoix] = useState<Choix>('deux');
+  const [onglet, setOnglet] = useState<Onglet>(() => typeof location !== 'undefined' ? ongletDeLAdresse(location.hash) : 'palette');
   const themes: Theme[] = choix === 'deux' ? ['clair', 'sombre'] : [choix];
+  const choisir = (o: Onglet) => {
+    setOnglet(o);
+    // L'onglet se retrouve au rechargement et se partage par son adresse, sans entree d'historique.
+    try { history.replaceState(null, '', o === 'palette' ? location.pathname + location.search : '#' + o); } catch { /* sans historique : l'onglet change quand meme */ }
+  };
+  const clavier = (e: React.KeyboardEvent) => {
+    const i = ONGLETS.findIndex(o => o.id === onglet);
+    const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? ONGLETS.length - 1 : -2;
+    if (j === -2) return;
+    e.preventDefault();
+    const suivant = ONGLETS[(j + ONGLETS.length) % ONGLETS.length]?.id;
+    if (!suivant) return;
+    choisir(suivant);
+    requestAnimationFrame(() => document.getElementById('palOnglet-' + suivant)?.focus());
+  };
   return (
     <div className="palEcran">
       <header className="palEntete">
         <div>
+          <a className="ecranRetour" href={retour}><span aria-hidden="true">←</span> Retour au plan</a>
           <h1 className="palTitre">Palette de l’interface</h1>
           <p className="palSous">
-            {JETONS_ORDONNES.length} jetons de couleur en {FAMILLES_JETONS.length} familles, {Object.keys(POLICES).length} polices, deux thèmes. Source : <code>src/styles/jetons.ts</code>, déclarée
+            {JETONS_ORDONNES.length} jetons de couleur en {FAMILLES_JETONS.length} familles, {ORDRE_POLICES.length} polices, deux thèmes. Source : <code>src/styles/jetons.ts</code>, déclarée
             dans <code>src/styles/app.css</code> ; un test vérifie que les deux concordent et que les contrastes tiennent.
           </p>
         </div>
@@ -50,33 +82,90 @@ export function EcranPalette() {
             ))}
           </div>
           <a className="palLien" href="?admin&ecran=controleurs">Contrôleurs de l’écran</a>
-          <a className="palLien" href="?admin">Admin des démos</a>
         </div>
       </header>
 
-      <Section titre="Planche d’ambiance" idee="Ce que la palette évoque avant d’être un tableau de valeurs : un atelier de menuisier, du papier, de l’encre, un jardin.">
-        <Themes themes={themes}>{() => <PlancheAmbiance />}</Themes>
-      </Section>
+      <div className="palOnglets" role="tablist" aria-label="Volets de la palette" onKeyDown={clavier}>
+        {ONGLETS.map(o => (
+          <button key={o.id} id={'palOnglet-' + o.id} type="button" role="tab" aria-selected={onglet === o.id} aria-controls={'palVolet-' + o.id}
+            tabIndex={onglet === o.id ? 0 : -1} className={'palOnglet' + (onglet === o.id ? ' actif' : '')} onClick={() => choisir(o.id)}>
+            {o.libelle}
+          </button>
+        ))}
+      </div>
 
-      <Section titre="Structure" idee="Chaque jeton, famille par famille : son rôle, et sa valeur dans chaque thème. La pastille est peinte par la variable CSS, comme dans l’atelier.">
-        <Structure />
-      </Section>
+      <div className="palVolet" role="tabpanel" id={'palVolet-' + onglet} aria-labelledby={'palOnglet-' + onglet}>
+        {onglet === 'palette' && <>
+          <Section titre="Planche d’ambiance" idee="Ce que la palette évoque avant d’être un tableau de valeurs : un atelier de menuisier, du papier, de l’encre, un jardin.">
+            <Themes themes={themes}>{() => <PlancheAmbiance />}</Themes>
+          </Section>
+          <Section titre="Structure" idee="Chaque jeton, famille par famille : son rôle, et sa valeur dans chaque thème.">
+            <Structure />
+          </Section>
+          <Section titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
+            <Contrastes />
+          </Section>
+        </>}
 
-      <Section titre="Contrastes" idee="Les paires qui portent du texte, et le rapport WCAG que le test exige : 4,5 pour la lecture, 3 pour les grands chiffres et les bordures.">
-        <Contrastes />
-      </Section>
+        {onglet === 'css' && <>
+          <Section titre="Variables" idee="Les jetons tels que la feuille de style les déclare : le bloc clair sur :root, le bloc sombre sous prefers-color-scheme. Engendrés depuis jetons.ts — le test garantit que app.css porte les mêmes valeurs.">
+            <CodeCss />
+          </Section>
+          <Section titre="En situation" idee="Les mêmes jetons sur de vraies commandes de l’atelier : panneau, champ, boutons, alerte, notification.">
+            <Themes themes={themes}>{() => <EnSituation />}</Themes>
+          </Section>
+          <Section titre="Formes" idee="Les rayons et les ombres qui accompagnent les couleurs.">
+            <Themes themes={themes}>{() => <Formes />}</Themes>
+          </Section>
+        </>}
 
-      <Section titre="Typographie" idee="Deux familles, deux rôles — le serif pour le document, le sans pour l’instrument — et le monospace pour ce qui se recopie. Des polices du système : rien n’est téléchargé.">
-        <Themes themes={themes}>{() => <Typographie />}</Themes>
-      </Section>
+        {onglet === 'typo' && (
+          <Section titre="Typographie" idee="Deux familles, deux rôles — le serif pour le document, le sans pour l’instrument — et le monospace pour ce qui se recopie. Des polices du système : rien n’est téléchargé.">
+            <Themes themes={themes}>{() => <Typographie />}</Themes>
+          </Section>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      <Section titre="En situation" idee="Les mêmes jetons sur de vraies commandes de l’atelier : panneau, champ, boutons, alerte, notification.">
-        <Themes themes={themes}>{() => <EnSituation />}</Themes>
-      </Section>
+/** Les declarations CSS des jetons, en texte, telles que `app.css` les porte. */
+export function texteCss(): string {
+  const ligne = (nom: string, v: string, retrait: string) => retrait + '--' + nom + ': ' + v + ';';
+  const clair = [
+    ':root {',
+    '  /* Couleurs */',
+    ...JETONS_ORDONNES.map(n => ligne(n, JETONS.clair[n], '  ')),
+    '  /* Polices */',
+    ...ORDRE_POLICES.map(n => ligne(n, POLICES[n].pile, '  ')),
+    '  /* Rayons */',
+    ...Object.entries(RAYONS).map(([n, v]) => ligne(n, v, '  ')),
+    '}'
+  ];
+  const sombre = [
+    '@media (prefers-color-scheme: dark) {',
+    '  :root {',
+    ...JETONS_ORDONNES.filter(n => JETONS.sombre[n] !== JETONS.clair[n]).map(n => ligne(n, JETONS.sombre[n], '    ')),
+    '  }',
+    '}'
+  ];
+  return [...clair, '', ...sombre].join('\n');
+}
 
-      <Section titre="Formes" idee="Les rayons et les ombres qui accompagnent les couleurs.">
-        <Themes themes={themes}>{() => <Formes />}</Themes>
-      </Section>
+function CodeCss() {
+  const [copie, setCopie] = useState<'' | 'fait' | 'echec'>('');
+  const texte = texteCss();
+  const copier = () => {
+    void navigator.clipboard?.writeText(texte).then(() => setCopie('fait'), () => setCopie('echec'));
+  };
+  return (
+    <div className="palCode">
+      <div className="palCodeBarre">
+        <span className="palCodeNom">jetons.css</span>
+        <button type="button" className="secondary small" onClick={copier}>Copier</button>
+        <span className="palCodeEtat" role="status">{copie === 'fait' ? 'Copié.' : copie === 'echec' ? 'Copie impossible : sélectionnez le texte.' : ''}</span>
+      </div>
+      <pre className="palCodeTexte"><code>{texte}</code></pre>
     </div>
   );
 }
@@ -252,8 +341,6 @@ function EnSituation() {
   );
 }
 
-const ORDRE_POLICES: NomPolice[] = ['serif', 'sans', 'mono'];
-
 /** Les polices : une carte par famille (specimen, pile, role, usages), puis l'echelle des tailles. */
 function Typographie() {
   return (
@@ -295,13 +382,12 @@ function Typographie() {
   );
 }
 
-const RAYONS = ['r-champ', 'r-bouton', 'r-tuile', 'r-panneau', 'r-feuille'];
 const OMBRES = ['ombre', 'ombre-flottante', 'ombre-menu', 'ombre-forte'];
 
 function Formes() {
   return (
     <div className="palFormes">
-      {RAYONS.map(r => <div key={r} className="palForme" style={{ borderRadius: 'var(--' + r + ')' }}><code>--{r}</code></div>)}
+      {Object.keys(RAYONS).map(r => <div key={r} className="palForme" style={{ borderRadius: 'var(--' + r + ')' }}><code>--{r}</code></div>)}
       {OMBRES.map(o => <div key={o} className="palForme palForme--ombre" style={{ boxShadow: 'var(--' + o + ')' }}><code>--{o}</code></div>)}
     </div>
   );

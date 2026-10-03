@@ -2,9 +2,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { EcranPalette } from '../../../src/zones/EcranPalette.js';
+import { EcranPalette, ongletDeLAdresse, texteCss } from '../../../src/zones/EcranPalette.js';
 import { demandeEcranPalette } from '../../../src/app/ecranPalette.js';
-import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, ECHELLE_TEXTE } from '../../../src/styles/jetons.js';
+import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE } from '../../../src/styles/jetons.js';
 
 // L'ecran de la palette (`?palette`) : il montre chaque jeton, famille par
 // famille, chaque paire de contraste, et pose sur chaque panneau les variables de son theme.
@@ -55,8 +55,40 @@ describe('l ecran de la palette', () => {
     expect(hote.querySelectorAll('[data-theme-montre="clair"]').length).toBeGreaterThan(0);
   });
 
+  const onglet = (hote: HTMLElement, nom: string) => {
+    const b = [...hote.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(e => e.textContent === nom)!;
+    act(() => { b.click(); });
+  };
+
+  it('range l ecran en trois onglets : Palette, CSS, Typo', () => {
+    const hote = monter();
+    expect([...hote.querySelectorAll('[role="tab"]')].map(e => e.textContent)).toEqual(['Palette', 'CSS', 'Typo']);
+    expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Palette');
+    expect(hote.querySelector('.palCodeTexte')).toBeNull();
+    onglet(hote, 'CSS');
+    expect(hote.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('CSS');
+    expect(hote.querySelector('.palCarte')).toBeNull();
+    expect(hote.querySelector('.palCodeTexte')?.textContent).toContain('--ink: ' + JETONS.clair.ink + ';');
+    expect(ongletDeLAdresse('#typo')).toBe('typo');
+    expect(ongletDeLAdresse('#inconnu')).toBe('palette');
+  });
+
+  it('a un bouton de retour au plan', () => {
+    const hote = monter();
+    expect(hote.querySelector<HTMLAnchorElement>('.ecranRetour')?.getAttribute('href')).toBe('?admin');
+  });
+
+  it('engendre les declarations CSS des deux themes, polices et rayons compris', () => {
+    const css = texteCss();
+    for (const n of Object.keys(JETONS.clair)) expect(css).toContain('--' + n + ': ');
+    for (const [n, v] of Object.entries(RAYONS)) expect(css).toContain('--' + n + ': ' + v + ';');
+    expect(css).toContain('--serif: ' + POLICES.serif.pile + ';');
+    expect(css.slice(css.indexOf('@media'))).toContain('--ink: ' + JETONS.sombre.ink + ';');
+  });
+
   it('montre chaque police et chaque taille de l echelle, dans chaque theme', () => {
     const hote = monter();
+    onglet(hote, 'Typo');
     const themes = hote.querySelectorAll('.palTypo').length;
     expect(themes).toBe(2);
     expect(hote.querySelectorAll('.palPolice').length).toBe(Object.keys(POLICES).length * themes);

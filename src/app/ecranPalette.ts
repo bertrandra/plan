@@ -1,8 +1,8 @@
 // Monte l'ecran de la palette (`?palette`, zones/EcranPalette.tsx).
 //
-// Il prend toute la page, comme l'ecran des controleurs, mais sans porte : il ne montre que les
-// jetons de l'interface (styles/jetons.ts), rien du projet ni de la plateforme. Plan ne demarre pas.
-// L'ancienne adresse `?admin&ecran=palette` y mene aussi.
+// Un ecran de l'admin, comme celui des controleurs : main.ts ne l'ouvre qu'une fois la porte de
+// l'admin franchie. Il prend toute la page et ne lit que les jetons de l'interface
+// (styles/jetons.ts) : Plan ne demarre pas dessous. `?admin&ecran=palette` y mene aussi.
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
@@ -21,6 +21,6 @@ export function ouvrirEcranPalette(): void {
     hote.id = 'zoneEcranPalette';
     document.body.appendChild(hote);
   }
-  document.title = 'Plan — palette de l’interface';
+  document.title = 'Admin — palette de l’interface';
   createRoot(hote).render(createElement(EcranPalette));
 }

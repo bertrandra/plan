@@ -30,15 +30,6 @@ async function demarrer(): Promise<void> {
       return;
     }
 
-    // `?palette` : les couleurs et les polices de l'interface (app/ecranPalette.ts). Ni porte ni
-    // session : l'ecran ne montre que les jetons, rien du projet ni de la plateforme.
-    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
-    if (demandeEcranPalette(location.search)) {
-      document.documentElement.dataset.ecran = 'palette';
-      ouvrirEcranPalette();
-      return;
-    }
-
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
     const { lireVitrine, poserVitrine, chargerDemoVitrine } = await import('./app/vitrine.js');
@@ -58,9 +49,16 @@ async function demarrer(): Promise<void> {
     // les plans sont les fichiers de demo du serveur qui sert la page, derriere son mot de passe.
     // Ouvrir, Enregistrer, Nouveau et Supprimer passent par le meme depot que d'habitude, pose
     // sur ces fichiers ; le reste de l'atelier ne sait pas la difference.
+    // L'ecran de la palette (`?palette`) est un ecran de l'admin : meme porte, meme mot de passe.
     const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
-    if (demandeAdmin(location.search)) {
+    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+    if (demandeAdmin(location.search) || demandeEcranPalette(location.search)) {
       await franchirLaPorteAdmin();
+      if (demandeEcranPalette(location.search)) {
+        document.documentElement.dataset.ecran = 'palette';
+        ouvrirEcranPalette();
+        return;
+      }
       // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
       // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
       // lance la decouverte (app/ecranControleurs.ts).

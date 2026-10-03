@@ -160,6 +160,11 @@ export const POLICES: Record<NomPolice, { nom: string; pile: string; role: strin
   }
 };
 
+/** Les rayons (spec-ihm-mobile §5.3), declares tels quels dans `app.css` ; un test le verifie. */
+export const RAYONS: Record<'r-champ' | 'r-bouton' | 'r-tuile' | 'r-panneau' | 'r-feuille', string> = {
+  'r-champ': '10px', 'r-bouton': '12px', 'r-tuile': '14px', 'r-panneau': '16px', 'r-feuille': '22px'
+};
+
 /** L'echelle des tailles, en `rem` : compacte, c'est un logiciel metier. */
 export const ECHELLE_TEXTE: { taille: string; police: NomPolice; usage: string; exemple: string; capitales?: boolean }[] = [
   { taille: '1.6rem', police: 'serif', usage: 'Titre d’écran', exemple: 'Palette de l’interface' },
