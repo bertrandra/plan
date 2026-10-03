@@ -109,6 +109,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Inspecteur : un profil par fonction d'objet.** Ce que la fonction d'un objet lui donne (formes
+  admises, sections propres) est décrit une fois, dans `model/fonctions.ts`, au lieu de six
+  prédicats répartis dans trois fichiers. Le menu « Fonction » ne propose plus que les fonctions
+  qui ont un sens sur la forme de l'objet : terrasse, bâtiment, annexe et terrain pour un polygone,
+  parasol pour un cercle. Choisir « Parasol » sur un polygone ou « Terrasse » sur un chemin ne
+  donnait aucune section. La fonction en place reste proposée, pour un ancien fichier.
+- **Inspecteur : une section « Arbre »** porte le diamètre, la couleur et la texture du feuillage,
+  sortis d'« Apparence », comme le parasol a la sienne. Un point de vue ne montre plus « Matière »
+  ni « Priorité d'affichage ». Au doigt, « Façades et toit » se range dans la famille Construction.
+
 - **Vue 3D : « Filaire » est une préférence d'affichage (décision produit).** La case ne passe pas
   par l'historique (pas de Ctrl+Z), ne marque pas le projet modifié et reste permise en lecture
   seule ; elle reste rangée dans la construction de la terrasse pour être retrouvée. Deux tests le
@@ -155,6 +165,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   plateforme branchée (vitrine, essais), rien ne change.
 
 ### Corrigé
+
+- **Parcelles voisines : plus de réglages de clôture sans effet.** Une parcelle voisine importée du
+  cadastre (`fonction: terrain`) montrait le lieu et les quatre champs de clôture, mais la Vue 3D ne
+  dessine que la clôture de la parcelle du projet : la modifier écrivait le projet sans rien
+  changer. Elle ne montre plus que sa référence cadastrale.
 
 - **Un Ctrl+Z de trop après une longueur, un angle ou le mode rectangle.** Ces trois champs
   empilaient leur propre instantané, et l'inspecteur le sien depuis qu'il les rend tous annulables :

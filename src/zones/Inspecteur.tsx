@@ -297,7 +297,8 @@ const FAMILLES: { id: Famille; libelle: string }[] = [
   { id: 'construction', libelle: 'Construction' }
 ];
 const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins', 'alignement']);
-const SECTIONS_CONSTRUCTION = new Set(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres']);
+// « Façades et toit » decrit la construction d'un batiment, comme les sections d'une terrasse.
+const SECTIONS_CONSTRUCTION = new Set(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres', 'releve']);
 export function familleDe(idSection: string): Famille {
   if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
   if (SECTIONS_CONSTRUCTION.has(idSection)) return 'construction';
