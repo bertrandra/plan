@@ -266,6 +266,28 @@ function Pli({ ouvert, inspecteur }: { ouvert: boolean; inspecteur: ServiceInspe
   );
 }
 
+/**
+ * Un bouton du pied de l'inspecteur : il lit l'etat de sa commande, comme la palette et les menus.
+ * Grise et explique un refus de droit (lecture seule) au lieu d'un clic refuse sans un mot ;
+ * efface quand l'organisation n'a pas la fonction.
+ */
+function BoutonPied({ commandes, id, libelle }: { commandes: RegistreCommandes; id: string; libelle: string }) {
+  const etat = commandes.etat(id);
+  if (!etat.utilisable && etat.raison === 'capacite') return null;
+  const refus = !etat.utilisable && 'message' in etat ? etat.message : undefined;
+  return (
+    <button data-commande={id} type="button" className="secondary small" disabled={!etat.utilisable} title={refus}
+      onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{libelle}</button>
+  );
+}
+
+/** Au doigt, l'infobulle n'existe pas : la raison d'un refus s'ecrit sous les boutons (§8). */
+function RefusPied({ commandes, ids, tactile }: { commandes: RegistreCommandes; ids: string[]; tactile: boolean }) {
+  if (!tactile) return null;
+  const messages = [...new Set(ids.map(id => commandes.etat(id)).flatMap(e => !e.utilisable && e.raison !== 'capacite' && 'message' in e ? [e.message] : []))];
+  return messages.length ? <p className="hint refusPied">{messages.join(' ')}</p> : null;
+}
+
 /** Le resume du chiffrage, en pied de l'inspecteur d'une terrasse : la boucle reglage → prix (§6.5). */
 function BandeauChiffrage({ c, ouvrir }: { c: ContexteChamps; ouvrir: () => void }) {
   const r = resumerChiffrage(c.obj, c.objets);
@@ -334,7 +356,6 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
-  const executer = (id: string) => () => { commandes.executer(id); };
   const ouvrirChiffrage = () => {
     if (!tiroir) return;
     tiroir.activer('bom');
@@ -358,7 +379,8 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
           <div className={compact ? 'corpsFeuille' : undefined}>
             <p className="hint" style={{ padding: '0 10px' }}>{compact ? 'Touchez un objet sur le plan, ou choisissez-le dans Objets, pour l\'éditer.' : 'Clique un objet sur le plan ou dans l\'explorateur pour l\'éditer.'}</p>
             <div className="inspecteurPied">
-              <button data-commande="projet.reinitialiser" type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
+              <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
+              <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
             </div>
           </div>
         </aside>
@@ -369,8 +391,9 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const sections = inspecteur.sections(c);
   const pied = (
     <div className="inspecteurPied">
-      <button data-commande="objet.positionInitiale" type="button" className="secondary small" disabled={!commandes.obtenir('objet.positionInitiale')?.actif?.()} onClick={executer('objet.positionInitiale')}>Réinitialiser la position</button>
-      <button data-commande="projet.reinitialiser" type="button" className="secondary small" onClick={executer('projet.reinitialiser')}>Réinitialiser tout</button>
+      <BoutonPied commandes={commandes} id="objet.positionInitiale" libelle="Réinitialiser la position" />
+      <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
+      <RefusPied commandes={commandes} ids={['objet.positionInitiale', 'projet.reinitialiser']} tactile={tactile} />
       <p className="hint">{tactile
         ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>

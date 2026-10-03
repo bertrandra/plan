@@ -166,6 +166,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Lecture seule : trois boutons se grisent enfin.** « Réinitialiser tout » et « Réinitialiser la
+  position » (pied de l'inspecteur) et « Enregistrer » (barre d'application) ne lisaient pas l'état
+  de leur commande : en lecture seule, ils restaient cliquables et le clic était refusé sans un mot.
+  Ils se grisent désormais avec la raison en infobulle, écrite sous les boutons au doigt, comme la
+  palette et les menus.
+
 - **Une terrasse est un polygone, partout.** Le contexte terrasse, l'explorateur, la Vue 3D, la
   visionneuse, l'export GLB, le rattachement d'un parasol et la pose d'un nouveau parasol
   acceptaient n'importe quel objet de fonction `terrasse`, alors que l'inspecteur, les résultats
