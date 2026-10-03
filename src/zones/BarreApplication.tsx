@@ -350,6 +350,9 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   useStore(magasin.store, (s) => s.version);
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   const enregistrement = p.statut === 'enregistrement';
+  // Comme toute commande : grise en lecture seule (le droit d'ecrire manque) ou sans projet ouvert,
+  // au lieu d'un clic refuse sans un mot.
+  const etatEnregistrer = commandes.etat('projet.enregistrer');
   const compact = classe === 'compact';
   // Telephone et tablette partagent la barre haute ; la feuille Projet devient sur tablette un
   // panneau deroulant sous le bouton ☰ (spec-ihm-mobile §6.1).
@@ -393,7 +396,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       )}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
-        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement} onClick={executer('projet.enregistrer')}>
+        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement || !etatEnregistrer.utilisable}
+          title={!etatEnregistrer.utilisable && 'message' in etatEnregistrer ? etatEnregistrer.message : undefined} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       )}
