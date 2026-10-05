@@ -72,20 +72,39 @@ describe('le menu du clic droit de la vitrine', () => {
 });
 
 describe('copier un texte', () => {
-  it('passe par le presse-papiers quand il est permis', async () => {
+  /** `execCommand('copy')` tel qu'un navigateur le joue : il declenche l'evenement `copy`. */
+  const copieDuNavigateur = (declenche: boolean) => vi.fn(() => {
+    if (!declenche) return true; // le cas trompeur : vrai, sans rien copier
+    const donnees = new Map<string, string>();
+    const e = new Event('copy', { cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(e, 'clipboardData', { value: { setData: (t: string, v: string) => donnees.set(t, v) } });
+    document.dispatchEvent(e);
+    (copieDuNavigateur as unknown as { dernier: Map<string, string> }).dernier = donnees;
+    return true;
+  });
+
+  it('copie par l evenement copy, dans le clic : ce qui marche aussi dans un iframe sans permission', async () => {
+    const exec = copieDuNavigateur(true);
+    Object.defineProperty(document, 'execCommand', { value: exec, configurable: true });
+    const writeText = vi.fn();
+    Object.defineProperty(window.navigator, 'clipboard', { value: { writeText }, configurable: true });
+    expect(await copierTexte('https://p.r/?mode=demo')).toBe(true);
+    expect((copieDuNavigateur as unknown as { dernier: Map<string, string> }).dernier.get('text/plain')).toBe('https://p.r/?mode=demo');
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('ne croit pas execCommand sur parole : sans evenement copy, il passe au presse-papiers moderne', async () => {
+    Object.defineProperty(document, 'execCommand', { value: copieDuNavigateur(false), configurable: true });
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, 'clipboard', { value: { writeText }, configurable: true });
     expect(await copierTexte('abc')).toBe(true);
     expect(writeText).toHaveBeenCalledWith('abc');
   });
 
-  it('retombe sur la copie par selection quand il est refuse (cadre sans clipboard-write)', async () => {
+  it('dit non quand rien n a copie : l adresse sera montree a copier a la main', async () => {
+    Object.defineProperty(document, 'execCommand', { value: copieDuNavigateur(false), configurable: true });
     Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: vi.fn().mockRejectedValue(new Error('refus')) }, configurable: true });
-    const exec = vi.fn().mockReturnValue(true);
-    Object.defineProperty(document, 'execCommand', { value: exec, configurable: true });
-    expect(await copierTexte('abc')).toBe(true);
-    expect(exec).toHaveBeenCalledWith('copy');
-    expect(document.querySelector('textarea')).toBe(null);
+    expect(await copierTexte('abc')).toBe(false);
   });
 });
 
