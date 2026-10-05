@@ -107,6 +107,7 @@ rejoue jamais.
 | 52 | Vitrine (`?mode=demo`) : inspecteur de la terrasse et nomenclature | tous les champs qui écrivent le projet et les boutons Supprimer grisés, les saisies du tiroir grisées ; seul un réglage d'affichage (« Distance au segment ») reste libre |
 | 53 | Admin › Contrôleurs : Lancer la découverte, Enregistrer (une fois, au bureau) | relevée dans les trois classes ; 0 hors registre, 0 écart de zone, 0 écriture sans droits, au plus 1 sans annulation (créer le projet), aucun champ nommé par sa clé, aucune commande sans description |
 | 54 | Relevé de façade sans caméra : importer une photo de façade, Analyser, Valider ; un Ctrl+Z | le relevé est écrit sur le bâtiment avec ses ouvertures ; un Ctrl+Z le retire d'un coup |
+| 55 | Sélectionner la parcelle, section « Clôture » : Régler le côté sur rue en mur, hauteur maximale sur rue 2 m ; « Portails et portillons » : Ajouter un portail, Ajouter un portillon, « À sa droite », Montrer ouvert ; Vue 3D | le résumé du côté dit « Mur 1,80 m · enduit · sur rue » ; le plan montre la coupure, les piliers et les deux arcs ; en 3D les deux battants sont ouverts et le portillon colle au pilier droit ; une hauteur de 2,20 m sur ce côté affiche l'avertissement |
 
 ## Journal des passages
 

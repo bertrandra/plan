@@ -52,10 +52,14 @@ describe('sections de l inspecteur par fonction', () => {
 
   it('montre la cloture et le lieu sur la parcelle du projet seulement', () => {
     const parcelle = contexte('terrain', 'polygon', { key: 'parcelle' });
-    expect(cles(parcelle, 'parcelle')).toEqual(['lieu', 'clotureActive', 'clotureHauteur', 'clotureCouleur', 'clotureTexture']);
+    expect(cles(parcelle, 'parcelle')).toEqual(['lieu']);
+    // La cloture et ses acces ont leurs sections a part, sur la parcelle du projet seulement.
+    expect(ids(parcelle)).toContain('cloture');
+    expect(ids(contexte('terrain', 'polygon', { key: 'parcelle', clotureActive: true }))).toEqual(expect.arrayContaining(['cloture', 'portails']));
     const principale = { key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [] } as unknown as ObjetPlan;
     const voisine = contexte('terrain', 'polygon', { key: 'v1', voisinage: true, cadastre: { commune: 'Chatou', section: 'AB', numero: '12' } } as Partial<ObjetPlan>, [principale]);
     expect(cles(voisine, 'parcelle')).toEqual(['cadastre']);
+    expect(ids(voisine)).not.toContain('cloture');
     // Une voisine sans reference cadastrale n'a plus rien a montrer : la section disparait.
     const anonyme = contexte('terrain', 'polygon', { key: 'v2' }, [principale]);
     expect(ids(anonyme)).not.toContain('parcelle');

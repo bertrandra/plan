@@ -57,6 +57,9 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // pas garde au bit pres la forme d'avant (empreinte de projet.json).
     if(o.facades && o.facades.length) out.facades = JSON.parse(JSON.stringify(o.facades));
     if(o.toit) out.toit = JSON.parse(JSON.stringify(o.toit));
+    // La cloture cote par cote et ses acces (MD/spec-cloture.md) : meme regle, les quatre anciens
+    // champs ci-dessus restent ecrits pour les lecteurs qui ne connaissent qu'eux.
+    if(o.cloture) out.cloture = JSON.parse(JSON.stringify(o.cloture));
     // Meme regle pour la pergola : un projet sans pergola garde sa forme d'avant.
     if(o.pergola) out.pergola = JSON.parse(JSON.stringify(o.pergola));
     // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des

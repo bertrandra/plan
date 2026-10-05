@@ -171,7 +171,8 @@ la terrasse, choisis dans Z3.
 | Apparence | tout objet | remplissage, contour, opacité, textures | `fill`, `stroke`, `texture*` |
 | Point de vue | fonction caméra | altitude, direction, « Aller à cette vue » | `allerAuPointDeVue` |
 | Parasol | fonction parasol | hauteur, mât déporté, angle, terrasse liée, date et heure de l'ombre, « Placer au mieux » | `engine/parasol.ts` |
-| Parcelle | clé `parcelle` | lieu (lat, lon, nom), cadastre (fiche), clôture (active, hauteur, couleur, texture), orthophoto | `model/lieu.ts`, `ui/cloture.ts` |
+| Parcelle | clé `parcelle` | lieu (lat, lon, nom), cadastre (fiche), orthophoto | `model/lieu.ts`, `ui/cloture.ts` |
+| Clôture, Portails et portillons | clé `parcelle`, parcelle du projet seule | réglage par défaut et par côté, hauteurs maximales du PLU ; accès (côté, position, dimensions, ouverture, forme, piliers, retrait) — `MD/spec-cloture.md` | `ui/champs/cloture.ts`, `model/cloture.ts` |
 | Terrasse — construction | fonction terrasse | le configurateur (53 réglages), l'optimisation | `renderTerrasseConfigurator`, `optimiserParametres` |
 | Terrasse — vue 3D | fonction terrasse, vue 3D active | filaire, tous les objets, opaques, textures, ombres | `vue3d.*` |
 

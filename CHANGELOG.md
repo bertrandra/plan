@@ -7,6 +7,30 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Clôture côté par côté, portails et portillons** (`MD/spec-cloture.md`). Sur la parcelle du
+  projet, deux sections nouvelles de l'inspecteur remplacent les quatre champs de clôture :
+  - « Clôture » : un réglage par défaut et, côté par côté, un réglage propre — palissade bois
+    (lames, occultante), grillage (souple ou rigide, occultant), haie (essence, épaisseur, taillée),
+    mur (parement, épaisseur, couvertine), ou aucune ; hauteur, couleur, texture ; un soubassement
+    maçonné sous une palissade, un grillage ou une haie ; sur rue ou en limite séparative,
+    mitoyenne ; une hauteur maximale sur rue et une en limite séparative d'après le PLU, avec un
+    avertissement quand un côté les dépasse.
+  - « Portails et portillons » : en nombre quelconque, posés sur un côté à une distance du bord ;
+    largeur, hauteur, ouverture (un battant, deux battants, coulissant), sens, petit vantail,
+    refoulement, forme (droit, chapeau de gendarme, chapeau de gendarme inversé, bombé, concave) et
+    flèche, remplissage, matériau, couleur, texture, piliers (largeur, hauteur, parement, chapeau),
+    retrait, motorisation ; « Montrer ouvert » est un réglage d'affichage ; un portillon s'accole au
+    portail d'un clic ; des alertes signalent un accès qui dépasse le côté, un coulissant sans place
+    de refoulement, un battant qui s'ouvre vers la rue.
+  - Vue 3D : chaque tronçon dans sa matière, les poteaux, les couvertines, les soubassements, les
+    piliers, les vantaux fermés ou ouverts (`three/cloture3d.ts`).
+  - Plan à l'écran : la clôture doublée le long de la limite dans un trait propre à chaque type, la
+    coupure d'un accès, ses piliers, l'arc de débattement d'un battant, la course d'un coulissant,
+    les retours d'un portail en retrait (`render/cloture.ts`). Les exports ne changent pas.
+  - Fichier : une structure `cloture` sur la parcelle, écrite seulement quand on l'a touchée ; les
+    quatre anciens champs restent écrits et suivent le réglage par défaut. Un projet d'avant se
+    relit au bit près.
+
 - **Carport.** Outil « Carport » de la palette, ou fonction « Carport » d'un polygone. C'est le même
   ouvrage que la pergola, par le même code (`engine/pergola.ts`, inspecteur, plan, Vue 3D, métrage
   et chiffrage) : seules les valeurs par défaut changent. Il naît en rectangle de 3 × 5 m (une

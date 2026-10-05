@@ -750,7 +750,8 @@ classes. Les clés entre crochets sont des lectures, alertes, boutons ou hôtes.
 | # | Section | Condition | Champs (clés) |
 |---|---|---|---|
 | 1 | Objet | toujours | name, [type], fonction (13 valeurs), priority, matiere, [elevationTerrasse], elevation, [surface], [longueur], width, curve, r, locked, rectangle |
-| 2 | Parcelle | parcelle ou terrain | [lieu], [cadastre], clotureActive, clotureHauteur, clotureCouleur, clotureTexture |
+| 2 | Parcelle | parcelle ou terrain | [lieu], [cadastre] |
+| 2 bis | Clôture · Portails et portillons (famille Construction) | parcelle du projet | active, hauteurMaxRue, hauteurMaxSeparative, un côté par ligne, type et champs du type, soubassement ; accès par ligne, côté, position, dimensions, ouverture, forme, remplissage, matériau, piliers, retrait, ouvert (`MD/spec-cloture.md` §3) |
 | 3 | Apparence | toujours | fill, textureVerticale, textureHorizontale (avec « appliquer à tous les chemins »), diametreArbre, couleurArbre, textureArbre |
 | 4 | Parasol | parasol (cercle) | terrasseLieeKey, hauteurParasol, matSurPerimetre, matDeporte, matAngleDeg, ombreDate, ombreHeure, ombreAffichee, carteAffichee, [placerAuMieux] |
 | 5 | Point de vue | caméra (chemin) | altitude, direction, [aller] |
