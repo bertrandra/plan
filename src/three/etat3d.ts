@@ -159,6 +159,12 @@ export const vue3d: {
   dernierObjKey: string | null;
   /** Le point du plan au centre de la scene (son origine locale) : de quoi y placer un autre cadrage. */
   centre: PtBrut | null;
+  /**
+   * Appelee juste apres chaque pose du soleil, AVANT le rendu : la vitrine y ajoute son disque et
+   * son ciel du couchant (three/soleilVitrine.ts). La retouche apres coup ferait clignoter la scene,
+   * rendue entre-temps avec les couleurs d'origine.
+   */
+  apresSoleil: ((soleil: { elevRad: number; azRad: number }) => void) | null;
   tousLesObjets: boolean;
   objetsOpaques: boolean;
   textures: boolean;
@@ -167,6 +173,7 @@ export const vue3d: {
   scene: null,
   dernierObjKey: null,
   centre: null,
+  apresSoleil: null,
   // Montrer tout le plan par defaut : une terrasse seule au milieu du vide ne se situe pas.
   tousLesObjets: true,
   objetsOpaques: true,

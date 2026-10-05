@@ -115,7 +115,8 @@ describe('les reglages du clic droit : date du soleil, rotation automatique', ()
       r,
       api: {
         date: () => r.d, poserDate: vi.fn((d: string) => { r.d = d; }),
-        rotation: () => r.v, poserRotation: vi.fn((v: number | null) => { r.v = v; })
+        rotation: () => r.v, poserRotation: vi.fn((v: number | null) => { r.v = v; }),
+        soleil: () => true, poserSoleil: vi.fn(), couchant: () => true, poserCouchant: vi.fn()
       }
     };
   };
@@ -145,6 +146,19 @@ describe('les reglages du clic droit : date du soleil, rotation automatique', ()
     expect(api.poserRotation).toHaveBeenLastCalledWith(-2.5);
     actif.checked = false; actif.dispatchEvent(new Event('change'));
     expect(api.poserRotation).toHaveBeenLastCalledWith(null);
+  });
+
+  it('propose le soleil visible et les couleurs du couchant, en cases', () => {
+    const poserSoleil = vi.fn(), poserCouchant = vi.fn();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn(), reglages: { ...reglages().api, poserSoleil, poserCouchant } });
+    menuContextuel(10, 10);
+    const soleil = document.getElementById('menuVitrineSoleil') as HTMLInputElement;
+    const couchant = document.getElementById('menuVitrineCouchant') as HTMLInputElement;
+    expect(soleil.checked && couchant.checked).toBe(true);
+    soleil.checked = false; soleil.dispatchEvent(new Event('change'));
+    couchant.checked = false; couchant.dispatchEvent(new Event('change'));
+    expect(poserSoleil).toHaveBeenCalledWith(false);
+    expect(poserCouchant).toHaveBeenCalledWith(false);
   });
 
   it('saisir une vitesse coche la rotation ; un clic dans le menu ne le ferme pas', () => {
