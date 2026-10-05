@@ -60,6 +60,7 @@ import { creerVues3d, type Vues3d } from './assemblage/vues3d.js';
 import { brancherLesExports, exporterLeProjet, resumeDuProjet } from './assemblage/exports.js';
 import { monterZones } from '../zones/monter.js';
 import { dessinerReleves } from '../render/releve.js';
+import { dessinerCloture } from '../render/cloture.js';
 import { creerServiceReleve } from './releve.js';
 import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
@@ -186,7 +187,12 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     const contexteChange = synchroniserContexteTerrasse(etat);
     rendreScene(etat, {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
-      renderReleves: () => dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque)
+      // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
+      renderReleves: () => {
+        dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
+        const parcelle = affichage.trouverParcelleCloture();
+        if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
+      }
     });
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
@@ -275,7 +281,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherPointeur(surface.svg, surface.stage, etat, {
     insertPointOnSegment: p.gestes.insertPointOnSegment, pushHistory: p.pushHistory,
     rebuildSelector: p.rebuildSelector, render: p.render, sendObjectBackward: p.gestes.sendObjectBackward,
-    toWorld: dessin.toWorld
+    toWorld: dessin.toWorld, markDirty: p.markDirty,
+    apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
   });
   brancherObjets(atelier, commandes);
   // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.
@@ -290,7 +297,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     resultats, redimensionnerLePlan: p.cadrage.redimensionner,
     rafraichirInspecteur: () => magasin.notifier(),
     activerOnglet: (onglet) => tiroir.activer(onglet),
-    startPick: (mode: Pointage['mode'], multi: boolean, but?: Pointage['purpose']) => resultats.pointer(mode, multi, but)
+    startPick: (mode: Pointage['mode'], multi: boolean, but?: Pointage['purpose'], indice?: number) => resultats.pointer(mode, multi, but, indice)
   }, commandes);
   brancherFichiers({
     exportProjetJSON: () => exporterLeProjet(etat, seed, options().exportSansParcelle), validerProjetJSON, appliquerProjetImporte: ch.appliquerProjetImporte,
@@ -325,7 +332,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     contexteSoleil: p.affichage.contexteSoleilParasol,
     applyAngleEdit: gestes.applyAngleEdit, applyLengthEdit: gestes.applyLengthEdit, deleteVertex: gestes.deleteVertex,
     alignObjectByRotation: gestes.alignObjectByRotation, allerAuPointDeVue: vues.allerAuPointDeVue,
-    startPick: (mode, multi, but) => resultats.pointer(mode, multi, but),
+    startPick: (mode, multi, but, indice) => resultats.pointer(mode, multi, but, indice),
     pushHistory: p.pushHistory, preparerHistorique: () => p.historique.preparer(), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
     buildThreeScene: vues.buildThreeScene, reapplyStackingOrder: p.dessin.reapplyStackingOrder, rebuildHandles: p.dessin.rebuildHandles,
     trouverParcelle: p.affichage.trouverParcelleCloture,

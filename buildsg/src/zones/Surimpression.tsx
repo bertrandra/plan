@@ -30,6 +30,7 @@ const metres = (v: number) => (Math.round(v * 100) / 100).toLocaleString('fr-FR'
 
 function consigne(p: Pointage): string {
   if (p.purpose === 'align') return 'Désignez le côté cible sur le plan : l\'objet pivotera pour lui devenir parallèle.';
+  if (p.purpose === 'acces') return 'Désignez sur le plan le côté de la parcelle où poser l\'accès : il se centrera sur le point touché.';
   if (p.mode === 'ref') return 'Désignez le côté de référence de la cote sur le plan.';
   return 'Désignez les coins à coter, puis « Terminer ».';
 }

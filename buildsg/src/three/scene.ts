@@ -15,11 +15,11 @@ import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { dimsSection, sectionLambourde } from '../engine/portees.js';
-import { safeOffset } from '../engine/structure.js';
 import { hauteurParasolDe } from '../engine/parasol.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
+import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
   creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL,
@@ -397,16 +397,11 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
 }
 
 /**
- * La cloture perimetrale, independante de « tous les objets » (elle borne la parcelle) : une fine
- * bande mitree tout le tour, comme la lame de rive, avec sa hauteur, sa couleur et sa texture.
+ * La cloture perimetrale, independante de « tous les objets » (elle borne la parcelle) : cote par
+ * cote, avec ses acces (three/cloture3d.ts, MD/spec-cloture.md).
  */
-function ajouterCloture(prim: Primitives, ctx: ContexteScene3d): void {
-  const p = ctx.trouverParcelleCloture();
-  if (!p || !p.clotureActive || !aDesSommets(p) || p.pts.length < 3) return;
-  const EPAISSEUR_CLOTURE = 0.05;
-  const texturesCloture = vue3d.textures && p.clotureTexture ? { vertical: p.clotureTexture } : null;
-  prim.addBande({ ext: p.pts, int: safeOffset(p.pts, EPAISSEUR_CLOTURE) },
-    0, Math.max(0.1, p.clotureHauteur || 1.8), p.clotureCouleur || '#6b4a2a', texturesCloture);
+function ajouterCloture(prim: Primitives, scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d): void {
+  ajouterCloture3d({ scene, toLocal: versLocal, prim, textures: vue3d.textures, chargerTexture: ctx.chargerTexturePolyhaven }, ctx.trouverParcelleCloture());
 }
 
 /**
@@ -449,7 +444,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   ajouterOrtho(scene, versLocal, ctx);
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx });
   // La cloture est celle de la parcelle : masquee avec elle quand la terrasse est isolee.
-  if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, ctx);
+  if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, scene, versLocal, ctx);
   appliquerOmbres(scene, ground);
 
   const sc: SceneVue3d = {
