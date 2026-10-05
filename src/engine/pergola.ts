@@ -1,4 +1,8 @@
-// Pergola : les pieces d'une pergola et leur metrage par section (engine/).
+// Pergola et carport : les pieces de l'ouvrage et leur metrage par section (engine/).
+//
+// Un seul code pour les deux : un carport est une pergola faite pour abriter une voiture. Il ne s'en
+// distingue que par ses valeurs par defaut (`NATURES` : appentis couvert, pente faible, passage
+// libre de 2,20 m) ; tout reglage de l'un existe pour l'autre.
 //
 // Une pergola est un polygone du plan de fonction `pergola`. Le contour est le nu exterieur des
 // poteaux : les poteaux d'angle s'y logent a fleur, les poutres du cadre courent sur leur axe, et le
@@ -26,6 +30,7 @@ import { lineLineIntersect } from '../geometry/segments.js';
 import { optimiserDebitLames, type Debit } from './debit.js';
 import { parseLongueurs } from './prix.js';
 import type { MateriauPergola, ObjetPlan, Pergola, PtBrut, ToitPergola } from '../model/types.js';
+import type { NatureAbri } from '../model/creation.js';
 
 /** Ce qui change avec la matiere : sections proposees, valeurs par defaut, longueurs vendues. */
 interface ProfilMateriau {
@@ -69,6 +74,19 @@ export const LIBELLE_TOIT_PERGOLA: Record<ToitPergola, string> = {
 /** Pente par defaut : faible pour un appentis (ecoulement), franche pour quatre pans. */
 const PENTE_DEFAUT: Record<ToitPergola, number> = { toile: 0, appentis: 10, 'quatre-pans': 30 };
 
+/** Ce qui distingue un carport d'une pergola : ses valeurs par defaut, rien d'autre. */
+const NATURES: Record<NatureAbri, { libelle: string; toit: ToitPergola; hauteur: number; pente: Partial<Record<ToitPergola, number>>; couverture: string }> = {
+  pergola: { libelle: 'Pergola', toit: 'toile', hauteur: 2.4, pente: {}, couverture: '#9a4b32' },
+  // Un bac acier gris sur un appentis a 5° : l'abri de voiture le plus courant.
+  carport: { libelle: 'Carport', toit: 'appentis', hauteur: 2.3, pente: { appentis: 5 }, couverture: '#6f7478' }
+};
+
+/** Passage libre conseille sous les poutres d'un carport, en metres. */
+export const PASSAGE_CARPORT_M = 2.2;
+
+export const natureAbri = (o: ObjetPlan): NatureAbri => o.fonction === 'carport' ? 'carport' : 'pergola';
+export const libelleAbri = (o: ObjetPlan): string => NATURES[natureAbri(o)].libelle;
+
 /** Une chute plus courte ne repart pas au pot (comme les 50 cm de la terrasse, en plus court : charpente). */
 const CHUTE_REUTILISABLE_M = 0.3;
 
@@ -100,7 +118,8 @@ const indiceValide = (i: number | undefined, n: number): i is number => i !== un
 /** Les reglages complets d'une pergola : ce que l'objet porte, et les valeurs par defaut pour le reste. */
 export function pergolaDe(o: ObjetPlan): ReglagesPergola {
   const p = o.pergola || {};
-  const toit: ToitPergola = p.toit && p.toit in LIBELLE_TOIT_PERGOLA ? p.toit : 'toile';
+  const nature = NATURES[natureAbri(o)];
+  const toit: ToitPergola = p.toit && p.toit in LIBELLE_TOIT_PERGOLA ? p.toit : nature.toit;
   const materiau: MateriauPergola = p.materiau === 'aluminium' ? 'aluminium' : 'bois';
   const m = MATERIAUX[materiau];
   const pts = o.type === 'polygon' ? o.pts : [];
@@ -108,7 +127,7 @@ export function pergolaDe(o: ObjetPlan): ReglagesPergola {
   const coteReference = indiceValide(p.coteReference, n) ? p.coteReference : (n ? plusLongCote(pts) : 0);
   return {
     toit, materiau,
-    hauteur: p.hauteur && p.hauteur > 0 ? p.hauteur : 2.4,
+    hauteur: p.hauteur && p.hauteur > 0 ? p.hauteur : nature.hauteur,
     sectionPoteau: p.sectionPoteau || m.defaut.poteau,
     entraxePoteaux: p.entraxePoteaux && p.entraxePoteaux > 0.5 ? p.entraxePoteaux : 4,
     sectionPoutre: p.sectionPoutre || m.defaut.poutre,
@@ -118,7 +137,7 @@ export function pergolaDe(o: ObjetPlan): ReglagesPergola {
     sectionContrefiche: p.sectionContrefiche || '90x90',
     sectionChevron: p.sectionChevron || m.defaut.chevron,
     entraxeChevrons: p.entraxeChevrons && p.entraxeChevrons > 0.1 ? p.entraxeChevrons : 0.6,
-    pente: p.pente !== undefined && p.pente >= 0 && p.pente < 60 ? p.pente : PENTE_DEFAUT[toit],
+    pente: p.pente !== undefined && p.pente >= 0 && p.pente < 60 ? p.pente : nature.pente[toit] ?? PENTE_DEFAUT[toit],
     coteReference,
     // Un toit a quatre pans tourne autour de son faitage : il ne s'adosse pas.
     adossee: !!p.adossee && toit !== 'quatre-pans' && n >= 3,
@@ -129,7 +148,7 @@ export function pergolaDe(o: ObjetPlan): ReglagesPergola {
     prixCouverture: p.prixCouverture !== undefined && p.prixCouverture >= 0 ? p.prixCouverture : PRIX_COUVERTURE_DEFAUT,
     couleurBois: p.couleurBois || m.couleur,
     couleurToile: p.couleurToile || '#efe6d2',
-    couleurCouverture: p.couleurCouverture || '#9a4b32',
+    couleurCouverture: p.couleurCouverture || nature.couverture,
     longueursBois: p.longueursBois || m.longueurs.join(', ')
   };
 }
@@ -230,6 +249,9 @@ export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
   const tan = Math.tan((r.toit === 'appentis' ? r.pente : 0) * Math.PI / 180);
   /** Le dessous des poutres au droit d'un point : constant, sauf en appentis ou il suit la pente (le debord bas descend). */
   const sousPoutre = (p: PtBrut): number => r.hauteur + ((p.x - ra.x) * v.x + (p.y - ra.y) * v.y) * tan;
+  if (natureAbri(o) === 'carport' && r.hauteur < PASSAGE_CARPORT_M - 1e-9) {
+    avertissements.push('Passage libre de ' + r.hauteur.toFixed(2).replace('.', ',') + ' m sous les poutres : 2,20 m sont conseillés pour une voiture.');
+  }
   if (r.adossee && r.toit === 'appentis' && r.coteMur === r.coteReference) {
     avertissements.push('La pente descend vers le mur : choisissez pour côté de référence celui qui fait face au mur.');
   }

@@ -1,4 +1,4 @@
-// Calque des pergolas sur le plan : la charpente vue de dessus (render/).
+// Calque des pergolas et carports sur le plan : la charpente vue de dessus (render/).
 //
 // Le polygone de la pergola est dessine comme tout objet ; ce calque pose par-dessus ce que l'on
 // verrait d'en haut, a l'echelle : les poutres du cadre, le faitage et les aretiers, les chevrons,
@@ -9,7 +9,7 @@
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerPergola, dimsPergola } from '../engine/pergola.js';
-import { estPergola } from '../model/fonctions.js';
+import { estAbri } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export interface EtatCalquePergolas {
@@ -34,7 +34,7 @@ export function dessinerCalquePergolas(groupe: SVGElement, etat: EtatCalquePergo
   groupe.innerHTML = '';
   const scene = etat.scene;
   etat.objects
-    .filter(o => estPergola(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
+    .filter(o => estAbri(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
     .forEach(o => {
       const calc = calculerPergola(o);
       if (!calc) return;

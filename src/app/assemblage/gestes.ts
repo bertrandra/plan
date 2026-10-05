@@ -83,7 +83,8 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     addNewPath: () => creation().ajouterChemin(),
     addNewCircle: () => creation().ajouterCercle(),
     addNewParasol: () => creation().ajouterParasol(),
-    addNewPergola: () => creation().ajouterPergola(),
+    addNewPergola: () => creation().ajouterAbri('pergola'),
+    addNewCarport: () => creation().ajouterAbri('carport'),
     addNewViewpoint: () => creation().ajouterPointDeVue(),
     duplicateSelectedObject: () => creation().dupliquer(),
     deleteSelectedObject: () => creation().supprimer()

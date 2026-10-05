@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Carport.** Outil « Carport » de la palette, ou fonction « Carport » d'un polygone. C'est le même
+  ouvrage que la pergola, par le même code (`engine/pergola.ts`, inspecteur, plan, Vue 3D, métrage
+  et chiffrage) : seules les valeurs par défaut changent. Il naît en rectangle de 3 × 5 m (une
+  place de voiture) au centre de la parcelle, en appentis couvert à 5° (bac acier gris), avec
+  2,30 m sous les poutres. Un avertissement s'affiche sous 2,20 m de passage libre. Pergola et
+  carport partagent la particularité `abri` (`model/fonctions.ts`, `estAbri`) et la fabrique
+  `nouvelAbri`. Le chiffrage d'un abri reste à part de celui de la terrasse.
 - **Pergola : aluminium, adossement, débord et chiffrage.**
   - « Matériau » : bois ou aluminium. L'aluminium a ses profilés (poteaux 100 × 100, poutres
     100 × 200, chevrons 50 × 150 par défaut), ses longueurs vendues (6, 4, 3 m), sa couleur

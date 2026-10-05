@@ -9,7 +9,7 @@
 // Pas de bibliotheque : une trentaine de traces, c'est moins que le code pour en charger une.
 
 export type NomIcone =
-  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'parasol' | 'pergola' | 'pointDeVue'
+  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'parasol' | 'pergola' | 'carport' | 'pointDeVue'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
@@ -26,6 +26,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   parasol: <><path d="M3 12a9 9 0 0118 0z" /><path d="M12 12v7.5a2 2 0 01-4 0" /></>,
   // Deux poteaux, la poutre, les chevrons, et une contrefiche de chaque cote.
   pergola: <path d="M5 20V8M19 20V8M3 8h18M7 4.5V8M12 4.5V8M17 4.5V8M5 12.5L9 8M19 12.5L15 8" />,
+  // Un toit en pente sur deux poteaux, une voiture dessous.
+  carport: <><path d="M3 8l18-3M5 7.7V20M19 5.3V20" /><path d="M7 18.5h10M7.5 18.5v-2.5l1.5-2.5h6l1.5 2.5v2.5" /></>,
   pointDeVue: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
   dupliquer: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2h3" /></>,
   supprimer: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,

@@ -200,3 +200,23 @@ describe('chiffrage', () => {
     expect(prixMlDe(pergolaDe(pergola(4, 3, { materiau: 'aluminium' })), '100x100')).toBe(35);
   });
 });
+
+describe('carport', () => {
+  const carport = (reglages: Pergola = {}): ObjetPlan => ({ ...pergola(3, 5, reglages), fonction: 'carport' });
+
+  it('prend ses valeurs par defaut : appentis couvert a 5°, 2,30 m sous poutre', () => {
+    expect(pergolaDe(carport())).toMatchObject({ toit: 'appentis', pente: 5, hauteur: 2.3, couleurCouverture: '#6f7478' });
+    // Les autres toits gardent les pentes communes.
+    expect(pergolaDe(carport({ toit: 'quatre-pans' })).pente).toBe(30);
+  });
+
+  it('se calcule par le meme code qu\'une pergola de memes reglages', () => {
+    const r: Pergola = { toit: 'appentis', pente: 5, hauteur: 2.3 };
+    expect(calculerPergola(carport(r))!.pieces).toEqual(calculerPergola(pergola(3, 5, r))!.pieces);
+  });
+
+  it('previent sous 2,20 m de passage libre', () => {
+    expect(calculerPergola(carport({ hauteur: 2.1 }))!.avertissements.join(' ')).toMatch(/2,20 m sont conseillés/);
+    expect(calculerPergola(carport())!.avertissements).toEqual([]);
+  });
+});

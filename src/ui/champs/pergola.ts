@@ -8,7 +8,7 @@
 // `pergolaDe` comble le reste a la lecture.
 
 import {
-  calculerPergola, chiffrerPergola, clePrixPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleSection,
+  calculerPergola, chiffrerPergola, libelleAbri, clePrixPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleSection,
   longueursPergola, MATERIAUX, metrageParSection, pergolaDe, prixMlDe, prixMlSaisi, SECTIONS_CONTREFICHE,
   type MetrageSection, type ReglagesPergola, type RolePiece
 } from '../../engine/pergola.js';
@@ -40,6 +40,7 @@ function choixSection(cle: CleSection, libelle: string, liste: (c: ContexteChamp
 }
 
 const sectionPergola: Section = {
+  // Le titre suit l'ouvrage (sectionsPergola) : « Pergola » ou « Carport », mêmes réglages.
   id: 'pergola', titre: 'Pergola',
   explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
   champs: [
@@ -65,7 +66,7 @@ const sectionPergola: Section = {
     },
     {
       type: 'nombre', cle: 'hauteur', libelle: 'Hauteur des poteaux', unite: 'm', pas: 0.05, min: 1.8, max: 4, decimales: 2, effets: EFFETS,
-      aide: 'Du sol au-dessous des poutres ; en appentis, la hauteur du côté bas',
+      aide: 'Du sol au-dessous des poutres ; en appentis, la hauteur du côté bas. Pour un carport, 2,20 m de passage libre au moins',
       lire: (c) => reglages(c).hauteur, ecrire: (c, v) => { if (!(v >= 1.8 && v <= 4)) return false; poser(c, 'hauteur', v); }
     },
     {
@@ -194,7 +195,7 @@ export function sectionPrixPergola(c: ContexteChamps): Section {
   };
 }
 
-/** Les sections propres a une pergola, dans l'ordre. */
+/** Les sections propres a une pergola ou a un carport, dans l'ordre. */
 export function sectionsPergola(c: ContexteChamps): Section[] {
-  return [sectionPergola, sectionMetragePergola(c), sectionPrixPergola(c)];
+  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionMetragePergola(c), sectionPrixPergola(c)];
 }
