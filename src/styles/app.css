@@ -1486,6 +1486,16 @@
   .menuVitrineLigne input[type=number]{ width:64px; }
   .menuVitrineLigne input[type=checkbox]{ width:18px; height:18px; margin:0; accent-color:var(--accent); }
   .menuVitrineUnite{ color:var(--ink-soft); font-size:0.72rem; }
+  /* Au doigt (appui long) : une feuille au bas de l'ecran, a portee du pouce, cibles de 44 px. */
+  .menuVitrine--feuille{
+    left:8px; right:8px; bottom:calc(8px + env(safe-area-inset-bottom, 0px)); top:auto; min-width:0;
+    padding:8px; border-radius:var(--r-feuille); box-shadow:var(--ombre-feuille); font-size:0.95rem;
+  }
+  .menuVitrine--feuille button, .menuVitrine--feuille .menuVitrineLigne{ min-height:44px; }
+  .menuVitrine--feuille .menuVitrineLigne input[type=date], .menuVitrine--feuille .menuVitrineLigne input[type=number]{ min-height:40px; }
+  .menuVitrine--feuille .menuVitrineLigne input[type=checkbox]{ width:22px; height:22px; }
+  /* La loupe, la selection et la bulle d'iOS au doigt pose : l'appui long ouvre notre menu. */
+  html[data-vitrine] #terrasse3dCanvasHost{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
   .menuVitrineAdresse{ min-height:32px; width:min(70vw, 420px); padding:0 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font:inherit; }
   /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
   html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,

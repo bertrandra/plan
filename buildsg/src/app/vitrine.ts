@@ -311,16 +311,18 @@ export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch)
  * Le cadrage sur la parcelle, dans le repere de la scene 3D (origine au centre de la scene `centre`,
  * x vers l'Est, z vers le Sud — three/primitives.ts `versLocalDepuis`) : la cible au centre de la
  * parcelle, la camera dans la meme direction diagonale que le cadrage par defaut (three/scene.ts),
- * assez loin pour que la parcelle entiere tienne dans le champ.
+ * assez loin pour que la parcelle entiere tienne dans le champ. `aspect` = largeur / hauteur de la
+ * scene : le champ de la camera (45 degres) est VERTICAL, donc plus etroit en largeur sur un
+ * telephone en portrait — la distance s'allonge d'autant, sans quoi la parcelle deborde des cotes.
  */
-export function cadrageSurParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }): {
+export function cadrageSurParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }, aspect = 1): {
   cible: { x: number; y: number; z: number }; camera: { x: number; y: number; z: number };
 } | null {
   if (pts.length < 3) return null;
   const { x: cx, y: cy } = centroid(pts);
   const rayon = Math.max(3, ...pts.map((p) => Math.hypot(p.x - cx, p.y - cy)));
   // Meme formule que la scene : etendue = 2 x rayon, camera a 0,9 x etendue sur chaque axe.
-  const d = rayon * 2 * 0.9;
+  const d = rayon * 2 * 0.9 * (aspect > 0 && aspect < 1 ? 1 / aspect : 1);
   const cible = { x: cx - centre.x, y: 0, z: centre.y - cy };
   return { cible, camera: { x: cible.x + d, y: d, z: cible.z + d } };
 }

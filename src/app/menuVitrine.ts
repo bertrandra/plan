@@ -21,6 +21,18 @@
 /** Au-dela, entre l'appui du bouton droit et le menu, c'est un glisser — un deplacement de la scene. */
 export const TOLERANCE_GLISSER_PX = 5;
 
+// **Au doigt, pas de clic droit : un appui long.** Un doigt pose et immobile une demi-seconde ouvre
+// le meme menu — le geste que les telephones reservent deja au menu contextuel. Le doigt qui glisse
+// fait tourner la scene et annule l'appui ; un second doigt (pincer pour zoomer) l'annule aussi. Le
+// menu vient alors en feuille au bas de l'ecran, a portee du pouce, cibles de 44 px. Le menu natif
+// d'Android (un `contextmenu` apres l'appui long) est coupe : le notre suffit, et deux menus l'un
+// sur l'autre ne servent a rien. La loupe et la bulle d'iOS sont coupees par la feuille de style.
+
+/** La duree d'un appui long, en millisecondes. */
+export const DUREE_APPUI_LONG_MS = 500;
+/** Au-dela, le doigt a glisse : c'est un geste sur la scene, pas un appui long. */
+export const TOLERANCE_DOIGT_PX = 10;
+
 /** Copie un texte : le presse-papiers moderne, sinon la copie par selection. Rend vrai si c'est fait. */
 export async function copierTexte(texte: string, doc: Document = document): Promise<boolean> {
   try {
@@ -75,11 +87,11 @@ export function brancherMenuVitrine(o: OptionsMenuVitrine = {}): () => void {
 
   const fermer = () => { menu?.remove(); menu = null; };
 
-  function ouvrir(x: number, y: number): void {
+  function ouvrir(x: number, y: number, auDoigt = false): void {
     fermer();
     const m = doc.createElement('div');
     m.id = 'menuVitrine';
-    m.className = 'menuVitrine';
+    m.className = 'menuVitrine' + (auDoigt ? ' menuVitrine--feuille' : '');
     m.setAttribute('role', 'menu');
     const entree = (libelle: string, agir: (b: HTMLButtonElement) => void) => {
       const b = doc.createElement('button');
@@ -118,8 +130,9 @@ export function brancherMenuVitrine(o: OptionsMenuVitrine = {}): () => void {
     const vue = doc.defaultView;
     const l = vue ? vue.innerWidth : 0, h = vue ? vue.innerHeight : 0;
     const r = m.getBoundingClientRect();
-    m.style.left = Math.max(4, Math.min(x, l - r.width - 4)) + 'px';
-    m.style.top = Math.max(4, Math.min(y, h - r.height - 4)) + 'px';
+    // Au doigt, la feuille se place seule, au bas de l'ecran (feuille de style).
+    if (!auDoigt) m.style.left = Math.max(4, Math.min(x, l - r.width - 4)) + 'px';
+    if (!auDoigt) m.style.top = Math.max(4, Math.min(y, h - r.height - 4)) + 'px';
     (m.querySelector('button') as HTMLButtonElement | null)?.focus();
   }
 
@@ -173,12 +186,22 @@ export function brancherMenuVitrine(o: OptionsMenuVitrine = {}): () => void {
     l.append(vitesse, unite);
   }
 
+  let dernierAuDoigt = false;
   const surAppui = (e: PointerEvent) => {
+    dernierAuDoigt = e.pointerType === 'touch' || e.pointerType === 'pen';
     if (e.button === 2) appui = { x: e.clientX, y: e.clientY };
     if (menu && !menu.contains(e.target as Node)) fermer();
   };
+  const appuiLong = brancherAppuiLong(doc, {
+    dansLeMenu: (cible) => !!menu && menu.contains(cible),
+    ouvrir: (x, y) => ouvrir(x, y, true)
+  });
+
   const surMenu = (e: MouseEvent) => {
     e.preventDefault();
+    // Au doigt, c'est l'appui long qui ouvre le menu : le `contextmenu` qu'Android envoie en plus
+    // ouvrirait le meme une seconde fois.
+    if (dernierAuDoigt) return;
     const glisse = appui && Math.hypot(e.clientX - appui.x, e.clientY - appui.y) > TOLERANCE_GLISSER_PX;
     appui = null;
     if (glisse) return;
@@ -193,9 +216,55 @@ export function brancherMenuVitrine(o: OptionsMenuVitrine = {}): () => void {
   doc.defaultView?.addEventListener('blur', fermer);
   return () => {
     fermer();
+    appuiLong();
     doc.removeEventListener('pointerdown', surAppui, true);
     doc.removeEventListener('contextmenu', surMenu, true);
     doc.removeEventListener('keydown', surTouche);
     doc.defaultView?.removeEventListener('blur', fermer);
+  };
+}
+
+/**
+ * L'appui long au doigt : un doigt pose, immobile `DUREE_APPUI_LONG_MS`, appelle `ouvrir` a sa
+ * position. Le doigt qui glisse de plus de `TOLERANCE_DOIGT_PX`, qui se leve, ou un second doigt
+ * (pincer) l'annulent. Un appui dans le menu deja ouvert n'en relance pas un. Rend de quoi le debrancher.
+ */
+export function brancherAppuiLong(doc: Document, o: { ouvrir: (x: number, y: number) => void; dansLeMenu: (cible: Node) => boolean }): () => void {
+  let doigt: { id: number; x: number; y: number; minuteur: ReturnType<typeof setTimeout> } | null = null;
+  let doigtsPoses = 0;
+  const auDoigt = (e: PointerEvent) => e.pointerType === 'touch' || e.pointerType === 'pen';
+  const annuler = () => { if (doigt) clearTimeout(doigt.minuteur); doigt = null; };
+
+  const surAppui = (e: PointerEvent) => {
+    if (!auDoigt(e) || o.dansLeMenu(e.target as Node)) return;
+    doigtsPoses++;
+    annuler();
+    if (doigtsPoses > 1) return;
+    const { pointerId: id, clientX: x, clientY: y } = e;
+    doigt = { id, x, y, minuteur: setTimeout(() => {
+      doigt = null;
+      o.ouvrir(x, y);
+      // Une vibration breve dit que le menu s'est ouvert, la ou le telephone la permet.
+      try { doc.defaultView?.navigator.vibrate?.(15); } catch { /* refusee : rien a dire */ }
+    }, DUREE_APPUI_LONG_MS) };
+  };
+  const surDeplacement = (e: PointerEvent) => {
+    if (doigt && e.pointerId === doigt.id && Math.hypot(e.clientX - doigt.x, e.clientY - doigt.y) > TOLERANCE_DOIGT_PX) annuler();
+  };
+  const surLever = (e: PointerEvent) => {
+    if (!auDoigt(e)) return;
+    doigtsPoses = Math.max(0, doigtsPoses - 1);
+    if (doigt && e.pointerId === doigt.id) annuler();
+  };
+  doc.addEventListener('pointerdown', surAppui, true);
+  doc.addEventListener('pointermove', surDeplacement, true);
+  doc.addEventListener('pointerup', surLever, true);
+  doc.addEventListener('pointercancel', surLever, true);
+  return () => {
+    annuler();
+    doc.removeEventListener('pointerdown', surAppui, true);
+    doc.removeEventListener('pointermove', surDeplacement, true);
+    doc.removeEventListener('pointerup', surLever, true);
+    doc.removeEventListener('pointercancel', surLever, true);
   };
 }

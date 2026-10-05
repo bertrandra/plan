@@ -418,7 +418,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
       if (pdv) vues.allerAuPointDeVue(pdv);
       else {
         const parcelle = parcelleDuProjet(etat.objects);
-        const cadre = parcelle && aDesSommets(parcelle) && vue3d.centre ? cadrageSurParcelle(parcelle.pts, vue3d.centre) : null;
+        const cadre = parcelle && aDesSommets(parcelle) && vue3d.centre ? cadrageSurParcelle(parcelle.pts, vue3d.centre, vue3d.scene?.camera.aspect ?? 1) : null;
         const s = vue3d.scene;
         if (cadre && s) {
           s.controls.target.set(cadre.cible.x, cadre.cible.y, cadre.cible.z);

@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vitrine au doigt : l'appui long ouvre le menu de la scène.** Sur téléphone et tablette, il n'y
+  a pas de clic droit. Un doigt posé et immobile une demi-seconde ouvre le même menu (Rafraîchir,
+  Copier l'adresse, Date du soleil, Rotation auto), en feuille au bas de l'écran, avec des cibles de
+  44 px. Le doigt qui glisse fait tourner la scène et annule l'appui ; deux doigts (pincer) ne
+  l'ouvrent jamais. Le menu natif d'Android est coupé, ainsi que la loupe et la bulle d'iOS sur la
+  scène. Une vibration brève confirme l'ouverture là où le téléphone la permet
+  (`app/menuVitrine.ts`, `brancherAppuiLong`).
+
+### Corrigé
+
+- **Vitrine en portrait : la parcelle tient en largeur.** Le cadrage sur la parcelle tient compte
+  du format de la scène : le champ de la caméra est vertical, donc plus étroit en largeur sur un
+  téléphone en portrait, et la caméra recule d'autant.
+
 ### Modifié
 
 - **Vitrine (`?mode=demo`) : le soleil court du lever au coucher, la caméra tourne, la parcelle est
