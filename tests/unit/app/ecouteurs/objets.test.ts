@@ -44,7 +44,7 @@ describe('commandes d objet', () => {
     cmd.executer('objet.ajouter.polygone'); cmd.executer('objet.ajouter.rectangle');
     expect(a.addNewObject).toHaveBeenNthCalledWith(1, false);
     expect(a.addNewObject).toHaveBeenNthCalledWith(2, true);
-    for (const [id, m] of [['objet.ajouter.chemin', 'addNewPath'], ['objet.ajouter.cercle', 'addNewCircle'], ['objet.ajouter.parasol', 'addNewParasol'], ['objet.ajouter.pointDeVue', 'addNewViewpoint']] as const) {
+    for (const [id, m] of [['objet.ajouter.chemin', 'addNewPath'], ['objet.ajouter.cercle', 'addNewCircle'], ['objet.ajouter.parasol', 'addNewParasol'], ['objet.ajouter.pergola', 'addNewPergola'], ['objet.ajouter.pointDeVue', 'addNewViewpoint']] as const) {
       cmd.executer(id);
       expect(a[m]).toHaveBeenCalledTimes(1);
     }
