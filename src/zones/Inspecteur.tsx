@@ -320,7 +320,8 @@ const FAMILLES: { id: Famille; libelle: string }[] = [
 ];
 const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins', 'alignement']);
 // « Façades et toit » decrit la construction d'un batiment, comme les sections d'une terrasse.
-const SECTIONS_CONSTRUCTION = new Set(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres', 'releve', 'pergola', 'metragePergola', 'prixPergola', 'cloture', 'portails']);
+const SECTIONS_CONSTRUCTION = new Set(['fondation', 'structure', 'lames', 'finitions', 'optimisation', 'parametres', 'releve', 'pergola', 'metragePergola', 'prixPergola',
+  'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'chiffragePiscine', 'prixPiscine', 'noteCalcul', 'cloture', 'portails']);
 export function familleDe(idSection: string): Famille {
   if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
   if (SECTIONS_CONSTRUCTION.has(idSection)) return 'construction';

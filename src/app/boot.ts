@@ -80,7 +80,7 @@ import { appliquerSoleilVitrine } from '../three/soleilVitrine.js';
 import { brancherMenuVitrine } from './menuVitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
-import { estTerrasse, estVueUtilisable, parcelleDuProjet } from '../model/fonctions.js';
+import { estPiscine, estTerrasse, estVueUtilisable, parcelleDuProjet } from '../model/fonctions.js';
 import { EVENEMENT_ENCRES } from '../render/theme.js';
 
 brancherFiletsDErreur();
@@ -167,7 +167,8 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   const markDirty = () => historique.marquerModifie();
   // Le tiroir des resultats (zones/Resultats.tsx) tient ses onglets ; ses panneaux ecrivent par
   // `resultats`, ou chaque saisie s'annule et marque le projet modifie.
-  const tiroir = creerTiroir(etat, { refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat) }, magasin);
+  const piscineSelectionnee = () => { const o = etat.objects.find(x => x.key === etat.selectedKey); return o && estPiscine(o) ? o : undefined; };
+  const tiroir = creerTiroir(etat, { refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat), piscineSelectionnee }, magasin);
   const resultats = creerResultats(etat, {
     pushHistory, markDirty, render, renderTerrasseLayerView: dessin.renderTerrasseLayerView,
     terrasseCourante: () => terrasseCourante(etat),

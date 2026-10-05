@@ -156,6 +156,12 @@ interface ObjetCommun {
     grille?: boolean;
   } | null;
 
+  /**
+   * Ce que la declaration prealable demande en plus du plan : le declarant, l'adresse du terrain
+   * quand l'import ne l'a pas donnee, la residence. Range sur la parcelle, comme le lieu.
+   */
+  declaration?: DeclarationPrealable | null;
+
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;
   clotureHauteur?: number;
@@ -205,6 +211,8 @@ interface ObjetCommun {
   toit?: Toit | null;
   /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */
   pergola?: Pergola | null;
+  /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
+  piscine?: Piscine | null;
 }
 
 /** Un polygone ferme : la parcelle, une terrasse, un batiment, une dalle. */
@@ -661,6 +669,8 @@ export interface Pergola {
   debord?: number;
   /** Prix au metre lineaire saisis, par `materiau:section` (`'bois:120x120'`). */
   prixMl?: Record<string, number>;
+  /** Les hypotheses de la note de calcul (engine/noteCalcul.ts). */
+  calcul?: HypothesesCalcul;
   /** Prix au m² de la toile, et de la couverture (appentis, quatre pans). */
   prixToile?: number;
   prixCouverture?: number;
@@ -689,4 +699,120 @@ export interface Pergola {
   couleurCouverture?: string;
   /** Longueurs achetables (bois ou profiles), saisies en clair : `'6, 5, 4, 3'`. Le nom date du bois seul. */
   longueursBois?: string;
+}
+
+// ---- Piscine ----------------------------------------------------------------------------------
+
+/** Ou le bassin se trouve par rapport au sol fini. */
+export type ImplantationPiscine = 'enterree' | 'semi-enterree' | 'hors-sol';
+/** Ce qui tient l'eau : une coque polyester, des parois maconnees (blocs a bancher), un kit de panneaux. */
+export type StructurePiscine = 'coque' | 'maconnerie' | 'kit';
+/** La peau etanche, selon la structure : une coque a son gelcoat, le reste choisit. */
+export type RevetementPiscine = 'liner' | 'membrane-armee' | 'carrelage' | 'enduit' | 'gelcoat';
+/** Le fond : plat, en pente reguliere, ou plat puis une fosse a plonger au grand bain. */
+export type FondPiscine = 'plat' | 'pente' | 'fosse';
+/** Ce qui entoure le bassin au-dela des margelles. */
+export type PlagePiscine = 'aucune' | 'terrasse-bois' | 'dallage';
+/** Le dispositif de securite obligatoire (loi du 3 janvier 2003, normes NF P90-306 a 309). */
+export type SecuritePiscine = 'barriere' | 'alarme' | 'couverture' | 'abri';
+export type TraitementPiscine = 'chlore' | 'sel' | 'brome' | 'oxygene-actif';
+export type ChauffagePiscine = 'aucun' | 'pac' | 'solaire' | 'echangeur';
+/** Ou vit la filtration : un coffre pose a cote, un local enterre prefabrique, un local maconne, un local existant. */
+export type LocalTechniquePiscine = 'coffre' | 'enterre' | 'maconne' | 'existant';
+
+/**
+ * Les reglages d'une piscine. **Tout est facultatif**, comme `Pergola` : `piscineDe`
+ * (engine/piscine.ts) comble les manques a la lecture, sans les ecrire dans l'objet. Les longueurs
+ * sont en metres, les profondeurs sont celles de l'eau.
+ */
+export interface Piscine {
+  implantation?: ImplantationPiscine;
+  structure?: StructurePiscine;
+  revetement?: RevetementPiscine;
+  fond?: FondPiscine;
+  profondeurPetitBain?: number;
+  profondeurGrandBain?: number;
+  /** Indice du cote du petit bain : la pente descend en s'en eloignant. Absent : le plus court cote. */
+  cotePetitBain?: number;
+  /** Fosse : part de la longueur du bassin, cote grand bain, occupee par la descente et la fosse (0,2 a 0,7). */
+  partFosse?: number;
+  /** Hauteur du haut des parois au-dessus du sol fini (semi-enterree, hors-sol). */
+  hauteurHorsSol?: number;
+  margelle?: boolean;
+  largeurMargelle?: number;
+  plage?: PlagePiscine;
+  /** Largeur de la plage autour des margelles, la meme sur tout le tour. */
+  largeurPlage?: number;
+  /** Essence des lames d'une plage en bois (cles d'`ESSENCE_PRICES`). */
+  essencePlage?: string;
+  /** Temps de recyclage du volume, en heures (4 h par defaut). */
+  tempsRecyclage?: number;
+  traitement?: TraitementPiscine;
+  chauffage?: ChauffagePiscine;
+  eclairage?: boolean;
+  securite?: SecuritePiscine;
+  local?: LocalTechniquePiscine;
+  /** Distance du bassin au local technique, en metres : la longueur des canalisations. */
+  distanceLocal?: number;
+  couleurEau?: string;
+  couleurMargelle?: string;
+  couleurPlage?: string;
+  /** Prix unitaires saisis, par poste du chiffrage (`'terrassement'`, `'margelles'`…). */
+  prix?: Record<string, number>;
+}
+
+/** Region de neige de l'annexe nationale francaise de NF EN 1991-1-3. */
+export type ZoneNeige = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D' | 'E';
+/** Categorie de terrain de l'annexe nationale francaise de NF EN 1991-1-4. */
+export type CategorieTerrain = '0' | 'II' | 'IIIa' | 'IIIb' | 'IV';
+
+/**
+ * Ce que la note de calcul d'un abri demande en plus de sa geometrie. Les zones n'ont pas de valeur
+ * par defaut : une note calculee sur une zone devinee serait fausse sans le dire.
+ */
+export interface HypothesesCalcul {
+  zoneNeige?: ZoneNeige;
+  /** Region de vent, 1 a 4. */
+  zoneVent?: number;
+  /** Altitude du terrain, en metres. */
+  altitude?: number;
+  terrain?: CategorieTerrain;
+  classeBois?: 'C24' | 'GL24h';
+  /** Classe de service (NF EN 1995-1-1 §2.3.1.3) : 2 sous abri, 3 a l'exterieur. */
+  classeService?: number;
+  /** Epaisseur des parois des profiles aluminium, en mm. */
+  epaisseurAlu?: number;
+  /** Poids de la couverture, en kg/m² de rampant. */
+  poidsCouverture?: number;
+  /** Obstruction sous le toit (NF EN 1991-1-4 §7.3, φ), de 0 a 1. */
+  obstruction?: number;
+}
+
+/**
+ * Le declarant et son projet, pour le cerfa 13703 (declaration prealable, maison individuelle et
+ * ses annexes). Tout est facultatif : ce qui manque reste vide dans le formulaire, a completer a la main.
+ */
+export interface DeclarationPrealable {
+  nom?: string;
+  prenom?: string;
+  /** Date de naissance, AAAA-MM-JJ. */
+  naissance?: string;
+  communeNaissance?: string;
+  departementNaissance?: string;
+  paysNaissance?: string;
+  numero?: string;
+  voie?: string;
+  lieuDit?: string;
+  localite?: string;
+  codePostal?: string;
+  telephone?: string;
+  email?: string;
+  /** Recevoir les reponses de l'administration a cette adresse electronique. */
+  accepteEmail?: boolean;
+  /** L'adresse du terrain, quand elle differe de celle lue au cadastre. */
+  terrainNumero?: string;
+  terrainVoie?: string;
+  terrainLocalite?: string;
+  terrainCodePostal?: string;
+  residence?: 'principale' | 'secondaire';
 }

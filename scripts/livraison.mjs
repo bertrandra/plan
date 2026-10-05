@@ -11,6 +11,7 @@
 //   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici)
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
 //   plan-demos/1.json          la demonstration integree, premiere demo de l'admin (a poser hors racine)
+//   cerfa/cerfa_13703-12.pdf   le formulaire officiel de la declaration prealable, rempli par la page
 //   LISEZMOI-DEPLOIEMENT.txt   les etapes
 
 import { execSync } from 'node:child_process';
@@ -31,6 +32,8 @@ cpSync(resolve(racine, 'dist/index.html'), resolve(sortie, 'index.html'));
 cpSync(resolve(racine, 'dist/.htaccess'), resolve(sortie, '.htaccess'));
 cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
+// Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
+cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 
 const version = JSON.parse(readFileSync(resolve(racine, 'package.json'), 'utf8')).version;
 

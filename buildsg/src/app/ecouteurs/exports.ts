@@ -31,9 +31,24 @@ export interface ContexteExports {
   echellePdf: () => number;
   construireResume: () => string;
   construireDossier: () => { pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> };
+  /** Le dossier de mairie de la piscine selectionnee (export/dossierPiscine.ts) ; lance `Error('aucune piscine')` sans bassin. */
+  construireDossierPiscine: () => { pdf: string; pages: number; piscine: { name: string }; regime: string };
   genererGlb: (telecharger: boolean) => void;
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
+  /**
+   * La note de calcul de l'abri selectionne, en PDF, et le nom de son fichier ; `null` quand la
+   * selection n'est pas un abri ou que ses regions de neige et de vent ne sont pas choisies.
+   */
+  construireNoteCalcul: () => { pdf: string; nom: string } | null;
+  noteCalculPossible: () => boolean;
+  /**
+   * Le dossier de declaration prealable : le cerfa 13703 rempli et ses pieces, en PDF. Asynchrone :
+   * il charge pdf-lib, le formulaire et la carte IGN.
+   */
+  construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; manques: string[]; regime: string; pieces: string[] }>;
+  /** Y a-t-il un ouvrage a declarer ? */
+  declarationPossible: () => boolean;
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
   /**
@@ -54,6 +69,33 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // bouton dans le balisage. « Générer le résumé » a aussi le sien, dans l'onglet Résumé du tiroir.
   const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
     cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
+
+  // La declaration prealable : le cerfa officiel rempli et ses pieces. Le menu Exporter et la
+  // section de la parcelle la declenchent.
+  cmd.declarer({
+    id: 'export.declaration', libelle: 'Déclaration préalable (cerfa 13703)', groupe: 'export', actif: ctx.declarationPossible,
+    executer: () => {
+      showToast('Préparation du dossier de déclaration préalable…');
+      ctx.construireDeclaration().then(res => {
+        telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
+        const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
+        showToast('Dossier téléchargé : ' + res.nom + ' (pièces ' + res.pieces.join(', ') + '). Reste à compléter : ' + res.manques.join(' ; ') + '.' + avis);
+      }).catch((err: unknown) => showErrBanner('Déclaration préalable : ' + (err as Error).message));
+    }
+  });
+
+  // La note de calcul d'une pergola ou d'un carport : son bouton est dans l'inspecteur, sous la note.
+  cmd.declarer({
+    id: 'export.noteCalcul', libelle: 'Exporter la note de calcul', groupe: 'export', actif: ctx.noteCalculPossible,
+    executer: () => {
+      let res;
+      try { res = ctx.construireNoteCalcul(); }
+      catch (err) { showErrBanner('Erreur note de calcul : ' + (err as Error).message); return; }
+      if (!res) { showToast('Choisissez d\'abord les régions de neige et de vent de la note.'); return; }
+      telechargerTexte(res.nom, res.pdf, 'application/pdf');
+      direTelechargement(res.nom);
+    }
+  });
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;
@@ -149,6 +191,17 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
       ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
   }, CAPACITES.exportDossier.code);
+
+  surClic('dossierPiscineBtn', 'export.dossierPiscine', 'Dossier mairie de la piscine (PDF)', () => {
+    let res;
+    try { res = ctx.construireDossierPiscine(); }
+    catch (err) {
+      if ((err as Error).message === 'aucune piscine') { showToast('Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).'); return; }
+      showErrBanner('Erreur dossier mairie : ' + (err as Error).message); return;
+    }
+    telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-' + slugFichier(res.piscine.name) + '-dossier-mairie.pdf', res.pdf, 'application/pdf');
+    showToast('Dossier mairie : ' + res.pages + ' page(s) — ' + (res.regime === 'permis' ? 'permis de construire' : res.regime === 'declaration' ? 'déclaration préalable' : 'aucune formalité') + ' pour « ' + res.piscine.name + ' ».');
+  });
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.

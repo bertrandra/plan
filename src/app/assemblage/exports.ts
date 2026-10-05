@@ -8,6 +8,16 @@ import { construireDXF } from '../../export/dxfPlan.js';
 import { construireSVG } from '../../export/svgPlan.js';
 import { construirePDF } from '../../export/pdfPlan.js';
 import { construireDossierPDF } from '../../export/dossierPdf.js';
+import { construireDossierPiscine } from '../../export/dossierPiscine.js';
+import { construireNoteCalculPDF, noteExportable } from '../../export/noteCalculPdf.js';
+import { estAbri, estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
+import { assemblerDossierMairie } from '../../export/dossierMairie.js';
+import { CERFA_13703 } from '../../export/cerfa13703.js';
+import { chargerPdfLib } from '../../export/chargeurPdfLib.js';
+import { carteSituation } from '../../geo/carteSituation.js';
+import { capturerVue3d } from '../../three/capture.js';
+import type { ObjetPlan } from '../../model/types.js';
+import { slugFichier } from '../../util/format.js';
 import { construireResume } from '../../export/resume.js';
 import { exporterProjetJSON } from '../../io/exportProjet.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
@@ -44,6 +54,7 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
   mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void; options: () => OptionsCommandes;
 }): void {
   const nomProjet = () => seed.meta?.name;
+  const abriSelectionne = () => etat.objects.find(o => o.key === etat.selectedKey && estAbri(o));
   brancherExports({
     buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
     buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
@@ -57,7 +68,40 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
       d.options().dossierEquipements,
       { nomProjet: nomProjet(), appVersion: APP_VERSION }),
+    // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
+    construireDossierPiscine: () => construireDossierPiscine(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
+    construireNoteCalcul: () => {
+      const o = abriSelectionne();
+      const res = o ? construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;
+      return o && res ? { pdf: res.pdf, nom: slugFichier(o.name || 'abri') + '-note-de-calcul.pdf' } : null;
+    },
+    noteCalculPossible: () => noteExportable(abriSelectionne()),
+    construireDeclaration: () => construireDeclaration(etat.objects, nomProjet()),
+    declarationPossible: () => etat.objects.some(o => estAbri(o) || estTerrasse(o)),
     nomProjet
   }, commandes);
 }
+
+/**
+ * Le dossier de declaration prealable : pdf-lib et le cerfa arrivent a la demande, la carte IGN
+ * si le service repond, la Vue 3D si elle a ete ouverte.
+ */
+async function construireDeclaration(objets: ObjetPlan[], nomProjet: string | null | undefined) {
+  const lib = await chargerPdfLib();
+  const r = await fetch(new URL(CERFA_13703.fichier, document.baseURI));
+  if (!r.ok) throw new Error('le formulaire ' + CERFA_13703.version + ' est introuvable sur le serveur (' + CERFA_13703.fichier + ').');
+  const cerfa = new Uint8Array(await r.arrayBuffer());
+  const parcelle = parcelleDuProjet(objets);
+  const cad = (parcelle?.cadastre || {}) as Record<string, unknown>;
+  const carte = parcelle?.latitude && parcelle.longitude ? await carteSituation(parcelle.latitude, parcelle.longitude) : null;
+  const res = await assemblerDossierMairie(lib, cerfa, objets, {
+    date: new Date(), carte, vue3d: capturerVue3d(),
+    meta: { nomProjet, adresse: String(cad.adresse || parcelle?.nomLieu || ''), references: cad.section ? 'Parcelle ' + String(cad.section) + ' ' + String(cad.numero ?? '').replace(/^0+/, '') : '' }
+  });
+  return {
+    pdf: res.pdf, nom: slugFichier(nomProjet || 'projet') + '-declaration-prealable.pdf',
+    manques: res.remplissage.manques, regime: res.remplissage.regime, pieces: res.pieces
+  };
+}
+

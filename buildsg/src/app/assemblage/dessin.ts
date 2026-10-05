@@ -14,6 +14,7 @@ import { dessinerFlecheNord, dessinerEchelle } from '../../render/decor.js';
 import { dessinerCotes } from '../../render/measures.js';
 import { dessinerCalqueParasols } from '../../render/parasolOverlay.js';
 import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
+import { dessinerCalquePiscines } from '../../render/piscineOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
@@ -79,6 +80,10 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // traversent. Seuls restent au-dessus : la toile des parasols (une ombre ne couvre pas ce qui
       // la projette), leurs mats, puis les calques du dessus (nord, echelle, cotes, couches) ; les
       // poignees de la selection sont remontees ensuite par le rendu.
+      // Les abords d'une piscine (margelles, plage) se posent sur les objets, sous les ombres : une
+      // ombre portee se lit aussi sur une plage.
+      dessinerCalquePiscines(s.piscines, etat);
+      s.svg.appendChild(s.piscines);
       s.svg.appendChild(s.parasols);
       // La charpente des pergolas se voit d'en haut : devant les objets et les ombres, sous les
       // parasols (une toile passe au-dessus de ce qu'elle couvre).

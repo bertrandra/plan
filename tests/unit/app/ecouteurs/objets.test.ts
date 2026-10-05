@@ -48,6 +48,10 @@ describe('commandes d objet', () => {
       cmd.executer(id);
       expect(a[m]).toHaveBeenCalledTimes(1);
     }
+    // Les deux piscines passent par le meme geste, avec leur forme.
+    cmd.executer('objet.ajouter.piscine'); cmd.executer('objet.ajouter.piscineRonde');
+    expect(a.addNewPiscine).toHaveBeenNthCalledWith(1, 'rectangle');
+    expect(a.addNewPiscine).toHaveBeenNthCalledWith(2, 'ronde');
   });
 
   it('ne dupliquent ni ne suppriment la parcelle, ne suppriment pas un objet verrouille', () => {

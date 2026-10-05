@@ -81,6 +81,12 @@ const page = fs.readFileSync(path.join(dist, 'index.html'));
 const pageGz = zlib.gzipSync(page, { level: 9 });
 const etag = '"' + crypto.createHash('sha256').update(page).digest('base64url').slice(0, 27) + '"';
 
+// Le formulaire officiel de la declaration prealable, que Vite recopie de public/cerfa/ : la page le
+// demande a cote d'elle (src/export/cerfa13703.ts). Lu une fois, comme la page.
+const dossierCerfa = path.join(dist, 'cerfa');
+const formulaires = new Map((fs.existsSync(dossierCerfa) ? fs.readdirSync(dossierCerfa) : [])
+  .filter((f) => f.endsWith('.pdf')).map((f) => ['/cerfa/' + f, fs.readFileSync(path.join(dossierCerfa, f))]));
+
 const apache = fs.readFileSync(path.join(dist, '.htaccess'), 'utf8');
 const csp = (/Header always set Content-Security-Policy "([^"]+)"/.exec(apache) || [])[1];
 const cadre = /Header always edit Content-Security-Policy "(frame-ancestors [^"]+)" "(frame-ancestors [^"]+)"/.exec(apache);
@@ -138,7 +144,12 @@ const serveur = http.createServer(async (req, res) => {
     return repondre(req, res, 301, { ...base, ...texte, Location: '/' + url.search }, 'Deplace vers /\n');
   }
 
-  // Le build est un fichier unique : rien d'autre n'existe, donc rien d'autre ne se sert —
+  const formulaire = formulaires.get(url.pathname);
+  if (formulaire) {
+    return repondre(req, res, 200, { ...base, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400', 'Content-Length': formulaire.length }, formulaire);
+  }
+
+  // Le build est un fichier unique, plus le formulaire cerfa : rien d'autre ne se sert —
   // ni `data/`, ni `api.php`, ni les sources, ni un fichier qui commence par un point.
   if (url.pathname !== '/' && url.pathname !== '/index.html') {
     return repondre(req, res, 404, { ...base, ...texte, 'Cache-Control': 'no-store' }, 'Introuvable\n');
