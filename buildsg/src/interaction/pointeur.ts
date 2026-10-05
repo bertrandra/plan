@@ -16,6 +16,9 @@
 //   double-tap objet ne se declenchait jamais au doigt. On l'accepte donc quel que soit l'element
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
+import { facadesDuContour } from '../facade/geometrie.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
 import type { DebutPincement } from './navigation.js';
 import { contourDeContrainte } from './editing.js';
@@ -46,6 +49,10 @@ export interface ContextePointeur {
   pushHistory: () => void;
   sendObjectBackward: (obj: ObjetPlan) => void;
   insertPointOnSegment: (obj: ObjetPlan, segIndex: number, clickWorld: PtBrut) => void;
+  /** Le projet a change (pose d'un acces de la cloture par clic). */
+  markDirty: () => void;
+  /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
+  apresAcces: () => void;
 }
 
 /**
@@ -62,10 +69,31 @@ function repere(ds: DOMStringMap): { key: string; index: number } | null {
  * reference ou un point cible. Un clic ailleurs (le fond) est avale par l'appelant, sans tomber dans
  * l'edition ou le deplacement de la vue.
  */
-function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePointeur): void {
+function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePointeur, w: PtBrut): void {
   const pointage = mesure.pointage;
   if(!pointage) return;
   const r = repere(ds);
+  if(pointage.purpose==='acces'){
+    // Le cote de la parcelle du projet le plus proche du clic, a 12 px pres : l'acces en cours s'y
+    // pose, centre sur le point clique. On ne regarde pas l'element touche : un objet qui chevauche
+    // la limite (massif, voisine) prendrait le clic a sa place.
+    if(etat.lectureSeule) return;
+    const parcelle = parcelleDuProjet(etat.objects);
+    if(!parcelle || !aDesSommets(parcelle)) return;
+    const proche = coteLePlusProche(parcelle.pts, w);
+    if(proche.distance > Math.max(0.3, 12 / etat.scene.scale)) return;
+    const a = clotureDe(parcelle).portails[pointage.indice ?? -1];
+    const f = facadesDuContour(parcelle.pts, 0).find(x=>x.cote===proche.cote);
+    if(!a || !f) return;
+    ctx.pushHistory();
+    poserAcces(a, f, w);
+    synchroniserAnciensChamps(parcelle);
+    mesure.pointage = null;
+    ctx.markDirty();
+    ctx.render();
+    ctx.apresAcces();
+    return;
+  }
   if(pointage.mode==='ref' && ds.role==='edge' && r){
     const picked = {objKey:r.key, segIndex:r.index};
     if(pointage.purpose==='align'){
@@ -322,7 +350,7 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
   svg.addEventListener('pointerdown', e=>{
     const ds = (e.target as HTMLElement).dataset;
     // ---- Outil de cotation / d'alignement : tant qu'on designe un cote ou un point, le clic lui revient
-    if(mesure.pointage){ pointerPourLaMesure(ds, etat, ctx); e.preventDefault(); return; }
+    if(mesure.pointage){ pointerPourLaMesure(ds, etat, ctx, worldFromEvent(e)); e.preventDefault(); return; }
     if(!ds || !ds.role){
       // Un clic ou un glisser sur le fond (grille, plan vide) deplace la vue.
       const rect = stage.getBoundingClientRect();

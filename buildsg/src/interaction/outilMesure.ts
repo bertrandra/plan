@@ -14,8 +14,10 @@ export interface Pointage {
   mode: 'ref' | 'target';
   /** Vrai quand plusieurs points peuvent etre designes a la suite. */
   multi: boolean;
-  /** L'outil qui a demande ce pointage : la cotation, ou l'alignement. */
-  purpose: 'measure' | 'align';
+  /** L'outil qui a demande ce pointage : la cotation, l'alignement, ou la pose d'un acces de la cloture. */
+  purpose: 'measure' | 'align' | 'acces';
+  /** Pose d'un acces : l'indice de l'acces a poser dans `cloture.portails` (MD/spec-cloture.md §3.2). */
+  indice?: number;
 }
 
 export const mesure: {

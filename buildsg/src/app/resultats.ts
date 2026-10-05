@@ -56,7 +56,7 @@ export interface Resultats {
   refLabel: ContexteResultats['refLabel'];
   targetLabel: ContexteResultats['targetLabel'];
   geometrieCote(m: Mesure): { perp: number; along: number } | null;
-  pointer(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']): void;
+  pointer(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose'], indice?: number): void;
   arreterPointage(): void;
   choisirOrigine(extremite: string): void;
   ajouterCotes(): void;
@@ -107,8 +107,8 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     ctx.render();
   }
 
-  function pointer(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']): void {
-    mesure.pointage = { mode, multi, purpose: purpose || 'measure' };
+  function pointer(mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose'], indice?: number): void {
+    mesure.pointage = { mode, multi, purpose: purpose || 'measure', ...(indice === undefined ? {} : { indice }) };
     ctx.render();
   }
 
