@@ -63,6 +63,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.chemin': outil(),
   'objet.ajouter.cercle': outil(),
   'objet.ajouter.parasol': outil(),
+  'objet.ajouter.pergola': outil(),
   'objet.ajouter.pointDeVue': outil(),
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },

@@ -128,6 +128,28 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
   };
 }
 
+/**
+ * Pergola : un rectangle de 4 x 3 m, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
+ * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit) et le metrage par section,
+ * et que la Vue 3D la construit piece par piece. Le remplissage est leger : le plan dessine les
+ * poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
+ */
+export function nouvellePergola(c: PtBrut, key: string, numero: number): ObjetNeuf {
+  return {
+    obj: {
+      key, type: 'polygon', name: 'Pergola ' + numero, fill: '#d9c3a0', fillOpacity: 0.35, stroke: '#6b4a2a',
+      pts: [{ x: c.x - 2, y: c.y - 1.5 }, { x: c.x + 2, y: c.y - 1.5 }, { x: c.x + 2, y: c.y + 1.5 }, { x: c.x - 2, y: c.y + 1.5 }],
+      vertexNames: ['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4'],
+      segmentNames: ['Cote 1', 'Cote 2', 'Cote 3', 'Cote 4'],
+      frozenVertices: [true, true, true, true],
+      showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+      constrained: true, fonction: 'pergola', matiere: '', priority: 4, locked: false,
+      pergola: {}
+    },
+    onglet: 'objet'
+  };
+}
+
 /** La longueur du segment qui porte la direction d'un point de vue, en metres. */
 const VISEE_M = 2;
 
@@ -236,6 +258,15 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const c = terr ? centroid(enPoints(terr).pts) : { x: 0, y: 0 };
       const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
+    },
+
+    ajouterPergola() {
+      ctx.pushHistory();
+      // Comme le parasol : sur la terrasse s'il y en a une, c'est la qu'on la pose le plus souvent.
+      const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
+      const c = terr ? centroid(enPoints(terr).pts) : centreParcelle();
+      const n = etat.objects.filter(o => o.fonction === 'pergola').length + 1;
+      inserer(nouvellePergola(c, cle('obj'), n));
     },
 
     ajouterPointDeVue() {

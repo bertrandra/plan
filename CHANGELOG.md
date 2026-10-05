@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Pergola.** Un nouvel objet, outil « Pergola » de la palette, ou fonction « Pergola » d'un
+  polygone : le contour est le nu extérieur des poteaux. Un poteau à chaque coin et des poteaux
+  intermédiaires au-delà de l'entraxe maximal (4 m par défaut), une poutre de cadre sur chaque côté,
+  des contrefiches à 45° (deux par poteau, facultatives), et trois toits : chevrons et toile,
+  appentis (une pente, bas sur le côté de référence) ou quatre pans (faîtage, arêtiers, chevrons et
+  empannons, calculés sur le rectangle englobant). Section « Pergola » de l'inspecteur : toit,
+  hauteur, côté de référence, pente, sections et entraxes, couleurs, longueurs achetables. Section
+  « Métrage par section » : pour chaque section de bois, les pièces, les mètres linéaires et les
+  barres à acheter, débitées comme les lames d'une terrasse (sans aboutage), plus la surface de toile
+  ou de couverture. Le plan montre la charpente vue de dessus (poteaux, poutres, chevrons) ; la Vue 3D
+  la construit pièce par pièce (`engine/pergola.ts`, `three/pergola3d.ts`,
+  `render/pergolaOverlay.ts`). La pergola n'entre pas dans la nomenclature de la terrasse : les
+  empreintes ne bougent pas.
 - **Vitrine : le soleil se voit, et le couchant colore la scène.** Un disque de soleil tourne autour
   de la parcelle, à l'azimut du vrai soleil : levant à l'est, couchant à l'ouest. Sa hauteur est
   réduite (×0,4, 28° au plus) pour qu'il reste dans le champ d'une caméra qui regarde la parcelle

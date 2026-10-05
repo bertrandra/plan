@@ -59,6 +59,7 @@ export interface Atelier {
   addNewPath: () => void;
   addNewCircle: () => void;
   addNewParasol: () => void;
+  addNewPergola: () => void;
   addNewViewpoint: () => void;
   duplicateSelectedObject: () => void;
   deleteSelectedObject: () => void;
