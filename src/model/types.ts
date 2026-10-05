@@ -555,6 +555,8 @@ export interface Pergola {
   debord?: number;
   /** Prix au metre lineaire saisis, par `materiau:section` (`'bois:120x120'`). */
   prixMl?: Record<string, number>;
+  /** Les hypotheses de la note de calcul (engine/noteCalcul.ts). */
+  calcul?: HypothesesCalcul;
   /** Prix au m² de la toile, et de la couverture (appentis, quatre pans). */
   prixToile?: number;
   prixCouverture?: number;
@@ -643,4 +645,31 @@ export interface Piscine {
   couleurPlage?: string;
   /** Prix unitaires saisis, par poste du chiffrage (`'terrassement'`, `'margelles'`…). */
   prix?: Record<string, number>;
+}
+
+/** Region de neige de l'annexe nationale francaise de NF EN 1991-1-3. */
+export type ZoneNeige = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D' | 'E';
+/** Categorie de terrain de l'annexe nationale francaise de NF EN 1991-1-4. */
+export type CategorieTerrain = '0' | 'II' | 'IIIa' | 'IIIb' | 'IV';
+
+/**
+ * Ce que la note de calcul d'un abri demande en plus de sa geometrie. Les zones n'ont pas de valeur
+ * par defaut : une note calculee sur une zone devinee serait fausse sans le dire.
+ */
+export interface HypothesesCalcul {
+  zoneNeige?: ZoneNeige;
+  /** Region de vent, 1 a 4. */
+  zoneVent?: number;
+  /** Altitude du terrain, en metres. */
+  altitude?: number;
+  terrain?: CategorieTerrain;
+  classeBois?: 'C24' | 'GL24h';
+  /** Classe de service (NF EN 1995-1-1 §2.3.1.3) : 2 sous abri, 3 a l'exterieur. */
+  classeService?: number;
+  /** Epaisseur des parois des profiles aluminium, en mm. */
+  epaisseurAlu?: number;
+  /** Poids de la couverture, en kg/m² de rampant. */
+  poidsCouverture?: number;
+  /** Obstruction sous le toit (NF EN 1991-1-4 §7.3, φ), de 0 a 1. */
+  obstruction?: number;
 }

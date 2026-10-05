@@ -36,6 +36,12 @@ export interface ContexteExports {
   genererGlb: (telecharger: boolean) => void;
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
+  /**
+   * La note de calcul de l'abri selectionne, en PDF, et le nom de son fichier ; `null` quand la
+   * selection n'est pas un abri ou que ses regions de neige et de vent ne sont pas choisies.
+   */
+  construireNoteCalcul: () => { pdf: string; nom: string } | null;
+  noteCalculPossible: () => boolean;
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
   /**
@@ -56,6 +62,19 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // bouton dans le balisage. « Générer le résumé » a aussi le sien, dans l'onglet Résumé du tiroir.
   const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
     cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
+
+  // La note de calcul d'une pergola ou d'un carport : son bouton est dans l'inspecteur, sous la note.
+  cmd.declarer({
+    id: 'export.noteCalcul', libelle: 'Exporter la note de calcul', groupe: 'export', actif: ctx.noteCalculPossible,
+    executer: () => {
+      let res;
+      try { res = ctx.construireNoteCalcul(); }
+      catch (err) { showErrBanner('Erreur note de calcul : ' + (err as Error).message); return; }
+      if (!res) { showToast('Choisissez d\'abord les régions de neige et de vent de la note.'); return; }
+      telechargerTexte(res.nom, res.pdf, 'application/pdf');
+      direTelechargement(res.nom);
+    }
+  });
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;

@@ -9,6 +9,9 @@ import { construireSVG } from '../../export/svgPlan.js';
 import { construirePDF } from '../../export/pdfPlan.js';
 import { construireDossierPDF } from '../../export/dossierPdf.js';
 import { construireDossierMairie } from '../../export/dossierMairie.js';
+import { construireNoteCalculPDF, noteExportable } from '../../export/noteCalculPdf.js';
+import { estAbri } from '../../model/fonctions.js';
+import { slugFichier } from '../../util/format.js';
 import { construireResume } from '../../export/resume.js';
 import { exporterProjetJSON } from '../../io/exportProjet.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
@@ -45,6 +48,7 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
   mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void; options: () => OptionsCommandes;
 }): void {
   const nomProjet = () => seed.meta?.name;
+  const abriSelectionne = () => etat.objects.find(o => o.key === etat.selectedKey && estAbri(o));
   brancherExports({
     buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
     buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
@@ -61,6 +65,12 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
     construireDossierMairie: () => construireDossierMairie(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
+    construireNoteCalcul: () => {
+      const o = abriSelectionne();
+      const res = o ? construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;
+      return o && res ? { pdf: res.pdf, nom: slugFichier(o.name || 'abri') + '-note-de-calcul.pdf' } : null;
+    },
+    noteCalculPossible: () => noteExportable(abriSelectionne()),
     nomProjet
   }, commandes);
 }

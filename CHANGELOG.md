@@ -69,6 +69,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
   la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
   aucune capacité de la plateforme.
+- **Note de calcul d'une pergola ou d'un carport.** Une section « Note de calcul » dans
+  l'inspecteur, et son export PDF (`export.noteCalcul`).
+  - Hypothèses : régions de neige (A1 à E) et de vent (1 à 4), sans valeur par défaut ; tant
+    qu'elles ne sont pas choisies, la note le demande au lieu de calculer. Puis altitude, catégorie
+    de terrain, obstruction sous le toit (une voiture, par défaut 50 % sous un carport), poids de la
+    couverture, classe du bois (C24, GL24h) et classe de service, ou épaisseur des profilés
+    aluminium.
+  - Charges selon NF EN 1991 et ses annexes nationales : neige au sol avec l'altitude, μ1, neige
+    exceptionnelle, rien sur une toile repliée l'hiver ; vent par la pression de pointe et les
+    coefficients de toiture isolée (§7.3) ; entretien de 1,5 kN.
+  - Combinaisons NF EN 1990 (ELU, accidentelle, ELS). Vérifications NF EN 1995-1-1 (flexion avec
+    déversement, cisaillement, flambement, flèches avec fluage) ou NF EN 1999-1-1 (classe de section,
+    flambement), pour les chevrons, les poutres, les poteaux et les contrefiches. La section qui
+    suffit est proposée quand celle en place ne passe pas.
+  - Appuis : efforts en pied de poteau, plot béton qui tient le soulèvement et le renversement,
+    charge sur la lisse murale. Urbanisme : la formalité selon l'emprise au sol.
+  - Ses limites sont écrites dans la note : assemblages, sol, pressions locales de bord, faîtage et
+    arêtiers ; c'est un pré-dimensionnement, pas l'étude d'un bureau d'études.
 - **Carport.** Outil « Carport » de la palette, ou fonction « Carport » d'un polygone. C'est le même
   ouvrage que la pergola, par le même code (`engine/pergola.ts`, inspecteur, plan, Vue 3D, métrage
   et chiffrage) : seules les valeurs par défaut changent. Il naît en rectangle de 3 × 5 m (une

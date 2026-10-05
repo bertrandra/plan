@@ -90,7 +90,7 @@ export const libelleAbri = (o: ObjetPlan): string => NATURES[natureAbri(o)].libe
 /** Une chute plus courte ne repart pas au pot (comme les 50 cm de la terrasse, en plus court : charpente). */
 const CHUTE_REUTILISABLE_M = 0.3;
 
-export type ReglagesPergola = Required<Omit<Pergola, 'coteReference' | 'coteMur'>> & { coteReference: number; coteMur: number };
+export type ReglagesPergola = Required<Omit<Pergola, 'coteReference' | 'coteMur' | 'calcul'>> & { coteReference: number; coteMur: number };
 
 /** Le plus long cote : celui que les chevrons croisent le moins souvent, donc le moins de pieces. */
 function plusLongCote(pts: PtBrut[]): number {

@@ -24,7 +24,8 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
     buildExportSVG: () => '<svg/>', buildExportDXF: () => '0\nEOF', buildExportPDF: vi.fn(() => '%PDF'), echellePdf: () => 200,
     construireResume: () => 'résumé', construireDossier: () => ({ pdf: '%PDF', pages: 3, terrasses: [1], equipements: new Map([[1, [1, 2]]]) }),
     construireDossierMairie: () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
-    genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats, ...plus
+    genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
+    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true, ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };
   const cmd = creerRegistre(droits);
@@ -94,5 +95,13 @@ describe('exports', () => {
     const { cmd } = monter({}, false);
     for (const id of ['export.dxf', 'export.dossier', 'export.glb']) expect(cmd.effacee(id), id).toBe(true);
     for (const id of ['export.svg', 'export.pdf', 'export.resume']) expect(cmd.effacee(id), id).toBe(false);
+  });
+
+  it('note de calcul : telecharge le PDF de l\'abri, et se grise sans regions choisies', () => {
+    const { cmd } = monter();
+    cmd.executer('export.noteCalcul');
+    expect(journal.textes).toContain('pergola-1-note-de-calcul.pdf');
+    const sans = monter({ noteCalculPossible: () => false }).cmd;
+    expect(sans.etat('export.noteCalcul').utilisable).toBe(false);
   });
 });
