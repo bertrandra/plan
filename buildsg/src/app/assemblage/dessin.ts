@@ -13,6 +13,7 @@ import { dessinerGrille } from '../../render/grille.js';
 import { dessinerFlecheNord, dessinerEchelle } from '../../render/decor.js';
 import { dessinerCotes } from '../../render/measures.js';
 import { dessinerCalqueParasols } from '../../render/parasolOverlay.js';
+import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
@@ -79,6 +80,10 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // la projette), leurs mats, puis les calques du dessus (nord, echelle, cotes, couches) ; les
       // poignees de la selection sont remontees ensuite par le rendu.
       s.svg.appendChild(s.parasols);
+      // La charpente des pergolas se voit d'en haut : devant les objets et les ombres, sous les
+      // parasols (une toile passe au-dessus de ce qu'elle couvre).
+      dessinerCalquePergolas(s.pergolas, etat);
+      s.svg.appendChild(s.pergolas);
       const ctx = ctxEmpilement();
       etat.objects.forEach((o) => { if (o.fonction === 'parasol') amenerDevant(o, ctx); });
       s.svg.appendChild(s.mats);
