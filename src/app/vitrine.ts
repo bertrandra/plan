@@ -41,6 +41,11 @@
 // de demo 2 (MD/spec-demos-admin.md) par `admin/vitrine/2`, la route publique, en lecture seule, de
 // admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
 // demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
+//
+// `date=AAAA-MM-JJ` pose le jour du soleil (par defaut, aujourd'hui). `rotation=<n>` fait tourner la
+// camera autour de la scene, depuis sa position, a `n` tours par minute (negatif : l'autre sens ;
+// de -10 a 10). Les deux se reglent aussi au clic droit, qui propose encore « Rafraichir » et
+// « Copier l'adresse » — l'adresse copiee porte la date et la rotation choisies (app/menuVitrine.ts).
 
 import { migrer } from '../model/migrations.js';
 import { SCHEMA_VERSION } from '../model/version.js';
@@ -77,6 +82,29 @@ export interface Vitrine {
   pdv: string | null;
   /** La demo de l'admin a montrer (`file`) ; `null` : la demonstration integree. */
   fichier: string | null;
+  /** Le jour du soleil, AAAA-MM-JJ (`date`) ; `null` : aujourd'hui. */
+  date: string | null;
+  /** La rotation automatique, en tours par minute (`rotation`) ; `null` : la camera ne tourne pas. */
+  rotation: number | null;
+}
+
+/** Les bornes de la rotation automatique, en tours par minute. */
+export const ROTATION_MAX = 10;
+
+/** Une date AAAA-MM-JJ qui existe au calendrier, ou `null`. */
+export function lireDate(brute: string | null): string | null {
+  const t = (brute ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(t + 'T12:00:00Z');
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t ? t : null;
+}
+
+/** Une vitesse de rotation en tours par minute, bornee ; `null` si absente, illisible ou nulle. */
+export function lireRotation(brute: string | null): number | null {
+  const t = (brute ?? '').trim().replace(',', '.');
+  if (!/^-?\d{1,2}(\.\d{1,2})?$/.test(t)) return null;
+  const v = Math.max(-ROTATION_MAX, Math.min(ROTATION_MAX, parseFloat(t)));
+  return v === 0 ? null : v;
 }
 
 /** Les identifiants de demo, ceux qu'admin.php et demosAdmin.mjs acceptent. */
@@ -129,8 +157,18 @@ export function lireVitrine(recherche: string): Vitrine | null {
     orthophoto: OUI.test((p.get('orthophoto') ?? '').trim()),
     heureAuto: courseDuSoleil(p),
     pdv: (p.get('pdv') ?? '').trim().slice(0, 80) || null,
-    fichier: ID_DEMO.test((p.get('file') ?? '').trim()) ? (p.get('file') ?? '').trim() : null
+    fichier: ID_DEMO.test((p.get('file') ?? '').trim()) ? (p.get('file') ?? '').trim() : null,
+    date: lireDate(p.get('date')),
+    rotation: lireRotation(p.get('rotation'))
   };
+}
+
+/** L'adresse de la vitrine, avec la date et la rotation telles qu'elles sont a l'ecran. */
+export function adresseVitrine(href: string, date: string | null, rotation: number | null): string {
+  const u = new URL(href);
+  if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
+  if (rotation) u.searchParams.set('rotation', String(rotation)); else u.searchParams.delete('rotation');
+  return u.toString();
 }
 
 /**

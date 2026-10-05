@@ -12,22 +12,22 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
@@ -215,5 +215,32 @@ describe('file : une demo de l admin dans la vitrine', () => {
     expect(await chargerDemoVitrine('1', repond(200, { objects: [] }))).toBe(null);
     expect(await chargerDemoVitrine('1', repond(200, { meta: { schemaVersion: 99 }, objects: [{ key: 'a' }] }))).toBe(null);
     expect(await chargerDemoVitrine('1', (async () => { throw new Error('reseau'); }) as unknown as typeof fetch)).toBe(null);
+  });
+});
+
+describe('date et rotation de la vitrine', () => {
+  it('lit une date qui existe, et refuse le reste', async () => {
+    const { lireVitrine } = await import('../../../src/app/vitrine.js');
+    expect(lireVitrine('?mode=demo&date=2026-06-21')!.date).toBe('2026-06-21');
+    expect(lireVitrine('?mode=demo&date=2026-02-30')!.date).toBe(null);
+    expect(lireVitrine('?mode=demo&date=21/06/2026')!.date).toBe(null);
+  });
+
+  it('lit une rotation en tours par minute, bornee, et nulle vaut arretee', async () => {
+    const { lireVitrine, ROTATION_MAX } = await import('../../../src/app/vitrine.js');
+    expect(lireVitrine('?mode=demo&rotation=2')!.rotation).toBe(2);
+    expect(lireVitrine('?mode=demo&rotation=-1,5')!.rotation).toBe(-1.5);
+    expect(lireVitrine('?mode=demo&rotation=99')!.rotation).toBe(ROTATION_MAX);
+    expect(lireVitrine('?mode=demo&rotation=0')!.rotation).toBe(null);
+    expect(lireVitrine('?mode=demo&rotation=vite')!.rotation).toBe(null);
+  });
+
+  it('l adresse copiee porte la date et la rotation choisies, et garde le reste', async () => {
+    const { adresseVitrine } = await import('../../../src/app/vitrine.js');
+    const u = new URL(adresseVitrine('https://p.r/?mode=demo&file=2&rotation=1', '2026-12-21', -2));
+    expect(u.searchParams.get('file')).toBe('2');
+    expect(u.searchParams.get('date')).toBe('2026-12-21');
+    expect(u.searchParams.get('rotation')).toBe('-2');
+    expect(new URL(adresseVitrine('https://p.r/?mode=demo&rotation=1', null, null)).searchParams.has('rotation')).toBe(false);
   });
 });
