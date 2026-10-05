@@ -16,6 +16,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   pas le menu. Échap ou un clic ailleurs le referment (`app/menuVitrine.ts`). Dans un `<iframe>`
   d'une autre origine, la copie directe demande `allow="clipboard-write"` sur l'`<iframe>`.
 
+- **Vitrine : date du soleil et rotation automatique, au clic droit et dans l'adresse.** Le menu du
+  clic droit ajoute deux réglages. « Date du soleil » ouvre le calendrier du navigateur et y pose le
+  jour : ombres et lumière suivent. « Rotation auto » fait tourner la caméra autour de la scène
+  depuis sa position, à la vitesse saisie en tours par minute (1 par défaut, de −10 à 10, négatif
+  pour l'autre sens) ; saisir une vitesse lance la rotation, décocher l'arrête. Les deux existent en
+  paramètres d'adresse : `date=AAAA-MM-JJ` et `rotation=<tr/min>`. « Copier l'adresse » les y
+  écrit : coller l'adresse rouvre la même scène, au même jour, tournant pareil. La rotation tient
+  quand la scène se reconstruit (tuiles de l'orthophoto).
+
 - **Admin : l'écran de la palette** (`/?palette`, derrière la porte de l'admin comme l'écran des
   contrôleurs ; `?admin&ecran=palette` y mène aussi). Trois onglets :
   - **Palette** : une planche d'ambiance (bois, papier, encre, jardin, brique, ciel, chambre noire,

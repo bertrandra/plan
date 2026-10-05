@@ -88,3 +88,55 @@ describe('copier un texte', () => {
     expect(document.querySelector('textarea')).toBe(null);
   });
 });
+
+describe('les reglages du clic droit : date du soleil, rotation automatique', () => {
+  const reglages = () => {
+    const r = { d: '2026-06-21', v: null as number | null };
+    return {
+      r,
+      api: {
+        date: () => r.d, poserDate: vi.fn((d: string) => { r.d = d; }),
+        rotation: () => r.v, poserRotation: vi.fn((v: number | null) => { r.v = v; })
+      }
+    };
+  };
+
+  it('montre la date du soleil dans un calendrier, et la pose', () => {
+    const { api } = reglages();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn(), reglages: api });
+    menuContextuel(10, 10);
+    const champ = document.getElementById('menuVitrineDate') as HTMLInputElement;
+    expect(champ.type).toBe('date');
+    expect(champ.value).toBe('2026-06-21');
+    champ.value = '2026-12-21';
+    champ.dispatchEvent(new Event('change'));
+    expect(api.poserDate).toHaveBeenCalledWith('2026-12-21');
+  });
+
+  it('lance la rotation a un tour par minute, puis a la vitesse saisie, et l arrete', () => {
+    const { api } = reglages();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn(), reglages: api });
+    menuContextuel(10, 10);
+    const actif = document.getElementById('menuVitrineRotation') as HTMLInputElement;
+    const vitesse = document.getElementById('menuVitrineVitesse') as HTMLInputElement;
+    expect(actif.checked).toBe(false);
+    actif.checked = true; actif.dispatchEvent(new Event('change'));
+    expect(api.poserRotation).toHaveBeenLastCalledWith(1);
+    vitesse.value = '-2.5'; vitesse.dispatchEvent(new Event('input'));
+    expect(api.poserRotation).toHaveBeenLastCalledWith(-2.5);
+    actif.checked = false; actif.dispatchEvent(new Event('change'));
+    expect(api.poserRotation).toHaveBeenLastCalledWith(null);
+  });
+
+  it('saisir une vitesse coche la rotation ; un clic dans le menu ne le ferme pas', () => {
+    const { api } = reglages();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn(), reglages: api });
+    menuContextuel(10, 10);
+    const vitesse = document.getElementById('menuVitrineVitesse') as HTMLInputElement;
+    vitesse.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    expect(document.getElementById('menuVitrine')).not.toBe(null);
+    vitesse.value = '3'; vitesse.dispatchEvent(new Event('input'));
+    expect((document.getElementById('menuVitrineRotation') as HTMLInputElement).checked).toBe(true);
+    expect(api.poserRotation).toHaveBeenLastCalledWith(3);
+  });
+});

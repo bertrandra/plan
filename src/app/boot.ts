@@ -73,7 +73,8 @@ import { PREFIXE_ECHANTILLON, type SourceControleurs } from './controleurs.js';
 import { inventorierLesClasses } from './decouverteClasses.js';
 import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
-import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, type SceneZoomable, type Vitrine } from './vitrine.js';
+import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, adresseVitrine, type SceneZoomable, type Vitrine } from './vitrine.js';
+import { brancherMenuVitrine } from './menuVitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 import { estTerrasse, estVueUtilisable } from '../model/fonctions.js';
@@ -419,10 +420,35 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
     // La photo aerienne se telecharge : la scene s'ouvre sans, et se refait quand les tuiles sont
     // la. Meme terrasse, donc meme camera : le zoom demande est garde (three/scene.ts).
     // Le soleil court sur la journee du jour (heureauto=y) : la date d'abord, puis l'heure a chaque pas.
+    // Le jour du soleil : celui de l'adresse (`date=`), sinon aujourd'hui.
+    let dateChoisie = options.vitrine.date;
+    if (dateChoisie) vues.vues3d.soleil3d.date(dateChoisie);
     if (options.vitrine.heureAuto) {
-      vues.vues3d.soleil3d.date(dateDuJour());
+      if (!dateChoisie) vues.vues3d.soleil3d.date(dateDuJour());
       animerHeure(options.vitrine.heureAuto, (m) => vues.vues3d.soleil3d.heure(m));
     }
+    // La rotation automatique (`rotation=`, ou le clic droit) : OrbitControls tourne depuis la
+    // position de la camera, et `autoRotateSpeed` vaut des tours par minute a 60 images/s. Reposee
+    // a chaque instant plutot qu'une fois : la scene se reconstruit (tuiles de l'orthophoto, demo
+    // rechargee) avec de nouveaux controles, qui ne tourneraient plus.
+    let rotation = options.vitrine.rotation;
+    const appliquerRotation = () => {
+      const c = vue3d.scene?.controls;
+      if (!c) return;
+      c.autoRotate = rotation !== null;
+      c.autoRotateSpeed = rotation ?? 0;
+    };
+    setInterval(appliquerRotation, 250);
+    // Le clic droit : rafraichir, copier l'adresse (avec la date et la rotation), et les reglages.
+    brancherMenuVitrine({
+      adresse: () => adresseVitrine(location.href, dateChoisie, rotation),
+      reglages: {
+        date: () => vues.vues3d.soleil3d.etat.dateStr,
+        poserDate: (d) => { dateChoisie = d; vues.vues3d.soleil3d.date(d); },
+        rotation: () => rotation,
+        poserRotation: (v) => { rotation = v; appliquerRotation(); }
+      }
+    });
     if (options.vitrine.orthophoto) {
       void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
     }
