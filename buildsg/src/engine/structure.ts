@@ -11,6 +11,8 @@ import { angleOfSegment } from '../geometry/segments.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
+import { calculerPiscine } from './piscine.js';
+import { estPiscine } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
@@ -284,11 +286,62 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
       }
     });
   }
+  // Un bassin dans la terrasse est une ouverture : les pieces s'arretent a son bord, un chevetre
+  // en fait le tour (de la section du cadre, dans la liste du cadre pour que les appuis, le debit,
+  // l'implantation et le chantier le traitent comme une rive) et les lames s'y coupent (layers.ts).
+  // Rien de tout cela n'existe sans bassin : les cles ne sont posees qu'alors, pour que le resultat
+  // d'une terrasse sans piscine reste identique a l'oracle (tests/unit/engine/moteur-oracle.test.ts).
+  const trous = ouverturesDe(poly, objets);
+  const avecTrous = trous.length ? {
+    trous,
+    chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff))),
+    solives: retirerOuvertures(solives, trous), lambourdes: retirerOuvertures(lambourdes, trous), solivesSpa: retirerOuvertures(solivesSpa, trous)
+  } : null;
+  if (avecTrous) avecTrous.chevetres.forEach(s => cadre.push(s));
   // Les pieces qui reposent sur les appuis : les solives quand il y en a, les lambourdes en
   // pose simple sur plots. buildVisGrid n'a pas a savoir laquelle des deux c'est.
-  const portees = plotSimple ? lambourdes : solives;
+  const portees = plotSimple ? (avecTrous ? avecTrous.lambourdes : lambourdes) : (avecTrous ? avecTrous.solives : solives);
   return { cadre, solives, lambourdes, solivesSpa, portees, plotSimple,
-           soliveAngle, lamesAngle, cadreOff, soliveW:cadreW };
+           soliveAngle, lamesAngle, cadreOff, soliveW:cadreW, ...(avecTrous ?? {}) };
+}
+
+/**
+ * Les ouvertures d'une terrasse : les bassins qu'elle contient ou qui la mordent, pris au bord
+ * exterieur de leurs margelles (ou de leurs parois sans margelle) — c'est la que le platelage
+ * s'arrete.
+ */
+export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
+  const trous: PtBrut[][] = [];
+  objets.forEach(o => {
+    if(!estPiscine(o)) return;
+    const calc = calculerPiscine(o);
+    if(!calc) return;
+    const t = calc.margelleExt;
+    if(t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t))) trous.push(t);
+  });
+  return trous;
+}
+
+/** Retire de chaque piece ce qui traverse une ouverture ; une piece entierement dedans disparait. */
+export function retirerOuvertures(segs: Segment[], trous: PtBrut[][]): Segment[] {
+  if(!trous.length) return segs;
+  let morceaux = segs;
+  trous.forEach(t => {
+    const zone: ZoneEquipement = { nom:'', key:'', poly:t, center:centroid(t) };
+    morceaux = morceaux.flatMap(seg => {
+      const L = dist(seg.a, seg.b);
+      if(L < 1e-6) return [];
+      const dedans = segmentZoneRanges(seg, zone);
+      if(!dedans.length) return [seg];
+      const at = (d: number): PtBrut => ({ x:seg.a.x+(seg.b.x-seg.a.x)*d/L, y:seg.a.y+(seg.b.y-seg.a.y)*d/L });
+      const restes: Segment[] = [];
+      let d0 = 0;
+      dedans.forEach(([r0, r1]) => { if(r0 - d0 > 0.05) restes.push({ a:at(d0), b:at(r0) }); d0 = r1; });
+      if(L - d0 > 0.05) restes.push({ a:at(d0), b:at(L) });
+      return restes;
+    });
+  });
+  return morceaux;
 }
 // Perpendicular distance from a point to the infinite line carrying a segment.
 export function distPointToLine(p: PtBrut, seg: Segment): number {

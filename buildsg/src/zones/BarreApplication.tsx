@@ -140,6 +140,7 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
         <Entree commandes={commandes} id="export.declaration" libelle="Déclaration préalable (cerfa)" idDom="declarationBtn" />
         <Case magasin={magasin} option="dossierEquipements" idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
         <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
+        <Entree commandes={commandes} id="export.dossierPiscine" libelle="Dossier mairie de la piscine (PDF)" idDom="dossierPiscineBtn" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
       </ul>

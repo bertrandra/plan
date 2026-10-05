@@ -12,7 +12,7 @@ import type { ObjetPlan } from './types.js';
 export type Forme = ObjetPlan['type'];
 
 /** Les sections propres a une fonction, au-dela de celles que tout objet porte. */
-export type Particularite = 'parasol' | 'pointDeVue' | 'arbre' | 'construction' | 'releve' | 'abri';
+export type Particularite = 'parasol' | 'pointDeVue' | 'arbre' | 'construction' | 'releve' | 'abri' | 'bassin';
 
 interface ProfilFonction {
   /** Les formes ou la fonction a un sens. Absent : toutes. */
@@ -40,6 +40,8 @@ const PROFILS: Record<string, ProfilFonction> = {
   // aux sommets, poutres sur les cotes. Seules leurs valeurs par defaut different.
   pergola: { formes: ['polygon'], particularites: ['abri'] },
   carport: { formes: ['polygon'], particularites: ['abri'] },
+  // Un bassin se calcule sur un polygone ou un cercle : son volume, ses abords, sa filtration.
+  piscine: { formes: ['polygon', 'circle'], particularites: ['bassin'] },
   camera: { formes: ['path'], particularites: ['pointDeVue'] },
   // Le feuillage est une sphere posee sur le tronc : toute forme de tronc convient.
   arbre: { particularites: ['arbre'] }
@@ -78,6 +80,8 @@ export const estParasol = (o: ObjetPlan): boolean => aParticularite(o, 'parasol'
 export const estBatiment = (o: ObjetPlan): boolean => aParticularite(o, 'releve');
 /** Une pergola ou un carport dont on sait calculer les pieces : un polygone. */
 export const estAbri = (o: ObjetPlan): boolean => aParticularite(o, 'abri');
+/** Une piscine dont on sait calculer le bassin : un polygone ou un cercle. */
+export const estPiscine = (o: ObjetPlan): boolean => aParticularite(o, 'bassin');
 /** Un point de vue utilisable : deux points, position et direction. */
 export const estVueUtilisable = (o: ObjetPlan): boolean => aParticularite(o, 'pointDeVue');
 
