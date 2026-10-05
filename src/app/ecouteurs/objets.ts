@@ -39,6 +39,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   commande('objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
   commande('objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
   commande('objet.ajouter.pergola', 'Pergola', () => a.addNewPergola());
+  commande('objet.ajouter.carport', 'Carport', () => a.addNewCarport());
   commande('objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
   // Les conditions que le panneau Objet posait sur ses anciens boutons : la parcelle ne se duplique
   // ni ne se supprime, un objet verrouille ne se supprime pas.

@@ -128,23 +128,35 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
   };
 }
 
+/** Ce qu'une pergola et un carport ont de propre a la creation : le nom, la taille, la couleur. */
+const ABRIS = {
+  pergola: { nom: 'Pergola', demiL: 2, demiH: 1.5, fill: '#d9c3a0', stroke: '#6b4a2a' },
+  // Une place de voiture : 3 m de large sur 5 m de profondeur.
+  carport: { nom: 'Carport', demiL: 1.5, demiH: 2.5, fill: '#c9ccce', stroke: '#4a4f54' }
+} as const;
+
+export type NatureAbri = keyof typeof ABRIS;
+
 /**
- * Pergola : un rectangle de 4 x 3 m, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
- * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit) et le metrage par section,
- * et que la Vue 3D la construit piece par piece. Le remplissage est leger : le plan dessine les
- * poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
+ * Pergola ou carport : un rectangle, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
+ * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit), le metrage et le
+ * chiffrage, et que la Vue 3D la construit piece par piece — le meme code pour les deux ouvrages
+ * (engine/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
+ * le plan dessine les poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
  */
-export function nouvellePergola(c: PtBrut, key: string, numero: number): ObjetNeuf {
+export function nouvelAbri(nature: NatureAbri, c: PtBrut, key: string, numero: number): ObjetNeuf {
+  const a = ABRIS[nature];
   return {
     obj: {
-      key, type: 'polygon', name: 'Pergola ' + numero, fill: '#d9c3a0', fillOpacity: 0.35, stroke: '#6b4a2a',
-      pts: [{ x: c.x - 2, y: c.y - 1.5 }, { x: c.x + 2, y: c.y - 1.5 }, { x: c.x + 2, y: c.y + 1.5 }, { x: c.x - 2, y: c.y + 1.5 }],
+      key, type: 'polygon', name: a.nom + ' ' + numero, fill: a.fill, fillOpacity: 0.35, stroke: a.stroke,
+      pts: [{ x: c.x - a.demiL, y: c.y - a.demiH }, { x: c.x + a.demiL, y: c.y - a.demiH }, { x: c.x + a.demiL, y: c.y + a.demiH }, { x: c.x - a.demiL, y: c.y + a.demiH }],
       vertexNames: ['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4'],
       segmentNames: ['Cote 1', 'Cote 2', 'Cote 3', 'Cote 4'],
       frozenVertices: [true, true, true, true],
       showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
-      constrained: true, fonction: 'pergola', matiere: '', priority: 4, locked: false,
-      pergola: {}
+      constrained: true, fonction: nature, matiere: '', priority: 4, locked: false,
+      // Un debord de 20 cm, courant : les pergolas d'avant le reglage n'en ont pas, et le gardent.
+      pergola: { debord: 0.2 }
     },
     onglet: 'objet'
   };
@@ -260,13 +272,14 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
 
-    ajouterPergola() {
+    ajouterAbri(nature: NatureAbri) {
       ctx.pushHistory();
-      // Comme le parasol : sur la terrasse s'il y en a une, c'est la qu'on la pose le plus souvent.
-      const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
+      // Une pergola se pose sur la terrasse s'il y en a une, comme le parasol ; un carport abrite une
+      // voiture, pas une terrasse : il naît au centre de la parcelle.
+      const terr = nature === 'pergola' ? terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey) : undefined;
       const c = terr ? centroid(enPoints(terr).pts) : centreParcelle();
-      const n = etat.objects.filter(o => o.fonction === 'pergola').length + 1;
-      inserer(nouvellePergola(c, cle('obj'), n));
+      const n = etat.objects.filter(o => o.fonction === nature).length + 1;
+      inserer(nouvelAbri(nature, c, cle('obj'), n));
     },
 
     ajouterPointDeVue() {

@@ -1,14 +1,15 @@
-// Calque des pergolas sur le plan : la charpente vue de dessus (render/).
+// Calque des pergolas et carports sur le plan : la charpente vue de dessus (render/).
 //
 // Le polygone de la pergola est dessine comme tout objet ; ce calque pose par-dessus ce que l'on
 // verrait d'en haut, a l'echelle : les poutres du cadre, le faitage et les aretiers, les chevrons,
-// et les poteaux en carres pleins — ce sont eux qui comptent au sol (un poteau au milieu d'un
+// la lisse murale d'une pergola adossee, l'emprise du toit avec son debord en pointille, et les
+// poteaux en carres pleins — ce sont eux qui comptent au sol (un poteau au milieu d'un
 // passage, sur une regard). Les contrefiches, sous les poutres, ne se voient pas d'en haut.
 
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerPergola, dimsPergola } from '../engine/pergola.js';
-import { estPergola } from '../model/fonctions.js';
+import { estAbri } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export interface EtatCalquePergolas {
@@ -33,12 +34,20 @@ export function dessinerCalquePergolas(groupe: SVGElement, etat: EtatCalquePergo
   groupe.innerHTML = '';
   const scene = etat.scene;
   etat.objects
-    .filter(o => estPergola(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
+    .filter(o => estAbri(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
     .forEach(o => {
       const calc = calculerPergola(o);
       if (!calc) return;
       const couleur = o.stroke || '#6b4a2a';
-      const ordre = ['poutre', 'faitage', 'aretier', 'chevron'] as const;
+      // L'emprise du toit en pointille, quand elle deborde du contour : c'est la que tombe l'eau.
+      if (calc.reglages.debord > 0) {
+        const e = creerSvg('polygon');
+        e.setAttribute('points', calc.emprise.map(p => { const s = versEcran(scene, p); return s.x + ',' + s.y; }).join(' '));
+        e.setAttribute('fill', 'none'); e.setAttribute('stroke', couleur);
+        e.setAttribute('stroke-dasharray', '6 4'); e.setAttribute('stroke-opacity', '0.8');
+        groupe.appendChild(e);
+      }
+      const ordre = ['poutre', 'lisse', 'faitage', 'aretier', 'chevron'] as const;
       ordre.forEach(role => calc.pieces.filter(p => p.role === role).forEach(p =>
         trait(groupe, scene, p.a, p.b, dimsPergola(p.section).b, couleur, role === 'chevron' ? 0.7 : 0.9)));
       // Les poteaux, alignes sur le cote de reference : ce sont eux qu'on pose au sol.

@@ -7,6 +7,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Carport.** Outil « Carport » de la palette, ou fonction « Carport » d'un polygone. C'est le même
+  ouvrage que la pergola, par le même code (`engine/pergola.ts`, inspecteur, plan, Vue 3D, métrage
+  et chiffrage) : seules les valeurs par défaut changent. Il naît en rectangle de 3 × 5 m (une
+  place de voiture) au centre de la parcelle, en appentis couvert à 5° (bac acier gris), avec
+  2,30 m sous les poutres. Un avertissement s'affiche sous 2,20 m de passage libre. Pergola et
+  carport partagent la particularité `abri` (`model/fonctions.ts`, `estAbri`) et la fabrique
+  `nouvelAbri`. Le chiffrage d'un abri reste à part de celui de la terrasse.
+- **Pergola : aluminium, adossement, débord et chiffrage.**
+  - « Matériau » : bois ou aluminium. L'aluminium a ses profilés (poteaux 100 × 100, poutres
+    100 × 200, chevrons 50 × 150 par défaut), ses longueurs vendues (6, 4, 3 m), sa couleur
+    (anthracite), et pas de contrefiches.
+  - « Adossée à un mur » (toile ou appentis) : pas de poteaux le long du mur, une lisse murale à la
+    place de la poutre, pas de débord de ce côté. Le mur est par défaut le côté qui fait face au côté
+    de référence, donc le haut d'un appentis. Un avertissement apparaît si la pente descend vers le
+    mur.
+  - « Débord du toit » : les poutres se prolongent, les chevrons et la toile ou la couverture
+    couvrent l'emprise élargie, dessinée en pointillé sur le plan ; en quatre pans, l'égout descend
+    dans la pente. Une nouvelle pergola naît avec 20 cm ; une pergola déjà dessinée garde 0.
+  - Chiffrage : la section devient « Métrage et chiffrage », avec le coût de chaque section (barres
+    achetées, chutes comprises), de la toile ou de la couverture au m², et un total de fourniture.
+    Les prix se règlent dans la section « Prix » ; les valeurs indicatives sont des ordres de
+    grandeur de négoce, par matériau. Le chiffrage de la terrasse n'est pas touché : les empreintes
+    ne bougent pas.
 - **Pergola.** Un nouvel objet, outil « Pergola » de la palette, ou fonction « Pergola » d'un
   polygone : le contour est le nu extérieur des poteaux. Un poteau à chaque coin et des poteaux
   intermédiaires au-delà de l'entraxe maximal (4 m par défaut), une poutre de cadre sur chaque côté,
