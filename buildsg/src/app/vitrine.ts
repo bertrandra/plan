@@ -41,6 +41,8 @@
 // de demo 2 (MD/spec-demos-admin.md) par `admin/vitrine/2`, la route publique, en lecture seule, de
 // admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
 // demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
+//
+// Le clic droit y propose « Rafraichir » et « Copier l'adresse » (app/menuVitrine.ts).
 
 import { migrer } from '../model/migrations.js';
 import { SCHEMA_VERSION } from '../model/version.js';

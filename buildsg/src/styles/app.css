@@ -1464,6 +1464,19 @@
     position:fixed !important; left:0; top:0; z-index:1000; margin:0; border:none; border-radius:0;
     width:var(--vitrine-largeur, 100vw) !important; height:var(--vitrine-hauteur, 100vh) !important;
   }
+  /* Le clic droit de la vitrine (app/menuVitrine.ts) : rafraichir, copier l'adresse. */
+  html[data-vitrine] #menuVitrine, html[data-vitrine] #menuVitrine *{ visibility:visible; }
+  .menuVitrine{
+    position:fixed; z-index:1001; min-width:180px; padding:4px; display:flex; flex-direction:column; gap:2px;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:var(--r-champ); box-shadow:var(--ombre-menu);
+    font-family:var(--sans); font-size:0.8rem;
+  }
+  .menuVitrine button{
+    min-height:32px; padding:0 12px; text-align:left; border:none; border-radius:6px; background:transparent;
+    color:var(--ink); font:inherit; cursor:pointer;
+  }
+  .menuVitrine button:hover, .menuVitrine button:focus-visible{ background:var(--accent-light); color:var(--on-accent-light); outline:none; }
+  .menuVitrineAdresse{ min-height:32px; width:min(70vw, 420px); padding:0 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font:inherit; }
   /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
   html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,
   html[data-vitrine] #terrasse3dZoomControls .separateur3d:nth-last-of-type(-n+2){ display:none; }
