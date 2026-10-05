@@ -238,8 +238,17 @@ export function sectionPortails(c: ContexteChamps): Section {
     // Reglage d'affichage, comme « Filaire » : ni annulation, ni « projet modifie », mais range dans
     // l'acces pour etre retrouve a la reouverture.
     { type: 'case', cle: 'ouvert', libelle: 'Montrer ouvert', visible: unAcces, sale: false, aide: 'Vantaux ouverts sur le plan et en 3D', effets, lire: (cc) => !!acces(cc)?.ouvert, ecrire: (cc, v) => { const a = acces(cc); if (a) a.ouvert = v; } },
-    { type: 'bouton', cle: 'accolerGauche', libelle: 'Accoler au portail', texte: () => 'À sa gauche', visible: (cc) => actif(cc) && acces(cc)?.nature === 'portillon', actif: (cc) => clotureDe(cc.obj).portails.some(a => a.nature === 'portail' && a.cote === acces(cc)?.cote), aide: 'Coller le portillon contre le portail le plus proche de ce côté, à sa gauche vu de la rue', agit: 'projet', executer: (cc) => { ecrireAcces(cc, (a) => { accolerPortillon(clotureDe(cc.obj), a, 'gauche'); }); cc.render(); } },
-    { type: 'bouton', cle: 'accolerDroite', libelle: '', nom: 'Accoler au portail, à sa droite', texte: () => 'À sa droite', visible: (cc) => actif(cc) && acces(cc)?.nature === 'portillon', actif: (cc) => clotureDe(cc.obj).portails.some(a => a.nature === 'portail' && a.cote === acces(cc)?.cote), aide: 'Coller le portillon contre le portail le plus proche de ce côté, à sa droite vu de la rue', agit: 'projet', executer: (cc) => { ecrireAcces(cc, (a) => { accolerPortillon(clotureDe(cc.obj), a, 'droite'); }); cc.render(); } },
+    {
+      type: 'ligne', cle: 'accoler', libelle: 'Accoler au portail',
+      visible: (cc) => actif(cc) && acces(cc)?.nature === 'portillon',
+      champs: (['gauche', 'droite'] as const).map((de) => ({
+        type: 'bouton' as const, cle: de, libelle: de === 'gauche' ? 'À sa gauche' : 'À sa droite',
+        actif: (cc: ContexteChamps) => clotureDe(cc.obj).portails.some(a => a.nature === 'portail' && a.cote === acces(cc)?.cote),
+        aide: `Coller le portillon contre le portail le plus proche de ce côté, à sa ${de} vu de la rue`,
+        agit: 'projet' as const,
+        executer: (cc: ContexteChamps) => { ecrireAcces(cc, (a) => { accolerPortillon(clotureDe(cc.obj), a, de); }); cc.render(); },
+      })),
+    },
     { type: 'alerte', cle: 'alertes', libelle: '', nom: 'Alertes de l’accès', visible: (cc) => { const a = acces(cc); return unAcces(cc) && !!a && alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).length > 0; }, texte: (cc) => { const a = acces(cc); return a ? alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).join(' ') : ''; } },
   );
   return { id: 'portails', titre: 'Portails et portillons', repliee: !clotureDe(o).portails.length, champs };

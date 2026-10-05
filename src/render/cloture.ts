@@ -140,7 +140,8 @@ export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: num
       const gondADroite = a.ouverture === 'battant-2' && k === 1;
       const gond = dedans(f, pointDeFacade(f, gondADroite ? debut + largeur : debut), recul);
       const fermeBout = dedans(f, pointDeFacade(f, gondADroite ? debut : debut + largeur), recul);
-      const bout = { x: gond.x - f.normale.x * sens * largeur, y: gond.y - f.normale.y * sens * largeur };
+      // La normale sort de la parcelle : vers l'interieur, le vantail part a son oppose.
+      const bout = { x: gond.x + f.normale.x * sens * largeur, y: gond.y + f.normale.y * sens * largeur };
       ligne(gond, bout, SVG_INK, 1);
       arc(gond, bout, fermeBout, largeur);
       debut += largeur;

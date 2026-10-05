@@ -120,9 +120,9 @@ describe('section Portails et portillons', () => {
     champ<ChampBouton>(c, 'portails', 'ajouterPortillon').executer(c);
     const cl = clotureDe(c.obj);
     expect(cl.portails.map(a => a.nature)).toEqual(['portail', 'portillon']);
-    expect(cles(c, 'portails')).toEqual(expect.arrayContaining(['enCours', 'accolerGauche', 'accolerDroite']));
+    expect(cles(c, 'portails')).toEqual(expect.arrayContaining(['enCours', 'accoler']));
     expect(champ<ChampChoix>(c, 'portails', 'enCours').lire(c)).toBe('1');
-    champ<ChampBouton>(c, 'portails', 'accolerDroite').executer(c);
+    bouton(c, 'portails', 'accoler', 'droite').executer(c);
     expect(cl.portails[1]?.x).toBeCloseTo(8.25 + 3.5 + 0.3 + 0.3, 6);
     // « Montrer ouvert » est un reglage d'affichage.
     const ouvert = champ<ChampCase>(c, 'portails', 'ouvert');

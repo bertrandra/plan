@@ -109,7 +109,7 @@ function poserTroncon(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, t: {
       const x = t.debut + Math.min(longueur, (longueur * k) / nb);
       const c = pointDeFacade(f, x);
       const centre = { x: c.x - f.normale.x * (ep / 2), y: c.y - f.normale.y * (ep / 2) };
-      ctx.prim.addPrism(carre(f, centre, SECTION_POTEAU), base, h + 0.05, couleur, false, undefined, null);
+      ctx.prim.addPrism(carre(f, centre, SECTION_POTEAU), base, h + 0.05, couleur, false, undefined, tex(r.texture));
     }
   }
 }

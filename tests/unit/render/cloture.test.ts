@@ -53,6 +53,11 @@ describe('dessinerCloture', () => {
     expect(traits.length).toBeGreaterThan(5);
     const coupure = traits.find(t => t.getAttribute('stroke-width') === '3.4');
     expect(coupure).toBeDefined();
+    // Les vantaux s'ouvrent vers l'interieur : leur bout est au nord de la limite sud (y du plan > 0,
+    // donc y d'ecran < 0), a 1,75 m du gond.
+    const vantaux = traits.filter(t => t.getAttribute('stroke-width') === '1' && t.getAttribute('stroke') !== '#aaa');
+    expect(vantaux).toHaveLength(2);
+    for (const v of vantaux) expect(Number(v.getAttribute('y2'))).toBeCloseTo(-17.5, 6);
   });
 
   it('un coulissant a une course de rangement et pas d arc ; un portail en retrait a ses retours', () => {
