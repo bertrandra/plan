@@ -20,7 +20,8 @@ const racine = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cible = resolve(racine, 'buildsg');
 
 // Ce que `vite build` lit, et rien d'autre : pas de tests, pas de documentation.
-const COPIES = ['src', 'index.html', 'vite.config.ts', 'tsconfig.json', 'deploy/htaccess.template'];
+// `public/` porte le formulaire cerfa de la declaration prealable, que Vite recopie dans `dist/`.
+const COPIES = ['src', 'public', 'index.html', 'vite.config.ts', 'tsconfig.json', 'deploy/htaccess.template'];
 // Les seuls paquets que le build importe. `three` n'est importe qu'en types : la page le charge
 // depuis un CDN a l'execution. Tout va dans `dependencies` : un `npm install` de production
 // ignorerait des `devDependencies`, et le build ne se ferait pas.

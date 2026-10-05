@@ -24,7 +24,9 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
     buildExportSVG: () => '<svg/>', buildExportDXF: () => '0\nEOF', buildExportPDF: vi.fn(() => '%PDF'), echellePdf: () => 200,
     construireResume: () => 'résumé', construireDossier: () => ({ pdf: '%PDF', pages: 3, terrasses: [1], equipements: new Map([[1, [1, 2]]]) }),
     genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
-    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true, ...plus
+    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
+    construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', manques: ['la signature'], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
+    declarationPossible: () => true, ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };
   const cmd = creerRegistre(droits);
