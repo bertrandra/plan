@@ -18,10 +18,11 @@ import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePosit
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { sectionsPergola } from './pergola.js';
+import { sectionsPiscine } from './piscine.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
-export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'limite', 'autre'];
+export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'limite', 'autre'];
 
 // La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
 // pas une donnee du plan, seulement le brouillon d'un geste.
@@ -98,8 +99,9 @@ const sectionObjet: Section = {
     {
       type: 'nombre', cle: 'elevation', libelle: 'Élévation', unite: 'm', pas: 0.1, min: 0, decimales: 2,
       aide: 'Hauteur au-dessus du sol, utilisée par la Vue 3D',
-      // Une pergola ou un carport a sa propre hauteur de poteaux : l'elevation ne lui dit rien.
-      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri'),
+      // Une pergola ou un carport a sa propre hauteur de poteaux, une piscine sa hauteur hors du sol :
+      // l'elevation ne leur dit rien.
+      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin'),
       lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; }
     },
     {
@@ -454,6 +456,7 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
   if (aParticularite(o, 'pointDeVue')) sections.push(sectionPointDeVue);
   if (aParticularite(o, 'abri')) sections.push(...sectionsPergola(c));
+  if (aParticularite(o, 'bassin')) sections.push(...sectionsPiscine(c));
   if (aDesPoints(o) && !estPointDeVue(o)) {
     sections.push(sectionCotes(c));
     if (o.type === 'polygon') sections.push(sectionCoins(c));

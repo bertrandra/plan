@@ -7,6 +7,68 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Piscine.** Deux outils de la palette, « Piscine » (rectangle de 8 × 4 m) et « Piscine ronde »
+  (4 m de diamètre), ou fonction « Piscine » d'un polygone ou d'un cercle. Le contour est le bord de
+  l'eau : la surface du plan d'eau, celle que l'urbanisme compte. L'inspecteur conduit le projet par
+  étapes, chacune ne montrant que ce qui a un sens après les choix précédents :
+  1. **Implantation et structure** : enterrée, semi-enterrée ou hors-sol (hauteur des parois hors du
+     sol) ; coque polyester, maçonnerie en blocs à bancher, ou kit de panneaux ; revêtement admis par
+     la structure (gelcoat, liner, membrane armée, carrelage, enduit).
+  2. **Profondeurs** : fond plat, pente régulière ou plat puis fosse à plonger, petit et grand bain,
+     côté du petit bain, part de la fosse ; le volume d'eau se lit aussitôt (exact sur un fond plat,
+     intégré par bandes sinon).
+  3. **Abords** : margelles (largeur, couleur) ; plage de même largeur tout autour, en bois ou en
+     dallage. Une plage en bois a sa structure et ses fondations propres, sans appui sur le bassin :
+     au ras du sol, lambourdes 45 × 70 sur plots à l'entraxe que l'épaisseur de lame permet (NF DTU
+     51.4, plafond de 70 cm) ; en hauteur, solives 63 × 175 sur des anneaux de poutres 75 × 200
+     portées par des poteaux 120 × 120 tous les 2 m sur massifs béton, un anneau de plus chaque fois
+     que la largeur dépasse la portée admissible.
+  4. **Équipements** : temps de recyclage, local technique et sa distance, éclairage, traitement
+     (chlore, sel, brome, oxygène actif), chauffage (pompe à chaleur dimensionnée à un kilowatt pour
+     six mètres cubes, solaire, échangeur). La filtration se dimensionne seule : débit, filtre à sable
+     (vitesse de 50 m/h, diamètre du commerce), pompe, skimmers (un pour 25 m²), refoulements, bonde,
+     prise balai, canalisations.
+  5. **Sécurité et urbanisme** : dispositif normalisé (barrière, alarme, couverture, abri), régime
+     d'autorisation (aucune formalité sous 10 m² hors secteur protégé, déclaration préalable jusqu'à
+     100 m², permis au-delà ou avec un abri de plus de 1,80 m), distances du bassin à chaque limite de
+     la parcelle, base de la taxe d'aménagement (250 €/m²), et le bouton du dossier de mairie.
+  6. **Métrage et chiffrage** : une ligne par poste dans l'ordre du chantier (terrassement et
+     évacuation, radier ou dalle ou lit de gravier, parois ou coque ou kit, revêtement, margelles,
+     plage, filtration, pièces à sceller, canalisations, local, électricité, éclairage, traitement,
+     chauffage, sécurité, mise en eau), en fourchette TTC fourniture et pose ; la section « Prix »
+     règle chaque prix unitaire, et un prix saisi remplace la fourchette de son poste.
+  Le plan dessine les parois, l'anneau des margelles, la plage (lames hachurées ou dallage uni), les
+  poteaux d'une plage en hauteur, les profondeurs au petit et au grand bain et les ruptures de pente
+  d'une fosse (`render/piscineOverlay.ts`). La Vue 3D pose le plan d'eau, dresse les parois d'un
+  bassin hors du sol, les margelles, la plage sur ses poutres et ses poteaux (`three/piscine3d.ts`).
+  Les réglages vivent dans `piscine` sur l'objet ; `piscineDe` comble les manques à la lecture
+  (`engine/piscine.ts`).
+- **La piscine est une ouverture dans une terrasse.** Un bassin dans une terrasse (ou qui la mord)
+  coupe ses solives, ses lambourdes et ses lames au bord extérieur de ses margelles ; un chevêtre de
+  la section du cadre fait le tour de l'ouverture, avec des appuis de rive le long. Nomenclature,
+  débit, implantation, chantier, plan et Vue 3D suivent (`engine/structure.ts` `ouverturesDe`,
+  `retirerOuvertures`). Sans bassin, rien ne change : les empreintes et l'oracle du moteur sont
+  inchangés.
+- **Note de calcul (tiroir).** Un onglet « Note de calcul » apparaît quand une piscine est
+  sélectionnée : géométrie et volume, terrassement (emprise et profondeur de fouille, déblai, remblai,
+  évacuation foisonnée), structure du bassin (pression de l'eau au fond, poussée par mètre de paroi,
+  radier et parois ou pose d'une coque ou dalle d'un kit), abords (pièces de la plage, portées,
+  appuis, charge par appui ou poteau, décaissement), hydraulique, équipements, sécurité et
+  réglementation (régime, distances aux limites, taxe, DAACT et H1), points de vigilance. Chaque
+  valeur dit la règle qui la donne (`noteDeCalcul`, `zones/resultats/NoteCalcul.tsx`).
+- **Dossier mairie (PDF).** « Dossier mairie de la piscine » dans le menu Exporter, et un bouton dans
+  l'étape 5 de l'inspecteur : la déclaration préalable (cerfa n° 13703) ou le permis de construire
+  (cerfa n° 13406) de la piscine sélectionnée, sinon la première du plan. Notice descriptive, régime
+  et délais, zone du PLU et secteur protégé s'ils sont connus, **aide au remplissage du cerfa**
+  rubrique par rubrique (terrain, références cadastrales, nature des travaux, surface de plancher et
+  emprise au sol créées, superficie du bassin, hauteur hors sol, abri), liste des pièces cochée ;
+  DP1 plan de situation (parcelle, voisinage, lieu) ; DP2 plan de masse coté avec les distances du
+  bassin à chaque limite ; DP3 coupe du terrain et du bassin (profondeurs, parois, margelles, plage,
+  poteaux) et élévation d'un bassin hors du sol ; cadres pour l'insertion et les photographies à
+  fournir ; la note de calcul en annexe (`export/dossierMairie.ts`). Le cerfa officiel n'est pas
+  rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
+  la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
+  aucune capacité de la plateforme.
 - **Carport.** Outil « Carport » de la palette, ou fonction « Carport » d'un polygone. C'est le même
   ouvrage que la pergola, par le même code (`engine/pergola.ts`, inspecteur, plan, Vue 3D, métrage
   et chiffrage) : seules les valeurs par défaut changent. Il naît en rectangle de 3 × 5 m (une

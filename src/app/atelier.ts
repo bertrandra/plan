@@ -14,6 +14,7 @@
 // précisément l'intérêt — et elle raccourcira à mesure que la phase 7 typera ce qu'elle transporte.
 
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
+import type { FormePiscine } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
 
 /**
@@ -61,6 +62,7 @@ export interface Atelier {
   addNewParasol: () => void;
   addNewPergola: () => void;
   addNewCarport: () => void;
+  addNewPiscine: (forme: FormePiscine) => void;
   addNewViewpoint: () => void;
   duplicateSelectedObject: () => void;
   deleteSelectedObject: () => void;

@@ -8,7 +8,7 @@ import { ringSegments } from '../geometry/polygon.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { generateParallelLines } from './lames.js';
-import { buildVisGrid, computeStructure, safeOffset } from './structure.js';
+import { buildVisGrid, computeStructure, retirerOuvertures, safeOffset } from './structure.js';
 import type { ObjetPlan } from '../model/types.js';
 
 export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
@@ -34,7 +34,8 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   // retreci garde la meme forme/angles que la terrasse, donc les extremites des lames
   // suivent toujours le bon angle, juste plus court.
   const lamesFieldPoly = c.avecLamePlat ? safeOffset(pts, largeurLameM) : pts;
-  const lames = generateParallelLines(lamesFieldPoly, lamesAngle, boardSpacing);
+  // Les lames s'arretent au bord d'un bassin, comme les solives (structure.ts, ouvertures).
+  const lames = S.trous ? retirerOuvertures(generateParallelLines(lamesFieldPoly, lamesAngle, boardSpacing), S.trous) : generateParallelLines(lamesFieldPoly, lamesAngle, boardSpacing);
 
   // Lame de rive : habillage suspendu qui fait le tour de la terrasse, decale vers
   // l'exterieur d'une demi-epaisseur pour que sa face interieure soit a l'aplomb du
@@ -62,7 +63,8 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
     lameRive: c.avecLameRive
       ? { ext: safeOffset(pts, -riveEp), int: pts.map(p=>({...p})) } : null
   };
-  return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly };
+  // Le chevetre et les ouvertures ne sont la qu'avec un bassin : meme regle que dans computeStructure.
+  return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly, ...(S.chevetres ? { chevetres: S.chevetres, trous: S.trous } : {}) };
 }
 
 

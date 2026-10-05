@@ -162,6 +162,38 @@ export function nouvelAbri(nature: NatureAbri, c: PtBrut, key: string, numero: n
   };
 }
 
+/** La forme d'une piscine neuve : un rectangle (le plus courant) ou un bassin rond. */
+export type FormePiscine = 'rectangle' | 'ronde';
+
+/**
+ * Piscine : un rectangle de 8 x 4 m en mode rectangle, ou un bassin rond de 4 m de diametre. Sa
+ * `fonction` fait que l'inspecteur y ajoute les etapes du projet (implantation, structure,
+ * profondeurs, abords, equipements, securite), le metrage, le chiffrage et la note de calcul
+ * (engine/piscine.ts), que le plan dessine ses margelles et sa plage, et que la Vue 3D creuse le
+ * bassin ou dresse ses parois. Le bleu est celui de l'eau ; les abords se dessinent par-dessus.
+ */
+export function nouvellePiscine(forme: FormePiscine, c: PtBrut, key: string, numero: number): ObjetNeuf {
+  const commun = {
+    key, name: 'Piscine ' + numero, fill: '#5bb7e6', fillOpacity: 0.85, stroke: '#1f6e9c',
+    showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+    constrained: true, fonction: 'piscine', matiere: '', priority: 3, locked: false,
+    piscine: {}
+  };
+  if (forme === 'ronde') {
+    return { obj: { ...commun, type: 'circle', center: { x: c.x, y: c.y }, r: 2 }, onglet: 'objet' };
+  }
+  return {
+    obj: {
+      ...commun, type: 'polygon',
+      pts: [{ x: c.x - 4, y: c.y - 2 }, { x: c.x + 4, y: c.y - 2 }, { x: c.x + 4, y: c.y + 2 }, { x: c.x - 4, y: c.y + 2 }],
+      vertexNames: ['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4'],
+      segmentNames: ['Cote 1', 'Cote 2', 'Cote 3', 'Cote 4'],
+      frozenVertices: [true, true, true, true]
+    },
+    onglet: 'objet'
+  };
+}
+
 /** La longueur du segment qui porte la direction d'un point de vue, en metres. */
 const VISEE_M = 2;
 
@@ -280,6 +312,12 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const c = terr ? centroid(enPoints(terr).pts) : centreParcelle();
       const n = etat.objects.filter(o => o.fonction === nature).length + 1;
       inserer(nouvelAbri(nature, c, cle('obj'), n));
+    },
+
+    ajouterPiscine(forme: FormePiscine) {
+      ctx.pushHistory();
+      const n = etat.objects.filter(o => o.fonction === 'piscine').length + 1;
+      inserer(nouvellePiscine(forme, centreParcelle(), cle(forme === 'ronde' ? 'circle' : 'obj'), n));
     },
 
     ajouterPointDeVue() {

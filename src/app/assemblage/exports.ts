@@ -8,6 +8,7 @@ import { construireDXF } from '../../export/dxfPlan.js';
 import { construireSVG } from '../../export/svgPlan.js';
 import { construirePDF } from '../../export/pdfPlan.js';
 import { construireDossierPDF } from '../../export/dossierPdf.js';
+import { construireDossierMairie } from '../../export/dossierMairie.js';
 import { construireResume } from '../../export/resume.js';
 import { exporterProjetJSON } from '../../io/exportProjet.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
@@ -57,6 +58,8 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
       d.options().dossierEquipements,
       { nomProjet: nomProjet(), appVersion: APP_VERSION }),
+    // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
+    construireDossierMairie: () => construireDossierMairie(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
     nomProjet
   }, commandes);
