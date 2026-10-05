@@ -144,7 +144,8 @@ export function nouvellePergola(c: PtBrut, key: string, numero: number): ObjetNe
       frozenVertices: [true, true, true, true],
       showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
       constrained: true, fonction: 'pergola', matiere: '', priority: 4, locked: false,
-      pergola: {}
+      // Un debord de 20 cm, courant : les pergolas d'avant le reglage n'en ont pas, et le gardent.
+      pergola: { debord: 0.2 }
     },
     onglet: 'objet'
   };
