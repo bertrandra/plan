@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   clotureDe, synchroniserAnciensChamps, reglageDuCote, reglerCote, retirerCote, changerType, tronconsDuCote,
   nouveauPortail, coteDAcces, accolerPortillon, alertesAcces, alertesHauteur, vantauxDe, profilDuVantail,
-  longueurDuCote, resumeReglage, resumeAcces, hauteurTotale,
+  longueurDuCote, resumeReglage, resumeAcces, hauteurTotale, poserAcces, coteLePlusProche,
 } from '../../../src/model/cloture.js';
 import type { ObjetPlan, ObjetPolygone, Portail } from '../../../src/model/types.js';
 
@@ -173,6 +173,24 @@ describe('acces', () => {
     expect(portillon.x).toBeCloseTo(5 - 0.3 - 0.3 - 1, 6);
     portillon.cote = 1;
     expect(accolerPortillon(cl, portillon, 'gauche')).toBe(false);
+  });
+
+  it('poserAcces centre l acces sur le point clique, sans sortir du cote', () => {
+    const cote = { cote: 2, gauche: { x: 20, y: 10 }, droite: { x: 0, y: 10 }, largeur: 20 };
+    const a = nouveauPortail('portail', 0, 20);
+    poserAcces(a, cote, { x: 12, y: 10.4 });
+    expect(a).toMatchObject({ cote: 2, x: 6.25 });
+    poserAcces(a, cote, { x: 19.9, y: 10 });
+    expect(a.x).toBe(0.3);
+    poserAcces(a, cote, { x: -5, y: 10 });
+    expect(a.x).toBe(16.2);
+  });
+
+  it('coteLePlusProche rend le cote et la distance', () => {
+    const pts = parcelle().pts;
+    expect(coteLePlusProche(pts, { x: 5, y: 0.4 })).toEqual({ cote: 0, distance: 0.4 });
+    expect(coteLePlusProche(pts, { x: 19, y: 5 })).toEqual({ cote: 1, distance: 1 });
+    expect(coteLePlusProche(pts, { x: -2, y: 12 }).cote).toBe(2);
   });
 
   it('resume un reglage et un acces en francais', () => {

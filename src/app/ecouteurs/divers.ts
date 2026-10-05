@@ -22,7 +22,7 @@ export interface ContexteDivers {
   /** Rafraichit l'inspecteur (zones/), qui affiche l'optimisation. */
   rafraichirInspecteur: () => void;
   /** Demarre un pointage : un cote de reference (`ref`) ou des sommets (`target`), pour une cote ou un alignement. */
-  startPick: (mode: 'ref' | 'target', multi: boolean, purpose?: 'align' | 'measure') => void;
+  startPick: (mode: 'ref' | 'target', multi: boolean, purpose?: 'align' | 'measure' | 'acces') => void;
 }
 
 /**

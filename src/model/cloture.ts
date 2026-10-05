@@ -324,6 +324,34 @@ export function accolerPortillon(cl: Cloture, portillon: Portail, de: 'gauche' |
   return true;
 }
 
+/**
+ * Pose un acces sur un cote, centre sur un point du plan : `gauche` et `droite` sont les bouts du
+ * cote vus de dehors, `p` le point clique. L'acces reste dans le cote, piliers compris.
+ */
+export function poserAcces(a: Portail, cote: { cote: number; gauche: PtBrut; droite: PtBrut; largeur: number }, p: PtBrut): void {
+  const L = cote.largeur || 1;
+  const ux = (cote.droite.x - cote.gauche.x) / L, uy = (cote.droite.y - cote.gauche.y) / L;
+  const centre = (p.x - cote.gauche.x) * ux + (p.y - cote.gauche.y) * uy;
+  const pilier = a.piliers ? a.piliers.largeur : 0;
+  const min = pilier, max = Math.max(min, L - a.largeur - pilier);
+  a.cote = cote.cote;
+  a.x = Math.round(Math.min(max, Math.max(min, centre - a.largeur / 2)) * 100) / 100;
+}
+
+/** Le cote du contour le plus proche d'un point, et la distance qui l'en separe, en metres. */
+export function coteLePlusProche(pts: readonly PtBrut[], p: PtBrut): { cote: number; distance: number } {
+  let meilleur = { cote: -1, distance: Infinity };
+  for (let i = 0; i < pts.length; i++) {
+    const a = au(pts, i), b = sommetDe(pts, i + 1);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+    const d = Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
+    if (d < meilleur.distance) meilleur = { cote: i, distance: d };
+  }
+  return meilleur;
+}
+
 /** Un resume d'un reglage pour la ligne d'un cote : « Mur 1,80 m · enduit ». */
 export function resumeReglage(r: ReglageCloture): string {
   if (r.type === 'aucune') return 'Aucune';

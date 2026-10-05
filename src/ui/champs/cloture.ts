@@ -213,6 +213,15 @@ export function sectionPortails(c: ContexteChamps): Section {
       lire: () => String(accesEnCours),
       ecrire: (_cc, v) => { accesEnCours = Number(v) || 0; },
     },
+    {
+      type: 'bouton', cle: 'placer', libelle: 'Sur le plan', visible: unAcces,
+      texte: (cc) => (cc.pointage()?.purpose === 'acces' ? 'Cliquez un côté de la parcelle…' : 'Placer sur le plan…'),
+      actif: (cc) => cc.pointage()?.purpose !== 'acces',
+      aide: 'Poser cet accès d’un clic sur un côté de la parcelle, centré sur le point cliqué',
+      // Le geste ecrit le projet et empile son instantane lui-meme (interaction/pointeur.ts).
+      agit: 'projet',
+      executer: (cc) => cc.startPick('ref', false, 'acces', accesEnCours),
+    },
     { type: 'choix', cle: 'cote', libelle: 'Côté', visible: unAcces, effets: ['inspecteur', ...effets], options: (cc) => pts(cc.obj).map((_, i) => ({ valeur: String(i), libelle: libelleCote(cc.obj, i) })), lire: (cc) => String(acces(cc)?.cote ?? 0), ecrire: (cc, v) => ecrireAcces(cc, (a) => { const cote = Number(v); if (coteValide(pts(cc.obj), cote)) { a.cote = cote; a.x = Math.max(0, Math.min(a.x, longueurDuCote(pts(cc.obj), cote) - a.largeur)); } }) },
     { type: 'nombre', cle: 'x', libelle: 'Position', unite: 'm', pas: 0.1, min: 0, decimales: 2, visible: unAcces, aide: 'Depuis le bord gauche du côté, vu de la rue', note: (cc) => { const a = acces(cc); return a ? `côté de ${fr(longueurDuCote(pts(cc.obj), a.cote))} m` : ''; }, effets, lire: (cc) => acces(cc)?.x ?? 0, ecrire: (cc, v) => { if (!(v >= 0)) return false; ecrireAcces(cc, (a) => { a.x = v; }); } },
     { type: 'nombre', cle: 'largeur', libelle: 'Largeur', unite: 'm', pas: 0.1, min: 0.5, max: 12, decimales: 2, visible: unAcces, effets, lire: (cc) => acces(cc)?.largeur ?? 0, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireAcces(cc, (a) => { a.largeur = v; }); } },

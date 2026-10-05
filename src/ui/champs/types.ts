@@ -56,7 +56,7 @@ export interface ContexteChamps {
   deleteVertex: (obj: ObjetPlan, i: number) => void;
   alignObjectByRotation: (obj: ObjetPlan) => void;
   allerAuPointDeVue: (obj: ObjetPlan) => void;
-  startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose']) => void;
+  startPick: (mode: Pointage['mode'], multi: boolean, purpose?: Pointage['purpose'], indice?: number) => void;
   choisirTexture: (titre: string, onChoisi: (choix: TextureAppliquee, tous?: boolean) => void, options?: { checkboxLabel?: string }) => void;
   executerCommande: (id: string) => void;
   /** La commande est-elle utilisable (droits, quota, contexte) ? Un bouton qui la declenche se grise sinon. */

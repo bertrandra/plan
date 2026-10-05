@@ -280,7 +280,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherPointeur(surface.svg, surface.stage, etat, {
     insertPointOnSegment: p.gestes.insertPointOnSegment, pushHistory: p.pushHistory,
     rebuildSelector: p.rebuildSelector, render: p.render, sendObjectBackward: p.gestes.sendObjectBackward,
-    toWorld: dessin.toWorld
+    toWorld: dessin.toWorld, markDirty: p.markDirty,
+    apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
   });
   brancherObjets(atelier, commandes);
   // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.
@@ -295,7 +296,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     resultats, redimensionnerLePlan: p.cadrage.redimensionner,
     rafraichirInspecteur: () => magasin.notifier(),
     activerOnglet: (onglet) => tiroir.activer(onglet),
-    startPick: (mode: Pointage['mode'], multi: boolean, but?: Pointage['purpose']) => resultats.pointer(mode, multi, but)
+    startPick: (mode: Pointage['mode'], multi: boolean, but?: Pointage['purpose'], indice?: number) => resultats.pointer(mode, multi, but, indice)
   }, commandes);
   brancherFichiers({
     exportProjetJSON: () => exporterLeProjet(etat, seed, options().exportSansParcelle), validerProjetJSON, appliquerProjetImporte: ch.appliquerProjetImporte,
@@ -330,7 +331,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     contexteSoleil: p.affichage.contexteSoleilParasol,
     applyAngleEdit: gestes.applyAngleEdit, applyLengthEdit: gestes.applyLengthEdit, deleteVertex: gestes.deleteVertex,
     alignObjectByRotation: gestes.alignObjectByRotation, allerAuPointDeVue: vues.allerAuPointDeVue,
-    startPick: (mode, multi, but) => resultats.pointer(mode, multi, but),
+    startPick: (mode, multi, but, indice) => resultats.pointer(mode, multi, but, indice),
     pushHistory: p.pushHistory, preparerHistorique: () => p.historique.preparer(), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
     buildThreeScene: vues.buildThreeScene, reapplyStackingOrder: p.dessin.reapplyStackingOrder, rebuildHandles: p.dessin.rebuildHandles,
     trouverParcelle: p.affichage.trouverParcelleCloture,

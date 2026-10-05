@@ -16,7 +16,8 @@ function contexte(plus: Partial<ObjetPlan> = {}, principale = true): ContexteCha
   } as unknown as ObjetPlan;
   const parcelle = principale ? obj : ({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [] } as unknown as ObjetPlan);
   let rendus = 0;
-  return { etat: { objects: [obj], highlight: {} }, obj, objets: [obj], parcelle, render: () => { rendus++; }, rendus: () => rendus } as unknown as ContexteChamps;
+  const pointages: unknown[] = [];
+  return { etat: { objects: [obj], highlight: {} }, obj, objets: [obj], parcelle, render: () => { rendus++; }, rendus: () => rendus, pointage: () => null, startPick: (...args: unknown[]) => { pointages.push(args); }, pointages } as unknown as ContexteChamps;
 }
 const section = (c: ContexteChamps, id: string) => sectionsCloture(c).find(s => s.id === id);
 const cles = (c: ContexteChamps, id: string) => { const s = section(c, id); return s ? champsVisibles(s, c).map(ch => ch.cle) : []; };
@@ -98,7 +99,7 @@ describe('section Portails et portillons', () => {
     const cl = clotureDe(c.obj);
     expect(cl.portails).toHaveLength(1);
     expect(cl.portails[0]).toMatchObject({ nature: 'portail', cote: 1, x: 3.25 });
-    expect(cles(c, 'portails')).toEqual(expect.arrayContaining(['acces0', 'cote', 'x', 'largeur', 'hauteur', 'ouverture', 'sens', 'petitVantail', 'forme', 'remplissage', 'materiau', 'couleur', 'texture', 'piliers', 'pilierLargeur', 'retrait', 'motorise', 'ouvert']));
+    expect(cles(c, 'portails')).toEqual(expect.arrayContaining(['acces0', 'placer', 'cote', 'x', 'largeur', 'hauteur', 'ouverture', 'sens', 'petitVantail', 'forme', 'remplissage', 'materiau', 'couleur', 'texture', 'piliers', 'pilierLargeur', 'retrait', 'motorise', 'ouvert']));
     expect(cles(c, 'portails')).not.toContain('enCours');
     expect(cles(c, 'portails')).not.toContain('refoulement');
     champ<ChampChoix>(c, 'portails', 'ouverture').ecrire(c, 'coulissant');
@@ -129,6 +130,9 @@ describe('section Portails et portillons', () => {
     expect(ouvert.sale).toBe(false);
     ouvert.ecrire(c, true);
     expect(cl.portails[1]?.ouvert).toBe(true);
+    // « Placer sur le plan » demande un pointage pour l'acces en cours (le portillon, indice 1).
+    champ<ChampBouton>(c, 'portails', 'placer').executer(c);
+    expect((c as unknown as { pointages: unknown[] }).pointages).toEqual([['ref', false, 'acces', 1]]);
     bouton(c, 'portails', 'acces0', 'supprimer').executer(c);
     expect(cl.portails.map(a => a.nature)).toEqual(['portillon']);
     expect(champ<ChampChoix>(c, 'portails', 'enCours').lire(c)).toBe('0');

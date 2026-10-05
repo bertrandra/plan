@@ -21,7 +21,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     flèche, remplissage, matériau, couleur, texture, piliers (largeur, hauteur, parement, chapeau),
     retrait, motorisation ; « Montrer ouvert » est un réglage d'affichage ; un portillon s'accole au
     portail d'un clic ; des alertes signalent un accès qui dépasse le côté, un coulissant sans place
-    de refoulement, un battant qui s'ouvre vers la rue.
+    de refoulement, un battant qui s'ouvre vers la rue. « Placer sur le plan… » pose l'accès d'un
+    clic sur un côté de la parcelle, centré sur le point cliqué.
   - Vue 3D : chaque tronçon dans sa matière, les poteaux, les couvertines, les soubassements, les
     piliers, les vantaux fermés ou ouverts (`three/cloture3d.ts`).
   - Plan à l'écran : la clôture doublée le long de la limite dans un trait propre à chaque type, la

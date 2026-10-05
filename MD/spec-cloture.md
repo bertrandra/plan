@@ -44,8 +44,6 @@ une hauteur, une couleur, une texture, rendue en 3D seulement. Désormais :
 
 ### 1.2 Ce que cette version ne fait pas (voir §10)
 
-- Pas de pose d'un portail **par clic sur le plan** : la position se saisit en mètres, le côté dans
-  une liste qui donne son orientation et sa longueur.
 - Pas de chiffrage, pas d'export.
 - Pas d'accessoires (coffret de compteurs, boîte aux lettres, interphone).
 
@@ -177,6 +175,7 @@ Deux sections sur la parcelle du projet, rangées dans la famille **Construction
 | Ajouter un portail, Ajouter un portillon | bouton | sur le côté « sur rue » s'il y en a un, sinon le plus long, au milieu |
 | Un accès par ligne : résumé (« Portail 3,50 m · côté 2 · à 4,20 m ») | ligne | **Régler**, **Supprimer** |
 | Accès en cours | choix | choix d'affichage |
+| Placer sur le plan… | bouton | un pointage (`purpose: 'acces'`, `interaction/pointeur.ts`) : le clic sur un côté de la parcelle pose l'accès en cours centré sur le point cliqué, sans sortir du côté ; Échap annule |
 | Côté | choix | « Côté N — orientation, longueur » |
 | Position, Largeur, Hauteur | nombre | |
 | Ouverture | choix | un battant, deux battants, coulissant |
@@ -193,6 +192,8 @@ Deux sections sur la parcelle du projet, rangées dans la famille **Construction
 
 Les écritures passent par les descripteurs : `historique` implicite, « projet modifié », effets
 `rendu` et `scene3d`. Aucune commande nouvelle n'est nécessaire : les boutons agissent en `projet`.
+La pose par clic est le seul geste hors descripteur : le pointeur empile l'instantané, marque le
+projet modifié, redessine le plan et reconstruit la Vue 3D si elle est ouverte (`model/cloture.ts::poserAcces`).
 
 ---
 
@@ -261,7 +262,7 @@ vérifier sur le plan la coupure et les arcs, dans les trois classes et les deux
 
 ## 10. Suite possible
 
-- Pose d'un accès par clic sur le côté, et poignée de déplacement le long de la limite.
+- Poignée de déplacement d'un accès le long de la limite.
 - Export SVG, PDF, DXF de la clôture et des accès (version majeure).
 - Chiffrage de la clôture (version majeure).
 - Accessoires sur rue : coffret de compteurs, boîte aux lettres, interphone.
