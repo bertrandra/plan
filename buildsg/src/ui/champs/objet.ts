@@ -18,6 +18,7 @@ import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePosit
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { sectionsPergola } from './pergola.js';
+import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
@@ -449,6 +450,7 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
   if (estTerrain(o)) sections.push(sectionParcelle);
+  if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
   if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
