@@ -73,8 +73,9 @@ import { PREFIXE_ECHANTILLON, type SourceControleurs } from './controleurs.js';
 import { inventorierLesClasses } from './decouverteClasses.js';
 import type { ChampChoix } from '../ui/champs/types.js';
 import type { RegistreCommandes } from './commandes.js';
-import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, adresseVitrine, resoudreCourse, cadrageSurParcelle, type SceneZoomable, type Vitrine } from './vitrine.js';
-import { leverEtCoucher } from '../geo/soleil.js';
+import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, adresseVitrine, resoudreCourse, cadrageSurParcelle, cercleParcelle, type SceneZoomable, type Vitrine } from './vitrine.js';
+import { leverEtCoucher, positionSoleil } from '../geo/soleil.js';
+import { appliquerSoleilVitrine } from '../three/soleilVitrine.js';
 import { brancherMenuVitrine } from './menuVitrine.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
@@ -462,15 +463,38 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
       c.autoRotate = rotation !== null;
       c.autoRotateSpeed = rotation ?? 0;
     };
-    setInterval(appliquerRotation, 250);
+    // Le soleil qu'on voit, autour de la parcelle, et le ciel du couchant (three/soleilVitrine.ts) :
+    // reposes a chaque pas, comme la rotation, parce que l'heure court et que la scene se reconstruit.
+    const scene = { soleil: options.vitrine.soleil, couchant: options.vitrine.couchant };
+    const poserSoleilVitrine = (pos: { elevRad: number; azRad: number }) => {
+      const s = vue3d.scene;
+      const parcelle = parcelleDuProjet(etat.objects);
+      if (!s || !vue3d.centre || !parcelle || !aDesSommets(parcelle)) return;
+      const cercle = cercleParcelle(parcelle.pts, vue3d.centre);
+      if (cercle) appliquerSoleilVitrine(s, pos, cercle, scene);
+    };
+    // A chaque pose du soleil, avant le rendu (three/soleilVue3d.ts) : pas de clignotement.
+    vue3d.apresSoleil = poserSoleilVitrine;
+    // Et quand rien ne bouge (heure fixe, scene reconstruite) : depuis l'etat du soleil.
+    const appliquerSoleil = () => {
+      const [a, mo, j] = vues.vues3d.soleil3d.etat.dateStr.split('-').map(Number);
+      if (!a || !mo || !j) return;
+      const lieu = p.affichage.lieuActuel();
+      poserSoleilVitrine(positionSoleil(a, mo, j, vues.vues3d.soleil3d.etat.minutes / 60, lieu.latitude, lieu.longitude));
+    };
+    setInterval(() => { appliquerRotation(); appliquerSoleil(); }, 250);
     // Le clic droit : rafraichir, copier l'adresse (avec la date et la rotation), et les reglages.
     brancherMenuVitrine({
-      adresse: () => adresseVitrine(location.href, dateChoisie, rotation),
+      adresse: () => adresseVitrine(location.href, dateChoisie, rotation, scene),
       reglages: {
         date: () => vues.vues3d.soleil3d.etat.dateStr,
         poserDate: (d) => { dateChoisie = d; vues.vues3d.soleil3d.date(d); lancerCourse(); },
         rotation: () => rotation,
-        poserRotation: (v) => { rotation = v; appliquerRotation(); }
+        poserRotation: (v) => { rotation = v; appliquerRotation(); },
+        soleil: () => scene.soleil,
+        poserSoleil: (v) => { scene.soleil = v; appliquerSoleil(); },
+        couchant: () => scene.couchant,
+        poserCouchant: (v) => { scene.couchant = v; appliquerSoleil(); }
       }
     });
     if (options.vitrine.orthophoto) {

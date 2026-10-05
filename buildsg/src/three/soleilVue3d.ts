@@ -44,6 +44,7 @@ export function appliquer(ctx: ContexteSoleilVue3d): void {
   );
   // Une date illisible laisse le soleil ou il etait, et son libelle avec.
   if (!position) return;
+  vue3d.apresSoleil?.(position);
   affichage3d.soleilInfo = libelleSoleil(position.elevRad, position.azRad);
   signaler3d();
   // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
