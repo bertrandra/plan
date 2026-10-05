@@ -14,9 +14,10 @@
 // vitesse en tours par minute (negative : l'autre sens). L'adresse copiee les porte (`date=`,
 // `rotation=`) : la coller ailleurs rouvre la meme scene, au meme jour, tournant pareil.
 //
-// **Copier depuis un <iframe>** : le presse-papiers n'est permis a un cadre d'une autre origine que
-// si la page qui l'encadre le lui accorde (`<iframe allow="clipboard-write">`). Sans cela, on retombe
-// sur l'ancienne copie par selection, puis, en dernier recours, on montre l'adresse a copier a la main.
+// **Copier depuis un <iframe>** : le presse-papiers moderne n'est permis a un cadre d'une autre
+// origine que si la page qui l'encadre le lui accorde (`<iframe allow="clipboard-write">`). La copie
+// passe donc d'abord par l'evenement `copy`, synchrone, dans le clic, qui n'en a pas besoin
+// (`copierParEvenement`) ; en dernier recours, l'adresse s'affiche, a copier a la main.
 
 /** Au-dela, entre l'appui du bouton droit et le menu, c'est un glisser — un deplacement de la scene. */
 export const TOLERANCE_GLISSER_PX = 5;
@@ -33,25 +34,44 @@ export const DUREE_APPUI_LONG_MS = 500;
 /** Au-dela, le doigt a glisse : c'est un geste sur la scene, pas un appui long. */
 export const TOLERANCE_DOIGT_PX = 10;
 
-/** Copie un texte : le presse-papiers moderne, sinon la copie par selection. Rend vrai si c'est fait. */
+/**
+ * Copie par l'evenement `copy`, SYNCHRONE : a appeler dans le clic lui-meme, avant toute attente.
+ * Rend vrai seulement si le navigateur a vraiment declenche la copie — le gestionnaire a pose le
+ * texte. `execCommand('copy')` seul ne suffit pas a le dire : il rend vrai meme quand il n'a rien
+ * copie (une selection impossible, un cadre qui n'en a pas le droit).
+ *
+ * Pas de zone de texte a selectionner : dans la vitrine, tout ce qui n'est pas la scene est masque
+ * (`visibility:hidden`), et un champ masque ne se selectionne pas — la copie partait vide en disant
+ * « Adresse copiee ».
+ */
+export function copierParEvenement(texte: string, doc: Document = document): boolean {
+  let pose = false;
+  const surCopie = (e: ClipboardEvent) => {
+    if (!e.clipboardData) return;
+    e.clipboardData.setData('text/plain', texte);
+    e.preventDefault();
+    pose = true;
+  };
+  doc.addEventListener('copy', surCopie, true);
+  try { doc.execCommand('copy'); } catch { /* refusee : `pose` reste faux */ }
+  doc.removeEventListener('copy', surCopie, true);
+  return pose;
+}
+
+/**
+ * Copie un texte. D'abord par l'evenement `copy`, synchrone, dans le clic : c'est la voie qui marche
+ * aussi dans un <iframe> d'une autre origine sans `allow="clipboard-write"`. Sinon le presse-papiers
+ * moderne. Rend vrai si c'est fait ; faux, et l'appelant montre l'adresse a copier a la main.
+ */
 export async function copierTexte(texte: string, doc: Document = document): Promise<boolean> {
+  if (copierParEvenement(texte, doc)) return true;
   try {
     if (doc.defaultView?.navigator.clipboard?.writeText) {
       await doc.defaultView.navigator.clipboard.writeText(texte);
       return true;
     }
-  } catch { /* refuse (cadre sans clipboard-write) : on essaie l'ancienne voie */ }
-  const zone = doc.createElement('textarea');
-  zone.value = texte;
-  zone.setAttribute('readonly', '');
-  zone.style.position = 'fixed';
-  zone.style.opacity = '0';
-  doc.body.appendChild(zone);
-  zone.select();
-  let fait = false;
-  try { fait = doc.execCommand('copy'); } catch { fait = false; }
-  zone.remove();
-  return fait;
+  } catch { /* refuse (cadre sans clipboard-write) */ }
+  return false;
 }
 
 /** Ce que le menu regle dans la scene ; absent, il ne propose que Rafraichir et Copier. */

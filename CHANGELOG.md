@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Vitrine : « Copier l'adresse » copie vraiment, aussi dans un `<iframe>`.** Dans l'`<iframe>` de
+  la plateforme sans `allow="clipboard-write"`, le menu disait « Adresse copiée » sans rien copier.
+  Le presse-papiers moderne y est refusé. La copie de secours sélectionnait un champ masqué par la
+  feuille de la vitrine (`visibility:hidden`), donc rien, et `execCommand` rendait vrai quand même.
+  La copie passe d'abord par l'événement `copy`, synchrone, dans le clic : elle ne demande ni
+  sélection ni permission, et ne compte que si le navigateur l'a vraiment déclenchée
+  (`copierParEvenement`). Ensuite le presse-papiers moderne, puis l'adresse affichée à copier à la
+  main. Vérifié dans un `<iframe>` d'une autre origine, avec et sans `allow`, à la souris et au doigt.
+
 ### Ajouté
 
 - **Vitrine au doigt : l'appui long ouvre le menu de la scène.** Sur téléphone et tablette, il n'y
