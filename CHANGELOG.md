@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Vitrine (`?mode=demo`) : le soleil court du lever au coucher, la caméra tourne, la parcelle est
+  cadrée.**
+  - Avec `heureauto=y` sans `hrsstart` ni `hrsend`, l'heure court du lever au coucher du soleil, au
+    jour affiché et au lieu de la parcelle (`geo/soleil.ts` `leverEtCoucher`, le même modèle que
+    celui qui éclaire la scène ; 7 h et 20 h si le plan n'a pas de lieu). Une borne donnée est
+    gardée, l'autre suit le soleil. Changer la date au clic droit recalcule la course.
+  - La rotation automatique est active par défaut, à un tour par minute ; `rotation=n` (ou 0)
+    l'arrête, et l'adresse copiée l'écrit alors (`rotation=0`).
+  - À l'ouverture, la caméra se cadre sur la parcelle entière, son centre en visée, au lieu de la
+    terrasse ; un `pdv` demandé garde la priorité, et `zoom` s'applique ensuite.
+
 ### Ajouté
 
 - **Clic droit sur la vitrine (`?mode=demo`) : « Rafraîchir » et « Copier l'adresse ».** La vitrine

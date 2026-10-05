@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { lireVitrine, poserVitrine, appliquerZoom, trouverPointDeVue, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DUREE_MIN_S, DUREE_MAX_S, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, type SceneZoomable } from '../../../src/app/vitrine.js';
+import { lireVitrine, poserVitrine, appliquerZoom, trouverPointDeVue, lireHeure, heureALInstant, animerHeure, dateDuJour, HEURE_DEBUT_DEFAUT, HEURE_FIN_DEFAUT, DUREE_JOURNEE_MS, DUREE_MIN_S, DUREE_MAX_S, DIMENSION_MIN, DIMENSION_MAX, ZOOM_MIN, ZOOM_MAX, ROTATION_VITRINE, type SceneZoomable } from '../../../src/app/vitrine.js';
 
 // La vitrine publique (src/app/vitrine.ts) : la Vue 3D de la demonstration, encadree par la page
 // d'accueil du catalogue de la plateforme.
@@ -12,17 +12,17 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
@@ -82,10 +82,11 @@ describe('la course du soleil de la vitrine', () => {
     for (const v of ['25', '14:60', '24:10', 'midi', '', null]) expect(lireHeure(v), String(v)).toBeNull();
   });
 
-  it('ne court qu avec heureauto=y, de 7 h a 20 h par defaut', () => {
+  it('ne court qu avec heureauto=y ; sans hrsstart ni hrsend, les bornes suivent le soleil', () => {
     expect(lireVitrine('?mode=demo')!.heureAuto).toBeNull();
     expect(lireVitrine('?mode=demo&heureauto=n&hrsstart=8')!.heureAuto).toBeNull();
-    expect(lireVitrine('?mode=demo&heureauto=y')!.heureAuto).toEqual({ debut: HEURE_DEBUT_DEFAUT, fin: HEURE_FIN_DEFAUT, dureeMs: DUREE_JOURNEE_MS });
+    expect(lireVitrine('?mode=demo&heureauto=y')!.heureAuto).toEqual({ debut: null, fin: null, dureeMs: DUREE_JOURNEE_MS });
+    expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=9')!.heureAuto).toEqual({ debut: 540, fin: null, dureeMs: DUREE_JOURNEE_MS });
     expect(lireVitrine('?mode=demo&heureauto=y&hrsstart=9&hrsend=18:30')!.heureAuto).toEqual({ debut: 540, fin: 1110, dureeMs: DUREE_JOURNEE_MS });
   });
 
@@ -232,7 +233,12 @@ describe('date et rotation de la vitrine', () => {
     expect(lireVitrine('?mode=demo&rotation=-1,5')!.rotation).toBe(-1.5);
     expect(lireVitrine('?mode=demo&rotation=99')!.rotation).toBe(ROTATION_MAX);
     expect(lireVitrine('?mode=demo&rotation=0')!.rotation).toBe(null);
-    expect(lireVitrine('?mode=demo&rotation=vite')!.rotation).toBe(null);
+    expect(lireVitrine('?mode=demo&rotation=n')!.rotation).toBe(null);
+    expect(lireVitrine('?mode=demo&rotation=non')!.rotation).toBe(null);
+    // Par defaut, la vitrine tourne ; « oui » ou illisible : la vitesse par defaut.
+    expect(lireVitrine('?mode=demo')!.rotation).toBe(ROTATION_VITRINE);
+    expect(lireVitrine('?mode=demo&rotation=y')!.rotation).toBe(ROTATION_VITRINE);
+    expect(lireVitrine('?mode=demo&rotation=vite')!.rotation).toBe(ROTATION_VITRINE);
   });
 
   it('l adresse copiee porte la date et la rotation choisies, et garde le reste', async () => {
@@ -241,6 +247,43 @@ describe('date et rotation de la vitrine', () => {
     expect(u.searchParams.get('file')).toBe('2');
     expect(u.searchParams.get('date')).toBe('2026-12-21');
     expect(u.searchParams.get('rotation')).toBe('-2');
-    expect(new URL(adresseVitrine('https://p.r/?mode=demo&rotation=1', null, null)).searchParams.has('rotation')).toBe(false);
+    // Arretee se dit : sans le parametre, la vitrine tournerait.
+    expect(new URL(adresseVitrine('https://p.r/?mode=demo&rotation=1', null, null)).searchParams.get('rotation')).toBe('0');
+  });
+});
+
+describe('la course du soleil, du lever au coucher', () => {
+  it('prend le lever et le coucher pour les bornes absentes, garde celles donnees', async () => {
+    const { resoudreCourse } = await import('../../../src/app/vitrine.js');
+    const lc = { lever: 7 * 60 + 52, coucher: 19 * 60 + 18 };
+    expect(resoudreCourse({ debut: null, fin: null, dureeMs: 1000 }, lc)).toEqual({ debut: 472, fin: 1158, dureeMs: 1000 });
+    expect(resoudreCourse({ debut: 540, fin: null, dureeMs: 1000 }, lc)).toEqual({ debut: 540, fin: 1158, dureeMs: 1000 });
+    // Sans lieu (pas de lever ni coucher connus) : 7 h et 20 h.
+    expect(resoudreCourse({ debut: null, fin: null, dureeMs: 1000 }, null)).toEqual({ debut: HEURE_DEBUT_DEFAUT, fin: HEURE_FIN_DEFAUT, dureeMs: 1000 });
+  });
+
+  it('calcule le lever et le coucher au Vesinet : plus tot et plus tard en juin qu en decembre', async () => {
+    const { leverEtCoucher } = await import('../../../src/geo/soleil.js');
+    const juin = leverEtCoucher(2026, 6, 21, 48.905, 2.133)!;
+    const dec = leverEtCoucher(2026, 12, 21, 48.905, 2.133)!;
+    // Heures legales : environ 5 h 45 / 21 h 55 en juin, 8 h 40 / 16 h 55 en decembre.
+    expect(juin.lever).toBeGreaterThan(5 * 60 + 25); expect(juin.lever).toBeLessThan(6 * 60 + 5);
+    expect(juin.coucher).toBeGreaterThan(21 * 60 + 35); expect(juin.coucher).toBeLessThan(22 * 60 + 15);
+    expect(dec.lever).toBeGreaterThan(8 * 60 + 20); expect(dec.lever).toBeLessThan(9 * 60);
+    expect(dec.coucher).toBeGreaterThan(16 * 60 + 35); expect(dec.coucher).toBeLessThan(17 * 60 + 15);
+    expect(leverEtCoucher(2026, 6, 21, 80, 0)).toBe(null);
+  });
+});
+
+describe('le cadrage sur la parcelle a l ouverture', () => {
+  it('vise le centre de la parcelle, dans le repere de la scene, et la tient dans le champ', async () => {
+    const { cadrageSurParcelle } = await import('../../../src/app/vitrine.js');
+    const carre = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }];
+    // La scene est centree sur une terrasse en (5, 5) : x vers l'Est, z = centre.y - y.
+    const c = cadrageSurParcelle(carre, { x: 5, y: 5 })!;
+    expect(c.cible).toEqual({ x: 5, y: 0, z: -5 });
+    const rayon = Math.hypot(10, 10);
+    expect(c.camera).toEqual({ x: 5 + rayon * 1.8, y: rayon * 1.8, z: -5 + rayon * 1.8 });
+    expect(cadrageSurParcelle([{ x: 0, y: 0 }], { x: 0, y: 0 })).toBe(null);
   });
 });
