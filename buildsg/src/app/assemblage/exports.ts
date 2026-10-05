@@ -8,6 +8,7 @@ import { construireDXF } from '../../export/dxfPlan.js';
 import { construireSVG } from '../../export/svgPlan.js';
 import { construirePDF } from '../../export/pdfPlan.js';
 import { construireDossierPDF } from '../../export/dossierPdf.js';
+import { construireDossierPiscine } from '../../export/dossierPiscine.js';
 import { construireNoteCalculPDF, noteExportable } from '../../export/noteCalculPdf.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
 import { assemblerDossierMairie } from '../../export/dossierMairie.js';
@@ -67,6 +68,8 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
       d.options().dossierEquipements,
       { nomProjet: nomProjet(), appVersion: APP_VERSION }),
+    // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
+    construireDossierPiscine: () => construireDossierPiscine(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
     construireNoteCalcul: () => {
       const o = abriSelectionne();

@@ -15,6 +15,7 @@ import { Methode } from './Methode.js';
 import { Cotes } from './Cotes.js';
 import { Plu } from './Plu.js';
 import { Resume } from './Resume.js';
+import { NoteCalcul } from './NoteCalcul.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -41,6 +42,7 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
     case 'mesure': contenu = <Cotes resultats={resultats} commandes={commandes} />; break;
     case 'plu': contenu = <Plu resultats={resultats} commandes={commandes} />; break;
     case 'resume': contenu = <Resume resultats={resultats} commandes={commandes} />; break;
+    case 'noteCalcul': contenu = <NoteCalcul resultats={resultats} commandes={commandes} />; break;
   }
   return <div id={onglet.panneau} role="tabpanel" aria-label={onglet.libelle}>{contenu}</div>;
 }
