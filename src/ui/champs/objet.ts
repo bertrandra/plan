@@ -18,6 +18,7 @@ import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePosit
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { sectionsPergola } from './pergola.js';
+import { sectionsCloture } from './cloture.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
@@ -430,20 +431,14 @@ const sectionAlignement: Section = {
   ]
 };
 
-// La cloture est rattachee a la parcelle, comme le lieu : elle se sauvegarde avec le projet. Une
-// parcelle voisine (import cadastre, `fonction: terrain` elle aussi) n'en montre que le cadastre :
-// la Vue 3D ne dessine que la cloture de la parcelle du projet (ui/cloture.ts), et le lieu est le
-// sien. Lui offrir ces reglages, c'etait ecrire le projet sans effet visible.
+// La parcelle voisine (import cadastre, `fonction: terrain` elle aussi) n'en montre que le cadastre :
+// le lieu est celui de la parcelle du projet. La cloture et ses acces ont leurs sections a part
+// (ui/champs/cloture.ts), sur la parcelle du projet seulement.
 const sectionParcelle: Section = {
   id: 'parcelle', titre: 'Parcelle',
   champs: [
     { type: 'lecture', cle: 'lieu', libelle: 'Lieu', visible: estParcellePrincipale, valeur: (c) => { const l = lieuDeParcelle(c.obj); return l.nom + ' — ' + l.latitude.toFixed(4) + '° N, ' + l.longitude.toFixed(4) + '° E'; } },
     { type: 'lecture', cle: 'cadastre', libelle: 'Cadastre', visible: (c) => !!c.obj.cadastre, valeur: (c) => { const k = c.obj.cadastre ?? {}; return [k.commune, k.section, k.numero].filter(v => typeof v === 'string' && v).join(' ') || 'parcelle importée'; } },
-    { type: 'case', cle: 'clotureActive', visible: estParcellePrincipale, libelle: 'Clôture autour de la parcelle', effets: ['inspecteur', 'scene3d'], lire: (c) => !!c.obj.clotureActive, ecrire: (c, v) => { c.obj.clotureActive = v; } },
-    // Hauteur plafonnee par le bas a 0,10 m, repliee sur 1,80 m si la saisie n'est pas un nombre.
-    { type: 'nombre', cle: 'clotureHauteur', visible: estParcellePrincipale, libelle: 'Hauteur de la clôture', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureHauteur ?? 1.8, ecrire: (c, v) => { c.obj.clotureHauteur = Math.max(0.1, v) || 1.8; } },
-    { type: 'couleur', cle: 'clotureCouleur', visible: estParcellePrincipale, libelle: 'Couleur de la clôture', effets: ['scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureCouleur || '#6b4a2a', ecrire: (c, v) => { c.obj.clotureCouleur = v; } },
-    { type: 'texture', cle: 'clotureTexture', visible: estParcellePrincipale, libelle: 'Texture de la clôture', effets: ['inspecteur', 'scene3d'], actif: (c) => !!c.obj.clotureActive, lire: (c) => c.obj.clotureTexture, ecrire: (c, v) => { c.obj.clotureTexture = v; } }
   ]
 };
 
@@ -451,7 +446,7 @@ const sectionParcelle: Section = {
 export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
-  if (estTerrain(o)) sections.push(sectionParcelle);
+  if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c));
   if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
