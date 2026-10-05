@@ -11,7 +11,7 @@
 
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import type { ObjetPlan, ObjetAPoints } from '../model/types.js';
+import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -157,6 +157,8 @@ export const vue3d: {
    * Vaut `CLE_SANS_TERRASSE` quand le plan n'en a pas.
    */
   dernierObjKey: string | null;
+  /** Le point du plan au centre de la scene (son origine locale) : de quoi y placer un autre cadrage. */
+  centre: PtBrut | null;
   tousLesObjets: boolean;
   objetsOpaques: boolean;
   textures: boolean;
@@ -164,6 +166,7 @@ export const vue3d: {
 } = {
   scene: null,
   dernierObjKey: null,
+  centre: null,
   // Montrer tout le plan par defaut : une terrasse seule au milieu du vide ne se situe pas.
   tousLesObjets: true,
   objetsOpaques: true,
