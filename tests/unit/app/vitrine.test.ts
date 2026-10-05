@@ -12,22 +12,22 @@ describe('l adresse de la vitrine', () => {
     expect(lireVitrine('')).toBeNull();
     expect(lireVitrine('?projet=abc')).toBeNull();
     expect(lireVitrine('?mode=plan')).toBeNull();
-    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
+    expect(lireVitrine('?mode=demo')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE, soleil: true, couchant: true });
   });
 
   it('lit x et y en pixels, bornes', () => {
-    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
-    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
+    expect(lireVitrine('?mode=demo&x=1024&y=768')).toEqual({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE, soleil: true, couchant: true });
+    expect(lireVitrine('?mode=demo&x=10&y=99999')).toEqual({ largeur: DIMENSION_MIN, hauteur: DIMENSION_MAX, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE, soleil: true, couchant: true });
   });
 
   it('ignore une dimension qui n est pas un entier', () => {
-    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
-    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE });
+    expect(lireVitrine('?mode=demo&x=abc&y=-5')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE, soleil: true, couchant: true });
+    expect(lireVitrine('?mode=demo&x=100px;background:red')).toEqual({ largeur: null, hauteur: null, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: ROTATION_VITRINE, soleil: true, couchant: true });
   });
 
   it('pose data-vitrine et la taille de la scene', () => {
     const racine = document.createElement('html');
-    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null }, racine);
+    poserVitrine({ largeur: 1024, hauteur: 768, zoom: null, orthophoto: false, heureAuto: null, pdv: null, fichier: null, date: null, rotation: null, soleil: true, couchant: true }, racine);
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
@@ -291,5 +291,20 @@ describe('le cadrage sur la parcelle a l ouverture', () => {
     expect(portrait.camera.y).toBeCloseTo(rayon * 1.8 * 844 / 390, 6);
     // En paysage, rien ne change.
     expect(cadrageSurParcelle(carre, { x: 5, y: 5 }, 16 / 9)).toEqual(c);
+  });
+});
+
+describe('le soleil visible et le couchant, dans l adresse', () => {
+  it('sont la par defaut ; soleil=n et couchant=n les retirent', async () => {
+    const { lireVitrine } = await import('../../../src/app/vitrine.js');
+    expect(lireVitrine('?mode=demo')).toMatchObject({ soleil: true, couchant: true });
+    expect(lireVitrine('?mode=demo&soleil=n&couchant=non')).toMatchObject({ soleil: false, couchant: false });
+  });
+
+  it('l adresse copiee n ecrit que leur absence', async () => {
+    const { adresseVitrine } = await import('../../../src/app/vitrine.js');
+    const u = new URL(adresseVitrine('https://p.r/?mode=demo&soleil=n', null, 1, { soleil: true, couchant: false }));
+    expect(u.searchParams.has('soleil')).toBe(false);
+    expect(u.searchParams.get('couchant')).toBe('n');
   });
 });

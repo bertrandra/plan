@@ -47,7 +47,11 @@
 // scene, depuis sa position, a un tour par minute PAR DEFAUT ; `rotation=<n>` en regle la vitesse
 // (tours par minute, negatif : l'autre sens ; de -10 a 10), `rotation=n` (ou 0) l'arrete.
 //
-// A l'ouverture, la camera se cadre sur la PARCELLE — sauf si `pdv` en demande une autre. Les deux se reglent aussi au clic droit, qui propose encore « Rafraichir » et
+// A l'ouverture, la camera se cadre sur la PARCELLE — sauf si `pdv` en demande une autre.
+//
+// Un disque de soleil tourne autour de la parcelle, a l'azimut du vrai soleil et plus bas que lui
+// pour rester dans le champ ; pres du coucher, le ciel vire au beige de savane (three/soleilVitrine.ts).
+// Les deux sont la par defaut ; `soleil=n` et `couchant=n` les retirent, le clic droit aussi. Les deux se reglent aussi au clic droit, qui propose encore « Rafraichir » et
 // « Copier l'adresse » — l'adresse copiee porte la date et la rotation choisies (app/menuVitrine.ts).
 
 import { migrer } from '../model/migrations.js';
@@ -91,6 +95,10 @@ export interface Vitrine {
   date: string | null;
   /** La rotation automatique, en tours par minute (`rotation`) ; `null` : la camera ne tourne pas. */
   rotation: number | null;
+  /** Le disque du soleil autour de la parcelle (`soleil`). Vrai par defaut. */
+  soleil: boolean;
+  /** Le ciel du couchant, beige de savane (`couchant`). Vrai par defaut. */
+  couchant: boolean;
 }
 
 /** Les bornes de la rotation automatique, en tours par minute. */
@@ -187,13 +195,19 @@ export function lireVitrine(recherche: string): Vitrine | null {
     pdv: (p.get('pdv') ?? '').trim().slice(0, 80) || null,
     fichier: ID_DEMO.test((p.get('file') ?? '').trim()) ? (p.get('file') ?? '').trim() : null,
     date: lireDate(p.get('date')),
-    rotation: lireRotation(p.get('rotation'))
+    rotation: lireRotation(p.get('rotation')),
+    soleil: !NON.test((p.get('soleil') ?? '').trim()),
+    couchant: !NON.test((p.get('couchant') ?? '').trim())
   };
 }
 
 /** L'adresse de la vitrine, avec la date et la rotation telles qu'elles sont a l'ecran. */
-export function adresseVitrine(href: string, date: string | null, rotation: number | null): string {
+export function adresseVitrine(href: string, date: string | null, rotation: number | null,
+  scene: { soleil: boolean; couchant: boolean } = { soleil: true, couchant: true }): string {
   const u = new URL(href);
+  // Presents par defaut : seule leur absence s'ecrit.
+  if (scene.soleil) u.searchParams.delete('soleil'); else u.searchParams.set('soleil', 'n');
+  if (scene.couchant) u.searchParams.delete('couchant'); else u.searchParams.set('couchant', 'n');
   if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
   // Arretee se dit (`rotation=0`) : sans le parametre, la vitrine tourne.
   u.searchParams.set('rotation', String(rotation ?? 0));
@@ -315,14 +329,21 @@ export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch)
  * scene : le champ de la camera (45 degres) est VERTICAL, donc plus etroit en largeur sur un
  * telephone en portrait — la distance s'allonge d'autant, sans quoi la parcelle deborde des cotes.
  */
-export function cadrageSurParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }, aspect = 1): {
-  cible: { x: number; y: number; z: number }; camera: { x: number; y: number; z: number };
-} | null {
+/** Le centre (barycentre des sommets) et le rayon de la parcelle, dans le repere de la scene. */
+export function cercleParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }): { x: number; z: number; rayon: number } | null {
   if (pts.length < 3) return null;
   const { x: cx, y: cy } = centroid(pts);
   const rayon = Math.max(3, ...pts.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+  return { x: cx - centre.x, z: centre.y - cy, rayon };
+}
+
+export function cadrageSurParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }, aspect = 1): {
+  cible: { x: number; y: number; z: number }; camera: { x: number; y: number; z: number };
+} | null {
+  const c = cercleParcelle(pts, centre);
+  if (!c) return null;
   // Meme formule que la scene : etendue = 2 x rayon, camera a 0,9 x etendue sur chaque axe.
-  const d = rayon * 2 * 0.9 * (aspect > 0 && aspect < 1 ? 1 / aspect : 1);
-  const cible = { x: cx - centre.x, y: 0, z: centre.y - cy };
+  const d = c.rayon * 2 * 0.9 * (aspect > 0 && aspect < 1 ? 1 / aspect : 1);
+  const cible = { x: c.x, y: 0, z: c.z };
   return { cible, camera: { x: cible.x + d, y: d, z: cible.z + d } };
 }

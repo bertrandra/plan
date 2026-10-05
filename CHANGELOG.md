@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vitrine : le soleil se voit, et le couchant colore la scène.** Un disque de soleil tourne autour
+  de la parcelle, à l'azimut du vrai soleil : levant à l'est, couchant à l'ouest. Sa hauteur est
+  réduite (×0,4, 28° au plus) pour qu'il reste dans le champ d'une caméra qui regarde la parcelle
+  d'en haut, et il ne porte pas d'ombre. Près du lever et du coucher (sous 12° de hauteur), le ciel
+  vire au beige de savane, la lumière d'ambiance se fait dorée et reste claire, et le disque passe
+  du jaune à l'orange. Au crépuscule, cela s'efface. Deux cases au clic droit (« Soleil visible »,
+  « Couleurs du couchant ») et deux paramètres d'adresse, actifs par défaut : `soleil=n`,
+  `couchant=n` (`three/soleilVitrine.ts`). La retouche se fait avant le rendu de chaque pas d'heure
+  (`vue3d.apresSoleil`), sans clignotement.
+
 ### Corrigé
 
 - **Vitrine : `file=` marche aussi dans un `<iframe>` en bac à sable.** La plateforme encadre la
