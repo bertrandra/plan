@@ -1476,6 +1476,16 @@
     color:var(--ink); font:inherit; cursor:pointer;
   }
   .menuVitrine button:hover, .menuVitrine button:focus-visible{ background:var(--accent-light); color:var(--on-accent-light); outline:none; }
+  .menuVitrineSeparateur{ height:1px; margin:4px 6px; background:var(--hairline); }
+  .menuVitrineLigne{ display:flex; align-items:center; gap:8px; min-height:36px; padding:0 8px; color:var(--ink); }
+  .menuVitrineLigne label{ flex:1; white-space:nowrap; }
+  .menuVitrineLigne input[type=date], .menuVitrineLigne input[type=number]{
+    min-height:28px; padding:0 6px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg);
+    color:var(--ink); font:inherit; font-variant-numeric:tabular-nums;
+  }
+  .menuVitrineLigne input[type=number]{ width:64px; }
+  .menuVitrineLigne input[type=checkbox]{ width:18px; height:18px; margin:0; accent-color:var(--accent); }
+  .menuVitrineUnite{ color:var(--ink-soft); font-size:0.72rem; }
   .menuVitrineAdresse{ min-height:32px; width:min(70vw, 420px); padding:0 8px; border:1px solid var(--rule); border-radius:6px; background:var(--input-bg); color:var(--ink); font:inherit; }
   /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
   html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,

@@ -46,9 +46,6 @@ async function demarrer(): Promise<void> {
       const demo = vitrine.fichier ? await chargerDemoVitrine(vitrine.fichier) : null;
       const { boot, graineVitrine } = await import('./app/boot.js');
       boot(graineVitrine(demo), { vitrine });
-      // Clic droit : rafraichir, copier l'adresse de la vitrine (app/menuVitrine.ts).
-      const { brancherMenuVitrine } = await import('./app/menuVitrine.js');
-      brancherMenuVitrine();
       return;
     }
 
