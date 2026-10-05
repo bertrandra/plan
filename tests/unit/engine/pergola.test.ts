@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculerPergola, dimsPergola, metrageParSection, pergolaDe } from '../../../src/engine/pergola.js';
+import { calculerPergola, chiffrerPergola, dimsPergola, metrageParSection, pergolaDe, prixMlDe } from '../../../src/engine/pergola.js';
 import type { ObjetPlan, Pergola } from '../../../src/model/types.js';
 
 /** Une pergola rectangulaire de L x l metres, coin bas gauche a l'origine. */
@@ -122,5 +122,81 @@ describe('metrage par section', () => {
     expect(poteaux.debit.achatMl).toBeGreaterThanOrEqual(poteaux.ml);
     const poutres = m[1]!;
     expect(poutres.debit.achats).toEqual({ 4: 2, 3: 2 });
+  });
+});
+
+describe('aluminium', () => {
+  it('prend les profiles de la matiere et ne pose aucune contrefiche', () => {
+    const o = pergola(4, 3, { materiau: 'aluminium', avecContrefiches: true });
+    const r = pergolaDe(o);
+    expect(r).toMatchObject({ sectionPoteau: '100x100', sectionPoutre: '100x200', sectionChevron: '50x150', avecContrefiches: false, couleurBois: '#383e42' });
+    expect(r.longueursBois).toBe('6, 4, 3');
+    expect(compter(calculerPergola(o), 'contrefiche')).toBe(0);
+  });
+});
+
+describe('adossee a un mur', () => {
+  it('retire les poteaux du mur et y pose une lisse murale', () => {
+    // Reference : le cote bas (y = 0) ; le mur lui fait face (cote 2, y = 3).
+    const calc = calculerPergola(pergola(4, 3, { toit: 'appentis', adossee: true }))!;
+    expect(calc.reglages.coteMur).toBe(2);
+    const poteaux = calc.pieces.filter(p => p.role === 'poteau');
+    expect(poteaux).toHaveLength(2);
+    poteaux.forEach(p => expect(p.a.y).toBeCloseTo(0.06));
+    expect(compter(calc, 'lisse')).toBe(1);
+    expect(compter(calc, 'poutre')).toBe(3);
+    // Deux contrefiches par poteau restant, aucune vers le mur.
+    expect(compter(calc, 'contrefiche')).toBe(4);
+    expect(calc.avertissements).toEqual([]);
+  });
+
+  it('previent quand la pente descend vers le mur', () => {
+    const calc = calculerPergola(pergola(4, 3, { toit: 'appentis', adossee: true, coteMur: 0 }))!;
+    expect(calc.avertissements.join(' ')).toMatch(/descend vers le mur/);
+  });
+
+  it('ne s\'adosse pas avec un toit a quatre pans', () => {
+    expect(pergolaDe(pergola(4, 3, { toit: 'quatre-pans', adossee: true })).adossee).toBe(false);
+  });
+});
+
+describe('debord', () => {
+  it('prolonge poutres, chevrons et toile, sauf du cote du mur', () => {
+    const libre = calculerPergola(pergola(4, 3, { debord: 0.3 }))!;
+    const poutres = libre.pieces.filter(p => p.role === 'poutre').map(p => p.longueur).sort((a, b) => a - b);
+    expect(poutres[0]).toBeCloseTo(3 + 0.6);
+    expect(poutres[3]).toBeCloseTo(4 + 0.6);
+    expect(libre.surfaceCouverture).toBeCloseTo(4.6 * 3.6);
+    libre.pieces.filter(p => p.role === 'chevron').forEach(c => expect(c.longueur).toBeCloseTo(3.6));
+    const adossee = calculerPergola(pergola(4, 3, { debord: 0.3, adossee: true }))!;
+    expect(adossee.surfaceCouverture).toBeCloseTo(4.6 * 3.3);
+    expect(adossee.pieces.find(p => p.role === 'lisse')!.longueur).toBeCloseTo(4);
+  });
+
+  it('abaisse l\'egout d\'un toit a quatre pans sans changer le faitage', () => {
+    const sans = calculerPergola(pergola(5, 3, { toit: 'quatre-pans' }))!;
+    const avec = calculerPergola(pergola(5, 3, { toit: 'quatre-pans', debord: 0.3 }))!;
+    const faitage = (c: typeof sans) => c.pieces.find(p => p.role === 'faitage')!.a.z;
+    expect(faitage(avec)).toBeCloseTo(faitage(sans));
+    expect(avec.surfaceCouverture).toBeCloseTo(5.6 * 3.6 / Math.cos(Math.PI / 6));
+  });
+});
+
+describe('chiffrage', () => {
+  it('compte les barres achetees au prix du metre, et la toile au m²', () => {
+    const calc = calculerPergola(pergola(4, 3, { longueursBois: '3, 4', prixToile: 30 }))!;
+    const ch = chiffrerPergola(calc);
+    const poutres = ch.sections.find(s => s.section === '75x200')!;
+    expect(poutres.achatMl).toBeCloseTo(14);
+    expect(poutres.montant).toBeCloseTo(14 * 18);
+    expect(ch.couverture.montant).toBeCloseTo(12 * 30);
+    expect(ch.total).toBeCloseTo(ch.sections.reduce((s, l) => s + l.montant, 0) + 360);
+  });
+
+  it('prend le prix saisi, par matiere, et estime une section hors liste', () => {
+    const r = pergolaDe(pergola(4, 3, { prixMl: { 'bois:120x120': 21, 'aluminium:100x100': 50 } }));
+    expect(prixMlDe(r, '120x120')).toBe(21);
+    expect(prixMlDe(r, '100x100')).toBe(11);
+    expect(prixMlDe(pergolaDe(pergola(4, 3, { materiau: 'aluminium' })), '100x100')).toBe(35);
   });
 });

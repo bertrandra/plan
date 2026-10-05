@@ -66,11 +66,11 @@ describe('inspecteur', () => {
     const { obj } = nouvellePergola({ x: 0, y: 0 }, 'p', 1);
     const c = { obj, objets: [obj], elevationOf: () => 2.4 } as unknown as ContexteChamps;
     const sections = sectionsObjet(c);
-    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'metragePergola']));
+    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'metragePergola', 'prixPergola']));
     const elevation = sections[0]!.champs.find(ch => ch.cle === 'elevation')!;
     expect(elevation.visible!(c)).toBe(false);
     const metrage = sections.find(s => s.id === 'metragePergola')!;
-    expect(metrage.champs.map(ch => ch.libelle)).toEqual(['120 × 120 mm', '75 × 200 mm', '90 × 90 mm', '45 × 145 mm', 'Toile']);
+    expect(metrage.champs.map(ch => ch.libelle)).toEqual(['120 × 120 mm', '75 × 200 mm', '90 × 90 mm', '45 × 145 mm', 'Toile', 'Total fourniture']);
   });
 
   it('change de toit en oubliant la pente reglee pour l\'ancien', () => {
@@ -81,5 +81,19 @@ describe('inspecteur', () => {
     if (toit.type !== 'choix') throw new Error('choix attendu');
     toit.ecrire(c, 'quatre-pans');
     expect(obj.pergola).toEqual({ toit: 'quatre-pans' });
+  });
+});
+
+describe('matiere', () => {
+  it('passe a l\'aluminium : sections, longueurs et couleur de la matiere, prix saisis gardes', () => {
+    const { obj } = nouvellePergola({ x: 0, y: 0 }, 'p', 1);
+    obj.pergola = { debord: 0.2, sectionPoteau: '145x145', longueursBois: '5', prixMl: { 'bois:120x120': 20 } };
+    const c = { obj, objets: [obj] } as unknown as ContexteChamps;
+    const materiau = sectionsObjet(c).find(s => s.id === 'pergola')!.champs.find(ch => ch.cle === 'materiau')!;
+    if (materiau.type !== 'choix') throw new Error('choix attendu');
+    materiau.ecrire(c, 'aluminium');
+    expect(obj.pergola).toEqual({ debord: 0.2, materiau: 'aluminium', prixMl: { 'bois:120x120': 20 } });
+    const pergola = sectionsObjet(c).find(s => s.id === 'pergola')!;
+    expect(pergola.champs.find(ch => ch.cle === 'avecContrefiches')!.visible!(c)).toBe(false);
   });
 });
