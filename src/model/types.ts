@@ -156,6 +156,12 @@ interface ObjetCommun {
     grille?: boolean;
   } | null;
 
+  /**
+   * Ce que la declaration prealable demande en plus du plan : le declarant, l'adresse du terrain
+   * quand l'import ne l'a pas donnee, la residence. Range sur la parcelle, comme le lieu.
+   */
+  declaration?: DeclarationPrealable | null;
+
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;
   clotureHauteur?: number;
@@ -672,4 +678,33 @@ export interface HypothesesCalcul {
   poidsCouverture?: number;
   /** Obstruction sous le toit (NF EN 1991-1-4 §7.3, φ), de 0 a 1. */
   obstruction?: number;
+}
+
+/**
+ * Le declarant et son projet, pour le cerfa 13703 (declaration prealable, maison individuelle et
+ * ses annexes). Tout est facultatif : ce qui manque reste vide dans le formulaire, a completer a la main.
+ */
+export interface DeclarationPrealable {
+  nom?: string;
+  prenom?: string;
+  /** Date de naissance, AAAA-MM-JJ. */
+  naissance?: string;
+  communeNaissance?: string;
+  departementNaissance?: string;
+  paysNaissance?: string;
+  numero?: string;
+  voie?: string;
+  lieuDit?: string;
+  localite?: string;
+  codePostal?: string;
+  telephone?: string;
+  email?: string;
+  /** Recevoir les reponses de l'administration a cette adresse electronique. */
+  accepteEmail?: boolean;
+  /** L'adresse du terrain, quand elle differe de celle lue au cadastre. */
+  terrainNumero?: string;
+  terrainVoie?: string;
+  terrainLocalite?: string;
+  terrainCodePostal?: string;
+  residence?: 'principale' | 'secondaire';
 }

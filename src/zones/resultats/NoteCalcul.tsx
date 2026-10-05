@@ -3,7 +3,7 @@
 //
 // Rien n'est calcule ici : la note est une donnee du moteur, rendue en tableaux, une section par
 // sujet (geometrie, terrassement, structure, abords, hydraulique, equipements, reglementation). La
-// meme note s'imprime en annexe du dossier de mairie (export/dossierMairie.ts).
+// meme note s'imprime en annexe du dossier de mairie (export/dossierPiscine.ts).
 
 import { calculerPiscine, noteDeCalcul } from '../../engine/piscine.js';
 import { estPiscine } from '../../model/fonctions.js';
@@ -21,7 +21,7 @@ export function NoteCalcul({ resultats, commandes }: { resultats: Resultats; com
   return (
     <div id="piscineNoteWrap">
       <div className="controls">
-        <BoutonCommande commandes={commandes} id="export.dossierMairie" domId="dossierMairieBtn">Dossier mairie (PDF)</BoutonCommande>
+        <BoutonCommande commandes={commandes} id="export.dossierPiscine" domId="dossierPiscineBtn">Dossier mairie (PDF)</BoutonCommande>
       </div>
       <div className="hint">Pré-dimensionnement d'avant-projet pour « {piscine.name} » : chaque valeur dit la règle qui la donne. Ce n'est ni une étude de sol ni une note de calcul béton.</div>
       {sections.map(s => (

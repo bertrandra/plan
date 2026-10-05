@@ -121,8 +121,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.dxf': menu('menuExporter'),
   'export.pdf': menu('menuExporter'),
   'export.dossier': menu('menuExporter'),
-  'export.dossierMairie': menu('menuExporter', 'inspecteur'),
+  'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),
+  'export.declaration': menu('menuExporter', 'inspecteur'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------

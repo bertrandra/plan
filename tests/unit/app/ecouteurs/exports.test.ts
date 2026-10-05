@@ -23,9 +23,11 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
   const ctx: ContexteExports = {
     buildExportSVG: () => '<svg/>', buildExportDXF: () => '0\nEOF', buildExportPDF: vi.fn(() => '%PDF'), echellePdf: () => 200,
     construireResume: () => 'résumé', construireDossier: () => ({ pdf: '%PDF', pages: 3, terrasses: [1], equipements: new Map([[1, [1, 2]]]) }),
-    construireDossierMairie: () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
+    construireDossierPiscine: () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
     genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
-    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true, ...plus
+    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
+    construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', manques: ['la signature'], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
+    declarationPossible: () => true, ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };
   const cmd = creerRegistre(droits);
@@ -74,11 +76,11 @@ describe('exports', () => {
   });
 
   it('dossier mairie : nomme le fichier d apres le projet et la piscine, dit le regime ; sans piscine, dit quoi faire', () => {
-    monter().cmd.executer('export.dossierMairie');
+    monter().cmd.executer('export.dossierPiscine');
     expect(journal.textes).toEqual(['ma-maison-piscine-1-dossier-mairie.pdf']);
     expect(journal.toasts[0]).toMatch(/^Dossier mairie : 7 page\(s\) — déclaration préalable pour « Piscine 1 »/);
     journal.toasts.length = 0;
-    monter({ construireDossierMairie: () => { throw new Error('aucune piscine'); } }).cmd.executer('export.dossierMairie');
+    monter({ construireDossierPiscine: () => { throw new Error('aucune piscine'); } }).cmd.executer('export.dossierPiscine');
     expect(journal.toasts).toEqual(['Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).']);
     expect(journal.textes).toHaveLength(1);
   });

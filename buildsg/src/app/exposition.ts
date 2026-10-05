@@ -120,6 +120,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.pdf': menu('menuExporter'),
   'export.dossier': menu('menuExporter'),
   'export.noteCalcul': partout('inspecteur'),
+  'export.declaration': menu('menuExporter', 'inspecteur'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------

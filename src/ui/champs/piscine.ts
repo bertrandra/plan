@@ -158,7 +158,7 @@ const sectionSecurite: Section = {
     {
       type: 'bouton', cle: 'dossierMairie', libelle: '', nom: 'Dossier mairie (PDF)', texte: () => 'Dossier mairie (PDF)',
       explication: 'Plan de situation, plan de masse coté, coupe, aide au remplissage du cerfa, note de calcul.',
-      agit: { commande: 'export.dossierMairie' }, executer: (c) => c.executerCommande('export.dossierMairie')
+      agit: { commande: 'export.dossierPiscine' }, executer: (c) => c.executerCommande('export.dossierPiscine')
     }
   ]
 };

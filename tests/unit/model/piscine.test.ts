@@ -124,8 +124,8 @@ describe('inspecteur', () => {
     const c = contexte(obj);
     const bouton = sectionsObjet(c).find(s => s.id === 'securitePiscine')!.champs.find(ch => ch.cle === 'dossierMairie')!;
     if (bouton.type !== 'bouton') throw new Error('bouton attendu');
-    expect(bouton.agit).toEqual({ commande: 'export.dossierMairie' });
+    expect(bouton.agit).toEqual({ commande: 'export.dossierPiscine' });
     bouton.executer(c);
-    expect(c.executerCommande).toHaveBeenCalledWith('export.dossierMairie');
+    expect(c.executerCommande).toHaveBeenCalledWith('export.dossierPiscine');
   });
 });

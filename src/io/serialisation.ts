@@ -60,6 +60,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Meme regle pour la pergola : un projet sans pergola garde sa forme d'avant.
     if(o.pergola) out.pergola = JSON.parse(JSON.stringify(o.pergola));
     if(o.piscine) out.piscine = JSON.parse(JSON.stringify(o.piscine));
+    // Le declarant d'une declaration prealable, range sur la parcelle : pose seulement s'il existe.
+    if(o.declaration) out.declaration = JSON.parse(JSON.stringify(o.declaration));
     // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des
     // clefs est celui du fichier enregistre (empreinte projet.json). Ce qu'elle ecrit est un
     // `ObjetBrut` : chaque champ vient de `o`, les absents valent `null`, que le modele admet.
