@@ -31,8 +31,9 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
+import { ajouterPiscine3d } from './piscine3d.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -246,6 +247,8 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   layers.solives.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, contour));
   // Le cadre est au niveau des pieces auxquelles il appartient, et suit le contour.
   prim.addBande(layers.bandes.cadre, hauteurVisM, plotSimple ? lambH : soliveH, 0x4a2f18);
+  // Le chevetre d'un bassin : des pieces de la section du cadre, autour de l'ouverture (engine/structure.ts).
+  layers.chevetres?.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, plotSimple ? lambH : soliveH, soliveW, 0x4a2f18, contour));
   let lameBase = hauteurVisM + (plotSimple ? 0 : soliveH);
   if (layers.lambourdes.length) {
     layers.lambourdes.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, contour));
@@ -375,6 +378,8 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
     // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit.
     if (estAbri(o)) { ajouterPergola3d(co.scene, o, co.versLocal); return; }
+    // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
+    if (estPiscine(o)) { ajouterPiscine3d(prim, o); return; }
     const h = ctx.elevationOf(o);
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;

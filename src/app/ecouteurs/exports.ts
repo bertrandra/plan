@@ -31,6 +31,8 @@ export interface ContexteExports {
   echellePdf: () => number;
   construireResume: () => string;
   construireDossier: () => { pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> };
+  /** Le dossier de mairie de la piscine selectionnee (export/dossierPiscine.ts) ; lance `Error('aucune piscine')` sans bassin. */
+  construireDossierPiscine: () => { pdf: string; pages: number; piscine: { name: string }; regime: string };
   genererGlb: (telecharger: boolean) => void;
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
@@ -189,6 +191,17 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
     showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
       ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
   }, CAPACITES.exportDossier.code);
+
+  surClic('dossierPiscineBtn', 'export.dossierPiscine', 'Dossier mairie de la piscine (PDF)', () => {
+    let res;
+    try { res = ctx.construireDossierPiscine(); }
+    catch (err) {
+      if ((err as Error).message === 'aucune piscine') { showToast('Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).'); return; }
+      showErrBanner('Erreur dossier mairie : ' + (err as Error).message); return;
+    }
+    telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-' + slugFichier(res.piscine.name) + '-dossier-mairie.pdf', res.pdf, 'application/pdf');
+    showToast('Dossier mairie : ' + res.pages + ' page(s) — ' + (res.regime === 'permis' ? 'permis de construire' : res.regime === 'declaration' ? 'déclaration préalable' : 'aucune formalité') + ' pour « ' + res.piscine.name + ' ».');
+  });
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.

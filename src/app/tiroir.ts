@@ -24,8 +24,8 @@ export interface Onglet {
   libelle: string;
   /** L'identifiant du panneau (zones/resultats/Panneaux.tsx). */
   panneau: string;
-  /** `terrasse` : n'existe qu'avec une terrasse selectionnee. */
-  groupe: 'terrasse' | 'plan';
+  /** `terrasse` : n'existe qu'avec une terrasse selectionnee ; `piscine`, qu'avec une piscine selectionnee. */
+  groupe: 'terrasse' | 'piscine' | 'plan';
 }
 
 export const ONGLETS: Onglet[] = [
@@ -34,14 +34,15 @@ export const ONGLETS: Onglet[] = [
   { id: 'implantation', libelle: 'Implantation', panneau: 'panelImplantation', groupe: 'terrasse' },
   { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse' },
   { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },
+  { id: 'noteCalcul', libelle: 'Note de calcul', panneau: 'panelNoteCalcul', groupe: 'piscine' },
   { id: 'mesure', libelle: 'Cotes', panneau: 'panelMesure', groupe: 'plan' },
   { id: 'plu', libelle: 'PLU', panneau: 'panelPlu', groupe: 'plan' },
   { id: 'resume', libelle: 'Résumé', panneau: 'panelResume', groupe: 'plan' }
 ];
 
-/** Les onglets qui se montrent : ceux d'une terrasse seulement quand une terrasse est selectionnee. */
-export function ongletsVisibles(terrasseSelectionnee: boolean): Onglet[] {
-  return ONGLETS.filter(o => o.groupe !== 'terrasse' || terrasseSelectionnee);
+/** Les onglets qui se montrent : ceux d'une terrasse ou d'une piscine seulement quand l'une est selectionnee. */
+export function ongletsVisibles(terrasseSelectionnee: boolean, piscineSelectionnee = false): Onglet[] {
+  return ONGLETS.filter(o => o.groupe === 'plan' || (o.groupe === 'terrasse' ? terrasseSelectionnee : piscineSelectionnee));
 }
 
 export const HAUTEURS: HauteurTiroir[] = ['replie', 'mi', 'plein'];
@@ -53,6 +54,8 @@ export interface ContexteTiroir {
   refreshTerrasseView: () => void;
   /** La selection quand c'est une terrasse ; ce qui decide des onglets. */
   terrasseSelectionnee: () => ObjetPlan | undefined;
+  /** La selection quand c'est une piscine : l'onglet Note de calcul la suit. */
+  piscineSelectionnee: () => ObjetPlan | undefined;
 }
 
 export interface Tiroir {
@@ -82,7 +85,9 @@ function hauteurMemorisee(): HauteurTiroir {
 
 export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin): Tiroir {
   const terrasseSelectionnee = () => !!ctx.terrasseSelectionnee();
+  const piscineSelectionnee = () => !!ctx.piscineSelectionnee();
   const estOngletTerrasse = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'terrasse');
+  const estOngletPiscine = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'piscine');
 
 
   function definirHauteur(h: HauteurTiroir): void {
@@ -94,7 +99,7 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
 
   function activer(id: string, ouvrir = true): void {
     // Un onglet de terrasse sans terrasse selectionnee : les cotes, l'onglet du plan le plus proche.
-    if (estOngletTerrasse(id) && !terrasseSelectionnee()) id = 'mesure';
+    if ((estOngletTerrasse(id) && !terrasseSelectionnee()) || (estOngletPiscine(id) && !piscineSelectionnee())) id = 'mesure';
     etat.panelTab = id;
     // Le chiffrage part dans le projet enregistre : il se refait a l'ouverture, pas au rendu.
     if (estOngletTerrasse(id)) ctx.refreshTerrasseView();
@@ -105,10 +110,12 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   definirHauteur(hauteurMemorisee());
 
   return {
-    onglets: () => ongletsVisibles(terrasseSelectionnee()),
+    onglets: () => ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee()),
     activer,
     definirHauteur,
     synchroniser(contexteChange) {
+      // L'onglet d'une piscine se replie sur les cotes des que la piscine n'est plus selectionnee.
+      if (estOngletPiscine(etat.panelTab)) { if (!piscineSelectionnee()) activer('mesure', false); return; }
       if (!estOngletTerrasse(etat.panelTab)) return;
       if (!terrasseSelectionnee()) activer('mesure', false);
       else if (contexteChange) ctx.refreshTerrasseView();
