@@ -1,4 +1,4 @@
-// La pergola en 3D, piece par piece (three/).
+// La pergola ou le carport en 3D, piece par piece (three/).
 //
 // Le moteur (engine/pergola.ts) rend des axes et des sections ; chaque piece devient une boite
 // orientee sur son axe. La hauteur de la section est tenue dans le plan vertical de la piece : une
@@ -50,7 +50,7 @@ export function ajouterPergola3d(scene: THREE_NS.Scene, o: ObjetPlan, versLocal:
   const ra = pts[r.coteReference], rb = pts[(r.coteReference + 1) % pts.length];
   const horizontale = ra && rb ? new THREE.Vector3().subVectors(v3({ ...rb, z: 0 }), v3({ ...ra, z: 0 })).normalize() : new THREE.Vector3(1, 0, 0);
   const groupe = new THREE.Group();
-  groupe.name = 'pergola:' + o.key;
+  groupe.name = 'abri:' + o.key;
   calc.pieces.forEach(p => {
     const s = dimsPergola(p.section);
     // Un poteau est carre ou presque : sa « hauteur » de section est sa seconde largeur.
