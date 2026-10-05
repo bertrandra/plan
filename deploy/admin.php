@@ -74,6 +74,11 @@ if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FOR
 // session, et avant elle — ni cookie pose, ni session ouverte pour un visiteur. Une demo est faite
 // pour etre montree ; ce qu'elle ne doit pas etre, c'est modifiable, et rien ici n'ecrit.
 if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
+    // Lisible de toute origine : la plateforme encadre la vitrine dans un <iframe> en bac a sable,
+    // dont l'origine est `null` tant qu'il ne porte pas `allow-same-origin`. Sans cet en-tete, la
+    // page n'y lit pas sa propre demo et montre la demonstration integree. Sans risque : la reponse
+    // est publique par construction, et aucun cookie n'y est lu ni pose.
+    header('Access-Control-Allow-Origin: *');
     if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
     $id = rawurldecode($m[1]);
     if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
@@ -92,6 +97,8 @@ if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
 // Les couleurs de l'interface (styles/paletteServeur.ts) : chaque page de Plan les lit au demarrage,
 // sans session. Seule l'ecriture, plus bas, demande la session.
 if ($chemin === 'palette' && $lecture) {
+    // Lisible de toute origine, comme la vitrine plus haut : la vitrine encadree en bac a sable la lit.
+    header('Access-Control-Allow-Origin: *');
     $f = $dossier . '/.palette.json';
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
     header('Cache-Control: no-cache');

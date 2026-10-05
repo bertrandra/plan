@@ -158,7 +158,9 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
         if (!ID_VALIDE.test(id)) return erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
         const f = fichier(id);
         if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucune démo « ' + id + ' ».');
-        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'Last-Modified': fs.statSync(f).mtime.toUTCString() });
+        // Lisible de toute origine : la vitrine encadree en bac a sable (`sandbox` sans
+        // `allow-same-origin`) a l'origine `null` ; la reponse est publique et sans cookie.
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(f).mtime.toUTCString() });
         res.end(methode === 'HEAD' ? undefined : fs.readFileSync(f, 'utf8'));
         return true;
       }
@@ -169,7 +171,7 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
       const fPalette = path.join(dossier, '.palette.json');
       if (url.pathname === '/admin/palette' && lecture) {
         if (!fs.existsSync(fPalette)) return erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
-        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Last-Modified': fs.statSync(fPalette).mtime.toUTCString() });
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(fPalette).mtime.toUTCString() });
         res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fPalette, 'utf8'));
         return true;
       }
