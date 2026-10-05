@@ -108,6 +108,8 @@ describe('la vitrine lit une demo sans session', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('set-cookie')).toBe(null);
     expect(r.headers.get('cache-control')).toMatch(/public/);
+    // Lisible depuis un <iframe> en bac a sable (origine `null`) : celui de la plateforme.
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
     expect((await r.json()).meta.name).toBe('Démo 1');
     expect((await fetch(base + '/admin/vitrine/9')).status).toBe(404);
     expect((await fetch(base + '/admin/vitrine/..%2Fconfig')).status).toBe(400);
@@ -203,6 +205,7 @@ describe('admin des demos, la page contre le serveur', () => {
     const r = await fetch(base + '/admin/palette');
     expect(r.status).toBe(200);
     expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
     expect(await r.json()).toEqual(palette);
     // Elle reste hors de la liste des demos, et un document qui n'est pas une palette est refuse.
     expect(await creerDepotDemos(navigateur).lister()).toEqual([]);

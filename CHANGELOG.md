@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vitrine : `file=` marche aussi dans un `<iframe>` en bac à sable.** La plateforme encadre la
+  vitrine avec `sandbox="allow-scripts allow-forms allow-popups"`. Sans `allow-same-origin`, la page
+  y a l'origine `null`, et la lecture de sa propre démo (`admin/vitrine/<n>`) était refusée par CORS :
+  la vitrine montrait la démonstration intégrée au lieu du fichier demandé. La palette du serveur
+  était refusée de même. Les deux lectures publiques, `admin/vitrine/<n>` et la palette, répondent
+  désormais `Access-Control-Allow-Origin: *` (`admin.php`, `buildsg/demosAdmin.mjs`). C'est sans
+  risque : elles sont publiques par construction, sans cookie lu ni posé, et l'écriture reste
+  derrière la session. Vérifié avec `php -S` et le paquet construit, dans un `<iframe>` d'une autre
+  origine : sans bac à sable, en bac à sable strict, et avec `allow-same-origin`.
+
+### Corrigé
+
 - **Vitrine : « Copier l'adresse » copie vraiment, aussi dans un `<iframe>`.** Dans l'`<iframe>` de
   la plateforme sans `allow="clipboard-write"`, le menu disait « Adresse copiée » sans rien copier.
   Le presse-papiers moderne y est refusé. La copie de secours sélectionnait un champ masqué par la
