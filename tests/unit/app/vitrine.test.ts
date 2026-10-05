@@ -285,5 +285,11 @@ describe('le cadrage sur la parcelle a l ouverture', () => {
     const rayon = Math.hypot(10, 10);
     expect(c.camera).toEqual({ x: 5 + rayon * 1.8, y: rayon * 1.8, z: -5 + rayon * 1.8 });
     expect(cadrageSurParcelle([{ x: 0, y: 0 }], { x: 0, y: 0 })).toBe(null);
+    // Telephone en portrait (390 x 844) : le champ est plus etroit en largeur, la camera recule d'autant.
+    const portrait = cadrageSurParcelle(carre, { x: 5, y: 5 }, 390 / 844)!;
+    expect(portrait.cible).toEqual(c.cible);
+    expect(portrait.camera.y).toBeCloseTo(rayon * 1.8 * 844 / 390, 6);
+    // En paysage, rien ne change.
+    expect(cadrageSurParcelle(carre, { x: 5, y: 5 }, 16 / 9)).toEqual(c);
   });
 });

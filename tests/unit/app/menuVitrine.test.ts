@@ -140,3 +140,60 @@ describe('les reglages du clic droit : date du soleil, rotation automatique', ()
     expect(api.poserRotation).toHaveBeenLastCalledWith(3);
   });
 });
+
+describe('au doigt : l appui long ouvre le menu', () => {
+  /** Un evenement de pointeur au doigt (jsdom n'a pas PointerEvent). */
+  const doigt = (type: string, x: number, y: number, id = 1) => {
+    const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+    Object.defineProperties(e, { pointerType: { value: 'touch' }, pointerId: { value: id } });
+    document.body.dispatchEvent(e);
+    return e;
+  };
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('s ouvre apres un appui immobile d une demi-seconde, en feuille', async () => {
+    vi.useFakeTimers();
+    const { DUREE_APPUI_LONG_MS } = await import('../../../src/app/menuVitrine.js');
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn() });
+    doigt('pointerdown', 100, 200);
+    vi.advanceTimersByTime(DUREE_APPUI_LONG_MS - 50);
+    expect(document.getElementById('menuVitrine')).toBe(null);
+    vi.advanceTimersByTime(60);
+    const m = document.getElementById('menuVitrine');
+    expect(m?.classList.contains('menuVitrine--feuille')).toBe(true);
+    expect(entrees()).toEqual(['Rafraîchir', 'Copier l’adresse']);
+  });
+
+  it('ne s ouvre pas si le doigt glisse (il fait tourner la scene)', async () => {
+    vi.useFakeTimers();
+    const { TOLERANCE_DOIGT_PX } = await import('../../../src/app/menuVitrine.js');
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn() });
+    doigt('pointerdown', 100, 200);
+    doigt('pointermove', 100 + TOLERANCE_DOIGT_PX + 5, 200);
+    vi.advanceTimersByTime(1000);
+    expect(document.getElementById('menuVitrine')).toBe(null);
+  });
+
+  it('ne s ouvre pas si le doigt se leve avant, ni a deux doigts (pincer)', () => {
+    vi.useFakeTimers();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn() });
+    doigt('pointerdown', 100, 200);
+    doigt('pointerup', 100, 200);
+    vi.advanceTimersByTime(1000);
+    expect(document.getElementById('menuVitrine')).toBe(null);
+    doigt('pointerdown', 100, 200, 1);
+    doigt('pointerdown', 200, 300, 2);
+    vi.advanceTimersByTime(1000);
+    expect(document.getElementById('menuVitrine')).toBe(null);
+  });
+
+  it('coupe le menu natif d Android apres l appui long, sans en ouvrir un second', () => {
+    vi.useFakeTimers();
+    debrancher = brancherMenuVitrine({ recharger: vi.fn(), copier: vi.fn() });
+    doigt('pointerdown', 100, 200);
+    vi.advanceTimersByTime(600);
+    const e = menuContextuel(100, 200);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.querySelectorAll('#menuVitrine').length).toBe(1);
+  });
+});
