@@ -13,6 +13,7 @@ import {
   type MetrageSection, type ReglagesPergola, type RolePiece
 } from '../../engine/pergola.js';
 import { euros } from '../chiffrage.js';
+import { sectionNoteCalcul } from './noteCalcul.js';
 import type { MateriauPergola, Pergola, ToitPergola } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
@@ -197,5 +198,5 @@ export function sectionPrixPergola(c: ContexteChamps): Section {
 
 /** Les sections propres a une pergola ou a un carport, dans l'ordre. */
 export function sectionsPergola(c: ContexteChamps): Section[] {
-  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionMetragePergola(c), sectionPrixPergola(c)];
+  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionMetragePergola(c), sectionPrixPergola(c), sectionNoteCalcul(c)];
 }
