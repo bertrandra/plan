@@ -197,6 +197,8 @@ interface ObjetCommun {
   facades?: ReleveFacade[] | null;
   /** Forme du toit d'un batiment ; absente, le batiment reste le bloc plat d'avant. */
   toit?: Toit | null;
+  /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */
+  pergola?: Pergola | null;
 }
 
 /** Un polygone ferme : la parcelle, une terrasse, un batiment, une dalle. */
@@ -523,4 +525,43 @@ export interface Toit {
   pente?: number;
   /** La hauteur n'a pas ete lue mais estimee (MD/spec-toit-ign.md §4, regle 3). */
   estime?: boolean;
+}
+
+/** Toit d'une pergola : chevrons sous une toile tendue, quatre pans, ou appentis a une pente. */
+export type ToitPergola = 'toile' | 'quatre-pans' | 'appentis';
+
+/**
+ * Les reglages d'une pergola. **Tout est facultatif**, comme `Construction` : `pergolaDe`
+ * (engine/pergola.ts) comble les manques a la lecture, sans les ecrire dans l'objet. Un projet
+ * enregistre avant qu'un reglage existe garde ainsi sa forme.
+ *
+ * Les sections s'ecrivent `'largeur x hauteur'` en millimetres, comme celles des solives (`'45x145'`).
+ */
+export interface Pergola {
+  toit?: ToitPergola;
+  /** Hauteur des poteaux, du sol au dessous des poutres, en metres (le cote bas d'un appentis). */
+  hauteur?: number;
+  sectionPoteau?: string;
+  /** Distance maximale entre deux poteaux d'un meme cote, en metres. */
+  entraxePoteaux?: number;
+  sectionPoutre?: string;
+  avecContrefiches?: boolean;
+  /** Longueur d'une contrefiche, en metres, posee a 45°. */
+  longueurContrefiche?: number;
+  sectionContrefiche?: string;
+  sectionChevron?: string;
+  /** Entraxe des chevrons, en metres. */
+  entraxeChevrons?: number;
+  /** Pente du toit en degres (appentis et quatre pans). */
+  pente?: number;
+  /**
+   * Indice du cote de reference : les chevrons lui sont perpendiculaires, et c'est le cote bas d'un
+   * appentis. Absent : le plus long cote.
+   */
+  coteReference?: number;
+  couleurBois?: string;
+  couleurToile?: string;
+  couleurCouverture?: string;
+  /** Longueurs de bois achetables, saisies en clair : `'6, 5, 4, 3'`. */
+  longueursBois?: string;
 }

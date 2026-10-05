@@ -17,6 +17,8 @@ export interface Surface {
   grille: SVGGElement;
   /** Ombres des parasols et carte de chaleur : devant les objets, sous la toile des parasols (assemblage/dessin.ts). */
   parasols: SVGGElement;
+  /** La charpente des pergolas vue de dessus : devant les objets et les ombres (render/pergolaOverlay.ts). */
+  pergolas: SVGGElement;
   /** Les mats des parasols : remis en fin de SVG a chaque rendu, pour rester lisibles. */
   mats: SVGGElement;
   nord: SVGGElement;
@@ -48,7 +50,7 @@ export function creerSurface(etat: EtatApp): Surface {
     stage, svg,
     // Le fond orthophoto est un calque de reference : il ne doit jamais masquer le trace du plan.
     ortho: groupe(true), grille: groupe(),
-    parasols: groupe(true), mats: groupe(true),
+    parasols: groupe(true), pergolas: groupe(true), mats: groupe(true),
     nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(), releves: groupe(true),
     appliquerTaille() {
       stage.style.width = etat.scene.W + 'px'; stage.style.height = etat.scene.H + 'px';
@@ -60,6 +62,6 @@ export function creerSurface(etat: EtatApp): Surface {
   };
   s.appliquerTaille();
   stage.appendChild(svg);
-  svg.append(defs, s.ortho, s.grille, s.parasols, s.mats, s.releves);
+  svg.append(defs, s.ortho, s.grille, s.parasols, s.pergolas, s.mats, s.releves);
   return s;
 }

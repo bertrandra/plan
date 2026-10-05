@@ -31,7 +31,8 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol } from '../model/fonctions.js';
+import { estParasol, estPergola } from '../model/fonctions.js';
+import { ajouterPergola3d } from './pergola3d.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -372,6 +373,8 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'path') { ajouterChemin(o, co); return; }
     // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
     if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
+    // Une pergola n'est pas un prisme : sa charpente, piece par piece, et son toit.
+    if (estPergola(o)) { ajouterPergola3d(co.scene, o, co.versLocal); return; }
     const h = ctx.elevationOf(o);
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;

@@ -30,6 +30,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'objet.ajouter.cercle': 'Ajoute un cercle : un arbre, un massif, un équipement rond',
   'objet.ajouter.chemin': 'Dessine un tracé ouvert : une allée, une clôture, une limite',
   'objet.ajouter.parasol': 'Ajoute un parasol, dont l’ombre suit le soleil',
+  'objet.ajouter.pergola': 'Ajoute une pergola : poteaux, cadre, contrefiches et toit, avec son métrage par section',
   'objet.ajouter.pointDeVue': 'Ajoute un point de vue : une caméra à rappeler en Vue 3D',
   'objet.annuler': 'Défait la dernière modification du plan',
   'objet.dupliquer': 'Crée une copie de l’objet sélectionné, décalée à côté',
