@@ -48,3 +48,21 @@ export function positionSoleil(annee: number, mois: number, jour: number, heureD
   if(haRad > 0) azRad = 2*Math.PI - azRad;
   return { elevRad, azRad };
 }
+
+/**
+ * Le lever et le coucher du soleil, en minutes depuis minuit (heure legale francaise, comme
+ * `positionSoleil`) : la premiere et la derniere minute ou son centre est au-dessus de l'horizon.
+ * Cherches minute par minute plutot que par la formule de l'angle horaire : c'est le meme modele que
+ * celui qui eclaire la scene, donc le soleil se leve a l'ecran a l'heure dite. `null` les jours sans
+ * lever ni coucher (au-dela des cercles polaires).
+ */
+export function leverEtCoucher(annee: number, mois: number, jour: number, latDeg: number, lonDeg: number): { lever: number; coucher: number } | null {
+  let lever = -1, coucher = -1;
+  for (let m = 0; m < 1440; m++) {
+    if (positionSoleil(annee, mois, jour, m / 60, latDeg, lonDeg).elevRad > 0) {
+      if (lever < 0) lever = m;
+      coucher = m;
+    }
+  }
+  return lever < 0 || (lever === 0 && coucher === 1439) ? null : { lever, coucher };
+}

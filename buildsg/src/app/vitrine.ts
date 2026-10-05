@@ -27,7 +27,8 @@
 // s'ouvre sans elles, puis se reconstruit quand elles sont la, a la meme place de camera.
 //
 // `heureauto=y` fait courir le soleil sur la journee du jour, de `hrsstart` a `hrsend` (heures
-// locales, `14`, `14:30` ou `14h30` ; par defaut 7 h et 20 h), en `duree` secondes (30 par defaut,
+// locales, `14`, `14:30` ou `14h30` ; sans elles, du lever au coucher du soleil, a la date et au
+// lieu de la parcelle — 7 h et 20 h si le plan n'a pas de lieu), en `duree` secondes (30 par defaut,
 // de 5 a 3 600), puis recommence. La progression suit l'horloge, pas le nombre d'images : un onglet ralenti par le
 // navigateur reprend a la bonne heure au lieu de rattraper son retard. `heureauto=n`, ou rien : le
 // soleil reste a l'heure par defaut.
@@ -42,12 +43,15 @@
 // admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
 // demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
 //
-// `date=AAAA-MM-JJ` pose le jour du soleil (par defaut, aujourd'hui). `rotation=<n>` fait tourner la
-// camera autour de la scene, depuis sa position, a `n` tours par minute (negatif : l'autre sens ;
-// de -10 a 10). Les deux se reglent aussi au clic droit, qui propose encore « Rafraichir » et
+// `date=AAAA-MM-JJ` pose le jour du soleil (par defaut, aujourd'hui). La camera tourne autour de la
+// scene, depuis sa position, a un tour par minute PAR DEFAUT ; `rotation=<n>` en regle la vitesse
+// (tours par minute, negatif : l'autre sens ; de -10 a 10), `rotation=n` (ou 0) l'arrete.
+//
+// A l'ouverture, la camera se cadre sur la PARCELLE — sauf si `pdv` en demande une autre. Les deux se reglent aussi au clic droit, qui propose encore « Rafraichir » et
 // « Copier l'adresse » — l'adresse copiee porte la date et la rotation choisies (app/menuVitrine.ts).
 
 import { migrer } from '../model/migrations.js';
+import { centroid } from '../geometry/basic.js';
 import { SCHEMA_VERSION } from '../model/version.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
@@ -75,9 +79,10 @@ export interface Vitrine {
   orthophoto: boolean;
   /**
    * La course du soleil, en minutes depuis minuit, et le temps qu'elle prend en millisecondes ;
-   * `null` : le soleil ne bouge pas.
+   * `null` : le soleil ne bouge pas. Une borne `null` suit le soleil : lever pour le debut, coucher
+   * pour la fin (`resoudreCourse`).
    */
-  heureAuto: { debut: number; fin: number; dureeMs: number } | null;
+  heureAuto: { debut: number | null; fin: number | null; dureeMs: number } | null;
   /** Le point de vue demande, tel qu'ecrit dans l'adresse ; `null` : le cadrage par defaut. */
   pdv: string | null;
   /** La demo de l'admin a montrer (`file`) ; `null` : la demonstration integree. */
@@ -90,6 +95,9 @@ export interface Vitrine {
 
 /** Les bornes de la rotation automatique, en tours par minute. */
 export const ROTATION_MAX = 10;
+/** La rotation d'une vitrine sans `rotation=` : elle tourne, a un tour par minute. */
+export const ROTATION_VITRINE = 1;
+const NON = /^(n|non|no|0|false|off)$/i;
 
 /** Une date AAAA-MM-JJ qui existe au calendrier, ou `null`. */
 export function lireDate(brute: string | null): string | null {
@@ -99,10 +107,14 @@ export function lireDate(brute: string | null): string | null {
   return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t ? t : null;
 }
 
-/** Une vitesse de rotation en tours par minute, bornee ; `null` si absente, illisible ou nulle. */
+/**
+ * La vitesse de rotation en tours par minute, bornee. Absente ou « oui » : la vitesse par defaut
+ * (la vitrine tourne). « n », « non », 0 : `null`, arretee. Illisible : la vitesse par defaut.
+ */
 export function lireRotation(brute: string | null): number | null {
   const t = (brute ?? '').trim().replace(',', '.');
-  if (!/^-?\d{1,2}(\.\d{1,2})?$/.test(t)) return null;
+  if (NON.test(t)) return null;
+  if (!/^-?\d{1,2}(\.\d{1,2})?$/.test(t)) return ROTATION_VITRINE;
   const v = Math.max(-ROTATION_MAX, Math.min(ROTATION_MAX, parseFloat(t)));
   return v === 0 ? null : v;
 }
@@ -139,13 +151,29 @@ function dureeDeLaCourse(brute: string | null): number {
   return Math.round(Math.min(DUREE_MAX_S, Math.max(DUREE_MIN_S, s)) * 1000);
 }
 
-function courseDuSoleil(p: URLSearchParams): { debut: number; fin: number; dureeMs: number } | null {
+function courseDuSoleil(p: URLSearchParams): { debut: number | null; fin: number | null; dureeMs: number } | null {
   if (!OUI.test((p.get('heureauto') ?? '').trim())) return null;
-  const debut = lireHeure(p.get('hrsstart')) ?? HEURE_DEBUT_DEFAUT;
-  const fin = lireHeure(p.get('hrsend')) ?? HEURE_FIN_DEFAUT;
+  const debut = lireHeure(p.get('hrsstart'));
+  const fin = lireHeure(p.get('hrsend'));
+  const dureeMs = dureeDeLaCourse(p.get('duree'));
+  if (debut === null || fin === null) return { debut, fin, dureeMs };
   // Des bornes inversees se lisent dans l'ordre ; egales, il n'y a pas de course a faire.
   if (debut === fin) return null;
-  return { debut: Math.min(debut, fin), fin: Math.max(debut, fin), dureeMs: dureeDeLaCourse(p.get('duree')) };
+  return { debut: Math.min(debut, fin), fin: Math.max(debut, fin), dureeMs };
+}
+
+/**
+ * La course du soleil a jouer, bornes resolues : une borne absente prend le lever ou le coucher du
+ * jour (`leverCoucher`), sinon 7 h ou 20 h. `null` si la course est vide.
+ */
+export function resoudreCourse(
+  course: { debut: number | null; fin: number | null; dureeMs: number },
+  leverCoucher: { lever: number; coucher: number } | null
+): { debut: number; fin: number; dureeMs: number } | null {
+  const debut = course.debut ?? leverCoucher?.lever ?? HEURE_DEBUT_DEFAUT;
+  const fin = course.fin ?? leverCoucher?.coucher ?? HEURE_FIN_DEFAUT;
+  if (debut === fin) return null;
+  return { debut: Math.min(debut, fin), fin: Math.max(debut, fin), dureeMs: course.dureeMs };
 }
 
 /** La vitrine demandee par l'adresse, ou `null` pour l'atelier. */
@@ -167,7 +195,8 @@ export function lireVitrine(recherche: string): Vitrine | null {
 export function adresseVitrine(href: string, date: string | null, rotation: number | null): string {
   const u = new URL(href);
   if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
-  if (rotation) u.searchParams.set('rotation', String(rotation)); else u.searchParams.delete('rotation');
+  // Arretee se dit (`rotation=0`) : sans le parametre, la vitrine tourne.
+  u.searchParams.set('rotation', String(rotation ?? 0));
   return u.toString();
 }
 
@@ -276,4 +305,22 @@ export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch)
   } catch {
     return null;
   }
+}
+
+/**
+ * Le cadrage sur la parcelle, dans le repere de la scene 3D (origine au centre de la scene `centre`,
+ * x vers l'Est, z vers le Sud — three/primitives.ts `versLocalDepuis`) : la cible au centre de la
+ * parcelle, la camera dans la meme direction diagonale que le cadrage par defaut (three/scene.ts),
+ * assez loin pour que la parcelle entiere tienne dans le champ.
+ */
+export function cadrageSurParcelle(pts: readonly { x: number; y: number }[], centre: { x: number; y: number }): {
+  cible: { x: number; y: number; z: number }; camera: { x: number; y: number; z: number };
+} | null {
+  if (pts.length < 3) return null;
+  const { x: cx, y: cy } = centroid(pts);
+  const rayon = Math.max(3, ...pts.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+  // Meme formule que la scene : etendue = 2 x rayon, camera a 0,9 x etendue sur chaque axe.
+  const d = rayon * 2 * 0.9;
+  const cible = { x: cx - centre.x, y: 0, z: centre.y - cy };
+  return { cible, camera: { x: cible.x + d, y: d, z: cible.z + d } };
 }

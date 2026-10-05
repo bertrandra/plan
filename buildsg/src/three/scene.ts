@@ -432,6 +432,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   const base = monterScene(host, extent, conservee);
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
+  vue3d.centre = cen;
   const { scene, camera, renderer, controls, ground } = base;
   const versLocal = versLocalDepuis(cen);
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
