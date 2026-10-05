@@ -90,6 +90,9 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 
 ## Palette de l'interface (`?palette`)
 
+> Le passage de cette palette dans la plateforme (une par produit, une par tenant, réglées par le
+> `PLATFORM_ADMIN`) est spécifié dans [`spec-palette-plateforme.md`](spec-palette-plateforme.md).
+
 Un écran de l'admin, derrière la même porte, ouvert depuis le menu « Admin » de la barre de Plan
 (`zones/EcranPalette.tsx`, `app/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
 couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayons et ombres),
