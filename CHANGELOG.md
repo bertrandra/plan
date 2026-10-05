@@ -7,6 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Déclaration préalable en mairie, cerfa 13703\*12 rempli.** Menu Exporter, « Déclaration
+  préalable (cerfa) », ou section « Déclaration préalable » de la parcelle du projet.
+  - Le formulaire officiel (servi à côté de l'application, `cerfa/cerfa_13703-12.pdf`) est rempli
+    avec ce que le plan sait : adresse et références cadastrales du terrain (une ligne de la fiche
+    complémentaire par parcelle fusionnée), superficie, nature du projet, description des ouvrages
+    (pergolas, carports, terrasses : dimensions, emprise au sol, hauteur, toit), protections
+    patrimoniales lues dans les servitudes du PLU, lieu et date. Le déclarant (identité,
+    coordonnées, résidence) se saisit dans la section de la parcelle et s'enregistre avec le projet.
+  - Les pièces suivent, numérotées et cochées au bordereau : DP1 (carte Plan IGN centrée sur le
+    terrain, si la Géoplateforme répond, et extrait cadastral), DP2 (plan de masse coté : cotes,
+    distance à la limite la plus proche, hauteurs, existant et projet), DP4 (deux façades et la
+    toiture de chaque abri), DP6 (la Vue 3D telle qu'on l'a cadrée, si le dossier est généré
+    depuis la 3D).
+  - Le formulaire reste modifiable ; la notification liste ce qui reste à compléter (naissance,
+    signature, photographies DP7 et DP8). Au-delà de 20 m² d'emprise (40 m² adossé en zone PLU),
+    la section prévient qu'il faut un permis de construire.
+  - pdf-lib est chargée à la demande depuis jsDelivr, comme three.js : le fichier unique ne
+    grossit pas. La livraison et la copie Node (`buildsg/`) servent le formulaire.
 - **Note de calcul d'une pergola ou d'un carport.** Une section « Note de calcul » dans
   l'inspecteur, et son export PDF (`export.noteCalcul`).
   - Hypothèses : régions de neige (A1 à E) et de vent (1 à 4), sans valeur par défaut ; tant
