@@ -3,14 +3,14 @@
 // Extrait de structure.ts sans retouche (architecture.md §9, FF-1) : il a besoin des couches de la
 // terrasse, qui ont besoin de la structure. Au-dessus des deux, il ne ferme plus la boucle.
 
-import { dist, shoelace } from '../geometry/basic.js';
+import { dist } from '../geometry/basic.js';
 import { SOLIVE_PRICE, SOLIVE_SECTIONS, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { computeDebitsBois } from './debit.js';
 import { computeTerrasseLayers } from './layers.js';
 import { LAMBOURDE_SECTIONS, dimsSection, maxEntraxeLameCm, maxPorteeVisM, porteeAppuiM, sectionLambourde } from './portees.js';
 import { coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
-import { buildVisGrid, computeStructure, lamesAngleOf, type CandidatStructure, type TerrasseEtudiee } from './structure.js';
+import { buildVisGrid, computeStructure, lamesAngleOf, surfaceNetteTerrasse, type CandidatStructure, type TerrasseEtudiee } from './structure.js';
 import { enPoints } from '../model/formes.js';
 import type { Segment, ObjetPlan, Construction } from '../model/types.js';
 
@@ -58,7 +58,8 @@ export function optimiserParametres(terrasse: ObjetPlan, objets: ObjetPlan[]): C
   // Une terrasse est un polygone : l'appelant ne l'optimise qu'apres l'avoir verifie.
   const obj = enPoints(terrasse);
   const c = ensureConstruction(obj);
-  const surf = shoelace(obj.pts) || 1;
+  // Densite rapportee a la surface posee : sans le trou d'un bassin ou d'une tremie.
+  const surf = surfaceNetteTerrasse(obj.pts, objets) || 1;
   // Rates for the comparison: the screw price as entered, and an effective per-ml wood rate taken
   // from the current cut-list, so the waste a real cut-list carries is already inside the figure.
   // Re-running a cut-list for each of the 63 candidates would be exact but far slower, and the

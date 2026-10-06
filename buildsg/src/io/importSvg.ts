@@ -119,6 +119,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
   });
 
   doc.querySelectorAll('path').forEach(el=>{
+    if(el.closest('clipPath')) return; // le gabarit qui perce une terrasse (export/svgPlan.ts)
     const dataPts = el.getAttribute('data-points');
     let pts;
     if(isOwn && dataPts){

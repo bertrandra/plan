@@ -13,7 +13,7 @@ import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import { calculerPiscine } from './piscine.js';
-import { estPiscine, estTrou } from '../model/fonctions.js';
+import { estPiscine, estTerrasse, estTrou } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
@@ -373,6 +373,17 @@ export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
  */
 export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): number {
   return shoelace(poly) - objetsQuiPercent(poly, objets).reduce((s, x) => s + aireCommune(x.contour, poly), 0);
+}
+
+/**
+ * Les trous d'une terrasse, en anneaux interieurs : le bord exterieur des margelles d'un bassin, le
+ * contour d'un trou de terrasse — ceux qui sont tout entiers dans la terrasse. C'est ce que le plan
+ * et les exports dessinent comme un trou dans son contour. Vide pour tout autre objet.
+ */
+export function trousDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PtBrut[][] {
+  if(!estTerrasse(o) || o.type !== 'polygon') return [];
+  const poly = o.pts;
+  return objetsQuiPercent(poly, objets).map(x => x.contour).filter(t => t.every(p => pointInPolygon(p, poly)));
 }
 
 /** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */

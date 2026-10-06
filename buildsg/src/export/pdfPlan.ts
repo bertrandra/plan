@@ -17,6 +17,8 @@ import { dist, centroid, angleInterieurDeg, shoelace } from '../geometry/basic.j
 import { geometrieMesure, ancrageHorsContour, type Mesure } from '../render/measures.js';
 import type { ObjetPlan, ObjetPolygone, ObjetChemin, ObjetCercle, PtBrut } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
+import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/structure.js';
+import { estTerrasse } from '../model/fonctions.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
 import { pdfEscape, horodatagePdfInfo, hexToRgb01 } from './pdf/writer.js';
 /** Ce que la mise en page doit savoir en plus des objets : de quoi remplir le cartouche. */
@@ -98,13 +100,17 @@ function etiquetteCote(pa: { x: number; y: number }, pb: { x: number; y: number 
   return 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(texte)+') Tj ET\n';
 }
 
-function dessinerPolygone(m: MisePage, obj: ObjetPolygone): string {
+function dessinerPolygone(m: MisePage, obj: ObjetPolygone, trous: PtBrut[][]): string {
   let c = couleursPleines(m, obj);
-  obj.pts.forEach((p,i)=>{
-    const pp = m.toPdf(p);
-    c += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
+  // Une terrasse percee (bassin, tremie) : chaque trou est un sous-chemin, rempli en pair-impair.
+  [obj.pts, ...trous].forEach((anneau, k)=>{
+    if(k > 0) c += 'h\n';
+    anneau.forEach((p,i)=>{
+      const pp = m.toPdf(p);
+      c += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
+    });
   });
-  c += 'h B\n';
+  c += trous.length ? 'h B*\n' : 'h B\n';
   c += '/'+m.gsName(1)+' gs\n';
   const n = obj.pts.length;
   for(let i=0;i<n;i++){
@@ -158,8 +164,8 @@ function dessinerCercle(m: MisePage, obj: ObjetCercle): string {
   return c;
 }
 
-function dessinerObjet(m: MisePage, obj: ObjetPlan): string {
-  let c = obj.type==='polygon' ? dessinerPolygone(m, obj) : obj.type==='path' ? dessinerChemin(m, obj) : dessinerCercle(m, obj);
+function dessinerObjet(m: MisePage, obj: ObjetPlan, objets: ObjetPlan[]): string {
+  let c = obj.type==='polygon' ? dessinerPolygone(m, obj, trousDeTerrasse(obj, objets)) : obj.type==='path' ? dessinerChemin(m, obj) : dessinerCercle(m, obj);
   if(obj.showName){
     const cen = (obj.type==='polygon'||obj.type==='path') ? centroid(obj.pts) : obj.center;
     const cp = m.toPdf(cen);
@@ -220,7 +226,8 @@ function pageSurfaces(objets: ObjetPlan[], margin: number, pageW: number): { con
   const sParcelleSurf = pcObjSurf ? shoelace(enPoints(pcObjSurf).pts) : 0;
   const surfRows = objets.map(o=>{
     let s;
-    if(o.type==='polygon') s = shoelace(o.pts);
+    // Une terrasse percee compte sans son trou (bassin, tremie) : c'est la surface qu'on pose.
+    if(o.type==='polygon') s = estTerrasse(o) ? surfaceNetteTerrasse(o.pts, objets) : shoelace(o.pts);
     else if(o.type==='circle') s = Math.PI*o.r*o.r;
     else { let L=0; for(let i=0;i<o.pts.length-1;i++) L+=dist(au(o.pts, i),au(o.pts, i+1)); s = L*(o.width||1); }
     return {name:o.name, key:o.key, s};
@@ -321,7 +328,7 @@ export function construirePDF(
   };
 
   const content = '1 w\n'
-    + objets.map(o => dessinerObjet(mise, o)).join('')
+    + objets.map(o => dessinerObjet(mise, o, objets)).join('')
     + dessinerCotes(mise, objets, mesures)
     + habillage(mise, { margin, drawW, drawH, pageH }, scaleDenom, meta);
   const surfaces = pageSurfaces(objets, margin, pageW);

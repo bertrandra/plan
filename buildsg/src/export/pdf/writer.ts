@@ -96,14 +96,23 @@ export function pdfTexte(x: number, y: number, taille: number, txt: unknown, cou
   return s + '(' + pdfEscape(txt) + ') Tj ET\n';
 }
 
-export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number): string {
+/**
+ * Un polygone ferme. `trous` (anneaux interieurs, en points PDF) le perce : chaque trou devient un
+ * sous-chemin, et le remplissage passe en regle pair-impair (`f*`, `B*`) pour laisser le trou vide.
+ */
+export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number, trous: { x: number; y: number }[][] = []): string {
   let s = '';
   if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
   if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
   if(contour) s += contour[0].toFixed(3) + ' ' + contour[1].toFixed(3) + ' ' + contour[2].toFixed(3) + ' RG\n';
   s += (epaisseur || 0.8).toFixed(2) + ' w\n';
   ptsPdf.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
-  s += 'h ' + (remplissage && contour ? 'B' : (remplissage ? 'f' : 'S')) + '\n';
+  trous.forEach(t=>{
+    s += 'h\n';
+    t.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
+  });
+  const pairImpair = trous.length ? '*' : '';
+  s += 'h ' + (remplissage && contour ? 'B' + pairImpair : (remplissage ? 'f' + pairImpair : 'S')) + '\n';
   if(opacite !== undefined && opacite < 1) s += '/GS0 gs\n';
   return s;
 }

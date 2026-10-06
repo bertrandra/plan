@@ -19,6 +19,8 @@ export interface VueObjet {
   segLabelEls: SVGElement[];
   radiusHandle: SVGElement | null;
   camMarkerEl: SVGElement | null;
+  /** Le gabarit qui perce le contour d'une terrasse de ses trous (render/objects.ts). */
+  clipEl?: SVGElement | null;
 }
 
 type ObjetAvecCle = { key: string };
@@ -55,5 +57,6 @@ export function detruireVue(obj: ObjetAvecCle): void {
   v.segLabelEls.forEach((e) => e.remove());
   if (v.radiusHandle) v.radiusHandle.remove();
   if (v.camMarkerEl) v.camMarkerEl.remove();
+  if (v.clipEl) v.clipEl.remove();
   vues.delete(obj.key);
 }
