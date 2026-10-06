@@ -169,7 +169,9 @@ describe('sol en relief', () => {
     });
     return out;
   };
-  const boite = (m: THREE_NS.Mesh) => { m.updateMatrixWorld(true); return new THREE_NS.Box3().setFromObject(m); };
+  // La scene entiere est mise a jour : la structure d'une terrasse sur un sol en pente vit dans un
+  // groupe eleve, et aucun rendu (doublure) n'a propage sa position aux maillages.
+  const boite = (m: THREE_NS.Mesh) => { vue3d.scene?.scene.updateMatrixWorld(true); return new THREE_NS.Box3().setFromObject(m); };
   // Sans textures : un seul materiau par maillage, qu'on retrouve par sa couleur.
   let textures = true;
   beforeEach(() => { textures = vue3d.textures; vue3d.textures = false; });
@@ -206,13 +208,18 @@ describe('sol en relief', () => {
     expect(b.max.y).toBeCloseTo(PENTE * centroid(pts).x + 2.5, 3);
   });
 
-  it('laisse la terrasse courante a sa hauteur finie au-dessus du zero du plan', async () => {
-    const { hauteurAppuiMm, hauteurFinieMm } = await import('../../../src/engine/hauteurs.js');
+  it('pose la terrasse courante a sa hauteur finie au-dessus du point haut du sol sous elle', async () => {
+    const { hauteurAppuiMm, hauteurFinieMm, dessusTerrasseM } = await import('../../../src/engine/hauteurs.js');
+    const { solDuProjet } = await import('../../../src/engine/sol.js');
     buildThreeScene(terrasse(), etat(), { ...avecRelief(), hauteurAppuiMm });
     await attendre();
     // Les chemins de la demonstration ont la couleur des lames : eux sont des rubans a plat (ShapeGeometry), qui suivent le sol.
     const dessus = Math.max(...meshes('c9a15a').filter((m) => m.geometry.type === 'ExtrudeGeometry').map((m) => boite(m).max.y));
-    expect(dessus).toBeCloseTo(hauteurFinieMm(terrasse() as ObjetPlan) / 1000, 3);
+    const t = terrasse() as ObjetPlan;
+    const attendu = dessusTerrasseM(t, solDuProjet(objets));
+    expect(dessus).toBeCloseTo(attendu, 3);
+    // La demonstration est en aval de son point haut : le dessus n'est plus la seule hauteur finie (phase 2, spec §6).
+    expect(Math.abs(attendu - hauteurFinieMm(t) / 1000)).toBeGreaterThan(0.01);
   });
 
   it('garde le plan vert quand « Sol en relief » est decoche', () => {

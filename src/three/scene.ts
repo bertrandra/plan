@@ -12,7 +12,8 @@
 import { vue3d, cleDeVue, hotes3d, type SceneVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
-import { decaissementPoseMm } from '../engine/hauteurs.js';
+import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
+import { solDuProjet, zReferenceOuvrage, type Sol } from '../engine/sol.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { formeDeTerrasse, trousDeTerrasse } from '../engine/structure.js';
 import { ensureConstruction } from '../engine/construction.js';
@@ -33,7 +34,7 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, visibleEnIsolement } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estTerrasse, visibleEnIsolement } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
@@ -197,9 +198,12 @@ function poserLumieres(scene: THREE_NS.Scene, extent: number) {
   return { hemiLight, dirLight, dirFill };
 }
 
-/** Le contour reel de la terrasse au sol : on y verifie d'un coup d'oeil le sens des lames. */
-function ajouterContourTerrasse(scene: THREE_NS.Scene, obj: ObjetPlan, versLocal: VersLocal): void {
-  const pts = enPoints(obj).pts.map((p: PtBrut) => { const l = versLocal(p); return new THREE.Vector3(l.x, 0.01, l.z); });
+/**
+ * Le contour reel de la terrasse au sol : on y verifie d'un coup d'oeil le sens des lames. Sur un
+ * sol en pente, il monte au point haut du sol sous la terrasse (`yHaut`), la ou la structure se pose.
+ */
+function ajouterContourTerrasse(scene: THREE_NS.Scene, obj: ObjetPlan, versLocal: VersLocal, yHaut = 0): void {
+  const pts = enPoints(obj).pts.map((p: PtBrut) => { const l = versLocal(p); return new THREE.Vector3(l.x, yHaut + 0.01, l.z); });
   const premier = pts[0];
   if (premier) pts.push(premier.clone());
   scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2a2a })));
@@ -245,24 +249,63 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
   });
 }
 
+/** Ou la structure se pose : la scene, le repere, et le sol que lit le moteur (`null` : plat). */
+interface CibleStructure { scene: THREE_NS.Scene; versLocal: VersLocal; sol: Sol | null }
+
+/**
+ * Le groupe dans lequel la terrasse se construit : eleve de `yHaut` (le point haut du sol sous elle,
+ * sur un sol en pente), puis abaisse du decaissement. A zero et sans decaissement, c'est la scene
+ * elle-meme — la scene d'un projet sans relief ne gagne aucun groupe (export GLB inchange).
+ */
+function groupeDeLaTerrasse(scene: THREE_NS.Scene, yHaut: number, decaisseM: number): { terrasse: THREE_NS.Object3D; structure: THREE_NS.Object3D } {
+  let terrasse: THREE_NS.Object3D = scene;
+  if (yHaut !== 0) {
+    const g = new THREE.Group();
+    g.name = 'terrasse-point-haut';
+    g.position.y = yHaut;
+    scene.add(g);
+    terrasse = g;
+  }
+  let structure = terrasse;
+  if (decaisseM > 0) {
+    const g = new THREE.Group();
+    g.position.y = -decaisseM;
+    terrasse.add(g);
+    structure = g;
+  }
+  return { terrasse, structure };
+}
+
+/**
+ * Le pied de chaque appui, compte depuis le niveau de la structure : zero sur un sol plat ; sur un
+ * sol en pente, le sol sous l'appui moins le point haut (engine/hauteurs.ts) — negatif en aval, la
+ * ou le plot ou la tete de vis s'allonge. Dans l'ordre de `layers.vis`.
+ */
+function piedsDesAppuis(obj: ObjetPlan, layers: Couches, sol: Sol | null): number[] {
+  const enHauteur = appuisEnHauteur(obj, layers.vis, sol);
+  return enHauteur ? enHauteur.appuis.map(a => a.zSol - enHauteur.zHaut) : layers.vis.map(() => 0);
+}
+
 /**
  * Toute la structure de la terrasse (appuis, solives, lambourdes, lames). Executee APRES la premiere
  * image : c'est le morceau le plus long (~360 ms sur une terrasse de 35 m², une piece de bois = un
  * mesh), et le terrain, les batiments et la camera sont prets avant — on navigue deja pendant que
  * le platelage se pose. Chaque piece est coupee au contour ou elle s'arrete : un bord oblique se
  * lit comme une diagonale, pas comme un escalier.
+ *
+ * Sur un sol en pente (MD/spec-relief.md §6), la structure est de niveau au point le plus HAUT du
+ * sol sous la terrasse : tout se pose dans un groupe eleve d'autant, et chaque plot ou vis descend
+ * jusqu'a SON sol. Le haut des appuis reste commun (la hauteur reglee) : c'est leur pied qui change.
  */
-function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, primSol: Primitives, ctx: ContexteScene3d, isolee: boolean, sol: { scene: THREE_NS.Scene; versLocal: VersLocal }): void {
+function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, primSol: Primitives, ctx: ContexteScene3d, isolee: boolean, cible: CibleStructure): void {
+  const contour = enPoints(obj).pts;
   // Un niveau fini impose plus bas que la structure : toute la terrasse descend dans son
   // decaissement (engine/hauteurs.ts). Ses pieces sont posees dans un groupe abaisse d'autant.
   const decaisseM = decaissementPoseMm(obj) / 1000;
-  let prim = primSol;
-  if (decaisseM > 0) {
-    const groupe = new THREE.Group();
-    groupe.position.y = -decaisseM;
-    sol.scene.add(groupe);
-    prim = creerPrimitives({ scene: groupe, versLocal: sol.versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
-  }
+  const yHaut = zReferenceOuvrage(cible.sol, contour);
+  const groupes = groupeDeLaTerrasse(cible.scene, yHaut, decaisseM);
+  const primitivesDans = (g: THREE_NS.Object3D) => g === cible.scene ? primSol : creerPrimitives({ scene: g, versLocal: cible.versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
+  const prim = primitivesDans(groupes.structure);
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c) / 1000;
@@ -276,12 +319,12 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   const lambW = lambDims.b / 1000;
   const lameH = (c.epaisseurLame || 25) / 1000;
   const lameW = (c.largeurLame || 140) / 1000;
-  const contour = enPoints(obj).pts;
   // En pose simple sur plots il n'y a pas de solive : les lambourdes reposent sur les plots, et le
   // cadre est une lambourde de rive. L'empilement perd une couche au milieu.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
-  if (estPlots(c)) layers.vis.forEach(p => prim.addPlot(p, hauteurVisM, 0x6E7A84, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2));
-  else layers.vis.forEach(p => prim.addPost(p, enterreM, hauteurVisM, 0.03, 0x8a96a8));
+  const pieds = piedsDesAppuis(obj, layers, cible.sol);
+  if (estPlots(c)) layers.vis.forEach((p, i) => prim.addPlot(p, hauteurVisM, 0x6E7A84, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2, pieds[i] ?? 0));
+  else layers.vis.forEach((p, i) => prim.addPost(p, enterreM, hauteurVisM, 0.03, 0x8a96a8, pieds[i] ?? 0));
   layers.solives.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, contour));
   // Le cadre est au niveau des pieces auxquelles il appartient, et suit le contour.
   prim.addBande(layers.bandes.cadre, hauteurVisM, plotSimple ? lambH : soliveH, 0x4a2f18);
@@ -313,8 +356,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   }
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
   // L'assise : une dalle se voit toujours (son debord) ; sol en coupe, tout ce qui est sous le sol
-  // fini — herisson, massifs, futs de vis — se voit aussi.
-  ajouterAssise3d({ prim: primSol, ...sol }, contour, layers, c, vue3d.solEnCoupe, decaisseM, vue3d.platelageTranslucide);
+  // fini — herisson, massifs, futs de vis — se voit aussi. Elle est de niveau au point haut, dans le
+  // groupe de la terrasse ; seuls les massifs suivent chaque plot a son sol (three/assise3d.ts).
+  ajouterAssise3d({ prim: primitivesDans(groupes.terrasse), scene: groupes.terrasse, versLocal: cible.versLocal }, contour, layers, c, vue3d.solEnCoupe, decaisseM, vue3d.platelageTranslucide, pieds);
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
@@ -322,8 +366,13 @@ export const OPACITE_LAMES_ISOLEMENT = 0.35;
 /** Les lames quand « Platelage translucide » est coche : presque transparentes (le plancher d'appliquerOpacite), leur dessin se devine. */
 export const OPACITE_LAMES_TRANSLUCIDES = 0.15;
 
-/** Ce que chaque objet du plan rendu en contexte recoit. `sol` : le sol en relief, ou `null` (plat). */
-interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null }
+/**
+ * Ce que chaque objet du plan rendu en contexte recoit. `sol` : le sol en relief dessine, ou `null`
+ * (plat) ; `solMoteur` : le meme relief tel que le moteur le lit (engine/sol.ts), pour les hauteurs
+ * d'appui, de poteau et de bord de bassin — `null` quand le sol dessine est plat. `objets` : le plan,
+ * pour les calculs qui lisent d'autres objets (la plage d'une piscine, son relief).
+ */
+interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null; solMoteur: Sol | null; objets: ObjetPlan[] }
 
 /**
  * Ou poser un objet sur le sol : sa base au point le plus bas du sol sous son contour, son haut a la
@@ -478,9 +527,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'path') { ajouterChemin(o, co); return; }
     // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
     if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
-    // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit —
-    // dans un groupe pose sur le sol en son centre.
-    if (estAbri(o)) { ajouterPergola3d(groupeAuSol(co.scene, co.sol, centreDe(o)), o, co.versLocal); return; }
+    // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit.
+    // Sur un sol en pente, le moteur compte ses `z` depuis le zero du plan (chaque poteau jusqu'a
+    // son sol) : elle va dans la scene telle quelle ; sinon dans un groupe pose sur le sol en son centre.
+    if (estAbri(o)) { ajouterPergola3d(co.solMoteur ? co.scene : groupeAuSol(co.scene, co.sol, centreDe(o)), o, co.versLocal, co.solMoteur); return; }
     // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
     if (estPiscine(o)) { ajouterPiscineAuSol(o, co); return; }
     const h = ctx.elevationOf(o);
@@ -499,7 +549,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
     const forme = formeDeTerrasse(o, etat.objects);
     const pieces = forme ? forme.map((m) => ({ pts: m.contour, hauteur: h, trous: m.trous })) : volumes.map((v) => ({ ...v, trous: trousDeTerrasse(o, etat.objects) }));
-    pieces.forEach((v) => prim.addPrism(v.pts, yBase, ySol + v.hauteur - yBase, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o), v.trous));
+    // Une autre terrasse est de niveau a sa hauteur finie au-dessus du point HAUT du sol sous elle
+    // (engine/hauteurs.ts), comme la terrasse courante : son prisme monte jusque-la.
+    const dessusTerrasse = co.solMoteur && estTerrasse(o) ? dessusTerrasseM(o, co.solMoteur) : null;
+    pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o), v.trous));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
     if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
@@ -509,10 +562,14 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
   });
 }
 
-/** Une piscine, dans un groupe pose sur le sol en son centre : son eau et ses margelles comptent depuis ce sol. */
+/**
+ * Une piscine : son eau et ses margelles comptent depuis le sol. Sur un sol en pente, le moteur
+ * la pose lui-meme a son point haut (three/piscine3d.ts) ; sinon dans un groupe pose sur le sol en
+ * son centre.
+ */
 function ajouterPiscineAuSol(o: ObjetPlan, co: ContexteObjets): void {
-  const cible = groupeAuSol(co.scene, co.sol, centreDe(o));
-  ajouterPiscine3d({ prim: primitivesDans(cible, co), scene: cible, versLocal: co.versLocal }, o);
+  const cible = co.solMoteur ? co.scene : groupeAuSol(co.scene, co.sol, centreDe(o));
+  ajouterPiscine3d({ prim: primitivesDans(cible, co), scene: cible, versLocal: co.versLocal, primitivesDans: (g) => primitivesDans(g, co) }, o, co.objets);
 }
 
 /** Les piscines du plan, quand le reste du plan n'est pas dessine. */
@@ -565,6 +622,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Le relief est celui de la parcelle du projet ; `null` sans relief ou si « Sol en relief » est
   // decoche — la scene est alors exactement celle d'avant (three/relief3d.ts).
   const sol = solDeLaScene(ctx.trouverParcelleCloture()?.relief);
+  // Le meme relief, lu par le moteur (engine/sol.ts) : la structure de la terrasse, les poteaux
+  // d'une pergola, le bord d'un bassin suivent le sol en pente (MD/spec-relief.md §6). Sol dessine
+  // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
+  const solMoteur = sol ? solDuProjet(etat.objects) : null;
   const base = monterScene(host, extent, conservee, { sol, cen, versLocal });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
@@ -572,13 +633,14 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const { scene, camera, renderer, controls, ground } = base;
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
 
-  if(obj) ajouterContourTerrasse(scene, obj, versLocal);
+  if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
   ajouterOrtho(scene, versLocal, ctx, sol);
-  if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx, sol });
+  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects };
+  if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
   // Les masques d'affichage s'appliquent : un objet isole ne laisse que lui et ses associes.
-  else ajouterPiscinesSeules(etat, { prim, scene, versLocal, ctx, sol });
+  else ajouterPiscinesSeules(etat, co);
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
   if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
   appliquerOmbres(scene, ground);
@@ -601,7 +663,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal });
+    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur });
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
     renderer.render(scene, camera);
   }, 0);

@@ -36,7 +36,7 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
   let contenu: React.ReactNode;
   switch (onglet.id) {
     case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
-    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} />); break;
+    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} objets={resultats.etat.objects} />); break;
     case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
     case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;
     case 'methode': contenu = pourTerrasse(t => <Methode obj={t} resultats={resultats} />); break;

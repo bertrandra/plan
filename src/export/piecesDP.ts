@@ -15,7 +15,8 @@ import { au } from '../util/tableaux.js';
 import { dist, centroid, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon } from '../geometry/polygon.js';
 import { calculerPergola, dimsPergola, libelleAbri, type PergolaCalculee, type Pt3 } from '../engine/pergola.js';
-import { hauteurFinieMm } from '../engine/hauteurs.js';
+import { solDuProjet, type Sol } from '../engine/sol.js';
+import { dessusTerrasseM } from '../engine/hauteurs.js';
 import { estAbri, estBatiment, estTerrain, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import { elevationParDefaut } from '../model/defaults.js';
 import { empriseRelief, libelleSource, ligneDePlusGrandePente, pointDeReference, profilRelief, reliefDe, resumeRelief, type Emprise } from '../model/relief.js';
@@ -210,8 +211,10 @@ export function pagePlanDeMasse(objets: ObjetPlan[], meta: MetaPieces): PagePdf 
   });
   // Le projet : chaque ouvrage, ses cotes, sa hauteur et sa distance a la limite la plus proche.
   const projet = objets.filter(o => estAbri(o) || estTerrasse(o));
+  // Sur un sol en pente, « H max » est la hauteur reglementaire : du terrain naturel au point bas.
+  const sol = solDuProjet(objets);
   projet.forEach(o => {
-    const calc = estAbri(o) ? calculerPergola(o) : null;
+    const calc = estAbri(o) ? calculerPergola(o, sol) : null;
     const pts = contour(o);
     if (calc && calc.reglages.debord > 0) s += pdfPolygone(calc.emprise.map(P), null, PROJET, 0.6, 0.8);
     s += pdfPolygone(pts.map(P), PROJET_FOND, PROJET, 1.2);
@@ -227,7 +230,7 @@ export function pagePlanDeMasse(objets: ObjetPlan[], meta: MetaPieces): PagePdf 
     });
     const ys = pts.map(P).map(p => p.y), xs = pts.map(P).map(p => p.x);
     const bas = Math.min(...ys) - 34, gauche = Math.min(...xs);
-    const hauteur = calc ? Math.max(...calc.pieces.map(x => Math.max(x.a.z, x.b.z))) : 0;
+    const hauteur = calc ? calc.hauteurReglementaire : 0;
     s += pdfTexte(gauche, bas, 8, enAscii(nomOuvrage(o) + ' (projet)'), PROJET);
     s += pdfTexte(gauche, bas - 10, 7, enAscii('emprise ' + fr(calc ? shoelace(calc.emprise) : shoelace(pts), 1) + ' m2' + (calc ? ' - H max ' + fr(hauteur) + ' m' : '')), PROJET);
     const limite = plusProcheLimite(calc ? calc.emprise : pts, parcelle.pts);
@@ -284,10 +287,12 @@ export function pageProfil(objets: ObjetPlan[], meta: MetaPieces): PagePdf | nul
   // Les ouvrages que la coupe traverse : un rectangle de `zRef` a leur hauteur, entre les deux
   // points ou la ligne entre et sort de leur contour.
   const ouvrages: { s0: number; s1: number; h: number; terrasse: boolean; nom: string }[] = [];
+  const solProjet = solDuProjet(objets);
   objets.forEach(o => {
     if (o.type !== 'polygon' || !(estTerrasse(o) || estAbri(o))) return;
-    const calc = estAbri(o) ? calculerPergola(o) : null;
-    const h = calc ? Math.max(...calc.pieces.map(x => Math.max(x.a.z, x.b.z))) : hauteurFinieMm(o) / 1000;
+    const calc = estAbri(o) ? calculerPergola(o, solProjet) : null;
+    // Avec un sol, les hauteurs sont deja comptees depuis le zero du plan (moteur, phase 2).
+    const h = calc ? Math.max(...calc.pieces.map(x => Math.max(x.a.z, x.b.z))) : dessusTerrasseM(o, solProjet);
     clipLineToPolygon(a, dir, o.pts).forEach(seg => {
       const s0 = Math.min(sDe(seg.a), sDe(seg.b)), s1 = Math.max(sDe(seg.a), sDe(seg.b));
       if (s1 - s0 > 0.05) ouvrages.push({ s0, s1, h, terrasse: !calc, nom: nomOuvrage(o) });
@@ -341,13 +346,16 @@ export function pageProfil(objets: ObjetPlan[], meta: MetaPieces): PagePdf | nul
 /** Une elevation : les pieces projetees sur un plan vertical, x le long de `axe`, y la hauteur. */
 function elevation(calc: PergolaCalculee, axe: PtBrut, origine: PtBrut, cadre: { x: number; y: number; l: number; h: number }, titre: string): string {
   const abs = (p: PtBrut) => (p.x - origine.x) * axe.x + (p.y - origine.y) * axe.y;
+  // Sur un sol en pente, la ligne de sol de l'elevation est le terrain au point bas : les poteaux
+  // d'amont s'arretent au-dessus d'elle, a leur sol, et « H » se lit depuis ce point bas.
+  const z0 = calc.sol?.zBas ?? 0, zHaut = (calc.sol?.zHaut ?? 0) - z0;
   const pts3 = calc.pieces.flatMap(p => [p.a, p.b]);
-  const xs = pts3.map(abs), zs = pts3.map(p => p.z);
+  const xs = pts3.map(abs), zs = pts3.map(p => p.z - z0);
   const x0 = Math.min(...xs) - 0.5, x1 = Math.max(...xs) + 0.5, zMax = Math.max(...zs);
   const denom = echelleQuiTient(x1 - x0, zMax + 0.6, cadre.l, cadre.h - 20);
   const k = PT_PAR_METRE / denom;
   const ox = cadre.x + (cadre.l - (x1 - x0) * k) / 2;
-  const V = (p: Pt3) => ({ x: ox + (abs(p) - x0) * k, y: cadre.y + 14 + p.z * k });
+  const V = (p: Pt3) => ({ x: ox + (abs(p) - x0) * k, y: cadre.y + 14 + (p.z - z0) * k });
   let s = pdfTexte(cadre.x, cadre.y + cadre.h - 8, 9, enAscii(titre + ' - 1/' + denom));
   // La couverture, derriere la charpente.
   calc.pans.forEach(pan => { s += pdfPolygone(pan.map(V), [0.9, 0.88, 0.84], GRIS, 0.4, 0.75); });
@@ -370,13 +378,14 @@ function elevation(calc: PergolaCalculee, axe: PtBrut, origine: PtBrut, cadre: {
   s += trait({ x: cadre.x, y: cadre.y + 14 }, { x: cadre.x + cadre.l, y: cadre.y + 14 }, ENCRE, 1.2);
   const xc = ox + (x1 - x0) * k + 12;
   s += cote({ x: xc, y: cadre.y + 14 }, { x: xc, y: cadre.y + 14 + zMax * k }, 'H ' + fr(zMax) + ' m', ENCRE, -1);
-  s += cote({ x: ox - 12, y: cadre.y + 14 }, { x: ox - 12, y: cadre.y + 14 + calc.reglages.hauteur * k }, fr(calc.reglages.hauteur) + ' m');
+  s += cote({ x: ox - 12, y: cadre.y + 14 + zHaut * k }, { x: ox - 12, y: cadre.y + 14 + (zHaut + calc.reglages.hauteur) * k }, fr(calc.reglages.hauteur) + ' m');
+  if (calc.sol && zHaut > 0.005) s += pdfTexte(cadre.x, cadre.y + 4, 6.5, enAscii('Sol en pente (relief IGN) : ligne de sol au point bas ; le terrain monte de ' + fr(zHaut) + ' m sous l\'abri.'), GRIS);
   return s;
 }
 
 /** DP4 : les facades et la toiture d'un abri. */
-export function pageFacades(o: ObjetPlan, meta: MetaPieces): PagePdf | null {
-  const calc = calculerPergola(o);
+export function pageFacades(o: ObjetPlan, meta: MetaPieces, sol: Sol | null = null): PagePdf | null {
+  const calc = calculerPergola(o, sol);
   if (!calc || o.type !== 'polygon') return null;
   const r = calc.reglages;
   const a = au(o.pts, r.coteReference), b = au(o.pts, (r.coteReference + 1) % o.pts.length);

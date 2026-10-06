@@ -31,7 +31,8 @@ export const OPACITE_DALLE = 0.5;
 /** La fouille descend un peu sous la couche la plus basse, pour qu'on la lise. */
 const SOUS_FOUILLE_M = 0.1;
 
-export interface ContexteAssise3d { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal }
+/** `scene` : la scene, ou le groupe d'une terrasse elevee a son point haut sur un sol en pente (three/scene.ts). */
+export interface ContexteAssise3d { prim: Primitives; scene: THREE_NS.Object3D; versLocal: VersLocal }
 
 /** Les couches sous le sol fini, de haut en bas, et la profondeur de la fouille. */
 export function couchesAssise(c: Construction): { couches: { nom: string; haut: number; bas: number; couleur: string }[]; parAppui: { cote: number; haut: number; bas: number } | null; profondeur: number } {
@@ -67,8 +68,14 @@ export function couchesAssise(c: Construction): { couches: { nom: string; haut: 
  * decaissee (`decaissement`, en m, engine/hauteurs.ts) se voit dans sa fouille : ses parois de terre
  * montent du fond jusqu'au terrain naturel. Le reste — herisson, concasse, massifs, fouille entiere —
  * n'apparait que sol en coupe (`enCoupe`). Tout est abaisse du decaissement.
+ *
+ * `basesAppuis` : sur un sol en pente (MD/spec-relief.md §6), le sol sous chaque appui de
+ * `layers.vis`, compte depuis le niveau de la scene donnee (negatif en aval) : un massif ou une dalle
+ * stabilisatrice se pose sous SON plot, a son sol. Les couches pleines (dalle, herisson, fouille),
+ * elles, restent de niveau au point haut : une dalle en pente n'existe pas, et la fouille reelle est
+ * l'affaire du terrassement, pas de cette vue.
  */
-export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean, decaissement = 0, translucide = false): void {
+export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean, decaissement = 0, translucide = false, basesAppuis: readonly number[] = []): void {
   const opaciteDalle = translucide ? OPACITE_DALLE : 1;
   if (contour.length < 3) return;
   const trous = layers.trous ?? [];
@@ -92,11 +99,11 @@ export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, co
   // Le fond de la fouille, puis chaque couche, percee la ou la terrasse l'est.
   plaque(scene, versLocal, emprise, trous, base - profondeur, 0.005, TERRE);
   couches.forEach(k => plaque(scene, versLocal, emprise, trous, base + k.bas, k.haut - k.bas, k.couleur, k === dalle ? opaciteDalle : 1));
-  if (parAppui) layers.vis.forEach(p => prim.addPrism(carre(p, parAppui.cote), base + parAppui.bas, parAppui.haut - parAppui.bas, BETON));
+  if (parAppui) layers.vis.forEach((p, i) => prim.addPrism(carre(p, parAppui.cote), base + (basesAppuis[i] ?? 0) + parAppui.bas, parAppui.haut - parAppui.bas, BETON));
 }
 
 /** Les parois de terre de la fouille, de `bas` a `haut`, vues de l'interieur comme de l'exterieur. */
-function parois(scene: THREE_NS.Scene, versLocal: VersLocal, emprise: PtBrut[], bas: number, haut: number): void {
+function parois(scene: THREE_NS.Object3D, versLocal: VersLocal, emprise: PtBrut[], bas: number, haut: number): void {
   const matTerre = new THREE.MeshStandardMaterial({ color: TERRE, side: THREE.DoubleSide, roughness: 1 });
   const positions: number[] = [];
   emprise.forEach((a, i) => {
@@ -112,7 +119,7 @@ function parois(scene: THREE_NS.Scene, versLocal: VersLocal, emprise: PtBrut[], 
 }
 
 /** Une couche plane sur l'emprise, ses ouvertures retirees, de `bas` a `bas + ep`. */
-function plaque(scene: THREE_NS.Scene, versLocal: VersLocal, contour: PtBrut[], trous: PtBrut[][], bas: number, ep: number, couleur: string, opacite = 1): void {
+function plaque(scene: THREE_NS.Object3D, versLocal: VersLocal, contour: PtBrut[], trous: PtBrut[][], bas: number, ep: number, couleur: string, opacite = 1): void {
   if (!(ep > 0)) return;
   const forme = (pts: PtBrut[], s: THREE_NS.Shape | THREE_NS.Path) => {
     pts.forEach((q, i) => { const p = versLocal(q); if (i === 0) s.moveTo(p.x, -p.z); else s.lineTo(p.x, -p.z); });

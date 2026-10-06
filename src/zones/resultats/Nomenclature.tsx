@@ -6,6 +6,7 @@
 // `resultats.saisir` : elle s'annule et marque le projet modifie.
 
 import { coutDebit, prixBarre, prixM2De, prixPersonnalise, setPrixBarre, setPrixM2, achatPlots, achatVis, prixPlotUnite, prixVisUnite, type ProduitBarre } from '../../engine/prix.js';
+import { solDuProjet } from '../../engine/sol.js';
 import { computeTerrasseLayers, type CouchesTerrasse } from '../../engine/layers.js';
 import { computeDebitLames, computeDebitsBois, type Debit } from '../../engine/debit.js';
 import { computeBOM } from '../../engine/bom.js';
@@ -93,7 +94,7 @@ function Bilan({ c, d }: { c: Construction; d: Debit }) {
 function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTerrasse }) {
   const c = ensureConstruction(obj);
   // Le BOM est ecrit par le service au rafraichissement ; avant le premier, on le lit sans l'ecrire.
-  const lignes: LigneBom[] = c.bom ?? computeBOM(obj, layers);
+  const lignes: LigneBom[] = c.bom ?? computeBOM(obj, layers, solDuProjet(resultats.etat.objects));
   let totalBas = 0, totalHaut = 0, reel = 0, unReel = false;
   lignes.forEach(l => {
     totalBas += (l.prixBas || 0) * l.qte;

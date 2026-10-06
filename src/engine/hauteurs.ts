@@ -8,6 +8,7 @@ import { estPlots, supportDe } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, sectionLambourde } from './portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
+import { solSousEmprise, type Sol } from './sol.js';
 import type { Construction, PtBrut } from '../model/types.js';
 
 /**
@@ -97,4 +98,54 @@ export function elevationOf(o: ObjetMesurable): number {
     return hauteurFinieMm(o) / 1000;
   }
   return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction ?? '');
+}
+
+// ---- Le sol en pente (MD/spec-relief.md §6) ---------------------------------------------------
+
+/** Un appui du moteur, tel que `buildVisGrid` le rend : un point et son role. */
+export interface AppuiPose extends PtBrut { role: string }
+
+/** Un appui avec sa hauteur propre : ce que le sol lui demande en plus de la hauteur reglee. */
+export interface AppuiEnHauteur extends AppuiPose {
+  /** Le sol sous l'appui, au-dessus du zero du plan. */
+  zSol: number;
+  /** La hauteur de l'appui au-dessus de son sol, en millimetres : la hauteur reglee, plus ce que le sol descend. */
+  hauteurMm: number;
+}
+
+export interface AppuisEnHauteur {
+  /** Le sol au point le plus haut sous la terrasse : la ou l'appui a la hauteur reglee. */
+  zHaut: number;
+  zBas: number;
+  appuis: AppuiEnHauteur[];
+  minMm: number;
+  maxMm: number;
+}
+
+/**
+ * La hauteur de chaque appui d'une terrasse sur un sol en pente : la hauteur reglee (`hauteurAppuiMm`)
+ * au point le plus haut du sol sous la terrasse, et davantage partout ou le sol descend, pour que le
+ * platelage soit de niveau. `null` sans sol : le terrain est plat, tous les appuis ont la hauteur reglee.
+ * Un appui hors de la grille prend le sol du point le plus haut (donc la hauteur reglee).
+ */
+export function appuisEnHauteur(obj: ObjetMesurable, appuis: readonly AppuiPose[], sol: Sol | null | undefined): AppuisEnHauteur | null {
+  if (!sol || !obj.pts || obj.pts.length < 3) return null;
+  const s = solSousEmprise(sol, obj.pts);
+  if (!s) return null;
+  const base = hauteurAppuiMm(ensureConstruction(obj));
+  const liste = appuis.map(a => {
+    const zSol = sol.z(a) ?? s.zHaut;
+    return { ...a, zSol, hauteurMm: Math.round(base + (s.zHaut - zSol) * 1000) };
+  });
+  const hauteurs = liste.map(a => a.hauteurMm);
+  return { zHaut: s.zHaut, zBas: s.zBas, appuis: liste, minMm: hauteurs.length ? Math.min(...hauteurs) : base, maxMm: hauteurs.length ? Math.max(...hauteurs) : base };
+}
+
+/**
+ * Le dessus d'une terrasse au-dessus du zero du plan, en metres : sa hauteur finie au-dessus du
+ * sol, posee sur le point le plus haut du sol sous elle. Sans sol, la hauteur finie seule.
+ */
+export function dessusTerrasseM(obj: ObjetMesurable, sol: Sol | null | undefined): number {
+  const z = obj.pts && obj.pts.length >= 3 ? (solSousEmprise(sol, obj.pts)?.zHaut ?? 0) : 0;
+  return z + hauteurFinieMm(obj) / 1000;
 }

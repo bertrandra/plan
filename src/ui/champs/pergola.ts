@@ -12,6 +12,7 @@ import {
   longueursPergola, MATERIAUX, metrageParSection, pergolaDe, prixMlDe, prixMlSaisi, SECTIONS_CONTREFICHE,
   type MetrageSection, type ReglagesPergola, type RolePiece
 } from '../../engine/pergola.js';
+import { solDuProjet } from '../../engine/sol.js';
 import { euros } from '../chiffrage.js';
 import { sectionNoteCalcul } from './noteCalcul.js';
 import type { MateriauPergola, Pergola, ToitPergola } from '../../model/types.js';
@@ -144,7 +145,7 @@ function achats(m: MetrageSection): string {
 
 /** Le metrage et le chiffrage, une ligne par section : la liste depend de la pergola, la section aussi. */
 export function sectionMetragePergola(c: ContexteChamps): Section {
-  const calc = calculerPergola(c.obj);
+  const calc = calculerPergola(c.obj, solDuProjet(c.objets));
   const champs: Champ[] = [];
   if (calc) {
     const metrage = metrageParSection(calc);
@@ -162,6 +163,13 @@ export function sectionMetragePergola(c: ContexteChamps): Section {
       type: 'lecture', cle: 'metrage-total', libelle: 'Total fourniture',
       valeur: () => euros(chiffrage.total) + ' TTC, hors pose et quincaillerie'
     });
+    // Le relief lu (MD/spec-relief.md §6) : les poteaux d'aval sont plus longs, et la hauteur
+    // reglementaire se mesure depuis le point bas du terrain naturel.
+    const solSous = calc.sol;
+    if (solSous) champs.push({
+      type: 'lecture', cle: 'metrage-sol', libelle: 'Sol en pente',
+      valeur: () => 'poutres de niveau sur le point haut (+' + fr(solSous.zHaut) + ' m) ; sol de ' + fr(solSous.zBas) + ' à ' + fr(solSous.zHaut) + ' m ; hauteur réglementaire ' + fr(calc.hauteurReglementaire) + ' m depuis le point bas'
+    });
     calc.avertissements.forEach((t, i) => champs.push({ type: 'alerte', cle: 'metrage-alerte-' + i, libelle: '', nom: 'Alerte : ' + t, texte: () => t }));
   } else {
     champs.push({ type: 'alerte', cle: 'metrage-vide', libelle: '', nom: 'Alerte : contour inutilisable', texte: () => 'Le contour doit avoir au moins trois coins et une surface pour calculer la pergola.' });
@@ -175,7 +183,7 @@ export function sectionMetragePergola(c: ContexteChamps): Section {
 
 /** Les prix unitaires : un par section en place, et celui de la toile ou de la couverture. */
 export function sectionPrixPergola(c: ContexteChamps): Section {
-  const calc = calculerPergola(c.obj);
+  const calc = calculerPergola(c.obj, solDuProjet(c.objets));
   const champs: Champ[] = [];
   if (calc) {
     metrageParSection(calc).forEach(m => champs.push({

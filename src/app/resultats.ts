@@ -13,6 +13,7 @@
 import { computeBOM } from '../engine/bom.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
+import { solDuProjet } from '../engine/sol.js';
 import { interrogerPlu } from '../geo/apiIgn.js';
 import { idMesure } from '../model/cles.js';
 import { mesure, type Pointage } from '../interaction/outilMesure.js';
@@ -106,7 +107,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     const obj = terrasse ?? ctx.terrasseCourante();
     if (obj) {
       const c = ensureConstruction(obj);
-      c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects));
+      c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();

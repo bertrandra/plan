@@ -1,6 +1,6 @@
 # Relief du terrain — spécification
 
-**Version :** 0.1 — proposée, non implémentée (schéma de projet 4)
+**Version :** 1.0 — implémentée (phases 1 et 2), non publiée (schéma de projet 4)
 **Statut :** spécification de référence : **le standard pour lire le relief à l'IGN, le ranger dans
 le projet et s'en servir**
 **Compagnons :** [`spec-toit-ign.md`](spec-toit-ign.md) (§9 : MNS LiDAR),
@@ -371,6 +371,12 @@ au moins trois points) :
 Les cinq réponses BIL brutes et les deux réponses WFS vont dans `tests/fixtures/relief/` : ce sont
 aussi les entrées des tests de §9.2. Si le critère échoue, le relief reste un affichage, et §6 ne
 s'écrit pas : à rediscuter avant d'implémenter V2.
+
+> **État au 6 octobre 2026** : ce critère n'a **pas** été joué, faute de relevés de terrain sous
+> la main. Les phases 1 et 2 ont été implémentées sur décision du produit ; la lecture a été jouée
+> contre le service réel (Lyon : LiDAR HD 50 cm ; centre Bretagne : repli RGE ALTI). Les tests
+> unitaires tournent sur des grilles fabriquées, pas sur des fixtures BIL. Le critère reste à jouer
+> sur cinq parcelles relevées avant de faire confiance aux hauteurs de V2 sur un chantier.
 
 ### 9.2 Tests unitaires
 
