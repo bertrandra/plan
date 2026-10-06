@@ -8,6 +8,7 @@ import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
+import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
@@ -376,14 +377,26 @@ export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): numbe
 }
 
 /**
- * Les trous d'une terrasse, en anneaux interieurs : le bord exterieur des margelles d'un bassin, le
- * contour d'un trou de terrasse — ceux qui sont tout entiers dans la terrasse. C'est ce que le plan
- * et les exports dessinent comme un trou dans son contour. Vide pour tout autre objet.
+ * Les trous d'une terrasse : le bord exterieur des margelles d'un bassin, le contour d'un trou de
+ * terrasse — tout entiers dedans ou a cheval sur son bord. Le plan, le SVG et le PDF les decoupent
+ * de la terrasse par un gabarit ; la 3D et le DXF, qui ont besoin de la forme, la tirent de
+ * `formeDeTerrasse`. Vide pour tout autre objet.
  */
 export function trousDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PtBrut[][] {
   if(!estTerrasse(o) || o.type !== 'polygon') return [];
-  const poly = o.pts;
-  return objetsQuiPercent(poly, objets).map(x => x.contour).filter(t => t.every(p => pointInPolygon(p, poly)));
+  return objetsQuiPercent(o.pts, objets).map(x => x.contour);
+}
+
+/**
+ * La forme vraie d'une terrasse percee : ses morceaux, chacun avec les trous qui le percent sans
+ * toucher son bord. Un bassin a cheval sur le bord y fait une encoche. `null` quand aucun trou ne
+ * chevauche le bord : le contour d'origine et ses trous interieurs suffisent alors, tels quels.
+ */
+export function formeDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PolygoneTroue[] | null {
+  if(o.type !== 'polygon') return null;
+  const trous = trousDeTerrasse(o, objets);
+  if(trous.every(t => t.every(p => pointInPolygon(p, o.pts)))) return null;
+  return differencePolygones(o.pts, trous);
 }
 
 /** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */

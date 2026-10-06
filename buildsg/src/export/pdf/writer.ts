@@ -97,23 +97,32 @@ export function pdfTexte(x: number, y: number, taille: number, txt: unknown, cou
 }
 
 /**
- * Un polygone ferme. `trous` (anneaux interieurs, en points PDF) le perce : chaque trou devient un
- * sous-chemin, et le remplissage passe en regle pair-impair (`f*`, `B*`) pour laisser le trou vide.
+ * Un gabarit de decoupe : tout le plan sauf les `trous` (en points PDF), en regle pair-impair
+ * (`W* n`). Ce qui est peint ensuite, jusqu'au `Q` qui le leve, ne se dessine pas dans les trous —
+ * qu'ils soient tout entiers dans la forme ou a cheval sur son bord. Vide sans trou.
  */
+export function pdfDecoupeTrous(trous: { x: number; y: number }[][]): string {
+  if(!trous.length) return '';
+  let s = 'q\n-100000 -100000 m 100000 -100000 l 100000 100000 l -100000 100000 l h\n';
+  trous.forEach(t=>{
+    t.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
+    s += 'h\n';
+  });
+  return s + 'W* n\n';
+}
+
+/** Un polygone ferme. `trous` (en points PDF) le percent : voir `pdfDecoupeTrous`. */
 export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number, trous: { x: number; y: number }[][] = []): string {
-  let s = '';
+  let s = pdfDecoupeTrous(trous);
   if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
   if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
   if(contour) s += contour[0].toFixed(3) + ' ' + contour[1].toFixed(3) + ' ' + contour[2].toFixed(3) + ' RG\n';
   s += (epaisseur || 0.8).toFixed(2) + ' w\n';
   ptsPdf.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
-  trous.forEach(t=>{
-    s += 'h\n';
-    t.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
-  });
-  const pairImpair = trous.length ? '*' : '';
-  s += 'h ' + (remplissage && contour ? 'B' + pairImpair : (remplissage ? 'f' + pairImpair : 'S')) + '\n';
+  s += 'h ' + (remplissage && contour ? 'B' : (remplissage ? 'f' : 'S')) + '\n';
   if(opacite !== undefined && opacite < 1) s += '/GS0 gs\n';
+  // Le `Q` leve le gabarit et rend aussi l'etat graphique d'avant (couleurs, opacite).
+  if(trous.length) s += 'Q\n';
   return s;
 }
 
