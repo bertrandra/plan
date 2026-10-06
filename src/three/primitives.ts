@@ -353,19 +353,23 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
 
   // Une vis se dessine SOUS le plan de sol, puisque c'est la qu'elle est. Seule sa tete reglable,
   // quand on la fait depasser, monte au-dessus du sol et porte la structure.
-  function addPost(p: PtBrut, profondeur: number, hTete: number, radius: number, color: CouleurTrois): void {
+  // `yBase` : le sol de CETTE vis (MD/spec-relief.md §6), compte dans le repere ou l'on pose. Sur un
+  // sol en pente il est sous le niveau de la structure, et la tete est d'autant plus longue : le fut
+  // enterre part de `yBase` vers le bas, la tete monte de `yBase` a `hTete`. A zero, rien ne change.
+  function addPost(p: PtBrut, profondeur: number, hTete: number, radius: number, color: CouleurTrois, yBase = 0): void {
     const P = versLocal(p);
     if (profondeur > 0) {
       const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.5, profondeur, 10), new THREE.MeshStandardMaterial({ color }));
-      mesh.position.set(P.x, -profondeur / 2, P.z);
+      mesh.position.set(P.x, yBase - profondeur / 2, P.z);
       scene.add(mesh);
     }
-    if (hTete > 0) {
-      const fut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius * 0.8, hTete, 10), new THREE.MeshStandardMaterial({ color: 0xb8c2ce }));
-      fut.position.set(P.x, hTete / 2, P.z);
+    const longueurTete = hTete - yBase;
+    if (longueurTete > 0) {
+      const fut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius * 0.8, longueurTete, 10), new THREE.MeshStandardMaterial({ color: 0xb8c2ce }));
+      fut.position.set(P.x, yBase + longueurTete / 2, P.z);
       scene.add(fut);
       // La platine qui recoit la solive, plaquee sous le dessous de la structure.
-      const ep = Math.min(0.012, hTete * 0.35);
+      const ep = Math.min(0.012, longueurTete * 0.35);
       const pl = new THREE.Mesh(new THREE.BoxGeometry(radius * 3.4, ep, radius * 3.4), new THREE.MeshStandardMaterial({ color: 0x8a96a8 }));
       pl.position.set(P.x, hTete - ep / 2, P.z);
       scene.add(pl);
@@ -374,18 +378,21 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
 
   // Un plot : base large evasee posee sur l'assise, fut etroit, tete plate sous la lambourde. La
   // base porte la surface d'assise reglee dans Construction, en cm².
-  function addPlot(p: PtBrut, yTop: number, color: CouleurTrois, surfaceAssiseCm2: number): void {
+  // `yBase` : le sol de CE plot (MD/spec-relief.md §6). Sur un sol en pente, le pied descend sous le
+  // niveau de la structure et le fut s'allonge d'autant ; la tete reste a `yTop`. A zero, rien ne change.
+  function addPlot(p: PtBrut, yTop: number, color: CouleurTrois, surfaceAssiseCm2: number, yBase = 0): void {
     const P = versLocal(p);
-    if (yTop <= 0) return;
+    const hauteur = yTop - yBase;
+    if (hauteur <= 0) return;
     const rBase = Math.sqrt(surfaceAssiseCm2 / Math.PI) / 100;
-    const hBase = Math.min(0.03, yTop * 0.3);
-    const hTete = Math.min(0.02, yTop * 0.2);
+    const hBase = Math.min(0.03, hauteur * 0.3);
+    const hTete = Math.min(0.02, hauteur * 0.2);
     const mat = new THREE.MeshStandardMaterial({ color });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.72, rBase, hBase, 14), mat);
-    base.position.set(P.x, hBase / 2, P.z); scene.add(base);
-    const futH = Math.max(0.005, yTop - hBase - hTete);
+    base.position.set(P.x, yBase + hBase / 2, P.z); scene.add(base);
+    const futH = Math.max(0.005, hauteur - hBase - hTete);
     const fut = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.3, rBase * 0.34, futH, 12), mat);
-    fut.position.set(P.x, hBase + futH / 2, P.z); scene.add(fut);
+    fut.position.set(P.x, yBase + hBase + futH / 2, P.z); scene.add(fut);
     const tete = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.55, rBase * 0.55, hTete, 14), mat);
     tete.position.set(P.x, yTop - hTete / 2, P.z); scene.add(tete);
   }

@@ -11,8 +11,10 @@
 // - hors de l'emprise de la grille, le sol continue plat a la hauteur du bord le plus proche, jusqu'au
 //   carre que le plan vert couvrait deja. Un seul maillage, sans couture.
 //
-// Phase 1 : affichage seulement. La terrasse courante garde sa hauteur finie au-dessus du zero du
-// plan (three/scene.ts) ; les quantites ne bougent pas (spec §6).
+// Ce fichier ne fait que l'affichage du sol. Ce qui se pose dessus en suivant la pente (la structure
+// de la terrasse, les poteaux d'une pergola ou d'une plage, le bord d'un bassin) lit le MEME relief
+// par le moteur (`engine/sol.ts`, spec §6) : three/scene.ts construit les deux depuis la grille de
+// la parcelle, et ne passe le sol du moteur que si le sol en relief est dessine.
 
 import { pointInPolygon } from '../geometry/basic.js';
 import { affichageRelief, centreCellule, empriseGrille, zLocal } from '../model/relief.js';
