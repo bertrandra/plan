@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calculerPiscine, chiffrerPiscine, contourTerrasseAutour, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee, terrasseDeLaPiscine
+  calculerPiscine, chiffrerPiscine, constructionDeLaPlage, contourTerrasseAutour, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee, terrasseDeLaPiscine
 } from '../../../src/engine/piscine.js';
 import { aireCommune, computeStructure, contourOuverture, couperAuContour, empriseDalle, objetsQuiPercent, surfaceDalle } from '../../../src/engine/structure.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
@@ -9,6 +9,7 @@ import { computeChantier } from '../../../src/engine/chantier.js';
 import { computeAssise } from '../../../src/engine/prix.js';
 import { constructionTerrasseNeuve, defaultConstruction, ensureConstruction } from '../../../src/engine/construction.js';
 import { shoelace } from '../../../src/geometry/basic.js';
+import { decaissementPoseMm, hauteurFinieMm } from '../../../src/engine/hauteurs.js';
 import type { Construction, ObjetPlan, Piscine } from '../../../src/model/types.js';
 
 // La plage en bois d'une piscine est une terrasse du plan, percee par le bassin ; une terrasse peut
@@ -148,7 +149,10 @@ describe('l\'assise d\'une terrasse sur plots', () => {
     const chantier = computeChantier(t, computeTerrasseLayers(t, [t]));
     const poste = (cle: string) => chantier.lignes.find(l => l.cle === cle)?.qte ?? 0;
     expect(poste('coulage')).toBeCloseTo(5.2 * 4.2 * 0.12);
-    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 5.2 * 4.2 * 0.12);
+    // Le herisson, la dalle, et la fouille d'une hauteur de plot (10 cm) ou la dalle est coulee :
+    // dessus de dalle + plot = terrain (engine/hauteurs.ts, dalleEnFouille).
+    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 5.2 * 4.2 * 0.12 + 5.2 * 4.2 * 0.10);
+    expect(bom.find(l => l.poste === 'decaissementPose')!.qte).toBeCloseTo(5.2 * 4.2 * 0.10);
     expect(surfaceDalle(rect(0, 0, 5, 4), [rect(1, 1, 2, 2)])).toBeCloseTo(5.2 * 4.2 - 1, 3);
     const e = empriseDalle(rect(0, 0, 5, 4));
     expect(Math.min(...e.map(p => p.x))).toBeCloseTo(-0.1);
@@ -167,5 +171,39 @@ describe('l\'assise d\'une terrasse sur plots', () => {
     expect(bom.some(l => l.poste === 'concasse' || l.poste === 'betonDalle')).toBe(false);
     // En vis de fondation, l'assise n'existe pas.
     expect(computeAssise({ ...defaultConstruction(), supportType: 'massifs' }, 20, 40).massifsU).toBe(0);
+  });
+});
+
+describe('la plage creee au niveau des margelles', () => {
+  const dessus = (p: ObjetPlan) => {
+    const calc = calculerPiscine(p)!;
+    return Math.round((calc.hauteurHorsSol + 0.04) * 1000);
+  };
+  const terrasseDe = (p: ObjetPlan) => terrasse(rect(-3, -3, 11, 7), constructionDeLaPlage(p));
+
+  it('enterree : la terrasse descend dans un decaissement, lames au ras des margelles', () => {
+    const p = piscine(8, 4);
+    const t = terrasseDe(p);
+    expect(t.construction!.niveauFini).toBe(4);
+    expect(hauteurFinieMm(t)).toBe(dessus(p));
+    expect(decaissementPoseMm(t)).toBeGreaterThan(0);
+  });
+
+  it('semi-enterree : les plots montent de l ecart, lames au ras des margelles', () => {
+    const p = piscine(8, 4, { implantation: 'semi-enterree' });
+    const t = terrasseDe(p);
+    expect(t.construction!.hauteurPlot).toBeGreaterThan(10);
+    expect(hauteurFinieMm(t)).toBe(dessus(p));
+  });
+
+  it('hors-sol : les plots plafonnent a leur domaine, l inspecteur le signale', () => {
+    const p = piscine(8, 4, { implantation: 'hors-sol' });
+    const t = terrasseDe(p);
+    expect(t.construction!.hauteurPlot).toBe(100);
+    expect(hauteurFinieMm(t)).toBeLessThan(dessus(p));
+  });
+
+  it('une ancienne plage en bois garde son essence', () => {
+    expect(constructionDeLaPlage(piscine(8, 4, { essencePlage: 'ipe' } as Piscine)).essenceBois).toBe('ipe');
   });
 });

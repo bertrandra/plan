@@ -250,7 +250,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   const soliveDims = (c.soliveSection || '45x70').split('x').map(n => parseInt(n, 10) || 0);
   const soliveH = (soliveDims[1] || 70) / 1000, soliveW = (soliveDims[0] || 45) / 1000;
   const lambDims = dimsSection(sectionLambourde(c));
-  const lambH = c.avecLambourde ? lambDims.h / 1000 : 0;
+  // Sur plots il y a toujours des lambourdes (engine/structure.ts, engine/hauteurs.ts) : en structure
+  // simple ce sont elles qui portent les lames, et le cadre a leur section.
+  const lambH = (c.avecLambourde || estPlots(c)) ? lambDims.h / 1000 : 0;
   const lambW = lambDims.b / 1000;
   const lameH = (c.epaisseurLame || 25) / 1000;
   const lameW = (c.largeurLame || 140) / 1000;
@@ -278,8 +280,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
   // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
   const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
+  // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
-    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames));
+    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
   if (c.avecLameRive) {
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;

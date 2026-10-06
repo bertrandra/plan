@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { decaissementPoseMm, elevationOf, hauteurFinieMm, hauteurStructureMm } from '../../../src/engine/hauteurs.js';
+import { dalleEnFouille, decaissementPoseMm, elevationOf, hauteurFinieMm, hauteurStructureMm } from '../../../src/engine/hauteurs.js';
 import { volumeDecaissementPose } from '../../../src/engine/structure.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
@@ -48,6 +48,22 @@ describe('niveau fini et decaissement', () => {
     const dalle = terrasse({ ...constructionTerrasseNeuve(), supportType: 'dalle-beton', niveauFini: 0 });
     // Sous une dalle, la fouille prend son emprise debordante : 5,2 x 4,2 m.
     expect(volumeDecaissementPose({ pts: rect(0, 0, 5, 4), construction: dalle.construction! }, [])).toBeCloseTo(5.2 * 4.2 * 0.195, 3);
+  });
+
+  it('sur dalle a couler, par defaut : la dalle une hauteur de plot sous le terrain, les plots au ras du sol', () => {
+    const dalle = terrasse({ ...constructionTerrasseNeuve(), supportType: 'dalle-beton', hauteurPlot: 15 });
+    expect(dalleEnFouille(dalle.construction!)).toBe(true);
+    // Dessus de dalle + hauteur de plot = terrain : la fouille fait la hauteur du plot.
+    expect(decaissementPoseMm(dalle)).toBe(150);
+    expect(hauteurFinieMm(dalle)).toBe(hauteurStructureMm(dalle) - 150);
+    expect(volumeDecaissementPose({ pts: rect(0, 0, 5, 4), construction: dalle.construction! }, [])).toBeCloseTo(5.2 * 4.2 * 0.15, 3);
+    // Un niveau impose garde la main ; les autres assises restent posees sur le terrain.
+    expect(decaissementPoseMm(terrasse({ ...dalle.construction!, niveauFini: 0 }))).toBe(hauteurStructureMm(dalle));
+    for (const supportType of ['dalle', 'concasse', 'massifs']) {
+      const t = terrasse({ ...constructionTerrasseNeuve(), supportType });
+      expect([supportType, dalleEnFouille(t.construction!), decaissementPoseMm(t)]).toEqual([supportType, false, 0]);
+    }
+    expect(decaissementPoseMm(terrasse({ ...defaultConstruction(), supportType: 'dalle-beton' }))).toBe(0);
   });
 
   it('plus haut que la structure : pas de decaissement, la structure reste ou elle est', () => {

@@ -285,6 +285,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Terrasse sur dalle béton à couler : la dalle en fond de fouille, les plots posés dessus.** Par
+  défaut (sans niveau fini imposé), la dalle est coulée une hauteur de plot sous le terrain : dessus
+  de dalle + hauteur de plot = terrain naturel. Les plots se posent sur la dalle, leur tête au ras du
+  sol, et la structure démarre au niveau du terrain. En Vue 3D, la dalle est translucide pour qu'on
+  voie les plots ; la coupe dessine le terrain naturel au haut du plot. **Les quantités changent pour
+  ces terrasses** : un décaissement de pose de la hauteur du plot (sur l'emprise débordante de la
+  dalle) entre au BOM et au chantier, et la hauteur finie baisse d'autant. Un niveau fini imposé
+  garde la main ; les autres assises (concassé, dalle existante, massifs) ne changent pas, ni le plan
+  de démonstration (empreintes inchangées).
 - **La terrasse se règle par étapes, comme une piscine.** Les sections de l'inspecteur d'une
   terrasse sont numérotées dans l'ordre où l'on décide : « Terrasse · 1. Implantation et niveau »
   (niveau fini, décaissement, trous et ouvertures), « 2. Fondation et assise » (vis ou plots, et
@@ -300,6 +309,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Margelle et terrasse au même niveau à la création.** En Vue 3D, une terrasse sur plots en
+  structure simple dessinait ses lambourdes sans hauteur, et son cadre aussi : les lames reposaient
+  directement sur les plots, 7 cm sous la hauteur finie calculée (et sous les margelles d'une
+  piscine). Sur plots, les lambourdes ont toujours leur section en 3D, comme dans les hauteurs, la
+  coupe et le chiffrage : lames sur la structure bois, structure sur les plots, plots sur leur
+  assise. À la création de la terrasse d'une piscine semi-enterrée, les plots montent de l'écart
+  pour que les lames arrivent au ras des margelles (`constructionDeLaPlage`) ; hors-sol, ils
+  plafonnent à 100 cm et l'inspecteur signale la différence.
+- **Lames coupées à la forme du trou.** Autour d'un bassin ou d'une trémie, chaque lame de la Vue 3D
+  (et du GLB) s'arrêtait d'équerre : sur un bord oblique ou rond, un coin débordait dans le trou et
+  l'autre s'arrêtait court. Elle est maintenant découpée exactement au bord du trou
+  (`engine/lames.ts`, `empriseLameTrouee`). Le débit et le BOM ne changent pas.
 - **Fond orthophoto en Vue 3D.** Cocher ou décocher « Fond orthophoto (IGN) » au menu Affichage,
   la Vue 3D ouverte, ne changeait rien à l'écran : il fallait repasser par le plan 2D. La scène se
   reconstruit maintenant dès que les tuiles sont là (ou retirées). Un test vérifie aussi que

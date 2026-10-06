@@ -4,7 +4,7 @@
 // et le chiffrage. Elles vivaient au milieu du bloc terrasse ; les regrouper ici evite qu'une des
 // vues reconstitue le calcul pour son compte et derive des autres.
 
-import { estPlots } from './constantes.js';
+import { estPlots, supportDe } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, sectionLambourde } from './portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
@@ -63,13 +63,23 @@ export function hauteurStructureMm(obj: ObjetMesurable): number {
 }
 
 /**
+ * Une dalle a couler sous des plots est coulee en fond de fouille, son dessus a une hauteur de plot
+ * sous le terrain : dalle + plot arrivent au ras du sol, la structure demarre au niveau du terrain
+ * et les plots se posent sur la dalle.
+ */
+export function dalleEnFouille(c: Construction): boolean {
+  return estPlots(c) && !!supportDe(c.supportType).dalleBeton;
+}
+
+/**
  * Le decaissement de pose, en mm : ce qu'il faut creuser pour que le dessus des lames tombe au
- * niveau fini demande (`niveauFini`). Zero sans niveau impose, ou quand la structure arrive deja
- * plus bas — c'est alors la structure qu'il faudrait relever (plots, tete de vis), pas le terrain.
+ * niveau fini demande (`niveauFini`). Sans niveau impose : zero, sauf sur une dalle a couler, qui
+ * descend d'une hauteur de plot (`dalleEnFouille`). Zero aussi quand la structure arrive deja plus
+ * bas — c'est alors la structure qu'il faudrait relever (plots, tete de vis), pas le terrain.
  */
 export function decaissementPoseMm(obj: ObjetMesurable): number {
   const c = ensureConstruction(obj);
-  if (c.niveauFini === undefined || c.niveauFini === null) return 0;
+  if (c.niveauFini === undefined || c.niveauFini === null) return dalleEnFouille(c) ? hauteurAppuiMm(c) : 0;
   return Math.max(0, hauteurStructureMm(obj) - c.niveauFini * 10);
 }
 
