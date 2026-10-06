@@ -182,6 +182,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.importerVoisine': etape(Z8, IMPORT, 'Importer une parcelle voisine', { repete: true }),
   'cadastre.principale': etape(Z8, IMPORT, 'En faire la parcelle principale', { repete: true }),
   'cadastre.coucheIgn': etape(Z8, IMPORT, 'Couche BD TOPO à importer (bâti, végétation…)', { repete: true }),
+  'cadastre.rayon': etape(Z8, IMPORT, 'Voisinage étendu : les parcelles cochées, ou tout dans un rayon de 100 ou 200 m', { repete: true }),
+  'cadastre.afficherEtendu': etape(Z8, IMPORT, 'Afficher le voisinage étendu (aperçu et ouverture du plan)'),
   'cadastre.cocherMitoyennes': etape(Z8, IMPORT, 'Cocher toutes les mitoyennes'),
   'cadastre.toutDecocher': etape(Z8, IMPORT, 'Tout décocher'),
   'cadastre.retour': etape(Z8, IMPORT, 'Retour à l’étape précédente'),

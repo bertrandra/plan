@@ -207,7 +207,7 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
 /** Les rayons proposes pour le voisinage etendu, en metres. */
-export const RAYONS_VOISINAGE_M = [200, 500];
+export const RAYONS_VOISINAGE_M = [100, 200];
 /** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
 export const MAX_OBJETS_RAYON = 2000;
 const PAGE_CADASTRE = 1000;
@@ -280,6 +280,41 @@ export async function interrogerWfsEtendu(couche: string, bbox: BboxDeg, maxTota
     if (pageFinale(features.length, out.length, data)) break;
   }
   return out.slice(0, maxTotal);
+}
+
+/** Ce que rend la lecture d'un voisinage etendu : les parcelles et le bati du disque, du plus proche au plus loin. */
+export interface VoisinageRayon {
+  rayonM: number;
+  parcelles: Candidate[];
+  batiments: ElementIgn[];
+  /** Vrai si une famille depassait le plafond et a ete coupee aux plus proches. */
+  tronque: boolean;
+}
+
+/**
+ * Les parcelles et les batiments a moins de `rayonM` de `centre` (repere local de `proj`), en
+ * plusieurs requetes : l'emprise est le carre du disque, ce qui ne touche pas le disque est ecarte,
+ * le reste trie du plus proche au plus loin et plafonne a `MAX_OBJETS_RAYON` par famille.
+ * `exclus` : les identifiants cadastraux a ne pas rendre (la parcelle du projet).
+ */
+export async function lireVoisinageRayon(centre: PtBrut, proj: ProjecteurLocal, rayonM: number, simplifier: boolean, exclus: ReadonlySet<string> = new Set()): Promise<VoisinageRayon> {
+  const centreDeg = proj.versDegres(centre.x, centre.y);
+  const emprise = empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, rayonM);
+  const bbox: BboxDeg = { lonMin: centreDeg.lon - rayonM / proj.kx, lonMax: centreDeg.lon + rayonM / proj.kx, latMin: centreDeg.lat - rayonM / proj.ky, latMax: centreDeg.lat + rayonM / proj.ky };
+  let tronque = false;
+  const garder = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => {
+    const dedans = elements.filter(e => dansLeRayon(e.pts, centre, rayonM));
+    dedans.sort((a, b) => distanceAuCentre(a.pts, centre) - distanceAuCentre(b.pts, centre));
+    if (dedans.length > MAX_OBJETS_RAYON) tronque = true;
+    return dedans.slice(0, MAX_OBJETS_RAYON);
+  };
+  const [featsParcelles, featsBati] = await Promise.all([
+    interrogerCadastreEtendu(emprise, MAX_OBJETS_RAYON * 2),
+    interrogerWfsEtendu(COUCHE_BATIMENT, bbox, MAX_OBJETS_RAYON * 2).catch((): FeatureGeoJSON[] => [])
+  ]);
+  const parcelles = garder(construireCandidats(featsParcelles, proj, centre, simplifier).filter(c => !exclus.has(c.idu)));
+  const batiments = garder(construireElementsIgn(featsBati, proj, simplifier, 'batiment'));
+  return { rayonM, parcelles, batiments, tronque };
 }
 
 /** Une parcelle candidate : la fiche cadastrale, plus sa position par rapport au point cherche. */

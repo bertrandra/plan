@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
-import { ECART_AUTO_M } from '../../geo/apiIgn.js';
+import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYONS_VOISINAGE_M } from '../../geo/apiIgn.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
 import type { CaseIgn, ImportCadastre as Controleur } from '../../app/importCadastre.js';
@@ -24,9 +24,14 @@ function Bouton({ controle, principal, onClick, children, disabled }: { controle
 function Apercu({ importe }: Props) {
   const e = importe.etat();
   if (!e.principale) return null;
-  const { lots, limitesInternes, couches } = importe.apercu();
+  const { lots, limitesInternes, couches, etendu } = importe.apercu();
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   lots.forEach(l => l.pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }));
+  // Le voisinage etendu affiche : l'apercu cadre tout le disque, sinon on n'en verrait qu'un coin.
+  if (etendu) {
+    minX = Math.min(minX, etendu.centre.x - etendu.rayonM); maxX = Math.max(maxX, etendu.centre.x + etendu.rayonM);
+    minY = Math.min(minY, etendu.centre.y - etendu.rayonM); maxY = Math.max(maxY, etendu.centre.y + etendu.rayonM);
+  }
   const marge = Math.max(2, (maxX - minX + maxY - minY) * 0.03);
   minX -= marge; maxX += marge; minY -= marge; maxY += marge;
   const w = maxX - minX, h = maxY - minY;
@@ -40,6 +45,13 @@ function Apercu({ importe }: Props) {
   const cliquable = (c: Candidate | undefined) => c ? () => cliquer(c) : undefined;
   return (
     <svg viewBox={'0 0 ' + w.toFixed(2) + ' ' + h.toFixed(2)} className="apercuCadastre" role="img" aria-label="Aperçu des parcelles">
+      {/* Le voisinage etendu, sous tout le reste et non cliquable : un decor, borde par son disque. */}
+      {etendu && <g pointerEvents="none">
+        {etendu.parcelles.map((pts, i) => <polygon key={'ep' + i} points={points(pts)} fill="none" stroke="#b8ad98" strokeWidth={(trait * 0.6).toFixed(3)} />)}
+        {etendu.batiments.map((pts, i) => <polygon key={'eb' + i} points={points(pts)} fill="#CFC3B4" fillOpacity={0.6} stroke="#8A7B63" strokeWidth={(trait * 0.5).toFixed(3)} />)}
+        <circle cx={(etendu.centre.x - minX).toFixed(2)} cy={(maxY - etendu.centre.y).toFixed(2)} r={etendu.rayonM.toFixed(2)} fill="none" stroke="#7A5C31"
+          strokeWidth={(trait * 1.2).toFixed(3)} strokeDasharray={(trait * 6).toFixed(2) + ' ' + (trait * 4).toFixed(2)} />
+      </g>}
       {lots.slice().reverse().map(l => {
         const survole = e.survol === l.idu;
         const style = l.role === 'principale' ? { fill: '#FBF3D9', stroke: '#3B2E1F' }
@@ -214,6 +226,31 @@ function DonneesIgn({ importe }: Props) {
   );
 }
 
+/** Le voisinage etendu : tout ce qui est dans un rayon, lu en plusieurs requetes, et son affichage. */
+function VoisinageEtendu({ importe }: Props) {
+  const e = importe.etat();
+  const lu = e.etendu;
+  return (
+    <div className="blocIgn" role="group" aria-label="Voisinage étendu">
+      <label className="caseParcours" title="Seules les parcelles cochées ci-dessus, et le bâti posé dessus.">
+        <input type="radio" name="rayonEtendu" data-controle="cadastre.rayon" checked={e.rayonEtendu === 0} onChange={() => void importe.choisirRayonEtendu(0)} />
+        Les parcelles cochées seulement
+      </label>
+      {RAYONS_VOISINAGE_M.map(r => (
+        <label key={r} className="caseParcours" title={'Toutes les parcelles et tout le bâti à moins de ' + r + ' m du centre de la parcelle, lus en plusieurs requêtes à l’IGN ; au-delà de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
+          <input type="radio" name="rayonEtendu" data-controle="cadastre.rayon" checked={e.rayonEtendu === r} onChange={() => void importe.choisirRayonEtendu(r)} />
+          {'Tout dans un rayon de ' + r + ' m'}
+        </label>
+      ))}
+      {lu && <div className="detailIgn">{lu.parcelles.length + ' parcelle(s) et ' + lu.batiments.length + ' bâtiment(s) à moins de ' + lu.rayonM + ' m' + (lu.tronque ? ', coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '. Ils arrivent verrouillés et marqués « voisinage ».'}</div>}
+      <label className={'caseParcours' + (e.rayonEtendu ? '' : ' vide')} title="Montre le voisinage étendu dans l’aperçu, et le laisse visible à l’ouverture du plan. Décoché, il est importé mais masqué : l’œil « Voisinage » de l’explorateur le réaffiche.">
+        <input type="checkbox" data-controle="cadastre.afficherEtendu" checked={e.afficherEtendu} disabled={!e.rayonEtendu} onChange={(ev) => importe.basculerAfficherEtendu(ev.target.checked)} />
+        Afficher le voisinage étendu
+      </label>
+    </div>
+  );
+}
+
 function Etape3({ importe }: Props) {
   const e = importe.etat();
   const [nom, setNom] = useState(() => importe.nomParDefaut());
@@ -240,6 +277,8 @@ function Etape3({ importe }: Props) {
           {groupe('Autres parcelles du secteur', e.autres)}
           {e.tropDense && <div className="erreurParcours">{'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.'}</div>}
         </div>
+        <div className="titreListe">Voisinage étendu</div>
+        <VoisinageEtendu importe={importe} />
         <div className="titreListe">Données IGN à importer sur les parcelles retenues</div>
         <DonneesIgn importe={importe} />
         <div className="libelleChamp">Nom du projet :</div>
