@@ -151,6 +151,8 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
 function MenuAffichage({ magasin, commandes }: PropsMenu) {
   useStore(magasin.store, (s) => s.version);
+  // Une preference du navigateur, hors de l'etat du plan : elle ne fait pas avancer `version`.
+  const sectionsRepliees = useStore(magasin.store, (s) => s.sectionsRepliees);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
   // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
@@ -159,7 +161,8 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
-    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
+    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
+    ['affichage.sectionsRepliees', 'Sections de l\'inspecteur repliées', sectionsRepliees, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>

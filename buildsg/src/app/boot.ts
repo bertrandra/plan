@@ -289,7 +289,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherClavier(commandes);
   brancherAffichage(atelier, {
     enregistrerAffichage: affichage.enregistrerAffichage,
-    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
+    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
+    sectionsRepliees: { lire: () => magasin.store.getState().sectionsRepliees, definir: (v) => magasin.definirSectionsRepliees(v) }
   }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.

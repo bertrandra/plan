@@ -13,7 +13,7 @@
 // presence d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { champActif } from '../app/ecritures.js';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
@@ -233,13 +233,15 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   );
 }
 
-function SectionVue({ section, c, inspecteur }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur }) {
+function SectionVue({ section, c, inspecteur, replier }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur; replier: boolean }) {
   const champs = champsVisibles(section, c);
   if (!champs.length) return null;
   // `open` n'est pose qu'au montage : React ne le reimpose pas a chaque rendu, le pli de
-  // l'utilisateur survit donc aux rendus du plan tant que la section reste montee.
+  // l'utilisateur survit donc aux rendus du plan tant que la section reste montee. `replier` est
+  // la preference « Sections de l'inspecteur repliees » (menu Affichage) : toutes fermees a l'ouverture.
   return (
-    <details className="inspecteurSection" open={!section.repliee} data-section={section.id} data-famille={familleDe(section.id)}>
+    <details className="inspecteurSection" open={!section.repliee && !replier} data-section={section.id} data-famille={familleDe(section.id)}
+      data-repliee={section.repliee ? '' : undefined}>
       <summary>{section.titre}</summary>
       {section.explication && <p className="hint">{section.explication}</p>}
       <div className="champs">
@@ -354,6 +356,16 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const compact = classe === 'compact';
   const tactile = classe !== 'large';
   const [famille, choisirFamille] = useState<Famille>('objet');
+  const replier = useStore(magasin.store, (s) => s.sectionsRepliees);
+  // Changer la preference s'applique tout de suite aux sections montees ; ensuite, chacune garde le
+  // pli que l'utilisateur lui donne. Une section repliee par defaut (Prix, Parametres) le reste.
+  const panneau = useRef<HTMLElement>(null);
+  const prefPrecedente = useRef(replier);
+  useEffect(() => {
+    if (prefPrecedente.current === replier) return;
+    prefPrecedente.current = replier;
+    panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection').forEach((d) => { d.open = !replier && d.dataset.repliee === undefined; });
+  }, [replier]);
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
@@ -400,7 +412,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
     </div>
   );
-  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} />);
+  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} replier={replier} />);
   const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
   // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.
   const active = presentes.includes(famille) ? famille : (presentes[0] ?? 'objet');
@@ -422,7 +434,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       </div>;
   return (
     <Tactile.Provider value={tactile}>
-      <aside className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'} data-famille-active={filtre}>
+      <aside ref={panneau} className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'} data-famille-active={filtre}>
         {entete}
         {tactile ? <Familles presentes={presentes} active={active} choisir={choisirFamille} /> : null}
         <div className={compact ? 'corpsFeuille' : 'corpsInspecteur'}>{corps}{pied}</div>
