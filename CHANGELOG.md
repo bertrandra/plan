@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
+  lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
+  ailleurs — enregistrée dans la parcelle du projet avec sa source, sa date et sa précision, jamais
+  relue sans qu'on le demande. Pente et orientation, dénivelé, courbes de niveau, profil de coupe
+  (pièce DP3), sol en relief dans la Vue 3D ; les hauteurs de plots, vis et poteaux viendraient dans
+  une version majeure suivante. Formats, limites et couverture vérifiés sur `data.geopf.fr` le
+  6 octobre 2026. Documentation seulement.
 - **Portails et portillons : glisser sur le plan.** Un accès se saisit sur le plan 2D et glisse le
   long de la clôture, à la souris ou au doigt. Il suit le côté le plus proche du pointeur, passe
   d'un côté à l'autre à un angle, et ne sort jamais de son côté. Il ne saute pas sous le pointeur :
