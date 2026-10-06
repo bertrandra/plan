@@ -15,7 +15,7 @@ import { DESCRIPTIONS } from './descriptions.js';
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
-  | '3d' | 'visionneuse' | 'plu' | 'facade';
+  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'relief';
 
 /**
  * Ce que la plateforme accorde, vu du registre.

@@ -8,11 +8,17 @@ describe('les onglets du tiroir', () => {
     expect(sans).toEqual(['mesure', 'plu', 'resume']);
   });
 
-  it('les montrent tous avec une terrasse selectionnee, la terrasse en premier', () => {
-    const avec = ongletsVisibles(true, true).map(o => o.id);
+  it('les montrent tous avec une terrasse selectionnee et un relief, la terrasse en premier', () => {
+    const avec = ongletsVisibles(true, true, true).map(o => o.id);
     expect(avec).toEqual(ONGLETS.map(o => o.id));
     expect(ongletsVisibles(true).map(o => o.id)).not.toContain('noteCalcul');
     expect(avec.slice(0, 5)).toEqual(['bom', 'coupe', 'implantation', 'chantier', 'methode']);
+  });
+
+  it('ne montrent le profil du sol qu avec un relief, juste apres les cotes', () => {
+    // Le profil prend sa ligne sur une cote (MD/spec-relief.md §5.4) : il la suit dans la barre.
+    expect(ongletsVisibles(false, false, false).map(o => o.id)).not.toContain('profil');
+    expect(ongletsVisibles(false, false, true).map(o => o.id)).toEqual(['mesure', 'profil', 'plu', 'resume']);
   });
 
   it('ont chacun un panneau distinct', () => {

@@ -19,7 +19,7 @@ import { mesure, type Pointage } from '../interaction/outilMesure.js';
 import { showToast } from '../shell/dialogs.js';
 import type { EtatApp } from '../core/state.js';
 import type { Lieu } from '../model/lieu.js';
-import type { Mesure, ObjetPlan } from '../model/types.js';
+import type { Mesure, ObjetPlan, PtBrut } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 
 /** Ce que le service doit pouvoir declencher ailleurs. */
@@ -39,7 +39,12 @@ export interface ContexteResultats {
   computeMeasureGeom: (m: Mesure) => { perp: number; along: number } | null;
   /** Montre l'onglet Resume (et, sur telephone, la feuille des resultats). */
   montrerResume: () => void;
+  /** Montre l'onglet Profil du relief (et, sur telephone, la feuille des resultats). */
+  montrerProfil: () => void;
 }
+
+/** Une ligne de coupe sur le plan, en metres : les deux bouts du profil du sol. */
+export interface LigneProfil { a: PtBrut; b: PtBrut }
 
 export interface Resultats {
   etat: EtatApp;
@@ -80,6 +85,12 @@ export interface Resultats {
   // ---- Optimisation (inspecteur) -----------------------------------------------------------
   optimisationVisible(): boolean;
   basculerOptimisation(): boolean;
+
+  // ---- Profil du relief --------------------------------------------------------------------
+  /** La ligne du profil du sol choisie par la personne ; `null` : celle que Plan propose (la plus grande pente). */
+  ligneProfil(): LigneProfil | null;
+  /** Prend cette ligne pour le profil (ou revient a la ligne proposee avec `null`) et montre l'onglet. Rien n'est ecrit dans le projet. */
+  profiler(ligne: LigneProfil | null): void;
 }
 
 export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: Magasin): Resultats {
@@ -88,6 +99,8 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
   // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement : on
   // peut ainsi voir monter ou descendre la configuration qu'on est en train d'editer.
   let optimisation = false;
+  // La ligne du profil du sol : un etat d'interface, comme le resume ; `null` = la ligne proposee.
+  let ligneProfil: LigneProfil | null = null;
 
   function actualiserTerrasse(terrasse?: ObjetPlan): void {
     const obj = terrasse ?? ctx.terrasseCourante();
@@ -222,6 +235,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     },
 
     optimisationVisible: () => optimisation,
-    basculerOptimisation() { optimisation = !optimisation; magasin.notifier(); return optimisation; }
+    basculerOptimisation() { optimisation = !optimisation; magasin.notifier(); return optimisation; },
+
+    ligneProfil: () => ligneProfil,
+    profiler(ligne) { ligneProfil = ligne; ctx.montrerProfil(); magasin.notifier(); }
   };
 }

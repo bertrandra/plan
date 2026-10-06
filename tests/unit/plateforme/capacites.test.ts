@@ -46,7 +46,7 @@ describe('la table des capacites', () => {
     // (`backprod/src/Demo/Domain/DemoWorld.php`, cle `capabilities` du produit `plan`). Avant cela
     // les attacher aurait retire la 3D a tous les locataires, puisque `/me/context` ne distingue
     // pas « pas achete » de « pas au catalogue ». Maintenant, chaque code doit avoir sa prise.
-    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts', 'ecouteurs/modes.ts']
+    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts', 'ecouteurs/modes.ts', 'ecouteurs/relief.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const sansPrise: string[] = [];
     for (const [nom, c] of Object.entries(CAPACITES)) {
@@ -96,7 +96,7 @@ describe('ce que les commandes nommees existent vraiment', () => {
     // Les commandes se declarent de deux facons — `declarer({ id })` et l'aide `surClic(dom, id)` —
     // donc on cherche l'identifiant tel quel plutot qu'une forme d'ecriture.
     const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/vue3d.ts',
-      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts']
+      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts', 'ecouteurs/relief.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const manquantes: string[] = [];
     for (const c of Object.values(CAPACITES)) {
