@@ -85,6 +85,34 @@ export function achatPlots(c: Construction, n: number){
   const m = plotModele(c);
   return { modele:m, unites:n, cout:n*prixPlotUnite(c) };
 }
+
+/** Un lot de plots d'un meme modele, quand le sol en pente en demande plusieurs. */
+export interface LotPlots { modele: ReturnType<typeof plotModele>; unites: number; cout: number }
+
+/**
+ * Les plots a acheter quand chaque appui a sa hauteur (MD/spec-relief.md §6) : le modele le moins
+ * cher qui couvre chaque hauteur, un lot par modele. Un modele impose par la construction vaut
+ * pour tous, comme sur un sol plat. Les hauteurs au-dela de la plus grande gamme prennent la plus
+ * grande gamme et sont comptees `horsGamme` : l'inspecteur et le chiffrage les signalent.
+ */
+export function achatPlotsParHauteur(c: Construction, hauteursMm: readonly number[]){
+  const impose = c.plotModele && c.plotModele !== 'auto' ? plotModele(c) : null;
+  const lots = new Map<string, LotPlots>();
+  let horsGamme = 0;
+  hauteursMm.forEach(h => {
+    const m = impose ?? plotModele({ hauteurPlot: h / 10 });
+    if (!impose && h / 10 > m.max + 1e-9) horsGamme++;
+    const p = valeurEnregistree(c.prixPlots, m.cle);
+    const prix = (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : m.prix;
+    const lot = lots.get(m.cle) ?? { modele: m, unites: 0, cout: 0 };
+    lot.unites++; lot.cout += prix;
+    lots.set(m.cle, lot);
+  });
+  const liste = [...lots.values()].sort((a, b) => a.modele.min - b.modele.min);
+  const unites = liste.reduce((s, l) => s + l.unites, 0);
+  const cout = liste.reduce((s, l) => s + l.cout, 0);
+  return { lots: liste, unites, cout, horsGamme, label: liste.map(l => l.unites + ' × ' + l.modele.label).join(', ') };
+}
 // Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
 // qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
 export function computeAssise(c: Construction, surfM2: number, nbPlots: number, perimetreM = 0, surfDalleM2 = surfM2){
