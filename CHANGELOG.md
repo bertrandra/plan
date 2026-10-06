@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Option « Sections de l'inspecteur repliées »** (menu Affichage ; feuille Projet sur
+  téléphone). Cochée, les sections de l'inspecteur s'ouvrent repliées, titres seuls : les étapes
+  d'une terrasse ou d'une piscine se lisent d'un coup d'œil, on ouvre celle qu'on règle. La cocher
+  ou la décocher replie ou déplie aussitôt les sections affichées ; « Prix » et « Paramètres de
+  calcul » restent repliées par défaut. C'est une préférence de l'utilisateur, gardée par le
+  navigateur d'un projet à l'autre : ni Ctrl+Z, ni « projet modifié », permise en lecture seule.
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
   ailleurs — enregistrée dans la parcelle du projet avec sa source, sa date et sa précision, jamais
