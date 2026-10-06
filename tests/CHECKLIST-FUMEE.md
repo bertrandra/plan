@@ -75,7 +75,7 @@ rejoue jamais.
 |---|---|---|
 | 26 | Ouvrir sur un téléphone (390 px) | page à l'échelle 1, aucune barre de défilement horizontale, plan plein écran |
 | 27 | Annuler depuis la barre haute après un glisser | le glisser est défait |
-| 28 | Créer chacun des six objets depuis la feuille Outils | l'objet apparaît, sélectionné, et la feuille se referme |
+| 28 | Créer chacun des sept objets depuis la feuille Outils (dont Terrasse) | l'objet apparaît, sélectionné, et la feuille se referme |
 | 29 | Dupliquer puis supprimer depuis la feuille Outils | la copie apparaît, puis disparaît après confirmation |
 | 30 | Masquer un objet dans la feuille Objets, puis le réafficher | l'objet disparaît du plan puis revient |
 | 31 | Étiquettes et calques de terrasse depuis la feuille Objets | les étiquettes et les calques suivent les cases |

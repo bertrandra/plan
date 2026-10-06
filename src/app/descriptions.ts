@@ -31,6 +31,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'objet.ajouter.rectangle': 'Ajoute un rectangle, ses quatre coins à 90°',
   'objet.ajouter.cercle': 'Ajoute un cercle : un arbre, un massif, un équipement rond',
   'objet.ajouter.chemin': 'Dessine un tracé ouvert : une allée, une clôture, une limite',
+  'objet.ajouter.terrasse': 'Ajoute une terrasse bois de 4 × 3 m, sur plots, au centre de la parcelle : tirez ses coins à la forme voulue, puis réglez-la par étapes dans l’inspecteur',
   'objet.ajouter.parasol': 'Ajoute un parasol, dont l’ombre suit le soleil',
   'objet.ajouter.pergola': 'Ajoute une pergola : poteaux, cadre, contrefiches et toit, avec son métrage par section',
   'objet.ajouter.carport': 'Ajoute un carport pour une voiture : même structure que la pergola, toit en appentis couvert',

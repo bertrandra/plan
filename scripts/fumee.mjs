@@ -661,7 +661,7 @@ const POINTS = {
     return { ok: proches(apres.pts[0].x, avant.pts[0].x, 1e-9), mesure: 'glisser défait par le bouton Annuler de la barre haute' };
   },
   28: async (page) => {
-    const noms = ['Polygone', 'Rectangle', 'Chemin', 'Cercle', 'Parasol', 'Point de vue'];
+    const noms = ['Polygone', 'Rectangle', 'Chemin', 'Cercle', 'Terrasse', 'Parasol', 'Point de vue'];
     const res = [];
     for (const nom of noms) {
       const n0 = (await lireEtat(page)).objects.length;
