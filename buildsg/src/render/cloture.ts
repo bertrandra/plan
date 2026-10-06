@@ -89,11 +89,40 @@ export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: num
   }
 
   // Les acces.
-  for (const a of cl.portails) {
-    if (!coteValide(pts, a.cote)) continue;
+  cl.portails.forEach((a, indice) => {
+    if (!coteValide(pts, a.cote)) return;
     const f = facades.find(x => x.cote === a.cote);
-    if (!f) continue;
+    if (!f) return;
     dessinerAcces(f, a);
+    poignee(f, a, indice);
+  });
+
+  /**
+   * La poignee d'un acces : une bande invisible sur le passage et ses piliers, assez large pour le
+   * doigt (14 px au moins de part et d'autre de la limite). Le groupe de la cloture est inerte ; elle
+   * seule capte le pointeur, pour faire glisser l'acces le long de la cloture (interaction/pointeur.ts).
+   */
+  function poignee(f: Facade, a: Portail, indice: number): void {
+    const e = empriseAcces(a);
+    const marge = Math.max(0.4, 14 / echelle);
+    const debut = Math.max(0, e.debut - 0.1), fin = Math.min(f.largeur, e.fin + 0.1);
+    const fond = Math.max(marge, Math.max(0, a.retrait) + (a.piliers ? a.piliers.largeur : TABLEAU) + 0.2);
+    const coins = [
+      { x: pointDeFacade(f, debut).x + f.normale.x * marge, y: pointDeFacade(f, debut).y + f.normale.y * marge },
+      { x: pointDeFacade(f, fin).x + f.normale.x * marge, y: pointDeFacade(f, fin).y + f.normale.y * marge },
+      dedans(f, pointDeFacade(f, fin), fond), dedans(f, pointDeFacade(f, debut), fond)
+    ].map(versEcran);
+    const poly = document.createElementNS(NS, 'polygon');
+    poly.setAttribute('points', coins.map(c => `${c.x},${c.y}`).join(' '));
+    poly.setAttribute('fill', 'transparent');
+    poly.setAttribute('pointer-events', 'all');
+    poly.setAttribute('data-role', 'acces');
+    poly.setAttribute('data-index', String(indice));
+    poly.style.cursor = 'grab';
+    const titre = document.createElementNS(NS, 'title');
+    titre.textContent = (a.nature === 'portail' ? 'Portail' : 'Portillon') + ' : glisser pour le déplacer le long de la clôture';
+    poly.appendChild(titre);
+    groupe.appendChild(poly);
   }
 
   function dessinerAcces(f: Facade, a: Portail): void {
