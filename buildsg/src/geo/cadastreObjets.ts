@@ -95,6 +95,12 @@ export interface ImportCadastral {
   importerArbres?: boolean;
   /** Zonage PLU de la parcelle principale, pose tel quel sur l'objet parcelle. */
   plu?: ZonagePlu | null;
+  /**
+   * Le voisinage etendu choisi a l'etape 3 : tout ce qui est dans un rayon de 100 ou 200 m. Il
+   * arrive marque « voisinage » (l'oeil de l'explorateur le masque d'un coup) ; `visible` faux le
+   * pose masque a l'ouverture du plan.
+   */
+  voisinageEtendu?: { parcelles: ParcelleCadastrale[]; batiments: ObjetBdTopo[]; visible: boolean } | null;
 }
 
 /** Ce que chaque morceau de l'import partage : le recalage sur l'origine, la date, les cles prises. */
@@ -253,37 +259,69 @@ const identifiant = (id: string | undefined) => (id || '').replace(/[^a-z0-9]+/g
  */
 function batiments(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean, parcellesFusionnees: ParcelleCadastrale[]): ObjetPlan[] {
   const iduPropriete = new Set(parcellesFusionnees.map(p=>p.idu));
-  return x.importe.batiments.filter(retenu).map(b=>{
-    const p = b.props || {};
-    const surPrincipale = [...b.parcelles].some(idu=>iduPropriete.has(idu));
-    const usage = p.usage_1 || p.nature || 'Batiment';
-    const pts = b.pts.map(x.dec);
-    return formeIgn(x, pts, 'batiment',
-      usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
-      surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
-        cle: 'bati-' + identifiant(b.id),
-        hauteur: hauteurBatiment(p),
-        opacite: surPrincipale ? 0.92 : 0.6,
-        extra: {
-          locked: !surPrincipale,
-          // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un.
-          toit: toitBdTopo(pts, attributsToitBdTopo(p)),
-          bdtopo: {
-            couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
-            nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
-            hauteurM: nombreFr(p.hauteur), hauteurRetenueM: hauteurBatiment(p),
-            nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
-            altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
-            constructionLegere: String(p.construction_legere) === 'True',
-            etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
-            identifiantRnb: p.identifiants_rnb || null,
-            surParcellePrincipale: surPrincipale,
-            recupereLe: x.recupereLe
-          }
+  return x.importe.batiments.filter(retenu).map(b=>objetBatiment(x, b, [...b.parcelles].some(idu=>iduPropriete.has(idu))));
+}
+
+/** Un batiment BD TOPO tel qu'il entre dans le plan ; hors de la propriete, verrouille. */
+function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean): ObjetPlan {
+  const p = b.props || {};
+  const usage = p.usage_1 || p.nature || 'Batiment';
+  const pts = b.pts.map(x.dec);
+  return formeIgn(x, pts, 'batiment',
+    usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
+    surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
+      cle: 'bati-' + identifiant(b.id),
+      hauteur: hauteurBatiment(p),
+      opacite: surPrincipale ? 0.92 : 0.6,
+      extra: {
+        locked: !surPrincipale,
+        // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un.
+        toit: toitBdTopo(pts, attributsToitBdTopo(p)),
+        bdtopo: {
+          couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
+          nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
+          hauteurM: nombreFr(p.hauteur), hauteurRetenueM: hauteurBatiment(p),
+          nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
+          altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
+          altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
+          constructionLegere: String(p.construction_legere) === 'True',
+          etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
+          identifiantRnb: p.identifiants_rnb || null,
+          surParcellePrincipale: surPrincipale,
+          recupereLe: x.recupereLe
         }
-      });
+      }
+    });
+}
+
+/**
+ * Le voisinage etendu : les parcelles et le bati du disque qui ne sont pas deja dans le plan,
+ * marques « voisinage » et verrouilles, comme un decor de reference.
+ */
+function voisinageEtendu(x: ContexteImport, deja: ObjetPlan[]): ObjetPlan[] {
+  const v = x.importe.voisinageEtendu;
+  if(!v) return [];
+  const iduPris = new Set(deja.flatMap(o=>{ const idu = o.cadastre?.idu; return typeof idu === 'string' ? [idu] : []; }));
+  iduPris.add(x.importe.principale.idu);
+  const idsPris = new Set(deja.flatMap(o=>{ const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id ? [id] : []; }));
+  const out: ObjetPlan[] = [];
+  v.parcelles.forEach(c=>{
+    if(iduPris.has(c.idu)) return;
+    iduPris.add(c.idu);
+    out.push(Object.assign({
+      key: x.cleUnique(('parcelle-' + libelleParcelle(c)).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'')),
+      type:'polygon' as const, name: libelleParcelle(c),
+      fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+      showDims:false,
+      cadastre: metaCadastre(x, c, false)
+    }, formeCommune(c.pts.map(x.dec)), { locked: true, voisinage: true }));
   });
+  if(x.importe.importerBatiments) v.batiments.forEach(b=>{
+    if(b.id && idsPris.has(b.id)) return;
+    if(b.id) idsPris.add(b.id);
+    out.push(Object.assign(objetBatiment(x, b, false), { voisinage: true }));
+  });
+  return out;
 }
 
 function haies(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPlan[] {
@@ -388,9 +426,12 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
     objets.push(...vegetation(x, retenu));
     if(importe.importerArbres) objets.push(...arbres(x, retenu));
   }
+  objets.push(...voisinageEtendu(x, objets));
   // Le zonage PLU se range sur la parcelle : c'est elle qu'il qualifie, et il suit le projet.
   const parcelle = objets[0];
   if(importe.plu && parcelle) parcelle.plu = importe.plu;
+  // Le voisinage etendu pose masque : la bascule « Voisinage » le retrouve a l'ouverture.
+  if(importe.voisinageEtendu && !importe.voisinageEtendu.visible && parcelle) parcelle.affichage = { ...(parcelle.affichage || {}), voisinage: false };
   return objets;
 }
 
