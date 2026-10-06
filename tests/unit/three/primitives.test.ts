@@ -82,6 +82,30 @@ describe('creerPrimitives', () => {
     expect(b.min.y).toBeCloseTo(0.5);
   });
 
+  it('perce un prisme de ses trous : le dessus n\'en couvre plus la surface', () => {
+    // L'aire du capuchon du haut (triangles horizontaux tournes vers le ciel), quel que soit le sens
+    // dans lequel le trou est donne.
+    const aireDessus = (mesh: THREE_NS.Mesh) => {
+      const pos = mesh.geometry.getAttribute('position');
+      let aire = 0;
+      for (let i = 0; i < pos.count; i += 3) {
+        const [a, b, c] = [0, 1, 2].map(k => new THREE_NS.Vector3().fromBufferAttribute(pos, i + k));
+        const n = new THREE_NS.Vector3().crossVectors(b!.clone().sub(a!), c!.clone().sub(a!));
+        if (n.y > 1e-9 && a!.y > 0.5) aire += n.length() / 2;
+      }
+      return aire;
+    };
+    const trou = [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }];
+    const { scene, p } = monter();
+    p.addPrism(carre, 0, 1, '#888');
+    p.addPrism(carre, 0, 1, '#888', false, undefined, null, [trou]);
+    p.addPrism(carre, 0, 1, '#888', false, undefined, null, [trou.slice().reverse()]);
+    const [plein, perce, inverse] = scene.children as THREE_NS.Mesh[];
+    expect(aireDessus(plein!)).toBeCloseTo(12);
+    expect(aireDessus(perce!)).toBeCloseTo(11);
+    expect(aireDessus(inverse!)).toBeCloseTo(11);
+  });
+
   it('dessine en filaire les seules aretes de silhouette, en transparence un objet translucide', () => {
     const { scene, p } = monter();
     p.addPrism(carre, 0, 1, '#888', true);

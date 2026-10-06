@@ -238,12 +238,20 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   // construit TOUJOURS le groupe 0 = les deux capuchons (horizontaux apres la rotation) puis le
   // groupe 1 = les faces laterales (verticales) — d'ou le tableau de materiaux dans cet ordre.
   // `opacity` : undefined pour les pieces de la terrasse (toujours pleines).
-  function addPrism(footprint: PtBrut[] | null | undefined, yBase: number, height: number, color: CouleurTrois, filaire?: boolean, opacity?: number, textures?: TexturesObjet | null): void {
+  // `trous` : les anneaux interieurs qui percent l'emprise de part en part (le bassin d'une terrasse
+  // de piscine) ; ExtrudeGeometry remet lui-meme leur sens de parcours a l'oppose du contour.
+  function addPrism(footprint: PtBrut[] | null | undefined, yBase: number, height: number, color: CouleurTrois, filaire?: boolean, opacity?: number, textures?: TexturesObjet | null, trous: PtBrut[][] = []): void {
     if (!footprint || footprint.length < 3 || height <= 0) return;
     const pts2d = footprint.map(p => { const l = versLocal(p); return { x: l.x, y: -l.z }; });
     const shape = new THREE.Shape();
     pts2d.forEach((p, i) => { if (i === 0) shape.moveTo(p.x, p.y); else shape.lineTo(p.x, p.y); });
     shape.closePath();
+    trous.filter(t => t.length >= 3).forEach(t => {
+      const trou = new THREE.Path();
+      t.forEach((p, i) => { const l = versLocal(p); if (i === 0) trou.moveTo(l.x, -l.z); else trou.lineTo(l.x, -l.z); });
+      trou.closePath();
+      shape.holes.push(trou);
+    });
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, UVGenerator: uvDeroule(pts2d) });
     geo.rotateX(-Math.PI / 2);
     let objet;

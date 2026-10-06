@@ -280,6 +280,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La piscine disparaissait dans la vitrine (`?mode=demo`).** Une terrasse qui n'était pas la
+  terrasse courante — toutes dans la vitrine, les autres dans la Vue 3D avec « tous les objets » —
+  se dessinait en bloc plein : la terrasse posée autour d'une piscine recouvrait son bassin. Elle
+  est maintenant percée de ses trous en 3D comme sur le plan (le bord extérieur des margelles,
+  un trou de terrasse). Une terrasse sans trou se dessine comme avant.
+- **Bassin à cheval sur le bord de sa terrasse.** Le trou n'était dessiné que si le bassin était
+  tout entier dans la terrasse ; à cheval sur un bord, la surface le déduisait mais la terrasse
+  restait pleine. Elle est maintenant encochée partout : sur le plan, dans le SVG et le PDF (un
+  gabarit de découpe), dans le DXF (le contour encoché) et dans la Vue 3D (la terrasse extrudée
+  morceau par morceau). La forme vient d'une différence de polygones (`geometry/difference.ts`) ;
+  un bassin posé exactement sur un bord ou un sommet est décalé d'un micron pour le calcul.
 - **Chevêtre d'un bassin à cheval sur le bord d'une terrasse.** Il faisait tout le tour du bassin,
   y compris hors de la terrasse, avec ses appuis ; il s'arrête maintenant à son contour.
 
