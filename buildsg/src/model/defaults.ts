@@ -9,7 +9,7 @@ export const LIBELLE_FONCTION: Record<string, string> = {
 };
 
 /** Fonctions qui ne comptent pas comme equipement pose sur une terrasse (dossier PDF). */
-export const FONCTIONS_HORS_EQUIPEMENT = ['terrain','limite','camera','terrasse','chemin','parasol','tremie'];
+export const FONCTIONS_HORS_EQUIPEMENT = ['terrain','limite','camera','terrasse','chemin','parasol','tremie','piscine'];
 
 /** Lieu de repli quand la parcelle ne porte pas de coordonnees. */
 export const LIEU_DEFAUT = { nom: 'Le Vésinet', latitude: 48.8923, longitude: 2.1331 };

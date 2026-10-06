@@ -15,6 +15,8 @@ import { dist, shoelace } from '../geometry/basic.js';
 import { interiorAngleDeg } from '../geometry/angles.js';
 import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
+import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { estTerrasse } from '../model/fonctions.js';
 
 /**
  * Ce que `surfaceDe` lit, et rien de plus : les tests l'appellent sur des objets partiels. Forme
@@ -65,7 +67,8 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
   const sParcelle = parcelle ? shoelace(sommetsDe(parcelle)) : 0;
   let total = 0;
   objets.forEach((obj: ObjetPlan) => {
-    const s = surfaceDe(obj);
+    // Une terrasse percee (bassin, trou) compte sa surface nette : le bassin compte deja la sienne.
+    const s = estTerrasse(obj) && obj.type === 'polygon' ? surfaceNetteTerrasse(obj.pts, objets) : surfaceDe(obj);
     if (obj.key !== 'parcelle') total += s;
     out += obj.name + ' (' + obj.key + '): ' + s.toFixed(2) + ' m2' + (obj.type === 'path' ? ' (longueur x largeur)' : '') + '\n';
   });

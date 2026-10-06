@@ -23,6 +23,7 @@ import { sectionsCloture } from './cloture.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
+import { surfaceNetteTerrasse } from '../../engine/structure.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'tremie', 'limite', 'autre'];
@@ -39,12 +40,15 @@ const estTerrasse = terrasseCalculable;
 const estParcellePrincipale = (c: ContexteChamps) => !!c.parcelle && c.parcelle.key === c.obj.key;
 const aDesPoints = (o: ObjetPlan) => o.type === 'polygon' || o.type === 'path';
 const surface = (o: ObjetPlan): number | null => o.type === 'polygon' ? shoelace(o.pts) : o.type === 'circle' ? Math.PI * o.r * o.r : null;
+/** La surface montree : celle d'une terrasse est nette de ses ouvertures (bassin, trou). */
+const surfaceMontree = (c: ContexteChamps): number | null =>
+  estTerrasse(c.obj) && c.obj.type === 'polygon' ? surfaceNetteTerrasse(c.obj.pts, c.objets) : surface(c.obj);
 const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
   c.obj.constrained && c.parcelle && c.parcelle.key !== c.obj.key ? enPoints(c.parcelle).pts : null;
 
 /** Le titre de l'inspecteur : le type, le nom, la surface. */
 export function titreObjet(c: ContexteChamps): string {
-  const s = surface(c.obj);
+  const s = surfaceMontree(c);
   return c.libelleType(c.obj) + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2) + ' m²)' : '');
 }
 
@@ -117,9 +121,11 @@ const sectionObjet: Section = {
       type: 'lecture', cle: 'surface', libelle: 'Surface',
       visible: (c) => surface(c.obj) !== null && !estPointDeVue(c.obj),
       valeur: (c) => {
-        const s = surface(c.obj) ?? 0;
+        const s = surfaceMontree(c) ?? 0;
+        const brute = surface(c.obj) ?? 0;
         const sp = c.parcelle ? shoelace(enPoints(c.parcelle).pts) : 0;
-        return s.toFixed(2) + ' m²' + (c.obj.key !== 'parcelle' && sp > 0 ? '  (' + (s / sp * 100).toFixed(1) + ' % de la parcelle)' : '');
+        return s.toFixed(2) + ' m²' + (brute - s > 0.005 ? ' (ouvertures déduites : ' + (brute - s).toFixed(2) + ' m²)' : '')
+          + (c.obj.key !== 'parcelle' && sp > 0 ? '  (' + (s / sp * 100).toFixed(1) + ' % de la parcelle)' : '');
       }
     },
     {

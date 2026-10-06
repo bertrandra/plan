@@ -30,6 +30,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
+import { surfaceNetteTerrasse } from '../engine/structure.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 
@@ -168,7 +169,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
               <div className="explorateurLigne">
                 <button type="button" className="explorateurNom" data-controle="explorateur.choisirTerrasse" data-nom="Choisir la terrasse" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
                   <span>{t.name}</span>
-                  <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
+                  <small>{(t.type === 'polygon' ? surfaceNetteTerrasse(t.pts, etat.objects) : shoelace(sommetsDe(t))).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
                 <label className="explorateurDossier" title="Retenir cette terrasse pour le dossier PDF (onglet Export)">
                   <input type="checkbox" data-controle="explorateur.dossierTerrasse" checked={dossierSelection.has(t.key)} onChange={() => explorateur.basculerDossier(t.key)} />

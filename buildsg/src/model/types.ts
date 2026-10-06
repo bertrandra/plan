@@ -321,6 +321,12 @@ export interface Construction {
    * jamais comble par `ensureConstruction` : un projet qui ne l'a pas se relit au bit pres.
    */
   niveauFini?: number;
+  /**
+   * Plots dans l'emprise : le cadre recule du bord d'un rayon d'embase, pour que l'embase d'un plot
+   * de rive ne depasse pas de la terrasse ; les lames debordent d'autant. Pose par
+   * `constructionTerrasseNeuve` ; absent d'un projet anterieur, qui garde son cadre au bord.
+   */
+  plotsDansEmprise?: boolean;
 
   // ---- Charges et calibration -----------------------------------------------------------------
   chargeNormale?: number;
@@ -343,6 +349,10 @@ export interface Construction {
   /** Jeu entre lames, en mm. */
   jeuLames?: number;
   avecLameRive?: boolean;
+  /** Les cotes (indices du contour) qui n'ont pas de lame de rive : contre un mur, une marche. */
+  cotesSansRive?: number[];
+  /** Une lame de rive aussi autour des trous de la terrasse (pas autour d'un bassin, qu'elle borde par ses margelles). */
+  riveOuvertures?: boolean;
   hauteurLameRive?: number;
   epaisseurLameRive?: number;
   avecLamePlat?: boolean;
