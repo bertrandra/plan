@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Bouton « Terrasse » dans la palette**, à côté de Parasol, Pergola, Carport et Piscine (rail
+  sur tablette, feuille Outils sur téléphone). Il pose une terrasse bois de 4 × 3 m sur plots,
+  plots dans l'emprise, coins libres, à la place libre la plus proche du centre de la parcelle :
+  hors de la maison, des annexes, des autres terrasses, des massifs et des arbres, sans sortir de
+  la parcelle. Elle est sélectionnée et chiffrée aussitôt ; Ctrl+Z la retire.
 - **Option « Sections de l'inspecteur repliées »** (menu Affichage ; feuille Projet sur
   téléphone). Cochée, les sections de l'inspecteur s'ouvrent repliées, titres seuls : les étapes
   d'une terrasse ou d'une piscine se lisent d'un coup d'œil, on ouvre celle qu'on règle. La cocher

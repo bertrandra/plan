@@ -16,7 +16,7 @@
 // panneaux et la Vue 3D lisent pour les traiter a part.
 
 import { au } from '../util/tableaux.js';
-import { centroid } from '../geometry/basic.js';
+import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan, ObjetBrut, Construction } from './types.js';
 import { enPoints } from './formes.js';
@@ -297,6 +297,58 @@ export interface ContexteCreation {
   horloge?: () => number;
 }
 
+/** Deux segments se croisent-ils (hors contact en un bout) ? */
+function seCroisent(a: PtBrut, b: PtBrut, c: PtBrut, d: PtBrut): boolean {
+  const o = (p: PtBrut, q: PtBrut, r: PtBrut) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+}
+
+/** Deux polygones se recouvrent-ils ? Un sommet de l'un dans l'autre, ou deux cotes qui se croisent. */
+function seRecouvrent(p: PtBrut[], q: PtBrut[]): boolean {
+  if (p.some(s => pointInPolygon(s, q)) || q.some(s => pointInPolygon(s, p))) return true;
+  return p.some((a, i) => q.some((c, j) => seCroisent(a, au(p, (i + 1) % p.length), c, au(q, (j + 1) % q.length))));
+}
+
+/**
+ * Le rectangle de `largeur` x `profondeur` le plus proche de `centre` qui tient dans la parcelle sans
+ * recouvrir un objet pose (maison, annexe, terrasse, piscine, massif, arbre...) : un ouvrage neuf
+ * naît la ou on le voit, pas sous la maison. On cherche sur une grille de 50 cm ; sans place libre,
+ * le rectangle reste centre sur `centre`.
+ */
+export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: number, profondeur: number): PtBrut[] {
+  const rect = (c: PtBrut) => [{ x: c.x - largeur / 2, y: c.y - profondeur / 2 }, { x: c.x + largeur / 2, y: c.y - profondeur / 2 },
+    { x: c.x + largeur / 2, y: c.y + profondeur / 2 }, { x: c.x - largeur / 2, y: c.y + profondeur / 2 }];
+  const parcelle = objets.find(o => o.key === 'parcelle');
+  const contour = parcelle ? enPoints(parcelle).pts : null;
+  // Les obstacles : tout ce qui occupe le sol, sauf le terrain lui-meme, les traces (chemins,
+  // limites, points de vue) et le voisinage. Un cercle compte pour son carre.
+  const obstacles = objets.filter(o => !o.voisinage && o.key !== 'parcelle' && o.fonction !== 'terrain' && o.type !== 'path')
+    .map(o => o.type === 'circle'
+      ? [{ x: o.center.x - o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y + o.r }, { x: o.center.x - o.r, y: o.center.y + o.r }]
+      : o.pts)
+    .filter(pts => pts.length >= 3);
+  const libre = (r: PtBrut[]) => (!contour || r.every(s => pointInPolygon(s, contour))) && !obstacles.some(ob => seRecouvrent(r, ob));
+  if (libre(rect(centre)) || !contour) return rect(centre);
+  const xs = contour.map(p => p.x), ys = contour.map(p => p.y);
+  const candidats: PtBrut[] = [];
+  for (let x = Math.min(...xs); x <= Math.max(...xs); x += 0.5) {
+    for (let y = Math.min(...ys); y <= Math.max(...ys); y += 0.5) candidats.push({ x, y });
+  }
+  candidats.sort((a, b) => Math.hypot(a.x - centre.x, a.y - centre.y) - Math.hypot(b.x - centre.x, b.y - centre.y));
+  const c = candidats.find(k => libre(rect(k)));
+  return rect(c ?? centre);
+}
+
+/**
+ * Une terrasse neuve (bouton Terrasse de la palette) : 4 x 3 m a la place libre la plus proche de
+ * `centre`, coins libres — on en tire les coins a la forme voulue, ou on coche « Mode rectangle ».
+ * La construction vient de l'appelant, qui connait le moteur : sur plots, plots dans l'emprise.
+ */
+export function terrasseNeuve(objets: ObjetPlan[], centre: PtBrut, key: string, construction: Construction): ObjetNeuf {
+  const n = objets.filter(o => estTerrasse(o)).length + 1;
+  return nouvelleTerrasse(rectangleLibre(objets, centre, 4, 3), key, 'Terrasse ' + n, construction);
+}
+
 export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   /** Centre de la parcelle : un objet neuf naît la ou on regarde, pas a l'origine du repere. */
   function centreParcelle() {
@@ -356,6 +408,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const n = etat.objects.filter(o => o.fonction === nature).length + 1;
       inserer(nouvelAbri(nature, c, cle('obj'), n));
     },
+
+    ajouterTerrasse(construction: Construction) { ctx.pushHistory(); inserer(terrasseNeuve(etat.objects, centreParcelle(), cle('obj'), construction)); },
 
     ajouterPiscine(forme: FormePiscine) {
       ctx.pushHistory();

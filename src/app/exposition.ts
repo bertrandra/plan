@@ -62,6 +62,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.rectangle': outil(),
   'objet.ajouter.chemin': outil(),
   'objet.ajouter.cercle': outil(),
+  'objet.ajouter.terrasse': outil(),
   'objet.ajouter.parasol': outil(),
   'objet.ajouter.pergola': outil(),
   'objet.ajouter.carport': outil(),
