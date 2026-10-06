@@ -9,7 +9,7 @@ import { BETON_PRICE, COFFRAGE_PRICE, DALLE_BETON_EP_M, MASSIF_COTE_M, MASSIF_PR
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
-import { aireCommune } from './structure.js';
+import { aireCommune, surfaceDalle } from './structure.js';
 import { achatPlots, achatVis, computeAssise, coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ObjetPlan, LigneBom } from '../model/types.js';
@@ -38,7 +38,8 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   const vis = achatVis(c, nAppuis);
   const plots = achatPlots(c, nAppuis);
   // Le tour du cadre ne sert qu'au coffrage d'une dalle a couler : la rive, et le bord des ouvertures.
-  const assise = computeAssise(c, surf, nAppuis, layers.cadre.reduce((s, l) => s + dist(l.a, l.b), 0));
+  // La dalle a couler deborde du platelage (engine/structure.ts, empriseDalle).
+  const assise = computeAssise(c, surf, nAppuis, layers.cadre.reduce((s, l) => s + dist(l.a, l.b), 0), surfaceDalle(contour, layers.trous ?? []));
   const lines: LigneBom[] = [];
   if(estPlots(c)){
     lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',

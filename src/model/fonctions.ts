@@ -89,6 +89,29 @@ export const estTrou = (o: ObjetPlan): boolean => aParticularite(o, 'ouverture')
 /** Un point de vue utilisable : deux points, position et direction. */
 export const estVueUtilisable = (o: ObjetPlan): boolean => aParticularite(o, 'pointDeVue');
 
+/** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
+export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
+
+/**
+ * Les objets lies a celui-ci : la terrasse qui sert de plage a une piscine (`piscine.terrasseKey`),
+ * ou les piscines dont une terrasse est la plage. Ils s'isolent ensemble.
+ */
+export function objetsAssocies(o: ObjetPlan, objets: ObjetPlan[]): ObjetPlan[] {
+  if (estPiscine(o)) {
+    const cle = o.piscine?.terrasseKey;
+    return cle ? objets.filter(x => x.key === cle && estTerrasse(x)) : [];
+  }
+  if (estTerrasse(o)) return objets.filter(x => estPiscine(x) && x.piscine?.terrasseKey === o.key);
+  return [];
+}
+
+/** L'objet se montre-t-il quand l'objet de cle `cle` est isole ? Lui-meme et ses associes ; tout, hors isolement. */
+export function visibleEnIsolement(o: ObjetPlan, objets: ObjetPlan[], cle: string | null | undefined): boolean {
+  if (cle === null || cle === undefined || o.key === cle) return true;
+  const isole = objets.find(x => x.key === cle);
+  return !!isole && objetsAssocies(isole, objets).includes(o);
+}
+
 /**
  * La parcelle du projet — celle qui porte la cloture, le lieu, l'orthophoto et le PLU.
  *

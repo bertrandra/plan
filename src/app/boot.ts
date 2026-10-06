@@ -67,7 +67,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d } from '../three/etat3d.js';
-import { creerIsolement } from './isolement.js';
+import { creerIsolement, objetAIsoler } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
 import { PREFIXE_ECHANTILLON, type SourceControleurs } from './controleurs.js';
@@ -554,9 +554,9 @@ function brancherIsolement(p: Plan): void {
     notifier: () => magasin.notifier()
   });
   commandes.declarer({
-    id: 'terrasse.isoler', libelle: 'Isoler la terrasse', groupe: 'terrasse',
-    description: 'Ne montre que la terrasse sélectionnée, en transparence, et cadre la vue sur elle. Rebasculer, ou désélectionner la terrasse, rend la vue d\'avant.',
-    actif: () => isolement.actif() || !!terrasseSelectionnee(etat),
+    id: 'terrasse.isoler', libelle: 'Isoler l\'objet', groupe: 'terrasse',
+    description: 'Ne montre que la terrasse, la piscine, la pergola ou le carport sélectionné, avec ce qui lui est lié (la terrasse d\'une piscine), et cadre la vue sur lui ; une terrasse passe en transparence. Rebasculer, ou désélectionner l\'objet, rend la vue d\'avant.',
+    actif: () => isolement.actif() || !!objetAIsoler(etat),
     executer: () => isolement.basculer()
   });
   // La selection change par le plan, l'explorateur, le clavier : le magasin est le seul endroit ou

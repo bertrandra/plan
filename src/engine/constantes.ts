@@ -62,6 +62,8 @@ export const SUPPORT_TYPES: Record<string, TypeSupport> = {
 };
 /** Dalle a couler sous une terrasse sur plots : epaisseur, et le debord du coffrage autour. */
 export const DALLE_BETON_EP_M = 0.12;
+/** La dalle deborde du platelage tout autour : sa rive se voit, et les plots de rive n'y sont pas au bord. */
+export const DALLE_DEBORD_M = 0.10;
 /** Massif de fondation sous un plot : un cube de 30 cm, arase au niveau du sol fini. */
 export const MASSIF_COTE_M = 0.30;
 export const BETON_PRICE      = { bas:140, haut:190 };  // €/m³, BPE C25/30 livre et mis en oeuvre

@@ -87,7 +87,7 @@ export function achatPlots(c: Construction, n: number){
 }
 // Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
 // qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
-export function computeAssise(c: Construction, surfM2: number, nbPlots: number, perimetreM = 0){
+export function computeAssise(c: Construction, surfM2: number, nbPlots: number, perimetreM = 0, surfDalleM2 = surfM2){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
   if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle as TypeSupport, geotextileM2:0, concasseM3:0, dallesU:0, betonM3:0, treillisM2:0, coffrageMl:0, massifsU:0 };
@@ -100,8 +100,8 @@ export function computeAssise(c: Construction, surfM2: number, nbPlots: number, 
     dallesU:      t.dalles     ? nbPlots    : 0,
     // La dalle a couler : son beton, un treillis avec ses recouvrements, le coffrage de sa rive. Les
     // massifs : un cube de beton sous chaque plot.
-    betonM3:      t.dalleBeton ? surfM2*DALLE_BETON_EP_M : t.massifs ? nbPlots*MASSIF_COTE_M**3 : 0,
-    treillisM2:   t.dalleBeton ? surfM2*1.15 : 0,
+    betonM3:      t.dalleBeton ? surfDalleM2*DALLE_BETON_EP_M : t.massifs ? nbPlots*MASSIF_COTE_M**3 : 0,
+    treillisM2:   t.dalleBeton ? surfDalleM2*1.15 : 0,
     coffrageMl:   t.dalleBeton ? perimetreM  : 0,
     massifsU:     t.massifs    ? nbPlots     : 0
   };

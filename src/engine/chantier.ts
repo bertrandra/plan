@@ -6,6 +6,7 @@
 
 import { dist, shoelace } from '../geometry/basic.js';
 import { computeAssise } from './prix.js';
+import { surfaceDalle } from './structure.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
@@ -71,7 +72,7 @@ export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const nbBarresBois = groupes.reduce((s,g)=>s + Object.values(g.debit.achats).reduce((t,n)=>t+n,0), 0);
   const nbBarresLames = Object.values(debitL.achats).reduce((t,n)=>t+n, 0);
   const perim = ml(layers.cadre);
-  const assise = computeAssise(c, surf, nbAppuis, perim);
+  const assise = computeAssise(c, surf, nbAppuis, perim, surfaceDalle(enPoints(obj).pts, layers.trous ?? []));
   const plots = estPlots(c);
 
   // `Record<PosteChantier, number>` : le compilateur verifie que chaque cadence a sa quantite.

@@ -15,6 +15,7 @@ import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import { Icone } from './icones.js';
+import { libelleIsoler, objetAIsoler } from '../app/isolement.js';
 import { niceStep } from '../util/format.js';
 
 /** Le pointage en cours de l'outil de cotation ou d'alignement, et le moyen d'en sortir. */
@@ -42,6 +43,8 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
   const etat = magasin.store.getState().etat;
   const grille = etat.grilleVisible;
   const cadrable = !!etat.selectedKey;
+  // Ce que le bouton d'isolement isole : l'objet isole, ou la selection (terrasse, piscine, abri).
+  const libIsoler = libelleIsoler(etat.isolement !== null ? etat.objects.find(o => o.key === etat.isolement) : objetAIsoler(etat));
   const p = pointage.courant();
 
   // Echap arrete un pointage en cours, sur toutes les classes (spec-ihm-mobile §2.3, D3).
@@ -80,9 +83,9 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
               onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
             {commandes.etat('terrasse.isoler').utilisable && (
               <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
-                title="Ne montrer que la terrasse, en transparence, et cadrer sur elle — rebasculer ou désélectionner rend la vue d'avant"
+                title={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer ou désélectionner rend la vue d\'avant'}
                 data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}>
-                <Icone nom="isoler" taille={16} /> {etat.isolement !== null ? 'Tout afficher' : 'Isoler la terrasse'}
+                <Icone nom="isoler" taille={16} /> {etat.isolement !== null ? 'Tout afficher' : libIsoler}
               </button>
             )}
           </div>
@@ -104,10 +107,10 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={20} /></button>
         <button type="button" className={etat.showNorth ? 'actif' : ''} aria-pressed={etat.showNorth} aria-label="Flèche Nord"
           data-commande="affichage.nord" onClick={() => { commandes.executer('affichage.nord'); }}><Icone nom="nord" taille={20} /></button>
-        {/* N'apparait qu'avec une terrasse selectionnee (ou isolee) : c'est elle qu'il isole. */}
+        {/* N'apparait qu'avec une terrasse, une piscine, une pergola ou un carport selectionne (ou isole). */}
         {commandes.etat('terrasse.isoler').utilisable && (
           <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
-            aria-label="Isoler la terrasse" title="Isoler la terrasse : elle seule, en transparence, cadrée — rebasculer ou désélectionner rend la vue d'avant"
+            aria-label={libIsoler} title={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer ou désélectionner rend la vue d\'avant'}
             data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}><Icone nom="isoler" taille={20} /></button>
         )}
       </div>

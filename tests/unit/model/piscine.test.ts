@@ -209,6 +209,19 @@ describe('inspecteur : la plage en terrasse du plan', () => {
     expect(abords(c2).champs.find(ch => ch.cle === 'couleurPlage')!.visible!(c2)).toBe(false);
   });
 
+  it('une ancienne plage calculee propose de devenir une terrasse du plan', () => {
+    const { obj } = nouvellePiscine('rectangle', { x: 0, y: 0 }, 'p', 1);
+    const c = contexte(obj);
+    const bouton = abords(c).champs.find(ch => ch.cle === 'convertirPlage')!;
+    if (bouton.type !== 'bouton') throw new Error('bouton attendu');
+    expect(bouton.visible!(c)).toBe(false);
+    obj.piscine = { plage: 'terrasse-bois', essencePlage: 'ipe' };
+    expect(bouton.visible!(c)).toBe(true);
+    expect(bouton.agit).toEqual({ commande: 'objet.terrassePiscine' });
+    bouton.executer(c);
+    expect(c.executerCommande).toHaveBeenCalledWith('objet.terrassePiscine');
+  });
+
   it('un objet qui devient terrasse est pose sur plots, sans toucher a une construction existante', () => {
     const o: ObjetPlan = { key: 'o', name: 'O', type: 'polygon', fonction: 'autre', pts: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }] };
     const c = contexte(o);
