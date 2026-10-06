@@ -46,14 +46,28 @@ export const PLOT_ENTRAXE_MAX_M = 0.70;   // NF DTU 51.4, appuis sous lambourdes
 export const PLOT_HAUTEUR_DTU_CM = 30;    // au-dela, le plot reglable sort du domaine du DTU
 export const PLOT_HAUTEUR_MAX_CM = 100;   // au-dela, le platelage entier sort du domaine
 export const PLOT_ASSISE_MIN_CM2 = 300;   // surface d'assise minimale, NF DTU 51.4 / 43.1
-/** Un type de support et ce qu'il implique en preparation de sol. */
-export interface TypeSupport { label: string; decaissement: boolean; geotextile: boolean; concasse: boolean; dalles: boolean }
+/**
+ * Un type de support et ce qu'il implique en preparation de sol. `dalleBeton` : une dalle armee a
+ * couler sur le herisson (le concasse) ; `massifs` : un massif de beton coule sous chaque plot, en
+ * fondation, sans decaissement general.
+ */
+export interface TypeSupport { label: string; decaissement: boolean; geotextile: boolean; concasse: boolean; dalles: boolean; dalleBeton?: boolean; massifs?: boolean }
 const SUPPORT_CONCASSE: TypeSupport = { label:'Decaissement + concasse compacte', decaissement:true, geotextile:true, concasse:true, dalles:false };
 export const SUPPORT_TYPES: Record<string, TypeSupport> = {
   'dalle':       { label:'Dalle ou chape existante',        decaissement:false, geotextile:false, concasse:false, dalles:false },
   'concasse':    SUPPORT_CONCASSE,
-  'plots-beton': { label:'Dalles stabilisatrices sous plots',decaissement:true,  geotextile:true,  concasse:true,  dalles:true  }
+  'plots-beton': { label:'Dalles stabilisatrices sous plots',decaissement:true,  geotextile:true,  concasse:true,  dalles:true  },
+  'dalle-beton': { label:'Dalle béton armé à couler (12 cm sur hérisson)', decaissement:true, geotextile:true, concasse:true, dalles:false, dalleBeton:true },
+  'massifs':     { label:'Massifs béton coulés sous chaque plot (fondation)', decaissement:false, geotextile:false, concasse:false, dalles:false, massifs:true }
 };
+/** Dalle a couler sous une terrasse sur plots : epaisseur, et le debord du coffrage autour. */
+export const DALLE_BETON_EP_M = 0.12;
+/** Massif de fondation sous un plot : un cube de 30 cm, arase au niveau du sol fini. */
+export const MASSIF_COTE_M = 0.30;
+export const BETON_PRICE      = { bas:140, haut:190 };  // €/m³, BPE C25/30 livre et mis en oeuvre
+export const TREILLIS_PRICE   = { bas:3,   haut:6   };  // €/m², treillis soude ST25C, recouvrements compris
+export const COFFRAGE_PRICE   = { bas:6,   haut:12  };  // €/ml de rive coffree
+export const MASSIF_PRICE     = { bas:15,  haut:30  };  // €/u : fouille, coffrage perdu, beton
 /** Le support d'une construction ; le concasse, le cas par defaut, si la clef n'est pas connue. */
 export function supportDe(cle: string | undefined): TypeSupport { return SUPPORT_TYPES[cle ?? ''] || SUPPORT_CONCASSE; }
 export const GEOTEXTILE_PRICE = { bas:1,  haut:3  };   // €/m²

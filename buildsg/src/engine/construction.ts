@@ -40,6 +40,15 @@ export function defaultConstruction(): Construction {
   };
 }
 /**
+ * La construction d'une terrasse qu'on cree maintenant : posee sur plots, le cas le plus courant
+ * d'une terrasse de jardin. `defaultConstruction` garde la vis de fondation : c'est ce qu'un projet
+ * enregistre sans construction recoit a l'ouverture, et il doit redonner les memes quantites.
+ */
+export function constructionTerrasseNeuve(): Construction {
+  return { ...defaultConstruction(), typePose:'plots' };
+}
+
+/**
  * Comble les manques d'une construction enregistree, et la rend.
  *
  * Elle comble **52 des 53 champs** de `Construction` (depuis le 21 septembre 2026 ; avant, 40, et

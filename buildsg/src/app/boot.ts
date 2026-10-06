@@ -581,7 +581,9 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
     // Lecture seule : ce qu'un geste a change se mesure dans l'etat, pas a l'oeil.
     etat: () => etat,
     selectionnerCle: (cle: string | null) => explorateur.selectionner(cle),
-    magasin: () => magasin.store.getState()
+    magasin: () => magasin.store.getState(),
+    // La scene 3D affichee : la fumee y place la camera pour regarder un objet precis.
+    scene3d: () => vue3d.scene
   } });
 }
 

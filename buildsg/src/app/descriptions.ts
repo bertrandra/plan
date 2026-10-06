@@ -38,6 +38,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   'objet.ajouter.piscineRonde': 'Ajoute une piscine ronde : les mêmes réglages, sur un cercle',
   'export.dossierPiscine': 'Produit le dossier de déclaration préalable ou de permis pour la piscine sélectionnée : plans, coupe, aide au cerfa, note de calcul',
   'objet.ajouter.pointDeVue': 'Ajoute un point de vue : une caméra à rappeler en Vue 3D',
+  'objet.terrassePiscine': 'Pose une terrasse bois sur plots autour de la piscine, coins libres, que le bassin perce ; la sélectionne si elle existe',
+  'terrasse.ajouterTrou': 'Ajoute un trou au centre de la terrasse : un arbre conservé, une trappe ; la terrasse s’arrête à son bord sur un chevêtre',
   'objet.annuler': 'Défait la dernière modification du plan',
   'objet.dupliquer': 'Crée une copie de l’objet sélectionné, décalée à côté',
   'objet.supprimer': 'Supprime l’objet sélectionné ; Ctrl+Z le rend',

@@ -42,6 +42,61 @@ export function poserEnCouche(mat: THREE_NS.Material, couche: number): void {
   mat.polygonOffsetUnits = -4 * couche;
 }
 
+/**
+ * Ce qui est pose a plat au sol (le sol vert, le terrain, l'orthophoto, les chemins) ne se dessine
+ * pas la ou un bassin a marque le tampon de gabarit (three/piscine3d.ts) : c'est ce qui perce le
+ * sol au droit du plan d'eau. Sans bassin, le gabarit reste a 0 et le test laisse tout passer. Rien
+ * de vertical ne recoit ce test : un mur devant la piscine masquerait sinon sa propre photo.
+ */
+export function percerSol(mat: THREE_NS.Material): void {
+  mat.stencilWrite = true;
+  mat.stencilRef = 1;
+  // Le masque d'ecriture reste ouvert (les operations « garder » n'ecrivent rien) : ferme, il
+  // empecherait aussi l'effacement du tampon entre deux images, et les trous des images precedentes
+  // resteraient au sol quand la camera bouge.
+  mat.stencilFunc = THREE.NotEqualStencilFunc;
+  mat.stencilZPass = THREE.KeepStencilOp;
+  mat.stencilZFail = THREE.KeepStencilOp;
+  mat.stencilFail = THREE.KeepStencilOp;
+}
+
+/** Marque des objets qui ne projettent pas d'ombre (un gabarit, l'eau) : `appliquerOmbres` les saute. */
+export const SANS_OMBRE = 'sansOmbre';
+/** Marque d'un gabarit qui perce le sol : l'export GLB le retire (il n'a de sens que pour ce rendu). */
+export const GABARIT_SOL = 'gabaritSol';
+
+/** Un polygone du plan, a plat, en y = 0. */
+export function polygoneAPlat(pts: PtBrut[], versLocal: VersLocal): THREE_NS.BufferGeometry {
+  const shape = new THREE.Shape();
+  pts.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
+  shape.closePath();
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+
+/**
+ * Perce le sol sur un contour : le contour est dessine avant tout le reste (ordre de rendu tres
+ * bas), sans couleur ni profondeur, et marque ses pixels a 1 dans le tampon de gabarit ; ce qui est
+ * pose a plat au sol ne s'y dessine pas (`percerSol`). On voit alors ce qui est dessous : un bassin,
+ * ou l'assise d'une terrasse quand le sol est en coupe.
+ */
+export function gabaritSol(scene: THREE_NS.Scene, versLocal: VersLocal, contour: PtBrut[]): void {
+  const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+  mat.stencilWrite = true;
+  mat.stencilRef = 1;
+  mat.stencilFunc = THREE.AlwaysStencilFunc;
+  mat.stencilZPass = THREE.ReplaceStencilOp;
+  mat.stencilZFail = THREE.ReplaceStencilOp;
+  mat.stencilFail = THREE.ReplaceStencilOp;
+  const m = new THREE.Mesh(polygoneAPlat(contour, versLocal), mat);
+  m.position.y = 0.001;
+  m.renderOrder = -100;
+  m.userData[SANS_OMBRE] = true;
+  m.userData[GABARIT_SOL] = true;
+  scene.add(m);
+}
+
 export type CouleurTrois = string | number;
 
 /** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
@@ -237,7 +292,7 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
     const urlTex = urlTexture(texRef);
     // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : meme echelle.
     if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
-    if (couche) poserEnCouche(mat, couche);
+    if (couche) { poserEnCouche(mat, couche); percerSol(mat); }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);

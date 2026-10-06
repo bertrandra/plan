@@ -166,6 +166,8 @@ export const vue3d: {
    */
   apresSoleil: ((soleil: { elevRad: number; azRad: number }) => void) | null;
   tousLesObjets: boolean;
+  /** Sol en coupe sous la terrasse : l'assise et les fondations se voient (three/assise3d.ts). */
+  solEnCoupe: boolean;
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
@@ -176,6 +178,7 @@ export const vue3d: {
   apresSoleil: null,
   // Montrer tout le plan par defaut : une terrasse seule au milieu du vide ne se situe pas.
   tousLesObjets: true,
+  solEnCoupe: false,
   objetsOpaques: true,
   textures: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
