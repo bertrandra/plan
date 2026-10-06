@@ -64,6 +64,11 @@ export interface EtatMagasin {
   tiroir: HauteurTiroir;
   /** L'inspecteur (Z5) est deplie ; replie, il rend sa largeur au plan. */
   inspecteurOuvert: boolean;
+  /**
+   * Les sections de l'inspecteur s'ouvrent repliees : on n'y voit que leurs titres (les etapes d'une
+   * terrasse ou d'une piscine). Preference de l'utilisateur, gardee par le navigateur, jamais du projet.
+   */
+  sectionsRepliees: boolean;
   /** La classe d'ecran (app/classe.ts). */
   classe: Classe;
   /** La feuille ouverte sur telephone, ou aucune. */
@@ -108,6 +113,7 @@ export interface Magasin {
   definirExplorateurOuvert(ouvert: boolean): void;
   definirTiroir(hauteur: HauteurTiroir): void;
   definirInspecteurOuvert(ouvert: boolean): void;
+  definirSectionsRepliees(replier: boolean): void;
   definirClasse(classe: Classe): void;
   /** Ouvre une feuille (et ferme la precedente), ou ferme tout avec `null`. */
   definirFeuille(feuille: Feuille | null, hauteur?: HauteurFeuille): void;
@@ -132,6 +138,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     explorateurOuvert: true,
     tiroir: 'mi',
     inspecteurOuvert: true,
+    sectionsRepliees: false,
     classe: 'large',
     feuille: null,
     hauteurFeuille: 'mi',
@@ -156,6 +163,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert }),
     definirTiroir: (tiroir) => store.setState({ tiroir }),
     definirInspecteurOuvert: (inspecteurOuvert) => store.setState({ inspecteurOuvert }),
+    definirSectionsRepliees: (sectionsRepliees) => store.setState({ sectionsRepliees }),
     definirClasse: (classe) => store.setState({ classe }),
     definirFeuille: (feuille, hauteur) => {
       const h = hauteur ?? (feuille ? HAUTEUR_PAR_DEFAUT[feuille] : 'mi');

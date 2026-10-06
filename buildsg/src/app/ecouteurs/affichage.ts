@@ -20,12 +20,31 @@ export interface ContexteAffichage {
   ctxOrtho: () => Parameters<typeof placerOrthophoto>[0];
   /** Reconstruit la scène 3D — nécessaire quand la liste des objets visibles change. */
   buildThreeScene: (obj: ObjetPlan | null) => void;
+  /** La préférence « sections de l'inspecteur repliées », tenue par le magasin. */
+  sectionsRepliees: { lire: () => boolean; definir: (replier: boolean) => void };
+}
+
+/** La clé du navigateur qui garde la préférence : elle suit l'utilisateur d'un projet à l'autre. */
+const CLE_SECTIONS_REPLIEES = 'plan.inspecteur.sectionsRepliees';
+
+/** La préférence mémorisée ; sans stockage (navigation privée), les sections s'ouvrent dépliées. */
+export function preferenceSectionsRepliees(): boolean {
+  try { return localStorage.getItem(CLE_SECTIONS_REPLIEES) === '1'; } catch { return false; }
 }
 
 export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: RegistreCommandes): void {
   // Chaque bascule est une commande qui inverse l'etat ; le menu Affichage de la barre
   // d'application (zones/) l'execute et se coche d'apres l'etat. Les curseurs du fond orthophoto
   // sont des commandes qui lisent leur curseur (`source`).
+  // Une préférence de l'utilisateur, pas du projet : ni annulation, ni « projet modifié », permise
+  // en lecture seule. Elle ne change que l'ouverture des sections, jamais leur contenu.
+  ctx.sectionsRepliees.definir(preferenceSectionsRepliees());
+  cmd.declarer({ id: 'affichage.sectionsRepliees', libelle: 'Sections de l’inspecteur repliées', groupe: 'affichage', executer: () => {
+    const replier = !ctx.sectionsRepliees.lire();
+    ctx.sectionsRepliees.definir(replier);
+    try { localStorage.setItem(CLE_SECTIONS_REPLIEES, replier ? '1' : '0'); } catch { /* stockage indisponible : la préférence vaut pour la session */ }
+  } });
+
   cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', executer: () => {
     a.etat.showNorth = !a.etat.showNorth;
     a.render();
@@ -58,9 +77,13 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
   } });
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
-  // — c'est elle qui redessine quand elle a fini.
+  // — c'est elle qui redessine le plan quand elle a fini. La 3D, elle, ne lit les tuiles qu'en se
+  // construisant : ouverte, elle se reconstruit une fois la bascule faite (sans cela, la photo
+  // n'apparaissait ou ne disparaissait qu'apres un aller-retour par le plan 2D).
   cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
-    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho());
+    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho()).then(() => {
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    });
   } });
 
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
