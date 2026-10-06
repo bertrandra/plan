@@ -43,6 +43,22 @@ export function signedArea(pts: readonly PtBrut[]): number {
   return s / 2;
 }
 
+/**
+ * Le centre de surface d'un polygone (son centre de gravite), et non le barycentre de ses sommets :
+ * un cote decoupe de nombreux points ne le tire pas vers lui. Polygone degenere : le barycentre.
+ */
+export function centreDeSurface(pts: readonly PtBrut[]): PtBrut {
+  const a = signedArea(pts);
+  if (Math.abs(a) < 1e-12) return centroid(pts);
+  let cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = au(pts, i), q = au(pts, (i + 1) % pts.length);
+    const k = p.x * q.y - q.x * p.y;
+    cx += (p.x + q.x) * k; cy += (p.y + q.y) * k;
+  }
+  return { x: cx / (6 * a), y: cy / (6 * a) };
+}
+
 /** Barycentre des sommets - pas le centre de masse du polygone. */
 export function centroid(pts: readonly PtBrut[]): PtBrut {
   let cx = 0,

@@ -278,8 +278,10 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // Les deux textures de la terrasse : le dessus sur le platelage, le vertical sur la lame de rive —
   // les seules surfaces qu'on regarde vraiment.
   const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
-  // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
-  const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
+  // Par defaut le platelage est plein. « Platelage translucide » coche, il devient presque
+  // transparent : la structure, les plots et leur assise se voient dessous. Isolee, la terrasse
+  // montre sa structure a travers un platelage translucide (app/isolement.ts).
+  const opaciteLames = vue3d.platelageTranslucide ? OPACITE_LAMES_TRANSLUCIDES : isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
   // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
     lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
@@ -292,11 +294,13 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
   // L'assise : une dalle se voit toujours (son debord) ; sol en coupe, tout ce qui est sous le sol
   // fini — herisson, massifs, futs de vis — se voit aussi.
-  ajouterAssise3d({ prim: primSol, ...sol }, contour, layers, c, vue3d.solEnCoupe, decaisseM);
+  ajouterAssise3d({ prim: primSol, ...sol }, contour, layers, c, vue3d.solEnCoupe, decaisseM, vue3d.platelageTranslucide);
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
 export const OPACITE_LAMES_ISOLEMENT = 0.35;
+/** Les lames quand « Platelage translucide » est coche : presque transparentes (le plancher d'appliquerOpacite), leur dessin se devine. */
+export const OPACITE_LAMES_TRANSLUCIDES = 0.15;
 
 /** Ce que chaque objet du plan rendu en contexte recoit. */
 interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d }
