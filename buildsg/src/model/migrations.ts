@@ -58,6 +58,13 @@ export const MIGRATIONS: readonly Migration[] = [
     de: 2,
     apporte: 'un toit pour chaque bâtiment importé de l’IGN, déduit de la BD TOPO et posé sur son contour réel (MD/spec-toit-ign.md)',
     migrer: (d) => ({ ...d, objects: d.objects.map(poserToitBdTopo) })
+  },
+  {
+    de: 3,
+    apporte: 'le relief du terrain lu à l’IGN, rangé sur la parcelle avec sa source et sa précision (MD/spec-relief.md)',
+    // Le schema 4 n'ajoute qu'un champ facultatif a la parcelle : un document 3 est deja un
+    // document 4 valide. La migration existe pour que la chaine soit complete.
+    migrer: (d) => d
   }
 ];
 
@@ -82,11 +89,12 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : 3 des qu'un toit est a croupes (un lecteur 2 le
- * dessinerait en quatre pans sur l'enveloppe, faux sur un L), 2 des qu'un batiment porte un releve
- * ou un toit.
+ * Le plus petit schema qui decrit ces objets : 4 des qu'une parcelle porte un relief (un lecteur 3
+ * le perdrait), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur
+ * l'enveloppe, faux sur un L), 2 des qu'un batiment porte un releve ou un toit.
  */
 export function schemaMinimal(objets: readonly ObjetBrut[]): number {
+  if (objets.some((o) => !!o.relief)) return 4;
   if (objets.some((o) => o.toit?.forme === 'croupes')) return 3;
   const releve = objets.some((o) => (Array.isArray(o.facades) && o.facades.length > 0) || !!o.toit);
   return releve ? 2 : 1;

@@ -16,6 +16,7 @@ import { Cotes } from './Cotes.js';
 import { Plu } from './Plu.js';
 import { Resume } from './Resume.js';
 import { NoteCalcul } from './NoteCalcul.js';
+import { Profil } from './Profil.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -35,7 +36,7 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
   let contenu: React.ReactNode;
   switch (onglet.id) {
     case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
-    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} />); break;
+    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} objets={resultats.etat.objects} />); break;
     case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
     case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;
     case 'methode': contenu = pourTerrasse(t => <Methode obj={t} resultats={resultats} />); break;
@@ -43,6 +44,7 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
     case 'plu': contenu = <Plu resultats={resultats} commandes={commandes} />; break;
     case 'resume': contenu = <Resume resultats={resultats} commandes={commandes} />; break;
     case 'noteCalcul': contenu = <NoteCalcul resultats={resultats} commandes={commandes} />; break;
+    case 'profil': contenu = <Profil resultats={resultats} />; break;
   }
   return <div id={onglet.panneau} role="tabpanel" aria-label={onglet.libelle}>{contenu}</div>;
 }

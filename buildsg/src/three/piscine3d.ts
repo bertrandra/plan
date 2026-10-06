@@ -26,12 +26,24 @@ const LAME_M = 0.027;
 const SOLIVE_M = 0.175;
 const POUTRE_M = 0.2;
 
-/** Ce que la 3D d'une piscine demande en plus des primitives : la scene, pour l'interieur du bassin. */
-export interface ContextePiscine3d { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal }
+/**
+ * Ce que la 3D d'une piscine demande en plus des primitives : la scene, pour l'interieur du bassin.
+ * `scene` peut etre un groupe pose sur le sol en relief (three/relief3d.ts) ; `prim` doit alors y
+ * poser aussi ses pieces. `primitivesDans` : des primitives qui posent dans un groupe ; avec lui, une
+ * piscine sur un sol en pente se pose elle-meme a son point haut (voir `ajouterPiscine3d`).
+ */
+export interface ContextePiscine3d { prim: Primitives; scene: THREE_NS.Object3D; versLocal: VersLocal; primitivesDans?: (cible: THREE_NS.Object3D) => Primitives }
 
-export function ajouterPiscine3d({ prim, scene, versLocal }: ContextePiscine3d, o: ObjetPlan): void {
-  const calc = calculerPiscine(o);
+/**
+ * `objets` : le plan, pour que le moteur lise le relief et la terrasse qui sert de plage. Quand le
+ * relief est lu (`calc.sol`, MD/spec-relief.md §6), le bord du bassin est de niveau a
+ * `hauteurHorsSol` au-dessus du point le plus HAUT du sol sous les parois : tout se pose dans un
+ * groupe eleve de `zHaut`, pas au sol du centre — et chaque poteau de la plage descend jusqu'a son sol.
+ */
+export function ajouterPiscine3d(ctx: ContextePiscine3d, o: ObjetPlan, objets: ObjetPlan[] = []): void {
+  const calc = calculerPiscine(o, objets);
   if (!calc) return;
+  const { prim, scene, versLocal } = ctx.primitivesDans && calc.sol ? poserAuPointHaut(ctx, calc.sol.zHaut, o.key) : ctx;
   const r = calc.reglages;
   const H = calc.hauteurHorsSol;
   const eau = H - REVANCHE_M;
@@ -49,15 +61,32 @@ export function ajouterPiscine3d({ prim, scene, versLocal }: ContextePiscine3d, 
   if (pb.mode === 'poteaux') {
     const basPoutre = pb.dessus - LAME_M - SOLIVE_M - POUTRE_M;
     pb.anneauxPoutres.forEach(anneau => prim.addBande({ ext: elargir(anneau, 0.0375), int: elargir(anneau, -0.0375) }, basPoutre, POUTRE_M, '#6b4a2a'));
-    pb.poteauxPositions.forEach(p => prim.addPrism(carre(p, 0.12), 0, basPoutre, '#6b4a2a'));
+    // Sur un sol en pente, chaque poteau descend jusqu'a son sol : le moteur donne sa hauteur (au
+    // centimetre), plus longue en aval de ce que le sol descend sous le point haut, et un peu plus
+    // courte la ou la plage deborde en amont des parois. Sans sol, les poteaux partent de zero,
+    // comme avant : la hauteur arrondie du moteur ne les deplace pas.
+    pb.poteauxPositions.forEach((p, i) => {
+      const descente = calc.sol ? (pb.hauteursPoteaux[i] ?? pb.hauteurPoteau) - pb.hauteurPoteau : 0;
+      prim.addPrism(carre(p, 0.12), -descente, basPoutre + descente, '#6b4a2a');
+    });
   } else {
     // Au ras du sol : une bande de structure sous les lames, pour que la plage ait son epaisseur.
     prim.addBande({ ext: calc.plageExt, int: calc.margelleExt }, Math.max(0, pb.dessus - LAME_M - 0.07), 0.07, '#6b4a2a');
   }
 }
 
+/** Un groupe eleve de `zHaut` dans la scene donnee, et des primitives qui y posent. */
+function poserAuPointHaut(ctx: ContextePiscine3d, zHaut: number, cle: string): ContextePiscine3d {
+  if (!ctx.primitivesDans) return ctx;
+  const groupe = new THREE.Group();
+  groupe.name = 'piscine:' + cle;
+  groupe.position.y = zHaut;
+  ctx.scene.add(groupe);
+  return { prim: ctx.primitivesDans(groupe), scene: groupe, versLocal: ctx.versLocal };
+}
+
 /** Les parois interieures et le fond, au revetement du bassin. */
-function ajouterInterieur(scene: THREE_NS.Scene, versLocal: VersLocal, calc: PiscineCalculee, eau: number): void {
+function ajouterInterieur(scene: THREE_NS.Object3D, versLocal: VersLocal, calc: PiscineCalculee, eau: number): void {
   const H = calc.hauteurHorsSol;
   const int = interieurBassin(calc.contour, calc.axe, calc.profil);
   const mat = new THREE.MeshStandardMaterial({ color: COULEUR_INTERIEUR[calc.reglages.revetement], side: THREE.DoubleSide, roughness: 0.6 });
@@ -81,7 +110,7 @@ function ajouterInterieur(scene: THREE_NS.Scene, versLocal: VersLocal, calc: Pis
 }
 
 /** Le plan d'eau : translucide, pour voir le fond et sa pente. */
-function ajouterEau(scene: THREE_NS.Scene, versLocal: VersLocal, contour: PtBrut[], eau: number, couleur: string): void {
+function ajouterEau(scene: THREE_NS.Object3D, versLocal: VersLocal, contour: PtBrut[], eau: number, couleur: string): void {
   const mat = new THREE.MeshStandardMaterial({ color: couleur, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, roughness: 0.15, metalness: 0.1 });
   const m = new THREE.Mesh(polygoneAPlat(contour, versLocal), mat);
   m.position.y = eau;

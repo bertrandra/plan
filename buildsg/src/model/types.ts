@@ -213,6 +213,56 @@ interface ObjetCommun {
   pergola?: Pergola | null;
   /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
   piscine?: Piscine | null;
+  /**
+   * Le relief du sol lu a l'IGN (MD/spec-relief.md), range sur la parcelle du projet comme le lieu
+   * et le fond orthophoto. Absent tant que personne ne l'a lu : le plan est alors plat, et le
+   * fichier de projet garde sa forme d'avant.
+   */
+  relief?: Relief | null;
+}
+
+/**
+ * Une grille d'altitudes du sol nu sur la parcelle et ses abords (MD/spec-relief.md §3, §7).
+ *
+ * Elle vient d'une requete WMS a la Geoplateforme (LiDAR HD a 50 cm, sinon RGE ALTI a 1 m), posee
+ * dans le repere du plan et enregistree avec le projet : un nombre produit hier doit rester
+ * reproductible, et l'IGN met ses donnees a jour. Seul « Actualiser le relief » la remplace.
+ */
+export interface Relief {
+  source: 'lidar-hd' | 'rge-alti';
+  /** Le calque WMS exact, pour « Actualiser » et pour l'archive. */
+  couche: string;
+  /** Le jour de la lecture, en ISO (AAAA-MM-JJ). */
+  dateLecture: string;
+  /** LiDAR HD : la fin d'acquisition de la dalle ; RGE ALTI : absent. */
+  dateDonnees?: string;
+  /** Le texte du masque de source du RGE ALTI, ou « LiDAR HD ». */
+  origine: string;
+  /** « Emq < 30 cm », « de l'ordre de 10 cm (IGN) »… : pret a afficher. */
+  precision: string;
+  /** « NGF-IGN69 », « IGN78 »… */
+  systemeAltimetrique: string;
+  /** Le pas de la grille, en metres : 0,5, 1, 2 ou 5. */
+  pas: number;
+  /** Le centre de la cellule nord-ouest, dans le repere du plan (metres). */
+  x0: number;
+  y0: number;
+  /** Colonnes (d'ouest en est) et lignes (du nord au sud). */
+  nx: number;
+  ny: number;
+  /** `nx × ny` altitudes NGF au centimetre, ligne par ligne du nord au sud ; `null` : sans donnee. */
+  z: (number | null)[];
+  /** L'altitude NGF du zero du plan : le sol au point de reference de la terrasse (§3.3). */
+  zRef: number;
+  /** Preferences d'affichage, comme « Filaire » : ni annulation, ni « projet modifie ». */
+  affichage?: AffichageRelief | null;
+}
+
+export interface AffichageRelief {
+  courbes?: boolean;
+  /** L'equidistance des courbes en metres ; absente ou 0 : choisie d'apres le denivele. */
+  equidistance?: number;
+  sol3d?: boolean;
 }
 
 /** Un polygone ferme : la parcelle, une terrasse, un batiment, une dalle. */

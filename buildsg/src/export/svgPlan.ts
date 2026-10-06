@@ -20,11 +20,37 @@ import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import { trousDeTerrasse } from '../engine/structure.js';
+import { affichageRelief, reliefDe } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { courbesDeNiveau, etiquetteNiveau, longueurPolyligne, milieuPolyligne } from '../render/relief.js';
 
 /** Ce que l'export SVG doit savoir en plus des objets : de quoi remplir les attributs data-*. */
 export interface MetaSvg {
   appVersion: string;
   schemaVersion: number;
+}
+
+/**
+ * Les courbes de niveau du relief, quand il existe et qu'elles sont affichees : un groupe sans
+ * `data-*` (l'import ne lit que polygon, path et circle : il l'ignore), trait fin, maitresses plus
+ * fortes et etiquetees en altitude NGF. Vide sans relief.
+ */
+function groupeRelief(objets: ObjetPlan[], exToSvg: (p: PtBrut) => PtBrut, fsTexte: number): string {
+  const relief = reliefDe(objets);
+  if(!relief || !affichageRelief(relief).courbes) return '';
+  const parcelle = parcelleDuProjet(objets);
+  const { courbes } = courbesDeNiveau(relief, parcelle && parcelle.type==='polygon' ? parcelle.pts : undefined);
+  let g = '<g class="relief-courbes" fill="none" stroke="#8C6B3F" stroke-linejoin="round">\n';
+  courbes.forEach(c=>{
+    const s = c.pts.map(exToSvg);
+    g += '<polyline points="'+s.map(p=>p.x.toFixed(2)+','+p.y.toFixed(2)).join(' ')+'" stroke-width="'+(c.maitresse ? '0.06' : '0.035')+'"/>\n';
+    // L'etiquette d'une maitresse, a mi-longueur, si la courbe est assez longue pour la porter.
+    if(c.maitresse && longueurPolyligne(s) >= 3){
+      const m = milieuPolyligne(s);
+      g += '<text x="'+m.x.toFixed(2)+'" y="'+(m.y-0.1).toFixed(2)+'" font-size="'+fsTexte+'" text-anchor="middle" fill="#8C6B3F" stroke="none" font-family="Helvetica Neue, Arial, sans-serif">'+etiquetteNiveau(c.niveau)+'</text>\n';
+    }
+  });
+  return g + '</g>\n';
 }
 
 export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: MetaSvg){
@@ -66,7 +92,8 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
     return d;
   }
 
-  let body = '';
+  // Les courbes de niveau passent avant les objets : un plan sans relief ecrit exactement le fichier d'avant.
+  let body = groupeRelief(objets, exToSvg, fsVert);
   objets.forEach((obj: ObjetPlan)=>{
     if(obj.type==='polygon'){
       const pts = (obj.pts||[]).map((p: PtBrut)=>{const s=exToSvg(p); return s.x.toFixed(2)+','+s.y.toFixed(2);}).join(' ');

@@ -23,6 +23,8 @@ import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometr
 import { clipLineToPolygon, polygonOffset } from '../geometry/polygon.js';
 import { distancePointSegment, projectOntoSegment } from '../geometry/segments.js';
 import { ESSENCE_PRICES, essenceDe, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM } from './constantes.js';
+import { solDuProjet, solSousEmprise, type Sol, type SolSousEmprise } from './sol.js';
+import { cellulesDansPolygone } from '../model/relief.js';
 import { constructionTerrasseNeuve } from './construction.js';
 import { hauteurStructureMm } from './hauteurs.js';
 import { maxEntraxeLameCm, maxPorteeVisM } from './portees.js';
@@ -389,7 +391,11 @@ export interface PlageBois {
   poutresMl: number;
   appuis: number;
   poteaux: number;
+  /** La hauteur d'un poteau au point de reference ; sur un sol en pente, la plus courte. */
   hauteurPoteau: number;
+  /** Sur un sol en pente (MD/spec-relief.md §6) : la hauteur de chaque poteau, dans l'ordre de `poteauxPositions`, et la plus longue. */
+  hauteursPoteaux: number[];
+  hauteurPoteauMax: number;
   /** Charge sur un appui ou un poteau, en kN. */
   chargeAppuiKn: number;
   /** Les anneaux de poutres (mode poteaux), du bord des margelles vers l'exterieur, et les poteaux dessous. */
@@ -413,8 +419,14 @@ export interface PiscineCalculee {
   hauteurHorsSol: number;
   hauteurParoi: number;
   profondeurEnterree: number;
-  /** La fouille : son emprise, sa profondeur, son volume ; le remblai et l'evacuation. */
-  fouille: { emprise: PtBrut[]; profondeur: number; volume: number; remblai: number; evacuation: number };
+  /**
+   * La fouille : son emprise, sa profondeur, son volume ; le remblai et l'evacuation. `nivellement` :
+   * sur un sol en pente, les terres a rapporter sous les margelles et la plage pour les mettre au
+   * niveau du bord haut (0 sur un terrain plat).
+   */
+  fouille: { emprise: PtBrut[]; profondeur: number; volume: number; remblai: number; evacuation: number; nivellement: number };
+  /** Le sol sous le bassin quand le relief est lu (MD/spec-relief.md §6) : la reference est son point haut. */
+  sol: SolSousEmprise | null;
   /** Les contours successifs vers l'exterieur : parois, margelles, plage. */
   parois: PtBrut[];
   margelleExt: PtBrut[];
@@ -459,11 +471,16 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   const hauteurHorsSol = Math.min(r.hauteurHorsSol, hauteurParoi);
   const profondeurEnterree = Math.max(0, hauteurParoi - hauteurHorsSol);
   const parois = elargir(contour, ps.paroi);
+  // Le sol en pente : le bord du bassin est de niveau, `hauteurHorsSol` au-dessus du point le plus
+  // haut du sol sous les parois ; la fouille est plus profonde la ou le sol monte, et les abords
+  // bas se remblaient jusqu'a cette reference.
+  const sol = solDuProjet(objets);
+  const solSous = solSousEmprise(sol, parois);
 
   // La fouille : les parois plus la surlargeur de travail, sur la partie enterree et le fond.
   const profondeurFouille = profondeurEnterree > 1e-6 ? profondeurEnterree + ps.fond : (r.structure === 'kit' ? ps.fond : 0);
   const empriseFouille = elargir(contour, ps.paroi + (profondeurEnterree > 1e-6 ? ps.surlargeurFouille : 0.2));
-  const volumeFouille = shoelace(empriseFouille) * profondeurFouille;
+  const volumeFouille = sol && solSous ? volumeFouilleEnPente(sol, solSous, empriseFouille, profondeurFouille) : shoelace(empriseFouille) * profondeurFouille;
   const volumeBassinEnterre = shoelace(parois) * profondeurEnterree;
   // Ce qui revient autour des parois : du gravier drainant pour une coque (achete), les terres pour le reste.
   const remblai = Math.max(0, volumeFouille - volumeBassinEnterre - shoelace(parois) * ps.fond);
@@ -476,7 +493,8 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   const terrasse = r.plage === 'terrasse' ? terrasseDeLaPiscine(o, objets) : undefined;
   const plageExt = terrasse ? terrasse.pts : plageCalculee(r.plage) ? elargir(margelleExt, r.largeurPlage) : margelleExt;
   const surfacePlage = r.plage === 'aucune' ? 0 : Math.max(0, shoelace(plageExt) - shoelace(margelleExt));
-  const plageBois = r.plage === 'terrasse-bois' ? structurePlageBois(r, hauteurHorsSol, surfacePlage, margelleExt, perimetre(margelleExt), perimetre(plageExt), avertissements) : null;
+  const plageBois = r.plage === 'terrasse-bois' ? structurePlageBois(r, hauteurHorsSol, surfacePlage, margelleExt, perimetre(margelleExt), perimetre(plageExt), avertissements, sol && solSous ? { sol, zHaut: solSous.zHaut } : null) : null;
+  const nivellement = sol && solSous ? volumeNivellement(sol, solSous, plageExt, parois) : 0;
 
   // Hydraulique : le volume recycle en `tempsRecyclage` heures, filtre a 50 m/h.
   const debit = volume / r.tempsRecyclage;
@@ -515,7 +533,8 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   return {
     reglages: r, contour, surface, perimetre: perim, axe, profil, volume, profondeurMax,
     hauteurHorsSol, hauteurParoi, profondeurEnterree,
-    fouille: { emprise: empriseFouille, profondeur: profondeurFouille, volume: volumeFouille, remblai, evacuation: Math.max(0, evacuation) },
+    fouille: { emprise: empriseFouille, profondeur: profondeurFouille, volume: volumeFouille, remblai, evacuation: Math.max(0, evacuation), nivellement },
+    sol: solSous,
     parois, margelleExt, margellesMl, plageExt, surfacePlage, plageBois,
     terrasseAssociee: terrasse ? { key: terrasse.key, nom: terrasse.name, surface: shoelace(terrasse.pts) } : null,
     hydraulique: { debit, diametreFiltre, surfaceFiltre, puissancePompeCv, skimmers, refoulements, bondes: 1, prisesBalai: 1, diametreTuyau, canalisationsMl },
@@ -585,8 +604,14 @@ function quantiteSecurite(dispositif: SecuritePiscine, surface: number, perimetr
  * depasse la portee. Rien ne s'appuie sur les parois du bassin : un poteau ou un plot a ses propres
  * fondations.
  */
-function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface: number, margelleExt: PtBrut[], perimInt: number, perimExt: number, avertissements: string[]): PlageBois {
+function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface: number, margelleExt: PtBrut[], perimInt: number, perimExt: number, avertissements: string[],
+  pente: { sol: Sol; zHaut: number } | null = null): PlageBois {
   const lameH = PLAGE.lameEpaisseur / 1000;
+  // Sur un sol en pente, la plage est de niveau : ses appuis descendent d'autant que le sol baisse
+  // sous elle. C'est le point le plus bas sous la plage qui decide du mode (plots ou poteaux).
+  const plageExt = elargir(margelleExt, r.largeurPlage);
+  const descente = pente ? pente.zHaut - (solSousEmprise(pente.sol, plageExt)?.zBas ?? pente.zHaut) : 0;
+  const supplementDe = (p: PtBrut): number => (pente ? pente.zHaut - (pente.sol.z(p) ?? pente.zHaut) : 0);
   const entraxeLambourdes = maxEntraxeLameCm({ epaisseurLame: PLAGE.lameEpaisseur, essenceBois: r.essencePlage }) / 100;
   // Le dessus de la plage affleure le dessus des margelles.
   const dessus = hauteurHorsSol + EPAISSEUR_MARGELLE_M;
@@ -594,7 +619,7 @@ function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface:
   const largeur = r.largeurPlage;
   const pasLame = PLAGE.lameLargeur + PLAGE.jeu;
   const lamesMl = surface / pasLame * 1.05;
-  if (hauteurPlotNecessaire <= PLOT_HAUTEUR_DTU_CM / 100) {
+  if (hauteurPlotNecessaire + descente <= PLOT_HAUTEUR_DTU_CM / 100) {
     const hauteurPlot = Math.max(PLAGE.plot.hauteurMin, hauteurPlotNecessaire);
     const portee = Math.min(PLOT_ENTRAXE_MAX_M, maxPorteeVisM({ soliveSection: PLAGE.lambourde.section, soliveEntraxe: entraxeLambourdes * 100 }));
     const anneaux = Math.max(2, Math.ceil(largeur / portee) + 1);
@@ -603,7 +628,7 @@ function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface:
     const decaissement = Math.max(0, lameH + PLAGE.lambourde.h + hauteurPlot - dessus);
     const tributaire = entraxeLambourdes * portee;
     return {
-      mode: 'plots', dessus, entraxeLambourdes, portee, anneaux, lamesMl, ossatureMl, poutresMl: 0, appuis, poteaux: 0, hauteurPoteau: 0,
+      mode: 'plots', dessus, entraxeLambourdes, portee, anneaux, lamesMl, ossatureMl, poutresMl: 0, appuis, poteaux: 0, hauteurPoteau: 0, hauteursPoteaux: [], hauteurPoteauMax: 0,
       chargeAppuiKn: (CHARGE_PLAGE_KG_M2 + POIDS_PROPRE_PLAGE_KG_M2) * tributaire * 9.81 / 1000,
       anneauxPoutres: [], poteauxPositions: [],
       massifsM3: 0, decaissementM3: decaissement * surface
@@ -625,15 +650,40 @@ function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface:
   }));
   const poteaux = poteauxPositions.length;
   const hauteurPoteau = Math.max(0.3, dessus - lameH - PLAGE.solive.h - PLAGE.poutre.h);
+  const hauteursPoteaux = poteauxPositions.map(p => arrondi(hauteurPoteau + supplementDe(p)));
+  const hauteurPoteauMax = hauteursPoteaux.length ? Math.max(...hauteursPoteaux) : hauteurPoteau;
   const ossatureMl = surface / PLAGE.solive.entraxe;
   // Un poteau d'un anneau intermediaire reprend une travee de chaque cote ; un poteau de rive une demie.
   const tributaire = PLAGE.poutre.entraxe * (largeur / travees) * (travees > 1 ? 1 : 0.5);
   const chargeAppuiKn = (CHARGE_PLAGE_KG_M2 + POIDS_PROPRE_PLAGE_KG_M2) * tributaire * 9.81 / 1000;
   if (dessus > 1.0) avertissements.push('Plage à ' + fr(dessus) + ' m du sol : au-delà d\'un mètre, un garde-corps de 1 m est obligatoire sur les côtés libres.');
   return {
-    mode: 'poteaux', dessus, entraxeLambourdes: PLAGE.solive.entraxe, portee, anneaux, lamesMl, ossatureMl, poutresMl, appuis: 0, poteaux, hauteurPoteau,
+    mode: 'poteaux', dessus, entraxeLambourdes: PLAGE.solive.entraxe, portee, anneaux, lamesMl, ossatureMl, poutresMl, appuis: 0, poteaux, hauteurPoteau, hauteursPoteaux, hauteurPoteauMax,
     chargeAppuiKn, anneauxPoutres, poteauxPositions, massifsM3: poteaux * PLAGE.massif.cote * PLAGE.massif.cote * PLAGE.massif.profondeur, decaissementM3: 0
   };
+}
+
+/**
+ * Le volume de la fouille sur un sol en pente : cellule par cellule de la grille dans l'emprise, la
+ * profondeur comptee depuis le sol reel jusqu'au fond de fouille (qui est de niveau, sous le bord
+ * haut). Une emprise qui ne contient aucune cellule (grille a 5 m, petit bassin) garde le volume
+ * d'un terrain plat.
+ */
+function volumeFouilleEnPente(sol: Sol, s: SolSousEmprise, emprise: PtBrut[], profondeurFouille: number): number {
+  if (profondeurFouille <= 0) return 0;
+  const cellules = cellulesDansPolygone(sol.relief, emprise).filter((c): c is typeof c & { z: number } => c.z !== null);
+  if (!cellules.length) return shoelace(emprise) * profondeurFouille;
+  const fond = s.zHaut - profondeurFouille;
+  const aire = sol.relief.pas * sol.relief.pas;
+  return cellules.reduce((v, c) => v + Math.max(0, c.z - sol.relief.zRef - fond) * aire, 0);
+}
+
+/** Les terres a rapporter autour du bassin (margelles et plage) pour les mettre au niveau du bord haut. */
+function volumeNivellement(sol: Sol, s: SolSousEmprise, plageExt: PtBrut[], parois: PtBrut[]): number {
+  const aire = sol.relief.pas * sol.relief.pas;
+  return cellulesDansPolygone(sol.relief, plageExt)
+    .filter((c): c is typeof c & { z: number } => c.z !== null && !pointInPolygon(c, parois))
+    .reduce((v, c) => v + Math.max(0, s.zHaut - (c.z - sol.relief.zRef)) * aire, 0);
 }
 
 // ---- Chiffrage -------------------------------------------------------------------------------
@@ -641,6 +691,7 @@ function structurePlageBois(r: ReglagesPiscine, hauteurHorsSol: number, surface:
 /** Les prix par defaut, en euros TTC fourniture et pose : des ordres de grandeur, bas et haut. */
 const PRIX: Record<string, { bas: number; haut: number }> = {
   terrassement: { bas: 25, haut: 45 },        // m³ de deblai, evacuation comprise
+  nivellement: { bas: 20, haut: 40 },         // m³ de remblai compacte par couches, terres du deblai ou rapportees
   gravierDrainant: { bas: 45, haut: 70 },     // m³
   radier: { bas: 220, haut: 320 },            // m³ beton arme
   murs: { bas: 120, haut: 180 },              // m² de blocs a bancher, beton et aciers
@@ -711,7 +762,8 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
     lignes.push({ poste, label, qte: arrondi(qte), unite, prixBas: prix.bas, prixHaut: prix.haut, prixReel: saisi !== undefined ? arrondi(saisi * qte) : null });
   };
   const f = calc.fouille;
-  if (f.volume > 0) ligne('terrassement', 'Terrassement : déblai, mise en dépôt et évacuation (' + fr(f.evacuation, 1) + ' m³ foisonnés)', f.volume, 'm³');
+  if (f.volume > 0) ligne('terrassement', 'Terrassement : déblai, mise en dépôt et évacuation (' + fr(f.evacuation, 1) + ' m³ foisonnés)' + (calc.sol ? ' — fouille sur le sol réel (relief IGN)' : ''), f.volume, 'm³');
+  if (f.nivellement > 0.05) ligne('nivellement', 'Remblai de nivellement des abords au niveau du bord haut (sol en pente)', f.nivellement, 'm³');
   const surfaceParois = calc.perimetre * calc.hauteurParoi;
   const surfaceInterieure = calc.surface + calc.perimetre * calc.profondeurMax;
   if (r.structure === 'maconnerie') {
@@ -738,7 +790,7 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
     if (pb.mode === 'plots') ligne('plageAppuis', 'Plage : plots réglables (portée ' + Math.round(pb.portee * 100) + ' cm)', pb.appuis, 'u');
     else {
       ligne('plagePoutres', 'Plage : poutres 75 × 200 sur ' + pb.anneaux + ' anneaux', pb.poutresMl, 'ml');
-      ligne('plagePoteaux', 'Plage : poteaux 120 × 120 de ' + fr(pb.hauteurPoteau) + ' m sur massif béton 40 × 40 × 50', pb.poteaux, 'u');
+      ligne('plagePoteaux', 'Plage : poteaux 120 × 120 de ' + (pb.hauteurPoteauMax > pb.hauteurPoteau + 0.005 ? fr(pb.hauteurPoteau) + ' à ' + fr(pb.hauteurPoteauMax) + ' m (sol en pente)' : fr(pb.hauteurPoteau) + ' m') + ' sur massif béton 40 × 40 × 50', pb.poteaux, 'u');
     }
     if (pb.decaissementM3 > 0.05) ligne('decaissementPlage', 'Plage : décaissement pour affleurer les margelles', pb.decaissementM3, 'm³');
   } else if (r.plage === 'dallage') {
@@ -805,7 +857,9 @@ export function noteDeCalcul(calc: PiscineCalculee): SectionNote[] {
       { libelle: 'Profondeur de fouille', valeur: m(calc.fouille.profondeur), note: 'Partie enterrée + ' + Math.round(ps.fond * 100) + ' cm sous le fond (' + (r.structure === 'coque' ? 'lit de pose en gravier' : r.structure === 'maconnerie' ? 'radier' : 'dalle') + ').' },
       { libelle: 'Déblai', valeur: m3(calc.fouille.volume) },
       { libelle: r.structure === 'coque' ? 'Remblai en gravier drainant' : 'Remblai périphérique (terres du déblai)', valeur: m3(calc.fouille.remblai) },
-      { libelle: 'Évacuation', valeur: m3(calc.fouille.evacuation), note: 'Foisonnement de ' + Math.round((FOISONNEMENT - 1) * 100) + ' %.' }
+      { libelle: 'Évacuation', valeur: m3(calc.fouille.evacuation), note: 'Foisonnement de ' + Math.round((FOISONNEMENT - 1) * 100) + ' %.' },
+      ...(calc.sol ? [{ libelle: 'Sol en pente (relief IGN)', valeur: 'bord haut à +' + m(calc.sol.zHaut) + ', bord bas à +' + m(calc.sol.zBas) + ' au-dessus du zéro du plan', note: 'Le bassin est de niveau sur le point haut ; la fouille est comptée cellule par cellule sur le sol réel.' },
+        ...(calc.fouille.nivellement > 0.05 ? [{ libelle: 'Remblai de nivellement des abords', valeur: m3(calc.fouille.nivellement), note: 'Pour mettre margelles et plage au niveau du bord haut.' }] : [])] : [])
     ],
     remarque: 'Sans étude de sol : une nappe haute, un rocher ou un remblai récent changent la fouille, le drainage et le fond (plot de lestage, vide sanitaire, puits de décompression).'
   });

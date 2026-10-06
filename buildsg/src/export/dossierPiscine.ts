@@ -33,7 +33,8 @@ import {
 import { lieuDeParcelle } from '../model/lieu.js';
 import { estTerrain, parcelleDuProjet } from '../model/fonctions.js';
 import { sommetsDe } from '../model/formes.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { altitudeNGF, reliefDe, resumeRelief } from '../model/relief.js';
+import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
 
 export interface MetaDossierPiscine {
   appVersion: string;
@@ -403,14 +404,38 @@ function pagePlanDeMasse(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineC
 
 // ---- 4. Coupe et elevation -------------------------------------------------------------------
 
-function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierPiscine, prefixe: string): PagePdf {
+/**
+ * Le terrain naturel le long de l'axe AA de la coupe, en hauteur locale (`z - zRef`, metres), de
+ * `gauche` a `droite` tous les demi-pas de la grille : l'axe passe par le centre du bassin, dans
+ * le sens du petit bain au grand bain, `s` compte depuis le cote du petit bain. La ou la grille ne
+ * dit rien, le sol reste au zero du plan.
+ */
+export function profilTerrainCoupe(relief: Relief, contour: PtBrut[], axe: PiscineCalculee['axe'], gauche: number, droite: number): { s: number; z: number }[] {
+  const c = centroid(contour);
+  const sC = (c.x - axe.origine.x) * axe.v.x + (c.y - axe.origine.y) * axe.v.y;
+  const pasEch = Math.max(0.05, relief.pas / 2);
+  const n = Math.max(1, Math.ceil((droite - gauche) / pasEch));
+  const out: { s: number; z: number }[] = [];
+  for (let i = 0; i <= n; i++) {
+    const s = gauche + (droite - gauche) * i / n;
+    const p = { x: c.x + axe.v.x * (s - sC), y: c.y + axe.v.y * (s - sC) };
+    const z = altitudeNGF(relief, p.x, p.y);
+    out.push({ s, z: z === null ? 0 : z - relief.zRef });
+  }
+  return out;
+}
+
+function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierPiscine, prefixe: string, relief: Relief | null): PagePdf {
   const r = calc.reglages, ps = PROFILS_STRUCTURE[r.structure];
   const H = calc.hauteurHorsSol, L = calc.axe.L;
   const paroi = Math.max(ps.paroi, 0.05);
   const marg = r.margelle ? r.largeurMargelle : 0, plage = r.plage !== 'aucune' ? r.largeurPlage : 0;
-  const bas = -(calc.profondeurMax + ps.fond + 0.35);
-  const haut = Math.max(H + EPAISSEUR_MARGELLE_M, calc.plageBois?.dessus ?? 0) + 0.6;
   const gauche = -(paroi + marg + plage + 1.2), droite = L + paroi + marg + plage + 1.2;
+  // Le terrain naturel : horizontal au zero du plan, ou le profil du relief le long de l'axe.
+  const terrain = relief ? profilTerrainCoupe(relief, sommetsDe(piscine), calc.axe, gauche, droite) : [{ s: gauche, z: 0 }, { s: droite, z: 0 }];
+  const zTerrain = terrain.map(t => t.z);
+  const bas = Math.min(0, ...zTerrain) - (calc.profondeurMax + ps.fond + 0.35);
+  const haut = Math.max(H + EPAISSEUR_MARGELLE_M, calc.plageBois?.dessus ?? 0, ...zTerrain) + 0.6;
   const hautTitre = 90, basTexte = 60;
   const dispoL = A4_L - 2 * MARGE_PDF, dispoH = (A4_H - 2 * MARGE_PDF - hautTitre - basTexte) * (H > 0.01 ? 0.5 : 0.85);
   const denom = echelleQuiTient(droite - gauche, haut - bas, dispoL - 60, dispoH - 50);
@@ -418,11 +443,12 @@ function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierP
   const yBase = A4_H - MARGE_PDF - hautTitre - 30 - (haut) * k;
   const Q = (x: number, z: number) => ({ x: MARGE_PDF + 30 + (x - gauche) * k, y: yBase + z * k });
   let c = enTete(prefixe + '3 - Plan en coupe', piscine.name + ' - coupe AA selon l\'axe du petit bain au grand bain',
-    ['Terrain naturel en trait fort ; cotes en metres ; echelle 1/' + denom + '.']);
+    ['Terrain naturel en trait fort ; cotes en metres ; echelle 1/' + denom + '.',
+      ...(relief ? ['Terrain naturel : IGN, ' + resumeRelief(relief) + ' ; hauteurs depuis le zero du plan (NGF ' + fr(relief.zRef) + ' m).'] : [])]);
   const dessinerCoupe = (origineY: number, elevation: boolean): void => {
     const Y = (x: number, z: number) => { const q = Q(x, z); return { x: q.x, y: q.y - origineY }; };
-    // Le terrain naturel, de part et d'autre, et le remblai hachure sous le niveau 0.
-    c += ligne(Y(gauche, 0), Y(droite, 0), 1.4);
+    // Le terrain naturel, de part et d'autre : le profil du relief, ou la ligne du zero.
+    for (let i = 1; i < terrain.length; i++) c += ligne(Y(au(terrain, i - 1).s, au(terrain, i - 1).z), Y(au(terrain, i).s, au(terrain, i).z), 1.4);
     if (!elevation) {
       // La fouille et le fond : parois et radier en gris.
       const profil = calc.profil;
@@ -553,7 +579,7 @@ export function construireDossierPiscine(objets: ObjetPlan[], cle: string | null
     ...pagesNotice(objets, piscine, calc, meta),
     pagePlanDeSituation(objets, piscine, meta, prefixe),
     pagePlanDeMasse(objets, piscine, calc, meta, prefixe),
-    pageCoupe(piscine, calc, meta, prefixe),
+    pageCoupe(piscine, calc, meta, prefixe, reliefDe(objets)),
     pagePieces(meta, prefixe, calc.secteurProtege),
     ...pagesNote(piscine, noteDeCalcul(calc), meta)
   ];

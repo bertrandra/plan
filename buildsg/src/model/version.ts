@@ -31,7 +31,9 @@ export const APP_VERSION = '2.2.0';
 // premier enregistrement, d'ou le refus (RELEASE.md §3.1).
 // 3 : un toit peut etre `croupes` (MD/spec-toit-ign.md), pose sur le squelette droit du contour ;
 // la migration 2 -> 3 en donne un a chaque batiment BD TOPO qui n'en avait pas.
-export const SCHEMA_VERSION = 3;
+// 4 : la parcelle peut porter `relief`, la grille d'altitudes lue a l'IGN (MD/spec-relief.md) ; un
+// lecteur 3 la perdrait au premier enregistrement. La migration 3 -> 4 est l'identite.
+export const SCHEMA_VERSION = 4;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-09-28';
 export const BUILD_SHA: string | null = null;

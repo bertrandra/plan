@@ -24,12 +24,19 @@ import type { Primitives } from './primitives.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteCloture3d {
-  scene: THREE_NS.Scene;
+  scene: THREE_NS.Object3D;
   toLocal: (p: PtBrut) => { x: number; z: number };
   prim: Pick<Primitives, 'addPrism'>;
   /** `false` quand la case « Texture » de la vue 3D est decochee : on garde les formes. */
   textures: boolean;
   chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture;
+  /**
+   * La hauteur du sol en relief en un point du plan (three/relief3d.ts). Absent : sol plat, tout part
+   * de zero. Present : chaque panneau se pose sur le sol comme un prisme — du point le plus bas sous
+   * ses extremites jusqu'au sol en son milieu plus sa hauteur — et un cote se decoupe en panneaux de
+   * `PAS_PANNEAU_RELIEF` metres au plus, pour suivre la pente au lieu de la couper d'un seul bloc.
+   */
+  sol?: ((p: PtBrut) => number) | undefined;
 }
 
 const EPAISSEUR_VANTAIL = 0.04;
@@ -42,6 +49,28 @@ const OPACITE_GRILLAGE = 0.35;
 const OPACITE_AJOURE = 0.5;
 /** Un coulissant ouvert glisse derriere la cloture, sur son rail. */
 const RECUL_RAIL = 0.1;
+/** La longueur maximale d'un panneau de cloture sur un sol en relief, en metres. */
+export const PAS_PANNEAU_RELIEF = 2.5;
+
+/** Ou un morceau de cloture se pose : le sol en son milieu, et le plus bas du sol sous ses points d'appui. */
+interface PoseAuSol { sol: number; bas: number }
+
+const POSE_PLATE: PoseAuSol = { sol: 0, bas: 0 };
+
+/** La pose d'un morceau de cloture dont on donne les points d'appui au sol et le milieu. */
+function poseAuSol(ctx: ContexteCloture3d, appuis: readonly PtBrut[], milieu: PtBrut): PoseAuSol {
+  if (!ctx.sol) return POSE_PLATE;
+  const sol = ctx.sol(milieu);
+  return { sol, bas: Math.min(sol, ...appuis.map(ctx.sol)) };
+}
+
+/** Un troncon decoupe en panneaux d'au plus `pas` metres ; tel quel sans sol en relief. */
+function panneauxDe(t: { debut: number; fin: number }, pas: number | null): { debut: number; fin: number }[] {
+  const L = t.fin - t.debut;
+  if (pas === null || L <= pas) return [t];
+  const n = Math.ceil(L / pas - 1e-9);
+  return Array.from({ length: n }, (_, k) => ({ debut: t.debut + L * k / n, fin: t.debut + L * (k + 1) / n }));
+}
 
 /** Le cote `i` du contour, dans le repere gauche-droite vu de dehors. */
 function facadeDuCote(facades: readonly Facade[], i: number): Facade | undefined {
@@ -80,25 +109,39 @@ function couleurDe(r: ReglageCloture): string {
   return r.couleur || DEFAUTS_PAR_TYPE[r.type].couleur || COULEUR_CLOTURE_DEFAUT;
 }
 
-/** Un troncon : son soubassement, sa bande, ses poteaux, sa couvertine. */
+/** Ou poser une piece de `h` metres dont le bas est a `base` au-dessus du sol : au ras du sol, elle descend jusqu'au plus bas. */
+function depuisLeSol(pose: PoseAuSol, base: number, h: number): { y: number; h: number } {
+  return base <= 0 ? { y: pose.bas, h: h + pose.sol - pose.bas } : { y: pose.sol + base, h };
+}
+
+/** Un troncon : ses panneaux, un seul sur sol plat. */
 function poserTroncon(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, t: { debut: number; fin: number }, interieur: { gauche: PtBrut; droite: PtBrut } | null): void {
   if (r.type === 'aucune' || t.fin - t.debut < 0.01) return;
+  panneauxDe(t, ctx.sol ? PAS_PANNEAU_RELIEF : null).forEach(panneau => poserPanneau(ctx, f, r, panneau, interieur));
+}
+
+/** Un panneau : son soubassement, sa bande, ses poteaux, sa couvertine, poses sur le sol. */
+function poserPanneau(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, t: { debut: number; fin: number }, interieur: { gauche: PtBrut; droite: PtBrut } | null): void {
   const tex = (ref: unknown) => (ctx.textures && ref ? { vertical: ref } : null);
+  const pose = poseAuSol(ctx, [pointDeFacade(f, t.debut), pointDeFacade(f, t.fin)], pointDeFacade(f, (t.debut + t.fin) / 2));
   let base = 0;
   if (r.soubassement && r.type !== 'mur') {
     const s = r.soubassement;
-    ctx.prim.addPrism(empriseTroncon(f, t.debut, t.fin, Math.max(EPAISSEUR_SOUBASSEMENT, epaisseurDe(r)), 0, interieur), 0, Math.max(0.05, s.hauteur), s.couleur || DEFAUTS_PAR_TYPE.mur.couleur || COULEUR_CLOTURE_DEFAUT, false, undefined, tex(s.texture));
-    base = Math.max(0.05, s.hauteur);
+    const hS = Math.max(0.05, s.hauteur);
+    const pS = depuisLeSol(pose, 0, hS);
+    ctx.prim.addPrism(empriseTroncon(f, t.debut, t.fin, Math.max(EPAISSEUR_SOUBASSEMENT, epaisseurDe(r)), 0, interieur), pS.y, pS.h, s.couleur || DEFAUTS_PAR_TYPE.mur.couleur || COULEUR_CLOTURE_DEFAUT, false, undefined, tex(s.texture));
+    base = hS;
   }
   const h = Math.max(0.1, r.hauteur);
   const ep = epaisseurDe(r);
   const couleur = couleurDe(r);
   const opacite = r.type === 'grillage' ? (r.occultante ? 0.9 : OPACITE_GRILLAGE) : undefined;
-  ctx.prim.addPrism(empriseTroncon(f, t.debut, t.fin, ep, 0, interieur), base, h, couleur, false, opacite, tex(r.texture));
+  const pB = depuisLeSol(pose, base, h);
+  ctx.prim.addPrism(empriseTroncon(f, t.debut, t.fin, ep, 0, interieur), pB.y, pB.h, couleur, false, opacite, tex(r.texture));
   if (r.type === 'mur' && r.couvertine) {
     const n = f.normale;
     const large = empriseTroncon(f, t.debut, t.fin, ep + DEBORD_COUVERTINE, 0, null).map((p, i) => (i < 2 ? { x: p.x + n.x * DEBORD_COUVERTINE, y: p.y + n.y * DEBORD_COUVERTINE } : p));
-    ctx.prim.addPrism(large, base + h, EPAISSEUR_COUVERTINE, couleur, false, undefined, null);
+    ctx.prim.addPrism(large, pose.sol + base + h, EPAISSEUR_COUVERTINE, couleur, false, undefined, null);
   }
   if (r.type === 'palissade' || r.type === 'grillage') {
     // Un poteau a chaque bout du troncon, puis au pas du type ; le dernier intervalle est raccourci.
@@ -109,7 +152,10 @@ function poserTroncon(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, t: {
       const x = t.debut + Math.min(longueur, (longueur * k) / nb);
       const c = pointDeFacade(f, x);
       const centre = { x: c.x - f.normale.x * (ep / 2), y: c.y - f.normale.y * (ep / 2) };
-      ctx.prim.addPrism(carre(f, centre, SECTION_POTEAU), base, h + 0.05, couleur, false, undefined, tex(r.texture));
+      const emprise = carre(f, centre, SECTION_POTEAU);
+      // Chaque poteau se pose sur son propre sol : sur un panneau en pente, il ne flotte pas.
+      const pP = depuisLeSol(poseAuSol(ctx, emprise, centre), base, h + 0.05);
+      ctx.prim.addPrism(emprise, pP.y, pP.h, couleur, false, undefined, tex(r.texture));
     }
   }
 }
@@ -176,13 +222,19 @@ function poserAcces(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, a: Por
   const x0 = Math.max(0, a.x), x1 = Math.min(f.largeur, a.x + a.largeur);
   if (x1 - x0 < 0.05) return;
   const pl = a.piliers ? a.piliers.largeur : 0;
+  // L'acces se pose sur le sol en son milieu ; ses retours descendent jusqu'au plus bas du sol sous
+  // ses deux bouts, comme un prisme, et chaque pilier se pose sur son propre sol.
+  const pose = poseAuSol(ctx, [pointDeFacade(f, x0), pointDeFacade(f, x1)], dedans(pointDeFacade(f, (x0 + x1) / 2), recul));
   if (a.piliers) {
     const p = a.piliers;
     const couleur = p.couleur || DEFAUTS_PAR_TYPE.mur.couleur || COULEUR_CLOTURE_DEFAUT;
+    const hP = Math.max(0.3, p.hauteur);
     for (const x of [x0 - pl / 2, x1 + pl / 2]) {
       const centre = dedans(pointDeFacade(f, x), recul + pl / 2);
-      ctx.prim.addPrism(carre(f, centre, pl), 0, Math.max(0.3, p.hauteur), couleur, false, undefined, null);
-      if (p.chapeau) ctx.prim.addPrism(carre(f, centre, pl + 2 * DEBORD_COUVERTINE), Math.max(0.3, p.hauteur), EPAISSEUR_COUVERTINE, couleur, false, undefined, null);
+      const emprise = carre(f, centre, pl);
+      const pP = depuisLeSol(poseAuSol(ctx, emprise, centre), 0, hP);
+      ctx.prim.addPrism(emprise, pP.y, pP.h, couleur, false, undefined, null);
+      if (p.chapeau) ctx.prim.addPrism(carre(f, centre, pl + 2 * DEBORD_COUVERTINE), pP.y + pP.h, EPAISSEUR_COUVERTINE, couleur, false, undefined, null);
     }
   }
   if (recul > 0 && r.type !== 'aucune') {
@@ -192,7 +244,8 @@ function poserAcces(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, a: Por
     for (const [x, sens] of [[Math.max(0, e.debut), 1], [Math.min(f.largeur, e.fin), -1]] as const) {
       const p0 = pointDeFacade(f, x);
       const u = { x: ((f.droite.x - f.gauche.x) / f.largeur) * sens * ep, y: ((f.droite.y - f.gauche.y) / f.largeur) * sens * ep };
-      ctx.prim.addPrism([p0, { x: p0.x + u.x, y: p0.y + u.y }, dedans({ x: p0.x + u.x, y: p0.y + u.y }, recul), dedans(p0, recul)], 0, h, couleurDe(r), false, undefined, null);
+      const pR = depuisLeSol(pose, 0, h);
+      ctx.prim.addPrism([p0, { x: p0.x + u.x, y: p0.y + u.y }, dedans({ x: p0.x + u.x, y: p0.y + u.y }, recul), dedans(p0, recul)], pR.y, pR.h, couleurDe(r), false, undefined, null);
     }
   }
   const ouvert = !!a.ouvert;
@@ -203,7 +256,7 @@ function poserAcces(ctx: ContexteCloture3d, f: Facade, r: ReglageCloture, a: Por
   const u = { x: (f.droite.x - f.gauche.x) / f.largeur, y: (f.droite.y - f.gauche.y) / f.largeur };
   // Le sens d'ouverture : vers l'interieur (-n) ou vers la rue (+n).
   const sens = a.sens === 'exterieur' ? 1 : -1;
-  const poser = (profil: PtBrut[], gond: PtBrut, direction: PtBrut, m: THREE_NS.Material) => poserVantail(ctx, profil, gond, direction, 0, m, 'cloture-vantail');
+  const poser = (profil: PtBrut[], gond: PtBrut, direction: PtBrut, m: THREE_NS.Material) => poserVantail(ctx, profil, gond, direction, pose.sol, m, 'cloture-vantail');
   if (a.ouverture === 'coulissant') {
     const profil = profilDuVantail(a, a.largeur, 0);
     const glisse = ouvert ? (a.refoulement === 'gauche' ? -a.largeur : a.largeur) : 0;

@@ -12,6 +12,7 @@
 
 import { shoelace } from '../geometry/basic.js';
 import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/pergola.js';
+import { solDuProjet } from '../engine/sol.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type { DeclarationPrealable, ObjetPlan } from '../model/types.js';
 import { surfaceNetteTerrasse } from '../engine/structure.js';
@@ -82,12 +83,14 @@ function dimensions(o: ObjetPlan): string {
 
 /** Les ouvrages que la declaration porte : les abris, puis les terrasses. */
 export function ouvragesDeclares(objets: ObjetPlan[]): OuvrageDeclare[] {
+  // Sur un sol en pente, la hauteur declaree se mesure depuis le terrain naturel au point bas (MD/spec-relief.md §6).
+  const sol = solDuProjet(objets);
   const abris: OuvrageDeclare[] = objets.filter(estAbri).flatMap(o => {
-    const calc = calculerPergola(o);
+    const calc = calculerPergola(o, sol);
     if (!calc) return [];
     const r = calc.reglages, nature = natureAbri(o);
     const emprise = shoelace(calc.emprise);
-    const hauteur = Math.max(...calc.pieces.map(p => Math.max(p.a.z, p.b.z))) + 0.02;
+    const hauteur = calc.hauteurReglementaire + 0.02;
     const dims = dimensions(o);
     const toit = r.toit === 'toile' ? 'chevrons et toile tendue' : LIBELLE_TOIT_PERGOLA[r.toit].toLowerCase() + ' couvert, pente ' + r.pente + '°';
     const description = (nature === 'carport' ? 'un carport (abri de voiture ouvert)' : 'une pergola') + ' en ' + LIBELLE_MATERIAU[r.materiau].toLowerCase()

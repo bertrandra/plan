@@ -201,6 +201,87 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
   return features;
 }
 
+// ---- Voisinage etendu : tout ce qui est dans un rayon, en plusieurs requetes ----------------
+// Un rayon de 500 m, c'est jusqu'a un kilometre carre : des centaines de parcelles et de batiments,
+// bien au-dela d'une page du service. API Carto pagine par `_start` (1 000 par page au plus), le
+// WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
+// qu'une page est pleine et qu'on n'a pas atteint le plafond.
+/** Les rayons proposes pour le voisinage etendu, en metres. */
+export const RAYONS_VOISINAGE_M = [200, 500];
+/** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
+export const MAX_OBJETS_RAYON = 2000;
+const PAGE_CADASTRE = 1000;
+const PAGE_WFS = 2000;
+
+/** Un sommet au moins a moins de `rayonM` du centre : l'objet touche le disque. */
+export function dansLeRayon(pts: readonly PtBrut[], centre: PtBrut, rayonM: number): boolean {
+  return pts.some(p => Math.hypot(p.x - centre.x, p.y - centre.y) <= rayonM);
+}
+
+/** La distance du centre au sommet le plus proche : l'ordre « les plus proches d'abord ». */
+export function distanceAuCentre(pts: readonly PtBrut[], centre: PtBrut): number {
+  return pts.reduce((d, p) => Math.min(d, Math.hypot(p.x - centre.x, p.y - centre.y)), Infinity);
+}
+
+/**
+ * Les parcelles d'une emprise, page par page, jusqu'a `maxTotal`. Pas de filtre de commune : un
+ * rayon de 500 m traverse les limites communales. Le garde-fou du vidage national est ici la
+ * geometrie : une parcelle dont le premier sommet est a plus d'un kilometre de l'emprise trahit
+ * un parametre ignore, et la reponse entiere est refusee.
+ */
+export async function interrogerCadastreEtendu(geom: EmpriseGeoJSON, maxTotal: number): Promise<FeatureGeoJSON[]> {
+  const anneau = geom.coordinates[0] as Anneau;
+  const lons = anneau.map(c => c[0]), lats = anneau.map(c => c[1]);
+  const marge = 0.015;   // ~1 km
+  const lonMin = Math.min(...lons) - marge, lonMax = Math.max(...lons) + marge, latMin = Math.min(...lats) - marge, latMax = Math.max(...lats) + marge;
+  const out: FeatureGeoJSON[] = [];
+  // La page suivante commence la ou celle-ci s'arrete : un service qui rend moins que demande ne
+  // fait pas sauter de parcelles.
+  for (let start = 0; out.length < maxTotal; start = out.length) {
+    const url = CADASTRE_URL + '?geom=' + encodeURIComponent(JSON.stringify(geom)) + '&_limit=' + PAGE_CADASTRE + '&_start=' + start;
+    const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+    const features = (data && data.features) || [];
+    for (const f of features) {
+      const premier = anneauExterieur(f.geometry)?.[0];
+      if (premier && (premier[0] < lonMin || premier[0] > lonMax || premier[1] < latMin || premier[1] > latMax)) {
+        throw new Error('Reponse incoherente du service cadastre (parcelle hors de l\'emprise demandee).');
+      }
+    }
+    out.push(...features);
+    if (pageFinale(features.length, out.length, data)) break;
+  }
+  return out.slice(0, maxTotal);
+}
+
+/**
+ * La derniere page : vide, ou plus courte que demandee, ou le total annonce est atteint. Le total
+ * (`totalFeatures` chez API Carto, `numberMatched` au WFS) n'est pas obligatoire : on s'en sert
+ * quand il est la, et la page courte suffit sinon.
+ */
+function pageFinale(recus: number, cumul: number, data: CollectionGeoJSON | null | undefined): boolean {
+  if (recus === 0) return true;
+  const total = (data as { totalFeatures?: unknown; numberMatched?: unknown } | null | undefined);
+  const annonce = typeof total?.totalFeatures === 'number' ? total.totalFeatures : typeof total?.numberMatched === 'number' ? total.numberMatched : null;
+  return annonce !== null ? cumul >= annonce : false;
+}
+
+/** Les entites BD TOPO d'une emprise, page par page (`STARTINDEX`), jusqu'a `maxTotal`. */
+export async function interrogerWfsEtendu(couche: string, bbox: BboxDeg, maxTotal: number): Promise<FeatureGeoJSON[]> {
+  const bboxParam = [bbox.latMin, bbox.lonMin, bbox.latMax, bbox.lonMax, 'urn:ogc:def:crs:EPSG::4326'].join(',');
+  const out: FeatureGeoJSON[] = [];
+  for (let start = 0; out.length < maxTotal; start = out.length) {
+    const url = WFS_URL + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
+      + '&TYPENAMES=' + encodeURIComponent(couche)
+      + '&SRSNAME=EPSG:4326&BBOX=' + encodeURIComponent(bboxParam)
+      + '&OUTPUTFORMAT=application/json&COUNT=' + PAGE_WFS + '&STARTINDEX=' + start;
+    const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+    const features = (data && data.features) || [];
+    out.push(...features);
+    if (pageFinale(features.length, out.length, data)) break;
+  }
+  return out.slice(0, maxTotal);
+}
+
 /** Une parcelle candidate : la fiche cadastrale, plus sa position par rapport au point cherche. */
 export interface Candidate extends ParcelleCadastrale {
   aire: number;

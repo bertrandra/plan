@@ -29,6 +29,7 @@ import { clipLineToPolygon, polygonOffset } from '../geometry/polygon.js';
 import { lineLineIntersect } from '../geometry/segments.js';
 import { optimiserDebitLames, type Debit } from './debit.js';
 import { parseLongueurs } from './prix.js';
+import { solSousEmprise, type Sol, type SolSousEmprise } from './sol.js';
 import type { MateriauPergola, ObjetPlan, Pergola, PtBrut, ToitPergola } from '../model/types.js';
 import type { NatureAbri } from '../model/creation.js';
 
@@ -190,6 +191,13 @@ export interface PiecePergola {
 
 export interface PergolaCalculee {
   reglages: ReglagesPergola;
+  /** Le sol sous l'abri quand le relief est lu (MD/spec-relief.md §6) : son haut, sa reference, son bas. */
+  sol: SolSousEmprise | null;
+  /**
+   * La hauteur au sens des reglements : du terrain naturel au point le plus bas sous l'emprise
+   * jusqu'au point le plus haut de l'ouvrage. Sans relief, le point le plus haut des pieces.
+   */
+  hauteurReglementaire: number;
   pieces: PiecePergola[];
   /** Les pans de la couverture (toile ou couverture), en 3D. */
   pans: Pt3[][];
@@ -226,10 +234,19 @@ function decalerCotes(pts: PtBrut[], ccw: boolean, distances: number[]): PtBrut[
 /**
  * Calcule les pieces d'une pergola. `null` si l'objet n'est pas un polygone utilisable (moins de
  * trois sommets, surface nulle).
+ *
+ * `sol` : le relief du projet (MD/spec-relief.md §6). Present, les poutres sont de niveau a
+ * `hauteur` au-dessus du point le plus HAUT du sol sous le contour, et chaque poteau descend
+ * jusqu'a son sol : les `z` des pieces sont alors comptes depuis le zero du plan, et les poteaux
+ * d'aval sont plus longs. Absent, le sol est plat a `z = 0` et rien ne change.
  */
-export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
+export function calculerPergola(o: ObjetPlan, sol?: Sol | null): PergolaCalculee | null {
   if (o.type !== 'polygon' || o.pts.length < 3 || shoelace(o.pts) < 0.01) return null;
   const r = pergolaDe(o);
+  const solSous = solSousEmprise(sol, o.pts);
+  const zBase = solSous?.zHaut ?? 0;
+  /** Le sol sous un point : son relief, ou la reference quand la grille ne le couvre pas. */
+  const zSolDe = (p: PtBrut): number => (sol ? (sol.z(p) ?? zBase) : 0);
   // Sens trigonometrique : les decalages vers l'interieur et la normale du cote de reference en
   // dependent. On garde l'indice des cotes en retournant la liste a la main.
   const ccw = signedArea(o.pts) > 0;
@@ -248,7 +265,7 @@ export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
   const v = ccw ? { x: -u.y, y: u.x } : { x: u.y, y: -u.x };
   const tan = Math.tan((r.toit === 'appentis' ? r.pente : 0) * Math.PI / 180);
   /** Le dessous des poutres au droit d'un point : constant, sauf en appentis ou il suit la pente (le debord bas descend). */
-  const sousPoutre = (p: PtBrut): number => r.hauteur + ((p.x - ra.x) * v.x + (p.y - ra.y) * v.y) * tan;
+  const sousPoutre = (p: PtBrut): number => zBase + r.hauteur + ((p.x - ra.x) * v.x + (p.y - ra.y) * v.y) * tan;
   if (natureAbri(o) === 'carport' && r.hauteur < PASSAGE_CARPORT_M - 1e-9) {
     avertissements.push('Passage libre de ' + r.hauteur.toFixed(2).replace('.', ',') + ' m sous les poutres : 2,20 m sont conseillés pour une voiture.');
   }
@@ -277,7 +294,7 @@ export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
     pieces.push(pc);
     if (pc.longueur > plusLongue) avertissements.push('Une poutre de ' + pc.longueur.toFixed(2).replace('.', ',') + ' m dépasse la plus grande longueur achetable : elle sera aboutée sur un poteau.');
   }
-  poteaux.forEach(p => pieces.push(piece('poteau', r.sectionPoteau, { ...p, z: 0 }, { ...p, z: sousPoutre(p) })));
+  poteaux.forEach(p => pieces.push(piece('poteau', r.sectionPoteau, { ...p, z: zSolDe(p) }, { ...p, z: sousPoutre(p) })));
 
   if (r.avecContrefiches) ajouterContrefiches(r, axes, poteaux, sousPoutre, pieces, avertissements);
 
@@ -286,7 +303,7 @@ export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
   let emprise: PtBrut[];
   let surfaceCouverture: number;
   if (r.toit === 'quatre-pans') {
-    ({ pans, emprise, surfaceCouverture } = toitQuatrePans(r, axes, contour, u, v, poutre.h, chevron.h, pieces));
+    ({ pans, emprise, surfaceCouverture } = toitQuatrePans(r, axes, contour, u, v, poutre.h, chevron.h, pieces, zBase));
     const rectangle = contour.length === 4 && contour.every((_, i) => Math.abs(angleEntre(contour, i) - 90) < 1);
     if (!rectangle) avertissements.push('Le toit à quatre pans est calculé sur le rectangle qui englobe la pergola.');
   } else {
@@ -308,7 +325,10 @@ export function calculerPergola(o: ObjetPlan): PergolaCalculee | null {
     pans = [emprise.map(p => ({ ...p, z: dessusCadre(p) + chevron.h + 0.005 }))];
     surfaceCouverture = shoelace(emprise) / Math.cos(Math.atan(tan));
   }
-  return { reglages: r, pieces, pans, emprise, surfaceCouverture, avertissements };
+  // Le point le plus haut de l'ouvrage, pieces et couverture comprises, mesure depuis le sol le plus bas.
+  const sommet = Math.max(...pieces.flatMap(p => [p.a.z, p.b.z]), ...pans.flatMap(pan => pan.map(p => p.z)));
+  const hauteurReglementaire = sommet - (solSous?.zBas ?? 0);
+  return { reglages: r, sol: solSous, hauteurReglementaire, pieces, pans, emprise, surfaceCouverture, avertissements };
 }
 
 /** Angle interieur au sommet `i`, en degres, sans orientation (0 a 180). */
@@ -355,7 +375,7 @@ function ajouterContrefiches(r: ReglagesPergola, axes: PtBrut[], poteaux: PtBrut
  * l'entraxe. Le debord prolonge la pente : l'egout descend d'autant sous le dessus du cadre.
  */
 function toitQuatrePans(r: ReglagesPergola, axes: PtBrut[], contour: PtBrut[], u: PtBrut, v: PtBrut, hPoutre: number, hChevron: number,
-  pieces: PiecePergola[]): { pans: Pt3[][]; emprise: PtBrut[]; surfaceCouverture: number } {
+  pieces: PiecePergola[], zBase = 0): { pans: Pt3[][]; emprise: PtBrut[]; surfaceCouverture: number } {
   const o = au(axes, 0);
   const us = contour.map(p => (p.x - o.x) * u.x + (p.y - o.y) * u.y), vs = contour.map(p => (p.x - o.x) * v.x + (p.y - o.y) * v.y);
   const d = r.debord;
@@ -364,7 +384,7 @@ function toitQuatrePans(r: ReglagesPergola, axes: PtBrut[], contour: PtBrut[], u
   const selonU = u1 - u0 >= v1 - v0;
   const Lg = selonU ? u1 - u0 : v1 - v0, W = selonU ? v1 - v0 : u1 - u0;
   const tan = Math.tan(r.pente * Math.PI / 180);
-  const base = r.hauteur + hPoutre - d * tan;
+  const base = zBase + r.hauteur + hPoutre - d * tan;
   const vers = (x: number, y: number, z: number): Pt3 => {
     const pu = selonU ? u0 + x : u0 + y, pv = selonU ? v0 + y : v0 + x;
     return { x: o.x + u.x * pu + v.x * pv, y: o.y + u.y * pu + v.y * pv, z };

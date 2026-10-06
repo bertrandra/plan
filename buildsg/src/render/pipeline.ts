@@ -39,11 +39,14 @@ export interface ContexteRendu extends ContexteOrtho {
   estTerrain: (obj: ObjetRendu) => boolean;
   /** Les ouvertures relevees sur les facades (render/releve.ts). */
   renderReleves?: () => void;
+  /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, au-dessus de la grille. */
+  dessinerRelief?: () => void;
 }
 
 export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   placerOrthophoto(ctx);
   ctx.drawGrid();
+  ctx.dessinerRelief?.();
   ctx.renderParasolOverlay();
   const activeSel = etat.selectedKey;
   if(activeSel && activeSel !== 'parcelle'){

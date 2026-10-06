@@ -1,7 +1,8 @@
 // Le dossier de declaration prealable a deposer en mairie (export/).
 //
 // Le cerfa officiel 13703*12, rempli (export/cerfa13703.ts), suivi de ses pieces : DP1 (carte IGN et
-// extrait cadastral), DP2 (plan de masse), DP4 (facades et toitures de chaque abri), DP6 (insertion,
+// extrait cadastral), DP2 (plan de masse), DP3 (coupe du terrain, quand le projet porte un relief),
+// DP4 (facades et toitures de chaque abri), DP6 (insertion,
 // la Vue 3D telle qu'on l'a cadree). Le formulaire reste modifiable : ce que le plan ne sait pas se
 // complete dans un lecteur PDF avant de signer.
 //
@@ -10,7 +11,8 @@
 
 import { assemblerPDF } from './pdf/writer.js';
 import { remplirCerfa13703, type Piece, type RemplissageCerfa } from './cerfa13703.js';
-import { pageFacades, pagePlanDeMasse, pageSituationCadastre, type MetaPieces } from './piecesDP.js';
+import { pageFacades, pagePlanDeMasse, pageProfil, pageSituationCadastre, type MetaPieces } from './piecesDP.js';
+import { solDuProjet } from '../engine/sol.js';
 import { estAbri } from '../model/fonctions.js';
 import type * as PdfLib from 'pdf-lib';
 import type { ObjetPlan } from '../model/types.js';
@@ -68,10 +70,12 @@ async function pageImage(lib: BibliothequePdf, doc: PdfLib.PDFDocument, png: Uin
 export async function assemblerDossierMairie(lib: BibliothequePdf, cerfa: Uint8Array, objets: ObjetPlan[], o: OptionsDossier): Promise<DossierMairie> {
   const situation = pageSituationCadastre(objets, o.meta);
   const masse = pagePlanDeMasse(objets, o.meta);
-  const facades = objets.filter(estAbri).map(a => pageFacades(a, o.meta)).filter(p => p !== null);
+  const profil = pageProfil(objets, o.meta);
+  const facades = objets.filter(estAbri).map(a => pageFacades(a, o.meta, solDuProjet(objets))).filter(p => p !== null);
   const pieces: Piece[] = [];
   if (situation || o.carte) pieces.push('DP1');
   if (masse) pieces.push('DP2');
+  if (profil) pieces.push('DP3');
   if (facades.length) pieces.push('DP4');
   if (o.vue3d) pieces.push('DP6');
   const remplissage = remplirCerfa13703(objets, o.date, pieces);
@@ -88,7 +92,7 @@ export async function assemblerDossierMairie(lib: BibliothequePdf, cerfa: Uint8A
   remplissage.cases.forEach(nom => { try { form.getCheckBox(nom).check(); } catch { /* idem */ } });
 
   if (o.carte) await pageImage(lib, doc, o.carte, 'DP1', 'Plan de situation du terrain', 'Carte : Plan IGN (Geoplateforme). Le cercle rouge marque le terrain.', true);
-  const vectorielles = [situation, masse, ...facades].filter(p => p !== null);
+  const vectorielles = [situation, masse, profil, ...facades].filter(p => p !== null);
   if (vectorielles.length) {
     const source = await lib.PDFDocument.load(enOctets(assemblerPDF(vectorielles)));
     const copies = await doc.copyPages(source, source.getPageIndices());

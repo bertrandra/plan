@@ -16,6 +16,8 @@
 // DTU, combien de vis la grille compte.
 
 import { au } from '../../util/tableaux.js';
+import { appuisEnHauteur, type AppuisEnHauteur } from '../../engine/hauteurs.js';
+import { solDuProjet } from '../../engine/sol.js';
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
@@ -37,6 +39,8 @@ interface Lecture {
   nomsEquip: string;
   surfM2: number;
   spanAppui: number;
+  /** Sur un sol en pente (MD/spec-relief.md §6) : la hauteur de chaque appui ; `null` sur un terrain plat. */
+  pente: AppuisEnHauteur | null;
 }
 
 function lire(cx: ContexteChamps): Lecture {
@@ -53,7 +57,8 @@ function lire(cx: ContexteChamps): Lecture {
     visSpa: grille.filter(p => p.role === 'spa').length,
     nomsEquip: zonesEquip.map(z => z.nom).join(', '),
     surfM2: (obj.type === 'polygon' ? surfaceNetteTerrasse(obj.pts, cx.objets) : shoelace(sommetsDe(obj))) || 1,
-    spanAppui: porteeAppuiM(c)
+    spanAppui: porteeAppuiM(c),
+    pente: appuisEnHauteur(obj, grille, solDuProjet(cx.objets))
   };
 }
 
@@ -75,6 +80,9 @@ const nombre = (cle: keyof Construction, libelle: string, opts: { pas: number; m
   });
 };
 const alerte = (l: Lecture) => l.plots ? 'plots' : 'vis';
+/** Le plot le plus haut : celui d'aval sur un sol en pente, sinon la hauteur reglee. */
+const plotLePlusHautCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.maxMm / 10) : (l.c.hauteurPlot || 10));
+const teteLaPlusHauteCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.maxMm / 10) : (l.c.depassementVis || 0));
 
 /** Ou se regle une propriete de `Construction` quand ce n'est pas ici. */
 type Ailleurs = { ailleurs: 'onglet BOM' | 'onglet Chantier' | 'onglet Implantation' | 'Vue 3D' | 'calcul' };
@@ -351,14 +359,14 @@ const alertes: Champ[] = [
     texte: (cx) => { const l = lire(cx); return '⚠ Équipement lourd sur plots' + (l.nomsEquip ? ' — ' + l.nomsEquip : '') + '. Les ' + l.visSpa + ' appuis de la zone sont resserrés comme en mode vis, mais un plot n\'est pas ancré et reporte sa charge sur une assise qui peut tasser de façon différentielle. Un spa rempli et occupé, c\'est 1,5 à 2 t sur 3 à 4 m², et une cuve ou un bac maçonné sont du même ordre. La solution du métier est une dalle béton dédiée, fondée pour elle-même, le platelage étant construit autour. Le chiffrage décrit un ouvrage que je ne recommande pas en l\'état.'; }
   },
   {
-    type: 'alerte', cle: 'alertePlot', libelle: '', nom: 'Alerte : plot hors du NF DTU 51.4', visible: (cx) => { const l = lire(cx); return l.plots && (l.c.hauteurPlot || 10) > PLOT_HAUTEUR_DTU_CM; },
-    texte: (cx) => { const h = cx.construction().hauteurPlot || 10; return 'Hauteur de plot ' + h + ' cm : au-delà de ' + PLOT_HAUTEUR_DTU_CM + ' cm le plot réglable sort du domaine du NF DTU 51.4' + (h > PLOT_HAUTEUR_MAX_CM ? ', et au-delà d\'1 m c\'est le platelage entier qui en sort.' : '.'); }
+    type: 'alerte', cle: 'alertePlot', libelle: '', nom: 'Alerte : plot hors du NF DTU 51.4', visible: (cx) => { const l = lire(cx); return l.plots && plotLePlusHautCm(l) > PLOT_HAUTEUR_DTU_CM; },
+    texte: (cx) => { const l = lire(cx); const h = plotLePlusHautCm(l); return (l.pente ? 'Sol en pente : le plot d\'aval fait ' + h + ' cm (' + Math.round(l.pente.minMm / 10) + ' cm au point haut)' : 'Hauteur de plot ' + h + ' cm') + ' : au-delà de ' + PLOT_HAUTEUR_DTU_CM + ' cm le plot réglable sort du domaine du NF DTU 51.4' + (h > PLOT_HAUTEUR_MAX_CM ? ', et au-delà d\'1 m c\'est le platelage entier qui en sort.' : '.') + (l.pente ? ' Des poteaux sur massifs, comme la plage d\'une piscine, sont la solution du métier en aval.' : ''); }
   },
   // Une tete qui depasse trop transforme la vis en poteau : la charge n'arrive plus dans l'axe du
   // sol mais au bout d'un bras de levier, et c'est le sol autour du fut qui encaisse.
   {
-    type: 'alerte', cle: 'alerteVis', libelle: '', nom: 'Alerte : dépassement de tête de vis', visible: (cx) => { const l = lire(cx); return !l.plots && (l.c.depassementVis || 0) > VIS_DEPASSEMENT_USUEL_CM; },
-    texte: (cx) => { const dep = cx.construction().depassementVis || 0; return 'Dépassement de tête ' + dep + ' cm : au-delà de ' + VIS_DEPASSEMENT_USUEL_CM + ' cm on sort de la course des têtes réglables du commerce' + (dep > VIS_DEPASSEMENT_MAX_CM ? ', et à ' + dep + ' cm ce n\'est plus une tête mais un poteau : il faut alors un contreventement et une vérification du moment en pied, que ce calcul ne couvre pas.' : ', et la longueur enterrée doit rester nettement supérieure à la partie hors sol.'); }
+    type: 'alerte', cle: 'alerteVis', libelle: '', nom: 'Alerte : dépassement de tête de vis', visible: (cx) => { const l = lire(cx); return !l.plots && teteLaPlusHauteCm(l) > VIS_DEPASSEMENT_USUEL_CM; },
+    texte: (cx) => { const l = lire(cx); const dep = teteLaPlusHauteCm(l); return (l.pente ? 'Sol en pente : la tête de vis d\'aval sort de ' + dep + ' cm (' + Math.round(l.pente.minMm / 10) + ' cm au point haut)' : 'Dépassement de tête ' + dep + ' cm') + ' : au-delà de ' + VIS_DEPASSEMENT_USUEL_CM + ' cm on sort de la course des têtes réglables du commerce' + (dep > VIS_DEPASSEMENT_MAX_CM ? ', et à ' + dep + ' cm ce n\'est plus une tête mais un poteau : il faut alors un contreventement et une vérification du moment en pied, que ce calcul ne couvre pas.' : ', et la longueur enterrée doit rester nettement supérieure à la partie hors sol.'); }
   }
 ];
 
