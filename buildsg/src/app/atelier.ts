@@ -63,6 +63,8 @@ export interface Atelier {
   addNewPergola: () => void;
   addNewCarport: () => void;
   addNewPiscine: (forme: FormePiscine) => void;
+  /** Une terrasse neuve au centre de la parcelle, sur plots (model/creation.ts). */
+  addNewTerrasse: () => void;
   addNewViewpoint: () => void;
   /** Pose une terrasse sur plots autour de la piscine, liee a elle, et la selectionne. */
   addTerrassePiscine: (piscine: ObjetPlan) => void;

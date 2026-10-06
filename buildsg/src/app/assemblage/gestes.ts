@@ -88,6 +88,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     addNewPergola: () => creation().ajouterAbri('pergola'),
     addNewCarport: () => creation().ajouterAbri('carport'),
     addNewPiscine: (forme: FormePiscine) => creation().ajouterPiscine(forme),
+    addNewTerrasse: () => creation().ajouterTerrasse(constructionTerrasseNeuve()),
     addNewViewpoint: () => creation().ajouterPointDeVue(),
     addTerrassePiscine: (piscine: ObjetPlan) => {
       const pts = contourTerrasseAutour(piscine);
