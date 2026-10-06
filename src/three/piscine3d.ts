@@ -26,8 +26,12 @@ const LAME_M = 0.027;
 const SOLIVE_M = 0.175;
 const POUTRE_M = 0.2;
 
-/** Ce que la 3D d'une piscine demande en plus des primitives : la scene, pour l'interieur du bassin. */
-export interface ContextePiscine3d { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal }
+/**
+ * Ce que la 3D d'une piscine demande en plus des primitives : la scene, pour l'interieur du bassin.
+ * `scene` peut etre un groupe pose sur le sol en relief (three/relief3d.ts) ; `prim` doit alors y
+ * poser aussi ses pieces.
+ */
+export interface ContextePiscine3d { prim: Primitives; scene: THREE_NS.Object3D; versLocal: VersLocal }
 
 export function ajouterPiscine3d({ prim, scene, versLocal }: ContextePiscine3d, o: ObjetPlan): void {
   const calc = calculerPiscine(o);
@@ -57,7 +61,7 @@ export function ajouterPiscine3d({ prim, scene, versLocal }: ContextePiscine3d, 
 }
 
 /** Les parois interieures et le fond, au revetement du bassin. */
-function ajouterInterieur(scene: THREE_NS.Scene, versLocal: VersLocal, calc: PiscineCalculee, eau: number): void {
+function ajouterInterieur(scene: THREE_NS.Object3D, versLocal: VersLocal, calc: PiscineCalculee, eau: number): void {
   const H = calc.hauteurHorsSol;
   const int = interieurBassin(calc.contour, calc.axe, calc.profil);
   const mat = new THREE.MeshStandardMaterial({ color: COULEUR_INTERIEUR[calc.reglages.revetement], side: THREE.DoubleSide, roughness: 0.6 });
@@ -81,7 +85,7 @@ function ajouterInterieur(scene: THREE_NS.Scene, versLocal: VersLocal, calc: Pis
 }
 
 /** Le plan d'eau : translucide, pour voir le fond et sa pente. */
-function ajouterEau(scene: THREE_NS.Scene, versLocal: VersLocal, contour: PtBrut[], eau: number, couleur: string): void {
+function ajouterEau(scene: THREE_NS.Object3D, versLocal: VersLocal, contour: PtBrut[], eau: number, couleur: string): void {
   const mat = new THREE.MeshStandardMaterial({ color: couleur, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, roughness: 0.15, metalness: 0.1 });
   const m = new THREE.Mesh(polygoneAPlat(contour, versLocal), mat);
   m.position.y = eau;

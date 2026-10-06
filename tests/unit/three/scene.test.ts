@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 
 const bannieres: string[] = [];
@@ -9,7 +9,7 @@ import { buildThreeScene, type ContexteScene3d } from '../../../src/three/scene.
 import { vue3d, hotes3d } from '../../../src/three/etat3d.js';
 import { normaliserEnObjetsDuPlan } from '../../../src/app/assemblage/formes.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
-import type { ObjetPlan } from '../../../src/model/types.js';
+import type { ObjetPlan, Relief } from '../../../src/model/types.js';
 
 // La construction de la Vue 3D (three/scene.ts) sur le plan de demonstration, avec le vrai three.js
 // r128. Seuls le rendu WebGL et les controles d'orbite, qu'un environnement sans carte graphique ne
@@ -142,6 +142,84 @@ describe('l empilement de la terrasse en 3D', () => {
       expect(dessusDesLames()).toBeCloseTo(hauteurFinieMm(t) / 1000, 3);
     }
     vue3d.textures = textures;
+  });
+});
+
+describe('sol en relief', () => {
+  // Une grille plane z = 100 + 0,1·x (NGF) sur la parcelle de demonstration et ses abords, zRef = 100 :
+  // le sol monte de 10 cm par metre vers l'est. Les cellules sont a demi-metre : le plan tombe au cm.
+  const PENTE = 0.1;
+  const relief = (affichage?: Relief['affichage']): Relief => {
+    const nx = 60, ny = 48, x0 = -37.5, y0 = 9.5;
+    const z: number[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) z.push(Math.round((100 + PENTE * (x0 + i)) * 100) / 100);
+    return { source: 'lidar-hd', couche: 'test', dateLecture: '2026-10-06', origine: 'LiDAR HD', precision: 'test', systemeAltimetrique: 'NGF-IGN69', pas: 1, x0, y0, nx, ny, z, zRef: 100, affichage: affichage ?? null };
+  };
+  const solAttendu = (x: number) => PENTE * Math.min(Math.max(x, -37.5), 21.5);
+  const avecRelief = (affichage?: Relief['affichage']) => {
+    const parcelle = objets.find((o) => o.key === 'parcelle');
+    if (parcelle) parcelle.relief = relief(affichage);
+    return contexte({ trouverParcelleCloture: () => parcelle });
+  };
+  const meshes = (couleur: string) => {
+    const out: THREE_NS.Mesh[] = [];
+    vue3d.scene?.scene.traverse((o) => {
+      const m = o as THREE_NS.Mesh;
+      if (m.isMesh && !Array.isArray(m.material) && (m.material as THREE_NS.MeshStandardMaterial).color?.getHexString() === couleur) out.push(m);
+    });
+    return out;
+  };
+  const boite = (m: THREE_NS.Mesh) => { m.updateMatrixWorld(true); return new THREE_NS.Box3().setFromObject(m); };
+  // Sans textures : un seul materiau par maillage, qu'on retrouve par sa couleur.
+  let textures = true;
+  beforeEach(() => { textures = vue3d.textures; vue3d.textures = false; });
+  afterEach(() => { vue3d.textures = textures; });
+
+  it('remplace le plan vert par le maillage de la grille, chaque sommet a la hauteur du sol', () => {
+    buildThreeScene(terrasse(), etat(), avecRelief());
+    const sol = vue3d.scene?.scene.getObjectByName('sol-relief') as THREE_NS.Mesh | undefined;
+    expect(sol).toBeDefined();
+    expect(sol?.geometry.type).toBe('BufferGeometry');
+    const cen = vue3d.centre ?? { x: 0, y: 0 };
+    const pos = sol?.geometry.getAttribute('position');
+    expect(pos?.count).toBe(62 * 50);
+    for (let k = 0; k < (pos?.count ?? 0); k++) {
+      expect(Math.abs((pos?.getY(k) ?? NaN) - solAttendu(cen.x + (pos?.getX(k) ?? 0)))).toBeLessThan(1e-3);
+    }
+    // La camera vise le centre du plan a la hauteur du sol.
+    expect(vue3d.scene?.controls.target.y).toBeCloseTo(solAttendu(cen.x), 6);
+    // Le plan vert d'origine n'est plus la.
+    expect(meshes('9fb98c').filter((m) => m.geometry.type === 'PlaneGeometry')).toHaveLength(0);
+  });
+
+  it('pose un prisme du point le plus bas du sol jusqu au sol en son centre plus sa hauteur', async () => {
+    const abri = objets.find((o) => o.key === 'abri');
+    if (abri) Object.assign(abri, { elevation: 2.5 });
+    buildThreeScene(terrasse(), etat(), avecRelief());
+    // La couleur de l'abri est celle de la maquette (DEMO_OBJECTS), lue sur l'objet.
+    const prismes = meshes(new THREE_NS.Color(abri?.fill ?? '#000').getHexString());
+    expect(prismes).toHaveLength(1);
+    const b = boite(prismes[0] as THREE_NS.Mesh);
+    const pts = abri && abri.type === 'polygon' ? abri.pts : [];
+    const { centroid } = await import('../../../src/geometry/basic.js');
+    expect(b.min.y).toBeCloseTo(PENTE * Math.min(...pts.map((p) => p.x)), 3);
+    expect(b.max.y).toBeCloseTo(PENTE * centroid(pts).x + 2.5, 3);
+  });
+
+  it('laisse la terrasse courante a sa hauteur finie au-dessus du zero du plan', async () => {
+    const { hauteurAppuiMm, hauteurFinieMm } = await import('../../../src/engine/hauteurs.js');
+    buildThreeScene(terrasse(), etat(), { ...avecRelief(), hauteurAppuiMm });
+    await attendre();
+    // Les chemins de la demonstration ont la couleur des lames : eux sont des rubans a plat (ShapeGeometry), qui suivent le sol.
+    const dessus = Math.max(...meshes('c9a15a').filter((m) => m.geometry.type === 'ExtrudeGeometry').map((m) => boite(m).max.y));
+    expect(dessus).toBeCloseTo(hauteurFinieMm(terrasse() as ObjetPlan) / 1000, 3);
+  });
+
+  it('garde le plan vert quand « Sol en relief » est decoche', () => {
+    buildThreeScene(terrasse(), etat(), avecRelief({ sol3d: false }));
+    expect(vue3d.scene?.scene.getObjectByName('sol-relief')).toBeUndefined();
+    expect(meshes('9fb98c').filter((m) => m.geometry.type === 'PlaneGeometry')).toHaveLength(1);
+    expect(vue3d.scene?.controls.target.y).toBe(0);
   });
 });
 

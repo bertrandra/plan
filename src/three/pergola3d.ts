@@ -39,7 +39,8 @@ function pan(sommets: Pt3[], versLocal: VersLocal, mat: THREE_NS.Material): THRE
   return new THREE.Mesh(geo, mat);
 }
 
-export function ajouterPergola3d(scene: THREE_NS.Scene, o: ObjetPlan, versLocal: VersLocal): void {
+/** `scene` : la scene, ou un groupe pose sur le sol en relief (three/relief3d.ts). */
+export function ajouterPergola3d(scene: THREE_NS.Object3D, o: ObjetPlan, versLocal: VersLocal): void {
   const calc = calculerPergola(o);
   if (!calc) return;
   const r = calc.reglages;
