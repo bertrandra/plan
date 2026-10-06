@@ -9,7 +9,7 @@
 // Pas de bibliotheque : une trentaine de traces, c'est moins que le code pour en charger une.
 
 export type NomIcone =
-  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
+  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
@@ -23,6 +23,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   rectangle: <rect x="3.5" y="6.5" width="17" height="11" rx="1" />,
   chemin: <path d="M4 20c3-7 7-2 9-8s4-7 7-8" />,
   cercle: <circle cx="12" cy="12" r="8.5" />,
+  // Un platelage : trois rangs de lames, les abouts decales d'un rang a l'autre.
+  terrasse: <><rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 9.7v4.6M8 14.3V19" /></>,
   parasol: <><path d="M3 12a9 9 0 0118 0z" /><path d="M12 12v7.5a2 2 0 01-4 0" /></>,
   // Deux poteaux, la poutre, les chevrons, et une contrefiche de chaque cote.
   pergola: <path d="M5 20V8M19 20V8M3 8h18M7 4.5V8M12 4.5V8M17 4.5V8M5 12.5L9 8M19 12.5L15 8" />,

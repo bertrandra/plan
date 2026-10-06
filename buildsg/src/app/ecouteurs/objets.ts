@@ -40,6 +40,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   commande('objet.ajouter.rectangle', 'Rectangle', () => a.addNewObject(true));
   commande('objet.ajouter.chemin', 'Chemin', () => a.addNewPath());
   commande('objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
+  commande('objet.ajouter.terrasse', 'Terrasse', () => a.addNewTerrasse());
   commande('objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
   commande('objet.ajouter.pergola', 'Pergola', () => a.addNewPergola());
   commande('objet.ajouter.carport', 'Carport', () => a.addNewCarport());

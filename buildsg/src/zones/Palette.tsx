@@ -26,6 +26,7 @@ const GROUPES: Groupe[] = [
     { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
     { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
     { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' },
+    { id: 'objet.ajouter.terrasse', icone: 'terrasse', libelle: 'Terrasse' },
     { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
     { id: 'objet.ajouter.pergola', icone: 'pergola', libelle: 'Pergola' },
     { id: 'objet.ajouter.carport', icone: 'carport', libelle: 'Carport' },
