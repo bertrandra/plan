@@ -8,7 +8,8 @@ import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { DALLE_DEBORD_M, estPlots } from './constantes.js';
+import { DALLE_DEBORD_M, estPlots, supportDe } from './constantes.js';
+import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import { calculerPiscine } from './piscine.js';
@@ -367,6 +368,20 @@ export function empriseDalle(poly: PtBrut[]): PtBrut[] {
 export function surfaceDalle(poly: PtBrut[], trous: PtBrut[][]): number {
   const e = empriseDalle(poly);
   return shoelace(e) - trous.reduce((s, t) => s + aireCommune(t, e), 0);
+}
+
+/**
+ * Le volume de terre du decaissement de pose (niveau fini impose, engine/hauteurs.ts), en m³ en
+ * place : la profondeur sur l'emprise de la terrasse — celle de la dalle, debord compris, quand il y
+ * en a une —, moins les bassins et trous qui la percent.
+ */
+export function volumeDecaissementPose(obj: { pts: PtBrut[]; construction?: Construction }, trous: PtBrut[][]): number {
+  const d = decaissementPoseMm(obj) / 1000;
+  if(!(d > 0)) return 0;
+  const c = ensureConstruction(obj);
+  const t = estPlots(c) ? supportDe(c.supportType) : null;
+  const emprise = t && (t.dalleBeton || c.supportType === 'dalle') ? empriseDalle(obj.pts) : obj.pts;
+  return (shoelace(emprise) - trous.reduce((s, tr) => s + aireCommune(tr, emprise), 0)) * d;
 }
 
 /** La part d'un segment qui est dans le polygone (morceaux de moins de 5 cm ignores). */

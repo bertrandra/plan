@@ -50,11 +50,27 @@ export function hauteurAppuiMm(c: Construction): number {
  * lambourdes, il n'y a alors pas de solive dans la hauteur.
  */
 export function hauteurFinieMm(obj: ObjetMesurable): number {
+  return hauteurStructureMm(obj) - decaissementPoseMm(obj);
+}
+
+/** La hauteur que la structure donne posee sur le terrain : appui + solive + lambourde + lame, en mm. */
+export function hauteurStructureMm(obj: ObjetMesurable): number {
   const c = ensureConstruction(obj);
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const soliveMm = plotSimple ? 0 : dimsSection(c.soliveSection).h;
   const lambMm = (c.avecLambourde || estPlots(c)) ? dimsSection(sectionLambourde(c)).h : 0;
   return hauteurAppuiMm(c) + soliveMm + lambMm + (c.epaisseurLame || 25);
+}
+
+/**
+ * Le decaissement de pose, en mm : ce qu'il faut creuser pour que le dessus des lames tombe au
+ * niveau fini demande (`niveauFini`). Zero sans niveau impose, ou quand la structure arrive deja
+ * plus bas — c'est alors la structure qu'il faudrait relever (plots, tete de vis), pas le terrain.
+ */
+export function decaissementPoseMm(obj: ObjetMesurable): number {
+  const c = ensureConstruction(obj);
+  if (c.niveauFini === undefined || c.niveauFini === null) return 0;
+  return Math.max(0, hauteurStructureMm(obj) - c.niveauFini * 10);
 }
 
 /**
