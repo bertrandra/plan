@@ -278,8 +278,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
   // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
   const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
+  // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
-    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames));
+    lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
   if (c.avecLameRive) {
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;

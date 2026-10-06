@@ -309,6 +309,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Lames coupées à la forme du trou.** Autour d'un bassin ou d'une trémie, chaque lame de la Vue 3D
+  (et du GLB) s'arrêtait d'équerre : sur un bord oblique ou rond, un coin débordait dans le trou et
+  l'autre s'arrêtait court. Elle est maintenant découpée exactement au bord du trou
+  (`engine/lames.ts`, `empriseLameTrouee`). Le débit et le BOM ne changent pas.
 - **Fond orthophoto en Vue 3D.** Cocher ou décocher « Fond orthophoto (IGN) » au menu Affichage,
   la Vue 3D ouverte, ne changeait rien à l'écran : il fallait repasser par le plan 2D. La scène se
   reconstruit maintenant dès que les tuiles sont là (ou retirées). Un test vérifie aussi que

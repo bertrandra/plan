@@ -8,7 +8,7 @@
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { lineLineIntersect } from '../geometry/segments.js';
-import { empriseLame } from '../engine/lames.js';
+import { empriseLame, empriseLameTrouee } from '../engine/lames.js';
 import { METRES_PAR_CARREAU } from './chargeurs.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut } from '../model/types.js';
@@ -308,9 +308,12 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   }
 
   // Une piece de bois, coupee au contour dans lequel elle s'arrete plutot qu'a 90 degres.
-  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null, opacity?: number): void {
+  // `trous` : une lame qui s'arrete sur un bassin ou une tremie y est coupee a sa forme.
+  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null, opacity?: number, trous: PtBrut[][] = []): void {
     if (dist(a, b) < 0.02) return;
-    addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, opacity, textures);
+    if (!trous.length) { addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, opacity, textures); return; }
+    const e = empriseLameTrouee(a, b, sectionW, poly, trous);
+    addPrism(e.contour, yBase, sectionH, color, filaire, opacity, textures, e.trous);
   }
 
   // Une bande perimetrale mitree : chaque cote devient le quadrilatere entre les deux anneaux, et les
