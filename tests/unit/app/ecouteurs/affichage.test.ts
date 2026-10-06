@@ -27,7 +27,9 @@ const sansOrtho: Droits = { ...tout, aCapacite: (c) => c !== 'plan.ortho' && c !
 function monter(droits = tout, selection: string | null = null) {
   const objets = [{ key: 'parcelle' }, { key: 'v1', voisinage: true }, { key: 'a' }] as unknown as ObjetPlan[];
   const a = fauxAtelier({ objects: objets, selectedKey: selection, showNorth: true, voisinageVisible: true, grilleVisible: true, highlight: { type: 'vertex', index: 1 } } as never);
-  const ctx: ContexteAffichage = { enregistrerAffichage: vi.fn(), ctxOrtho: () => ({}) as never, buildThreeScene: vi.fn() };
+  let replier = false;
+  const sectionsRepliees = { lire: () => replier, definir: vi.fn((v: boolean) => { replier = v; }) };
+  const ctx: ContexteAffichage = { enregistrerAffichage: vi.fn(), ctxOrtho: () => ({}) as never, buildThreeScene: vi.fn(), sectionsRepliees };
   const cmd = creerRegistre(droits);
   brancherAffichage(a, ctx, cmd);
   return { a, ctx, cmd };
@@ -35,6 +37,24 @@ function monter(droits = tout, selection: string | null = null) {
 const curseur = (v: number) => Object.assign(document.createElement('input'), { value: String(v) });
 
 describe('affichage', () => {
+  it('replie les sections de l inspecteur : preference du navigateur, ni projet ni rendu', () => {
+    localStorage.removeItem('plan.inspecteur.sectionsRepliees');
+    const { a, ctx, cmd } = monter();
+    // Au branchement, la preference memorisee (aucune : deplie) est posee dans le magasin.
+    expect(ctx.sectionsRepliees.definir).toHaveBeenLastCalledWith(false);
+    cmd.executer('affichage.sectionsRepliees');
+    expect(ctx.sectionsRepliees.lire()).toBe(true);
+    expect(localStorage.getItem('plan.inspecteur.sectionsRepliees')).toBe('1');
+    expect(ctx.enregistrerAffichage).not.toHaveBeenCalled();
+    expect(a.render).not.toHaveBeenCalled();
+    // Un autre atelier (un autre projet, une autre session) la retrouve.
+    expect(monter().ctx.sectionsRepliees.definir).toHaveBeenLastCalledWith(true);
+    cmd.executer('affichage.sectionsRepliees');
+    expect(localStorage.getItem('plan.inspecteur.sectionsRepliees')).toBe('0');
+    // Permise en lecture seule : elle ne demande aucune permission d'ecrire.
+    expect(monter({ ...tout, aPermission: () => false }).cmd.etat('affichage.sectionsRepliees').utilisable).toBe(true);
+  });
+
   it('bascule la fleche du Nord, sans l enregistrer avec le projet', () => {
     const { a, ctx, cmd } = monter();
     cmd.executer('affichage.nord');

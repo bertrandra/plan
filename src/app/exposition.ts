@@ -90,6 +90,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
   'affichage.voisinage': menu('menuAffichage', 'explorateur'),
   'affichage.grille': menu('menuAffichage', 'surimpression'),
+  'affichage.sectionsRepliees': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleOpacite': menu('menuAffichage'),
