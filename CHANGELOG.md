@@ -106,6 +106,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
   la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
   aucune capacité de la plateforme.
+- **Niveau fini d'une terrasse et décaissement de pose.** Dans « Fondation et appuis », la case
+  « Imposer le niveau fini » fixe la hauteur du dessus des lames au-dessus du terrain naturel :
+  0 cm pour une terrasse de plain-pied, la hauteur d'un seuil, celle des margelles. Plus bas que ce
+  que la structure donne posée sur le terrain, la terrasse se pose dans un décaissement :
+  l'inspecteur en dit la profondeur et le volume, le BOM chiffre « Décaissement pour la pose »
+  (terres évacuées, emprise de la dalle débord compris s'il y en a une), le chantier l'ajoute au
+  décaissement et à l'évacuation. La coupe montre le terrain naturel au-dessus du fond de fouille, et
+  la Vue 3D descend la terrasse dans sa fouille. Plus haut que la structure, un avertissement dit de
+  relever les plots ou la tête de vis. La hauteur finie affichée partout est celle du niveau
+  imposé. La terrasse posée autour d'une piscine reçoit d'office le niveau du dessus des margelles.
+  Sans la case, rien ne change : un projet enregistré garde ses hauteurs et ses quantités.
+
 - **Isoler une piscine, une pergola ou un carport.** Le bouton d'isolement du plan et de la Vue 3D
   (« Isoler la piscine », « Isoler la pergola », « Isoler le carport », « Isoler la terrasse »)
   ne montre que l'objet sélectionné, cadré, en 2D comme en 3D. Une piscine isolée garde la terrasse

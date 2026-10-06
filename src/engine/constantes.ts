@@ -70,6 +70,7 @@ export const BETON_PRICE      = { bas:140, haut:190 };  // €/m³, BPE C25/30 l
 export const TREILLIS_PRICE   = { bas:3,   haut:6   };  // €/m², treillis soude ST25C, recouvrements compris
 export const COFFRAGE_PRICE   = { bas:6,   haut:12  };  // €/ml de rive coffree
 export const MASSIF_PRICE     = { bas:15,  haut:30  };  // €/u : fouille, coffrage perdu, beton
+export const DECAISSEMENT_PRICE = { bas:35, haut:70 };  // €/m³ en place : decaissement mecanique, chargement, evacuation
 /** Le support d'une construction ; le concasse, le cas par defaut, si la clef n'est pas connue. */
 export function supportDe(cle: string | undefined): TypeSupport { return SUPPORT_TYPES[cle ?? ''] || SUPPORT_CONCASSE; }
 export const GEOTEXTILE_PRICE = { bas:1,  haut:3  };   // €/m²

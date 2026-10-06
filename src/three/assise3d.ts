@@ -57,40 +57,52 @@ export function couchesAssise(c: Construction): { couches: { nom: string; haut: 
 }
 
 /**
- * L'assise sous la terrasse. Une dalle (a couler ou existante) se voit toujours : elle deborde du
- * platelage de `DALLE_DEBORD_M`, arasee au sol fini, et le sol est perce sur son emprise. Le reste
- * — herisson, concasse, massifs, fouille — n'apparait que sol en coupe (`enCoupe`).
+ * L'assise sous la terrasse, et sa fouille. Une dalle (a couler ou existante) se voit toujours :
+ * elle deborde du platelage de `DALLE_DEBORD_M`, et le sol est perce sur son emprise. Une terrasse
+ * decaissee (`decaissement`, en m, engine/hauteurs.ts) se voit dans sa fouille : ses parois de terre
+ * montent du fond jusqu'au terrain naturel. Le reste — herisson, concasse, massifs, fouille entiere —
+ * n'apparait que sol en coupe (`enCoupe`). Tout est abaisse du decaissement.
  */
-export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean): void {
+export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean, decaissement = 0): void {
   if (contour.length < 3) return;
   const trous = layers.trous ?? [];
   const { couches, parAppui, profondeur } = couchesAssise(c);
+  const base = -Math.max(0, decaissement);
   const dalle = couches.find(k => k.nom === 'dalle');
   const emprise = dalle ? empriseDalle(contour) : contour;
-  if (dalle && !enCoupe) {
+  if (!enCoupe) {
+    if (!dalle && base > -1e-6) return;
     gabaritSol(scene, versLocal, emprise);
-    plaque(scene, versLocal, emprise, trous, dalle.bas, dalle.haut - dalle.bas, dalle.couleur);
+    // Hors coupe, on voit le dessus de ce qui porte la terrasse : la dalle, ou la premiere couche,
+    // ou la terre du fond ; et la fouille autour si la terrasse est decaissee.
+    const dessus = dalle ?? couches[0];
+    const fond = dessus ? base + dessus.bas : base - 0.005;
+    plaque(scene, versLocal, emprise, trous, fond, dessus ? dessus.haut - dessus.bas : 0.005, dessus ? dessus.couleur : TERRE);
+    if (base < -1e-6) parois(scene, versLocal, emprise, fond, 0);
     return;
   }
-  if (!enCoupe) return;
   gabaritSol(scene, versLocal, emprise);
-  // Les parois de la fouille, vues de l'interieur comme de l'exterieur.
+  parois(scene, versLocal, emprise, base - profondeur, 0);
+  // Le fond de la fouille, puis chaque couche, percee la ou la terrasse l'est.
+  plaque(scene, versLocal, emprise, trous, base - profondeur, 0.005, TERRE);
+  couches.forEach(k => plaque(scene, versLocal, emprise, trous, base + k.bas, k.haut - k.bas, k.couleur));
+  if (parAppui) layers.vis.forEach(p => prim.addPrism(carre(p, parAppui.cote), base + parAppui.bas, parAppui.haut - parAppui.bas, BETON));
+}
+
+/** Les parois de terre de la fouille, de `bas` a `haut`, vues de l'interieur comme de l'exterieur. */
+function parois(scene: THREE_NS.Scene, versLocal: VersLocal, emprise: PtBrut[], bas: number, haut: number): void {
   const matTerre = new THREE.MeshStandardMaterial({ color: TERRE, side: THREE.DoubleSide, roughness: 1 });
   const positions: number[] = [];
   emprise.forEach((a, i) => {
     const b = emprise[(i + 1) % emprise.length];
     if (!b) return;
     const la = versLocal(a), lb = versLocal(b);
-    positions.push(la.x, -profondeur, la.z, lb.x, -profondeur, lb.z, lb.x, 0, lb.z, la.x, -profondeur, la.z, lb.x, 0, lb.z, la.x, 0, la.z);
+    positions.push(la.x, bas, la.z, lb.x, bas, lb.z, lb.x, haut, lb.z, la.x, bas, la.z, lb.x, haut, lb.z, la.x, haut, la.z);
   });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.computeVertexNormals();
   scene.add(new THREE.Mesh(geo, matTerre));
-  // Le fond de la fouille, puis chaque couche, percee la ou la terrasse l'est.
-  plaque(scene, versLocal, emprise, trous, -profondeur, 0.005, TERRE);
-  couches.forEach(k => plaque(scene, versLocal, emprise, trous, k.bas, k.haut - k.bas, k.couleur));
-  if (parAppui) layers.vis.forEach(p => prim.addPrism(carre(p, parAppui.cote), parAppui.bas, parAppui.haut - parAppui.bas, BETON));
 }
 
 /** Une couche plane sur l'emprise, ses ouvertures retirees, de `bas` a `bas + ep`. */

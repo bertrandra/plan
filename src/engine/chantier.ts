@@ -6,7 +6,7 @@
 
 import { dist, shoelace } from '../geometry/basic.js';
 import { computeAssise } from './prix.js';
-import { surfaceDalle } from './structure.js';
+import { surfaceDalle, volumeDecaissementPose } from './structure.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
@@ -74,14 +74,16 @@ export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const perim = ml(layers.cadre);
   const assise = computeAssise(c, surf, nbAppuis, perim, surfaceDalle(enPoints(obj).pts, layers.trous ?? []));
   const plots = estPlots(c);
+  // Un niveau fini impose : le decaissement de pose s'ajoute au terrassement.
+  const decaissePose = volumeDecaissementPose({ pts: enPoints(obj).pts, construction: c }, layers.trous ?? []);
 
   // `Record<PosteChantier, number>` : le compilateur verifie que chaque cadence a sa quantite.
   // Un poste ajoute a `CADENCES` sans quantite ici serait sinon compte a zero, en silence.
   const q: Record<PosteChantier, number> = {
     piquetage: surf,
     // La dalle a couler se loge sous le sol fini comme le herisson : sa terre s'enleve aussi.
-    decaissement: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0),
-    evacuation: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0),
+    decaissement: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0) + decaissePose,
+    evacuation: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0) + decaissePose,
     geotextile: assise.geotextileM2,
     concasse: assise.concasseM3,
     dallesStab: assise.dallesU,
