@@ -5,7 +5,8 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
-import { centroid } from '../geometry/basic.js';
+import { centroid, pointInPolygon } from '../geometry/basic.js';
+import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { clipLineToPolygon, clipPolygonByConvex } from '../geometry/polygon.js';
 import type { PtBrut, Segment } from '../model/types.js';
 
@@ -52,6 +53,32 @@ export function empriseLame(a: PtBrut, b: PtBrut, largeurM: number, poly: PtBrut
   if(!poly || poly.length < 3) return rect;
   const cut = clipPolygonByConvex(poly, rect);
   return cut.length >= 3 ? cut : rect;
+}
+/**
+ * L'emprise d'une lame qui s'arrete sur un trou de la terrasse (bassin, tremie) : coupee a la forme
+ * du trou, pas d'equerre. Chaque bout pose sur le bord d'un trou est prolonge d'une largeur, la lame
+ * est recoupee au contour, puis privee des trous (geometry/difference.ts) ; on garde le morceau qui
+ * porte son milieu. Sans trou qui la touche, c'est `empriseLame`.
+ */
+export function empriseLameTrouee(a: PtBrut, b: PtBrut, largeurM: number, poly: PtBrut[] | null | undefined, trous: PtBrut[][]): PolygoneTroue {
+  const simple = { contour: empriseLame(a, b, largeurM, poly), trous: [] as PtBrut[][] };
+  if(!trous.length) return simple;
+  const L = Math.hypot(b.x-a.x, b.y-a.y) || 1;
+  const ux = (b.x-a.x)/L, uy = (b.y-a.y)/L;
+  const surUnTrou = (p: PtBrut) => trous.some(t => t.some((q, i) => {
+    const r = au(t, (i+1)%t.length), dx = r.x-q.x, dy = r.y-q.y, l2 = dx*dx + dy*dy || 1e-12;
+    const k = Math.max(0, Math.min(1, ((p.x-q.x)*dx + (p.y-q.y)*dy)/l2));
+    return Math.hypot(p.x-(q.x+k*dx), p.y-(q.y+k*dy)) < 1e-3;
+  }));
+  const da = surUnTrou(a) ? largeurM : 0, db = surUnTrou(b) ? largeurM : 0;
+  if(!da && !db) return simple;
+  const a2 = { x:a.x - ux*da, y:a.y - uy*da }, b2 = { x:b.x + ux*db, y:b.y + uy*db };
+  const long = empriseLame(a2, b2, largeurM, poly);
+  const proches = trous.filter(t => t.some(p => pointInPolygon(p, long)) || long.some(p => pointInPolygon(p, t)));
+  if(!proches.length) return simple;
+  const milieu = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+  const morceaux = differencePolygones(long, proches);
+  return morceaux.find(m => pointInPolygon(milieu, m.contour)) ?? simple;
 }
 // Shifts a boundary edge perpendicular to itself by distM (positive = away from the
 // polygon's interior) - used to keep perimeter trim boards flush with the true edge instead
