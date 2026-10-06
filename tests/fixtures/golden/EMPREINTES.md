@@ -544,6 +544,17 @@ et la coupe de la piscine trace un terrain plat. Ces branches ne font bouger auc
 `tests/unit/export/relief.test.ts` les vérifie sur une grille plane fabriquée, et vérifie qu'un
 projet sans relief écrit le même `plan.svg` et le même nombre de pages qu'avant.
 
+**Phase 2 : le témoin « projet avec relief »** (`relief-moteur.json`, 6 octobre 2026). Dès qu'un
+projet porte un relief, le moteur compte sur le sol en pente (`MD/spec-relief.md` §6) : les plots
+par gamme, les têtes de vis, les poteaux d'une pergola jusqu'à leur sol, la fouille d'une piscine
+cellule par cellule, le remblai de nivellement, les poteaux d'une plage par hauteur. Ces nombres
+n'existent dans aucun témoin d'avant : `relief-moteur.json` les fige sur une grille plane à 8 %
+vers l'est (terrasse sur plots, terrasse sur vis, pergola, piscine hors-sol avec plage), et
+`tests/unit/engine/relief-oracle.test.ts` exige l'égalité stricte. Le recapturer après un changement
+voulu : `REECRIRE_TEMOIN_RELIEF=1 npx vitest run tests/unit/engine/relief-oracle.test.ts`, et le
+dire ici. **Un projet sans relief ne bouge pas** : `moteur-terrasses.json` et les six empreintes
+restent identiques (`solDuProjet` rend `null`, chaque appelant garde son chemin d'avant).
+
 ## Comparer deux imports cadastraux
 
 L'import depuis une adresse ne peut pas être figé ici : il dépend des services IGN en ligne. Il se

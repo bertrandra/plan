@@ -325,6 +325,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le relief du terrain, phase 2 : les quantités suivent le sol en pente** (`MD/spec-relief.md`
+  §6). **Événement de version majeure** au sens de `RELEASE.md` : pour un projet qui porte un
+  relief, des nombres changent ; un projet sans relief garde exactement les siens (oracle du moteur
+  et six empreintes inchangés ; témoin nouveau `tests/fixtures/golden/relief-moteur.json`).
+  La règle est la même partout : la référence d'un ouvrage est le point le plus haut du sol sous
+  son emprise, la hauteur réglée vaut là, et l'appui s'allonge d'autant que le sol descend.
+  - **Terrasse** : chaque plot ou vis a sa hauteur ; la nomenclature achète les plots par gamme sur
+    une ligne (« 12 × Réglable 60-100 mm, 8 × Réglable 100-170 mm (sol en pente : de 6 à 48 cm) »)
+    et dit jusqu'où sortent les têtes de vis ; l'implantation écrit la hauteur de chaque appui ; la
+    coupe dit l'étendue des plots ; les alertes DTU de l'inspecteur regardent le plot et la tête de
+    vis d'aval ; en Vue 3D la structure est de niveau sur le point haut et chaque appui descend
+    jusqu'à son sol.
+  - **Pergola et carport** : poutres de niveau sur le point haut, poteaux jusqu'à leur sol (plus
+    longs en aval, chiffrés tels quels) ; la hauteur déclarée (plan de masse « H max », cerfa) se
+    mesure depuis le terrain naturel au point bas ; les façades DP4 posent leur ligne de sol au
+    point bas et le disent.
+  - **Piscine** : bord de niveau sur le point haut ; fouille comptée cellule par cellule sur le sol
+    réel ; ligne nouvelle « Remblai de nivellement des abords » quand le sol descend sous la plage ;
+    poteaux d'une plage haute par hauteur.
 - **Terrasse sur dalle béton à couler : la dalle en fond de fouille, les plots posés dessus.** Par
   défaut (sans niveau fini imposé), la dalle est coulée une hauteur de plot sous le terrain : dessus
   de dalle + hauteur de plot = terrain naturel. Les plots se posent sur la dalle, leur tête au ras du
