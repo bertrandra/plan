@@ -21,6 +21,7 @@ import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { surfaceNetteTerrasse } from '../engine/structure.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
 export interface MetaDossier {
@@ -214,7 +215,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
   return { l:A4_L, h:A4_H, contenu:c };
 }
 
-function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier): PagePdf {
+function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier, surfaceNette: number = shoelace(terrasse.pts)): PagePdf {
   const pts: PtBrut[] = (terrasse.pts||[]).slice();
   equipements.forEach(o=>{
     if(o.type === 'circle'){ pts.push({x:o.center.x-o.r,y:o.center.y-o.r}, {x:o.center.x+o.r,y:o.center.y+o.r}); }
@@ -266,7 +267,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 14, 15, 'Section ' + indice + ' / ' + total + ' - ' + terrasse.name);
   const cons = terrasse.construction;
   const ptsSousTitre = terrasse.pts||[];
-  const sousTitre = 'Surface ' + shoelace(ptsSousTitre).toFixed(2).replace('.',',') + ' m2' +
+  const sousTitre = 'Surface ' + surfaceNette.toFixed(2).replace('.',',') + ' m2' +
     ' - perimetre ' + ptsSousTitre.reduce((s,p,i)=>s + dist(p, au(ptsSousTitre, (i+1)%ptsSousTitre.length)), 0).toFixed(2).replace('.',',') + ' m' +
     (cons && cons.essenceBois ? ' - ' + cons.essenceBois : '');
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 30, 9, sousTitre, [0.35,0.3,0.24]);
@@ -295,7 +296,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   c += '0.7 0.65 0.58 RG 0.5 w\n' + colA.toFixed(2)+' '+(y+9).toFixed(2)+' m '+(A4_L-MARGE_PDF).toFixed(2)+' '+(y+9).toFixed(2)+' l S\n';
   c += pdfTexte(colA, y, 8, 'Terrasse ' + terrasse.name) +
        pdfTexte(colB, y, 8, 'perimetre ' + perimetre.toFixed(2).replace('.',',') + ' m') +
-       pdfTexte(colC, y, 8, shoelace(ptsTableau).toFixed(2).replace('.',',') + ' m2') +
+       pdfTexte(colC, y, 8, surfaceNette.toFixed(2).replace('.',',') + ' m2') +
        pdfTexte(colD, y, 8, ptsTableau.length + ' sommets');
   y -= 14;
   if(equipements.length){
@@ -307,7 +308,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
       y -= 12;
     });
     const empriseEquip = equipements.reduce((s,o)=>s + dimensionsObjet(o).surface, 0);
-    const surfT = shoelace(terrasse.pts);
+    const surfT = surfaceNette;
     c += pdfTexte(colA, y, 8, 'Emprise equipements', [0.35,0.3,0.24]) +
          pdfTexte(colC, y, 8, empriseEquip.toFixed(2).replace('.',',') + ' m2', [0.35,0.3,0.24]) +
          pdfTexte(colD, y, 8, surfT > 0 ? (empriseEquip/surfT*100).toFixed(0) + ' %' : '-', [0.35,0.3,0.24]);
@@ -329,7 +330,8 @@ export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEq
   const equipements = new Map<string, ObjetPlan[]>();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));
   const pages = [ pagePlanDeMasse(objets, terrasses, equipements, avecEquipements, meta) ];
-  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta)));
+  // La surface d'une terrasse percee (bassin, trou) est nette de ses ouvertures.
+  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta, surfaceNetteTerrasse(t.pts, objets))));
   return { pdf: assemblerPDF(pages), pages: pages.length, terrasses, equipements };
 }
 

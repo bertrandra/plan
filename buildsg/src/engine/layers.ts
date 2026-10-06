@@ -8,8 +8,10 @@ import { ringSegments } from '../geometry/polygon.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { generateParallelLines } from './lames.js';
-import { buildVisGrid, computeStructure, retirerOuvertures, safeOffset } from './structure.js';
-import type { ObjetPlan } from '../model/types.js';
+import { buildVisGrid, computeStructure, objetsQuiPercent, retirerOuvertures, safeOffset } from './structure.js';
+import { pointInPolygon } from '../geometry/basic.js';
+import { estTrou } from '../model/fonctions.js';
+import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   const c = ensureConstruction(obj);
@@ -41,8 +43,17 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   // l'exterieur d'une demi-epaisseur pour que sa face interieure soit a l'aplomb du
   // contour reel. Anneau a onglets : decaler chaque cote separement laisserait un coin
   // ouvert a chaque angle saillant et un croisement a chaque angle rentrant.
+  //
+  // Elle ne court que sur les cotes choisis (`cotesSansRive` : contre un mur, une marche), et peut
+  // aussi border les trous de la terrasse (`riveOuvertures`), pendue dans le trou, a l'aplomb de son
+  // bord. Pas autour d'un bassin : ses margelles le bordent.
+  const sansRive = new Set(c.cotesSansRive ?? []);
+  const riveCotes = pts.map((_, i) => !sansRive.has(i));
+  const trousRive = c.avecLameRive && c.riveOuvertures
+    ? objetsQuiPercent(pts, objets).filter(x => estTrou(x.objet) && x.contour.every(p => pointInPolygon(p, pts))).map(x => x.contour)
+    : [];
   const lameRive = c.avecLameRive
-    ? ringSegments(safeOffset(pts, -riveEp/2))
+    ? [...ringSegments(safeOffset(pts, -riveEp/2)).filter((_, i) => riveCotes[i]), ...trousRive.flatMap(t => ringSegments(safeOffset(t, riveEp/2)))]
     : [];
   // Lame a plat : meme contour, posee a plat au niveau des lames (bordure/cadre de
   // finition), decalee vers l'interieur d'une demi-largeur pour occuper exactement la
@@ -55,13 +66,19 @@ export function computeTerrasseLayers(obj: ObjetPlan, objets: ObjetPlan[]){
   // Ring pieces are given as the pair of rings that bound them, not just a centreline. A ring
   // drawn as a chain of boxes leaves every corner uncut - the mitre only exists if the corner
   // points of both the outer and the inner ring are used, which is exactly what these carry.
-  const bandes = {
+  const bandes: {
+    cadre: { ext: PtBrut[]; int: PtBrut[] };
+    lamePlat: { ext: PtBrut[]; int: PtBrut[] } | null;
+    lameRive: { ext: PtBrut[]; int: PtBrut[]; actifs?: boolean[] } | null;
+    rivesOuvertures?: { ext: PtBrut[]; int: PtBrut[] }[];
+  } = {
     cadre: { ext: safeOffset(pts, S.cadreOff - S.soliveW/2),
              int: safeOffset(pts, S.cadreOff + S.soliveW/2) },
     lamePlat: c.avecLamePlat
       ? { ext: pts.map(p=>({...p})), int: safeOffset(pts, largeurLameM) } : null,
     lameRive: c.avecLameRive
-      ? { ext: safeOffset(pts, -riveEp), int: pts.map(p=>({...p})) } : null
+      ? { ext: safeOffset(pts, -riveEp), int: pts.map(p=>({...p})), ...(sansRive.size ? { actifs: riveCotes } : {}) } : null,
+    ...(trousRive.length ? { rivesOuvertures: trousRive.map(t => ({ ext: t.map(p=>({...p})), int: safeOffset(t, riveEp) })) } : {})
   };
   // Le chevetre et les ouvertures ne sont la qu'avec un bassin : meme regle que dans computeStructure.
   return { vis, cadre, solives, lambourdes, lames, lameRive, lamePlat, bandes, lamesFieldPoly, ...(S.chevetres ? { chevetres: S.chevetres, trous: S.trous } : {}) };

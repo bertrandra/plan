@@ -283,6 +283,7 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;
     prim.addBande(layers.bandes.lameRive, lameBase - riveH, riveH, 0x5c3a1e, texturesTerrasse);
+    layers.bandes.rivesOuvertures?.forEach(b => prim.addBande(b, lameBase - riveH, riveH, 0x5c3a1e, texturesTerrasse));
   }
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
   // L'assise : une dalle se voit toujours (son debord) ; sol en coupe, tout ce qui est sous le sol

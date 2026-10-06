@@ -8,7 +8,7 @@ import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { DALLE_DEBORD_M, estPlots, supportDe } from './constantes.js';
+import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
@@ -240,7 +240,13 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
   const perim = poly.reduce((s,p,i)=>s+dist(p, au(poly, (i+1)%n)), 0) || 1;
-  const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
+  // Plots dans l'emprise (terrasse creee depuis la 2.2) : le cadre recule d'un rayon d'embase, pour
+  // que l'embase d'un plot de rive ne depasse pas du bord ; les lames debordent d'autant.
+  const enRetrait = estPlots(c) && !!c.plotsDansEmprise;
+  const rayonEmbase = Math.sqrt((c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2) / Math.PI) / 100;
+  const cadreOff = Math.min(enRetrait ? Math.max(cadreW/2, rayonEmbase) : cadreW/2, 0.4 * 2*shoelace(poly)/perim);
+  // En retrait, solives et lambourdes s'arretent sur le cadre, pas au bord des lames.
+  const clipStructure = enRetrait ? safeOffset(poly, cadreOff) : null;
   const cadre = ringSegments(safeOffset(poly, cadreOff));
 
   // Avec des plots sans solives, la couche qui porte les lames est un lit de lambourdes a
@@ -251,10 +257,10 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const soliveAngle = avecLamb ? lamesAngle : (lamesAngle+90);
   const solives = plotSimple
     ? []
-    : generateSpanningLines(poly, soliveAngle, Math.max(0.1,(c.soliveEntraxe||40)/100));
+    : generateSpanningLines(poly, soliveAngle, Math.max(0.1,(c.soliveEntraxe||40)/100), clipStructure);
   const entraxeLamb = plotSimple ? maxEntraxeLameCm(c) : (c.lambourdeEntraxe||40);
   const lambourdes = avecLamb
-    ? generateSpanningLines(poly, lamesAngle+90, Math.max(0.1, entraxeLamb/100))
+    ? generateSpanningLines(poly, lamesAngle+90, Math.max(0.1, entraxeLamb/100), clipStructure)
     : [];
 
   // A spa is a tonne or more standing on a couple of square metres. Where the solives are
@@ -293,12 +299,14 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   // Rien de tout cela n'existe sans bassin : les cles ne sont posees qu'alors, pour que le resultat
   // d'une terrasse sans piscine reste identique a l'oracle (tests/unit/engine/moteur-oracle.test.ts).
   const trous = ouverturesDe(poly, objets);
+  // En retrait, les pieces s'arretent aussi sur le chevetre, pas au bord du bassin.
+  const trousStructure = enRetrait ? trous.map(t => safeOffset(t, -cadreOff)) : trous;
   const avecTrous = trous.length ? {
     trous,
     // Le chevetre ne borde le bassin que la ou la terrasse existe : un bassin a cheval sur son
     // bord n'a pas de piece dans le vide.
     chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff)).flatMap(seg => couperAuContour(seg, poly))),
-    solives: retirerOuvertures(solives, trous), lambourdes: retirerOuvertures(lambourdes, trous), solivesSpa: retirerOuvertures(solivesSpa, trous)
+    solives: retirerOuvertures(solives, trousStructure), lambourdes: retirerOuvertures(lambourdes, trousStructure), solivesSpa: retirerOuvertures(solivesSpa, trousStructure)
   } : null;
   if (avecTrous) avecTrous.chevetres.forEach(s => cadre.push(s));
   // Les pieces qui reposent sur les appuis : les solives quand il y en a, les lambourdes en
@@ -357,6 +365,14 @@ export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
     ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
   }
   return aire;
+}
+
+/**
+ * La surface d'une terrasse, ses ouvertures (bassins, trous) retirees : celle qu'on platelage, qu'on
+ * visse et qu'on declare. Sans ouverture, la surface du contour, au bit pres.
+ */
+export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): number {
+  return shoelace(poly) - objetsQuiPercent(poly, objets).reduce((s, x) => s + aireCommune(x.contour, poly), 0);
 }
 
 /** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */

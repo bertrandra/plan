@@ -100,7 +100,7 @@ export function gabaritSol(scene: THREE_NS.Scene, versLocal: VersLocal, contour:
 export type CouleurTrois = string | number;
 
 /** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
-export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[] }
+export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[]; /** Les cotes a poser ; absent : tous. */ actifs?: boolean[] | undefined }
 
 /**
  * Les deux textures d'un objet : le dessus qu'on voit a plat, et les faces verticales.
@@ -312,6 +312,7 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
     const n = Math.min(bande.ext.length, bande.int.length);
     const ext = bande.ext.slice(0, n), int = bande.int.slice(0, n);
     ext.forEach((e, i) => {
+      if (bande.actifs && bande.actifs[i] === false) return;
       addPrism([e, sommetDe(ext, i + 1), sommetDe(int, i + 1), sommetDe(int, i)], yBase, height, color, false, undefined, textures);
     });
   }
