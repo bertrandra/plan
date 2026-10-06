@@ -20,6 +20,7 @@ import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
 import { sectionsPergola } from './pergola.js';
 import { sectionsCloture } from './cloture.js';
+import { sectionRelief } from './relief.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
@@ -473,6 +474,9 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
   if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c));
+  // Le relief suit la cloture : lui aussi n'appartient qu'a la parcelle du projet.
+  const relief = sectionRelief(c);
+  if (relief) sections.push(relief);
   if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);

@@ -17,7 +17,7 @@ import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, interrogerWfsEtendu, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -48,7 +48,11 @@ export interface ContexteActualisation {
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
 export interface OptionsActualisation {
   portee: 'tout' | 'parcelle';
-  voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean };
+  /**
+   * Le voisinage : les parcelles adjacentes (defaut), ou tout ce qui est dans un rayon (`rayonM`,
+   * 200 ou 500 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
+   */
+  voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean; rayonM?: number };
 }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
@@ -138,8 +142,9 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
 }
 
 /** Ce que l'import du voisinage a ajoute, au bilan. */
-function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number }, bilan: string[]): void {
-  if(ajouts.parcelles) bilan.push(ajouts.parcelles + ' parcelle(s) adjacente(s) ajoutee(s)');
+function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number; rayonM?: number; tronque?: boolean }, bilan: string[]): void {
+  if(ajouts.parcelles) bilan.push(ajouts.parcelles + (ajouts.rayonM ? ' parcelle(s) a moins de ' + ajouts.rayonM + ' m ajoutee(s)' : ' parcelle(s) adjacente(s) ajoutee(s)'));
+  if(ajouts.tronque) bilan.push('voisinage tronque a ' + MAX_OBJETS_RAYON + ' objets par famille, les plus proches');
   if(ajouts.batiments) bilan.push(ajouts.batiments + ' batiment(s) ajoute(s)');
   if(ajouts.vegetation) bilan.push(ajouts.vegetation + ' zone(s) de vegetation ajoutee(s)');
   if(ajouts.arbres) bilan.push(ajouts.arbres + ' arbre(s) estime(s)');
@@ -305,17 +310,55 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   }
 }
 
+/** Une parcelle voisine telle qu'elle entre dans le plan : verrouillee, marquee voisinage, avec sa fiche cadastrale. */
+function objetParcelleVoisine(c: Candidate, key: string, cad: { origineLat: number; origineLon: number }, simplifier: boolean, recupereLe: string): ObjetBrut {
+  const pts = c.pts;
+  return {
+    key, type:'polygon', name: libelleParcelle(c),
+    fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+    pts,
+    vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
+    segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
+    frozenVertices: pts.map(()=>false),
+    showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
+    constrained:false, fonction:'terrain', matiere:'', priority:0, locked:true, voisinage:true,
+    cadastre: {
+      idu:c.idu, codeInsee:c.codeInsee, commune:c.commune, section:c.section, numero:c.numero,
+      contenanceM2:c.contenance, source:'IGN/API Carto/PCI', recupereLe,
+      origineLat:cad.origineLat, origineLon:cad.origineLon,
+      simplifieM: simplifier ? SIMPLIF_M : 0,
+      geometrieSource:{ type:'Polygon', coordinates:[c.anneauDeg] }
+    }
+  };
+}
+
 export async function construireVoisinage(
   parcelle: ObjetPlan,
   cad: { idu?: string; codeInsee?: string; origineLat: number; origineLon: number; geometrieSource?: { coordinates?: Anneau[] } },
   proj: ProjecteurLocal,
   simplifier: boolean,
-  choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean },
+  choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean; rayonM?: number },
   dejaSerialises: ObjetBrut[]
-): Promise<{ objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number }> {
-  const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
+): Promise<{ objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean }> {
+  const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
   const anneauSource = cad.geometrieSource && cad.geometrieSource.coordinates && cad.geometrieSource.coordinates[0];
   if(!anneauSource) throw new Error('geometrie source de la parcelle absente');
+  const centreParc = centroid(sommetsDe(parcelle));
+  const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
+  // Le voisinage etendu : un disque de `rayonM` autour du centre de la parcelle. L'emprise
+  // demandee est le carre qui le contient ; ce qui n'y touche pas est ecarte, et au-dela du
+  // plafond on garde les plus proches.
+  const rayonM = choix.rayonM && choix.rayonM > 0 ? choix.rayonM : 0;
+  if(rayonM) resultat.rayonM = rayonM;
+  const centreDeg = proj.versDegres(centreParc.x, centreParc.y);
+  const empriseRayon: EmpriseGeoJSON = empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, rayonM || 1);
+  /** Les candidats retenus par le disque, tries du plus proche au plus loin, plafonnes. */
+  const dansLeDisque = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => {
+    const retenus = elements.filter(e => dansLeRayon(e.pts, centreParc, rayonM));
+    retenus.sort((a, b) => distanceAuCentre(a.pts, centreParc) - distanceAuCentre(b.pts, centreParc));
+    if(retenus.length > MAX_OBJETS_RAYON) resultat.tronque = true;
+    return retenus.slice(0, MAX_OBJETS_RAYON);
+  };
 
   const bboxParcelle = bboxDegDesAnneaux([anneauSource], proj, 20);
   const emprise: EmpriseGeoJSON = { type:'Polygon', coordinates:[[
@@ -323,11 +366,11 @@ export async function construireVoisinage(
     [bboxParcelle.lonMax, bboxParcelle.latMax], [bboxParcelle.lonMin, bboxParcelle.latMax],
     [bboxParcelle.lonMin, bboxParcelle.latMin]
   ]]};
-  const feats = await interrogerCadastre(emprise, cad.codeInsee);
-  const centreParc = centroid(sommetsDe(parcelle));
+  const feats = rayonM ? await interrogerCadastreEtendu(empriseRayon, MAX_OBJETS_RAYON + 1) : await interrogerCadastre(emprise, cad.codeInsee);
   const candidats = construireCandidats(feats, proj, centreParc, simplifier);
-  const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
-  const tri = trierVoisines(principale, candidats);
+  const tri = rayonM
+    ? { adjacentes: dansLeDisque(candidats.filter(c => c.idu !== principale.idu)) }
+    : trierVoisines(principale, candidats);
 
   const iduPresents = new Set(dejaSerialises.flatMap(o=>o.cadastre && o.cadastre.idu ? [o.cadastre.idu as string] : []));
   iduPresents.add(cad.idu as string);
@@ -344,36 +387,24 @@ export async function construireVoisinage(
     if(iduPresents.has(c.idu)) return;
     iduPresents.add(c.idu);
     nouvellesParcelles.push(c);
-    const pts = c.pts;
-    resultat.objets.push({
-      key: cleUnique('parcelle-' + libelleParcelle(c)), type:'polygon', name: libelleParcelle(c),
-      fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
-      pts,
-      vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
-      segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
-      frozenVertices: pts.map(()=>false),
-      showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
-      constrained:false, fonction:'terrain', matiere:'', priority:0, locked:true, voisinage:true,
-      cadastre: {
-        idu:c.idu, codeInsee:c.codeInsee, commune:c.commune, section:c.section, numero:c.numero,
-        contenanceM2:c.contenance, source:'IGN/API Carto/PCI', recupereLe,
-        origineLat:cad.origineLat, origineLon:cad.origineLon,
-        simplifieM: simplifier ? SIMPLIF_M : 0,
-        geometrieSource:{ type:'Polygon', coordinates:[c.anneauDeg] }
-      }
-    });
+    resultat.objets.push(objetParcelleVoisine(c, cleUnique('parcelle-' + libelleParcelle(c)), cad, simplifier, recupereLe));
     resultat.parcelles++;
   });
-  if(!nouvellesParcelles.length) return resultat;
+  if(!nouvellesParcelles.length && !rayonM) return resultat;
 
-  // BD TOPO sur les seules parcelles qui viennent d'entrer dans le plan.
-  const bbox = bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
+  // BD TOPO sur les seules parcelles qui viennent d'entrer dans le plan ; en voisinage etendu,
+  // sur tout le disque, en plusieurs pages, les plus proches d'abord.
+  const bbox = rayonM ? bboxDegDesAnneaux([empriseRayon.coordinates[0] as Anneau], proj, 0) : bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
-  const surNouvelles = (e: { pts: PtBrut[] }) => nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? true : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, MAX_OBJETS_RAYON + 1) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
+  const elementsRetenus = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => (rayonM ? dansLeDisque(elements) : elements);
+  // Les arbres estimes restent pres de la parcelle : un disque de 500 m en semerait des milliers.
+  const RAYON_ARBRES_M = 100;
 
   if(choix.batiments){
-    const feats2 = await interrogerWfs(COUCHE_BATIMENT, bbox, 80).catch((): FeatureGeoJSON[]=>[]);
-    construireElementsIgn(feats2, proj, simplifier, 'batiment').forEach(b=>{
+    const feats2 = await lireCouche(COUCHE_BATIMENT, 80);
+    elementsRetenus(construireElementsIgn(feats2, proj, simplifier, 'batiment')).forEach(b=>{
       if(idsPresents.has(b.id) || !surNouvelles(b)) return;
       idsPresents.add(b.id);
       const p = b.props || {};
@@ -404,8 +435,8 @@ export async function construireVoisinage(
   }
   if(choix.vegetation){
     for(const couche of [COUCHE_HAIE, COUCHE_VEGETATION]){
-      const feats3 = await interrogerWfs(couche, bbox, 40).catch((): FeatureGeoJSON[]=>[]);
-      const elems = construireElementsIgn(feats3, proj, simplifier, couche === COUCHE_HAIE ? 'haie' : 'vegetation');
+      const feats3 = await lireCouche(couche, 40);
+      const elems = elementsRetenus(construireElementsIgn(feats3, proj, simplifier, couche === COUCHE_HAIE ? 'haie' : 'vegetation'));
       elems.forEach(v=>{
         if(idsPresents.has(v.id) || !surNouvelles(v)) return;
         idsPresents.add(v.id);
@@ -429,7 +460,7 @@ export async function construireVoisinage(
             hauteurM:nombreFr(p.hauteur), hauteurRetenueM:haut, recupereLe }
         });
         resultat.vegetation++;
-        if(choix.arbres && !estHaie){
+        if(choix.arbres && !estHaie && (!rayonM || dansLeRayon(v.pts, centreParc, RAYON_ARBRES_M))){
           arbresEstimes(v.pts, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES).forEach((a, i)=>{
             resultat.objets.push({
               key: cleUnique('arbre-' + (v.id || 'veg') + '-' + (i+1)), type:'circle', name:'Arbre (estime)',

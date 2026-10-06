@@ -59,6 +59,15 @@ export const CAPACITES = {
     commandes: ['affichage.orthophoto', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite'],
     origines: ['https://data.geopf.fr']
   },
+  relief: {
+    code: 'plan.relief',
+    libelle: 'Relief du terrain (IGN)',
+    // Les trois commandes du relief (MD/spec-relief.md §8), declarees par app/ecouteurs/relief.ts.
+    // Sans la capacite, elles disparaissent et la page ne parle pas a data.geopf.fr pour le relief ;
+    // un projet qui porte deja une grille la garde et l'affiche : la capacite porte sur la lecture.
+    commandes: ['relief.lire', 'relief.actualiser', 'relief.supprimer'],
+    origines: ['https://data.geopf.fr']
+  },
   plu: {
     code: 'plan.plu',
     libelle: "Regles d'urbanisme (PLU)",

@@ -20,7 +20,8 @@ import { textureCouverture } from './couverture.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
-  scene: THREE_NS.Scene;
+  /** La scene, ou un groupe pose sur le sol en relief (three/relief3d.ts). */
+  scene: THREE_NS.Object3D;
   toLocal: (p: PtBrut) => { x: number; z: number };
   /** Couleur des murs, pour les pignons. */
   couleurMur: string | number;

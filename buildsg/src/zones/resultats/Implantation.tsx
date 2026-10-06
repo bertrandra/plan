@@ -5,6 +5,7 @@
 // sur le chantier, ce sont les tableaux qui portent les cotes.
 
 import { enLectureSeule } from '../../app/acces.js';
+import { solDuProjet } from '../../engine/sol.js';
 import { sommetDe } from '../../geometry/anneau.js';
 import { useRef } from 'react';
 import { dist } from '../../geometry/basic.js';
@@ -48,7 +49,8 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const c = ensureConstruction(obj);
   const pts = obj.pts;
   const layers = computeTerrasseLayers(obj, resultats.etat.objects);
-  const I = computeImplantation(obj, layers);
+  const I = computeImplantation(obj, layers, solDuProjet(resultats.etat.objects));
+  const enPente = I.appuis.some(a => a.hauteurMm !== undefined);
   const ech = ECHELLES.find(e => e === c.echelleImplant) ?? 200;
   const mm = (m: number) => m * 1000 / ech;                       // metres reels -> mm sur le papier
   const marge = 18;                                               // mm, place pour les cotes
@@ -143,7 +145,8 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
           <div className="sectionTitle" style={{ marginTop: 18 }}>{'Implantation des ' + nom + ' — pièce par pièce'}</div>
           <div className="hint">
             {'Une pièce = un cordeau. On materialise la piece entre ses deux extremites (coordonnees X/Y depuis le repere R), puis on marque ses appuis au ruban le long d\'elle. ' +
-              I.appuis.length + ' ' + nom + ' repartis sur ' + I.lignes.length + ' pieces.'}
+              I.appuis.length + ' ' + nom + ' repartis sur ' + I.lignes.length + ' pieces.' +
+              (enPente ? ' Sol en pente (relief IGN) : entre parentheses, la hauteur de chaque appui du sol au dessous de la structure, en cm.' : '')}
           </div>
           <table className="attrTable"><tbody>
             <tr><th>Piece</th><th>Depart X / Y</th><th>Fin X / Y</th><th>Nb</th><th>Appuis, distance depuis le depart (m)</th></tr>
@@ -153,7 +156,7 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
                 <td className="nombre">{l.depart.x.toFixed(3) + ' / ' + l.depart.y.toFixed(3)}</td>
                 <td className="nombre">{l.fin.x.toFixed(3) + ' / ' + l.fin.y.toFixed(3)}</td>
                 <td>{l.appuis.length}</td>
-                <td className="nombre petit">{l.appuis.map(a => a.d.toFixed(3)).join('  ·  ')}</td>
+                <td className="nombre petit">{l.appuis.map(a => a.d.toFixed(3) + (a.hauteurMm !== undefined ? ' (' + Math.round(a.hauteurMm / 10) + ' cm)' : '')).join('  ·  ')}</td>
               </tr>
             ))}
           </tbody></table>
