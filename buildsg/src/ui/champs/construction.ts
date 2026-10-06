@@ -15,7 +15,8 @@ import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, findSpaZones, objetsQuiPercent, zoneToucheTerrasse } from '../../engine/structure.js';
+import { buildVisGrid, findSpaZones, objetsQuiPercent, ouverturesDe, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
+import { decaissementPoseMm, hauteurStructureMm } from '../../engine/hauteurs.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
@@ -125,6 +126,17 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   supportDecaissement: nombre('supportDecaissement', 'Décaissement / concassé', { pas: 5, min: 0, unite: 'cm', defaut: 15, visible: l => l.plots,
     actif: l => !!(SUPPORT_TYPES[l.c.supportType ?? ''] ?? SUPPORT_TYPES.concasse)?.concasse,
     aide: 'Épaisseur de concassé compacté sous les plots', note: () => 'usage : 15 cm minimum sur sol meuble' }),
+  // Le niveau fini : le dessus des lames par rapport au terrain naturel. Il ne se montre qu'une fois
+  // impose (case « Imposer le niveau fini », plus bas) ; plus bas que la structure, il decaisse.
+  niveauFini: {
+    type: 'nombre', cle: 'niveauFini', libelle: 'Niveau fini / terrain', unite: 'cm', pas: 1, min: 0, max: 200, decimales: 1,
+    historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Hauteur du dessus des lames au-dessus du terrain naturel. Plus bas que ce que la structure donne posée sur le terrain, la terrasse se pose dans un décaissement.',
+    visible: (cx) => niveauImpose(cx),
+    note: (cx) => noteNiveauFini(cx),
+    lire: (cx) => cx.construction().niveauFini ?? 0,
+    ecrire: (cx, v) => { if (!(v >= 0 && v <= 200)) return false; cx.construction().niveauFini = Math.round(v * 10) / 10; }
+  },
   plotSurfaceAssise: nombre('plotSurfaceAssise', 'Surface d\'assise du plot', { pas: 10, min: 50, unite: 'cm²', defaut: PLOT_ASSISE_MIN_CM2, visible: l => l.plots,
     aide: 'Surface d\'assise du plot au contact du support',
     note: l => ((l.c.plotSurfaceAssise ?? 0) < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²' }),
@@ -285,6 +297,16 @@ const chargeParPlot: Champ = {
     return ch.charge.toFixed(0) + ' kg — ' + ch.tributaire.toFixed(2) + ' m² repris · ' + ch.pression.toFixed(2) + ' kg/cm² sur ' + ch.assise + ' cm²' +
       noteAssise(l.c.supportType); }
 };
+const niveauImpose = (cx: ContexteChamps): boolean => cx.construction().niveauFini !== undefined && cx.construction().niveauFini !== null;
+
+/** Ce que le niveau demande donne : un decaissement, ou une structure trop basse pour l'atteindre. */
+function noteNiveauFini(cx: ContexteChamps): string {
+  const d = decaissementPoseMm(cx.obj), s = hauteurStructureMm(cx.obj), n = (cx.construction().niveauFini ?? 0) * 10;
+  if (d > 0) return 'décaissement de ' + (d / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm';
+  if (n > s + 0.5) return '⚠ posée sur le terrain, la structure n\'arrive qu\'à ' + (s / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm : relevez les plots ou la tête de vis';
+  return 'posée sur le terrain, sans décaissement';
+}
+
 /** Ce que la pression sous un plot veut dire, selon ce sur quoi il repose. */
 function noteAssise(cle: string | undefined): string {
   const t = SUPPORT_TYPES[cle ?? ''];
@@ -320,6 +342,23 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   const fondation: Section = {
     id: 'fondation', titre: 'Fondation et appuis',
     champs: [
+      {
+        type: 'case', cle: 'poseDecaissee', libelle: 'Imposer le niveau fini', historique: true, effets: ['terrasse', 'scene3d'],
+        aide: 'Fixer la hauteur du dessus des lames par rapport au terrain naturel : de plain-pied (0 cm), au ras d\'un seuil ou des margelles d\'une piscine. La terrasse se pose alors dans le décaissement qu\'il faut.',
+        note: (cx) => niveauImpose(cx) ? 'niveau imposé' : 'posée sur le terrain, dessus à ' + (hauteurStructureMm(cx.obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm',
+        lire: (cx) => niveauImpose(cx),
+        ecrire: (cx, v) => { const c = cx.construction(); if (v) c.niveauFini = 0; else delete c.niveauFini; }
+      },
+      champ('niveauFini'),
+      {
+        type: 'lecture', cle: 'decaissementPose', libelle: 'Décaissement de pose', visible: (cx) => niveauImpose(cx) && decaissementPoseMm(cx.obj) > 0,
+        valeur: (cx) => {
+          const obj = cx.obj;
+          if (obj.type !== 'polygon') return '—';
+          const m3 = volumeDecaissementPose({ pts: obj.pts, construction: cx.construction() }, ouverturesDe(obj.pts, cx.objets));
+          return (decaissementPoseMm(obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm, ' + m3.toFixed(2).replace('.', ',') + ' m³ de terre à évacuer — chiffré au BOM';
+        }
+      },
       champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'), champ('plotAvecSolives'),
       champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('chargeNormale'), champ('chargeSpa'),
       champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),

@@ -12,6 +12,7 @@
 import { vue3d, cleDeVue, hotes3d, type SceneVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
+import { decaissementPoseMm } from '../engine/hauteurs.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { dimsSection, sectionLambourde } from '../engine/portees.js';
@@ -230,7 +231,17 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
  * le platelage se pose. Chaque piece est coupee au contour ou elle s'arrete : un bord oblique se
  * lit comme une diagonale, pas comme un escalier.
  */
-function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d, isolee: boolean, sol: { scene: THREE_NS.Scene; versLocal: VersLocal }): void {
+function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, primSol: Primitives, ctx: ContexteScene3d, isolee: boolean, sol: { scene: THREE_NS.Scene; versLocal: VersLocal }): void {
+  // Un niveau fini impose plus bas que la structure : toute la terrasse descend dans son
+  // decaissement (engine/hauteurs.ts). Ses pieces sont posees dans un groupe abaisse d'autant.
+  const decaisseM = decaissementPoseMm(obj) / 1000;
+  let prim = primSol;
+  if (decaisseM > 0) {
+    const groupe = new THREE.Group();
+    groupe.position.y = -decaisseM;
+    sol.scene.add(groupe);
+    prim = creerPrimitives({ scene: groupe, versLocal: sol.versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
+  }
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c) / 1000;
@@ -276,7 +287,7 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
   // L'assise : une dalle se voit toujours (son debord) ; sol en coupe, tout ce qui est sous le sol
   // fini — herisson, massifs, futs de vis — se voit aussi.
-  ajouterAssise3d({ prim, ...sol }, contour, layers, c, vue3d.solEnCoupe);
+  ajouterAssise3d({ prim: primSol, ...sol }, contour, layers, c, vue3d.solEnCoupe, decaisseM);
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */

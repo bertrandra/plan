@@ -7,7 +7,7 @@
 import { ensureConstruction } from '../../engine/construction.js';
 import { DALLE_BETON_EP_M, estPlots, MASSIF_COTE_M, plotModele, SUPPORT_TYPES } from '../../engine/constantes.js';
 import { dimsSection, sectionLambourde } from '../../engine/portees.js';
-import { hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
+import { decaissementPoseMm, hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 const ENCRE = '#3B2E1F', SOL = '#4A6B32';
@@ -32,7 +32,10 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
   // Sous les plots, une dalle a couler (au-dessus du herisson) ou un massif de fondation.
   const dalleH = support?.dalleBeton ? DALLE_BETON_EP_M * 1000 : 0;
   const massifH = support?.massifs ? MASSIF_COTE_M * 1000 : 0;
-  const totalH = hauteurFinieMm(obj);
+  // Un niveau fini impose plus bas que la structure : la terrasse est posee dans un decaissement, le
+  // terrain naturel passe au-dessus du fond de fouille (engine/hauteurs.ts).
+  const decaisseMm = decaissementPoseMm(obj);
+  const totalH = hauteurFinieMm(obj) + decaisseMm;
 
   // Il faut de la place SOUS la ligne de sol : la vis y descend, l'assise aussi.
   const sousSolMm = Math.max(enterreMm, assiseH + dalleH, massifH);
@@ -77,7 +80,11 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
       <div id="terrasseCoupeWrap" style={{ overflowX: 'auto' }}>
         <svg width={W} height={H} viewBox={'0 0 ' + W + ' ' + H} role="img" aria-label="Coupe de la terrasse">
           <line x1={10} x2={W - 10} y1={solY} y2={solY} stroke={SOL} strokeWidth={3} />
-          {texte(solY + 15, 'Sol', 10, 10, SOL)}
+          {texte(solY + 15, decaisseMm > 0 ? 'Fond de fouille' : 'Sol', 10, 10, SOL)}
+          {decaisseMm > 0 && <>
+            <line x1={10} x2={W - 10} y1={solY - decaisseMm * ECHELLE} y2={solY - decaisseMm * ECHELLE} stroke={SOL} strokeWidth={2} strokeDasharray="6 4" />
+            {texte(solY - decaisseMm * ECHELLE - 4, 'Terrain naturel — décaissement ' + (decaisseMm / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm', 108, 10, SOL)}
+          </>}
           {/* L'assise : la couche que le mode vis n'a pas, parce que la vis fait sa propre fondation. */}
           {assiseH > 0 && <>
             <rect x={40} y={solY + hDalle} width={60} height={hAssise} fill="#9aa6b0" stroke={ENCRE} strokeWidth={1} />

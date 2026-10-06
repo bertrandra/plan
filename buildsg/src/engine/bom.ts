@@ -5,11 +5,12 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist, shoelace } from '../geometry/basic.js';
-import { BETON_PRICE, COFFRAGE_PRICE, DALLE_BETON_EP_M, MASSIF_COTE_M, MASSIF_PRICE, TREILLIS_PRICE, CONCASSE_PRICE, DALLE_STAB_PRICE, essenceDe, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
+import { BETON_PRICE, COFFRAGE_PRICE, DECAISSEMENT_PRICE, DALLE_BETON_EP_M, MASSIF_COTE_M, MASSIF_PRICE, TREILLIS_PRICE, CONCASSE_PRICE, DALLE_STAB_PRICE, essenceDe, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
-import { aireCommune, surfaceDalle } from './structure.js';
+import { aireCommune, surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { decaissementPoseMm } from './hauteurs.js';
 import { achatPlots, achatVis, computeAssise, coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ObjetPlan, LigneBom } from '../model/types.js';
@@ -41,6 +42,8 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   // La dalle a couler deborde du platelage (engine/structure.ts, empriseDalle).
   const assise = computeAssise(c, surf, nAppuis, layers.cadre.reduce((s, l) => s + dist(l.a, l.b), 0), surfaceDalle(contour, layers.trous ?? []));
   const lines: LigneBom[] = [];
+  // Un niveau fini impose plus bas que la structure : la terrasse se pose dans un decaissement.
+  const decaissePose = volumeDecaissementPose({ pts: contour, construction: c }, layers.trous ?? []);
   if(estPlots(c)){
     lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',
                  prixBas:plots.modele.prix*0.7, prixHaut:plots.modele.prix*1.4 });
@@ -57,6 +60,8 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   } else {
     lines.push({ poste:'vis', label:'Vis de fondation' + (vis.parBoite>1 ? ' ('+vis.boites+' × '+vis.parBoite+')' : ''), qte:vis.unites, unite:'u',  prixBas:VIS_PRICE.bas, prixHaut:VIS_PRICE.haut });
   }
+  // Vis ou plots : la terrasse se pose dans son decaissement, avant tout le reste.
+  if(decaissePose > 0) lines.push({ poste:'decaissementPose', label:'Décaissement pour la pose (' + (decaissementPoseMm(obj)/10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm), terres évacuées', qte:decaissePose, unite:'m³', prixBas:DECAISSEMENT_PRICE.bas, prixHaut:DECAISSEMENT_PRICE.haut });
   // One BOM line per timber product: merged while the sections match, split as soon as the
   // lambourdes have a section of their own.
   groupesBois.forEach(g=>lines.push({
