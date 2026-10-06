@@ -10,6 +10,7 @@ import { dxfNum } from './dxf.js';
 import { escapeXml } from '../util/escape.js';
 import { geometrieMesure, type Mesure } from '../render/measures.js';
 import type { ObjetPlan } from '../model/types.js';
+import { trousDeTerrasse } from '../engine/structure.js';
 
 /** Nom de calque DXF : un nom d'objet ne peut pas y garder ses espaces ni ses accents. */
 function calque(nom: string): string {
@@ -35,6 +36,13 @@ export function construireDXF(
       ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + obj.pts.length + '\n70\n1\n';
       obj.pts.forEach((p) => {
         ents += '10\n' + dxfNum(p.x) + '\n20\n' + dxfNum(p.y) + '\n';
+      });
+      // Une terrasse percee (bassin, tremie) porte ses trous sur son calque, en contours fermes.
+      trousDeTerrasse(obj, objets).forEach((t) => {
+        ents += '0\nLWPOLYLINE\n8\n' + calque(obj.name) + '\n90\n' + t.length + '\n70\n1\n';
+        t.forEach((p) => {
+          ents += '10\n' + dxfNum(p.x) + '\n20\n' + dxfNum(p.y) + '\n';
+        });
       });
     } else if (obj.type === 'path') {
       // 70/0 = polyligne ouverte : un cheminement ou une limite ne se referme pas.

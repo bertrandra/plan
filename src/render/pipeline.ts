@@ -12,6 +12,7 @@
 // choix fait en mode Plan est garde, simplement pas dessine.
 
 import { positionnerObjet, type ObjetRendu } from './objects.js';
+import { trousDeTerrasse } from '../engine/structure.js';
 import { ortho, placerOrthophoto, type ContexteOrtho } from './ortho.js';
 import { mesure } from '../interaction/outilMesure.js';
 import type { EtatApp } from '../core/state.js';
@@ -63,6 +64,8 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
       selectionnee: obj.key === activeSel,
       masque: ctx.objetMasque(obj),
       transparent: obj.key === etat.isolement,
+      // Une terrasse percee (bassin, trou) se dessine avec son trou.
+      trous: trousDeTerrasse(obj, etat.objects),
       ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
       estTerrain: ctx.estTerrain,
       pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),

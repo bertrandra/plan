@@ -21,7 +21,7 @@ import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
-import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/structure.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
 export interface MetaDossier {
@@ -186,7 +186,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
       c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6, (o.width||0.5)*k), 1);
     } else {
       const estParcelle = (o === parcelle);
-      c += pdfPolygone((o.pts||[]).map(P), estParcelle ? null : fond, trait, estParcelle ? 1.4 : 0.8, estParcelle ? 1 : 0.9);
+      c += pdfPolygone((o.pts||[]).map(P), estParcelle ? null : fond, trait, estParcelle ? 1.4 : 0.8, estParcelle ? 1 : 0.9, trousDeTerrasse(o, objets).map(t=>t.map(P)));
     }
   });
   // Dimensions des cotes de la parcelle : c'est la cotation attendue sur un plan de masse.
@@ -215,7 +215,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
   return { l:A4_L, h:A4_H, contenu:c };
 }
 
-function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier, surfaceNette: number = shoelace(terrasse.pts)): PagePdf {
+function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice: number, total: number, meta: MetaDossier, surfaceNette: number = shoelace(terrasse.pts), trous: PtBrut[][] = []): PagePdf {
   const pts: PtBrut[] = (terrasse.pts||[]).slice();
   equipements.forEach(o=>{
     if(o.type === 'circle'){ pts.push({x:o.center.x-o.r,y:o.center.y-o.r}, {x:o.center.x+o.r,y:o.center.y+o.r}); }
@@ -240,7 +240,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   const P: Projeteur = p => ({ x: decX + (p.x-minx)*k, y: decY + (p.y-miny)*k });
 
   let c = '';
-  c += pdfPolygone((terrasse.pts||[]).map(P), hexToRgb01(terrasse.fill), hexToRgb01(terrasse.stroke), 1.2, 0.9);
+  c += pdfPolygone((terrasse.pts||[]).map(P), hexToRgb01(terrasse.fill), hexToRgb01(terrasse.stroke), 1.2, 0.9, trous.map(t=>t.map(P)));
   equipements.forEach(o=>{
     const fond = hexToRgb01(o.fill), trait = hexToRgb01(o.stroke);
     if(o.type === 'circle'){ const q = P(o.center); c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.75); }
@@ -331,7 +331,7 @@ export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEq
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));
   const pages = [ pagePlanDeMasse(objets, terrasses, equipements, avecEquipements, meta) ];
   // La surface d'une terrasse percee (bassin, trou) est nette de ses ouvertures.
-  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta, surfaceNetteTerrasse(t.pts, objets))));
+  terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta, surfaceNetteTerrasse(t.pts, objets), trousDeTerrasse(t, objets))));
   return { pdf: assemblerPDF(pages), pages: pages.length, terrasses, equipements };
 }
 

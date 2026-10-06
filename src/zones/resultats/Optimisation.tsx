@@ -6,13 +6,12 @@
 // c'est une saisie, elle s'annule et marque le projet modifie.
 
 import { enLectureSeule } from '../../app/acces.js';
-import { shoelace } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { ESSENCE_PRICES, estPlots, SOLIVE_PRICE, VIS_PRICE } from '../../engine/constantes.js';
 import { maxEntraxeLameCm, sectionLambourde } from '../../engine/portees.js';
 import { evaluerStructure, optimiserParametres } from '../../engine/optimisation.js';
 import { prixPlotUnite } from '../../engine/prix.js';
-import { lamesAngleOf, prixUnitaire } from '../../engine/structure.js';
+import { lamesAngleOf, prixUnitaire, surfaceNetteTerrasse } from '../../engine/structure.js';
 import { aDesSommets } from '../../model/formes.js';
 import type { CandidatStructure } from '../../engine/structure.js';
 import type { Resultats } from '../../app/resultats.js';
@@ -63,7 +62,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c, 'vis', VIS_PRICE),
     prixUnitaire(c, 'bois', SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts) || 1, objets);
+    lamesAngleOf(obj), surfaceNetteTerrasse(obj.pts, objets) || 1, objets);
   const gain = actuel.cout - meilleur.cout;
 
   return (
