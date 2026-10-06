@@ -113,6 +113,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Z4 : les vues 3D --------------------------------------------------------------------------
   ...reglagesVue('vue3d', 'Vue 3D'),
   'vue3d.tousLesObjets': { libelle: 'Afficher tous les objets du plan (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.solEnCoupe': { libelle: 'Sol en coupe : assise et fondations (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
   ...reglagesVue('visionneuse', 'visionneuse'),

@@ -11,6 +11,7 @@ import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import { estMesh } from './gardes.js';
+import { GABARIT_SOL } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
@@ -28,6 +29,17 @@ export interface ContexteExportGlb {
 }
 
 type MateriauCarte = THREE_NS.Material & { map?: THREE_NS.Texture | null };
+
+/**
+ * Cache, le temps de l'export, le gabarit qui perce le sol au droit d'un bassin (three/piscine3d.ts) :
+ * il ne vaut que pour le tampon de gabarit de la Vue 3D, et un lecteur glTF le dessinerait comme
+ * une surface blanche sur l'eau. Rend de quoi le remettre.
+ */
+export function masquerGabarits(scene: THREE_NS.Object3D): () => void {
+  const caches: THREE_NS.Object3D[] = [];
+  scene.traverse(o => { if (o.userData[GABARIT_SOL] && o.visible) { o.visible = false; caches.push(o); } });
+  return () => caches.forEach(o => { o.visible = true; });
+}
 
 /**
  * Retire, le temps de l'export, les cartes dont l'image n'est jamais arrivee (Poly Haven injoignable,
@@ -103,18 +115,19 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
           try {
             const exporteur = new THREE.GLTFExporter();
             const sansImage = detacherCartesSansImage(sc.scene);
-            remettreSiBesoin = sansImage.remettre;
+            const remettreGabarits = masquerGabarits(sc.scene);
+            remettreSiBesoin = () => { sansImage.remettre(); remettreGabarits(); };
             let fini = false;
             const filet = setTimeout(() => {
               if (fini) return; fini = true;
-              sansImage.remettre();
+              sansImage.remettre(); remettreGabarits();
               showErrBanner('Export GLB : pas de reponse - reessaie.');
               if (!dejaActive) disposeThreeScene();
               restaurer();
             }, ATTENTE_EXPORTEUR_MS);
             exporteur.parse(sc.scene, (result) => {
               if (fini) return; fini = true; clearTimeout(filet);
-              sansImage.remettre();
+              sansImage.remettre(); remettreGabarits();
               if (sansImage.nombre) showToast(sansImage.nombre + ' texture(s) indisponible(s) : exportee(s) en couleur unie.');
               // `parse` rend `object` : sa signature ne distingue pas les deux sorties possibles,
               // alors que c'est l'option qui en decide - `{ binary: true }` (plus bas) donne un

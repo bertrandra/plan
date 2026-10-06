@@ -68,6 +68,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
           <div className="controls">
             <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Lames en filaire — voir la structure dessous" coche={r.filaire()} onChange={r.basculerFilaire} />
             <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Afficher tous les objets du plan" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets} />
+            <Case id="terrasse3dSolCoupe" controle="vue3d.solEnCoupe" libelle="Sol en coupe — voir l'assise et les fondations" coche={vue3d.solEnCoupe} onChange={r.basculerSolEnCoupe}
+              titre="Perce le sol sous la terrasse : hérisson, dalle, massifs ou fûts de vis apparaissent à leur profondeur" />
             <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Objets opaques (sinon opacite du plan)" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques} />
             <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Texture (sinon couleur unie)" coche={vue3d.textures} onChange={r.basculerTextures}
               titre="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet" />

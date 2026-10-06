@@ -17,6 +17,7 @@ import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalcu
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
+import { constructionTerrasseNeuve } from '../../engine/construction.js';
 import { sectionsPergola } from './pergola.js';
 import { sectionsCloture } from './cloture.js';
 import { sectionsPiscine } from './piscine.js';
@@ -24,7 +25,7 @@ import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
-export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'limite', 'autre'];
+export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'tremie', 'limite', 'autre'];
 
 // La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
 // pas une donnee du plan, seulement le brouillon d'un geste.
@@ -79,7 +80,13 @@ const sectionObjet: Section = {
         const admises = FONCTIONS.filter(v => fonctionAdmise(v, c.obj.type));
         return (!f || admises.includes(f) ? admises : [...admises, f]).map(v => ({ valeur: v, libelle: LIBELLE_FONCTION[v] || v }));
       },
-      lire: (c) => c.obj.fonction || '', ecrire: (c, v) => { c.obj.fonction = v; }
+      lire: (c) => c.obj.fonction || '',
+      ecrire: (c, v) => {
+        c.obj.fonction = v;
+        // Une terrasse qu'on cree maintenant est posee sur plots ; celle qui a deja sa construction
+        // (un objet qui a ete terrasse, un ancien fichier) la garde telle quelle.
+        if (v === 'terrasse' && !c.obj.construction) c.obj.construction = constructionTerrasseNeuve();
+      }
     },
     {
       type: 'nombre', cle: 'priority', libelle: 'Priorité d\'affichage', pas: 1, effets: ['empilement', 'rendu'],
@@ -103,7 +110,7 @@ const sectionObjet: Section = {
       aide: 'Hauteur au-dessus du sol, utilisée par la Vue 3D',
       // Une pergola ou un carport a sa propre hauteur de poteaux, une piscine sa hauteur hors du sol :
       // l'elevation ne leur dit rien.
-      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin'),
+      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin') && !aParticularite(c.obj, 'ouverture'),
       lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; }
     },
     {

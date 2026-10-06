@@ -68,6 +68,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.piscine': outil(),
   'objet.ajouter.piscineRonde': outil(),
   'objet.ajouter.pointDeVue': outil(),
+  // La plage d'une piscine (section Abords) et les trous d'une terrasse (section Trous et ouvertures).
+  'objet.terrassePiscine': partout('inspecteur'),
+  'terrasse.ajouterTrou': partout('inspecteur'),
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.reculer': outil(),

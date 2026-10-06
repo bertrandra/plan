@@ -14,8 +14,8 @@ import { au } from '../../util/tableaux.js';
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
-import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, findSpaZones, zoneToucheTerrasse } from '../../engine/structure.js';
+import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
+import { buildVisGrid, findSpaZones, objetsQuiPercent, zoneToucheTerrasse } from '../../engine/structure.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
@@ -283,7 +283,15 @@ const chargeParPlot: Champ = {
   type: 'lecture', cle: 'chargeParPlot', libelle: 'Charge par plot', visible: (cx) => lire(cx).plots,
   valeur: (cx) => { const l = lire(cx); const ch = chargePlot(l.c, l.visCount, l.surfM2);
     return ch.charge.toFixed(0) + ' kg — ' + ch.tributaire.toFixed(2) + ' m² repris · ' + ch.pression.toFixed(2) + ' kg/cm² sur ' + ch.assise + ' cm²' +
-      ((SUPPORT_TYPES[l.c.supportType ?? ''] || {}).dalles ? '' : (l.c.supportType === 'dalle' ? ' — sur dalle, sans objet' : ' — sur concassé, vérifier le poinçonnement')); }
+      noteAssise(l.c.supportType); }
+};
+/** Ce que la pression sous un plot veut dire, selon ce sur quoi il repose. */
+function noteAssise(cle: string | undefined): string {
+  const t = SUPPORT_TYPES[cle ?? ''];
+  if (t?.dalles) return '';
+  if (cle === 'dalle' || t?.dalleBeton) return ' — sur dalle, sans objet';
+  if (t?.massifs) return ' — sur massif béton de ' + Math.round(MASSIF_COTE_M * 100) + ' cm, sans objet';
+  return ' — sur concassé, vérifier le poinçonnement';
 };
 
 // Un equipement lourd sur plots : on laisse passer, mais on dit clairement pourquoi c'est douteux.
@@ -316,6 +324,25 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
       champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('chargeNormale'), champ('chargeSpa'),
       champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
       ...alertes
+    ]
+  };
+  // Ce qui interrompt le platelage : un bassin, un trou (arbre conserve, trappe). Chacun est un objet
+  // du plan, qu'on deplace et qu'on retaille comme les autres ; la terrasse s'arrete a son bord.
+  const ouvertures: Section = {
+    id: 'ouvertures', titre: 'Trous et ouvertures',
+    champs: [
+      {
+        type: 'lecture', cle: 'listeOuvertures', libelle: 'Ouvertures',
+        valeur: (cx) => {
+          const liste = cx.obj.type === 'polygon' ? objetsQuiPercent(cx.obj.pts, cx.objets) : [];
+          return liste.length ? liste.map(x => x.objet.name + ' (' + shoelace(x.contour).toFixed(2) + ' m²)').join(' · ') : 'Aucune — la terrasse est pleine';
+        }
+      },
+      {
+        type: 'bouton', cle: 'ajouterTrou', libelle: '', nom: 'Ajouter un trou dans la terrasse', texte: () => 'Ajouter un trou',
+        explication: 'Un trou de 1,20 × 1,20 m au centre de la terrasse : tirez ses coins à la forme voulue. Les pièces s\'arrêtent à son bord sur un chevêtre.',
+        agit: { commande: 'terrasse.ajouterTrou' }, executer: (cx) => cx.executerCommande('terrasse.ajouterTrou')
+      }
     ]
   };
   const structure: Section = {
@@ -361,5 +388,5 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
       { type: 'lecture', cle: 'prixVis', libelle: 'Prix indicatifs', visible: (cx) => !lire(cx).plots, valeur: () => 'vis ' + VIS_PRICE.bas + '-' + VIS_PRICE.haut + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · visserie ' + VISSERIE_PRICE.bas + '-' + VISSERIE_PRICE.haut + ' €/m² · rive ' + LAME_RIVE_PRICE.bas + '-' + LAME_RIVE_PRICE.haut + ' €/ml — utilisés tant qu\'aucun prix réel n\'est saisi' }
     ]
   };
-  return [fondation, structure, lames, finitions, optimisation, parametres];
+  return [fondation, ouvertures, structure, lames, finitions, optimisation, parametres];
 }

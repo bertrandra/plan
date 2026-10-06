@@ -5,7 +5,7 @@
 // l'inspecteur —, les couleurs sont celles des materiaux, pas des jetons d'interface.
 
 import { ensureConstruction } from '../../engine/construction.js';
-import { estPlots, plotModele, SUPPORT_TYPES } from '../../engine/constantes.js';
+import { DALLE_BETON_EP_M, estPlots, MASSIF_COTE_M, plotModele, SUPPORT_TYPES } from '../../engine/constantes.js';
 import { dimsSection, sectionLambourde } from '../../engine/portees.js';
 import { hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -27,11 +27,15 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
   const lambourdeH = (c.avecLambourde || estPlots(c)) ? dimsSection(sectionLambourde(c)).h : 0;
   const lameH = c.epaisseurLame || 25;
   // L'assise n'existe que sur plots, et se dessine sous le niveau du sol fini.
-  const assiseH = estPlots(c) && (SUPPORT_TYPES[c.supportType ?? ''] || { concasse: false }).concasse ? (c.supportDecaissement || 15) * 10 : 0;
+  const support = estPlots(c) ? SUPPORT_TYPES[c.supportType ?? ''] : undefined;
+  const assiseH = estPlots(c) && (support || { concasse: false }).concasse ? (c.supportDecaissement || 15) * 10 : 0;
+  // Sous les plots, une dalle a couler (au-dessus du herisson) ou un massif de fondation.
+  const dalleH = support?.dalleBeton ? DALLE_BETON_EP_M * 1000 : 0;
+  const massifH = support?.massifs ? MASSIF_COTE_M * 1000 : 0;
   const totalH = hauteurFinieMm(obj);
 
   // Il faut de la place SOUS la ligne de sol : la vis y descend, l'assise aussi.
-  const sousSolMm = Math.max(enterreMm, assiseH);
+  const sousSolMm = Math.max(enterreMm, assiseH + dalleH, massifH);
   const W = 260, H = Math.max(160, (totalH + sousSolMm) * ECHELLE + 50);
   const solY = H - 26 - sousSolMm * ECHELLE;
 
@@ -66,6 +70,7 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
   bande(y0, lameH, '#c9a15a', 'Lame — ' + lameH + ' mm');
 
   const hAssise = Math.max(assiseH * ECHELLE, 3);
+  const hDalle = dalleH * ECHELLE, hMassif = massifH * ECHELLE;
   return (
     <>
       <div className="sectionTitle">Plan de coupe</div>
@@ -75,8 +80,16 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
           {texte(solY + 15, 'Sol', 10, 10, SOL)}
           {/* L'assise : la couche que le mode vis n'a pas, parce que la vis fait sa propre fondation. */}
           {assiseH > 0 && <>
-            <rect x={40} y={solY} width={60} height={hAssise} fill="#9aa6b0" stroke={ENCRE} strokeWidth={1} />
-            {texte(solY + hAssise / 2 + 4, 'Concasse compacte — ' + (c.supportDecaissement || 15) + ' cm')}
+            <rect x={40} y={solY + hDalle} width={60} height={hAssise} fill="#9aa6b0" stroke={ENCRE} strokeWidth={1} />
+            {texte(solY + hDalle + hAssise / 2 + 4, (dalleH ? 'Hérisson concassé — ' : 'Concasse compacte — ') + (c.supportDecaissement || 15) + ' cm')}
+          </>}
+          {dalleH > 0 && <>
+            <rect x={40} y={solY} width={60} height={hDalle} fill="#c8c8c4" stroke={ENCRE} strokeWidth={1} />
+            {texte(solY + hDalle / 2 + 4, 'Dalle béton armé — ' + Math.round(DALLE_BETON_EP_M * 100) + ' cm')}
+          </>}
+          {massifH > 0 && <>
+            <rect x={52} y={solY} width={36} height={hMassif} fill="#c8c8c4" stroke={ENCRE} strokeWidth={1} />
+            {texte(solY + hMassif / 2 + 4, 'Massif béton — ' + Math.round(MASSIF_COTE_M * 100) + ' × ' + Math.round(MASSIF_COTE_M * 100) + ' × ' + Math.round(MASSIF_COTE_M * 100) + ' cm')}
           </>}
           {couches}
         </svg>

@@ -12,7 +12,7 @@ import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import { calculerPiscine } from './piscine.js';
-import { estPiscine } from '../model/fonctions.js';
+import { estPiscine, estTrou } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 
 /**
@@ -286,7 +286,7 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
       }
     });
   }
-  // Un bassin dans la terrasse est une ouverture : les pieces s'arretent a son bord, un chevetre
+  // Un bassin ou un trou de terrasse (fonction `tremie`) est une ouverture : les pieces s'arretent a son bord, un chevetre
   // en fait le tour (de la section du cadre, dans la liste du cadre pour que les appuis, le debit,
   // l'implantation et le chantier le traitent comme une rive) et les lames s'y coupent (layers.ts).
   // Rien de tout cela n'existe sans bassin : les cles ne sont posees qu'alors, pour que le resultat
@@ -294,7 +294,9 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const trous = ouverturesDe(poly, objets);
   const avecTrous = trous.length ? {
     trous,
-    chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff))),
+    // Le chevetre ne borde le bassin que la ou la terrasse existe : un bassin a cheval sur son
+    // bord n'a pas de piece dans le vide.
+    chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff)).flatMap(seg => couperAuContour(seg, poly))),
     solives: retirerOuvertures(solives, trous), lambourdes: retirerOuvertures(lambourdes, trous), solivesSpa: retirerOuvertures(solivesSpa, trous)
   } : null;
   if (avecTrous) avecTrous.chevetres.forEach(s => cadre.push(s));
@@ -311,15 +313,62 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
  * s'arrete.
  */
 export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
-  const trous: PtBrut[][] = [];
+  return objetsQuiPercent(poly, objets).map(x => x.contour);
+}
+
+/** Les objets (bassins, trous) qui percent la terrasse de contour `poly`, avec le bord ou elle s'arrete. */
+export function objetsQuiPercent(poly: PtBrut[], objets: ObjetPlan[]): { objet: ObjetPlan; contour: PtBrut[] }[] {
+  const res: { objet: ObjetPlan; contour: PtBrut[] }[] = [];
   objets.forEach(o => {
-    if(!estPiscine(o)) return;
-    const calc = calculerPiscine(o);
-    if(!calc) return;
-    const t = calc.margelleExt;
-    if(t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t))) trous.push(t);
+    const t = contourOuverture(o);
+    if(t && (t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t)))) res.push({ objet:o, contour:t });
   });
-  return trous;
+  return res;
+}
+
+/**
+ * Le bord ou une terrasse s'arrete autour d'un objet : l'exterieur des margelles d'un bassin, le
+ * contour d'un trou de terrasse. `null` pour tout autre objet.
+ */
+export function contourOuverture(o: ObjetPlan): PtBrut[] | null {
+  if(estPiscine(o)) return calculerPiscine(o)?.margelleExt ?? null;
+  if(!estTrou(o)) return null;
+  if(o.type === 'circle') return o.r > 0.05 ? Array.from({ length:32 }, (_, i) => ({ x:o.center.x + o.r*Math.cos(2*Math.PI*i/32), y:o.center.y + o.r*Math.sin(2*Math.PI*i/32) })) : null;
+  return o.type === 'polygon' && o.pts.length >= 3 && Math.abs(shoelace(o.pts)) > 0.01 ? o.pts : null;
+}
+
+/**
+ * L'aire commune a deux polygones (simples, convexes ou non), par bandes horizontales de 1 cm au
+ * plus : de quoi retirer d'une terrasse la part d'un bassin ou d'un trou qui la chevauche.
+ */
+export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
+  const ya = a.map(p => p.y), yb = b.map(p => p.y);
+  const y0 = Math.max(Math.min(...ya), Math.min(...yb)), y1 = Math.min(Math.max(...ya), Math.max(...yb));
+  if(!(y1 > y0)) return 0;
+  const x0 = Math.min(...a.map(p => p.x), ...b.map(p => p.x)) - 1;
+  const n = Math.max(50, Math.ceil((y1 - y0) / 0.01)), h = (y1 - y0) / n;
+  const dir = { x:1, y:0 };
+  let aire = 0;
+  for(let i = 0; i < n; i++){
+    const o = { x:x0, y:y0 + (i + 0.5) * h };
+    const ia = clipLineToPolygon(o, dir, a).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
+    const ib = clipLineToPolygon(o, dir, b).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
+    ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
+  }
+  return aire;
+}
+
+/** La part d'un segment qui est dans le polygone (morceaux de moins de 5 cm ignores). */
+export function couperAuContour(seg: Segment, poly: PtBrut[]): Segment[] {
+  const L = dist(seg.a, seg.b);
+  if(L < 1e-6) return [];
+  const dir = { x:(seg.b.x-seg.a.x)/L, y:(seg.b.y-seg.a.y)/L };
+  const t = (p: PtBrut) => (p.x-seg.a.x)*dir.x + (p.y-seg.a.y)*dir.y;
+  const at = (d: number): PtBrut => ({ x:seg.a.x+dir.x*d, y:seg.a.y+dir.y*d });
+  return clipLineToPolygon(seg.a, dir, poly).flatMap(m => {
+    const t0 = Math.max(0, Math.min(t(m.a), t(m.b))), t1 = Math.min(L, Math.max(t(m.a), t(m.b)));
+    return t1 - t0 > 0.05 ? [{ a:at(t0), b:at(t1) }] : [];
+  });
 }
 
 /** Retire de chaque piece ce qui traverse une ouverture ; une piece entierement dedans disparait. */

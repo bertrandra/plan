@@ -22,7 +22,7 @@ import { ajouterReleve3d } from './releve3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL,
+  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
@@ -34,6 +34,7 @@ import type { PlanVuDeLa3d } from './etat3d.js';
 import { estParasol, estAbri, estPiscine } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
+import { ajouterAssise3d } from './assise3d.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -139,6 +140,7 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // Le sol est la couche la plus basse : on le recule plutot que de tirer vers la camera ce qui est
   // pose dessus (COUCHES_SOL).
   poserEnCouche(matSol, COUCHES_SOL.fond);
+  percerSol(matSol);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(extent * 4, extent * 4), matSol);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = vue3d.ombres;
@@ -210,6 +212,7 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     // camera, la photo passait devant les objets bas vus de loin et de biais — les massifs de 20 cm
     // scintillaient (2.2.1).
     poserEnCouche(mat, COUCHES_SOL.ortho);
+    percerSol(mat);
     const dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), mat);
     dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
     const l = versLocal({ x: t.xMin + t.largeur / 2, y: t.yMin + t.hauteur / 2 });
@@ -226,7 +229,7 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
  * le platelage se pose. Chaque piece est coupee au contour ou elle s'arrete : un bord oblique se
  * lit comme une diagonale, pas comme un escalier.
  */
-function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d, isolee = false): void {
+function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Construction, prim: Primitives, ctx: ContexteScene3d, isolee: boolean, sol: { scene: THREE_NS.Scene; versLocal: VersLocal }): void {
   // Ce sur quoi la structure repose au-dessus du sol : la hauteur du plot, ou le seul depassement
   // de tete pour une vis, dont le fut est enterre et dessine sous le plan de sol.
   const hauteurVisM = ctx.hauteurAppuiMm(c) / 1000;
@@ -270,6 +273,8 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
     prim.addBande(layers.bandes.lameRive, lameBase - riveH, riveH, 0x5c3a1e, texturesTerrasse);
   }
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
+  // Sol en coupe : ce qui est sous le sol fini — herisson, dalle, massifs, futs de vis — se voit.
+  if (vue3d.solEnCoupe) ajouterAssise3d({ prim, ...sol }, contour, layers, c);
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
@@ -379,7 +384,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit.
     if (estAbri(o)) { ajouterPergola3d(co.scene, o, co.versLocal); return; }
     // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
-    if (estPiscine(o)) { ajouterPiscine3d(prim, o); return; }
+    if (estPiscine(o)) { ajouterPiscine3d(co, o); return; }
     const h = ctx.elevationOf(o);
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
@@ -396,6 +401,11 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
   });
 }
 
+/** Les piscines du plan, quand le reste du plan n'est pas dessine. */
+function ajouterPiscinesSeules(etat: PlanVuDeLa3d, co: ContexteObjets): void {
+  etat.objects.forEach(o => { if (estPiscine(o) && !co.ctx.objetMasque(o)) ajouterPiscine3d(co, o); });
+}
+
 /**
  * La cloture perimetrale, independante de « tous les objets » (elle borne la parcelle) : cote par
  * cote, avec ses acces (three/cloture3d.ts, MD/spec-cloture.md).
@@ -410,7 +420,8 @@ function ajouterCloture(prim: Primitives, scene: THREE_NS.Scene, versLocal: Vers
  */
 function appliquerOmbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
   if (!vue3d.ombres) return;
-  scene.traverse(o => { if (estMesh(o)) { o.castShadow = true; o.receiveShadow = true; } });
+  // Le gabarit d'un bassin et son eau translucide ne portent pas d'ombre (three/piscine3d.ts).
+  scene.traverse(o => { if (estMesh(o)) { o.castShadow = !o.userData[SANS_OMBRE]; o.receiveShadow = true; } });
   ground.castShadow = false;
 }
 
@@ -443,6 +454,9 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal);
   ajouterOrtho(scene, versLocal, ctx);
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx });
+  // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
+  // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
+  else if (etat.isolement !== obj.key) ajouterPiscinesSeules(etat, { prim, scene, versLocal, ctx });
   // La cloture est celle de la parcelle : masquee avec elle quand la terrasse est isolee.
   if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, scene, versLocal, ctx);
   appliquerOmbres(scene, ground);
@@ -465,7 +479,7 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key);
+    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal });
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
     renderer.render(scene, camera);
   }, 0);
