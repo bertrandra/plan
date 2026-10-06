@@ -110,7 +110,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     titre: titreObjet,
     sections(c) {
       const sections = sectionsObjet(c);
-      if (aParticularite(c.obj, 'construction')) sections.push(...sectionsConstruction(ctx.optimisation));
+      if (aParticularite(c.obj, 'construction')) sections.push(...sectionsConstruction(ctx.optimisation, c));
       if (estBatiment(c.obj)) sections.push(sectionReleve(c));
       return sections;
     },

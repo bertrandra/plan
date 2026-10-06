@@ -14,6 +14,7 @@ import { shoelace } from '../geometry/basic.js';
 import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/pergola.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type { DeclarationPrealable, ObjetPlan } from '../model/types.js';
+import { surfaceNetteTerrasse } from '../engine/structure.js';
 
 export const CERFA_13703 = { fichier: 'cerfa/cerfa_13703-12.pdf', version: '13703*12' } as const;
 
@@ -95,7 +96,7 @@ export function ouvragesDeclares(objets: ObjetPlan[]): OuvrageDeclare[] {
     return [{ nom: o.name, nature, emprise, hauteur, description }];
   });
   const terrasses: OuvrageDeclare[] = objets.filter(estTerrasse).map(o => {
-    const surface = o.type === 'polygon' ? shoelace(o.pts) : 0;
+    const surface = o.type === 'polygon' ? surfaceNetteTerrasse(o.pts, objets) : 0;
     const dims = dimensions(o);
     return { nom: o.name, nature: 'terrasse', emprise: 0, hauteur: 0, description: 'une terrasse en bois de plain-pied' + (dims ? ' de ' + dims : '') + ' (' + fr(surface, 1) + ' m²)' };
   });

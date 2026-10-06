@@ -45,7 +45,7 @@ export function defaultConstruction(): Construction {
  * enregistre sans construction recoit a l'ouverture, et il doit redonner les memes quantites.
  */
 export function constructionTerrasseNeuve(): Construction {
-  return { ...defaultConstruction(), typePose:'plots' };
+  return { ...defaultConstruction(), typePose:'plots', plotsDansEmprise:true };
 }
 
 /**
