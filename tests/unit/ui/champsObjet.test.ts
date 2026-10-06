@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sectionsObjet } from '../../../src/ui/champs/objet.js';
+import { sectionsObjet, titreObjet } from '../../../src/ui/champs/objet.js';
 import { champsVisibles, type ChampChoix, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -68,5 +68,27 @@ describe('sections de l inspecteur par fonction', () => {
   it('ne donne la section Parasol qu a un parasol rond', () => {
     expect(ids(contexte('parasol', 'circle'))).toContain('parasol');
     expect(ids(contexte('parasol', 'polygon'))).not.toContain('parasol');
+  });
+});
+
+describe('la surface d une terrasse trouee, en tete de l inspecteur', () => {
+  // Une terrasse de 14 x 10 m percee d'un trou de 2 x 2 m : 136 m², pas 140.
+  const terrasse = { pts: [{ x: 0, y: 0 }, { x: 14, y: 0 }, { x: 14, y: 10 }, { x: 0, y: 10 }] } as Partial<ObjetPlan>;
+  const trou = (x0: number) => ({ key: 'trou', name: 'Trou 1', type: 'polygon', fonction: 'tremie', pts: [{ x: x0, y: 4 }, { x: x0 + 2, y: 4 }, { x: x0 + 2, y: 6 }, { x: x0, y: 6 }] } as unknown as ObjetPlan);
+  const surfaceLue = (c: ContexteChamps) => (sectionsObjet(c)[0]!.champs.find(ch => ch.cle === 'surface') as { valeur: (c: ContexteChamps) => string }).valeur(c);
+
+  it('dit la surface nette, comme le champ Surface, trou dedans ou a cheval sur le bord', () => {
+    expect(titreObjet(contexte('terrasse', 'polygon', terrasse))).toMatch(/\(140\.00 m²\)$/);
+    const dedans = contexte('terrasse', 'polygon', terrasse, [trou(6)]);
+    expect(titreObjet(dedans)).toMatch(/\(136\.00 m²\)$/);
+    expect(surfaceLue(dedans)).toMatch(/^136\.00 m² \(ouvertures déduites : 4\.00 m²\)/);
+    // A cheval sur le bord est : seule la moitie dans la terrasse est deduite.
+    const aCheval = contexte('terrasse', 'polygon', terrasse, [trou(13)]);
+    expect(titreObjet(aCheval)).toMatch(/\(138\.00 m²\)$/);
+    expect(surfaceLue(aCheval)).toMatch(/^138\.00 m²/);
+  });
+
+  it('ne deduit rien d un objet qui n est pas une terrasse', () => {
+    expect(titreObjet(contexte('batiment', 'polygon', terrasse, [trou(6)]))).toMatch(/\(140\.00 m²\)$/);
   });
 });

@@ -289,6 +289,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Fond orthophoto en Vue 3D.** Cocher ou décocher « Fond orthophoto (IGN) » au menu Affichage,
+  la Vue 3D ouverte, ne changeait rien à l'écran : il fallait repasser par le plan 2D. La scène se
+  reconstruit maintenant dès que les tuiles sont là (ou retirées). Un test vérifie aussi que
+  l'en-tête de l'inspecteur d'une terrasse percée donne sa surface nette, comme le champ Surface,
+  bassin dedans ou à cheval sur le bord.
 - **La piscine disparaissait dans la vitrine (`?mode=demo`).** Une terrasse qui n'était pas la
   terrasse courante — toutes dans la vitrine, les autres dans la Vue 3D avec « tous les objets » —
   se dessinait en bloc plein : la terrasse posée autour d'une piscine recouvrait son bassin. Elle
