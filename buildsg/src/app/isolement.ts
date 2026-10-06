@@ -1,9 +1,12 @@
-// Isoler la terrasse (2.2.1) : une bascule qui ne montre qu'elle, en 2D comme en 3D.
+// Isoler un objet (2.2.1, etendu aux piscines, pergolas et carports) : une bascule qui ne montre
+// que lui, en 2D comme en 3D.
 //
-// Une terrasse selectionnee s'isole : les autres objets sont masques A L'AFFICHAGE (leur `hidden`
-// n'est pas touche, `affichage.objetMasque`), la terrasse passe en transparence pour laisser voir sa
-// structure — ses couches sur le plan, ses lambourdes et solives sous des lames translucides en 3D —,
-// et la vue se recadre sur elle, dans la vue ouverte.
+// Une terrasse, une piscine, une pergola ou un carport selectionne s'isole : les autres objets sont
+// masques A L'AFFICHAGE (leur `hidden` n'est pas touche, `affichage.objetMasque`) sauf ses associes
+// — la terrasse qui sert de plage a une piscine, les piscines d'une terrasse (model/fonctions.ts) —,
+// une terrasse passe en transparence pour laisser voir sa structure — ses couches sur le plan, ses
+// lambourdes et solives sous des lames translucides en 3D —, et la vue se recadre sur l'objet, dans
+// la vue ouverte.
 //
 // **Sortir rend la vue d'avant**, exactement : le cadrage du plan (echelle et origine) et, si la
 // Vue 3D etait ouverte, la position de sa camera et ce qu'elle visait. On sort en rebasculant, ou
@@ -13,7 +16,7 @@
 // Rien de tout cela n'entre dans le projet : `etat.isolement` est un etat d'affichage, comme la
 // camera ou le zoom, et un plan enregistre pendant l'isolement s'enregistre tel qu'il est.
 
-import { terrasseSelectionnee } from '../core/contexteTerrasse.js';
+import { estIsolable, estPiscine, visibleEnIsolement } from '../model/fonctions.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
 
@@ -41,9 +44,24 @@ export interface Isolement {
   /** Isole la terrasse selectionnee, ou sort de l'isolement. */
   basculer(): void;
   quitter(): void;
-  /** A appeler a chaque changement : la terrasse isolee n'est plus selectionnee → on sort. */
+  /** A appeler a chaque changement : ni l'objet isole ni un associe n'est selectionne → on sort. */
   suivreSelection(): void;
   actif(): boolean;
+}
+
+/** L'objet selectionne, s'il peut s'isoler. */
+export function objetAIsoler(etat: Pick<EtatApp, 'objects' | 'selectedKey'>): ObjetPlan | undefined {
+  const o = etat.objects.find(x => x.key === etat.selectedKey);
+  return o && estIsolable(o) ? o : undefined;
+}
+
+/** Le libelle du bouton, selon ce qu'il isole. */
+export function libelleIsoler(o: ObjetPlan | undefined): string {
+  if (!o) return 'Isoler l\'objet';
+  if (estPiscine(o)) return 'Isoler la piscine';
+  if (o.fonction === 'pergola') return 'Isoler la pergola';
+  if (o.fonction === 'carport') return 'Isoler le carport';
+  return 'Isoler la terrasse';
 }
 
 export function creerIsolement(d: DependancesIsolement): Isolement {
@@ -75,12 +93,15 @@ export function creerIsolement(d: DependancesIsolement): Isolement {
   return {
     basculer() {
       if (etat.isolement !== null) { quitter(); return; }
-      const t = terrasseSelectionnee(etat);
-      if (t) entrer(t);
+      const o = objetAIsoler(etat);
+      if (o) entrer(o);
     },
     quitter,
     suivreSelection() {
-      if (etat.isolement !== null && etat.selectedKey !== etat.isolement) quitter();
+      // Passer a un associe (la terrasse d'une piscine isolee) garde l'isolement : il est a l'ecran.
+      if (etat.isolement === null || etat.selectedKey === etat.isolement) return;
+      const o = etat.objects.find(x => x.key === etat.selectedKey);
+      if (!o || !visibleEnIsolement(o, etat.objects, etat.isolement)) quitter();
     },
     actif: () => etat.isolement !== null
   };

@@ -1,6 +1,8 @@
 // L'assise et les fondations d'une terrasse en 3D, sol en coupe (three/).
 //
-// Tout ce qui porte une terrasse sous le sol fini est d'ordinaire cache par le sol opaque : le
+// Une dalle sous la terrasse se voit toujours : elle deborde du platelage, arasee au sol fini.
+//
+// Le reste de ce qui porte une terrasse sous le sol fini est d'ordinaire cache par le sol opaque : le
 // herisson de concasse, une dalle (existante ou a couler), les dalles stabilisatrices, les massifs
 // de beton sous les plots, le fut des vis de fondation. La case « Sol en coupe » de la Vue 3D perce
 // le sol sur l'emprise de la terrasse (`gabaritSol`, primitives.ts) et dessine la fouille : ses
@@ -11,6 +13,7 @@ import { DALLE_BETON_EP_M, estPlots, MASSIF_COTE_M, supportDe } from '../engine/
 import type * as THREE_NS from 'three';
 import type { Construction, PtBrut } from '../model/types.js';
 import type { CouchesTerrasse } from '../engine/layers.js';
+import { empriseDalle } from '../engine/structure.js';
 import { gabaritSol, type Primitives, type VersLocal } from './primitives.js';
 
 const TERRE = '#7a5a3a';
@@ -53,16 +56,29 @@ export function couchesAssise(c: Construction): { couches: { nom: string; haut: 
   return { couches, parAppui, profondeur: bas + SOUS_FOUILLE_M };
 }
 
-export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction): void {
+/**
+ * L'assise sous la terrasse. Une dalle (a couler ou existante) se voit toujours : elle deborde du
+ * platelage de `DALLE_DEBORD_M`, arasee au sol fini, et le sol est perce sur son emprise. Le reste
+ * — herisson, concasse, massifs, fouille — n'apparait que sol en coupe (`enCoupe`).
+ */
+export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean): void {
   if (contour.length < 3) return;
   const trous = layers.trous ?? [];
   const { couches, parAppui, profondeur } = couchesAssise(c);
-  gabaritSol(scene, versLocal, contour);
+  const dalle = couches.find(k => k.nom === 'dalle');
+  const emprise = dalle ? empriseDalle(contour) : contour;
+  if (dalle && !enCoupe) {
+    gabaritSol(scene, versLocal, emprise);
+    plaque(scene, versLocal, emprise, trous, dalle.bas, dalle.haut - dalle.bas, dalle.couleur);
+    return;
+  }
+  if (!enCoupe) return;
+  gabaritSol(scene, versLocal, emprise);
   // Les parois de la fouille, vues de l'interieur comme de l'exterieur.
   const matTerre = new THREE.MeshStandardMaterial({ color: TERRE, side: THREE.DoubleSide, roughness: 1 });
   const positions: number[] = [];
-  contour.forEach((a, i) => {
-    const b = contour[(i + 1) % contour.length];
+  emprise.forEach((a, i) => {
+    const b = emprise[(i + 1) % emprise.length];
     if (!b) return;
     const la = versLocal(a), lb = versLocal(b);
     positions.push(la.x, -profondeur, la.z, lb.x, -profondeur, lb.z, lb.x, 0, lb.z, la.x, -profondeur, la.z, lb.x, 0, lb.z, la.x, 0, la.z);
@@ -72,8 +88,8 @@ export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, co
   geo.computeVertexNormals();
   scene.add(new THREE.Mesh(geo, matTerre));
   // Le fond de la fouille, puis chaque couche, percee la ou la terrasse l'est.
-  plaque(scene, versLocal, contour, trous, -profondeur, 0.005, TERRE);
-  couches.forEach(k => plaque(scene, versLocal, contour, trous, k.bas, k.haut - k.bas, k.couleur));
+  plaque(scene, versLocal, emprise, trous, -profondeur, 0.005, TERRE);
+  couches.forEach(k => plaque(scene, versLocal, emprise, trous, k.bas, k.haut - k.bas, k.couleur));
   if (parAppui) layers.vis.forEach(p => prim.addPrism(carre(p, parAppui.cote), parAppui.bas, parAppui.haut - parAppui.bas, BETON));
 }
 
