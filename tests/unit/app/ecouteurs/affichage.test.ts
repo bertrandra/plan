@@ -15,6 +15,7 @@ import { creerRegistre, type Droits } from '../../../../src/app/commandes.js';
 import { brancherAffichage, type ContexteAffichage } from '../../../../src/app/ecouteurs/affichage.js';
 import { brancherBoutonsDeVue } from '../../../../src/app/ecouteurs/modes.js';
 import { fauxAtelier } from './faux.js';
+import { vue3d } from '../../../../src/three/etat3d.js';
 import type { ObjetPlan } from '../../../../src/model/types.js';
 
 // L'affichage (app/ecouteurs/affichage.ts) et les boutons de vue (modes.ts) : des bascules qui ne
@@ -105,6 +106,24 @@ describe('affichage', () => {
     const sans = monter(sansOrtho).cmd;
     for (const id of ['affichage.orthophoto', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite']) expect(sans.effacee(id), id).toBe(true);
     expect(sans.effacee('affichage.grille')).toBe(false);
+  });
+
+  it('reconstruit la 3D ouverte une fois le fond bascule, pas avant ; rien sans 3D', async () => {
+    let finir = () => {};
+    orthoEspions.basculer.mockImplementationOnce(() => new Promise<void>((r) => { finir = r; }));
+    vue3d.scene = {} as never;
+    try {
+      const { ctx, cmd } = monter();
+      cmd.executer('affichage.orthophoto');
+      expect(ctx.buildThreeScene).not.toHaveBeenCalled();
+      finir();
+      await Promise.resolve(); await Promise.resolve();
+      expect(ctx.buildThreeScene).toHaveBeenCalledTimes(1);
+    } finally { vue3d.scene = null; }
+    const sans3d = monter();
+    sans3d.cmd.executer('affichage.orthophoto');
+    await Promise.resolve(); await Promise.resolve();
+    expect(sans3d.ctx.buildThreeScene).not.toHaveBeenCalled();
   });
 });
 

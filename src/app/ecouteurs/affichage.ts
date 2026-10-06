@@ -77,9 +77,13 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
   } });
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
-  // — c'est elle qui redessine quand elle a fini.
+  // — c'est elle qui redessine le plan quand elle a fini. La 3D, elle, ne lit les tuiles qu'en se
+  // construisant : ouverte, elle se reconstruit une fois la bascule faite (sans cela, la photo
+  // n'apparaissait ou ne disparaissait qu'apres un aller-retour par le plan 2D).
   cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
-    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho());
+    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho()).then(() => {
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    });
   } });
 
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
