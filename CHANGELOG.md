@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
+  lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
+  ailleurs — enregistrée dans la parcelle du projet avec sa source, sa date et sa précision, jamais
+  relue sans qu'on le demande. Pente et orientation, dénivelé, courbes de niveau, profil de coupe
+  (pièce DP3), sol en relief dans la Vue 3D ; les hauteurs de plots, vis et poteaux viendraient dans
+  une version majeure suivante. Formats, limites et couverture vérifiés sur `data.geopf.fr` le
+  6 octobre 2026. Documentation seulement.
 - **Clôture côté par côté, portails et portillons** (`MD/spec-cloture.md`). Sur la parcelle du
   projet, deux sections nouvelles de l'inspecteur remplacent les quatre champs de clôture :
   - « Clôture » : un réglage par défaut et, côté par côté, un réglage propre — palissade bois
