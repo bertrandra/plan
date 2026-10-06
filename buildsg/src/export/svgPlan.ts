@@ -19,6 +19,7 @@ import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_E
 import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
+import { trousDeTerrasse } from '../engine/structure.js';
 
 /** Ce que l'export SVG doit savoir en plus des objets : de quoi remplir les attributs data-*. */
 export interface MetaSvg {
@@ -69,7 +70,17 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
   objets.forEach((obj: ObjetPlan)=>{
     if(obj.type==='polygon'){
       const pts = (obj.pts||[]).map((p: PtBrut)=>{const s=exToSvg(p); return s.x.toFixed(2)+','+s.y.toFixed(2);}).join(' ');
-      body += '<polygon points="'+pts+'" fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.15" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-points="'+escapeXml((obj.pts||[]).map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
+      // Une terrasse percee (bassin, tremie) se dessine avec son trou : un gabarit pair-impair la
+      // decoupe. Le <polygon> garde son contour entier, c'est lui que relit l'import.
+      const trous = trousDeTerrasse(obj, objets);
+      let decoupe = '';
+      if(trous.length){
+        const anneau = (r: PtBrut[]) => 'M'+r.map(p=>{const s=exToSvg(p); return s.x.toFixed(2)+' '+s.y.toFixed(2);}).join(' L')+' Z';
+        const id = 'trous-'+obj.key.replace(/[^\w-]/g, '_');
+        body += '<clipPath id="'+id+'"><path clip-rule="evenodd" d="M-1000000 -1000000 H1000000 V1000000 H-1000000 Z '+trous.map(anneau).join(' ')+'"/></clipPath>\n';
+        decoupe = ' clip-path="url(#'+id+')"';
+      }
+      body += '<polygon points="'+pts+'"'+decoupe+' fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.15" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-points="'+escapeXml((obj.pts||[]).map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
       const n = (obj.pts||[]).length;
       const ptsPoly = obj.pts || [];
       for(let i=0;i<n;i++){
