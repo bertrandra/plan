@@ -7,7 +7,8 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 // La lecture du relief a l'IGN (MD/spec-relief.md §2, §4, §9.2), sans reseau : un `fetch` factice
 // rend des grilles BIL fabriquees. Le choix de la source, la reprise, le refus.
 
-const parcelle: ObjetPlan = { key: 'parcelle', type: 'polygon', name: 'P', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: -20 }, { x: 0, y: -20 }] } as ObjetPlan;
+const parcellePts = [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: -20 }, { x: 0, y: -20 }];
+const parcelle: ObjetPlan = { key: 'parcelle', type: 'polygon', name: 'P', fonction: 'terrain', pts: parcellePts } as ObjetPlan;
 const ref = { lat: 45.75, lon: 4.8, x: 0, y: 0 };
 
 /** Une grille BIL : `nx × ny` flottants, z(x, y) ou `sansDonnee` la ou `trou` le dit. */
@@ -68,7 +69,7 @@ describe('decodage', () => {
 describe('le choix de la source', () => {
   it('prend le LiDAR HD quand des dalles couvrent la parcelle et que la grille est pleine', async () => {
     const s = service({ dalles: 4, lidar: (k, nx) => 200 + (k % nx) * 0.01 });
-    const r = await lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
+    const r = await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
     expect(r.source).toBe('lidar-hd');
     expect(r.pas).toBe(0.5);
     expect(r.couche).toBe(SOURCE_LIDAR.couche);
@@ -86,7 +87,7 @@ describe('le choix de la source', () => {
 
   it('se replie sur le RGE ALTI sans dalle, avec la precision du masque de source', async () => {
     const s = service({ dalles: 0, rge: () => 150 });
-    const r = await lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
+    const r = await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
     expect(r.source).toBe('rge-alti');
     expect(r.pas).toBe(1);
     expect(r.nx).toBe(50); expect(r.ny).toBe(40);
@@ -101,13 +102,13 @@ describe('le choix de la source', () => {
     // Le LiDAR manque au centre de la parcelle ; le RGE ALTI est plein.
     const trou = (k: number, nx: number) => (k % nx === 40 && Math.floor(k / nx) === 30 ? -9999 : 100);
     const s = service({ dalles: 2, lidar: trou, rge: () => 99 });
-    const r = await lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
+    const r = await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge });
     expect(r.source).toBe('rge-alti');
     // Un trou sur les abords seulement ne gene pas (la premiere cellule, hors parcelle).
     const abords = service({ dalles: 2, lidar: (k) => (k === 0 ? -9999 : 100) });
-    expect((await lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: abords.rechercher, aujourdhui: horloge })).source).toBe('lidar-hd');
+    expect((await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: abords.rechercher, aujourdhui: horloge })).source).toBe('lidar-hd');
     const rien = service({ dalles: 0 });
-    await expect(lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: rien.rechercher, aujourdhui: horloge })).rejects.toThrow(/Pas de relief IGN/);
+    await expect(lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: rien.rechercher, aujourdhui: horloge })).rejects.toThrow(/Pas de relief IGN/);
   });
 
   it('refuse une parcelle trop grande', async () => {
@@ -120,11 +121,11 @@ describe('le choix de la source', () => {
 describe('la reprise reseau', () => {
   it('rejoue une fois une coupure, et deux coupures echouent', async () => {
     const une = service({ dalles: 0, rge: () => 10, pannes: 1 });
-    const r = await lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: une.rechercher, aujourdhui: horloge });
+    const r = await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: une.rechercher, aujourdhui: horloge });
     expect(r.source).toBe('rge-alti');
     const deux = service({ dalles: 0, rge: () => 10, pannes: 2 });
     // La premiere requete (les dalles) tombe deux fois : son echec est avale (zero dalle), la suite passe.
-    await expect(lireRelief({ parcelle: parcelle.pts, ref, objets: [parcelle], rechercher: deux.rechercher, aujourdhui: horloge })).resolves.toBeTruthy();
+    await expect(lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: deux.rechercher, aujourdhui: horloge })).resolves.toBeTruthy();
     const f = vi.fn(async () => { throw new TypeError('coupure'); }) as unknown as typeof fetch;
     await expect(requeteAvecReprise('u', r => r.text(), f)).rejects.toThrow(/coupure/);
     expect(f).toHaveBeenCalledTimes(2);
