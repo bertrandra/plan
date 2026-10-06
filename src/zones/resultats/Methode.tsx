@@ -3,11 +3,11 @@
 // Les tableaux sont generes avec le calage du projet — K, charge, coefficient de raideur —, de sorte
 // qu'ils montrent ce que ce plan utilise, pas les valeurs d'usine.
 
-import { dist, shoelace } from '../../geometry/basic.js';
+import { dist } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, SOLIVE_SECTIONS, VIS_PRICE } from '../../engine/constantes.js';
 import { coefRaideurLame, ENTRAXE_LAME_K, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeVisM, porteeVisSpaM, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
-import { buildVisGrid, computeStructure, structureVide } from '../../engine/structure.js';
+import { buildVisGrid, computeStructure, structureVide, surfaceNetteTerrasse } from '../../engine/structure.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
@@ -24,7 +24,7 @@ function donnees(obj: ObjetPlan, resultats: Resultats) {
   const vis = ok ? buildVisGrid(obj, S, objets) : [];
   const roles: Record<string, number> = { rive: 0, courant: 0, spa: 0 };
   vis.forEach(p => roles[p.role] = (roles[p.role] || 0) + 1);
-  return { c, span, S, vis, roles, surf: shoelace(sommetsDe(obj)) || 1 };
+  return { c, span, S, vis, roles, surf: surfaceNetteTerrasse(sommetsDe(obj), objets) || 1 };
 }
 
 const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s, l) => s + dist(l.a, l.b), 0);

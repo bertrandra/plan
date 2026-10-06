@@ -17,7 +17,7 @@ import { polyStr, pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
-import type { ObjetPlan } from '../model/types.js';
+import type { ObjetPlan, PtBrut } from '../model/types.js';
 import type { EtatScene } from '../geometry/vue.js';
 
 /**
@@ -174,6 +174,33 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
 /** Le remplissage d'une terrasse isolee : assez pour la situer, assez peu pour voir sa structure. */
 export const OPACITE_ISOLEMENT = 0.2;
 
+/**
+ * Perce le contour d'une terrasse de ses trous. Un `<polygon>` ne peut pas avoir de trou : il est
+ * tondu par un gabarit pair-impair (un tres grand rectangle et les anneaux des trous), qui retire
+ * son remplissage et son trait la ou est le trou. Sans trou, le gabarit est retire : l'element est
+ * exactement celui d'avant.
+ */
+function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, trous: PtBrut[][], scene: EtatScene): void {
+  if (!trous.length) {
+    if (el.hasAttribute('clip-path')) el.removeAttribute('clip-path');
+    if (v.clipEl) { v.clipEl.remove(); v.clipEl = null; }
+    return;
+  }
+  const id = 'trous-' + cle.replace(/[^A-Za-z0-9_-]/g, '_');
+  if (!v.clipEl) {
+    v.clipEl = creerSvg('clipPath');
+    v.clipEl.setAttribute('id', id);
+    v.clipEl.appendChild(creerSvg('path'));
+    el.parentNode?.insertBefore(v.clipEl, el);
+  }
+  const chemin = v.clipEl.firstChild as SVGElement | null;
+  if (!chemin) return;
+  const anneau = (pts: PtBrut[]) => pts.map((p, i) => { const e = versEcran(scene, p); return (i ? 'L' : 'M') + e.x.toFixed(1) + ' ' + e.y.toFixed(1); }).join(' ') + ' Z';
+  chemin.setAttribute('clip-rule', 'evenodd');
+  chemin.setAttribute('d', 'M-100000 -100000 H100000 V100000 H-100000 Z ' + trous.map(anneau).join(' '));
+  el.setAttribute('clip-path', 'url(#' + id + ')');
+}
+
 /** Ce que positionner un objet demande de savoir, en plus de l'objet lui-meme. */
 export interface ContextePositionnement {
   scene: EtatScene;
@@ -181,6 +208,8 @@ export interface ContextePositionnement {
   selectionnee: boolean;
   /** Objet masque : rien ne se dessine, poignees comprises. */
   masque: boolean;
+  /** Les trous d'une terrasse (bassin, trou), en anneaux interieurs : le contour en est perce. */
+  trous?: PtBrut[][];
   /** La terrasse isolee se dessine en transparence, pour laisser voir sa structure (app/isolement.ts). */
   transparent?: boolean;
   /** Fond orthophoto : la transparence du terrain est appliquee A L'AFFICHAGE, pas dans l'objet. */
@@ -228,6 +257,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
 
     if(obj.type==='polygon'){
       el.setAttribute('points', polyStr(ctx.scene, obj.pts));
+      percerContour(v, el, obj.key, ctx.trous ?? [], ctx.scene);
     } else if(obj.type==='path'){
       el.setAttribute('d', pathD(ctx.scene, obj.pts, !!obj.curve));
       el.setAttribute('stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));

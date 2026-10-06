@@ -111,6 +111,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   terrasses, la feuille de sélection, le résumé, le dossier PDF, la description du cerfa, la charge
   par plot et le chantier (pose des lames, nettoyage). Un bassin n'est plus compté comme un
   équipement posé sur la terrasse dans le dossier. Sans ouverture, rien ne change.
+- **La terrasse autour d'une piscine a le trou du bassin, dès sa création.** Sur le plan, la
+  terrasse posée par « Plage : terrasse du plan » (ou percée d'un trou) se dessine trouée au bord
+  extérieur des margelles : le bassin se voit au travers, même placé dessous. Les exports la
+  dessinent de même — SVG (gabarit de découpe, ignoré à la réimportation), PDF du plan et dossier
+  PDF (plan de masse et page de la terrasse), DXF (le trou en polyligne fermée sur le calque de la
+  terrasse). Le tableau des surfaces du PDF, la densité de vis de l'optimisation et l'onglet
+  Méthode comptent aussi la surface nette. Une terrasse sans trou s'écrit octet pour octet comme
+  avant (empreintes inchangées).
 
 - **Lame de rive côté par côté, et autour des trous.** Sous « Finitions du tour », une case par
   côté (son nom, mis en évidence sur le plan au survol) dit s'il porte une lame de rive : on la
