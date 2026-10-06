@@ -148,7 +148,10 @@ describe('l\'assise d\'une terrasse sur plots', () => {
     const chantier = computeChantier(t, computeTerrasseLayers(t, [t]));
     const poste = (cle: string) => chantier.lignes.find(l => l.cle === cle)?.qte ?? 0;
     expect(poste('coulage')).toBeCloseTo(5.2 * 4.2 * 0.12);
-    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 5.2 * 4.2 * 0.12);
+    // Le herisson, la dalle, et la fouille d'une hauteur de plot (10 cm) ou la dalle est coulee :
+    // dessus de dalle + plot = terrain (engine/hauteurs.ts, dalleEnFouille).
+    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 5.2 * 4.2 * 0.12 + 5.2 * 4.2 * 0.10);
+    expect(bom.find(l => l.poste === 'decaissementPose')!.qte).toBeCloseTo(5.2 * 4.2 * 0.10);
     expect(surfaceDalle(rect(0, 0, 5, 4), [rect(1, 1, 2, 2)])).toBeCloseTo(5.2 * 4.2 - 1, 3);
     const e = empriseDalle(rect(0, 0, 5, 4));
     expect(Math.min(...e.map(p => p.x))).toBeCloseTo(-0.1);

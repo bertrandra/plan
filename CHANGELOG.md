@@ -285,6 +285,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Terrasse sur dalle béton à couler : la dalle en fond de fouille, les plots posés dessus.** Par
+  défaut (sans niveau fini imposé), la dalle est coulée une hauteur de plot sous le terrain : dessus
+  de dalle + hauteur de plot = terrain naturel. Les plots se posent sur la dalle, leur tête au ras du
+  sol, et la structure démarre au niveau du terrain. En Vue 3D, la dalle est translucide pour qu'on
+  voie les plots ; la coupe dessine le terrain naturel au haut du plot. **Les quantités changent pour
+  ces terrasses** : un décaissement de pose de la hauteur du plot (sur l'emprise débordante de la
+  dalle) entre au BOM et au chantier, et la hauteur finie baisse d'autant. Un niveau fini imposé
+  garde la main ; les autres assises (concassé, dalle existante, massifs) ne changent pas, ni le plan
+  de démonstration (empreintes inchangées).
 - **La terrasse se règle par étapes, comme une piscine.** Les sections de l'inspecteur d'une
   terrasse sont numérotées dans l'ordre où l'on décide : « Terrasse · 1. Implantation et niveau »
   (niveau fini, décaissement, trous et ouvertures), « 2. Fondation et assise » (vis ou plots, et

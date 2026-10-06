@@ -21,7 +21,7 @@ import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
 import { buildVisGrid, findSpaZones, objetsQuiPercent, ouverturesDe, surfaceNetteTerrasse, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
-import { decaissementPoseMm, hauteurStructureMm } from '../../engine/hauteurs.js';
+import { dalleEnFouille, decaissementPoseMm, hauteurFinieMm, hauteurStructureMm } from '../../engine/hauteurs.js';
 import { estTrou } from '../../model/fonctions.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import type { Construction } from '../../model/types.js';
@@ -399,13 +399,14 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
       {
         type: 'case', cle: 'poseDecaissee', libelle: 'Imposer le niveau fini', historique: true, effets: ['terrasse', 'scene3d'],
         aide: 'Fixer la hauteur du dessus des lames par rapport au terrain naturel : de plain-pied (0 cm), au ras d\'un seuil ou des margelles d\'une piscine. La terrasse se pose alors dans le décaissement qu\'il faut.',
-        note: (cx) => niveauImpose(cx) ? 'niveau imposé' : 'posée sur le terrain, dessus à ' + (hauteurStructureMm(cx.obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm',
+        note: (cx) => niveauImpose(cx) ? 'niveau imposé'
+          : (dalleEnFouille(cx.construction()) ? 'dalle en fond de fouille, plots au ras du sol' : 'posée sur le terrain') + ', dessus à ' + (hauteurFinieMm(cx.obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm',
         lire: (cx) => niveauImpose(cx),
         ecrire: (cx, v) => { const c = cx.construction(); if (v) c.niveauFini = 0; else delete c.niveauFini; }
       },
       champ('niveauFini'),
       {
-        type: 'lecture', cle: 'decaissementPose', libelle: 'Décaissement de pose', visible: (cx) => niveauImpose(cx) && decaissementPoseMm(cx.obj) > 0,
+        type: 'lecture', cle: 'decaissementPose', libelle: 'Décaissement de pose', visible: (cx) => decaissementPoseMm(cx.obj) > 0,
         valeur: (cx) => {
           const obj = cx.obj;
           if (obj.type !== 'polygon') return '—';
