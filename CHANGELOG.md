@@ -33,21 +33,38 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (pièce DP3), sol en relief dans la Vue 3D ; les hauteurs de plots, vis et poteaux viendraient dans
   une version majeure suivante. Formats, limites et couverture vérifiés sur `data.geopf.fr` le
   6 octobre 2026. Documentation seulement.
-- **Relief : les courbes de niveau et le profil dans les rendus et les exports** (phase 1,
-  affichage seulement, `MD/spec-relief.md` §5.3, §5.4). Quand la parcelle porte un relief, le plan
-  dessine ses courbes de niveau sous les objets, au-dessus de la grille (`render/relief.ts`, crochet
-  `dessinerRelief` de `rendreScene`) : trait fin d'un brun discret (jeton nouveau `relief`, réglable
-  dans la palette), une courbe sur quatre maîtresse, étiquetée en altitude NGF. `plan.svg` les
-  écrit dans un groupe `relief-courbes` sans `data-*`, que l'import ignore. Le plan de masse (DP2)
-  les montre en gris, quelle que soit la préférence d'affichage, avec sa légende (« Courbes de
-  niveau tous les 0,25 m (IGN, LiDAR HD, 50 cm) »). Le dossier mairie gagne une **pièce DP3**, en
-  paysage : la coupe du terrain dans le sens de la plus grande pente par le point de référence de la
-  terrasse, lue dans la grille enregistrée (sans réseau), la terrasse et les abris traversés à leur
-  hauteur, les altitudes NGF, et la source (« Terrain naturel : IGN, LiDAR HD, 50 cm · acquis en
-  2021 ») ; les hauteurs sont exagérées (× 2, × 5) quand le dénivelé est faible, et le cartouche le
-  dit. La coupe AA du dossier piscine suit le relief le long de l'axe du bassin. Un projet sans
-  relief écrit exactement les mêmes fichiers qu'avant : les témoins de `tests/fixtures/golden/`
-  ne bougent pas.
+- **Le relief du terrain, phase 1 : lu à l'IGN, enregistré, montré** (`MD/spec-relief.md`).
+  Sur un plan calé par le cadastre, la section « Relief » de la parcelle (inspecteur) propose
+  « Lire le relief (IGN) » : une grille d'altitudes du sol est lue en une requête WMS en nombres
+  bruts — LiDAR HD à 50 cm là où ses dalles sont publiées, RGE ALTI à 1 m ailleurs — sur la
+  parcelle et dix mètres d'abords, puis **enregistrée dans le projet** avec sa source, sa date et
+  sa précision (masque de source du RGE ALTI, ou la dalle LiDAR). Rien ne la relit sans qu'on le
+  demande : « Actualiser le relief » la remplace, « Supprimer le relief » rend le plan plat ; les
+  deux s'annulent. Le zéro du plan est le sol au centre de la terrasse, fixé à la lecture.
+  - **Inspecteur** : source, date, précision, altitude NGF du zéro, pente moyenne et orientation
+    (« 4,2 % vers le SO », ou « sensiblement plat »), dénivelé ; préférences d'affichage (courbes,
+    équidistance auto / 10 cm / 25 cm / 50 cm / 1 m, sol en relief en 3D) rangées dans le projet
+    sans Ctrl+Z ni « projet modifié », comme « Filaire ».
+  - **Plan** : les courbes de niveau sous les objets, au-dessus de la grille, trait fin d'un brun
+    discret (jeton nouveau `relief`, réglable dans la palette), une courbe sur quatre maîtresse et
+    étiquetée en altitude NGF. Une cote dit son dénivelé (« · Δ +0,42 m ») entre ses deux bouts.
+  - **Profil** : un onglet du tiroir des résultats trace la coupe du sol dans le sens de la plus
+    grande pente par le point de référence, ou le long d'une cote existante (bouton « Profil » de
+    l'onglet Cotes), avec les altitudes NGF et une exagération verticale écrite.
+  - **Exports** : `plan.svg` écrit les courbes dans un groupe `relief-courbes` sans `data-*`, que
+    l'import ignore ; le plan de masse (DP2) les montre en gris avec leur légende ; le dossier
+    mairie gagne une **pièce DP3**, en paysage, la coupe du terrain lue dans la grille enregistrée
+    (sans réseau), la terrasse et les abris traversés à leur hauteur, la source citée ; la coupe AA
+    du dossier piscine suit le relief le long de l'axe du bassin.
+  - **Vue 3D** : le sol suit la grille, l'orthophoto l'épouse, chaque objet se pose sur son sol
+    (base au point le plus bas, haut au sol du centre) ; la clôture suit le terrain panneau par
+    panneau ; la terrasse courante reste à sa hauteur finie au-dessus du zéro : en aval, on voit
+    le vide sous les lambourdes, que la phase 2 remplira.
+  - **Données** : schéma de projet **4** (migration 3 → 4 identité ; un projet sans relief s'écrit
+    toujours au schéma 3) ; capacité `plan.relief` ; `contrat/plan-produit.json` annonce le
+    schéma 4 — **la plateforme doit l'accepter avant la livraison**. Aucune quantité ne change :
+    un projet sans relief écrit exactement les mêmes fichiers qu'avant, les témoins de
+    `tests/fixtures/golden/` ne bougent pas.
 - **Portails et portillons : glisser sur le plan.** Un accès se saisit sur le plan 2D et glisse le
   long de la clôture, à la souris ou au doigt. Il suit le côté le plus proche du pointeur, passe
   d'un côté à l'autre à un angle, et ne sort jamais de son côté. Il ne saute pas sous le pointeur :
