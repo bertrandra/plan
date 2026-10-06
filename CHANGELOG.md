@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Voisinage étendu : tout ce qui est dans un rayon de 200 ou 500 m.** Dans « Actualiser depuis
+  l'IGN », l'import de voisinage propose, à côté des parcelles adjacentes, « Tout dans un rayon de
+  200 m » ou « de 500 m » : toutes les parcelles et tout le bâti (et, si cochées, les haies et zones de
+  végétation) à moins de cette distance du centre de la parcelle, sans filtre de commune, lus en
+  **plusieurs requêtes** à l'IGN (API Carto par pages de 1 000 parcelles, BD TOPO par pages au WFS),
+  les plus proches d'abord, plafonnés à 2 000 objets par famille (le bilan le dit). Les arbres estimés
+  restent à moins de 100 m de la parcelle. Tout arrive marqué « voisinage », masquable d'un coup, et
+  rien de déjà présent n'est dupliqué. Le mode « Parcelles adjacentes » ne change pas.
 - **Centrer une piscine ou un trou sur sa terrasse.** Un bouton « Centrer sur la terrasse » (étape
   1 de la piscine ; section « Trou dans la terrasse » d'un trou) déplace le bassin ou le trou pour
   que son centre de surface tombe au centre de sa terrasse — la plage liée au bassin, sinon la
