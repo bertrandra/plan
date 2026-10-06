@@ -20,7 +20,10 @@ import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } 
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
 import { rendreScene } from '../render/pipeline.js';
-import { restaurerOrthoDuProjet, basculerOrthophoto, ortho } from '../render/ortho.js';
+import { restaurerOrthoDuProjet, basculerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
+import { dessinerCourbesRelief } from '../render/relief.js';
+import { brancherRelief } from './ecouteurs/relief.js';
+import { lectureRelief } from '../core/lectureRelief.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -178,6 +181,10 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     montrerResume: () => {
       tiroir.activer('resume');
       if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
+    },
+    montrerProfil: () => {
+      tiroir.activer('profil');
+      if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
     }
   }, magasin);
 
@@ -187,6 +194,8 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     const contexteChange = synchroniserContexteTerrasse(etat);
     rendreScene(etat, {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
+      // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
+      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene),
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
       renderReleves: () => {
         dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
@@ -292,6 +301,13 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     sectionsRepliees: { lire: () => magasin.store.getState().sectionsRepliees, definir: (v) => magasin.definirSectionsRepliees(v) }
   }, commandes);
+  // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
+  // orthophoto, qui sait deja ou le plan est sur la Terre.
+  brancherRelief(atelier, {
+    reference: () => referenceGeoPlan(ch.ctxOrtho()),
+    buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
+    rafraichir: () => magasin.notifier()
+  }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {
@@ -382,6 +398,8 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   const { etat, magasin, commandes, tiroir, cadrage } = p;
   // La commande « Actualiser IGN » se grise pendant une actualisation : les zones doivent le voir.
   actualisation.abonner(() => magasin.notifier());
+  // Meme chose pour la lecture du relief : le bouton de l'inspecteur dit « Lecture… » pendant l'appel.
+  lectureRelief.abonner(() => magasin.notifier());
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);

@@ -139,6 +139,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'chantier.cadence': { libelle: 'Cadence d’un poste (heures par unité)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'implantation.echelle': { libelle: 'Échelle du plan d’implantation', zone: Z6, nature: 'donnee', ecrit: SAISIE },
   'implantation.imprimer': { libelle: 'Imprimer le plan d’implantation', zone: Z6, nature: 'sortie' },
+  // Le profil du sol (MD/spec-relief.md §5.4) : la ligne vient d'une cote, ou de la pente proposee.
+  'cote.profil': { libelle: 'Profil du sol le long de cette cote', zone: Z6, nature: 'sortie', repete: true, description: 'Prend les deux bouts de la cote comme ligne du profil et ouvre l’onglet Profil' },
+  'profil.sensPente': { libelle: 'Profil dans le sens de la pente', zone: Z6, nature: 'affichage', description: 'Revient à la ligne que Plan propose : la plus grande pente par le point de référence' },
 
   // ---- Feuilles et notifications : les cadres communs ------------------------------------------
   'feuille.hauteur': { libelle: 'Hauteur de la feuille (glisser la poignée)', zone: FEUILLES, nature: 'navigation', repete: true, dansChaqueZone: true },

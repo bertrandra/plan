@@ -6,6 +6,7 @@
 // toute modification passe par le service, s'annule et marque le projet modifie.
 
 import { mesure } from '../../interaction/outilMesure.js';
+import { deniveleCote, geometrieMesure, reliefDesCotes, texteDenivele } from '../../render/measures.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -44,17 +45,24 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
 
 export function Cotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes }) {
   const cotes = resultats.etat.measures;
+  const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
   const ecrire = commandes.etat('mesure.supprimer').utilisable;
+  // Avec un relief, chaque cote dit son denivele et peut donner sa ligne au profil du sol (§5.2, §5.4).
+  const relief = !!reliefDesCotes(objets);
   return (
     <>
       <div className="sectionTitle">Mesure</div>
       <Brouillon resultats={resultats} commandes={commandes} />
       <table className="attrTable" id="measureResultsTable"><tbody>
-        <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th><th>Affichage</th><th>Afficher</th><th></th></tr>
+        <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th>{relief && <th>Dénivelé</th>}<th>Affichage</th><th>Afficher</th>{relief && <th>Profil</th>}<th></th></tr>
         {cotes.map(m => {
           const g = resultats.geometrieCote(m);
           const mode = m.displayMode || 'along';
+          // La geometrie complete, pour le denivele et la ligne du profil : les deux bouts de la cote.
+          const geo = relief ? geometrieMesure(objets, m) : null;
+          const d = geo ? deniveleCote(objets, geo, mode) : null;
+          const ligne = geo ? (mode === 'along' ? { a: geo.A, b: geo.foot } : { a: geo.foot, b: geo.p }) : null;
           return (
             <tr key={m.id} data-instance={m.id}>
               <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
@@ -63,11 +71,14 @@ export function Cotes({ resultats, commandes }: { resultats: Resultats; commande
                 onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
               <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
               <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
+              {relief && <td>{d === null ? '—' : texteDenivele(d)}</td>}
               <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
                 onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
                 {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
               <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"
                 onChange={() => commandes.executer('mesure.afficher', undefined, { cote: m.id })} /></td>
+              {relief && <td><button type="button" data-controle="cote.profil" className="secondary small" disabled={!ligne} title="Montrer le profil du sol le long de cette cote, dans l’onglet Profil"
+                onClick={() => { if (ligne) resultats.profiler(ligne); }}>Profil</button></td>}
               <td><button type="button" data-commande="mesure.supprimer" disabled={!ecrire} className="secondary small" onClick={() => commandes.executer('mesure.supprimer', undefined, { cote: m.id })}>Supprimer</button></td>
             </tr>
           );
