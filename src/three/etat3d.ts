@@ -168,6 +168,8 @@ export const vue3d: {
   tousLesObjets: boolean;
   /** Sol en coupe sous la terrasse : l'assise et les fondations se voient (three/assise3d.ts). */
   solEnCoupe: boolean;
+  /** Les lames translucides : on voit la structure bois, les plots et leur assise dessous. */
+  platelageTranslucide: boolean;
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
@@ -179,6 +181,7 @@ export const vue3d: {
   // Montrer tout le plan par defaut : une terrasse seule au milieu du vide ne se situe pas.
   tousLesObjets: true,
   solEnCoupe: false,
+  platelageTranslucide: false,
   objetsOpaques: true,
   textures: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la

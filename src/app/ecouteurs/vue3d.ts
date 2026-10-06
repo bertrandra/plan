@@ -51,6 +51,7 @@ export interface ReglagesVue3d {
   basculerFilaire(actif: boolean): void;
   basculerTousLesObjets(actif: boolean): void;
   basculerSolEnCoupe(actif: boolean): void;
+  basculerPlatelageTranslucide(actif: boolean): void;
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
@@ -161,6 +162,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     basculerTousLesObjets: (actif) => preference(() => { vue3d.tousLesObjets = actif; }),
     /** Le sol perce sous la terrasse : herisson, dalle, massifs ou futs de vis, a leur profondeur. */
     basculerSolEnCoupe: (actif) => preference(() => { vue3d.solEnCoupe = actif; }),
+    /** Les lames translucides, comme pour une terrasse isolee : les plots se voient sur leur assise. */
+    basculerPlatelageTranslucide: (actif) => preference(() => { vue3d.platelageTranslucide = actif; }),
     basculerOpaques: (actif) => preference(() => { vue3d.objetsOpaques = actif; }),
     /**
      * Cochée par défaut. La décocher revient à la couleur unie du plan sans avoir à retirer la

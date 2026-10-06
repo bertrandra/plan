@@ -12,6 +12,7 @@ import { centroid } from '../../geometry/basic.js';
 import { enPoints, enCercle } from '../../model/formes.js';
 import { estPiscine, estTerrasse } from '../../model/fonctions.js';
 import { terrasseDeLaPiscine } from '../../engine/piscine.js';
+import { decalageDeCentrage } from '../../engine/structure.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -69,6 +70,25 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selectionne = () => a.objByKey(a.etat.selectedKey);
   commande('objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle'; } });
   commande('objet.supprimer', 'Supprimer l’objet', () => a.deleteSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle' && !o.locked; } });
+  // Une piscine ou un trou recentre sur sa terrasse (la plage d'un bassin, ou celle qu'il perce) :
+  // un seul geste, annulable. Deja centre a 1 mm pres, il n'y a rien a faire.
+  const aCentrer = () => {
+    const o = selectionne();
+    if (!o || o.locked) return undefined;
+    const d = decalageDeCentrage(o, a.etat.objects);
+    return d && Math.hypot(d.x, d.y) > 0.001 ? { o, d } : undefined;
+  };
+  commande('objet.centrerSurTerrasse', 'Centrer sur la terrasse', () => {
+    const x = aCentrer();
+    if (!x) return;
+    a.pushHistory();
+    const { o, d } = x;
+    if (o.type === 'circle') o.center = { x: o.center.x + d.x, y: o.center.y + d.y };
+    else o.pts = o.pts.map(p => ({ x: p.x + d.x, y: p.y + d.y }));
+    a.rebuildHandles(o);
+    a.markDirty();
+    a.render();
+  }, { actif: () => !!aCentrer() });
 
   /**
    * Reculer d'un cran. Le double-clic sur la forme fait la même chose, mais c'est un geste fragile

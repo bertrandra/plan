@@ -23,7 +23,7 @@ import { sectionsCloture } from './cloture.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
-import { surfaceNetteTerrasse } from '../../engine/structure.js';
+import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'tremie', 'limite', 'autre'];
@@ -217,6 +217,19 @@ const sectionApparence: Section = {
 // Le feuillage est une sphere posee sur le tronc : un jeu de champs a part, independant de la
 // hauteur du tronc, parce qu'un feuillage n'a ni la forme ni la matiere de l'ecorce. Une section a
 // lui, comme le parasol : ce sont les reglages de l'arbre, pas son apparence au plan.
+/** Un trou dans une terrasse (arbre conserve, trappe) : la terrasse qu'il perce, et le recentrer. */
+const sectionTrou: Section = {
+  id: 'trou', titre: 'Trou dans la terrasse',
+  champs: [
+    { type: 'lecture', cle: 'terrasseDuTrou', libelle: 'Terrasse', valeur: (c) => terrasseHote(c.obj, c.objets)?.name ?? 'Aucune — le trou ne perce pas de terrasse' },
+    {
+      type: 'bouton', cle: 'centrerSurTerrasse', libelle: '', nom: 'Centrer le trou sur sa terrasse',
+      visible: (c) => !!terrasseHote(c.obj, c.objets), texte: () => 'Centrer sur la terrasse',
+      agit: { commande: 'objet.centrerSurTerrasse' }, executer: (c) => c.executerCommande('objet.centrerSurTerrasse')
+    }
+  ]
+};
+
 const sectionArbre: Section = {
   id: 'arbre', titre: 'Arbre',
   champs: [
@@ -463,6 +476,7 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
+  if (aParticularite(o, 'ouverture')) sections.push(sectionTrou);
   if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
   if (aParticularite(o, 'pointDeVue')) sections.push(sectionPointDeVue);
   if (aParticularite(o, 'abri')) sections.push(...sectionsPergola(c));

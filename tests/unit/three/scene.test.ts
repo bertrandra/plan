@@ -144,3 +144,27 @@ describe('l empilement de la terrasse en 3D', () => {
     vue3d.textures = textures;
   });
 });
+
+describe('platelage translucide', () => {
+  it('garde les lames pleines par defaut ; case cochee, presque transparentes', async () => {
+    const opacites = () => {
+      const o = new Set<number>();
+      vue3d.scene?.scene.traverse((m) => {
+        const mat = (m as THREE_NS.Mesh).material as THREE_NS.MeshStandardMaterial | undefined;
+        if ((m as THREE_NS.Mesh).isMesh && mat?.color?.getHexString() === 'c9a15a') o.add(mat.transparent ? mat.opacity : 1);
+      });
+      return [...o];
+    };
+    const textures = vue3d.textures;
+    vue3d.textures = false;
+    for (const [translucide, attendu] of [[false, [1]], [true, [0.15]]] as const) {
+      vue3d.platelageTranslucide = translucide;
+      vue3d.scene = null; vue3d.dernierObjKey = null;
+      buildThreeScene(terrasse(), etat(), contexte());
+      await attendre();
+      expect(opacites()).toEqual(attendu);
+    }
+    vue3d.platelageTranslucide = false;
+    vue3d.textures = textures;
+  });
+});

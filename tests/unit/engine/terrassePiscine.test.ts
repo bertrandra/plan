@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculerPiscine, chiffrerPiscine, constructionDeLaPlage, contourTerrasseAutour, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee, terrasseDeLaPiscine
 } from '../../../src/engine/piscine.js';
-import { aireCommune, computeStructure, contourOuverture, couperAuContour, empriseDalle, objetsQuiPercent, surfaceDalle } from '../../../src/engine/structure.js';
+import { aireCommune, computeStructure, decalageDeCentrage, terrasseHote, contourOuverture, couperAuContour, empriseDalle, objetsQuiPercent, surfaceDalle } from '../../../src/engine/structure.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
 import { computeChantier } from '../../../src/engine/chantier.js';
@@ -205,5 +205,26 @@ describe('la plage creee au niveau des margelles', () => {
 
   it('une ancienne plage en bois garde son essence', () => {
     expect(constructionDeLaPlage(piscine(8, 4, { essencePlage: 'ipe' } as Piscine)).essenceBois).toBe('ipe');
+  });
+});
+
+describe('centrer un bassin sur sa terrasse', () => {
+  it('prend la terrasse liee, et donne le deplacement d un centre a l autre', () => {
+    const p = piscine(8, 4, { plage: 'terrasse', terrasseKey: 't' });
+    const t = terrasse(rect(-3, -3, 11, 7));
+    expect(terrasseHote(p, [p, t])).toBe(t);
+    // Bassin 8 x 4 a (0..8, 0..4), terrasse (-3..11, -3..7) : deja centre.
+    expect(decalageDeCentrage(p, [p, t])).toEqual({ x: 0, y: 0 });
+    const decalee = terrasse(rect(-1, -3, 13, 7));
+    const d = decalageDeCentrage(p, [p, decalee])!;
+    expect([d.x, d.y]).toEqual([2, 0]);
+  });
+
+  it('sans terrasse liee, celle que le bassin perce ; aucune s il est dehors', () => {
+    const p = piscine(8, 4);
+    const t = { ...terrasse(rect(-3, -3, 11, 7)), key: 'autre' } as ObjetPlan;
+    expect(terrasseHote(p, [p, t])).toBe(t);
+    expect(terrasseHote(p, [p, terrasse(rect(20, 20, 30, 30))])).toBeUndefined();
+    expect(decalageDeCentrage(t, [p, t])).toBeNull();
   });
 });
