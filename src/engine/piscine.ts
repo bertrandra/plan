@@ -22,10 +22,13 @@ import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, polygonOffset } from '../geometry/polygon.js';
 import { distancePointSegment, projectOntoSegment } from '../geometry/segments.js';
-import { ESSENCE_PRICES, essenceDe, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM } from './constantes.js';
+import { ESSENCE_PRICES, essenceDe, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM } from './constantes.js';
+import { constructionTerrasseNeuve } from './construction.js';
+import { hauteurStructureMm } from './hauteurs.js';
 import { maxEntraxeLameCm, maxPorteeVisM } from './portees.js';
 import { estPiscine, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type {
+  Construction,
   ChauffagePiscine, FondPiscine, ImplantationPiscine, LigneBom, LocalTechniquePiscine, ObjetPlan, Piscine, PlagePiscine,
   PtBrut, RevetementPiscine, SecuritePiscine, StructurePiscine, TraitementPiscine
 } from '../model/types.js';
@@ -527,6 +530,26 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
  * l'entoure — quatre coins faciles a tirer plutot que quarante-huit. `null` si le bassin n'est pas
  * calculable.
  */
+/**
+ * La construction de la terrasse posee autour d'un bassin (plage « terrasse du plan ») : une
+ * terrasse neuve sur plots, le dessus des lames au ras des margelles (ou du haut des parois sans
+ * margelle). Plus bas que la structure, la terrasse se pose dans un decaissement ; plus haut (bassin
+ * semi-enterre ou hors-sol), les plots montent de l'ecart, dans leur domaine (`PLOT_HAUTEUR_MAX_CM`).
+ * Une ancienne plage en bois calculee garde son essence.
+ */
+export function constructionDeLaPlage(piscine: ObjetPlan): Construction {
+  const construction = constructionTerrasseNeuve();
+  const essence = piscine.piscine?.essencePlage;
+  if (essence) construction.essenceBois = essence;
+  const calc = calculerPiscine(piscine);
+  if (!calc) return construction;
+  construction.niveauFini = Math.round((calc.hauteurHorsSol + (calc.reglages.margelle ? EPAISSEUR_MARGELLE_M : 0)) * 1000) / 10;
+  // Au centimetre superieur : le peu qui depasse se reprend dans le decaissement.
+  const manque = construction.niveauFini * 10 - hauteurStructureMm({ construction });
+  if (manque > 0) construction.hauteurPlot = Math.min(PLOT_HAUTEUR_MAX_CM, Math.ceil((construction.hauteurPlot || 10) + manque / 10));
+  return construction;
+}
+
 export function contourTerrasseAutour(o: ObjetPlan): PtBrut[] | null {
   const calc = calculerPiscine(o);
   if (!calc) return null;

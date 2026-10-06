@@ -309,6 +309,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Margelle et terrasse au même niveau à la création.** En Vue 3D, une terrasse sur plots en
+  structure simple dessinait ses lambourdes sans hauteur, et son cadre aussi : les lames reposaient
+  directement sur les plots, 7 cm sous la hauteur finie calculée (et sous les margelles d'une
+  piscine). Sur plots, les lambourdes ont toujours leur section en 3D, comme dans les hauteurs, la
+  coupe et le chiffrage : lames sur la structure bois, structure sur les plots, plots sur leur
+  assise. À la création de la terrasse d'une piscine semi-enterrée, les plots montent de l'écart
+  pour que les lames arrivent au ras des margelles (`constructionDeLaPlage`) ; hors-sol, ils
+  plafonnent à 100 cm et l'inspecteur signale la différence.
 - **Lames coupées à la forme du trou.** Autour d'un bassin ou d'une trémie, chaque lame de la Vue 3D
   (et du GLB) s'arrêtait d'équerre : sur un bord oblique ou rond, un coin débordait dans le trou et
   l'autre s'arrêtait court. Elle est maintenant découpée exactement au bord du trou

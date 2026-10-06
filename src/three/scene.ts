@@ -250,7 +250,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   const soliveDims = (c.soliveSection || '45x70').split('x').map(n => parseInt(n, 10) || 0);
   const soliveH = (soliveDims[1] || 70) / 1000, soliveW = (soliveDims[0] || 45) / 1000;
   const lambDims = dimsSection(sectionLambourde(c));
-  const lambH = c.avecLambourde ? lambDims.h / 1000 : 0;
+  // Sur plots il y a toujours des lambourdes (engine/structure.ts, engine/hauteurs.ts) : en structure
+  // simple ce sont elles qui portent les lames, et le cadre a leur section.
+  const lambH = (c.avecLambourde || estPlots(c)) ? lambDims.h / 1000 : 0;
   const lambW = lambDims.b / 1000;
   const lameH = (c.epaisseurLame || 25) / 1000;
   const lameW = (c.largeurLame || 140) / 1000;

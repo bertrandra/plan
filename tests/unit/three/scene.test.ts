@@ -112,3 +112,35 @@ describe('buildThreeScene', () => {
     expect(bannieres[0]).toMatch(/contexte 3D/);
   });
 });
+
+describe('l empilement de la terrasse en 3D', () => {
+  // Les lames sur la structure bois, la structure sur les appuis : le dessus des lames tombe a la
+  // hauteur finie que donnent engine/hauteurs.ts, la coupe et le chiffrage. Sur plots en structure
+  // simple, les lambourdes etaient dessinees sans hauteur et les lames posees sur les plots.
+  const dessusDesLames = () => {
+    let max = -Infinity;
+    vue3d.scene?.scene.traverse((o) => {
+      const m = o as THREE_NS.Mesh;
+      if (m.isMesh && (m.material as THREE_NS.MeshStandardMaterial).color?.getHexString() === 'c9a15a') {
+        m.updateMatrixWorld(true);
+        max = Math.max(max, new THREE_NS.Box3().setFromObject(m).max.y);
+      }
+    });
+    return max;
+  };
+
+  it('pose les lames a la hauteur finie, sur vis comme sur plots en structure simple', async () => {
+    const { hauteurAppuiMm, hauteurFinieMm } = await import('../../../src/engine/hauteurs.js');
+    const textures = vue3d.textures;
+    for (const reglage of [{}, { typePose: 'plots', plotAvecSolives: false, avecLambourde: false, hauteurPlot: 10 }]) {
+      objets = normaliserEnObjetsDuPlan(JSON.parse(JSON.stringify(DEMO_OBJECTS)));
+      const t = terrasse()!;
+      Object.assign(t.construction!, reglage);
+      vue3d.scene = null; vue3d.dernierObjKey = null; vue3d.textures = false;
+      buildThreeScene(t, etat(), contexte({ hauteurAppuiMm }));
+      await attendre();
+      expect(dessusDesLames()).toBeCloseTo(hauteurFinieMm(t) / 1000, 3);
+    }
+    vue3d.textures = textures;
+  });
+});
