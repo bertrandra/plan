@@ -6,9 +6,14 @@
 // a `Construction` sans descripteur (ou sans mention explicite de l'endroit qui l'edite) est une
 // erreur de compilation. C'est la garantie que D-12 demandait.
 //
-// Les sections reprennent la structure de l'ouvrage, du sol vers la finition, et les notes qui
-// accompagnent chaque champ sont celles du metier : ce que vaut la portee calculee, quand un plot
-// sort du domaine du DTU, combien de vis la grille compte.
+// Comme pour une piscine (ui/champs/piscine.ts), la terrasse se regle par etapes numerotees, dans
+// l'ordre ou l'on decide : 1. l'implantation et le niveau fini (decaissement, trous), 2. la
+// fondation et son assise, 3. les lames, 4. la structure qui les porte, 5. les appuis et leurs
+// charges, 6. les finitions du tour, 7. l'optimisation ; les parametres de calcul, replies, a la
+// fin. Chaque etape ne montre que ce qui a un sens apres les choix precedents : pas d'assise sous
+// des vis, pas de solives sous des lambourdes posees sur plots. Les notes qui accompagnent chaque
+// champ sont celles du metier : ce que vaut la portee calculee, quand un plot sort du domaine du
+// DTU, combien de vis la grille compte.
 
 import { au } from '../../util/tableaux.js';
 import { shoelace } from '../../geometry/basic.js';
@@ -79,7 +84,7 @@ type Ailleurs = { ailleurs: 'onglet BOM' | 'onglet Chantier' | 'onglet Implantat
  * la liste soit complete : ajouter une propriete au modele sans passer ici ne compile pas.
  */
 export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ | Ailleurs } = {
-  // ---- Fondation et appuis ------------------------------------------------------------------
+  // ---- Fondation, assise et appuis (etapes 2 et 5) -------------------------------------------
   typePose: reglage({
     type: 'choix', cle: 'typePose', libelle: 'Type de pose',
     options: () => [{ valeur: 'vis-fondation', libelle: 'Sur vis de fondation' }, { valeur: 'plots', libelle: 'Sur plots réglables' }],
@@ -383,9 +388,13 @@ function champsRiveParCote(c?: ContexteChamps): Champ[] {
   }));
 }
 
+/** Les etapes de la terrasse, dans l'ordre ou l'on decide (voir l'en-tete). */
 export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: ContexteChamps): Section[] {
-  const fondation: Section = {
-    id: 'fondation', titre: 'Fondation et appuis',
+  // Le niveau fini d'abord : il fixe le decaissement, donc ce qui reste de hauteur aux appuis. Puis
+  // ce qui interrompt le platelage : un bassin, un trou (arbre conserve, trappe). Chacun est un
+  // objet du plan, qu'on deplace et qu'on retaille comme les autres ; la terrasse s'arrete a son bord.
+  const implantation: Section = {
+    id: 'implantation', titre: 'Terrasse · 1. Implantation et niveau',
     champs: [
       {
         type: 'case', cle: 'poseDecaissee', libelle: 'Imposer le niveau fini', historique: true, effets: ['terrasse', 'scene3d'],
@@ -404,17 +413,6 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
           return (decaissementPoseMm(obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm, ' + m3.toFixed(2).replace('.', ',') + ' m³ de terre à évacuer — chiffré au BOM';
         }
       },
-      champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'), champ('plotAvecSolives'),
-      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('plotsDansEmprise'), champ('chargeNormale'), champ('chargeSpa'),
-      champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
-      ...alertes
-    ]
-  };
-  // Ce qui interrompt le platelage : un bassin, un trou (arbre conserve, trappe). Chacun est un objet
-  // du plan, qu'on deplace et qu'on retaille comme les autres ; la terrasse s'arrete a son bord.
-  const ouvertures: Section = {
-    id: 'ouvertures', titre: 'Trous et ouvertures',
-    champs: [
       {
         type: 'lecture', cle: 'listeOuvertures', libelle: 'Ouvertures',
         valeur: (cx) => {
@@ -429,21 +427,42 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
       }
     ]
   };
-  const structure: Section = {
-    id: 'structure', titre: 'Structure porteuse',
-    champs: [champ('soliveEntraxe'), champ('soliveSection'), champ('avecLambourde'), champ('lambourdeSection'), champ('lambourdeEntraxe')]
+  // Le systeme de fondation decide de tout ce qui suit : une vis est fondee (hors gel par sa
+  // profondeur), un plot est pose et demande une assise.
+  const fondation: Section = {
+    id: 'fondation', titre: '2. Fondation et assise',
+    champs: [
+      champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'),
+      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise')
+    ]
   };
+  // Les lames avant la structure : leur epaisseur borne l'entraxe de ce qui les porte.
   const lames: Section = {
-    id: 'lames', titre: 'Lames et sens de pose',
+    id: 'lames', titre: '3. Lames et sens de pose',
     champs: [champ('segmentReference'), champ('sensPose'), champ('essenceBois'), champ('coefRaideurLame'), champ('largeurLame'), champ('epaisseurLame')]
   };
+  // Sur plots, la structure simple (lambourdes sur plots) ou double (solives dessous) d'abord : les
+  // solives n'existent que dans la seconde.
+  const structure: Section = {
+    id: 'structure', titre: '4. Structure porteuse',
+    champs: [champ('plotAvecSolives'), champ('soliveEntraxe'), champ('soliveSection'), champ('avecLambourde'), champ('lambourdeSection'), champ('lambourdeEntraxe')]
+  };
+  // Les appuis en dernier : leur entraxe se deduit de la portee de la structure et des charges.
+  const appuis: Section = {
+    id: 'appuis', titre: '5. Appuis et charges',
+    champs: [
+      champ('chargeNormale'), champ('chargeSpa'), champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'),
+      champ('plotsDansEmprise'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
+      ...alertes
+    ]
+  };
   const finitions: Section = {
-    id: 'finitions', titre: 'Finitions du tour',
+    id: 'finitions', titre: '6. Finitions du tour',
     champs: [champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };
   // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement.
   const optimisation: Section = {
-    id: 'optimisation', titre: 'Optimisation',
+    id: 'optimisation', titre: '7. Optimisation',
     champs: [
       { type: 'bouton', cle: 'optimiser', libelle: '', nom: 'Optimisation des paramètres (afficher ou masquer)', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
       { type: 'optimisation', cle: 'resultat', libelle: '', nom: 'Tableau d’optimisation' }
@@ -472,5 +491,5 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
       { type: 'lecture', cle: 'prixVis', libelle: 'Prix indicatifs', visible: (cx) => !lire(cx).plots, valeur: () => 'vis ' + VIS_PRICE.bas + '-' + VIS_PRICE.haut + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · visserie ' + VISSERIE_PRICE.bas + '-' + VISSERIE_PRICE.haut + ' €/m² · rive ' + LAME_RIVE_PRICE.bas + '-' + LAME_RIVE_PRICE.haut + ' €/ml — utilisés tant qu\'aucun prix réel n\'est saisi' }
     ]
   };
-  return [fondation, ouvertures, structure, lames, finitions, optimisation, parametres];
+  return [implantation, fondation, lames, structure, appuis, finitions, optimisation, parametres];
 }

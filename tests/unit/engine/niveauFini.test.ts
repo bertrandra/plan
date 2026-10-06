@@ -59,7 +59,7 @@ describe('niveau fini et decaissement', () => {
 
 describe('inspecteur : imposer le niveau fini', () => {
   const contexte = (obj: ObjetPlan) => ({ obj, objets: [obj], construction: () => obj.construction!, elevationOf: () => 0, executerCommande: vi.fn() }) as unknown as ContexteChamps;
-  const fondation = () => sectionsConstruction({ visible: () => false }).find(s => s.id === 'fondation')!;
+  const fondation = () => sectionsConstruction({ visible: () => false }).find(s => s.id === 'implantation')!;
 
   it('la case pose 0 cm, le champ dit le decaissement, decocher rend la pose sur le terrain', () => {
     const t = terrasse(constructionTerrasseNeuve());

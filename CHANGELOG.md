@@ -274,6 +274,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La terrasse se règle par étapes, comme une piscine.** Les sections de l'inspecteur d'une
+  terrasse sont numérotées dans l'ordre où l'on décide : « Terrasse · 1. Implantation et niveau »
+  (niveau fini, décaissement, trous et ouvertures), « 2. Fondation et assise » (vis ou plots, et
+  l'assise sous les plots), « 3. Lames et sens de pose », « 4. Structure porteuse » (structure
+  simple ou double sur plots, solives, lambourdes), « 5. Appuis et charges » (charges, entraxes,
+  plots dans l'emprise, zone spa, alertes), « 6. Finitions du tour », « 7. Optimisation », puis
+  « Paramètres de calcul », replié. Chaque étape ne montre que ce qui a un sens après les
+  précédentes. Comme celles d'une piscine, elles viennent avant la géométrie (côtés, coins,
+  alignement). Aucun réglage n'est ajouté ni retiré : seul leur rangement change.
 - **Une terrasse neuve est posée sur plots.** Choisir la fonction « Terrasse » sur un objet qui n'a
   pas encore de construction, ou poser la terrasse d'une piscine, donne une pose sur plots. Un
   projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
