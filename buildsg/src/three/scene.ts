@@ -14,6 +14,7 @@ import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { decaissementPoseMm } from '../engine/hauteurs.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
+import { formeDeTerrasse, trousDeTerrasse } from '../engine/structure.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { dimsSection, sectionLambourde } from '../engine/portees.js';
 import { hauteurParasolDe } from '../engine/parasol.js';
@@ -406,7 +407,12 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun a sa hauteur
     // (facade/profil.ts) ; tout autre objet reste un seul prisme.
     const volumes = o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
-    volumes.forEach((v) => prim.addPrism(v.pts, 0, v.hauteur, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o)));
+    // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
+    // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
+    // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
+    const forme = formeDeTerrasse(o, etat.objects);
+    const pieces = forme ? forme.map((m) => ({ pts: m.contour, hauteur: h, trous: m.trous })) : volumes.map((v) => ({ ...v, trous: trousDeTerrasse(o, etat.objects) }));
+    pieces.forEach((v) => prim.addPrism(v.pts, 0, v.hauteur, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o), v.trous));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme.
     if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
       ajouterReleve3d({ scene: co.scene, toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);
