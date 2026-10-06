@@ -711,8 +711,13 @@ export type StructurePiscine = 'coque' | 'maconnerie' | 'kit';
 export type RevetementPiscine = 'liner' | 'membrane-armee' | 'carrelage' | 'enduit' | 'gelcoat';
 /** Le fond : plat, en pente reguliere, ou plat puis une fosse a plonger au grand bain. */
 export type FondPiscine = 'plat' | 'pente' | 'fosse';
-/** Ce qui entoure le bassin au-dela des margelles. */
-export type PlagePiscine = 'aucune' | 'terrasse-bois' | 'dallage';
+/**
+ * Ce qui entoure le bassin au-dela des margelles. `terrasse` : une terrasse du plan, objet a part
+ * dessine et chiffre comme toute terrasse, que le bassin perce (`Piscine.terrasseKey`).
+ * `terrasse-bois` : la plage en bois que la piscine calculait elle-meme jusqu'a la 2.2.0, gardee
+ * telle quelle pour qu'un projet enregistre alors redonne les memes quantites.
+ */
+export type PlagePiscine = 'aucune' | 'terrasse' | 'terrasse-bois' | 'dallage';
 /** Le dispositif de securite obligatoire (loi du 3 janvier 2003, normes NF P90-306 a 309). */
 export type SecuritePiscine = 'barriere' | 'alarme' | 'couverture' | 'abri';
 export type TraitementPiscine = 'chlore' | 'sel' | 'brome' | 'oxygene-actif';
@@ -741,6 +746,8 @@ export interface Piscine {
   margelle?: boolean;
   largeurMargelle?: number;
   plage?: PlagePiscine;
+  /** La terrasse du plan qui sert de plage (`plage: 'terrasse'`), creee autour du bassin. */
+  terrasseKey?: string;
   /** Largeur de la plage autour des margelles, la meme sur tout le tour. */
   largeurPlage?: number;
   /** Essence des lames d'une plage en bois (cles d'`ESSENCE_PRICES`). */

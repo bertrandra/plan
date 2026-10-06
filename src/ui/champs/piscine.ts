@@ -13,16 +13,21 @@
 import {
   calculerPiscine, chiffrerPiscine, fr, LIBELLE_CHAUFFAGE, LIBELLE_FOND, LIBELLE_IMPLANTATION, LIBELLE_LOCAL, LIBELLE_PLAGE,
   LIBELLE_REGIME, LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_STRUCTURE, LIBELLE_TRAITEMENT, piscineDe, prixSaisi,
-  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, type ReglagesPiscine
+  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, terrasseDeLaPiscine, type ReglagesPiscine
 } from '../../engine/piscine.js';
 import { ESSENCE_PRICES } from '../../engine/constantes.js';
 import { euros } from '../chiffrage.js';
-import type { Piscine, StructurePiscine } from '../../model/types.js';
+import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
 const EFFETS: Effet[] = ['rendu', 'scene3d', 'inspecteur', 'terrasse'];
 
 const reglages = (c: ContexteChamps): ReglagesPiscine => piscineDe(c.obj);
+/** Les libelles du menu Plage : plus explicites que ceux des documents. */
+const LIBELLE_PLAGE_MENU: Record<PlagePiscine, string> = {
+  aucune: LIBELLE_PLAGE.aucune, terrasse: 'Terrasse bois du plan (sur plots, coins libres)', dallage: LIBELLE_PLAGE.dallage,
+  'terrasse-bois': 'Plage bois calculée (projet antérieur)'
+};
 /** Ecrit un reglage dans l'objet, en creant `piscine` au premier reglage touche. */
 function poser<K extends keyof Piscine>(c: ContexteChamps, cle: K, v: Piscine[K]): void {
   c.obj.piscine = { ...(c.obj.piscine || {}), [cle]: v };
@@ -32,14 +37,14 @@ const fondPente = (c: ContexteChamps) => reglages(c).fond !== 'plat';
 const horsSol = (c: ContexteChamps) => reglages(c).implantation !== 'enterree';
 const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
 
-function choix<K extends keyof Piscine & string>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+function choix<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
   return {
     type: 'choix', cle, libelle, effets: EFFETS, ...(aide ? { aide } : {}), ...(visible ? { visible } : {}),
     options: () => Object.entries(libelles).map(([valeur, l]) => ({ valeur, libelle: l })),
     lire: (c) => String(reglages(c)[cle]), ecrire: (c, v) => poser(c, cle, v as Piscine[K])
   };
 }
-function nombre<K extends keyof Piscine & string>(cle: K, libelle: string, unite: string, min: number, max: number, pas: number, decimales: number, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+function nombre<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K, libelle: string, unite: string, min: number, max: number, pas: number, decimales: number, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
   const facteur = unite === 'cm' ? 100 : 1;
   return {
     type: 'nombre', cle, libelle, unite, min, max, pas, decimales, effets: EFFETS, ...(aide ? { aide } : {}), ...(visible ? { visible } : {}),
@@ -102,19 +107,46 @@ const sectionProfondeurs: Section = {
 
 const sectionAbords: Section = {
   id: 'abordsPiscine', titre: '3. Abords',
-  explication: 'Margelles sur les parois, puis une plage de même largeur tout autour. Une plage en bois a sa structure et ses fondations propres : rien ne s\'appuie sur le bassin.',
+  explication: 'Margelles sur les parois, puis la plage. Une plage en bois est une terrasse du plan, posée sur plots autour du bassin : vous en tirez les coins, elle se chiffre comme toute terrasse, et le bassin la perce. Rien ne s\'appuie sur le bassin.',
   champs: [
     { type: 'case', cle: 'margelle', libelle: 'Margelles', effets: EFFETS, lire: (c) => reglages(c).margelle, ecrire: (c, v) => poser(c, 'margelle', v) },
     nombre('largeurMargelle', 'Largeur des margelles', 'cm', 20, 100, 1, 0, undefined, (c) => reglages(c).margelle),
     couleur('couleurMargelle', 'Couleur des margelles', (c) => reglages(c).margelle),
-    choix('plage', 'Plage', LIBELLE_PLAGE, 'Ce qui entoure le bassin au-delà des margelles'),
-    nombre('largeurPlage', 'Largeur de la plage', 'm', 0.3, 10, 0.1, 1, 'La même tout autour du bassin', (c) => reglages(c).plage !== 'aucune'),
+    {
+      type: 'choix', cle: 'plage', libelle: 'Plage', aide: 'Ce qui entoure le bassin au-delà des margelles', effets: EFFETS,
+      // La plage en bois calculee par la piscine (jusqu'a la 2.2.0) n'est plus proposee : elle reste
+      // dans la liste d'un projet qui l'a, pour s'afficher et se chiffrer comme avant.
+      options: (c) => (['aucune', 'terrasse', 'dallage', 'terrasse-bois'] as PlagePiscine[])
+        .filter(v => v !== 'terrasse-bois' || reglages(c).plage === 'terrasse-bois')
+        .map(v => ({ valeur: v, libelle: LIBELLE_PLAGE_MENU[v] })),
+      lire: (c) => reglages(c).plage,
+      ecrire: (c, v) => {
+        poser(c, 'plage', v as PlagePiscine);
+        // Choisir la terrasse la pose aussitot autour du bassin, si elle n'existe pas encore.
+        if (v === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)) c.executerCommande('objet.terrassePiscine');
+      }
+    },
+    {
+      type: 'lecture', cle: 'terrassePlage', libelle: 'Terrasse', visible: (c) => reglages(c).plage === 'terrasse',
+      valeur: (c) => {
+        const calc = calculerPiscine(c.obj, c.objets);
+        const t = calc?.terrasseAssociee;
+        return t && calc ? '« ' + t.nom + ' » — ' + fr(calc.surfacePlage, 1) + ' m² de platelage autour des margelles' : 'Pas encore posée';
+      }
+    },
+    {
+      type: 'bouton', cle: 'boutonTerrassePlage', libelle: '', nom: 'Créer ou sélectionner la terrasse de la plage', visible: (c) => reglages(c).plage === 'terrasse',
+      texte: (c) => terrasseDeLaPiscine(c.obj, c.objets) ? 'Sélectionner la terrasse' : 'Poser la terrasse autour du bassin',
+      agit: { commande: 'objet.terrassePiscine' }, executer: (c) => c.executerCommande('objet.terrassePiscine')
+    },
+    nombre('largeurPlage', 'Largeur de la plage', 'm', 0.3, 10, 0.1, 1, 'La même tout autour du bassin ; pour une terrasse, celle qu\'elle aura à sa pose',
+      (c) => { const r = reglages(c); return plageCalculee(r.plage) || (r.plage === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)); }),
     {
       type: 'choix', cle: 'essencePlage', libelle: 'Essence des lames', effets: EFFETS, visible: (c) => reglages(c).plage === 'terrasse-bois',
       options: () => Object.entries(ESSENCE_PRICES).filter(([k]) => k !== 'autre').map(([valeur, e]) => ({ valeur, libelle: e.label })),
       lire: (c) => reglages(c).essencePlage, ecrire: (c, v) => poser(c, 'essencePlage', v)
     },
-    couleur('couleurPlage', 'Couleur de la plage', (c) => reglages(c).plage !== 'aucune'),
+    couleur('couleurPlage', 'Couleur de la plage', (c) => plageCalculee(reglages(c).plage)),
     {
       type: 'lecture', cle: 'structurePlage', libelle: 'Structure de la plage', visible: (c) => reglages(c).plage === 'terrasse-bois',
       valeur: (c) => {

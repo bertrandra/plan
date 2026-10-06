@@ -18,7 +18,7 @@
 import { au } from '../util/tableaux.js';
 import { centroid } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
-import type { PtBrut, ObjetPlan, ObjetBrut } from './types.js';
+import type { PtBrut, ObjetPlan, ObjetBrut, Construction } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 
@@ -194,6 +194,49 @@ export function nouvellePiscine(forme: FormePiscine, c: PtBrut, key: string, num
   };
 }
 
+/**
+ * Terrasse posee autour d'une piscine : un polygone libre (coins non tenus), pour qu'on en tire
+ * chaque coin a la forme voulue. Le bassin la perce de lui-meme (engine/structure.ts, ouvertures) ;
+ * le contour et la construction sont calcules par l'appelant, qui connait le moteur.
+ */
+export function nouvelleTerrasse(pts: PtBrut[], key: string, nom: string, construction: Construction): ObjetNeuf {
+  const n = pts.length;
+  return {
+    obj: {
+      key, type: 'polygon', name: nom, fill: '#DDBC7E', fillOpacity: 0.68, stroke: '#8B6B3D',
+      pts: pts.map(p => ({ x: p.x, y: p.y })),
+      vertexNames: Array.from({ length: n }, (_, i) => 'Coin ' + (i + 1)),
+      segmentNames: Array.from({ length: n }, (_, i) => 'Cote ' + (i + 1)),
+      frozenVertices: Array.from({ length: n }, () => false),
+      showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+      constrained: true, fonction: 'terrasse', matiere: '', priority: 1, locked: false,
+      construction
+    },
+    onglet: 'segments'
+  };
+}
+
+/**
+ * Trou dans une terrasse (fonction `tremie`) : la terrasse s'arrete a son bord sur un chevetre,
+ * comme autour d'un bassin — un arbre conserve, une trappe de visite, un regard. Polygone libre de
+ * 1,2 x 1,2 m, pose au centre de la terrasse ; ses coins se tirent ensuite a la forme voulue.
+ */
+export function nouveauTrou(c: PtBrut, key: string, numero: number): ObjetNeuf {
+  const d = 0.6;
+  return {
+    obj: {
+      key, type: 'polygon', name: 'Trou ' + numero, fill: '#f4efe4', fillOpacity: 0.85, stroke: '#4a2f18',
+      pts: [{ x: c.x - d, y: c.y - d }, { x: c.x + d, y: c.y - d }, { x: c.x + d, y: c.y + d }, { x: c.x - d, y: c.y + d }],
+      vertexNames: ['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4'],
+      segmentNames: ['Cote 1', 'Cote 2', 'Cote 3', 'Cote 4'],
+      frozenVertices: [false, false, false, false],
+      showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+      constrained: true, fonction: 'tremie', matiere: '', priority: 4, locked: false
+    },
+    onglet: 'segments'
+  };
+}
+
 /** La longueur du segment qui porte la direction d'un point de vue, en metres. */
 const VISEE_M = 2;
 
@@ -320,6 +363,32 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       inserer(nouvellePiscine(forme, centreParcelle(), cle(forme === 'ronde' ? 'circle' : 'obj'), n));
     },
 
+    /**
+     * La terrasse qui sert de plage a une piscine : creee autour d'elle, liee par `terrasseKey`, et
+     * selectionnee pour qu'on en tire les coins tout de suite. Un seul instantane pour les deux
+     * objets : Ctrl+Z defait le tout.
+     */
+    ajouterTerrasseAutour(piscine: ObjetPlan, pts: PtBrut[], construction: Construction) {
+      ctx.pushHistory();
+      const neuf = nouvelleTerrasse(pts, cle('obj'), 'Terrasse de ' + piscine.name, construction);
+      piscine.piscine = { ...(piscine.piscine || {}), plage: 'terrasse', terrasseKey: neuf.obj.key };
+      inserer(neuf);
+    },
+
+    /** Un trou au centre de la terrasse donnee, selectionne. */
+    ajouterTrou(terrasse: ObjetPlan) {
+      ctx.pushHistory();
+      const n = etat.objects.filter(o => o.fonction === 'tremie').length + 1;
+      inserer(nouveauTrou(centroid(enPoints(terrasse).pts), cle('obj'), n));
+    },
+
+    /** Selectionne un objet existant (la terrasse d'une piscine), sans toucher au plan. */
+    selectionner(key: string) {
+      etat.selectedKey = key;
+      ctx.rebuildSelector();
+      ctx.render();
+    },
+
     ajouterPointDeVue() {
       ctx.pushHistory();
       const n = etat.objects.filter(o => o.fonction === 'camera').length + 1;
@@ -343,6 +412,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
       const clone = au(ctx.normalizeObjects([plain]), 0);
+      // La copie d'une piscine n'emporte pas la terrasse de l'original : chacune pose la sienne.
+      if (clone.piscine?.terrasseKey) delete clone.piscine.terrasseKey;
       if (clone.type === 'circle') clone.center.x -= 5;
       else clone.pts.forEach(p => { p.x -= 5; });
       inserer({ obj: clone, onglet: 'objet' });

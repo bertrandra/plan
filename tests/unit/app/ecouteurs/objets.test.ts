@@ -104,4 +104,39 @@ describe('commandes d objet', () => {
     expect(a.pushHistory).toHaveBeenCalledTimes(1);
     expect(a.restoreState).toHaveBeenCalledWith({ objects: initiaux, measures: [] });
   });
+
+  it('posent la terrasse d une piscine, ou la selectionnent si elle existe', () => {
+    const piscine = poly('p', [[2, 2], [6, 2], [6, 4], [2, 4]], { fonction: 'piscine', name: 'Piscine 1' });
+    const a = fauxAtelier({ objects: [poly('parcelle', [[0, 0], [10, 0], [10, 10]]), piscine, poly('a', [[0, 0], [1, 0], [1, 1]])], selectedKey: 'a' });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    expect(cmd.etat('objet.terrassePiscine').utilisable).toBe(false);
+    a.etat.selectedKey = 'p';
+    cmd.executer('objet.terrassePiscine');
+    expect(a.addTerrassePiscine).toHaveBeenCalledWith(piscine);
+    expect(toasts.at(-1)).toMatch(/Tirez ses coins/);
+    const t = poly('t', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'terrasse' });
+    a.etat.objects.push(t);
+    piscine.piscine = { plage: 'terrasse', terrasseKey: 't' };
+    cmd.executer('objet.terrassePiscine');
+    expect(a.selectObject).toHaveBeenCalledWith('t');
+    expect(a.addTerrassePiscine).toHaveBeenCalledTimes(1);
+  });
+
+  it('ajoutent un trou a la terrasse selectionnee, ou a la terrasse courante', () => {
+    const t = poly('t', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'terrasse' });
+    const a = fauxAtelier({ objects: [poly('parcelle', [[0, 0], [10, 0], [10, 10]]), t], selectedKey: 'parcelle', terrasseSelectedKey: null });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    expect(cmd.etat('terrasse.ajouterTrou').utilisable).toBe(false);
+    a.etat.terrasseSelectedKey = 't';
+    expect(cmd.etat('terrasse.ajouterTrou').utilisable).toBe(true);
+    a.etat.selectedKey = 't';
+    cmd.executer('terrasse.ajouterTrou');
+    expect(a.addTrouTerrasse).toHaveBeenCalledWith(t);
+    // En lecture seule, ni l'une ni l'autre.
+    const lecture = creerRegistre(droits(false));
+    brancherObjets(a, lecture);
+    expect(lecture.executer('terrasse.ajouterTrou')).toBe(false);
+  });
 });

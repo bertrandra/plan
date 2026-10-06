@@ -12,6 +12,8 @@ import { editerAngle, editerLongueur, contourDeContrainte } from '../../interact
 import { alignerObjetParRotation } from '../../interaction/outilAlignement.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
+import { constructionTerrasseNeuve } from '../../engine/construction.js';
+import { contourTerrasseAutour } from '../../engine/piscine.js';
 import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';
@@ -87,6 +89,12 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     addNewCarport: () => creation().ajouterAbri('carport'),
     addNewPiscine: (forme: FormePiscine) => creation().ajouterPiscine(forme),
     addNewViewpoint: () => creation().ajouterPointDeVue(),
+    addTerrassePiscine: (piscine: ObjetPlan) => {
+      const pts = contourTerrasseAutour(piscine);
+      if (pts) creation().ajouterTerrasseAutour(piscine, pts, constructionTerrasseNeuve());
+    },
+    addTrouTerrasse: (terrasse: ObjetPlan) => creation().ajouterTrou(terrasse),
+    selectObject: (key: string) => creation().selectionner(key),
     duplicateSelectedObject: () => creation().dupliquer(),
     deleteSelectedObject: () => creation().supprimer()
   };

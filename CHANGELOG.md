@@ -94,6 +94,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
   la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
   aucune capacité de la plateforme.
+- **La plage en bois d'une piscine est une vraie terrasse du plan.** Dans la section « 3. Abords »,
+  la plage « Terrasse bois du plan » pose aussitôt autour du bassin une terrasse sur plots, liée à
+  la piscine, aux coins libres : on la retaille comme tout polygone, elle a sa structure, sa
+  nomenclature, son débit, sa coupe et sa 3D de terrasse, et le bassin la perce. Le bouton
+  « Sélectionner la terrasse » y ramène. Un bassin rond reçoit le carré qui l'entoure. La note de
+  calcul et le dossier mairie prennent la terrasse pour emprise de la plage. La plage en bois que la
+  piscine calculait elle-même reste lue et chiffrée telle quelle dans un projet qui l'a déjà
+  (« Plage bois calculée (projet antérieur) »), mais n'est plus proposée.
+
+- **Trou dans une terrasse.** Une section « Trous et ouvertures » dans l'inspecteur d'une terrasse
+  liste ce qui la perce et porte le bouton « Ajouter un trou » : un trou de 1,20 × 1,20 m, aux
+  coins libres, au centre de la terrasse (fonction « Trou de terrasse », sur un polygone ou un
+  cercle). Comme autour d'un bassin, les pièces s'arrêtent à son bord sur un chevêtre et les lames
+  s'y coupent ; la visserie est comptée sur la surface nette.
+
+- **Assise d'une terrasse sur plots : dalle béton à couler, ou massifs de fondation.** Deux choix
+  de plus dans « Assise sous les plots » : une dalle armée de 12 cm sur hérisson (béton, treillis
+  ST25C, coffrage de rive au BOM ; coffrage et coulage au chantier ; la coupe la dessine), ou un
+  massif de béton de 30 × 30 × 30 cm sous chaque plot, sans décaissement général.
+
+- **Vue 3D : la piscine en volume, et le sol en coupe.** Le sol est percé au droit du bassin : on
+  voit ses parois, son fond qui suit le profil (plat, pente, fosse) et l'eau translucide à la
+  revanche. Les piscines restent dans la scène quand « Afficher tous les objets du plan » est
+  décoché : elles étaient absentes de la 3D d'une terrasse. Une case « Sol en coupe — voir l'assise
+  et les fondations » perce le sol sous la terrasse et montre la fouille, le hérisson, la dalle,
+  les dalles stabilisatrices, les massifs ou les fûts des vis, à leur profondeur (avec « Lames en
+  filaire », on les voit à travers le platelage). C'est un réglage d'affichage, comme « Filaire ».
+
 - **Déclaration préalable en mairie, cerfa 13703\*12 rempli.** Menu Exporter, « Déclaration
   préalable (cerfa) », ou section « Déclaration préalable » de la parcelle du projet.
   - Le formulaire officiel (servi à côté de l'application, `cerfa/cerfa_13703-12.pdf`) est rempli
@@ -176,7 +204,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `couchant=n` (`three/soleilVitrine.ts`). La retouche se fait avant le rendu de chaque pas d'heure
   (`vue3d.apresSoleil`), sans clignotement.
 
+### Modifié
+
+- **Une terrasse neuve est posée sur plots.** Choisir la fonction « Terrasse » sur un objet qui n'a
+  pas encore de construction, ou poser la terrasse d'une piscine, donne une pose sur plots. Un
+  projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
+
 ### Corrigé
+
+- **Chevêtre d'un bassin à cheval sur le bord d'une terrasse.** Il faisait tout le tour du bassin,
+  y compris hors de la terrasse, avec ses appuis ; il s'arrête maintenant à son contour.
 
 - **Vitrine : `file=` marche aussi dans un `<iframe>` en bac à sable.** La plateforme encadre la
   vitrine avec `sandbox="allow-scripts allow-forms allow-popups"`. Sans `allow-same-origin`, la page
