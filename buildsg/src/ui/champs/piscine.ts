@@ -127,6 +127,16 @@ const sectionAbords: Section = {
       }
     },
     {
+      // Un projet d'avant la terrasse du plan : sa plage en bois est calculee par la piscine, ni
+      // selectionnable ni retaillable. Le bouton la remplace par une vraie terrasse, meme largeur et
+      // meme essence ; les quantites changent alors, c'est pourquoi rien ne se fait sans le geste.
+      type: 'bouton', cle: 'convertirPlage', libelle: '', nom: 'Transformer la plage en terrasse du plan',
+      visible: (c) => reglages(c).plage === 'terrasse-bois',
+      texte: () => 'Transformer en terrasse du plan',
+      explication: 'Cette plage est calculée par la piscine : elle ne se sélectionne pas et ne se retaille pas. Transformée, elle devient une terrasse sur plots, liée au bassin, que vous pouvez sélectionner, retailler et isoler.',
+      agit: { commande: 'objet.terrassePiscine' }, executer: (c) => c.executerCommande('objet.terrassePiscine')
+    },
+    {
       type: 'lecture', cle: 'terrassePlage', libelle: 'Terrasse', visible: (c) => reglages(c).plage === 'terrasse',
       valeur: (c) => {
         const calc = calculerPiscine(c.obj, c.objets);

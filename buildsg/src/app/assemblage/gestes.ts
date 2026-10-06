@@ -91,7 +91,12 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     addNewViewpoint: () => creation().ajouterPointDeVue(),
     addTerrassePiscine: (piscine: ObjetPlan) => {
       const pts = contourTerrasseAutour(piscine);
-      if (pts) creation().ajouterTerrasseAutour(piscine, pts, constructionTerrasseNeuve());
+      if (!pts) return;
+      // Une ancienne plage en bois calculee garde son essence en devenant terrasse.
+      const construction = constructionTerrasseNeuve();
+      const essence = piscine.piscine?.essencePlage;
+      if (essence) construction.essenceBois = essence;
+      creation().ajouterTerrasseAutour(piscine, pts, construction);
     },
     addTrouTerrasse: (terrasse: ObjetPlan) => creation().ajouterTrou(terrasse),
     selectObject: (key: string) => creation().selectionner(key),

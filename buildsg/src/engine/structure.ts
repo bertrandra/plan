@@ -8,7 +8,7 @@ import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { estPlots } from './constantes.js';
+import { DALLE_DEBORD_M, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
 import { calculerPiscine } from './piscine.js';
@@ -356,6 +356,17 @@ export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
     ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
   }
   return aire;
+}
+
+/** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */
+export function empriseDalle(poly: PtBrut[]): PtBrut[] {
+  return safeOffset(poly, -DALLE_DEBORD_M);
+}
+
+/** La surface de la dalle : son emprise, moins les bassins et trous qui la percent. */
+export function surfaceDalle(poly: PtBrut[], trous: PtBrut[][]): number {
+  const e = empriseDalle(poly);
+  return shoelace(e) - trous.reduce((s, t) => s + aireCommune(t, e), 0);
 }
 
 /** La part d'un segment qui est dans le polygone (morceaux de moins de 5 cm ignores). */
