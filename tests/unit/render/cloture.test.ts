@@ -71,3 +71,16 @@ describe('dessinerCloture', () => {
     expect(traits.filter(t => t.getAttribute('x1') === t.getAttribute('x2') && Math.abs(Number(t.getAttribute('y1')) - Number(t.getAttribute('y2'))) === 50)).toHaveLength(2);
   });
 });
+
+describe('poignee d\'un acces', () => {
+  it('chaque acces porte une poignee qui capte le pointeur, dans un groupe inerte', () => {
+    const p = parcelle();
+    const cl = clotureDe(p, true);
+    cl.portails.push({ ...nouveauPortail('portail', 0, 20), x: 5, largeur: 3 }, { ...nouveauPortail('portillon', 2, 20), x: 2, largeur: 1 });
+    const { groupe } = dessiner(p);
+    const poignees = [...groupe.querySelectorAll('[data-role="acces"]')];
+    expect(poignees.map(x => x.getAttribute('data-index'))).toEqual(['0', '1']);
+    expect(poignees[0]?.getAttribute('pointer-events')).toBe('all');
+    expect(poignees[1]?.querySelector('title')?.textContent).toMatch(/^Portillon : glisser/);
+  });
+});

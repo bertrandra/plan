@@ -176,6 +176,7 @@ Deux sections sur la parcelle du projet, rangées dans la famille **Construction
 | Un accès par ligne : résumé (« Portail 3,50 m · côté 2 · à 4,20 m ») | ligne | **Régler**, **Supprimer** |
 | Accès en cours | choix | choix d'affichage |
 | Placer sur le plan… | bouton | un pointage (`purpose: 'acces'`, `interaction/pointeur.ts`) : le clic sur un côté de la parcelle pose l'accès en cours centré sur le point cliqué, sans sortir du côté ; Échap annule |
+| (sur le plan) | glisser | chaque accès porte une poignée invisible (`data-role="acces"`, `render/cloture.ts`) : on le fait glisser le long de la clôture, d'un côté à l'autre en passant un angle, sans sortir du côté (`interaction/glisserAcces.ts`) ; un pas d'annulation par geste, la 3D suit au relâcher |
 | Côté | choix | « Côté N — orientation, longueur » |
 | Position, Largeur, Hauteur | nombre | |
 | Ouverture | choix | un battant, deux battants, coulissant |

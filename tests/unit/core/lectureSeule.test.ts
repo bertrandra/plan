@@ -20,11 +20,11 @@ describe('l etat porte le mode', () => {
 });
 
 describe('ou le refus est pose dans les gestes du pointeur', () => {
-  it('garde les quatre entrees d edition : le corps et les trois poignees', () => {
-    // Deplacer un objet, tirer un sommet, tirer une arete, tirer un rayon. Si une cinquieme
+  it('garde les cinq entrees d edition : le corps, les trois poignees et les acces de la cloture', () => {
+    // Deplacer un objet, tirer un sommet, tirer une arete, tirer un rayon, glisser un portail. Si une sixieme
     // apparait un jour sans sa garde, ce compte le dira.
-    // Chaque entree est une fonction (`surObjet`, `surSommet`, `surCote`, `surRayon`) qui rend 'rien'.
-    expect(source.split("if(etat.lectureSeule) return 'rien';").length - 1).toBe(4);
+    // Chaque entree est une fonction (`surObjet`, `surSommet`, `surCote`, `surRayon`, `surAcces`) qui rend 'rien'.
+    expect(source.split("if(etat.lectureSeule) return 'rien';").length - 1).toBe(5);
   });
 
   it('refuse avant d empiler l historique, jamais apres', () => {
