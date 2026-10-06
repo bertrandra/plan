@@ -346,7 +346,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineC
   if (parcelle) c += pdfPolygone(sommetsDe(parcelle).map(P), null, ENCRE_COTE, 1.4, 1);
   batiments.forEach(b => { c += dessinerObjet(b, P, k, 0.85); });
   // Les abords puis le bassin : l'eau par-dessus les anneaux.
-  if (r.plage !== 'aucune') c += pdfPolygone(calc.plageExt.map(P), r.plage === 'terrasse-bois' ? BOIS : PIERRE, ENCRE_DOUCE, 0.6, 0.9);
+  if (r.plage !== 'aucune') c += pdfPolygone(calc.plageExt.map(P), r.plage === 'dallage' ? PIERRE : BOIS, ENCRE_DOUCE, 0.6, 0.9);
   if (r.margelle) c += pdfPolygone(calc.margelleExt.map(P), PIERRE, ENCRE_DOUCE, 0.6, 1);
   c += pdfPolygone(calc.contour.map(P), BLEU, hexToRgb01(piscine.stroke), 1, 1);
   const centre = P(centroid(calc.contour));
@@ -448,7 +448,7 @@ function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierP
       const ep = pb ? 0.027 : EPAISSEUR_MARGELLE_M;
       const plages: [number, number][] = [[-paroi - marg - plage, -paroi - marg], [L + paroi + marg, L + paroi + marg + plage]];
       plages.forEach(([a, b]) => {
-        c += pdfPolygone([Y(a, dessus - ep), Y(b, dessus - ep), Y(b, dessus), Y(a, dessus)], pb ? BOIS : PIERRE, ENCRE_COTE, 0.6, 1);
+        c += pdfPolygone([Y(a, dessus - ep), Y(b, dessus - ep), Y(b, dessus), Y(a, dessus)], r.plage === 'dallage' ? PIERRE : BOIS, ENCRE_COTE, 0.6, 1);
         if (pb && pb.mode === 'poteaux') {
           const basPoutre = dessus - 0.027 - 0.175 - 0.2;
           c += pdfPolygone([Y(a, basPoutre), Y(b, basPoutre), Y(b, basPoutre + 0.2), Y(a, basPoutre + 0.2)], BOIS, ENCRE_COTE, 0.5, 1);

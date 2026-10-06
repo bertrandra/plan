@@ -10,6 +10,9 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast, showConfirm } from '../../shell/dialogs.js';
 import { centroid } from '../../geometry/basic.js';
 import { enPoints, enCercle } from '../../model/formes.js';
+import { estPiscine, estTerrasse } from '../../model/fonctions.js';
+import { terrasseDeLaPiscine } from '../../engine/piscine.js';
+import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 
@@ -43,6 +46,23 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   commande('objet.ajouter.piscine', 'Piscine', () => a.addNewPiscine('rectangle'));
   commande('objet.ajouter.piscineRonde', 'Piscine ronde', () => a.addNewPiscine('ronde'));
   commande('objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
+  // La plage en bois d'une piscine est une vraie terrasse du plan : la commande la pose autour du
+  // bassin (sur plots), ou la selectionne si elle existe deja.
+  const piscineChoisie = () => { const o = a.objByKey(a.etat.selectedKey); return o && estPiscine(o) ? o : undefined; };
+  commande('objet.terrassePiscine', 'Terrasse autour de la piscine', () => {
+    const p = piscineChoisie();
+    if (!p) return;
+    const t = terrasseDeLaPiscine(p, a.etat.objects);
+    if (t) { a.selectObject(t.key); return; }
+    a.addTerrassePiscine(p);
+    showToast('Terrasse posée autour de la piscine, sur plots. Tirez ses coins pour lui donner sa forme.');
+  }, { actif: () => !!piscineChoisie() });
+  // Un trou dans la terrasse selectionnee (ou courante) : un arbre conserve, une trappe de visite.
+  const terrasseDuTrou = () => { const o = a.objByKey(a.etat.selectedKey); return o && estTerrasse(o) ? o : terrasseCourante(a.etat); };
+  commande('terrasse.ajouterTrou', 'Ajouter un trou dans la terrasse', () => {
+    const t = terrasseDuTrou();
+    if (t) a.addTrouTerrasse(t);
+  }, { actif: () => !!terrasseDuTrou() });
   // Les conditions que le panneau Objet posait sur ses anciens boutons : la parcelle ne se duplique
   // ni ne se supprime, un objet verrouille ne se supprime pas.
   const selectionne = () => a.objByKey(a.etat.selectedKey);

@@ -4,7 +4,7 @@
 // chez bom, qui les lisait en retour, et les modules tournaient en rond. Ce module ne depend que des
 // constantes et des portees.
 
-import { essenceDe, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele } from './constantes.js';
+import { DALLE_BETON_EP_M, essenceDe, MASSIF_COTE_M, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele, type TypeSupport } from './constantes.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './portees.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
 import type { Debit } from './debit.js';
@@ -87,17 +87,23 @@ export function achatPlots(c: Construction, n: number){
 }
 // Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
 // qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
-export function computeAssise(c: Construction, surfM2: number, nbPlots: number){
+export function computeAssise(c: Construction, surfM2: number, nbPlots: number, perimetreM = 0){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
-  if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
+  if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle as TypeSupport, geotextileM2:0, concasseM3:0, dallesU:0, betonM3:0, treillisM2:0, coffrageMl:0, massifsU:0 };
   const t = supportDe(c.supportType);
   const ep = Math.max(0, c.supportDecaissement||15)/100;
   return {
     type:t,
     geotextileM2: t.geotextile ? surfM2*1.1 : 0,        // +10% de recouvrement des les
     concasseM3:   t.concasse   ? surfM2*ep  : 0,
-    dallesU:      t.dalles     ? nbPlots    : 0
+    dallesU:      t.dalles     ? nbPlots    : 0,
+    // La dalle a couler : son beton, un treillis avec ses recouvrements, le coffrage de sa rive. Les
+    // massifs : un cube de beton sous chaque plot.
+    betonM3:      t.dalleBeton ? surfM2*DALLE_BETON_EP_M : t.massifs ? nbPlots*MASSIF_COTE_M**3 : 0,
+    treillisM2:   t.dalleBeton ? surfM2*1.15 : 0,
+    coffrageMl:   t.dalleBeton ? perimetreM  : 0,
+    massifsU:     t.massifs    ? nbPlots     : 0
   };
 }
 // Charge reprise par un plot et pression sur son assise - le poinconnement n'existe pas en mode

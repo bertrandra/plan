@@ -64,6 +64,12 @@ export interface Atelier {
   addNewCarport: () => void;
   addNewPiscine: (forme: FormePiscine) => void;
   addNewViewpoint: () => void;
+  /** Pose une terrasse sur plots autour de la piscine, liee a elle, et la selectionne. */
+  addTerrassePiscine: (piscine: ObjetPlan) => void;
+  /** Pose un trou au centre de la terrasse, et le selectionne. */
+  addTrouTerrasse: (terrasse: ObjetPlan) => void;
+  /** Selectionne un objet existant. */
+  selectObject: (key: string) => void;
   duplicateSelectedObject: () => void;
   deleteSelectedObject: () => void;
   sendObjectBackward: (obj: ObjetPlan) => void;

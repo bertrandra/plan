@@ -45,8 +45,13 @@ export const LIBELLE_FOND: Record<FondPiscine, string> = {
   plat: 'Fond plat', pente: 'Pente régulière', fosse: 'Plat puis fosse à plonger'
 };
 export const LIBELLE_PLAGE: Record<PlagePiscine, string> = {
-  aucune: 'Aucune (gazon, gravier)', 'terrasse-bois': 'Terrasse en bois', dallage: 'Dallage sur dalle béton'
+  aucune: 'Aucune (gazon, gravier)', terrasse: 'Terrasse bois du plan', 'terrasse-bois': 'Terrasse en bois', dallage: 'Dallage sur dalle béton'
 };
+/**
+ * La piscine dessine-t-elle et chiffre-t-elle elle-meme sa plage ? Oui pour un dallage et pour la
+ * plage en bois calculee des projets anterieurs ; non pour une terrasse du plan, objet a part.
+ */
+export const plageCalculee = (plage: PlagePiscine): boolean => plage === 'dallage' || plage === 'terrasse-bois';
 export const LIBELLE_SECURITE: Record<SecuritePiscine, string> = {
   barriere: 'Barrière (NF P90-306)', alarme: 'Alarme (NF P90-307)', couverture: 'Couverture ou volet (NF P90-308)', abri: 'Abri (NF P90-309)'
 };
@@ -128,7 +133,7 @@ const PLAGE = {
 
 // ---- Reglages --------------------------------------------------------------------------------
 
-export type ReglagesPiscine = Required<Omit<Piscine, 'cotePetitBain'>> & { cotePetitBain: number };
+export type ReglagesPiscine = Required<Omit<Piscine, 'cotePetitBain' | 'terrasseKey'>> & { cotePetitBain: number };
 
 const indiceValide = (i: number | undefined, n: number): i is number => i !== undefined && Number.isInteger(i) && i >= 0 && i < n;
 const dans = <T extends string>(v: string | undefined, liste: readonly T[], defaut: T): T => (v && (liste as readonly string[]).includes(v) ? v as T : defaut);
@@ -267,6 +272,61 @@ export function volumeEau(contour: PtBrut[], axe: AxeProfondeur, profil: PointPr
   return vol;
 }
 
+/**
+ * L'interieur du bassin, pour la 3D : les parois (chaque cote, avec la profondeur d'eau a ses deux
+ * bouts) et le fond (des bandes perpendiculaires a l'axe, une par pan du profil, avec la profondeur
+ * a chaque sommet). Les cotes sont recoupes aux cassures du profil : entre deux sommets, la
+ * profondeur varie lineairement, et un rendu qui interpole entre les sommets est exact.
+ */
+export interface InterieurBassin {
+  parois: { a: PtBrut; b: PtBrut; profA: number; profB: number }[];
+  fond: { pts: PtBrut[]; prof: number[] }[];
+}
+
+export function interieurBassin(contour: PtBrut[], axe: AxeProfondeur, profil: PointProfil[]): InterieurBassin {
+  const sDe = (p: PtBrut) => (p.x - axe.origine.x) * axe.v.x + (p.y - axe.origine.y) * axe.v.y;
+  const cassures = profil.map(q => q.s).filter((s, i, t) => i > 0 && i < t.length - 1 && s > 1e-6 && s < axe.L - 1e-6);
+  // Les cotes, recoupes la ou ils traversent une cassure du profil.
+  const dense: PtBrut[] = [];
+  contour.forEach((a, i) => {
+    const b = au(contour, (i + 1) % contour.length);
+    dense.push(a);
+    const sa = sDe(a), sb = sDe(b);
+    const coupes = cassures.filter(s => (s - sa) * (s - sb) < 0).map(s => (s - sa) / (sb - sa)).sort((x, y) => x - y);
+    coupes.forEach(t => dense.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }));
+  });
+  const prof = (p: PtBrut) => profondeurA(profil, Math.min(axe.L, Math.max(0, sDe(p))));
+  const parois = dense.map((a, i) => { const b = au(dense, (i + 1) % dense.length); return { a, b, profA: prof(a), profB: prof(b) }; });
+  // Le fond : le contour coupe en bandes entre deux cassures (Sutherland-Hodgman sur deux demi-plans).
+  const bornes = [-Infinity, ...cassures, Infinity];
+  const fond: InterieurBassin['fond'] = [];
+  for (let i = 0; i < bornes.length - 1; i++) {
+    const s0 = au(bornes, i), s1 = au(bornes, i + 1);
+    let poly = dense;
+    if (s0 > -Infinity) poly = demiPlan(poly, sDe, s0, 1);
+    if (s1 < Infinity) poly = demiPlan(poly, sDe, s1, -1);
+    if (poly.length >= 3 && Math.abs(shoelace(poly)) > 1e-6) fond.push({ pts: poly, prof: poly.map(prof) });
+  }
+  return { parois, fond };
+}
+
+/** Garde la partie du polygone ou `sens * (s(p) - s0) >= 0`. */
+function demiPlan(poly: PtBrut[], sDe: (p: PtBrut) => number, s0: number, sens: 1 | -1): PtBrut[] {
+  const dedans = (p: PtBrut) => sens * (sDe(p) - s0) >= -1e-9;
+  const res: PtBrut[] = [];
+  poly.forEach((a, i) => {
+    const b = au(poly, (i + 1) % poly.length);
+    const ia = dedans(a), ib = dedans(b);
+    if (ia) res.push(a);
+    if (ia !== ib) {
+      const sa = sDe(a), sb = sDe(b);
+      const t = (s0 - sa) / (sb - sa);
+      res.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  });
+  return res;
+}
+
 // ---- Calcul ----------------------------------------------------------------------------------
 
 /** Une distance d'un bassin a un cote de la parcelle : pour la coter sur le plan de masse. */
@@ -359,6 +419,8 @@ export interface PiscineCalculee {
   plageExt: PtBrut[];
   surfacePlage: number;
   plageBois: PlageBois | null;
+  /** La terrasse du plan qui sert de plage (`plage: 'terrasse'`), si elle existe encore. */
+  terrasseAssociee: { key: string; nom: string; surface: number } | null;
   hydraulique: {
     debit: number; diametreFiltre: number; surfaceFiltre: number; puissancePompeCv: number;
     skimmers: number; refoulements: number; bondes: number; prisesBalai: number; diametreTuyau: number; canalisationsMl: number;
@@ -406,7 +468,10 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
 
   const margelleExt = r.margelle ? elargir(parois, r.largeurMargelle) : parois;
   const margellesMl = r.margelle ? perimetre(elargir(parois, r.largeurMargelle / 2)) : 0;
-  const plageExt = r.plage === 'aucune' ? margelleExt : elargir(margelleExt, r.largeurPlage);
+  // Une plage « terrasse du plan » est l'objet terrasse lui-meme : son contour est l'emprise
+  // exterieure (barriere, plan de masse), sa surface celle du platelage autour des margelles.
+  const terrasse = r.plage === 'terrasse' ? terrasseDeLaPiscine(o, objets) : undefined;
+  const plageExt = terrasse ? terrasse.pts : plageCalculee(r.plage) ? elargir(margelleExt, r.largeurPlage) : margelleExt;
   const surfacePlage = r.plage === 'aucune' ? 0 : Math.max(0, shoelace(plageExt) - shoelace(margelleExt));
   const plageBois = r.plage === 'terrasse-bois' ? structurePlageBois(r, hauteurHorsSol, surfacePlage, margelleExt, perimetre(margelleExt), perimetre(plageExt), avertissements) : null;
 
@@ -449,10 +514,35 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
     hauteurHorsSol, hauteurParoi, profondeurEnterree,
     fouille: { emprise: empriseFouille, profondeur: profondeurFouille, volume: volumeFouille, remblai, evacuation: Math.max(0, evacuation) },
     parois, margelleExt, margellesMl, plageExt, surfacePlage, plageBois,
+    terrasseAssociee: terrasse ? { key: terrasse.key, nom: terrasse.name, surface: shoelace(terrasse.pts) } : null,
     hydraulique: { debit, diametreFiltre, surfaceFiltre, puissancePompeCv, skimmers, refoulements, bondes: 1, prisesBalai: 1, diametreTuyau, canalisationsMl },
     equipements: { projecteurs, puissancePacKw, electrolyseur: r.traitement === 'sel' },
     securite, regime, secteurProtege, taxeAmenagementBase: surface * TAXE_AMENAGEMENT_M2, distances, terrassesPercees, avertissements
   };
+}
+
+/**
+ * Le contour d'une terrasse a poser autour du bassin : l'exterieur des margelles elargi de la
+ * largeur de plage. Un bassin polygonal donne le meme nombre de coins ; un bassin rond, le carre qui
+ * l'entoure — quatre coins faciles a tirer plutot que quarante-huit. `null` si le bassin n'est pas
+ * calculable.
+ */
+export function contourTerrasseAutour(o: ObjetPlan): PtBrut[] | null {
+  const calc = calculerPiscine(o);
+  if (!calc) return null;
+  const ext = elargir(calc.margelleExt, calc.reglages.largeurPlage);
+  if (o.type !== 'circle') return ext;
+  const xs = ext.map(p => p.x), ys = ext.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+}
+
+/** La terrasse du plan liee a la piscine (`terrasseKey`), si elle existe encore et reste une terrasse. */
+export function terrasseDeLaPiscine(o: ObjetPlan, objets: ObjetPlan[]): (ObjetPlan & { type: 'polygon' }) | undefined {
+  const cle = o.piscine?.terrasseKey;
+  if (!cle) return undefined;
+  const t = objets.find(x => x.key === cle);
+  return t && estTerrasse(t) && t.type === 'polygon' ? t : undefined;
 }
 
 /** Ce que le dispositif de securite represente en quantite : des metres de barriere, des m² de couverture ou d'abri, un forfait d'alarme. */
@@ -718,7 +808,9 @@ export function noteDeCalcul(calc: PiscineCalculee): SectionNote[] {
 
   const lignesAbords: LigneNote[] = [
     { libelle: 'Margelles', valeur: r.margelle ? fr(calc.margellesMl, 1) + ' ml de ' + Math.round(r.largeurMargelle * 100) + ' cm (' + Math.ceil(calc.margellesMl / LONGUEUR_MARGELLE_M) + ' pièces de 50 cm)' : 'Aucune' },
-    { libelle: 'Plage', valeur: LIBELLE_PLAGE[r.plage] + (r.plage !== 'aucune' ? ', ' + m(r.largeurPlage) + ' de large, ' + m2(calc.surfacePlage) : '') }
+    r.plage === 'terrasse'
+      ? { libelle: 'Plage', valeur: calc.terrasseAssociee ? 'Terrasse « ' + calc.terrasseAssociee.nom + ' », ' + m2(calc.surfacePlage) + ' autour des margelles' : 'Terrasse du plan, pas encore créée', note: 'Structure, appuis et chiffrage dans la nomenclature de la terrasse ; le bassin y fait une ouverture bordée d\'un chevêtre.' }
+      : { libelle: 'Plage', valeur: LIBELLE_PLAGE[r.plage] + (r.plage !== 'aucune' ? ', ' + m(r.largeurPlage) + ' de large, ' + m2(calc.surfacePlage) : '') }
   ];
   const pb = calc.plageBois;
   if (pb) {
