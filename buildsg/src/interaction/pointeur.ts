@@ -20,6 +20,7 @@ import { parcelleDuProjet } from '../model/fonctions.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
 import { facadesDuContour } from '../facade/geometrie.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
+import { decalageDeSaisie, glisserAcces } from './glisserAcces.js';
 import type { DebutPincement } from './navigation.js';
 import { contourDeContrainte } from './editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navigation.js';
@@ -35,7 +36,9 @@ import { sommetDe } from '../geometry/anneau.js';
  * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
  * doigt), qui n'a ni objet ni position monde — il ecrit dans la scene, pas dans le plan.
  */
-type Geste = GlisserEnCours | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut };
+type Geste = GlisserEnCours | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut }
+  /** Un portail ou un portillon qu'on fait glisser le long de la cloture (interaction/glisserAcces.ts). */
+  | { type: 'acces'; indice: number; decalage: number; moved: boolean };
 
 /** Le dernier clic sur un cote, un sommet, ou un objet — pour reconnaitre un double-tap. */
 interface DernierClic { key: string | null; index: number | null; time: number }
@@ -190,6 +193,21 @@ function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut)
   p.geste = obj.type==='circle'
     ? {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, moved:false}
     : {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(q=>({...q})), moved:false};
+  return 'suite';
+}
+
+/**
+ * Un portail ou un portillon : commencer a le faire glisser le long de la cloture. L'historique
+ * n'est empile qu'au premier mouvement : un simple clic ne laisse pas de pas d'annulation vide.
+ */
+function surAcces(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
+  const { etat } = p;
+  if(etat.lectureSeule) return 'rien';
+  const parcelle = parcelleDuProjet(etat.objects);
+  const indice = parseInt(ds.index ?? '', 10);
+  const a = parcelle && aDesSommets(parcelle) ? clotureDe(parcelle).portails[indice] : undefined;
+  if(!parcelle || !aDesSommets(parcelle) || !a) return 'rien';
+  p.geste = { type:'acces', indice, decalage: decalageDeSaisie(a, parcelle.pts, w), moved:false };
   return 'suite';
 }
 
@@ -365,6 +383,7 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       : ds.role === 'point' ? surSommet(p, ds, w)
       : ds.role === 'edge' ? surCote(p, ds, w)
       : ds.role === 'radius' ? surRayon(p, ds, w)
+      : ds.role === 'acces' ? surAcces(p, ds, w)
       : 'suite';
     if(issue === 'rien') return;
     if(issue === 'avale'){ e.preventDefault(); return; }
@@ -384,6 +403,21 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       ctx.render();
       return;
     }
+    if(geste.type === 'acces'){
+      // Garde redoublee : la lecture seule a pu tomber pendant le geste (droits recharges).
+      if(etat.lectureSeule) return;
+      const parcelle = parcelleDuProjet(etat.objects);
+      const a = parcelle && aDesSommets(parcelle) ? clotureDe(parcelle).portails[geste.indice] : undefined;
+      if(!parcelle || !aDesSommets(parcelle) || !a) return;
+      // Le pas d'annulation se prend juste avant la premiere modification, sur l'etat d'avant.
+      const avant = { cote: a.cote, x: a.x };
+      const essai = { ...a };
+      if(!glisserAcces(essai, parcelle.pts, worldFromEvent(e), geste.decalage)) return;
+      if(!geste.moved){ ctx.pushHistory(); geste.moved = true; }
+      a.cote = essai.cote; a.x = essai.x;
+      if(a.cote !== avant.cote || a.x !== avant.x){ ctx.markDirty(); ctx.render(); }
+      return;
+    }
     // Tout le calcul du glisser vit dans interaction/drag.ts ; ici, la position du pointeur en
     // metres et le contour dans lequel l'objet doit rester.
     appliquerGlisser(geste, worldFromEvent(e), contourDeContrainte(etat.objects, geste.obj));
@@ -391,6 +425,16 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
   });
   window.addEventListener('pointerup', ()=>{
     const geste = p.geste;
+    if(geste && geste.type === 'acces'){
+      // La 3D et l'inspecteur suivent une fois le geste fini, pas a chaque image.
+      if(geste.moved){
+        const parcelle = parcelleDuProjet(etat.objects);
+        if(parcelle) synchroniserAnciensChamps(parcelle);
+        ctx.apresAcces();
+      }
+      p.geste = null;
+      return;
+    }
     if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
       // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
       etat.selectedKey = null;

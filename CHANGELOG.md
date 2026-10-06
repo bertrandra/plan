@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Portails et portillons : glisser sur le plan.** Un accès se saisit sur le plan 2D et glisse le
+  long de la clôture, à la souris ou au doigt. Il suit le côté le plus proche du pointeur, passe
+  d'un côté à l'autre à un angle, et ne sort jamais de son côté. Il ne saute pas sous le pointeur :
+  l'écart de la prise est gardé. Un Ctrl+Z annule le geste entier ; la Vue 3D suit au relâcher. Ce
+  geste s'ajoute à « Placer sur le plan… » et à la position saisie dans l'inspecteur.
 - **Clôture côté par côté, portails et portillons** (`MD/spec-cloture.md`). Sur la parcelle du
   projet, deux sections nouvelles de l'inspecteur remplacent les quatre champs de clôture :
   - « Clôture » : un réglage par défaut et, côté par côté, un réglage propre — palissade bois
