@@ -26,7 +26,7 @@ describe('plots dans l emprise', () => {
     expect(vis.length).toBeGreaterThan(4);
     vis.forEach(p => expect(distanceAuBord(p, rect(0, 0, 6, 4))).toBeGreaterThanOrEqual(r - 1e-6));
     // Sans le reglage (projet anterieur), le cadre reste au bord : l'embase depasse.
-    const ancien = terrasse({ plotsDansEmprise: undefined });
+    const ancien = terrasse();
     delete ancien.construction!.plotsDansEmprise;
     const visAncien = computeTerrasseLayers(ancien, [ancien]).vis;
     expect(Math.min(...visAncien.map(p => distanceAuBord(p, rect(0, 0, 6, 4))))).toBeLessThan(r);
