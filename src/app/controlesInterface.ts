@@ -190,6 +190,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // Actualiser IGN (zones/parcours/Actualisation.tsx).
   'actualisation.portee': etape(Z8, ACTUALISER, 'Portée : la parcelle ou tout le plan', { repete: true }),
   'actualisation.voisinage': etape(Z8, ACTUALISER, 'Actualiser aussi le voisinage'),
+  'actualisation.rayon': etape(Z8, ACTUALISER, 'Portée du voisinage : parcelles adjacentes, ou tout dans un rayon de 200 ou 500 m', { repete: true }),
   'actualisation.couche': etape(Z8, ACTUALISER, 'Couche du voisinage (bâti, végétation, arbres)', { repete: true }),
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
