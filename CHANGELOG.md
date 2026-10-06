@@ -7,14 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **Voisinage étendu : tout ce qui est dans un rayon de 200 ou 500 m.** Dans « Actualiser depuis
-  l'IGN », l'import de voisinage propose, à côté des parcelles adjacentes, « Tout dans un rayon de
-  200 m » ou « de 500 m » : toutes les parcelles et tout le bâti (et, si cochées, les haies et zones de
-  végétation) à moins de cette distance du centre de la parcelle, sans filtre de commune, lus en
-  **plusieurs requêtes** à l'IGN (API Carto par pages de 1 000 parcelles, BD TOPO par pages au WFS),
-  les plus proches d'abord, plafonnés à 2 000 objets par famille (le bilan le dit). Les arbres estimés
-  restent à moins de 100 m de la parcelle. Tout arrive marqué « voisinage », masquable d'un coup, et
-  rien de déjà présent n'est dupliqué. Le mode « Parcelles adjacentes » ne change pas.
+- **Voisinage étendu : tout ce qui est dans un rayon de 100 ou 200 m, dès l'import.** À l'étape 3
+  de « Nouveau plan depuis une adresse » (« Parcelles voisines et création »), un bloc « Voisinage
+  étendu » propose « Les parcelles cochées seulement », « Tout dans un rayon de 100 m » ou « de
+  200 m » : toutes les parcelles et tout le bâti à moins de cette distance du centre de la parcelle,
+  lus en **plusieurs requêtes** à l'IGN (API Carto par pages de 1 000 parcelles, BD TOPO par pages
+  au WFS), sans filtre de commune, les plus proches d'abord, plafonnés à 2 000 par famille. L'aperçu
+  les montre avec leur disque ; l'option **« Afficher le voisinage étendu »** les montre dans
+  l'aperçu et les laisse visibles à l'ouverture du plan, décochée elle les importe masqués. Ils
+  arrivent verrouillés et marqués « voisinage » : l'œil « Voisinage » de l'explorateur les masque
+  ou les réaffiche d'un coup. Changer de parcelle principale remet le choix à zéro. « Actualiser
+  depuis l'IGN » propose les mêmes rayons, 100 et 200 m, pour un plan déjà créé ; les arbres
+  estimés y restent à moins de 100 m de la parcelle.
 - **Centrer une piscine ou un trou sur sa terrasse.** Un bouton « Centrer sur la terrasse » (étape
   1 de la piscine ; section « Trou dans la terrasse » d'un trou) déplace le bassin ou le trou pour
   que son centre de surface tombe au centre de sa terrasse — la plage liée au bassin, sinon la

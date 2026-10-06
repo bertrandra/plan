@@ -23,10 +23,10 @@ import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
-  interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu,
+  interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
-import type { Candidate, ElementIgn, FeatureGeoJSON } from '../geo/apiIgn.js';
+import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../geo/cadastreObjets.js';
 import type { PtBrut, ZonagePlu } from '../model/types.js';
@@ -79,6 +79,12 @@ export interface EtatImportCadastre {
   importerArbres: boolean;
   /** Parcelles cochees « propriete » : elles seront FUSIONNEES avec la principale en un seul terrain. */
   propriete: Set<string>;
+  /** Le voisinage etendu choisi : 0 (les parcelles cochees seules), ou un rayon de 100 ou 200 m. */
+  rayonEtendu: number;
+  /** Ce que l'IGN a rendu pour ce rayon, autour de la parcelle principale ; `null` tant que rien n'est lu. */
+  etendu: VoisinageRayon | null;
+  /** L'option d'affichage : le voisinage etendu montre dans l'apercu et visible a l'ouverture du plan. */
+  afficherEtendu: boolean;
 }
 
 /** Un lot de l'apercu : une parcelle (ou la propriete fusionnee) et son role. */
@@ -97,6 +103,8 @@ export interface Apercu {
   lots: LotApercu[];
   limitesInternes: PtBrut[][];
   couches: { elements: ElementIgn[]; actif: boolean; remplissage: string; contour: string; opacite: number }[];
+  /** Le voisinage etendu, quand il est lu et que l'option d'affichage est cochee : le disque, ses parcelles et son bati. */
+  etendu: { centre: PtBrut; rayonM: number; parcelles: PtBrut[][]; batiments: PtBrut[][] } | null;
 }
 
 export interface ImportCadastre {
@@ -118,6 +126,9 @@ export interface ImportCadastre {
   survoler(idu: string | null): void;
   basculerSimplifier(actif: boolean): void;
   basculerCaseIgn(cle: CaseIgn, actif: boolean): void;
+  /** Le voisinage etendu : 0, 100 ou 200 m ; un rayon lit l'IGN en plusieurs requetes. */
+  choisirRayonEtendu(rayonM: number): Promise<void>;
+  basculerAfficherEtendu(actif: boolean): void;
   allerA(etape: 1 | 2 | 3): void;
   creerProjet(nom: string): Promise<void>;
 
@@ -199,7 +210,12 @@ function lectures(n: Noyau): Lectures {
         { elements: e.vegetation, actif: e.importerVegetation, remplissage: '#A9BE8E', contour: '#4A6B32', opacite: 0.55 },
         { elements: e.haies, actif: e.importerHaies, remplissage: '#7FA86B', contour: '#3F5C33', opacite: 0.8 },
         { elements: e.batiments, actif: e.importerBatiments, remplissage: '#D9B694', contour: '#7A4A2A', opacite: 0.9 }
-      ]
+      ],
+      etendu: e.etendu && e.afficherEtendu ? {
+        centre: centroid(principale().pts), rayonM: e.etendu.rayonM,
+        parcelles: e.etendu.parcelles.map(c => c.pts),
+        batiments: e.importerBatiments ? e.etendu.batiments.map(b => b.pts) : []
+      } : null
     };
   }
 
@@ -256,6 +272,8 @@ function chargements(n: Noyau): Chargements {
     e.voisinageCharge.add(c.idu);
   }
   function appliquerPrincipale(c: Candidate): void {
+    // Le voisinage etendu est centre sur la principale : en changer le rend caduc.
+    if (e.principale && e.principale.idu !== c.idu) { e.rayonEtendu = 0; e.etendu = null; }
     e.principale = c;
     const tri = trierVoisines(c, e.candidats);
     e.adjacentes = tri.adjacentes;
@@ -411,7 +429,7 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
 }
 
 type GestesSelection = Pick<ImportCadastre, 'choisirPrincipale' | 'basculerVoisine' | 'basculerPropriete' | 'cocherMitoyennes'
-  | 'toutDecocher' | 'survoler' | 'basculerSimplifier' | 'basculerCaseIgn' | 'allerA'>;
+  | 'toutDecocher' | 'survoler' | 'basculerSimplifier' | 'basculerCaseIgn' | 'choisirRayonEtendu' | 'basculerAfficherEtendu' | 'allerA'>;
 
 /** Etapes 2 et 3 : la parcelle principale, les voisines, la propriete, les couches a importer. */
 function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
@@ -463,6 +481,24 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
       signaler();
     },
     basculerCaseIgn(cle, actif) { e[cle] = actif; signaler(); },
+    async choisirRayonEtendu(rayonM) {
+      e.rayonEtendu = rayonM;
+      if (!rayonM) { e.etendu = null; signaler(); return; }
+      if (e.etendu && e.etendu.rayonM === rayonM) { signaler(); return; }
+      occuper(true, 'Parcelles et bâtiments à moins de ' + rayonM + ' m…');
+      try {
+        const lu = await lireVoisinageRayon(centroid(principale().pts), proj(), rayonM, e.simplifier, new Set([principale().idu]));
+        // Un autre choix a pu arriver pendant la lecture : seul le dernier compte.
+        if (e.rayonEtendu === rayonM) e.etendu = lu;
+        e.erreur = '';
+      } catch (err) {
+        e.rayonEtendu = 0; e.etendu = null;
+        e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
+      }
+      occuper(false);
+      signaler();
+    },
+    basculerAfficherEtendu(actif) { e.afficherEtendu = actif; signaler(); },
     allerA(etape) {
       e.etape = etape;
       if (etape === 1) e.suggestions = [];
@@ -482,8 +518,11 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       try {
         // A l'etape 3, seul endroit d'ou ce geste est joignable, l'etape 1 a abouti : `principale` et
         // `proj` sont poses.
-        const { rayon, ...reste } = e;
-        const importe: ImportCadastral = { ...reste, principale: principale(), proj: proj(), parcellesPropriete, voisinesRetenues, ...(rayon !== null ? { rayon } : {}) };
+        const { rayon, etendu, ...reste } = e;
+        const importe: ImportCadastral = {
+          ...reste, principale: principale(), proj: proj(), parcellesPropriete, voisinesRetenues, ...(rayon !== null ? { rayon } : {}),
+          voisinageEtendu: etendu ? { parcelles: etendu.parcelles, batiments: etendu.batiments, visible: e.afficherEtendu } : null
+        };
         objets = objetsDepuisCadastre(importe);
       } catch (err) {
         e.erreur = 'Construction du plan impossible : ' + ((err as Error).message || err);
@@ -526,7 +565,8 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     tropDense: false, survol: null, voisinageCharge: new Set(),
     batiments: [], haies: [], vegetation: [], plu: null, ignCharge: new Set(), ignErreur: '',
     importerBatiments: true, importerHaies: true, importerVegetation: true, importerArbres: false,
-    propriete: new Set()
+    propriete: new Set(),
+    rayonEtendu: 0, etendu: null, afficherEtendu: true
   };
   let version = 0;
   const abonnes = new Set<() => void>();
