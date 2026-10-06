@@ -72,3 +72,16 @@ describe('pointInPolygon', () => {
     expect(pointInPolygon(p(2, 2), enL)).toBe(false);
   });
 });
+
+describe('centreDeSurface', () => {
+  it('donne le centre de gravite, pas le barycentre des sommets', async () => {
+    const { centreDeSurface, centroid } = await import('../../../src/geometry/basic.js');
+    // Un carre dont un cote porte des sommets en plus : le barycentre glisse, pas le centre de surface.
+    const carre = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+    expect(centreDeSurface(carre)).toEqual({ x: 2, y: 2 });
+    expect(centroid(carre).y).toBeLessThan(2);
+    // Sens de parcours indifferent ; un polygone degenere retombe sur le barycentre.
+    expect(centreDeSurface([...carre].reverse())).toEqual({ x: 2, y: 2 });
+    expect(centreDeSurface([{ x: 0, y: 0 }, { x: 2, y: 0 }])).toEqual({ x: 1, y: 0 });
+  });
+});

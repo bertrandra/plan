@@ -140,3 +140,41 @@ describe('commandes d objet', () => {
     expect(lecture.executer('terrasse.ajouterTrou')).toBe(false);
   });
 });
+
+describe('centrer une piscine ou un trou sur sa terrasse', () => {
+  const terrasse = poly('t', [[0, 0], [10, 0], [10, 6], [0, 6]], { fonction: 'terrasse' });
+  const trou = poly('trou', [[1, 1], [2, 1], [2, 2], [1, 2]], { fonction: 'tremie' });
+  const rond = { ...cercle('rond', 2, 2), fonction: 'tremie' } as ObjetPlan;
+  const monterAvec = (selection: string, ...objets: ObjetPlan[]) => {
+    const a = fauxAtelier({ objects: JSON.parse(JSON.stringify([terrasse, ...objets])), selectedKey: selection });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    return { a, cmd };
+  };
+
+  it('deplace le trou au centre de la terrasse, en un geste annulable', () => {
+    const { a, cmd } = monterAvec('trou', trou);
+    expect(cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(true);
+    cmd.executer('objet.centrerSurTerrasse');
+    const t = a.objByKey('trou')!;
+    expect(t.type === 'polygon' && t.pts).toEqual([{ x: 4.5, y: 2.5 }, { x: 5.5, y: 2.5 }, { x: 5.5, y: 3.5 }, { x: 4.5, y: 3.5 }]);
+    expect(a.pushHistory).toHaveBeenCalledTimes(1);
+    expect(a.markDirty).toHaveBeenCalled();
+    // Deja centre : plus rien a faire, la commande se grise.
+    expect(cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+  });
+
+  it('centre un trou rond par son centre', () => {
+    const { a, cmd } = monterAvec('rond', rond);
+    cmd.executer('objet.centrerSurTerrasse');
+    const r = a.objByKey('rond')!;
+    expect(r.type === 'circle' && r.center).toEqual({ x: 5, y: 3 });
+  });
+
+  it('se grise hors d une terrasse, pour un autre objet, ou un objet verrouille', () => {
+    const dehors = poly('dehors', [[20, 20], [21, 20], [21, 21]], { fonction: 'tremie' });
+    expect(monterAvec('dehors', dehors).cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+    expect(monterAvec('t').cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+    expect(monterAvec('trou', { ...trou, locked: true } as ObjetPlan).cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+  });
+});

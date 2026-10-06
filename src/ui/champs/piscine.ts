@@ -16,6 +16,7 @@ import {
   REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, terrasseDeLaPiscine, type ReglagesPiscine
 } from '../../engine/piscine.js';
 import { ESSENCE_PRICES } from '../../engine/constantes.js';
+import { terrasseHote } from '../../engine/structure.js';
 import { euros } from '../chiffrage.js';
 import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
@@ -74,7 +75,13 @@ const sectionImplantation: Section = {
       options: (c) => REVETEMENTS_PAR_STRUCTURE[reglages(c).structure].map(v => ({ valeur: v, libelle: LIBELLE_REVETEMENT[v] })),
       lire: (c) => reglages(c).revetement, ecrire: (c, v) => poser(c, 'revetement', v as Piscine['revetement'])
     },
-    couleur('couleurEau', 'Couleur de l\'eau')
+    couleur('couleurEau', 'Couleur de l\'eau'),
+    {
+      type: 'bouton', cle: 'centrerSurTerrasse', libelle: '', nom: 'Centrer la piscine sur sa terrasse',
+      visible: (c) => !!terrasseHote(c.obj, c.objets), texte: () => 'Centrer sur la terrasse',
+      explication: 'Déplace le bassin pour que son centre tombe au centre de sa terrasse ; la terrasse ne bouge pas.',
+      agit: { commande: 'objet.centrerSurTerrasse' }, executer: (c) => c.executerCommande('objet.centrerSurTerrasse')
+    }
   ]
 };
 

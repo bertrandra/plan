@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Centrer une piscine ou un trou sur sa terrasse.** Un bouton « Centrer sur la terrasse » (étape
+  1 de la piscine ; section « Trou dans la terrasse » d'un trou) déplace le bassin ou le trou pour
+  que son centre de surface tombe au centre de sa terrasse — la plage liée au bassin, sinon la
+  terrasse qu'il perce. La terrasse ne bouge pas ; Ctrl+Z annule ; déjà centré, le bouton se grise.
+- **« Platelage translucide — voir les plots »** (Vue 3D) : les lames deviennent translucides,
+  comme pour une terrasse isolée ; on voit la structure bois, les plots et la dalle ou le concassé
+  dessous. Préférence d'affichage de la session, sans effet sur le projet.
 - **Bouton « Terrasse » dans la palette**, à côté de Parasol, Pergola, Carport et Piscine (rail
   sur tablette, feuille Outils sur téléphone). Il pose une terrasse bois de 4 × 3 m sur plots,
   plots dans l'emprise, coins libres, à la place libre la plus proche du centre de la parcelle :

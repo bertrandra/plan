@@ -278,8 +278,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // Les deux textures de la terrasse : le dessus sur le platelage, le vertical sur la lame de rive —
   // les seules surfaces qu'on regarde vraiment.
   const texturesTerrasse = vue3d.textures ? { horizontale: obj.textureHorizontale, vertical: obj.textureVerticale } : null;
-  // Isolee, la terrasse montre sa structure a travers le platelage (app/isolement.ts).
-  const opaciteLames = isolee ? OPACITE_LAMES_ISOLEMENT : undefined;
+  // Isolee, ou « Platelage translucide » coche, la terrasse montre sa structure, ses plots et leur
+  // assise a travers le platelage (app/isolement.ts).
+  const opaciteLames = isolee || vue3d.platelageTranslucide ? OPACITE_LAMES_ISOLEMENT : undefined;
   // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
     lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
