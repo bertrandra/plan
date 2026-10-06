@@ -226,7 +226,8 @@ function uvDeroule(pts2d: { x: number; y: number }[]) {
 
 /** Ce que les briques demandent : la scene, le repere, et le chargeur de textures partagees. */
 export interface ContextePrimitives {
-  scene: THREE_NS.Scene;
+  /** La scene, ou un groupe : celui d'une terrasse decaissee, descendu dans sa fouille. */
+  scene: THREE_NS.Object3D;
   versLocal: VersLocal;
   chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture;
 }

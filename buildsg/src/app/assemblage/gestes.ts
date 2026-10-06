@@ -13,7 +13,7 @@ import { alignerObjetParRotation } from '../../interaction/outilAlignement.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
-import { contourTerrasseAutour } from '../../engine/piscine.js';
+import { calculerPiscine, contourTerrasseAutour, EPAISSEUR_MARGELLE_M } from '../../engine/piscine.js';
 import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';
@@ -96,6 +96,10 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       const construction = constructionTerrasseNeuve();
       const essence = piscine.piscine?.essencePlage;
       if (essence) construction.essenceBois = essence;
+      // Le dessus des lames au ras des margelles (ou du haut des parois sans margelle) : la
+      // terrasse se pose dans le decaissement qu'il faut (engine/hauteurs.ts).
+      const calc = calculerPiscine(piscine);
+      if (calc) construction.niveauFini = Math.round((calc.hauteurHorsSol + (calc.reglages.margelle ? EPAISSEUR_MARGELLE_M : 0)) * 1000) / 10;
       creation().ajouterTerrasseAutour(piscine, pts, construction);
     },
     addTrouTerrasse: (terrasse: ObjetPlan) => creation().ajouterTrou(terrasse),

@@ -314,6 +314,13 @@ export interface Construction {
   supportType?: string;
   /** Decaissement du support, en cm. */
   supportDecaissement?: number;
+  /**
+   * Niveau fini impose : le dessus des lames par rapport au terrain naturel, en cm. Absent, la
+   * terrasse est posee sur le terrain et son dessus est la ou la structure le met. Plus bas que ce
+   * que la structure donne, elle se pose dans un decaissement (engine/hauteurs.ts). Facultatif et
+   * jamais comble par `ensureConstruction` : un projet qui ne l'a pas se relit au bit pres.
+   */
+  niveauFini?: number;
 
   // ---- Charges et calibration -----------------------------------------------------------------
   chargeNormale?: number;
