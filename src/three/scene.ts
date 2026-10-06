@@ -31,7 +31,7 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, visibleEnIsolement } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
@@ -72,7 +72,9 @@ type Couches = ReturnType<typeof computeTerrasseLayers>;
  * camera doit regarder quelque chose dans tous les cas.
  */
 function centreDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d): PtBrut {
-  const objetCentre = obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan) => aDesSommets(o) && o.pts.length);
+  // Un objet isole est le centre de la scene, terrasse ou non.
+  const isole = etat.isolement ? etat.objects.find(o => o.key === etat.isolement) : undefined;
+  const objetCentre = isole || obj || ctx.trouverParcelleCloture() || etat.objects.find((o: ObjetPlan) => aDesSommets(o) && o.pts.length);
   if (!objetCentre) return { x: 0, y: 0 };
   return objetCentre.type === 'circle' ? { x: objetCentre.center.x, y: objetCentre.center.y } : centroid(objetCentre.pts);
 }
@@ -83,18 +85,17 @@ function centreDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: Context
  * parcelle se retrouveraient hors champ ou sous un sol trop petit.
  */
 function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut): number {
-  const pts = obj ? enPoints(obj).pts.slice() : [];
   const cercle = (o: ObjetCercle) => [
     { x: o.center.x - o.r, y: o.center.y }, { x: o.center.x + o.r, y: o.center.y },
     { x: o.center.x, y: o.center.y - o.r }, { x: o.center.x, y: o.center.y + o.r }
   ];
-  // Isolee, la terrasse est seule dans la scene : la camera et le sol se reglent sur elle.
-  if ((vue3d.tousLesObjets || !obj) && !(obj && etat.isolement === obj.key)) {
-    etat.objects.forEach((o: ObjetPlan) => {
-      if (o === obj) return;
-      if (o.type === 'circle') pts.push(...cercle(o));
-      else if (o.pts) pts.push(...o.pts);
-    });
+  const sommets = (o: ObjetPlan): PtBrut[] => o.type === 'circle' ? cercle(o) : o.pts ? o.pts : [];
+  const pts = obj ? sommets(obj).slice() : [];
+  if (etat.isolement) {
+    // Isole, un objet est seul dans la scene avec ses associes : la camera et le sol se reglent sur eux.
+    etat.objects.forEach((o: ObjetPlan) => { if (o !== obj && visibleEnIsolement(o, etat.objects, etat.isolement)) pts.push(...sommets(o)); });
+  } else if (vue3d.tousLesObjets || !obj) {
+    etat.objects.forEach((o: ObjetPlan) => { if (o !== obj) pts.push(...sommets(o)); });
   }
   const maxRadius = pts.reduce((m: number, p: PtBrut) => Math.max(m, dist(p, cen)), 0);
   return Math.max(3, maxRadius * 2);
@@ -273,8 +274,9 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
     prim.addBande(layers.bandes.lameRive, lameBase - riveH, riveH, 0x5c3a1e, texturesTerrasse);
   }
   if (c.avecLamePlat) prim.addBande(layers.bandes.lamePlat, lameBase, lameH, 0xd8b06a);
-  // Sol en coupe : ce qui est sous le sol fini — herisson, dalle, massifs, futs de vis — se voit.
-  if (vue3d.solEnCoupe) ajouterAssise3d({ prim, ...sol }, contour, layers, c);
+  // L'assise : une dalle se voit toujours (son debord) ; sol en coupe, tout ce qui est sous le sol
+  // fini — herisson, massifs, futs de vis — se voit aussi.
+  ajouterAssise3d({ prim, ...sol }, contour, layers, c, vue3d.solEnCoupe);
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
@@ -425,7 +427,10 @@ function appliquerOmbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
   ground.castShadow = false;
 }
 
-export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d){
+export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: ContexteScene3d){
+  // Une piscine, une pergola ou un carport isole : la terrasse courante n'est construite que si elle
+  // lui est associee (la plage d'une piscine) ; sinon la scene ne montre que l'objet isole.
+  const obj = terrasse && etat.isolement && !visibleEnIsolement(terrasse, etat.objects, etat.isolement) ? null : terrasse;
   // Meme terrasse reconstruite (une case a cocher, pas un changement d'objet) : la camera reste ou
   // l'utilisateur l'avait laissee. Autre terrasse : `cen` change, une position copiee telle quelle
   // viserait ailleurs — la le cadrage par defaut est correct. `obj` peut etre null : la Vue 3D
@@ -456,9 +461,10 @@ export function buildThreeScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: 
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, { prim, scene, versLocal, ctx });
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
-  else if (etat.isolement !== obj.key) ajouterPiscinesSeules(etat, { prim, scene, versLocal, ctx });
-  // La cloture est celle de la parcelle : masquee avec elle quand la terrasse est isolee.
-  if (!(obj && etat.isolement === obj.key)) ajouterCloture(prim, scene, versLocal, ctx);
+  // Les masques d'affichage s'appliquent : un objet isole ne laisse que lui et ses associes.
+  else ajouterPiscinesSeules(etat, { prim, scene, versLocal, ctx });
+  // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
+  if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx);
   appliquerOmbres(scene, ground);
 
   const sc: SceneVue3d = {

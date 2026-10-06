@@ -9,6 +9,10 @@
 // reconstruction de l'interface : ce module publie la liste des couches et leur visibilite.
 
 import { computeTerrasseLayers } from '../engine/layers.js';
+import { ensureConstruction } from '../engine/construction.js';
+import { estPlots, MASSIF_COTE_M, supportDe } from '../engine/constantes.js';
+import { empriseDalle } from '../engine/structure.js';
+import { enPoints } from '../model/formes.js';
 import type { Appui } from '../engine/structure.js';
 import type { ObjetPlan, PtBrut, PtEcran, Segment } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
@@ -23,12 +27,13 @@ export const TERRASSE_LAYER_DEFS: [string, string, string][] = [
   ['lambourdes', 'Lambourdes', '#b45a2a'],
   ['lames', 'Lames', '#c9a15a'],
   ['lameRive', 'Lame de rive (verticale)', '#5c3a1e'],
-  ['lamePlat', 'Planche plate (horizontale)', '#d8b06a']
+  ['lamePlat', 'Planche plate (horizontale)', '#d8b06a'],
+  ['assise', 'Assise (dalle, massifs)', '#8a8a84']
 ];
 
 /** Ce qui est affiche. Tout est visible au depart : on masque pour isoler, pas l'inverse. */
 export const terrasseLayerVisible: Record<string, boolean> = {
-  vis: true, cadre: true, solives: true, lambourdes: true, lames: true, lameRive: true, lamePlat: true
+  vis: true, cadre: true, solives: true, lambourdes: true, lames: true, lameRive: true, lamePlat: true, assise: true
 };
 
 /** Les vis sont coloriees par le role qu'elles jouent, pas par la couche. */
@@ -75,6 +80,8 @@ export function renderTerrasseLayerView(
     });
   }
 
+  // L'assise d'abord, sous tout le reste : la dalle et son debord, ou un massif sous chaque appui.
+  if (terrasseLayerVisible.assise) dessinerAssise(groupe, obj, layers.vis, toScreen);
   if (terrasseLayerVisible.lames) drawLines(layers.lames, '#c9a15a', multi ? 0.7 : 1.5, multi ? '2 2' : null);
   if (terrasseLayerVisible.lambourdes) drawLines(layers.lambourdes, '#b45a2a', multi ? 1.5 : 3);
   if (terrasseLayerVisible.solives) drawLines(layers.solives, '#6b4a2a', multi ? 2 : 4);
@@ -82,4 +89,31 @@ export function renderTerrasseLayerView(
   if (terrasseLayerVisible.lameRive) drawLines(layers.lameRive, '#5c3a1e', multi ? 2 : 4);
   if (terrasseLayerVisible.lamePlat) drawLines(layers.lamePlat, '#d8b06a', multi ? 2 : 4);
   if (terrasseLayerVisible.vis) drawPoints(layers.vis, '#235e6e');
+}
+
+/**
+ * La dalle sous la terrasse (a couler ou existante), avec son debord, en gris hachure ; ou les
+ * massifs de beton sous chaque appui. Rien pour une vis, du concasse ou des dalles stabilisatrices.
+ */
+function dessinerAssise(groupe: SVGGElement, obj: ObjetPlan, appuis: Appui[], toScreen: (p: PtBrut) => PtEcran): void {
+  const c = ensureConstruction(obj);
+  if (!estPlots(c)) return;
+  const t = supportDe(c.supportType);
+  if (t.dalleBeton || c.supportType === 'dalle') {
+    const p = document.createElementNS(svgNS, 'polygon');
+    p.setAttribute('points', empriseDalle(enPoints(obj).pts).map(q => { const e = toScreen(q); return e.x + ',' + e.y; }).join(' '));
+    p.setAttribute('fill', '#8a8a84'); p.setAttribute('fill-opacity', '0.18');
+    p.setAttribute('stroke', '#5f5f5a'); p.setAttribute('stroke-width', '1.5'); p.setAttribute('stroke-dasharray', '6 3');
+    groupe.appendChild(p);
+  }
+  if (t.massifs) {
+    appuis.forEach(a => {
+      const d = MASSIF_COTE_M / 2;
+      const coins = [{ x: a.x - d, y: a.y - d }, { x: a.x + d, y: a.y - d }, { x: a.x + d, y: a.y + d }, { x: a.x - d, y: a.y + d }].map(toScreen);
+      const r = document.createElementNS(svgNS, 'polygon');
+      r.setAttribute('points', coins.map(e => e.x + ',' + e.y).join(' '));
+      r.setAttribute('fill', '#8a8a84'); r.setAttribute('fill-opacity', '0.45'); r.setAttribute('stroke', '#5f5f5a'); r.setAttribute('stroke-width', '1');
+      groupe.appendChild(r);
+    });
+  }
 }

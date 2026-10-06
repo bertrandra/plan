@@ -106,6 +106,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
   la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
   aucune capacité de la plateforme.
+- **Isoler une piscine, une pergola ou un carport.** Le bouton d'isolement du plan et de la Vue 3D
+  (« Isoler la piscine », « Isoler la pergola », « Isoler le carport », « Isoler la terrasse »)
+  ne montre que l'objet sélectionné, cadré, en 2D comme en 3D. Une piscine isolée garde la terrasse
+  qui lui sert de plage, une terrasse isolée garde les piscines dont elle est la plage ; passer de
+  l'une à l'autre ne fait pas sortir de l'isolement.
+
+- **Une ancienne plage en bois devient une terrasse du plan d'un geste.** Une piscine dont la plage
+  est encore calculée par la piscine (« Plage bois calculée (projet antérieur) ») porte un bouton
+  « Transformer en terrasse du plan » dans « 3. Abords » : la terrasse est posée autour du bassin,
+  même largeur et même essence, sélectionnable, retaillable et isolable. Rien ne change sans ce
+  geste : les quantités d'un projet enregistré restent les siennes.
+
+- **La dalle sous une terrasse se voit.** Une dalle à couler ou existante déborde de 10 cm du
+  platelage, arasée au sol fini : en 3D, sa rive et le dessous du platelage sont en béton, sans avoir
+  à mettre le sol en coupe. Sur le plan, un calque « Assise (dalle, massifs) » dessine la dalle et son
+  débord, ou un massif sous chaque appui. Le béton et le treillis de la dalle à couler sont comptés
+  sur cette emprise débordante.
+
 - **La plage en bois d'une piscine est une vraie terrasse du plan.** Dans la section « 3. Abords »,
   la plage « Terrasse bois du plan » pose aussitôt autour du bassin une terrasse sur plots, liée à
   la piscine, aux coins libres : on la retaille comme tout polygone, elle a sa structure, sa

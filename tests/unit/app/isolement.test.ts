@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { creerIsolement, type CameraRetenue } from '../../../src/app/isolement.js';
+import { creerIsolement, libelleIsoler, objetAIsoler, type CameraRetenue } from '../../../src/app/isolement.js';
+import { objetsAssocies, visibleEnIsolement } from '../../../src/model/fonctions.js';
 import type { EtatApp } from '../../../src/core/state.js';
 
 // Isoler la terrasse (src/app/isolement.ts) : elle seule, cadree ; en sortir rend la vue d'avant.
@@ -72,5 +73,58 @@ describe('isoler la terrasse', () => {
     etat.selectedKey = 'maison';
     iso.basculer();
     expect(etat.isolement).toBeNull();
+  });
+});
+
+describe('isoler une piscine, une pergola, un carport', () => {
+  const objets = () => [
+    { key: 't1', type: 'polygon', fonction: 'terrasse', pts: [] },
+    { key: 'p1', type: 'polygon', fonction: 'piscine', pts: [], piscine: { plage: 'terrasse', terrasseKey: 't1' } },
+    { key: 'g1', type: 'polygon', fonction: 'pergola', pts: [] },
+    { key: 'k1', type: 'polygon', fonction: 'carport', pts: [] },
+    { key: 'maison', type: 'polygon', fonction: 'batiment', pts: [] }
+  ];
+  const monterSur = (selection: string) => {
+    const etat = { objects: objets(), selectedKey: selection, terrasseSelectedKey: 't1', isolement: null, scene: { scale: 10, origine: { x: 0, y: 0 }, W: 800, H: 600 } } as unknown as EtatApp;
+    const iso = creerIsolement({ etat, render: () => {}, cadrer: () => {}, vue3dOuverte: () => false, reconstruire3d: () => {}, lireCamera: () => null, poserCamera: () => {}, notifier: () => {} });
+    return { etat, iso };
+  };
+
+  it('isole chacun, avec son libelle ; pas un batiment', () => {
+    for (const [cle, libelle] of [['p1', 'Isoler la piscine'], ['g1', 'Isoler la pergola'], ['k1', 'Isoler le carport'], ['t1', 'Isoler la terrasse']] as const) {
+      const { etat, iso } = monterSur(cle);
+      expect(libelleIsoler(objetAIsoler(etat))).toBe(libelle);
+      iso.basculer();
+      expect(etat.isolement).toBe(cle);
+    }
+    const { etat, iso } = monterSur('maison');
+    expect(objetAIsoler(etat)).toBeUndefined();
+    iso.basculer();
+    expect(etat.isolement).toBeNull();
+  });
+
+  it('montre la terrasse d une piscine isolee, et reste isole quand on la selectionne', () => {
+    const { etat, iso } = monterSur('p1');
+    iso.basculer();
+    const vu = (k: string) => visibleEnIsolement(etat.objects.find(o => o.key === k)!, etat.objects, etat.isolement);
+    expect(vu('p1')).toBe(true);
+    expect(vu('t1')).toBe(true);
+    expect(vu('maison')).toBe(false);
+    expect(vu('g1')).toBe(false);
+    etat.selectedKey = 't1';
+    iso.suivreSelection();
+    expect(etat.isolement).toBe('p1');
+    etat.selectedKey = 'maison';
+    iso.suivreSelection();
+    expect(etat.isolement).toBeNull();
+  });
+
+  it('une terrasse isolee montre les piscines dont elle est la plage', () => {
+    const { etat, iso } = monterSur('t1');
+    iso.basculer();
+    expect(objetsAssocies(etat.objects[0]!, etat.objects).map(o => o.key)).toEqual(['p1']);
+    expect(visibleEnIsolement(etat.objects[1]!, etat.objects, 't1')).toBe(true);
+    expect(visibleEnIsolement(etat.objects[2]!, etat.objects, 't1')).toBe(false);
+    expect(visibleEnIsolement(etat.objects[2]!, etat.objects, null)).toBe(true);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculerPiscine, chiffrerPiscine, contourTerrasseAutour, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee, terrasseDeLaPiscine
 } from '../../../src/engine/piscine.js';
-import { aireCommune, computeStructure, contourOuverture, couperAuContour, objetsQuiPercent } from '../../../src/engine/structure.js';
+import { aireCommune, computeStructure, contourOuverture, couperAuContour, empriseDalle, objetsQuiPercent, surfaceDalle } from '../../../src/engine/structure.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
 import { computeChantier } from '../../../src/engine/chantier.js';
@@ -140,13 +140,19 @@ describe('l\'assise d\'une terrasse sur plots', () => {
     expect(a.concasseM3).toBeCloseTo(3);
     const t = terrasse(rect(0, 0, 5, 4), c);
     const bom = computeBOM(t, computeTerrasseLayers(t, [t]));
-    expect(bom.find(l => l.poste === 'betonDalle')!.qte).toBeCloseTo(20 * 0.12);
+    // La dalle deborde de 10 cm tout autour : 5,2 x 4,2 m sous une terrasse de 5 x 4 m.
+    expect(bom.find(l => l.poste === 'betonDalle')!.qte).toBeCloseTo(5.2 * 4.2 * 0.12);
+    expect(bom.find(l => l.poste === 'treillis')!.qte).toBeCloseTo(5.2 * 4.2 * 1.15);
     expect(bom.find(l => l.poste === 'coffrage')!.qte).toBeGreaterThan(17);
     expect(bom.find(l => l.poste === 'treillis')).toBeDefined();
     const chantier = computeChantier(t, computeTerrasseLayers(t, [t]));
     const poste = (cle: string) => chantier.lignes.find(l => l.cle === cle)?.qte ?? 0;
-    expect(poste('coulage')).toBeCloseTo(2.4);
-    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 2.4);
+    expect(poste('coulage')).toBeCloseTo(5.2 * 4.2 * 0.12);
+    expect(poste('decaissement')).toBeCloseTo(20 * 0.15 + 5.2 * 4.2 * 0.12);
+    expect(surfaceDalle(rect(0, 0, 5, 4), [rect(1, 1, 2, 2)])).toBeCloseTo(5.2 * 4.2 - 1, 3);
+    const e = empriseDalle(rect(0, 0, 5, 4));
+    expect(Math.min(...e.map(p => p.x))).toBeCloseTo(-0.1);
+    expect(Math.max(...e.map(p => p.y))).toBeCloseTo(4.1);
   });
 
   it('chiffre un massif de beton sous chaque plot, sans decaissement general', () => {
