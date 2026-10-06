@@ -33,6 +33,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (pièce DP3), sol en relief dans la Vue 3D ; les hauteurs de plots, vis et poteaux viendraient dans
   une version majeure suivante. Formats, limites et couverture vérifiés sur `data.geopf.fr` le
   6 octobre 2026. Documentation seulement.
+- **Relief : les courbes de niveau et le profil dans les rendus et les exports** (phase 1,
+  affichage seulement, `MD/spec-relief.md` §5.3, §5.4). Quand la parcelle porte un relief, le plan
+  dessine ses courbes de niveau sous les objets, au-dessus de la grille (`render/relief.ts`, crochet
+  `dessinerRelief` de `rendreScene`) : trait fin d'un brun discret (jeton nouveau `relief`, réglable
+  dans la palette), une courbe sur quatre maîtresse, étiquetée en altitude NGF. `plan.svg` les
+  écrit dans un groupe `relief-courbes` sans `data-*`, que l'import ignore. Le plan de masse (DP2)
+  les montre en gris, quelle que soit la préférence d'affichage, avec sa légende (« Courbes de
+  niveau tous les 0,25 m (IGN, LiDAR HD, 50 cm) »). Le dossier mairie gagne une **pièce DP3**, en
+  paysage : la coupe du terrain dans le sens de la plus grande pente par le point de référence de la
+  terrasse, lue dans la grille enregistrée (sans réseau), la terrasse et les abris traversés à leur
+  hauteur, les altitudes NGF, et la source (« Terrain naturel : IGN, LiDAR HD, 50 cm · acquis en
+  2021 ») ; les hauteurs sont exagérées (× 2, × 5) quand le dénivelé est faible, et le cartouche le
+  dit. La coupe AA du dossier piscine suit le relief le long de l'axe du bassin. Un projet sans
+  relief écrit exactement les mêmes fichiers qu'avant : les témoins de `tests/fixtures/golden/`
+  ne bougent pas.
 - **Portails et portillons : glisser sur le plan.** Un accès se saisit sur le plan 2D et glisse le
   long de la clôture, à la souris ou au doigt. Il suit le côté le plus proche du pointeur, passe
   d'un côté à l'autre à un angle, et ne sort jamais de son côté. Il ne saute pas sous le pointeur :

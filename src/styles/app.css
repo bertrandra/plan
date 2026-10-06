@@ -5,7 +5,7 @@
     color-scheme: light dark;
     --ink:#2B2117; --ink-soft:#6B5A41; --paper:#F7F2E7; --paper-deep:#EFE8D8;
     --stage-bg:#F1EBDC; --stage-trame:#D9CDB2; --panel-bg:#FFFDF8; --panel-2:#F7F2E7;
-    --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3;
+    --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F;
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA;
@@ -29,7 +29,7 @@
     :root{
       --ink:#F1E7D0; --ink-soft:#BFAE8C; --paper:#1C1610; --paper-deep:#231C14;
       --stage-bg:#1C1610; --stage-trame:#3A2F22; --panel-bg:#262017; --panel-2:#2F271C;
-      --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F;
+      --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A;
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426;
