@@ -72,6 +72,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // La plage d'une piscine (section Abords) et les trous d'une terrasse (étape 1 de la terrasse, Implantation et niveau).
   'objet.terrassePiscine': partout('inspecteur'),
   'terrasse.ajouterTrou': partout('inspecteur'),
+  'objet.centrerSurTerrasse': partout('inspecteur'),
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.reculer': outil(),
