@@ -146,7 +146,7 @@ describe('l empilement de la terrasse en 3D', () => {
 });
 
 describe('platelage translucide', () => {
-  it('rend les lames translucides pour voir les plots, et seulement si la case est cochee', async () => {
+  it('garde les lames pleines par defaut ; case cochee, presque transparentes', async () => {
     const opacites = () => {
       const o = new Set<number>();
       vue3d.scene?.scene.traverse((m) => {
@@ -157,7 +157,7 @@ describe('platelage translucide', () => {
     };
     const textures = vue3d.textures;
     vue3d.textures = false;
-    for (const [translucide, attendu] of [[false, [1]], [true, [0.35]]] as const) {
+    for (const [translucide, attendu] of [[false, [1]], [true, [0.15]]] as const) {
       vue3d.platelageTranslucide = translucide;
       vue3d.scene = null; vue3d.dernierObjKey = null;
       buildThreeScene(terrasse(), etat(), contexte());

@@ -2,7 +2,8 @@
 //
 // Une dalle sous la terrasse se voit toujours : elle deborde du platelage. Une dalle a couler est
 // coulee en fond de fouille, une hauteur de plot sous le terrain (engine/hauteurs.ts) : les plots se
-// posent dessus et leur tete arrive au ras du sol. Elle est translucide, pour qu'on voie les plots.
+// posent dessus et leur tete arrive au ras du sol. Elle est pleine ; « Platelage translucide » (Vue
+// 3D) la rend translucide, avec les lames, pour voir les plots et ce qu'elle recouvre.
 //
 // Le reste de ce qui porte une terrasse sous le sol fini est d'ordinaire cache par le sol opaque : le
 // herisson de concasse, une dalle (existante ou a couler), les dalles stabilisatrices, les massifs
@@ -25,7 +26,7 @@ const BETON = '#c8c8c4';
 const DALLE_EXISTANTE_M = 0.12;
 /** Les dalles stabilisatrices sous les plots : 40 x 40 cm, 4 cm. */
 const DALLE_STAB = { cote: 0.4, ep: 0.04 };
-/** Une dalle laisse voir les plots poses dessus et ce qu'elle recouvre. */
+/** La dalle quand « Platelage translucide » est coche : elle laisse voir ce qu'elle recouvre. */
 export const OPACITE_DALLE = 0.5;
 /** La fouille descend un peu sous la couche la plus basse, pour qu'on la lise. */
 const SOUS_FOUILLE_M = 0.1;
@@ -67,7 +68,8 @@ export function couchesAssise(c: Construction): { couches: { nom: string; haut: 
  * montent du fond jusqu'au terrain naturel. Le reste — herisson, concasse, massifs, fouille entiere —
  * n'apparait que sol en coupe (`enCoupe`). Tout est abaisse du decaissement.
  */
-export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean, decaissement = 0): void {
+export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, contour: PtBrut[], layers: CouchesTerrasse, c: Construction, enCoupe: boolean, decaissement = 0, translucide = false): void {
+  const opaciteDalle = translucide ? OPACITE_DALLE : 1;
   if (contour.length < 3) return;
   const trous = layers.trous ?? [];
   const { couches, parAppui, profondeur } = couchesAssise(c);
@@ -81,7 +83,7 @@ export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, co
     // ou la terre du fond ; et la fouille autour si la terrasse est decaissee.
     const dessus = dalle ?? couches[0];
     const fond = dessus ? base + dessus.bas : base - 0.005;
-    plaque(scene, versLocal, emprise, trous, fond, dessus ? dessus.haut - dessus.bas : 0.005, dessus ? dessus.couleur : TERRE, dessus === dalle ? OPACITE_DALLE : 1);
+    plaque(scene, versLocal, emprise, trous, fond, dessus ? dessus.haut - dessus.bas : 0.005, dessus ? dessus.couleur : TERRE, dessus === dalle ? opaciteDalle : 1);
     if (base < -1e-6) parois(scene, versLocal, emprise, fond, 0);
     return;
   }
@@ -89,7 +91,7 @@ export function ajouterAssise3d({ prim, scene, versLocal }: ContexteAssise3d, co
   parois(scene, versLocal, emprise, base - profondeur, 0);
   // Le fond de la fouille, puis chaque couche, percee la ou la terrasse l'est.
   plaque(scene, versLocal, emprise, trous, base - profondeur, 0.005, TERRE);
-  couches.forEach(k => plaque(scene, versLocal, emprise, trous, base + k.bas, k.haut - k.bas, k.couleur, k === dalle ? OPACITE_DALLE : 1));
+  couches.forEach(k => plaque(scene, versLocal, emprise, trous, base + k.bas, k.haut - k.bas, k.couleur, k === dalle ? opaciteDalle : 1));
   if (parAppui) layers.vis.forEach(p => prim.addPrism(carre(p, parAppui.cote), base + parAppui.bas, parAppui.haut - parAppui.bas, BETON));
 }
 

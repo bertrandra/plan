@@ -32,3 +32,24 @@ describe('l\'assise sous le sol en coupe', () => {
     expect(vis.profondeur).toBeCloseTo(0.9);
   });
 });
+
+describe('la dalle en 3D', () => {
+  it('est pleine par defaut, translucide quand le platelage l est', async () => {
+    const THREE_NS = await import('three');
+    Object.assign(globalThis, { THREE: THREE_NS });
+    const { ajouterAssise3d, OPACITE_DALLE } = await import('../../../src/three/assise3d.js');
+    const { creerPrimitives, versLocalDepuis } = await import('../../../src/three/primitives.js');
+    const contour = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }, { x: 0, y: 3 }];
+    const c = { ...constructionTerrasseNeuve(), supportType: 'dalle-beton' };
+    const opacites = (translucide: boolean) => {
+      const scene = new THREE_NS.Scene(), versLocal = versLocalDepuis({ x: 0, y: 0 });
+      const prim = creerPrimitives({ scene, versLocal, chargerTexture: () => new THREE_NS.Texture() });
+      ajouterAssise3d({ prim, scene, versLocal }, contour, { vis: [], trous: [] } as never, c, false, 0.1, translucide);
+      const o: number[] = [];
+      scene.traverse(m => { const mat = (m as InstanceType<typeof THREE_NS.Mesh>).material as InstanceType<typeof THREE_NS.MeshStandardMaterial> | undefined; if ((m as InstanceType<typeof THREE_NS.Mesh>).isMesh && mat?.color?.getHexString() === 'c8c8c4') o.push(mat.transparent ? mat.opacity : 1); });
+      return o;
+    };
+    expect(opacites(false)).toEqual([1]);
+    expect(opacites(true)).toEqual([OPACITE_DALLE]);
+  });
+});
