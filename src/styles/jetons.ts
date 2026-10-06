@@ -12,7 +12,7 @@
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
-  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
+  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte';
 
@@ -31,6 +31,8 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'border': '#E4D9C1',
     'rule': '#D9CDB2',
     'hairline': '#EFE6D3',
+    // Les courbes de niveau du relief : un brun discret, lisible sur le canevas sans peser sur les objets.
+    'relief': '#8C6B3F',
     'accent': '#7A5C31',
     'on-accent': '#FFFDF8',
     'accent-light': '#EFE3C8',
@@ -64,6 +66,7 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'border': '#3E3325',
     'rule': '#4A3F30',
     'hairline': '#332A1F',
+    'relief': '#C9A97A',
     'accent': '#E0B564',
     'on-accent': '#1C1610',
     'accent-light': '#4A3B22',
@@ -115,6 +118,7 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'border': { famille: 'traits', role: 'Bordure des panneaux' },
   'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
   'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
+  'relief': { famille: 'traits', role: 'Courbes de niveau' },
   'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
   'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
   'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
@@ -196,6 +200,7 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['danger', 'danger-bg', 4.5],
   ['danger', 'panel-bg', 4.5],
   ['on-toast', 'toast-bg', 4.5],
+  ['relief', 'stage-bg', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
   ['on-camera', 'camera-bg', 4.5],
