@@ -9,6 +9,7 @@
 // (l'objet et ses voisins), pour qu'un glisser qui redessine a chaque image ne le relance pas.
 
 import { computeBOM } from '../engine/bom.js';
+import { solDuProjet } from '../engine/sol.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
@@ -39,7 +40,7 @@ export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChi
   if (cache && cache.cle === cle + obj.key) return cache.resume;
   const c = ensureConstruction(obj);
   const couches = computeTerrasseLayers(obj, objets);
-  const lignes: LigneBom[] = computeBOM(obj, couches);
+  const lignes: LigneBom[] = computeBOM(obj, couches, solDuProjet(objets));
   let bas = 0, haut = 0, reel = 0, auMoinsUnReel = false;
   for (const l of lignes) {
     bas += (l.prixBas || 0) * l.qte;

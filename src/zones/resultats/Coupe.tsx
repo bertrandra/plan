@@ -7,7 +7,10 @@
 import { ensureConstruction } from '../../engine/construction.js';
 import { DALLE_BETON_EP_M, estPlots, MASSIF_COTE_M, plotModele, SUPPORT_TYPES } from '../../engine/constantes.js';
 import { dimsSection, sectionLambourde } from '../../engine/portees.js';
-import { decaissementPoseMm, hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
+import { appuisEnHauteur, decaissementPoseMm, hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
+import { computeTerrasseLayers } from '../../engine/layers.js';
+import { solDuProjet } from '../../engine/sol.js';
+import { aDesSommets } from '../../model/formes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 const ENCRE = '#3B2E1F', SOL = '#4A6B32';
@@ -15,8 +18,10 @@ const POLICE = "'Helvetica Neue',Arial,sans-serif";
 /** px par mm. */
 const ECHELLE = 2;
 
-export function Coupe({ obj }: { obj: ObjetPlan }) {
+export function Coupe({ obj, objets = [] }: { obj: ObjetPlan; objets?: ObjetPlan[] }) {
   const c = ensureConstruction(obj);
+  // Sur un sol en pente, la coupe est celle du point haut ; la ligne du plot dit jusqu'ou vont ceux d'aval.
+  const pente = objets.length && aDesSommets(obj) && obj.pts.length >= 3 ? appuisEnHauteur(obj, computeTerrasseLayers(obj, objets).vis, solDuProjet(objets)) : null;
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const soliveDims = (c.soliveSection || '45x70').split('x').map(n => parseInt(n, 10) || 0);
   const soliveH = plotSimple ? 0 : (soliveDims[1] || 70);
@@ -56,7 +61,7 @@ export function Coupe({ obj }: { obj: ObjetPlan }) {
   };
   if (estPlots(c)) {
     const h = Math.max(hauteurVisMm * ECHELLE, 2);
-    appui(60, solY - h, h, 20, '#6E7A84', 'Plot — ' + (c.hauteurPlot || 10) + ' cm (' + plotModele(c).label + ')', solY - h / 2);
+    appui(60, solY - h, h, 20, '#6E7A84', 'Plot — ' + (c.hauteurPlot || 10) + ' cm (' + plotModele(c).label + ')' + (pente ? ' ; sol en pente : de ' + Math.round(pente.minMm / 10) + ' à ' + Math.round(pente.maxMm / 10) + ' cm' : ''), solY - h / 2);
   } else {
     const bas = Math.max(enterreMm * ECHELLE, 2);
     appui(64, solY, bas, 12, '#8A96A8', 'Vis de fondation — ' + c.hauteurVis + ' cm dans le sol', solY + bas / 2);

@@ -12,6 +12,7 @@
 import { assemblerPDF } from './pdf/writer.js';
 import { remplirCerfa13703, type Piece, type RemplissageCerfa } from './cerfa13703.js';
 import { pageFacades, pagePlanDeMasse, pageProfil, pageSituationCadastre, type MetaPieces } from './piecesDP.js';
+import { solDuProjet } from '../engine/sol.js';
 import { estAbri } from '../model/fonctions.js';
 import type * as PdfLib from 'pdf-lib';
 import type { ObjetPlan } from '../model/types.js';
@@ -70,7 +71,7 @@ export async function assemblerDossierMairie(lib: BibliothequePdf, cerfa: Uint8A
   const situation = pageSituationCadastre(objets, o.meta);
   const masse = pagePlanDeMasse(objets, o.meta);
   const profil = pageProfil(objets, o.meta);
-  const facades = objets.filter(estAbri).map(a => pageFacades(a, o.meta)).filter(p => p !== null);
+  const facades = objets.filter(estAbri).map(a => pageFacades(a, o.meta, solDuProjet(objets))).filter(p => p !== null);
   const pieces: Piece[] = [];
   if (situation || o.carte) pieces.push('DP1');
   if (masse) pieces.push('DP2');

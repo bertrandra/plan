@@ -9,6 +9,7 @@
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { calculerPergola, dimsPergola } from '../engine/pergola.js';
+import { solDuProjet } from '../engine/sol.js';
 import { estAbri } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
@@ -36,7 +37,7 @@ export function dessinerCalquePergolas(groupe: SVGElement, etat: EtatCalquePergo
   etat.objects
     .filter(o => estAbri(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
     .forEach(o => {
-      const calc = calculerPergola(o);
+      const calc = calculerPergola(o, solDuProjet(etat.objects));
       if (!calc) return;
       const couleur = o.stroke || '#6b4a2a';
       // L'emprise du toit en pointille, quand elle deborde du contour : c'est la que tombe l'eau.

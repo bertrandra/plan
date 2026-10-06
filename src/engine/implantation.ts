@@ -5,6 +5,8 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
+import { appuisEnHauteur } from './hauteurs.js';
+import type { Sol } from './sol.js';
 import { dist, pointInPolygon } from '../geometry/basic.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
@@ -13,13 +15,13 @@ import type { RoleAppui } from './structure.js';
 import type { ObjetPlan, PtBrut, Segment } from '../model/types.js';
 
 /** Un appui replace dans le repere de tracage : ses deux cotes, son role, et son numero de marquage. */
-interface AppuiImplante extends PtBrut { role?: RoleAppui; n?: number }
+interface AppuiImplante extends PtBrut { role?: RoleAppui; n?: number; /** Sur un sol en pente : la hauteur de l'appui, en mm. */ hauteurMm?: number }
 
 /** Une piece porteuse a materialiser au cordeau, et les appuis a marquer le long d'elle. */
 interface LignePorteuse { ref: string; type: string; seg: Segment }
 
 /** Un appui a marquer le long d'une piece : a quelle distance de son depart, et sous quel numero. */
-interface AppuiSurLigne { d: number; n?: number | undefined }
+interface AppuiSurLigne { d: number; n?: number | undefined; hauteurMm?: number | undefined }
 
 export function repereImplantation(obj: ObjetPlan){
   const c = ensureConstruction(obj);
@@ -37,11 +39,16 @@ export function repereImplantation(obj: ObjetPlan){
     vers: (p: PtBrut) => ({ x:(p.x-A.x)*ux + (p.y-A.y)*uy, y:(p.x-A.x)*nx + (p.y-A.y)*ny })
   };
 }
-export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse){
+/** `sol` : le relief du projet (MD/spec-relief.md §6) ; present, chaque appui porte sa hauteur. */
+export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse, sol?: Sol | null){
   const R = repereImplantation(obj);
   const pts = enPoints(obj).pts;
   const sommets = pts.map((p,i)=>({ i, ...R.vers(p) }));
-  const appuis: AppuiImplante[] = layers.vis.map(p=>({ ...R.vers(p), role:p.role }));
+  const enPente = appuisEnHauteur(obj, layers.vis, sol);
+  const appuis: AppuiImplante[] = layers.vis.map((p, i)=>{
+    const h = enPente?.appuis[i]?.hauteurMm;
+    return { ...R.vers(p), role:p.role, ...(h !== undefined ? { hauteurMm: h } : {}) };
+  });
   // Numerotes par rangee puis de gauche a droite : c'est l'ordre dans lequel on les marque,
   // un cordeau apres l'autre.
   appuis.sort((a,b)=> Math.abs(a.y-b.y) > 0.02 ? a.y-b.y : a.x-b.x);
@@ -68,8 +75,8 @@ export function computeImplantation(obj: ObjetPlan, layers: CouchesTerrasse){
       const ecart = Math.abs((p.x-A.x)*(-uy) + (p.y-A.y)*ux);
       if(ecart > 0.03) return;
       pris.add(idx);
-      sur.push({ d:Math.max(0,t), n:appuis.find(a=>Math.abs(a.x-R.vers(p).x)<1e-9 &&
-                                                   Math.abs(a.y-R.vers(p).y)<1e-9)?.n });
+      const appui = appuis.find(a=>Math.abs(a.x-R.vers(p).x)<1e-9 && Math.abs(a.y-R.vers(p).y)<1e-9);
+      sur.push({ d:Math.max(0,t), n:appui?.n, ...(appui?.hauteurMm !== undefined ? { hauteurMm: appui.hauteurMm } : {}) });
     });
     sur.sort((a,b)=>a.d-b.d);
     return { ...l, longueur:L, depart:R.vers(A), fin:R.vers(B), appuis:sur };
