@@ -106,6 +106,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rempli — un formulaire qui change de version ne se remplit pas depuis un PDF écrit à la main — :
   la page d'aide donne chaque valeur à reporter. Comme le PDF du plan, cet export n'est attaché à
   aucune capacité de la plateforme.
+- **Une terrasse percée compte sa surface nette, partout.** Le trou d'une piscine (ou d'un arbre)
+  est retiré de la surface de la terrasse dans l'inspecteur (« ouvertures déduites »), la liste des
+  terrasses, la feuille de sélection, le résumé, le dossier PDF, la description du cerfa, la charge
+  par plot et le chantier (pose des lames, nettoyage). Un bassin n'est plus compté comme un
+  équipement posé sur la terrasse dans le dossier. Sans ouverture, rien ne change.
+
+- **Lame de rive côté par côté, et autour des trous.** Sous « Finitions du tour », une case par
+  côté (son nom, mis en évidence sur le plan au survol) dit s'il porte une lame de rive : on la
+  retire contre un mur, une marche, une jardinière. Le BOM, le plan et la Vue 3D suivent ; un
+  résumé dit les côtés sans rive. « Rive autour des trous » en pend une aussi dans chaque trou de la
+  terrasse (jamais autour d'un bassin, que ses margelles bordent).
+
+- **Les plots de rive ne dépassent plus de la terrasse.** Une terrasse sur plots créée maintenant
+  (« Plots dans l'emprise », coché d'office) recule son cadre d'un rayon d'embase : l'embase des
+  plots de rive, et de ceux du chevêtre autour d'un bassin, reste sous la terrasse ; les lames
+  débordent du cadre d'autant (environ 10 cm). Un projet enregistré garde son cadre au bord et ses
+  quantités ; la case le passe en retrait à la demande.
+
 - **Niveau fini d'une terrasse et décaissement de pose.** Dans « Fondation et appuis », la case
   « Imposer le niveau fini » fixe la hauteur du dessus des lames au-dessus du terrain naturel :
   0 cm pour une terrasse de plain-pied, la hauteur d'un seuil, celle des margelles. Plus bas que ce

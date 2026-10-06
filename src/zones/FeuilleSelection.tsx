@@ -24,6 +24,7 @@ import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
 import { estTerrasse } from '../model/fonctions.js';
+import { surfaceNetteTerrasse } from '../engine/structure.js';
 
 /** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
 const essenceDe = (o: ObjetPlan) => (ESSENCE_PRICES[ensureConstruction(o).essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label.toLowerCase() ?? '';
@@ -44,7 +45,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
     liste.push(['Longueur', nombre(L) + ' m']);
     if (o.width) liste.push(['Largeur', nombre(o.width) + ' m']);
   } else {
-    liste.push(['Surface', nombre(shoelace(o.pts)) + ' m²']);
+    liste.push(['Surface', nombre(estTerrasse(o) ? surfaceNetteTerrasse(o.pts, objets) : shoelace(o.pts)) + ' m²']);
   }
   if (estTerrasse(o)) {
     liste.push(['Hauteur finie', nombre(hauteurFinieMm(o) / 10, 1).replace(/,0$/, '') + ' cm']);

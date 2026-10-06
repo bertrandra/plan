@@ -15,8 +15,9 @@ import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, findSpaZones, objetsQuiPercent, ouverturesDe, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
+import { buildVisGrid, findSpaZones, objetsQuiPercent, ouverturesDe, surfaceNetteTerrasse, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
 import { decaissementPoseMm, hauteurStructureMm } from '../../engine/hauteurs.js';
+import { estTrou } from '../../model/fonctions.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
@@ -46,7 +47,7 @@ function lire(cx: ContexteChamps): Lecture {
     visCount: grille.length,
     visSpa: grille.filter(p => p.role === 'spa').length,
     nomsEquip: zonesEquip.map(z => z.nom).join(', '),
-    surfM2: shoelace(sommetsDe(obj)) || 1,
+    surfM2: (obj.type === 'polygon' ? surfaceNetteTerrasse(obj.pts, cx.objets) : shoelace(sommetsDe(obj))) || 1,
     spanAppui: porteeAppuiM(c)
   };
 }
@@ -136,6 +137,15 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     note: (cx) => noteNiveauFini(cx),
     lire: (cx) => cx.construction().niveauFini ?? 0,
     ecrire: (cx, v) => { if (!(v >= 0 && v <= 200)) return false; cx.construction().niveauFini = Math.round(v * 10) / 10; }
+  },
+  plotsDansEmprise: {
+    type: 'case', cle: 'plotsDansEmprise', libelle: 'Plots dans l\'emprise', historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Le cadre recule du bord d\'un rayon d\'embase : l\'embase des plots de rive reste sous la terrasse, les lames débordent du cadre d\'autant.',
+    visible: (cx) => lire(cx).plots,
+    note: (cx) => { const c = cx.construction(); const r = Math.sqrt((c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2) / Math.PI);
+      return c.plotsDansEmprise ? 'cadre en retrait de ' + r.toFixed(1).replace('.', ',') + ' cm : les lames débordent, rien ne dépasse' : 'cadre au bord : l\'embase des plots de rive dépasse de la terrasse'; },
+    lire: (cx) => !!cx.construction().plotsDansEmprise,
+    ecrire: (cx, v) => { const c = cx.construction(); if (v) c.plotsDansEmprise = true; else delete c.plotsDansEmprise; }
   },
   plotSurfaceAssise: nombre('plotSurfaceAssise', 'Surface d\'assise du plot', { pas: 10, min: 50, unite: 'cm²', defaut: PLOT_ASSISE_MIN_CM2, visible: l => l.plots,
     aide: 'Surface d\'assise du plot au contact du support',
@@ -233,6 +243,19 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     note: () => 'planche sur chant qui fait le tour, suspendue sous les lames, cache la structure',
     lire: (cx) => !!cx.construction().avecLameRive, ecrire: (cx, v) => { cx.construction().avecLameRive = v; }
   }),
+  // Les cotes sans lame de rive se cochent cote par cote (finitions, `champsRiveParCote`) ; ici, le resume.
+  cotesSansRive: {
+    type: 'lecture', cle: 'cotesSansRive', libelle: 'Côtés sans rive', visible: (cx) => !!cx.construction().avecLameRive,
+    valeur: (cx) => { const sans = cx.construction().cotesSansRive ?? []; const noms = cx.obj.type === 'polygon' ? cx.obj.segmentNames : [];
+      return sans.length ? sans.map(i => noms?.[i] || 'Côté ' + (i + 1)).join(', ') : 'aucun : la rive fait tout le tour'; }
+  },
+  riveOuvertures: {
+    type: 'case', cle: 'riveOuvertures', libelle: 'Rive autour des trous', historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Une lame de rive pendue dans chaque trou de la terrasse (arbre, trappe), à l\'aplomb de son bord. Pas autour d\'un bassin : ses margelles le bordent.',
+    visible: (cx) => !!cx.construction().avecLameRive && cx.obj.type === 'polygon' && objetsQuiPercent(cx.obj.pts, cx.objets).some(x => estTrou(x.objet)),
+    lire: (cx) => !!cx.construction().riveOuvertures,
+    ecrire: (cx, v) => { const c = cx.construction(); if (v) c.riveOuvertures = true; else delete c.riveOuvertures; }
+  },
   hauteurLameRive: nombre('hauteurLameRive', 'Hauteur lame de rive', { pas: 10, min: 50, unite: 'mm', defaut: 200, actif: l => !!l.c.avecLameRive,
     aide: 'Hauteur de l\'habillage, mesurée depuis le dessus des lames vers le bas' }),
   avecLamePlat: reglage({
@@ -338,7 +361,29 @@ const alertes: Champ[] = [
 /** L'ouverture du bloc d'optimisation : un pli de l'interface (app/resultats.ts), pas une donnee du projet. */
 export interface ContexteOptimisation { visible: () => boolean }
 
-export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] {
+/**
+ * Une case par cote du contour : lame de rive ou non. Le cote se met en evidence sur le plan au
+ * survol, comme dans la section Cotes. Sans contexte (un test, un inventaire), pas de cote.
+ */
+function champsRiveParCote(c?: ContexteChamps): Champ[] {
+  if (!c || c.obj.type !== 'polygon') return [];
+  const noms = c.obj.segmentNames ?? [];
+  return c.obj.pts.map((_, i): Champ => ({
+    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + (noms[i] || 'Côté ' + (i + 1)), historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Décocher pour ne pas poser de lame de rive sur ce côté (contre un mur, une marche, une jardinière)',
+    visible: (cx) => !!cx.construction().avecLameRive,
+    surbrillance: (cx) => cx.etat.highlight.type === 'segment' && cx.etat.highlight.index === i,
+    lire: (cx) => !(cx.construction().cotesSansRive ?? []).includes(i),
+    ecrire: (cx, v) => {
+      const k = cx.construction();
+      const sans = new Set(k.cotesSansRive ?? []);
+      if (v) sans.delete(i); else sans.add(i);
+      if (sans.size) k.cotesSansRive = [...sans].sort((a, b) => a - b); else delete k.cotesSansRive;
+    }
+  }));
+}
+
+export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: ContexteChamps): Section[] {
   const fondation: Section = {
     id: 'fondation', titre: 'Fondation et appuis',
     champs: [
@@ -360,7 +405,7 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
         }
       },
       champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'), champ('plotAvecSolives'),
-      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('chargeNormale'), champ('chargeSpa'),
+      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('plotsDansEmprise'), champ('chargeNormale'), champ('chargeSpa'),
       champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
       ...alertes
     ]
@@ -394,7 +439,7 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
   };
   const finitions: Section = {
     id: 'finitions', titre: 'Finitions du tour',
-    champs: [champ('avecLameRive'), champ('hauteurLameRive'), champ('avecLamePlat')]
+    champs: [champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };
   // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement.
   const optimisation: Section = {
