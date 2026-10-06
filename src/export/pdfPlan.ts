@@ -20,7 +20,7 @@ import { enPoints } from '../model/formes.js';
 import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/structure.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
-import { pdfEscape, horodatagePdfInfo, hexToRgb01 } from './pdf/writer.js';
+import { pdfEscape, horodatagePdfInfo, hexToRgb01, pdfDecoupeTrous } from './pdf/writer.js';
 /** Ce que la mise en page doit savoir en plus des objets : de quoi remplir le cartouche. */
 export interface MetaPdf {
   appVersion: string;
@@ -101,16 +101,15 @@ function etiquetteCote(pa: { x: number; y: number }, pb: { x: number; y: number 
 }
 
 function dessinerPolygone(m: MisePage, obj: ObjetPolygone, trous: PtBrut[][]): string {
-  let c = couleursPleines(m, obj);
-  // Une terrasse percee (bassin, tremie) : chaque trou est un sous-chemin, rempli en pair-impair.
-  [obj.pts, ...trous].forEach((anneau, k)=>{
-    if(k > 0) c += 'h\n';
-    anneau.forEach((p,i)=>{
-      const pp = m.toPdf(p);
-      c += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
-    });
+  // Une terrasse percee (bassin, tremie) : un gabarit la decoupe, leve juste apres son trace.
+  let c = pdfDecoupeTrous(trous.map(t=>t.map(p=>m.toPdf(p))));
+  c += couleursPleines(m, obj);
+  obj.pts.forEach((p,i)=>{
+    const pp = m.toPdf(p);
+    c += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
   });
-  c += trous.length ? 'h B*\n' : 'h B\n';
+  c += 'h B\n';
+  if(trous.length) c += 'Q\n';
   c += '/'+m.gsName(1)+' gs\n';
   const n = obj.pts.length;
   for(let i=0;i<n;i++){

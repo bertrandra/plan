@@ -7,7 +7,7 @@ import { construireDossierPDF } from '../../../src/export/dossierPdf.js';
 import { importSVGString } from '../../../src/io/importSvg.js';
 import type { EtatApp } from '../../../src/core/state.js';
 import { pdfPolygone } from '../../../src/export/pdf/writer.js';
-import { trousDeTerrasse, surfaceNetteTerrasse } from '../../../src/engine/structure.js';
+import { formeDeTerrasse, trousDeTerrasse, surfaceNetteTerrasse } from '../../../src/engine/structure.js';
 import { shoelace } from '../../../src/geometry/basic.js';
 import { calculerPiscine } from '../../../src/engine/piscine.js';
 import { constructionTerrasseNeuve } from '../../../src/engine/construction.js';
@@ -36,9 +36,19 @@ describe('les trous d\'une terrasse', () => {
   it('ne concernent ni le bassin, ni une terrasse que rien ne perce', () => {
     expect(trousDeTerrasse(bassin, objets)).toEqual([]);
     expect(trousDeTerrasse(plage, [plage])).toEqual([]);
-    // Un bassin a cheval sur le bord : la surface le retire, le dessin ne le perce pas.
+  });
+
+  it('un bassin a cheval sur le bord encoche la terrasse, dans sa forme comme dans sa surface', () => {
     const aCheval = { ...bassin, pts: rect(8, 0, 16, 4) } as ObjetPlan;
-    expect(trousDeTerrasse(plage, [aCheval, plage])).toEqual([]);
+    const tous = [aCheval, plage];
+    expect(trousDeTerrasse(plage, tous)).toHaveLength(1);
+    // Tout entier dedans, le bassin n'a pas besoin de forme : le contour et son anneau suffisent.
+    expect(formeDeTerrasse(plage, objets)).toBeNull();
+    const forme = formeDeTerrasse(plage, tous)!;
+    expect(forme).toHaveLength(1);
+    expect(forme[0]!.trous).toEqual([]);
+    expect(shoelace(forme[0]!.contour)).toBeCloseTo(surfaceNetteTerrasse(rect(-3, -3, 11, 7), tous), 1);
+    expect(shoelace(forme[0]!.contour)).toBeLessThan(140);
   });
 });
 
@@ -57,20 +67,28 @@ describe('les exports d\'une terrasse percee', () => {
     expect(etat.objects.map(o => o.key).sort()).toEqual(['p', 't']);
   });
 
-  it('DXF : le trou est une polyligne fermee sur le calque de la terrasse', () => {
+  it('DXF : le trou est une polyligne fermee sur le calque de la terrasse ; a cheval, il l\'encoche', () => {
     const dxf = construireDXF(objets, [], 'test');
     const calque = dxf.match(/LWPOLYLINE\n8\nTerrasse_de_Piscine_1\n90\n\d+\n70\n1\n/g) ?? [];
     expect(calque).toHaveLength(2);
     expect(construireDXF([plage], [], 'test').match(/LWPOLYLINE/g)).toHaveLength(1);
+    // Le bassin deborde a l'est : un seul contour, encoche (8 sommets au lieu de 4).
+    const aCheval = { ...bassin, pts: rect(8, 0, 16, 4) } as ObjetPlan;
+    const encoche = construireDXF([aCheval, plage], [], 'test').match(/LWPOLYLINE\n8\nTerrasse_de_Piscine_1\n90\n(\d+)\n/g) ?? [];
+    expect(encoche).toEqual(['LWPOLYLINE\n8\nTerrasse_de_Piscine_1\n90\n8\n']);
   });
 
-  it('PDF : le trou est un sous-chemin, rempli en pair-impair', () => {
-    expect(pdfPolygone([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], [1, 0, 0], [0, 0, 0])).toMatch(/h B\n$/);
-    const perce = pdfPolygone([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], [1, 0, 0], [0, 0, 0], 1, 1, [[{ x: 4, y: 2 }, { x: 6, y: 2 }, { x: 6, y: 4 }]]);
-    expect(perce).toMatch(/l\nh\n4\.00 2\.00 m\n[\s\S]*h B\*\n$/);
-    expect(construirePDF(objets, [], 200, { appVersion: 't', buildAt: 'b', montrerNord: false })).toContain('h B*');
-    expect(construirePDF([plage], [], 200, { appVersion: 't', buildAt: 'b', montrerNord: false })).not.toContain('B*');
-    expect(construireDossierPDF(objets, ['t'], true, { appVersion: 't', nomProjet: 'P' }).pdf).toContain('h B*');
+  it('PDF : un gabarit pair-impair decoupe le trou, leve apres le trace', () => {
+    const tri = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }];
+    expect(pdfPolygone(tri, [1, 0, 0], [0, 0, 0])).toMatch(/^1\.000 0\.000 0\.000 rg\n[\s\S]*h B\n$/);
+    const perce = pdfPolygone(tri, [1, 0, 0], [0, 0, 0], 1, 1, [[{ x: 4, y: 2 }, { x: 6, y: 2 }, { x: 6, y: 4 }]]);
+    expect(perce).toMatch(/^q\n-100000 [\s\S]*h\n4\.00 2\.00 m\n[\s\S]*W\* n\n[\s\S]*h B\nQ\n$/);
+    const plan = (o: ObjetPlan[]) => construirePDF(o, [], 200, { appVersion: 't', buildAt: 'b', montrerNord: false });
+    expect(plan(objets)).toContain('W* n');
+    expect(plan([plage])).not.toContain('W*');
+    // A cheval sur le bord aussi : le gabarit ne peint rien hors de la terrasse.
+    expect(plan([{ ...bassin, pts: rect(8, 0, 16, 4) } as ObjetPlan, plage])).toContain('W* n');
+    expect(construireDossierPDF(objets, ['t'], true, { appVersion: 't', nomProjet: 'P' }).pdf).toContain('W* n');
   });
 });
 
