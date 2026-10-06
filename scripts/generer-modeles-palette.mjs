@@ -4,7 +4,7 @@
 //   node scripts/generer-modeles-palette.mjs
 //
 // Chaque modele est decrit par quelques teintes (les neutres, l'accent, les etats, le ciel) ; le
-// script en deduit les 29 jetons des deux themes, comme jetons.ts les organise, puis **pousse chaque
+// script en deduit les 30 jetons des deux themes, comme jetons.ts les organise, puis **pousse chaque
 // couleur de texte jusqu'au contraste exige** (PAIRES_CONTRASTE) : un modele ne peut pas rendre
 // l'interface illisible. tests/unit/styles/modeles.test.ts le verifie sur les fichiers ecrits.
 //
@@ -61,6 +61,8 @@ function themes(m) {
   clair['panel-bg'] = tsl(n.t, n.s * 0.7, 99); clair['panel-2'] = clair.paper;
   clair['segment-bg'] = clair['stage-bg']; clair['input-bg'] = clair['panel-bg'];
   clair.border = tsl(n.t, n.s * 0.7, 85); clair.rule = tsl(n.t, n.s * 0.6, 79); clair.hairline = tsl(n.t, n.s * 0.6, 90);
+  // Les courbes de niveau : la teinte de l'accent, assourdie, lisible sur le canevas (3 : un trait, pas du texte).
+  clair.relief = lisible(a.t, a.s * 0.6, 40, -1, [clair['stage-bg']], 3);
   const fondsTexte = [clair.paper, clair['panel-bg'], clair['panel-2'], clair['input-bg'], clair['stage-bg']];
   clair.ink = lisible(n.t, Math.min(n.s, 35), 14, -1, fondsTexte, 4.5);
   clair['ink-soft'] = lisible(n.t, Math.min(n.s, 25) + 5, 38, -1, fondsTexte, 4.5);
@@ -83,6 +85,7 @@ function themes(m) {
   sombre['panel-bg'] = tsl(nS.t, nS.s * 0.6, 12); sombre['panel-2'] = tsl(nS.t, nS.s * 0.6, 15);
   sombre['segment-bg'] = sombre.paper; sombre['input-bg'] = sombre['panel-2'];
   sombre.border = tsl(nS.t, nS.s * 0.5, 21); sombre.rule = tsl(nS.t, nS.s * 0.5, 26); sombre.hairline = tsl(nS.t, nS.s * 0.5, 17);
+  sombre.relief = lisible(a.t, a.s * 0.5, 65, 1, [sombre['stage-bg']], 3);
   const fondsSombres = [sombre.paper, sombre['panel-bg'], sombre['panel-2'], sombre['input-bg'], sombre['stage-bg']];
   sombre.ink = lisible(nS.t, Math.min(nS.s + 10, 45), 88, 1, fondsSombres, 4.5);
   sombre['ink-soft'] = lisible(nS.t, Math.min(nS.s, 30), 66, 1, fondsSombres, 4.5);
@@ -124,7 +127,7 @@ const MODELES = [
 
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
-  'border', 'rule', 'hairline', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
+  'border', 'rule', 'hairline', 'relief', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
   'toast-bg', 'on-toast', 'fond-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 

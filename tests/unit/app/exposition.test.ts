@@ -26,7 +26,7 @@ function fichiers(dossier: string): string[] {
  * `surClic` qui prennent l'element avant l'identifiant.
  */
 function commandesDeclarees(): string[] {
-  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade).[A-Za-z0-9.]+)'/g;
+  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade|relief).[A-Za-z0-9.]+)'/g;
   const ids = new Set<string>();
   for (const f of fichiers('src/app').filter((f) => f.endsWith('.ts'))) {
     const texte = lire(f);

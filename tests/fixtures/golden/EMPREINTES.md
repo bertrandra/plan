@@ -537,6 +537,13 @@ coin », « Dimension » et « Angle » sur **tous** les objets de la table d'af
 
 Relevé identique sur `dist/index.html` et sur le témoin figé `legacy/plan_interactif.html`.
 
+**Le relief non plus** (`MD/spec-relief.md`, 6 octobre 2026). Le jeu de démonstration n'est pas
+calé par le cadastre et ne porte aucune grille d'altitudes : `plan.svg` n'a pas de groupe
+`relief-courbes`, le plan de masse n'a pas de courbes de niveau, le dossier n'a pas de pièce DP3,
+et la coupe de la piscine trace un terrain plat. Ces branches ne font bouger aucune empreinte ;
+`tests/unit/export/relief.test.ts` les vérifie sur une grille plane fabriquée, et vérifie qu'un
+projet sans relief écrit le même `plan.svg` et le même nombre de pages qu'avant.
+
 ## Comparer deux imports cadastraux
 
 L'import depuis une adresse ne peut pas être figé ici : il dépend des services IGN en ligne. Il se

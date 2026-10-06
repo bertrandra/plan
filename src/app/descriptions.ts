@@ -79,6 +79,11 @@ export const DESCRIPTIONS: Record<string, string> = {
   'terrasse.optimisation': 'Montre ou cache le tableau qui compare des réglages de structure par leur coût',
   'facade.retirer': 'Retire la photo et les ouvertures relevées sur le mur désigné ; Ctrl+Z les rend',
 
+  // ---- Relief du terrain --------------------------------------------------------------------------
+  'relief.lire': 'Lit à l’IGN la grille d’altitudes du sol sur la parcelle et ses abords (LiDAR HD, sinon RGE ALTI) et l’enregistre dans le projet ; Ctrl+Z rend le plan plat',
+  'relief.actualiser': 'Relit la grille d’altitudes à l’IGN et remplace celle du projet, zéro du plan compris ; Ctrl+Z rend l’ancienne',
+  'relief.supprimer': 'Retire le relief du projet : le plan redevient plat, ses nombres redeviennent ceux d’avant ; Ctrl+Z le rend',
+
   // ---- Vue 3D -------------------------------------------------------------------------------------
   '3d.modeOrbite': 'Le glisser fait tourner la caméra autour de la scène',
   '3d.modeDeplacement': 'Le glisser déplace la caméra parallèlement à l’écran',

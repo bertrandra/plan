@@ -115,6 +115,10 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
+  // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
+  'relief.lire': partout('inspecteur'),
+  'relief.actualiser': partout('inspecteur'),
+  'relief.supprimer': partout('inspecteur'),
 
   // ---- Fichier et exports ---------------------------------------------------------------------
   'fichier.importerSvg': menu('menuFichier'),

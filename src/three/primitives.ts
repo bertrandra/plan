@@ -81,7 +81,7 @@ export function polygoneAPlat(pts: PtBrut[], versLocal: VersLocal): THREE_NS.Buf
  * pose a plat au sol ne s'y dessine pas (`percerSol`). On voit alors ce qui est dessous : un bassin,
  * ou l'assise d'une terrasse quand le sol est en coupe.
  */
-export function gabaritSol(scene: THREE_NS.Scene, versLocal: VersLocal, contour: PtBrut[]): void {
+export function gabaritSol(scene: THREE_NS.Object3D, versLocal: VersLocal, contour: PtBrut[]): void {
   const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
   mat.stencilWrite = true;
   mat.stencilRef = 1;
@@ -224,6 +224,24 @@ function uvDeroule(pts2d: { x: number; y: number }[]) {
   };
 }
 
+/**
+ * Monte chaque sommet d'une forme a plat (deja tournee, y = 0) a la hauteur du sol sous lui.
+ * ShapeGeometry ne garde que les sommets du contour : chacun retrouve son point du plan par ses
+ * coordonnees locales, plutot que par un ordre que la triangulation ne garantit pas.
+ */
+export function poserSommetsSurSol(geo: THREE_NS.BufferGeometry, poly: PtBrut[], versLocal: VersLocal, sol: (p: PtBrut) => number): void {
+  const locaux = poly.map(q => ({ q, l: versLocal(q) }));
+  const pos = geo.getAttribute('position');
+  for (let k = 0; k < pos.count; k++) {
+    const x = pos.getX(k), z = pos.getZ(k);
+    let proche = locaux[0];
+    locaux.forEach(c => { if (proche && Math.abs(c.l.x - x) + Math.abs(c.l.z - z) < Math.abs(proche.l.x - x) + Math.abs(proche.l.z - z)) proche = c; });
+    if (proche) pos.setY(k, sol(proche.q));
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
 /** Ce que les briques demandent : la scene, le repere, et le chargeur de textures partagees. */
 export interface ContextePrimitives {
   /** La scene, ou un groupe : celui d'une terrasse decaissee, descendu dans sa fouille. */
@@ -289,13 +307,18 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   // Ruban plat au sol (chemin non sureleve, le cas courant) : une forme remplie, sans extrusion,
   // posee legerement au-dessus du sol, et rangee dans sa couche (`couche`, voir COUCHES_SOL) : quelques
   // millimetres ne suffisent pas a eviter le scintillement vu de loin.
-  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number): void {
+  // `sol` : la hauteur du sol en relief en un point du plan (three/relief3d.ts) ; chaque sommet du
+  // ruban monte alors a cette hauteur plus `yLevel`. Entre deux sommets le ruban reste plan : un
+  // long chemin droit sur un sol bombe peut passer dessous par endroits — un trait au sol n'a pas
+  // d'epaisseur a offrir, et subdiviser un ruban mitre demanderait une triangulation a part.
+  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number, sol?: (p: PtBrut) => number): void {
     if (!poly || poly.length < 3) return;
     const shape = new THREE.Shape();
     poly.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
     shape.closePath();
     const geo = new THREE.ShapeGeometry(shape);
     geo.rotateX(-Math.PI / 2);
+    if (sol) poserSommetsSurSol(geo, poly, versLocal, sol);
     const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
     appliquerOpacite(mat, opacity);
     const urlTex = urlTexture(texRef);

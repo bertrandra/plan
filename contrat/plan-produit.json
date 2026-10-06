@@ -4,9 +4,10 @@
   "schema_versions": [
     1,
     2,
-    3
+    3,
+    4
   ],
-  "current_schema_version": 3,
+  "current_schema_version": 4,
   "demo_project": {
     "name": "Parcelle AE 101",
     "schema_version": 3,
