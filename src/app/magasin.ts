@@ -37,7 +37,7 @@ export interface ProjetObservable {
   courant: ProjetResume | null;
   liste: ProjetResume[];
   statut: StatutProjet;
-  /** « Enregistré à 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
+  /** « Enregistré à 18:38 (820 Ko) », ou vide tant que rien n'a ete enregistre dans cette session. */
   enregistreA: string;
   /** Le projet ouvert est d'un schema anterieur au programme : « Mettre a jour le modele » s'offre. */
   schemaEnRetard: boolean;

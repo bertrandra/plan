@@ -9,6 +9,7 @@
 // avec `?projet=…`, exactement comme avant ; enregistrer remet a zero l'etat initial qui sert au
 // bouton « Reinitialiser » ; supprimer retire le parametre d'URL et recharge.
 
+import { tailleFichier } from '../util/format.js';
 import { PERMISSION_ECRITURE, compteProjetsCourant } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
@@ -178,11 +179,14 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     publier('enregistrement');
     try {
       const donnees = charge();
-      const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...donnees });
+      const corps = { id: courant.id, name: courant.name, ...donnees };
+      // La taille de ce qui part, en octets UTF-8 : celle que la plateforme compare a sa limite.
+      const taille = new TextEncoder().encode(JSON.stringify(corps)).length;
+      const res = await ctx.apiSave(corps);
       // Ce qui a ete ecrit devient le plancher : un releve ajoute puis retire ne redescend pas le projet.
       ctx.etat.schemaProjet = donnees.schemaVersion;
       ctx.etat.dirty = false;
-      enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now());
+      enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now()) + ' (' + tailleFichier(taille) + ')';
       ctx.initialState().length = 0;
       ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
       ctx.initialMeasures().length = 0;

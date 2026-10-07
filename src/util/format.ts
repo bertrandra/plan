@@ -53,3 +53,12 @@ export function niceStep(target: number): number {
   });
   return best;
 }
+
+/**
+ * Une taille de fichier a la francaise : « 820 Ko », « 1,4 Mo ». Les kilo-octets sont des 1 024
+ * octets, comme la plateforme compte ce qu'elle accepte.
+ */
+export function tailleFichier(octets: number): string {
+  if (octets < 1024 * 1024) return Math.max(1, Math.round(octets / 1024)).toLocaleString('fr-FR') + ' Ko';
+  return (octets / (1024 * 1024)).toFixed(1).replace('.', ',') + ' Mo';
+}
