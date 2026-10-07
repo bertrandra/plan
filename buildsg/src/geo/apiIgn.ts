@@ -206,8 +206,21 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // bien au-dela d'une page du service. API Carto pagine par `_start` (1 000 par page au plus), le
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
-/** Les rayons proposes pour le voisinage etendu, en metres. */
-export const RAYONS_VOISINAGE_M = [100, 200];
+/**
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 200 m par pas de 10. On lit une fois
+ * le disque le plus grand, puis on filtre au rayon choisi : le compte suit le curseur sans attendre
+ * le reseau.
+ */
+export const RAYON_ETENDU_MIN_M = 10;
+export const RAYON_ETENDU_MAX_M = 200;
+export const RAYON_ETENDU_PAS_M = 10;
+/** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
+export const RAYON_ETENDU_DEFAUT_M = 50;
+/** Un rayon ramene dans les bornes du curseur, au pas pres. */
+export function rayonEtenduValide(r: number): number {
+  const v = Math.round((Number.isFinite(r) ? r : RAYON_ETENDU_DEFAUT_M) / RAYON_ETENDU_PAS_M) * RAYON_ETENDU_PAS_M;
+  return Math.min(RAYON_ETENDU_MAX_M, Math.max(RAYON_ETENDU_MIN_M, v));
+}
 /** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
 export const MAX_OBJETS_RAYON = 2000;
 const PAGE_CADASTRE = 1000;
@@ -315,6 +328,21 @@ export async function lireVoisinageRayon(centre: PtBrut, proj: ProjecteurLocal, 
   const parcelles = garder(construireCandidats(featsParcelles, proj, centre, simplifier).filter(c => !exclus.has(c.idu)));
   const batiments = garder(construireElementsIgn(featsBati, proj, simplifier, 'batiment'));
   return { rayonM, parcelles, batiments, tronque };
+}
+
+/**
+ * Le meme voisinage, ramene a un rayon plus petit : ce qui touche encore le disque, dans l'ordre
+ * (deja du plus proche au plus loin). `exclus` retire ce qui est deja dans le plan, pour compter
+ * seulement ce qui arrivera.
+ */
+export function filtrerVoisinageRayon(v: VoisinageRayon, centre: PtBrut, rayonM: number, exclus: { idus?: ReadonlySet<string>; ids?: ReadonlySet<string> } = {}): VoisinageRayon {
+  const r = Math.min(rayonM, v.rayonM);
+  return {
+    rayonM: r,
+    parcelles: v.parcelles.filter(c => dansLeRayon(c.pts, centre, r) && !exclus.idus?.has(c.idu)),
+    batiments: v.batiments.filter(b => dansLeRayon(b.pts, centre, r) && !(b.id && exclus.ids?.has(b.id))),
+    tronque: v.tronque
+  };
 }
 
 /** Une parcelle candidate : la fiche cadastrale, plus sa position par rapport au point cherche. */
