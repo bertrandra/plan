@@ -24,6 +24,8 @@ export interface ContexteImportProjet extends ContexteOrtho {
   restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
   rebuildSelector: () => void;
   fitToObject: (obj: ObjetPlan) => void;
+  /** Cadre toutes les parcelles affichees, avec la respiration d'une parcelle seule. */
+  cadrerTerrains?: () => void;
   syncLieuTitre: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
 }
@@ -102,7 +104,12 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   ctx.render();
   // Le cadrage par defaut suit le terrain importe : une propriete de 2 400 m2 et une terrasse de
   // 20 m2 n'ont pas la meme echelle, garder le cadrage precedent afficherait un plan hors champ.
-  if(parcelle) ctx.fitToObject(parcelle);
+  // Un plan venu du cadastre est cadre sur toutes ses parcelles affichees (son voisinage visible
+  // compris) : le masquage du voisinage est donc restitue avant le cadrage.
+  if(parcelle && ctx.cadrerTerrains && parcelle.cadastre){
+    restaurerAffichageDuProjet(etat, ctx);
+    ctx.cadrerTerrains();
+  } else if(parcelle) ctx.fitToObject(parcelle);
   // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
   // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
   ortho.tuiles = [];

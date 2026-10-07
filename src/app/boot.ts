@@ -192,6 +192,9 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
   function render(): void {
     const contexteChange = synchroniserContexteTerrasse(etat);
+    // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
+    // pouvoir tenir en entier dans la scene au geste suivant.
+    cadrage.ajusterPlancher();
     rendreScene(etat, {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
@@ -208,7 +211,7 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   }
   const gestes = creerGestes(etat, { ...dessin, pushHistory, render, rebuildSelector, mesures });
   const cadrage = creerCadrage(etat, magasin, surface, {
-    render, toWorld: dessin.toWorld,
+    render, toWorld: dessin.toWorld, objetMasque: affichage.objetMasque,
     basculerExplorateur: () => tardifs.explorateur?.basculerOuverture(),
     basculerInspecteur: () => tardifs.inspecteur?.basculerOuverture()
   });
@@ -249,7 +252,7 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   });
   const ctxProjetImporte = () => ({
     ...ctxOrtho(), ...affichage, buildThreeScene: (o: ObjetPlan | null) => tardifs.vues?.buildThreeScene(o),
-    fitToObject: p.cadrage.cadrer, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector,
+    fitToObject: p.cadrage.cadrer, cadrerTerrains: p.cadrage.cadrerTerrains, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector,
     restoreState: historique.restaurer, validerProjetJSON
   });
   const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
@@ -422,10 +425,11 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   // Un terrain venu du cadastre est cadre a sa taille reelle ; un plan dessine a la main garde le
   // cadrage historique, ses coordonnees ont ete posees avec.
   const parcelle = etat.objects.find(o => o.key === 'parcelle');
-  if (parcelle && parcelle.cadastre && aDesSommets(parcelle) && parcelle.pts.length >= 3) cadrage.cadrer(parcelle);
-  // Le fond orthophoto et le masquage du voisinage enregistres avec le projet sont restitues.
-  restaurerOrthoDuProjet(ch.ctxOrtho());
+  // Le masquage du voisinage enregistre avec le projet est restitue d'abord : le cadrage ne prend
+  // que les parcelles affichees. Le fond orthophoto vient apres, sur la vue cadree.
   ch.restaurerAffichage();
+  if (parcelle && parcelle.cadastre && aDesSommets(parcelle) && parcelle.pts.length >= 3) cadrage.cadrerTerrains();
+  restaurerOrthoDuProjet(ch.ctxOrtho());
   // « Partir d'une adresse » au premier pas passe par la COMMANDE : elle porte la capacite, la
   // permission et le quota, et un premier pas ne doit pas etre le seul chemin qui les contourne.
   if (options.vitrine) {

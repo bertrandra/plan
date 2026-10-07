@@ -354,6 +354,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La feuille du plan contient toutes les parcelles affichées.** Un plan venu du cadastre s'ouvre
+  cadré sur la parcelle **et son voisinage visible**, avec la même respiration qu'une parcelle seule
+  (à l'ouverture comme après un import JSON). Le zoom arrière, borné jusqu'ici à 6 px/m (130 à 260 m
+  de large selon l'écran), descend désormais assez bas pour que toutes les parcelles affichées
+  tiennent dans la moitié du plan : un voisinage de 200 m se voit en entier. Le plancher suit le
+  voisinage, qu'il soit ajouté ou masqué ; une parcelle seule garde celui d'avant. En **Vue 3D**, le
+  sol (plat ou en relief) couvre de même toutes les parcelles affichées avec autant d'espace autour,
+  et le plan lointain de la caméra le suit : un voisinage de 200 m n'est plus coupé.
+
 - **Haies et végétation, arbres estimés : décochés par défaut**, à l'import depuis une adresse comme
   dans « Actualiser depuis l'IGN ». Ils chargent le plan d'objets approximatifs : on les demande.
 
