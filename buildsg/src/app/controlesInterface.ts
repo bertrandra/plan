@@ -182,6 +182,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.importerVoisine': etape(Z8, IMPORT, 'Importer une parcelle voisine', { repete: true }),
   'cadastre.principale': etape(Z8, IMPORT, 'En faire la parcelle principale', { repete: true }),
   'cadastre.coucheIgn': etape(Z8, IMPORT, 'Couche BD TOPO à importer (bâti, végétation…)', { repete: true }),
+  'cadastre.relief': etape(Z8, IMPORT, 'Lire le relief du terrain à la création du plan'),
+  'cadastre.reliefToutes': etape(Z8, IMPORT, 'Relief sur toutes les parcelles importées'),
   'cadastre.voisinageEtendu': etape(Z8, IMPORT, 'Ajouter le voisinage étendu', { repete: true }),
   'cadastre.rayon': etape(Z8, IMPORT, 'Rayon du voisinage étendu, de 10 à 200 m', { repete: true }),
   'cadastre.afficherEtendu': etape(Z8, IMPORT, 'Afficher le voisinage étendu (aperçu et ouverture du plan)', { repete: true }),
@@ -199,6 +201,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'actualisation.rayon': etape(Z8, ACTUALISER, 'Portée du voisinage : parcelles adjacentes, ou tout dans un rayon', { repete: true }),
   'actualisation.rayonM': etape(Z8, ACTUALISER, 'Rayon du voisinage, de 10 à 200 m'),
   'actualisation.couche': etape(Z8, ACTUALISER, 'Couche du voisinage (bâti, végétation, arbres)', { repete: true }),
+  'actualisation.relief': etape(Z8, ACTUALISER, 'Relire le relief du terrain'),
+  'actualisation.reliefToutes': etape(Z8, ACTUALISER, 'Relief sur toutes les parcelles du plan'),
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
   // Choix d'une texture (zones/parcours/ChoixTexture.tsx).

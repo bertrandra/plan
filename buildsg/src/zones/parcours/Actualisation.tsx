@@ -17,7 +17,8 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   const [portee, setPortee] = useState<'parcelle' | 'tout'>('parcelle');
   const [voisinage, setVoisinage] = useState(false);
   const [batiments, setBatiments] = useState(true);
-  const [vegetation, setVegetation] = useState(true);
+  // Haies, vegetation et arbres estimes se demandent : ils chargent le plan d'objets approximatifs.
+  const [vegetation, setVegetation] = useState(false);
   const [arbres, setArbres] = useState(false);
   // Les parcelles adjacentes, ou tout ce qui est dans le rayon du curseur, en plusieurs requetes.
   const [enRayon, setEnRayon] = useState(false);
@@ -25,6 +26,9 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   // Le disque de 200 m, lu une fois des que le mode rayon est choisi : le compte suit le curseur.
   const [disque, setDisque] = useState<VoisinageRayon | null>(null);
   const [echec, setEchec] = useState('');
+  // Le relief, coche d'emblee, sur toutes les parcelles du plan.
+  const [relief, setRelief] = useState(true);
+  const [reliefToutes, setReliefToutes] = useState(true);
   const source = infos.voisinage;
   useEffect(() => {
     if (!voisinage || !enRayon || disque || !source) return;
@@ -76,9 +80,23 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
       <div className={'noteVoisinage' + (voisinage ? '' : ' inactives')}>
         Tout ce qui arrive par cet import est marque « voisinage » : l'oeil « Voisinage » de l'explorateur (ou Affichage › Voisinage) le masque d'un coup, sans le supprimer.
       </div>
+      {infos.reliefPermis && <>
+        <div className="separateurParcours" />
+        <label className="choixRadio">
+          <input type="checkbox" data-controle="actualisation.relief" checked={relief} onChange={(e) => setRelief(e.target.checked)} />
+          <Choix libelle="Relief du terrain" aide={(infos.aUnRelief ? 'Relit la grille d’altitudes et remplace celle du plan' : 'Lit la grille d’altitudes du sol nu')
+            + ' (LiDAR HD, sinon RGE ALTI) : courbes de niveau, sol en 3D, hauteur des plots. Il change des quantités.'} />
+        </label>
+        <div className={'sousOptions' + (relief ? '' : ' inactives')}>
+          <label title="La grille couvre aussi les parcelles voisines du plan. Au-delà d’un pas de 5 m, elle revient à la parcelle du projet et ses abords.">
+            <input type="checkbox" data-controle="actualisation.reliefToutes" checked={reliefToutes} disabled={!relief} onChange={(e) => setReliefToutes(e.target.checked)} /> Sur toutes les parcelles du plan
+          </label>
+        </div>
+      </>}
       <div className="piedDialogue">
         <button type="button" data-controle="actualisation.annuler" className="secondary" onClick={fermer}>Annuler</button>
-        <button type="button" data-controle="actualisation.lancer" onClick={() => lancer({ portee, voisinage: voisinage ? { actif: true, batiments, vegetation, arbres, ...(enRayon ? { rayonM: rayon } : {}) } : { actif: false } })}>Actualiser</button>
+        <button type="button" data-controle="actualisation.lancer" onClick={() => lancer({ portee, voisinage: voisinage ? { actif: true, batiments, vegetation, arbres, ...(enRayon ? { rayonM: rayon } : {}) } : { actif: false },
+          relief: { actif: infos.reliefPermis && relief, toutesParcelles: reliefToutes } })}>Actualiser</button>
       </div>
     </div>
   );
