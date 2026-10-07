@@ -3,7 +3,7 @@
 
 import { appliquerClasse } from '../classe.js';
 import { cadrerSur, empriseDe, plancherPourEmprise } from '../../interaction/navigation.js';
-import { estTerrain } from '../../model/fonctions.js';
+import { empriseDuCalque } from '../../model/calque.js';
 import { aDesSommets, enPoints } from '../../model/formes.js';
 import type { Surface } from './surface.js';
 import type { EtatApp } from '../../core/state.js';
@@ -108,7 +108,14 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
   }
 
   /** L'emprise des parcelles affichees : la parcelle du projet et les voisines visibles. */
-  const empriseTerrains = () => empriseDe(etat.objects.filter(o => estTerrain(o) && !d.objetMasque(o)));
+  /**
+   * Le calque du plan (model/calque.ts) : les parcelles affichees plus 10 m, la meme emprise que le
+   * sol 3D et l'orthophoto. C'est lui que l'ouverture cadre et que le zoom arriere doit contenir.
+   */
+  const empriseTerrains = () => {
+    const c = empriseDuCalque(etat.objects, d.objetMasque);
+    return c ? { minX: c.xMin, maxX: c.xMax, minY: c.yMin, maxY: c.yMax } : null;
+  };
   const ajusterPlancher = () => { etat.scene.zoomMin = plancherPourEmprise(etat.scene, empriseTerrains()); };
 
   /** Cadre une emprise dans ce que les panneaux laissent voir du plan. */

@@ -367,8 +367,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   de large selon l'écran), descend désormais assez bas pour que toutes les parcelles affichées
   tiennent dans la moitié du plan : un voisinage de 200 m se voit en entier. Le plancher suit le
   voisinage, qu'il soit ajouté ou masqué ; une parcelle seule garde celui d'avant. En **Vue 3D**, le
-  sol (plat ou en relief) couvre de même toutes les parcelles affichées avec autant d'espace autour,
-  et le plan lointain de la caméra le suit : un voisinage de 200 m n'est plus coupé.
+  sol (plat ou en relief) couvre de même toutes les parcelles affichées, **plus 10 m de chaque côté**
+  (il en faisait le double, beaucoup trop grand), et le plan lointain de la caméra le suit : un
+  voisinage de 200 m n'est plus coupé.
+- **Un seul calque pour le 2D et la 3D : les parcelles affichées plus 10 m** (`model/calque.ts`).
+  Le sol 3D en prend les bornes, le plan s'ouvre cadré dessus, et **l'orthophoto le couvre en entier,
+  en 2D comme en 3D, sans le dépasser** : elle est lue pour le calque de toutes les parcelles (voisinage
+  masqué compris), puis coupée à celui des parcelles affichées. Quand le calque grandit (voisinage
+  ajouté), la photo est relue pour lui, une fois, sans bruit.
 
 - **Haies et végétation, arbres estimés : décochés par défaut**, à l'import depuis une adresse comme
   dans « Actualiser depuis l'IGN ». Ils chargent le plan d'objets approximatifs : on les demande.

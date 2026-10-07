@@ -18,6 +18,8 @@ import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import type { Lieu } from '../model/lieu.js';
+import { empriseDuCalque, contientEmprise } from '../model/calque.js';
+import type { Emprise } from '../model/relief.js';
 
 /** Ce que le fond orthophoto demande à l'application — la parcelle, le lieu, la vue. */
 export interface ContexteOrtho {
@@ -58,13 +60,19 @@ export const ortho: {
   chargement: boolean;
   /** Cle « z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre. */
   cache: Map<string, string>;
+  /** L'emprise que les tuiles ont ete lues pour couvrir : le calque de toutes les parcelles. */
+  couverture: Emprise | null;
+  /** Change a chaque lecture : le calque SVG se reconstruit quand les tuiles ne sont plus les memes. */
+  version: number;
 } = {
   actif: false,
   opacite: 0.85,
   parcelleOpacite: 0.15,
   tuiles: [],
   chargement: false,
-  cache: new Map<string, string>()
+  cache: new Map<string, string>(),
+  couverture: null,
+  version: 0
 };
 const WMTS_URL = 'https://data.geopf.fr/wmts';
 const ORTHO_COUCHE = 'ORTHOIMAGERY.ORTHOPHOTOS';
@@ -200,10 +208,12 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
   const ref = referenceGeoPlan(ctx);
   if(!ref) throw new Error('aucune parcelle geolocalisee : importe une parcelle depuis une adresse, ou renseigne le lieu.');
   const proj = projecteurLocal(ref.lat, ref.lon);
-  // Emprise a couvrir : celle du plan entier, avec une marge - le fond doit tenir sous les objets
-  // qui debordent de la parcelle (batiments mitoyens, chemins).
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  ctx.etat.objects.forEach(o=>{
+  // Emprise a couvrir : le calque de TOUTES les parcelles (model/calque.ts), masquees comprises —
+  // demasquer le voisinage ne doit pas obliger a relire la photo ; l'affichage la coupe au calque
+  // des parcelles affichees. Sans parcelle, le plan entier avec une marge, comme avant.
+  const calque = empriseDuCalque(ctx.etat.objects);
+  let minX = calque?.xMin ?? Infinity, maxX = calque?.xMax ?? -Infinity, minY = calque?.yMin ?? Infinity, maxY = calque?.yMax ?? -Infinity;
+  if(!calque) ctx.etat.objects.forEach(o=>{
     const pts: PtBrut[] = o.type === 'circle'
       ? [{x:o.center.x-(o.r||0), y:o.center.y-(o.r||0)}, {x:o.center.x+(o.r||0), y:o.center.y+(o.r||0)}]
       : (o.pts || []);
@@ -213,8 +223,10 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
     });
   });
   if(!Number.isFinite(minX)) throw new Error('plan vide');
-  const marge = Math.max(5, (maxX-minX + maxY-minY)*0.05);
-  minX -= marge; maxX += marge; minY -= marge; maxY += marge;
+  if(!calque){
+    const marge = Math.max(5, (maxX-minX + maxY-minY)*0.05);
+    minX -= marge; maxX += marge; minY -= marge; maxY += marge;
+  }
   const versLonLat = (x: number, y: number) => proj.versDegres(x - ref.x, y - ref.y);
   const coinSO = versLonLat(minX, minY), coinNE = versLonLat(maxX, maxY);
 
@@ -254,18 +266,53 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
     const reussies = tuiles.filter(t=>t.dataUri);
     if(reussies.length){
       ortho.tuiles = reussies;
+      ortho.couverture = { xMin: minX, xMax: maxX, yMin: minY, yMax: maxY };
+      ortho.version++;
       return { z, nb: reussies.length, total: tuiles.length, exact: ref.exact };
     }
   }
   throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
 }
+/** La derniere emprise dont on a tente d'etendre la photo : une seule tentative par calque. */
+let extensionTentee = '';
+
+/**
+ * Le calque a grandi (un voisinage ajoute) au-dela de ce que les tuiles couvrent : la photo est
+ * relue pour lui, sans bruit. En cas d'echec, les tuiles d'avant restent.
+ */
+function etendreSiBesoin(ctx: ContexteOrtho): void {
+  const voulu = empriseDuCalque(ctx.etat.objects);
+  if(!voulu || !ortho.couverture || ortho.chargement || contientEmprise(ortho.couverture, voulu)) return;
+  const cle = [voulu.xMin, voulu.xMax, voulu.yMin, voulu.yMax].map(v => v.toFixed(1)).join(',');
+  if(cle === extensionTentee) return;
+  extensionTentee = cle;
+  ortho.chargement = true;
+  void chargerOrthophoto(ctx).catch(() => null).finally(() => { ortho.chargement = false; ctx.render(); });
+}
+
+/** Un objet masque a l'affichage du plan : masque lui-meme, ou voisinage cache. */
+const masqueEn2d = (ctx: ContexteOrtho) => (o: ObjetPlan) => !!o.hidden || (!!o.voisinage && !ctx.etat.voisinageVisible);
+
 export function placerOrthophoto(ctx: ContexteOrtho): void {
+  const groupe = ctx.orthoGroup();
   if(!ortho.actif || !ortho.tuiles.length){
-    if(ctx.orthoGroup().childNodes.length) ctx.orthoGroup().innerHTML = '';
+    if(groupe.childNodes.length) groupe.innerHTML = '';
     return;
   }
-  if(ctx.orthoGroup().childNodes.length !== ortho.tuiles.length){
-    ctx.orthoGroup().innerHTML = '';
+  etendreSiBesoin(ctx);
+  // Le calque SVG : un chemin de coupe (le calque des parcelles affichees) et le groupe des tuiles.
+  let tuilesG = groupe.querySelector<SVGGElement>('g.tuilesOrtho');
+  if(!tuilesG || groupe.getAttribute('data-version') !== String(ortho.version)){
+    groupe.innerHTML = '';
+    groupe.setAttribute('data-version', String(ortho.version));
+    const coupe = document.createElementNS(svgNS, 'clipPath');
+    coupe.setAttribute('id', 'coupeCalqueOrtho');
+    coupe.appendChild(document.createElementNS(svgNS, 'rect'));
+    groupe.appendChild(coupe);
+    tuilesG = document.createElementNS(svgNS, 'g') as SVGGElement;
+    tuilesG.setAttribute('class', 'tuilesOrtho');
+    groupe.appendChild(tuilesG);
+    const cible = tuilesG;
     ortho.tuiles.forEach(t=>{
       const img = document.createElementNS(svgNS, 'image');
       // `ortho.tuiles` ne recoit que les tuiles retenues par `chargerOrthophoto`, donc chargees.
@@ -274,10 +321,21 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
       img.setAttribute('href', uri);
       img.setAttribute('preserveAspectRatio', 'none');
       t.el = img;
-      ctx.orthoGroup().appendChild(img);
+      cible.appendChild(img);
     });
   }
-  ctx.orthoGroup().setAttribute('opacity', String(ortho.opacite));
+  groupe.setAttribute('opacity', String(ortho.opacite));
+  // La photo couvre le calque des parcelles affichees, pas au-dela : la meme emprise que le sol 3D.
+  const calque = empriseDuCalque(ctx.etat.objects, masqueEn2d(ctx));
+  const rect = groupe.querySelector('clipPath rect');
+  if(calque && rect){
+    const hg = ctx.toScreen({ x: calque.xMin, y: calque.yMax });
+    rect.setAttribute('x', String(hg.x));
+    rect.setAttribute('y', String(hg.y));
+    rect.setAttribute('width', String((calque.xMax - calque.xMin) * ctx.etat.scene.scale));
+    rect.setAttribute('height', String((calque.yMax - calque.yMin) * ctx.etat.scene.scale));
+    tuilesG.setAttribute('clip-path', 'url(#coupeCalqueOrtho)');
+  } else tuilesG.removeAttribute('clip-path');
   ortho.tuiles.forEach(t=>{
     if(!t.el) return;
     const coin = ctx.toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
