@@ -39,6 +39,11 @@ export interface ProjetObservable {
   statut: StatutProjet;
   /** « Enregistré à 18:38 (820 Ko) », ou vide tant que rien n'a ete enregistre dans cette session. */
   enregistreA: string;
+  /**
+   * Le dernier enregistrement a echoue : « Échec de l’enregistrement (2,4 Mo) », avec la taille de ce
+   * qui a ete refuse. Vide sinon ; un enregistrement reussi l'efface.
+   */
+  echec?: string;
   /** Le projet ouvert est d'un schema anterieur au programme : « Mettre a jour le modele » s'offre. */
   schemaEnRetard: boolean;
   /** Les projets de l'organisation et ce que l'abonnement en autorise ; `null` : hors plateforme. */

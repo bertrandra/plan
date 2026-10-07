@@ -9,7 +9,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **La taille du projet après l'heure d'enregistrement.** La barre d'état dit « Enregistré à 10:42
   (820 Ko) » : la taille de ce qui part à la plateforme, pour voir venir sa limite avant qu'elle ne
-  refuse le projet.
+  refuse le projet. Si l'enregistrement échoue, la taille est mise à jour quand même : « Échec de
+  l'enregistrement (2,4 Mo) » remplace l'heure du dernier succès (« Échec (2,4 Mo) » au téléphone),
+  et le message d'erreur la reprend, jusqu'au prochain enregistrement réussi.
 
 - **« Fichier › Supprimer le voisinage… ».** Retire d'un coup tous les objets du voisinage
   (parcelles, bâtiments, végétation — voisinage étendu de l'import comme « Ajouter le voisinage » de

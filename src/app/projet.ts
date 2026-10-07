@@ -149,13 +149,14 @@ const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR'
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
   let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
+  let echec = '';
 
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
-      apiDisponible: seed.apiAvailable, courant, liste: seed.list, enregistreA,
+      apiDisponible: seed.apiAvailable, courant, liste: seed.list, enregistreA, echec,
       schemaEnRetard: enRetard(),
       quota: seed.apiAvailable ? compteProjetsCourant() : null,
-      statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty ? 'modifie' : 'a-jour')
+      statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
     });
   }
   ctx.definirRafraichisseurStatut(() => publier());
@@ -177,16 +178,18 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   async function enregistrer(annonce: string): Promise<boolean> {
     if (!courant) return false;
     publier('enregistrement');
+    let taille: number | null = null;
     try {
       const donnees = charge();
       const corps = { id: courant.id, name: courant.name, ...donnees };
       // La taille de ce qui part, en octets UTF-8 : celle que la plateforme compare a sa limite.
-      const taille = new TextEncoder().encode(JSON.stringify(corps)).length;
+      taille = new TextEncoder().encode(JSON.stringify(corps)).length;
       const res = await ctx.apiSave(corps);
       // Ce qui a ete ecrit devient le plancher : un releve ajoute puis retire ne redescend pas le projet.
       ctx.etat.schemaProjet = donnees.schemaVersion;
       ctx.etat.dirty = false;
       enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now()) + ' (' + tailleFichier(taille) + ')';
+      echec = '';
       ctx.initialState().length = 0;
       ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
       ctx.initialMeasures().length = 0;
@@ -194,7 +197,10 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       showToast(annonce);
       return true;
     } catch (e) {
-      showErrBanner('Echec de l\'enregistrement : ' + ((e as Error).message || e));
+      // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
+      const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
+      echec = 'Échec de l’enregistrement' + poids;
+      showErrBanner('Echec de l\'enregistrement' + poids + ' : ' + ((e as Error).message || e));
       return false;
     } finally {
       publier();
