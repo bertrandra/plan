@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
-import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYONS_VOISINAGE_M } from '../../geo/apiIgn.js';
+import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M } from '../../geo/apiIgn.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
 import type { CaseIgn, ImportCadastre as Controleur } from '../../app/importCadastre.js';
@@ -112,11 +112,40 @@ function Etape1({ importe }: Props) {
             </button>
           ))}
         </div>
+        <label className="caseParcours" title="Crée le plan dès la parcelle trouvée, sans les étapes 2 (choix de la parcelle) et 3 (voisines, données IGN) : la parcelle sous l’adresse, les bâtiments et la végétation qui la touchent, et le voisinage étendu s’il est coché. Le résumé dit ce qui arrivera avant de créer.">
+          <input type="checkbox" data-controle="cadastre.importDirect" checked={e.importDirect} onChange={(ev) => importe.basculerImportDirect(ev.target.checked)} />
+          Import direct, sans les étapes 2 et 3
+        </label>
+        {e.importDirect && <ReglageVoisinage importe={importe} />}
+        {e.importDirect && e.resumePret && <ResumeDirect importe={importe} />}
       </div>
       <Pied importe={importe}>
         <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
-        <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>
+        {e.importDirect && e.resumePret
+          ? <>
+              <Bouton controle="cadastre.ajuster" onClick={() => importe.allerA(2)}>Ajuster (étapes 2 et 3)</Bouton>
+              <Bouton controle="cadastre.creerDirect" principal onClick={() => void importe.creerProjet(importe.nomParDefaut())}>{importe.projetCible() ? 'Remplir le projet' : 'Créer le projet'}</Bouton>
+            </>
+          : <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>}
       </Pied>
+    </>
+  );
+}
+
+/** Le resume de l'import direct : la parcelle trouvee et ce qui arrivera dans le plan, avant de creer. */
+function ResumeDirect({ importe }: Props) {
+  const e = importe.etat();
+  const p = e.principale;
+  if (!p) return null;
+  const n = (liste: Parameters<typeof importe.elementsRetenus>[0], actif: boolean) => (actif ? importe.elementsRetenus(liste).length : 0);
+  return (
+    <>
+      <Apercu importe={importe} />
+      <div className="infoParcelle" role="status">
+        <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' — ' + importe.ligneSurface(p)}<br />
+        {'Sur la parcelle : ' + n(e.batiments, e.importerBatiments) + ' bâtiment(s), ' + (n(e.haies, e.importerHaies) + n(e.vegetation, e.importerVegetation)) + ' haie(s) et zone(s) de végétation.'}
+        {e.plu?.zones?.[0] && <><br />{'PLU : zone ' + e.plu.zones[0].libelle}</>}
+      </div>
     </>
   );
 }
@@ -226,25 +255,32 @@ function DonneesIgn({ importe }: Props) {
   );
 }
 
-/** Le voisinage etendu : tout ce qui est dans un rayon, lu en plusieurs requetes, et son affichage. */
-function VoisinageEtendu({ importe }: Props) {
+/**
+ * Le voisinage etendu : une case, un curseur de 10 a 200 m, et le compte de ce qui arrivera avant
+ * de creer. Le disque de 200 m est lu une fois ; le curseur le filtre sans appel au reseau.
+ */
+function ReglageVoisinage({ importe }: Props) {
   const e = importe.etat();
-  const lu = e.etendu;
+  const v = importe.voisinageEtenduRetenu();
+  const lecture = e.voisinageEtendu && !e.etenduMax && !!e.principale;
   return (
     <div className="blocIgn" role="group" aria-label="Voisinage étendu">
-      <label className="caseParcours" title="Seules les parcelles cochées ci-dessus, et le bâti posé dessus.">
-        <input type="radio" name="rayonEtendu" data-controle="cadastre.rayon" checked={e.rayonEtendu === 0} onChange={() => void importe.choisirRayonEtendu(0)} />
-        Les parcelles cochées seulement
+      <label className="caseParcours" title={'Toutes les parcelles et tout le bâti à moins de ce rayon du centre de la parcelle, lus en plusieurs requêtes à l’IGN ; au-delà de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
+        <input type="checkbox" data-controle="cadastre.voisinageEtendu" checked={e.voisinageEtendu} onChange={(ev) => void importe.basculerVoisinageEtendu(ev.target.checked)} />
+        {'Ajouter tout le voisinage dans un rayon de ' + e.rayonEtendu + ' m'}
       </label>
-      {RAYONS_VOISINAGE_M.map(r => (
-        <label key={r} className="caseParcours" title={'Toutes les parcelles et tout le bâti à moins de ' + r + ' m du centre de la parcelle, lus en plusieurs requêtes à l’IGN ; au-delà de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
-          <input type="radio" name="rayonEtendu" data-controle="cadastre.rayon" checked={e.rayonEtendu === r} onChange={() => void importe.choisirRayonEtendu(r)} />
-          {'Tout dans un rayon de ' + r + ' m'}
-        </label>
-      ))}
-      {lu && <div className="detailIgn">{lu.parcelles.length + ' parcelle(s) et ' + lu.batiments.length + ' bâtiment(s) à moins de ' + lu.rayonM + ' m' + (lu.tronque ? ', coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '. Ils arrivent verrouillés et marqués « voisinage ».'}</div>}
-      <label className={'caseParcours' + (e.rayonEtendu ? '' : ' vide')} title="Montre le voisinage étendu dans l’aperçu, et le laisse visible à l’ouverture du plan. Décoché, il est importé mais masqué : l’œil « Voisinage » de l’explorateur le réaffiche.">
-        <input type="checkbox" data-controle="cadastre.afficherEtendu" checked={e.afficherEtendu} disabled={!e.rayonEtendu} onChange={(ev) => importe.basculerAfficherEtendu(ev.target.checked)} />
+      <label className={'caseParcours curseurRayon' + (e.voisinageEtendu ? '' : ' vide')}>
+        <input type="range" data-controle="cadastre.rayon" aria-label="Rayon du voisinage étendu" min={RAYON_ETENDU_MIN_M} max={RAYON_ETENDU_MAX_M} step={RAYON_ETENDU_PAS_M} value={e.rayonEtendu}
+          disabled={!e.voisinageEtendu} aria-valuetext={e.rayonEtendu + ' mètres'} onChange={(ev) => importe.reglerRayonEtendu(Number(ev.target.value))} />
+        <span className="valeurRayon">{e.rayonEtendu + ' m'}</span>
+      </label>
+      {e.voisinageEtendu && <div className="detailIgn" role="status">
+        {lecture ? 'Lecture du voisinage…'
+          : v ? v.parcelles.length + ' parcelle(s) et ' + (e.importerBatiments ? v.batiments.length + ' bâtiment(s)' : 'aucun bâtiment (couche décochée)') + ' seront ajoutés, verrouillés et marqués « voisinage »' + (v.tronque ? ' ; coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '.'
+          : e.principale ? 'Voisinage non chargé.' : 'Le compte s’affichera dès la parcelle trouvée.'}
+      </div>}
+      <label className={'caseParcours' + (e.voisinageEtendu ? '' : ' vide')} title="Montre le voisinage étendu dans l’aperçu, et le laisse visible à l’ouverture du plan. Décoché, il est importé mais masqué : l’œil « Voisinage » de l’explorateur le réaffiche.">
+        <input type="checkbox" data-controle="cadastre.afficherEtendu" checked={e.afficherEtendu} disabled={!e.voisinageEtendu} onChange={(ev) => importe.basculerAfficherEtendu(ev.target.checked)} />
         Afficher le voisinage étendu
       </label>
     </div>
@@ -278,7 +314,7 @@ function Etape3({ importe }: Props) {
           {e.tropDense && <div className="erreurParcours">{'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.'}</div>}
         </div>
         <div className="titreListe">Voisinage étendu</div>
-        <VoisinageEtendu importe={importe} />
+        <ReglageVoisinage importe={importe} />
         <div className="titreListe">Données IGN à importer sur les parcelles retenues</div>
         <DonneesIgn importe={importe} />
         <div className="libelleChamp">Nom du projet :</div>

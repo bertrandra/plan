@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { objetsDepuisCadastre, type ImportCadastral, type ParcelleCadastrale, type ObjetBdTopo } from '../../../src/geo/cadastreObjets.js';
-import { lireVoisinageRayon, RAYONS_VOISINAGE_M } from '../../../src/geo/apiIgn.js';
+import { lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide, RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M } from '../../../src/geo/apiIgn.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
@@ -64,8 +64,12 @@ describe('la lecture d un voisinage dans un rayon', () => {
   const reponse = (corps: unknown) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(corps) } as unknown as Response);
   const feature = (id: string, pts: PtBrut[], props: Record<string, unknown>) => ({ type: 'Feature', id, properties: props, geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]!].map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; })] } });
 
-  it('propose 100 et 200 m, garde le disque, trie et exclut la parcelle du projet', async () => {
-    expect(RAYONS_VOISINAGE_M).toEqual([100, 200]);
+  it('borne le curseur de 10 a 200 m, au pas de 10', () => {
+    expect([RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M]).toEqual([10, 200]);
+    expect([0, 14, 15, 137, 999, Number.NaN].map(rayonEtenduValide)).toEqual([10, 10, 20, 140, 200, 50]);
+  });
+
+  it('garde le disque, trie, exclut la parcelle du projet, puis filtre localement a un rayon plus petit', async () => {
     const appels: string[] = [];
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       appels.push(url);
@@ -80,6 +84,16 @@ describe('la lecture d un voisinage dans un rayon', () => {
     expect(r100.batiments).toHaveLength(1);
     const r200 = await lireVoisinageRayon({ x: 5, y: 5 }, proj, 200, false, new Set(['A']));
     expect(r200.parcelles.map(c => c.idu)).toEqual(['P', 'L']);
+    // Le curseur : sans nouvel appel, le disque de 200 m ramene a 100 m rend ce que la lecture a 100 m rendait.
+    const avant = appels.length;
+    const f100 = filtrerVoisinageRayon(r200, { x: 5, y: 5 }, 100);
+    expect(f100.parcelles.map(c => c.idu)).toEqual(r100.parcelles.map(c => c.idu));
+    expect(f100.batiments).toHaveLength(1);
+    expect(f100.rayonM).toBe(100);
+    expect(filtrerVoisinageRayon(r200, { x: 5, y: 5 }, 30).parcelles).toEqual([]);
+    expect(filtrerVoisinageRayon(r200, { x: 5, y: 5 }, 200, { idus: new Set(['L']), ids: new Set([r200.batiments[0]!.id as string]) }).parcelles.map(c => c.idu)).toEqual(['P']);
+    expect(filtrerVoisinageRayon(r200, { x: 5, y: 5 }, 200, { ids: new Set([r200.batiments[0]!.id as string]) }).batiments).toEqual([]);
+    expect(appels.length).toBe(avant);
     expect(appels.some(u => u.includes('_start=') && u.includes('apicarto'))).toBe(true);
     expect(appels.some(u => u.includes('STARTINDEX='))).toBe(true);
   });
