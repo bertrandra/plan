@@ -20,7 +20,21 @@ export const ZOOM_MAX = 220;
 /** Facteur applique a un cran de molette. */
 export const FACTEUR_MOLETTE = 1.1;
 
-const borner = (echelle: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, echelle));
+/** Le plancher du zoom de cette scene : celui du plan s'il en a un, sinon `ZOOM_MIN`. */
+const plancher = (scene: EtatScene) => scene.zoomMin ?? ZOOM_MIN;
+const borner = (echelle: number, min: number) => Math.min(ZOOM_MAX, Math.max(min, echelle));
+
+/**
+ * Le plancher du zoom pour qu'une emprise (les parcelles affichees) tienne dans la scene, avec
+ * autant d'espace autour qu'elle en occupe : elle n'y prend que la moitie de la largeur et de la
+ * hauteur. Jamais plus haut que `ZOOM_MIN` : une petite parcelle garde le plancher d'avant.
+ */
+export function plancherPourEmprise(scene: Pick<EtatScene, 'W' | 'H'>, emprise: Emprise | null): number {
+  if (!emprise) return ZOOM_MIN;
+  const spanX = Math.max(0.5, emprise.maxX - emprise.minX);
+  const spanY = Math.max(0.5, emprise.maxY - emprise.minY);
+  return Math.min(ZOOM_MIN, Math.min(scene.W / (2 * spanX), scene.H / (2 * spanY)));
+}
 
 /**
  * Zoom centre sur un point de l'ecran : ce point garde exactement la meme position apres le zoom.
@@ -28,7 +42,7 @@ const borner = (echelle: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, echell
  */
 export function zoomerAutourDe(scene: EtatScene, pointEcran: PtEcran, facteur: number): EtatScene {
   const monde = versMonde(scene, pointEcran);
-  const scale = borner(scene.scale * facteur);
+  const scale = borner(scene.scale * facteur, plancher(scene));
   return {
     ...scene,
     scale,
@@ -65,7 +79,7 @@ export function debutPincement(scene: EtatScene, a: PtEcran, b: PtEcran): DebutP
 export function pincer(scene: EtatScene, debut: DebutPincement, a: PtEcran, b: PtEcran): EtatScene {
   const milieu = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const d = Math.hypot(a.x - b.x, a.y - b.y);
-  const scale = borner(debut.echelle0 * (d / debut.distance0));
+  const scale = borner(debut.echelle0 * (d / debut.distance0), plancher(scene));
   return {
     ...scene,
     scale,
@@ -104,7 +118,7 @@ export function cadrerSur(scene: EtatScene, emprise: Emprise, marge = 80): EtatS
   const spanX = Math.max(0.5, emprise.maxX - emprise.minX);
   const spanY = Math.max(0.5, emprise.maxY - emprise.minY);
   const scale = Math.max(
-    ZOOM_MIN,
+    plancher(scene),
     Math.min(400, Math.min((scene.W - marge) / spanX, (scene.H - marge) / spanY))
   );
   return {

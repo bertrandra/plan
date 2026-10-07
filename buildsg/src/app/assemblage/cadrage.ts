@@ -2,7 +2,8 @@
 // fenetre, cadrer un objet dans la partie que les panneaux ne recouvrent pas.
 
 import { appliquerClasse } from '../classe.js';
-import { cadrerSur, empriseDe } from '../../interaction/navigation.js';
+import { cadrerSur, empriseDe, plancherPourEmprise } from '../../interaction/navigation.js';
+import { estTerrain } from '../../model/fonctions.js';
 import { aDesSommets, enPoints } from '../../model/formes.js';
 import type { Surface } from './surface.js';
 import type { EtatApp } from '../../core/state.js';
@@ -18,6 +19,13 @@ export interface Cadrage {
   centrerSurParcelle(): void;
   /** Cadre un objet, sinon la parcelle, sinon tout le plan. */
   cadrer(obj: ObjetPlan | null): void;
+  /**
+   * Le cadrage d'ouverture d'un plan venu du cadastre : toutes les parcelles affichees (la parcelle
+   * et son voisinage visible), avec la meme respiration qu'une parcelle seule.
+   */
+  cadrerTerrains(): void;
+  /** Recalcule le plancher du zoom d'apres les parcelles affichees : appele a chaque rendu. */
+  ajusterPlancher(): void;
 }
 
 export interface DependancesCadrage {
@@ -25,6 +33,8 @@ export interface DependancesCadrage {
   toWorld: (p: PtEcran) => PtBrut;
   basculerExplorateur: () => void;
   basculerInspecteur: () => void;
+  /** Un objet masque a l'affichage (le sien, le voisinage, l'isolement) : il ne compte pas. */
+  objetMasque: (o: ObjetPlan) => boolean;
 }
 
 const LARGEUR_PALETTE = 72;
@@ -97,8 +107,29 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
     return Math.max(0, Math.min(etat.scene.H - 120, r0.bottom - r.top));
   }
 
+  /** L'emprise des parcelles affichees : la parcelle du projet et les voisines visibles. */
+  const empriseTerrains = () => empriseDe(etat.objects.filter(o => estTerrain(o) && !d.objetMasque(o)));
+  const ajusterPlancher = () => { etat.scene.zoomMin = plancherPourEmprise(etat.scene, empriseTerrains()); };
+
+  /** Cadre une emprise dans ce que les panneaux laissent voir du plan. */
+  function cadrerEmprise(emprise: NonNullable<ReturnType<typeof empriseDe>>): void {
+    // On cadre dans ce que la feuille de selection, le rail et l'inspecteur flottant laissent voir :
+    // sinon l'objet choisi finit sous le panneau qui le decrit (2.1.1).
+    ajusterPlancher();
+    const bas = masqueBas();
+    const { gauche, droite } = masquesLateraux();
+    const cadree = cadrerSur({ ...etat.scene, W: etat.scene.W - gauche - droite, H: etat.scene.H - bas }, emprise);
+    etat.scene = { ...cadree, W: etat.scene.W, H: etat.scene.H, origine: { x: cadree.origine.x + gauche, y: cadree.origine.y } };
+    d.render();
+  }
+
   return {
     replierPourTablette,
+    ajusterPlancher,
+    cadrerTerrains() {
+      const emprise = empriseTerrains();
+      if (emprise) cadrerEmprise(emprise);
+    },
     redimensionner() {
       // Le clavier virtuel qui s'ouvre sous un champ redimensionne la fenetre en hauteur seulement :
       // redessiner le plan a ce moment-la ferait perdre le focus du champ (spec-ihm-mobile §9.3).
@@ -130,14 +161,7 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
     cadrer(obj) {
       const parcelle = etat.objects.find(o => o.key === 'parcelle');
       const emprise = empriseDe(obj ? [obj] : (parcelle ? [parcelle] : etat.objects));
-      if (!emprise) return;
-      // On cadre dans ce que la feuille de selection, le rail et l'inspecteur flottant laissent voir :
-      // sinon l'objet choisi finit sous le panneau qui le decrit (2.1.1).
-      const bas = masqueBas();
-      const { gauche, droite } = masquesLateraux();
-      const cadree = cadrerSur({ ...etat.scene, W: etat.scene.W - gauche - droite, H: etat.scene.H - bas }, emprise);
-      etat.scene = { ...cadree, W: etat.scene.W, H: etat.scene.H, origine: { x: cadree.origine.x + gauche, y: cadree.origine.y } };
-      d.render();
+      if (emprise) cadrerEmprise(emprise);
     }
   };
 }
