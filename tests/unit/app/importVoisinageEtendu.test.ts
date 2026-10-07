@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/app/importCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { PtBrut } from '../../../src/model/types.js';
+import type { PtBrut, Relief } from '../../../src/model/types.js';
+import type { DemandeRelief } from '../../../src/geo/relief.js';
 
 // L'etape 3 de l'import depuis une adresse : le voisinage etendu se choisit (100 ou 200 m), se lit
 // a l'IGN, se montre dans l'apercu selon l'option d'affichage, et part avec la creation du plan.
@@ -126,5 +127,67 @@ describe('l import direct, sans les etapes 2 et 3', () => {
     expect(objets.filter(o => o.voisinage).length).toBe(compte.parcelles.length + compte.batiments.length);
     // Le choix suit l'utilisateur : un nouvel import le retrouve.
     expect(creerImportCadastre(contexte(), vi.fn()).etat().importDirect).toBe(true);
+  });
+});
+
+/** Une grille de relief factice : ce qu'on verifie ici, c'est ce qui est demande et ou c'est range. */
+const RELIEF = { source: 'rge-alti', couche: 'c', dateLecture: '2026-10-07', pas: 1, x0: 0, y0: 0, nx: 2, ny: 2, z: [1, 1, 1, 1], zRef: 1, origine: 'o', precision: 'p', systemeAltimetrique: 'NGF-IGN69' } as unknown as Relief;
+type SauveRelief = { objects: { key: string; relief?: Relief | null }[] };
+
+describe('les donnees IGN par defaut, et le relief a la creation', () => {
+  it('decoche haies, vegetation et arbres ; coche le relief, sur toutes les parcelles', () => {
+    const e = creerImportCadastre(contexte(), vi.fn()).etat();
+    expect([e.importerHaies, e.importerVegetation, e.importerArbres]).toEqual([false, false, false]);
+    expect([e.importerBatiments, e.importerRelief, e.reliefToutesParcelles]).toEqual([true, true, true]);
+  });
+
+  it('lit le relief sur toutes les parcelles importees et le range sur la parcelle du projet', async () => {
+    servir();
+    const lireRelief = vi.fn<(d: DemandeRelief) => Promise<Relief>>(async () => RELIEF);
+    const ctx = { ...contexte(), lireRelief };
+    const i = creerImportCadastre(ctx, vi.fn());
+    await i.choisirAdresse(adresse);
+    i.allerA(3);
+    i.cocherMitoyennes();
+    await i.creerProjet('Test');
+    expect(lireRelief).toHaveBeenCalledTimes(1);
+    const d = lireRelief.mock.calls[0]![0];
+    // Le calage est l'origine du plan (la parcelle principale), pas le point d'adresse.
+    expect(d.ref).toMatchObject({ x: 0, y: 0 });
+    expect(d.ref.lat).toBeCloseTo(lat, 2);
+    expect(d.ref.lon).toBeCloseTo(lon, 2);
+    expect(d.etendue!.length).toBeGreaterThan(d.parcelle.length);
+    const objets = (ctx.sauve[0] as SauveRelief).objects;
+    expect(objets.find(o => o.key === 'parcelle')!.relief).toEqual(RELIEF);
+    expect(objets.filter(o => o.relief).length).toBe(1);
+  });
+
+  it('s en tient a la parcelle du projet si « toutes les parcelles » est decoche, et ne lit rien sans la case', async () => {
+    servir();
+    const lireRelief = vi.fn<(d: DemandeRelief) => Promise<Relief>>(async () => RELIEF);
+    const i = creerImportCadastre({ ...contexte(), lireRelief }, vi.fn());
+    await i.choisirAdresse(adresse);
+    i.allerA(3);
+    i.cocherMitoyennes();
+    i.basculerCaseIgn('reliefToutesParcelles', false);
+    await i.creerProjet('Test');
+    expect(lireRelief.mock.calls[0]![0].etendue).toBeUndefined();
+
+    const sans = vi.fn<(d: DemandeRelief) => Promise<Relief>>(async () => RELIEF);
+    const j = creerImportCadastre({ ...contexte(), lireRelief: sans }, vi.fn());
+    await j.choisirAdresse(adresse);
+    j.basculerCaseIgn('importerRelief', false);
+    await j.creerProjet('Test');
+    expect(sans).not.toHaveBeenCalled();
+  });
+
+  it('cree le plan sans relief quand l IGN ne repond pas', async () => {
+    servir();
+    const ctx = { ...contexte(), lireRelief: vi.fn(async () => { throw new Error('Pas de relief IGN pour cette parcelle.'); }) };
+    const i = creerImportCadastre(ctx, vi.fn());
+    await i.choisirAdresse(adresse);
+    await i.creerProjet('Test');
+    const parcelle = (ctx.sauve[0] as SauveRelief).objects.find(o => o.key === 'parcelle')!;
+    expect(parcelle.relief).toBeUndefined();
   });
 });

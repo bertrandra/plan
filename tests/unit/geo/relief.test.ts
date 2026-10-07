@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  lireRelief, decoderBil, lireNombreMatched, urlGrille, urlDallesLidar, requeteAvecReprise, SOURCE_LIDAR, SOURCE_RGE_ALTI
+  lireRelief, decoderBil, lireNombreMatched, urlGrille, urlDallesLidar, requeteAvecReprise, SOURCE_LIDAR, SOURCE_RGE_ALTI,
+  empriseDemandee, demandeReliefDuPlan
 } from '../../../src/geo/relief.js';
+import { empriseRelief } from '../../../src/model/relief.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // La lecture du relief a l'IGN (MD/spec-relief.md §2, §4, §9.2), sans reseau : un `fetch` factice
@@ -135,5 +137,33 @@ describe('la reprise reseau', () => {
     const f = vi.fn(async () => reponse('', false, 400)) as unknown as typeof fetch;
     await expect(requeteAvecReprise('u', r => r.text(), f)).rejects.toThrow(/HTTP 400/);
     expect(f).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('l emprise demandee, et la demande d un plan venu du cadastre', () => {
+  const carre = (x0: number, y0: number, l: number) => [{ x: x0, y: y0 }, { x: x0 + l, y: y0 }, { x: x0 + l, y: y0 + l }, { x: x0, y: y0 + l }];
+  const terrain = carre(0, 0, 20);
+
+  it('couvre toutes les parcelles demandees, et revient a la parcelle seule au-dela du pas de 5 m', () => {
+    expect(empriseDemandee({ parcelle: terrain })).toEqual(empriseRelief(terrain));
+    const voisine = carre(200, 200, 20);
+    expect(empriseDemandee({ parcelle: terrain, etendue: voisine })).toEqual(empriseRelief([...terrain, ...voisine]));
+    // 40 000 cellules a 5 m : un carre d'un kilometre. Au-dela, la parcelle seule.
+    expect(empriseDemandee({ parcelle: terrain, etendue: carre(3000, 3000, 20) })).toEqual(empriseRelief(terrain));
+  });
+
+  it('prend la parcelle du projet, son calage cadastral, et les autres parcelles si on les demande', () => {
+    const objets = [
+      { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: terrain, cadastre: { idu: 'A', origineLat: 48.9, origineLon: 2.15 } },
+      { key: 'v1', type: 'polygon', fonction: 'terrain', pts: carre(20, 0, 20), cadastre: { idu: 'B' } },
+      { key: 'terrasse', type: 'polygon', fonction: 'terrasse', pts: carre(2, 2, 4) }
+    ] as unknown as ObjetPlan[];
+    const seule = demandeReliefDuPlan(objets, false)!;
+    expect(seule.ref).toEqual({ lat: 48.9, lon: 2.15, x: 0, y: 0 });
+    expect(seule.parcelle).toBe(terrain);
+    expect(seule.etendue).toBeUndefined();
+    expect(demandeReliefDuPlan(objets, true)!.etendue).toEqual(carre(20, 0, 20));
+    // Sans calage, pas de demande : le plan ne sait pas ou il est sur la Terre.
+    expect(demandeReliefDuPlan([{ ...objets[0]!, cadastre: { idu: 'A' } } as ObjetPlan], true)).toBeNull();
   });
 });

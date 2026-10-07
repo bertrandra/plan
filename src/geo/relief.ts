@@ -10,6 +10,8 @@
 // jamais le service. Une requete coupee est rejouee une fois, avec le meme delai que `apiIgn`.
 
 import { projecteurLocal } from './projection.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { aDesSommets } from '../model/formes.js';
 import { RESEAU_TIMEOUT_MS } from './apiIgn.js';
 import {
   cellulesDansPolygone, dimensionsGrille, empriseRelief, pasPourEmprise, pointDeReference, zRefPour, type Emprise
@@ -121,6 +123,12 @@ export async function requeteAvecReprise<T>(url: string, lire: Lecteur<T>, reche
 /** Ce que la lecture demande : la parcelle, son calage, les objets (pour le point de reference), le reseau. */
 export interface DemandeRelief {
   parcelle: readonly PtBrut[];
+  /**
+   * Les sommets des autres parcelles a couvrir (« relief sur toutes les parcelles ») : la grille
+   * s'etend a leur emprise. La parcelle du projet reste celle ou la grille doit etre pleine, et
+   * le relief reste range sur elle seule.
+   */
+  etendue?: readonly PtBrut[];
   /** Le point de calage : `(x, y)` du plan qui vaut `(lat, lon)` — le calage cadastral vaut (0, 0). */
   ref: { lat: number; lon: number; x: number; y: number };
   objets: ObjetPlan[];
@@ -168,7 +176,7 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   const rechercher = d.rechercher ?? fetch;
   const proj = projecteurLocal(d.ref.lat, d.ref.lon);
   const versDeg = (x: number, y: number) => proj.versDegres(x - d.ref.x, y - d.ref.y);
-  const emprise = empriseRelief(d.parcelle);
+  const emprise = empriseDemandee(d);
   const enDegres = (e: Emprise): EmpriseDeg => {
     const so = versDeg(e.xMin, e.yMin), ne = versDeg(e.xMax, e.yMax);
     return { lonMin: so.lon, latMin: so.lat, lonMax: ne.lon, latMax: ne.lat };
@@ -202,4 +210,33 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   const prov = await provenance(source, refDeg.lon, refDeg.lat, rechercher);
   const zRef = zRefPour(grille, d.objets, d.cleTerrasse);
   return { ...grille, ...prov, zRef };
+}
+
+/**
+ * L'emprise de la grille : la parcelle et ses abords, ou toutes les parcelles demandees. Si ces
+ * dernieres depassent le pas de 5 m, la grille revient a la parcelle seule plutot que d'echouer.
+ */
+export function empriseDemandee(d: Pick<DemandeRelief, 'parcelle' | 'etendue'>): Emprise {
+  const seule = empriseRelief(d.parcelle);
+  if (!d.etendue?.length) return seule;
+  const toutes = empriseRelief([...d.parcelle, ...d.etendue]);
+  return pasPourEmprise(SOURCE_LIDAR.pas, toutes) !== null ? toutes : seule;
+}
+
+/**
+ * La demande de relief d'un plan venu du cadastre : la parcelle du projet, son calage cadastral
+ * (l'origine du plan vaut le point de calage), et, si demande, les sommets des autres parcelles
+ * cadastrales du plan. `null` pour un plan sans parcelle ou sans calage.
+ */
+export function demandeReliefDuPlan(objets: ObjetPlan[], toutesParcelles: boolean, cleTerrasse?: string | null): DemandeRelief | null {
+  const p = parcelleDuProjet(objets);
+  const cad = p?.cadastre;
+  if (!p || !aDesSommets(p) || p.pts.length < 3 || typeof cad?.origineLat !== 'number' || typeof cad.origineLon !== 'number') return null;
+  const etendue = toutesParcelles
+    ? objets.filter(o => o !== p && !!o.cadastre?.idu && aDesSommets(o)).flatMap(o => (aDesSommets(o) ? o.pts : []))
+    : [];
+  return {
+    parcelle: p.pts, ref: { lat: cad.origineLat, lon: cad.origineLon, x: 0, y: 0 }, objets,
+    ...(cleTerrasse !== undefined ? { cleTerrasse } : {}), ...(etendue.length ? { etendue } : {})
+  };
 }

@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Relief à l'import et à l'actualisation IGN.** « Nouveau plan depuis une adresse » (étape 3, et
+  résumé de l'import direct) et « Actualiser depuis l'IGN » proposent une case **« Relief du terrain »,
+  cochée par défaut**, et sous elle **« Relief sur toutes les parcelles »**, cochée aussi : la grille
+  couvre alors les parcelles voisines du plan, tout en restant rangée sur la parcelle du projet. Si
+  ces parcelles dépassent un pas de 5 m, la grille revient à la parcelle du projet et ses abords.
+  À l'import, un relief que l'IGN ne rend pas ne bloque pas la création : le plan arrive plat.
+  Les cases disparaissent sans la capacité `plan.relief`.
+
 - **Voisinage étendu au curseur, compté avant l'import, et import direct.** Le voisinage étendu se
   règle au **curseur, de 10 à 200 m** par pas de 10, à l'étape 3 de « Nouveau plan depuis une adresse »
   comme dans « Actualiser depuis l'IGN » : une case « Ajouter tout le voisinage dans un rayon de… » puis
@@ -339,6 +347,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`vue3d.apresSoleil`), sans clignotement.
 
 ### Modifié
+
+- **Haies et végétation, arbres estimés : décochés par défaut**, à l'import depuis une adresse comme
+  dans « Actualiser depuis l'IGN ». Ils chargent le plan d'objets approximatifs : on les demande.
 
 - **Le relief du terrain, phase 2 : les quantités suivent le sol en pente** (`MD/spec-relief.md`
   §6). **Événement de version majeure** au sens de `RELEASE.md` : pour un projet qui porte un
