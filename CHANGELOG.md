@@ -354,6 +354,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le voisinage arrive sans noms affichés.** Les parcelles et les bâtiments (principaux et annexes)
+  du voisinage — voisinage étendu de l'import, « Ajouter le voisinage » de l'actualisation IGN —
+  n'affichent plus leur référence cadastrale ni leur usage : des centaines d'étiquettes rendaient le
+  plan illisible. La case « Nom » de l'explorateur les réaffiche au besoin. Les plans déjà importés
+  ne changent pas.
+
 - **Le relief est accordé à tous les comptes.** La capacité `plan.relief` n'étant pas encore déclarée
   ni attribuée dans backprod, « Lire le relief » et les cases du relief disparaissaient pour tout le
   monde. Plan l'accorde désormais en dur, quelle que soit la formule (`CAPACITES_FORCEES`,

@@ -62,6 +62,9 @@ describe('le voisinage dans un rayon de 500 m', () => {
     const r = await construireVoisinage(parcelle, cad, proj, true, { batiments: true, vegetation: false, arbres: false, rayonM: 500 }, []);
     expect(r.rayonM).toBe(500);
     expect(r.tronque).toBeFalsy();
+    // Parcelles et bati du voisinage arrivent sans nom affiche : des centaines d'etiquettes sinon.
+    expect(r.objets.some(o => o.fonction === 'terrain') && r.objets.some(o => o.fonction === 'batiment')).toBe(true);
+    expect(r.objets.filter(o => o.fonction === 'terrain' || o.fonction === 'batiment').every(o => o.showName === false)).toBe(true);
     const pagesCadastre = s.appels.filter(u => u.includes('apicarto.ign.fr'));
     expect(pagesCadastre.length).toBeGreaterThan(1);
     expect(pagesCadastre.every(u => u.includes('_start=') && !u.includes('code_insee'))).toBe(true);

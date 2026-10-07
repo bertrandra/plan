@@ -85,6 +85,8 @@ describe('le voisinage etendu au curseur, a l etape 3', () => {
     await i.creerProjet('Test');
     const objets = (ctx.sauve[0] as Sauve).objects;
     expect(objets.filter(o => o.voisinage).length).toBeGreaterThan(20);
+    // Sans nom affiche : ni references cadastrales, ni usages de batiments par-dessus le plan.
+    expect(objets.filter(o => o.voisinage).every(o => !(o as { showName?: boolean }).showName)).toBe(true);
     expect(objets.find(o => o.key === 'parcelle')!.affichage).toEqual({ voisinage: false });
   });
 
