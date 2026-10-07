@@ -1,4 +1,4 @@
-Plan 2.2.0 (d26db6d) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (bfa7601) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 1. Televerser le contenu de ce dossier (fichiers caches compris : .htaccess) dans le dossier

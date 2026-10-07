@@ -17,6 +17,7 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
+import { deplierRelief } from './relief.js';
 import type { ObjetBrut, ObjetAPoints } from './types.js';
 
 /**
@@ -57,7 +58,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));
     if (c.cloture) c.cloture = JSON.parse(JSON.stringify(c.cloture));
-    if (c.relief) c.relief = JSON.parse(JSON.stringify(c.relief));
+    // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).
+    if (c.relief) c.relief = deplierRelief(JSON.parse(JSON.stringify(c.relief)));
     if (c.piscine) c.piscine = JSON.parse(JSON.stringify(c.piscine));
     return c as T & ObjetBrut;
   });

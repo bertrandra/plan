@@ -18,6 +18,7 @@ import { distancePointContour } from '../geometry/proximite.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
 import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
+import { serializeObjects } from '../io/serialisation.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
@@ -633,7 +634,9 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       const cible = ctx.projetCible?.() ?? null;
       occuper(true, cible ? 'Enregistrement du projet…' : 'Creation du projet…');
       try {
-        const cree = await ctx.apiSave({ ...(cible ? { id: cible.id } : {}), name: nom, objects: objets, measures: [] });
+        // Enregistre sous sa forme ecrite (io/serialisation.ts) : relief compacte, voisinage allege —
+        // en memoire, un voisinage de 200 m et son relief depassaient ce que la plateforme accepte.
+        const cree = await ctx.apiSave({ ...(cible ? { id: cible.id } : {}), name: nom, objects: serializeObjects(objets), measures: [] });
         localStorage.setItem(ctx.cleDernierProjet, cree.id);
         location.href = ctx.withProjectParam(cree.id);
       } catch (err) {

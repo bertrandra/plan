@@ -177,6 +177,9 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   objets.forEach(o => {
     const anneau = o.cadastre && o.cadastre.geometrieSource ? (o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0] : undefined;
     if (anneau) anneaux.push(anneau);
+    // Une parcelle du voisinage s'enregistre sans sa geometrie source (io/serialisation.ts) : ses
+    // sommets, dans le repere du calage, la redonnent en degres.
+    else if (o.cadastre && o.type !== 'circle') { const pts = sommetsDe(o); if (pts.length) anneaux.push(pts.map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; }) as Anneau); }
   });
   if (!couches.length || !anneaux.length) return fraiches;
   const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
@@ -364,7 +367,11 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   }
 }
 
-/** Une parcelle voisine telle qu'elle entre dans le plan : verrouillee, marquee voisinage, avec sa fiche cadastrale. */
+/**
+ * Une parcelle voisine telle qu'elle entre dans le plan : verrouillee, marquee voisinage, avec sa
+ * fiche cadastrale, et sans nom affiche (comme son bati) : des centaines de references par-dessus
+ * le plan le rendaient illisible.
+ */
 function objetParcelleVoisine(c: Candidate, key: string, cad: { origineLat: number; origineLon: number }, simplifier: boolean, recupereLe: string): ObjetBrut {
   const pts = c.pts;
   return {
@@ -374,7 +381,7 @@ function objetParcelleVoisine(c: Candidate, key: string, cad: { origineLat: numb
     vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
     segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
     frozenVertices: pts.map(()=>false),
-    showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
+    showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
     constrained:false, fonction:'terrain', matiere:'', priority:0, locked:true, voisinage:true,
     cadastre: {
       idu:c.idu, codeInsee:c.codeInsee, commune:c.commune, section:c.section, numero:c.numero,
@@ -472,7 +479,7 @@ export async function construireVoisinage(
         vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
         segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
         frozenVertices: pts.map(()=>false),
-        showName:true, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
+        showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'batiment', matiere:'', priority:2, locked:true, voisinage:true,
         elevation: haut,
         toit: toitBdTopo(pts, attributsToitBdTopo(p)),
