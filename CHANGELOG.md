@@ -354,6 +354,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le relief est accordé à tous les comptes.** La capacité `plan.relief` n'étant pas encore déclarée
+  ni attribuée dans backprod, « Lire le relief » et les cases du relief disparaissaient pour tout le
+  monde. Plan l'accorde désormais en dur, quelle que soit la formule (`CAPACITES_FORCEES`,
+  `app/acces.ts`). Tant que la plateforme ne l'attribue pas, **un administrateur** (rôle
+  d'administration du locataire, ou admin des démos) voit à l'ouverture un avertissement qui le
+  rappelle, avec ce qu'il faut faire dans backprod ; les autres comptes n'en voient rien.
+
 - **La feuille du plan contient toutes les parcelles affichées.** Un plan venu du cadastre s'ouvre
   cadré sur la parcelle **et son voisinage visible**, avec la même respiration qu'une parcelle seule
   (à l'ouverture comme après un import JSON). Le zoom arrière, borné jusqu'ici à 6 px/m (130 à 260 m
