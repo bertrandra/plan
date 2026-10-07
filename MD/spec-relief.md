@@ -327,6 +327,9 @@ Charger `design-ui` avant d'y toucher. Tout passe par le registre (`app/commande
 `commandes.etat(id)` ; chaque commande s'inscrit dans `app/exposition.ts` pour les trois classes
 d'écran.
 
+> **7 octobre 2026** : `plan.relief` est accordée en dur à tous les comptes (`CAPACITES_FORCEES`,
+> `app/acces.ts`) tant que backprod ne la déclare pas ; un administrateur en est averti à l'ouverture.
+
 **Commandes** (`capacite: 'plan.relief'`, `permission: PERMISSION_ECRITURE`, `ecrit: 'projet'`) :
 
 | Id | Libellé | Grisée quand |

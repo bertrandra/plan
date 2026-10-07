@@ -65,6 +65,8 @@ export const CAPACITES = {
     // Les trois commandes du relief (MD/spec-relief.md §8), declarees par app/ecouteurs/relief.ts.
     // Sans la capacite, elles disparaissent et la page ne parle pas a data.geopf.fr pour le relief ;
     // un projet qui porte deja une grille la garde et l'affiche : la capacite porte sur la lecture.
+    // Accordee en dur a tous les comptes depuis le 7 octobre 2026 (CAPACITES_FORCEES, app/acces.ts),
+    // tant que backprod ne la declare pas.
     commandes: ['relief.lire', 'relief.actualiser', 'relief.supprimer'],
     origines: ['https://data.geopf.fr']
   },
