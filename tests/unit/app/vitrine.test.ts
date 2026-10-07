@@ -31,6 +31,19 @@ describe('l adresse de la vitrine', () => {
     expect(racine.hasAttribute('data-vitrine')).toBe(true);
     expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('1024px');
     expect(racine.style.getPropertyValue('--vitrine-hauteur')).toBe('768px');
+    expect(racine.hasAttribute('data-vitrine-x') && racine.hasAttribute('data-vitrine-y')).toBe(true);
+  });
+
+  it('sans dimension, laisse la scene ancree a toute la fenetre', () => {
+    const racine = document.createElement('html');
+    poserVitrine({ ...lireVitrine('?mode=demo')!, largeur: null, hauteur: null }, racine);
+    expect(racine.hasAttribute('data-vitrine')).toBe(true);
+    expect(racine.hasAttribute('data-vitrine-x') || racine.hasAttribute('data-vitrine-y')).toBe(false);
+    expect(racine.style.getPropertyValue('--vitrine-largeur')).toBe('');
+    // Une seule dimension : seul son cote est fixe.
+    const r2 = document.createElement('html');
+    poserVitrine({ ...lireVitrine('?mode=demo')!, largeur: null, hauteur: 600 }, r2);
+    expect([r2.hasAttribute('data-vitrine-x'), r2.hasAttribute('data-vitrine-y')]).toEqual([false, true]);
   });
 });
 

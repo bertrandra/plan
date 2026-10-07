@@ -16,7 +16,8 @@
 // et changent a chaque heure (three/etat3d.ts).
 //
 // `x` et `y` sont la largeur et la hauteur de la scene, en pixels CSS, bornees ; sans elles, la
-// scene prend la fenetre (ce qui est le cas utile dans un <iframe> deja dimensionne).
+// scene prend toute la fenetre visible, ancree a ses quatre bords, et la page ne defile jamais
+// (ce qui est le cas utile dans un <iframe> deja dimensionne, ou en plein ecran sur un telephone).
 //
 // `zoom` rapproche (> 1) ou eloigne (< 1) la camera du cadrage par defaut : `zoom=2` la met a mi-
 // distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Borne de 0,25 a 8 ; la virgule vaut
@@ -220,8 +221,11 @@ export function adresseVitrine(href: string, date: string | null, rotation: numb
  */
 export function poserVitrine(v: Vitrine, racine: HTMLElement = document.documentElement): void {
   racine.dataset.vitrine = '';
-  if (v.largeur !== null) racine.style.setProperty('--vitrine-largeur', v.largeur + 'px');
-  if (v.hauteur !== null) racine.style.setProperty('--vitrine-hauteur', v.hauteur + 'px');
+  // Sans dimension, la scene est ancree aux quatre bords de la fenetre (app.css) : elle prend toute
+  // la place visible, barre d'adresse d'un telephone deduite, et la page ne defile pas. Une
+  // dimension donnee ne fixe que son cote ; l'autre reste ancre.
+  if (v.largeur !== null) { racine.style.setProperty('--vitrine-largeur', v.largeur + 'px'); racine.dataset.vitrineX = ''; }
+  if (v.hauteur !== null) { racine.style.setProperty('--vitrine-hauteur', v.hauteur + 'px'); racine.dataset.vitrineY = ''; }
 }
 
 /** Ce que le zoom demande de la scene : une camera, et le point que les controles visent. */
