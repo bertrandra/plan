@@ -42,9 +42,9 @@ pas la cote d'exécution.
 |---|---|---|
 | D'où vient le relief ? | **WMS raster de la Géoplateforme**, en nombres bruts (`image/x-bil;bits=32`) : une requête, une grille | Vérifié : une requête de 100 × 70 m rend 28 ko en 0,7 s à 1 m, 112 ko à 50 cm ; CORS ouvert. Le service d'altimétrie point par point accepte 200 points par requête en GET et répond 500 en POST : une grille lui demanderait dix requêtes |
 | Quel calque ? | **LiDAR HD MNT** à 50 cm si l'index des dalles couvre la parcelle, sinon **RGE ALTI** à 1 m par `RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS` | Le calque évident `ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES` est servi depuis une pyramide en degrés dont le dernier niveau vaut 3 à 5 m : il n'est pas à 1 m (§2.1) |
-| Quand ? | **À la demande** (« Lire le relief »), jamais à l'import ni à l'actualisation IGN | Le relief change des nombres (§6) : il n'arrive pas dans un projet sans qu'on l'ait voulu. Un plan d'avant ne change pas |
+| Quand ? | **À la demande** : « Lire le relief », ou la case « Relief du terrain » de l'import depuis une adresse et d'« Actualiser depuis l'IGN » (cochée par défaut, décision du 7 octobre 2026) | Le relief change des nombres (§6) : il n'arrive pas dans un projet sans une case visible. Un plan d'avant ne change pas tant qu'on ne l'actualise pas |
 | Rechargé à l'ouverture ? | **Non.** La grille vit dans le projet. « Actualiser le relief » la remplace, et c'est une modification annulable | L'IGN met ses données à jour ; le cache du service ne vaut que trois semaines. Sans grille enregistrée, un nombre produit hier pourrait changer demain |
-| Où est-elle rangée ? | Dans la **parcelle du projet** (`parcelle.relief`), comme `cadastre` et `ortho` | Une parcelle, un relief ; la parcelle voisine n'en a pas |
+| Où est-elle rangée ? | Dans la **parcelle du projet** (`parcelle.relief`), comme `cadastre` et `ortho` | Une parcelle, un relief ; la parcelle voisine n'en a pas. Avec « Relief sur toutes les parcelles » (coché par défaut), la grille unique **couvre** les voisines du plan, mais reste rangée sur la parcelle du projet ; au-delà d'un pas de 5 m, elle revient à la parcelle et ses abords |
 | Quel zéro ? | **`zRef`**, altitude NGF du sol au point de référence de la terrasse (§3.3), fixée à la lecture | Tout Plan compte en mètres depuis le sol de la terrasse. `zRef` traduit ce zéro en altitude vraie une fois pour toutes |
 | La précision ? | Lue dans le **masque de source** du RGE ALTI (`source_fra`, WFS) : origine, résolution, « Emq < 30 cm »… ; pour le LiDAR HD, la date de la dalle | Vérifié : le masque est un calque vecteur interrogeable par point, ses textes sont prêts à afficher |
 | Les quantités ? | **Pas dans cette version.** V1 montre ; V2 (§6) compte, et c'est une version majeure | Règle du projet : une quantité qui bouge est un événement de version majeure, jamais une correction discrète |
@@ -191,9 +191,10 @@ Plan compte les hauteurs depuis le sol de la terrasse. Le relief doit donc dire 
    parcelle : « Pas de relief IGN pour cette parcelle », rien n'est écrit.
 4. **Une lecture est une modification du projet** : annulable, « projet modifié », refusée en
    lecture seule. Elle écrit `parcelle.relief` entier, d'un bloc.
-5. **Rien ne relit le service tout seul** : ni l'ouverture, ni l'import, ni `projet.actualiserIgn`
-   (qui actualise les bâtiments, pas le sol). Seul « Actualiser le relief » le fait, et il remplace
-   la grille, `zRef` compris.
+5. **Rien ne relit le service tout seul** : ni l'ouverture, ni un import ou une actualisation IGN
+   dont la case « Relief du terrain » est décochée. « Actualiser le relief », ou cette case cochée,
+   remplace la grille, `zRef` compris ; les préférences d'affichage restent. À l'import, un échec ne
+   bloque pas la création : le plan arrive plat, « Lire le relief » reste à portée.
 6. **« Supprimer le relief »** retire `parcelle.relief` ; le plan redevient plat, ses nombres
    redeviennent ceux d'avant.
 7. **Les réglages d'affichage** (courbes, sol 3D, équidistance) sont des préférences d'affichage au

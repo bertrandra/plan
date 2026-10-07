@@ -85,7 +85,7 @@ describe('l actualisation, voisinage au curseur', () => {
     };
     const lire = vi.fn(() => Promise.resolve(v));
     const lancer = vi.fn();
-    const hote = monter(createElement(Actualisation, { infos: { parcelle: 'Parcelle AE 1', nbIgn: 0, nbVoisines: 0, voisinage: { centre, lire, idus: new Set(['P0']), ids: new Set<string>() } }, lancer, fermer: vi.fn() }));
+    const hote = monter(createElement(Actualisation, { infos: { parcelle: 'Parcelle AE 1', nbIgn: 0, nbVoisines: 0, reliefPermis: true, aUnRelief: false, voisinage: { centre, lire, idus: new Set(['P0']), ids: new Set<string>() } }, lancer, fermer: vi.fn() }));
     cocher(hote.querySelector('[data-controle="actualisation.voisinage"]')!);
     const [adjacentes, enRayon] = [...hote.querySelectorAll('[data-controle="actualisation.rayon"]')];
     expect(adjacentes).toBeDefined();
@@ -100,5 +100,29 @@ describe('l actualisation, voisinage au curseur', () => {
     expect(lire).toHaveBeenCalledTimes(1);
     act(() => { (hote.querySelector('[data-controle="actualisation.lancer"]') as HTMLButtonElement).click(); });
     expect(lancer.mock.calls[0]![0].voisinage).toMatchObject({ actif: true, rayonM: 200 });
+  });
+
+  it('l actualisation decoche haies, vegetation et arbres, et relit le relief sur toutes les parcelles', () => {
+    const lancer = vi.fn();
+    const infos = { parcelle: 'Parcelle AE 1', nbIgn: 0, nbVoisines: 0, reliefPermis: true, aUnRelief: true };
+    const hote = monter(createElement(Actualisation, { infos, lancer, fermer: vi.fn() }));
+    const couches = [...hote.querySelectorAll<HTMLInputElement>('[data-controle="actualisation.couche"]')].map(c => c.checked);
+    expect(couches).toEqual([true, false, false]);
+    expect(hote.querySelector<HTMLInputElement>('[data-controle="actualisation.relief"]')!.checked).toBe(true);
+    const toutes = hote.querySelector<HTMLInputElement>('[data-controle="actualisation.reliefToutes"]')!;
+    expect(toutes.checked).toBe(true);
+    act(() => { (hote.querySelector('[data-controle="actualisation.lancer"]') as HTMLButtonElement).click(); });
+    expect(lancer.mock.calls[0]![0].relief).toEqual({ actif: true, toutesParcelles: true });
+    cocher(toutes);
+    act(() => { (hote.querySelector('[data-controle="actualisation.lancer"]') as HTMLButtonElement).click(); });
+    expect(lancer.mock.calls[1]![0].relief).toEqual({ actif: true, toutesParcelles: false });
+  });
+
+  it('sans la capacite relief, le dialogue ne le propose pas et ne le demande pas', () => {
+    const lancer = vi.fn();
+    const hote = monter(createElement(Actualisation, { infos: { parcelle: 'P', nbIgn: 0, nbVoisines: 0, reliefPermis: false, aUnRelief: false }, lancer, fermer: vi.fn() }));
+    expect(hote.querySelector('[data-controle="actualisation.relief"]')).toBeNull();
+    act(() => { (hote.querySelector('[data-controle="actualisation.lancer"]') as HTMLButtonElement).click(); });
+    expect(lancer.mock.calls[0]![0].relief.actif).toBe(false);
   });
 });

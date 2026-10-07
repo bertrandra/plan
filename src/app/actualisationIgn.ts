@@ -25,6 +25,11 @@ import {
 } from '../geo/apiIgn.js';
 import { sommetsDe } from '../model/formes.js';
 import { parcours } from './parcours.js';
+import { droitsCourants } from './acces.js';
+import { CAPACITES } from '../plateforme/capacites.js';
+import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
+import { resumeRelief } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
@@ -43,6 +48,8 @@ export interface ContexteActualisation {
   serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
   syncLieuTitre: () => void;
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
+  /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
+  lireRelief?: typeof lireRelief;
 }
 
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
@@ -53,6 +60,11 @@ export interface OptionsActualisation {
    * 200 ou 500 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
    */
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean; rayonM?: number };
+  /**
+   * Le relief du terrain, relu a l'IGN apres le reste : sur la parcelle du projet, ou sur toutes les
+   * parcelles du plan. Absent ou inactif : la grille en place n'est pas touchee.
+   */
+  relief?: { actif: boolean; toutesParcelles: boolean };
 }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
@@ -63,6 +75,10 @@ export interface InfosActualisation {
   nbIgn: number;
   /** Parcelles voisines deja presentes : elles ne seront pas dupliquees. */
   nbVoisines: number;
+  /** La capacite `plan.relief` : sans elle, le dialogue ne propose pas le relief. */
+  reliefPermis: boolean;
+  /** Le plan a deja un relief : l'actualiser le remplace (zRef compris). */
+  aUnRelief: boolean;
   /**
    * De quoi compter le voisinage etendu avant de lancer : le centre de la parcelle (repere du plan),
    * la lecture du disque de 200 m, et ce qui est deja dans le plan (ni compte, ni duplique).
@@ -106,6 +122,8 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
       parcelle: 'Parcelle ' + (cad.section || '') + ' ' + String(cad.numero || '').replace(/^0+/, '') + ' — ' + (cad.commune || ''),
       nbIgn: ctx.etat.objects.filter(o => coucheIgn(o) !== null).length,
       nbVoisines: ctx.etat.objects.filter(o => o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length,
+      reliefPermis: droitsCourants().aCapacite(CAPACITES.relief.code),
+      aUnRelief: !!parcelle.relief,
       voisinage: (() => {
         // Le plan est dans le repere de la projection du calage : ses coordonnees se lisent telles quelles.
         const proj = projecteurLocal(cad.origineLat, cad.origineLon);
@@ -119,6 +137,25 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
     },
     lancer: (options) => { parcours.fermer(); void actualiserDepuisIgn(options, ctx); }
   });
+}
+
+/**
+ * Relit le relief sur le plan actualise et le range sur la parcelle du projet. Les preferences
+ * d'affichage restent celles de la personne, comme pour « Actualiser le relief ». Un echec est dit
+ * dans le bilan ; la grille d'avant reste alors en place.
+ */
+async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[]): Promise<void> {
+  const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey);
+  const cible = parcelleDuProjet(ctx.etat.objects);
+  if(!demande || !cible) return;
+  try {
+    const r = await (ctx.lireRelief ?? lireRelief)(demande);
+    const affichage = cible.relief?.affichage;
+    cible.relief = affichage ? { ...r, affichage } : r;
+    bilan.push('relief lu : ' + resumeRelief(r));
+  } catch(e){
+    bilan.push('relief non lu (' + ((e as Error).message || e) + ')');
+  }
 }
 
 /** La couche BD TOPO d'un objet importe, ou `null` pour un objet dessine ou un arbre estime. */
@@ -305,6 +342,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         else bilan.push('PLU : aucun zonage');
       } catch { bilan.push('PLU indisponible'); }
     }
+    // ---- 5. Le relief, si demande : en dernier, sur le plan deja actualise (parcelles comprises).
+    if(options.relief?.actif && droitsCourants().aCapacite(CAPACITES.relief.code)) await actualiserRelief(ctx, options.relief.toutesParcelles, bilan);
     ctx.markDirty();
     // Le menu Affichage ne propose « Voisinage » que s'il y en a : il vient peut-etre d'en gagner
     // (ou d'en perdre, si l'utilisateur annule). Le magasin le redit aux zones.

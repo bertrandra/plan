@@ -6,8 +6,8 @@
 // succes : une lecture qui echoue — l'IGN n'a pas repondu, pas de relief pour cette parcelle — ne
 // laisse pas d'etape vide dans la pile, et rien n'est ecrit.
 //
-// Rien ici ne relit le service tout seul (regle 5) : ni l'ouverture, ni l'import, ni l'actualisation
-// IGN des batiments. Seules ces commandes parlent a `data.geopf.fr` pour le relief.
+// Rien ne relit le service tout seul (regle 5) : l'ouverture jamais ; l'import et l'actualisation IGN
+// seulement si leur case « Relief du terrain » est cochee (app/importCadastre.ts, actualisationIgn.ts).
 
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
