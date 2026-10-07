@@ -440,6 +440,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vitrine (`?mode=demo`) sans `x` ni `y` : toute la fenêtre, sans défilement.** La scène est
+  ancrée aux quatre bords de la fenêtre visible au lieu de `100vw × 100vh` (qui, sur un téléphone,
+  compte la barre d'adresse et débordait), et la page est figée : l'atelier caché dessous ne la fait
+  plus défiler ni rebondir. Une dimension donnée ne fixe que son côté.
+
 - **« PAYLOAD_TOO_LARGE » à l'enregistrement.** Un projet avec un voisinage étendu et son relief
   dépassait ce que la plateforme accepte. Le document enregistré est allégé, sans rien perdre à la
   relecture : les altitudes du relief s'écrivent compactées (`zCode`, centimètres sur 16 bits en
