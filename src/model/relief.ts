@@ -36,6 +36,12 @@ export function affichageRelief(r: Relief | null | undefined): Required<Affichag
   return { ...AFFICHAGE_RELIEF_DEFAUT, ...(r?.affichage ?? {}) };
 }
 
+/** Le relief est montre en entier : courbes de niveau sur le plan et sol en relief dans la 3D. */
+export function reliefMontre(r: Relief): boolean {
+  const aff = affichageRelief(r);
+  return aff.courbes && aff.sol3d;
+}
+
 export interface Emprise { xMin: number; xMax: number; yMin: number; yMax: number }
 
 /** Le rectangle englobant des sommets, elargi de la marge. */

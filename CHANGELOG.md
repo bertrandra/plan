@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Affichage › Relief ».** Une entrée du menu Affichage montre ou cache d'un geste les **courbes de
+  niveau** du plan et le **sol en relief** de la 3D. Elle est cochée quand les deux sont montrés ; si
+  un seul l'est, un clic montre les deux. Elle n'apparaît qu'une fois le relief lu. C'est une
+  préférence d'affichage, comme les deux cases de la section Relief de l'inspecteur : pas de Ctrl+Z,
+  pas de « projet modifié », permise en lecture seule, retrouvée à la réouverture.
+
 - **Relief à l'import et à l'actualisation IGN.** « Nouveau plan depuis une adresse » (étape 3, et
   résumé de l'import direct) et « Actualiser depuis l'IGN » proposent une case **« Relief du terrain »,
   cochée par défaut**, et sous elle **« Relief sur toutes les parcelles »**, cochée aussi : la grille

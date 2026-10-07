@@ -13,7 +13,7 @@ import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast } from '../../shell/dialogs.js';
 import { lireRelief } from '../../geo/relief.js';
-import { reliefDe, resumeRelief } from '../../model/relief.js';
+import { reliefDe, reliefMontre, resumeRelief } from '../../model/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
@@ -88,6 +88,25 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
     capacite: CAPACITES.relief.code, permission: PERMISSION_ECRITURE,
     actif: () => calee() && !!relief() && !lectureRelief.enCours(),
     executer: () => { void lire('actualisé'); }
+  });
+
+  // « Affichage › Relief » : les courbes de niveau et le sol en relief de la 3D, d'un geste. Coche
+  // quand les deux sont montres ; sinon, un clic les montre tous les deux. Une preference
+  // d'affichage, comme les deux cases de l'inspecteur : ni Ctrl+Z, ni « projet modifie », permise
+  // en lecture seule, rangee dans `relief.affichage` pour etre retrouvee a la reouverture. Sans la
+  // capacite `plan.relief` non plus : elle porte sur la lecture, une grille deja la s'affiche.
+  cmd.declarer({
+    id: 'affichage.relief', libelle: 'Relief', groupe: 'affichage', ecrit: 'affichage',
+    actif: () => !!relief(),
+    executer: () => {
+      const r = relief();
+      if (!r) return;
+      const montre = reliefMontre(r);
+      r.affichage = { ...(r.affichage ?? {}), courbes: !montre, sol3d: !montre };
+      a.render();
+      reconstruire3d();
+      ctx.rafraichir();
+    }
   });
 
   cmd.declarer({

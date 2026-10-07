@@ -335,6 +335,11 @@ d'écran.
 | `relief.actualiser` | Actualiser le relief | pas de relief |
 | `relief.supprimer` | Supprimer le relief | pas de relief |
 
+**`affichage.relief`** (menu « Affichage › Relief », `ecrit: 'affichage'`, sans capacité ni
+permission) montre ou cache ensemble les courbes de niveau et le sol en relief de la 3D ; cochée
+quand les deux sont montrés, grisée sans relief. Préférence d'affichage, rangée dans
+`relief.affichage` comme les deux cases de l'inspecteur (décision du 7 octobre 2026).
+
 Pendant la lecture (une à trois secondes), le bouton montre l'attente ; une coupure réseau après
 la reprise dit : « L'IGN n'a pas répondu ; réessayez. » et n'écrit rien.
 
