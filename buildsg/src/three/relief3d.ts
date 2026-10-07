@@ -17,7 +17,7 @@
 // la parcelle, et ne passe le sol du moteur que si le sol en relief est dessine.
 
 import { pointInPolygon } from '../geometry/basic.js';
-import { affichageRelief, centreCellule, empriseGrille, zLocal } from '../model/relief.js';
+import { affichageRelief, centreCellule, empriseGrille, zLocal, type Emprise } from '../model/relief.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut, Relief } from '../model/types.js';
 import type { VersLocal } from './primitives.js';
@@ -114,14 +114,16 @@ export function creerSolRelief(r: Relief): SolRelief {
  * nord au sud), chacun a la hauteur du sol plus `decalage`. Les `uv` sont ceux d'un plan : la photo
  * s'etire sur la pente, c'est voulu. Les normales sont recalculees pour l'eclairage.
  */
-export function geometrieSurSol(xs: readonly number[], ys: readonly number[], sol: SolRelief, versLocal: VersLocal, decalage: number): THREE_NS.BufferGeometry {
+export function geometrieSurSol(xs: readonly number[], ys: readonly number[], sol: SolRelief, versLocal: VersLocal, decalage: number,
+  uvDe?: (x: number, y: number) => [number, number]): THREE_NS.BufferGeometry {
   const nx = xs.length, ny = ys.length;
   const positions: number[] = [];
   const uv: number[] = [];
   ys.forEach((y, j) => xs.forEach((x, i) => {
     const l = versLocal({ x, y });
     positions.push(l.x, sol.hauteur({ x, y }) + decalage, l.z);
-    uv.push(nx > 1 ? i / (nx - 1) : 0, ny > 1 ? 1 - j / (ny - 1) : 1);
+    if (uvDe) uv.push(...uvDe(x, y));
+    else uv.push(nx > 1 ? i / (nx - 1) : 0, ny > 1 ? 1 - j / (ny - 1) : 1);
   }));
   const indices: number[] = [];
   // Deux triangles par maille, parcourus pour que la normale regarde le ciel : la 3D met le nord sur
@@ -138,26 +140,31 @@ export function geometrieSurSol(xs: readonly number[], ys: readonly number[], so
   return geo;
 }
 
+/** Le carre de `demiCote` autour de `cen`, en coordonnees du plan. */
+export function bornesCarre(cen: PtBrut, demiCote: number): Emprise {
+  return { xMin: cen.x - demiCote, xMax: cen.x + demiCote, yMin: cen.y - demiCote, yMax: cen.y + demiCote };
+}
+
 /**
  * Les abscisses des sommets du sol : un sommet par cellule de la grille, et un anneau exterieur qui
- * porte le sol, plat, jusqu'au carre que le plan vert couvre (`demiCote` autour du centre `cen`).
+ * porte le sol, plat, jusqu'aux bornes que le plan vert couvre.
  */
-export function sommetsDuSol(r: Relief, cen: PtBrut, demiCote: number): { xs: number[]; ys: number[] } {
+export function sommetsDuSol(r: Relief, bornes: Emprise): { xs: number[]; ys: number[] } {
   const e = empriseGrille(r);
   const xs: number[] = [], ys: number[] = [];
   for (let i = 0; i < r.nx; i++) xs.push(r.x0 + i * r.pas);
   for (let j = 0; j < r.ny; j++) ys.push(r.y0 - j * r.pas);
   // L'anneau : au moins un pas au-dela du bord des cellules, et jusqu'au carre du plan vert.
-  xs.unshift(Math.min(e.xMin - r.pas, cen.x - demiCote));
-  xs.push(Math.max(e.xMax + r.pas, cen.x + demiCote));
-  ys.unshift(Math.max(e.yMax + r.pas, cen.y + demiCote));
-  ys.push(Math.min(e.yMin - r.pas, cen.y - demiCote));
+  xs.unshift(Math.min(e.xMin - r.pas, bornes.xMin));
+  xs.push(Math.max(e.xMax + r.pas, bornes.xMax));
+  ys.unshift(Math.max(e.yMax + r.pas, bornes.yMax));
+  ys.push(Math.min(e.yMin - r.pas, bornes.yMin));
   return { xs, ys };
 }
 
 /** La geometrie du sol en relief, prete a recevoir le materiau du sol vert. */
-export function geometrieSol(sol: SolRelief, cen: PtBrut, demiCote: number, versLocal: VersLocal): THREE_NS.BufferGeometry {
-  const { xs, ys } = sommetsDuSol(sol.relief, cen, demiCote);
+export function geometrieSol(sol: SolRelief, bornes: Emprise, versLocal: VersLocal): THREE_NS.BufferGeometry {
+  const { xs, ys } = sommetsDuSol(sol.relief, bornes);
   return geometrieSurSol(xs, ys, sol, versLocal, 0);
 }
 
@@ -168,10 +175,12 @@ export function subdiviser(min: number, max: number, pas: number): number[] {
 }
 
 /** Une dalle de la photo aerienne qui epouse le sol, a `DECALAGE_ORTHO_M` au-dessus de lui. */
-export function geometrieDalleSurSol(t: { xMin: number; yMin: number; largeur: number; hauteur: number }, sol: SolRelief, versLocal: VersLocal): THREE_NS.BufferGeometry {
-  const xs = subdiviser(t.xMin, t.xMin + t.largeur, PAS_DALLE_ORTHO_M);
-  const ys = subdiviser(t.yMin, t.yMin + t.hauteur, PAS_DALLE_ORTHO_M).reverse();
-  return geometrieSurSol(xs, ys, sol, versLocal, DECALAGE_ORTHO_M);
+export function geometrieDalleSurSol(t: { xMin: number; yMin: number; largeur: number; hauteur: number }, sol: SolRelief, versLocal: VersLocal, cadre?: Emprise): THREE_NS.BufferGeometry {
+  // Coupee a un cadre (le calque), la dalle n'en couvre qu'une part : ses `uv` restent ceux de la tuile.
+  const c = cadre ?? { xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur };
+  const xs = subdiviser(c.xMin, c.xMax, PAS_DALLE_ORTHO_M);
+  const ys = subdiviser(c.yMin, c.yMax, PAS_DALLE_ORTHO_M).reverse();
+  return geometrieSurSol(xs, ys, sol, versLocal, DECALAGE_ORTHO_M, (x, y) => [(x - t.xMin) / t.largeur, (y - t.yMin) / t.hauteur]);
 }
 
 /**
