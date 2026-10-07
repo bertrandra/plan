@@ -295,6 +295,13 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
 }
 
 /**
+ * Ce que le voisinage prend en plus : verrouille, marque, et sans nom affiche — des centaines de
+ * references cadastrales et d'usages de batiments par-dessus le plan le rendaient illisible.
+ * L'etiquette reste a portee, par la case « Nom » de l'explorateur.
+ */
+export const SANS_NOM_VOISINAGE = { locked: true, voisinage: true, showName: false } as const;
+
+/**
  * Le voisinage etendu : les parcelles et le bati du disque qui ne sont pas deja dans le plan,
  * marques « voisinage » et verrouilles, comme un decor de reference.
  */
@@ -314,12 +321,12 @@ function voisinageEtendu(x: ContexteImport, deja: ObjetPlan[]): ObjetPlan[] {
       fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
       showDims:false,
       cadastre: metaCadastre(x, c, false)
-    }, formeCommune(c.pts.map(x.dec)), { locked: true, voisinage: true }));
+    }, formeCommune(c.pts.map(x.dec)), SANS_NOM_VOISINAGE));
   });
   if(x.importe.importerBatiments) v.batiments.forEach(b=>{
     if(b.id && idsPris.has(b.id)) return;
     if(b.id) idsPris.add(b.id);
-    out.push(Object.assign(objetBatiment(x, b, false), { voisinage: true }));
+    out.push(Object.assign(objetBatiment(x, b, false), SANS_NOM_VOISINAGE));
   });
   return out;
 }
