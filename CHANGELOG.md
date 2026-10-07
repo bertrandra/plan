@@ -422,6 +422,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **« PAYLOAD_TOO_LARGE » à l'enregistrement.** Un projet avec un voisinage étendu et son relief
+  dépassait ce que la plateforme accepte. Le document enregistré est allégé, sans rien perdre à la
+  relecture : les altitudes du relief s'écrivent compactées (`zCode`, centimètres sur 16 bits en
+  base 64, 2,4 fois moins lourd), et les objets du voisinage s'enregistrent sans ce que le chargement
+  reconstruit (champs nuls ou faux, noms par défaut, géométrie WGS84 source). Sur un voisinage de
+  200 m avec relief : 2,4 Mo → 1,0 Mo. Les objets dessinés gardent leur forme écrite (empreintes
+  inchangées), et une grille écrite en clair se relit toujours. Si la plateforme refuse encore, le
+  message dit ce qui pèse et comment alléger, au lieu du code brut.
+
 - **Margelle et terrasse au même niveau à la création.** En Vue 3D, une terrasse sur plots en
   structure simple dessinait ses lambourdes sans hauteur, et son cadre aussi : les lames reposaient
   directement sur les plots, 7 cm sous la hauteur finie calculée (et sous les margelles d'une

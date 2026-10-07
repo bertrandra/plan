@@ -283,3 +283,72 @@ export function resumeRelief(r: Relief): string {
   const annee = (r.dateDonnees ?? r.dateLecture).slice(0, 4);
   return libelleSource(r) + ' · ' + (r.dateDonnees ? 'acquis en ' + annee : 'lu en ' + annee) + ' · ' + r.precision;
 }
+
+// ---- Forme enregistree de la grille --------------------------------------------------------------
+//
+// 40 000 altitudes ecrites en nombres JSON pesaient 0,7 Mo, et la plateforme refusait le projet
+// (413 PAYLOAD_TOO_LARGE). Enregistree, la grille devient `zCode` : chaque altitude en centimetres
+// au-dessus de la plus basse, sur 16 bits, en base 64 — 2,7 octets par cellule, sans rien perdre,
+// puisque les altitudes sont deja arrondies au centimetre a la lecture. La forme en memoire ne change
+// pas (`z`) ; une grille ecrite en clair (avant ce format) se relit telle quelle.
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+/** La valeur 16 bits reservee a « sans donnee ». */
+const SANS_DONNEE_U16 = 0xffff;
+const PREFIXE_ZCODE = 'u16cm:';
+
+function versBase64(octets: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < octets.length; i += 3) {
+    const a = octets[i] ?? 0, b = octets[i + 1], c = octets[i + 2];
+    const n = (a << 16) | ((b ?? 0) << 8) | (c ?? 0);
+    s += (B64[(n >> 18) & 63] ?? '') + (B64[(n >> 12) & 63] ?? '') + (b === undefined ? '=' : (B64[(n >> 6) & 63] ?? '')) + (c === undefined ? '=' : (B64[n & 63] ?? ''));
+  }
+  return s;
+}
+
+function depuisBase64(s: string): Uint8Array {
+  const propre = s.replace(/=+$/, '');
+  const out = new Uint8Array(Math.floor(propre.length * 3 / 4));
+  let o = 0;
+  for (let i = 0; i < propre.length; i += 4) {
+    const v = [0, 1, 2, 3].map(k => B64.indexOf(propre[i + k] ?? 'A'));
+    const n = ((v[0] ?? 0) << 18) | ((v[1] ?? 0) << 12) | ((v[2] ?? 0) << 6) | (v[3] ?? 0);
+    if (o < out.length) out[o++] = (n >> 16) & 255;
+    if (o < out.length) out[o++] = (n >> 8) & 255;
+    if (o < out.length) out[o++] = n & 255;
+  }
+  return out;
+}
+
+/** La grille telle qu'elle s'enregistre : `zCode` a la place de `z`, si l'amplitude tient sur 16 bits. */
+export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCode: string }) {
+  const cm = r.z.map(v => (v === null ? null : Math.round(v * 100)));
+  const valeurs = cm.filter((v): v is number => v !== null);
+  const base = valeurs.length ? Math.min(...valeurs) : 0;
+  if (valeurs.some(v => v - base >= SANS_DONNEE_U16)) return JSON.parse(JSON.stringify(r)) as Relief;
+  const octets = new Uint8Array(cm.length * 2);
+  cm.forEach((v, k) => {
+    const u = v === null ? SANS_DONNEE_U16 : v - base;
+    octets[2 * k] = u & 255;
+    octets[2 * k + 1] = u >> 8;
+  });
+  const reste: Partial<Relief> = JSON.parse(JSON.stringify(r)) as Relief;
+  delete reste.z;
+  return { ...(reste as Omit<Relief, 'z'>), zCode: PREFIXE_ZCODE + base + ':' + versBase64(octets) };
+}
+
+/** La grille relue : `z` reconstruit depuis `zCode`, ou la grille telle quelle si elle est en clair. */
+export function deplierRelief(brut: Relief & { zCode?: unknown }): Relief {
+  const { zCode, ...reste } = brut;
+  if (typeof zCode !== 'string' || !zCode.startsWith(PREFIXE_ZCODE)) return brut;
+  const [baseTexte, b64] = zCode.slice(PREFIXE_ZCODE.length).split(':');
+  const base = Number(baseTexte);
+  const octets = depuisBase64(b64 ?? '');
+  const z: (number | null)[] = [];
+  for (let k = 0; k + 1 < octets.length; k += 2) {
+    const u = (octets[k] ?? 0) | ((octets[k + 1] ?? 0) << 8);
+    z.push(u === SANS_DONNEE_U16 ? null : (base + u) / 100);
+  }
+  return { ...reste, z } as Relief;
+}
