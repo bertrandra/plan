@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 import {
-  hauteursComblees, creerSolRelief, solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, sommetsDuSol, subdiviser,
+  hauteursComblees, creerSolRelief, solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, sommetsDuSol, subdiviser, bornesCarre,
   DECALAGE_ORTHO_M, DECALAGE_TRAIT_SOL_M
 } from '../../../src/three/relief3d.js';
 import { versLocalDepuis } from '../../../src/three/primitives.js';
@@ -89,7 +89,7 @@ describe('le maillage du sol', () => {
   const versLocal = versLocalDepuis(cen);
 
   it('a un sommet par cellule plus un anneau, chacun a la hauteur du sol a 1 mm pres', () => {
-    const geo = geometrieSol(creerSolRelief(r), cen, 30, versLocal);
+    const geo = geometrieSol(creerSolRelief(r), bornesCarre(cen, 30), versLocal);
     const pts = sommets(geo);
     expect(pts).toHaveLength((r.nx + 2) * (r.ny + 2));
     pts.forEach(p => {
@@ -99,17 +99,17 @@ describe('le maillage du sol', () => {
   });
 
   it('prolonge le sol plat jusqu au carre du plan vert', () => {
-    const { xs, ys } = sommetsDuSol(r, cen, 30);
+    const { xs, ys } = sommetsDuSol(r, bornesCarre(cen, 30));
     expect([xs[0], xs.at(-1)]).toEqual([cen.x - 30, cen.x + 30]);
     expect([ys[0], ys.at(-1)]).toEqual([cen.y + 30, cen.y - 30]);
     // Une grille plus large que le carre : l'anneau depasse la grille d'un pas.
-    const petit = sommetsDuSol(r, cen, 1);
+    const petit = sommetsDuSol(r, bornesCarre(cen, 1));
     expect(petit.xs[0]).toBeCloseTo(0.5 - 0.5 - 1, 9);
     expect(petit.xs.at(-1)).toBeCloseTo(9.5 + 0.5 + 1, 9);
   });
 
   it('regarde le ciel : toutes les normales montent', () => {
-    const geo = geometrieSol(creerSolRelief(r), cen, 30, versLocal);
+    const geo = geometrieSol(creerSolRelief(r), bornesCarre(cen, 30), versLocal);
     const n = geo.getAttribute('normal');
     for (let k = 0; k < n.count; k++) expect(n.getY(k)).toBeGreaterThan(0.9);
   });
@@ -132,6 +132,18 @@ describe('la dalle orthophoto et le trait au sol', () => {
     expect([pts[0]?.x, -(pts[0]?.z ?? 0)]).toEqual([1, 3]);
     expect([uv.getX(0), uv.getY(0)]).toEqual([0, 1]);
     expect([uv.getX(11), uv.getY(11)]).toEqual([1, 0]);
+  });
+
+  it('coupe une dalle au calque, ses uv restant ceux de la tuile', () => {
+    // Tuile de 4 x 4 m a (0, 0) ; calque de x 1 a 3, y 2 a 4 : la dalle n'en garde que ce rectangle.
+    const geo = geometrieDalleSurSol({ xMin: 0, yMin: 0, largeur: 4, hauteur: 4 }, sol, versLocal, { xMin: 1, xMax: 3, yMin: 2, yMax: 4 });
+    const pts = sommets(geo);
+    const uv = geo.getAttribute('uv');
+    expect([pts[0]?.x, -(pts[0]?.z ?? 0)]).toEqual([1, 4]);
+    expect([uv.getX(0), uv.getY(0)]).toEqual([0.25, 1]);
+    const n = pts.length - 1;
+    expect([pts[n]?.x, -(pts[n]?.z ?? 0)]).toEqual([3, 2]);
+    expect([uv.getX(n), uv.getY(n)]).toEqual([0.75, 0.5]);
   });
 
   it('pose un point par metre le long d un contour, 2 cm au-dessus du sol, ferme ou non', () => {

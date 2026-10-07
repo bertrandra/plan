@@ -34,11 +34,13 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, estTerrain, estTerrasse, visibleEnIsolement } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estTerrasse, visibleEnIsolement } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
-import { solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, type SolRelief } from './relief3d.js';
+import { solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, bornesCarre, type SolRelief } from './relief3d.js';
+import type { Emprise } from '../model/relief.js';
+import { empriseDuCalque, intersectionEmprises, MARGE_CALQUE_M } from '../model/calque.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -105,18 +107,18 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
   return Math.max(3, maxRadius * 2);
 }
 
+/** La marge du sol autour des parcelles affichees : celle du calque (model/calque.ts). */
+export const MARGE_SOL_M = MARGE_CALQUE_M;
+
 /**
- * La moitie du cote du sol : assez pour la camera (`2 × extent`, comme avant), et assez pour que
- * toutes les parcelles affichees — la parcelle et son voisinage visible — y tiennent avec autant
- * d'espace autour. Isole, un objet garde le sol de la camera : le reste n'est pas montre.
+ * Les bornes du sol, en coordonnees du plan : le calque — l'emprise des parcelles affichees, la
+ * parcelle et son voisinage visible, plus `MARGE_SOL_M` de chaque cote. Sans parcelle affichee
+ * (plan dessine a la main), ou un objet isole, le carre de la camera (`2 × extent` autour du
+ * centre), comme avant.
  */
-export function demiCoteDuSol(etat: PlanVuDeLa3d, ctx: ContexteScene3d, cen: PtBrut, extent: number): number {
-  if (etat.isolement) return extent * 2;
-  const rayon = etat.objects.reduce((m: number, o: ObjetPlan) => {
-    if (!estTerrain(o) || !aDesSommets(o) || ctx.objetMasque(o)) return m;
-    return o.pts.reduce((mm: number, p: PtBrut) => Math.max(mm, dist(p, cen)), m);
-  }, 0);
-  return Math.max(extent * 2, rayon * 2);
+export function bornesDuSol(etat: PlanVuDeLa3d, ctx: ContexteScene3d, cen: PtBrut, extent: number): Emprise {
+  const calque = etat.isolement ? null : empriseDuCalque(etat.objects, ctx.objetMasque);
+  return calque ?? bornesCarre(cen, extent * 2);
 }
 
 type CameraConservee = { pos: THREE_NS.Vector3; cible: THREE_NS.Vector3 } | null;
@@ -127,12 +129,14 @@ type CameraConservee = { pos: THREE_NS.Vector3; cible: THREE_NS.Vector3 } | null
  * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
  * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
  */
-function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; demiSol: number }) {
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise }) {
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdfe7ea);
   // Le plan lointain suit le sol : a 500 m, un voisinage de 200 m etait coupe en reculant la camera.
-  const camera = new THREE.PerspectiveCamera(45, w / h, 0.05, Math.max(500, terrain.demiSol * 4));
+  const b = terrain.bornes;
+  const loin = Math.max(Math.abs(b.xMin - terrain.cen.x), Math.abs(b.xMax - terrain.cen.x), Math.abs(b.yMin - terrain.cen.y), Math.abs(b.yMax - terrain.cen.y));
+  const camera = new THREE.PerspectiveCamera(45, w / h, 0.05, Math.max(500, loin * 4));
   // Sur un sol en relief, la camera vise le centre du plan a la hauteur du sol : la terrasse, elle,
   // reste a la hauteur finie au-dessus du zero du plan, et le sol passe dessous ou au-dessus.
   const hCible = terrain.sol ? terrain.sol.hauteur(terrain.cen) : 0;
@@ -169,11 +173,14 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // couche et son gabarit. Sans relief, rien ne change.
   let ground: THREE_NS.Mesh;
   if (terrain.sol) {
-    ground = new THREE.Mesh(geometrieSol(terrain.sol, terrain.cen, terrain.demiSol, terrain.versLocal), matSol);
+    ground = new THREE.Mesh(geometrieSol(terrain.sol, b, terrain.versLocal), matSol);
     ground.name = 'sol-relief';
   } else {
-    ground = new THREE.Mesh(new THREE.PlaneGeometry(terrain.demiSol * 2, terrain.demiSol * 2), matSol);
+    // Le plan vert couvre les bornes, qui ne sont pas centrees sur la scene : il est pose en leur milieu.
+    ground = new THREE.Mesh(new THREE.PlaneGeometry(b.xMax - b.xMin, b.yMax - b.yMin), matSol);
     ground.rotation.x = -Math.PI / 2;
+    const milieu = terrain.versLocal({ x: (b.xMin + b.xMax) / 2, y: (b.yMin + b.yMax) / 2 });
+    ground.position.set(milieu.x, 0, milieu.z);
   }
   ground.receiveShadow = vue3d.ombres;
   scene.add(ground);
@@ -224,17 +231,30 @@ function ajouterContourTerrasse(scene: THREE_NS.Scene, obj: ObjetPlan, versLocal
   scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2a2a })));
 }
 
+/** Un plan de la taille du cadre, dont les `uv` ne gardent que la part de la tuile qu'il couvre. */
+function dalleCoupee(t: TuileOrtho, cadre: Emprise): THREE_NS.PlaneGeometry {
+  const geo = new THREE.PlaneGeometry(cadre.xMax - cadre.xMin, cadre.yMax - cadre.yMin);
+  const u0 = (cadre.xMin - t.xMin) / t.largeur, u1 = (cadre.xMax - t.xMin) / t.largeur;
+  const v0 = (cadre.yMin - t.yMin) / t.hauteur, v1 = (cadre.yMax - t.yMin) / t.hauteur;
+  // Sommets d'un PlaneGeometry : haut-gauche, haut-droit, bas-gauche, bas-droit.
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute([u0, v1, u1, v1, u0, v0, u1, v0], 2));
+  return geo;
+}
+
 /**
  * Le calque orthophoto du plan sert aussi de sol a la 3D : une dalle par tuile, juste au-dessus du
  * sol vert. Materiau eclaire pour que la photo suive le soleil — une image en pleine lumiere sur une
  * scene de nuit trahirait l'heure choisie.
  */
-function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d, sol: SolRelief | null): void {
+function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d, sol: SolRelief | null, bornes: Emprise): void {
   if (!ctx.orthoActif() || !ctx.orthoTuiles().length) return;
   const chargeurOrtho = new THREE.TextureLoader();
   ctx.orthoTuiles().forEach((t: TuileOrtho) => {
     // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
     if (!t.dataUri) return;
+    // La photo couvre le sol, et pas au-dela : chaque tuile est coupee aux bornes du sol (le calque).
+    const cadre = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
+    if (!cadre) return;
     const tex = chargeurOrtho.load(t.dataUri);
     // `SRGBColorSpace` / `colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la r128, donc
     // cette ligne ne fait rien aujourd'hui. Garde-fou tourne vers l'avenir, ecrit ainsi expres : le
@@ -252,11 +272,11 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     if (sol) {
       // Sur un sol en relief, la dalle est subdivisee et ses sommets suivent le sol ; ses `uv` restent
       // ceux d'un plan, la photo s'etire sur la pente (three/relief3d.ts).
-      dalle = new THREE.Mesh(geometrieDalleSurSol(t, sol, versLocal), mat);
+      dalle = new THREE.Mesh(geometrieDalleSurSol(t, sol, versLocal, cadre), mat);
     } else {
-      dalle = new THREE.Mesh(new THREE.PlaneGeometry(t.largeur, t.hauteur), mat);
+      dalle = new THREE.Mesh(dalleCoupee(t, cadre), mat);
       dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
-      const l = versLocal({ x: t.xMin + t.largeur / 2, y: t.yMin + t.hauteur / 2 });
+      const l = versLocal({ x: (cadre.xMin + cadre.xMax) / 2, y: (cadre.yMin + cadre.yMax) / 2 });
       dalle.position.set(l.x, 0.004, l.z);
     }
     dalle.receiveShadow = vue3d.ombres;
@@ -641,8 +661,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // d'une pergola, le bord d'un bassin suivent le sol en pente (MD/spec-relief.md §6). Sol dessine
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
   const solMoteur = sol ? solDuProjet(etat.objects) : null;
-  const demiSol = demiCoteDuSol(etat, ctx, cen, extent);
-  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, demiSol });
+  const bornes = bornesDuSol(etat, ctx, cen, extent);
+  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
   vue3d.centre = cen;
@@ -650,7 +670,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
-  ajouterOrtho(scene, versLocal, ctx, sol);
+  ajouterOrtho(scene, versLocal, ctx, sol, bornes);
   const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects };
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se

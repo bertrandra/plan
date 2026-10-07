@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: () => {}, showToast: () => {} }));
 
-import { demiCoteDuSol, type ContexteScene3d } from '../../../src/three/scene.js';
+import { bornesDuSol, MARGE_SOL_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
-// Le sol de la Vue 3D doit contenir toutes les parcelles affichees, voisinage visible compris, avec
-// autant d'espace autour : un voisinage de 200 m depassait le sol taille sur la terrasse.
+// Le sol de la Vue 3D couvre toutes les parcelles affichees, voisinage visible compris, plus
+// 10 m de chaque cote : ni plus (il etait deux fois trop grand), ni moins.
 
 const carre = (x0: number, y0: number, l: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x0 + l, y: y0 }, { x: x0 + l, y: y0 + l }, { x: x0, y: y0 + l }];
 const objets = [
@@ -19,14 +19,14 @@ const ctx = (masque: (o: ObjetPlan) => boolean = () => false) => ({ objetMasque:
 const cen = { x: 0, y: 0 };
 
 describe('le sol de la Vue 3D', () => {
-  it('couvre toutes les parcelles affichees, avec autant d espace autour', () => {
-    const r = Math.hypot(170, 20);
-    expect(demiCoteDuSol({ objects: objets, terrasseSelectedKey: 't' }, ctx(), cen, 6)).toBeCloseTo(2 * r, 6);
+  it('couvre les parcelles affichees plus 10 m de chaque cote', () => {
+    expect(MARGE_SOL_M).toBe(10);
+    expect(bornesDuSol({ objects: objets, terrasseSelectedKey: 't' }, ctx(), cen, 6)).toEqual({ xMin: -20, xMax: 180, yMin: -20, yMax: 30 });
   });
 
-  it('garde le sol de la camera quand le voisinage est masque, ou quand un objet est isole', () => {
-    const sansVoisinage = demiCoteDuSol({ objects: objets, terrasseSelectedKey: 't' }, ctx(o => !!o.voisinage), cen, 6);
-    expect(sansVoisinage).toBeCloseTo(Math.max(12, 2 * Math.hypot(10, 10)), 6);
-    expect(demiCoteDuSol({ objects: objets, terrasseSelectedKey: 't', isolement: 't' }, ctx(), cen, 6)).toBe(12);
+  it('suit le voisinage masque ; reprend le carre de la camera sans parcelle ou pour un objet isole', () => {
+    expect(bornesDuSol({ objects: objets, terrasseSelectedKey: 't' }, ctx(o => !!o.voisinage), cen, 6)).toEqual({ xMin: -20, xMax: 20, yMin: -20, yMax: 20 });
+    expect(bornesDuSol({ objects: objets, terrasseSelectedKey: 't', isolement: 't' }, ctx(), cen, 6)).toEqual({ xMin: -12, xMax: 12, yMin: -12, yMax: 12 });
+    expect(bornesDuSol({ objects: [objets[2]!], terrasseSelectedKey: 't' }, ctx(), cen, 6)).toEqual({ xMin: -12, xMax: 12, yMin: -12, yMax: 12 });
   });
 });
