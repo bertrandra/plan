@@ -243,6 +243,9 @@
   .titreListe{ margin-top:12px; font-weight:600; }
   .caseParcours{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:0.82rem; cursor:pointer; }
   .caseParcours.vide{ opacity:0.55; }
+  /* Le curseur du rayon du voisinage etendu : il prend la largeur, la valeur reste lisible a droite. */
+  .curseurRayon input[type=range]{ flex:1; min-width:120px; }
+  .valeurRayon{ min-width:3.5em; text-align:right; font-variant-numeric:tabular-nums; }
   .resumePropriete{ margin-top:8px; font-size:0.82rem; font-weight:600; line-height:1.4; }
   .resumePropriete.alerte, .erreurParcours{ color:var(--danger); }
   .erreurParcours{ font-size:0.8rem; margin-top:6px; }
@@ -1039,6 +1042,7 @@
   }
   html:not([data-classe="large"]) #zoneInspecteur .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) #zoneInspecteur .champCurseur input[type=range]{ height:32px; }
+  html:not([data-classe="large"]) .curseurRayon input[type=range]{ min-height:32px; }
   html:not([data-classe="large"]) #zoneInspecteur .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) #zoneInspecteur .champTexture button, html:not([data-classe="large"]) #zoneInspecteur .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }
   html:not([data-classe="large"]) #zoneInspecteur .champ.pleineLargeur .champBouton button{ width:100%; }

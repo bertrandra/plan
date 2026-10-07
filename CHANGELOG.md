@@ -7,18 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **Voisinage étendu : tout ce qui est dans un rayon de 100 ou 200 m, dès l'import.** À l'étape 3
-  de « Nouveau plan depuis une adresse » (« Parcelles voisines et création »), un bloc « Voisinage
-  étendu » propose « Les parcelles cochées seulement », « Tout dans un rayon de 100 m » ou « de
-  200 m » : toutes les parcelles et tout le bâti à moins de cette distance du centre de la parcelle,
-  lus en **plusieurs requêtes** à l'IGN (API Carto par pages de 1 000 parcelles, BD TOPO par pages
-  au WFS), sans filtre de commune, les plus proches d'abord, plafonnés à 2 000 par famille. L'aperçu
-  les montre avec leur disque ; l'option **« Afficher le voisinage étendu »** les montre dans
-  l'aperçu et les laisse visibles à l'ouverture du plan, décochée elle les importe masqués. Ils
-  arrivent verrouillés et marqués « voisinage » : l'œil « Voisinage » de l'explorateur les masque
-  ou les réaffiche d'un coup. Changer de parcelle principale remet le choix à zéro. « Actualiser
-  depuis l'IGN » propose les mêmes rayons, 100 et 200 m, pour un plan déjà créé ; les arbres
-  estimés y restent à moins de 100 m de la parcelle.
+- **Voisinage étendu au curseur, compté avant l'import, et import direct.** Le voisinage étendu se
+  règle au **curseur, de 10 à 200 m** par pas de 10, à l'étape 3 de « Nouveau plan depuis une adresse »
+  comme dans « Actualiser depuis l'IGN » : une case « Ajouter tout le voisinage dans un rayon de… » puis
+  le curseur. Le disque de 200 m est lu une fois, en **plusieurs requêtes** à l'IGN (API Carto par
+  pages de 1 000 parcelles, BD TOPO par pages au WFS), sans filtre de commune ; le curseur le filtre
+  ensuite sans appel au réseau. **Le nombre de parcelles et de bâtiments qui seront ajoutés s'affiche
+  avant de créer** (ou d'actualiser) et suit le curseur ; il ne compte pas ce qui arrive déjà (voisines
+  cochées, leur bâti, objets déjà dans le plan). L'option « Afficher le voisinage étendu » le montre
+  dans l'aperçu, avec son cercle, et le laisse visible à l'ouverture ; décochée, il est importé masqué.
+  Tout arrive verrouillé et marqué « voisinage », masquable d'un coup par l'œil de l'explorateur.
+  - **Import direct** : à l'étape 1, la case « Import direct, sans les étapes 2 et 3 » saute le choix
+    de la parcelle et la liste des voisines. Une fois l'adresse trouvée, un résumé montre l'aperçu, la
+    parcelle, son bâti et sa végétation, et le compte du voisinage étendu ; « Créer le projet » crée le
+    plan d'un clic, « Ajuster (étapes 2 et 3) » rouvre le parcours complet. Le choix est mémorisé par
+    le navigateur.
 - **Centrer une piscine ou un trou sur sa terrasse.** Un bouton « Centrer sur la terrasse » (étape
   1 de la piscine ; section « Trou dans la terrasse » d'un trou) déplace le bassin ou le trou pour
   que son centre de surface tombe au centre de sa terrasse — la plage liée au bassin, sinon la

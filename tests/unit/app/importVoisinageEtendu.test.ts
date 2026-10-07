@@ -21,55 +21,110 @@ function contexte(): ContexteImportCadastre & { sauve: unknown[] } {
   return { sauve, apiSave: vi.fn(async (p: unknown) => { sauve.push(p); return { id: 'x' }; }), appliquerProjetImporte: vi.fn(), withProjectParam: (id) => '/?projet=' + id, apiDisponible: true, cleDernierProjet: 'k' };
 }
 
-describe('le voisinage etendu a l etape 3', () => {
-  it('se lit, se montre selon l option d affichage, se remet a zero avec la principale, et part a la creation', async () => {
-    vi.stubGlobal('fetch', vi.fn((url: string) => {
-      const u = new URL(url);
-      if (u.hostname === 'apicarto.ign.fr' && u.pathname.includes('cadastre')) {
-        const tout = parcelles(), start = parseInt(u.searchParams.get('_start') ?? '0', 10), limit = parseInt(u.searchParams.get('_limit') ?? '60', 10);
-        // Le premier appel (rayon de 12 m autour de l'adresse) doit trouver la parcelle sous l'adresse.
-        return reponse({ features: tout.slice(start, start + limit), totalFeatures: tout.length });
-      }
-      if (u.hostname === 'apicarto.ign.fr') return reponse({ features: [] });
-      if ((u.searchParams.get('TYPENAMES') ?? '').includes('batiment')) return reponse({ features: batiments(), numberMatched: batiments().length });
-      return reponse({ features: [] });
-    }));
-    // `location.href` est ecrit apres l'enregistrement : un objet suffit sous Node.
-    vi.stubGlobal('location', { href: '' });
-    vi.stubGlobal('localStorage', { setItem: () => undefined, getItem: () => null });
+/** Un service factice : la grille de parcelles et de batiments, le cadastre pagine, le reste vide. */
+function servir(): string[] {
+  const appels: string[] = [];
+  vi.stubGlobal('fetch', vi.fn((url: string) => {
+    appels.push(url);
+    const u = new URL(url);
+    if (u.hostname === 'apicarto.ign.fr' && u.pathname.includes('cadastre')) {
+      const tout = parcelles(), start = parseInt(u.searchParams.get('_start') ?? '0', 10), limit = parseInt(u.searchParams.get('_limit') ?? '60', 10);
+      return reponse({ features: tout.slice(start, start + limit), totalFeatures: tout.length });
+    }
+    if (u.hostname === 'apicarto.ign.fr') return reponse({ features: [] });
+    if ((u.searchParams.get('TYPENAMES') ?? '').includes('batiment')) return reponse({ features: batiments(), numberMatched: batiments().length });
+    return reponse({ features: [] });
+  }));
+  // `location.href` est ecrit apres l'enregistrement : un objet suffit sous Node.
+  vi.stubGlobal('location', { href: '' });
+  const memoire: Record<string, string> = {};
+  vi.stubGlobal('localStorage', { setItem: (k: string, v: string) => { memoire[k] = v; }, getItem: (k: string) => memoire[k] ?? null });
+  return appels;
+}
+const adresse = { label: 'Adresse', score: 1, genre: 'housenumber', citycode: '78650', ville: 'Le Vesinet', lon, lat };
+type Sauve = { objects: { voisinage?: boolean; key: string; affichage?: { voisinage?: boolean } }[] };
+
+describe('le voisinage etendu au curseur, a l etape 3', () => {
+  it('se lit une fois a 200 m, se compte au rayon du curseur sans reseau, et part a la creation', async () => {
+    const appels = servir();
     const ctx = contexte();
     const i = creerImportCadastre(ctx, vi.fn());
-    await i.choisirAdresse({ label: 'Adresse', score: 1, genre: 'housenumber', citycode: '78650', ville: 'Le Vesinet', lon, lat });
+    await i.choisirAdresse(adresse);
     expect(i.etat().etape).toBe(2);
     i.allerA(3);
-    expect(i.etat().rayonEtendu).toBe(0);
-    expect(i.apercu().etendu).toBeNull();
+    expect(i.voisinageEtenduRetenu()).toBeNull();
+    expect(i.etat().rayonEtendu).toBe(50);
 
-    await i.choisirRayonEtendu(100);
-    const lu = i.etat().etendu!;
-    expect(lu.rayonM).toBe(100);
-    expect(lu.parcelles.length).toBeGreaterThan(20);
-    expect(lu.parcelles.some(c => c.idu === i.etat().principale!.idu)).toBe(false);
-    expect(lu.batiments.length).toBeGreaterThan(20);
-    expect(i.apercu().etendu!.rayonM).toBe(100);
+    await i.basculerVoisinageEtendu(true);
+    expect(i.etat().etenduMax!.rayonM).toBe(200);
+    const a50 = i.voisinageEtenduRetenu()!;
+    expect(a50.rayonM).toBe(50);
+    const avant = appels.length;
+    i.reglerRayonEtendu(120);
+    const a120 = i.voisinageEtenduRetenu()!;
+    expect(a120.parcelles.length).toBeGreaterThan(a50.parcelles.length);
+    expect(a120.batiments.length).toBeGreaterThan(a50.batiments.length);
+    i.reglerRayonEtendu(5);
+    expect(i.etat().rayonEtendu).toBe(10);
+    i.reglerRayonEtendu(120);
+    expect(appels.length).toBe(avant);
+    expect(a120.parcelles.some(c => c.idu === i.etat().principale!.idu)).toBe(false);
+
+    // L'option d'affichage pilote l'apercu.
+    expect(i.apercu().etendu!.rayonM).toBe(120);
     i.basculerAfficherEtendu(false);
     expect(i.apercu().etendu).toBeNull();
-    i.basculerAfficherEtendu(true);
 
-    await i.choisirRayonEtendu(200);
-    expect(i.etat().etendu!.parcelles.length).toBeGreaterThan(lu.parcelles.length);
-
-    // Une autre principale rend le voisinage caduc.
+    // Une autre principale : le choix reste, la lecture est refaite autour d'elle.
     const autre = i.etat().adjacentes[0]!;
     await i.choisirPrincipale(autre);
-    expect(i.etat().rayonEtendu).toBe(0);
-    expect(i.etat().etendu).toBeNull();
+    expect(i.etat().voisinageEtendu).toBe(true);
+    expect(i.etat().etenduMax).not.toBeNull();
 
-    await i.choisirRayonEtendu(100);
-    i.basculerAfficherEtendu(false);
     await i.creerProjet('Test');
-    const objets = (ctx.sauve[0] as { objects: { voisinage?: boolean; key: string; affichage?: { voisinage?: boolean } }[] }).objects;
-    expect(objets.filter(o => o.voisinage).length).toBeGreaterThan(40);
+    const objets = (ctx.sauve[0] as Sauve).objects;
+    expect(objets.filter(o => o.voisinage).length).toBeGreaterThan(20);
     expect(objets.find(o => o.key === 'parcelle')!.affichage).toEqual({ voisinage: false });
+  });
+
+  it('ne lit rien et n ajoute rien quand la case est decochee', async () => {
+    servir();
+    const ctx = contexte();
+    const i = creerImportCadastre(ctx, vi.fn());
+    await i.choisirAdresse(adresse);
+    i.allerA(3);
+    i.reglerRayonEtendu(150);
+    expect(i.etat().etenduMax).toBeNull();
+    await i.creerProjet('Test');
+    expect((ctx.sauve[0] as Sauve).objects.some(o => o.voisinage)).toBe(false);
+  });
+});
+
+describe('l import direct, sans les etapes 2 et 3', () => {
+  it('reste a l etape 1 avec un resume, compte le voisinage avant de creer, et se memorise', async () => {
+    servir();
+    const ctx = contexte();
+    const i = creerImportCadastre(ctx, vi.fn());
+    expect(i.etat().importDirect).toBe(false);
+    i.basculerImportDirect(true);
+    await i.basculerVoisinageEtendu(true);   // avant la parcelle : rien a lire encore
+    expect(i.etat().etenduMax).toBeNull();
+    i.reglerRayonEtendu(80);
+    await i.choisirAdresse(adresse);
+    expect(i.etat().etape).toBe(1);
+    expect(i.etat().resumePret).toBe(true);
+    const compte = i.voisinageEtenduRetenu()!;
+    expect(compte.rayonM).toBe(80);
+    expect(compte.parcelles.length).toBeGreaterThan(5);
+    // « Ajuster » mene aux etapes 2 et 3 ; revenir a l'adresse efface le resume.
+    i.allerA(2);
+    i.allerA(1);
+    expect(i.etat().resumePret).toBe(false);
+    await i.choisirAdresse(adresse);
+    await i.creerProjet(i.nomParDefaut());
+    const objets = (ctx.sauve[0] as Sauve).objects;
+    expect(objets.filter(o => o.voisinage).length).toBe(compte.parcelles.length + compte.batiments.length);
+    // Le choix suit l'utilisateur : un nouvel import le retrouve.
+    expect(creerImportCadastre(contexte(), vi.fn()).etat().importDirect).toBe(true);
   });
 });

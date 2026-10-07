@@ -23,7 +23,8 @@ import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
-  interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon,
+  interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide,
+  RAYON_ETENDU_MAX_M, RAYON_ETENDU_DEFAUT_M,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
 import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../geo/apiIgn.js';
@@ -79,12 +80,24 @@ export interface EtatImportCadastre {
   importerArbres: boolean;
   /** Parcelles cochees « propriete » : elles seront FUSIONNEES avec la principale en un seul terrain. */
   propriete: Set<string>;
-  /** Le voisinage etendu choisi : 0 (les parcelles cochees seules), ou un rayon de 100 ou 200 m. */
+  /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
+  voisinageEtendu: boolean;
+  /** Le rayon du curseur, de 10 a 200 m. */
   rayonEtendu: number;
-  /** Ce que l'IGN a rendu pour ce rayon, autour de la parcelle principale ; `null` tant que rien n'est lu. */
-  etendu: VoisinageRayon | null;
+  /**
+   * Ce que l'IGN a rendu pour le plus grand disque (200 m), autour de la parcelle principale ; le
+   * rayon du curseur le filtre localement. `null` tant que rien n'est lu.
+   */
+  etenduMax: VoisinageRayon | null;
   /** L'option d'affichage : le voisinage etendu montre dans l'apercu et visible a l'ouverture du plan. */
   afficherEtendu: boolean;
+  /**
+   * L'import direct : sans les etapes 2 et 3. Une fois la parcelle trouvee, l'etape 1 montre un
+   * resume (parcelle, comptes du voisinage) et cree le plan d'un clic, avec les reglages par defaut.
+   */
+  importDirect: boolean;
+  /** Import direct : la parcelle est trouvee, le resume est pret. */
+  resumePret: boolean;
 }
 
 /** Un lot de l'apercu : une parcelle (ou la propriete fusionnee) et son role. */
@@ -126,13 +139,19 @@ export interface ImportCadastre {
   survoler(idu: string | null): void;
   basculerSimplifier(actif: boolean): void;
   basculerCaseIgn(cle: CaseIgn, actif: boolean): void;
-  /** Le voisinage etendu : 0, 100 ou 200 m ; un rayon lit l'IGN en plusieurs requetes. */
-  choisirRayonEtendu(rayonM: number): Promise<void>;
+  /** Le voisinage etendu : le demander lit une fois le disque de 200 m, en plusieurs requetes. */
+  basculerVoisinageEtendu(actif: boolean): Promise<void>;
+  /** Le rayon du curseur : aucun appel au reseau, le compte se filtre localement. */
+  reglerRayonEtendu(rayonM: number): void;
   basculerAfficherEtendu(actif: boolean): void;
+  /** L'import direct, sans les etapes 2 et 3 : un choix memorise par le navigateur. */
+  basculerImportDirect(actif: boolean): void;
   allerA(etape: 1 | 2 | 3): void;
   creerProjet(nom: string): Promise<void>;
 
   // Lectures pour l'ecran
+  /** Le voisinage etendu au rayon du curseur, ou `null` s'il n'est pas demande ou pas encore lu. */
+  voisinageEtenduRetenu(): VoisinageRayon | null;
   estPropriete(idu: string): boolean;
   parcellesPropriete(): Candidate[];
   voisinesRetenues(): Candidate[];
@@ -149,6 +168,12 @@ export interface ImportCadastre {
   projetCible(): { id: string; name: string } | null;
 }
 
+/** La cle du navigateur qui garde le choix de l'import direct : il suit l'utilisateur d'un import a l'autre. */
+const CLE_IMPORT_DIRECT = 'plan.import.direct';
+function importDirectMemorise(): boolean {
+  try { return localStorage.getItem(CLE_IMPORT_DIRECT) === '1'; } catch { return false; }
+}
+
 const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
 
 /** Ce que les gestes partagent : l'etat, et de quoi en signaler les changements. */
@@ -161,13 +186,15 @@ interface Noyau {
   proj: () => ProjecteurLocal;
 }
 
-type Lectures = Pick<ImportCadastre, 'estPropriete' | 'parcellesPropriete' | 'voisinesRetenues' | 'elementsRetenus' | 'apercu'
+type Lectures = Pick<ImportCadastre, 'voisinageEtenduRetenu' | 'estPropriete' | 'parcellesPropriete' | 'voisinesRetenues' | 'elementsRetenus' | 'apercu'
   | 'ligneSurface' | 'resumePropriete' | 'hauteursPropriete' | 'nombreArbresEstimes' | 'nomParDefaut'>;
 
 interface Chargements {
   chargerVoisinage(c: Candidate): Promise<void>;
   appliquerPrincipale(c: Candidate): void;
   chargerIgnAvecMessage(c: Candidate): Promise<void>;
+  /** Le disque de 200 m autour de la principale, s'il est demande et pas encore lu. */
+  chargerEtendu(): Promise<void>;
 }
 
 /** Ce que l'ecran lit du parcours : la propriete, les voisines retenues, l'apercu, les compteurs. */
@@ -180,6 +207,14 @@ function lectures(n: Noyau): Lectures {
   }
   function estPropriete(idu: string): boolean { return !!e.principale && (idu === e.principale.idu || e.propriete.has(idu)); }
   function voisinesRetenues(): Candidate[] { return e.adjacentes.concat(e.autres).filter(c => e.selection.has(c.idu) || e.propriete.has(c.idu)); }
+  // Le compte annonce ce qui sera AJOUTE : ni la propriete, ni les voisines cochees, ni le bati qui
+  // arrive deja avec elles. C'est la meme exclusion que celle de la creation (geo/cadastreObjets.ts).
+  function voisinageEtenduRetenu(): VoisinageRayon | null {
+    if (!e.voisinageEtendu || !e.etenduMax || !e.principale) return null;
+    const idus = new Set([e.principale.idu, ...voisinesRetenues().map(c => c.idu)]);
+    const ids = new Set(e.importerBatiments ? elementsRetenus(e.batiments).flatMap(b => (b.id ? [b.id] : [])) : []);
+    return filtrerVoisinageRayon(e.etenduMax, centroid(e.principale.pts), e.rayonEtendu, { idus, ids });
+  }
 
   // Compte les elements BD TOPO qui tomberaient effectivement dans le plan : ceux qui recouvrent la
   // parcelle principale ou une voisine COCHEE. Les compteurs suivent donc la selection.
@@ -211,16 +246,19 @@ function lectures(n: Noyau): Lectures {
         { elements: e.haies, actif: e.importerHaies, remplissage: '#7FA86B', contour: '#3F5C33', opacite: 0.8 },
         { elements: e.batiments, actif: e.importerBatiments, remplissage: '#D9B694', contour: '#7A4A2A', opacite: 0.9 }
       ],
-      etendu: e.etendu && e.afficherEtendu ? {
-        centre: centroid(principale().pts), rayonM: e.etendu.rayonM,
-        parcelles: e.etendu.parcelles.map(c => c.pts),
-        batiments: e.importerBatiments ? e.etendu.batiments.map(b => b.pts) : []
-      } : null
+      etendu: (() => {
+        const v = voisinageEtenduRetenu();
+        return v && e.afficherEtendu ? {
+          centre: centroid(principale().pts), rayonM: v.rayonM,
+          parcelles: v.parcelles.map(c => c.pts),
+          batiments: e.importerBatiments ? v.batiments.map(b => b.pts) : []
+        } : null;
+      })()
     };
   }
 
   return {
-    estPropriete, parcellesPropriete, voisinesRetenues, elementsRetenus, apercu,
+    voisinageEtenduRetenu, estPropriete, parcellesPropriete, voisinesRetenues, elementsRetenus, apercu,
     ligneSurface(c) {
       const calc = Math.round(c.aire);
       if (c.contenance === null || c.contenance === undefined) return calc + ' m² (calcul)';
@@ -272,8 +310,9 @@ function chargements(n: Noyau): Chargements {
     e.voisinageCharge.add(c.idu);
   }
   function appliquerPrincipale(c: Candidate): void {
-    // Le voisinage etendu est centre sur la principale : en changer le rend caduc.
-    if (e.principale && e.principale.idu !== c.idu) { e.rayonEtendu = 0; e.etendu = null; }
+    // Le voisinage etendu est centre sur la principale : en changer le rend caduc. Le choix reste
+    // (demande, rayon) ; la lecture sera refaite autour de la nouvelle principale.
+    if (e.principale && e.principale.idu !== c.idu) e.etenduMax = null;
     e.principale = c;
     const tri = trierVoisines(c, e.candidats);
     e.adjacentes = tri.adjacentes;
@@ -322,17 +361,32 @@ function chargements(n: Noyau): Chargements {
     if (e.ignErreur) e.erreur = e.ignErreur;
   }
 
-  return { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage };
+  async function chargerEtendu(): Promise<void> {
+    if (!e.voisinageEtendu || e.etenduMax || !e.principale) return;
+    const pour = e.principale.idu;
+    occuper(true, 'Parcelles et bâtiments à moins de ' + RAYON_ETENDU_MAX_M + ' m…');
+    try {
+      const lu = await lireVoisinageRayon(centroid(e.principale.pts), proj(), RAYON_ETENDU_MAX_M, e.simplifier, new Set([pour]));
+      // La principale a pu changer pendant la lecture : ce disque n'est plus le sien.
+      if (e.principale && e.principale.idu === pour) e.etenduMax = lu;
+    } catch (err) {
+      e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
+    }
+    occuper(false);
+  }
+
+  return { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage, chargerEtendu };
 }
 
 /** Etape 1 : l'adresse, geocodee, puis la parcelle la plus proche et son voisinage. */
 function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirAdresse' | 'rechercher' | 'choisirAdresse'> {
   const { e, signaler, occuper } = n;
-  const { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage } = ch;
+  const { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage, chargerEtendu } = ch;
   let minuteur: ReturnType<typeof setTimeout> | null = null, requeteEnCours = 0;
 
   async function choisirAdresse(sug: AdresseRecherchee): Promise<void> {
     e.geo = sug;
+    e.resumePret = false;
     occuper(true, 'Recherche de la parcelle…');
     try {
       const pr = projecteurLocal(sug.lat, sug.lon);
@@ -371,7 +425,11 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
       occuper(false);
       appliquerPrincipale(premiere);
       await chargerIgnAvecMessage(premiere);
-      e.etape = 2;
+      // Import direct : on reste a l'etape 1, avec un resume et le compte du voisinage avant de creer.
+      if (e.importDirect) {
+        await chargerEtendu();
+        e.resumePret = true;
+      } else e.etape = 2;
       signaler();
     } catch (err) {
       occuper(false);
@@ -429,12 +487,13 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
 }
 
 type GestesSelection = Pick<ImportCadastre, 'choisirPrincipale' | 'basculerVoisine' | 'basculerPropriete' | 'cocherMitoyennes'
-  | 'toutDecocher' | 'survoler' | 'basculerSimplifier' | 'basculerCaseIgn' | 'choisirRayonEtendu' | 'basculerAfficherEtendu' | 'allerA'>;
+  | 'toutDecocher' | 'survoler' | 'basculerSimplifier' | 'basculerCaseIgn' | 'basculerVoisinageEtendu' | 'reglerRayonEtendu' | 'basculerAfficherEtendu'
+  | 'basculerImportDirect' | 'allerA'>;
 
 /** Etapes 2 et 3 : la parcelle principale, les voisines, la propriete, les couches a importer. */
 function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
   const { e, signaler, occuper, principale, proj } = n;
-  const { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage } = ch;
+  const { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage, chargerEtendu } = ch;
   async function choisirPrincipale(c: Candidate): Promise<void> {
     if (c.idu === principale().idu) return;
     occuper(true, 'Recherche des parcelles voisines…');
@@ -446,6 +505,7 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
     occuper(false);
     appliquerPrincipale(c);
     await chargerIgnAvecMessage(c);
+    await chargerEtendu();
     signaler();
   }
 
@@ -481,27 +541,22 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
       signaler();
     },
     basculerCaseIgn(cle, actif) { e[cle] = actif; signaler(); },
-    async choisirRayonEtendu(rayonM) {
-      e.rayonEtendu = rayonM;
-      if (!rayonM) { e.etendu = null; signaler(); return; }
-      if (e.etendu && e.etendu.rayonM === rayonM) { signaler(); return; }
-      occuper(true, 'Parcelles et bâtiments à moins de ' + rayonM + ' m…');
-      try {
-        const lu = await lireVoisinageRayon(centroid(principale().pts), proj(), rayonM, e.simplifier, new Set([principale().idu]));
-        // Un autre choix a pu arriver pendant la lecture : seul le dernier compte.
-        if (e.rayonEtendu === rayonM) e.etendu = lu;
-        e.erreur = '';
-      } catch (err) {
-        e.rayonEtendu = 0; e.etendu = null;
-        e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
-      }
-      occuper(false);
+    async basculerVoisinageEtendu(actif) {
+      e.voisinageEtendu = actif;
+      signaler();
+      if (actif) { await chargerEtendu(); signaler(); }
+    },
+    reglerRayonEtendu(rayonM) { e.rayonEtendu = rayonEtenduValide(rayonM); signaler(); },
+    basculerImportDirect(actif) {
+      e.importDirect = actif;
+      try { localStorage.setItem(CLE_IMPORT_DIRECT, actif ? '1' : '0'); } catch { /* stockage indisponible : le choix vaut pour cette fois */ }
       signaler();
     },
     basculerAfficherEtendu(actif) { e.afficherEtendu = actif; signaler(); },
     allerA(etape) {
       e.etape = etape;
-      if (etape === 1) e.suggestions = [];
+      // Revenir a l'adresse, c'est repartir de zero : le resume de l'import direct ne vaut plus.
+      if (etape === 1) { e.suggestions = []; e.resumePret = false; }
       signaler();
     },
   };
@@ -510,7 +565,7 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
 /** La fin du parcours : le plan construit, enregistre comme nouveau projet (ou charge en local). */
 function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, fermer: () => void): Pick<ImportCadastre, 'creerProjet'> {
   const { e, signaler, occuper, principale, proj } = n;
-  const { parcellesPropriete, voisinesRetenues } = l;
+  const { parcellesPropriete, voisinesRetenues, voisinageEtenduRetenu } = l;
   return {
     async creerProjet(nomSaisi) {
       const nom = nomSaisi.trim() || ('Parcelle ' + libelleParcelle(principale()));
@@ -518,7 +573,9 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       try {
         // A l'etape 3, seul endroit d'ou ce geste est joignable, l'etape 1 a abouti : `principale` et
         // `proj` sont poses.
-        const { rayon, etendu, ...reste } = e;
+        // `voisinageEtendu` de l'etat est la demande (un booleen) ; l'import attend le voisinage lui-meme.
+        const { rayon, voisinageEtendu, ...reste } = e;
+        const etendu = voisinageEtendu ? voisinageEtenduRetenu() : null;
         const importe: ImportCadastral = {
           ...reste, principale: principale(), proj: proj(), parcellesPropriete, voisinesRetenues, ...(rayon !== null ? { rayon } : {}),
           voisinageEtendu: etendu ? { parcelles: etendu.parcelles, batiments: etendu.batiments, visible: e.afficherEtendu } : null
@@ -566,7 +623,8 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     batiments: [], haies: [], vegetation: [], plu: null, ignCharge: new Set(), ignErreur: '',
     importerBatiments: true, importerHaies: true, importerVegetation: true, importerArbres: false,
     propriete: new Set(),
-    rayonEtendu: 0, etendu: null, afficherEtendu: true
+    voisinageEtendu: false, rayonEtendu: RAYON_ETENDU_DEFAUT_M, etenduMax: null, afficherEtendu: true,
+    importDirect: importDirectMemorise(), resumePret: false
   };
   let version = 0;
   const abonnes = new Set<() => void>();
