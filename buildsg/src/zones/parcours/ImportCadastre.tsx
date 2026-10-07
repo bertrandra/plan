@@ -145,6 +145,7 @@ function ResumeDirect({ importe }: Props) {
         <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' — ' + importe.ligneSurface(p)}<br />
         {'Sur la parcelle : ' + n(e.batiments, e.importerBatiments) + ' bâtiment(s), ' + (n(e.haies, e.importerHaies) + n(e.vegetation, e.importerVegetation)) + ' haie(s) et zone(s) de végétation.'}
         {e.plu?.zones?.[0] && <><br />{'PLU : zone ' + e.plu.zones[0].libelle}</>}
+        {importe.reliefPermis() && <><br />{e.importerRelief ? 'Relief : lu à la création, ' + (e.reliefToutesParcelles ? 'sur toutes les parcelles.' : 'sur la parcelle du projet.') : 'Relief : non lu.'}</>}
       </div>
     </>
   );
@@ -239,6 +240,7 @@ function DonneesIgn({ importe }: Props) {
       {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forets, vergers... hauteur deduite de la nature de la zone.')}
       {ligne('importerArbres', 'Arbres estimés dans ces zones (~' + importe.nombreArbresEstimes() + ')', vegs.length,
         'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille reguliere d\'un arbre pour 64 m2 est repartie dans les zones de vegetation - un ordre de grandeur du couvert, pas un releve.')}
+      <ReglageRelief importe={importe} />
       <div className="pluParcours">
         {plu?.zones?.[0] ? (() => {
           const z = plu.zones[0];
@@ -252,6 +254,27 @@ function DonneesIgn({ importe }: Props) {
       </div>
       {e.ignErreur && <div className="erreurParcours">{e.ignErreur}</div>}
     </div>
+  );
+}
+
+/**
+ * Le relief du terrain, lu a la creation du plan : sur la parcelle du projet, ou sur toutes les
+ * parcelles importees. Absent sans la capacite `plan.relief`.
+ */
+function ReglageRelief({ importe }: Props) {
+  const e = importe.etat();
+  if (!importe.reliefPermis()) return null;
+  return (
+    <>
+      <label className="caseParcours" title="Grille d’altitudes du sol nu (LiDAR HD à 50 cm, sinon RGE ALTI à 1 m), lue à la création du plan : courbes de niveau, sol en 3D, hauteur des plots. Elle change des quantités.">
+        <input type="checkbox" data-controle="cadastre.relief" checked={e.importerRelief} onChange={(ev) => importe.basculerCaseIgn('importerRelief', ev.target.checked)} />
+        Relief du terrain (IGN)
+      </label>
+      <label className={'caseParcours sousCase' + (e.importerRelief ? '' : ' vide')} title="La grille couvre aussi les parcelles voisines importées. Au-delà d’un pas de 5 m, elle revient à la parcelle du projet et ses abords.">
+        <input type="checkbox" data-controle="cadastre.reliefToutes" checked={e.reliefToutesParcelles} disabled={!e.importerRelief} onChange={(ev) => importe.basculerCaseIgn('reliefToutesParcelles', ev.target.checked)} />
+        Relief sur toutes les parcelles importées
+      </label>
+    </>
   );
 }
 

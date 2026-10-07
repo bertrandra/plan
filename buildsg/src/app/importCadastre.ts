@@ -20,6 +20,10 @@ import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, M
 import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
+import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { CAPACITES } from '../plateforme/capacites.js';
+import { droitsCourants } from './acces.js';
 import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
@@ -30,7 +34,7 @@ import {
 import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../geo/cadastreObjets.js';
-import type { PtBrut, ZonagePlu } from '../model/types.js';
+import type { ObjetPlan, PtBrut, ZonagePlu } from '../model/types.js';
 import type { ProjetValide } from '../io/validation.js';
 
 /** Ce que l'import demande au reste du programme : enregistrer, ou charger le plan en local. */
@@ -45,9 +49,11 @@ export interface ContexteImportCadastre {
    * document vide (`{}`). L'import y ecrit au lieu d'en creer un second. Absent : un projet est cree.
    */
   projetCible?: () => { id: string; name: string } | null;
+  /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
+  lireRelief?: typeof lireRelief;
 }
 
-export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres';
+export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres' | 'importerRelief' | 'reliefToutesParcelles';
 
 /** L'etat du parcours. `principale` et `proj` restent nuls tant que l'etape 1 n'a pas abouti. */
 export interface EtatImportCadastre {
@@ -78,6 +84,10 @@ export interface EtatImportCadastre {
   importerHaies: boolean;
   importerVegetation: boolean;
   importerArbres: boolean;
+  /** Le relief du terrain (MD/spec-relief.md), lu a l'IGN a la creation du plan. */
+  importerRelief: boolean;
+  /** La grille du relief couvre toutes les parcelles importees, pas seulement celle du projet. */
+  reliefToutesParcelles: boolean;
   /** Parcelles cochees « propriete » : elles seront FUSIONNEES avec la principale en un seul terrain. */
   propriete: Set<string>;
   /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
@@ -164,6 +174,8 @@ export interface ImportCadastre {
   hauteursPropriete(): number[];
   nombreArbresEstimes(): number;
   nomParDefaut(): string;
+  /** La capacite `plan.relief` : sans elle, les cases du relief disparaissent et rien n'est lu. */
+  reliefPermis(): boolean;
   /** Le projet que l'import remplit, ou `null` s'il en cree un. */
   projetCible(): { id: string; name: string } | null;
 }
@@ -562,6 +574,25 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
   };
 }
 
+/**
+ * Le relief du plan neuf, si la case est cochee et la capacite presente : lu sur la parcelle du
+ * projet (ou toutes les parcelles), range sur elle. Un echec ne bloque pas la creation : le plan
+ * arrive sans relief, « Lire le relief » reste a portee. Rend la phrase d'echec, ou `''`.
+ */
+async function reliefImporte(objets: ObjetPlan[], e: EtatImportCadastre, occuper: Noyau['occuper'], lire: typeof lireRelief): Promise<string> {
+  if (!e.importerRelief || !droitsCourants().aCapacite(CAPACITES.relief.code)) return '';
+  const demande = demandeReliefDuPlan(objets, e.reliefToutesParcelles);
+  const parcelle = parcelleDuProjet(objets);
+  if (!demande || !parcelle) return '';
+  occuper(true, 'Relief du terrain (IGN)…');
+  try {
+    parcelle.relief = await lire(demande);
+    return '';
+  } catch (err) {
+    return 'Relief non lu : ' + ((err as Error).message || err) + ' « Lire le relief » le réessaie.';
+  }
+}
+
 /** La fin du parcours : le plan construit, enregistre comme nouveau projet (ou charge en local). */
 function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, fermer: () => void): Pick<ImportCadastre, 'creerProjet'> {
   const { e, signaler, occuper, principale, proj } = n;
@@ -589,13 +620,14 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       // reponse du WMTS, les toits gardent la tuile rouge par defaut : rien n'est bloque.
       occuper(true, 'Couleur des toits sur l’orthophoto…');
       await couleursToitsDepuisOrtho(objets, proj()).catch(() => null);
+      const relief = await reliefImporte(objets, e, occuper, ctx.lireRelief ?? lireRelief);
       occuper(false);
       if (!ctx.apiDisponible) {
         // Mode local : pas de serveur ou ecrire. On charge quand meme le plan (meme chemin que l'import
         // JSON), en le disant clairement plutot que de faire semblant d'enregistrer.
         fermer();
         ctx.appliquerProjetImporte({ meta: {}, objets, mesures: [], ignores: 0 }, true);
-        showToast('Mode local : le plan cadastral est charge mais ne sera pas enregistre. Utilise Export JSON pour le conserver.');
+        showToast('Mode local : le plan cadastral est charge mais ne sera pas enregistre. Utilise Export JSON pour le conserver.' + (relief ? ' ' + relief : ''));
         return;
       }
       const cible = ctx.projetCible?.() ?? null;
@@ -621,7 +653,9 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     selection: new Set(), simplifier: true, rayon: null, proj: null,
     tropDense: false, survol: null, voisinageCharge: new Set(),
     batiments: [], haies: [], vegetation: [], plu: null, ignCharge: new Set(), ignErreur: '',
-    importerBatiments: true, importerHaies: true, importerVegetation: true, importerArbres: false,
+    // Haies, vegetation et arbres estimes chargent le plan d'objets approximatifs : ils se demandent.
+    importerBatiments: true, importerHaies: false, importerVegetation: false, importerArbres: false,
+    importerRelief: true, reliefToutesParcelles: true,
     propriete: new Set(),
     voisinageEtendu: false, rayonEtendu: RAYON_ETENDU_DEFAUT_M, etenduMax: null, afficherEtendu: true,
     importDirect: importDirectMemorise(), resumePret: false
@@ -654,6 +688,7 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     ...l,
     // Un projet a remplir garde le nom qu'on lui a donne chez la plateforme.
     nomParDefaut: () => ctx.projetCible?.()?.name || l.nomParDefaut(),
-    projetCible: () => ctx.projetCible?.() ?? null
+    projetCible: () => ctx.projetCible?.() ?? null,
+    reliefPermis: () => droitsCourants().aCapacite(CAPACITES.relief.code)
   };
 }

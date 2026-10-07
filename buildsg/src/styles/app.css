@@ -243,6 +243,8 @@
   .titreListe{ margin-top:12px; font-weight:600; }
   .caseParcours{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:0.82rem; cursor:pointer; }
   .caseParcours.vide{ opacity:0.55; }
+  /* Une case qui precise la precedente (relief sur toutes les parcelles) : en retrait, sous elle. */
+  .caseParcours.sousCase{ margin-left:24px; margin-top:2px; }
   /* Le curseur du rayon du voisinage etendu : il prend la largeur, la valeur reste lisible a droite. */
   .curseurRayon input[type=range]{ flex:1; min-width:120px; }
   .valeurRayon{ min-width:3.5em; text-align:right; font-variant-numeric:tabular-nums; }
