@@ -87,6 +87,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.mettreAJourModele': menu('menuFichier'),
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
+  'projet.supprimerVoisinage': menu('menuFichier'),
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
