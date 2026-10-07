@@ -177,6 +177,9 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   objets.forEach(o => {
     const anneau = o.cadastre && o.cadastre.geometrieSource ? (o.cadastre.geometrieSource as { coordinates: Anneau[] }).coordinates[0] : undefined;
     if (anneau) anneaux.push(anneau);
+    // Une parcelle du voisinage s'enregistre sans sa geometrie source (io/serialisation.ts) : ses
+    // sommets, dans le repere du calage, la redonnent en degres.
+    else if (o.cadastre && o.type !== 'circle') { const pts = sommetsDe(o); if (pts.length) anneaux.push(pts.map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; }) as Anneau); }
   });
   if (!couches.length || !anneaux.length) return fraiches;
   const bbox = bboxDegDesAnneaux(anneaux, proj, 15);

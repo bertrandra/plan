@@ -282,6 +282,12 @@ change pas entre V1 et V2 : c'est pour cela que V1 enregistre déjà tout.
 
 ## 7. Données et persistance
 
+> **7 octobre 2026** : enregistrée, la grille porte `zCode` à la place de `z` — chaque altitude en
+> centimètres au-dessus de la plus basse, sur 16 bits, en base 64 (`u16cm:<base>:<b64>`, 0xFFFF =
+> sans donnée). En clair, 40 000 altitudes faisaient refuser le projet par la plateforme (413). La
+> forme en mémoire (`z`) ne change pas ; une grille écrite en clair se relit telle quelle, et une
+> amplitude de plus de 655 m reste écrite en clair (`model/relief.ts`, `compacterRelief`).
+
 ```ts
 export interface Relief {
   source: 'lidar-hd' | 'rge-alti';

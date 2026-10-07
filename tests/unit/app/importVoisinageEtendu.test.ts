@@ -3,6 +3,7 @@ import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/a
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut, Relief } from '../../../src/model/types.js';
 import type { DemandeRelief } from '../../../src/geo/relief.js';
+import { deplierRelief } from '../../../src/model/relief.js';
 
 // L'etape 3 de l'import depuis une adresse : le voisinage etendu se choisit (100 ou 200 m), se lit
 // a l'IGN, se montre dans l'apercu selon l'option d'affichage, et part avec la creation du plan.
@@ -158,7 +159,8 @@ describe('les donnees IGN par defaut, et le relief a la creation', () => {
     expect(d.ref.lon).toBeCloseTo(lon, 2);
     expect(d.etendue!.length).toBeGreaterThan(d.parcelle.length);
     const objets = (ctx.sauve[0] as SauveRelief).objects;
-    expect(objets.find(o => o.key === 'parcelle')!.relief).toEqual(RELIEF);
+    // Enregistre sous sa forme ecrite (zCode), le relief se relit a l'identique.
+    expect(deplierRelief(objets.find(o => o.key === 'parcelle')!.relief as Relief)).toEqual(RELIEF);
     expect(objets.filter(o => o.relief).length).toBe(1);
   });
 

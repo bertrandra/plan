@@ -28,12 +28,32 @@ describe('serialisation du relief', () => {
   it('ecrit la grille en copie profonde et la relit a l identique', () => {
     const p = { ...parcelle(), relief } as ObjetPlan;
     const [s] = serializeObjects([p]);
-    expect(s?.relief).toEqual(relief);
-    expect(s?.relief).not.toBe(relief);
-    expect(s?.relief?.z).not.toBe(relief.z);
+    // Ecrite, la grille porte ses altitudes compactees (`zCode`), le reste en clair.
+    const ecrit = s?.relief as unknown as Record<string, unknown>;
+    expect(ecrit).not.toHaveProperty('z');
+    expect(String(ecrit.zCode)).toMatch(/^u16cm:10012:/);
+    expect({ ...ecrit, zCode: undefined }).toEqual({ ...relief, z: undefined, zCode: undefined });
+    expect(relief.z).toHaveLength(8);
     const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
     expect(relu?.relief).toEqual(relief);
     expect(relu?.relief).not.toBe(s?.relief);
+  });
+
+  it('relit une grille ecrite en clair, et garde en clair une amplitude de plus de 655 m', () => {
+    const [enClair] = normalizeObjects([JSON.parse(JSON.stringify({ ...parcelle(), relief }))]);
+    expect(enClair?.relief).toEqual(relief);
+    const falaise = { ...relief, z: [0, 700, null, 1, 2, 3, 4, 5] };
+    const [s] = serializeObjects([{ ...parcelle(), relief: falaise } as ObjetPlan]);
+    expect(s?.relief?.z).toEqual(falaise.z);
+  });
+
+  it('pese moins de la moitie d une grille en clair, au centimetre', () => {
+    const z = Array.from({ length: 40000 }, (_, k) => Math.round((30 + (k % 997) / 7.3) * 100) / 100);
+    const grand = { ...relief, nx: 200, ny: 200, z };
+    const [s] = serializeObjects([{ ...parcelle(), relief: grand } as ObjetPlan]);
+    expect(JSON.stringify(s?.relief).length).toBeLessThan(JSON.stringify(grand).length / 2);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
+    expect(relu?.relief?.z).toEqual(z);
   });
 
   it('porte le document au schema 4, et la migration 3 -> 4 ne change rien', () => {
