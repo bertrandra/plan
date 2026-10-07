@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Fichier › Supprimer le voisinage… ».** Retire d'un coup tous les objets du voisinage
+  (parcelles, bâtiments, végétation — voisinage étendu de l'import comme « Ajouter le voisinage » de
+  l'actualisation IGN), et les cotes qui s'y appuient. Masquer le voisinage ne l'enlève pas du
+  document ; le supprimer allège le projet. Confirmation d'abord, une seule étape d'annulation
+  (Ctrl+Z), refusé en lecture seule, grisé quand le plan n'a pas de voisinage.
+
 - **« Affichage › Relief ».** Une entrée du menu Affichage montre ou cache d'un geste les **courbes de
   niveau** du plan et le **sol en relief** de la 3D. Elle est cochée quand les deux sont montrés ; si
   un seul l'est, un clic montre les deux. Elle n'apparaît qu'une fois le relief lu. C'est une
