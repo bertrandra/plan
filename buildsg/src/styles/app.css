@@ -1463,13 +1463,20 @@
      <iframe> deja dimensionne. Le reste de l'atelier est monte mais invisible : il n'est pas
      retire, la Vue 3D en depend. `visibility` plutot que `display` : un parent masque par
      `display:none` emporterait la scene avec lui. */
-  html[data-vitrine], html[data-vitrine] body{ margin:0; padding:0; overflow:hidden; background:var(--stage-bg); }
+  html[data-vitrine], html[data-vitrine] body{ margin:0; padding:0; overflow:hidden; overscroll-behavior:none; background:var(--stage-bg); }
+  /* La page ne defile pas : l'atelier, cache mais toujours en place dessous, garde sa hauteur, et un
+     telephone faisait defiler la page (et rebondir) sous la scene. Le corps est fige sur la fenetre. */
+  html[data-vitrine] body{ position:fixed; inset:0; }
   html[data-vitrine] body *{ visibility:hidden; }
   html[data-vitrine] #terrasse3dCanvasHost, html[data-vitrine] #terrasse3dCanvasHost *{ visibility:visible; }
   html[data-vitrine] #terrasse3dCanvasHost{
-    position:fixed !important; left:0; top:0; z-index:1000; margin:0; border:none; border-radius:0;
-    width:var(--vitrine-largeur, 100vw) !important; height:var(--vitrine-hauteur, 100vh) !important;
+    position:fixed !important; inset:0; z-index:1000; margin:0; border:none; border-radius:0;
+    /* Sans dimension, ancree aux quatre bords : la fenetre visible, et non 100vh, qui sur un
+       telephone compte la barre d'adresse et deborde. */
+    width:auto !important; height:auto !important;
   }
+  html[data-vitrine-x] #terrasse3dCanvasHost{ right:auto; width:var(--vitrine-largeur) !important; }
+  html[data-vitrine-y] #terrasse3dCanvasHost{ bottom:auto; height:var(--vitrine-hauteur) !important; }
   /* Le clic droit de la vitrine (app/menuVitrine.ts) : rafraichir, copier l'adresse. */
   html[data-vitrine] #menuVitrine, html[data-vitrine] #menuVitrine *{ visibility:visible; }
   .menuVitrine{
