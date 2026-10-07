@@ -7,7 +7,8 @@
 // Sans plateforme branchee, il reste vide et `droitsCourants()` laisse tout passer — ce qui est le
 // comportement de la 1.2.0, et ce que le drapeau de l'etape 4 finira par rendre impossible.
 
-import { CAPACITE_LECTURE_SEULE } from '../plateforme/capacites.js';
+import { CAPACITE_LECTURE_SEULE, CAPACITES } from '../plateforme/capacites.js';
+import { showToast } from '../shell/dialogs.js';
 import { PHRASE_QUOTA, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
@@ -19,6 +20,48 @@ let contexte: ServiceContexte | null = null;
 export function poserAcces(s: Session, c: ServiceContexte): void {
   session = s;
   contexte = c;
+}
+
+/**
+ * Les capacites que Plan accorde en dur a tous les comptes, quoi que dise la plateforme (decision
+ * du 7 octobre 2026) : `plan.relief` n'est pas encore declaree ni attribuee dans backprod, et la
+ * lecture du relief disparaissait pour tout le monde. A retirer d'ici une fois la plateforme a jour :
+ * l'avertissement de l'admin le rappelle a chaque ouverture tant qu'elle ne l'attribue pas.
+ */
+export const CAPACITES_FORCEES: readonly string[] = [CAPACITES.relief.code];
+
+/** Les capacites forcees que la plateforme n'attribue pas a ce compte ; toutes, hors plateforme. */
+export function capacitesForceesSansDroit(): string[] {
+  return CAPACITES_FORCEES.filter((c) => !contexte?.aCapacite(c));
+}
+
+/** La personne administre : l'admin des demos, ou un role d'administration chez la plateforme. */
+export function estAdministrateur(): boolean {
+  return admin || !!contexte?.courant()?.roles.some((r) => /admin/i.test(r));
+}
+
+/**
+ * L'avertissement a montrer a l'admin, ou `null` : une capacite forcee en dur que la plateforme
+ * n'attribue pas. Les autres comptes n'en voient rien, ils ont simplement la fonction.
+ */
+export function avertissementCapacitesForcees(): string | null {
+  const sansDroit = capacitesForceesSansDroit();
+  if (!sansDroit.length || !estAdministrateur()) return null;
+  const noms = sansDroit.map((c) => {
+    const cap = Object.values(CAPACITES).find((x) => x.code === c);
+    return (cap ? '« ' + cap.libelle + ' » ' : '') + '(' + c + ')';
+  }).join(', ');
+  return 'Avertissement administrateur : ' + noms + (sansDroit.length > 1 ? ' sont accordées' : ' est accordée')
+    + ' en dur par Plan à tous les comptes, quelle que soit leur formule.'
+    + (contexte ? ' La plateforme ne l’attribue pas à ce compte : déclarez-la et attribuez-la dans backprod, puis retirez-la de CAPACITES_FORCEES (app/acces.ts).' : '');
+}
+
+/** A l'ouverture : l'avertissement de l'admin, en notification et dans la console, s'il y a lieu. */
+export function prevenirAdminDesCapacitesForcees(): void {
+  const texte = avertissementCapacitesForcees();
+  if (!texte) return;
+  console.warn(texte);
+  showToast(texte);
 }
 
 /** Le droit d'ecrire sur l'organisation, tel que la plateforme le nomme. */
@@ -85,7 +128,8 @@ export function compteProjetsCourant(): CompteProjets | null {
 export function droitsCourants(): Droits {
   return {
     branchee: () => contexte !== null,
-    aCapacite: (code) => contexte?.aCapacite(code) ?? true,
+    // Une capacite forcee en dur passe toujours (CAPACITES_FORCEES ci-dessus).
+    aCapacite: (code) => CAPACITES_FORCEES.includes(code) || (contexte?.aCapacite(code) ?? true),
     // Le droit d'ecrire passe par `peutEcrire`, pour que le registre et le badge ne puissent pas
     // se contredire. Les autres permissions se lisent telles quelles.
     aPermission: (code) => (code === PERMISSION_ECRITURE ? peutEcrire() : (contexte?.aPermission(code) ?? true)),

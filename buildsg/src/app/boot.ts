@@ -36,7 +36,7 @@ import { brancherAffichage } from './ecouteurs/affichage.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
-import { droitsCourants, enLectureSeule } from './acces.js';
+import { droitsCourants, enLectureSeule, prevenirAdminDesCapacitesForcees } from './acces.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
@@ -419,6 +419,8 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
   tiroir.activer(etat.panelTab, false);
   p.render();
+  // Une capacite forcee en dur que la plateforme n'attribue pas : l'admin est prevenu (app/acces.ts).
+  prevenirAdminDesCapacitesForcees();
   // La palette du serveur peut arriver apres ce premier rendu : le plan reprend alors ses encres
   // (app/paletteServeur.ts, render/theme.ts).
   window.addEventListener(EVENEMENT_ENCRES, () => p.render());

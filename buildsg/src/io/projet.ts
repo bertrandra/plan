@@ -113,6 +113,7 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
   // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
   ortho.tuiles = [];
+  ortho.couverture = null;
   restaurerOrthoDuProjet(ctx);
   restaurerAffichageDuProjet(etat, ctx);
   ctx.markDirty();
