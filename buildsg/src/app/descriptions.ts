@@ -55,6 +55,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'vue.visionneuse': 'Ouvre la visionneuse du modèle GLB généré depuis le plan',
   'vue.ajuster': 'Cadre la vue sur l’objet sélectionné',
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',
+  'affichage.relief': 'Montre ou cache le relief du terrain : les courbes de niveau sur le plan et le sol en relief dans la 3D',
   'affichage.nord': 'Montre ou cache la flèche du Nord sur le plan',
   'affichage.sectionsRepliees': 'Ouvre les sections de l’inspecteur repliées, titres seuls (les étapes d’une terrasse ou d’une piscine), ou dépliées ; le réglage reste dans ce navigateur',
   'affichage.voisinage': 'Montre ou cache les objets importés des parcelles voisines, sans les supprimer',

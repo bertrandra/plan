@@ -16,6 +16,7 @@ import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
+import { reliefDe, reliefMontre } from '../model/relief.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -155,12 +156,15 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   const sectionsRepliees = useStore(magasin.store, (s) => s.sectionsRepliees);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
+  const relief = reliefDe(etat.objects);
   // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
   // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
   const bascules: [string, string, boolean, boolean][] = ([
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
+    // Courbes de niveau et sol 3D ensemble ; n'apparait qu'une fois le relief lu.
+    ['affichage.relief', 'Relief', !!relief && reliefMontre(relief), !!relief],
     ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
     ['affichage.sectionsRepliees', 'Sections de l\'inspecteur repliées', sectionsRepliees, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
