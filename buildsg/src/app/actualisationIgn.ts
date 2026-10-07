@@ -17,7 +17,7 @@ import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, interrogerCadastreEtendu, interrogerWfsEtendu, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, RAYON_ETENDU_MAX_M, interrogerWfsEtendu, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -26,7 +26,7 @@ import {
 import { sommetsDe } from '../model/formes.js';
 import { parcours } from './parcours.js';
 import type { ObjetSerialise } from '../model/creation.js';
-import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate } from '../geo/apiIgn.js';
+import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../model/types.js';
@@ -63,6 +63,11 @@ export interface InfosActualisation {
   nbIgn: number;
   /** Parcelles voisines deja presentes : elles ne seront pas dupliquees. */
   nbVoisines: number;
+  /**
+   * De quoi compter le voisinage etendu avant de lancer : le centre de la parcelle (repere du plan),
+   * la lecture du disque de 200 m, et ce qui est deja dans le plan (ni compte, ni duplique).
+   */
+  voisinage?: { centre: PtBrut; lire: () => Promise<VoisinageRayon>; idus: ReadonlySet<string>; ids: ReadonlySet<string> };
 }
 
 type Cadastre = NonNullable<ObjetPlan['cadastre']>;
@@ -100,7 +105,17 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
     infos: {
       parcelle: 'Parcelle ' + (cad.section || '') + ' ' + String(cad.numero || '').replace(/^0+/, '') + ' — ' + (cad.commune || ''),
       nbIgn: ctx.etat.objects.filter(o => coucheIgn(o) !== null).length,
-      nbVoisines: ctx.etat.objects.filter(o => o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length
+      nbVoisines: ctx.etat.objects.filter(o => o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length,
+      voisinage: (() => {
+        // Le plan est dans le repere de la projection du calage : ses coordonnees se lisent telles quelles.
+        const proj = projecteurLocal(cad.origineLat, cad.origineLon);
+        const centre = centroid(sommetsDe(parcelle));
+        const idus = new Set(ctx.etat.objects.flatMap(o => { const idu = o.cadastre?.idu; return typeof idu === 'string' ? [idu] : []; }));
+        const ids = new Set(ctx.etat.objects.flatMap(o => { const id = (o.bdtopo as { id?: unknown } | null | undefined)?.id; return typeof id === 'string' ? [id] : []; }));
+        let lecture: Promise<VoisinageRayon> | null = null;
+        // Une seule lecture par ouverture du dialogue : le curseur filtre ensuite localement.
+        return { centre, idus, ids, lire: () => (lecture ??= lireVoisinageRayon(centre, proj, RAYON_ETENDU_MAX_M, !!cad.simplifieM, new Set([cad.idu as string]))) };
+      })()
     },
     lancer: (options) => { parcours.fermer(); void actualiserDepuisIgn(options, ctx); }
   });
