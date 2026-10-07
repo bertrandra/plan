@@ -8,8 +8,37 @@
 // Les booleens passent par `!!` et les objets absents par `|| null` : le fichier de projet doit
 // avoir la meme forme quel que soit l'etat de la memoire, sinon deux enregistrements du meme plan
 // ne se comparent pas.
+import { compacterRelief } from '../model/relief.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
 import type { ObjetSerialise } from '../model/creation.js';
+
+/**
+ * Un objet du voisinage (verrouille, decor de reference) s'enregistre sans ce que le chargement sait
+ * reconstruire : les champs nuls ou faux, les noms de sommets et de cotes par defaut, les sommets non geles,
+ * la geometrie WGS84 source (les sommets et le point de calage la redonnent). Un voisinage de 200 m,
+ * c'est un millier d'objets : ces redites faisaient la moitie du document, et la plateforme refusait
+ * le projet. Les objets dessines ne sont pas touches (empreinte de projet.json).
+ */
+function allegerVoisinage(out: Record<string, unknown>): void {
+  const pts = out.pts as unknown[] | undefined;
+  if(pts){
+    const parDefaut = (noms: unknown, prefixe: string) => Array.isArray(noms) && noms.length === pts.length && noms.every((n, i) => n === prefixe + (i + 1));
+    if(parDefaut(out.vertexNames, 'Point ')) delete out.vertexNames;
+    if(parDefaut(out.segmentNames, 'Cote ')) delete out.segmentNames;
+    if(Array.isArray(out.frozenVertices) && out.frozenVertices.every(g => !g)) delete out.frozenVertices;
+  }
+  // Nuls et faux : le chargement les lit absents, et un objet verrouille du voisinage n'a ni cotes
+  // affichees, ni cloture, ni contrainte.
+  for(const k of Object.keys(out)) if(out[k] === null || out[k] === false) delete out[k];
+  if(out.cadastre && typeof out.cadastre === 'object'){
+    const cad = { ...(out.cadastre as Record<string, unknown>) };
+    delete cad.geometrieSource;
+    out.cadastre = cad;
+  }
+  if(out.bdtopo && typeof out.bdtopo === 'object'){
+    out.bdtopo = Object.fromEntries(Object.entries(out.bdtopo as Record<string, unknown>).filter(([, v]) => v !== null));
+  }
+}
 
 export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
   return objs.map(o=>{
@@ -65,8 +94,10 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.piscine) out.piscine = JSON.parse(JSON.stringify(o.piscine));
     // Le declarant d'une declaration prealable, range sur la parcelle : pose seulement s'il existe.
     if(o.declaration) out.declaration = JSON.parse(JSON.stringify(o.declaration));
-    // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue.
-    if(o.relief) out.relief = JSON.parse(JSON.stringify(o.relief));
+    // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
+    // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.
+    if(o.relief) out.relief = compacterRelief(o.relief);
+    if(o.voisinage) allegerVoisinage(out);
     // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des
     // clefs est celui du fichier enregistre (empreinte projet.json). Ce qu'elle ecrit est un
     // `ObjetBrut` : chaque champ vient de `o`, les absents valent `null`, que le modele admet.

@@ -10,6 +10,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   // ---- Projet et fichiers ------------------------------------------------------------------------
   'projet.enregistrer': 'Enregistre le projet sur le serveur (ou la démo, en admin)',
   'projet.reinitialiser': 'Remet tous les objets et toutes les cotes dans leur état du chargement ; Ctrl+Z revient en arrière',
+  'projet.supprimerVoisinage': 'Supprime tous les objets du voisinage (parcelles, bâtiments, végétation) et les cotes qui s’y appuient ; Ctrl+Z les rend',
   'fichier.importerSvg': 'Ajoute les formes d’un fichier SVG au plan, ou remplace le plan selon l’option du menu',
   'fichier.importerJson': 'Ouvre un projet exporté en JSON : remplace le plan, ou ajoute ses objets selon l’option du menu',
   'fichier.exporterJson': 'Télécharge le projet complet en JSON, le format natif de Plan, réimportable tel quel',

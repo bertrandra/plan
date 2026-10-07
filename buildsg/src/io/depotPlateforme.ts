@@ -61,6 +61,7 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   if (e && typeof e === 'object' && 'reason' in e) return e as Error & { reason: MotifEchec };
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
   if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'PAYLOAD_TOO_LARGE') return refusDeTaille(e, quoi);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
@@ -95,6 +96,23 @@ function refusDeSchema(e: EchecPlateforme, quoi: string): Error & { reason: Moti
     + (ecrit ?? 'de projet') + ' de Plan' + (acceptes ? ' (acceptés : ' + acceptes + ')' : '')
     + '. Un administrateur de la plateforme doit ajouter ' + (ecrit ?? 'ce schéma')
     + ' à « project_schema_versions » du produit Plan. Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
+}
+
+/** Un nombre d'octets en Mo, a la francaise : « 2,4 Mo ». */
+const enMo = (octets: number) => (octets / 1048576).toFixed(1).replace('.', ',') + ' Mo';
+
+/**
+ * La plateforme refuse un document trop gros (`413 PAYLOAD_TOO_LARGE`, `details.limit` quand elle
+ * le donne). Le code brut n'aide personne : la phrase dit ce qui pese, et comment alleger.
+ */
+function refusDeTaille(e: EchecPlateforme, quoi: string): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const limite = typeof d.limit === 'number' ? ' (limite : ' + enMo(d.limit) + ')' : '';
+  const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
+  return echec(quoi + ' refusé : le projet est trop volumineux pour la plateforme' + limite
+    + '. Ce qui pèse le plus : le voisinage étendu et le relief sur toutes les parcelles. Masquer ne suffit pas :'
+    + ' supprimez une partie du voisinage, ou relisez le relief sur la parcelle seule (« Actualiser le relief »).'
+    + ' Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
 }
 
 export interface DepotProjets {
