@@ -1513,6 +1513,15 @@
   /* Une vitrine se regarde : zoomer et tourner, oui ; enregistrer une image ou poser un point de vue, non. */
   html[data-vitrine] #terrasse3dSavePng, html[data-vitrine] #terrasse3dEyeLevel,
   html[data-vitrine] #terrasse3dZoomControls .separateur3d:nth-last-of-type(-n+2){ display:none; }
+  /* Dans un <iframe> de la plateforme, la vitrine n'a ni barre d'application ni bouton de reglages :
+     le decalage que la classe d'ecran reserve en haut (116 px hors « large ») poussait les boutons
+     hors d'un cadre bas. Ils partent du haut, et passent sur une seconde colonne, vers la gauche,
+     quand la hauteur du cadre ne suffit pas. L'horloge remonte de meme. */
+  html[data-vitrine] .commandes3d{
+    top:8px; right:8px; max-height:calc(100% - 16px);
+    flex-wrap:wrap-reverse; align-content:flex-start;
+  }
+  html[data-vitrine] .horloge3d{ top:8px; left:8px; }
 
   /* L'ecran des controleurs de l'admin (zones/EcranControleurs.tsx). Plan tourne dessous, cache :
      c'est la qu'on lit ses controleurs, mais on n'y touche pas. */
