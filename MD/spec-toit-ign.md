@@ -319,6 +319,26 @@ un canevas, sans réseau ; `uvDuPan` (`facade/toit.ts`) la pose sur chaque pan, 
 long de l'égout, `v` dans la pente en vraie grandeur. Les rangs suivent ainsi l'égout de chaque pan.
 Case « Texture » décochée : la couleur unie, comme avant.
 
+### 6.3 Les détails du bâtiment en 3D
+
+Un prisme coiffé de ses pans reste un cube avec un chapeau. `three/detailsBatiment.ts` ajoute, sans
+donnée nouvelle, ce qui fait « maison » — par-dessus le prisme de `scene.ts` et le relevé de
+`releve3d.ts`, pour tout polygone de fonction `batiment` :
+
+| Détail | Règle |
+|---|---|
+| **Débord de toit** | une bande de `DEBORD_TOIT_M` = 0,4 m au-delà de chaque mur, dans le prolongement des pans (elle descend le long d'un égout, suit le profil d'un pignon), épaisse de 0,15 m : dessus en couverture, sous-face claire, planche de rive. L'ombre portée sous l'égout vient du soleil de la scène. Coins en onglet (`contourDecale`). |
+| **Gouttière** | un profilé zinc le long des seuls égouts (profil nul et plat sur le mur) ; pas sur un pignon. |
+| **Arêtes** | un trait fin (`LineSegments`, 70 %) sur les angles des murs, l'égout, et les arêtes des pans (faîtage, arêtiers, noues), poussé d'un centimètre hors des surfaces. |
+| **Soubassement** | une bande de 0,45 m au pied des murs, en saillie de 3 cm, de la couleur du mur assombrie (× 0,72). |
+| **Fenêtres** | à chaque niveau, sur les murs sans relevé de façade et d'au moins 2 m : une fenêtre de 1 × 1,2 m par entraxe de 2,4 m, centrées (`abscissesFenetres`), appui à 0,9 m. Les niveaux : `nombreEtages` de la BD TOPO, sinon la hauteur du mur sur 2,7 m ; aucun niveau sous 2,2 m (`niveaux`). Une porte de 0,9 × 2,1 m remplace la fenêtre du milieu au rez-de-chaussée du plus long mur. Cadre gris chaud, vitre bleu-gris, vantail bois : une seule maille à trois groupes. |
+| **Cheminée** | sur un toit en pente d'au moins 40 m² : un carré de 0,5 m, 0,8 m au-dessus du pan, à un tiers du faîtage depuis le centre ; brique sous les tuiles, gris sous l'ardoise. |
+
+**De loin** (plus de `DETAIL_FIN_M` = 120 m du centre de la scène), seuls le débord (sans
+gouttière) et les arêtes sont posés : un voisinage de deux mille bâtiments ne supporterait pas six
+mailles de plus chacun. Rien n'est enregistré : ce sont des règles de rendu, et la structure du
+GLB exporté change avec elles (témoin `glb-structure.json`, `EMPREINTES.md`).
+
 ---
 
 ## 7. L'interface
@@ -393,8 +413,62 @@ simulée, rechargement : toit relu à l'identique.
 
 | Limite | Effet | Suite possible |
 |---|---|---|
-| Pas de pignon | une maison à deux pans apparaît à croupes | lire les pignons sur le MNS, ou sur une façade relevée (déjà possible) |
-| `H` à ± 1 m, maximum pris sur une cheminée | faîtage trop haut ; l'écrêtage n'attrape que les cas extrêmes | ajuster le squelette sur le MNS LiDAR HD de l'IGN (grille 50 cm) : quelques paramètres par moindres carrés, comme `classerProfil` |
+| Pas de pignon dans la BD TOPO | une maison à deux pans apparaît à croupes | **fait (§10)** : le MNH LiDAR HD distingue deux pans, croupes et quatre pans, là où il existe ; sinon une façade relevée |
+| `H` à ± 1 m, maximum pris sur une cheminée | faîtage trop haut ; l'écrêtage n'attrape que les cas extrêmes | **fait (§10)** : hauteur et égout mesurés sur le LiDAR, cheminées et arbres écartés comme aberrants |
 | Un seul volume par bâtiment | un corps haut et une annexe basse sous le même contour reçoivent un seul toit | découper par volumes (le relevé en L le fait déjà pour la partie basse) |
 | Relevé de façade = une forme globale | une photo de pignon remplace le squelette par un deux-pans sur l'enveloppe | le relevé marque le mur photographié comme pignon (squelette pondéré, poids 0) au lieu de changer de forme |
 | Rien en 2D | faîtages et noues invisibles sur le plan | les tracer en trait fin, en option |
+
+---
+
+## 10. Le toit mesuré sur le LiDAR HD (MNH)
+
+### 10.1 Ce qu'on lit
+
+Le **MNH** LiDAR HD de l'IGN (modèle numérique de hauteur, MNS − MNT) donne tous les 50 cm la
+hauteur du sursol au-dessus du sol. Sur l'emprise d'un bâtiment, c'est la hauteur de sa couverture,
+mesurée, et non deux altitudes photogrammétriques à un mètre près. Couche WMS
+`IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93` (vérifiée au GetCapabilities ; sur une
+maison du Vésinet : 0 au sol, 5 m à l'égout, 7,5 m au faîtage), lue comme le relief (`geo/relief.ts`) :
+même service, même BIL 32 bits, même grille.
+
+`geo/mnh.ts` lit **une petite grille par bâtiment** (son emprise plus 1 m, au pas de 50 cm ; au-delà
+de 10 000 cellules, 1, 2 ou 5 m) et garde les cellules sous le contour, à plus de 0,6 m des murs
+(`RETRAIT_MNH_M` : la rive et la gouttière ne sont pas la couverture) — entier si le retrait ne laisse
+rien. `dallesLidarSur` compte d'abord les dalles LiDAR sur l'emprise des bâtiments retenus : sans
+dalle, rien n'est lu.
+
+### 10.2 L'ajustement
+
+`facade/toitLidar.ts::ajusterToit(contour, mesures)` : chaque forme que Plan dessine, à hauteur
+unité, donne un profil `f(q)` sur le contour ; les mesures `z = e + H · f(q)` rendent par moindres
+carrés l'égout `e` et la hauteur de faîtage `H` (`H ≥ 0`). Candidats : plat, croupes (squelette),
+deux pans et quatre pans dans l'axe du plus long mur et en travers. Une mesure à plus de 1,5 m du
+toit ajusté (`RESIDU_ABERRANT_M` : arbre, cheminée, lucarne) est écartée, et l'ajustement refait.
+La forme au plus petit écart quadratique moyen l'emporte ; le quatre pans paie 5 cm d'écart pour
+que, sur un rectangle, les croupes (le toit BD TOPO) gagnent à mesures égales.
+
+Garde-fous : au moins `ECHANTILLONS_MIN` = 20 mesures ; écart final sous `ECART_MAX_M` = 0,8 m,
+sinon **aucune forme simple n'explique les mesures** (deux corps de hauteurs différentes sous un
+contour, une tourelle) et le toit BD TOPO reste ; `H` sous `HAUTEUR_TOIT_MIN_M` ou pente sous
+`PENTE_MIN_DEG` → plat ; pente au-delà de `PENTE_MAX_DEG` → on renonce (§4, mêmes seuils).
+
+### 10.3 Quand, et ce qui est écrit
+
+`app/toitsLidar.ts::toitsDepuisLidar`, après la couleur des toits (§6.1), à l'import depuis une
+adresse (« Forme des toits sur le LiDAR HD… ») et à l'actualisation (ligne du bilan). Seuls les
+bâtiments dont le toit vient de la BD TOPO ou d'une lecture LiDAR antérieure (`toitAAjuster`) ; un
+toit lu sur une photo ou saisi n'est pas touché, et `toitActualise` (§5.3) recalcule un toit LiDAR
+comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du projet d'abord, au plus
+`MAX_BATIMENTS_LIDAR` = 150, dans `DELAI_TOITS_LIDAR_MS` = 20 s, quatre lectures à la fois.
+
+Écrit : `toit = { forme, hauteur, angleFaitage, source: 'lidar' }`, la couleur et son origine
+conservées. L'égout mesuré corrige `elevation` (la hauteur du prisme) quand il s'en écarte d'au moins
+0,3 m et reste entre 2 et 40 m. L'inspecteur dit « ajustée sur le LiDAR HD de l'IGN ». Un service
+muet ne bloque rien.
+
+### 10.4 Vérifié
+
+`tests/unit/facade/toitLidar.test.ts` (formes, bruit, arbre, renoncements), `tests/unit/geo/mnh.test.ts`
+(grille demandée, retrait, service muet), `tests/unit/app/toitsLidar.test.ts` (éligibilité, ordre,
+délai, bilan, toits gardés).

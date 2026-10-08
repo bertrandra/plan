@@ -699,8 +699,11 @@ export interface Toit {
    * l'a choisie, et rien ne la recalcule.
    */
   origineCouleur?: 'orthophoto' | 'rouge' | 'brun' | 'gris';
-  /** D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ou saisie. */
-  source?: 'photo' | 'bdtopo' | 'saisie';
+  /**
+   * D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ajustee sur le MNH LiDAR
+   * HD de l'IGN (MD/spec-toit-ign.md §10), ou saisie.
+   */
+  source?: 'photo' | 'bdtopo' | 'lidar' | 'saisie';
   /**
    * `croupes` seulement : une pente imposee, en degres. Absente, la pente se deduit de `hauteur` et
    * du contour ; presente, le toit est ecrete a `hauteur` (MD/spec-toit-ign.md §3.3).

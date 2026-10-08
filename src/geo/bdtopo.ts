@@ -16,8 +16,8 @@ export const MAX_ARBRES_ESTIMES = 60;
 
 /** Hauteur par defaut d'une hauteur de batiment absente : un niveau et demi. */
 const HAUTEUR_BATIMENT_DEFAUT = 2.5;
-/** Hauteur d'etage retenue pour deduire une hauteur d'un nombre de niveaux. */
-const HAUTEUR_ETAGE_M = 2.7;
+/** La hauteur d'un niveau, en metres, quand seul le nombre d'etages est connu ; la vue 3D s'en sert pour poser les fenetres. */
+export const HAUTEUR_ETAGE_M = 2.7;
 
 /**
  * Hauteur a retenir pour un batiment, dans l'ordre : celle mesuree, sinon celle deduite du nombre

@@ -37,8 +37,9 @@ function origineCouleur(toit: Toit | null | undefined): string {
   }
 }
 
-/** D'ou vient la hauteur d'un toit deduit de la BD TOPO : on dit que c'est une estimation. */
+/** D'ou vient la hauteur d'un toit deduit de la BD TOPO ou du LiDAR : on dit que c'est une estimation. */
 function origineHauteur(toit: Toit): string {
+  if (toit.source === 'lidar') return ' · ajustée sur le LiDAR HD de l’IGN';
   if (toit.source !== 'bdtopo') return '';
   return toit.estime ? ' · estimée : pas de hauteur dans la BD TOPO' : ' · déduite de la BD TOPO (± 1 m)';
 }

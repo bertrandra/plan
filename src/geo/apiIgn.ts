@@ -207,22 +207,44 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
 /**
- * Le rayon du voisinage etendu se regle au curseur, de 10 a 200 m par pas de 10. On lit une fois
- * le disque le plus grand, puis on filtre au rayon choisi : le compte suit le curseur sans attendre
- * le reseau.
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 1 000 m par pas de 10. On lit le
+ * disque par paliers (200, 500, 1 000 m) : le palier qui couvre le curseur est lu une fois, puis
+ * filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il reste
+ * sous le palier lu. Lire d'emblee le plus grand disque (trois kilometres carres, des milliers
+ * d'objets en ville) pour un curseur a 50 m aurait ete un gaspillage.
  */
 export const RAYON_ETENDU_MIN_M = 10;
-export const RAYON_ETENDU_MAX_M = 200;
+export const RAYON_ETENDU_MAX_M = 1000;
 export const RAYON_ETENDU_PAS_M = 10;
 /** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
 export const RAYON_ETENDU_DEFAUT_M = 50;
+/** Les paliers de lecture du disque, du plus petit au plus grand (le dernier est le maximum du curseur). */
+export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000];
+/**
+ * Au-dela de ce rayon, le plan s'alourdit vite (des centaines de parcelles et de batiments, chacun
+ * avec sa geometrie) : l'interface previent que l'enregistrement sur la plateforme peut etre refuse.
+ */
+export const RAYON_LEGER_M = 200;
 /** Un rayon ramene dans les bornes du curseur, au pas pres. */
 export function rayonEtenduValide(r: number): number {
   const v = Math.round((Number.isFinite(r) ? r : RAYON_ETENDU_DEFAUT_M) / RAYON_ETENDU_PAS_M) * RAYON_ETENDU_PAS_M;
   return Math.min(RAYON_ETENDU_MAX_M, Math.max(RAYON_ETENDU_MIN_M, v));
 }
+/** Le palier de lecture qui couvre un rayon du curseur : le plus petit des paliers qui lui est superieur ou egal. */
+export function rayonDeLecture(rayonM: number): number {
+  return RAYONS_LECTURE_M.find(p => p >= rayonM) ?? RAYON_ETENDU_MAX_M;
+}
 /** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
 export const MAX_OBJETS_RAYON = 2000;
+/**
+ * Combien d'entites on lit au plus par famille avant de garder les `MAX_OBJETS_RAYON` plus
+ * proches : le service rend les pages dans un ordre quelconque, et un disque d'un kilometre en
+ * ville depasse largement le plafond. Lire davantage que ce qu'on garde, c'est ce qui rend « les
+ * plus proches » a peu pres vrai ; au-dela de dix mille, la lecture elle-meme deviendrait le prix.
+ */
+export function plafondLecture(rayonM: number): number {
+  return rayonM > RAYON_LEGER_M ? MAX_OBJETS_RAYON * 5 : MAX_OBJETS_RAYON * 2;
+}
 const PAGE_CADASTRE = 1000;
 const PAGE_WFS = 2000;
 
@@ -322,8 +344,8 @@ export async function lireVoisinageRayon(centre: PtBrut, proj: ProjecteurLocal, 
     return dedans.slice(0, MAX_OBJETS_RAYON);
   };
   const [featsParcelles, featsBati] = await Promise.all([
-    interrogerCadastreEtendu(emprise, MAX_OBJETS_RAYON * 2),
-    interrogerWfsEtendu(COUCHE_BATIMENT, bbox, MAX_OBJETS_RAYON * 2).catch((): FeatureGeoJSON[] => [])
+    interrogerCadastreEtendu(emprise, plafondLecture(rayonM)),
+    interrogerWfsEtendu(COUCHE_BATIMENT, bbox, plafondLecture(rayonM)).catch((): FeatureGeoJSON[] => [])
   ]);
   const parcelles = garder(construireCandidats(featsParcelles, proj, centre, simplifier).filter(c => !exclus.has(c.idu)));
   const batiments = garder(construireElementsIgn(featsBati, proj, simplifier, 'batiment'));
