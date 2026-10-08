@@ -34,6 +34,13 @@ export interface ContexteDetails {
   textures: boolean;
   /** La distance du batiment au centre de la scene, en metres : de loin, moins de details. */
   distance: number;
+  /**
+   * Sur un sol en relief : la hauteur du sol en un point du plan, comptee depuis l'origine du
+   * groupe (le sol au centre du batiment). Absent : sol plat, tout part de zero.
+   */
+  sol?: ((p: PtBrut) => number) | undefined;
+  /** Sur un sol en relief : le point le plus bas du sol sous l'emprise, depuis la meme origine (zero ou moins). */
+  base?: number | undefined;
 }
 
 export interface OptionsDetails {
@@ -74,7 +81,13 @@ const COULEUR_VITRE = 0x6f8aa6;
 const COULEUR_PORTE = 0x6b4a33;
 const COULEUR_ZINC = 0x8e9499;
 const COULEUR_SOUS_FACE = 0xd9d4c8;
-const COULEUR_ARETE = 0x1f1f1f;
+/**
+ * Le trait d'un angle de mur : la couleur du mur, un peu plus sombre. Un trait noir faisait bande
+ * dessinee ; dans la gamme du mur, il marque l'angle sans le cerner.
+ */
+const ASSOMBRI_ARETE = 0.82;
+/** En dessous de ce changement de direction, un sommet n'est pas un angle : un contour BD TOPO en a beaucoup de presque alignes. */
+const ANGLE_ARETE_MIN_DEG = 25;
 const COULEUR_CHEMINEE_TUILE = 0x8a5a44;
 const COULEUR_CHEMINEE_ARDOISE = 0x6b6b6b;
 
@@ -265,10 +278,10 @@ function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toi
 }
 
 /**
- * Les aretes des murs en trait fin : les angles et l'egout. Poussees d'un centimetre hors de la
- * surface pour ne pas scintiller contre elle. Pas de trait sur le toit : le faitage, les aretiers
- * et les noues se lisent deja par la lumiere sur les pans, et un trait sombre par-dessus la
- * couverture la faisait paraitre dessinee plutot que construite.
+ * Les angles des murs en trait fin, dans la teinte du mur : des verticales seulement, aux vrais
+ * angles. Poussees d'un centimetre hors de la surface pour ne pas scintiller contre elle. Ni trait
+ * a l'egout (il se voyait a travers le debord du toit) ni sur le toit (faitage, aretiers et noues se
+ * lisent par la lumiere sur les pans) : trop de traits faisaient bande dessinee.
  */
 function poserAretes(ctx: ContexteDetails, volumes: readonly Volume[], contourHaut: readonly PtBrut[]): void {
   const pos: number[] = [];
@@ -284,21 +297,37 @@ function poserAretes(ctx: ContexteDetails, volumes: readonly Volume[], contourHa
       b = ctx.toLocal(pousse(q));
     pos.push(a.x, yp + 0.01, a.z, b.x, yq + 0.01, b.z);
   };
+  const bas = ctx.base ?? 0;
   volumes.forEach((v) => {
+    const n = v.pts.length;
     v.pts.forEach((p, i) => {
-      segment(p, 0, p, v.hauteur);
-      segment(p, v.hauteur, sommetDe(v.pts, i + 1), v.hauteur);
+      if (tournant(au(v.pts, (i - 1 + n) % n), p, sommetDe(v.pts, i + 1)) < ANGLE_ARETE_MIN_DEG) return;
+      // Du point le plus bas du sol sous le batiment : sur un sol en pente, la partie enterree est cachee par le sol.
+      segment(p, bas, p, v.hauteur);
     });
   });
   if (!pos.length) return;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  const lignes = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: COULEUR_ARETE, transparent: true, opacity: 0.7 }));
+  const lignes = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: new THREE.Color(ctx.couleurMur).multiplyScalar(ASSOMBRI_ARETE) }));
   lignes.name = 'batiment-aretes';
   ctx.scene.add(lignes);
 }
 
-/** Le pied du mur, plus sombre, en legere saillie : une bande tout autour du contour. */
+/** Le changement de direction au sommet `p`, en degres : 0 pour trois points alignes. */
+function tournant(a: PtBrut, p: PtBrut, b: PtBrut): number {
+  const a1 = Math.atan2(p.y - a.y, p.x - a.x),
+    a2 = Math.atan2(b.y - p.y, b.x - p.x);
+  let d = Math.abs(a2 - a1) % (2 * Math.PI);
+  if (d > Math.PI) d = 2 * Math.PI - d;
+  return (d * 180) / Math.PI;
+}
+
+/**
+ * Le pied du mur, plus sombre, en legere saillie : une bande tout autour du contour. Sur un sol en
+ * relief, elle part du point le plus bas du sol sous le batiment (la partie enterree est cachee) et
+ * monte a `HAUTEUR_SOUBASSEMENT_M` au-dessus du sol a chaque sommet : elle suit la pente.
+ */
 function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: number): void {
   if (h < HAUTEUR_SOUBASSEMENT_M * 2 || contour.length < 3) return;
   const dehors = contourDecale(contour, SAILLIE_SOUBASSEMENT_M);
@@ -311,9 +340,12 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
     const q = sommetDe(contour, i + 1),
       p2 = au(dehors, i),
       q2 = sommetDe(dehors, i + 1);
-    const hs = HAUTEUR_SOUBASSEMENT_M;
-    b.quad(local(p2, 0), local(q2, 0), local(q2, hs), local(p2, hs));
-    b.quad(local(p2, hs), local(q2, hs), local(q, hs), local(p, hs));
+    const bas = ctx.base ?? 0;
+    const haut = (r: PtBrut) => Math.min(h, (ctx.sol ? ctx.sol(r) : 0) + HAUTEUR_SOUBASSEMENT_M);
+    const hp = haut(p),
+      hq = haut(q);
+    b.quad(local(p2, bas), local(q2, bas), local(q2, hq), local(p2, hp));
+    b.quad(local(p2, hp), local(q2, hq), local(q, hq), local(p, hp));
   });
   b.groupe(0);
   const couleur = new THREE.Color(ctx.couleurMur).multiplyScalar(0.72);
@@ -379,8 +411,10 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
       xs.forEach((x, j) => {
         if (k === 0 && porteIci && j === iPorte) {
           const xp = x + FENETRE.l / 2 - PORTE.l / 2;
-          cadres.push(() => rect(f, xp - CADRE_M, 0, PORTE.l + 2 * CADRE_M, PORTE.h + CADRE_M, DECOLLEMENT));
-          portes.push(() => rect(f, xp, 0, PORTE.l, PORTE.h, DECOLLEMENT * 2));
+          // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
+          const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - PORTE.h - 0.3, ctx.sol(pointDeFacade(f, xp + PORTE.l / 2)))) : 0;
+          cadres.push(() => rect(f, xp - CADRE_M, yp, PORTE.l + 2 * CADRE_M, PORTE.h + CADRE_M, DECOLLEMENT));
+          portes.push(() => rect(f, xp, yp, PORTE.l, PORTE.h, DECOLLEMENT * 2));
           return;
         }
         const y = k * hNiveau + FENETRE.appui;

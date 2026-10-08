@@ -15,7 +15,8 @@ import { contourDuMur, egoutEn, volumesDuBatiment, type Volume } from '../facade
 import { pointInPolygon } from '../geometry/basic.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
-import { materiauCouverture } from '../model/couleurToit.js';
+import { materiauCouverture, couleurToitPlat } from '../model/couleurToit.js';
+import { safeOffset } from '../engine/structure.js';
 import { textureCouverture } from './couverture.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -131,9 +132,32 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
   }
 }
 
+/** Le retrait de la couverture d'un toit-terrasse : la bande du dessus des murs se lit comme un acrotere. */
+export const RETRAIT_TOIT_PLAT_M = 0.2;
+/** Au-dessus du dessus du prisme, pour ne pas lui disputer le test de profondeur. */
+const SURELEVATION_TOIT_PLAT_M = 0.02;
+
+/**
+ * Un toit-terrasse : sa couverture, de la couleur lue sur l'orthophoto (gris a defaut), posee sur le
+ * dessus du prisme en retrait des murs. Sans elle, le dessus prenait la couleur des murs.
+ */
+function poserToitPlat(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: number) {
+  if (contour.length < 3) return;
+  const dedans = safeOffset(contour, RETRAIT_TOIT_PLAT_M);
+  const sommets: number[] = [];
+  dedans.forEach((q) => {
+    const l = ctx.toLocal(q);
+    sommets.push(l.x, h + SURELEVATION_TOIT_PLAT_M, l.z);
+  });
+  const mat = new THREE.MeshStandardMaterial({ color: couleurToitPlat(toit), roughness: 0.95, side: THREE.DoubleSide });
+  const m = maillage(sommets, trianguler(dedans).flat(), mat);
+  m.name = 'releve-toit-plat';
+  ctx.scene.add(m);
+}
+
 /** Les pans du toit et les pignons, au-dessus de l'egout `h`, sur l'emprise `contour`. */
 function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: number, habillages: readonly Habillage[]) {
-  if (toit.forme === 'plat' || toit.hauteur <= 0) return;
+  if (toit.forme === 'plat' || toit.hauteur <= 0) { poserToitPlat(ctx, contour, toit, h); return; }
   const { pans, pignons } = facettesToit(contour, toit);
   // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).
   const materiau = materiauCouverture(toit);

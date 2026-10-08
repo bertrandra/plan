@@ -83,6 +83,24 @@ describe('ajouterReleve3d', () => {
     expect(Math.min(...ys)).toBeCloseTo(3, 9);
   });
 
+  it('pose la couverture d un toit-terrasse, de sa couleur, en retrait des murs', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#8a8580', origineCouleur: 'orthophoto' } }, 3);
+    expect(ajoutes.map((m) => m.name)).toEqual(['releve-toit-plat']);
+    const plat = ajoutes[0]!;
+    expect((plat.material as { p: { color: string } }).p.color).toBe('#8a8580');
+    const pos = plat.geometry.attributes.position!.array;
+    const xs = pos.filter((_, i) => i % 3 === 0), ys = pos.filter((_, i) => i % 3 === 1);
+    // 20 cm en retrait des murs (0 a 10 m), 2 cm au-dessus du dessus du prisme (3 m).
+    expect(Math.min(...xs)).toBeCloseTo(0.2, 6);
+    expect(Math.max(...xs)).toBeCloseTo(9.8, 6);
+    expect(ys.every((y) => Math.abs(y - 3.02) < 1e-9)).toBe(true);
+    // Rabattu sur une tuile par une lecture d'avant : gris.
+    const r = scene();
+    ajouterReleve3d(r.ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' } }, 3);
+    expect((r.ajoutes[0]!.material as { p: { color: string } }).p.color).toBe('#6F7275');
+  });
+
   it('pose un toit a croupes, sans pignon (spec-toit-ign)', () => {
     const { ajoutes, ctx } = scene();
     ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, 3);

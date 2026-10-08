@@ -299,6 +299,13 @@ Le toit enregistre `couleur` et **`origineCouleur`** (`'orthophoto' | 'rouge' | 
 Une couleur **sans** `origineCouleur` a été choisie dans l'inspecteur : ni la lecture ni
 l'actualisation ne la touchent. Une couleur posée par Plan est relue à l'actualisation.
 
+**Un toit-terrasse ne se rabat jamais sur une tuile** : quand la photo n'est pas concluante, sa
+couverture est grise (`couleurToitDepuisPixels(pixels, plat)`). En 3D, il est couvert d'une surface
+de sa couleur, 2 cm au-dessus du prisme et en retrait de 20 cm des murs (le dessus des murs se lit
+comme un acrotère) ; un toit plat qu'une lecture antérieure avait rabattu sur une tuile rouge ou
+brune s'y dessine gris (`couleurToitPlat`). Avant, le dessus d'un toit-terrasse prenait la couleur
+des murs.
+
 Un WMTS injoignable ne bloque rien : au bout de 20 s, les toits restants gardent la tuile rouge par
 défaut (`COULEUR_TOIT_DEFAUT`), sans `couleur` enregistrée. Le champ est facultatif : il ne change
 pas le schéma (un lecteur de schéma 3 garde le toit tel quel).
@@ -329,8 +336,8 @@ donnée nouvelle, ce qui fait « maison » — par-dessus le prisme de `scene.ts
 |---|---|
 | **Débord de toit** | une bande de `DEBORD_TOIT_M` = 0,4 m au-delà de chaque mur, dans le prolongement des pans (elle descend le long d'un égout, suit le profil d'un pignon), épaisse de 0,15 m : dessus en couverture, sous-face claire, planche de rive. L'ombre portée sous l'égout vient du soleil de la scène. Coins en onglet (`contourDecale`). |
 | **Gouttière** | un profilé zinc le long des seuls égouts (profil nul et plat sur le mur) ; pas sur un pignon. |
-| **Arêtes** | un trait fin (`LineSegments`, 70 %) sur les angles des murs et l'égout, poussé d'un centimètre hors des surfaces. Aucun trait sur le toit : faîtage, arêtiers et noues se lisent par la lumière sur les pans, et un trait sombre par-dessus la couverture la faisait paraître dessinée. |
-| **Soubassement** | une bande de 0,45 m au pied des murs, en saillie de 3 cm, de la couleur du mur assombrie (× 0,72). |
+| **Angles** | des verticales seulement, aux vrais angles (changement de direction d'au moins 25° : un contour BD TOPO a beaucoup de sommets presque alignés), dans la teinte du mur assombrie (× 0,82), opaques. Ni trait à l'égout (il se voyait à travers le débord du toit) ni sur le toit (les pans se lisent par la lumière) : trop de traits faisaient bande dessinée. Sur un sol en relief, elles partent du point le plus bas du sol sous le bâtiment. |
+| **Soubassement** | une bande au pied des murs, en saillie de 3 cm, de la couleur du mur assombrie (× 0,72). Sur sol plat, de 0 à 0,45 m. Sur un sol en relief, du point le plus bas du sol sous le bâtiment jusqu'à 0,45 m au-dessus du sol à chaque sommet : elle suit la pente et ne laisse pas de vide sous le mur. La porte se pose sur le sol devant elle. |
 | **Fenêtres** | à chaque niveau, sur les murs sans relevé de façade et d'au moins 2 m : une fenêtre de 1 × 1,2 m par entraxe de 2,4 m, centrées (`abscissesFenetres`), appui à 0,9 m. Les niveaux : `nombreEtages` de la BD TOPO, sinon la hauteur du mur sur 2,7 m ; aucun niveau sous 2,2 m (`niveaux`). Une porte de 0,9 × 2,1 m remplace la fenêtre du milieu au rez-de-chaussée du plus long mur. Cadre gris chaud, vitre bleu-gris, vantail bois : une seule maille à trois groupes. |
 | **Cheminée** | sur un toit en pente d'au moins 40 m² : un carré de 0,5 m, 0,8 m au-dessus du pan, à un tiers du faîtage depuis le centre ; brique sous les tuiles, gris sous l'ardoise. |
 

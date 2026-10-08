@@ -443,6 +443,14 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   valeurs dans les six combinaisons du point 24), et l'export perd **1 540 octets**, les sommets de
   ces segments : **3 531 484 octets**, recapturé sous `RECAPTURER_GLB=1`.
 
+  **Encore le même jour — angles adoucis, toits-terrasses, soubassement sur relief : seul
+  `octetsTotal` bouge.** Plus de trait à l'égout, et plus de trait aux sommets presque alignés : la
+  maison de la démonstration garde ses mailles de lignes, avec moins de sommets. Le toit-terrasse
+  ajoute une maille aux seuls bâtiments à toit plat, et la démonstration n'en a pas ; le soubassement
+  ne change qu'avec un relief, qu'elle n'a pas ; les clôtures du voisinage sont décochées par
+  défaut. **Aucun compteur ne bouge** (mêmes valeurs dans les six combinaisons du point 24) ;
+  l'export fait **3 530 956 octets**, recapturé sous `RECAPTURER_GLB=1`.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -460,7 +468,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `5f823a324100f5790b05faa21978557186a5a1068829f922165da48dd6a9672a` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `660c038a2e45265f50788a8526fa9d2df28939a882ea2c8e3ad4774f9e1b3c7b` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

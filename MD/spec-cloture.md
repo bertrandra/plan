@@ -223,6 +223,22 @@ Remplace la bande unique de `scene.ts`. Pour chaque côté dont le réglage n'es
 Les mailles sont nommées (`cloture-troncon`, `cloture-pilier`, `cloture-vantail`) pour les tests de
 structure, comme celles du relevé.
 
+### 4.1 Les clôtures du voisinage (`three/clotureVoisinage.ts`)
+
+Une case des réglages de la Vue 3D, **« Clôtures du voisinage », décochée par défaut**. C'est une
+préférence d'affichage, comme « Ombre portée » : rien n'est écrit sur les parcelles voisines, qui ne
+portent ni clôture ni lieu (décision produit). Cochée, elle pose un **grillage générique** — 1,5 m,
+gris vert clair, translucide (30 %), sans ombre portée — sur les limites des parcelles voisines
+visibles :
+
+- chaque limite une fois (sommets arrondis à 20 cm, sens fixe pour que deux panneaux confondus
+  soient éclairés pareil) ;
+- pas sur une limite commune avec la parcelle du projet quand celle-ci a sa clôture ;
+- sur un sol en relief, en panneaux de 3 m au plus qui suivent la pente ;
+- **une seule maille** (`cloture-voisinage`) pour tout le voisinage : deux mille parcelles en
+  panneaux séparés ne tiendraient pas ;
+- avec le reste du plan seulement (« Afficher tous les objets »), pas en isolement.
+
 ---
 
 ## 5. Plan à l'écran (`render/cloture.ts`)

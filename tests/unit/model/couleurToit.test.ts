@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { couleurToitDepuisPixels, couvertureRepli, materiauCouverture, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
+import { couleurToitDepuisPixels, couvertureRepli, materiauCouverture, couleurToitPlat, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
 
 type Rgb = [number, number, number];
 /** `n` pixels opaques de la couleur `c`, en RGBA a plat. */
@@ -70,5 +70,27 @@ describe('tuile ou ardoise en 3D (spec-toit-ign §6.2)', () => {
     expect(materiauCouverture({ couleur: '#2E4A62' })).toBe('ardoise');
     expect(materiauCouverture({})).toBe('tuile');
     expect(materiauCouverture(null)).toBe('tuile');
+  });
+});
+
+describe('la couleur d un toit-terrasse', () => {
+  it('garde la teinte lue, mais ne se rabat jamais sur une tuile', () => {
+    // Une membrane gris-beige uniforme : lue telle quelle.
+    const lue = couleurToitDepuisPixels(grain([150, 145, 135], 400), true);
+    expect(lue.origine).toBe('orthophoto');
+    // Une photo trop rouge et trop brouillee, qu'un toit en pente prendrait pour une tuile : grise ici.
+    const brouillee = [...pixels([170, 60, 40], 150), ...pixels([40, 160, 40], 150), ...pixels([90, 90, 200], 150)];
+    expect(couleurToitDepuisPixels(brouillee).origine).not.toBe('orthophoto');
+    expect(couleurToitDepuisPixels(brouillee, true)).toEqual({ couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' });
+    expect(couleurToitDepuisPixels([], true)).toEqual({ couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' });
+  });
+
+  it('en 3D : la couleur lue ou choisie, grise si Plan l avait rabattue sur une tuile', () => {
+    expect(couleurToitPlat({ couleur: '#998877', origineCouleur: 'orthophoto' })).toBe('#998877');
+    expect(couleurToitPlat({ couleur: '#123456' })).toBe('#123456');
+    expect(couleurToitPlat({ couleur: COULEURS_TOIT_REPLI.rouge, origineCouleur: 'rouge' })).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat({ couleur: COULEURS_TOIT_REPLI.brun, origineCouleur: 'brun' })).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat({})).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat(null)).toBe(COULEURS_TOIT_REPLI.gris);
   });
 });

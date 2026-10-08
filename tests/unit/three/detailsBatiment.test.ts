@@ -112,8 +112,45 @@ describe('ajouterDetailsBatiment', () => {
     expect(cheminee.position.x).toBeGreaterThan(6);
     expect(cheminee.position.y).toBeGreaterThan(9);
     expect(ajoutes.find((m) => m.name === 'batiment-soubassement')!.material).toBeDefined();
-    // Les aretes s'arretent a l'egout : aucun trait sur le toit (faitage a 9 m).
+    // Les angles s'arretent a l'egout : aucun trait sur le toit (faitage a 9 m).
     expect(Math.max(...ys(ajoutes.find((m) => m.name === 'batiment-aretes')!))).toBeCloseTo(6.01, 6);
+  });
+
+  it('ne trace que des verticales, aux vrais angles, dans la teinte du mur', () => {
+    const { ajoutes, ctx } = scene();
+    // Un rectangle dont un long mur porte un sommet presque aligne (5 degres) : pas d'angle la.
+    const pts = [p(0, 0), p(6, 0.5), p(12, 0), p(12, 8), p(0, 8)];
+    ajouterDetailsBatiment(ctx, { ...maison(), pts, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } }, 6);
+    const aretes = ajoutes.find((m) => m.name === 'batiment-aretes')!;
+    const pos = aretes.geometry.attributes.position!.array;
+    const n = pos.length / 6;
+    expect(n).toBe(4);
+    for (let k = 0; k < n; k++) {
+      // Chaque segment est vertical : memes x et z aux deux bouts.
+      expect(pos[k * 6]).toBeCloseTo(pos[k * 6 + 3]!, 9);
+      expect(pos[k * 6 + 2]).toBeCloseTo(pos[k * 6 + 5]!, 9);
+    }
+    expect(((aretes.material as { p: { color: Couleur } }).p.color).c).toBe('#ccc*0.82');
+  });
+
+  it('sur un sol en relief, le soubassement, les angles et la porte descendent jusqu au sol', () => {
+    const { ajoutes, ctx } = scene();
+    // Le sol descend de 1 m vers le sud (y = 0) : au centre (y = 4) il vaut 0, le plus bas est a -0,5.
+    const sol = (q: PtBrut) => (q.y - 4) / 8;
+    ajouterDetailsBatiment({ ...ctx, sol, base: -0.5 }, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } }, 6, { etages: 2 });
+    const soub = ajoutes.find((m) => m.name === 'batiment-soubassement')!;
+    const y = ys(soub);
+    expect(Math.min(...y)).toBeCloseTo(-0.5, 9);
+    // Le haut suit le sol : 45 cm au-dessus du sol au sud (-0,5 + 0,45) et au nord (0,5 + 0,45).
+    expect(y.some((v) => Math.abs(v - -0.05) < 1e-9)).toBe(true);
+    expect(Math.max(...y)).toBeCloseTo(0.95, 9);
+    expect(Math.min(...ys(ajoutes.find((m) => m.name === 'batiment-aretes')!))).toBeCloseTo(-0.49, 9);
+    // La porte, au milieu du mur sud (le plus long, y = 0) : posee sur le sol devant elle (-0,5).
+    const ouv = ajoutes.find((m) => m.name === 'batiment-ouvertures')!;
+    const porte = ouv.geometry.groups.find((g) => g.materialIndex === 2)!;
+    const idx = ouv.geometry.index.slice(porte.start, porte.start + porte.count);
+    const yPorte = idx.map((i) => ouv.geometry.attributes.position!.array[i * 3 + 1]!);
+    expect(Math.min(...yPorte)).toBeCloseTo(-0.5, 9);
   });
 
   it('de loin, ne pose que le debord et les aretes', () => {
