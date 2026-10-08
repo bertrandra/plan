@@ -59,13 +59,26 @@ foreach ([getenv('PLAN_ADMIN_CONFIG') ?: null, $racineWeb !== '' ? dirname($raci
     if ($f && is_file($f)) { $config = require $f; break; }
 }
 $motDePasse = is_array($config) ? (string)($config['motDePasse'] ?? '') : '';
-if ($motDePasse === '' || $motDePasse === 'A-CHANGER') erreur(404, 'NOT_FOUND', 'Introuvable');
+$chemin = trim((string)($_GET['chemin'] ?? ''), '/');
+// La vitrine (`vitrine/<id>`, plus bas) est publique : ses refus se disent, et se lisent de toute
+// origine — la plateforme l'encadre dans un <iframe> en bac a sable, dont l'origine est `null`
+// tant qu'il ne porte pas `allow-same-origin` ; sans cet en-tete sur CHAQUE reponse de la route,
+// la page n'y voit ni la demo ni la raison de son absence, et montre la demonstration integree
+// sans que personne ne sache pourquoi. Sans risque : la route est publique par construction, et
+// aucun cookie n'y est lu ni pose.
+$vitrine = preg_match('#^vitrine/#', $chemin) === 1;
+if ($vitrine) header('Access-Control-Allow-Origin: *');
+if ($motDePasse === '' || $motDePasse === 'A-CHANGER') {
+    // Sans configuration, l'admin n'existe pas (404 partout) — mais la vitrine, elle, dit pourquoi
+    // elle ne peut pas lire sa demo : c'est le premier oubli d'une mise en ligne.
+    if ($vitrine) erreur(404, 'NOT_CONFIGURED', 'Admin non configuré : plan-admin-config.php absent, ou mot de passe « A-CHANGER ». La vitrine ne peut pas lire ses démos.');
+    erreur(404, 'NOT_FOUND', 'Introuvable');
+}
 $dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
-if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer.');
+if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer (droits du dossier parent).');
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $lecture = $methode === 'GET' || $methode === 'HEAD';
-$chemin = trim((string)($_GET['chemin'] ?? ''), '/');
 
 if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
 
@@ -74,16 +87,16 @@ if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FOR
 // session, et avant elle — ni cookie pose, ni session ouverte pour un visiteur. Une demo est faite
 // pour etre montree ; ce qu'elle ne doit pas etre, c'est modifiable, et rien ici n'ecrit.
 if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
-    // Lisible de toute origine : la plateforme encadre la vitrine dans un <iframe> en bac a sable,
-    // dont l'origine est `null` tant qu'il ne porte pas `allow-same-origin`. Sans cet en-tete, la
-    // page n'y lit pas sa propre demo et montre la demonstration integree. Sans risque : la reponse
-    // est publique par construction, et aucun cookie n'y est lu ni pose.
-    header('Access-Control-Allow-Origin: *');
+    // `Access-Control-Allow-Origin: *` est deja pose plus haut, pour toutes les reponses de la route.
     if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
     $id = rawurldecode($m[1]);
     if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
     $f = $dossier . '/' . $id . '.json';
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune démo « ' . $id . ' ».');
+    // Present mais illisible (droits du fichier) : `is_file` passe, `readfile` echouait, et la
+    // reponse etait un 200 au corps vide — la vitrine retombait en silence sur la demonstration
+    // integree. Le dire, c'est la seule facon de le voir.
+    if (!is_readable($f)) erreur(500, 'UNREADABLE', 'Démo « ' . $id . ' » présente mais illisible : droits du fichier (PHP doit pouvoir le lire — 644, même utilisateur que le site).');
     // Une minute de cache : la page d'accueil qui l'encadre ne redemande pas le fichier a chaque
     // visite, et une demo reenregistree se voit vite.
     header('Cache-Control: public, max-age=60');
