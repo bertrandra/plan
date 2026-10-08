@@ -112,7 +112,8 @@ describe('ajouterDetailsBatiment', () => {
     expect(cheminee.position.x).toBeGreaterThan(6);
     expect(cheminee.position.y).toBeGreaterThan(9);
     expect(ajoutes.find((m) => m.name === 'batiment-soubassement')!.material).toBeDefined();
-    expect(Math.max(...ys(ajoutes.find((m) => m.name === 'batiment-aretes')!))).toBeGreaterThan(9);
+    // Les aretes s'arretent a l'egout : aucun trait sur le toit (faitage a 9 m).
+    expect(Math.max(...ys(ajoutes.find((m) => m.name === 'batiment-aretes')!))).toBeCloseTo(6.01, 6);
   });
 
   it('de loin, ne pose que le debord et les aretes', () => {
