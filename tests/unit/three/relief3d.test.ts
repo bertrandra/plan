@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 import {
-  hauteursComblees, creerSolRelief, solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, sommetsDuSol, subdiviser, bornesCarre,
-  DECALAGE_ORTHO_M, DECALAGE_TRAIT_SOL_M
+  hauteursComblees, creerSolRelief, solDeLaScene, geometrieSol, traitSurSol, sommetsDuSol, bornesCarre, empriseSol,
+  decoupesTuiles, tailleTextureSol, DECALAGE_TRAIT_SOL_M, TEXTURE_SOL_MAX_PX
 } from '../../../src/three/relief3d.js';
 import { versLocalDepuis } from '../../../src/three/primitives.js';
 import { zLocal } from '../../../src/model/relief.js';
@@ -120,30 +120,42 @@ describe('la dalle orthophoto et le trait au sol', () => {
   const sol = creerSolRelief(r);
   const versLocal = versLocalDepuis({ x: 0, y: 0 });
 
-  it('subdivise une dalle au metre, ses sommets 4 mm au-dessus du sol, ses uv ceux d un plan', () => {
-    expect(subdiviser(0, 3, 1)).toEqual([0, 1, 2, 3]);
-    expect(subdiviser(0, 2.5, 1)).toHaveLength(4);
-    const geo = geometrieDalleSurSol({ xMin: 1, yMin: 1, largeur: 3, hauteur: 2 }, sol, versLocal);
-    const pts = sommets(geo);
-    expect(pts).toHaveLength(4 * 3);
-    pts.forEach(p => expect(p.y).toBeCloseTo(sol.hauteur({ x: p.x, y: -p.z }) + DECALAGE_ORTHO_M, 6));
-    const uv = geo.getAttribute('uv');
-    // Le premier sommet est le coin nord-ouest (haut de l'image), le dernier le coin sud-est.
-    expect([pts[0]?.x, -(pts[0]?.z ?? 0)]).toEqual([1, 3]);
-    expect([uv.getX(0), uv.getY(0)]).toEqual([0, 1]);
-    expect([uv.getX(11), uv.getY(11)]).toEqual([1, 0]);
+  it('donne au sol des uv sur son emprise : u d ouest en est, v du sud au nord', () => {
+    const cen = { x: 0, y: 0 };
+    const bornes = bornesCarre(cen, 30);
+    const geo = geometrieSol(sol, bornes, versLocal);
+    const a = empriseSol(r, bornes);
+    const pos = geo.getAttribute('position'), uv = geo.getAttribute('uv');
+    for (let k = 0; k < pos.count; k++) {
+      // Le repere de la scene : x vers l'est, z vers le sud (versLocalDepuis).
+      const x = cen.x + pos.getX(k), y = cen.y - pos.getZ(k);
+      expect(uv.getX(k)).toBeCloseTo((x - a.xMin) / (a.xMax - a.xMin), 6);
+      expect(uv.getY(k)).toBeCloseTo((y - a.yMin) / (a.yMax - a.yMin), 6);
+    }
+    // L'emprise est celle de l'anneau : un pas au-dela de la grille, ou les bornes si elles vont plus loin.
+    const { xs, ys } = sommetsDuSol(r, bornes);
+    expect([a.xMin, a.xMax, a.yMax, a.yMin]).toEqual([xs[0], xs.at(-1), ys[0], ys.at(-1)]);
   });
 
-  it('coupe une dalle au calque, ses uv restant ceux de la tuile', () => {
-    // Tuile de 4 x 4 m a (0, 0) ; calque de x 1 a 3, y 2 a 4 : la dalle n'en garde que ce rectangle.
-    const geo = geometrieDalleSurSol({ xMin: 0, yMin: 0, largeur: 4, hauteur: 4 }, sol, versLocal, { xMin: 1, xMax: 3, yMin: 2, yMax: 4 });
-    const pts = sommets(geo);
-    const uv = geo.getAttribute('uv');
-    expect([pts[0]?.x, -(pts[0]?.z ?? 0)]).toEqual([1, 4]);
-    expect([uv.getX(0), uv.getY(0)]).toEqual([0.25, 1]);
-    const n = pts.length - 1;
-    expect([pts[n]?.x, -(pts[n]?.z ?? 0)]).toEqual([3, 2]);
-    expect([uv.getX(n), uv.getY(n)]).toEqual([0.75, 0.5]);
+  it('decoupe chaque tuile au calque et la place sur la texture, le nord en haut', () => {
+    const tuile = (xMin: number, yMin: number, l: number, dataUri: string | null = 'data:,') => ({ z: 19, x: 0, y: 0, dataUri, xMin, yMin, largeur: l, hauteur: l });
+    const bornes = { xMin: 0, xMax: 10, yMin: 0, yMax: 10 };
+    const emprise = { xMin: -10, xMax: 30, yMin: -10, yMax: 30 };
+    const d = decoupesTuiles([tuile(0, 0, 10), tuile(5, 5, 10), tuile(50, 50, 10), tuile(0, 0, 10, null)], bornes, emprise, { largeur: 400, hauteur: 400 });
+    expect(d).toHaveLength(2);
+    // Entiere dans le calque : toute l'image, posee a 10 px/m, le haut (y = 10) a 200 px du haut de la texture (y = 30).
+    expect(d[0]!.source).toEqual([0, 0, 1, 1]);
+    expect(d[0]!.destination).toEqual([100, 200, 100, 100]);
+    // A cheval : seul son quart sud-ouest (x 5..10, y 5..10) ; dans l'image, c'est en bas a gauche.
+    expect(d[1]!.source).toEqual([0, 0.5, 0.5, 0.5]);
+    expect(d[1]!.destination).toEqual([150, 200, 50, 50]);
+  });
+
+  it('taille la texture en puissances de deux, 4 096 px au plus, 64 au moins', () => {
+    expect(TEXTURE_SOL_MAX_PX).toBe(4096);
+    expect(tailleTextureSol({ xMin: 0, xMax: 100, yMin: 0, yMax: 50 }, 2.56)).toEqual({ largeur: 256, hauteur: 128 });
+    expect(tailleTextureSol({ xMin: 0, xMax: 1000, yMin: 0, yMax: 1000 }, 25.6)).toEqual({ largeur: 4096, hauteur: 4096 });
+    expect(tailleTextureSol({ xMin: 0, xMax: 1, yMin: 0, yMax: 1 }, 1)).toEqual({ largeur: 64, hauteur: 64 });
   });
 
   it('pose un point par metre le long d un contour, 2 cm au-dessus du sol, ferme ou non', () => {

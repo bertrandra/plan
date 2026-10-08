@@ -236,3 +236,51 @@ describe('sans relief', () => {
     expect(contour?.geometry.getAttribute('position').getY(0)).toBeCloseTo(0.01, 6);
   });
 });
+
+describe('l orthophoto sur le sol', () => {
+  // Une tuile qui couvre la parcelle, deja decodee (`dataUri`) : ce que le fond orthophoto rend.
+  const tuile = { z: 19, x: 1, y: 1, dataUri: 'data:,', xMin: -40, yMin: -40, largeur: 60, hauteur: 60 };
+  const avecOrtho = (objs: ObjetPlan[]): ContexteScene3d => ({ ...contexte(objs), orthoActif: () => true, orthoTuiles: () => [tuile] });
+  async function construireAvec(objs: ObjetPlan[], ctx: ContexteScene3d): Promise<void> {
+    vue3d.scene = null; vue3d.dernierObjKey = null;
+    buildThreeScene(objs.find((o) => o.key === 'terrasse') ?? null, { objects: objs, terrasseSelectedKey: 'terrasse' }, ctx);
+    await attendre();
+  }
+  const solRelief = (): THREE_NS.Mesh | null => { let m: THREE_NS.Mesh | null = null; scene().traverse((o) => { if ((o as THREE_NS.Mesh).isMesh && o.name === 'sol-relief') m = o as THREE_NS.Mesh; }); return m; };
+  /** Les dalles de photo : des plans qui portent une texture (le sol plat, lui, n'en porte pas). */
+  const dalles = (): THREE_NS.Mesh[] => { const out: THREE_NS.Mesh[] = []; scene().traverse((o) => { const m = o as THREE_NS.Mesh; if (m.isMesh && m.geometry.type === 'PlaneGeometry' && (m.material as THREE_NS.MeshStandardMaterial).map) out.push(m); }); return out; };
+  const PLOTS = { typePose: 'plots', hauteurPlot: 6 };
+
+  it('en relief, la photo est peinte sur le sol : aucune dalle, le sol porte la texture, son vert passe au blanc', async () => {
+    // jsdom n'a pas de canvas 2D : un contexte factice suffit, le dessin des tuiles n'est pas ce qu'on eprouve.
+    const origine = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = (() => ({ fillStyle: '', fillRect() {}, drawImage() {} })) as never;
+    try {
+      await construireAvec(objets(true, PLOTS), avecOrtho(objets(true, PLOTS)));
+      expect(dalles()).toHaveLength(0);
+      const s = solRelief();
+      expect(s).not.toBeNull();
+      const mat = s!.material as THREE_NS.MeshStandardMaterial;
+      expect((mat.map as THREE_NS.CanvasTexture | null)?.isCanvasTexture).toBe(true);
+      expect(mat.color.getHexString()).toBe('ffffff');
+    } finally {
+      HTMLCanvasElement.prototype.getContext = origine;
+    }
+  });
+
+  it('en relief sans canvas 2D, le sol reste vert et rien ne casse', async () => {
+    await construireAvec(objets(true, PLOTS), avecOrtho(objets(true, PLOTS)));
+    expect(dalles()).toHaveLength(0);
+    const mat = solRelief()!.material as THREE_NS.MeshStandardMaterial;
+    expect(mat.map ?? null).toBeNull();
+    expect(mat.color.getHexString()).toBe('9fb98c');
+  });
+
+  it('sur un sol plat, les dalles d avant : une par tuile, 4 mm au-dessus du sol', async () => {
+    await construireAvec(objets(false, PLOTS), avecOrtho(objets(false, PLOTS)));
+    expect(solRelief()).toBeNull();
+    const d = dalles();
+    expect(d).toHaveLength(1);
+    expect(d[0]!.position.y).toBeCloseTo(0.004, 6);
+  });
+});

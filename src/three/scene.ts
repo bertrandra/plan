@@ -38,7 +38,7 @@ import { estParasol, estAbri, estPiscine, estTerrasse, visibleEnIsolement } from
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
-import { solDeLaScene, geometrieSol, geometrieDalleSurSol, traitSurSol, bornesCarre, type SolRelief } from './relief3d.js';
+import { solDeLaScene, geometrieSol, peindreOrthoSurSol, traitSurSol, bornesCarre, type SolRelief } from './relief3d.js';
 import type { Emprise } from '../model/relief.js';
 import { empriseDuCalque, intersectionEmprises, MARGE_CALQUE_M } from '../model/calque.js';
 
@@ -242,12 +242,19 @@ function dalleCoupee(t: TuileOrtho, cadre: Emprise): THREE_NS.PlaneGeometry {
 }
 
 /**
- * Le calque orthophoto du plan sert aussi de sol a la 3D : une dalle par tuile, juste au-dessus du
- * sol vert. Materiau eclaire pour que la photo suive le soleil — une image en pleine lumiere sur une
+ * Le calque orthophoto du plan sert aussi de sol a la 3D. Sur un sol plat : une dalle par tuile,
+ * juste au-dessus du sol vert. Sur un sol en relief : la photo est peinte sur le maillage du sol
+ * lui-meme (three/relief3d.ts, `peindreOrthoSurSol`) — une seconde surface posee dessus passait par
+ * taches sous le sol vert, deux maillages du meme terrain ne l'interpolant pas pareil. Dans les deux
+ * cas, materiau eclaire pour que la photo suive le soleil — une image en pleine lumiere sur une
  * scene de nuit trahirait l'heure choisie.
  */
-function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d, sol: SolRelief | null, bornes: Emprise): void {
+function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: ContexteScene3d, sol: SolRelief | null, bornes: Emprise, ground: THREE_NS.Mesh): void {
   if (!ctx.orthoActif() || !ctx.orthoTuiles().length) return;
+  if (sol) {
+    peindreOrthoSurSol(ctx.orthoTuiles(), bornes, sol.relief, ground.material as THREE_NS.MeshStandardMaterial);
+    return;
+  }
   const chargeurOrtho = new THREE.TextureLoader();
   ctx.orthoTuiles().forEach((t: TuileOrtho) => {
     // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
@@ -268,17 +275,10 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     // scintillaient (2.2.1).
     poserEnCouche(mat, COUCHES_SOL.ortho);
     percerSol(mat);
-    let dalle: THREE_NS.Mesh;
-    if (sol) {
-      // Sur un sol en relief, la dalle est subdivisee et ses sommets suivent le sol ; ses `uv` restent
-      // ceux d'un plan, la photo s'etire sur la pente (three/relief3d.ts).
-      dalle = new THREE.Mesh(geometrieDalleSurSol(t, sol, versLocal, cadre), mat);
-    } else {
-      dalle = new THREE.Mesh(dalleCoupee(t, cadre), mat);
-      dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
-      const l = versLocal({ x: (cadre.xMin + cadre.xMax) / 2, y: (cadre.yMin + cadre.yMax) / 2 });
-      dalle.position.set(l.x, 0.004, l.z);
-    }
+    const dalle = new THREE.Mesh(dalleCoupee(t, cadre), mat);
+    dalle.rotation.x = -Math.PI / 2;   // le haut de l'image (nord) part alors sur -Z, comme le plan
+    const l = versLocal({ x: (cadre.xMin + cadre.xMax) / 2, y: (cadre.yMin + cadre.yMax) / 2 });
+    dalle.position.set(l.x, 0.004, l.z);
     dalle.receiveShadow = vue3d.ombres;
     scene.add(dalle);
   });
@@ -670,7 +670,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
-  ajouterOrtho(scene, versLocal, ctx, sol, bornes);
+  ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
   const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects };
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
