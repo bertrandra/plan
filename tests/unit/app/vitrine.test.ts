@@ -218,17 +218,43 @@ describe('file : une demo de l admin dans la vitrine', () => {
     }) as unknown as typeof fetch;
     const d = await chargerDemoVitrine('2', lire);
     expect(appels[0]?.[0]).toBe('admin/vitrine/2');
-    expect(appels[0]?.[1]?.credentials).toBe('omit');
+    // `same-origin`, pas `omit` : la route ne lit aucun cookie, mais la protection anti-robots de
+    // l'hebergeur peut exiger le sien ; en bac a sable (origine `null`), rien ne part de toute facon.
+    expect(appels[0]?.[1]?.credentials).toBe('same-origin');
     expect(d).toEqual({ objects: [{ key: 'a' }], measures: [{ id: 'm' }] });
   });
 
-  it('rend null — la demonstration integree — si la demo manque ou n est pas un plan', async () => {
+  it('rend null — la demonstration integree — si la demo manque ou n est pas un plan, et dit pourquoi', async () => {
     const { chargerDemoVitrine } = await import('../../../src/app/vitrine.js');
-    const repond = (statut: number, corps: unknown) => (async () => new Response(JSON.stringify(corps), { status: statut })) as unknown as typeof fetch;
-    expect(await chargerDemoVitrine('9', repond(404, { error: {} }))).toBe(null);
-    expect(await chargerDemoVitrine('1', repond(200, { objects: [] }))).toBe(null);
-    expect(await chargerDemoVitrine('1', repond(200, { meta: { schemaVersion: 99 }, objects: [{ key: 'a' }] }))).toBe(null);
-    expect(await chargerDemoVitrine('1', (async () => { throw new Error('reseau'); }) as unknown as typeof fetch)).toBe(null);
+    const { vi } = await import('vitest');
+    const avertissements: string[] = [];
+    const espion = vi.spyOn(console, 'warn').mockImplementation((m: unknown) => { avertissements.push(String(m)); });
+    try {
+      const repond = (statut: number, corps: unknown, type = 'application/json') =>
+        (async () => new Response(typeof corps === 'string' ? corps : JSON.stringify(corps), { status: statut, headers: { 'content-type': type } })) as unknown as typeof fetch;
+      expect(await chargerDemoVitrine('9', repond(404, { error: { code: 'NOT_FOUND', message: 'Aucune démo « 9 ».' } }))).toBe(null);
+      expect(avertissements.at(-1)).toContain('HTTP 404 NOT_FOUND : Aucune démo « 9 ».');
+      // Admin non configure, fichier illisible : les codes du serveur se lisent tels quels.
+      await chargerDemoVitrine('1', repond(404, { error: { code: 'NOT_CONFIGURED', message: 'Admin non configuré' } }));
+      expect(avertissements.at(-1)).toContain('NOT_CONFIGURED');
+      await chargerDemoVitrine('1', repond(500, { error: { code: 'UNREADABLE', message: 'droits du fichier' } }));
+      expect(avertissements.at(-1)).toContain('UNREADABLE');
+      // Une page HTML en 200 a la place du JSON (anti-robots de l'hebergeur) : nommee comme telle.
+      expect(await chargerDemoVitrine('1', repond(200, '<html><body>Robot Challenge Screen</body></html>', 'text/html'))).toBe(null);
+      expect(avertissements.at(-1)).toMatch(/réponse HTML au lieu de JSON/);
+      expect(await chargerDemoVitrine('1', repond(200, { objects: [] }))).toBe(null);
+      expect(avertissements.at(-1)).toContain('aucun objet');
+      expect(await chargerDemoVitrine('1', repond(200, { meta: { schemaVersion: 99 }, objects: [{ key: 'a' }] }))).toBe(null);
+      expect(avertissements.at(-1)).toContain('schéma 99');
+      expect(await chargerDemoVitrine('1', (async () => { throw new Error('reseau'); }) as unknown as typeof fetch)).toBe(null);
+      expect(avertissements.at(-1)).toContain('injoignable : reseau');
+      // Une demo lue ne dit rien.
+      const n = avertissements.length;
+      expect(await chargerDemoVitrine('1', repond(200, { objects: [{ key: 'a' }] }))).not.toBe(null);
+      expect(avertissements.length).toBe(n);
+    } finally {
+      espion.mockRestore();
+    }
   });
 });
 

@@ -146,6 +146,36 @@ try {
 }
 
 // ---------------------------------------------------------------------------------------------
+// 1 quater. La vitrine lit sa demo.
+//
+// `?mode=demo&file=1` lit `admin/vitrine/1` : sans session, sans cookie, et de toute origine —
+// l'<iframe> de la plateforme est en bac a sable, donc d'origine `null`, ce que `Origin: null`
+// reproduit ici. Quand cette route ne repond pas un plan en JSON, la vitrine retombe sur la
+// demonstration integree : la cause se lit dans la reponse (un fichier illisible, un admin non
+// configure) — ou dans sa forme, quand une protection anti-robots de l'hebergeur repond sa page
+// HTML a la place d'admin.php.
+// ---------------------------------------------------------------------------------------------
+try {
+  const r = await demander('/admin/vitrine/1', { headers: { Accept: 'application/json', Origin: 'null' } });
+  const type = r.entetes.get('content-type') || '';
+  const texte = await r.corps.text();
+  let corps = null;
+  try { corps = JSON.parse(texte); } catch { corps = null; }
+  const ok = r.statut === 200 && !!corps && Array.isArray(corps.objects) && corps.objects.length > 0;
+  let detail;
+  if (ok) detail = corps.objects.length + ' objet(s), ' + (corps.meta?.name || 'sans nom');
+  else if (corps?.error) detail = 'HTTP ' + r.statut + ' ' + corps.error.code + ' : ' + corps.error.message;
+  else if (/html/i.test(type) || /<html/i.test(texte)) detail = 'HTTP ' + r.statut + " : une page HTML repond a la place d'admin.php — protection anti-robots de l'hebergeur (SiteGround), ou page d'erreur ; la vitrine montre alors la demonstration integree";
+  else if (r.statut === 200) detail = 'HTTP 200 mais pas un plan : ' + (texte.length ? texte.slice(0, 80) : 'corps vide (fichier illisible par PHP ? droits)');
+  else detail = 'HTTP ' + r.statut;
+  noter('la vitrine lit sa demo (admin/vitrine/1)', ok, detail);
+  const acao = r.entetes.get('access-control-allow-origin');
+  noter("la demo se lit depuis l'iframe en bac a sable", acao === '*', 'Access-Control-Allow-Origin ' + (acao || 'absent : la page encadree ne verra ni la demo ni la raison'));
+} catch (e) {
+  noter('la vitrine lit sa demo (admin/vitrine/1)', false, String(e).slice(0, 120));
+}
+
+// ---------------------------------------------------------------------------------------------
 // 2. Ce qui ne doit plus etre la du tout.
 //
 // Depuis la 2.0.0 les projets vivent chez la plateforme : `api.php` et `data/` ont disparu du

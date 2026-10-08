@@ -141,7 +141,15 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
     };
     const erreur = (statut, code, message) => json(statut, { error: { code, message } });
 
-    if (!actif) return erreur(404, 'NOT_FOUND', 'Introuvable');
+    // La vitrine (`/admin/vitrine/<id>`) est publique : ses refus se disent, et se lisent de toute
+    // origine — l'<iframe> de la plateforme est en bac a sable (origine `null`), et sans cet en-tete
+    // sur CHAQUE reponse, la page n'y voit ni la demo ni la raison de son absence (deploy/admin.php).
+    const v = /^\/admin\/vitrine\/([^/]+)$/.exec(url.pathname);
+    const refus = (statut, code, message) => json(statut, { error: { code, message } }, { 'Access-Control-Allow-Origin': '*' });
+    if (!actif) {
+      if (v) return refus(404, 'NOT_CONFIGURED', 'Admin non configuré : pas de mot de passe. La vitrine ne peut pas lire ses démos.');
+      return erreur(404, 'NOT_FOUND', 'Introuvable');
+    }
 
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
@@ -151,13 +159,14 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
       // --- La vitrine -----------------------------------------------------------------------------
       // La demo <id> en lecture seule, sans session : ce que montre `?mode=demo&file=<id>`
       // (deploy/admin.php, meme route). Rien n'y ecrit, et aucun cookie n'y est pose.
-      const v = /^\/admin\/vitrine\/([^/]+)$/.exec(url.pathname);
       if (v) {
-        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        if (!lecture) return refus(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const id = decodeURIComponent(v[1]);
-        if (!ID_VALIDE.test(id)) return erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
+        if (!ID_VALIDE.test(id)) return refus(400, 'BAD_ID', 'Identifiant de démo invalide.');
         const f = fichier(id);
-        if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucune démo « ' + id + ' ».');
+        if (!fs.existsSync(f)) return refus(404, 'NOT_FOUND', 'Aucune démo « ' + id + ' ».');
+        // Presente mais illisible (droits du fichier) : le dire plutot qu'un 500 muet ou un corps vide.
+        try { fs.accessSync(f, fs.constants.R_OK); } catch { return refus(500, 'UNREADABLE', 'Démo « ' + id + ' » présente mais illisible : droits du fichier (644, même utilisateur que le site).'); }
         // Lisible de toute origine : la vitrine encadree en bac a sable (`sandbox` sans
         // `allow-same-origin`) a l'origine `null` ; la reponse est publique et sans cookie.
         res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(f).mtime.toUTCString() });
