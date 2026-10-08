@@ -17,7 +17,7 @@
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
-import { signedArea } from '../geometry/basic.js';
+import { signedArea, pointInPolygon } from '../geometry/basic.js';
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 
 export type { Toit, FormeToit };
@@ -293,6 +293,39 @@ export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[];
     if (profil.some((q) => q.z > 0.01)) pignons.push({ cote: i, profil });
   }
   return { pans, pignons };
+}
+
+/**
+ * La hauteur du toit, au-dessus de l'egout, en un point du contour, d'apres ses pans : le plan du
+ * pan qui contient le point. `null` hors de tout pan (hors du contour, ou sur un contour sans
+ * pan). C'est ce qui vaut pour les croupes, que `plansDuToit` n'approche que par l'enveloppe.
+ */
+export function hauteurSurPans(pans: readonly Pan[], q: PtBrut): number | null {
+  for (const pan of pans) {
+    if (!pointInPolygon(q, pan.contour)) continue;
+    const plan = planDuPan(pan);
+    if (!plan) return au(pan.contour, 0).z;
+    return plan.a * q.x + plan.b * q.y + plan.c;
+  }
+  return null;
+}
+
+/** Le plan `z = a x + b y + c` d'un pan, par trois sommets non alignes ; `null` si le pan est degenere. */
+function planDuPan(pan: Pan): PlanToit | null {
+  const c = pan.contour;
+  const p0 = au(c, 0);
+  for (let i = 1; i < c.length; i++) {
+    for (let j = i + 1; j < c.length; j++) {
+      const p1 = au(c, i),
+        p2 = au(c, j);
+      const det = (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y);
+      if (Math.abs(det) < 1e-6) continue;
+      const a = ((p1.z - p0.z) * (p2.y - p0.y) - (p2.z - p0.z) * (p1.y - p0.y)) / det;
+      const b = ((p1.x - p0.x) * (p2.z - p0.z) - (p2.x - p0.x) * (p1.z - p0.z)) / det;
+      return { a, b, c: p0.z - a * p0.x - b * p0.y };
+    }
+  }
+  return null;
 }
 
 /**
