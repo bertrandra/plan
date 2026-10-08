@@ -18,8 +18,10 @@
 
 import { pointInPolygon } from '../geometry/basic.js';
 import { affichageRelief, centreCellule, empriseGrille, zLocal, type Emprise } from '../model/relief.js';
+import { intersectionEmprises } from '../model/calque.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut, Relief } from '../model/types.js';
+import type { TuileOrtho } from '../render/ortho.js';
 import type { VersLocal } from './primitives.js';
 
 /** Le sol que la scene 3D pose et sur lequel elle pose les objets. */
@@ -31,10 +33,10 @@ export interface SolRelief {
   basSous: (contour: readonly PtBrut[]) => number;
 }
 
-/** Le decalage de la photo aerienne au-dessus du sol : celui de la dalle plate (three/scene.ts). */
-export const DECALAGE_ORTHO_M = 0.004;
-/** La subdivision des dalles orthophoto sur un sol en relief, en metres. */
-export const PAS_DALLE_ORTHO_M = 1;
+/** La largeur d'une tuile WMTS de l'IGN, en pixels : la densite de la texture du sol s'en deduit. */
+export const PX_PAR_TUILE = 256;
+/** Le plus grand cote de la texture du sol, en pixels : au-dela, les telephones refusent la texture. */
+export const TEXTURE_SOL_MAX_PX = 4096;
 /** La hauteur d'un trait pose sur le sol en relief : entre deux sommets, le sol est plan, le trait doit rester visible. */
 export const DECALAGE_TRAIT_SOL_M = 0.02;
 /** Le pas des points intermediaires d'un trait qui suit le sol, en metres. */
@@ -146,41 +148,126 @@ export function bornesCarre(cen: PtBrut, demiCote: number): Emprise {
 }
 
 /**
+ * L'emprise du maillage du sol : l'anneau exterieur, au moins un pas au-dela du bord des cellules,
+ * et jusqu'aux bornes que le plan vert couvre. C'est aussi l'emprise de la texture du sol.
+ */
+export function empriseSol(r: Relief, bornes: Emprise): Emprise {
+  const e = empriseGrille(r);
+  return {
+    xMin: Math.min(e.xMin - r.pas, bornes.xMin), xMax: Math.max(e.xMax + r.pas, bornes.xMax),
+    yMin: Math.min(e.yMin - r.pas, bornes.yMin), yMax: Math.max(e.yMax + r.pas, bornes.yMax)
+  };
+}
+
+/**
  * Les abscisses des sommets du sol : un sommet par cellule de la grille, et un anneau exterieur qui
- * porte le sol, plat, jusqu'aux bornes que le plan vert couvre.
+ * porte le sol, plat, jusqu'a `empriseSol`.
  */
 export function sommetsDuSol(r: Relief, bornes: Emprise): { xs: number[]; ys: number[] } {
-  const e = empriseGrille(r);
-  const xs: number[] = [], ys: number[] = [];
+  const a = empriseSol(r, bornes);
+  const xs: number[] = [a.xMin], ys: number[] = [a.yMax];
   for (let i = 0; i < r.nx; i++) xs.push(r.x0 + i * r.pas);
   for (let j = 0; j < r.ny; j++) ys.push(r.y0 - j * r.pas);
-  // L'anneau : au moins un pas au-dela du bord des cellules, et jusqu'au carre du plan vert.
-  xs.unshift(Math.min(e.xMin - r.pas, bornes.xMin));
-  xs.push(Math.max(e.xMax + r.pas, bornes.xMax));
-  ys.unshift(Math.max(e.yMax + r.pas, bornes.yMax));
-  ys.push(Math.min(e.yMin - r.pas, bornes.yMin));
+  xs.push(a.xMax);
+  ys.push(a.yMin);
   return { xs, ys };
 }
 
-/** La geometrie du sol en relief, prete a recevoir le materiau du sol vert. */
+/**
+ * La geometrie du sol en relief, prete a recevoir le materiau du sol vert — ou la photo aerienne :
+ * ses `uv` couvrent `empriseSol`, u d'ouest en est, v du sud au nord, pour que la texture composee
+ * par `peindreOrthoSurSol` tombe juste.
+ */
 export function geometrieSol(sol: SolRelief, bornes: Emprise, versLocal: VersLocal): THREE_NS.BufferGeometry {
   const { xs, ys } = sommetsDuSol(sol.relief, bornes);
-  return geometrieSurSol(xs, ys, sol, versLocal, 0);
+  const a = empriseSol(sol.relief, bornes);
+  return geometrieSurSol(xs, ys, sol, versLocal, 0, (x, y) => [(x - a.xMin) / (a.xMax - a.xMin), (y - a.yMin) / (a.yMax - a.yMin)]);
 }
 
-/** Les abscisses d'une dalle subdivisee tous les `pas` metres au plus, bornes comprises. */
-export function subdiviser(min: number, max: number, pas: number): number[] {
-  const n = Math.max(1, Math.ceil((max - min) / pas - 1e-9));
-  return Array.from({ length: n + 1 }, (_, k) => min + (max - min) * k / n);
+// ---- La photo aerienne sur le sol en relief ------------------------------------------------------
+//
+// Avant : une dalle par tuile, subdivisee au metre et posee 4 mm au-dessus du sol. Deux maillages
+// du meme terrain qui ne l'interpolent pas pareil — le sol en triangles sur la grille, la dalle en
+// bilineaire au metre — se croisent de quelques centimetres entre les sommets, et la photo passait
+// sous le sol vert par taches. Aucun decalage ni `polygonOffset` ne corrige un croisement de
+// geometries. Desormais la photo est PEINTE sur le maillage du sol : les tuiles composees en une
+// texture, posee sur son materiau. Une seule surface, rien ne peut passer dessous.
+
+/**
+ * La taille de la texture du sol : la densite des tuiles, en puissances de deux (toute carte
+ * graphique les accepte), `TEXTURE_SOL_MAX_PX` au plus par cote.
+ */
+export function tailleTextureSol(emprise: Emprise, pxParMetre: number, max = TEXTURE_SOL_MAX_PX): { largeur: number; hauteur: number } {
+  const pot = (n: number) => Math.min(max, Math.max(64, 2 ** Math.ceil(Math.log2(Math.max(1, n)))));
+  return { largeur: pot((emprise.xMax - emprise.xMin) * pxParMetre), hauteur: pot((emprise.yMax - emprise.yMin) * pxParMetre) };
 }
 
-/** Une dalle de la photo aerienne qui epouse le sol, a `DECALAGE_ORTHO_M` au-dessus de lui. */
-export function geometrieDalleSurSol(t: { xMin: number; yMin: number; largeur: number; hauteur: number }, sol: SolRelief, versLocal: VersLocal, cadre?: Emprise): THREE_NS.BufferGeometry {
-  // Coupee a un cadre (le calque), la dalle n'en couvre qu'une part : ses `uv` restent ceux de la tuile.
-  const c = cadre ?? { xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur };
-  const xs = subdiviser(c.xMin, c.xMax, PAS_DALLE_ORTHO_M);
-  const ys = subdiviser(c.yMin, c.yMax, PAS_DALLE_ORTHO_M).reverse();
-  return geometrieSurSol(xs, ys, sol, versLocal, DECALAGE_ORTHO_M, (x, y) => [(x - t.xMin) / t.largeur, (y - t.yMin) / t.hauteur]);
+/** Une decoupe : la part de la tuile a peindre (fractions de son image) et ou la poser (pixels de la texture). */
+export interface DecoupeTuile {
+  tuile: TuileOrtho;
+  /** x, y, largeur, hauteur, en fractions de l'image de la tuile, le haut etant le nord. */
+  source: [number, number, number, number];
+  /** x, y, largeur, hauteur, en pixels de la texture, le haut etant le nord. */
+  destination: [number, number, number, number];
+}
+
+/**
+ * Ou chaque tuile se peint sur la texture du sol : coupee au calque (`bornes`, la photo ne va pas
+ * au-dela), placee dans l'emprise du maillage (`emprise`). Pure : le dessin est dans
+ * `peindreOrthoSurSol`, et c'est ceci que les tests eprouvent.
+ */
+export function decoupesTuiles(tuiles: readonly TuileOrtho[], bornes: Emprise, emprise: Emprise, taille: { largeur: number; hauteur: number }): DecoupeTuile[] {
+  const sx = taille.largeur / (emprise.xMax - emprise.xMin), sy = taille.hauteur / (emprise.yMax - emprise.yMin);
+  const out: DecoupeTuile[] = [];
+  for (const t of tuiles) {
+    if (!t.dataUri || t.largeur <= 0 || t.hauteur <= 0) continue;
+    const c = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
+    if (!c) continue;
+    out.push({
+      tuile: t,
+      source: [(c.xMin - t.xMin) / t.largeur, (t.yMin + t.hauteur - c.yMax) / t.hauteur, (c.xMax - c.xMin) / t.largeur, (c.yMax - c.yMin) / t.hauteur],
+      destination: [(c.xMin - emprise.xMin) * sx, (emprise.yMax - c.yMax) * sy, (c.xMax - c.xMin) * sx, (c.yMax - c.yMin) * sy]
+    });
+  }
+  return out;
+}
+
+/**
+ * Peint la photo aerienne sur le sol en relief : la texture part du vert du sol (ce que la photo ne
+ * couvre pas le reste), chaque tuile s'y dessine quand son image est decodee, et le materiau du sol
+ * la porte — son vert passe au blanc pour ne pas teinter la photo. La boucle de rendu est continue
+ * (three/scene.ts) : une tuile peinte tard se voit a l'image suivante. Rend `false` sans canvas 2D
+ * (jsdom) : le sol reste vert, et rien d'autre ne change.
+ */
+export function peindreOrthoSurSol(tuiles: readonly TuileOrtho[], bornes: Emprise, r: Relief, mat: THREE_NS.MeshStandardMaterial): boolean {
+  const premiere = tuiles.find(t => !!t.dataUri && t.largeur > 0);
+  if (!premiere) return false;
+  const emprise = empriseSol(r, bornes);
+  const taille = tailleTextureSol(emprise, PX_PAR_TUILE / premiere.largeur);
+  const canvas = document.createElement('canvas');
+  canvas.width = taille.largeur;
+  canvas.height = taille.hauteur;
+  const g = canvas.getContext('2d');
+  if (!g) return false;
+  g.fillStyle = '#' + mat.color.getHexString();
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  const tex = new THREE.CanvasTexture(canvas);
+  // Meme garde-fou que les dalles plates (three/scene.ts) : `colorSpace` n'existe qu'a partir de la r152.
+  const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
+  if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
+  mat.map = tex;
+  mat.color.set(0xffffff);
+  mat.needsUpdate = true;
+  for (const d of decoupesTuiles(tuiles, bornes, emprise, taille)) {
+    const img = new Image();
+    img.onload = () => {
+      const [fx, fy, fw, fh] = d.source, [dx, dy, dw, dh] = d.destination;
+      g.drawImage(img, fx * img.naturalWidth, fy * img.naturalHeight, fw * img.naturalWidth, fh * img.naturalHeight, dx, dy, dw, dh);
+      tex.needsUpdate = true;
+    };
+    img.src = d.tuile.dataUri as string;
+  }
+  return true;
 }
 
 /**
