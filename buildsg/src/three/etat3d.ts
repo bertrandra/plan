@@ -173,6 +173,8 @@ export const vue3d: {
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
+  /** Un grillage leger sur les limites des parcelles voisines (three/clotureVoisinage.ts) ; decoche par defaut. */
+  cloturesVoisinage: boolean;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -186,7 +188,8 @@ export const vue3d: {
   textures: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
-  ombres: true
+  ombres: true,
+  cloturesVoisinage: false
 };
 
 /**

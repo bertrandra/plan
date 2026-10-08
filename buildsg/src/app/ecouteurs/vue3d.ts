@@ -55,6 +55,8 @@ export interface ReglagesVue3d {
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
+  /** Un grillage sur les limites des parcelles voisines ; decoche par defaut. */
+  basculerCloturesVoisinage(actif: boolean): void;
 }
 
 export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): ReglagesVue3d {
@@ -174,6 +176,11 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
      * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
      */
-    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; })
+    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; }),
+    /**
+     * Décochée par défaut : le grillage du voisinage situe le projet dans sa rue, mais n'appartient
+     * qu'à l'affichage — rien n'est écrit sur les parcelles voisines.
+     */
+    basculerCloturesVoisinage: (actif) => preference(() => { vue3d.cloturesVoisinage = actif; })
   };
 }
