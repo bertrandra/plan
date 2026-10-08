@@ -268,6 +268,27 @@ voit la raison, pas seulement l'absence. La page écrit cette cause dans la cons
 l'hébergeur), et lit la route en `same-origin` pour qu'une telle protection reçoive son cookie en
 navigation directe. `scripts/verifier-deploiement.mjs` contrôle la route sur l'hôte.
 
+### Dépannage : la vitrine montre la démonstration intégrée au lieu de `file=<id>`
+
+Premier geste : `npm run verifier-deploiement https://<hôte>` (depuis le dépôt), ou ouvrir
+`https://<hôte>/admin/vitrine/<id>` dans le navigateur, et la console de la page de la vitrine
+(F12). La réponse dit la cause.
+
+| Réponse de `admin/vitrine/<id>` | Cause | Remède |
+|---|---|---|
+| `404 NOT_CONFIGURED` | `plan-admin-config.php` absent (à côté de `public_html/`, pas dedans), ou mot de passe encore « A-CHANGER » | Suivre l'étape 2 du `LISEZMOI-DEPLOIEMENT.txt` : copier la configuration hors du dossier publié, poser le mot de passe |
+| `404 NOT_FOUND` | Pas de `<id>.json` dans `dossierDemos` (par défaut `plan-demos/` à côté de la configuration). `plan-demos/` laissé dans `public_html/` est refusé par `.htaccess` et ignoré par l'admin | Copier `plan-demos/` à côté de `plan-admin-config.php` ; vérifier `dossierDemos` dans la configuration |
+| `500 UNREADABLE` | Le fichier existe mais PHP ne peut pas le lire : droits du fichier (par ex. 600 d'un autre utilisateur) | Dossier 755, fichiers 644, même utilisateur que le site |
+| `500 SERVER_ERROR` « dossier impossible à créer » | `dossierDemos` n'existe pas et PHP n'a pas le droit de le créer | Créer le dossier à la main, droits 755 |
+| Une page **HTML** (souvent `202`) à la place du JSON | La protection anti-robots de l'hébergeur (SiteGround « Robot Challenge ») répond à la place d'`admin.php` : la requête n'avait pas son cookie — c'est le cas depuis l'`<iframe>` en bac à sable, qui n'en envoie aucun | Exclure `admin/vitrine/` de la protection anti-robots dans Site Tools (ou l'alléger pour ce chemin). Côté page, rien ne peut contourner : la console le dit (« réponse HTML au lieu de JSON ») |
+| `200` JSON, mais `Access-Control-Allow-Origin` absent | Un `admin.php` d'avant le 5 octobre 2026, ou un proxy qui retire l'en-tête | Mettre à jour la livraison ; l'`<iframe>` en bac à sable (origine `null`) ne voit rien sans cet en-tête |
+| `200` JSON correct, et la vitrine montre quand même la démo intégrée | Le fichier n'est pas un plan (`objects` vide) ou son schéma est plus récent que le programme | La console de la page le dit (« aucun objet », « schéma N plus récent ») : réenregistrer la démo depuis l'admin, ou mettre la livraison à jour |
+
+Ce qui ne pose pas problème, vérifié le 8 octobre 2026 sur le paquet construit servi par PHP avec
+la politique de sécurité du `.htaccess` : l'`<iframe>` de la plateforme, sans bac à sable, en bac à
+sable strict (`allow-scripts allow-forms allow-popups`, origine `null`), ou avec
+`allow-same-origin`, et la navigation directe — la démo demandée s'affiche dans les quatre cas.
+
 **Conséquence à connaître** : toute démo du dossier se lit publiquement par son numéro. Une démo
 est faite pour être montrée ; n'y ranger rien qui ne doive pas l'être. L'écriture, la liste et la
 suppression restent derrière le mot de passe.
