@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Clôtures du voisinage » dans les réglages de la Vue 3D**, décochée par défaut. Cochée, elle
+  pose un grillage léger et translucide sur les limites des parcelles voisines, pour situer le projet
+  dans sa rue : chaque limite une fois, pas sur la limite commune avec la parcelle du projet quand
+  elle a sa clôture, en suivant le relief. Préférence d'affichage seulement : rien n'est écrit sur les
+  parcelles voisines, et l'export GLB ne change que si elle est cochée (`MD/spec-cloture.md` §4.1).
+
 - **La forme des toits mesurée sur le LiDAR HD de l'IGN.** À l'import depuis une adresse et à
   l'actualisation IGN, après la couleur des toits, Plan lit le modèle numérique de hauteur (MNH,
   grille de 50 cm) sous chaque bâtiment et y ajuste la forme qui l'explique le mieux : toit plat,
@@ -387,6 +393,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les toits-terrasses ont leur couleur en 3D.** Leur dessus prenait la couleur des murs ; il est
+  maintenant couvert de la couleur lue sur l'orthophoto, en retrait de 20 cm des murs (le dessus des
+  murs se lit comme un acrotère). Quand la photo n'est pas concluante, un toit plat est gris, jamais
+  tuile rouge ou brune ; un plan déjà importé dont un toit plat avait été rabattu sur une tuile
+  s'affiche gris sans relecture (`MD/spec-toit-ign.md` §6.1).
+
+- **Moins de traits sur les bâtiments.** Le trait le long de l'égout, qui se voyait à travers le
+  débord du toit, est retiré ; les angles des murs restent, mais dans la teinte du mur légèrement
+  assombrie au lieu d'un trait sombre, et seulement aux vrais angles (pas aux sommets presque
+  alignés d'un contour BD TOPO).
+
 - **Le voisinage étendu va jusqu'à 1 000 m** (curseur de 10 à 1 000 m, au pas de 10, à l'import
   depuis une adresse comme à l'actualisation). Le disque n'est plus lu d'un coup au plus grand
   rayon : il est lu par paliers (200, 500, 1 000 m), au palier qui couvre le curseur, et relu plus
@@ -469,6 +486,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
 
 ### Corrigé
+
+- **Sur un sol en relief, le soubassement des bâtiments descend jusqu'au sol.** Il partait du sol au
+  centre du bâtiment et laissait un vide sous le mur du côté qui descend ; il part maintenant du point
+  le plus bas du sol sous le bâtiment et suit la pente. Les angles et la porte suivent de même.
 
 - **Vue 3D en relief : le sol vert passait par taches à travers l'orthophoto.** Sur un sol en
   relief, la photo était une seconde surface — une dalle par tuile, subdivisée au mètre, posée 4 mm

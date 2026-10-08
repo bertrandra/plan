@@ -164,7 +164,7 @@ export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[],
       img = null;
     }
     if (!img) continue;
-    const lue = couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj));
+    const lue = couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj), toit.forme === 'plat');
     toit.couleur = lue.couleur;
     toit.origineCouleur = lue.origine;
     if (lue.origine === 'orthophoto') bilan.lus++;

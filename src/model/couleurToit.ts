@@ -96,8 +96,25 @@ export function couvertureRepli(c: Rgb): CouvertureRepli {
 /**
  * La couleur d'une couverture, d'apres les pixels de l'orthophoto pris sous son contour, en RGBA
  * a plat (le format de `ImageData.data`). Les pixels transparents (hors tuile) sont ignores.
+ * `plat` : un toit-terrasse (membrane, gravillons, zinc) ne se rabat jamais sur une tuile — quand
+ * la photo n'est pas concluante, il est gris.
  */
-export function couleurToitDepuisPixels(rgba: ArrayLike<number>): CouleurToitLue {
+export function couleurToitDepuisPixels(rgba: ArrayLike<number>, plat = false): CouleurToitLue {
+  const lue = lireCouleur(rgba);
+  return plat && lue.origine !== 'orthophoto' ? { couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' } : lue;
+}
+
+/**
+ * La couleur d'un toit-terrasse en 3D : celle lue sur l'orthophoto, ou choisie ; grise quand Plan
+ * l'avait rabattue sur une tuile (un plan lu avant que le toit plat ait son repli).
+ */
+export function couleurToitPlat(toit: { couleur?: string; origineCouleur?: string } | null | undefined): string {
+  const o = toit?.origineCouleur;
+  if (!toit?.couleur || o === 'rouge' || o === 'brun') return COULEURS_TOIT_REPLI.gris;
+  return toit.couleur;
+}
+
+function lireCouleur(rgba: ArrayLike<number>): CouleurToitLue {
   const px: Rgb[] = [];
   for (let i = 0; i + 3 < rgba.length; i += 4) {
     if (au(rgba, i + 3) < 128) continue;
