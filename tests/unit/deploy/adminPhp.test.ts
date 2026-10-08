@@ -70,10 +70,31 @@ describe.skipIf(!php)('admin.php', () => {
     fs.rmSync(demos, { recursive: true, force: true });
   });
 
-  it('sans mot de passe configure, rien n existe', async () => {
+  it('sans mot de passe configure, rien n existe — sauf la vitrine, qui dit pourquoi', async () => {
     configurer('A-CHANGER');
     expect((await navigateur('admin/session')).status).toBe(404);
     expect(await sessionAdmin(navigateur)).toBe(null);
+    // La vitrine ne lit pas sa demo, et le dit, de toute origine : l'<iframe> en bac a sable le voit.
+    const v = await fetch(base + '/admin/vitrine/1');
+    expect(v.status).toBe(404);
+    expect((await v.json()).error.code).toBe('NOT_CONFIGURED');
+    expect(v.headers.get('access-control-allow-origin')).toBe('*');
+  });
+
+  // Root lit tout, droits ou pas : ce cas ne s'eprouve qu'en utilisateur ordinaire (la CI l'est).
+  it.skipIf(process.getuid?.() === 0)('dit qu une demo presente est illisible (droits du fichier)', async () => {
+    fs.mkdirSync(demos, { recursive: true });
+    const f = path.join(demos, '1.json');
+    fs.writeFileSync(f, JSON.stringify(PLAN));
+    fs.chmodSync(f, 0o000);
+    try {
+      const r = await fetch(base + '/admin/vitrine/1');
+      expect(r.status).toBe(500);
+      expect((await r.json()).error.code).toBe('UNREADABLE');
+      expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    } finally {
+      fs.chmodSync(f, 0o644);
+    }
   });
 
   it('refuse sans session, sans en-tete, et un mauvais mot de passe', async () => {

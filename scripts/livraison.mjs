@@ -72,6 +72,10 @@ Plateforme : ${origine}
       l'admin. Les demos enregistrees ensuite y sont rangees : une nouvelle mise en ligne ne les
       touche pas. Si plan-demos/ existe deja la-bas, ne pas l'ecraser : ce sont vos demos.
       Laisse dans public_html/, il est refuse par .htaccess (404) et l'admin ne le voit pas.
+   d. Droits : plan-demos/ et ses fichiers doivent etre lisibles par PHP (dossier 755, fichiers
+      644, meme utilisateur que le site). Un fichier present mais illisible, ou une configuration
+      absente, laisse la vitrine (?mode=demo&file=<n>) sur la demonstration integree : la raison
+      se lit alors sur https://<hote>/admin/vitrine/<n> et dans la console de la page.
    Sans ce fichier de configuration, l'admin n'existe pas (admin/... repond 404).
 
 3. Verifier :
@@ -80,6 +84,8 @@ Plateforme : ${origine}
    - https://<hote>/?demofile=1      la demo 1 (admin seulement)
    - https://<hote>/admin/demos      doit repondre 401 sans session
    - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
+   - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
+                                       montre la demonstration integree, et la reponse dit pourquoi
    - npm run verifier-deploiement https://<hote>   (depuis le depot)
 
 Une demo est un fichier JSON au format de l'export de Plan ({meta, objects, measures}).

@@ -259,6 +259,15 @@ enregistre.
 plus récent que le programme laisse la démonstration intégrée : la vitrine encadrée sur une page
 d'accueil n'est jamais vide.
 
+**Quand la démo n'est pas lue, la cause se dit** (8 octobre 2026). `admin/vitrine/<id>` répond
+`404 NOT_CONFIGURED` sans configuration admin, `404 NOT_FOUND` sans fichier, `500 UNREADABLE` pour un
+fichier présent mais illisible par PHP (droits), et tous ses refus portent
+`Access-Control-Allow-Origin: *` : l'`<iframe>` en bac à sable de la plateforme (origine `null`)
+voit la raison, pas seulement l'absence. La page écrit cette cause dans la console
+(`chargerDemoVitrine`), y compris une réponse HTML à la place du JSON (protection anti-robots de
+l'hébergeur), et lit la route en `same-origin` pour qu'une telle protection reçoive son cookie en
+navigation directe. `scripts/verifier-deploiement.mjs` contrôle la route sur l'hôte.
+
 **Conséquence à connaître** : toute démo du dossier se lit publiquement par son numéro. Une démo
 est faite pour être montrée ; n'y ranger rien qui ne doive pas l'être. L'écriture, la liste et la
 suppression restent derrière le mot de passe.

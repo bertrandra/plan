@@ -440,6 +440,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vitrine `?mode=demo&file=<n>` : quand la démo n'est pas lue, la cause se dit, au lieu d'un repli
+  muet.** Trois pannes de l'hôte se ressemblaient — la scène n'était pas celle demandée, et rien ne
+  disait pourquoi : un fichier de démo **présent mais illisible par PHP (droits)** passait `is_file`
+  et répondait un 200 au corps vide ; un **admin non configuré** (`plan-admin-config.php` absent ou
+  mot de passe « A-CHANGER ») répondait 404 « Introuvable », comme une démo absente ; une
+  **protection anti-robots de l'hébergeur** répondait sa page HTML à la place du JSON. Désormais
+  `admin/vitrine/<n>` répond `500 UNREADABLE` (droits du fichier) ou `404 NOT_CONFIGURED`, et tous ses
+  refus portent `Access-Control-Allow-Origin: *`, pour que l'`<iframe>` en bac à sable de la
+  plateforme voie la raison et pas seulement l'absence. La page écrit la cause dans la console
+  (« Vitrine : la démo « 2 » n'a pas été lue (HTTP 500 UNREADABLE : …) ; la démonstration intégrée
+  est affichée. »), nomme une réponse HTML pour ce qu'elle est, et envoie ses cookies
+  (`same-origin`) pour qu'une protection anti-robots qui les exige ne la bloque pas en navigation
+  directe. `npm run verifier-deploiement https://<hôte>` contrôle la route et nomme la cause sur
+  l'hôte réel ; le LISEZMOI de la livraison précise les droits attendus (755/644). Reproduit sur
+  le paquet construit, servi par PHP avec la politique de sécurité du `.htaccess`, dans un
+  `<iframe>` d'une autre origine : sans bac à sable, en bac à sable strict, avec
+  `allow-same-origin`, et en navigation directe — la démo demandée s'affiche dans les quatre cas.
+
 - **Vitrine dans un `<iframe>` bas : les boutons de navigation ne débordent plus.** Un cadre de moins
   de 1 024 px de large passe dans la classe d'écran « moyen » ou « compact », qui descend les boutons
   de 116 px pour la barre d'application — absente de la vitrine. Dans un cadre de 600 × 300, les

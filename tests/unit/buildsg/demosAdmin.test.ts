@@ -117,6 +117,34 @@ describe('la vitrine lit une demo sans session', () => {
     // La liste et l'ecriture restent derriere la session.
     expect((await fetch(base + '/admin/demos')).status).toBe(401);
   });
+
+  it('dit pourquoi elle ne lit pas sa demo, de toute origine : admin non configure, fichier absent', async () => {
+    await demarrer(undefined);
+    let r = await fetch(base + '/admin/vitrine/1');
+    expect(r.status).toBe(404);
+    expect((await r.json()).error.code).toBe('NOT_CONFIGURED');
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    await demarrer(MDP);
+    r = await fetch(base + '/admin/vitrine/1');
+    expect(r.status).toBe(404);
+    expect((await r.json()).error.code).toBe('NOT_FOUND');
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+  });
+
+  // Root lit tout, droits ou pas : ce cas ne s'eprouve qu'en utilisateur ordinaire (la CI l'est).
+  it.skipIf(process.getuid?.() === 0)('dit qu une demo presente est illisible (droits du fichier)', async () => {
+    await demarrer(MDP);
+    const f = path.join(dossier, '1.json');
+    fs.writeFileSync(f, JSON.stringify(PLAN));
+    fs.chmodSync(f, 0o000);
+    try {
+      const r = await fetch(base + '/admin/vitrine/1');
+      expect(r.status).toBe(500);
+      expect((await r.json()).error.code).toBe('UNREADABLE');
+    } finally {
+      fs.chmodSync(f, 0o644);
+    }
+  });
 });
 
 describe('se deconnecter de l admin', () => {
