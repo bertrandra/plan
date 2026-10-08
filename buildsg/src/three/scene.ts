@@ -23,6 +23,7 @@ import { showErrBanner } from '../shell/dialogs.js';
 import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
+import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
@@ -599,7 +600,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'polygon' && estBatiment(o)) {
       const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
       ajouterDetailsBatiment(
-        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures, distance: dist(centre, co.centre) },
+        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures, distance: dist(centre, co.centre),
+          // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
+          ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
         o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote) }
       );
     }
@@ -689,6 +692,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   else ajouterPiscinesSeules(etat, co);
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
   if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
+  // Les clotures du voisinage : une option d'affichage, avec le reste du plan.
+  if (vue3d.cloturesVoisinage && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+    ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined);
+  }
   appliquerOmbres(scene, ground);
 
   const sc: SceneVue3d = {
