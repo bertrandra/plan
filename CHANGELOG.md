@@ -440,6 +440,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vue 3D en relief : le sol vert passait par taches à travers l'orthophoto.** Sur un sol en
+  relief, la photo était une seconde surface — une dalle par tuile, subdivisée au mètre, posée 4 mm
+  au-dessus du sol. Deux maillages du même terrain qui ne l'interpolent pas pareil (le sol en
+  triangles sur la grille d'altitudes, la dalle en bilinéaire au mètre) se croisent de quelques
+  centimètres entre les sommets, et la photo passait sous le sol vert. La photo est désormais
+  **peinte sur le maillage du sol lui-même** : les tuiles composées en une seule texture (puissances
+  de deux, 4 096 px au plus), posée sur le matériau du sol, dont les `uv` couvrent son emprise. Une
+  seule surface, rien ne peut passer dessous ; la photo reste coupée au calque, et le vert du sol
+  garde ce qu'elle ne couvre pas. Le sol plat garde ses dalles d'avant (`three/relief3d.ts`,
+  `three/scene.ts`).
+
 - **Vitrine `?mode=demo&file=<n>` : quand la démo n'est pas lue, la cause se dit, au lieu d'un repli
   muet.** Trois pannes de l'hôte se ressemblaient — la scène n'était pas celle demandée, et rien ne
   disait pourquoi : un fichier de démo **présent mais illisible par PHP (droits)** passait `is_file`

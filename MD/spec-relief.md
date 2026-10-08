@@ -249,7 +249,10 @@ deux extrémités (`z(b) − z(a)`, signé) et la pente du segment. Affichage se
 
 - Le plan vert de `monterScene` (`three/scene.ts`) devient une **`PlaneGeometry` subdivisée à la
   grille**, chaque sommet à `zLocal` ; hors de l'emprise, le sol continue plat à la hauteur du bord.
-  Les dalles de l'orthophoto épousent le même relief (mêmes sommets, mêmes `uv`).
+  L'orthophoto est **peinte sur le maillage du sol lui-même** (`peindreOrthoSurSol` : les tuiles
+  composées en une texture, les `uv` du sol sur son emprise) — une seconde surface posée dessus,
+  même à 4 mm, passait par taches sous le sol vert, deux maillages du même terrain ne l'interpolant
+  pas pareil (8 octobre 2026). Sur un sol plat, les dalles d'avant restent.
 - **Les objets suivent le sol** : un prisme (bâtiment, abri, arbre) part du **point le plus bas** du
   sol sous son contour et monte jusqu'à `z(centroïde) + elevation` ; il n'est ni enterré ni en
   l'air. La terrasse reste à sa hauteur finie au-dessus de `zRef` : en aval, on **voit le vide**
