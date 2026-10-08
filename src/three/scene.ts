@@ -22,6 +22,7 @@ import { hauteurParasolDe } from '../engine/parasol.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
+import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
@@ -34,7 +35,7 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, estTerrasse, visibleEnIsolement } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estTerrasse, estBatiment, visibleEnIsolement } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
@@ -407,7 +408,7 @@ export const OPACITE_LAMES_TRANSLUCIDES = 0.15;
  * d'appui, de poteau et de bord de bassin — `null` quand le sol dessine est plat. `objets` : le plan,
  * pour les calculs qui lisent d'autres objets (la plage d'une piscine, son relief).
  */
-interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null; solMoteur: Sol | null; objets: ObjetPlan[] }
+interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null; solMoteur: Sol | null; objets: ObjetPlan[]; /** Le centre de la scene : les details d'un batiment s'allegent avec la distance. */ centre: PtBrut }
 
 /**
  * Ou poser un objet sur le sol : sa base au point le plus bas du sol sous son contour, son haut a la
@@ -593,6 +594,15 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
       ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);
     }
+    // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
+    // soubassement, fenetres par niveau, cheminee — moins de loin.
+    if (o.type === 'polygon' && estBatiment(o)) {
+      const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
+      ajouterDetailsBatiment(
+        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures, distance: dist(centre, co.centre) },
+        o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote) }
+      );
+    }
     if (o.fonction === 'arbre') ajouterFeuillage(o, h, co);
   });
 }
@@ -671,7 +681,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
   ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
-  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects };
+  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects, centre: cen };
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.

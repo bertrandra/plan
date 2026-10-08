@@ -7,6 +7,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La forme des toits mesurée sur le LiDAR HD de l'IGN.** À l'import depuis une adresse et à
+  l'actualisation IGN, après la couleur des toits, Plan lit le modèle numérique de hauteur (MNH,
+  grille de 50 cm) sous chaque bâtiment et y ajuste la forme qui l'explique le mieux : toit plat,
+  croupes, deux pans ou quatre pans, dans l'axe du plus long mur ou en travers — avec la hauteur du
+  faîtage et celle de l'égout mesurées, là où la BD TOPO les devinait à un mètre près et ne
+  connaissait pas les pignons. Un arbre ou une cheminée qui déborde sur le toit est écarté ; un toit
+  que rien de simple n'explique garde sa forme BD TOPO. Les bâtiments les plus proches de la
+  parcelle d'abord (150 au plus, 20 s), sans dalle LiDAR rien n'est lu. Les toits lus sur une photo
+  ou saisis ne sont pas touchés. L'inspecteur dit « ajustée sur le LiDAR HD de l'IGN »
+  (`MD/spec-toit-ign.md` §10).
+
+- **Des bâtiments qui ne sont plus des cubes avec un chapeau (Vue 3D et export GLB).** Chaque
+  bâtiment reçoit, sans donnée nouvelle : un débord de toit de 40 cm dans le prolongement des pans,
+  avec son épaisseur, sa sous-face et l'ombre sous l'égout ; une gouttière le long des égouts ; les
+  arêtes des murs et du toit en trait fin ; un soubassement plus sombre ; des fenêtres régulières à
+  chaque niveau (le nombre d'étages de la BD TOPO, sinon la hauteur) et une porte au rez-de-chaussée
+  du plus long mur, sauf sur un mur photographié ; une cheminée sur un toit en pente. Au-delà de
+  120 m du centre de la scène, seuls le débord et les arêtes : un voisinage de deux mille bâtiments
+  reste fluide. La structure du GLB exporté change (témoin recapturé, `EMPREINTES.md`) ; aucune
+  quantité ni aucun autre export ne bouge (`MD/spec-toit-ign.md` §6.3).
+
 - **La taille du projet après l'heure d'enregistrement.** La barre d'état dit « Enregistré à 10:42
   (820 Ko) » : la taille de ce qui part à la plateforme, pour voir venir sa limite avant qu'elle ne
   refuse le projet. Si l'enregistrement échoue, la taille est mise à jour quand même : « Échec de
@@ -365,6 +386,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`vue3d.apresSoleil`), sans clignotement.
 
 ### Modifié
+
+- **Le voisinage étendu va jusqu'à 1 000 m** (curseur de 10 à 1 000 m, au pas de 10, à l'import
+  depuis une adresse comme à l'actualisation). Le disque n'est plus lu d'un coup au plus grand
+  rayon : il est lu par paliers (200, 500, 1 000 m), au palier qui couvre le curseur, et relu plus
+  large si le curseur le dépasse ; sous le palier lu, le compte suit le curseur sans réseau. Au-delà
+  de 200 m, un avertissement rappelle que le plan s'alourdit (jusqu'à 2 000 parcelles et autant de
+  bâtiments, les plus proches) et que la plateforme peut refuser de l'enregistrer. Les lectures
+  au-delà de 200 m parcourent jusqu'à 10 000 entités par famille avant de garder les 2 000 plus
+  proches.
 
 - **Le voisinage arrive sans noms affichés.** Les parcelles et les bâtiments (principaux et annexes)
   du voisinage — voisinage étendu de l'import, « Ajouter le voisinage » de l'actualisation IGN —

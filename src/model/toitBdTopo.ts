@@ -68,11 +68,11 @@ export function toitBdTopo(pts: readonly PtBrut[], a: AttributsToit): Toit {
 
 /**
  * Ce que l'actualisation fait du toit d'un batiment (MD/spec-toit-ign.md §5.3) : un toit lu sur une
- * photo ou saisi est garde ; un toit BD TOPO est recalcule, en gardant la couleur choisie ; un
- * batiment sans toit en recoit un.
+ * photo ou saisi est garde ; un toit BD TOPO ou LiDAR est recalcule, en gardant la couleur choisie
+ * (le LiDAR est relu ensuite, §10) ; un batiment sans toit en recoit un.
  */
 export function toitActualise(ancien: Toit | null | undefined, pts: readonly PtBrut[], a: AttributsToit): Toit {
-  if (ancien && ancien.source !== 'bdtopo') return ancien;
+  if (ancien && ancien.source !== 'bdtopo' && ancien.source !== 'lidar') return ancien;
   const neuf = toitBdTopo(pts, a);
   if (!ancien?.couleur) return neuf;
   // Une couleur posee par Plan (orthophoto ou repli) suit le toit avec son origine : la lecture de

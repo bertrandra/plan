@@ -414,6 +414,28 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   réseau ajoute, 9 / 9 / 707 / 716. `octetsTotal` reste celui d'avant, que le point 24 ne vérifie
   pas : **à refermer** comme plus haut, sous `RECAPTURER_GLB=1` avec le réseau.
 
+  **8 octobre 2026 — `glb-structure.json` recapturé pour de bon, avec le réseau, et deux causes
+  démêlées.** Le point 24 sous `RECAPTURER_GLB=1`, serveur de développement, three.js r128 depuis
+  le paquet npm, les huit images de Poly Haven depuis le réseau : **3 533 024 octets, 292 nœuds,
+  289 mailles, 434 matériaux, 9 textures et 9 images, 965 accesseurs, 974 vues tampon, 1 scène.**
+  Les cinq autres combinaisons de classe et de thème rendent les mêmes compteurs.
+
+  Le témoin précédent était **en retard sur `main`** : mesuré le même jour, par le même point, sur
+  `origin/main` (`b838542`, avant ce changement), l'export rend déjà 283 nœuds, 280 mailles,
+  421 matériaux et 905 accesseurs — ce sont les poteaux et la toile de la pergola, la plage et le
+  bassin de la piscine, la clôture pièce par pièce, arrivés depuis le 2 octobre sans recapture
+  (tous annoncés dans le CHANGELOG, aucun n'étant une quantité). **La part du changement du jour**,
+  les détails des bâtiments en 3D (`three/detailsBatiment.ts`, spec-toit-ign §6.3), est la
+  différence : **+9 nœuds et +9 mailles** (pour les deux bâtiments de la démonstration : un débord
+  de toit, une gouttière, deux soubassements, deux lots d'ouvertures, une cheminée, et deux lots
+  d'arêtes exportés en lignes, mode 1), **+13 matériaux** (chaque lot a les siens), **+60
+  accesseurs** et autant de vues tampon. Le débord fait une maille à 28 primitives (dessus et
+  dessous par côté de la maison, qui en a quatorze), les ouvertures une maille à trois (cadres,
+  vitres, vantail). Les images ne bougent pas : rien de nouveau n'est photographié.
+
+  Le point 24 vérifie désormais ces compteurs-ci ; `octetsTotal` est pour la première fois
+  mesuré, pas additionné.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -431,7 +453,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `7433e2c2a5d9b8c9e2315e9bb715463629ce9e7d8cd58169d7e01b7793260859` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `4348e441e2ac1c4b03d06e27f934b713dbb2ea3bbe7c60bfce53cf0ba129e84b` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

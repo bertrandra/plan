@@ -20,6 +20,7 @@ import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, M
 import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
 import { serializeObjects } from '../io/serialisation.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
+import { toitsDepuisLidar } from './toitsLidar.js';
 import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
@@ -29,7 +30,7 @@ import {
   geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
   interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide,
-  RAYON_ETENDU_MAX_M, RAYON_ETENDU_DEFAUT_M,
+  rayonDeLecture, RAYON_ETENDU_DEFAUT_M,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../geo/apiIgn.js';
 import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../geo/apiIgn.js';
@@ -52,6 +53,8 @@ export interface ContexteImportCadastre {
   projetCible?: () => { id: string; name: string } | null;
   /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
   lireRelief?: typeof lireRelief;
+  /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
+  toitsLidar?: typeof toitsDepuisLidar;
 }
 
 export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres' | 'importerRelief' | 'reliefToutesParcelles';
@@ -93,11 +96,12 @@ export interface EtatImportCadastre {
   propriete: Set<string>;
   /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
   voisinageEtendu: boolean;
-  /** Le rayon du curseur, de 10 a 200 m. */
+  /** Le rayon du curseur, de 10 a 1 000 m. */
   rayonEtendu: number;
   /**
-   * Ce que l'IGN a rendu pour le plus grand disque (200 m), autour de la parcelle principale ; le
-   * rayon du curseur le filtre localement. `null` tant que rien n'est lu.
+   * Ce que l'IGN a rendu pour le palier de lecture qui couvre le curseur (200, 500 ou 1 000 m),
+   * autour de la parcelle principale ; le rayon du curseur le filtre localement. `null` tant que
+   * rien n'est lu ; relu au palier superieur si le curseur le depasse.
    */
   etenduMax: VoisinageRayon | null;
   /** L'option d'affichage : le voisinage etendu montre dans l'apercu et visible a l'ouverture du plan. */
@@ -150,9 +154,9 @@ export interface ImportCadastre {
   survoler(idu: string | null): void;
   basculerSimplifier(actif: boolean): void;
   basculerCaseIgn(cle: CaseIgn, actif: boolean): void;
-  /** Le voisinage etendu : le demander lit une fois le disque de 200 m, en plusieurs requetes. */
+  /** Le voisinage etendu : le demander lit le disque au palier du curseur, en plusieurs requetes. */
   basculerVoisinageEtendu(actif: boolean): Promise<void>;
-  /** Le rayon du curseur : aucun appel au reseau, le compte se filtre localement. */
+  /** Le rayon du curseur : le compte se filtre localement ; passer un palier relit le disque, plus grand. */
   reglerRayonEtendu(rayonM: number): void;
   basculerAfficherEtendu(actif: boolean): void;
   /** L'import direct, sans les etapes 2 et 3 : un choix memorise par le navigateur. */
@@ -206,7 +210,7 @@ interface Chargements {
   chargerVoisinage(c: Candidate): Promise<void>;
   appliquerPrincipale(c: Candidate): void;
   chargerIgnAvecMessage(c: Candidate): Promise<void>;
-  /** Le disque de 200 m autour de la principale, s'il est demande et pas encore lu. */
+  /** Le disque autour de la principale, au palier du curseur, s'il est demande et pas encore lu a ce palier. */
   chargerEtendu(): Promise<void>;
 }
 
@@ -374,18 +378,33 @@ function chargements(n: Noyau): Chargements {
     if (e.ignErreur) e.erreur = e.ignErreur;
   }
 
+  // Une lecture a la fois : la boucle relit tant que le curseur (ou la principale) a change pendant
+  // la lecture, et un appel pendant une lecture s'en remet a elle.
+  let lectureEnCours = false;
   async function chargerEtendu(): Promise<void> {
-    if (!e.voisinageEtendu || e.etenduMax || !e.principale) return;
-    const pour = e.principale.idu;
-    occuper(true, 'Parcelles et bâtiments à moins de ' + RAYON_ETENDU_MAX_M + ' m…');
+    if (lectureEnCours) return;
+    lectureEnCours = true;
     try {
-      const lu = await lireVoisinageRayon(centroid(e.principale.pts), proj(), RAYON_ETENDU_MAX_M, e.simplifier, new Set([pour]));
-      // La principale a pu changer pendant la lecture : ce disque n'est plus le sien.
-      if (e.principale && e.principale.idu === pour) e.etenduMax = lu;
-    } catch (err) {
-      e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
+      for (;;) {
+        if (!e.voisinageEtendu || !e.principale) return;
+        const rayon = rayonDeLecture(e.rayonEtendu);
+        if (e.etenduMax && e.etenduMax.rayonM >= rayon) return;
+        const pour = e.principale.idu;
+        occuper(true, 'Parcelles et bâtiments à moins de ' + rayon + ' m…');
+        try {
+          const lu = await lireVoisinageRayon(centroid(e.principale.pts), proj(), rayon, e.simplifier, new Set([pour]));
+          // La principale a pu changer pendant la lecture : ce disque n'est plus le sien, on relit.
+          if (e.principale && e.principale.idu === pour) e.etenduMax = lu;
+        } catch (err) {
+          e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
+          return;
+        } finally {
+          occuper(false);
+        }
+      }
+    } finally {
+      lectureEnCours = false;
     }
-    occuper(false);
   }
 
   return { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage, chargerEtendu };
@@ -559,7 +578,12 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
       signaler();
       if (actif) { await chargerEtendu(); signaler(); }
     },
-    reglerRayonEtendu(rayonM) { e.rayonEtendu = rayonEtenduValide(rayonM); signaler(); },
+    reglerRayonEtendu(rayonM) {
+      e.rayonEtendu = rayonEtenduValide(rayonM);
+      signaler();
+      // Le curseur a passe le palier lu : le disque est relu, plus grand ; le compte suit a l'arrivee.
+      if (e.voisinageEtendu && e.principale && (!e.etenduMax || e.etenduMax.rayonM < rayonDeLecture(e.rayonEtendu))) void chargerEtendu().then(signaler);
+    },
     basculerImportDirect(actif) {
       e.importDirect = actif;
       try { localStorage.setItem(CLE_IMPORT_DIRECT, actif ? '1' : '0'); } catch { /* stockage indisponible : le choix vaut pour cette fois */ }
@@ -621,6 +645,10 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       // reponse du WMTS, les toits gardent la tuile rouge par defaut : rien n'est bloque.
       occuper(true, 'Couleur des toits sur l’orthophoto…');
       await couleursToitsDepuisOrtho(objets, proj()).catch(() => null);
+      // La forme des toits, mesuree sur le MNH LiDAR HD (MD/spec-toit-ign.md §10) : les plus
+      // proches d'abord, dans un delai borne ; sans dalle LiDAR, les toits BD TOPO restent.
+      occuper(true, 'Forme des toits sur le LiDAR HD…');
+      await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj()).catch(() => null);
       const relief = await reliefImporte(objets, e, occuper, ctx.lireRelief ?? lireRelief);
       occuper(false);
       if (!ctx.apiDisponible) {

@@ -262,6 +262,7 @@
   button.petitBouton{ font-size:0.72rem; padding:2px 7px; white-space:nowrap; }
   .blocIgn{ margin-top:4px; display:flex; flex-direction:column; gap:3px; }
   .detailIgn{ font-size:0.78rem; opacity:0.75; margin:-2px 0 2px 22px; }
+  .detailIgn.avertissementRayon{ opacity:1; color:var(--avertissement); }
   .pluParcours{ font-size:0.8rem; margin-top:8px; line-height:1.45; }
   .pluParcours .discret{ opacity:0.75; }
   .etatParcours{ margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35; }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { objetsDepuisCadastre, type ImportCadastral, type ParcelleCadastrale, type ObjetBdTopo } from '../../../src/geo/cadastreObjets.js';
-import { lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide, RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M } from '../../../src/geo/apiIgn.js';
+import { lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide, rayonDeLecture, plafondLecture, RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M, RAYONS_LECTURE_M, MAX_OBJETS_RAYON } from '../../../src/geo/apiIgn.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
@@ -64,9 +64,16 @@ describe('la lecture d un voisinage dans un rayon', () => {
   const reponse = (corps: unknown) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(corps) } as unknown as Response);
   const feature = (id: string, pts: PtBrut[], props: Record<string, unknown>) => ({ type: 'Feature', id, properties: props, geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]!].map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; })] } });
 
-  it('borne le curseur de 10 a 200 m, au pas de 10', () => {
-    expect([RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M]).toEqual([10, 200]);
-    expect([0, 14, 15, 137, 999, Number.NaN].map(rayonEtenduValide)).toEqual([10, 10, 20, 140, 200, 50]);
+  it('borne le curseur de 10 a 1 000 m, au pas de 10', () => {
+    expect([RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M]).toEqual([10, 1000]);
+    expect([0, 14, 15, 137, 999, 4000, Number.NaN].map(rayonEtenduValide)).toEqual([10, 10, 20, 140, 1000, 1000, 50]);
+  });
+
+  it('lit le disque par paliers, et lit plus large que le plafond au-dela de 200 m', () => {
+    expect(RAYONS_LECTURE_M).toEqual([200, 500, 1000]);
+    expect([10, 200, 210, 500, 510, 1000].map(rayonDeLecture)).toEqual([200, 200, 500, 500, 1000, 1000]);
+    expect(plafondLecture(200)).toBe(MAX_OBJETS_RAYON * 2);
+    expect(plafondLecture(1000)).toBe(MAX_OBJETS_RAYON * 5);
   });
 
   it('garde le disque, trie, exclut la parcelle du projet, puis filtre localement a un rayon plus petit', async () => {

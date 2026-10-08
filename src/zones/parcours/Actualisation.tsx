@@ -5,7 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import type { InfosActualisation, OptionsActualisation } from '../../app/actualisationIgn.js';
-import { filtrerVoisinageRayon, MAX_OBJETS_RAYON, RAYON_ETENDU_DEFAUT_M, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, type VoisinageRayon } from '../../geo/apiIgn.js';
+import { filtrerVoisinageRayon, MAX_OBJETS_RAYON, RAYON_ETENDU_DEFAUT_M, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture, type VoisinageRayon } from '../../geo/apiIgn.js';
+import { AVERTISSEMENT_RAYON } from './avertissementRayon.js';
 
 interface Props { infos: InfosActualisation; lancer: (o: OptionsActualisation) => void; fermer: () => void }
 
@@ -23,20 +24,22 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   // Les parcelles adjacentes, ou tout ce qui est dans le rayon du curseur, en plusieurs requetes.
   const [enRayon, setEnRayon] = useState(false);
   const [rayon, setRayon] = useState(RAYON_ETENDU_DEFAUT_M);
-  // Le disque de 200 m, lu une fois des que le mode rayon est choisi : le compte suit le curseur.
+  // Le disque, lu une fois par palier (200, 500, 1 000 m) des que le mode rayon est choisi : sous le
+  // palier lu, le compte suit le curseur sans le reseau ; au-dela, le palier suivant est lu.
   const [disque, setDisque] = useState<VoisinageRayon | null>(null);
   const [echec, setEchec] = useState('');
   // Le relief, coche d'emblee, sur toutes les parcelles du plan.
   const [relief, setRelief] = useState(true);
   const [reliefToutes, setReliefToutes] = useState(true);
   const source = infos.voisinage;
+  const palier = rayonDeLecture(rayon);
   useEffect(() => {
-    if (!voisinage || !enRayon || disque || !source) return;
+    if (!voisinage || !enRayon || !source || (disque && disque.rayonM >= palier)) return;
     let vivant = true;
-    source.lire().then(v => { if (vivant) setDisque(v); }).catch(err => { if (vivant) setEchec((err as Error).message || String(err)); });
+    source.lire(palier).then(v => { if (vivant) setDisque(v); }).catch(err => { if (vivant) setEchec((err as Error).message || String(err)); });
     return () => { vivant = false; };
-  }, [voisinage, enRayon, disque, source]);
-  const compte = disque && source ? filtrerVoisinageRayon(disque, source.centre, rayon, { idus: source.idus, ids: source.ids }) : null;
+  }, [voisinage, enRayon, disque, source, palier]);
+  const compte = disque && source && disque.rayonM >= palier ? filtrerVoisinageRayon(disque, source.centre, rayon, { idus: source.idus, ids: source.ids }) : null;
   const sousCase = (libelle: string, coche: boolean, changer: (v: boolean) => void, titre: string) => (
     <label title={titre}><input type="checkbox" data-controle="actualisation.couche" checked={coche} disabled={!voisinage} onChange={(e) => changer(e.target.checked)} /> {libelle}</label>
   );
@@ -73,6 +76,7 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
             : compte ? compte.parcelles.length + ' parcelle(s) et ' + (batiments ? compte.batiments.length + ' bâtiment(s)' : 'aucun bâtiment (couche décochée)') + ' nouveaux à moins de ' + rayon + ' m' + (compte.tronque ? ', coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '.'
             : 'Lecture du voisinage…'}
         </div>}
+        {voisinage && enRayon && rayon > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{AVERTISSEMENT_RAYON}</div>}
         {sousCase('Bâti principal et annexes (BD TOPO, avec hauteur)', batiments, setBatiments, 'Emprise et hauteur reelles ; les batiments des voisins arrivent verrouilles.')}
         {sousCase('Haies et zones de végétation', vegetation, setVegetation, 'Couches haie et zone_de_vegetation de la BD TOPO.')}
         {sousCase('Arbres estimés dans ces zones', arbres, setArbres, 'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille d\'un arbre pour 64 m2 est repartie dans les zones de vegetation' + (enRayon ? ', a moins de 100 m de la parcelle seulement' : '') + '.')}

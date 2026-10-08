@@ -54,7 +54,7 @@ describe('l import depuis une adresse, en import direct', () => {
     cocher(hote.querySelector('[data-controle="cadastre.importDirect"]')!);
     const curseur = hote.querySelector<HTMLInputElement>('[data-controle="cadastre.rayon"]')!;
     expect(curseur.min).toBe('10');
-    expect(curseur.max).toBe('200');
+    expect(curseur.max).toBe('1000');
     expect(curseur.disabled).toBe(true);
     cocher(hote.querySelector('[data-controle="cadastre.voisinageEtendu"]')!);
     expect(curseur.disabled).toBe(false);
@@ -72,6 +72,14 @@ describe('l import depuis une adresse, en import direct', () => {
     expect(Number(m160[1])).toBeGreaterThan(Number(m60![1]));
     expect(Number(m160[2])).toBeGreaterThan(Number(m60![2]));
     expect(hote.querySelector('.apercuCadastre circle[stroke-dasharray]')).not.toBeNull();
+    // Au-dela de 200 m, l'avertissement sur le poids du plan ; et le palier de 500 m est relu.
+    expect(hote.querySelector('.avertissementRayon')).toBeNull();
+    glisser(curseur, 300);
+    expect(hote.querySelector('.avertissementRayon')?.textContent).toContain('Au-delà de 200 m');
+    await attendre();
+    expect(i.etat().etenduMax?.rayonM).toBe(500);
+    const m300 = /^(\d+) parcelle\(s\) et (\d+) bâtiment\(s\)/.exec(compte())!;
+    expect(Number(m300[1])).toBeGreaterThanOrEqual(Number(m160[1]));
   });
 });
 
@@ -98,6 +106,15 @@ describe('l actualisation, voisinage au curseur', () => {
     glisser(curseur, 200);
     expect(hote.textContent).toContain('3 parcelle(s) et 2 bâtiment(s) nouveaux à moins de 200 m');
     expect(lire).toHaveBeenCalledTimes(1);
+    expect(lire).toHaveBeenCalledWith(200);
+    expect(hote.querySelector('.avertissementRayon')).toBeNull();
+    // Le curseur passe le palier : le disque de 500 m est demande, et le poids du plan annonce.
+    glisser(curseur, 400);
+    await attendre();
+    expect(lire).toHaveBeenCalledTimes(2);
+    expect(lire).toHaveBeenLastCalledWith(500);
+    expect(hote.querySelector('.avertissementRayon')).not.toBeNull();
+    glisser(curseur, 200);
     act(() => { (hote.querySelector('[data-controle="actualisation.lancer"]') as HTMLButtonElement).click(); });
     expect(lancer.mock.calls[0]![0].voisinage).toMatchObject({ actif: true, rayonM: 200 });
   });
