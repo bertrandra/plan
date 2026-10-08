@@ -311,17 +311,42 @@ export interface DemoVitrine { objects: ObjetBrut[]; measures: Mesure[] }
  */
 export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch): Promise<DemoVitrine | null> {
   if (!ID_DEMO.test(id)) return null;
+  // La vitrine retombe sur la demonstration integree, mais pas en silence : la cause est ecrite dans
+  // la console. Un fichier illisible (droits), un admin non configure ou une protection anti-robots
+  // de l'hebergeur qui repond sa page a la place du JSON se ressemblaient tous : une scene qui n'est
+  // pas celle qu'on a demandee, et rien pour dire pourquoi.
+  const renoncer = (cause: string): null => {
+    console.warn('Vitrine : la démo « ' + id + ' » n’a pas été lue (' + cause + ') ; la démonstration intégrée est affichée.');
+    return null;
+  };
+  let r: Response;
   try {
-    const r = await lire('admin/vitrine/' + encodeURIComponent(id), { credentials: 'omit', headers: { Accept: 'application/json' } });
-    if (!r.ok) return null;
-    const d = await r.json() as { meta?: { schemaVersion?: unknown } | null; objects?: unknown; measures?: unknown };
-    if (!d || !Array.isArray(d.objects) || !d.objects.length) return null;
-    const schema = typeof d.meta?.schemaVersion === 'number' ? d.meta.schemaVersion : 1;
-    if (schema > SCHEMA_VERSION) return null;
+    // `same-origin` et non `omit` : la route ne lit aucun cookie, mais une protection anti-robots de
+    // l'hebergeur (SiteGround) peut, elle, exiger le sien et repondre sa page de controle sans lui.
+    // Dans l'<iframe> en bac a sable (origine `null`), rien ne part de toute facon.
+    r = await lire('admin/vitrine/' + encodeURIComponent(id), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+  } catch (e) {
+    return renoncer('injoignable : ' + ((e as Error).message || String(e)));
+  }
+  type Corps = { meta?: { schemaVersion?: unknown } | null; objects?: unknown; measures?: unknown; error?: { code?: unknown; message?: unknown } | null };
+  let d: Corps | null = null;
+  try { d = await r.json() as Corps; } catch { d = null; }
+  if (!r.ok) {
+    const e = d?.error;
+    return renoncer('HTTP ' + r.status + (e ? ' ' + String(e.code ?? '') + ' : ' + String(e.message ?? '') : ''));
+  }
+  if (!d || typeof d !== 'object') {
+    const type = r.headers.get('content-type') || '';
+    return renoncer('réponse ' + (/html/i.test(type) ? 'HTML' : 'illisible') + ' au lieu de JSON : une page d’erreur, ou une protection anti-robots de l’hébergeur, a répondu à la place d’admin.php');
+  }
+  if (!Array.isArray(d.objects) || !d.objects.length) return renoncer('le fichier n’est pas un plan : aucun objet');
+  const schema = typeof d.meta?.schemaVersion === 'number' ? d.meta.schemaVersion : 1;
+  if (schema > SCHEMA_VERSION) return renoncer('schéma ' + schema + ' plus récent que le programme (' + SCHEMA_VERSION + ')');
+  try {
     const lu = migrer({ objects: d.objects as ObjetBrut[], measures: Array.isArray(d.measures) ? d.measures as Mesure[] : [] }, schema);
     return { objects: lu.objects, measures: (lu.measures ?? []) as Mesure[] };
-  } catch {
-    return null;
+  } catch (e) {
+    return renoncer('fichier invalide : ' + ((e as Error).message || String(e)));
   }
 }
 
