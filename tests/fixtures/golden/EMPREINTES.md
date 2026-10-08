@@ -436,6 +436,13 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   Le point 24 vérifie désormais ces compteurs-ci ; `octetsTotal` est pour la première fois
   mesuré, pas additionné.
 
+  **Le même jour, plus tard — plus de trait sur le toit : seul `octetsTotal` bouge.** Les arêtes
+  du toit (faîtage, arêtiers, noues) ne sont plus tracées : les pans se lisent par la lumière, et le
+  trait sombre faisait paraître la couverture dessinée. Les arêtes des murs restent, dans la même
+  maille de lignes : **aucun compteur ne bouge** (292 / 289 / 434 / 9 / 9 / 965 / 974 / 1, mêmes
+  valeurs dans les six combinaisons du point 24), et l'export perd **1 540 octets**, les sommets de
+  ces segments : **3 531 484 octets**, recapturé sous `RECAPTURER_GLB=1`.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -453,7 +460,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `4348e441e2ac1c4b03d06e27f934b713dbb2ea3bbe7c60bfce53cf0ba129e84b` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `5f823a324100f5790b05faa21978557186a5a1068829f922165da48dd6a9672a` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

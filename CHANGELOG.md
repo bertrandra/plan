@@ -21,7 +21,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Des bâtiments qui ne sont plus des cubes avec un chapeau (Vue 3D et export GLB).** Chaque
   bâtiment reçoit, sans donnée nouvelle : un débord de toit de 40 cm dans le prolongement des pans,
   avec son épaisseur, sa sous-face et l'ombre sous l'égout ; une gouttière le long des égouts ; les
-  arêtes des murs et du toit en trait fin ; un soubassement plus sombre ; des fenêtres régulières à
+  arêtes des murs en trait fin (aucun trait sur le toit, dont les pans se lisent par la lumière) ; un soubassement plus sombre ; des fenêtres régulières à
   chaque niveau (le nombre d'étages de la BD TOPO, sinon la hauteur) et une porte au rez-de-chaussée
   du plus long mur, sauf sur un mur photographié ; une cheminée sur un toit en pente. Au-delà de
   120 m du centre de la scène, seuls le débord et les arêtes : un voisinage de deux mille bâtiments

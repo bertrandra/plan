@@ -2,7 +2,7 @@
 //
 // Un prisme coiffe de ses pans ressemble a un cube avec un chapeau. Ce qui fait « maison » tient a
 // peu de choses, toutes deductibles de ce que le plan sait deja : le toit deborde des murs et porte
-// une ombre sous l'egout, une gouttiere court le long des egouts, les aretes des murs et du toit se
+// une ombre sous l'egout, une gouttiere court le long des egouts, les aretes des murs se
 // lisent en trait fin, le pied du mur est plus sombre, des fenetres regulieres se repetent a chaque
 // niveau (le nombre d'etages de la BD TOPO, sinon la hauteur), une cheminee sort d'un toit en pente.
 //
@@ -265,10 +265,12 @@ function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toi
 }
 
 /**
- * Les aretes en trait fin : les angles des murs, l'egout, les aretes du toit (faitage, aretiers,
- * noues). Poussees d'un centimetre hors de la surface pour ne pas scintiller contre elle.
+ * Les aretes des murs en trait fin : les angles et l'egout. Poussees d'un centimetre hors de la
+ * surface pour ne pas scintiller contre elle. Pas de trait sur le toit : le faitage, les aretiers
+ * et les noues se lisent deja par la lumiere sur les pans, et un trait sombre par-dessus la
+ * couverture la faisait paraitre dessinee plutot que construite.
  */
-function poserAretes(ctx: ContexteDetails, volumes: readonly Volume[], contourHaut: readonly PtBrut[], toit: Toit | null | undefined, h: number): void {
+function poserAretes(ctx: ContexteDetails, volumes: readonly Volume[], contourHaut: readonly PtBrut[]): void {
   const pos: number[] = [];
   const centre = centroid(volumes.length ? au(volumes, 0).pts : contourHaut);
   const pousse = (p: PtBrut): PtBrut => {
@@ -288,14 +290,6 @@ function poserAretes(ctx: ContexteDetails, volumes: readonly Volume[], contourHa
       segment(p, v.hauteur, sommetDe(v.pts, i + 1), v.hauteur);
     });
   });
-  if (toit && toit.forme !== 'plat' && toit.hauteur > 0) {
-    facettesToit(contourHaut, toit).pans.forEach((pan) => {
-      pan.contour.forEach((p, i) => {
-        const q = sommetDe(pan.contour, i + 1);
-        segment(p, h + p.z, q, h + q.z);
-      });
-    });
-  }
   if (!pos.length) return;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -442,7 +436,7 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   const toit = o.toit;
   const pres = ctx.distance <= DETAIL_FIN_M;
   if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
-  poserAretes(ctx, volumes, contourHaut, toit, h);
+  poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
   poserSoubassement(ctx, o.pts, h);
   poserOuvertures(ctx, o.pts, volumes, h, options);
