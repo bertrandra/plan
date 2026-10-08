@@ -13,11 +13,12 @@ import { distancePointContour } from '../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { showToast } from '../shell/dialogs.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
+import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, RAYON_ETENDU_MAX_M, interrogerWfsEtendu, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -50,6 +51,8 @@ export interface ContexteActualisation {
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
   /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
   lireRelief?: typeof lireRelief;
+  /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
+  toitsLidar?: typeof toitsDepuisLidar;
 }
 
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
@@ -81,9 +84,10 @@ export interface InfosActualisation {
   aUnRelief: boolean;
   /**
    * De quoi compter le voisinage etendu avant de lancer : le centre de la parcelle (repere du plan),
-   * la lecture du disque de 200 m, et ce qui est deja dans le plan (ni compte, ni duplique).
+   * la lecture du disque au palier qui couvre le rayon demande (geo/apiIgn `rayonDeLecture`), et
+   * ce qui est deja dans le plan (ni compte, ni duplique).
    */
-  voisinage?: { centre: PtBrut; lire: () => Promise<VoisinageRayon>; idus: ReadonlySet<string>; ids: ReadonlySet<string> };
+  voisinage?: { centre: PtBrut; lire: (rayonM: number) => Promise<VoisinageRayon>; idus: ReadonlySet<string>; ids: ReadonlySet<string> };
 }
 
 type Cadastre = NonNullable<ObjetPlan['cadastre']>;
@@ -130,9 +134,15 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
         const centre = centroid(sommetsDe(parcelle));
         const idus = new Set(ctx.etat.objects.flatMap(o => { const idu = o.cadastre?.idu; return typeof idu === 'string' ? [idu] : []; }));
         const ids = new Set(ctx.etat.objects.flatMap(o => { const id = (o.bdtopo as { id?: unknown } | null | undefined)?.id; return typeof id === 'string' ? [id] : []; }));
-        let lecture: Promise<VoisinageRayon> | null = null;
-        // Une seule lecture par ouverture du dialogue : le curseur filtre ensuite localement.
-        return { centre, idus, ids, lire: () => (lecture ??= lireVoisinageRayon(centre, proj, RAYON_ETENDU_MAX_M, !!cad.simplifieM, new Set([cad.idu as string]))) };
+        const lectures = new Map<number, Promise<VoisinageRayon>>();
+        // Une seule lecture par palier et par ouverture du dialogue : le curseur filtre ensuite localement.
+        const lire = (rayonM: number): Promise<VoisinageRayon> => {
+          const palier = rayonDeLecture(rayonM);
+          let lecture = lectures.get(palier);
+          if (!lecture) { lecture = lireVoisinageRayon(centre, proj, palier, !!cad.simplifieM, new Set([cad.idu as string])); lectures.set(palier, lecture); }
+          return lecture;
+        };
+        return { centre, idus, ids, lire };
       })()
     },
     lancer: (options) => { parcours.fermer(); void actualiserDepuisIgn(options, ctx); }
@@ -215,6 +225,13 @@ async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bila
   if(!c || !(c.lus + c.replis)) return;
   bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
     (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
+}
+
+/** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
+async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+  const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj).catch(() => null);
+  const texte = b && texteBilanToitsLidar(b);
+  if(texte) bilan.push(texte);
 }
 
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
@@ -329,8 +346,9 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         bilan.push('voisinage non ajoute : ' + ((e as Error).message || e));
       }
     }
-    // ---- 3 ter. La couverture des toits, lue sur l'orthophoto
+    // ---- 3 ter. La couverture des toits (orthophoto), puis leur forme (MNH LiDAR HD, spec §10)
     await couleursDesToits(serialises, proj, bilan);
+    await formesDesToits(serialises, proj, bilan, ctx);
     ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle
@@ -427,7 +445,7 @@ export async function construireVoisinage(
     [bboxParcelle.lonMax, bboxParcelle.latMax], [bboxParcelle.lonMin, bboxParcelle.latMax],
     [bboxParcelle.lonMin, bboxParcelle.latMin]
   ]]};
-  const feats = rayonM ? await interrogerCadastreEtendu(empriseRayon, MAX_OBJETS_RAYON + 1) : await interrogerCadastre(emprise, cad.codeInsee);
+  const feats = rayonM ? await interrogerCadastreEtendu(empriseRayon, plafondLecture(rayonM)) : await interrogerCadastre(emprise, cad.codeInsee);
   const candidats = construireCandidats(feats, proj, centreParc, simplifier);
   const tri = rayonM
     ? { adjacentes: dansLeDisque(candidats.filter(c => c.idu !== principale.idu)) }
@@ -458,7 +476,7 @@ export async function construireVoisinage(
   const bbox = rayonM ? bboxDegDesAnneaux([empriseRayon.coordinates[0] as Anneau], proj, 0) : bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
   const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? true : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
-  const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, MAX_OBJETS_RAYON + 1) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
+  const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, plafondLecture(rayonM)) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
   const elementsRetenus = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => (rayonM ? dansLeDisque(elements) : elements);
   // Les arbres estimes restent pres de la parcelle : un disque de 500 m en semerait des milliers.
   const RAYON_ARBRES_M = 100;
