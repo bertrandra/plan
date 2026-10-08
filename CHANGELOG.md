@@ -440,6 +440,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vitrine dans un `<iframe>` bas : les boutons de navigation ne débordent plus.** Un cadre de moins
+  de 1 024 px de large passe dans la classe d'écran « moyen » ou « compact », qui descend les boutons
+  de 116 px pour la barre d'application — absente de la vitrine. Dans un cadre de 600 × 300, les
+  derniers boutons sortaient du cadre. Dans la vitrine, boutons et horloge partent du haut, et les
+  boutons passent sur une seconde colonne quand la hauteur manque. Vérifié dans un `<iframe>` d'une
+  autre origine en bac à sable, de 800 × 450 à 300 × 160 : tous les boutons visibles, la scène à la
+  taille exacte du cadre, aucun défilement, ni dans le cadre ni dans la page hôte.
+
 - **Vitrine (`?mode=demo`) sans `x` ni `y` : toute la fenêtre, sans défilement.** La scène est
   ancrée aux quatre bords de la fenêtre visible au lieu de `100vw × 100vh` (qui, sur un téléphone,
   compte la barre d'adresse et débordait), et la page est figée : l'atelier caché dessous ne la fait
