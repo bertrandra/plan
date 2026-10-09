@@ -143,6 +143,24 @@ Règles :
 
 ---
 
+### 2.1 Le côté sur rue deviné (`geo/coteRue.ts`)
+
+Un accès neuf se pose sur le côté **dit** sur rue (`limite: 'rue'`). Quand aucun côté ne l'est, le
+plan **devine** :
+
+1. **Le point d'adresse** de la BAN, posé sur la voirie devant la porte, que l'import range sur la
+   parcelle (`cadastre.adresseLat/Lon`, projeté depuis le point de calage) : le côté le plus proche,
+   si le point est hors de la parcelle et à moins de 30 m (`DISTANCE_ADRESSE_MAX_M`). Un point dans
+   la parcelle (adresse résolue au bâtiment) ou trop loin (résolue à la rue, à la commune) ne dit rien.
+2. Sinon, **les parcelles voisines importées** : un côté dont plus de la moitié longe une voisine
+   (`longueurFrontiere`, tolérance 50 cm) est mitoyen ; le plus long des côtés sans voisine est pris
+   pour la rue (`cotesSansMitoyen`).
+3. Sans point d'adresse ni voisine : rien n'est deviné, le plus long côté sert (comme avant).
+
+L'inspecteur le dit : l'explication du bouton « Ajouter un portail » nomme le côté deviné, et le
+champ « Limite » d'un côté non précisé note « devinée : sur rue » ou « devinée : séparative ». Un
+carport neuf s'en approche aussi (`MD/spec-placement.md`).
+
 ## 3. Inspecteur (Z5)
 
 Deux sections sur la parcelle du projet, rangées dans la famille **Construction** au doigt

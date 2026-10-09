@@ -21,6 +21,7 @@ import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan, ObjetBrut, Construction } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
+import { centreSouhaite, type NatureOuvrage } from './placement.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -293,6 +294,8 @@ export interface ContexteCreation {
   normalizeObjects: (bruts: ObjetSerialise[]) => ObjetPlan[];
   showToast: (message: string) => void;
   showConfirm: (message: string, oui: () => void) => void;
+  /** Le cote sur rue de la parcelle, devine (geo/coteRue.ts) : un carport neuf s'en approche. Absent : pas de rue connue. */
+  coteRue?: () => number | null;
   /** L'horloge qui date les cles d'objets (voir `model/cles.ts`). `Date.now` par defaut. */
   horloge?: () => number;
 }
@@ -349,6 +352,11 @@ export function terrasseNeuve(objets: ObjetPlan[], centre: PtBrut, key: string, 
   return nouvelleTerrasse(rectangleLibre(objets, centre, 4, 3), key, 'Terrasse ' + n, construction);
 }
 
+/** La place d'un ouvrage neuf (model/placement.ts), ou `null` quand aucune regle ne s'applique. */
+function placeDUnOuvrage(etat: EtatCreation, ctx: ContexteCreation, nature: NatureOuvrage, largeur: number, profondeur: number): PtBrut | null {
+  return centreSouhaite(nature, { objets: etat.objects, terrasseSelectedKey: etat.terrasseSelectedKey, coteRue: ctx.coteRue ? ctx.coteRue() : null }, largeur, profondeur);
+}
+
 export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   /** Centre de la parcelle : un objet neuf naît la ou on regarde, pas a l'origine du repere. */
   function centreParcelle() {
@@ -360,6 +368,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   function cle(prefixe: string) {
     return cleObjet(prefixe, etat, { horloge: ctx.horloge });
   }
+
+  const place = (nature: NatureOuvrage, largeur: number, profondeur: number) => placeDUnOuvrage(etat, ctx, nature, largeur, profondeur) ?? centreParcelle();
 
   /** Les sept gestes de l'insertion, dans l'ordre — aucun n'est facultatif. */
   function inserer({ obj }: ObjetNeuf) {
@@ -390,31 +400,29 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
 
     ajouterParasol() {
       ctx.pushHistory();
-      // Pose au centre de la terrasse plutot que de la parcelle : sinon il naît loin de l'endroit ou
-      // on veut l'utiliser.
       const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey)
                 || etat.objects.find(o => o.key === 'parcelle');
-      const c = terr ? centroid(enPoints(terr).pts) : { x: 0, y: 0 };
+      const c = place('parasol', 3, 3);
       const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
 
     ajouterAbri(nature: NatureAbri) {
       ctx.pushHistory();
-      // Une pergola se pose sur la terrasse s'il y en a une, comme le parasol ; un carport abrite une
-      // voiture, pas une terrasse : il naît au centre de la parcelle.
-      const terr = nature === 'pergola' ? terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey) : undefined;
-      const c = terr ? centroid(enPoints(terr).pts) : centreParcelle();
+      // Une pergola sur la terrasse, comme le parasol ; un carport pres de la rue, a la place libre la plus proche.
+      const a = ABRIS[nature];
+      const c = nature === 'carport' ? centroid(rectangleLibre(etat.objects, place('carport', 2 * a.demiL, 2 * a.demiH), 2 * a.demiL, 2 * a.demiH)) : place('pergola', 2 * a.demiL, 2 * a.demiH);
       const n = etat.objects.filter(o => o.fonction === nature).length + 1;
       inserer(nouvelAbri(nature, c, cle('obj'), n));
     },
 
-    ajouterTerrasse(construction: Construction) { ctx.pushHistory(); inserer(terrasseNeuve(etat.objects, centreParcelle(), cle('obj'), construction)); },
+    ajouterTerrasse(construction: Construction) { ctx.pushHistory(); inserer(terrasseNeuve(etat.objects, place('terrasse', 4, 3), cle('obj'), construction)); },
 
     ajouterPiscine(forme: FormePiscine) {
       ctx.pushHistory();
       const n = etat.objects.filter(o => o.fonction === 'piscine').length + 1;
-      inserer(nouvellePiscine(forme, centreParcelle(), cle(forme === 'ronde' ? 'circle' : 'obj'), n));
+      const c = centroid(rectangleLibre(etat.objects, place('piscine', 8, 4), 8, 4));
+      inserer(nouvellePiscine(forme, c, cle(forme === 'ronde' ? 'circle' : 'obj'), n));
     },
 
     /**
