@@ -140,6 +140,25 @@ Règles :
 - **repli** si la BAN est indisponible : `https://data.geopf.fr/geocodage/search?q=…&index=address`
   (même forme GeoJSON, mêmes champs `label`/`citycode`/`score`).
 
+### A3.1 Par défaut, la position de l'appareil
+
+À l'ouverture du dialogue, `importe.utiliserMaPosition(true)` lit la position de l'appareil
+(`shell/geolocalisation.ts`, haute précision, 15 s au plus, une position d'une minute admise). Le
+navigateur demande la permission ; le serveur la permet au site (`Permissions-Policy:
+geolocation=(self)`, dans `deploy/htaccess.template` et `buildsg/app.js`).
+
+- **Précise** (≤ `PRECISION_POSITION_MAX_M` = 50 m) : l'adresse la plus proche (BAN inverse,
+  `geocoderInverseBAN`) s'écrit dans le champ, et la parcelle se cherche **sous le point de
+  l'appareil** (`genre: 'position'`), filtrée par la commune de cette adresse. L'étape 2 dit
+  « Adresse la plus proche » et « Votre position (à N m près) : dans la parcelle ».
+- **Approximative** : l'adresse est proposée dans le champ, rien n'est cherché.
+- **Refusée, indisponible, trop longue** : silencieux à l'ouverture.
+- **Devancée** : une frappe dans le champ ou une adresse choisie pendant la lecture l'emportent.
+
+Le bouton « Utiliser ma position » (`cadastre.maPosition`, affiché si le navigateur sait donner une
+position) relance la lecture d'un geste : alors une position approximative est prise telle quelle,
+et un refus se dit (« Position refusée par le navigateur… »).
+
 ## A4. Étape 2 — Recherche de la parcelle (API Carto Cadastre)
 
 ### A4.1 Le point d'adresse n'est PAS dans la parcelle

@@ -55,7 +55,7 @@ export interface ReglagesVue3d {
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
-  /** Un grillage sur les limites des parcelles voisines ; decoche par defaut. */
+  /** Un grillage sur les limites des parcelles voisines ; coche par defaut. */
   basculerCloturesVoisinage(actif: boolean): void;
 }
 
@@ -178,7 +178,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
      */
     basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; }),
     /**
-     * Décochée par défaut : le grillage du voisinage situe le projet dans sa rue, mais n'appartient
+     * Cochée par défaut : le grillage du voisinage situe le projet dans sa rue. Il n'appartient
      * qu'à l'affichage — rien n'est écrit sur les parcelles voisines.
      */
     basculerCloturesVoisinage: (actif) => preference(() => { vue3d.cloturesVoisinage = actif; })

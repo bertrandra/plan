@@ -11,7 +11,7 @@ import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M,
 import { AVERTISSEMENT_RAYON } from './avertissementRayon.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
-import type { CaseIgn, ImportCadastre as Controleur } from '../../app/importCadastre.js';
+import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/importCadastre.js';
 import type { PtBrut } from '../../model/types.js';
 
 type Props = { importe: Controleur };
@@ -88,15 +88,43 @@ function Apercu({ importe }: Props) {
   );
 }
 
+/** Ce que la ligne d'etat dit de la position de l'appareil ; vide quand il n'y a rien a dire. */
+function texteDePosition(p: EtatPosition): string {
+  const aPres = p.precisionM !== null ? ' (à ' + p.precisionM + ' m près)' : '';
+  switch (p.etat) {
+    case 'demande': return 'Recherche de votre position…';
+    case 'trouvee': return 'Votre position' + aPres + ' : la parcelle sous vos pieds est cherchée.';
+    case 'approximative': return 'Position approximative' + aPres + ' : vérifiez l’adresse proposée, puis Rechercher.';
+    case 'refusee': return 'Position refusée par le navigateur : autorisez-la dans ses réglages, ou saisissez l’adresse.';
+    case 'indisponible': return 'Position indisponible sur cet appareil : saisissez l’adresse.';
+    default: return '';
+  }
+}
+
 function Etape1({ importe }: Props) {
   const e = importe.etat();
   const [texte, setTexte] = useState('');
   const champ = useRef<HTMLInputElement>(null);
   useEffect(() => { champ.current?.focus(); }, []);
+  // L'adresse la plus proche de la position, recopiee dans le champ tant qu'on n'y a rien tape.
+  const { etat: etatPosition, adresse: adressePosition } = e.position;
+  useEffect(() => {
+    if ((etatPosition === 'trouvee' || etatPosition === 'approximative') && adressePosition && !e.saisie) setTexte(adressePosition);
+  }, [etatPosition, adressePosition, e.saisie]);
+  const position = texteDePosition(e.position);
   return (
     <>
       <div className="corpsParcours">
-        <div className="libelleChamp">Adresse du terrain (ou coordonnees « latitude, longitude ») :</div>
+        <div className="libelleChamp ligneAdresse">
+          <span>Adresse du terrain (ou coordonnees « latitude, longitude ») :</span>
+          {importe.positionDisponible() && (
+            <button type="button" data-controle="cadastre.maPosition" className="secondary small" disabled={e.occupe || e.position.etat === 'demande'}
+              title="Cherche la parcelle sous la position de cet appareil (GPS du téléphone, ou réseau). Le navigateur demande d’abord la permission."
+              onClick={() => void importe.utiliserMaPosition(false)}>
+              Utiliser ma position
+            </button>
+          )}
+        </div>
         <input ref={champ} type="text" data-controle="cadastre.adresse" className="promptInput" placeholder="2 allee des Limites 78110 Le Vesinet" value={texte}
           onChange={(ev) => { setTexte(ev.target.value); importe.saisirAdresse(ev.target.value); }}
           onKeyDown={(ev) => {
@@ -106,6 +134,7 @@ function Etape1({ importe }: Props) {
             if (suggestion) void importe.choisirAdresse(suggestion);
             else void importe.rechercher(texte.trim());
           }} />
+        {position && <div className="detailIgn" role="status">{position}</div>}
         <div className="suggestionsAdresse">
           {e.suggestions.map((s, i) => (
             <button key={i} type="button" data-controle="cadastre.suggestion" className="secondary" onClick={() => void importe.choisirAdresse(s)}>
@@ -166,9 +195,12 @@ function Etape2({ importe }: Props) {
         <div className="infoParcelle">
           <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' (INSEE ' + (p.codeInsee || '') + ')'}<br />
           {'Surface : ' + importe.ligneSurface(p)}<br />
-          {'Adresse : ' + geo.label}<br />
-          {'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
-          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && <><br /><i>{'Adresse resolue au niveau ' + geo.genre + ' : la parcelle proposee est approximative.'}</i></>}
+          {(geo.genre === 'position' ? 'Adresse la plus proche : ' : 'Adresse : ') + geo.label}<br />
+          {/* Le point d'une position est celui de l'appareil, pas un point d'adresse pose sur la voirie. */}
+          {geo.genre === 'position'
+            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + p.distance.toFixed(2) + ' m du bord')
+            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
+          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse resolue au niveau ' + geo.genre + ' : la parcelle proposee est approximative.'}</i></>}
           {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i></>}
         </div>
         <div className="titreListe">Autre parcelle ? (clic sur l'apercu ou dans la liste)</div>

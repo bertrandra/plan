@@ -302,7 +302,8 @@ l'actualisation ne la touchent. Une couleur posée par Plan est relue à l'actua
 **Un toit-terrasse ne se rabat jamais sur une tuile** : quand la photo n'est pas concluante, sa
 couverture est grise (`couleurToitDepuisPixels(pixels, plat)`). En 3D, il est couvert d'une surface
 de sa couleur, 2 cm au-dessus du prisme et en retrait de 20 cm des murs (le dessus des murs se lit
-comme un acrotère) ; un toit plat qu'une lecture antérieure avait rabattu sur une tuile rouge ou
+comme un acrotère), avec un décalage de profondeur (`poserEnCouche`) pour qu'elle ne scintille pas contre
+le prisme vu de loin ; un toit plat qu'une lecture antérieure avait rabattu sur une tuile rouge ou
 brune s'y dessine gris (`couleurToitPlat`). Avant, le dessus d'un toit-terrasse prenait la couleur
 des murs.
 
