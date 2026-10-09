@@ -3,6 +3,7 @@
 // Le calcul lui-meme vit dans `lumiere.ts`, partage avec la visionneuse GLB. Ce module-ci ne fait
 // que le relier a l'etat propre de la Vue 3D (`soleilVue3d` dans `etat3d.ts`), que son panneau lit.
 
+import { actualiserSaison } from './arbre3d.js';
 import { vue3d, soleilVue3d, affichage3d, signaler3d } from './etat3d.js';
 import { reglerSoleil, libelleSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
@@ -44,6 +45,8 @@ export function appliquer(ctx: ContexteSoleilVue3d): void {
   );
   // Une date illisible laisse le soleil ou il etait, et son libelle avec.
   if (!position) return;
+  // Les caducs se denudent de novembre a mars : la date change aussi le feuillage, donc l'ombre.
+  actualiserSaison(vue3d.scene.scene, soleilVue3d.dateStr);
   vue3d.apresSoleil?.(position);
   affichage3d.soleilInfo = libelleSoleil(position.elevRad, position.azRad);
   signaler3d();

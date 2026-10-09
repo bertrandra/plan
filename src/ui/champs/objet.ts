@@ -7,6 +7,7 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
+import { PORTS, ESSENCES, LIBELLES_PORT, LIBELLES_ESSENCE, portDe, essenceDe, type PortArbre, type EssenceArbre } from '../../model/arbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
@@ -238,8 +239,20 @@ const sectionArbre: Section = {
   champs: [
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
-      aide: 'Diamètre du feuillage (sphère posée sur le tronc), utilisé par la Vue 3D',
+      aide: 'Diamètre du houppier posé sur le tronc, utilisé par la Vue 3D',
       lire: (c) => c.obj.diametreArbre ?? 3, ecrire: (c, v) => { c.obj.diametreArbre = Math.max(0.1, v) || 3; }
+    },
+    {
+      type: 'choix', cle: 'portArbre', libelle: 'Port', effets: ['scene3d'],
+      aide: 'La forme du houppier en 3D : rond, étalé, colonnaire, conique, parasol',
+      options: () => PORTS.map((p) => ({ valeur: p, libelle: LIBELLES_PORT[p] })),
+      lire: (c) => portDe(c.obj), ecrire: (c, v) => { c.obj.portArbre = v as PortArbre; }
+    },
+    {
+      type: 'choix', cle: 'essenceArbre', libelle: 'Essence', effets: ['scene3d'],
+      aide: 'Un caduc est nu de novembre à mars, à la date de l’étude d’ensoleillement ; son ombre change avec la saison',
+      options: () => ESSENCES.map((e) => ({ valeur: e, libelle: LIBELLES_ESSENCE[e] })),
+      lire: (c) => essenceDe(c.obj), ecrire: (c, v) => { c.obj.essenceArbre = v as EssenceArbre; }
     },
     {
       type: 'couleur', cle: 'couleurArbre', libelle: 'Couleur du feuillage', effets: ['scene3d'],

@@ -598,6 +598,15 @@ const POINTS = {
   24: async (page) => {
     const vue = await POINTS[22](page);
     if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    // La date de l'etude est fixee a l'ete : un arbre caduc est nu de novembre a mars, et le temoin
+    // ne doit pas dependre du jour ou la fumee se joue.
+    await page.evaluate(() => {
+      const i = document.querySelector('[data-controle="vue3d.date"]');
+      if (!i) return;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '2026-06-21');
+      i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
     const glb = await telechargerOctets(page, () => page.evaluate(() => window.__plan.executer('export.glb')), 120000);
     const attendu = JSON.parse(readFileSync('tests/fixtures/golden/glb-structure.json', 'utf8')).compteurs;
     // En-tete glTF binaire : 12 octets, puis la longueur du morceau JSON sur 4 octets.

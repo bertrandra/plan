@@ -130,8 +130,9 @@ describe('qui a le droit de detruire une texture', () => {
 });
 
 describe('ce que la source doit continuer de dire', () => {
-  // La scene et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde.
-  const scene = ['scene.ts', 'primitives.ts']
+  // La scene et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde ;
+  // le feuillage d'un arbre, dans three/arbre3d.ts.
+  const scene = ['scene.ts', 'primitives.ts', 'arbre3d.ts']
     .map((f) => readFileSync(resolve(__dirname, '../../../src/three/' + f), 'utf8')).join('\n');
   const sansCommentaires = scene.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
