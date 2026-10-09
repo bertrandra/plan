@@ -235,6 +235,8 @@
   .sousTitreParcours{ font-size:0.8rem; opacity:0.8; margin:-6px 0 12px; line-height:1.4; }
   .libelleChamp{ margin:12px 0 4px; }
   .corpsParcours > .libelleChamp:first-child{ margin-top:0; }
+  /* Le libelle et « Utiliser ma position » sur une ligne ; le bouton passe dessous quand la place manque. */
+  .libelleChamp.ligneAdresse{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 10px; }
   .suggestionsAdresse, .listeParcelles{ margin-top:8px; display:flex; flex-direction:column; gap:4px; }
   .suggestionsAdresse button, .listeParcelles button{ text-align:left; font-size:0.84rem; padding:6px 8px; }
   .listeParcelles{ gap:3px; max-height:22vh; overflow:auto; }

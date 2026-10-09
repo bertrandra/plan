@@ -95,6 +95,9 @@ describe('ajouterReleve3d', () => {
     expect(Math.min(...xs)).toBeCloseTo(0.2, 6);
     expect(Math.max(...xs)).toBeCloseTo(9.8, 6);
     expect(ys.every((y) => Math.abs(y - 3.02) < 1e-9)).toBe(true);
+    // Le decalage de profondeur : vu de loin, la couverture ne scintille pas contre le prisme.
+    expect(plat.material).toMatchObject({ polygonOffset: true });
+    expect((plat.material as { polygonOffsetFactor: number }).polygonOffsetFactor).toBeLessThan(0);
     // Rabattu sur une tuile par une lecture d'avant : gris.
     const r = scene();
     ajouterReleve3d(r.ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' } }, 3);

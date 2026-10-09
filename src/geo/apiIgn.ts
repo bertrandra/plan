@@ -69,6 +69,8 @@ export interface BboxDeg {
 //      de renvoyer une erreur : la requete degenere en vidage national, en 200 OK, a l'autre
 //      bout de la France. D'ou les garde-fous de interrogerCadastre().
 export const BAN_URL = 'https://api-adresse.data.gouv.fr/search/';
+/** Le geocodage inverse de la BAN : l'adresse la plus proche d'un point. */
+export const BAN_INVERSE_URL = 'https://api-adresse.data.gouv.fr/reverse/';
 export const CADASTRE_URL = 'https://apicarto.ign.fr/api/cadastre/parcelle';
 export const RESEAU_TIMEOUT_MS = 8000;
 export const RAYONS_RECHERCHE_M = [12, 25, 50];
@@ -147,6 +149,27 @@ export function anneauVersPts(anneau: Anneau, proj: ProjecteurLocal, simplifier:
   // Sens horaire, comme les parcelles des projets existants (l'aire, elle, est en valeur absolue).
   if(signedArea(pts) > 0) pts.reverse();
   return pts.map(p=>({ x:Math.round(p.x*1000)/1000, y:Math.round(p.y*1000)/1000 }));
+}
+
+/**
+ * L'adresse la plus proche d'un point (geocodage inverse de la BAN), ou `null` si la BAN n'en
+ * connait pas. Le point rendu est celui de l'adresse ; l'appelant garde le sien s'il est plus juste.
+ */
+export async function geocoderInverseBAN(lon: number, lat: number): Promise<AdresseRecherchee | null> {
+  const url = BAN_INVERSE_URL + '?lon=' + lon.toFixed(6) + '&lat=' + lat.toFixed(6) + '&limit=1';
+  const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+  const f = data && data.features && data.features[0];
+  if (!f) return null;
+  const pt = f.geometry?.coordinates as [number, number] | undefined;
+  return {
+    label: (f.properties && f.properties.label as string) || '',
+    score: (f.properties && f.properties.score as number) || 0,
+    genre: (f.properties && f.properties.type as string) || '',
+    citycode: (f.properties && f.properties.citycode as string) || '',
+    ville: (f.properties && f.properties.city as string) || '',
+    lon: pt ? pt[0] : lon,
+    lat: pt ? pt[1] : lat
+  };
 }
 
 export async function geocoderBAN(texte: string, autocomplete: boolean): Promise<AdresseRecherchee[]> {

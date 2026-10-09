@@ -12,6 +12,7 @@
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
 import { showToast } from '../shell/dialogs.js';
+import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../shell/geolocalisation.js';
 import { centroid, shoelace, pointInPolygon } from '../geometry/basic.js';
 import { fusionnerAnneaux, chainerSegments } from '../geometry/rings.js';
 import { distancePointContour } from '../geometry/proximite.js';
@@ -27,7 +28,7 @@ import { parcelleDuProjet } from '../model/fonctions.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { droitsCourants } from './acces.js';
 import {
-  geocoderBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
+  geocoderBAN, geocoderInverseBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
   interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide,
   rayonDeLecture, RAYON_ETENDU_DEFAUT_M,
@@ -55,6 +56,10 @@ export interface ContexteImportCadastre {
   lireRelief?: typeof lireRelief;
   /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
+  /** La position de l'appareil (shell/geolocalisation.ts) ; remplacable de meme. */
+  lirePosition?: () => Promise<PositionGps>;
+  /** L'adresse la plus proche d'un point (BAN) ; remplacable de meme. */
+  geocoderInverse?: typeof geocoderInverseBAN;
 }
 
 export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres' | 'importerRelief' | 'reliefToutesParcelles';
@@ -113,6 +118,23 @@ export interface EtatImportCadastre {
   importDirect: boolean;
   /** Import direct : la parcelle est trouvee, le resume est pret. */
   resumePret: boolean;
+  /** Une frappe a eu lieu dans le champ d'adresse : la position lue a l'ouverture ne l'ecrase plus. */
+  saisie: boolean;
+  /** Ou en est la lecture de la position de l'appareil (« Utiliser ma position »). */
+  position: EtatPosition;
+}
+
+/**
+ * La position de l'appareil a l'etape 1. `trouvee` : la parcelle sous elle est cherchee ;
+ * `approximative` : trop imprecise pour choisir une parcelle a coup sur, l'adresse la plus proche
+ * est proposee dans le champ, a verifier ; `refusee`, `indisponible` : on le dit, seulement si
+ * on l'a demandee d'un geste (a l'ouverture, un refus reste silencieux).
+ */
+export interface EtatPosition {
+  etat: 'aucune' | 'demande' | 'trouvee' | 'approximative' | 'refusee' | 'indisponible';
+  /** L'adresse la plus proche, a mettre dans le champ ; vide sans geocodage inverse. */
+  adresse: string;
+  precisionM: number | null;
 }
 
 /** Un lot de l'apercu : une parcelle (ou la propriete fusionnee) et son role. */
@@ -143,6 +165,13 @@ export interface ImportCadastre {
 
   // Etape 1
   saisirAdresse(texte: string): void;
+  /**
+   * La parcelle sous la position de l'appareil. `auto` : a l'ouverture du dialogue — sans effet si
+   * l'on a deja tape ou choisi une adresse, et silencieux sur un refus.
+   */
+  utiliserMaPosition(auto?: boolean): Promise<void>;
+  /** Le navigateur sait-il donner une position ? Le bouton ne s'affiche que s'il le sait. */
+  positionDisponible(): boolean;
   rechercher(texte: string): Promise<void>;
   choisirAdresse(sug: AdresseRecherchee): Promise<void>;
   // Etapes 2 et 3
@@ -411,7 +440,10 @@ function chargements(n: Noyau): Chargements {
 }
 
 /** Etape 1 : l'adresse, geocodee, puis la parcelle la plus proche et son voisinage. */
-function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirAdresse' | 'rechercher' | 'choisirAdresse'> {
+/** Au-dela de cette precision, la position ne designe pas une parcelle a coup sur : l'adresse est proposee, pas choisie. */
+export const PRECISION_POSITION_MAX_M = 50;
+
+function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): Pick<ImportCadastre, 'saisirAdresse' | 'rechercher' | 'choisirAdresse' | 'utiliserMaPosition' | 'positionDisponible'> {
   const { e, signaler, occuper } = n;
   const { chargerVoisinage, appliquerPrincipale, chargerIgnAvecMessage, chargerEtendu } = ch;
   let minuteur: ReturnType<typeof setTimeout> | null = null, requeteEnCours = 0;
@@ -493,10 +525,45 @@ function gestesAdresse(n: Noyau, ch: Chargements): Pick<ImportCadastre, 'saisirA
     }
   }
 
+  // A l'ouverture, une adresse tapee ou choisie entre-temps a la priorite sur la position.
+  const devancee = () => e.saisie || !!e.geo || e.etape !== 1;
+
+  async function utiliserMaPosition(auto = false): Promise<void> {
+    if (auto && devancee()) return;
+    e.position = { etat: 'demande', adresse: '', precisionM: null };
+    signaler();
+    let pos: PositionGps;
+    try {
+      pos = await (ctx.lirePosition ?? (() => lirePositionGps()))();
+    } catch (err) {
+      const raison = err instanceof SansPosition ? err.raison : 'indisponible';
+      e.position = { etat: auto ? 'aucune' : raison === 'refusee' ? 'refusee' : 'indisponible', adresse: '', precisionM: null };
+      signaler(); return;
+    }
+    if (auto && devancee()) { e.position = { etat: 'aucune', adresse: '', precisionM: null }; signaler(); return; }
+    const adresse = await (ctx.geocoderInverse ?? geocoderInverseBAN)(pos.lon, pos.lat).catch(() => null);
+    const precisionM = Math.round(pos.precisionM);
+    const label = adresse?.label || 'Position ' + pos.lat.toFixed(6) + ', ' + pos.lon.toFixed(6);
+    if (auto && devancee()) { e.position = { etat: 'aucune', adresse: '', precisionM: null }; signaler(); return; }
+    // Trop imprecise pour designer une parcelle (un ordinateur situe par son reseau) : on propose
+    // l'adresse, on ne la choisit pas. D'un geste, on la prend telle quelle.
+    if (auto && precisionM > PRECISION_POSITION_MAX_M) {
+      e.position = { etat: 'approximative', adresse: adresse?.label ?? '', precisionM };
+      signaler(); return;
+    }
+    e.position = { etat: 'trouvee', adresse: label, precisionM };
+    // La parcelle se cherche sous le point de l'appareil, pas sous le point d'adresse : sur le
+    // terrain, c'est la parcelle ou l'on se tient. La commune de l'adresse filtre le cadastre.
+    await choisirAdresse({ label, score: 1, genre: 'position', citycode: adresse?.citycode ?? '', ville: adresse?.ville ?? '', lon: pos.lon, lat: pos.lat });
+  }
+
   return {
+    utiliserMaPosition,
+    positionDisponible: () => !!ctx.lirePosition || geolocalisationDisponible(),
     // On ne relance le geocodage qu'apres 250 ms de calme, et seule la reponse de la derniere frappe
     // compte : une reponse plus ancienne qui arriverait apres ecraserait la bonne.
     saisirAdresse(texte) {
+      e.saisie = true;
       if (minuteur) clearTimeout(minuteur);
       const t = texte.trim();
       if (t.length < 3) { e.suggestions = []; signaler(); return; }
@@ -689,7 +756,8 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     importerRelief: true, reliefToutesParcelles: true,
     propriete: new Set(),
     voisinageEtendu: false, rayonEtendu: RAYON_ETENDU_DEFAUT_M, etenduMax: null, afficherEtendu: true,
-    importDirect: importDirectMemorise(), resumePret: false
+    importDirect: importDirectMemorise(), resumePret: false,
+    saisie: false, position: { etat: 'aucune', adresse: '', precisionM: null }
   };
   let version = 0;
   const abonnes = new Set<() => void>();
@@ -713,7 +781,7 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
     version: () => version,
     fermer,
-    ...gestesAdresse(n, ch),
+    ...gestesAdresse(n, ch, ctx),
     ...gestesSelection(n, ch),
     ...gesteCreation(n, l, ctx, fermer),
     ...l,

@@ -106,7 +106,7 @@ function securite(req, vitrine) {
   const h = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
     'Content-Security-Policy': vitrine ? cspVitrine : csp
   };
   if (!vitrine) h['X-Frame-Options'] = 'DENY';

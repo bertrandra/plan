@@ -266,6 +266,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
         // Un projet neuf (document `{}`) se remplit, tant que rien n'y a ete dessine.
         projetCible: () => projetARemplir(seed, etat) }, () => parcours.fermer());
       parcours.ouvrir({ type: 'cadastre', importe });
+      // Par defaut, la parcelle sous la position de l'appareil : sur le terrain, c'est la bonne.
+      void importe.utiliserMaPosition(true);
     },
     ouvrirActualisation: () => ouvrirDialogueActualisation({
       etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,

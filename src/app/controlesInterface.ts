@@ -189,6 +189,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.rayon': etape(Z8, IMPORT, 'Rayon du voisinage étendu, de 10 à 1 000 m', { repete: true }),
   'cadastre.afficherEtendu': etape(Z8, IMPORT, 'Afficher le voisinage étendu (aperçu et ouverture du plan)', { repete: true }),
   'cadastre.importDirect': etape(Z8, IMPORT, 'Import direct, sans les étapes 2 et 3'),
+  'cadastre.maPosition': etape(Z8, IMPORT, 'Utiliser ma position (GPS) pour trouver la parcelle'),
   'cadastre.ajuster': etape(Z8, IMPORT, 'Ajuster l’import direct (étapes 2 et 3)'),
   'cadastre.creerDirect': etape(Z8, IMPORT, 'Créer le projet depuis le résumé de l’import direct', { ecrit: { annulable: false, droits: 'commande' } }),
   'cadastre.cocherMitoyennes': etape(Z8, IMPORT, 'Cocher toutes les mitoyennes'),

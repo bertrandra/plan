@@ -7,11 +7,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **« Clôtures du voisinage » dans les réglages de la Vue 3D**, décochée par défaut. Cochée, elle
+- **« Clôtures du voisinage » dans les réglages de la Vue 3D**, cochée par défaut. Elle
   pose un grillage léger et translucide sur les limites des parcelles voisines, pour situer le projet
   dans sa rue : chaque limite une fois, pas sur la limite commune avec la parcelle du projet quand
   elle a sa clôture, en suivant le relief. Préférence d'affichage seulement : rien n'est écrit sur les
-  parcelles voisines, et l'export GLB ne change que si elle est cochée (`MD/spec-cloture.md` §4.1).
+  parcelles voisines ; décochée, le grillage disparaît (`MD/spec-cloture.md` §4.1).
+
+- **L'import depuis une adresse part de votre position.** À l'ouverture du dialogue, Plan demande
+  la position de l'appareil (le navigateur demande la permission la première fois). Précise à 50 m
+  près, elle désigne la parcelle sous vos pieds : l'adresse la plus proche s'écrit dans le champ et
+  la parcelle est cherchée sous le point GPS, pas sous le point d'adresse posé sur la voirie. Moins
+  précise (un ordinateur situé par son réseau), l'adresse est seulement proposée, à vérifier. Un
+  refus reste silencieux ; une adresse tapée entre-temps a la priorité. Le bouton « Utiliser ma
+  position » relance la lecture à tout moment. Le serveur autorise désormais la géolocalisation au
+  site lui-même (`Permissions-Policy: geolocation=(self)`, `.htaccess` et serveur Node).
 
 - **La forme des toits mesurée sur le LiDAR HD de l'IGN.** À l'import depuis une adresse et à
   l'actualisation IGN, après la couleur des toits, Plan lit le modèle numérique de hauteur (MNH,
@@ -486,6 +495,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
 
 ### Corrigé
+
+- **Les toits-terrasses ne scintillent plus en 3D.** Leur couverture, deux centimètres au-dessus du
+  dessus du bâtiment, se disputait avec lui dès qu'on s'éloignait : avec un voisinage étendu, le plan
+  lointain de la caméra recule à des kilomètres et la précision de profondeur ne distingue plus deux
+  centimètres. Un décalage de profondeur la fait gagner à toute distance.
 
 - **Sur un sol en relief, le soubassement des bâtiments descend jusqu'au sol.** Il partait du sol au
   centre du bâtiment et laissait un vide sous le mur du côté qui descend ; il part maintenant du point
