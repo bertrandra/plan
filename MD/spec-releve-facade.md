@@ -140,10 +140,13 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
 4. **Analyse** — une seconde environ (§6 à §8).
 5. **Vérifier** — la façade redressée à l'échelle, chaque ouverture un cadre qu'on déplace, qu'on
    redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on retire ;
-   « Ajouter une ouverture ». La **hauteur mesurée**, à côté de celle du bâtiment jusqu'ici
-   (cadastre, ou relevé d'une autre façade), corrigeable : la
-   façade s'étire alors en hauteur, ouvertures, partie basse, bande du pignon et toit compris (la
-   largeur, elle, est celle du plan). Le toit lu sur la façade, avec sa pente et, sur un pignon, la
+   « Ajouter une ouverture ». La **hauteur mesurée**, à côté de celle du bâtiment (cadastre, ou
+   saisie), corrigeable : la façade s'étire alors en hauteur, ouvertures, partie basse, bande du
+   pignon et toit compris (la largeur, elle, est celle du plan). **Le bâtiment garde sa hauteur** :
+   à la validation, la façade est ramenée à la hauteur du bâtiment du même facteur (ouvertures,
+   partie basse, toit compris), et la hauteur mesurée n'est que dite dans le message de fin
+   (« mesurée 7,40 m sur la photo, le bâtiment garde 6,00 m »). La photo apporte la texture, les
+   ouvertures et le toit ; la hauteur reste celle du cadastre ou de la saisie. Le toit lu sur la façade, avec sa pente et, sur un pignon, la
    hauteur de la façade au faîtage ; « Remplacer le toit du bâtiment par celui-ci » part cochée.
    **Valider** écrit le tout en **un seul pas d'historique**.
 

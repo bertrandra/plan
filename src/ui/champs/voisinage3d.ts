@@ -44,7 +44,8 @@ function dimension(cle: CleDimension, libelle: string, min: number, max: number,
 /** La section « Voisinage (3D) » de la parcelle du projet ; `null` pour tout autre objet. */
 export function sectionVoisinage3d(c: ContexteChamps): Section | null {
   if (!estParcellePrincipale(c)) return null;
-  const deuxTons = (cc: ContexteChamps) => r(cc).maisons.mode === 'deuxTons';
+  const nuanceMurs = (cc: ContexteChamps) => r(cc).maisons.mode === 'nuance';
+  const troisCouleurs = (cc: ContexteChamps) => nuanceMurs(cc) && r(cc).maisons.nombre === 3;
   const uneCouleur = (cc: ContexteChamps) => r(cc).maisons.mode !== 'plan';
   const nuance = (cc: ContexteChamps) => r(cc).fenetres.mode === 'nuance';
   const cloture = (cc: ContexteChamps) => r(cc).cloture.afficher;
@@ -53,13 +54,21 @@ export function sectionVoisinage3d(c: ContexteChamps): Section | null {
     // ---- Les maisons ------------------------------------------------------------------------------
     {
       type: 'choix', cle: 'maisonsMode', libelle: 'Murs des maisons', sale: false, effets: ['inspecteur', ...effets],
-      aide: 'La couleur du plan est celle de chaque bâtiment importé ; deux tons tirés au hasard cassent l’uniformité du voisinage',
-      options: () => [{ valeur: 'plan', libelle: 'Couleur du plan' }, { valeur: 'unique', libelle: 'Une couleur' }, { valeur: 'deuxTons', libelle: 'Deux tons au hasard' }],
+      aide: 'La couleur du plan est celle de chaque bâtiment importé ; une nuance tirée au hasard entre deux ou trois couleurs casse l’uniformité du voisinage',
+      options: () => [{ valeur: 'plan', libelle: 'Couleur du plan' }, { valeur: 'unique', libelle: 'Une couleur' }, { valeur: 'nuance', libelle: 'Nuance au hasard' }],
       lire: (cc) => r(cc).maisons.mode,
-      ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.mode = v === 'unique' || v === 'deuxTons' ? v : 'plan'; }),
+      ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.mode = v === 'unique' || v === 'nuance' ? v : 'plan'; }),
     },
-    { type: 'couleur', cle: 'maisonsCouleur', libelle: 'Couleur des murs', visible: uneCouleur, sale: false, effets, lire: (cc) => r(cc).maisons.couleur, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur = v; }) },
-    { type: 'couleur', cle: 'maisonsCouleur2', libelle: 'Second ton', visible: deuxTons, sale: false, effets, aide: 'Chaque maison prend une teinte entre les deux, toujours la même', lire: (cc) => r(cc).maisons.couleur2, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur2 = v; }) },
+    {
+      type: 'choix', cle: 'maisonsNombre', libelle: 'Nuance entre', visible: nuanceMurs, sale: false, effets: ['inspecteur', ...effets],
+      aide: 'Chaque maison prend une teinte le long de ces couleurs, toujours la même',
+      options: () => [{ valeur: '2', libelle: 'Deux couleurs' }, { valeur: '3', libelle: 'Trois couleurs' }],
+      lire: (cc) => String(r(cc).maisons.nombre),
+      ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.nombre = v === '3' ? 3 : 2; }),
+    },
+    { type: 'couleur', cle: 'maisonsCouleur', libelle: (c.obj.voisinage3d?.maisons?.mode === 'nuance') ? 'Première couleur' : 'Couleur des murs', visible: uneCouleur, sale: false, effets, lire: (cc) => r(cc).maisons.couleur, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur = v; }) },
+    { type: 'couleur', cle: 'maisonsCouleur2', libelle: 'Deuxième couleur', visible: nuanceMurs, sale: false, effets, lire: (cc) => r(cc).maisons.couleur2, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur2 = v; }) },
+    { type: 'couleur', cle: 'maisonsCouleur3', libelle: 'Troisième couleur', visible: troisCouleurs, sale: false, effets, lire: (cc) => r(cc).maisons.couleur3, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur3 = v; }) },
 
     // ---- Les fenetres -----------------------------------------------------------------------------
     {

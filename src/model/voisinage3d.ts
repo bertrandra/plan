@@ -18,7 +18,7 @@ export const COULEUR_VITRE_DEFAUT = '#6F8AA6';
 export const COULEUR_GRILLAGE_VOISINAGE = '#A9B2A6';
 
 export const VOISINAGE_3D_DEFAUT: ReglagesVoisinage3d = {
-  maisons: { mode: 'plan', couleur: COULEUR_MAISON_VOISINE, couleur2: '#B9A98F' },
+  maisons: { mode: 'plan', couleur: COULEUR_MAISON_VOISINE, couleur2: '#B9A98F', couleur3: '#E6DED0', nombre: 2 },
   fenetres: { mode: 'unique', couleur: COULEUR_VITRE_DEFAUT, couleur2: '#8FA6BE', largeurMin: 1, largeurMax: 1, hauteurMin: 1.2, hauteurMax: 1.2, entraxeMin: 2.4, entraxeMax: 2.4 },
   cloture: { afficher: true, type: 'grillage', couleur: COULEUR_GRILLAGE_VOISINAGE },
 };
@@ -31,8 +31,11 @@ export function couleurClotureVoisinageDefaut(type: Exclude<TypeCloture, 'aucune
 /** Les reglages de la parcelle, completes des defauts ; les defauts seuls sans parcelle. */
 export function voisinage3dDe(parcelle: ObjetPlan | null | undefined): ReglagesVoisinage3d {
   const r = parcelle?.voisinage3d;
+  const maisons = { ...VOISINAGE_3D_DEFAUT.maisons, ...(r?.maisons ?? {}) };
+  // `deuxTons` est le premier nom de la nuance : un projet qui le porte se lit comme une nuance a deux couleurs.
+  if (maisons.mode === 'deuxTons') { maisons.mode = 'nuance'; maisons.nombre = 2; }
   return {
-    maisons: { ...VOISINAGE_3D_DEFAUT.maisons, ...(r?.maisons ?? {}) },
+    maisons,
     fenetres: { ...VOISINAGE_3D_DEFAUT.fenetres, ...(r?.fenetres ?? {}) },
     cloture: { ...VOISINAGE_3D_DEFAUT.cloture, ...(r?.cloture ?? {}) },
   };
@@ -67,6 +70,14 @@ function rgbDe(hex: string): Rgb {
 }
 const hexDe = ([r, g, b]: Rgb) => '#' + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('').toUpperCase();
 
+/** La couleur a `t` le long d'une suite de couleurs (0 : la premiere, 1 : la derniere), par morceaux. */
+export function nuancer(couleurs: readonly string[], t: number): string {
+  if (couleurs.length < 2) return couleurs[0] ?? '#808080';
+  const pos = Math.min(1, Math.max(0, t)) * (couleurs.length - 1);
+  const i = Math.min(couleurs.length - 2, Math.floor(pos));
+  return melanger(couleurs[i] ?? '#808080', couleurs[i + 1] ?? '#808080', pos - i);
+}
+
 /** La couleur a `t` entre deux couleurs (0 : la premiere, 1 : la seconde). */
 export function melanger(a: string, b: string, t: number): string {
   const x = rgbDe(a),
@@ -86,7 +97,9 @@ const cm = (v: number) => Math.round(v * 100) / 100;
 /** L'apparence d'une maison voisine d'apres les reglages, tiree de sa cle. */
 export function apparenceVoisin(r: ReglagesVoisinage3d, cle: string): ApparenceVoisin {
   const t = tirage(graineDe(cle));
-  const couleurMur = r.maisons.mode === 'unique' ? r.maisons.couleur : r.maisons.mode === 'deuxTons' ? melanger(r.maisons.couleur, r.maisons.couleur2, t()) : undefined;
+  const m = r.maisons;
+  const palette = m.nombre === 3 ? [m.couleur, m.couleur2, m.couleur3] : [m.couleur, m.couleur2];
+  const couleurMur = m.mode === 'unique' ? m.couleur : m.mode === 'nuance' || m.mode === 'deuxTons' ? nuancer(palette, t()) : undefined;
   const f = r.fenetres;
   const couleur = f.mode === 'nuance' ? melanger(f.couleur, f.couleur2, t()) : f.couleur;
   return {
