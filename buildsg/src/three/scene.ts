@@ -24,6 +24,8 @@ import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
+import { voisinage3dDe, apparenceVoisin } from '../model/voisinage3d.js';
+import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
@@ -31,7 +33,7 @@ import {
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, ObjetCercle, PtBrut, Construction } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
@@ -409,7 +411,13 @@ export const OPACITE_LAMES_TRANSLUCIDES = 0.15;
  * d'appui, de poteau et de bord de bassin — `null` quand le sol dessine est plat. `objets` : le plan,
  * pour les calculs qui lisent d'autres objets (la plage d'une piscine, son relief).
  */
-interface ContexteObjets { prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null; solMoteur: Sol | null; objets: ObjetPlan[]; /** Le centre de la scene : les details d'un batiment s'allegent avec la distance. */ centre: PtBrut }
+interface ContexteObjets {
+  prim: Primitives; scene: THREE_NS.Scene; versLocal: VersLocal; ctx: ContexteScene3d; sol: SolRelief | null; solMoteur: Sol | null; objets: ObjetPlan[];
+  /** Le centre de la scene : les details d'un batiment s'allegent avec la distance. */
+  centre: PtBrut;
+  /** L'apparence du voisinage (model/voisinage3d.ts), lue sur la parcelle du projet. */
+  voisinage3d: ReglagesVoisinage3d;
+}
 
 /**
  * Ou poser un objet sur le sol : sa base au point le plus bas du sol sous son contour, son haut a la
@@ -578,6 +586,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     const ySol = co.sol ? co.sol.hauteur(centre) : 0;
     const yBase = co.sol ? co.sol.basSous(footprint) : 0;
     // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
+    // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
+    const apparence = o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
+    const couleurMur = apparence?.couleurMur ?? o.fill ?? BLANC_PAR_DEFAUT;
     // Un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun a sa hauteur
     // (facade/profil.ts) ; tout autre objet reste un seul prisme.
     const volumes = o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
@@ -589,21 +600,26 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Une autre terrasse est de niveau a sa hauteur finie au-dessus du point HAUT du sol sous elle
     // (engine/hauteurs.ts), comme la terrasse courante : son prisme monte jusque-la.
     const dessusTerrasse = co.solMoteur && estTerrasse(o) ? dessusTerrasseM(o, co.solMoteur) : null;
-    pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, o.fill ?? BLANC_PAR_DEFAUT, false, opaciteDe(o), texturesDe(o), v.trous));
+    pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
     if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
-      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures }, o, h);
+      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h);
     }
     // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
     // soubassement, fenetres par niveau, cheminee — moins de loin.
     if (o.type === 'polygon' && estBatiment(o)) {
       const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
+      // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
+      // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
+      const f3d = fenetres3dDe(o);
+      const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
       ajouterDetailsBatiment(
-        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur: o.fill ?? BLANC_PAR_DEFAUT, textures: vue3d.textures, distance: dist(centre, co.centre),
+        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, distance: dist(centre, co.centre),
           // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
           ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-        o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote) }
+        o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
+          ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}) }
       );
     }
     if (o.fonction === 'arbre') ajouterFeuillage(o, h, co);
@@ -684,7 +700,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
   ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
-  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects, centre: cen };
+  const voisinage3d = voisinage3dDe(ctx.trouverParcelleCloture());
+  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects, centre: cen, voisinage3d };
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
@@ -692,9 +709,9 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   else ajouterPiscinesSeules(etat, co);
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
   if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
-  // Les clotures du voisinage : une option d'affichage, avec le reste du plan.
-  if (vue3d.cloturesVoisinage && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
-    ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined);
+  // Les clotures du voisinage : un reglage de la parcelle du projet, avec le reste du plan.
+  if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+    ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture);
   }
   appliquerOmbres(scene, ground);
 

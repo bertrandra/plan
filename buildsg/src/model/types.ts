@@ -162,6 +162,13 @@ interface ObjetCommun {
    */
   declaration?: DeclarationPrealable | null;
 
+  /**
+   * L'apparence du voisinage en 3D (model/voisinage3d.ts) : couleur des maisons et des fenetres,
+   * dimensions des fenetres, clotures des parcelles voisines. Range sur la parcelle du projet,
+   * comme le fond orthophoto ; absent, les defauts valent, et le fichier garde sa forme d'avant.
+   */
+  voisinage3d?: Partial<ReglagesVoisinage3d> | null;
+
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;
   clotureHauteur?: number;
@@ -209,6 +216,11 @@ interface ObjetCommun {
   facades?: ReleveFacade[] | null;
   /** Forme du toit d'un batiment ; absente, le batiment reste le bloc plat d'avant. */
   toit?: Toit | null;
+  /**
+   * Les fenetres dessinees en 3D sur un batiment du projet (model/fenetres3d.ts) : une dimension
+   * pour toutes, ou une liste reglee une par une. Absent, la disposition automatique vaut.
+   */
+  fenetres3d?: Fenetres3d | null;
   /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */
   pergola?: Pergola | null;
   /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
@@ -471,6 +483,47 @@ export interface TextureAppliquee {
 
 /** Nature d'un troncon de cloture (MD/spec-cloture.md §2). */
 export type TypeCloture = 'aucune' | 'palissade' | 'grillage' | 'haie' | 'mur';
+
+/** L'apparence du voisinage en 3D, rangee sur la parcelle du projet (MD/spec-toit-ign.md §6.4). */
+export interface ReglagesVoisinage3d {
+  /** Les murs des maisons voisines : la couleur du plan, une couleur unique, ou deux tons tires au hasard entre les deux. */
+  maisons: { mode: 'plan' | 'unique' | 'deuxTons'; couleur: string; couleur2: string };
+  /** Leurs fenetres : une couleur, ou une nuance tiree entre deux ; des dimensions tirees entre un minimum et un maximum. */
+  fenetres: {
+    mode: 'unique' | 'nuance';
+    couleur: string;
+    couleur2: string;
+    largeurMin: number;
+    largeurMax: number;
+    hauteurMin: number;
+    hauteurMax: number;
+    /** L'entraxe entre deux fenetres : la densite. */
+    entraxeMin: number;
+    entraxeMax: number;
+  };
+  /** Un grillage, une palissade, une haie ou un mur sur les limites des parcelles voisines. */
+  cloture: { afficher: boolean; type: Exclude<TypeCloture, 'aucune'>; couleur: string };
+}
+
+/** Une ouverture dessinee en 3D sur un mur d'un batiment du projet : laquelle, et sur quel cote. */
+export interface Fenetre3d extends OuvertureFacade {
+  /** Indice du cote du contour : de `pts[cote]` a `pts[cote + 1]`. */
+  cote: number;
+}
+
+/** Les fenetres d'un batiment du projet en 3D (model/fenetres3d.ts). */
+export interface Fenetres3d {
+  /** `toutes` : une dimension commune, disposition automatique ; `uneParUne` : la liste, reglee a la main. */
+  mode: 'toutes' | 'uneParUne';
+  largeur: number;
+  hauteur: number;
+  /** La hauteur d'appui, en metres au-dessus du plancher du niveau. */
+  appui: number;
+  entraxe: number;
+  couleur?: string;
+  /** Mode `uneParUne` : les ouvertures, initialisees depuis la disposition automatique. */
+  liste?: Fenetre3d[];
+}
 export type ParementMur = 'enduit' | 'pierre' | 'brique' | 'parpaing' | 'bardage';
 export type EssenceHaie = 'laurier' | 'thuya' | 'charme' | 'photinia' | 'troene' | 'champetre';
 /** Ce que le cote borde : la rue, ou un voisin. Le PLU ne fixe pas la meme hauteur aux deux. */
