@@ -1357,6 +1357,24 @@
   .releveListe button{ min-height:44px; display:flex; justify-content:space-between; align-items:center; gap:8px; text-align:left; font-variant-numeric:tabular-nums; }
   .releveDeja{ display:inline-flex; align-items:center; gap:4px; color:var(--ok); font-size:0.74rem; }
 
+  .releveBoussole{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.85rem; padding:8px 10px; border-radius:var(--r-champ); background:var(--panel-2); }
+  .releveBoussole strong{ color:var(--accent); }
+  .releveMurCote.devine .releveMurTrait{ stroke:var(--accent); stroke-width:7; }
+
+  /* 2. La methode : trois cartes, chacune son explication et son bouton. */
+  .releveMethodes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+  .releveMethode{ display:flex; flex-direction:column; gap:8px; padding:12px 14px; border:1px solid var(--rule); border-radius:var(--r-panneau); background:var(--panel-2); }
+  .releveMethode h3{ margin:0; display:flex; align-items:center; gap:8px; font-family:var(--serif); font-weight:normal; font-size:1rem; }
+  .releveMethode p{ margin:0; font-size:0.84rem; line-height:1.45; flex:1; }
+  .releveMethode button{ min-height:44px; align-self:flex-start; }
+  .releveMethode.indisponible{ opacity:.7; }
+  /* 2 bis. Les photos de rue : une vignette, la distance et l'angle, l'annee et l'auteur. */
+  .relevePhotosRue{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px; }
+  .relevePhotoRue{ min-height:72px; display:flex; align-items:center; gap:10px; text-align:left; padding:6px 10px 6px 6px; }
+  .relevePhotoRue img, .relevePhotoRueVide{ width:96px; height:64px; object-fit:cover; border-radius:var(--r-champ); background:var(--stage-bg); flex:none; }
+  .relevePhotoRueTexte{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .relevePhotoRueTexte strong{ font-weight:normal; }
+
   /* 2. La visee. La video garde toute l'image (contain) : les reperes se posent sur l'image, pas
      sur les bandes, sinon la distance deduite serait fausse. */
   .releveCamera{ flex:1; display:flex; flex-direction:column; min-height:0; }

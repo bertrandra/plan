@@ -84,7 +84,7 @@ function MesureVisee({
   beta: number | null;
 }) {
   const aplomb = consigneAplomb(beta);
-  const source = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée, non mesurée' }[mesure.source] : '';
+  const source = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée, non mesurée', rue: 'Photo de rue' }[mesure.source] : '';
   const alerte = mesuree
     ? null
     : natif

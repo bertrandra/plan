@@ -720,7 +720,7 @@ export interface ReleveFacade {
   ouvertures: OuvertureFacade[];
   /** Distance de prise de vue, en metres, et l'instrument qui l'a donnee. */
   distance: number | null;
-  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | null;
+  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | 'rue' | null;
   /** Date du releve, ISO 8601. */
   releveLe: string;
   /**

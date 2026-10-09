@@ -12,7 +12,7 @@ import { type Prise } from './capteurs.js';
  * Le parcours
  * --------------------------------------------------------------------------------------------- */
 
-export type Etape = 'mur' | 'visee' | 'coins' | 'analyse' | 'resultat';
+export type Etape = 'mur' | 'methode' | 'rue' | 'visee' | 'coins' | 'analyse' | 'resultat';
 
 export interface Resultat {
   /** La partie basse d'un mur en L, mesuree ; corrigeable avant de valider. */

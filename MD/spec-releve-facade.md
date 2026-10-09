@@ -121,14 +121,20 @@ Une commande ne prend pas d'argument : le bouton d'une ligne **désigne** d'abor
 (`facade/choix.ts`), puis exécute la commande, qui le reprend — le même schéma que la cible
 d'alignement.
 
-### 4.2 Les cinq temps (`zones/Releve.tsx`, `zones/releve/`)
+### 4.2 Les six temps (`zones/Releve.tsx`, `zones/releve/`)
 
 Plein écran, dans les trois classes, fermable par Échap ou la croix. **Rien n'est écrit dans le
 plan avant « Valider »** : fermer ne laisse aucune trace.
 
 1. **Choisir le mur** — le contour du bâtiment, nord en haut, chaque côté une cible de 44 px, et la
-   même liste en boutons. Sauté si l'inspecteur a désigné le mur.
-2. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
+   même liste en boutons. Sauté si l'inspecteur a désigné le mur. Au téléphone, la **boussole**
+   (`useBoussole`, `facadeFaceAuCap`) dit vers où l'on regarde et propose le mur qu'on a devant soi,
+   surligné sur le contour, avec « C'est ce mur » ; sur iOS, un bouton demande d'abord la permission
+   d'orientation ; sans capteur (ordinateur), rien ne s'affiche. Le mur est proposé, pas choisi.
+2. **Choisir la méthode** (`ChoixMethode`) — trois cartes, chacune expliquée en deux phrases : la
+   **photo de rue** (Panoramax, §4.3 ; grisée tant que la parcelle n'est pas géolocalisée), la
+   **caméra guidée** (temps 2 bis), ou **importer une photo** déjà prise, qui passe droit aux coins.
+2 bis. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
    permet (« une photo suffit », « 3 photos, de gauche à droite », ou l'alerte « reculez à au moins
    Y m »), une alerte quand rien ne mesure, l'aplomb du téléphone, le choix de l'objectif (0,5× / 1×).
    La hauteur à cadrer est l'égout estimé plus, sur un pignon d'un toit déjà connu, son triangle.
@@ -150,6 +156,40 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
    hauteur de la façade au faîtage ; « Remplacer le toit du bâtiment par celui-ci » part cochée.
    **Valider** écrit le tout en **un seul pas d'historique**.
 
+### 4.3 La photo de rue (Panoramax)
+
+Panoramax est le commun des photos de rue libres (OpenStreetMap France, IGN) : une API STAC
+(`geo/panoramax.ts`, `https://api.panoramax.xyz/api/search`) rend, dans une emprise, chaque photo
+avec sa position, le cap de la vue (`view:azimuth`), le champ de l'objectif (40 à 120° pour une
+photo plate, 360 pour un panoramique équirectangulaire), ses images (`hd`, `sd`, `thumb`), sa date,
+son auteur et sa licence.
+
+- **Recherche** : une emprise de 80 m autour du milieu du mur (le plan est calé sur
+  `cadastre.origineLat/Lon`, le milieu du mur se projette en degrés par `projecteurLocal`).
+- **Tri** (`classerFaceAuMur`) : une photo montre le mur si elle est **devant** lui (du côté de sa
+  normale, à moins de 75° de l'aplomb), à **moins de 60 m**, et — photo plate — si le mur tient dans
+  son champ. Un panoramique voit tout autour de lui : seule la distance compte. Les plus proches et
+  les plus de face d'abord ; douze au plus sont montrées (`PhotosRue`), avec leur distance, l'angle,
+  l'année, l'auteur et la licence.
+- **Mise en image** (`ui/releve/panoramax.ts`) : la photo `hd` est téléchargée par `fetch` (CORS
+  ouvert sur les serveurs Panoramax). Plate, elle est lue comme une photo importée, son champ du
+  grand côté déduit du champ horizontal annoncé (`champGrandCote`). Panoramique, elle est
+  **recadrée vers le mur** (`facade/panorama.ts`, `recadrerEquirectangulaire`) : une photo plate de
+  65° de champ, horizon au milieu, à la définition du panoramique (sans l'agrandir, 2 000 px au
+  plus) ; seule la bande utile du panoramique est lue à pleine définition (`bandeEquirectangulaire`),
+  un panoramique de 8 000 px coûterait 130 Mo en entier.
+- **Distance** : celle de la photo au milieu du mur, source `rue` (§5.1) ; elle propose les coins
+  comme une mesure. Le champ est celui annoncé (plate) ou celui du recadrage (panoramique).
+- **Hôtes permis** (`HOTES_PANORAMAX`, vérifiés contre la CSP livrée) : `api.panoramax.xyz`,
+  `panoramax.openstreetmap.fr`, `panoramax.ign.fr`, plus le stockage S3 (OVH) vers lequel l'instance
+  IGN redirige ses images (`HOTES_REDIRECTION_PANORAMAX`). Une photo servie ailleurs n'est pas
+  proposée.
+
+Limites : la couverture de Panoramax est partielle (dense en ville, lacunaire ailleurs) et les
+photos ont parfois plusieurs années ; un mur loin de la rue, derrière une haie, n'y est pas visible
+— c'est le cas de la maison de la démonstration, à 60 m de l'Allée des Limites. La page le dit, et
+les deux autres méthodes restent là.
+
 ---
 
 ## 5. La distance au mur
@@ -161,6 +201,7 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
 | ~~**LiDAR**~~ | module natif iOS (`native/ios/`) — **désactivé** | médiane d'une fenêtre 7 × 7 au centre de la carte de profondeur ARKit, dix fois par seconde ; une mesure de confiance < 1 est ignorée |
 | **Réalité augmentée** | Chrome Android (WebXR `immersive-ar` + `hit-test`) | rayon depuis le centre de l'écran jusqu'au premier plan touché ; distance horizontale |
 | **Cadrage** | partout | la largeur réelle du mur (plan) et la place qu'elle occupe dans l'image |
+| **Photo de rue** (`rue`) | Panoramax (§4.3) | la distance de la position de la photo au milieu du mur |
 
 **Le LiDAR est désactivé** (`LIDAR_ACTIF = false`). Safari n'y donne pas accès, et le module natif
 qui l'apportait ne change pas l'essentiel : le LiDAR d'un iPhone ne porte qu'à **5 m environ**. Or
@@ -515,6 +556,8 @@ interface ReleveFacade {
 | Toit redéfini par la dernière façade | une façade vue depuis l'égout (faîtage corrigé de sa fuite) remplace un toit lu, plus sûrement, sur un pignon | décocher la case ; ou combiner les lectures de plusieurs façades |
 | Module natif non compilé | écrit sous Windows, sans Xcode ; désactivé depuis la 1.1 | le compiler et le signer (`native/ios/README.md`) s'il est rallumé |
 | WebXR non essayé | aucun appareil Android ARCore disponible pendant le développement | le dérouler sur un téléphone Android |
+| Photo de rue : couverture et âge | Panoramax ne couvre pas tout, et une photo de 2018 montre le mur d'alors ; un mur en retrait n'est pas visible de la rue | la page le dit, les deux autres méthodes restent ; l'auteur et la licence ne sont pas encore gardés dans le relevé |
+| Boussole non essayée sur appareil | le cap est lu contre l'API documentée (`webkitCompassHeading`, `deviceorientationabsolute`) | le dérouler au téléphone ; une boussole mal étalonnée se trompe d'un mur, d'où « proposé, pas choisi » |
 
 ---
 

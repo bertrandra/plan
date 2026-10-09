@@ -1,7 +1,10 @@
-// Z8, le releve de facade (spec-releve-facade §4 a §10) : un parcours plein ecran en cinq temps.
+// Z8, le releve de facade (spec-releve-facade §4 a §10) : un parcours plein ecran en six temps.
 //
-// 1. **Mur** : choisir la facade sur le contour du batiment (sautee si l'inspecteur l'a designee).
-// 2. **Visee** : la camera, avec l'aide au positionnement - la distance au mur (realite augmentee
+// 1. **Mur** : choisir la facade sur le contour du batiment (sautee si l'inspecteur l'a designee) ;
+//    la boussole du telephone propose celle qu'on a devant soi.
+// 2. **Methode** : d'ou vient la photo - une photo de rue (Panoramax, etape « rue »), la camera
+//    guidee (« visee »), ou une photo importee (qui passe droit aux coins).
+// 2 bis. **Visee** : la camera, avec l'aide au positionnement - la distance au mur (realite augmentee
 //    sur Android ; sinon une alerte, et les reperes sur les bords du mur pour l'estimer), ce qu'elle
 //    permet (une photo, plusieurs en se decalant, ou reculer) et l'aplomb du telephone. Le LiDAR est
 //    eteint (ui/releve/profondeur.ts).
@@ -24,12 +27,16 @@ import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
 import { facadesDuContour } from '../facade/geometrie.js';
 import { hauteurPignon } from '../facade/toit.js';
-import { versJpeg } from '../ui/releve/camera.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
+import { versJpeg, type Photo } from '../ui/releve/camera.js';
+import type { MesureDistance } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
 import type { ObjetPolygone, OuvertureFacade, Toit } from '../model/types.js';
 import { fr } from './releve/commun.js';
 import { ChoixMur } from './releve/ChoixMur.js';
-import { type Prise } from './releve/capteurs.js';
+import { ChoixMethode } from './releve/ChoixMethode.js';
+import { PhotosRue } from './releve/PhotosRue.js';
+import { type Prise, useMurVise } from './releve/capteurs.js';
 import { Visee } from './releve/Visee.js';
 import { type Etape, type Morceau, type Resultat, coinsDePrise } from './releve/serie.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
@@ -47,7 +54,16 @@ function useEchapFerme(releve: ServiceReleve) {
   }, [releve]);
 }
 
-const LIBELLES_ETAPE: Record<Etape, string> = { mur: 'Choisir le mur', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' };
+const LIBELLES_ETAPE: Record<Etape, string> = { mur: 'Choisir le mur', methode: 'Choisir la méthode', rue: 'Photo de rue', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' };
+
+/** Les deux ecrans d'ou vient la photo : la methode, et les photos de rue. */
+function SourcePhoto({ etape, mur, surPhoto, setEtape, onRetour }: { etape: Etape; mur: ReturnType<typeof useMurVise>; surPhoto: (p: Photo, m: MesureDistance | null) => void; setEtape: (e: Etape) => void; onRetour: () => void }) {
+  if (etape === 'methode') {
+    return <ChoixMethode rue={mur ? null : 'sansPosition'} onRue={() => setEtape('rue')} onCamera={() => setEtape('visee')} onImporter={(p) => surPhoto(p, null)} onRetour={onRetour} />;
+  }
+  if (etape === 'rue' && mur) return <PhotosRue mur={mur} onPhoto={surPhoto} onRetour={() => setEtape('methode')} />;
+  return null;
+}
 
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
   // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
@@ -55,7 +71,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const hauteurEstimee = releve.hauteurMur();
   const facades = useMemo(() => facadesDuContour(enPoints(bat).pts, hauteurEstimee), [bat, hauteurEstimee]);
   const [cote, setCote] = useState<number | null>(coteInitial !== null && facades.some((f) => f.cote === coteInitial) ? coteInitial : null);
-  const [etape, setEtape] = useState<Etape>(cote === null ? 'mur' : 'visee');
+  const [etape, setEtape] = useState<Etape>(cote === null ? 'mur' : 'methode');
   // La hauteur mesuree a l'analyse, corrigeable ensuite.
   const [hauteurMur, setHauteurMur] = useState(hauteurEstimee);
   const [morceaux, setMorceaux] = useState<Morceau[]>([]);
@@ -73,6 +89,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.toit, facade.cote) : hauteurEstimee;
   const prevues = Math.max(1, ...morceaux.map((m) => m.prise.photosPrevues ?? 1));
   useEchapFerme(releve);
+  const mur = useMurVise(facade, releve.origine());
 
   const surPrise = (p: Prise) => {
     if (!facade) return;
@@ -122,6 +139,9 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     setARemplacer(remplacer);
     setEtape('visee');
   };
+  // Une photo importee ou de rue n'a ni reperes ni plan de prise : ses coins se proposent d'apres
+  // la distance quand on la connait (photo de rue), sinon au centre de l'image.
+  const surPhoto = (photo: Photo, mesure: MesureDistance | null) => surPrise({ photo, mesure, reperes: null, champ: photo.champ ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null });
   const corrigerHauteur = (v: number) => {
     if (!resultat || !(hauteurMur > 0)) return;
     const e = etirerEnHauteur(resultat, ouvertures, toit, v / hauteurMur);
@@ -155,17 +175,18 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
           facades={facades}
           onChoisir={(c) => {
             setCote(c);
-            setEtape('visee');
+            setEtape('methode');
           }}
         />
       )}
+      {facade && <SourcePhoto etape={etape} mur={mur} surPhoto={surPhoto} setEtape={setEtape} onRetour={() => (morceaux.length ? setEtape('coins') : coteInitial === null ? setEtape('mur') : releve.fermer())} />}
       {etape === 'visee' && facade && (
         <Visee
           facade={facade}
           hauteurACadrer={hauteurACadrer}
           faites={aRemplacer ?? morceaux.length}
           onPrise={surPrise}
-          onRetour={() => (morceaux.length ? setEtape('coins') : coteInitial === null ? setEtape('mur') : releve.fermer())}
+          onRetour={() => (morceaux.length ? setEtape('coins') : setEtape('methode'))}
         />
       )}
       {etape === 'coins' && morceaux.length > 0 && facade && (

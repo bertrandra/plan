@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Relevé de façade : trois méthodes, expliquées.** Après le choix du mur, une étape « Choisir la
+  méthode » présente, en deux phrases chacune, la **photo de rue** (Panoramax : des photos libres
+  prises depuis la rue par OpenStreetMap France et l'IGN, cherchées autour du mur, les plus proches
+  et les plus de face d'abord ; un panoramique est recadré sur le mur ; la distance au mur vient de
+  la position de la photo), la **caméra guidée** (comme avant) et l'**import d'une photo** déjà
+  prise. Au téléphone, la **boussole** propose le mur qu'on a devant soi sur l'écran du choix du mur
+  (`MD/spec-releve-facade.md` §4.2 et §4.3).
+
 - **« Voir chez vous (réalité augmentée) »** dans la visionneuse GLB : le modèle 3D de la terrasse
   se pose grandeur nature dans l'image de la caméra d'un téléphone ou d'une tablette — dans la page
   sur Android (Chrome), dans Quick Look sur iPhone et iPad (Safari). Rien n'est téléversé : le
