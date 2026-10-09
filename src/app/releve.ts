@@ -15,6 +15,7 @@ import { vue3d } from '../three/etat3d.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { showToast } from '../shell/dialogs.js';
 import { facadesDuContour } from '../facade/geometrie.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, ObjetPolygone, ReleveFacade, Toit } from '../model/types.js';
 
@@ -40,6 +41,8 @@ export interface ServiceReleve {
   /** Le batiment du releve ouvert, tel qu'il est maintenant dans le plan. */
   batiment(): ObjetPolygone | null;
   hauteurMur(): number;
+  /** L'origine geographique du plan (le calage du cadastre), s'il est geolocalise : les photos de rue se cherchent autour. */
+  origine(): { lat: number; lon: number } | null;
   /**
    * Ecrit le releve dans le projet. `hauteurMesuree` est la hauteur d'egout lue sur la photo : elle
    * est dite, pas appliquee — le batiment garde sa hauteur ; `toit`, s'il est donne, remplace celui
@@ -78,6 +81,10 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
     hauteurMur() {
       const o = batiment();
       return o ? ctx.elevationOf(o) : 0;
+    },
+    origine() {
+      const cad = parcelleDuProjet(ctx.etat.objects)?.cadastre;
+      return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? { lat: cad.origineLat, lon: cad.origineLon } : null;
     },
     valider(releve, toit, hauteurMesuree) {
       const o = batiment();

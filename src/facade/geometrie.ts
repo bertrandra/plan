@@ -93,3 +93,18 @@ export function stationDevant(f: Facade, distance: number): PtBrut {
   const m = pointDeFacade(f, f.largeur / 2);
   return { x: m.x + f.normale.x * distance, y: m.y + f.normale.y * distance };
 }
+
+/**
+ * La facade que regarde quelqu'un dont le telephone pointe vers `cap` (boussole, 0 = nord) : celle
+ * dont la normale lui fait face, a `tolerance` degres pres. Null quand aucune ne lui fait face.
+ */
+export function facadeFaceAuCap(facades: readonly Facade[], cap: number, tolerance = 50): Facade | null {
+  const regardee = (cap + 180) % 360;
+  let meilleure: Facade | null = null, ecartMin = tolerance;
+  for (const f of facades) {
+    let d = Math.abs(f.azimut - regardee) % 360;
+    if (d > 180) d = 360 - d;
+    if (d <= ecartMin) { ecartMin = d; meilleure = f; }
+  }
+  return meilleure;
+}

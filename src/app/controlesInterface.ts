@@ -219,9 +219,12 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Le releve de facade (zones/Releve.tsx), ecran plein --------------------------------------
   'releve.fermer': etape(RELEVE, RELEVER, 'Fermer le relevé'),
   'releve.choisirMur': etape(RELEVE, RELEVER, 'Choisir le mur à relever', { repete: true }),
+  'releve.boussole': etape(RELEVE, RELEVER, 'Me guider à la boussole (permission d’orientation, iOS)'),
+  'releve.methode': etape(RELEVE, RELEVER, 'Méthode : photo de rue (Panoramax) ou caméra guidée', { repete: true }),
+  'releve.photoRue': etape(RELEVE, RELEVER, 'Choisir une photo de rue', { repete: true }),
   'releve.objectif': etape(RELEVE, RELEVER, 'Objectif de l’appareil (grand-angle ou principal)', { repete: true }),
   'releve.champObjectif': etape(RELEVE, RELEVER, 'Champ de l’objectif (degrés)'),
-  'releve.retour': etape(RELEVE, RELEVER, 'Retour'),
+  'releve.retour': etape(RELEVE, RELEVER, 'Retour', { repete: true }),
   'releve.declencher': etape(RELEVE, RELEVER, 'Prendre la photo'),
   'releve.importerPhoto': etape(RELEVE, RELEVER, 'Importer une photo', { repete: true }),
   'releve.realiteAugmentee': etape(RELEVE, RELEVER, 'Mesure en réalité augmentée'),

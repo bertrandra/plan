@@ -1,11 +1,25 @@
 // Le releve de facade (zones/Releve.tsx), etape 2 : les capteurs de la visee (objectif, camera, inclinaison, realite augmentee).
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
 import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, type Photo, type ChoixCamera, type OffreGrandAngle } from '../../ui/releve/camera.js';
 import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../../facade/objectifs.js';
-import { ecouterNatif, webxrDisponible, mesurerWebXR, demanderPermissionOrientation, suivreInclinaison, type MesureDistance } from '../../ui/releve/profondeur.js';
+import { ecouterNatif, webxrDisponible, mesurerWebXR, demanderPermissionOrientation, suivreInclinaison, suivreCap, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { ecrireReglage, lireReglage } from './commun.js';
+import { pointDeFacade, type Facade } from '../../facade/geometrie.js';
+import { projecteurLocal } from '../../geo/projection.js';
+import type { MurVise } from '../../geo/panoramax.js';
+
+/** Le milieu du mur sur la Terre, pour chercher les photos de rue ; null si le plan n'est pas cale. */
+export function useMurVise(facade: Facade | null, origine: { lat: number; lon: number } | null): MurVise | null {
+  const lat = origine?.lat ?? null, lon = origine?.lon ?? null;
+  return useMemo(() => {
+    if (!facade || lat === null || lon === null) return null;
+    const m = pointDeFacade(facade, facade.largeur / 2);
+    const d = projecteurLocal(lat, lon).versDegres(m.x, m.y);
+    return { lat: d.lat, lon: d.lon, azimut: facade.azimut, largeur: facade.largeur };
+  }, [facade, lat, lon]);
+}
 
 /* ------------------------------------------------------------------------------------------------
  * 2. La visee
@@ -137,6 +151,30 @@ export function useInclinaison() {
       setADemander(false);
     });
   return { beta, aDemander: aDemander && beta === null, activer };
+}
+
+/**
+ * La boussole : le cap vers lequel pointe le dos du telephone. Sur iOS, apres permission (un bouton) ;
+ * sur Android, des le montage. Sans capteur (ordinateur), le cap reste null et rien ne s'affiche.
+ */
+export function useBoussole() {
+  const [cap, setCap] = useState<number | null>(null);
+  const [aDemander, setADemander] = useState(false);
+  useEffect(() => {
+    const D = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: unknown } }).DeviceOrientationEvent;
+    if (!D) return;
+    if (typeof D.requestPermission === 'function') {
+      setADemander(true);
+      return;
+    }
+    return suivreCap(setCap);
+  }, []);
+  const activer = () =>
+    void demanderPermissionOrientation().then((ok) => {
+      if (ok) suivreCap(setCap);
+      setADemander(false);
+    });
+  return { cap, aDemander: aDemander && cap === null, activer };
 }
 
 /** Tailles de la video et de la scene, pour placer les reperes sur l'image et non sur les bandes. */

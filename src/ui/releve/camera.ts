@@ -92,16 +92,16 @@ function contexte2d(c: HTMLCanvasElement, lecturesFrequentes = false): CanvasRen
   return ctx;
 }
 
-/** Un canevas a la taille voulue, reduit si besoin pour ne pas depasser `PHOTO_MAX_PX`. */
-function canevasPour(l: number, h: number): { c: HTMLCanvasElement; k: number } {
-  const k = Math.min(1, PHOTO_MAX_PX / Math.max(l, h));
+/** Un canevas a la taille voulue, reduit si besoin pour ne pas depasser `maxPx` (`PHOTO_MAX_PX`). */
+export function canevasPour(l: number, h: number, maxPx = PHOTO_MAX_PX): { c: HTMLCanvasElement; k: number } {
+  const k = Math.min(1, maxPx / Math.max(l, h));
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(l * k));
   c.height = Math.max(1, Math.round(h * k));
   return { c, k };
 }
 
-function imageDuCanevas(c: HTMLCanvasElement): Image {
+export function imageDuCanevas(c: HTMLCanvasElement): Image {
   const ctx = contexte2d(c, true);
   const d = ctx.getImageData(0, 0, c.width, c.height);
   return { largeur: c.width, hauteur: c.height, donnees: d.data };
@@ -120,7 +120,7 @@ export function saisir(video: HTMLVideoElement): Photo | null {
 /** Charge une image depuis une URL (fichier, data:) dans un canevas. */
 // Par `onload` et non `img.decode()` : `decode()` attend que la page soit visible, et une vue web
 // cachee un instant (bascule d'application, module natif qui reprend la main) le laissait suspendu.
-function chargerUrl(url: string): Promise<HTMLImageElement> {
+export function chargerUrl(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
     img.onload = () => resolve(img);
@@ -129,8 +129,8 @@ function chargerUrl(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Lit une photo choisie dans un fichier : l'orientation EXIF est appliquee par le navigateur. */
-export async function lireFichier(fichier: File): Promise<Photo> {
+/** Lit une photo choisie dans un fichier (ou telechargee) : l'orientation EXIF est appliquee par le navigateur. */
+export async function lireFichier(fichier: Blob): Promise<Photo> {
   const tampon = await fichier.arrayBuffer();
   const f35 = focale35mm(tampon);
   const url = URL.createObjectURL(fichier);
