@@ -4,6 +4,7 @@
 // Le calcul vit dans interaction/, model/ et geometry/ ; ces gestes y ajoutent ce que ces modules ne
 // connaissent pas : l'historique, les poignees a refaire, le rendu.
 
+import { coteRueDevine } from '../../geo/coteRue.js';
 import { sommetDe } from '../../geometry/anneau.js';
 import { pointInPolygon } from '../../geometry/basic.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../../geometry/segments.js';
@@ -41,7 +42,9 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
   const creation = () => creerCreation(etat, {
     pushHistory: d.pushHistory, createObjectDOM: d.createObjectDOM, rebuildHandles: d.rebuildHandles,
     reapplyStackingOrder: d.reapplyStackingOrder, rebuildSelector: d.rebuildSelector, render: d.render,
-    detruireVue, serializeObjects, showToast, showConfirm, normalizeObjects: normaliserEnObjetsDuPlan
+    detruireVue, serializeObjects, showToast, showConfirm, normalizeObjects: normaliserEnObjetsDuPlan,
+    // Le cote sur rue devine (point d'adresse, voisines) : un carport neuf s'en approche.
+    coteRue: () => { const p = etat.objects.find(o => o.key === 'parcelle'); return p ? coteRueDevine(p, etat.objects) : null; }
   });
   return {
     applyAngleEdit: (obj: ObjetPlan, i: number, angle: number) => editerAngle(aPoints(obj), i, angle, contour(obj)),

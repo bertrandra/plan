@@ -115,13 +115,17 @@ RedirectMatch 404 ^/data(/|$)
   #                `three/chargeurs.ts` et `three/glbViewer.ts` ajoutent en <script> a l'execution.
   #   style-src    'unsafe-inline' : la feuille est inlinee, et le programme pose des styles.
   #                Les scripts n'ont pas cette permission, donc l'injection qui compte reste refusee.
-  #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles
+  #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles ;
+  #                panoramax (OSM France, IGN, et le stockage S3 ou l'IGN redirige ses images)
+  #                pour les vignettes des photos de rue du releve
   #                de l'orthophoto ; polyhaven pour les textures.
-  #   connect-src  api-adresse pour l'adresse, apicarto pour le cadastre et le PLU, data.geopf.fr
-  #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures.
+  #   connect-src  blob: pour le modele 3D que model-viewer lit en realite augmentee ;
+  #                api-adresse pour l'adresse, apicarto pour le cadastre et le PLU, data.geopf.fr
+  #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures, panoramax pour
+  #                la recherche et le telechargement des photos de rue (geo/panoramax.ts).
   #                En 2.0.0, l'origine de la plateforme backprod s'ajoute ici (spec-connexion-plateforme §1).
   #   frame-ancestors 'none'  rien ici n'est fait pour etre encadre.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-8XtpdoYzTCxRGh1FzwcR3J9n9JuXSKTUMAn0fp8vO0A=' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org; font-src 'self'; connect-src 'self' https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org; worker-src 'self' blob:"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-spjDjkECWNlo6IV0GdFhN2rTFSwNBR+0qmKckWneoG8=' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; font-src 'self'; connect-src 'self' blob: https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; worker-src 'self' blob:"
   # 6. La vitrine publique (?mode=demo, app/vitrine.ts) se laisse encadrer par la plateforme, et
   #    par elle seule : la page d'accueil de son catalogue montre Plan en marche dans un <iframe>.
   #    Le reste du site reste `frame-ancestors 'none'` et `X-Frame-Options: DENY`. La condition
