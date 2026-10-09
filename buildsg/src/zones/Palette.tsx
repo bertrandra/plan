@@ -21,18 +21,22 @@ interface Groupe { titre: string; outils: Outil[] }
 
 const GROUPES: Groupe[] = [
   { titre: 'Historique', outils: [{ id: 'objet.annuler', icone: 'annuler', libelle: 'Annuler' }] },
+  // Les ouvrages d'abord, dans l'ordre ou on les pense pour un jardin : c'est pour eux qu'on vient.
+  // Les formes purement geometriques (sans fonction, a qualifier ensuite) ferment la creation.
   { titre: 'Créer', outils: [
-    { id: 'objet.ajouter.polygone', icone: 'polygone', libelle: 'Polygone' },
-    { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
-    { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
-    { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' },
     { id: 'objet.ajouter.terrasse', icone: 'terrasse', libelle: 'Terrasse' },
-    { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
     { id: 'objet.ajouter.pergola', icone: 'pergola', libelle: 'Pergola' },
     { id: 'objet.ajouter.carport', icone: 'carport', libelle: 'Carport' },
     { id: 'objet.ajouter.piscine', icone: 'piscine', libelle: 'Piscine' },
     { id: 'objet.ajouter.piscineRonde', icone: 'piscineRonde', libelle: 'Piscine ronde' },
+    { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
     { id: 'objet.ajouter.pointDeVue', icone: 'pointDeVue', libelle: 'Point de vue' }
+  ] },
+  { titre: 'Formes', outils: [
+    { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
+    { id: 'objet.ajouter.polygone', icone: 'polygone', libelle: 'Polygone' },
+    { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
+    { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' }
   ] },
   { titre: 'Éditer', outils: [
     { id: 'objet.dupliquer', icone: 'dupliquer', libelle: 'Dupliquer' },
