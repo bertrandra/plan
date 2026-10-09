@@ -14,7 +14,7 @@
 // ici, eteint : dans le module natif, la page se comporte comme dans Safari (camera du navigateur,
 // cadrage), et ne lui envoie aucune commande.
 
-export type SourceDistance = 'lidar' | 'webxr' | 'cadrage';
+export type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue';
 
 export interface MesureDistance {
   distance: number;
@@ -198,4 +198,25 @@ export function suivreInclinaison(surBeta: (beta: number | null) => void): () =>
   const f = (e: DeviceOrientationEvent) => surBeta(typeof e.beta === 'number' ? e.beta : null);
   window.addEventListener('deviceorientation', f);
   return () => window.removeEventListener('deviceorientation', f);
+}
+
+/** Le cap de la boussole lu dans un evenement d'orientation : iOS le donne tel quel, Android par l'angle alpha, absolu seulement. */
+export function capDeLOrientation(e: { alpha?: number | null; absolute?: boolean; webkitCompassHeading?: number }): number | null {
+  if (typeof e.webkitCompassHeading === 'number' && Number.isFinite(e.webkitCompassHeading)) return ((e.webkitCompassHeading % 360) + 360) % 360;
+  if (e.absolute && typeof e.alpha === 'number') return ((360 - e.alpha) % 360 + 360) % 360;
+  return null;
+}
+
+/**
+ * Suit le cap de la boussole (0 = nord, 90 = est, le dos du telephone - la camera - vers l'avant).
+ * Android le donne par `deviceorientationabsolute`, iOS par `deviceorientation` (apres permission).
+ */
+export function suivreCap(surCap: (cap: number | null) => void): () => void {
+  const f = (e: Event) => surCap(capDeLOrientation(e as DeviceOrientationEvent & { webkitCompassHeading?: number }));
+  window.addEventListener('deviceorientationabsolute', f);
+  window.addEventListener('deviceorientation', f);
+  return () => {
+    window.removeEventListener('deviceorientationabsolute', f);
+    window.removeEventListener('deviceorientation', f);
+  };
 }

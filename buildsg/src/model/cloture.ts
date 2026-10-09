@@ -190,11 +190,13 @@ export function nouveauPortail(nature: Portail['nature'], cote: number, longueur
 }
 
 /**
- * Le cote ou poser un acces quand on n'en a pas choisi : celui qui est sur rue, sinon le plus long.
+ * Le cote ou poser un acces quand on n'en a pas choisi : celui qui est dit sur rue, sinon celui
+ * que le plan devine sur rue (geo/coteRue.ts, passe par l'appelant), sinon le plus long.
  */
-export function coteDAcces(cl: Cloture, pts: readonly PtBrut[]): number {
+export function coteDAcces(cl: Cloture, pts: readonly PtBrut[], devine: number | null = null): number {
   const rue = cl.cotes.find(c => c.limite === 'rue' && coteValide(pts, c.cote));
   if (rue) return rue.cote;
+  if (devine !== null && coteValide(pts, devine)) return devine;
   let meilleur = 0, max = -1;
   for (let i = 0; i < pts.length; i++) {
     const l = longueurDuCote(pts, i);

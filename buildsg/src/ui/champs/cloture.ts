@@ -24,6 +24,7 @@ import type {
   Cloture, ReglageCloture, CoteCloture, Portail, TypeCloture, ParementMur, EssenceHaie,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan,
 } from '../../model/types.js';
+import { coteRueDevine } from '../../geo/coteRue.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
 /** La parcelle du projet, celle qui porte la cloture - pas une parcelle voisine (objet.ts). */
@@ -141,7 +142,10 @@ export function sectionCloture(c: ContexteChamps): Section {
       ecrire: (_cc, v) => { coteEnCours = v === '' ? null : Number(v); },
     },
     { type: 'choix', cle: 'type', libelle: 'Type', visible: actif, effets: ['inspecteur', ...effets], options: () => options(LIBELLES_TYPE_CLOTURE), lire: (cc) => r(cc).type, ecrire: (cc, v) => ecrireReglage(cc, (x) => changerType(x, v as TypeCloture)) },
-    { type: 'choix', cle: 'limite', libelle: 'Limite', visible: surCote, effets: ['inspecteur', 'rendu'], options: () => [{ valeur: '', libelle: 'Non précisée' }, { valeur: 'rue', libelle: 'Sur rue' }, { valeur: 'separative', libelle: 'Séparative (voisin)' }], lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) || '', ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v === 'rue' || v === 'separative') x.limite = v; else delete x.limite; }) },
+    { type: 'choix', cle: 'limite', libelle: 'Limite', visible: surCote, effets: ['inspecteur', 'rendu'], options: () => [{ valeur: '', libelle: 'Non précisée' }, { valeur: 'rue', libelle: 'Sur rue' }, { valeur: 'separative', libelle: 'Séparative (voisin)' }],
+      // Non precisee : ce que le plan en devine, pour que le choix se fasse en connaissance.
+      note: (cc) => { if (coteEnCours === null || coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) return ''; const d = coteRueDevine(cc.obj, cc.objets); return d === null ? '' : d === coteEnCours ? 'devinée : sur rue' : 'devinée : séparative'; },
+      lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) || '', ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v === 'rue' || v === 'separative') x.limite = v; else delete x.limite; }) },
     { type: 'case', cle: 'mitoyenne', libelle: 'Mitoyenne', visible: surCote, effets: ['inspecteur'], aide: 'Clôture partagée avec le voisin', lire: (cc) => !!(coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.mitoyenne), ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v) x.mitoyenne = true; else delete x.mitoyenne; }) },
     { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur', unite: 'm', pas: 0.1, min: 0.1, max: 6, decimales: 2, visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), note: (cc) => (r(cc).soubassement ? `hors soubassement · ${fr(hauteurTotale(r(cc)))} m en tout` : ''), effets, lire: (cc) => r(cc).hauteur, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.hauteur = v; }); } },
     { type: 'couleur', cle: 'couleur', libelle: 'Couleur', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets, lire: (cc) => r(cc).couleur || DEFAUTS_PAR_TYPE[r(cc).type].couleur || COULEUR_CLOTURE_DEFAUT, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couleur = v; }) },
@@ -181,7 +185,8 @@ export function sectionPortails(c: ContexteChamps): Section {
   const ecrireAcces = (cc: ContexteChamps, f: (a: Portail) => void) => ecrire(cc, (cl) => { const a = cl.portails[accesEnCours]; if (a) f(a); });
   const ajouter = (nature: Portail['nature']) => (cc: ContexteChamps) => {
     ecrire(cc, (cl) => {
-      const cote = coteDAcces(cl, pts(cc.obj));
+      // Sur le cote dit sur rue, sinon sur celui que le plan devine (point d'adresse, voisines), sinon le plus long.
+      const cote = coteDAcces(cl, pts(cc.obj), coteRueDevine(cc.obj, cc.objets));
       cl.portails.push(nouveauPortail(nature, cote, longueurDuCote(pts(cc.obj), cote)));
       accesEnCours = cl.portails.length - 1;
     });
@@ -189,7 +194,9 @@ export function sectionPortails(c: ContexteChamps): Section {
   };
 
   const champs: Champ[] = [
-    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif, explication: 'Sur le côté sur rue s’il y en a un, sinon sur le plus long.', agit: 'projet', executer: ajouter('portail') },
+    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif,
+      explication: (() => { const d = coteRueDevine(c.obj, c.objets); const dit = clotureDe(c.obj).cotes.some(x => x.limite === 'rue'); return dit ? 'Sur le côté sur rue.' : d !== null ? `Sur le côté ${d + 1}, que le plan devine sur rue (point d’adresse, parcelles voisines) ; corrigez la limite d’un côté si besoin.` : 'Sur le côté sur rue s’il y en a un, sinon sur le plus long.'; })(),
+      agit: 'projet', executer: ajouter('portail') },
     { type: 'bouton', cle: 'ajouterPortillon', libelle: '', nom: 'Ajouter un portillon', texte: () => 'Ajouter un portillon', visible: actif, agit: 'projet', executer: ajouter('portillon') },
   ];
 

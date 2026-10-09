@@ -265,6 +265,13 @@
   .blocIgn{ margin-top:4px; display:flex; flex-direction:column; gap:3px; }
   .detailIgn{ font-size:0.78rem; opacity:0.75; margin:-2px 0 2px 22px; }
   .detailIgn.avertissementRayon{ opacity:1; color:var(--avertissement); }
+  /* La realite augmentee (three/ar.ts) : une superposition plein ecran, le modele au milieu, le conseil dessous. */
+  .voileAR{ position:fixed; inset:0; z-index:120; display:flex; flex-direction:column; background:var(--paper); }
+  .voileAR .enteteAR{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border); }
+  .voileAR .titreAR{ font-family:var(--serif); font-size:1.05rem; }
+  .voileAR model-viewer{ flex:1 1 auto; width:100%; min-height:0; background:var(--stage-bg); }
+  .voileAR .conseilAR{ margin:0; padding:10px 16px calc(10px + var(--reserve-bas, 0px)); font-size:0.8rem; color:var(--ink-soft); }
+  .voileAR .boutonAR{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); min-height:44px; padding:0 18px; border-radius:999px; background:var(--accent); color:var(--on-accent); border:0; font-family:var(--serif); font-size:1rem; box-shadow:var(--ombre-flottante); }
   .pluParcours{ font-size:0.8rem; margin-top:8px; line-height:1.45; }
   .pluParcours .discret{ opacity:0.75; }
   .etatParcours{ margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35; }
@@ -1349,6 +1356,24 @@
   .releveListe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
   .releveListe button{ min-height:44px; display:flex; justify-content:space-between; align-items:center; gap:8px; text-align:left; font-variant-numeric:tabular-nums; }
   .releveDeja{ display:inline-flex; align-items:center; gap:4px; color:var(--ok); font-size:0.74rem; }
+
+  .releveBoussole{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.85rem; padding:8px 10px; border-radius:var(--r-champ); background:var(--panel-2); }
+  .releveBoussole strong{ color:var(--accent); }
+  .releveMurCote.devine .releveMurTrait{ stroke:var(--accent); stroke-width:7; }
+
+  /* 2. La methode : trois cartes, chacune son explication et son bouton. */
+  .releveMethodes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+  .releveMethode{ display:flex; flex-direction:column; gap:8px; padding:12px 14px; border:1px solid var(--rule); border-radius:var(--r-panneau); background:var(--panel-2); }
+  .releveMethode h3{ margin:0; display:flex; align-items:center; gap:8px; font-family:var(--serif); font-weight:normal; font-size:1rem; }
+  .releveMethode p{ margin:0; font-size:0.84rem; line-height:1.45; flex:1; }
+  .releveMethode button{ min-height:44px; align-self:flex-start; }
+  .releveMethode.indisponible{ opacity:.7; }
+  /* 2 bis. Les photos de rue : une vignette, la distance et l'angle, l'annee et l'auteur. */
+  .relevePhotosRue{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px; }
+  .relevePhotoRue{ min-height:72px; display:flex; align-items:center; gap:10px; text-align:left; padding:6px 10px 6px 6px; }
+  .relevePhotoRue img, .relevePhotoRueVide{ width:96px; height:64px; object-fit:cover; border-radius:var(--r-champ); background:var(--stage-bg); flex:none; }
+  .relevePhotoRueTexte{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .relevePhotoRueTexte strong{ font-weight:normal; }
 
   /* 2. La visee. La video garde toute l'image (contain) : les reperes se posent sur l'image, pas
      sur les bandes, sinon la distance deduite serait fausse. */

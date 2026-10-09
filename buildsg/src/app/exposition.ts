@@ -155,6 +155,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'visionneuse.zoomAvant': partout('visionneuse'),
   'visionneuse.zoomArriere': partout('visionneuse'),
   'visionneuse.hauteurDesYeux': partout('visionneuse'),
+  'visionneuse.ar': partout('visionneuse'),
   'visionneuse.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['visionneuse'] }
 };
 
