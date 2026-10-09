@@ -347,6 +347,40 @@ gouttière) et les arêtes sont posés : un voisinage de deux mille bâtiments n
 mailles de plus chacun. Rien n'est enregistré : ce sont des règles de rendu, et la structure du
 GLB exporté change avec elles (témoin `glb-structure.json`, `EMPREINTES.md`).
 
+**Les fenêtres d'un bâtiment du projet se règlent** (section « Fenêtres (3D) » de l'inspecteur,
+`ui/champs/fenetres3d.ts`, rangées dans `fenetres3d` sur le bâtiment, `model/fenetres3d.ts`) :
+
+- **Toutes pareilles** (défaut) : largeur, hauteur, hauteur d'appui, entraxe et couleur des vitres,
+  communs à toutes ; la disposition automatique (`facade/ouvertures.ts::ouverturesAutomatiques`)
+  s'en sert. Les défauts sont ceux du tableau ci-dessus.
+- **Une par une** : la liste part de la disposition automatique ; chaque ouverture (fenêtre ou
+  porte) se déplace sur son mur, se taille, change de mur ; on en ajoute (à droite de celle en
+  cours), on en supprime, on revient à l'automatique. La position est bornée au mur.
+- Ces champs écrivent le projet (Ctrl+Z, « projet modifié ») : la 3D et l'export GLB en dépendent.
+  Un mur photographié garde les ouvertures de son relevé. Une maison du voisinage n'a pas cette
+  section : son apparence vient de §6.4.
+
+### 6.4 L'apparence du voisinage en 3D
+
+Section « Voisinage (3D) » de l'inspecteur, sur la parcelle du projet (`ui/champs/voisinage3d.ts`),
+rangée dans `voisinage3d` sur la parcelle (`model/voisinage3d.ts`) comme le fond orthophoto. Ce
+sont des **préférences d'affichage** (`sale: false`) : ni Ctrl+Z, ni « projet modifié », permises en
+lecture seule, enregistrées avec le projet au prochain enregistrement. Rien n'est écrit sur les
+parcelles voisines. Les défauts sont le rendu d'avant ce réglage.
+
+| Groupe | Réglages | Défaut |
+|---|---|---|
+| **Murs des maisons** | couleur du plan (celle de chaque bâtiment importé), une couleur, ou deux tons tirés au hasard entre deux couleurs pour casser l'uniformité | couleur du plan |
+| **Vitres** | une couleur, ou une nuance tirée entre deux | `#6F8AA6`, unique |
+| **Fenêtres** | largeur, hauteur et entraxe (la densité), chacun entre un minimum et un maximum tirés par maison ; un minimum ne dépasse pas son maximum | 1 × 1,2 m, entraxe 2,4 m, sans variation |
+| **Clôtures du voisinage** | afficher ; type (palissade, grillage, haie, mur : la hauteur est celle du type) ; couleur, qui suit le type tant qu'elle n'a pas été choisie | affichées, grillage gris vert clair translucide |
+
+Ce qui est tiré au hasard l'est **par un tirage reproductible depuis la clé de l'objet**
+(`apparenceVoisin`) : la scène ne change pas d'une ouverture à l'autre, ni entre la Vue 3D et
+l'export GLB. La scène (`three/scene.ts`) applique la couleur tirée au prisme, au relevé et aux
+détails ; la clôture du voisinage (`three/clotureVoisinage.ts`) prend le type et la couleur. Avant,
+la case « Clôtures du voisinage » vivait dans les réglages de la Vue 3D : elle a rejoint ce groupe.
+
 ---
 
 ## 7. L'interface

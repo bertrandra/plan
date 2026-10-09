@@ -225,12 +225,13 @@ structure, comme celles du relevé.
 
 ### 4.1 Les clôtures du voisinage (`three/clotureVoisinage.ts`)
 
-Une case des réglages de la Vue 3D, **« Clôtures du voisinage », cochée par défaut** (sans elle, les
-parcelles voisines ne se distinguaient pas en 3D). C'est une
-préférence d'affichage, comme « Ombre portée » : rien n'est écrit sur les parcelles voisines, qui ne
-portent ni clôture ni lieu (décision produit). Elle pose un **grillage générique** — 1,5 m,
-gris vert clair, translucide (30 %), sans ombre portée — sur les limites des parcelles voisines
-visibles :
+Un groupe de la section **« Voisinage (3D) »** de la parcelle du projet (`MD/spec-toit-ign.md` §6.4) :
+afficher (coché par défaut : sans elles, les parcelles voisines ne se distinguaient pas en 3D), le
+type (palissade, grillage, haie ou mur, à la hauteur du type) et la couleur. Ce sont des préférences
+d'affichage rangées sur la parcelle du projet : rien n'est écrit sur les parcelles voisines, qui ne
+portent ni clôture ni lieu (décision produit). Par défaut un **grillage** — 1,5 m, gris vert clair,
+translucide (30 %), sans ombre portée ; les autres types sont pleins — sur les limites des parcelles
+voisines visibles :
 
 - chaque limite une fois (sommets arrondis à 20 cm, sens fixe pour que deux panneaux confondus
   soient éclairés pareil) ;

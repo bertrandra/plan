@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Voisinage (3D) » : un groupe de réglages sur la parcelle du projet** (inspecteur, section
+  repliée) qui rassemble tout ce qui décide de l'apparence des maisons voisines dans la Vue 3D :
+  les **murs** (couleur du plan, une couleur, ou deux tons tirés au hasard pour casser l'uniformité),
+  les **vitres** (une couleur, ou une nuance entre deux), les **fenêtres** (largeur, hauteur et
+  entraxe, chacun entre un minimum et un maximum tirés par maison), et les **clôtures du voisinage**
+  (afficher, type palissade / grillage / haie / mur, couleur). La case « Clôtures du voisinage » des
+  réglages de la Vue 3D a rejoint ce groupe. Préférences d'affichage, enregistrées avec le projet ;
+  rien n'est écrit sur les parcelles voisines. Les défauts sont le rendu d'avant
+  (`MD/spec-toit-ign.md` §6.4).
+
+- **« Fenêtres (3D) » sur un bâtiment du projet** : la section règle les fenêtres que la Vue 3D
+  dessine sur les murs sans relevé de façade. « Toutes pareilles » : largeur, hauteur, hauteur
+  d'appui, entraxe et couleur des vitres, communs. « Une par une » : la liste part de la disposition
+  automatique, et chaque fenêtre ou porte se déplace sur son mur, se taille, change de mur ; on en
+  ajoute, on en supprime, on revient à l'automatique. Ces réglages écrivent le projet (Ctrl+Z) et se
+  retrouvent dans l'export GLB (`MD/spec-toit-ign.md` §6.3).
+
 - **« Clôtures du voisinage » dans les réglages de la Vue 3D**, cochée par défaut. Elle
   pose un grillage léger et translucide sur les limites des parcelles voisines, pour situer le projet
   dans sa rue : chaque limite une fois, pas sur la limite commune avec la parcelle du projet quand

@@ -73,8 +73,6 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
             <Case id="terrasse3dTranslucide" controle="vue3d.platelageTranslucide" libelle="Platelage translucide — voir les plots" coche={vue3d.platelageTranslucide} onChange={r.basculerPlatelageTranslucide}
               titre="Les lames deviennent translucides : la structure bois, les plots et leur dalle ou leur concassé se voient dessous" />
             <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Afficher tous les objets du plan" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets} />
-            <Case id="terrasse3dCloturesVoisinage" controle="vue3d.cloturesVoisinage" libelle="Clôtures du voisinage" coche={vue3d.cloturesVoisinage} onChange={r.basculerCloturesVoisinage}
-              titre="Pose un grillage sur les limites des parcelles voisines, pour situer le projet dans sa rue. Affichage seul : rien n'est écrit sur les parcelles voisines." />
             <Case id="terrasse3dSolCoupe" controle="vue3d.solEnCoupe" libelle="Sol en coupe — voir l'assise et les fondations" coche={vue3d.solEnCoupe} onChange={r.basculerSolEnCoupe}
               titre="Perce le sol sous la terrasse : hérisson, dalle, massifs ou fûts de vis apparaissent à leur profondeur" />
             <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Objets opaques (sinon opacite du plan)" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques} />
