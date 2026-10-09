@@ -111,7 +111,11 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
 
   const valider = () => {
     if (!facade || !resultat) return;
-    releve.valider(releveDuMur(facade, resultat, ouvertures, hauteurMur, morceaux[0]?.prise.mesure ?? null), appliquerToit ? toit : null, hauteurMur);
+    // Le batiment garde sa hauteur (cadastre, saisie) : la facade mesuree y est ramenee, ouvertures,
+    // partie basse et toit compris, plutot que d'etirer le batiment a la hauteur lue sur la photo.
+    const k = hauteurMur > 0 && hauteurEstimee > 0 ? hauteurEstimee / hauteurMur : 1;
+    const e = Math.abs(k - 1) > 1e-9 ? etirerEnHauteur(resultat, ouvertures, toit, k) : { resultat, ouvertures, toit };
+    releve.valider(releveDuMur(facade, e.resultat, e.ouvertures, hauteurEstimee, morceaux[0]?.prise.mesure ?? null), appliquerToit ? e.toit : null, hauteurMur);
   };
 
   const viser = (remplacer: number | null) => {

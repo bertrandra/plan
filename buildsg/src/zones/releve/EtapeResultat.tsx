@@ -144,7 +144,7 @@ function CarteHauteur({ v }: { v: Verification }) {
       <div className="releveSousTitre">Hauteur</div>
       <p className="releveNote">
         {v.hauteurMesuree
-          ? `Mesurée sur la photo, à l'échelle de la largeur du plan (${fr(v.largeur)} m). Le bâtiment avait jusqu'ici ${fr(v.hauteurEstimee)} m (cadastre ou relevé précédent).`
+          ? `Mesurée sur la photo, à l'échelle de la largeur du plan (${fr(v.largeur)} m). Le bâtiment garde ses ${fr(v.hauteurEstimee)} m : la façade y sera ramenée, ouvertures comprises.`
           : `La photo ne permettait pas de la mesurer : c'est celle du bâtiment jusqu'ici (cadastre ou relevé précédent). Corrigez-la si vous la connaissez.`}
       </p>
       <div className="releveChamps">

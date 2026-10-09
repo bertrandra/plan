@@ -6,9 +6,10 @@
 // geste), puis le releve, le toit, la hauteur d'egout mesuree, et les rendus qui doivent suivre.
 //
 // Le batiment par defaut est le contour du cadastre extrude a la hauteur du cadastre, avec le toit
-// qu'on lui connait. **Chaque facade relevee le redefinit** : la hauteur a l'egout mesuree sur la
-// photo remplace celle du cadastre, et le toit lu sur la facade - le triangle d'un pignon, ou le pan
-// vu depuis l'egout - remplace le toit du batiment.
+// qu'on lui connait. Une facade relevee **ne change pas sa hauteur** : la photo est ramenee a la
+// hauteur du batiment (zones/Releve.tsx), et la hauteur mesuree n'est que dite. Le toit lu sur la
+// facade - le triangle d'un pignon, ou le pan vu depuis l'egout - remplace le toit du batiment si
+// la case est cochee.
 
 import { vue3d } from '../three/etat3d.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
@@ -40,10 +41,11 @@ export interface ServiceReleve {
   batiment(): ObjetPolygone | null;
   hauteurMur(): number;
   /**
-   * Ecrit le releve dans le projet. `hauteur` est la hauteur d'egout mesuree sur la photo ; `toit`,
-   * s'il est donne, remplace celui du batiment.
+   * Ecrit le releve dans le projet. `hauteurMesuree` est la hauteur d'egout lue sur la photo : elle
+   * est dite, pas appliquee — le batiment garde sa hauteur ; `toit`, s'il est donne, remplace celui
+   * du batiment.
    */
-  valider(releve: ReleveFacade, toit: Toit | null, hauteur: number): void;
+  valider(releve: ReleveFacade, toit: Toit | null, hauteurMesuree: number): void;
 }
 
 export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
@@ -77,21 +79,22 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       const o = batiment();
       return o ? ctx.elevationOf(o) : 0;
     },
-    valider(releve, toit, hauteur) {
+    valider(releve, toit, hauteurMesuree) {
       const o = batiment();
       if (!o) return;
       ctx.pushHistory();
       o.facades = [...(o.facades || []).filter((r) => r.cote !== releve.cote), releve].sort((a, b) => a.cote - b.cote);
       if (toit) o.toit = toit;
-      // La hauteur d'egout mesuree sur la photo remplace celle du cadastre (ou d'un releve precedent) ;
-      // les autres releves du meme batiment gardent la leur, puisqu'elle a ete mesuree sur leur mur.
-      if (hauteur > 0 && Math.abs(hauteur - ctx.elevationOf(o)) > 0.005) o.elevation = Math.round(hauteur * 100) / 100;
+      // La hauteur du batiment n'est pas touchee : la photo a ete ramenee a elle. La mesure est dite,
+      // pour que l'ecart avec le cadastre se voie.
+      const hBat = ctx.elevationOf(o);
       ctx.render();
       if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
-      const f = facadesDuContour(o.pts, hauteur).find((x) => x.cote === releve.cote);
+      const f = facadesDuContour(o.pts, hBat).find((x) => x.cote === releve.cote);
       const n = releve.ouvertures.length;
-      const hm = (Math.round(hauteur * 100) / 100).toFixed(2).replace('.', ',');
-      showToast(`Façade ${f ? f.orientation.toLowerCase() : ''} relevée : ${hm} m à l'égout, ${n} ouverture${n > 1 ? 's' : ''}${toit ? ', toit remplacé' : ''}.`);
+      const fr = (v: number) => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
+      const ecart = hauteurMesuree > 0 && Math.abs(hauteurMesuree - hBat) > 0.05 ? ` (mesurée ${fr(hauteurMesuree)} m sur la photo, le bâtiment garde ${fr(hBat)} m)` : '';
+      showToast(`Façade ${f ? f.orientation.toLowerCase() : ''} relevée : ${n} ouverture${n > 1 ? 's' : ''}${toit ? ', toit remplacé' : ''}${ecart}.`);
       courant = null;
       annoncer();
     },
