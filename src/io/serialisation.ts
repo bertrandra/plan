@@ -94,6 +94,9 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.piscine) out.piscine = JSON.parse(JSON.stringify(o.piscine));
     // Le declarant d'une declaration prealable, range sur la parcelle : pose seulement s'il existe.
     if(o.declaration) out.declaration = JSON.parse(JSON.stringify(o.declaration));
+    // L'apparence du voisinage en 3D (parcelle du projet) et les fenetres d'un batiment : de meme.
+    if(o.voisinage3d) out.voisinage3d = JSON.parse(JSON.stringify(o.voisinage3d));
+    if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.
     if(o.relief) out.relief = compacterRelief(o.relief);

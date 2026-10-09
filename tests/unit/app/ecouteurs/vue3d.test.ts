@@ -105,16 +105,6 @@ describe('Vue 3D', () => {
     reglages.basculerOmbres(true); reglages.basculerTextures(true);
   });
 
-  it('coche les clotures du voisinage par defaut, et les bascule comme une preference', () => {
-    const { ctx, reglages } = monter();
-    expect(vue3d.cloturesVoisinage).toBe(true);
-    vue3d.scene = fausseScene() as never;
-    reglages.basculerCloturesVoisinage(false);
-    expect(vue3d.cloturesVoisinage).toBe(false);
-    expect(ctx.buildThreeScene).toHaveBeenCalledWith(terrasse);
-    reglages.basculerCloturesVoisinage(true);
-  });
-
   it('range le filaire dans la construction de la terrasse, comme une preference d affichage', () => {
     const { a, reglages } = monter();
     expect(reglages.filaire()).toBe(false);

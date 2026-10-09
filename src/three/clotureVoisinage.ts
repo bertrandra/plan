@@ -1,4 +1,5 @@
-// Les clotures du voisinage en 3D : une option d'affichage de la Vue 3D, cochee par defaut.
+// Les clotures du voisinage en 3D : un reglage de la section « Voisinage (3D) » de la parcelle du
+// projet (model/voisinage3d.ts), affiche par defaut.
 //
 // La cloture detaillee (three/cloture3d.ts) appartient a la parcelle du projet, avec ses acces et
 // ses matieres (decision produit : une parcelle voisine ne porte ni cloture ni lieu). Pour situer
@@ -10,23 +11,26 @@
 // du projet ne l'est pas quand celle-ci a sa propre cloture : les deux se disputeraient le meme mur.
 
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import type { ObjetPlan, PtBrut, TypeCloture } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { clotureDe, DEFAUTS_PAR_TYPE } from '../model/cloture.js';
+import { COULEUR_GRILLAGE_VOISINAGE } from '../model/voisinage3d.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { SANS_OMBRE, type VersLocal } from './primitives.js';
 
 /** La hauteur du grillage, en metres : celle d'un grillage de jardin. */
 export const HAUTEUR_CLOTURE_VOISINAGE_M = DEFAUTS_PAR_TYPE.grillage.hauteur;
-/**
- * Sa couleur : un gris vert clair. Le gris du grillage de la parcelle, sur l'orthophoto sombre et
- * vu de loin, faisait de chaque limite un trait noir — encore des lignes de bande dessinee.
- */
-const COULEUR = '#a9b2a6';
-/** Un grillage se voit au travers : le panneau est translucide, a peine. */
-const OPACITE = 0.3;
+/** Un grillage se voit au travers : le panneau est translucide, a peine. Les autres types sont pleins. */
+const OPACITE_GRILLAGE = 0.3;
+
+/** Ce que la cloture du voisinage prend des reglages : son type (sa hauteur en decoule) et sa couleur. */
+export interface ReglageClotureVoisinage {
+  type: Exclude<TypeCloture, 'aucune'>;
+  couleur: string;
+}
+export const REGLAGE_CLOTURE_VOISINAGE_DEFAUT: ReglageClotureVoisinage = { type: 'grillage', couleur: COULEUR_GRILLAGE_VOISINAGE };
 /** Deux sommets plus proches que cela sont le meme : les parcelles voisines partagent leurs sommets cadastraux. */
 const ARRONDI_M = 0.2;
 /** Une limite a moins de cela du contour de la parcelle du projet lui est commune. */
@@ -68,11 +72,12 @@ export function limitesDuVoisinage(objets: readonly ObjetPlan[], masque: (o: Obj
  * Pose le grillage sur ces limites, en une maille. `sol` : la hauteur du sol en un point du plan
  * (relief) ; absent, le grillage part de zero.
  */
-export function ajouterClotureVoisinage(scene: THREE_NS.Object3D, versLocal: VersLocal, limites: readonly Limite[], sol?: (p: PtBrut) => number): THREE_NS.Mesh | null {
+export function ajouterClotureVoisinage(scene: THREE_NS.Object3D, versLocal: VersLocal, limites: readonly Limite[], sol?: (p: PtBrut) => number, reglage: ReglageClotureVoisinage = REGLAGE_CLOTURE_VOISINAGE_DEFAUT): THREE_NS.Mesh | null {
   if (!limites.length) return null;
   const pos: number[] = [];
   const idx: number[] = [];
-  const h = HAUTEUR_CLOTURE_VOISINAGE_M;
+  const h = DEFAUTS_PAR_TYPE[reglage.type].hauteur || HAUTEUR_CLOTURE_VOISINAGE_M;
+  const grillage = reglage.type === 'grillage';
   for (const { a, b } of limites) {
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     const n = sol ? Math.max(1, Math.ceil(L / PAS_RELIEF_M)) : 1;
@@ -93,11 +98,14 @@ export function ajouterClotureVoisinage(scene: THREE_NS.Object3D, versLocal: Ver
   geo.setIndex(idx);
   geo.computeVertexNormals();
   // Translucide et sans ecriture de profondeur : vu d'en haut, les grillages se croisent sans se trouer.
-  const mat = new THREE.MeshStandardMaterial({ color: COULEUR, roughness: 0.6, metalness: 0.3, transparent: true, opacity: OPACITE, depthWrite: false, side: THREE.DoubleSide });
+  const mat = new THREE.MeshStandardMaterial({
+    color: reglage.couleur, roughness: grillage ? 0.6 : 0.85, metalness: grillage ? 0.3 : 0, side: THREE.DoubleSide,
+    ...(grillage ? { transparent: true, opacity: OPACITE_GRILLAGE, depthWrite: false } : {}),
+  });
   const m = new THREE.Mesh(geo, mat);
   m.name = 'cloture-voisinage';
   // Un grillage ne porte pas d'ombre pleine : sans cela, chaque parcelle serait cernee d'un mur d'ombre.
-  m.userData[SANS_OMBRE] = true;
+  if (grillage) m.userData[SANS_OMBRE] = true;
   scene.add(m);
   return m;
 }
