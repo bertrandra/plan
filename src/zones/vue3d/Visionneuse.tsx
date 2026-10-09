@@ -71,6 +71,9 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
               <BoutonCommande commandes={commandes} id="visionneuse.regenerer" domId="glbViewerRegenBtn" className="objbtn small" enCours={enCours}>
                 <Icone nom="positionInitiale" taille={20} /> Régénérer depuis le plan
               </BoutonCommande>
+              <BoutonCommande commandes={commandes} id="visionneuse.ar" domId="glbViewerArBtn" className="objbtn small" enCours={enCours}>
+                <Icone nom="cube" taille={20} /> Voir chez vous (réalité augmentée)
+              </BoutonCommande>
             </div>
             <LigneIntensite ids={IDS_SOLEIL} soleil={soleil} />
             <div id="glbViewerHint" className="hint">{affichage3d.indicationGlb}</div>

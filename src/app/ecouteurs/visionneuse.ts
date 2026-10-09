@@ -6,6 +6,8 @@
 // l'utilisateur au cadrage d'origine à chaque case cochée, ce qui rend une comparaison impossible.
 
 import { glb, affichage3d, signaler3d } from '../../three/etat3d.js';
+import { ouvrirAR } from '../../three/ar.js';
+import { showErrBanner } from '../../shell/dialogs.js';
 import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
 import { estTexture } from '../../three/gardes.js';
 import type { Atelier } from '../atelier.js';
@@ -64,6 +66,17 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
   cmd.declarer({ id: 'visionneuse.generer', libelle: 'Générer le modèle 3D', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
   cmd.declarer({ id: 'visionneuse.regenerer', libelle: 'Régénérer depuis le plan', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
 
+  // Voir chez soi : le modele en memoire, confie a model-viewer (three/ar.ts). Grise sans modele.
+  cmd.declarer({
+    id: 'visionneuse.ar', libelle: 'Voir chez vous (réalité augmentée)', groupe: 'visionneuse',
+    description: 'Pose le modèle 3D grandeur nature dans l’image de la caméra d’un téléphone ou d’une tablette',
+    actif: () => !!glb.dernierExporte && libre(),
+    executer: () => {
+      const e = glb.dernierExporte;
+      if (!e) return;
+      void ouvrirAR(e.buffer, e.nomTerrasse).catch(() => showErrBanner('Impossible de charger la réalité augmentée (connexion internet requise pour cette fonctionnalité).'));
+    }
+  });
   vis('glbViewerZoomIn', 'visionneuse.zoomAvant', 'Zoom avant', () => zoom(0.8));
   vis('glbViewerZoomOut', 'visionneuse.zoomArriere', 'Zoom arrière', () => zoom(1.25));
 

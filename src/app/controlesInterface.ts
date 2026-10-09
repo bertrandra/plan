@@ -119,6 +119,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
   ...reglagesVue('visionneuse', 'visionneuse'),
   'visionneuse.fond': { libelle: 'Fond (visionneuse)', zone: Z4, nature: 'vue' },
+  'visionneuse.arVoir': { libelle: 'Voir chez vous : lancer la réalité augmentée (model-viewer)', zone: Z4, nature: 'vue' },
+  'visionneuse.arFermer': { libelle: 'Fermer la réalité augmentée', zone: Z4, nature: 'navigation' },
 
   // ---- Z5 : l'inspecteur -------------------------------------------------------------------------
   'inspecteur.replier': { libelle: 'Replier ou déplier l’inspecteur', zone: Z5, nature: 'navigation' },

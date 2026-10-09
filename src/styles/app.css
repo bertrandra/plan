@@ -265,6 +265,13 @@
   .blocIgn{ margin-top:4px; display:flex; flex-direction:column; gap:3px; }
   .detailIgn{ font-size:0.78rem; opacity:0.75; margin:-2px 0 2px 22px; }
   .detailIgn.avertissementRayon{ opacity:1; color:var(--avertissement); }
+  /* La realite augmentee (three/ar.ts) : une superposition plein ecran, le modele au milieu, le conseil dessous. */
+  .voileAR{ position:fixed; inset:0; z-index:120; display:flex; flex-direction:column; background:var(--paper); }
+  .voileAR .enteteAR{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border); }
+  .voileAR .titreAR{ font-family:var(--serif); font-size:1.05rem; }
+  .voileAR model-viewer{ flex:1 1 auto; width:100%; min-height:0; background:var(--stage-bg); }
+  .voileAR .conseilAR{ margin:0; padding:10px 16px calc(10px + var(--reserve-bas, 0px)); font-size:0.8rem; color:var(--ink-soft); }
+  .voileAR .boutonAR{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); min-height:44px; padding:0 18px; border-radius:999px; background:var(--accent); color:var(--on-accent); border:0; font-family:var(--serif); font-size:1rem; box-shadow:var(--ombre-flottante); }
   .pluParcours{ font-size:0.8rem; margin-top:8px; line-height:1.45; }
   .pluParcours .discret{ opacity:0.75; }
   .etatParcours{ margin-top:10px; font-size:0.82rem; min-height:1.2em; line-height:1.35; }

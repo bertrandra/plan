@@ -14,10 +14,11 @@ function fichiers(dossier: string): string[] {
   const abs = resolve(racine, dossier);
   return readdirSync(abs).flatMap((n) => statSync(join(abs, n)).isDirectory() ? fichiers(join(dossier, n)) : [join(dossier, n)]);
 }
-const sources = fichiers('src/zones').filter((f) => f.endsWith('.tsx')).map((f) => readFileSync(resolve(racine, f), 'utf8')).join('\n');
+// La superposition de realite augmentee (three/ar.ts) est batie en DOM, hors zones/ : elle compte.
+const sources = [...fichiers('src/zones').filter((f) => f.endsWith('.tsx')), 'src/three/ar.ts'].map((f) => readFileSync(resolve(racine, f), 'utf8')).join('\n');
 
-/** Les cles ecrites en toutes lettres : `data-controle="…"` et la prop `controle="…"`. */
-const litterales = new Set([...sources.matchAll(/\b(?:data-controle|controle)="([^"]+)"/g)].map((m) => m[1]!));
+/** Les cles ecrites en toutes lettres : `data-controle="…"`, la prop `controle="…"`, `setAttribute('data-controle', '…')`. */
+const litterales = new Set([...sources.matchAll(/\b(?:data-controle|controle)="([^"]+)"/g), ...sources.matchAll(/setAttribute\('data-controle', '([^']+)'\)/g)].map((m) => m[1]!));
 /** Les cles composees : un prefixe et une variable, `'explorateur.etiquettesTous.' + champ`. */
 const prefixes = [...sources.matchAll(/data-controle=\{'([^']+\.)' \+ [\w.]+\}/g)].map((m) => m[1]!);
 /** Les cles d'une vue 3D : `vue + '.date'`, `ids.vue + '.date'`, pour la Vue 3D et la visionneuse. */
