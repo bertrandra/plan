@@ -1,4 +1,4 @@
-// Les clotures du voisinage en 3D : une option d'affichage de la Vue 3D, decochee par defaut.
+// Les clotures du voisinage en 3D : une option d'affichage de la Vue 3D, cochee par defaut.
 //
 // La cloture detaillee (three/cloture3d.ts) appartient a la parcelle du projet, avec ses acces et
 // ses matieres (decision produit : une parcelle voisine ne porte ni cloture ni lieu). Pour situer

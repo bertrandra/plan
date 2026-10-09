@@ -150,6 +150,10 @@ function poserToitPlat(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: 
     sommets.push(l.x, h + SURELEVATION_TOIT_PLAT_M, l.z);
   });
   const mat = new THREE.MeshStandardMaterial({ color: couleurToitPlat(toit), roughness: 0.95, side: THREE.DoubleSide });
+  // Deux centimetres au-dessus du prisme ne suffisent pas vu de loin : avec un voisinage etendu, le
+  // plan lointain recule a des kilometres, la precision de profondeur s'effondre et la couverture
+  // scintillait contre le dessus du prisme. Le decalage de profondeur la fait gagner a coup sur.
+  poserEnCouche(mat, COUCHES_SOL.surMur);
   const m = maillage(sommets, trianguler(dedans).flat(), mat);
   m.name = 'releve-toit-plat';
   ctx.scene.add(m);
