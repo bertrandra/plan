@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Un ouvrage neuf naît là où on le construirait**, plus au centre de la parcelle : la terrasse
+  contre la façade au soleil de la maison, la pergola et le parasol sur la terrasse (sinon là où elle
+  irait), la piscine au jardin (à 3 m des limites, hors de l'ombre de la maison, au sud), le carport
+  près de la rue. La place libre la plus proche est prise ensuite, comme avant. Sans maison ni rue
+  connue, le centre de la parcelle vaut toujours (`MD/spec-placement.md`).
+
+- **Le portail se pose côté rue, deviné.** Quand aucun côté n'est dit sur rue, le plan devine le
+  côté rue : le plus proche du point d'adresse (posé sur la voirie devant la porte), sinon le plus
+  long des côtés sans parcelle voisine accolée. Le bouton « Ajouter un portail » dit quel côté il
+  retient, et le champ « Limite » d'un côté non précisé note ce que le plan devine
+  (`MD/spec-cloture.md` §2.1).
+
 - **« Voisinage (3D) » : un groupe de réglages sur la parcelle du projet** (inspecteur, section
   repliée) qui rassemble tout ce qui décide de l'apparence des maisons voisines dans la Vue 3D :
   les **murs** (couleur du plan, une couleur, ou une nuance tirée au hasard entre deux ou trois couleurs
