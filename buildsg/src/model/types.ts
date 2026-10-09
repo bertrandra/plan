@@ -486,8 +486,11 @@ export type TypeCloture = 'aucune' | 'palissade' | 'grillage' | 'haie' | 'mur';
 
 /** L'apparence du voisinage en 3D, rangee sur la parcelle du projet (MD/spec-toit-ign.md §6.4). */
 export interface ReglagesVoisinage3d {
-  /** Les murs des maisons voisines : la couleur du plan, une couleur unique, ou deux tons tires au hasard entre les deux. */
-  maisons: { mode: 'plan' | 'unique' | 'deuxTons'; couleur: string; couleur2: string };
+  /**
+   * Les murs des maisons voisines : la couleur du plan, une couleur unique, ou une nuance tiree au
+   * hasard entre deux ou trois couleurs (`deuxTons`, l'ancien nom de `nuance`, se lit encore).
+   */
+  maisons: { mode: 'plan' | 'unique' | 'nuance' | 'deuxTons'; couleur: string; couleur2: string; couleur3: string; nombre: 2 | 3 };
   /** Leurs fenetres : une couleur, ou une nuance tiree entre deux ; des dimensions tirees entre un minimum et un maximum. */
   fenetres: {
     mode: 'unique' | 'nuance';
