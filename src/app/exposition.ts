@@ -58,17 +58,18 @@ export const EXPOSITION: Record<string, Ligne> = {
 
   // ---- Objets (Z2) ----------------------------------------------------------------------------
   'objet.annuler': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
-  'objet.ajouter.polygone': outil(),
-  'objet.ajouter.rectangle': outil(),
-  'objet.ajouter.chemin': outil(),
-  'objet.ajouter.cercle': outil(),
+  // Dans l'ordre de la palette : les ouvrages, puis les formes geometriques.
   'objet.ajouter.terrasse': outil(),
-  'objet.ajouter.parasol': outil(),
   'objet.ajouter.pergola': outil(),
   'objet.ajouter.carport': outil(),
   'objet.ajouter.piscine': outil(),
   'objet.ajouter.piscineRonde': outil(),
+  'objet.ajouter.parasol': outil(),
   'objet.ajouter.pointDeVue': outil(),
+  'objet.ajouter.chemin': outil(),
+  'objet.ajouter.polygone': outil(),
+  'objet.ajouter.rectangle': outil(),
+  'objet.ajouter.cercle': outil(),
   // La plage d'une piscine (section Abords) et les trous d'une terrasse (étape 1 de la terrasse, Implantation et niveau).
   'objet.terrassePiscine': partout('inspecteur'),
   'terrasse.ajouterTrou': partout('inspecteur'),

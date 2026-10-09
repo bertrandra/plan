@@ -446,6 +446,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Palette : les ouvrages d'abord.** Les boutons de création suivent l'ordre où l'on pense un
+  jardin — Terrasse, Pergola, Carport, Piscine, Piscine ronde, Parasol, Point de vue — et les formes
+  purement géométriques (Chemin, Polygone, Rectangle, Cercle) passent à la fin, dans un groupe
+  « Formes » à part.
+
 - **Le relevé de façade ne change plus la hauteur du bâtiment.** La photo apporte la texture, les
   ouvertures et le toit ; à la validation, la façade est ramenée à la hauteur du bâtiment (cadastre
   ou saisie), ouvertures, partie basse et toit compris. La hauteur mesurée sur la photo est dite
