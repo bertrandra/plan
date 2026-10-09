@@ -13,7 +13,8 @@ desktop.ini
 BKP */
 
 # Chaine Node (phase 1 de la migration)
-node_modules/
+# Sans barre finale : le motif couvre aussi un lien symbolique (celui d'un worktree de livraison).
+node_modules
 dist/
 
 # Rapport de couverture, regenere par npm run test -- --coverage

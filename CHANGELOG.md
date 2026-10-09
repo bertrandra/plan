@@ -546,6 +546,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Dépôt : plus de lien `node_modules` suivi par git.** La livraison du 9 octobre avait enregistré
+  le lien symbolique de son worktree vers `node_modules` (`.gitignore` ne couvrait que les dossiers) ;
+  une extraction remplaçait alors le dossier des dépendances par ce lien. Le lien est retiré et le
+  motif couvre désormais les liens.
+
 - **Les toits-terrasses ne scintillent plus en 3D.** Leur couverture, deux centimètres au-dessus du
   dessus du bâtiment, se disputait avec lui dès qu'on s'éloignait : avec un voisinage étendu, le plan
   lointain de la caméra recule à des kilomètres et la précision de profondeur ne distingue plus deux
