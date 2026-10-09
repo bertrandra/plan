@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Voir chez vous (réalité augmentée) »** dans la visionneuse GLB : le modèle 3D de la terrasse
+  se pose grandeur nature dans l'image de la caméra d'un téléphone ou d'une tablette — dans la page
+  sur Android (Chrome), dans Quick Look sur iPhone et iPad (Safari). Rien n'est téléversé : le
+  modèle reste dans le navigateur. Sur un ordinateur, le modèle se montre et le conseil dit sur quoi
+  l'ouvrir (`MD/spec-ar.md`).
+
 - **Un ouvrage neuf naît là où on le construirait**, plus au centre de la parcelle : la terrasse
   contre la façade au soleil de la maison, la pergola et le parasol sur la terrasse (sinon là où elle
   irait), la piscine au jardin (à 3 m des limites, hors de l'ombre de la maison, au sud), le carport
