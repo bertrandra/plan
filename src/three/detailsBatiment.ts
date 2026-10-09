@@ -360,7 +360,10 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
  */
 function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volumes: readonly Volume[], h: number, options: OptionsDetails): void {
   const facades = facadesDuContour(contour, h);
-  const liste = options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}) });
+  // Un mur photographie garde les ouvertures de son releve (releve3d.ts) : la liste reglee a la
+  // main n'y dessine rien, pas plus que la disposition automatique.
+  const releves = new Set(options.cotesReleves ?? []);
+  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}) })).filter((o) => !releves.has(o.cote));
   if (!liste.length) return;
   const b = new Batisseur();
   const rect = (f: Facade, x: number, y: number, l: number, hh: number, saillie: number) => {

@@ -370,7 +370,7 @@ parcelles voisines. Les défauts sont le rendu d'avant ce réglage.
 
 | Groupe | Réglages | Défaut |
 |---|---|---|
-| **Murs des maisons** | couleur du plan (celle de chaque bâtiment importé), une couleur, ou deux tons tirés au hasard entre deux couleurs pour casser l'uniformité | couleur du plan |
+| **Murs des maisons** | couleur du plan (celle de chaque bâtiment importé), une couleur, ou une nuance tirée au hasard le long de deux ou trois couleurs (`nuancer`, par morceaux) pour casser l'uniformité | couleur du plan |
 | **Vitres** | une couleur, ou une nuance tirée entre deux | `#6F8AA6`, unique |
 | **Fenêtres** | largeur, hauteur et entraxe (la densité), chacun entre un minimum et un maximum tirés par maison ; un minimum ne dépasse pas son maximum | 1 × 1,2 m, entraxe 2,4 m, sans variation |
 | **Clôtures du voisinage** | afficher ; type (palissade, grillage, haie, mur : la hauteur est celle du type) ; couleur, qui suit le type tant qu'elle n'a pas été choisie | affichées, grillage gris vert clair translucide |

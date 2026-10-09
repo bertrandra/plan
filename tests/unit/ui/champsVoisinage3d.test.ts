@@ -36,11 +36,14 @@ describe('section Voisinage (3D)', () => {
     expect(cles(s, c)).toEqual(['maisonsMode', 'fenetresMode', 'fenetresCouleur', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureAfficher', 'clotureType', 'clotureCouleur']);
     expect(champ<ChampChoix>(s, 'maisonsMode').lire(c)).toBe('plan');
     expect(champ<ChampChoix>(s, 'clotureType').lire(c)).toBe('grillage');
-    champ<ChampChoix>(s, 'maisonsMode').ecrire(c, 'deuxTons');
-    expect(cles(sectionVoisinage3d(c), c)).toContain('maisonsCouleur2');
+    champ<ChampChoix>(s, 'maisonsMode').ecrire(c, 'nuance');
+    expect(cles(sectionVoisinage3d(c), c)).toEqual(expect.arrayContaining(['maisonsNombre', 'maisonsCouleur', 'maisonsCouleur2']));
+    expect(cles(sectionVoisinage3d(c), c)).not.toContain('maisonsCouleur3');
+    champ<ChampChoix>(sectionVoisinage3d(c), 'maisonsNombre').ecrire(c, '3');
+    expect(cles(sectionVoisinage3d(c), c)).toContain('maisonsCouleur3');
     champ<ChampChoix>(s, 'fenetresMode').ecrire(c, 'nuance');
     expect(cles(sectionVoisinage3d(c), c)).toContain('fenetresCouleur2');
-    expect(c.obj.voisinage3d).toMatchObject({ maisons: { mode: 'deuxTons' }, fenetres: { mode: 'nuance' } });
+    expect(c.obj.voisinage3d).toMatchObject({ maisons: { mode: 'nuance', nombre: 3 }, fenetres: { mode: 'nuance' } });
   });
 
   it('tient le minimum sous le maximum, et la couleur de la cloture suit son type tant qu elle n a pas ete choisie', () => {

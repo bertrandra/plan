@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { voisinage3dDe, reglerVoisinage3d, apparenceVoisin, graineDe, tirage, melanger, couleurClotureVoisinageDefaut, VOISINAGE_3D_DEFAUT, COULEUR_VITRE_DEFAUT, COULEUR_GRILLAGE_VOISINAGE } from '../../../src/model/voisinage3d.js';
+import { voisinage3dDe, reglerVoisinage3d, apparenceVoisin, graineDe, tirage, melanger, nuancer, couleurClotureVoisinageDefaut, VOISINAGE_3D_DEFAUT, COULEUR_VITRE_DEFAUT, COULEUR_GRILLAGE_VOISINAGE } from '../../../src/model/voisinage3d.js';
 import { fenetres3dDe, reglerFenetres3d, nouvelleFenetre, FENETRES_3D_DEFAUT } from '../../../src/model/fenetres3d.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -35,7 +35,7 @@ describe('apparenceVoisin', () => {
 
   it('tire deux tons, une nuance et des dimensions entre les bornes, pareil pour la meme cle', () => {
     const r = voisinage3dDe(parcelle({ voisinage3d: {
-      maisons: { mode: 'deuxTons', couleur: '#000000', couleur2: '#FFFFFF' },
+      maisons: { mode: 'nuance', nombre: 2, couleur: '#000000', couleur2: '#FFFFFF' },
       fenetres: { mode: 'nuance', couleur: '#000000', couleur2: '#0000FF', largeurMin: 0.8, largeurMax: 1.4, hauteurMin: 1, hauteurMax: 1.6, entraxeMin: 2, entraxeMax: 4 },
     } }));
     const a = apparenceVoisin(r, 'bati-7'), b = apparenceVoisin(r, 'bati-8');
@@ -51,6 +51,15 @@ describe('apparenceVoisin', () => {
     // Une couleur unique vaut pour toutes.
     const u = voisinage3dDe(parcelle({ voisinage3d: { maisons: { mode: 'unique', couleur: '#ABCDEF' } } }));
     expect(apparenceVoisin(u, 'x').couleurMur).toBe('#ABCDEF');
+    // Trois couleurs : la nuance passe par la deuxieme ; l'ancien nom `deuxTons` se lit comme une nuance a deux.
+    const trois = voisinage3dDe(parcelle({ voisinage3d: { maisons: { mode: 'nuance', nombre: 3, couleur: '#FF0000', couleur2: '#00FF00', couleur3: '#0000FF' } } }));
+    const teintes = ['k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8'].map((k) => apparenceVoisin(trois, k).couleurMur ?? '');
+    expect(teintes.some((c) => c.startsWith('#00') || /^#[0-9A-F]{2}[0-9A-F]{2}00$/.test(c))).toBe(true);
+    expect(new Set(teintes).size).toBeGreaterThan(4);
+    const ancien = voisinage3dDe(parcelle({ voisinage3d: { maisons: { mode: 'deuxTons', couleur: '#000000', couleur2: '#FFFFFF' } } }));
+    expect(ancien.maisons).toMatchObject({ mode: 'nuance', nombre: 2 });
+    expect(nuancer(['#000000', '#FFFFFF', '#FF0000'], 0.5)).toBe('#FFFFFF');
+    expect(nuancer(['#000000', '#FFFFFF', '#FF0000'], 0.25)).toBe('#808080');
   });
 
   it('tire et melange de facon reproductible', () => {

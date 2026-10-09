@@ -9,7 +9,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **« Voisinage (3D) » : un groupe de réglages sur la parcelle du projet** (inspecteur, section
   repliée) qui rassemble tout ce qui décide de l'apparence des maisons voisines dans la Vue 3D :
-  les **murs** (couleur du plan, une couleur, ou deux tons tirés au hasard pour casser l'uniformité),
+  les **murs** (couleur du plan, une couleur, ou une nuance tirée au hasard entre deux ou trois couleurs
+  pour casser l'uniformité),
   les **vitres** (une couleur, ou une nuance entre deux), les **fenêtres** (largeur, hauteur et
   entraxe, chacun entre un minimum et un maximum tirés par maison), et les **clôtures du voisinage**
   (afficher, type palissade / grillage / haie / mur, couleur). La case « Clôtures du voisinage » des
@@ -418,6 +419,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`vue3d.apresSoleil`), sans clignotement.
 
 ### Modifié
+
+- **Le relevé de façade ne change plus la hauteur du bâtiment.** La photo apporte la texture, les
+  ouvertures et le toit ; à la validation, la façade est ramenée à la hauteur du bâtiment (cadastre
+  ou saisie), ouvertures, partie basse et toit compris. La hauteur mesurée sur la photo est dite
+  dans le message de fin, pour que l'écart se voie, mais elle n'est plus appliquée. Les ouvertures
+  d'un mur photographié priment toujours sur les fenêtres dessinées, réglées une par une comprises.
 
 - **Les toits-terrasses ont leur couleur en 3D.** Leur dessus prenait la couleur des murs ; il est
   maintenant couvert de la couleur lue sur l'orthophoto, en retrait de 20 cm des murs (le dessus des
