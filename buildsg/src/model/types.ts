@@ -208,6 +208,9 @@ interface ObjetCommun {
   /** Diametre estime d'un arbre importe, en metres. */
   diametreArbre?: number;
   couleurArbre?: string;
+  /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
+  portArbre?: 'rond' | 'etale' | 'colonnaire' | 'conique' | 'parasol';
+  essenceArbre?: 'caduc' | 'persistant';
   /**
    * Releves de facade d'un batiment : un par mur photographie, rattache au cote du contour qui le
    * porte (`MD/spec-releve-facade.md`). Absent tant que rien n'a ete releve - le fichier de projet
