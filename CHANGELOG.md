@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Des arbres qui ressemblent à des arbres en 3D** (`MD/spec-arbres-3d.md`) : un tronc conique,
+  des branches, un houppier en lobes selon le **port** (rond, étalé, colonnaire, conique,
+  parasol), coloré en deux tons, propre à chaque arbre et stable d'une ouverture à l'autre ; une
+  **essence** caduque ou persistante — un caduc est nu de novembre à mars, à la date de l'étude
+  d'ensoleillement, et son ombre sur la terrasse change avec la saison. Rien n'est chargé, l'export
+  GLB et la réalité augmentée emportent l'arbre tel qu'il est vu. Les arbres importés de la BD TOPO
+  reçoivent port et essence d'après la nature de la zone (conifères en cônes persistants). Section
+  « Arbre » de l'inspecteur : Port et Essence.
+
 - **Relevé de façade : trois méthodes, expliquées.** Après le choix du mur, une étape « Choisir la
   méthode » présente, en deux phrases chacune, la **photo de rue** (Panoramax : des photos libres
   prises depuis la rue par OpenStreetMap France et l'IGN, cherchées autour du mur, les plus proches

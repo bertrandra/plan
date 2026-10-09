@@ -38,7 +38,7 @@ describe('sections de l inspecteur par fonction', () => {
   it('range les reglages du feuillage dans une section Arbre', () => {
     const c = contexte('arbre', 'circle');
     expect(ids(c)).toContain('arbre');
-    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'couleurArbre', 'textureArbre']);
+    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'portArbre', 'essenceArbre', 'couleurArbre', 'textureArbre']);
     expect(cles(c, 'apparence')).not.toContain('diametreArbre');
     expect(ids(contexte('massif', 'circle'))).not.toContain('arbre');
   });

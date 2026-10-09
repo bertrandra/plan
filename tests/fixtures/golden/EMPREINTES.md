@@ -458,6 +458,21 @@ et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 est un changement MAJEUR, pas une correction (RELEASE.md §2.1). Elle a tenu sans exception pendant
 toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'on l'a décidé.
 
+
+  **9 octobre 2026 — des arbres en 3D : `glb-structure.json` et `cadastre-objets.json`
+  recapturés.** Les trois arbres de la démonstration ne sont plus une sphère sur un prisme mais un
+  tronc, des branches et sept lobes chacun (`three/arbre3d.ts`, `MD/spec-arbres-3d.md`). Le point
+  24 sous `RECAPTURER_GLB=1` rend **2 527 476 octets, 334 nœuds, 325 mailles, 431 matériaux,
+  6 textures et 6 images, 1 133 accesseurs, 1 139 vues tampon** : +42 nœuds et +36 mailles (trois
+  troncs, dix-huit branches, vingt et un lobes, moins les trois sphères et trois prismes), −3
+  matériaux, textures et images (les prismes des arbres portaient chacun une texture, le tronc n'en
+  porte plus — d'où le million d'octets en moins), et les accesseurs des couleurs par sommet. Le
+  point 24 fixe désormais la date de l'étude au 21 juin avant l'export : un caduc est nu de
+  novembre à mars, et le témoin ne doit pas dépendre du jour où la fumée se joue. Le témoin de
+  l'import cadastral (`cadastre-objets.json`, `RECAPTURER_CADASTRE=1`) gagne `portArbre` et
+  `essenceArbre` sur chacun des trois arbres estimés ; rien d'autre ne bouge. Aucune quantité ni
+  aucun export de chiffrage n'est touché.
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
@@ -468,7 +483,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 458 | `660c038a2e45265f50788a8526fa9d2df28939a882ea2c8e3ad4774f9e1b3c7b` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 460 | `6343983f04c3ec378a75ab2eef5cb60ab2b08db2db04061e4c099a9d7a858c33` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

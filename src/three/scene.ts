@@ -9,7 +9,8 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
-import { vue3d, cleDeVue, hotes3d, type SceneVue3d } from './etat3d.js';
+import { ajouterArbre3d } from './arbre3d.js';
+import { vue3d, cleDeVue, hotes3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
@@ -518,23 +519,18 @@ function ajouterParasol(par: ObjetCercle, co: ContexteObjets): void {
 }
 
 /**
- * Le feuillage d'un arbre : une sphere sur le tronc, enfoncee d'un tiers de son rayon pour
- * l'envelopper — posee pile au sommet, elle ne le toucherait qu'en un point, une fine arete visible.
- * Diametre, couleur et texture sont propres au feuillage.
+ * Un arbre (three/arbre3d.ts) : son tronc a la hauteur de l'objet, son houppier par-dessus, pose sur
+ * le sol en son centre. Le feuillage d'un caduc suit la date de l'etude d'ensoleillement.
  */
-function ajouterFeuillage(o: ObjetPlan, hTronc: number, { scene, versLocal, ctx, sol }: ContexteObjets): void {
-  const centreArbre = o.type === 'circle' ? o.center : centroid(o.pts);
-  // Le tronc monte jusqu'au sol en son centre plus sa hauteur : le feuillage part de la.
-  const ySol = sol ? sol.hauteur(centreArbre) : 0;
-  const rayon = Math.max(0.05, (o.diametreArbre !== undefined && o.diametreArbre !== null ? o.diametreArbre : 3) / 2);
-  const matSphere = new THREE.MeshStandardMaterial({ color: o.couleurArbre || '#4a7c3a' });
-  appliquerOpacite(matSphere, opaciteDe(o));
-  const urlArbre = vue3d.textures ? urlTexture(o.textureArbre) : undefined;
-  if (urlArbre) matSphere.map = ctx.chargerTexturePolyhaven(urlArbre);
-  const sphere = new THREE.Mesh(new THREE.SphereGeometry(rayon, 20, 16), matSphere);
-  const pLocal = versLocal(centreArbre);
-  sphere.position.set(pLocal.x, ySol + hTronc + rayon * 0.67, pLocal.z);
-  scene.add(sphere);
+function ajouterArbreDuPlan(o: ObjetPlan, co: ContexteObjets): void {
+  const h = co.ctx.elevationOf(o);
+  if (h <= 0) return;
+  const centre = centreDe(o);
+  const cible = groupeAuSol(co.scene, co.sol, centre);
+  ajouterArbre3d(
+    { scene: cible, toLocal: co.versLocal, textures: vue3d.textures, chargerTexture: co.ctx.chargerTexturePolyhaven, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o) },
+    o, h, o.type === 'circle' ? o.r : 0.3
+  );
 }
 
 /**
@@ -578,6 +574,8 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (estAbri(o)) { ajouterPergola3d(co.solMoteur ? co.scene : groupeAuSol(co.scene, co.sol, centreDe(o)), o, co.versLocal, co.solMoteur); return; }
     // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
     if (estPiscine(o)) { ajouterPiscineAuSol(o, co); return; }
+    // Un arbre n'est pas un prisme : un tronc et un houppier (three/arbre3d.ts).
+    if (o.fonction === 'arbre') { ajouterArbreDuPlan(o, co); return; }
     const h = ctx.elevationOf(o);
     if (h <= 0) return;
     const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
@@ -622,7 +620,6 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
           ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}) }
       );
     }
-    if (o.fonction === 'arbre') ajouterFeuillage(o, h, co);
   });
 }
 
