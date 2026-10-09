@@ -21,6 +21,8 @@ import { constructionTerrasseNeuve } from '../../engine/construction.js';
 import { sectionsPergola } from './pergola.js';
 import { sectionsCloture } from './cloture.js';
 import { sectionRelief } from './relief.js';
+import { sectionVoisinage3d } from './voisinage3d.js';
+import { sectionFenetres3d } from './fenetres3d.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
@@ -477,7 +479,13 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   // Le relief suit la cloture : lui aussi n'appartient qu'a la parcelle du projet.
   const relief = sectionRelief(c);
   if (relief) sections.push(relief);
+  // L'apparence du voisinage en 3D : sur la parcelle du projet, apres la cloture et le relief.
+  const voisinage3d = sectionVoisinage3d(c);
+  if (voisinage3d) sections.push(voisinage3d);
   if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
+  // Les fenetres d'un batiment du projet en 3D.
+  const fenetres3d = sectionFenetres3d(c);
+  if (fenetres3d) sections.push(fenetres3d);
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
   if (aParticularite(o, 'ouverture')) sections.push(sectionTrou);

@@ -18,11 +18,12 @@ import type * as THREE_NS from 'three';
 import type { ObjetPolygone, PtBrut, Toit } from '../model/types.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
+import { ouverturesAutomatiques, hauteurDuMur } from '../facade/ouvertures.js';
+import type { Fenetre3d } from '../model/types.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
 import { materiauCouverture } from '../model/couleurToit.js';
 import { textureCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
-import { HAUTEUR_ETAGE_M } from '../geo/bdtopo.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteDetails {
@@ -48,7 +49,14 @@ export interface OptionsDetails {
   etages?: number | null;
   /** Les cotes du contour qui portent un releve de facade : leurs fenetres sont deja la. */
   cotesReleves?: readonly number[];
+  /** Les fenetres de la disposition automatique : dimensions communes et couleur de la vitre ; absentes, les defauts. */
+  fenetres?: { largeur?: number; hauteur?: number; appui?: number; entraxe?: number; couleur?: string };
+  /** Des ouvertures reglees une par une : elles remplacent la disposition automatique. */
+  ouvertures?: readonly Fenetre3d[];
 }
+
+// La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
+export { FENETRE, PORTE, ENTRAXE_FENETRES_M, niveaux, abscissesFenetres } from '../facade/ouvertures.js';
 
 /** Le debord du toit au-dela des murs, en metres. */
 export const DEBORD_TOIT_M = 0.4;
@@ -58,13 +66,6 @@ export const EPAISSEUR_TOIT_M = 0.15;
 export const HAUTEUR_SOUBASSEMENT_M = 0.45;
 /** Au-dela de cette distance au centre de la scene, seuls le debord et les aretes sont poses. */
 export const DETAIL_FIN_M = 120;
-/** Les ouvertures dessinees : une fenetre par entraxe, une porte au milieu du plus long mur. */
-export const FENETRE = { l: 1.0, h: 1.2, appui: 0.9 } as const;
-export const PORTE = { l: 0.9, h: 2.1 } as const;
-export const ENTRAXE_FENETRES_M = 2.4;
-const FENETRES_MAX_PAR_MUR = 8;
-/** En dessous, un niveau n'a pas de fenetre : un abri, un garage bas. */
-const HAUTEUR_NIVEAU_MIN_M = 2.2;
 /** La cheminee : un carre, ce qu'elle depasse du toit, ce qu'elle y entre. */
 export const CHEMINEE = { cote: 0.5, dessus: 0.8, dessous: 0.3 } as const;
 /** Pas de cheminee sur un petit toit : un abri, un garage. */
@@ -352,39 +353,15 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
   ctx.scene.add(b.maillage([new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.95, side: THREE.DoubleSide })], 'batiment-soubassement'));
 }
 
-/** La hauteur d'egout d'un mur : celle du volume ou il se trouve (un releve en L abaisse une partie). */
-function hauteurDuMur(f: Facade, volumes: readonly Volume[]): number {
-  const m = pointDeFacade(f, f.largeur / 2);
-  const dedans = { x: m.x - f.normale.x * 0.05, y: m.y - f.normale.y * 0.05 };
-  const v = volumes.find((x) => pointInPolygon(dedans, x.pts));
-  return v ? v.hauteur : au(volumes, 0).hauteur;
-}
-
-/** Combien de niveaux, et leur hauteur : le nombre d'etages s'il est connu, sinon la hauteur du mur. */
-export function niveaux(hMur: number, etages: number | null | undefined): { n: number; hauteur: number } {
-  let n = etages && etages > 0 ? Math.round(etages) : Math.max(1, Math.round(hMur / HAUTEUR_ETAGE_M));
-  if (hMur / n < HAUTEUR_NIVEAU_MIN_M) n = Math.floor(hMur / HAUTEUR_NIVEAU_MIN_M);
-  return { n, hauteur: n > 0 ? hMur / n : 0 };
-}
-
-/** Les abscisses des fenetres d'un mur de largeur `L`, centrees, a l'entraxe ; aucune sur un mur etroit. */
-export function abscissesFenetres(L: number): number[] {
-  const n = Math.min(FENETRES_MAX_PAR_MUR, Math.floor((L - 0.8) / ENTRAXE_FENETRES_M));
-  if (n < 1) return [];
-  const debut = (L - ((n - 1) * ENTRAXE_FENETRES_M + FENETRE.l)) / 2;
-  return Array.from({ length: n }, (_, k) => debut + k * ENTRAXE_FENETRES_M);
-}
-
 /**
- * Des fenetres regulieres a chaque niveau sur les murs sans releve, et une porte au rez-de-chaussee
- * du plus long d'entre eux. Un cadre clair, une vitre sombre, un vantail bois : trois groupes d'une
- * seule maille.
+ * Les ouvertures : la disposition automatique (facade/ouvertures.ts) aux dimensions demandees, ou
+ * la liste reglee une par une. Un cadre clair, une vitre de la couleur demandee, un vantail bois :
+ * trois groupes d'une seule maille.
  */
 function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volumes: readonly Volume[], h: number, options: OptionsDetails): void {
-  const releves = new Set(options.cotesReleves ?? []);
-  const facades = facadesDuContour(contour, h).filter((f) => !releves.has(f.cote) && f.largeur >= 2);
-  if (!facades.length) return;
-  const plusLong = facades.reduce((m, f) => (f.largeur > m.largeur ? f : m), au(facades, 0));
+  const facades = facadesDuContour(contour, h);
+  const liste = options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}) });
+  if (!liste.length) return;
   const b = new Batisseur();
   const rect = (f: Facade, x: number, y: number, l: number, hh: number, saillie: number) => {
     const g = ctx.toLocal(f.gauche),
@@ -399,30 +376,20 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   const cadres: (() => void)[] = [],
     vitres: (() => void)[] = [],
     portes: (() => void)[] = [];
-  facades.forEach((f) => {
+  liste.forEach((o) => {
+    const f = facades.find((x) => x.cote === o.cote);
+    if (!f || o.x < 0 || o.x + o.l > f.largeur + 0.01 || o.l <= 0 || o.h <= 0) return;
     const hMur = hauteurDuMur(f, volumes);
-    const { n, hauteur: hNiveau } = niveaux(hMur, options.etages);
-    if (n < 1) return;
-    const xs = abscissesFenetres(f.largeur);
-    const hFen = Math.min(FENETRE.h, hNiveau - FENETRE.appui - 0.2);
-    const porteIci = f === plusLong && hMur >= PORTE.h + 0.3 && xs.length > 0;
-    const iPorte = Math.floor(xs.length / 2);
-    for (let k = 0; k < n; k++) {
-      xs.forEach((x, j) => {
-        if (k === 0 && porteIci && j === iPorte) {
-          const xp = x + FENETRE.l / 2 - PORTE.l / 2;
-          // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
-          const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - PORTE.h - 0.3, ctx.sol(pointDeFacade(f, xp + PORTE.l / 2)))) : 0;
-          cadres.push(() => rect(f, xp - CADRE_M, yp, PORTE.l + 2 * CADRE_M, PORTE.h + CADRE_M, DECOLLEMENT));
-          portes.push(() => rect(f, xp, yp, PORTE.l, PORTE.h, DECOLLEMENT * 2));
-          return;
-        }
-        const y = k * hNiveau + FENETRE.appui;
-        if (y + hFen > hMur - 0.15) return;
-        cadres.push(() => rect(f, x - CADRE_M, y - CADRE_M, FENETRE.l + 2 * CADRE_M, hFen + 2 * CADRE_M, DECOLLEMENT));
-        vitres.push(() => rect(f, x, y, FENETRE.l, hFen, DECOLLEMENT * 2));
-      });
+    if (o.type === 'porte' || o.type === 'garage') {
+      // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
+      const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - o.h - 0.3, ctx.sol(pointDeFacade(f, o.x + o.l / 2)))) : o.y;
+      cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
+      portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+      return;
     }
+    if (o.y + o.h > hMur - 0.15) return;
+    cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
+    vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
   });
   if (!cadres.length) return;
   cadres.forEach((f) => f());
@@ -433,7 +400,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   b.groupe(2);
   const materiaux = [
     new THREE.MeshStandardMaterial({ color: COULEUR_MENUISERIE, roughness: 0.6 }),
-    new THREE.MeshStandardMaterial({ color: COULEUR_VITRE, roughness: 0.25, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: options.fenetres?.couleur ?? COULEUR_VITRE, roughness: 0.25, metalness: 0.2 }),
     new THREE.MeshStandardMaterial({ color: COULEUR_PORTE, roughness: 0.8 }),
   ];
   // Un centimetre devant le mur ne suffit pas vu de loin : les ouvertures gagnent le test de profondeur.
