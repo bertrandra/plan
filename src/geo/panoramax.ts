@@ -35,8 +35,9 @@ export interface PhotoRue {
   /** Dimensions de l'image en pixels, quand le serveur les donne. */
   largeurPx: number | null;
   hauteurPx: number | null;
-  /** L'image pleine definition, et la vignette. */
+  /** L'image pleine definition, sa version reduite (assez pour lire une couleur de mur), et la vignette. */
   hd: string;
+  sd?: string | null;
   vignette: string | null;
   /** Date de la prise de vue (ISO), auteur et licence : a dire, la photo n'est pas la notre. */
   date: string | null;
@@ -70,6 +71,7 @@ export function lirePhotosRue(json: unknown): PhotoRue[] {
     const dims = Array.isArray(orient.sensor_array_dimensions) ? (orient.sensor_array_dimensions as unknown[]) : [];
     const az = p['view:azimuth'];
     const vignette = f.assets?.thumb?.href ?? f.assets?.sd?.href ?? null;
+    const sd = f.assets?.sd?.href ?? null;
     res.push({
       id: f.id,
       lon: c[0],
@@ -80,6 +82,7 @@ export function lirePhotosRue(json: unknown): PhotoRue[] {
       largeurPx: typeof dims[0] === 'number' ? dims[0] : null,
       hauteurPx: typeof dims[1] === 'number' ? dims[1] : null,
       hd,
+      sd: sd && hoteAutorise(sd) ? sd : null,
       vignette: vignette && hoteAutorise(vignette) ? vignette : null,
       date: typeof p['datetime'] === 'string' ? p['datetime'] : null,
       auteur: typeof p['geovisio:producer'] === 'string' ? p['geovisio:producer'] : null,
@@ -97,8 +100,8 @@ export function urlRechercheRue(lat: number, lon: number, rayonM = RAYON_RECHERC
   return PANORAMAX_RECHERCHE_URL + '?bbox=' + bbox + '&limit=' + limite;
 }
 
-export async function chercherPhotosRue(lat: number, lon: number, rayonM = RAYON_RECHERCHE_M, lire: (url: string) => Promise<unknown> = fetchJSONReseau): Promise<PhotoRue[]> {
-  return lirePhotosRue(await lire(urlRechercheRue(lat, lon, rayonM)));
+export async function chercherPhotosRue(lat: number, lon: number, rayonM = RAYON_RECHERCHE_M, lire: (url: string) => Promise<unknown> = fetchJSONReseau, limite = 100): Promise<PhotoRue[]> {
+  return lirePhotosRue(await lire(urlRechercheRue(lat, lon, rayonM, limite)));
 }
 
 /* ------------------------------------------------------------------------------------------------

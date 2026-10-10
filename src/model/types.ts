@@ -5,6 +5,8 @@
 // des pixels la ou on attend des metres. Les deux types les rendent non interchangeables.
 
 import type { Metres } from './units.js';
+import type { CouleurMurs } from './couleurMur.js';
+export type { CouleurMurs, PhotoMur } from './couleurMur.js';
 
 /** Coordonnees du plan, en metres, Y vers le nord (donc vers le haut a l'ecran). */
 export interface Pt {
@@ -224,6 +226,11 @@ interface ObjetCommun {
    * faitage, ses egouts, ses pignons. Batiments de la parcelle du projet.
    */
   corpsToit?: CorpsToit[] | null;
+  /**
+   * La couleur des murs lue sur une photo de rue, et la source choisie pour la 3D (model/couleurMur.ts) :
+   * la photo, le materiau des fichiers fonciers (`bdtopo.materiauxMurs`) ou la couleur du plan.
+   */
+  couleurMurs?: CouleurMurs | null;
   /**
    * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
    * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par

@@ -8,7 +8,7 @@
 // Une seule actualisation a la fois : la commande se grise pendant qu'elle tourne (`enCours`).
 
 import { nombreFr } from '../util/format.js';
-import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
+import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
@@ -16,6 +16,8 @@ import { showToast } from '../shell/dialogs.js';
 import { attente } from '../shell/attente.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
+import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../render/couleurMurPhoto.js';
+import { materiauMurs } from '../model/couleurMur.js';
 import { centroid } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
@@ -55,6 +57,8 @@ export interface ContexteActualisation {
   lireRelief?: typeof lireRelief;
   /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
+  /** La couleur des murs sur les photos de rue (render/couleurMurPhoto.ts) ; remplacable de meme. */
+  couleursMurs?: typeof couleursMursDepuisPhotos;
   /** Apres une actualisation reussie : les questions sur les toits a cheval sur deux parcelles (app/toitsACheval.ts). */
   apresActualisation?: () => void;
 }
@@ -249,6 +253,25 @@ function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtB
   return volumesParDefaut(pts, toit);
 }
 
+/** La couverture des toits, leur forme, puis la couleur des murs, qui lit la hauteur a l'egout corrigee par le LiDAR. */
+async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+  await couleursDesToits(objets, proj, bilan);
+  await formesDesToits(objets, proj, bilan, ctx);
+  await couleursDesMurs(objets, proj, bilan, ctx);
+}
+
+/**
+ * La couleur des murs (render/couleurMurPhoto.ts) : lue sur les photos de rue, sinon le materiau des
+ * fichiers fonciers, lu avec le batiment ; un service muet laisse les couleurs en place.
+ */
+async function couleursDesMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+  etape('la couleur des murs sur les photos de rue…');
+  const b = await (ctx.couleursMurs ?? couleursMursDepuisPhotos)(objets, proj).catch(() => null);
+  const materiaux = objets.filter((o) => o.fonction === 'batiment' && materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)).length;
+  const texte = texteBilanCouleursMurs(b, materiaux);
+  if (texte) bilan.push(texte);
+}
+
 /** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
 async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
   etape('la forme des toits sur le LiDAR HD…');
@@ -347,7 +370,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
             nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
             altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True',
+            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True', ...materiauxBdTopo(p),
             etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
             identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
             recupereLe: new Date().toISOString()
@@ -369,9 +392,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         bilan.push('voisinage non ajoute : ' + ((e as Error).message || e));
       }
     }
-    // ---- 3 ter. La couverture des toits (orthophoto), puis leur forme (MNH LiDAR HD, spec §10)
-    await couleursDesToits(serialises, proj, bilan);
-    await formesDesToits(serialises, proj, bilan, ctx);
+    // ---- 3 ter. La couverture des toits (orthophoto), leur forme (MNH LiDAR HD, spec §10), la couleur des murs (§6.5)
+    await toitsEtMurs(serialises, proj, bilan, ctx);
     ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle
@@ -530,6 +552,7 @@ export async function construireVoisinage(
           nombreEtages:nombreFr(p.nombre_d_etages), nombreLogements:nombreFr(p.nombre_de_logements),
           altitudeSolM:nombreFr(p.altitude_minimale_sol), altitudeToitM:nombreFr(p.altitude_minimale_toit),
           altitudeToitMaxM:nombreFr(p.altitude_maximale_toit), constructionLegere:String(p.construction_legere) === 'True',
+          ...materiauxBdTopo(p),
           etat:p.etat_de_l_objet || null, identifiantRnb:p.identifiants_rnb || null,
           surParcellePrincipale:false, recupereLe }
       });
