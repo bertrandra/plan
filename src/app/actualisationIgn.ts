@@ -11,6 +11,7 @@ import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
+import { volumesParDefaut } from '../model/volumesToit.js';
 import { showToast } from '../shell/dialogs.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
@@ -35,7 +36,7 @@ import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
-import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../model/types.js';
+import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../model/types.js';
 
 /** Ce que l'actualisation demande au reste du programme. */
 export interface ContexteActualisation {
@@ -227,6 +228,15 @@ async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bila
     (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
 }
 
+/**
+ * Un toit recalcule sur la parcelle du projet retrouve ses volumes par defaut, et perd son toit
+ * mesure, qui suivait l'ancien contour (le LiDAR relit les deux ensuite) ; sinon rien a ecrire.
+ */
+function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
+  if (!toit || toit === o.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
+  return volumesParDefaut(pts, toit);
+}
+
 /** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
 async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
   const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj).catch(() => null);
@@ -246,9 +256,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     const proj = projecteurLocal(cad.origineLat, cad.origineLon);
     const simplifier = !!cad.simplifieM;
 
-    // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise)
-    // `cadastre` ne declare que les deux champs que `render/ortho.ts` lit (model/types.ts) ; les
-    // autres, dont ceux-ci, arrivent par l'index signature en `unknown`.
+    // ---- 1. La parcelle, par identifiant cadastral exact (on sait qui on cherche : pas d'emprise).
+    // `cadastre` ne declare que les champs que render/ortho.ts lit : les autres arrivent en `unknown`.
     const urlParcelle = CADASTRE_URL + '?code_insee=' + encodeURIComponent(cad.codeInsee as string) +
       '&section=' + encodeURIComponent(cad.section as string) + '&numero=' + encodeURIComponent(cad.numero as string) + '&_limit=5';
     // `fetchJSONReseau` rend du JSON arbitraire (`unknown`) : la reponse est lue comme la collection
@@ -311,6 +320,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
         const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.toit, pts, attributsToitBdTopo(p)) : undefined;
         if(toit && toit !== o.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
+        const volumesToit = volumesRecalcules(o, pts, toit);
         return Object.assign({}, o, {
           pts,
           vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
@@ -318,6 +328,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           frozenVertices: pts.map(()=>false),
           elevation: haut,
           ...(toit ? { toit } : {}),
+          ...(volumesToit !== undefined ? { volumesToit, toitMesure: null } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
@@ -332,9 +343,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       }
       return o;
     });
-    // ---- 3 bis. Import du voisinage, si demande : c'est le seul cas ou l'actualisation AJOUTE
-    // des objets. Tout ce qui arrive ici est marque voisinage:true, pour pouvoir etre masque
-    // d'un coup sans etre supprime.
+    // ---- 3 bis. Import du voisinage, si demande : le seul cas ou l'actualisation AJOUTE des objets,
+    // tous marques voisinage:true pour pouvoir etre masques d'un coup sans etre supprimes.
     // Ce que l'import du voisinage rend : les objets, plus le compte de chaque famille pour le bilan.
   let ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number } = { objets: [] };
     if(options.voisinage && options.voisinage.actif){

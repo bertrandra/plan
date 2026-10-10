@@ -10,7 +10,7 @@
 // ferait des millions de cellules pour n'en utiliser que quelques pour cent.
 
 import { urlGrille, urlDallesLidar, decoderBil, lireNombreMatched, requeteAvecReprise } from './relief.js';
-import { pasPourEmprise, dimensionsGrille, cellulesDansPolygone } from '../model/relief.js';
+import { pasPourEmprise, dimensionsGrille, cellulesDansPolygone, type GrilleRelief } from '../model/relief.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import type { Emprise } from '../model/relief.js';
 import type { ProjecteurLocal } from './projection.js';
@@ -23,8 +23,12 @@ export const COUCHE_MNH = 'IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAM
 export const PAS_MNH_M = 0.5;
 /** La valeur « sans donnee » du MNH. */
 export const SANS_DONNEE_MNH = -9999;
-/** Retrait des murs, en metres : la rive, la gouttiere et l'ombre du mur ne sont pas la couverture. */
-export const RETRAIT_MNH_M = 0.6;
+/**
+ * Les cellules a moins de cela des murs ne comptent pas (la rive, la gouttiere, le mur lui-meme a
+ * moitie dans la cellule). A 60 cm, les bouts d'un toit ne se voyaient plus et un pignon ressemblait
+ * a une croupe ; 25 cm garde les pignons sans reprendre le mur.
+ */
+export const RETRAIT_MNH_M = 0.25;
 /** Un batiment plus grand que cela de cellules est lu a un pas plus large (1, 2 ou 5 m). */
 export const CELLULES_MAX_MNH = 10000;
 /** Autour du contour, en metres : la cellule du bord est entiere. */
@@ -57,20 +61,35 @@ export async function dallesLidarSur(pts: readonly PtBrut[], proj: ProjecteurLoc
  * rien : un abri etroit). Vide si le service ne repond pas ou n'a pas de donnee ici.
  */
 export async function lireHauteursSous(pts: readonly PtBrut[], proj: ProjecteurLocal, rechercher: typeof fetch = fetch): Promise<EchantillonHauteur[]> {
-  if (pts.length < 3) return [];
+  const grille = await lireGrilleSous(pts, proj, rechercher);
+  return grille ? echantillonsDeGrille(grille, pts) : [];
+}
+
+/** La grille du MNH sous un contour, telle que le service la rend (1 m de marge) ; `null` s'il ne repond pas. */
+export type LecteurGrilleMnh = (pts: readonly PtBrut[], proj: ProjecteurLocal) => Promise<GrilleRelief | null>;
+
+/**
+ * La grille entiere des hauteurs sous un contour, avec sa marge : de quoi dessiner le toit tel qu'il
+ * est mesure (model/toitMesure.ts) et en tirer les echantillons de l'ajustement.
+ */
+export async function lireGrilleSous(pts: readonly PtBrut[], proj: ProjecteurLocal, rechercher: typeof fetch = fetch): Promise<GrilleRelief | null> {
+  if (pts.length < 3) return null;
   const emprise = empriseDe(pts, MARGE_M);
   const pas = pasPourEmprise(PAS_MNH_M, emprise, CELLULES_MAX_MNH);
-  if (pas === null) return [];
+  if (pas === null) return null;
   const { x0, y0, nx, ny } = dimensionsGrille(emprise, pas);
   const bords: Emprise = { xMin: x0 - pas / 2, xMax: x0 + (nx - 0.5) * pas, yMin: y0 - (ny - 0.5) * pas, yMax: y0 + pas / 2 };
-  let z: (number | null)[];
   try {
     const octets = await requeteAvecReprise(urlGrille(COUCHE_MNH, enDegres(bords, proj), nx, ny), (r) => r.arrayBuffer(), rechercher);
-    z = decoderBil(octets, nx, ny, SANS_DONNEE_MNH);
+    return { pas, x0, y0, nx, ny, z: decoderBil(octets, nx, ny, SANS_DONNEE_MNH) };
   } catch {
-    return [];
+    return null;
   }
-  const cellules = cellulesDansPolygone({ pas, x0, y0, nx, ny, z }, pts).filter((c): c is typeof c & { z: number } => c.z !== null);
+}
+
+/** Les mesures d'une grille sous le contour, en retrait des murs (ou entieres si le retrait ne laisse rien). */
+export function echantillonsDeGrille(grille: GrilleRelief, pts: readonly PtBrut[]): EchantillonHauteur[] {
+  const cellules = cellulesDansPolygone(grille, pts).filter((c): c is typeof c & { z: number } => c.z !== null);
   const enRetrait = cellules.filter((c) => distancePointContour(c, pts) >= RETRAIT_MNH_M);
   return (enRetrait.length ? enRetrait : cellules).map((c) => ({ x: c.x, y: c.y, z: c.z }));
 }

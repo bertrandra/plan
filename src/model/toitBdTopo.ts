@@ -1,16 +1,18 @@
 // Le toit qu'on deduit de la BD TOPO, sans photo (MD/spec-toit-ign.md §4).
 //
 // La BD TOPO donne, par batiment, l'altitude de l'egout (`altitude_minimale_toit`) et celle du point
-// le plus haut du toit (`altitude_maximale_toit`). Leur ecart est la hauteur du toit ; posee sur le
-// squelette droit du contour, elle donne un toit a croupes qui vaut pour un rectangle comme pour un
-// L. C'est une estimation avouee (`source: 'bdtopo'`) : a un metre pres, et sans pignons. Un releve
-// de facade ou une saisie la remplacent.
+// le plus haut du toit (`altitude_maximale_toit`). Leur ecart est la hauteur du toit. Sur un
+// rectangle allonge - la plupart des maisons - elle donne deux pans a pignons dans l'axe du
+// batiment, la forme la plus courante ; sur un L, un T, un carre, des croupes posees sur le
+// squelette droit du contour, qui valent pour n'importe quel contour. C'est une estimation avouee
+// (`source: 'bdtopo'`) : a un metre pres. Un releve de facade, le LiDAR ou une saisie la remplacent.
 //
 // Ce module est au rang du modele, et non de `geo/`, parce que la migration des plans anterieurs
 // (model/migrations.ts) pose ce meme toit sur les batiments importes avant lui.
 
 import { nombreFr } from '../util/format.js';
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
+import { rectangleOriente } from '../geometry/faitage.js';
 import type { PtBrut, Toit } from './types.js';
 
 /** La couche BD TOPO des batiments ; `geo/apiIgn.ts` l'interroge sous ce nom. */
@@ -49,21 +51,31 @@ export function toitBdTopo(pts: readonly PtBrut[], a: AttributsToit): Toit {
   const plat: Toit = { forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'bdtopo' };
   // Regle 2 : un abri, une serre, un auvent.
   if (a.constructionLegere) return plat;
-  const dmax = squeletteDroit(pts)?.dmax ?? demiLargeurApprochee(pts);
+  // La forme : deux pans a pignons dans l'axe d'un rectangle allonge, des croupes sur tout autre contour.
+  const rect = rectangleOriente(pts);
+  const forme: Toit['forme'] = rect.rectangulaire ? 'deux-pans' : 'croupes';
+  const angleFaitage = rect.rectangulaire ? rect.angle : 0;
+  // La profondeur qui porte la pente : la demi-largeur du rectangle, ou celle du squelette.
+  const dmax = rect.rectangulaire ? rect.hw : (squeletteDroit(pts)?.dmax ?? demiLargeurApprochee(pts));
   if (!(dmax > 0)) return plat;
+  const tan = (d: number) => Math.tan((d * Math.PI) / 180);
   // Regle 3 : pas d'altitudes, une pente de tuile.
   if (a.altitudeToitMinM === null || a.altitudeToitMaxM === null) {
-    return { forme: 'croupes', hauteur: cm(dmax * Math.tan((PENTE_DEFAUT_DEG * Math.PI) / 180)), angleFaitage: 0, source: 'bdtopo', estime: true };
+    return { forme, hauteur: cm(dmax * tan(PENTE_DEFAUT_DEG)), angleFaitage, source: 'bdtopo', estime: true };
   }
   const H = cm(a.altitudeToitMaxM - a.altitudeToitMinM);
   // Regles 4 et 5 : trop bas ou trop peu pentu pour etre autre chose qu'un toit plat.
   if (H < HAUTEUR_TOIT_MIN_M) return plat;
   const pente = deg(Math.atan(H / dmax));
   if (pente < PENTE_MIN_DEG) return plat;
-  // Regle 6 : trop raide, on ecrete.
-  if (pente > PENTE_MAX_DEG) return { forme: 'croupes', hauteur: H, angleFaitage: 0, source: 'bdtopo', pente: PENTE_ECRETEE_DEG };
+  // Regle 6 : trop raide, on ecrete - des croupes a 45° coupees a H, deux pans ramenes a 45°.
+  if (pente > PENTE_MAX_DEG) {
+    return forme === 'croupes'
+      ? { forme, hauteur: H, angleFaitage, source: 'bdtopo', pente: PENTE_ECRETEE_DEG }
+      : { forme, hauteur: cm(dmax * tan(PENTE_ECRETEE_DEG)), angleFaitage, source: 'bdtopo', estime: true };
+  }
   // Regle 7.
-  return { forme: 'croupes', hauteur: H, angleFaitage: 0, source: 'bdtopo' };
+  return { forme, hauteur: H, angleFaitage, source: 'bdtopo' };
 }
 
 /**

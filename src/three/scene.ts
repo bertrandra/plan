@@ -9,6 +9,9 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { volumesActifs, toitDuVolume } from '../model/volumesToit.js';
+import { modeToitActif, egoutDansRect } from '../model/toitMesure.js';
+import { ajouterToitMesure3d } from './toitMesure3d.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
@@ -36,7 +39,7 @@ import {
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
@@ -589,9 +592,16 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
     const apparence = o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
     const couleurMur = apparence?.couleurMur ?? o.fill ?? BLANC_PAR_DEFAUT;
-    // Un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun a sa hauteur
-    // (facade/profil.ts) ; tout autre objet reste un seul prisme.
-    const volumes = o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
+    // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
+    // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
+    // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
+    const volumesToit = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse) ? volumesActifs(o) : null;
+    // Le toit mesure au LiDAR (model/toitMesure.ts) : chaque corps monte a l'egout lu dans la surface.
+    const toitMesure = o.type === 'polygon' && estBatiment(o) && modeToitActif(o) === 'mesure' ? o.toitMesure ?? null : null;
+    const egoutDe = (v: VolumeToit): number => v.egout ?? (toitMesure ? egoutDansRect(toitMesure, v.pts, footprint) : h);
+    const volumes = volumesToit
+      ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
+      : o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
     // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
     // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
     // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
@@ -603,8 +613,12 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
-    if (o.type === 'polygon' && (o.facades?.length || o.toit)) {
-      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h);
+    if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
+      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure);
+    }
+    // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
+    if (o.type === 'polygon' && toitMesure) {
+      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o.pts, toitMesure, o.toit, (volumesToit ?? []).map((v) => ({ pts: v.pts, egout: egoutDe(v) })), h);
     }
     // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
     // soubassement, fenetres par niveau, cheminee — moins de loin.
@@ -619,7 +633,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
           // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
           ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
         o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
-          ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}) }
+          ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
+          ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
+          ...(toitMesure ? { sansToit: true } : {}) }
       );
     }
   });

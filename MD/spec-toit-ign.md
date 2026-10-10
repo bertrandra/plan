@@ -160,11 +160,18 @@ La première règle qui s'applique décide. `h` est la hauteur d'égout retenue 
 |---|---|---|
 | 1 | Le bâtiment porte un toit `source: 'photo'` ou `'saisie'` | **Inchangé** (§5.3) |
 | 2 | `construction_legere` vaut `True` | **plat** |
-| 3 | `altitude_maximale_toit` ou `altitude_minimale_toit` absente | **croupes**, pente **35°**, `estime: true` |
+| 3 | `altitude_maximale_toit` ou `altitude_minimale_toit` absente | la **forme du contour** (ci-dessous), pente **35°**, `estime: true` |
 | 4 | `H < 0,5 m` | **plat** (toit-terrasse, ou bâtiment trop bas pour qu'on distingue) |
 | 5 | pente calculée `< 10°` | **plat** |
-| 6 | pente calculée `> 55°` | **croupes** à 45°, écrêté à `H` (§3.3) |
-| 7 | sinon | **croupes**, `hauteur: H` |
+| 6 | pente calculée `> 55°` | la forme du contour à 45° : croupes écrêtées à `H` (§3.3) ; deux pans ramenés à la hauteur de 45°, `estime: true` |
+| 7 | sinon | la **forme du contour**, `hauteur: H` |
+
+**La forme du contour** (`geometry/faitage.ts::rectangleOriente`) : un contour qui remplit à 86 %
+(`REMPLISSAGE_RECTANGLE`) son rectangle orienté selon le plus long côté, et dont ce rectangle est
+allongé d'au moins 1,25 (`ELONGATION_MIN`), est une maison rectangulaire : **deux pans** à pignons,
+faîtage dans l'axe du long côté — c'est ce qu'on voit sur neuf maisons sur dix, et la BD TOPO ne sait
+pas le dire. Tout autre contour (un carré, un L, un T) reçoit des **croupes** (§3). Avant octobre
+2026, tout recevait des croupes : un pavillon à pignons apparaissait avec quatre pans.
 
 Dans les cas 2, 4 et 5, le toit enregistré est `{ forme: 'plat', source: 'bdtopo' }` : la 3D garde
 le dessus du prisme (`poserToit` ne pose rien pour un toit plat), mais l'actualisation sait qu'elle
@@ -399,6 +406,12 @@ toucher :
   l'orthophoto » ou « tuile rouge / brune, couverture grise : orthophoto peu lisible ». La changer
   efface `origineCouleur`.
 
+- **Toit en 3D** (bâtiment de la parcelle du projet, §11 et §12) : « Tel que mesuré (LiDAR) » quand
+  une surface mesurée existe, « Un toit par corps » quand le contour s'est découpé, « Un seul toit »
+  toujours. Le défaut est le premier proposé. En surface mesurée, la ligne « Mesure » dit l'égout,
+  le faîte et la grille ; en corps, « Toits » décrit chaque corps ; les réglages du toit unique ne
+  se montrent qu'en « Un seul toit ».
+
 La section s'affiche pour tout bâtiment qui porte un toit, même sans façade relevée.
 
 ---
@@ -457,7 +470,8 @@ simulée, rechargement : toit relu à l'identique.
 |---|---|---|
 | Pas de pignon dans la BD TOPO | une maison à deux pans apparaît à croupes | **fait (§10)** : le MNH LiDAR HD distingue deux pans, croupes et quatre pans, là où il existe ; sinon une façade relevée |
 | `H` à ± 1 m, maximum pris sur une cheminée | faîtage trop haut ; l'écrêtage n'attrape que les cas extrêmes | **fait (§10)** : hauteur et égout mesurés sur le LiDAR, cheminées et arbres écartés comme aberrants |
-| Un seul volume par bâtiment | un corps haut et une annexe basse sous le même contour reçoivent un seul toit | découper par volumes (le relevé en L le fait déjà pour la partie basse) |
+| Un seul volume par bâtiment | un corps haut et une annexe basse sous le même contour reçoivent un seul toit | **fait (§11, §12)** : sur la parcelle du projet, le toit se garde tel que le LiDAR le mesure, et le contour se découpe en corps |
+| Pas de pignon sans LiDAR | une maison rectangulaire du voisinage apparaissait à croupes | **fait (§4)** : la forme du contour décide — deux pans sur un rectangle allongé |
 | Relevé de façade = une forme globale | une photo de pignon remplace le squelette par un deux-pans sur l'enveloppe | le relevé marque le mur photographié comme pignon (squelette pondéré, poids 0) au lieu de changer de forme |
 | Rien en 2D | faîtages et noues invisibles sur le plan | les tracer en trait fin, en option |
 
@@ -475,20 +489,27 @@ maison du Vésinet : 0 au sol, 5 m à l'égout, 7,5 m au faîtage), lue comme le
 même service, même BIL 32 bits, même grille.
 
 `geo/mnh.ts` lit **une petite grille par bâtiment** (son emprise plus 1 m, au pas de 50 cm ; au-delà
-de 10 000 cellules, 1, 2 ou 5 m) et garde les cellules sous le contour, à plus de 0,6 m des murs
-(`RETRAIT_MNH_M` : la rive et la gouttière ne sont pas la couverture) — entier si le retrait ne laisse
-rien. `dallesLidarSur` compte d'abord les dalles LiDAR sur l'emprise des bâtiments retenus : sans
+de 10 000 cellules, 1, 2 ou 5 m ; `lireGrilleSous` la rend entière, `lireHauteursSous` en tire les
+mesures) et garde les cellules sous le contour, à plus de 0,25 m des murs (`RETRAIT_MNH_M` : la rive
+n'est pas la couverture ; à 0,6 m, le retrait mangeait le bas des pans et ne distinguait plus un
+pignon d'une croupe) — entier si le retrait ne laisse rien. `dallesLidarSur` compte d'abord les dalles LiDAR sur l'emprise des bâtiments retenus : sans
 dalle, rien n'est lu.
 
 ### 10.2 L'ajustement
 
 `facade/toitLidar.ts::ajusterToit(contour, mesures)` : chaque forme que Plan dessine, à hauteur
 unité, donne un profil `f(q)` sur le contour ; les mesures `z = e + H · f(q)` rendent par moindres
-carrés l'égout `e` et la hauteur de faîtage `H` (`H ≥ 0`). Candidats : plat, croupes (squelette),
-deux pans et quatre pans dans l'axe du plus long mur et en travers. Une mesure à plus de 1,5 m du
-toit ajusté (`RESIDU_ABERRANT_M` : arbre, cheminée, lucarne) est écartée, et l'ajustement refait.
-La forme au plus petit écart quadratique moyen l'emporte ; le quatre pans paie 5 cm d'écart pour
-que, sur un rectangle, les croupes (le toit BD TOPO) gagnent à mesures égales.
+carrés l'égout `e` et la hauteur de faîtage `H` (`H ≥ 0`). Candidats : plat, appentis (quatre
+sens), croupes (squelette), deux pans et quatre pans sur chaque **axe** : le plus long mur, sa
+perpendiculaire, et l'axe que les mesures dessinent elles-mêmes (`axeDesMesures` : la direction
+de plus faible variance de la hauteur, retenue si elle s'écarte de 8° des deux autres — un faîtage
+qui ne suit pas le mur). Une mesure à plus de 1,5 m du toit ajusté (`RESIDU_ABERRANT_M` : arbre,
+cheminée, lucarne) est écartée, et l'ajustement refait. La forme au plus petit écart quadratique
+moyen l'emporte, sans prime : à mesures égales, c'est la première de la liste. Un appentis n'est
+retenu qu'à moins de 0,4 m d'écart (`ECART_MAX_APPENTIS_M`) : au-delà, il n'explique qu'une marche
+entre deux corps. Et si les hauteurs se séparent en deux paquets à plus d'un mètre l'un de l'autre,
+d'au moins un quart des mesures chacun (`deuxCorps`), on renonce d'emblée : deux corps sous un
+contour, pas un toit. `diagnostiquerToit` liste les candidats et leur écart, pour comprendre un cas.
 
 Garde-fous : au moins `ECHANTILLONS_MIN` = 20 mesures ; écart final sous `ECART_MAX_M` = 0,8 m,
 sinon **aucune forme simple n'explique les mesures** (deux corps de hauteurs différentes sous un
@@ -498,7 +519,11 @@ contour, une tourelle) et le toit BD TOPO reste ; `H` sous `HAUTEUR_TOIT_MIN_M` 
 ### 10.3 Quand, et ce qui est écrit
 
 `app/toitsLidar.ts::toitsDepuisLidar`, après la couleur des toits (§6.1), à l'import depuis une
-adresse (« Forme des toits sur le LiDAR HD… ») et à l'actualisation (ligne du bilan). Seuls les
+adresse (« Forme des toits sur le LiDAR HD… ») et à l'actualisation (ligne du bilan). Les deux
+lectures se font dans le **repère du plan construit** (`importCadastre::projecteurDuPlan` : origine
+au calage cadastral, le sommet nord de la parcelle) — jusqu'en octobre 2026, l'import les faisait
+avec le projecteur du point de l'adresse, décalé de plusieurs dizaines de mètres : elles tombaient
+à côté. Seuls les
 bâtiments dont le toit vient de la BD TOPO ou d'une lecture LiDAR antérieure (`toitAAjuster`) ; un
 toit lu sur une photo ou saisi n'est pas touché, et `toitActualise` (§5.3) recalcule un toit LiDAR
 comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du projet d'abord, au plus
@@ -507,10 +532,129 @@ comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du pro
 Écrit : `toit = { forme, hauteur, angleFaitage, source: 'lidar' }`, la couleur et son origine
 conservées. L'égout mesuré corrige `elevation` (la hauteur du prisme) quand il s'en écarte d'au moins
 0,3 m et reste entre 2 et 40 m. L'inspecteur dit « ajustée sur le LiDAR HD de l'IGN ». Un service
-muet ne bloque rien.
+muet ne bloque rien. Pour un bâtiment de la parcelle du projet (`bdtopo.surParcellePrincipale`), la
+grille entière est lue (`lireGrille`) : elle donne les mesures de l'ajustement, le toit mesuré (§12)
+et l'égout de chaque corps (§11) ; le bilan compte ces toits « gardés tels que mesurés ».
 
 ### 10.4 Vérifié
 
 `tests/unit/facade/toitLidar.test.ts` (formes, bruit, arbre, renoncements), `tests/unit/geo/mnh.test.ts`
 (grille demandée, retrait, service muet), `tests/unit/app/toitsLidar.test.ts` (éligibilité, ordre,
 délai, bilan, toits gardés).
+
+---
+
+## 11. Un toit par corps de bâtiment (parcelle du projet)
+
+Un bâtiment en L, en T ou en U n'a pas un toit mais plusieurs : un corps, une aile, chacun son
+faîtage, son égout, parfois sa hauteur. Sur la parcelle du projet, celle qu'on regarde de près, le
+contour est **découpé en corps** (`model/volumesToit.ts`) ; le voisinage garde un toit par bâtiment.
+
+### 11.1 Le découpage
+
+`decomposerEnRectangles(contour)` : le contour est tourné dans l'axe du plus long côté, **mis à
+l'équerre** (`equerrer` : chaque côté ramené à 0° ou 90° s'il en est à moins de 15°, les côtés de
+même sens fusionnés ; un contour biais rend `null`), ses **décrochés** de moins de 1,2 m lissés
+(`lisserDecroches` : un ressaut, un conduit, une avancée de perron ne font pas un corps). Puis la
+**couverture par rectangles maximaux** (`couvertureRectangles`) : sur la grille des abscisses et
+ordonnées du contour, tout rectangle de cellules entièrement dedans qu'aucun autre ne contient ;
+du plus grand au plus petit, ceux qu'il faut pour couvrir chaque cellule. Deux rectangles **se
+chevauchent** — c'est voulu : un corps et une aile qui le pénètre ont chacun leur toit entier, le
+plus haut l'emporte dans la 3D, et les noues naissent de leur rencontre. On renonce (`null`) si le
+contour n'est pas rectiligne, si l'équerre change l'aire de plus de 15 %, s'il n'y a qu'un
+rectangle, ou si l'un fait moins de 1,5 m de large (`LARGEUR_MIN_M`).
+
+### 11.2 Les toits des corps
+
+Chaque rectangle reçoit le toit de sa forme (`toitDuRectangle`) : **deux pans** dans son axe s'il
+est allongé d'au moins 1,25, **quatre pans** sinon, à la **pente du toit du bâtiment**
+(`penteDuToit` : celle de la BD TOPO, 35° à défaut), `estime: true`. À l'import (`cadastreObjets`)
+et à l'actualisation, ce sont ces volumes par défaut (`volumesParDefaut`). Après la lecture LiDAR
+(`app/toitsLidar.ts::volumesDepuisLidar`), chaque corps est **ajusté sur les mesures qui tombent
+dedans** (§10.2) et prend son **égout** : lu dans la surface mesurée (§12, dixième centile des
+cellules du rectangle) quand on l'a, sinon celui de l'ajustement. Un corps que le LiDAR n'explique
+pas garde son toit par défaut.
+
+### 11.3 Données et 3D
+
+`ObjetPlan.volumesToit: VolumeToit[] | null` (`{ pts, toit, egout? }`) ; `modeToit` dit ce que la
+3D montre (§12.3). Sérialisé et copié tels quels. La couleur de couverture reste celle du `toit` du
+bâtiment, réglée une fois (`toitDuVolume`). En 3D (`three/scene.ts`), **un prisme par corps** à son
+égout, un toit par corps (`releve3d::poserToit`), un débord et une gouttière par corps, la cheminée
+sur le premier (le plus grand) ; les fenêtres suivent la hauteur du mur de leur corps
+(`hauteurDuMur`). `volumesActifs(o)` rend les corps à dessiner : au moins deux, sauf « Un seul
+toit ». L'inspecteur décrit chaque corps (`decrireVolumes` : « Corps 12,0 × 8,0 m : deux pans ·
+égout 6,0 m »).
+
+### 11.4 Vérifié
+
+`tests/unit/model/volumesToit.test.ts` (équerre, L, T, U, rotation, renoncements, toits et
+descriptions), `tests/unit/app/toitsLidar.test.ts` (égouts par corps), `tests/unit/three/scene.test.ts`
+et `detailsBatiment.test.ts` (prismes, toits et débords par corps).
+
+---
+
+## 12. Le toit tel que le LiDAR le mesure (parcelle du projet)
+
+### 12.1 Pourquoi
+
+Les formes simples ne décrivent pas toutes les maisons. Le 2 allée des Limites au Vésinet : un
+corps dont le pan nord-ouest monte de 3,6 m à 7,8 m puis un dessus presque plat jusqu'au mur
+sud-est, une aile basse à un pan de 4,3 m à 2,5 m. Aucun des gabarits n'y colle (meilleur écart
+0,68 m), et le découpage en corps ne rend ni le dessus plat ni le faîtage décentré. Or le MNH
+donne, tous les 50 cm, la hauteur réelle de la couverture : pour les bâtiments de la parcelle du
+projet, **on garde cette grille et la 3D la dessine telle quelle**. Les formes simples restent pour
+le voisinage, et comme repli sans LiDAR.
+
+### 12.2 La grille nettoyée
+
+`model/toitMesure.ts::toitMesureDepuisGrille(grille, contour)` : la grille du MNH (§10.1) est
+**recadrée** sur les cellules du contour (les autres n'existent pas : au mur, la surface prolonge
+les cellules présentes), puis **nettoyée** (`nettoyer`). Deviennent des **trous** : une cellule
+sans donnée, sous 0,5 m (`SOL_M`, le sol vu entre deux toits), ou au-dessus du neuvième décile des
+hauteurs de plus de 1 m (`DEPASSEMENT_M` : un arbre sur le toit domine le gros du toit — au Vésinet,
+des houppiers de 10 à 13 m sur un coin d'un toit de 7,8 m), et, l'égout connu, une cellule plus
+basse que lui de 0,3 m (`SOUS_EGOUT_M` : le mur vu de biais). Les trous sont **bouchés de proche en
+proche** (`boucher`) : chaque cellule nulle prend la médiane de ses voisines présentes (au moins
+trois), passe après passe, jusqu'à ce qu'il n'en reste plus — un houppier de 4 × 4 cellules se
+comble depuis la couverture autour. Puis, en deux passes, une cellule plus haute de 2 m
+(`SAILLIE_M`) que la médiane de ses voisines (une cheminée, le bord d'un houppier) est ramenée à
+elles. Enfin **lissée** (`lisser`) : une médiane 3 × 3, de quoi effacer les marches de 50 cm sans
+arrondir les faîtages (une moyenne fondait les arêtes : le toit avait l'air coulé). L'**égout** est le dixième centile des cellules à
+plus de 0,5 m des murs (`RETRAIT_EGOUT_M` : au bord, le MNH mêle la couverture et le mur), le
+**faîte** le maximum. Il faut au moins 20 cellules valides (`CELLULES_MIN`) et la moitié des
+cellules du contour, sinon `null` : le LiDAR n'y voit pas de toit. `hauteurToitMesure(t, x, y)`
+interpole entre les quatre cellules autour d'un point, les manquantes prenant les présentes ;
+`egoutDansRect(t, rect, contour)` lit l'égout d'un corps, loin des murs.
+
+Données : `ObjetPlan.toitMesure: ToitMesure | null` — `{ pas, x0, y0, nx, ny, z: (number | null)[],
+egout, faite, source: 'lidar' }`, lignes du nord au sud, en mètres au-dessus du sol, dans le repère
+du plan. Quelques centaines de cellules par maison ; sérialisé et copié tel quel ; remis à `null` par
+l'actualisation quand le contour change (le LiDAR le relit ensuite). L'égout du toit entier devient
+`elevation` (la hauteur du prisme hors corps) quand il s'en écarte d'au moins 0,3 m.
+
+### 12.3 En 3D
+
+`three/toitMesure3d.ts::ajouterToitMesure3d` : le contour est triangulé (`trianguler`), chaque
+triangle **subdivisé** par les milieux de ses côtés jusqu'à 50 cm (`PAS_MAILLE_M`), et chaque
+sommet prend la hauteur mesurée là — **jamais sous l'égout du corps** qui le porte (§11), ni sous
+`elevation` hors corps, plus 5 cm (`LEVEE_M` : posée exactement sur le dessus du prisme, la surface
+se battrait avec lui) : la surface se pose sur les murs. Les sommets sont partagés au centimètre,
+la couleur et la matière sont celles du `toit` du bâtiment (§6.2, un carreau de tuiles par mètre).
+Le long de chaque mur, entre l'égout et la surface — 5 cm, ou un pignon, un mur qui monte jusqu'à
+un dessus plat — une **rehausse** verticale en couleur de mur comble l'écart (`NOM_REHAUSSE`), par
+bandes de 50 cm. Les prismes montent à l'égout de chaque corps ; les formes
+simples, le débord, la gouttière et la cheminée ne se posent pas (`sansToit`) ; les arêtes, le
+soubassement et les fenêtres restent.
+
+`modeToitActif(o)` choisit ce que la 3D montre : `modeToit` quand il est tenable, sinon la **surface
+mesurée** quand elle existe, sinon **un toit par corps** quand il y en a deux, sinon le **toit
+unique**. L'inspecteur le règle (§7, « Toit en 3D »).
+
+### 12.4 Vérifié
+
+`tests/unit/model/toitMesure.test.ts` (recadrage, arbre, trou, sol, deux corps et leurs égouts,
+renoncements, interpolation, mode), `tests/unit/three/toitMesure3d.test.ts` (maille, hauteurs,
+rehausses, égout par corps), `tests/unit/app/toitsLidar.test.ts` (grille lue pour la parcelle du
+projet seule, toit mesuré écrit, bilan), `tests/unit/ui/champsToitMode.test.ts` (le choix et ce qu'il
+cache). Vu à l'œil sur le 2 allée des Limites (Le Vésinet) et à Saint-Cloud.

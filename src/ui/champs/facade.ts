@@ -8,6 +8,8 @@ import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { designerFacade } from '../../facade/choix.js';
 import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
+import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
+import { modeToitActif } from '../../model/toitMesure.js';
 import type { FormeToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment } from '../../model/fonctions.js';
@@ -37,6 +39,17 @@ function origineCouleur(toit: Toit | null | undefined): string {
   }
 }
 
+/** D'ou vient la forme d'un toit : mesuree, estimee, par defaut, lue, saisie - pour qu'on sache ce qu'elle vaut. */
+export function origineForme(toit: Toit | null | undefined): string {
+  switch (toit?.source) {
+    case 'lidar': return 'mesurée sur le LiDAR HD de l’IGN';
+    case 'bdtopo': return toit.estime ? 'par défaut : la BD TOPO ne donne pas la hauteur' : 'estimée d’après la BD TOPO (hauteur à ± 1 m, forme déduite du contour)';
+    case 'photo': return 'lue sur la photo de la façade';
+    case 'saisie': return 'saisie';
+    default: return '';
+  }
+}
+
 /** D'ou vient la hauteur d'un toit deduit de la BD TOPO ou du LiDAR : on dit que c'est une estimation. */
 function origineHauteur(toit: Toit): string {
   if (toit.source === 'lidar') return ' · ajustée sur le LiDAR HD de l’IGN';
@@ -44,80 +57,57 @@ function origineHauteur(toit: Toit): string {
   return toit.estime ? ' · estimée : pas de hauteur dans la BD TOPO' : ' · déduite de la BD TOPO (± 1 m)';
 }
 
-export function sectionReleve(c: ContexteChamps): Section {
-  const o = enPoints(c.obj);
-  const facades = facadesDuContour(o.pts, c.elevationOf(c.obj));
-  const champs: Champ[] = [
+/** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
+function champsDuToit(): Champ[] {
+  // Le toit unique ne se montre que si c'est lui que la 3D dessine : en surface mesuree ou en
+  // plusieurs corps, ses reglages se cachent, la description du toit montre les remplace.
+  const mode = (cc: ContexteChamps) => modeToitActif(cc.obj);
+  const unSeul = (cc: ContexteChamps) => mode(cc) === 'simple';
+  const aToit = (cc: ContexteChamps) => !!cc.obj.toit && unSeul(cc);
+  const aPente = (cc: ContexteChamps) => !!cc.obj.toit && cc.obj.toit.forme !== 'plat' && unSeul(cc);
+  const corps = (cc: ContexteChamps) => (cc.obj.volumesToit?.length ?? 0) >= 2;
+  return [
     {
-      type: 'bouton',
-      cle: 'relever',
-      libelle: '',
-      nom: 'Relever une façade',
-      texte: () => 'Relever une façade…',
-      explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
-      agit: { commande: 'facade.relever' },
-      executer: (cx) => {
-        designerFacade(null);
-        cx.executerCommande('facade.relever');
+      type: 'choix',
+      cle: 'toitMode',
+      libelle: 'Toit en 3D',
+      visible: (cc) => !!cc.obj.toitMesure || corps(cc),
+      historique: true,
+      effets: ['scene3d', 'inspecteur'],
+      aide: 'Tel que mesuré : la surface que le LiDAR HD de l’IGN a relevée, à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
+      options: (cc) => [
+        ...(cc.obj.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
+        ...(corps(cc) ? [{ valeur: 'volumes', libelle: 'Un toit par corps' }] : []),
+        { valeur: 'simple', libelle: 'Un seul toit' },
+      ],
+      lire: (cc) => mode(cc),
+      ecrire: (cc, v) => { cc.obj.modeToit = v === 'mesure' ? 'mesure' : v === 'volumes' ? 'volumes' : 'simple'; },
+    },
+    {
+      type: 'lecture',
+      cle: 'toitMesure',
+      libelle: 'Mesure',
+      visible: (cc) => mode(cc) === 'mesure',
+      valeur: (cc) => {
+        const t = cc.obj.toitMesure;
+        return t ? `égout ${fr(t.egout, 1)} m · faîte ${fr(t.faite, 1)} m · ${t.nx} × ${t.ny} cellules à ${fr(t.pas, 2)} m · LiDAR HD de l’IGN` : '';
       },
     },
-  ];
-  facades.forEach((f) => {
-    const i = f.cote;
-    const releve = () => (c.obj.facades || []).find((r) => r.cote === i);
-    champs.push({
-      type: 'ligne',
-      cle: 'facade' + i,
-      libelle: `${f.orientation}`,
-      surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
-      champs: [
-        {
-          type: 'lecture',
-          cle: 'etat',
-          libelle: 'Relevé',
-          valeur: () => {
-            const r = releve();
-            const nom = o.segmentNames?.[i] ? `${o.segmentNames[i]} · ` : '';
-            return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}` : `${nom}${fr(f.largeur)} m · non relevée`;
-          },
-        },
-        {
-          type: 'bouton',
-          cle: 'relever',
-          libelle: 'Relever',
-          texte: () => (releve() ? 'Refaire' : 'Relever'),
-          aide: `Relever la façade ${f.orientation.toLowerCase()}`,
-          agit: { commande: 'facade.relever' },
-          executer: (cx) => {
-            designerFacade(i);
-            cx.executerCommande('facade.relever');
-          },
-        },
-        {
-          type: 'bouton',
-          cle: 'retirer',
-          libelle: 'Retirer',
-          visible: () => !!releve(),
-          aide: 'Retirer la photo et les ouvertures de ce mur (Ctrl+Z pour revenir)',
-          agit: { commande: 'facade.retirer' },
-          executer: (cx) => {
-            designerFacade(i);
-            cx.executerCommande('facade.retirer');
-          },
-        },
-      ],
-    });
-  });
-
-  const aToit = (cc: ContexteChamps) => !!cc.obj.toit;
-  const aPente = (cc: ContexteChamps) => !!cc.obj.toit && cc.obj.toit.forme !== 'plat';
-  champs.push(
+    {
+      type: 'lecture',
+      cle: 'toitCorps',
+      libelle: 'Toits',
+      visible: (cc) => mode(cc) === 'volumes',
+      valeur: (cc) => decrireVolumes(volumesActifs(cc.obj) ?? [], LIBELLES_FORME_TOIT).join(' · ') + (cc.obj.toit ? ' · ' + origineForme(cc.obj.toit) : ''),
+    },
     {
       type: 'choix',
       cle: 'toitForme',
       libelle: 'Toit',
+      visible: unSeul,
       historique: true,
       effets: effetsToit,
+      note: (cc) => origineForme(cc.obj.toit),
       // « Non modelise » ne se choisit plus : un toit plat saisi dit « pas de toit » d'une facon que
       // l'actualisation IGN respecte, la ou un toit absent serait remplace (MD/spec-toit-ign.md §5.4).
       options: (cc) => [
@@ -191,6 +181,74 @@ export function sectionReleve(c: ContexteChamps): Section {
         delete toit.origineCouleur;
       },
     },
-  );
+  ];
+}
+
+export function sectionReleve(c: ContexteChamps): Section {
+  const o = enPoints(c.obj);
+  const facades = facadesDuContour(o.pts, c.elevationOf(c.obj));
+  const champs: Champ[] = [
+    {
+      type: 'bouton',
+      cle: 'relever',
+      libelle: '',
+      nom: 'Relever une façade',
+      texte: () => 'Relever une façade…',
+      explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
+      agit: { commande: 'facade.relever' },
+      executer: (cx) => {
+        designerFacade(null);
+        cx.executerCommande('facade.relever');
+      },
+    },
+  ];
+  facades.forEach((f) => {
+    const i = f.cote;
+    const releve = () => (c.obj.facades || []).find((r) => r.cote === i);
+    champs.push({
+      type: 'ligne',
+      cle: 'facade' + i,
+      libelle: `${f.orientation}`,
+      surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
+      champs: [
+        {
+          type: 'lecture',
+          cle: 'etat',
+          libelle: 'Relevé',
+          valeur: () => {
+            const r = releve();
+            const nom = o.segmentNames?.[i] ? `${o.segmentNames[i]} · ` : '';
+            return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}` : `${nom}${fr(f.largeur)} m · non relevée`;
+          },
+        },
+        {
+          type: 'bouton',
+          cle: 'relever',
+          libelle: 'Relever',
+          texte: () => (releve() ? 'Refaire' : 'Relever'),
+          aide: `Relever la façade ${f.orientation.toLowerCase()}`,
+          agit: { commande: 'facade.relever' },
+          executer: (cx) => {
+            designerFacade(i);
+            cx.executerCommande('facade.relever');
+          },
+        },
+        {
+          type: 'bouton',
+          cle: 'retirer',
+          libelle: 'Retirer',
+          visible: () => !!releve(),
+          aide: 'Retirer la photo et les ouvertures de ce mur (Ctrl+Z pour revenir)',
+          agit: { commande: 'facade.retirer' },
+          executer: (cx) => {
+            designerFacade(i);
+            cx.executerCommande('facade.retirer');
+          },
+        },
+      ],
+    });
+  });
+
+  champs.push(...champsDuToit());
   return { id: 'releve', titre: 'Façades et toit', champs };
 }

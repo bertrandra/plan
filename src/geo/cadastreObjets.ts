@@ -16,6 +16,7 @@ import { portParNature } from '../model/arbre.js';
 import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
 import { coteRueDevine } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
+import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
 import type { Anneau } from './apiIgn.js';
@@ -270,6 +271,10 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
   const p = b.props || {};
   const usage = p.usage_1 || p.nature || 'Batiment';
   const pts = b.pts.map(x.dec);
+  // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un ; sur la
+  // parcelle du projet, un toit par corps de batiment quand le contour se decoupe (§11).
+  const toit = toitBdTopo(pts, attributsToitBdTopo(p));
+  const volumes = surPrincipale ? volumesParDefaut(pts, toit) : null;
   return formeIgn(x, pts, 'batiment',
     usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
     surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
@@ -278,8 +283,8 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
       opacite: surPrincipale ? 0.92 : 0.6,
       extra: {
         locked: !surPrincipale,
-        // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un.
-        toit: toitBdTopo(pts, attributsToitBdTopo(p)),
+        toit,
+        ...(volumes ? { volumesToit: volumes } : {}),
         bdtopo: {
           couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
           nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,

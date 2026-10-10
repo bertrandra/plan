@@ -208,6 +208,19 @@ interface ObjetCommun {
   /** Diametre estime d'un arbre importe, en metres. */
   diametreArbre?: number;
   couleurArbre?: string;
+  /**
+   * Le toit d'un batiment de la parcelle du projet en plusieurs volumes (model/volumesToit.ts) : le
+   * contour decoupe en rectangles, chacun son toit et, mesure sur le LiDAR, son egout. `modeToit`
+   * dit lequel la 3D montre : les volumes (defaut quand ils existent) ou le seul `toit`.
+   */
+  volumesToit?: VolumeToit[] | null;
+  /**
+   * Le toit tel que le LiDAR HD le mesure (model/toitMesure.ts) : une grille de hauteurs au-dessus
+   * du sol sous le contour, nettoyee. La 3D le dessine en surface. Batiments de la parcelle du projet.
+   */
+  toitMesure?: ToitMesure | null;
+  /** Ce que la 3D montre : la surface mesuree (defaut quand elle existe), un toit par corps, ou le seul `toit`. */
+  modeToit?: 'simple' | 'volumes' | 'mesure';
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
   ruesVoisinage?: RuesVoisinage | null;
   /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
@@ -752,6 +765,32 @@ export interface PartieBasse {
 
 /** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */
 export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
+
+/**
+ * Un toit mesure : la grille des hauteurs du sursol (metres au-dessus du sol) sous le contour d'un
+ * batiment, lignes du nord au sud, `null` hors du toit ; et l'egout qu'on en lit.
+ */
+export interface ToitMesure {
+  pas: number;
+  x0: number;
+  y0: number;
+  nx: number;
+  ny: number;
+  z: (number | null)[];
+  /** Hauteur du sol a l'egout, en metres : le dixieme centile des hauteurs du toit. */
+  egout: number;
+  /** Le point le plus haut du toit, en metres au-dessus du sol. */
+  faite: number;
+  source: 'lidar';
+}
+
+/** Un volume d'un batiment en plusieurs corps : son emprise (un rectangle), son toit, son egout quand il est mesure. */
+export interface VolumeToit {
+  pts: PtBrut[];
+  toit: Toit;
+  /** Hauteur du sol a l'egout de ce volume, en metres ; absente, celle du batiment. */
+  egout?: number;
+}
 
 export interface Toit {
   forme: FormeToit;
