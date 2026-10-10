@@ -224,6 +224,12 @@ interface ObjetCommun {
    * faitage, ses egouts, ses pignons. Batiments de la parcelle du projet.
    */
   corpsToit?: CorpsToit[] | null;
+  /**
+   * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
+   * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par
+   * parcelle (les corps relus sur chaque part). Sans reponse, la question revient a l'ouverture.
+   */
+  toitACheval?: ToitACheval | null;
   /** Ce que la 3D montre : les corps et pignons (defaut quand ils existent), la surface mesuree, un toit par corps, ou le seul `toit`. */
   modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps';
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
@@ -814,6 +820,13 @@ export interface PignonToit {
   faitage: number;
   /** Sa longueur depuis le mur vers l'interieur, en metres : jusqu'au faitage du corps quand il en part. */
   profondeur: number;
+}
+
+/** Le doute sur la toiture d'un batiment a cheval sur deux parcelles, et sa reponse (model/aCheval.ts). */
+export interface ToitACheval {
+  /** Les cles des parcelles du plan sur lesquelles il est pose. */
+  parcelles: string[];
+  reponse?: 'un' | 'parParcelle';
 }
 
 /**

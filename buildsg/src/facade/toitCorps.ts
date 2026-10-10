@@ -574,7 +574,7 @@ function corpsDeReprise(m: ToitMesure, contour: readonly PtBrut[], grille: Grill
   const rects = rectanglesEnTranches(contourEquerre(contour) ?? contour);
   if (!rects) return corpsSurBoite(m, contour, grille);
   const corps = rects.map((r) => corpsDepuisFormes(grille ?? m, r) ?? corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
-  return corps.length ? completerSurContour(corps, contour) : null;
+  return corps.length ? completerSurContour(corps, contour, grille ?? m) : null;
 }
 
 /**
@@ -602,6 +602,21 @@ function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille
 
 /** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
 const PAS_COMPLETION_M = 0.25, COMPLETION_MAX_M = 8;
+/**
+ * La part de la bande devant un cote qui doit etre du contour sans toit pour que le corps avance : un
+ * triangle laisse par une marche, pas la lisiere de quelques centimetres qu'une aile un peu de biais
+ * laisse le long de son voisin - suivie sur 5 m, elle elargissait une aile de 5 m a 10 m, au-dessus
+ * de la cour, l'egout descendu a -1,3 m (Hucqueliers).
+ */
+const PART_COMPLETION_MIN = 0.1;
+/** En travers, un corps n'avance pas au-dela du point ou un egout tomberait sous cette hauteur. */
+const EGOUT_ETENDU_MIN_M = 2;
+/**
+ * Ni sur une partie basse : la ou la mesure tombe a plus de cette hauteur sous son egout le plus bas,
+ * le contour est un autre toit (un appentis, une annexe), pas un bout du sien. Le toit a 8,6 m d'une
+ * maison couvrait sinon l'annexe a 3 m qui la prolonge (Hucqueliers).
+ */
+const SOUS_EGOUT_ETENDU_M = 1;
 
 /** Un cote d'un rectangle dans son repere : s = 0, s = L, t = 0, t = W. */
 type Cote = 's0' | 'sL' | 't0' | 'tW';
@@ -613,17 +628,17 @@ type Cote = 's0' | 'sL' | 't0' | 'tW';
  * pour moitie) tant que la bande juste devant contient du contour que nul autre corps ne couvre ; il
  * garde sa forme et ses pentes (`corpsEtendu`). Le dessin decoupe ensuite les toits sur le contour.
  */
-export function completerSurContour(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+export function completerSurContour(corps: readonly CorpsToit[], contour: readonly PtBrut[], g: Grille | null = null): CorpsToit[] {
   // Les plus hauts d'abord, chacun voyant les corps deja etendus : un bout de maison revient au toit
   // qui le domine, pas a la terrasse plate d'a cote.
   const out = [...corps];
   const ordre = out.map((_, k) => k).sort((a, b) => (out[b] as CorpsToit).faitage - (out[a] as CorpsToit).faitage);
-  for (const k of ordre) out[k] = etendreSurContour(out[k] as CorpsToit, out.filter((_, j) => j !== k).map((x) => x.pts), contour);
+  for (const k of ordre) out[k] = etendreSurContour(out[k] as CorpsToit, out.filter((_, j) => j !== k).map((x) => x.pts), contour, g);
   return out;
 }
 
 /** Un corps etendu sur le contour que les `autres` ne couvrent pas (`completerSurContour`). */
-function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: readonly PtBrut[]): CorpsToit {
+function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: readonly PtBrut[], g: Grille | null): CorpsToit {
   const r = repere(c.pts);
   const b: Record<Cote, number> = { s0: 0, sL: r.L, t0: 0, tW: r.W };
   // Les points d'une bande parallele au cote, a la position `v` de son axe, sur toute la longueur de l'autre.
@@ -634,14 +649,18 @@ function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: r
     return out;
   };
   const ailleurs = (q: PtBrut) => autres.some((a) => pointInPolygon(q, a));
+  const bas = Math.min(...c.egouts) - SOUS_EGOUT_ETENDU_M;
+  const aSaHauteur = (q: PtBrut) => { const z = g ? hauteurGrille(g, q) : null; return z === null || z >= bas; };
   for (const cote of ['s0', 'sL', 't0', 'tW'] as const) {
     const signe = cote === 's0' || cote === 't0' ? -1 : 1;
     const devant = bande(cote, b[cote] + signe * 0.3);
     if (devant.filter(ailleurs).length > devant.length / 2) continue;
     for (let d = PAS_COMPLETION_M; d <= COMPLETION_MAX_M + 1e-6; d += PAS_COMPLETION_M) {
       const pts = bande(cote, b[cote] + (signe * PAS_COMPLETION_M) / 2);
-      if (!pts.some((q) => pointInPolygon(q, contour) && !ailleurs(q))) break;
-      b[cote] += signe * PAS_COMPLETION_M;
+      if (pts.filter((q) => pointInPolygon(q, contour) && !ailleurs(q) && aSaHauteur(q)).length < Math.max(1, PART_COMPLETION_MIN * pts.length)) break;
+      const essai = { ...b, [cote]: b[cote] + signe * PAS_COMPLETION_M };
+      if ((cote === 't0' || cote === 'tW') && Math.min(...corpsEtendu(c, essai).egouts) < EGOUT_ETENDU_MIN_M) break;
+      b[cote] = essai[cote];
     }
   }
   return corpsEtendu(c, b);
@@ -701,7 +720,53 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     else couper(b.rect, 0);
   }
   const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
-  return corps.length ? corps : null;
+  return corps.length ? sansBandesRecouvertes(corps, contour) : null;
+}
+
+/**
+ * Au-dela de cette part de sa surface (dans le contour) sous les autres corps, une bande de moins de
+ * LARGEUR_BANDE_M est de trop. Les rectangles du contour se chevauchent par construction (une aile
+ * qui penetre un corps, chacun son toit entier) ; mais deux ailes presque confondues, recoupees aux
+ * marches, laissaient des tranches de pente de 2 m sous d'autres toits : en 3D, des pignons en double
+ * sur les pavillons d'une longere (Hucqueliers). Un corps plus large reste, meme recouvert : c'est
+ * souvent lui le bon toit, et les bandes ses morceaux.
+ */
+export const PART_RECOUVERTE_MAX = 0.9;
+const PAS_RECOUVREMENT_M = 0.5;
+
+/**
+ * Les corps sans les bandes que les autres recouvrent : tant qu'une bande a plus de
+ * PART_RECOUVERTE_MAX de sa surface sous les autres corps, la plus recouverte (la plus etroite a
+ * egalite) est retiree, et les parts recomptees - deux bandes qui se couvrent l'une l'autre n'en
+ * perdent qu'une.
+ */
+function sansBandesRecouvertes(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+  if (corps.length < 2) return [...corps];
+  const largeur = corps.map((c) => { const r = repere(c.pts); return Math.min(r.L, r.W); });
+  const echantillons = corps.map((c, k) => {
+    const out: PtBrut[] = [];
+    if ((largeur[k] as number) >= LARGEUR_BANDE_M) return out;
+    const r = repere(c.pts);
+    for (let s = PAS_RECOUVREMENT_M / 2; s < r.L; s += PAS_RECOUVREMENT_M) for (let t = PAS_RECOUVREMENT_M / 2; t < r.W; t += PAS_RECOUVREMENT_M) {
+      const q = point(r, s, t);
+      if (pointInPolygon(q, contour)) out.push(q);
+    }
+    return out;
+  });
+  const garde = corps.map(() => true);
+  for (;;) {
+    let pire = -1, part = PART_RECOUVERTE_MAX;
+    corps.forEach((_, k) => {
+      const ech = echantillons[k] as PtBrut[];
+      if (!garde[k] || !ech.length) return;
+      const sous = ech.filter((q) => corps.some((o, j) => j !== k && garde[j] && pointInPolygon(q, o.pts))).length / ech.length;
+      const plusEtroite = pire >= 0 && (largeur[k] as number) < (largeur[pire] as number);
+      if (sous > part + 1e-9 || (pire >= 0 && sous >= part - 1e-9 && plusEtroite)) { pire = k; part = sous; }
+    });
+    if (pire < 0) break;
+    garde[pire] = false;
+  }
+  return corps.filter((_, k) => garde[k]);
 }
 
 /**
@@ -798,8 +863,17 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
   // D'abord chaque rectangle entier : les pentes d'un pavillon le coupaient en trois bandes, dont aucune
   // paire ne fait un toit.
   const liste: { rect: PtBrut[]; corps?: CorpsToit }[] = [];
-  for (const r of rects) {
+  for (const [k, r] of rects.entries()) {
     const parts = decouperParHauteurs(m, [r]).map((rect) => ({ rect }));
+    // Une aile presque sous un rectangle plus grand : ses marches sont souvent les pentes du toit qui
+    // la couvre. Entiere, si son toit tient la mesure a la tolerance des bandes, sans egout trop bas.
+    if (parts.length > 1 && sousUnPlusGrand(r, rects.slice(0, k))) {
+      const entiere = corpsAvecPignons(m, r, contour);
+      if (entiere && Math.min(...entiere.egouts) >= EGOUT_ETENDU_MIN_M && ecartAuCorps(m, entiere, contour) <= TOLERANCE_BANDE * ecartDe(parts)) {
+        liste.push({ rect: [...r], corps: entiere });
+        continue;
+      }
+    }
     const f = parts.length > 1 ? corpsDepuisFormes(grille ?? m, r) : null;
     const un = f ? ecartAuCorps(m, f, contour) : Infinity;
     // Une bande de moins de 3 m est une tranche coupee dans une pente, pas un corps : plus de tolerance.
@@ -841,6 +915,26 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
     if (!fait) break;
   }
   return liste;
+}
+
+/**
+ * Au-dela de cette part de sa surface sous un rectangle plus grand du contour, une aile n'est pas
+ * recoupee aux marches : celles qu'on y lit sont les pentes et les murs du toit qui la couvre
+ * (Hucqueliers : deux ailes presque confondues sur un pavillon, debitees en bandes de 2 m).
+ */
+export const PART_SOUS_PLUS_GRAND = 0.5;
+
+/** Vrai quand `r` a plus de PART_SOUS_PLUS_GRAND de sa surface sous l'un des rectangles `grands`. */
+function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boolean {
+  if (!grands.length) return false;
+  const q = repere(r);
+  let n = 0, sous = 0;
+  for (let s = 0.25; s < q.L; s += 0.5) for (let t = 0.25; t < q.W; t += 0.5) {
+    n++;
+    const p = point(q, s, t);
+    if (grands.some((g) => pointInPolygon(p, g))) sous++;
+  }
+  return n > 0 && sous / n > PART_SOUS_PLUS_GRAND;
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */

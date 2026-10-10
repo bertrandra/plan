@@ -15,9 +15,10 @@ import { reconstruireCorps, decalageSurMesure, partVideSous, PART_VIDE_RECALAGE,
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { surParcelleDuProjet } from '../model/fonctions.js';
 import { batimentsMitoyens } from '../model/mitoyennete.js';
+import { partsACheval, douteACheval, type PartACheval } from '../model/aCheval.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
-import type { CorpsToit, PtBrut, Toit, ToitMesure, VolumeToit } from '../model/types.js';
+import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../model/types.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -34,6 +35,8 @@ export interface ObjetAToit {
   toitMesure?: ToitMesure | null;
   /** Ses corps et pignons, reconstruits sur la mesure (facade/toitCorps.ts). */
   corpsToit?: CorpsToit[] | null;
+  /** A cheval sur deux parcelles : le doute sur sa toiture, et la reponse (model/aCheval.ts). */
+  toitACheval?: ToitACheval | null;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -87,6 +90,31 @@ export function corpsVraisemblables(o: ObjetAToit, corps: CorpsToit[] | null): C
   if (!corps || h === null) return corps;
   const gardes = corps.filter((c) => Math.min(...c.egouts) <= h + DEPASSEMENT_VEGETATION_M);
   return gardes.length ? gardes : null;
+}
+
+/**
+ * Les corps d'un batiment a cheval relus sur chacune de ses parts (model/aCheval.ts) : un toit par
+ * parcelle, chacun arrete a la limite. Null quand aucune part ne se lit.
+ */
+export function corpsParParcelle(o: ObjetAToit, parts: readonly PartACheval[], mesure: ToitMesure, grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
+  const corps = parts.flatMap((p) => reconstruireCorps(mesure, p.pts, { coupes, grille }) ?? []);
+  return corps.length ? corpsVraisemblables(o, corps) : null;
+}
+
+/**
+ * Apres le calcul des corps d'un batiment vu de pres : s'il est a cheval sur deux parcelles, la
+ * reponse deja donnee s'applique (un toit par parcelle : les corps relus sur chaque part) ; sans
+ * reponse, le doute est note quand un corps franchit la limite - la question se pose ensuite
+ * (app/toitsACheval.ts). Un batiment qui n'est plus a cheval perd sa question.
+ */
+export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToit[], grille: GrilleRelief | null, coupes = true): void {
+  const parts = o.corpsToit?.length && o.toitMesure ? partsACheval(o, objets) : null;
+  if (!parts || !o.toitMesure) { if (o.toitACheval) o.toitACheval = null; return; }
+  const parcelles = parts.map((p) => p.parcelle);
+  const reponse = o.toitACheval?.reponse;
+  if (reponse === 'parParcelle') o.corpsToit = corpsParParcelle(o, parts, o.toitMesure, grille, coupes) ?? o.corpsToit ?? null;
+  if (reponse) o.toitACheval = { parcelles, reponse };
+  else o.toitACheval = douteACheval(o.corpsToit, parts) ? { parcelles } : null;
 }
 
 /**
@@ -243,7 +271,11 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
       // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
-      if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsVraisemblables(o, reconstruireCorps(mesure, o.pts, { grille })) : null; }
+      if (principal) {
+        o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsVraisemblables(o, reconstruireCorps(mesure, o.pts, { grille })) : null;
+        // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+        toitAChevalApresCalcul(o, objets, grille);
+      }
       // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
       // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
       // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
@@ -254,6 +286,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
         // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
         // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
         if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
+        // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+        if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
         if (o.corpsToit) bilan.corpsVoisins++;
       }
       if (mesure) bilan.mesures++;
