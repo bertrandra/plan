@@ -13,7 +13,7 @@ import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast } from '../../shell/dialogs.js';
 import { lireRelief } from '../../geo/relief.js';
-import { reliefDe, reliefMontre, resumeRelief } from '../../model/relief.js';
+import { reliefDe, affichageRelief, resumeRelief } from '../../model/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
@@ -90,23 +90,28 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
     executer: () => { void lire('actualisé'); }
   });
 
-  // « Affichage › Relief » : les courbes de niveau et le sol en relief de la 3D, d'un geste. Coche
-  // quand les deux sont montres ; sinon, un clic les montre tous les deux. Une preference
-  // d'affichage, comme les deux cases de l'inspecteur : ni Ctrl+Z, ni « projet modifie », permise
-  // en lecture seule, rangee dans `relief.affichage` pour etre retrouvee a la reouverture. Sans la
+  // « Affichage › Relief » et « Affichage › Courbes de niveau » : deux bascules distinctes, le sol en
+  // relief de la 3D (montre par defaut) et les courbes du plan (cachees par defaut). Des preferences
+  // d'affichage, comme les cases de l'inspecteur : ni Ctrl+Z, ni « projet modifie », permises en
+  // lecture seule, rangees dans `relief.affichage` pour etre retrouvees a la reouverture. Sans la
   // capacite `plan.relief` non plus : elle porte sur la lecture, une grille deja la s'affiche.
+  const basculer = (cle: 'sol3d' | 'courbes') => {
+    const r = relief();
+    if (!r) return;
+    r.affichage = { ...(r.affichage ?? {}), [cle]: !affichageRelief(r)[cle] };
+    a.render();
+    if (cle === 'sol3d') reconstruire3d();
+    ctx.rafraichir();
+  };
   cmd.declarer({
     id: 'affichage.relief', libelle: 'Relief', groupe: 'affichage', ecrit: 'affichage',
     actif: () => !!relief(),
-    executer: () => {
-      const r = relief();
-      if (!r) return;
-      const montre = reliefMontre(r);
-      r.affichage = { ...(r.affichage ?? {}), courbes: !montre, sol3d: !montre };
-      a.render();
-      reconstruire3d();
-      ctx.rafraichir();
-    }
+    executer: () => basculer('sol3d')
+  });
+  cmd.declarer({
+    id: 'affichage.courbes', libelle: 'Courbes de niveau', groupe: 'affichage', ecrit: 'affichage',
+    actif: () => !!relief(),
+    executer: () => basculer('courbes')
   });
 
   cmd.declarer({

@@ -12,9 +12,9 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { trianguler } from '../facade/toit.js';
 import { COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
-import { materiauCouverture } from '../model/couleurToit.js';
+import { materiauCouverture, type ContexteCouverture } from '../model/couleurToit.js';
 import { hauteurToitMesure } from '../model/toitMesure.js';
-import { textureCouverture } from './couverture.js';
+import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
 import type { PtBrut, Toit, ToitMesure } from '../model/types.js';
 
@@ -32,6 +32,8 @@ export interface ContexteToitMesure {
   toLocal: VersLocal;
   couleurMur: string | number;
   textures: boolean;
+  /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
+  couverture?: ContexteCouverture | undefined;
 }
 
 /** Un corps de batiment avec son egout : la surface ne descend pas sous lui. */
@@ -92,11 +94,11 @@ export function ajouterToitMesure3d(ctx: ContexteToitMesure, contour: readonly P
   };
   const tris = maillesDuToit(contour);
   for (const tri of tris) indices.push(idDe(tri[0]), idDe(tri[1]), idDe(tri[2]));
-  const materiau = materiauCouverture(toitRef);
+  const materiau = materiauCouverture(toitRef, ctx.couverture);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
   // Par facettes : chaque triangle de 50 cm est un plan, et un pignon qui avance depuis le faitage se
   // lit comme des pans, la ou l'ombrage lisse en faisait une bosse.
-  const mat = new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, roughness: materiau === 'ardoise' ? 0.7 : 0.85, side: THREE.DoubleSide, flatShading: true, ...(tex ? { map: tex } : {}) });
+  const mat = new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, ...matiereCouverture(materiau), side: THREE.DoubleSide, flatShading: true, ...(tex ? { map: tex } : {}) });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
   if (tex) {

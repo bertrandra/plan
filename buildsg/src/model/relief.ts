@@ -24,7 +24,11 @@ export const PAS_MAX_RELIEF = 5;
 /** La pente en dessous de laquelle un terrain se dit « sensiblement plat », en pour cent. */
 export const PENTE_PLATE_PCT = 1;
 
-export const AFFICHAGE_RELIEF_DEFAUT: Required<AffichageRelief> = { courbes: true, equidistance: 0, sol3d: true };
+/**
+ * L'affichage du relief par defaut : le sol en relief dans la 3D, sans les courbes de niveau sur le
+ * plan - elles chargent le dessin ; on les demande (Affichage › Courbes de niveau, ou l'inspecteur).
+ */
+export const AFFICHAGE_RELIEF_DEFAUT: Required<AffichageRelief> = { courbes: false, equidistance: 0, sol3d: true };
 
 /** Le relief du projet : celui de sa parcelle, s'il a ete lu. */
 export function reliefDe(objets: readonly ObjetPlan[]): Relief | null {
@@ -36,10 +40,13 @@ export function affichageRelief(r: Relief | null | undefined): Required<Affichag
   return { ...AFFICHAGE_RELIEF_DEFAUT, ...(r?.affichage ?? {}) };
 }
 
-/** Le relief est montre en entier : courbes de niveau sur le plan et sol en relief dans la 3D. */
-export function reliefMontre(r: Relief): boolean {
-  const aff = affichageRelief(r);
-  return aff.courbes && aff.sol3d;
+/**
+ * Les courbes de niveau du plan exporte (export/svgPlan.ts) : celles de l'ecran quand elles ont ete
+ * reglees, et sinon montrees, comme avant que l'ecran ne les cache par defaut - un export d'hier
+ * reste identique (CLAUDE.md : un export qui change est un evenement de version majeure).
+ */
+export function courbesExportees(r: Relief): boolean {
+  return r.affichage?.courbes ?? true;
 }
 
 export interface Emprise { xMin: number; xMax: number; yMin: number; yMax: number }

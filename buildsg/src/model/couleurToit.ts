@@ -139,8 +139,44 @@ function lireCouleur(rgba: ArrayLike<number>): CouleurToitLue {
   return { couleur: versHex(teinte), origine: 'orthophoto' };
 }
 
-/** Le materiau dessine sur la couverture en 3D : tuiles pour une terre cuite, ardoises sinon. */
-export type MateriauCouverture = 'tuile' | 'ardoise';
+/**
+ * Le materiau dessine sur la couverture en 3D (three/couverture.ts) : tuiles romanes (mecaniques),
+ * tuiles plates d'un toit raide, tuiles canal d'un toit peu pentu, ardoises, zinc a joints debout,
+ * gravillons d'un toit-terrasse.
+ */
+export type MateriauCouverture = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc' | 'terrasse';
+
+/** Au-dessus, une tuile est plate (elle tient sur un toit raide) ; en dessous, une tuile canal (le toit provencal). */
+export const PENTE_TUILE_PLATE_DEG = 40;
+export const PENTE_TUILE_CANAL_DEG = 25;
+
+/** Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers, la pente. */
+export interface ContexteCouverture {
+  /** `bdtopo.materiauxToiture` : les codes des fichiers fonciers (1 tuiles, 2 ardoises, 3 zinc, 4 beton). */
+  materiauxToiture?: unknown;
+  /** La pente des pans, en degres ; absente : la tuile romane, sans choix de modele. */
+  pente?: number | null;
+  /** La latitude du projet : la tuile canal est celle du Midi, au nord un toit peu pentu porte une tuile mecanique. */
+  latitude?: number | null;
+}
+
+/** Au nord de cette latitude (la Loire, le Lyonnais), un toit peu pentu n'est pas en tuiles canal. */
+export const LATITUDE_TUILE_CANAL_MAX = 46;
+
+/** La couverture d'apres le code des fichiers fonciers (`materiaux_de_la_toiture`) : tuiles, ardoises, zinc, beton. */
+export function couvertureDesFichiersFonciers(code: unknown): 'tuile' | 'ardoise' | 'zinc' | 'beton' | null {
+  if (typeof code !== 'string') return null;
+  for (const c of code.trim()) {
+    if (c === '1') return 'tuile';
+    if (c === '2') return 'ardoise';
+    if (c === '3') return 'zinc';
+    if (c === '4') return 'beton';
+  }
+  return null;
+}
+
+/** Une couverture grise et lisse (ardoise, zinc) : sa cheminee, sa brillance ne sont pas celles d'une tuile. */
+export const couvertureGrise = (m: MateriauCouverture): boolean => m === 'ardoise' || m === 'zinc';
 
 function rgbDeHex(hex: string): Rgb | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -150,14 +186,29 @@ function rgbDeHex(hex: string): Rgb | null {
 }
 
 /**
- * Tuile ou ardoise, d'apres la couverture : le repli gris est une ardoise, le rouge et le brun des
- * tuiles. Une couleur lue sur l'orthophoto, ou choisie, se classe comme le serait son repli. Sans
- * couleur, c'est la tuile rouge par defaut.
+ * Le materiau d'une couverture. Un toit-terrasse (`plat`) est en gravillons. Sinon le materiau des
+ * fichiers fonciers decide quand il est connu (une ardoise, du zinc ; une tuile, meme si la photo la
+ * voyait grise ; un beton en pente est une tuile de beton) ; a defaut, la couleur : le repli gris est
+ * une ardoise, le rouge et le brun des tuiles, une couleur lue ou choisie se classe comme son repli,
+ * et sans couleur c'est la tuile. Une tuile est plate sur un toit raide, canal sur un toit peu pentu
+ * du Midi, romane entre les deux, au nord sur un toit peu pentu, ou quand la pente n'est pas connue.
  */
-export function materiauCouverture(toit: { couleur?: string; origineCouleur?: string } | null | undefined): MateriauCouverture {
-  if (toit?.origineCouleur === 'gris') return 'ardoise';
-  if (toit?.origineCouleur === 'rouge' || toit?.origineCouleur === 'brun') return 'tuile';
+export function materiauCouverture(toit: { couleur?: string; origineCouleur?: string } | null | undefined, c: ContexteCouverture = {}, plat = false): MateriauCouverture {
+  if (plat) return 'terrasse';
+  const ff = couvertureDesFichiersFonciers(c.materiauxToiture);
+  if (ff === 'ardoise' || ff === 'zinc') return ff;
+  if (!ff && couleurGrise(toit)) return 'ardoise';
+  const pente = c.pente ?? null;
+  if (pente !== null && pente >= PENTE_TUILE_PLATE_DEG) return 'tuile-plate';
+  const midi = c.latitude === null || c.latitude === undefined || c.latitude < LATITUDE_TUILE_CANAL_MAX;
+  if (midi && pente !== null && pente > 0 && pente <= PENTE_TUILE_CANAL_DEG) return 'tuile-canal';
+  return 'tuile';
+}
+
+/** Une couverture de couleur grise : le repli gris, ou une couleur lue ou choisie qui s'y classerait. */
+function couleurGrise(toit: { couleur?: string; origineCouleur?: string } | null | undefined): boolean {
+  if (toit?.origineCouleur === 'gris') return true;
+  if (toit?.origineCouleur === 'rouge' || toit?.origineCouleur === 'brun') return false;
   const rgb = toit?.couleur ? rgbDeHex(toit.couleur) : null;
-  if (!rgb) return 'tuile';
-  return couvertureRepli(rgb) === 'gris' ? 'ardoise' : 'tuile';
+  return !!rgb && couvertureRepli(rgb) === 'gris';
 }
