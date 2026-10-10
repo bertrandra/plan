@@ -199,7 +199,9 @@ Plan compte les hauteurs depuis le sol de la terrasse. Le relief doit donc dire 
    redeviennent ceux d'avant.
 7. **Les réglages d'affichage** (courbes, sol 3D, équidistance) sont des préférences d'affichage au
    sens de `CLAUDE.md` : `sale: false`, pas de Ctrl+Z, permises en lecture seule, rangées dans
-   `relief.affichage` pour être retrouvées à la réouverture.
+   `relief.affichage` pour être retrouvées à la réouverture. À la différence des autres, elles
+   marquent le projet à enregistrer (`enregistre: true`, hors lecture seule) : sans cela, un clic sur
+   « Relief » ou « Courbes de niveau » ne survivait pas à la réouverture.
 8. **La grille ne porte que le sol.** Un objet du plan n'enregistre jamais une altitude copiée de
    la grille ; il la lit par `z(x, y)` quand il en a besoin. Une seule vérité, un seul endroit.
 

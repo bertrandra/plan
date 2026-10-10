@@ -123,13 +123,14 @@ describe('relief.actualiser et relief.supprimer', () => {
 });
 
 describe('affichage.relief', () => {
-  it('deux bascules distinctes : le relief (3D, montre par defaut) et les courbes (cachees par defaut), sans annulation ni projet modifie', () => {
+  it('deux bascules distinctes : le relief (3D, montre par defaut) et les courbes (cachees par defaut), sans annulation, enregistrees avec le projet', () => {
     const m = monter({ relief: grille(), scene: true });
     // Un clic sur « Relief » cache le sol en relief, seul.
     m.cmd.executer('affichage.relief');
     expect(m.parcelle.relief!.affichage).toEqual({ sol3d: false });
     expect(m.a.pushHistory).not.toHaveBeenCalled();
-    expect(m.a.markDirty).not.toHaveBeenCalled();
+    // Le reglage est range dans le projet : il doit etre enregistre pour etre retrouve a la reouverture.
+    expect(m.a.markDirty).toHaveBeenCalled();
     expect(m.a.render).toHaveBeenCalled();
     expect(m.ctx.buildThreeScene).toHaveBeenCalled();
     // Un clic sur « Courbes de niveau » les montre, sans toucher au relief ni reconstruire la 3D.
@@ -150,5 +151,14 @@ describe('affichage.relief', () => {
     const cmd = creerRegistre({ ...droits(), aCapacite: (c) => c !== 'plan.relief' });
     brancherRelief(fauxAtelier({ objects: [] }), { reference: () => null, buildThreeScene: vi.fn(), rafraichir: vi.fn() }, cmd);
     expect(cmd.effacee('affichage.relief')).toBe(false);
+  });
+
+  it('en lecture seule, bascule l affichage sans marquer le projet a enregistrer', () => {
+    const m = monter({ relief: grille(), ecrire: false });
+    m.a.etat.lectureSeule = true;
+    m.cmd.executer('affichage.courbes');
+    expect(m.parcelle.relief!.affichage).toEqual({ courbes: true });
+    expect(m.a.markDirty).not.toHaveBeenCalled();
+    expect(m.a.render).toHaveBeenCalled();
   });
 });
