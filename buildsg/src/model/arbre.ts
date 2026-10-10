@@ -110,3 +110,112 @@ export function houppierDe(o: Pick<ObjetPlan, 'key' | 'portArbre' | 'diametreArb
   const d = o.diametreArbre !== undefined && o.diametreArbre !== null && o.diametreArbre > 0 ? o.diametreArbre : DIAMETRE_DEFAUT_M;
   return houppier(portDe(o), d, graineDe(o.key));
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * Les feuilles, pour la vue de pres
+ * --------------------------------------------------------------------------------------------- */
+
+/** Eclaircissement du dessus et assombrissement du dessous du feuillage. */
+export const TON_CLAIR = 1.22;
+export const TON_SOMBRE = 0.68;
+
+/** La couleur d'un point du feuillage selon la hauteur de sa normale : clair dessus, sombre dessous. */
+export function tonDuSommet(base: [number, number, number], normaleY: number): [number, number, number] {
+  const t = (normaleY + 1) / 2;
+  const k = TON_SOMBRE + (TON_CLAIR - TON_SOMBRE) * t;
+  return [Math.min(1, base[0] * k), Math.min(1, base[1] * k), Math.min(1, base[2] * k)];
+}
+
+/** Au plus tant de feuilles par arbre : au-dela, la vue de pres n'y gagne rien et la memoire si. */
+export const MAX_FEUILLES_PAR_ARBRE = 900;
+/** Feuilles par metre carre de surface de houppier, avant le plafond. */
+export const DENSITE_FEUILLES_M2 = 14;
+/** Part de la surface que les feuilles couvrent : leur taille s'en deduit. */
+const COUVERTURE = 0.35;
+/** Bornes de la longueur d'une feuille, en metres : lisible de pres, jamais une tuile. */
+export const TAILLE_FEUILLE_MIN_M = 0.08;
+export const TAILLE_FEUILLE_MAX_M = 0.4;
+/** Un point est dans un autre lobe sous cette valeur de l'equation de l'ellipsoide : la feuille y serait cachee. */
+const DEDANS = 0.92;
+
+/** Une feuille : son point d'attache, la normale de la surface, sa rotation, sa taille et sa nuance. */
+export interface Feuille {
+  x: number; y: number; z: number;
+  nx: number; ny: number; nz: number;
+  /** Rotation autour de la normale, en radians. */
+  spin: number;
+  /** Ecart au decollement commun (`LEVEE_FEUILLE` du gabarit), en radians, de part et d'autre. */
+  inclinaison: number;
+  /** Facteur de taille, autour de 1. */
+  echelle: number;
+  /** Facteur de clarte, autour de 1 : deux feuilles voisines ne sont pas du meme vert. */
+  teinte: number;
+}
+export interface Feuillage {
+  feuilles: Feuille[];
+  /** Longueur d'une feuille d'echelle 1, en metres. */
+  taille: number;
+  /** Une feuille large, ou une aiguille (conifere). */
+  forme: 'feuille' | 'aiguille';
+}
+
+/** Aire approchee d'un ellipsoide (formule de Knud Thomsen, a 1 % pres). */
+export function aireEllipsoide(l: Pick<Lobe, 'rx' | 'ry' | 'rz'>): number {
+  const p = 1.6075;
+  const a = Math.pow(l.rx, p), b = Math.pow(l.ry, p), c = Math.pow(l.rz, p);
+  return 4 * Math.PI * Math.pow((a * b + a * c + b * c) / 3, 1 / p);
+}
+
+/** La valeur de l'equation de l'ellipsoide en un point : < 1 dedans, 1 sur la surface. */
+export function dansLobe(l: Lobe, x: number, y: number, z: number): number {
+  return ((x - l.x) / l.rx) ** 2 + ((y - l.y) / l.ry) ** 2 + ((z - l.z) / l.rz) ** 2;
+}
+
+/**
+ * Les feuilles d'un houppier, tirees de `graine` : reparties sur la surface de chaque lobe au
+ * prorata de son aire, sans celles qui tomberaient dans un autre lobe (on ne les verrait pas), un
+ * peu ecartees vers l'exterieur. Un conifere porte des aiguilles sur son cone. Leur nombre suit la
+ * surface, plafonne ; leur taille, ce qu'il faut pour couvrir le houppier aux deux tiers.
+ */
+export function feuillesDuHouppier(h: Houppier, port: PortArbre, graine: number): Feuillage {
+  // Une suite a part de celle du houppier : changer le nombre de feuilles ne deplace pas les lobes.
+  const alea = tirage(((graine * 31 + 7) % 2147483646) + 1);
+  const conique = port === 'conique';
+  const aires = h.lobes.map((l) => (conique ? Math.PI * l.rx * Math.hypot(l.rx, l.ry * 2) : aireEllipsoide(l)));
+  const aireTotale = aires.reduce((s, a) => s + a, 0);
+  const total = Math.min(MAX_FEUILLES_PAR_ARBRE, Math.round(aireTotale * DENSITE_FEUILLES_M2));
+  const taille = Math.max(TAILLE_FEUILLE_MIN_M, Math.min(TAILLE_FEUILLE_MAX_M, Math.sqrt((aireTotale * COUVERTURE) / Math.max(1, total)) * (conique ? 1.4 : 1)));
+  const feuilles: Feuille[] = [];
+  h.lobes.forEach((l, i) => {
+    const voulues = Math.round((total * (aires[i] ?? 0)) / Math.max(1e-9, aireTotale));
+    let posees = 0;
+    for (let essai = 0; essai < voulues * 3 && posees < voulues; essai++) {
+      let x: number, y: number, z: number, nx: number, ny: number, nz: number;
+      if (conique) {
+        // Sur le flanc du cone, a aire egale : plus de points pres de la base, plus large.
+        const t = 1 - Math.sqrt(alea());
+        const a = alea() * Math.PI * 2;
+        const rayon = l.rx * (1 - t);
+        const hauteur = l.ry * 2;
+        x = l.x + Math.cos(a) * rayon; y = l.y - l.ry + t * hauteur; z = l.z + Math.sin(a) * rayon;
+        const n = Math.hypot(hauteur, l.rx);
+        nx = (Math.cos(a) * hauteur) / n; ny = l.rx / n; nz = (Math.sin(a) * hauteur) / n;
+      } else {
+        // Une direction au hasard, portee sur l'ellipsoide ; la normale est le gradient.
+        const uz = alea() * 2 - 1, phi = alea() * Math.PI * 2, s = Math.sqrt(1 - uz * uz);
+        const ux = s * Math.cos(phi), uy = uz, uw = s * Math.sin(phi);
+        x = l.x + l.rx * ux; y = l.y + l.ry * uy; z = l.z + l.rz * uw;
+        const gx = ux / l.rx, gy = uy / l.ry, gz = uw / l.rz, g = Math.hypot(gx, gy, gz);
+        nx = gx / g; ny = gy / g; nz = gz / g;
+        if (h.lobes.some((m, j) => j !== i && dansLobe(m, x, y, z) < DEDANS)) continue;
+      }
+      const decolle = taille * (0.05 + alea() * 0.15);
+      feuilles.push({
+        x: x + nx * decolle, y: y + ny * decolle, z: z + nz * decolle, nx, ny, nz,
+        spin: alea() * Math.PI * 2, inclinaison: (alea() * 2 - 1) * 0.2, echelle: 0.75 + alea() * 0.5, teinte: 0.9 + alea() * 0.25,
+      });
+      posees++;
+    }
+  });
+  return { feuilles, taille, forme: conique ? 'aiguille' : 'feuille' };
+}
