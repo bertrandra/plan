@@ -34,6 +34,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les toits de Provence** (`MD/spec-toit-ign.md` §13.7). Revue de trois quartiers : le centre ancien
+  de Gordes, une entrée de ville de Saint-Rémy-de-Provence et un quartier d'Aix-en-Provence. Les
+  maisons de village aux angles non droits, qui ne se découpent pas en rectangles, reçoivent un toit
+  lu sur le rectangle qui les englobe et découpé sur leur contour. Le toit à un pan y est admis en
+  dernier recours quand il explique nettement mieux la mesure qu'un toit à faîtage. Gordes : 52
+  bâtiments sans toit construit avant, 13 après (dont 9 sans assez de mesures). Sans corps, la 3D
+  montre désormais un toit construit plutôt que la surface brute du LiDAR (le château de Gordes
+  n'est plus un relief en vagues) ; « Tel que mesuré » reste proposé. Un appentis n'a plus de pignon
+  « depuis le faîtage ». AE 101 ne change pas.
 - **Un toit n'est plus coupé en morceaux par la pente de ses pans** (`MD/spec-toit-ign.md` §13.2) :
   la coupe aux marches de hauteur prenait la pente forte d'un pan pour une marche. Le bloc principal
   d'AE 98 devenait un deux-pans à 8,4 m d'égout et un appentis de 2,3 m à pignon ; sa voisine

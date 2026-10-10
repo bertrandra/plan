@@ -28,9 +28,12 @@ describe('Toit en 3D', () => {
     expect(cles(c)).toEqual(expect.arrayContaining(['toitForme', 'toitHauteur', 'toitFaitage']));
   });
 
-  it('avec une mesure LiDAR : « tel que mesure » par defaut, la mesure decrite, le toit unique cache', () => {
+  it('avec une mesure LiDAR sans corps : un toit par corps par defaut, « tel que mesure » propose, la mesure decrite', () => {
     const c = contexte({ toitMesure: mesure, volumesToit: volumes });
     const mode = champ<ChampChoix>(c, 'toitMode');
+    // Un toit construit par defaut ; la surface brute se choisit.
+    expect(mode.lire(c)).toBe('volumes');
+    mode.ecrire(c, 'mesure');
     expect(mode.lire(c)).toBe('mesure');
     expect(mode.options(c).map((o) => o.valeur)).toEqual(['mesure', 'volumes', 'simple']);
     expect(cles(c)).toContain('toitMesure');

@@ -152,4 +152,20 @@ describe('reprise des contours de biais', () => {
     expect(large).toMatchObject({ posFaitage: 4, faitage: 7, egouts: [3, 3], croupes: [4, 4] });
     expect(corpsEtendu(c, { s0: 0, sL: 10, t0: 0, tW: 6 })).toBe(c);
   });
+
+  it('Gordes : une maison de village aux angles non droits recoit un toit construit, a un pan, decoupe sur son contour', () => {
+    for (const k of ['16860179', '16860044']) {
+      const r = JSON.parse(readFileSync(new URL(`../../fixtures/toits/gordes-${k}.json`, import.meta.url), 'utf8')) as Releve;
+      // Le contour ne se decoupe pas en rectangles : sans le dernier recours, la surface brute.
+      const corps = reconstruireCorps(toitMesureDepuisGrille(r.grille, r.contour)!, r.contour, { grille: r.grille, coupes: false })!;
+      expect(corps).toHaveLength(1);
+      const c = corps[0]!;
+      const W = Math.hypot(c.pts[3]!.x - c.pts[0]!.x, c.pts[3]!.y - c.pts[0]!.y);
+      // Un pan : le faitage sur un mur.
+      expect(c.posFaitage === 0 || Math.abs(c.posFaitage - W) < 0.02).toBe(true);
+      expect(c.faitage - Math.min(...c.egouts)).toBeGreaterThan(0.8);
+      expect(c.pignons).toEqual([]);
+    }
+  });
 });
+

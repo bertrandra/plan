@@ -111,12 +111,14 @@ describe('hauteurToitMesure', () => {
 describe('modeToitActif', () => {
   const v = (n: number): VolumeToit[] => Array.from({ length: n }, () => ({ pts: maison, toit: { forme: 'deux-pans', hauteur: 2, angleFaitage: 0 } }));
   const t: ToitMesure = { pas: 0.5, x0: 0, y0: 6, nx: 2, ny: 2, z: [5, 5, 5, 5], egout: 5, faite: 5, source: 'lidar' };
-  it('la surface mesuree quand elle existe, sinon les corps quand il y en a deux, sinon le toit unique ; le choix l emporte', () => {
+  it('les corps quand ils existent, sinon un toit construit (volumes, toit unique) ; la surface mesuree a la demande ; le choix l emporte', () => {
     expect(modeToitActif({})).toBe('simple');
     expect(modeToitActif({ volumesToit: v(1) })).toBe('simple');
     expect(modeToitActif({ volumesToit: v(2) })).toBe('volumes');
-    expect(modeToitActif({ toitMesure: t })).toBe('mesure');
-    expect(modeToitActif({ toitMesure: t, volumesToit: v(2) })).toBe('mesure');
+    // Sans corps, la surface brute ne se montre plus d'elle-meme : un relief de LiDAR n'est pas un toit.
+    expect(modeToitActif({ toitMesure: t })).toBe('simple');
+    expect(modeToitActif({ toitMesure: t, volumesToit: v(2) })).toBe('volumes');
+    expect(modeToitActif({ toitMesure: t, modeToit: 'mesure' })).toBe('mesure');
     expect(modeToitActif({ toitMesure: t, volumesToit: v(2), modeToit: 'volumes' })).toBe('volumes');
     expect(modeToitActif({ toitMesure: t, volumesToit: v(2), modeToit: 'simple' })).toBe('simple');
     // Un choix que l'objet ne peut pas honorer retombe sur ce qu'il a.
@@ -127,7 +129,7 @@ describe('modeToitActif', () => {
     expect(modeToitActif({ toitMesure: t, volumesToit: v(2), corpsToit: corps })).toBe('corps');
     expect(modeToitActif({ toitMesure: t, corpsToit: corps, modeToit: 'mesure' })).toBe('mesure');
     expect(modeToitActif({ toitMesure: t, corpsToit: corps, modeToit: 'simple' })).toBe('simple');
-    expect(modeToitActif({ corpsToit: [], toitMesure: t })).toBe('mesure');
+    expect(modeToitActif({ corpsToit: [], toitMesure: t })).toBe('simple');
   });
 });
 

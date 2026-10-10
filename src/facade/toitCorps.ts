@@ -22,7 +22,7 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { hauteurToitMesure, decouperParHauteurs, SOL_M } from '../model/toitMesure.js';
 import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../model/volumesToit.js';
-import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { ajusterToit, diagnostiquerToit, ECART_MAX_M, ECART_MAX_APPENTIS_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
 
@@ -71,6 +71,7 @@ export const MESURES_MIN = 12;
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const cm = (v: number) => Math.round(v * 100) / 100;
 const TAN_MAX = Math.tan((PENTE_MAX_DEG * Math.PI) / 180);
+const TAN_MAX_RAD = (PENTE_MAX_DEG * Math.PI) / 180;
 
 /** Le repere d'un rectangle : son coin, la direction de sa longueur et de sa largeur, leurs longueurs. */
 export interface Repere { p0: PtBrut; u: PtBrut; v: PtBrut; L: number; W: number }
@@ -261,6 +262,8 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
   const r = repere(c.pts);
   const plat = c.faitage - Math.min(...c.egouts) < HAUTEUR_PLAT_M;
   if (plat) return [];
+  // Un appentis n'a pas de faitage dont partirait un pignon : son sommet est un mur.
+  if (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01) return [];
   const out: PignonToit[] = [];
   for (const pan of [0, 1] as const) {
     const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage;
@@ -478,6 +481,34 @@ export function decalageSurMesure(g: Grille, contour: readonly PtBrut[]): PtBrut
 }
 
 
+/** En secours, un appentis au-dela de l'ecart admis doit battre la meilleure forme a faitage de cette part. */
+export const GAIN_APPENTIS_SECOURS = 0.9;
+
+/**
+ * La lecture de dernier recours, quand l'ajustement des formes ne rend rien : la meilleure forme
+ * essayee sous ECART_MAX_M (80 cm). Un appentis y est admis au-dela de son propre seuil (40 cm, une
+ * rampe expliquant a peu pres tout) s'il bat nettement la meilleure forme a faitage : le toit a un
+ * pan des maisons de village provencales, sinon laissees a la surface brute. Pente de couverture
+ * exigee, comme pour l'ajustement.
+ */
+function lectureDeSecours(rect: readonly PtBrut[], ech: readonly EchantillonHauteur[]): ToitAjuste | null {
+  if (ech.length < MESURES_MIN) return null;
+  const essais = diagnostiquerToit(rect, ech).filter((x) => x.ecart <= ECART_MAX_M);
+  const pente = (x: { forme: string; angleFaitage: number; H: number }) => {
+    const r = repereFaitage(rect, x.angleFaitage);
+    const course = x.forme === 'appentis' ? 2 * r.hw : r.hw;
+    return course > 0 ? Math.atan(x.H / course) : 0;
+  };
+  const admis = essais.filter((x) => pente(x) <= TAN_MAX_RAD).sort((a, b) => a.ecart - b.ecart);
+  let choix = admis[0];
+  if (!choix) return null;
+  if (choix.forme === 'appentis' && choix.ecart > ECART_MAX_APPENTIS_M) {
+    const faitage = admis.find((x) => x.forme === 'deux-pans' || x.forme === 'quatre-pans' || x.forme === 'croupes');
+    if (faitage && choix.ecart > GAIN_APPENTIS_SECOURS * faitage.ecart) choix = faitage;
+  }
+  return { toit: { forme: choix.forme, hauteur: cm(choix.H), angleFaitage: choix.angleFaitage, source: 'lidar' }, egout: cm(choix.e), ecart: cm(choix.ecart), echantillons: choix.gardes };
+}
+
 /**
  * Un pan seul ou un toit plat, a la meme regle que le modele des corps : l'ajustement des formes
  * simples rend plat tout toit sous 10 degres (la regle de la BD TOPO), et un appentis de garage a 6
@@ -502,14 +533,14 @@ function unPanPlutotQuePlat(rect: readonly PtBrut[], ech: readonly EchantillonHa
  * croupes et quatre pans (un faitage dans la longueur, des croupes a la pente des pans), appentis,
  * plat. Null quand aucune forme ne s'ajuste.
  */
-export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit | null {
+export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: readonly PtBrut[] | null = null, secours = false): CorpsToit | null {
   const ech: EchantillonHauteur[] = [];
   for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
     const z = g.z[j * g.nx + i];
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
-    if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect)) ech.push({ ...p, z });
+    if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect) && (!contour || pointInPolygon(p, contour))) ech.push({ ...p, z });
   }
-  const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech));
+  const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech) ?? (secours ? lectureDeSecours(rect, ech) : null));
   if (!a) return null;
   const { toit, egout } = a;
   const u = { x: Math.cos((toit.angleFaitage * Math.PI) / 180), y: Math.sin((toit.angleFaitage * Math.PI) / 180) };
@@ -541,9 +572,32 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit
  */
 function corpsDeReprise(m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
   const rects = rectanglesEnTranches(contourEquerre(contour) ?? contour);
-  if (!rects) return null;
+  if (!rects) return corpsSurBoite(m, contour, grille);
   const corps = rects.map((r) => corpsDepuisFormes(grille ?? m, r) ?? corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
   return corps.length ? completerSurContour(corps, contour) : null;
+}
+
+/**
+ * Le rectangle qui englobe le contour, dans l'axe qui aligne le plus de ses cotes (`axeDesCotes`).
+ */
+export function boiteOrientee(contour: readonly PtBrut[]): PtBrut[] {
+  const a = (axeDesCotes(contour) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const loc = contour.map((p) => ({ x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos }));
+  const xs = loc.map((p) => p.x), ys = loc.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }].map((p) => ({ x: cm(p.x * cos - p.y * sin), y: cm(p.x * sin + p.y * cos) }));
+}
+
+/**
+ * Le dernier recours d'un contour qui ne se decoupe pas du tout (une maison de village en trapeze, en
+ * parallelogramme, aux angles qui ne sont pas droits) : un seul corps, lu par les formes simples sur
+ * le rectangle qui l'englobe, avec les seules mesures du contour. Le dessin le decoupe ensuite sur le
+ * contour (three/toitCorps3d.ts::facettesSurContour) : la maison garde sa forme, et son toit est
+ * construit au lieu d'etre la surface brute. Null si les formes ne lisent rien.
+ */
+function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
+  const c = corpsDepuisFormes(grille ?? m, boiteOrientee(contour), contour, true);
+  return c ? [c] : null;
 }
 
 /** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
