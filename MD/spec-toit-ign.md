@@ -839,6 +839,11 @@ Exemple : 2 allée des Limites, parcelle AE 103.
   défaut, le modèle des corps. Le modèle des corps, lui, n'a pas changé : les contours qui se
   découpaient gardent leurs corps au centimètre (test sur le relevé réel d'AE 101,
   `tests/unit/facade/toitCorpsReprise.test.ts`).
+- **Complétion** (`completerSurContour`, `corpsEtendu`). La marche rend d'un côté du biais ce qu'elle
+  prend de l'autre : le triangle pris n'était sous aucun corps, donc sans toit. Chaque corps, du plus
+  haut au plus bas, avance ses côtés libres (que les autres ne bordent pas pour moitié) tant que la
+  bande devant lui contient du contour qu'aucun autre ne couvre. Étendu le long du faîtage, il
+  l'allonge (croupes et hauteurs restent) ; en travers, ses pans descendent à leur pente.
 - **Dessin** (`three/toitCorps3d.ts::facettesSurContour`). Des corps lus en reprise ne suivent plus
   le contour : le prisme est le contour lui-même, à l'égout le plus bas ; les toits des corps sont
   découpés sur lui, sans débord ; les murs montent jusqu'au toit, pas à pas, le long du contour ; les
