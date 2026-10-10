@@ -165,6 +165,16 @@ const largeurMin = (r: Rect) => Math.min(r.x1 - r.x0, r.y1 - r.y0);
  * laisse un volume trop etroit pour en etre un.
  */
 export function decomposerEnRectangles(pts: readonly PtBrut[]): PtBrut[][] | null {
+  const rects = rectanglesDuContour(pts);
+  return rects && rects.length >= 2 ? rects : null;
+}
+
+/**
+ * Les rectangles qui couvrent le contour, le plus grand d'abord, chacun dans le repere du plan - un
+ * seul pour une maison rectangulaire ; null quand le contour n'est pas rectiligne ou quand le
+ * decoupage laisse un volume trop etroit pour en etre un.
+ */
+export function rectanglesDuContour(pts: readonly PtBrut[]): PtBrut[][] | null {
   if (pts.length < 4) return null;
   const angle = angleDuPlusLongCote(pts);
   const equerre = equerrer(tourner(pts, -angle));
@@ -174,7 +184,7 @@ export function decomposerEnRectangles(pts: readonly PtBrut[]): PtBrut[][] | nul
   const a0 = Math.abs(signedArea(pts)), a1 = Math.abs(signedArea(droit));
   if (a0 <= 0 || Math.abs(a1 - a0) / a0 > 0.15) return null;
   const rects = couvertureRectangles(droit).filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2).sort((p, q) => aire(q) - aire(p));
-  if (rects.length < 2 || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) return null;
+  if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) return null;
   return rects.map((r) => tourner([{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }], angle).map((p) => ({ x: cm(p.x), y: cm(p.y) })));
 }
 
@@ -230,6 +240,10 @@ export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Record<
     const r = repereFaitage(v.pts, angleDuPlusLongCote(v.pts));
     const dims = (2 * r.hl).toFixed(1).replace('.', ',') + ' × ' + (2 * r.hw).toFixed(1).replace('.', ',') + ' m';
     const egout = v.egout !== undefined ? ' · égout ' + v.egout.toFixed(1).replace('.', ',') + ' m' : '';
-    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + libelles[v.toit.forme].toLowerCase() + egout;
+    // Des murs de hauteurs differentes (un dessus plat d'un cote, un pan de l'autre) : on le dit.
+    const murs = v.hauteursMurs?.length ? v.hauteursMurs : [];
+    const ecartMurs = murs.length ? Math.max(...murs) - Math.min(...murs) : 0;
+    const hauts = ecartMurs >= 0.3 ? ' · murs de ' + Math.min(...murs).toFixed(1).replace('.', ',') + ' à ' + Math.max(...murs).toFixed(1).replace('.', ',') + ' m' : '';
+    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + libelles[v.toit.forme].toLowerCase() + egout + hauts;
   });
 }
