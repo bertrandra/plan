@@ -326,21 +326,47 @@ la toiture des fichiers fonciers (`bdtopo.materiauxToiture`, §6.5) décide du r
 
 Une teinte lue sur la photo ne change pas, et un toit-terrasse reste gris.
 
-### 6.2 Tuiles ou ardoises en 3D
+### 6.2 Les couvertures en 3D : tuiles, ardoises, zinc, gravillons
 
-La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur :
+La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur. Le
+modèle est choisi par `materiauCouverture(toit, { materiauxToiture, pente, latitude }, plat)`
+(`model/couleurToit.ts`), dans cet ordre :
 
-| Couverture | Texture |
-|---|---|
-| repli `rouge` ou `brun` | **tuiles** romanes : 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur |
-| repli `gris` | **ardoises** : 4 par mètre, 8 rangs, joints croisés, nuance par ardoise |
-| lue sur l'orthophoto, ou choisie | celle de son repli (`couvertureRepli`) : ardoise si la teinte est grise, tuile sinon |
-| sans couleur | tuiles (rouge par défaut) |
+1. Un **toit-terrasse** (une facette plate) est en **gravillons**.
+2. Le **matériau de toiture des fichiers fonciers** (`bdtopo.materiauxToiture`, §6.5) décide quand il
+   est connu : **ardoise**, **zinc** à joints debout, ou **tuile**. Une tuile que la photo voyait grise
+   reste une tuile, et un béton en pente est une tuile de béton.
+3. À défaut, la **couleur** : le repli gris est une ardoise, le rouge et le brun des tuiles. Une couleur
+   lue ou choisie se classe comme son repli, et sans couleur c'est la tuile.
+4. Une tuile se choisit par la **pente** :
+   - **plate** (petit moule) à 40° et plus (`PENTE_TUILE_PLATE_DEG`), le toit raide du Nord et de
+     l'Île-de-France ;
+   - **canal** à 25° et moins (`PENTE_TUILE_CANAL_DEG`), seulement au sud du 46e parallèle
+     (`LATITUDE_TUILE_CANAL_MAX`, la latitude du calage cadastral) : la tuile du Midi ;
+   - **romane** (mécanique) entre les deux, au nord sur un toit peu pentu, ou quand la pente n'est pas
+     connue.
 
-`materiauCouverture` (`model/couleurToit.ts`) choisit ; `three/couverture.ts` dessine la texture sur
-un canevas, sans réseau ; `uvDuPan` (`facade/toit.ts`) la pose sur chaque pan, en mètres : `u` le
-long de l'égout, `v` dans la pente en vraie grandeur. Les rangs suivent ainsi l'égout de chaque pan.
-Case « Texture » décochée : la couleur unie, comme avant.
+La pente est celle du toit (`penteDuToit`). Pour un bâtiment en corps, c'est la pente du plus grand
+corps en pente (`three/toitCorps3d.ts::penteDominante`) : un appentis de garage ne décide pas pour la
+maison.
+
+| Couverture | Texture (une texture couvre 1 m) | Matière |
+|---|---|---|
+| tuile romane | 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur | mate |
+| tuile plate | 6 par mètre, pureau de 10 cm, joints croisés, nuance par tuile | mate |
+| tuile canal | 3 paires par mètre, couvert bombé et canal en creux ombré, 3 tuiles par mètre dans la pente, nuances fortes | mate |
+| ardoise | 4 par mètre, 8 rangs, joints croisés, nuance par ardoise | rugosité 0,7 |
+| zinc | joints debout tous les 50 cm dans la pente, léger moiré | rugosité 0,45, un peu métallique |
+| gravillons | semis serré de graviers | très mate |
+
+`three/couverture.ts` dessine les textures sur un canevas, sans réseau. `uvDuPan` (`facade/toit.ts`)
+les pose sur chaque pan, en mètres : `u` le long de l'égout, `v` dans la pente en vraie grandeur. Les
+rangs suivent ainsi l'égout de chaque pan.
+- Le toit-terrasse d'un toit plat simple (`releve3d.ts::poserToitPlat`) et les facettes plates d'un
+  bâtiment en corps (une maille à part, `NOM_TOIT_CORPS_PLAT`, dans le gris d'un toit plat) sont en
+  gravillons.
+- La cheminée est grise sous une couverture grise (ardoise, zinc), en brique sinon.
+- Case « Texture » décochée : la couleur unie, comme avant.
 
 ### 6.3 Les détails du bâtiment en 3D
 

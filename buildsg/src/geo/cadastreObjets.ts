@@ -11,7 +11,7 @@
 import { fusionnerAnneaux, chainerSegments, type LimiteBrute } from '../geometry/rings.js';
 import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
-import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
+import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { portParNature } from '../model/arbre.js';
 import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
 import { coteRueDevine } from './coteRue.js';
@@ -293,6 +293,8 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
           altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
           altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
           constructionLegere: String(p.construction_legere) === 'True',
+          // Les materiaux des fichiers fonciers : la couleur des murs quand aucune photo ne la montre (model/couleurMur.ts).
+          ...materiauxBdTopo(p),
           etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
           identifiantRnb: p.identifiants_rnb || null,
           surParcellePrincipale: surPrincipale,

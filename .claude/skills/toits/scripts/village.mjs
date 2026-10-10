@@ -101,6 +101,23 @@ if (process.env.CAPTURE_RELIEF) {
   await page.waitForTimeout(400);
   await page.screenshot({ path: S + 'village-' + NOM + '-inspecteur-relief.png' });
 }
+// Les couvertures choisies (MD/spec-toit-ign.md §6.2) : par le materiau de toiture et la pente.
+const couvertures = await page.evaluate(async () => {
+  const C = await import('/src/model/couleurToit.ts');
+  const V = await import('/src/model/volumesToit.ts');
+  const T = await import('/src/three/toitCorps3d.ts');
+  const compte = {};
+  const exemples = {};
+  for (const o of window.__plan.etat().objects.filter((x) => x.fonction === 'batiment' && x.toit)) {
+    const pente = o.corpsToit?.length ? T.penteDominante(o.corpsToit) : V.penteDuToit(o.pts, o.toit);
+    const latitude = window.__plan.etat().objects.find((x) => x.key === 'parcelle')?.cadastre?.origineLat ?? null;
+    const m = C.materiauCouverture(o.toit, { materiauxToiture: o.bdtopo?.materiauxToiture, pente, latitude }, o.toit.forme === 'plat' && !o.corpsToit?.length);
+    compte[m] = (compte[m] ?? 0) + 1;
+    if (!exemples[m]) { const c = o.pts.reduce((a, q) => ({ x: a.x + q.x / o.pts.length, y: a.y + q.y / o.pts.length }), { x: 0, y: 0 }); exemples[m] = { key: o.key, x: Math.round(c.x), y: Math.round(c.y), pente: pente && Math.round(pente) }; }
+  }
+  return { compte, exemples };
+});
+console.log('couvertures', JSON.stringify(couvertures));
 // Les batiments a cheval sur deux parcelles dont la toiture laisse un doute, et la question posee.
 const cheval = await page.evaluate(() => ({
   batiments: window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, name: o.name, toitACheval: o.toitACheval, corps: o.corpsToit?.length })),

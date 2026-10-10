@@ -14,7 +14,8 @@ import { latDeTuile } from '../geo/projection.js';
 import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { couleurToitDepuisPixels } from '../model/couleurToit.js';
+import { couleurToitDepuisPixels, COULEURS_TOIT_REPLI, type CouleurToitLue } from '../model/couleurToit.js';
+import { couvertureDesFichiersFonciers } from '../model/couleurMur.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { PtBrut, Toit } from '../model/types.js';
 
@@ -39,6 +40,21 @@ export interface BilanCouleursToits {
 interface ObjetAvecToit {
   pts?: PtBrut[];
   toit?: Toit | null;
+  /** Les attributs BD TOPO : `materiauxToiture` (fichiers fonciers) departage un repli. */
+  bdtopo?: unknown;
+}
+
+/**
+ * Une photo pas concluante : le materiau de la toiture des fichiers fonciers (BD TOPO) departage le
+ * repli - une ardoise, du zinc ou du beton sont gris, une tuile que la photo voyait grise (vieillie,
+ * moussue) est brune. Une teinte lue sur la photo, ou un toit-terrasse, ne changent pas.
+ */
+export function repliSelonMateriau(lue: CouleurToitLue, bdtopo: unknown, plat = false): CouleurToitLue {
+  if (lue.origine === 'orthophoto' || plat) return lue;
+  const c = couvertureDesFichiersFonciers((bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture);
+  if (c === 'ardoise' || c === 'zinc' || c === 'beton') return { couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' };
+  if (c === 'tuile' && lue.origine === 'gris') return { couleur: COULEURS_TOIT_REPLI.brun, origine: 'brun' };
+  return lue;
 }
 
 /** Un toit dont Plan choisit la couleur : sans couleur, ou avec une couleur qu'il avait posee. */
@@ -164,7 +180,7 @@ export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[],
       img = null;
     }
     if (!img) continue;
-    const lue = couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj), toit.forme === 'plat');
+    const lue = repliSelonMateriau(couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj), toit.forme === 'plat'), o.bdtopo, toit.forme === 'plat');
     toit.couleur = lue.couleur;
     toit.origineCouleur = lue.origine;
     if (lue.origine === 'orthophoto') bilan.lus++;

@@ -193,6 +193,14 @@ Même règle pour les deux :
 rabat sur une couverture rouge, brune ou grise, que le matériau de toiture des fichiers fonciers
 départage (`repliSelonMateriau`).
 
+**Les couvertures en 3D** (§6.2, `materiauCouverture`) : un toit-terrasse est en gravillons. Ensuite
+le matériau de toiture des fichiers fonciers décide (ardoise, zinc, tuile), puis la couleur. Une tuile
+est plate à 40° et plus, canal à 25° et moins au sud du 46e parallèle, romane sinon. Pour un
+bâtiment en corps, c'est la pente du plus grand corps en pente qui compte. Piège vu : sans latitude,
+les annexes peu pentues du Nord passaient en tuile canal. Problème ouvert : à Gordes, beaucoup de
+toits sans matériau ont une couleur lue grise sur l'orthophoto (tuiles anciennes) et deviennent des
+ardoises.
+
 **Les murs** (§6.5) :
 - **Matériau** : `bdtopo.materiauxMurs`, deux chiffres (1 pierre, 2 meulière, 3 béton, 4 brique,
   5 aggloméré, 6 bois, 0 indéterminé, 9 autre). Il vaut pour tous les bâtiments, sans appel réseau,

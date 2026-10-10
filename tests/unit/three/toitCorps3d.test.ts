@@ -6,7 +6,7 @@ import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
-import { facettesSurContour, facettesCorps, ajouterToitCorps3d, NOM_TOIT_CORPS, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
+import { facettesSurContour, facettesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
 import { segmentEnFacade } from '../../../src/geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -138,5 +138,27 @@ describe('facettesSurContour', () => {
     for (const m of f.murs) for (const q of m) expect(distancePointContour(q, contour)).toBeLessThan(1e-6);
     // Les deux quatre-pans montent a leurs faitages.
     expect(Math.max(...f.pans.flat().map((q) => q.z))).toBeGreaterThan(7.3);
+  });
+
+  it('les facettes plates d un corps forment un toit-terrasse a part, dans le gris d un toit plat', () => {
+    const enfants: Mesh[] = [];
+    const ctx = { scene: { add: (m: Mesh) => { enfants.push(m); } } as never, toLocal: (q: PtBrut) => ({ x: q.x, z: -q.y }), couleurMur: '#ffffff', textures: false };
+    // Sur le contour, un corps plat plus haut que l'egout le plus bas a sa facette (un toit-terrasse sur le prisme).
+    const plat = { ...corps([]), pts: [p(12, 0), p(16, 0), p(16, 8), p(12, 8)], posFaitage: 4, faitage: 6, egouts: [6, 6] as [number, number] };
+    ajouterToitCorpsSurContour3d(ctx, [corps([]), plat], { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' }, [p(0, 0), p(16, 0), p(16, 8), p(0, 8)]);
+    expect(enfants.map((m) => m.name)).toEqual([NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS]);
+    expect((enfants[1]!.material as { p: { color: string } }).p.color).toBe('#6F7275');
+  });
+});
+
+describe('la pente qui choisit la tuile', () => {
+  it('le pan le plus raide d un corps ; le plus grand corps en pente d un batiment', () => {
+    const c = corps([]);
+    expect(penteDuCorps(c)).toBeGreaterThan(0);
+    const plat = { ...c, faitage: 5, egouts: [5, 5] as [number, number] };
+    expect(penteDuCorps(plat)).toBe(0);
+    const appentis = { ...c, pts: [p(0, 0), p(3, 0), p(3, 2), p(0, 2)], posFaitage: 0, faitage: 4, egouts: [4, 2.5] as [number, number] };
+    expect(penteDominante([appentis, c])).toBeCloseTo(penteDuCorps(c), 6);
+    expect(penteDominante([plat])).toBeNull();
   });
 });
