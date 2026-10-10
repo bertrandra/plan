@@ -318,6 +318,14 @@ Un WMTS injoignable ne bloque rien : au bout de 20 s, les toits restants gardent
 défaut (`COULEUR_TOIT_DEFAUT`), sans `couleur` enregistrée. Le champ est facultatif : il ne change
 pas le schéma (un lecteur de schéma 3 garde le toit tel quel).
 
+**Le matériau de la toiture départage un repli.** Quand la photo n'est pas concluante, le matériau de
+la toiture des fichiers fonciers (`bdtopo.materiauxToiture`, §6.5) décide du repli
+(`render/couleurToitOrtho.ts::repliSelonMateriau`) :
+- une ardoise, du zinc ou du béton donnent une couverture grise ;
+- une tuile que la photo voyait grise (vieillie, moussue) donne une tuile brune.
+
+Une teinte lue sur la photo ne change pas, et un toit-terrasse reste gris.
+
 ### 6.2 Tuiles ou ardoises en 3D
 
 La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur :
@@ -387,6 +395,80 @@ Ce qui est tiré au hasard l'est **par un tirage reproductible depuis la clé de
 l'export GLB. La scène (`three/scene.ts`) applique la couleur tirée au prisme, au relevé et aux
 détails ; la clôture du voisinage (`three/clotureVoisinage.ts`) prend le type et la couleur. Avant,
 la case « Clôtures du voisinage » vivait dans les réglages de la Vue 3D : elle a rejoint ce groupe.
+
+
+### 6.5 La couleur des murs : photo de rue, sinon matériau
+
+Les murs ne prennent plus seulement la couleur du plan. Deux sources s'appliquent, selon les mêmes
+règles que la couverture (§6.1).
+
+**Le matériau des murs**, pour tous les bâtiments, à toute distance. La BD TOPO reprend des fichiers
+fonciers `materiaux_des_murs` et `materiaux_de_la_toiture`. Ce sont deux chiffres : le matériau
+principal, puis le secondaire, avec 0 pour « indéterminé » et 9 pour « autre ». Ils sont rangés dans
+`bdtopo.materiauxMurs` et `materiauxToiture`, seulement quand ils existent
+(`geo/bdtopo.ts::materiauxBdTopo`) : un import sans eux garde sa forme au caractère près. Le premier
+matériau connu donne la teinte (`model/couleurMur.ts::materiauMurs`) :
+
+| Code | Matériau | Teinte |
+|---|---|---|
+| 1 | pierre | `#C9B99A` |
+| 2 | meulière | `#B3895A` |
+| 3 | béton | `#BEBAB1` |
+| 4 | brique | `#A0523B` |
+| 5 | aggloméré enduit | `#E2DACB` |
+| 6 | bois | `#8B6B4A` |
+
+Relevé en octobre 2026 : 75 % des bâtiments renseignés au Vésinet (brique, meulière et brique,
+meulière), 63 % à Saint-Cloud, 40 % à Gordes (pierre), 32 % à Hucqueliers (brique).
+
+**La façade vue sur une photo de rue** (`render/couleurMurPhoto.ts`), à l'import et à chaque
+actualisation IGN. Les bâtiments les plus proches du projet passent d'abord, au plus 150, dans un
+délai de 20 s.
+- Une seule recherche Panoramax couvre la zone, et chaque photo n'est téléchargée qu'une fois, en
+  définition réduite (`sd`, 2 048 px au plus).
+- Une photo est retenue pour un mur de 3 m au moins si elle est devant lui : du côté de sa normale
+  sortante, à moins de 70° de l'aplomb, entre 3 et 40 m, avec le mur dans son champ. Aucun autre
+  contour ne doit couper la vue (`mursVisibles`, `vueCachee`, emprises filtrées d'abord). On garde
+  les deux meilleures photos par mur.
+- 16 × 8 points du mur, en retrait de 15 % des angles, entre 0,45 × l'égout (1,2 à 2,4 m) et l'égout
+  moins 30 cm, sont posés sur l'image par la géométrie de la prise de vue (`pointDansImage`). Un
+  panoramique est équirectangulaire, avec le cap de la photo au centre. Une photo plate suit un
+  objectif droit. L'objectif est supposé à 2,2 m du sol.
+- **Les clôtures** : un point n'est lu que si la ligne de vue franchit les limites de parcelle à plus
+  de 2,5 m (`hauteurAuxLimites`, `HAUTEUR_CLOTURE_M`). Sinon la photo ne voit que la palissade ou la
+  haie devant une façade en retrait.
+- **La cohérence** (`couleurMurDepuisPixels`) : on écarte le ciel, le feuillage (y compris une haie
+  olive à l'ombre) et l'ombre (sombre et sans couleur : un enduit beige à l'ombre devient gris). On
+  écarte aussi ce qui est sous une luminance de 70 ou au-dessus de 245. Il faut au moins 40 points
+  restants et la moitié des points du mur, dont 60 % à moins de 40 de la teinte dominante. Sinon la
+  photo est ambiguë.
+- Entre plusieurs murs lus, la teinte la plus cohérente l'emporte. Elle est rangée dans
+  `couleurMurs.photo` avec l'identifiant de la photo, sa date, son auteur et sa licence. Quand toutes
+  les photos d'un bâtiment ont été lues sans conclure, `photo` devient `null`.
+
+**Ce que la 3D montre** (`couleurMursRetenue`, `three/scene.ts`) : la photo, sinon le matériau, sinon
+la couleur du plan. Un réglage du voisinage (une couleur, une nuance, §6.4) l'emporte. L'inspecteur le
+règle (section « Apparence », `ui/champs/couleurMurs.ts`), pour un bâtiment qui a au moins une
+lecture :
+- **Murs en 3D** propose « Automatique », « Photo de rue » (si elle est lue), « Matériau » (s'il est
+  connu) et « Couleur du plan ». Le choix est rangé dans `couleurMurs.source`. C'est une modification
+  du projet (Ctrl+Z, « projet modifié »), puisque la 3D et l'export GLB en dépendent.
+- **Couleur lue** dit en mots d'où vient chaque couleur et laquelle est retenue, par exemple « Photo
+  de rue du 01/11/2025 (Penegal) : #917C72 · matériau : pierre, #C9B99A · retenue : photo de rue ».
+
+Comme pour la couverture, une actualisation relit la photo et le matériau, mais ne touche jamais la
+source choisie à la main.
+
+**Ce qu'on en attend.** La photo ne conclut que là où la façade donne sur la rue. À Gordes, sur des
+photos prises depuis un tableau de bord, elle a lu la tour du château, des murs enduits et une maison
+en pierre ; les teintes sont un peu assombries par l'ombre des rues étroites. Au Vésinet, les façades
+sont en retrait derrière des haies et des clôtures : la photo ne conclut pas, et c'est le matériau qui
+donne les villas en meulière, les maisons en brique et les enduits. Hucqueliers n'a pas de photo :
+la brique vient du matériau.
+
+Vérifié : `tests/unit/model/couleurMur.test.ts` (codes, retenue, cohérence, haie, ombre),
+`tests/unit/render/couleurMurPhoto.test.ts` (projection, murs vus et cachés, clôture, lecture sur
+photos simulées, repli des toits) et `tests/unit/ui/champsCouleurMurs.test.ts` (choix, description).
 
 ---
 

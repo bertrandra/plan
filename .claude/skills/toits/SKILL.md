@@ -182,6 +182,35 @@ Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
 mur haut. Pas de débord en reprise.
 
+## 4 bis. La couleur des murs et des toits
+
+Même règle pour les deux :
+- une lecture sur photo quand elle est cohérente, sinon un repli ;
+- la source est enregistrée ;
+- une valeur choisie à la main n'est jamais touchée par une actualisation.
+
+**Les toits** : la couleur est lue sur l'orthophoto (§6.1). Quand la photo ne conclut pas, on se
+rabat sur une couverture rouge, brune ou grise, que le matériau de toiture des fichiers fonciers
+départage (`repliSelonMateriau`).
+
+**Les murs** (§6.5) :
+- **Matériau** : `bdtopo.materiauxMurs`, deux chiffres (1 pierre, 2 meulière, 3 béton, 4 brique,
+  5 aggloméré, 6 bois, 0 indéterminé, 9 autre). Il vaut pour tous les bâtiments, sans appel réseau,
+  mais n'est renseigné que pour 30 à 75 % d'entre eux.
+- **Photo Panoramax** (`render/couleurMurPhoto.ts`) : prioritaire quand elle est concluante. Les
+  points du mur sont projetés dans l'image. On écarte les murs cachés par un autre bâtiment, les
+  lignes de vue sous 2,5 m aux limites de parcelle (clôtures, haies), ainsi que le ciel, le
+  feuillage et l'ombre.
+- **Choix** : « Murs en 3D » dans « Apparence » (automatique, photo, matériau ou couleur du plan),
+  rangé dans `couleurMurs.source`.
+- **Pièges vus** : en banlieue, la façade est en retrait derrière une haie ou une palissade, et une
+  première version lisait la clôture. Une haie de thuyas à l'ombre est olive (#464631), pas verte.
+  Un enduit beige à l'ombre devient gris (92, 90, 93). Les photos de tableau de bord (Gordes) sont
+  un peu sous-exposées.
+- **Diagnostic** : dessiner les points lus sur la photo (projection, `pixelsDuMur`) avant de toucher
+  aux seuils. C'est ce qui a montré que la géométrie était juste et que les erreurs venaient des
+  clôtures.
+
 ## 5. Typologies vues sur le terrain
 
 | Lieu | Bâti | Ce qui a été appris |

@@ -35,6 +35,17 @@ export function hauteurBatiment(props: Record<string, unknown>): number {
   return HAUTEUR_BATIMENT_DEFAUT;
 }
 
+/**
+ * Les materiaux des murs et de la toiture que la BD TOPO reprend des fichiers fonciers (codes a deux
+ * chiffres, model/couleurMur.ts), poses seulement quand ils existent : un import sans eux garde sa
+ * forme d'avant au caractere pres.
+ */
+export function materiauxBdTopo(props: Record<string, unknown>): { materiauxMurs?: string; materiauxToiture?: string } {
+  const murs = typeof props.materiaux_des_murs === 'string' ? props.materiaux_des_murs.trim() : '';
+  const toit = typeof props.materiaux_de_la_toiture === 'string' ? props.materiaux_de_la_toiture.trim() : '';
+  return { ...(murs ? { materiauxMurs: murs } : {}), ...(toit ? { materiauxToiture: toit } : {}) };
+}
+
 /** Hauteurs typiques par nature de vegetation, en metres. */
 export const HAUTEUR_VEGETATION: Record<string, number> = {
   'Haie': 2, 'Bois': 12, 'Forêt fermée de feuillus': 15, 'Forêt fermée de conifères': 18,

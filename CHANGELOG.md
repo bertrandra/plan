@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La couleur réelle des murs** (`model/couleurMur.ts`, `render/couleurMurPhoto.ts`,
+  `MD/spec-toit-ign.md` §6.5). Les murs prennent la teinte de leur façade lue sur une photo de rue
+  Panoramax, quand une photo la montre sans clôture, haie, ombre ou autre bâtiment devant. Sinon, le
+  matériau des fichiers fonciers donné par la BD TOPO s'applique à tous les bâtiments, à toute
+  distance : pierre, meulière, brique, béton, enduit, bois. Dans « Apparence », le champ « Murs en 3D »
+  permet de choisir à la main la photo, le matériau ou la couleur du plan, et dit d'où vient chaque
+  couleur. Le matériau de la toiture départage aussi le repli d'un toit que l'orthophoto ne lit pas
+  (ardoise et zinc gris, tuile vieillie brune).
+
 - **Une question sur la toiture d'un bâtiment à cheval sur deux parcelles** (`model/aCheval.ts`,
   `app/toitsACheval.ts`, `MD/spec-toit-ign.md` §13.8). Quand le contour BD TOPO d'un bâtiment du
   projet ou d'une maison mitoyenne franchit une limite de parcelle, et qu'un toit lu sur le LiDAR

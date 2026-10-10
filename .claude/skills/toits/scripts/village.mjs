@@ -67,6 +67,29 @@ const r = await page.evaluate(async () => {
 });
 if (!process.env.SANS_DUMP) writeFileSync(S + 'village-' + NOM + '.json', JSON.stringify(r));
 console.log('parcelle', r.parcelle, 'batiments', r.batiments.length, 'avec corps', r.batiments.filter((b) => b.corps?.length).length, 'grilles', r.batiments.filter((b) => b.grille).length);
+// La couleur des murs : lue sur une photo de rue, ou donnee par le materiau des fichiers fonciers.
+const murs = await page.evaluate(() => {
+  const bat = window.__plan.etat().objects.filter((o) => o.fonction === 'batiment');
+  const lus = bat.filter((o) => o.couleurMurs?.photo);
+  return { batiments: bat.length, photos: lus.length, ambigus: bat.filter((o) => o.couleurMurs && o.couleurMurs.photo === null).length,
+    materiaux: bat.filter((o) => o.bdtopo?.materiauxMurs).length, exemples: lus.slice(0, 12).map((o) => ({ key: o.key, couleur: o.couleurMurs.photo.couleur, materiau: o.bdtopo?.materiauxMurs ?? null })) };
+});
+console.log('murs', JSON.stringify(murs));
+// CAPTURE_INSPECTEUR=1 : le premier batiment dont la couleur des murs est lue, selectionne, et l'inspecteur capture.
+if (process.env.CAPTURE_INSPECTEUR) {
+  const cle = await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'batiment' && (x.couleurMurs?.photo || x.bdtopo?.materiauxMurs)); return o?.key ?? null; });
+  if (cle) {
+    for (const [l, h] of [[1440, 900], [820, 1100]]) {
+      await page.setViewportSize({ width: l, height: h });
+      await page.evaluate((k) => window.__plan.selectionnerCle(k), cle);
+      await page.waitForTimeout(800);
+      await page.evaluate(() => document.querySelector('[data-cle="sourceCouleurMurs"]')?.scrollIntoView({ block: 'center' }));
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: S + 'village-' + NOM + '-inspecteur-' + l + '.png' });
+    }
+    await page.setViewportSize({ width: 1400, height: 900 });
+  }
+}
 // Les batiments a cheval sur deux parcelles dont la toiture laisse un doute, et la question posee.
 const cheval = await page.evaluate(() => ({
   batiments: window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, name: o.name, toitACheval: o.toitACheval, corps: o.corpsToit?.length })),

@@ -9,6 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { couleurMursRetenue } from '../model/couleurMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour } from '../model/volumesToit.js';
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
@@ -618,7 +619,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
     // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
     const apparence = o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
-    const couleurMur = apparence?.couleurMur ?? o.fill ?? BLANC_PAR_DEFAUT;
+    // Un batiment prend la couleur de ses murs lue sur une photo de rue, ou celle de son materiau
+    // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
+    const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
+    const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
     // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
     // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
     // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
