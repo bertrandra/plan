@@ -506,7 +506,81 @@ function corpsDeReprise(m: ToitMesure, contour: readonly PtBrut[], grille: Grill
   const rects = rectanglesEnTranches(contourEquerre(contour) ?? contour);
   if (!rects) return null;
   const corps = rects.map((r) => corpsDepuisFormes(grille ?? m, r) ?? corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
-  return corps.length ? corps : null;
+  return corps.length ? completerSurContour(corps, contour) : null;
+}
+
+/** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
+const PAS_COMPLETION_M = 0.25, COMPLETION_MAX_M = 8;
+
+/** Un cote d'un rectangle dans son repere : s = 0, s = L, t = 0, t = W. */
+type Cote = 's0' | 'sL' | 't0' | 'tW';
+
+/**
+ * Les corps etendus jusqu'a couvrir le contour : la marche qui remplace un cote de biais laisse,
+ * d'un cote du biais, un triangle du batiment que nul corps ne couvre - un toit qui manquait sur un
+ * bout de maison. Chaque corps avance chacun de ses cotes libres (que les autres corps ne bordent pas
+ * pour moitie) tant que la bande juste devant contient du contour que nul autre corps ne couvre ; il
+ * garde sa forme et ses pentes (`corpsEtendu`). Le dessin decoupe ensuite les toits sur le contour.
+ */
+export function completerSurContour(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+  // Les plus hauts d'abord, chacun voyant les corps deja etendus : un bout de maison revient au toit
+  // qui le domine, pas a la terrasse plate d'a cote.
+  const out = [...corps];
+  const ordre = out.map((_, k) => k).sort((a, b) => (out[b] as CorpsToit).faitage - (out[a] as CorpsToit).faitage);
+  for (const k of ordre) out[k] = etendreSurContour(out[k] as CorpsToit, out.filter((_, j) => j !== k).map((x) => x.pts), contour);
+  return out;
+}
+
+/** Un corps etendu sur le contour que les `autres` ne couvrent pas (`completerSurContour`). */
+function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: readonly PtBrut[]): CorpsToit {
+  const r = repere(c.pts);
+  const b: Record<Cote, number> = { s0: 0, sL: r.L, t0: 0, tW: r.W };
+  // Les points d'une bande parallele au cote, a la position `v` de son axe, sur toute la longueur de l'autre.
+  const bande = (cote: Cote, v: number): PtBrut[] => {
+    const out: PtBrut[] = [];
+    if (cote === 's0' || cote === 'sL') for (let t = b.t0 + 0.125; t < b.tW; t += PAS_COMPLETION_M) out.push(point(r, v, t));
+    else for (let sv = b.s0 + 0.125; sv < b.sL; sv += PAS_COMPLETION_M) out.push(point(r, sv, v));
+    return out;
+  };
+  const ailleurs = (q: PtBrut) => autres.some((a) => pointInPolygon(q, a));
+  for (const cote of ['s0', 'sL', 't0', 'tW'] as const) {
+    const signe = cote === 's0' || cote === 't0' ? -1 : 1;
+    const devant = bande(cote, b[cote] + signe * 0.3);
+    if (devant.filter(ailleurs).length > devant.length / 2) continue;
+    for (let d = PAS_COMPLETION_M; d <= COMPLETION_MAX_M + 1e-6; d += PAS_COMPLETION_M) {
+      const pts = bande(cote, b[cote] + (signe * PAS_COMPLETION_M) / 2);
+      if (!pts.some((q) => pointInPolygon(q, contour) && !ailleurs(q))) break;
+      b[cote] += signe * PAS_COMPLETION_M;
+    }
+  }
+  return corpsEtendu(c, b);
+}
+
+/**
+ * Le corps sur un rectangle agrandi (bornes dans son repere, `s0 <= 0 <= L <= sL`, idem en t), sa
+ * forme et ses pentes gardees : etendu le long du faitage, le faitage s'allonge, croupes et hauteurs
+ * restent ; en travers, les pans s'elargissent a leur pente et le faitage monte.
+ */
+export function corpsEtendu(c: CorpsToit, b: Record<Cote, number>): CorpsToit {
+  const r = repere(c.pts);
+  if (b.s0 === 0 && b.sL === r.L && b.t0 === 0 && b.tW === r.W) return c;
+  const pts = [point(r, b.s0, b.t0), point(r, b.sL, b.t0), point(r, b.sL, b.tW), point(r, b.s0, b.tW)].map((q) => ({ x: cm(q.x), y: cm(q.y) }));
+  const W2 = b.tW - b.t0;
+  if (W2 === r.W) return { ...c, pts };
+  const [e0, e1] = c.egouts, p = c.posFaitage;
+  const plat = c.faitage - Math.min(e0, e1) < HAUTEUR_PLAT_M;
+  if (plat) return { ...c, pts };
+  // En travers : le faitage reste au meme endroit du batiment, chaque pan descend a sa pente jusqu'au
+  // nouveau mur ; un appentis garde son egout bas et monte d'autant.
+  const p2 = p - b.t0;
+  if (p <= 0.01 || p >= r.W - 0.01) {
+    const k = (c.faitage - Math.min(e0, e1)) / r.W, F = dixieme(Math.min(e0, e1) + k * W2);
+    return p <= 0.01 ? { ...c, pts, posFaitage: 0, faitage: F, egouts: [F, Math.min(e0, e1)] } : { ...c, pts, posFaitage: cm(W2), faitage: F, egouts: [Math.min(e0, e1), F] };
+  }
+  const k0 = (c.faitage - e0) / p, k1 = (c.faitage - e1) / (r.W - p);
+  const egouts: [number, number] = [dixieme(c.faitage - k0 * p2), dixieme(c.faitage - k1 * (W2 - p2))];
+  const croupes = c.croupes ? { croupes: c.croupes.map((h) => (h > 0 ? cm(W2 / 2) : 0)) as [number, number] } : {};
+  return { ...c, pts, posFaitage: cm(p2), egouts, ...croupes };
 }
 
 /**
@@ -529,8 +603,36 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     deux.forEach((q) => couper(q, profondeur + 1));
   };
   decouperParHauteurs(m, rects).forEach((r) => couper(r, 0));
-  const corps = blocs.map((r) => corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
+  const corps = blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour))).filter((c): c is CorpsToit => c !== null);
   return corps.length ? corps : null;
+}
+
+/** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
+export const GAIN_CROUPES = 0.8;
+
+/**
+ * L'ecart d'un corps a la mesure sous lui, chaque mesure bornee a ECART_ABERRANT_M dans les deux sens.
+ * Symetrique, a la difference de `profilEn` : celui-la compte peu ce qui depasse le pan (il cherche
+ * les pignons), et preferait donc un toit ecrase a un quatre-pans.
+ */
+function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): number {
+  const r = repere(c.pts);
+  const ms = mesuresDans(m, r, c.pts, contour);
+  if (!ms.length) return Infinity;
+  return Math.sqrt(ms.reduce((a, q) => a + Math.min(ECART_ABERRANT_M, Math.abs(q.z - hauteurCorpsEn(c, r.L, r.W, q.s, q.t))) ** 2, 0) / ms.length);
+}
+
+/**
+ * Le corps a croupes que lisent les formes simples (`corpsDepuisFormes`), quand il explique la mesure
+ * nettement mieux que le modele des corps, qui n'a que des pignons de bout : un toit a quatre pans
+ * s'y lisait en appentis presque plat (AE 100). Un corps qui a des pignons garde le modele des corps.
+ */
+function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, c: CorpsToit | null): CorpsToit | null {
+  if (c?.pignons.length) return c;
+  const f = corpsDepuisFormes(grille ?? m, rect);
+  if (!f?.croupes) return c;
+  const ef = ecartAuCorps(m, f, contour);
+  return !c || ef < GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
 }
 
 /** La hauteur du mur `i` d'un corps (de `pts[i]` a `pts[i + 1]`) : l'egout de son pan, ou le plus bas des egouts sous un pignon de bout. */
