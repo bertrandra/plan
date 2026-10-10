@@ -813,6 +813,12 @@ la prochaine actualisation IGN ». Une maison voisine en corps reçoit ses fenê
 corps, aux dimensions tirées par la section (§6.4). Le critère de voisinage est celui de la BD
 TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts::surParcelleDuProjet`).
 
+**La végétation** (`app/toitsLidar.ts::corpsVraisemblables`). Le LiDAR voit la cime d'un arbre qui
+couvre un bâtiment : un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du bâtiment
+(`hauteurRetenueM`, à défaut `hauteurM`) est écarté. Exemple : un abri de 2,70 m à côté d'AE 101
+devenait une tour de 15 m. Sans corps restant, le bâtiment garde sa forme simple, et une maison
+mitoyenne ne garde pas sa grille. Sans hauteur BD TOPO, rien n'est écarté.
+
 ### 13.7 Les contours de biais, le recalage et les croupes
 
 Le modèle des corps (§13.2) part des rectangles du contour. Un contour BD TOPO qui a un côté de

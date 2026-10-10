@@ -66,6 +66,29 @@ async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: Grille
   return large;
 }
 
+/** Au-dela de la hauteur de la BD TOPO plus cela, ce que le LiDAR voit sur un batiment est un arbre. */
+export const DEPASSEMENT_VEGETATION_M = 3;
+
+/** La hauteur du batiment selon la BD TOPO (du sol a l'egout), null sans elle. */
+function hauteurBdTopo(o: ObjetAToit): number | null {
+  const b = o.bdtopo as { hauteurRetenueM?: unknown; hauteurM?: unknown } | null | undefined;
+  const h = typeof b?.hauteurRetenueM === 'number' ? b.hauteurRetenueM : typeof b?.hauteurM === 'number' ? b.hauteurM : null;
+  return h !== null && h > 0 ? h : null;
+}
+
+/**
+ * Les corps que le LiDAR a pu voir sur ce batiment, et non sur l'arbre qui le couvre : un corps dont
+ * l'egout depasse de plus de DEPASSEMENT_VEGETATION_M la hauteur de la BD TOPO est un houppier. Un
+ * abri de jardin de 2,70 m sous un chene devenait une tour de 15 m. Null quand il n'en reste aucun :
+ * le batiment garde sa forme simple.
+ */
+export function corpsVraisemblables(o: ObjetAToit, corps: CorpsToit[] | null): CorpsToit[] | null {
+  const h = hauteurBdTopo(o);
+  if (!corps || h === null) return corps;
+  const gardes = corps.filter((c) => Math.min(...c.egouts) <= h + DEPASSEMENT_VEGETATION_M);
+  return gardes.length ? gardes : null;
+}
+
 /** Ce que la lecture a fait, pour le bilan. */
 export interface BilanToitsLidar {
   /** Toits dont la forme a ete ajustee sur le LiDAR (plats compris). */
@@ -207,14 +230,14 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const mesure = principal && grille ? toitMesureDepuisGrille(grille, o.pts) : null;
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
       // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
-      if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? reconstruireCorps(mesure, o.pts, { grille }) : null; }
+      if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsVraisemblables(o, reconstruireCorps(mesure, o.pts, { grille })) : null; }
       // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
       // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
       // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
       else if (voisins && grille) {
         const mesureVoisine = toitMesureDepuisGrille(grille, o.pts);
         const mitoyen = mitoyens.has(o);
-        o.corpsToit = mesureVoisine ? reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen, grille }) : null;
+        o.corpsToit = mesureVoisine ? corpsVraisemblables(o, reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen, grille })) : null;
         // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
         // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
         if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
