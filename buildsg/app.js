@@ -11,7 +11,8 @@
 //
 // Il n'y a pas d'Apache : ce serveur pose lui-meme ce que `deploy/htaccess.template` pose
 // ailleurs. La politique de contenu n'est pas recopiee a la main : elle est lue dans le
-// `dist/.htaccess` que le build vient d'ecrire, avec les empreintes des scripts de CE build.
+// `dist/.htaccess` que le build vient d'ecrire (la politique ne nomme plus d'empreinte : le programme
+// est servi a cote de la page, `assets/plan-<empreinte>.js`).
 //
 // SiteGround donne le port dans `PORT` et termine le HTTPS devant l'application : le protocole
 // d'origine arrive dans `X-Forwarded-Proto`.
@@ -81,6 +82,13 @@ const page = fs.readFileSync(path.join(dist, 'index.html'));
 const pageGz = zlib.gzipSync(page, { level: 9 });
 const etag = '"' + crypto.createHash('sha256').update(page).digest('base64url').slice(0, 27) + '"';
 
+// Le programme, sorti de la page au build (deploy/scripts-page.mjs) : `assets/plan-<empreinte>.js`.
+// Son nom change avec son contenu : il se garde en cache sans limite. Lu une fois, comme la page.
+const dossierAssets = path.join(dist, 'assets');
+const programmes = new Map((fs.existsSync(dossierAssets) ? fs.readdirSync(dossierAssets) : [])
+  .filter((f) => /^plan-[0-9a-f]{16}\.js$/.test(f))
+  .map((f) => { const corps = fs.readFileSync(path.join(dossierAssets, f)); return ['/assets/' + f, { corps, gz: zlib.gzipSync(corps, { level: 9 }) }]; }));
+
 // Le formulaire officiel de la declaration prealable, que Vite recopie de public/cerfa/ : la page le
 // demande a cote d'elle (src/export/cerfa13703.ts). Lu une fois, comme la page.
 const dossierCerfa = path.join(dist, 'cerfa');
@@ -149,7 +157,16 @@ const serveur = http.createServer(async (req, res) => {
     return repondre(req, res, 200, { ...base, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400', 'Content-Length': formulaire.length }, formulaire);
   }
 
-  // Le build est un fichier unique, plus le formulaire cerfa : rien d'autre ne se sert —
+  const programme = programmes.get(url.pathname);
+  if (programme) {
+    const entetes = { ...base, 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable', Vary: 'Accept-Encoding' };
+    if (/\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+      return repondre(req, res, 200, { ...entetes, 'Content-Encoding': 'gzip', 'Content-Length': programme.gz.length }, programme.gz);
+    }
+    return repondre(req, res, 200, { ...entetes, 'Content-Length': programme.corps.length }, programme.corps);
+  }
+
+  // Le build est la page, son programme et le formulaire cerfa : rien d'autre ne se sert —
   // ni `data/`, ni `api.php`, ni les sources, ni un fichier qui commence par un point.
   if (url.pathname !== '/' && url.pathname !== '/index.html') {
     return repondre(req, res, 404, { ...base, ...texte, 'Cache-Control': 'no-store' }, 'Introuvable\n');
@@ -172,6 +189,6 @@ const serveur = http.createServer(async (req, res) => {
 });
 
 serveur.listen(PORT, HOTE, () => {
-  console.log('Plan : http://' + HOTE + ':' + PORT + '/ (' + page.length + ' octets)'
+  console.log('Plan : http://' + HOTE + ':' + PORT + '/ (' + page.length + ' octets, ' + programmes.size + ' programme(s))'
     + (adminDemos.actif ? ', admin des demos actif' : ', admin des demos inactif (ADMIN_PASSWORD absent)'));
 });

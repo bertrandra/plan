@@ -241,9 +241,12 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 [ ] CHANGELOG.md section written in French, dated
 [ ] package.json version bumped, committed, tagged vX.Y.Z (annotated, signed)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
-[ ] Les deux fichiers de `livraison/` — `index.html` et `.htaccess` — déposés ENSEMBLE à la racine
-    web. Les empreintes des scripts changent à chaque build, donc un .htaccess recopié d'un build
-    précédent bloque la page entière, et en production seulement
+[ ] `livraison/` déposé EN ENTIER à la racine web — `index.html`, le dossier `assets/` et
+    `.htaccess` —, de préférence en extrayant `livraison.zip` sur le serveur. La page appelle son
+    programme `assets/plan-<empreinte>.js` : sans le dossier de la même livraison, elle reste
+    blanche. Depuis le 10 octobre 2026, la politique de contenu ne nomme plus d'empreinte de build
+    (`script-src 'self'`) : un `.htaccess` d'une version précédente ne bloque plus la page — c'est
+    ce qui l'avait rendue blanche ce jour-là
 [ ] Deployed to staging next to a copy of production data
 [ ] Manual smoke checklist (25 items) passed on staging
 [ ] Multi-tenant releases: cross-tenant isolation suite green on staging

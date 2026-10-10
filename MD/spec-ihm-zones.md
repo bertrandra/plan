@@ -314,7 +314,8 @@ Prises le 21 septembre 2026 pour les quatre premières ; la cinquième est ouver
    restent en DOM natif dans un composant hôte : ils sont testés, tactiles et rapides, et React n'a
    rien à y gagner.
 2. **Le fichier unique est conservé.** `vite-plugin-singlefile` embarque React ; le déploiement reste
-   « copier un fichier » jusqu'à la 2.0.0. **Le budget du fichier livré passe de 1,2 Mo à 5 Mo**
+   « copier un fichier » jusqu'à la 2.0.0. *(10 octobre 2026 : le programme sort de la page, dans
+   `assets/plan-<empreinte>.js` — voir `deploy/scripts-page.mjs` ; la feuille de style reste en ligne.)* **Le budget du fichier livré passe de 1,2 Mo à 5 Mo**
    (décision du 21 septembre 2026, après l'étape 1 : React DOM porte le fichier à 680 Ko, et les
    zones suivantes ajoutent du code à nous, pas de dépendance de cette taille).
 3. **Le tactile est un critère d'acceptation**, pas une option : cibles ≥ 44 px dans Z2 et Z5,

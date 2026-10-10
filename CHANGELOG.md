@@ -614,6 +614,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Page blanche après une mise en ligne** (10 octobre 2026, plan.raillard.org) : le programme était
+  en ligne dans `index.html`, et la politique de contenu du `.htaccess` le nommait par son
+  empreinte, qui change à chaque build. La mise en ligne avait remplacé `index.html` mais pas le
+  `.htaccess` (fichier caché, sauté au téléversement) : le navigateur refusait le programme. Le
+  build sort désormais le programme dans `assets/plan-<empreinte>.js`, que la page appelle et que
+  `script-src 'self'` couvre : la politique ne dépend plus du build, et un `.htaccess` d'une
+  version précédente ne casse plus rien (`deploy/scripts-page.mjs`). Le programme se garde en cache
+  sans limite (son nom change avec lui) et se sert sous un type JavaScript ; la livraison, le
+  serveur Node (`buildsg/app.js`), le contrôle du paquet (qui lit aussi le programme) et
+  `verifier-deploiement` (le programme est servi, la politique le couvre) suivent. Le mode d'emploi
+  de la livraison conseille d'extraire `livraison.zip` sur le serveur, qui n'oublie ni `assets/` ni
+  `.htaccess`.
+
 - **Import par adresse : la couleur et la forme des toits étaient lues à côté.** Le plan construit
   a pour origine le sommet nord de la parcelle (calage cadastral), mais la lecture de l'orthophoto
   (couleur des toits) et du MNH LiDAR HD (forme des toits) se faisait avec le projecteur centré sur

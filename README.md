@@ -22,7 +22,8 @@ d'écran — et aucun nombre n'a bougé. Elle s'appuie sur l'interface reconstru
 (`MD/spec-ihm-zones.md`) et sur la connexion à la plateforme de la `2.0.0`. **La migration TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier
 HTML unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
 compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact
-livré reste un seul fichier `plan.html`, **produit par le build** et non plus édité à la main. Le fichier
+livré est **produit par le build** et non plus édité à la main : `index.html`, et depuis le 10 octobre
+2026 son programme à côté, `assets/plan-<empreinte>.js`. Le fichier
 d'origine est figé dans `legacy/plan_interactif.html` et sert de témoin : les golden files de
 `tests/fixtures/golden/` sont ceux qu'il produit, et chaque palier de la migration s'y compare au
 bit près. Le détail des paliers est dans `CHANGELOG.md`.
@@ -34,7 +35,7 @@ Prérequis : Node 20 ou plus.
 ```bash
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
-npm run build        # produit dist/index.html (fichier unique) et dist/.htaccess
+npm run build        # produit dist/index.html, dist/assets/plan-<empreinte>.js et dist/.htaccess
 npm test             # 736 tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
@@ -82,7 +83,8 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 | `tests/unit/` | Un dossier par module de `src/`. |
 | `tests/fixtures/golden/` | Les artefacts de référence et leurs empreintes (`EMPREINTES.md`). |
 | `contrat/` | La part du contrat de la plateforme que Plan utilise, épinglée à un commit. |
-| `deploy/htaccess.template` | La configuration Apache de la racine web, complétée au build par les empreintes des scripts. |
+| `deploy/htaccess.template` | La configuration Apache de la racine web, complétée au build (origine de la plateforme, cadres de la vitrine). |
+| `deploy/scripts-page.mjs` | Sort le programme de la page au build : `assets/plan-<empreinte>.js`, couvert par `script-src 'self'`. |
 | `legacy/` | Le fichier HTML d'origine, figé, jamais modifié. |
 | `MD/` | Toute la documentation, voir ci-dessous. |
 

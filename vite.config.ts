@@ -1,31 +1,10 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import react from '@vitejs/plugin-react';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { blocDescription } from './src/model/produit.js';
-
-/**
- * Les empreintes des scripts en ligne, pour la politique de contenu (deploy/htaccess.template).
- *
- * Le build produit un fichier unique : tout le programme est un `<script>` en ligne. La seule
- * facon de garder une politique qui serve a quelque chose est de nommer ces scripts par leur
- * empreinte — `'unsafe-inline'` autoriserait aussi celui qu'un attaquant injecte. L'empreinte
- * porte sur le contenu EXACT, sans rien enlever : un espace en plus et le navigateur refuse.
- */
-function empreintesDesScriptsEnLigne(html: string): string[] {
-  const empreintes: string[] = [];
-  // Un bloc de donnees (`type="application/json"`, model/produit.ts) n'est pas un script : le
-  // navigateur ne l'execute pas, la politique n'a pas a le nommer.
-  const motif = /<script(?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g;
-  for (let m = motif.exec(html); m; m = motif.exec(html)) {
-    const code = m[1] ?? '';
-    if (!code) continue;
-    empreintes.push("'sha256-" + createHash('sha256').update(code, 'utf8').digest('base64') + "'");
-  }
-  return empreintes;
-}
+import { sortirLesScripts, empreintesDesScriptsEnLigne } from './deploy/scripts-page.mjs';
 
 // Les deux seuls faits publics que le paquet porte sur la plateforme (spec-connexion-plateforme §2).
 const BACKPROD_API_URL = (process.env.BACKPROD_API_URL || '').replace(/\/+$/, '');
@@ -50,8 +29,9 @@ if (!BACKPROD_API_URL) {
   );
 }
 
-// Le deploiement de cette application, c'est « copier un fichier sur le serveur » : la sortie doit
-// rester un seul HTML, sinon tout le mode d'emploi change (spec 3.1).
+// Le deploiement de cette application, c'est « copier un dossier sur le serveur » : la page, son
+// programme dans `assets/`, le `.htaccess` (spec 3.1). Le reste (feuille de style, images) reste
+// dans la page.
 export default defineConfig({
   define: {
     __BACKPROD_API_URL__: JSON.stringify(BACKPROD_API_URL),
@@ -72,17 +52,20 @@ export default defineConfig({
       }
     },
     {
-      // La configuration Apache se deduit du build : les empreintes des scripts en ligne changent a
-      // chaque compilation, donc le `.htaccess` ne peut pas etre un fichier fige. Il se depose a
-      // cote d'index.html a la racine web, et c'est lui qui coupe le cache de six mois, refuse
-      // `data/` au public et pose les en-tetes de securite.
+      // Le programme sort de la page (sortirLesScripts), puis la configuration Apache s'ecrit : elle
+      // se depose a cote d'index.html a la racine web, et c'est elle qui coupe le cache de la page,
+      // refuse `data/` au public et pose les en-tetes de securite.
       name: 'ecrire-htaccess',
       closeBundle() {
         const modele = resolve(__dirname, 'deploy/htaccess.template');
         const page = resolve(__dirname, 'dist/index.html');
         if (!existsSync(modele) || !existsSync(page)) return;
-        const empreintes = empreintesDesScriptsEnLigne(readFileSync(page, 'utf8'));
-        if (!empreintes.length) throw new Error('.htaccess : aucun script en ligne trouve dans le build');
+        const sorti = sortirLesScripts(readFileSync(page, 'utf8'));
+        if (!sorti.fichiers.length) throw new Error('index.html : aucun programme trouve dans le build');
+        mkdirSync(resolve(__dirname, 'dist/assets'), { recursive: true });
+        for (const f of sorti.fichiers) writeFileSync(resolve(__dirname, 'dist', f.nom), f.code);
+        writeFileSync(page, sorti.html);
+        const empreintes = empreintesDesScriptsEnLigne(sorti.html);
         const texte = readFileSync(modele, 'utf8');
         // Le jeton doit etre unique : `String.replace` avec une chaine ne remplace que la premiere
         // occurrence, et une seconde dans un commentaire laisserait la politique avec son jeton.
@@ -98,7 +81,7 @@ export default defineConfig({
         const jetonCadre = '@@ORIGINES_CADRE@@';
         if (texte.split(jetonCadre).length - 1 !== 1) throw new Error('.htaccess : le modele doit porter une seule fois ' + jetonCadre);
         writeFileSync(resolve(__dirname, 'dist/.htaccess'),
-          texte.replace(jeton, empreintes.join(' ')).replace(jetonOrigine, BACKPROD_API_URL ? ' ' + BACKPROD_API_URL : '')
+          texte.replace(' ' + jeton, empreintes.map((e) => ' ' + e).join('')).replace(jetonOrigine, BACKPROD_API_URL ? ' ' + BACKPROD_API_URL : '')
             .replace(jetonCadre, originesCadre(BACKPROD_API_URL)));
       }
     }
