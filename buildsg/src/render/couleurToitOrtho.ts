@@ -14,8 +14,7 @@ import { latDeTuile } from '../geo/projection.js';
 import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { couleurToitDepuisPixels, COULEURS_TOIT_REPLI, type CouleurToitLue } from '../model/couleurToit.js';
-import { couvertureDesFichiersFonciers } from '../model/couleurMur.js';
+import { couleurToitDepuisPixels, couvertureDesFichiersFonciers, COULEURS_TOIT_REPLI, type CouleurToitLue } from '../model/couleurToit.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { PtBrut, Toit } from '../model/types.js';
 

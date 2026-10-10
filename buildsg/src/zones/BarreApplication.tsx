@@ -16,7 +16,7 @@ import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
-import { reliefDe, reliefMontre } from '../model/relief.js';
+import { reliefDe, affichageRelief } from '../model/relief.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -164,8 +164,9 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
-    // Courbes de niveau et sol 3D ensemble ; n'apparait qu'une fois le relief lu.
-    ['affichage.relief', 'Relief', !!relief && reliefMontre(relief), !!relief],
+    // Le sol en relief (3D) et les courbes de niveau (plan), chacun sa bascule ; une fois le relief lu.
+    ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
+    ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
     ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
     ['affichage.sectionsRepliees', 'Sections de l\'inspecteur repliées', sectionsRepliees, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
