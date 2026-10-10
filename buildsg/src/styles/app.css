@@ -213,6 +213,17 @@
     animation:toastEntre 0.2s ease-out;
   }
   @keyframes toastEntre{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  /* L'attente (zones/Attente.tsx) : une carte au centre, une roue et l'etape en cours. Le pointeur
+     la traverse ; elle passe au-dessus des dialogues, sous le bandeau d'erreur. Sans mouvement
+     demande (prefers-reduced-motion), la roue ne tourne pas : elle pulse a peine. */
+  .attente{ position:fixed; inset:0; z-index:9998; display:grid; place-items:center; pointer-events:none; }
+  .attenteCarte{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px 22px; max-width:min(320px, calc(100vw - 32px));
+    background:var(--panel-bg); color:var(--ink); border:1px solid var(--border); border-radius:var(--r-panneau); box-shadow:var(--ombre-forte);
+    font-family:var(--sans); font-size:0.82rem; text-align:center; }
+  .attenteRoue{ width:36px; height:36px; border-radius:999px; border:4px solid var(--accent-light); border-top-color:var(--accent); animation:attenteTourne 0.9s linear infinite; }
+  @keyframes attenteTourne{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .attenteRoue{ animation:attentePulse 1.6s ease-in-out infinite; } }
+  @keyframes attentePulse{ 50%{ opacity:0.45; } }
   .bandeauErreur{
     position:fixed; bottom:0; left:0; right:0; z-index:9999; display:flex; align-items:flex-start; gap:12px;
     background:var(--danger); color:var(--danger-bg); padding:10px 14px; font-family:var(--mono); font-size:12px; max-height:40vh; overflow:auto;
@@ -406,6 +417,24 @@
   .inspecteurSection .champs{ padding:0 10px 8px; display:flex; flex-direction:column; gap:3px; }
   .champ{ display:grid; grid-template-columns:118px 1fr; gap:4px 8px; align-items:center; min-height:32px; padding:2px 4px; border-radius:6px; }
   .champ.pleineLargeur{ display:block; }
+  /* La carte des hauteurs mesurees d'un toit (zones/composants/CarteToit.tsx) : les couleurs des
+     cellules sont calculees (la hauteur), les traits passent par les jetons. */
+  .carteToit{ margin:4px 0 2px; }
+  .carteToit svg{ display:block; width:100%; height:auto; max-height:320px; background:var(--panel-2); border-radius:var(--r-tuile); }
+  .carteToit .carteContour{ fill:none; stroke:var(--ink); stroke-width:2px; }
+  .carteToit .carteCorps{ fill:none; stroke:var(--ok); stroke-width:2.5px; stroke-dasharray:6 4; }
+  .carteToit .cartePignon{ fill:none; stroke:var(--accent); stroke-width:2px; }
+  .carteToit .carteFaitage{ stroke:var(--ink); stroke-width:3px; }
+  .carteToit .carteFaitagePignon{ stroke:var(--accent); stroke-width:3px; }
+  .carteToit .carteLibelle{ fill:var(--ink); font-family:var(--sans); font-weight:600; paint-order:stroke; stroke:var(--panel-bg); stroke-linejoin:round; font-variant-numeric:tabular-nums; }
+  .carteToit .carteNord path{ fill:var(--ink); }
+  .carteToit .carteNord text{ fill:var(--ink); font-family:var(--sans); font-weight:700; }
+  .carteToitLegende{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:4px; font-family:var(--sans); font-size:0.68rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .carteToitLegende .carteDegrade{ width:64px; height:8px; border-radius:999px; background:linear-gradient(90deg, hsl(240 80% 54%), hsl(180 80% 51%), hsl(120 80% 50%), hsl(60 80% 49%), hsl(0 80% 48%)); }
+  .carteToitLegende i{ display:inline-block; width:16px; height:0; vertical-align:middle; margin-right:3px; }
+  .carteToitLegende .cleCorps{ border-top:2px dashed var(--ok); }
+  .carteToitLegende .cleFaitage{ border-top:3px solid var(--ink); }
+  .carteToitLegende .clePignon{ border-top:3px solid var(--accent); }
   .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; }
   .champ .commande{ min-width:0; }
   .champ .note{ font-size:0.68rem; color:var(--ink-soft); margin-top:2px; line-height:1.25; }

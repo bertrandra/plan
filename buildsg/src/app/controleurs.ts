@@ -123,7 +123,7 @@ function noeudCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Noeud {
 const NOMS_TYPES: Record<Champ['type'], string> = {
   texte: 'texte', nombre: 'nombre', case: 'case à cocher', choix: 'liste de choix', couleur: 'couleur', date: 'date',
   curseur: 'curseur', lecture: 'lecture seule', texture: 'texture', bouton: 'bouton', alerte: 'alerte',
-  optimisation: 'tableau d’optimisation', ligne: 'ligne composée'
+  optimisation: 'tableau d’optimisation', carte: 'carte des hauteurs', ligne: 'ligne composée'
 };
 
 const NOMS_EFFETS: Record<Effet, string> = {

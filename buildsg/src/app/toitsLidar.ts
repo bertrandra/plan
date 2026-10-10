@@ -12,9 +12,10 @@ import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
+import { reconstruireCorps } from '../facade/toitCorps.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
-import type { PtBrut, Toit, ToitMesure, VolumeToit } from '../model/types.js';
+import type { CorpsToit, PtBrut, Toit, ToitMesure, VolumeToit } from '../model/types.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -29,6 +30,8 @@ export interface ObjetAToit {
   volumesToit?: VolumeToit[] | null;
   /** Le toit tel que le LiDAR le mesure (model/toitMesure.ts), pour un batiment de la parcelle du projet. */
   toitMesure?: ToitMesure | null;
+  /** Ses corps et pignons, reconstruits sur la mesure (facade/toitCorps.ts). */
+  corpsToit?: CorpsToit[] | null;
 }
 
 /** Un batiment de la parcelle du projet : le seul dont le toit se mesure corps par corps. */
@@ -163,7 +166,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const principal = surParcellePrincipale(o);
       const mesure = principal && grille ? toitMesureDepuisGrille(grille, o.pts) : null;
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
-      if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; }
+      // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
+      if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? reconstruireCorps(mesure, o.pts) : null; }
       if (mesure) bilan.mesures++;
       else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; continue; }
       if (ajuste) {

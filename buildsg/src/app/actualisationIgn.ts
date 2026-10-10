@@ -13,6 +13,7 @@ import { distancePointContour } from '../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
 import { showToast } from '../shell/dialogs.js';
+import { attente } from '../shell/attente.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
 import { centroid } from '../geometry/basic.js';
@@ -95,7 +96,13 @@ type Cadastre = NonNullable<ObjetPlan['cadastre']>;
 
 let enCours = false;
 const abonnes = new Set<() => void>();
-function signaler(): void { abonnes.forEach(f => f()); }
+/** Le debut et la fin d'une actualisation : la commande se grise, la roue d'attente parait au centre (shell/attente.ts). */
+function signaler(): void {
+  attente.poser('actualisation-ign', enCours ? 'Actualisation IGN : la parcelle et le cadastre…' : null);
+  abonnes.forEach(f => f());
+}
+/** L'etape en cours, au centre de l'ecran, tant que l'actualisation tourne. */
+function etape(texte: string): void { if (enCours) attente.poser('actualisation-ign', 'Actualisation IGN : ' + texte); }
 export const actualisation = {
   enCours: (): boolean => enCours,
   abonner(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
@@ -156,6 +163,7 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
  * dans le bilan ; la grille d'avant reste alors en place.
  */
 async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[]): Promise<void> {
+  etape('le relief du terrain…');
   const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey);
   const cible = parcelleDuProjet(ctx.etat.objects);
   if(!demande || !cible) return;
@@ -182,6 +190,7 @@ function coucheIgn(o: ObjetPlan): string | null {
  * quels.
  */
 async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan: string[]): Promise<Record<string, FeatureGeoJSON>> {
+  etape('les bâtiments et la végétation (BD TOPO)…');
   const fraiches: Record<string, FeatureGeoJSON> = {};
   const couches = [...new Set(objets.map(coucheIgn).filter((c): c is string => c !== null))];
   const anneaux: Anneau[] = [];
@@ -222,6 +231,7 @@ function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batim
  * l'utilisateur n'est pas touchee ; un WMTS injoignable laisse les toits tels quels.
  */
 async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[]): Promise<void> {
+  etape('la couleur des toits sur l’orthophoto…');
   const c = await couleursToitsDepuisOrtho(objets, proj).catch(() => null);
   if(!c || !(c.lus + c.replis)) return;
   bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
@@ -239,6 +249,7 @@ function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtB
 
 /** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
 async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+  etape('la forme des toits sur le LiDAR HD…');
   const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj).catch(() => null);
   const texte = b && texteBilanToitsLidar(b);
   if(texte) bilan.push(texte);
@@ -328,7 +339,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           frozenVertices: pts.map(()=>false),
           elevation: haut,
           ...(toit ? { toit } : {}),
-          ...(volumesToit !== undefined ? { volumesToit, toitMesure: null } : {}),
+          ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
@@ -429,6 +440,7 @@ export async function construireVoisinage(
   choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean; rayonM?: number },
   dejaSerialises: ObjetBrut[]
 ): Promise<{ objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean }> {
+  etape('le voisinage…');
   const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
   const anneauSource = cad.geometrieSource && cad.geometrieSource.coordinates && cad.geometrieSource.coordinates[0];
   if(!anneauSource) throw new Error('geometrie source de la parcelle absente');

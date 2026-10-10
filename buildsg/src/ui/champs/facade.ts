@@ -10,7 +10,9 @@ import { designerFacade } from '../../facade/choix.js';
 import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
-import type { FormeToit, Toit } from '../../model/types.js';
+import { repere } from '../../facade/toitCorps.js';
+import { carteDuToit } from './carteToit.js';
+import type { CorpsToit, FormeToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment } from '../../model/fonctions.js';
 
@@ -57,6 +59,22 @@ function origineHauteur(toit: Toit): string {
   return toit.estime ? ' · estimée : pas de hauteur dans la BD TOPO' : ' · déduite de la BD TOPO (± 1 m)';
 }
 
+/** Une ligne par corps reconstruit : ses dimensions, son toit, ses egouts, ses pignons. */
+export function decrireCorps(corps: readonly CorpsToit[]): string[] {
+  const m = (v: number) => fr(v, 1) + ' m';
+  return corps.map((c, i) => {
+    const r = repere(c.pts);
+    const dims = `${fr(r.L, 1)} × ${fr(r.W, 1)} m`;
+    const [e0, e1] = c.egouts;
+    const plat = c.faitage - Math.min(e0, e1) < 0.05;
+    const appentis = !plat && (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01);
+    const toit = plat ? `toit plat à ${m(c.faitage)}` : appentis ? `appentis de ${m(Math.min(e0, e1))} à ${m(c.faitage)}`
+      : `deux pans, faîtage ${m(c.faitage)}, égouts ${Math.abs(e0 - e1) < 0.05 ? m(e0) : fr(e0, 1) + ' / ' + m(e1)}`;
+    const pignons = c.pignons.length ? `, ${pluriel(c.pignons.length, 'pignon')} depuis le faîtage` : '';
+    return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}`;
+  });
+}
+
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
 function champsDuToit(): Champ[] {
   // Le toit unique ne se montre que si c'est lui que la 3D dessine : en surface mesuree ou en
@@ -74,14 +92,30 @@ function champsDuToit(): Champ[] {
       visible: (cc) => !!cc.obj.toitMesure || corps(cc),
       historique: true,
       effets: ['scene3d', 'inspecteur'],
-      aide: 'Tel que mesuré : la surface que le LiDAR HD de l’IGN a relevée, à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
+      aide: 'Corps et pignons : les corps du bâtiment lus sur le LiDAR HD de l’IGN, chacun son faîtage et ses égouts aux hauteurs de ses murs, avec les pignons qui partent du faîtage. Tel que mesuré : la surface relevée à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
       options: (cc) => [
+        ...(cc.obj.corpsToit?.length ? [{ valeur: 'corps', libelle: 'Corps et pignons (LiDAR)' }] : []),
         ...(cc.obj.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
         ...(corps(cc) ? [{ valeur: 'volumes', libelle: 'Un toit par corps' }] : []),
         { valeur: 'simple', libelle: 'Un seul toit' },
       ],
       lire: (cc) => mode(cc),
-      ecrire: (cc, v) => { cc.obj.modeToit = v === 'mesure' ? 'mesure' : v === 'volumes' ? 'volumes' : 'simple'; },
+      ecrire: (cc, v) => { cc.obj.modeToit = v === 'corps' || v === 'mesure' || v === 'volumes' ? v : 'simple'; },
+    },
+    {
+      type: 'carte',
+      cle: 'toitCarte',
+      libelle: '',
+      nom: 'Carte des hauteurs mesurées et découpage du toit',
+      visible: (cc) => !!cc.obj.toitMesure,
+      carte: (cc) => carteDuToit(cc.obj),
+    },
+    {
+      type: 'lecture',
+      cle: 'toitCorpsLus',
+      libelle: 'Corps',
+      visible: (cc) => mode(cc) === 'corps',
+      valeur: (cc) => decrireCorps(cc.obj.corpsToit ?? []).join(' · '),
     },
     {
       type: 'lecture',
