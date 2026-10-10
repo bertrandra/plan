@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Arbres : des feuilles de près.** Quand la caméra approche d'un arbre (moins de 30 m), de petites
+  feuilles couvrent son houppier — des aiguilles sur un conifère —, chacune son orientation et sa
+  nuance, en une seule maille instanciée par arbre ; elles tombent avec le feuillage d'un caduc en
+  hiver et ne changent pas l'ombre. À l'export GLB, que la version de three.js en place ne sait pas
+  écrire en instances, elles sont converties en maille ordinaire pour les arbres proches du centre
+  (12 000 feuilles au plus) : la visionneuse et la réalité augmentée les montrent aussi
+  (`MD/spec-arbres-3d.md` §3.1).
+
 - **Des arbres qui ressemblent à des arbres en 3D** (`MD/spec-arbres-3d.md`) : un tronc conique,
   des branches, un houppier en lobes selon le **port** (rond, étalé, colonnaire, conique,
   parasol), coloré en deux tons, propre à chaque arbre et stable d'une ouverture à l'autre ; une

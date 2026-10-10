@@ -473,6 +473,18 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
   `essenceArbre` sur chacun des trois arbres estimés ; rien d'autre ne bouge. Aucune quantité ni
   aucun export de chiffrage n'est touché.
 
+
+  **10 octobre 2026 — des feuilles de près : `glb-structure.json` recapturé.** Les arbres portent
+  de petites feuilles instanciées (`three/feuilles.ts`, spec-arbres-3d §3.1), que l'export convertit
+  en mailles ordinaires. Le point 24 sous `RECAPTURER_GLB=1` rend **2 944 160 octets, 337 nœuds,
+  328 mailles, 434 matériaux, 6 textures et 6 images, 1 145 accesseurs, 1 151 vues tampon** :
+  +3 nœuds, +3 mailles et +3 matériaux (une maille `arbre-feuilles-cuites` par arbre), +12
+  accesseurs et vues tampon (position, normale, couleur, indices), +416 684 octets dont 412 776
+  de géométrie pour 2 457 feuilles. Mesuré le même jour sur `origin/main` (4a3a02d) : 2 527 476
+  octets, les compteurs du témoin précédent. Un premier essai donnait 4,4 Mo : la liste des mailles
+  et leurs matrices vivaient dans `userData`, que l'exporteur écrit dans le JSON du fichier ; elles
+  en sont sorties, et un test le garde.
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
@@ -483,7 +495,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 460 | `6343983f04c3ec378a75ab2eef5cb60ab2b08db2db04061e4c099a9d7a858c33` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 460 | `154198b4c0be615e60f8a7f8ede9089f74533cac8dc8e346c7044a991350bedd` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

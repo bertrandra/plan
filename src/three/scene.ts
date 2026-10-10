@@ -10,6 +10,7 @@
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
 import { ajouterArbre3d } from './arbre3d.js';
+import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
@@ -717,7 +718,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
   };
   vue3d.scene = sc;
-  const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); };
+  // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
+  const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); actualiserFeuillesProches(scene, camera); renderer.render(scene, camera); };
   animate();
   ctx.applyMode3D();
   // Le panneau relit tout, y compris la liste des points de vue.
