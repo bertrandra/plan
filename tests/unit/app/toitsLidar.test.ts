@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
+import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
 import { hauteurToitEn, plansDuToit } from '../../../src/facade/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
@@ -261,6 +261,10 @@ describe('toitsDepuisLidar', () => {
     // Une maison de 6,3 m : le corps a 9 m d'egout est l'arbre ; celui a 6 m, la maison.
     const maison: ObjetAToit = { fonction: 'batiment', pts: rect(0, 0, 10, 8), bdtopo: { hauteurM: 6.3 } };
     expect(corpsVraisemblables(maison, [corps(6.2, 9), corps(9.5, 12)])?.map((c) => c.egouts[0])).toEqual([6.2]);
+    // Toute la surface au-dessus de la hauteur BD TOPO : un arbre, pas de surface mesuree.
+    const surface = { egout: 9.5 } as Parameters<typeof mesureVraisemblable>[1];
+    expect(mesureVraisemblable(abri, surface)).toBeNull();
+    expect(mesureVraisemblable(maison, { egout: 6 } as Parameters<typeof mesureVraisemblable>[1])).not.toBeNull();
     // Sans hauteur BD TOPO, rien a comparer : les corps restent.
     expect(corpsVraisemblables({ fonction: 'batiment', pts: rect(0, 0, 4, 3) }, [corps(9.5, 15)])).toHaveLength(1);
   });
