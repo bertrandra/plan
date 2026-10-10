@@ -46,7 +46,7 @@ import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, estTerrasse, estBatiment, visibleEnIsolement } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estTerrasse, estBatiment, visibleEnIsolement, surParcelleDuProjet } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
@@ -601,7 +601,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
     // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
     const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
-    const corpsToit = modeToit === 'corps' ? o.corpsToit ?? null : null;
+    // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
+    const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
+    const corpsToit = modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null;
     const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
     // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
     // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
@@ -656,7 +658,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
           ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
           ...(toitMesure || corpsToit ? { sansToit: true } : {}),
           // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
-          ...(corpsToit && !apparence && f3d.mode !== 'uneParUne' ? { corps: corpsToit } : {}) }
+          ...(corpsToit && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
       );
     }
   });
