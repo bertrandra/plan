@@ -2,12 +2,13 @@
 //
 // Le modele numerique de hauteur donne, tous les 50 cm, la hauteur du sursol au-dessus du sol :
 // sur un batiment, c'est la hauteur de sa couverture. On y ajuste les formes que Plan sait dessiner
-// (toit plat, croupes sur le squelette, deux pans ou quatre pans dans l'axe du plus long mur ou en
-// travers) par moindres carres : chaque forme a hauteur unite donne un profil `f(q)`, et les
-// mesures `z = e + H f(q)` rendent l'egout `e` et la hauteur de faitage `H` d'un coup. La forme
-// qui s'ecarte le moins des mesures l'emporte, a cout egal la plus simple ; au-dela d'un ecart
-// que le LiDAR n'explique pas (un corps de batiment plus haut, une tourelle, un arbre), on
-// renonce et le toit BD TOPO reste.
+// (toit plat, croupes sur le squelette, deux pans ou quatre pans dans l'axe du plus long mur, en
+// travers, et dans l'axe que les mesures elles-memes dessinent ; un appentis dans chacun des quatre
+// sens) par moindres carres : chaque forme a hauteur unite donne un profil `f(q)`, et les mesures
+// `z = e + H f(q)` rendent l'egout `e` et la hauteur de faitage `H` d'un coup. La forme qui
+// s'ecarte le moins des mesures l'emporte, a ecart egal la premiere essayee (la plus simple) ;
+// au-dela d'un ecart que le LiDAR n'explique pas (un corps de batiment plus haut, une tourelle, un
+// arbre), on renonce et le toit BD TOPO reste.
 //
 // Ce module ne lit rien : il recoit des echantillons (geo/mnh.ts les lit) et rend un toit.
 
@@ -38,10 +39,19 @@ export interface ToitAjuste {
 export const ECHANTILLONS_MIN = 20;
 /** Au-dela de cet ecart, aucune forme simple n'explique les mesures : le toit BD TOPO reste. */
 export const ECART_MAX_M = 0.8;
+/** Un appentis se contente de moins : une rampe explique a peu pres n'importe quoi, un vrai appentis colle de pres. */
+export const ECART_MAX_APPENTIS_M = 0.4;
 /** Une mesure a plus de cela du toit ajuste est un arbre, une cheminee, une lucarne : ecartee, puis on refait l'ajustement. */
 export const RESIDU_ABERRANT_M = 1.5;
-/** Ce que coute un quatre pans par rapport aux croupes et aux deux pans, en metres d'ecart : a mesures egales, le plus simple. */
-const COUT_QUATRE_PANS_M = 0.05;
+/** L'axe des mesures : la tranche haute des cellules (sans les quelques plus hautes, cheminee ou arbre), et l'allongement qu'il lui faut pour dire une direction. */
+const PART_HAUTE = 0.2;
+const PART_ECARTEE = 0.04;
+const ALLONGEMENT_MIN = 2.5;
+/** Deux axes a moins de cela l'un de l'autre sont le meme : inutile d'essayer deux fois. */
+const AXES_CONFONDUS_DEG = 8;
+/** Deux paliers de hauteurs separes d'au moins cela, chacun avec au moins cette part des mesures : deux corps de batiment, pas un toit. */
+export const SAUT_DEUX_CORPS_M = 1;
+const PART_CORPS_MIN = 0.25;
 
 interface Candidat {
   forme: FormeToit;
@@ -52,8 +62,47 @@ interface Candidat {
 const deg = (r: number) => (r * 180) / Math.PI;
 const cm = (v: number) => Math.round(v * 100) / 100;
 
-/** Les formes que l'on essaie, chacune a hauteur unite, sur ce contour. */
-function candidats(pts: readonly PtBrut[]): Candidat[] {
+/**
+ * La direction que dessinent les mesures les plus hautes (le faitage), en degres modulo 180, ou
+ * null quand elles ne s'allongent pas : un toit plat, des croupes en pavillon, trop peu de mesures.
+ * L'axe principal du nuage des `PART_HAUTE` cellules les plus hautes, par ses moments d'ordre deux.
+ */
+export function axeDesMesures(ech: readonly EchantillonHauteur[]): number | null {
+  if (ech.length < ECHANTILLONS_MIN) return null;
+  const triees = [...ech].sort((a, b) => b.z - a.z);
+  const depart = Math.round(ech.length * PART_ECARTEE);
+  const hautes = triees.slice(depart, depart + Math.max(6, Math.round(ech.length * PART_HAUTE)));
+  const n = hautes.length;
+  const mx = hautes.reduce((s, m) => s + m.x, 0) / n, my = hautes.reduce((s, m) => s + m.y, 0) / n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const m of hautes) { sxx += (m.x - mx) ** 2; syy += (m.y - my) ** 2; sxy += (m.x - mx) * (m.y - my); }
+  const tr = sxx + syy, det = sxx * syy - sxy * sxy;
+  const disc = Math.sqrt(Math.max(0, (tr * tr) / 4 - det));
+  const l1 = tr / 2 + disc, l2 = tr / 2 - disc;
+  if (l2 <= 1e-9 ? l1 <= 1e-9 : l1 / l2 < ALLONGEMENT_MIN * ALLONGEMENT_MIN) return null;
+  // Le vecteur propre de l1 : (sxy, l1 - sxx), ou (l1 - syy, sxy) quand le premier degenere.
+  const vx = Math.abs(sxy) > 1e-9 ? sxy : l1 - syy, vy = Math.abs(sxy) > 1e-9 ? l1 - sxx : sxy;
+  return ((deg(Math.atan2(vy, vx)) % 180) + 180) % 180;
+}
+
+/**
+ * Les mesures se separent-elles en deux paliers (un corps haut, un corps bas sous le meme contour) ?
+ * Un toit, meme a deux pans raides, monte continument : ses hauteurs triees n'ont pas de saut. Un
+ * saut d'au moins `SAUT_DEUX_CORPS_M` entre deux parts d'au moins un quart chacune n'est pas un toit
+ * simple - et un appentis ou une rampe quelconque l'expliquerait a tort.
+ */
+export function deuxCorps(ech: readonly EchantillonHauteur[]): boolean {
+  const z = ech.map((m) => m.z).sort((a, b) => a - b);
+  const n = z.length;
+  const debut = Math.ceil(n * PART_CORPS_MIN), fin = Math.floor(n * (1 - PART_CORPS_MIN));
+  for (let i = debut; i < fin; i++) if ((z[i] ?? 0) - (z[i - 1] ?? 0) >= SAUT_DEUX_CORPS_M) return true;
+  return false;
+}
+
+const ecartAxes = (a: number, b: number) => { const d = Math.abs(a - b) % 180; return Math.min(d, 180 - d); };
+
+/** Les formes que l'on essaie, chacune a hauteur unite, sur ce contour, dans l'ordre du plus simple au plus riche. */
+function candidats(pts: readonly PtBrut[], axeMesure: number | null): Candidat[] {
   const angle = angleDuPlusLongCote(pts);
   const travers = (angle + 90) % 180;
   const parPlans = (forme: FormeToit, angleFaitage: number): Candidat => {
@@ -61,13 +110,16 @@ function candidats(pts: readonly PtBrut[]): Candidat[] {
     return { forme, angleFaitage, f: (q) => hauteurToitEn(plans, q) };
   };
   const croupes = facettesToit(pts, { forme: 'croupes', hauteur: 1, angleFaitage: 0 }).pans;
+  // L'axe que les mesures dessinent, s'il n'est pas deja l'un des deux : un faitage de biais sur un contour irregulier.
+  const axes = [angle, travers];
+  if (axeMesure !== null && axes.every((a) => ecartAxes(a, axeMesure) > AXES_CONFONDUS_DEG)) axes.push(axeMesure);
   return [
     { forme: 'plat', angleFaitage: 0, f: () => 0 },
+    // Un appentis monte vers +v, le cote de `angleFaitage + 90` : les quatre sens.
+    ...[angle, angle + 180, travers, travers + 180].map((a) => parPlans('appentis', a % 360)),
     { forme: 'croupes', angleFaitage: 0, f: (q) => hauteurSurPans(croupes, q) ?? 0 },
-    parPlans('deux-pans', angle),
-    parPlans('deux-pans', travers),
-    parPlans('quatre-pans', angle),
-    parPlans('quatre-pans', travers),
+    ...axes.map((a) => parPlans('deux-pans', a)),
+    ...axes.map((a) => parPlans('quatre-pans', a)),
   ];
 }
 
@@ -115,22 +167,33 @@ function pente(pts: readonly PtBrut[], c: Candidat, H: number): number {
   return r.hw > 0 ? deg(Math.atan(H / r.hw)) : 0;
 }
 
+/** Pour comprendre un ajustement : chaque forme essayee, son ecart, sa hauteur et son egout. */
+export function diagnostiquerToit(pts: readonly PtBrut[], ech: readonly EchantillonHauteur[]): { forme: FormeToit; angleFaitage: number; ecart: number; H: number; e: number; gardes: number }[] {
+  return candidats(pts, axeDesMesures(ech)).flatMap((c) => {
+    const a = ajuster(ech, c);
+    return a ? [{ forme: c.forme, angleFaitage: Math.round(c.angleFaitage), ecart: cm(a.ecart), H: cm(a.H), e: cm(a.e), gardes: a.gardes.length }] : [];
+  });
+}
+
 /**
  * Le toit qui explique le mieux les mesures sur ce contour, ou `null` quand aucune forme simple ne
- * les explique (ecart au-dela de `ECART_MAX_M`), quand il y a trop peu de mesures, ou quand la
- * pente retenue n'est pas celle d'une couverture (au-dela de `PENTE_MAX_DEG`). Un toit trop bas
+ * les explique (ecart au-dela de `ECART_MAX_M`, ou deux corps de hauteurs differentes), quand il y a
+ * trop peu de mesures, ou quand la pente retenue n'est pas celle d'une couverture (au-dela de
+ * `PENTE_MAX_DEG`). Un toit trop bas
  * ou trop peu pentu pour etre autre chose est rendu plat, comme pour la BD TOPO (§4).
  */
 export function ajusterToit(pts: readonly PtBrut[], ech: readonly EchantillonHauteur[]): ToitAjuste | null {
   if (pts.length < 3 || ech.length < ECHANTILLONS_MIN) return null;
-  let meilleur: { c: Candidat; a: Ajustement; cout: number } | null = null;
-  for (const c of candidats(pts)) {
+  // Deux corps sous un contour : aucune forme simple ne vaut, l'appelant les separe (model/volumesToit.ts).
+  if (deuxCorps(ech)) return null;
+  let meilleur: { c: Candidat; a: Ajustement } | null = null;
+  for (const c of candidats(pts, axeDesMesures(ech))) {
     const a = ajuster(ech, c);
     if (!a) continue;
-    const cout = a.ecart + (c.forme === 'quatre-pans' ? COUT_QUATRE_PANS_M : 0);
-    if (!meilleur || cout < meilleur.cout) meilleur = { c, a, cout };
+    // Un ecart strictement plus petit l'emporte : a egalite, la forme essayee en premier, la plus simple.
+    if (!meilleur || a.ecart < meilleur.a.ecart - 1e-9) meilleur = { c, a };
   }
-  if (!meilleur || meilleur.a.ecart > ECART_MAX_M) return null;
+  if (!meilleur || meilleur.a.ecart > (meilleur.c.forme === 'appentis' ? ECART_MAX_APPENTIS_M : ECART_MAX_M)) return null;
   const { c, a } = meilleur;
   const base = { egout: cm(a.e), ecart: cm(a.ecart), echantillons: a.gardes.length };
   const plat: Toit = { forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar' };

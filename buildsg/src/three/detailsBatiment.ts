@@ -53,6 +53,10 @@ export interface OptionsDetails {
   fenetres?: { largeur?: number; hauteur?: number; appui?: number; entraxe?: number; couleur?: string };
   /** Des ouvertures reglees une par une : elles remplacent la disposition automatique. */
   ouvertures?: readonly Fenetre3d[];
+  /** Un toit par corps de batiment : chaque volume son emprise, son egout, son toit (model/volumesToit.ts). */
+  volumes?: readonly (Volume & { toit: Toit })[];
+  /** Le toit est la surface mesuree au LiDAR (three/toitMesure3d.ts) : ni debord, ni cheminee, qui suivent une forme simple. */
+  sansToit?: boolean;
 }
 
 // La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
@@ -435,14 +439,19 @@ function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toit: T
 /** Habille un batiment de ses details. Le prisme et le releve sont deja poses. */
 export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h: number, options: OptionsDetails = {}): void {
   if (!Array.isArray(o.pts) || o.pts.length < 3 || h <= 0) return;
-  const volumes = volumesDuBatiment(o.pts, h, o.facades);
+  const multi = options.volumes;
+  const volumes = multi ?? volumesDuBatiment(o.pts, h, o.facades);
   const contourHaut = au(volumes, 0).pts;
-  const toit = o.toit;
+  const toit = options.sansToit ? null : o.toit;
   const pres = ctx.distance <= DETAIL_FIN_M;
-  if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
+  // Chaque corps de batiment a son debord a son egout ; sinon le debord suit la partie haute.
+  if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres));
+  else if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
   poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
   poserSoubassement(ctx, o.pts, h);
   poserOuvertures(ctx, o.pts, volumes, h, options);
-  if (toit) poserCheminee(ctx, contourHaut, toit, h);
+  const principal = multi && !options.sansToit ? au(multi, 0) : null;
+  if (principal) poserCheminee(ctx, principal.pts, principal.toit, principal.hauteur);
+  else if (toit) poserCheminee(ctx, contourHaut, toit, h);
 }

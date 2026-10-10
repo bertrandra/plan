@@ -671,6 +671,12 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
  * projet (ou toutes les parcelles), range sur elle. Un echec ne bloque pas la creation : le plan
  * arrive sans relief, « Lire le relief » reste a portee. Rend la phrase d'echec, ou `''`.
  */
+/** Le projecteur du plan construit : son origine est le calage cadastral de la parcelle (geo/cadastreObjets.ts) ; a defaut, celui de l'import. */
+export function projecteurDuPlan(objets: ObjetPlan[], repli: ProjecteurLocal): ProjecteurLocal {
+  const cad = parcelleDuProjet(objets)?.cadastre;
+  return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? projecteurLocal(cad.origineLat, cad.origineLon) : repli;
+}
+
 async function reliefImporte(objets: ObjetPlan[], e: EtatImportCadastre, occuper: Noyau['occuper'], lire: typeof lireRelief): Promise<string> {
   if (!e.importerRelief || !droitsCourants().aCapacite(CAPACITES.relief.code)) return '';
   const demande = demandeReliefDuPlan(objets, e.reliefToutesParcelles);
@@ -708,14 +714,18 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         e.erreur = 'Construction du plan impossible : ' + ((err as Error).message || err);
         signaler(); return;
       }
+      // Les objets sont dans le repere du plan construit, dont l'origine est le calage cadastral
+      // (le sommet nord de la parcelle), pas le point de l'adresse : les lectures sous les toits
+      // se font dans ce repere-la, sinon elles tombent a cote.
+      const projPlan = projecteurDuPlan(objets, proj());
       // La couverture de chaque toit, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1). Sans
       // reponse du WMTS, les toits gardent la tuile rouge par defaut : rien n'est bloque.
       occuper(true, 'Couleur des toits sur l’orthophoto…');
-      await couleursToitsDepuisOrtho(objets, proj()).catch(() => null);
+      await couleursToitsDepuisOrtho(objets, projPlan).catch(() => null);
       // La forme des toits, mesuree sur le MNH LiDAR HD (MD/spec-toit-ign.md §10) : les plus
       // proches d'abord, dans un delai borne ; sans dalle LiDAR, les toits BD TOPO restent.
       occuper(true, 'Forme des toits sur le LiDAR HD…');
-      await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj()).catch(() => null);
+      await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, projPlan).catch(() => null);
       const relief = await reliefImporte(objets, e, occuper, ctx.lireRelief ?? lireRelief);
       occuper(false);
       if (!ctx.apiDisponible) {

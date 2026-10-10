@@ -98,6 +98,9 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // L'apparence du voisinage en 3D (parcelle du projet) et les fenetres d'un batiment : de meme.
     if(o.voisinage3d) out.voisinage3d = JSON.parse(JSON.stringify(o.voisinage3d));
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
+    if(o.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.volumesToit));
+    if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
+    if(o.modeToit) out.modeToit = o.modeToit;
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.

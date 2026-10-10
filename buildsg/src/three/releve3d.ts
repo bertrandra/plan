@@ -6,6 +6,8 @@
 // de l'egout. Rien n'est ajoute a un batiment sans releve : la scene d'un plan qui n'en a pas garde
 // exactement ses mailles (fumee, point 24 : structure du GLB).
 
+import { toitDuVolume } from '../model/volumesToit.js';
+import type { VolumeToit } from '../model/types.js';
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type * as THREE_NS from 'three';
@@ -225,8 +227,8 @@ function hauteurDuMur(f: Facade, volumes: readonly Volume[]): number {
 }
 
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
-export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number): void {
-  if (!o.facades?.length && !o.toit) return;
+export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false): void {
+  if (!o.facades?.length && !o.toit && !volumesToit) return;
   const volumes = volumesDuBatiment(o.pts, h, o.facades);
   const facades = facadesDuContour(o.pts, h);
   const habillages: Habillage[] = [];
@@ -253,7 +255,11 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       .filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01)
       .forEach((ov) => poserOuverture(ctx, f, ov, avecPhoto));
   });
-  // Le toit coiffe la partie haute ; la partie basse garde le toit plat de son prisme.
-  if (o.toit) poserToit(ctx, au(volumes, 0).pts, o.toit, h, habillages);
+  // Un toit par corps de batiment (model/volumesToit.ts), chacun a son egout ; sinon le toit coiffe
+  // la partie haute, et la partie basse garde le toit plat de son prisme. `sansToit` : la surface
+  // mesuree au LiDAR le remplace (three/toitMesure3d.ts), les murs et leurs ouvertures restent.
+  if (sansToit) return;
+  if (volumesToit) volumesToit.forEach((v) => poserToit(ctx, v.pts, toitDuVolume(v, o.toit), v.egout ?? h, habillages));
+  else if (o.toit) poserToit(ctx, au(volumes, 0).pts, o.toit, h, habillages);
 }
 
