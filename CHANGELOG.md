@@ -34,6 +34,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Plus de tour au milieu du voisinage** (`MD/spec-toit-ign.md` §13.6) : un abri de jardin de 11 m²
+  (2,70 m dans la BD TOPO), à côté d'AE 101, était sous un grand arbre ; le LiDAR mesurait la cime,
+  et ses corps montaient à 15 m. Un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du
+  bâtiment est maintenant écarté : c'est un houppier, pas un toit. Sans corps restant, le bâtiment
+  garde sa forme simple.
 - **Plus de bout de maison sans toit le long d'un côté de biais** (`MD/spec-toit-ign.md` §13.7) : la
   marche qui remplace le biais laissait, d'un côté, un triangle du bâtiment qu'aucun corps ne
   couvrait (AE 103, à côté de l'aile à 6,3 m). Chaque corps s'étend maintenant jusqu'à couvrir ce que

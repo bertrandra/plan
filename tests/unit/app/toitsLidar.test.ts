@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
+import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
 import { hauteurToitEn, plansDuToit } from '../../../src/facade/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
@@ -251,5 +251,17 @@ describe('toitsDepuisLidar', () => {
     const posee: ObjetAToit = { key: 'm2', fonction: 'batiment', pts: vrai.map((q) => ({ ...q })), toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
     await toitsDepuisLidar([{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 20, 20) }, posee], proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
     expect(lireGrille).toHaveBeenCalledTimes(1);
+  });
+
+  it('n habille pas de corps l arbre qui couvre un abri de jardin : la cime n est pas un toit', () => {
+    const corps = (egout: number, faitage: number) => ({ pts: rect(0, 0, 4, 3), posFaitage: 1.5, faitage, egouts: [egout, egout] as [number, number], pignons: [], ecart: 0.3 });
+    const abri: ObjetAToit = { fonction: 'batiment', pts: rect(0, 0, 4, 3), bdtopo: { hauteurRetenueM: 2.7 } };
+    // Un abri de 2,70 m vu a 9,5 m d'egout et 15 m de faitage : un houppier, pas de corps.
+    expect(corpsVraisemblables(abri, [corps(9.5, 15.3), corps(11.8, 11.8)])).toBeNull();
+    // Une maison de 6,3 m : le corps a 9 m d'egout est l'arbre ; celui a 6 m, la maison.
+    const maison: ObjetAToit = { fonction: 'batiment', pts: rect(0, 0, 10, 8), bdtopo: { hauteurM: 6.3 } };
+    expect(corpsVraisemblables(maison, [corps(6.2, 9), corps(9.5, 12)])?.map((c) => c.egouts[0])).toEqual([6.2]);
+    // Sans hauteur BD TOPO, rien a comparer : les corps restent.
+    expect(corpsVraisemblables({ fonction: 'batiment', pts: rect(0, 0, 4, 3) }, [corps(9.5, 15)])).toHaveLength(1);
   });
 });
