@@ -82,6 +82,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'facade.retirer': 'Retire la photo et les ouvertures relevées sur le mur désigné ; Ctrl+Z les rend',
 
   // ---- Relief du terrain --------------------------------------------------------------------------
+  'projet.lireRues': 'Lit à l’IGN (BD TOPO) les rues nommées à moins de 250 m de la parcelle et les enregistre dans le projet, pour afficher leur nom sur le plan et dans la 3D ; Ctrl+Z rend les précédentes',
   'relief.lire': 'Lit à l’IGN la grille d’altitudes du sol sur la parcelle et ses abords (LiDAR HD, sinon RGE ALTI) et l’enregistre dans le projet ; Ctrl+Z rend le plan plat',
   'relief.actualiser': 'Relit la grille d’altitudes à l’IGN et remplace celle du projet, zéro du plan compris ; Ctrl+Z rend l’ancienne',
   'relief.supprimer': 'Retire le relief du projet : le plan redevient plat, ses nombres redeviennent ceux d’avant ; Ctrl+Z le rend',

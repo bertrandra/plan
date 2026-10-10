@@ -50,7 +50,7 @@ export const CAPACITES = {
   cadastre: {
     code: 'plan.cadastre',
     libelle: 'Import cadastral et bati IGN',
-    commandes: ['projet.depuisAdresse', 'projet.actualiserIgn'],
+    commandes: ['projet.depuisAdresse', 'projet.actualiserIgn', 'projet.lireRues'],
     origines: ['https://api-adresse.data.gouv.fr', 'https://apicarto.ign.fr', 'https://data.geopf.fr']
   },
   ortho: {

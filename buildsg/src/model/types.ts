@@ -208,6 +208,8 @@ interface ObjetCommun {
   /** Diametre estime d'un arbre importe, en metres. */
   diametreArbre?: number;
   couleurArbre?: string;
+  /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
+  ruesVoisinage?: RuesVoisinage | null;
   /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
   portArbre?: 'rond' | 'etale' | 'colonnaire' | 'conique' | 'parasol';
   essenceArbre?: 'caduc' | 'persistant';
@@ -488,6 +490,11 @@ export interface TextureAppliquee {
 export type TypeCloture = 'aucune' | 'palissade' | 'grillage' | 'haie' | 'mur';
 
 /** L'apparence du voisinage en 3D, rangee sur la parcelle du projet (MD/spec-toit-ign.md §6.4). */
+/** Une rue : son nom (celui de la BAN) et ses troncons, dans le repere du plan. */
+export interface RueVoisine { nom: string; troncons: PtBrut[][] }
+/** Les rues lues autour de la parcelle du projet, et quand. */
+export interface RuesVoisinage { recupereLe: string; rayonM: number; rues: RueVoisine[] }
+
 export interface ReglagesVoisinage3d {
   /**
    * Les murs des maisons voisines : la couleur du plan, une couleur unique, ou une nuance tiree au
@@ -509,6 +516,8 @@ export interface ReglagesVoisinage3d {
   };
   /** Un grillage, une palissade, une haie ou un mur sur les limites des parcelles voisines. */
   cloture: { afficher: boolean; type: Exclude<TypeCloture, 'aucune'>; couleur: string };
+  /** Le nom des rues, sur le plan et au sol de la Vue 3D (les rues lues sont dans `ruesVoisinage`). */
+  rues: { afficher: boolean };
 }
 
 /** Une ouverture dessinee en 3D sur un mur d'un batiment du projet : laquelle, et sur quel cote. */
