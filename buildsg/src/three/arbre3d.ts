@@ -11,7 +11,10 @@
 // Rien n'est charge : pas d'image, pas de modele. L'export GLB emporte l'arbre tel qu'il est vu.
 
 import type * as THREE_NS from 'three';
-import { arbreNu, essenceDe, houppierDe, portDe, COULEUR_FEUILLAGE_DEFAUT, COULEUR_TRONC_DEFAUT, type EssenceArbre } from '../model/arbre.js';
+import { arbreNu, essenceDe, houppierDe, portDe, feuillesDuHouppier, tonDuSommet, COULEUR_FEUILLAGE_DEFAUT, COULEUR_TRONC_DEFAUT, type EssenceArbre } from '../model/arbre.js';
+import { ajouterFeuilles } from './feuilles.js';
+
+export { tonDuSommet, TON_CLAIR, TON_SOMBRE } from '../model/arbre.js';
 import { graineDe, tirage } from '../model/voisinage3d.js';
 import { appliquerOpacite, urlTexture, type VersLocal } from './primitives.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -23,10 +26,6 @@ export const NOM_FEUILLAGE = 'arbre-feuillage';
 export const NOM_LOBE = 'arbre-lobe';
 /** Amplitude du bruit radial des lobes, en part du rayon. */
 export const BRUIT_LOBE = 0.07;
-/** Eclaircissement du dessus et assombrissement du dessous du feuillage. */
-export const TON_CLAIR = 1.22;
-export const TON_SOMBRE = 0.68;
-
 export interface ContexteArbre {
   /** La scene, ou un groupe pose sur le sol en relief. */
   scene: THREE_NS.Object3D;
@@ -36,13 +35,6 @@ export interface ContexteArbre {
   /** La date de l'etude d'ensoleillement (AAAA-MM-JJ) : un caduc y est nu de novembre a mars. */
   dateStr: string | null;
   opacite?: number | undefined;
-}
-
-/** La couleur d'un sommet selon la hauteur de sa normale : clair dessus, sombre dessous. */
-export function tonDuSommet(base: [number, number, number], normaleY: number): [number, number, number] {
-  const t = (normaleY + 1) / 2;
-  const k = TON_SOMBRE + (TON_CLAIR - TON_SOMBRE) * t;
-  return [Math.min(1, base[0] * k), Math.min(1, base[1] * k), Math.min(1, base[2] * k)];
 }
 
 function rgb(hex: string): [number, number, number] {
@@ -143,6 +135,9 @@ export function ajouterArbre3d(ctx: ContexteArbre, o: ObjetPlan, hTronc: number,
       feuillage.add(m);
     });
   }
+  // De pres, des feuilles sur la surface des lobes (three/feuilles.ts) ; dans le feuillage, elles
+  // tombent avec lui en hiver.
+  ajouterFeuilles(feuillage, feuillesDuHouppier(h, portDe(o), graine), base);
   groupe.add(feuillage);
   ctx.scene.add(groupe);
   return groupe;
