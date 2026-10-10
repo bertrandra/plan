@@ -40,7 +40,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   mitoyenne, un pavillon coupé en trois bandes de 1,5 à 2,6 m. Un seul toit, lu par les formes
   simples sur le rectangle entier, l'emporte quand il explique la mesure presque aussi bien (et plus
   largement quand un morceau fait moins de 3 m de large). AE 98 : un deux-pans à 9,6 m et l'appentis
-  de son annexe ; sa voisine, un deux-pans à 9,8 m. AE 101 ne change pas.
+  de son annexe ; sa voisine, un deux-pans à 9,8 m. AE 101 ne change pas. Puis la règle passe à la
+  continuité de la couverture : quand le saut au côté commun de deux blocs n'est que la pente d'un pan
+  (moins de 60 cm d'une cellule à l'autre), c'est le même toit. Revue des 57 maisons du voisinage
+  d'AE 101 : 117 corps avant, 105 après, plus de grand toit débité en bandes.
 - **Les toits à un pan** (`MD/spec-toit-ign.md` §13.2) : la reconstruction lit deux pans, quatre
   pans, un pan et plat, à une seule règle pour ce qui est plat (moins de 30 cm de montée ou de 3°).
   Un appentis n'a plus de faux petit pan de 25 cm contre son mur haut. Un appentis de 6 à 10° n'est

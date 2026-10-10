@@ -13,7 +13,7 @@ import type { CorpsToit, PtBrut, ToitMesure } from '../../../src/model/types.js'
 // centimetre, et AE 103, dont la BD TOPO trace la maison en biais et deux metres trop au nord.
 
 interface Releve { contour: PtBrut[]; toitMesure: ToitMesure; corps: CorpsToit[] | null; grille: GrilleRelief; grilleLarge?: GrilleRelief }
-const releve = (n: string): Releve => JSON.parse(readFileSync(new URL(`../../fixtures/toits/vesinet-ae${n}.json`, import.meta.url), 'utf8'));
+const releve = (n: string): Releve => JSON.parse(readFileSync(new URL(`../../fixtures/toits/vesinet-${/^\d{8}$/.test(n) ? n : 'ae' + n}.json`, import.meta.url), 'utf8'));
 const p = (x: number, y: number): PtBrut => ({ x, y });
 
 describe('reprise des contours de biais', () => {
@@ -59,6 +59,19 @@ describe('reprise des contours de biais', () => {
     expect(principal.faitage).toBeGreaterThan(9.3);
     expect(principal.egouts[0]).toBe(principal.egouts[1]);
     expect(principal.egouts[0]).toBeLessThan(7);
+  });
+
+  it('un grand deux-pans du voisinage, que la pente de ses pans debitait en bandes paralleles au faitage', () => {
+    const r = releve('28267713');
+    const corps = reconstruireCorps(toitMesureDepuisGrille(r.grille, r.contour)!, r.contour, { grille: r.grille, coupes: false })!;
+    const principal = [...corps].sort((a, b) => b.faitage - a.faitage)[0]!;
+    expect(principal.faitage).toBeGreaterThan(10);
+    expect(Math.abs(principal.egouts[0] - principal.egouts[1])).toBeLessThan(1);
+    // Aucun corps plus etroit que 3 m : plus de bande.
+    for (const c of corps) {
+      const L = Math.hypot(c.pts[1]!.x - c.pts[0]!.x, c.pts[1]!.y - c.pts[0]!.y), W = Math.hypot(c.pts[3]!.x - c.pts[0]!.x, c.pts[3]!.y - c.pts[0]!.y);
+      expect(Math.min(L, W)).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it('AE 103 : le contour recale sur le LiDAR, deux toits a quatre pans et un toit plat entre eux', () => {
