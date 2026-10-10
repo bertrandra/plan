@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une roue d'attente au centre de l'écran** pendant la création d'un plan depuis une adresse et
+  pendant l'actualisation IGN, avec l'étape en cours (« Forme des toits sur le LiDAR HD… »,
+  « Actualisation IGN : la couleur des toits sur l'orthophoto… ») : ces travaux durent plusieurs
+  dizaines de secondes, et rien ne disait qu'ils avançaient une fois le dialogue refermé. Elle ne
+  bloque rien (le pointeur la traverse) et ne tourne pas quand le système demande moins de
+  mouvement (`shell/attente.ts`, `zones/Attente.tsx`).
+
 - **Le toit tel que le LiDAR le mesure** (`MD/spec-toit-ign.md` §12) : pour les bâtiments de la
   parcelle du projet, la grille du MNH LiDAR HD (50 cm) est gardée, nettoyée des arbres, des
   cheminées et des trous, et la Vue 3D la dessine en surface, posée sur les murs à l'égout de chaque

@@ -12,6 +12,7 @@
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
 import { showToast } from '../shell/dialogs.js';
+import { attente } from '../shell/attente.js';
 import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../shell/geolocalisation.js';
 import { centroid, shoelace, pointInPolygon } from '../geometry/basic.js';
 import { fusionnerAnneaux, chainerSegments } from '../geometry/rings.js';
@@ -776,6 +777,8 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     e.occupe = actif;
     e.message = actif ? texte : '';
     if (actif) e.erreur = '';
+    // Et au centre de l'ecran, la roue d'attente avec la meme etape (shell/attente.ts).
+    attente.poser('import-cadastre', actif ? texte : null);
     signaler();
   };
   // Les gestes de l'etape 2 ne s'ouvrent qu'une parcelle choisie et projetee : les lire avant est une erreur.
