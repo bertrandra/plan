@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **De nouvelles couvertures en 3D** (`three/couverture.ts`, `MD/spec-toit-ign.md` §6.2) : tuiles
+  plates sur les toits raides, tuiles canal sur les toits peu pentus du Midi, zinc à joints debout,
+  gravillons sur les toits-terrasses, en plus des tuiles romanes et des ardoises. Le matériau de
+  toiture des fichiers fonciers (BD TOPO) choisit d'abord : ardoise, zinc ou tuile, même quand la photo
+  voyait la tuile grise. La pente choisit ensuite le modèle de tuile. Les facettes plates d'un bâtiment
+  en corps ont leur propre toit-terrasse, et le zinc brille un peu.
+
 - **Des textures pour les matériaux des murs** (`three/textureMur.ts`, `MD/spec-toit-ign.md` §6.6).
   Brique, pierre, meulière, béton, enduit et bois sont dessinés sans réseau, à l'échelle réelle et sans
   couture, puis teintés par la couleur des murs. Ils se posent en 3D et dans l'export GLB sur les murs

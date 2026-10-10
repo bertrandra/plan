@@ -17,9 +17,9 @@ import { facadesDuContour, type Facade } from '../facade/geometrie.js';
 import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
-import { materiauCouverture, couleurToitPlat } from '../model/couleurToit.js';
+import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { safeOffset } from '../engine/structure.js';
-import { textureCouverture } from './couverture.js';
+import { textureCouverture, matiereCouverture } from './couverture.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -30,6 +30,8 @@ export interface ContexteReleve3d {
   couleurMur: string | number;
   /** `false` quand la case « Texture » de la vue 3D est decochee : on garde les formes. */
   textures: boolean;
+  /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
+  couverture?: ContexteCouverture | undefined;
 }
 
 const COULEUR_MENUISERIE = 0xf1eee6;
@@ -151,12 +153,14 @@ function poserToitPlat(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: 
     const l = ctx.toLocal(q);
     sommets.push(l.x, h + SURELEVATION_TOIT_PLAT_M, l.z);
   });
-  const mat = new THREE.MeshStandardMaterial({ color: couleurToitPlat(toit), roughness: 0.95, side: THREE.DoubleSide });
+  // Un toit-terrasse en gravillons (three/couverture.ts), les coordonnees de texture en metres du plan.
+  const tex = ctx.textures ? textureCouverture('terrasse') : null;
+  const mat = new THREE.MeshStandardMaterial({ color: couleurToitPlat(toit), roughness: 0.95, side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) });
   // Deux centimetres au-dessus du prisme ne suffisent pas vu de loin : avec un voisinage etendu, le
   // plan lointain recule a des kilometres, la precision de profondeur s'effondre et la couverture
   // scintillait contre le dessus du prisme. Le decalage de profondeur la fait gagner a coup sur.
   poserEnCouche(mat, COUCHES_SOL.surMur);
-  const m = maillage(sommets, trianguler(dedans).flat(), mat);
+  const m = maillage(sommets, trianguler(dedans).flat(), mat, tex ? dedans.flatMap((q) => [q.x, q.y]) : undefined);
   m.name = 'releve-toit-plat';
   ctx.scene.add(m);
 }
@@ -166,11 +170,11 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: numb
   if (toit.forme === 'plat' || toit.hauteur <= 0) { poserToitPlat(ctx, contour, toit, h); return; }
   const { pans, pignons } = facettesToit(contour, toit);
   // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).
-  const materiau = materiauCouverture(toit);
+  const materiau = materiauCouverture(toit, ctx.couverture);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
   const matToit = new THREE.MeshStandardMaterial({
     color: toit.couleur || COULEUR_TOIT_DEFAUT,
-    roughness: materiau === 'ardoise' ? 0.7 : 0.85,
+    ...matiereCouverture(materiau),
     side: THREE.DoubleSide,
     ...(tex ? { map: tex } : {}),
   });

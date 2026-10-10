@@ -11,7 +11,7 @@
 
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
 import { textureMur } from './textureMur.js';
-import { volumesActifs, toitDuVolume, rectanglesDuContour } from '../model/volumesToit.js';
+import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
@@ -452,6 +452,8 @@ interface ContexteObjets {
   centre: PtBrut;
   /** L'apparence du voisinage (model/voisinage3d.ts), lue sur la parcelle du projet. */
   voisinage3d: ReglagesVoisinage3d;
+  /** La latitude du projet (son calage cadastral) : la tuile canal est celle du Midi. */
+  latitude: number | null;
 }
 
 /**
@@ -671,17 +673,20 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
+    // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
+    // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
+    const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude } : undefined;
     if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
-      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure || !!corpsToit);
+      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit);
     }
     if (o.type === 'polygon' && corpsToit && surContour) {
-      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical }, corpsToit, o.toit, o.pts);
+      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
     } else if (o.type === 'polygon' && corpsToit) {
-      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical }, corpsToit, o.toit, o.pts);
+      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
     }
     // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
     if (o.type === 'polygon' && toitMesure) {
-      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
+      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
     }
     // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
     // soubassement, fenetres par niveau, cheminee — moins de loin.
@@ -692,7 +697,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
       const f3d = fenetres3dDe(o);
       const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
       ajouterDetailsBatiment(
-        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, distance: dist(centre, co.centre),
+        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
           // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
           ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
         o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
@@ -785,7 +790,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
   ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
   const voisinage3d = voisinage3dDe(ctx.trouverParcelleCloture());
-  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects, centre: cen, voisinage3d };
+  const latitude = (ctx.trouverParcelleCloture()?.cadastre as { origineLat?: unknown } | null | undefined)?.origineLat;
+  const co: ContexteObjets = { prim, scene, versLocal, ctx, sol, solMoteur, objets: etat.objects, centre: cen, voisinage3d, latitude: typeof latitude === 'number' ? latitude : null };
   if(vue3d.tousLesObjets || !obj) ajouterObjetsDuPlan(obj, etat, co);
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.

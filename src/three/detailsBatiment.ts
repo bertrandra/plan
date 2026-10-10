@@ -23,8 +23,8 @@ import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
-import { materiauCouverture } from '../model/couleurToit.js';
-import { textureCouverture } from './couverture.js';
+import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
+import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 
 /** Ce que la scene prete a ce module. */
@@ -35,6 +35,8 @@ export interface ContexteDetails {
   couleurMur: string | number;
   /** `false` quand la case « Texture » de la vue 3D est decochee. */
   textures: boolean;
+  /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
+  couverture?: ContexteCouverture | undefined;
   /** La distance du batiment au centre de la scene, en metres : de loin, moins de details. */
   distance: number;
   /**
@@ -216,9 +218,9 @@ function cassures(contour: readonly PtBrut[], toit: Toit, a: PtBrut, b: PtBrut):
 }
 
 function materiauToit(ctx: ContexteDetails, toit: Toit): THREE_NS.MeshStandardMaterial {
-  const materiau = materiauCouverture(toit);
+  const materiau = materiauCouverture(toit, ctx.couverture);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
-  return new THREE.MeshStandardMaterial({ color: toit.couleur || COULEUR_TOIT_DEFAUT, roughness: materiau === 'ardoise' ? 0.7 : 0.85, side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) });
+  return new THREE.MeshStandardMaterial({ color: toit.couleur || COULEUR_TOIT_DEFAUT, ...matiereCouverture(materiau), side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) });
 }
 
 /**
@@ -464,7 +466,7 @@ function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toit: T
   if (!pointInPolygon(q, contour)) q = centroid(contour);
   if (!pointInPolygon(q, contour)) return;
   const z = hauteurSurPans(facettesToit(contour, toit).pans, q) ?? 0;
-  const couleur = materiauCouverture(toit) === 'ardoise' ? COULEUR_CHEMINEE_ARDOISE : COULEUR_CHEMINEE_TUILE;
+  const couleur = couvertureGrise(materiauCouverture(toit, ctx.couverture)) ? COULEUR_CHEMINEE_ARDOISE : COULEUR_CHEMINEE_TUILE;
   const m = new THREE.Mesh(new THREE.BoxGeometry(CHEMINEE.cote, CHEMINEE.dessus + CHEMINEE.dessous, CHEMINEE.cote), new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.9 }));
   const l = ctx.toLocal(q);
   m.position.set(l.x, h + z + (CHEMINEE.dessus - CHEMINEE.dessous) / 2, l.z);

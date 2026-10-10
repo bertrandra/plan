@@ -11,13 +11,15 @@ import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
 import { repere, point, planCroupe, hauteurCorpsEn } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
-import { materiauCouverture } from '../model/couleurToit.js';
-import { textureCouverture } from './couverture.js';
+import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
+import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut, Toit } from '../model/types.js';
 
 export const NOM_TOIT_CORPS = 'toit-corps';
+/** Les facettes plates d'un batiment en corps : un toit-terrasse, en gravillons. */
+export const NOM_TOIT_CORPS_PLAT = 'toit-corps-plat';
 export const NOM_MUR_CORPS = 'toit-corps-mur';
 /** Le debord du toit au-dela du mur, a l'egout, en metres (mesure a plat). */
 export const DEBORD_EGOUT_M = 0.35;
@@ -219,6 +221,8 @@ export interface ContexteToitCorps {
   textures: boolean;
   /** La texture des murs du prisme (choisie, ou dessinee d'apres le materiau) : les murs hauts la reprennent. */
   textureMur?: unknown;
+  /** Le materiau de toiture des fichiers fonciers : avec la pente des corps, il choisit la texture de la couverture. */
+  couverture?: ContexteCouverture | undefined;
 }
 
 /**
@@ -259,7 +263,7 @@ export function uvDuMur(poly: readonly S3[]): number[] {
 /** Pose les toits des corps decoupes sur le contour, et les murs qui montent jusqu'a eux (`facettesSurContour`). */
 export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[]): { pans: number; murs: number } {
   const { pans, murs } = facettesSurContour(corps, contour);
-  poserFacettes(ctx, pans, murs, toitRef);
+  poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   return { pans: pans.length, murs: murs.length };
 }
 
@@ -267,17 +271,42 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
 export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
   corps.forEach((c) => { const f = facettesCorps(c, contour); pans.push(...f.pans); murs.push(...f.murs); });
-  poserFacettes(ctx, pans, murs, toitRef);
+  poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   return { pans: pans.length, murs: murs.length };
 }
 
-/** Les facettes en deux mailles : la couverture (sa couleur, sa texture) et les murs. */
-function poserFacettes(ctx: ContexteToitCorps, pans: readonly S3[][], murs: readonly S3[][], toitRef: Toit | null | undefined): void {
-  if (pans.length) {
-    const materiau = materiauCouverture(toitRef);
+/** La pente d'un corps, en degres : celle de son pan le plus raide ; 0 pour un toit plat. */
+export function penteDuCorps(c: CorpsToit): number {
+  const W = Math.hypot((c.pts[3] as PtBrut).x - (c.pts[0] as PtBrut).x, (c.pts[3] as PtBrut).y - (c.pts[0] as PtBrut).y);
+  const p = c.posFaitage, [e0, e1] = c.egouts, deg = (h: number, l: number) => (l > 0.01 && h > 0 ? (Math.atan(h / l) * 180) / Math.PI : 0);
+  return Math.max(deg(c.faitage - e0, p), deg(c.faitage - e1, W - p));
+}
+
+/** La pente qui choisit la tuile : celle du plus grand corps en pente (un appentis de garage ne decide pas pour la maison). */
+export function penteDominante(corps: readonly CorpsToit[]): number | null {
+  const aire = (c: CorpsToit) => Math.abs(signedArea(c.pts as PtBrut[]));
+  const enPente = corps.filter((c) => penteDuCorps(c) > 0).sort((a, b) => aire(b) - aire(a));
+  return enPente[0] ? penteDuCorps(enPente[0]) : null;
+}
+
+/**
+ * Les facettes en mailles : la couverture en pente (sa couleur, sa texture, choisie par le materiau et
+ * la pente), les facettes plates d'un corps en toit-terrasse (gravillons, gris d'un toit plat), et les murs.
+ */
+function poserFacettes(ctx: ContexteToitCorps, pans: readonly S3[][], murs: readonly S3[][], toitRef: Toit | null | undefined, pente: number | null = null): void {
+  const plate = (f: readonly S3[]) => f.every((q) => Math.abs(q.z - (f[0] as S3).z) < 0.01);
+  const enPente = pans.filter((f) => !plate(f)), plates = pans.filter(plate);
+  if (enPente.length) {
+    const materiau = materiauCouverture(toitRef, { ...ctx.couverture, pente });
     const tex = ctx.textures ? textureCouverture(materiau) : null;
-    const m = new THREE.Mesh(maille(pans, ctx.toLocal, !!tex, true), new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, roughness: materiau === 'ardoise' ? 0.7 : 0.85, side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) }));
+    const m = new THREE.Mesh(maille(enPente, ctx.toLocal, !!tex, true), new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, ...matiereCouverture(materiau), side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) }));
     m.name = NOM_TOIT_CORPS;
+    ctx.scene.add(m);
+  }
+  if (plates.length) {
+    const tex = ctx.textures ? textureCouverture('terrasse') : null;
+    const m = new THREE.Mesh(maille(plates, ctx.toLocal, !!tex, true), new THREE.MeshStandardMaterial({ color: couleurToitPlat(toitRef), ...matiereCouverture('terrasse'), side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) }));
+    m.name = NOM_TOIT_CORPS_PLAT;
     ctx.scene.add(m);
   }
   if (murs.length) {
