@@ -830,6 +830,12 @@ export interface CorpsToit {
   /** L'egout du pan du cote `pts[0]-pts[1]`, puis celui du pan oppose, en metres au-dessus du sol. */
   egouts: [number, number];
   pignons: PignonToit[];
+  /**
+   * Les croupes, au bout `s = 0` puis au bout `s = L` : la distance a plat du mur de bout au bout du
+   * faitage, en metres. Absentes ou nulles, le bout est un pignon (un deux-pans) ; les deux, un
+   * quatre-pans.
+   */
+  croupes?: [number, number];
   /** L'ecart quadratique moyen a la mesure, en metres. */
   ecart: number;
 }

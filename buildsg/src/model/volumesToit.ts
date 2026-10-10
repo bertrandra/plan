@@ -188,6 +188,76 @@ export function rectanglesDuContour(pts: readonly PtBrut[]): PtBrut[][] | null {
   return rects.map((r) => tourner([{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }], angle).map((p) => ({ x: cm(p.x), y: cm(p.y) })));
 }
 
+/** Les tranches d'un contour a l'equerre, coupe a chaque abscisse de ses sommets (ou ordonnee, `axe` 'y') : un rectangle par part pleine, les tranches voisines de meme part fusionnees. */
+function tranches(poly: readonly PtBrut[], axe: 'x' | 'y'): Rect[] {
+  const xs = [...new Set(poly.map((p) => p.x))].sort((a, b) => a - b);
+  const ys = [...new Set(poly.map((p) => p.y))].sort((a, b) => a - b);
+  const dedans = cellulesDedans(poly, xs, ys);
+  const [coupes, travers] = axe === 'x' ? [xs, ys] : [ys, xs];
+  const plein = (i: number, k: number) => (axe === 'x' ? dedans[i]?.[k] : dedans[k]?.[i]) === true;
+  const out: Rect[] = [];
+  let ouverts: { a0: number; a1: number; b0: number; b1: number }[] = [];
+  for (let i = 0; i + 1 < coupes.length; i++) {
+    const parts: [number, number][] = [];
+    for (let k = 0; k + 1 < travers.length; k++) {
+      if (!plein(i, k)) continue;
+      const der = parts[parts.length - 1];
+      if (der && der[1] === travers[k]) der[1] = travers[k + 1] as number;
+      else parts.push([travers[k] as number, travers[k + 1] as number]);
+    }
+    const suivants = parts.map(([b0, b1]) => {
+      const meme = ouverts.find((o) => o.b0 === b0 && o.b1 === b1);
+      return meme ? { ...meme, a1: coupes[i + 1] as number } : { a0: coupes[i] as number, a1: coupes[i + 1] as number, b0, b1 };
+    });
+    ouverts.filter((o) => !suivants.some((n) => n.a0 === o.a0 && n.b0 === o.b0 && n.b1 === o.b1)).forEach((o) => out.push(enRect(o, axe)));
+    ouverts = suivants;
+  }
+  ouverts.forEach((o) => out.push(enRect(o, axe)));
+  return out;
+}
+const enRect = (o: { a0: number; a1: number; b0: number; b1: number }, axe: 'x' | 'y'): Rect =>
+  (axe === 'x' ? { x0: o.a0, x1: o.a1, y0: o.b0, y1: o.b1 } : { x0: o.b0, x1: o.b1, y0: o.a0, y1: o.a1 });
+const unionRect = (a: Rect, b: Rect): Rect => ({ x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) });
+const touchent = (a: Rect, b: Rect) => a.x0 <= b.x1 + EPSILON_M && b.x0 <= a.x1 + EPSILON_M && a.y0 <= b.y1 + EPSILON_M && b.y0 <= a.y1 + EPSILON_M;
+
+/**
+ * Le contour decoupe en tranches perpendiculaires a l'un de ses axes, celui qui donne le moins de
+ * rectangles, le plus grand d'abord, dans le repere du plan ; null quand il n'est pas rectiligne ou
+ * qu'une part trop etroite ne se fond dans aucune voisine. Pour un contour remis a l'equerre sur la
+ * mesure (facade/toitCorps.ts) : les rectangles maximaux y tirent une bande d'un bout a l'autre de
+ * la maison, la ou les tranches separent une aile, une partie basse et le corps principal. Une
+ * tranche trop etroite se fond dans la voisine qui ajoute le moins hors du contour (15 % au plus).
+ */
+export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null {
+  if (pts.length < 4) return null;
+  const angle = angleDuPlusLongCote(pts);
+  const equerre = equerrer(tourner(pts, -angle));
+  if (!equerre) return null;
+  const droit = lisserDecroches(equerre);
+  let best: Rect[] | null = null;
+  for (const axe of ['x', 'y'] as const) {
+    let rects = tranches(droit, axe);
+    for (let garde = 0; garde < 20; garde++) {
+      const etroit = rects.find((r) => largeurMin(r) < LARGEUR_MIN_M);
+      if (!etroit) break;
+      const autres = rects.filter((r) => r !== etroit);
+      const fusions = autres.filter((r) => touchent(r, etroit)).map((r) => {
+        const u = unionRect(r, etroit);
+        return { r, u, ajout: (aire(u) - aire(r) - aire(etroit)) / aire(u) };
+      }).sort((a, b) => a.ajout - b.ajout);
+      const f = fusions[0];
+      if (f && f.ajout <= 0.15) rects = [...autres.filter((r) => r !== f.r), f.u];
+      else if (aire(etroit) < AIRE_NEGLIGEABLE_M2) rects = autres;
+      else { rects = []; break; }
+    }
+    rects = rects.filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2);
+    if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) continue;
+    if (!best || rects.length < best.length) best = rects;
+  }
+  if (!best) return null;
+  return best.sort((p, q) => aire(q) - aire(p)).map((r) => tourner([{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }], angle).map((p) => ({ x: cm(p.x), y: cm(p.y) })));
+}
+
 /** La pente du toit d'un batiment, en degres, d'apres son toit et son contour ; celle d'une tuile a defaut. */
 export function penteDuToit(pts: readonly PtBrut[], toit: Toit): number {
   if (toit.forme === 'plat' || !(toit.hauteur > 0)) return 0;

@@ -19,7 +19,7 @@ export interface CarteToit {
   hauteur: number;
   cellules: { coins: PointCarte[]; couleur: string; z: number }[];
   contour: PointCarte[];
-  corps: { coins: PointCarte[]; faitage: TraitCarte | null; libelle: { a: PointCarte; texte: string } }[];
+  corps: { coins: PointCarte[]; faitage: TraitCarte | null; aretiers: TraitCarte[]; libelle: { a: PointCarte; texte: string } }[];
   pignons: { coins: PointCarte[]; faitage: TraitCarte }[];
   /** La direction du nord, en degres dans la carte (0 = vers le haut, sens horaire). */
   nord: number;
@@ -68,9 +68,16 @@ export function carteDuToit(o: ObjetPlan): CarteToit | null {
   const corps = (o.corpsToit ?? []).map((k) => {
     const r = repere(k.pts);
     const plat = k.faitage - Math.min(...k.egouts) < 0.05;
-    const faitage = plat ? null : { de: versCarte(point(r, 0, k.posFaitage)), a: versCarte(point(r, r.L, k.posFaitage)) };
+    // Sous des croupes, le faitage s'arrete avant les bouts, et des aretiers le relient aux coins.
+    const [h0, h1] = plat ? [0, 0] : k.croupes ?? [0, 0];
+    const de = point(r, h0, k.posFaitage), a = point(r, r.L - h1, k.posFaitage);
+    const faitage = plat ? null : { de: versCarte(de), a: versCarte(a) };
+    const aretiers = [
+      ...(h0 > 0 ? [point(r, 0, 0), point(r, 0, r.W)].map((q) => ({ de: versCarte(de), a: versCarte(q) })) : []),
+      ...(h1 > 0 ? [point(r, r.L, 0), point(r, r.L, r.W)].map((q) => ({ de: versCarte(a), a: versCarte(q) })) : []),
+    ];
     const milieu = versCarte(point(r, r.L / 2, plat ? r.W / 2 : k.posFaitage));
-    return { coins: k.pts.map(versCarte), faitage, libelle: { a: milieu, texte: plat ? 'plat ' + fr(k.faitage) + ' m' : fr(k.faitage) + ' m' } };
+    return { coins: k.pts.map(versCarte), faitage, aretiers, libelle: { a: milieu, texte: plat ? 'plat ' + fr(k.faitage) + ' m' : fr(k.faitage) + ' m' } };
   });
   const pignons = (o.corpsToit ?? []).flatMap((k) => k.pignons.map((pg) => {
     const r = repere(k.pts);
