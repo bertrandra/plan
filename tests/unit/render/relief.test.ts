@@ -61,8 +61,15 @@ describe('dessinerCourbesRelief', () => {
     const g = creerSvg('g');
     const sc = scene();
     dessinerCourbesRelief(g, projet(r), sc);
-    const lignes = [...g.querySelectorAll('polyline')];
+    const lignes = [...g.querySelectorAll('polyline:not(.halo)')];
     expect(lignes.length).toBeGreaterThan(5);
+    // Chaque courbe a son lisere clair dessous, lisible sur la photo aerienne.
+    const halos = [...g.querySelectorAll('polyline.halo')];
+    expect(halos).toHaveLength(lignes.length);
+    halos.forEach((h, i) => {
+      expect(h.getAttribute('points')).toBe(lignes[i]!.getAttribute('points'));
+      expect(Number(h.getAttribute('stroke-width'))).toBeGreaterThan(Number(lignes[i]!.getAttribute('stroke-width')));
+    });
     lignes.forEach(l => expect(l.getAttribute('stroke')).toBe(SVG_RELIEF));
     const fortes = lignes.filter(l => l.getAttribute('stroke-width') === '1.2');
     const fines = lignes.filter(l => l.getAttribute('stroke-width') === '0.7');
@@ -102,7 +109,7 @@ describe('dessinerCourbesRelief', () => {
       const r = plane(-0.1, 0, 100);
       r.affichage = { courbes: true };
       dessinerCourbesRelief(g, projet(r), scene());
-      expect(g.querySelector('polyline')?.getAttribute('stroke')).toBe('#ABCDEF');
+      expect(g.querySelector('polyline:not(.halo)')?.getAttribute('stroke')).toBe('#ABCDEF');
     } finally { poserEncres(); }
   });
 });

@@ -74,6 +74,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les boutons « Relief » et « Courbes de niveau » sont enregistrés avec le projet**
+  (`MD/spec-relief.md` §4). Ils restaient sans effet sur le fichier enregistré : en préférences
+  d'affichage pures, ils ne marquaient pas le projet modifié, et le réglage se perdait si rien d'autre
+  n'était enregistré. Ils marquent maintenant le projet à enregistrer (toujours sans Ctrl+Z, et
+  permis en lecture seule, où rien n'est enregistré), comme l'équidistance. Les courbes de niveau
+  ont aussi un liseré clair : sur la photo aérienne, le trait brun fin se perdait.
+
 - **Plus de pignons en double sur les pavillons d'une longère** (`facade/toitCorps.ts`, Hucqueliers) :
   une aile presque entièrement sous un rectangle plus grand du contour n'est plus coupée en bandes de
   2 m aux pentes du toit qui la couvre, tant que son toit entier tient la mesure ; une bande de moins

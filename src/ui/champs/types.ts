@@ -88,6 +88,12 @@ interface ChampBase {
   historique?: boolean;
   /** `false` pour un reglage d'affichage qui ne modifie pas le projet. */
   sale?: boolean;
+  /**
+   * Un reglage d'affichage (`sale: false`) que le projet garde : sans annulation et permis en lecture
+   * seule comme les autres, il marque pourtant le projet a enregistrer, hors lecture seule - sinon
+   * le reglage se perdait a la reouverture (le relief, les courbes de niveau).
+   */
+  enregistre?: boolean;
   effets?: Effet[];
 }
 

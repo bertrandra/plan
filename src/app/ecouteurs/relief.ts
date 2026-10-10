@@ -92,13 +92,15 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
 
   // « Affichage › Relief » et « Affichage › Courbes de niveau » : deux bascules distinctes, le sol en
   // relief de la 3D (montre par defaut) et les courbes du plan (cachees par defaut). Des preferences
-  // d'affichage, comme les cases de l'inspecteur : ni Ctrl+Z, ni « projet modifie », permises en
-  // lecture seule, rangees dans `relief.affichage` pour etre retrouvees a la reouverture. Sans la
+  // d'affichage, comme les cases de l'inspecteur : ni Ctrl+Z, permises en lecture seule, rangees dans
+  // `relief.affichage` ; elles marquent le projet a enregistrer pour etre retrouvees a la reouverture. Sans la
   // capacite `plan.relief` non plus : elle porte sur la lecture, une grille deja la s'affiche.
   const basculer = (cle: 'sol3d' | 'courbes') => {
     const r = relief();
     if (!r) return;
     r.affichage = { ...(r.affichage ?? {}), [cle]: !affichageRelief(r)[cle] };
+    // Sans annulation, mais le projet est a enregistrer : sinon le reglage se perdait a la reouverture.
+    if (!a.etat.lectureSeule) a.markDirty();
     a.render();
     if (cle === 'sol3d') reconstruire3d();
     ctx.rafraichir();

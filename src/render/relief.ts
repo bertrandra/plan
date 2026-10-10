@@ -63,6 +63,9 @@ export function longueurPolyligne(pts: readonly PtBrut[]): number {
   return L;
 }
 
+/** La largeur ajoutee du lisere clair sous chaque courbe, en pixels. */
+const LISERE_COURBE_PX = 1.8;
+
 /** En deca de cette longueur a l'ecran, une maitresse ne porte pas d'etiquette : elle ne tiendrait pas. */
 const LONGUEUR_MIN_ETIQUETTE_PX = 60;
 
@@ -78,9 +81,15 @@ export function dessinerCourbesRelief(groupe: SVGElement, objets: ObjetPlan[], s
   const { courbes } = courbesDeNiveau(r, parcelle && parcelle.type === 'polygon' ? parcelle.pts : undefined);
   courbes.forEach(c => {
     const ecran = c.pts.map(p => versEcran(scene, p));
+    const points = ecran.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+    // Un lisere clair sous la courbe, comme le halo des etiquettes : sur la photo aerienne, un trait
+    // brun de 0,7 px se perdait dans les feuillages et les toits.
     groupe.appendChild(creerSvg('polyline', {
-      points: ecran.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' '),
-      fill: 'none', stroke: SVG_RELIEF, 'stroke-width': c.maitresse ? 1.2 : 0.7, 'stroke-linejoin': 'round'
+      class: 'halo', points, fill: 'none', stroke: SVG_LABEL_HALO, 'stroke-opacity': 0.75,
+      'stroke-width': (c.maitresse ? 1.2 : 0.7) + LISERE_COURBE_PX, 'stroke-linejoin': 'round'
+    }));
+    groupe.appendChild(creerSvg('polyline', {
+      points, fill: 'none', stroke: SVG_RELIEF, 'stroke-width': c.maitresse ? 1.2 : 0.7, 'stroke-linejoin': 'round'
     }));
     if (!c.maitresse || longueurPolyligne(ecran) < LONGUEUR_MIN_ETIQUETTE_PX) return;
     const m = milieuPolyligne(ecran);

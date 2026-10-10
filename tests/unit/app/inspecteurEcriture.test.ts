@@ -74,6 +74,19 @@ describe('ecritures de l inspecteur', () => {
     expect(champActif(affichage, m.c)).toBe(true);
   });
 
+  it('un reglage d affichage que le projet garde (enregistre) le marque a enregistrer, sans annulation, hors lecture seule', () => {
+    const garde: Champ = { ...affichage, cle: 'courbes', enregistre: true };
+    const m = monter();
+    m.inspecteur.appliquer(affichage, m.c, () => {});
+    expect(m.markDirty).not.toHaveBeenCalled();
+    expect(m.inspecteur.appliquer(garde, m.c, () => {})).toBe(true);
+    expect(m.markDirty).toHaveBeenCalledTimes(1);
+    expect(m.empiles).not.toHaveBeenCalled();
+    const ls = monter(true);
+    expect(ls.inspecteur.appliquer(garde, ls.c, () => {})).toBe(true);
+    expect(ls.markDirty).not.toHaveBeenCalled();
+  });
+
   it('grise et refuse en lecture seule un bouton qui ecrit le projet, pas un bouton d interface', () => {
     const m = monter(true);
     const projet = bouton('projet'), iface = bouton('interface');
