@@ -68,8 +68,11 @@ export function decrireCorps(corps: readonly CorpsToit[]): string[] {
     const [e0, e1] = c.egouts;
     const plat = c.faitage - Math.min(e0, e1) < 0.05;
     const appentis = !plat && (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01);
+    // Des croupes aux deux bouts : quatre pans ; a un seul : deux pans et une croupe.
+    const croupes = !plat && !appentis ? (c.croupes ?? [0, 0]).filter((h) => h > 0).length : 0;
+    const pans = croupes === 2 ? 'quatre pans' : croupes === 1 ? 'deux pans et une croupe' : 'deux pans';
     const toit = plat ? `toit plat à ${m(c.faitage)}` : appentis ? `appentis de ${m(Math.min(e0, e1))} à ${m(c.faitage)}`
-      : `deux pans, faîtage ${m(c.faitage)}, égouts ${Math.abs(e0 - e1) < 0.05 ? m(e0) : fr(e0, 1) + ' / ' + m(e1)}`;
+      : `${pans}, faîtage ${m(c.faitage)}, égouts ${Math.abs(e0 - e1) < 0.05 ? m(e0) : fr(e0, 1) + ' / ' + m(e1)}`;
     const pignons = c.pignons.length ? `, ${pluriel(c.pignons.length, 'pignon')} depuis le faîtage` : '';
     return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}`;
   });

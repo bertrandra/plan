@@ -9,10 +9,11 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
-import { volumesActifs, toitDuVolume } from '../model/volumesToit.js';
+import { volumesActifs, toitDuVolume, rectanglesDuContour } from '../model/volumesToit.js';
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
+import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
-import { ajouterToitCorps3d } from './toitCorps3d.js';
+import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } from './toitCorps3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
@@ -100,7 +101,9 @@ function centreDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, ctx: Context
 /**
  * L'etendue que la camera et le sol doivent couvrir. En mode « tous les objets » — et toujours sans
  * terrasse, ou ils sont la seule chose a montrer —, c'est tout le plan : sinon la maison ou la
- * parcelle se retrouveraient hors champ ou sous un sol trop petit.
+ * parcelle se retrouveraient hors champ ou sous un sol trop petit. Du voisinage importe, seules les
+ * parcelles mitoyennes et leurs maisons comptent (model/mitoyennete.ts) : un voisinage de 100 m
+ * reculait la camera au point de ne plus voir la maison ; le reste se voit en reculant.
  */
 function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut): number {
   const cercle = (o: ObjetCercle) => [
@@ -113,7 +116,8 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
     // Isole, un objet est seul dans la scene avec ses associes : la camera et le sol se reglent sur eux.
     etat.objects.forEach((o: ObjetPlan) => { if (o !== obj && visibleEnIsolement(o, etat.objects, etat.isolement)) pts.push(...sommets(o)); });
   } else if (vue3d.tousLesObjets || !obj) {
-    etat.objects.forEach((o: ObjetPlan) => { if (o !== obj) pts.push(...sommets(o)); });
+    const proche = procheDuProjet(etat.objects as ObjetMitoyen[]);
+    etat.objects.forEach((o: ObjetPlan) => { if (o !== obj && proche(o as ObjetMitoyen)) pts.push(...sommets(o)); });
   }
   const maxRadius = pts.reduce((m: number, p: PtBrut) => Math.max(m, dist(p, cen)), 0);
   return Math.max(3, maxRadius * 2);
@@ -135,24 +139,45 @@ export function bornesDuSol(etat: PlanVuDeLa3d, ctx: ContexteScene3d, cen: PtBru
 
 type CameraConservee = { pos: THREE_NS.Vector3; cible: THREE_NS.Vector3 } | null;
 
+/** L'ouverture verticale de la camera de la Vue 3D, en degres. */
+const FOV_VUE3D_DEG = 45;
+/** La marge autour du disque cadre : le bord proche, vu en perspective, parait plus grand. */
+const MARGE_CADRAGE = 1.25;
+
+/**
+ * La distance ou poser la camera, sur la diagonale (en plongee de 35°), pour que le disque au sol de
+ * `rayon` tienne dans l'image. En plongee, le disque parait ecrase en hauteur (sa profondeur vaut
+ * `sin 35°` de sa largeur) : l'ancien recul de 1,56 diametre le laissait au quart de l'image. Jamais
+ * plus loin que cet ancien recul : sur un ecran en hauteur, il coupait les cotes, comme avant.
+ */
+export function distanceDeCadrage(rayon: number, aspect: number): number {
+  const plongee = Math.atan(1 / Math.SQRT2);
+  const tv = Math.tan((FOV_VUE3D_DEG * Math.PI) / 360), th = tv * aspect;
+  const ajuste = Math.max((rayon * Math.sin(plongee)) / tv, rayon / th) * MARGE_CADRAGE;
+  return Math.min(ajuste, 0.9 * Math.sqrt(3) * 2 * rayon);
+}
+
 /**
  * La scene, sa camera, son rendu et ses lumieres, le sol. `null` si le navigateur refuse le
  * contexte WebGL : sur iOS Safari, passe le plafond de contextes vivants, le constructeur reussit
  * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
  * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
  */
-function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise }) {
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean }) {
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdfe7ea);
   // Le plan lointain suit le sol : a 500 m, un voisinage de 200 m etait coupe en reculant la camera.
   const b = terrain.bornes;
   const loin = Math.max(Math.abs(b.xMin - terrain.cen.x), Math.abs(b.xMax - terrain.cen.x), Math.abs(b.yMin - terrain.cen.y), Math.abs(b.yMax - terrain.cen.y));
-  const camera = new THREE.PerspectiveCamera(45, w / h, 0.05, Math.max(500, loin * 4));
+  const camera = new THREE.PerspectiveCamera(FOV_VUE3D_DEG, w / h, 0.05, Math.max(500, loin * 4));
   // Sur un sol en relief, la camera vise le centre du plan a la hauteur du sol : la terrasse, elle,
   // reste a la hauteur finie au-dessus du zero du plan, et le sol passe dessous ou au-dessus.
   const hCible = terrain.sol ? terrain.sol.hauteur(terrain.cen) : 0;
-  camera.position.set(extent * 0.9, extent * 0.9 + hCible, extent * 0.9);
+  // Le plan entier (la parcelle et ses mitoyennes) est cadre au plus juste ; une terrasse ou un objet
+  // isole gardent leur recul, qui laisse voir la maison autour.
+  const recul = terrain.serre ? distanceDeCadrage(extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
+  camera.position.set(recul, recul + hCible, recul);
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   const glCtx3d = renderer.getContext && renderer.getContext();
   if (!glCtx3d || (glCtx3d.isContextLost && glCtx3d.isContextLost())) {
@@ -610,7 +635,12 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
     const toitMesure = modeToit === 'mesure' ? o.toitMesure ?? null : null;
     const egoutDe = (v: VolumeToit): number => v.egout ?? h;
-    const volumes = corpsToit
+    // Des corps lus sur un contour remis a l'equerre (un cote de biais : il ne se decoupe pas tel
+    // quel) ne le suivent plus : le batiment garde alors la forme du plan, ses toits decoupes dessus.
+    const surContour = corpsToit && o.type === 'polygon' && !rectanglesDuContour(o.pts) ? facettesSurContour(corpsToit, o.pts) : null;
+    const volumes = surContour
+      ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
+      : corpsToit
       ? corpsToit.map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
       : toitMesure
       ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
@@ -631,7 +661,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
       ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure || !!corpsToit);
     }
-    if (o.type === 'polygon' && corpsToit) {
+    if (o.type === 'polygon' && corpsToit && surContour) {
+      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, corpsToit, o.toit, o.pts);
+    } else if (o.type === 'polygon' && corpsToit) {
       ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, corpsToit, o.toit, o.pts);
     }
     // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
@@ -658,7 +690,8 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
           ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
           ...(toitMesure || corpsToit ? { sansToit: true } : {}),
           // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
-          ...(corpsToit && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
+          // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
+          ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
       );
     }
   });
@@ -729,7 +762,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
   const solMoteur = sol ? solDuProjet(etat.objects) : null;
   const bornes = bornesDuSol(etat, ctx, cen, extent);
-  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes });
+  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj) });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
   vue3d.centre = cen;

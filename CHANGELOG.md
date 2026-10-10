@@ -15,6 +15,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   voisin sans corps lisibles (sous les arbres) garde sa forme simple ; décochée, la 3D revient aux
   formes simples.
 
+- **La Vue 3D cadre par défaut la parcelle du projet et ses mitoyennes** (`model/mitoyennete.ts`) :
+  avec un voisinage importé de 100 m, la caméra reculait au point de ne plus voir la maison ; elle
+  se pose désormais au plus près de ce qui compte, la vue plongeante prise en compte, et le reste du
+  voisinage se voit en reculant.
+
+- **Les toits à croupes, et les maisons au contour de biais ou décalé** (`MD/spec-toit-ign.md`
+  §13.7). Une maison dont le contour BD TOPO a un côté de biais n'avait pas de corps : la 3D
+  montrait alors la surface brute du LiDAR. Son contour est maintenant mis à l'équerre (le biais
+  devient une marche, au droit d'un autre sommet), coupé en tranches, et chaque tranche est lue par
+  l'ajustement des formes simples, qui sait les **croupes** : deux pans, quatre pans, appentis,
+  plat. En 3D, le bâtiment garde exactement la forme du plan, ses toits découpés sur lui. Un
+  bâtiment dont le contour tombe à côté de son toit (plus de 12 % de non bâti dessous) est
+  **recalé d'un bloc** sur le LiDAR, sur le plan comme en 3D, sans changer sa forme. Au 2 allée des
+  Limites, parcelle AE 103 : deux toits à quatre pans (7,9 m et 6,3 m) et un toit plat à 3,5 m
+  entre eux, la maison recalée d'un mètre vers l'ouest et de 1,75 m vers le sud. Les contours qui
+  se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
+
 - **Une roue d'attente au centre de l'écran** pendant la création d'un plan depuis une adresse et
   pendant l'actualisation IGN, avec l'étape en cours (« Forme des toits sur le LiDAR HD… »,
   « Actualisation IGN : la couleur des toits sur l'orthophoto… ») : ces travaux durent plusieurs
