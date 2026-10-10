@@ -24,6 +24,7 @@ import { EchecPlateforme, type Session } from '../plateforme/session.js';
 import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 import { phraseLimite } from '../plateforme/quotaProjets.js';
+import { magasinPhotos, sortirLesPhotos, rentrerLesPhotos, type MagasinPhotos } from './photosLocales.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
@@ -137,7 +138,9 @@ export interface DepotProjets {
   supprimer(id: string): Promise<unknown>;
 }
 
-export function creerDepotPlateforme(session: Session): DepotProjets {
+export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos): DepotProjets {
+  // Le magasin des photos de releve : celui du navigateur, sauf celui qu'on passe (les tests).
+  const photos = () => magasin ?? magasinPhotos();
   return {
     async lister() {
       try {
@@ -169,8 +172,10 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
         // Un document ancien est lu dans la forme courante : le programme n'en connait qu'une.
         const schema = p.schema_version ?? 1;
         const lu = migrer(d, schema);
+        // Les photos de releve, gardees sur cet appareil (io/photosLocales.ts), reviennent ici.
+        const { objets } = await rentrerLesPhotos(lu.objects || [], photos());
         return {
-          objects: lu.objects || [],
+          objects: objets,
           schemaVersion: schema,
           ...(lu.measures ? { measures: lu.measures } : {}),
           // `meta` est ce que la barre de projet affiche : on le reconstruit depuis les colonnes de
@@ -183,7 +188,11 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
 
     async enregistrer(charge) {
       const { id, name, ...reste } = charge;
-      const document: DocumentPlan = reste;
+      // Les photos de releve ne partent pas : la plateforme refuse les contenus embarques
+      // (EMBEDDED_ASSET_REJECTED). Elles restent sur cet appareil, le document n'en porte que la cle.
+      const sortie = Array.isArray(reste.objects) ? await sortirLesPhotos(reste.objects, photos()) : null;
+      if (sortie?.perdues) console.warn('Plan : ' + sortie.perdues + ' photo(s) de releve non gardee(s) sur cet appareil (stockage du navigateur indisponible).');
+      const document: DocumentPlan = sortie ? { ...reste, objects: sortie.objets } : reste;
       // Le schema vient de l'appelant quand il le connait (le projet ouvert, peut-etre mis a jour) ;
       // sinon — la demonstration creee au premier pas — c'est le plus petit qui decrit le document.
       const schema = typeof document.schemaVersion === 'number' ? document.schemaVersion : schemaMinimal(document.objects);

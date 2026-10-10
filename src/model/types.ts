@@ -738,6 +738,12 @@ export interface ReleveFacade {
   /** Elevation redressee, `data:image/jpeg;base64,...`, ou `null` si le releve est sans photo. */
   texture: string | null;
   /**
+   * La cle de la photo gardee sur l'appareil du releve (io/photosLocales.ts) : la plateforme refuse
+   * les photos embarquees, le document enregistre n'en porte que la cle. Avec `texture` a `null`,
+   * la photo est restee sur un autre appareil.
+   */
+  photoLocale?: string;
+  /**
    * Hauteur couverte par la texture depuis le sol, en metres : au-dela de `hauteur`, c'est la bande
    * au-dessus de l'egout, que la 3D plaque sur le pignon. Absente, la texture s'arrete a l'egout.
    */

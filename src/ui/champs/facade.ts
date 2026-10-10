@@ -218,7 +218,9 @@ export function sectionReleve(c: ContexteChamps): Section {
           valeur: () => {
             const r = releve();
             const nom = o.segmentNames?.[i] ? `${o.segmentNames[i]} · ` : '';
-            return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}` : `${nom}${fr(f.largeur)} m · non relevée`;
+            // Une photo restee sur l'appareil du releve (io/photosLocales.ts) : les mesures sont la, pas l'image.
+            const photo = r && r.photoLocale && !r.texture ? ' · photo restée sur l’appareil du relevé' : '';
+            return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}${photo}` : `${nom}${fr(f.largeur)} m · non relevée`;
           },
         },
         {
