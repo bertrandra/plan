@@ -9,6 +9,8 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
+import { textureMur } from './textureMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour } from '../model/volumesToit.js';
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
@@ -489,7 +491,15 @@ function centreDe(o: ObjetPlan): PtBrut {
 // « Objets opaques » ignore l'opacite du plan 2D, souvent < 1 pour voir a travers en mode Plan.
 const opaciteDe = (o: ObjetPlan) => vue3d.objetsOpaques ? undefined : o.fillOpacity;
 // « Texture » decoche revient a la couleur unie sans retirer la texture de chaque objet.
-const texturesDe = (o: ObjetPlan) => vue3d.textures ? { horizontale: o.textureHorizontale, vertical: o.textureVerticale } : null;
+/**
+ * Les textures d'un objet en 3D : celles choisies dans l'inspecteur ; sur les murs d'un batiment qui
+ * n'en a pas, celle de son materiau (model/couleurMur.ts, three/textureMur.ts), que sa couleur teinte.
+ */
+const texturesDe = (o: ObjetPlan) => {
+  if (!vue3d.textures) return null;
+  const materiau = !o.textureVerticale && o.type === 'polygon' && estBatiment(o) ? textureDesMurs(o) : null;
+  return { horizontale: o.textureHorizontale, vertical: o.textureVerticale ?? (materiau ? textureMur(materiau) : undefined) };
+};
 
 /**
  * Un chemin a sa largeur reelle (le meme champ que le trait du plan 2D), pas son seul axe, et suit
@@ -618,7 +628,10 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
     // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
     const apparence = o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
-    const couleurMur = apparence?.couleurMur ?? o.fill ?? BLANC_PAR_DEFAUT;
+    // Un batiment prend la couleur de ses murs lue sur une photo de rue, ou celle de son materiau
+    // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
+    const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
+    const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
     // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
     // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
     // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
@@ -662,9 +675,9 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
       ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure || !!corpsToit);
     }
     if (o.type === 'polygon' && corpsToit && surContour) {
-      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, corpsToit, o.toit, o.pts);
+      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical }, corpsToit, o.toit, o.pts);
     } else if (o.type === 'polygon' && corpsToit) {
-      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, corpsToit, o.toit, o.pts);
+      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical }, corpsToit, o.toit, o.pts);
     }
     // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
     if (o.type === 'polygon' && toitMesure) {
