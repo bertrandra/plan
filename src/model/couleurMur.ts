@@ -12,7 +12,7 @@
 // Ce module est pur : render/couleurMurPhoto.ts va chercher les pixels.
 
 import { au } from '../util/tableaux.js';
-import { versHex } from './couleurToit.js';
+import { versHex, couvertureDesFichiersFonciers } from './couleurToit.js';
 
 /** La texture dessinee sur les murs en 3D (three/textureMur.ts). */
 export type MateriauTexture = 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois';
@@ -49,17 +49,8 @@ export function materiauMurs(code: unknown): MateriauMurs | null {
   return { code: code.trim(), libelle: connus.map((c) => MATERIAUX_MURS[c]?.libelle).join(' et '), couleur: m.couleur, texture: m.texture };
 }
 
-/** La couverture d'apres le code des fichiers fonciers (`materiaux_de_la_toiture`) : tuiles, ardoises, zinc, beton. */
-export function couvertureDesFichiersFonciers(code: unknown): 'tuile' | 'ardoise' | 'zinc' | 'beton' | null {
-  if (typeof code !== 'string') return null;
-  for (const c of code.trim()) {
-    if (c === '1') return 'tuile';
-    if (c === '2') return 'ardoise';
-    if (c === '3') return 'zinc';
-    if (c === '4') return 'beton';
-  }
-  return null;
-}
+/** La couverture d'apres les fichiers fonciers : avec les toits (model/couleurToit.ts), reprise ici pour qui lit les materiaux. */
+export { couvertureDesFichiersFonciers };
 
 /** La couleur lue sur une photo de rue, et d'ou elle vient. */
 export interface PhotoMur {
