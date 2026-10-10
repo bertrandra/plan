@@ -29,8 +29,12 @@ export const SOL_M = 0.5;
 export const RETRAIT_EGOUT_M = 0.5;
 /** Une cellule plus basse que l'egout de plus de cela est le mur vu de biais : un trou a boucher. */
 export const SOUS_EGOUT_M = 0.3;
-/** Une marche de la couverture d'au moins cela, d'un cote a l'autre d'une ligne, coupe un corps en deux blocs. */
-export const SEUIL_MARCHE_M = 1.5;
+/**
+ * Une marche de la couverture d'au moins cela, d'un cote a l'autre d'une ligne, coupe un corps en deux
+ * blocs. A 1,5 m, l'annexe de plain-pied du Vesinet (1,2 m sous le pan du corps) restait fondue dans
+ * le corps ; une marche se distingue d'un pan raide par sa brutalite, pas par sa hauteur (ci-dessous).
+ */
+export const SEUIL_MARCHE_M = 0.8;
 /** Un bloc coupe par une marche fait au moins cela de large. */
 export const LARGEUR_BLOC_MIN_M = 1.5;
 /** Il faut au moins tant de cellules sous le contour, et au moins la moitie des cellules du contour, pour un toit. */
@@ -266,6 +270,16 @@ export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtB
       const saut = Math.abs(moyenne(apres) - moyenne(avant));
       const gauche = bas(series.slice(0, k).flat()), droite = bas(series.slice(k).flat());
       if (gauche === null || droite === null) continue;
+      // Une marche est brutale : sur le metre qui la franchit, la hauteur change bien plus que sur le
+      // metre d'avant ou d'apres. Un pan raide change autant partout, un faitage ne change pas.
+      const pente = (a: number, b: number): number | null => {
+        const x = [basses[a], basses[a + 1]].filter((v): v is number => v !== null && v !== undefined);
+        const y = [basses[b], basses[b + 1]].filter((v): v is number => v !== null && v !== undefined);
+        return x.length && y.length ? Math.abs(moyenne(y) - moyenne(x)) : null;
+      };
+      const voisines = [k >= 4 ? pente(k - 4, k - 2) : null, k + 3 < series.length ? pente(k, k + 2) : null].filter((v): v is number => v !== null);
+      const calme = voisines.length ? Math.min(...voisines) : 0;
+      if (saut < 1.6 * calme) continue;
       const score = Math.min(saut, Math.abs(droite - gauche));
       if (score >= SEUIL_MARCHE_M && (!best || score > best.score)) best = { k, score };
     }
@@ -308,11 +322,14 @@ export function decouperParHauteurs(t: ToitMesure, rects: readonly PtBrut[][]): 
   return out;
 }
 
-/** Ce que la 3D montre du toit d'un batiment : la surface mesuree, un toit par corps, ou le toit unique. */
-export function modeToitActif(o: { toit?: unknown; toitMesure?: ToitMesure | null; volumesToit?: unknown[] | null; modeToit?: 'simple' | 'volumes' | 'mesure' }): 'mesure' | 'volumes' | 'simple' {
-  const corps = !!o.volumesToit && o.volumesToit.length >= 2;
+/** Ce que la 3D montre du toit d'un batiment : les corps et pignons, la surface mesuree, un toit par corps, ou le toit unique. */
+export function modeToitActif(o: { toit?: unknown; toitMesure?: ToitMesure | null; volumesToit?: unknown[] | null; corpsToit?: unknown[] | null; modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps' }): 'corps' | 'mesure' | 'volumes' | 'simple' {
+  const volumes = !!o.volumesToit && o.volumesToit.length >= 2;
+  const corps = !!o.corpsToit && o.corpsToit.length >= 1;
   if (o.modeToit === 'simple') return 'simple';
-  if (o.modeToit === 'volumes') return corps ? 'volumes' : 'simple';
+  if (o.modeToit === 'volumes') return volumes ? 'volumes' : 'simple';
+  if (o.modeToit === 'mesure' && o.toitMesure) return 'mesure';
+  if (corps) return 'corps';
   if (o.toitMesure) return 'mesure';
-  return corps ? 'volumes' : 'simple';
+  return volumes ? 'volumes' : 'simple';
 }

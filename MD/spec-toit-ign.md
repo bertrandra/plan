@@ -406,11 +406,13 @@ toucher :
   l'orthophoto » ou « tuile rouge / brune, couverture grise : orthophoto peu lisible ». La changer
   efface `origineCouleur`.
 
-- **Toit en 3D** (bâtiment de la parcelle du projet, §11 et §12) : « Tel que mesuré (LiDAR) » quand
-  une surface mesurée existe, « Un toit par corps » quand le contour s'est découpé, « Un seul toit »
-  toujours. Le défaut est le premier proposé. En surface mesurée, la ligne « Mesure » dit l'égout,
-  le faîte et la grille ; en corps, « Toits » décrit chaque corps ; les réglages du toit unique ne
-  se montrent qu'en « Un seul toit ».
+- **Toit en 3D** (bâtiment de la parcelle du projet, §11 à §13) : « Corps et pignons (LiDAR) » quand
+  les corps ont été reconstruits, « Tel que mesuré (LiDAR) » quand une surface mesurée existe, « Un
+  toit par corps » quand le contour s'est découpé, « Un seul toit » toujours. Le défaut est le premier
+  proposé. Sous le choix, dès qu'une surface mesurée existe, la **carte des hauteurs** et du
+  découpage (§13.4). En corps et pignons, la ligne « Corps » décrit chaque corps ; en surface
+  mesurée, « Mesure » dit l'égout, le faîte et la grille ; en un toit par corps, « Toits » décrit
+  chaque volume ; les réglages du toit unique ne se montrent qu'en « Un seul toit ».
 
 La section s'affiche pour tout bâtiment qui porte un toit, même sans façade relevée.
 
@@ -684,3 +686,100 @@ renoncements, interpolation, mode), `tests/unit/three/toitMesure3d.test.ts` (mai
 rehausses, égout par corps), `tests/unit/app/toitsLidar.test.ts` (grille lue pour la parcelle du
 projet seule, toit mesuré écrit, bilan), `tests/unit/ui/champsToitMode.test.ts` (le choix et ce qu'il
 cache). Vu à l'œil sur le 2 allée des Limites (Le Vésinet) et à Saint-Cloud.
+
+---
+
+## 13. Corps et pignons, reconstruits sur la mesure (parcelle du projet)
+
+### 13.1 Pourquoi
+
+La surface mesurée (§12) est fidèle, mais elle ne dit pas ce qu'elle montre : ni où sont les murs,
+ni où passe le faîtage, ni ce qui est un pignon. Au 2 allée des Limites, la lecture d'un couvreur est
+nette (carte du §13.4) : un corps principal à deux pans, faîtage à 7,6 m dans la longueur ; deux
+pignons qui partent du faîtage pour venir dresser leur triangle sur la façade sud-est ; une annexe
+basse à 4,3 m ; une aile à 4,5 m. C'est ce que Plan reconstruit et dessine, **par défaut** dès que la
+surface mesurée existe (`modeToit: 'corps'`). « Tel que mesuré » reste proposé.
+
+### 13.2 La reconstruction (`facade/toitCorps.ts::reconstruireCorps`)
+
+1. **Les corps.** Les rectangles du contour (`model/volumesToit.ts::rectanglesDuContour` — un seul
+   pour une maison rectangulaire), coupés aux **marches** de la couverture (§11.2,
+   `decouperParHauteurs`). Le seuil de marche passe de 1,5 m à **0,8 m** (`SEUIL_MARCHE_M`) : une
+   marche se reconnaît à sa brutalité, la hauteur changeant sur le mètre qui la franchit au moins
+   1,6 fois plus que sur le mètre d'avant ou d'après — un pan raide change autant partout, un faîtage
+   ne change pas. Puis, deux fois au plus, la **coupe par le modèle** (`meilleureCoupe`) : deux toits
+   simples plutôt qu'un quand l'écart tombe aux deux tiers (`GAIN_COUPE`), qu'il valait au moins
+   25 cm, et que les deux toits diffèrent de 60 cm (faîtage ou égout) ; les mesures des pignons du
+   rectangle entier n'y comptent pas — un pignon n'est pas un corps.
+2. **Le toit d'un corps** (`ajusterCorps`). Pour chaque sens de faîtage et chaque position du faîtage
+   dans la largeur (tous les 25 cm, murs compris : un appentis), la hauteur du faîtage et l'égout de
+   chaque pan par moindres carrés. L'ajustement est **robuste vers le haut** : ce qui dépasse le toit
+   ajusté de plus de 40 cm (`DEPASSEMENT_GARDE_M`) est écarté, passe après passe — un pignon, un
+   arbre, une lucarne ajoutent toujours de la hauteur au pan. Sans cela, au Vésinet, les deux pignons
+   qui couvrent près de la moitié du pan sud-est le relevaient d'un mètre et n'étaient plus vus.
+   Garde-fous : pente au plus 60°, égouts au moins 1,5 m ; un toit dont aucun pan ne monte de 30 cm
+   est **plat**. L'écart se compare d'une position à l'autre sur toutes les mesures, ce qui dépasse
+   le pan comptant peu, ce qui passe dessous pleinement.
+3. **Les pignons qui partent du faîtage** (`detecterPignons`). Le long du mur de chaque pan, à 50 cm
+   en retrait, les tronçons où la mesure dépasse le pan de 80 cm (`SURPLUS_PIGNON_M`), larges de 1,5
+   à 6 m (et pas plus des trois quarts du mur) ; chacun est retenu si son mur est une **façade**
+   (dehors juste devant : `geometry/facadeExterieure.ts`) et si, vers l'intérieur, la mesure reste à
+   sa hauteur, nettement au-dessus du pan, sur 1,5 m au moins, jusqu'à ce que le pan le rattrape. Sa
+   hauteur est le 80e centile du profil le long du mur ; sa profondeur, celle où il rencontre le pan
+   (jusqu'au faîtage quand il en part). Le corps est ensuite **réajusté sans ses pignons**, et les
+   pignons relus sur le toit réajusté (`corpsAvecPignons`).
+
+Données : `ObjetPlan.corpsToit: CorpsToit[] | null` — `{ pts (pts[0] → pts[1] le long du faîtage),
+posFaitage, faitage, egouts: [côté pts[0]-pts[1], côté opposé], pignons: { pan, debut, fin,
+faitage, profondeur }[], ecart }`. Écrit par `app/toitsLidar.ts` avec le toit mesuré, sérialisé et
+copié tel quel, remis à `null` par l'actualisation quand le contour change. Champ facultatif : une
+version précédente l'ignore et montre la surface mesurée.
+
+Au Vésinet : corps principal 9,9 × 6,5 m, deux pans, faîtage 7,6 m, égouts 6,1 / 5,4 m, deux pignons
+de 2,5 et 2,9 m partant du faîtage sur la façade sud-est ; annexe 4,2 × 9,9 m, faîtage 4,3 m ; aile
+5,9 × 7,8 m, faîtage 4,5 m.
+
+### 13.3 Le dessin (`three/toitCorps3d.ts`)
+
+- **Un prisme par corps** à son égout le plus bas ; au-dessus, en couleur de mur, le mur d'un pan plus
+  haut que l'autre, et les **murs de bout** jusqu'au faîtage (le pignon, ou le mur haut d'un
+  appentis).
+- **Les pans**, prolongés d'un débord à l'égout (35 cm) et d'une rive aux bouts (20 cm) — **sur les
+  façades seulement** : contre un autre corps, le toit s'arrête au mur, sans quoi le débord
+  traversait le mur voisin. La même règle vaut désormais pour le débord du mode « Un toit par
+  corps » (`detailsBatiment::poserDebord`).
+- **Chaque pignon** : ses deux pans perpendiculaires, du mur jusqu'à ses **noues** (de son pied sur
+  le mur au bout de son faîtage), et son triangle sur la façade. Le grand pan est **entaillé** le
+  long des mêmes noues, débord compris : il ne passe plus sous le pignon pour ressortir devant son
+  triangle. Un pignon qui touche le bout du corps s'arrête au nu du mur de bout. Le grand pan,
+  non convexe, se triangule par oreilles.
+- **Les fenêtres** se posent sur les murs des corps qui donnent dehors, à la hauteur de chacun
+  (niveaux comptés sur la hauteur du mur), avec une fenêtre dans chaque pignon qui part du faîtage
+  et dans chaque pignon de bout d'un deux-pans, centrées dans le triangle au-dessus de l'égout,
+  quand il fait au moins 1,8 m de haut (`facade/ouvertures.ts::fenetresDesPignons`) ; la porte
+  d'entrée sur le premier corps seul. Ni débord simple ni cheminée : la reconstruction les remplace.
+
+En mode « Tel que mesuré », les murs suivent désormais le **contour lui-même**, montés à l'égout le
+plus bas puis jusqu'à la surface par les rehausses : des prismes par rectangle laissaient la surface
+pendre dans le vide là où un rectangle ne couvrait pas le contour. Les fenêtres y suivent la hauteur
+mesurée de chaque mur.
+
+### 13.4 La carte des hauteurs (`ui/champs/carteToit.ts`, `zones/composants/CarteToit.tsx`)
+
+Sous « Toit en 3D », un champ `carte` sur toute la largeur : les cellules de la surface mesurée sous
+le contour, du bleu (le plus bas) au rouge (le plus haut), dans l'**axe du bâtiment** (son plus long
+côté à l'horizontale) avec une flèche du nord ; par-dessus, le contour, les corps en tirets, leurs
+faîtages (avec leur hauteur), les pignons et leur faîtage. Une légende nomme chaque trait et donne
+l'étendue des hauteurs : la couleur ne parle jamais seule. Chaque cellule dit sa hauteur au survol.
+Les traits passent par les jetons (`--ink`, `--ok`, `--accent`) ; seules les couleurs des cellules
+sont calculées.
+
+### 13.5 Vérifié
+
+`tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
+long pan, pas de pignon sur un mur intérieur, corps et annexe à la marche, coupe par le modèle,
+contour de biais), `tests/unit/three/toitCorps3d.test.ts` (pans, mur haut, entaille du pignon,
+débord sur façade seulement), `tests/unit/facade/fenetresPignons.test.ts`,
+`tests/unit/ui/champsToitMode.test.ts` (défaut, options, carte, descriptions),
+`tests/unit/zones/inspecteur-champs.test.ts` (le champ carte rendu dans les trois classes). Vu à l'œil
+sur le 2 allée des Limites.

@@ -128,6 +128,10 @@ describe('toitsDepuisLidar', () => {
     expect(lire).toHaveBeenCalledTimes(1);
     const m = objets[1]!;
     expect(m.toitMesure).toMatchObject({ source: 'lidar', egout: 3.5, pas: 0.5 });
+    // Et ses corps reconstruits sur la mesure (facade/toitCorps.ts) : le corps haut et l'aile basse.
+    expect(m.corpsToit?.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...m.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
+    expect(Math.min(...m.corpsToit!.map((c) => c.faitage))).toBeCloseTo(3.5, 0);
     expect(m.toitMesure!.faite).toBeGreaterThan(8.5);
     // Chaque corps a son egout, lu dans la surface mesuree : 3,5 m pour l'aile, l'egout du deux-pans pour le corps.
     expect(m.volumesToit).toHaveLength(2);

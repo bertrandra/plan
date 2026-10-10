@@ -417,6 +417,24 @@
   .inspecteurSection .champs{ padding:0 10px 8px; display:flex; flex-direction:column; gap:3px; }
   .champ{ display:grid; grid-template-columns:118px 1fr; gap:4px 8px; align-items:center; min-height:32px; padding:2px 4px; border-radius:6px; }
   .champ.pleineLargeur{ display:block; }
+  /* La carte des hauteurs mesurees d'un toit (zones/composants/CarteToit.tsx) : les couleurs des
+     cellules sont calculees (la hauteur), les traits passent par les jetons. */
+  .carteToit{ margin:4px 0 2px; }
+  .carteToit svg{ display:block; width:100%; height:auto; max-height:320px; background:var(--panel-2); border-radius:var(--r-tuile); }
+  .carteToit .carteContour{ fill:none; stroke:var(--ink); stroke-width:2px; }
+  .carteToit .carteCorps{ fill:none; stroke:var(--ok); stroke-width:2.5px; stroke-dasharray:6 4; }
+  .carteToit .cartePignon{ fill:none; stroke:var(--accent); stroke-width:2px; }
+  .carteToit .carteFaitage{ stroke:var(--ink); stroke-width:3px; }
+  .carteToit .carteFaitagePignon{ stroke:var(--accent); stroke-width:3px; }
+  .carteToit .carteLibelle{ fill:var(--ink); font-family:var(--sans); font-weight:600; paint-order:stroke; stroke:var(--panel-bg); stroke-linejoin:round; font-variant-numeric:tabular-nums; }
+  .carteToit .carteNord path{ fill:var(--ink); }
+  .carteToit .carteNord text{ fill:var(--ink); font-family:var(--sans); font-weight:700; }
+  .carteToitLegende{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:4px; font-family:var(--sans); font-size:0.68rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .carteToitLegende .carteDegrade{ width:64px; height:8px; border-radius:999px; background:linear-gradient(90deg, hsl(240 80% 54%), hsl(180 80% 51%), hsl(120 80% 50%), hsl(60 80% 49%), hsl(0 80% 48%)); }
+  .carteToitLegende i{ display:inline-block; width:16px; height:0; vertical-align:middle; margin-right:3px; }
+  .carteToitLegende .cleCorps{ border-top:2px dashed var(--ok); }
+  .carteToitLegende .cleFaitage{ border-top:3px solid var(--ink); }
+  .carteToitLegende .clePignon{ border-top:3px solid var(--accent); }
   .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; }
   .champ .commande{ min-width:0; }
   .champ .note{ font-size:0.68rem; color:var(--ink-soft); margin-top:2px; line-height:1.25; }

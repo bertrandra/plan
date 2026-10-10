@@ -219,8 +219,13 @@ interface ObjetCommun {
    * du sol sous le contour, nettoyee. La 3D le dessine en surface. Batiments de la parcelle du projet.
    */
   toitMesure?: ToitMesure | null;
-  /** Ce que la 3D montre : la surface mesuree (defaut quand elle existe), un toit par corps, ou le seul `toit`. */
-  modeToit?: 'simple' | 'volumes' | 'mesure';
+  /**
+   * Les corps du batiment reconstruits sur la surface mesuree (facade/toitCorps.ts) : chacun son
+   * faitage, ses egouts, ses pignons. Batiments de la parcelle du projet.
+   */
+  corpsToit?: CorpsToit[] | null;
+  /** Ce que la 3D montre : les corps et pignons (defaut quand ils existent), la surface mesuree, un toit par corps, ou le seul `toit`. */
+  modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps';
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
   ruesVoisinage?: RuesVoisinage | null;
   /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
@@ -788,6 +793,40 @@ export interface ToitMesure {
   /** Le point le plus haut du toit, en metres au-dessus du sol. */
   faite: number;
   source: 'lidar';
+}
+
+/**
+ * Un pignon qui part du faitage d'un corps (MD/spec-toit-ign.md §13) : un petit toit a deux pans,
+ * perpendiculaire au faitage, qui avance jusqu'au mur d'un pan et y dresse son triangle.
+ */
+export interface PignonToit {
+  /** Le pan qui le porte : 0 du cote `pts[0]-pts[1]` du corps, 1 du cote oppose. */
+  pan: 0 | 1;
+  /** Ses bords le long du faitage du corps, en metres depuis `pts[0]`. */
+  debut: number;
+  fin: number;
+  /** La hauteur de son faitage au-dessus du sol, en metres. */
+  faitage: number;
+  /** Sa longueur depuis le mur vers l'interieur, en metres : jusqu'au faitage du corps quand il en part. */
+  profondeur: number;
+}
+
+/**
+ * Un corps de batiment reconstruit sur le LiDAR (MD/spec-toit-ign.md §13) : un rectangle, un faitage
+ * place la ou la mesure le met, deux pans qui ont chacun leur egout, et ses pignons.
+ */
+export interface CorpsToit {
+  /** Le rectangle : `pts[0] -> pts[1]` suit le faitage (la longueur), `pts[0] -> pts[3]` la largeur. */
+  pts: PtBrut[];
+  /** La position du faitage dans la largeur, depuis le cote `pts[0]-pts[1]`, en metres : 0 ou la largeur, un appentis. */
+  posFaitage: number;
+  /** La hauteur du faitage au-dessus du sol, en metres ; egale aux egouts pour un toit plat. */
+  faitage: number;
+  /** L'egout du pan du cote `pts[0]-pts[1]`, puis celui du pan oppose, en metres au-dessus du sol. */
+  egouts: [number, number];
+  pignons: PignonToit[];
+  /** L'ecart quadratique moyen a la mesure, en metres. */
+  ecart: number;
 }
 
 /** Un volume d'un batiment en plusieurs corps : son emprise (un rectangle), son toit, son egout quand il est mesure. */

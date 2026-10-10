@@ -13,6 +13,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   dizaines de secondes, et rien ne disait qu'ils avançaient une fois le dialogue refermé. Elle ne
   bloque rien (le pointeur la traverse) et ne tourne pas quand le système demande moins de
   mouvement (`shell/attente.ts`, `zones/Attente.tsx`).
+- **Corps et pignons, reconstruits sur le LiDAR** (`MD/spec-toit-ign.md` §13), le nouveau toit par
+  défaut des bâtiments de la parcelle du projet : la surface mesurée est lue comme un couvreur la
+  lirait — des corps (coupés aux marches de la couverture, dès 80 cm, et là où deux toits expliquent
+  nettement mieux la mesure qu'un seul), chacun son faîtage placé où la mesure le met, deux pans qui
+  ont chacun leur égout aux hauteurs de leurs murs, et les **pignons qui partent du faîtage** pour
+  venir dresser leur triangle sur la façade. Au 2 allée des Limites : un corps principal à 7,6 m et
+  ses deux pignons sur la façade sud-est, l'annexe à 4,3 m, l'aile à 4,5 m. Le grand pan est entaillé
+  le long des noues des pignons ; les débords n'existent que sur les façades ; les fenêtres suivent
+  la hauteur de chaque mur, avec une fenêtre dans chaque pignon. « Tel que mesuré » reste proposé.
+- **La carte des hauteurs** dans la section « Façades et toit », sous « Toit en 3D » : ce que le
+  LiDAR a vu, du bleu au rouge, dans l'axe du bâtiment, et par-dessus les corps, leurs faîtages et
+  les pignons, avec une légende.
 
 - **Le toit tel que le LiDAR le mesure** (`MD/spec-toit-ign.md` §12) : pour les bâtiments de la
   parcelle du projet, la grille du MNH LiDAR HD (50 cm) est gardée, nettoyée des arbres, des
@@ -620,6 +632,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
 
 ### Corrigé
+
+- **Des bouts de toit qui dépassaient des murs.** En « Tel que mesuré », la surface pendait dans le
+  vide là où les murs, posés par rectangles, ne couvraient pas le contour : les murs suivent
+  désormais le contour lui-même, jusqu'à la surface. En « Un toit par corps », le débord de chaque
+  corps traversait le mur du corps voisin : il n'existe plus que sur les façades.
 
 - **Un bâtiment relevé avec photo ne pouvait pas s'enregistrer sur la plateforme.** La photo du
   relevé de façade était dans le document (`data:image/jpeg;base64,…`), ce que la plateforme refuse
