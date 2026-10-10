@@ -6,11 +6,12 @@
 import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointSegment } from '../geometry/segments.js';
+import { repere, point } from './toitCorps.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { facadesDuContour, pointDeFacade, type Facade } from './geometrie.js';
 import type { Volume } from './profil.js';
 import { HAUTEUR_ETAGE_M } from '../geo/bdtopo.js';
-import type { Fenetre3d, PtBrut } from '../model/types.js';
+import type { CorpsToit, Fenetre3d, PtBrut } from '../model/types.js';
 import { FENETRE, PORTE, ENTRAXE_FENETRES_M } from '../model/fenetres3d.js';
 
 export { FENETRE, PORTE, ENTRAXE_FENETRES_M };
@@ -30,6 +31,8 @@ export interface OptionsOuvertures {
   hauteur?: number;
   appui?: number;
   entraxe?: number;
+  /** `false` : pas de porte (un corps de batiment apres le premier, qui porte la porte d'entree). */
+  porte?: boolean;
 }
 
 /** Combien de niveaux, et leur hauteur : le nombre d'etages s'il est connu, sinon la hauteur du mur. */
@@ -47,8 +50,11 @@ export function abscissesFenetres(L: number, entraxe = ENTRAXE_FENETRES_M, large
   return Array.from({ length: n }, (_, k) => debut + k * entraxe);
 }
 
-/** Un mur du volume a moins de cela du milieu de la facade est ce mur-la. */
-const MUR_PROCHE_M = 0.3;
+/**
+ * Un mur du volume a moins de cela du milieu de la facade est ce mur-la : les corps sont des
+ * rectangles a l'equerre, le contour garde ses decroches (jusqu'a 1,2 m, model/volumesToit.ts).
+ */
+const MUR_PROCHE_M = 0.8;
 
 /**
  * La hauteur d'un mur : celle du volume ou il se trouve (un releve en L abaisse une partie), ou,
@@ -57,7 +63,10 @@ const MUR_PROCHE_M = 0.3;
 export function hauteurDuMur(f: Facade, volumes: readonly Volume[]): number {
   const m = pointDeFacade(f, f.largeur / 2);
   const dedans = { x: m.x - f.normale.x * 0.05, y: m.y - f.normale.y * 0.05 };
-  const v = volumes.find((x) => pointInPolygon(dedans, x.pts));
+  // Le volume qui porte le mur ; a defaut (un decroche du contour, hors des rectangles des corps),
+  // celui dont un mur passe a moins de MUR_PROCHE_M.
+  const v = volumes.find((x) => pointInPolygon(dedans, x.pts))
+    ?? volumes.find((x) => x.pts.some((a, i) => distancePointSegment(m, a, sommetDe(x.pts, i + 1)) < MUR_PROCHE_M));
   if (!v) return au(volumes, 0).hauteur;
   if (!v.hauteursMurs?.length) return v.hauteur;
   let proche = -1, d = MUR_PROCHE_M;
@@ -95,7 +104,7 @@ export function ouverturesAutomatiques(contour: readonly PtBrut[], volumes: read
     const xs = abscissesFenetres(f.largeur, entraxe, largeur);
     const hFen = Math.min(hauteur, hNiveau - appui - 0.2);
     if (hFen < 0.3) return;
-    const porteIci = f === plusLong && hMur >= PORTE.h + 0.3 && xs.length > 0;
+    const porteIci = options.porte !== false && f === plusLong && hMur >= PORTE.h + 0.3 && xs.length > 0;
     const iPorte = Math.floor(xs.length / 2);
     for (let k = 0; k < n; k++) {
       xs.forEach((x, j) => {
@@ -109,5 +118,43 @@ export function ouverturesAutomatiques(contour: readonly PtBrut[], volumes: read
       });
     }
   });
+  return out;
+}
+
+/** Un pignon trop bas n'a pas de fenetre : moins de cela entre son egout et son faitage. */
+export const HAUTEUR_PIGNON_FENETRE_M = 1.8;
+
+/**
+ * Les fenetres hautes d'un corps (facade/toitCorps.ts) : une par pignon qui part du faitage, et une
+ * dans chaque pignon de bout d'un corps a deux pans, centrees sous le faitage, au-dessus de l'egout,
+ * dans le triangle. Elles sont posees sur les murs du corps lui-meme : `cote` est l'indice du mur du
+ * rectangle (0 sous le pan 0, 1 au bout s = L, 2 sous le pan 1, 3 au bout s = 0).
+ */
+export function fenetresDesPignons(c: CorpsToit, largeur = FENETRE.l, hauteur = FENETRE.h): Fenetre3d[] {
+  const facades = facadesDuContour(c.pts, 0);
+  const r = repere(c.pts);
+  const [e0, e1] = c.egouts;
+  const out: Fenetre3d[] = [];
+  /** Une fenetre centree a `centre` (plan) sur le mur `cote`, dans un triangle d'egout `e`, de faitage `P`, de demi-base `demi`. */
+  const poser = (cote: number, centre: PtBrut, e: number, P: number, demi: number) => {
+    const H = P - e;
+    if (H < HAUTEUR_PIGNON_FENETRE_M || demi < 0.8) return;
+    const y = e + 0.25;
+    // La fenetre tient dans le triangle : a son linteau, la demi-largeur du triangle la deborde de 15 cm.
+    const l = Math.min(largeur, 0.6 * demi);
+    const h = Math.min(hauteur, H * (1 - (l / 2 + 0.15) / demi) - 0.25);
+    const f = facades.find((x) => x.cote === cote);
+    if (!f || h < 0.5 || l < 0.4) return;
+    const xc = ((centre.x - f.gauche.x) * (f.droite.x - f.gauche.x) + (centre.y - f.gauche.y) * (f.droite.y - f.gauche.y)) / f.largeur;
+    if (xc - l / 2 < 0.1 || xc + l / 2 > f.largeur - 0.1) return;
+    out.push({ cote, type: 'fenetre', x: xc - l / 2, y, l, h });
+  };
+  for (const pg of c.pignons) poser(pg.pan === 0 ? 0 : 2, point(r, (pg.debut + pg.fin) / 2, pg.pan === 0 ? 0 : r.W), c.egouts[pg.pan], pg.faitage, (pg.fin - pg.debut) / 2);
+  // Le pignon de bout d'un deux-pans : sous le faitage, au-dessus du plus haut des deux egouts.
+  if (c.posFaitage > 0.5 && c.posFaitage < r.W - 0.5 && c.faitage - Math.max(e0, e1) >= HAUTEUR_PIGNON_FENETRE_M) {
+    const demi = Math.min(c.posFaitage, r.W - c.posFaitage);
+    poser(3, point(r, 0, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
+    poser(1, point(r, r.L, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
+  }
   return out;
 }

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { sectionReleve } from '../../../src/ui/champs/facade.js';
 import { champsVisibles, type Champ, type ChampChoix, type ChampLecture, type ContexteChamps } from '../../../src/ui/champs/types.js';
-import type { ObjetPlan, ToitMesure, VolumeToit } from '../../../src/model/types.js';
+import type { CorpsToit, ObjetPlan, ToitMesure, VolumeToit } from '../../../src/model/types.js';
+import { decrireCorps } from '../../../src/ui/champs/facade.js';
+import type { ChampCarte } from '../../../src/ui/champs/types.js';
 
 // Le choix « Toit en 3D » de la section « Facades et toit » (MD/spec-toit-ign.md §12.3) : quand il
 // se montre, ce qu'il propose, et ce qu'il cache.
@@ -51,5 +53,35 @@ describe('Toit en 3D', () => {
     const mode = champ<ChampChoix>(c, 'toitMode');
     expect(mode.lire(c)).toBe('volumes');
     expect(mode.options(c).map((o) => o.valeur)).toEqual(['volumes', 'simple']);
+  });
+});
+
+describe('Corps et pignons', () => {
+  const corps: CorpsToit[] = [
+    { pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], posFaitage: 4, faitage: 7.6, egouts: [6.1, 5.4], pignons: [{ pan: 1, debut: 1.5, fin: 4, faitage: 7.6, profondeur: 4 }, { pan: 1, debut: 8, fin: 11, faitage: 7.6, profondeur: 4 }], ecart: 0.3 },
+    { pts: [{ x: 12, y: 0 }, { x: 16, y: 0 }, { x: 16, y: 6 }, { x: 12, y: 6 }], posFaitage: 0, faitage: 4.2, egouts: [4.2, 3], pignons: [], ecart: 0.2 },
+    { pts: [{ x: 0, y: 8 }, { x: 4, y: 8 }, { x: 4, y: 12 }, { x: 0, y: 12 }], posFaitage: 2, faitage: 3.2, egouts: [3.2, 3.2], pignons: [], ecart: 0.1 },
+  ];
+  it('est le defaut quand les corps existent, la carte se montre avec le decoupage, et chaque corps se decrit', () => {
+    const c = contexte({ toitMesure: mesure, volumesToit: volumes, corpsToit: corps });
+    const mode = champ<ChampChoix>(c, 'toitMode');
+    expect(mode.lire(c)).toBe('corps');
+    expect(mode.options(c).map((o) => o.valeur)).toEqual(['corps', 'mesure', 'volumes', 'simple']);
+    expect(cles(c)).toEqual(expect.arrayContaining(['toitMode', 'toitCarte', 'toitCorpsLus']));
+    expect(cles(c)).not.toContain('toitForme');
+    const carte = champ<ChampCarte>(c, 'toitCarte').carte(c)!;
+    expect(carte.corps).toHaveLength(3);
+    expect(carte.pignons).toHaveLength(2);
+    expect(carte.cellules.length).toBeGreaterThan(0);
+    expect(decrireCorps(corps)).toEqual([
+      'Corps 12,0 × 8,0 m : deux pans, faîtage 7,6 m, égouts 6,1 / 5,4 m, 2 pignons depuis le faîtage',
+      'Corps 2 4,0 × 6,0 m : appentis de 3,0 m à 4,2 m',
+      'Corps 3 4,0 × 4,0 m : toit plat à 3,2 m',
+    ]);
+    // Tel que mesure : la carte reste, la ligne des corps se cache.
+    mode.ecrire(c, 'mesure');
+    expect(c.obj.modeToit).toBe('mesure');
+    expect(cles(c)).toContain('toitCarte');
+    expect(cles(c)).not.toContain('toitCorpsLus');
   });
 });
