@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Des textures pour les matériaux des murs** (`three/textureMur.ts`, `MD/spec-toit-ign.md` §6.6).
+  Brique, pierre, meulière, béton, enduit et bois sont dessinés sans réseau, à l'échelle réelle et sans
+  couture, puis teintés par la couleur des murs. Ils se posent en 3D et dans l'export GLB sur les murs
+  dont la BD TOPO donne le matériau, pignons compris. Une texture choisie dans l'inspecteur l'emporte ;
+  « Couleur du plan » et la case « Texture » les retirent.
+
 - **La couleur réelle des murs** (`model/couleurMur.ts`, `render/couleurMurPhoto.ts`,
   `MD/spec-toit-ign.md` §6.5). Les murs prennent la teinte de leur façade lue sur une photo de rue
   Panoramax, quand une photo la montre sans clôture, haie, ombre ou autre bâtiment devant. Sinon, le

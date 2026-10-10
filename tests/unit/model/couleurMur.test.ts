@@ -9,7 +9,7 @@ const points = (n: number, rgb: [number, number, number]) => Array.from({ length
 
 describe('materiauMurs', () => {
   it('lit les deux chiffres des fichiers fonciers : le premier connu donne la teinte', () => {
-    expect(materiauMurs('24')).toEqual({ code: '24', libelle: 'meulière et brique', couleur: MATERIAUX_MURS['2']!.couleur });
+    expect(materiauMurs('24')).toEqual({ code: '24', libelle: 'meulière et brique', couleur: MATERIAUX_MURS['2']!.couleur, texture: 'meuliere' });
     expect(materiauMurs('40')?.libelle).toBe('brique');
     expect(materiauMurs('10')?.libelle).toBe('pierre');
     expect(materiauMurs('05')?.libelle).toBe('aggloméré enduit');

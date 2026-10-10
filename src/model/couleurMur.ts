@@ -14,14 +14,17 @@
 import { au } from '../util/tableaux.js';
 import { versHex } from './couleurToit.js';
 
-/** Les materiaux des murs des fichiers fonciers (un chiffre chacun) et leur teinte usuelle. */
-export const MATERIAUX_MURS: Record<string, { libelle: string; couleur: string }> = {
-  '1': { libelle: 'pierre', couleur: '#C9B99A' },
-  '2': { libelle: 'meulière', couleur: '#B3895A' },
-  '3': { libelle: 'béton', couleur: '#BEBAB1' },
-  '4': { libelle: 'brique', couleur: '#A0523B' },
-  '5': { libelle: 'aggloméré enduit', couleur: '#E2DACB' },
-  '6': { libelle: 'bois', couleur: '#8B6B4A' },
+/** La texture dessinee sur les murs en 3D (three/textureMur.ts). */
+export type MateriauTexture = 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois';
+
+/** Les materiaux des murs des fichiers fonciers (un chiffre chacun), leur teinte usuelle et leur texture. */
+export const MATERIAUX_MURS: Record<string, { libelle: string; couleur: string; texture: MateriauTexture }> = {
+  '1': { libelle: 'pierre', couleur: '#C9B99A', texture: 'pierre' },
+  '2': { libelle: 'meulière', couleur: '#B3895A', texture: 'meuliere' },
+  '3': { libelle: 'béton', couleur: '#BEBAB1', texture: 'beton' },
+  '4': { libelle: 'brique', couleur: '#A0523B', texture: 'brique' },
+  '5': { libelle: 'aggloméré enduit', couleur: '#E2DACB', texture: 'enduit' },
+  '6': { libelle: 'bois', couleur: '#8B6B4A', texture: 'bois' },
 };
 
 /** Le materiau des murs lu dans la BD TOPO : le premier cite donne la teinte. */
@@ -30,6 +33,7 @@ export interface MateriauMurs {
   code: string;
   libelle: string;
   couleur: string;
+  texture: MateriauTexture;
 }
 
 /**
@@ -41,7 +45,8 @@ export function materiauMurs(code: unknown): MateriauMurs | null {
   const connus = [...code.trim()].filter((c, i, t) => MATERIAUX_MURS[c] && t.indexOf(c) === i);
   const principal = connus[0];
   if (!principal) return null;
-  return { code: code.trim(), libelle: connus.map((c) => MATERIAUX_MURS[c]?.libelle).join(' et '), couleur: (MATERIAUX_MURS[principal] as { couleur: string }).couleur };
+  const m = MATERIAUX_MURS[principal] as { couleur: string; texture: MateriauTexture };
+  return { code: code.trim(), libelle: connus.map((c) => MATERIAUX_MURS[c]?.libelle).join(' et '), couleur: m.couleur, texture: m.texture };
 }
 
 /** La couverture d'apres le code des fichiers fonciers (`materiaux_de_la_toiture`) : tuiles, ardoises, zinc, beton. */
@@ -82,6 +87,16 @@ export function couleurMursRetenue(o: { couleurMurs?: CouleurMurs | null; bdtopo
   if (choix !== 'materiau' && photo) return { couleur: photo, source: 'photo' };
   if (materiau) return { couleur: materiau, source: 'materiau' };
   return null;
+}
+
+/**
+ * La texture des murs en 3D : celle du materiau principal des fichiers fonciers, que la couleur
+ * retenue teinte (la photo, ou le materiau lui-meme). Aucune quand la couleur du plan est choisie,
+ * ou que le materiau n'est pas connu.
+ */
+export function textureDesMurs(o: { couleurMurs?: CouleurMurs | null; bdtopo?: unknown }): MateriauTexture | null {
+  if (o.couleurMurs?.source === 'plan') return null;
+  return materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.texture ?? null;
 }
 
 /* ------------------------------------------------------------------------------------------------
