@@ -50,9 +50,9 @@ export const LIBELLES_MATERIAU_PORTAIL: Record<MateriauPortail, string> = {
   aluminium: 'Aluminium', pvc: 'PVC', bois: 'Bois', fer: 'Fer forgé',
 };
 
-/** La couleur qu'un materiau de portail donne quand on y passe. */
+/** La couleur qu'un materiau de portail donne quand on y passe : l'aluminium est blanc (RAL 9016), comme le portail neuf. */
 export const COULEUR_PAR_MATERIAU: Record<MateriauPortail, string> = {
-  aluminium: '#2f3237', pvc: '#f2f0ea', bois: '#8a5a2b', fer: '#1f1f1f',
+  aluminium: '#f4f4f2', pvc: '#f2f0ea', bois: '#8a5a2b', fer: '#1f1f1f',
 };
 
 const EPAISSEUR_PALISSADE = 0.05;
@@ -187,6 +187,28 @@ export function nouveauPortail(nature: Portail['nature'], cote: number, longueur
     retrait: 0,
     motorise: nature === 'portail',
   };
+}
+
+/**
+ * La cloture d'une parcelle qu'on vient d'importer (MD/spec-cloture.md §2.2) : une palissade bois de
+ * 1,8 m sur tout le contour, et un portail en aluminium blanc, ouvrant vers l'interieur, au milieu du cote d'acces - celui que
+ * le plan devine sur rue (`devine`, geo/coteRue.ts), sinon le plus long. Un point de depart a
+ * corriger, pas un releve : on le voit sur le plan et en 3D, on le change dans l'inspecteur.
+ */
+export function clotureDImport(pts: readonly PtBrut[], devine: number | null): Cloture {
+  const cl: Cloture = {
+    active: true,
+    defaut: { type: 'palissade', hauteur: HAUTEUR_CLOTURE_DEFAUT, couleur: COULEUR_CLOTURE_DEFAUT, texture: null },
+    cotes: [],
+    portails: [],
+  };
+  if (pts.length >= 3) {
+    const cote = coteDAcces(cl, pts, devine);
+    const longueur = longueurDuCote(pts, cote);
+    // Un cote trop court pour un portail de 3,50 m n'en recoit pas : on ne pose pas un portail plus large que sa limite.
+    if (longueur >= 4) cl.portails.push(nouveauPortail('portail', cote, longueur));
+  }
+  return cl;
 }
 
 /**
