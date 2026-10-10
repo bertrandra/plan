@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decomposerEnRectangles, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M } from '../../../src/model/volumesToit.js';
+import { decomposerEnRectangles, rectanglesDuContour, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M } from '../../../src/model/volumesToit.js';
 import { signedArea, pointInPolygon } from '../../../src/geometry/basic.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
 
@@ -25,6 +25,8 @@ describe('equerrer', () => {
 describe('decomposerEnRectangles', () => {
   it('un rectangle ne se decoupe pas ; un L donne un corps et une aile entiere qui le penetre, le corps d abord', () => {
     expect(decomposerEnRectangles(rect)).toBeNull();
+    expect(rectanglesDuContour(rect)).toHaveLength(1);
+    expect(rectanglesDuContour([p(0, 0), p(10, 0), p(10, 6), p(4, 9)])).toBeNull();
     const r = decomposerEnRectangles(L)!;
     expect(r).toHaveLength(2);
     expect(dims(r[0]!)).toEqual([12, 8]);
@@ -105,5 +107,11 @@ describe('les toits des volumes', () => {
     const lignes = decrireVolumes(v, { plat: 'Plat', appentis: 'Appentis', 'deux-pans': 'Deux pans', 'quatre-pans': 'Quatre pans', croupes: 'Croupes' });
     // L'aile entiere, 14 m sur 5 : assez allongee pour un faitage.
     expect(lignes).toEqual(['Corps 12,0 × 8,0 m : deux pans', 'Aile 14,0 × 5,0 m : deux pans · égout 2,6 m']);
+    // Des murs mesures de hauteurs differentes se disent ; tous pareils, non.
+    v[0]!.hauteursMurs = [3.9, 7.2, 7.2, 3.9];
+    v[1]!.hauteursMurs = [2.6, 2.6, 2.7, 2.6];
+    const avecMurs = decrireVolumes(v, { plat: 'Plat', appentis: 'Appentis', 'deux-pans': 'Deux pans', 'quatre-pans': 'Quatre pans', croupes: 'Croupes' });
+    expect(avecMurs[0]).toBe('Corps 12,0 × 8,0 m : deux pans · murs de 3,9 à 7,2 m');
+    expect(avecMurs[1]).toBe('Aile 14,0 × 5,0 m : deux pans · égout 2,6 m');
   });
 });

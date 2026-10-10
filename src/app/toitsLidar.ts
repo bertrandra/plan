@@ -9,9 +9,9 @@
 import { ajusterToit, type EchantillonHauteur } from '../facade/toitLidar.js';
 import { lireHauteursSous, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../geo/mnh.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
-import { decomposerEnRectangles, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
+import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
-import { toitMesureDepuisGrille, egoutDansRect } from '../model/toitMesure.js';
+import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
 import type { PtBrut, Toit, ToitMesure, VolumeToit } from '../model/types.js';
@@ -89,15 +89,21 @@ const egoutValide = (e: number) => e >= EGOUT_MIN_M && e <= EGOUT_MAX_M;
  * ne se decoupe pas. `ajustes` compte les volumes que le LiDAR a mesures.
  */
 export function volumesDepuisLidar(pts: readonly PtBrut[], ech: readonly EchantillonHauteur[], reference: Toit | null | undefined, mesure: ToitMesure | null = null): { volumes: VolumeToit[]; ajustes: number } | null {
-  const rects = decomposerEnRectangles(pts);
-  if (!rects) return null;
+  // Avec la surface mesuree, les rectangles sont recoupes la ou la couverture fait une marche (§11.2) :
+  // une maison rectangulaire a deux niveaux et une annexe se separent, meme sous un seul rectangle.
+  const bruts = mesure ? rectanglesDuContour(pts) : decomposerEnRectangles(pts);
+  if (!bruts) return null;
+  const rects = mesure ? decouperParHauteurs(mesure, bruts) : bruts;
+  if (rects.length < 2) return null;
   const pente = reference ? penteDuToit(pts, reference) : PENTE_DEFAUT_DEG;
   let ajustes = 0;
   const volumes = rects.map((rect): VolumeToit => {
     const a = ajusterToit(rect, ech.filter((e) => pointInPolygon(e, rect)));
     // L'egout du corps : lu dans la surface mesuree quand on l'a, sinon celui de l'ajustement.
     const egout = mesure ? egoutDansRect(mesure, rect, pts) : a && egoutValide(a.egout) ? Math.round(a.egout * 10) / 10 : null;
-    const avecEgout = egout !== null ? { egout } : {};
+    // Et la hauteur de chaque mur, la ou la couverture le rejoint : jamais sous l'egout, jamais au-dessus du faite.
+    const murs = mesure && egout !== null ? rect.map((_, i) => Math.min(mesure.faite, Math.max(egout, hauteurMurMesuree(mesure, rect, i) ?? egout))) : null;
+    const avecEgout = egout !== null ? { egout, ...(murs ? { hauteursMurs: murs } : {}) } : {};
     if (!a) return { pts: rect, toit: toitDuRectangle(rect, pente, reference?.source ?? 'bdtopo', true), ...avecEgout };
     ajustes++;
     return { pts: rect, toit: a.toit, ...avecEgout };

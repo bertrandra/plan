@@ -564,7 +564,28 @@ plus haut l'emporte dans la 3D, et les noues naissent de leur rencontre. On reno
 contour n'est pas rectiligne, si l'équerre change l'aire de plus de 15 %, s'il n'y a qu'un
 rectangle, ou si l'un fait moins de 1,5 m de large (`LARGEUR_MIN_M`).
 
-### 11.2 Les toits des corps
+### 11.2 Les blocs par les hauteurs mesurées
+
+Les murs d'une maison n'ont pas tous la même hauteur, et un rectangle du contour peut cacher deux
+blocs : un corps à deux niveaux et une annexe à un seul, un toit-terrasse accolé à un toit en pente.
+Quand la surface mesurée existe (§12), chaque rectangle — y compris le seul rectangle d'une maison
+rectangulaire (`rectanglesDuContour`) — est **recoupé là où la couverture fait une marche**
+(`model/toitMesure.ts::decouperParHauteur`) : sur la grille des cellules du rectangle, chaque
+colonne puis chaque ligne a sa hauteur basse (dixième centile) ; une coupe est une position où
+cette hauteur saute d'au moins 1,5 m (`SEUIL_MARCHE_M`) sur un mètre **et** où les deux côtés,
+pris en entier, diffèrent d'autant — un pan en pente monte doucement, une marche d'un coup. La
+coupe la plus franche l'emporte, jusqu'à deux fois par rectangle (`decouperParHauteurs`) ; un bloc
+fait au moins 1,5 m (`LARGEUR_BLOC_MIN_M`). Un morceau qui tient aux trois quarts dans un autre
+rectangle de départ (un corps recoupé à la marche de l'aile qui le pénètre) n'est pas un bloc de
+plus : il est oublié.
+
+Chaque bloc prend alors son égout (`egoutDansRect`) et **la hauteur de chacun de ses murs**
+(`hauteurMurMesuree` : le dixième centile des hauteurs de la surface le long du mur, à 50 cm en
+retrait — l'égout sous un pan, le dessus d'un mur qui monte jusqu'à un toit plat, le bas d'un
+pignon), tenue entre l'égout et le faîte : `VolumeToit.hauteursMurs[i]` pour le mur de `pts[i]` à
+`pts[i + 1]`. L'inspecteur le dit (« murs de 3,9 à 7,2 m ») quand ils diffèrent d'au moins 30 cm.
+
+### 11.3 Les toits des corps
 
 Chaque rectangle reçoit le toit de sa forme (`toitDuRectangle`) : **deux pans** dans son axe s'il
 est allongé d'au moins 1,25, **quatre pans** sinon, à la **pente du toit du bâtiment**
@@ -575,7 +596,7 @@ dedans** (§10.2) et prend son **égout** : lu dans la surface mesurée (§12, d
 cellules du rectangle) quand on l'a, sinon celui de l'ajustement. Un corps que le LiDAR n'explique
 pas garde son toit par défaut.
 
-### 11.3 Données et 3D
+### 11.4 Données et 3D
 
 `ObjetPlan.volumesToit: VolumeToit[] | null` (`{ pts, toit, egout? }`) ; `modeToit` dit ce que la
 3D montre (§12.3). Sérialisé et copié tels quels. La couleur de couverture reste celle du `toit` du
@@ -586,9 +607,10 @@ sur le premier (le plus grand) ; les fenêtres suivent la hauteur du mur de leur
 toit ». L'inspecteur décrit chaque corps (`decrireVolumes` : « Corps 12,0 × 8,0 m : deux pans ·
 égout 6,0 m »).
 
-### 11.4 Vérifié
+### 11.5 Vérifié
 
-`tests/unit/model/volumesToit.test.ts` (équerre, L, T, U, rotation, renoncements, toits et
+`tests/unit/model/toitMesure.test.ts` (murs, marches, blocs), `tests/unit/facade/ouvertures.test.ts`
+(hauteur d'un mur mesuré, fenêtres qui montent avec lui), `tests/unit/model/volumesToit.test.ts` (équerre, L, T, U, rotation, renoncements, toits et
 descriptions), `tests/unit/app/toitsLidar.test.ts` (égouts par corps), `tests/unit/three/scene.test.ts`
 et `detailsBatiment.test.ts` (prismes, toits et débords par corps).
 
@@ -645,7 +667,11 @@ Le long de chaque mur, entre l'égout et la surface — 5 cm, ou un pignon, un m
 un dessus plat — une **rehausse** verticale en couleur de mur comble l'écart (`NOM_REHAUSSE`), par
 bandes de 50 cm. Les prismes montent à l'égout de chaque corps ; les formes
 simples, le débord, la gouttière et la cheminée ne se posent pas (`sansToit`) ; les arêtes, le
-soubassement et les fenêtres restent.
+soubassement et les fenêtres restent — et les fenêtres suivent **la hauteur mesurée de leur mur**
+(§11.2, `facade/ouvertures.ts::hauteurDuMur` : le mur du bloc le plus proche du milieu de la
+façade) : deux rangs sur le mur qui monte jusqu'au dessus plat, un seul sous le pan. La surface
+est ombrée **par facettes** (`flatShading`) : chaque triangle de 50 cm est un plan, et un pignon
+qui avance depuis le faîtage se lit comme des pans, là où l'ombrage lissé en faisait une bosse.
 
 `modeToitActif(o)` choisit ce que la 3D montre : `modeToit` quand il est tenable, sinon la **surface
 mesurée** quand elle existe, sinon **un toit par corps** quand il y en a deux, sinon le **toit

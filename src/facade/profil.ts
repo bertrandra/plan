@@ -125,6 +125,8 @@ export function contourDuMur(largeur: number, hauteur: number, p: PartieBasse | 
 export interface Volume {
   pts: PtBrut[];
   hauteur: number;
+  /** La hauteur de chaque mur (de `pts[i]` a `pts[i + 1]`) quand elle est mesuree ; absente, `hauteur` partout. */
+  hauteursMurs?: number[];
 }
 
 /**

@@ -13,7 +13,8 @@
 // Ce module ne lit rien : il recoit la grille (geo/mnh.ts) et rend le toit.
 
 import { au } from '../util/tableaux.js';
-import { pointInPolygon } from '../geometry/basic.js';
+import { pointInPolygon, centroid } from '../geometry/basic.js';
+import { sommetDe } from '../geometry/anneau.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import type { GrilleRelief } from './relief.js';
 import type { PtBrut, ToitMesure } from './types.js';
@@ -28,6 +29,10 @@ export const SOL_M = 0.5;
 export const RETRAIT_EGOUT_M = 0.5;
 /** Une cellule plus basse que l'egout de plus de cela est le mur vu de biais : un trou a boucher. */
 export const SOUS_EGOUT_M = 0.3;
+/** Une marche de la couverture d'au moins cela, d'un cote a l'autre d'une ligne, coupe un corps en deux blocs. */
+export const SEUIL_MARCHE_M = 1.5;
+/** Un bloc coupe par une marche fait au moins cela de large. */
+export const LARGEUR_BLOC_MIN_M = 1.5;
 /** Il faut au moins tant de cellules sous le contour, et au moins la moitie des cellules du contour, pour un toit. */
 export const CELLULES_MIN = 20;
 /** Bornes de l'egout, en metres. */
@@ -184,6 +189,123 @@ export function egoutDansRect(t: ToitMesure, rect: readonly PtBrut[], contour?: 
     if (pointInPolygon(p, rect) && (!contour || distancePointContour(p, contour) >= RETRAIT_EGOUT_M)) v.push(z);
   }
   return v.length >= 4 ? egoutDe(v) : t.egout;
+}
+
+/** Le dixieme centile, arrondi au decimetre, ou null sans assez de valeurs. */
+const bas = (v: readonly number[], min = 3): number | null => (v.length >= min ? dixieme(centile(v, 0.1)) : null);
+
+/**
+ * Les hauteurs de la surface le long d'un cote `a -> b`, tous les 50 cm, lues en retrait du mur
+ * vers `interieur` (RETRAIT_EGOUT_M) : au bord, le MNH mele la couverture et le mur.
+ */
+export function hauteursLeLongDe(t: ToitMesure, a: PtBrut, b: PtBrut, interieur: PtBrut): number[] {
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 1e-6) return [];
+  const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+  let nx = -uy, ny = ux;
+  if ((interieur.x - a.x) * nx + (interieur.y - a.y) * ny < 0) { nx = -nx; ny = -ny; }
+  const out: number[] = [];
+  const n = Math.max(1, Math.round(L / PAS_PROFIL_M));
+  for (let k = 0; k < n; k++) {
+    const s = ((k + 0.5) * L) / n;
+    const z = hauteurToitMesure(t, a.x + ux * s + nx * RETRAIT_EGOUT_M, a.y + uy * s + ny * RETRAIT_EGOUT_M);
+    if (z !== null) out.push(z);
+  }
+  return out;
+}
+const PAS_PROFIL_M = 0.5;
+
+/**
+ * La hauteur du mur `i` d'un bloc (de `pts[i]` a `pts[i + 1]`) : la ou la couverture rejoint le
+ * mur, soit le dixieme centile des hauteurs le long du mur - l'egout sous un pan, le dessus plat
+ * d'un mur qui monte jusqu'a lui, le bas d'un pignon. Null si la surface n'y est pas.
+ */
+export function hauteurMurMesuree(t: ToitMesure, pts: readonly PtBrut[], i: number): number | null {
+  return bas(hauteursLeLongDe(t, au(pts, i), sommetDe(pts, i + 1), centroid(pts)));
+}
+
+/** Le repere d'un rectangle : son coin, ses deux directions unitaires et ses deux longueurs. */
+function repereRect(rect: readonly PtBrut[]) {
+  const p0 = au(rect, 0), p1 = au(rect, 1), p3 = au(rect, 3);
+  const L = Math.hypot(p1.x - p0.x, p1.y - p0.y), W = Math.hypot(p3.x - p0.x, p3.y - p0.y);
+  return { p0, u: { x: (p1.x - p0.x) / L, y: (p1.y - p0.y) / L }, v: { x: (p3.x - p0.x) / W, y: (p3.y - p0.y) / W }, L, W };
+}
+const cm = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * Coupe un rectangle en deux blocs la ou la couverture fait une marche : un corps a deux niveaux et
+ * une annexe a un seul sous un meme contour, un toit-terrasse accole a un toit en pente. Sur la
+ * grille des cellules du rectangle, chaque colonne (puis chaque ligne) a sa hauteur basse (dixieme
+ * centile) ; une coupe est une position ou cette hauteur saute d'au moins SEUIL_MARCHE_M sur un
+ * metre, et ou les deux cotes, pris en entier, different d'autant - un pan en pente monte
+ * doucement, une marche d'un coup. La coupe la plus franche l'emporte ; null s'il n'y en a pas, ou
+ * si un bloc serait trop etroit.
+ */
+export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtBrut[], PtBrut[]] | null {
+  if (rect.length !== 4) return null;
+  const { p0, u, v, L, W } = repereRect(rect);
+  const pas = t.pas;
+  const nu = Math.floor(L / pas), nv = Math.floor(W / pas);
+  if (nu < 4 || nv < 1) return null;
+  // Les hauteurs par colonne (le long de u) et par ligne (le long de v).
+  const colonnes: number[][] = Array.from({ length: nu }, () => []);
+  const lignes: number[][] = Array.from({ length: nv }, () => []);
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    const su = (i + 0.5) * pas, sv = (j + 0.5) * pas;
+    const z = hauteurToitMesure(t, p0.x + u.x * su + v.x * sv, p0.y + u.y * su + v.y * sv);
+    if (z !== null) { (colonnes[i] as number[]).push(z); (lignes[j] as number[]).push(z); }
+  }
+  const meilleure = (series: number[][], longueur: number): { k: number; score: number } | null => {
+    const basses = series.map((c) => bas(c, 1));
+    let best: { k: number; score: number } | null = null;
+    for (let k = 2; k + 2 <= series.length; k++) {
+      if (k * pas < LARGEUR_BLOC_MIN_M || longueur - k * pas < LARGEUR_BLOC_MIN_M) continue;
+      const avant = [basses[k - 2], basses[k - 1]].filter((x): x is number => x !== null);
+      const apres = [basses[k], basses[k + 1]].filter((x): x is number => x !== null);
+      if (avant.length < 2 || apres.length < 2) continue;
+      const saut = Math.abs(moyenne(apres) - moyenne(avant));
+      const gauche = bas(series.slice(0, k).flat()), droite = bas(series.slice(k).flat());
+      if (gauche === null || droite === null) continue;
+      const score = Math.min(saut, Math.abs(droite - gauche));
+      if (score >= SEUIL_MARCHE_M && (!best || score > best.score)) best = { k, score };
+    }
+    return best;
+  };
+  const selonU = meilleure(colonnes, L), selonV = meilleure(lignes, W);
+  const choix = selonU && (!selonV || selonU.score >= selonV.score) ? { axe: 'u' as const, k: selonU.k } : selonV ? { axe: 'v' as const, k: selonV.k } : null;
+  if (!choix) return null;
+  const s = choix.k * pas;
+  const P = (a: number, b: number): PtBrut => ({ x: cm(p0.x + u.x * a + v.x * b), y: cm(p0.y + u.y * a + v.y * b) });
+  return choix.axe === 'u'
+    ? [[P(0, 0), P(s, 0), P(s, W), P(0, W)], [P(s, 0), P(L, 0), P(L, W), P(s, W)]]
+    : [[P(0, 0), P(L, 0), P(L, s), P(0, s)], [P(0, s), P(L, s), P(L, W), P(0, W)]];
+}
+
+/**
+ * Les rectangles d'un contour recoupes par les marches de la couverture, jusqu'a deux fois chacun.
+ * Un morceau qui tient aux trois quarts dans un autre rectangle de depart (deux rectangles se
+ * chevauchent : un corps et l'aile qui le penetre) n'est pas un bloc de plus : il est oublie.
+ */
+export function decouperParHauteurs(t: ToitMesure, rects: readonly PtBrut[][]): PtBrut[][] {
+  const couvertAilleurs = (piece: readonly PtBrut[], origine: readonly PtBrut[]): boolean => {
+    const { p0, u, v, L, W } = repereRect(piece);
+    let total = 0, dedans = 0;
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      const su = ((i + 0.5) * L) / 4, sv = ((j + 0.5) * W) / 4;
+      const q = { x: p0.x + u.x * su + v.x * sv, y: p0.y + u.y * su + v.y * sv };
+      total++;
+      if (rects.some((r) => r !== origine && pointInPolygon(q, r))) dedans++;
+    }
+    return dedans >= total * 0.75;
+  };
+  const out: PtBrut[][] = [];
+  const couper = (rect: readonly PtBrut[], origine: readonly PtBrut[], profondeur: number): void => {
+    const deux = profondeur < 2 ? decouperParHauteur(t, rect) : null;
+    if (!deux) { if (rect === origine || !couvertAilleurs(rect, origine)) out.push([...rect]); return; }
+    deux.forEach((piece) => couper(piece, origine, profondeur + 1));
+  };
+  rects.forEach((r) => couper(r, r, 0));
+  return out;
 }
 
 /** Ce que la 3D montre du toit d'un batiment : la surface mesuree, un toit par corps, ou le toit unique. */

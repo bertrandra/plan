@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ouverturesAutomatiques, mursAOuvrir, niveaux, abscissesFenetres } from '../../../src/facade/ouvertures.js';
+import { ouverturesAutomatiques, mursAOuvrir, niveaux, abscissesFenetres, hauteurDuMur } from '../../../src/facade/ouvertures.js';
+import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
 // La disposition automatique des ouvertures (MD/spec-toit-ign.md §6.3) : la meme qu'avant par
@@ -37,5 +38,20 @@ describe('ouverturesAutomatiques', () => {
     expect(ouverturesAutomatiques([p(0, 0), p(3, 0), p(3, 1.5), p(0, 1.5)], [{ pts: [p(0, 0), p(3, 0), p(3, 1.5), p(0, 1.5)], hauteur: 2 }], 2)).toEqual([]);
     expect(niveaux(2, null).n).toBe(0);
     expect(abscissesFenetres(12)).toHaveLength(4);
+  });
+});
+
+describe('hauteurDuMur', () => {
+  it('prend la hauteur mesuree du mur du volume quand elle existe, sinon l egout du volume', () => {
+    const facades = facadesDuContour(maison, 6);
+    const sud = facades.find((f) => f.cote === 0)!, nord = facades.find((f) => f.cote === 2)!;
+    expect(hauteurDuMur(sud, volumes)).toBe(6);
+    const mesure = [{ pts: maison, hauteur: 4, hauteursMurs: [4, 4.2, 7.2, 4] }];
+    expect(hauteurDuMur(sud, mesure)).toBe(4);
+    expect(hauteurDuMur(nord, mesure)).toBe(7.2);
+    // Les fenetres suivent : deux niveaux au nord, un au sud.
+    const o = ouverturesAutomatiques(maison, mesure, 4);
+    expect(Math.max(...o.filter((x) => x.cote === 2).map((x) => x.y))).toBeGreaterThan(3);
+    expect(Math.max(...o.filter((x) => x.cote === 0).map((x) => x.y))).toBeLessThan(3);
   });
 });

@@ -141,4 +141,29 @@ describe('toitsDepuisLidar', () => {
     expect(bilan).toEqual({ ajustes: 2, mesures: 1, gardes: 0, sansLidar: false });
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD, 1 toit(s) de la parcelle garde(s) tel(s) que mesure(s)');
   });
+
+  it('coupe une maison rectangulaire a la marche de sa couverture, chaque bloc avec ses murs mesures', async () => {
+    // 14 x 6 : deux niveaux a gauche de x = 8 (toit plat a 7 m), un seul a droite (3,5 m).
+    const maison = rect(0, 0, 14, 6);
+    const dedans = (x: number, y: number, r: PtBrut[]) => x > r[0]!.x && x < r[2]!.x && y > r[0]!.y && y < r[2]!.y;
+    const lireGrille = vi.fn(async (): Promise<GrilleRelief> => {
+      const pas = 0.5, x0 = -0.75, y0 = 6.75, nx = 32, ny = 16;
+      const zs: number[] = [];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * pas, y = y0 - j * pas; zs.push(dedans(x, y, maison) ? (x < 8 ? 7 : 3.5) : 0); }
+      return { pas, x0, y0, nx, ny, z: zs };
+    });
+    const objets: ObjetAToit[] = [
+      { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
+      { key: 'm', fonction: 'batiment', pts: maison, toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } },
+    ];
+    await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
+    const m = objets[1]!;
+    expect(m.volumesToit).toHaveLength(2);
+    const [haut, basV] = m.volumesToit!;
+    expect(haut!.egout).toBe(7);
+    expect(basV!.egout).toBe(3.5);
+    expect(haut!.hauteursMurs).toEqual([7, 7, 7, 7]);
+    expect(basV!.hauteursMurs).toEqual([3.5, 3.5, 3.5, 3.5]);
+    expect(haut!.toit.forme).toBe('plat');
+  });
 });

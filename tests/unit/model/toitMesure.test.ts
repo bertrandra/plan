@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toitMesureDepuisGrille, hauteurToitMesure, egoutDansRect, modeToitActif, nettoyer, boucher, lisser, SAILLIE_M, DEPASSEMENT_M, SOL_M, RETRAIT_EGOUT_M, SOUS_EGOUT_M, CELLULES_MIN } from '../../../src/model/toitMesure.js';
+import { toitMesureDepuisGrille, hauteurToitMesure, egoutDansRect, modeToitActif, hauteurMurMesuree, decouperParHauteur, decouperParHauteurs, SEUIL_MARCHE_M, LARGEUR_BLOC_MIN_M, nettoyer, boucher, lisser, SAILLIE_M, DEPASSEMENT_M, SOL_M, RETRAIT_EGOUT_M, SOUS_EGOUT_M, CELLULES_MIN } from '../../../src/model/toitMesure.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { PtBrut, ToitMesure, VolumeToit } from '../../../src/model/types.js';
 
@@ -122,5 +122,52 @@ describe('modeToitActif', () => {
     // Un choix que l'objet ne peut pas honorer retombe sur ce qu'il a.
     expect(modeToitActif({ toitMesure: t, modeToit: 'volumes' })).toBe('simple');
     expect(modeToitActif({ volumesToit: v(2), modeToit: 'mesure' })).toBe('volumes');
+  });
+});
+
+describe('les murs et les marches de la couverture (spec-toit-ign §11.2, §12.3)', () => {
+  const marche = rect(0, 0, 14, 6);
+  /** Un rectangle de 14 x 6 : deux niveaux a gauche de x = 8 (couverture a 7 m), un seul a droite (3,5 m). */
+  const t = toitMesureDepuisGrille(grille(marche, (x, y) => (dedans(x, y, marche) ? (x < 8 ? 7 : 3.5) : 0)), marche)!;
+
+  it('la hauteur d un mur est celle ou la couverture le rejoint', () => {
+    // Le mur sud (cote 0) court sous les deux niveaux : son dixieme centile est le bas, 3,5 m ; le mur ouest (cote 3) est a 7 m.
+    expect(hauteurMurMesuree(t, marche, 0)).toBe(3.5);
+    expect(hauteurMurMesuree(t, marche, 3)).toBe(7);
+    expect(hauteurMurMesuree(t, marche, 1)).toBe(3.5);
+    expect(hauteurMurMesuree(t, rect(50, 50, 4, 4), 0)).toBeNull();
+  });
+
+  it('coupe un rectangle la ou la couverture fait une marche, pas sous un pan en pente', () => {
+    const deux = decouperParHauteur(t, marche)!;
+    expect(deux).not.toBeNull();
+    const [a, b] = deux;
+    expect(a[1]!.x).toBeCloseTo(8, 1);
+    expect(b[0]!.x).toBeCloseTo(8, 1);
+    expect(a.map((q) => q.y)).toEqual([0, 0, 6, 6]);
+    expect(SEUIL_MARCHE_M).toBe(1.5);
+    expect(LARGEUR_BLOC_MIN_M).toBe(1.5);
+    // Un appentis qui monte de 3 a 6 m sur 14 m, ou un deux-pans : aucune marche.
+    const pente = toitMesureDepuisGrille(grille(marche, (x, y) => (dedans(x, y, marche) ? 3 + (3 * x) / 14 : 0)), marche)!;
+    expect(decouperParHauteur(pente, marche)).toBeNull();
+    const deuxPans = toitMesureDepuisGrille(grille(marche, (x, y) => (dedans(x, y, marche) ? 4 + 2 * (1 - Math.abs(y - 3) / 3) : 0)), marche)!;
+    expect(decouperParHauteur(deuxPans, marche)).toBeNull();
+    // Une marche a 1 m du bord ne fait pas un bloc.
+    const bord = toitMesureDepuisGrille(grille(marche, (x, y) => (dedans(x, y, marche) ? (x < 1 ? 7 : 3.5) : 0)), marche)!;
+    expect(decouperParHauteur(bord, marche)).toBeNull();
+  });
+
+  it('recoupe les rectangles d un contour, et oublie un morceau qu un autre rectangle couvre deja', () => {
+    const blocs = decouperParHauteurs(t, [marche]);
+    expect(blocs).toHaveLength(2);
+    expect(blocs.map((r) => Math.round(Math.abs(r[1]!.x - r[0]!.x)))).toEqual([8, 6]);
+    // Un corps et une aile qui le penetre : le corps recoupe a la marche de l'aile rend un morceau que l'aile couvre deja.
+    const corps = rect(0, 0, 12, 8), aile = rect(8, 0, 4, 14);
+    const L = [p(0, 0), p(12, 0), p(12, 14), p(8, 14), p(8, 8), p(0, 8)];
+    const tl = toitMesureDepuisGrille(grille(L, (x, y) => (dedans(x, y, aile) ? 3.5 : dedans(x, y, corps) ? 7 : 0)), L)!;
+    const blocsL = decouperParHauteurs(tl, [corps, aile]);
+    expect(blocsL).toHaveLength(2);
+    expect(blocsL[0]!.map((q) => q.x)).toEqual([0, 8, 8, 0]);
+    expect(blocsL[1]).toEqual(aile);
   });
 });
