@@ -58,6 +58,7 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     if (c.volumesToit) c.volumesToit = JSON.parse(JSON.stringify(c.volumesToit));
     if (c.toitMesure) c.toitMesure = JSON.parse(JSON.stringify(c.toitMesure));
+    if (c.corpsToit) c.corpsToit = JSON.parse(JSON.stringify(c.corpsToit));
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));
     if (c.cloture) c.cloture = JSON.parse(JSON.stringify(c.cloture));
     // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).

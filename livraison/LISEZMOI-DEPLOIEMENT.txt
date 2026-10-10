@@ -1,4 +1,4 @@
-Plan 2.2.0 (98df553) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (66a94dd) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 1. Televerser le contenu de ce dossier dans le dossier publie, par exemple public_html/ : le plus

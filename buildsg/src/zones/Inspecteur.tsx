@@ -24,6 +24,7 @@ import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { Optimisation } from './resultats/Optimisation.js';
+import { CarteToit } from './composants/CarteToit.js';
 import { Icone } from './icones.js';
 import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 
@@ -206,6 +207,10 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
       return <div className="hint alerte">{champ.texte(c)}</div>;
     case 'optimisation':
       return inspecteur.resultats ? <Optimisation obj={c.obj} resultats={inspecteur.resultats} /> : null;
+    case 'carte': {
+      const carte = champ.carte(c);
+      return carte ? <CarteToit carte={carte} /> : null;
+    }
     case 'ligne':
       return <span className="champsEnLigne">
         {champsVisibles({ id: champ.cle, titre: '', champs: champ.champs }, c).map(sous => <Commande key={sous.cle} champ={sous} c={c} inspecteur={inspecteur} inline />)}
@@ -219,7 +224,7 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   const grise = !!champ.actif && !champ.actif(c);
   const brute = [champ.note ? champ.note(c) : '', tactile && grise && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
   const note = tactile ? aLaFrancaise(brute) : brute;
-  const pleineLargeur = champ.type === 'alerte' || champ.type === 'optimisation' || (champ.type === 'bouton' && !champ.libelle);
+  const pleineLargeur = champ.type === 'alerte' || champ.type === 'optimisation' || champ.type === 'carte' || (champ.type === 'bouton' && !champ.libelle);
   const classes = ['champ', 'champ-' + champ.type, champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
   if (pleineLargeur) return <div className={classes + ' pleineLargeur'} data-cle={champ.cle}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
   return (
