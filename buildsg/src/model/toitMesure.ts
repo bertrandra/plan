@@ -330,6 +330,7 @@ export function modeToitActif(o: { toit?: unknown; toitMesure?: ToitMesure | nul
   if (o.modeToit === 'volumes') return volumes ? 'volumes' : 'simple';
   if (o.modeToit === 'mesure' && o.toitMesure) return 'mesure';
   if (corps) return 'corps';
-  if (o.toitMesure) return 'mesure';
+  // Sans corps, un toit construit (des volumes, sinon la forme simple) plutot que la surface brute :
+  // un relief de LiDAR n'est pas un toit. « Tel que mesure » reste propose, a la demande.
   return volumes ? 'volumes' : 'simple';
 }

@@ -22,7 +22,7 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { hauteurToitMesure, decouperParHauteurs, SOL_M } from '../model/toitMesure.js';
 import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../model/volumesToit.js';
-import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { ajusterToit, diagnostiquerToit, ECART_MAX_M, ECART_MAX_APPENTIS_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
 
@@ -71,6 +71,7 @@ export const MESURES_MIN = 12;
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const cm = (v: number) => Math.round(v * 100) / 100;
 const TAN_MAX = Math.tan((PENTE_MAX_DEG * Math.PI) / 180);
+const TAN_MAX_RAD = (PENTE_MAX_DEG * Math.PI) / 180;
 
 /** Le repere d'un rectangle : son coin, la direction de sa longueur et de sa largeur, leurs longueurs. */
 export interface Repere { p0: PtBrut; u: PtBrut; v: PtBrut; L: number; W: number }
@@ -261,6 +262,8 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
   const r = repere(c.pts);
   const plat = c.faitage - Math.min(...c.egouts) < HAUTEUR_PLAT_M;
   if (plat) return [];
+  // Un appentis n'a pas de faitage dont partirait un pignon : son sommet est un mur.
+  if (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01) return [];
   const out: PignonToit[] = [];
   for (const pan of [0, 1] as const) {
     const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage;
@@ -478,6 +481,34 @@ export function decalageSurMesure(g: Grille, contour: readonly PtBrut[]): PtBrut
 }
 
 
+/** En secours, un appentis au-dela de l'ecart admis doit battre la meilleure forme a faitage de cette part. */
+export const GAIN_APPENTIS_SECOURS = 0.9;
+
+/**
+ * La lecture de dernier recours, quand l'ajustement des formes ne rend rien : la meilleure forme
+ * essayee sous ECART_MAX_M (80 cm). Un appentis y est admis au-dela de son propre seuil (40 cm, une
+ * rampe expliquant a peu pres tout) s'il bat nettement la meilleure forme a faitage : le toit a un
+ * pan des maisons de village provencales, sinon laissees a la surface brute. Pente de couverture
+ * exigee, comme pour l'ajustement.
+ */
+function lectureDeSecours(rect: readonly PtBrut[], ech: readonly EchantillonHauteur[]): ToitAjuste | null {
+  if (ech.length < MESURES_MIN) return null;
+  const essais = diagnostiquerToit(rect, ech).filter((x) => x.ecart <= ECART_MAX_M);
+  const pente = (x: { forme: string; angleFaitage: number; H: number }) => {
+    const r = repereFaitage(rect, x.angleFaitage);
+    const course = x.forme === 'appentis' ? 2 * r.hw : r.hw;
+    return course > 0 ? Math.atan(x.H / course) : 0;
+  };
+  const admis = essais.filter((x) => pente(x) <= TAN_MAX_RAD).sort((a, b) => a.ecart - b.ecart);
+  let choix = admis[0];
+  if (!choix) return null;
+  if (choix.forme === 'appentis' && choix.ecart > ECART_MAX_APPENTIS_M) {
+    const faitage = admis.find((x) => x.forme === 'deux-pans' || x.forme === 'quatre-pans' || x.forme === 'croupes');
+    if (faitage && choix.ecart > GAIN_APPENTIS_SECOURS * faitage.ecart) choix = faitage;
+  }
+  return { toit: { forme: choix.forme, hauteur: cm(choix.H), angleFaitage: choix.angleFaitage, source: 'lidar' }, egout: cm(choix.e), ecart: cm(choix.ecart), echantillons: choix.gardes };
+}
+
 /**
  * Un pan seul ou un toit plat, a la meme regle que le modele des corps : l'ajustement des formes
  * simples rend plat tout toit sous 10 degres (la regle de la BD TOPO), et un appentis de garage a 6
@@ -502,14 +533,14 @@ function unPanPlutotQuePlat(rect: readonly PtBrut[], ech: readonly EchantillonHa
  * croupes et quatre pans (un faitage dans la longueur, des croupes a la pente des pans), appentis,
  * plat. Null quand aucune forme ne s'ajuste.
  */
-export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit | null {
+export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: readonly PtBrut[] | null = null, secours = false): CorpsToit | null {
   const ech: EchantillonHauteur[] = [];
   for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
     const z = g.z[j * g.nx + i];
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
-    if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect)) ech.push({ ...p, z });
+    if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect) && (!contour || pointInPolygon(p, contour))) ech.push({ ...p, z });
   }
-  const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech));
+  const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech) ?? (secours ? lectureDeSecours(rect, ech) : null));
   if (!a) return null;
   const { toit, egout } = a;
   const u = { x: Math.cos((toit.angleFaitage * Math.PI) / 180), y: Math.sin((toit.angleFaitage * Math.PI) / 180) };
@@ -541,9 +572,32 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit
  */
 function corpsDeReprise(m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
   const rects = rectanglesEnTranches(contourEquerre(contour) ?? contour);
-  if (!rects) return null;
+  if (!rects) return corpsSurBoite(m, contour, grille);
   const corps = rects.map((r) => corpsDepuisFormes(grille ?? m, r) ?? corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
   return corps.length ? completerSurContour(corps, contour) : null;
+}
+
+/**
+ * Le rectangle qui englobe le contour, dans l'axe qui aligne le plus de ses cotes (`axeDesCotes`).
+ */
+export function boiteOrientee(contour: readonly PtBrut[]): PtBrut[] {
+  const a = (axeDesCotes(contour) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const loc = contour.map((p) => ({ x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos }));
+  const xs = loc.map((p) => p.x), ys = loc.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }].map((p) => ({ x: cm(p.x * cos - p.y * sin), y: cm(p.x * sin + p.y * cos) }));
+}
+
+/**
+ * Le dernier recours d'un contour qui ne se decoupe pas du tout (une maison de village en trapeze, en
+ * parallelogramme, aux angles qui ne sont pas droits) : un seul corps, lu par les formes simples sur
+ * le rectangle qui l'englobe, avec les seules mesures du contour. Le dessin le decoupe ensuite sur le
+ * contour (three/toitCorps3d.ts::facettesSurContour) : la maison garde sa forme, et son toit est
+ * construit au lieu d'etre la surface brute. Null si les formes ne lisent rien.
+ */
+function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
+  const c = corpsDepuisFormes(grille ?? m, boiteOrientee(contour), contour, true);
+  return c ? [c] : null;
 }
 
 /** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
@@ -639,9 +693,154 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     if (!deux) { blocs.push(rect); return; }
     deux.forEach((q) => couper(q, profondeur + 1));
   };
-  decouperParHauteurs(m, rects).forEach((r) => couper(r, 0));
-  const corps = blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour))).filter((c): c is CorpsToit => c !== null);
+  // Les blocs qu'une marche a separes a tort sont refondus quand un seul toit les explique mieux ;
+  // ceux-la gardent leur toit lu par les formes, sans coupe par le modele.
+  const refondus: CorpsToit[] = [];
+  for (const b of refondre(m, rects, contour, options.grille ?? null)) {
+    if (b.corps) refondus.push(b.corps);
+    else couper(b.rect, 0);
+  }
+  const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
   return corps.length ? corps : null;
+}
+
+/**
+ * Deux blocs se refondent quand un seul toit les explique presque aussi bien que leurs deux corps : son
+ * ecart ne depasse pas le leur de plus de cette part. Un toit plutot que deux morceaux qui collent a
+ * peine mieux a la mesure, mais avec un egout a 8,4 m et un appentis de 2,3 m a pignon (AE 98).
+ */
+export const TOLERANCE_REFONTE = 1.15;
+/**
+ * Et quand la coupe aux marches laisse une bande plus etroite que LARGEUR_BANDE_M : un corps de moins
+ * de 3 m n'est pas une maison mais une tranche de pente (un pavillon coupe en trois bandes de 1,5 a
+ * 2,6 m, la maison mitoyenne d'AE 98). Le toit unique est alors admis jusqu'a TOLERANCE_BANDE.
+ */
+export const LARGEUR_BANDE_M = 3;
+export const TOLERANCE_BANDE = 1.6;
+
+/** La reunion de deux rectangles qui partagent un cote entier, dans le repere du premier ; null sinon. */
+export function reunion(a: readonly PtBrut[], b: readonly PtBrut[]): PtBrut[] | null {
+  return reunionEtCote(a, b)?.rect ?? null;
+}
+
+/** La reunion, et le cote du premier rectangle (dans son repere) que le second borde. */
+function reunionEtCote(a: readonly PtBrut[], b: readonly PtBrut[]): { rect: PtBrut[]; cote: 's0' | 'sL' | 't0' | 'tW' } | null {
+  const r = repere(a);
+  const loc = b.map((q) => { const dx = q.x - r.p0.x, dy = q.y - r.p0.y; return { s: dx * r.u.x + dy * r.u.y, t: dx * r.v.x + dy * r.v.y }; });
+  const ss = loc.map((q) => q.s), ts = loc.map((q) => q.t), e = 0.05;
+  const s0 = Math.min(...ss), s1 = Math.max(...ss), t0 = Math.min(...ts), t1 = Math.max(...ts);
+  // Paralleles : chaque sommet de b sur l'une des bornes de sa boite.
+  if (!loc.every((q) => (Math.abs(q.s - s0) < e || Math.abs(q.s - s1) < e) && (Math.abs(q.t - t0) < e || Math.abs(q.t - t1) < e))) return null;
+  const memeT = Math.abs(t0) < e && Math.abs(t1 - r.W) < e, memeS = Math.abs(s0) < e && Math.abs(s1 - r.L) < e;
+  let bornes: [number, number, number, number] | null = null;
+  let cote: 's0' | 'sL' | 't0' | 'tW' = 'sL';
+  if (memeT && Math.abs(s0 - r.L) < e) { bornes = [0, s1, 0, r.W]; cote = 'sL'; }
+  else if (memeT && Math.abs(s1) < e) { bornes = [s0, r.L, 0, r.W]; cote = 's0'; }
+  else if (memeS && Math.abs(t0 - r.W) < e) { bornes = [0, r.L, 0, t1]; cote = 'tW'; }
+  else if (memeS && Math.abs(t1) < e) { bornes = [0, r.L, t0, r.W]; cote = 't0'; }
+  if (!bornes) return null;
+  const [a0, a1, b0, b1] = bornes;
+  return { rect: [point(r, a0, b0), point(r, a1, b0), point(r, a1, b1), point(r, a0, b1)].map((q) => ({ x: cm(q.x), y: cm(q.y) })), cote };
+}
+
+
+/**
+ * Au-dela de ce saut median de la couverture au cote commun (une cellule de part et d'autre), deux
+ * blocs sont separes par une marche ; en deca, c'est la pente d'un pan (40 degres : 0,42 m sur 50 cm).
+ */
+export const CONTINUITE_M = 0.6;
+
+/** La hauteur de la grille a la cellule la plus proche d'un point ; null hors d'elle ou sans mesure. */
+function hauteurGrille(g: Grille, q: PtBrut): number | null {
+  const i = Math.round((q.x - g.x0) / g.pas), j = Math.round((g.y0 - q.y) / g.pas);
+  if (i < 0 || j < 0 || i >= g.nx || j >= g.ny) return null;
+  const z = g.z[j * g.nx + i];
+  return z === null || z === undefined ? null : z;
+}
+
+/**
+ * Le saut de la couverture au passage du cote commun de deux blocs, lu sur la grille (brute de
+ * preference) a une cellule de part et d'autre : la mediane des ecarts. Un pan, meme raide, n'y
+ * change que de sa pente sur un metre ; une marche saute d'un etage.
+ */
+function sautAuCote(g: Grille, a: readonly PtBrut[], cote: 's0' | 'sL' | 't0' | 'tW'): number | null {
+  const r = repere(a), d = g.pas;
+  const long = cote === 's0' || cote === 'sL' ? r.W : r.L;
+  const ecarts: number[] = [];
+  for (let x = 0.25; x < long; x += g.pas) {
+    const [dedans, dehors] = cote === 's0' ? [point(r, d / 2, x), point(r, -d / 2, x)] : cote === 'sL' ? [point(r, r.L - d / 2, x), point(r, r.L + d / 2, x)]
+      : cote === 't0' ? [point(r, x, d / 2), point(r, x, -d / 2)] : [point(r, x, r.W - d / 2), point(r, x, r.W + d / 2)];
+    const za = hauteurGrille(g, dedans), zb = hauteurGrille(g, dehors);
+    if (za !== null && zb !== null) ecarts.push(Math.abs(za - zb));
+  }
+  if (!ecarts.length) return null;
+  ecarts.sort((p, q) => p - q);
+  return ecarts[Math.floor(ecarts.length / 2)] ?? null;
+}
+
+/**
+ * Les blocs coupes aux marches, refondus deux a deux quand un seul toit lu par les formes simples
+ * (`corpsDepuisFormes`) explique leur reunion presque aussi bien que leurs deux corps
+ * (`TOLERANCE_REFONTE`) : la pente forte d'un pan passait pour une marche, et coupait un toit en deux
+ * morceaux absurdes (AE 98). Ecart symetrique (`ecartAuCorps`), pondere par l'aire. Deux niveaux
+ * vraiment differents ne se refondent pas : les formes n'y lisent qu'un toit de compromis, loin des deux.
+ */
+function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly PtBrut[], grille: Grille | null): { rect: PtBrut[]; corps?: CorpsToit }[] {
+  const aire = (q: readonly PtBrut[]) => { const r = repere(q); return r.L * r.W; };
+  const cache = new Map<PtBrut[], CorpsToit | null>();
+  const corpsDe = (x: { rect: PtBrut[]; corps?: CorpsToit }): CorpsToit | null => {
+    if (x.corps) return x.corps;
+    if (!cache.has(x.rect)) cache.set(x.rect, corpsAvecPignons(m, x.rect, contour));
+    return cache.get(x.rect) ?? null;
+  };
+  const ecartSeul = (x: { rect: PtBrut[]; corps?: CorpsToit }) => { const c = corpsDe(x); return c ? ecartAuCorps(m, c, contour) : Infinity; };
+  const ecartDe = (parts: readonly { rect: PtBrut[]; corps?: CorpsToit }[]) => Math.sqrt(parts.reduce((a, x) => a + ecartSeul(x) ** 2 * aire(x.rect), 0) / parts.reduce((a, x) => a + aire(x.rect), 0));
+  // D'abord chaque rectangle entier : les pentes d'un pavillon le coupaient en trois bandes, dont aucune
+  // paire ne fait un toit.
+  const liste: { rect: PtBrut[]; corps?: CorpsToit }[] = [];
+  for (const r of rects) {
+    const parts = decouperParHauteurs(m, [r]).map((rect) => ({ rect }));
+    const f = parts.length > 1 ? corpsDepuisFormes(grille ?? m, r) : null;
+    const un = f ? ecartAuCorps(m, f, contour) : Infinity;
+    // Une bande de moins de 3 m est une tranche coupee dans une pente, pas un corps : plus de tolerance.
+    const bande = parts.some((x) => { const q = repere(x.rect); return Math.min(q.L, q.W) < LARGEUR_BANDE_M; });
+    // Et sans aucune marche aux coupes, c'est le meme toit, tant que les formes simples le lisent.
+    const sansMarche = parts.length > 1 && parts.every((x, k) => parts.every((y, l) => {
+      if (l <= k) return true;
+      const ru = reunionEtCote(x.rect, y.rect);
+      if (!ru) return true;
+      const saut = sautAuCote(grille ?? m, x.rect, ru.cote);
+      return saut !== null && saut < CONTINUITE_M;
+    }));
+    if (f && (sansMarche || un <= (bande ? TOLERANCE_BANDE : TOLERANCE_REFONTE) * ecartDe(parts))) liste.push({ rect: [...r], corps: { ...f, ecart: cm(un) } });
+    else liste.push(...parts);
+  }
+  if (liste.length < 2) return liste;
+  for (let garde = 0; garde < 8; garde++) {
+    let fait = false;
+    for (let i = 0; i < liste.length && !fait; i++) for (let j = i + 1; j < liste.length && !fait; j++) {
+      const a = liste[i] as { rect: PtBrut[]; corps?: CorpsToit }, b = liste[j] as { rect: PtBrut[]; corps?: CorpsToit };
+      const ru = reunionEtCote(a.rect, b.rect);
+      if (!ru) continue;
+      const u = ru.rect;
+      const f = corpsDepuisFormes(grille ?? m, u);
+      if (!f) continue;
+      const deux = ecartDe([a, b]);
+      const un = ecartAuCorps(m, f, contour);
+      // Le meme toit, sans marche entre eux : refondus des que le toit unique tient la mesure.
+      const saut = sautAuCote(grille ?? m, a.rect, ru.cote);
+      // Sans marche entre eux, c'est le meme toit : refondus des que les formes simples le lisent (elles
+      // renoncent d'elles-memes au-dela de 80 cm d'ecart), meme si les morceaux collaient mieux - une
+      // bande d'un deux-pans coupee le long du faitage est un appentis presque parfait.
+      const memeToit = saut !== null && saut < CONTINUITE_M;
+      if (!memeToit && un > TOLERANCE_REFONTE * deux) continue;
+      liste.splice(j, 1);
+      liste[i] = { rect: u, corps: { ...f, ecart: cm(un) } };
+      fait = true;
+    }
+    if (!fait) break;
+  }
+  return liste;
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
