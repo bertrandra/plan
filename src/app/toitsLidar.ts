@@ -89,6 +89,16 @@ export function corpsVraisemblables(o: ObjetAToit, corps: CorpsToit[] | null): C
   return gardes.length ? gardes : null;
 }
 
+/**
+ * La surface mesuree, si c'est bien un toit : quand meme son egout depasse de plus de
+ * DEPASSEMENT_VEGETATION_M la hauteur de la BD TOPO, le LiDAR n'a vu que l'arbre qui couvre le
+ * batiment. Null alors : ni surface brute dessinee, ni hauteur d'egout tiree d'un houppier.
+ */
+export function mesureVraisemblable(o: ObjetAToit, mesure: ToitMesure | null): ToitMesure | null {
+  const h = hauteurBdTopo(o);
+  return mesure && h !== null && mesure.egout > h + DEPASSEMENT_VEGETATION_M ? null : mesure;
+}
+
 /** Ce que la lecture a fait, pour le bilan. */
 export interface BilanToitsLidar {
   /** Toits dont la forme a ete ajustee sur le LiDAR (plats compris). */
@@ -226,8 +236,11 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
         const large = await recalerSurLidar(o, grille, proj, lireGrille);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
-      const ajuste = ajusterToit(o.pts, ech);
-      const mesure = principal && grille ? toitMesureDepuisGrille(grille, o.pts) : null;
+      // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
+      const brut = ajusterToit(o.pts, ech);
+      const hBd = hauteurBdTopo(o);
+      const ajuste = brut && hBd !== null && brut.egout > hBd + DEPASSEMENT_VEGETATION_M ? null : brut;
+      const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
       // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
       if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsVraisemblables(o, reconstruireCorps(mesure, o.pts, { grille })) : null; }
@@ -235,7 +248,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
       // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
       else if (voisins && grille) {
-        const mesureVoisine = toitMesureDepuisGrille(grille, o.pts);
+        const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
         const mitoyen = mitoyens.has(o);
         o.corpsToit = mesureVoisine ? corpsVraisemblables(o, reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen, grille })) : null;
         // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :

@@ -739,6 +739,14 @@ Au Vésinet : corps principal 9,9 × 6,5 m, deux pans, faîtage 7,6 m, égouts 6
 de 2,5 et 2,9 m partant du faîtage sur la façade sud-est ; annexe 4,2 × 9,9 m, faîtage 4,3 m ; aile
 5,9 × 7,8 m, faîtage 4,5 m.
 
+**Les croupes** (`avecCroupesSiMieux`). Le modèle des corps n'a que des pignons de bout : un
+quatre-pans s'y lisait en appentis presque plat (AE 100 : 5,5 m au lieu de 7,7 m). Chaque corps sans
+pignon est donc comparé à la lecture des formes simples du même rectangle (`corpsDepuisFormes`,
+§13.7). Quand celle-ci donne des croupes et que son écart à la mesure tombe aux quatre cinquièmes,
+elle l'emporte. L'écart de comparaison est symétrique (borné à 1,2 m dans les deux sens). Celui de
+l'ajustement, qui compte peu ce qui dépasse le pan, préférait un toit écrasé. AE 101 garde ses corps
+au centimètre (test sur le relevé réel).
+
 ### 13.3 Le dessin (`three/toitCorps3d.ts`)
 
 - **Un prisme par corps** à son égout le plus bas ; au-dessus, en couleur de mur, le mur d'un pan plus
@@ -817,7 +825,9 @@ TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts:
 couvre un bâtiment : un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du bâtiment
 (`hauteurRetenueM`, à défaut `hauteurM`) est écarté. Exemple : un abri de 2,70 m à côté d'AE 101
 devenait une tour de 15 m. Sans corps restant, le bâtiment garde sa forme simple, et une maison
-mitoyenne ne garde pas sa grille. Sans hauteur BD TOPO, rien n'est écarté.
+mitoyenne ne garde pas sa grille. Quand l'égout de toute la surface dépasse ce seuil
+(`mesureVraisemblable`), ni la surface ni la forme ajustée ne sont gardées : pas de relief de
+feuillage, pas de hauteur d'égout tirée d'un houppier. Sans hauteur BD TOPO, rien n'est écarté.
 
 ### 13.7 Les contours de biais, le recalage et les croupes
 

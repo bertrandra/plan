@@ -25,6 +25,18 @@ describe('reprise des contours de biais', () => {
     expect(r.corps?.every((c) => !c.croupes)).toBe(true);
   });
 
+  it('AE 100 : un quatre-pans, lu par les formes simples la ou le modele des corps n avait qu un appentis', () => {
+    const r = releve('100');
+    const corps = reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille })!;
+    expect(corps).toHaveLength(1);
+    const c = corps[0]!;
+    expect(c.croupes?.every((h) => h > 3)).toBe(true);
+    expect(c.egouts[0]).toBe(c.egouts[1]);
+    expect(c.faitage).toBeGreaterThan(7.3);
+    expect(c.egouts[0]).toBeGreaterThan(4.2);
+    expect(c.egouts[0]).toBeLessThan(5.2);
+  });
+
   it('AE 103 : le contour recale sur le LiDAR, deux toits a quatre pans et un toit plat entre eux', () => {
     const r = releve('103');
     const large = r.grilleLarge as GrilleRelief;

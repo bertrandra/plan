@@ -34,6 +34,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les toits à quatre pans des maisons au contour droit** (`MD/spec-toit-ign.md` §13.2) : le modèle
+  des corps n'a que des pignons de bout, et lisait un quatre-pans en appentis presque plat (AE 100 :
+  5,5 m au lieu de 7,7 m). Chaque corps sans pignon est maintenant comparé à la lecture des formes
+  simples, qui sait les croupes ; elle l'emporte quand elle explique la mesure nettement mieux
+  (écart symétrique tombé aux quatre cinquièmes). AE 100 : quatre pans, faîtage 7,7 m, égouts
+  4,6 m ; AE 101 ne change pas. Et un bâtiment dont toute la mesure est la cime d'un arbre (plus de
+  3 m au-dessus de sa hauteur BD TOPO) ne garde ni surface mesurée ni hauteur tirée d'elle.
 - **Plus de tour au milieu du voisinage** (`MD/spec-toit-ign.md` §13.6) : un abri de jardin de 11 m²
   (2,70 m dans la BD TOPO), à côté d'AE 101, était sous un grand arbre ; le LiDAR mesurait la cime,
   et ses corps montaient à 15 m. Un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du

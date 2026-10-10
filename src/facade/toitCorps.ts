@@ -603,8 +603,36 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     deux.forEach((q) => couper(q, profondeur + 1));
   };
   decouperParHauteurs(m, rects).forEach((r) => couper(r, 0));
-  const corps = blocs.map((r) => corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
+  const corps = blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour))).filter((c): c is CorpsToit => c !== null);
   return corps.length ? corps : null;
+}
+
+/** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
+export const GAIN_CROUPES = 0.8;
+
+/**
+ * L'ecart d'un corps a la mesure sous lui, chaque mesure bornee a ECART_ABERRANT_M dans les deux sens.
+ * Symetrique, a la difference de `profilEn` : celui-la compte peu ce qui depasse le pan (il cherche
+ * les pignons), et preferait donc un toit ecrase a un quatre-pans.
+ */
+function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): number {
+  const r = repere(c.pts);
+  const ms = mesuresDans(m, r, c.pts, contour);
+  if (!ms.length) return Infinity;
+  return Math.sqrt(ms.reduce((a, q) => a + Math.min(ECART_ABERRANT_M, Math.abs(q.z - hauteurCorpsEn(c, r.L, r.W, q.s, q.t))) ** 2, 0) / ms.length);
+}
+
+/**
+ * Le corps a croupes que lisent les formes simples (`corpsDepuisFormes`), quand il explique la mesure
+ * nettement mieux que le modele des corps, qui n'a que des pignons de bout : un toit a quatre pans
+ * s'y lisait en appentis presque plat (AE 100). Un corps qui a des pignons garde le modele des corps.
+ */
+function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, c: CorpsToit | null): CorpsToit | null {
+  if (c?.pignons.length) return c;
+  const f = corpsDepuisFormes(grille ?? m, rect);
+  if (!f?.croupes) return c;
+  const ef = ecartAuCorps(m, f, contour);
+  return !c || ef < GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
 }
 
 /** La hauteur du mur `i` d'un corps (de `pts[i]` a `pts[i + 1]`) : l'egout de son pan, ou le plus bas des egouts sous un pignon de bout. */
