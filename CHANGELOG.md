@@ -614,6 +614,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **« Impossible de créer le projet : EMBEDDED_ASSET_REJECTED » à l'import par adresse.** La
+  plateforme refuse toute chaîne de plus de 64 Kio dans un document ; or le relief du terrain
+  s'enregistre en une chaîne base 64 (`zCode`), qui atteint 107 Kio pour une grille de 40 000
+  cellules — une grande parcelle, ou un relief étendu au voisinage. Au-delà de 60 000 caractères,
+  `zCode` est désormais une liste de morceaux, recollés à la lecture (`MD/spec-relief.md` §7). Et si
+  la plateforme refuse encore un contenu embarqué, le message dit quel champ et quelle taille, au
+  lieu du seul code.
+
 - **Page blanche après une mise en ligne** (10 octobre 2026, plan.raillard.org) : le programme était
   en ligne dans `index.html`, et la politique de contenu du `.htaccess` le nommait par son
   empreinte, qui change à chaque build. La mise en ligne avait remplacé `index.html` mais pas le

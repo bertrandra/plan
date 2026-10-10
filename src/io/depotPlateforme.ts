@@ -62,12 +62,27 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
   if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
   if (e instanceof EchecPlateforme && e.erreur.code === 'PAYLOAD_TOO_LARGE') return refusDeTaille(e, quoi);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'EMBEDDED_ASSET_REJECTED') return refusDActif(e, quoi);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
     return echec(quoi + ' : ' + e.erreur.code + ref, motif);
   }
   return echec(quoi + ' : ' + ((e as Error).message || String(e)), 'network');
+}
+
+/**
+ * La plateforme refuse un document qui embarque un contenu : une URI `data:`, ou une chaine de plus
+ * de 64 Kio (`422 EMBEDDED_ASSET_REJECTED`, avec `details.path` et `details.reason`). Le chemin est
+ * dit : c'est lui qui designe le champ fautif, sans quoi l'erreur ne se diagnostique pas.
+ */
+function refusDActif(e: EchecPlateforme, quoi: string): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const chemin = typeof d.path === 'string' ? d.path : null;
+  const taille = typeof d.size_bytes === 'number' ? ' (' + Math.round(d.size_bytes / 1024) + ' Kio)' : '';
+  const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
+  return echec(quoi + ' : la plateforme refuse un contenu embarque dans le document'
+    + (chemin ? ', champ « ' + chemin + ' »' + taille : '') + ' — EMBEDDED_ASSET_REJECTED' + ref, 'server');
 }
 
 /**

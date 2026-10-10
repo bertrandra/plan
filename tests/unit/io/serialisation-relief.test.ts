@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { serializeObjects } from '../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { schemaMinimal, migrer, MIGRATIONS } from '../../../src/model/migrations.js';
+import { ZCODE_MORCEAU } from '../../../src/model/relief.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
 
 // Le relief dans le fichier de projet (MD/spec-relief.md §7) : ecrit seulement present, copie en
@@ -54,6 +55,27 @@ describe('serialisation du relief', () => {
     expect(JSON.stringify(s?.relief).length).toBeLessThan(JSON.stringify(grand).length / 2);
     const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
     expect(relu?.relief?.z).toEqual(z);
+  });
+
+  it('decoupe une grande grille en morceaux de moins de 64 Kio, que la plateforme accepte, et la relit a l identique', () => {
+    // 40 000 cellules : 107 Kio de base 64 en une chaine, refusee par la plateforme (EMBEDDED_ASSET_REJECTED).
+    const z = Array.from({ length: 40000 }, (_, k) => (k % 1013 === 0 ? null : Math.round((30 + (k % 997) / 7.3) * 100) / 100));
+    const grand = { ...relief, nx: 200, ny: 200, z };
+    const [s] = serializeObjects([{ ...parcelle(), relief: grand } as ObjetPlan]);
+    const code = (s?.relief as unknown as { zCode: unknown }).zCode;
+    expect(Array.isArray(code)).toBe(true);
+    (code as string[]).forEach((m) => expect(m.length).toBeLessThanOrEqual(ZCODE_MORCEAU));
+    expect(ZCODE_MORCEAU).toBeLessThan(65536);
+    expect((code as string[]).join('')).toMatch(/^u16cm:/);
+    // Aucune chaine du document ne depasse ce que la plateforme admet (backprod DocumentPolicy::MAX_STRING_BYTES).
+    const chaines: string[] = [];
+    JSON.stringify(s, (_k, v: unknown) => { if (typeof v === 'string') chaines.push(v); return v; });
+    expect(Math.max(...chaines.map((c) => c.length))).toBeLessThanOrEqual(65536);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
+    expect(relu?.relief?.z).toEqual(z);
+    // Une petite grille garde sa seule chaine, comme avant.
+    const [petit] = serializeObjects([{ ...parcelle(), relief } as ObjetPlan]);
+    expect(typeof (petit?.relief as unknown as { zCode: unknown }).zCode).toBe('string');
   });
 
   it('porte le document au schema 4, et la migration 3 -> 4 ne change rien', () => {

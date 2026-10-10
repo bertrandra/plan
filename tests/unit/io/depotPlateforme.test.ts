@@ -113,3 +113,15 @@ describe('la limite de projets, vue de la plateforme', () => {
     expect(e.message).not.toContain('QUOTA_EXCEEDED');
   });
 });
+
+describe('un contenu embarque, refuse par la plateforme', () => {
+  it('nomme le champ refuse et sa taille, et garde le code et la reference', async () => {
+    const refus = new EchecPlateforme({ code: 'EMBEDDED_ASSET_REJECTED', message: 'Project documents may not embed assets.', statut: 422,
+      details: { path: 'objects/0/relief/zCode', reason: 'string longer than the limit', limit_bytes: 65536, size_bytes: 109000 }, requestId: '44c4cae8' });
+    const { s } = session(() => { throw refus; });
+    const e = await creerDepotPlateforme(s).enregistrer({ name: 'Parcelle', objects: plan }).catch((x: Error) => x) as Error & { reason: string };
+    expect(e.reason).toBe('server');
+    expect(e.message).toContain('champ « objects/0/relief/zCode » (106 Kio)');
+    expect(e.message).toContain('EMBEDDED_ASSET_REJECTED (44c4cae8)');
+  });
+});

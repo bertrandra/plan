@@ -290,6 +290,14 @@ change pas entre V1 et V2 : c'est pour cela que V1 enregistre déjà tout.
 > sans donnée). En clair, 40 000 altitudes faisaient refuser le projet par la plateforme (413). La
 > forme en mémoire (`z`) ne change pas ; une grille écrite en clair se relit telle quelle, et une
 > amplitude de plus de 655 m reste écrite en clair (`model/relief.ts`, `compacterRelief`).
+>
+> **10 octobre 2026** : la plateforme refuse toute chaîne de plus de 64 Kio dans un document
+> (`422 EMBEDDED_ASSET_REJECTED`, `DocumentPolicy::MAX_STRING_BYTES` de backprod). Une grille de
+> 40 000 cellules donne 107 Kio de base 64 : l'import d'une grande parcelle, ou d'un relief étendu
+> au voisinage, était refusé. Au-delà de 60 000 caractères (`ZCODE_MORCEAU`), `zCode` est une
+> **liste de morceaux**, recollés à la lecture (`deplierRelief`) ; en deçà, une seule chaîne, comme
+> avant. Le document ne change pas de schéma : un lecteur d'avant ce jour ne sait pas recoller les
+> morceaux, mais aucun document à morceaux n'avait pu être enregistré.
 
 ```ts
 export interface Relief {
