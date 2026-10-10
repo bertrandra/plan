@@ -22,8 +22,8 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { hauteurToitMesure, decouperParHauteurs, SOL_M } from '../model/toitMesure.js';
 import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../model/volumesToit.js';
-import { angleDuPlusLongCote } from '../geometry/faitage.js';
-import { ajusterToit, type EchantillonHauteur } from './toitLidar.js';
+import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
 
 /** Le pas des positions de faitage essayees dans la largeur d'un corps. */
@@ -42,6 +42,14 @@ export const DEPASSEMENT_GARDE_M = 0.4;
 const PASSES = 5;
 /** En deca de cette hauteur de faitage au-dessus des egouts, le toit est plat. */
 export const HAUTEUR_PLAT_M = 0.3;
+/** Et en deca de cette pente : l'ecoulement d'une toiture-terrasse, pas un pan. */
+export const PENTE_PLAT_DEG = 3;
+/** Un pan plus etroit que cela, contre un mur, n'en est pas un : le faitage est sur le mur, un appentis. */
+export const PAN_MIN_M = 1;
+/** L'appentis l'emporte sur ce faux petit pan tant que son ecart ne depasse pas le sien de plus de 10 % et 5 cm. */
+const TOLERANCE_APPENTIS = 1.1, TOLERANCE_APPENTIS_M = 0.05;
+/** Un pan seul plutot qu'un toit plat : seulement si son ecart tombe a cette part de celui du plat. */
+export const GAIN_PAN_SUR_PLAT = 0.9;
 /** Un pignon depasse le pan qui le porte d'au moins cela, le long du mur. */
 export const SURPLUS_PIGNON_M = 0.8;
 /** La largeur d'un pignon le long du mur. */
@@ -181,6 +189,14 @@ function profilEn(ms: readonly Mesure[], W: number, p: number): Profil | null {
   return { p, F, e0, e1, ecart };
 }
 
+/** Un profil plat : son faitage a moins de HAUTEUR_PLAT_M au-dessus des egouts, ou chaque pan sous PENTE_PLAT_DEG. */
+function profilPlat(pr: Profil, W: number): boolean {
+  if (pr.F - Math.min(pr.e0, pr.e1) < HAUTEUR_PLAT_M) return true;
+  const tan = Math.tan((PENTE_PLAT_DEG * Math.PI) / 180);
+  const pente0 = pr.p > 0 ? (pr.F - pr.e0) / pr.p : 0, pente1 = pr.p < W ? (pr.F - pr.e1) / (W - pr.p) : 0;
+  return Math.max(pente0, pente1) < tan;
+}
+
 /** Le meilleur toit d'un rectangle dont le faitage suit `pts[0] -> pts[1]`. */
 function meilleurProfil(ms: readonly Mesure[], W: number): Profil | null {
   let best: Profil | null = null;
@@ -212,10 +228,15 @@ export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: re
   for (const pts of [[...rect], tourne(rect)]) {
     const r = repere(pts);
     const ms = mesuresDans(m, r, pts, contour, exclure);
-    const pr = meilleurProfil(ms, r.W);
+    let pr = meilleurProfil(ms, r.W);
+    // Un faitage a moins d'un metre d'un mur laisse un pan qui n'en est pas un : sur le mur, un appentis.
+    if (pr && ((pr.p > 0 && pr.p < PAN_MIN_M) || (pr.p < r.W && r.W - pr.p < PAN_MIN_M))) {
+      const appentis = profilEn(ms, r.W, pr.p < r.W / 2 ? 0 : r.W);
+      if (appentis && appentis.ecart <= TOLERANCE_APPENTIS * pr.ecart + TOLERANCE_APPENTIS_M) pr = appentis;
+    }
     if (!pr || (best && pr.ecart >= best.ecart)) continue;
     // Plat quand aucun pan ne monte : un appentis a un egout au faitage, c'est l'autre qui compte.
-    const plat = pr.F - Math.min(pr.e0, pr.e1) < HAUTEUR_PLAT_M;
+    const plat = profilPlat(pr, r.W);
     const median = plat ? [...ms.map((x) => x.z)].sort((a, b) => a - b)[Math.floor(ms.length / 2)] ?? pr.F : 0;
     best = {
       ecart: pr.ecart,
@@ -456,8 +477,25 @@ export function decalageSurMesure(g: Grille, contour: readonly PtBrut[]): PtBrut
   return best.vide <= zero.vide / 2 && Math.hypot(best.dx, best.dy) >= 2 * PAS_DECALAGE_M ? { x: best.dx, y: best.dy } : null;
 }
 
-/** En deca de cette pente, un appentis lu par les formes simples est un toit plat (une terrasse et son ecoulement). */
-export const PENTE_PLAT_REPRISE_DEG = 10;
+
+/**
+ * Un pan seul ou un toit plat, a la meme regle que le modele des corps : l'ajustement des formes
+ * simples rend plat tout toit sous 10 degres (la regle de la BD TOPO), et un appentis de garage a 6
+ * degres devenait une terrasse. Quand il rend plat ou un appentis, le meilleur appentis essaye
+ * l'emporte s'il monte d'au moins HAUTEUR_PLAT_M, a PENTE_PLAT_DEG au moins, et si son ecart tombe a
+ * GAIN_PAN_SUR_PLAT de celui du plat ; le plat sinon.
+ */
+function unPanPlutotQuePlat(rect: readonly PtBrut[], ech: readonly EchantillonHauteur[], a: ToitAjuste | null): ToitAjuste | null {
+  if (!a || (a.toit.forme !== 'plat' && a.toit.forme !== 'appentis')) return a;
+  const essais = diagnostiquerToit(rect, ech);
+  const plat = essais.find((x) => x.forme === 'plat');
+  const pan = essais.filter((x) => x.forme === 'appentis').sort((x, y) => x.ecart - y.ecart)[0];
+  if (!plat || !pan) return a;
+  const course = 2 * repereFaitage(rect, pan.angleFaitage).hw;
+  const pentu = pan.H >= HAUTEUR_PLAT_M && course > 0 && Math.atan(pan.H / course) >= (PENTE_PLAT_DEG * Math.PI) / 180;
+  if (pentu && pan.ecart <= GAIN_PAN_SUR_PLAT * plat.ecart) return { ...a, toit: { ...a.toit, forme: 'appentis', hauteur: pan.H, angleFaitage: pan.angleFaitage }, egout: pan.e, ecart: pan.ecart };
+  return { ...a, toit: { ...a.toit, forme: 'plat', hauteur: 0 }, egout: plat.e, ecart: plat.ecart };
+}
 
 /**
  * Le corps d'une tranche lu par l'ajustement des formes simples (facade/toitLidar.ts) : deux pans,
@@ -471,7 +509,7 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
     if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect)) ech.push({ ...p, z });
   }
-  const a = ajusterToit(rect, ech);
+  const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech));
   if (!a) return null;
   const { toit, egout } = a;
   const u = { x: Math.cos((toit.angleFaitage * Math.PI) / 180), y: Math.sin((toit.angleFaitage * Math.PI) / 180) };
@@ -482,8 +520,7 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[]): CorpsToit
   const r = repere(pts);
   const H = Math.max(0, toit.hauteur), E = dixieme(egout), F = dixieme(egout + H);
   const base = { pts, pignons: [], ecart: cm(a.ecart) };
-  const pentu = toit.forme !== 'appentis' || (Math.atan(H / r.W) * 180) / Math.PI >= PENTE_PLAT_REPRISE_DEG;
-  if (toit.forme === 'plat' || H < HAUTEUR_PLAT_M || !pentu) {
+  if (toit.forme === 'plat' || H < HAUTEUR_PLAT_M) {
     const z = dixieme(toit.forme === 'appentis' ? egout + H / 2 : egout);
     return { ...base, posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z] };
   }
@@ -630,9 +667,11 @@ function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): 
 function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, c: CorpsToit | null): CorpsToit | null {
   if (c?.pignons.length) return c;
   const f = corpsDepuisFormes(grille ?? m, rect);
+  // Sans corps du modele, la lecture des formes, quelle qu'elle soit (un pan, deux, quatre, plat).
+  if (!c) return f;
   if (!f?.croupes) return c;
   const ef = ecartAuCorps(m, f, contour);
-  return !c || ef < GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
+  return ef < GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
 }
 
 /** La hauteur du mur `i` d'un corps (de `pts[i]` a `pts[i + 1]`) : l'egout de son pan, ou le plus bas des egouts sous un pignon de bout. */

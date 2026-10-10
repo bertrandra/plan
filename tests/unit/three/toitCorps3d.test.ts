@@ -63,6 +63,18 @@ describe('facettesCorps', () => {
     expect(Math.min(...f.pans.flat().map((q) => q.z))).toBeCloseTo(5 - 0.75 * DEBORD_EGOUT_M, 9);
   });
 
+  it('un appentis deborde aussi au-dela de son mur haut, en continuant de monter', () => {
+    // Un pan de 3 m (y = 0) a 5 m (y = 8) : le faitage est sur le mur y = 8.
+    const c: CorpsToit = { pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)], posFaitage: 8, faitage: 5, egouts: [3, 5], pignons: [], ecart: 0.1 };
+    const f = facettesCorps(c);
+    expect(f.pans).toHaveLength(1);
+    expect(Math.max(...ys(f.pans))).toBeCloseTo(8 + DEBORD_EGOUT_M, 9);
+    expect(Math.min(...ys(f.pans))).toBeCloseTo(-DEBORD_EGOUT_M, 9);
+    expect(Math.max(...zs(f.pans))).toBeCloseTo(5 + (2 / 8) * DEBORD_EGOUT_M, 9);
+    // Le mur haut monte jusqu'au faitage ; les murs de bout en trapeze.
+    expect(f.murs.some((m) => m.every((q) => q.y === 8) && Math.max(...m.map((q) => q.z)) === 5)).toBe(true);
+  });
+
   it('un pan plus haut que l autre : son mur monte au-dessus du prisme', () => {
     const f = facettesCorps(corps([], [5, 6]));
     expect(f.murs).toHaveLength(3);
