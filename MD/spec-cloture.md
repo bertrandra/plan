@@ -134,7 +134,7 @@ Règles :
   projet qui n'en a pas garde au bit près la forme d'avant.
 - **Valeurs par défaut** par type (`model/cloture.ts`) : palissade 1,80 m brun, grillage 1,50 m
   gris rigide, haie 1,80 m vert épaisseur 0,60 m, mur 1,80 m enduit épaisseur 0,20 m. Un portail
-  naît à 3,50 × 1,60 m, deux battants vers l'intérieur, droit, plein, aluminium gris anthracite,
+  naît à 3,50 × 1,60 m, deux battants vers l'intérieur, droit, plein, aluminium blanc (RAL 9016, `#f4f4f2`),
   avec deux piliers de 0,30 m ; un portillon à 1,00 × 1,60 m, un battant.
 - **Cohérence** : un accès dont `x + largeur` dépasse la longueur du côté, ou un coulissant sans
   place de refoulement, reste enregistré mais signalé par une alerte ; la 3D et le plan le tronquent
@@ -160,6 +160,25 @@ plan **devine** :
 L'inspecteur le dit : l'explication du bouton « Ajouter un portail » nomme le côté deviné, et le
 champ « Limite » d'un côté non précisé note « devinée : sur rue » ou « devinée : séparative ». Un
 carport neuf s'en approche aussi (`MD/spec-placement.md`).
+
+### 2.2 La clôture d'une parcelle importée (`clotureDImport`)
+
+À la création d'un projet par import cadastral (depuis une adresse ou la position GPS), **la
+parcelle du projet** — elle seule, pas les parcelles voisines — naît close
+(`geo/cadastreObjets.ts`, une fois les voisines posées) :
+
+- une **palissade bois de 1,80 m** sur tout le contour (`active: true`, défaut `palissade`,
+  `HAUTEUR_CLOTURE_DEFAUT`, `COULEUR_CLOTURE_DEFAUT`) ;
+- un **portail en aluminium blanc** (`nouveauPortail('portail', …)`, 3,50 × 1,60 m, deux battants
+  **ouvrant vers l'intérieur de la parcelle**, motorisé) au milieu du côté d'accès : le côté deviné sur rue (§2.1), sinon le plus long ; aucun
+  portail sur un contour dont le côté d'accès fait moins de 4 m.
+
+C'est un point de départ à corriger, pas un relevé : il se voit sur le plan et en 3D, et se règle
+dans les sections « Clôture » et « Portails et portillons ». L'actualisation IGN d'un projet
+existant n'y touche pas, ni un projet ouvert depuis un fichier.
+
+L'aluminium d'un portail est thermolaqué : en 3D, à peine métallique (0,1, le fer forgé 0,4). Une
+face verticale à l'ombre du soleil de l'étude paraît grise, comme la clôture et les façades.
 
 ## 3. Inspecteur (Z5)
 

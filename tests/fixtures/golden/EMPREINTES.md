@@ -485,6 +485,15 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
   et leurs matrices vivaient dans `userData`, que l'exporteur écrit dans le JSON du fichier ; elles
   en sont sorties, et un test le garde.
 
+
+  **10 octobre 2026, plus tard — `cadastre-objets.json` recapturé : la parcelle importée naît
+  close.** `objetsDepuisCadastre` pose sur la parcelle du projet une clôture (`cloture` : palissade
+  bois de 1,80 m, active, un portail en aluminium blanc `#f4f4f2` au milieu du côté 0, deviné sur
+  rue par le point d'adresse) et les quatre anciens champs qui la suivent (`clotureActive`,
+  `clotureHauteur`, `clotureCouleur`, `clotureTexture`) : +42 lignes, rien d'autre ne bouge. Les
+  six exports de la démonstration et le GLB ne bougent pas (la démonstration n'est pas un import,
+  et n'a pas de portail).
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |

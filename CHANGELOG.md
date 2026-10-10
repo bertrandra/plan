@@ -470,6 +470,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une parcelle importée naît close.** À la création d'un projet par import cadastral, la parcelle
+  du projet (pas ses voisines) reçoit une palissade bois de 1,80 m sur tout son contour et un
+  portail en aluminium blanc, à deux battants ouvrant vers l'intérieur de la parcelle, au milieu du
+  côté deviné sur rue (sinon le plus long). Tout se règle
+  ensuite dans l'inspecteur ; les projets existants ne changent pas (`MD/spec-cloture.md` §2.2).
+- **Le portail neuf est en aluminium blanc** (RAL 9016) au lieu de gris anthracite, et l'aluminium
+  thermolaqué n'assombrit plus sa couleur en 3D.
+
 - **Palette : les ouvrages d'abord.** Les boutons de création suivent l'ordre où l'on pense un
   jardin — Terrasse, Pergola, Carport, Piscine, Piscine ronde, Parasol, Point de vue — et les formes
   purement géométriques (Chemin, Polygone, Rectangle, Cercle) passent à la fin, dans un groupe
