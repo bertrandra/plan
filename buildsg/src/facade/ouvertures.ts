@@ -153,8 +153,10 @@ export function fenetresDesPignons(c: CorpsToit, largeur = FENETRE.l, hauteur = 
   // Le pignon de bout d'un deux-pans : sous le faitage, au-dessus du plus haut des deux egouts.
   if (c.posFaitage > 0.5 && c.posFaitage < r.W - 0.5 && c.faitage - Math.max(e0, e1) >= HAUTEUR_PIGNON_FENETRE_M) {
     const demi = Math.min(c.posFaitage, r.W - c.posFaitage);
-    poser(3, point(r, 0, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
-    poser(1, point(r, r.L, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
+    // Un bout sous une croupe n'a pas de pignon.
+    const [h0, h1] = c.croupes ?? [0, 0];
+    if (h0 <= 0) poser(3, point(r, 0, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
+    if (h1 <= 0) poser(1, point(r, r.L, c.posFaitage), Math.max(e0, e1), c.faitage, demi);
   }
   return out;
 }
