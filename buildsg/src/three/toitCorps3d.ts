@@ -64,8 +64,10 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     if (largeur < 0.01) return;
     const e = n === 0 ? e0 : e1, dE = n === 0 ? dE0 : dE1, k = (F - e) / largeur;
     const Q = (s: number, d: number) => P(s, n === 0 ? d : W - d, e + k * d);
+    // Un appentis (l'autre pan n'existe pas) deborde aussi au-dela de son mur haut, en continuant de monter.
+    const haut = largeur + ((n === 0 ? W - p : p) < 0.01 ? (n === 0 ? dE1 : dE0) : 0);
     // Sous une croupe, le coin du pan suit l'aretier prolonge jusqu'au debord : il reste dans les deux plans.
-    const contour: { s: number; d: number }[] = [{ s: h0 > 0 ? h0 : -dR0, d: largeur }];
+    const contour: { s: number; d: number }[] = [{ s: h0 > 0 ? h0 : -dR0, d: haut }];
     const pignons = c.pignons.filter((g) => g.pan === n).sort((a, b) => a.debut - b.debut);
     let ouvert = false;
     if ((pignons[0]?.debut ?? Infinity) > 0.3) { contour.push({ s: h0 > 0 ? (-dE * h0) / largeur : -dR0, d: -dE }); ouvert = true; }
@@ -80,7 +82,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
       else { contour.push({ s: g.fin + ext, d: -dE }); ouvert = true; }
     }
     if (ouvert) contour.push({ s: h1 > 0 ? L + (dE * h1) / largeur : L + dRL, d: -dE });
-    contour.push({ s: h1 > 0 ? L - h1 : L + dRL, d: largeur });
+    contour.push({ s: h1 > 0 ? L - h1 : L + dRL, d: haut });
     pans.push(contour.map((q) => Q(q.s, q.d)));
   };
   if (!plat) {
