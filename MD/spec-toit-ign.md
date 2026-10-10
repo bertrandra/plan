@@ -868,6 +868,11 @@ mitoyenne ne garde pas sa grille. Quand l'égout de toute la surface dépasse ce
 (`mesureVraisemblable`), ni la surface ni la forme ajustée ne sont gardées : pas de relief de
 feuillage, pas de hauteur d'égout tirée d'un houppier. Sans hauteur BD TOPO, rien n'est écarté.
 
+**Le toit montré par défaut** (`model/toitMesure.ts::modeToitActif`). Ce sont les corps quand il y
+en a. Sinon c'est un toit construit : des volumes, ou la forme simple. La surface brute ne se montre
+plus d'elle-même (le château de Gordes montrait un relief en vagues) ; « Tel que mesuré » reste
+proposé, à la demande.
+
 ### 13.7 Les contours de biais, le recalage et les croupes
 
 Le modèle des corps (§13.2) part des rectangles du contour. Un contour BD TOPO qui a un côté de
@@ -899,6 +904,17 @@ Exemple : 2 allée des Limites, parcelle AE 103.
   haut au plus bas, avance ses côtés libres (que les autres ne bordent pas pour moitié) tant que la
   bande devant lui contient du contour qu'aucun autre ne couvre. Étendu le long du faîtage, il
   l'allonge (croupes et hauteurs restent) ; en travers, ses pans descendent à leur pente.
+- **Dernier recours** (`corpsSurBoite`, `boiteOrientee`, `lectureDeSecours`). Un contour qui ne se
+  découpe pas du tout ne reste plus à la surface brute. C'est le cas de la maison de village en
+  trapèze ou en parallélogramme, aux angles non droits, fréquente en Provence. Un seul corps est lu
+  par les formes simples sur le rectangle qui l'englobe, dans l'axe qui aligne le plus de ses côtés,
+  avec les seules mesures du contour. Le dessin le découpe sur le contour. Quand l'ajustement ne rend
+  rien, la meilleure forme essayée sous 80 cm d'écart est retenue. L'appentis y est admis au-delà de
+  son propre seuil (40 cm) s'il bat d'un dixième la meilleure forme à faîtage : c'est le toit à un pan
+  du bâti provençal. Gordes (place du Château, 152 bâtiments) : 52 bâtiments sans toit construit
+  avant, 13 après, dont 9 sans assez de mesures.
+- **Pas de pignon sur un appentis** (`detecterPignons`) : son sommet est un mur, il n'a pas de faîtage
+  dont partirait un pignon.
 - **Dessin** (`three/toitCorps3d.ts::facettesSurContour`). Des corps lus en reprise ne suivent plus
   le contour : le prisme est le contour lui-même, à l'égout le plus bas ; les toits des corps sont
   découpés sur lui, sans débord ; les murs montent jusqu'au toit, pas à pas, le long du contour ; les
