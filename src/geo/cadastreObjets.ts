@@ -13,6 +13,8 @@ import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { portParNature } from '../model/arbre.js';
+import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
+import { coteRueDevine } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
@@ -443,6 +445,12 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   if(importe.plu && parcelle) parcelle.plu = importe.plu;
   // Le voisinage etendu pose masque : la bascule « Voisinage » le retrouve a l'ouverture.
   if(importe.voisinageEtendu && !importe.voisinageEtendu.visible && parcelle) parcelle.affichage = { ...(parcelle.affichage || {}), voisinage: false };
+  // Une parcelle neuve est close : palissade bois de 1,8 m, portail alu blanc cote rue (model/cloture.ts).
+  // Le cote sur rue se devine une fois les voisines posees, qui disent ce qui est mitoyen.
+  if(parcelle && parcelle.type === 'polygon'){
+    parcelle.cloture = clotureDImport(parcelle.pts, coteRueDevine(parcelle, objets));
+    synchroniserAnciensChamps(parcelle);
+  }
   return objets;
 }
 

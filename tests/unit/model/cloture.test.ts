@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  clotureDe, synchroniserAnciensChamps, reglageDuCote, reglerCote, retirerCote, changerType, tronconsDuCote,
-  nouveauPortail, coteDAcces, accolerPortillon, alertesAcces, alertesHauteur, vantauxDe, profilDuVantail,
-  longueurDuCote, resumeReglage, resumeAcces, hauteurTotale, poserAcces, coteLePlusProche,
-} from '../../../src/model/cloture.js';
+import { clotureDe, synchroniserAnciensChamps, reglageDuCote, reglerCote, retirerCote, changerType, tronconsDuCote, nouveauPortail, coteDAcces, accolerPortillon, alertesAcces, alertesHauteur, vantauxDe, profilDuVantail, longueurDuCote, resumeReglage, resumeAcces, hauteurTotale, poserAcces, coteLePlusProche, clotureDImport, COULEUR_CLOTURE_DEFAUT, COULEUR_PAR_MATERIAU } from '../../../src/model/cloture.js';
 import type { ObjetPlan, ObjetPolygone, Portail } from '../../../src/model/types.js';
 
 // La cloture cote par cote et ses acces (model/cloture.ts, MD/spec-cloture.md §2) : lecture depuis
@@ -198,5 +194,28 @@ describe('acces', () => {
     expect(resumeReglage({ type: 'grillage', hauteur: 1.5, soubassement: { hauteur: 0.5, parement: 'enduit' } })).toBe('Grillage 1,50 m · rigide · muret 0,50 m');
     expect(resumeReglage({ type: 'aucune', hauteur: 0 })).toBe('Aucune');
     expect(resumeAcces({ ...nouveauPortail('portail', 0, 20), x: 4.2 })).toBe('Portail 3,50 m · deux battants · à 4,20 m');
+  });
+});
+
+describe('clotureDImport', () => {
+  const rect = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 30 }, { x: 0, y: 30 }];
+  it('une palissade bois de 1,8 m, active, et un portail alu blanc au milieu du cote sur rue', () => {
+    const cl = clotureDImport(rect, 2);
+    expect(cl.active).toBe(true);
+    expect(cl.defaut).toEqual({ type: 'palissade', hauteur: 1.8, couleur: COULEUR_CLOTURE_DEFAUT, texture: null });
+    expect(cl.cotes).toEqual([]);
+    expect(cl.portails).toHaveLength(1);
+    const p = cl.portails[0]!;
+    // Deux battants qui s'ouvrent vers l'interieur de la parcelle, jamais sur la voie.
+    expect(p).toMatchObject({ nature: 'portail', cote: 2, materiau: 'aluminium', couleur: COULEUR_PAR_MATERIAU.aluminium, largeur: 3.5, ouverture: 'battant-2', sens: 'interieur' });
+    expect(p.x).toBeCloseTo((20 - 3.5) / 2, 9);
+  });
+  it('sans cote devine, le portail va sur le plus long ; un contour trop court n en a pas', () => {
+    expect(clotureDImport(rect, null).portails[0]!.cote).toBe(1);
+    expect(clotureDImport([{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 0, y: 3 }], null).portails).toEqual([]);
+  });
+  it('le portail neuf est en aluminium blanc', () => {
+    expect(COULEUR_PAR_MATERIAU.aluminium).toBe('#f4f4f2');
+    expect(nouveauPortail('portail', 0, 10).couleur).toBe('#f4f4f2');
   });
 });

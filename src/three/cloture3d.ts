@@ -206,7 +206,10 @@ function poserVantail(ctx: ContexteCloture3d, profil: PtBrut[], gond: PtBrut, di
 }
 
 function materiauVantail(ctx: ContexteCloture3d, a: Portail, opacite: number): THREE_NS.MeshStandardMaterial {
-  const mat = new THREE.MeshStandardMaterial({ color: a.couleur, roughness: a.materiau === 'bois' ? 0.8 : 0.45, metalness: a.materiau === 'aluminium' || a.materiau === 'fer' ? 0.4 : 0, side: THREE.DoubleSide });
+  // L'aluminium d'un portail est thermolaque : une peinture, a peine metallique. A 0,4, sans reflet
+  // d'environnement, un portail blanc sortait gris moyen ; le fer forge, lui, garde son metal.
+  const metal = a.materiau === 'fer' ? 0.4 : a.materiau === 'aluminium' ? 0.1 : 0;
+  const mat = new THREE.MeshStandardMaterial({ color: a.couleur, roughness: a.materiau === 'bois' ? 0.8 : 0.45, metalness: metal, side: THREE.DoubleSide });
   if (opacite < 1) { mat.transparent = true; mat.opacity = opacite; }
   const url = ctx.textures && a.texture ? a.texture.url : null;
   if (url) mat.map = ctx.chargerTexture(url, 1);
