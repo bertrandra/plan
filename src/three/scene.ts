@@ -10,8 +10,10 @@
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
 import { volumesActifs, toitDuVolume } from '../model/volumesToit.js';
-import { modeToitActif, egoutDansRect } from '../model/toitMesure.js';
+import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
+import { ajouterToitCorps3d } from './toitCorps3d.js';
+import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
@@ -39,7 +41,7 @@ import {
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit, Toit } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
@@ -595,11 +597,22 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
     // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
     // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
-    const volumesToit = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse) ? volumesActifs(o) : null;
-    // Le toit mesure au LiDAR (model/toitMesure.ts) : chaque corps monte a l'egout lu dans la surface.
-    const toitMesure = o.type === 'polygon' && estBatiment(o) && modeToitActif(o) === 'mesure' ? o.toitMesure ?? null : null;
-    const egoutDe = (v: VolumeToit): number => v.egout ?? (toitMesure ? egoutDansRect(toitMesure, v.pts, footprint) : h);
-    const volumes = volumesToit
+    const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
+    // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
+    // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
+    const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
+    const corpsToit = modeToit === 'corps' ? o.corpsToit ?? null : null;
+    const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
+    // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
+    // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
+    // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
+    const toitMesure = modeToit === 'mesure' ? o.toitMesure ?? null : null;
+    const egoutDe = (v: VolumeToit): number => v.egout ?? h;
+    const volumes = corpsToit
+      ? corpsToit.map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
+      : toitMesure
+      ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
+      : volumesToit
       ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
       : o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
     // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
@@ -614,11 +627,14 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
     if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
-      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure);
+      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o, h, volumesToit, !!toitMesure || !!corpsToit);
+    }
+    if (o.type === 'polygon' && corpsToit) {
+      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, corpsToit, o.toit, o.pts);
     }
     // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
     if (o.type === 'polygon' && toitMesure) {
-      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o.pts, toitMesure, o.toit, (volumesToit ?? []).map((v) => ({ pts: v.pts, egout: egoutDe(v) })), h);
+      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
     }
     // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
     // soubassement, fenetres par niveau, cheminee — moins de loin.
@@ -635,8 +651,12 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
         o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
           ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
           // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
-          ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit), ...(toitMesure && v.hauteursMurs ? { hauteursMurs: v.hauteursMurs } : {}) })) } : {}),
-          ...(toitMesure ? { sansToit: true } : {}) }
+          ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
+          // Corps ou surface mesuree : chaque mur a sa hauteur, les fenetres montent avec lui.
+          ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
+          ...(toitMesure || corpsToit ? { sansToit: true } : {}),
+          // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
+          ...(corpsToit && !apparence && f3d.mode !== 'uneParUne' ? { corps: corpsToit } : {}) }
       );
     }
   });

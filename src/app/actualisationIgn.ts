@@ -328,7 +328,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           frozenVertices: pts.map(()=>false),
           elevation: haut,
           ...(toit ? { toit } : {}),
-          ...(volumesToit !== undefined ? { volumesToit, toitMesure: null } : {}),
+          ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,

@@ -11,6 +11,7 @@
 // suivre. Les fonctions qui le font (`rendu`, `rafraichir la terrasse`, `reconstruire la 3D`) sont
 // fournies par le contexte.
 
+import type { CarteToit } from './carteToit.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut, Construction, TextureAppliquee } from '../../model/types.js';
 import type { Pointage } from '../../interaction/outilMesure.js';
@@ -184,6 +185,12 @@ export interface ChampOptimisation extends ChampBase {
   type: 'optimisation';
 }
 
+/** Une carte des hauteurs mesurees et du decoupage d'un toit (ui/champs/carteToit.ts), sur toute la largeur. */
+export interface ChampCarte extends ChampBase {
+  type: 'carte';
+  carte: (c: ContexteChamps) => CarteToit | null;
+}
+
 /** Plusieurs commandes sur une ligne : un cote, son nom, sa longueur, son bouton. */
 export interface ChampLigne extends ChampBase {
   type: 'ligne';
@@ -192,7 +199,7 @@ export interface ChampLigne extends ChampBase {
 
 export type Champ =
   | ChampTexte | ChampNombre | ChampCase | ChampChoix | ChampCouleur | ChampDate | ChampCurseur
-  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampLigne;
+  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampCarte | ChampLigne;
 
 export interface Section {
   id: string;

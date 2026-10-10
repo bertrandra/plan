@@ -15,10 +15,12 @@ import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { signedArea, centroid, pointInPolygon } from '../geometry/basic.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPolygone, PtBrut, Toit } from '../model/types.js';
+import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
-import { ouverturesAutomatiques, hauteurDuMur } from '../facade/ouvertures.js';
+import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
+import { hauteursMursCorps } from '../facade/toitCorps.js';
+import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
 import { materiauCouverture } from '../model/couleurToit.js';
@@ -57,6 +59,15 @@ export interface OptionsDetails {
   volumes?: readonly (Volume & { toit: Toit })[];
   /** Le toit est la surface mesuree au LiDAR (three/toitMesure3d.ts) : ni debord, ni cheminee, qui suivent une forme simple. */
   sansToit?: boolean;
+  /** `false` : pas de porte dans la disposition automatique. */
+  porte?: boolean;
+  /** Des fenetres posees au-dessus de l'egout, dans les pignons (facade/ouvertures.ts::fenetresDesPignons). */
+  ouverturesHautes?: readonly Fenetre3d[];
+  /**
+   * Les corps reconstruits (facade/toitCorps.ts) : les fenetres se posent alors sur leurs murs, ceux
+   * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
+   */
+  corps?: readonly CorpsToit[];
 }
 
 // La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
@@ -215,8 +226,11 @@ function materiauToit(ctx: ContexteDetails, toit: Toit): THREE_NS.MeshStandardMa
  * des pans (elle descend le long d'un egout, suit le profil d'un pignon), avec son epaisseur — la
  * sous-face plus claire et la planche de rive. Et la gouttiere, le long des egouts seulement.
  */
-function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number, avecGouttiere: boolean): void {
+function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number, avecGouttiere: boolean, batiment: readonly PtBrut[] | null = null): void {
   if (toit.forme === 'plat' || toit.hauteur <= 0 || contour.length < 3) return;
+  // Un corps parmi d'autres : pas de debord sur un mur commun, il traverserait le corps voisin.
+  const dedans = centroid(contour);
+  const facade = (a: PtBrut, b: PtBrut) => !batiment || segmentEnFacade(a, b, dedans, batiment);
   const dehors = contourDecale(contour, DEBORD_TOIT_M);
   const z = hauteurProlongee(contour, toit);
   const toit3 = new Batisseur();
@@ -228,6 +242,7 @@ function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toi
   const lerp = (a: PtBrut, b: PtBrut, t: number): PtBrut => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
   contour.forEach((a, i) => {
     const b = sommetDe(contour, i + 1);
+    if (!facade(a, b)) return;
     const a2 = au(dehors, i),
       b2 = sommetDe(dehors, i + 1);
     const ts = cassures(contour, toit, a, b);
@@ -358,6 +373,25 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
 }
 
 /**
+ * Les ouvertures d'un batiment en corps : chaque corps sur ses propres murs (ceux qu'on dessine),
+ * sauf ses murs communs avec un autre corps, ou il n'y a pas de dehors ; ses pignons ont leur
+ * fenetre ; seul le premier corps (le plus grand) porte la porte d'entree.
+ */
+function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut[], corps: readonly CorpsToit[], options: OptionsDetails): void {
+  corps.forEach((c, k) => {
+    const dedans = centroid(c.pts);
+    const interieurs = c.pts.map((_: PtBrut, i: number) => i).filter((i: number) => !segmentEnFacade(au(c.pts, i), sommetDe(c.pts, i + 1), dedans, batiment));
+    const bas = Math.min(...c.egouts);
+    const largeur = options.fenetres?.largeur, hauteur = options.fenetres?.hauteur;
+    // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
+    poserOuvertures(ctx, c.pts, [{ pts: c.pts, hauteur: bas, hauteursMurs: hauteursMursCorps(c) }], bas, {
+      ...options, cotesReleves: interieurs, porte: k === 0,
+      ouverturesHautes: fenetresDesPignons(c, largeur, hauteur).filter((f) => !interieurs.includes(f.cote)),
+    });
+  });
+}
+
+/**
  * Les ouvertures : la disposition automatique (facade/ouvertures.ts) aux dimensions demandees, ou
  * la liste reglee une par une. Un cadre clair, une vitre de la couleur demandee, un vantail bois :
  * trois groupes d'une seule maille.
@@ -367,7 +401,10 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   // Un mur photographie garde les ouvertures de son releve (releve3d.ts) : la liste reglee a la
   // main n'y dessine rien, pas plus que la disposition automatique.
   const releves = new Set(options.cotesReleves ?? []);
-  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}) })).filter((o) => !releves.has(o.cote));
+  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}), ...(options.porte === false ? { porte: false } : {}) })).filter((o) => !releves.has(o.cote));
+  // Les fenetres des pignons montent au-dessus de l'egout : elles ne passent pas le controle de hauteur du mur.
+  const hautes = new Set((options.ouverturesHautes ?? []).filter((o) => !releves.has(o.cote)));
+  liste.push(...hautes);
   if (!liste.length) return;
   const b = new Batisseur();
   const rect = (f: Facade, x: number, y: number, l: number, hh: number, saillie: number) => {
@@ -394,7 +431,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
       portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
       return;
     }
-    if (o.y + o.h > hMur - 0.15) return;
+    if (!hautes.has(o) && o.y + o.h > hMur - 0.15) return;
     cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
     vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
   });
@@ -445,12 +482,13 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   const toit = options.sansToit ? null : o.toit;
   const pres = ctx.distance <= DETAIL_FIN_M;
   // Chaque corps de batiment a son debord a son egout ; sinon le debord suit la partie haute.
-  if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres));
+  if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres, o.pts));
   else if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
   poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
   poserSoubassement(ctx, o.pts, h);
-  poserOuvertures(ctx, o.pts, volumes, h, options);
+  if (options.corps?.length) poserOuverturesDesCorps(ctx, o.pts, options.corps, options);
+  else poserOuvertures(ctx, o.pts, volumes, h, options);
   const principal = multi && !options.sansToit ? au(multi, 0) : null;
   if (principal) poserCheminee(ctx, principal.pts, principal.toit, principal.hauteur);
   else if (toit) poserCheminee(ctx, contourHaut, toit, h);

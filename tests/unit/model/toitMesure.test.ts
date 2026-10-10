@@ -122,6 +122,12 @@ describe('modeToitActif', () => {
     // Un choix que l'objet ne peut pas honorer retombe sur ce qu'il a.
     expect(modeToitActif({ toitMesure: t, modeToit: 'volumes' })).toBe('simple');
     expect(modeToitActif({ volumesToit: v(2), modeToit: 'mesure' })).toBe('volumes');
+    // Les corps et pignons l'emportent quand ils existent ; « tel que mesure » se choisit encore.
+    const corps = [{}];
+    expect(modeToitActif({ toitMesure: t, volumesToit: v(2), corpsToit: corps })).toBe('corps');
+    expect(modeToitActif({ toitMesure: t, corpsToit: corps, modeToit: 'mesure' })).toBe('mesure');
+    expect(modeToitActif({ toitMesure: t, corpsToit: corps, modeToit: 'simple' })).toBe('simple');
+    expect(modeToitActif({ corpsToit: [], toitMesure: t })).toBe('mesure');
   });
 });
 
@@ -145,7 +151,7 @@ describe('les murs et les marches de la couverture (spec-toit-ign §11.2, §12.3
     expect(a[1]!.x).toBeCloseTo(8, 1);
     expect(b[0]!.x).toBeCloseTo(8, 1);
     expect(a.map((q) => q.y)).toEqual([0, 0, 6, 6]);
-    expect(SEUIL_MARCHE_M).toBe(1.5);
+    expect(SEUIL_MARCHE_M).toBe(0.8);
     expect(LARGEUR_BLOC_MIN_M).toBe(1.5);
     // Un appentis qui monte de 3 a 6 m sur 14 m, ou un deux-pans : aucune marche.
     const pente = toitMesureDepuisGrille(grille(marche, (x, y) => (dedans(x, y, marche) ? 3 + (3 * x) / 14 : 0)), marche)!;
