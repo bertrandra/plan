@@ -20,7 +20,7 @@ import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import { trousDeTerrasse } from '../engine/structure.js';
-import { affichageRelief, reliefDe } from '../model/relief.js';
+import { courbesExportees, reliefDe } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { courbesDeNiveau, etiquetteNiveau, longueurPolyligne, milieuPolyligne } from '../render/relief.js';
 
@@ -37,7 +37,7 @@ export interface MetaSvg {
  */
 function groupeRelief(objets: ObjetPlan[], exToSvg: (p: PtBrut) => PtBrut, fsTexte: number): string {
   const relief = reliefDe(objets);
-  if(!relief || !affichageRelief(relief).courbes) return '';
+  if(!relief || !courbesExportees(relief)) return '';
   const parcelle = parcelleDuProjet(objets);
   const { courbes } = courbesDeNiveau(relief, parcelle && parcelle.type==='polygon' ? parcelle.pts : undefined);
   let g = '<g class="relief-courbes" fill="none" stroke="#8C6B3F" stroke-linejoin="round">\n';

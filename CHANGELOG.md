@@ -56,6 +56,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   entre eux, la maison recalée d'un mètre vers l'ouest et de 1,75 m vers le sud. Les contours qui
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
+### Modifié
+
+- **Relief et courbes de niveau séparés** (`MD/spec-relief.md` §8). Le menu Affichage a maintenant
+  deux entrées, « Relief » (le sol en relief de la Vue 3D) et « Courbes de niveau » (sur le plan), au
+  lieu d'une bascule unique. La section « Relief » de l'inspecteur les présente dans le même ordre ;
+  l'équidistance ne se montre qu'avec les courbes. Par défaut, le relief est montré et les courbes
+  sont cachées. Le plan exporté (`plan.svg`) garde les courbes tant qu'elles n'ont pas été décochées
+  explicitement : un export d'hier reste identique.
+
 ### Corrigé
 
 - **Plus de pignons en double sur les pavillons d'une longère** (`facade/toitCorps.ts`, Hucqueliers) :
