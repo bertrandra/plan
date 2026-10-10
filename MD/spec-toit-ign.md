@@ -776,10 +776,35 @@ sont calculées.
 
 ### 13.5 Vérifié
 
-`tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
+`tests/unit/app/toitsLidar.test.ts` (corps du voisin, option décochée), `tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
 long pan, pas de pignon sur un mur intérieur, corps et annexe à la marche, coupe par le modèle,
 contour de biais), `tests/unit/three/toitCorps3d.test.ts` (pans, mur haut, entaille du pignon,
 débord sur façade seulement), `tests/unit/facade/fenetresPignons.test.ts`,
 `tests/unit/ui/champsToitMode.test.ts` (défaut, options, carte, descriptions),
 `tests/unit/zones/inspecteur-champs.test.ts` (le champ carte rendu dans les trois classes). Vu à l'œil
 sur le 2 allée des Limites.
+
+### 13.6 Le voisinage
+
+Une case de la section « Voisinage (3D) » de la parcelle, **« Toits en corps et pignons », cochée par
+défaut** (`ReglagesVoisinage3d.toits.corps`), étend la reconstruction aux maisons voisines. À l'import
+et à l'actualisation, `app/toitsLidar.ts` lit alors la grille entière sous chaque maison voisine (la
+même requête que ses mesures), et pose ses `corpsToit`.
+
+- Sur une **parcelle mitoyenne** — une parcelle qui partage au moins 1 m de limite avec celle du
+  projet, à 50 cm près (`batimentsMitoyens`) —, le **calcul entier**, celui de la maison du projet :
+  coupe par le modèle comprise, et la grille gardée (`toitMesure`) : la carte des hauteurs et
+  « Tel que mesuré » s'y offrent aussi. Ce sont les maisons qu'on voit de près depuis le jardin.
+  Une maison mitoyenne dont aucun corps ne se lit (un toit sous les arbres) ne garde pas sa grille :
+  dessinée telle quelle, elle montrerait le feuillage ; elle revient à la forme simple.
+- Plus loin, la **version allégée** : sans la coupe par le modèle, de loin la part la plus lourde
+  (482 ms au Vésinet, 51 ms sans, pour le même résultat : `reconstruireCorps(…, { coupes: false })`),
+  et sans garder la grille, qui alourdirait le projet de quelques kilo-octets par maison. Les plus proches d'abord, dans le délai et le nombre de maisons de la lecture LiDAR
+(§10.3) ; le bilan les compte (« n toit(s) du voisinage en corps et pignons »).
+
+Décochée : rien n'est lu de plus, et la 3D montre les formes simples même pour une maison qui porte
+déjà ses corps — c'est un réglage d'affichage (`sale: false`, pas d'annulation, permis en lecture
+seule). Cochée sur un plan dont aucun voisin n'a encore de corps, la note dit qu'ils seront « lus à
+la prochaine actualisation IGN ». Une maison voisine en corps reçoit ses fenêtres sur les murs de ses
+corps, aux dimensions tirées par la section (§6.4). Le critère de voisinage est celui de la BD
+TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts::surParcelleDuProjet`).

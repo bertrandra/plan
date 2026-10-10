@@ -22,6 +22,7 @@ export const VOISINAGE_3D_DEFAUT: ReglagesVoisinage3d = {
   fenetres: { mode: 'unique', couleur: COULEUR_VITRE_DEFAUT, couleur2: '#8FA6BE', largeurMin: 1, largeurMax: 1, hauteurMin: 1.2, hauteurMax: 1.2, entraxeMin: 2.4, entraxeMax: 2.4 },
   cloture: { afficher: true, type: 'grillage', couleur: COULEUR_GRILLAGE_VOISINAGE },
   rues: { afficher: false },
+  toits: { corps: true },
 };
 
 /** La couleur par defaut d'une cloture du voisinage selon son type : celle du type, sauf le grillage, plus clair. */
@@ -40,6 +41,7 @@ export function voisinage3dDe(parcelle: ObjetPlan | null | undefined): ReglagesV
     fenetres: { ...VOISINAGE_3D_DEFAUT.fenetres, ...(r?.fenetres ?? {}) },
     cloture: { ...VOISINAGE_3D_DEFAUT.cloture, ...(r?.cloture ?? {}) },
     rues: { ...VOISINAGE_3D_DEFAUT.rues, ...(r?.rues ?? {}) },
+    toits: { ...VOISINAGE_3D_DEFAUT.toits, ...(r?.toits ?? {}) },
   };
 }
 

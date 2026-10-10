@@ -80,6 +80,13 @@ export const estTerrasse = (o: ObjetPlan): boolean => aParticularite(o, 'constru
 export const estParasol = (o: ObjetPlan): boolean => aParticularite(o, 'parasol');
 /** Un bâtiment ou une annexe dont on sait relever les facades. */
 export const estBatiment = (o: ObjetPlan): boolean => aParticularite(o, 'releve');
+
+/**
+ * Un batiment importe sur la parcelle du projet (BD TOPO, `surParcellePrincipale`) : celui que Plan
+ * regarde de pres (toit mesure, corps decoupes) ; les autres batiments importes sont le voisinage.
+ */
+export const surParcelleDuProjet = (o: { bdtopo?: unknown }): boolean =>
+  (o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true;
 /** Une pergola ou un carport dont on sait calculer les pieces : un polygone. */
 export const estAbri = (o: ObjetPlan): boolean => aParticularite(o, 'abri');
 /** Une piscine dont on sait calculer le bassin : un polygone ou un cercle. */

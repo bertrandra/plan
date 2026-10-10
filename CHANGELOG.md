@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les toits du voisinage en corps et pignons** (`MD/spec-toit-ign.md` §13.6) : une case « Toits en
+  corps et pignons », cochée par défaut, dans la section « Voisinage (3D) ». À l'import et à
+  l'actualisation IGN, les maisons voisines reçoivent elles aussi leurs corps, faîtages et pignons
+  reconstruits sur le LiDAR : le calcul entier sur les parcelles mitoyennes (avec leur carte des
+  hauteurs), une version allégée, dix fois plus rapide et sans garder la grille, au-delà ; un toit
+  voisin sans corps lisibles (sous les arbres) garde sa forme simple ; décochée, la 3D revient aux
+  formes simples.
+
 - **Une roue d'attente au centre de l'écran** pendant la création d'un plan depuis une adresse et
   pendant l'actualisation IGN, avec l'étape en cours (« Forme des toits sur le LiDAR HD… »,
   « Actualisation IGN : la couleur des toits sur l'orthophoto… ») : ces travaux durent plusieurs
