@@ -517,6 +517,7 @@ interface ReleveFacade {
   cote: number;               // indice du côté : de pts[cote] à pts[cote + 1]
   largeur: number; hauteur: number;
   texture: string | null;     // data:image/jpeg;base64,… — l'élévation redressée
+  photoLocale?: string;       // la clé de la photo gardée sur l'appareil (§10.1)
   hauteurTexture?: number;    // au-delà de hauteur : la bande du pignon
   ouvertures: { type, x, y, l, h }[];
   distance: number | null; sourceDistance: 'lidar' | 'webxr' | 'cadrage' | null;
@@ -531,14 +532,39 @@ interface ReleveFacade {
 - **`SCHEMA_VERSION` passe de 1 à 2** (`RELEASE.md` §3.1 : toute évolution de la forme persistée).
   Un fichier de schéma 1 s'ouvre sans migration (les champs sont facultatifs) ; un fichier de
   schéma 2 est refusé par la `2.1.0`, qui en perdrait les relevés au premier enregistrement.
-- Poids : 60 à 120 Ko de JPEG par façade (qualité 0,82, 1 024 px au plus). La plateforme refuse un
-  document trop gros (413) : une dizaine de façades reste loin de cette limite, mais ce sera la
-  première à surveiller si les relevés se multiplient (§11).
+- Poids : 60 à 120 Ko de JPEG par façade (qualité 0,82, 1 024 px au plus). Depuis le 10 octobre
+  2026, la photo ne part plus dans le document de la plateforme (§10.1) : seuls les fichiers JSON
+  exportés et la mémoire du navigateur la portent.
 - La hauteur d'égout **mesurée** sur la photo (§6.0), ou corrigée à la main, remplace l'élévation
   du bâtiment (celle du cadastre). `sourceDistance` peut encore valoir `lidar` dans un projet relevé
   en `2.2.0` ; plus aucun relevé ne l'écrit.
 
 ---
+
+### 10.1 La photo reste sur l'appareil (10 octobre 2026)
+
+La plateforme refuse qu'un document embarque un contenu : toute URI `data:`, toute chaîne de plus de
+64 Kio (`422 EMBEDDED_ASSET_REJECTED`, backprod `DocumentPolicy`) — les grosses pièces n'ont pas leur
+place dans la base, et elle n'a pas encore de stockage de fichiers. Le premier enregistrement d'un
+bâtiment relevé avec photo aurait donc été refusé.
+
+À l'enregistrement sur la plateforme (`io/depotPlateforme.ts`), chaque photo sort du document
+(`io/photosLocales.ts::sortirLesPhotos`) : elle est rangée dans le navigateur (IndexedDB, base
+`plan-photos`), sous une clé tirée de son contenu (`cleDePhoto`), et le relevé enregistré porte
+`texture: null` et `photoLocale: <clé>`. La page, elle, garde sa photo : seul le document envoyé
+change. À l'ouverture (`rentrerLesPhotos`), la photo revient du navigateur quand il l'a.
+
+- **Sur le même appareil**, rien ne change pour la personne : la photo est là.
+- **Sur un autre appareil**, le relevé garde ses mesures, ses ouvertures et le toit qu'il a proposé,
+  sans la photo ; la 3D montre les vitres et les vantaux, comme « Texture » décochée. L'inspecteur
+  le dit sur la ligne du mur : « photo restée sur l'appareil du relevé ».
+- **Stockage du navigateur indisponible** (navigation privée stricte) : le projet s'enregistre quand
+  même, sans la photo, et la console le dit.
+- L'**export JSON**, un fichier de la personne, garde la photo : il ne passe pas par ici. La
+  **démonstration de l'admin** (fichiers JSON sur le serveur de Plan) non plus.
+
+Quand la plateforme aura son stockage de fichiers (son jalon M7), la photo y montera et `photoLocale`
+deviendra la référence de ce fichier.
 
 ## 11. Limites connues et suites
 

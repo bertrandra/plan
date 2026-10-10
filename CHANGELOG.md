@@ -614,6 +614,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un bâtiment relevé avec photo ne pouvait pas s'enregistrer sur la plateforme.** La photo du
+  relevé de façade était dans le document (`data:image/jpeg;base64,…`), ce que la plateforme refuse
+  (`EMBEDDED_ASSET_REJECTED`). Elle reste désormais sur l'appareil, dans le navigateur, et le
+  document n'en porte que la clé (`photoLocale`) ; elle revient à l'ouverture sur le même appareil.
+  Ailleurs, le relevé garde ses mesures et ses ouvertures, et l'inspecteur dit « photo restée sur
+  l'appareil du relevé ». L'export JSON garde la photo (`MD/spec-releve-facade.md` §10.1).
+
 - **« Impossible de créer le projet : EMBEDDED_ASSET_REJECTED » à l'import par adresse.** La
   plateforme refuse toute chaîne de plus de 64 Kio dans un document ; or le relief du terrain
   s'enregistre en une chaîne base 64 (`zCode`), qui atteint 107 Kio pour une grille de 40 000
