@@ -1,4 +1,4 @@
-// Supprimer le voisinage d'un coup (menu Fichier, app/).
+// Supprimer le voisinage d'un coup (menu Fichier, app/), et lire le nom des rues (MD/spec-rues.md).
 //
 // Le voisinage — tout objet marque `voisinage`, qu'il vienne du voisinage etendu de l'import ou de
 // « Ajouter le voisinage » de l'actualisation IGN — se masque d'un geste (Affichage › Voisinage).
@@ -8,6 +8,11 @@
 // et confirmee d'abord.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
+import { CAPACITES } from '../../plateforme/capacites.js';
+import { lireRues } from '../../geo/rues.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { aDesSommets } from '../../model/formes.js';
+import { centroid } from '../../geometry/basic.js';
 import { showConfirm, showToast } from '../../shell/dialogs.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { vue3d } from '../../three/etat3d.js';
@@ -18,6 +23,14 @@ import type { ObjetPlan } from '../../model/types.js';
 /** Ce que la suppression demande en plus de l'atelier : la 3D se batit sur les objets presents. */
 export interface ContexteVoisinage {
   buildThreeScene: (obj: ObjetPlan | null) => void;
+  /** La lecture des rues a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
+  lireRues?: typeof lireRues;
+}
+
+/** L'origine geographique du plan, posee par l'import cadastral : sans elle, on ne sait pas ou sont les rues. */
+export function origineDuPlan(p: ObjetPlan | undefined): { lat: number; lon: number } | null {
+  const cad = p?.cadastre as { origineLat?: unknown; origineLon?: unknown } | undefined;
+  return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? { lat: cad.origineLat, lon: cad.origineLon } : null;
 }
 
 /** « 1 176 objets » : le compte a annoncer, accorde. */
@@ -42,6 +55,39 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
     if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
     return partants.size;
   }
+
+  // Lire les rues : une ecriture du projet (annulable, « projet modifie », refusee en lecture seule),
+  // empilee seulement au succes. La case « Nom des rues » la demande la premiere fois qu'on la coche.
+  let lectureRues = false;
+  async function lireLesRues(): Promise<void> {
+    const p = parcelleDuProjet(a.etat.objects);
+    const origine = origineDuPlan(p);
+    if (!p || !origine || !aDesSommets(p) || p.pts.length < 3 || lectureRues) return;
+    lectureRues = true;
+    try {
+      const r = await (ctx.lireRues ?? lireRues)(origine, centroid(p.pts));
+      const cible = parcelleDuProjet(a.etat.objects);
+      if (!cible) return;
+      a.pushHistory();
+      cible.ruesVoisinage = r;
+      a.markDirty();
+      a.render();
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+      const n = r.rues.length;
+      showToast(n ? n + (n > 1 ? ' rues lues' : ' rue lue') + ' à moins de ' + r.rayonM + ' m.' : 'Aucune rue nommée à moins de ' + r.rayonM + ' m.');
+    } catch (e) {
+      showToast((e as Error).message || 'L’IGN n’a pas répondu ; réessayez.');
+    } finally {
+      lectureRues = false;
+    }
+  }
+
+  cmd.declarer({
+    id: 'projet.lireRues', libelle: 'Lire le nom des rues (IGN)', groupe: 'projet',
+    capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE,
+    actif: () => !lectureRues && !!origineDuPlan(parcelleDuProjet(a.etat.objects)),
+    executer: () => { void lireLesRues(); }
+  });
 
   cmd.declarer({
     id: 'projet.supprimerVoisinage', libelle: 'Supprimer le voisinage', groupe: 'projet',

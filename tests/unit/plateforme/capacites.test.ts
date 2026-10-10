@@ -96,7 +96,7 @@ describe('ce que les commandes nommees existent vraiment', () => {
     // Les commandes se declarent de deux facons — `declarer({ id })` et l'aide `surClic(dom, id)` —
     // donc on cherche l'identifiant tel quel plutot qu'une forme d'ecriture.
     const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/vue3d.ts',
-      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts', 'ecouteurs/relief.ts']
+      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts', 'ecouteurs/relief.ts', 'ecouteurs/voisinage.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const manquantes: string[] = [];
     for (const c of Object.values(CAPACITES)) {

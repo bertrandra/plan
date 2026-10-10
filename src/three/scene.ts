@@ -10,6 +10,7 @@
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
 import { ajouterArbre3d } from './arbre3d.js';
+import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
@@ -710,6 +711,15 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Les clotures du voisinage : un reglage de la parcelle du projet, avec le reste du plan.
   if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
     ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture);
+  }
+  // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
+  const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
+  if (voisinage3d.rues.afficher && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+    ajouterNomsDesRues3d(scene, versLocal, rues, {
+      hauteurSol: sol ? sol.hauteur : undefined,
+      // Les rues sont decoupees au sol dessine : un nom hors du sol flotterait dans le vide.
+      cadre: bornes,
+    });
   }
   appliquerOmbres(scene, ground);
 

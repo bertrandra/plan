@@ -22,6 +22,7 @@ import { detruireVue } from '../render/vues.js';
 import { rendreScene } from '../render/pipeline.js';
 import { restaurerOrthoDuProjet, basculerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
 import { dessinerCourbesRelief } from '../render/relief.js';
+import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { mesure } from '../interaction/outilMesure.js';
@@ -200,6 +201,8 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
       dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene),
+      // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
+      dessinerRues: () => dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque),
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
       renderReleves: () => {
         dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);

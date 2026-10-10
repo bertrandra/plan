@@ -33,7 +33,7 @@ describe('section Voisinage (3D)', () => {
   it('par defaut : couleur du plan, une couleur de vitre, les trois plages, la cloture grillage affichee', () => {
     const c = contexte(parcelle());
     const s = sectionVoisinage3d(c);
-    expect(cles(s, c)).toEqual(['maisonsMode', 'fenetresMode', 'fenetresCouleur', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureAfficher', 'clotureType', 'clotureCouleur']);
+    expect(cles(s, c)).toEqual(['maisonsMode', 'fenetresMode', 'fenetresCouleur', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureAfficher', 'clotureType', 'clotureCouleur', 'ruesAfficher']);
     expect(champ<ChampChoix>(s, 'maisonsMode').lire(c)).toBe('plan');
     expect(champ<ChampChoix>(s, 'clotureType').lire(c)).toBe('grillage');
     champ<ChampChoix>(s, 'maisonsMode').ecrire(c, 'nuance');
@@ -65,6 +65,40 @@ describe('section Voisinage (3D)', () => {
     expect(cles(sectionVoisinage3d(c), c)).not.toContain('clotureType');
   });
 });
+describe('Nom des rues', () => {
+  function avecCommande(obj: Record<string, unknown>, utilisable = true) {
+    const c = contexte(obj);
+    const executees: string[] = [];
+    Object.assign(c, { commandeUtilisable: () => utilisable, executerCommande: (id: string) => executees.push(id) });
+    return { c, executees };
+  }
+  it('cochee la premiere fois, lit les rues ; deja lues, ne relit pas', () => {
+    const { c, executees } = avecCommande(parcelle({ cadastre: { origineLat: 48.9, origineLon: 2.13 } }));
+    const s = sectionVoisinage3d(c);
+    const caseRues = champ<Champ & { type: 'case'; lire: (c: ContexteChamps) => boolean; ecrire: (c: ContexteChamps, v: boolean) => void }>(s, 'ruesAfficher');
+    expect(caseRues.lire(c)).toBe(false);
+    expect(cles(s, c)).not.toContain('ruesLire');
+    caseRues.ecrire(c, true);
+    expect(voisinage3dDe(c.obj).rues.afficher).toBe(true);
+    expect(executees).toEqual(['projet.lireRues']);
+    expect(cles(sectionVoisinage3d(c), c)).toContain('ruesLire');
+    expect(champ<ChampBouton>(s, 'ruesLire').texte!(c)).toBe('Lire les rues (IGN)');
+    (c.obj as ObjetPlan).ruesVoisinage = { recupereLe: '2026-10-10T08:00:00Z', rayonM: 250, rues: [{ nom: 'A', troncons: [] }, { nom: 'B', troncons: [] }] };
+    expect(caseRues.note!(c)).toBe('2 rues lues le 10/10/2026');
+    expect(champ<ChampBouton>(s, 'ruesLire').texte!(c)).toBe('Relire les rues (IGN)');
+    caseRues.ecrire(c, false);
+    caseRues.ecrire(c, true);
+    expect(executees).toHaveLength(1);
+  });
+  it('sans calage cadastral, le dit et ne lit rien ; en lecture seule non plus', () => {
+    const { c, executees } = avecCommande(parcelle(), false);
+    const caseRues = champ<Champ & { type: 'case'; ecrire: (c: ContexteChamps, v: boolean) => void }>(sectionVoisinage3d(c), 'ruesAfficher');
+    caseRues.ecrire(c, true);
+    expect(executees).toEqual([]);
+    expect(caseRues.note!(c)).toContain('pas calé');
+  });
+});
+
 
 describe('section Fenêtres (3D)', () => {
   beforeEach(() => reinitialiserChoixFenetre());
