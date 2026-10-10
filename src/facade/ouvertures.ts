@@ -5,6 +5,8 @@
 
 import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
+import { distancePointSegment } from '../geometry/segments.js';
+import { sommetDe } from '../geometry/anneau.js';
 import { facadesDuContour, pointDeFacade, type Facade } from './geometrie.js';
 import type { Volume } from './profil.js';
 import { HAUTEUR_ETAGE_M } from '../geo/bdtopo.js';
@@ -45,12 +47,25 @@ export function abscissesFenetres(L: number, entraxe = ENTRAXE_FENETRES_M, large
   return Array.from({ length: n }, (_, k) => debut + k * entraxe);
 }
 
-/** La hauteur d'egout d'un mur : celle du volume ou il se trouve (un releve en L abaisse une partie). */
+/** Un mur du volume a moins de cela du milieu de la facade est ce mur-la. */
+const MUR_PROCHE_M = 0.3;
+
+/**
+ * La hauteur d'un mur : celle du volume ou il se trouve (un releve en L abaisse une partie), ou,
+ * quand le volume porte des hauteurs de murs mesurees, celle de son mur le plus proche.
+ */
 export function hauteurDuMur(f: Facade, volumes: readonly Volume[]): number {
   const m = pointDeFacade(f, f.largeur / 2);
   const dedans = { x: m.x - f.normale.x * 0.05, y: m.y - f.normale.y * 0.05 };
   const v = volumes.find((x) => pointInPolygon(dedans, x.pts));
-  return v ? v.hauteur : au(volumes, 0).hauteur;
+  if (!v) return au(volumes, 0).hauteur;
+  if (!v.hauteursMurs?.length) return v.hauteur;
+  let proche = -1, d = MUR_PROCHE_M;
+  v.pts.forEach((a, i) => {
+    const dist = distancePointSegment(m, a, sommetDe(v.pts, i + 1));
+    if (dist < d) { d = dist; proche = i; }
+  });
+  return proche >= 0 ? (v.hauteursMurs[proche] ?? v.hauteur) : v.hauteur;
 }
 
 /** Les murs qui recoivent des ouvertures : sans releve, et assez larges. */

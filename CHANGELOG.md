@@ -18,6 +18,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   est découpé en corps (rectangles maximaux, à l'équerre, décrochés de moins de 1,2 m lissés),
   chacun son toit simple, son égout et son débord ; après la lecture LiDAR, chaque corps est ajusté
   sur les mesures qui tombent dedans. Sans LiDAR, c'est ce que la 3D montre par défaut.
+- **Des blocs par les hauteurs mesurées, et des murs qui n'ont pas tous la même hauteur** (§11.2) :
+  avec la surface LiDAR, chaque rectangle — même le seul d'une maison rectangulaire — est recoupé
+  là où la couverture fait une marche d'au moins 1,5 m (un corps à deux niveaux et une annexe à un
+  seul, un toit-terrasse accolé à un toit en pente), et chaque bloc prend l'égout et la hauteur de
+  chacun de ses murs là où la couverture le rejoint. Les fenêtres montent avec leur mur : deux rangs
+  sur le mur qui va jusqu'au dessus plat, un seul sous le pan ; l'inspecteur dit « murs de 3,9 à
+  7,2 m ». La surface mesurée est ombrée par facettes : un pignon qui avance depuis le faîtage se
+  lit comme des pans, non comme une bosse.
 - **« Toit en 3D »** dans la section « Façades et toit » de l'inspecteur : « Tel que mesuré
   (LiDAR) », « Un toit par corps », « Un seul toit » — avec une ligne qui décrit la mesure (égout,
   faîte, grille) ou chaque corps. Les réglages du toit unique ne se montrent qu'en « Un seul toit ».

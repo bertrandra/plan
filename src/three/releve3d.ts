@@ -12,9 +12,9 @@ import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '../model/types.js';
-import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
-import { contourDuMur, egoutEn, volumesDuBatiment, type Volume } from '../facade/profil.js';
-import { pointInPolygon } from '../geometry/basic.js';
+import { hauteurDuMur } from '../facade/ouvertures.js';
+import { facadesDuContour, type Facade } from '../facade/geometrie.js';
+import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
 import { materiauCouverture, couleurToitPlat } from '../model/couleurToit.js';
@@ -213,17 +213,6 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: numb
     m.name = 'releve-pignon';
     ctx.scene.add(m);
   });
-}
-
-/**
- * La hauteur d'egout d'un mur : celle du volume ou il se trouve. Apres un releve en L, les murs de la
- * partie basse (son pignon, son mur arriere) sont moins hauts que le batiment.
- */
-function hauteurDuMur(f: Facade, volumes: readonly Volume[]): number {
-  const m = pointDeFacade(f, f.largeur / 2);
-  const dedans = { x: m.x - f.normale.x * 0.05, y: m.y - f.normale.y * 0.05 };
-  const v = volumes.find((x) => pointInPolygon(dedans, x.pts));
-  return v ? v.hauteur : au(volumes, 0).hauteur;
 }
 
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */

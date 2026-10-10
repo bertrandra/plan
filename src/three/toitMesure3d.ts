@@ -94,7 +94,9 @@ export function ajouterToitMesure3d(ctx: ContexteToitMesure, contour: readonly P
   for (const tri of tris) indices.push(idDe(tri[0]), idDe(tri[1]), idDe(tri[2]));
   const materiau = materiauCouverture(toitRef);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
-  const mat = new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, roughness: materiau === 'ardoise' ? 0.7 : 0.85, side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) });
+  // Par facettes : chaque triangle de 50 cm est un plan, et un pignon qui avance depuis le faitage se
+  // lit comme des pans, la ou l'ombrage lisse en faisait une bosse.
+  const mat = new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, roughness: materiau === 'ardoise' ? 0.7 : 0.85, side: THREE.DoubleSide, flatShading: true, ...(tex ? { map: tex } : {}) });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
   if (tex) {
