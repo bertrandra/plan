@@ -6,6 +6,7 @@
 // seule, rangees dans `voisinage3d` sur la parcelle pour etre retrouvees a la reouverture. Rien
 // n'est ecrit sur les parcelles voisines elles-memes.
 
+import { surParcelleDuProjet } from '../../model/fonctions.js';
 import { voisinage3dDe, reglerVoisinage3d, couleurClotureVoisinageDefaut } from '../../model/voisinage3d.js';
 import { LIBELLES_TYPE_CLOTURE } from '../../model/cloture.js';
 import type { ReglagesVoisinage3d, TypeCloture } from '../../model/types.js';
@@ -84,6 +85,14 @@ export function sectionVoisinage3d(c: ContexteChamps): Section | null {
     { type: 'couleur', cle: 'maisonsCouleur', libelle: (c.obj.voisinage3d?.maisons?.mode === 'nuance') ? 'Première couleur' : 'Couleur des murs', visible: uneCouleur, sale: false, effets, lire: (cc) => r(cc).maisons.couleur, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur = v; }) },
     { type: 'couleur', cle: 'maisonsCouleur2', libelle: 'Deuxième couleur', visible: nuanceMurs, sale: false, effets, lire: (cc) => r(cc).maisons.couleur2, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur2 = v; }) },
     { type: 'couleur', cle: 'maisonsCouleur3', libelle: 'Troisième couleur', visible: troisCouleurs, sale: false, effets, lire: (cc) => r(cc).maisons.couleur3, ecrire: (cc, v) => ecrire(cc, (x) => { x.maisons.couleur3 = v; }) },
+
+    {
+      type: 'case', cle: 'toitsCorps', libelle: 'Toits en corps et pignons', sale: false, effets: ['inspecteur', ...effets],
+      aide: 'Les toits des maisons voisines reconstruits sur le LiDAR HD de l’IGN : corps, faîtages, pignons, comme la maison du projet. Décochée : des formes simples',
+      note: (cc) => (r(cc).toits.corps && !cc.objets.some((o) => !surParcelleDuProjet(o) && o.corpsToit?.length) ? 'lus à la prochaine actualisation IGN' : ''),
+      lire: (cc) => r(cc).toits.corps,
+      ecrire: (cc, v) => ecrire(cc, (x) => { x.toits.corps = v; }),
+    },
 
     // ---- Les fenetres -----------------------------------------------------------------------------
     {

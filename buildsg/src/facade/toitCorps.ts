@@ -326,12 +326,15 @@ export function meilleureCoupe(m: ToitMesure, rect: readonly PtBrut[], contour: 
  * pas en rectangles (un contour de biais, un arrondi) ou que rien ne s'ajuste — la surface mesuree
  * reste alors le toit montre.
  */
-export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[]): CorpsToit[] | null {
+export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], options: { coupes?: boolean } = {}): CorpsToit[] | null {
   const rects = rectanglesDuContour(contour);
   if (!rects) return null;
   const blocs: PtBrut[][] = [];
+  // La coupe par le modele essaie chaque position : de loin la part la plus lourde. Le voisinage
+  // (des dizaines de maisons, dans le delai de l'import) s'en passe : ses corps viennent des marches.
+  const coupes = options.coupes !== false;
   const couper = (rect: PtBrut[], profondeur: number): void => {
-    const deux = profondeur < 2 ? meilleureCoupe(m, rect, contour) : null;
+    const deux = coupes && profondeur < 2 ? meilleureCoupe(m, rect, contour) : null;
     if (!deux) { blocs.push(rect); return; }
     deux.forEach((q) => couper(q, profondeur + 1));
   };

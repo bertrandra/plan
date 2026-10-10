@@ -536,6 +536,11 @@ export interface ReglagesVoisinage3d {
   cloture: { afficher: boolean; type: Exclude<TypeCloture, 'aucune'>; couleur: string };
   /** Le nom des rues, sur le plan et au sol de la Vue 3D (les rues lues sont dans `ruesVoisinage`). */
   rues: { afficher: boolean };
+  /**
+   * Les toits des maisons voisines : en corps et pignons reconstruits sur le LiDAR (`corps`, le defaut,
+   * lus a l'import et a l'actualisation IGN), ou en formes simples (MD/spec-toit-ign.md §13.6).
+   */
+  toits: { corps: boolean };
 }
 
 /** Une ouverture dessinee en 3D sur un mur d'un batiment du projet : laquelle, et sur quel cote. */
