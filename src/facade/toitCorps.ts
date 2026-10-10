@@ -720,7 +720,53 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     else couper(b.rect, 0);
   }
   const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
-  return corps.length ? corps : null;
+  return corps.length ? sansBandesRecouvertes(corps, contour) : null;
+}
+
+/**
+ * Au-dela de cette part de sa surface (dans le contour) sous les autres corps, une bande de moins de
+ * LARGEUR_BANDE_M est de trop. Les rectangles du contour se chevauchent par construction (une aile
+ * qui penetre un corps, chacun son toit entier) ; mais deux ailes presque confondues, recoupees aux
+ * marches, laissaient des tranches de pente de 2 m sous d'autres toits : en 3D, des pignons en double
+ * sur les pavillons d'une longere (Hucqueliers). Un corps plus large reste, meme recouvert : c'est
+ * souvent lui le bon toit, et les bandes ses morceaux.
+ */
+export const PART_RECOUVERTE_MAX = 0.9;
+const PAS_RECOUVREMENT_M = 0.5;
+
+/**
+ * Les corps sans les bandes que les autres recouvrent : tant qu'une bande a plus de
+ * PART_RECOUVERTE_MAX de sa surface sous les autres corps, la plus recouverte (la plus etroite a
+ * egalite) est retiree, et les parts recomptees - deux bandes qui se couvrent l'une l'autre n'en
+ * perdent qu'une.
+ */
+function sansBandesRecouvertes(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+  if (corps.length < 2) return [...corps];
+  const largeur = corps.map((c) => { const r = repere(c.pts); return Math.min(r.L, r.W); });
+  const echantillons = corps.map((c, k) => {
+    const out: PtBrut[] = [];
+    if ((largeur[k] as number) >= LARGEUR_BANDE_M) return out;
+    const r = repere(c.pts);
+    for (let s = PAS_RECOUVREMENT_M / 2; s < r.L; s += PAS_RECOUVREMENT_M) for (let t = PAS_RECOUVREMENT_M / 2; t < r.W; t += PAS_RECOUVREMENT_M) {
+      const q = point(r, s, t);
+      if (pointInPolygon(q, contour)) out.push(q);
+    }
+    return out;
+  });
+  const garde = corps.map(() => true);
+  for (;;) {
+    let pire = -1, part = PART_RECOUVERTE_MAX;
+    corps.forEach((_, k) => {
+      const ech = echantillons[k] as PtBrut[];
+      if (!garde[k] || !ech.length) return;
+      const sous = ech.filter((q) => corps.some((o, j) => j !== k && garde[j] && pointInPolygon(q, o.pts))).length / ech.length;
+      const plusEtroite = pire >= 0 && (largeur[k] as number) < (largeur[pire] as number);
+      if (sous > part + 1e-9 || (pire >= 0 && sous >= part - 1e-9 && plusEtroite)) { pire = k; part = sous; }
+    });
+    if (pire < 0) break;
+    garde[pire] = false;
+  }
+  return corps.filter((_, k) => garde[k]);
 }
 
 /**
@@ -817,8 +863,17 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
   // D'abord chaque rectangle entier : les pentes d'un pavillon le coupaient en trois bandes, dont aucune
   // paire ne fait un toit.
   const liste: { rect: PtBrut[]; corps?: CorpsToit }[] = [];
-  for (const r of rects) {
+  for (const [k, r] of rects.entries()) {
     const parts = decouperParHauteurs(m, [r]).map((rect) => ({ rect }));
+    // Une aile presque sous un rectangle plus grand : ses marches sont souvent les pentes du toit qui
+    // la couvre. Entiere, si son toit tient la mesure a la tolerance des bandes, sans egout trop bas.
+    if (parts.length > 1 && sousUnPlusGrand(r, rects.slice(0, k))) {
+      const entiere = corpsAvecPignons(m, r, contour);
+      if (entiere && Math.min(...entiere.egouts) >= EGOUT_ETENDU_MIN_M && ecartAuCorps(m, entiere, contour) <= TOLERANCE_BANDE * ecartDe(parts)) {
+        liste.push({ rect: [...r], corps: entiere });
+        continue;
+      }
+    }
     const f = parts.length > 1 ? corpsDepuisFormes(grille ?? m, r) : null;
     const un = f ? ecartAuCorps(m, f, contour) : Infinity;
     // Une bande de moins de 3 m est une tranche coupee dans une pente, pas un corps : plus de tolerance.
@@ -860,6 +915,26 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
     if (!fait) break;
   }
   return liste;
+}
+
+/**
+ * Au-dela de cette part de sa surface sous un rectangle plus grand du contour, une aile n'est pas
+ * recoupee aux marches : celles qu'on y lit sont les pentes et les murs du toit qui la couvre
+ * (Hucqueliers : deux ailes presque confondues sur un pavillon, debitees en bandes de 2 m).
+ */
+export const PART_SOUS_PLUS_GRAND = 0.5;
+
+/** Vrai quand `r` a plus de PART_SOUS_PLUS_GRAND de sa surface sous l'un des rectangles `grands`. */
+function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boolean {
+  if (!grands.length) return false;
+  const q = repere(r);
+  let n = 0, sous = 0;
+  for (let s = 0.25; s < q.L; s += 0.5) for (let t = 0.25; t < q.W; t += 0.5) {
+    n++;
+    const p = point(q, s, t);
+    if (grands.some((g) => pointInPolygon(p, g))) sous++;
+  }
+  return n > 0 && sous / n > PART_SOUS_PLUS_GRAND;
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */

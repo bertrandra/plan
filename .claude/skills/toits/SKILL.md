@@ -90,24 +90,32 @@ le calcul est entier et la grille est gardée. Plus loin, c'est la version **all
 2. **Marches** (`decouperParHauteurs`) : on coupe là où la couverture saute d'au moins 0,8 m
    (`SEUIL_MARCHE_M`), d'un coup (1,6 fois plus que sur le mètre voisin). Un bloc fait au moins
    1,5 m.
-3. **Refonte** (`refondre`) : le toit lu par les formes sur le rectangle entier l'emporte si son
+3. **Ailes recouvertes** : une aile qui a plus de la moitié de sa surface sous un rectangle plus
+   grand (`PART_SOUS_PLUS_GRAND`) n'est pas coupée aux marches si son toit entier tient la mesure
+   à la tolérance des bandes (1,6) avec des égouts d'au moins 2 m. Les marches qu'on y lit sont les
+   pentes du toit qui la couvre.
+4. **Refonte** (`refondre`) : le toit lu par les formes sur le rectangle entier l'emporte si son
    écart (symétrique, borné à 1,2 m) est au plus 1,15 fois celui des morceaux (`TOLERANCE_REFONTE`).
    La tolérance passe à 1,6 si un morceau fait moins de 3 m (`LARGEUR_BANDE_M`, `TOLERANCE_BANDE`).
    Il l'emporte toujours s'il n'y a **aucune marche** aux coupes : saut médian de la grille sous
    0,6 m (`CONTINUITE_M`, `sautAuCote`). Les paires de blocs qui partagent un côté entier sont
    ensuite refondues à la même règle.
-4. **Coupe par le modèle** (`meilleureCoupe`, deux fois au plus, pas en version allégée) : on garde
+5. **Coupe par le modèle** (`meilleureCoupe`, deux fois au plus, pas en version allégée) : on garde
    deux toits plutôt qu'un si l'écart tombe aux 2/3, qu'il valait au moins 25 cm et que les deux toits
    diffèrent d'au moins 60 cm.
-5. **Toit du corps** (`ajusterCorps`) : chaque sens et chaque position de faîtage tous les 25 cm,
+6. **Toit du corps** (`ajusterCorps`) : chaque sens et chaque position de faîtage tous les 25 cm,
    murs compris (un appentis). L'ajustement est robuste vers le haut : ce qui dépasse le pan de plus
    de 40 cm est écarté (pignon, arbre, lucarne). Pente au plus 60°, égouts au moins 1,5 m.
-6. **Pignons** (`detecterPignons`) : le long d'un mur de façade, la mesure dépasse le pan de 80 cm,
+7. **Pignons** (`detecterPignons`) : le long d'un mur de façade, la mesure dépasse le pan de 80 cm,
    sur 1,5 à 6 m, et reste à hauteur vers l'intérieur sur au moins 1,5 m. Le corps est réajusté sans
    eux. **Pas de pignon sur un appentis.**
-7. **Croupes** (`avecCroupesSiMieux`) : la lecture des formes l'emporte si elle donne des croupes et
+8. **Croupes** (`avecCroupesSiMieux`) : la lecture des formes l'emporte si elle donne des croupes et
    un écart d'au plus 0,8 fois celui des pignons de bout (`GAIN_CROUPES`). Exemple : AE 100, un
    quatre-pans qui se lisait en appentis à 5,5 m.
+9. **Bandes recouvertes** (`sansBandesRecouvertes`) : une bande de moins de 3 m qui a plus de 90 % de
+   sa surface sous les autres corps est retirée, la plus recouverte d'abord (la plus étroite à
+   égalité). Un corps plus large reste, même recouvert : c'est souvent lui le bon toit, et les
+   bandes ses morceaux.
 
 ### Contour de biais (reprise, `corpsDeReprise`)
 
@@ -165,17 +173,17 @@ mur haut. Pas de débord en reprise.
 |---|---|---|
 | Le Vésinet, allée des Limites | pavillons | AE 101 : deux pans à 7,5 m, deux pignons depuis le faîtage, annexe et aile basses. AE 100 : quatre pans. AE 103 : contour décalé, deux quatre-pans et un toit plat entre eux. AE 98 et sa mitoyenne : deux-pans que la pente coupait en morceaux (→ refonte, continuité). Abri de 2,70 m vu à 15 m sous un arbre (→ végétation). 57 maisons : 117 corps avant la continuité, 105 après. |
 | Gordes, Aix, Saint-Rémy (Provence) | village perché, trapèzes, mitoyenneté | contours aux angles non droits (→ reprise, boîte orientée, toit à un pan). Château : plat construit au lieu d'un relief en vagues. Gordes : 52 bâtiments sans toit construit avant, 13 après. |
-| Hucqueliers (Pas-de-Calais) | longères en brique, pavillons hauts aux bouts d'un corps bas, église, annexes basses | complétion qui suivait une lisière de biais (égout à −1,3 m) ou couvrait une annexe à 3 m d'un toit à 8,6 m (→ trois garde-fous de la complétion). Église : nef à deux pans 7/7 m. |
+| Hucqueliers (Pas-de-Calais) | longères en brique, pavillons hauts aux bouts d'un corps bas, église, annexes basses | complétion qui suivait une lisière de biais (égout à −1,3 m) ou couvrait une annexe à 3 m d'un toit à 8,6 m (→ trois garde-fous de la complétion). Ailes presque confondues débitées en bandes, pignons en double (→ ailes et bandes recouvertes). Église : nef à deux pans 7/7 m. |
 
-Chiffres de référence du banc (code de la branche `claude/toits-nord`), à comparer après une
+Chiffres de référence du banc (code de la branche `claude/toits-nord`, ailes recouvertes comprises), à comparer après une
 modification :
 
 | Village | Bâtiments | Corps | Suspects | Sans corps | Reprise |
 |---|---|---|---|---|---|
-| hucqueliers | 69 | 130 | 35 | 2 | 14 |
-| gordes | 152 | 222 | 95 | 13 | 74 |
-| aix | 51 | 88 | 28 | 4 | 5 |
-| stremy | 75 | 133 | 35 | 4 | 5 |
+| hucqueliers | 69 | 118 | 33 | 2 | 14 |
+| gordes | 152 | 216 | 95 | 13 | 74 |
+| aix | 51 | 86 | 27 | 4 | 5 |
+| stremy | 75 | 126 | 34 | 4 | 5 |
 
 « Suspect » ne veut pas dire faux : c'est une liste de bâtiments à regarder.
 
@@ -215,7 +223,8 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
 
 - `tests/fixtures/toits/*.json` : relevés réels (`contour`, `toitMesure`, `corps` attendus, `grille`,
   parfois `grilleLarge` pour le recalage). `vesinet-ae101/100/103/98`, `vesinet-ae98-voisin`,
-  `vesinet-28267713` (grand deux-pans du voisinage), `gordes-16860179/16860044`. Une règle nouvelle
+  `vesinet-28267713` (grand deux-pans du voisinage), `gordes-16860179/16860044`,
+  `hucqueliers-37248520/37248524` (complétion), `hucqueliers-37248484/37248548` (ailes recouvertes). Une règle nouvelle
   née d'un cas réel ajoute sa fixture (contour recalé et grille tirés du JSON du village) et un test
   qui décrit le toit attendu en mots de couvreur.
 - `tests/unit/facade/toitCorpsReprise.test.ts` (AE 101 au centimètre, reprise, recalage, Gordes),
@@ -240,6 +249,10 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
   écrasé. Pour comparer deux lectures, utiliser l'écart symétrique (`ecartAuCorps`).
 - **Une tolérance relative seule** échoue sur des données synthétiques parfaites : ajouter un terme
   absolu (5 cm).
+- **Retirer le corps le plus recouvert, quelle que soit sa taille**, enlevait le bon pavillon (11 m)
+  et gardait ses bandes. Seules les bandes de moins de 3 m peuvent être retirées.
+- **Ne jamais recouper une aile recouverte** donnait des égouts à 1,7 m (37248548). Le toit entier
+  doit tenir la mesure, avec des égouts d'au moins 2 m.
 - **La complétion suivait n'importe quel point libre** : une lisière de quelques centimètres l'a
   menée sur 5 m (Hucqueliers). Il faut une part de bande, une hauteur cohérente et un égout plancher.
 - **Une hauteur BD TOPO fausse** (église à 4,7 m) déclenche « égout > h » dans le banc : ce n'est
@@ -248,11 +261,9 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
 
 ## 9. Chantiers ouverts
 
-- **Rectangles qui se chevauchent presque entièrement** (Hucqueliers 37248484, le mitoyen du
-  projet) : deux pavillons hauts aux bouts d'un corps bas. Les rectangles maximaux des ailes se
-  recouvrent, les marches les débitent en bandes de 2 m couvertes à 100 % par d'autres corps, et la
-  3D montre des pignons en double. Piste : retirer un corps couvert à 90 % ou plus par les autres
-  (`recouvrement.py`), ou exclure des mesures d'une aile la zone d'un rectangle plus grand. Vérifier
-  AE 101 à chaque essai.
+- **Pavillon est de la longère d'Hucqueliers** (37248484) : ses ailes restent recoupées (le toit
+  entier ne tient pas la mesure), avec une bande de 2,4 m qui n'est couverte qu'en partie. Piste :
+  ajuster une aile sur sa seule partie propre (`ajusterCorps(…, exclure)` avec les rectangles plus
+  grands).
 - **Chœur d'église en abside** : lu en deux pans dissymétriques (égouts 7,4 / 10,2 m).
 - **Clocher, tour** : un corps rond n'a pas de forme. Il reste dans la surface ou dans un corps voisin.

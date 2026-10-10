@@ -768,6 +768,17 @@ blocs, c'est le même toit, refondu dès que les formes simples le lisent. Véri
 voisinage d'AE 101 : 117 corps avant, 105 après, plus aucun grand toit débité en bandes de moins de
 3 m (`28267713`, un deux-pans à 11 m, en est le cas de test).
 
+**Les ailes recouvertes.** Les rectangles maximaux se chevauchent par construction. Mais deux ailes
+presque confondues sur un même pavillon, chacune recoupée aux marches, laissaient des bandes de 2 m
+sous d'autres toits. En 3D, cela donnait des pignons en double (Hucqueliers, une longère à deux
+pavillons hauts). Deux règles s'appliquent désormais. Une aile qui a plus de la moitié de sa surface
+sous un rectangle plus grand (`PART_SOUS_PLUS_GRAND`) reste entière, au lieu d'être coupée aux marches.
+Il faut pour cela que son toit tienne la mesure à la tolérance des bandes et qu'aucun égout ne tombe
+sous 2 m : les marches qu'on y lit sont les pentes du toit qui la couvre. Ensuite, une bande de moins
+de 3 m qui a plus de 90 % de sa surface sous les autres corps est retirée (`PART_RECOUVERTE_MAX`,
+`sansBandesRecouvertes`) ; la plus recouverte part d'abord, la plus étroite à égalité. Un corps plus
+large reste, même recouvert : c'est souvent lui le bon toit. AE 101 ne change pas.
+
 **Les quatre formes, une seule règle.** Chaque corps est l'une de ces formes :
 - **deux pans** : faîtage intérieur, chaque pan avec son égout, pignons de bout et pignons depuis
   le faîtage ;
@@ -903,7 +914,12 @@ Exemple : 2 allée des Limites, parcelle AE 103.
   prend de l'autre : le triangle pris n'était sous aucun corps, donc sans toit. Chaque corps, du plus
   haut au plus bas, avance ses côtés libres (que les autres ne bordent pas pour moitié) tant que la
   bande devant lui contient du contour qu'aucun autre ne couvre. Étendu le long du faîtage, il
-  l'allonge (croupes et hauteurs restent) ; en travers, ses pans descendent à leur pente.
+  l'allonge (croupes et hauteurs restent) ; en travers, ses pans descendent à leur pente. Trois
+  garde-fous (Hucqueliers) : la bande devant le corps doit être pour 10 % au moins du contour sans
+  toit (`PART_COMPLETION_MIN`), sinon une aile de biais suivait sur 5 m la lisière laissée le long de
+  sa voisine, avec un égout à −1,3 m ; en travers, aucun égout ne descend sous 2 m ; et la mesure doit
+  y être à moins d'un mètre sous son égout (`SOUS_EGOUT_ETENDU_M`) : une annexe basse garde son
+  propre toit.
 - **Dernier recours** (`corpsSurBoite`, `boiteOrientee`, `lectureDeSecours`). Un contour qui ne se
   découpe pas du tout ne reste plus à la surface brute. C'est le cas de la maison de village en
   trapèze ou en parallélogramme, aux angles non droits, fréquente en Provence. Un seul corps est lu

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { reconstruireCorps, contourEquerre, corpsDepuisFormes, corpsEtendu, decalageSurMesure, partVideSous, PART_VIDE_RECALAGE } from '../../../src/facade/toitCorps.js';
+import { reconstruireCorps, contourEquerre, corpsDepuisFormes, corpsEtendu, decalageSurMesure, partVideSous, PART_VIDE_RECALAGE, PART_RECOUVERTE_MAX, LARGEUR_BANDE_M } from '../../../src/facade/toitCorps.js';
 import { rectanglesEnTranches } from '../../../src/model/volumesToit.js';
 import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
@@ -167,5 +167,50 @@ describe('reprise des contours de biais', () => {
       expect(c.pignons).toEqual([]);
     }
   });
-});
 
+  // Un village du Pas-de-Calais (place de la Mairie, Hucqueliers) : longeres en brique, pavillons
+  // hauts aux bouts d'un corps bas, annexes basses.
+  const hucqueliers = (k: string, coupes: boolean) => {
+    const r = JSON.parse(readFileSync(new URL(`../../fixtures/toits/hucqueliers-${k}.json`, import.meta.url), 'utf8')) as Releve;
+    return { r, corps: reconstruireCorps(toitMesureDepuisGrille(r.grille, r.contour)!, r.contour, { grille: r.grille, coupes })! };
+  };
+  const dimsDe = (c: CorpsToit) => [Math.hypot(c.pts[1]!.x - c.pts[0]!.x, c.pts[1]!.y - c.pts[0]!.y), Math.hypot(c.pts[3]!.x - c.pts[0]!.x, c.pts[3]!.y - c.pts[0]!.y)] as const;
+
+  it('Hucqueliers : un toit complete ne suit pas la lisiere d une aile de biais, ni ne couvre l annexe basse', () => {
+    // L : l'aile nord s'etirait de 5 m sur la cour le long de sa voisine, egout a -1,3 m.
+    const { corps: l } = hucqueliers('37248520', false);
+    l.forEach((c) => expect(Math.min(...c.egouts)).toBeGreaterThanOrEqual(2));
+    const aile = l.find((c) => c.faitage > 4)!;
+    expect(Math.min(...dimsDe(aile))).toBeLessThan(6);
+    // Le toit a 8,6 m de la maison ne couvre plus son annexe a 3 m : elle garde son appentis.
+    const { corps: m } = hucqueliers('37248524', false);
+    const maison = m.find((c) => c.faitage > 8)!;
+    expect(maison.egouts).toEqual([6.6, 6.6]);
+    expect(pointInPolygon(p(-93, -2.5), maison.pts)).toBe(false);
+    expect(m.some((c) => c.faitage < 4.5 && pointInPolygon(p(-93, -2.5), c.pts))).toBe(true);
+  });
+
+  it('Hucqueliers : une aile presque sous un rectangle plus grand n est plus debitee en bandes de 2 m', () => {
+    for (const [k, coupes, avant] of [['37248484', true, 10], ['37248548', false, 10]] as const) {
+      const { r, corps } = hucqueliers(k, coupes);
+      expect(corps.length).toBeLessThan(avant);
+      // Aucune bande de moins de 3 m que les autres corps recouvrent : des pignons en double en 3D.
+      for (const c of corps) {
+        const [L, W] = dimsDe(c);
+        if (Math.min(L, W) >= LARGEUR_BANDE_M) continue;
+        let n = 0, sous = 0;
+        for (let a = 0.25; a < L; a += 0.5) for (let b = 0.25; b < W; b += 0.5) {
+          const q = p(c.pts[0]!.x + ((c.pts[1]!.x - c.pts[0]!.x) * a) / L + ((c.pts[3]!.x - c.pts[0]!.x) * b) / W, c.pts[0]!.y + ((c.pts[1]!.y - c.pts[0]!.y) * a) / L + ((c.pts[3]!.y - c.pts[0]!.y) * b) / W);
+          if (!pointInPolygon(q, r.contour)) continue;
+          n++;
+          if (corps.some((o) => o !== c && pointInPolygon(q, o.pts))) sous++;
+        }
+        expect(sous / n).toBeLessThanOrEqual(PART_RECOUVERTE_MAX);
+      }
+    }
+    // Le pavillon ouest de la longere : son aile nord reste entiere (4,4 m), sur le toit a 11 m.
+    const { corps } = hucqueliers('37248484', true);
+    expect(corps.some((c) => c.faitage === 11)).toBe(true);
+    expect(corps.some((c) => Math.abs(Math.min(...dimsDe(c)) - 4.4) < 0.05)).toBe(true);
+  });
+});

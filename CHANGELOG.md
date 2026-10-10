@@ -34,6 +34,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Plus de pignons en double sur les pavillons d'une longère** (`facade/toitCorps.ts`, Hucqueliers) :
+  une aile presque entièrement sous un rectangle plus grand du contour n'est plus coupée en bandes de
+  2 m aux pentes du toit qui la couvre, tant que son toit entier tient la mesure ; une bande de moins
+  de 3 m recouverte à plus de 90 % par les autres corps est retirée. Sur quatre villages, 4 à 12 % de
+  corps en moins, sans toit perdu. AE 101 est inchangé.
+
 - **Un toit complété sur le contour ne déborde plus sur la cour ni sur une annexe** (`facade/toitCorps.ts`,
   village d'Hucqueliers) : un toit n'avance que sur une bande de bâtiment vraiment sans toit (10 % au
   moins), pas sur la lisière qu'une aile de biais laisse le long de sa voisine, suivie jusque-là sur 5 m
