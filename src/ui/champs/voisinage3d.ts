@@ -41,6 +41,21 @@ function dimension(cle: CleDimension, libelle: string, min: number, max: number,
   };
 }
 
+const LIRE_RUES = 'projet.lireRues';
+
+/** Ce que la case « Nom des rues » dit sous elle : combien de rues, lues quand ; ou pourquoi il n'y en a pas. */
+function noteRues(c: ContexteChamps): string {
+  const rv = c.obj.ruesVoisinage;
+  if (rv) {
+    const n = rv.rues.length;
+    const date = rv.recupereLe ? new Date(rv.recupereLe).toLocaleDateString('fr-FR') : '';
+    return (n ? n + (n > 1 ? ' rues lues' : ' rue lue') : 'Aucune rue nommée') + (date ? ' le ' + date : '');
+  }
+  if (!r(c).rues.afficher) return '';
+  const cad = c.obj.cadastre as { origineLat?: unknown } | undefined;
+  return typeof cad?.origineLat === 'number' ? 'Pas encore lues' : 'Le plan n’est pas calé sur le cadastre : importez-le depuis une adresse pour lire les rues';
+}
+
 /** La section « Voisinage (3D) » de la parcelle du projet ; `null` pour tout autre objet. */
 export function sectionVoisinage3d(c: ContexteChamps): Section | null {
   if (!estParcellePrincipale(c)) return null;
@@ -97,9 +112,27 @@ export function sectionVoisinage3d(c: ContexteChamps): Section | null {
       }),
     },
     { type: 'couleur', cle: 'clotureCouleur', libelle: 'Couleur de la clôture', visible: cloture, sale: false, effets, lire: (cc) => r(cc).cloture.couleur, ecrire: (cc, v) => ecrire(cc, (x) => { x.cloture.couleur = v; }) },
+
+    // ---- Les rues ---------------------------------------------------------------------------------
+    {
+      type: 'case', cle: 'ruesAfficher', libelle: 'Nom des rues', sale: false, effets: ['rendu', 'inspecteur', ...effets],
+      aide: 'Sur le plan et au sol de la Vue 3D. La première fois, les rues sont lues à l’IGN (BD TOPO) et enregistrées dans le projet',
+      note: noteRues,
+      lire: (cc) => r(cc).rues.afficher,
+      ecrire: (cc, v) => {
+        ecrire(cc, (x) => { x.rues.afficher = v; });
+        if (v && !cc.obj.ruesVoisinage && cc.commandeUtilisable(LIRE_RUES)) cc.executerCommande(LIRE_RUES);
+      },
+    },
+    {
+      type: 'bouton', cle: 'ruesLire', libelle: 'Rues', visible: (cc) => r(cc).rues.afficher, agit: { commande: LIRE_RUES },
+      texte: (cc) => (cc.obj.ruesVoisinage ? 'Relire les rues (IGN)' : 'Lire les rues (IGN)'),
+      explication: 'Les rues nommées à moins de 250 m de la parcelle ; Ctrl+Z rend les précédentes',
+      executer: (cc) => cc.executerCommande(LIRE_RUES),
+    },
   ];
   return {
     id: 'voisinage3d', titre: 'Voisinage (3D)', repliee: true, champs,
-    explication: 'L’apparence des maisons voisines dans la Vue 3D. Ce qui est tiré au hasard l’est une fois pour toutes par maison : la scène ne change pas d’une ouverture à l’autre.',
+    explication: 'L’apparence des maisons voisines dans la Vue 3D, et le nom des rues sur le plan et dans la 3D. Ce qui est tiré au hasard l’est une fois pour toutes par maison : la scène ne change pas d’une ouverture à l’autre.',
   };
 }

@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Nom des rues** (`MD/spec-rues.md`) : une case « Nom des rues » dans la section « Voisinage
+  (3D) » de la parcelle. Cochée, le nom des rues voisines s'écrit le long de chaque voie sur le plan,
+  et au sol de la Vue 3D. La première fois, les rues sont lues à l'IGN (BD TOPO, noms de la Base
+  Adresse Nationale, 250 m autour de la parcelle) et enregistrées dans le projet, en un pas
+  annulable ; « Relire les rues (IGN) » les met à jour. Le nom se pose au milieu de ce qu'on voit de
+  la rue, jamais la tête en bas.
+
 - **Arbres : des feuilles de près.** Quand la caméra approche d'un arbre (moins de 30 m), de petites
   feuilles couvrent son houppier — des aiguilles sur un conifère —, chacune son orientation et sa
   nuance, en une seule maille instanciée par arbre ; elles tombent avec le feuillage d'un caduc en

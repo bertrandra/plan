@@ -1,7 +1,7 @@
 // La surface du plan : l'element qui le porte, sa racine SVG et ses calques (app/assemblage/).
 //
 // L'ordre des calques est l'ordre de lecture du plan, du fond vers l'avant : le fond orthophoto, la
-// grille, les courbes de niveau du relief, les objets, puis les ombres des parasols (remises devant a chaque rendu), la toile des
+// grille, les courbes de niveau du relief, le nom des rues, les objets, puis les ombres des parasols (remises devant a chaque rendu), la toile des
 // parasols et leurs mats — et, par-dessus, la fleche du
 // nord, l'echelle, les cotes et les couches de la terrasse. Ces quatre-la ne sont poses qu'une fois
 // les objets crees (`poserCalquesDuDessus`) : c'est ce qui les garde devant.
@@ -17,6 +17,8 @@ export interface Surface {
   grille: SVGGElement;
   /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, juste au-dessus de la grille. */
   relief: SVGGElement;
+  /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
+  rues: SVGGElement;
   /** Ombres des parasols et carte de chaleur : devant les objets, sous la toile des parasols (assemblage/dessin.ts). */
   parasols: SVGGElement;
   /** Les abords des piscines : margelles, plage, profondeurs, juste devant les objets (render/piscineOverlay.ts). */
@@ -57,6 +59,8 @@ export function creerSurface(etat: EtatApp): Surface {
     ortho: groupe(true), grille: groupe(),
     // Le relief est un calque de reference comme le fond : les clics le traversent.
     relief: groupe(true, 'reliefGroup'),
+    // Le nom des rues aussi : il situe, il ne se clique pas.
+    rues: groupe(true, 'ruesGroup'),
     piscines: groupe(true), parasols: groupe(true), pergolas: groupe(true), mats: groupe(true),
     nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(), releves: groupe(true),
     appliquerTaille() {
@@ -69,6 +73,6 @@ export function creerSurface(etat: EtatApp): Surface {
   };
   s.appliquerTaille();
   stage.appendChild(svg);
-  svg.append(defs, s.ortho, s.grille, s.relief, s.piscines, s.parasols, s.pergolas, s.mats, s.releves);
+  svg.append(defs, s.ortho, s.grille, s.relief, s.rues, s.piscines, s.parasols, s.pergolas, s.mats, s.releves);
   return s;
 }

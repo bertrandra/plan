@@ -120,6 +120,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'facade.retirer': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),
+  // Le nom des rues : la case et le bouton de la section « Voisinage » (ui/champs/voisinage3d.ts).
+  'projet.lireRues': partout('inspecteur'),
   'relief.actualiser': partout('inspecteur'),
   'relief.supprimer': partout('inspecteur'),
 
