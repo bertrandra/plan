@@ -639,9 +639,89 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     if (!deux) { blocs.push(rect); return; }
     deux.forEach((q) => couper(q, profondeur + 1));
   };
-  decouperParHauteurs(m, rects).forEach((r) => couper(r, 0));
-  const corps = blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour))).filter((c): c is CorpsToit => c !== null);
+  // Les blocs qu'une marche a separes a tort sont refondus quand un seul toit les explique mieux ;
+  // ceux-la gardent leur toit lu par les formes, sans coupe par le modele.
+  const refondus: CorpsToit[] = [];
+  for (const b of refondre(m, rects, contour, options.grille ?? null)) {
+    if (b.corps) refondus.push(b.corps);
+    else couper(b.rect, 0);
+  }
+  const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
   return corps.length ? corps : null;
+}
+
+/**
+ * Deux blocs se refondent quand un seul toit les explique presque aussi bien que leurs deux corps : son
+ * ecart ne depasse pas le leur de plus de cette part. Un toit plutot que deux morceaux qui collent a
+ * peine mieux a la mesure, mais avec un egout a 8,4 m et un appentis de 2,3 m a pignon (AE 98).
+ */
+export const TOLERANCE_REFONTE = 1.15;
+/**
+ * Et quand la coupe aux marches laisse une bande plus etroite que LARGEUR_BANDE_M : un corps de moins
+ * de 3 m n'est pas une maison mais une tranche de pente (un pavillon coupe en trois bandes de 1,5 a
+ * 2,6 m, la maison mitoyenne d'AE 98). Le toit unique est alors admis jusqu'a TOLERANCE_BANDE.
+ */
+export const LARGEUR_BANDE_M = 3;
+export const TOLERANCE_BANDE = 1.6;
+
+/** La reunion de deux rectangles qui partagent un cote entier, dans le repere du premier ; null sinon. */
+export function reunion(a: readonly PtBrut[], b: readonly PtBrut[]): PtBrut[] | null {
+  const r = repere(a);
+  const loc = b.map((q) => { const dx = q.x - r.p0.x, dy = q.y - r.p0.y; return { s: dx * r.u.x + dy * r.u.y, t: dx * r.v.x + dy * r.v.y }; });
+  const ss = loc.map((q) => q.s), ts = loc.map((q) => q.t), e = 0.05;
+  const s0 = Math.min(...ss), s1 = Math.max(...ss), t0 = Math.min(...ts), t1 = Math.max(...ts);
+  // Paralleles : chaque sommet de b sur l'une des bornes de sa boite.
+  if (!loc.every((q) => (Math.abs(q.s - s0) < e || Math.abs(q.s - s1) < e) && (Math.abs(q.t - t0) < e || Math.abs(q.t - t1) < e))) return null;
+  const memeT = Math.abs(t0) < e && Math.abs(t1 - r.W) < e, memeS = Math.abs(s0) < e && Math.abs(s1 - r.L) < e;
+  let bornes: [number, number, number, number] | null = null;
+  if (memeT && (Math.abs(s0 - r.L) < e || Math.abs(s1) < e)) bornes = [Math.min(0, s0), Math.max(r.L, s1), 0, r.W];
+  else if (memeS && (Math.abs(t0 - r.W) < e || Math.abs(t1) < e)) bornes = [0, r.L, Math.min(0, t0), Math.max(r.W, t1)];
+  if (!bornes) return null;
+  const [a0, a1, b0, b1] = bornes;
+  return [point(r, a0, b0), point(r, a1, b0), point(r, a1, b1), point(r, a0, b1)].map((q) => ({ x: cm(q.x), y: cm(q.y) }));
+}
+
+/**
+ * Les blocs coupes aux marches, refondus deux a deux quand un seul toit lu par les formes simples
+ * (`corpsDepuisFormes`) explique leur reunion presque aussi bien que leurs deux corps
+ * (`TOLERANCE_REFONTE`) : la pente forte d'un pan passait pour une marche, et coupait un toit en deux
+ * morceaux absurdes (AE 98). Ecart symetrique (`ecartAuCorps`), pondere par l'aire. Deux niveaux
+ * vraiment differents ne se refondent pas : les formes n'y lisent qu'un toit de compromis, loin des deux.
+ */
+function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly PtBrut[], grille: Grille | null): { rect: PtBrut[]; corps?: CorpsToit }[] {
+  const aire = (q: readonly PtBrut[]) => { const r = repere(q); return r.L * r.W; };
+  const ecartSeul = (x: { rect: PtBrut[]; corps?: CorpsToit }) => { const c = x.corps ?? corpsAvecPignons(m, x.rect, contour); return c ? ecartAuCorps(m, c, contour) : Infinity; };
+  const ecartDe = (parts: readonly { rect: PtBrut[]; corps?: CorpsToit }[]) => Math.sqrt(parts.reduce((a, x) => a + ecartSeul(x) ** 2 * aire(x.rect), 0) / parts.reduce((a, x) => a + aire(x.rect), 0));
+  // D'abord chaque rectangle entier : les pentes d'un pavillon le coupaient en trois bandes, dont aucune
+  // paire ne fait un toit.
+  const liste: { rect: PtBrut[]; corps?: CorpsToit }[] = [];
+  for (const r of rects) {
+    const parts = decouperParHauteurs(m, [r]).map((rect) => ({ rect }));
+    const f = parts.length > 1 ? corpsDepuisFormes(grille ?? m, r) : null;
+    const un = f ? ecartAuCorps(m, f, contour) : Infinity;
+    // Une bande de moins de 3 m est une tranche coupee dans une pente, pas un corps : plus de tolerance.
+    const bande = parts.some((x) => { const q = repere(x.rect); return Math.min(q.L, q.W) < LARGEUR_BANDE_M; });
+    if (f && un <= (bande ? TOLERANCE_BANDE : TOLERANCE_REFONTE) * ecartDe(parts)) liste.push({ rect: [...r], corps: { ...f, ecart: cm(un) } });
+    else liste.push(...parts);
+  }
+  if (liste.length < 2) return liste;
+  for (let garde = 0; garde < 8; garde++) {
+    let fait = false;
+    for (let i = 0; i < liste.length && !fait; i++) for (let j = i + 1; j < liste.length && !fait; j++) {
+      const a = liste[i] as { rect: PtBrut[]; corps?: CorpsToit }, b = liste[j] as { rect: PtBrut[]; corps?: CorpsToit };
+      const u = reunion(a.rect, b.rect);
+      const f = u ? corpsDepuisFormes(grille ?? m, u) : null;
+      if (!u || !f) continue;
+      const deux = ecartDe([a, b]);
+      const un = ecartAuCorps(m, f, contour);
+      if (un > TOLERANCE_REFONTE * deux) continue;
+      liste.splice(j, 1);
+      liste[i] = { rect: u, corps: { ...f, ecart: cm(un) } };
+      fait = true;
+    }
+    if (!fait) break;
+  }
+  return liste;
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
