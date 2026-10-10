@@ -24,6 +24,7 @@ import { EchecPlateforme, type Session } from '../plateforme/session.js';
 import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 import { phraseLimite } from '../plateforme/quotaProjets.js';
+import { magasinPhotos, sortirLesPhotos, rentrerLesPhotos, type MagasinPhotos } from './photosLocales.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
@@ -62,12 +63,27 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
   if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
   if (e instanceof EchecPlateforme && e.erreur.code === 'PAYLOAD_TOO_LARGE') return refusDeTaille(e, quoi);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'EMBEDDED_ASSET_REJECTED') return refusDActif(e, quoi);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
     return echec(quoi + ' : ' + e.erreur.code + ref, motif);
   }
   return echec(quoi + ' : ' + ((e as Error).message || String(e)), 'network');
+}
+
+/**
+ * La plateforme refuse un document qui embarque un contenu : une URI `data:`, ou une chaine de plus
+ * de 64 Kio (`422 EMBEDDED_ASSET_REJECTED`, avec `details.path` et `details.reason`). Le chemin est
+ * dit : c'est lui qui designe le champ fautif, sans quoi l'erreur ne se diagnostique pas.
+ */
+function refusDActif(e: EchecPlateforme, quoi: string): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const chemin = typeof d.path === 'string' ? d.path : null;
+  const taille = typeof d.size_bytes === 'number' ? ' (' + Math.round(d.size_bytes / 1024) + ' Kio)' : '';
+  const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
+  return echec(quoi + ' : la plateforme refuse un contenu embarque dans le document'
+    + (chemin ? ', champ « ' + chemin + ' »' + taille : '') + ' — EMBEDDED_ASSET_REJECTED' + ref, 'server');
 }
 
 /**
@@ -122,7 +138,9 @@ export interface DepotProjets {
   supprimer(id: string): Promise<unknown>;
 }
 
-export function creerDepotPlateforme(session: Session): DepotProjets {
+export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos): DepotProjets {
+  // Le magasin des photos de releve : celui du navigateur, sauf celui qu'on passe (les tests).
+  const photos = () => magasin ?? magasinPhotos();
   return {
     async lister() {
       try {
@@ -154,8 +172,10 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
         // Un document ancien est lu dans la forme courante : le programme n'en connait qu'une.
         const schema = p.schema_version ?? 1;
         const lu = migrer(d, schema);
+        // Les photos de releve, gardees sur cet appareil (io/photosLocales.ts), reviennent ici.
+        const { objets } = await rentrerLesPhotos(lu.objects || [], photos());
         return {
-          objects: lu.objects || [],
+          objects: objets,
           schemaVersion: schema,
           ...(lu.measures ? { measures: lu.measures } : {}),
           // `meta` est ce que la barre de projet affiche : on le reconstruit depuis les colonnes de
@@ -168,7 +188,11 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
 
     async enregistrer(charge) {
       const { id, name, ...reste } = charge;
-      const document: DocumentPlan = reste;
+      // Les photos de releve ne partent pas : la plateforme refuse les contenus embarques
+      // (EMBEDDED_ASSET_REJECTED). Elles restent sur cet appareil, le document n'en porte que la cle.
+      const sortie = Array.isArray(reste.objects) ? await sortirLesPhotos(reste.objects, photos()) : null;
+      if (sortie?.perdues) console.warn('Plan : ' + sortie.perdues + ' photo(s) de releve non gardee(s) sur cet appareil (stockage du navigateur indisponible).');
+      const document: DocumentPlan = sortie ? { ...reste, objects: sortie.objets } : reste;
       // Le schema vient de l'appelant quand il le connait (le projet ouvert, peut-etre mis a jour) ;
       // sinon — la demonstration creee au premier pas — c'est le plus petit qui decrit le document.
       const schema = typeof document.schemaVersion === 'number' ? document.schemaVersion : schemaMinimal(document.objects);
