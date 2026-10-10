@@ -127,7 +127,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       if (ecrire() === false) { magasin.notifier(); return false; }
       if (empiler) empiler();
       if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
-      if (champ.sale !== false) ctx.markDirty();
+      if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty();
       (champ.effets || []).forEach(e => effet(e, c));
       // Une ecriture sans effet declare doit quand meme se voir : l'inspecteur relit l'etat.
       if (!champ.effets || !champ.effets.length) magasin.notifier();
