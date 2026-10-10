@@ -32,6 +32,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   entre eux, la maison recalée d'un mètre vers l'ouest et de 1,75 m vers le sud. Les contours qui
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
+### Corrigé
+
+- **Plus de bout de maison sans toit le long d'un côté de biais** (`MD/spec-toit-ign.md` §13.7) : la
+  marche qui remplace le biais laissait, d'un côté, un triangle du bâtiment qu'aucun corps ne
+  couvrait (AE 103, à côté de l'aile à 6,3 m). Chaque corps s'étend maintenant jusqu'à couvrir ce que
+  le contour a de libre, le plus haut d'abord, en gardant sa forme et ses pentes (le faîtage
+  s'allonge, croupes et hauteurs restent) ; le dessin le découpe sur le contour.
+
 - **Une roue d'attente au centre de l'écran** pendant la création d'un plan depuis une adresse et
   pendant l'actualisation IGN, avec l'étape en cours (« Forme des toits sur le LiDAR HD… »,
   « Actualisation IGN : la couleur des toits sur l'orthophoto… ») : ces travaux durent plusieurs
