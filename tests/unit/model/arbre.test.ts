@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { arbreNu, houppier, houppierDe, portDe, essenceDe, portParNature, PORTS } from '../../../src/model/arbre.js';
+import { arbreNu, houppier, houppierDe, portDe, essenceDe, portParNature, PORTS, feuillesDuHouppier, dansLobe, aireEllipsoide, MAX_FEUILLES_PAR_ARBRE, TAILLE_FEUILLE_MIN_M, TAILLE_FEUILLE_MAX_M } from '../../../src/model/arbre.js';
 
 describe('port et essence', () => {
   it('reviennent au defaut quand le champ manque ou est inconnu', () => {
@@ -76,5 +76,52 @@ describe('houppier', () => {
   it('un diametre absent ou nul vaut 3 m', () => {
     expect(houppierDe({ key: 'k' }).hauteur).toBeCloseTo(3, 9);
     expect(houppierDe({ key: 'k', diametreArbre: 0 }).hauteur).toBeCloseTo(3, 9);
+  });
+});
+
+describe('feuillesDuHouppier', () => {
+  it('est reproductible, plafonnee, et des feuilles de taille lisible', () => {
+    const h = houppier('rond', 4, 9);
+    const a = feuillesDuHouppier(h, 'rond', 9);
+    expect(a).toEqual(feuillesDuHouppier(h, 'rond', 9));
+    expect(a.forme).toBe('feuille');
+    expect(a.feuilles.length).toBeGreaterThan(200);
+    expect(a.feuilles.length).toBeLessThanOrEqual(MAX_FEUILLES_PAR_ARBRE);
+    expect(a.taille).toBeGreaterThanOrEqual(TAILLE_FEUILLE_MIN_M);
+    expect(a.taille).toBeLessThanOrEqual(TAILLE_FEUILLE_MAX_M);
+  });
+  it('pose chaque feuille sur la surface d un lobe, hors des autres, la normale vers l exterieur', () => {
+    const h = houppier('rond', 4, 9);
+    const { feuilles, taille } = feuillesDuHouppier(h, 'rond', 9);
+    for (const f of feuilles) {
+      expect(Math.hypot(f.nx, f.ny, f.nz)).toBeCloseTo(1, 9);
+      // Le point d'attache, ramene de son decollement, est sur un lobe et dans aucun autre.
+      const d = taille * 0.2 + 1e-9;
+      const valeurs = h.lobes.map((l) => dansLobe(l, f.x - f.nx * d, f.y - f.ny * d, f.z - f.nz * d));
+      expect(Math.min(...valeurs)).toBeLessThanOrEqual(1.0001);
+      expect(h.lobes.map((l) => dansLobe(l, f.x, f.y, f.z)).every((v) => v >= 0.9)).toBe(true);
+      expect(f.echelle).toBeGreaterThan(0.7);
+      expect(f.teinte).toBeGreaterThan(0.8);
+    }
+  });
+  it('un conifere porte des aiguilles sur son cone, la normale vers le haut et le dehors', () => {
+    const h = houppier('conique', 3, 2);
+    const a = feuillesDuHouppier(h, 'conique', 2);
+    expect(a.forme).toBe('aiguille');
+    const l = h.lobes[0]!;
+    for (const f of a.feuilles) {
+      expect(f.ny).toBeGreaterThan(0);
+      expect(f.y).toBeGreaterThanOrEqual(l.y - l.ry - 1e-9);
+      expect(f.y).toBeLessThanOrEqual(l.y + l.ry + a.taille);
+    }
+  });
+  it('un grand arbre ne depasse pas le plafond, ses feuilles grandissent', () => {
+    const petit = feuillesDuHouppier(houppier('rond', 2, 1), 'rond', 1);
+    const grand = feuillesDuHouppier(houppier('rond', 10, 1), 'rond', 1);
+    expect(grand.feuilles.length).toBeLessThanOrEqual(MAX_FEUILLES_PAR_ARBRE);
+    expect(grand.taille).toBeGreaterThan(petit.taille);
+  });
+  it('aireEllipsoide : une sphere de rayon 1 vaut 4 pi', () => {
+    expect(aireEllipsoide({ rx: 1, ry: 1, rz: 1 })).toBeCloseTo(4 * Math.PI, 6);
   });
 });

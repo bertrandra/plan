@@ -12,6 +12,7 @@ class Attr {
 class Geo {
   attributes: Record<string, Attr> = {};
   setAttribute(n: string, a: Attr) { this.attributes[n] = a; }
+  setIndex() {}
 }
 /** Une « sphere » de trois sommets : un en haut, un en bas, un a l'equateur. */
 class Sphere extends Geo {
@@ -43,10 +44,19 @@ class Mesh extends Obj {
   constructor(public geometry: Geo, public material: { p: Record<string, unknown> }) { super(); }
 }
 class Mat { map: unknown; constructor(public p: Record<string, unknown>) {} }
+class Inst extends Mesh {
+  instanceMatrix = { needsUpdate: false }; instanceColor = { needsUpdate: false }; frustumCulled = true;
+  constructor(g: Geo, m: Mat, public count: number) { super(g, m as never); }
+  setMatrixAt() {}
+  setColorAt() {}
+}
 
 beforeAll(() => {
   (globalThis as Record<string, unknown>).THREE = {
     Group: Obj, Mesh, SphereGeometry: Sphere, ConeGeometry: Cone, CylinderGeometry: Cyl, Float32BufferAttribute: Attr, MeshStandardMaterial: Mat,
+    BufferGeometry: Geo, InstancedMesh: Inst, DoubleSide: 2,
+    Matrix4: class { fromArray() { return this; } },
+    Color: class { setRGB() { return this; } },
   };
 });
 
@@ -75,6 +85,11 @@ describe('ajouterArbre3d', () => {
     expect(feuillage.visible).toBe(true);
     const lobes = parNom(g, NOM_LOBE) as Mesh[];
     expect(lobes).toHaveLength(7);
+    // De pres, des feuilles instanciees sur les lobes, dans le feuillage (cachees jusqu'a ce que la camera approche).
+    const feuilles = parNom(g, 'arbre-feuilles') as Inst[];
+    expect(feuilles).toHaveLength(1);
+    expect(feuilles[0]!.parent).toBe(feuillage);
+    expect(feuilles[0]!.count).toBeGreaterThan(100);
     // Chaque lobe est une sphere unite mise a l'echelle de l'ellipsoide, et coloree en deux tons.
     expect(lobes[0]!.scale.y).toBeCloseTo(2, 9);
     expect(lobes[0]!.geometry.attributes.color!.array).toHaveLength(9);

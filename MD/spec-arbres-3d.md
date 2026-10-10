@@ -72,7 +72,45 @@ persistant ; peupleraie → colonnaire caduc ; le reste → rond caduc.
 - **Relief** : l'arbre est posé dans un groupe au sol en son centre, comme les autres objets.
 
 Noms des mailles : `arbre` (groupe, `userData.essence`), `arbre-tronc`, `arbre-branche`,
-`arbre-feuillage` (groupe), `arbre-lobe`.
+`arbre-feuillage` (groupe), `arbre-lobe`, `arbre-feuilles` (instanciée, §3.1).
+
+### 3.1 Les feuilles, de près (`three/feuilles.ts`)
+
+De loin, les lobes suffisent ; de près, un houppier lisse ressemble à une boule. Sur la surface des
+lobes, `feuillesDuHouppier` (`model/arbre.ts`) tire de petites feuilles :
+
+- **Placement** : sur chaque lobe au prorata de son aire (formule de Thomsen), sans celles qui
+  tomberaient dans un autre lobe ; un peu écartées vers l'extérieur. Sur un conique, des
+  **aiguilles** sur le flanc du cône. Une suite de tirage à part de celle du houppier : changer le
+  nombre de feuilles ne déplace pas les lobes.
+- **Nombre et taille** : 14 feuilles par m² de houppier, **900 au plus** par arbre ; leur longueur
+  couvre le houppier au tiers (entre 8 et 40 cm), une aiguille 1,4 fois plus longue et bien plus
+  fine.
+- **Forme** : quatre sommets, la pointe levée de 0,6 rad vers l'extérieur (`LEVEE_FEUILLE`) ; la
+  normale d'éclairage reste celle de la surface du houppier, pour qu'une feuille levée s'éclaire
+  comme le houppier sous elle au lieu de virer au noir. Une rotation et une inclinaison (± 0,2 rad)
+  propres à chaque feuille, une taille de 0,75 à 1,25, une nuance de 0,9 à 1,15 ; la moitié du ton
+  deux tons de sa place.
+- **Rendu** : **une seule maille instanciée par arbre** (`InstancedMesh`), une matrice et une
+  couleur par feuille, dans le groupe du feuillage : elles tombent avec lui en hiver. Jamais
+  écartée du champ par Three (sa boîte ne serait qu'une feuille à l'origine).
+- **De près seulement** : `actualiserFeuillesProches`, à chaque image, les montre quand la caméra
+  est à moins de **30 m** de l'arbre et les cache au-delà de 33 m (sans cette marge, elles
+  clignoteraient à la limite).
+- **Pas d'ombre** : l'ombre reste celle des lobes, la même quelle que soit la place de la caméra.
+
+**L'export.** `GLTFExporter` de three r128 ne connaît pas l'instanciation : il écrirait une feuille
+par arbre. `cuireFeuillesPourExport` (appelé par `three/exportGlb.ts`, comme le masquage des
+gabarits) remplace, le temps de l'export, chaque maille instanciée par une maille ordinaire
+`arbre-feuilles-cuites` qui contient toutes ses feuilles, avec une couleur par sommet, puis remet
+tout. Seuls les arbres en feuilles (pas un caduc l'hiver) à moins de **40 m** du centre de la scène
+sont cuits, **12 000 feuilles au plus** en tout, les plus proches d'abord : un voisinage de soixante
+arbres ne doit pas faire un fichier de dix mégaoctets. La visionneuse et la réalité augmentée
+montrent donc les feuilles. Les données des feuilles vivent hors de `userData`, que l'exporteur
+écrit dans le fichier (`extras`) : elles y faisaient 1,5 Mo de JSON au premier essai.
+
+Coût : moins de 2 000 triangles de feuilles par arbre, en une passe de dessin ; à l'export, environ
+140 Ko par arbre de 800 feuilles.
 
 Coût : environ 7 lobes × 14 × 10 segments, soit moins de 2 000 triangles par arbre.
 
@@ -88,6 +126,11 @@ Section **Arbre** de l'inspecteur (`ui/champs/objet.ts`) : Diamètre du feuillag
 - `tests/unit/three/arbre3d.test.ts` : structure des mailles avec un THREE minimal, cône du
   conifère, nudité en janvier, reproductibilité, texture seulement avec les textures,
   `actualiserSaison`, tons.
+- `tests/unit/model/arbre.test.ts` (feuilles) : reproductibles, plafonnées, sur la surface d'un lobe
+  et hors des autres, aiguilles sur le cône, taille qui suit le houppier.
+- `tests/unit/three/feuilles.test.ts` : gabarit, matrices orthonormées, couleur, cuisson ; la maille
+  instanciée (cachée, sans ombre, jamais écartée du champ), l'affichage de près avec sa marge, la
+  cuisson à l'export et sa remise, un caduc nu exporté sans feuilles, rien dans `userData`.
 - Témoins : `cadastre-objets.json` (les arbres estimés portent port et essence) et
   `glb-structure.json` (les arbres de la démonstration ont plus de mailles), recapturés et notés
   dans `EMPREINTES.md`. La fumée 24 fixe la date au 21 juin pour que le témoin ne dépende pas du
