@@ -37,6 +37,30 @@ describe('reprise des contours de biais', () => {
     expect(c.egouts[0]).toBeLessThan(5.2);
   });
 
+  it('AE 98 : un toit a deux pans entier, que la pente d un pan ne coupe plus en deux morceaux', () => {
+    const r = releve('98');
+    const corps = reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille })!;
+    expect(corps).toHaveLength(2);
+    const [haut, bas] = [...corps].sort((a, b) => b.faitage - a.faitage) as [CorpsToit, CorpsToit];
+    // Le corps principal : deux pans, faitage au milieu, egouts egaux.
+    expect(haut.faitage).toBeGreaterThan(9.2);
+    expect(haut.egouts[0]).toBe(haut.egouts[1]);
+    expect(haut.egouts[0]).toBeLessThan(7.2);
+    // L'annexe nord : un pan, de 3 a 5 m.
+    expect(Math.min(...bas.egouts)).toBeLessThan(3.5);
+    expect(bas.faitage).toBeLessThan(5.6);
+  });
+
+  it('la maison mitoyenne d AE 98 : un pavillon que les marches coupaient en trois bandes de 1,5 a 2,6 m', () => {
+    const r = releve('98-voisin');
+    const corps = reconstruireCorps(toitMesureDepuisGrille(r.grille, r.contour)!, r.contour, { grille: r.grille })!;
+    expect(corps).toHaveLength(2);
+    const principal = [...corps].sort((a, b) => b.faitage - a.faitage)[0]!;
+    expect(principal.faitage).toBeGreaterThan(9.3);
+    expect(principal.egouts[0]).toBe(principal.egouts[1]);
+    expect(principal.egouts[0]).toBeLessThan(7);
+  });
+
   it('AE 103 : le contour recale sur le LiDAR, deux toits a quatre pans et un toit plat entre eux', () => {
     const r = releve('103');
     const large = r.grilleLarge as GrilleRelief;

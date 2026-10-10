@@ -747,6 +747,18 @@ elle l'emporte. L'écart de comparaison est symétrique (borné à 1,2 m dans le
 l'ajustement, qui compte peu ce qui dépasse le pan, préférait un toit écrasé. AE 101 garde ses corps
 au centimètre (test sur le relevé réel).
 
+**La refonte des blocs** (`refondre`). La coupe aux marches prenait parfois la pente forte d'un pan
+pour une marche. Elle coupait ainsi un toit en morceaux absurdes : AE 98, un deux-pans coupé en un
+deux-pans à 8,4 m d'égout et un appentis de 2,3 m à pignon ; sa voisine mitoyenne, un pavillon coupé
+en trois bandes de 1,5 à 2,6 m. Avant de garder la coupe d'un rectangle, le toit lu par les formes
+simples sur le rectangle entier l'emporte s'il explique la mesure presque aussi bien
+(`TOLERANCE_REFONTE`, écart symétrique au plus 1,15 fois celui des morceaux). Quand un morceau fait
+moins de 3 m de large (`LARGEUR_BANDE_M`), c'est une tranche de pente et non un corps : le seuil passe
+à 1,6 (`TOLERANCE_BANDE`). Puis deux blocs voisins qui partagent un côté entier se refondent à la même
+règle (1,15). Un bloc refondu garde le toit lu par les formes et n'est pas recoupé par le modèle.
+Deux niveaux vraiment différents ne se refondent pas : les formes n'y trouvent qu'un toit de
+compromis, loin des deux. AE 101 ne change pas.
+
 **Les quatre formes, une seule règle.** Chaque corps est l'une de ces formes :
 - **deux pans** : faîtage intérieur, chaque pan avec son égout, pignons de bout et pignons depuis
   le faîtage ;
