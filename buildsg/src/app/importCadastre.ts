@@ -23,6 +23,7 @@ import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
 import { serializeObjects } from '../io/serialisation.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar } from './toitsLidar.js';
+import { couleursMursDepuisPhotos } from '../render/couleurMurPhoto.js';
 import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
@@ -57,6 +58,8 @@ export interface ContexteImportCadastre {
   lireRelief?: typeof lireRelief;
   /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
+  /** La couleur des murs sur les photos de rue (render/couleurMurPhoto.ts) ; remplacable dans les tests. */
+  couleursMurs?: typeof couleursMursDepuisPhotos;
   /** La position de l'appareil (shell/geolocalisation.ts) ; remplacable de meme. */
   lirePosition?: () => Promise<PositionGps>;
   /** L'adresse la plus proche d'un point (BAN) ; remplacable de meme. */
@@ -727,6 +730,10 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
       // proches d'abord, dans un delai borne ; sans dalle LiDAR, les toits BD TOPO restent.
       occuper(true, 'Forme des toits sur le LiDAR HD…');
       await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, projPlan).catch(() => null);
+      // La couleur des murs, lue sur les photos de rue Panoramax (MD/spec-toit-ign.md §6.5) ; sans photo
+      // concluante, le materiau des fichiers fonciers (BD TOPO), lu avec le batiment, la donne.
+      occuper(true, 'Couleur des murs sur les photos de rue…');
+      await (ctx.couleursMurs ?? couleursMursDepuisPhotos)(objets, projPlan).catch(() => null);
       const relief = await reliefImporte(objets, e, occuper, ctx.lireRelief ?? lireRelief);
       occuper(false);
       if (!ctx.apiDisponible) {

@@ -24,6 +24,7 @@ import { sectionsCloture } from './cloture.js';
 import { sectionRelief } from './relief.js';
 import { sectionVoisinage3d } from './voisinage3d.js';
 import { sectionFenetres3d } from './fenetres3d.js';
+import { champsCouleurMurs } from './couleurMurs.js';
 import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
@@ -211,6 +212,8 @@ const sectionApparence: Section = {
       lire: (c) => c.obj.fill || '#cccccc',
       ecrire: (c, v) => { c.obj.fill = v; if (c.obj.type === 'path') c.obj.stroke = v; }
     },
+    // La couleur des murs en 3D d'un batiment : photo de rue, materiau ou couleur du plan (§6.5).
+    ...champsCouleurMurs,
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
     { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj) },
