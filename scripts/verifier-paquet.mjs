@@ -22,7 +22,17 @@ if (!existsSync(cible)) {
   console.error('verifier-paquet : ' + cible + ' est absent. `npm run build` d\'abord.');
   process.exit(2);
 }
-const paquet = readFileSync(cible, 'utf8');
+// La page et le programme qu'elle appelle (assets/plan-<empreinte>.js, deploy/scripts-page.mjs) :
+// un secret peut se trouver dans l'un comme dans l'autre, et l'origine de la plateforme est dans le
+// programme.
+const pageHtml = readFileSync(cible, 'utf8');
+const programmes = [...pageHtml.matchAll(/<script[^>]*\ssrc="(assets\/plan-[0-9a-f]+\.js)"/g)].map((m) => m[1]);
+const absents = programmes.filter((f) => !existsSync(join(dirname(cible), f)));
+if (absents.length) {
+  console.error('verifier-paquet : la page appelle ' + absents.join(', ') + ', absent a cote d\'elle.');
+  process.exit(2);
+}
+const paquet = [pageHtml, ...programmes.map((f) => readFileSync(join(dirname(cible), f), 'utf8'))].join('\n');
 
 /**
  * Ce qu'on refuse, et comment le reconnaitre.
@@ -48,11 +58,12 @@ const trouves = INTERDITS.filter((i) => i.motif.test(paquet));
 // `https://…/api/v1` ne trouvait donc jamais rien, et le garde-fou annoncait « aucune plateforme »
 // sur un paquet qui en portait une. On cherche une origine qui ne soit aucune des origines
 // tierces que le programme nomme par ailleurs (IGN, BAN, CDN, textures).
-const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
+const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org)|api\.panoramax\.xyz|panoramax\.(openstreetmap|ign)\.fr)$/;
 const origine = [...new Set((paquet.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map((s) => s.slice(1, -1)))]
   .filter((o) => !TIERCES.test(o)).map((o) => [o]).find(Boolean);
 
-console.log('\n' + cible.replace(racine, '.') + '  ' + paquet.length.toLocaleString('fr-FR') + ' octets');
+console.log('\n' + cible.replace(racine, '.') + '  ' + paquet.length.toLocaleString('fr-FR') + ' octets'
+  + (programmes.length ? ' (page et ' + programmes.join(', ') + ')' : ''));
 console.log(origine ? '  origine de la plateforme presente : ' + origine[0] : '  aucune plateforme branchee dans ce paquet');
 
 // La description du produit (src/model/produit.ts) doit etre la, lisible sans executer la page :

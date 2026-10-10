@@ -242,3 +242,12 @@ describe('admin des demos, la page contre le serveur', () => {
     expect(await lirePalette(navigateur)).toEqual(palette);
   });
 });
+
+describe('app.js sert le programme sorti de la page', () => {
+  const app = fs.readFileSync(path.resolve(__dirname, '../../../buildsg/app.js'), 'utf8');
+  it('lit dist/assets/plan-<empreinte>.js et le sert en JavaScript, gardable sans limite', () => {
+    expect(app).toMatch(/path\.join\(dist, 'assets'\)/);
+    expect(app).toMatch(/\^plan-\[0-9a-f\]\{16\}\\\.js\$/);
+    expect(app).toMatch(/'Content-Type': 'text\/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable'/);
+  });
+});

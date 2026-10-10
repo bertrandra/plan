@@ -26,9 +26,12 @@ const origine = process.env.BACKPROD_API_URL || 'https://www.raillard.org';
 execSync('npx vite build', { cwd: racine, stdio: 'inherit', env: { ...process.env, BACKPROD_API_URL: origine } });
 execSync('node scripts/verifier-paquet.mjs dist/index.html', { cwd: racine, stdio: 'inherit' });
 
+
 rmSync(sortie, { recursive: true, force: true });
 mkdirSync(sortie, { recursive: true });
 cpSync(resolve(racine, 'dist/index.html'), resolve(sortie, 'index.html'));
+// Le programme, sorti de la page au build (deploy/scripts-page.mjs) : sans lui, la page ne fait rien.
+cpSync(resolve(racine, 'dist/assets'), resolve(sortie, 'assets'), { recursive: true });
 cpSync(resolve(racine, 'dist/.htaccess'), resolve(sortie, '.htaccess'));
 cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
@@ -58,8 +61,13 @@ try { commit = execSync('git rev-parse --short HEAD', { cwd: racine, encoding: '
 writeFileSync(resolve(sortie, 'LISEZMOI-DEPLOIEMENT.txt'), `Plan ${version} (${commit}) - deploiement Apache + PHP, sans Node.js
 Plateforme : ${origine}
 
-1. Televerser le contenu de ce dossier (fichiers caches compris : .htaccess) dans le dossier
-   publie, par exemple public_html/ (Gestionnaire de fichiers de Site Tools, ou FTP).
+1. Televerser le contenu de ce dossier dans le dossier publie, par exemple public_html/ : le plus
+   sur est d'y envoyer livraison.zip et de l'extraire sur place (Gestionnaire de fichiers de Site
+   Tools, clic droit > Extract), qui n'oublie ni le dossier assets/ ni le fichier cache .htaccess.
+   - index.html et assets/ vont ensemble : la page appelle son programme, assets/plan-<empreinte>.js.
+     Sans le dossier assets/ de la meme livraison, la page reste blanche. Les anciens
+     assets/plan-*.js peuvent etre supprimes, ou laisses : ils ne servent plus.
+   - .htaccess pose le cache, les en-tetes de securite et la route admin/.
    Ne pas y laisser d'ancien api.php ni de dossier data/.
 
 2. Admin des demos (facultatif) :
@@ -79,7 +87,8 @@ Plateforme : ${origine}
    Sans ce fichier de configuration, l'admin n'existe pas (admin/... repond 404).
 
 3. Verifier :
-   - https://<hote>/                 l'atelier (connexion plateforme)
+   - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
+                                     du navigateur dit quel fichier manque
    - https://<hote>/?admin           le mot de passe admin, puis les demos
    - https://<hote>/?demofile=1      la demo 1 (admin seulement)
    - https://<hote>/admin/demos      doit repondre 401 sans session
