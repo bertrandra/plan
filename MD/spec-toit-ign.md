@@ -938,3 +938,43 @@ Exemple : 2 allée des Limites, parcelle AE 103.
   triangle, son mur de bout s'arrête aux égouts, et un bout sous une croupe n'a pas de fenêtre de
   pignon. La carte trace les arêtiers.
 
+
+### 13.8 Un bâtiment à cheval sur deux parcelles : la question sur sa toiture
+
+La BD TOPO trace souvent d'un seul contour des maisons mitoyennes : une longère de village, deux
+pavillons jumeaux, une annexe partagée. Quand ce contour franchit une limite de parcelle et qu'un
+corps lu sur le LiDAR passe par-dessus, la mesure ne dit pas s'il s'agit d'un seul toit ou de deux
+toits voisins de même hauteur. Plan ne tranche pas seul : il pose la question.
+
+- **Les parts** (`model/aCheval.ts::partsACheval`). Pour chaque parcelle du plan que le bâtiment
+  touche (celle du projet et les parcelles de fonction terrain), on prend le contour privé des autres
+  parcelles (`geometry/difference.ts`), en son plus grand morceau. Le bâtiment est à cheval quand
+  deux parts au moins font 8 m² (`AIRE_A_CHEVAL_MIN_M2`) et 15 % de sa surface
+  (`PART_A_CHEVAL_MIN`). Un tracé qui déborde de quelques décimètres n'est pas à cheval.
+- **Le doute** (`douteACheval`, `corpsQuiFranchissent`). Un corps a au moins 4 m² de sa surface, dans
+  le contour, de chaque côté de la limite. Quand les toits s'arrêtent déjà à la limite, aucune
+  question n'est posée.
+- **Quand** (`app/toitsLidar.ts::toitAChevalApresCalcul`). Le doute est cherché après le calcul des
+  corps d'un bâtiment vu de près : celui du projet, ou celui d'une parcelle mitoyenne (le calcul
+  entier, avec la grille gardée). Il est noté dans `toitACheval: { parcelles }`. Une réponse déjà
+  donnée s'applique au calcul suivant sans nouvelle question. Un bâtiment qui n'est plus à cheval
+  perd sa question.
+- **La question** (`app/toitsACheval.ts`, dialogue de choix Z8). Elle est posée à l'ouverture du
+  projet, après un import et après une actualisation IGN, une par bâtiment, et seulement quand aucun
+  autre dialogue n'attend. Le bâtiment est sélectionné sur le plan : son nom BD TOPO
+  (« Indifférencié ») ne le désigne pas. Le titre est « Un toit ou deux ? ». Le texte donne la
+  surface au sol du bâtiment, les deux parcelles avec leur référence et la surface de chaque part,
+  et le faîtage du toit continu lu par le LiDAR. Deux réponses :
+  - **Un seul toit** : les corps lus restent tels quels ;
+  - **Un toit par parcelle** : les corps sont relus sur chaque part (`corpsParParcelle`), chacun
+    s'arrêtant à la limite.
+
+  La réponse est une modification du projet (Ctrl+Z la défait), rangée dans
+  `toitACheval.reponse` (`'un'` ou `'parParcelle'`). Échap ne répond pas : la question reviendra à
+  la prochaine ouverture. En lecture seule, rien n'est demandé.
+
+Vérifié : `tests/unit/model/aCheval.test.ts` (parts, débord, doute) et
+`tests/unit/app/toitsACheval.test.ts` (doute noté, réponse réappliquée, question perdue, texte,
+réponse, enchaînement des dialogues, lecture seule). Dans le navigateur, à Hucqueliers, deux
+annexes à cheval sur la parcelle du projet donnent chacune leur question. Au 2 allée des Limites
+(AE 101), aucune question n'est posée.

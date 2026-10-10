@@ -67,6 +67,21 @@ const r = await page.evaluate(async () => {
 });
 if (!process.env.SANS_DUMP) writeFileSync(S + 'village-' + NOM + '.json', JSON.stringify(r));
 console.log('parcelle', r.parcelle, 'batiments', r.batiments.length, 'avec corps', r.batiments.filter((b) => b.corps?.length).length, 'grilles', r.batiments.filter((b) => b.grille).length);
+// Les batiments a cheval sur deux parcelles dont la toiture laisse un doute, et la question posee.
+const cheval = await page.evaluate(() => ({
+  batiments: window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, name: o.name, toitACheval: o.toitACheval, corps: o.corpsToit?.length })),
+  dialogue: document.querySelector('.dialogue, [role="dialog"]')?.textContent?.slice(0, 600) ?? null,
+}));
+console.log('a cheval', JSON.stringify(cheval));
+// REPONSE_CHEVAL=principal (un seul toit) ou secondaire (un toit par parcelle) repond a chaque question ; sinon Echap.
+while (cheval.dialogue) {
+  await page.screenshot({ path: S + 'village-' + NOM + '-question.png' });
+  const r = process.env.REPONSE_CHEVAL;
+  if (r) await page.click('[data-controle="dialogue.' + r + '"]'); else await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  cheval.dialogue = r ? await page.evaluate(() => document.querySelector('.dialogue, [role="dialog"]')?.textContent?.slice(0, 600) ?? null) : null;
+}
+if (process.env.REPONSE_CHEVAL) console.log('apres reponse', JSON.stringify(await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, toitACheval: o.toitACheval, corps: o.corpsToit?.length })))));
 await page.evaluate(() => window.__plan.executer('vue.3d'));
 await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
 await page.waitForTimeout(8000);

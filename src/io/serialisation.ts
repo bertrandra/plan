@@ -102,6 +102,7 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
     if(o.corpsToit) out.corpsToit = JSON.parse(JSON.stringify(o.corpsToit));
     if(o.modeToit) out.modeToit = o.modeToit;
+    if(o.toitACheval) out.toitACheval = JSON.parse(JSON.stringify(o.toitACheval));
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.

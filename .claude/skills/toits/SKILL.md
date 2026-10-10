@@ -148,6 +148,21 @@ Les formes simples rendent plat sous 10° (règle BD TOPO). Pour un corps, `unPa
 l'appentis s'il monte d'au moins 30 cm, à 3° au moins, et si son écart fait au plus 0,9 fois celui du
 plat. Ainsi un garage à 6° reste un pan, et la terrasse d'AE 103 (4,6°) reste plate.
 
+### Bâtiment à cheval sur deux parcelles : on demande
+
+Un contour BD TOPO qui franchit une limite de parcelle couvre souvent deux maisons mitoyennes. Si un
+corps passe par-dessus la limite (au moins 4 m² de chaque côté), la mesure ne tranche pas entre « un
+seul toit » et « deux toits de même hauteur ». **Plan ne devine pas : il pose la question**
+(`app/toitsACheval.ts`, dialogue de choix Z8, bâtiment sélectionné sur le plan).
+- Les parts : `model/aCheval.ts::partsACheval` (8 m² et 15 % au moins par part).
+- Le doute : `douteACheval`, noté par `app/toitsLidar.ts::toitAChevalApresCalcul` pour le projet et
+  les mitoyens, dans `toitACheval`.
+- La réponse : `toitACheval.reponse`, soit `'un'` (les corps restent), soit `'parParcelle'` (les
+  corps sont relus sur chaque part par `corpsParParcelle`). Elle est réappliquée à chaque calcul ;
+  Échap la remet à la prochaine ouverture.
+- Règle à garder pour la suite : **quand un doute sur un toit dépend d'un fait que seul
+  l'utilisateur connaît, on lui pose une question précise** plutôt que d'ajouter un seuil de plus.
+
 ## 4. Les hauteurs de murs
 
 | Hauteur | D'où | Règle |
@@ -190,6 +205,8 @@ modification :
 ## 6. Méthode : vérifier sur un village
 
 Les scripts de `.claude/skills/toits/scripts/` écrivent dans `$TOITS_DOSSIER` (par défaut `/tmp/toits`).
+`village.mjs` affiche aussi les bâtiments à cheval et la question posée, et en fait une capture.
+`REPONSE_CHEVAL=principal` ou `secondaire` répond à chaque question ; sans cette variable, Échap.
 
 ```bash
 # 1. Serveur de dev (en arriere-plan), puis le village tel qu'un utilisateur le cree
@@ -230,7 +247,8 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
 - `tests/unit/facade/toitCorpsReprise.test.ts` (AE 101 au centimètre, reprise, recalage, Gordes),
   `toitCorps.test.ts`, `toitLidar.test.ts`, `fenetresPignons.test.ts`, `ouvertures.test.ts`,
   `tests/unit/model/toitMesure.test.ts`, `volumesToit.test.ts`, `mitoyennete.test.ts`,
-  `tests/unit/three/toitCorps3d.test.ts`, `tests/unit/app/toitsLidar.test.ts` (recalage,
+  `tests/unit/three/toitCorps3d.test.ts`, `tests/unit/model/aCheval.test.ts`,
+  `tests/unit/app/toitsACheval.test.ts` (question à cheval), `tests/unit/app/toitsLidar.test.ts` (recalage,
   végétation, voisinage), `tests/unit/ui/champsToitMode.test.ts` (mode, carte, descriptions).
 - Documenter la règle dans `MD/spec-toit-ign.md` (§13.x) et dans `CHANGELOG.md`.
 

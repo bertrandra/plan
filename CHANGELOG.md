@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une question sur la toiture d'un bâtiment à cheval sur deux parcelles** (`model/aCheval.ts`,
+  `app/toitsACheval.ts`, `MD/spec-toit-ign.md` §13.8). Quand le contour BD TOPO d'un bâtiment du
+  projet ou d'une maison mitoyenne franchit une limite de parcelle, et qu'un toit lu sur le LiDAR
+  passe par-dessus, Plan ne sait pas s'il voit un seul toit ou deux maisons mitoyennes. Il le demande :
+  « Un toit ou deux ? », avec le bâtiment sélectionné sur le plan, les deux parcelles et leurs parts.
+  « Un seul toit » garde le toit lu ; « Un toit par parcelle » relit un toit de chaque côté, arrêté à
+  la limite. La réponse est mémorisée et réappliquée aux actualisations ; Ctrl+Z la défait ; Échap
+  remet la question à la prochaine ouverture.
+
 - **Les toits du voisinage en corps et pignons** (`MD/spec-toit-ign.md` §13.6) : une case « Toits en
   corps et pignons », cochée par défaut, dans la section « Voisinage (3D) ». À l'import et à
   l'actualisation IGN, les maisons voisines reçoivent elles aussi leurs corps, faîtages et pignons
