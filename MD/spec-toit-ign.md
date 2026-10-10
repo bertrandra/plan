@@ -759,6 +759,15 @@ règle (1,15). Un bloc refondu garde le toit lu par les formes et n'est pas reco
 Deux niveaux vraiment différents ne se refondent pas : les formes n'y trouvent qu'un toit de
 compromis, loin des deux. AE 101 ne change pas.
 
+**La continuité** (`sautAuCote`). Sur un deux-pans coupé le long de son faîtage, chaque bande est un
+appentis presque parfait. Comparer les écarts favorise donc toujours les bandes. Le critère est
+structurel : une marche est une rupture de la couverture. Le saut est lu sur la grille, à une cellule
+de part et d'autre du côté commun (médiane des écarts). Sous 0,6 m (`CONTINUITE_M`), ce n'est que la
+pente d'un pan (40° : 0,42 m sur 50 cm). Il n'y a alors pas de marche : rectangle entier ou paire de
+blocs, c'est le même toit, refondu dès que les formes simples le lisent. Vérifié sur les 57 maisons du
+voisinage d'AE 101 : 117 corps avant, 105 après, plus aucun grand toit débité en bandes de moins de
+3 m (`28267713`, un deux-pans à 11 m, en est le cas de test).
+
 **Les quatre formes, une seule règle.** Chaque corps est l'une de ces formes :
 - **deux pans** : faîtage intérieur, chaque pan avec son égout, pignons de bout et pignons depuis
   le faîtage ;
