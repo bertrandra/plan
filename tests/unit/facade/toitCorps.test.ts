@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reconstruireCorps, ajusterCorps, detecterPignons, corpsAvecPignons, meilleureCoupe, hauteurCorps, hauteursMursCorps, empreintePignon, repere, point, SURPLUS_PIGNON_M, PROFONDEUR_PIGNON_MIN_M } from '../../../src/facade/toitCorps.js';
+import { corpsDepuisFormes, reconstruireCorps, ajusterCorps, detecterPignons, corpsAvecPignons, meilleureCoupe, hauteurCorps, hauteursMursCorps, empreintePignon, repere, point, SURPLUS_PIGNON_M, PROFONDEUR_PIGNON_MIN_M } from '../../../src/facade/toitCorps.js';
 import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { PtBrut } from '../../../src/model/types.js';
@@ -133,3 +133,52 @@ describe('reconstruireCorps', () => {
     expect(reconstruireCorps(m, [p(0, 0), p(10, 0), p(10, 6), p(4, 9)])?.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('un pan seul', () => {
+  // Une remise de 12 x 6 couverte d'un seul pan, de `bas` (y = 0 ou y = 6) a `haut`.
+  const remise = rect(0, 0, 12, 6);
+  const grilleAppentis = (bas: number, haut: number, versY = true) => {
+    const pas = 0.5, x0 = -2, y0 = 8, nx = 33, ny = 21, zs: number[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = x0 + i * pas, y = y0 - j * pas;
+      zs.push(dans(x, y, remise) ? (versY ? bas + ((haut - bas) * y) / 6 : haut - ((haut - bas) * y) / 6) : 0);
+    }
+    return { pas, x0, y0, nx, ny, z: zs } as GrilleRelief;
+  };
+  /** La hauteur du toit d'un corps au-dessus du point (x, y) du plan. */
+  const zEn = (c: NonNullable<ReturnType<typeof ajusterCorps>>, x: number, y: number) => {
+    const r = repere(c.pts);
+    const dx = x - r.p0.x, dy = y - r.p0.y;
+    return hauteurCorps(c, r.W, dx * r.v.x + dy * r.v.y);
+  };
+
+  it('le faitage sur le mur haut, jamais un faux pan de 25 cm contre lui', () => {
+    for (const versY of [true, false]) {
+      const g = grilleAppentis(3, 5, versY);
+      const c = reconstruireCorps(toitMesureDepuisGrille(g, remise)!, remise)![0]!;
+      const r = repere(c.pts);
+      expect(c.posFaitage === 0 || c.posFaitage === Math.round(r.W * 100) / 100).toBe(true);
+      expect(zEn(c, 6, versY ? 5.75 : 0.25)).toBeGreaterThan(4.6);
+      expect(zEn(c, 6, versY ? 0.25 : 5.75)).toBeLessThan(3.4);
+    }
+  });
+
+  it('un appentis de 9,5 degres reste un pan, par le modele des corps comme par les formes simples', () => {
+    const g = grilleAppentis(3, 4);
+    const c = reconstruireCorps(toitMesureDepuisGrille(g, remise)!, remise)![0]!;
+    expect(c.faitage - Math.min(...c.egouts)).toBeGreaterThan(0.8);
+    const f = corpsDepuisFormes(g, remise)!;
+    expect(f.faitage - Math.min(...f.egouts)).toBeGreaterThan(0.8);
+    expect(zEn(f, 6, 5.75)).toBeGreaterThan(zEn(f, 6, 0.25));
+  });
+
+  it('une pente d ecoulement (moins de 3 degres) est un toit plat, des deux cotes', () => {
+    const g = grilleAppentis(3, 3.25);
+    const c = reconstruireCorps(toitMesureDepuisGrille(g, remise)!, remise)![0]!;
+    expect(c.faitage).toBe(c.egouts[0]);
+    expect(c.egouts[0]).toBe(c.egouts[1]);
+    const f = corpsDepuisFormes(g, remise)!;
+    expect(f.faitage).toBe(f.egouts[0]);
+  });
+});
+

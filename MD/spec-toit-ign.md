@@ -747,6 +747,24 @@ elle l'emporte. L'écart de comparaison est symétrique (borné à 1,2 m dans le
 l'ajustement, qui compte peu ce qui dépasse le pan, préférait un toit écrasé. AE 101 garde ses corps
 au centimètre (test sur le relevé réel).
 
+**Les quatre formes, une seule règle.** Chaque corps est l'une de ces formes :
+- **deux pans** : faîtage intérieur, chaque pan avec son égout, pignons de bout et pignons depuis
+  le faîtage ;
+- **quatre pans** : faîtage intérieur et croupes ;
+- **un pan** (appentis) : le faîtage sur un mur, `posFaitage` à 0 ou à la largeur ;
+- **plat** : faîtage aux égouts.
+
+Ce qui est plat est le même des deux côtés, modèle des corps et formes simples : moins de 30 cm de
+montée (`HAUTEUR_PLAT_M`) ou moins de 3° (`PENTE_PLAT_DEG`, l'écoulement d'une toiture-terrasse).
+Dans le modèle des corps, un faîtage à moins d'un mètre d'un mur (`PAN_MIN_M`) laissait un faux petit
+pan : l'appentis l'emporte tant que son écart ne dépasse pas le sien de 10 % et 5 cm. Les formes
+simples rendent plat tout toit sous 10° (la règle de la BD TOPO, §4). Pour les corps, le meilleur
+appentis essayé l'emporte donc sur le plat s'il monte d'au moins 30 cm, à 3° au moins, et si son
+écart tombe aux neuf dixièmes de celui du plat (`unPanPlutotQuePlat`). Un appentis de garage à 6°
+reste ainsi un pan, et la terrasse d'AE 103 (4,6°, écart à peine meilleur) reste plate. Un appentis
+déborde aussi au-delà de son mur haut, en continuant de monter. Quand le modèle des corps ne lit rien,
+la lecture des formes, quelle qu'elle soit, est gardée.
+
 ### 13.3 Le dessin (`three/toitCorps3d.ts`)
 
 - **Un prisme par corps** à son égout le plus bas ; au-dessus, en couleur de mur, le mur d'un pan plus

@@ -34,6 +34,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les toits à un pan** (`MD/spec-toit-ign.md` §13.2) : la reconstruction lit deux pans, quatre
+  pans, un pan et plat, à une seule règle pour ce qui est plat (moins de 30 cm de montée ou de 3°).
+  Un appentis n'a plus de faux petit pan de 25 cm contre son mur haut. Un appentis de 6 à 10° n'est
+  plus aplati par la lecture des formes simples (qui suivait la règle de la BD TOPO, plat sous 10°).
+  Il déborde aussi au-delà de son mur haut. Et une maison que le modèle des corps ne lit pas garde
+  la lecture des formes.
 - **Les toits à quatre pans des maisons au contour droit** (`MD/spec-toit-ign.md` §13.2) : le modèle
   des corps n'a que des pignons de bout, et lisait un quatre-pans en appentis presque plat (AE 100 :
   5,5 m au lieu de 7,7 m). Chaque corps sans pignon est maintenant comparé à la lecture des formes
