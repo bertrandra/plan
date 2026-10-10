@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { facettesCorps, ajouterToitCorps3d, NOM_TOIT_CORPS, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
+import { planCroupe } from '../../../src/facade/toitCorps.js';
+import { readFileSync } from 'node:fs';
+import { reconstruireCorps, decalageSurMesure } from '../../../src/facade/toitCorps.js';
+import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
+import { pointInPolygon } from '../../../src/geometry/basic.js';
+import { distancePointContour } from '../../../src/geometry/proximite.js';
+import type { GrilleRelief } from '../../../src/model/relief.js';
+import { facettesSurContour, facettesCorps, ajouterToitCorps3d, NOM_TOIT_CORPS, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
 import { segmentEnFacade } from '../../../src/geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -34,6 +41,26 @@ describe('facettesCorps', () => {
     // Les deux murs de bout, en pentagone du prisme (5 m) au faitage.
     expect(f.murs).toHaveLength(2);
     f.murs.forEach((m) => expect(Math.max(...m.map((q) => q.z))).toBe(8));
+  });
+
+  it('a croupes : deux pans en trapeze, une croupe a chaque bout, pas de pignon de bout', () => {
+    const c: CorpsToit = { ...corps(), croupes: [4, 4] };
+    const f = facettesCorps(c);
+    // Deux pans et deux croupes ; le faitage ne court plus que de x = 4 a x = 8.
+    expect(f.pans).toHaveLength(4);
+    const auFaitage = f.pans.flat().filter((q) => q.z === 8).map((q) => q.x);
+    expect(Math.min(...auFaitage)).toBe(4);
+    expect(Math.max(...auFaitage)).toBe(8);
+    // Ni pignon de bout ni mur au-dessus du prisme : les egouts sont a 5 m tout autour.
+    expect(f.murs).toHaveLength(0);
+    // Chaque coin de croupe, debord compris, est dans le plan de sa croupe (et dans celui du pan voisin).
+    const croupes = f.pans.filter((q) => q.length === 3);
+    expect(croupes).toHaveLength(2);
+    for (const tri of croupes) for (const q of tri) {
+      const bout = q.x < 6 ? 0 : 12;
+      expect(q.z).toBeCloseTo(planCroupe(c, 8, 4, bout === 0 ? q.x : 12 - q.x, q.y), 9);
+    }
+    expect(Math.min(...f.pans.flat().map((q) => q.z))).toBeCloseTo(5 - 0.75 * DEBORD_EGOUT_M, 9);
   });
 
   it('un pan plus haut que l autre : son mur monte au-dessus du prisme', () => {
@@ -81,5 +108,23 @@ describe('ajouterToitCorps3d', () => {
     const toit = enfants[0]!;
     expect(toit.geometry.index.length % 3).toBe(0);
     expect((toit.material as { p: { color: string } }).p.color).toBe('#445566');
+  });
+});
+
+describe('facettesSurContour', () => {
+  it('AE 103 : le batiment garde la forme du plan, ses toits decoupes sur son contour', () => {
+    const r = JSON.parse(readFileSync(new URL('../../fixtures/toits/vesinet-ae103.json', import.meta.url), 'utf8')) as { contour: PtBrut[]; grilleLarge: GrilleRelief };
+    const d = decalageSurMesure(r.grilleLarge, r.contour)!;
+    const contour = r.contour.map((q) => p(q.x + d.x, q.y + d.y));
+    const corps = reconstruireCorps(toitMesureDepuisGrille(r.grilleLarge, contour)!, contour, { grille: r.grilleLarge })!;
+    const f = facettesSurContour(corps, contour);
+    expect(f.bas).toBe(Math.min(...corps.flatMap((c) => c.egouts)));
+    expect(f.hauteursMurs).toHaveLength(contour.length);
+    // Tout sommet de toit est dans le contour, ou dessus.
+    for (const q of f.pans.flat()) expect(pointInPolygon(q, contour) || distancePointContour(q, contour) < 1e-6).toBe(true);
+    // Les murs montent du prisme, sur le contour lui-meme (le cote de biais compris).
+    for (const m of f.murs) for (const q of m) expect(distancePointContour(q, contour)).toBeLessThan(1e-6);
+    // Les deux quatre-pans montent a leurs faitages.
+    expect(Math.max(...f.pans.flat().map((q) => q.z))).toBeGreaterThan(7.3);
   });
 });

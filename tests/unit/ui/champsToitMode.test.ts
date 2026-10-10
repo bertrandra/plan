@@ -78,6 +78,14 @@ describe('Corps et pignons', () => {
       'Corps 2 4,0 × 6,0 m : appentis de 3,0 m à 4,2 m',
       'Corps 3 4,0 × 4,0 m : toit plat à 3,2 m',
     ]);
+    // A croupes : quatre pans, le faitage raccourci et ses quatre aretiers sur la carte.
+    const aCroupes = [{ ...corps[0]!, pignons: [], croupes: [4, 4] as [number, number] }];
+    expect(decrireCorps(aCroupes)).toEqual(['Corps 12,0 × 8,0 m : quatre pans, faîtage 7,6 m, égouts 6,1 / 5,4 m']);
+    expect(decrireCorps([{ ...aCroupes[0]!, croupes: [0, 4] }])[0]).toContain('deux pans et une croupe');
+    const cc = contexte({ toitMesure: mesure, volumesToit: volumes, corpsToit: aCroupes });
+    const carteCroupes = champ<ChampCarte>(cc, 'toitCarte').carte(cc)!;
+    expect(carteCroupes.corps[0]!.aretiers).toHaveLength(4);
+    expect(carte.corps.every((k) => k.aretiers.length === 0)).toBe(true);
     // Tel que mesure : la carte reste, la ligne des corps se cache.
     mode.ecrire(c, 'mesure');
     expect(c.obj.modeToit).toBe('mesure');

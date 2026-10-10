@@ -38,7 +38,7 @@ function champs(): Champ[] {
     { type: 'bouton', cle: 'boutonLarge', libelle: '', texte: () => 'Bouton pleine largeur', agit: 'interface', executer: rien },
     { type: 'alerte', cle: 'alerte', libelle: '', texte: () => 'Attention' },
     { type: 'optimisation', cle: 'optimisation', libelle: '' },
-    { type: 'carte', cle: 'carte', libelle: '', nom: 'Carte', carte: () => ({ largeur: 4, hauteur: 3, cellules: [{ coins: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }], couleur: 'hsl(0, 80%, 48%)', z: 7 }], contour: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }], corps: [{ coins: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }, { x: 1, y: 2 }], faitage: { de: { x: 1, y: 1.5 }, a: { x: 3, y: 1.5 } }, libelle: { a: { x: 2, y: 1.5 }, texte: '7,0 m' } }], pignons: [], nord: 20, zMin: 3, zMax: 7 }) },
+    { type: 'carte', cle: 'carte', libelle: '', nom: 'Carte', carte: () => ({ largeur: 4, hauteur: 3, cellules: [{ coins: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }], couleur: 'hsl(0, 80%, 48%)', z: 7 }], contour: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }], corps: [{ coins: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }, { x: 1, y: 2 }], faitage: { de: { x: 1, y: 1.5 }, a: { x: 3, y: 1.5 } }, aretiers: [], libelle: { a: { x: 2, y: 1.5 }, texte: '7,0 m' } }], pignons: [], nord: 20, zMin: 3, zMax: 7 }) },
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
       { type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', lire: () => 3.2, ecrire: rien },

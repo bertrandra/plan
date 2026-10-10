@@ -30,6 +30,7 @@ export function CarteToit({ carte }: { carte: Carte }) {
         {carte.corps.map((k, i) => <polygon key={'c' + i} className="carteCorps" points={pts(k.coins)} vectorEffect="non-scaling-stroke" />)}
         {carte.pignons.map((p, i) => <polygon key={'p' + i} className="cartePignon" points={pts(p.coins)} vectorEffect="non-scaling-stroke" />)}
         {carte.corps.map((k, i) => k.faitage && <line key={'f' + i} className="carteFaitage" x1={k.faitage.de.x} y1={k.faitage.de.y} x2={k.faitage.a.x} y2={k.faitage.a.y} vectorEffect="non-scaling-stroke" />)}
+        {carte.corps.flatMap((k, i) => k.aretiers.map((t, j) => <line key={'a' + i + '-' + j} className="carteFaitage" x1={t.de.x} y1={t.de.y} x2={t.a.x} y2={t.a.y} vectorEffect="non-scaling-stroke" />))}
         {carte.pignons.map((p, i) => <line key={'g' + i} className="carteFaitagePignon" x1={p.faitage.de.x} y1={p.faitage.de.y} x2={p.faitage.a.x} y2={p.faitage.a.y} vectorEffect="non-scaling-stroke" />)}
         {carte.corps.map((k, i) => (
           <text key={'t' + i} className="carteLibelle" x={k.libelle.a.x} y={k.libelle.a.y - police * 0.5} fontSize={police} strokeWidth={police * 0.22} textAnchor="middle">{k.libelle.texte}</text>
@@ -43,7 +44,7 @@ export function CarteToit({ carte }: { carte: Carte }) {
         <span className="carteDegrade" aria-hidden="true" />
         <span>{fr(carte.zMin)} → {fr(carte.zMax)} m</span>
         <span><i className="cleCorps" aria-hidden="true" /> corps</span>
-        <span><i className="cleFaitage" aria-hidden="true" /> faîtage</span>
+        <span><i className="cleFaitage" aria-hidden="true" /> faîtage, arêtiers</span>
         <span><i className="clePignon" aria-hidden="true" /> pignon</span>
       </figcaption>
     </figure>

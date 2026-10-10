@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decomposerEnRectangles, rectanglesDuContour, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M } from '../../../src/model/volumesToit.js';
+import { decomposerEnRectangles, rectanglesDuContour, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M, rectanglesEnTranches } from '../../../src/model/volumesToit.js';
 import { signedArea, pointInPolygon } from '../../../src/geometry/basic.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
 
@@ -113,5 +113,19 @@ describe('les toits des volumes', () => {
     const avecMurs = decrireVolumes(v, { plat: 'Plat', appentis: 'Appentis', 'deux-pans': 'Deux pans', 'quatre-pans': 'Quatre pans', croupes: 'Croupes' });
     expect(avecMurs[0]).toBe('Corps 12,0 × 8,0 m : deux pans · murs de 3,9 à 7,2 m');
     expect(avecMurs[1]).toBe('Aile 14,0 × 5,0 m : deux pans · égout 2,6 m');
+  });
+});
+
+describe('rectanglesEnTranches', () => {
+  const q = (x: number, y: number) => ({ x, y });
+  it('coupe un contour a l equerre en tranches, le ressaut de 50 cm lisse', () => {
+    // Une aile basse a gauche (y 0..5), un corps a droite (y 0..9), un ressaut de 50 cm entre eux :
+    // lisse comme un decroche de facade, il rejoint la tranche de gauche.
+    const pts = [q(0, 0), q(12, 0), q(12, 9), q(5.5, 9), q(5.5, 6), q(5, 6), q(5, 5), q(0, 5)];
+    const r = rectanglesEnTranches(pts)!;
+    expect(r).toHaveLength(2);
+    const largeurs = r.map((t) => Math.max(...t.map((p) => p.x)) - Math.min(...t.map((p) => p.x))).sort((a, b) => a - b);
+    expect(largeurs).toEqual([5.5, 6.5]);
+    expect(rectanglesEnTranches([q(0, 0), q(10, 0), q(4, 9)])).toBeNull();
   });
 });

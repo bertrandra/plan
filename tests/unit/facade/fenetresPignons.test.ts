@@ -23,6 +23,11 @@ describe('fenetresDesPignons', () => {
     });
   });
 
+  it('pas de fenetre de pignon sous une croupe', () => {
+    expect(fenetresDesPignons(corps({ croupes: [4, 4] }))).toEqual([]);
+    expect(fenetresDesPignons(corps({ croupes: [0, 4] })).map((x) => x.cote)).toEqual([3]);
+  });
+
   it('une fenetre par pignon qui part du faitage, sur le mur de son pan ; rien sur un pignon trop bas', () => {
     const f = fenetresDesPignons(corps({ faitage: 6, pignons: [{ pan: 0, debut: 3, fin: 6, faitage: 7.6, profondeur: 4 }] }));
     // Le corps a 1 m de pignon de bout : trop bas ; le pignon, 2,6 m : une fenetre, mur 0 (y = 0).

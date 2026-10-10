@@ -123,12 +123,13 @@ describe('reconstruireCorps', () => {
     expect(Math.abs(hauts[1]! - 8)).toBeLessThan(0.3);
   });
 
-  it('coupe la ou deux toits expliquent nettement mieux qu un seul, et renonce sur un contour de biais', () => {
+  it('coupe la ou deux toits expliquent nettement mieux qu un seul, et reprend un contour de biais par ses tranches', () => {
     // Un deux-pans a 8 m sur x < 8, un appentis de 3 a 5 m au-dela, sans marche nette au raccord.
     const L = rect(0, 0, 14, 8);
     const z = (x: number, y: number) => (!dans(x, y, L) ? 0 : x < 8 ? deuxPans(8, 5, 5)(x, y) : 3 + (2 * y) / 8);
     const m = mesure(L, z);
     expect(meilleureCoupe(m, L, L)).not.toBeNull();
-    expect(reconstruireCorps(m, [p(0, 0), p(10, 0), p(10, 6), p(4, 9)])).toBeNull();
+    // Le contour de biais ne se decoupe pas tel quel : mis a l'equerre, il donne ses corps (toitCorpsReprise.test.ts).
+    expect(reconstruireCorps(m, [p(0, 0), p(10, 0), p(10, 6), p(4, 9)])?.length).toBeGreaterThanOrEqual(1);
   });
 });

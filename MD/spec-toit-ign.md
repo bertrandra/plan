@@ -792,7 +792,7 @@ et à l'actualisation, `app/toitsLidar.ts` lit alors la grille entière sous cha
 même requête que ses mesures), et pose ses `corpsToit`.
 
 - Sur une **parcelle mitoyenne** — une parcelle qui partage au moins 1 m de limite avec celle du
-  projet, à 50 cm près (`batimentsMitoyens`) —, le **calcul entier**, celui de la maison du projet :
+  projet, à 50 cm près (`batimentsMitoyens`, `model/mitoyennete.ts`) —, le **calcul entier**, celui de la maison du projet :
   coupe par le modèle comprise, et la grille gardée (`toitMesure`) : la carte des hauteurs et
   « Tel que mesuré » s'y offrent aussi. Ce sont les maisons qu'on voit de près depuis le jardin.
   Une maison mitoyenne dont aucun corps ne se lit (un toit sous les arbres) ne garde pas sa grille :
@@ -802,9 +802,47 @@ même requête que ses mesures), et pose ses `corpsToit`.
   et sans garder la grille, qui alourdirait le projet de quelques kilo-octets par maison. Les plus proches d'abord, dans le délai et le nombre de maisons de la lecture LiDAR
 (§10.3) ; le bilan les compte (« n toit(s) du voisinage en corps et pignons »).
 
+Les mêmes mitoyennes bornent le cadrage par défaut de la Vue 3D (`procheDuProjet`, dans
+`etendueDeLaScene`) : la parcelle du projet, ses objets, les mitoyennes et leurs maisons ; le reste du
+voisinage importé se voit en reculant.
+
 Décochée : rien n'est lu de plus, et la 3D montre les formes simples même pour une maison qui porte
 déjà ses corps — c'est un réglage d'affichage (`sale: false`, pas d'annulation, permis en lecture
 seule). Cochée sur un plan dont aucun voisin n'a encore de corps, la note dit qu'ils seront « lus à
 la prochaine actualisation IGN ». Une maison voisine en corps reçoit ses fenêtres sur les murs de ses
 corps, aux dimensions tirées par la section (§6.4). Le critère de voisinage est celui de la BD
 TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts::surParcelleDuProjet`).
+
+### 13.7 Les contours de biais, le recalage et les croupes
+
+Le modèle des corps (§13.2) part des rectangles du contour. Un contour BD TOPO qui a un côté de
+biais ne se découpe pas (`rectanglesDuContour` rend null), et la 3D montrait alors la surface brute.
+Exemple : 2 allée des Limites, parcelle AE 103.
+
+- **Recalage d'un bloc** (`facade/toitCorps.ts::decalageSurMesure`, appelé par
+  `app/toitsLidar.ts::recalerSurLidar`). Pour la maison du projet et les maisons mitoyennes, si
+  plus de 12 % des cellules sous le contour sont non bâties (moins de 2,5 m), la grille est relue
+  3 m plus large. Le décalage retenu, au pas de 25 cm et à 3 m au plus, maximise ce qui est bâti
+  sous le contour et non bâti dans une bande de 0,5 à 1,5 m autour. Le bâtiment entier se déplace
+  alors d'un bloc : `pts` est translaté, sa forme ne change pas, et le plan suit. AE 103 : 15 % de
+  non bâti, décalage (−1 ; −1,75) m. AE 101 : 5,5 %, aucun recalage. Le bilan compte les bâtiments
+  recalés.
+- **Mise à l'équerre** (`contourEquerre`). L'axe retenu est celui qui aligne la plus grande
+  longueur de côtés (le plus long côté peut être le biais). Chaque côté de biais devient une
+  marche, dont le ressaut tombe au droit d'un autre sommet du contour, à défaut au milieu.
+- **Tranches** (`model/volumesToit.ts::rectanglesEnTranches`). Le contour à l'équerre est coupé
+  perpendiculairement à l'un de ses axes ; les rectangles maximaux y tiraient une bande d'un bout à
+  l'autre de la maison.
+- **Formes simples** (`corpsDepuisFormes`). Chaque tranche est lue par `facade/toitLidar.ts::
+  ajusterToit` sur la grille brute : deux pans, croupes ou quatre pans (faîtage dans la longueur,
+  croupes à la pente des pans : `CorpsToit.croupes`), appentis (plat en deçà de 10°), plat. À
+  défaut, le modèle des corps. Le modèle des corps, lui, n'a pas changé : les contours qui se
+  découpaient gardent leurs corps au centimètre (test sur le relevé réel d'AE 101,
+  `tests/unit/facade/toitCorpsReprise.test.ts`).
+- **Dessin** (`three/toitCorps3d.ts::facettesSurContour`). Des corps lus en reprise ne suivent plus
+  le contour : le prisme est le contour lui-même, à l'égout le plus bas ; les toits des corps sont
+  découpés sur lui, sans débord ; les murs montent jusqu'au toit, pas à pas, le long du contour ; les
+  fenêtres suivent les murs du contour. Le bâtiment garde ainsi la forme du plan. Une croupe est un
+  triangle, son mur de bout s'arrête aux égouts, et un bout sous une croupe n'a pas de fenêtre de
+  pignon. La carte trace les arêtiers.
+
