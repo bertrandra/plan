@@ -217,28 +217,43 @@ export interface ContexteToitCorps {
   toLocal: VersLocal;
   couleurMur: string | number;
   textures: boolean;
+  /** La texture des murs du prisme (choisie, ou dessinee d'apres le materiau) : les murs hauts la reprennent. */
+  textureMur?: unknown;
 }
 
 /**
  * Une maille de polygones, avec des coordonnees de texture si on les donne. Un pan entaille par ses
  * pignons n'est plus convexe : il se triangule par oreilles dans le plan ; un mur, vertical, en eventail.
  */
-function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false): THREE_NS.BufferGeometry {
+function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false, uvMur = false): THREE_NS.BufferGeometry {
   const pos: number[] = [], uvs: number[] = [], idx: number[] = [];
   for (const poly of polys) {
     const base = pos.length / 3;
     poly.forEach((q) => { const l = toLocal(q); pos.push(l.x, q.z, l.z); });
     if (uv) uvs.push(...uvDuPan(poly));
+    else if (uvMur) uvs.push(...uvDuMur(poly));
     const tris = pans && poly.length > 4 ? trianguler(poly) : null;
     if (tris && tris.length) tris.forEach(([a, b, c2]) => idx.push(base + a, base + b, base + c2));
     else for (let i = 1; i + 1 < poly.length; i++) idx.push(base, base + i, base + i + 1);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  if (uv || uvMur) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
+}
+
+/**
+ * Les coordonnees de texture d'un mur vertical, en metres : u le long du mur (sa projection sur son
+ * premier cote non vertical), v la hauteur. Les murs hauts raccordent ainsi la texture du prisme.
+ */
+export function uvDuMur(poly: readonly S3[]): number[] {
+  const a = poly[0];
+  if (!a) return [];
+  const b = poly.find((q) => Math.hypot(q.x - a.x, q.y - a.y) > 1e-6) ?? a;
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+  return poly.flatMap((q) => [(q.x - a.x) * ux + (q.y - a.y) * uy, q.z]);
 }
 
 /** Pose les toits des corps decoupes sur le contour, et les murs qui montent jusqu'a eux (`facettesSurContour`). */
@@ -266,7 +281,9 @@ function poserFacettes(ctx: ContexteToitCorps, pans: readonly S3[][], murs: read
     ctx.scene.add(m);
   }
   if (murs.length) {
-    const m = new THREE.Mesh(maille(murs, ctx.toLocal, false), new THREE.MeshStandardMaterial({ color: ctx.couleurMur, side: THREE.DoubleSide }));
+    // Une texture dessinee seulement (THREE.Texture, en metres) : une texture choisie se charge sur le prisme.
+    const tex = (ctx.textureMur as { isTexture?: boolean } | null | undefined)?.isTexture ? (ctx.textureMur as THREE_NS.Texture) : null;
+    const m = new THREE.Mesh(maille(murs, ctx.toLocal, false, false, !!tex), new THREE.MeshStandardMaterial({ color: ctx.couleurMur, side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) }));
     m.name = NOM_MUR_CORPS;
     ctx.scene.add(m);
   }

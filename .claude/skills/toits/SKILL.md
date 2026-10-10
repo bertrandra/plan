@@ -207,6 +207,11 @@ départage (`repliSelonMateriau`).
   première version lisait la clôture. Une haie de thuyas à l'ombre est olive (#464631), pas verte.
   Un enduit beige à l'ombre devient gris (92, 90, 93). Les photos de tableau de bord (Gordes) sont
   un peu sous-exposées.
+- **Textures** (§6.6, `three/textureMur.ts`) : une par matériau, dessinée en gris et teintée par la
+  couleur retenue. Elles sont à l'échelle réelle (brique 1 m, pierre 2 m, meulière 1,5 m) et sans
+  couture. Elles se posent sur le prisme et sur les murs hauts des corps (`uvDuMur`). Une texture
+  choisie dans l'inspecteur l'emporte. Pour les contrôler, rendre chaque texture en 2 × 2 tuiles :
+  c'est ce qui a montré une meulière « peau de girafe » à corriger.
 - **Diagnostic** : dessiner les points lus sur la photo (projection, `pixelsDuMur`) avant de toucher
   aux seuils. C'est ce qui a montré que la géométrie était juste et que les erreurs venaient des
   clôtures.

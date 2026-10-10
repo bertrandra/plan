@@ -470,6 +470,35 @@ Vérifié : `tests/unit/model/couleurMur.test.ts` (codes, retenue, cohérence, h
 `tests/unit/render/couleurMurPhoto.test.ts` (projection, murs vus et cachés, clôture, lecture sur
 photos simulées, repli des toits) et `tests/unit/ui/champsCouleurMurs.test.ts` (choix, description).
 
+
+### 6.6 Les textures des matériaux de murs
+
+Les murs dont le matériau est connu (§6.5) portent une **texture** dans la Vue 3D et dans l'export GLB.
+Elle est dessinée sur un canevas, sans réseau (`three/textureMur.ts`), en niveaux de clair autour de
+0,85 ; la couleur retenue des murs la teinte (celle de la photo de rue, ou celle du matériau). Chaque
+texture se raccorde à elle-même sur ses quatre bords et couvre une surface réelle :
+
+| Matériau | Dessin | Une texture couvre |
+|---|---|---|
+| brique | appareil en panneresse, 4 briques et 12 assises par mètre, assises décalées d'une demi-brique, nuance par brique, joints clairs | 1 m |
+| pierre | assises de 14 à 32 cm, pierres de 25 à 60 cm, léger bombé, joints clairs | 2 m |
+| meulière | pierres irrégulières (une cellule de Voronoï tous les 16 cm environ), poreuses, joints épais et inégaux | 1,5 m |
+| béton | gris lisse aux nuances larges, joints de banches tous les 50 cm et trous de tiges | 2 m |
+| enduit (aggloméré) | grain fin et serré | 1 m |
+| bois | bardage vertical, 6 planches par mètre, joints sombres, veinage et nœuds | 1 m |
+
+- **Où** : sur le prisme des murs (`three/scene.ts::texturesDe`). Les murs hauts des corps (pignons,
+  mur haut d'un appentis, murs d'un contour de biais) la reprennent : ils reçoivent des coordonnées
+  de texture en mètres (`three/toitCorps3d.ts::uvDuMur`) pour se raccorder au prisme.
+- **Quand** : une texture choisie dans l'inspecteur (« Texture verticale ») l'emporte. « Couleur du
+  plan » (§6.5) n'en pose aucune, et la case « Texture » de la Vue 3D l'éteint, comme pour les
+  couvertures.
+- Rien n'est enregistré : c'est une règle de rendu tirée de `bdtopo.materiauxMurs`.
+
+Vérifié : `tests/unit/three/textureMur.test.ts` (gris, clarté, raccords, joints, matériau retenu,
+coordonnées des murs hauts). Vu en 3D au Vésinet : maisons en brique, villas en meulière, pierre,
+enduit.
+
 ---
 
 ## 7. L'interface

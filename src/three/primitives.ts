@@ -108,12 +108,25 @@ export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[]; /** Les cotes a pos
  * `unknown` pour chacune : la forme complete de l'enregistrement Poly Haven appartient au selecteur
  * de texture ; la 3D n'en lit que l'URL, par `urlTexture`.
  */
+/** Les textures d'un objet : une texture choisie ({ url }), ou une texture dessinee (THREE.Texture). */
 export interface TexturesObjet { horizontale?: unknown; vertical?: unknown }
 
 /** L'URL d'une texture, si elle en a une. */
 export function urlTexture(ref: unknown): string | undefined {
   const r = ref as { url?: string } | null | undefined;
   return r && r.url ? r.url : undefined;
+}
+
+/**
+ * La texture a poser : une texture choisie ({ url }) - les UV valent des metres reels, la repetition
+ * posee par le chargeur cale une image sur METRES_PAR_CARREAU m quelle que soit la taille de l'objet,
+ * c'est ce qui permet le partage - ou une texture dessinee (le materiau des murs,
+ * three/textureMur.ts), qui porte deja sa repetition.
+ */
+function carteDe(texRef: unknown, chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture): THREE_NS.Texture | undefined {
+  const url = urlTexture(texRef);
+  if (url) return chargerTexture(url, 1 / METRES_PAR_CARREAU);
+  return (texRef as { isTexture?: boolean } | null | undefined)?.isTexture ? (texRef as THREE_NS.Texture) : undefined;
 }
 
 /**
@@ -281,10 +294,8 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
       const faire = (texRef: unknown) => {
         const mat = new THREE.MeshStandardMaterial({ color });
         appliquerOpacite(mat, opacity);
-        const urlTex = urlTexture(texRef);
-        // Les UV valent des metres reels : la repetition posee par le chargeur cale une image sur
-        // METRES_PAR_CARREAU m quelle que soit la taille de l'objet — c'est ce qui permet le partage.
-        if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
+        const carte = carteDe(texRef, chargerTexture);
+        if (carte) mat.map = carte;
         return mat;
       };
       objet = textures && (textures.horizontale || textures.vertical)
