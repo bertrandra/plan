@@ -46,44 +46,12 @@ export interface P3 {
   z: number;
 }
 
+import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
+
 const rad = (d: number) => (d * Math.PI) / 180;
 
-/** Angle du plus long cote du contour, en degres : le faitage par defaut le suit. */
-export function angleDuPlusLongCote(pts: readonly PtBrut[]): number {
-  let best = 0,
-    ang = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = au(pts, i),
-      b = sommetDe(pts, i + 1);
-    const l = Math.hypot(b.x - a.x, b.y - a.y);
-    if (l > best) {
-      best = l;
-      ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-    }
-  }
-  return ((ang % 180) + 180) % 180;
-}
-
-/** Le repere du faitage : origine au centre des etendues, demi-longueur `hl` et demi-largeur `hw`. */
-export function repereFaitage(pts: readonly PtBrut[], angleFaitage: number) {
-  const ux = Math.cos(rad(angleFaitage)),
-    uy = Math.sin(rad(angleFaitage));
-  const vx = -uy,
-    vy = ux;
-  let umin = Infinity,
-    umax = -Infinity,
-    vmin = Infinity,
-    vmax = -Infinity;
-  for (const p of pts) {
-    const u = p.x * ux + p.y * uy,
-      v = p.x * vx + p.y * vy;
-    umin = Math.min(umin, u);
-    umax = Math.max(umax, u);
-    vmin = Math.min(vmin, v);
-    vmax = Math.max(vmax, v);
-  }
-  return { ux, uy, vx, vy, u0: (umin + umax) / 2, v0: (vmin + vmax) / 2, hl: (umax - umin) / 2, hw: (vmax - vmin) / 2 };
-}
+// L'axe d'un contour et le repere du faitage sont de la geometrie pure : geometry/faitage.ts.
+export { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 
 /** Pente d'un toit, en degres, pour affichage. */
 export function penteDeg(pts: readonly PtBrut[], toit: Toit): number {
