@@ -123,24 +123,30 @@ describe('relief.actualiser et relief.supprimer', () => {
 });
 
 describe('affichage.relief', () => {
-  it('montre ou cache ensemble les courbes de niveau et le sol 3D, sans annulation ni projet modifie', () => {
+  it('deux bascules distinctes : le relief (3D, montre par defaut) et les courbes (cachees par defaut), sans annulation ni projet modifie', () => {
     const m = monter({ relief: grille(), scene: true });
-    // Par defaut, les deux sont montres : un clic cache les deux.
+    // Un clic sur « Relief » cache le sol en relief, seul.
     m.cmd.executer('affichage.relief');
-    expect(m.parcelle.relief!.affichage).toMatchObject({ courbes: false, sol3d: false });
+    expect(m.parcelle.relief!.affichage).toEqual({ sol3d: false });
     expect(m.a.pushHistory).not.toHaveBeenCalled();
     expect(m.a.markDirty).not.toHaveBeenCalled();
     expect(m.a.render).toHaveBeenCalled();
     expect(m.ctx.buildThreeScene).toHaveBeenCalled();
-    // Un seul des deux montre : le clic montre les deux, et garde l'equidistance reglee.
-    m.parcelle.relief!.affichage = { courbes: true, sol3d: false, equidistance: 0.5 };
-    m.cmd.executer('affichage.relief');
-    expect(m.parcelle.relief!.affichage).toEqual({ courbes: true, sol3d: true, equidistance: 0.5 });
+    // Un clic sur « Courbes de niveau » les montre, sans toucher au relief ni reconstruire la 3D.
+    vi.mocked(m.ctx.buildThreeScene).mockClear();
+    m.parcelle.relief!.affichage = { sol3d: false, equidistance: 0.5 };
+    m.cmd.executer('affichage.courbes');
+    expect(m.parcelle.relief!.affichage).toEqual({ sol3d: false, courbes: true, equidistance: 0.5 });
+    expect(m.ctx.buildThreeScene).not.toHaveBeenCalled();
+    m.cmd.executer('affichage.courbes');
+    expect(m.parcelle.relief!.affichage).toMatchObject({ courbes: false });
   });
 
   it('se grise sans relief ; reste permise en lecture seule et sans la capacite plan.relief', () => {
     expect(monter().cmd.etat('affichage.relief').utilisable).toBe(false);
+    expect(monter().cmd.etat('affichage.courbes').utilisable).toBe(false);
     expect(monter({ relief: grille(), ecrire: false }).cmd.etat('affichage.relief').utilisable).toBe(true);
+    expect(monter({ relief: grille(), ecrire: false }).cmd.etat('affichage.courbes').utilisable).toBe(true);
     const cmd = creerRegistre({ ...droits(), aCapacite: (c) => c !== 'plan.relief' });
     brancherRelief(fauxAtelier({ objects: [] }), { reference: () => null, buildThreeScene: vi.fn(), rafraichir: vi.fn() }, cmd);
     expect(cmd.effacee('affichage.relief')).toBe(false);

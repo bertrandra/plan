@@ -72,7 +72,11 @@ describe('section Relief', () => {
 
   it('avec relief : la source, le zero, la pente, le denivele, les preferences et les deux commandes', () => {
     const c = contexte({ relief: grille() });
-    expect(cles(c)).toEqual(['source', 'zRef', 'pente', 'denivele', 'courbes', 'equidistance', 'sol3d', 'actualiser', 'supprimer']);
+    expect(cles(c)).toEqual(['source', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'actualiser', 'supprimer']);
+    // L'equidistance ne se montre qu'avec les courbes.
+    champ<ChampCase>(c, 'courbes').ecrire(c, true);
+    expect(cles(c)).toEqual(['source', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'equidistance', 'actualiser', 'supprimer']);
+    expect(champ<ChampCase>(c, 'sol3d').libelle).toBe('Relief');
     expect(champ<ChampLecture>(c, 'source').valeur(c)).toBe('LiDAR HD, 1 m · acquis en 2021 · de l’ordre de 10 cm (IGN)');
     expect(champ<ChampLecture>(c, 'zRef').valeur(c)).toBe('100,25 m NGF-IGN69');
     expect(champ<ChampLecture>(c, 'pente').valeur(c)).toBe('5,0 % vers le O');
@@ -91,7 +95,8 @@ describe('section Relief', () => {
       expect(ecritLeProjet(ch)).toBe(false);
       expect(champAnnulable(ch)).toBe(false);
     }
-    expect(courbes.lire(c)).toBe(true);
+    // Le relief montre, les courbes cachees, par defaut.
+    expect(courbes.lire(c)).toBe(false);
     expect(sol.lire(c)).toBe(true);
     expect(equi.lire(c)).toBe('0');
     expect(equi.options(c)).toEqual(EQUIDISTANCES);
@@ -105,7 +110,7 @@ describe('section Relief', () => {
     expect(equi.note?.(c)).toBe('');
     equi.ecrire(c, '0');
     expect(c.obj.relief?.affichage).toEqual({ courbes: false, sol3d: false });
-    expect(courbes.effets).toEqual(['rendu']);
+    expect(courbes.effets).toEqual(['rendu', 'inspecteur']);
     expect(sol.effets).toEqual(['scene3d']);
   });
 

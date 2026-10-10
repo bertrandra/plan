@@ -80,15 +80,19 @@ export function sectionRelief(c: ContexteChamps): Section | null {
     { type: 'lecture', cle: 'denivele', libelle: 'Dénivelé', visible: avec, valeur: (cc) => { const x = r(cc); return x ? texteDenivele(x, cc.obj) : ''; } },
 
     // ---- Preferences d'affichage : ni annulation, ni projet modifie ------------------------------
-    { type: 'case', cle: 'courbes', libelle: 'Courbes de niveau', visible: avec, sale: false, effets: ['rendu'],
+    // Deux reglages distincts : le relief (le sol en 3D, montre par defaut) et les courbes de niveau du
+    // plan (cachees par defaut), avec leur equidistance quand elles sont montrees.
+    { type: 'case', cle: 'sol3d', libelle: 'Relief', visible: avec, sale: false, effets: ['scene3d'],
+      aide: 'Le sol en relief dans la Vue 3D : le terrain suit la grille d’altitudes, les objets se posent dessus',
+      lire: (cc) => affichageRelief(r(cc)).sol3d, ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { a.sol3d = v; }) },
+    { type: 'case', cle: 'courbes', libelle: 'Courbes de niveau', visible: avec, sale: false, effets: ['rendu', 'inspecteur'],
+      aide: 'Les courbes de niveau sur le plan',
       lire: (cc) => affichageRelief(r(cc)).courbes, ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { a.courbes = v; }) },
-    { type: 'choix', cle: 'equidistance', libelle: 'Équidistance', visible: avec, sale: false, effets: ['rendu'],
+    { type: 'choix', cle: 'equidistance', libelle: 'Équidistance', visible: (cc) => avec(cc) && affichageRelief(r(cc)).courbes, sale: false, effets: ['rendu'],
       options: () => EQUIDISTANCES,
       note: (cc) => { const x = r(cc); return x && !(x.affichage?.equidistance) ? texteEquidistance(equidistanceRelief(x, enPoints(cc.obj).pts)) : ''; },
       lire: (cc) => String(affichageRelief(r(cc)).equidistance),
       ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { const m = parseFloat(v); if (m > 0) a.equidistance = m; else delete a.equidistance; }) },
-    { type: 'case', cle: 'sol3d', libelle: 'Sol en relief (3D)', visible: avec, sale: false, effets: ['scene3d'],
-      lire: (cc) => affichageRelief(r(cc)).sol3d, ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { a.sol3d = v; }) },
 
     // ---- Les deux autres commandes ---------------------------------------------------------------
     { type: 'bouton', cle: 'actualiser', libelle: 'Actualiser', visible: avec,

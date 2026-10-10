@@ -90,6 +90,17 @@ if (process.env.CAPTURE_INSPECTEUR) {
     await page.setViewportSize({ width: 1400, height: 900 });
   }
 }
+// CAPTURE_RELIEF=1 : le menu Affichage ouvert, puis la section Relief de la parcelle du projet.
+if (process.env.CAPTURE_RELIEF) {
+  await page.evaluate(() => { document.querySelector('#menuAffichage')?.setAttribute('open', ''); });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: S + 'village-' + NOM + '-menu-affichage.png' });
+  await page.evaluate(() => { document.querySelector('#menuAffichage')?.removeAttribute('open'); window.__plan.selectionnerCle('parcelle'); });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => document.querySelector('[data-cle="sol3d"]')?.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: S + 'village-' + NOM + '-inspecteur-relief.png' });
+}
 // Les couvertures choisies (MD/spec-toit-ign.md §6.2) : par le materiau de toiture et la pente.
 const couvertures = await page.evaluate(async () => {
   const C = await import('/src/model/couleurToit.ts');

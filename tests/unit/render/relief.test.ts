@@ -57,6 +57,7 @@ describe('les courbes de niveau d une grille plane', () => {
 describe('dessinerCourbesRelief', () => {
   it('pose des polylignes en pixels, les maitresses en trait fort avec leur altitude NGF', () => {
     const r = plane(-0.1, 0, 100);
+    r.affichage = { courbes: true };
     const g = creerSvg('g');
     const sc = scene();
     dessinerCourbesRelief(g, projet(r), sc);
@@ -76,10 +77,16 @@ describe('dessinerCourbesRelief', () => {
     g.querySelectorAll('text').forEach(t => expect(t.getAttribute('paint-order')).toBe('stroke'));
   });
 
-  it('ne dessine rien sans relief ni quand la preference est fermee, et vide le groupe', () => {
+  it('ne dessine rien sans relief, ni par defaut, ni quand la preference est fermee, et vide le groupe', () => {
     const g = creerSvg('g');
-    dessinerCourbesRelief(g, projet(plane(-0.1, 0, 100)), scene());
+    const ouvert = plane(-0.1, 0, 100);
+    ouvert.affichage = { courbes: true };
+    dessinerCourbesRelief(g, projet(ouvert), scene());
     expect(g.children.length).toBeGreaterThan(0);
+    // Par defaut, les courbes sont cachees : le relief se montre en 3D, les courbes se demandent.
+    dessinerCourbesRelief(g, projet(plane(-0.1, 0, 100)), scene());
+    expect(g.children).toHaveLength(0);
+    dessinerCourbesRelief(g, projet(ouvert), scene());
     const ferme = plane(-0.1, 0, 100);
     ferme.affichage = { courbes: false };
     dessinerCourbesRelief(g, projet(ferme), scene());
@@ -92,7 +99,9 @@ describe('dessinerCourbesRelief', () => {
     poserEncres({ ink: '#000000', rule: '#111111', paper: '#FFFFFF', accent: '#222222', 'panel-bg': '#333333', 'on-ink': '#444444', relief: '#ABCDEF' });
     try {
       const g = creerSvg('g');
-      dessinerCourbesRelief(g, projet(plane(-0.1, 0, 100)), scene());
+      const r = plane(-0.1, 0, 100);
+      r.affichage = { courbes: true };
+      dessinerCourbesRelief(g, projet(r), scene());
       expect(g.querySelector('polyline')?.getAttribute('stroke')).toBe('#ABCDEF');
     } finally { poserEncres(); }
   });

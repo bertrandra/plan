@@ -95,6 +95,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.voisinage': menu('menuAffichage', 'explorateur'),
   'affichage.grille': menu('menuAffichage', 'surimpression'),
   'affichage.relief': menu('menuAffichage'),
+  'affichage.courbes': menu('menuAffichage'),
   'affichage.sectionsRepliees': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),

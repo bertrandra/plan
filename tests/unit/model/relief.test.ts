@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   altitudeNGF, zLocal, penteParcelle, textePente, profilRelief, equidistanceAuto, equidistanceRelief, niveauxCourbes,
   estCourbeMaitresse, pasPourEmprise, dimensionsGrille, empriseRelief, zRefPour, pointDeReference, ligneDePlusGrandePente,
-  libelleSource, resumeRelief, affichageRelief, reliefDe, texteOrientation, MAX_CELLULES_RELIEF
+  libelleSource, resumeRelief, affichageRelief, courbesExportees, reliefDe, texteOrientation, MAX_CELLULES_RELIEF
 } from '../../../src/model/relief.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
 
@@ -135,8 +135,12 @@ describe('emprise, pas et zero du plan', () => {
     const r = plane(0, 0, 10);
     expect(reliefDe([terrasse, { ...parcelle, relief: r } as ObjetPlan])).toBe(r);
     expect(reliefDe([terrasse])).toBeNull();
-    expect(affichageRelief(r)).toEqual({ courbes: true, equidistance: 0, sol3d: true });
-    expect(affichageRelief({ ...r, affichage: { sol3d: false } })).toEqual({ courbes: true, equidistance: 0, sol3d: false });
+    // Par defaut, le sol en relief (3D) sans les courbes de niveau.
+    expect(affichageRelief(r)).toEqual({ courbes: false, equidistance: 0, sol3d: true });
+    expect(affichageRelief({ ...r, affichage: { sol3d: false } })).toEqual({ courbes: false, equidistance: 0, sol3d: false });
+    // Le plan exporte garde les courbes tant qu'on ne les a pas cachees : un export d'hier reste identique.
+    expect(courbesExportees(r)).toBe(true);
+    expect(courbesExportees({ ...r, affichage: { courbes: false } })).toBe(false);
   });
 
   it('resume la source et la precision', () => {

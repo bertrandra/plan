@@ -355,10 +355,23 @@ d'écran.
 | `relief.actualiser` | Actualiser le relief | pas de relief |
 | `relief.supprimer` | Supprimer le relief | pas de relief |
 
-**`affichage.relief`** (menu « Affichage › Relief », `ecrit: 'affichage'`, sans capacité ni
-permission) montre ou cache ensemble les courbes de niveau et le sol en relief de la 3D ; cochée
-quand les deux sont montrés, grisée sans relief. Préférence d'affichage, rangée dans
-`relief.affichage` comme les deux cases de l'inspecteur (décision du 7 octobre 2026).
+**Deux bascules distinctes** (décision du 10 octobre 2026, qui remplace la bascule unique du 7
+octobre) :
+- **`affichage.relief`** (menu « Affichage › Relief ») montre ou cache le **sol en relief** de la 3D
+  (`relief.affichage.sol3d`) ; il est **montré par défaut** ;
+- **`affichage.courbes`** (menu « Affichage › Courbes de niveau ») montre ou cache les **courbes de
+  niveau** du plan (`relief.affichage.courbes`) ; elles sont **cachées par défaut** : elles
+  chargent le dessin, et on les demande.
+
+Les deux sont `ecrit: 'affichage'`, sans capacité ni permission, cochées selon leur préférence et
+grisées sans relief. Ce sont des préférences d'affichage, rangées dans `relief.affichage` comme les
+cases de l'inspecteur.
+
+**Le plan exporté ne change pas** (`model/relief.ts::courbesExportees`) : `plan.svg` porte les
+courbes tant qu'elles n'ont pas été décochées explicitement. Un projet qui ne les a jamais réglées
+les exporte donc comme avant, même si l'écran les cache désormais par défaut. Un export d'hier reste
+identique (CLAUDE.md). Le plan de masse (DP2) porte toujours les courbes, quelle que soit la
+préférence.
 
 Pendant la lecture (une à trois secondes), le bouton montre l'attente ; une coupure réseau après
 la reprise dit : « L'IGN n'a pas répondu ; réessayez. » et n'écrit rien.
@@ -370,8 +383,9 @@ la reprise dit : « L'IGN n'a pas répondu ; réessayez. » et n'écrit rien.
 - avec relief, en lecture : « LiDAR HD, 50 cm · acquis en 2021 · de l'ordre de 10 cm (IGN) » ou
   « RGE ALTI, 1 m · corrélation d'images · Emq < 1 m », l'altitude NGF du zéro, la pente moyenne
   et son orientation, le dénivelé ;
-- préférences d'affichage (`sale: false`, `agit: 'interface'`) : « Courbes de niveau » (case),
-  « Équidistance » (choix : auto, 10 cm, 25 cm, 50 cm, 1 m), « Sol en relief (3D) » (case) ;
+- préférences d'affichage (`sale: false`, `agit: 'interface'`) : « Relief » (case, le sol en relief
+  de la 3D, cochée par défaut), « Courbes de niveau » (case, décochée par défaut), et
+  « Équidistance » (choix : auto, 10 cm, 25 cm, 50 cm, 1 m), qui ne se montre qu'avec les courbes ;
 - boutons « Actualiser » et « Supprimer » (`agit: { commande }`).
 
 **Panneau « Profil »** (zone des résultats) : la ligne de coupe se trace sur le plan avec l'outil de
