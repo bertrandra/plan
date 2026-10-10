@@ -7,6 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le toit tel que le LiDAR le mesure** (`MD/spec-toit-ign.md` §12) : pour les bâtiments de la
+  parcelle du projet, la grille du MNH LiDAR HD (50 cm) est gardée, nettoyée des arbres, des
+  cheminées et des trous, et la Vue 3D la dessine en surface, posée sur les murs à l'égout de chaque
+  corps, avec une rehausse en couleur de mur là où un pignon ou un dessus plat monte au-dessus de
+  l'égout. Un toit compliqué — un pan raide et un dessus presque plat, une aile basse à un pan, un
+  faîtage décentré — ressemble enfin à la maison. Les formes simples restent pour le voisinage et
+  comme repli sans LiDAR. Le bilan de l'import les compte (« gardé(s) tel(s) que mesuré(s) »).
+- **Un toit par corps de bâtiment** (§11) : sur la parcelle du projet, un contour en L, en T ou en U
+  est découpé en corps (rectangles maximaux, à l'équerre, décrochés de moins de 1,2 m lissés),
+  chacun son toit simple, son égout et son débord ; après la lecture LiDAR, chaque corps est ajusté
+  sur les mesures qui tombent dedans. Sans LiDAR, c'est ce que la 3D montre par défaut.
+- **« Toit en 3D »** dans la section « Façades et toit » de l'inspecteur : « Tel que mesuré
+  (LiDAR) », « Un toit par corps », « Un seul toit » — avec une ligne qui décrit la mesure (égout,
+  faîte, grille) ou chaque corps. Les réglages du toit unique ne se montrent qu'en « Un seul toit ».
+
 - **Nom des rues** (`MD/spec-rues.md`) : une case « Nom des rues » dans la section « Voisinage
   (3D) » de la parcelle. Cochée, le nom des rues voisines s'écrit le long de chaque voie sur le plan,
   et au sol de la Vue 3D. La première fois, les rues sont lues à l'IGN (BD TOPO, noms de la Base
@@ -470,6 +485,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Formes de toit** (`MD/spec-toit-ign.md` §4 et §10) : une maison rectangulaire (contour qui remplit
+  son rectangle à 86 %, allongé d'au moins 1,25) reçoit **deux pans à pignons** dans l'axe du long
+  côté, et non plus des croupes ; les croupes restent pour un carré, un L, un T. Sur le LiDAR,
+  l'ajustement essaie aussi l'**appentis** et l'axe de faîtage que les **mesures** dessinent, lit
+  les hauteurs à 25 cm des murs (60 avant : le bas des pans manquait et un pignon passait pour une
+  croupe), ne prime plus les croupes, et renonce quand deux corps de hauteurs différentes se
+  partagent le contour plutôt que d'en faire un appentis.
+
 - **Une parcelle importée naît close.** À la création d'un projet par import cadastral, la parcelle
   du projet (pas ses voisines) reçoit une palissade bois de 1,80 m sur tout son contour et un
   portail en aluminium blanc, à deux battants ouvrant vers l'intérieur de la parcelle, au milieu du
@@ -582,6 +605,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   projet enregistré sans construction garde la vis de fondation à l'ouverture, et ses quantités.
 
 ### Corrigé
+
+- **Import par adresse : la couleur et la forme des toits étaient lues à côté.** Le plan construit
+  a pour origine le sommet nord de la parcelle (calage cadastral), mais la lecture de l'orthophoto
+  (couleur des toits) et du MNH LiDAR HD (forme des toits) se faisait avec le projecteur centré sur
+  le point de l'adresse : décalées de la distance entre les deux, souvent plusieurs dizaines de
+  mètres, elles tombaient sur la rue ou le jardin voisin — d'où des toits « ajustés » sur n'importe
+  quoi et des couleurs de hasard. Les deux lectures se font désormais dans le repère du plan
+  (`app/importCadastre.ts::projecteurDuPlan`). L'actualisation IGN, elle, lisait au bon endroit.
 
 - **Dépôt : plus de lien `node_modules` suivi par git.** La livraison du 9 octobre avait enregistré
   le lien symbolique de son worktree vers `node_modules` (`.gitignore` ne couvrait que les dossiers) ;

@@ -32,16 +32,17 @@ describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
   const ign = (extra: Partial<ObjetBrut> = {}, bdtopo: Record<string, unknown> = {}) =>
     batiment({ pts: rect, bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'B1', altitudeToitM: 52.1, ...bdtopo }, ...extra });
 
+  // Le rectangle de 10 x 6 m est allonge : deux pans a pignons dans son axe (spec-toit-ign §4, regle 7).
   it('pose un toit estime sur un batiment importe avant le schema 3', () => {
     const lu = migrer({ objects: [ign()] }, 2);
-    expect(lu.objects[0]!.toit).toMatchObject({ forme: 'croupes', source: 'bdtopo', estime: true });
+    expect(lu.objects[0]!.toit).toMatchObject({ forme: 'deux-pans', source: 'bdtopo', estime: true });
     expect(lu.objects[0]!.toit!.hauteur).toBeCloseTo(3 * Math.tan((35 * Math.PI) / 180), 2);
     // Depuis le schema 1 aussi : la chaine passe par 2.
-    expect(migrer({ objects: [ign()] }, 1).objects[0]!.toit!.forme).toBe('croupes');
+    expect(migrer({ objects: [ign()] }, 1).objects[0]!.toit!.forme).toBe('deux-pans');
   });
 
   it('lit la hauteur quand elle est enregistree, et laisse plat une construction legere', () => {
-    expect(migrer({ objects: [ign({}, { altitudeToitMaxM: 55.1 })] }, 2).objects[0]!.toit).toEqual({ forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' });
+    expect(migrer({ objects: [ign({}, { altitudeToitMaxM: 55.1 })] }, 2).objects[0]!.toit).toEqual({ forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' });
     expect(migrer({ objects: [ign({}, { constructionLegere: true })] }, 2).objects[0]!.toit!.forme).toBe('plat');
   });
 
