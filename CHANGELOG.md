@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une question sur la toiture d'un bâtiment à cheval sur deux parcelles** (`model/aCheval.ts`,
+  `app/toitsACheval.ts`, `MD/spec-toit-ign.md` §13.8). Quand le contour BD TOPO d'un bâtiment du
+  projet ou d'une maison mitoyenne franchit une limite de parcelle, et qu'un toit lu sur le LiDAR
+  passe par-dessus, Plan ne sait pas s'il voit un seul toit ou deux maisons mitoyennes. Il le demande :
+  « Un toit ou deux ? », avec le bâtiment sélectionné sur le plan, les deux parcelles et leurs parts.
+  « Un seul toit » garde le toit lu ; « Un toit par parcelle » relit un toit de chaque côté, arrêté à
+  la limite. La réponse est mémorisée et réappliquée aux actualisations ; Ctrl+Z la défait ; Échap
+  remet la question à la prochaine ouverture.
+
 - **Les toits du voisinage en corps et pignons** (`MD/spec-toit-ign.md` §13.6) : une case « Toits en
   corps et pignons », cochée par défaut, dans la section « Voisinage (3D) ». À l'import et à
   l'actualisation IGN, les maisons voisines reçoivent elles aussi leurs corps, faîtages et pignons
@@ -33,6 +42,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
 ### Corrigé
+
+- **Plus de pignons en double sur les pavillons d'une longère** (`facade/toitCorps.ts`, Hucqueliers) :
+  une aile presque entièrement sous un rectangle plus grand du contour n'est plus coupée en bandes de
+  2 m aux pentes du toit qui la couvre, tant que son toit entier tient la mesure ; une bande de moins
+  de 3 m recouverte à plus de 90 % par les autres corps est retirée. Sur quatre villages, 4 à 12 % de
+  corps en moins, sans toit perdu. AE 101 est inchangé.
+
+- **Un toit complété sur le contour ne déborde plus sur la cour ni sur une annexe** (`facade/toitCorps.ts`,
+  village d'Hucqueliers) : un toit n'avance que sur une bande de bâtiment vraiment sans toit (10 % au
+  moins), pas sur la lisière qu'une aile de biais laisse le long de sa voisine, suivie jusque-là sur 5 m
+  avec un égout à −1,3 m ; il s'arrête avant qu'un égout ne passe sous 2 m, et ne couvre pas une partie
+  mesurée à plus d'un mètre sous son égout (l'annexe basse d'une maison garde son appentis). AE 101 est
+  inchangé.
 
 - **Les toits de Provence** (`MD/spec-toit-ign.md` §13.7). Revue de trois quartiers : le centre ancien
   de Gordes, une entrée de ville de Saint-Rémy-de-Provence et un quartier d'Aix-en-Provence. Les

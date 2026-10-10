@@ -16,6 +16,7 @@ import { interiorAngleDeg } from '../geometry/angles.js';
 import { aDesSommets } from '../model/formes.js';
 import { creerEtat } from '../core/state.js';
 import { creerHistorique } from '../core/historique.js';
+import { poserQuestionsToitsACheval } from './toitsACheval.js';
 import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
@@ -259,9 +260,20 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     fitToObject: p.cadrage.cadrer, cadrerTerrains: p.cadrage.cadrerTerrains, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector,
     restoreState: historique.restaurer, validerProjetJSON
   });
-  const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
+  // Un batiment a cheval sur deux parcelles dont la toiture laisse un doute : une question chacun
+  // (app/toitsACheval.ts), a l'ouverture, apres un import et apres une actualisation IGN.
+  const questionsACheval = () => poserQuestionsToitsACheval({
+    objets: () => etat.objects, lectureSeule: () => !!etat.lectureSeule, preparer: () => historique.preparer(),
+    apresModification: () => { p.render(); if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
+    montrer: (o) => tardifs.explorateur?.selectionner(o.key)
+  });
+  const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => {
+    const r = chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
+    questionsACheval();
+    return r;
+  };
   return {
-    ctxOrtho, appliquerProjetImporte,
+    ctxOrtho, appliquerProjetImporte, questionsACheval,
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
@@ -276,7 +288,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
       restoreState: historique.restaurer, serializeMeasures, serializeObjects,
       syncLieuTitre: affichage.syncLieuTitre,
-      trouverParcelleCloture: affichage.trouverParcelleCloture
+      trouverParcelleCloture: affichage.trouverParcelleCloture,
+      apresActualisation: questionsACheval
     })
   };
 }
@@ -542,8 +555,9 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
     }
   }
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
-  // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran.
-  else projet.proposerMiseAJour();
+  // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
+  // les toits a cheval sur deux parcelles qui attendent une reponse.
+  else { projet.proposerMiseAJour(); ch.questionsACheval(); }
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {

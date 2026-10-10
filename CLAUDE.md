@@ -81,6 +81,14 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   `estBatiment`, `estVueUtilisable`, `parcelleDuProjet`, `terrasseOuPremiere`. Ne pas réécrire ces
   tests à la main ailleurs.
 
+## Toits
+
+- **Charger le skill `toits`** (`.claude/skills/toits/SKILL.md`) avant de toucher aux toits ou aux
+  hauteurs de murs (`facade/toitCorps.ts`, `toitLidar.ts`, `model/toitMesure.ts`, `volumesToit.ts`,
+  `app/toitsLidar.ts`, `three/toitCorps3d.ts`, `facade/ouvertures.ts`) : règles, seuils, pièges, et
+  les scripts de banc d'essai sur un village. **AE 101 (2 allée des Limites, Le Vésinet) ne doit pas
+  bouger** : `npx tsx .claude/skills/toits/scripts/identite.ts`.
+
 ## Conventions
 
 - Code et commentaires en français ; commentaires **sans accents** dans le code source, qui

@@ -55,6 +55,8 @@ export interface ContexteActualisation {
   lireRelief?: typeof lireRelief;
   /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
+  /** Apres une actualisation reussie : les questions sur les toits a cheval sur deux parcelles (app/toitsACheval.ts). */
+  apresActualisation?: () => void;
 }
 
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
@@ -392,12 +394,12 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     ctx.rebuildSelector();
     ctx.syncLieuTitre();
     ctx.render();
-
     if(ptsParcelle) bilan.unshift('parcelle actualisee (ecart max ' + Math.round(ecartMax*100) + ' cm)');
     if(nToits) bilan.push(nToits + ' toit(s) deduit(s) de la BD TOPO');
     if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
     showToast('Actualisation IGN — ' + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
+    ctx.apresActualisation?.();
   } catch(e){
     showToast('Actualisation impossible : ' + ((e as Error).message || e));
   } finally {
