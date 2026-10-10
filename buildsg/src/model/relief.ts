@@ -291,11 +291,19 @@ export function resumeRelief(r: Relief): string {
 // au-dessus de la plus basse, sur 16 bits, en base 64 — 2,7 octets par cellule, sans rien perdre,
 // puisque les altitudes sont deja arrondies au centimetre a la lecture. La forme en memoire ne change
 // pas (`z`) ; une grille ecrite en clair (avant ce format) se relit telle quelle.
+//
+// La plateforme refuse toute chaine de plus de 64 Kio dans un document (EMBEDDED_ASSET_REJECTED :
+// une chaine si longue « est une charge qu'on a encodee ») : une grille de 40 000 cellules donne
+// 107 Kio de base 64, et l'import d'une grande parcelle ou d'un relief etendu au voisinage etait
+// refuse le 10 octobre 2026. Au-dela de ZCODE_MORCEAU caracteres, `zCode` est donc une liste de
+// morceaux, recolles a la lecture ; en deca, une seule chaine, comme avant.
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 /** La valeur 16 bits reservee a « sans donnee ». */
 const SANS_DONNEE_U16 = 0xffff;
 const PREFIXE_ZCODE = 'u16cm:';
+/** La plus longue chaine de `zCode` : sous les 65 536 octets que la plateforme admet par chaine, avec de la marge. */
+export const ZCODE_MORCEAU = 60000;
 
 function versBase64(octets: Uint8Array): string {
   let s = '';
@@ -322,7 +330,7 @@ function depuisBase64(s: string): Uint8Array {
 }
 
 /** La grille telle qu'elle s'enregistre : `zCode` a la place de `z`, si l'amplitude tient sur 16 bits. */
-export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCode: string }) {
+export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCode: string | string[] }) {
   const cm = r.z.map(v => (v === null ? null : Math.round(v * 100)));
   const valeurs = cm.filter((v): v is number => v !== null);
   const base = valeurs.length ? Math.min(...valeurs) : 0;
@@ -335,12 +343,17 @@ export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCod
   });
   const reste: Partial<Relief> = JSON.parse(JSON.stringify(r)) as Relief;
   delete reste.z;
-  return { ...(reste as Omit<Relief, 'z'>), zCode: PREFIXE_ZCODE + base + ':' + versBase64(octets) };
+  const code = PREFIXE_ZCODE + base + ':' + versBase64(octets);
+  const morceaux: string[] = [];
+  for (let i = 0; i < code.length; i += ZCODE_MORCEAU) morceaux.push(code.slice(i, i + ZCODE_MORCEAU));
+  return { ...(reste as Omit<Relief, 'z'>), zCode: morceaux.length > 1 ? morceaux : code };
 }
 
 /** La grille relue : `z` reconstruit depuis `zCode`, ou la grille telle quelle si elle est en clair. */
 export function deplierRelief(brut: Relief & { zCode?: unknown }): Relief {
-  const { zCode, ...reste } = brut;
+  const { zCode: brutCode, ...reste } = brut;
+  // Une liste de morceaux (une grande grille) se recolle avant d'etre lue.
+  const zCode = Array.isArray(brutCode) && brutCode.every((m) => typeof m === 'string') ? brutCode.join('') : brutCode;
   if (typeof zCode !== 'string' || !zCode.startsWith(PREFIXE_ZCODE)) return brut;
   const [baseTexte, b64] = zCode.slice(PREFIXE_ZCODE.length).split(':');
   const base = Number(baseTexte);
