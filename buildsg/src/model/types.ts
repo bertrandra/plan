@@ -790,6 +790,8 @@ export interface VolumeToit {
   toit: Toit;
   /** Hauteur du sol a l'egout de ce volume, en metres ; absente, celle du batiment. */
   egout?: number;
+  /** La hauteur de chaque mur (de `pts[i]` a `pts[i + 1]`), mesuree la ou la couverture le rejoint ; absente, l'egout. */
+  hauteursMurs?: number[];
 }
 
 export interface Toit {
