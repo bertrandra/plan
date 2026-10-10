@@ -13,7 +13,7 @@
 // presence d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { champActif } from '../app/ecritures.js';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
@@ -238,15 +238,18 @@ function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   );
 }
 
-function SectionVue({ section, c, inspecteur, replier }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur; replier: boolean }) {
+function SectionVue({ section, c, inspecteur, ouverte }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur; ouverte: boolean }) {
   const champs = champsVisibles(section, c);
   if (!champs.length) return null;
-  // `open` n'est pose qu'au montage : React ne le reimpose pas a chaque rendu, le pli de
-  // l'utilisateur survit donc aux rendus du plan tant que la section reste montee. `replier` est
-  // la preference « Sections de l'inspecteur repliees » (menu Affichage) : toutes fermees a l'ouverture.
+  // Le pli n'est pose qu'au montage, par la reference : React ne le reimpose pas a chaque rendu, le
+  // pli de l'utilisateur survit donc aux rendus du plan et au passage d'un objet a l'autre tant que la
+  // section reste montee. Une seule section est ouverte a la fois : ouvrir l'une replie les autres, et
+  // une section montee pour l'objet suivant ne s'ouvre pas a cote de celle que l'utilisateur a laissee.
   return (
-    <details className="inspecteurSection" open={!section.repliee && !replier} data-section={section.id} data-famille={familleDe(section.id)}
-      data-repliee={section.repliee ? '' : undefined}>
+    <details className="inspecteurSection" data-section={section.id} data-famille={familleDe(section.id)}
+      data-repliee={section.repliee ? '' : undefined}
+      ref={(d) => { if (d && d.dataset.monte === undefined) { d.dataset.monte = ''; d.open = ouverte && !sectionsDu(d).some(x => x !== d && x.open); } }}
+      onToggle={(e) => { if (e.currentTarget.open) replierLesAutres(e.currentTarget); }}>
       <summary>{section.titre}</summary>
       {section.explication && <p className="hint">{section.explication}</p>}
       <div className="champs">
@@ -256,11 +259,28 @@ function SectionVue({ section, c, inspecteur, replier }: { section: Section; c: 
   );
 }
 
-/** Un clic sur le titre replie toutes les sections si l'une au moins est ouverte, et les deplie sinon. */
+const sectionsDu = (el: Element | null | undefined): HTMLDetailsElement[] =>
+  [...(el?.closest('.inspecteurPanneau')?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+
+/**
+ * Une section ouverte replie les autres : l'inspecteur montre une etape a la fois, sans les
+ * longues listes de champs empilees qu'il fallait faire defiler pour trouver la suivante.
+ */
+function replierLesAutres(ouverte: HTMLDetailsElement): void {
+  sectionsDu(ouverte).forEach(d => { if (d !== ouverte && d.open) d.open = false; });
+}
+
+/** La section ouverte par defaut : la premiere qui n'est pas repliee d'office (Prix, Parametres...). */
+function premiereOuverte(sections: Section[], c: ContexteChamps): string | null {
+  return sections.find(s => !s.repliee && champsVisibles(s, c).length)?.id ?? null;
+}
+
+/** Un clic sur le titre replie la section ouverte, ou ouvre la premiere quand toutes sont repliees. */
 function basculerSections(e: React.SyntheticEvent<HTMLElement>): void {
-  const sections = [...(e.currentTarget.closest('.inspecteurPanneau')?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
-  const ouvrir = !sections.some(s => s.open);
-  sections.forEach(s => { s.open = ouvrir; });
+  const sections = sectionsDu(e.currentTarget);
+  if (sections.some(s => s.open)) { sections.forEach(s => { s.open = false; }); return; }
+  const premiere = sections.find(s => s.dataset.repliee === undefined) ?? sections[0];
+  if (premiere) premiere.open = true;
 }
 
 /** La poignee de repli, a droite de l'en-tete ; repliee, la zone ne montre qu'elle. */
@@ -369,8 +389,22 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   useEffect(() => {
     if (prefPrecedente.current === replier) return;
     prefPrecedente.current = replier;
-    panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection').forEach((d) => { d.open = !replier && d.dataset.repliee === undefined; });
+    const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+    const premiere = sections.find(d => d.dataset.repliee === undefined);
+    sections.forEach((d) => { d.open = !replier && d === premiere; });
   }, [replier]);
+  // Passer a un objet qui n'a pas la section laissee ouverte (une terrasse, puis un batiment) : sa
+  // premiere section s'ouvre, plutot qu'une colonne de titres tous replies.
+  const cle = inspecteur.objet()?.key ?? null;
+  const clePrecedente = useRef(cle);
+  useLayoutEffect(() => {
+    if (clePrecedente.current === cle) return;
+    clePrecedente.current = cle;
+    const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+    if (replier || sections.some(d => d.open)) return;
+    const premiere = sections.find(d => d.dataset.repliee === undefined);
+    if (premiere) premiere.open = true;
+  }, [cle, replier]);
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
@@ -417,7 +451,8 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
     </div>
   );
-  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} replier={replier} />);
+  const ouverteParDefaut = replier ? null : premiereOuverte(sections, c);
+  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === ouverteParDefaut} />);
   const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
   // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.
   const active = presentes.includes(famille) ? famille : (presentes[0] ?? 'objet');
@@ -429,9 +464,9 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   // pastilles de saut changent.
   const entete = compact
     ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={aLaFrancaise(inspecteur.titre(c))}
-        actions={<button type="button" className="boutonIcone" id="attrTitle" data-controle="inspecteur.replierSections" aria-label="Replier ou déplier toutes les sections" title="Replier ou déplier toutes les sections" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
+        actions={<button type="button" className="boutonIcone" id="attrTitle" data-controle="inspecteur.replierSections" aria-label="Replier la section ouverte, ou ouvrir la première" title="Replier la section ouverte, ou ouvrir la première" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
     : <div className="inspecteurEntete">
-        <span className="inspecteurTitre" id="attrTitle" data-controle="inspecteur.replierSections" role="button" tabIndex={0} title="Replier ou déplier toutes les sections"
+        <span className="inspecteurTitre" id="attrTitle" data-controle="inspecteur.replierSections" role="button" tabIndex={0} title="Replier la section ouverte, ou ouvrir la première"
           onClick={basculerSections} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculerSections(e); } }}>
           {tactile ? aLaFrancaise(inspecteur.titre(c)) : inspecteur.titre(c)}
         </span>

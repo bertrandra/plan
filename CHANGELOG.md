@@ -65,6 +65,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Inspecteur : une seule section ouverte à la fois** (`zones/Inspecteur.tsx`). Ouvrir une section
+  replie les autres ; à l'ouverture, seule la première est dépliée (aucune avec la préférence
+  « Sections de l'inspecteur repliées »). Le titre de l'inspecteur replie la section ouverte, ou
+  rouvre la première. Passer d'un objet à l'autre garde la section laissée ouverte, ou ouvre la
+  première de l'objet suivant s'il ne l'a pas.
+
 - **Relief et courbes de niveau séparés** (`MD/spec-relief.md` §8). Le menu Affichage a maintenant
   deux entrées, « Relief » (le sol en relief de la Vue 3D) et « Courbes de niveau » (sur le plan), au
   lieu d'une bascule unique. La section « Relief » de l'inspecteur les présente dans le même ordre ;
