@@ -574,7 +574,7 @@ function corpsDeReprise(m: ToitMesure, contour: readonly PtBrut[], grille: Grill
   const rects = rectanglesEnTranches(contourEquerre(contour) ?? contour);
   if (!rects) return corpsSurBoite(m, contour, grille);
   const corps = rects.map((r) => corpsDepuisFormes(grille ?? m, r) ?? corpsAvecPignons(m, r, contour)).filter((c): c is CorpsToit => c !== null);
-  return corps.length ? completerSurContour(corps, contour) : null;
+  return corps.length ? completerSurContour(corps, contour, grille ?? m) : null;
 }
 
 /**
@@ -602,6 +602,21 @@ function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille
 
 /** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
 const PAS_COMPLETION_M = 0.25, COMPLETION_MAX_M = 8;
+/**
+ * La part de la bande devant un cote qui doit etre du contour sans toit pour que le corps avance : un
+ * triangle laisse par une marche, pas la lisiere de quelques centimetres qu'une aile un peu de biais
+ * laisse le long de son voisin - suivie sur 5 m, elle elargissait une aile de 5 m a 10 m, au-dessus
+ * de la cour, l'egout descendu a -1,3 m (Hucqueliers).
+ */
+const PART_COMPLETION_MIN = 0.1;
+/** En travers, un corps n'avance pas au-dela du point ou un egout tomberait sous cette hauteur. */
+const EGOUT_ETENDU_MIN_M = 2;
+/**
+ * Ni sur une partie basse : la ou la mesure tombe a plus de cette hauteur sous son egout le plus bas,
+ * le contour est un autre toit (un appentis, une annexe), pas un bout du sien. Le toit a 8,6 m d'une
+ * maison couvrait sinon l'annexe a 3 m qui la prolonge (Hucqueliers).
+ */
+const SOUS_EGOUT_ETENDU_M = 1;
 
 /** Un cote d'un rectangle dans son repere : s = 0, s = L, t = 0, t = W. */
 type Cote = 's0' | 'sL' | 't0' | 'tW';
@@ -613,17 +628,17 @@ type Cote = 's0' | 'sL' | 't0' | 'tW';
  * pour moitie) tant que la bande juste devant contient du contour que nul autre corps ne couvre ; il
  * garde sa forme et ses pentes (`corpsEtendu`). Le dessin decoupe ensuite les toits sur le contour.
  */
-export function completerSurContour(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+export function completerSurContour(corps: readonly CorpsToit[], contour: readonly PtBrut[], g: Grille | null = null): CorpsToit[] {
   // Les plus hauts d'abord, chacun voyant les corps deja etendus : un bout de maison revient au toit
   // qui le domine, pas a la terrasse plate d'a cote.
   const out = [...corps];
   const ordre = out.map((_, k) => k).sort((a, b) => (out[b] as CorpsToit).faitage - (out[a] as CorpsToit).faitage);
-  for (const k of ordre) out[k] = etendreSurContour(out[k] as CorpsToit, out.filter((_, j) => j !== k).map((x) => x.pts), contour);
+  for (const k of ordre) out[k] = etendreSurContour(out[k] as CorpsToit, out.filter((_, j) => j !== k).map((x) => x.pts), contour, g);
   return out;
 }
 
 /** Un corps etendu sur le contour que les `autres` ne couvrent pas (`completerSurContour`). */
-function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: readonly PtBrut[]): CorpsToit {
+function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: readonly PtBrut[], g: Grille | null): CorpsToit {
   const r = repere(c.pts);
   const b: Record<Cote, number> = { s0: 0, sL: r.L, t0: 0, tW: r.W };
   // Les points d'une bande parallele au cote, a la position `v` de son axe, sur toute la longueur de l'autre.
@@ -634,14 +649,18 @@ function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: r
     return out;
   };
   const ailleurs = (q: PtBrut) => autres.some((a) => pointInPolygon(q, a));
+  const bas = Math.min(...c.egouts) - SOUS_EGOUT_ETENDU_M;
+  const aSaHauteur = (q: PtBrut) => { const z = g ? hauteurGrille(g, q) : null; return z === null || z >= bas; };
   for (const cote of ['s0', 'sL', 't0', 'tW'] as const) {
     const signe = cote === 's0' || cote === 't0' ? -1 : 1;
     const devant = bande(cote, b[cote] + signe * 0.3);
     if (devant.filter(ailleurs).length > devant.length / 2) continue;
     for (let d = PAS_COMPLETION_M; d <= COMPLETION_MAX_M + 1e-6; d += PAS_COMPLETION_M) {
       const pts = bande(cote, b[cote] + (signe * PAS_COMPLETION_M) / 2);
-      if (!pts.some((q) => pointInPolygon(q, contour) && !ailleurs(q))) break;
-      b[cote] += signe * PAS_COMPLETION_M;
+      if (pts.filter((q) => pointInPolygon(q, contour) && !ailleurs(q) && aSaHauteur(q)).length < Math.max(1, PART_COMPLETION_MIN * pts.length)) break;
+      const essai = { ...b, [cote]: b[cote] + signe * PAS_COMPLETION_M };
+      if ((cote === 't0' || cote === 'tW') && Math.min(...corpsEtendu(c, essai).egouts) < EGOUT_ETENDU_MIN_M) break;
+      b[cote] = essai[cote];
     }
   }
   return corpsEtendu(c, b);

@@ -34,6 +34,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un toit complété sur le contour ne déborde plus sur la cour ni sur une annexe** (`facade/toitCorps.ts`,
+  village d'Hucqueliers) : un toit n'avance que sur une bande de bâtiment vraiment sans toit (10 % au
+  moins), pas sur la lisière qu'une aile de biais laisse le long de sa voisine, suivie jusque-là sur 5 m
+  avec un égout à −1,3 m ; il s'arrête avant qu'un égout ne passe sous 2 m, et ne couvre pas une partie
+  mesurée à plus d'un mètre sous son égout (l'annexe basse d'une maison garde son appentis). AE 101 est
+  inchangé.
+
 - **Les toits de Provence** (`MD/spec-toit-ign.md` §13.7). Revue de trois quartiers : le centre ancien
   de Gordes, une entrée de ville de Saint-Rémy-de-Provence et un quartier d'Aix-en-Provence. Les
   maisons de village aux angles non droits, qui ne se découpent pas en rectangles, reçoivent un toit
