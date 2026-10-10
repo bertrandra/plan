@@ -59,7 +59,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'affichage.relief': 'Montre ou cache le sol en relief dans la 3D',
   'affichage.courbes': 'Montre ou cache les courbes de niveau sur le plan',
   'affichage.nord': 'Montre ou cache la flèche du Nord sur le plan',
-  'affichage.sectionsRepliees': 'Ouvre les sections de l’inspecteur repliées, titres seuls (les étapes d’une terrasse ou d’une piscine), ou dépliées ; le réglage reste dans ce navigateur',
+  'affichage.sectionsRepliees': 'Ouvre l’inspecteur sur les titres seuls de ses sections (les étapes d’une terrasse ou d’une piscine), ou sur la première dépliée ; une seule section est ouverte à la fois, et le réglage reste dans ce navigateur',
   'affichage.voisinage': 'Montre ou cache les objets importés des parcelles voisines, sans les supprimer',
   'affichage.orthophoto': 'Pose la photo aérienne de l’IGN sous le plan, ou la retire',
   'affichage.orthoOpacite': 'Règle l’opacité de la photo aérienne',
