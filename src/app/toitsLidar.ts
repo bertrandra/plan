@@ -9,10 +9,12 @@
 import { ajusterToit, type EchantillonHauteur } from '../facade/toitLidar.js';
 import { lireHauteursSous, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../geo/mnh.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
+import { longueurFrontiere } from '../geometry/proximite.js';
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
 import { reconstruireCorps } from '../facade/toitCorps.js';
+import { surParcelleDuProjet } from '../model/fonctions.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
 import type { CorpsToit, PtBrut, Toit, ToitMesure, VolumeToit } from '../model/types.js';
@@ -34,9 +36,35 @@ export interface ObjetAToit {
   corpsToit?: CorpsToit[] | null;
 }
 
-/** Un batiment de la parcelle du projet : le seul dont le toit se mesure corps par corps. */
-export function surParcellePrincipale(o: ObjetAToit): boolean {
-  return (o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true;
+/** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
+export const surParcellePrincipale = (o: ObjetAToit): boolean => surParcelleDuProjet(o);
+
+/** Une parcelle est mitoyenne quand elle partage au moins cela de limite avec celle du projet, a 50 cm pres. */
+export const FRONTIERE_MITOYENNE_M = 1;
+
+/**
+ * Les batiments des parcelles mitoyennes de celle du projet : ceux qu'on voit de pres depuis le
+ * jardin, et qui recoivent le meme calcul que la maison du projet (toit mesure, coupe par le
+ * modele) ; le reste du voisinage a la version allegee.
+ */
+export function batimentsMitoyens(objets: readonly ObjetAToit[]): Set<ObjetAToit> {
+  const projet = objets.find((o) => o.key === 'parcelle');
+  const out = new Set<ObjetAToit>();
+  if (!projet?.pts || projet.pts.length < 3) return out;
+  const mitoyennes = objets.filter((o) => o !== projet && o.fonction === 'terrain' && Array.isArray(o.pts) && o.pts.length >= 3
+    && longueurFrontiere(o.pts, projet.pts as PtBrut[], 0.5) >= FRONTIERE_MITOYENNE_M);
+  for (const b of objets) {
+    if (b.fonction !== 'batiment' || !b.pts || b.pts.length < 3 || surParcellePrincipale(b)) continue;
+    const c = centroid(b.pts);
+    if (mitoyennes.some((m) => pointInPolygon(c, m.pts as PtBrut[]))) out.add(b);
+  }
+  return out;
+}
+
+/** Les maisons voisines recoivent-elles leurs corps et pignons ? Le reglage de la parcelle du projet, oui par defaut. */
+function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
+  const parcelle = objets.find((o) => o.key === 'parcelle') as { voisinage3d?: { toits?: { corps?: unknown } } } | undefined;
+  return parcelle?.voisinage3d?.toits?.corps !== false;
 }
 
 /** Ce que la lecture a fait, pour le bilan. */
@@ -45,6 +73,8 @@ export interface BilanToitsLidar {
   ajustes: number;
   /** Toits de la parcelle du projet gardes tels que mesures, en surface (MD/spec-toit-ign.md §12). */
   mesures: number;
+  /** Maisons voisines dont les corps et pignons ont ete reconstruits (§13.6). */
+  corpsVoisins: number;
   /** Batiments lus dont aucune forme simple n'explique les mesures : toit BD TOPO garde. */
   gardes: number;
   /** Pas de dalle LiDAR HD ici : rien n'a ete lu. */
@@ -115,8 +145,8 @@ export function volumesDepuisLidar(pts: readonly PtBrut[], ech: readonly Echanti
 }
 
 /** Ce qu'on lit sous un batiment : les mesures de l'ajustement et, sur la parcelle du projet, la grille entiere. */
-async function lireSous(o: ObjetAToit & { pts: PtBrut[] }, proj: ProjecteurLocal, lire: LecteurMnh, lireGrille: LecteurGrilleMnh | null): Promise<{ ech: EchantillonHauteur[]; grille: GrilleRelief | null }> {
-  if (surParcellePrincipale(o) && lireGrille) {
+async function lireSous(o: ObjetAToit & { pts: PtBrut[] }, proj: ProjecteurLocal, lire: LecteurMnh, lireGrille: LecteurGrilleMnh | null, voisins: boolean): Promise<{ ech: EchantillonHauteur[]; grille: GrilleRelief | null }> {
+  if ((surParcellePrincipale(o) || voisins) && lireGrille) {
     const grille = await lireGrille(o.pts, proj).catch(() => null);
     if (grille) return { ech: echantillonsDeGrille(grille, o.pts), grille };
   }
@@ -136,7 +166,7 @@ function centreDuProjet(objets: readonly ObjetAToit[]): PtBrut {
  * Modifie les objets en place. Un service muet ne bloque rien : les toits BD TOPO restent.
  */
 export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: ProjecteurLocal, options: OptionsToitsLidar = {}): Promise<BilanToitsLidar> {
-  const bilan: BilanToitsLidar = { ajustes: 0, mesures: 0, gardes: 0, sansLidar: false };
+  const bilan: BilanToitsLidar = { ajustes: 0, mesures: 0, corpsVoisins: 0, gardes: 0, sansLidar: false };
   const maintenant = options.maintenant ?? Date.now;
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
@@ -154,12 +184,14 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const lire = options.lire ?? lireHauteursSous;
   // Un lecteur de mesures fourni sans lecteur de grille : pas de toit mesure (les tests, un service partiel).
   const lireGrille = options.lireGrille ?? (options.lire ? null : lireGrilleSous);
+  const voisins = corpsDuVoisinage(objets);
+  const mitoyens = voisins ? batimentsMitoyens(objets) : new Set<ObjetAToit>();
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
     while (suivant < candidats.length && maintenant() < fin) {
       const o = candidats[suivant++];
       if (!o) break;
-      const { ech, grille } = await lireSous(o, proj, lire, lireGrille);
+      const { ech, grille } = await lireSous(o, proj, lire, lireGrille, voisins);
       if (!ech.length) continue;
       const ajuste = ajusterToit(o.pts, ech);
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
@@ -168,6 +200,18 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
       // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
       if (principal) { o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? reconstruireCorps(mesure, o.pts) : null; }
+      // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
+      // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
+      // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
+      else if (voisins && grille) {
+        const mesureVoisine = toitMesureDepuisGrille(grille, o.pts);
+        const mitoyen = mitoyens.has(o);
+        o.corpsToit = mesureVoisine ? reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen }) : null;
+        // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
+        // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
+        if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
+        if (o.corpsToit) bilan.corpsVoisins++;
+      }
       if (mesure) bilan.mesures++;
       else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; continue; }
       if (ajuste) {
@@ -188,10 +232,11 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
 /** La phrase du bilan, ou `null` s'il n'y a rien a dire. */
 export function texteBilanToitsLidar(b: BilanToitsLidar): string | null {
   if (b.sansLidar) return null;
-  if (!b.ajustes && !b.gardes && !b.mesures) return null;
+  if (!b.ajustes && !b.gardes && !b.mesures && !b.corpsVoisins) return null;
   const parts = [
     b.ajustes ? b.ajustes + ' toit(s) ajuste(s) sur le LiDAR HD' : '',
     b.mesures ? b.mesures + ' toit(s) de la parcelle garde(s) tel(s) que mesure(s)' : '',
+    b.corpsVoisins ? b.corpsVoisins + ' toit(s) du voisinage en corps et pignons' : '',
     b.gardes ? b.gardes + ' garde(s) tel(s) quel(s) (forme trop complexe)' : '',
   ].filter(Boolean);
   return parts.join(', ');

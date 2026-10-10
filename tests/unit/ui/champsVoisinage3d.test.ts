@@ -33,9 +33,17 @@ describe('section Voisinage (3D)', () => {
   it('par defaut : couleur du plan, une couleur de vitre, les trois plages, la cloture grillage affichee', () => {
     const c = contexte(parcelle());
     const s = sectionVoisinage3d(c);
-    expect(cles(s, c)).toEqual(['maisonsMode', 'fenetresMode', 'fenetresCouleur', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureAfficher', 'clotureType', 'clotureCouleur', 'ruesAfficher']);
+    expect(cles(s, c)).toEqual(['maisonsMode', 'toitsCorps', 'fenetresMode', 'fenetresCouleur', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureAfficher', 'clotureType', 'clotureCouleur', 'ruesAfficher']);
     expect(champ<ChampChoix>(s, 'maisonsMode').lire(c)).toBe('plan');
     expect(champ<ChampChoix>(s, 'clotureType').lire(c)).toBe('grillage');
+    // Les toits du voisinage en corps et pignons : oui par defaut, a lire a l'actualisation tant qu'aucun ne l'est.
+    const toits = champ<Champ & { type: 'case'; lire: (c: ContexteChamps) => boolean; ecrire: (c: ContexteChamps, v: boolean) => void }>(s, 'toitsCorps');
+    expect(toits.lire(c)).toBe(true);
+    expect(toits.note!(c)).toBe('lus à la prochaine actualisation IGN');
+    toits.ecrire(c, false);
+    expect(voisinage3dDe(c.obj).toits.corps).toBe(false);
+    expect(toits.note!(c)).toBe('');
+    toits.ecrire(c, true);
     champ<ChampChoix>(s, 'maisonsMode').ecrire(c, 'nuance');
     expect(cles(sectionVoisinage3d(c), c)).toEqual(expect.arrayContaining(['maisonsNombre', 'maisonsCouleur', 'maisonsCouleur2']));
     expect(cles(sectionVoisinage3d(c), c)).not.toContain('maisonsCouleur3');
