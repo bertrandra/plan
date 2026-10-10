@@ -41,12 +41,15 @@ export interface ContexteRendu extends ContexteOrtho {
   renderReleves?: () => void;
   /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, au-dessus de la grille. */
   dessinerRelief?: () => void;
+  /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
+  dessinerRues?: () => void;
 }
 
 export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   placerOrthophoto(ctx);
   ctx.drawGrid();
   ctx.dessinerRelief?.();
+  ctx.dessinerRues?.();
   ctx.renderParasolOverlay();
   const activeSel = etat.selectedKey;
   if(activeSel && activeSel !== 'parcelle'){
