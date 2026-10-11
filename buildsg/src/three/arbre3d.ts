@@ -1,4 +1,5 @@
-// Un arbre en 3D (MD/spec-arbres-3d.md) : un tronc, des branches, un houppier en lobes.
+// Un arbre en 3D (MD/spec-arbres-3d.md) : un tronc et un houppier, dans l'un des cinq dessins
+// (three/houppiers3d.ts) choisis pour tous les arbres du plan ; ci-dessous, le dessin en lobes.
 //
 // Le plan donne le tronc (son cercle, sa hauteur) et le houppier vient de model/arbre.ts : des
 // ellipsoides qui se chevauchent, selon le port de l'arbre, tires de sa cle. Ici, chaque lobe
@@ -11,11 +12,12 @@
 // Rien n'est charge : pas d'image, pas de modele. L'export GLB emporte l'arbre tel qu'il est vu.
 
 import type * as THREE_NS from 'three';
-import { arbreNu, essenceDe, houppierDe, portDe, feuillesDuHouppier, tonDuSommet, COULEUR_FEUILLAGE_DEFAUT, COULEUR_TRONC_DEFAUT, type EssenceArbre } from '../model/arbre.js';
+import { arbreNu, essenceDe, houppierDe, portDe, diametreDe, feuillesDuHouppier, COULEUR_FEUILLAGE_DEFAUT, COULEUR_TRONC_DEFAUT, STYLE_ARBRE_DEFAUT, type EssenceArbre, type StyleArbre } from '../model/arbre.js';
+import { lobesOrigine, lobesDome, touffes, volumesTailles, volumeArchitecte } from './houppiers3d.js';
 import { ajouterFeuilles } from './feuilles.js';
 
 export { tonDuSommet, TON_CLAIR, TON_SOMBRE } from '../model/arbre.js';
-import { graineDe, tirage } from '../model/voisinage3d.js';
+import { graineDe } from '../model/voisinage3d.js';
 import { appliquerOpacite, urlTexture, type VersLocal } from './primitives.js';
 import type { ObjetPlan } from '../model/types.js';
 
@@ -26,6 +28,8 @@ export const NOM_FEUILLAGE = 'arbre-feuillage';
 export const NOM_LOBE = 'arbre-lobe';
 /** Amplitude du bruit radial des lobes, en part du rayon. */
 export const BRUIT_LOBE = 0.07;
+/** Le tronc gris-brun d'un arbre de maquette (dessin E). */
+export const COULEUR_TRONC_MAQUETTE = '#8a7a64';
 export interface ContexteArbre {
   /** La scene, ou un groupe pose sur le sol en relief. */
   scene: THREE_NS.Object3D;
@@ -35,31 +39,14 @@ export interface ContexteArbre {
   /** La date de l'etude d'ensoleillement (AAAA-MM-JJ) : un caduc y est nu de novembre a mars. */
   dateStr: string | null;
   opacite?: number | undefined;
+  /** Le dessin des arbres du plan (model/arbre.ts::styleDesArbres) ; absent : le dome (STYLE_ARBRE_DEFAUT). */
+  style?: StyleArbre;
 }
 
 function rgb(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   const n = m?.[1] ? parseInt(m[1], 16) : 0x4a7c3a;
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
-
-/** Deforme une sphere unite par un bruit radial reproductible et la colore en deux tons. */
-function habillerLobe(geo: THREE_NS.BufferGeometry, base: [number, number, number], graine: number): void {
-  const pos = geo.attributes.position as THREE_NS.BufferAttribute;
-  const nor = geo.attributes.normal as THREE_NS.BufferAttribute;
-  const alea = tirage(graine);
-  const p = pos.array as Float32Array;
-  const n = nor.array as Float32Array;
-  const couleurs: number[] = [];
-  for (let i = 0; i < p.length; i += 3) {
-    const k = 1 + (alea() * 2 - 1) * BRUIT_LOBE;
-    p[i] = (p[i] ?? 0) * k;
-    p[i + 1] = (p[i + 1] ?? 0) * k;
-    p[i + 2] = (p[i + 2] ?? 0) * k;
-    couleurs.push(...tonDuSommet(base, n[i + 1] ?? 0));
-  }
-  pos.needsUpdate = true;
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(couleurs, 3));
 }
 
 /** Oriente un cylindre vertical (axe y) le long de `d` (unitaire). */
@@ -73,10 +60,20 @@ function orienterSelon(mesh: THREE_NS.Object3D, d: { x: number; y: number; z: nu
 }
 
 /**
+ * Le tronc des dessins B a E, a l'echelle du houppier : 9 % de son diametre en rayon (5 % pour une
+ * maquette), jamais plus que le cercle du plan, qui est le tronc (sauf pour un arbre estime, ou il
+ * est le houppier). Moitie moins epais, il paraissait trop fin a cote du houppier.
+ */
+const rayonTroncFin = (rayonTronc: number, diametre: number, style: StyleArbre) =>
+  Math.max(0.05, Math.min(rayonTronc, diametre * (style === 'architecte' ? 0.05 : 0.09)));
+
+/**
  * Pose un arbre : le tronc de `hTronc` metres et de `rayonTronc` metres au pied, puis le houppier
- * au-dessus. Rend le groupe, nomme `arbre`, qui porte l'essence dans `userData` pour la saison.
+ * au-dessus, dans le dessin `ctx.style` (le meme pour tous les arbres du plan). Rend le groupe, nomme
+ * `arbre`, qui porte l'essence dans `userData` pour la saison.
  */
 export function ajouterArbre3d(ctx: ContexteArbre, o: ObjetPlan, hTronc: number, rayonTronc: number): THREE_NS.Group {
+  const style: StyleArbre = ctx.style ?? STYLE_ARBRE_DEFAUT;
   const centre = o.type === 'circle' ? o.center : { x: 0, y: 0 };
   const pl = ctx.toLocal(centre);
   const groupe = new THREE.Group();
@@ -84,25 +81,33 @@ export function ajouterArbre3d(ctx: ContexteArbre, o: ObjetPlan, hTronc: number,
   groupe.position.set(pl.x, 0, pl.z);
   const essence: EssenceArbre = essenceDe(o);
   groupe.userData.essence = essence;
+  groupe.userData.style = style;
   const graine = graineDe(o.key);
-  const h = houppierDe(o);
-  const rt = Math.max(0.04, rayonTronc);
+  const port = portDe(o), diametre = diametreDe(o);
+  const h = houppierDe(o, style === 'dome' || style === 'taille');
+  const origine = style === 'actuel';
 
-  const matBois = new THREE.MeshStandardMaterial({ color: COULEUR_TRONC_DEFAUT, roughness: 0.95 });
+  const matBois = new THREE.MeshStandardMaterial({ color: style === 'architecte' ? COULEUR_TRONC_MAQUETTE : COULEUR_TRONC_DEFAUT, roughness: 0.95 });
   appliquerOpacite(matBois, ctx.opacite);
-  const tronc = new THREE.Mesh(new THREE.CylinderGeometry(rt * 0.7, rt, Math.max(0.05, hTronc), 10), matBois);
+  const rt = origine ? Math.max(0.04, rayonTronc) : rayonTroncFin(rayonTronc, diametre, style);
+  // Le tronc d'une maquette entre dans le houppier : sans feuilles autour, il ne s'arrete pas net dessous.
+  const hFut = Math.max(0.05, hTronc + (style === 'architecte' ? h.hauteur * 0.3 : 0));
+  const tronc = new THREE.Mesh(new THREE.CylinderGeometry(rt * (origine ? 0.7 : 0.55), rt, hFut, 10), matBois);
   tronc.name = NOM_TRONC;
-  tronc.position.set(0, hTronc / 2, 0);
+  tronc.position.set(0, hFut / 2, 0);
   groupe.add(tronc);
-  for (const b of h.branches) {
-    const dx = b.a.x - b.de.x, dy = b.a.y - b.de.y, dz = b.a.z - b.de.z;
-    const l = Math.hypot(dx, dy, dz);
-    if (l < 0.05) continue;
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(b.rayon * 0.6, b.rayon, l, 6), matBois);
-    m.name = NOM_BRANCHE;
-    m.position.set((b.de.x + b.a.x) / 2, hTronc + (b.de.y + b.a.y) / 2, (b.de.z + b.a.z) / 2);
-    orienterSelon(m, { x: dx / l, y: dy / l, z: dz / l });
-    groupe.add(m);
+  // Les branches vont aux lobes satellites : seuls les dessins en lobes (A, B) en ont.
+  if (style === 'actuel' || style === 'dome') {
+    for (const b of h.branches) {
+      const dx = b.a.x - b.de.x, dy = b.a.y - b.de.y, dz = b.a.z - b.de.z;
+      const l = Math.hypot(dx, dy, dz);
+      if (l < 0.05) continue;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(b.rayon * (origine ? 0.6 : 0.35), b.rayon, l, 6), matBois);
+      m.name = NOM_BRANCHE;
+      m.position.set((b.de.x + b.a.x) / 2, hTronc + (b.de.y + b.a.y) / 2, (b.de.z + b.a.z) / 2);
+      orienterSelon(m, { x: dx / l, y: dy / l, z: dz / l });
+      groupe.add(m);
+    }
   }
 
   const feuillage = new THREE.Group();
@@ -110,34 +115,18 @@ export function ajouterArbre3d(ctx: ContexteArbre, o: ObjetPlan, hTronc: number,
   feuillage.position.set(0, hTronc, 0);
   feuillage.visible = !arbreNu(essence, ctx.dateStr);
   const base = rgb(o.couleurArbre || COULEUR_FEUILLAGE_DEFAUT);
-  const matFeuille = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.85 });
+  const matFeuille = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: style === 'architecte' ? 0.95 : 0.85, ...(style === 'taille' ? { flatShading: true } : {}) });
   appliquerOpacite(matFeuille, ctx.opacite);
   const url = ctx.textures ? urlTexture(o.textureArbre) : undefined;
   if (url && ctx.chargerTexture) matFeuille.map = ctx.chargerTexture(url);
-  if (portDe(o) === 'conique') {
-    const lobe = h.lobes[0];
-    if (lobe) {
-      const geo = new THREE.ConeGeometry(lobe.rx, lobe.ry * 2, 16, 1);
-      habillerLobe(geo, base, graine);
-      const cone = new THREE.Mesh(geo, matFeuille);
-      cone.name = NOM_LOBE;
-      cone.position.set(0, lobe.y, 0);
-      feuillage.add(cone);
-    }
-  } else {
-    h.lobes.forEach((lobe, i) => {
-      const geo = new THREE.SphereGeometry(1, 14, 10);
-      habillerLobe(geo, base, graine + i * 7919);
-      const m = new THREE.Mesh(geo, matFeuille);
-      m.name = NOM_LOBE;
-      m.position.set(lobe.x, lobe.y, lobe.z);
-      m.scale.set(lobe.rx, lobe.ry, lobe.rz);
-      feuillage.add(m);
-    });
-  }
-  // De pres, des feuilles sur la surface des lobes (three/feuilles.ts) ; dans le feuillage, elles
-  // tombent avec lui en hiver.
-  ajouterFeuilles(feuillage, feuillesDuHouppier(h, portDe(o), graine), base);
+  if (style === 'actuel') lobesOrigine(feuillage, h, port, base, graine, matFeuille, NOM_LOBE, BRUIT_LOBE);
+  else if (style === 'dome') lobesDome(feuillage, h, port, base, graine, matFeuille, NOM_LOBE);
+  else if (style === 'touffes') touffes(feuillage, port, diametre, base, graine, matFeuille, NOM_LOBE);
+  else if (style === 'taille') volumesTailles(feuillage, h, port, base, graine, matFeuille, NOM_LOBE);
+  else volumeArchitecte(feuillage, h, port, diametre, base, graine, matFeuille, NOM_LOBE);
+  // De pres, des feuilles sur la surface des lobes (three/feuilles.ts) : seulement pour les dessins
+  // en lobes, ou elles se posent. Dans le feuillage, elles tombent avec lui en hiver.
+  if (style === 'actuel' || style === 'dome') ajouterFeuilles(feuillage, feuillesDuHouppier(h, port, graine), base);
   groupe.add(feuillage);
   ctx.scene.add(groupe);
   return groupe;

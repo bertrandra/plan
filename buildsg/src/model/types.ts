@@ -249,6 +249,8 @@ interface ObjetCommun {
   /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
   portArbre?: 'rond' | 'etale' | 'colonnaire' | 'conique' | 'parasol';
   essenceArbre?: 'caduc' | 'persistant';
+  /** Le dessin des arbres en 3D (model/arbre.ts::StyleArbre), ecrit sur tous les arbres a la fois. Absent : celui des autres, sinon le dome. */
+  styleArbre?: 'actuel' | 'dome' | 'touffes' | 'taille' | 'architecte';
   /**
    * Releves de facade d'un batiment : un par mur photographie, rattache au cote du contour qui le
    * porte (`MD/spec-releve-facade.md`). Absent tant que rien n'a ete releve - le fichier de projet

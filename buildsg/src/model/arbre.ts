@@ -19,6 +19,18 @@ export const ESSENCES: readonly EssenceArbre[] = ['caduc', 'persistant'];
 export const LIBELLES_PORT: Record<PortArbre, string> = { rond: 'Rond (chêne, érable)', etale: 'Étalé (platane, cerisier)', colonnaire: 'Colonnaire (cyprès, peuplier)', conique: 'Conique (sapin, épicéa)', parasol: 'Parasol (pin, olivier)' };
 export const LIBELLES_ESSENCE: Record<EssenceArbre, string> = { caduc: 'Caduc (nu de novembre à mars)', persistant: 'Persistant' };
 
+/**
+ * Le dessin des arbres en 3D, le meme pour tous les arbres du plan (une maquette, pas un arbre a la
+ * fois) : A, les lobes d'origine ; B, les memes sans toupet, par defaut ; C, des touffes ; D, des
+ * volumes a facettes ; E, un volume lisse et uni, celui des maquettes d'architecte.
+ */
+export type StyleArbre = 'actuel' | 'dome' | 'touffes' | 'taille' | 'architecte';
+export const STYLES_ARBRE: readonly StyleArbre[] = ['actuel', 'dome', 'touffes', 'taille', 'architecte'];
+export const LIBELLES_STYLE_ARBRE: Record<StyleArbre, string> = {
+  actuel: 'A — Lobes', dome: 'B — Dôme', touffes: 'C — Touffes', taille: 'D — Taillé', architecte: 'E — Maquette d’architecte'
+};
+export const STYLE_ARBRE_DEFAUT: StyleArbre = 'dome';
+
 export const PORT_DEFAUT: PortArbre = 'rond';
 export const ESSENCE_DEFAUT: EssenceArbre = 'caduc';
 export const DIAMETRE_DEFAUT_M = 3;
@@ -30,6 +42,19 @@ export function portDe(o: Pick<ObjetPlan, 'portArbre'>): PortArbre {
 }
 export function essenceDe(o: Pick<ObjetPlan, 'essenceArbre'>): EssenceArbre {
   return o.essenceArbre && (ESSENCES as readonly string[]).includes(o.essenceArbre) ? o.essenceArbre : ESSENCE_DEFAUT;
+}
+
+export function styleArbreDe(o: Pick<ObjetPlan, 'styleArbre'>): StyleArbre | null {
+  return o.styleArbre && (STYLES_ARBRE as readonly string[]).includes(o.styleArbre) ? o.styleArbre : null;
+}
+
+/**
+ * Le dessin des arbres du plan : celui qu'ils portent (le choix s'ecrit sur tous a la fois), sinon le
+ * defaut. Un arbre ajoute apres le choix, qui ne le porte pas encore, suit donc les autres.
+ */
+export function styleDesArbres(objets: readonly Pick<ObjetPlan, 'styleArbre'>[]): StyleArbre {
+  for (const o of objets) { const s = styleArbreDe(o); if (s) return s; }
+  return STYLE_ARBRE_DEFAUT;
 }
 
 /** Un caduc est nu de novembre a mars ; une date illisible laisse l'arbre en feuilles. */
@@ -75,7 +100,7 @@ const PROPORTIONS: Record<PortArbre, { hauteur: number; lobes: number; etalement
  * satellites, repartis autour et en hauteur, enfonces dans le central. Les branches partent du
  * sommet du tronc vers les lobes satellites.
  */
-export function houppier(port: PortArbre, diametre: number, graine: number): Houppier {
+export function houppier(port: PortArbre, diametre: number, graine: number, sansToupet = false): Houppier {
   const p = PROPORTIONS[port];
   const r = Math.max(0.05, diametre / 2);
   const hauteur = diametre * p.hauteur;
@@ -97,18 +122,47 @@ export function houppier(port: PortArbre, diametre: number, graine: number): Hou
     const dist = Math.max(0, Math.min(r * p.etalement * (0.8 + alea() * 0.4), r - rayon));
     // Les satellites s'etagent sur la hauteur ; un port etale ou parasol les garde en couronne.
     const t = port === 'etale' || port === 'parasol' ? 0.55 + alea() * 0.3 : 0.25 + (i / Math.max(1, n - 1)) * 0.6 + alea() * 0.12;
-    const y = hauteur * t;
+    let y = hauteur * t;
     const ry = rayon * p.aplatissement;
+    if (sansToupet) y = sousLeHouppier(port, y, ry, rayon, Math.cos(angle) * dist, Math.sin(angle) * dist, rc, hauteur);
     lobes.push({ x: Math.cos(angle) * dist, y, z: Math.sin(angle) * dist, rx: rayon, ry, rz: rayon });
     branches.push({ de: { x: 0, y: -0.05, z: 0 }, a: { x: Math.cos(angle) * dist * 0.9, y: y - ry * 0.3, z: Math.sin(angle) * dist * 0.9 }, rayon: Math.max(0.03, r * 0.035) });
   }
   return { lobes, branches, hauteur };
 }
 
+/**
+ * La hauteur d'un satellite qui ne depasse pas du houppier (le dessin « Dome ») : sous le haut d'une
+ * couronne plate (etale, parasol) ; ailleurs, son sommet et ses epaules dans le lobe central un peu
+ * grossi, sans quoi il descend par pas de 5 % de la hauteur. Le dernier satellite d'un houppier rond
+ * depassait d'un demi-rayon : un toupet.
+ */
+function sousLeHouppier(port: PortArbre, y0: number, ry: number, rayon: number, cx: number, cz: number, rc: number, hauteur: number): number {
+  if (port === 'etale' || port === 'parasol') return Math.min(y0, hauteur - ry);
+  const a2 = rc * 1.12, b2 = (hauteur / 2) * 1.04;
+  const dans = (x: number, yy: number, z: number) => (x / a2) ** 2 + ((yy - hauteur / 2) / b2) ** 2 + (z / a2) ** 2 <= 1;
+  const dedans = (yy: number) => dans(cx, yy + ry, cz) && [0, 1, 2, 3, 4, 5].every((k) => {
+    const a = (k / 6) * Math.PI * 2;
+    return dans(cx + Math.cos(a) * rayon * 0.7, yy + ry * 0.7, cz + Math.sin(a) * rayon * 0.7);
+  });
+  let y = y0;
+  for (let k = 0; k < 20 && !dedans(y); k++) y -= hauteur * 0.05;
+  return y;
+}
+
 /** Le houppier d'un objet du plan, tire de sa cle. */
-export function houppierDe(o: Pick<ObjetPlan, 'key' | 'portArbre' | 'diametreArbre'>): Houppier {
-  const d = o.diametreArbre !== undefined && o.diametreArbre !== null && o.diametreArbre > 0 ? o.diametreArbre : DIAMETRE_DEFAUT_M;
-  return houppier(portDe(o), d, graineDe(o.key));
+export function houppierDe(o: Pick<ObjetPlan, 'key' | 'portArbre' | 'diametreArbre'>, sansToupet = false): Houppier {
+  return houppier(portDe(o), diametreDe(o), graineDe(o.key), sansToupet);
+}
+
+/** Le diametre du houppier : celui de l'objet, sinon DIAMETRE_DEFAUT_M. */
+export function diametreDe(o: Pick<ObjetPlan, 'diametreArbre'>): number {
+  return o.diametreArbre !== undefined && o.diametreArbre !== null && o.diametreArbre > 0 ? o.diametreArbre : DIAMETRE_DEFAUT_M;
+}
+
+/** La hauteur du houppier d'un port, pour un diametre : celle que donnent ses proportions. */
+export function hauteurHouppier(port: PortArbre, diametre: number): number {
+  return diametre * PROPORTIONS[port].hauteur;
 }
 
 /* ------------------------------------------------------------------------------------------------
