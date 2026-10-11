@@ -129,7 +129,7 @@ Le houppier se dessine de l'une de cinq façons, la même pour tous les arbres d
 | E | Maquette d'architecte | un ellipsoïde lisse, la couleur du feuillage tirée à 55 % vers un vert doux, un tronc fin gris-brun qui entre dans le houppier | 8 800 triangles |
 
 Les branches ne vont qu'aux lobes (A, B) ; les feuilles instanciées ne se posent que sur eux. Les
-dessins B à E ont un tronc fin, à l'échelle du houppier (au plus 4,5 % du diamètre, 2,5 % pour E),
+dessins B à E ont un tronc à l'échelle du houppier (un rayon de 9 % du diamètre, 5 % pour E, jamais plus que le cercle du plan),
 parce que le cercle du plan est parfois le houppier lui-même (arbres estimés : 5 m de diamètre). Un
 conifère reste un cône. Tous gardent le diamètre et la hauteur du houppier : son ombre sur la
 terrasse ne dépend pas du dessin.

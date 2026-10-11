@@ -162,7 +162,7 @@ describe('les cinq dessins du houppier', () => {
     expect(parNom(g, NOM_BRANCHE)).toHaveLength(0);
     expect(feuilles(g)).toHaveLength(0);
     const tronc = parNom(g, NOM_TRONC)[0] as Mesh;
-    expect((tronc.geometry as Cyl).rBas).toBeCloseTo(0.1, 9);
+    expect((tronc.geometry as Cyl).rBas).toBeCloseTo(0.2, 9);
     expect((tronc.geometry as Cyl).hauteur).toBeGreaterThan(2.5);
     expect((tronc.material as unknown as Mat).p.color).toBe(COULEUR_TRONC_MAQUETTE);
     // Le vert du feuillage, tire vers le vert doux des maquettes.

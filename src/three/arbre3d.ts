@@ -59,9 +59,13 @@ function orienterSelon(mesh: THREE_NS.Object3D, d: { x: number; y: number; z: nu
   mesh.quaternion.set(x / l, y / l, z / l, w / l);
 }
 
-/** Le tronc des dessins B a E : fin et effile, a l'echelle du houppier (le cercle du plan est parfois le houppier lui-meme). */
+/**
+ * Le tronc des dessins B a E, a l'echelle du houppier : 9 % de son diametre en rayon (5 % pour une
+ * maquette), jamais plus que le cercle du plan, qui est le tronc (sauf pour un arbre estime, ou il
+ * est le houppier). Moitie moins epais, il paraissait trop fin a cote du houppier.
+ */
 const rayonTroncFin = (rayonTronc: number, diametre: number, style: StyleArbre) =>
-  Math.max(0.05, Math.min(rayonTronc, diametre * (style === 'architecte' ? 0.025 : 0.045)));
+  Math.max(0.05, Math.min(rayonTronc, diametre * (style === 'architecte' ? 0.05 : 0.09)));
 
 /**
  * Pose un arbre : le tronc de `hTronc` metres et de `rayonTronc` metres au pied, puis le houppier

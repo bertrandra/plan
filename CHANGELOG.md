@@ -18,6 +18,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **D — Taillé** : trois à cinq volumes à facettes.
   - **E — Maquette d'architecte** : un seul volume lisse, d'un vert doux tiré de la couleur du
     feuillage, sur un tronc fin.
+  Pour B à E, le tronc est à l'échelle du houppier : un rayon de 9 % de son diamètre (5 % pour la
+  maquette), jamais plus que le cercle dessiné sur le plan.
   L'emprise, la hauteur et l'ombre de l'arbre ne dépendent pas du dessin. C'est une préférence
   d'affichage (ni Ctrl+Z, ni « projet modifié », permise en lecture seule), enregistrée avec le
   projet. Le GLB de la démonstration change de taille, pas de structure (`EMPREINTES.md`).
