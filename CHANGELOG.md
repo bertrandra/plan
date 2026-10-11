@@ -100,6 +100,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **« Impossible de créer le projet : Maximum call stack size exceeded »** avec un grand voisinage
+  et le relief (2 allée des Limites, 490 m). Le maillage secondaire du relief dépassait 120 000
+  points, et la plus petite altitude se cherchait par `Math.min(...valeurs)`, qui passe chaque valeur
+  en argument et fait déborder la pile. Les minimums et maximums des grilles se cherchent maintenant
+  par une boucle (`util/tableaux.ts`, `minimum`, `maximum`), comme le cadrage sur tout le plan.
+
+- **« Utiliser ma position » à l'import** : le champ affichait « Position 48.904964, 2.132627 », que
+  Rechercher ne comprenait pas. L'API Adresse (`api-adresse.data.gouv.fr`), dépréciée depuis le
+  31 janvier 2026, refusait par intermittence le géocodage inverse au navigateur (pas d'en-tête CORS).
+  L'adresse et la recherche passent désormais par le géocodage de la Géoplateforme
+  (`data.geopf.fr/geocodage`), même format. Sans adresse connue, la parcelle se cherche quand même
+  sous le point, et Rechercher comprend les coordonnées précédées d'un mot (« Position … »).
+
 - **Les boutons « Relief » et « Courbes de niveau » sont enregistrés avec le projet**
   (`MD/spec-relief.md` §4). Ils restaient sans effet sur le fichier enregistré : en préférences
   d'affichage pures, ils ne marquaient pas le projet modifié, et le réglage se perdait si rien d'autre

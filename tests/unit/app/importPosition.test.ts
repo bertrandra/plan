@@ -71,6 +71,23 @@ describe('l import depuis la position de l appareil', () => {
     expect(i.etat().principale).not.toBeNull();
   });
 
+  it('sans adresse connue (geocodage inverse en echec) : cherche quand meme la parcelle, et le champ reste comprehensible par Rechercher', async () => {
+    servir();
+    const ctx = { ...contexte(ici(PRECISION_POSITION_MAX_M + 400)), geocoderInverse: vi.fn(async () => { throw new TypeError('CORS'); }) };
+    const i = creerImportCadastre(ctx, vi.fn());
+    // Approximative : les coordonnees a la place de l'adresse, que Rechercher comprend.
+    await i.utiliserMaPosition(true);
+    expect(i.etat().position).toMatchObject({ etat: 'approximative', adresse: '48.900030, 2.150040' });
+    // D'un geste : la parcelle sous le point, malgre l'absence d'adresse.
+    await i.utiliserMaPosition(false);
+    expect(i.etat().position).toMatchObject({ etat: 'trouvee', adresse: 'Position 48.900030, 2.150040' });
+    expect(i.etat().principale).not.toBeNull();
+    // Le texte du champ, mot compris, repasse par Rechercher comme des coordonnees.
+    const j = creerImportCadastre(ctx, vi.fn());
+    await j.rechercher('Position 48.900030, 2.150040');
+    expect(j.etat().geo).toMatchObject({ genre: 'coordonnees', lat: 48.90003, lon: 2.15004 });
+  });
+
   it('refusee : se tait a l ouverture, le dit apres un geste', async () => {
     servir();
     const refus = async (): Promise<PositionGps> => { throw new SansPosition('refusee'); };

@@ -92,6 +92,13 @@ La modale est annulable à tout moment sans effet de bord sur le projet courant.
 
 ## A3. Étape 1 — Géocodage (BAN — `api-adresse.data.gouv.fr`)
 
+> **11 octobre 2026** : l'API Adresse est dépréciée depuis le 31 janvier 2026 (en-têtes
+> `Deprecation`/`Sunset`) au profit du géocodage de la Géoplateforme, même format de réponse.
+> Elle répondait par intermittence sans en-tête CORS, et « Utiliser ma position » n'obtenait plus
+> d'adresse. Le programme interroge désormais `https://data.geopf.fr/geocodage/search` et
+> `…/geocodage/reverse` (`geo/apiIgn.ts`, `BAN_URL`, `BAN_INVERSE_URL`) ; les exemples ci-dessous
+> gardent l'ancienne adresse, les paramètres sont les mêmes.
+
 Service retenu : **Base Adresse Nationale**, un seul point d'entrée pour la recherche et
 l'autocomplétion.
 

@@ -9,6 +9,7 @@
 // `zRef`, l'altitude du sol au point de reference de la terrasse, fixee a la lecture.
 
 import { centroid, pointInPolygon, shoelace } from '../geometry/basic.js';
+import { maximum, minimum } from '../util/tableaux.js';
 import { parcelleDuProjet, terrasseOuPremiere } from './fonctions.js';
 import type { AffichageRelief, GrillePaysage, ObjetPlan, PtBrut, Relief } from './types.js';
 
@@ -81,7 +82,7 @@ export interface Emprise { xMin: number; xMax: number; yMin: number; yMax: numbe
 /** Le rectangle englobant des sommets, elargi de la marge. */
 export function empriseRelief(pts: readonly PtBrut[], marge = MARGE_RELIEF_M): Emprise {
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  return { xMin: Math.min(...xs) - marge, xMax: Math.max(...xs) + marge, yMin: Math.min(...ys) - marge, yMax: Math.max(...ys) + marge };
+  return { xMin: minimum(xs) - marge, xMax: maximum(xs) + marge, yMin: minimum(ys) - marge, yMax: maximum(ys) + marge };
 }
 
 /**
@@ -201,7 +202,7 @@ export function penteParcelle(r: Relief, poly: readonly PtBrut[]): PenteParcelle
   // Le terrain descend a l'oppose du gradient ; l'azimut se compte depuis le nord (+y), sens horaire.
   const azimut = pente < 1e-9 ? 0 : ((Math.atan2(-a, -b) * 180 / Math.PI) + 360) % 360;
   const zs = cells.map(c => c.z);
-  const zMin = Math.min(...zs), zMax = Math.max(...zs);
+  const zMin = minimum(zs), zMax = maximum(zs);
   return { pentePct: pente * 100, azimutDeg: azimut, orientation: texteOrientation(azimut), zMin, zMax, denivele: zMax - zMin, n };
 }
 
@@ -368,7 +369,7 @@ function depuisBase64(s: string): Uint8Array {
 function encoderZ(z: readonly (number | null)[]): string | string[] | null {
   const cm = z.map(v => (v === null ? null : Math.round(v * 100)));
   const valeurs = cm.filter((v): v is number => v !== null);
-  const base = valeurs.length ? Math.min(...valeurs) : 0;
+  const base = valeurs.length ? minimum(valeurs) : 0;
   if (valeurs.some(v => v - base >= SANS_DONNEE_U16)) return null;
   const octets = new Uint8Array(cm.length * 2);
   cm.forEach((v, k) => {

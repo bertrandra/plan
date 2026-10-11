@@ -10,6 +10,7 @@
 // niveau, et ce qui fait que les plots d'aval s'achetent plus grands.
 
 import { centroid, pointInPolygon } from '../geometry/basic.js';
+import { maximum, minimum } from '../util/tableaux.js';
 import { cellulesDansPolygone, reliefDe, zLocal } from '../model/relief.js';
 import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
 
@@ -52,7 +53,7 @@ export function solSousEmprise(sol: Sol | null | undefined, contour: readonly Pt
   const zc = pointInPolygon(centre, contour) ? sol.z(centre) : null;
   if (zc !== null) zs.push(zc);
   if (!zs.length) return null;
-  const zHaut = Math.max(...zs), zBas = Math.min(...zs);
+  const zHaut = maximum(zs), zBas = minimum(zs);
   return { zHaut, zBas, zCentre: zc ?? zHaut };
 }
 
