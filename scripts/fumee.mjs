@@ -92,6 +92,20 @@ async function selectionner(page, pred) {
   }, pred);
   await page.waitForTimeout(200);
 }
+/**
+ * Cadre la parcelle du projet en gardant la selection : les points qui visent deux objets (dalle et
+ * maison, dalle et terrasse) ont besoin des deux a l'ecran, et l'ouverture sur tout le voisinage les
+ * laisse trop petits pour que leurs aretes se distinguent.
+ */
+async function cadrerParcelle(page) {
+  await page.evaluate(() => {
+    const k = window.__plan.etat().selectedKey ?? null;
+    window.__plan.selectionnerCle(null);
+    window.__plan.executer('vue.ajuster');
+    window.__plan.selectionnerCle(k);
+  });
+  await page.waitForTimeout(200);
+}
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
 const proches = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -309,6 +323,7 @@ const POINTS = {
   },
   10: async (page) => {
     await selectionner(page, DALLE);
+    await cadrerParcelle(page);
     const avant = objet(await lireEtat(page), (o) => o.name === 'Dalle beton');
     const maison = objet(await lireEtat(page), (o) => o.name === 'Maison');
     await page.evaluate(() => window.__plan.executer('objet.aligner'));
@@ -333,6 +348,7 @@ const POINTS = {
     return { ok: parallele && Math.abs(s1 - s2) < 1e-6, mesure: `${info.replace(/\s+/g, ' ').slice(0, 60)} ; cible ${t.toFixed(1)}°, côtés ${cotes.map((d) => d.toFixed(1)).join('/')}° ; surface ${s1.toFixed(2)} → ${s2.toFixed(2)} m²` };
   },
   11: async (page) => {
+    await cadrerParcelle(page);
     const avant = (await lireEtat(page)).measures.length;
     const dalle = objet(await lireEtat(page), (o) => o.name === 'Dalle beton');
     const terr = objet(await lireEtat(page), (o) => o.name === 'Terrasse');
