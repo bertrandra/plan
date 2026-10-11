@@ -103,6 +103,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.volumesToit));
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
     if(o.corpsToit) out.corpsToit = JSON.parse(JSON.stringify(o.corpsToit));
+    // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.
+    if(o.toitLidarLu) out.toitLidarLu = o.toitLidarLu;
     if(o.modeToit) out.modeToit = o.modeToit;
     if(o.toitACheval) out.toitACheval = JSON.parse(JSON.stringify(o.toitACheval));
     if(o.couleurMurs) out.couleurMurs = JSON.parse(JSON.stringify(o.couleurMurs));

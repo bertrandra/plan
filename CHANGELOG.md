@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les toits de tout le voisinage, lus sur le LiDAR en tâche de fond** (`app/toitsFond.ts`). À
+  l'import et à l'actualisation, seuls les 30 bâtiments les plus proches (au lieu de 150) sont lus
+  avant que le plan s'ouvre ; les autres le sont ensuite, par lots, du plus proche au plus loin, sans
+  bloquer le plan. Chaque lot se dessine dès qu'il est lu (la Vue 3D ouverte suit au plus toutes les
+  10 s). Chaque bâtiment lu est marqué (`toitLidarLu`, enregistré) : il n'est pas relu à la
+  réouverture, et la lecture reprend où elle s'était arrêtée. Un bâtiment que vous modifiez pendant
+  la lecture n'est pas écrasé. La barre d'état compte « Toits LiDAR : 120 / 2 400 », et
+  Fichier › Suspendre (ou Reprendre) la lecture des toits l'arrête ou la relance. Un service muet
+  l'arrête après trois lots sans réponse. La suite du chantier est dans `MD/roadmap-toits-fond.md`.
+
 - **Choisir le matériau de la couverture** (section Façades et toit, « Matériau »). Automatique, le
   défaut, garde le matériau que Plan déduit des fichiers fonciers, de la couleur et de la pente, et
   le nomme entre parenthèses. Tuile romane, plate ou canal, ardoise ou zinc l'emportent en 3D sur
@@ -150,6 +160,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   la redimensionner, et la scène gagne encore environ 90 px. Le cadre Terrasse (filaire, translucide,
   sol en coupe) ne s'affiche que si une terrasse est sélectionnée. Au doigt, la feuille des réglages
   garde ses thèmes.
+
+- **Voisinage : jusqu'à 10 000 objets par famille** (parcelles, bâtiments…), au lieu de 2 000, les
+  plus proches de la parcelle. La lecture prend au plus le double (20 000 entités par famille) pour
+  garder les plus proches. Un plan aussi lourd s'affiche plus lentement et peut dépasser la taille
+  qu'accepte la plateforme à l'enregistrement : l'avertissement du curseur le dit déjà.
 
 - **Inspecteur : le titre nomme la fonction de l'objet** (« Bâtiment — Maison », pas « Polygone »).
   La ligne « Type » disparaît.

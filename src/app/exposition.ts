@@ -89,6 +89,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
   'projet.actualiser': menu('menuFichier'),
+  'projet.toitsFond': menu('menuFichier'),
   'projet.supprimerVoisinage': menu('menuFichier'),
 
   // ---- Affichage ------------------------------------------------------------------------------

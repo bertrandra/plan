@@ -26,6 +26,9 @@ import { dessinerCourbesRelief } from '../render/relief.js';
 import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
+import { lectureToits } from '../core/lectureToits.js';
+import { creerToitsFond } from './toitsFond.js';
+import { brancherToitsFond } from './ecouteurs/toitsFond.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -126,6 +129,15 @@ function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | nul
 
 /** Ce que `boot()` recoit : le derive de la fonction qui le produit, pas une forme ecrite a part. */
 type GraineDemarrage = Awaited<ReturnType<typeof loadInitialProject>>;
+
+/**
+ * La lecture des toits en tache de fond (app/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
+ * qui montre un plan fige, ni en developpement sur le plan temoin ou sous la fumee et les captures
+ * (`window.__sansToitsFond`) : une lecture qui aboutirait changerait les toits qu'elles mesurent.
+ */
+let toitsFondPermis = true;
+const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env.DEV
+  && (new URLSearchParams(location.search).has('temoin') || !!(window as { __sansToitsFond?: boolean }).__sansToitsFond));
 
 /**
  * Ce qui nait apres l'atelier et que le plan doit pourtant pouvoir appeler : les vues 3D (le
@@ -272,8 +284,23 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   // Apres une actualisation, tout se redessine : le plan, la Vue 3D si elle est ouverte, et la photo
   // aerienne, relue sur l'etendue nouvelle (le voisinage, son relief). Il fallait sinon repasser
   // par le plan ou la 3D pour voir le resultat.
+  // Les toits que l'import ou l'actualisation n'ont pas lus (les trente plus proches seulement), en
+  // tache de fond, par lots (app/toitsFond.ts) : chaque lot ecrit se dessine, la 3D ouverte suit au
+  // plus toutes les dix secondes - une scene de milliers de batiments ne se rebatit pas a chaque toit.
+  let dernier3d = 0;
+  const toitsFond = creerToitsFond({
+    objets: () => etat.objects,
+    lectureSeule: () => !!etat.lectureSeule || !toitsFondPermis,
+    progression: (pr) => lectureToits.definir(pr),
+    apresLot: () => {
+      p.markDirty();
+      p.render();
+      if (vue3d.scene && Date.now() - dernier3d > 10000) { dernier3d = Date.now(); tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
+    }
+  });
   const apresActualisation = () => {
     questionsACheval();
+    toitsFond.relancer();
     const refaire3d = () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); };
     p.render();
     refaire3d();
@@ -290,10 +317,13 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => {
     const r = chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
     questionsACheval();
+    // Un autre plan : la lecture en cours s'arrete, et reprend sur celui-ci.
+    toitsFond.arreter();
+    toitsFond.relancer();
     return r;
   };
   return {
-    ctxOrtho, appliquerProjetImporte, questionsACheval,
+    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond,
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
@@ -345,6 +375,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     rafraichir: () => magasin.notifier()
   }, commandes);
+  brancherToitsFond(ch.toitsFond, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {
@@ -434,10 +465,10 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
-  // La commande « Actualiser IGN » se grise pendant une actualisation : les zones doivent le voir.
-  actualisation.abonner(() => magasin.notifier());
-  // Meme chose pour la lecture du relief : le bouton de l'inspecteur dit « Lecture… » pendant l'appel.
-  lectureRelief.abonner(() => magasin.notifier());
+  // Les zones voient ce qui se passe hors d'elles : « Actualiser IGN » grise pendant une actualisation,
+  // « Lecture… » pendant celle du relief, les toits lus en tache de fond comptes dans la barre d'etat.
+  for (const lecture of [actualisation, lectureRelief, lectureToits]) lecture.abonner(() => magasin.notifier());
+  toitsFondPermis = lectureDeFondPermise(!!options.vitrine);
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);
@@ -572,7 +603,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
-  else { projet.proposerMiseAJour(); ch.questionsACheval(); }
+  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); }
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {

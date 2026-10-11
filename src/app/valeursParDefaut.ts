@@ -29,6 +29,7 @@ export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
     copie.toit = toit;
     copie.toitMesure = null;
     copie.corpsToit = null;
+    copie.toitLidarLu = null;
   }
   return copie;
 }
