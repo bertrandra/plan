@@ -280,6 +280,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Fumée pilotée : les gestes sur la terrasse de démonstration se rejouent.** La démonstration
+  s'ouvre sur tout son voisinage, où les poignées se superposent : les points 1 à 5, 10 et 11
+  échouaient dans les trois classes d'écran sans que l'application soit en cause. Le script cadre
+  désormais l'objet visé, ou la parcelle quand le point vise deux objets (`scripts/fumee.mjs`).
+
 - **Après « Actualiser le projet » ou une actualisation IGN, l'écran se met à jour**. Le plan, la
   Vue 3D ouverte et la photo aérienne sont redessinés ; il fallait cliquer sur 2D ou 3D.
 

@@ -78,13 +78,33 @@ async function glisser(page, de, dx, dy, pas = 8) {
   await page.mouse.up();
   await page.waitForTimeout(120);
 }
+/**
+ * Selectionne un objet et cadre dessus, comme le ferait la personne avant de le manipuler. Le plan
+ * de demonstration s'ouvre sur tout son voisinage (100 m, a 2 px par metre) : la terrasse n'y fait que
+ * quelques pixels, ses poignees se recouvrent, et le point 1 attrapait le sommet voisin.
+ */
 async function selectionner(page, pred) {
   await page.evaluate((src) => {
     const f = new Function('o', 'return ' + src);
     const o = window.__plan.etat().objects.find(f);
     window.__plan.selectionnerCle(o ? o.key : null);
+    if (o) window.__plan.executer('vue.ajuster');
   }, pred);
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(200);
+}
+/**
+ * Cadre la parcelle du projet en gardant la selection : les points qui visent deux objets (dalle et
+ * maison, dalle et terrasse) ont besoin des deux a l'ecran, et l'ouverture sur tout le voisinage les
+ * laisse trop petits pour que leurs aretes se distinguent.
+ */
+async function cadrerParcelle(page) {
+  await page.evaluate(() => {
+    const k = window.__plan.etat().selectedKey ?? null;
+    window.__plan.selectionnerCle(null);
+    window.__plan.executer('vue.ajuster');
+    window.__plan.selectionnerCle(k);
+  });
+  await page.waitForTimeout(200);
 }
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
@@ -303,6 +323,7 @@ const POINTS = {
   },
   10: async (page) => {
     await selectionner(page, DALLE);
+    await cadrerParcelle(page);
     const avant = objet(await lireEtat(page), (o) => o.name === 'Dalle beton');
     const maison = objet(await lireEtat(page), (o) => o.name === 'Maison');
     await page.evaluate(() => window.__plan.executer('objet.aligner'));
@@ -327,6 +348,7 @@ const POINTS = {
     return { ok: parallele && Math.abs(s1 - s2) < 1e-6, mesure: `${info.replace(/\s+/g, ' ').slice(0, 60)} ; cible ${t.toFixed(1)}°, côtés ${cotes.map((d) => d.toFixed(1)).join('/')}° ; surface ${s1.toFixed(2)} → ${s2.toFixed(2)} m²` };
   },
   11: async (page) => {
+    await cadrerParcelle(page);
     const avant = (await lireEtat(page)).measures.length;
     const dalle = objet(await lireEtat(page), (o) => o.name === 'Dalle beton');
     const terr = objet(await lireEtat(page), (o) => o.name === 'Terrasse');
