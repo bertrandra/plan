@@ -49,7 +49,8 @@ import { brancherCommandesCiblees } from './ecouteurs/cibles.js';
 import { creerProjet, projetARemplir } from './projet.js';
 import { retenirProjetsConnus } from '../plateforme/quotaProjets.js';
 import { signalerLimiteProjets } from './limiteProjets.js';
-import { actualisation, ouvrirDialogueActualisation } from './actualisationIgn.js';
+import { actualisation, ouvrirDialogueActualisation, type ContexteActualisation } from './actualisationIgn.js';
+import { ouvrirActualisationProjet } from './actualiserProjet.js';
 import { creerImportCadastre } from './importCadastre.js';
 import { parcours } from './parcours.js';
 import { demanderPremierPas } from './premierPas.js';
@@ -267,6 +268,14 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     apresModification: () => { p.render(); if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
     montrer: (o) => tardifs.explorateur?.selectionner(o.key)
   });
+  // Le contexte des deux actualisations (IGN, et le projet entier aux valeurs par defaut).
+  const contexteActualisation = (): ContexteActualisation => ({
+    etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
+    restoreState: historique.restaurer, serializeMeasures, serializeObjects,
+    syncLieuTitre: affichage.syncLieuTitre,
+    trouverParcelleCloture: affichage.trouverParcelleCloture,
+    apresActualisation: questionsACheval
+  });
   const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => {
     const r = chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
     questionsACheval();
@@ -284,13 +293,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       // Par defaut, la parcelle sous la position de l'appareil : sur le terrain, c'est la bonne.
       void importe.utiliserMaPosition(true);
     },
-    ouvrirActualisation: () => ouvrirDialogueActualisation({
-      etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
-      restoreState: historique.restaurer, serializeMeasures, serializeObjects,
-      syncLieuTitre: affichage.syncLieuTitre,
-      trouverParcelleCloture: affichage.trouverParcelleCloture,
-      apresActualisation: questionsACheval
-    })
+    ouvrirActualisation: () => ouvrirDialogueActualisation(contexteActualisation()),
+    ouvrirActualisationProjet: () => ouvrirActualisationProjet(contexteActualisation())
   };
 }
 
@@ -360,6 +364,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     definirRafraichisseurStatut: (f) => historique.definirRafraichisseurStatut(f),
     ouvrirImportCadastre: ch.ouvrirImportCadastre,
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
+    ouvrirActualisationProjet: ch.ouvrirActualisationProjet,
     actualisationEnCours: () => actualisation.enCours()
   }, magasin, commandes);
   const explorateur = creerExplorateur(etat, { render: p.render, redimensionner: p.cadrage.redimensionner }, magasin);

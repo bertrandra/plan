@@ -1,6 +1,7 @@
 // Jeu de donnees de demonstration (spec §3.2, model/demo.ts).
 //
-// C'est le plan reel recale sur la parcelle AE 101 : 35 objets, 11 mesures. Il sert de projet par
+// C'est le plan reel recale sur la parcelle AE 101 : 35 objets dessines, 11 mesures, et depuis le
+// 11 octobre 2026 son voisinage de 100 m (`DEMO_OBJECTS`, 147 objets). Il sert de projet par
 // defaut quand api.php est absent ou injoignable - l'application reste alors entierement
 // fonctionnelle, sans serveur. C'est aussi lui qui produit les golden files de
 // tests/fixtures/golden/ : le modifier fait bouger toutes les empreintes.
@@ -18,6 +19,7 @@
 // cette taille n'a aucune forme deductible, et le compilateur ne verifie plus rien de ce fichier.
 
 import type { ObjetPlan, Mesure } from './types.js';
+import demoProjet from './demo-projet.json';
 
 export const DEMO_TEMOIN_OBJECTS: ObjetPlan[] = [
   {"key":"parcelle","type":"polygon","name":"Parcelle AE 101","fill":"#1b5e0d","fillOpacity":1,"stroke":"#3B2E1F","showName":false,"showSegNames":false,"showVertNames":false,"showDims":false,"showAngles":false,"constrained":false,"fonction":"terrain","matiere":"","priority":0,"locked":true,"textureVerticale":null,"textureHorizontale":null,"hidden":false,"clotureActive":true,"clotureHauteur":2,"clotureCouleur":"#e19951","clotureTexture":{"id":"oak_veneer_01","nom":"Oak Veneer 01","vignette":"https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256","url":"https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg"},"textureArbre":null,"latitude":48.905189,"longitude":2.132811,"nomLieu":"Le Vésinet","terrasseLieeKey":null,"matSurPerimetre":false,"matDeporte":false,"cadastre":{"idu":"78650000AE0101","codeInsee":"78650","commune":"Le Vésinet","section":"AE","numero":"0101","contenanceM2":716,"source":"IGN/API Carto/PCI","recupereLe":"2026-08-27T10:19:24Z","adresse":"2 Allee des Limites 78110 Le Vesinet","origineLat":48.9053664,"origineLon":2.1328776,"simplifieM":0,"recale":{"depuis":"plan dessine a la main","rotationDeg":16.033,"echelle":1.004124,"ecartMoyenM":0.064},"geometrieSource":{"type":"Polygon","coordinates":[[[2.13260294,48.90503255],[2.13249541,48.90511613],[2.13287759,48.9053664],[2.13303283,48.90533406],[2.13297032,48.90515545],[2.13288675,48.90512787],[2.13260294,48.90503255]]]}},"pts":[{"x":-20.135,"y":-37.127},{"x":-28.018,"y":-27.832},{"x":0.0,"y":0.0},{"x":11.381,"y":-3.596},{"x":6.798,"y":-23.459},{"x":0.672,"y":-26.526}],"vertexNames":["Coin Sud","Coin Ouest","Coin Nord","Coin Est","Coin Sud-Est","Point 6"],"segmentNames":["Sud-Ouest (rue)","Nord-Ouest (Aline)","Nord-Est (Babar)","Sud-Est (guitare)","Cote 5","Sud (Joel)"],"frozenVertices":[false,false,false,false,false,false],"plu":{"zones":[{"libelle":"UFb","libelong":"Quartier residentiel a parcellaire plus resserre","typezone":"U","partition":"DU_78650","urlfic":"http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf","nomfic":"78650_reglement_20251229.pdf","datappro":""}],"prescriptions":[],"informations":[{"libelle":"Droit de preemption urbain renforce","typeinf":"04","nomfic":"78650_info_surf_99_notice_20251229.pdf","urlfic":"http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_info_surf_99_notice_20251229.pdf"}],"servitudes":[{"type":"AC2","nom":"Secteur résidentiel d'habitations individuelles de la commune","assiette":"Enceinte du site","forme":"surfacique","generateur":"Site","nature":"Inscrit","source":"BD-PARCELLAIRE","fichier":"AC2_SI6012_19700710_act.pdf","partition":"130029325_SUP_R11_AC2","urlreg":""},{"type":"AC4","nom":"Site patrimonial remarquable du Vésinet","assiette":"Périmètre du SPR","forme":"surfacique","generateur":"SPR","nature":"","source":"Plus précis que le cadastre","fichier":"AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf","partition":"172014607_SUP_78_AC4","urlreg":""}],"spr":[{"type":"AC4","nom":"Site patrimonial remarquable du Vésinet","assiette":"Périmètre du SPR","forme":"surfacique","generateur":"SPR","nature":"","source":"Plus précis que le cadastre","fichier":"AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf","partition":"172014607_SUP_78_AC4","urlreg":""}],"document":{"nom":"78650_PLU_20251229","type":"PLU","partition":"DU_78650"},"commune":{"nom":"LE VESINET","insee":"78650","rnu":false},"interrogeLe":"2026-08-27T10:43:05Z","lon":2.132811,"lat":48.905189}},
@@ -79,8 +81,18 @@ const recolorer = (o: ObjetPlan): ObjetPlan => ({
   ...(o.stroke && PALETTE_DEMO[o.stroke] ? { stroke: PALETTE_DEMO[o.stroke] } : {})
 }) as ObjetPlan;
 
-/** Le plan de demonstration que l'utilisateur ouvre : le temoin, aux couleurs de la maquette. */
-export const DEMO_OBJECTS: ObjetPlan[] = DEMO_TEMOIN_OBJECTS.map(recolorer);
+/**
+ * Le plan de demonstration que l'utilisateur ouvre : le temoin aux couleurs de la maquette, actualise
+ * le 11 octobre 2026 par « Actualiser le projet » avec un voisinage de 100 m (demo-projet.json, un
+ * export de Plan). Les objets dessines restent ceux du temoin recolores (`DEMO_DESSINES`, verifie par
+ * tests/unit/model/demo.test.ts) ; la parcelle a son apparence d'import, son relief (parcelle a 50 cm,
+ * voisinage a 2 m : « Points max » 50 000) et son gazon ; le voisinage (55 parcelles, 57 batiments)
+ * a ses toits en corps et pignons, ses couleurs de toit et ses materiaux de murs.
+ */
+export const DEMO_OBJECTS: ObjetPlan[] = (demoProjet as { objects: unknown[] }).objects as ObjetPlan[];
+
+/** Les objets dessines du plan de demonstration, tels que le temoin recolore les donne. */
+export const DEMO_DESSINES: ObjetPlan[] = DEMO_TEMOIN_OBJECTS.filter((o) => o.key !== 'parcelle').map(recolorer);
 
 // Les mesures du plan de demonstration (cotes perpendiculaires aux limites) : elles font
 // partie du projet au meme titre que les objets, et se rechargent avec lui en mode local.
