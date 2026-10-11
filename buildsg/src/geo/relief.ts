@@ -170,7 +170,7 @@ async function provenance(source: SourceRelief, lon: number, lat: number, recher
 /**
  * Lit la grille du relief sur la parcelle et ses abords : LiDAR HD si l'index des dalles couvre
  * l'emprise et que la grille est pleine sur la parcelle, sinon RGE ALTI ; refuse si le RGE ALTI
- * n'a rien non plus, ou si la parcelle est trop grande (pas au-dela de 5 m).
+ * n'a rien non plus, ou si la parcelle est trop grande (pas au-dela de 30 m).
  */
 export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   const rechercher = d.rechercher ?? fetch;
@@ -186,7 +186,7 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
 
   const lireGrille = async (source: SourceRelief): Promise<Omit<Relief, 'zRef' | 'origine' | 'precision' | 'systemeAltimetrique' | 'dateDonnees'> | null> => {
     const pas = pasPourEmprise(source.pas, emprise);
-    if (pas === null) throw new Error('Parcelle trop grande pour le relief : la grille dépasserait un pas de 5 m.');
+    if (pas === null) throw new Error('Parcelle trop grande pour le relief : la grille dépasserait un pas de 30 m.');
     const { x0, y0, nx, ny } = dimensionsGrille(emprise, pas);
     // Le bord exterieur des cellules, pour que chaque pixel du service soit une cellule entiere.
     const bords: Emprise = { xMin: x0 - pas / 2, xMax: x0 + (nx - 0.5) * pas, yMin: y0 - (ny - 0.5) * pas, yMax: y0 + pas / 2 };
@@ -214,7 +214,7 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
 
 /**
  * L'emprise de la grille : la parcelle et ses abords, ou toutes les parcelles demandees. Si ces
- * dernieres depassent le pas de 5 m, la grille revient a la parcelle seule plutot que d'echouer.
+ * dernieres depassent le pas de 30 m, la grille revient a la parcelle seule plutot que d'echouer.
  */
 export function empriseDemandee(d: Pick<DemandeRelief, 'parcelle' | 'etendue'>): Emprise {
   const seule = empriseRelief(d.parcelle);
