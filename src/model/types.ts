@@ -170,6 +170,11 @@ interface ObjetCommun {
    * comme le fond orthophoto ; absent, les defauts valent, et le fichier garde sa forme d'avant.
    */
   voisinage3d?: Partial<ReglagesVoisinage3d> | null;
+  /**
+   * Le gazon de la parcelle du projet en 3D (three/gazon.ts) : montre par defaut ; `false` le retire
+   * et laisse voir la photo aerienne. Preference d'affichage, gardee a la reouverture.
+   */
+  gazon3d?: boolean | null;
 
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;

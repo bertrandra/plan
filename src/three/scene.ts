@@ -35,6 +35,7 @@ import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
+import { geometrieGazon, materiauGazon } from './gazon.js';
 import { voisinage3dDe, apparenceVoisin } from '../model/voisinage3d.js';
 import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
@@ -588,6 +589,17 @@ function ajouterContourParcelle(o: ObjetPlan, { scene, versLocal, sol }: Context
   scene.add(trait);
 }
 
+/** Le gazon de la parcelle : pose sur le sol, dans la couche du terrain, perce au droit d'un bassin. */
+function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets): void {
+  const mat = materiauGazon();
+  poserEnCouche(mat, COUCHES_SOL.terrain);
+  percerSol(mat);
+  const m = new THREE.Mesh(geometrieGazon(pts, versLocal, sol ? sol.hauteur : undefined, undefined, sol ? sol.relief : undefined), mat);
+  m.name = 'gazon';
+  m.receiveShadow = vue3d.ombres;
+  scene.add(m);
+}
+
 /**
  * Le reste du plan, en contexte : chaque objet devient un bloc simple a sa hauteur — ni toit ni
  * ouvertures, de quoi juger l'implantation. Une AUTRE terrasse recoit sa hauteur, pas sa structure.
@@ -598,6 +610,13 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
   etat.objects.forEach(o => {
     if (o === obj) return;
     if (ctx.objetMasque(o)) return; // masque dans le plan = masque partout, voisinage compris
+    // La parcelle du projet en gazon, par defaut : au-dessus de la photo aerienne, qu'elle remplace
+    // sur la parcelle. Une texture choisie dans l'inspecteur, ou le gazon decoche, la laissent voir.
+    if (o.key === 'parcelle' && o.gazon3d !== false && !o.textureHorizontale && aDesSommets(o) && o.pts.length >= 3) {
+      ajouterGazon(o.pts, co);
+      if (co.sol) ajouterContourParcelle(o, co);
+      return;
+    }
     if (o.key === 'parcelle' || o.fonction === 'terrain') {
       // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
       // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
