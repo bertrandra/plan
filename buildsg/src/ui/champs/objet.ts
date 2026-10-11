@@ -7,7 +7,7 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
-import { PORTS, ESSENCES, LIBELLES_PORT, LIBELLES_ESSENCE, portDe, essenceDe, type PortArbre, type EssenceArbre } from '../../model/arbre.js';
+import { PORTS, ESSENCES, STYLES_ARBRE, LIBELLES_PORT, LIBELLES_ESSENCE, LIBELLES_STYLE_ARBRE, portDe, essenceDe, styleDesArbres, type PortArbre, type EssenceArbre, type StyleArbre } from '../../model/arbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
@@ -266,6 +266,17 @@ const sectionArbre: Section = {
       aide: 'Un caduc est nu de novembre à mars, à la date de l’étude d’ensoleillement ; son ombre change avec la saison',
       options: () => ESSENCES.map((e) => ({ valeur: e, libelle: LIBELLES_ESSENCE[e] })),
       lire: (c) => essenceDe(c.obj), ecrire: (c, v) => { c.obj.essenceArbre = v as EssenceArbre; }
+    },
+    // Le dessin des arbres en 3D (A a E, maquettes comparees) : une preference d'affichage, comme
+    // « Gazon (3D) », mais pour tout le plan a la fois. Elle s'ecrit sur chaque arbre, pour etre
+    // retrouvee a la reouverture ; un arbre ajoute ensuite suit les autres (model/arbre.ts::styleDesArbres).
+    {
+      type: 'choix', cle: 'styleArbre', libelle: 'Dessin (3D)', sale: false, enregistre: true, effets: ['scene3d', 'inspecteur'],
+      aide: 'La façon de dessiner les arbres dans la Vue 3D ; leur emprise, leur hauteur et leur ombre ne changent pas',
+      note: () => 'Pour tous les arbres du plan',
+      options: () => STYLES_ARBRE.map((s) => ({ valeur: s, libelle: LIBELLES_STYLE_ARBRE[s] })),
+      lire: (c) => styleDesArbres(c.objets.filter((o) => o.fonction === 'arbre')),
+      ecrire: (c, v) => { for (const o of c.objets) if (o.fonction === 'arbre') o.styleArbre = v as StyleArbre; }
     },
     {
       type: 'couleur', cle: 'couleurArbre', libelle: 'Couleur du feuillage', effets: ['scene3d'],
