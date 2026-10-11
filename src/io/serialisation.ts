@@ -36,8 +36,15 @@ function allegerVoisinage(out: Record<string, unknown>): void {
     out.cadastre = cad;
   }
   if(out.bdtopo && typeof out.bdtopo === 'object'){
-    out.bdtopo = Object.fromEntries(Object.entries(out.bdtopo as Record<string, unknown>).filter(([, v]) => v !== null));
+    // Les faux aussi (`surParcellePrincipale`, `constructionLegere`) : ils ne se lisent qu'a vrai.
+    out.bdtopo = Object.fromEntries(Object.entries(out.bdtopo as Record<string, unknown>).filter(([, v]) => v !== null && v !== false));
   }
+  // Les reglages d'un autre genre d'objet, poses par defaut a la creation : une parcelle voisine sans
+  // cloture n'a ni hauteur ni couleur de cloture, un batiment ni parasol ni arbre. Mesure sur un
+  // voisinage d'un kilometre : un megaoctet sur dix (MD/roadmap-toits-fond.md).
+  if(!out.clotureActive){ delete out.clotureHauteur; delete out.clotureCouleur; }
+  if(out.fonction !== 'parasol') delete out.hauteurParasol;
+  if(out.fonction !== 'arbre'){ for(const k of ['diametreArbre', 'couleurArbre', 'portArbre', 'essenceArbre', 'styleArbre']) delete out[k]; }
 }
 
 export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
@@ -102,7 +109,11 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
     if(o.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.volumesToit));
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
-    if(o.corpsToit) out.corpsToit = JSON.parse(JSON.stringify(o.corpsToit));
+    // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts).
+    if(o.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.corpsToit)) as Record<string, unknown>[]).map((c) => {
+      if(Array.isArray(c.pignons) && !c.pignons.length) delete c.pignons;
+      return c;
+    });
     // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.
     if(o.toitLidarLu) out.toitLidarLu = o.toitLidarLu;
     if(o.modeToit) out.modeToit = o.modeToit;

@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Modes de diagnostic `?mode=devroof` et `?mode=devwall`** (dans l'adresse). Chaque bâtiment est
+  peint, sur le plan et dans la Vue 3D, selon l'origine de son toit ou de ses murs ; la barre d'état
+  donne la légende et les comptes. Rien n'est modifié dans le projet ni dans les exports.
+  - devroof : rouge, non traité ; vert, toit lu sur le LiDAR ; orange, toit par défaut faute de
+    LiDAR ; bleu, autres cas (toit saisi, relevé sur une photo de façade).
+  - devwall : rouge, couleur par défaut ; orange, couleur et texture des fichiers fonciers ; vert,
+    photo de rue Panoramax.
+
+- **La couleur des toits du voisinage, lue elle aussi en tâche de fond.** Chaque lot lit la forme des
+  toits qui n'en ont pas, puis la couleur de ceux qui n'en ont pas, sur la photo aérienne. Sans
+  dalle LiDAR sur le secteur, les couleurs se lisent quand même.
+
+- **Fin de la lecture des toits : un bilan, les questions en attente, et l'enregistrement.** Un message
+  dit combien de toits et de couleurs ont été lus ; les toits « à cheval sur deux parcelles » que la
+  lecture a découverts posent leur question. Le projet s'enregistre seul toutes les 5 minutes et à
+  la fin, seulement si tout ce qui attend d'être enregistré vient de la lecture : jamais une de vos
+  modifications à votre insu. Un enregistrement refusé (projet trop lourd) arrête ces essais pour la
+  séance.
+
 - **Les toits de tout le voisinage, lus sur le LiDAR en tâche de fond** (`app/toitsFond.ts`). À
   l'import et à l'actualisation, seuls les 30 bâtiments les plus proches (au lieu de 150) sont lus
   avant que le plan s'ouvre ; les autres le sont ensuite, par lots, du plus proche au plus loin, sans
@@ -152,6 +171,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
 ### Modifié
+
+- **Un projet avec un grand voisinage pèse environ 13 % de moins.** Les parcelles et bâtiments du
+  voisinage n'écrivent plus les réglages d'un autre genre d'objet, posés par défaut à leur création
+  (hauteur et couleur de clôture, hauteur de parasol, diamètre et couleur d'arbre), ni les attributs
+  BD TOPO faux ; un corps de toit sans pignon n'écrit plus sa liste vide. Mesuré sur un voisinage d'un
+  kilomètre : environ 1,3 Mo sur 9,8 Mo. Les projets d'avant se lisent comme avant.
+
+- **Lecture des toits en tâche de fond, sans à-coups et presque deux fois plus rapide.** Mesuré sur
+  un voisinage d'un kilomètre au Vésinet (5 240 bâtiments) : chaque lot redessinait tout le plan et
+  toutes les zones, ce qui figeait l'écran 3 à 6 secondes et ramenait la lecture à 1,5 bâtiment par
+  seconde. Seuls les bâtiments lus se redessinent maintenant, sur le plan et dans la Vue 3D (sans la
+  rebâtir) ; la barre d'état et le menu suivent la progression sans redessiner le reste. L'écran ne
+  se fige plus au-delà d'un à deux dixièmes de seconde (une seconde à chaque enregistrement
+  automatique d'un projet de 9 Mo), et la lecture va à 2,5 bâtiments par seconde, couleurs comprises.
 
 - **Vue 3D : l'heure et la date sous l'horloge, les réglages dans un tiroir.** Un clic sur
   l'horloge du canevas, maintenant toujours affichée, ouvre dessous le curseur d'heure et la date ; un

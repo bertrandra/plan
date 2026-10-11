@@ -5,7 +5,7 @@ import * as THREE_NS from 'three';
 const bannieres: string[] = [];
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
-import { buildThreeScene, type ContexteScene3d } from '../../../src/three/scene.js';
+import { buildThreeScene, remplacerObjets3d, type ContexteScene3d } from '../../../src/three/scene.js';
 import { vue3d, hotes3d } from '../../../src/three/etat3d.js';
 import { normaliserEnObjetsDuPlan } from '../../../src/app/assemblage/formes.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
@@ -79,6 +79,36 @@ describe('buildThreeScene', () => {
     expect(avant).toBeGreaterThan(10);
     await attendre();
     expect(maillages()).toBeGreaterThan(avant);
+  });
+
+  it('remplace un batiment relu sans rebatir la scene, et dit quand la scene a change', () => {
+    buildThreeScene(terrasse(), etat(), contexte());
+    const scene = vue3d.scene;
+    const b = objets.find((o) => o.fonction === 'batiment' && !o.hidden)!;
+    const avant = maillages();
+    // Le batiment perd son toit : sa nouvelle pose remplace l'ancienne, rien ne s'ajoute a cote.
+    const enMoins = (() => { delete (b as { toit?: unknown }).toit; return b; })();
+    expect(remplacerObjets3d([enMoins.key], etat())).toBe(true);
+    expect(vue3d.scene).toBe(scene);
+    const apres = maillages();
+    expect(apres).toBeLessThanOrEqual(avant);
+    // Rejouer le meme remplacement ne fait rien grossir : les anciens maillages partent bien.
+    expect(remplacerObjets3d([b.key], etat())).toBe(true);
+    expect(maillages()).toBe(apres);
+    // Un batiment supprime du plan disparait de la scene.
+    objets = objets.filter((o) => o !== b);
+    expect(remplacerObjets3d([b.key], etat())).toBe(true);
+    expect(maillages()).toBeLessThan(apres);
+    // Une scene jetee : a l'appelant de rebatir.
+    vue3d.scene = null;
+    expect(remplacerObjets3d([b.key], etat())).toBe(false);
+  });
+
+  it('peint un batiment de la couleur de diagnostic, murs et toit', () => {
+    const couleurs = new Set<string>();
+    buildThreeScene(terrasse(), etat(), contexte({ couleurDiagnostic: (o) => (o.fonction === 'batiment' ? '#d7263d' : null) }));
+    vue3d.scene?.scene.traverse((o) => { const m = (o as THREE_NS.Mesh).material as THREE_NS.MeshStandardMaterial | undefined; if (m && 'color' in m && m.color) couleurs.add('#' + m.color.getHexString()); });
+    expect(couleurs.has('#d7263d')).toBe(true);
   });
 
   it('ne montre que la terrasse quand « tous les objets » est decoche', () => {

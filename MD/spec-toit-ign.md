@@ -669,7 +669,10 @@ comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du pro
 `MAX_BATIMENTS_LIDAR` = 30, dans `DELAI_TOITS_LIDAR_MS` = 20 s, quatre lectures à la fois. Les autres
 sont lus ensuite **en tâche de fond** (`app/toitsFond.ts`), par lots de 12, six lectures à la fois,
 du plus proche au plus loin, sans bloquer le plan ; chaque bâtiment lu porte `toitLidarLu` (la
-version de la lecture) et n'est pas relu. Détail et suite : `MD/roadmap-toits-fond.md`.
+version de la lecture) et n'est pas relu. Le même lot lit ensuite la couleur des toits qui n'en ont
+pas (§6.1). Seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D ; le projet
+s'enregistre seul quand tout ce qui attend vient de la lecture. `?mode=devroof` peint chaque
+bâtiment selon l'origine de son toit. Détail, mesures et suite : `MD/roadmap-toits-fond.md`.
 
 Écrit : `toit = { forme, hauteur, angleFaitage, source: 'lidar' }`, la couleur et son origine
 conservées. L'égout mesuré corrige `elevation` (la hauteur du prisme) quand il s'en écarte d'au moins

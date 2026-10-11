@@ -219,6 +219,8 @@ export interface ContextePositionnement {
   pointageSommets: boolean;
   pointageCotes: boolean;
   reconstruirePoignees: (obj: ObjetRendu) => void;
+  /** Un mode de diagnostic (app/diagnostic.ts) : la couleur d'affichage qui remplace la sienne, sans la toucher. */
+  couleurDiagnostic?: string | null;
 }
 
 /**
@@ -281,6 +283,14 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     } else if(obj.type==='polygon'){
       // Meme regle pour la terrasse isolee : transparente A L'AFFICHAGE, son fillOpacity intact.
       el.setAttribute('fill-opacity', String(ctx.transparent ? OPACITE_ISOLEMENT : obj.fillOpacity));
+    }
+    // Le diagnostic peint par-dessus la couleur de l'objet, a l'affichage seulement ; hors diagnostic,
+    // la sienne revient (elle n'est posee qu'a la creation de l'element).
+    if(obj.type==='polygon' && ctx.couleurDiagnostic){
+      el.setAttribute('fill', ctx.couleurDiagnostic);
+      el.setAttribute('fill-opacity', '0.85');
+    } else if(obj.type==='polygon' && el.getAttribute('fill') !== obj.fill){
+      el.setAttribute('fill', obj.fill);
     }
 
     const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);

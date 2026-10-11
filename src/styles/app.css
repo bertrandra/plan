@@ -115,6 +115,10 @@
   }
   #zoneEtat .etatPointeur{ font-variant-numeric:tabular-nums; min-width:14ch; }
   #zoneEtat #projectStatus.local{ color:var(--accent); font-style:normal; }
+  /* Les modes de diagnostic (?mode=devroof, devwall) : une pastille de la couleur et son compte. */
+  #zoneEtat .etatDiagnostic{ display:inline-flex; align-items:center; gap:10px; font-variant-numeric:tabular-nums; }
+  #zoneEtat .classeDiagnostic{ display:inline-flex; align-items:center; gap:4px; }
+  #zoneEtat .pastilleDiagnostic{ width:10px; height:10px; border-radius:999px; border:1px solid var(--rule); }
   h1{
     font-size:1.05rem; font-weight:400; margin:0 0 0 auto; letter-spacing:0.02em; text-align:right;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;

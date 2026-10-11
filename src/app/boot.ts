@@ -20,14 +20,15 @@ import { poserQuestionsToitsACheval } from './toitsACheval.js';
 import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
-import { rendreScene } from '../render/pipeline.js';
+import { rendreScene, rendreObjets, type ContexteRendu } from '../render/pipeline.js';
 import { restaurerOrthoDuProjet, basculerOrthophoto, chargerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
 import { dessinerCourbesRelief } from '../render/relief.js';
 import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { lectureToits } from '../core/lectureToits.js';
-import { creerToitsFond } from './toitsFond.js';
+import { creerToitsFond, texteFinToitsFond } from './toitsFond.js';
+import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
@@ -49,7 +50,8 @@ import { creerResultats } from './resultats.js';
 import { creerInspecteur, type Inspecteur } from './inspecteur.js';
 import { creerExplorateur, type Explorateur } from './explorateur.js';
 import { brancherCommandesCiblees } from './ecouteurs/cibles.js';
-import { creerProjet, projetARemplir } from './projet.js';
+import { creerProjet, projetARemplir, type Projet } from './projet.js';
+import { showToast } from '../shell/dialogs.js';
 import { retenirProjetsConnus } from '../plateforme/quotaProjets.js';
 import { signalerLimiteProjets } from './limiteProjets.js';
 import { actualisation, ouvrirDialogueActualisation, type ContexteActualisation } from './actualisationIgn.js';
@@ -136,6 +138,8 @@ type GraineDemarrage = Awaited<ReturnType<typeof loadInitialProject>>;
  * (`window.__sansToitsFond`) : une lecture qui aboutirait changerait les toits qu'elles mesurent.
  */
 let toitsFondPermis = true;
+/** Le mode de diagnostic de l'adresse (app/diagnostic.ts), lu une fois. */
+const diagnostic = modeDiagnostic();
 const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env.DEV
   && (new URLSearchParams(location.search).has('temoin') || !!(window as { __sansToitsFond?: boolean }).__sansToitsFond));
 
@@ -144,7 +148,7 @@ const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env
  * rafraichissement des panneaux de terrasse) et les deux panneaux lateraux (repliés sur tablette).
  * Rien ne les appelle avant qu'ils existent ; l'appel optionnel le dit sans l'affirmer.
  */
-interface Tardifs { vues?: Vues3d; explorateur?: Explorateur; inspecteur?: Inspecteur }
+interface Tardifs { vues?: Vues3d; explorateur?: Explorateur; inspecteur?: Inspecteur; projet?: Projet }
 
 /** Le plan, sans ses ecouteurs ni ses panneaux : l'etat, la surface et son dessin, l'historique, le tiroir, les gestes. */
 function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
@@ -211,8 +215,20 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
     // pouvoir tenir en entier dans la scene au geste suivant.
     cadrage.ajusterPlancher();
-    rendreScene(etat, {
+    rendreScene(etat, contexteRendu());
+    tiroir.synchroniser(contexteChange);
+    magasin.notifier();
+  }
+  /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */
+  function redessinerObjets(cles: readonly string[]): void {
+    const objets = etat.objects.filter((o) => cles.includes(o.key));
+    if (objets.length) rendreObjets(etat, contexteRendu(), objets);
+  }
+  function contexteRendu(): ContexteRendu {
+    return {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
+      // ?mode=devroof ou devwall : chaque batiment peint selon l'origine de son toit ou de ses murs.
+      ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
       // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
       dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene, etat.voisinageVisible),
@@ -224,9 +240,7 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
         const parcelle = affichage.trouverParcelleCloture();
         if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
       }
-    });
-    tiroir.synchroniser(contexteChange);
-    magasin.notifier();
+    };
   }
   const gestes = creerGestes(etat, { ...dessin, pushHistory, render, rebuildSelector, mesures });
   const cadrage = creerCadrage(etat, magasin, surface, {
@@ -236,7 +250,7 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   });
   return {
     etat, magasin, commandes, affichage, surface, dessin, mesures, historique, tiroir, resultats, gestes, cadrage,
-    render, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
+    render, redessinerObjets, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
   };
 }
 
@@ -287,15 +301,24 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   // Les toits que l'import ou l'actualisation n'ont pas lus (les trente plus proches seulement), en
   // tache de fond, par lots (app/toitsFond.ts) : chaque lot ecrit se dessine, la 3D ouverte suit au
   // plus toutes les dix secondes - une scene de milliers de batiments ne se rebatit pas a chaque toit.
-  let dernier3d = 0;
   const toitsFond = creerToitsFond({
     objets: () => etat.objects,
     lectureSeule: () => !!etat.lectureSeule || !toitsFondPermis,
     progression: (pr) => lectureToits.definir(pr),
-    apresLot: () => {
+    modifications: historique.modifications, sale: () => !!etat.dirty,
+    enregistrer: () => tardifs.projet?.enregistrerSansBruit() ?? Promise.resolve(false),
+    // Au bout : le bilan de ce qui a ete lu, et les toits a cheval sur deux parcelles qui attendent
+    // une reponse - un mitoyen lu en fond a pu en ajouter un.
+    fin: (b) => {
+      showToast(texteFinToitsFond(b));
+      questionsACheval();
+    },
+    // Les batiments ecrits seulement, dans le plan et dans la Vue 3D ouverte : rebatir des milliers
+    // d'objets a chaque lot figeait l'ecran plusieurs secondes (MD/roadmap-toits-fond.md, mesure).
+    apresLot: (cles) => {
       p.markDirty();
-      p.render();
-      if (vue3d.scene && Date.now() - dernier3d > 10000) { dernier3d = Date.now(); tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
+      p.redessinerObjets(cles);
+      if (vue3d.scene && !tardifs.vues?.remplacerObjets3d(cles)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
     }
   });
   const apresActualisation = () => {
@@ -465,9 +488,9 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
-  // Les zones voient ce qui se passe hors d'elles : « Actualiser IGN » grise pendant une actualisation,
-  // « Lecture… » pendant celle du relief, les toits lus en tache de fond comptes dans la barre d'etat.
-  for (const lecture of [actualisation, lectureRelief, lectureToits]) lecture.abonner(() => magasin.notifier());
+  // « Actualiser IGN » et « Lecture… » (relief) se voient dans toutes les zones ; les toits lus en fond
+  // ne redessinent que la barre d'etat et le menu, abonnes directement (core/lectureToits.ts).
+  for (const lecture of [actualisation, lectureRelief]) lecture.abonner(() => magasin.notifier());
   toitsFondPermis = lectureDeFondPermise(!!options.vitrine);
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
@@ -477,8 +500,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   tardifs.vues = vues;
   brancherIsolement(p);
   const { explorateur, inspecteur, projet } = monterLesPanneaux(p, atelier, ch, vues, seed);
-  tardifs.explorateur = explorateur;
-  tardifs.inspecteur = inspecteur;
+  Object.assign(tardifs, { explorateur, inspecteur, projet });
   // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
   // couvriraient les deux tiers. Ils s'ouvrent a la demande.
   cadrage.replierPourTablette();

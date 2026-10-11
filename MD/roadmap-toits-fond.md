@@ -33,53 +33,72 @@ Références : `MD/spec-toit-ign.md` §10 (lecture LiDAR), skill `toits` (règle
 | Pas de lecture de fond | vitrine, plan témoin (`?temoin`), fumée et captures (`window.__sansToitsFond`, `scripts/captures.mjs`) | une lecture qui aboutirait changerait ce qu'elles mesurent |
 | Historique | — | les écritures de fond ne passent pas par Ctrl+Z ; elles marquent le projet « à enregistrer » |
 
+## Étape 2 — fait (branche `claude/toits-fond-suite`)
+
+Les points 1 à 9 et 11 de la liste d'origine, plus les modes de diagnostic demandés en route.
+
+### Mesure sur un grand voisinage (points 1 et 11)
+
+Le Vésinet, 2 allée des Limites, voisinage étendu à 1 km : 3 773 parcelles, 5 240 bâtiments,
+9 014 objets ; création du projet en 70 à 80 s. Script de mesure : un import par l'interface, puis
+la progression relevée toutes les 15 s avec les longues tâches du navigateur (`PerformanceObserver`).
+
+| | Avant (étape 1) | Après (étape 2) |
+|---|---|---|
+| Débit | 1,5 bâtiment/s (forme seule) | 2,5 bâtiments/s (forme **et** couleur) |
+| À ~470 s | 678 bâtiments | 1 170 bâtiments |
+| Plus longue tâche | 3 à 6 s à chaque lot | 70 à 300 ms ; ~1 s à chaque enregistrement automatique |
+| À 1 500 s | 2 358 bâtiments (forme seule) | 4 071 bâtiments (forme et couleur) |
+| Taille du projet | 9,2 Mo (2 850 bâtiments lus) | 9,8 Mo (4 083 lus), avant l'allègement ci-dessous |
+
+Cause des à-coups : chaque lot redessinait tout le plan (9 000 objets) et notifiait le magasin, qui
+redessinait toutes les zones (l'explorateur et ses milliers de lignes). Pour 10 000 bâtiments (le
+plafond du voisinage), compter environ 70 minutes de lecture.
+
+### Ce qui a été fait
+
+| Point | Où | Ce qui change |
+|---|---|---|
+| 2. Mise à jour partielle | `three/scene.ts::remplacerObjets3d`, `render/pipeline.ts::rendreObjets`, `app/boot.ts::redessinerObjets` | Seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D, sans la rebâtir. La progression est lue directement par la barre d'état et le menu (`useSyncExternalStore`). |
+| 3. Enregistrer en cours de route | `app/toitsFond.ts`, `core/historique.ts::modifications`, `app/projet.ts::enregistrerSansBruit` | Enregistrement seul toutes les 5 minutes et à la fin, seulement si toutes les modifications en attente viennent de la lecture. Un refus (projet trop lourd) arrête les essais pour la séance. |
+| 5. Calcul hors du fil principal | — | **Pas fait, pas nécessaire aujourd'hui.** Une fois le dessin partiel en place, plus aucune longue tâche ne dépasse 300 ms. À reprendre si un poste plus lent saccade. |
+| 6. Couleur des toits en fond | `app/toitsFond.ts`, `render/couleurToitOrtho.ts` (lectures en parallèle) | Chaque lot lit la forme des toits qui n'en ont pas, puis la couleur de ceux qui n'en ont pas. Un toit sans couleur est « à lire » : aucune marque de plus. Sans dalle LiDAR, les couleurs se lisent quand même. |
+| 7. Questions « à cheval » | `app/boot.ts` (`fin`) | Posées à la fin de la lecture. |
+| 8. Bilan de fin | `app/toitsFond.ts::texteFinToitsFond` | « Toits du voisinage lus sur le LiDAR HD : 2 400 (…). 2 350 couleurs de toit lues sur la photo aérienne. » |
+| 9. Relire après un changement de règle | skill `toits` §6 bis, test | Passer `VERSION_LECTURE_TOITS` : les bâtiments marqués d'une version plus ancienne sont relus. |
+| Modes de diagnostic | `app/diagnostic.ts`, `?mode=devroof`, `?mode=devwall` | Bâtiments peints selon l'origine du toit ou des murs, sur le plan et dans la Vue 3D, avec une légende et des comptes dans la barre d'état. |
+| Défaut corrigé | `app/toitsFond.ts::reporter` | Une couleur lue sans la forme s'écrit seule. Sinon le bâtiment repassait à chaque lot. |
+
+### Taille du projet (point 4)
+
+Mesuré sur le même voisinage, 4 083 bâtiments lus : **9,8 Mo**. Répartition des plus gros champs :
+
+| Champ | Taille | Ce qu'on en fait |
+|---|---|---|
+| `bdtopo` (attributs BD TOPO) | 2,3 Mo | les faux (`surParcellePrincipale`, `constructionLegere`) ne s'écrivent plus pour le voisinage : environ 0,3 Mo |
+| `pts` (contours) | 1,9 Mo | nécessaires |
+| `corpsToit` | 1,3 Mo | sans `pignons` vides (la relecture les remet) : environ 50 Ko. Passer les sommets en tableaux (`[x, y]`) ne rapporterait qu'environ 15 % des corps, pour un changement de format : pas fait |
+| `cadastre` | 1,0 Mo | nécessaire (la géométrie source est déjà retirée pour le voisinage) |
+| `toit` | 0,7 Mo | nécessaire |
+| `relief` | 0,56 Mo | déjà compacté (`zCode`) |
+| `clotureCouleur`, `clotureHauteur`, `hauteurParasol`, `diametreArbre`, `couleurArbre` | 0,2 Mo chacun | valeurs par défaut de création, sans objet sur une parcelle ou un bâtiment voisin : ne s'écrivent plus pour le voisinage, environ 0,96 Mo |
+
+Au total, environ 1,3 Mo de moins, soit 13 %. Un voisinage d'un kilomètre entièrement lu pèserait donc
+autour de 10 Mo au lieu de 11,5. Si la plateforme refuse un document de cette taille (sa limite
+s'affiche dans le bandeau d'erreur), l'enregistrement automatique s'arrête pour la séance. La vraie
+réponse est alors un voisinage plus petit (500 m), ou un enregistrement du voisinage à part du projet.
+C'est un chantier de format, à décider.
+
 ## Reste à faire
 
-Classé par ordre de priorité proposé.
-
-1. **Mesurer sur un grand voisinage** (1 à 5 km : Le Vésinet, Gordes).
-   - Première mesure, sur le plan de démonstration (Le Vésinet, 57 bâtiments, octobre 2026) : tout
-     est lu en une douzaine de secondes, soit environ 8 bâtiments par seconde. Cela donne une
-     vingtaine de minutes pour 10 000 bâtiments, si le débit tient.
-   - À vérifier sur des milliers de bâtiments : le débit soutenu, le comportement de la Géoplateforme
-     (quotas, erreurs 429) et la fluidité du plan pendant la lecture.
-   - À ajuster ensuite : `LOT_TOITS_FOND`, `PARALLELE_TOITS_FOND`, l'attente après échec.
-2. **Mise à jour partielle de la Vue 3D**. Aujourd'hui, la scène se rebâtit en entier, au plus toutes
-   les 10 s. Avec des milliers de bâtiments, chaque reconstruction fige l'écran une à deux secondes.
-   Il faut ne remplacer que les maillages des bâtiments lus, par leur clé (`three/scene.ts`).
-3. **Enregistrer en cours de route**, pour que la reprise après fermeture ne relise pas tout.
-   - Aujourd'hui, le projet est seulement marqué « à enregistrer ».
-   - Piste : un enregistrement automatique en fin de lecture, ou tous les N lots, si le projet est
-     sur la plateforme et n'a pas d'autre modification en attente.
-4. **Taille du projet**. Les corps d'un toit pèsent environ 0,5 Ko par bâtiment, soit environ 5 Mo
-   pour 10 000 bâtiments, ce qui risque `PAYLOAD_TOO_LARGE`.
-   - Piste : compacter `corpsToit` à l'écriture (arrondis au centimètre, champs par défaut omis),
-     comme le relief (`compacterRelief`).
-   - À vérifier : la limite de la plateforme avec un voisinage complet.
-5. **Calcul hors du fil principal**. `reconstruireCorps` coûte de quelques à quelques dizaines de ms
-   par bâtiment. Si le plan saccade pendant la lecture, il faut passer le calcul dans un Web Worker.
-   La lecture réseau peut rester où elle est.
-6. **Couleur des toits sur l'orthophoto en tâche de fond**.
-   - Aujourd'hui, `couleursToitsDepuisOrtho` lit tout à l'import, dans un délai de 20 s, et
-     n'aboutit pas pour tout un voisinage de plusieurs kilomètres.
-   - À faire : même file, même marque (par exemple `couleurToitLue`), tuiles d'un niveau de détail
-     moyen partagées entre bâtiments (estimation : 5 à 10 min pour 10 000 bâtiments).
-7. **Questions « à cheval »** nées d'un lot de fond. Un bâtiment mitoyen lu en fond peut créer un
-   doute (`toitACheval`), mais la question n'est posée qu'à l'ouverture, à l'import et à
-   l'actualisation. Les mitoyens sont presque toujours parmi les 30 premiers. Sinon, appeler
-   `questionsACheval` à la fin de la lecture.
-8. **Bilan de fin**. Un toast du type « 2 400 toits lus sur le LiDAR, 120 gardés d'après la BD TOPO ».
-   Il réutilise `texteBilanToitsLidar`, avec un bilan cumulé sur les lots.
-9. **Relire après un changement de règle**. Passer `VERSION_LECTURE_TOITS` quand une règle de toit
-   change assez pour mériter de tout relire. La file reprend alors seule les bâtiments marqués avec
-   une version plus ancienne. À documenter dans le skill `toits`.
-10. **Couleur des murs (Panoramax)**, laissée de côté pour l'instant (décision de l'utilisateur).
-    - Une recherche et deux photos par bâtiment, seulement là où des photos existent.
-    - Pour 10 000 bâtiments, cela représenterait des heures et plusieurs Go.
-    - Quand elle sera reprise : la limiter à environ 500 m (1 000 bâtiments, 15 à 30 min), avec la
-      même file et une marque à part.
-11. **Plafond du voisinage**. La PR qui relève le plafond à 10 000 objets par famille augmente
-    d'autant le travail de la file. Vérifier ensemble le temps de lecture et la taille du projet.
+1. **Taille du projet au-delà de quelques centaines de mètres** : voir la section précédente. À
+   décider : connaître la limite de la plateforme, ou enregistrer le voisinage à part du projet.
+2. **Régler le débit** : `LOT_TOITS_FOND` (12) et `PARALLELE_TOITS_FOND` (6). Un lot attend son
+   bâtiment le plus lent ; une file continue (sans lots) irait plus vite. À essayer après avoir vérifié
+   les quotas de la Géoplateforme (erreurs 429).
+3. **Couleur des murs (Panoramax)**, laissée de côté (décision de l'utilisateur). Limiter à environ
+   500 m le jour où elle est reprise.
+4. **Calcul hors du fil principal**, si un poste plus lent saccade (voir point 5 ci-dessus).
 
 ## Points de vigilance
 

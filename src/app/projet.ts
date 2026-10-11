@@ -70,6 +70,11 @@ export interface Projet {
    * la personne a deja repondu « Garder tel quel » pour ce projet et ce schema.
    */
   proposerMiseAJour(): void;
+  /**
+   * Enregistre sans toast ni bandeau de succes : la tache de fond des toits, qui ne range que ce
+   * qu'elle a lu. Un echec s'affiche comme d'habitude (bandeau). Rend vrai si la plateforme l'a accepte.
+   */
+  enregistrerSansBruit(): Promise<boolean>;
 }
 
 /** Cle localStorage d'un refus de mise a jour : par projet, et pour le schema propose. */
@@ -177,7 +182,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   const charge = () => chargeDuProjet(ctx);
 
   /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. */
-  async function enregistrer(annonce: string): Promise<boolean> {
+  async function enregistrer(annonce: string | null): Promise<boolean> {
     if (!courant) return false;
     publier('enregistrement');
     let taille: number | null = null;
@@ -196,7 +201,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
       ctx.initialMeasures().length = 0;
       ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
-      showToast(annonce);
+      if (annonce) showToast(annonce);
       return true;
     } catch (e) {
       // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
@@ -286,6 +291,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   return {
     proposerMiseAJour,
+    enregistrerSansBruit: () => enregistrer(null),
     ouvrir(id) {
       if (ctx.etat.dirty) {
         showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));
