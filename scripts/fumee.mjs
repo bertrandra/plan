@@ -78,13 +78,19 @@ async function glisser(page, de, dx, dy, pas = 8) {
   await page.mouse.up();
   await page.waitForTimeout(120);
 }
+/**
+ * Selectionne un objet et cadre dessus, comme le ferait la personne avant de le manipuler. Le plan
+ * de demonstration s'ouvre sur tout son voisinage (100 m, a 2 px par metre) : la terrasse n'y fait que
+ * quelques pixels, ses poignees se recouvrent, et le point 1 attrapait le sommet voisin.
+ */
 async function selectionner(page, pred) {
   await page.evaluate((src) => {
     const f = new Function('o', 'return ' + src);
     const o = window.__plan.etat().objects.find(f);
     window.__plan.selectionnerCle(o ? o.key : null);
+    if (o) window.__plan.executer('vue.ajuster');
   }, pred);
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(200);
 }
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
