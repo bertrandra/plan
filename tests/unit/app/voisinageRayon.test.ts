@@ -91,6 +91,15 @@ describe('le voisinage dans un rayon de 500 m', () => {
     expect(r.objets.some(o => (o.bdtopo as { id?: string } | undefined)?.id === 'BAT146')).toBe(false);
   });
 
+  it('ne reprend pas comme voisinage le bati pose sur la parcelle du projet', async () => {
+    service();
+    // BAT145 (2..12 m) a son centre (7, 7) sur la parcelle (0..10 m) : deja dans le plan, importe ou dessine.
+    const r = await construireVoisinage(parcelle, cad, proj, true, { batiments: true, vegetation: false, arbres: false, rayonM: 500 }, []);
+    const ids = r.objets.map(o => (o.bdtopo as { id?: string } | undefined)?.id);
+    expect(ids).not.toContain('BAT145');
+    expect(ids).toContain('BAT146');
+  });
+
   it('en mode adjacent, rien ne change : une seule requete cadastre, filtree par commune, sans pagination', async () => {
     const s = service();
     const r = await construireVoisinage(parcelle, cad, proj, true, { batiments: false, vegetation: false, arbres: false }, []);
