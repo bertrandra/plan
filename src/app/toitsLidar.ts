@@ -3,7 +3,7 @@
 // Pour chaque batiment dont le toit vient de la BD TOPO (ou d'une lecture LiDAR anterieure), on lit
 // le MNH sous son contour (geo/mnh.ts) et l'on y ajuste une forme (facade/toitLidar.ts). Un toit
 // lu sur une photo ou saisi n'est pas touche. Les plus proches de la parcelle du projet d'abord,
-// dans un delai borne : l'import ne doit pas attendre le service pour un voisinage de deux mille
+// dans un delai borne : l'import ne doit pas attendre le service pour un voisinage de dix mille
 // batiments, et ceux qu'on regarde de pres sont ceux qui comptent.
 
 import { ajusterToit, type EchantillonHauteur } from '../facade/toitLidar.js';
@@ -158,7 +158,7 @@ export interface OptionsToitsLidar {
 
 /** Le delai donne a la lecture des toits, comme a celle des couleurs sur l'orthophoto. */
 export const DELAI_TOITS_LIDAR_MS = 20000;
-/** Le voisinage etendu peut compter deux mille batiments : seuls les plus proches sont lus. */
+/** Le voisinage etendu peut compter dix mille batiments : seuls les plus proches sont lus. */
 export const MAX_BATIMENTS_LIDAR = 150;
 /** Combien de lectures en meme temps : de petites grilles, le service repond vite. */
 const EN_PARALLELE = 4;

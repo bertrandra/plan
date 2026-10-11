@@ -72,8 +72,8 @@ describe('la lecture d un voisinage dans un rayon', () => {
   it('lit le disque par paliers, et lit plus large que le plafond au-dela de 200 m', () => {
     expect(RAYONS_LECTURE_M).toEqual([200, 500, 1000, 2000, 5000]);
     expect([10, 200, 210, 500, 510, 1000, 1010, 2000, 2010, 5000].map(rayonDeLecture)).toEqual([200, 200, 500, 500, 1000, 1000, 2000, 2000, 5000, 5000]);
-    expect(plafondLecture(200)).toBe(MAX_OBJETS_RAYON * 2);
-    expect(plafondLecture(1000)).toBe(MAX_OBJETS_RAYON * 5);
+    expect(plafondLecture(200)).toBe(MAX_OBJETS_RAYON);
+    expect(plafondLecture(1000)).toBe(MAX_OBJETS_RAYON * 2);
   });
 
   it('au-dela d un kilometre, lit en disques croissants et s arrete au premier qui remplit le plafond', async () => {
@@ -87,11 +87,11 @@ describe('la lecture d un voisinage dans un rayon', () => {
     expect(clairseme.tronque).toBe(false);
     // Une famille dense : le disque de 1 km remplit deja le plafond ; on garde les plus proches, sans trou.
     lus.length = 0;
-    const dense = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return Array.from({ length: MAX_OBJETS_RAYON + 500 }, (_, i) => point((MAX_OBJETS_RAYON + 499 - i) * 0.4)); });
+    const dense = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return Array.from({ length: MAX_OBJETS_RAYON + 500 }, (_, i) => point((MAX_OBJETS_RAYON + 499 - i) * 0.09)); });
     expect(lus).toEqual([1000]);
     expect(dense.elements).toHaveLength(MAX_OBJETS_RAYON);
     expect(dense.elements[0]!.d).toBe(0);
-    expect(dense.elements[MAX_OBJETS_RAYON - 1]!.d).toBeCloseTo((MAX_OBJETS_RAYON - 1) * 0.4, 6);
+    expect(dense.elements[MAX_OBJETS_RAYON - 1]!.d).toBeCloseTo((MAX_OBJETS_RAYON - 1) * 0.09, 6);
     expect(dense.tronque).toBe(true);
   });
 
