@@ -84,6 +84,9 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   // Remplace par la barre de projet une fois construite. Avant cela, marquer le plan modifie ne
   // doit pas echouer : d'ou la fonction vide plutot qu'un `null` a tester partout.
   let rafraichirStatut: () => void = () => {};
+  // Combien de modifications depuis l'ouverture : la tache de fond des toits (app/toitsFond.ts)
+  // n'enregistre seule que si toutes celles en attente sont les siennes.
+  let modifications = 0;
 
   function instantane(): Instantane {
     return {
@@ -99,6 +102,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * affectations `dirty = true` dispersees a chaque appelant.
    */
   function marquerModifie(): void {
+    modifications++;
     etat.dirty = true;
     rafraichirStatut();
   }
@@ -125,6 +129,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   }
 
   function restaurer(snap: Instantane): void {
+    modifications++;
     etat.objects.forEach(ctx.detruireVue);
     const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
     etat.objects.length = 0;
@@ -161,6 +166,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   return {
     instantane,
     marquerModifie,
+    modifications: () => modifications,
     empiler,
     preparer,
     restaurer,

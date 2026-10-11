@@ -279,6 +279,19 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
 - `data.geopf.fr` peut être bloqué dans l'environnement cloud (CLAUDE.md). Les fixtures et un JSON
   de village déjà relevé suffisent alors pour travailler.
 
+## 6 bis. Relire tous les toits après un changement de règle
+
+Chaque bâtiment lu sur le LiDAR porte `toitLidarLu` : la version de la lecture qui l'a traité
+(`app/toitsLidar.ts::VERSION_LECTURE_TOITS`). La tâche de fond (`app/toitsFond.ts`) ne relit que les
+bâtiments sans marque ou marqués d'une version plus ancienne.
+- Une règle qui change visiblement les toits déjà lus (une forme, un seuil des corps, un recalage) :
+  **passer `VERSION_LECTURE_TOITS` à la valeur suivante** dans la même PR. Les projets existants se
+  relisent seuls à leur prochaine ouverture, du plus proche au plus loin.
+- Une correction qui ne concerne que des cas encore jamais lus, ou un détail de dessin 3D (qui se
+  recalcule depuis les corps enregistrés) : ne pas la passer, la relecture coûte des minutes sur un
+  grand voisinage.
+- Le dire dans le CHANGELOG (« les toits déjà lus seront relus à l'ouverture »).
+
 ## 7. Tests et fixtures
 
 - `tests/fixtures/toits/*.json` : relevés réels (`contour`, `toitMesure`, `corps` attendus, `grille`,

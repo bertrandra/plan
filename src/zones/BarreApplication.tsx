@@ -13,7 +13,7 @@
 
 import { contexteCourant, sessionCourante, enAdmin } from '../app/acces.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
@@ -100,6 +100,8 @@ function EchellePdf({ magasin }: { magasin: Magasin }) {
 }
 
 function MenuFichier({ magasin, commandes }: PropsMenu) {
+  // La lecture des toits en tache de fond : le menu suit son etat sans attendre un rendu du plan.
+  const toitsFond = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const p = useStore(magasin.store, (s) => s.projet);
   return (
     <details className="menu" id="menuFichier">
@@ -113,7 +115,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
         <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
-        <Entree commandes={commandes} id="projet.toitsFond" libelle={lectureToits.progression()?.etat === 'enCours' ? 'Suspendre la lecture des toits' : 'Reprendre la lecture des toits'} />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={toitsFond?.etat === 'enCours' ? 'Suspendre la lecture des toits' : 'Reprendre la lecture des toits'} />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
