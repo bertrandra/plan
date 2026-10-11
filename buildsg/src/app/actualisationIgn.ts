@@ -33,7 +33,7 @@ import { parcours } from './parcours.js';
 import { droitsCourants } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
-import { resumeRelief } from '../model/relief.js';
+import { avecReglages, resumeRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
@@ -165,7 +165,7 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
 
 /**
  * Relit le relief sur le plan actualise et le range sur la parcelle du projet. Les preferences
- * d'affichage restent celles de la personne, comme pour « Actualiser le relief ». Un echec est dit
+ * d'affichage et le plafond de points restent ceux de la personne, comme pour « Actualiser le relief ». Un echec est dit
  * dans le bilan ; la grille d'avant reste alors en place.
  */
 async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[]): Promise<void> {
@@ -175,8 +175,7 @@ async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boo
   if(!demande || !cible) return;
   try {
     const r = await (ctx.lireRelief ?? lireRelief)(demande);
-    const affichage = cible.relief?.affichage;
-    cible.relief = affichage ? { ...r, affichage } : r;
+    cible.relief = avecReglages(r, cible.relief);
     bilan.push('relief lu : ' + resumeRelief(r));
   } catch(e){
     bilan.push('relief non lu (' + ((e as Error).message || e) + ')');
