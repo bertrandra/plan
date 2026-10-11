@@ -3,7 +3,8 @@ import { planCroupe } from '../../../src/facade/toitCorps.js';
 import { readFileSync } from 'node:fs';
 import { reconstruireCorps, decalageSurMesure } from '../../../src/facade/toitCorps.js';
 import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
-import { pointInPolygon } from '../../../src/geometry/basic.js';
+import { pointInPolygon, signedArea } from '../../../src/geometry/basic.js';
+import { trianguler } from '../../../src/facade/toit.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import { facettesSurContour, facettesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
@@ -134,8 +135,10 @@ describe('facettesSurContour', () => {
     expect(f.hauteursMurs).toHaveLength(contour.length);
     // Tout sommet de toit est dans le contour, ou dessus.
     for (const q of f.pans.flat()) expect(pointInPolygon(q, contour) || distancePointContour(q, contour) < 1e-6).toBe(true);
-    // Les murs montent du prisme, sur le contour lui-meme (le cote de biais compris).
-    for (const m of f.murs) for (const q of m) expect(distancePointContour(q, contour)).toBeLessThan(1e-6);
+    // Les murs montent du prisme, sur le contour lui-meme (le cote de biais compris), ou, dedans,
+    // sur le cote d'un corps plus haut que ce qui le borde.
+    const surUnCote = (q: PtBrut) => distancePointContour(q, contour) < 1e-6 || corps.some((c) => distancePointContour(q, c.pts) < 1e-6);
+    for (const m of f.murs) for (const q of m) expect(surUnCote(q)).toBe(true);
     // Les deux quatre-pans montent a leurs faitages.
     expect(Math.max(...f.pans.flat().map((q) => q.z))).toBeGreaterThan(7.3);
   });
@@ -160,5 +163,39 @@ describe('la pente qui choisit la tuile', () => {
     const appentis = { ...c, pts: [p(0, 0), p(3, 0), p(3, 2), p(0, 2)], posFaitage: 0, faitage: 4, egouts: [4, 2.5] as [number, number] };
     expect(penteDominante([appentis, c])).toBeCloseTo(penteDuCorps(c), 6);
     expect(penteDominante([plat])).toBeNull();
+  });
+});
+
+describe('AE 103 : deux quatre-pans et une terrasse sur un contour de biais', () => {
+  // Le voisin d'AE 101 tel que la demonstration le porte : un grand quatre-pans (egouts 4,9 m), une
+  // terrasse a 3,7 m (le dessus du prisme) et un petit quatre-pans (egouts 4,5 m).
+  const P = (x: number, y: number): PtBrut => ({ x, y });
+  const contour = [P(14.71, -39.68), P(2.21, -40.32), P(1.98, -37.22), P(-3.12, -37.68), P(-2.88, -40.78), P(-7.58, -41.03), P(-7.84, -35.83), P(1.52, -31.33), P(14.01, -30.59)];
+  const corps: CorpsToit[] = [
+    { pts: [P(2.17, -40.32), P(14.59, -39.69), P(14.13, -30.63), P(1.71, -31.27)], posFaitage: 4.53, faitage: 7.9, egouts: [4.9, 4.9], croupes: [4.53, 4.53], pignons: [], ecart: 0.2 },
+    { pts: [P(-3.05, -37.58), P(2.02, -37.32), P(1.71, -31.27), P(-3.36, -31.53)], posFaitage: 3.03, faitage: 3.7, egouts: [3.7, 3.7], pignons: [], ecart: 0.2 },
+    { pts: [P(-2.88, -40.78), P(-3.24, -33.84), P(-7.94, -34.09), P(-7.58, -41.03)], posFaitage: 2.35, faitage: 6.3, egouts: [4.5, 4.5], croupes: [2.35, 2.35], pignons: [], ecart: 0.2 }
+  ];
+  const { pans, murs, bas } = facettesSurContour(corps, contour);
+
+  it('dessine chaque pan en entier : pas de trou dans les croupes', () => {
+    const aireTri = (q: PtBrut[], t: number[][]) => t.reduce((s, [a, b, c]) => s + Math.abs(signedArea([q[a as number]!, q[b as number]!, q[c as number]!])), 0);
+    for (const pan of pans) {
+      const t = pan.length > 4 ? trianguler(pan) : Array.from({ length: pan.length - 2 }, (_, k) => [0, k + 1, k + 2]);
+      expect(aireTri(pan, t)).toBeCloseTo(Math.abs(signedArea(pan)), 3);
+    }
+  });
+
+  it('ferme par un mur la marche entre un quatre-pans et la terrasse', () => {
+    expect(bas).toBeCloseTo(3.7, 6);
+    // Le mur ouest du grand quatre-pans, au-dessus de la terrasse : de 3,7 m a son egout.
+    const ouest = murs.filter((m) => m.every((q) => Math.abs(q.x - (1.71 + (q.y + 31.27) * (2.17 - 1.71) / (-40.32 + 31.27))) < 0.02) && m.every((q) => q.y > -37.2 && q.y < -31.3));
+    expect(ouest.length).toBeGreaterThan(5);
+    for (const m of ouest) {
+      expect(Math.min(...m.map((q) => q.z))).toBeCloseTo(3.7, 2);
+      expect(Math.max(...m.map((q) => q.z))).toBeGreaterThan(4.8);
+    }
+    // Sur la terrasse, rien ne monte au-dessus d'elle ailleurs qu'au droit des corps plus hauts.
+    expect(murs.every((m) => m.every((q) => q.z >= 3.7 - 1e-6))).toBe(true);
   });
 });

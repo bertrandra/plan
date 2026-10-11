@@ -1074,6 +1074,13 @@ Exemple : 2 allée des Limites, parcelle AE 103.
   fenêtres suivent les murs du contour. Le bâtiment garde ainsi la forme du plan. Une croupe est un
   triangle, son mur de bout s'arrête aux égouts, et un bout sous une croupe n'a pas de fenêtre de
   pignon. La carte trace les arêtiers.
+  - **Murs entre corps** : à l'intérieur du contour, là où un corps est plus haut que ce qui le borde
+    (un autre corps, ou le dessus du prisme), son mur monte de l'un à l'autre. Sans eux, on voyait le
+    vide sous l'égout d'un corps haut posé contre une terrasse (AE 103 : quatre-pans à 4,9 m contre
+    une terrasse à 3,7 m).
+  - **Pans sans trou** : un sommet de facette posé sur le contour sort deux fois de la coupe ; il est
+    retiré avant la triangulation, et la triangulation, sur un polygone dégénéré, retire le sommet le
+    plus plat, jamais le premier venu. Les croupes du petit quatre-pans d'AE 103 perdaient 15 m².
 
 
 ### 13.8 Un bâtiment à cheval sur deux parcelles : la question sur sa toiture

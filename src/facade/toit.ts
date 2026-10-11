@@ -156,8 +156,16 @@ export function trianguler(poly: readonly PtBrut[]): [number, number, number][] 
       coupe = true;
       break;
     }
-    // Polygone degenere (points alignes) : on retire un sommet plat plutot que de boucler.
-    if (!coupe) idx.splice(0, 1);
+    // Polygone degenere (points alignes, sommet double) : on retire le sommet le plus plat plutot que
+    // de boucler. Retirer le premier venu amputait le pan d'un triangle entier (les croupes d'AE 103).
+    if (!coupe) {
+      let plat = 0, min = Infinity;
+      idx.forEach((_, k) => {
+        const v = Math.abs(croix(au(poly, sommetDe(idx, k - 1)), au(poly, au(idx, k)), au(poly, sommetDe(idx, k + 1))));
+        if (v < min) { min = v; plat = k; }
+      });
+      idx.splice(plat, 1);
+    }
   }
   if (idx.length === 3) res.push([au(idx, 0), au(idx, 1), au(idx, 2)]);
   return res;
