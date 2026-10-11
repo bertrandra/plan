@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { ajouterArbre3d, actualiserSaison, tonDuSommet, NOM_ARBRE, NOM_BRANCHE, NOM_FEUILLAGE, NOM_LOBE, NOM_TRONC, TON_CLAIR, TON_SOMBRE } from '../../../src/three/arbre3d.js';
+import { ajouterArbre3d, actualiserSaison, tonDuSommet, NOM_ARBRE, NOM_BRANCHE, NOM_FEUILLAGE, NOM_LOBE, NOM_TRONC, TON_CLAIR, TON_SOMBRE, COULEUR_TRONC_MAQUETTE } from '../../../src/three/arbre3d.js';
+import { couleurMaquette } from '../../../src/three/houppiers3d.js';
+import type { StyleArbre } from '../../../src/model/arbre.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Un arbre en 3D (MD/spec-arbres-3d.md), verifie en structure avec un THREE minimal : quelles
@@ -25,6 +27,10 @@ class Sphere extends Geo {
 class Cone extends Sphere {
   constructor(public rc: number, public hauteur: number) { super(rc, 16, 1); }
 }
+class Ico extends Sphere {
+  constructor(rIco: number, public detail: number) { super(rIco, 0, 0); }
+  toNonIndexed() { return this; }
+}
 class Cyl extends Geo {
   constructor(public rHaut: number, public rBas: number, public hauteur: number) { super(); }
 }
@@ -36,6 +42,7 @@ class Obj {
   userData: Record<string, unknown> = {};
   position = { x: 0, y: 0, z: 0, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; } };
   scale = { x: 1, y: 1, z: 1, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; } };
+  rotation = { x: 0, y: 0, z: 0 };
   quaternion = { x: 0, y: 0, z: 0, w: 1, set(x: number, y: number, z: number, w: number) { this.x = x; this.y = y; this.z = z; this.w = w; } };
   add(o: Obj) { o.parent = this; this.children.push(o); }
   traverse(f: (o: Obj) => void) { f(this); this.children.forEach((c) => c.traverse(f)); }
@@ -53,7 +60,7 @@ class Inst extends Mesh {
 
 beforeAll(() => {
   (globalThis as Record<string, unknown>).THREE = {
-    Group: Obj, Mesh, SphereGeometry: Sphere, ConeGeometry: Cone, CylinderGeometry: Cyl, Float32BufferAttribute: Attr, MeshStandardMaterial: Mat,
+    Group: Obj, Mesh, SphereGeometry: Sphere, ConeGeometry: Cone, IcosahedronGeometry: Ico, CylinderGeometry: Cyl, Float32BufferAttribute: Attr, MeshStandardMaterial: Mat,
     BufferGeometry: Geo, InstancedMesh: Inst, DoubleSide: 2,
     Matrix4: class { fromArray() { return this; } },
     Color: class { setRGB() { return this; } },
@@ -61,9 +68,10 @@ beforeAll(() => {
 });
 
 const arbre = (extra: Partial<ObjetPlan> = {}): ObjetPlan => ({ key: 'arbre-1', name: 'Arbre', type: 'circle', fonction: 'arbre', center: { x: 10, y: -5 }, r: 0.4, diametreArbre: 4, ...extra } as ObjetPlan);
-function scene(dateStr: string | null = '2026-07-01', textures = false) {
+// Les tests de ajouterArbre3d decrivent le dessin en lobes (A) ; les autres dessins ont les leurs plus bas.
+function scene(dateStr: string | null = '2026-07-01', textures = false, style: StyleArbre | null = 'actuel') {
   const racine = new Obj();
-  return { racine, ctx: { scene: racine as never, toLocal: (q: { x: number; y: number }) => ({ x: q.x, z: -q.y }), textures, dateStr } };
+  return { racine, ctx: { scene: racine as never, toLocal: (q: { x: number; y: number }) => ({ x: q.x, z: -q.y }), textures, dateStr, ...(style ? { style } : {}) } };
 }
 const parNom = (o: Obj, nom: string): Obj[] => { const r: Obj[] = []; o.traverse((c) => { if (c.name === nom) r.push(c); }); return r; };
 
@@ -138,5 +146,62 @@ describe('actualiserSaison et tons', () => {
     expect(tonDuSommet([0.5, 0.5, 0.5], 1)).toEqual([0.5 * TON_CLAIR, 0.5 * TON_CLAIR, 0.5 * TON_CLAIR]);
     expect(tonDuSommet([0.5, 0.5, 0.5], -1)).toEqual([0.5 * TON_SOMBRE, 0.5 * TON_SOMBRE, 0.5 * TON_SOMBRE]);
     expect(tonDuSommet([0.9, 0.9, 0.9], 1)[0]).toBe(1);
+  });
+});
+
+describe('les cinq dessins du houppier', () => {
+  const feuilles = (g: Obj) => parNom(g, 'arbre-feuilles');
+  it('E, maquette d architecte : un volume lisse et uni, un tronc fin qui entre dans le houppier, ni branche ni feuille', () => {
+    const { ctx } = scene('2026-07-01', false, 'architecte');
+    const g = ajouterArbre3d(ctx, arbre(), 2.5, 0.4) as unknown as Obj;
+    expect(g.userData.style).toBe('architecte');
+    const lobes = parNom(g, NOM_LOBE) as Mesh[];
+    expect(lobes).toHaveLength(1);
+    expect(lobes[0]!.scale.x).toBeCloseTo(4 / 2 * 0.95, 9);
+    expect(lobes[0]!.scale.y).toBeCloseTo(2, 9);
+    expect(parNom(g, NOM_BRANCHE)).toHaveLength(0);
+    expect(feuilles(g)).toHaveLength(0);
+    const tronc = parNom(g, NOM_TRONC)[0] as Mesh;
+    expect((tronc.geometry as Cyl).rBas).toBeCloseTo(0.1, 9);
+    expect((tronc.geometry as Cyl).hauteur).toBeGreaterThan(2.5);
+    expect((tronc.material as unknown as Mat).p.color).toBe(COULEUR_TRONC_MAQUETTE);
+    // Le vert du feuillage, tire vers le vert doux des maquettes.
+    const doux = couleurMaquette([0x4a / 255, 0x7c / 255, 0x3a / 255]);
+    expect(doux[0]).toBeGreaterThan(0x4a / 255);
+    expect(doux[1]).toBeGreaterThan(0x7c / 255);
+  });
+  it('par defaut, B, Dome : les lobes et leurs branches, sans satellite au-dessus du houppier', () => {
+    const g = ajouterArbre3d(scene('2026-07-01', false, null).ctx, arbre(), 2.5, 0.4) as unknown as Obj;
+    expect(g.userData.style).toBe('dome');
+    const lobes = parNom(g, NOM_LOBE) as Mesh[];
+    expect(lobes).toHaveLength(7);
+    expect(parNom(g, NOM_BRANCHE)).toHaveLength(6);
+    expect(feuilles(g)).toHaveLength(1);
+    const central = lobes[0]!;
+    const haut = central.position.y + central.scale.y;
+    for (const l of lobes.slice(1)) expect(l.position.y + l.scale.y).toBeLessThanOrEqual(haut * 1.04 + 1e-9);
+  });
+  it('C, Touffes : un coeur et des touffes fusionnees en une seule maille ; D, Taille : au plus cinq volumes a facettes', () => {
+    const c = ajouterArbre3d(scene('2026-07-01', false, 'touffes').ctx, arbre(), 2.5, 0.4) as unknown as Obj;
+    const lobes = parNom(c, NOM_LOBE) as Mesh[];
+    expect(lobes).toHaveLength(2);
+    expect(lobes[1]!.geometry.attributes.position!.array.length).toBeGreaterThan(9 * 10);
+    expect(lobes[1]!.geometry.attributes.color!.array.length).toBe(lobes[1]!.geometry.attributes.position!.array.length);
+    expect(parNom(c, NOM_BRANCHE)).toHaveLength(0);
+    const d = ajouterArbre3d(scene('2026-07-01', false, 'taille').ctx, arbre(), 2.5, 0.4) as unknown as Obj;
+    const volumes = parNom(d, NOM_LOBE) as Mesh[];
+    expect(volumes.length).toBeGreaterThan(1);
+    expect(volumes.length).toBeLessThanOrEqual(5);
+    expect((volumes[0]!.material as unknown as Mat).p.flatShading).toBe(true);
+    expect(volumes[0]!.geometry).toBeInstanceOf(Ico);
+  });
+  it('un conifere reste un cone dans tous les dessins, et le caduc perd son feuillage en hiver', () => {
+    for (const style of ['actuel', 'dome', 'taille', 'architecte'] as StyleArbre[]) {
+      const g = ajouterArbre3d(scene('2027-01-10', false, style).ctx, arbre({ portArbre: 'conique' }), 1, 0.3) as unknown as Obj;
+      const lobes = parNom(g, NOM_LOBE) as Mesh[];
+      expect(lobes).toHaveLength(1);
+      expect(lobes[0]!.geometry).toBeInstanceOf(Cone);
+      expect(parNom(g, NOM_FEUILLAGE)[0]!.visible).toBe(false);
+    }
   });
 });

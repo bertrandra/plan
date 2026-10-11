@@ -55,7 +55,7 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       clotureActive: !!o.clotureActive, clotureHauteur: o.clotureHauteur,
       clotureCouleur: o.clotureCouleur, clotureTexture: o.clotureTexture || null,
       diametreArbre: o.diametreArbre, couleurArbre: o.couleurArbre,
-      portArbre: o.portArbre, essenceArbre: o.essenceArbre,
+      portArbre: o.portArbre, essenceArbre: o.essenceArbre, styleArbre: o.styleArbre,
       textureArbre: o.textureArbre || null,
       latitude: o.latitude, longitude: o.longitude, nomLieu: o.nomLieu,
       hauteurParasol: o.hauteurParasol, terrasseLieeKey: o.terrasseLieeKey || null,

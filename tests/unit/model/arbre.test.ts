@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { arbreNu, houppier, houppierDe, portDe, essenceDe, portParNature, PORTS, feuillesDuHouppier, dansLobe, aireEllipsoide, MAX_FEUILLES_PAR_ARBRE, TAILLE_FEUILLE_MIN_M, TAILLE_FEUILLE_MAX_M } from '../../../src/model/arbre.js';
+import { arbreNu, houppier, houppierDe, portDe, essenceDe, portParNature, PORTS, feuillesDuHouppier, dansLobe, aireEllipsoide, MAX_FEUILLES_PAR_ARBRE, TAILLE_FEUILLE_MIN_M, TAILLE_FEUILLE_MAX_M , styleDesArbres, STYLE_ARBRE_DEFAUT } from '../../../src/model/arbre.js';
 
 describe('port et essence', () => {
   it('reviennent au defaut quand le champ manque ou est inconnu', () => {
@@ -123,5 +123,25 @@ describe('feuillesDuHouppier', () => {
   });
   it('aireEllipsoide : une sphere de rayon 1 vaut 4 pi', () => {
     expect(aireEllipsoide({ rx: 1, ry: 1, rz: 1 })).toBeCloseTo(4 * Math.PI, 6);
+  });
+});
+
+describe('le dessin des arbres et le houppier sans toupet', () => {
+  it('suit le dessin que portent les arbres, sinon le dome', () => {
+    expect(STYLE_ARBRE_DEFAUT).toBe('dome');
+    expect(styleDesArbres([])).toBe('dome');
+    expect(styleDesArbres([{}, { styleArbre: 'architecte' }])).toBe('architecte');
+    expect(styleDesArbres([{ styleArbre: 'inconnu' as never }])).toBe('dome');
+  });
+  it('sans toupet, aucun satellite ne depasse le haut du houppier, quel que soit le tirage', () => {
+    for (const port of ['rond', 'colonnaire', 'etale', 'parasol'] as const) {
+      for (let graine = 1; graine < 40; graine++) {
+        const h = houppier(port, 5, graine * 7919, true);
+        for (const l of h.lobes) expect(l.y + l.ry).toBeLessThanOrEqual(h.hauteur * 1.04 + 1e-9);
+      }
+    }
+    // Avec toupet, le dessin d'origine : un satellite depasse souvent d'un rond.
+    const depasse = Array.from({ length: 40 }, (_, g) => houppier('rond', 5, (g + 1) * 7919)).some((h) => h.lobes.some((l) => l.y + l.ry > h.hauteur * 1.1));
+    expect(depasse).toBe(true);
   });
 });

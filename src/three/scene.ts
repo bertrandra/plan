@@ -17,6 +17,7 @@ import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
 import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } from './toitCorps3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
+import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
@@ -569,7 +570,8 @@ function ajouterParasol(par: ObjetCercle, co: ContexteObjets): void {
 
 /**
  * Un arbre (three/arbre3d.ts) : son tronc a la hauteur de l'objet, son houppier par-dessus, pose sur
- * le sol en son centre. Le feuillage d'un caduc suit la date de l'etude d'ensoleillement.
+ * le sol en son centre, dans le dessin choisi pour tous les arbres du plan. Le feuillage d'un caduc
+ * suit la date de l'etude d'ensoleillement.
  */
 function ajouterArbreDuPlan(o: ObjetPlan, co: ContexteObjets): void {
   const h = co.ctx.elevationOf(o);
@@ -577,7 +579,7 @@ function ajouterArbreDuPlan(o: ObjetPlan, co: ContexteObjets): void {
   const centre = centreDe(o);
   const cible = groupeAuSol(co.scene, co.sol, centre);
   ajouterArbre3d(
-    { scene: cible, toLocal: co.versLocal, textures: vue3d.textures, chargerTexture: co.ctx.chargerTexturePolyhaven, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o) },
+    { scene: cible, toLocal: co.versLocal, textures: vue3d.textures, chargerTexture: co.ctx.chargerTexturePolyhaven, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o), style: styleDesArbres(co.objets) },
     o, h, o.type === 'circle' ? o.r : 0.3
   );
 }

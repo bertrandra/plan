@@ -494,6 +494,23 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
   six exports de la démonstration et le GLB ne bougent pas (la démonstration n'est pas un import,
   et n'a pas de portail).
 
+
+  **11 octobre 2026 — `glb-structure.json` recapturé : la démonstration actualisée, et les arbres
+  en dôme.** Deux causes, mesurées séparément.
+  - **La démonstration affichée a changé le 11 octobre** (actualisée, voisinage étendu à 100 m :
+    147 objets au lieu de 35, `src/model/demo-projet.json`). Le point 24 se joue sur elle, et son
+    témoin aurait dû être recapturé ce jour-là : il ne l'a pas été. Mesuré sur `origin/main`
+    (7e1d4ef, avant les arbres) : **12 220 108 octets, 1 183 nœuds, 995 mailles, 1 458 matériaux,
+    16 textures et 16 images, 3 407 accesseurs, 3 423 vues tampon**, contre 337 / 328 / 434 / 6 /
+    1 145 / 1 151 au témoin. Tout l'écart des compteurs vient de là (58 bâtiments en corps et
+    pignons, 55 parcelles, le relief et son maillage secondaire, le gazon).
+  - **Les arbres se dessinent en « Dôme » par défaut** (`three/houppiers3d.ts`, `styleArbre`) : les
+    mêmes sept lobes que le dessin d'origine, sans toupet, en sphères de 22 × 16 au lieu de 14 × 10.
+    Les compteurs ne bougent pas ; le fichier gagne 249 988 octets de géométrie (**12 470 096
+    octets**).
+  Aucun export de chiffrage n'est touché : les six empreintes de la démonstration témoin
+  (`?temoin`) restent identiques.
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
