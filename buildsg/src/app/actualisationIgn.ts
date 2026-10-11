@@ -22,7 +22,7 @@ import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, distanceAuCentre, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -38,7 +38,7 @@ import { parcelleDuProjet } from '../model/fonctions.js';
 import { valeursParDefaut } from './valeursParDefaut.js';
 import { APPARENCES_IGN } from '../geo/cadastreObjets.js';
 import type { ObjetSerialise } from '../model/creation.js';
-import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
+import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../model/types.js';
@@ -70,7 +70,7 @@ export interface OptionsActualisation {
   portee: 'tout' | 'parcelle';
   /**
    * Le voisinage : les parcelles adjacentes (defaut), ou tout ce qui est dans un rayon (`rayonM`,
-   * 200 ou 500 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
+   * jusqu'a 5 000 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
    */
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean; rayonM?: number };
   /**
@@ -175,9 +175,10 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
  * d'affichage et le plafond de points restent ceux de la personne, comme pour « Actualiser le relief ». Un echec est dit
  * dans le bilan ; la grille d'avant reste alors en place.
  */
-async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[], parDefaut = false): Promise<void> {
+async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[], parDefaut = false, horizonM?: number): Promise<void> {
   etape('le relief du terrain…');
-  const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey);
+  // Un voisinage etendu donne son horizon au paysage : le relief va jusqu'au rayon demande.
+  const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey, horizonM);
   const cible = parcelleDuProjet(ctx.etat.objects);
   if(!demande || !cible) return;
   try {
@@ -420,7 +421,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       } catch { bilan.push('PLU indisponible'); }
     }
     // ---- 5. Le relief, si demande : en dernier, sur le plan deja actualise (parcelles comprises).
-    if(options.relief?.actif && droitsCourants().aCapacite(CAPACITES.relief.code)) await actualiserRelief(ctx, options.relief.toutesParcelles, bilan, options.parDefaut);
+    if(options.relief?.actif && droitsCourants().aCapacite(CAPACITES.relief.code)) await actualiserRelief(ctx, options.relief.toutesParcelles, bilan, options.parDefaut, options.voisinage.actif ? options.voisinage.rayonM : undefined);
     ctx.markDirty();
     // Le menu Affichage ne propose « Voisinage » que s'il y en a : il vient peut-etre d'en gagner
     // (ou d'en perdre, si l'utilisateur annule). Le magasin le redit aux zones.
@@ -483,18 +484,12 @@ export async function construireVoisinage(
   const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
   // Le voisinage etendu : un disque de `rayonM` autour du centre de la parcelle. L'emprise
   // demandee est le carre qui le contient ; ce qui n'y touche pas est ecarte, et au-dela du
-  // plafond on garde les plus proches.
+  // plafond on garde les plus proches (lireAuPlusPres).
   const rayonM = choix.rayonM && choix.rayonM > 0 ? choix.rayonM : 0;
   if(rayonM) resultat.rayonM = rayonM;
   const centreDeg = proj.versDegres(centreParc.x, centreParc.y);
   const empriseRayon: EmpriseGeoJSON = empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, rayonM || 1);
-  /** Les candidats retenus par le disque, tries du plus proche au plus loin, plafonnes. */
-  const dansLeDisque = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => {
-    const retenus = elements.filter(e => dansLeRayon(e.pts, centreParc, rayonM));
-    retenus.sort((a, b) => distanceAuCentre(a.pts, centreParc) - distanceAuCentre(b.pts, centreParc));
-    if(retenus.length > MAX_OBJETS_RAYON) resultat.tronque = true;
-    return retenus.slice(0, MAX_OBJETS_RAYON);
-  };
+
 
   const bboxParcelle = bboxDegDesAnneaux([anneauSource], proj, 20);
   const emprise: EmpriseGeoJSON = { type:'Polygon', coordinates:[[
@@ -502,11 +497,15 @@ export async function construireVoisinage(
     [bboxParcelle.lonMax, bboxParcelle.latMax], [bboxParcelle.lonMin, bboxParcelle.latMax],
     [bboxParcelle.lonMin, bboxParcelle.latMin]
   ]]};
-  const feats = rayonM ? await interrogerCadastreEtendu(empriseRayon, plafondLecture(rayonM)) : await interrogerCadastre(emprise, cad.codeInsee);
-  const candidats = construireCandidats(feats, proj, centreParc, simplifier);
+  // Au-dela d'un kilometre, le disque se lit en disques croissants, les plus proches d'abord (lireAuPlusPres).
+  const auPlusPres = async <T extends { pts: PtBrut[] }>(lire: (r: number) => Promise<T[]>): Promise<T[]> => {
+    const lu = await lireAuPlusPres(rayonM, centreParc, lire);
+    if(lu.tronque) resultat.tronque = true;
+    return lu.elements;
+  };
   const tri = rayonM
-    ? { adjacentes: dansLeDisque(candidats.filter(c => c.idu !== principale.idu)) }
-    : trierVoisines(principale, candidats);
+    ? { adjacentes: await auPlusPres(async r => construireCandidats(await interrogerCadastreEtendu(empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r), plafondLecture(r)), proj, centreParc, simplifier).filter(c => c.idu !== principale.idu)) }
+    : trierVoisines(principale, construireCandidats(await interrogerCadastre(emprise, cad.codeInsee), proj, centreParc, simplifier));
 
   const iduPresents = new Set(dejaSerialises.flatMap(o=>o.cadastre && o.cadastre.idu ? [o.cadastre.idu as string] : []));
   iduPresents.add(cad.idu as string);
@@ -534,14 +533,17 @@ export async function construireVoisinage(
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
   // En voisinage etendu, tout le disque sauf la parcelle du projet : son bati, importe avec elle ou dessine (la demo), serait double.
   const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? !(e.pts.length >= 3 && pointInPolygon(centroid(e.pts), principale.pts)) : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
-  const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, plafondLecture(rayonM)) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
-  const elementsRetenus = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => (rayonM ? dansLeDisque(elements) : elements);
+  const bboxDuDisque = (r: number) => bboxDegDesAnneaux([empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r).coordinates[0] as Anneau], proj, 0);
+  const lireElements = (couche: string, max: number, genre: string): Promise<ElementIgn[]> => {
+    const construire = (f: FeatureGeoJSON[]) => construireElementsIgn(f, proj, simplifier, genre);
+    const lire = (b: BboxDeg, n: number | undefined, etendu: boolean) => (etendu ? interrogerWfsEtendu(couche, b, n as number) : interrogerWfs(couche, b, n)).catch((): FeatureGeoJSON[]=>[]);
+    return rayonM ? auPlusPres(async r => construire(await lire(bboxDuDisque(r), plafondLecture(r), true))) : lire(bbox, max, false).then(construire);
+  };
   // Les arbres estimes restent pres de la parcelle : un disque de 500 m en semerait des milliers.
   const RAYON_ARBRES_M = 100;
 
   if(choix.batiments){
-    const feats2 = await lireCouche(COUCHE_BATIMENT, 80);
-    elementsRetenus(construireElementsIgn(feats2, proj, simplifier, 'batiment')).forEach(b=>{
+    (await lireElements(COUCHE_BATIMENT, 80, 'batiment')).forEach(b=>{
       if(idsPresents.has(b.id) || !surNouvelles(b)) return;
       idsPresents.add(b.id);
       const p = b.props || {};
@@ -573,8 +575,7 @@ export async function construireVoisinage(
   }
   if(choix.vegetation){
     for(const couche of [COUCHE_HAIE, COUCHE_VEGETATION]){
-      const feats3 = await lireCouche(couche, 40);
-      const elems = elementsRetenus(construireElementsIgn(feats3, proj, simplifier, couche === COUCHE_HAIE ? 'haie' : 'vegetation'));
+      const elems = await lireElements(couche, 40, couche === COUCHE_HAIE ? 'haie' : 'vegetation');
       elems.forEach(v=>{
         if(idsPresents.has(v.id) || !surNouvelles(v)) return;
         idsPresents.add(v.id);
