@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une troisième démo : Peyrusse-le-Roc, horizon de cinq kilomètres** (`plan-demos/3.json`, source
+  `deploy/plan-demos/3.json`, 4,3 Mo). La place des Treize Vents avec le voisinage étendu au maximum :
+  4 001 objets, dont les 2 000 parcelles les plus proches (jusqu'à 1,5 km environ) et 2 000 bâtiments
+  (jusqu'à presque 5 km), le relief fin de la parcelle au pas de 0,5 m et la vallée en relief sur 10 km
+  de côté au pas de 20 m. La livraison la copie à côté de `1.json` et `2.json`.
+
 - **Une seconde démo : Peyrusse-le-Roc, horizon d'un kilomètre** (`plan-demos/2.json`, source
   `deploy/plan-demos/2.json`). La place des Treize Vents avec un voisinage étendu à 1 000 m : 1 346
   objets, dont 1 065 parcelles et 280 bâtiments (142 avec leurs toits relus au LiDAR), le relief fin de

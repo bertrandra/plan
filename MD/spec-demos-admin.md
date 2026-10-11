@@ -4,9 +4,9 @@ Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait p
 
 - **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
   (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `plan-demos/1.json`,
-  `plan-demos/2.json`, `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration
+  `plan-demos/2.json`, `plan-demos/3.json`, `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration
   intégrée, première démo de l'admin, à copier avec le dossier à côté de la configuration.
-  `plan-demos/2.json` (Peyrusse-le-Roc, voisinage d'un kilomètre) et les suivantes sont des exports
+  `plan-demos/2.json` et `3.json` (Peyrusse-le-Roc, voisinage d'un et de cinq kilomètres) et les suivantes sont des exports
   de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
