@@ -884,6 +884,18 @@ elle l'emporte. L'écart de comparaison est symétrique (borné à 1,2 m dans le
 l'ajustement, qui compte peu ce qui dépasse le pan, préférait un toit écrasé. AE 101 garde ses corps
 au centimètre (test sur le relevé réel).
 
+**Le sens du faîtage** (`avecCroupesSiMieux`, `GAIN_SENS`). Avant les croupes, si les formes simples
+voient le faîtage dans l'autre sens que le modèle des corps, deux candidats concourent : le toit des
+formes, et le modèle refait dans ce sens (`corpsAvecPignons(…, seulSens)`). Le meilleur l'emporte si
+son écart symétrique, pignons compris (`hauteurAvecPignons`), tombe aux quatre cinquièmes de celui du
+modèle. Cas d'origine : AD 128 au Vésinet, deux pans sur la longueur (7,9 × 17,6 m), le toit relevé
+pour deux fenêtres d'étage, un arbre sur un angle. Le modèle écartait ce qui dépasse le pan, prenait
+le vrai toit pour deux pignons et posait un faîtage à 7,3 m en travers, à 12 m sur 17,6. Les formes
+lisent 8,9 m dans la longueur, au milieu (écart 0,59 contre 0,87). Même résultat en version allégée.
+Sur les bancs : au Vésinet, AD 128 seul ; à Hucqueliers, deux ailes (37248533, 37248618) dont le
+faîtage passait aussi en travers de la mesure ; à Saint-Rémy, une annexe (10123793, un pan devenu deux)
+et un corps signalé pour ses égouts 9,1 / 6,9 m (10123943), qui ne l'est plus ; rien à Gordes.
+
 **La refonte des blocs** (`refondre`). La coupe aux marches prenait parfois la pente forte d'un pan
 pour une marche. Elle coupait ainsi un toit en morceaux absurdes : AE 98, un deux-pans coupé en un
 deux-pans à 8,4 m d'égout et un appentis de 2,3 m à pignon ; sa voisine mitoyenne, un pavillon coupé

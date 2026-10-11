@@ -167,6 +167,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un faîtage posé en travers du toit** (`facade/toitCorps.ts`, règle `GAIN_SENS`), vu sur AD 128 au
+  Vésinet : deux pans sur la longueur, le toit relevé pour deux fenêtres d'étage. Le calcul des corps
+  écartait ce qui dépasse le pan, prenait le vrai toit pour deux pignons et posait un toit écrasé à
+  7,3 m en travers. Quand la lecture des formes voit le faîtage dans l'autre sens et explique
+  nettement mieux la mesure, elle l'emporte : AD 128 a maintenant son faîtage à 8,9 m dans la
+  longueur, au milieu, de près comme de loin (voisin complet ou allégé). Sur les villages de référence,
+  deux ailes d'Hucqueliers et deux corps de Saint-Rémy changent aussi, rien à Gordes ; AE 101 ne bouge
+  pas.
+
 - **Toits en corps sur un contour de biais : plus de trous** (`three/toitCorps3d.ts`,
   `facade/toit.ts`), vus sur AE 103, le voisin d'AE 101.
   - Les croupes perdaient des morceaux : un sommet posé sur le contour sortait deux fois de la coupe,

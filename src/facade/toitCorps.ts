@@ -224,9 +224,9 @@ export function empreintePignon(c: Pick<CorpsToit, 'pts'>, pg: PignonToit): PtBr
  * est rendu dans ce sens (`pts[0] -> pts[1]` le long du faitage). `exclure` : des empreintes dont les
  * mesures ne comptent pas (les pignons). Null sans assez de mesures ou sans toit plausible.
  */
-export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], exclure: readonly PtBrut[][] = []): CorpsToit | null {
+export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], exclure: readonly PtBrut[][] = [], seulSens = false): CorpsToit | null {
   let best: { c: CorpsToit; ecart: number } | null = null;
-  for (const pts of [[...rect], tourne(rect)]) {
+  for (const pts of seulSens ? [[...rect]] : [[...rect], tourne(rect)]) {
     const r = repere(pts);
     const ms = mesuresDans(m, r, pts, contour, exclure);
     let pr = meilleurProfil(ms, r.W);
@@ -318,13 +318,16 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
   return out;
 }
 
-/** Le corps et ses pignons : ajuste, pignons detectes, reajuste sans leurs mesures, pignons relus sur le toit reajuste. */
-export function corpsAvecPignons(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[]): CorpsToit | null {
-  const premier = ajusterCorps(m, rect, contour);
+/**
+ * Le corps et ses pignons : ajuste, pignons detectes, reajuste sans leurs mesures, pignons relus sur le
+ * toit reajuste. `seulSens` : le faitage suit `rect[0] -> rect[1]`, sans essayer l'autre sens.
+ */
+export function corpsAvecPignons(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], seulSens = false): CorpsToit | null {
+  const premier = ajusterCorps(m, rect, contour, [], seulSens);
   if (!premier) return null;
   const pignons = detecterPignons(m, premier, contour);
   if (!pignons.length) return premier;
-  const reajuste = ajusterCorps(m, premier.pts, contour, pignons.map((p) => empreintePignon(premier, p)));
+  const reajuste = ajusterCorps(m, premier.pts, contour, pignons.map((p) => empreintePignon(premier, p)), seulSens);
   // Le sens peut changer au reajustement : les pignons se relisent alors dans le nouveau repere.
   const c = reajuste ?? premier;
   const relus = detecterPignons(m, c, contour);
@@ -939,17 +942,42 @@ function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boo
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
 export const GAIN_CROUPES = 0.8;
+/**
+ * Le faitage dans le sens que lisent les formes simples plutot qu'en travers : seulement si l'ecart a
+ * la mesure, pignons compris, tombe a cette part. AD 128 (Le Vesinet) : deux pans sur la longueur,
+ * le toit releve pour deux fenetres d'etage ; le modele ecartait ce qui depasse le pan, prenait le
+ * vrai toit pour des pignons, et posait un faitage ecrase en travers.
+ */
+export const GAIN_SENS = 0.8;
 
 /**
  * L'ecart d'un corps a la mesure sous lui, chaque mesure bornee a ECART_ABERRANT_M dans les deux sens.
  * Symetrique, a la difference de `profilEn` : celui-la compte peu ce qui depasse le pan (il cherche
  * les pignons), et preferait donc un toit ecrase a un quatre-pans.
  */
-function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): number {
+export function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): number {
   const r = repere(c.pts);
   const ms = mesuresDans(m, r, c.pts, contour);
   if (!ms.length) return Infinity;
-  return Math.sqrt(ms.reduce((a, q) => a + Math.min(ECART_ABERRANT_M, Math.abs(q.z - hauteurCorpsEn(c, r.L, r.W, q.s, q.t))) ** 2, 0) / ms.length);
+  return Math.sqrt(ms.reduce((a, q) => a + Math.min(ECART_ABERRANT_M, Math.abs(q.z - hauteurAvecPignons(c, r, q.s, q.t))) ** 2, 0) / ms.length);
+}
+
+/** La hauteur d'un corps, ses pignons compris : chacun, deux pans perpendiculaires au faitage, de son mur a sa profondeur. */
+function hauteurAvecPignons(c: CorpsToit, r: Repere, s: number, t: number): number {
+  let z = hauteurCorpsEn(c, r.L, r.W, s, t);
+  for (const pg of c.pignons) {
+    const d = pg.pan === 0 ? t : r.W - t, demi = (pg.fin - pg.debut) / 2;
+    if (s < pg.debut || s > pg.fin || d < 0 || d > pg.profondeur || demi <= 0) continue;
+    const e = c.egouts[pg.pan];
+    z = Math.max(z, pg.faitage - ((pg.faitage - e) * Math.abs(s - (pg.debut + pg.fin) / 2)) / demi);
+  }
+  return z;
+}
+
+/** Deux faitages dans le meme sens, a 45 degres pres. */
+function memeSens(a: readonly PtBrut[], b: readonly PtBrut[]): boolean {
+  const ra = repere(a), rb = repere(b);
+  return Math.abs(ra.u.x * rb.u.x + ra.u.y * rb.u.y) >= Math.SQRT1_2;
 }
 
 /**
@@ -957,9 +985,19 @@ function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): 
  * nettement mieux que le modele des corps, qui n'a que des pignons de bout : un toit a quatre pans
  * s'y lisait en appentis presque plat (AE 100). Un corps qui a des pignons garde le modele des corps.
  */
-function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, c: CorpsToit | null): CorpsToit | null {
-  if (c?.pignons.length) return c;
+function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, modele: CorpsToit | null): CorpsToit | null {
   const f = corpsDepuisFormes(grille ?? m, rect);
+  let c = modele;
+  // Les formes voient le faitage dans l'autre sens : leur toit, ou le modele refait dans ce sens
+  // (pignons compris), l'emporte s'il explique nettement mieux la mesure (GAIN_SENS). L'ecart est
+  // symetrique : celui du modele compte peu ce qui depasse le pan, et c'est ainsi qu'il s'ecrase.
+  if (c && f && !memeSens(c.pts, f.pts)) {
+    const candidats = [f, corpsAvecPignons(m, f.pts, contour, true)]
+      .filter((x): x is CorpsToit => x !== null).map((x) => ({ x, e: ecartAuCorps(m, x, contour) })).sort((a, b) => a.e - b.e);
+    const mieux = candidats[0];
+    if (mieux && mieux.e < GAIN_SENS * ecartAuCorps(m, c, contour)) c = { ...mieux.x, ecart: cm(mieux.e) };
+  }
+  if (c?.pignons.length) return c;
   // Sans corps du modele, la lecture des formes, quelle qu'elle soit (un pan, deux, quatre, plat).
   if (!c) return f;
   if (!f?.croupes) return c;

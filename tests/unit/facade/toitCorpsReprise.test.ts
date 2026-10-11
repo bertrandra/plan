@@ -37,6 +37,27 @@ describe('reprise des contours de biais', () => {
     expect(c.egouts[0]).toBeLessThan(5.2);
   });
 
+  it('AD 128 : deux pans sur la longueur, que le modele des corps ecrasait en travers', () => {
+    // Le modele ecartait ce qui depasse le pan (un arbre sur un angle, le toit releve pour deux
+    // fenetres d'etage) et posait un faitage a 7,3 m en travers, a 12 m sur 17,6 ; les formes
+    // simples lisent le faitage dans la longueur, au milieu.
+    const r = releve('28267696');
+    const corps = reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille })!;
+    expect(corps).toHaveLength(1);
+    const c = corps[0]!;
+    const [a, b, d] = c.pts as [PtBrut, PtBrut, PtBrut, PtBrut];
+    const L = Math.hypot(b.x - a.x, b.y - a.y), W = Math.hypot(d.x - b.x, d.y - b.y);
+    expect(L).toBeGreaterThan(17);
+    expect(W).toBeLessThan(8.5);
+    expect(Math.abs(c.posFaitage - W / 2)).toBeLessThan(0.5);
+    expect(c.faitage).toBeGreaterThan(8.5);
+    expect(c.egouts[0]).toBe(c.egouts[1]);
+    expect(c.egouts[0]).toBeGreaterThan(6);
+    expect(c.egouts[0]).toBeLessThan(7.2);
+    // Et en version allegee (un voisin loin du projet), le meme toit.
+    expect(reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille, coupes: false })).toEqual(corps);
+  });
+
   it('AE 98 : un toit a deux pans entier, que la pente d un pan ne coupe plus en deux morceaux', () => {
     const r = releve('98');
     const corps = reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille })!;
