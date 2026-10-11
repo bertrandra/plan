@@ -143,6 +143,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Vue 3D : l'heure et la date sous l'horloge, les réglages dans un tiroir.** Un clic sur
+  l'horloge du canevas, maintenant toujours affichée, ouvre dessous le curseur d'heure et la date ; un
+  second clic ou Échap les referme. Sur bureau, les autres réglages sont un tiroir replié sur une
+  ligne de titre (« Réglages de la vue 3D ») ; ouvert, il glisse par-dessus le haut de la scène sans
+  la redimensionner, et la scène gagne encore environ 90 px. Le cadre Terrasse (filaire, translucide,
+  sol en coupe) ne s'affiche que si une terrasse est sélectionnée. Au doigt, la feuille des réglages
+  garde ses thèmes.
+
 - **Inspecteur : le titre nomme la fonction de l'objet** (« Bâtiment — Maison », pas « Polygone »).
   La ligne « Type » disparaît.
 
