@@ -9,7 +9,9 @@
 
 import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
-import { repere, point, planCroupe, hauteurCorpsEn } from '../facade/toitCorps.js';
+import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
+// Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
+export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
@@ -319,20 +321,6 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
   corps.forEach((c) => { const f = facettesCorps(c, contour); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   return { pans: pans.length, murs: murs.length };
-}
-
-/** La pente d'un corps, en degres : celle de son pan le plus raide ; 0 pour un toit plat. */
-export function penteDuCorps(c: CorpsToit): number {
-  const W = Math.hypot((c.pts[3] as PtBrut).x - (c.pts[0] as PtBrut).x, (c.pts[3] as PtBrut).y - (c.pts[0] as PtBrut).y);
-  const p = c.posFaitage, [e0, e1] = c.egouts, deg = (h: number, l: number) => (l > 0.01 && h > 0 ? (Math.atan(h / l) * 180) / Math.PI : 0);
-  return Math.max(deg(c.faitage - e0, p), deg(c.faitage - e1, W - p));
-}
-
-/** La pente qui choisit la tuile : celle du plus grand corps en pente (un appentis de garage ne decide pas pour la maison). */
-export function penteDominante(corps: readonly CorpsToit[]): number | null {
-  const aire = (c: CorpsToit) => Math.abs(signedArea(c.pts as PtBrut[]));
-  const enPente = corps.filter((c) => penteDuCorps(c) > 0).sort((a, b) => aire(b) - aire(a));
-  return enPente[0] ? penteDuCorps(enPente[0]) : null;
 }
 
 /**

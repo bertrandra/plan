@@ -46,7 +46,7 @@ import {
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit, Toit } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit, Toit, Relief } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
@@ -125,6 +125,13 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
   }
   const maxRadius = pts.reduce((m: number, p: PtBrut) => Math.max(m, dist(p, cen)), 0);
   return Math.max(3, maxRadius * 2);
+}
+
+/** Le relief sans son paysage : le sol d'un plan dont le voisinage est masque. */
+function sansPaysage(r: Relief): Relief {
+  const reste = { ...r };
+  delete reste.paysage;
+  return reste;
 }
 
 /** La marge du sol autour des parcelles affichees : celle du calque (model/calque.ts). */
@@ -302,8 +309,9 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
   }
   const chargeurOrtho = new THREE.TextureLoader();
   ctx.orthoTuiles().forEach((t: TuileOrtho) => {
-    // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
-    if (!t.dataUri) return;
+    // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`). Les tuiles
+    // du paysage ne vont qu'au sol en relief : sur un sol plat, coupees au calque, elles doubleraient les fines.
+    if (!t.dataUri || t.large) return;
     // La photo couvre le sol, et pas au-dela : chaque tuile est coupee aux bornes du sol (le calque).
     const cadre = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
     if (!cadre) return;
@@ -700,7 +708,7 @@ function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: Cont
     // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
     // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
     // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
-    const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude } : undefined;
+    const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude, choix: o.toit?.couverture ?? null } : undefined;
     if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
       ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit);
     }
@@ -798,8 +806,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const extent = etendueDeLaScene(obj, etat, cen);
   const versLocal = versLocalDepuis(cen);
   // Le relief est celui de la parcelle du projet ; `null` sans relief ou si « Sol en relief » est
-  // decoche — la scene est alors exactement celle d'avant (three/relief3d.ts).
-  const sol = solDeLaScene(ctx.trouverParcelleCloture()?.relief);
+  // decoche — la scene est alors exactement celle d'avant (three/relief3d.ts). Le voisinage masque
+  // emporte le paysage (le relief au-dela de la parcelle) : le sol revient a la grille du projet.
+  const reliefProjet = ctx.trouverParcelleCloture()?.relief;
+  const sol = solDeLaScene(reliefProjet && etat.voisinageVisible === false ? sansPaysage(reliefProjet) : reliefProjet);
   // Le meme relief, lu par le moteur (engine/sol.ts) : la structure de la terrasse, les poteaux
   // d'une pergola, le bord d'un bassin suivent le sol en pente (MD/spec-relief.md §6). Sol dessine
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
@@ -830,7 +840,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   }
   // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
   const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
-  if (voisinage3d.rues.afficher && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+  if (voisinage3d.rues.afficher && etat.voisinageVisible !== false && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
     ajouterNomsDesRues3d(scene, versLocal, rues, {
       hauteurSol: sol ? sol.hauteur : undefined,
       // Les rues sont decoupees au sol dessine : un nom hors du sol flotterait dans le vide.

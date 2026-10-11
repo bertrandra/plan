@@ -260,7 +260,8 @@ export function decoupesTuiles(tuiles: readonly TuileOrtho[], bornes: Emprise, e
   const out: DecoupeTuile[] = [];
   for (const t of tuiles) {
     if (!t.dataUri || t.largeur <= 0 || t.hauteur <= 0) continue;
-    const c = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
+    // Une tuile du paysage couvre le relief au-dela du calque : elle n'est coupee qu'au maillage.
+    const c = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, t.large ? emprise : bornes);
     if (!c) continue;
     out.push({
       tuile: t,
@@ -279,8 +280,10 @@ export function decoupesTuiles(tuiles: readonly TuileOrtho[], bornes: Emprise, e
  * (jsdom) : le sol reste vert, et rien d'autre ne change.
  */
 export function peindreOrthoSurSol(tuiles: readonly TuileOrtho[], bornes: Emprise, r: Relief, mat: THREE_NS.MeshStandardMaterial): boolean {
-  const premiere = tuiles.find(t => !!t.dataUri && t.largeur > 0);
-  if (!premiere) return false;
+  // La densite de la texture : celle des tuiles les plus fines (le paysage, dessous, est plus grossier).
+  const fines = tuiles.filter(t => !!t.dataUri && t.largeur > 0);
+  if (!fines.length) return false;
+  const premiere = fines.reduce((a, t) => (t.largeur < a.largeur ? t : a));
   const emprise = empriseSol(r, bornes);
   const taille = tailleTextureSol(emprise, PX_PAR_TUILE / premiere.largeur);
   const canvas = document.createElement('canvas');

@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Choisir le matériau de la couverture** (section Façades et toit, « Matériau »). Automatique, le
+  défaut, garde le matériau que Plan déduit des fichiers fonciers, de la couleur et de la pente, et
+  le nomme entre parenthèses. Tuile romane, plate ou canal, ardoise ou zinc l'emportent en 3D sur
+  ce relevé, dans tous les modes de toit. « Actualiser le projet » revient à l'automatique ; la
+  relecture LiDAR des toits garde le choix.
+
+- **Affichage › Noms des rues**. La même bascule que la case de la section Voisinage de la parcelle ;
+  la première fois, les rues sont lues à l'IGN.
+
+- **Affichage › Recharger la photo aérienne**. Une photo mal chargée ne se réparait pas en éteignant
+  puis rallumant le fond : les tuiles restaient en cache. La commande oublie tout et relit tout. Une
+  tuile qui échoue est maintenant redemandée une fois avant d'être abandonnée.
+
+- **La photo aérienne couvre tout le voisinage**, jusqu'au bout du relief du paysage. Une seconde
+  couche, à un niveau de détail plus grossier, se pose sous la photo fine des parcelles. Avant, la
+  vallée restait verte au-delà de la dernière parcelle importée.
+
 - **Une roue qui tourne, sans message, pendant l'ouverture** (`shell/chargement.ts`, `index.html`).
   Un plan lourd (le voisinage de 5 km : 4 000 objets) met plusieurs secondes à s'ouvrir, et la page
   montrait pendant ce temps des zones vides. La roue est posée par la page elle-même, avant que le
@@ -126,6 +143,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Inspecteur : le titre nomme la fonction de l'objet** (« Bâtiment — Maison », pas « Polygone »).
+  La ligne « Type » disparaît.
+
+- **Vue 3D : les réglages tiennent sur une bande**, en quatre cadres par thème : Terrasse (filaire,
+  translucide, sol en coupe), Scène (tous les objets, opaques, textures, ombres), Soleil, Points de
+  vue. Le titre « Vue 3D » est retiré et « Plein écran » rejoint les boutons de caméra. Le détail de
+  chaque case est dans son infobulle. La scène gagne environ 90 px de haut. Au doigt, la feuille
+  des réglages garde les mêmes thèmes.
+
+- **Affichage : l'entrée « Sections de l'inspecteur repliées » est retirée**. L'inspecteur ouvre
+  toujours sa première section.
+
+- **Voisinage masqué : tout le voisinage s'en va**. Les courbes de niveau et le sol 3D du paysage,
+  les noms des rues (plan et 3D) et la photo du paysage suivent les parcelles et les bâtiments. Le
+  sol 3D revient à la parcelle et à son calque.
+
 - **« Actualiser le projet » recrée les bâtiments de la parcelle du projet.** Tous les bâtiments posés
   sur la parcelle, importés ou dessinés à la main, sont supprimés puis recréés depuis la BD TOPO, comme
   à un import d'aujourd'hui : contour, nom, hauteur, apparence, toit relu sur le LiDAR, couleur des
@@ -190,6 +223,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Après « Actualiser le projet » ou une actualisation IGN, l'écran se met à jour**. Le plan, la
+  Vue 3D ouverte et la photo aérienne sont redessinés ; il fallait cliquer sur 2D ou 3D.
 
 - **Un faîtage posé en travers du toit** (`facade/toitCorps.ts`, règle `GAIN_SENS`), vu sur AD 128 au
   Vésinet : deux pans sur la longueur, le toit relevé pour deux fenêtres d'étage. Le calcul des corps

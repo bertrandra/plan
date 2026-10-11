@@ -51,10 +51,15 @@ const surfaceMontree = (c: ContexteChamps): number | null =>
 const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
   c.obj.constrained && c.parcelle && c.parcelle.key !== c.obj.key ? enPoints(c.parcelle).pts : null;
 
-/** Le titre de l'inspecteur : le type, le nom, la surface. */
+/**
+ * Le titre de l'inspecteur : la fonction de l'objet (ce qu'il est sur le terrain : un arbre, un
+ * terrain), le nom, la surface. La geometrie (polygone, cercle) ne disait rien de l'objet ; elle ne
+ * se montre plus qu'a defaut de fonction connue.
+ */
 export function titreObjet(c: ContexteChamps): string {
   const s = surfaceMontree(c);
-  return c.libelleType(c.obj) + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2) + ' m²)' : '');
+  const quoi = (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
+  return quoi + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2) + ' m²)' : '');
 }
 
 /** Un champ texture : la vignette, le nom, choisir, retirer. */
@@ -76,7 +81,6 @@ const sectionObjet: Section = {
   id: 'objet', titre: 'Objet',
   champs: [
     { type: 'texte', cle: 'name', libelle: 'Nom', effets: ['rendu'], lire: (c) => c.obj.name, ecrire: (c, v) => { c.obj.name = v; } },
-    { type: 'lecture', cle: 'type', libelle: 'Type', valeur: (c) => c.libelleType(c.obj) },
     {
       type: 'choix', cle: 'fonction', libelle: 'Fonction', effets: ['rendu'],
       // Plusieurs champs (elevation, textures, arbre, parasol) n'apparaissent que selon la

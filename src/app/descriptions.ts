@@ -59,13 +59,14 @@ export const DESCRIPTIONS: Record<string, string> = {
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',
   'affichage.relief': 'Montre ou cache le sol en relief dans la 3D',
   'affichage.courbes': 'Montre ou cache les courbes de niveau sur le plan',
+  'affichage.rues': 'Montre ou cache le nom des rues sur le plan et au sol de la Vue 3D ; la première fois, les rues sont lues à l’IGN',
   'affichage.nord': 'Montre ou cache la flèche du Nord sur le plan',
-  'affichage.sectionsRepliees': 'Ouvre l’inspecteur sur les titres seuls de ses sections (les étapes d’une terrasse ou d’une piscine), ou sur la première dépliée ; une seule section est ouverte à la fois, et le réglage reste dans ce navigateur',
   'affichage.voisinage': 'Montre ou cache les objets importés des parcelles voisines, sans les supprimer',
   'affichage.orthophoto': 'Pose la photo aérienne de l’IGN sous le plan, ou la retire',
   'affichage.orthoOpacite': 'Règle l’opacité de la photo aérienne',
   'affichage.orthoParcelleOpacite': 'Règle le remplissage de la parcelle par-dessus la photo aérienne',
   'affichage.orthoParcelleDefaut': 'Remet le remplissage de la parcelle à la valeur conseillée (15 %)',
+  'affichage.orthoRecharger': 'Oublie les tuiles de la photo aérienne et les relit à l’IGN, jusqu’au bout du voisinage',
 
   // ---- Cotes --------------------------------------------------------------------------------------
   'mesure.choisirReference': 'Désigne sur le plan le côté à partir duquel les cotes se mesurent',
