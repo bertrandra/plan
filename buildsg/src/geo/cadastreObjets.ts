@@ -108,6 +108,9 @@ export interface ImportCadastral {
 }
 
 /** Ce que chaque morceau de l'import partage : le recalage sur l'origine, la date, les cles prises. */
+/** Ce qu'il faut pour poser une forme IGN dans le plan : le recalage, les cles libres, la date de lecture. */
+type ContexteForme = Pick<ContexteImport, 'dec' | 'cleUnique' | 'recupereLe'>;
+
 interface ContexteImport {
   importe: ImportCadastral;
   /** Un point du repere local, recale sur l'origine (le sommet le plus au nord), au millimetre. */
@@ -271,7 +274,7 @@ interface OptionsFormeIgn {
   extra?: { locked?: boolean; bdtopo?: unknown; toit?: Toit };
 }
 
-function formeIgn(x: ContexteImport, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
+function formeIgn(x: ContexteForme, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
   return Object.assign({
     key: x.cleUnique(opts.cle), type:'polygon' as const, name: nom,
     fill, fillOpacity: opts.opacite !== undefined ? opts.opacite : 0.9, stroke,
@@ -300,7 +303,7 @@ function batiments(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean, parce
 }
 
 /** Un batiment BD TOPO tel qu'il entre dans le plan ; hors de la propriete, verrouille. */
-function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean): ObjetPlan {
+function objetBatiment(x: ContexteForme, b: ObjetBdTopo, surPrincipale: boolean): ObjetPlan {
   const p = b.props || {};
   const usage = p.usage_1 || p.nature || 'Batiment';
   const pts = b.pts.map(x.dec);
@@ -336,6 +339,15 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
         }
       }
     });
+}
+
+/**
+ * Un batiment de la propriete, tel qu'un import d'aujourd'hui le pose : « Fichier › Actualiser le
+ * projet » supprime ceux de la parcelle et les recree ainsi. `b.pts` est deja dans le repere du plan.
+ */
+export function batimentDeLaPropriete(b: ObjetBdTopo, cleUnique: (base: string) => string, recupereLe: string): ObjetPlan {
+  const dec = (p: PtBrut) => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 });
+  return objetBatiment({ dec, cleUnique, recupereLe }, b, true);
 }
 
 /**
