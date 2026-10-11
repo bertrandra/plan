@@ -32,17 +32,25 @@ function plan(): ObjetPlan[] {
       fill: '#ff0000', fillOpacity: 1, stroke: '#ff0000', textureVerticale: texture, couleurMurs: { source: 'plan' }, modeToit: 'simple', fenetres3d: { afficher: false },
       toit: { forme: 'deux-pans', pente: 35, faitage: 'long', source: 'bdtopo', couleur: '#123456' },
       corpsToit: [{ pts: carre(5, 5, 10), egouts: [5], faitage: 8, pignons: [] }],
-      bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'BAT1', surParcellePrincipale: true }
+      bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'BAT1', surParcellePrincipale: true },
+      toitACheval: { parcelles: ['parcelle', 'p2'], reponse: 'un' }
+    },
+    // Un abri dessine a la main sur la parcelle, et un batiment voisin hors d'elle.
+    { key: 'abri', type: 'polygon', name: 'Abri', fonction: 'batiment', pts: carre(22, 2, 3), elevation: 2.2, fill: '#00ffff' },
+    {
+      key: 'bati-v9', type: 'polygon', name: 'Voisin', fonction: 'batiment', pts: carre(40, 0, 6), elevation: 5, locked: true, voisinage: true,
+      bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'V9', surParcellePrincipale: false }
     },
     { key: 'terrasse', type: 'polygon', name: 'Terrasse', fonction: 'terrasse', pts: carre(16, 16, 4), fill: '#00ff00', textureHorizontale: texture }
   ] as unknown as ObjetBrut[]) as ObjetPlan[];
 }
 
-/** Le service IGN : la parcelle, le batiment BAT1 a sa place, le reste vide. */
-function service(): string[] {
+/** Le service IGN : la parcelle, le batiment BAT1 a sa place, le reste vide ; `sansBdTopo` : la BD TOPO ne repond pas. */
+function service(sansBdTopo = false): string[] {
   const appels: string[] = [];
   vi.stubGlobal('fetch', vi.fn((url: string) => {
     appels.push(url);
+    if (sansBdTopo && url.includes('BDTOPO')) return Promise.reject(new Error('hors ligne'));
     const corps = url.includes('apicarto.ign.fr/api/cadastre')
       ? { features: [{ type: 'Feature', properties: { contenance: 900, nom_com: 'Le Vésinet' }, geometry: { type: 'Polygon', coordinates: [anneau(carre(0, 0, 30))] } }] }
       : url.includes('batiment')
@@ -71,7 +79,7 @@ function contexte(objets: ObjetPlan[], relief: Relief): ContexteActualisation & 
 
 describe('les valeurs par defaut d un objet importe', () => {
   it('ramene couleurs, textures et reglages d apparence a l import, et laisse le toit a relire', () => {
-    const [parcelle, bati, terrasse] = serializeObjects(plan()) as ObjetBrut[];
+    const [parcelle, bati, , , terrasse] = serializeObjects(plan()) as ObjetBrut[];
     const p = valeursParDefaut(parcelle!), b = valeursParDefaut(bati!);
     expect([p.fill, p.fillOpacity, p.stroke]).toEqual([APPARENCES_IGN.parcelle.fill, 1, APPARENCES_IGN.parcelle.stroke]);
     expect(p.textureHorizontale).toBeNull();
@@ -101,7 +109,7 @@ describe('les valeurs par defaut d un objet importe', () => {
 });
 
 describe('Actualiser le projet', () => {
-  it('relit tout, ramene les objets importes aux valeurs par defaut et laisse intact ce qui a ete dessine', async () => {
+  it('relit tout, recree les batiments de la parcelle, ramene les autres objets importes aux valeurs par defaut et laisse intact le reste du dessin', async () => {
     service();
     const relief: Relief = { source: 'lidar-hd', couche: 'l', dateLecture: '2026-10-11', origine: 'LiDAR HD', precision: 'p', systemeAltimetrique: 'NGF-IGN69', pas: 0.5, x0: 0.25, y0: 29.75, nx: 2, ny: 2, z: [2, 2, 2, 2], zRef: 2 };
     const ctx = contexte(plan(), relief);
@@ -118,14 +126,21 @@ describe('Actualiser le projet', () => {
     expect(parcelle.relief?.zRef).toBe(2);
     expect(parcelle.relief?.affichage ?? null).toBeNull();
     expect(parcelle.relief?.maxCellules).toBe(90000);
-    // Le batiment : relu (hauteur de la BD TOPO), apparence et toit par defaut, recalcules ensuite (LiDAR, murs).
+    // Les batiments de la parcelle : supprimes, puis recrees depuis la BD TOPO comme a un import —
+    // nom, hauteur, apparence et toit d'aujourd'hui ; l'abri dessine dessus disparait avec eux.
     expect(bati.fill).toBe(APPARENCES_IGN.batimentPropriete.fill);
     expect(bati.elevation).toBe(7);
     expect(bati.couleurMurs).toBeUndefined();
     expect(bati.modeToit).toBeUndefined();
+    expect(bati.textureVerticale ?? null).toBeNull();
     expect(bati.toit?.source).toBe('bdtopo');
     expect(bati.toit?.couleur).toBeUndefined();
-    expect(bati.name).toBe('Ma maison');
+    expect(bati.name).toBe('Résidentiel (2 niv.)');
+    expect((bati.bdtopo as { surParcellePrincipale?: boolean }).surParcellePrincipale).toBe(true);
+    // La reponse a la question du toit a cheval est un choix de la personne : elle suit le batiment.
+    expect(bati.toitACheval).toEqual({ parcelles: ['parcelle', 'p2'], reponse: 'un' });
+    expect(ctx.etat.objects.some(o => o.key === 'abri')).toBe(false);
+    expect(ctx.etat.objects.filter(o => o.fonction === 'batiment').map(o => o.key).sort()).toEqual(['bati-bat1', 'bati-v9']);
     expect(ctx.toitsLidar).toHaveBeenCalledTimes(1);
     expect(ctx.couleursMurs).toHaveBeenCalledTimes(1);
     // Ce qui a ete dessine : tel quel.
@@ -133,7 +148,16 @@ describe('Actualiser le projet', () => {
     expect(terrasse.textureHorizontale?.id).toBe('brick');
   });
 
+  it('garde les batiments de la parcelle si la BD TOPO ne repond pas', async () => {
+    service(true);
+    const relief: Relief = { source: 'lidar-hd', couche: 'l', dateLecture: '2026-10-11', origine: 'LiDAR HD', precision: 'p', systemeAltimetrique: 'NGF-IGN69', pas: 0.5, x0: 0.25, y0: 29.75, nx: 2, ny: 2, z: [2, 2, 2, 2], zRef: 2 };
+    const ctx = contexte(plan(), relief);
+    await lancerActualisationProjet(ctx);
+    expect(ctx.etat.objects.filter(o => o.fonction === 'batiment').map(o => o.key).sort()).toEqual(['abri', 'bati-bat1', 'bati-v9']);
+    expect(ctx.etat.objects.find(o => o.key === 'abri')?.fill).toBe('#00ffff');
+  });
+
   it('dit ce qu il fait avant de le faire', () => {
-    expect(POINTS_ACTUALISATION.join(' ')).toMatch(/Relu à l’IGN.*valeurs par défaut.*Conservés : ce que vous avez dessiné.*Ctrl\+Z/);
+    expect(POINTS_ACTUALISATION.join(' ')).toMatch(/Supprimés puis recréés.*bâtiments de la parcelle.*Relu à l’IGN.*valeurs par défaut.*Conservés : le reste de ce que vous avez dessiné.*Ctrl\+Z/);
   });
 });
