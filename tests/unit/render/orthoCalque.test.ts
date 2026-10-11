@@ -23,6 +23,7 @@ function monter(voisinageVisible: boolean) {
   } as unknown as ContexteOrtho;
   ortho.actif = true;
   ortho.tuiles = [{ z: 18, x: 1, y: 1, dataUri: 'data:,', xMin: -50, yMin: -50, largeur: 300, hauteur: 300 }];
+  ortho.tuilesLarges = [{ z: 17, x: 0, y: 0, dataUri: 'data:,', xMin: -500, yMin: -500, largeur: 1000, hauteur: 1000, large: true }];
   ortho.couverture = { xMin: -50, xMax: 250, yMin: -50, yMax: 250 };
   ortho.version++;
   placerOrthophoto(ctx);
@@ -42,5 +43,15 @@ describe('l orthophoto du plan 2D', () => {
   it('suit le voisinage masque', () => {
     const rect = monter(false).querySelector('clipPath rect')!;
     expect([rect.getAttribute('width'), rect.getAttribute('height')]).toEqual(['80', '80']);
+  });
+
+  it('pose le paysage dessous, en tuiles larges, et le cache avec le voisinage', () => {
+    const g = monter(true);
+    const larges = g.querySelector<SVGGElement>('g.tuilesOrthoLarges')!;
+    expect(larges.querySelectorAll('image')).toHaveLength(1);
+    // Dessous : avant les tuiles fines dans le document.
+    expect(larges.compareDocumentPosition(g.querySelector('g.tuilesOrtho')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(larges.style.display).toBe('');
+    expect(monter(false).querySelector<SVGGElement>('g.tuilesOrthoLarges')!.style.display).toBe('none');
   });
 });

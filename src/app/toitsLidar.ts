@@ -294,7 +294,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; continue; }
       if (ajuste) {
         const ancien = o.toit;
-        o.toit = { ...ajuste.toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}) };
+        o.toit = { ...ajuste.toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}) };
       }
       // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
       const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;

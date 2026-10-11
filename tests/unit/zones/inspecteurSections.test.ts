@@ -20,12 +20,11 @@ const rien = () => undefined;
 const champ = (cle: string) => ({ type: 'texte', cle, libelle: cle, lire: () => '', ecrire: rien });
 const section = (id: string, repliee = false): Section => ({ id, titre: id, ...(repliee ? { repliee } : {}), champs: [champ(id + '.a')] } as unknown as Section);
 
-function monter(sectionsDe: (o: ObjetPlan) => Section[], replier = false) {
+function monter(sectionsDe: (o: ObjetPlan) => Section[]) {
   const a = { key: 'a', name: 'A', type: 'polygon', fonction: 'autre', pts: [] } as unknown as ObjetPlan;
   const b = { key: 'b', name: 'B', type: 'polygon', fonction: 'autre', pts: [] } as unknown as ObjetPlan;
   const etat = { objects: [a, b], selectedKey: 'a' } as unknown as EtatApp;
   const magasin = creerMagasin(etat);
-  if (replier) (magasin as unknown as { store: { setState: (s: object) => void } }).store.setState({ sectionsRepliees: true });
   let courant = a;
   const service = {
     objet: () => courant, contexte: (o: ObjetPlan) => ({ etat, obj: o, commandeUtilisable: () => true }) as unknown as ContexteChamps,
@@ -82,8 +81,4 @@ describe('les sections de l inspecteur', () => {
     expect(m.ouvertes()).toEqual(['objet']);
   });
 
-  it('avec la preference « repliees », s ouvrent toutes fermees', () => {
-    m = monter(() => [section('objet'), section('lames')], true);
-    expect(m.ouvertes()).toEqual([]);
-  });
 });

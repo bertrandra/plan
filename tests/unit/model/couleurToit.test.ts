@@ -121,3 +121,12 @@ describe('la couleur d un toit-terrasse', () => {
     expect(couleurToitPlat(null)).toBe(COULEURS_TOIT_REPLI.gris);
   });
 });
+
+describe('le materiau choisi dans l inspecteur', () => {
+  it('l emporte sur les fichiers fonciers, la couleur et la pente, sauf sur un toit plat', () => {
+    expect(materiauCouverture({ origineCouleur: 'gris' }, { materiauxToiture: '2', choix: 'tuile-plate' })).toBe('tuile-plate');
+    expect(materiauCouverture(null, { pente: 50, choix: 'zinc' })).toBe('zinc');
+    expect(materiauCouverture(null, { choix: 'ardoise' }, true)).toBe('terrasse');
+    expect(materiauCouverture(null, { materiauxToiture: '2', choix: null })).toBe('ardoise');
+  });
+});

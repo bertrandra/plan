@@ -97,11 +97,12 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.grille': menu('menuAffichage', 'surimpression'),
   'affichage.relief': menu('menuAffichage'),
   'affichage.courbes': menu('menuAffichage'),
-  'affichage.sectionsRepliees': menu('menuAffichage'),
+  'affichage.rues': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleDefaut': menu('menuAffichage'),
+  'affichage.orthoRecharger': menu('menuAffichage'),
 
   // ---- Vues -----------------------------------------------------------------------------------
   // Avec une terrasse selectionnee : sur le plan, dans le groupe flottant ; en 3D, dans les commandes de la scene.

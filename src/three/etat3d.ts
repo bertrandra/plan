@@ -201,6 +201,8 @@ export interface PlanVuDeLa3d {
   terrasseSelectedKey: string | null;
   /** La terrasse isolee : seule dans la scene, cadree sur elle, ses lames en transparence. */
   isolement?: string | null;
+  /** Le voisinage montre : masque, il emporte le paysage du relief et le nom des rues. Absent : montre. */
+  voisinageVisible?: boolean;
 }
 
 /**

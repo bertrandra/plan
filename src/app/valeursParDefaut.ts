@@ -25,6 +25,7 @@ export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
     const toit: Toit = { ...o.toit, source: 'bdtopo' };
     delete toit.couleur;
     delete toit.origineCouleur;
+    delete toit.couverture;
     copie.toit = toit;
     copie.toitMesure = null;
     copie.corpsToit = null;

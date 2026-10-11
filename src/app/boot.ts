@@ -21,7 +21,7 @@ import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } 
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
 import { rendreScene } from '../render/pipeline.js';
-import { restaurerOrthoDuProjet, basculerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
+import { restaurerOrthoDuProjet, basculerOrthophoto, chargerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
 import { dessinerCourbesRelief } from '../render/relief.js';
 import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
@@ -202,9 +202,10 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     rendreScene(etat, {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
-      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene),
+      // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
+      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene, etat.voisinageVisible),
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
-      dessinerRues: () => dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque),
+      dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
       renderReleves: () => {
         dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
@@ -268,13 +269,23 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     apresModification: () => { p.render(); if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
     montrer: (o) => tardifs.explorateur?.selectionner(o.key)
   });
+  // Apres une actualisation, tout se redessine : le plan, la Vue 3D si elle est ouverte, et la photo
+  // aerienne, relue sur l'etendue nouvelle (le voisinage, son relief). Il fallait sinon repasser
+  // par le plan ou la 3D pour voir le resultat.
+  const apresActualisation = () => {
+    questionsACheval();
+    const refaire3d = () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); };
+    p.render();
+    refaire3d();
+    if (ortho.actif) void chargerOrthophoto(ctxOrtho()).catch(() => null).then(() => { p.render(); refaire3d(); });
+  };
   // Le contexte des deux actualisations (IGN, et le projet entier aux valeurs par defaut).
   const contexteActualisation = (): ContexteActualisation => ({
     etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
     restoreState: historique.restaurer, serializeMeasures, serializeObjects,
     syncLieuTitre: affichage.syncLieuTitre,
     trouverParcelleCloture: affichage.trouverParcelleCloture,
-    apresActualisation: questionsACheval
+    apresActualisation
   });
   const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => {
     const r = chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
@@ -324,8 +335,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherClavier(commandes);
   brancherAffichage(atelier, {
     enregistrerAffichage: affichage.enregistrerAffichage,
-    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
-    sectionsRepliees: { lire: () => magasin.store.getState().sectionsRepliees, definir: (v) => magasin.definirSectionsRepliees(v) }
+    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
   }, commandes);
   brancherVoisinage(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond

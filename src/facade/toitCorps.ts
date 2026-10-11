@@ -18,7 +18,7 @@
 //      sur au moins 1,5 m (`detecterPignons`). Le corps est ensuite reajuste sans eux.
 
 import { au } from '../util/tableaux.js';
-import { pointInPolygon } from '../geometry/basic.js';
+import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { hauteurToitMesure, decouperParHauteurs, SOL_M } from '../model/toitMesure.js';
 import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../model/volumesToit.js';
@@ -1010,3 +1010,18 @@ export function hauteursMursCorps(c: CorpsToit): number[] {
   const bas = Math.min(...c.egouts);
   return [c.egouts[0], bas, c.egouts[1], bas];
 }
+
+/** La pente d'un corps, en degres : celle de son pan le plus raide ; 0 pour un toit plat. */
+export function penteDuCorps(c: CorpsToit): number {
+  const W = Math.hypot((c.pts[3] as PtBrut).x - (c.pts[0] as PtBrut).x, (c.pts[3] as PtBrut).y - (c.pts[0] as PtBrut).y);
+  const p = c.posFaitage, [e0, e1] = c.egouts, deg = (h: number, l: number) => (l > 0.01 && h > 0 ? (Math.atan(h / l) * 180) / Math.PI : 0);
+  return Math.max(deg(c.faitage - e0, p), deg(c.faitage - e1, W - p));
+}
+
+/** La pente qui choisit la tuile : celle du plus grand corps en pente (un appentis de garage ne decide pas pour la maison). */
+export function penteDominante(corps: readonly CorpsToit[]): number | null {
+  const aire = (c: CorpsToit) => Math.abs(signedArea(c.pts as PtBrut[]));
+  const enPente = corps.filter((c) => penteDuCorps(c) > 0).sort((a, b) => aire(b) - aire(a));
+  return enPente[0] ? penteDuCorps(enPente[0]) : null;
+}
+

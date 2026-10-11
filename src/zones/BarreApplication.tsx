@@ -17,6 +17,8 @@ import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { voisinage3dDe } from '../model/voisinage3d.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -154,11 +156,10 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
 function MenuAffichage({ magasin, commandes }: PropsMenu) {
   useStore(magasin.store, (s) => s.version);
-  // Une preference du navigateur, hors de l'etat du plan : elle ne fait pas avancer `version`.
-  const sectionsRepliees = useStore(magasin.store, (s) => s.sectionsRepliees);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
   const relief = reliefDe(etat.objects);
+  const parcelle = parcelleDuProjet(etat.objects);
   // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
   // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
   const bascules: [string, string, boolean, boolean][] = ([
@@ -168,8 +169,8 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     // Le sol en relief (3D) et les courbes de niveau (plan), chacun sa bascule ; une fois le relief lu.
     ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
     ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
-    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
-    ['affichage.sectionsRepliees', 'Sections de l\'inspecteur repliées', sectionsRepliees, true]
+    ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
+    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
@@ -194,6 +195,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
         {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Photo', Math.round(ortho.opacite * 100), 20, 'Opacité de la photo aérienne elle-même')}
         {curseur('affichage.orthoParcelleOpacite', 'orthoParcelleOpacite', 'orthoParcelleOpaciteTexte', 'Remplissage parcelle', Math.round(ortho.parcelleOpacite * 100), 0, 'Remplissage du terrain par-dessus la photo : à 100 % la parcelle masque exactement ce qu\'on veut voir')}
         <Entree commandes={commandes} id="affichage.orthoParcelleDefaut" libelle="Remplissage conseillé (15 %)" idDom="orthoParcelleDefaut" />
+        <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
         <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
       </ul>
     </details>

@@ -13,7 +13,7 @@
 // presence d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useContext, useLayoutEffect, useRef, useState } from 'react';
 import { champActif } from '../app/ecritures.js';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
@@ -381,18 +381,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const compact = classe === 'compact';
   const tactile = classe !== 'large';
   const [famille, choisirFamille] = useState<Famille>('objet');
-  const replier = useStore(magasin.store, (s) => s.sectionsRepliees);
-  // Changer la preference s'applique tout de suite aux sections montees ; ensuite, chacune garde le
-  // pli que l'utilisateur lui donne. Une section repliee par defaut (Prix, Parametres) le reste.
   const panneau = useRef<HTMLElement>(null);
-  const prefPrecedente = useRef(replier);
-  useEffect(() => {
-    if (prefPrecedente.current === replier) return;
-    prefPrecedente.current = replier;
-    const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
-    const premiere = sections.find(d => d.dataset.repliee === undefined);
-    sections.forEach((d) => { d.open = !replier && d === premiere; });
-  }, [replier]);
   // Passer a un objet qui n'a pas la section laissee ouverte (une terrasse, puis un batiment) : sa
   // premiere section s'ouvre, plutot qu'une colonne de titres tous replies.
   const cle = inspecteur.objet()?.key ?? null;
@@ -401,10 +390,10 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     if (clePrecedente.current === cle) return;
     clePrecedente.current = cle;
     const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
-    if (replier || sections.some(d => d.open)) return;
+    if (sections.some(d => d.open)) return;
     const premiere = sections.find(d => d.dataset.repliee === undefined);
     if (premiere) premiere.open = true;
-  }, [cle, replier]);
+  }, [cle]);
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
@@ -451,7 +440,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
     </div>
   );
-  const ouverteParDefaut = replier ? null : premiereOuverte(sections, c);
+  const ouverteParDefaut = premiereOuverte(sections, c);
   const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === ouverteParDefaut} />);
   const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
   // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.

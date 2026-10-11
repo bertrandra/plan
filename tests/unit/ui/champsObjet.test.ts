@@ -108,3 +108,12 @@ describe('la surface d une terrasse trouee, en tete de l inspecteur', () => {
     expect(titreObjet(contexte('batiment', 'polygon', terrasse, [trou(6)]))).toMatch(/\(140\.00 m²\)$/);
   });
 });
+
+describe('le titre de l inspecteur', () => {
+  it('nomme la fonction de l objet plutot que sa geometrie, et la geometrie sans fonction', () => {
+    expect(titreObjet(contexte('batiment', 'polygon'))).toMatch(/^Bâtiment — O/);
+    expect(titreObjet(contexte('batiment', 'polygon'))).not.toMatch(/polygon/);
+    expect(titreObjet(contexte('', 'circle'))).toMatch(/^circle — O/);
+    expect(cles(contexte('batiment', 'polygon'), 'objet')).not.toContain('type');
+  });
+});

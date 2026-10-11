@@ -1262,13 +1262,25 @@
   .valeurReglage{ font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
   .infoSoleil{ font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px; }
   .barreSoleil{ align-items:center; margin-top:6px; flex-wrap:wrap; }
+  /* Les reglages de la Vue 3D en bande, un cadre par theme (Terrasse, Scene, Soleil, Points de
+     vue) : quatre lignes de cases au long libelle prenaient le haut de l'ecran a la scene. */
+  .groupes3d{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:stretch; }
+  .groupe3d{ flex:1 1 auto; display:flex; align-items:center; flex-wrap:wrap; gap:2px 12px; min-width:0; margin:0; padding:2px 10px 5px; border:1px solid var(--hairline); border-radius:var(--r-champ); }
+  .groupe3d legend{ padding:0 4px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .groupe3d .caseReglage{ margin-right:0; font-size:0.82rem; }
+  .groupe3d .controls{ margin:0; gap:6px; flex-wrap:nowrap; }
+  .groupe3d .etiquetteReglage, .groupe3d .valeurReglage{ font-size:0.82rem; }
+  .groupe3d .petitLibelle{ margin-left:0; }
+  .groupe3d select{ max-width:220px; }
+  .boutonVue3d{ display:inline-flex; align-items:center; gap:4px; }
+  .hint3d{ margin:4px 0 0; font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* Le conteneur des deux panneaux 3D (zones/vue3d/) ne compte pas dans la mise en page. */
   #zoneVues3d{ display:contents; }
   .titreAvecAction{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .panneauVisionneuse{ width:98vw; max-width:1600px; margin:0 auto; }
   .boutonGenerer{ margin-left:8px; }
   .hoteVisionneuse{ margin-top:6px; }
-  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 380px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
+  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 300px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
   .commandes3d{ position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px; }
   .bouton3d{
     width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;
@@ -1328,6 +1340,14 @@
   html:not([data-classe="large"]) .reglages3d select, html:not([data-classe="large"]) .reglages3d input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) .reglages3d button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); display:inline-flex; align-items:center; gap:6px; }
   html:not([data-classe="large"]) .reglages3d .etiquetteReglage{ font-size:14px; font-weight:600; font-family:var(--sans); }
+  html:not([data-classe="large"]) .groupes3d{ display:block; }
+  html:not([data-classe="large"]) .groupe3d{ display:block; margin:0 0 12px; padding:0; border:none; }
+  html:not([data-classe="large"]) .groupe3d legend{ padding:0 0 4px; font-size:0.68rem; }
+  html:not([data-classe="large"]) .groupe3d .controls{ flex-wrap:wrap; margin-bottom:4px; }
+  html:not([data-classe="large"]) .groupe3d select{ max-width:none; }
+  html:not([data-classe="large"]) .hint3d{ white-space:normal; }
+  /* Sur telephone et tablette la scene occupe deja l'ecran : le plein ecran n'y apporte rien. */
+  html:not([data-classe="large"]) #terrasse3dFullPageBtn{ display:none; }
   /* Tablette : les reglages en panneau a droite, ouverts par le bouton ⚙. */
   html[data-classe="moyen"] .reglages3d{
     position:fixed; top:calc(var(--reserve-haut) + 8px); right:64px; z-index:85; width:360px; max-height:calc(100dvh - var(--reserve-haut) - 24px);

@@ -57,7 +57,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     elevationOf, hauteurAppuiMm, objetMasque: d.affichage.objetMasque, positionMat,
     syncControlesSoleilVue3d: syncControlesSoleil, trouverParcelleCloture: d.affichage.trouverParcelleCloture,
     orthoActif: () => ortho.actif,
-    orthoTuiles: () => ortho.tuiles
+    // Le paysage (tuiles larges, sous les fines) suit le voisinage, comme sur le plan.
+    orthoTuiles: () => (etat.voisinageVisible ? [...ortho.tuilesLarges, ...ortho.tuiles] : ortho.tuiles)
   });
   // Le pilotage des deux vues (zoom, mode du glisser, points de vue, plein page) vit dans three/navigation.ts.
   const nav3d = creerNavigation3d(etat, { showErrBanner, hauteurFinieMm, ouvrirVue3d: () => { commandes.executer('vue.3d'); } });

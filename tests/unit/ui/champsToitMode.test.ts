@@ -96,3 +96,26 @@ describe('Corps et pignons', () => {
     expect(cles(c)).not.toContain('toitCorpsLus');
   });
 });
+
+// Le materiau de la couverture : deduit par defaut (et annonce tel quel), il se choisit et l'emporte.
+describe('Materiau de la couverture', () => {
+  it('annonce le materiau deduit, se choisit, puis revient a l automatique', () => {
+    const c = contexte({ bdtopo: { materiauxToiture: '2' } });
+    const m = champ<ChampChoix>(c, 'toitMateriau');
+    expect(cles(c)).toContain('toitMateriau');
+    expect(m.lire(c)).toBe('');
+    expect(m.options(c)[0]).toEqual({ valeur: '', libelle: 'Automatique (ardoise)' });
+    expect(m.options(c).map((o) => o.valeur)).toEqual(['', 'tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'zinc']);
+    m.ecrire(c, 'zinc');
+    expect(c.obj.toit?.couverture).toBe('zinc');
+    // Le materiau deduit ne change pas avec le choix : il reste lisible dans « Automatique ».
+    expect(m.options(c)[0]!.libelle).toBe('Automatique (ardoise)');
+    m.ecrire(c, '');
+    expect(c.obj.toit && 'couverture' in c.obj.toit).toBe(false);
+  });
+
+  it('ne se montre pas sur un toit plat simple', () => {
+    const c = contexte({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } });
+    expect(cles(c)).not.toContain('toitMateriau');
+  });
+});

@@ -12,10 +12,9 @@ import { libelleIsoler, objetAIsoler } from '../../app/isolement.js';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
-import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
-import { EnteteReglages, ListePointsDeVue, ReglagesSoleil as Soleil, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
+import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
@@ -59,38 +58,50 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
 
   return (
     <div id="vue3dPanel" className={'panelBox vue3dPanneau' + (pleinePage ? ' pleinePage' : '')} style={{ display: visible ? 'block' : 'none' }}>
-      <div className="sectionTitle titre3d titreAvecAction">
-        <span>Vue 3D</span>
-        <BoutonCommande commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" className="secondary small">
-          {pleinePage ? 'Format normal' : 'Plein écran'}
-        </BoutonCommande>
-      </div>
+      {/* Pas de titre « Vue 3D » : l'onglet de la barre le dit deja. Les reglages tiennent sur une
+          bande, en groupes par theme ; le detail de chaque case est dans son infobulle. */}
       <div id="zoneReglages3d" className="reglages3d" role="group" aria-label="Réglages de la vue 3D">
         <EnteteReglages vue="vue3d" titre="Réglages de la vue 3D" idLieu="vue3dLieu" lieu={vues.libelleLieu()} magasin={magasin} />
         <div className="corpsFeuille">
-          <div className="controls">
-            <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Lames en filaire — voir la structure dessous" coche={r.filaire()} onChange={r.basculerFilaire} />
-            <Case id="terrasse3dTranslucide" controle="vue3d.platelageTranslucide" libelle="Platelage translucide — voir les plots" coche={vue3d.platelageTranslucide} onChange={r.basculerPlatelageTranslucide}
-              titre="Les lames deviennent translucides : la structure bois, les plots et leur dalle ou leur concassé se voient dessous" />
-            <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Afficher tous les objets du plan" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets} />
-            <Case id="terrasse3dSolCoupe" controle="vue3d.solEnCoupe" libelle="Sol en coupe — voir l'assise et les fondations" coche={vue3d.solEnCoupe} onChange={r.basculerSolEnCoupe}
-              titre="Perce le sol sous la terrasse : hérisson, dalle, massifs ou fûts de vis apparaissent à leur profondeur" />
-            <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Objets opaques (sinon opacite du plan)" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques} />
-            <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Texture (sinon couleur unie)" coche={vue3d.textures} onChange={r.basculerTextures}
-              titre="Decoche pour ignorer les textures Poly Haven et revenir a la couleur unie du plan, sans avoir a les retirer de chaque objet" />
-            <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombre portée" coche={vue3d.ombres} onChange={r.basculerOmbres}
-              titre="Chaque objet projette une ombre sur ce qu'il survole - plus lent a calculer, coche par defaut" />
+          <div className="groupes3d">
+            <fieldset className="groupe3d">
+              <legend>Terrasse</legend>
+              <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Filaire" coche={r.filaire()} onChange={r.basculerFilaire}
+                titre="Lames en filaire : voir la structure dessous" />
+              <Case id="terrasse3dTranslucide" controle="vue3d.platelageTranslucide" libelle="Translucide" coche={vue3d.platelageTranslucide} onChange={r.basculerPlatelageTranslucide}
+                titre="Les lames deviennent translucides : la structure bois, les plots et leur dalle ou leur concassé se voient dessous" />
+              <Case id="terrasse3dSolCoupe" controle="vue3d.solEnCoupe" libelle="Sol en coupe" coche={vue3d.solEnCoupe} onChange={r.basculerSolEnCoupe}
+                titre="Perce le sol sous la terrasse : hérisson, dalle, massifs ou fûts de vis apparaissent à leur profondeur" />
+            </fieldset>
+            <fieldset className="groupe3d">
+              <legend>Scène</legend>
+              <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Tous les objets" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets}
+                titre="Afficher tous les objets du plan, pas seulement la terrasse et ce qui lui est lié" />
+              <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Opaques" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques}
+                titre="Objets opaques (sinon l'opacité qu'ils ont sur le plan)" />
+              <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Textures" coche={vue3d.textures} onChange={r.basculerTextures}
+                titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
+              <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
+                titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
+            </fieldset>
+            <fieldset className="groupe3d groupeSoleil3d">
+              <legend>Soleil</legend>
+              <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
+              <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
+            </fieldset>
+            <fieldset className="groupe3d">
+              <legend>Points de vue</legend>
+              <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small boutonVue3d"
+                title="Enregistrer la vue comme point de vue : crée un objet Point de vue (mode Plan) à la position et l'angle actuels de la caméra"
+                aria-label="Enregistrer la vue comme point de vue"
+                disabled={!commandes.etat('3d.enregistrerPointDeVue').utilisable}
+                onClick={(e) => { commandes.executer('3d.enregistrerPointDeVue', e.currentTarget); }}>
+                <Icone nom="camera" taille={18} /><span className="libelleVue3d">Enregistrer</span>
+              </button>
+              <ListePointsDeVue vue="vue3d" id="terrasse3dViewSelect" magasin={magasin} aller={vues.allerAuPointDeVue} />
+            </fieldset>
           </div>
-          <Soleil ids={IDS_SOLEIL} soleil={vues.soleil3d} />
-          <div className="controls ligneReglage">
-            <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small" title="Cree un objet Point de vue (Mode Plan) a la position et l'angle actuels de la camera"
-              disabled={!commandes.etat('3d.enregistrerPointDeVue').utilisable}
-              onClick={(e) => { commandes.executer('3d.enregistrerPointDeVue', e.currentTarget); }}>
-              <Icone nom="camera" taille={20} /> Enregistrer la vue comme point de vue
-            </button>
-            <ListePointsDeVue vue="vue3d" id="terrasse3dViewSelect" magasin={magasin} aller={vues.allerAuPointDeVue} />
-          </div>
-          <div className="hint" id="terrasse3dHint">{affichage3d.indication3d}</div>
+          <div className="hint hint3d" id="terrasse3dHint" title={affichage3d.indication3d}>{affichage3d.indication3d}</div>
         </div>
       </div>
       <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
@@ -101,11 +112,14 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         <Icone nom="reglages" taille={20} />
       </button>
       <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliotheque 3D…</div>
-      <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 10 }}>
+      <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
           {vue3d.ombres && <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} />}
           <div id="terrasse3dZoomControls" className="commandes3d">
+            <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
+              titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />
+            <div className="separateur3d"></div>
             <Bouton3d commandes={commandes} id="3d.zoomAvant" domId="terrasse3dZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
             <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
             <div className="separateur3d"></div>

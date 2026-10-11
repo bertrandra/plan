@@ -3,12 +3,15 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Le fond orthophoto telecharge des tuiles : on le remplace par son etat et des espions.
 const orthoEspions = vi.hoisted(() => ({
-  ortho: { actif: false, opacite: 0.85, parcelleOpacite: 0.15 },
-  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn()
+  ortho: { actif: false, opacite: 0.85, parcelleOpacite: 0.15, chargement: false, tuiles: [] as unknown[], tuilesLarges: [] as unknown[] },
+  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn(),
+  recharger: vi.fn(async () => ({ z: 19, nb: 4, total: 4, exact: true })), toast: vi.fn()
 }));
+vi.mock('../../../../src/shell/dialogs.js', () => ({ showToast: orthoEspions.toast, showErrBanner: () => {} }));
 vi.mock('../../../../src/render/ortho.js', () => ({
   ortho: orthoEspions.ortho,
-  basculerOrthophoto: orthoEspions.basculer, placerOrthophoto: orthoEspions.placer, enregistrerConfigOrtho: orthoEspions.enregistrer
+  basculerOrthophoto: orthoEspions.basculer, placerOrthophoto: orthoEspions.placer, enregistrerConfigOrtho: orthoEspions.enregistrer,
+  rechargerOrthophoto: orthoEspions.recharger
 }));
 
 import { creerRegistre, type Droits } from '../../../../src/app/commandes.js';
@@ -27,9 +30,7 @@ const sansOrtho: Droits = { ...tout, aCapacite: (c) => c !== 'plan.ortho' && c !
 function monter(droits = tout, selection: string | null = null) {
   const objets = [{ key: 'parcelle' }, { key: 'v1', voisinage: true }, { key: 'a' }] as unknown as ObjetPlan[];
   const a = fauxAtelier({ objects: objets, selectedKey: selection, showNorth: true, voisinageVisible: true, grilleVisible: true, highlight: { type: 'vertex', index: 1 } } as never);
-  let replier = false;
-  const sectionsRepliees = { lire: () => replier, definir: vi.fn((v: boolean) => { replier = v; }) };
-  const ctx: ContexteAffichage = { enregistrerAffichage: vi.fn(), ctxOrtho: () => ({}) as never, buildThreeScene: vi.fn(), sectionsRepliees };
+  const ctx: ContexteAffichage = { enregistrerAffichage: vi.fn(), ctxOrtho: () => ({}) as never, buildThreeScene: vi.fn() };
   const cmd = creerRegistre(droits);
   brancherAffichage(a, ctx, cmd);
   return { a, ctx, cmd };
@@ -37,24 +38,6 @@ function monter(droits = tout, selection: string | null = null) {
 const curseur = (v: number) => Object.assign(document.createElement('input'), { value: String(v) });
 
 describe('affichage', () => {
-  it('replie les sections de l inspecteur : preference du navigateur, ni projet ni rendu', () => {
-    localStorage.removeItem('plan.inspecteur.sectionsRepliees');
-    const { a, ctx, cmd } = monter();
-    // Au branchement, la preference memorisee (aucune : deplie) est posee dans le magasin.
-    expect(ctx.sectionsRepliees.definir).toHaveBeenLastCalledWith(false);
-    cmd.executer('affichage.sectionsRepliees');
-    expect(ctx.sectionsRepliees.lire()).toBe(true);
-    expect(localStorage.getItem('plan.inspecteur.sectionsRepliees')).toBe('1');
-    expect(ctx.enregistrerAffichage).not.toHaveBeenCalled();
-    expect(a.render).not.toHaveBeenCalled();
-    // Un autre atelier (un autre projet, une autre session) la retrouve.
-    expect(monter().ctx.sectionsRepliees.definir).toHaveBeenLastCalledWith(true);
-    cmd.executer('affichage.sectionsRepliees');
-    expect(localStorage.getItem('plan.inspecteur.sectionsRepliees')).toBe('0');
-    // Permise en lecture seule : elle ne demande aucune permission d'ecrire.
-    expect(monter({ ...tout, aPermission: () => false }).cmd.etat('affichage.sectionsRepliees').utilisable).toBe(true);
-  });
-
   it('bascule la fleche du Nord, sans l enregistrer avec le projet', () => {
     const { a, ctx, cmd } = monter();
     cmd.executer('affichage.nord');
@@ -124,6 +107,39 @@ describe('affichage', () => {
     sans3d.cmd.executer('affichage.orthophoto');
     await Promise.resolve(); await Promise.resolve();
     expect(sans3d.ctx.buildThreeScene).not.toHaveBeenCalled();
+  });
+});
+
+describe('photo aerienne et noms des rues', () => {
+  it('recharge la photo allumee, le dit, et reconstruit la 3D ouverte', async () => {
+    orthoEspions.ortho.actif = false;
+    const { cmd, ctx } = monter();
+    expect(cmd.etat('affichage.orthoRecharger').utilisable).toBe(false);
+    orthoEspions.ortho.actif = true;
+    orthoEspions.ortho.tuiles = [{}, {}];
+    orthoEspions.ortho.tuilesLarges = [{}];
+    vue3d.scene = {} as never;
+    try {
+      cmd.executer('affichage.orthoRecharger');
+      await Promise.resolve(); await Promise.resolve();
+      expect(orthoEspions.recharger).toHaveBeenCalledTimes(1);
+      expect(orthoEspions.toast).toHaveBeenCalledWith('Photo aérienne rechargée : 3 tuiles');
+      expect(ctx.buildThreeScene).toHaveBeenCalledTimes(1);
+    } finally { vue3d.scene = null; orthoEspions.ortho.actif = false; }
+    expect(monter(sansOrtho).cmd.effacee('affichage.orthoRecharger')).toBe(true);
+  });
+
+  it('montre les noms des rues, et les lit a l IGN la premiere fois', () => {
+    const { a, cmd } = monter();
+    const lire = vi.fn();
+    cmd.declarer({ id: 'projet.lireRues', libelle: 'Lire les rues', groupe: 'projet', executer: lire });
+    const p = a.etat.objects.find((o) => o.key === 'parcelle')!;
+    cmd.executer('affichage.rues');
+    expect(p.voisinage3d?.rues?.afficher).toBe(true);
+    expect(lire).toHaveBeenCalledTimes(1);
+    cmd.executer('affichage.rues');
+    expect(p.voisinage3d?.rues?.afficher).toBe(false);
+    expect(lire).toHaveBeenCalledTimes(1);
   });
 });
 

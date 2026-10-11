@@ -899,6 +899,9 @@ export interface VolumeToit {
   hauteursMurs?: number[];
 }
 
+/** Les couvertures d'un toit en pente que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). */
+export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc';
+
 export interface Toit {
   forme: FormeToit;
   /** Hauteur du faitage au-dessus de l'egout, en metres. */
@@ -913,6 +916,11 @@ export interface Toit {
    * l'a choisie, et rien ne la recalcule.
    */
   origineCouleur?: 'orthophoto' | 'rouge' | 'brun' | 'gris';
+  /**
+   * Le materiau de la couverture choisi dans l'inspecteur : il l'emporte sur celui que Plan deduit
+   * des fichiers fonciers, de la couleur et de la pente (model/couleurToit.ts). Absent : deduit.
+   */
+  couverture?: CouvertureChoisie;
   /**
    * D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ajustee sur le MNH LiDAR
    * HD de l'IGN (MD/spec-toit-ign.md §10), ou saisie.
