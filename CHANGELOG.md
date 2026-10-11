@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une seconde démo : Peyrusse-le-Roc, horizon d'un kilomètre** (`plan-demos/2.json`, source
+  `deploy/plan-demos/2.json`). La place des Treize Vents avec un voisinage étendu à 1 000 m : 1 346
+  objets, dont 1 065 parcelles et 280 bâtiments (142 avec leurs toits relus au LiDAR), le relief fin de
+  la parcelle au pas de 0,5 m et le maillage secondaire de la vallée au pas de 5 m. La livraison copie
+  le fichier à côté de `1.json` ; il s'ouvre comme l'autre démo.
+
 - **« Fichier › Actualiser le projet… »** (`app/actualiserProjet.ts`). Met un projet à niveau d'un
   geste, comme s'il était importé aujourd'hui.
   - **Relu à l'IGN et recalculé** avec la version en cours : la parcelle, les bâtiments de la parcelle
@@ -90,6 +96,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La démo (`1.json` et le projet de démonstration de l'application) est actualisée** comme l'est un
+  projet par « Fichier › Actualiser le projet », et son voisinage est étendu à 100 m : 147 objets, dont
+  112 parcelles et bâtiments voisins (56 avec leurs toits en corps), le relief LiDAR au pas de 0,5 m sur
+  la parcelle et un maillage secondaire au pas de 2 m alentour, le gazon et les couleurs d'import par
+  défaut. Les objets dessinés sont inchangés. Le chiffrage de la terrasse de la démo tient maintenant
+  compte du relief (lambourdes 94 ml au lieu de 93, lames 269,4 ml au lieu de 267,5). Le témoin figé des
+  empreintes (`DEMO_TEMOIN_OBJECTS`) ne bouge pas : `tests/fixtures/golden/` reste identique.
+
 - **Relief : une grille fine sur la parcelle, un maillage secondaire pour le voisinage**
   (`geo/relief.ts`, `three/relief3d.ts`, `MD/spec-relief.md` §3.1). Avec « relief sur toutes les
   parcelles », la parcelle garde sa grille à son pas fin (0,5 m en LiDAR HD) au lieu de partager le pas
@@ -124,6 +138,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Voisinage étendu : plus de bâtiment en double sur la parcelle du projet.** Le bâti posé sur la
+  parcelle (importé avec elle ou dessiné) n'est plus repris comme voisin.
+- **Actualisation : plus d'objets « absents » au-delà de 80 par couche.** La relecture de la BD TOPO
+  pagine toujours ; un plan de 58 bâtiments voisins perdait les derniers à chaque actualisation.
 
 - **« Impossible de créer le projet : Maximum call stack size exceeded »** avec un grand voisinage
   et le relief (2 allée des Limites, 490 m). Le maillage secondaire du relief dépassait 120 000

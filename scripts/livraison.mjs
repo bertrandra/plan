@@ -11,6 +11,7 @@
 //   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici)
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
 //   plan-demos/1.json          la demonstration integree, premiere demo de l'admin (a poser hors racine)
+//   plan-demos/2.json…         les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km)
 //   cerfa/cerfa_13703-12.pdf   le formulaire officiel de la declaration prealable, rempli par la page
 //   LISEZMOI-DEPLOIEMENT.txt   les etapes
 
@@ -55,6 +56,9 @@ writeFileSync(resolve(sortie, 'plan-demos/1.json'), JSON.stringify({
   objects: demo.document.objects,
   measures: demo.document.measures || []
 }, null, 2) + '\n');
+// Les autres demos livrees : des exports de Plan ranges dans deploy/plan-demos/, copies tels quels.
+const autresDemos = resolve(racine, 'deploy/plan-demos');
+if (existsSync(autresDemos)) cpSync(autresDemos, resolve(sortie, 'plan-demos'), { recursive: true });
 let commit = 'inconnu';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: racine, encoding: 'utf8' }).trim(); } catch { /* hors git */ }
 
@@ -77,8 +81,10 @@ Plateforme : ${origine}
    b. Y remplacer « A-CHANGER » par le mot de passe admin.
    c. Copier aussi le dossier plan-demos/ de cette livraison a cote de plan-admin-config.php,
       hors du dossier publie. Il contient 1.json, la demonstration integree, premiere demo de
-      l'admin. Les demos enregistrees ensuite y sont rangees : une nouvelle mise en ligne ne les
-      touche pas. Si plan-demos/ existe deja la-bas, ne pas l'ecraser : ce sont vos demos.
+      l'admin, et 2.json, Peyrusse-le-Roc avec un voisinage d'un kilometre. Les demos enregistrees
+      ensuite y sont rangees : une nouvelle mise en ligne ne les touche pas. Si plan-demos/ existe
+      deja la-bas, ne pas l'ecraser : ce sont vos demos. Pour recevoir une demo livree (2.json, ou
+      1.json mis a jour), copier ce seul fichier, apres avoir garde l'ancien si vous l'aviez modifie.
       Laisse dans public_html/, il est refuse par .htaccess (404) et l'admin ne le voit pas.
    d. Droits : plan-demos/ et ses fichiers doivent etre lisibles par PHP (dossier 755, fichiers
       644, meme utilisateur que le site). Un fichier present mais illisible, ou une configuration

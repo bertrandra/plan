@@ -27,3 +27,22 @@ describe('la demo livree (livraison/plan-demos/1.json)', () => {
     expect(v.objets.length).toBe(DEMO_OBJECTS.length);
   });
 });
+
+describe('la deuxieme demo livree (livraison/plan-demos/2.json)', () => {
+  const chemin2 = resolve(__dirname, '../../livraison/plan-demos/2.json');
+  const source = resolve(__dirname, '../../deploy/plan-demos/2.json');
+
+  it('est la copie de deploy/plan-demos/2.json', () => {
+    expect(existsSync(chemin2), 'absente : npm run livraison').toBe(true);
+    expect(readFileSync(chemin2, 'utf8')).toBe(readFileSync(source, 'utf8'));
+  });
+
+  it('est Peyrusse-le-Roc avec son voisinage d un kilometre, et se relit comme un projet', () => {
+    const d = JSON.parse(readFileSync(source, 'utf8'));
+    expect(d.meta).toMatchObject({ id: '2' });
+    expect(d.meta.name).toMatch(/^Peyrusse-le-Roc/);
+    const v = validerProjetJSON(d);
+    expect(v.objets.length).toBeGreaterThan(1000);
+    expect(v.objets.find(o => o.key === 'parcelle')?.relief?.paysage).toBeTruthy();
+  });
+});

@@ -70,8 +70,8 @@ describe('le schema qu un document ecrit', () => {
     expect(schemaMinimal([batiment({ facades: [] })])).toBe(1);
   });
 
-  it('est 3 pour la demonstration, dont la maison porte un toit a croupes : la plateforme doit accepter 3', () => {
-    expect(schemaMinimal(DEMO_OBJECTS)).toBe(3);
+  it('est 4 pour la demonstration, dont la parcelle porte un relief, et 3 pour son temoin (maison a croupes) : la plateforme doit accepter 4', () => {
+    expect(schemaMinimal(DEMO_OBJECTS)).toBe(4);
     expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(3);
   });
 
