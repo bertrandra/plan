@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une pelouse sur la parcelle du projet en 3D** (`three/gazon.ts`). Par défaut, la parcelle est
+  couverte d'un gazon dessiné, sans téléchargement : des milliers de brins de nuances différentes, plus
+  sombres à la base et plus clairs à la pointe, quelques brins secs, une sous-couche de terre là où ils
+  s'écartent, et un léger relief sous le soleil. Des variations lentes de teinte, tous les dix mètres
+  environ, empêchent de voir la texture se répéter. Le gazon épouse exactement le contour de la
+  parcelle et suit le relief maille par maille, au pas de la grille du sol. Il passe au-dessus de la
+  photo aérienne sur la parcelle, sous les terrasses, les bâtiments et les chemins, et laisse passer un
+  bassin. La case « Gazon (3D) » (section Apparence de la parcelle) le retire ; une texture horizontale
+  choisie l'emporte sur lui. L'export GLB l'emporte avec sa texture.
+
 - **De nouvelles couvertures en 3D** (`three/couverture.ts`, `MD/spec-toit-ign.md` §6.2) : tuiles
   plates sur les toits raides, tuiles canal sur les toits peu pentus du Midi, zinc à joints debout,
   gravillons sur les toits-terrasses, en plus des tuiles romanes et des ardoises. Le matériau de

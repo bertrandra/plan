@@ -145,6 +145,38 @@ describe('l empilement de la terrasse en 3D', () => {
   });
 });
 
+describe('le gazon de la parcelle du projet', () => {
+  const gazon = () => { let m: THREE_NS.Mesh | null = null; vue3d.scene?.scene.traverse((o) => { if (o.name === 'gazon') m = o as THREE_NS.Mesh; }); return m as THREE_NS.Mesh | null; };
+
+  it('couvre la parcelle par defaut, meme sous la photo aerienne, et pas les parcelles voisines', () => {
+    buildThreeScene(terrasse(), etat(), contexte({ orthoActif: () => true, orthoTuiles: () => [] }));
+    const g = gazon();
+    expect(g).not.toBeNull();
+    let n = 0; vue3d.scene?.scene.traverse((o) => { if (o.name === 'gazon') n++; });
+    expect(n).toBe(1);
+    expect((g!.material as THREE_NS.MeshStandardMaterial).vertexColors).toBe(true);
+    // Il couvre la surface de la parcelle (716 m² au cadastre, 704 m² au plan recale).
+    const pos = g!.geometry.getAttribute('position');
+    let s = 0;
+    for (let k = 0; k < pos.count; k += 3) {
+      const ax = pos.getX(k + 1) - pos.getX(k), az = pos.getZ(k + 1) - pos.getZ(k), bx = pos.getX(k + 2) - pos.getX(k), bz = pos.getZ(k + 2) - pos.getZ(k);
+      s += Math.abs(ax * bz - az * bx) / 2;
+    }
+    expect(s).toBeGreaterThan(650); expect(s).toBeLessThan(760);
+  });
+
+  it('cede la place quand il est decoche, ou quand une texture horizontale est choisie', () => {
+    const parcelle = objets.find((o) => o.key === 'parcelle')!;
+    parcelle.gazon3d = false;
+    buildThreeScene(terrasse(), etat(), contexte());
+    expect(gazon()).toBeNull();
+    delete parcelle.gazon3d;
+    parcelle.textureHorizontale = { id: 'x', nom: 'x', vignette: '', url: 'https://dl.polyhaven.org/x.jpg' };
+    buildThreeScene(terrasse(), etat(), contexte());
+    expect(gazon()).toBeNull();
+  });
+});
+
 describe('sol en relief', () => {
   // Une grille plane z = 100 + 0,1·x (NGF) sur la parcelle de demonstration et ses abords, zRef = 100 :
   // le sol monte de 10 cm par metre vers l'est. Les cellules sont a demi-metre : le plan tombe au cm.

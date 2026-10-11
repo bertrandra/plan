@@ -112,3 +112,6 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 - **« Relief » et « Courbes de niveau »** (menu Affichage, section Relief) : préférences d'affichage
   sans Ctrl+Z, permises en lecture seule, mais qui **marquent le projet à enregistrer** (attribut
   `enregistre` des champs, `app/ecouteurs/relief.ts`) : l'utilisateur attend de les retrouver.
+- **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
+  (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
+  « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).
