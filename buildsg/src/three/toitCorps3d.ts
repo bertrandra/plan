@@ -168,6 +168,17 @@ function contourSousFacette(contour: readonly PtBrut[], facette: readonly PtBrut
   return poly;
 }
 
+/**
+ * Le polygone sans ses sommets doubles : un sommet de la facette pose sur le contour sort deux fois
+ * de la coupe, et la triangulation par oreilles ne trouve plus d'oreille a cote d'un sommet double.
+ */
+function sansDoublons(poly: PtBrut[]): PtBrut[] {
+  const proche = (a: PtBrut, b: PtBrut) => Math.hypot(a.x - b.x, a.y - b.y) < 1e-6;
+  const out = poly.filter((q, i) => i === 0 || !proche(q, poly[i - 1] as PtBrut));
+  while (out.length > 1 && proche(out[0] as PtBrut, out[out.length - 1] as PtBrut)) out.pop();
+  return out;
+}
+
 /** Le pas des murs qui montent du prisme au toit, le long du contour. */
 const PAS_MUR_M = 0.25;
 
@@ -190,7 +201,7 @@ export function facettesSurContour(corps: readonly CorpsToit[], contour: readonl
     const facettes = plat ? [c.pts.map((q) => ({ ...q, z: c.faitage }))] : facettesCorps(c, null, false).pans;
     for (const f of facettes) {
       const plan = planDe(f);
-      const coupe = plan ? contourSousFacette(contour, f) : [];
+      const coupe = plan ? sansDoublons(contourSousFacette(contour, f)) : [];
       if (plan && coupe.length >= 3 && Math.abs(signedArea(coupe)) > 0.01) pans.push(coupe.map((q) => ({ ...q, z: plan(q) })));
     }
   }
@@ -211,7 +222,42 @@ export function facettesSurContour(corps: readonly CorpsToit[], contour: readonl
     }
     return Math.min(...z);
   });
+  murs.push(...mursEntreCorps(corps, contour, bas));
   return { pans, murs, bas, hauteursMurs };
+}
+
+/**
+ * Les murs entre deux corps, a l'interieur du contour : la ou un corps est plus haut que ce qui le
+ * borde (un autre corps, ou le dessus du prisme), son mur monte de l'un a l'autre. Sans eux, sous
+ * l'egout d'un corps haut pose contre un toit plus bas, on voyait le vide sous le toit (le grand
+ * quatre-pans d'AE 103, dont l'egout a 4,9 m domine la terrasse a 3,7 m).
+ */
+function mursEntreCorps(corps: readonly CorpsToit[], contour: readonly PtBrut[], bas: number): S3[][] {
+  const murs: S3[][] = [];
+  for (const c of corps) {
+    const sens = Math.sign(signedArea(c.pts as PtBrut[])) || 1;
+    c.pts.forEach((a, i) => {
+      const b = c.pts[(i + 1) % c.pts.length] as PtBrut;
+      const l = Math.hypot(b.x - a.x, b.y - a.y);
+      if (l < 1e-6) return;
+      // La normale vers l'exterieur du corps.
+      const n = { x: (sens * (b.y - a.y)) / l, y: (-sens * (b.x - a.x)) / l };
+      const k = Math.max(1, Math.ceil(l / PAS_MUR_M));
+      const ts = Array.from({ length: k + 1 }, (_, j) => j / k);
+      const q = (t: number, d: number): PtBrut => ({ x: a.x + (b.x - a.x) * t + n.x * d, y: a.y + (b.y - a.y) * t + n.y * d });
+      // Seulement a l'interieur du contour : sur le contour, ses propres murs montent deja au toit.
+      const dedans = ts.map((t) => pointInPolygon(q(t, 0.05), contour as PtBrut[]) && pointInPolygon(q(t, -0.05), contour as PtBrut[]));
+      const haut = ts.map((t) => hauteurDesCorps(corps, q(t, -0.05)) ?? bas);
+      const pied = ts.map((t) => Math.max(bas, hauteurDesCorps(corps, q(t, 0.05)) ?? bas));
+      const P = (t: number, z: number): S3 => ({ ...q(t, 0), z });
+      for (let j = 0; j < k; j++) {
+        if (!dedans[j] || !dedans[j + 1]) continue;
+        const h0 = haut[j] as number, h1 = haut[j + 1] as number, p0 = pied[j] as number, p1 = pied[j + 1] as number;
+        if (Math.max(h0 - p0, h1 - p1) > MUR_MIN_M) murs.push([P(ts[j] as number, Math.min(p0, h0)), P(ts[j + 1] as number, Math.min(p1, h1)), P(ts[j + 1] as number, h1), P(ts[j] as number, h0)]);
+      }
+    });
+  }
+  return murs;
 }
 
 export interface ContexteToitCorps {
