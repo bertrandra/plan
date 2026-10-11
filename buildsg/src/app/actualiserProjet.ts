@@ -1,17 +1,22 @@
 // « Fichier › Actualiser le projet » : tout ce qui vient de l'IGN, relu et recalcule avec la version
 // en cours du programme, ramene aux valeurs par defaut ; ce qui a ete dessine a la main, intact.
 //
-// C'est l'actualisation IGN (app/actualisationIgn.ts) avec toutes ses etapes, et une de plus : avant
-// d'etre relu, chaque objet importe (la parcelle, ses limites, les parcelles et le bati du voisinage,
-// la vegetation, les arbres estimes) perd ce qu'on avait regle sur lui — couleurs, textures, gazon,
-// couleur des murs, mode et forme du toit — pour recevoir ce qu'un import d'aujourd'hui lui donnerait :
-// les toits relus sur le LiDAR, leur couleur sur l'orthophoto, celle des murs sur les photos de rue,
-// la pelouse en 3D, le relief (sur toutes les parcelles quand le plan a un voisinage), le PLU.
+// C'est l'actualisation IGN (app/actualisationIgn.ts) avec toutes ses etapes, et deux de plus :
+// - les batiments de la parcelle du projet, importes ou dessines, sont supprimes puis recrees depuis la
+//   BD TOPO, comme a un import d'aujourd'hui (nom, contour, hauteur, toit) ; si la BD TOPO ne repond
+//   pas, ils restent tels quels plutot que de laisser la parcelle vide ;
+// - avant d'etre relu, chaque autre objet importe (la parcelle, ses limites, les parcelles et le bati
+//   du voisinage, la vegetation, les arbres estimes) perd ce qu'on avait regle sur lui — couleurs,
+//   textures, gazon, couleur des murs, mode et forme du toit.
+// Tous recoivent ce qu'un import d'aujourd'hui leur donnerait : les toits relus sur le LiDAR, leur
+// couleur sur l'orthophoto, celle des murs sur les photos de rue, la pelouse en 3D, le relief (sur
+// toutes les parcelles quand le plan a un voisinage), le PLU.
 //
-// Restent : le nom, le masquage et le verrouillage des objets importes (des choix d'organisation du
-// plan, pas d'apparence), les reponses aux questions sur les toits a cheval, la cloture de la parcelle
-// et ses portails (un projet, pas un import), le plafond de points du relief. Une seule etape
-// d'annulation : Ctrl+Z rend le projet d'avant.
+// Restent : le reste de ce qui a ete dessine, le nom, le masquage et le verrouillage des objets
+// importes hors batiments de la parcelle (des choix d'organisation du plan, pas d'apparence), les
+// reponses aux questions sur les toits a cheval, la cloture de la parcelle et ses portails (un projet,
+// pas un import), le plafond de points du relief. Une seule etape d'annulation : Ctrl+Z rend le projet
+// d'avant.
 
 import { dialogues } from '../shell/dialogues.js';
 import { showToast } from '../shell/dialogs.js';
@@ -25,9 +30,10 @@ const aDesVoisines = (objets: readonly ObjetPlan[]) => objets.some(o => o.key !=
 
 /** Ce que le dialogue dit de l'actualisation, avant de la lancer. */
 export const POINTS_ACTUALISATION = [
-  'Relu à l’IGN et recalculé : la parcelle, les bâtiments de la parcelle et du voisinage, la végétation, les toits (LiDAR), la couleur des toits et des murs, le relief, le PLU.',
+  'Supprimés puis recréés depuis la BD TOPO : tous les bâtiments de la parcelle du projet, même ceux que vous avez dessinés (nom, contour, hauteur et toit d’un import d’aujourd’hui).',
+  'Relu à l’IGN et recalculé : la parcelle, les bâtiments du voisinage, la végétation, les toits (LiDAR), la couleur des toits et des murs, le relief, le PLU.',
   'Remis aux valeurs par défaut : les couleurs et les textures de ces objets, le gazon en 3D, l’affichage du relief.',
-  'Conservés : ce que vous avez dessiné, les noms, le masquage, la clôture et ses portails.',
+  'Conservés : le reste de ce que vous avez dessiné, les noms et le masquage des autres objets, la clôture et ses portails.',
   'Ctrl+Z rend le projet d’avant.'
 ];
 
@@ -55,5 +61,5 @@ export function ouvrirActualisationProjet(ctx: ContexteActualisation): void {
 export function lancerActualisationProjet(ctx: ContexteActualisation): Promise<void> {
   const relief = droitsCourants().aCapacite(CAPACITES.relief.code);
   const toutes = aDesVoisines(ctx.etat.objects) || !!ctx.trouverParcelleCloture()?.relief?.paysage;
-  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true }, ctx);
+  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true, recreerBatiments: true }, ctx);
 }
