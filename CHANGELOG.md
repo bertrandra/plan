@@ -167,6 +167,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Toits en corps sur un contour de biais : plus de trous** (`three/toitCorps3d.ts`,
+  `facade/toit.ts`), vus sur AE 103, le voisin d'AE 101.
+  - Les croupes perdaient des morceaux : un sommet posé sur le contour sortait deux fois de la coupe,
+    et la triangulation retirait alors un sommet au hasard. Le petit quatre-pans perdait 15 m² de
+    toit ; on voyait le dessus du prisme à travers.
+  - Entre un corps haut et un toit plus bas (le grand quatre-pans, égout à 4,9 m, contre la terrasse
+    à 3,7 m), le mur manquait : on voyait le vide sous l'égout. Les murs entre corps montent
+    maintenant de l'un à l'autre.
+  - Sur les démos (56, 142 et 142 bâtiments en corps), AE 103 était le seul touché ; plus aucun pan
+    incomplet.
+
 - **Voisinage étendu : plus de bâtiment en double sur la parcelle du projet.** Le bâti posé sur la
   parcelle (importé avec elle ou dessiné) n'est plus repris comme voisin.
 - **Actualisation : plus d'objets « absents » au-delà de 80 par couche.** La relecture de la BD TOPO

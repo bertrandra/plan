@@ -85,6 +85,12 @@ describe('facettes', () => {
     expect(trianguler(L)).toHaveLength(4);
     expect(aire(L, trianguler(L))).toBeCloseTo(3, 9);
   });
+
+  it('retire un sommet double sans perdre de surface (la croupe d AE 103)', () => {
+    // Une croupe coupee sur le contour : ses deux pieds y tombent pile, et sortent deux fois.
+    const croupe = [p(-2.88, -40.78), p(-2.88, -40.78), p(-7.58, -41.03), p(-7.58, -41.03), p(-5.35, -38.56)];
+    expect(aire(croupe, trianguler(croupe))).toBeCloseTo(aire(croupe, [[0, 2, 4]]), 6);
+  });
 });
 
 describe('estimation depuis la silhouette', () => {
