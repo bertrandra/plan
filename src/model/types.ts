@@ -232,6 +232,11 @@ interface ObjetCommun {
    */
   corpsToit?: CorpsToit[] | null;
   /**
+   * La version de la lecture LiDAR qui a traite ce batiment (app/toitsLidar.ts) ; absente, il reste
+   * a lire, et la tache de fond (app/toitsFond.ts) le prendra a son tour.
+   */
+  toitLidarLu?: number | null;
+  /**
    * La couleur des murs lue sur une photo de rue, et la source choisie pour la 3D (model/couleurMur.ts) :
    * la photo, le materiau des fichiers fonciers (`bdtopo.materiauxMurs`) ou la couleur du plan.
    */

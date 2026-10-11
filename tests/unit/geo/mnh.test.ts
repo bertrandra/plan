@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { lireHauteursSous, dallesLidarSur, COUCHE_MNH, RETRAIT_MNH_M } from '../../../src/geo/mnh.js';
+import { lireHauteursSous, lireHauteursSousStrict, dallesLidarSur, COUCHE_MNH, RETRAIT_MNH_M } from '../../../src/geo/mnh.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
@@ -53,6 +53,12 @@ describe('lireHauteursSous', () => {
     const rechercher = vi.fn(async () => ({ ok: false, status: 404 }) as unknown as Response);
     expect(await lireHauteursSous(maison, proj, rechercher as unknown as typeof fetch)).toEqual([]);
     expect(await lireHauteursSous([p(0, 0)], proj, rechercher as unknown as typeof fetch)).toEqual([]);
+  });
+
+  it('en lecture stricte, leve quand le service ne repond pas, et ne rend vide que sans rien a demander', async () => {
+    const rechercher = vi.fn(async () => ({ ok: false, status: 404 }) as unknown as Response);
+    await expect(lireHauteursSousStrict(maison, proj, rechercher as unknown as typeof fetch)).rejects.toThrow(/HTTP 404/);
+    expect(await lireHauteursSousStrict([p(0, 0)], proj, rechercher as unknown as typeof fetch)).toEqual([]);
   });
 });
 

@@ -3,6 +3,7 @@
 **Version:** 1.0 — proposal for review
 **Horizon model:** H1 run · H2 grow · H3 transform
 **Companions:** `architecture.md`, `spec-migration-typescript.md`, `spec-ihm-zones.md`, `spec-connexion-plateforme.md`, `spec-data-strategy.md`, `RELEASE.md`
+**Chantiers en cours :** `roadmap-toits-fond.md` (toits du voisinage lus sur le LiDAR en tâche de fond — fait et reste à faire)
 
 ---
 

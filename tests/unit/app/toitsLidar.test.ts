@@ -94,7 +94,7 @@ describe('toitsDepuisLidar', () => {
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, maxBatiments: 5 });
     // Les cinq plus proches du centre (10, 10) : x = 12, 20, 28, 36, 44 — et les quatre premiers partent ensemble.
     expect(lus.map(Number).sort((a, b) => a - b)).toEqual([12, 20, 28, 36, 44]);
-    expect(MAX_BATIMENTS_LIDAR).toBe(150);
+    expect(MAX_BATIMENTS_LIDAR).toBe(30);
     // Le delai ecoule, les batiments restants ne sont pas lus.
     let t = 0;
     const horloge = () => (t += 10000);
