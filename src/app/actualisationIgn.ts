@@ -22,7 +22,7 @@ import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, PLAFOND_LECTURE, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -228,7 +228,7 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
     try {
       // Une seule requete rendait au plus 80 objets : sur l'emprise de toutes les parcelles d'un
       // voisinage, il y en a des centaines, et ceux d'au-dela restaient « absents de la base ».
-      const feats = await interrogerWfsEtendu(couche, bbox, MAX_OBJETS_RAYON * 5);
+      const feats = await interrogerWfsEtendu(couche, bbox, PLAFOND_LECTURE);
       feats.forEach(f => {
         const p = f.properties || {};
         const id = (f.id as string) || (p.cleabs as string);
