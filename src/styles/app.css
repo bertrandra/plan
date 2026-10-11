@@ -1274,13 +1274,27 @@
   .groupe3d select{ max-width:220px; }
   .boutonVue3d{ display:inline-flex; align-items:center; gap:4px; }
   .hint3d{ margin:4px 0 0; font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Sur bureau, les reglages sont un tiroir replie sur une ligne de titre ; au doigt, une feuille. */
+  .titreTiroir3d{
+    display:flex; align-items:center; gap:6px; width:100%; padding:4px 2px; border:none; background:none; color:var(--ink-soft); cursor:pointer;
+    font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; text-align:left;
+  }
+  .titreTiroir3d:hover{ color:var(--ink); background:none; }
+  html[data-classe="large"] .reglages3d{ position:relative; }
+  html[data-classe="large"] .reglages3d:not(.ouvert) .corpsFeuille{ display:none; }
+  /* Ouvert, le tiroir glisse par-dessus le haut de la scene : elle garde sa taille et ne descend pas. */
+  html[data-classe="large"] .reglages3d.ouvert .corpsFeuille{
+    position:absolute; top:100%; left:0; right:0; z-index:6; padding:8px 10px 6px;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:var(--r-tuile); box-shadow:var(--ombre-menu);
+  }
+  html:not([data-classe="large"]) .reglages3d .titreTiroir3d{ display:none; }
   /* Le conteneur des deux panneaux 3D (zones/vue3d/) ne compte pas dans la mise en page. */
   #zoneVues3d{ display:contents; }
   .titreAvecAction{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .panneauVisionneuse{ width:98vw; max-width:1600px; margin:0 auto; }
   .boutonGenerer{ margin-left:8px; }
   .hoteVisionneuse{ margin-top:6px; }
-  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 300px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
+  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 210px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
   .commandes3d{ position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px; }
   .bouton3d{
     width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;
@@ -1292,9 +1306,22 @@
   /* L'horloge du soleil (zones/vue3d/Horloge.tsx), en haut a gauche : les commandes de camera
      tiennent la droite. Elle ne capte aucun geste, la scene reste manipulable dessous. */
   .horloge3d{
-    position:absolute; top:8px; left:8px; z-index:2; display:flex; align-items:center; gap:8px; pointer-events:none;
+    position:absolute; top:8px; left:8px; z-index:2; display:flex; align-items:center; gap:8px; cursor:pointer;
     padding:4px 12px 4px 4px; border:1px solid var(--border); border-radius:999px; background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
+    font:inherit; min-height:0;
   }
+  .horloge3d:hover, .horloge3d.ouverte{ border-color:var(--accent); }
+  /* L'heure et la date, sous l'horloge : un clic sur l'horloge les ouvre et les referme. */
+  .reglageHeure3d{
+    position:absolute; top:64px; left:8px; z-index:3; width:min(420px, calc(100% - 16px)); box-sizing:border-box;
+    padding:8px 12px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink);
+    box-shadow:var(--ombre-menu); font-family:var(--sans);
+  }
+  .reglageHeure3d[hidden]{ display:none; }
+  .reglageHeure3d .controls{ margin:0; gap:8px; flex-wrap:wrap; }
+  .reglageHeure3d .ligneReglage{ margin-top:6px; }
+  .reglageHeure3d .infoSoleil{ flex-basis:100%; margin-left:0; min-width:0; }
+  .reglageHeure3d .petitLibelle{ margin-left:0; }
   .horloge3d .texteHorloge{ font-family:var(--sans); font-size:1.05rem; font-weight:600; font-variant-numeric:tabular-nums; }
   .cadranHorloge .fondCadran{ fill:var(--panel-2); stroke:var(--rule); stroke-width:1.5; }
   .cadranHorloge .repere{ stroke:var(--ink-soft); stroke-width:1; stroke-linecap:round; }
@@ -1330,6 +1357,9 @@
   }
   html:not([data-classe="large"]) .barreSoleil input[type=range]{ max-width:none !important; min-height:32px; }
   html:not([data-classe="large"]) .barreSoleil .infoSoleil{ display:none; }
+  html:not([data-classe="large"]) .reglageHeure3d{ top:calc(56px + 8px + 56px); left:10px; width:calc(100% - 76px); box-shadow:var(--ombre-flottante); }
+  html:not([data-classe="large"]) .reglageHeure3d .barreSoleil{ position:static; padding:0; border:none; box-shadow:none; background:none; flex-wrap:wrap; }
+  html:not([data-classe="large"]) .reglageHeure3d input[type=date]{ min-height:44px; font-size:15px; }
   html:not([data-classe="large"]) #terrasse3dLoading, html:not([data-classe="large"]) #glbViewerLoading{ position:absolute; top:72px; left:16px; right:16px; z-index:4; }
   html:not([data-classe="large"]) #glbViewerEmpty{ position:absolute; top:40%; left:16px; right:16px; text-align:center; font-size:15px; display:flex; flex-direction:column; align-items:center; gap:12px; }
   html:not([data-classe="large"]) #glbViewerEmpty button{ min-height:48px; font-size:15px; font-family:var(--sans); margin:0 !important; }
@@ -1599,6 +1629,7 @@
     flex-wrap:wrap-reverse; align-content:flex-start;
   }
   html[data-vitrine] .horloge3d{ top:8px; left:8px; }
+  html[data-vitrine] .reglageHeure3d{ top:64px; left:8px; }
 
   /* L'ecran des controleurs de l'admin (zones/EcranControleurs.tsx). Plan tourne dessous, cache :
      c'est la qu'on lit ses controleurs, mais on n'y touche pas. */

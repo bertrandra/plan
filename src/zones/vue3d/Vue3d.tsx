@@ -9,7 +9,8 @@
 // three/ le vide lui-meme en demontant sa scene.
 
 import { libelleIsoler, objetAIsoler } from '../../app/isolement.js';
-import { useLayoutEffect, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
 import { Icone } from '../icones.js';
@@ -53,18 +54,38 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
   const r = vues.reglages;
   const etatPlan = magasin.store.getState().etat;
   const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
-  // Le plein page change la taille de l'hote : la scene suit, une fois la mise en page faite.
+  // Les reglages de la terrasse (filaire, translucide, sol en coupe) ne se montrent que si c'est une
+  // terrasse qui est selectionnee : sur un batiment ou la parcelle, ils ne disent rien.
+  const selection = etatPlan.objects.find(o => o.key === etatPlan.selectedKey);
+  const terrasse = !!selection && estTerrasse(selection);
+  // Le tiroir des reglages, replie sur son titre par defaut (bureau) ; l'heure et la date, sous
+  // l'horloge du canevas, qu'un clic ouvre et referme.
+  const [tiroir, setTiroir] = useState(false);
+  const [heure, setHeure] = useState(false);
+  // Le plein page change la taille de l'hote : la scene suit, une fois la mise en page faite. Le
+  // tiroir, lui, glisse par-dessus la scene sans la redimensionner.
   useLayoutEffect(() => { vues.redimensionner3d(); }, [pleinePage, vues]);
+  useEffect(() => {
+    if (!heure) return;
+    const fermer = (e: KeyboardEvent) => { if (e.key === 'Escape') setHeure(false); };
+    window.addEventListener('keydown', fermer);
+    return () => window.removeEventListener('keydown', fermer);
+  }, [heure]);
 
   return (
     <div id="vue3dPanel" className={'panelBox vue3dPanneau' + (pleinePage ? ' pleinePage' : '')} style={{ display: visible ? 'block' : 'none' }}>
-      {/* Pas de titre « Vue 3D » : l'onglet de la barre le dit deja. Les reglages tiennent sur une
-          bande, en groupes par theme ; le detail de chaque case est dans son infobulle. */}
-      <div id="zoneReglages3d" className="reglages3d" role="group" aria-label="Réglages de la vue 3D">
+      {/* Pas de titre « Vue 3D » : l'onglet de la barre le dit deja. Sur bureau, les reglages sont
+          un tiroir replie sur une ligne ; ouvert, des groupes par theme, le detail dans les infobulles.
+          Sur telephone et tablette, la meme zone est une feuille, toujours depliee. */}
+      <div id="zoneReglages3d" className={'reglages3d' + (tiroir ? ' ouvert' : '')} role="group" aria-label="Réglages de la vue 3D">
+        <button type="button" className="titreTiroir3d" data-controle="vue3d.tiroir" aria-expanded={tiroir} aria-controls="corpsReglages3d" onClick={() => setTiroir(!tiroir)}>
+          <Icone nom={tiroir ? 'chevronHaut' : 'chevronBas'} taille={16} />
+          <span>Réglages de la vue 3D</span>
+        </button>
         <EnteteReglages vue="vue3d" titre="Réglages de la vue 3D" idLieu="vue3dLieu" lieu={vues.libelleLieu()} magasin={magasin} />
-        <div className="corpsFeuille">
+        <div className="corpsFeuille" id="corpsReglages3d">
           <div className="groupes3d">
-            <fieldset className="groupe3d">
+            {terrasse && <fieldset className="groupe3d">
               <legend>Terrasse</legend>
               <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Filaire" coche={r.filaire()} onChange={r.basculerFilaire}
                 titre="Lames en filaire : voir la structure dessous" />
@@ -72,7 +93,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Les lames deviennent translucides : la structure bois, les plots et leur dalle ou leur concassé se voient dessous" />
               <Case id="terrasse3dSolCoupe" controle="vue3d.solEnCoupe" libelle="Sol en coupe" coche={vue3d.solEnCoupe} onChange={r.basculerSolEnCoupe}
                 titre="Perce le sol sous la terrasse : hérisson, dalle, massifs ou fûts de vis apparaissent à leur profondeur" />
-            </fieldset>
+            </fieldset>}
             <fieldset className="groupe3d">
               <legend>Scène</legend>
               <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Tous les objets" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets}
@@ -86,7 +107,6 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
             </fieldset>
             <fieldset className="groupe3d groupeSoleil3d">
               <legend>Soleil</legend>
-              <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
               <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
             </fieldset>
             <fieldset className="groupe3d">
@@ -104,7 +124,6 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
           <div className="hint hint3d" id="terrasse3dHint" title={affichage3d.indication3d}>{affichage3d.indication3d}</div>
         </div>
       </div>
-      <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
       {/* Hors du cadre de la scene : les reglages restent accessibles pendant le chargement de la
           bibliotheque 3D, et meme si elle ne se charge pas. */}
       <button id="reglages3dBtn" data-controle="vue3d.reglages" type="button" className="bouton3d boutonReglages boutonReglagesFlottant" aria-label="Réglages de la vue 3D"
@@ -115,7 +134,12 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
-          {vue3d.ombres && <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} />}
+          <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
+          {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
+          <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>
+            <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
+            <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
+          </div>
           <div id="terrasse3dZoomControls" className="commandes3d">
             <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
               titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />

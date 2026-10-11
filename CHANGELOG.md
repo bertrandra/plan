@@ -153,6 +153,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Vue 3D : l'heure et la date sous l'horloge, les réglages dans un tiroir.** Un clic sur
+  l'horloge du canevas, maintenant toujours affichée, ouvre dessous le curseur d'heure et la date ; un
+  second clic ou Échap les referme. Sur bureau, les autres réglages sont un tiroir replié sur une
+  ligne de titre (« Réglages de la vue 3D ») ; ouvert, il glisse par-dessus le haut de la scène sans
+  la redimensionner, et la scène gagne encore environ 90 px. Le cadre Terrasse (filaire, translucide,
+  sol en coupe) ne s'affiche que si une terrasse est sélectionnée. Au doigt, la feuille des réglages
+  garde ses thèmes.
+
 - **Voisinage : jusqu'à 10 000 objets par famille** (parcelles, bâtiments…), au lieu de 2 000, les
   plus proches de la parcelle. La lecture prend au plus le double (20 000 entités par famille) pour
   garder les plus proches. Un plan aussi lourd s'affiche plus lentement et peut dépasser la taille

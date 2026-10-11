@@ -85,7 +85,7 @@ rejoue jamais.
 | 35 | Nouvelle cote : Annuler le pointage depuis le bandeau | le mode s'arrête, le glisser de la vue refonctionne |
 | 36 | Ajuster à la sélection | la vue cadre l'objet dans la partie visible au-dessus de la feuille de sélection |
 | 37 | Feuille Projet : Exporter › PDF avec une échelle de 1/100 | le PDF sort à 1/100 |
-| 38 | Vue 3D au téléphone : heure au curseur, réglages dans la feuille | l'éclairage suit ; les cases s'appliquent |
+| 38 | Vue 3D au téléphone : heure au curseur sous l’horloge, réglages dans la feuille | l'éclairage suit ; les cases s'appliquent |
 | 39 | Passer du portrait au paysage avec la feuille Propriétés ouverte et un champ en brouillon | la classe devient `moyen`, la sélection et le brouillon restent |
 | 40 | Thème sombre du système sur les points 26 à 39 | tout est lisible, rien n'est blanc sur blanc ni noir sur noir |
 | 41 | Sélectionner la maison, section « Façades et toit » : Relever la façade nord | le parcours s'ouvre sur « Se placer », titre « Façade nord · 8,00 × 6,00 m » ; Échap le ferme sans rien écrire |

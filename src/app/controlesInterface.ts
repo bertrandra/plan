@@ -117,6 +117,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.tiroir': { libelle: 'Déplier ou replier les réglages (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Le tiroir des réglages, replié sur son titre par défaut, sur bureau' },
+  'vue3d.horloge': { libelle: 'Horloge : régler l’heure et la date (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Ouvre sous l’horloge du canevas le curseur d’heure et la date' },
   ...reglagesVue('visionneuse', 'visionneuse'),
   'visionneuse.fond': { libelle: 'Fond (visionneuse)', zone: Z4, nature: 'vue' },
   'visionneuse.arVoir': { libelle: 'Voir chez vous : lancer la réalité augmentée (model-viewer)', zone: Z4, nature: 'vue' },

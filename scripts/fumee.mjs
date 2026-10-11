@@ -801,7 +801,9 @@ const POINTS = {
   },
   38: async (page) => {
     await page.evaluate(() => window.__plan.executer('vue.3d')); await page.waitForTimeout(300);
-    // Un curseur ne se « remplit » pas : on le deplace au clavier, comme au doigt on le glisse.
+    // L'heure s'ouvre sous l'horloge du canevas ; un curseur ne se « remplit » pas : on le deplace
+    // au clavier, comme au doigt on le glisse.
+    await page.locator('#horloge3d').click({ force: true }); await page.waitForTimeout(150);
     await page.locator('#vue3dHeure').focus();
     for (let i = 0; i < 36; i++) await page.keyboard.press('ArrowRight');
     await page.waitForTimeout(100);
