@@ -56,6 +56,8 @@ export interface ContexteProjet {
   definirRafraichisseurStatut: (f: () => void) => void;
   ouvrirImportCadastre: () => void;
   ouvrirDialogueActualisation: () => void;
+  /** « Actualiser le projet » : la question, puis l'actualisation complete aux valeurs par defaut (app/actualiserProjet.ts). */
+  ouvrirActualisationProjet: () => void;
   /** Une actualisation tourne : la commande se grise, une seule a la fois. */
   actualisationEnCours: () => boolean;
 }
@@ -274,6 +276,12 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     capacite: CAPACITES.cadastre.code,
     description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.',
     permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirDialogueActualisation()
+  });
+
+  cmd.declarer({
+    id: 'projet.actualiser', libelle: 'Actualiser le projet', groupe: 'projet',
+    capacite: CAPACITES.cadastre.code,
+    permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirActualisationProjet()
   });
 
   return {

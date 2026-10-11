@@ -109,6 +109,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {p.apiDisponible && <li className="separateur" role="separator" />}
         <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
+        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
