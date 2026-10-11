@@ -28,21 +28,26 @@ describe('la demo livree (livraison/plan-demos/1.json)', () => {
   });
 });
 
-describe('la deuxieme demo livree (livraison/plan-demos/2.json)', () => {
-  const chemin2 = resolve(__dirname, '../../livraison/plan-demos/2.json');
-  const source = resolve(__dirname, '../../deploy/plan-demos/2.json');
+// Les demos rangees dans deploy/plan-demos/, que la livraison copie telles quelles.
+describe.each([
+  { id: '2', rayon: /voisinage 1 km/, objets: 1000 },
+  { id: '3', rayon: /voisinage 5 km/, objets: 3500 }
+])('la demo livree $id (livraison/plan-demos/$id.json)', ({ id, rayon, objets }) => {
+  const livree = resolve(__dirname, '../../livraison/plan-demos/' + id + '.json');
+  const source = resolve(__dirname, '../../deploy/plan-demos/' + id + '.json');
 
-  it('est la copie de deploy/plan-demos/2.json', () => {
-    expect(existsSync(chemin2), 'absente : npm run livraison').toBe(true);
-    expect(readFileSync(chemin2, 'utf8')).toBe(readFileSync(source, 'utf8'));
+  it('est la copie de deploy/plan-demos/' + id + '.json', () => {
+    expect(existsSync(livree), 'absente : npm run livraison').toBe(true);
+    expect(readFileSync(livree, 'utf8')).toBe(readFileSync(source, 'utf8'));
   });
 
-  it('est Peyrusse-le-Roc avec son voisinage d un kilometre, et se relit comme un projet', () => {
+  it('est Peyrusse-le-Roc avec son voisinage, et se relit comme un projet', () => {
     const d = JSON.parse(readFileSync(source, 'utf8'));
-    expect(d.meta).toMatchObject({ id: '2' });
+    expect(d.meta).toMatchObject({ id, schemaVersion: schemaMinimal(d.objects) });
     expect(d.meta.name).toMatch(/^Peyrusse-le-Roc/);
+    expect(d.meta.name).toMatch(rayon);
     const v = validerProjetJSON(d);
-    expect(v.objets.length).toBeGreaterThan(1000);
+    expect(v.objets.length).toBeGreaterThan(objets);
     expect(v.objets.find(o => o.key === 'parcelle')?.relief?.paysage).toBeTruthy();
   });
 });
