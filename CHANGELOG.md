@@ -102,6 +102,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **« Actualiser le projet » recrée les bâtiments de la parcelle du projet.** Tous les bâtiments posés
+  sur la parcelle, importés ou dessinés à la main, sont supprimés puis recréés depuis la BD TOPO, comme
+  à un import d'aujourd'hui : contour, nom, hauteur, apparence, toit relu sur le LiDAR, couleur des
+  murs. Un voisin que la BD TOPO rattache désormais à la parcelle devient l'un d'eux. La réponse à la
+  question du toit à cheval suit le bâtiment. Si la BD TOPO ne répond pas, les bâtiments restent tels
+  quels. Le dialogue l'annonce en premier, et Ctrl+Z rend le projet d'avant.
+
 - **Voisinage étendu jusqu'à 5 km** (au lieu de 1 km), à l'import depuis une adresse comme à
   l'actualisation. Le disque se lit par paliers (200 m, 500 m, 1 km, 2 km, 5 km).
   - Au-delà d'un kilomètre, chaque famille (parcelles, bâtiments, végétation) se lit en disques

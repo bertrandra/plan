@@ -36,7 +36,7 @@ import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { avecReglages, resumeRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { valeursParDefaut } from './valeursParDefaut.js';
-import { APPARENCES_IGN } from '../geo/cadastreObjets.js';
+import { APPARENCES_IGN, batimentDeLaPropriete } from '../geo/cadastreObjets.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
@@ -83,6 +83,12 @@ export interface OptionsActualisation {
    * valeurs par defaut, et le relief relu reprend l'affichage par defaut.
    */
   parDefaut?: boolean;
+  /**
+   * « Actualiser le projet » : les batiments de la parcelle du projet (importes ou dessines) sont
+   * supprimes, puis recrees depuis la BD TOPO comme a un import d'aujourd'hui. Si la BD TOPO ne
+   * repond pas, ils restent tels quels.
+   */
+  recreerBatiments?: boolean;
 }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
@@ -291,6 +297,69 @@ async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan:
   if(texte) bilan.push(texte);
 }
 
+/** La parcelle du projet sur son contour relu, avec sa fiche cadastrale a jour. */
+function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): ObjetBrut {
+  const copie: ObjetBrut = Object.assign({}, o, {
+    pts: contour,
+    vertexNames: contour.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
+    segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
+    frozenVertices: contour.map(()=>false)
+  });
+  const pp: Record<string, unknown> = relue.properties || {};
+  copie.cadastre = Object.assign({}, o.cadastre, {
+    contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
+    recupereLe: new Date().toISOString(),
+    geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(relue.geometry)] }
+  });
+  return copie;
+}
+
+/** Un batiment pose sur la parcelle du projet : importe pour elle, ou dont le centre tombe dessus (dessine compris). */
+function batimentSurLaParcelle(o: ObjetBrut, parcelle: PtBrut[]): boolean {
+  if(o.fonction !== 'batiment') return false;
+  if((o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true) return true;
+  const pts = o.type === 'polygon' ? (o as Partial<ObjetPolygone>).pts : undefined;
+  return !!pts && pts.length >= 3 && pointInPolygon(centroid(pts), parcelle);
+}
+
+/**
+ * Les batiments de la parcelle, lus a la BD TOPO comme a l'import : tout ce qui la touche. `null`
+ * si la lecture echoue — les batiments en place restent alors, plutot qu'un plan sans maison.
+ */
+async function batimentsDeLaParcelle(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier: boolean): Promise<ElementIgn[] | null> {
+  etape('les bâtiments de la parcelle…');
+  const anneau = parcelle.map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; }) as Anneau;
+  try {
+    const feats = await interrogerWfs(COUCHE_BATIMENT, bboxDegDesAnneaux([anneau], proj, 20), 200);
+    return construireElementsIgn(feats, proj, simplifier, 'batiment').filter(b => polygonesSeTouchent(b.pts, parcelle));
+  } catch { return null; }
+}
+
+/**
+ * Les batiments frais de la parcelle et le test de ce qu'ils remplacent : ceux de la parcelle, et un
+ * voisin que la BD TOPO lui rattache desormais. Sans lecture, rien n'est remplace.
+ */
+async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier: boolean, bilan: string[]): Promise<{ batiFrais: ElementIgn[] | null; aRecreer: (o: ObjetBrut) => boolean }> {
+  const batiFrais = await batimentsDeLaParcelle(parcelle, proj, simplifier);
+  if(!batiFrais){ bilan.push('batiments de la parcelle non relus (BD TOPO indisponible) : conserves'); return { batiFrais, aRecreer: () => false }; }
+  const ids = new Set(batiFrais.map(b => b.id));
+  return { batiFrais, aRecreer: (o) => batimentSurLaParcelle(o, parcelle) || (o.fonction === 'batiment' && ids.has((o.bdtopo as { id?: string } | null | undefined)?.id)) };
+}
+
+/**
+ * Les batiments recrees, avec des cles libres dans le plan. Une reponse a la question du toit a
+ * cheval (model/aCheval.ts) est un choix de la personne : elle suit le batiment par son identifiant.
+ */
+function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: ObjetBrut[], ctx: ContexteActualisation, bilan: string[]): ObjetBrut[] {
+  bilan.push(anciens.length + ' batiment(s) de la parcelle supprime(s), ' + frais.length + ' recree(s) depuis la BD TOPO');
+  const cles = new Set(dejaLa.map(o => o.key));
+  const cleUnique = (base: string) => { let cle = base, n = 2; while(cles.has(cle)){ cle = base + '-' + n; n++; } cles.add(cle); return cle; };
+  const reponses = new Map(anciens.flatMap(o => { const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id && o.toitACheval ? [[id, o.toitACheval] as const] : []; }));
+  const recupereLe = new Date().toISOString();
+  const nouveaux = frais.map(b => { const o = batimentDeLaPropriete(b, cleUnique, recupereLe); const r = b.id ? reponses.get(b.id) : undefined; return r ? { ...o, toitACheval: r } : o; });
+  return ctx.serializeObjects(nouveaux);
+}
+
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
   options = options || { portee:'tout', voisinage:{actif:false} };
   const parcelle = ctx.trouverParcelleCloture();
@@ -326,30 +395,22 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 
     // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee « tout » seulement)
     const fraiches = options.portee === 'tout' ? await couchesFraiches(ctx.etat.objects, proj, bilan) : {};
+    // ---- 2 bis. « Actualiser le projet » : les batiments de la parcelle, relus pour etre recrees.
+    const { batiFrais, aRecreer } = options.recreerBatiments ? await recreation(ptsParcelle ?? sommetsDe(parcelle), proj, simplifier, bilan) : { batiFrais: null, aRecreer: () => false };
 
     // ---- 3. Application
     ctx.pushHistory();
     let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
-    const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((brut: ObjetBrut)=>{
+    const avant: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects);
+    const anciensBatiments = avant.filter(aRecreer);
+    const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
       const o = options.parDefaut ? valeursParDefaut(brut) : brut;
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
         ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, contour)); });
-        const copie: ObjetBrut = Object.assign({}, o, {
-          pts: contour,
-          vertexNames: contour.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
-          segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
-          frozenVertices: contour.map(()=>false)
-        });
-        const pp: Record<string, unknown> = relue.properties || {};
-        copie.cadastre = Object.assign({}, o.cadastre, {
-          contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
-          recupereLe: new Date().toISOString(),
-          geometrieSource: { type:'Polygon', coordinates:[anneauExterieur(relue.geometry)] }
-        });
-        return copie;
+        return parcelleRelue(o, contour, relue);
       }
       const bdtopo = o.bdtopo as { couche?: string; id?: string; hauteurRetenueM?: number; nature?: string; usage1?: string } | undefined;
       if(bdtopo && bdtopo.couche && bdtopo.couche !== 'estimation'){
@@ -391,6 +452,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       }
       return o;
     });
+    if(batiFrais) serialises.push(...batimentsRecrees(batiFrais, anciensBatiments, serialises, ctx, bilan));
     // ---- 3 bis. Import du voisinage, si demande : le seul cas ou l'actualisation AJOUTE des objets,
     // tous marques voisinage:true pour pouvoir etre masques d'un coup sans etre supprimes.
     // Ce que l'import du voisinage rend : les objets, plus le compte de chaque famille pour le bilan.
