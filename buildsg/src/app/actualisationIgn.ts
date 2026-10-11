@@ -18,7 +18,7 @@ import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../render/couleurMurPhoto.js';
 import { materiauMurs } from '../model/couleurMur.js';
-import { centroid } from '../geometry/basic.js';
+import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
@@ -35,6 +35,8 @@ import { CAPACITES } from '../plateforme/capacites.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { avecReglages, resumeRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { valeursParDefaut } from './valeursParDefaut.js';
+import { APPARENCES_IGN } from '../geo/cadastreObjets.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { CollectionGeoJSON, EmpriseGeoJSON, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
@@ -76,6 +78,11 @@ export interface OptionsActualisation {
    * parcelles du plan. Absent ou inactif : la grille en place n'est pas touchee.
    */
   relief?: { actif: boolean; toutesParcelles: boolean };
+  /**
+   * « Actualiser le projet » (app/actualiserProjet.ts) : chaque objet importe est d'abord ramene aux
+   * valeurs par defaut, et le relief relu reprend l'affichage par defaut.
+   */
+  parDefaut?: boolean;
 }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
@@ -168,14 +175,16 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
  * d'affichage et le plafond de points restent ceux de la personne, comme pour « Actualiser le relief ». Un echec est dit
  * dans le bilan ; la grille d'avant reste alors en place.
  */
-async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[]): Promise<void> {
+async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[], parDefaut = false): Promise<void> {
   etape('le relief du terrain…');
   const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey);
   const cible = parcelleDuProjet(ctx.etat.objects);
   if(!demande || !cible) return;
   try {
     const r = await (ctx.lireRelief ?? lireRelief)(demande);
-    cible.relief = avecReglages(r, cible.relief);
+    // Remis aux valeurs par defaut, le relief garde son plafond de points mais pas son affichage.
+    const ancien = parDefaut && cible.relief ? { ...cible.relief, affichage: null } : cible.relief;
+    cible.relief = avecReglages(r, ancien);
     bilan.push('relief lu : ' + resumeRelief(r));
   } catch(e){
     bilan.push('relief non lu (' + ((e as Error).message || e) + ')');
@@ -210,7 +219,9 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
   for (const couche of couches) {
     try {
-      const feats = await interrogerWfs(couche, bbox, 80);
+      // Une seule requete rendait au plus 80 objets : sur l'emprise de toutes les parcelles d'un
+      // voisinage, il y en a des centaines, et ceux d'au-dela restaient « absents de la base ».
+      const feats = await interrogerWfsEtendu(couche, bbox, MAX_OBJETS_RAYON * 5);
       feats.forEach(f => {
         const p = f.properties || {};
         const id = (f.id as string) || (p.cleabs as string);
@@ -320,7 +331,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
-    const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((o: ObjetBrut)=>{
+    const serialises: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects).map((brut: ObjetBrut)=>{
+      const o = options.parDefaut ? valeursParDefaut(brut) : brut;
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
         ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, contour)); });
@@ -408,7 +420,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       } catch { bilan.push('PLU indisponible'); }
     }
     // ---- 5. Le relief, si demande : en dernier, sur le plan deja actualise (parcelles comprises).
-    if(options.relief?.actif && droitsCourants().aCapacite(CAPACITES.relief.code)) await actualiserRelief(ctx, options.relief.toutesParcelles, bilan);
+    if(options.relief?.actif && droitsCourants().aCapacite(CAPACITES.relief.code)) await actualiserRelief(ctx, options.relief.toutesParcelles, bilan, options.parDefaut);
     ctx.markDirty();
     // Le menu Affichage ne propose « Voisinage » que s'il y en a : il vient peut-etre d'en gagner
     // (ou d'en perdre, si l'utilisateur annule). Le magasin le redit aux zones.
@@ -419,7 +431,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     if(nToits) bilan.push(nToits + ' toit(s) deduit(s) de la BD TOPO');
     if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
-    showToast('Actualisation IGN — ' + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
+    showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){
     showToast('Actualisation impossible : ' + ((e as Error).message || e));
@@ -438,7 +450,7 @@ function objetParcelleVoisine(c: Candidate, key: string, cad: { origineLat: numb
   const pts = c.pts;
   return {
     key, type:'polygon', name: libelleParcelle(c),
-    fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+    ...APPARENCES_IGN.parcelleVoisine,
     pts,
     vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
     segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
@@ -520,7 +532,8 @@ export async function construireVoisinage(
   // sur tout le disque, en plusieurs pages, les plus proches d'abord.
   const bbox = rayonM ? bboxDegDesAnneaux([empriseRayon.coordinates[0] as Anneau], proj, 0) : bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
-  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? true : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  // En voisinage etendu, tout le disque sauf la parcelle du projet : son bati, importe avec elle ou dessine (la demo), serait double.
+  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? !(e.pts.length >= 3 && pointInPolygon(centroid(e.pts), principale.pts)) : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
   const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, plafondLecture(rayonM)) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
   const elementsRetenus = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => (rayonM ? dansLeDisque(elements) : elements);
   // Les arbres estimes restent pres de la parcelle : un disque de 500 m en semerait des milliers.
@@ -537,7 +550,7 @@ export async function construireVoisinage(
       resultat.objets.push({
         key: cleUnique('bati-' + (b.id || '')), type:'polygon',
         name: (p.usage_1 || p.nature || 'Batiment') + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
-        fill:'#CFC3B4', fillOpacity:0.6, stroke:'#8A7B63',
+        ...APPARENCES_IGN.batimentVoisin,
         pts,
         vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
         segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
@@ -572,8 +585,7 @@ export async function construireVoisinage(
         resultat.objets.push({
           key: cleUnique((estHaie ? 'haie-' : 'vegetation-') + (v.id || '')), type:'polygon',
           name: estHaie ? 'Haie' : ((p.nature as string) || 'Vegetation'),
-          fill: estHaie ? '#7FA86B' : '#A9BE8E', fillOpacity: estHaie ? 0.8 : 0.55,
-          stroke: estHaie ? '#3F5C33' : '#4A6B32',
+          ...(estHaie ? APPARENCES_IGN.haie : APPARENCES_IGN.vegetation),
           pts,
           vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
           segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
@@ -589,7 +601,7 @@ export async function construireVoisinage(
           arbresEstimes(v.pts, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES).forEach((a, i)=>{
             resultat.objets.push({
               key: cleUnique('arbre-' + (v.id || 'veg') + '-' + (i+1)), type:'circle', name:'Arbre (estime)',
-              fill:'#6E8B4E', fillOpacity:0.7, stroke:'#3F5C33',
+              ...APPARENCES_IGN.arbreEstime,
               center:{x:a.x, y:a.y}, r:2.5,
               showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
               constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false, voisinage:true,

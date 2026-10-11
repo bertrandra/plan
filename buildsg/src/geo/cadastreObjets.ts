@@ -157,6 +157,39 @@ function formeCommune(pts: PtBrut[]) {
   };
 }
 
+/** Une apparence au plan : remplissage, son opacite, trait. */
+export interface ApparenceIgn { fill: string; fillOpacity: number; stroke: string }
+
+/**
+ * Les apparences que l'import donne a ce qu'il pose (et que l'actualisation du voisinage reprend) :
+ * « Actualiser le projet » (app/actualiserProjet.ts) y ramene les objets importes. Les constructeurs
+ * ci-dessous et ceux du voisinage (app/actualisationIgn.ts) les lisent ici : une seule source.
+ */
+export const APPARENCES_IGN = {
+  parcelle: { fill: '#FBF3D9', fillOpacity: 1, stroke: '#3B2E1F' },
+  parcelleVoisine: { fill: '#EFE8D5', fillOpacity: 0.45, stroke: '#8A7B63' },
+  limite: { fill: '#8A7B63', fillOpacity: 1, stroke: '#8A7B63' },
+  batimentPropriete: { fill: '#D9B694', fillOpacity: 0.92, stroke: '#7A4A2A' },
+  batimentVoisin: { fill: '#CFC3B4', fillOpacity: 0.6, stroke: '#8A7B63' },
+  haie: { fill: '#7FA86B', fillOpacity: 0.8, stroke: '#3F5C33' },
+  vegetation: { fill: '#A9BE8E', fillOpacity: 0.55, stroke: '#4A6B32' },
+  arbreEstime: { fill: '#6E8B4E', fillOpacity: 0.7, stroke: '#3F5C33' }
+} as const satisfies Record<string, ApparenceIgn>;
+
+/** L'apparence qu'un objet importe avait a l'import ; `null` pour un objet dessine a la main. */
+export function apparenceIgnParDefaut(o: { key?: string; fonction?: string; cadastre?: unknown; bdtopo?: unknown; voisinage?: boolean }): ApparenceIgn | null {
+  const b = o.bdtopo as { couche?: unknown; surParcellePrincipale?: unknown } | null | undefined;
+  const couche = typeof b?.couche === 'string' ? b.couche : null;
+  if (o.key === 'parcelle' && o.cadastre) return APPARENCES_IGN.parcelle;
+  if (o.cadastre && o.fonction === 'terrain') return APPARENCES_IGN.parcelleVoisine;
+  if (o.fonction === 'limite' && typeof o.key === 'string' && o.key.startsWith('limite-')) return APPARENCES_IGN.limite;
+  if (couche === 'BDTOPO_V3:batiment') return b?.surParcellePrincipale === true ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin;
+  if (couche === 'BDTOPO_V3:haie') return APPARENCES_IGN.haie;
+  if (couche === 'BDTOPO_V3:zone_de_vegetation') return APPARENCES_IGN.vegetation;
+  if (couche === 'estimation') return APPARENCES_IGN.arbreEstime;
+  return null;
+}
+
 /** La parcelle du terrain : le contour fusionne de la propriete, et sa fiche cadastrale. */
 function objetParcelle(x: ContexteImport, ptsFusion: PtBrut[], nord: PtBrut, parcellesFusionnees: ParcelleCadastrale[]): ObjetPlan {
   const { importe } = x;
@@ -174,7 +207,7 @@ function objetParcelle(x: ContexteImport, ptsFusion: PtBrut[], nord: PtBrut, par
   return Object.assign({
     key:'parcelle', type:'polygon' as const,
     name:'Parcelle ' + parcellesFusionnees.map(libelleParcelle).join(' + '),
-    fill:'#FBF3D9', fillOpacity:1, stroke:'#3B2E1F',
+    ...APPARENCES_IGN.parcelle,
     showDims:true,
     // Le lieu (course du soleil, parasol, Vue 3D) se prend au centre de la parcelle, pas au point
     // d'adresse : celui-ci est sur la voirie.
@@ -196,7 +229,7 @@ function limitesInternes(x: ContexteImport, limites: LimiteBrute[]): ObjetPlan[]
     x.clesPrises.add(cle);
     return {
       key:cle, type:'path' as const, name:'Limite cadastrale ' + (i+1),
-      fill:'#8A7B63', fillOpacity:1, stroke:'#8A7B63',
+      ...APPARENCES_IGN.limite,
       pts,
       vertexNames: pts.map((_,k)=>'Point ' + (k+1)),
       segmentNames: pts.slice(0,-1).map((_,k)=>'Cote ' + (k+1)),
@@ -221,7 +254,7 @@ function parcellesVoisines(x: ContexteImport, parcellesFusionnees: ParcelleCadas
     x.clesPrises.add(cle);
     return Object.assign({
       key:cle, type:'polygon' as const, name: libelleParcelle(c),
-      fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+      ...APPARENCES_IGN.parcelleVoisine,
       // Les cotes de trois voisines par-dessus le plan le rendent illisible : la parcelle principale
       // garde ses dimensions, les voisines sont un decor de reference.
       showDims:false,
@@ -277,10 +310,11 @@ function objetBatiment(x: ContexteImport, b: ObjetBdTopo, surPrincipale: boolean
   const volumes = surPrincipale ? volumesParDefaut(pts, toit) : null;
   return formeIgn(x, pts, 'batiment',
     usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
-    surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
+    (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).fill,
+    (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).stroke, {
       cle: 'bati-' + identifiant(b.id),
       hauteur: hauteurBatiment(p),
-      opacite: surPrincipale ? 0.92 : 0.6,
+      opacite: (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).fillOpacity,
       extra: {
         locked: !surPrincipale,
         toit,
@@ -328,7 +362,7 @@ function voisinageEtendu(x: ContexteImport, deja: ObjetPlan[]): ObjetPlan[] {
     out.push(Object.assign({
       key: x.cleUnique(('parcelle-' + libelleParcelle(c)).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'')),
       type:'polygon' as const, name: libelleParcelle(c),
-      fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+      ...APPARENCES_IGN.parcelleVoisine,
       showDims:false,
       cadastre: metaCadastre(x, c, false)
     }, formeCommune(c.pts.map(x.dec)), SANS_NOM_VOISINAGE));
@@ -345,9 +379,9 @@ function haies(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPla
   return x.importe.haies.filter(retenu).map(h=>{
     const p = h.props || {};
     const haut = nombreFr(p.hauteur) || 2;
-    return formeIgn(x, h.pts.map(x.dec), 'massif', 'Haie', '#7FA86B', '#3F5C33', {
+    return formeIgn(x, h.pts.map(x.dec), 'massif', 'Haie', APPARENCES_IGN.haie.fill, APPARENCES_IGN.haie.stroke, {
       cle: 'haie-' + identifiant(h.id),
-      hauteur: haut, opacite: 0.8,
+      hauteur: haut, opacite: APPARENCES_IGN.haie.fillOpacity,
       extra: { bdtopo: { couche:'BDTOPO_V3:haie', id:h.id, cleabs:p.cleabs || null,
                          nature:p.nature || 'Haie', hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
                          recupereLe: x.recupereLe } }
@@ -362,9 +396,9 @@ function vegetation(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): Obj
     // (chaine, ou absente) est connue de `hauteurVegetation` et de l'usage en nom d'objet ici.
     const nature = p.nature as string | undefined;
     const haut = hauteurVegetation(nature);
-    return formeIgn(x, v.pts.map(x.dec), 'massif', nature || 'Vegetation', '#A9BE8E', '#4A6B32', {
+    return formeIgn(x, v.pts.map(x.dec), 'massif', nature || 'Vegetation', APPARENCES_IGN.vegetation.fill, APPARENCES_IGN.vegetation.stroke, {
       cle: 'vegetation-' + identifiant(v.id),
-      hauteur: haut, opacite: 0.55,
+      hauteur: haut, opacite: APPARENCES_IGN.vegetation.fillOpacity,
       extra: { bdtopo: { couche:'BDTOPO_V3:zone_de_vegetation', id:v.id, cleabs:p.cleabs || null,
                          nature:p.nature || null, hauteurRetenueM: haut, hauteurM: null,
                          recupereLe: x.recupereLe } }
@@ -384,7 +418,7 @@ function arbres(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPl
       return {
         key: x.cleUnique('arbre-' + (v.id || 'veg').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '-' + (i+1)),
         type:'circle' as const, name:'Arbre (estime)',
-        fill:'#6E8B4E', fillOpacity:0.7, stroke:'#3F5C33',
+        ...APPARENCES_IGN.arbreEstime,
         center:{x:c2.x, y:c2.y}, r: 2.5,
         showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false,
