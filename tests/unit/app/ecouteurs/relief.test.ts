@@ -102,6 +102,23 @@ describe('relief.actualiser et relief.supprimer', () => {
     expect(toasts[0]).toMatch(/^Relief actualisé : /);
   });
 
+  it('actualiser relit au plafond de points regle, relit le voisinage s il y avait un maillage secondaire, et garde le plafond', async () => {
+    const paysage = { source: 'lidar-hd' as const, pas: 5, x0: 0, y0: 0, nx: 2, ny: 2, z: [1, 2, 3, 4] };
+    const m = monter({ relief: { ...grille(100), maxCellules: 90000, paysage } });
+    m.a.etat.objects.push({ key: 'v', type: 'polygon', fonction: 'terrain', cadastre: { idu: 'B' }, pts: [{ x: 300, y: 0 }, { x: 320, y: 0 }, { x: 320, y: 20 }] } as unknown as ObjetPlan);
+    m.cmd.executer('relief.actualiser');
+    await finie();
+    expect(m.ctx.lire).toHaveBeenCalledWith(expect.objectContaining({ maxCellules: 90000, etendue: [{ x: 300, y: 0 }, { x: 320, y: 0 }, { x: 320, y: 20 }] }));
+    expect(m.parcelle.relief?.maxCellules).toBe(90000);
+    // Sans maillage secondaire, « Actualiser » relit la parcelle seule, au plafond par defaut.
+    const n = monter({ relief: grille(100) });
+    n.cmd.executer('relief.actualiser');
+    await finie();
+    const demande = vi.mocked(n.ctx.lire!).mock.calls[0]![0];
+    expect(demande.maxCellules).toBe(400000);
+    expect(demande.etendue).toBeUndefined();
+  });
+
   it('supprimer retire le relief, annulable, et reconstruit la 3D ouverte', () => {
     const m = monter({ relief: grille(), scene: true });
     expect(m.cmd.etat('relief.supprimer').utilisable).toBe(true);

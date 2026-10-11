@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  plafondRelief, avecReglages,
   altitudeNGF, zLocal, penteParcelle, textePente, profilRelief, equidistanceAuto, equidistanceRelief, niveauxCourbes,
   estCourbeMaitresse, pasPourEmprise, dimensionsGrille, empriseRelief, zRefPour, pointDeReference, ligneDePlusGrandePente,
   libelleSource, resumeRelief, affichageRelief, courbesExportees, reliefDe, texteOrientation, MAX_CELLULES_RELIEF
@@ -155,5 +156,26 @@ describe('emprise, pas et zero du plan', () => {
     expect(libelleSource(r)).toBe('RGE ALTI, 1 m');
     expect(resumeRelief(r)).toBe('RGE ALTI, 1 m · lu en 2026 · Emq < 30 cm');
     expect(resumeRelief({ ...r, source: 'lidar-hd', pas: 0.5, dateDonnees: '2021-09-24', precision: 'de l’ordre de 10 cm (IGN)' })).toBe('LiDAR HD, 50 cm · acquis en 2021 · de l’ordre de 10 cm (IGN)');
+  });
+});
+
+describe('le plafond de points et les reglages gardes a la relecture', () => {
+  it('le plafond vaut le reglage, borne a 10 000 et 1 000 000, sinon 400 000', () => {
+    expect(plafondRelief(null)).toBe(400000);
+    expect(plafondRelief({})).toBe(400000);
+    expect(plafondRelief({ maxCellules: 120000 })).toBe(120000);
+    expect(plafondRelief({ maxCellules: 12 })).toBe(10000);
+    expect(plafondRelief({ maxCellules: 9e9 })).toBe(1000000);
+  });
+
+  it('une grille relue garde l affichage et le plafond de l ancienne, pas sa grille', () => {
+    const neuve = { pas: 1, nx: 2, ny: 2, z: [1, 2, 3, 4], zRef: 1 } as unknown as Relief;
+    const ancienne = { pas: 5, affichage: { courbes: true }, maxCellules: 50000, paysage: { pas: 20 } } as unknown as Relief;
+    const r = avecReglages(neuve, ancienne);
+    expect(r.affichage).toEqual({ courbes: true });
+    expect(r.maxCellules).toBe(50000);
+    expect(r.pas).toBe(1);
+    expect(r.paysage).toBeUndefined();
+    expect(avecReglages(neuve, null)).toEqual(neuve);
   });
 });

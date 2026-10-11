@@ -14,9 +14,9 @@ import { parcelleDuProjet } from '../model/fonctions.js';
 import { aDesSommets } from '../model/formes.js';
 import { RESEAU_TIMEOUT_MS } from './apiIgn.js';
 import {
-  cellulesDansPolygone, dimensionsGrille, empriseRelief, pasPourEmprise, pointDeReference, zRefPour, type Emprise
+  cellulesDansPolygone, dimensionsGrille, empriseRelief, MAX_CELLULES_RELIEF, pasPourEmprise, plafondRelief, pointDeReference, zRefPour, type Emprise
 } from '../model/relief.js';
-import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
+import type { GrillePaysage, ObjetPlan, PtBrut, Relief } from '../model/types.js';
 
 export const WMS_RELIEF_URL = 'https://data.geopf.fr/wms-r/wms';
 export const WFS_RELIEF_URL = 'https://data.geopf.fr/wfs/ows';
@@ -124,11 +124,13 @@ export async function requeteAvecReprise<T>(url: string, lire: Lecteur<T>, reche
 export interface DemandeRelief {
   parcelle: readonly PtBrut[];
   /**
-   * Les sommets des autres parcelles a couvrir (« relief sur toutes les parcelles ») : la grille
-   * s'etend a leur emprise. La parcelle du projet reste celle ou la grille doit etre pleine, et
-   * le relief reste range sur elle seule.
+   * Les sommets des autres parcelles a couvrir (« relief sur toutes les parcelles ») : une seconde
+   * grille, le paysage, couvre leur emprise pour le sol de la Vue 3D. La grille de la parcelle garde
+   * son pas fin, et le relief reste range sur elle seule.
    */
   etendue?: readonly PtBrut[];
+  /** Le plafond de points de chaque grille (« Points max ») ; absent : MAX_CELLULES_RELIEF. */
+  maxCellules?: number;
   /** Le point de calage : `(x, y)` du plan qui vaut `(lat, lon)` — le calage cadastral vaut (0, 0). */
   ref: { lat: number; lon: number; x: number; y: number };
   objets: ObjetPlan[];
@@ -170,13 +172,16 @@ async function provenance(source: SourceRelief, lon: number, lat: number, recher
 /**
  * Lit la grille du relief sur la parcelle et ses abords : LiDAR HD si l'index des dalles couvre
  * l'emprise et que la grille est pleine sur la parcelle, sinon RGE ALTI ; refuse si le RGE ALTI
- * n'a rien non plus, ou si la parcelle est trop grande (pas au-dela de 30 m).
+ * n'a rien non plus, ou si la parcelle est trop grande (pas au-dela de 30 m). Avec des parcelles
+ * voisines demandees, lit aussi la grille du voisinage (`paysage`), plus large et moins fine.
  */
 export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   const rechercher = d.rechercher ?? fetch;
   const proj = projecteurLocal(d.ref.lat, d.ref.lon);
   const versDeg = (x: number, y: number) => proj.versDegres(x - d.ref.x, y - d.ref.y);
-  const emprise = empriseDemandee(d);
+  const max = d.maxCellules ?? MAX_CELLULES_RELIEF;
+  // La grille de la parcelle et de ses abords, a son pas fin : c'est elle que les quantites lisent.
+  const emprise = empriseRelief(d.parcelle);
   const enDegres = (e: Emprise): EmpriseDeg => {
     const so = versDeg(e.xMin, e.yMin), ne = versDeg(e.xMax, e.yMax);
     return { lonMin: so.lon, latMin: so.lat, lonMax: ne.lon, latMax: ne.lat };
@@ -184,15 +189,21 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   const lireOctets: Lecteur<ArrayBuffer> = r => r.arrayBuffer();
   const lireTexte: Lecteur<string> = r => r.text();
 
-  const lireGrille = async (source: SourceRelief): Promise<Omit<Relief, 'zRef' | 'origine' | 'precision' | 'systemeAltimetrique' | 'dateDonnees'> | null> => {
-    const pas = pasPourEmprise(source.pas, emprise);
-    if (pas === null) throw new Error('Parcelle trop grande pour le relief : la grille dépasserait un pas de 30 m.');
-    const { x0, y0, nx, ny } = dimensionsGrille(emprise, pas);
+  /** Une grille de cette source sur cette emprise : la geometrie, les altitudes, `null` sans pas admis. */
+  const grilleSur = async (source: SourceRelief, e: Emprise) => {
+    const pas = pasPourEmprise(source.pas, e, max);
+    if (pas === null) return null;
+    const { x0, y0, nx, ny } = dimensionsGrille(e, pas);
     // Le bord exterieur des cellules, pour que chaque pixel du service soit une cellule entiere.
     const bords: Emprise = { xMin: x0 - pas / 2, xMax: x0 + (nx - 0.5) * pas, yMin: y0 - (ny - 0.5) * pas, yMax: y0 + pas / 2 };
     const octets = await requeteAvecReprise(urlGrille(source.couche, enDegres(bords), nx, ny), lireOctets, rechercher);
-    const z = decoderBil(octets, nx, ny, source.sansDonnee);
-    const grille = { source: source.id, couche: source.couche, dateLecture: (d.aujourdhui ?? (() => new Date()))().toISOString().slice(0, 10), pas, x0, y0, nx, ny, z };
+    return { pas, x0, y0, nx, ny, z: decoderBil(octets, nx, ny, source.sansDonnee) };
+  };
+
+  const lireGrille = async (source: SourceRelief): Promise<Omit<Relief, 'zRef' | 'origine' | 'precision' | 'systemeAltimetrique' | 'dateDonnees'> | null> => {
+    const g = await grilleSur(source, emprise);
+    if (g === null) throw new Error('Parcelle trop grande pour le relief : la grille dépasserait un pas de 30 m.');
+    const grille = { source: source.id, couche: source.couche, dateLecture: (d.aujourdhui ?? (() => new Date()))().toISOString().slice(0, 10), ...g };
     // Une cellule sans donnee sur la parcelle : cette source ne vaut pas ici.
     const trous = cellulesDansPolygone(grille, d.parcelle).some(c => c.z === null);
     return trous ? null : grille;
@@ -205,38 +216,59 @@ export async function lireRelief(d: DemandeRelief): Promise<Relief> {
   if (!grille) { source = SOURCE_RGE_ALTI; grille = await lireGrille(SOURCE_RGE_ALTI); }
   if (!grille) throw new Error('Pas de relief IGN pour cette parcelle.');
 
+  // Le paysage, pour le sol de la Vue 3D : de la meme source, ses trous combles a l'affichage. Une
+  // lecture qui echoue ne prive pas la parcelle de son relief.
+  const ePaysage = empriseDuPaysage(d);
+  let paysage: GrillePaysage | null = null;
+  if (ePaysage) {
+    try {
+      const g = await grilleSur(source, ePaysage);
+      if (g && g.z.some(v => v !== null)) paysage = { source: source.id, ...g };
+    } catch { /* le sol 3D restera plat hors de la parcelle */ }
+  }
+
   const pRef = pointDeReference(d.objets, d.cleTerrasse) ?? { x: (emprise.xMin + emprise.xMax) / 2, y: (emprise.yMin + emprise.yMax) / 2 };
   const refDeg = versDeg(pRef.x, pRef.y);
   const prov = await provenance(source, refDeg.lon, refDeg.lat, rechercher);
   const zRef = zRefPour(grille, d.objets, d.cleTerrasse);
-  return { ...grille, ...prov, zRef };
+  return { ...grille, ...prov, zRef, ...(paysage ? { paysage } : {}) };
 }
 
 /**
  * L'emprise de la grille : la parcelle et ses abords, ou toutes les parcelles demandees. Si ces
  * dernieres depassent le pas de 30 m, la grille revient a la parcelle seule plutot que d'echouer.
  */
-export function empriseDemandee(d: Pick<DemandeRelief, 'parcelle' | 'etendue'>): Emprise {
+export function empriseDemandee(d: Pick<DemandeRelief, 'parcelle' | 'etendue' | 'maxCellules'>): Emprise {
   const seule = empriseRelief(d.parcelle);
   if (!d.etendue?.length) return seule;
   const toutes = empriseRelief([...d.parcelle, ...d.etendue]);
-  return pasPourEmprise(SOURCE_LIDAR.pas, toutes) !== null ? toutes : seule;
+  return pasPourEmprise(SOURCE_LIDAR.pas, toutes, d.maxCellules ?? MAX_CELLULES_RELIEF) !== null ? toutes : seule;
+}
+
+/** L'emprise du paysage : celle des parcelles demandees, si elle deborde la parcelle et tient au pas de 30 m ; sinon `null`. */
+export function empriseDuPaysage(d: Pick<DemandeRelief, 'parcelle' | 'etendue' | 'maxCellules'>): Emprise | null {
+  const seule = empriseRelief(d.parcelle), e = empriseDemandee(d);
+  return e.xMin < seule.xMin || e.xMax > seule.xMax || e.yMin < seule.yMin || e.yMax > seule.yMax ? e : null;
+}
+
+/** Les sommets des parcelles cadastrales du plan autres que celle du projet : l'emprise du paysage. */
+export function etendueDuPlan(objets: readonly ObjetPlan[]): PtBrut[] {
+  const p = parcelleDuProjet(objets as ObjetPlan[]);
+  return objets.filter(o => o !== p && !!o.cadastre?.idu && aDesSommets(o)).flatMap(o => (aDesSommets(o) ? o.pts : []));
 }
 
 /**
  * La demande de relief d'un plan venu du cadastre : la parcelle du projet, son calage cadastral
  * (l'origine du plan vaut le point de calage), et, si demande, les sommets des autres parcelles
- * cadastrales du plan. `null` pour un plan sans parcelle ou sans calage.
+ * cadastrales du plan, avec le plafond de points du relief en place. `null` pour un plan sans parcelle ou sans calage.
  */
 export function demandeReliefDuPlan(objets: ObjetPlan[], toutesParcelles: boolean, cleTerrasse?: string | null): DemandeRelief | null {
   const p = parcelleDuProjet(objets);
   const cad = p?.cadastre;
   if (!p || !aDesSommets(p) || p.pts.length < 3 || typeof cad?.origineLat !== 'number' || typeof cad.origineLon !== 'number') return null;
-  const etendue = toutesParcelles
-    ? objets.filter(o => o !== p && !!o.cadastre?.idu && aDesSommets(o)).flatMap(o => (aDesSommets(o) ? o.pts : []))
-    : [];
+  const etendue = toutesParcelles ? etendueDuPlan(objets) : [];
   return {
-    parcelle: p.pts, ref: { lat: cad.origineLat, lon: cad.origineLon, x: 0, y: 0 }, objets,
+    parcelle: p.pts, ref: { lat: cad.origineLat, lon: cad.origineLon, x: 0, y: 0 }, objets, maxCellules: plafondRelief(p.relief),
     ...(cleTerrasse !== undefined ? { cleTerrasse } : {}), ...(etendue.length ? { etendue } : {})
   };
 }
