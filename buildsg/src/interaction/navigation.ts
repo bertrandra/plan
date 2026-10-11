@@ -11,6 +11,7 @@
 // fonctions pures sont desormais couvertes par des tests.
 
 import { versMonde, type EtatScene } from '../geometry/vue.js';
+import { maximum, minimum } from '../util/tableaux.js';
 import type { PtEcran, PtBrut } from '../model/types.js';
 
 /** Bornes du zoom, en pixels par metre. En dessous le plan est illisible, au-dessus il n'a plus de sens. */
@@ -144,7 +145,7 @@ export function empriseDe(formes: { type?: string; pts?: PtBrut[]; center?: PtBr
     }
   }
   if (!xs.length) return null;
-  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  return { minX: minimum(xs), maxX: maximum(xs), minY: minimum(ys), maxY: maximum(ys) };
 }
 
 /** Moyenne d'un ensemble de points - le « centre » de plusieurs doigts. */

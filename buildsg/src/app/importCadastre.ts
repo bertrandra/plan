@@ -224,7 +224,9 @@ function importDirectMemorise(): boolean {
   try { return localStorage.getItem(CLE_IMPORT_DIRECT) === '1'; } catch { return false; }
 }
 
-const RE_COORDS = /^\s*(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
+// Un mot devant est admis (« Position 48.904964, 2.132627 », « Point … ») : c'est ce que le champ
+// montre quand la position de l'appareil n'a pas d'adresse connue, et Rechercher doit le comprendre.
+const RE_COORDS = /^\s*(?:[A-Za-zÀ-ÿ]+\s*:?\s*)?(-?\d+[.,]\d+)\s*[,; ]\s*(-?\d+[.,]\d+)\s*$/;
 
 /** Ce que les gestes partagent : l'etat, et de quoi en signaler les changements. */
 interface Noyau {
@@ -547,12 +549,15 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
     if (auto && devancee()) { e.position = { etat: 'aucune', adresse: '', precisionM: null }; signaler(); return; }
     const adresse = await (ctx.geocoderInverse ?? geocoderInverseBAN)(pos.lon, pos.lat).catch(() => null);
     const precisionM = Math.round(pos.precisionM);
-    const label = adresse?.label || 'Position ' + pos.lat.toFixed(6) + ', ' + pos.lon.toFixed(6);
+    // Sans adresse connue (la BAN n'a pas repondu), le champ recoit les coordonnees, que Rechercher
+    // comprend ; la parcelle se cherche de toute facon sous le point.
+    const coordonnees = pos.lat.toFixed(6) + ', ' + pos.lon.toFixed(6);
+    const label = adresse?.label || 'Position ' + coordonnees;
     if (auto && devancee()) { e.position = { etat: 'aucune', adresse: '', precisionM: null }; signaler(); return; }
     // Trop imprecise pour designer une parcelle (un ordinateur situe par son reseau) : on propose
     // l'adresse, on ne la choisit pas. D'un geste, on la prend telle quelle.
     if (auto && precisionM > PRECISION_POSITION_MAX_M) {
-      e.position = { etat: 'approximative', adresse: adresse?.label ?? '', precisionM };
+      e.position = { etat: 'approximative', adresse: adresse?.label || coordonnees, precisionM };
       signaler(); return;
     }
     e.position = { etat: 'trouvee', adresse: label, precisionM };
