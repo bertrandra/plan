@@ -68,9 +68,14 @@ export interface BboxDeg {
 //   2. API Carto IGNORE les parametres qu'il ne connait pas (?lon=&lat= n'existe pas) au lieu
 //      de renvoyer une erreur : la requete degenere en vidage national, en 200 OK, a l'autre
 //      bout de la France. D'ou les garde-fous de interrogerCadastre().
-export const BAN_URL = 'https://api-adresse.data.gouv.fr/search/';
+//   3. L'API Adresse (api-adresse.data.gouv.fr) est depreciee depuis le 31 janvier 2026 (en-tetes
+//      `Deprecation` et `Sunset`) et renvoie vers le geocodage de la Geoplateforme, meme format
+//      de reponse. Elle repondait encore, mais par intermittence sans en-tete CORS : le navigateur
+//      rejetait alors le geocodage inverse de « Utiliser ma position » (11 octobre 2026). On
+//      interroge directement la Geoplateforme.
+export const BAN_URL = 'https://data.geopf.fr/geocodage/search';
 /** Le geocodage inverse de la BAN : l'adresse la plus proche d'un point. */
-export const BAN_INVERSE_URL = 'https://api-adresse.data.gouv.fr/reverse/';
+export const BAN_INVERSE_URL = 'https://data.geopf.fr/geocodage/reverse';
 export const CADASTRE_URL = 'https://apicarto.ign.fr/api/cadastre/parcelle';
 export const RESEAU_TIMEOUT_MS = 8000;
 export const RAYONS_RECHERCHE_M = [12, 25, 50];

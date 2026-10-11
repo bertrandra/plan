@@ -14,3 +14,20 @@ export function au<T>(tableau: ArrayLike<T>, i: number): T {
   if (v === undefined) throw new RangeError('Indice ' + i + ' hors du tableau (' + tableau.length + ' element(s)).');
   return v;
 }
+
+// `Math.min(...valeurs)` passe chaque valeur en argument : au-dela d'environ 120 000, la pile deborde
+// (« Maximum call stack size exceeded »). Une grille de relief en compte jusqu'a un million.
+
+/** La plus petite valeur, `Infinity` pour une liste vide (comme `Math.min()`), sans limite de taille. */
+export function minimum(valeurs: ArrayLike<number>): number {
+  let m = Infinity;
+  for (let i = 0; i < valeurs.length; i++) { const v = valeurs[i] as number; if (v < m || Number.isNaN(v)) m = v; }
+  return m;
+}
+
+/** La plus grande valeur, `-Infinity` pour une liste vide (comme `Math.max()`), sans limite de taille. */
+export function maximum(valeurs: ArrayLike<number>): number {
+  let m = -Infinity;
+  for (let i = 0; i < valeurs.length; i++) { const v = valeurs[i] as number; if (v > m || Number.isNaN(v)) m = v; }
+  return m;
+}

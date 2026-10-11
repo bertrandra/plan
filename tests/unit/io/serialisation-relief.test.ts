@@ -52,6 +52,14 @@ describe('serialisation du relief', () => {
     expect(relu?.relief).toEqual(avec);
   });
 
+  it('enregistre un maillage secondaire de 400 000 points sans deborder la pile', () => {
+    const z = Array.from({ length: 400000 }, (_, k) => Math.round((30 + (k % 997) / 7.3) * 100) / 100);
+    const paysage = { source: 'lidar-hd' as const, pas: 2, x0: 0, y0: 0, nx: 800, ny: 500, z };
+    const [s] = serializeObjects([{ ...parcelle(), relief: { ...relief, paysage } } as ObjetPlan]);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
+    expect(relu?.relief?.paysage?.z).toEqual(z);
+  });
+
   it('relit une grille ecrite en clair, et garde en clair une amplitude de plus de 655 m', () => {
     const [enClair] = normalizeObjects([JSON.parse(JSON.stringify({ ...parcelle(), relief }))]);
     expect(enClair?.relief).toEqual(relief);

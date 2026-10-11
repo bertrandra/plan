@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { au } from '../../../src/util/tableaux.js';
+import { au, maximum, minimum } from '../../../src/util/tableaux.js';
 
 describe('au : lire un element dont l indice est suppose valide', () => {
   it('rend l element', () => {
@@ -17,5 +17,21 @@ describe('au : lire un element dont l indice est suppose valide', () => {
     expect(au([0], 0)).toBe(0);
     expect(au([''], 0)).toBe('');
     expect(au([null], 0)).toBeNull();
+  });
+});
+
+describe('minimum et maximum', () => {
+  it('tiennent un million de valeurs, la ou Math.min(...valeurs) deborde la pile', () => {
+    const v = Array.from({ length: 1000000 }, (_, k) => (k * 7919) % 1000003);
+    expect(() => Math.min(...v)).toThrow(RangeError);
+    expect(minimum(v)).toBe(0);
+    expect(maximum(v)).toBe(1000002);
+  });
+
+  it('se comportent comme Math.min et Math.max : vide, NaN', () => {
+    expect(minimum([])).toBe(Infinity);
+    expect(maximum([])).toBe(-Infinity);
+    expect(minimum([3, NaN, 1])).toBeNaN();
+    expect(maximum([3, -1, 2])).toBe(3);
   });
 });
