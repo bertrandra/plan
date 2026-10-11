@@ -172,6 +172,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Un projet avec un grand voisinage pèse environ 13 % de moins.** Les parcelles et bâtiments du
+  voisinage n'écrivent plus les réglages d'un autre genre d'objet, posés par défaut à leur création
+  (hauteur et couleur de clôture, hauteur de parasol, diamètre et couleur d'arbre), ni les attributs
+  BD TOPO faux ; un corps de toit sans pignon n'écrit plus sa liste vide. Mesuré sur un voisinage d'un
+  kilomètre : environ 1,3 Mo sur 9,8 Mo. Les projets d'avant se lisent comme avant.
+
 - **Lecture des toits en tâche de fond, sans à-coups et presque deux fois plus rapide.** Mesuré sur
   un voisinage d'un kilomètre au Vésinet (5 240 bâtiments) : chaque lot redessinait tout le plan et
   toutes les zones, ce qui figeait l'écran 3 à 6 secondes et ramenait la lecture à 1,5 bâtiment par

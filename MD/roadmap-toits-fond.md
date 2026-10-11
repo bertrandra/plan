@@ -48,7 +48,8 @@ la progression relevée toutes les 15 s avec les longues tâches du navigateur (
 | Débit | 1,5 bâtiment/s (forme seule) | 2,5 bâtiments/s (forme **et** couleur) |
 | À ~470 s | 678 bâtiments | 1 170 bâtiments |
 | Plus longue tâche | 3 à 6 s à chaque lot | 70 à 300 ms ; ~1 s à chaque enregistrement automatique |
-| Taille du projet | 9,2 Mo (2 850 bâtiments lus) | voir ci-dessous |
+| À 1 500 s | 2 358 bâtiments (forme seule) | 4 071 bâtiments (forme et couleur) |
+| Taille du projet | 9,2 Mo (2 850 bâtiments lus) | 9,8 Mo (4 083 lus), avant l'allègement ci-dessous |
 
 Cause des à-coups : chaque lot redessinait tout le plan (9 000 objets) et notifiait le magasin, qui
 redessinait toutes les zones (l'explorateur et ses milliers de lignes). Pour 10 000 bâtiments (le
@@ -70,11 +71,28 @@ plafond du voisinage), compter environ 70 minutes de lecture.
 
 ### Taille du projet (point 4)
 
-TAILLE_A_COMPLETER
+Mesuré sur le même voisinage, 4 083 bâtiments lus : **9,8 Mo**. Répartition des plus gros champs :
+
+| Champ | Taille | Ce qu'on en fait |
+|---|---|---|
+| `bdtopo` (attributs BD TOPO) | 2,3 Mo | les faux (`surParcellePrincipale`, `constructionLegere`) ne s'écrivent plus pour le voisinage : environ 0,3 Mo |
+| `pts` (contours) | 1,9 Mo | nécessaires |
+| `corpsToit` | 1,3 Mo | sans `pignons` vides (la relecture les remet) : environ 50 Ko. Passer les sommets en tableaux (`[x, y]`) ne rapporterait qu'environ 15 % des corps, pour un changement de format : pas fait |
+| `cadastre` | 1,0 Mo | nécessaire (la géométrie source est déjà retirée pour le voisinage) |
+| `toit` | 0,7 Mo | nécessaire |
+| `relief` | 0,56 Mo | déjà compacté (`zCode`) |
+| `clotureCouleur`, `clotureHauteur`, `hauteurParasol`, `diametreArbre`, `couleurArbre` | 0,2 Mo chacun | valeurs par défaut de création, sans objet sur une parcelle ou un bâtiment voisin : ne s'écrivent plus pour le voisinage, environ 0,96 Mo |
+
+Au total, environ 1,3 Mo de moins, soit 13 %. Un voisinage d'un kilomètre entièrement lu pèserait donc
+autour de 10 Mo au lieu de 11,5. Si la plateforme refuse un document de cette taille (sa limite
+s'affiche dans le bandeau d'erreur), l'enregistrement automatique s'arrête pour la séance. La vraie
+réponse est alors un voisinage plus petit (500 m), ou un enregistrement du voisinage à part du projet.
+C'est un chantier de format, à décider.
 
 ## Reste à faire
 
-1. **Taille du projet au-delà de quelques centaines de mètres** : voir la section précédente.
+1. **Taille du projet au-delà de quelques centaines de mètres** : voir la section précédente. À
+   décider : connaître la limite de la plateforme, ou enregistrer le voisinage à part du projet.
 2. **Régler le débit** : `LOT_TOITS_FOND` (12) et `PARALLELE_TOITS_FOND` (6). Un lot attend son
    bâtiment le plus lent ; une file continue (sans lots) irait plus vite. À essayer après avoir vérifié
    les quotas de la Géoplateforme (erreurs 429).

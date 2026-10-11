@@ -47,4 +47,27 @@ describe('l enregistrement du voisinage', () => {
     expect(relu!.toitLidarLu).toBe(1);
     expect(serializeObjects([{ ...batiment, toitLidarLu: null } as ObjetPlan])[0]).not.toHaveProperty('toitLidarLu');
   });
+
+  it('n ecrit pas les reglages d un autre genre d objet ni les faux de la BD TOPO, et garde ceux d un arbre', () => {
+    const batiment = { ...voisine, key: 'b', fonction: 'batiment', clotureHauteur: 2, clotureCouleur: '#e19951', hauteurParasol: 2.2, diametreArbre: 6, couleurArbre: '#4a7a3a',
+      bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'b', surParcellePrincipale: false, constructionLegere: false, nature: 'Indifférenciée' } } as unknown as ObjetPlan;
+    const [s] = serializeObjects([batiment]) as unknown as Record<string, unknown>[];
+    for (const k of ['clotureHauteur', 'clotureCouleur', 'hauteurParasol', 'diametreArbre', 'couleurArbre']) expect(s, k).not.toHaveProperty(k);
+    expect(s!.bdtopo).toEqual({ couche: 'BDTOPO_V3:batiment', id: 'b', nature: 'Indifférenciée' });
+    const arbre = { ...voisine, key: 'a', fonction: 'arbre', diametreArbre: 6, couleurArbre: '#4a7a3a' } as unknown as ObjetPlan;
+    expect(serializeObjects([arbre])[0]).toMatchObject({ diametreArbre: 6, couleurArbre: '#4a7a3a' });
+    // Un objet dessine garde tout.
+    expect(serializeObjects([{ ...batiment, voisinage: false } as ObjetPlan])[0]).toHaveProperty('hauteurParasol', 2.2);
+  });
+
+  it('ecrit un corps sans pignons sans sa liste vide, et la relecture la remet', () => {
+    const corps = { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0.2 };
+    const batiment = { ...voisine, key: 'b', fonction: 'batiment', corpsToit: [corps, { ...corps, pignons: [{ pan: 0, debut: 1, fin: 3, hauteur: 6.5 }] }] } as unknown as ObjetPlan;
+    const [s] = serializeObjects([batiment]) as unknown as { corpsToit: Record<string, unknown>[] }[];
+    expect(s!.corpsToit[0]).not.toHaveProperty('pignons');
+    expect(s!.corpsToit[1]!.pignons).toHaveLength(1);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as { corpsToit: { pignons: unknown[] }[] }[];
+    expect(relu!.corpsToit[0]!.pignons).toEqual([]);
+    expect(relu!.corpsToit[1]!.pignons).toHaveLength(1);
+  });
 });
