@@ -12,9 +12,10 @@
 import { projecteurLocal } from './projection.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { aDesSommets } from '../model/formes.js';
+import { centroid } from '../geometry/basic.js';
 import { RESEAU_TIMEOUT_MS } from './apiIgn.js';
 import {
-  cellulesDansPolygone, dimensionsGrille, empriseRelief, MAX_CELLULES_RELIEF, pasPourEmprise, plafondRelief, pointDeReference, zRefPour, type Emprise
+  cellulesDansPolygone, dimensionsGrille, empriseGrille, empriseRelief, MARGE_RELIEF_M, MAX_CELLULES_RELIEF, pasPourEmprise, plafondRelief, pointDeReference, zRefPour, type Emprise
 } from '../model/relief.js';
 import type { GrillePaysage, ObjetPlan, PtBrut, Relief } from '../model/types.js';
 
@@ -251,22 +252,47 @@ export function empriseDuPaysage(d: Pick<DemandeRelief, 'parcelle' | 'etendue' |
   return e.xMin < seule.xMin || e.xMax > seule.xMax || e.yMin < seule.yMin || e.yMax > seule.yMax ? e : null;
 }
 
-/** Les sommets des parcelles cadastrales du plan autres que celle du projet : l'emprise du paysage. */
+/**
+ * L'emprise du paysage : les sommets des parcelles cadastrales du plan autres que celle du projet,
+ * et le paysage deja en place. Une relecture garde ainsi l'horizon lu a l'import, qui va souvent
+ * au-dela des objets (plafonnes par famille).
+ */
 export function etendueDuPlan(objets: readonly ObjetPlan[]): PtBrut[] {
   const p = parcelleDuProjet(objets as ObjetPlan[]);
-  return objets.filter(o => o !== p && !!o.cadastre?.idu && aDesSommets(o)).flatMap(o => (aDesSommets(o) ? o.pts : []));
+  const parcelles = objets.filter(o => o !== p && !!o.cadastre?.idu && aDesSommets(o)).flatMap(o => (aDesSommets(o) ? o.pts : []));
+  return [...parcelles, ...coinsDuPaysage(p?.relief?.paysage)];
+}
+
+/**
+ * Les deux coins du paysage, en retrait de la marge que `empriseRelief` rajoute : relu, il retombe
+ * sur la meme grille au lieu de grandir de dix metres a chaque lecture. La grille s'ancre en haut a
+ * gauche (`dimensionsGrille`) ; les deux autres bords reculent d'un rien, sans quoi l'arrondi au pas
+ * superieur ajouterait une colonne.
+ */
+export function coinsDuPaysage(q: GrillePaysage | null | undefined): PtBrut[] {
+  if (!q) return [];
+  const e = empriseGrille(q), m = MARGE_RELIEF_M, rien = 1e-6;
+  return e.xMax - e.xMin > 2 * m + rien && e.yMax - e.yMin > 2 * m + rien ? [{ x: e.xMin + m, y: e.yMin + m + rien }, { x: e.xMax - m - rien, y: e.yMax - m }] : [];
+}
+
+/** Le carre de l'horizon d'un voisinage etendu : `rayonM` autour du centre de la parcelle, comme le disque lu. */
+export function horizonDuVoisinage(parcelle: readonly PtBrut[], rayonM: number): PtBrut[] {
+  if (!(rayonM > 0) || parcelle.length < 3) return [];
+  const c = centroid(parcelle as PtBrut[]);
+  return [{ x: c.x - rayonM, y: c.y - rayonM }, { x: c.x + rayonM, y: c.y + rayonM }];
 }
 
 /**
  * La demande de relief d'un plan venu du cadastre : la parcelle du projet, son calage cadastral
  * (l'origine du plan vaut le point de calage), et, si demande, les sommets des autres parcelles
- * cadastrales du plan, avec le plafond de points du relief en place. `null` pour un plan sans parcelle ou sans calage.
+ * cadastrales du plan et l'horizon d'un voisinage etendu (`horizonM`), avec le plafond de points du
+ * relief en place. `null` pour un plan sans parcelle ou sans calage.
  */
-export function demandeReliefDuPlan(objets: ObjetPlan[], toutesParcelles: boolean, cleTerrasse?: string | null): DemandeRelief | null {
+export function demandeReliefDuPlan(objets: ObjetPlan[], toutesParcelles: boolean, cleTerrasse?: string | null, horizonM?: number): DemandeRelief | null {
   const p = parcelleDuProjet(objets);
   const cad = p?.cadastre;
   if (!p || !aDesSommets(p) || p.pts.length < 3 || typeof cad?.origineLat !== 'number' || typeof cad.origineLon !== 'number') return null;
-  const etendue = toutesParcelles ? etendueDuPlan(objets) : [];
+  const etendue = toutesParcelles ? [...etendueDuPlan(objets), ...horizonDuVoisinage(p.pts, horizonM ?? 0)] : [];
   return {
     parcelle: p.pts, ref: { lat: cad.origineLat, lon: cad.origineLon, x: 0, y: 0 }, objets, maxCellules: plafondRelief(p.relief),
     ...(cleTerrasse !== undefined ? { cleTerrasse } : {}), ...(etendue.length ? { etendue } : {})
