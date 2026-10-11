@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Cinq dessins d'arbres en 3D, au choix** (section Arbre de l'inspecteur, « Dessin (3D) »). Le
+  choix vaut pour tous les arbres du plan, voisinage compris ; un arbre ajouté ensuite suit les
+  autres.
+  - **A — Lobes** : le dessin d'avant, tel quel.
+  - **B — Dôme**, le défaut : les mêmes lobes, sans le toupet qui dépassait en haut du houppier ni
+    de bosse sur l'épaule, plus lisses, sans les fentes qui s'ouvraient à la couture des sphères.
+  - **C — Touffes** : vingt à quarante petites touffes de nuances différentes autour d'un cœur
+    sombre, en une seule maille par arbre.
+  - **D — Taillé** : trois à cinq volumes à facettes.
+  - **E — Maquette d'architecte** : un seul volume lisse, d'un vert doux tiré de la couleur du
+    feuillage, sur un tronc fin.
+  Pour B à E, le tronc est à l'échelle du houppier : un rayon de 9 % de son diamètre (5 % pour la
+  maquette), jamais plus que le cercle dessiné sur le plan.
+  L'emprise, la hauteur et l'ombre de l'arbre ne dépendent pas du dessin. C'est une préférence
+  d'affichage (ni Ctrl+Z, ni « projet modifié », permise en lecture seule), enregistrée avec le
+  projet. Le GLB de la démonstration change de taille, pas de structure (`EMPREINTES.md`).
+
 - **Une troisième démo : Peyrusse-le-Roc, horizon de cinq kilomètres** (`plan-demos/3.json`, source
   `deploy/plan-demos/3.json`, 4,3 Mo). La place des Treize Vents avec le voisinage étendu au maximum :
   4 001 objets, dont les 2 000 parcelles les plus proches (jusqu'à 1,5 km environ) et 2 000 bâtiments

@@ -38,9 +38,25 @@ describe('sections de l inspecteur par fonction', () => {
   it('range les reglages du feuillage dans une section Arbre', () => {
     const c = contexte('arbre', 'circle');
     expect(ids(c)).toContain('arbre');
-    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'portArbre', 'essenceArbre', 'couleurArbre', 'textureArbre']);
+    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'portArbre', 'essenceArbre', 'styleArbre', 'couleurArbre', 'textureArbre']);
     expect(cles(c, 'apparence')).not.toContain('diametreArbre');
     expect(ids(contexte('massif', 'circle'))).not.toContain('arbre');
+  });
+
+  it('le dessin des arbres (3D) : celui des autres arbres, le dome par defaut, ecrit sur tous les arbres a la fois', () => {
+    const autre = { key: 'a2', name: 'A2', fonction: 'arbre', type: 'circle', center: { x: 5, y: 5 }, r: 0.3 } as unknown as ObjetPlan;
+    const terrasse = { key: 't', name: 'T', fonction: 'terrasse', type: 'polygon', pts: [] } as unknown as ObjetPlan;
+    const c = contexte('arbre', 'circle', {}, [autre, terrasse]);
+    const champ = sectionsObjet(c).find(s => s.id === 'arbre')!.champs.find(ch => ch.cle === 'styleArbre') as ChampChoix;
+    expect(champ.sale).toBe(false);
+    expect(champ.enregistre).toBe(true);
+    expect(champ.options(c).map(o => o.valeur)).toEqual(['actuel', 'dome', 'touffes', 'taille', 'architecte']);
+    expect(champ.lire(c)).toBe('dome');
+    champ.ecrire(c, 'touffes');
+    expect([c.obj.styleArbre, autre.styleArbre, terrasse.styleArbre]).toEqual(['touffes', 'touffes', undefined]);
+    // Un arbre ajoute ensuite, sans dessin, suit les autres.
+    const nouveau = contexte('arbre', 'circle', {}, [autre]);
+    expect(champ.lire(nouveau)).toBe('touffes');
   });
 
   it('ne montre ni matiere ni priorite sur un point de vue', () => {

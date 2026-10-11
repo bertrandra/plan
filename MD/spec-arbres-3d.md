@@ -114,10 +114,34 @@ Coût : moins de 2 000 triangles de feuilles par arbre, en une passe de dessin ;
 
 Coût : environ 7 lobes × 14 × 10 segments, soit moins de 2 000 triangles par arbre.
 
+### 3.3 Les cinq dessins (`three/houppiers3d.ts`)
+
+Le houppier se dessine de l'une de cinq façons, la même pour tous les arbres du plan
+(`model/arbre.ts::StyleArbre`, `styleDesArbres`). Elles ont été comparées en maquette le
+11 octobre 2026, côte à côte et sur les quatre ports à houppier.
+
+| | Dessin | Ce qu'il fait | Coût (4 arbres) |
+|---|---|---|---:|
+| A | Lobes | le dessin ci-dessus, tel quel : le dernier satellite d'un houppier rond dépasse d'un demi-rayon (le « toupet »), et le bruit tiré sommet par sommet entrouvre la couture des sphères | 8 300 triangles |
+| B | **Dôme** (défaut) | les mêmes lobes, sans toupet (`sousLeHouppier` : sous le haut d'une couronne plate ; ailleurs, le sommet et les épaules du satellite dans le lobe central grossi de 12 % en largeur et 4 % en hauteur, sinon il descend par pas de 5 %), sphères de 22 × 16, bruit continu (`bruit3`) | 20 600 triangles |
+| C | Touffes | 10 à 46 icosaèdres bosselés sur l'enveloppe du port, autour d'un cœur sombre, **fusionnés en une maille** par arbre | 17 000 à 26 000 triangles |
+| D | Taillé | le lobe central et deux à quatre satellites en icosaèdres sans lissage (`flatShading`) ; un cône à sept faces | 1 500 triangles |
+| E | Maquette d'architecte | un ellipsoïde lisse, la couleur du feuillage tirée à 55 % vers un vert doux, un tronc fin gris-brun qui entre dans le houppier | 8 800 triangles |
+
+Les branches ne vont qu'aux lobes (A, B) ; les feuilles instanciées ne se posent que sur eux. Les
+dessins B à E ont un tronc à l'échelle du houppier (un rayon de 9 % du diamètre, 5 % pour E, jamais plus que le cercle du plan),
+parce que le cercle du plan est parfois le houppier lui-même (arbres estimés : 5 m de diamètre). Un
+conifère reste un cône. Tous gardent le diamètre et la hauteur du houppier : son ombre sur la
+terrasse ne dépend pas du dessin.
+
 ## 4. L'interface
 
 Section **Arbre** de l'inspecteur (`ui/champs/objet.ts`) : Diamètre du feuillage, **Port**,
-**Essence**, Couleur du feuillage, Texture du feuillage. Effet `scene3d`.
+**Essence**, **Dessin (3D)**, Couleur du feuillage, Texture du feuillage. Effet `scene3d`.
+
+« Dessin (3D) » est une préférence d'affichage comme « Gazon (3D) » (`sale: false`,
+`enregistre: true`), mais pour tout le plan : elle s'écrit sur chaque arbre (`styleArbre`), et un
+arbre qui ne la porte pas encore suit les autres. Sans choix, le Dôme.
 
 ## 5. Vérifié
 
