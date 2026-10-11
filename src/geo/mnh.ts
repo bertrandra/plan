@@ -75,7 +75,7 @@ export type LecteurGrilleMnh = (pts: readonly PtBrut[], proj: ProjecteurLocal) =
 export async function lireGrilleSous(pts: readonly PtBrut[], proj: ProjecteurLocal, rechercher: typeof fetch = fetch): Promise<GrilleRelief | null> {
   if (pts.length < 3) return null;
   const emprise = empriseDe(pts, MARGE_M);
-  const pas = pasPourEmprise(PAS_MNH_M, emprise, CELLULES_MAX_MNH);
+  const pas = pasPourEmprise(PAS_MNH_M, emprise, CELLULES_MAX_MNH, 5);
   if (pas === null) return null;
   const { x0, y0, nx, ny } = dimensionsGrille(emprise, pas);
   const bords: Emprise = { xMin: x0 - pas / 2, xMax: x0 + (nx - 0.5) * pas, yMin: y0 - (ny - 0.5) * pas, yMax: y0 + pas / 2 };

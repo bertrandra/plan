@@ -17,8 +17,16 @@ export type GrilleRelief = Pick<Relief, 'pas' | 'x0' | 'y0' | 'nx' | 'ny' | 'z'>
 
 /** La marge autour de la parcelle, en metres : le profil, les courbes et le sol 3D depassent la cloture. */
 export const MARGE_RELIEF_M = 10;
-/** Le plafond de cellules d'une grille : au-dela, le pas double (§3.1). */
-export const MAX_CELLULES_RELIEF = 40000;
+/**
+ * Le plafond de cellules d'une grille : au-dela, le pas s'elargit (§3.1). 400 000 cellules tiennent
+ * un voisinage de 500 m au pas de 5 m ; a 40 000, il retombait sur la parcelle seule et la vallee
+ * autour du village restait plate en 3D.
+ */
+export const MAX_CELLULES_RELIEF = 400000;
+/** Les pas essayes, du plus fin au plus large ; au-dela du dernier, la grille ne se lit pas. */
+export const PALIERS_RELIEF_M = [0.5, 1, 2, 5, 10, 20, 30] as const;
+/** Le pas le plus large d'une grille de relief. */
+export const PAS_MAX_RELIEF_M = 30;
 /** Le pas au-dela duquel la lecture est refusee : la parcelle est trop grande pour le relief. */
 export const PAS_MAX_RELIEF = 5;
 /** La pente en dessous de laquelle un terrain se dit « sensiblement plat », en pour cent. */
@@ -58,11 +66,12 @@ export function empriseRelief(pts: readonly PtBrut[], marge = MARGE_RELIEF_M): E
 }
 
 /**
- * Le pas de la grille pour cette emprise : la maille native, doublee tant que la grille depasse le
- * plafond de cellules (0,5 → 1 → 2 → 5 m) ; `null` au-dela de 5 m.
+ * Le pas de la grille pour cette emprise : la maille native, elargie tant que la grille depasse le
+ * plafond de cellules (0,5 → 1 → 2 → 5 → 10 → 20 → 30 m) ; `null` au-dela de `pasMax`. La grille
+ * des hauteurs des toits (geo/mnh.ts) s'arrete a 5 m : plus large, elle ne dit plus rien d'un toit.
  */
-export function pasPourEmprise(pasNatif: number, e: Emprise, maxCellules = MAX_CELLULES_RELIEF): number | null {
-  const paliers = [0.5, 1, 2, 5].filter(p => p >= pasNatif - 1e-9);
+export function pasPourEmprise(pasNatif: number, e: Emprise, maxCellules = MAX_CELLULES_RELIEF, pasMax = PAS_MAX_RELIEF_M): number | null {
+  const paliers = PALIERS_RELIEF_M.filter(p => p >= pasNatif - 1e-9 && p <= pasMax + 1e-9);
   for (const pas of paliers) {
     const { nx, ny } = dimensionsGrille(e, pas);
     if (nx * ny <= maxCellules) return pas;

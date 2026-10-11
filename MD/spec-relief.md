@@ -145,10 +145,16 @@ la date d'acquisition de la dalle : c'est la **spécification** de l'IGN, pas un
 - **Emprise** : le rectangle englobant de la parcelle du projet (`parcelleDuProjet`,
   `model/fonctions.ts`), élargi de **10 m** de chaque côté. Les abords servent au profil, aux
   courbes et au sol 3D, qui dépassent la clôture.
-- **Pas** : la maille native de la source (0,5 m ou 1 m), **doublé tant que la grille dépasse
-  40 000 cellules** (0,5 → 1 → 2 → 5 m). Une parcelle de 30 × 20 m avec ses abords tient en
-  100 × 80 = 8 000 cellules à 50 cm ; un terrain de 2 ha passe à 1 m. Au-delà de 5 m, la lecture
-  est refusée : « parcelle trop grande pour le relief ».
+- **Pas** : la maille native de la source (0,5 m ou 1 m), **élargi tant que la grille dépasse
+  400 000 cellules** (0,5 → 1 → 2 → 5 → 10 → 20 → 30 m). Une parcelle de 30 × 20 m avec ses abords
+  tient en 100 × 80 = 8 000 cellules à 50 cm ; un voisinage de 500 m (1,5 km de parcelles entières)
+  tient à 5 m. Au-delà de 30 m, « relief sur toutes les parcelles » revient à la parcelle seule, et
+  une parcelle seule si grande est refusée : « parcelle trop grande pour le relief ».
+  *(11 octobre 2026 : le plafond était de 40 000 cellules et le pas s'arrêtait à 5 m ; un voisinage
+  de 500 m retombait sur la parcelle seule et la vallée autour d'un village restait plate en 3D.)*
+- **Dans l'inspecteur**, la ligne « Grille » de la section Relief dit le pas, le nombre de points,
+  l'étendue couverte et cette règle ; elle prévient quand la grille s'arrête à la parcelle alors que
+  le plan porte des parcelles au-delà (le sol 3D y est plat).
 - **Alignement** : la grille est posée dans le repère du plan (mètres, même repère que `pts`),
   pas sur le Lambert : le centre de la cellule `(i, j)` est en
   `(x0 + i · pas, y0 − j · pas)`, `(x0, y0)` étant le coin nord-ouest. C'est le service qui
@@ -310,7 +316,7 @@ export interface Relief {
   origine: string;           // texte du masque de source, ou « LiDAR HD »
   precision: string;         // « Emq < 30 cm », « de l'ordre de 10 cm (IGN) »
   systemeAltimetrique: string; // « NGF-IGN69 », « IGN78 »…
-  pas: number;               // en m : 0.5, 1, 2 ou 5
+  pas: number;               // en m : 0.5, 1, 2, 5, 10, 20 ou 30
   x0: number; y0: number;    // centre de la cellule nord-ouest, repère du plan (m)
   nx: number; ny: number;    // colonnes, lignes
   z: (number | null)[];      // nx × ny altitudes NGF au cm, du nord au sud, d'ouest en est
@@ -323,7 +329,8 @@ export interface Relief {
 - **Sérialisation** (`io/serialisation.ts`) : `relief` s'ajoute à la liste blanche, **écrit
   seulement s'il existe**, comme `toit` ou `cloture` : l'empreinte d'un projet sans relief ne bouge
   pas. L'ordre des clés est celui du type ci-dessus.
-- **Poids** : 8 000 cellules × ~7 caractères ≈ 60 ko ; le plafond de 40 000 cellules ≈ 300 ko.
+- **Poids** : 8 000 cellules × ~7 caractères ≈ 60 ko ; le plafond de 400 000 cellules, en `zCode`
+  (2,7 octets par cellule), ≈ 1,1 Mo, en morceaux de 60 000 caractères.
   Acceptable pour un projet JSON ; la plateforme n'impose pas de limite plus basse. Si cela devait
   gêner, `z` passerait en entiers de centimètres relatifs à `zRef` en base64 ; pas avant.
 - **Schéma 4.** Un champ nouveau dans la forme persistée : suivant `RELEASE.md` §3,
@@ -431,7 +438,7 @@ s'écrit pas : à rediscuter avant d'implémenter V2.
   `null`, arrondi au centimètre ;
 - **choix de la source** : dalles > 0 et aucun `null` sur la parcelle ⇒ `lidar-hd` ; zéro dalle ⇒
   `rge-alti` ; `null` sur la parcelle avec les deux ⇒ refus, rien d'écrit ;
-- **emprise et pas** : parcelle + 10 m ; 0,5 m jusqu'à 40 000 cellules, puis 1, 2, 5 ; refus au-delà ;
+- **emprise et pas** : parcelle + 10 m ; 0,5 m jusqu'à 400 000 cellules, puis 1, 2, 5, 10, 20, 30 ; refus au-delà ;
 - **`z(x, y)`** : bilinéaire exacte sur une grille plane (`z = a·x + b·y + c`), `null` hors emprise
   et sur un trou ;
 - **pente** : sur une grille plane, pente et orientation retrouvées à 0,1 % et 1° près ; grille

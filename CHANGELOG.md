@@ -65,6 +65,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Relief sur un grand voisinage** (`model/relief.ts`, `MD/spec-relief.md` §3.1). La grille de relief
+  monte à 400 000 points au lieu de 40 000, et son pas peut s'élargir jusqu'à 30 m au lieu de 5 m.
+  Un voisinage de 500 m tient désormais au pas de 5 m : la vallée autour d'un village (Peyrusse-le-Roc)
+  a son relief en 3D au lieu d'un sol plat. Au-delà de 30 m, la grille revient à la parcelle seule,
+  comme avant au-delà de 5 m. Les grilles déjà enregistrées ne changent pas ; une nouvelle lecture
+  d'une grande parcelle peut être plus fine qu'avant. La grille des hauteurs des toits garde son pas
+  maximal de 5 m. Dans la section Relief de l'inspecteur, une ligne « Grille » dit le pas, le nombre de
+  points, l'étendue couverte et la règle, et prévient quand le sol 3D est plat au-delà de la parcelle.
+
 - **Inspecteur : une seule section ouverte à la fois** (`zones/Inspecteur.tsx`). Ouvrir une section
   replie les autres ; à l'ouverture, seule la première est dépliée (aucune avec la préférence
   « Sections de l'inspecteur repliées »). Le titre de l'inspecteur replie la section ouverte, ou

@@ -114,7 +114,8 @@ describe('le choix de la source', () => {
   });
 
   it('refuse une parcelle trop grande', async () => {
-    const geante = [{ x: 0, y: 0 }, { x: 1500, y: 0 }, { x: 1500, y: -1500 }, { x: 0, y: -1500 }];
+    // Au-dela de 19 km de cote, meme le pas de 30 m depasse 400 000 cellules.
+    const geante = [{ x: 0, y: 0 }, { x: 20000, y: 0 }, { x: 20000, y: -20000 }, { x: 0, y: -20000 }];
     const s = service({ dalles: 0, rge: () => 1 });
     await expect(lireRelief({ parcelle: geante, ref, objets: [], rechercher: s.rechercher, aujourdhui: horloge })).rejects.toThrow(/trop grande/);
   });
@@ -144,12 +145,14 @@ describe('l emprise demandee, et la demande d un plan venu du cadastre', () => {
   const carre = (x0: number, y0: number, l: number) => [{ x: x0, y: y0 }, { x: x0 + l, y: y0 }, { x: x0 + l, y: y0 + l }, { x: x0, y: y0 + l }];
   const terrain = carre(0, 0, 20);
 
-  it('couvre toutes les parcelles demandees, et revient a la parcelle seule au-dela du pas de 5 m', () => {
+  it('couvre toutes les parcelles demandees, et revient a la parcelle seule au-dela du pas de 30 m', () => {
     expect(empriseDemandee({ parcelle: terrain })).toEqual(empriseRelief(terrain));
     const voisine = carre(200, 200, 20);
     expect(empriseDemandee({ parcelle: terrain, etendue: voisine })).toEqual(empriseRelief([...terrain, ...voisine]));
-    // 40 000 cellules a 5 m : un carre d'un kilometre. Au-dela, la parcelle seule.
-    expect(empriseDemandee({ parcelle: terrain, etendue: carre(3000, 3000, 20) })).toEqual(empriseRelief(terrain));
+    // Un voisinage de 3 km tient desormais (pas de 10 m).
+    expect(empriseDemandee({ parcelle: terrain, etendue: carre(3000, 3000, 20) })).toEqual(empriseRelief([...terrain, ...carre(3000, 3000, 20)]));
+    // 400 000 cellules a 30 m : un carre de 19 km. Au-dela, la parcelle seule.
+    expect(empriseDemandee({ parcelle: terrain, etendue: carre(30000, 30000, 20) })).toEqual(empriseRelief(terrain));
   });
 
   it('prend la parcelle du projet, son calage cadastral, et les autres parcelles si on les demande', () => {
