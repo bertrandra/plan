@@ -263,16 +263,22 @@ export function rayonEtenduValide(r: number): number {
 export function rayonDeLecture(rayonM: number): number {
   return RAYONS_LECTURE_M.find(p => p >= rayonM) ?? RAYON_ETENDU_MAX_M;
 }
-/** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
-export const MAX_OBJETS_RAYON = 2000;
+/**
+ * Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus
+ * proches d'abord. Dix mille : un voisinage de plusieurs kilometres en ville en compte davantage, et
+ * a deux mille le paysage s'arretait net a quelques centaines de metres.
+ */
+export const MAX_OBJETS_RAYON = 10000;
 /**
  * Combien d'entites on lit au plus par famille avant de garder les `MAX_OBJETS_RAYON` plus
- * proches : le service rend les pages dans un ordre quelconque, et un disque d'un kilometre en
- * ville depasse largement le plafond. Lire davantage que ce qu'on garde, c'est ce qui rend « les
- * plus proches » a peu pres vrai ; au-dela de dix mille, la lecture elle-meme deviendrait le prix.
+ * proches : le service rend les pages dans un ordre quelconque, et lire davantage que ce qu'on garde
+ * rend « les plus proches » a peu pres vrai. Le double du plafond, pas plus : vingt mille entites
+ * sont deja vingt pages par famille, et au-dela la lecture elle-meme deviendrait le prix. Au-dela
+ * d'un kilometre, la lecture par disques croissants (`disquesDeLecture`) fait le reste.
  */
+export const PLAFOND_LECTURE = MAX_OBJETS_RAYON * 2;
 export function plafondLecture(rayonM: number): number {
-  return rayonM > RAYON_LEGER_M ? MAX_OBJETS_RAYON * 5 : MAX_OBJETS_RAYON * 2;
+  return rayonM > RAYON_LEGER_M ? PLAFOND_LECTURE : MAX_OBJETS_RAYON;
 }
 /**
  * Au-dela de ce rayon, une famille se lit en disques croissants (les paliers de lecture) et la

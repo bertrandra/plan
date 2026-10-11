@@ -121,6 +121,6 @@ describe('les garde-fous du service cadastre etendu', () => {
     service();
     const emprise = empriseGeoJSON(lon0, lat0, proj, 600);
     expect((await interrogerCadastreEtendu(emprise, 50)).length).toBe(50);
-    expect(MAX_OBJETS_RAYON).toBe(2000);
+    expect(MAX_OBJETS_RAYON).toBe(10000);
   });
 });

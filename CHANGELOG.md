@@ -153,6 +153,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Voisinage : jusqu'à 10 000 objets par famille** (parcelles, bâtiments…), au lieu de 2 000, les
+  plus proches de la parcelle. La lecture prend au plus le double (20 000 entités par famille) pour
+  garder les plus proches. Un plan aussi lourd s'affiche plus lentement et peut dépasser la taille
+  qu'accepte la plateforme à l'enregistrement : l'avertissement du curseur le dit déjà.
+
 - **Inspecteur : le titre nomme la fonction de l'objet** (« Bâtiment — Maison », pas « Polygone »).
   La ligne « Type » disparaît.
 

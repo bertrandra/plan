@@ -4,7 +4,7 @@
 // le MNH sous son contour (geo/mnh.ts) et l'on y ajuste une forme (facade/toitLidar.ts). Un toit
 // lu sur une photo ou saisi n'est pas touche. A l'import et a l'actualisation, seuls les plus
 // proches de la parcelle du projet, dans un delai borne : l'import ne doit pas attendre le service
-// pour un voisinage de milliers de batiments. Les autres sont lus ensuite, en tache de fond, par
+// pour un voisinage de dix mille batiments. Les autres sont lus ensuite, en tache de fond, par
 // lots (app/toitsFond.ts) ; chaque batiment lu est marque (`toitLidarLu`) pour ne pas etre relu.
 
 import { ajusterToit, type EchantillonHauteur } from '../facade/toitLidar.js';
