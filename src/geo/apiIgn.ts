@@ -235,19 +235,20 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
 /**
- * Le rayon du voisinage etendu se regle au curseur, de 10 a 1 000 m par pas de 10. On lit le
- * disque par paliers (200, 500, 1 000 m) : le palier qui couvre le curseur est lu une fois, puis
- * filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il reste
- * sous le palier lu. Lire d'emblee le plus grand disque (trois kilometres carres, des milliers
- * d'objets en ville) pour un curseur a 50 m aurait ete un gaspillage.
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 5 000 m par pas de 10. On lit le
+ * disque par paliers (200, 500, 1 000, 2 000, 5 000 m) : le palier qui couvre le curseur est lu une
+ * fois, puis filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il
+ * reste sous le palier lu. Lire d'emblee le plus grand disque (cent kilometres carres, des dizaines
+ * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Cinq kilometres, c'est
+ * l'horizon d'une vallee : le relief va jusque-la, les objets s'arretent au plafond par famille.
  */
 export const RAYON_ETENDU_MIN_M = 10;
-export const RAYON_ETENDU_MAX_M = 1000;
+export const RAYON_ETENDU_MAX_M = 5000;
 export const RAYON_ETENDU_PAS_M = 10;
 /** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
 export const RAYON_ETENDU_DEFAUT_M = 50;
 /** Les paliers de lecture du disque, du plus petit au plus grand (le dernier est le maximum du curseur). */
-export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000];
+export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 2000, 5000];
 /**
  * Au-dela de ce rayon, le plan s'alourdit vite (des centaines de parcelles et de batiments, chacun
  * avec sa geometrie) : l'interface previent que l'enregistrement sur la plateforme peut etre refuse.
@@ -273,6 +274,36 @@ export const MAX_OBJETS_RAYON = 2000;
 export function plafondLecture(rayonM: number): number {
   return rayonM > RAYON_LEGER_M ? MAX_OBJETS_RAYON * 5 : MAX_OBJETS_RAYON * 2;
 }
+/**
+ * Au-dela de ce rayon, une famille se lit en disques croissants (les paliers de lecture) et la
+ * lecture s'arrete au premier disque qui remplit le plafond. Le service rend ses pages dans un
+ * ordre quelconque : lire dix mille objets au hasard d'un disque qui en compte quarante mille,
+ * puis garder les deux mille plus proches, laisserait des trous pres de la parcelle.
+ */
+export const RAYON_PROGRESSIF_M = 1000;
+
+/** Les disques a lire pour un rayon : lui seul jusqu'a `RAYON_PROGRESSIF_M`, les paliers croissants au-dela. */
+export function disquesDeLecture(rayonM: number): number[] {
+  if (rayonM <= RAYON_PROGRESSIF_M) return [rayonM];
+  return [...RAYONS_LECTURE_M.filter(p => p >= RAYON_PROGRESSIF_M && p < rayonM), rayonM];
+}
+
+/**
+ * Les objets d'une famille a moins de `rayonM` de `centre`, du plus proche au plus loin, plafonnes
+ * a `MAX_OBJETS_RAYON` : `lire(r)` rend ce que le service donne pour le disque de rayon `r`. Un
+ * disque plus petit que demande qui remplit deja le plafond suffit : `tronque` le dit.
+ */
+export async function lireAuPlusPres<T extends { pts: PtBrut[] }>(rayonM: number, centre: PtBrut, lire: (r: number) => Promise<T[]>): Promise<{ elements: T[]; tronque: boolean }> {
+  const disques = disquesDeLecture(rayonM);
+  for (const r of disques) {
+    const dedans = (await lire(r)).filter(e => dansLeRayon(e.pts, centre, r));
+    if (dedans.length < MAX_OBJETS_RAYON && r < rayonM) continue;
+    dedans.sort((a, b) => distanceAuCentre(a.pts, centre) - distanceAuCentre(b.pts, centre));
+    return { elements: dedans.slice(0, MAX_OBJETS_RAYON), tronque: dedans.length > MAX_OBJETS_RAYON || r < rayonM };
+  }
+  return { elements: [], tronque: false };
+}
+
 const PAGE_CADASTRE = 1000;
 const PAGE_WFS = 2000;
 
@@ -362,22 +393,12 @@ export interface VoisinageRayon {
  */
 export async function lireVoisinageRayon(centre: PtBrut, proj: ProjecteurLocal, rayonM: number, simplifier: boolean, exclus: ReadonlySet<string> = new Set()): Promise<VoisinageRayon> {
   const centreDeg = proj.versDegres(centre.x, centre.y);
-  const emprise = empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, rayonM);
-  const bbox: BboxDeg = { lonMin: centreDeg.lon - rayonM / proj.kx, lonMax: centreDeg.lon + rayonM / proj.kx, latMin: centreDeg.lat - rayonM / proj.ky, latMax: centreDeg.lat + rayonM / proj.ky };
-  let tronque = false;
-  const garder = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => {
-    const dedans = elements.filter(e => dansLeRayon(e.pts, centre, rayonM));
-    dedans.sort((a, b) => distanceAuCentre(a.pts, centre) - distanceAuCentre(b.pts, centre));
-    if (dedans.length > MAX_OBJETS_RAYON) tronque = true;
-    return dedans.slice(0, MAX_OBJETS_RAYON);
-  };
-  const [featsParcelles, featsBati] = await Promise.all([
-    interrogerCadastreEtendu(emprise, plafondLecture(rayonM)),
-    interrogerWfsEtendu(COUCHE_BATIMENT, bbox, plafondLecture(rayonM)).catch((): FeatureGeoJSON[] => [])
+  const bboxDe = (r: number): BboxDeg => ({ lonMin: centreDeg.lon - r / proj.kx, lonMax: centreDeg.lon + r / proj.kx, latMin: centreDeg.lat - r / proj.ky, latMax: centreDeg.lat + r / proj.ky });
+  const [parcelles, batiments] = await Promise.all([
+    lireAuPlusPres(rayonM, centre, async r => construireCandidats(await interrogerCadastreEtendu(empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r), plafondLecture(r)), proj, centre, simplifier).filter(c => !exclus.has(c.idu))),
+    lireAuPlusPres(rayonM, centre, async r => construireElementsIgn(await interrogerWfsEtendu(COUCHE_BATIMENT, bboxDe(r), plafondLecture(r)).catch((): FeatureGeoJSON[] => []), proj, simplifier, 'batiment'))
   ]);
-  const parcelles = garder(construireCandidats(featsParcelles, proj, centre, simplifier).filter(c => !exclus.has(c.idu)));
-  const batiments = garder(construireElementsIgn(featsBati, proj, simplifier, 'batiment'));
-  return { rayonM, parcelles, batiments, tronque };
+  return { rayonM, parcelles: parcelles.elements, batiments: batiments.elements, tronque: parcelles.tronque || batiments.tronque };
 }
 
 /**

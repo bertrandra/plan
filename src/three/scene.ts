@@ -55,7 +55,7 @@ import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { ajouterAssise3d } from './assise3d.js';
 import { solDeLaScene, geometrieSol, peindreOrthoSurSol, traitSurSol, bornesCarre, type SolRelief } from './relief3d.js';
-import type { Emprise } from '../model/relief.js';
+import { empriseGrille, type Emprise } from '../model/relief.js';
 import { empriseDuCalque, intersectionEmprises, MARGE_CALQUE_M } from '../model/calque.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
@@ -173,7 +173,11 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // Le plan lointain suit le sol : a 500 m, un voisinage de 200 m etait coupe en reculant la camera.
   const b = terrain.bornes;
   const loin = Math.max(Math.abs(b.xMin - terrain.cen.x), Math.abs(b.xMax - terrain.cen.x), Math.abs(b.yMin - terrain.cen.y), Math.abs(b.yMax - terrain.cen.y));
-  const camera = new THREE.PerspectiveCamera(FOV_VUE3D_DEG, w / h, 0.05, Math.max(500, loin * 4));
+  // Le paysage du relief va jusqu'a l'horizon d'un voisinage etendu (5 km), bien au-dela des
+  // parcelles affichees : vu d'un coin, son coin oppose doit rester dans le champ.
+  const q = terrain.sol?.relief.paysage ? empriseGrille(terrain.sol.relief.paysage) : null;
+  const loinSol = q ? Math.hypot(Math.max(Math.abs(q.xMin - terrain.cen.x), Math.abs(q.xMax - terrain.cen.x)), Math.max(Math.abs(q.yMin - terrain.cen.y), Math.abs(q.yMax - terrain.cen.y))) : 0;
+  const camera = new THREE.PerspectiveCamera(FOV_VUE3D_DEG, w / h, 0.05, Math.max(500, loin * 4, loinSol * 2));
   // Sur un sol en relief, la camera vise le centre du plan a la hauteur du sol : la terrasse, elle,
   // reste a la hauteur finie au-dessus du zero du plan, et le sol passe dessous ou au-dessus.
   const hCible = terrain.sol ? terrain.sol.hauteur(terrain.cen) : 0;

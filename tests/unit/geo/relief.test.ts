@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   lireRelief, decoderBil, lireNombreMatched, urlGrille, urlDallesLidar, requeteAvecReprise, SOURCE_LIDAR, SOURCE_RGE_ALTI,
-  empriseDemandee, demandeReliefDuPlan
+  empriseDemandee, demandeReliefDuPlan, coinsDuPaysage, horizonDuVoisinage, empriseDuPaysage
 } from '../../../src/geo/relief.js';
-import { empriseRelief } from '../../../src/model/relief.js';
+import { dimensionsGrille, empriseGrille, empriseRelief, pasPourEmprise } from '../../../src/model/relief.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // La lecture du relief a l'IGN (MD/spec-relief.md §2, §4, §9.2), sans reseau : un `fetch` factice
@@ -213,5 +213,28 @@ describe('l emprise demandee, et la demande d un plan venu du cadastre', () => {
     expect(demandeReliefDuPlan(objets, true)!.etendue).toEqual(carre(20, 0, 20));
     // Sans calage, pas de demande : le plan ne sait pas ou il est sur la Terre.
     expect(demandeReliefDuPlan([{ ...objets[0]!, cadastre: { idu: 'A' } } as ObjetPlan], true)).toBeNull();
+  });
+
+  it('va jusqu a l horizon d un voisinage etendu, et le garde a la relecture', () => {
+    const objets = [
+      { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: terrain, cadastre: { idu: 'A', origineLat: 48.9, origineLon: 2.15 } },
+      { key: 'v1', type: 'polygon', fonction: 'terrain', pts: carre(20, 0, 20), cadastre: { idu: 'B' } }
+    ] as unknown as ObjetPlan[];
+    const horizon = horizonDuVoisinage(terrain, 5000);
+    expect(demandeReliefDuPlan(objets, true, undefined, 5000)!.etendue).toEqual([...carre(20, 0, 20), ...horizon]);
+    // Le relief de la parcelle seule ne lit pas d'horizon.
+    expect(demandeReliefDuPlan(objets, false, undefined, 5000)!.etendue).toBeUndefined();
+    // Cinq kilometres tiennent au pas de 20 m sous le plafond par defaut.
+    const e = empriseDuPaysage({ parcelle: terrain, etendue: horizon })!;
+    const pas = pasPourEmprise(SOURCE_LIDAR.pas, e)!;
+    expect(pas).toBe(20);
+    // Le paysage lu, rangé sur la parcelle : relu, il retombe sur la meme grille au lieu de grandir.
+    const paysage = { pas, ...dimensionsGrille(e, pas), z: [] };
+    const relu = empriseDuPaysage({ parcelle: terrain, etendue: coinsDuPaysage(paysage as never) })!;
+    expect(dimensionsGrille(relu, pas)).toEqual(dimensionsGrille(e, pas));
+    expect(empriseGrille({ pas, ...dimensionsGrille(relu, pas), z: [] } as never)).toEqual(empriseGrille(paysage as never));
+    const avecPaysage = [{ ...objets[0]!, relief: { paysage } }, objets[1]!] as unknown as ObjetPlan[];
+    expect(demandeReliefDuPlan(avecPaysage, true)!.etendue).toEqual([...carre(20, 0, 20), ...coinsDuPaysage(paysage as never)]);
+    expect(coinsDuPaysage(null)).toEqual([]);
   });
 });

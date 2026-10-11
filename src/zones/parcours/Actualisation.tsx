@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import type { InfosActualisation, OptionsActualisation } from '../../app/actualisationIgn.js';
 import { filtrerVoisinageRayon, MAX_OBJETS_RAYON, RAYON_ETENDU_DEFAUT_M, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture, type VoisinageRayon } from '../../geo/apiIgn.js';
-import { AVERTISSEMENT_RAYON } from './avertissementRayon.js';
+import { avertissementRayon } from './avertissementRayon.js';
 
 interface Props { infos: InfosActualisation; lancer: (o: OptionsActualisation) => void; fermer: () => void }
 
@@ -24,7 +24,7 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   // Les parcelles adjacentes, ou tout ce qui est dans le rayon du curseur, en plusieurs requetes.
   const [enRayon, setEnRayon] = useState(false);
   const [rayon, setRayon] = useState(RAYON_ETENDU_DEFAUT_M);
-  // Le disque, lu une fois par palier (200, 500, 1 000 m) des que le mode rayon est choisi : sous le
+  // Le disque, lu une fois par palier (200, 500, 1 000, 2 000, 5 000 m) des que le mode rayon est choisi : sous le
   // palier lu, le compte suit le curseur sans le reseau ; au-dela, le palier suivant est lu.
   const [disque, setDisque] = useState<VoisinageRayon | null>(null);
   const [echec, setEchec] = useState('');
@@ -76,7 +76,7 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
             : compte ? compte.parcelles.length + ' parcelle(s) et ' + (batiments ? compte.batiments.length + ' bâtiment(s)' : 'aucun bâtiment (couche décochée)') + ' nouveaux à moins de ' + rayon + ' m' + (compte.tronque ? ', coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '.'
             : 'Lecture du voisinage…'}
         </div>}
-        {voisinage && enRayon && rayon > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{AVERTISSEMENT_RAYON}</div>}
+        {voisinage && enRayon && rayon > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{avertissementRayon(rayon)}</div>}
         {sousCase('Bâti principal et annexes (BD TOPO, avec hauteur)', batiments, setBatiments, 'Emprise et hauteur reelles ; les batiments des voisins arrivent verrouilles.')}
         {sousCase('Haies et zones de végétation', vegetation, setVegetation, 'Couches haie et zone_de_vegetation de la BD TOPO.')}
         {sousCase('Arbres estimés dans ces zones', arbres, setArbres, 'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille d\'un arbre pour 64 m2 est repartie dans les zones de vegetation' + (enRayon ? ', a moins de 100 m de la parcelle seulement' : '') + '.')}
