@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sectionRelief, texteDenivele, parcelleCalee, EQUIDISTANCES } from '../../../src/ui/champs/relief.js';
+import { sectionRelief, texteDenivele, parcelleCalee, EQUIDISTANCES, texteGrille, grilleSurParcelleSeule } from '../../../src/ui/champs/relief.js';
 import { champsVisibles, type Champ, type ChampBouton, type ChampCase, type ChampChoix, type ChampLecture, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { champActif, champAnnulable, ecritLeProjet } from '../../../src/app/ecritures.js';
 import { lectureRelief } from '../../../src/core/lectureRelief.js';
@@ -72,10 +72,10 @@ describe('section Relief', () => {
 
   it('avec relief : la source, le zero, la pente, le denivele, les preferences et les deux commandes', () => {
     const c = contexte({ relief: grille() });
-    expect(cles(c)).toEqual(['source', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'actualiser', 'supprimer']);
+    expect(cles(c)).toEqual(['source', 'grille', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'actualiser', 'supprimer']);
     // L'equidistance ne se montre qu'avec les courbes.
     champ<ChampCase>(c, 'courbes').ecrire(c, true);
-    expect(cles(c)).toEqual(['source', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'equidistance', 'actualiser', 'supprimer']);
+    expect(cles(c)).toEqual(['source', 'grille', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'equidistance', 'actualiser', 'supprimer']);
     expect(champ<ChampCase>(c, 'sol3d').libelle).toBe('Relief');
     expect(champ<ChampLecture>(c, 'source').valeur(c)).toBe('LiDAR HD, 1 m · acquis en 2021 · de l’ordre de 10 cm (IGN)');
     expect(champ<ChampLecture>(c, 'zRef').valeur(c)).toBe('100,25 m NGF-IGN69');
@@ -119,5 +119,28 @@ describe('section Relief', () => {
     c.etat.lectureSeule = true;
     expect(champActif(champ<ChampCase>(c, 'courbes'), c)).toBe(true);
     expect(champActif(champ<ChampBouton>(c, 'supprimer'), c)).toBe(false);
+  });
+});
+
+describe('la ligne Grille', () => {
+  it('dit le pas, le nombre de points, l etendue et la regle du pas', () => {
+    const c = contexte({ relief: grille() });
+    expect(texteGrille(grille())).toBe('Pas de 1 m · 12 × 10 points · 12 m × 10 m');
+    expect(texteGrille({ ...grille(), pas: 5, nx: 290, ny: 311 })).toBe('Pas de 5 m · 290 × 311 points · 1,45 km × 1,55 km');
+    const g = champ<ChampLecture>(c, 'grille');
+    expect(g.valeur(c)).toBe(texteGrille(grille()));
+    expect(g.note!(c)).toMatch(/^Le pas s’élargit avec l’étendue lue \(0,5, 1, 2, 5, 10, 20, 30 m\) pour rester sous 400\u202f000 points/);
+  });
+
+  it('previent quand la grille s arrete a la parcelle alors que le plan porte des parcelles au-dela', () => {
+    const c = contexte({ relief: grille() });
+    const voisine = { key: 'v', fonction: 'terrain', type: 'polygon', cadastre: { idu: 'B' }, pts: [{ x: 300, y: 300 }, { x: 320, y: 300 }, { x: 320, y: 320 }] } as unknown as ObjetPlan;
+    expect(grilleSurParcelleSeule(grille(), c.obj, [c.obj])).toBe(false);
+    expect(grilleSurParcelleSeule(grille(), c.obj, [c.obj, voisine])).toBe(true);
+    c.etat.objects.push(voisine);
+    expect(champ<ChampLecture>(c, 'grille').note!(c)).toMatch(/^Parcelle et abords seulement : le sol 3D est plat au-delà\. Le pas/);
+    // Une grille qui couvre la voisine : pas d'avertissement.
+    const large = { ...grille(), x0: -10, y0: 330, nx: 340, ny: 340 };
+    expect(grilleSurParcelleSeule(large, c.obj, [c.obj, voisine])).toBe(false);
   });
 });

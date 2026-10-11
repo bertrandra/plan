@@ -290,7 +290,7 @@ export interface Relief {
   precision: string;
   /** « NGF-IGN69 », « IGN78 »… */
   systemeAltimetrique: string;
-  /** Le pas de la grille, en metres : 0,5, 1, 2 ou 5. */
+  /** Le pas de la grille, en metres : 0,5, 1, 2, 5, 10, 20 ou 30 (model/relief.ts, PALIERS_RELIEF_M). */
   pas: number;
   /** Le centre de la cellule nord-ouest, dans le repere du plan (metres). */
   x0: number;

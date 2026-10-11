@@ -110,16 +110,23 @@ describe('equidistance et niveaux', () => {
 });
 
 describe('emprise, pas et zero du plan', () => {
-  it('elargit la parcelle de 10 m et double le pas jusqu a tenir en 40 000 cellules', () => {
+  it('elargit la parcelle de 10 m et elargit le pas jusqu a tenir en 400 000 cellules', () => {
     const e = empriseRelief(parcellePts);
     expect(e).toEqual({ xMin: -9, xMax: 18, yMin: -9, yMax: 16 });
     expect(pasPourEmprise(0.5, e)).toBe(0.5);
     expect(dimensionsGrille(e, 0.5)).toEqual({ x0: -8.75, y0: 15.75, nx: 54, ny: 50 });
-    const grand = { xMin: 0, xMax: 150, yMin: 0, yMax: 150 };   // 90 000 cellules a 0,5 m
+    const grand = { xMin: 0, xMax: 400, yMin: 0, yMax: 400 };   // 640 000 cellules a 0,5 m, 160 000 a 1 m
     expect(pasPourEmprise(0.5, grand)).toBe(1);
     expect(pasPourEmprise(1, grand)).toBe(1);
-    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 1200, yMin: 0, yMax: 1200 })).toBeNull();
-    expect(MAX_CELLULES_RELIEF).toBe(40000);
+    // Un voisinage de 500 m (1,5 km de parcelles entieres) tient au pas de 5 m.
+    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 1500, yMin: 0, yMax: 1550 })).toBe(5);
+    // Plus grand, 10, 20 puis 30 m ; au-dela de 30 m (19 km de cote), rien.
+    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 5000, yMin: 0, yMax: 5000 })).toBe(10);
+    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 18000, yMin: 0, yMax: 18000 })).toBe(30);
+    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 20000, yMin: 0, yMax: 20000 })).toBeNull();
+    // La grille des toits s'arrete a 5 m.
+    expect(pasPourEmprise(0.5, { xMin: 0, xMax: 5000, yMin: 0, yMax: 5000 }, MAX_CELLULES_RELIEF, 5)).toBeNull();
+    expect(MAX_CELLULES_RELIEF).toBe(400000);
   });
 
   it('lit zRef au centroide de la terrasse, sinon de la parcelle, sinon la mediane', () => {
