@@ -304,6 +304,28 @@ export interface Relief {
   zRef: number;
   /** Preferences d'affichage, comme « Filaire » : ni annulation, ni « projet modifie ». */
   affichage?: AffichageRelief | null;
+  /**
+   * Le plafond de points des grilles (« Points max » de l'inspecteur), applique a la prochaine
+   * lecture : « Actualiser le relief » et l'actualisation IGN. Absent : MAX_CELLULES_RELIEF.
+   */
+  maxCellules?: number;
+  /**
+   * La grille du voisinage (« relief sur toutes les parcelles ») : plus large et moins fine, elle ne
+   * porte que le sol de la Vue 3D et les courbes du plan hors de la parcelle. La grille ci-dessus
+   * reste celle de la parcelle et de ses abords, a son pas fin : les quantites ne lisent qu'elle.
+   */
+  paysage?: GrillePaysage | null;
+}
+
+/** La grille du voisinage d'un relief : la geometrie et les altitudes NGF, comme la grille de la parcelle. */
+export interface GrillePaysage {
+  source: 'lidar-hd' | 'rge-alti';
+  pas: number;
+  x0: number;
+  y0: number;
+  nx: number;
+  ny: number;
+  z: (number | null)[];
 }
 
 export interface AffichageRelief {

@@ -12,8 +12,8 @@
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast } from '../../shell/dialogs.js';
-import { lireRelief } from '../../geo/relief.js';
-import { reliefDe, affichageRelief, resumeRelief } from '../../model/relief.js';
+import { etendueDuPlan, lireRelief } from '../../geo/relief.js';
+import { reliefDe, affichageRelief, avecReglages, plafondRelief, resumeRelief } from '../../model/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
@@ -55,15 +55,21 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
     lectureRelief.definir(true);
     ctx.rafraichir();
     try {
-      const r: Relief = await (ctx.lire ?? lireRelief)({ parcelle: p.pts, ref, objets: a.etat.objects, cleTerrasse: a.etat.terrasseSelectedKey });
+      // « Actualiser » relit avec le plafond de points regle dans l'inspecteur, et relit le paysage
+      // (le voisinage du sol 3D) s'il y en avait un.
+      const ancien = p.relief;
+      const etendue = ancien?.paysage ? etendueDuPlan(a.etat.objects) : [];
+      const r: Relief = await (ctx.lire ?? lireRelief)({
+        parcelle: p.pts, ref, objets: a.etat.objects, cleTerrasse: a.etat.terrasseSelectedKey, maxCellules: plafondRelief(ancien),
+        ...(etendue.length ? { etendue } : {})
+      });
       // La parcelle se retrouve apres l'attente : le plan a pu changer pendant la lecture.
       const cible = parcelle();
       if (!cible) return;
-      // « Actualiser » remplace la grille entiere, zRef compris ; les preferences d'affichage, elles,
-      // ne sont pas une donnee de la grille et restent ce que la personne avait regle.
-      const affichage = cible.relief?.affichage;
+      // « Actualiser » remplace la grille entiere, zRef compris ; les preferences d'affichage et le
+      // plafond de points, eux, ne sont pas des donnees de la grille et restent ce que la personne a regle.
       a.pushHistory();
-      cible.relief = affichage ? { ...r, affichage } : r;
+      cible.relief = avecReglages(r, cible.relief);
       a.markDirty();
       a.render();
       reconstruire3d();

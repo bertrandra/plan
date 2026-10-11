@@ -6,6 +6,10 @@
 //
 // Le calcul des courbes (`courbesDeNiveau`) est partage avec les exports : plan.svg et le plan de
 // masse (DP2) dessinent les memes lignes, dans leur propre repere.
+//
+// Avec un maillage secondaire (`relief.paysage`, la grille du voisinage), l'ecran trace aussi ses
+// courbes hors de la grille de la parcelle, a une equidistance de paysage (1 a 10 m). Les exports
+// gardent les seules courbes de la parcelle : ce sont des pieces de projet, pas une carte.
 
 import { au } from '../util/tableaux.js';
 import { creerSvg } from './svg.js';
@@ -13,10 +17,11 @@ import { SVG_LABEL_HALO, SVG_RELIEF } from './theme.js';
 import { isolignes, type GrilleScalaire } from '../geometry/isolignes.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import {
-  affichageRelief, cellule, centreCellule, equidistanceRelief, estCourbeMaitresse, niveauxCourbes, reliefDe, type GrilleRelief
+  affichageRelief, cellule, centreCellule, empriseGrille, equidistanceRelief, estCourbeMaitresse, etendueAltitudes, niveauxCourbes, reliefDe,
+  type GrilleRelief
 } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
-import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
+import type { GrillePaysage, ObjetPlan, PtBrut, Relief } from '../model/types.js';
 
 /** Une courbe de niveau : son altitude NGF, si elle est maitresse, et ses points dans le repere du plan. */
 export interface CourbeNiveau { niveau: number; maitresse: boolean; pts: PtBrut[] }
@@ -78,7 +83,32 @@ export function dessinerCourbesRelief(groupe: SVGElement, objets: ObjetPlan[], s
   const r = reliefDe(objets);
   if (!r || !affichageRelief(r).courbes) return;
   const parcelle = parcelleDuProjet(objets);
+  // Le paysage d'abord, sous les courbes de la parcelle, coupe a la grille de la parcelle.
+  if (r.paysage) {
+    const e = empriseGrille(r);
+    const coins = [versEcran(scene, { x: e.xMin, y: e.yMax }), versEcran(scene, { x: e.xMax, y: e.yMin })];
+    const [a, b] = coins as [PtBrut, PtBrut];
+    const defs = creerSvg('defs', {});
+    const clip = creerSvg('clipPath', { id: ID_HORS_PARCELLE });
+    // Un tres grand rectangle perce de la grille de la parcelle (regle evenodd) : tout sauf elle.
+    clip.appendChild(creerSvg('path', {
+      'clip-rule': 'evenodd',
+      d: 'M-1e6,-1e6H1e6V1e6H-1e6Z M' + a.x.toFixed(1) + ',' + a.y.toFixed(1) + 'H' + b.x.toFixed(1) + 'V' + b.y.toFixed(1) + 'H' + a.x.toFixed(1) + 'Z'
+    }));
+    defs.appendChild(clip);
+    groupe.appendChild(defs);
+    const paysage = creerSvg('g', { 'clip-path': 'url(#' + ID_HORS_PARCELLE + ')' });
+    poserCourbes(paysage, courbesDuPaysage(r.paysage), scene);
+    groupe.appendChild(paysage);
+  }
   const { courbes } = courbesDeNiveau(r, parcelle && parcelle.type === 'polygon' ? parcelle.pts : undefined);
+  poserCourbes(groupe, courbes, scene);
+}
+
+const ID_HORS_PARCELLE = 'reliefHorsParcelle';
+
+/** Pose des courbes en pixels : un lisere clair, le trait, l'altitude des maitresses assez longues. */
+function poserCourbes(groupe: SVGElement, courbes: readonly CourbeNiveau[], scene: EtatScene): void {
   courbes.forEach(c => {
     const ecran = c.pts.map(p => versEcran(scene, p));
     const points = ecran.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
@@ -100,4 +130,32 @@ export function dessinerCourbesRelief(groupe: SVGElement, objets: ObjetPlan[], s
     t.textContent = etiquetteNiveau(c.niveau);
     groupe.appendChild(t);
   });
+}
+
+/** L'equidistance des courbes du paysage d'apres son denivele : 1 m sous 10 m, 2 m sous 40 m, 5 m sous 100 m, 10 m au-dela. */
+export function equidistancePaysage(deniveleM: number): number {
+  if (deniveleM < 10) return 1;
+  if (deniveleM < 40) return 2;
+  if (deniveleM < 100) return 5;
+  return 10;
+}
+
+/**
+ * Les courbes du maillage secondaire, dans le repere du plan. Calculees une fois par grille : le plan
+ * se redessine a chaque deplacement, et le paysage compte jusqu'a des centaines de milliers de points.
+ */
+const courbesPaysage = new WeakMap<GrillePaysage, CourbeNiveau[]>();
+export function courbesDuPaysage(q: GrillePaysage): CourbeNiveau[] {
+  const deja = courbesPaysage.get(q);
+  if (deja) return deja;
+  const e = etendueAltitudes(q);
+  const equidistance = equidistancePaysage(e ? e.zMax - e.zMin : 0);
+  const g = grilleScalaireDe(q);
+  const courbes: CourbeNiveau[] = [];
+  niveauxCourbes(q, equidistance).forEach(niveau => {
+    const maitresse = estCourbeMaitresse(niveau, equidistance);
+    isolignes(g, niveau).forEach(pts => courbes.push({ niveau, maitresse, pts }));
+  });
+  courbesPaysage.set(q, courbes);
+  return courbes;
 }

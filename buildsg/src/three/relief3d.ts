@@ -9,7 +9,10 @@
 // - une cellule sans donnee (mer, frontiere, sur les abords) prendrait un trou dans le sol : elle
 //   recoit la hauteur de sa voisine connue la plus proche ;
 // - hors de l'emprise de la grille, le sol continue plat a la hauteur du bord le plus proche, jusqu'au
-//   carre que le plan vert couvrait deja. Un seul maillage, sans couture.
+//   carre que le plan vert couvrait deja. Un seul maillage, sans couture ;
+// - avec une grille du voisinage (`relief.paysage`), le sol la suit hors de la grille de la parcelle,
+//   et passe de l'une a l'autre en fondu sur une bande au bord de la grille fine. Le maillage prend
+//   les lignes des deux grilles : fin sur la parcelle, large au-dela.
 //
 // Ce fichier ne fait que l'affichage du sol. Ce qui se pose dessus en suivant la pente (la structure
 // de la terrasse, les poteaux d'une pergola ou d'une plage, le bord d'un bassin) lit le MEME relief
@@ -17,7 +20,7 @@
 // la parcelle, et ne passe le sol du moteur que si le sol en relief est dessine.
 
 import { pointInPolygon } from '../geometry/basic.js';
-import { affichageRelief, centreCellule, empriseGrille, zLocal, type Emprise } from '../model/relief.js';
+import { affichageRelief, centreCellule, empriseGrille, MARGE_RELIEF_M, zLocal, type Emprise, type GrilleRelief } from '../model/relief.js';
 import { intersectionEmprises } from '../model/calque.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut, Relief } from '../model/types.js';
@@ -46,7 +49,7 @@ export const PAS_TRAIT_SOL_M = 1;
  * Les hauteurs `zLocal` de chaque cellule, les sans-donnee comblees par la voisine connue la plus
  * proche (parcours en largeur depuis toutes les cellules connues), 0 partout si la grille est vide.
  */
-export function hauteursComblees(r: Relief): Float64Array {
+export function hauteursComblees(r: GrilleRelief & { zRef: number }): Float64Array {
   const n = r.nx * r.ny;
   const h = new Float64Array(n);
   const connue = new Uint8Array(n);
@@ -77,21 +80,48 @@ export function solDeLaScene(r: Relief | null | undefined): SolRelief | null {
   return creerSolRelief(r);
 }
 
-/** Le lecteur du sol : `zLocal` la ou la grille parle ; ailleurs, la grille comblee, bornee a son bord. */
-export function creerSolRelief(r: Relief): SolRelief {
-  const comblees = hauteursComblees(r);
-  const lire = (i: number, j: number) => comblees[j * r.nx + i] ?? 0;
-  // La bilineaire du modele, sur la grille comblee et avec les coordonnees bornees : au bord, le sol
-  // continue plat ; sur un trou, il suit la voisine. A l'interieur, la ou toutes les voisines sont
-  // connues, c'est exactement `zLocal`.
-  const lectureComblee = (x: number, y: number): number => {
-    const ci = Math.min(Math.max((x - r.x0) / r.pas, 0), r.nx - 1), cj = Math.min(Math.max((r.y0 - y) / r.pas, 0), r.ny - 1);
+/**
+ * La lecture bilineaire d'une grille comblee, les coordonnees bornees a la grille : au bord, le sol
+ * continue plat ; sur un trou, il suit la voisine.
+ */
+function lecteurComble(g: GrilleRelief, comblees: Float64Array): (x: number, y: number) => number {
+  const lire = (i: number, j: number) => comblees[j * g.nx + i] ?? 0;
+  return (x, y) => {
+    const ci = Math.min(Math.max((x - g.x0) / g.pas, 0), g.nx - 1), cj = Math.min(Math.max((g.y0 - y) / g.pas, 0), g.ny - 1);
     const i0 = Math.floor(ci), j0 = Math.floor(cj);
-    const i1 = Math.min(i0 + 1, r.nx - 1), j1 = Math.min(j0 + 1, r.ny - 1);
+    const i1 = Math.min(i0 + 1, g.nx - 1), j1 = Math.min(j0 + 1, g.ny - 1);
     const tx = ci - i0, ty = cj - j0;
     return (lire(i0, j0) * (1 - tx) + lire(i1, j0) * tx) * (1 - ty) + (lire(i0, j1) * (1 - tx) + lire(i1, j1) * tx) * ty;
   };
-  const hauteur = (p: PtBrut): number => zLocal(r, p.x, p.y) ?? lectureComblee(p.x, p.y);
+}
+
+/**
+ * La part de la grille fine en un point : 1 a l'interieur, 0 hors d'elle, en fondu sur une bande au
+ * bord (le pas du paysage, au plus la marge autour de la parcelle : la parcelle reste toute en grille fine).
+ */
+function partFine(e: Emprise, bande: number, x: number, y: number): number {
+  const d = Math.min(x - e.xMin, e.xMax - x, y - e.yMin, e.yMax - y);
+  return d <= 0 ? 0 : Math.min(1, d / bande);
+}
+
+/** Le lecteur du sol : `zLocal` la ou la grille parle ; ailleurs, la grille comblee, bornee a son bord, ou le paysage. */
+export function creerSolRelief(r: Relief): SolRelief {
+  // La bilineaire du modele, sur la grille comblee et avec les coordonnees bornees. A l'interieur,
+  // la ou toutes les voisines sont connues, c'est exactement `zLocal`.
+  const lectureComblee = lecteurComble(r, hauteursComblees(r));
+  const fine = (p: PtBrut): number => zLocal(r, p.x, p.y) ?? lectureComblee(p.x, p.y);
+  const q = r.paysage;
+  let hauteur = fine;
+  if (q && q.nx > 0 && q.ny > 0) {
+    const lirePaysage = lecteurComble(q, hauteursComblees({ ...q, zRef: r.zRef }));
+    const e = empriseGrille(r), bande = Math.max(r.pas, Math.min(q.pas, MARGE_RELIEF_M));
+    hauteur = (p: PtBrut): number => {
+      const t = partFine(e, bande, p.x, p.y);
+      if (t >= 1) return fine(p);
+      const h = lirePaysage(p.x, p.y);
+      return t <= 0 ? h : t * fine(p) + (1 - t) * h;
+    };
+  }
   const basSous = (contour: readonly PtBrut[]): number => {
     let bas = Infinity;
     contour.forEach(p => { bas = Math.min(bas, hauteur(p)); });
@@ -153,9 +183,10 @@ export function bornesCarre(cen: PtBrut, demiCote: number): Emprise {
  */
 export function empriseSol(r: Relief, bornes: Emprise): Emprise {
   const e = empriseGrille(r);
+  const q = r.paysage ? empriseGrille(r.paysage) : e, pq = r.paysage?.pas ?? r.pas;
   return {
-    xMin: Math.min(e.xMin - r.pas, bornes.xMin), xMax: Math.max(e.xMax + r.pas, bornes.xMax),
-    yMin: Math.min(e.yMin - r.pas, bornes.yMin), yMax: Math.max(e.yMax + r.pas, bornes.yMax)
+    xMin: Math.min(e.xMin - r.pas, q.xMin - pq, bornes.xMin), xMax: Math.max(e.xMax + r.pas, q.xMax + pq, bornes.xMax),
+    yMin: Math.min(e.yMin - r.pas, q.yMin - pq, bornes.yMin), yMax: Math.max(e.yMax + r.pas, q.yMax + pq, bornes.yMax)
   };
 }
 
@@ -168,9 +199,17 @@ export function sommetsDuSol(r: Relief, bornes: Emprise): { xs: number[]; ys: nu
   const xs: number[] = [a.xMin], ys: number[] = [a.yMax];
   for (let i = 0; i < r.nx; i++) xs.push(r.x0 + i * r.pas);
   for (let j = 0; j < r.ny; j++) ys.push(r.y0 - j * r.pas);
+  // Le paysage ajoute ses lignes hors de la grille fine : le maillage reste une grille, fine sur la
+  // parcelle et large au-dela.
+  const q = r.paysage;
+  if (q) {
+    const e = empriseGrille(r);
+    for (let i = 0; i < q.nx; i++) { const x = q.x0 + i * q.pas; if (x < e.xMin || x > e.xMax) xs.push(x); }
+    for (let j = 0; j < q.ny; j++) { const y = q.y0 - j * q.pas; if (y < e.yMin || y > e.yMax) ys.push(y); }
+  }
   xs.push(a.xMax);
   ys.push(a.yMin);
-  return { xs, ys };
+  return { xs: [...new Set(xs)].sort((u, v) => u - v), ys: [...new Set(ys)].sort((u, v) => v - u) };
 }
 
 /**
