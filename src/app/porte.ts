@@ -19,6 +19,7 @@ import { Porte } from '../zones/Porte.js';
 import { creerSession, EchecPlateforme, type Session } from '../plateforme/session.js';
 import { creerContexte, fermetureDe, type Contexte, type Fermeture, type ServiceContexte } from '../plateforme/contexte.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
+import { chargement } from '../shell/chargement.js';
 
 export interface Acces {
   session: Session;
@@ -54,6 +55,8 @@ export async function franchirLaPorte(): Promise<Acces> {
   const contexte = creerContexte(session);
 
   function afficher(fermeture: Fermeture): void {
+    // La porte attend la personne : la roue du chargement (index.html) ne doit pas tourner devant elle.
+    chargement(false);
     racine ||= createRoot(conteneur());
     racine.render(createElement(Porte, { fermeture, ouvrir, reessayer: () => { void demarrer(); }, plateforme: BACKPROD_API_URL }));
   }

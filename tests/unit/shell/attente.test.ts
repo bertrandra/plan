@@ -4,6 +4,9 @@ import { createElement, act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { attente } from '../../../src/shell/attente.js';
 import { Attente } from '../../../src/zones/Attente.js';
+import { chargement, finChargementApresRendu } from '../../../src/shell/chargement.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // La roue d'attente au centre de l'ecran (shell/attente.ts, zones/Attente.tsx) : pendant la creation
 // d'un plan depuis une adresse et l'actualisation IGN, avec le texte de l'etape.
@@ -56,5 +59,41 @@ describe('attente', () => {
     act(() => { attente.poser('a', null); });
     expect(hote.querySelector('.attente')).toBeNull();
     act(() => { racine.unmount(); });
+  });
+
+  it('un message vide : la roue seule, sans carte ni texte (l ouverture d un fichier lourd)', () => {
+    const hote = document.createElement('div');
+    document.body.appendChild(hote);
+    const racine = createRoot(hote);
+    act(() => { racine.render(createElement(Attente)); });
+    act(() => { attente.poser('a', ''); });
+    const statut = hote.querySelector('[role="status"].attente');
+    expect(statut!.getAttribute('aria-label')).toBe('Chargement');
+    expect(statut!.querySelector('.attenteRoue')).not.toBeNull();
+    expect(statut!.querySelector('.attenteCarte')).toBeNull();
+    expect(statut!.textContent).toBe('');
+    act(() => { attente.poser('a', null); });
+    act(() => { racine.unmount(); });
+  });
+});
+
+describe('la roue du chargement (index.html, shell/chargement.ts)', () => {
+  it('est dans la page avant le programme, avec son style en ligne et sans message', () => {
+    const html = readFileSync(resolve(__dirname, '../../../index.html'), 'utf8');
+    expect(html).toMatch(/<div id="chargementInitial" role="status" aria-label="Chargement"><span><\/span><\/div>/);
+    expect(html).toMatch(/#chargementInitial span\{[^}]*animation:chargementTourne/);
+    expect(html).toMatch(/prefers-reduced-motion: reduce\)\{ #chargementInitial span/);
+  });
+  it('se retire, se remet une seule fois, et se retire apres l image suivante', async () => {
+    document.body.innerHTML = '<div id="chargementInitial"><span></span></div>';
+    chargement(false);
+    expect(document.getElementById('chargementInitial')).toBeNull();
+    chargement(true); chargement(true);
+    expect(document.querySelectorAll('#chargementInitial')).toHaveLength(1);
+    expect(document.getElementById('chargementInitial')!.getAttribute('aria-label')).toBe('Chargement');
+    finChargementApresRendu();
+    expect(document.getElementById('chargementInitial')).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(document.getElementById('chargementInitial')).toBeNull();
   });
 });
