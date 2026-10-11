@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une roue qui tourne, sans message, pendant l'ouverture** (`shell/chargement.ts`, `index.html`).
+  Un plan lourd (le voisinage de 5 km : 4 000 objets) met plusieurs secondes à s'ouvrir, et la page
+  montrait pendant ce temps des zones vides. La roue est posée par la page elle-même, avant que le
+  programme ne soit chargé ; elle s'efface devant la connexion, le premier pas ou une erreur, revient
+  pendant la lecture du projet et disparaît dès que le plan est dessiné. À l'import d'un projet JSON,
+  la même roue tourne le temps de le lire et de le poser.
+
 - **Cinq dessins d'arbres en 3D, au choix** (section Arbre de l'inspecteur, « Dessin (3D) »). Le
   choix vaut pour tous les arbres du plan, voisinage compris ; un arbre ajouté ensuite suit les
   autres.

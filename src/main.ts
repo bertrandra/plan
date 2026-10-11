@@ -9,6 +9,7 @@ import './styles/app.css';
 // quand c'est le chargement de app/boot.ts qui casse. En phase 1, faute de l'avoir isole, main.ts
 // portait une copie du bandeau ; la phase 5 l'a rendue inutile.
 import { showErrBanner, showProjectLoadError } from './shell/dialogs.js';
+import { chargement, finChargementApresRendu } from './shell/chargement.js';
 
 function texteErreur(err: unknown): string {
   const e = err as { message?: string; stack?: string } | null;
@@ -27,6 +28,7 @@ async function demarrer(): Promise<void> {
     if (new URLSearchParams(location.search).has('version')) {
       const { afficherDescription } = await import('./app/version.js');
       afficherDescription();
+      chargement(false);
       return;
     }
 
@@ -46,6 +48,7 @@ async function demarrer(): Promise<void> {
       const demo = vitrine.fichier ? await chargerDemoVitrine(vitrine.fichier) : null;
       const { boot, graineVitrine } = await import('./app/boot.js');
       boot(graineVitrine(demo), { vitrine });
+      finChargementApresRendu();
       return;
     }
 
@@ -61,6 +64,7 @@ async function demarrer(): Promise<void> {
       if (demandeEcranPalette(location.search)) {
         document.documentElement.dataset.ecran = 'palette';
         await ouvrirEcranPalette();
+        chargement(false);
         return;
       }
       // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
@@ -70,6 +74,7 @@ async function demarrer(): Promise<void> {
       if (demandeEcranControleurs(location.search)) {
         document.documentElement.dataset.ecran = 'controleurs';
         await ouvrirEcranControleurs();
+        chargement(false);
         return;
       }
       const { entrerEnAdmin } = await import('./app/acces.js');
@@ -79,8 +84,10 @@ async function demarrer(): Promise<void> {
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
       const { boot, loadInitialProject } = await import('./app/boot.js');
       try {
+        chargement(true);
         const seed = await loadInitialProject();
         boot(seed);
+        finChargementApresRendu();
         const { showToast } = await import('./shell/dialogs.js');
         document.title = 'Admin démo — ' + (seed.meta?.name ?? 'Plan');
         showToast('Admin des démos : « Enregistrer » réécrit le fichier de démo ' + (seed.meta ? '« ' + seed.meta.id + ' »' : '') + ' sur le serveur.');
@@ -107,8 +114,12 @@ async function demarrer(): Promise<void> {
     definirDepot(creerDepotPlateforme(acces.session));
     const { boot, loadInitialProject } = await import('./app/boot.js');
     try {
+      // Apres la porte (qui a retire la roue pour se montrer), la lecture du projet la remet : un
+      // plan lourd met plusieurs secondes a arriver et a se dessiner.
+      chargement(true);
       const seed = await loadInitialProject();
       boot(seed);
+      finChargementApresRendu();
     } catch (err) {
       // Echec classe par apiList()/apiLoad() (reseau, serveur, projet absent, JSON illisible)
       // avec un vrai projet en jeu : ecran de reprise plutot qu'un bandeau d'erreur brut.
