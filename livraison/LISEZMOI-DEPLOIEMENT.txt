@@ -1,4 +1,4 @@
-Plan 2.2.0 (72c4c05) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (c7a5e70) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 1. Televerser le contenu de ce dossier dans le dossier publie, par exemple public_html/ : le plus
@@ -17,9 +17,10 @@ Plateforme : https://www.raillard.org
    b. Y remplacer « A-CHANGER » par le mot de passe admin.
    c. Copier aussi le dossier plan-demos/ de cette livraison a cote de plan-admin-config.php,
       hors du dossier publie. Il contient 1.json, la demonstration integree, premiere demo de
-      l'admin, et 2.json, Peyrusse-le-Roc avec un voisinage d'un kilometre. Les demos enregistrees
+      l'admin, 2.json et 3.json, Peyrusse-le-Roc avec un voisinage d'un et de cinq kilometres
+      (3.json pese 4 Mo et s'ouvre en quelques secondes). Les demos enregistrees
       ensuite y sont rangees : une nouvelle mise en ligne ne les touche pas. Si plan-demos/ existe
-      deja la-bas, ne pas l'ecraser : ce sont vos demos. Pour recevoir une demo livree (2.json, ou
+      deja la-bas, ne pas l'ecraser : ce sont vos demos. Pour recevoir une demo livree (2.json, 3.json, ou
       1.json mis a jour), copier ce seul fichier, apres avoir garde l'ancien si vous l'aviez modifie.
       Laisse dans public_html/, il est refuse par .htaccess (404) et l'admin ne le voit pas.
    d. Droits : plan-demos/ et ses fichiers doivent etre lisibles par PHP (dossier 755, fichiers
