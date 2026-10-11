@@ -18,7 +18,7 @@ import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../render/couleurMurPhoto.js';
 import { materiauMurs } from '../model/couleurMur.js';
-import { centroid } from '../geometry/basic.js';
+import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
@@ -219,7 +219,9 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
   const bbox = bboxDegDesAnneaux(anneaux, proj, 15);
   for (const couche of couches) {
     try {
-      const feats = await interrogerWfs(couche, bbox, 80);
+      // Une seule requete rendait au plus 80 objets : sur l'emprise de toutes les parcelles d'un
+      // voisinage, il y en a des centaines, et ceux d'au-dela restaient « absents de la base ».
+      const feats = await interrogerWfsEtendu(couche, bbox, MAX_OBJETS_RAYON * 5);
       feats.forEach(f => {
         const p = f.properties || {};
         const id = (f.id as string) || (p.cleabs as string);
@@ -530,7 +532,8 @@ export async function construireVoisinage(
   // sur tout le disque, en plusieurs pages, les plus proches d'abord.
   const bbox = rayonM ? bboxDegDesAnneaux([empriseRayon.coordinates[0] as Anneau], proj, 0) : bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
-  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? true : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  // En voisinage etendu, tout le disque sauf la parcelle du projet : son bati, importe avec elle ou dessine (la demo), serait double.
+  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? !(e.pts.length >= 3 && pointInPolygon(centroid(e.pts), principale.pts)) : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
   const lireCouche = (couche: string, max: number) => (rayonM ? interrogerWfsEtendu(couche, bbox, plafondLecture(rayonM)) : interrogerWfs(couche, bbox, max)).catch((): FeatureGeoJSON[]=>[]);
   const elementsRetenus = <T extends { pts: PtBrut[] }>(elements: T[]): T[] => (rayonM ? dansLeDisque(elements) : elements);
   // Les arbres estimes restent pres de la parcelle : un disque de 500 m en semerait des milliers.
