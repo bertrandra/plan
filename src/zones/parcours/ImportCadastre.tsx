@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
 import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture } from '../../geo/apiIgn.js';
-import { AVERTISSEMENT_RAYON } from './avertissementRayon.js';
+import { avertissementRayon } from './avertissementRayon.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
 import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/importCadastre.js';
@@ -312,8 +312,8 @@ function ReglageRelief({ importe }: Props) {
 }
 
 /**
- * Le voisinage etendu : une case, un curseur de 10 a 1 000 m, et le compte de ce qui arrivera avant
- * de creer. Le disque est lu une fois par palier (200, 500, 1 000 m) ; sous le palier lu, le
+ * Le voisinage etendu : une case, un curseur de 10 a 5 000 m, et le compte de ce qui arrivera avant
+ * de creer. Le disque est lu une fois par palier (200, 500, 1 000, 2 000, 5 000 m) ; sous le palier lu, le
  * curseur le filtre sans appel au reseau.
  */
 function ReglageVoisinage({ importe }: Props) {
@@ -336,7 +336,7 @@ function ReglageVoisinage({ importe }: Props) {
           : v ? v.parcelles.length + ' parcelle(s) et ' + (e.importerBatiments ? v.batiments.length + ' bâtiment(s)' : 'aucun bâtiment (couche décochée)') + ' seront ajoutés, verrouillés et marqués « voisinage »' + (v.tronque ? ' ; coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '.'
           : e.principale ? 'Voisinage non chargé.' : 'Le compte s’affichera dès la parcelle trouvée.'}
       </div>}
-      {e.voisinageEtendu && e.rayonEtendu > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{AVERTISSEMENT_RAYON}</div>}
+      {e.voisinageEtendu && e.rayonEtendu > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{avertissementRayon(e.rayonEtendu)}</div>}
       <label className={'caseParcours' + (e.voisinageEtendu ? '' : ' vide')} title="Montre le voisinage étendu dans l’aperçu, et le laisse visible à l’ouverture du plan. Décoché, il est importé mais masqué : l’œil « Voisinage » de l’explorateur le réaffiche.">
         <input type="checkbox" data-controle="cadastre.afficherEtendu" checked={e.afficherEtendu} disabled={!e.voisinageEtendu} onChange={(ev) => importe.basculerAfficherEtendu(ev.target.checked)} />
         Afficher le voisinage étendu

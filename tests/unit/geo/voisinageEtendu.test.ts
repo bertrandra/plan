@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { objetsDepuisCadastre, type ImportCadastral, type ParcelleCadastrale, type ObjetBdTopo } from '../../../src/geo/cadastreObjets.js';
-import { lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide, rayonDeLecture, plafondLecture, RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M, RAYONS_LECTURE_M, MAX_OBJETS_RAYON } from '../../../src/geo/apiIgn.js';
+import { lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide, rayonDeLecture, plafondLecture, disquesDeLecture, lireAuPlusPres, RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M, RAYONS_LECTURE_M, MAX_OBJETS_RAYON } from '../../../src/geo/apiIgn.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
@@ -64,16 +64,35 @@ describe('la lecture d un voisinage dans un rayon', () => {
   const reponse = (corps: unknown) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(corps) } as unknown as Response);
   const feature = (id: string, pts: PtBrut[], props: Record<string, unknown>) => ({ type: 'Feature', id, properties: props, geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]!].map(p => { const d = proj.versDegres(p.x, p.y); return [d.lon, d.lat]; })] } });
 
-  it('borne le curseur de 10 a 1 000 m, au pas de 10', () => {
-    expect([RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M]).toEqual([10, 1000]);
-    expect([0, 14, 15, 137, 999, 4000, Number.NaN].map(rayonEtenduValide)).toEqual([10, 10, 20, 140, 1000, 1000, 50]);
+  it('borne le curseur de 10 a 5 000 m, au pas de 10', () => {
+    expect([RAYON_ETENDU_MIN_M, RAYON_ETENDU_MAX_M]).toEqual([10, 5000]);
+    expect([0, 14, 15, 137, 999, 4000, 4996, 9000, Number.NaN].map(rayonEtenduValide)).toEqual([10, 10, 20, 140, 1000, 4000, 5000, 5000, 50]);
   });
 
   it('lit le disque par paliers, et lit plus large que le plafond au-dela de 200 m', () => {
-    expect(RAYONS_LECTURE_M).toEqual([200, 500, 1000]);
-    expect([10, 200, 210, 500, 510, 1000].map(rayonDeLecture)).toEqual([200, 200, 500, 500, 1000, 1000]);
+    expect(RAYONS_LECTURE_M).toEqual([200, 500, 1000, 2000, 5000]);
+    expect([10, 200, 210, 500, 510, 1000, 1010, 2000, 2010, 5000].map(rayonDeLecture)).toEqual([200, 200, 500, 500, 1000, 1000, 2000, 2000, 5000, 5000]);
     expect(plafondLecture(200)).toBe(MAX_OBJETS_RAYON * 2);
     expect(plafondLecture(1000)).toBe(MAX_OBJETS_RAYON * 5);
+  });
+
+  it('au-dela d un kilometre, lit en disques croissants et s arrete au premier qui remplit le plafond', async () => {
+    expect([200, 1000, 2000, 5000].map(disquesDeLecture)).toEqual([[200], [1000], [1000, 2000], [1000, 2000, 5000]]);
+    // Une famille clairsemee (quelques objets a chaque palier) : tous les disques sont lus, le dernier rend tout.
+    const point = (d: number) => ({ pts: [{ x: d, y: 0 }], d });
+    const lus: number[] = [];
+    const clairseme = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return [point(4500), point(1500), point(300), point(6000)].filter(e => e.d <= r * 1.5); });
+    expect(lus).toEqual([1000, 2000, 5000]);
+    expect(clairseme.elements.map(e => e.d)).toEqual([300, 1500, 4500]);
+    expect(clairseme.tronque).toBe(false);
+    // Une famille dense : le disque de 1 km remplit deja le plafond ; on garde les plus proches, sans trou.
+    lus.length = 0;
+    const dense = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return Array.from({ length: MAX_OBJETS_RAYON + 500 }, (_, i) => point((MAX_OBJETS_RAYON + 499 - i) * 0.4)); });
+    expect(lus).toEqual([1000]);
+    expect(dense.elements).toHaveLength(MAX_OBJETS_RAYON);
+    expect(dense.elements[0]!.d).toBe(0);
+    expect(dense.elements[MAX_OBJETS_RAYON - 1]!.d).toBeCloseTo((MAX_OBJETS_RAYON - 1) * 0.4, 6);
+    expect(dense.tronque).toBe(true);
   });
 
   it('garde le disque, trie, exclut la parcelle du projet, puis filtre localement a un rayon plus petit', async () => {

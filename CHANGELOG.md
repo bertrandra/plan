@@ -96,6 +96,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Voisinage étendu jusqu'à 5 km** (au lieu de 1 km), à l'import depuis une adresse comme à
+  l'actualisation. Le disque se lit par paliers (200 m, 500 m, 1 km, 2 km, 5 km).
+  - Au-delà d'un kilomètre, chaque famille (parcelles, bâtiments, végétation) se lit en disques
+    croissants et s'arrête au premier qui atteint le plafond de 2 000 objets : on garde les plus
+    proches, sans trou près de la parcelle.
+  - **Le relief du paysage va jusqu'au rayon choisi**, même là où les objets se sont arrêtés au
+    plafond. Une relecture du relief garde cet horizon. Cinq kilomètres tiennent au pas de 20 m sous
+    le plafond de 400 000 points.
+  - La Vue 3D voit le paysage jusqu'à son coin opposé : le plan lointain de la caméra suit le relief,
+    plus seulement les parcelles affichées.
+  - Au-delà d'un kilomètre, la note sous le curseur le dit.
+  - Essai réel à Peyrusse-le-Roc à 5 km : 2 000 parcelles (jusqu'à 1,5 km environ), 2 000 bâtiments
+    (jusqu'à presque 5 km), un relief de 501 × 501 points au pas de 20 m, en 45 s ; le fichier pèse
+    7,3 Mo.
+
 - **La démo (`1.json` et le projet de démonstration de l'application) est actualisée** comme l'est un
   projet par « Fichier › Actualiser le projet », et son voisinage est étendu à 100 m : 147 objets, dont
   112 parcelles et bâtiments voisins (56 avec leurs toits en corps), le relief LiDAR au pas de 0,5 m sur

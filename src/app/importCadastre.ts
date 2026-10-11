@@ -105,10 +105,10 @@ export interface EtatImportCadastre {
   propriete: Set<string>;
   /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
   voisinageEtendu: boolean;
-  /** Le rayon du curseur, de 10 a 1 000 m. */
+  /** Le rayon du curseur, de 10 a 5 000 m. */
   rayonEtendu: number;
   /**
-   * Ce que l'IGN a rendu pour le palier de lecture qui couvre le curseur (200, 500 ou 1 000 m),
+   * Ce que l'IGN a rendu pour le palier de lecture qui couvre le curseur (200, 500, 1 000, 2 000 ou 5 000 m),
    * autour de la parcelle principale ; le rayon du curseur le filtre localement. `null` tant que
    * rien n'est lu ; relu au palier superieur si le curseur le depasse.
    */
@@ -688,7 +688,8 @@ export function projecteurDuPlan(objets: ObjetPlan[], repli: ProjecteurLocal): P
 
 async function reliefImporte(objets: ObjetPlan[], e: EtatImportCadastre, occuper: Noyau['occuper'], lire: typeof lireRelief): Promise<string> {
   if (!e.importerRelief || !droitsCourants().aCapacite(CAPACITES.relief.code)) return '';
-  const demande = demandeReliefDuPlan(objets, e.reliefToutesParcelles);
+  // Un voisinage etendu donne son horizon au paysage : le relief va jusqu'au rayon demande.
+  const demande = demandeReliefDuPlan(objets, e.reliefToutesParcelles, undefined, e.voisinageEtendu ? e.rayonEtendu : undefined);
   const parcelle = parcelleDuProjet(objets);
   if (!demande || !parcelle) return '';
   occuper(true, 'Relief du terrain (IGN)…');
