@@ -4,14 +4,17 @@
 // combien pres, puis ce qu'on en tire — le zero du plan en altitude vraie, la pente moyenne, le
 // denivele. Les trois boutons sont des liaisons vers les commandes du registre, qui portent la
 // capacite, la permission et l'annulation. Les cases et le choix sont des preferences d'affichage
-// (`sale: false`) : ni Ctrl+Z, ni « projet modifie », permises en lecture seule, rangees dans
-// `relief.affichage` pour etre retrouvees a la reouverture.
+// (`sale: false`) : sans Ctrl+Z, permises en lecture seule, rangees dans `relief.affichage` pour
+// etre retrouvees a la reouverture. « Points max » est un reglage du projet (annulable, refuse en
+// lecture seule) : le plafond de points de la prochaine lecture. La section dit aussi les deux
+// grilles : celle de la parcelle, fine, que les quantites lisent, et le maillage secondaire du
+// voisinage, pour le seul sol 3D.
 
 import { enPoints } from '../../model/formes.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
 import {
-  affichageRelief, empriseGrille, empriseRelief, equidistanceRelief, MAX_CELLULES_RELIEF, PALIERS_RELIEF_M, PAS_MAX_RELIEF_M,
-  penteParcelle, resumeRelief, textePente
+  affichageRelief, empriseGrille, equidistanceRelief, PALIERS_RELIEF_M, PAS_MAX_RELIEF_M, penteParcelle, plafondRelief,
+  POINTS_MAX_MAX, POINTS_MAX_MIN, resumeRelief, textePente, type GrilleRelief
 } from '../../model/relief.js';
 import type { AffichageRelief, ObjetPlan, Relief } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
@@ -56,29 +59,30 @@ export function texteDenivele(r: Relief, o: ObjetPlan): string {
 const milliers = (n: number) => n.toLocaleString('fr-FR');
 const longueur = (m: number) => m >= 1000 ? fr(m / 1000, 2) + ' km' : Math.round(m) + ' m';
 
-/** « Pas de 5 m · 290 × 311 points · 1,45 × 1,56 km » : la finesse de la grille et ce qu'elle couvre. */
-export function texteGrille(r: Relief): string {
-  const e = empriseGrille(r);
-  return 'Pas de ' + fr(r.pas, r.pas < 1 ? 1 : 0) + ' m · ' + milliers(r.nx) + ' × ' + milliers(r.ny) + ' points · '
+/** « Pas de 5 m · 90 480 points (290 × 312) · 1,45 km × 1,56 km » : la finesse d'une grille, son nombre de points et ce qu'elle couvre. */
+export function texteGrille(g: GrilleRelief): string {
+  const e = empriseGrille(g);
+  return 'Pas de ' + fr(g.pas, g.pas < 1 ? 1 : 0) + ' m · ' + milliers(g.nx * g.ny) + ' points (' + milliers(g.nx) + ' × ' + milliers(g.ny) + ') · '
     + longueur(e.xMax - e.xMin) + ' × ' + longueur(e.yMax - e.yMin);
 }
 
 /**
- * La grille ne couvre que la parcelle et ses abords alors que le plan porte d'autres parcelles
- * au-dela : le sol 3D y est plat. Soit le relief n'a pas ete demande sur toutes les parcelles,
- * soit elles depassaient le plafond meme au pas le plus large.
+ * Sans maillage secondaire, le plan porte des parcelles au-dela de la grille de la parcelle : le
+ * sol 3D y est plat. Soit le relief n'a pas ete demande sur toutes les parcelles, soit elles
+ * depassaient le plafond meme au pas le plus large.
  */
 export function grilleSurParcelleSeule(r: Relief, o: ObjetPlan, objets: readonly ObjetPlan[]): boolean {
-  const g = empriseGrille(r), p = empriseRelief(enPoints(o).pts);
-  const marge = r.pas * 2;
-  const seule = g.xMin >= p.xMin - marge && g.xMax <= p.xMax + marge && g.yMin >= p.yMin - marge && g.yMax <= p.yMax + marge;
+  if (r.paysage) return false;
+  const g = empriseGrille(r);
   const dehors = (q: { x: number; y: number }) => q.x < g.xMin || q.x > g.xMax || q.y < g.yMin || q.y > g.yMax;
-  return seule && objets.some(x => x !== o && !!x.cadastre?.idu && enPoints(x).pts.some(dehors));
+  return objets.some(x => x !== o && !!x.cadastre?.idu && enPoints(x).pts.some(dehors));
 }
 
-/** La regle du pas, telle que la section la dit. */
-const REGLE_GRILLE = 'Le pas s’élargit avec l’étendue lue (' + PALIERS_RELIEF_M.map(v => fr(v, v < 1 ? 1 : 0)).join(', ') + ' m) pour rester sous '
-  + milliers(MAX_CELLULES_RELIEF) + ' points ; au-delà d’un pas de ' + PAS_MAX_RELIEF_M + ' m, seule la parcelle et ses abords sont lus.';
+/** La regle du pas, telle que la section la dit, avec le plafond de ce relief. */
+export function regleGrille(plafond: number): string {
+  return 'Le pas s’élargit avec l’étendue lue (' + PALIERS_RELIEF_M.map(v => fr(v, v < 1 ? 1 : 0)).join(', ') + ' m) pour rester sous '
+    + milliers(plafond) + ' points ; au-delà d’un pas de ' + PAS_MAX_RELIEF_M + ' m, seule la parcelle et ses abords sont lus.';
+}
 
 /** La section « Relief » de la parcelle du projet ; `null` pour tout autre objet. */
 export function sectionRelief(c: ContexteChamps): Section | null {
@@ -102,8 +106,22 @@ export function sectionRelief(c: ContexteChamps): Section | null {
     // ---- Avec relief : ce qu'on sait du sol -------------------------------------------------------
     { type: 'lecture', cle: 'source', libelle: 'Source', visible: avec, valeur: (cc) => { const x = r(cc); return x ? resumeRelief(x) : ''; } },
     { type: 'lecture', cle: 'grille', libelle: 'Grille', visible: avec,
+      aide: 'La grille de la parcelle et de ses abords : la pente, le dénivelé et les quantités la lisent',
       valeur: (cc) => { const x = r(cc); return x ? texteGrille(x) : ''; },
-      note: (cc) => { const x = r(cc); return x && grilleSurParcelleSeule(x, cc.obj, cc.etat.objects) ? 'Parcelle et abords seulement : le sol 3D est plat au-delà. ' + REGLE_GRILLE : REGLE_GRILLE; } },
+      note: (cc) => { const x = r(cc); return x ? regleGrille(plafondRelief(x)) : ''; } },
+    { type: 'lecture', cle: 'paysage', libelle: 'Maillage secondaire', visible: avec,
+      aide: 'La grille du voisinage, plus large et moins fine (« Relief sur toutes les parcelles ») : elle ne porte que le sol de la Vue 3D et les courbes au-delà de la parcelle',
+      valeur: (cc) => { const q = r(cc)?.paysage; return q ? 'Actif · ' + texteGrille(q) : 'Inactif'; },
+      note: (cc) => {
+        const x = r(cc);
+        if (x?.paysage) return 'Sol 3D du voisinage ; les quantités lisent la grille de la parcelle.';
+        return x && grilleSurParcelleSeule(x, cc.obj, cc.etat.objects) ? 'Le sol 3D est plat au-delà de la parcelle.' : '';
+      } },
+    { type: 'nombre', cle: 'pointsMax', libelle: 'Points max', visible: avec, min: POINTS_MAX_MIN, max: POINTS_MAX_MAX, pas: 10000, decimales: 0, unite: 'points',
+      aide: 'Le plafond de points de chaque grille, appliqué à la prochaine lecture (« Actualiser », actualisation IGN) : plus haut, le pas est plus fin et le projet plus lourd',
+      note: () => 'Appliqué à « Actualiser ».',
+      lire: (cc) => plafondRelief(r(cc)),
+      ecrire: (cc, v) => { const x = r(cc); if (!x || !Number.isFinite(v)) return false; x.maxCellules = plafondRelief({ maxCellules: v }); } },
     { type: 'lecture', cle: 'zRef', libelle: 'Zéro du plan', visible: avec, aide: 'L’altitude du sol au point de référence de la terrasse, fixée à la lecture : toutes les hauteurs du plan se comptent depuis elle',
       valeur: (cc) => { const x = r(cc); return x ? fr(x.zRef) + ' m ' + x.systemeAltimetrique : ''; } },
     { type: 'lecture', cle: 'pente', libelle: 'Pente', visible: avec, aide: 'La pente moyenne du sol à l’intérieur de la parcelle, et le point cardinal vers lequel il descend',

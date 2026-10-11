@@ -152,9 +152,23 @@ la date d'acquisition de la dalle : c'est la **spécification** de l'IGN, pas un
   une parcelle seule si grande est refusée : « parcelle trop grande pour le relief ».
   *(11 octobre 2026 : le plafond était de 40 000 cellules et le pas s'arrêtait à 5 m ; un voisinage
   de 500 m retombait sur la parcelle seule et la vallée autour d'un village restait plate en 3D.)*
-- **Dans l'inspecteur**, la ligne « Grille » de la section Relief dit le pas, le nombre de points,
-  l'étendue couverte et cette règle ; elle prévient quand la grille s'arrête à la parcelle alors que
-  le plan porte des parcelles au-delà (le sol 3D y est plat).
+- **Deux grilles** *(11 octobre 2026)*. La grille du relief couvre toujours **la parcelle et ses
+  abords**, à son pas fin : la pente, le dénivelé, les courbes exportées et toutes les quantités ne
+  lisent qu'elle. Avec « relief sur toutes les parcelles », une seconde grille, le **maillage
+  secondaire** (`relief.paysage`), couvre l'emprise des parcelles du plan, de la même source, au pas
+  que permet le plafond : elle ne porte que le sol de la Vue 3D et les courbes du plan à l'écran hors
+  de la parcelle (équidistance de paysage, 1 à 10 m ; les exports n'en tracent pas). Une lecture du
+  maillage secondaire qui échoue laisse la parcelle avec son relief. En 3D, le sol suit la grille fine
+  sur la parcelle et le paysage au-delà, en fondu sur une bande au bord de la grille fine (le pas du
+  paysage, au plus 10 m) ; le maillage prend les lignes des deux grilles.
+- **« Points max »** (`relief.maxCellules`, de 10 000 à 1 000 000, 400 000 par défaut) : le plafond de
+  chaque grille, réglé dans la section Relief, appliqué à la prochaine lecture (« Actualiser le
+  relief », actualisation IGN) et gardé d'une lecture à l'autre, comme les préférences d'affichage.
+  C'est un réglage du projet : annulable, refusé en lecture seule. « Actualiser » relit le maillage
+  secondaire s'il y en avait un.
+- **Dans l'inspecteur**, la ligne « Grille » dit le pas, le nombre de points, l'étendue et la règle
+  du pas ; « Maillage secondaire » dit « Actif » avec son pas, son nombre de points et son étendue,
+  ou « Inactif », et prévient quand le sol 3D est plat au-delà de la parcelle.
 - **Alignement** : la grille est posée dans le repère du plan (mètres, même repère que `pts`),
   pas sur le Lambert : le centre de la cellule `(i, j)` est en
   `(x0 + i · pas, y0 − j · pas)`, `(x0, y0)` étant le coin nord-ouest. C'est le service qui
@@ -322,6 +336,8 @@ export interface Relief {
   z: (number | null)[];      // nx × ny altitudes NGF au cm, du nord au sud, d'ouest en est
   zRef: number;              // altitude NGF du zéro du plan (§3.3)
   affichage?: { courbes?: boolean; equidistance?: number; sol3d?: boolean };
+  maxCellules?: number;      // « Points max » : le plafond de la prochaine lecture (400 000 par défaut)
+  paysage?: { source; pas; x0; y0; nx; ny; z } | null; // le maillage secondaire du voisinage, sol 3D seul
 }
 // ObjetCommun : + relief?: Relief | null   (porté par la parcelle du projet seulement)
 ```

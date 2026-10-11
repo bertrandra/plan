@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { courbesDeNiveau, dessinerCourbesRelief, etiquetteNiveau, milieuPolyligne } from '../../../src/render/relief.js';
+import { courbesDeNiveau, courbesDuPaysage, dessinerCourbesRelief, equidistancePaysage, etiquetteNiveau, milieuPolyligne } from '../../../src/render/relief.js';
 import { SVG_RELIEF, poserEncres } from '../../../src/render/theme.js';
 import { creerScene, versEcran } from '../../../src/geometry/vue.js';
 import { creerSvg } from '../../../src/render/svg.js';
@@ -111,6 +111,29 @@ describe('dessinerCourbesRelief', () => {
       dessinerCourbesRelief(g, projet(r), scene());
       expect(g.querySelector('polyline:not(.halo)')?.getAttribute('stroke')).toBe('#ABCDEF');
     } finally { poserEncres(); }
+  });
+});
+
+describe('les courbes du maillage secondaire', () => {
+  it('trace le paysage sous les courbes de la parcelle, coupe a la grille de la parcelle, a une equidistance de paysage', () => {
+    const r = plane(-0.1, 0, 100);
+    const q = plane(-0.2, 0, 100, 40, 40, 5, -97.5, 97.5);
+    r.affichage = { courbes: true };
+    r.paysage = { source: 'lidar-hd', pas: 5, x0: q.x0, y0: q.y0, nx: q.nx, ny: q.ny, z: q.z };
+    const g = creerSvg('g');
+    dessinerCourbesRelief(g, projet(r), scene());
+    const clip = g.querySelector('clipPath');
+    expect(clip?.id).toBe('reliefHorsParcelle');
+    expect(clip?.querySelector('path')?.getAttribute('clip-rule')).toBe('evenodd');
+    const paysage = g.querySelector('g[clip-path="url(#reliefHorsParcelle)"]');
+    expect(paysage?.querySelectorAll('polyline:not(.halo)').length).toBeGreaterThan(0);
+    // Le paysage passe avant les courbes de la parcelle, qui restent au-dessus.
+    expect(g.lastElementChild?.closest('g[clip-path]')).toBeNull();
+    // 40 m de denivele : une courbe tous les 5 m.
+    expect(equidistancePaysage(39)).toBe(2);
+    expect(equidistancePaysage(40)).toBe(5);
+    expect(equidistancePaysage(150)).toBe(10);
+    expect(courbesDuPaysage(r.paysage)).toBe(courbesDuPaysage(r.paysage));
   });
 });
 

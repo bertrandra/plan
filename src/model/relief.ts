@@ -10,7 +10,7 @@
 
 import { centroid, pointInPolygon, shoelace } from '../geometry/basic.js';
 import { parcelleDuProjet, terrasseOuPremiere } from './fonctions.js';
-import type { AffichageRelief, ObjetPlan, PtBrut, Relief } from './types.js';
+import type { AffichageRelief, GrillePaysage, ObjetPlan, PtBrut, Relief } from './types.js';
 
 /** Ce que les lectures de grille demandent : la geometrie et les valeurs, sans les metadonnees. */
 export type GrilleRelief = Pick<Relief, 'pas' | 'x0' | 'y0' | 'nx' | 'ny' | 'z'>;
@@ -27,8 +27,27 @@ export const MAX_CELLULES_RELIEF = 400000;
 export const PALIERS_RELIEF_M = [0.5, 1, 2, 5, 10, 20, 30] as const;
 /** Le pas le plus large d'une grille de relief. */
 export const PAS_MAX_RELIEF_M = 30;
-/** Le pas au-dela duquel la lecture est refusee : la parcelle est trop grande pour le relief. */
-export const PAS_MAX_RELIEF = 5;
+/** Les bornes de « Points max » : en deca, une parcelle de jardin passe deja a 1 m ; au-dela, le projet pese plusieurs Mo. */
+export const POINTS_MAX_MIN = 10000;
+export const POINTS_MAX_MAX = 1000000;
+
+/**
+ * La grille relue, avec les reglages de la personne pris sur l'ancienne : les preferences
+ * d'affichage et le plafond de points ne sont pas des donnees de la grille.
+ */
+export function avecReglages(r: Relief, ancien: Relief | null | undefined): Relief {
+  return {
+    ...r,
+    ...(ancien?.affichage ? { affichage: ancien.affichage } : {}),
+    ...(ancien?.maxCellules !== undefined ? { maxCellules: ancien.maxCellules } : {})
+  };
+}
+
+/** Le plafond de points des prochaines lectures de ce relief : son reglage, sinon MAX_CELLULES_RELIEF. */
+export function plafondRelief(r: Pick<Relief, 'maxCellules'> | null | undefined): number {
+  const m = r?.maxCellules;
+  return typeof m === 'number' && Number.isFinite(m) ? Math.min(POINTS_MAX_MAX, Math.max(POINTS_MAX_MIN, Math.round(m))) : MAX_CELLULES_RELIEF;
+}
 /** La pente en dessous de laquelle un terrain se dit « sensiblement plat », en pour cent. */
 export const PENTE_PLATE_PCT = 1;
 
@@ -345,32 +364,29 @@ function depuisBase64(s: string): Uint8Array {
   return out;
 }
 
-/** La grille telle qu'elle s'enregistre : `zCode` a la place de `z`, si l'amplitude tient sur 16 bits. */
-export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCode: string | string[] }) {
-  const cm = r.z.map(v => (v === null ? null : Math.round(v * 100)));
+/** Les altitudes en `zCode` (une chaine, ou des morceaux), ou `null` si l'amplitude ne tient pas sur 16 bits. */
+function encoderZ(z: readonly (number | null)[]): string | string[] | null {
+  const cm = z.map(v => (v === null ? null : Math.round(v * 100)));
   const valeurs = cm.filter((v): v is number => v !== null);
   const base = valeurs.length ? Math.min(...valeurs) : 0;
-  if (valeurs.some(v => v - base >= SANS_DONNEE_U16)) return JSON.parse(JSON.stringify(r)) as Relief;
+  if (valeurs.some(v => v - base >= SANS_DONNEE_U16)) return null;
   const octets = new Uint8Array(cm.length * 2);
   cm.forEach((v, k) => {
     const u = v === null ? SANS_DONNEE_U16 : v - base;
     octets[2 * k] = u & 255;
     octets[2 * k + 1] = u >> 8;
   });
-  const reste: Partial<Relief> = JSON.parse(JSON.stringify(r)) as Relief;
-  delete reste.z;
   const code = PREFIXE_ZCODE + base + ':' + versBase64(octets);
   const morceaux: string[] = [];
   for (let i = 0; i < code.length; i += ZCODE_MORCEAU) morceaux.push(code.slice(i, i + ZCODE_MORCEAU));
-  return { ...(reste as Omit<Relief, 'z'>), zCode: morceaux.length > 1 ? morceaux : code };
+  return morceaux.length > 1 ? morceaux : code;
 }
 
-/** La grille relue : `z` reconstruit depuis `zCode`, ou la grille telle quelle si elle est en clair. */
-export function deplierRelief(brut: Relief & { zCode?: unknown }): Relief {
-  const { zCode: brutCode, ...reste } = brut;
+/** Les altitudes d'un `zCode`, ou `null` si ce n'en est pas un. */
+function decoderZ(brutCode: unknown): (number | null)[] | null {
   // Une liste de morceaux (une grande grille) se recolle avant d'etre lue.
   const zCode = Array.isArray(brutCode) && brutCode.every((m) => typeof m === 'string') ? brutCode.join('') : brutCode;
-  if (typeof zCode !== 'string' || !zCode.startsWith(PREFIXE_ZCODE)) return brut;
+  if (typeof zCode !== 'string' || !zCode.startsWith(PREFIXE_ZCODE)) return null;
   const [baseTexte, b64] = zCode.slice(PREFIXE_ZCODE.length).split(':');
   const base = Number(baseTexte);
   const octets = depuisBase64(b64 ?? '');
@@ -379,5 +395,39 @@ export function deplierRelief(brut: Relief & { zCode?: unknown }): Relief {
     const u = (octets[k] ?? 0) | ((octets[k + 1] ?? 0) << 8);
     z.push(u === SANS_DONNEE_U16 ? null : (base + u) / 100);
   }
-  return { ...reste, z } as Relief;
+  return z;
+}
+
+/** Une grille (`z`) ecrite en `zCode`, telle quelle si son amplitude ne tient pas sur 16 bits. */
+function compacterGrille<T extends { z: (number | null)[] }>(g: T): T | (Omit<T, 'z'> & { zCode: string | string[] }) {
+  const copie = JSON.parse(JSON.stringify(g)) as T;
+  const code = encoderZ(g.z);
+  if (code === null) return copie;
+  const reste: Partial<T> = copie;
+  delete reste.z;
+  return { ...(reste as Omit<T, 'z'>), zCode: code };
+}
+
+/** Une grille relue : `z` reconstruit depuis `zCode`, ou la grille telle quelle si elle est en clair. */
+function deplierGrille<T extends { z: (number | null)[] }>(brut: T & { zCode?: unknown }): T {
+  const { zCode, ...reste } = brut;
+  const z = decoderZ(zCode);
+  return z === null ? brut : ({ ...reste, z } as unknown as T);
+}
+
+/**
+ * La grille telle qu'elle s'enregistre : `zCode` a la place de `z`, si l'amplitude tient sur 16 bits ;
+ * la grille du voisinage (`paysage`) de meme.
+ */
+export function compacterRelief(r: Relief): Relief | (Omit<Relief, 'z'> & { zCode: string | string[] }) {
+  const { paysage, ...grille } = r;
+  const c = compacterGrille(grille as Relief);
+  return paysage ? { ...c, paysage: compacterGrille(paysage) as GrillePaysage } : c;
+}
+
+/** La grille relue : `z` reconstruit depuis `zCode`, ou la grille telle quelle si elle est en clair ; `paysage` de meme. */
+export function deplierRelief(brut: Relief & { zCode?: unknown }): Relief {
+  const { paysage, ...grille } = brut;
+  const r = deplierGrille(grille as Relief & { zCode?: unknown });
+  return paysage ? { ...r, paysage: deplierGrille(paysage as GrillePaysage & { zCode?: unknown }) } : r;
 }

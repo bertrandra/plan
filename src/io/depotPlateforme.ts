@@ -127,7 +127,7 @@ function refusDeTaille(e: EchecPlateforme, quoi: string): Error & { reason: Moti
   const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
   return echec(quoi + ' refusé : le projet est trop volumineux pour la plateforme' + limite
     + '. Ce qui pèse le plus : le voisinage étendu et le relief sur toutes les parcelles. Masquer ne suffit pas :'
-    + ' supprimez une partie du voisinage, ou relisez le relief sur la parcelle seule (« Actualiser le relief »).'
+    + ' supprimez une partie du voisinage, ou baissez « Points max » dans la section Relief de la parcelle, puis « Actualiser le relief ».'
     + ' Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
 }
 

@@ -40,6 +40,18 @@ describe('serialisation du relief', () => {
     expect(relu?.relief).not.toBe(s?.relief);
   });
 
+  it('ecrit le maillage secondaire compacte et le plafond de points, et les relit a l identique', () => {
+    const paysage = { source: 'lidar-hd' as const, pas: 5, x0: -50, y0: 50, nx: 3, ny: 2, z: [300.12, 301, null, 299.5, 310.25, 305] };
+    const avec = { ...relief, maxCellules: 150000, paysage };
+    const [s] = serializeObjects([{ ...parcelle(), relief: avec } as ObjetPlan]);
+    const ecrit = s?.relief as unknown as { paysage: Record<string, unknown>; maxCellules: number };
+    expect(ecrit.maxCellules).toBe(150000);
+    expect(ecrit.paysage).not.toHaveProperty('z');
+    expect(String(ecrit.paysage.zCode)).toMatch(/^u16cm:29950:/);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]);
+    expect(relu?.relief).toEqual(avec);
+  });
+
   it('relit une grille ecrite en clair, et garde en clair une amplitude de plus de 655 m', () => {
     const [enClair] = normalizeObjects([JSON.parse(JSON.stringify({ ...parcelle(), relief }))]);
     expect(enClair?.relief).toEqual(relief);

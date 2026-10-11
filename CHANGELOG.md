@@ -65,6 +65,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Relief : une grille fine sur la parcelle, un maillage secondaire pour le voisinage**
+  (`geo/relief.ts`, `three/relief3d.ts`, `MD/spec-relief.md` §3.1). Avec « relief sur toutes les
+  parcelles », la parcelle garde sa grille à son pas fin (0,5 m en LiDAR HD) au lieu de partager le pas
+  du voisinage (5 m à Peyrusse-le-Roc) : la pente, le dénivelé et les hauteurs de plots restent
+  précis. Le voisinage est lu dans une seconde grille, plus large, qui ne porte que le sol de la Vue 3D
+  et les courbes du plan au-delà de la parcelle. Dans la section Relief de l'inspecteur, « Maillage
+  secondaire » dit s'il est actif, avec son pas et son nombre de points ; la ligne « Grille » donne
+  toujours le nombre de points ; « Points max » règle le plafond de points de chaque grille, appliqué
+  à « Actualiser le relief » et à l'actualisation IGN. Le message d'un projet refusé pour sa taille
+  propose de baisser « Points max ».
+
 - **Relief sur un grand voisinage** (`model/relief.ts`, `MD/spec-relief.md` §3.1). La grille de relief
   monte à 400 000 points au lieu de 40 000, et son pas peut s'élargir jusqu'à 30 m au lieu de 5 m.
   Un voisinage de 500 m tient désormais au pas de 5 m : la vallée autour d'un village (Peyrusse-le-Roc)

@@ -115,6 +115,43 @@ describe('le maillage du sol', () => {
   });
 });
 
+describe('le maillage secondaire', () => {
+  // La parcelle et ses 10 m d'abords : une grille fine (1 m, 30 × 30) a z = 100 + 0,1·x. Le paysage :
+  // 5 m sur 200 m de cote, le meme plan plus 2 m, pour voir de quelle grille vient chaque hauteur.
+  const r = plane(0.1, 0, 100, 30, 30, 1, 0.5, 29.5);
+  const q = plane(0.1, 0, 102, 40, 40, 5, -97.5, 97.5);
+  const avec: Relief = { ...r, paysage: { source: 'lidar-hd', pas: q.pas, x0: q.x0, y0: q.y0, nx: q.nx, ny: q.ny, z: q.z } };
+  const sol = creerSolRelief(avec);
+
+  it('lit la grille fine sur la parcelle, le paysage au-dela, et passe de l une a l autre sans marche', () => {
+    // A plus d'une bande (5 m) du bord : la grille fine seule, comme sans paysage.
+    expect(sol.hauteur({ x: 15, y: 15 })).toBeCloseTo(creerSolRelief(r).hauteur({ x: 15, y: 15 }), 9);
+    expect(sol.hauteur({ x: 60, y: 15 })).toBeCloseTo(2 + 0.1 * 60, 1);
+    // Du coeur de la grille fine vers l'exterieur, la hauteur varie continument.
+    let avant = sol.hauteur({ x: 20, y: 15 });
+    for (let x = 20.25; x < 40; x += 0.25) {
+      const h = sol.hauteur({ x, y: 15 });
+      expect(Math.abs(h - avant)).toBeLessThan(0.5);
+      avant = h;
+    }
+  });
+
+  it('maille fin sur la parcelle et large au-dela, sur l emprise du paysage', () => {
+    const cen = { x: 15, y: 15 };
+    const { xs, ys } = sommetsDuSol(avec, bornesCarre(cen, 30));
+    const pasX = xs.slice(1).map((x, i) => x - (xs[i] as number));
+    expect(Math.min(...pasX)).toBeLessThanOrEqual(1);
+    expect(Math.max(...pasX.slice(1, -1))).toBeLessThanOrEqual(5 + 1e-9);
+    expect(xs[0]).toBeLessThanOrEqual(-100);
+    expect(xs[xs.length - 1]).toBeGreaterThanOrEqual(100);
+    expect(ys[0]).toBeGreaterThan(ys[ys.length - 1] as number);
+    const e = empriseSol(avec, bornesCarre(cen, 30));
+    expect(e.xMin).toBeLessThanOrEqual(-100);
+    const geo = geometrieSol(sol, bornesCarre(cen, 30), versLocalDepuis(cen));
+    expect(geo.getAttribute('position').count).toBe(xs.length * ys.length);
+  });
+});
+
 describe('la dalle orthophoto et le trait au sol', () => {
   const r = plane(0.1, 0.04, 100);
   const sol = creerSolRelief(r);

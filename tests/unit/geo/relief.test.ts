@@ -121,6 +121,51 @@ describe('le choix de la source', () => {
   });
 });
 
+describe('la grille de la parcelle et le maillage secondaire', () => {
+  it('garde la parcelle a son pas fin et lit le voisinage dans une seconde grille, au plafond demande', async () => {
+    const s = service({ dalles: 4, lidar: () => 200 });
+    // Une voisine a 400 m : la grille du voisinage depasse le pas fin, pas la parcelle.
+    const voisine = [{ x: 400, y: 0 }, { x: 420, y: 0 }, { x: 420, y: -20 }];
+    const r = await lireRelief({ parcelle: parcellePts, etendue: voisine, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge, maxCellules: 40000 });
+    expect(r.pas).toBe(0.5);
+    expect(r.nx).toBe(100); expect(r.ny).toBe(80);
+    expect(r.paysage).toBeTruthy();
+    const q = r.paysage!;
+    expect(q.source).toBe('lidar-hd');
+    // 440 × 40 m : 0,5 m donne 70 400 cellules, au-dela de 40 000 : 1 m.
+    expect(q.pas).toBe(1);
+    expect(q.nx * q.ny).toBeLessThanOrEqual(40000);
+    expect(q.z.every(v => v === 200)).toBe(true);
+  });
+
+  it('ne lit pas de maillage secondaire sans voisine, ni quand le voisinage tient dans la marge de la parcelle', async () => {
+    const s = service({ dalles: 4, lidar: () => 200 });
+    expect((await lireRelief({ parcelle: parcellePts, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge })).paysage).toBeUndefined();
+    const proche = [{ x: 5, y: -5 }, { x: 6, y: -5 }, { x: 6, y: -6 }];
+    expect((await lireRelief({ parcelle: parcellePts, etendue: proche, ref, objets: [parcelle], rechercher: s.rechercher, aujourdhui: horloge })).paysage).toBeUndefined();
+  });
+
+  it('garde la parcelle quand le voisinage echoue', async () => {
+    let grilles = 0;
+    const s = service({ dalles: 4, lidar: () => 200 });
+    const f = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('FORMAT=image') && ++grilles > 1) throw new TypeError('coupure');
+      return (s.rechercher as unknown as (u: string, i?: RequestInit) => Promise<Response>)(url, init);
+    });
+    const r = await lireRelief({ parcelle: parcellePts, etendue: [{ x: 400, y: 0 }], ref, objets: [parcelle], rechercher: f as unknown as typeof fetch, aujourdhui: horloge });
+    expect(r.pas).toBe(0.5);
+    expect(r.paysage).toBeUndefined();
+  });
+
+  it('la demande d un plan porte le plafond de points du relief en place', () => {
+    const carre = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }];
+    const objets = [{ key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: carre, cadastre: { idu: 'A', origineLat: 48.9, origineLon: 2.15 }, relief: { maxCellules: 120000 } }] as unknown as ObjetPlan[];
+    expect(demandeReliefDuPlan(objets, false)!.maxCellules).toBe(120000);
+    delete (objets[0] as { relief?: unknown }).relief;
+    expect(demandeReliefDuPlan(objets, false)!.maxCellules).toBe(400000);
+  });
+});
+
 describe('la reprise reseau', () => {
   it('rejoue une fois une coupure, et deux coupures echouent', async () => {
     const une = service({ dalles: 0, rge: () => 10, pannes: 1 });
