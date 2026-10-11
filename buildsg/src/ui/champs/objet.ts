@@ -217,7 +217,17 @@ const sectionApparence: Section = {
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
     { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj) },
-    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj) }
+    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj) },
+    // Le gazon de la parcelle du projet en 3D, montre par defaut : une preference d'affichage, gardee
+    // a la reouverture comme le relief. Une texture horizontale choisie l'emporte sur lui.
+    {
+      type: 'case', cle: 'gazon3d', libelle: 'Gazon (3D)', sale: false, enregistre: true, effets: ['scene3d'],
+      visible: (c) => !!c.parcelle && c.parcelle.key === c.obj.key,
+      aide: 'Couvre la parcelle d’une pelouse dans la Vue 3D ; décochée, la photo aérienne reste visible',
+      note: (c) => c.obj.textureHorizontale ? 'La texture horizontale choisie l’emporte.' : '',
+      lire: (c) => c.obj.gazon3d !== false,
+      ecrire: (c, v) => { if (v) delete c.obj.gazon3d; else c.obj.gazon3d = false; }
+    }
   ]
 };
 
