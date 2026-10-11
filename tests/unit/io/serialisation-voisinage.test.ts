@@ -38,4 +38,13 @@ describe('l enregistrement du voisinage', () => {
     expect(s).toHaveProperty('textureVerticale', null);
     expect((s!.cadastre as Record<string, unknown>).geometrieSource).toBeDefined();
   });
+
+  it('garde le marque d un batiment deja lu sur le LiDAR, et ne l ecrit pas sans lui', () => {
+    const batiment = { ...voisine, key: 'b', fonction: 'batiment', toitLidarLu: 1 } as unknown as ObjetPlan;
+    const [s] = serializeObjects([batiment]) as unknown as Record<string, unknown>[];
+    expect(s!.toitLidarLu).toBe(1);
+    const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as Record<string, unknown>[];
+    expect(relu!.toitLidarLu).toBe(1);
+    expect(serializeObjects([{ ...batiment, toitLidarLu: null } as ObjetPlan])[0]).not.toHaveProperty('toitLidarLu');
+  });
 });

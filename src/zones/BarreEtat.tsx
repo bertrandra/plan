@@ -8,6 +8,7 @@ import { useStore } from 'zustand';
 import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import type { Magasin } from '../app/magasin.js';
 import { texteStatut } from './statut.js';
+import { lectureToits } from '../core/lectureToits.js';
 
 const metres = (v: number) => (Math.round(v * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -19,6 +20,9 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   const selection = etat.selectedKey ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
 
   const statut = texteStatut(p);
+  // Les toits lus en tache de fond (app/toitsFond.ts) : combien sur combien, tant qu'il en reste.
+  const toits = lectureToits.progression();
+  const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? ' (service LiDAR muet)' : '';
 
   return (
     <>
@@ -27,6 +31,11 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
       {etat.lectureSeule && (
         <span className="etatLectureSeule" title="Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.">
           Lecture seule
+        </span>
+      )}
+      {toits && toits.etat !== 'finie' && (
+        <span className="etatToits" title="Toits du voisinage lus sur le LiDAR HD de l'IGN, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre">
+          Toits LiDAR : {toits.faits.toLocaleString('fr-FR')} / {toits.total.toLocaleString('fr-FR')}{suite}
         </span>
       )}
       <span className="etatSelection" title="Objet selectionne">{selection ? selection.name : 'Aucune selection'}</span>

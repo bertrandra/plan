@@ -2,12 +2,13 @@
 //
 // Pour chaque batiment dont le toit vient de la BD TOPO (ou d'une lecture LiDAR anterieure), on lit
 // le MNH sous son contour (geo/mnh.ts) et l'on y ajuste une forme (facade/toitLidar.ts). Un toit
-// lu sur une photo ou saisi n'est pas touche. Les plus proches de la parcelle du projet d'abord,
-// dans un delai borne : l'import ne doit pas attendre le service pour un voisinage de deux mille
-// batiments, et ceux qu'on regarde de pres sont ceux qui comptent.
+// lu sur une photo ou saisi n'est pas touche. A l'import et a l'actualisation, seuls les plus
+// proches de la parcelle du projet, dans un delai borne : l'import ne doit pas attendre le service
+// pour un voisinage de milliers de batiments. Les autres sont lus ensuite, en tache de fond, par
+// lots (app/toitsFond.ts) ; chaque batiment lu est marque (`toitLidarLu`) pour ne pas etre relu.
 
 import { ajusterToit, type EchantillonHauteur } from '../facade/toitLidar.js';
-import { lireHauteursSous, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../geo/mnh.js';
+import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../geo/mnh.js';
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
@@ -37,6 +38,8 @@ export interface ObjetAToit {
   corpsToit?: CorpsToit[] | null;
   /** A cheval sur deux parcelles : le doute sur sa toiture, et la reponse (model/aCheval.ts). */
   toitACheval?: ToitACheval | null;
+  /** La version de la lecture LiDAR qui a traite ce batiment ; absente : pas encore lu. */
+  toitLidarLu?: number | null;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -148,6 +151,12 @@ export interface OptionsToitsLidar {
   delaiMs?: number;
   /** Combien de batiments au plus, les plus proches du projet. */
   maxBatiments?: number;
+  /** Les batiments a lire, dans cet ordre, au lieu des plus proches : un lot de la tache de fond. */
+  candidats?: readonly ObjetAToit[];
+  /** Combien de lectures en meme temps (EN_PARALLELE par defaut). */
+  enParallele?: number;
+  /** Attendue entre deux batiments : la tache de fond y rend la main a l'interface. */
+  pause?: () => Promise<void>;
   lire?: LecteurMnh;
   /** La grille entiere, pour le toit mesure d'un batiment de la parcelle du projet ; `lire` donne, absente, et sinon la grille du service. */
   lireGrille?: LecteurGrilleMnh;
@@ -158,8 +167,18 @@ export interface OptionsToitsLidar {
 
 /** Le delai donne a la lecture des toits, comme a celle des couleurs sur l'orthophoto. */
 export const DELAI_TOITS_LIDAR_MS = 20000;
-/** Le voisinage etendu peut compter deux mille batiments : seuls les plus proches sont lus. */
-export const MAX_BATIMENTS_LIDAR = 150;
+/**
+ * A l'import et a l'actualisation, seuls les plus proches sont lus avant que le plan s'ouvre : le
+ * projet et ses voisins immediats. Cent cinquante faisaient attendre ; le reste vient en tache de fond.
+ */
+export const MAX_BATIMENTS_LIDAR = 30;
+/**
+ * La version de la lecture qui a marque un batiment (`toitLidarLu`). Une regle de toit qui change
+ * assez pour meriter de tout relire passe ce numero : les batiments marques d'avant redeviennent a lire.
+ */
+export const VERSION_LECTURE_TOITS = 1;
+/** Le toit de ce batiment a deja ete lu sur le LiDAR, a la version courante. */
+export const toitLu = (o: { toitLidarLu?: number | null }): boolean => (o.toitLidarLu ?? 0) >= VERSION_LECTURE_TOITS;
 /** Combien de lectures en meme temps : de petites grilles, le service repond vite. */
 const EN_PARALLELE = 4;
 /** En deca, l'egout mesure ne vaut pas de changer la hauteur BD TOPO ; au-dela de ces bornes, la mesure n'est pas un egout. */
@@ -206,13 +225,18 @@ export function volumesDepuisLidar(pts: readonly PtBrut[], ech: readonly Echanti
   return { volumes, ajustes };
 }
 
-/** Ce qu'on lit sous un batiment : les mesures de l'ajustement et, sur la parcelle du projet, la grille entiere. */
-async function lireSous(o: ObjetAToit & { pts: PtBrut[] }, proj: ProjecteurLocal, lire: LecteurMnh, lireGrille: LecteurGrilleMnh | null, voisins: boolean): Promise<{ ech: EchantillonHauteur[]; grille: GrilleRelief | null }> {
+/**
+ * Ce qu'on lit sous un batiment : les mesures de l'ajustement et, sur la parcelle du projet, la grille
+ * entiere. `echec` : le service n'a pas repondu (le batiment n'est pas marque lu, il sera relu) ;
+ * des mesures vides sans echec, c'est qu'il n'y a rien a lire ici.
+ */
+async function lireSous(o: ObjetAToit & { pts: PtBrut[] }, proj: ProjecteurLocal, lire: LecteurMnh, lireGrille: LecteurGrilleMnh | null, voisins: boolean): Promise<{ ech: EchantillonHauteur[]; grille: GrilleRelief | null; echec: boolean }> {
   if ((surParcellePrincipale(o) || voisins) && lireGrille) {
     const grille = await lireGrille(o.pts, proj).catch(() => null);
-    if (grille) return { ech: echantillonsDeGrille(grille, o.pts), grille };
+    if (grille) return { ech: echantillonsDeGrille(grille, o.pts), grille, echec: false };
   }
-  return { ech: await lire(o.pts, proj).catch(() => []), grille: null };
+  try { return { ech: await lire(o.pts, proj), grille: null, echec: false }; }
+  catch { return { ech: [], grille: null, echec: true }; }
 }
 
 /** Le centre de la parcelle du projet, ou de tout ce qui a des sommets. */
@@ -232,35 +256,43 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const maintenant = options.maintenant ?? Date.now;
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
-  const candidats = objets
-    .filter(toitAAjuster)
-    .map((o) => ({ o, d: Math.hypot(centroid(o.pts).x - centre.x, centroid(o.pts).y - centre.y) }))
-    .sort((a, b) => a.d - b.d)
-    .slice(0, options.maxBatiments ?? MAX_BATIMENTS_LIDAR)
-    .map((c) => c.o);
+  const candidats = options.candidats
+    ? options.candidats.filter(toitAAjuster)
+    : objets
+      .filter(toitAAjuster)
+      .map((o) => ({ o, d: Math.hypot(centroid(o.pts).x - centre.x, centroid(o.pts).y - centre.y) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, options.maxBatiments ?? MAX_BATIMENTS_LIDAR)
+      .map((c) => c.o);
   if (!candidats.length) return bilan;
   if (!(await (options.dalles ?? dallesLidarSur)(candidats.flatMap((o) => o.pts), proj))) {
     bilan.sansLidar = true;
     return bilan;
   }
-  const lire = options.lire ?? lireHauteursSous;
+  // Un service muet fait echouer cette lecture (le batiment reste a relire) au lieu de la rendre vide.
+  const lire = options.lire ?? lireHauteursSousStrict;
   // Un lecteur de mesures fourni sans lecteur de grille : pas de toit mesure (les tests, un service partiel).
   const lireGrille = options.lireGrille ?? (options.lire ? null : lireGrilleSous);
   const voisins = corpsDuVoisinage(objets);
-  const mitoyens = voisins ? batimentsMitoyens(objets) : new Set<ObjetAToit>();
+  // Par la cle : un lot de la tache de fond se lit sur des copies des batiments du plan.
+  const clesMitoyens = new Set([...(voisins ? batimentsMitoyens(objets) : new Set<ObjetAToit>())].map((m) => m.key));
+  const estMitoyen = (o: ObjetAToit) => !!o.key && clesMitoyens.has(o.key);
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
     while (suivant < candidats.length && maintenant() < fin) {
       const o = candidats[suivant++];
       if (!o) break;
+      if (options.pause) await options.pause();
       const lu = await lireSous(o, proj, lire, lireGrille, voisins);
       let { ech, grille } = lu;
+      // Lu, meme sans rien dessous : seul un service muet laisse le batiment a relire.
+      if (!lu.echec) o.toitLidarLu = VERSION_LECTURE_TOITS;
       if (!ech.length) continue;
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
       const principal = surParcellePrincipale(o);
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
       // recale, d'un bloc, sur le LiDAR (MD/spec-toit-ign.md §13.7).
-      if (grille && lireGrille && (principal || mitoyens.has(o))) {
+      if (grille && lireGrille && (principal || estMitoyen(o))) {
         const large = await recalerSurLidar(o, grille, proj, lireGrille);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
@@ -281,7 +313,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
       else if (voisins && grille) {
         const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
-        const mitoyen = mitoyens.has(o);
+        const mitoyen = estMitoyen(o);
         o.corpsToit = mesureVoisine ? corpsVraisemblables(o, reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen, grille })) : null;
         // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
         // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
@@ -303,7 +335,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       if (ajuste || volumes?.ajustes) bilan.ajustes++;
     }
   };
-  await Promise.all(Array.from({ length: EN_PARALLELE }, ouvrier));
+  await Promise.all(Array.from({ length: options.enParallele ?? EN_PARALLELE }, ouvrier));
   return bilan;
 }
 

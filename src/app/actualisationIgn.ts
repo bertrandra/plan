@@ -438,6 +438,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           elevation: haut,
           ...(toit ? { toit } : {}),
           ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
+          // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches.
+          ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,

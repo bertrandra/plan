@@ -103,6 +103,9 @@ export async function simulerPlateforme(page) {
  */
 export async function ouvrirDemo(page, { temoin = false } = {}) {
   await simulerPlateforme(page);
+  // Pas de lecture des toits en tache de fond (app/toitsFond.ts) : elle changerait, la ou l'IGN
+  // repond, les toits que les points de la fumee et les captures mesurent.
+  await page.addInitScript(() => { window.__sansToitsFond = true; });
   await page.goto(BASE + (temoin ? '/?temoin' : '/'));
   await page.getByRole('button', { name: /d[ée]monstration/i }).click();
   await page.waitForSelector('#stage svg');
