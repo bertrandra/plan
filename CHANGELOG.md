@@ -7,6 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Fichier › Actualiser le projet… »** (`app/actualiserProjet.ts`). Met un projet à niveau d'un
+  geste, comme s'il était importé aujourd'hui.
+  - **Relu à l'IGN et recalculé** avec la version en cours : la parcelle, les bâtiments de la parcelle
+    et du voisinage déjà présent, la végétation, la forme des toits (LiDAR), la couleur des toits et
+    des murs, le relief (sur toutes les parcelles quand le plan a un voisinage) et le PLU.
+  - **Remis aux valeurs par défaut** pour les objets importés : leurs couleurs, leurs textures, le
+    gazon en 3D, la couleur des murs choisie, le mode de toit, l'apparence du voisinage et l'affichage
+    du relief.
+  - **Conservés** : les objets dessinés à la main, les noms et le masquage des objets importés, la
+    clôture et ses portails, les réponses aux questions sur les toits à cheval, le plafond de points
+    du relief.
+  - Un dialogue dit ce qui va être fait avant de le faire, et Ctrl+Z rend le projet d'avant.
+  - Les apparences d'import sont désormais définies à un seul endroit (`APPARENCES_IGN`, dans
+    `geo/cadastreObjets.ts`) : l'import, l'actualisation du voisinage et cette commande les lisent.
+
 - **Une pelouse sur la parcelle du projet en 3D** (`three/gazon.ts`). Par défaut, la parcelle est
   couverte d'un gazon dessiné, sans téléchargement : des milliers de brins de nuances différentes, plus
   sombres à la base et plus clairs à la pointe, quelques brins secs, une sous-couche de terre là où ils
