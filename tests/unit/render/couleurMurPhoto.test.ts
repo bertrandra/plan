@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pointDansImage, pointsDuMur, vueCachee, obstacle, mursVisibles, couleursMursDepuisPhotos, texteBilanCouleursMurs, hauteurAuxLimites, HAUTEUR_CAMERA_M, type VueRue, type Pixels } from '../../../src/render/couleurMurPhoto.js';
+import { pointDansImage, pointsDuMur, vueCachee, obstacle, mursVisibles, couleursMursDepuisPhotos, couleursMursDUneZone, texteBilanCouleursMurs, hauteurAuxLimites, HAUTEUR_CAMERA_M, type VueRue, type Pixels } from '../../../src/render/couleurMurPhoto.js';
 import { repliSelonMateriau } from '../../../src/render/couleurToitOrtho.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PhotoRue } from '../../../src/geo/panoramax.js';
@@ -101,6 +101,26 @@ describe('couleursMursDepuisPhotos', () => {
     expect(await couleursMursDepuisPhotos(objets, proj, { chercher: async () => [] })).toEqual({ photos: 0, ambigus: 0 });
     expect(await couleursMursDepuisPhotos(objets, proj, { chercher: async () => { throw new Error('muet'); } })).toEqual({ photos: 0, ambigus: 0 });
     expect(objets[1]).not.toHaveProperty('couleurMurs');
+  });
+
+  it('une zone du voisinage : lit ce que les photos montrent, ne touche a rien, et dit l issue de chaque batiment', async () => {
+    const { objets, options, charges } = quartier([217, 210, 196]);
+    // Un second batiment, loin de toute photo : aucune ne montre ses murs, il ne sera pas relu.
+    const loin = { key: 'loin', fonction: 'batiment', pts: rect(200, 200, 10, 8), elevation: 6 };
+    const cibles = [objets[1]!, loin];
+    const issues = await couleursMursDUneZone(cibles, cibles, [objets[0]!], proj, { ...options, enParallele: 2 });
+    expect(issues).toEqual([
+      { cle: 'm', photo: { couleur: '#D9D2C4', id: 'ph1', date: '2018-03-21T12:00:00Z', auteur: 'IGN', licence: 'etalab-2.0' } },
+      { cle: 'loin', photo: null },
+    ]);
+    expect(charges).toEqual(['https://panoramax.ign.fr/sd.jpg']);
+    expect(objets[1]).not.toHaveProperty('couleurMurs');
+  });
+
+  it('une zone dont la recherche ou une photo echoue : a relire', async () => {
+    const { objets, options } = quartier([217, 210, 196]);
+    expect(await couleursMursDUneZone([objets[1]!], [objets[1]!], [], proj, { chercher: async () => { throw new Error('muet'); } })).toEqual([{ cle: 'm', echec: true }]);
+    expect(await couleursMursDUneZone([objets[1]!], [objets[1]!], [], proj, { ...options, charger: async () => null })).toEqual([{ cle: 'm', echec: true }]);
   });
 
   it('le bilan', () => {

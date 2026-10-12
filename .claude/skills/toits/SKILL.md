@@ -209,7 +209,13 @@ ardoises.
 - **Photo Panoramax** (`render/couleurMurPhoto.ts`) : prioritaire quand elle est concluante. Les
   points du mur sont projetés dans l'image. On écarte les murs cachés par un autre bâtiment, les
   lignes de vue sous 2,5 m aux limites de parcelle (clôtures, haies), ainsi que le ciel, le
-  feuillage et l'ombre.
+  feuillage et l'ombre. À l'import, les 150 plus proches ; le reste en tâche de fond après les toits,
+  par zones de 80 m, sans limite de distance (`app/mursFond.ts`). Passer `VERSION_LECTURE_MURS` quand
+  une règle de lecture conclut plus souvent : les murs restés sans lecture concluante sont relus.
+- **Rendement mesuré (octobre 2026)** : 10 murs lus sur 486 bâtiments au Vésinet (300 m), 1 sur 257
+  à Rennes (200 m). Les photos tombent bien sur la façade, mais un enduit gris par temps couvert ou
+  de brouillard est pris pour une ombre (`estOmbre`) ; des photos grand angle au crépuscule sont mal
+  calées (points dans le ciel). C'est la règle de lecture à reprendre, pas la géométrie.
 - **Choix** : « Murs en 3D » dans « Apparence » (automatique, photo, matériau ou couleur du plan),
   rangé dans `couleurMurs.source`.
 - **Pièges vus** : en banlieue, la façade est en retrait derrière une haie ou une palissade, et une

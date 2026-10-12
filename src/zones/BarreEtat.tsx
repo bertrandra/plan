@@ -25,9 +25,10 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   const selection = etat.selectedKey ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
 
   const statut = texteStatut(p);
-  // Les toits lus en tache de fond (app/toitsFond.ts) : combien sur combien, tant qu'il en reste.
+  // Les toits lus en tache de fond (app/toitsFond.ts), puis les murs : combien sur combien, tant qu'il en reste.
   const toits = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
-  const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? ' (service LiDAR muet)' : '';
+  const murs = toits?.phase === 'murs';
+  const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? (murs ? ' (photos de rue muettes)' : ' (service LiDAR muet)') : '';
 
   return (
     <>
@@ -40,8 +41,10 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
       )}
       {diagnostic && <LegendeDiagnostic mode={diagnostic} objets={etat.objects} />}
       {toits && toits.etat !== 'finie' && (
-        <span className="etatToits" title="Toits du voisinage lus sur le LiDAR HD de l'IGN, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre">
-          Toits LiDAR : {toits.faits.toLocaleString('fr-FR')} / {toits.total.toLocaleString('fr-FR')}{suite}
+        <span className="etatToits" title={murs
+          ? "Couleur des murs du voisinage lue sur les photos de rue Panoramax, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre"
+          : "Toits du voisinage lus sur le LiDAR HD de l'IGN, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre"}>
+          {murs ? 'Murs (photos)' : 'Toits LiDAR'} : {toits.faits.toLocaleString('fr-FR')} / {toits.total.toLocaleString('fr-FR')}{suite}
         </span>
       )}
       <span className="etatSelection" title="Objet selectionne">{selection ? selection.name : 'Aucune selection'}</span>

@@ -18,6 +18,7 @@
 
 import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
 import { dallesLidarSur } from '../geo/mnh.js';
+import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT } from './mursFond.js';
 import { projecteurLocal, type ProjecteurLocal } from '../geo/projection.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
@@ -58,6 +59,8 @@ export interface ContexteToitsFond {
   lire?: typeof toitsDepuisLidar;
   /** Y a-t-il des dalles LiDAR sur le secteur (geo/mnh.ts) : demande une fois par passe, a la premiere lecture. */
   dalles?: typeof dallesLidarSur;
+  /** La lecture des murs sur les photos de rue, apres les toits (app/mursFond.ts) ; remplacable dans les tests. */
+  lireMurs?: typeof lireMursEnFond;
   /** La lecture des couleurs sur l'orthophoto (render/couleurToitOrtho.ts) ; remplacable dans les tests. */
   lireCouleurs?: typeof couleursToitsDepuisOrtho;
   /** Rend la main au navigateur entre deux batiments ; remplacable dans les tests. */
@@ -129,9 +132,12 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
   return true;
 }
 
-/** Ce qu'une lecture a fait, du premier batiment au dernier : les formes lues sur le LiDAR, les couleurs sur la photo. */
-export type BilanFond = BilanToitsLidar & { lus: number; couleurs: number };
-const vide = (): BilanFond => ({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false, lus: 0, couleurs: 0 });
+/**
+ * Ce qu'une lecture a fait, du premier batiment au dernier : les formes lues sur le LiDAR, les couleurs
+ * des toits sur la photo aerienne, celles des murs sur les photos de rue.
+ */
+export type BilanFond = BilanToitsLidar & { lus: number; couleurs: number; murs?: number };
+const vide = (): BilanFond => ({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false, lus: 0, couleurs: 0, murs: 0 });
 function ajouter(c: BilanFond, b: BilanToitsLidar | null, lus: number, couleurs: number): void {
   if (b) { c.ajustes += b.ajustes; c.mesures += b.mesures; c.corpsVoisins += b.corpsVoisins; c.recales += b.recales; c.gardes += b.gardes; }
   c.lus += lus; c.couleurs += couleurs;
@@ -148,7 +154,9 @@ export function texteFinToitsFond(b: BilanFond): string {
   ].filter(Boolean);
   const formes = b.lus ? 'Toits du voisinage lus sur le LiDAR HD : ' + n(b.lus) + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '.' : '';
   const couleurs = b.couleurs ? n(b.couleurs) + ' couleur' + (b.couleurs > 1 ? 's' : '') + ' de toit lue' + (b.couleurs > 1 ? 's' : '') + ' sur la photo aérienne.' : '';
-  return [formes, couleurs].filter(Boolean).join(' ');
+  const m = b.murs ?? 0;
+  const murs = m ? n(m) + ' couleur' + (m > 1 ? 's' : '') + ' de murs lue' + (m > 1 ? 's' : '') + ' sur les photos de rue.' : '';
+  return [formes, couleurs, murs].filter(Boolean).join(' ');
 }
 
 /** Un batiment pris dans la file : sa copie, et l'empreinte de l'original au moment ou il a ete pris. */
@@ -184,6 +192,38 @@ async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: O
   return { bilan, forme: pourForme && toitLu(copie), couleur: pourCouleur && !couleurALire(copie), couleurs: lues ? lues.lus + lues.replis : 0 };
 }
 
+/**
+ * L'enregistrement seul : depuis le dernier etat enregistre (`base.c`), combien de modifications sont
+ * celles de la lecture (`base.nos`) ; null quand des modifications de l'utilisateur attendent. Un
+ * enregistrement refuse (un projet trop lourd pour la plateforme) arrete les essais pour la seance :
+ * le bandeau d'erreur ne reviendrait qu'a chaque dessin.
+ */
+function creerEnregistreur(ctx: ContexteToitsFond) {
+  const maintenant = ctx.maintenant ?? Date.now;
+  const modifs = () => ctx.modifications?.() ?? 0;
+  let base: { c: number; nos: number } | null = null;
+  let dernier = 0, refuse = false;
+  return {
+    /** Une lecture commence : tout ce qui attend d'etre enregistre, s'il y en a, n'est pas a elle. */
+    repartir() { base = ctx.sale?.() ? null : { c: modifs(), nos: 0 }; dernier = maintenant(); },
+    /** La lecture ecrit dans le plan (`ecrire`) : ce que cela modifie est a elle. */
+    noter(ecrire: () => void) {
+      // Tout etait enregistre : nouveau depart du compte. Sinon, ce qui attend n'est peut-etre pas a nous.
+      if (!ctx.sale?.()) base = { c: modifs(), nos: 0 };
+      const avant = modifs();
+      ecrire();
+      if (base) base.nos += modifs() - avant;
+    },
+    async siPermis(force: boolean) {
+      const notres = !!base && !!ctx.sale?.() && modifs() - base.c === base.nos;
+      if (!ctx.enregistrer || refuse || !notres || (!force && maintenant() - dernier < INTERVALLE_ENREGISTREMENT_MS)) return;
+      dernier = maintenant();
+      if (await ctx.enregistrer().catch(() => false)) base = { c: modifs(), nos: 0 };
+      else refuse = true;
+    },
+  };
+}
+
 export interface ToitsFond {
   /** Lance la lecture si des batiments restent a lire ; sans effet si elle tourne deja. */
   relancer: () => void;
@@ -208,26 +248,19 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
 
   // Ce que cette lecture a fait, batiment apres batiment, pour le bilan de fin.
   let cumul: BilanFond = vide();
-  // L'enregistrement seul : depuis le dernier etat enregistre (`base.c`), combien de modifications
-  // sont celles de la lecture (`base.nos`). Null : des modifications de l'utilisateur attendent.
-  const maintenant = ctx.maintenant ?? Date.now;
-  let base: { c: number; nos: number } | null = null;
-  let dernierEnregistrement = 0;
-  // Un enregistrement refuse (un projet trop lourd pour la plateforme) : plus d'essai seul cette seance,
-  // le bandeau d'erreur ne reviendrait qu'a chaque dessin.
-  let enregistrementRefuse = false;
-  const seulementLesNotres = () => !!base && !!ctx.sale?.() && (ctx.modifications?.() ?? 0) - base.c === base.nos;
-  const enregistrerSiPermis = async (force: boolean) => {
-    if (!ctx.enregistrer || enregistrementRefuse || !seulementLesNotres() || (!force && maintenant() - dernierEnregistrement < INTERVALLE_ENREGISTREMENT_MS)) return;
-    dernierEnregistrement = maintenant();
-    if (await ctx.enregistrer().catch(() => false)) base = { c: ctx.modifications?.() ?? 0, nos: 0 };
-    else enregistrementRefuse = true;
-  };
+  const enregistreur = creerEnregistreur(ctx);
+  // Les murs, apres les toits : les batiments refuses, et le service de photos qui s'est tu, pour cette seance.
+  const refusMurs = new Map<string, number>();
+  let mursMuets = false, phaseMurs = false;
+  const mursATenter = (objets: ObjetPlan[]) => !mursMuets && objets.some((o) => mursALire(o) && (refusMurs.get(o.key) ?? 0) < ECHECS_MURS_PAR_BATIMENT);
 
   const dire = (etat: ProgressionToits['etat']) => {
+    if (phaseMurs) { const m = avancementMurs(ctx.objets()); ctx.progression(m.total ? { ...m, etat, phase: 'murs' } : null); return; }
     const { eligibles, restants } = batimentsALire(ctx.objets(), lidar);
     ctx.progression(eligibles ? { faits: eligibles - restants.length, total: eligibles, etat } : null);
   };
+  /** Des batiments lus viennent d'etre ecrits : les redessiner, et enregistrer si c'est le moment. */
+  const annoncer = async (ecrits: string[]) => { enregistreur.noter(() => ctx.apresLot(ecrits)); await enregistreur.siPermis(false); };
 
   /** Ecrit dans le plan ce qui a ete lu depuis le dernier dessin, le redessine, l'enregistre au besoin. */
   let tampon: Lu[] = [];
@@ -237,15 +270,8 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
     // Le plan a pu changer pendant la lecture (annulation, autre plan) : on ecrit dans celui d'aujourd'hui.
     const courants = ctx.objets();
     const ecrits = lot.filter((l) => reporter(courants, l.copie, l.avant)).map((l) => l.copie.key);
-    if (ecrits.length) {
-      // Tout etait enregistre : nouveau depart du compte. Sinon, ce qui attend n'est peut-etre pas a nous.
-      if (!ctx.sale?.()) base = { c: ctx.modifications?.() ?? 0, nos: 0 };
-      const avantLot = ctx.modifications?.() ?? 0;
-      ctx.apresLot(ecrits);
-      if (base) base.nos += (ctx.modifications?.() ?? 0) - avantLot;
-    }
     if (lot.length) dire('enCours');
-    if (ecrits.length) await enregistrerSiPermis(false);
+    if (ecrits.length) await annoncer(ecrits);
   }
 
   /**
@@ -303,13 +329,25 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
       const objets = ctx.objets();
       const proj = projecteurDuProjet(objets);
       const restants = aTenter(objets);
+      if (proj && !restants.length && mursATenter(objets)) {
+        // Les toits sont lus : les murs, zone par zone. Une passe qui n'ecrit rien ne se repete pas.
+        phaseMurs = true;
+        dire('enCours');
+        const r = await (ctx.lireMurs ?? lireMursEnFond)({ objets: ctx.objets, proj, vivant: () => g === generation, ecrire: annoncer, avance: () => dire('enCours'), refus: refusMurs, pause });
+        if (g !== generation) return;
+        cumul.murs = (cumul.murs ?? 0) + r.photos;
+        if (r.arret || !r.ecrits) mursMuets = true;
+        continue;
+      }
       if (!proj || !restants.length) {
         enCours = false;
-        // Sans LiDAR, la forme des toits n'a pas ete lue : « arretee » et non « finie ».
-        dire(lidar ? 'finie' : 'arretee');
-        if (cumul.lus || cumul.couleurs) { const b = cumul; cumul = vide(); ctx.fin?.(b); await enregistrerSiPermis(true); }
+        // Sans LiDAR, la forme des toits n'a pas ete lue ; sans photos de rue, les murs non plus : « arretee ».
+        phaseMurs = mursMuets && !!proj && objets.some(mursALire);
+        dire(lidar && !phaseMurs ? 'finie' : 'arretee');
+        if (cumul.lus || cumul.couleurs || cumul.murs) { const b = cumul; cumul = vide(); ctx.fin?.(b); await enregistreur.siPermis(true); }
         return;
       }
+      phaseMurs = false;
       const arret = await passe(g, objets, proj, restants);
       if (g !== generation) return;
       if (arret) { enCours = false; dire('arretee'); return; }
@@ -319,11 +357,12 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
   return {
     relancer() {
       if (enCours || ctx.lectureSeule()) return;
-      if (!aTenter(ctx.objets()).length || !projecteurDuProjet(ctx.objets())) { dire('finie'); return; }
+      // « Reprendre » redonne sa chance au service de photos.
+      mursMuets = false;
+      if ((!aTenter(ctx.objets()).length && !mursATenter(ctx.objets())) || !projecteurDuProjet(ctx.objets())) { phaseMurs = false; dire('finie'); return; }
       enCours = true;
       cumul = vide();
-      base = ctx.sale?.() ? null : { c: ctx.modifications?.() ?? 0, nos: 0 };
-      dernierEnregistrement = maintenant();
+      enregistreur.repartir();
       const g = ++generation;
       // Ce qu'une lecture arretee avait lu sans l'ecrire est perime : elle repart de ce qui reste.
       tampon = [];
