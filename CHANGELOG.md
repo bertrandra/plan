@@ -189,8 +189,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Le voisinage d'un import va jusqu'à 20 000 parcelles et autant de bâtiments** (10 000
   auparavant), les plus proches d'abord : sur un grand rayon en ville, il s'arrêtait avant le rayon
-  demandé. Un tel projet pèse autour de 40 Mo une fois tous les toits lus, sous la limite de 50 Mo de
-  la plateforme ; l'affichage et la Vue 3D sont plus lents.
+  demandé. Mesuré au Vésinet sur 2 km : 12 315 parcelles et 15 448 bâtiments, tout le disque, compte
+  en 30 à 40 secondes, projet créé en 1 minute 40, 23,6 Mo avant la lecture des toits (environ 30 Mo
+  une fois tous lus, sous la limite de 50 Mo de la plateforme). L'affichage et la Vue 3D sont plus
+  lents sur un tel voisinage.
 
 - **La lecture de fond s'efface devant vous.** Plan mesure en continu à quel point l'écran est
   occupé. Pendant que vous travaillez (un geste depuis moins d'une seconde et demie), une seule
