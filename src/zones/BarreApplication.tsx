@@ -11,7 +11,7 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant, sessionCourante, enAdmin } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
@@ -230,17 +230,25 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
 }
 
 /**
- * Le menu Admin : les deux ecrans secondaires de l'admin, l'arbre des controleurs et la palette de
- * l'interface. Il n'existe qu'en admin des demos (`enAdmin`) : hors admin, ces ecrans demandent le
- * mot de passe, et un menu qui y mene n'aurait rien a offrir. Chaque ecran a son bouton de retour.
+ * Le menu Admin : les deux ecrans secondaires de l'admin des demos, l'arbre des controleurs et la
+ * palette de l'interface, et le mode audit (MD/spec-audit.md). Les deux ecrans n'existent qu'en
+ * admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode audit est ouvert
+ * aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a son bouton de retour.
  */
 export function MenuAdmin() {
-  if (!enAdmin()) return null;
+  const demos = enAdmin();
+  if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
   return (
     <details className="menu" id="menuAdmin">
       <summary>Admin</summary>
       <ul role="menu">
+        <li role="menuitem">
+          <button type="button" data-controle="admin.audit" onClick={aller(demos ? '?admin&mode=audit' : '?mode=audit')}>
+            <span className="coche" aria-hidden="true" />Mode audit (promenade)
+          </button>
+        </li>
+        {demos && <>
         <li role="menuitem">
           <button type="button" data-controle="admin.controleurs" onClick={aller('?admin&ecran=controleurs')}>
             <span className="coche" aria-hidden="true" />Contrôleurs de l’écran
@@ -251,6 +259,7 @@ export function MenuAdmin() {
             <span className="coche" aria-hidden="true" />Palette de l’interface
           </button>
         </li>
+        </>}
       </ul>
     </details>
   );

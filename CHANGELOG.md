@@ -7,6 +7,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Menu Admin › Mode audit (promenade)** : le mode audit s'ouvre depuis l'écran, sans taper
+  d'adresse. L'entrée est proposée en admin des démos (`?admin&mode=audit`, sans enregistrement sur les
+  démos) et à l'administrateur de la plateforme, qui ne voit qu'elle dans le menu Admin.
+
 - **Mode audit, étape 1** (`?mode=audit`, administrateur seulement ; `MD/spec-audit.md`). Une
   promenade pour noter les toits et les façades que Plan calcule mal. La Vue 3D suit votre position
   GPS (caméra « drone », « Me suivre » après un glisser) et charge tout ce qui est à moins de 40 m,
