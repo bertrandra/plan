@@ -9,7 +9,7 @@ import { creerSession, EchecPlateforme, MARGE_RENOUVELLEMENT_MS, REESSAI_RENOUVE
 
 /** Une plateforme de papier : elle rend ce qu'on lui dit de rendre, et note ce qu'on lui demande. */
 function monter(reponses: Array<{ statut: number; corps?: unknown; reseau?: boolean }> = []) {
-  const appels: Array<{ url: string; methode: string; entetes: Record<string, string>; corps?: string }> = [];
+  const appels: Array<{ url: string; methode: string; entetes: Record<string, string>; corps?: string; corpsBrut?: unknown }> = [];
   const file = [...reponses];
   const taches: Array<{ quand: number; quoi: () => void }> = [];
   let horloge = 1_000_000;
@@ -20,7 +20,7 @@ function monter(reponses: Array<{ statut: number; corps?: unknown; reseau?: bool
       appels.push({
         url: String(url), methode: init.method || 'GET',
         entetes: (init.headers || {}) as Record<string, string>,
-        ...(typeof init.body === 'string' ? { corps: init.body } : {})
+        ...(typeof init.body === 'string' ? { corps: init.body } : init.body ? { corpsBrut: init.body } : {})
       });
       const r = file.shift() || { statut: 200, corps: {} };
       // Un appel que le reseau (ou le navigateur, pour une regle CORS) n'a pas laisse aboutir.
@@ -294,5 +294,19 @@ describe('seul un 401 ferme la session', () => {
     await session.ouvrir('a@b.test', 'motdepasse1234');
     await Promise.allSettled([session.appeler('listProjects'), session.appeler('listProjects')]);
     expect(appels.filter((a) => a.url.endsWith('/auth/refresh'))).toHaveLength(1);
+  });
+});
+
+describe('un corps deja ecrit en JSON', () => {
+  it('part tel quel, texte ou Blob, avec son type, et repart tel quel apres un renouvellement', async () => {
+    const { session, appels } = monter([SESSION_OK, { statut: 401 }, SESSION_OK, { statut: 200, corps: { id: 'p1' } }, { statut: 200, corps: { id: 'p1' } }]);
+    await session.ouvrir('a@b.test', 'motdepasse1234');
+    const blob = new Blob(['{"document":{"objects":[{"k":1}]}}'], { type: 'application/json' });
+    await session.appeler('updateProject', { params: { projectId: 'p1' }, corpsEcrit: blob });
+    const envois = appels.filter((a) => a.url.includes('p1'));
+    expect(envois.length).toBe(2);
+    expect(envois.every((a) => a.corpsBrut === blob && a.entetes['Content-Type'] === 'application/json')).toBe(true);
+    await session.appeler('updateProject', { params: { projectId: 'p1' }, corpsEcrit: '{"a":1}' });
+    expect(appels.at(-1)?.corps).toBe('{"a":1}');
   });
 });

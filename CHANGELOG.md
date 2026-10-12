@@ -296,6 +296,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **L'enregistrement ne fige plus l'écran sur un grand projet.** Sur un voisinage d'un kilomètre
+  (8 Mo), chaque enregistrement bloquait l'interface en une tâche de 0,5 à 0,8 s, suivie de deux
+  autres d'environ 0,2 s : le projet était sérialisé deux fois et écrit en texte deux fois, d'un
+  seul tenant. Il l'est désormais une seule fois, par paquets de 400 objets, en rendant la main
+  entre deux, et part tel quel au serveur. Il reste une seule tâche d'environ 0,1 s. Une
+  modification faite pendant l'enregistrement laisse le projet « à enregistrer ».
+
 - **Fumée pilotée : les gestes sur la terrasse de démonstration se rejouent.** La démonstration
   s'ouvre sur tout son voisinage, où les poignées se superposent : les points 1 à 5, 10 et 11
   échouaient dans les trois classes d'écran sans que l'application soit en cause. Le script cadre
