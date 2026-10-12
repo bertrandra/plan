@@ -92,6 +92,30 @@ voisinage réduit ni enregistrement à part : le format ne change pas. Si un pro
 tout la limite, l'enregistrement automatique s'arrêterait pour la séance et le bandeau d'erreur
 donnerait la taille refusée (`app/projet.ts`).
 
+## Étape 3 — débit réglé (branche `claude/toits-debit`)
+
+| Changement | Où | Effet |
+|---|---|---|
+| Un `429` rejoué | `geo/relief.ts::requeteAvecReprise`, `delaiRetryAfter` | attend `retry-after` (5 s si l'en-tête manque ou n'est pas exposé au navigateur, 30 s au plus) et rejoue, trois fois au plus, au lieu de compter un échec et de mettre la lecture en pause 30 s |
+| File continue | `app/toitsFond.ts::passe` | six lecteurs prennent chacun le bâtiment suivant dès qu'ils ont fini ; ce qui est lu se dessine par paquets de 12 (`LOT_TOITS_FOND`). Douze bâtiments muets d'affilée font attendre 30 s ; trois attentes d'affilée arrêtent la lecture |
+| Une fois par passe | `toitsLidar.ts::clesMitoyens`, option `mitoyens` ; dalles mémorisées | la question « y a-t-il des dalles LiDAR ici » (WFS) et le calcul des mitoyens se faisaient à chaque lot ; ils se font une fois pour tout ce qui reste à lire |
+
+Mesure sur le même voisinage d'un kilomètre du Vésinet (5 240 bâtiments), forme et couleur, script
+de mesure avec un compte des requêtes par service :
+
+| | Lots (étape 2) | File continue, 6 lecteurs | File continue, 12 lecteurs |
+|---|---|---|---|
+| Tout le voisinage lu | ~2 100 s (estimé, 4 071 à 1 500 s) | **536 s** | 431 s |
+| Débit | 2,5 bâtiments/s | **9,8 bâtiments/s** | 12,2 bâtiments/s |
+| WMS-Raster | ~3 requêtes/s | ~10 requêtes/s | ~14 requêtes/s |
+| Erreurs 429 | — | 0 | 0 |
+| Longues tâches | 70 à 300 ms ; ~1 s par enregistrement | inchangées | inchangées |
+
+**Retenu : six lecteurs.** Doubler les lecteurs ne gagne que 25 % pour 40 % de requêtes en plus : le
+débit ne suit plus le parallélisme. À six, la lecture de fond prend le quart du quota du WMS-Raster,
+ce qui laisse de la place aux autres postes derrière la même adresse IP et aux autres lectures du plan.
+Pour 10 000 bâtiments (le plafond du voisinage), compter environ 17 minutes au lieu de 70.
+
 ## Limites d'usage de la Géoplateforme (point 2, vérifié le 12 octobre 2026)
 
 Source : [Limites d'usage des API](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/limites-d-usage/)
@@ -107,31 +131,23 @@ Au dépassement : **HTTP 429** sur toute requête de cette API, blocage de **5 s
 limité à l'API dépassée (un 429 du WMS ne bloque pas le WMTS). L'en-tête `retry-after` donne le temps
 restant. Un quota plus élevé se demande à geoplateforme@ign.fr.
 
-Ce que cela veut dire pour nous :
+Ce que cela voulait dire avant l'étape 3 (chiffres d'alors ; ceux d'après sont dans l'étape 3) :
 
-- **Aujourd'hui, très loin de la limite.** Au débit mesuré (2,5 bâtiments/s, 6 lectures à la fois),
-  la lecture de fond envoie environ 3 requêtes/s au WMS-Raster, soit moins d'un dixième des 40. C'est
-  le temps de réponse du service, environ 2,4 s par lecture, qui fixe le débit, pas le quota.
+- **Très loin de la limite.** Au débit mesuré par lots (2,5 bâtiments/s, 6 lectures à la fois),
+  la lecture de fond envoyait environ 3 requêtes/s au WMS-Raster, soit moins d'un dixième des 40.
 - **La marge est réelle, mais partagée.** La limite vaut par adresse IP : plusieurs postes derrière
   la même box ou le même proxy d'entreprise se la partagent. Les autres lectures WMS-Raster du plan
   passent aussi par le même compteur : relief, carte de situation, actualisation IGN. Viser au plus
   la moitié, environ 20 requêtes/s, laisse de la place.
-- **Un 429 est aujourd'hui compté comme un échec.** `geo/relief.ts::requeteAvecReprise` ne rejoue
-  jamais un 4xx. Le bâtiment reste à relire (deux échecs au plus) et trois lots sans succès mettent
-  la lecture en pause 30 s. C'est sans perte, mais bien plus long que les 5 s du blocage. Avant
-  d'augmenter le parallélisme, lire `retry-after` et rejouer la requête après ce délai.
+- **Un 429 était compté comme un échec** (corrigé à l'étape 3). `geo/relief.ts::requeteAvecReprise`
+  ne rejouait jamais un 4xx. Le bâtiment restait à relire (deux échecs au plus) et trois lots sans succès mettaient
+  la lecture en pause 30 s : sans perte, mais bien plus long que les 5 s du blocage.
 
 ## Reste à faire
 
 1. ~~Taille du projet au-delà de quelques centaines de mètres~~ : **réglé**, limite de la plateforme
    à 50 Mo, voisinage inchangé (voir plus haut).
-2. **Régler le débit** : `LOT_TOITS_FOND` (12) et `PARALLELE_TOITS_FOND` (6). Limite vérifiée
-   (section précédente) : 40 requêtes/s au WMS-Raster, nous en faisons 3. Dans l'ordre :
-   1. rejouer un 429 après `retry-after` au lieu d'en faire un échec ;
-   2. remplacer les lots par une file continue, puisqu'un lot attend son bâtiment le plus lent ;
-   3. monter le parallélisme vers 12 à 16 lectures, en mesurant le débit et les longues tâches sur
-      le voisinage d'un kilomètre du Vésinet ;
-   4. s'arrêter avant environ 20 requêtes/s, ou dès que les longues tâches reviennent.
+2. ~~Régler le débit~~ : **fait** (étape 3). Six lecteurs en file continue, 429 rejoués.
 3. **Couleur des murs (Panoramax)**, laissée de côté (décision de l'utilisateur). Limiter à environ
    500 m le jour où elle est reprise.
 4. **Calcul hors du fil principal**, si un poste plus lent saccade (voir point 5 ci-dessus).

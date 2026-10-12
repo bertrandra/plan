@@ -10,13 +10,14 @@ const couleursEspion = vi.hoisted(() => ({
   })
 }));
 vi.mock('../../../src/render/couleurToitOrtho.js', () => ({ couleursToitsDepuisOrtho: couleursEspion.lire }));
-import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../src/app/toitsFond.js';
+import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, PARALLELE_TOITS_FOND, ECHECS_PAR_BATIMENT, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../src/app/toitsFond.js';
 import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toitsLidar.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
-// La lecture des toits en tache de fond (app/toitsFond.ts) : par lots, du plus proche au plus loin,
-// sur des copies ; un batiment modifie pendant la lecture n'est pas ecrase ; un service muet arrete.
+// La lecture des toits en tache de fond (app/toitsFond.ts) : une file continue, du plus proche au plus
+// loin, sur des copies, dessinee par paquets ; un batiment modifie pendant la lecture n'est pas ecrase ;
+// un service muet arrete.
 
 const p = (x: number, y: number): PtBrut => ({ x, y });
 const rect = (x0: number, y0: number, l: number, h: number) => [p(x0, y0), p(x0 + l, y0), p(x0 + l, y0 + h), p(x0, y0 + h)];
@@ -38,7 +39,7 @@ const lecteur = (lus: string[][], muet = () => false) => vi.fn(async (_o: readon
 async function finir(fond: { enCours: () => boolean }) { for (let i = 0; i < 200 && fond.enCours(); i++) await new Promise((r) => setTimeout(r, 0)); }
 
 describe('les toits en tache de fond', () => {
-  it('lit tout, par lots, du plus proche au plus loin, et marque chaque batiment', async () => {
+  it('lit tout, un batiment a la fois, du plus proche au plus loin, dessine par paquets, et marque chaque batiment', async () => {
     let objets = plan(30);
     const lus: string[][] = [];
     const progres: (ProgressionToits | null)[] = [];
@@ -46,8 +47,10 @@ describe('les toits en tache de fond', () => {
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot, progression: (pr) => progres.push(pr), lire: lecteur(lus), pause: async () => {}, attendre: async () => {} });
     fond.relancer();
     await finir(fond);
-    expect(lus.map((l) => l.length)).toEqual([LOT_TOITS_FOND, LOT_TOITS_FOND, 30 - 2 * LOT_TOITS_FOND]);
-    expect(lus[0]!.slice(0, 3)).toEqual(['b0', 'b1', 'b2']);
+    expect(lus.every((l) => l.length === 1)).toBe(true);
+    expect(lus.flat().slice(0, 3)).toEqual(['b0', 'b1', 'b2']);
+    expect(lus.flat().sort()).toEqual(Array.from({ length: 30 }, (_, k) => 'b' + k).sort());
+    // Dessine par paquets de LOT_TOITS_FOND, et le reste a la fin.
     expect(objets.filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
     expect(objets.find((o) => o.key === 'b5')?.toit?.source).toBe('lidar');
     expect(apresLot).toHaveBeenCalledTimes(3);
@@ -69,19 +72,19 @@ describe('les toits en tache de fond', () => {
       objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {},
       lire: (async (o, pr, opt) => {
         const r = await lire(o, pr, opt);
-        // Pendant le premier lot, l'utilisateur deplace b1.
+        // Pendant la premiere lecture (b0), l'utilisateur deplace b1, deja en cours de lecture.
         if (premier) { premier = false; const b1 = objets.find((x) => x.key === 'b1') as unknown as { pts: PtBrut[] }; b1.pts = rect(200, 0, 6, 5); }
         return r;
       }) as typeof toitsDepuisLidar
     });
     fond.relancer();
     await finir(fond);
-    // b1 n'a pas recu le toit lu sur l'ancien contour ; il est relu au lot suivant, sur le nouveau.
-    expect(lus).toEqual([['b0', 'b1', 'b2'], ['b1']]);
+    // b1 n'a pas recu le toit lu sur l'ancien contour ; il est relu a la passe suivante, sur le nouveau.
+    expect(lus.flat()).toEqual(['b0', 'b1', 'b2', 'b1']);
     expect(objets.every((o) => o.fonction !== 'batiment' || toitLu(o))).toBe(true);
   });
 
-  it('s arrete apres quelques lots muets, et reprend a la demande', async () => {
+  it('laisse un batiment refuse deux fois, et ne tourne pas sans fin sur un service muet', async () => {
     const objets = plan(5);
     const lus: string[][] = [];
     let muet = true;
@@ -90,12 +93,34 @@ describe('les toits en tache de fond', () => {
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), lire: lecteur(lus, () => muet), pause: async () => {}, attendre });
     fond.relancer();
     await finir(fond);
-    // Un batiment refuse deux fois est laisse pour la seance : le deuxieme lot muet vide la file.
-    expect(lus.length).toBeLessThanOrEqual(ECHECS_AVANT_ARRET);
+    // La couleur se lit (une passe), puis chaque forme est refusee deux fois et laissee pour la seance.
+    expect(lus.length).toBe(5 * (1 + ECHECS_PAR_BATIMENT));
     expect(objets.some(toitLu)).toBe(false);
     expect(progres.at(-1)?.etat).not.toBe('enCours');
     muet = false;
     expect(fond.enCours()).toBe(false);
+  });
+
+  it('attend apres une suite de batiments muets, puis s arrete, et reprend a la demande', async () => {
+    const objets = plan(LOT_TOITS_FOND * ECHECS_AVANT_ARRET + 20);
+    objets.forEach((o) => { if (o.toit) o.toit.couleur = '#884422'; });
+    const lus: string[][] = [];
+    let muet = true;
+    const progres: (ProgressionToits | null)[] = [];
+    const attendre = vi.fn(async () => {});
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), lire: lecteur(lus, () => muet), pause: async () => {}, attendre });
+    fond.relancer();
+    await finir(fond);
+    // Deux attentes, puis l'arret a la troisieme suite muette : les derniers batiments ne sont pas demandes.
+    expect(attendre).toHaveBeenCalledTimes(ECHECS_AVANT_ARRET - 1);
+    expect(lus.length).toBeLessThanOrEqual(LOT_TOITS_FOND * ECHECS_AVANT_ARRET + PARALLELE_TOITS_FOND);
+    expect(progres.at(-1)?.etat).toBe('arretee');
+    expect(fond.enCours()).toBe(false);
+    // Le service revient : « Reprendre » lit ce qui reste.
+    muet = false;
+    fond.relancer();
+    await finir(fond);
+    expect(objets.filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
   });
 
   it('se met en pause, ne demarre pas en lecture seule, et s arrete sans dalle LiDAR', async () => {
@@ -121,6 +146,29 @@ describe('les toits en tache de fond', () => {
     sans.relancer();
     await finir(sans);
     expect(progres.at(-1)?.etat).toBe('arretee');
+  });
+
+  it('demande les dalles LiDAR une fois pour toute la passe, et les mitoyens avec', async () => {
+    const objets = plan(20);
+    const dalles = vi.fn(async () => true);
+    const options: { mitoyens?: ReadonlySet<string> }[] = [];
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {}, dalles,
+      lire: (async (_o, _p, opt) => {
+        options.push(opt ?? {});
+        // La vraie lecture demande les dalles a chaque appel : ici aussi.
+        await opt?.dalles?.([], projecteurLocal(48.9, 2.13));
+        for (const c of opt?.candidats ?? []) c.toitLidarLu = VERSION_LECTURE_TOITS;
+        return { ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false };
+      }) as typeof toitsDepuisLidar
+    });
+    fond.relancer();
+    await finir(fond);
+    expect(options.length).toBe(20);
+    expect(dalles).toHaveBeenCalledTimes(1);
+    // Sur l'emprise de tout ce qui restait a lire, pas sur le seul premier batiment.
+    expect((dalles.mock.calls[0] as unknown as [PtBrut[]])[0].length).toBe(20 * 4);
+    expect(new Set(options.map((o) => o.mitoyens)).size).toBe(1);
   });
 
   it('range les batiments a lire du plus proche au plus loin, sans ceux deja lus ni les toits saisis', () => {
@@ -223,7 +271,7 @@ describe('la couleur des toits', () => {
     fond.relancer();
     await finir(fond);
     expect(lus).toEqual([['b2']]);
-    expect(couleursEspion.appels).toEqual([['b1', 'b2']]);
+    expect(couleursEspion.appels).toEqual([['b1'], ['b2']]);
     expect(objets.slice(1).every((o) => !!o.toit?.couleur && toitLu(o))).toBe(true);
     expect(fin.mock.calls[0]![0]).toMatchObject({ lus: 1, couleurs: 2 });
   });

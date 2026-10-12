@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  lireRelief, decoderBil, lireNombreMatched, urlGrille, urlDallesLidar, requeteAvecReprise, SOURCE_LIDAR, SOURCE_RGE_ALTI,
+  lireRelief, decoderBil, lireNombreMatched, urlGrille, urlDallesLidar, requeteAvecReprise, delaiRetryAfter, REPRISES_429, ATTENTE_429_MS, SOURCE_LIDAR, SOURCE_RGE_ALTI,
   empriseDemandee, demandeReliefDuPlan, coinsDuPaysage, horizonDuVoisinage, empriseDuPaysage
 } from '../../../src/geo/relief.js';
 import { dimensionsGrille, empriseGrille, empriseRelief, pasPourEmprise } from '../../../src/model/relief.js';
@@ -183,6 +183,28 @@ describe('la reprise reseau', () => {
     const f = vi.fn(async () => reponse('', false, 400)) as unknown as typeof fetch;
     await expect(requeteAvecReprise('u', r => r.text(), f)).rejects.toThrow(/HTTP 400/);
     expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('attend et rejoue un 429 (quota de la Geoplateforme), quelques fois au plus', async () => {
+    const trop = (apres: string | null) => ({ ...reponse('', false, 429), headers: { get: (n: string) => (n === 'retry-after' ? apres : null) } }) as unknown as Response;
+    let n = 0;
+    const f = vi.fn(async () => (++n <= 2 ? trop(n === 1 ? '2' : null) : reponse('ok'))) as unknown as typeof fetch;
+    const attentes: number[] = [];
+    await expect(requeteAvecReprise('u', r => r.text(), f, async (ms) => { attentes.push(ms); })).resolves.toBe('ok');
+    // Le delai demande (2 s), puis les cinq secondes du depart quand l'en-tete manque.
+    expect(attentes).toEqual([2000, ATTENTE_429_MS]);
+    const toujours = vi.fn(async () => trop('1')) as unknown as typeof fetch;
+    await expect(requeteAvecReprise('u', r => r.text(), toujours, async () => {})).rejects.toThrow(/HTTP 429/);
+    expect(toujours).toHaveBeenCalledTimes(REPRISES_429 + 1);
+  });
+
+  it('lit le retry-after en secondes ou en date, borne', () => {
+    expect(delaiRetryAfter('3')).toBe(3000);
+    expect(delaiRetryAfter('0')).toBe(1000);
+    expect(delaiRetryAfter('600')).toBe(30000);
+    expect(delaiRetryAfter(new Date(10000).toUTCString(), 0)).toBe(10000);
+    expect(delaiRetryAfter(null)).toBe(ATTENTE_429_MS);
+    expect(delaiRetryAfter('bientot')).toBe(ATTENTE_429_MS);
   });
 });
 
