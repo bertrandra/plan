@@ -1,4 +1,4 @@
-// La roue du chargement : un plan lourd (un voisinage de 5 km, quatre mille objets) met plusieurs
+// La roue du chargement : un plan lourd (un voisinage d'un kilometre et demi, des milliers d'objets) met plusieurs
 // secondes a s'ouvrir, et la page montrait pendant ce temps des zones vides, comme figee. Une roue
 // au centre, sans message, dit que l'application travaille.
 //

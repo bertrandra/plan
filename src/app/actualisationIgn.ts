@@ -22,7 +22,7 @@ import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { projecteurLocal } from '../geo/projection.js';
 import { SIMPLIF_M } from '../geo/constantesCadastre.js';
 import {
-  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, PLAFOND_LECTURE, construireCandidats, trierVoisines,
+  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, PLAFOND_LECTURE, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
@@ -70,7 +70,7 @@ export interface OptionsActualisation {
   portee: 'tout' | 'parcelle';
   /**
    * Le voisinage : les parcelles adjacentes (defaut), ou tout ce qui est dans un rayon (`rayonM`,
-   * jusqu'a 5 000 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
+   * jusqu'a 1 500 m) — parcelles et batiments, en plusieurs requetes a l'IGN, les plus proches d'abord.
    */
   voisinage: { actif: false } | { actif: true; batiments: boolean; vegetation: boolean; arbres: boolean; rayonM?: number };
   /**
@@ -549,7 +549,8 @@ export async function construireVoisinage(
   // Le voisinage etendu : un disque de `rayonM` autour du centre de la parcelle. L'emprise
   // demandee est le carre qui le contient ; ce qui n'y touche pas est ecarte, et au-dela du
   // plafond on garde les plus proches (lireAuPlusPres).
-  const rayonM = choix.rayonM && choix.rayonM > 0 ? choix.rayonM : 0;
+  // Borne au maximum du curseur, quelle que soit l'origine de la demande.
+  const rayonM = choix.rayonM && choix.rayonM > 0 ? Math.min(choix.rayonM, RAYON_ETENDU_MAX_M) : 0;
   if(rayonM) resultat.rayonM = rayonM;
   const centreDeg = proj.versDegres(centreParc.x, centreParc.y);
   const empriseRayon: EmpriseGeoJSON = empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, rayonM || 1);

@@ -54,7 +54,7 @@ describe('l import depuis une adresse, en import direct', () => {
     cocher(hote.querySelector('[data-controle="cadastre.importDirect"]')!);
     const curseur = hote.querySelector<HTMLInputElement>('[data-controle="cadastre.rayon"]')!;
     expect(curseur.min).toBe('10');
-    expect(curseur.max).toBe('5000');
+    expect(curseur.max).toBe('1500');
     expect(curseur.disabled).toBe(true);
     cocher(hote.querySelector('[data-controle="cadastre.voisinageEtendu"]')!);
     expect(curseur.disabled).toBe(false);

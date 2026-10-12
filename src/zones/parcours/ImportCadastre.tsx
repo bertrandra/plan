@@ -312,8 +312,8 @@ function ReglageRelief({ importe }: Props) {
 }
 
 /**
- * Le voisinage etendu : une case, un curseur de 10 a 5 000 m, et le compte de ce qui arrivera avant
- * de creer. Le disque est lu une fois par palier (200, 500, 1 000, 2 000, 5 000 m) ; sous le palier lu, le
+ * Le voisinage etendu : une case, un curseur de 10 a 1 500 m, et le compte de ce qui arrivera avant
+ * de creer. Le disque est lu une fois par palier (200, 500, 1 000, 1 500 m) ; sous le palier lu, le
  * curseur le filtre sans appel au reseau.
  */
 function ReglageVoisinage({ importe }: Props) {

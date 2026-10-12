@@ -24,7 +24,7 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   // Les parcelles adjacentes, ou tout ce qui est dans le rayon du curseur, en plusieurs requetes.
   const [enRayon, setEnRayon] = useState(false);
   const [rayon, setRayon] = useState(RAYON_ETENDU_DEFAUT_M);
-  // Le disque, lu une fois par palier (200, 500, 1 000, 2 000, 5 000 m) des que le mode rayon est choisi : sous le
+  // Le disque, lu une fois par palier (200, 500, 1 000, 1 500 m) des que le mode rayon est choisi : sous le
   // palier lu, le compte suit le curseur sans le reseau ; au-dela, le palier suivant est lu.
   const [disque, setDisque] = useState<VoisinageRayon | null>(null);
   const [echec, setEchec] = useState('');
