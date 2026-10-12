@@ -403,9 +403,10 @@ const POINTS = {
     // passage sans rien prouver.
     await boite.getByRole('button', { name: /Creer le projet/ }).click();
     // La creation lit d'abord les toits des trente batiments les plus proches sur le LiDAR : 12 a 24 s
-    // mesurees. Cinq secondes d'attente relisaient l'etat d'avant (la demonstration) : on attend que le
-    // dialogue se ferme.
-    await page.waitForFunction(() => !document.querySelector('.dialogueCadastre'), null, { timeout: 90000 }).catch(() => {});
+    // mesurees, puis la page repart sur le nouveau projet. Cinq secondes d'attente relisaient l'etat
+    // d'avant (la demonstration) : on attend que le plan soit de nouveau la, avec autre chose qu'avant.
+    await page.waitForFunction((n) => !document.querySelector('.dialogueCadastre') && !!window.__plan?.etat && window.__plan.etat().objects.length !== n, avant, { timeout: 90000 }).catch(() => {});
+    await page.waitForTimeout(500);
     const etat = await lireEtat(page);
     const pc = objet(etat, (o) => o.key === 'parcelle');
     const batiments = etat.objects.filter((o) => o.fonction === 'batiment').length;
