@@ -445,6 +445,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     initialState: atelier.initialState, initialMeasures: atelier.initialMeasures,
     cleDernierProjet: cleDernierProjet(),
     definirRafraichisseurStatut: (f) => historique.definirRafraichisseurStatut(f),
+    modifications: () => historique.modifications(),
     ouvrirImportCadastre: ch.ouvrirImportCadastre,
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
     ouvrirActualisationProjet: ch.ouvrirActualisationProjet,

@@ -134,8 +134,24 @@ function refusDeTaille(e: EchecPlateforme, quoi: string): Error & { reason: Moti
 export interface DepotProjets {
   lister(): Promise<ProjetResume[]>;
   ouvrir(id: string): Promise<ProjetServeur>;
-  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown }): Promise<{ id: string; updatedAt?: string }>;
+  /**
+   * `objetsJson` : les objets deja ecrits en JSON (app/projet.ts, par paquets) ; ils partent tels quels
+   * quand aucune photo de releve n'est a sortir, sans etre recrits d'un seul tenant.
+   */
+  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown; objetsJson?: Blob }): Promise<{ id: string; updatedAt?: string }>;
   supprimer(id: string): Promise<unknown>;
+}
+
+/** Une marque que JSON.stringify ne produit jamais ailleurs : elle tient la place des objets deja ecrits. */
+const MARQUE_OBJETS = '\u0000objets-ecrits\u0000';
+
+/** Le corps en JSON, les objets du document remplaces par leur JSON deja ecrit (un Blob, sans recopie). */
+export function avecObjetsEcrits(corps: Record<string, unknown>, objetsJson: Blob): Blob {
+  const document = { ...(corps.document as Record<string, unknown>), objects: MARQUE_OBJETS };
+  const texte = JSON.stringify({ ...corps, document });
+  const marque = JSON.stringify(MARQUE_OBJETS);
+  const i = texte.indexOf(marque);
+  return new Blob([texte.slice(0, i), objetsJson, texte.slice(i + marque.length)], { type: 'application/json' });
 }
 
 export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos): DepotProjets {
@@ -187,7 +203,7 @@ export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos):
     },
 
     async enregistrer(charge) {
-      const { id, name, ...reste } = charge;
+      const { id, name, objetsJson, ...reste } = charge;
       // Les photos de releve ne partent pas : la plateforme refuse les contenus embarques
       // (EMBEDDED_ASSET_REJECTED). Elles restent sur cet appareil, le document n'en porte que la cle.
       const sortie = Array.isArray(reste.objects) ? await sortirLesPhotos(reste.objects, photos()) : null;
@@ -196,17 +212,20 @@ export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos):
       // Le schema vient de l'appelant quand il le connait (le projet ouvert, peut-etre mis a jour) ;
       // sinon — la demonstration creee au premier pas — c'est le plus petit qui decrit le document.
       const schema = typeof document.schemaVersion === 'number' ? document.schemaVersion : schemaMinimal(document.objects);
+      // Les objets deja ecrits partent tels quels, sauf si des photos viennent d'en etre sorties.
+      const ecrits = objetsJson !== undefined && (!sortie || sortie.sorties === 0) ? objetsJson : null;
+      const envoi = (corps: Record<string, unknown>) => (ecrits === null ? { corps } : { corpsEcrit: avecObjetsEcrits(corps, ecrits) });
       try {
         if (id) {
           const p = await session.appeler<ResumeApi>('updateProject', {
             params: { projectId: id },
             // PATCH, et non PUT : le contrat le dit, et l'etape 0 l'a corrige dans la specification.
-            corps: { ...(name !== undefined ? { name } : {}), schema_version: schema, document }
+            ...envoi({ ...(name !== undefined ? { name } : {}), schema_version: schema, document })
           });
           return { id: p.id, updatedAt: p.updated_at };
         }
         const p = await session.appeler<ResumeApi>('createProject', {
-          corps: { name: name || 'Projet sans nom', schema_version: schema, document }
+          ...envoi({ name: name || 'Projet sans nom', schema_version: schema, document })
         });
         return { id: p.id, updatedAt: p.updated_at };
       } catch (e) { throw traduire(e, 'enregistrement du projet'); }

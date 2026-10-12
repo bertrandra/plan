@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerDepotPlateforme } from '../../../src/io/depotPlateforme.js';
+import { creerDepotPlateforme, avecObjetsEcrits } from '../../../src/io/depotPlateforme.js';
 import { EchecPlateforme, type Session } from '../../../src/plateforme/session.js';
 import type { ObjetBrut } from '../../../src/model/types.js';
 
@@ -123,5 +123,33 @@ describe('un contenu embarque, refuse par la plateforme', () => {
     expect(e.reason).toBe('server');
     expect(e.message).toContain('champ « objects/0/relief/zCode » (106 Kio)');
     expect(e.message).toContain('EMBEDDED_ASSET_REJECTED (44c4cae8)');
+  });
+});
+
+describe('les objets deja ecrits en JSON (enregistrement par paquets)', () => {
+  it('partent tels quels dans le corps, sans etre recrits', async () => {
+    const { s, appeler } = session(() => RESUME);
+    const objetsJson = new Blob([JSON.stringify(plan)]);
+    await creerDepotPlateforme(s).enregistrer({ id: 'p1', name: 'Jardin', objects: plan, schemaVersion: 1, objetsJson } as never);
+    const options = appeler.mock.calls[0]?.[1] as { corps?: unknown; corpsEcrit?: Blob };
+    expect(options.corps).toBeUndefined();
+    expect(JSON.parse(await (options.corpsEcrit as Blob).text())).toEqual({ name: 'Jardin', schema_version: 1, document: { schemaVersion: 1, objects: plan } });
+  });
+
+  it('une photo de releve a sortir : les objets sont recrits sans elle, le texte deja ecrit ne part pas', async () => {
+    const { s, appeler } = session(() => RESUME);
+    const avecPhoto = [{ ...plan[0], facades: [{ cote: 0, texture: 'data:image/jpeg;base64,AAAA' }] } as unknown as ObjetBrut];
+    const ecrites = new Map<string, string>();
+    const magasin = { ecrire: async (k: string, v: string) => { ecrites.set(k, v); }, lire: async (k: string) => ecrites.get(k) ?? null };
+    await creerDepotPlateforme(s, magasin as never).enregistrer({ id: 'p1', objects: avecPhoto, schemaVersion: 2, objetsJson: new Blob([JSON.stringify(avecPhoto)]) } as never);
+    const options = appeler.mock.calls[0]?.[1] as { corps?: { document: { objects: { facades: { texture: unknown; photoLocale?: string }[] }[] } }; corpsEcrit?: Blob };
+    expect(options.corpsEcrit).toBeUndefined();
+    expect(options.corps?.document.objects[0]?.facades[0]).toMatchObject({ texture: null });
+    expect(ecrites.size).toBe(1);
+  });
+
+  it('avecObjetsEcrits : le JSON des objets a la place des objets, le reste intact', async () => {
+    const t = await avecObjetsEcrits({ name: 'A « b »', document: { appVersion: '2.2.0', objects: ['ignore'], measures: [1] } }, new Blob(['[{"k":1}]'])).text();
+    expect(JSON.parse(t)).toEqual({ name: 'A « b »', document: { appVersion: '2.2.0', objects: [{ k: 1 }], measures: [1] } });
   });
 });
