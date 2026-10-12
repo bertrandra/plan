@@ -87,11 +87,11 @@ describe('la lecture d un voisinage dans un rayon', () => {
     expect(clairseme.tronque).toBe(false);
     // Une famille dense : le disque de 1 km remplit deja le plafond ; on garde les plus proches, sans trou.
     lus.length = 0;
-    const dense = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return Array.from({ length: MAX_OBJETS_RAYON + 500 }, (_, i) => point((MAX_OBJETS_RAYON + 499 - i) * 0.09)); });
+    const dense = await lireAuPlusPres(5000, { x: 0, y: 0 }, async r => { lus.push(r); return Array.from({ length: MAX_OBJETS_RAYON + 500 }, (_, i) => point((MAX_OBJETS_RAYON + 499 - i) * 0.045)); });
     expect(lus).toEqual([1000]);
     expect(dense.elements).toHaveLength(MAX_OBJETS_RAYON);
     expect(dense.elements[0]!.d).toBe(0);
-    expect(dense.elements[MAX_OBJETS_RAYON - 1]!.d).toBeCloseTo((MAX_OBJETS_RAYON - 1) * 0.09, 6);
+    expect(dense.elements[MAX_OBJETS_RAYON - 1]!.d).toBeCloseTo((MAX_OBJETS_RAYON - 1) * 0.045, 6);
     expect(dense.tronque).toBe(true);
   });
 
