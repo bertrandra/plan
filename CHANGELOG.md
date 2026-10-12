@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Vue 3D : votre position GPS** (menu Affichage, « Ma position (3D) », décochée par défaut). Un
+  point bleu, toujours visible, suit votre position pendant que vous marchez, avec au sol un disque de
+  la précision annoncée par l'appareil. Chaque nouvelle position déplace seulement le point : rien
+  n'est recalculé, la scène n'est pas reconstruite. Comme « Filaire », c'est une préférence
+  d'affichage : ni Ctrl+Z, ni « projet modifié », permise en lecture seule, et elle ne s'enregistre
+  pas avec le projet. Elle demande un projet calé sur le cadastre ; loin du projet, un message le dit.
+  Le point n'entre pas dans l'export GLB.
+
 - **La couleur des murs se lit plus prudemment sur les photos de rue, et plus en tâche de fond.**
   Une façade en partie cachée (une haie devant) se lit sur ce qui en reste. Un mur dont trop de
   points tombent sur le ciel n'est pas lu : la photo ne le montre pas là où on le croit. Une teinte

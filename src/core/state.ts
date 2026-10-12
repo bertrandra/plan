@@ -63,6 +63,8 @@ export interface EtatApp {
 
   // Bascules d'affichage
   showNorth: boolean;
+  /** La position GPS de l'appareil est suivie et montree dans la Vue 3D (menu Affichage) : jamais enregistree. */
+  positionGps: boolean;
   grilleVisible: boolean;
   voisinageVisible: boolean;
 
@@ -121,6 +123,7 @@ export function creerEtat(
     scene: creerScene(),
 
     showNorth: true,
+    positionGps: false,
     // La grille du plan est masquee par defaut (decision de l'utilisateur, octobre 2026) : le bouton
     // « Grille » la montre, et le choix s'enregistre avec le projet.
     grilleVisible: false,

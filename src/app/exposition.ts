@@ -100,6 +100,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.courbes': menu('menuAffichage'),
   'affichage.rues': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
+  'affichage.positionGps': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleDefaut': menu('menuAffichage'),
