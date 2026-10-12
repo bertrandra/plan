@@ -181,6 +181,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La lecture de fond s'efface devant vous.** Plan mesure en continu à quel point l'écran est
+  occupé. Pendant que vous travaillez (un geste depuis moins d'une seconde et demie), une seule
+  lecture de toit à la fois, avec au moins une image entre deux bâtiments. Au repos, la lecture
+  reprend toute sa vitesse, et ralentit d'elle-même sur un poste lent ou quand la Vue 3D est chargée.
+  L'enregistrement automatique attend que vous ayez fini votre geste.
+
+- **Le zoom et le déplacement restent fluides sur un grand voisinage.** Pendant le geste, le plan
+  déjà dessiné suit la molette ou les doigts ; il est redessiné au propre dès que vous vous arrêtez.
+  Sur un voisinage d'un kilomètre (9 000 objets), une image sur vingt prenait plus de 3 secondes
+  pendant un zoom ; elle en prend 33 millisecondes. Les objets hors de la vue et les poignées des
+  objets non sélectionnés ne sont plus dessinés.
+
+- **Sur grand écran, le plan prend toute la largeur libre.** Sa largeur est celle que la palette,
+  l'explorateur et l'inspecteur laissent, mesurée, sans plafond à 1 600 pixels ; elle suit le
+  redimensionnement de la fenêtre et l'ouverture ou la fermeture des panneaux. La marge autour de la
+  parcelle à l'ouverture est proportionnée à la taille du plan.
+
 - **Les toits du voisinage se lisent quatre fois plus vite en tâche de fond.** Sur un voisinage d'un
   kilomètre au Vésinet (5 240 bâtiments), forme et couleur sont lues en 9 minutes au lieu d'environ
   35. Chaque lecture prend le bâtiment suivant dès qu'elle a fini, sans attendre la plus lente d'un

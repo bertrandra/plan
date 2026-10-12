@@ -13,6 +13,7 @@ vi.mock('../../../src/render/couleurToitOrtho.js', () => ({ couleursToitsDepuisO
 import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, PARALLELE_TOITS_FOND, ECHECS_PAR_BATIMENT, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../src/app/toitsFond.js';
 import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toitsLidar.js';
 import type { lireMursEnFond } from '../../../src/app/mursFond.js';
+import type { Regulateur } from '../../../src/app/regulateur.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
@@ -386,5 +387,47 @@ describe('la lecture des murs en fond, arretee pour l instant', () => {
     expect(lireMurs).not.toHaveBeenCalled();
     expect(progres.at(-1)?.etat).toBe('finie');
     expect(progres.some((pr) => pr?.phase === 'murs')).toBe(false);
+  });
+});
+
+describe('avec le regulateur de charge', () => {
+  /** Un regulateur de papier : il note les tours, et dit si l'utilisateur travaille. */
+  const regulateur = (occupe: () => boolean) => {
+    const tours: number[] = [];
+    const r = { tour: vi.fn(async (rang: number) => { tours.push(rang); }), occupe, calme: vi.fn(async () => {}) } as unknown as Regulateur;
+    const brancher = vi.fn(() => vi.fn());
+    return { r, brancher, tours };
+  };
+
+  it('chaque lecteur attend son tour avant chaque batiment ; la sonde est branchee le temps de la lecture', async () => {
+    const objets = plan(8);
+    const reg = regulateur(() => false);
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, lire: lecteur([]), attendre: async () => {}, regulateur: reg });
+    fond.relancer();
+    await finir(fond);
+    expect(reg.tours.length).toBeGreaterThanOrEqual(8);
+    expect(new Set(reg.tours)).toEqual(new Set([0, 1, 2, 3, 4, 5]));
+    expect(reg.brancher).toHaveBeenCalledTimes(1);
+    expect((reg.brancher.mock.results[0]!.value as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+  });
+
+  it('pendant un geste, pas d enregistrement seul en route ; a la fin, il attend le calme', async () => {
+    const objets = plan(30);
+    let occupe = true;
+    const reg = regulateur(() => occupe);
+    const p = { modifs: 0, sale: false };
+    const enregistrer = vi.fn(async () => { p.sale = false; return true; });
+    let t = 0;
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, progression: () => {}, lire: lecteur([]), attendre: async () => {}, regulateur: reg,
+      apresLot: () => { p.modifs++; p.sale = true; t += INTERVALLE_ENREGISTREMENT_MS; if (p.modifs === 3) occupe = false; },
+      modifications: () => p.modifs, sale: () => p.sale, enregistrer, maintenant: () => t,
+    });
+    fond.relancer();
+    await finir(fond);
+    await new Promise((r) => setTimeout(r, 0));
+    // Deux paquets pendant le geste : rien ; le troisieme apres : enregistre ; la fin attend le calme.
+    expect(enregistrer).toHaveBeenCalledTimes(1);
+    expect(reg.r.calme).toHaveBeenCalled();
   });
 });

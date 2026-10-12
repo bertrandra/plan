@@ -2,7 +2,7 @@
 // fenetre, cadrer un objet dans la partie que les panneaux ne recouvrent pas.
 
 import { appliquerClasse } from '../classe.js';
-import { cadrerSur, empriseDe, plancherPourEmprise } from '../../interaction/navigation.js';
+import { cadrerSur, empriseDe, plancherPourEmprise, ZOOM_MIN, ZOOM_MAX } from '../../interaction/navigation.js';
 import { empriseDuCalque } from '../../model/calque.js';
 import { aDesSommets, enPoints } from '../../model/formes.js';
 import type { Surface } from './surface.js';
@@ -42,6 +42,10 @@ const LARGEUR_EXPLORATEUR = 248;
 const LARGEUR_INSPECTEUR = 348;
 /** Replie, chacun ne garde que sa poignee : 22 px et l'espace de la rangee. */
 const LARGEUR_REPLIEE = 30;
+/** Les marges de la page autour de la rangee de l'atelier, ses espaces et le cadre du plan. */
+const MARGES_PAGE = 40;
+/** Autour de la parcelle centree, cette part de la plus petite dimension du plan (moitie de chaque cote). */
+const MARGE_PARCELLE = 0.12;
 
 /**
  * La taille de la scene, d'apres la place que la classe d'ecran laisse au plan. Mesuree avant que la
@@ -59,11 +63,17 @@ export function mesurerScene(etat: EtatApp, magasin: Magasin): void {
     return;
   }
   // Des 1 024 px, la palette, l'explorateur et l'inspecteur prennent leur largeur au plan ; replies,
-  // l'explorateur et l'inspecteur la rendent.
+  // l'explorateur et l'inspecteur la rendent. Le plan prend la place qu'ils laissent dans la rangee de
+  // l'atelier, mesuree : sans plafond, un grand ecran sert entier, et le zoom, le plancher et le cadrage
+  // raisonnent sur la taille vraie. Avant que les panneaux ne soient montes, leurs largeurs d'usage.
   const explorateur = lire().explorateurOuvert ? LARGEUR_EXPLORATEUR : LARGEUR_REPLIEE;
   const inspecteur = lire().inspecteurOuvert ? LARGEUR_INSPECTEUR : LARGEUR_REPLIEE;
-  const marge = 40 + (window.innerWidth >= 1024 ? LARGEUR_PALETTE + explorateur + inspecteur : 0);
-  etat.scene.W = Math.max(320, Math.min(window.innerWidth - marge, 1600));
+  // La largeur utile de la fenetre (sans sa barre de defilement) : la rangee de l'atelier prend la
+  // taille de son contenu, la mesurer elle tournerait en rond.
+  const fenetre = document.documentElement.clientWidth || window.innerWidth;
+  const mesuree = (id: string, defaut: number) => document.getElementById(id)?.getBoundingClientRect().width || defaut;
+  const panneaux = window.innerWidth >= 1024 ? mesuree('zonePalette', LARGEUR_PALETTE) + mesuree('zoneExplorateur', explorateur) + mesuree('zoneInspecteur', inspecteur) : 0;
+  etat.scene.W = Math.max(320, Math.floor(fenetre - MARGES_PAGE - panneaux));
   etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight * 0.62), 780));
 }
 
@@ -149,7 +159,11 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
       if (classeChangee) replierPourTablette(feuilleAvant);
       // Le centre du monde est releve AVANT le changement de taille et remis au centre apres.
       const centreAvant = d.toWorld({ x: etat.scene.W / 2, y: etat.scene.H / 2 });
+      const { W: W0, H: H0 } = etat.scene;
       mesurerScene(etat, magasin);
+      // Rien n'a change de taille (un observateur qui se reveille pour rien) : pas de rendu, qui coute
+      // une seconde sur un grand voisinage.
+      if (!classeChangee && etat.scene.W === W0 && etat.scene.H === H0) return;
       s.appliquerTaille();
       etat.scene.origine = { x: etat.scene.W / 2 - centreAvant.x * etat.scene.scale, y: etat.scene.H / 2 + centreAvant.y * etat.scene.scale };
       d.render();
@@ -162,7 +176,9 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
       const xs = enPoints(parcelle).pts.map(p => p.x), ys = enPoints(parcelle).pts.map(p => p.y);
       const midX = (Math.min(...xs) + Math.max(...xs)) / 2, midY = (Math.min(...ys) + Math.max(...ys)) / 2;
       const spanX = Math.max(...xs) - Math.min(...xs), spanY = Math.max(...ys) - Math.min(...ys);
-      etat.scene.scale = Math.max(6, Math.min(220, Math.min((etat.scene.W - 60) / spanX, (etat.scene.H - 60) / spanY)));
+      // Une marge en part du plan : 60 px fixes, c'etait 15 % d'un telephone et 4 % d'un grand ecran.
+      const marge = Math.max(24, MARGE_PARCELLE * Math.min(etat.scene.W, etat.scene.H));
+      etat.scene.scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min((etat.scene.W - marge) / spanX, (etat.scene.H - marge) / spanY)));
       etat.scene.origine = { x: etat.scene.W / 2 - midX * etat.scene.scale, y: etat.scene.H / 2 + midY * etat.scene.scale };
     },
     cadrer(obj) {

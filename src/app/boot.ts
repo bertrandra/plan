@@ -27,7 +27,9 @@ import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { lectureToits } from '../core/lectureToits.js';
-import { creerToitsFond, texteFinToitsFond } from './toitsFond.js';
+import { creerApercuVue } from '../render/apercuVue.js';
+import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toitsFond.js';
+import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
 import { mesure } from '../interaction/outilMesure.js';
@@ -140,6 +142,8 @@ type GraineDemarrage = Awaited<ReturnType<typeof loadInitialProject>>;
 let toitsFondPermis = true;
 /** Le mode de diagnostic de l'adresse (app/diagnostic.ts), lu une fois. */
 const diagnostic = modeDiagnostic();
+/** Au-dela, un rendu complet est trop lent pour suivre un geste : la vue passe par un apercu (render/apercuVue.ts). */
+const RENDU_LENT_MS = 30;
 const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env.DEV
   && (new URLSearchParams(location.search).has('temoin') || !!(window as { __sansToitsFond?: boolean }).__sansToitsFond));
 
@@ -211,6 +215,8 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   // Le dessin du plan est orchestre dans render/pipeline.ts. La terrasse courante suit la selection
   // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
   function render(): void {
+    const debut = performance.now();
+    apercu.annuler();
     const contexteChange = synchroniserContexteTerrasse(etat);
     // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
     // pouvoir tenir en entier dans la scene au geste suivant.
@@ -218,9 +224,20 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     rendreScene(etat, contexteRendu());
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
+    dureeDernierRendu = performance.now() - debut;
   }
+  // Le zoom et le deplacement s'adaptent au plan (render/apercuVue.ts) : un rendu complet tant qu'il
+  // est rapide (un petit plan), un apercu par transformation pendant le geste quand il ne l'est plus.
+  const apercu = creerApercuVue({ element: surface.svg, rendre: () => render() });
+  let dureeDernierRendu = 0;
+  const vueChangee = (avant: typeof etat.scene) => {
+    if (dureeDernierRendu < RENDU_LENT_MS) render();
+    else apercu.changer(avant, etat.scene);
+  };
   /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */
   function redessinerObjets(cles: readonly string[]): void {
+    // Pendant un apercu, le dessin ne suit pas encore la scene : le rendu complet qui suit les reprendra.
+    if (apercu.enCours()) return;
     const objets = etat.objects.filter((o) => cles.includes(o.key));
     if (objets.length) rendreObjets(etat, contexteRendu(), objets);
   }
@@ -250,7 +267,7 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   });
   return {
     etat, magasin, commandes, affichage, surface, dessin, mesures, historique, tiroir, resultats, gestes, cadrage,
-    render, redessinerObjets, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
+    render, redessinerObjets, vueChangee, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
   };
 }
 
@@ -307,6 +324,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     progression: (pr) => lectureToits.definir(pr),
     modifications: historique.modifications, sale: () => !!etat.dirty,
     enregistrer: () => tardifs.projet?.enregistrerSansBruit() ?? Promise.resolve(false),
+    // Le rythme suit l'utilisateur et le poste (app/regulateur.ts) : tout tourne ici, avec l'interface.
+    regulateur: (() => { const r = creerRegulateur({ max: PARALLELE_TOITS_FOND }); return { r, brancher: () => brancherRegulateur(r) }; })(),
     // Au bout : le bilan de ce qui a ete lu, et les toits a cheval sur deux parcelles qui attendent
     // une reponse - un mitoyen lu en fond a pu en ajouter un.
     fin: (b) => {
@@ -380,7 +399,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherPointeur(surface.svg, surface.stage, etat, {
     insertPointOnSegment: p.gestes.insertPointOnSegment, pushHistory: p.pushHistory,
     rebuildSelector: p.rebuildSelector, render: p.render, sendObjectBackward: p.gestes.sendObjectBackward,
-    toWorld: dessin.toWorld, markDirty: p.markDirty,
+    toWorld: dessin.toWorld, markDirty: p.markDirty, vueChangee: p.vueChangee,
     apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
   });
   brancherObjets(atelier, commandes);

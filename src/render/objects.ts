@@ -201,6 +201,110 @@ function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, t
   el.setAttribute('clip-path', 'url(#' + id + ')');
 }
 
+/** Cache un element s'il ne l'est pas deja : lire le style coute moins que l'ecrire. */
+function cacher(e: SVGElement): void {
+  if(e.style.display !== 'none') e.style.display = 'none';
+}
+
+/** Les poignees, etiquettes et cotes d'un objet, caches ; les cotes ne captent plus le pointeur. */
+function cacherSommets(v: ReturnType<typeof vue>): void {
+  v.pointEls.forEach(cacher);
+  v.ptLabelEls.forEach(cacher);
+  v.segLabelEls.forEach(cacher);
+  v.edgeEls.forEach((e) => { cacher(e); if(e.style.pointerEvents !== 'none') e.style.pointerEvents = 'none'; });
+}
+
+/** La marge autour de la vue, en part de sa taille : un objet qui y entre est deja place. */
+const MARGE_VUE = 0.1;
+
+/** L'objet est-il entierement hors de la vue (marge comprise) ? Calcule sur son emprise, dans le repere du plan. */
+export function horsDeLaVue(obj: ObjetRendu, scene: EtatScene): boolean {
+  const s = scene.scale;
+  if(!(s > 0) || !scene.W || !scene.H) return false;
+  const mx = scene.W * MARGE_VUE / s, my = scene.H * MARGE_VUE / s;
+  const x0 = -scene.origine.x / s - mx, x1 = (scene.W - scene.origine.x) / s + mx;
+  const y0 = (scene.origine.y - scene.H) / s - my, y1 = scene.origine.y / s + my;
+  let ox0: number, ox1: number, oy0: number, oy1: number;
+  if(obj.type === 'circle'){
+    ox0 = obj.center.x - obj.r; ox1 = obj.center.x + obj.r; oy0 = obj.center.y - obj.r; oy1 = obj.center.y + obj.r;
+  } else {
+    if(!obj.pts.length) return false;
+    ox0 = Infinity; ox1 = -Infinity; oy0 = Infinity; oy1 = -Infinity;
+    for(const p of obj.pts){ ox0 = Math.min(ox0, p.x); ox1 = Math.max(ox1, p.x); oy0 = Math.min(oy0, p.y); oy1 = Math.max(oy1, p.y); }
+  }
+  return ox1 < x0 || ox0 > x1 || oy1 < y0 || oy0 > y1;
+}
+
+/**
+ * Place les poignees, etiquettes, cotes et pastilles des sommets d'un contour ou d'un chemin, et les
+ * montre ou les cache selon la selection, le pointage et ce que l'objet demande d'afficher.
+ */
+function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof vue>, el: SVGElement, ctx: ContextePositionnement): void {
+  const n = obj.pts.length;
+  const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
+  if(v.pointEls.length !== n) ctx.reconstruirePoignees(obj);
+  // (const objCenter = cen : variable morte dans le fichier d'origine, retiree - cen est
+  // deja calcule au-dessus et utilise pour l'etiquette.)
+  obj.pts.forEach((pt, i) => {
+    // Reconstruites juste au-dessus si leur nombre ne suivait plus celui des sommets.
+    const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i];
+    if(!poignee || !etiquette) return;
+    const p = versEcran(ctx.scene, pt);
+    poignee.setAttribute('cx', String(p.x)); poignee.setAttribute('cy', String(p.y));
+    const showPtForPick = ctx.pointageSommets;
+    poignee.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
+    const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
+    poignee.setAttribute('fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
+    poignee.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
+
+    // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
+    let ext;
+    if(obj.type==='polygon'){
+      ext = exteriorBisector({ pts: obj.pts }, i);
+    } else {
+      const nb = sommetDe(obj.pts, Math.min(i+1,n-1)), pb2 = sommetDe(obj.pts, Math.max(i-1,0));
+      const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
+      ext = {x:-dy/L, y:dx/L};
+    }
+    etiquette.setAttribute('x', String(p.x + ext.x*13));
+    etiquette.setAttribute('y', String(p.y - ext.y*13 + 3));
+    etiquette.setAttribute('text-anchor','middle');
+    const vName = obj.vertexNames?.[i] || ('P'+(i+1));
+    // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
+    const showAngleHere = obj.showAngles && obj.type==='polygon';
+    // L'angle n'est calcule que s'il doit etre affiche : ce rendu passe sur chaque point de
+    // chaque objet a chaque image.
+    const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
+    const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
+    etiquette.textContent = aLaVirgule(vertTxt);
+    etiquette.style.display = vertTxt ? '' : 'none';
+
+    const cote = v.edgeEls[i], etiquetteCote = v.segLabelEls[i];
+    if(i < edgeCount && cote && etiquetteCote){
+      const a=pt, b=sommetDe(obj.pts, i+1);
+      const pa=versEcran(ctx.scene, a), pb=versEcran(ctx.scene, b);
+      cote.setAttribute('x1', String(pa.x)); cote.setAttribute('y1', String(pa.y));
+      cote.setAttribute('x2', String(pb.x)); cote.setAttribute('y2', String(pb.y));
+      const showEdgeForPick = ctx.pointageCotes;
+      cote.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
+      cote.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
+
+      const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
+      etiquetteCote.setAttribute('x', String(mid.x)); etiquetteCote.setAttribute('y', String(mid.y));
+      const segTxt = etiquetteComposee(
+        obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)),
+        obj.showSegNames, obj.showDims, SEP_ECRAN
+      );
+      etiquetteCote.textContent = aLaVirgule(segTxt);
+      // Une pastille plus longue que son cote a l'ecran chevauche ses voisines et ne se lit plus :
+      // elle attend qu'on zoome (Ajuster, pincer). La largeur se compte a ~6,5 px par caractere.
+      const tropCourt = Math.hypot(pb.x-pa.x, pb.y-pa.y) < segTxt.length*6.5 + 12;
+      etiquetteCote.style.display = segTxt && !tropCourt ? '' : 'none';
+    }
+  });
+  el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+}
+
 /** Ce que positionner un objet demande de savoir, en plus de l'objet lui-meme. */
 export interface ContextePositionnement {
   scene: EtatScene;
@@ -242,6 +346,14 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus
     // deroutant qu'utile. Il reste choisissable depuis la barre laterale pour le demasquer.
+    // Hors de la vue (et pas selectionne) : rien ne se dessine non plus, sans rien recalculer ; il
+    // reprend sa place des qu'il revient dans la vue. Un voisinage d'un kilometre zoome sur la
+    // parcelle n'a que quelques dizaines d'objets a placer, au lieu de 9 000.
+    if(!ctx.masque && !ctx.selectionnee && horsDeLaVue(obj, ctx.scene)){
+      cacher(el); cacher(nameEl); if(v.camMarkerEl) cacher(v.camMarkerEl); if(v.radiusHandle) cacher(v.radiusHandle);
+      cacherSommets(v);
+      return;
+    }
     if(ctx.masque){
       el.style.display = 'none';
       nameEl.style.display = 'none';
@@ -299,70 +411,16 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     nameEl.setAttribute('font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
     nameEl.textContent = obj.showName ? obj.name : '';
 
-    if(obj.type==='polygon' || obj.type==='path'){
-      const n = obj.pts.length;
-      const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
-      if(v.pointEls.length !== n) ctx.reconstruirePoignees(obj);
-      // (const objCenter = cen : variable morte dans le fichier d'origine, retiree - cen est
-      // deja calcule au-dessus et utilise pour l'etiquette.)
-      obj.pts.forEach((pt, i) => {
-        // Reconstruites juste au-dessus si leur nombre ne suivait plus celui des sommets.
-        const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i];
-        if(!poignee || !etiquette) return;
-        const p = versEcran(ctx.scene, pt);
-        poignee.setAttribute('cx', String(p.x)); poignee.setAttribute('cy', String(p.y));
-        const showPtForPick = ctx.pointageSommets;
-        poignee.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
-        const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-        poignee.setAttribute('fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
-        poignee.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
-
-        // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
-        let ext;
-        if(obj.type==='polygon'){
-          ext = exteriorBisector({ pts: obj.pts }, i);
-        } else {
-          const nb = sommetDe(obj.pts, Math.min(i+1,n-1)), pb2 = sommetDe(obj.pts, Math.max(i-1,0));
-          const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
-          ext = {x:-dy/L, y:dx/L};
-        }
-        etiquette.setAttribute('x', String(p.x + ext.x*13));
-        etiquette.setAttribute('y', String(p.y - ext.y*13 + 3));
-        etiquette.setAttribute('text-anchor','middle');
-        const vName = obj.vertexNames?.[i] || ('P'+(i+1));
-        // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
-        const showAngleHere = obj.showAngles && obj.type==='polygon';
-        // L'angle n'est calcule que s'il doit etre affiche : ce rendu passe sur chaque point de
-        // chaque objet a chaque image.
-        const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
-        const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
-        etiquette.textContent = aLaVirgule(vertTxt);
-        etiquette.style.display = vertTxt ? '' : 'none';
-
-        const cote = v.edgeEls[i], etiquetteCote = v.segLabelEls[i];
-        if(i < edgeCount && cote && etiquetteCote){
-          const a=pt, b=sommetDe(obj.pts, i+1);
-          const pa=versEcran(ctx.scene, a), pb=versEcran(ctx.scene, b);
-          cote.setAttribute('x1', String(pa.x)); cote.setAttribute('y1', String(pa.y));
-          cote.setAttribute('x2', String(pb.x)); cote.setAttribute('y2', String(pb.y));
-          const showEdgeForPick = ctx.pointageCotes;
-          cote.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
-          cote.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
-
-          const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-          etiquetteCote.setAttribute('x', String(mid.x)); etiquetteCote.setAttribute('y', String(mid.y));
-          const segTxt = etiquetteComposee(
-            obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)),
-            obj.showSegNames, obj.showDims, SEP_ECRAN
-          );
-          etiquetteCote.textContent = aLaVirgule(segTxt);
-          // Une pastille plus longue que son cote a l'ecran chevauche ses voisines et ne se lit plus :
-          // elle attend qu'on zoome (Ajuster, pincer). La largeur se compte a ~6,5 px par caractere.
-          const tropCourt = Math.hypot(pb.x-pa.x, pb.y-pa.y) < segTxt.length*6.5 + 12;
-          etiquetteCote.style.display = segTxt && !tropCourt ? '' : 'none';
-        }
-      });
-      el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+    // Rien des sommets ne se voit (ni selection, ni pointage, ni noms, angles ou cotes) : on les cache
+    // une fois et on ne les place pas. C'etait l'essentiel d'un rendu de voisinage : dix attributs par
+    // sommet de chaque batiment, pour des elements invisibles (profil d'octobre 2026).
+    const sommetsUtiles = ctx.selectionnee || ctx.pointageSommets || ctx.pointageCotes
+      || !!obj.showVertNames || !!obj.showAngles || !!obj.showSegNames || !!obj.showDims;
+    if((obj.type==='polygon' || obj.type==='path') && !sommetsUtiles){
+      cacherSommets(v);
+      el.style.cursor = obj.locked ? 'not-allowed' : 'pointer';
+    } else if(obj.type==='polygon' || obj.type==='path'){
+      placerSommets(obj, v, el, ctx);
     } else {
       const rp = versEcran(ctx.scene, {x:obj.center.x+obj.r, y:obj.center.y});
       if(v.radiusHandle){

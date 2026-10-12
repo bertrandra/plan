@@ -176,6 +176,33 @@ Rennes (9 bâtiments vus), 262 au Vésinet (31 bâtiments vus), jusqu'à 6 photo
 - `VERSION_LECTURE_MURS` passe à 2 ; la lecture de fond des murs est arrêtée, l'import lit toujours les
   150 bâtiments les plus proches.
 
+## Étape 6 — régulateur de charge, zoom fluide (branche `claude/zoom-fluide`)
+
+Tout tourne sur le poste, dans le fil de l'interface : la lecture de fond doit se doser selon
+l'utilisateur et le poste, pas selon une constante.
+
+| Changement | Où | Effet |
+|---|---|---|
+| Régulateur | `app/regulateur.ts` | une sonde de 100 ms mesure le retard du fil (lissé) ; consigne 16 ms si un geste date de moins de 1,5 s, 200 ms au repos ; au-dessus, moitié moins de lecteurs et pause doublée (≤ 1 s), en dessous, un lecteur de plus par seconde ; au premier geste, un seul lecteur tout de suite |
+| Lecture de fond | `app/toitsFond.ts` | chaque lecteur passe par `tour(rang)` avant un bâtiment ; l'enregistrement automatique saute un tour pendant un geste, celui de fin attend le calme (10 s au plus) |
+| Aperçu du geste | `render/apercuVue.ts`, `interaction/pointeur.ts` | molette, pincement, déplacement : le SVG déjà rendu suit par une transformation CSS ; rendu complet 150 ms après la fin du geste, seulement si le dernier rendu a pris 30 ms ou plus |
+| Rendu allégé | `render/objects.ts` | objets hors de la vue (marge 10 %) non positionnés ; poignées et étiquettes de sommets seulement si utiles |
+| Taille du plan | `app/assemblage/cadrage.ts`, `ecouteurs/divers.ts` | largeur mesurée en écran large, sans plafond ; `ResizeObserver` sur l'atelier ; marge de la parcelle proportionnelle |
+
+Mesure sur le voisinage d'un kilomètre du Vésinet, 100 crans de molette, lecture de fond en cours :
+
+| | main | régulateur seul | régulateur + aperçu |
+|---|---|---|---|
+| Image p50 / p95 / max | 17 / 3 167 / 5 850 ms | 17 / 3 067 / 5 333 ms | **17 / 33 / 1 067 ms** |
+| Images de plus de 50 ms | 109 | 108 | **13** |
+| Toits lus pendant le geste (10 s) | 164 | 36 | 12 |
+| Toits lus au repos (10 s) | 96 | 12 → 60 (consigne 200 ms) | 60 |
+
+Le maximum restant (environ 1 s) est le rendu complet à la fin du geste quand tout le voisinage est
+visible : le SVG est recalculé en coordonnées d'écran. Un rendu en coordonnées du monde (une seule
+transformation sur un groupe) le supprimerait ; c'est une refonte du rendu, à faire si le besoin
+se confirme.
+
 ## Limites d'usage de la Géoplateforme (point 2, vérifié le 12 octobre 2026)
 
 Source : [Limites d'usage des API](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/limites-d-usage/)

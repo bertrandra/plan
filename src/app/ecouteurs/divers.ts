@@ -59,10 +59,16 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
    * cela, agrandir la fenêtre ferait dériver le plan hors de l'écran au lieu de l'élargir.
    */
   let apaisement: ReturnType<typeof setTimeout> | null = null;
-  window.addEventListener('resize', () => {
+  const redimensionnerApaise = () => {
     if (apaisement) clearTimeout(apaisement);
     apaisement = setTimeout(ctx.redimensionnerLePlan, APAISEMENT_RESIZE_MS);
-  });
+  };
+  window.addEventListener('resize', redimensionnerApaise);
+  // La rangee de l'atelier change aussi de largeur sans que la fenetre bouge : une barre de defilement
+  // qui parait quand le tiroir s'ouvre, un panneau qui change de largeur. Le plan suit, sans rendu
+  // si rien n'a change (app/assemblage/cadrage.ts).
+  const atelier = document.getElementById('zoneAtelier');
+  if (atelier && typeof ResizeObserver !== 'undefined') new ResizeObserver(redimensionnerApaise).observe(atelier);
 
   cmd.declarer({ id: 'mesure.recalculer', libelle: 'Recalculer les mesures', groupe: 'mesure', executer: () => { a.render(); } });
 
