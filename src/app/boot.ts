@@ -97,6 +97,8 @@ import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 import { estPiscine, estTerrasse, estVueUtilisable, parcelleDuProjet } from '../model/fonctions.js';
 import { EVENEMENT_ENCRES } from '../render/theme.js';
+import { brancherAudit } from './audit/branchement.js';
+import type { DemandeAudit } from './audit/demande.js';
 
 brancherFiletsDErreur();
 
@@ -119,6 +121,14 @@ async function loadInitialProject(){
  * personne — ni plateforme, ni stockage du navigateur. La forme est celle que rend
  * `chargerProjetInitial` quand aucune API ne repond.
  */
+/**
+ * La graine du mode audit (app/audit/) : un plan vide, sans depot. La parcelle de depart arrive
+ * avec la premiere position (le GPS, ou l'adresse de `depart`).
+ */
+function graineAudit(){
+  return { ...graineVitrine(), objects: [] as ObjetBrut[], measures: [] as Mesure[] } satisfies GraineDemarrage;
+}
+
 function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | null){
   return {
     apiAvailable: false,
@@ -507,14 +517,14 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
   };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: DemandeAudit; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
   // « Actualiser IGN » et « Lecture… » (relief) se voient dans toutes les zones ; les toits lus en fond
   // ne redessinent que la barre d'etat et le menu, abonnes directement (core/lectureToits.ts).
   for (const lecture of [actualisation, lectureRelief]) lecture.abonner(() => magasin.notifier());
-  toitsFondPermis = lectureDeFondPermise(!!options.vitrine);
+  toitsFondPermis = lectureDeFondPermise(!!options.vitrine || !!options.audit); // l'audit lit ses toits lui-meme, autour de vous
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);
@@ -645,6 +655,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
       void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
     }
   }
+  else if (options.audit) demarrerAudit(p, vues, options.audit);
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
@@ -655,6 +666,16 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
     options.controleurs(async () => sourceControleurs(commandes, inspecteur, etat.objects,
       await inventorierLesClasses(magasin, etat, (cle) => explorateur.selectionner(cle))));
   }
+}
+
+/** Le mode audit (app/audit/) : la promenade pilote le plan, rien ne s'enregistre. */
+function demarrerAudit(p: Plan, vues: Vues3d, demande: DemandeAudit): void {
+  const { etat, magasin, commandes } = p;
+  brancherAudit({
+    etat, commandes, notifier: () => magasin.notifier(), signaler: showToast,
+    restaurer: (i) => p.historique.restaurer(i), rebuildSelector: p.rebuildSelector,
+    buildThreeScene: () => vues.buildThreeScene(null), remplacerObjets3d: (cles) => vues.remplacerObjets3d(cles),
+  }, demande);
 }
 
 /**
@@ -725,4 +746,4 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
 }
 
 // main.ts n'a besoin que de ces deux points d'entree.
-export { boot, loadInitialProject, graineVitrine };
+export { boot, loadInitialProject, graineVitrine, graineAudit };

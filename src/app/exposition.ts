@@ -155,6 +155,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.hauteurDesYeux': partout('vue3d'),
   '3d.enregistrerPng': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
+  // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
+  'audit.suivre': partout('vue3d'),
+  'audit.cas': partout('vue3d'),
   '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['vue3d'] },
 
   // ---- Visionneuse ----------------------------------------------------------------------------

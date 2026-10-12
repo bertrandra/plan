@@ -261,3 +261,11 @@ const abonnes = new Set<() => void>();
 export function signaler3d(): void { version++; abonnes.forEach(f => f()); }
 export function abonner3d(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
 export const version3d = (): number => version;
+
+const apresConstruction = new Set<() => void>();
+/**
+ * Une Vue 3D vient d'etre batie (three/scene.ts, en fin de construction). Separe de `signaler3d` :
+ * les zones n'ont rien a redessiner, seul ce qui pilote la camera (le mode audit) la reprend.
+ */
+export function signalerSceneBatie(): void { apresConstruction.forEach(f => f()); }
+export function abonnerSceneBatie(f: () => void): () => void { apresConstruction.add(f); return () => { apresConstruction.delete(f); }; }

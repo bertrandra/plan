@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Mode audit, étape 1** (`?mode=audit`, administrateur seulement ; `MD/spec-audit.md`). Une
+  promenade pour noter les toits et les façades que Plan calcule mal. La Vue 3D suit votre position
+  GPS (caméra « drone », « Me suivre » après un glisser) et charge tout ce qui est à moins de 40 m,
+  relu à chaque pas de plus de 10 m ; chaque toit y est calculé en entier (recalage, coupes), les
+  murs prennent la couleur de leur matériau BD TOPO. Toucher un bâtiment le marque en rouge (le
+  retoucher retire la marque) ; un appui long ouvre sa fiche : catégorie, problèmes à cocher (sens
+  du faîtage, pignon manquant, arbre pris pour le toit…), note, photo réduite à 300 Ko. « Cas
+  notés » montre la liste, à revoir, puis partage un seul fichier pour toute la promenade par le
+  partage du téléphone (téléchargé sur un ordinateur). Chaque cas y garde ce qu'il faut pour être
+  rejoué sans réseau : contour, BD TOPO, grille LiDAR, et ce que Plan en avait fait. Rien n'est
+  enregistré : aucun projet n'est créé ni modifié. `&depart=<adresse>` part d'une adresse au lieu du
+  GPS, la position se déplaçant au doigt : pour essayer sans sortir.
+
 - **Vue 3D : votre position GPS** (menu Affichage, « Ma position (3D) », décochée par défaut). Un
   point bleu, toujours visible, suit votre position pendant que vous marchez, avec au sol un disque de
   la précision annoncée par l'appareil. Chaque nouvelle position déplace seulement le point : rien

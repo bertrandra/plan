@@ -53,6 +53,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
   const pleinePage = affichage3d.pleinePage3d;
   const r = vues.reglages;
   const etatPlan = magasin.store.getState().etat;
+  // Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes, sous les reglages.
+  const audit = etatPlan.audit;
   const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
   // Les reglages de la terrasse (filaire, translucide, sol en coupe) ne se montrent que si c'est une
   // terrasse qui est selectionnee : sur un batiment ou la parcelle, ils ne disent rien.
@@ -130,6 +132,17 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         onClick={() => magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d')}>
         <Icone nom="reglages" taille={20} />
       </button>
+      {audit && <div className="barreAudit" role="group" aria-label="Promenade d’audit">
+        <span className="etatAudit" role="status">{audit.statut}</span>
+        <button type="button" className="secondary" data-commande="audit.suivre" aria-pressed={audit.suivre}
+          disabled={!commandes.etat('audit.suivre').utilisable}
+          title="La caméra suit votre position ; glisser sur la scène la libère"
+          onClick={(e) => { commandes.executer('audit.suivre', e.currentTarget); }}>
+          <Icone nom="personne" taille={18} /> Me suivre
+        </button>
+        <button type="button" data-commande="audit.cas" title="Les bâtiments notés, puis le partage du fichier de la promenade"
+          onClick={(e) => { commandes.executer('audit.cas', e.currentTarget); }}>{'Cas notés (' + audit.cas + ')'}</button>
+      </div>}
       <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliotheque 3D…</div>
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}

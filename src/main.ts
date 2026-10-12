@@ -107,12 +107,28 @@ async function demarrer(): Promise<void> {
     // boot, parce que le registre des commandes se construit pendant cet import.
     const { poserAcces } = await import('./app/acces.js');
     poserAcces(acces.session, acces.contexte);
+    // Le mode audit (MD/spec-audit.md), reserve a l'administrateur : un plan vide qui suit la
+    // promenade, sans depot de projets, donc sans rien enregistrer.
+    const { lireDemandeAudit } = await import('./app/audit/demande.js');
+    const audit = lireDemandeAudit(location.search);
+    const { confirmerAdministrateur } = await import('./app/acces.js');
+    if (audit && await confirmerAdministrateur()) {
+      const { boot, graineAudit } = await import('./app/boot.js');
+      boot(graineAudit(), { audit });
+      document.title = 'Audit — Plan';
+      finChargementApresRendu();
+      return;
+    }
     // Le depot des projets, pose ici parce que c'est ici que la session existe : io/ ne remonte pas
     // vers app/ pour aller la chercher (spec-connexion-plateforme §16, etape 4).
     const { creerDepotPlateforme } = await import('./io/depotPlateforme.js');
     const { definirDepot } = await import('./io/api.js');
     definirDepot(creerDepotPlateforme(acces.session));
     const { boot, loadInitialProject } = await import('./app/boot.js');
+    if (audit) {
+      const { showToast } = await import('./shell/dialogs.js');
+      showToast('Le mode audit est réservé aux administrateurs : le plan s’ouvre normalement.');
+    }
     try {
       // Apres la porte (qui a retire la roue pour se montrer), la lecture du projet la remet : un
       // plan lourd met plusieurs secondes a arriver et a se dessiner.

@@ -1,5 +1,5 @@
 // Z8, les parcours en plusieurs etapes (spec-ihm-zones §4.8) : import cadastral, actualisation IGN,
-// choix d'une texture. Un seul a la fois, modal, fermable par Echap ou par un clic sur le voile.
+// choix d'une texture, fiches du mode audit. Un seul a la fois, modal, fermable par Echap ou par un clic sur le voile.
 //
 // Le parcours ouvert vient d'app/parcours.ts ; chacun porte sa logique a part, cette zone ne fait que
 // le cadre et l'aiguillage.
@@ -9,6 +9,8 @@ import { parcours } from '../app/parcours.js';
 import { ImportCadastre } from './parcours/ImportCadastre.js';
 import { Actualisation } from './parcours/Actualisation.js';
 import { ChoixTexture } from './parcours/ChoixTexture.js';
+import { AuditCas } from './parcours/AuditCas.js';
+import { AuditFin } from './parcours/AuditFin.js';
 
 export function Parcours() {
   const p = useSyncExternalStore(parcours.abonner, parcours.courant, parcours.courant);
@@ -25,6 +27,8 @@ export function Parcours() {
       {p.type === 'cadastre' && <ImportCadastre importe={p.importe} />}
       {p.type === 'actualisation' && <Actualisation infos={p.infos} lancer={p.lancer} fermer={fermer} />}
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
+      {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} fermer={p.retour ?? fermer} />}
+      {p.type === 'auditFin' && <AuditFin promenade={p.promenade} modifier={p.modifier} retirer={p.retirer} partager={p.partager} fermer={fermer} />}
     </div>
   );
 }

@@ -65,6 +65,8 @@ export interface EtatApp {
   showNorth: boolean;
   /** La position GPS de l'appareil est suivie et montree dans la Vue 3D (menu Affichage) : jamais enregistree. */
   positionGps: boolean;
+  /** Le mode audit (app/audit/), ou null hors audit : ce que la barre de la Vue 3D en montre. */
+  audit: { statut: string; cas: number; suivre: boolean } | null;
   grilleVisible: boolean;
   voisinageVisible: boolean;
 
@@ -124,6 +126,7 @@ export function creerEtat(
 
     showNorth: true,
     positionGps: false,
+    audit: null,
     // La grille du plan est masquee par defaut (decision de l'utilisateur, octobre 2026) : le bouton
     // « Grille » la montre, et le choix s'enregistre avec le projet.
     grilleVisible: false,
