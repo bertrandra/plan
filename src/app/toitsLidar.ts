@@ -161,6 +161,8 @@ export interface OptionsToitsLidar {
   /** La grille entiere, pour le toit mesure d'un batiment de la parcelle du projet ; `lire` donne, absente, et sinon la grille du service. */
   lireGrille?: LecteurGrilleMnh;
   dalles?: (pts: readonly PtBrut[], proj: ProjecteurLocal) => Promise<boolean>;
+  /** Les cles des batiments mitoyens (`clesMitoyens`), deja calculees : la tache de fond lit un batiment a la fois. */
+  mitoyens?: ReadonlySet<string>;
   /** L'horloge, pour le delai. */
   maintenant?: () => number;
 }
@@ -239,6 +241,15 @@ async function lireSous(o: ObjetAToit & { pts: PtBrut[] }, proj: ProjecteurLocal
   catch { return { ech: [], grille: null, echec: true }; }
 }
 
+/**
+ * Les cles des batiments des parcelles mitoyennes, quand les toits du voisinage se lisent en corps et
+ * pignons. Par la cle : la tache de fond lit des copies des batiments du plan.
+ */
+export function clesMitoyens(objets: readonly ObjetAToit[]): Set<string> {
+  if (!corpsDuVoisinage(objets)) return new Set();
+  return new Set([...batimentsMitoyens(objets)].map((m) => m.key).filter((k): k is string => !!k));
+}
+
 /** Le centre de la parcelle du projet, ou de tout ce qui a des sommets. */
 function centreDuProjet(objets: readonly ObjetAToit[]): PtBrut {
   const parcelle = objets.find((o) => o.key === 'parcelle') ?? objets.find((o) => o.fonction === 'terrain');
@@ -274,9 +285,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   // Un lecteur de mesures fourni sans lecteur de grille : pas de toit mesure (les tests, un service partiel).
   const lireGrille = options.lireGrille ?? (options.lire ? null : lireGrilleSous);
   const voisins = corpsDuVoisinage(objets);
-  // Par la cle : un lot de la tache de fond se lit sur des copies des batiments du plan.
-  const clesMitoyens = new Set([...(voisins ? batimentsMitoyens(objets) : new Set<ObjetAToit>())].map((m) => m.key));
-  const estMitoyen = (o: ObjetAToit) => !!o.key && clesMitoyens.has(o.key);
+  const mitoyens = options.mitoyens ?? clesMitoyens(objets);
+  const estMitoyen = (o: ObjetAToit) => !!o.key && mitoyens.has(o.key);
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
     while (suivant < candidats.length && maintenant() < fin) {
