@@ -35,6 +35,9 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 - `?mode=audit` n'a d'effet que si la personne administre (`app/acces.ts::confirmerAdministrateur`,
   qui relit le contexte de la plateforme quand il n'est pas en cache). Sinon, le paramètre est
   ignoré, un message le dit, et l'application s'ouvre normalement.
+- Il s'ouvre depuis l'écran par **Admin › Mode audit (promenade)** : en admin des démos, vers
+  `?admin&mode=audit` (le dépôt des démos n'est pas posé, rien ne s'y enregistre) ; pour
+  l'administrateur de la plateforme, vers `?mode=audit`, seule entrée de son menu Admin.
 - **Aucun projet plateforme** : ni création, ni enregistrement automatique, ni enregistrement
   final. Étape 1 : `main.ts` ne pose aucun dépôt de projets, le plan part vide (`graineAudit`) ;
   le menu Fichier n'est pas encore réduit (étape 2).

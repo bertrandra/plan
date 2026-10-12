@@ -37,8 +37,10 @@ export function capacitesForceesSansDroit(): string[] {
 
 /** La personne administre : l'admin des demos, ou un role d'administration chez la plateforme. */
 export function estAdministrateur(): boolean {
-  return admin || !!contexte?.courant()?.roles.some(estRoleAdmin);
+  return admin || adminConfirme || !!contexte?.courant()?.roles.some(estRoleAdmin);
 }
+/** Le role relu par `confirmerAdministrateur` : il vaut pour la session, meme hors du cache du contexte. */
+let adminConfirme = false;
 const estRoleAdmin = (r: string) => /admin/i.test(r);
 
 /**
@@ -48,7 +50,8 @@ const estRoleAdmin = (r: string) => /admin/i.test(r);
 export async function confirmerAdministrateur(): Promise<boolean> {
   if (estAdministrateur()) return true;
   const c = await contexte?.charger().catch(() => null);
-  return !!c?.roles.some(estRoleAdmin);
+  adminConfirme = !!c?.roles.some(estRoleAdmin);
+  return adminConfirme;
 }
 
 /**

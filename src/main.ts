@@ -79,6 +79,17 @@ async function demarrer(): Promise<void> {
       }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
+      // Le mode audit depuis le menu Admin (`?admin&mode=audit`) : meme demarrage qu'apres la porte
+      // de la plateforme, sans le depot des demos, donc sans rien enregistrer.
+      const { lireDemandeAudit } = await import('./app/audit/demande.js');
+      const auditAdmin = lireDemandeAudit(location.search);
+      if (auditAdmin) {
+        const { boot, graineAudit } = await import('./app/boot.js');
+        boot(graineAudit(), { audit: auditAdmin });
+        document.title = 'Audit — Plan';
+        finChargementApresRendu();
+        return;
+      }
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
@@ -111,8 +122,10 @@ async function demarrer(): Promise<void> {
     // promenade, sans depot de projets, donc sans rien enregistrer.
     const { lireDemandeAudit } = await import('./app/audit/demande.js');
     const audit = lireDemandeAudit(location.search);
+    // Relu aussi hors audit : le menu Admin (son entree « Mode audit ») se montre a l'administrateur.
     const { confirmerAdministrateur } = await import('./app/acces.js');
-    if (audit && await confirmerAdministrateur()) {
+    const administrateur = await confirmerAdministrateur();
+    if (audit && administrateur) {
       const { boot, graineAudit } = await import('./app/boot.js');
       boot(graineAudit(), { audit });
       document.title = 'Audit — Plan';

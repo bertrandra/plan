@@ -3,8 +3,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-// Le menu Admin de la barre : il n'existe qu'en admin des demos, et mene aux deux ecrans
-// secondaires (controleurs, palette).
+// Le menu Admin de la barre : il n'existe que pour un administrateur. Il mene au mode audit ; en
+// admin des demos, aussi aux deux ecrans secondaires (controleurs, palette).
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -30,9 +30,31 @@ describe('le menu Admin', () => {
     expect(hote.querySelector('#menuAdmin')).toBeNull();
   });
 
-  it('mene aux controleurs et a la palette en admin', async () => {
+  it('mene au mode audit, aux controleurs et a la palette en admin des demos', async () => {
     const hote = await monter(true);
     expect(hote.querySelector('#menuAdmin summary')?.textContent).toBe('Admin');
-    expect([...hote.querySelectorAll('[data-controle]')].map(e => e.getAttribute('data-controle'))).toEqual(['admin.controleurs', 'admin.palette']);
+    expect([...hote.querySelectorAll('[data-controle]')].map(e => e.getAttribute('data-controle'))).toEqual(['admin.audit', 'admin.controleurs', 'admin.palette']);
+  });
+
+  it('l administrateur de la plateforme n y trouve que le mode audit', async () => {
+    vi.resetModules();
+    const acces = await import('../../../src/app/acces.js');
+    acces.poserAcces({} as never, { courant: () => null, charger: async () => ({ roles: ['tenant_admin'] }) } as never);
+    expect(await acces.confirmerAdministrateur()).toBe(true);
+    const { MenuAdmin } = await import('../../../src/zones/BarreApplication.js');
+    const hote = document.createElement('div');
+    document.body.appendChild(hote);
+    const racine = createRoot(hote);
+    act(() => { racine.render(createElement(MenuAdmin)); });
+    monte = { racine, hote };
+    expect([...hote.querySelectorAll('[data-controle]')].map(e => e.getAttribute('data-controle'))).toEqual(['admin.audit']);
+  });
+
+  it('un compte sans role d administration ne le voit pas', async () => {
+    vi.resetModules();
+    const acces = await import('../../../src/app/acces.js');
+    acces.poserAcces({} as never, { courant: () => null, charger: async () => ({ roles: ['membre'] }) } as never);
+    expect(await acces.confirmerAdministrateur()).toBe(false);
+    expect(acces.estAdministrateur()).toBe(false);
   });
 });
