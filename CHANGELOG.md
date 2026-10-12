@@ -184,10 +184,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
   le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.
 
-- **Vue 3D : le zoom avance plus vite.** Un cran de molette rapproche ou éloigne d'une fois et
-  demie (10 % auparavant), un clic sur + ou − divise ou double la distance (×0,8 et ×1,25
-  auparavant), et le pincement à deux doigts zoome deux fois plus. Le zoom arrière s'arrête avant
-  que la scène ne sorte du champ.
+- **Vue 3D : le zoom suit la règle du plan 2D.** Chaque mouvement de molette rapproche ou éloigne
+  du même rapport que sur le plan, quelle que soit sa taille. Au pavé tactile et à la souris à
+  défilement libre, le zoom faiblissait à chaque pas (les petits pas de fin de geste ne zoomaient
+  presque plus) ; un seul geste traverse maintenant le voisinage. Un clic sur + ou − divise ou
+  double la distance (×0,8 et ×1,25 auparavant), et le pincement à deux doigts zoome deux fois plus.
+  Le zoom arrière s'arrête avant que la scène ne sorte du champ.
 
 - **Le rayon du voisinage va jusqu'à 1,5 km** (5 km auparavant), à la création d'un projet depuis
   une adresse comme à l'actualisation d'un projet existant. Au-delà, le plan, la Vue 3D et
