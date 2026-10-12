@@ -114,7 +114,7 @@ export interface MurAVoir { cle: string; a: PtBrut; b: PtBrut; egout: number; vu
  * normale sortante, a moins de 70 degres de l'aplomb), entre 3 et 40 m, dont le champ le contient, et
  * sans autre contour entre elles et lui ; les deux meilleures (de pres et de face).
  */
-export function mursVisibles(batiments: readonly { key: string; pts: readonly PtBrut[]; egout: number }[], vues: readonly VueRue[], obstacles: readonly Obstacle[]): MurAVoir[] {
+export function mursVisibles(batiments: readonly { key: string; pts: readonly PtBrut[]; egout: number }[], vues: readonly VueRue[], obstacles: readonly Obstacle[], parMur = PHOTOS_PAR_MUR): MurAVoir[] {
   const out: MurAVoir[] = [];
   for (const bat of batiments) {
     const pts = bat.pts, sens = signedArea(pts as PtBrut[]) > 0 ? 1 : -1;
@@ -135,7 +135,7 @@ export function mursVisibles(batiments: readonly { key: string; pts: readonly Pt
         if (vueCachee({ x: vue.x, y: vue.y }, devant, obstacles)) continue;
         notes.push({ cle: bat.key, a, b, egout: bat.egout, vue, note: d + obliquite * 0.2 });
       }
-      out.push(...notes.sort((x, y) => x.note - y.note).slice(0, PHOTOS_PAR_MUR));
+      out.push(...notes.sort((x, y) => x.note - y.note).slice(0, parMur));
     });
   }
   return out;
