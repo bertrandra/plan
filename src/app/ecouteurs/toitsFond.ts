@@ -8,10 +8,11 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { lectureToits } from '../../core/lectureToits.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ToitsFond } from '../toitsFond.js';
+import { LECTURE_MURS_EN_FOND } from '../mursFond.js';
 
 export function brancherToitsFond(fond: ToitsFond, cmd: RegistreCommandes): void {
   cmd.declarer({
-    id: 'projet.toitsFond', libelle: 'Lecture des toits et des murs en tâche de fond', groupe: 'projet',
+    id: 'projet.toitsFond', libelle: LECTURE_MURS_EN_FOND ? 'Lecture des toits et des murs en tâche de fond' : 'Lecture des toits en tâche de fond', groupe: 'projet',
     permission: PERMISSION_ECRITURE,
     actif: () => { const p = lectureToits.progression(); return !!p && p.etat !== 'finie'; },
     executer: () => { if (fond.enCours()) fond.arreter(); else fond.relancer(); }

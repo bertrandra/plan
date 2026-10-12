@@ -20,6 +20,15 @@ import { centroid } from '../geometry/basic.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
+/**
+ * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les
+ * photos Panoramax disponibles, elle ne concluait que pour quelques batiments (2 sur 31 au Vesinet,
+ * 2 sur 9 a Rennes, garde-fous compris) pour des centaines de Mo telecharges. Elle reprend en passant
+ * ceci a vrai, quand la lecture conclura plus souvent (MD/roadmap-toits-fond.md, etape 5) ; l'import
+ * lit toujours les murs des 150 batiments les plus proches.
+ */
+export const LECTURE_MURS_EN_FOND = false;
+
 /** Les photos d'une zone se telechargent autant a la fois : des images de 2 048 px, pas de petites grilles. */
 export const PARALLELE_MURS_FOND = 4;
 /** Une zone dont la recherche echoue d'affilee tant de fois arrete la lecture des murs pour la seance. */
@@ -33,8 +42,9 @@ const estBatiment = (o: ObjetPlan): o is Batiment => o.fonction === 'batiment' &
 /**
  * La version de la lecture des murs. Une regle de lecture qui conclut plus souvent (model/couleurMur.ts,
  * render/couleurMurPhoto.ts) passe ce numero : les murs restes sans lecture concluante sont relus.
+ * 2 : facade en partie cachee lue sur ce qui en reste, ciel et teintes froides ecartes.
  */
-export const VERSION_LECTURE_MURS = 1;
+export const VERSION_LECTURE_MURS = 2;
 
 /** La couleur des murs de ce batiment reste a lire sur les photos de rue : jamais lue, ou sans conclusion a une version plus ancienne. */
 export const mursALire = (o: ObjetPlan): boolean => {

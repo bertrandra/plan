@@ -26,6 +26,7 @@ import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
 import { lectureToits } from '../core/lectureToits.js';
+import { LECTURE_MURS_EN_FOND } from '../app/mursFond.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';
@@ -115,7 +116,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
         <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
-        <Entree commandes={commandes} id="projet.toitsFond" libelle={toitsFond?.etat === 'enCours' ? 'Suspendre la lecture des toits et des murs' : 'Reprendre la lecture des toits et des murs'} />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
