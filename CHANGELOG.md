@@ -172,6 +172,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les toits du voisinage se lisent quatre fois plus vite en tâche de fond.** Sur un voisinage d'un
+  kilomètre au Vésinet (5 240 bâtiments), forme et couleur sont lues en 9 minutes au lieu d'environ
+  35. Chaque lecture prend le bâtiment suivant dès qu'elle a fini, sans attendre la plus lente d'un
+  lot, et le plan se redessine toujours par paquets de 12. Quand la Géoplateforme répond qu'elle est
+  trop sollicitée (quota par adresse IP), Plan attend le délai qu'elle demande et redemande, au lieu
+  de mettre la lecture en pause 30 secondes.
+
 - **Un projet avec un grand voisinage pèse environ 13 % de moins.** Les parcelles et bâtiments du
   voisinage n'écrivent plus les réglages d'un autre genre d'objet, posés par défaut à leur création
   (hauteur et couleur de clôture, hauteur de parasol, diamètre et couleur d'arbre), ni les attributs

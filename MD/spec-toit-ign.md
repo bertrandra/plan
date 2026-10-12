@@ -667,10 +667,12 @@ bâtiments dont le toit vient de la BD TOPO ou d'une lecture LiDAR antérieure (
 toit lu sur une photo ou saisi n'est pas touché, et `toitActualise` (§5.3) recalcule un toit LiDAR
 comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du projet d'abord, au plus
 `MAX_BATIMENTS_LIDAR` = 30, dans `DELAI_TOITS_LIDAR_MS` = 20 s, quatre lectures à la fois. Les autres
-sont lus ensuite **en tâche de fond** (`app/toitsFond.ts`), par lots de 12, six lectures à la fois,
-du plus proche au plus loin, sans bloquer le plan ; chaque bâtiment lu porte `toitLidarLu` (la
-version de la lecture) et n'est pas relu. Le même lot lit ensuite la couleur des toits qui n'en ont
-pas (§6.1). Seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D ; le projet
+sont lus ensuite **en tâche de fond** (`app/toitsFond.ts`), en file continue, six lectures à la fois
+(chaque lecteur prend le bâtiment suivant dès qu'il a fini), du plus proche au plus loin, sans bloquer
+le plan ; chaque bâtiment lu porte `toitLidarLu` (la version de la lecture) et n'est pas relu. Le
+lecteur lit ensuite la couleur du toit s'il n'en a pas (§6.1). Un `429` de la Géoplateforme (quota
+par IP) attend son `retry-after` et se rejoue (`geo/relief.ts::requeteAvecReprise`). Ce qui est lu se
+dessine par paquets de 12 : seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D ; le projet
 s'enregistre seul quand tout ce qui attend vient de la lecture. `?mode=devroof` peint chaque
 bâtiment selon l'origine de son toit. Détail, mesures et suite : `MD/roadmap-toits-fond.md`.
 

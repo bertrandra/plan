@@ -151,6 +151,39 @@ export function texteFinToitsFond(b: BilanFond): string {
   return [formes, couleurs].filter(Boolean).join(' ');
 }
 
+/** Un batiment pris dans la file : sa copie, et l'empreinte de l'original au moment ou il a ete pris. */
+type Lu = { copie: ObjetPlan; avant: string };
+
+/**
+ * La file d'une passe : rend, dans l'ordre, la copie du prochain batiment encore dans le plan, encore
+ * a lire et admis (`admis`) ; null quand la file est vide. Le plan est relu a chaque fois : une
+ * annulation remplace le tableau des objets.
+ */
+function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis: (o: ObjetPlan) => boolean): () => Lu | null {
+  let i = 0;
+  return () => {
+    const courants = objets();
+    while (i < cles.length) {
+      const cle = cles[i++];
+      const o = courants.find((x) => x.key === cle);
+      if (o && toitAAjuster(o as ObjetAToit) && admis(o)) return { copie: structuredClone(o), avant: empreinte(o) };
+    }
+    return null;
+  };
+}
+
+/**
+ * Lit la copie d'un batiment : d'abord la forme (elle dit si le toit est plat, ce que la lecture de la
+ * couleur prend en compte), puis la couleur s'il n'en a pas. Un service qui echoue rend un bilan vide.
+ */
+async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: ObjetAToit) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }> {
+  const pourForme = lidar && !toitLu(copie);
+  const bilan = pourForme ? await lireForme(copie as ObjetAToit).catch(() => null) : null;
+  const pourCouleur = couleurALire(copie);
+  const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
+  return { bilan, forme: pourForme && toitLu(copie), couleur: pourCouleur && !couleurALire(copie), couleurs: lues ? lues.lus + lues.replis : 0 };
+}
+
 export interface ToitsFond {
   /** Lance la lecture si des batiments restent a lire ; sans effet si elle tourne deja. */
   relancer: () => void;
@@ -197,7 +230,6 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
   };
 
   /** Ecrit dans le plan ce qui a ete lu depuis le dernier dessin, le redessine, l'enregistre au besoin. */
-  type Lu = { copie: ObjetPlan; avant: string };
   let tampon: Lu[] = [];
   async function vider(): Promise<void> {
     const lot = tampon;
@@ -222,8 +254,6 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
    * reste a lire : la passe suivante le reprend. Rend vrai si une suite de batiments muets l'a arretee.
    */
   async function passe(g: number, objets: ObjetPlan[], proj: ProjecteurLocal, restants: ObjetPlan[]): Promise<boolean> {
-    const file = restants.map((o) => o.key);
-    let i = 0;
     // Une seule fois par passe : les mitoyens (sur tout le plan) et les dalles LiDAR (sur tout ce qui reste).
     const mitoyens = clesMitoyens(objets as ObjetAToit[]);
     let dallesLues: Promise<boolean> | null = null;
@@ -232,16 +262,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
     let muetsDeSuite = 0, attentes = 0, arret = false;
     let attente: Promise<void> | null = null;
 
-    const prochain = (): Lu | null => {
-      const courants = ctx.objets();
-      while (i < file.length) {
-        const cle = file[i++] as string;
-        const o = courants.find((x) => x.key === cle);
-        if (!o || !toitAAjuster(o as ObjetAToit) || !resteALire(o, lidar) || (refus.get(cle) ?? 0) >= ECHECS_PAR_BATIMENT) continue;
-        return { copie: structuredClone(o), avant: empreinte(o) };
-      }
-      return null;
-    };
+    const prochain = fileDeLecture(restants.map((o) => o.key), ctx.objets, (o) => resteALire(o, lidar) && (refus.get(o.key) ?? 0) < ECHECS_PAR_BATIMENT);
 
     const ouvrier = async (): Promise<void> => {
       for (;;) {
@@ -252,23 +273,15 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         await pause();
         if (g !== generation) return;
         const { copie } = t;
-        // D'abord la forme (elle dit si le toit est plat, ce que la lecture de la couleur prend en compte),
-        // puis la couleur s'il n'en a pas.
-        const pourForme = lidar && !toitLu(copie);
-        const bilan = pourForme
-          ? await lire(objets as ObjetAToit[], proj, { candidats: [copie as ObjetAToit], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens }).catch(() => null)
-          : null;
+        const r = await lireUnBatiment(copie, lidar, (c) => lire(objets as ObjetAToit[], proj, { candidats: [c], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens }),
+          (c) => lireCouleurs([c], proj, Number.POSITIVE_INFINITY, 1));
         if (g !== generation) return;
         // Pas de dalle sur le secteur : pour cette seance, seules les couleurs se lisent encore.
-        if (bilan?.sansLidar) lidar = false;
-        const pourCouleur = couleurALire(copie);
-        const couleurs = pourCouleur ? await lireCouleurs([copie], proj, Number.POSITIVE_INFINITY, 1).catch(() => null) : null;
-        if (g !== generation) return;
+        if (r.bilan?.sansLidar) lidar = false;
         // Un batiment dont rien de ce qui manquait n'a pu se lire compte un refus.
-        const forme = pourForme && toitLu(copie);
-        const avance = forme || (pourCouleur && !couleurALire(copie));
+        const avance = r.forme || r.couleur;
         if (!avance) refus.set(copie.key, (refus.get(copie.key) ?? 0) + 1);
-        ajouter(cumul, bilan, forme ? 1 : 0, couleurs ? couleurs.lus + couleurs.replis : 0);
+        ajouter(cumul, r.bilan, r.forme ? 1 : 0, r.couleurs);
         tampon.push(t);
         if (avance) { muetsDeSuite = 0; attentes = 0; }
         else if (++muetsDeSuite >= LOT_TOITS_FOND) {

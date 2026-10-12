@@ -55,7 +55,7 @@ sur le terrain (scripts de `scripts/`).
 
 `app/toitsLidar.ts::toitsDepuisLidar` (import depuis une adresse et actualisation IGN). Les plus
 proches d'abord, au plus 30 bâtiments en 20 s, quatre lectures à la fois ; les autres en tâche de
-fond (`app/toitsFond.ts`), par lots, chaque bâtiment lu marqué `toitLidarLu` (`MD/roadmap-toits-fond.md`).
+fond (`app/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLidarLu` (`MD/roadmap-toits-fond.md`).
 
 1. **Forme simple** (`facade/toitLidar.ts::ajusterToit`) : plat, appentis, deux pans, croupes, quatre
    pans, sur trois axes. On fait les moindres carrés sur `z = e + H·f(q)`. Au moins 20 mesures et un
