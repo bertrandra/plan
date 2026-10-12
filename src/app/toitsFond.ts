@@ -19,6 +19,7 @@
 import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
 import { dallesLidarSur } from '../geo/mnh.js';
 import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT, LECTURE_MURS_EN_FOND } from './mursFond.js';
+import type { Regulateur } from './regulateur.js';
 import { projecteurLocal, type ProjecteurLocal } from '../geo/projection.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
@@ -67,6 +68,12 @@ export interface ContexteToitsFond {
   lireCouleurs?: typeof couleursToitsDepuisOrtho;
   /** Rend la main au navigateur entre deux batiments ; remplacable dans les tests. */
   pause?: () => Promise<void>;
+  /**
+   * Le regulateur de charge (app/regulateur.ts) : combien de lectures en meme temps, quelle pause avant
+   * chaque batiment, selon l'activite de l'utilisateur et le retard du fil principal ; l'enregistrement
+   * seul attend un moment sans geste. `brancher` le met a l'ecoute pendant la lecture. Absent : `pause`.
+   */
+  regulateur?: { r: Regulateur; brancher: () => () => void };
   /** L'attente apres une suite de batiments muets ; remplacable dans les tests. */
   attendre?: (ms: number) => Promise<void>;
   /** La lecture est allee au bout, avec ce qu'elle a fait cette fois : le bilan, les questions. */
@@ -159,6 +166,35 @@ export function texteFinToitsFond(b: BilanFond): string {
   const m = b.murs ?? 0;
   const murs = m ? n(m) + ' couleur' + (m > 1 ? 's' : '') + ' de murs lue' + (m > 1 ? 's' : '') + ' sur les photos de rue.' : '';
   return [formes, couleurs, murs].filter(Boolean).join(' ');
+}
+
+/** Ou en est la lecture, pour la barre d'etat : les toits, ou les murs quand c'est leur tour ; null s'il n'y a rien a lire. */
+function progressionDe(objets: ObjetPlan[], etat: ProgressionToits['etat'], lidar: boolean, murs: boolean): ProgressionToits | null {
+  if (murs) { const m = avancementMurs(objets); return m.total ? { ...m, etat, phase: 'murs' } : null; }
+  const { eligibles, restants } = batimentsALire(objets, lidar);
+  return eligibles ? { faits: eligibles - restants.length, total: eligibles, etat } : null;
+}
+
+/**
+ * Les batiments muets d'affilee, tous lecteurs confondus : apres LOT_TOITS_FOND, tous attendent
+ * ATTENTE_APRES_ECHEC_MS ; apres ECHECS_AVANT_ARRET attentes d'affilee, la passe s'arrete. Un batiment
+ * lu remet tout a zero. `noter` rend faux quand le lecteur doit s'arreter.
+ */
+function suiteMuette(attendre: (ms: number) => Promise<void>) {
+  let deSuite = 0, attentes = 0, arret = false;
+  let attente: Promise<void> | null = null;
+  return {
+    attente: async () => { if (attente) await attente; },
+    arret: () => arret,
+    noter(avance: boolean): boolean {
+      if (avance) { deSuite = 0; attentes = 0; return true; }
+      if (++deSuite < LOT_TOITS_FOND) return true;
+      deSuite = 0;
+      if (++attentes >= ECHECS_AVANT_ARRET) { arret = true; return false; }
+      attente ??= attendre(ATTENTE_APRES_ECHEC_MS).finally(() => { attente = null; });
+      return true;
+    },
+  };
 }
 
 /** Un batiment pris dans la file : sa copie, et l'empreinte de l'original au moment ou il a ete pris. */
@@ -256,13 +292,12 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
   let mursMuets = false, phaseMurs = false;
   const mursATenter = (objets: ObjetPlan[]) => (ctx.murs ?? LECTURE_MURS_EN_FOND) && !mursMuets && objets.some((o) => mursALire(o) && (refusMurs.get(o.key) ?? 0) < ECHECS_MURS_PAR_BATIMENT);
 
-  const dire = (etat: ProgressionToits['etat']) => {
-    if (phaseMurs) { const m = avancementMurs(ctx.objets()); ctx.progression(m.total ? { ...m, etat, phase: 'murs' } : null); return; }
-    const { eligibles, restants } = batimentsALire(ctx.objets(), lidar);
-    ctx.progression(eligibles ? { faits: eligibles - restants.length, total: eligibles, etat } : null);
-  };
+  const dire = (etat: ProgressionToits['etat']) => ctx.progression(progressionDe(ctx.objets(), etat, lidar, phaseMurs));
   /** Des batiments lus viennent d'etre ecrits : les redessiner, et enregistrer si c'est le moment. */
-  const annoncer = async (ecrits: string[]) => { enregistreur.noter(() => ctx.apresLot(ecrits)); await enregistreur.siPermis(false); };
+  // Pendant un geste, l'enregistrement seul attendra le paquet suivant : il ne coupe pas le geste.
+  const annoncer = async (ecrits: string[]) => { enregistreur.noter(() => ctx.apresLot(ecrits)); if (!ctx.regulateur?.r.occupe()) await enregistreur.siPermis(false); };
+  let debrancher: (() => void) | null = null; // la sonde et les ecouteurs du regulateur, le temps d'une lecture
+  const finDeLecture = () => { debrancher?.(); debrancher = null; };
 
   /** Ecrit dans le plan ce qui a ete lu depuis le dernier dessin, le redessine, l'enregistre au besoin. */
   let tampon: Lu[] = [];
@@ -287,18 +322,18 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
     let dallesLues: Promise<boolean> | null = null;
     const dalles = (_pts: readonly PtBrut[], p: ProjecteurLocal) =>
       (dallesLues ??= (ctx.dalles ?? dallesLidarSur)(restants.flatMap((o) => ((o as ObjetAToit).pts ?? []) as PtBrut[]), p));
-    let muetsDeSuite = 0, attentes = 0, arret = false;
-    let attente: Promise<void> | null = null;
+    const muets = suiteMuette(attendre);
 
     const prochain = fileDeLecture(restants.map((o) => o.key), ctx.objets, (o) => resteALire(o, lidar) && (refus.get(o.key) ?? 0) < ECHECS_PAR_BATIMENT);
 
-    const ouvrier = async (): Promise<void> => {
+    const ouvrier = async (rang: number): Promise<void> => {
       for (;;) {
-        if (attente) await attente;
-        if (g !== generation || arret) return;
+        await muets.attente();
+        if (ctx.regulateur) await ctx.regulateur.r.tour(rang);
+        if (g !== generation || muets.arret()) return;
         const t = prochain();
         if (!t) return;
-        await pause();
+        if (!ctx.regulateur) await pause();
         if (g !== generation) return;
         const { copie } = t;
         const r = await lireUnBatiment(copie, lidar, (c) => lire(objets as ObjetAToit[], proj, { candidats: [c], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens }),
@@ -311,19 +346,14 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         if (!avance) refus.set(copie.key, (refus.get(copie.key) ?? 0) + 1);
         ajouter(cumul, r.bilan, r.forme ? 1 : 0, r.couleurs);
         tampon.push(t);
-        if (avance) { muetsDeSuite = 0; attentes = 0; }
-        else if (++muetsDeSuite >= LOT_TOITS_FOND) {
-          muetsDeSuite = 0;
-          if (++attentes >= ECHECS_AVANT_ARRET) { arret = true; return; }
-          attente ??= attendre(ATTENTE_APRES_ECHEC_MS).finally(() => { attente = null; });
-        }
+        if (!muets.noter(avance)) return;
         if (tampon.length >= LOT_TOITS_FOND) await vider();
       }
     };
-    await Promise.all(Array.from({ length: PARALLELE_TOITS_FOND }, ouvrier));
+    await Promise.all(Array.from({ length: PARALLELE_TOITS_FOND }, (_, rang) => ouvrier(rang)));
     if (g !== generation) return false;
     await vider();
-    return arret;
+    return muets.arret();
   }
 
   async function boucle(g: number): Promise<void> {
@@ -346,13 +376,19 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         // Sans LiDAR, la forme des toits n'a pas ete lue ; sans photos de rue, les murs non plus : « arretee ».
         phaseMurs = (ctx.murs ?? LECTURE_MURS_EN_FOND) && mursMuets && !!proj && objets.some(mursALire);
         dire(lidar && !phaseMurs ? 'finie' : 'arretee');
-        if (cumul.lus || cumul.couleurs || cumul.murs) { const b = cumul; cumul = vide(); ctx.fin?.(b); await enregistreur.siPermis(true); }
+        finDeLecture();
+        if (cumul.lus || cumul.couleurs || cumul.murs) {
+          const b = cumul; cumul = vide(); ctx.fin?.(b);
+          // Le dernier enregistrement seul attend que l'utilisateur lache la souris (dix secondes au plus).
+          await ctx.regulateur?.r.calme(10000);
+          await enregistreur.siPermis(true);
+        }
         return;
       }
       phaseMurs = false;
       const arret = await passe(g, objets, proj, restants);
       if (g !== generation) return;
-      if (arret) { enCours = false; dire('arretee'); return; }
+      if (arret) { enCours = false; finDeLecture(); dire('arretee'); return; }
     }
   }
 
@@ -365,6 +401,8 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
       enCours = true;
       cumul = vide();
       enregistreur.repartir();
+      finDeLecture();
+      debrancher = ctx.regulateur?.brancher() ?? null;
       const g = ++generation;
       // Ce qu'une lecture arretee avait lu sans l'ecrire est perime : elle repart de ce qui reste.
       tampon = [];
@@ -375,6 +413,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
       if (!enCours) return;
       generation++;
       enCours = false;
+      finDeLecture();
       dire('pause');
     },
     enCours: () => enCours,

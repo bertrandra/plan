@@ -27,7 +27,8 @@ import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { lectureToits } from '../core/lectureToits.js';
-import { creerToitsFond, texteFinToitsFond } from './toitsFond.js';
+import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toitsFond.js';
+import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
 import { mesure } from '../interaction/outilMesure.js';
@@ -307,6 +308,8 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     progression: (pr) => lectureToits.definir(pr),
     modifications: historique.modifications, sale: () => !!etat.dirty,
     enregistrer: () => tardifs.projet?.enregistrerSansBruit() ?? Promise.resolve(false),
+    // Le rythme suit l'utilisateur et le poste (app/regulateur.ts) : tout tourne ici, avec l'interface.
+    regulateur: (() => { const r = creerRegulateur({ max: PARALLELE_TOITS_FOND }); return { r, brancher: () => brancherRegulateur(r) }; })(),
     // Au bout : le bilan de ce qui a ete lu, et les toits a cheval sur deux parcelles qui attendent
     // une reponse - un mitoyen lu en fond a pu en ajouter un.
     fin: (b) => {
