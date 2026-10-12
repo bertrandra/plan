@@ -84,18 +84,54 @@ Mesuré sur le même voisinage, 4 083 bâtiments lus : **9,8 Mo**. Répartition 
 | `clotureCouleur`, `clotureHauteur`, `hauteurParasol`, `diametreArbre`, `couleurArbre` | 0,2 Mo chacun | valeurs par défaut de création, sans objet sur une parcelle ou un bâtiment voisin : ne s'écrivent plus pour le voisinage, environ 0,96 Mo |
 
 Au total, environ 1,3 Mo de moins, soit 13 %. Un voisinage d'un kilomètre entièrement lu pèserait donc
-autour de 10 Mo au lieu de 11,5. Si la plateforme refuse un document de cette taille (sa limite
-s'affiche dans le bandeau d'erreur), l'enregistrement automatique s'arrête pour la séance. La vraie
-réponse est alors un voisinage plus petit (500 m), ou un enregistrement du voisinage à part du projet.
-C'est un chantier de format, à décider.
+autour de 10 Mo au lieu de 11,5.
+
+**Décision (12 octobre 2026)** : la limite de la plateforme est montée à **50 Mo** et la dimension
+actuelle du voisinage est gardée. Un voisinage d'un kilomètre entièrement lu tient donc cinq fois. Ni
+voisinage réduit ni enregistrement à part : le format ne change pas. Si un projet dépassait malgré
+tout la limite, l'enregistrement automatique s'arrêterait pour la séance et le bandeau d'erreur
+donnerait la taille refusée (`app/projet.ts`).
+
+## Limites d'usage de la Géoplateforme (point 2, vérifié le 12 octobre 2026)
+
+Source : [Limites d'usage des API](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/limites-d-usage/)
+(cartes.gouv.fr, mise à jour du 7 août 2026 ; l'ancienne page de geoservices.ign.fr y renvoie).
+
+| Service | Limite par adresse IP | Ce que la lecture de fond y demande |
+|---|---|---|
+| WMS-Raster (`wms-r`) | **40 requêtes/s** | le MNH LiDAR HD : une grille par bâtiment, deux pour le projet et ses mitoyens (recalage, grille relue plus large) |
+| WMTS (`wmts`) | **aucune** | l'orthophoto de la couleur des toits (`render/ortho.ts`) |
+| WFS | 30 requêtes/s | une seule requête par plan (`dallesLidarSur`, y a-t-il des dalles LiDAR ici) |
+
+Au dépassement : **HTTP 429** sur toute requête de cette API, blocage de **5 secondes** au départ,
+limité à l'API dépassée (un 429 du WMS ne bloque pas le WMTS). L'en-tête `retry-after` donne le temps
+restant. Un quota plus élevé se demande à geoplateforme@ign.fr.
+
+Ce que cela veut dire pour nous :
+
+- **Aujourd'hui, très loin de la limite.** Au débit mesuré (2,5 bâtiments/s, 6 lectures à la fois),
+  la lecture de fond envoie environ 3 requêtes/s au WMS-Raster, soit moins d'un dixième des 40. C'est
+  le temps de réponse du service, environ 2,4 s par lecture, qui fixe le débit, pas le quota.
+- **La marge est réelle, mais partagée.** La limite vaut par adresse IP : plusieurs postes derrière
+  la même box ou le même proxy d'entreprise se la partagent. Les autres lectures WMS-Raster du plan
+  passent aussi par le même compteur : relief, carte de situation, actualisation IGN. Viser au plus
+  la moitié, environ 20 requêtes/s, laisse de la place.
+- **Un 429 est aujourd'hui compté comme un échec.** `geo/relief.ts::requeteAvecReprise` ne rejoue
+  jamais un 4xx. Le bâtiment reste à relire (deux échecs au plus) et trois lots sans succès mettent
+  la lecture en pause 30 s. C'est sans perte, mais bien plus long que les 5 s du blocage. Avant
+  d'augmenter le parallélisme, lire `retry-after` et rejouer la requête après ce délai.
 
 ## Reste à faire
 
-1. **Taille du projet au-delà de quelques centaines de mètres** : voir la section précédente. À
-   décider : connaître la limite de la plateforme, ou enregistrer le voisinage à part du projet.
-2. **Régler le débit** : `LOT_TOITS_FOND` (12) et `PARALLELE_TOITS_FOND` (6). Un lot attend son
-   bâtiment le plus lent ; une file continue (sans lots) irait plus vite. À essayer après avoir vérifié
-   les quotas de la Géoplateforme (erreurs 429).
+1. ~~Taille du projet au-delà de quelques centaines de mètres~~ : **réglé**, limite de la plateforme
+   à 50 Mo, voisinage inchangé (voir plus haut).
+2. **Régler le débit** : `LOT_TOITS_FOND` (12) et `PARALLELE_TOITS_FOND` (6). Limite vérifiée
+   (section précédente) : 40 requêtes/s au WMS-Raster, nous en faisons 3. Dans l'ordre :
+   1. rejouer un 429 après `retry-after` au lieu d'en faire un échec ;
+   2. remplacer les lots par une file continue, puisqu'un lot attend son bâtiment le plus lent ;
+   3. monter le parallélisme vers 12 à 16 lectures, en mesurant le débit et les longues tâches sur
+      le voisinage d'un kilomètre du Vésinet ;
+   4. s'arrêter avant environ 20 requêtes/s, ou dès que les longues tâches reviennent.
 3. **Couleur des murs (Panoramax)**, laissée de côté (décision de l'utilisateur). Limiter à environ
    500 m le jour où elle est reprise.
 4. **Calcul hors du fil principal**, si un poste plus lent saccade (voir point 5 ci-dessus).
