@@ -9,6 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { reposerPositionGps } from './positionGps3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
 import { textureMur } from './textureMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
@@ -919,6 +920,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); actualiserFeuillesProches(scene, camera); renderer.render(scene, camera); };
   animate();
+  // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
+  reposerPositionGps(sol ? sol.hauteur : undefined);
   ctx.applyMode3D();
   // Le panneau relit tout, y compris la liste des points de vue.
   ctx.syncControlesSoleilVue3d();

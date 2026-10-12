@@ -57,6 +57,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'vue.3d': 'Affiche la scène en 3D, avec le soleil du lieu et de la date choisis',
   'vue.visionneuse': 'Ouvre la visionneuse du modèle GLB généré depuis le plan',
   'vue.ajuster': 'Cadre la vue sur l’objet sélectionné',
+  'affichage.positionGps': 'Montre votre position GPS dans la Vue 3D, suivie pendant que vous marchez ; décochée par défaut, elle ne s’enregistre pas avec le projet',
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',
   'affichage.relief': 'Montre ou cache le sol en relief dans la 3D',
   'affichage.courbes': 'Montre ou cache les courbes de niveau sur le plan',

@@ -175,7 +175,9 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
     ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
     ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
-    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
+    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
+    // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
+    ['affichage.positionGps', 'Ma position (3D)', etat.positionGps, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
