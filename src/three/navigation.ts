@@ -12,6 +12,7 @@
 import { au } from '../util/tableaux.js';
 import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
+import type * as THREE_NS from 'three';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
 
@@ -133,9 +134,123 @@ function allerAuPointDeVue(etat: PlanVuDeLa3d, ctx: ContexteNavigation, vp: Poin
   })();
 }
 
+/** Un point de l'espace, sans dependre de three : les calculs du zoom se testent seuls. */
+interface Pt3 { x: number; y: number; z: number }
+
+/** La molette ne rapproche pas a moins de cela du point vise : au-dela, on traverserait le toit ou le sol. */
+export const ZOOM_DISTANCE_MIN_M = 0.5;
+/** Un cran de molette (120) rapproche ou eloigne d'environ 10 %. */
+export const ZOOM_PAR_UNITE_MOLETTE = 0.0008;
+/** Un pas de molette plus grand (souris rapide) compte pour deux crans, pas plus. */
+const MOLETTE_MAX = 240;
+/** Entre deux evenements de molette, au-dela de cette pause ou d'un pointeur deplace, le point vise est recherche a nouveau. */
+const GESTE_MOLETTE_MS = 300;
+const GESTE_MOLETTE_PX = 4;
+
+/**
+ * Le facteur d'un evenement de molette : < 1 rapproche, > 1 eloigne. Les pas en lignes (Firefox)
+ * valent 40 px ; un pave tactile, qui donne des petits pas nombreux, zoome a proportion.
+ */
+export function facteurMolette(deltaY: number, deltaMode = 0): number {
+  const d = deltaMode === 1 ? deltaY * 40 : deltaMode === 2 ? deltaY * 400 : deltaY;
+  return Math.exp(Math.max(-MOLETTE_MAX, Math.min(MOLETTE_MAX, d)) * ZOOM_PAR_UNITE_MOLETTE);
+}
+
+/**
+ * Le zoom vers un point : la camera et la cible de l'orbite se rapprochent (`f` < 1) ou s'eloignent
+ * du point vise dans le meme rapport. C'est une homothetie de centre ce point : le rayon de la
+ * camera vers lui ne change pas de direction, il reste donc sous le curseur, et l'orientation de la
+ * vue est gardee. Rend null si le pas mettrait la camera a moins de ZOOM_DISTANCE_MIN_M du point.
+ */
+export function zoomVersPoint(camera: Pt3, cible: Pt3, point: Pt3, f: number): { camera: Pt3; cible: Pt3 } | null {
+  const vers = (p: Pt3) => ({ x: point.x + (p.x - point.x) * f, y: point.y + (p.y - point.y) * f, z: point.z + (p.z - point.z) * f });
+  const d = Math.hypot(camera.x - point.x, camera.y - point.y, camera.z - point.z);
+  if (f < 1 && d * f < ZOOM_DISTANCE_MIN_M) return null;
+  return { camera: vers(camera), cible: vers(cible) };
+}
+
+/**
+ * La cible ramenee a la hauteur `h` le long de la ligne de visee : la vue ne change pas (meme camera,
+ * meme direction), mais l'orbite tourne autour d'un point du sol. Sans cela, s'eloigner d'un point vise
+ * plus pres que la cible enfoncait celle-ci sous le sol, et la rotation partait autour d'un point
+ * enterre. Une camera qui regarde a l'horizontale ou vers le haut garde sa cible.
+ */
+export function cibleALaHauteur(camera: Pt3, cible: Pt3, h: number): Pt3 {
+  const dy = cible.y - camera.y;
+  if (dy > -1e-6) return cible;
+  const t = (h - camera.y) / dy;
+  if (t <= 0) return cible;
+  return { x: camera.x + (cible.x - camera.x) * t, y: h, z: camera.z + (cible.z - camera.z) * t };
+}
+
+/** Un objet et tous ses parents sont visibles : le rayon ne doit pas s'arreter sur un objet masque. */
+function visibleDansLaScene(o: THREE_NS.Object3D | null): boolean {
+  for (let p = o; p; p = p.parent) if (!p.visible) return false;
+  return true;
+}
+
+/**
+ * Le point de la scene sous le pointeur (coordonnees normalisees -1..1) : la premiere surface
+ * visible que le rayon touche (toit, mur, sol), sinon le plan horizontal a la hauteur de la cible.
+ * Null quand le pointeur vise le ciel.
+ */
+function pointSousLePointeur(sc: SceneTroisBase, ndc: { x: number; y: number }): THREE_NS.Vector3 | null {
+  const rayon = new THREE.Raycaster();
+  rayon.setFromCamera(ndc, sc.camera);
+  const touches = rayon.intersectObjects(sc.scene.children, true);
+  const t = touches.find((i) => (i.object as THREE_NS.Mesh).isMesh && visibleDansLaScene(i.object));
+  if (t) return t.point.clone();
+  const plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), -sc.controls.target.y);
+  const p = new THREE.Vector3();
+  return rayon.ray.intersectPlane(plan, p);
+}
+
+/**
+ * La molette de la Vue 3D. `repli` zoome vers la cible de l'orbite, quand le curseur vise le ciel.
+ * Rend l'ecouteur et de quoi oublier le geste en cours (scene reconstruite, mode change).
+ */
+function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent) => void; oublier: () => void } {
+  /** Le point vise par le geste de molette en cours : cherche une fois, il reste sous le curseur. */
+  let molette: { point: THREE_NS.Vector3 | null; t: number; x: number; y: number } | null = null;
+
+  /**
+   * La molette zoome vers ce que le curseur montre, pas vers le centre de la parcelle : sur un grand
+   * voisinage, c'est le seul moyen d'aller voir une maison au loin. Elle passe avant OrbitControls,
+   * qui ne sait zoomer que vers sa cible ; le pincement a deux doigts lui reste.
+   */
+  function onMolette(e: WheelEvent): void {
+    const sc = vue3d.scene;
+    if (!sc) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const f = facteurMolette(e.deltaY, e.deltaMode);
+    const dom = sc.renderer.domElement, r = dom.getBoundingClientRect();
+    const maintenant = performance.now();
+    if (!molette || maintenant - molette.t > GESTE_MOLETTE_MS || Math.hypot(e.clientX - molette.x, e.clientY - molette.y) > GESTE_MOLETTE_PX) {
+      const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
+      molette = { point: pointSousLePointeur(sc, ndc), t: maintenant, x: e.clientX, y: e.clientY };
+    }
+    molette.t = maintenant;
+    const { camera, controls, renderer, scene } = sc;
+    // Le ciel : rien a viser, la molette rapproche de la cible comme avant.
+    if (!molette.point) { repli(f); return; }
+    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
+    if (f > 1 && camera.position.distanceTo(controls.target) * f > camera.far * 0.5) return;
+    const pas = zoomVersPoint(camera.position, controls.target, molette.point, f);
+    if (!pas) return;
+    const cible = cibleALaHauteur(pas.camera, pas.cible, controls.target.y);
+    camera.position.set(pas.camera.x, pas.camera.y, pas.camera.z);
+    controls.target.set(cible.x, cible.y, cible.z);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  return { onMolette, oublier: () => { molette = null; } };
+}
+
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
+  const { onMolette, oublier: oublierMolette } = zoomALaMolette((f) => zoom3D(f));
 
   /**
    * Rapproche (`factor` < 1) ou eloigne la camera de sa cible.
@@ -181,6 +296,10 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     dom.removeEventListener('pointerdown', onZoomDragDown);
     dom.removeEventListener('pointermove', onZoomDragMove);
     window.removeEventListener('pointerup', onZoomDragUp);
+    // En capture sur le canevas : appele avant l'ecouteur d'OrbitControls, pose sur le meme element.
+    dom.removeEventListener('wheel', onMolette, { capture: true });
+    dom.addEventListener('wheel', onMolette, { capture: true, passive: false });
+    oublierMolette();
     zoomDragActive = false;
     if (mode3D === 'zoom') {
       controls.enableRotate = false; controls.enablePan = false;
