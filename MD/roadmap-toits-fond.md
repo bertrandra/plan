@@ -116,6 +116,39 @@ débit ne suit plus le parallélisme. À six, la lecture de fond prend le quart 
 ce qui laisse de la place aux autres postes derrière la même adresse IP et aux autres lectures du plan.
 Pour 10 000 bâtiments (le plafond du voisinage), compter environ 17 minutes au lieu de 70.
 
+## Étape 4 — couleur des murs en tâche de fond (branche `claude/murs-fond`)
+
+Décision de l'utilisateur (12 octobre 2026) : **pas de limite de distance**.
+
+| Changement | Où |
+|---|---|
+| Après les toits, les murs : le voisinage en zones de 80 m, de la plus proche à la plus loin ; une recherche Panoramax par zone, autour d'elle ; quatre photos téléchargées à la fois | `app/mursFond.ts`, `render/couleurMurPhoto.ts::couleursMursDUneZone` |
+| Un bâtiment lu porte la lecture, ou `photo: null` et la version de la lecture (`VERSION_LECTURE_MURS`) : il n'est pas relu, sauf si une règle meilleure passe la version | `model/couleurMur.ts::CouleurMurs.lecture` |
+| Une photo qui ne se télécharge pas : à relire (deux fois au plus) ; cinq zones muettes d'affilée : arrêtée pour la séance, « Reprendre » relance | `ECHECS_MURS_PAR_BATIMENT`, `ZONES_MUETTES_AVANT_ARRET` |
+| Barre d'état « Murs (photos) : x / y » ; menu « Suspendre la lecture des toits et des murs » ; bilan de fin avec les couleurs de murs lues | `zones/BarreEtat.tsx`, `toitsFond.ts::texteFinToitsFond` |
+
+Mesures (navigateur piloté, toits puis murs) :
+
+| | Le Vésinet, 300 m | Rennes centre, 200 m |
+|---|---|---|
+| Bâtiments | 486 | 257 |
+| Murs lus en fond | ~60 s | ~45 s |
+| Recherches Panoramax / photos téléchargées | 57 / 470 (59 Mo) | 30 / 196 (67 Mo) |
+| Murs lus sur une photo | **10** | **1** |
+| Sans photo concluante (`null`) | 476 | 256 |
+
+Pour un voisinage d'un kilomètre, compter une dizaine de minutes et de l'ordre de 600 Mo de photos.
+
+**Le rendement est faible, et ce n'est pas la lecture de fond.** Le diagnostic (points du mur dessinés
+sur les photos) montre que la géométrie tombe juste sur la façade quand la photo est bien calée,
+mais :
+- un enduit gris clair par temps couvert ou de brouillard est pris pour une façade à l'ombre
+  (`model/couleurMur.ts::estOmbre`, luminance < 125 et peu de couleur) : 96 points sur 112 écartés
+  sur une façade rennaise pourtant bien visible ;
+- des photos grand angle (champ 92°) prises au crépuscule sont mal calées : les points tombent dans
+  le ciel (position ou cap imprécis, distorsion de l'objectif) ;
+- en banlieue, les façades sont derrière les haies (déjà connu, §4 bis du skill `toits`).
+
 ## Limites d'usage de la Géoplateforme (point 2, vérifié le 12 octobre 2026)
 
 Source : [Limites d'usage des API](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/limites-d-usage/)
@@ -148,8 +181,11 @@ Ce que cela voulait dire avant l'étape 3 (chiffres d'alors ; ceux d'après sont
 1. ~~Taille du projet au-delà de quelques centaines de mètres~~ : **réglé**, limite de la plateforme
    à 50 Mo, voisinage inchangé (voir plus haut).
 2. ~~Régler le débit~~ : **fait** (étape 3). Six lecteurs en file continue, 429 rejoués.
-3. **Couleur des murs (Panoramax)**, laissée de côté (décision de l'utilisateur). Limiter à environ
-   500 m le jour où elle est reprise.
+3. ~~Couleur des murs (Panoramax) en fond~~ : **fait** (étape 4), sans limite de distance.
+5. **Lecture des murs qui conclut plus souvent** (règle de `model/couleurMur.ts`) : normaliser
+   l'exposition de chaque photo avant de juger l'ombre, garder plus de deux photos par mur et
+   préférer les photos de jour, écarter les photos mal calées (points du mur hors des contours de
+   bâtiment de l'image). Puis passer `VERSION_LECTURE_MURS` pour relire les murs restés sans lecture.
 4. **Calcul hors du fil principal**, si un poste plus lent saccade (voir point 5 ci-dessus).
 
 ## Points de vigilance

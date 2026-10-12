@@ -65,6 +65,11 @@ export interface PhotoMur {
 /** Ce qui est range sur le batiment : la lecture de la photo, et la source choisie a la main. */
 export interface CouleurMurs {
   photo?: PhotoMur | null;
+  /**
+   * La version de la lecture qui a mis `photo` a null (app/mursFond.ts, VERSION_LECTURE_MURS) : une
+   * regle de lecture meilleure passe ce numero, et les murs sans lecture concluante sont relus.
+   */
+  lecture?: number;
   /** Absente : automatique (la photo, sinon le materiau, sinon la couleur du plan). */
   source?: 'photo' | 'materiau' | 'plan';
 }

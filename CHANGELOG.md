@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La couleur des murs de tout le voisinage, lue en tâche de fond sur les photos de rue.** Après les
+  toits, Plan lit les murs zone par zone, de la plus proche à la plus loin, sans limite de distance
+  (à l'import, seuls les 150 bâtiments les plus proches l'étaient). La barre d'état dit « Murs
+  (photos) : x / y » ; « Fichier › Suspendre la lecture des toits et des murs » l'arrête. Un mur sans
+  photo concluante n'est pas relu à chaque ouverture. Le rendement reste faible pour l'instant (10
+  murs sur 486 bâtiments au Vésinet) : la règle de lecture écarte les façades grises par temps
+  couvert, c'est la prochaine étape.
+
 - **Modes de diagnostic `?mode=devroof` et `?mode=devwall`** (dans l'adresse). Chaque bâtiment est
   peint, sur le plan et dans la Vue 3D, selon l'origine de son toit ou de ses murs ; la barre d'état
   donne la légende et les comptes. Rien n'est modifié dans le projet ni dans les exports.

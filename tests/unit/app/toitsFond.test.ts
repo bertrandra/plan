@@ -27,7 +27,7 @@ const bdtopo = { forme: 'deux-pans' as const, hauteur: 3, angleFaitage: 0, sourc
 function plan(n: number): ObjetPlan[] {
   const objets = [{ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: rect(0, 0, 20, 20), cadastre: { origineLat: 48.9, origineLon: 2.13 } }] as unknown as ObjetPlan[];
   // Les murs deja lus (rien de concluant) : seuls les toits se lisent, sauf dans les tests des murs.
-  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo }, couleurMurs: { photo: null } } as unknown as ObjetPlan);
+  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo }, couleurMurs: { photo: null, lecture: 1 } } as unknown as ObjetPlan);
   return objets;
 }
 

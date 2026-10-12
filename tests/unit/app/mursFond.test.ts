@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { zonesDeMurs, lireMursEnFond, mursALire, avancementMurs, ZONES_MUETTES_AVANT_ARRET, ECHECS_MURS_PAR_BATIMENT } from '../../../src/app/mursFond.js';
+import { zonesDeMurs, lireMursEnFond, mursALire, avancementMurs, ZONES_MUETTES_AVANT_ARRET, ECHECS_MURS_PAR_BATIMENT, VERSION_LECTURE_MURS } from '../../../src/app/mursFond.js';
 import { COTE_ZONE_MURS_M, type IssueMurs } from '../../../src/render/couleurMurPhoto.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
@@ -25,12 +25,15 @@ describe('les zones de murs', () => {
     const objets = plan([2, 5, 3 * COTE_ZONE_MURS_M + 1, 40 * COTE_ZONE_MURS_M, COTE_ZONE_MURS_M + 1]);
     expect(zonesDeMurs(objets)).toEqual([['b0', 'b1'], ['b4'], ['b2'], ['b3']]);
     // Deja lu (une lecture, ou rien de concluant) : pas relu ; refuse : laisse de cote.
-    Object.assign(objets[2]!, { couleurMurs: { photo: null } });
+    Object.assign(objets[2]!, { couleurMurs: { photo: null, lecture: VERSION_LECTURE_MURS } });
     Object.assign(objets[5]!, { couleurMurs: { photo: photo('#D9D2C4'), source: 'materiau' } });
     expect(zonesDeMurs(objets, (o) => o.key !== 'b3')).toEqual([['b0'], ['b2']]);
     expect(mursALire(objets[1]!)).toBe(true);
     expect(mursALire(objets[2]!)).toBe(false);
     expect(avancementMurs(objets)).toEqual({ faits: 2, total: 5 });
+    // Sans conclusion a une version plus ancienne (ou a l'import, sans version) : relu.
+    Object.assign(objets[2]!, { couleurMurs: { photo: null } });
+    expect(mursALire(objets[2]!)).toBe(true);
   });
 });
 
@@ -55,7 +58,7 @@ describe('la lecture des murs en tache de fond', () => {
     expect(r).toEqual({ photos: 2, ecrits: 3, arret: false });
     // La source choisie a la main reste ; seule la lecture s'ecrit.
     expect(objets[1]!.couleurMurs).toEqual({ source: 'plan', photo: photo('#AA0000') });
-    expect(objets[2]!.couleurMurs).toEqual({ photo: null });
+    expect(objets[2]!.couleurMurs).toEqual({ photo: null, lecture: VERSION_LECTURE_MURS });
     expect(ecrire).toHaveBeenCalledTimes(2);
     expect(avance).toHaveBeenCalledTimes(2);
     expect(objets.filter(mursALire)).toEqual([]);

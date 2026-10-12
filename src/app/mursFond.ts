@@ -8,7 +8,8 @@
 // plus proche a la plus loin ; les photos d'une zone se cherchent d'un coup, autour d'elle.
 //
 // Un batiment dont `couleurMurs.photo` est absent reste a lire. Lu, il porte la lecture, ou `null`
-// quand aucune photo ne montre ses murs ou qu'aucune ne conclut : il n'est pas relu. Un batiment dont
+// quand aucune photo ne montre ses murs ou qu'aucune ne conclut, avec la version de la lecture
+// (`couleurMurs.lecture`) : il n'est relu que si une regle meilleure passe VERSION_LECTURE_MURS. Un batiment dont
 // une photo n'a pas pu se telecharger reste a lire ; refuse deux fois, il est laisse pour la seance.
 // Seul `couleurMurs.photo` s'ecrit : la source choisie a la main reste.
 
@@ -29,8 +30,18 @@ export const ECHECS_MURS_PAR_BATIMENT = 2;
 type Batiment = ObjetPlan & { pts: PtBrut[] };
 const estBatiment = (o: ObjetPlan): o is Batiment => o.fonction === 'batiment' && aDesSommets(o) && (o as Batiment).pts.length >= 3;
 
-/** La couleur des murs de ce batiment reste a lire sur les photos de rue. */
-export const mursALire = (o: ObjetPlan): boolean => estBatiment(o) && o.couleurMurs?.photo === undefined;
+/**
+ * La version de la lecture des murs. Une regle de lecture qui conclut plus souvent (model/couleurMur.ts,
+ * render/couleurMurPhoto.ts) passe ce numero : les murs restes sans lecture concluante sont relus.
+ */
+export const VERSION_LECTURE_MURS = 1;
+
+/** La couleur des murs de ce batiment reste a lire sur les photos de rue : jamais lue, ou sans conclusion a une version plus ancienne. */
+export const mursALire = (o: ObjetPlan): boolean => {
+  if (!estBatiment(o)) return false;
+  const c = o.couleurMurs;
+  return c?.photo === undefined || (c.photo === null && (c.lecture ?? 0) < VERSION_LECTURE_MURS);
+};
 
 /** Combien de batiments ont leurs murs lus, sur combien : la progression de la barre d'etat. */
 export function avancementMurs(objets: readonly ObjetPlan[]): { faits: number; total: number } {
@@ -112,7 +123,9 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
       if ('echec' in r) { ctx.refus.set(r.cle, (ctx.refus.get(r.cle) ?? 0) + 1); continue; }
       const o = courants.get(r.cle);
       if (!o || !estBatiment(o) || JSON.stringify(o.pts) !== avant.get(r.cle) || !mursALire(o)) continue;
-      o.couleurMurs = { ...(o.couleurMurs ?? {}), photo: r.photo };
+      const reste = { ...(o.couleurMurs ?? {}) };
+      delete reste.lecture;
+      o.couleurMurs = r.photo ? { ...reste, photo: r.photo } : { ...reste, photo: null, lecture: VERSION_LECTURE_MURS };
       if (r.photo) photos++;
       ecrits.push(r.cle);
     }
