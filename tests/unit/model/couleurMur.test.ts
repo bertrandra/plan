@@ -49,9 +49,18 @@ describe('couleurMurDepuisPixels', () => {
     expect(l.couleur).toBe('#D9D2C4');
     expect(l.coherence).toBeGreaterThan(0.8);
   });
-  it('une haie, le ciel ou trop peu de points : rien', () => {
-    expect(couleurMurDepuisPixels([...points(60, [217, 210, 196]), ...points(70, [60, 110, 50])]).couleur).toBeNull();
-    expect(couleurMurDepuisPixels([...points(40, [217, 210, 196]), ...points(80, [120, 160, 220])]).couleur).toBeNull();
+  it('une facade au-dessus d une haie se lit sur ce qui en reste ; trop peu de facade : rien', () => {
+    expect(couleurMurDepuisPixels([...points(60, [217, 210, 196]), ...points(70, [60, 110, 50])]).couleur).toBe('#D9D2C4');
+    expect(couleurMurDepuisPixels([...points(25, [217, 210, 196]), ...points(105, [60, 110, 50])]).couleur).toBeNull();
+  });
+  it('le ciel : trop de points dessus, la photo ne montre pas ce mur ; une teinte froide n est pas une facade', () => {
+    // Le ciel bleu se reconnait a sa couleur ; le ciel blanc ou couvert, la photo le signale (cielPhoto).
+    expect(couleurMurDepuisPixels([...points(100, [217, 210, 196]), ...points(30, [120, 160, 220])]).couleur).toBeNull();
+    expect(couleurMurDepuisPixels(points(100, [217, 210, 196]), 30).couleur).toBeNull();
+    expect(couleurMurDepuisPixels(points(100, [217, 210, 196]), 10).couleur).toBe('#D9D2C4');
+    expect(couleurMurDepuisPixels(points(120, [205, 212, 225])).couleur).toBeNull();
+  });
+  it('trop peu de points : rien', () => {
     expect(couleurMurDepuisPixels(points(20, [217, 210, 196])).couleur).toBeNull();
     // Des points hors de l'image (alpha nul) ne comptent pas.
     expect(couleurMurDepuisPixels([...points(30, [217, 210, 196]), ...Array(400).fill(0)]).couleur).toBeNull();

@@ -449,8 +449,9 @@ meulière), 63 % à Saint-Cloud, 40 % à Gordes (pierre), 32 % à Hucqueliers (b
 
 **La façade vue sur une photo de rue** (`render/couleurMurPhoto.ts`), à l'import et à chaque
 actualisation IGN. Les bâtiments les plus proches du projet passent d'abord, au plus 150, dans un
-délai de 20 s. Les autres sont lus **en tâche de fond, après les toits** (`app/mursFond.ts`), sans
-limite de distance : le voisinage est découpé en zones de 80 m (`COTE_ZONE_MURS_M`), lues de la plus
+délai de 20 s. Les autres peuvent être lus **en tâche de fond, après les toits** (`app/mursFond.ts`),
+sans limite de distance — lecture **arrêtée** pour l'instant (`LECTURE_MURS_EN_FOND = false`, trop peu
+de lectures concluantes pour le volume de photos ; `MD/roadmap-toits-fond.md`, étape 5) : le voisinage est découpé en zones de 80 m (`COTE_ZONE_MURS_M`), lues de la plus
 proche à la plus loin, chacune avec sa recherche Panoramax autour d'elle et quatre photos
 téléchargées à la fois (`couleursMursDUneZone`). Un bâtiment lu porte la lecture, ou `photo: null`
 avec la version de la lecture (`couleurMurs.lecture`, `VERSION_LECTURE_MURS`) quand aucune photo ne

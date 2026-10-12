@@ -96,6 +96,12 @@ describe('couleursMursDepuisPhotos', () => {
     expect(hauteurAuxLimites(p(5, -15), { x: 5, y: 0, z: 3.2 }, [])).toBeNull();
   });
 
+  it('des points sur un ciel clair et lisse (un nuage, un ciel couvert) : la photo ne montre pas ce mur', async () => {
+    const { objets, options } = quartier([200, 202, 206]);
+    expect(await couleursMursDepuisPhotos(objets, proj, options)).toEqual({ photos: 0, ambigus: 1 });
+    expect(objets[1]!.couleurMurs).toEqual({ photo: null });
+  });
+
   it('sans photo ou sans service : rien ne change', async () => {
     const { objets } = quartier([217, 210, 196]);
     expect(await couleursMursDepuisPhotos(objets, proj, { chercher: async () => [] })).toEqual({ photos: 0, ambigus: 0 });

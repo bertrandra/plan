@@ -18,7 +18,7 @@
 
 import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
 import { dallesLidarSur } from '../geo/mnh.js';
-import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT } from './mursFond.js';
+import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT, LECTURE_MURS_EN_FOND } from './mursFond.js';
 import { projecteurLocal, type ProjecteurLocal } from '../geo/projection.js';
 import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
@@ -61,6 +61,8 @@ export interface ContexteToitsFond {
   dalles?: typeof dallesLidarSur;
   /** La lecture des murs sur les photos de rue, apres les toits (app/mursFond.ts) ; remplacable dans les tests. */
   lireMurs?: typeof lireMursEnFond;
+  /** Lire les murs apres les toits ; LECTURE_MURS_EN_FOND par defaut (arretee pour l'instant). */
+  murs?: boolean;
   /** La lecture des couleurs sur l'orthophoto (render/couleurToitOrtho.ts) ; remplacable dans les tests. */
   lireCouleurs?: typeof couleursToitsDepuisOrtho;
   /** Rend la main au navigateur entre deux batiments ; remplacable dans les tests. */
@@ -252,7 +254,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
   // Les murs, apres les toits : les batiments refuses, et le service de photos qui s'est tu, pour cette seance.
   const refusMurs = new Map<string, number>();
   let mursMuets = false, phaseMurs = false;
-  const mursATenter = (objets: ObjetPlan[]) => !mursMuets && objets.some((o) => mursALire(o) && (refusMurs.get(o.key) ?? 0) < ECHECS_MURS_PAR_BATIMENT);
+  const mursATenter = (objets: ObjetPlan[]) => (ctx.murs ?? LECTURE_MURS_EN_FOND) && !mursMuets && objets.some((o) => mursALire(o) && (refusMurs.get(o.key) ?? 0) < ECHECS_MURS_PAR_BATIMENT);
 
   const dire = (etat: ProgressionToits['etat']) => {
     if (phaseMurs) { const m = avancementMurs(ctx.objets()); ctx.progression(m.total ? { ...m, etat, phase: 'murs' } : null); return; }
@@ -342,7 +344,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
       if (!proj || !restants.length) {
         enCours = false;
         // Sans LiDAR, la forme des toits n'a pas ete lue ; sans photos de rue, les murs non plus : « arretee ».
-        phaseMurs = mursMuets && !!proj && objets.some(mursALire);
+        phaseMurs = (ctx.murs ?? LECTURE_MURS_EN_FOND) && mursMuets && !!proj && objets.some(mursALire);
         dire(lidar && !phaseMurs ? 'finie' : 'arretee');
         if (cumul.lus || cumul.couleurs || cumul.murs) { const b = cumul; cumul = vide(); ctx.fin?.(b); await enregistreur.siPermis(true); }
         return;

@@ -345,7 +345,7 @@ describe('les murs apres les toits', () => {
     }) as unknown as typeof lireMursEnFond;
     const apresLot = vi.fn();
     const fond = creerToitsFond({
-      objets: () => objets, lectureSeule: () => false, apresLot, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, fin, lireMurs,
+      objets: () => objets, lectureSeule: () => false, apresLot, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, fin, lireMurs, murs: true,
       lire: (async (o, pr, opt) => { ordre.push('toit'); return lireForme(o, pr, opt); }) as typeof toitsDepuisLidar,
     });
     fond.relancer();
@@ -363,7 +363,7 @@ describe('les murs apres les toits', () => {
     objets.forEach((o) => { if (o.fonction === 'batiment') { delete (o as { couleurMurs?: unknown }).couleurMurs; (o as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS; o.toit!.couleur = '#884422'; } });
     const progres: (ProgressionToits | null)[] = [];
     const lireMurs = vi.fn(async () => ({ photos: 0, ecrits: 0, arret: true })) as unknown as typeof lireMursEnFond;
-    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs });
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs, murs: true });
     fond.relancer();
     await finir(fond);
     expect(lireMurs).toHaveBeenCalledTimes(1);
@@ -371,5 +371,20 @@ describe('les murs apres les toits', () => {
     fond.relancer();
     await finir(fond);
     expect(lireMurs).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('la lecture des murs en fond, arretee pour l instant', () => {
+  it('ne lit pas les murs apres les toits tant que LECTURE_MURS_EN_FOND est faux', async () => {
+    const objets = plan(2);
+    objets.forEach((o) => { if (o.fonction === 'batiment') delete (o as { couleurMurs?: unknown }).couleurMurs; });
+    const lireMurs = vi.fn(async () => ({ photos: 0, ecrits: 0, arret: false })) as unknown as typeof lireMursEnFond;
+    const progres: (ProgressionToits | null)[] = [];
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs });
+    fond.relancer();
+    await finir(fond);
+    expect(lireMurs).not.toHaveBeenCalled();
+    expect(progres.at(-1)?.etat).toBe('finie');
+    expect(progres.some((pr) => pr?.phase === 'murs')).toBe(false);
   });
 });

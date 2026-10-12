@@ -149,6 +149,33 @@ mais :
   le ciel (position ou cap imprécis, distorsion de l'objectif) ;
 - en banlieue, les façades sont derrière les haies (déjà connu, §4 bis du skill `toits`).
 
+## Étape 5 — lecture des murs : essais, garde-fous, arrêt du fond (branche `claude/murs-lecture`)
+
+Essais hors ligne sur un relevé réel (photos brutes et géométrie autour) : 71 lectures de murs à
+Rennes (9 bâtiments vus), 262 au Vésinet (31 bâtiments vus), jusqu'à 6 photos par mur.
+
+| Piste | Le Vésinet | Rennes |
+|---|---|---|
+| Règle d'avant | 1 | 2 |
+| 6 photos par mur | 1 | 2 |
+| Exposition de chaque photo normalisée | 1 | 1 |
+| Recalage du cap et de la position sur la ligne des toits (±30°, ±4 m) | 1 | 2 |
+| Façade lue sur ce qui en reste (partielle) | 9 | 4 |
+| Partielle, garde-fous ciel et teintes froides | **2** | **2** |
+
+- **Recalage** : la ligne des toits attendue (contours BD TOPO, égout + 4 m) comparée au ciel de la
+  photo. En ville, il colle la silhouette aux immeubles (vérifié sur les photos), sans lecture de plus
+  (murs peu vus, photos sombres). En banlieue arborée, aucun cap ne se dégage même sur 360° : les
+  arbres masquent les toits. Pas gardé.
+- **Lecture partielle** : la plupart des lectures gagnées étaient des nuages ou du ciel vu entre les
+  branches (les points hauts du mur dépassent la haie). D'où les garde-fous livrés
+  (`model/couleurMur.ts`) : au plus 20 % des points sur le ciel (couleur, ou ciel clair et lisse de la
+  photo : `couleurMurPhoto.ts::lectureDuMur`), teinte dominante pas plus bleue que rouge de 6, au moins
+  30 points lisibles et le quart des points vus, 70 % d'entre eux de la teinte. Une façade blanche en
+  plein soleil peut passer pour du ciel et se perdre : le matériau reprend la main.
+- `VERSION_LECTURE_MURS` passe à 2 ; la lecture de fond des murs est arrêtée, l'import lit toujours les
+  150 bâtiments les plus proches.
+
 ## Limites d'usage de la Géoplateforme (point 2, vérifié le 12 octobre 2026)
 
 Source : [Limites d'usage des API](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/limites-d-usage/)
@@ -182,10 +209,9 @@ Ce que cela voulait dire avant l'étape 3 (chiffres d'alors ; ceux d'après sont
    à 50 Mo, voisinage inchangé (voir plus haut).
 2. ~~Régler le débit~~ : **fait** (étape 3). Six lecteurs en file continue, 429 rejoués.
 3. ~~Couleur des murs (Panoramax) en fond~~ : **fait** (étape 4), sans limite de distance.
-5. **Lecture des murs qui conclut plus souvent** (règle de `model/couleurMur.ts`) : normaliser
-   l'exposition de chaque photo avant de juger l'ombre, garder plus de deux photos par mur et
-   préférer les photos de jour, écarter les photos mal calées (points du mur hors des contours de
-   bâtiment de l'image). Puis passer `VERSION_LECTURE_MURS` pour relire les murs restés sans lecture.
+5. **Lecture des murs qui conclut plus souvent** : essayée (étape 5 ci-dessous). Garde-fous livrés,
+   lecture de fond des murs **arrêtée** (`LECTURE_MURS_EN_FOND = false`), à reprendre si une source
+   de photos mieux calées ou une méthode de recalage robuste aux arbres apparaît.
 4. **Calcul hors du fil principal**, si un poste plus lent saccade (voir point 5 ci-dessus).
 
 ## Points de vigilance
