@@ -402,7 +402,10 @@ const POINTS = {
     // toute facon (voir le point 13), et en importer une trentaine pour rien allongerait chaque
     // passage sans rien prouver.
     await boite.getByRole('button', { name: /Creer le projet/ }).click();
-    await page.waitForTimeout(5000);
+    // La creation lit d'abord les toits des trente batiments les plus proches sur le LiDAR : 12 a 24 s
+    // mesurees. Cinq secondes d'attente relisaient l'etat d'avant (la demonstration) : on attend que le
+    // dialogue se ferme.
+    await page.waitForFunction(() => !document.querySelector('.dialogueCadastre'), null, { timeout: 90000 }).catch(() => {});
     const etat = await lireEtat(page);
     const pc = objet(etat, (o) => o.key === 'parcelle');
     const batiments = etat.objects.filter((o) => o.fonction === 'batiment').length;
