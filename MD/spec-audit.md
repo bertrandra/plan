@@ -1,6 +1,7 @@
 # Mode audit — promenade de contrôle des toits et des façades
 
-Statut : **spécification**, aucun code encore (12 octobre 2026). À valider avant l'étape 1.
+Statut : **spécification**, aucun code encore. Rédigée le 12 octobre 2026 ; points ouverts tranchés
+le 13 octobre (§2), questions restantes au §11.
 
 ## 1. Le but
 
@@ -21,6 +22,13 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 - Un tapotement sur une maison la passe en **rouge** : elle est à vérifier.
 - **Un fichier par promenade** (pas un par cas), **partagé** par la fonction de partage du téléphone.
 - Un cas corrigé garde ses références, pour éviter les régressions.
+- **Couleur des façades** pendant la promenade : le matériau **BD TOPO** seulement (pas de photos de
+  rue Panoramax, trop lourdes et rarement concluantes).
+- **Catégories** : toit, façade, contour, hauteur, autre ; pour le toit, une liste de problèmes
+  précis (§4.5).
+- **Caméra** : vue « drone » qui suit, navigation libre au toucher.
+- **Calcul entier** des toits pour tous les bâtiments du rayon.
+- **Photo** jointe à un cas : admise, environ 300 Ko par image.
 
 ## 3. Accès et cycle de vie
 
@@ -59,7 +67,7 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
   l'identifiant BD TOPO, puis, pour chaque nouveau bâtiment :
   - toit LiDAR par la chaîne de l'import (`app/toitsLidar.ts::toitsDepuisLidar`), en **calcul
     entier** (celui du projet et des mitoyens : coupes, grille gardée), quatre lectures à la fois ;
-  - couleur des murs par le matériau BD TOPO (§11, point 1) ;
+  - couleur des murs par le matériau BD TOPO ;
   - couleur du toit sur l'orthophoto.
 - Le régulateur (`app/regulateur.ts`) dose les lectures pendant un geste.
 - Garde-fou : au-delà de 600 bâtiments chargés, les plus éloignés de la position sont retirés de
@@ -70,7 +78,7 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 - Vue 3D seule. Votre position y est montrée comme dans « Ma position (3D) »
   (`three/positionGps3d.ts`).
 - Caméra : **vue « drone »** derrière la position, à 30 m environ, qui suit. Toucher la scène passe
-  en navigation libre ; un bouton « Me suivre » y revient (§11, point 3).
+  en navigation libre ; un bouton « Me suivre » y revient.
 - Barre d'état : bâtiments chargés, en calcul, marqués ; précision du GPS.
 
 ### 4.4 Marquer un bâtiment
@@ -79,23 +87,68 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
   Le rouge est une couleur d'affichage posée par-dessus, comme `?mode=devroof`
   (`app/diagnostic.ts`) : rien n'est modifié.
 - Tapoter un bâtiment marqué : la marque est retirée.
-- **Appui long** : choix de la catégorie (toit, façade, contour, hauteur, autre) et note libre.
-- Au moment de la marque, le cas est **figé** (§5.2) et écrit dans le brouillon.
+- **Appui long** sur un bâtiment marqué : une fiche courte, en trois touches au plus :
+  1. la catégorie (toit, façade, contour, hauteur, autre) ;
+  2. un ou plusieurs problèmes précis de la liste du §4.5 (pastilles à cocher) ;
+  3. une note libre et, si vous voulez, une **photo** prise avec le téléphone.
+- Au moment de la marque, le cas est **figé** (§5.2) et écrit dans le brouillon. Les précisions
+  peuvent venir plus tard, sur place ou dans la liste de fin de promenade (§4.6).
 
-### 4.5 Fin de promenade
+### 4.5 Les problèmes à cocher
+
+Chaque problème a un code stable, écrit dans le fichier : c'est lui que le script de rejeu et les
+tests lisent. La dernière colonne dit où le chercher dans la chaîne (skill `toits`).
+
+**Toit**
+
+| Code | Ce que vous voyez | Où chercher |
+|---|---|---|
+| `toit.sens-faitage` | le faîtage est dans le mauvais sens (pans tournés d'un quart de tour) | sens du corps, `ajusterCorps` |
+| `toit.forme` | mauvaise forme : deux pans au lieu de quatre (croupes), appentis au lieu de deux pans, plat au lieu de pentu, ou l'inverse | formes, `avecCroupesSiMieux`, `unPanPlutotQuePlat` |
+| `toit.position-faitage` | faîtage décentré, un pan bien plus large que l'autre | position du faîtage, `ajusterCorps` |
+| `toit.hauteur` | égout ou faîtage trop haut ou trop bas : toit écrasé ou trop pointu | égouts, `egoutDansRect`, pente maxi |
+| `toit.pignon-manquant` | un pignon ou une lucarne-pignon visible n'est pas dessiné | `detecterPignons` |
+| `toit.pignon-en-trop` | un pignon dessiné n'existe pas | `detecterPignons` |
+| `toit.morceaux` | un seul toit découpé en plusieurs morceaux, bandes ou marches qui n'existent pas | marches, refonte, bandes recouvertes |
+| `toit.fusion` | deux toits distincts fondus en un : une aile ou une annexe plus basse avalée | coupe par le modèle, `meilleureCoupe` |
+| `toit.trou` | une partie du bâtiment sans toit (un coin vide), ou un toit qui déborde du bâtiment | complétion, reprise d'un contour de biais |
+| `toit.vegetation` | un arbre pris pour le toit : bosse, toit trop haut sous un arbre | végétation, `corpsVraisemblables` |
+| `toit.cheval` | deux maisons mitoyennes avec un seul toit, ou une maison coupée en deux | bâtiment à cheval, `toitACheval` |
+| `toit.absent` | aucun toit construit (boîte par défaut) alors que le toit est simple | lecture LiDAR, `toitsDepuisLidar` |
+| `toit.couverture` | mauvais matériau (tuile, ardoise, zinc, terrasse) ou mauvaise couleur du toit | `materiauCouverture`, couleur sur l'orthophoto |
+| `toit.autre` | autre chose : à décrire dans la note | — |
+
+**Façade, contour, hauteur**
+
+| Code | Ce que vous voyez |
+|---|---|
+| `facade.couleur` | couleur des murs fausse |
+| `facade.materiau` | mauvais matériau ou mauvaise texture (brique, pierre, enduit…) |
+| `facade.fenetres` | fenêtres absentes, en trop ou mal placées |
+| `contour.decale` | le bâtiment est décalé par rapport à la réalité |
+| `contour.forme` | la forme du bâtiment est fausse (aile manquante, contour simplifié) |
+| `contour.existence` | bâtiment absent, ou dessiné alors qu'il est démoli |
+| `hauteur.murs` | les murs sont trop hauts ou trop bas |
+| `autre` | à décrire dans la note |
+
+### 4.6 Fin de promenade
 
 - « Terminer et partager » construit le fichier de la promenade (§5) et ouvre le partage du
   téléphone (`navigator.share({ files })`, après `navigator.canShare`) : messagerie, Drive, mail.
 - Sans partage de fichiers (ordinateur, ancien navigateur) : le fichier est téléchargé.
-- Un résumé s'affiche : nombre de cas par catégorie, et la liste des parcelles.
+- Avant le partage, la **liste des cas** s'affiche : parcelle, adresse, catégorie et problèmes. Chaque
+  cas s'y complète ou s'y retire ; un appui centre la Vue 3D sur le bâtiment.
+- Après le partage : un résumé, avec le nombre de cas par catégorie.
 
 ## 5. Le fichier de la promenade
 
 ### 5.1 Nom et forme
 
 - Nom : `audit-AAAA-MM-JJ-HHMM-<commune>.json`, un fichier par promenade, JSON lisible (UTF-8).
-- Taille : quelques dizaines de Ko par cas, surtout la grille LiDAR. Trente cas tiennent dans
-  2 Mo environ.
+- Taille : quelques dizaines de Ko par cas, surtout la grille LiDAR, plus la photo s'il y en a une.
+  La photo est réduite à 1 280 px de large en JPEG (environ 300 Ko) et intégrée au fichier (en
+  base64, environ 400 Ko). Trente cas sans photo tiennent dans 2 Mo ; avec une photo chacun, environ
+  14 Mo.
 - **Pas de trace GPS complète** dans le fichier (vie privée, taille) : seulement la position de
   chaque marque et l'emprise parcourue.
 
@@ -114,7 +167,7 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
   "cas": [{
     "id": "c1",
     "statut": "a_corriger",
-    "constat": { "categorie": "toit", "note": "faîtage dans le mauvais sens", "t": "…", "position": { "x": 12.4, "y": -3.1, "precisionM": 5 } },
+    "constat": { "categorie": "toit", "problemes": ["toit.sens-faitage"], "note": "faîtage parallèle à la rue", "t": "…", "position": { "x": 12.4, "y": -3.1, "precisionM": 5 }, "photo": { "type": "image/jpeg", "base64": "…" } },
     "identite": { "cleBdtopo": "BATIMENT0000…", "idu": "78650000AE0101", "adresse": "2 allée des Limites" },
     "entrees": {
       "pts": [/* contour recalé, repère de l'origine */],
@@ -186,19 +239,19 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 
 | Étape | Contenu | Vérifié par |
 |---|---|---|
-| 1 | Accès admin, aucune sauvegarde, GPS et caméra qui suit, chargement initial 40 m, toits et matériau, marquage, fichier de promenade, partage | tests unitaires, fumée sur GPS simulé (Playwright), une promenade réelle |
-| 2 | Carte qui s'étend par cases de 10 m, garde-fou de 600 bâtiments, brouillon local et reprise | GPS simulé sur un trajet de 500 m |
+| 1 | Accès admin, aucune sauvegarde, GPS et caméra qui suit, chargement initial 40 m, toits et matériau BD TOPO, marquage, fiche (catégorie, problèmes, note), liste de fin, fichier de promenade, partage | tests unitaires, fumée sur GPS simulé (Playwright), une promenade réelle |
+| 2 | Carte qui s'étend par cases de 10 m, garde-fou de 600 bâtiments, brouillon local et reprise, photo jointe | GPS simulé sur un trajet de 500 m |
 | 3 | Script `audit.ts`, test de non-régression, circuit écrit dans le skill `toits` | premier fichier réel rejoué |
-| 4 | Plus tard : façade Panoramax à la demande, photo du téléphone jointe au cas, note vocale | — |
+| 4 | Plus tard : façade Panoramax à la demande sur un cas, note vocale | — |
 
-## 11. Points ouverts (à confirmer avant l'étape 1)
+## 11. Questions restantes
 
-1. **Couleur des façades pendant la promenade** : proposé, le matériau BD TOPO seulement. Panoramax
-   télécharge des centaines de Mo et conclut rarement (2 bâtiments sur 31 au Vésinet). Il serait
-   lu à la demande sur un cas marqué « façade », ou à la correction.
-2. **Catégories** : toit, façade, contour, hauteur, autre.
-3. **Caméra** : vue « drone » qui suit par défaut, navigation libre au toucher.
-4. **Calcul entier** pour tous les bâtiments du rayon, alors qu'un projet normal calcule le
-   voisinage lointain en version allégée. L'audit éprouve la chaîne complète ; le mode est noté dans
-   `sorties.mode` pour comparer.
-5. **Photo jointe** (étape 4) : elle alourdit le fichier (environ 300 Ko chacune).
+1. **Plusieurs problèmes par cas** : la fiche permet d'en cocher plusieurs (« sens du faîtage » et
+   « pignon manquant » sur la même maison). Proposé : oui.
+2. **Essai sans sortir** : un départ sur une adresse au lieu du GPS (`?mode=audit&depart=…`), la
+   position se déplaçant au doigt sur la Vue 3D. Utile pour vous, pour essayer chez vous, et pour
+   les tests automatiques. Proposé : oui, même accès admin.
+3. **Validation d'une correction** : je montre dans la PR, pour chaque cas corrigé, l'image avant et
+   l'image après (vue 3D et carte des hauteurs) ; vous répondez « validé » ou non. Proposé : oui.
+4. **Photo à l'étape 1 ou 2** : proposé à l'étape 2, avec le brouillon local, pour que l'étape 1
+   reste courte.
