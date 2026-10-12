@@ -121,7 +121,9 @@ export function creerEtat(
     scene: creerScene(),
 
     showNorth: true,
-    grilleVisible: true,
+    // La grille du plan est masquee par defaut (decision de l'utilisateur, octobre 2026) : le bouton
+    // « Grille » la montre, et le choix s'enregistre avec le projet.
+    grilleVisible: false,
     voisinageVisible: true,
 
     schemaProjet: seed.schemaVersion ?? 1,

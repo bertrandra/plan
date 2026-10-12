@@ -53,8 +53,8 @@ describe('Vue 3D', () => {
   it('commande la camera par son contexte', () => {
     const { ctx, cmd } = monter();
     cmd.executer('3d.zoomAvant'); cmd.executer('3d.zoomArriere');
-    expect(ctx.zoom3D).toHaveBeenNthCalledWith(1, 0.8);
-    expect(ctx.zoom3D).toHaveBeenNthCalledWith(2, 1.25);
+    expect(ctx.zoom3D).toHaveBeenNthCalledWith(1, 0.5);
+    expect(ctx.zoom3D).toHaveBeenNthCalledWith(2, 2);
     cmd.executer('3d.modeOrbite'); cmd.executer('3d.modeDeplacement'); cmd.executer('3d.modeZoom');
     expect((ctx.setMode3D as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(['orbit', 'pan', 'zoom']);
     cmd.executer('3d.hauteurDesYeux');

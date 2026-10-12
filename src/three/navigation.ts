@@ -139,21 +139,21 @@ interface Pt3 { x: number; y: number; z: number }
 
 /** La molette ne rapproche pas a moins de cela du point vise : au-dela, on traverserait le toit ou le sol. */
 export const ZOOM_DISTANCE_MIN_M = 0.5;
-/** Un cran de molette (120) rapproche ou eloigne d'environ 10 %. */
-export const ZOOM_PAR_UNITE_MOLETTE = 0.0008;
-/** Un pas de molette plus grand (souris rapide) compte pour deux crans, pas plus. */
-const MOLETTE_MAX = 240;
+/**
+ * Chaque evenement de molette rapproche ou eloigne de ce rapport, quelle que soit sa taille : la
+ * regle du plan 2D (interaction/navigation.ts, FACTEUR_MOLETTE). Un pas proportionnel au defilement
+ * zoomait a peine au pave tactile et a la souris a defilement libre, dont les petits pas decroissent
+ * en fin de geste (l'inertie) : le zoom faiblissait a chaque evenement (retour de l'utilisateur,
+ * octobre 2026).
+ */
+export const FACTEUR_MOLETTE_3D = 1.1;
 /** Entre deux evenements de molette, au-dela de cette pause ou d'un pointeur deplace, le point vise est recherche a nouveau. */
 const GESTE_MOLETTE_MS = 300;
 const GESTE_MOLETTE_PX = 4;
 
-/**
- * Le facteur d'un evenement de molette : < 1 rapproche, > 1 eloigne. Les pas en lignes (Firefox)
- * valent 40 px ; un pave tactile, qui donne des petits pas nombreux, zoome a proportion.
- */
-export function facteurMolette(deltaY: number, deltaMode = 0): number {
-  const d = deltaMode === 1 ? deltaY * 40 : deltaMode === 2 ? deltaY * 400 : deltaY;
-  return Math.exp(Math.max(-MOLETTE_MAX, Math.min(MOLETTE_MAX, d)) * ZOOM_PAR_UNITE_MOLETTE);
+/** Le facteur d'un evenement de molette : < 1 rapproche, > 1 eloigne, 1 sans defilement vertical. */
+export function facteurMolette(deltaY: number): number {
+  return deltaY < 0 ? 1 / FACTEUR_MOLETTE_3D : deltaY > 0 ? FACTEUR_MOLETTE_3D : 1;
 }
 
 /**
@@ -223,7 +223,8 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     if (!sc) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    const f = facteurMolette(e.deltaY, e.deltaMode);
+    const f = facteurMolette(e.deltaY);
+    if (f === 1) return;
     const dom = sc.renderer.domElement, r = dom.getBoundingClientRect();
     const maintenant = performance.now();
     if (!molette || maintenant - molette.t > GESTE_MOLETTE_MS || Math.hypot(e.clientX - molette.x, e.clientY - molette.y) > GESTE_MOLETTE_PX) {
@@ -264,6 +265,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
     if (offset.length() < 0.3) return;
+    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
+    if (factor > 1 && offset.length() > camera.far * 0.5) return;
     camera.position.copy(controls.target).add(offset);
     controls.update();
     renderer.render(scene, camera);

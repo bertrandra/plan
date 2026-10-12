@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { cameraDepuisPointDeVue, creerNavigation3d, HAUTEUR_YEUX_M, facteurMolette, zoomVersPoint, cibleALaHauteur, ZOOM_DISTANCE_MIN_M } from '../../../src/three/navigation.js';
+import { cameraDepuisPointDeVue, creerNavigation3d, HAUTEUR_YEUX_M, facteurMolette, FACTEUR_MOLETTE_3D, zoomVersPoint, cibleALaHauteur, ZOOM_DISTANCE_MIN_M } from '../../../src/three/navigation.js';
 import { vue3d, glb, cleDeVue, CLE_SANS_TERRASSE } from '../../../src/three/etat3d.js';
+import { FACTEUR_MOLETTE } from '../../../src/interaction/navigation.js';
 
 // Le calcul etait ecrit deux fois — une pour la Vue 3D, une pour la visionneuse GLB. Ces tests
 // fixent la conversion plan → repere local de la scene, qui est la partie qu'on ne devine pas.
@@ -214,11 +215,13 @@ describe('D-15 — la liste des points de vue', () => {
 // La molette de la Vue 3D zoome vers ce que montre le curseur (une maison au loin), pas vers le
 // centre de la parcelle : une homothetie de centre le point vise, puis la cible ramenee au sol.
 describe('le zoom a la molette vers le point vise', () => {
-  it('un cran rapproche ou eloigne d environ 10 %, un pas en lignes compte 40 px, un grand pas est borne', () => {
-    expect(facteurMolette(-120)).toBeCloseTo(Math.exp(-0.096), 9);
-    expect(facteurMolette(120) * facteurMolette(-120)).toBeCloseTo(1, 9);
-    expect(facteurMolette(-3, 1)).toBeCloseTo(facteurMolette(-120), 9);
-    expect(facteurMolette(-5000)).toBeCloseTo(facteurMolette(-240), 9);
+  it('chaque evenement rapproche ou eloigne du meme rapport, quelle que soit sa taille, comme en 2D', () => {
+    expect(facteurMolette(-120)).toBeCloseTo(1 / FACTEUR_MOLETTE_3D, 12);
+    expect(facteurMolette(-3)).toBe(facteurMolette(-120));
+    expect(facteurMolette(-5000)).toBe(facteurMolette(-120));
+    expect(facteurMolette(2)).toBe(FACTEUR_MOLETTE_3D);
+    expect(facteurMolette(0)).toBe(1);
+    expect(FACTEUR_MOLETTE_3D).toBe(FACTEUR_MOLETTE);
   });
 
   it('garde le point vise sur le meme rayon de la camera, et la direction de la vue', () => {
