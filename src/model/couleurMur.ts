@@ -101,11 +101,27 @@ export function textureDesMurs(o: { couleurMurs?: CouleurMurs | null; bdtopo?: u
 
 /** En dessous, trop peu de points du mur lisibles pour juger. */
 export const POINTS_MUR_MIN = 40;
-/** La part des points du mur qui doivent rester une fois le ciel, le feuillage et les ombres ecartes. */
-const PART_LISIBLE_MIN = 0.5;
-/** Distance RGB sous laquelle un point est « de la teinte dominante », et part qui doit l'etre. */
+/**
+ * Une facade en partie cachee (une haie, une voiture devant) se lit sur ce qui en reste : au moins
+ * tant de points lisibles, et cette part des points du mur. Mesure (octobre 2026) : au Vesinet, les
+ * facades derriere les haies ne se lisaient jamais quand la moitie des points devaient l'etre.
+ */
+const POINTS_LISIBLES_MIN = 30;
+const PART_LISIBLE_MIN = 0.25;
+/** Distance RGB sous laquelle un point est « de la teinte dominante », et part des points lisibles qui doit l'etre. */
 const ECART_TEINTE = 40;
-const PART_COHERENTE = 0.6;
+const PART_COHERENTE = 0.7;
+/**
+ * Au-dela de cette part des points du mur sur le ciel, la photo ne montre pas ce mur la ou on le croit
+ * (cap ou position de la prise de vue imprecis, mur cache plus bas que son egout) : on ne la lit pas.
+ * Mesure : sans ce garde-fou, les nuages au-dessus des haies se lisaient comme des facades blanches.
+ */
+export const PART_CIEL_MAX = 0.2;
+/**
+ * Une teinte dominante plus bleue que rouge de tant est du ciel entre les branches, une vitre ou
+ * l'ombre bleue du soir : enduits, briques, pierres et meulieres sont chauds ou neutres.
+ */
+const FROID_MAX = 6;
 /**
  * Plus sombre : une fenetre, une ombre, un volet, une haie a contre-jour ; plus clair : un ciel blanc,
  * un reflet. Un mur a l'ombre se perd avec eux : mieux vaut le materiau qu'une haie prise pour un mur.
@@ -147,20 +163,25 @@ export interface LectureMur {
 
 /**
  * La teinte d'un mur d'apres les points de la photo qui tombent dessus (RGBA a plat ; les points
- * hors de l'image ont un alpha nul). Concluante quand assez de points restent une fois ecartes le
- * ciel, le feuillage, les fenetres et les reflets, et que la plupart sont d'une meme teinte : sinon
- * une voiture, une cloture, un arbre ou le ciel sont devant, et la photo ne dit rien du mur.
+ * hors de l'image ont un alpha nul). `cielPhoto` : les points que la photo montre sur le ciel (clair,
+ * lisse), ecartes par l'appelant. Concluante quand le mur n'est pas pour une bonne part du ciel,
+ * qu'assez de points restent une fois ecartes le ciel, le feuillage, les fenetres et les reflets, que
+ * la plupart sont d'une meme teinte, et que cette teinte n'est pas froide : sinon une voiture, une
+ * cloture, un arbre ou le ciel sont devant, et la photo ne dit rien du mur.
  */
-export function couleurMurDepuisPixels(rgba: ArrayLike<number>): LectureMur {
+export function couleurMurDepuisPixels(rgba: ArrayLike<number>, cielPhoto = 0): LectureMur {
   const px: Rgb[] = [];
   for (let i = 0; i + 3 < rgba.length; i += 4) if (au(rgba, i + 3) >= 128) px.push([au(rgba, i), au(rgba, i + 1), au(rgba, i + 2)]);
-  if (px.length < POINTS_MUR_MIN) return { couleur: null, coherence: 0 };
+  const vus = px.length + cielPhoto;
+  if (vus < POINTS_MUR_MIN) return { couleur: null, coherence: 0 };
+  if ((cielPhoto + px.filter(estCiel).length) / vus > PART_CIEL_MAX) return { couleur: null, coherence: 0 };
   const lisibles = px.filter((p) => !estVegetation(p) && !estCiel(p) && !estOmbre(p) && luminance(p) >= LUMINANCE_MIN && luminance(p) <= LUMINANCE_MAX);
-  if (lisibles.length < POINTS_MUR_MIN || lisibles.length < PART_LISIBLE_MIN * px.length) return { couleur: null, coherence: 0 };
+  if (lisibles.length < POINTS_LISIBLES_MIN || lisibles.length < PART_LISIBLE_MIN * vus) return { couleur: null, coherence: 0 };
   const dominante: Rgb = [mediane(lisibles.map((p) => p[0])), mediane(lisibles.map((p) => p[1])), mediane(lisibles.map((p) => p[2]))];
   const proches = lisibles.filter((p) => distance(p, dominante) <= ECART_TEINTE);
-  const coherence = proches.length / px.length;
-  if (coherence < PART_COHERENTE) return { couleur: null, coherence };
+  // Entre deux murs, le plus grand nombre de points de la teinte l'emporte : rapporte a tous les points vus.
+  const coherence = proches.length / vus;
+  if (proches.length < PART_COHERENTE * lisibles.length || dominante[2] > dominante[0] + FROID_MAX) return { couleur: null, coherence };
   const s = proches.reduce<Rgb>((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]);
   return { couleur: versHex([s[0] / proches.length, s[1] / proches.length, s[2] / proches.length]), coherence: Math.round(coherence * 100) / 100 };
 }

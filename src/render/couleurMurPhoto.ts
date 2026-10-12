@@ -13,7 +13,7 @@
 
 import { centroid, signedArea } from '../geometry/basic.js';
 import { chercherPhotosRue, ecartAngulaire, type PhotoRue } from '../geo/panoramax.js';
-import { couleurMurDepuisPixels, type PhotoMur } from '../model/couleurMur.js';
+import { couleurMurDepuisPixels, type LectureMur, type PhotoMur } from '../model/couleurMur.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { CouleurMurs, PtBrut } from '../model/types.js';
 
@@ -191,6 +191,38 @@ export function pixelsDuMur(img: Pixels, mur: MurAVoir, limites: readonly Obstac
   return out;
 }
 
+/**
+ * Un point de la photo sur le ciel : clair, pas chaud, lisse avec ses voisins (ciel bleu, couvert, ou
+ * nuage). Une facade blanche en plein soleil peut y ressembler : elle se perd alors, et le materiau
+ * reprend la main, plutot qu'un nuage pris pour une facade blanche (mesure d'octobre 2026).
+ */
+function surLeCiel(img: Pixels, i: number, j: number): boolean {
+  const W = img.largeur, d = img.data;
+  if (i < 1 || j < 1 || i >= W - 1 || j >= img.hauteur - 1) return false;
+  const L = (k: number) => 0.299 * (d[k] as number) + 0.587 * (d[k + 1] as number) + 0.114 * (d[k + 2] as number);
+  const k = (j * W + i) * 4;
+  const grad = Math.abs(L(k + 4) - L(k - 4)) + Math.abs(L(k + W * 4) - L(k - W * 4));
+  return L(k) > CIEL_LUMINANCE_MIN && (d[k + 2] as number) >= (d[k] as number) - 4 && grad < CIEL_GRADIENT_MAX;
+}
+const CIEL_LUMINANCE_MIN = 135, CIEL_GRADIENT_MAX = 14;
+
+/**
+ * La lecture d'un mur sur une photo : ses points (pixelsDuMur), moins ceux qui tombent sur le ciel de
+ * la photo, comptes a part (model/couleurMur.ts::PART_CIEL_MAX : trop de ciel, le mur n'est pas la).
+ */
+export function lectureDuMur(img: Pixels, mur: MurAVoir, limites: readonly Obstacle[] = []): LectureMur {
+  const px = pixelsDuMur(img, mur, limites);
+  let ciel = 0;
+  pointsDuMur(mur.a, mur.b, mur.egout).forEach((p, n) => {
+    if (!px[n * 4 + 3]) return;
+    const uv = pointDansImage(mur.vue, p, img.largeur, img.hauteur);
+    if (!uv || !surLeCiel(img, Math.floor(uv.u), Math.floor(uv.v))) return;
+    ciel++;
+    px[n * 4 + 3] = 0;
+  });
+  return couleurMurDepuisPixels(px, ciel);
+}
+
 /** Telecharge une photo et rend ses pixels, reduite a COTE_IMAGE_MAX_PX ; null si elle ne vient pas. */
 export async function chargerPixels(url: string): Promise<Pixels | null> {
   try {
@@ -272,7 +304,7 @@ async function lireLesMurs(murs: readonly MurAVoir[], limites: readonly Obstacle
       if (!img) continue;
       for (const m of ms) {
         r.lus.set(m.cle, (r.lus.get(m.cle) ?? 0) + 1);
-        const l = couleurMurDepuisPixels(pixelsDuMur(img, m, limites));
+        const l = lectureDuMur(img, m, limites);
         const avant = r.lectures.get(m.cle);
         if (l.couleur && (!avant || l.coherence > avant.coherence)) r.lectures.set(m.cle, { couleur: l.couleur, coherence: l.coherence, photo });
       }
