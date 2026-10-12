@@ -214,8 +214,8 @@ describe('D-15 — la liste des points de vue', () => {
 // La molette de la Vue 3D zoome vers ce que montre le curseur (une maison au loin), pas vers le
 // centre de la parcelle : une homothetie de centre le point vise, puis la cible ramenee au sol.
 describe('le zoom a la molette vers le point vise', () => {
-  it('un cran rapproche ou eloigne d environ 10 %, un pas en lignes compte 40 px, un grand pas est borne', () => {
-    expect(facteurMolette(-120)).toBeCloseTo(Math.exp(-0.096), 9);
+  it('un cran rapproche ou eloigne d une fois et demie, un pas en lignes compte 40 px, un grand pas est borne', () => {
+    expect(facteurMolette(-120)).toBeCloseTo(1 / 1.5, 9);
     expect(facteurMolette(120) * facteurMolette(-120)).toBeCloseTo(1, 9);
     expect(facteurMolette(-3, 1)).toBeCloseTo(facteurMolette(-120), 9);
     expect(facteurMolette(-5000)).toBeCloseTo(facteurMolette(-240), 9);

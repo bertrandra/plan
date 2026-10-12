@@ -181,6 +181,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
+  le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.
+
+- **Vue 3D : le zoom avance plus vite.** Un cran de molette rapproche ou éloigne d'une fois et
+  demie (10 % auparavant), un clic sur + ou − divise ou double la distance (×0,8 et ×1,25
+  auparavant), et le pincement à deux doigts zoome deux fois plus. Le zoom arrière s'arrête avant
+  que la scène ne sorte du champ.
+
 - **Le rayon du voisinage va jusqu'à 1,5 km** (5 km auparavant), à la création d'un projet depuis
   une adresse comme à l'actualisation d'un projet existant. Au-delà, le plan, la Vue 3D et
   l'enregistrement s'alourdissaient pour un voisinage qu'on ne regarde pas ; à 1,5 km, le plafond de

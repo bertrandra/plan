@@ -139,8 +139,11 @@ interface Pt3 { x: number; y: number; z: number }
 
 /** La molette ne rapproche pas a moins de cela du point vise : au-dela, on traverserait le toit ou le sol. */
 export const ZOOM_DISTANCE_MIN_M = 0.5;
-/** Un cran de molette (120) rapproche ou eloigne d'environ 10 %. */
-export const ZOOM_PAR_UNITE_MOLETTE = 0.0008;
+/**
+ * Un cran de molette (120) rapproche ou eloigne d'une fois et demie (decision de l'utilisateur,
+ * octobre 2026) : a 10 % par cran, il fallait des dizaines de crans pour traverser le voisinage.
+ */
+export const ZOOM_PAR_UNITE_MOLETTE = Math.log(1.5) / 120;
 /** Un pas de molette plus grand (souris rapide) compte pour deux crans, pas plus. */
 const MOLETTE_MAX = 240;
 /** Entre deux evenements de molette, au-dela de cette pause ou d'un pointeur deplace, le point vise est recherche a nouveau. */
@@ -264,6 +267,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
     if (offset.length() < 0.3) return;
+    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
+    if (factor > 1 && offset.length() > camera.far * 0.5) return;
     camera.position.copy(controls.target).add(offset);
     controls.update();
     renderer.render(scene, camera);

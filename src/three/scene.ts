@@ -210,6 +210,10 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   host.appendChild(renderer.domElement);
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  // Le pincement a deux doigts zoome deux fois plus que par defaut, comme la molette et les boutons
+  // (three/navigation.ts) : a la vitesse d'origine, traverser un grand voisinage demandait des dizaines
+  // de gestes. La molette, elle, ne passe plus par OrbitControls.
+  controls.zoomSpeed = 2;
   controls.target.set(0, hCible, 0);
   controls.update();
   // Meme terrasse reconstruite (une case a cocher) : la camera reste ou l'utilisateur l'avait laissee.
