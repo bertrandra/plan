@@ -537,14 +537,14 @@ export async function construireVoisinage(
   cad: { idu?: string; codeInsee?: string; origineLat: number; origineLon: number; geometrieSource?: { coordinates?: Anneau[] } },
   proj: ProjecteurLocal,
   simplifier: boolean,
-  choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean; rayonM?: number },
+  choix: { batiments?: boolean; vegetation?: boolean; arbres?: boolean; rayonM?: number; centre?: PtBrut; batiPrincipal?: boolean },
   dejaSerialises: ObjetBrut[]
 ): Promise<{ objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean }> {
   etape('le voisinage…');
   const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
   const anneauSource = cad.geometrieSource && cad.geometrieSource.coordinates && cad.geometrieSource.coordinates[0];
   if(!anneauSource) throw new Error('geometrie source de la parcelle absente');
-  const centreParc = centroid(sommetsDe(parcelle));
+  const centreParc = choix.centre ?? centroid(sommetsDe(parcelle)); // ou la position du mode audit (app/audit/)
   const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
   // Le voisinage etendu : un disque de `rayonM` autour du centre de la parcelle. L'emprise
   // demandee est le carre qui le contient ; ce qui n'y touche pas est ecarte, et au-dela du
@@ -596,8 +596,8 @@ export async function construireVoisinage(
   // sur tout le disque, en plusieurs pages, les plus proches d'abord.
   const bbox = rayonM ? bboxDegDesAnneaux([empriseRayon.coordinates[0] as Anneau], proj, 0) : bboxDegDesAnneaux(nouvellesParcelles.map(c=>c.anneauDeg), proj, 5);
   const idsPresents = new Set(dejaSerialises.filter(o=>o.bdtopo && (o.bdtopo as { id?: string }).id).map(o=>(o.bdtopo as { id?: string }).id));
-  // En voisinage etendu, tout le disque sauf la parcelle du projet : son bati, importe avec elle ou dessine (la demo), serait double.
-  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? !(e.pts.length >= 3 && pointInPolygon(centroid(e.pts), principale.pts)) : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
+  // En voisinage etendu, tout le disque sauf la parcelle du projet : son bati, importe avec elle ou dessine (la demo), serait double (le mode audit, qui ne l'importe pas avec elle, le garde : `batiPrincipal`).
+  const surNouvelles = (e: { pts: PtBrut[] }) => rayonM ? choix.batiPrincipal || !(e.pts.length >= 3 && pointInPolygon(centroid(e.pts), principale.pts)) : nouvellesParcelles.some(c=>polygonesSeTouchent(e.pts, c.pts));
   const bboxDuDisque = (r: number) => bboxDegDesAnneaux([empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r).coordinates[0] as Anneau], proj, 0);
   const lireElements = (couche: string, max: number, genre: string): Promise<ElementIgn[]> => {
     const construire = (f: FeatureGeoJSON[]) => construireElementsIgn(f, proj, simplifier, genre);

@@ -10,9 +10,10 @@ const dorees = resolve(racine, 'tests/fixtures/golden');
 // et intact. Les vrais tests unitaires arrivent en phase 2, avec les premieres fonctions pures.
 describe('phase 1 - echafaudage', () => {
   it('expose les points d entree attendus par main.ts', () => {
-    // Le troisieme, `graineVitrine`, est la graine de la vitrine publique (app/vitrine.ts, 2.2.1).
+    // Le troisieme, `graineVitrine`, est la graine de la vitrine publique (app/vitrine.ts, 2.2.1) ;
+    // le quatrieme, `graineAudit`, celle du mode audit (app/audit/).
     const boot = readFileSync(resolve(racine, 'src/app/boot.ts'), 'utf8');
-    expect(boot).toContain('export { boot, loadInitialProject, graineVitrine };');
+    expect(boot).toContain('export { boot, loadInitialProject, graineVitrine, graineAudit };');
   });
 
   // Fin de la phase 4 (spec section 6, section 14) : la fermeture a quitte `legacy.ts`, et

@@ -22,7 +22,7 @@ import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
-import { vue3d, cleDeVue, hotes3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
@@ -646,6 +646,34 @@ function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d,
   if (co.scene.children.length > n0) poseParObjet.set(o.key, co.scene.children.slice(n0));
 }
 
+/**
+ * Ce que montre un point de l'ecran (coordonnees normalisees -1..1) dans la Vue 3D ouverte : la cle
+ * de l'objet du plan touche le premier, et le point touche dans le repere du plan (le sol, si aucun
+ * objet n'est touche). Le mode audit (app/audit/) s'en sert pour marquer un batiment au doigt.
+ */
+export function objetSousLePointeur(ndc: { x: number; y: number }): { cle: string | null; point: PtBrut | null } {
+  const sc = vue3d.scene, d = derniere;
+  if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
+  const rayon = new THREE.Raycaster();
+  rayon.setFromCamera(ndc, sc.camera);
+  const versPlan = (v: THREE_NS.Vector3): PtBrut => ({ x: v.x + sc.cen.x, y: sc.cen.y - v.z });
+  // Chaque objet pose a ses enfants directs de la scene : on remonte de la maille touchee jusqu'a eux.
+  const proprietaire = new Map<THREE_NS.Object3D, string>();
+  for (const [cle, racines] of poseParObjet) for (const r of racines) proprietaire.set(r, cle);
+  let premierPoint: PtBrut | null = null;
+  for (const t of rayon.intersectObjects(sc.scene.children, true)) {
+    if (!estMesh(t.object) || !t.object.visible) continue;
+    premierPoint ??= versPlan(t.point);
+    for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
+      const cle = proprietaire.get(o);
+      if (cle) return { cle, point: versPlan(t.point) };
+    }
+  }
+  const plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const sol = new THREE.Vector3();
+  return { cle: null, point: premierPoint ?? (rayon.ray.intersectPlane(plan, sol) ? versPlan(sol) : null) };
+}
+
 function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   etat.objects.forEach(o => poserEtRetenir(o, obj, etat, co));
 }
@@ -926,6 +954,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Le panneau relit tout, y compris la liste des points de vue.
   ctx.syncControlesSoleilVue3d();
   ctx.appliquerLumiereVue3d();   // pose les lumieres ET rend une premiere image
+  // Ce qui pilote la camera (le mode audit) la reprend sur la scene neuve.
+  signalerSceneBatie();
 
   // La structure se construit apres cette premiere image. setTimeout et non requestAnimationFrame :
   // rAF ne se declenche pas quand l'onglet est en arriere-plan, et la terrasse ne serait jamais posee.

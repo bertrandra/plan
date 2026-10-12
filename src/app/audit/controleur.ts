@@ -1,0 +1,363 @@
+// Le controleur du mode audit (MD/spec-audit.md) : il branche la promenade sur le GPS (ou une adresse
+// de depart), la Vue 3D et le doigt.
+//
+// - Depart : la parcelle sous le premier point precis, puis tout ce qui est a 40 m ; a chaque pas de
+//   plus de 10 m, une nouvelle lecture autour de la position (app/audit/chargement.ts).
+// - Vue 3D : votre position (three/positionGps3d.ts), une camera « drone » qui suit ; un glisser
+//   passe en navigation libre, « Me suivre » y revient.
+// - Doigt : un tapotement sur un batiment le marque en rouge (ou retire la marque) ; un appui long
+//   ouvre sa fiche. Au depart d'une adresse, un tapotement au sol y deplace votre position.
+// - Fin : la liste des cas, puis un seul fichier partage par le telephone.
+//
+// Rien n'est enregistre : main.ts ne pose aucun depot de projets, et la lecture des toits en tache de
+// fond n'est pas lancee (app/boot.ts).
+
+import { suivrePositionGps, type PositionGps, type SansPosition } from '../../shell/geolocalisation.js';
+import { partagerFichier } from '../../shell/partage.js';
+import { geocoderBAN, geocoderInverseBAN } from '../../geo/apiIgn.js';
+import { lireGrilleSous } from '../../geo/mnh.js';
+import { centroid } from '../../geometry/basic.js';
+import { aDesSommets } from '../../model/formes.js';
+import { nomFichierPromenade } from '../../model/audit.js';
+import { APP_VERSION, BUILD_SHA } from '../../model/version.js';
+import { vue3d, hotes3d } from '../../three/etat3d.js';
+import { versLocalDepuis } from '../../three/primitives.js';
+import { poserPositionGps } from '../../three/positionGps3d.js';
+import { objetSousLePointeur } from '../../three/scene.js';
+import { COULEURS_DIAGNOSTIC } from '../diagnostic.js';
+import { VERSION_LECTURE_TOITS } from '../toitsLidar.js';
+import { VERSION_LECTURE_MURS } from '../mursFond.js';
+import { parcours } from '../parcours.js';
+import { planDeDepart, chargerAutour, fautRecharger, type DependancesChargement } from './chargement.js';
+import { creerPromenade, type Promenade } from './promenade.js';
+import { entreesDe, sortiesDe, identiteDe } from './cas.js';
+import type { DemandeAudit } from './demande.js';
+import type { ProjecteurLocal } from '../../geo/projection.js';
+import type { EtatApp } from '../../core/state.js';
+import type { ObjetBrut, ObjetPlan, PtBrut } from '../../model/types.js';
+
+/** Au-dela de cette precision annoncee, le GPS ne designe pas la parcelle sous les pieds : on attend. */
+export const PRECISION_DEPART_MAX_M = 30;
+/** La camera « drone » : derriere la position (au sud) et au-dessus, en metres. Assez loin pour voir le rayon lu (40 m). */
+export const RECUL_CAMERA = { y: 40, z: 42 } as const;
+/** Un appui plus long que cela ouvre la fiche du batiment. */
+const APPUI_LONG_MS = 600;
+/** Un doigt qui bouge de plus que cela glisse : ce n'est plus un tapotement. */
+const GLISSER_PX = 8;
+
+export interface ContexteAudit {
+  etat: EtatApp;
+  /** Remplace les objets du plan (atelier.restoreState). */
+  remplacerObjets: (objets: ObjetBrut[]) => void;
+  /** Rebatit la Vue 3D (nouveaux batiments) ; repeint un objet (une marque). */
+  reconstruire3d: () => void;
+  repeindre3d: (cles: string[]) => void;
+  ouvrir3d: () => void;
+  notifier: () => void;
+  signaler: (message: string) => void;
+  suivre?: typeof suivrePositionGps;
+  geocoder?: typeof geocoderBAN;
+  chargement?: DependancesChargement;
+  lireGrille?: typeof lireGrilleSous;
+  adresse?: typeof geocoderInverseBAN;
+  partager?: typeof partagerFichier;
+}
+
+export interface ControleurAudit {
+  promenade: Promenade;
+  /** La couleur d'affichage d'un batiment marque (rouge), pour la Vue 3D. */
+  couleur: (o: ObjetPlan) => string | null;
+  basculerSuivi: () => void;
+  ouvrirListe: () => void;
+  partager: () => Promise<void>;
+  /** Une position, dans le repere du plan (le GPS, ou le doigt au depart d'une adresse). */
+  nouvellePosition: (p: PtBrut, precisionM: number | null) => void;
+  /** Un tapotement ou un appui long sur l'ecran, en coordonnees normalisees -1..1. */
+  tapoter: (ndc: { x: number; y: number }) => void;
+  appuiLong: (ndc: { x: number; y: number }) => void;
+  /** Une Vue 3D vient d'etre batie : la camera reprend le suivi sur elle. */
+  sceneBatie: () => void;
+  arreter: () => void;
+}
+
+const MESSAGES_GPS: Record<SansPosition['raison'], string> = {
+  refusee: 'Position refusée : autorisez la localisation pour ce site dans les réglages du navigateur.',
+  indisponible: 'Position momentanément indisponible.',
+  delai: 'La position tarde à venir.',
+};
+
+export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit): ControleurAudit {
+  const { etat } = ctx;
+  let proj: ProjecteurLocal | null = null;
+  let position: PtBrut | null = null;
+  let precision: number | null = null;
+  let derniereLecture: PtBrut | null = null;
+  let lecture = false;
+  let enAttente: PtBrut | null = null;
+  let suivre = true;
+  let arreterGps: (() => void) | null = null;
+  let depart = false;
+
+  const objet = (cle: string) => etat.objects.find((o) => o.key === cle);
+  const promenade = promenadeDuPlan(ctx, () => proj);
+
+  let statut = demande.depart ? 'Recherche de l’adresse de départ…' : 'En attente d’un GPS précis…';
+  const publier = () => { etat.audit = { statut, cas: promenade.liste().length, suivre }; ctx.notifier(); };
+  const dire = (s: string) => { statut = s; publier(); };
+  promenade.abonner(publier);
+
+  const camera = cameraQuiSuit();
+  const suivreCamera = (p: PtBrut) => { if (suivre) camera.suivre(p); };
+
+  function recharger(p: PtBrut): void {
+    if (!proj) return;
+    if (lecture) { enAttente = p; return; }
+    lecture = true;
+    derniereLecture = p;
+    dire('Lecture autour de vous…');
+    void chargerAutour(etat.objects, p, proj, ctx.chargement).then((ajouts) => {
+      if (!ajouts.length) return;
+      ctx.remplacerObjets([...(etat.objects as ObjetBrut[]), ...ajouts]);
+      ctx.reconstruire3d();
+    }).finally(() => {
+      lecture = false;
+      dire(resume(etat.objects, precision));
+      const q = enAttente;
+      enAttente = null;
+      if (q && fautRecharger(derniereLecture, q)) recharger(q);
+    });
+  }
+
+  function nouvellePosition(p: PtBrut, precisionM: number | null): void {
+    position = p;
+    precision = precisionM;
+    poserPositionGps(p, precisionM ?? 3);
+    suivreCamera(p);
+    if (fautRecharger(derniereLecture, p)) recharger(p);
+    else if (!lecture) dire(resume(etat.objects, precision));
+  }
+
+  async function partir(lon: number, lat: number, precisionM: number | null): Promise<void> {
+    depart = true;
+    dire('Parcelle de départ…');
+    const d = await planDeDepart(lon, lat, ctx.chargement).catch(() => null);
+    if (!d) { depart = false; dire('Aucune parcelle trouvée ici.'); return; }
+    proj = d.proj;
+    ctx.remplacerObjets(d.objets as ObjetBrut[]);
+    ctx.ouvrir3d();
+    const p = proj.versMetres(lon, lat);
+    nouvellePosition(p, precisionM);
+  }
+
+  function surGps(g: PositionGps): void {
+    if (proj) { nouvellePosition(proj.versMetres(g.lon, g.lat), g.precisionM); return; }
+    if (depart) return;
+    if (g.precisionM > PRECISION_DEPART_MAX_M) { dire('En attente d’un GPS précis (± ' + Math.round(g.precisionM) + ' m)…'); return; }
+    void partir(g.lon, g.lat, g.precisionM);
+  }
+
+  if (demande.depart) {
+    void (ctx.geocoder ?? geocoderBAN)(demande.depart, false).then((r) => {
+      const a = r[0];
+      if (!a) { dire('Adresse de départ introuvable.'); return; }
+      void partir(a.lon, a.lat, null);
+    }).catch(() => dire('Adresse de départ introuvable.'));
+  } else {
+    arreterGps = (ctx.suivre ?? suivrePositionGps)(surGps, (e) => {
+      ctx.signaler(MESSAGES_GPS[e.raison]);
+      if (e.raison === 'refusee') dire('Position refusée.');
+    });
+  }
+  publier();
+  // La Vue 3D s'ouvre d'emblee : la bibliotheque se charge pendant qu'on cherche le depart.
+  ctx.ouvrir3d();
+
+  const retirer = (cle: string) => { promenade.retirer(cle); ctx.repeindre3d([cle]); };
+  /** La fiche d'un batiment ; ouverte depuis la liste de fin, elle y ramene. */
+  function ouvrirFiche(cle: string, retour?: () => void): void {
+    parcours.ouvrir({ type: 'auditCas', promenade, cle, retirer: () => retirer(cle), ...(retour ? { retour } : {}) });
+  }
+  function ouvrirListe(): void {
+    parcours.ouvrir({ type: 'auditFin', promenade, modifier: (cle) => ouvrirFiche(cle, ouvrirListe), retirer, partager });
+  }
+
+  const partager = () => partagerPromenade(ctx, promenade);
+
+  return {
+    promenade,
+    couleur: (o) => (promenade.estMarque(o.key) ? COULEURS_DIAGNOSTIC.rouge : null),
+    basculerSuivi() {
+      suivre = !suivre;
+      camera.oublier();
+      if (suivre && position) suivreCamera(position);
+      publier();
+    },
+    ouvrirListe,
+    partager,
+    nouvellePosition,
+    tapoter(ndc) {
+      const { cle, point } = objetSousLePointeur(ndc);
+      const o = cle ? objet(cle) : undefined;
+      if (cle && estBatiment(o)) {
+        if (promenade.estMarque(cle)) promenade.retirer(cle);
+        else promenade.marquer(cle, position ?? point ?? { x: 0, y: 0 }, precision);
+        ctx.repeindre3d([cle]);
+        return;
+      }
+      // Au depart d'une adresse, le doigt deplace la position : c'est la promenade sans sortir.
+      if (demande.depart && point && proj) nouvellePosition(point, null);
+    },
+    appuiLong(ndc) {
+      const { cle, point } = objetSousLePointeur(ndc);
+      const o = cle ? objet(cle) : undefined;
+      if (!cle || !estBatiment(o)) return;
+      if (!promenade.estMarque(cle)) { promenade.marquer(cle, position ?? point ?? { x: 0, y: 0 }, precision); ctx.repeindre3d([cle]); }
+      ouvrirFiche(cle);
+    },
+    sceneBatie() { if (position) suivreCamera(position); },
+    arreter() { arreterGps?.(); arreterGps = null; },
+  };
+}
+
+/** La camera « drone » : posee derriere la position la premiere fois, translatee d'autant ensuite. */
+function cameraQuiSuit(): { suivre: (p: PtBrut) => void; oublier: () => void } {
+  /** La cible posee par le suivi, et le centre de la scene ou elle l'a ete : une scene recentree la rend caduque. */
+  let cible: { x: number; z: number } | null = null;
+  let cen: { x: number; y: number } | null = null;
+  return {
+    oublier() { cible = null; },
+    suivre(p) {
+      const sc = vue3d.scene;
+      if (!sc) return;
+      if (!cen || cen.x !== sc.cen.x || cen.y !== sc.cen.y) cible = null;
+      cen = { x: sc.cen.x, y: sc.cen.y };
+      const l = versLocalDepuis(sc.cen)(p), t = sc.controls.target;
+      if (!cible) {
+        // Un ecran en hauteur (le telephone) voit etroit : la camera recule d'autant, jusqu'a 1,6 fois.
+        const k = Math.min(1.6, Math.max(1, Math.sqrt(1 / (sc.camera.aspect || 1))));
+        t.set(l.x, t.y, l.z);
+        sc.camera.position.set(l.x, t.y + RECUL_CAMERA.y * k, l.z + RECUL_CAMERA.z * k);
+      } else {
+        const dx = l.x - cible.x, dz = l.z - cible.z;
+        t.set(t.x + dx, t.y, t.z + dz);
+        sc.camera.position.set(sc.camera.position.x + dx, sc.camera.position.y, sc.camera.position.z + dz);
+      }
+      cible = { x: l.x, z: l.z };
+      sc.controls.update();
+    },
+  };
+}
+
+/** La ligne d'etat entre deux lectures : ce qui est charge, et la precision du GPS. */
+function resume(objets: readonly ObjetPlan[], precision: number | null): string {
+  const batis = objets.filter((o) => o.fonction === 'batiment').length;
+  return batis + ' bâtiment' + (batis > 1 ? 's' : '') + ' chargé' + (batis > 1 ? 's' : '') + (precision !== null ? ' · GPS ± ' + Math.round(precision) + ' m' : '');
+}
+
+const estBatiment = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && o.fonction === 'batiment' && aDesSommets(o);
+
+/** La promenade, branchee sur le plan : ce qu'elle fige d'un batiment, sa grille LiDAR, son adresse. */
+function promenadeDuPlan(ctx: ContexteAudit, projecteur: () => ProjecteurLocal | null): Promenade {
+  const { etat } = ctx;
+  const objet = (cle: string) => etat.objects.find((o) => o.key === cle);
+  return creerPromenade({
+    figer: (cle) => {
+      const o = objet(cle);
+      if (!estBatiment(o)) return null;
+      return { identite: { ...identiteDe(o, etat.objects), adresse: null }, entrees: entreesDe(o, etat.objects, null), sorties: sortiesDe(o) };
+    },
+    lireGrille: async (cle) => {
+      const o = objet(cle), proj = projecteur();
+      return proj && estBatiment(o) && aDesSommets(o) ? (ctx.lireGrille ?? lireGrilleSous)(o.pts, proj) : null;
+    },
+    adresse: async (cle) => {
+      const o = objet(cle), proj = projecteur();
+      if (!proj || !estBatiment(o) || !aDesSommets(o)) return null;
+      const c = centroid(o.pts), d = proj.versDegres(c.x, c.y);
+      return (await (ctx.adresse ?? geocoderInverseBAN)(d.lon, d.lat))?.label ?? null;
+    },
+  });
+}
+
+/** Le fichier de la promenade, partage par le telephone (ou telecharge), une fois les lectures finies. */
+async function partagerPromenade(ctx: ContexteAudit, promenade: Promenade): Promise<void> {
+  await promenade.enCours();
+  const { etat } = ctx;
+  const parcelle = etat.objects.find((o) => o.key === 'parcelle');
+  const cad = parcelle?.cadastre as { origineLat?: number; origineLon?: number; commune?: string } | undefined;
+  const fichier = promenade.fichier({
+    commune: cad?.commune ?? null,
+    origine: { lat: cad?.origineLat ?? 0, lon: cad?.origineLon ?? 0 },
+    emprise: empriseDesObjets(etat.objects),
+    code: { version: APP_VERSION, commit: BUILD_SHA },
+    regles: { lectureToits: VERSION_LECTURE_TOITS, lectureMurs: VERSION_LECTURE_MURS },
+  });
+  const nom = nomFichierPromenade(promenade.debut, cad?.commune ?? null);
+  const issue = await (ctx.partager ?? partagerFichier)(nom, JSON.stringify(fichier), 'Audit des toits — ' + (cad?.commune ?? 'promenade'));
+  if (issue === 'partage') ctx.signaler('Fichier de la promenade partagé : ' + nom + '.');
+  else if (issue === 'telecharge') ctx.signaler('Fichier de la promenade téléchargé : ' + nom + '.');
+}
+
+/** L'emprise des objets charges : ce que la promenade a couvert. */
+function empriseDesObjets(objets: readonly ObjetPlan[]): { xMin: number; xMax: number; yMin: number; yMax: number } | null {
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const o of objets) if (aDesSommets(o)) for (const p of o.pts) { xMin = Math.min(xMin, p.x); xMax = Math.max(xMax, p.x); yMin = Math.min(yMin, p.y); yMax = Math.max(yMax, p.y); }
+  return Number.isFinite(xMin) ? { xMin: Math.round(xMin), xMax: Math.round(xMax), yMin: Math.round(yMin), yMax: Math.round(yMax) } : null;
+}
+
+/**
+ * Le doigt sur la Vue 3D : un tapotement (bref, sans glisser) ou un appui long. Un glisser passe la
+ * camera en navigation libre. Pose une fois sur l'hote de la scene, qui survit aux reconstructions.
+ */
+export function brancherDoigtAudit(c: ControleurAudit, hote: HTMLElement, horloge: Pick<Window, 'setTimeout' | 'clearTimeout'> = window): () => void {
+  let debut: { x: number; y: number; t: number } | null = null;
+  let glisse = false, long = false;
+  let minuteur: number | null = null;
+  const ndc = (x: number, y: number) => {
+    const toile = vue3d.scene?.renderer.domElement ?? hote;
+    const r = toile.getBoundingClientRect();
+    return { x: ((x - r.left) / r.width) * 2 - 1, y: -((y - r.top) / r.height) * 2 + 1 };
+  };
+  const annuler = () => { if (minuteur !== null) horloge.clearTimeout(minuteur); minuteur = null; };
+  const surCanevas = (e: Event) => (e.target as HTMLElement | null)?.tagName === 'CANVAS';
+  const bas = (e: PointerEvent) => {
+    if (!surCanevas(e)) return;
+    debut = { x: e.clientX, y: e.clientY, t: Date.now() };
+    glisse = false; long = false;
+    annuler();
+    const x = e.clientX, y = e.clientY;
+    minuteur = horloge.setTimeout(() => { minuteur = null; if (!glisse) { long = true; c.appuiLong(ndc(x, y)); } }, APPUI_LONG_MS) as unknown as number;
+  };
+  const bouge = (e: PointerEvent) => {
+    if (!debut || glisse) return;
+    if (Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) {
+      glisse = true;
+      annuler();
+      // Toucher la scene pour la regarder autrement : le suivi s'arrete, « Me suivre » le reprend.
+      if (etatSuivi()) c.basculerSuivi();
+    }
+  };
+  const haut = (e: PointerEvent) => {
+    annuler();
+    // Le minuteur peut arriver en retard sur un fil occupe (une scene lourde a dessiner) : la duree
+    // de l'appui decide aussi.
+    if (debut && !glisse && !long) {
+      if (Date.now() - debut.t >= APPUI_LONG_MS) c.appuiLong(ndc(debut.x, debut.y));
+      else c.tapoter(ndc(e.clientX, e.clientY));
+    }
+    debut = null;
+  };
+  hote.addEventListener('pointerdown', bas);
+  hote.addEventListener('pointermove', bouge);
+  hote.addEventListener('pointerup', haut);
+  return () => { hote.removeEventListener('pointerdown', bas); hote.removeEventListener('pointermove', bouge); hote.removeEventListener('pointerup', haut); };
+}
+
+/** Le suivi est-il actif (lu dans l'etat publie par le controleur). */
+let lireSuivi: (() => boolean) | null = null;
+const etatSuivi = () => lireSuivi?.() ?? false;
+/** Le controleur courant publie son etat dans `etat.audit` : le doigt le relit la. */
+export function poserLectureSuivi(f: () => boolean): void { lireSuivi = f; }
+
+/** L'hote de la Vue 3D, ou null s'il n'est pas encore monte. */
+export const hoteVue3d = (): HTMLElement | null => hotes3d.vue3d;

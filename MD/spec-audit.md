@@ -32,13 +32,15 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 
 ## 3. Accès et cycle de vie
 
-- `?mode=audit` n'a d'effet que si `estAdministrateur()` (`app/acces.ts`) est vrai. Sinon, le
-  paramètre est ignoré et l'application s'ouvre normalement.
+- `?mode=audit` n'a d'effet que si la personne administre (`app/acces.ts::confirmerAdministrateur`,
+  qui relit le contexte de la plateforme quand il n'est pas en cache). Sinon, le paramètre est
+  ignoré, un message le dit, et l'application s'ouvre normalement.
 - **Aucun projet plateforme** : ni création, ni enregistrement automatique, ni enregistrement
-  final. Le menu Fichier est réduit à « Terminer et partager » et « Abandonner ».
+  final. Étape 1 : `main.ts` ne pose aucun dépôt de projets, le plan part vide (`graineAudit`) ;
+  le menu Fichier n'est pas encore réduit (étape 2).
 - La lecture des toits en tâche de fond (`app/toitsFond.ts`) n'est pas utilisée : le mode audit
   calcule lui-même ce qui entre dans le rayon (§4.2).
-- **Brouillon local** : les marques et les cas figés sont écrits au fur et à mesure dans le
+- **Brouillon local** (étape 2) : les marques et les cas figés sont écrits au fur et à mesure dans le
   téléphone (IndexedDB). Ce n'est pas une sauvegarde de projet : sans ce brouillon, un écran
   verrouillé ou un onglet tué par le système ferait perdre la promenade. À la réouverture de
   `?mode=audit`, s'il existe un brouillon : « Reprendre l'audit du … » ou « Le jeter ». Une fois le
@@ -50,14 +52,22 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 
 1. Lecture du GPS (`shell/geolocalisation.ts::suivrePositionGps`). Tant que la précision annoncée
    dépasse 30 m, l'écran dit « En attente d'un GPS précis (± n m) ».
-2. Le premier point précis fixe l'**origine** du repère (`projecteurLocal`). Elle ne bouge plus de
-   la promenade : toutes les coordonnées du fichier sont en mètres depuis elle.
-3. La parcelle sous les pieds devient la « parcelle du projet » du plan en mémoire. Beaucoup de
-   fonctions en attendent une (centre de la scène, mitoyenneté), et elle sert de point de départ
-   dans le fichier.
+2. La parcelle sous le premier point précis devient la « parcelle du projet » du plan en mémoire
+   (`app/audit/chargement.ts::planDeDepart`). Beaucoup de fonctions en attendent une (centre de la
+   scène, mitoyenneté), et elle sert de point de départ dans le fichier.
+3. L'**origine** du repère est celle de son calage cadastral, comme à l'import (le sommet le plus
+   au nord, `projecteurDuPlan`). Elle ne bouge plus de la promenade : toutes les coordonnées du
+   fichier sont en mètres depuis elle, et le fichier la donne (`promenade.origine`).
 4. Chargement du rayon de 40 m (§4.2), puis Vue 3D, caméra qui suit.
 
-### 4.2 Chargement par cases de 10 m
+### 4.2 Chargement autour de vous
+
+**Étape 1** (`app/audit/chargement.ts::chargerAutour`) : à chaque déplacement de plus de 10 m
+depuis la dernière lecture, le disque de 40 m centré sur la position est relu
+(`app/actualisationIgn.ts::construireVoisinage`, option `centre`) ; ce qui est déjà chargé est
+écarté par l'IDU et l'identifiant BD TOPO, seul le nouveau est ajouté, et ce qui est chargé reste.
+Une lecture en cours met la suivante en attente. Les cases et le garde-fou ci-dessous viennent à
+l'étape 2, si la mesure sur un long trajet le demande.
 
 - Le terrain est découpé en **cases de 10 m** dans le repère de l'origine. Une case est lue quand
   son centre passe à moins de 40 m de la position, et ne l'est qu'une fois.
@@ -77,9 +87,12 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 
 - Vue 3D seule. Votre position y est montrée comme dans « Ma position (3D) »
   (`three/positionGps3d.ts`).
-- Caméra : **vue « drone »** derrière la position, à 30 m environ, qui suit. Toucher la scène passe
-  en navigation libre ; un bouton « Me suivre » y revient.
-- Barre d'état : bâtiments chargés, en calcul, marqués ; précision du GPS.
+- Caméra : **vue « drone »** derrière la position (40 m au-dessus, 42 m au sud ; jusqu'à 1,6 fois
+  plus loin sur un écran en hauteur), qui suit. Glisser sur la scène passe en navigation libre ;
+  « Me suivre » y revient.
+- Une barre dans la Vue 3D (`zones/vue3d/Vue3d.tsx`, commandes `audit.suivre` et `audit.cas`) :
+  l'état (lecture, bâtiments chargés, précision du GPS), « Me suivre », « Cas notés (n) ». En bas
+  de l'écran au doigt, au-dessus de la scène sur bureau.
 
 ### 4.4 Marquer un bâtiment
 
@@ -87,11 +100,12 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
   Le rouge est une couleur d'affichage posée par-dessus, comme `?mode=devroof`
   (`app/diagnostic.ts`) : rien n'est modifié.
 - Tapoter un bâtiment marqué : la marque est retirée.
-- **Appui long** sur un bâtiment marqué : une fiche courte, en trois touches au plus :
+- **Appui long** sur un bâtiment (marqué au passage s'il ne l'était pas) : une fiche courte, en trois touches au plus :
   1. la catégorie (toit, façade, contour, hauteur, autre) ;
   2. un ou plusieurs problèmes précis de la liste du §4.5 (pastilles à cocher) ;
   3. une note libre et, si vous voulez, une **photo** prise avec le téléphone.
-- Au moment de la marque, le cas est **figé** (§5.2) et écrit dans le brouillon. Les précisions
+- Au moment de la marque, le cas est **figé** (§5.2) ; la grille LiDAR et l'adresse le complètent
+  dès qu'elles arrivent, et le partage les attend. Les précisions
   peuvent venir plus tard, sur place ou dans la liste de fin de promenade (§4.6).
 
 ### 4.5 Les problèmes à cocher
@@ -133,12 +147,13 @@ tests lisent. La dernière colonne dit où le chercher dans la chaîne (skill `t
 
 ### 4.6 Fin de promenade
 
-- « Terminer et partager » construit le fichier de la promenade (§5) et ouvre le partage du
+- « Cas notés (n) » ouvre la liste ; « Partager le fichier » construit le fichier de la promenade (§5) et ouvre le partage du
   téléphone (`navigator.share({ files })`, après `navigator.canShare`) : messagerie, Drive, mail.
 - Sans partage de fichiers (ordinateur, ancien navigateur) : le fichier est téléchargé.
 - Avant le partage, la **liste des cas** s'affiche : parcelle, adresse, catégorie et problèmes. Chaque
-  cas s'y complète ou s'y retire ; un appui centre la Vue 3D sur le bâtiment.
-- Après le partage : un résumé, avec le nombre de cas par catégorie.
+  cas s'y complète (« Modifier » rouvre sa fiche, qui ramène à la liste) ou s'y retire. Plus tard :
+  un appui centre la Vue 3D sur le bâtiment.
+- Après le partage : un message donne le nom du fichier. Plus tard : le nombre de cas par catégorie.
 
 ## 5. Le fichier de la promenade
 
@@ -172,12 +187,10 @@ tests lisent. La dernière colonne dit où le chercher dans la chaîne (skill `t
     "entrees": {
       "pts": [/* contour recalé, repère de l'origine */],
       "bdtopo": { /* attributs tels que lus */ },
-      "grille": { /* grille MNH relue, comme village.mjs */ },
-      "materiauMurs": "…", "materiauToit": "…",
-      "voisins": [{ "cle": "…", "pts": [/* contours à moins de 5 m */] }],
-      "photos": [/* références Panoramax, si une façade a été lue */]
+      "grille": { /* grille MNH relue, comme village.mjs, au centimetre */ },
+      "voisins": [{ "cle": "…", "pts": [/* contours à moins de 5 m */] }]
     },
-    "sorties": { "mode": "entier", "toit": { /* … */ }, "corps": [/* … */], "couleurMurs": { /* … */ }, "couleurToit": "#…" },
+    "sorties": { "mode": "entier", "elevation": 6.5, "toit": { /* … */ }, "corps": [/* … */], "toitMesure": { /* … */ }, "couleurMurs": "#…", "sourceMurs": "materiau" },
     "attendu": null,
     "historique": []
   }]
@@ -239,19 +252,19 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 
 | Étape | Contenu | Vérifié par |
 |---|---|---|
-| 1 | Accès admin, aucune sauvegarde, GPS et caméra qui suit, chargement initial 40 m, toits et matériau BD TOPO, marquage, fiche (catégorie, problèmes, note), liste de fin, fichier de promenade, partage | tests unitaires, fumée sur GPS simulé (Playwright), une promenade réelle |
-| 2 | Carte qui s'étend par cases de 10 m, garde-fou de 600 bâtiments, brouillon local et reprise, photo jointe | GPS simulé sur un trajet de 500 m |
+| 1 | Accès admin, aucune sauvegarde, GPS ou adresse de départ, caméra qui suit, lecture de 40 m à chaque pas de 10 m, toits en calcul entier et matériau BD TOPO, marquage, fiche (catégorie, problèmes, note, photo), liste de fin, fichier de promenade, partage | tests unitaires, fumée Playwright (adresse de départ et GPS simulé), une promenade réelle |
+| 2 | Cases de 10 m et garde-fou de 600 bâtiments si la mesure le demande, brouillon local et reprise, menu Fichier réduit | GPS simulé sur un trajet de 500 m |
 | 3 | Script `audit.ts`, test de non-régression, circuit écrit dans le skill `toits` | premier fichier réel rejoué |
 | 4 | Plus tard : façade Panoramax à la demande sur un cas, note vocale | — |
 
-## 11. Questions restantes
+## 11. Questions (réponses de l'utilisateur)
 
 1. **Plusieurs problèmes par cas** : la fiche permet d'en cocher plusieurs (« sens du faîtage » et
-   « pignon manquant » sur la même maison). Proposé : oui.
+   « pignon manquant » sur la même maison). Réponse : oui.
 2. **Essai sans sortir** : un départ sur une adresse au lieu du GPS (`?mode=audit&depart=…`), la
    position se déplaçant au doigt sur la Vue 3D. Utile pour vous, pour essayer chez vous, et pour
-   les tests automatiques. Proposé : oui, même accès admin.
+   les tests automatiques. Réponse : oui, même accès admin (fait).
 3. **Validation d'une correction** : je montre dans la PR, pour chaque cas corrigé, l'image avant et
-   l'image après (vue 3D et carte des hauteurs) ; vous répondez « validé » ou non. Proposé : oui.
-4. **Photo à l'étape 1 ou 2** : proposé à l'étape 2, avec le brouillon local, pour que l'étape 1
-   reste courte.
+   l'image après (vue 3D et carte des hauteurs) ; vous répondez « validé » ou non. Réponse : oui.
+4. **Photo à l'étape 1 ou 2** : réponse de l'utilisateur, dès l'étape 1 (fait : JPEG de 1 280 px au
+   plus, 300 Ko au plus, `app/audit/photo.ts`).

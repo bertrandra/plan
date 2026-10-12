@@ -16,6 +16,7 @@ import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { ortho } from '../../render/ortho.js';
 import { buildThreeScene as construireScene3D, remplacerObjets3d } from '../../three/scene.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
+import { controleurAudit } from '../audit/branchement.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../../three/navigation.js';
 import { genererGlb as genererGlbModule } from '../../three/exportGlb.js';
 import { chargerTexturePolyhaven } from '../../three/chargeurs.js';
@@ -61,6 +62,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     orthoActif: () => ortho.actif,
     // ?mode=devroof ou devwall (app/diagnostic.ts) : les batiments peints selon l'origine de leur toit ou de leurs murs.
     ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
+    // ?mode=audit (app/audit/) : les batiments marques sur le terrain, en rouge.
+    ...(!diagnostic && controleurAudit() ? { couleurDiagnostic: (o: ObjetPlan) => controleurAudit()?.couleur(o) ?? null } : {}),
     // Le paysage (tuiles larges, sous les fines) suit le voisinage, comme sur le plan.
     orthoTuiles: () => (etat.voisinageVisible ? [...ortho.tuilesLarges, ...ortho.tuiles] : ortho.tuiles)
   });

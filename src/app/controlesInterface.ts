@@ -67,6 +67,7 @@ const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<C
   ({ libelle, zone, nature: 'parcours', ouvertPar, ...plus });
 const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.relever';
 const DIALOGUE = 'toute commande qui pose une question';
+const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
 function reglagesVue(vue: 'vue3d' | 'visionneuse', nom: string): Record<string, ControleInterface> {
@@ -201,6 +202,19 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.nomProjet': etape(Z8, IMPORT, 'Nom du projet'),
   'cadastre.creerProjet': etape(Z8, IMPORT, 'Créer (ou remplir) le projet', { ecrit: { annulable: false, droits: 'commande' } }),
   // Actualiser IGN (zones/parcours/Actualisation.tsx).
+  // Le mode audit (zones/parcours/AuditCas.tsx, AuditFin.tsx) : la fiche s'ouvre d'un appui long sur
+  // un batiment de la Vue 3D, ou depuis la liste des cas.
+  'audit.categorie': etape(Z8, FICHE_AUDIT, 'Catégorie du problème noté', { repete: true }),
+  'audit.probleme': etape(Z8, FICHE_AUDIT, 'Problème constaté (plusieurs possibles)', { repete: true }),
+  'audit.note': etape(Z8, FICHE_AUDIT, 'Note sur le bâtiment'),
+  'audit.photo': etape(Z8, FICHE_AUDIT, 'Prendre une photo du bâtiment'),
+  'audit.retirerPhoto': etape(Z8, FICHE_AUDIT, 'Retirer la photo'),
+  'audit.retirerMarque': etape(Z8, FICHE_AUDIT, 'Retirer la marque du bâtiment'),
+  'audit.fermerCas': etape(Z8, FICHE_AUDIT, 'Fermer la fiche'),
+  'audit.modifier': etape(Z8, 'audit.cas', 'Modifier la fiche d’un bâtiment noté', { repete: true }),
+  'audit.retirer': etape(Z8, 'audit.cas', 'Retirer un bâtiment de la liste', { repete: true }),
+  'audit.continuer': etape(Z8, 'audit.cas', 'Continuer la promenade'),
+  'audit.partager': etape(Z8, 'audit.cas', 'Partager le fichier de la promenade'),
   'actualisation.portee': etape(Z8, ACTUALISER, 'Portée : la parcelle ou tout le plan', { repete: true }),
   'actualisation.voisinage': etape(Z8, ACTUALISER, 'Actualiser aussi le voisinage'),
   'actualisation.rayon': etape(Z8, ACTUALISER, 'Portée du voisinage : parcelles adjacentes, ou tout dans un rayon', { repete: true }),
