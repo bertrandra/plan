@@ -7,7 +7,7 @@
 // - une sonde mesure le retard du fil principal (un minuteur de 100 ms qui arrive en retard : le fil
 //   etait occupe). Elle voit tout ce qui charge le poste, la lecture comme la Vue 3D ou un poste lent ;
 // - la consigne depend de l'utilisateur : s'il travaille (un geste depuis moins d'une seconde et demie),
-//   pas plus d'une image de retard (16 ms) ; au repos, 50 ms ;
+//   pas plus d'une image de retard (16 ms) ; au repos, 200 ms ;
 // - au-dessus de la consigne, moitie moins de lectures en meme temps et une pause deux fois plus longue
 //   avant chaque batiment ; nettement en dessous, une lecture de plus et une pause plus courte chaque
 //   seconde (la regle du trafic reseau : reculer vite, revenir doucement) ;
@@ -17,9 +17,12 @@
 export const DUREE_ACTIVITE_MS = 1500;
 /** Le pas de la sonde de retard. */
 export const PAS_SONDE_MS = 100;
-/** Le retard tolere : une image quand l'utilisateur travaille, davantage au repos. */
+/**
+ * Le retard tolere : une image quand l'utilisateur travaille ; au repos, personne ne le voit, et une
+ * consigne de 50 ms faisait lire huit fois moins vite (mesure d'octobre 2026) : 200 ms.
+ */
 export const RETARD_ACTIF_MS = 16;
-export const RETARD_REPOS_MS = 50;
+export const RETARD_REPOS_MS = 200;
 /** La pause avant chaque batiment ne depasse jamais cela : la lecture ralentit, elle ne s'arrete pas. */
 export const PAUSE_MAX_MS = 1000;
 /** Entre deux remontees d'une lecture. */
