@@ -246,6 +246,53 @@ export interface OptionsCouleursMurs {
   maintenant?: () => number;
 }
 
+/** Ce qu'une lecture de photos a donne : la meilleure lecture par batiment, et combien de ses murs etaient a lire et ont ete lus. */
+interface LecturesMurs {
+  lectures: Map<string, { couleur: string; coherence: number; photo: PhotoRue }>;
+  tentes: Map<string, number>;
+  lus: Map<string, number>;
+}
+
+/**
+ * Lit les murs que les photos montrent : une photo par telechargement, pour tous les murs qu'elle
+ * montre, celles qui en montrent le plus d'abord, `enParallele` a la fois, jusqu'a `fin`.
+ */
+async function lireLesMurs(murs: readonly MurAVoir[], limites: readonly Obstacle[], charger: (url: string) => Promise<Pixels | null>, fin: number, maintenant: () => number, enParallele = 1): Promise<LecturesMurs> {
+  const parPhoto = new Map<string, MurAVoir[]>();
+  for (const m of murs) parPhoto.set(m.vue.photo.id, [...(parPhoto.get(m.vue.photo.id) ?? []), m]);
+  const r: LecturesMurs = { lectures: new Map(), tentes: new Map(), lus: new Map() };
+  for (const m of murs) r.tentes.set(m.cle, (r.tentes.get(m.cle) ?? 0) + 1);
+  const file = [...parPhoto.values()].sort((x, y) => y.length - x.length);
+  let suivant = 0;
+  const ouvrier = async (): Promise<void> => {
+    while (suivant < file.length && maintenant() <= fin) {
+      const ms = file[suivant++] as MurAVoir[];
+      const photo = (ms[0] as MurAVoir).vue.photo;
+      const img = await charger(photo.sd ?? photo.hd);
+      if (!img) continue;
+      for (const m of ms) {
+        r.lus.set(m.cle, (r.lus.get(m.cle) ?? 0) + 1);
+        const l = couleurMurDepuisPixels(pixelsDuMur(img, m, limites));
+        const avant = r.lectures.get(m.cle);
+        if (l.couleur && (!avant || l.coherence > avant.coherence)) r.lectures.set(m.cle, { couleur: l.couleur, coherence: l.coherence, photo });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, enParallele) }, ouvrier));
+  return r;
+}
+
+/** La lecture d'un batiment, telle qu'elle se range dans `couleurMurs.photo`. */
+const photoMur = (l: { couleur: string; photo: PhotoRue }): PhotoMur => ({ couleur: l.couleur, id: l.photo.id, date: l.photo.date, auteur: l.photo.auteur, licence: l.photo.licence });
+
+/** Les batiments du plan dont on peut lire les murs : un contour, une cle. */
+const batimentsAMurs = (objets: readonly ObjetAMurs[]) =>
+  objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => o.fonction === 'batiment' && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
+/** Les limites de parcelle, ou se tiennent les clotures et les haies. */
+const limitesDesParcelles = (objets: readonly ObjetAMurs[]) =>
+  objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
+const egoutDe = (o: ObjetAMurs) => (o.elevation && o.elevation > 1 ? o.elevation : 3);
+
 /**
  * Lit la couleur des murs des batiments sur les photos de rue autour du projet. Modifie les objets
  * en place : `couleurMurs.photo` prend la lecture concluante (la plus coherente des murs lus), ou
@@ -256,7 +303,7 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
   const maintenant = options.maintenant ?? Date.now;
   const fin = maintenant() + (options.delaiMs ?? DELAI_PHOTOS_MS);
   const parcelle = objets.find((o) => o.key === 'parcelle');
-  const batimentsTous = objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => o.fonction === 'batiment' && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
+  const batimentsTous = batimentsAMurs(objets);
   if (!batimentsTous.length) return bilan;
   const centre = parcelle?.pts && parcelle.pts.length >= 3 ? centroid(parcelle.pts) : centroid(batimentsTous.flatMap((o) => o.pts));
   const dist = (o: { pts: PtBrut[] }) => { const c = centroid(o.pts); return Math.hypot(c.x - centre.x, c.y - centre.y); };
@@ -267,33 +314,12 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
   try { photos = await (options.chercher ?? ((la, lo, r) => chercherPhotosRue(la, lo, r, undefined, LIMITE_RECHERCHE)))(g.lat, g.lon, rayon); } catch { return bilan; }
   if (!photos.length) return bilan;
   const vues: VueRue[] = photos.map((photo) => ({ photo, ...proj.versMetres(photo.lon, photo.lat) }));
-  // Les limites de parcelle, ou se tiennent les clotures et les haies.
-  const limites = objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
-  const murs = mursVisibles(batiments.map((o) => ({ key: o.key, pts: o.pts, egout: o.elevation && o.elevation > 1 ? o.elevation : 3 })), vues, batimentsTous.map((o) => obstacle(o.pts)));
-  // Une photo par telechargement, pour tous les murs qu'elle montre ; celles qui en montrent le plus d'abord.
-  const parPhoto = new Map<string, MurAVoir[]>();
-  for (const m of murs) parPhoto.set(m.vue.photo.id, [...(parPhoto.get(m.vue.photo.id) ?? []), m]);
-  const lectures = new Map<string, { couleur: string; coherence: number; photo: PhotoRue }>();
-  const tentes = new Map<string, number>(), lus = new Map<string, number>();
-  for (const m of murs) tentes.set(m.cle, (tentes.get(m.cle) ?? 0) + 1);
-  const charger = options.charger ?? chargerPixels;
-  for (const [, ms] of [...parPhoto].sort((x, y) => y[1].length - x[1].length)) {
-    if (maintenant() > fin) break;
-    const photo = (ms[0] as MurAVoir).vue.photo;
-    const img = await charger(photo.sd ?? photo.hd);
-    if (!img) continue;
-    for (const m of ms) {
-      lus.set(m.cle, (lus.get(m.cle) ?? 0) + 1);
-      const l = couleurMurDepuisPixels(pixelsDuMur(img, m, limites));
-      const avant = lectures.get(m.cle);
-      if (l.couleur && (!avant || l.coherence > avant.coherence)) lectures.set(m.cle, { couleur: l.couleur, coherence: l.coherence, photo });
-    }
-  }
+  const murs = mursVisibles(batiments.map((o) => ({ key: o.key, pts: o.pts, egout: egoutDe(o) })), vues, batimentsTous.map((o) => obstacle(o.pts)));
+  const { lectures, tentes, lus } = await lireLesMurs(murs, limitesDesParcelles(objets), options.charger ?? chargerPixels, fin, maintenant);
   for (const o of batiments) {
     const l = lectures.get(o.key);
     if (l) {
-      const photo: PhotoMur = { couleur: l.couleur, id: l.photo.id, date: l.photo.date, auteur: l.photo.auteur, licence: l.photo.licence };
-      o.couleurMurs = { ...(o.couleurMurs ?? {}), photo };
+      o.couleurMurs = { ...(o.couleurMurs ?? {}), photo: photoMur(l) };
       bilan.photos++;
     } else if ((tentes.get(o.key) ?? 0) > 0 && lus.get(o.key) === tentes.get(o.key)) {
       // Toutes ses photos lues, aucune concluante : la photo ne dit rien, le materiau reprend la main.
@@ -302,4 +328,44 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
     }
   }
   return bilan;
+}
+
+/**
+ * La lecture d'une zone du voisinage en tache de fond (app/mursFond.ts) : ou en est chaque batiment
+ * demande. `photo` : lue ; `rien` : aucune photo ne montre ses murs, ou toutes ont ete lues sans
+ * conclure (il ne sera pas relu) ; `echec` : une photo n'a pas pu se telecharger (il le sera).
+ */
+export type IssueMurs = { cle: string; photo: PhotoMur } | { cle: string; photo: null } | { cle: string; echec: true };
+
+/** Le cote d'une zone : ses photos se cherchent d'un coup, a moins de DISTANCE_MUR_MAX_M de ses bords. */
+export const COTE_ZONE_MURS_M = 80;
+/** Les photos demandees pour une zone : une rue photographiee tous les trois metres en donne quelques centaines. */
+const LIMITE_RECHERCHE_ZONE = 1000;
+
+/**
+ * Lit les murs des batiments `cibles` sur les photos de rue qui les entourent, sans limite de distance
+ * au projet : la recherche se fait autour d'eux. `obstacles` : tous les batiments qui peuvent cacher
+ * un mur (ceux de la zone et ses abords). Ne modifie rien : rend l'issue de chaque cible ; un service
+ * de recherche muet fait echouer la zone entiere.
+ */
+export async function couleursMursDUneZone(cibles: readonly ObjetAMurs[], obstacles: readonly ObjetAMurs[], parcelles: readonly ObjetAMurs[], proj: ProjecteurLocal, options: OptionsCouleursMurs & { enParallele?: number } = {}): Promise<IssueMurs[]> {
+  const batiments = batimentsAMurs(cibles);
+  if (!batiments.length) return [];
+  const pts = batiments.flatMap((o) => o.pts);
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const centre = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+  const rayon = Math.hypot(x1 - x0, y1 - y0) / 2 + DISTANCE_MUR_MAX_M;
+  const g = proj.versDegres(centre.x, centre.y);
+  let photos: PhotoRue[];
+  try { photos = await (options.chercher ?? ((la, lo, r) => chercherPhotosRue(la, lo, r, undefined, LIMITE_RECHERCHE_ZONE)))(g.lat, g.lon, rayon); }
+  catch { return batiments.map((o) => ({ cle: o.key, echec: true as const })); }
+  const vues: VueRue[] = photos.map((photo) => ({ photo, ...proj.versMetres(photo.lon, photo.lat) }));
+  const murs = mursVisibles(batiments.map((o) => ({ key: o.key, pts: o.pts, egout: egoutDe(o) })), vues, batimentsAMurs(obstacles).map((o) => obstacle(o.pts)));
+  const { lectures, tentes, lus } = await lireLesMurs(murs, limitesDesParcelles(parcelles), options.charger ?? chargerPixels, Number.POSITIVE_INFINITY, options.maintenant ?? Date.now, options.enParallele ?? 1);
+  return batiments.map((o): IssueMurs => {
+    const l = lectures.get(o.key);
+    if (l) return { cle: o.key, photo: photoMur(l) };
+    return (lus.get(o.key) ?? 0) === (tentes.get(o.key) ?? 0) ? { cle: o.key, photo: null } : { cle: o.key, echec: true };
+  });
 }

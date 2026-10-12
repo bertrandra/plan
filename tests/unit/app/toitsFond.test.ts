@@ -12,6 +12,7 @@ const couleursEspion = vi.hoisted(() => ({
 vi.mock('../../../src/render/couleurToitOrtho.js', () => ({ couleursToitsDepuisOrtho: couleursEspion.lire }));
 import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, PARALLELE_TOITS_FOND, ECHECS_PAR_BATIMENT, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../src/app/toitsFond.js';
 import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toitsLidar.js';
+import type { lireMursEnFond } from '../../../src/app/mursFond.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
@@ -25,7 +26,8 @@ const bdtopo = { forme: 'deux-pans' as const, hauteur: 3, angleFaitage: 0, sourc
 
 function plan(n: number): ObjetPlan[] {
   const objets = [{ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: rect(0, 0, 20, 20), cadastre: { origineLat: 48.9, origineLon: 2.13 } }] as unknown as ObjetPlan[];
-  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo } } as unknown as ObjetPlan);
+  // Les murs deja lus (rien de concluant) : seuls les toits se lisent, sauf dans les tests des murs.
+  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo }, couleurMurs: { photo: null } } as unknown as ObjetPlan);
   return objets;
 }
 
@@ -320,5 +322,54 @@ describe('le marque des batiments lus', () => {
     const lire = vi.fn(async (pts: readonly PtBrut[]) => { lus.push(pts[0]!.x); return []; });
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[5]!, objets[4]!], enParallele: 1 });
     expect(lus).toEqual([70, 60]);
+  });
+});
+
+describe('les murs apres les toits', () => {
+  it('lit les murs une fois les toits lus, le dit dans la barre d etat et dans le bilan', async () => {
+    const objets = plan(3);
+    objets.forEach((o) => { if (o.fonction === 'batiment') delete (o as { couleurMurs?: unknown }).couleurMurs; });
+    const ordre: string[] = [];
+    const progres: (ProgressionToits | null)[] = [];
+    const fin = vi.fn();
+    const lus: string[][] = [];
+    const lireForme = lecteur(lus);
+    const lireMurs = vi.fn(async (c: Parameters<typeof lireMursEnFond>[0]) => {
+      ordre.push('murs');
+      // Les toits sont tous lus quand les murs commencent.
+      expect(c.objets().filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
+      for (const o of c.objets()) if (o.fonction === 'batiment') o.couleurMurs = { photo: { couleur: '#D9D2C4', id: 'ph', date: null, auteur: null, licence: null } };
+      await c.ecrire(['b0', 'b1', 'b2']);
+      c.avance();
+      return { photos: 3, ecrits: 3, arret: false };
+    }) as unknown as typeof lireMursEnFond;
+    const apresLot = vi.fn();
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, fin, lireMurs,
+      lire: (async (o, pr, opt) => { ordre.push('toit'); return lireForme(o, pr, opt); }) as typeof toitsDepuisLidar,
+    });
+    fond.relancer();
+    await finir(fond);
+    expect(ordre).toEqual(['toit', 'toit', 'toit', 'murs']);
+    expect(progres.some((pr) => pr?.phase === 'murs' && pr.etat === 'enCours')).toBe(true);
+    expect(progres.at(-1)?.etat).toBe('finie');
+    expect(apresLot).toHaveBeenLastCalledWith(['b0', 'b1', 'b2']);
+    expect(fin.mock.calls[0]![0]).toMatchObject({ lus: 3, murs: 3 });
+    expect(texteFinToitsFond(fin.mock.calls[0]![0])).toContain('3 couleurs de murs lues sur les photos de rue.');
+  });
+
+  it('les photos de rue muettes : arretee, sans tourner, et Reprendre leur redonne leur chance', async () => {
+    const objets = plan(2);
+    objets.forEach((o) => { if (o.fonction === 'batiment') { delete (o as { couleurMurs?: unknown }).couleurMurs; (o as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS; o.toit!.couleur = '#884422'; } });
+    const progres: (ProgressionToits | null)[] = [];
+    const lireMurs = vi.fn(async () => ({ photos: 0, ecrits: 0, arret: true })) as unknown as typeof lireMursEnFond;
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs });
+    fond.relancer();
+    await finir(fond);
+    expect(lireMurs).toHaveBeenCalledTimes(1);
+    expect(progres.at(-1)).toEqual({ faits: 0, total: 2, etat: 'arretee', phase: 'murs' });
+    fond.relancer();
+    await finir(fond);
+    expect(lireMurs).toHaveBeenCalledTimes(2);
   });
 });

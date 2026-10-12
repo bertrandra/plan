@@ -1,6 +1,6 @@
 // La lecture des toits en tache de fond, ou elle en est (app/toitsFond.ts, core/).
 //
-// La barre d'etat dit « Toits LiDAR : 120 / 2 400 » et le menu Fichier propose de suspendre ou de
+// La barre d'etat dit « Toits LiDAR : 120 / 2 400 », puis « Murs (photos) : … », et le menu Fichier propose de suspendre ou de
 // reprendre. L'ecouteur ecrit cet etat, les zones le lisent : il vit ici, sous les deux, comme la
 // lecture du relief (core/lectureRelief.ts). Rien ici ne s'enregistre.
 
@@ -10,6 +10,8 @@ export interface ProgressionToits {
   total: number;
   /** En cours, en pause (suspendue par l'utilisateur), arretee faute de service, ou finie. */
   etat: 'enCours' | 'pause' | 'arretee' | 'finie';
+  /** Apres les toits, la couleur des murs sur les photos de rue (app/mursFond.ts) : `faits` compte alors les batiments. */
+  phase?: 'murs';
 }
 
 let courante: ProgressionToits | null = null;
