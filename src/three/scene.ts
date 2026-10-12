@@ -186,7 +186,7 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // Le plan lointain suit le sol : a 500 m, un voisinage de 200 m etait coupe en reculant la camera.
   const b = terrain.bornes;
   const loin = Math.max(Math.abs(b.xMin - terrain.cen.x), Math.abs(b.xMax - terrain.cen.x), Math.abs(b.yMin - terrain.cen.y), Math.abs(b.yMax - terrain.cen.y));
-  // Le paysage du relief va jusqu'a l'horizon d'un voisinage etendu (5 km), bien au-dela des
+  // Le paysage du relief va jusqu'a l'horizon d'un voisinage etendu (1,5 km), bien au-dela des
   // parcelles affichees : vu d'un coin, son coin oppose doit rester dans le champ.
   const q = terrain.sol?.relief.paysage ? empriseGrille(terrain.sol.relief.paysage) : null;
   const loinSol = q ? Math.hypot(Math.max(Math.abs(q.xMin - terrain.cen.x), Math.abs(q.xMax - terrain.cen.x)), Math.max(Math.abs(q.yMin - terrain.cen.y), Math.abs(q.yMax - terrain.cen.y))) : 0;

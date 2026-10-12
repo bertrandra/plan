@@ -181,6 +181,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le rayon du voisinage va jusqu'à 1,5 km** (5 km auparavant), à la création d'un projet depuis
+  une adresse comme à l'actualisation d'un projet existant. Au-delà, le plan, la Vue 3D et
+  l'enregistrement s'alourdissaient pour un voisinage qu'on ne regarde pas ; à 1,5 km, le plafond de
+  20 000 objets par famille ne joue plus que dans une ville très dense.
+
 - **Vue 3D : la molette zoome vers ce que montre le curseur.** Elle rapprochait toujours du centre
   de la parcelle : sur un grand voisinage, impossible d'aller voir une maison au loin, et l'on finissait
   dans la pelouse du centre. Le point visé (un toit, un mur, le sol) reste maintenant sous le curseur ;

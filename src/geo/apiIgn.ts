@@ -235,20 +235,21 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
 /**
- * Le rayon du voisinage etendu se regle au curseur, de 10 a 5 000 m par pas de 10. On lit le
- * disque par paliers (200, 500, 1 000, 2 000, 5 000 m) : le palier qui couvre le curseur est lu une
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 1 500 m par pas de 10. On lit le
+ * disque par paliers (200, 500, 1 000, 1 500 m) : le palier qui couvre le curseur est lu une
  * fois, puis filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il
- * reste sous le palier lu. Lire d'emblee le plus grand disque (cent kilometres carres, des dizaines
- * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Cinq kilometres, c'est
- * l'horizon d'une vallee : le relief va jusque-la, les objets s'arretent au plafond par famille.
+ * reste sous le palier lu. Lire d'emblee le plus grand disque (sept kilometres carres, des dizaines
+ * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Un kilometre et demi
+ * (decision de l'utilisateur, octobre 2026) : au-dela, le plan, la Vue 3D et l'enregistrement
+ * s'alourdissent pour un voisinage que personne ne regarde ; cinq kilometres etaient permis avant.
  */
 export const RAYON_ETENDU_MIN_M = 10;
-export const RAYON_ETENDU_MAX_M = 5000;
+export const RAYON_ETENDU_MAX_M = 1500;
 export const RAYON_ETENDU_PAS_M = 10;
 /** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
 export const RAYON_ETENDU_DEFAUT_M = 50;
 /** Les paliers de lecture du disque, du plus petit au plus grand (le dernier est le maximum du curseur). */
-export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 2000, 5000];
+export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 1500];
 /**
  * Au-dela de ce rayon, le plan s'alourdit vite (des centaines de parcelles et de batiments, chacun
  * avec sa geometrie) : l'interface previent que l'enregistrement sur la plateforme peut etre refuse.
