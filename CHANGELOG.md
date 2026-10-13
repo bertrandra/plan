@@ -12,7 +12,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - le catalogue de 21 formes, du plus simple au plus rare (plat, monopente, deux pans, croupe, pavillon, demi-croupe, Mansart, asymétrique, toit en M, papillon, gambrel, coyau, shed, berceau, carène, conique, dôme, impériale…), avec leurs confusions ;
   - les trois niveaux d'une observation de terrain : fait sur un bâtiment, réglage par profil (JSON), règle dans le code ;
   - l'attendu testable écrit depuis ce que l'on a vu ;
-  - le corpus de non-régression et le skill qui formalise un cas d'audit.
+  - le corpus de non-régression et le skill qui formalise un cas d'audit ;
+  - une roadmap de transformation en six phases (observer, mesurer sans changer, corriger par les faits, généraliser les formes puis les profils, régime de croisière), avec ses critères de passage et ses indicateurs.
 
 - **Mode audit : boussole, vue à 70 m, photo située.** Dans la Vue 3D, le centre de rotation et de zoom
   est votre position : il vous suit à chaque pas, et la caméra garde le zoom et la rotation que vous
