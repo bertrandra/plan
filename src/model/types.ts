@@ -817,6 +817,24 @@ export interface ReleveFacade {
    * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
    */
   partieBasse?: PartieBasse | null;
+  /**
+   * Comment les photos ont ete calees (MD/spec-facades-calage-detection.md §13). Facultatif : un
+   * releve d'avant garde exactement son sens. Les lots suivants y ajoutent la source des coins,
+   * l'azimut corrige et la confiance.
+   */
+  calage?: CalageReleve;
+}
+
+/** Le calage d'une photo du releve : ses coins (pixels de la photo) et sa resolution au mur. */
+export interface CalagePhotoReleve {
+  /** Haut gauche, haut droit, bas droit, bas gauche, en pixels de la photo analysee. */
+  coins: PtBrut[];
+  /** Pixels par metre au mur sur la photo source : la precision reelle des cotes ; `null` si inconnue. */
+  pxParMSource: number | null;
+}
+
+export interface CalageReleve {
+  photos: CalagePhotoReleve[];
 }
 
 /** La partie basse d'un mur en L, dans le repere de sa facade (metres). */

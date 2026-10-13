@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Calage grossier des photos de façade** (lot L6 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §4 et §5). `facade/calage.ts` projette les coins du mur dans
+  la photo par un sténopé, depuis la prise de vue (position, azimut, inclinaison, roulis, focale,
+  objectif à 1,5 m). Aux bornes de l'incertitude, il donne une **zone de recherche** par coin :
+  précision du GPS, 15° pour la boussole, 25° pour le sens de la marche, quelques degrés d'attitude,
+  ±50 % de focale quand elle est estimée. Ces zones serviront au calage fin (lot L7).
+  - **Relevé** : les coins proposés tiennent compte de l'inclinaison et du roulis du téléphone au
+    déclenchement, et du biais que donne la boussole. Avant, le mur était supposé centré et le
+    téléphone d'aplomb. Au banc, l'erreur médiane des coins proposés passe de 146 à 36 cm.
+  - **Audit** : les coins d'une photo située sont prédits par sa prise de vue
+    (`coinsDeLaPhoto`), centrés sans azimut. La photo garde la taille de sa source, avant
+    réduction.
+  - **Précision annoncée** : l'écran de vérification du relevé dit la précision des cotes, un pixel
+    de la photo au mur (« Cotes précises à environ 2,5 cm : la photo ne voyait le mur qu'à 40 pixels
+    par mètre »). Le relevé garde les coins et les pixels par mètre de chaque photo
+    (`ReleveFacade.calage`, facultatif).
+  - **Banc de façades** : il mesure aussi le calage grossier, avec des capteurs exacts (36 coins
+    sur 40 à moins de 10 cm) et typiques (tous les coins vrais dans leur zone de recherche).
+
 - **Audit, la façade devant vous** (lot L2 du plan de mise en œuvre, `MD/spec-audit.md` §6.1 et
   §12.2). En mode audit, Plan reconnaît en direct la façade que vous avez devant vous : celle dont
   vous voyez le côté extérieur, à 3 à 40 m, sans autre bâtiment entre vous et elle, puis, parmi
@@ -103,6 +122,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - le skill `facades`, qui dit comment lancer le banc et lire son tableau. Il donne les chiffres
     de départ : rappel 65 %, précision 78 %, cotes à 1 cm, 4,2 corrections par façade, aucun coin
     proposé à moins de 10 cm.
+
+- **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
+  La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
+  « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :
+  - la **focale équivalente 24×36 et le modèle d'appareil**, lus dans l'EXIF avant la réduction
+    qui l'efface. Si l'EXIF n'a pas de focale, Plan reprend celle déjà lue pour ce modèle sur ce
+    navigateur ; sinon il retient le champ par défaut du relevé (67°), annoncé « estimé » ;
+  - l'**inclinaison** de la visée et le **roulis** de l'image, lus sur l'orientation du téléphone
+    au retour de l'appareil photo.
+
+  Le fichier de la promenade passe en **version 2** (`constat.photos[]`). Un fichier de version 1 se
+  relit tel quel : sa photo unique devient la première de la liste (`lireFichierPromenade`).
 
 - **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
   `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût

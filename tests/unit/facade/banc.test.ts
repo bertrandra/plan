@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { chargerCorpus, rejouerCorpus, rejouerScene, tableau } from '../../banc/facades/banc.js';
+import { chargerCorpus, rejouerCorpus, rejouerScene, tableau, capteursSimules } from '../../banc/facades/banc.js';
 import { coinsVrais, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../banc/facades/synthese.js';
 import { apparier, recouvrement, mesurerDetection, erreurCoinsCm } from '../../banc/facades/mesure.js';
-import { coinsProposes } from '../../../src/facade/analyse.js';
+import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage.js';
 
 // Le banc de facades (spec-facades-calage-detection §14, lot L5) : il doit tourner, sa verite doit
 // suivre son generateur, et les images de synthese d'origine doivent rester justes a 1 ou 2 cm.
@@ -149,12 +149,36 @@ describe('banc', () => {
     expect(t).toContain('Objectifs de la première version');
   }, LONG);
 
-  it('mesure les coins proposes tels que analyse.ts les propose', () => {
+  it('mesure les coins proposes tels que le releve les propose', () => {
     const s = parNom('02-');
     const p = s.synthese.prise;
     if (p?.type !== 'camera') throw new Error('prise camera attendue');
     const r = rejouerScene(s);
     const f = stenope(p, s.verite.largeur).f;
-    expect(r.detail.coinsProposes).toEqual(coinsProposes(p.largeurPx, p.hauteurPx, f, p.distance, s.verite.largeur, s.verite.hauteur));
+    const lu = capteursSimules(s, p, true);
+    expect(r.detail.coinsProposes).toEqual(
+      coinsDuReleve(s.verite.largeur, s.verite.hauteur, { largeurPx: p.largeurPx, hauteurPx: p.hauteurPx, focalePx: f, distance: p.distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg }),
+    );
   }, LONG);
+
+  it('le calage grossier, capteurs exacts, retrouve les coins vrais ; les zones contiennent les coins vrais', () => {
+    const s = parNom('08-');
+    const r = rejouerScene(s);
+    // Prise de biais forte, visee decentree, roulis : la projection depuis la prise exacte est juste.
+    expect(r.coinsExactsCm).toEqual([0, 0, 0, 0]);
+    expect(r.coinsDansZone).toBe(4);
+  }, LONG);
+
+  it('simule des capteurs exacts conformes au generateur, et des erreurs bornees', () => {
+    const s = parNom('03-');
+    const p = s.synthese.prise;
+    if (p?.type !== 'camera') throw new Error('prise camera attendue');
+    const exact = capteursSimules(s, p, false);
+    // Biais de 12 degres a droite, visee sur le milieu du mur : le cap tourne de 12 degres vers l'ouest.
+    expect(exact.capDeg).toBeCloseTo(348, 6);
+    expect(exact.inclinaisonDeg).toBe(5);
+    const bruite = capteursSimules(s, p, true);
+    expect(Math.hypot(bruite.x - exact.x, bruite.y - exact.y)).toBeCloseTo(2, 6);
+    expect(Math.abs(bruite.capDeg - exact.capDeg)).toBeCloseTo(5, 6);
+  });
 });

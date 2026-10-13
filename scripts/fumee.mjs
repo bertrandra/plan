@@ -1016,13 +1016,17 @@ const POINTS = {
     await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
     await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
     await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 15000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 30000 });
+    // La precision annoncee (lot L6) : un pixel de la photo au mur, lu ici sur les coins poses.
+    const precision = await page.locator('.releveNote', { hasText: 'Cotes précises' }).first().textContent({ timeout: 2000 }).catch(() => null);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, ouvertures: o.facades.map((f) => f.ouvertures.length) })));
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, ouvertures: o.facades.map((f) => f.ouvertures.length), pxParM: o.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
     await annuler(page);
     const retour = (await facades()) === avant;
     const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
-    return { ok: ecrit.length === 1 && ouvertures >= 2 && retour, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+    const pxParM = ecrit[0]?.pxParM?.[0] ?? null;
+    return { ok: ecrit.length === 1 && ouvertures >= 2 && retour && !!precision && pxParM > 0, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; ${precision ? '« ' + precision.trim() + ' »' : 'PAS de précision annoncée'} ; calage gardé : ${pxParM ?? 'RIEN'} px/m ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   }
 };
 
