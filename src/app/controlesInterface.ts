@@ -68,6 +68,8 @@ const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<C
 const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.relever';
 const DIALOGUE = 'toute commande qui pose une question';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
+const AUDIT_PARCELLE = 'audit.parcelle';
+const CE_QUE_JE_VOIS = 'audit.parcelle, ou la fiche d’un bâtiment (mode audit)';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
 function reglagesVue(vue: 'vue3d' | 'visionneuse', nom: string): Record<string, ControleInterface> {
@@ -208,6 +210,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'audit.categorie': etape(Z8, FICHE_AUDIT, 'Catégorie du problème noté', { repete: true }),
   'audit.probleme': etape(Z8, FICHE_AUDIT, 'Problème constaté (plusieurs possibles)', { repete: true }),
   'audit.note': etape(Z8, FICHE_AUDIT, 'Note sur le bâtiment'),
+  'audit.ceQueJeVois': etape(Z8, FICHE_AUDIT, 'Déplier « Ce que je vois » (facultatif)'),
   'audit.photo': etape(Z8, FICHE_AUDIT, 'Prendre une photo du bâtiment (six au plus)', { repete: true }),
   'audit.retirerPhoto': etape(Z8, FICHE_AUDIT, 'Retirer une photo', { repete: true }),
   'audit.toucherPhoto': etape(Z8, FICHE_AUDIT, 'Toucher la façade sur une photo dont la couleur n’a pas été lue', { repete: true }),
@@ -219,6 +222,49 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'audit.retirer': etape(Z8, 'audit.cas', 'Retirer un bâtiment de la liste', { repete: true }),
   'audit.continuer': etape(Z8, 'audit.cas', 'Continuer la promenade'),
   'audit.partager': etape(Z8, 'audit.cas', 'Partager le fichier de la promenade'),
+  // L'audit de la parcelle, phase 1 (zones/parcours/AuditParcelle.tsx) : la liste de controle et
+  // l'ecran de prise. Rien n'ecrit dans le projet : la capture vit dans le brouillon de l'appareil.
+  'auditParcelle.prise': etape(Z8, AUDIT_PARCELLE, 'Photographier en marchant : l’écran de prise sur la Vue 3D'),
+  'auditParcelle.voirFacade': etape(Z8, AUDIT_PARCELLE, 'Montrer les photos d’une façade', { repete: true }),
+  'auditParcelle.photographierFacade': etape(Z8, AUDIT_PARCELLE, 'Photographier cette façade (choisie dans la liste)', { repete: true }),
+  'auditParcelle.inaccessible': etape(Z8, AUDIT_PARCELLE, 'Marquer une façade inaccessible, ou la rendre à la liste', { repete: true }),
+  'auditParcelle.retirerPhoto': etape(Z8, AUDIT_PARCELLE, 'Retirer une photo de la capture', { repete: true }),
+  'auditParcelle.noter': etape(Z8, AUDIT_PARCELLE, 'Noter une ligne (toit, cheminées, terrasse, matériaux, clôture, portail)', { repete: true }),
+  'auditParcelle.photoToit': etape(Z8, AUDIT_PARCELLE, 'Photo du toit, rangée sur le bâtiment', { repete: true }),
+  'auditParcelle.typeCloture': etape(Z8, AUDIT_PARCELLE, 'Type de la clôture côté rue', { repete: true }),
+  'auditParcelle.hauteurCloture': etape(Z8, AUDIT_PARCELLE, 'Hauteur de la clôture côté rue, en mètres'),
+  'auditParcelle.soubassement': etape(Z8, AUDIT_PARCELLE, 'Soubassement de la clôture', { repete: true }),
+  'auditParcelle.photoCloture': etape(Z8, AUDIT_PARCELLE, 'Photo de la clôture côté rue'),
+  'auditParcelle.naturePortail': etape(Z8, AUDIT_PARCELLE, 'Portail, portillon, ou aucun', { repete: true }),
+  'auditParcelle.positionPortail': etape(Z8, AUDIT_PARCELLE, 'Position du portail le long de la limite', { repete: true }),
+  'auditParcelle.largeurPortail': etape(Z8, AUDIT_PARCELLE, 'Largeur du portail, en mètres'),
+  'auditParcelle.photoPortail': etape(Z8, AUDIT_PARCELLE, 'Photo du portail'),
+  'auditParcelle.completer': etape(Z8, AUDIT_PARCELLE, 'Compléter une capture terminée'),
+  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle (rien n’est perdu)'),
+  'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
+  'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
+  'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
+  'auditParcelle.suivrePosition': etape(Z8, AUDIT_PARCELLE, 'Revenir à la façade reconnue par la position'),
+  'auditParcelle.photo': etape(Z8, AUDIT_PARCELLE, 'Prendre une photo, rangée sur la façade visée', { repete: true }),
+  // « Ce que je vois » (zones/parcours/CeQueJeVois.tsx), partage par l'audit de la parcelle et la
+  // fiche de la promenade : toucher un choix retenu le retire.
+  'vu.forme': etape(Z8, CE_QUE_JE_VOIS, 'Forme du toit', { repete: true }),
+  'vu.autresFormes': etape(Z8, CE_QUE_JE_VOIS, 'Montrer les autres formes de toit'),
+  'vu.sensFaitage': etape(Z8, CE_QUE_JE_VOIS, 'Sens du faîtage par rapport à la rue', { repete: true }),
+  'vu.bouts': etape(Z8, CE_QUE_JE_VOIS, 'Bouts du toit (pignons, croupes)', { repete: true }),
+  'vu.lucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de lucarnes', { repete: true }),
+  'vu.panLucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Pan des lucarnes', { repete: true }),
+  'vu.cheminees': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de cheminées', { repete: true }),
+  'vu.positionCheminee': etape(Z8, CE_QUE_JE_VOIS, 'Position d’une cheminée', { repete: true }),
+  'vu.materiauCheminee': etape(Z8, CE_QUE_JE_VOIS, 'Matériau d’une cheminée', { repete: true }),
+  'vu.couronnement': etape(Z8, CE_QUE_JE_VOIS, 'Couronnement d’une cheminée', { repete: true }),
+  'vu.accessible': etape(Z8, CE_QUE_JE_VOIS, 'Toiture-terrasse accessible ou non', { repete: true }),
+  'vu.revetement': etape(Z8, CE_QUE_JE_VOIS, 'Revêtement de la toiture-terrasse', { repete: true }),
+  'vu.acrotere': etape(Z8, CE_QUE_JE_VOIS, 'Hauteur de l’acrotère, à vue', { repete: true }),
+  'vu.gardeCorps': etape(Z8, CE_QUE_JE_VOIS, 'Garde-corps de la terrasse', { repete: true }),
+  'vu.edicules': etape(Z8, CE_QUE_JE_VOIS, 'Nombre d’édicules sur la terrasse', { repete: true }),
+  'vu.murs': etape(Z8, CE_QUE_JE_VOIS, 'Matériau des murs', { repete: true }),
+  'vu.couverture': etape(Z8, CE_QUE_JE_VOIS, 'Matériau de la couverture', { repete: true }),
   'actualisation.portee': etape(Z8, ACTUALISER, 'Portée : la parcelle ou tout le plan', { repete: true }),
   'actualisation.voisinage': etape(Z8, ACTUALISER, 'Actualiser aussi le voisinage'),
   'actualisation.rayon': etape(Z8, ACTUALISER, 'Portée du voisinage : parcelles adjacentes, ou tout dans un rayon', { repete: true }),

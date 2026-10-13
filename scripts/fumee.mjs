@@ -175,6 +175,46 @@ async function telechargerOctets(page, action, delai = 60000) {
   return readFileSync(await dl.path());
 }
 
+/** « Auditer la parcelle… » comme la personne : menu Fichier sur bureau, feuille Projet au doigt (lot L9). */
+async function ouvrirAuditParcelle(page) {
+  if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+  await page.evaluate(() => document.getElementById('menuFichier')?.setAttribute('open', ''));
+  await page.waitForTimeout(150);
+  await page.locator('#menuFichier [data-commande="audit.parcelle"]').first().click({ timeout: 5000 });
+  await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 10000 });
+}
+
+/**
+ * Un point du jardin, a quelques metres devant le plus long mur de la maison que l'on voit depuis la
+ * parcelle, et le cap vers ce mur ; en degres par le calage du cadastre (a quelques centimetres pres
+ * sur 20 m, c'est assez pour la reconnaissance).
+ */
+async function stationDevantLaMaison(page) {
+  return page.evaluate(() => {
+    const e = window.__plan.etat();
+    const maison = e.objects.find((o) => o.key === 'maison');
+    const parcelle = e.objects.find((o) => o.key === 'parcelle');
+    const cad = parcelle && parcelle.cadastre;
+    if (!maison || !cad) return null;
+    const dans = (p, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; };
+    const batis = e.objects.filter((o) => (o.fonction === 'batiment' || o.fonction === 'annexe') && Array.isArray(o.pts));
+    const pts = maison.pts, n = pts.length;
+    let aire = 0;
+    for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; aire += a.x * b.y - b.x * a.y; }
+    const cotes = pts.map((a, i) => {
+      const b = pts[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y);
+      return { m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, l, nx: (aire > 0 ? 1 : -1) * (b.y - a.y) / l, ny: (aire > 0 ? -1 : 1) * (b.x - a.x) / l };
+    }).sort((u, v) => v.l - u.l);
+    for (const c of cotes) for (const d of [8, 6, 10, 5]) {
+      const p = { x: c.m.x + c.nx * d, y: c.m.y + c.ny * d };
+      if (!dans(p, parcelle.pts) || batis.some((o) => dans(p, o.pts))) continue;
+      const cap = (Math.atan2(c.m.x - p.x, c.m.y - p.y) * 180 / Math.PI + 360) % 360;
+      return { lat: cad.origineLat + p.y / 111132.954, lon: cad.origineLon + p.x / (111319.49 * Math.cos(cad.origineLat * Math.PI / 180)), cap };
+    }
+    return null;
+  });
+}
+
 /**
  * L'adresse des points cadastraux, la meme depuis la `1.1.0` : c'est elle qui rend les valeurs que
  * le journal de la liste de fumee cite, et en changer rendrait les passages incomparables.
@@ -1119,6 +1159,79 @@ const POINTS = {
     const changee = !!urlApres && urlApres !== urlAvant && urlApres.startsWith('data:image/jpeg');
     return { ok: corrigee && pleins >= 2 && changee, mesure: `« ${note} » ; coins : ${classes.join(', ')} ; photo montrée ${changee ? 'remplacée par la corrigée' : 'PAS remplacée (' + (urlApres ?? 'aucune') + ')'}` };
   },
+  60: async (page, f) => {
+    // L'audit de la parcelle, la liste de controle (lot L9) : « Auditer la parcelle… » depuis le menu
+    // Fichier (feuille Projet au doigt) ; les batiments de la parcelle puis les mitoyens ; une facade
+    // marquee inaccessible, le toit note, la cloture notee ; fermer puis rouvrir garde tout ; rien
+    // n'entre dans le projet ; rien ne deborde de l'ecran.
+    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    const titres = await page.locator('.titreBatimentAudit').allTextContents();
+    const compteurAvant = (await page.locator('.compteurAudit').textContent())?.trim();
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const debords = [await deborde()];
+    const inaccessible = page.locator('button[data-controle="auditParcelle.inaccessible"][aria-label$="de Maison"]').first();
+    await etape('inaccessible', () => inaccessible.click({ timeout: 5000 }));
+    const marquee = await page.locator('.ligneAudit.statut-inaccessible').count();
+    await etape('noter le toit', () => page.getByRole('button', { name: 'Noter : Toit de Maison' }).click({ timeout: 5000 }));
+    await etape('forme', () => page.locator('button[data-controle="vu.forme"]', { hasText: 'Quatre pans (croupes)' }).first().click({ timeout: 5000 }));
+    debords.push(await deborde());
+    await etape('cloture', () => page.locator('button[data-controle="auditParcelle.noter"]', { hasText: 'Clôture côté rue' }).click({ timeout: 5000 }));
+    await etape('mur', () => page.locator('button[data-controle="auditParcelle.typeCloture"]', { hasText: 'Mur' }).click({ timeout: 5000 }));
+    const compteur = (await page.locator('.compteurAudit').textContent())?.trim();
+    const lancerGrise = await page.locator('[data-controle="auditParcelle.lancer"]').isDisabled();
+    await etape('fermer', () => page.locator('[data-controle="auditParcelle.fermer"]').click({ timeout: 5000 }));
+    await page.waitForTimeout(300);
+    await etape('rouvrir', () => ouvrirAuditParcelle(page));
+    const garde = await page.locator('.ligneAudit', { hasText: 'Vu · Quatre pans (croupes)' }).count();
+    const apres = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ok = titres[0] === 'Maison' && titres.some((t) => /mitoyen$/.test(t)) && titres.at(-1) === 'La parcelle' && marquee >= 1 && garde === 1
+      && /clôture notée/.test(compteur || '') && /1 toit vu sur/.test(compteur || '') && lancerGrise && avant === apres && !debords.some(Boolean);
+    return { ok, mesure: `bâtiments ${titres.length - 1} (${titres.slice(0, 3).join(', ')}…) ; « ${compteurAvant} » → « ${compteur} » ; inaccessible ${marquee} ; toit gardé à la réouverture ${garde ? 'oui' : 'NON'} ; Lancer ${lancerGrise ? 'grisé' : 'ACTIF'} sans photo ; projet ${avant === apres ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  61: async (page) => {
+    // L'audit de la parcelle, l'ecran de prise (lot L9) : GPS simule devant un mur de la maison et
+    // boussole tournee vers lui ; la facade est reconnue, nommee et surlignee dans la Vue 3D ; une
+    // photo importee s'y range d'elle-meme ; « Ce n'est pas cette façade » en propose une autre ;
+    // la liste compte la facade photographiee et « Lancer l'analyse » termine la capture.
+    const station = await stationDevantLaMaison(page);
+    if (!station) return { ok: false, mesure: 'aucun mur de la maison ne se voit depuis la parcelle' };
+    await page.context().grantPermissions(['geolocation'], { origin: BASE });
+    await page.context().setGeolocation({ latitude: station.lat, longitude: station.lon, accuracy: 4 });
+    await ouvrirAuditParcelle(page);
+    await page.locator('[data-controle="auditParcelle.prise"]').click();
+    await page.locator('.auditPrise').waitFor({ timeout: 10000 });
+    // La boussole : `deviceorientationabsolute`, dont alpha tourne dans l'autre sens que le cap.
+    const tourner = (cap) => page.evaluate((a) => { for (let i = 0; i < 4; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: a, beta: 90, gamma: 0, absolute: true })); }, (360 - cap) % 360);
+    await tourner(station.cap);
+    await page.locator('.auditPrise .titreParcours', { hasText: 'Vous êtes devant' }).waitFor({ timeout: 15000 }).catch(() => {});
+    const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    // La Vue 3D se batit pendant ce temps : le surlignage y est pose des qu'elle est la.
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('facadeDevant'), null, { timeout: 30000 }).catch(() => {});
+    const surlignee = await page.evaluate(() => !!window.__plan.scene3d()?.scene.getObjectByName('facadeDevant'));
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
+    const range = (await page.locator('.rangementAudit').textContent().catch(() => ''))?.trim() ?? '';
+    const autre = page.locator('[data-controle="auditParcelle.pasCetteFacade"]');
+    if (await autre.isEnabled()) await autre.click();
+    await page.waitForTimeout(200);
+    const titreApres = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    await page.locator('[data-controle="auditParcelle.liste"]').click();
+    const compteur = (await page.locator('.compteurAudit').textContent())?.trim() ?? '';
+    const lancer = page.locator('[data-controle="auditParcelle.lancer"]');
+    const actif = await lancer.isEnabled();
+    if (actif) await lancer.click();
+    const toast = await page.locator('.toast', { hasText: 'Capture terminée' }).count();
+    const ok = /^Vous êtes devant la façade .* de Maison, \d+,\d m — 0 photo$/.test(titre) && surlignee && /^Photo rangée sur la façade .* de Maison \(1 photo\)\.$/.test(range)
+      && titreApres !== titre && /^1 façade sur/.test(compteur) && actif && toast === 1;
+    return { ok, mesure: `« ${titre} » ; surlignée en 3D ${surlignee ? 'oui' : 'NON'} ; « ${range || 'RIEN'} » ; après « Ce n’est pas cette façade » : « ${titreApres} » ; « ${compteur} » ; Lancer ${actif ? 'actif' : 'GRISÉ'} ; toast ${toast ? 'oui' : 'NON'}` };
+  },
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
@@ -1202,14 +1315,14 @@ const POINTS = {
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57 a 59). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57 a 59), l'audit de la parcelle (60, 61). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
   // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7) ;
-  // 59 : la distorsion du grand-angle (lot L8).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59];
+  // 59 : la distorsion du grand-angle (lot L8) ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

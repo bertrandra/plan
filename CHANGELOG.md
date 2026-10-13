@@ -7,6 +7,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit de la parcelle, phase 1 : la capture** (lot L9 du plan de mise en œuvre,
+  `MD/spec-audit.md` §11, §12 et §8.1). Dans un projet, Fichier › « Auditer la parcelle… »
+  (feuille du projet au doigt) ouvre la visite sur place, téléphone en main. La commande demande le
+  droit d'écrire le projet ; sans parcelle cadastrale, elle est grisée : « Importez d'abord la
+  parcelle depuis son adresse. »
+  - **La liste de contrôle**, plein écran : pour chaque bâtiment de la parcelle puis des mitoyens,
+    chaque façade (à photographier, photographiée avec son nombre de photos, inaccessible d'une
+    touche ; mitoyenne, collée à un autre bâtiment ou posée sur une limite voisine, rien à
+    photographier ; celle d'un mitoyen qui donne chez un autre voisin, supposée inaccessible), le
+    toit, les cheminées, la toiture-terrasse s'il y en a une, les matériaux ; puis la clôture côté
+    rue (type, hauteur, soubassement, photo) et le portail (nature, position, largeur, photo). Un
+    compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »), et la liste de ce qui
+    manque, sans bloquer.
+  - **Photographier en marchant** : l'écran de prise se pose sur la Vue 3D. Le GPS et la boussole
+    reconnaissent la façade que vous avez devant vous parmi celles de la liste (lot L2), elle est
+    surlignée dans la scène et nommée (« Vous êtes devant la façade sud de Maison, 9,2 m — 0 photo »),
+    avec le plan de prise (« une photo suffit », « 3 photos, de gauche à droite ») ; la photo située
+    (lot L1) s'y range d'elle-même. « Ce n'est pas cette façade » propose la suivante ; sans
+    position, « Photographier » sur la ligne d'une façade la choisit.
+  - **« Ce que je vois »** : un composant partagé (forme parmi le catalogue des toits, sens du
+    faîtage, bouts, lucarnes, cheminées une à une, toiture-terrasse, matériaux des murs et de la
+    couverture). Toucher un choix retenu le retire : on n'écrit que ce que l'on a vu. La fiche de la
+    promenade le montre aussi, en section facultative, et l'écrit dans le cas (`vu`).
+  - **Rien n'entre dans le projet** à cette phase : la capture vit dans le brouillon de l'appareil
+    (table `parcelles`, à côté des promenades), se reprend à la réouverture (« Reprendre l'audit du
+    … » ou « Le jeter »), et « Lancer l'analyse », proposé dès qu'une façade est photographiée,
+    termine la capture pour l'analyse qui viendra (lot L11). Points de fumée 60 et 61.
+  - Une commande grisée peut dire ce qu'il faut faire d'abord (`raisonInactive` du registre) ; au
+    doigt, la raison s'écrit sous l'entrée du menu.
+
 - **Distorsion du grand-angle corrigée** (lot L8 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §4). Une photo prise à l'ultra grand-angle (focale
   équivalente sous 20 mm) que le téléphone n'a pas redressée courbe les arêtes du mur, ce que le
@@ -663,6 +693,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Sur tablette, les entrées du panneau Projet se touchent de nouveau.** Le voile transparent qui
+  referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le
+  projet… » ou toute autre entrée refermait le panneau sans rien faire. La barre haute passe
+  au-dessus du voile, comme au téléphone.
 
 - **L'enregistrement ne fige plus l'écran sur un grand projet.** Sur un voisinage d'un kilomètre
   (8 Mo), chaque enregistrement bloquait l'interface en une tâche de 0,5 à 0,8 s, suivie de deux

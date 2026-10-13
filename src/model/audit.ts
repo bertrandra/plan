@@ -8,6 +8,7 @@
 
 import type { PtBrut, Toit, CorpsToit, ToitMesure } from './types.js';
 import type { GrilleRelief } from './relief.js';
+import type { CeQueJeVois } from './ceQueJeVois.js';
 
 export type CategorieAudit = 'toit' | 'facade' | 'contour' | 'hauteur' | 'autre';
 
@@ -162,6 +163,11 @@ export interface CasAudit {
   attendu: SortiesCas | null;
   historique: { t: string; texte: string }[];
   lectures?: LecturesCas;
+  /**
+   * « Ce que je vois » (spec §8.1) : le positif, section facultative de la fiche, qui devient
+   * l'attendu testable du cas. Absent : rien n'a ete note (un ancien fichier ne l'a pas).
+   */
+  vu?: CeQueJeVois;
 }
 
 export interface MetaPromenade {
@@ -186,7 +192,7 @@ export interface FichierPromenade {
 
 /** Le fichier de la promenade, tel qu'il se partage. */
 export function fichierPromenade(meta: MetaPromenade, cas: readonly CasAudit[]): FichierPromenade {
-  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: meta, cas: cas.map((c) => ({ ...c, constat: { ...c.constat, photos: [...c.constat.photos] }, ...(c.lectures ? { lectures: { facades: c.lectures.facades.map((l) => ({ ...l })) } } : {}) })) };
+  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: meta, cas: cas.map((c) => ({ ...c, constat: { ...c.constat, photos: [...c.constat.photos] }, ...(c.lectures ? { lectures: { facades: c.lectures.facades.map((l) => ({ ...l })) } } : {}), ...(c.vu ? { vu: JSON.parse(JSON.stringify(c.vu)) as CeQueJeVois } : {}) })) };
 }
 
 /** Un fichier qui n'est pas une promenade lisible par ce code : le message se montre tel quel. */

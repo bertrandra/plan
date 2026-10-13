@@ -7,6 +7,7 @@
 
 import { fichierPromenade, PHOTOS_PAR_CAS_MAX, type CasAudit, type CategorieAudit, type FichierPromenade, type LectureFacade, type MetaPromenade, type PhotoCas } from '../../model/audit.js';
 import type { GrilleRelief } from '../../model/relief.js';
+import { rienVu, type CeQueJeVois } from '../../model/ceQueJeVois.js';
 import type { PtBrut } from '../../model/types.js';
 
 export interface DependancesPromenade {
@@ -29,6 +30,8 @@ export interface Completion {
   retirerPhoto?: number;
   /** La couleur d'une facade lue sur une photo : elle remplace celle que cette photo avait donnee. */
   lectureFacade?: LectureFacade;
+  /** « Ce que je vois » (spec §8.1), en entier : il remplace le precedent ; vide, il est retire. */
+  vu?: CeQueJeVois;
 }
 
 export interface Promenade {
@@ -102,6 +105,7 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
       if (x.categorie) c.constat.categorie = x.categorie;
       if (x.problemes) c.constat.problemes = [...new Set(x.problemes)];
       if (x.note !== undefined) c.constat.note = x.note;
+      if (x.vu) { if (rienVu(x.vu)) delete c.vu; else c.vu = JSON.parse(JSON.stringify(x.vu)) as CeQueJeVois; }
       if (x.retirerPhoto !== undefined) {
         const r = x.retirerPhoto;
         c.constat.photos = c.constat.photos.filter((_, i) => i !== r);
