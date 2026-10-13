@@ -1,0 +1,113 @@
+{
+  "nom": "01-existante-pignon",
+  "description": "Image des tests d'origine (analyse.test.ts) : mur de 8 x 4 m sous un pignon de 3 m, deux fenêtres et une porte en aplats.",
+  "difficultes": [
+    "existante",
+    "pignon"
+  ],
+  "verite": {
+    "largeur": 8,
+    "hauteur": 4,
+    "coins": [
+      {
+        "x": 150,
+        "y": 520
+      },
+      {
+        "x": 860,
+        "y": 560
+      },
+      {
+        "x": 850,
+        "y": 900
+      },
+      {
+        "x": 140,
+        "y": 930
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "uni": [
+            55,
+            62,
+            70
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 3.5,
+        "y": 0,
+        "l": 0.9,
+        "h": 2.15,
+        "rendu": {
+          "uni": [
+            120,
+            70,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 5.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "uni": [
+            55,
+            62,
+            70
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 1,
+    "bruit": 0,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          222,
+          205,
+          176
+        ]
+      },
+      "pignon": 3
+    },
+    "prise": {
+      "type": "coins",
+      "coins": [
+        {
+          "x": 150,
+          "y": 520
+        },
+        {
+          "x": 860,
+          "y": 560
+        },
+        {
+          "x": 850,
+          "y": 900
+        },
+        {
+          "x": 140,
+          "y": 930
+        }
+      ],
+      "largeurPx": 1000,
+      "hauteurPx": 1100,
+      "distance": 6
+    }
+  }
+}

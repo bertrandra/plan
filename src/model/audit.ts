@@ -52,8 +52,17 @@ export const PROBLEMES_AUDIT: readonly { code: string; categorie: CategorieAudit
 export type StatutCas = 'a_corriger' | 'corrige' | 'valide' | 'sans_suite';
 
 /**
+ * D'ou vient la focale d'une photo : son EXIF ; celle retenue pour ce modele d'appareil (une photo
+ * precedente du meme telephone la portait) ; sinon le champ par defaut du releve, une estimation.
+ */
+export type SourceFocale = 'exif' | 'appareil' | 'defaut';
+
+/**
  * Ou et vers ou la photo a ete prise : la position de l'appareil (repere du plan et degres) et le cap
  * de sa boussole a cet instant. `deplacement` : sans boussole, le sens de la marche, a defaut.
+ *
+ * Depuis la version 2 du fichier, l'optique et l'attitude du telephone : la projection d'un mur
+ * dans la photo en depend (spec §5). Facultatives : une photo de version 1 ne les a pas.
  */
 export interface PrisePhoto {
   t: string;
@@ -64,10 +73,23 @@ export interface PrisePhoto {
   precisionM: number | null;
   azimutDeg: number | null;
   sourceAzimut: 'boussole' | 'deplacement' | null;
+  /** L'axe de visee au-dessus de l'horizon, en degres (negatif : vers le bas). */
+  inclinaisonDeg?: number | null;
+  /** La rotation de l'image autour de l'axe de visee, en degres, sens horaire positif. */
+  roulisDeg?: number | null;
+  /** Focale equivalente 24x36, en millimetres. */
+  focale35?: number | null;
+  /** Le champ du grand cote de l'image, en degres. */
+  champDeg?: number | null;
+  sourceFocale?: SourceFocale | null;
+  modeleAppareil?: string | null;
 }
 
 /** Une photo prise sur place, reduite (environ 300 Ko), en base64, avec sa prise de vue. */
 export interface PhotoCas { type: 'image/jpeg'; base64: string; prise?: PrisePhoto }
+
+/** Les photos d'un cas de promenade, au plus (spec §5) : six pesent deja environ 2,4 Mo. */
+export const PHOTOS_PAR_CAS_MAX = 6;
 
 export interface ConstatCas {
   categorie: CategorieAudit;
@@ -77,7 +99,8 @@ export interface ConstatCas {
   t: string;
   /** Votre position au moment de la marque, dans le repere du plan. */
   position: { x: number; y: number; precisionM: number | null };
-  photo?: PhotoCas;
+  /** De zero a six photos, dans l'ordre de la prise (version 2 ; la version 1 n'en avait qu'une, `photo`). */
+  photos: PhotoCas[];
 }
 
 export interface EntreesCas {
@@ -124,16 +147,41 @@ export interface MetaPromenade {
   regles: { lectureToits: number; lectureMurs: number };
 }
 
+/** La version du fichier de la promenade qu'ecrit ce code (spec §19). */
+export const VERSION_FICHIER_PROMENADE = 2;
+
 export interface FichierPromenade {
   format: 'plan-audit';
-  version: 1;
+  version: typeof VERSION_FICHIER_PROMENADE;
   promenade: MetaPromenade;
   cas: CasAudit[];
 }
 
 /** Le fichier de la promenade, tel qu'il se partage. */
 export function fichierPromenade(meta: MetaPromenade, cas: readonly CasAudit[]): FichierPromenade {
-  return { format: 'plan-audit', version: 1, promenade: meta, cas: cas.map((c) => ({ ...c })) };
+  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: meta, cas: cas.map((c) => ({ ...c, constat: { ...c.constat, photos: [...c.constat.photos] } })) };
+}
+
+/** Un fichier qui n'est pas une promenade lisible par ce code : le message se montre tel quel. */
+export class FichierPromenadeIllisible extends Error {}
+
+/**
+ * Relit un fichier de promenade, de la version 1 ou 2, et le rend en version 2 : la `photo` unique
+ * d'un cas de version 1 devient `photos[0]`. Le reste du cas est garde tel quel, rien n'est recalcule :
+ * un cas fige doit se rejouer comme il a ete note.
+ */
+export function lireFichierPromenade(donnees: unknown): FichierPromenade {
+  const f = donnees as { format?: unknown; version?: unknown; promenade?: unknown; cas?: unknown } | null;
+  if (!f || typeof f !== 'object' || f.format !== 'plan-audit') throw new FichierPromenadeIllisible('Ce fichier n’est pas un fichier de promenade d’audit.');
+  if (typeof f.version !== 'number' || f.version < 1) throw new FichierPromenadeIllisible('La version de ce fichier de promenade est inconnue.');
+  if (f.version > VERSION_FICHIER_PROMENADE) throw new FichierPromenadeIllisible('Ce fichier de promenade vient d’une version plus récente de Plan : mettez Plan à jour pour le lire.');
+  if (!f.promenade || typeof f.promenade !== 'object' || !Array.isArray(f.cas)) throw new FichierPromenadeIllisible('Ce fichier de promenade est incomplet.');
+  const cas = (f.cas as CasAudit[]).map((c) => {
+    const { photo, photos, ...constat } = c.constat as ConstatCas & { photo?: PhotoCas };
+    const liste = Array.isArray(photos) ? photos : photo ? [photo] : [];
+    return { ...c, constat: { ...constat, photos: liste } };
+  });
+  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: f.promenade as MetaPromenade, cas };
 }
 
 /** `audit-2026-10-13-0912-le-vesinet.json` : la date et l'heure locales du debut, la commune sans accents. */

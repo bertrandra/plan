@@ -36,7 +36,7 @@ export function AuditFin({ promenade, modifier, retirer, partager, fermer }: Pro
               <div>{titreCas(c)}</div>
               <div className="detailCas">{libelleCategorie(c.constat.categorie)
                 + (c.constat.problemes.length ? ' : ' + c.constat.problemes.map(libelleProbleme).join(', ') : '')
-                + (c.constat.photo ? ' · photo' : '') + (c.constat.note ? ' · note' : '')}</div>
+                + (c.constat.photos.length ? ' · ' + c.constat.photos.length + ' photo' + (c.constat.photos.length > 1 ? 's' : '') : '') + (c.constat.note ? ' · note' : '')}</div>
             </div>
             <button type="button" className="secondary small" data-controle="audit.modifier" aria-label={'Modifier la fiche de ' + titreCas(c)} onClick={() => modifier(c.cle)}>Modifier</button>
             <button type="button" className="secondary small" data-controle="audit.retirer" aria-label={'Retirer ' + titreCas(c)} onClick={() => retirer(c.cle)}>Retirer</button>
