@@ -4,7 +4,7 @@ import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { ObjetPlan, ObjetBrut } from '../../../../src/model/types.js';
 
 // Le chargement du mode audit (app/audit/chargement.ts) : la parcelle sous le point, puis tout ce qui
-// est a 40 m de la position, toits en calcul entier. Les services sont remplaces par des espions.
+// est a 70 m de la position, toits en calcul entier. Les services sont remplaces par des espions.
 
 const lat0 = 48.9, lon0 = 2.13;
 const projPoint = projecteurLocal(lat0, lon0);

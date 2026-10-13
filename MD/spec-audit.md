@@ -66,7 +66,8 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 ### 4.2 Chargement autour de vous
 
 **Étape 1** (`app/audit/chargement.ts::chargerAutour`) : à chaque déplacement de plus de 10 m
-depuis la dernière lecture, le disque de 40 m centré sur la position est relu
+depuis la dernière lecture, le disque de 70 m centré sur la position est relu (40 m à la
+première version ; porté à 70 m pour couvrir ce que la vue « drone » montre devant vous)
 (`app/actualisationIgn.ts::construireVoisinage`, option `centre`) ; ce qui est déjà chargé est
 écarté par l'IDU et l'identifiant BD TOPO, seul le nouveau est ajouté, et ce qui est chargé reste.
 Une lecture en cours met la suivante en attente. Les cases et le garde-fou ci-dessous viennent à
@@ -90,9 +91,15 @@ l'étape 2, si la mesure sur un long trajet le demande.
 
 - Vue 3D seule. Votre position y est montrée comme dans « Ma position (3D) »
   (`three/positionGps3d.ts`).
-- Caméra : **vue « drone »** derrière la position (40 m au-dessus, 42 m au sud ; jusqu'à 1,6 fois
-  plus loin sur un écran en hauteur), qui suit. Glisser sur la scène passe en navigation libre ;
-  « Me suivre » y revient.
+- Caméra : **vue « drone »** (`app/audit/camera.ts`). Son centre de rotation et de zoom est votre
+  position : à chaque déplacement, il y revient, et la caméra garde le zoom et la rotation que vous
+  lui avez donnés. Le déplacement latéral au doigt est coupé (il déplacerait ce centre).
+- **« Me suivre »** recadre derrière vous, dans l'axe de votre **cap**, inclinée à 40°, assez haut pour
+  voir **70 m devant** en haut de l'écran, puis suit ce cap. Le cap vient de la **boussole** du
+  téléphone (`shell/boussole.ts` : `webkitCompassHeading` sur Safari, autorisation demandée par ce
+  bouton ; `deviceorientationabsolute` sur Chrome), lissée, appliquée par pas de 3° ; sans boussole,
+  du sens de la marche (pas de 4 m au moins). Tourner la vue d'un doigt lâche le cap ; le pincement
+  (zoom) ne le lâche pas.
 - Une barre dans la Vue 3D (`zones/vue3d/Vue3d.tsx`, commandes `audit.suivre` et `audit.cas`) :
   l'état (lecture, bâtiments chargés, précision du GPS), « Me suivre », « Cas notés (n) ». En bas
   de l'écran au doigt, au-dessus de la scène sur bureau.
@@ -106,7 +113,10 @@ l'étape 2, si la mesure sur un long trajet le demande.
 - **Appui long** sur un bâtiment (marqué au passage s'il ne l'était pas) : une fiche courte, en trois touches au plus :
   1. la catégorie (toit, façade, contour, hauteur, autre) ;
   2. un ou plusieurs problèmes précis de la liste du §4.5 (pastilles à cocher) ;
-  3. une note libre et, si vous voulez, une **photo** prise avec le téléphone.
+  3. une note libre et, si vous voulez, une **photo** prise avec le téléphone. La photo garde sa
+     **prise de vue** (`PhotoCas.prise`) : position GPS (repère du plan et degrés, précision) et
+     **azimut** de la boussole au retour de l'appareil photo (à défaut, le sens de la marche,
+     `sourceAzimut`). La fiche l'écrit sous la photo : « Prise à ± 5 m, vers 245° (OSO), boussole ».
 - Au moment de la marque, le cas est **figé** (§5.2) ; la grille LiDAR et l'adresse le complètent
   dès qu'elles arrivent, et le partage les attend. Les précisions
   peuvent venir plus tard, sur place ou dans la liste de fin de promenade (§4.6).

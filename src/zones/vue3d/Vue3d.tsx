@@ -136,7 +136,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         <span className="etatAudit" role="status">{audit.statut}</span>
         <button type="button" className="secondary" data-commande="audit.suivre" aria-pressed={audit.suivre}
           disabled={!commandes.etat('audit.suivre').utilisable}
-          title="La caméra suit votre position ; glisser sur la scène la libère"
+          title="Recadre derrière vous, dans l’axe de votre cap (boussole, sinon sens de la marche), 70 m devant ; tourner la vue au doigt le lâche"
           onClick={(e) => { commandes.executer('audit.suivre', e.currentTarget); }}>
           <Icone nom="personne" taille={18} /> Me suivre
         </button>
