@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
+  `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût
+  calculé avec une table des tarifs datée. Journal, tarifs et plafonds sont des JSON stockés sur le
+  serveur de Plan, comme la palette. L'écran Admin › Consommation Claude montre :
+  - les tokens et le coût dans le temps, par modèle ;
+  - le détail par parcelle, par usage et par organisation ;
+  - les chiffres clés, à côté du taux d'accord.
+
+  Il émet aussi des alertes de plafond et de dérive, et exporte en CSV. Il est ajouté au plan de
+  mise en œuvre (lot L16 bis).
+
 - **Plan de mise en œuvre de l'audit, des façades et des règles des toits**
   (`MD/plan-mise-en-oeuvre-audit.md`, aucun code). Il découpe les trois specs en 21 lots, une PR
   chacun, regroupés en jalons :

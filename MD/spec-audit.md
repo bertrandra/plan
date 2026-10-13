@@ -467,6 +467,79 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 - **Sans réseau, ou sans accord** : seules les mesures du §13.1 deviennent des propositions. L'audit
   marche, avec moins de détails.
 
+### 13.3 Le tableau de bord de la consommation
+
+*Demande de l'utilisateur, 13 octobre 2026.* Un écran dit combien de tokens chaque parcelle a
+consommé, avec quel modèle, et comment cela évolue dans le temps.
+
+**Où c'est stocké** (décision de l'utilisateur, 13 octobre) : **les JSON de l'admin sont stockés sur
+le serveur de Plan**, comme la palette (`admin/palette`) et les démos (`deploy/admin.php`), dans le
+dossier de données de l'admin, hors du dossier publié. Rien de cela ne va sur la plateforme.
+
+| Fichier | Contenu | Qui l'écrit |
+|---|---|---|
+| `claude/journal-AAAA-MM.jsonl` | une ligne par appel à l'API (tableau ci-dessous) | `analyse.php`, à chaque appel |
+| `claude/tarifs.json` | la table des tarifs datée | l'administrateur, depuis l'écran ; une première version est livrée avec Plan |
+| `claude/plafonds.json` | les plafonds par organisation, par jour et par mois | l'administrateur, depuis l'écran |
+
+Écriture atomique et version précédente gardée en `.bak`, comme les autres fichiers de l'admin.
+
+**D'où viennent les chiffres.** `deploy/analyse.php` écrit une ligne de **journal** pour chaque appel à
+l'API. Le navigateur ne
+compte rien : un compte que l'utilisateur peut modifier n'est pas un compte. Les chiffres viennent
+du champ `usage` que l'API renvoie, jamais d'une estimation.
+
+| Champ | Contenu |
+|---|---|
+| `t` | date et heure de l'appel |
+| `organisation`, `projet` | identifiants de la plateforme (l'administrateur hors projet : `admin`) |
+| `idu`, `adresse` | la parcelle auditée |
+| `audit` | l'identifiant de l'audit (une capture et son analyse) |
+| `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
+| `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, Sonnet 5.5 en escalade…) |
+| `batch` | vrai si l'appel est passé par l'API Batch |
+| `passe` | 1, 2 ou 3 (le vote) |
+| `tokens` | entrée, écriture du cache, lecture du cache, sortie, tels que renvoyés par l'API |
+| `images` | nombre d'images envoyées |
+| `cout` | le coût en dollars, calculé avec la **table des tarifs** en vigueur à cette date |
+| `statut` | réussi, échoué, expiré, refusé par le plafond |
+
+**La table des tarifs** (`claude/tarifs.json`) est datée. Chaque modèle y a ses
+prix par million de tokens (entrée, sortie, écriture et lecture du cache), avec la remise Batch. Un
+changement de prix ajoute une ligne datée et ne réécrit pas le passé : un coût d'hier reste celui
+d'hier. Les prix sont vérifiés sur la page officielle d'Anthropic à chaque modification, et la date de
+vérification est notée.
+
+**L'écran** : **Admin › Consommation Claude** (`?admin&ecran=consommation`), administrateur seulement,
+lu par `GET admin/consommation` (session admin, filtres en paramètres). Il règle aussi les tarifs et
+les plafonds (`GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
+`X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`).
+
+| Vue | Ce qu'elle montre |
+|---|---|
+| **Dans le temps** | tokens et coût par jour, semaine ou mois, en aires empilées **par modèle** ; bascule tokens ou dollars |
+| **Par parcelle** | une ligne par parcelle : adresse, IDU, nombre d'audits, tokens par modèle, part du cache, coût total, coût par façade, date du dernier audit ; tri sur chaque colonne |
+| **Par usage** | répartition entre analyse, escalade, renfort et immédiat, et part du Batch |
+| **Par organisation** | coût du mois, plafond, part consommée |
+| **Chiffres clés** | coût moyen par parcelle comparé à l'estimation (1 à 2 centimes, §13.2), part de l'escalade, part des tokens lus en cache, coût par proposition validée |
+
+- **Filtres** : période, organisation, modèle, usage, parcelle.
+- **Le coût et la qualité ensemble** : à côté du coût par parcelle, le taux d'accord de Claude sur
+  les propositions validées ou refusées (`spec-regles-toits.md` §14.2). Un changement de modèle ou de
+  prompt se juge sur les deux.
+- **Alertes** : une organisation à 80 % de son plafond du jour ou du mois ; un coût moyen par parcelle
+  qui dépasse deux fois l'estimation sur sept jours ; un taux d'échec au-dessus de 5 %.
+- **Export** : CSV de la vue affichée.
+- **Graphiques** : SVG dessiné par la page, jetons de couleur de l'interface, lisibles en clair et en
+  sombre ; une couleur par modèle, accompagnée de son nom (la couleur ne porte jamais seule
+  l'information).
+- **Vie privée** : le journal ne garde ni photo ni contenu de réponse, seulement les compteurs et
+  l'identité de la parcelle. Il est gardé 24 mois.
+
+Pour l'utilisateur, la fin de l'analyse dit seulement que les propositions sont prêtes. Le coût
+n'est montré qu'à l'administrateur, tant que Plan ne facture pas l'analyse (`spec-connexion-plateforme.md`
+§7).
+
 Claude **propose**, il ne décide pas et ne calcule pas : un toit ou une façade ne change que par votre
 validation (§14).
 
@@ -754,7 +827,7 @@ et les couleurs lues sur les photos de terrain sont comparées à ce que Plan ca
 | 5 | commun | Photo située complète (§5 : plusieurs photos, focale, inclinaison), mur sur la photo et couleur de la façade (§6), « Ce que je vois » (§8.1) ; pour la promenade, captures opportunistes et fichier version 2 | tests sur des photos générées dont la prise de vue est connue, une promenade réelle |
 | 6 | commun | Relevé guidé par la position (§7), texture du matériau ; pour la promenade, depuis la fiche, sur la parcelle de départ | les images de test du relevé, une façade réelle |
 | 7 | parcelle | Phase 1 et phase 3 : commande `audit.parcelle`, liste de contrôle, façade reconnue à la prise de vue, propositions issues des mesures en 3D, validation, bâtiments « vérifiés sur place » | une parcelle réelle, toutes façades ; Ctrl+Z ; rien de saisi à la main écrasé sans accord |
-| 8 | parcelle | Phase 2 : batch Claude par le serveur de la plateforme, propositions avec indices, notification, accord de l'utilisateur | une parcelle réelle analysée ; taux d'accord mesuré sur les validations |
+| 8 | parcelle | Phase 2 : batch Claude par le serveur de la plateforme, propositions avec indices, notification, accord de l'utilisateur ; journal des appels et tableau de bord de la consommation (§13.3) | une parcelle réelle analysée ; taux d'accord mesuré sur les validations ; coûts du tableau égaux à ceux de la console Anthropic |
 | 9 | parcelle | Fichier pour le corpus (partage avec accord), import d'un audit dans un projet (§15) | un fichier rejoué sans réseau |
 
 ## 25. Questions (réponses de l'utilisateur)

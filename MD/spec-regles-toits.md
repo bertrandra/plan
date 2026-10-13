@@ -891,7 +891,7 @@ fait un attendu de test ou un fait.
 | Formes produites par le calcul | couverture du catalogue §3.1 | de 4 à 15 ou plus |
 | Conformité de la parcelle principale et des mitoyens | part des attributs observés que le projet satisfait (calcul, faits et valeurs du projet compris) | **100 %**, toujours (§1) |
 | Taux d'accord de Claude analyste, par attribut | fiabilité de ses propositions (§14.2) | ↑ ; un attribut n'est pré-accepté qu'au-dessus de 95 % |
-| Coût par maison analysée | coût réel des lots | ≈ 0,004 $ en nominal (§14.4) |
+| Coût par maison analysée | coût réel des lots, lu sur le tableau de bord de la consommation (`spec-audit.md` §13.3) | ≈ 0,004 $ en nominal (§14.4) |
 | AE 101 | non-régression absolue | identique au centimètre, toujours |
 | Empreintes golden | quantités et exports | identiques, toujours |
 
