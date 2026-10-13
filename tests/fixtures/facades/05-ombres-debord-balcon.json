@@ -1,0 +1,147 @@
+{
+  "nom": "05-ombres-debord-balcon",
+  "description": "Ombre franche du débord de toit sur le haut de l'étage, balcon à garde-corps devant une porte-fenêtre et son ombre portée, éclairage en dégradé.",
+  "difficultes": [
+    "ombre-debord",
+    "balcon",
+    "ombre-balcon",
+    "degrade"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.9,
+    "coins": [
+      {
+        "x": 290.23,
+        "y": 264.62
+      },
+      {
+        "x": 1031.15,
+        "y": 227.66
+      },
+      {
+        "x": 1052.91,
+        "y": 702.94
+      },
+      {
+        "x": 272.93,
+        "y": 688.98
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "porte-fenetre",
+        "x": 1,
+        "y": 0,
+        "l": 2.2,
+        "h": 2.2
+      },
+      {
+        "type": "porte",
+        "x": 5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            150,
+            40,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "porte-fenetre",
+        "x": 1.4,
+        "y": 3.05,
+        "l": 1.4,
+        "h": 2.15
+      },
+      {
+        "type": "fenetre",
+        "x": 5,
+        "y": 3.9,
+        "l": 1,
+        "h": 1.2
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 3.9,
+        "l": 1.2,
+        "h": 1.2
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 5,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          232,
+          222,
+          200
+        ],
+        "taches": 5
+      },
+      "degrade": 0.15,
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "ombres": [
+      {
+        "type": "debord",
+        "hauteur": 0.95,
+        "pente": 0.04,
+        "facteur": 0.58
+      }
+    ],
+    "balcons": [
+      {
+        "x": 0.9,
+        "l": 2.4,
+        "z": 3.05,
+        "epaisseur": 0.16,
+        "gardeCorps": {
+          "hauteur": 1,
+          "couleur": [
+            40,
+            40,
+            42
+          ],
+          "pas": 0.12
+        },
+        "ombre": {
+          "hauteur": 0.6,
+          "decalage": 0.3
+        }
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 12,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 8,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}
