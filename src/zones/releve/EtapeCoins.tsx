@@ -6,7 +6,7 @@ import { type CoteBas, type Decrochement } from '../../facade/profil.js';
 import type { P2 } from '../../facade/homographie.js';
 import { fr } from './commun.js';
 import { Coins, decrochementPropose, nomsEnL, ordreDuContour } from './Coins.js';
-import { type Morceau, consigneCoins } from './serie.js';
+import { type Assemblage, type Morceau, consigneCoins } from './serie.js';
 
 /** Les photos de la serie, de gauche a droite : on en choisit une pour la reprendre ou la retirer. */
 function BandeauMorceaux({ morceaux, courant, choisir, retirer }: { morceaux: Morceau[]; courant: number; choisir: (k: number) => void; retirer: (k: number) => void }) {
@@ -43,6 +43,31 @@ function FormeDuMur({ decro, choisir }: { decro: Decrochement | null; choisir: (
         En L, bas à droite
       </button>
     </div>
+  );
+}
+
+/**
+ * Plusieurs photos d'un mur : des morceaux de gauche a droite (le mur ne tient pas dans une photo),
+ * ou des vues du mur entier, de face et de biais, que l'analyse fond pour voir derriere une voiture
+ * ou une haie (lot L13).
+ */
+function AssemblageSerie({ assemblage, choisir }: { assemblage: Assemblage; choisir: (a: Assemblage) => void }) {
+  return (
+    <>
+      <div className="releveSegment" role="group" aria-label="Plusieurs photos">
+        <button data-controle="releve.assemblage" type="button" aria-pressed={assemblage === 'morceaux'} onClick={() => choisir('morceaux')}>
+          Morceaux côte à côte
+        </button>
+        <button data-controle="releve.assemblage" type="button" aria-pressed={assemblage === 'vues'} onClick={() => choisir('vues')}>
+          Vues du mur entier
+        </button>
+      </div>
+      <p className="releveNote">
+        {assemblage === 'vues'
+          ? "Chaque photo montre tout le mur, de face ou de biais : l'analyse les superpose et reprend sur l'une ce qu'une voiture, une haie ou un poteau cachent sur l'autre."
+          : "Chaque photo montre une part du mur, de gauche à droite, avec un tiers en commun avec la suivante : l'analyse les assemble."}
+      </p>
+    </>
   );
 }
 
@@ -95,6 +120,8 @@ export function EtapeCoins({
   retirer,
   setCoins,
   setDecrochement,
+  assemblage,
+  setAssemblage,
   prevues,
   avis,
   largeur,
@@ -108,6 +135,8 @@ export function EtapeCoins({
   retirer: (k: number) => void;
   setCoins: (c: P2[], k?: number) => void;
   setDecrochement: (d: Decrochement | null) => void;
+  assemblage: Assemblage;
+  setAssemblage: (a: Assemblage) => void;
   prevues: number;
   avis: string | null;
   largeur: number;
@@ -117,15 +146,17 @@ export function EtapeCoins({
 }) {
   const m = au(morceaux, courant);
   const total = Math.max(morceaux.length, prevues);
-  const manque = prevues > morceaux.length ? prevues - morceaux.length : 0;
+  // Le nombre de photos prevu par la distance ne vaut que pour des morceaux : des vues, on en prend autant qu'on veut.
+  const manque = assemblage === 'morceaux' && prevues > morceaux.length ? prevues - morceaux.length : 0;
   return (
     <>
       <div className="releveCorps releveCorpsPhoto">
         {total > 1 && <BandeauMorceaux morceaux={morceaux} courant={courant} choisir={choisir} retirer={retirer} />}
+        {morceaux.length > 1 && <AssemblageSerie assemblage={assemblage} choisir={setAssemblage} />}
         <p className="releveConsigne">
           {m.decrochement
             ? "Mur en L : les coins du pied aux deux bouts, l'égout haut au bout haut, l'égout bas au bout bas ; puis les deux ronds du décrochement, sur l'égout haut et l'égout bas, là où la hauteur change."
-            : consigneCoins(courant, total)}
+            : consigneCoins(courant, total, assemblage)}
         </p>
         {avis && (
           <p className="releveAvis" role="alert">
@@ -172,7 +203,7 @@ export function EtapeCoins({
   );
 }
 
-export function EtapeAnalyse() {
+export function EtapeAnalyse({ vues = false }: { vues?: boolean }) {
   return (
     <div className="releveCorps releveAnalyse" aria-live="polite">
       <div className="releveSablier" aria-hidden="true" />
@@ -180,6 +211,7 @@ export function EtapeAnalyse() {
       <ul>
         <li>Mesure de la hauteur du mur</li>
         <li>Redressement de la photo à l'échelle</li>
+        {vues && <li>Fusion des vues, et masque de ce qui est devant le mur</li>}
         <li>Recherche des fenêtres et des portes</li>
         <li>Lecture de la silhouette du toit</li>
       </ul>

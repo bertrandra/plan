@@ -1199,17 +1199,67 @@ const POINTS = {
       && /Claude Haiku 5\.5/.test(infobulle || '') && idus.length === 3 && [...idus].sort().join() === idus.join() && /^consommation-claude-parcelles-.*\.csv$/.test(nomCsv)
       && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45;
     return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'}` };
+  },
+  65: async (page) => {
+    // La fusion de plusieurs vues (lot L13) : deux photos du meme mur, de face puis de biais, une
+    // voiture devant ; « Vues du mur entier » les fait fondre au lieu de les mettre cote a cote. Les
+    // coins de la seconde sont proposes pour le mur entier ; l'analyse rend la facade, Valider l'ecrit
+    // avec le calage des deux vues, un Ctrl+Z la retire.
+    const dessiner = async (mur, voiture) => {
+      const d = await page.context().newPage();
+      await d.setViewportSize({ width: 1600, height: 1200 });
+      await d.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+        + "const x=document.getElementById('c').getContext('2d');"
+        + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,880,1600,320);"
+        + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
+        + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(voiture)};`
+        // Un point du mur (u, w en fractions de largeur et de hauteur) sur le quadrilatere du mur.
+        + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
+        + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
+        + "q('#e4d6bc',m);q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
+        + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],v[2],v[3]);"
+        + '</script></body>');
+      const png = await d.locator('#c').screenshot({ type: 'png' });
+      await d.close();
+      return png;
+    };
+    const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [600, 820, 520, 230]);
+    const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [820, 830, 470, 230]);
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const avant = await facades();
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face });
+    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 15000 }); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais });
+    const choix = page.locator('[data-controle="releve.assemblage"]');
+    await choix.first().waitFor({ timeout: 15000 });
+    const parDefaut = await choix.first().getAttribute('aria-pressed');
+    await choix.nth(1).click(); await page.waitForTimeout(400);
+    const vues = await choix.nth(1).getAttribute('aria-pressed');
+    const consigne = (await page.locator('.releveConsigne').first().textContent())?.trim() ?? '';
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, vues: o.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.facades.map((f) => f.ouvertures.length) })));
+    await annuler(page);
+    const retour = (await facades()) === avant;
+    const deux = ecrit[0]?.vues?.[0] ?? 0;
+    const ok = parDefaut === 'true' && vues === 'true' && /^Vue 2 sur 2 .*mur entier/.test(consigne) && ecrit.length === 1 && deux === 2 && retour;
+    return { ok, mesure: `assemblage par défaut : ${parDefaut === 'true' ? 'morceaux' : 'AUTRE'} ; « Vues du mur entier » ${vues === 'true' ? 'choisi' : 'NON choisi'} ; « ${consigne.slice(0, 60)}… » ; écrit : ${ecrit.map((e) => `${e.nom}, ${e.vues.join('/')} vue(s) calée(s), ${e.ouvertures.join('/')} ouverture(s)`).join(' ; ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57 a 59). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57 a 59, 65). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
   // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7) ;
-  // 59 : la distorsion du grand-angle (lot L8).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59];
+  // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 65];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
