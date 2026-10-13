@@ -518,7 +518,8 @@ promenades.
 4. **Fenêtres de toit et châssis** (invisibles au LiDAR) : faut-il les noter en audit et les
    dessiner en 3D ? Proposé : plus tard, après les formes.
 5. **Photo et vues de rue** : faut-il, à terme, lire la forme sur la photo (lucarnes, brisis) ?
-   Proposé : non pour l'instant ; la photo reste une preuve, pas une mesure.
+   Réponse : oui, par Claude, hors de l'application et sous validation (§14). Dans le calcul, la
+   photo reste une preuve, pas une mesure.
 
 ---
 
@@ -675,3 +676,164 @@ sans baisser ailleurs.
 - **Le doute se pose en question** plutôt que de se cacher dans un seuil.
 - **Une PR, un sujet.** Une forme, un réglage ou un lot de faits par PR. Le circuit du dépôt
   s'applique à chacune (vérifications, CHANGELOG, PR, merge, livraison).
+
+---
+
+## 14. Analyse assistée par Claude
+
+Un skill confie à Claude l'analyse des entrées d'un cas (photo de rue, orthophoto, LiDAR, modèle
+actuel) pour **compléter l'observation automatiquement**. Le principe ne change pas : le calcul
+de Plan reste déterministe. Claude **produit des données** (une observation, une proposition de
+fait), que l'on valide puis fige dans le JSON. Il n'intervient jamais dans le calcul d'un toit.
+
+### 14.1 Les entrées, et ce que Claude en tire
+
+| Entrée | Préparation (déterministe, par Plan ou le skill) | Ce que Claude en tire | Ce qu'on ne lui demande pas |
+|---|---|---|---|
+| **Photo de rue** | réduite à 1 024 px ; position GPS et azimut de la prise (`PhotoCas.prise`) | forme, sens du faîtage par rapport à la rue, lucarnes (type, nombre), cheminées, brisis, et les éléments ✘ du §2 (fenêtres de toit, coyau, débords) | hauteurs, angles |
+| **Rendu du modèle Plan** depuis la même position et le même azimut | Vue 3D posée sur la caméra de la photo, 1 024 px | les **écarts** entre le rendu et la photo : c'est la question la plus fiable qu'on puisse lui poser | — |
+| **Orthophoto** | recadrée sur le contour, 512 px, contour tracé | lignes de faîtage et d'arêtiers, croupes, matériau, verrières | hauteurs |
+| **Carte des hauteurs LiDAR** | rendue comme `rendu.py` (bleu bas, rouge haut, contour, échelle), 512 px | reconnaître une signature du §3.2 (bande raide, creux, bosses) | mesurer |
+| **Indices LiDAR chiffrés** | calculés par Plan : largeur de la bande raide le long des murs, présence d'un creux, nombre de sommets, écart des formes candidates | les confronter à ce qu'il voit | les recalculer |
+| **Modèle actuel** | les corps de Plan en JSON compact | dire ce qui diffère de son observation | — |
+
+### 14.2 Rendre la réponse aussi stable que possible
+
+L'analyse de Claude n'est pas reproductible au bit près : sur un cas ambigu, deux passes peuvent
+diverger. Claude Haiku 5.5 n'accepte pas de température réglée (une valeur non par défaut renvoie une
+erreur), donc la stabilité vient de la structure, pas d'un réglage.
+
+1. **Réponse fermée.** Sortie structurée (`output_config.format`, schéma JSON). Les mêmes champs que
+   l'observation du §7, avec le vocabulaire du §2 et du §3 seulement, et la valeur
+   `"indetermine"` partout. Le schéma garantit un JSON valide.
+2. **Une grille de critères.** Les signatures du §3.2 deviennent des questions oui / non par forme. La
+   réponse cite, pour chaque attribut, les **indices** vus, et sur quelle image.
+3. **Trois passes et un vote.** Trois analyses indépendantes, à la majorité, attribut par attribut.
+   Un attribut sans majorité passe en `indetermine` et le cas revient à la personne.
+4. **Contrôle croisé.** Une réponse qui contredit un indice LiDAR chiffré (Mansart annoncé, aucune
+   bande raide mesurée) est marquée `contradiction` et part en revue humaine.
+5. **Mesurer avant de faire confiance.** Le skill rejoue Claude sur les cas déjà `valide` et calcule
+   le **taux d'accord** par attribut. Seuls les attributs au-dessus de 95 % d'accord peuvent être
+   pré-acceptés ; les autres restent des propositions. Le taux est recalculé à chaque changement de
+   modèle ou de prompt.
+6. **Escalade.** Un cas sans majorité ou en contradiction peut être repassé une fois à Claude
+   Sonnet 5.5 (plus fin, environ 20 fois plus cher, §14.4) avant d'arriver chez la personne.
+
+### 14.3 Le prompt « béton »
+
+Il est écrit une fois, versionné dans le skill (`.claude/skills/regles-toits/prompt-analyse.md`),
+et **mis en cache** : seule la partie propre à la maison change d'un appel à l'autre.
+
+**Partie fixe, en cache** (de l'ordre de 25 000 tokens) :
+1. **Rôle et limite.** « Tu observes un toit. Tu décris ce que tu vois, tu ne mesures rien. Sans
+   indice visible, réponds `indetermine`. »
+2. **Vocabulaire fermé.** Les tableaux du §2 et du §3.1, chaque terme avec sa définition. Un mot hors
+   de cette liste est refusé par le schéma.
+3. **Grille de critères.** Pour chaque forme, les questions oui / non tirées du §3.2. Pour chaque
+   confusion du §3.4, ce qui la tranche.
+4. **Règles de lecture des images** :
+   - photo : la façade la plus proche est au premier plan ; un arbre masque, il n'est pas un toit ;
+   - carte LiDAR : le bleu est bas, le rouge haut, et la carte a une échelle ;
+   - rendu : c'est le modèle actuel, pas la réalité.
+5. **Quatre à six exemples annotés**, avec leurs images : un deux-pans, un Mansart, une
+   demi-croupe, une lucarne prise pour un pignon, un cas `indetermine`, un cas en contradiction.
+   Ce sont des cas du corpus déjà validés.
+6. **Le format de sortie** et l'ordre dans lequel remplir les champs (indices d'abord, conclusion
+   ensuite).
+
+**Partie propre à la maison** (de l'ordre de 4 000 tokens). Chaque image vient avant le texte, avec
+une étiquette (« Image 1 : photo de rue, prise à 12 m, vers 245° »…) :
+- les quatre images ;
+- les indices LiDAR chiffrés ;
+- le modèle actuel en JSON compact.
+
+**Réglages** : Claude Haiku 5.5, effort `low` (passer à `medium` seulement si la mesure du §14.2.5 le
+justifie), aucune température.
+
+### 14.4 Coût estimé par maison
+
+Tarifs de la page officielle au 13 octobre 2026, en dollars par million de tokens (MTok), pour des
+prompts de moins de 100 000 tokens :
+
+| Claude Haiku 5.5 | Entrée | Écriture en cache (5 min) | Lecture du cache | Sortie |
+|---|---|---|---|---|
+| API standard | 0,10 $ | 0,125 $ | 0,01 $ | 0,50 $ |
+| API Batch (−50 %, différé) | 0,05 $ | — | — | 0,25 $ |
+
+Haiku 5.5 est dans le palier d'images haute résolution : une image coûte
+⌈largeur / 28⌉ × ⌈hauteur / 28⌉ tokens, au plus 4 784.
+
+**Tokens d'une passe, pour une maison** :
+
+| Poste | Taille | Tokens |
+|---|---|---|
+| Photo de rue | 1 024 × 768 px | 1 036 |
+| Rendu du modèle, même point de vue | 1 024 × 768 px | 1 036 |
+| Orthophoto recadrée | 512 × 512 px | 361 |
+| Carte des hauteurs LiDAR | 512 × 512 px | 361 |
+| Texte : étiquettes, indices LiDAR, modèle en JSON | — | ~1 200 |
+| **Entrée propre à la maison** | | **~4 000** |
+| Partie fixe, lue dans le cache | | ~25 000 |
+| Sortie : réflexion (effort `low`) et JSON avec indices | | ~1 500 |
+
+**Coût d'une passe** (API standard, cache chaud) :
+
+| Poste | Calcul | Coût |
+|---|---|---|
+| Lecture du cache | 25 000 × 0,01 $ / MTok | 0,00025 $ |
+| Entrée | 4 000 × 0,10 $ / MTok | 0,00040 $ |
+| Sortie | 1 500 × 0,50 $ / MTok | 0,00075 $ |
+| **Une passe** | | **≈ 0,0014 $** |
+
+L'écriture du cache (25 000 × 0,125 $ / MTok ≈ 0,003 $) se paie une fois par lot, tant que les appels
+se suivent à moins de 5 minutes : elle est négligeable sur un village.
+
+**Par maison, selon le scénario** :
+
+| Scénario | Détail | Par maison | 150 maisons (un village) | 1 000 maisons |
+|---|---|---|---|---|
+| Économe | 1 passe, pas de vote | ≈ 0,0014 $ | ≈ 0,21 $ | ≈ 1,40 $ |
+| **Nominal** | 3 passes et vote | **≈ 0,0042 $** | **≈ 0,63 $** | **≈ 4,20 $** |
+| Nominal en Batch | 3 passes, différé ; avec ou sans cache (non garanti en Batch) | ≈ 0,0021 à 0,0055 $ | ≈ 0,32 à 0,83 $ | ≈ 2,10 à 5,50 $ |
+| Haute définition | photo et rendu à 2 576 px (4 784 tokens chacun), effort `medium` (~2 500 tokens de sortie), 3 passes | ≈ 0,0080 $ | ≈ 1,20 $ | ≈ 8,00 $ |
+| Nominal + escalade | 15 % des cas repassés une fois à Claude Sonnet 5.5 (≈ 0,033 $ la passe) | ≈ 0,0092 $ | ≈ 1,40 $ | ≈ 9,20 $ |
+
+**À retenir** :
+- Une maison coûte de l'ordre d'**un demi-centime** en nominal, et moins d'un centime avec escalade. Un village complet se compte en **dizaines de centimes**, du même ordre en euros.
+- La **sortie** pèse plus de la moitié du coût : garder une réponse courte (indices, puis conclusion) et l'effort `low` compte plus que la taille des images.
+- Sans cache, la partie fixe coûterait 25 000 × 0,10 $ / MTok = 0,0025 $ par passe, soit près de trois fois plus : le cache est indispensable.
+- Ces chiffres sont une **estimation**. Le premier lot réel les mesure (`usage` de chaque réponse, `count_tokens` sur des images représentatives). Le skill affiche le coût réel du lot à la fin.
+
+### 14.5 Les trois usages, du plus sûr au plus ambitieux
+
+1. **Pré-remplir la fiche d'audit.** À la réception d'une promenade, Claude propose « Ce que je vois »
+   pour chaque cas, à partir de la photo ; vous corrigez en un clic. Risque nul : tout passe par vous.
+2. **Trier les cas.** Claude propose le niveau (hors toit, fait, réglage, règle, question) et le
+   justifie, images à l'appui, dans la PR du skill. Vous validez.
+3. **Observer sans marcher.** Le skill parcourt les photos de rue Panoramax d'un village, rend le
+   modèle depuis chaque prise de vue, et propose des cas.
+
+### 14.6 Statuts et garde-fous
+
+- **Statut `propose`.** Une observation de Claude porte `source: "claude"`, le modèle, la version du
+  prompt et le résultat du vote. Elle n'est jamais un attendu de test (§7) tant qu'elle n'est pas
+  `valide`.
+- **Pré-acceptation.** Seuls les attributs au taux d'accord mesuré supérieur à 95 % peuvent l'être, et
+  toujours relus en lot dans la PR.
+- **Jamais dans l'application.** Claude n'est pas appelé pendant le calcul d'un toit : pas de coût
+  par utilisateur, pas de délai, pas de photo envoyée à l'extérieur depuis un projet, pas de résultat
+  qui varie d'un jour à l'autre. Si un jour on le voulait, ce serait un service à part, dont les
+  réponses seraient gardées et versionnées comme des faits.
+- **Photos.** Elles partent vers l'API d'Anthropic, qui ne les utilise pas pour entraîner ses
+  modèles. Les photos de personnes sont floutées par Panoramax. Les vôtres ne montrent que des
+  façades depuis la rue.
+
+### 14.7 Place dans la roadmap
+
+| Phase (§13.2) | Ce que Claude y apporte |
+|---|---|
+| 1 Observer | rien d'automatique : on constitue les cas qui serviront à mesurer Claude |
+| 2 Mesurer | **taux d'accord de Claude** mesuré sur les cas validés, par attribut, en même temps que le taux de conformité du calcul |
+| 3 Corriger par les faits | usage 1 (pré-remplissage) et usage 2 (tri) dans le skill `regles-toits` |
+| 4 et 5 Généraliser | usage 3 (Panoramax) pour trouver où chaque nouvelle forme apparaît, et ses faux positifs |
+| 6 Régime de croisière | analyse systématique de chaque promenade ; suivi du coût réel par lot |
