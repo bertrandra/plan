@@ -76,6 +76,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Le fichier de la promenade passe en **version 2** (`constat.photos[]`). Un fichier de version 1 se
   relit tel quel : sa photo unique devient la première de la liste (`lireFichierPromenade`).
 
+- **Audit, brouillon local de la promenade** (lot L4, `MD/spec-audit.md` §10). Les marques, les cas
+  figés et leurs photos sont écrits au fur et à mesure dans le téléphone (IndexedDB,
+  `io/brouillonAudit.ts`), et tout de suite quand l'écran se verrouille ou que l'onglet passe en
+  arrière-plan : un onglet tué par le système ne fait plus perdre la visite.
+  - À la réouverture de `?mode=audit`, un dialogue propose « Reprendre l'audit du … » ou « Le
+    jeter ». Le départ attend la réponse : un audit repris repart de sa propre parcelle, pour que
+    les contours déjà figés restent dans le même repère. La grille LiDAR ou l'adresse qui manquaient
+    à un cas sont relues quand son bâtiment revient dans le plan.
+  - Après le partage (ou le téléchargement) du fichier, Plan propose « Effacer le brouillon » ;
+    rien n'est effacé sans cette confirmation.
+  - Navigation privée, stockage bloqué ou téléphone plein : l'audit continue, et un message dit une
+    fois qu'il faut partager le fichier avant de fermer l'onglet.
+
 - **Banc de façades** (lot L5 du plan de mise en œuvre, `MD/spec-facades-calage-detection.md`
   §14). Il est monté avant toute modification de la détection des ouvertures, qui ne change pas :
   - un générateur de façades de synthèse difficiles (`tests/banc/facades/`) : brique, soubassement
