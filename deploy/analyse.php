@@ -12,6 +12,7 @@
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
+//   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //
 // **La cle ne quitte jamais le serveur** (`anthropicCle`, dans la configuration hors du dossier
 // publie), et la page ne choisit ni le prompt, ni le schema, ni le reglage : elle n'envoie que la
@@ -275,6 +276,103 @@ function verifierPlafonds($d): array {
     return $d;
 }
 
+// --- Le tableau de bord de la consommation (13.3, lot L16 bis ; buildsg/analyseAdmin.mjs, memes noms)
+
+// Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus).
+const MOIS_CONSULTABLES = 25;
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut'];
+
+function jourValide($j): bool {
+    if (!is_string($j) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $j, $m)) return false;
+    return checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
+}
+
+/** Un jour (`AAAA-MM-JJ`) decale de `n` jours, en UTC. */
+function decalerJour(string $jour, int $n): string {
+    return gmdate('Y-m-d', (int)strtotime($jour . 'T00:00:00Z') + $n * 86400);
+}
+
+/** Les mois (`AAAA-MM`) d'une periode, dans l'ordre : un fichier de journal par mois. */
+function moisEntre(string $du, string $au): array {
+    $mois = [];
+    $fin = (int)substr($au, 0, 4) * 12 + (int)substr($au, 5, 2) - 1;
+    for ($k = (int)substr($du, 0, 4) * 12 + (int)substr($du, 5, 2) - 1; $k <= $fin; $k++) {
+        $mois[] = sprintf('%04d-%02d', intdiv($k, 12), $k % 12 + 1);
+    }
+    return $mois;
+}
+
+/** Les filtres de `GET admin/consommation` ; un filtre mal forme est refuse net, jamais ignore. */
+function lireFiltres(array $params, string $aujourdhui): array {
+    $au = (string)($params['au'] ?? '') !== '' ? (string)$params['au'] : $aujourdhui;
+    $du = (string)($params['du'] ?? '') !== '' ? (string)$params['du'] : (jourValide($au) ? decalerJour($au, -29) : '');
+    if (!jourValide($du) || !jourValide($au) || $du > $au) throw new Refus('Période invalide (du et au en AAAA-MM-JJ, du avant au).');
+    if (count(moisEntre($du, $au)) > MOIS_CONSULTABLES) throw new Refus('Période trop longue (le journal est gardé 24 mois).');
+    $f = ['du' => $du, 'au' => $au, 'organisation' => null, 'modele' => null, 'usage' => null, 'parcelle' => null];
+    foreach (['organisation' => ID_VALIDE, 'modele' => '/^claude-[a-z0-9-]{1,60}$/', 'usage' => '/^[a-z]{1,20}$/', 'parcelle' => ID_VALIDE] as $cle => $motif) {
+        $v = $params[$cle] ?? null;
+        if ($v === null || $v === '') continue;
+        if (!is_string($v) || !preg_match($motif, $v)) throw new Refus('Filtre « ' . $cle . ' » invalide.');
+        $f[$cle] = $v;
+    }
+    return $f;
+}
+
+/** Les lignes de la periode qui passent les filtres, reduites aux champs du tableau de bord. */
+function filtrerConsommation(array $lignes, array $f): array {
+    $sortie = [];
+    foreach ($lignes as $l) {
+        if (!is_array($l) || !is_string($l['t'] ?? null)) continue;
+        $j = substr($l['t'], 0, 10);
+        if ($j < $f['du'] || $j > $f['au']) continue;
+        foreach (['organisation' => 'organisation', 'modele' => 'modele', 'usage' => 'usage', 'parcelle' => 'idu'] as $filtre => $champ) {
+            if (($f[$filtre] ?? null) !== null && ($l[$champ] ?? null) !== $f[$filtre]) continue 2;
+        }
+        $r = [];
+        foreach (CHAMPS_CONSOMMATION as $k) $r[$k] = $l[$k] ?? null;
+        $sortie[] = $r;
+    }
+    return $sortie;
+}
+
+function chainesDe(array $lignes, string $k): array {
+    $v = [];
+    foreach ($lignes as $l) if (is_array($l) && is_string($l[$k] ?? null) && $l[$k] !== '') $v[] = $l[$k];
+    return $v;
+}
+
+function organisationsConnues(array $lignes, array $p): array {
+    $ids = array_values(array_unique(array_merge(['admin'], array_map('strval', array_keys($p['organisations'] ?? [])), chainesDe($lignes, 'organisation'))));
+    sort($ids, SORT_STRING);
+    return $ids;
+}
+
+/** Chaque organisation connue (plafonds ou journal du mois) : ses depenses du jour et du mois, ses plafonds. */
+function etatOrganisations(array $lignesDuMois, array $p, string $jour): array {
+    $etats = [];
+    foreach (organisationsConnues($lignesDuMois, $p) as $id) $etats[] = ['id' => $id] + depenses($lignesDuMois, $id, $jour) + ['plafond' => plafondDe($p, $id)];
+    return $etats;
+}
+
+/** De quoi remplir les listes des filtres : ce que la periode contient, avant filtre. */
+function choixConsommation(array $lignes, array $p): array {
+    $parcelles = [];
+    foreach ($lignes as $l) {
+        if (is_array($l) && is_string($l['idu'] ?? null) && $l['idu'] !== '' && !array_key_exists($l['idu'], $parcelles)) {
+            $parcelles[$l['idu']] = is_string($l['adresse'] ?? null) ? $l['adresse'] : null;
+        }
+    }
+    ksort($parcelles, SORT_STRING);
+    $liste = [];
+    foreach ($parcelles as $idu => $adresse) $liste[] = ['idu' => (string)$idu, 'adresse' => $adresse];
+    return [
+        'organisations' => organisationsConnues($lignes, $p),
+        'modeles' => array_values(array_unique(array_merge(MODELES, chainesDe($lignes, 'modele')))),
+        'usages' => array_values(array_unique(array_merge(USAGES, chainesDe($lignes, 'usage')))),
+        'parcelles' => $liste,
+    ];
+}
+
 /** Ce qu'une ligne de resultats d'Anthropic devient : pour la page, et pour le journal. */
 function lireResultat($ligne): array {
     $r = is_object($ligne) && isset($ligne->result) && is_object($ligne->result) ? $ligne->result : new stdClass();
@@ -496,6 +594,35 @@ try {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT]);
+    }
+
+    // `admin/consommation` (.htaccess : `chemin=@consommation`) : il ne fait que relire le journal.
+    if ($chemin === '@consommation') {
+        if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $aujourdhui = gmdate('Y-m-d');
+        $f = lireFiltres($_GET, $aujourdhui);
+        $p = plafonds($dossierClaude);
+        // Chaque fichier mensuel est lu une fois, meme s'il sert a la periode, aux sept derniers
+        // jours et au mois des plafonds.
+        $lus = [];
+        $mois = function (array $liste) use (&$lus, $dossierClaude): array {
+            $l = [];
+            foreach ($liste as $m) {
+                if (!isset($lus[$m])) $lus[$m] = lireJournal($dossierClaude, $m . '-01');
+                array_push($l, ...$lus[$m]);
+            }
+            return $l;
+        };
+        $periode = $mois(moisEntre($f['du'], $f['au']));
+        $debutRecents = decalerJour($aujourdhui, -6);
+        repondre(200, [
+            'format' => 'plan-claude-consommation', 'du' => $f['du'], 'au' => $f['au'], 'aujourdhui' => $aujourdhui,
+            'filtres' => ['organisation' => $f['organisation'], 'modele' => $f['modele'], 'usage' => $f['usage'], 'parcelle' => $f['parcelle']],
+            'lignes' => filtrerConsommation($periode, $f),
+            'recents' => filtrerConsommation($mois(moisEntre($debutRecents, $aujourdhui)), ['du' => $debutRecents, 'au' => $aujourdhui]),
+            'organisations' => etatOrganisations($mois([substr($aujourdhui, 0, 7)]), $p, $aujourdhui),
+            'choix' => choixConsommation($periode, $p),
+        ]);
     }
 
     if ($chemin === 'tarifs' || $chemin === 'plafonds') {

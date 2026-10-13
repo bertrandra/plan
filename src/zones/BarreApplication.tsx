@@ -230,12 +230,13 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
 }
 
 /**
- * Le menu Admin : les deux ecrans secondaires de l'admin des demos, l'arbre des controleurs et la
- * palette de l'interface, et le mode audit (MD/spec-audit.md). Les deux ecrans n'existent qu'en
- * admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode audit est ouvert
- * aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a son bouton de retour.
+ * Le menu Admin : les ecrans secondaires de l'admin des demos (l'arbre des controleurs, la palette
+ * de l'interface, la consommation de Claude) et le mode audit (MD/spec-audit.md). Les ecrans
+ * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
+ * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
+ * son bouton de retour. La consommation passe par le registre (`admin.consommation`).
  */
-export function MenuAdmin() {
+export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
   const demos = enAdmin();
   if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
@@ -259,6 +260,7 @@ export function MenuAdmin() {
             <span className="coche" aria-hidden="true" />Palette de l’interface
           </button>
         </li>
+        <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         </>}
       </ul>
     </details>
@@ -462,7 +464,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAffichage magasin={magasin} commandes={commandes} />
       <MenuAide magasin={magasin} tiroir={tiroir} />
-      <MenuAdmin />
+      <MenuAdmin commandes={commandes} />
     </>
   );
 

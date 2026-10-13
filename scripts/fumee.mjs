@@ -1027,15 +1027,141 @@ const POINTS = {
     const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
     const pxParM = ecrit[0]?.pxParM?.[0] ?? null;
     return { ok: ecrit.length === 1 && ouvertures >= 2 && retour && !!precision && pxParM > 0, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; ${precision ? '« ' + precision.trim() + ' »' : 'PAS de précision annoncée'} ; calage gardé : ${pxParM ?? 'RIEN'} px/m ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
+  58: async (page) => {
+    // Le calage fin (lot L7) : une facade photographiee de biais, sous un ciel et sur un gazon,
+    // importee sans distance ni cap ; les coins sont cherches sur la photo (dans un worker), trouves
+    // pleins, predits en pointille ; un coin deplace au doigt le dit ; la loupe suit le doigt.
+    const dessin = await page.context().newPage();
+    await dessin.setViewportSize({ width: 1600, height: 1200 });
+    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+      + "const x=document.getElementById('c').getContext('2d');"
+      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,865,1600,335);"
+      + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
+      // Un mur de 8 m sur 6 m (la maison de la demonstration), vu un peu de biais, sous une bande de toit.
+      + "q('#8a4a36',[260,170,1330,205,1330,300,260,290]);"
+      + "q('#e4d6bc',[260,290,1330,300,1350,1040,240,1075]);"
+      + "q('#2b3440',[420,420,620,423,620,660,420,662]);q('#2b3440',[980,428,1180,430,1180,665,980,664]);q('#5a3a2a',[730,760,880,762,880,1060,730,1065]);"
+      + '</script></body>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    const recherche = await page.locator('.releveNote', { hasText: 'Recherche des coins' }).count();
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 20000 });
+    const note = (await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().textContent())?.trim();
+    const classes = () => page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
+    const avant = await classes();
+    const etiquette = await page.locator('circle.releveCoinCible').first().getAttribute('aria-label');
+    // Un geste sur le premier coin : il devient « place au doigt », la loupe s'ouvre pendant le geste.
+    const cible = page.locator('circle.releveCoinCible').first();
+    const b = await cible.boundingBox();
+    let loupe = false;
+    if (b) {
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 4, { steps: 3 });
+      loupe = (await page.locator('.releveLoupe').count()) > 0;
+      await page.mouse.up();
+    }
+    const apres = await classes();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    const pleins = avant.filter((c) => c === 'trouve').length;
+    const ok = pleins >= 2 && avant.length === 4 && apres[0] === 'doigt' && loupe && !!etiquette && /\(/.test(etiquette);
+    return { ok, mesure: `${recherche ? 'recherche annoncée ; ' : ''}« ${note} » ; coins : ${avant.join(', ')} ; après un geste : ${apres.join(', ')} ; loupe ${loupe ? 'ouverte' : 'ABSENTE'} ; « ${etiquette} »` };
+  },
+  57: async (page, f) => {
+    // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
+    // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
+    // tarifs livres et des plafonds. On mesure : rien ne deborde de la page, une couleur et un nom
+    // par modele, l'infobulle au survol, le tri, l'export CSV de la vue, l'ajout d'un tarif.
+    const jour = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+    const lignes = [];
+    for (let n = 0; n < 30; n++) {
+      for (const [i, idu] of ['78650000AE0101', '78650000AE0102', '78650000AE0103'].entries()) {
+        if ((n + i) % 3) continue;
+        for (const passe of [1, 2, 3]) {
+          lignes.push({ t: jour(n) + 'T0' + passe + ':00:00Z', organisation: 'admin', projet: 'admin', idu, adresse: (i + 2) + ' allée des Limites, Le Vésinet', audit: 'a' + n + i,
+            usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, passe, tokens: { entree: 4000, ecritureCache: passe === 1 ? 25000 : 0, ecritureCache1h: 0, lectureCache: passe === 1 ? 0 : 25000, sortie: 1500 },
+            images: 30, cout: passe === 1 ? 0.0021375 : 0.0007, statut: n === 4 && passe === 3 ? 'echoue' : 'reussi' });
+        }
+        if (n % 7 === 0) lignes.push({ ...lignes[lignes.length - 1], t: jour(n) + 'T05:00:00Z', usage: 'escalade', modele: 'claude-sonnet-5-5', cout: 0.014, statut: 'reussi', passe: null });
+      }
+    }
+    const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
+    let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
+    let tarifsEnvoyes = null;
+    await page.route(/\/admin\//, async (route) => {
+      const req = route.request(), u = new URL(req.url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/consommation')) {
+        const du = u.searchParams.get('du'), au = u.searchParams.get('au'), modele = u.searchParams.get('modele');
+        const periode = lignes.filter((l) => l.t.slice(0, 10) >= du && l.t.slice(0, 10) <= au);
+        const auj = jour(0), mois = lignes.filter((l) => l.t.startsWith(auj.slice(0, 7)));
+        return json({ format: 'plan-claude-consommation', du, au, aujourdhui: auj, filtres: {},
+          lignes: periode.filter((l) => !modele || l.modele === modele), recents: lignes.filter((l) => l.t.slice(0, 10) >= jour(6)),
+          organisations: [{ id: 'admin', jour: mois.filter((l) => l.t.startsWith(auj)).reduce((s, l) => s + l.cout, 0), mois: mois.reduce((s, l) => s + l.cout, 0), plafond: plafonds.defaut }],
+          choix: { organisations: ['admin'], modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'], usages: ['analyse', 'escalade', 'renfort', 'immediat'],
+            parcelles: [...new Map(periode.map((l) => [l.idu, l.adresse]))].map(([idu, adresse]) => ({ idu, adresse })) } });
+      }
+      if (u.pathname.endsWith('/admin/claude/tarifs')) { if (req.method() === 'PUT') tarifsEnvoyes = JSON.parse(req.postData() || 'null'); return json(tarifsEnvoyes || tarifs); }
+      if (u.pathname.endsWith('/admin/claude/plafonds')) { if (req.method() === 'PUT') plafonds = JSON.parse(req.postData() || 'null'); return json(plafonds); }
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    // Chaque geste nomme son etape : un echec dit ou il s'est arrete.
+    const etape = async (nom, f) => { try { return await f(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.goto(BASE + '/?admin&ecran=consommation');
+    await page.waitForSelector('.consTuile', { timeout: 20000 });
+    await page.waitForSelector('.consAire');
+    // Compare a la largeur de l'ecran, pas a innerWidth : un telephone qui dezoome elargit aussi innerWidth.
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    const legende = await page.locator('.consLegende li').allTextContents();
+    const alertes = await page.locator('.consAlertes li').allTextContents();
+    // Une couleur differente par modele, prise dans les jetons du theme courant.
+    const couleurs = await page.evaluate(() => [...document.querySelectorAll('.consAire')].map((a) => getComputedStyle(a).fill));
+    const svg = page.locator('.consSvg');
+    // Au doigt comme a la souris : un toucher sur le graphique choisit l'intervalle sous le doigt.
+    const b = await svg.boundingBox();
+    await svg.click({ position: { x: b.width * 0.5, y: b.height * 0.5 } });
+    const infobulle = await page.locator('.consInfobulle').textContent({ timeout: 3000 }).catch(() => '');
+    await etape('onglet Par parcelle', () => page.getByRole('tab', { name: 'Par parcelle' }).click({ timeout: 5000 }));
+    const premiereAvant = await page.locator('.consTable tbody tr').first().locator('td').nth(1).textContent();
+    await etape('tri IDU', () => page.locator('.consTri', { hasText: 'IDU' }).click({ timeout: 5000 }));
+    const idus = await page.locator('.consTable tbody tr td:nth-child(2)').allTextContents();
+    debords.push(await deborde());
+    const [telechargement] = await etape('export CSV', () => Promise.all([page.waitForEvent('download', { timeout: 5000 }), page.getByRole('button', { name: 'Exporter en CSV' }).click({ timeout: 5000 })]));
+    const nomCsv = telechargement.suggestedFilename();
+    await etape('onglet Par usage', () => page.getByRole('tab', { name: 'Par usage' }).click({ timeout: 5000 }));
+    const barres = await page.locator('.consBarre').count();
+    await etape('onglet Par organisation', () => page.getByRole('tab', { name: 'Par organisation' }).click({ timeout: 5000 }));
+    const jauges = await page.locator('.consJauge').count();
+    debords.push(await deborde());
+    await etape('onglet Tarifs', () => page.getByRole('tab', { name: 'Tarifs et plafonds' }).click({ timeout: 5000 }));
+    await etape('formulaire du tarif', () => page.waitForSelector('#consTarif-sortie', { timeout: 5000 }));
+    await page.fill('#consTarifDepuis', jour(-30));
+    await page.fill('#consTarif-sortie', '0,45');
+    await etape('Ajouter ce tarif', () => page.getByRole('button', { name: 'Ajouter ce tarif' }).click({ timeout: 5000 }));
+    await page.waitForTimeout(300);
+    const ajoute = tarifsEnvoyes?.lignes?.find((l) => l.depuis === jour(-30));
+    debords.push(await deborde());
+    const ok = !debords.some(Boolean) && legende.join() === 'Claude Haiku 5.5,Claude Sonnet 5.5' && new Set(couleurs).size === 2 && alertes.some((a) => /plafond du jour/.test(a))
+      && /Claude Haiku 5\.5/.test(infobulle || '') && idus.length === 3 && [...idus].sort().join() === idus.join() && /^consommation-claude-parcelles-.*\.csv$/.test(nomCsv)
+      && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45;
+    return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'}` };
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57, 58). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : [])];
+  // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

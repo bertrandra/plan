@@ -22,7 +22,7 @@ export const CLASSES: Classe[] = ['compact', 'moyen', 'large'];
 export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
-  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide'
+  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
   | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
   | 'clavier' | 'premierPas' | 'sansObjet';
 
@@ -159,6 +159,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'audit.suivre': partout('vue3d'),
   'audit.cas': partout('vue3d'),
   '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['vue3d'] },
+
+  // ---- Admin (menu Admin de Z1, admin des demos seulement) ------------------------------------
+  'admin.consommation': menu('menuAdmin'),
 
   // ---- Visionneuse ----------------------------------------------------------------------------
   'visionneuse.generer': partout('visionneuse'),

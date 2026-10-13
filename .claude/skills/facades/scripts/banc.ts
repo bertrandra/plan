@@ -7,7 +7,8 @@
 //   ... --images /tmp/facades                                      photo, elevation et redressement en PNG,
 //                                                                  verite en vert, detection en rouge ; sur la
 //                                                                  photo, coins du releve en jaune, coins et
-//                                                                  zones du calage grossier en cyan
+//                                                                  zones du calage grossier en cyan ; aretes du
+//                                                                  calage fin en magenta, ses coins en rouge
 //   ... --ecrire-coins                                             recalcule verite.coins apres un changement de prise
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -144,12 +145,28 @@ function croix(img: Image, x: number, y: number, c: [number, number, number]) {
     }
 }
 
+/** Trace une droite a x + b y + c = 0 sur toute la photo. */
+function droite(img: Image, a: number, b: number, c: number, coul: [number, number, number]) {
+  const pose = (x: number, y: number) => {
+    const px = Math.round(x),
+      py = Math.round(y);
+    if (px < 0 || py < 0 || px >= img.largeur || py >= img.hauteur) return;
+    const k = (py * img.largeur + px) * 4;
+    img.donnees[k] = coul[0];
+    img.donnees[k + 1] = coul[1];
+    img.donnees[k + 2] = coul[2];
+  };
+  if (Math.abs(b) > Math.abs(a)) for (let x = 0; x < img.largeur; x++) pose(x, -(a * x + c) / b);
+  else for (let y = 0; y < img.hauteur; y++) pose(-(b * y + c) / a, y);
+}
+
 if (images) {
   mkdirSync(images, { recursive: true });
   const VERT: [number, number, number] = [0, 200, 60],
     ROUGE: [number, number, number] = [230, 20, 20],
     JAUNE: [number, number, number] = [250, 210, 0],
-    CYAN: [number, number, number] = [0, 200, 230];
+    CYAN: [number, number, number] = [0, 200, 230],
+    MAGENTA: [number, number, number] = [230, 0, 230];
   scenes.forEach((s, i) => {
     const r = b.scenes[i];
     if (!r) return;
@@ -164,6 +181,9 @@ if (images) {
       for (const z of r.detail.zones ?? []) if (z.bornee) rectangle(photo, z.x0, z.y0, z.x1, z.y1, CYAN);
       for (const c of r.detail.coinsPredits ?? []) croix(photo, c.x, c.y, CYAN);
       for (const c of r.detail.coinsProposes ?? []) croix(photo, c.x, c.y, JAUNE);
+      const fin = r.detail.fin;
+      for (const l of fin?.detail.lignes ?? []) droite(photo, l.a, l.b, l.c, MAGENTA);
+      if (fin?.trouve) for (const c of fin.coins ?? []) croix(photo, c.x, c.y, ROUGE);
       writeFileSync(join(images, s.nom + '-photo.png'), png(photo));
     }
     const red = r.detail.redressee;

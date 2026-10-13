@@ -77,6 +77,15 @@ async function demarrer(): Promise<void> {
         chargement(false);
         return;
       }
+      // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
+      // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
+      const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/ecranConsommation.js');
+      if (demandeEcranConsommation(location.search)) {
+        document.documentElement.dataset.ecran = 'consommation';
+        ouvrirEcranConsommation();
+        chargement(false);
+        return;
+      }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
       // Le mode audit depuis le menu Admin (`?admin&mode=audit`) : meme demarrage qu'apres la porte

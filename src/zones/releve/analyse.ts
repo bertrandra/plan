@@ -9,7 +9,7 @@ import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve } from '../../model/types.js';
 import { fr } from './commun.js';
-import { type Morceau, type Resultat } from './serie.js';
+import { type Morceau, type Resultat, capCorrige } from './serie.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
 function focaleDe(m: Morceau): number {
@@ -70,19 +70,33 @@ export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit
 }
 
 /**
- * Le calage de la serie : les coins poses sur chaque photo, et les pixels par metre au mur sur la
- * photo source (MD/spec-facades-calage-detection.md §4) - par la focale et la distance mesuree,
- * sinon, pour une photo seule, par ses coins rapportes a la taille du mur.
+ * Le calage de la serie : les coins poses sur chaque photo et leur source, et les pixels par metre au
+ * mur sur la photo source (MD/spec-facades-calage-detection.md §4) - par la focale et la distance
+ * mesuree, sinon, pour une photo seule, par ses coins rapportes a la taille du mur. Depuis le lot L7,
+ * le calage fin de la premiere photo y ajoute l'azimut lu sur les points de fuite, sa note, et le
+ * decalage du contour quand il depasse 0,5 m.
  */
-export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number): CalageReleve {
+export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null): CalageReleve {
   const seul = morceaux.length === 1;
-  return {
+  const c: CalageReleve = {
     photos: morceaux.map((m) => {
       const d = m.prise.mesure?.distance ?? null;
       const px = d && d > 0 ? pxParMetre(focaleDe(m), d) : seul ? pxParMetreDesCoins(m.coins, largeur, hauteur) : null;
-      return { coins: m.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), pxParMSource: px === null ? null : Math.round(px * 10) / 10 };
+      return {
+        coins: m.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
+        pxParMSource: px === null ? null : Math.round(px * 10) / 10,
+        ...(m.sources ? { sourceCoins: [...m.sources] } : {}),
+      };
     }),
   };
+  const fin = morceaux[0]?.fin;
+  if (fin?.trouve) {
+    c.confiance = Math.round(fin.note * 100) / 100;
+    const cap = azimutFacade === null ? null : capCorrige(fin, azimutFacade);
+    if (cap !== null) c.azimutCorrigeDeg = cap;
+    if (fin.contour?.decale) c.contourDecaleM = Math.round(fin.contour.ecartM * 100) / 100;
+  }
+  return c;
 }
 
 /** La resolution qui borne la precision d'une serie : celle de la photo la moins bien definie. */

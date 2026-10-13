@@ -151,7 +151,7 @@ const serveur = http.createServer(async (req, res) => {
   const base = securite(req, vitrine);
 
   // L'admin des demos a ses propres methodes (POST, PUT, DELETE) : il passe avant le filtre.
-  // `admin/claude/…` est a l'analyse, sous la meme session : elle passe la premiere.
+  // `admin/claude/…` et `admin/consommation` sont a l'analyse, sous la meme session : elle passe la premiere.
   if (await analyse.traiter(req, res, url, base)) return;
   if (await adminDemos.traiter(req, res, url, base)) return;
 

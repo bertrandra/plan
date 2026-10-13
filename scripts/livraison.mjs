@@ -106,6 +106,8 @@ Plateforme : ${origine}
       tokens et cout), tarifs.json (pose au premier usage depuis claude-tarifs.json), plafonds.json
       (1 $ par jour et 10 $ par mois tant qu'il n'existe pas), batches/ (les batches en cours).
       Ce dossier doit etre inscriptible par PHP. Sans cle, admin/claude/... repond 503.
+      Le tableau de bord (menu Admin > Consommation de Claude, ?admin&ecran=consommation) relit
+      ce journal ; il y regle aussi les tarifs et les plafonds.
 
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
@@ -115,6 +117,7 @@ Plateforme : ${origine}
    - https://<hote>/admin/demos      doit repondre 401 sans session
    - https://<hote>/admin/claude/etat   401 sans session ; avec la session admin, "actif": true
                                        si la cle Anthropic est posee
+   - https://<hote>/admin/consommation  401 sans session ; avec, le journal des 30 derniers jours
    - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi

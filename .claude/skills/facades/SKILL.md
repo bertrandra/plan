@@ -1,6 +1,6 @@
 ---
 name: facades
-description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés, calage grossier et zones de recherche) et chiffres de départ. À charger avant de toucher à src/facade/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/calage.ts, facade/homographie.ts ou facade/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
+description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés, calage grossier et zones de recherche, calage fin) et chiffres de départ. À charger avant de toucher à src/facade/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/calage.ts, facade/calageFin.ts, facade/segments.ts, facade/pointsFuite.ts, facade/homographie.ts ou facade/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
 ---
 
 # Banc de façades
@@ -89,6 +89,18 @@ sténopé seul), puis avec des **capteurs typiques** (`CAPTEURS_BANC` dans `test
 boussole à 5°, GPS à 2 m pour 5 m annoncés, attitude à 1°, signes tirés de la graine, sans hasard).
 « Dans la zone » : les coins vrais qui tombent dans leur zone de recherche. Les capteurs typiques
 servent aussi au relevé (cap et attitude) : c'est ce qu'un téléphone donne vraiment.
+
+**Calage fin** (lot L7) : `facade/calageFin.ts` sur la photo, depuis la prise du relevé
+(`calageFinDuReleve` : distance mesurée, cap et attitude typiques) puis depuis celle de l'audit
+(`calageFin` : GPS, boussole et attitude typiques). Pour chaque coin rendu, son erreur en cm sur le
+mur et sa source : sans marque, **trouvé** sur les arêtes de la photo (plein dans l'éditeur) ; « p »,
+**prédit** (en pointillé : pied caché, égout de pignon sans arête). La note de l'hypothèse retenue (de 0
+à 1, seuil 0,5), et l'erreur de l'azimut lu sur les points de fuite (« — » : la boussole est gardée,
+le point de fuite horizontal étant trop flou, ce qui arrive presque de face). Sous le seuil, les coins
+rendus sont ceux du calage grossier, tous prédits. « Pleins justes » : parmi les coins pleins, ceux
+qui sont à 10 cm au plus — un coin plein faux coûte plus cher qu'un pointillé, car on ne le vérifie
+pas. Depuis le lot L7, la ligne « Coins trouvés sans geste » des objectifs lit le calage fin du relevé :
+ce sont ses coins que l'éditeur propose.
 
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
@@ -286,6 +298,42 @@ Ce qu'ils disent :
   de plusieurs mètres. La zone de recherche, élargie de ±50 % sur la focale, contient pourtant les
   coins vrais.
 
+### Après le lot L7 (calage fin)
+
+Mesuré le 13 octobre 2026 sur `claude/lot-L7-calage-fin`, avec la scène `12-haie-pied-cache-roulis`
+ajoutée (une haie sur toute la largeur cache le pied ; biais, roulis, visée décentrée, hauteur du
+cadastre trop forte de 10 %). La détection ne change pas.
+
+| Critère | Après L6 | Après L7 |
+|---|---|---|
+| Coins proposés par le relevé sans geste (≤ 10 cm) | 4/44, médiane 38 cm | **44/44**, médiane 0,5 cm |
+| dont pleins (trouvés sur la photo) | — | 40, tous justes ; 4 prédits (pied caché de `12`, égout de `03`), justes aussi |
+| Calage fin de l'audit, capteurs typiques | 0/44 (grossier), médiane 132 cm | **44/44**, médiane 0,6 cm |
+| Azimut corrigé par le point de fuite | — | 10 prises sur 11, erreur médiane 0,1° (`11` : horizontales trop rares sur le pignon, boussole gardée) |
+| Temps (Node, photo de 1 280 px) | — | 100 à 270 ms, dont 50 à 90 pour les segments |
+
+Rejoué aussi avec des capteurs bien pires que `CAPTEURS_BANC` (boussole à 15°, GPS à 6 m, attitude à
+3°) : 44/44 dans les deux cas, aucun coin plein faux. Sur une photo sans mur (fond uni avec une
+fenêtre), la fenêtre n'est pas prise pour la façade : la position qu'elle suppose sort de
+l'incertitude de la prise, et les coins restent prédits.
+
+Ce qu'ils disent, et ce qu'ils ne disent pas :
+
+- **Le corpus est synthétique** : des arêtes nettes, un ciel et un gazon unis, un objectif à 1,5 m
+  exactement. Un vrai mur mitoyen, un arbre devant un angle, une gouttière qui déborde ou un trottoir
+  en pente feront baisser ces chiffres. Les règles sont générales (segments, points de fuite, contraste
+  et chromaticité, hauteur de l'objectif), aucune n'est réglée sur une scène ; les photos réelles des
+  audits (lots L19 et L21) diront ce qu'elles valent.
+- **Le pied caché** est prédit d'après la hauteur de l'objectif (1,5 m) et la place de la caméra que
+  donnent les deux côtés trouvés : juste au centimètre ici, il ne l'est qu'à la hauteur réelle du
+  téléphone près (10 à 20 cm). C'est pourquoi il reste en pointillé.
+- **L'égout d'un mur sous une bande de tuiles** se distingue du faîte de la bande parce que le dedans
+  d'un côté doit avoir la chromaticité du mur ; l'ombre d'un débord, qui assombrit le mur sans changer
+  sa teinte, ne trompe pas ce test, mais la limite de l'ombre perd contre le vrai égout parce que son
+  dehors a encore la teinte du mur.
+- **Focale inconnue** (`09`) : les coins sont trouvés malgré les 67° par défaut ; la hauteur mesurée,
+  elle, reste fausse de la focale (spec §4).
+
 ## 5. Ce que disent les chiffres de départ
 
 - **Coins proposés (L1)** : aucun coin à moins de 10 cm, même de face (`02`). `coinsProposes`
@@ -327,3 +375,10 @@ Ce qu'ils disent :
   que quelques-unes ; le script les rejoue toutes.
 - **Coordonnées** : sur la photo, le pixel (i, j) couvre [i, i + 1] × [j, j + 1], comme dans
   `redresser`. Le point principal est au centre de l'image, comme le suppose `mesurerHauteur`.
+- **Calage fin, horizon** : la limite du gazon et du ciel derrière le mur est une droite qui vise
+  le point de fuite horizontal ; prise pour le pied, elle donne un quadrilatère aux bonnes proportions.
+  C'est la hauteur de l'objectif qu'il suppose (le birapport avec le point de fuite vertical) qui
+  l'écarte : un objectif posé au sol. Ne pas retirer ce terme de la note.
+- **Calage fin, de face** : l'azimut se lit mal sur les horizontales presque parallèles (3° ne
+  penchent l'égout que d'un degré) ; `azimutParPointFuite` garde alors la boussole. Les coins, eux, se
+  trouvent quand même : les droites sont ajustées sur leurs pixels, pas imposées par le point de fuite.

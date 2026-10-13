@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coinsDePrise, consigneCoins, type Morceau, type Resultat } from '../../../src/zones/releve/serie.js';
+import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, type Morceau, type Resultat, type ResultatCoins } from '../../../src/zones/releve/serie.js';
 import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision } from '../../../src/zones/releve/analyse.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import type { Prise } from '../../../src/zones/releve/capteurs.js';
@@ -99,6 +99,67 @@ describe('releve : corriger et ecrire', () => {
     expect(releveDuMur(facade, resultat, [], 6, null)).not.toHaveProperty('calage');
     const calage = { photos: [{ coins: [{ x: 1, y: 2 }], pxParMSource: 55 }] };
     expect(releveDuMur(facade, { ...resultat, calage }, [], 6, null).calage).toEqual(calage);
+  });
+});
+
+describe('releve : le calage fin des coins (lot L7)', () => {
+  const coins = [{ x: 1000, y: 500 }, { x: 3000, y: 500 }, { x: 3000, y: 1500 }, { x: 1000, y: 1500 }];
+  const trouve: ResultatCoins = {
+    coins: [{ x: 1010, y: 490 }, { x: 2990, y: 510 }, { x: 3010, y: 1490 }, { x: -5000, y: 1510 }],
+    sources: ['trouve', 'trouve', 'trouve', 'predit'],
+    note: 0.82, trouve: true, inclinaisonDeg: 5, roulisDeg: 1, azimutDeg: 352, azimutCorrige: true, distance: 12, hauteur: 5.9,
+    contour: { ecartM: -0.8, incertitudeM: 0.2, decale: true },
+  };
+
+  it('prepare la recherche d une photo entiere, pas d un morceau', () => {
+    const p = prise({ mesure: { distance: 11, source: 'webxr' } as Prise['mesure'], cap: 350, attitude: { inclinaisonDeg: 6, roulisDeg: -1 } });
+    const e = entreeRecherche(p, 10, 6, false, 180);
+    expect(e?.prise).toMatchObject({ distance: 11, focalePx: 3000, inclinaisonDeg: 6, roulisDeg: -1, focaleEstimee: false, distanceEstimee: false });
+    expect(e?.prise.biaisDeg).toBeCloseTo(10, 6);
+    // Une mesure de realite augmentee est independante du plan : elle peut le contredire.
+    expect(e?.distance?.valeur).toBe(11);
+    expect(e?.distance?.precisionM).toBeCloseTo(0.38, 9);
+    expect(entreeRecherche(p, 10, 6, true, 180)).toBeNull();
+    // Les reperes tirent la distance de la largeur du plan : ils ne peuvent pas la contredire.
+    const cadrage = entreeRecherche(prise({ mesure: { distance: 11, source: 'cadrage' } as Prise['mesure'] }), 10, 6, false);
+    expect(cadrage?.distance).toBeNull();
+    // Sans distance, elle est supposee d'apres le cadrage, et dite telle.
+    const sans = entreeRecherche(prise({ photo: { image: { largeur: 4000, hauteur: 3000 } as Prise['photo']['image'], url: '', champ: null, focalePx: null } }), 10, 6, false);
+    expect(sans?.prise.distanceEstimee).toBe(true);
+    expect(sans?.prise.focaleEstimee).toBe(true);
+  });
+
+  it('remplace les coins proposes par les coins trouves, ramenes dans la marge, sauf apres un geste', () => {
+    const m: Morceau = { prise: prise(), coins, sources: ['predit', 'predit', 'predit', 'predit'], recherche: true };
+    const a = appliquerRecherche(m, trouve);
+    expect(a.recherche).toBe(false);
+    expect(a.sources).toEqual(['trouve', 'trouve', 'trouve', 'predit']);
+    expect(a.coins[0]).toEqual({ x: 1010, y: 490 });
+    expect(a.coins[3]!.x).toBe(-800);
+    // Un coin deja deplace au doigt : la main l'emporte, rien n'est repris.
+    const touche = appliquerRecherche({ ...m, sources: ['doigt', 'predit', 'predit', 'predit'] }, trouve);
+    expect(touche.coins).toBe(coins);
+    expect(touche.fin).toBe(trouve);
+    // Rien de trouve : les coins predits restent.
+    expect(appliquerRecherche(m, { ...trouve, trouve: false }).coins).toBe(coins);
+    // L'analyse lancee pendant la recherche l'arrete : un resultat tardif ne change plus les coins.
+    const arrete = arreterRecherche(m);
+    expect(arrete.recherche).toBe(false);
+    expect(appliquerRecherche(arrete, trouve)).toBe(arrete);
+  });
+
+  it('rend le cap lu sur la photo, et l ecrit avec les sources et la confiance dans le calage', () => {
+    // Facade au sud (180) : un azimut de -8 degres dans le repere du mur, c'est un cap de 352.
+    expect(capCorrige(trouve, 180)).toBe(352);
+    expect(capCorrige({ ...trouve, azimutCorrige: false }, 180)).toBeNull();
+    const m: Morceau = { prise: prise(), coins, sources: ['trouve', 'trouve', 'doigt', 'predit'], fin: trouve };
+    const c = calageDeSerie([m], 8, 4, 180);
+    expect(c.photos[0]!.sourceCoins).toEqual(['trouve', 'trouve', 'doigt', 'predit']);
+    expect(c.confiance).toBe(0.82);
+    expect(c.azimutCorrigeDeg).toBe(352);
+    expect(c.contourDecaleM).toBe(-0.8);
+    // Un releve d'avant le calage fin garde exactement son sens.
+    expect(calageDeSerie([{ prise: prise(), coins }], 8, 4)).toEqual({ photos: [{ coins, pxParMSource: 250 }] });
   });
 });
 

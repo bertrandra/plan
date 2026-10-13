@@ -5,6 +5,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
+import { PLAFONDS_DEFAUT, choixConsommation, etatOrganisations, filtrerConsommation, type Plafonds } from '../../../buildsg/analyseAdmin.mjs';
 import { CLE, COUT_P1, COUT_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 
 // analyse.php, l'analyse par Claude sans Node (deploy/analyse.php), contre une API Message Batches
@@ -166,5 +167,41 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(r.status).toBe(502);
     expect(journal()).toMatchObject([{ statut: 'echoue', erreur: 'http-400' }]);
     expect((await ecrire('admin/claude/batches', 'POST', { ...demande(), requetes: [{ id: 'p1', contenu: [{ type: 'document' }] }] })).status).toBe(400);
+  });
+
+  it('rend la consommation comme Node : periode, sept derniers jours, plafonds, filtres', async () => {
+    // Le journal dans le dossier de PHP, date autour d'aujourd'hui (PHP lit l'heure du serveur).
+    const jour = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+    const ligne = (n: number, plus: Record<string, unknown> = {}) => ({
+      t: jour(n) + 'T08:00:00Z', organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'a-' + n,
+      usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
+      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, images: 1, cout: COUT_P2, tarif: '2026-10-13',
+      statut: 'reussi', arret: 'end_turn', prompt: 0, schema: 0, ...plus
+    });
+    // Dans l'ordre ou le serveur les lit : un fichier par mois, du plus ancien au plus recent.
+    const lignes = [ligne(0), ligne(3, { modele: 'claude-sonnet-5-5', usage: 'escalade', cout: 0.004 }), ligne(20, { idu: '78650000AE0102', adresse: null }), ligne(45)]
+      .sort((a, b) => a.t.slice(0, 7).localeCompare(b.t.slice(0, 7)));
+    fs.mkdirSync(path.join(demos, 'claude'), { recursive: true });
+    for (const l of lignes) fs.appendFileSync(path.join(demos, 'claude', 'journal-' + l.t.slice(0, 7) + '.jsonl'), JSON.stringify(l) + '\n');
+
+    expect((await navigateur('admin/consommation')).status).toBe(401);
+    await connecterAdmin(navigateur, 'secret-admin');
+    const d = await (await navigateur('admin/consommation')).json();
+    const aujourdhui = jour(0);
+    const p = PLAFONDS_DEFAUT as Plafonds;
+    // Le meme calcul, fait par le serveur Node : les deux serveurs rendent la meme reponse.
+    expect(d).toEqual({
+      format: 'plan-claude-consommation', du: jour(29), au: aujourdhui, aujourdhui,
+      filtres: { organisation: null, modele: null, usage: null, parcelle: null },
+      lignes: filtrerConsommation(lignes, { du: jour(29), au: aujourdhui }),
+      recents: filtrerConsommation(lignes, { du: jour(6), au: aujourdhui }),
+      organisations: etatOrganisations(lignes.filter((l) => l.t.startsWith(aujourdhui.slice(0, 7))), p, aujourdhui),
+      choix: choixConsommation(lignes.filter((l) => l.t.slice(0, 7) >= jour(29).slice(0, 7)), p)
+    });
+    expect(d.lignes).toHaveLength(3);
+    const f = await (await navigateur('admin/consommation?du=' + jour(29) + '&au=' + aujourdhui + '&parcelle=78650000AE0102')).json();
+    expect(f.lignes.map((l: { idu: string }) => l.idu)).toEqual(['78650000AE0102']);
+    expect((await navigateur('admin/consommation?du=2026-02-30')).status).toBe(400);
+    expect((await ecrire('admin/consommation', 'PUT', {})).status).toBe(405);
   });
 });

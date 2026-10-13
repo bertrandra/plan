@@ -5,7 +5,7 @@
 // des modules d'un seul élément.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { PERMISSION_ECRITURE } from '../acces.js';
+import { PERMISSION_ECRITURE, enAdmin } from '../acces.js';
 import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -45,6 +45,17 @@ export function brancherFiletsDErreur(): void {
 const APAISEMENT_RESIZE_MS = 150;
 
 export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCommandes): void {
+
+  /**
+   * Le tableau de bord de la consommation de Claude (MD/spec-audit.md 13.3) : un ecran de l'admin des
+   * demos, dont les routes exigent sa session. L'adresse est ecrite ici plutot qu'importee
+   * d'app/ecranConsommation.ts : l'ecran et ses graphiques n'ont rien a faire dans le demarrage.
+   */
+  cmd.declarer({
+    id: 'admin.consommation', libelle: 'Consommation de Claude', groupe: 'admin', actif: () => enAdmin(),
+    description: 'Ouvre le tableau de bord : tokens et coût de l’analyse par Claude, par modèle, parcelle, usage et organisation ; tarifs et plafonds (administrateur seulement)',
+    executer: () => { location.assign('?admin&ecran=consommation'); }
+  });
 
   /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
   cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
