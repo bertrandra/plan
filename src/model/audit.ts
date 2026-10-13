@@ -131,6 +131,25 @@ export interface SortiesCas {
   sourceMurs: string | null;
 }
 
+/**
+ * La couleur d'une facade lue sur une photo du cas (spec §6.2) : le mur (`cote` du contour), la teinte,
+ * d'ou elle vient (la lecture automatique par la geometrie de la prise de vue, ou le doigt pose sur
+ * la facade), le rang de la photo dans `constat.photos` et le nombre de pixels qui l'ont donnee.
+ * C'est une verite terrain pour la lecture Panoramax : rien n'est change sur le batiment.
+ */
+export interface LectureFacade {
+  cote: number;
+  couleur: string;
+  source: 'automatique' | 'toucher';
+  photo: number;
+  pixels: number;
+}
+
+/** Ce que l'on tire des photos d'un cas, apres coup (spec §18.4) ; facultatif, un ancien fichier ne l'a pas. */
+export interface LecturesCas {
+  facades: LectureFacade[];
+}
+
 export interface CasAudit {
   id: string;
   /** La cle de l'objet dans le plan de la promenade. */
@@ -142,6 +161,7 @@ export interface CasAudit {
   sorties: SortiesCas;
   attendu: SortiesCas | null;
   historique: { t: string; texte: string }[];
+  lectures?: LecturesCas;
 }
 
 export interface MetaPromenade {
@@ -166,7 +186,7 @@ export interface FichierPromenade {
 
 /** Le fichier de la promenade, tel qu'il se partage. */
 export function fichierPromenade(meta: MetaPromenade, cas: readonly CasAudit[]): FichierPromenade {
-  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: meta, cas: cas.map((c) => ({ ...c, constat: { ...c.constat, photos: [...c.constat.photos] } })) };
+  return { format: 'plan-audit', version: VERSION_FICHIER_PROMENADE, promenade: meta, cas: cas.map((c) => ({ ...c, constat: { ...c.constat, photos: [...c.constat.photos] }, ...(c.lectures ? { lectures: { facades: c.lectures.facades.map((l) => ({ ...l })) } } : {}) })) };
 }
 
 /** Un fichier qui n'est pas une promenade lisible par ce code : le message se montre tel quel. */

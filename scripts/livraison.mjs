@@ -10,6 +10,10 @@
 //   .htaccess                  en-tetes, politique de contenu, renvoi de `admin/…` vers admin.php
 //   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici)
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
+//   analyse.php                l'analyse par Claude (batch Anthropic, plafonds, journal), sous la session admin
+//   prompt-analyse.md          le prompt versionne de l'analyse, lu par analyse.php
+//   schema-analyse.json        le schema de sortie versionne de l'analyse
+//   claude-tarifs.json         la premiere table des tarifs, posee dans plan-demos/claude/ au premier usage
 //   plan-demos/1.json          la demonstration integree, premiere demo de l'admin (a poser hors racine)
 //   plan-demos/2.json…         les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
 //   cerfa/cerfa_13703-12.pdf   le formulaire officiel de la declaration prealable, rempli par la page
@@ -36,6 +40,8 @@ cpSync(resolve(racine, 'dist/assets'), resolve(sortie, 'assets'), { recursive: t
 cpSync(resolve(racine, 'dist/.htaccess'), resolve(sortie, '.htaccess'));
 cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
+// L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
+for (const f of ['analyse.php', 'prompt-analyse.md', 'schema-analyse.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 
@@ -93,12 +99,25 @@ Plateforme : ${origine}
       se lit alors sur https://<hote>/admin/vitrine/<n> et dans la console de la page.
    Sans ce fichier de configuration, l'admin n'existe pas (admin/... repond 404).
 
+   e. Analyse par Claude (facultatif, administrateur seulement pour l'instant) : dans
+      plan-admin-config.php, remplacer « A-CHANGER » de anthropicCle par la cle d'API Anthropic
+      (console.anthropic.com, Settings > API keys). Elle ne quitte jamais le serveur. analyse.php
+      range ses donnees dans plan-demos/claude/ : journal-AAAA-MM.jsonl (une ligne par appel,
+      tokens et cout), tarifs.json (pose au premier usage depuis claude-tarifs.json), plafonds.json
+      (1 $ par jour et 10 $ par mois tant qu'il n'existe pas), batches/ (les batches en cours).
+      Ce dossier doit etre inscriptible par PHP. Sans cle, admin/claude/... repond 503.
+      Le tableau de bord (menu Admin > Consommation de Claude, ?admin&ecran=consommation) relit
+      ce journal ; il y regle aussi les tarifs et les plafonds.
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque
    - https://<hote>/?admin           le mot de passe admin, puis les demos
    - https://<hote>/?demofile=1      la demo 1 (admin seulement)
    - https://<hote>/admin/demos      doit repondre 401 sans session
+   - https://<hote>/admin/claude/etat   401 sans session ; avec la session admin, "actif": true
+                                       si la cle Anthropic est posee
+   - https://<hote>/admin/consommation  401 sans session ; avec, le journal des 30 derniers jours
    - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi

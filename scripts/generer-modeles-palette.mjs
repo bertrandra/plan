@@ -48,6 +48,15 @@ function lisible(t, s, l, sens, fonds, min) {
 const CAMERA = { 'camera-bg': '#14100B', 'on-camera': '#FFFDF8', 'camera-ok': '#8FD49B', 'camera-alerte': '#F2B38F' };
 
 /**
+ * Les series des graphiques ne bougent pas non plus : leur ordre et leurs valeurs ont ete passes au
+ * validateur du skill dataviz (ecart pour les daltoniens), qu'une teinte derivee du modele perdrait.
+ */
+const SERIES = {
+  clair: { 'serie-1': '#2A78D6', 'serie-2': '#EB6834', 'serie-3': '#1BAF7A' },
+  sombre: { 'serie-1': '#3987E5', 'serie-2': '#D95926', 'serie-3': '#199E70' }
+};
+
+/**
  * Les deux themes d'un modele. `n` : teinte et saturation des neutres (papiers, traits, encres) ;
  * `a` : l'accent ; `ok`, `danger`, `alerte` : les etats ; `ciel` : le fond de la Vue 3D. Le theme
  * sombre peut avoir ses propres neutres (`nSombre`), et chaque valeur peut etre forcee (`forcer`).
@@ -102,7 +111,7 @@ function themes(m) {
   sombre['toast-bg'] = sombre.ink; sombre['on-toast'] = sombre.paper;
   sombre['fond-3d'] = tsl(ciel.t, ciel.s * 0.4, 13);
 
-  return { clair: { ...clair, ...CAMERA, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...(m.forcer?.sombre ?? {}) } };
+  return { clair: { ...clair, ...CAMERA, ...SERIES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...SERIES.sombre, ...(m.forcer?.sombre ?? {}) } };
 }
 
 // --- Les modeles ----------------------------------------------------------------------------------
@@ -128,7 +137,7 @@ const MODELES = [
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
   'border', 'rule', 'hairline', 'relief', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
-  'toast-bg', 'on-toast', 'fond-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte'];
+  'toast-bg', 'on-toast', 'fond-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 
 mkdirSync(sortie, { recursive: true });

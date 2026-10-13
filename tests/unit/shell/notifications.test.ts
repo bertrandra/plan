@@ -63,4 +63,17 @@ describe('les dialogues', () => {
     dialogues.ouvrir({ type: 'invite', texte: 'b', valeur: '', valider: () => {} });
     expect(vus).toEqual([null, 'confirmation', 'invite']);
   });
+
+  it('previennent un choix ferme sans reponse, ou remplace, mais pas un choix repondu', () => {
+    const abandons: string[] = [];
+    const choix = (nom: string) => ({ type: 'choix' as const, titre: nom, texte: '', principal: { libelle: 'Oui', executer: () => {} }, secondaire: { libelle: 'Non', executer: () => {} }, abandonner: () => abandons.push(nom) });
+    dialogues.ouvrir(choix('echap'));
+    dialogues.fermer();
+    dialogues.ouvrir(choix('remplace'));
+    dialogues.ouvrir(choix('repondu'));
+    dialogues.repondre();
+    dialogues.ouvrir(choix('secondaire'));
+    dialogues.repondreSecondaire();
+    expect(abandons).toEqual(['echap', 'remplace']);
+  });
 });

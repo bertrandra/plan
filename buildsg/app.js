@@ -25,6 +25,7 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { creerAdminDemos } from './demosAdmin.mjs';
+import { creerAnalyseAdmin } from './analyseAdmin.mjs';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(ici, 'dist');
@@ -41,6 +42,15 @@ const HOTE = process.env.HOST || '0.0.0.0';
 const adminDemos = creerAdminDemos({
   dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
   motDePasse: process.env.ADMIN_PASSWORD
+});
+
+// L'analyse par Claude (analyseAdmin.mjs, MD/spec-audit.md 13.2) : la session de l'admin, la cle
+// ANTHROPIC_API_KEY, et le journal, les tarifs et les plafonds dans DEMOS_DIR/claude/.
+const analyse = creerAnalyseAdmin({
+  dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
+  actif: adminDemos.actif,
+  sessionValide: adminDemos.sessionValide,
+  cle: process.env.ANTHROPIC_API_KEY
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -141,6 +151,8 @@ const serveur = http.createServer(async (req, res) => {
   const base = securite(req, vitrine);
 
   // L'admin des demos a ses propres methodes (POST, PUT, DELETE) : il passe avant le filtre.
+  // `admin/claude/…` et `admin/consommation` sont a l'analyse, sous la meme session : elle passe la premiere.
+  if (await analyse.traiter(req, res, url, base)) return;
   if (await adminDemos.traiter(req, res, url, base)) return;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -190,5 +202,6 @@ const serveur = http.createServer(async (req, res) => {
 
 serveur.listen(PORT, HOTE, () => {
   console.log('Plan : http://' + HOTE + ':' + PORT + '/ (' + page.length + ' octets, ' + programmes.size + ' programme(s))'
-    + (adminDemos.actif ? ', admin des demos actif' : ', admin des demos inactif (ADMIN_PASSWORD absent)'));
+    + (adminDemos.actif ? ', admin des demos actif' : ', admin des demos inactif (ADMIN_PASSWORD absent)')
+    + (analyse.actif ? ', analyse par Claude active' : ', analyse par Claude inactive (ADMIN_PASSWORD ou ANTHROPIC_API_KEY absent)'));
 });

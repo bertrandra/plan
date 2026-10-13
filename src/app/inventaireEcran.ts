@@ -67,7 +67,7 @@ export const ZONES_DOM: Record<string, string> = {
  * clavier n'a pas de conteneur ; `sansObjet` n'en demande pas.
  */
 export const CONTENEURS_EMPLACEMENTS: Record<Exclude<Emplacement, 'clavier' | 'sansObjet'>, string[]> = {
-  barreHaute: ['zoneBarre'], menuFichier: ['zoneBarre'], menuExporter: ['zoneBarre'], menuAffichage: ['zoneBarre'], menuAide: ['zoneBarre'],
+  barreHaute: ['zoneBarre'], menuFichier: ['zoneBarre'], menuExporter: ['zoneBarre'], menuAffichage: ['zoneBarre'], menuAide: ['zoneBarre'], menuAdmin: ['zoneBarre'],
   feuilleProjet: ['zoneBarre'], navigation: ['zoneNavigation'], palette: ['zonePalette'], rail: ['zonePalette'], feuilleOutils: ['zonePalette'],
   explorateur: ['zoneExplorateur'], surimpression: ['zoneSurimpression', 'stage'], selection: ['zoneSelection'],
   vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues']
