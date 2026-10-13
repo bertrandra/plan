@@ -542,7 +542,21 @@ atteint. Les phases ne portent pas de date : leur rythme suit celui des promenad
 | **Source de vérité** | la mesure LiDAR et l'œil du développeur | vos observations de terrain, avec photo, position et azimut |
 | **Boucle** | un retour ponctuel (« ce toit est faux ») | promenade → fichier → skill → PR avec images → validation → corpus |
 
-### 13.2 Les phases
+### 13.2 Les deux rôles de Claude
+
+Claude intervient à deux titres très différents, à chaque phase :
+
+- **Claude Code, le développeur** (cette session ou une suivante). Il écrit le code, les règles, les
+  tests, le skill, et ouvre les PR avec leurs images. Tout ce qu'il produit passe par la CI et par
+  votre validation, comme n'importe quelle contribution. Coût : la session de travail.
+- **Claude analyste** : Claude Haiku 5.5 appelé par le skill `regles-toits` (§14). Il regarde les
+  entrées d'un cas (photo, rendu du modèle, orthophoto, LiDAR) et propose une observation. Ce qu'il
+  produit est une **donnée au statut `propose`**, jamais un calcul ni un attendu de test sans votre
+  validation. Coût : environ un demi-centime par maison (§14.4).
+
+Chaque phase ci-dessous dit ce que fait l'un et l'autre ; le tableau du §13.4 les résume.
+
+### 13.3 Les phases
 
 **Phase 0 — Outillage du terrain** *(fait)*
 
@@ -551,6 +565,9 @@ atteint. Les phases ne portent pas de date : leur rythme suit celui des promenad
 - Cette spec.
 
 *Critère de passage atteint* : un fichier de promenade réel peut être produit et rejoué sans réseau.
+
+*Claude Code* : a construit le mode audit, la boussole, la caméra et cette spec.
+*Claude analyste* : pas encore.
 
 **Phase 1 — Observer**
 
@@ -569,6 +586,13 @@ faire. Le tri dit quelles formes et quels problèmes reviennent le plus.
 
 *Risque* : des observations trop vagues pour devenir des tests. *Parade* : la fiche n'accepte que le
 vocabulaire du §2 et du §3.
+
+*Claude Code* : ajoute « Ce que je vois » à la fiche et l'import des fichiers de promenade. Il fait
+le premier tri des cas avec vous, cas par cas, dans la session.
+*Claude analyste* : **en ombre**. Le skill l'appelle sur chaque cas reçu, mais sa réponse n'est
+montrée à personne et ne sert à rien d'autre que d'être comparée plus tard à vos observations. Il
+s'agit d'une version 0 du prompt du §14.3, sans exemples annotés (il n'y a pas encore de cas
+validés). Coût : quelques centimes pour 50 cas.
 
 **Phase 2 — Mesurer sans rien changer**
 
@@ -589,6 +613,18 @@ vocabulaire du §2 et du §3.
 *Risque* : un seuil externalisé qui change de valeur sans le dire. *Parade* : la PR d'externalisation
 ne change aucune valeur, et le banc le prouve.
 
+*Claude Code* : sort les seuils dans `reglages.json`, monte le corpus, le test de CI et la
+comparaison du banc.
+*Claude analyste* : **mesuré**. Le prompt passe en version 1 : la grille de critères complète et
+4 à 6 exemples annotés pris parmi les cas validés de la phase 1. On calcule le **taux d'accord** de
+Claude avec vos observations, attribut par attribut (forme, sens du faîtage, bouts, lucarnes,
+cheminées), sur des cas qui ne servent pas d'exemples. C'est sa référence de départ, comme le taux
+de conformité l'est pour le calcul. Les attributs à plus de 95 % d'accord sont candidats à la
+pré-acceptation de la phase 3 ; les autres restent des propositions.
+
+*Critère de passage, pour Claude* : le taux d'accord par attribut est connu, sur au moins 30 cas hors
+exemples.
+
 **Phase 3 — Corriger par les faits**
 
 *Objectif : régler tout de suite les exceptions, sans risque pour le modèle.*
@@ -604,6 +640,18 @@ ne change aucune valeur, et le banc le prouve.
 *Risque* : tout ranger en « fait » par facilité, et ne jamais améliorer le modèle. *Parade* : le skill
 compte les faits par forme ; quand plus de cinq faits disent la même chose, c'est une règle qui
 manque, et elle passe en phase 4.
+
+*Claude Code* : écrit l'application de `faits.json` et le skill `regles-toits`.
+*Claude analyste* : **en service**, usages 1 et 2 du §14.5.
+- **Pré-remplissage** : à chaque promenade reçue, il propose « Ce que je vois » pour chaque cas. Les
+  attributs à plus de 95 % d'accord arrivent pré-cochés ; vous relisez et corrigez.
+- **Tri** : il propose le niveau de chaque cas (hors toit, fait, réglage, règle, question) avec ses
+  indices et ses images, dans la PR du skill.
+
+Chaque correction que vous faites recalcule le taux d'accord.
+
+*Critère de passage, pour Claude* : sur une promenade complète, le pré-remplissage fait gagner du
+temps (moins de corrections que de champs remplis), sans que le taux d'accord baisse.
 
 **Phase 4 — Généraliser : les formes**
 
@@ -631,6 +679,17 @@ manque, et elle passe en phase 4.
 - une forme nouvelle commence prudente (seuils hauts) ;
 - elle s'assouplit cas par cas.
 
+*Claude Code* : écrit chaque forme (modèle, détection, dessin 3D) et sa PR, avec les cartes et les
+vues des bâtiments qui changent.
+*Claude analyste* : usage 3 du §14.5, **observer sans marcher**.
+- **Avant la règle** : il parcourt les photos de rue Panoramax d'un ou deux villages et repère les
+  bâtiments qui ont probablement la forme visée (des Mansart à Paris, des demi-croupes en Alsace).
+  On obtient ainsi des cas candidats, au statut `propose`, pour tester la règle au-delà de vos
+  promenades.
+- **Après la règle** : pour chaque bâtiment dont le toit change sur le banc, il compare le nouveau
+  rendu à la photo de rue. Il signale les faux positifs probables, que vous tranchez sur les images
+  de la PR.
+
 **Phase 5 — Généraliser : les profils**
 
 *Objectif : traiter la diversité régionale sans multiplier les exceptions.*
@@ -643,6 +702,12 @@ manque, et elle passe en phase 4.
 posée à l'utilisateur, et non par un compromis. Le taux de conformité progresse dans chaque région
 sans baisser ailleurs.
 
+*Claude Code* : écrit les profils, et les mesure sur le corpus et le banc.
+*Claude analyste* : pour deux cas qui se contredisent, il compare leurs photos et leurs indices.
+Il propose les caractéristiques **visibles** qui les distinguent (matériau, époque apparente,
+mitoyenneté, largeur). Claude Code cherche ensuite si l'une d'elles est **mesurable** (fichiers
+fonciers, BD TOPO) et peut déclencher un profil. Le profil n'est retenu que si la mesure le confirme.
+
 **Phase 6 — Régime de croisière**
 
 *Objectif : une boucle d'amélioration continue, sans effort de coordination.*
@@ -651,10 +716,32 @@ sans baisser ailleurs.
 - Changer une règle relance la lecture des toits en tâche de fond dans les projets (§9.2).
 - Le tableau de conformité suit le taux par forme, région et problème. Il sert à choisir la
   prochaine promenade, là où le modèle est le plus faible.
-- À évaluer seulement à ce stade : lire la forme sur la photo (lucarnes, brisis), ou s'appuyer sur
-  des photos de rue existantes (Panoramax) pour observer sans se déplacer.
 
-### 13.3 Indicateurs
+*Claude Code* : traite chaque promenade avec le skill, entretient le corpus et les règles.
+*Claude analyste* : **systématique**.
+- Il analyse chaque promenade dès sa réception.
+- Il balaye Panoramax sur les zones où le taux de conformité est le plus bas, pour préparer la
+  prochaine promenade.
+- Son taux d'accord est remesuré à chaque changement de modèle ou de prompt, avant toute mise en
+  service.
+- Le skill affiche le coût réel de chaque lot.
+
+### 13.4 Qui fait quoi, phase par phase
+
+| Phase | Vous | Claude Code (développeur) | Claude analyste (Haiku 5.5, skill) | CI |
+|---|---|---|---|---|
+| 0 Outillage | — | mode audit, boussole, spec | — | tests, empreintes, AE 101 |
+| 1 Observer | promenades, observations, tri des cas | « Ce que je vois », import, tri avec vous | **en ombre** : répond sur chaque cas, réponse non montrée | idem |
+| 2 Mesurer | valider les premiers cas | `reglages.json`, corpus, test, banc comparé | **mesuré** : prompt v1, taux d'accord par attribut | corpus validé bloquant |
+| 3 Faits | relire les propositions, valider les PR | `faits.json`, skill `regles-toits` | **en service** : pré-remplit et trie (usages 1 et 2) | idem |
+| 4 Formes | trancher les faux positifs sur images | une forme par PR, avec images | **Panoramax** : cas candidats avant, contrôle des faux positifs après | idem, et banc relu |
+| 5 Profils | valider les profils | profils, mesurés | propose ce qui distingue deux cas contradictoires | idem |
+| 6 Croisière | promenades ciblées, validations | entretien | **systématique**, ciblage Panoramax, coût suivi | idem |
+
+Dans tous les cas, ce que propose Claude analyste reste une proposition. Seule votre validation en
+fait un attendu de test ou un fait.
+
+### 13.5 Indicateurs
 
 | Indicateur | Ce qu'il mesure | Sens attendu |
 |---|---|---|
@@ -663,10 +750,12 @@ sans baisser ailleurs.
 | Faits rendus inutiles | faits que le calcul retrouve seul | ↑ en phase 4 |
 | Suspects et sans-corps du banc | qualité sur les villages de référence | ↓ |
 | Formes produites par le calcul | couverture du catalogue §3.1 | de 4 à 15 ou plus |
+| Taux d'accord de Claude analyste, par attribut | fiabilité de ses propositions (§14.2) | ↑ ; un attribut n'est pré-accepté qu'au-dessus de 95 % |
+| Coût par maison analysée | coût réel des lots | ≈ 0,004 $ en nominal (§14.4) |
 | AE 101 | non-régression absolue | identique au centimètre, toujours |
 | Empreintes golden | quantités et exports | identiques, toujours |
 
-### 13.4 Ce qui ne change pas en route
+### 13.6 Ce qui ne change pas en route
 
 - **AE 101 ne bouge pas.** Les quantités et les exports non plus : une règle de toit ne touche que
   le toit.
@@ -830,9 +919,9 @@ se suivent à moins de 5 minutes : elle est négligeable sur un village.
 
 ### 14.7 Place dans la roadmap
 
-| Phase (§13.2) | Ce que Claude y apporte |
+| Phase (§13.3) | Ce que Claude y apporte |
 |---|---|
-| 1 Observer | rien d'automatique : on constitue les cas qui serviront à mesurer Claude |
+| 1 Observer | en ombre : il répond sur chaque cas, sans que sa réponse soit montrée ni utilisée ; on constitue les cas qui serviront à le mesurer |
 | 2 Mesurer | **taux d'accord de Claude** mesuré sur les cas validés, par attribut, en même temps que le taux de conformité du calcul |
 | 3 Corriger par les faits | usage 1 (pré-remplissage) et usage 2 (tri) dans le skill `regles-toits` |
 | 4 et 5 Généraliser | usage 3 (Panoramax) pour trouver où chaque nouvelle forme apparaît, et ses faux positifs |

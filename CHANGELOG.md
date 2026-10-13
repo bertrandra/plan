@@ -14,7 +14,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - l'attendu testable écrit depuis ce que l'on a vu ;
   - le corpus de non-régression et le skill qui formalise un cas d'audit ;
   - l'analyse assistée par Claude (photo, rendu du modèle au même point de vue, orthophoto, LiDAR) : réponse fermée, vote à trois passes, contrôle croisé, taux d'accord mesuré, statut « proposé », et un coût estimé à environ un demi-centime par maison avec Claude Haiku 5.5 ;
-  - une roadmap de transformation en six phases (observer, mesurer sans changer, corriger par les faits, généraliser les formes puis les profils, régime de croisière), avec ses critères de passage et ses indicateurs.
+  - une roadmap de transformation en six phases (observer, mesurer sans changer, corriger par les faits, généraliser les formes puis les profils, régime de croisière), avec ses critères de passage et ses indicateurs ; à chaque phase, le rôle de Claude Code (le développeur) et de Claude analyste (en ombre, mesuré, en service, sur Panoramax, puis systématique).
 
 - **Mode audit : boussole, vue à 70 m, photo située.** Dans la Vue 3D, le centre de rotation et de zoom
   est votre position : il vous suit à chaque pas, et la caméra garde le zoom et la rotation que vous
