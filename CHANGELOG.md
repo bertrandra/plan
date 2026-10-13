@@ -22,6 +22,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     de départ : rappel 65 %, précision 78 %, cotes à 1 cm, 4,2 corrections par façade, aucun coin
     proposé à moins de 10 cm.
 
+- **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
+  La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
+  « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :
+  - la **focale équivalente 24×36 et le modèle d'appareil**, lus dans l'EXIF avant la réduction
+    qui l'efface. Si l'EXIF n'a pas de focale, Plan reprend celle déjà lue pour ce modèle sur ce
+    navigateur ; sinon il retient le champ par défaut du relevé (67°), annoncé « estimé » ;
+  - l'**inclinaison** de la visée et le **roulis** de l'image, lus sur l'orientation du téléphone
+    au retour de l'appareil photo.
+
+  Le fichier de la promenade passe en **version 2** (`constat.photos[]`). Un fichier de version 1 se
+  relit tel quel : sa photo unique devient la première de la liste (`lireFichierPromenade`).
+
 - **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
   `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût
   calculé avec une table des tarifs datée. Journal, tarifs et plafonds sont des JSON stockés sur le

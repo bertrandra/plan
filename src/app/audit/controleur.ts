@@ -15,7 +15,7 @@
 
 import { suivrePositionGps, type PositionGps, type SansPosition } from '../../shell/geolocalisation.js';
 import { partagerFichier } from '../../shell/partage.js';
-import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap } from '../../shell/boussole.js';
+import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../shell/boussole.js';
 import { geocoderBAN, geocoderInverseBAN } from '../../geo/apiIgn.js';
 import { lireGrilleSous } from '../../geo/mnh.js';
 import { centroid } from '../../geometry/basic.js';
@@ -186,7 +186,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     return {
       t: new Date().toISOString(), x: r(position.x, 10), y: r(position.y, 10),
       lat: d ? r(d.lat, 1e7) : null, lon: d ? r(d.lon, 1e7) : null, precisionM: precision,
-      ...suivi.azimut(),
+      ...suivi.azimut(), ...suivi.attitude(),
     };
   }
 
@@ -244,6 +244,8 @@ function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
   let capBoussole: number | null = null, capMarche: number | null = null, capApplique: number | null = null;
   let pointDeCap: PtBrut | null = null;
   let arreterBoussole: (() => void) | null = null;
+  /** La derniere attitude lue : au retour de l'appareil photo, c'est celle de la prise (a peu pres). */
+  let attitude: Attitude | null = null;
   /** La premiere scene ou une position est connue est cadree ; les suivantes sont recentrees. */
   let cadre = false;
   const cap = () => capBoussole ?? capMarche;
@@ -267,7 +269,7 @@ function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
       capBoussole = lisserCap(capBoussole, c);
       if (premier) boussoleArrivee();
       orienter();
-    });
+    }, (a) => { attitude = a; });
   }
   ecouter();
   return {
@@ -293,6 +295,9 @@ function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
       if (capBoussole !== null) return { azimutDeg: Math.round(capBoussole) % 360, sourceAzimut: 'boussole' };
       if (capMarche !== null) return { azimutDeg: Math.round(capMarche) % 360, sourceAzimut: 'deplacement' };
       return { azimutDeg: null, sourceAzimut: null };
+    },
+    attitude(): Pick<PrisePhoto, 'inclinaisonDeg' | 'roulisDeg'> {
+      return { inclinaisonDeg: attitude?.inclinaisonDeg ?? null, roulisDeg: attitude?.roulisDeg ?? null };
     },
     arreter(): void { arreterBoussole?.(); arreterBoussole = null; },
   };
