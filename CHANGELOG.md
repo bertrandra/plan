@@ -23,7 +23,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     différente de celle de la correction), trois scènes (`13` à `15`, dont un témoin déjà corrigé) et
     une section « avant → après ». Sur un 13 mm en barillet de 15 % : cotes de 6 à 1 cm, coins du
     calage fin de 167 cm au pire à 2 cm ; le témoin et les treize scènes d'avant ne bougent pas.
-    Point de fumée 58.
+    Point de fumée 59.
 
 - **Calage fin des photos de façade : les coins trouvés sur la photo** (lot L7 du plan de mise en
   œuvre, `MD/spec-facades-calage-detection.md` §6). Les coins ne sont plus seulement prédits par la
@@ -49,7 +49,48 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     `12-haie-pied-cache-roulis`. Coins proposés par le relevé à 10 cm au plus : de 4 sur 44 (médiane
     38 cm) à **44 sur 44** (médiane 0,5 cm), dont 40 trouvés sur la photo et 4 prédits ; calage de
     l'audit avec des capteurs typiques : de 0 à 44 sur 44. Les détections d'ouvertures ne changent
-    pas. Point de fumée 57.
+    pas. Point de fumée 58.
+
+- **Tableau de bord de la consommation de Claude** (lot L16 bis, `MD/spec-audit.md` §13.3).
+  Admin › Consommation de Claude (`?admin&ecran=consommation`), pour l'administrateur seulement,
+  ouvert par une commande du registre (`admin.consommation`) inscrite dans les trois classes
+  d'écran. Il relit le journal d'`analyse.php` par une nouvelle route, `GET admin/consommation`
+  (Apache et Node, même réponse), filtrée par période, organisation, modèle, usage et parcelle :
+  - dans le temps : tokens ou dollars par jour, semaine ou mois, en aires empilées par modèle,
+    avec une infobulle au survol ou au doigt et le tableau des valeurs ;
+  - par parcelle (tableau trié sur chaque colonne), par usage (part du coût, part du Batch), par
+    organisation (jour et mois face aux plafonds) ;
+  - chiffres clés : coût, tokens, coût moyen par parcelle face à l'estimation de 1 à 2 centimes,
+    part de l'escalade, part lue en cache, taux d'échec ;
+  - alertes sur les sept derniers jours : organisation à 80 % de son plafond du jour ou du mois,
+    coût moyen par parcelle au-delà de deux fois l'estimation, plus de 5 % d'échecs ;
+  - export CSV de la vue affichée (point-virgule, virgule décimale, formules neutralisées) ;
+  - tarifs et plafonds réglés depuis l'écran : un tarif s'ajoute daté d'aujourd'hui ou plus tard,
+    seule une ligne à venir se retire.
+
+  Graphiques en SVG dessinés par la page, avec trois nouveaux jetons de couleur (`--serie-1` à
+  `--serie-3`, un par modèle, validés pour les daltoniens en clair et en sombre), chaque couleur
+  nommée à côté. Les modèles de palette les reprennent tels quels.
+
+- **Audit, la couleur de la façade sur la photo** (lot L3 du plan de mise en œuvre,
+  `MD/spec-audit.md` §6.2 et §18.4). Chaque photo jointe à la fiche d'un bâtiment marqué est lue en
+  tâche de fond : Plan retrouve la façade de ce bâtiment devant la prise de vue (lot L2), pose ses
+  points sur la photo par la géométrie de la prise (position, boussole, focale, inclinaison et
+  roulis du téléphone) et en lit la teinte avec la règle de Panoramax (`model/couleurMur.ts`) :
+  - seule la **moitié centrale du mur** est lue, pour absorber l'erreur de la boussole ;
+  - une **clôture** en limite de parcelle est écartée : pas de ligne de vue sous 2,5 m à une
+    limite ; le ciel, le feuillage, les fenêtres et les ombres aussi.
+
+  Sous la photo, la fiche dit « Façade sud : #C9B49A, lue sur la photo », avec une pastille de la
+  teinte. Quand la lecture ne conclut pas, ou que la direction vient du sens de la marche, elle
+  demande « **Touchez la façade sur la photo** » : la photo s'affiche en entier, et la teinte est
+  lue autour du doigt. Les fenêtres et les ombres y sont écartées par l'écart à la médiane, comme
+  dans le relevé. « Plus tard » range la demande ; « Toucher la façade » la rappelle.
+  Sans direction de prise de vue, ou sans façade du bâtiment devant elle (3 à 40 m, de face), la
+  photo reste une photo. La couleur lue se range dans le cas (`lectures.facades` : mur, couleur,
+  source `automatique` ou `toucher`, rang de la photo, pixels lus) et part dans le fichier de la
+  promenade : une vérité terrain pour la lecture Panoramax, rien n'est changé sur le bâtiment
+  (`render/couleurPhotoAudit.ts`, `app/audit/couleurFacade.ts`).
 
 - **Calage grossier des photos de façade** (lot L6 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §4 et §5). `facade/calage.ts` projette les coins du mur dans
@@ -69,6 +110,88 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     (`ReleveFacade.calage`, facultatif).
   - **Banc de façades** : il mesure aussi le calage grossier, avec des capteurs exacts (36 coins
     sur 40 à moins de 10 cm) et typiques (tous les coins vrais dans leur zone de recherche).
+
+- **Audit, la façade devant vous** (lot L2 du plan de mise en œuvre, `MD/spec-audit.md` §6.1 et
+  §12.2). En mode audit, Plan reconnaît en direct la façade que vous avez devant vous : celle dont
+  vous voyez le côté extérieur, à 3 à 40 m, sans autre bâtiment entre vous et elle, puis, parmi
+  celles-là, celle que désigne la boussole (à 50° près ; à égalité, la plus proche). Sans boussole,
+  c'est la plus proche devant laquelle vous êtes. Elle est **surlignée en ambre dans la Vue 3D** et
+  nommée en tête de la barre d'audit : « Vous êtes devant la façade sud, 9,2 m ».
+  Le relevé d'une façade s'en sert aussi : quand votre position est suivie (« Ma position (3D) »),
+  il propose le mur devant lequel vous vous tenez, avec sa distance ; sinon, comme avant, celui qui
+  fait face au cap de la boussole (`facade/priseDeVue.ts`).
+
+- **Décisions D1, D2 et D13 tranchées** (`MD/plan-mise-en-oeuvre-audit.md`, specs, aucun code) :
+  - l'analyse par Claude passe par `analyse.php`, sur le serveur de Plan, d'abord pour l'admin ;
+  - l'accord pour envoyer les photos est donné une fois par projet, et révocable ;
+  - les réglages et les faits des toits vivent dans le dépôt.
+
+  Les lots L17 et L19 sont débloqués.
+
+- **Cheminées et toits-terrasses dans les corps de toit, et en Vue 3D** (lot L10 de
+  `MD/plan-mise-en-oeuvre-audit.md`, `MD/spec-regles-toits.md` §2.6, §2.7, §4). Un corps
+  (`CorpsToit`) peut porter des souches (`cheminees` : centre, section, hauteur du débouché au-dessus
+  du sol, position faîtage, pan, pignon ou façade, conduits, matériau, couronnement, source) et, s'il
+  est plat, sa toiture-terrasse (`terrasse` : accessible, revêtement, acrotère, garde-corps,
+  édicules, source). Les deux champs sont facultatifs : un fichier ancien garde son sens, et
+  l'enregistrement les écrit tels quels (une liste vide de cheminées ne s'écrit pas).
+  - En 3D (`three/cheminees3d.ts`) : la souche part du pan, le pied de chaque face à la hauteur du
+    toit sous ses coins ; au faîtage, elle est centrée sur sa ligne ; dans un pignon, au nu du mur
+    de bout ; adossée, elle monte du sol jusqu'à son sommet, contre le mur extérieur le plus proche.
+    En haut, une dalle de couronnement qui déborde de 5 cm, et des mitrons, un par conduit, quand
+    ils ont été vus. Couleur du matériau (brique, pierre, métal), sinon celle des murs.
+  - En 3D (`three/terrasse3d.ts`) : l'acrotère en liseré sur les façades seulement (pas contre un
+    autre corps), coupé d'onglet aux angles ; les édicules, de la terrasse à leur sommet, à toit plat
+    en gravillons.
+  - L'inspecteur le dit après le corps : « 2 cheminées », « terrasse accessible, acrotère de
+    0,60 m, un édicule ».
+  - Ces données ne viennent que d'une observation : aucune détection LiDAR, aucun bâtiment existant
+    ne change (AE 101 identique, empreintes inchangées, GLB de la démonstration identique).
+
+- **Serveur de l'analyse par Claude** (lot L16, `MD/spec-audit.md` §13.2 et §13.3, aucun écran).
+  `deploy/analyse.php`, à côté d'`admin.php`, et son équivalent Node pour le serveur SiteGround
+  (`buildsg/analyseAdmin.mjs`) relaient l'API Message Batches d'Anthropic sous `admin/claude/…`,
+  pour l'administrateur seulement pour l'instant :
+  - créer un batch (Claude Haiku 5.5, Claude Sonnet 5.5 en escalade), suivre son état, lire ses
+    résultats ;
+  - la clé (`anthropicCle`, ou `ANTHROPIC_API_KEY` sous Node) ne quitte jamais le serveur, et la
+    page n'envoie que les images et le texte de la maison : le prompt, le schéma de sortie et
+    l'effort sont fixés par le serveur ;
+  - plafonds par organisation, par jour et par mois, qui comptent aussi les batches encore en
+    cours (`claude/plafonds.json`) ;
+  - une ligne de journal par appel (`claude/journal-AAAA-MM.jsonl`) : parcelle, modèle, usage,
+    passe, tokens renvoyés par l'API, nombre d'images, coût et statut, sans photo ni réponse ;
+  - table des tarifs datée (`claude/tarifs.json`), posée au premier usage depuis
+    `deploy/claude-tarifs.json`, prix vérifiés sur la page officielle le 13 octobre 2026 ; un tarif
+    passé ne se réécrit pas.
+
+  Le prompt « béton » (version 0, `deploy/prompt-analyse.md`) et son schéma de sortie structurée
+  (`deploy/schema-analyse.json`) sont versionnés, et leurs versions suivent chaque ligne du journal.
+
+- **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
+  La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
+  « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :
+  - la **focale équivalente 24×36 et le modèle d'appareil**, lus dans l'EXIF avant la réduction
+    qui l'efface. Si l'EXIF n'a pas de focale, Plan reprend celle déjà lue pour ce modèle sur ce
+    navigateur ; sinon il retient le champ par défaut du relevé (67°), annoncé « estimé » ;
+  - l'**inclinaison** de la visée et le **roulis** de l'image, lus sur l'orientation du téléphone
+    au retour de l'appareil photo.
+
+  Le fichier de la promenade passe en **version 2** (`constat.photos[]`). Un fichier de version 1 se
+  relit tel quel : sa photo unique devient la première de la liste (`lireFichierPromenade`).
+
+- **Audit, brouillon local de la promenade** (lot L4, `MD/spec-audit.md` §10). Les marques, les cas
+  figés et leurs photos sont écrits au fur et à mesure dans le téléphone (IndexedDB,
+  `io/brouillonAudit.ts`), et tout de suite quand l'écran se verrouille ou que l'onglet passe en
+  arrière-plan : un onglet tué par le système ne fait plus perdre la visite.
+  - À la réouverture de `?mode=audit`, un dialogue propose « Reprendre l'audit du … » ou « Le
+    jeter ». Le départ attend la réponse : un audit repris repart de sa propre parcelle, pour que
+    les contours déjà figés restent dans le même repère. La grille LiDAR ou l'adresse qui manquaient
+    à un cas sont relues quand son bâtiment revient dans le plan.
+  - Après le partage (ou le téléchargement) du fichier, Plan propose « Effacer le brouillon » ;
+    rien n'est effacé sans cette confirmation.
+  - Navigation privée, stockage bloqué ou téléphone plein : l'audit continue, et un message dit une
+    fois qu'il faut partager le fichier avant de fermer l'onglet.
 
 - **Banc de façades** (lot L5 du plan de mise en œuvre, `MD/spec-facades-calage-detection.md`
   §14). Il est monté avant toute modification de la détection des ouvertures, qui ne change pas :

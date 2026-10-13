@@ -2,9 +2,18 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { creerRegistre } from '../../../src/app/commandes.js';
+
+/** Le registre, avec la commande du menu (declaree dans app/ecouteurs/divers.ts). */
+function registre() {
+  const r = creerRegistre();
+  r.declarer({ id: 'admin.consommation', libelle: 'Consommation de Claude', groupe: 'admin', executer: () => {} });
+  return r;
+}
 
 // Le menu Admin de la barre : il n'existe que pour un administrateur. Il mene au mode audit ; en
-// admin des demos, aussi aux deux ecrans secondaires (controleurs, palette).
+// admin des demos, aussi aux ecrans secondaires (controleurs, palette, consommation de Claude) ;
+// la consommation passe par le registre des commandes.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -20,7 +29,7 @@ describe('le menu Admin', () => {
     const hote = document.createElement('div');
     document.body.appendChild(hote);
     const racine = createRoot(hote);
-    act(() => { racine.render(createElement(MenuAdmin)); });
+    act(() => { racine.render(createElement(MenuAdmin, { commandes: registre() })); });
     monte = { racine, hote };
     return hote;
   }
@@ -30,10 +39,12 @@ describe('le menu Admin', () => {
     expect(hote.querySelector('#menuAdmin')).toBeNull();
   });
 
-  it('mene au mode audit, aux controleurs et a la palette en admin des demos', async () => {
+  it('mene au mode audit, aux controleurs, a la palette et a la consommation en admin des demos', async () => {
     const hote = await monter(true);
     expect(hote.querySelector('#menuAdmin summary')?.textContent).toBe('Admin');
-    expect([...hote.querySelectorAll('[data-controle]')].map(e => e.getAttribute('data-controle'))).toEqual(['admin.audit', 'admin.controleurs', 'admin.palette']);
+    expect([...hote.querySelectorAll('[data-controle], [data-commande]')].map(e => e.getAttribute('data-controle') ?? e.getAttribute('data-commande')))
+      .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.consommation']);
+    expect(hote.querySelector('[data-commande="admin.consommation"]')?.textContent).toBe('Consommation de Claude');
   });
 
   it('l administrateur de la plateforme n y trouve que le mode audit', async () => {
@@ -45,9 +56,9 @@ describe('le menu Admin', () => {
     const hote = document.createElement('div');
     document.body.appendChild(hote);
     const racine = createRoot(hote);
-    act(() => { racine.render(createElement(MenuAdmin)); });
+    act(() => { racine.render(createElement(MenuAdmin, { commandes: registre() })); });
     monte = { racine, hote };
-    expect([...hote.querySelectorAll('[data-controle]')].map(e => e.getAttribute('data-controle'))).toEqual(['admin.audit']);
+    expect([...hote.querySelectorAll('[data-controle], [data-commande]')].map(e => e.getAttribute('data-controle') ?? e.getAttribute('data-commande'))).toEqual(['admin.audit']);
   });
 
   it('un compte sans role d administration ne le voit pas', async () => {

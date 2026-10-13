@@ -16,6 +16,11 @@ import { chercherPhotosRue, ecartAngulaire, type PhotoRue } from '../geo/panoram
 import { couleurMurDepuisPixels, type LectureMur, type PhotoMur } from '../model/couleurMur.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { CouleurMurs, PtBrut } from '../model/types.js';
+import { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
+
+// La ligne de vue a descendu dans geometry/ (la facade devant soi s'en sert aussi) : on la redonne
+// d'ici pour ses lecteurs d'avant.
+export { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
 
 /** La hauteur de l'objectif au-dessus du sol : un vehicule ou un pieton qui tient sa perche. */
 export const HAUTEUR_CAMERA_M = 2.2;
@@ -84,28 +89,6 @@ export function pointsDuMur(a: PtBrut, b: PtBrut, egout: number): Point3[] {
   return out;
 }
 
-/** Vrai quand les segments [p, q] et [a, b] se coupent (hors extremites communes). */
-function seCoupent(p: PtBrut, q: PtBrut, a: PtBrut, b: PtBrut): boolean {
-  const o = (u: PtBrut, v: PtBrut, w: PtBrut) => (v.x - u.x) * (w.y - u.y) - (v.y - u.y) * (w.x - u.x);
-  const d1 = o(a, b, p), d2 = o(a, b, q), d3 = o(p, q, a), d4 = o(p, q, b);
-  return d1 * d2 < 0 && d3 * d4 < 0;
-}
-
-/** Un contour et son emprise, pour ecarter d'un coup ceux qui ne sont pas sur le chemin de la vue. */
-export interface Obstacle { pts: readonly PtBrut[]; x0: number; y0: number; x1: number; y1: number }
-
-export function obstacle(pts: readonly PtBrut[]): Obstacle {
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  return { pts, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
-}
-
-/** Vrai quand un contour coupe la vue de `cam` vers `cible` (un batiment devant le mur, ou le batiment lui-meme). */
-export function vueCachee(cam: PtBrut, cible: PtBrut, obstacles: readonly Obstacle[]): boolean {
-  const x0 = Math.min(cam.x, cible.x), x1 = Math.max(cam.x, cible.x), y0 = Math.min(cam.y, cible.y), y1 = Math.max(cam.y, cible.y);
-  return obstacles.some((o) => o.x1 >= x0 && o.x0 <= x1 && o.y1 >= y0 && o.y0 <= y1
-    && o.pts.some((a, i) => seCoupent(cam, cible, a, o.pts[(i + 1) % o.pts.length] as PtBrut)));
-}
-
 /** Un mur a lire sur une photo : le batiment, ses deux angles, son egout, la photo et sa note. */
 export interface MurAVoir { cle: string; a: PtBrut; b: PtBrut; egout: number; vue: VueRue; note: number }
 
@@ -144,8 +127,9 @@ export function mursVisibles(batiments: readonly { key: string; pts: readonly Pt
 /**
  * La hauteur de la ligne de vue de l'objectif vers un point du mur, la ou elle franchit une limite de
  * parcelle (la plus basse si elle en franchit plusieurs) ; null quand elle n'en franchit aucune.
+ * `hauteurCamera` : un telephone tenu a la main est plus bas que la perche de Panoramax.
  */
-export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obstacle[]): number | null {
+export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obstacle[], hauteurCamera = HAUTEUR_CAMERA_M): number | null {
   const d = Math.hypot(p.x - cam.x, p.y - cam.y);
   let bas: number | null = null;
   for (const o of limites) {
@@ -155,7 +139,7 @@ export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obst
       const t = fractionCroisement(cam, p, a, b);
       // Au pied du mur (le dernier demi-metre), c'est le mur lui-meme, pas une cloture devant lui.
       if (t === null || t * d > d - 0.5) return;
-      const h = HAUTEUR_CAMERA_M + (p.z - HAUTEUR_CAMERA_M) * t;
+      const h = hauteurCamera + (p.z - hauteurCamera) * t;
       if (bas === null || h < bas) bas = h;
     });
   }
@@ -196,7 +180,7 @@ export function pixelsDuMur(img: Pixels, mur: MurAVoir, limites: readonly Obstac
  * nuage). Une facade blanche en plein soleil peut y ressembler : elle se perd alors, et le materiau
  * reprend la main, plutot qu'un nuage pris pour une facade blanche (mesure d'octobre 2026).
  */
-function surLeCiel(img: Pixels, i: number, j: number): boolean {
+export function surLeCiel(img: Pixels, i: number, j: number): boolean {
   const W = img.largeur, d = img.data;
   if (i < 1 || j < 1 || i >= W - 1 || j >= img.hauteur - 1) return false;
   const L = (k: number) => 0.299 * (d[k] as number) + 0.587 * (d[k + 1] as number) + 0.114 * (d[k + 2] as number);
@@ -321,7 +305,7 @@ const photoMur = (l: { couleur: string; photo: PhotoRue }): PhotoMur => ({ coule
 const batimentsAMurs = (objets: readonly ObjetAMurs[]) =>
   objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => o.fonction === 'batiment' && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
 /** Les limites de parcelle, ou se tiennent les clotures et les haies. */
-const limitesDesParcelles = (objets: readonly ObjetAMurs[]) =>
+export const limitesDesParcelles = (objets: readonly ObjetAMurs[]): Obstacle[] =>
   objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
 const egoutDe = (o: ObjetAMurs) => (o.elevation && o.elevation > 1 ? o.elevation : 3);
 

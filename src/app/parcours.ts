@@ -10,6 +10,7 @@ import type { ImportCadastre } from './importCadastre.js';
 import type { InfosActualisation, OptionsActualisation } from './actualisationIgn.js';
 import type { TextureAppliquee } from '../model/types.js';
 import type { Promenade } from './audit/promenade.js';
+import type { CouleursPhotos } from './audit/couleurFacade.js';
 import type { PrisePhoto } from '../model/audit.js';
 
 export type Parcours =
@@ -23,7 +24,7 @@ export type Parcours =
       choisir: (choix: TextureAppliquee, appliquerATous: boolean) => void;
     }
   /** Mode audit : la fiche d'un batiment marque (app/audit/controleur.ts). */
-  | { type: 'auditCas'; promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; retour?: () => void }
+  | { type: 'auditCas'; promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; couleurs?: CouleursPhotos; retour?: () => void }
   /** Mode audit : la liste de fin de promenade, puis le partage du fichier. */
   | { type: 'auditFin'; promenade: Promenade; modifier: (cle: string) => void; retirer: (cle: string) => void; partager: () => Promise<void> };
 

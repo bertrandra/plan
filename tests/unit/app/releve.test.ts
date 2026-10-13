@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerServiceReleve } from '../../../src/app/releve.js';
+import { poserPositionGps, retirerPositionGps } from '../../../src/three/positionGps3d.js';
 import type { ObjetPlan, ReleveFacade, Toit } from '../../../src/model/types.js';
 
 // Le service du releve de facade (app/releve.ts) : ce qu'il ecrit a la validation, et surtout ce
@@ -37,5 +38,18 @@ describe('le service du releve', () => {
     s.valider({ ...releve(0), ouvertures: [] }, null, 6);
     expect(o.facades?.map((r) => [r.cote, r.ouvertures.length])).toEqual([[0, 0], [2, 1]]);
     expect(o.toit).toEqual(toit);
+  });
+
+  it('donne la position suivie et les batiments qui peuvent cacher un mur, pour proposer celui devant soi', () => {
+    const o = maison();
+    const terrain = { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: [{ x: -5, y: -5 }, { x: 20, y: -5 }, { x: 20, y: 20 }] } as unknown as ObjetPlan;
+    const ctx = { etat: { objects: [o, terrain] } as never, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn(), elevationOf: (x: ObjetPlan) => x.elevation ?? 0 };
+    const s = creerServiceReleve(ctx);
+    retirerPositionGps();
+    expect(s.position()).toBeNull();
+    poserPositionGps({ x: 5, y: -6 }, 4);
+    expect(s.position()).toEqual({ x: 5, y: -6 });
+    expect(s.obstacles().map((b) => b.pts)).toEqual([(o as { pts: unknown }).pts]);
+    retirerPositionGps();
   });
 });

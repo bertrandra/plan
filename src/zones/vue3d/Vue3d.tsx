@@ -133,7 +133,11 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         <Icone nom="reglages" taille={20} />
       </button>
       {audit && <div className="barreAudit" role="group" aria-label="Promenade d’audit">
-        <span className="etatAudit" role="status">{audit.statut}</span>
+        {/* La facade devant vous (spec-audit §6.1), surlignee dans la scene : son nom passe avant l'etat. */}
+        <span className="etatAudit" role="status">
+          {audit.facade && <strong className="facadeAudit">{audit.facade}</strong>}
+          <span>{audit.statut}</span>
+        </span>
         <button type="button" className="secondary" data-commande="audit.suivre" aria-pressed={audit.suivre}
           disabled={!commandes.etat('audit.suivre').utilisable}
           title="Recadre derrière vous, dans l’axe de votre cap (boussole, sinon sens de la marche), 70 m devant ; tourner la vue au doigt le lâche"
