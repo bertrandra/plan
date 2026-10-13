@@ -1,4 +1,4 @@
-Plan 2.2.0 (17cb4c2) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (1161c4c) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 1. Televerser le contenu de ce dossier dans le dossier publie, par exemple public_html/ : le plus
@@ -29,12 +29,25 @@ Plateforme : https://www.raillard.org
       se lit alors sur https://<hote>/admin/vitrine/<n> et dans la console de la page.
    Sans ce fichier de configuration, l'admin n'existe pas (admin/... repond 404).
 
+   e. Analyse par Claude (facultatif, administrateur seulement pour l'instant) : dans
+      plan-admin-config.php, remplacer « A-CHANGER » de anthropicCle par la cle d'API Anthropic
+      (console.anthropic.com, Settings > API keys). Elle ne quitte jamais le serveur. analyse.php
+      range ses donnees dans plan-demos/claude/ : journal-AAAA-MM.jsonl (une ligne par appel,
+      tokens et cout), tarifs.json (pose au premier usage depuis claude-tarifs.json), plafonds.json
+      (1 $ par jour et 10 $ par mois tant qu'il n'existe pas), batches/ (les batches en cours).
+      Ce dossier doit etre inscriptible par PHP. Sans cle, admin/claude/... repond 503.
+      Le tableau de bord (menu Admin > Consommation de Claude, ?admin&ecran=consommation) relit
+      ce journal ; il y regle aussi les tarifs et les plafonds.
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque
    - https://<hote>/?admin           le mot de passe admin, puis les demos
    - https://<hote>/?demofile=1      la demo 1 (admin seulement)
    - https://<hote>/admin/demos      doit repondre 401 sans session
+   - https://<hote>/admin/claude/etat   401 sans session ; avec la session admin, "actif": true
+                                       si la cle Anthropic est posee
+   - https://<hote>/admin/consommation  401 sans session ; avec, le journal des 30 derniers jours
    - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi
