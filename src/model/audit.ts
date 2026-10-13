@@ -177,7 +177,12 @@ export interface MetaPromenade {
   origine: { lat: number; lon: number };
   emprise: { xMin: number; xMax: number; yMin: number; yMax: number } | null;
   code: { version: string; commit: string | null };
-  regles: { lectureToits: number; lectureMurs: number };
+  /**
+   * Les versions des regles qui ont produit les sorties. `reglagesToits` : l'empreinte de
+   * regles/toits/reglages.json (model/reglagesToits.ts), absente d'un fichier plus ancien ; le rejeu
+   * dit si les seuils ont change depuis le terrain.
+   */
+  regles: { lectureToits: number; lectureMurs: number; reglagesToits?: string };
 }
 
 /** La version du fichier de la promenade qu'ecrit ce code (spec §19). */

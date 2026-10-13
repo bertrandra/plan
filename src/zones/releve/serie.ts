@@ -32,6 +32,18 @@ export interface Resultat {
   calage?: CalageReleve | null;
 }
 
+/**
+ * Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, de gauche a droite
+ * (facade/mosaique.ts), ou des vues du mur entier, de face et de biais, fondues pour voir derriere
+ * une voiture ou une haie (facade/fusion.ts, lot L13).
+ */
+export type Assemblage = 'morceaux' | 'vues';
+
+/** Une photo est-elle un morceau du mur (et non le mur entier) ? */
+export function estPartielle(assemblage: Assemblage, photosPrevues: number | null | undefined, dejaPrises: number): boolean {
+  return assemblage === 'morceaux' && ((photosPrevues ?? 1) > 1 || dejaPrises > 0);
+}
+
 /** Une photo d'un morceau du mur et ses quatre coins. */
 export interface Morceau {
   prise: Prise;
@@ -156,7 +168,9 @@ function distanceIndependante(m: Prise['mesure']): EntreeRecherche['distance'] {
 export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): EntreeRecherche | null {
   // Un morceau d'une serie n'a pas d'aretes de mur a chercher ; pris au grand-angle, sa photo reste
   // pourtant a corriger de la distorsion, comme une photo entiere.
-  const focale35 = focale35DePrise(p);
+  // Une photo deja corrigee ne se corrige pas deux fois (une serie qui passe des morceaux aux vues
+  // relance la recherche sur la photo corrigee).
+  const focale35 = p.photo.distorsion ? null : focale35DePrise(p);
   if (partiel && !grandAngleACorriger(focale35)) return null;
   const img = p.photo.image;
   const f = focaleDePrise(p);
@@ -261,7 +275,9 @@ export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: numbe
 }
 
 /** La consigne des coins, selon la place de la photo dans la serie. */
-export function consigneCoins(numero: number, total: number): string {
+export function consigneCoins(numero: number, total: number, assemblage: Assemblage = 'morceaux'): string {
+  if (total > 1 && assemblage === 'vues')
+    return `Vue ${numero + 1} sur ${total} : placez chaque rond sur un coin du mur entier, comme sur les autres vues. Un coin caché derrière une voiture ou une haie se place là où il serait.`;
   if (total <= 1) return "Placez chaque rond sur un coin du mur : les deux du haut à l'égout, les deux du bas au pied du mur. Un coin caché ou hors cadre se place là où il serait.";
   const bords =
     numero === 0

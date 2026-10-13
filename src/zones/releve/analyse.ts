@@ -4,11 +4,12 @@ import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../facade/geometrie.js';
 import { analyserReleve, type ResultatAnalyse } from '../../facade/analyse.js';
 import { analyserMosaique } from '../../facade/mosaique.js';
+import { analyserVues, type ResultatFusion } from '../../facade/fusion.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve } from '../../model/types.js';
 import { fr } from './commun.js';
-import { type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
+import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
 const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
@@ -25,14 +26,30 @@ function avisHauteur(r: ResultatAnalyse, hauteurEstimee: number): string | null 
 }
 
 /**
+ * Ce que la fusion de plusieurs vues trouve a redire (lot L13) : une vue qui ne se recale pas sur les
+ * autres (ses coins sont sans doute mal places), ou une part du mur cachee sur toutes les vues.
+ */
+export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'reference'>): string | null {
+  const mauvaise = r.vues.findIndex((v, k) => k !== r.reference && v.ressemblance < 0.5);
+  if (mauvaise >= 0) return `La vue ${mauvaise + 1} se raccorde mal aux autres : vérifiez ses coins, ou retirez-la.`;
+  if (r.masque >= 0.02)
+    return `Une partie du mur (${Math.round(r.masque * 100)} %) reste cachée sur toutes les vues : aucune ouverture n'y est cherchée. Une vue prise d'un autre endroit la dégagerait.`;
+  return null;
+}
+
+/**
  * Analyse une serie : une photo, c'est le mur entier entre ses coins ; plusieurs, ce sont des
- * morceaux a assembler. Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ;
+ * morceaux a assembler, ou des vues du mur entier a fondre (`assemblage`). Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ;
  * `hauteurEstimee` (le cadastre) ne sert que de depart et de repli. L'analyse dit ce qu'elle a trouve
  * a redire : deux photos voisines qui se ressemblent mal sur leur partie commune, une hauteur loin de
  * celle du cadastre.
  */
-export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone): { r: ResultatAnalyse; avis: string | null } | null {
+export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null } | null {
   const commun = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
+  if (morceaux.length > 1 && assemblage === 'vues') {
+    const r = analyserVues({ ...commun, vues: morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m) })) });
+    return r ? { r, avis: avisFusion(r) ?? avisHauteur(r, hauteurEstimee) } : null;
+  }
   if (morceaux.length === 1) {
     const m = au(morceaux, 0);
     const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null });
@@ -72,8 +89,9 @@ export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit
  * le calage fin de la premiere photo y ajoute l'azimut lu sur les points de fuite, sa note, et le
  * decalage du contour quand il depasse 0,5 m.
  */
-export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null): CalageReleve {
-  const seul = morceaux.length === 1;
+export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null, assemblage: Assemblage = 'morceaux'): CalageReleve {
+  // Une photo seule, ou chaque vue d'une fusion, montre le mur entier entre ses coins.
+  const seul = morceaux.length === 1 || assemblage === 'vues';
   const c: CalageReleve = {
     photos: morceaux.map((m) => {
       const d = m.prise.mesure?.distance ?? null;

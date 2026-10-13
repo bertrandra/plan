@@ -304,6 +304,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'releve.vignette': etape(RELEVE, RELEVER, 'Choisir une photo du relevé', { repete: true }),
   'releve.retirerPhoto': etape(RELEVE, RELEVER, 'Retirer une photo', { repete: true }),
   'releve.formeMur': etape(RELEVE, RELEVER, 'Forme du mur (droit, décroché à gauche ou à droite)', { repete: true }),
+  'releve.assemblage': etape(RELEVE, RELEVER, 'Plusieurs photos : morceaux côte à côte ou vues du mur entier', { repete: true }),
   'releve.cote': etape(RELEVE, RELEVER, 'Cote en centimètres (largeur, hauteur, allège…)', { repete: true }),
   'releve.reprendre': etape(RELEVE, RELEVER, 'Reprendre la photo'),
   'releve.ajouterPhoto': etape(RELEVE, RELEVER, 'Ajouter une photo'),

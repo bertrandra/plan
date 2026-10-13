@@ -10,7 +10,9 @@
 //    eteint (ui/releve/profondeur.ts).
 // 3. **Coins** : les quatre coins du mur (ou du morceau de mur) sur chaque photo, proposes d'apres
 //    la distance, ajustes au doigt avec une loupe. Ils peuvent deborder de la photo. Plusieurs photos
-//    se prennent l'une apres l'autre, et s'assemblent a l'analyse (facade/mosaique.ts).
+//    se prennent l'une apres l'autre, et s'assemblent a l'analyse : morceaux cote a cote
+//    (facade/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
+//    voiture ou une haie (facade/fusion.ts, lot L13).
 // 4. **Analyse** : hauteur du mur, redressement, ouvertures, silhouette du toit (facade/analyse.ts).
 //    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une
 //    estimation, c'est la photo qui mesure la hauteur a l'egout - et, sur un pignon, son triangle.
@@ -38,7 +40,7 @@ import { ChoixMethode } from './releve/ChoixMethode.js';
 import { PhotosRue } from './releve/PhotosRue.js';
 import { type Prise, useMurVise } from './releve/capteurs.js';
 import { Visee } from './releve/Visee.js';
-import { type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche } from './releve/serie.js';
+import { type Assemblage, type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche, estPartielle } from './releve/serie.js';
 import { lancerRecherche } from './releve/rechercheCoins.js';
 import type { SourceCoin } from '../facade/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
@@ -91,6 +93,44 @@ function SourcePhoto({ etape, mur, surPhoto, setEtape, onRetour }: { etape: Etap
   return null;
 }
 
+/** L'etape des coins dans le parcours : la serie de photos, la photo courante et ses gestes. */
+function CoinsDuParcours(p: {
+  morceaux: Morceau[];
+  setMorceaux: (f: (ms: Morceau[]) => Morceau[]) => void;
+  courant: number;
+  setCourant: (k: number) => void;
+  assemblage: Assemblage;
+  changerAssemblage: (a: Assemblage) => void;
+  prevues: number;
+  avis: string | null;
+  largeur: number;
+  viser: (remplacer: number | null) => void;
+  analyser: () => void;
+}) {
+  const { morceaux, setMorceaux, courant } = p;
+  return (
+    <EtapeCoins
+      morceaux={morceaux}
+      courant={Math.min(courant, morceaux.length - 1)}
+      choisir={p.setCourant}
+      retirer={(k) => {
+        setMorceaux((ms) => ms.filter((_, i) => i !== k));
+        p.setCourant(Math.max(0, Math.min(courant, morceaux.length - 2)));
+      }}
+      setCoins={(c, k) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c, sources: coinAuDoigt(m.sources, k) } : m)))}
+      setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
+      assemblage={p.assemblage}
+      setAssemblage={p.changerAssemblage}
+      prevues={p.prevues}
+      avis={p.avis}
+      largeur={p.largeur}
+      onReprendre={() => p.viser(courant)}
+      onAjouter={() => p.viser(null)}
+      onAnalyser={p.analyser}
+    />
+  );
+}
+
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
   // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
   // viser et propose les coins ; la photo mesure la vraie.
@@ -101,6 +141,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   // La hauteur mesuree a l'analyse, corrigeable ensuite.
   const [hauteurMur, setHauteurMur] = useState(hauteurEstimee);
   const [morceaux, setMorceaux] = useState<Morceau[]>([]);
+  const [assemblage, setAssemblage] = useState<Assemblage>('morceaux');
   const [courant, setCourant] = useState(0);
   // Pendant la visee : la photo a remplacer (« Reprendre »), ou null pour en ajouter une.
   const [aRemplacer, setARemplacer] = useState<number | null>(null);
@@ -119,7 +160,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
 
   const surPrise = (p: Prise) => {
     if (!facade) return;
-    const partiel = (p.photosPrevues ?? 1) > 1 || morceaux.length > 0;
+    const partiel = estPartielle(assemblage, p.photosPrevues, morceaux.length);
     const m = morceauDePrise(p, facade, hauteurEstimee, partiel, setMorceaux);
     const k = aRemplacer ?? morceaux.length;
     setMorceaux(aRemplacer === null ? [...morceaux, m] : morceaux.map((x, i) => (i === aRemplacer ? m : x)));
@@ -133,7 +174,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     setEtape('analyse'); setMorceaux((ms) => ms.map(arreterRecherche));
     // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
     setTimeout(() => {
-      const a = analyserSerie(morceaux, facade, hauteurEstimee, bat);
+      const a = analyserSerie(morceaux, facade, hauteurEstimee, bat, assemblage);
       if (!a) {
         setAvis('Les quatre coins ne forment pas un quadrilatère : reprenez-les.');
         setEtape('coins');
@@ -141,7 +182,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       }
       const { r } = a;
       setHauteurMur(r.hauteur);
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut) });
+      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage) });
       setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
@@ -161,6 +202,13 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     releve.valider(releveDuMur(facade, e.resultat, e.ouvertures, hauteurEstimee, morceaux[0]?.prise.mesure ?? null), appliquerToit ? e.toit : null, hauteurMur);
   };
 
+  // Passer des morceaux aux vues (ou l'inverse) change ce que chaque photo cadre : le mur entier, ou
+  // une part. Les coins que le doigt n'a pas touches sont proposes a nouveau, et cherches sur la photo.
+  const changerAssemblage = (a: Assemblage) => {
+    if (!facade || a === assemblage) return;
+    setAssemblage(a);
+    setMorceaux(morceaux.map((m) => (m.sources?.includes('doigt') ? m : morceauDePrise({ ...m.prise }, facade, hauteurEstimee, estPartielle(a, m.prise.photosPrevues, morceaux.length), setMorceaux))));
+  };
   const viser = (remplacer: number | null) => {
     setARemplacer(remplacer);
     setEtape('visee');
@@ -218,25 +266,10 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
         />
       )}
       {etape === 'coins' && morceaux.length > 0 && facade && (
-        <EtapeCoins
-          morceaux={morceaux}
-          courant={Math.min(courant, morceaux.length - 1)}
-          choisir={setCourant}
-          retirer={(k) => {
-            setMorceaux(morceaux.filter((_, i) => i !== k));
-            setCourant(Math.max(0, Math.min(courant, morceaux.length - 2)));
-          }}
-          setCoins={(c, k) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c, sources: coinAuDoigt(m.sources, k) } : m)))}
-          setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
-          prevues={prevues}
-          avis={avis}
-          largeur={facade.largeur}
-          onReprendre={() => viser(courant)}
-          onAjouter={() => viser(null)}
-          onAnalyser={analyser}
-        />
+        <CoinsDuParcours morceaux={morceaux} setMorceaux={setMorceaux} courant={courant} setCourant={setCourant} assemblage={assemblage} changerAssemblage={changerAssemblage}
+          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} />
       )}
-      {etape === 'analyse' && <EtapeAnalyse />}
+      {etape === 'analyse' && <EtapeAnalyse vues={assemblage === 'vues' && morceaux.length > 1} />}
       {etape === 'resultat' && verification && <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} />}
     </div>
   );

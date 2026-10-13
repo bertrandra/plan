@@ -131,8 +131,12 @@ export const POINTS_MUR_MIN = 40;
  */
 const POINTS_LISIBLES_MIN = 30;
 const PART_LISIBLE_MIN = 0.25;
-/** Distance RGB sous laquelle un point est « de la teinte dominante », et part des points lisibles qui doit l'etre. */
-const ECART_TEINTE = 40;
+/**
+ * Distance RGB sous laquelle un point est « de la teinte dominante », et part des points lisibles qui
+ * doit l'etre. C'est aussi le seuil au-dela duquel deux couleurs de facade ne sont plus la meme teinte :
+ * le rejeu d'un cas d'audit propose `facade.couleur` (MD/spec-audit.md §18.4, facade/audit.ts).
+ */
+export const ECART_TEINTE = 40;
 const PART_COHERENTE = 0.7;
 /**
  * Au-dela de cette part des points du mur sur le ciel, la photo ne montre pas ce mur la ou on le croit
@@ -155,6 +159,20 @@ const LUMINANCE_MAX = 245;
 type Rgb = [number, number, number];
 const luminance = ([r, g, b]: Rgb) => 0.299 * r + 0.587 * g + 0.114 * b;
 const distance = (a: Rgb, b: Rgb) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/** `#rrggbb` (ou `#rgb`) en composantes ; null pour ce qui n'est pas une couleur. */
+function versRgb(hex: string): Rgb | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m?.[1]) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** La distance RGB entre deux couleurs ecrites en hexadecimal, comparable a ECART_TEINTE ; null si l'une n'en est pas une. */
+export function ecartTeintes(a: string, b: string): number | null {
+  const p = versRgb(a), q = versRgb(b);
+  return p && q ? distance(p, q) : null;
+}
 /**
  * Le feuillage d'une haie ou d'un arbre devant le mur : le vert passe le bleu, et ne le cede guere au
  * rouge - une haie de thuyas a l'ombre est olive (#464631), pas verte. Un enduit beige ou une

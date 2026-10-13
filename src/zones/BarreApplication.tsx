@@ -12,6 +12,7 @@
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
 import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
+import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
@@ -249,7 +250,8 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
  * de l'interface, la consommation de Claude) et le mode audit (MD/spec-audit.md). Les ecrans
  * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
  * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
- * son bouton de retour. La consommation passe par le registre (`admin.consommation`).
+ * son bouton de retour. La consommation passe par le registre (`admin.consommation`). Avec
+ * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`).
  */
 export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
   const demos = enAdmin();
@@ -277,6 +279,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         </>}
+        {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
     </details>
   );

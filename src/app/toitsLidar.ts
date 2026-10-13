@@ -20,6 +20,10 @@ import { partsACheval, douteACheval, type PartACheval } from '../model/aCheval.j
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
 import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../model/types.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../model/reglagesToits.js';
+import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../model/faitsToits.js';
+import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/faitsToits.js';
+import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/vraisemblance.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -48,6 +52,9 @@ export const surParcellePrincipale = (o: ObjetAToit): boolean => surParcelleDuPr
 /** Les batiments des parcelles mitoyennes : le meme calcul que la maison du projet (model/mitoyennete.ts). */
 export { batimentsMitoyens };
 
+/** Les garde-fous de vraisemblance (vegetation, egout), purs, partages avec le rejeu des cas d'audit. */
+export { corpsVraisemblables, mesureVraisemblable, DEPASSEMENT_VEGETATION_M } from '../facade/vraisemblance.js';
+
 /** Les maisons voisines recoivent-elles leurs corps et pignons ? Le reglage de la parcelle du projet, oui par defaut. */
 function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
   const parcelle = objets.find((o) => o.key === 'parcelle') as { voisinage3d?: { toits?: { corps?: unknown } } } | undefined;
@@ -70,29 +77,6 @@ async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: Grille
   if (!large || !d) return null;
   o.pts = o.pts.map((p) => ({ x: Math.round((p.x + d.x) * 100) / 100, y: Math.round((p.y + d.y) * 100) / 100 }));
   return large;
-}
-
-/** Au-dela de la hauteur de la BD TOPO plus cela, ce que le LiDAR voit sur un batiment est un arbre. */
-export const DEPASSEMENT_VEGETATION_M = 3;
-
-/** La hauteur du batiment selon la BD TOPO (du sol a l'egout), null sans elle. */
-function hauteurBdTopo(o: ObjetAToit): number | null {
-  const b = o.bdtopo as { hauteurRetenueM?: unknown; hauteurM?: unknown } | null | undefined;
-  const h = typeof b?.hauteurRetenueM === 'number' ? b.hauteurRetenueM : typeof b?.hauteurM === 'number' ? b.hauteurM : null;
-  return h !== null && h > 0 ? h : null;
-}
-
-/**
- * Les corps que le LiDAR a pu voir sur ce batiment, et non sur l'arbre qui le couvre : un corps dont
- * l'egout depasse de plus de DEPASSEMENT_VEGETATION_M la hauteur de la BD TOPO est un houppier. Un
- * abri de jardin de 2,70 m sous un chene devenait une tour de 15 m. Null quand il n'en reste aucun :
- * le batiment garde sa forme simple.
- */
-export function corpsVraisemblables(o: ObjetAToit, corps: CorpsToit[] | null): CorpsToit[] | null {
-  const h = hauteurBdTopo(o);
-  if (!corps || h === null) return corps;
-  const gardes = corps.filter((c) => Math.min(...c.egouts) <= h + DEPASSEMENT_VEGETATION_M);
-  return gardes.length ? gardes : null;
 }
 
 /**
@@ -121,13 +105,32 @@ export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToi
 }
 
 /**
- * La surface mesuree, si c'est bien un toit : quand meme son egout depasse de plus de
- * DEPASSEMENT_VEGETATION_M la hauteur de la BD TOPO, le LiDAR n'a vu que l'arbre qui couvre le
- * batiment. Null alors : ni surface brute dessinee, ni hauteur d'egout tiree d'un houppier.
+ * Les corps d'un batiment lus sur sa mesure, puis son fait en contrainte (model/faitsToits.ts), puis
+ * les garde-fous de vraisemblance : l'ordre de MD/spec-regles-toits.md §9.1. `coupes` faux : la
+ * version allegee du voisinage.
  */
-export function mesureVraisemblable(o: ObjetAToit, mesure: ToitMesure | null): ToitMesure | null {
-  const h = hauteurBdTopo(o);
-  return mesure && h !== null && mesure.egout > h + DEPASSEMENT_VEGETATION_M ? null : mesure;
+export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut[], grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
+  return corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), reconstruireCorps(mesure, pts, { coupes, grille }), mesure, pts, grille));
+}
+
+
+/** Le toit lu remplace l'ancien, qui garde sa couleur, son origine et sa couverture choisie. */
+function avecCouleurDe(ancien: Toit | null | undefined, toit: Toit): Toit {
+  return { ...toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}) };
+}
+
+/**
+ * Le toit d'un batiment dont le fait est en remplacement (spec §5) : son corps et sa forme viennent du
+ * fait, sans lecture ni garde-fou, LiDAR ou pas. Rend faux si le fait ne se pose pas sur ce contour.
+ */
+export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): boolean {
+  const corps = corpsDeRemplacement(f, o.pts), forme = toitDeRemplacement(f, o.pts);
+  if (!corps || !forme) return false;
+  o.toit = avecCouleurDe(o.toit, forme.toit);
+  o.corpsToit = corps; o.toitMesure = null; o.volumesToit = null; o.toitACheval = null;
+  o.elevation = forme.egout;
+  o.toitLidarLu = marqueDeLecture(o);
+  return true;
 }
 
 /** Ce que la lecture a fait, pour le bilan. */
@@ -175,18 +178,53 @@ export const DELAI_TOITS_LIDAR_MS = 20000;
  */
 export const MAX_BATIMENTS_LIDAR = 30;
 /**
- * La version de la lecture qui a marque un batiment (`toitLidarLu`). Une regle de toit qui change
- * assez pour meriter de tout relire passe ce numero : les batiments marques d'avant redeviennent a lire.
+ * Une version de la lecture des toits : l'empreinte des reglages qu'elle lisait
+ * (regles/toits/reglages.json, model/reglagesToits.ts) et celle des faits
+ * (regles/toits/faits.json, model/faitsToits.ts) ; sans `faits`, aucun fait.
  */
-export const VERSION_LECTURE_TOITS = 1;
-/** Le toit de ce batiment a deja ete lu sur le LiDAR, a la version courante. */
-export const toitLu = (o: { toitLidarLu?: number | null }): boolean => (o.toitLidarLu ?? 0) >= VERSION_LECTURE_TOITS;
+export interface LectureToits { version: number; reglages: string; faits?: string }
+
+/**
+ * Les versions de la lecture des toits. Une regle de toit qui change assez pour meriter de tout
+ * relire ajoute une ligne, avec les memes empreintes ; un reglage ou un fait change en ajoute une
+ * avec les siennes (le test de tests/unit/model/reglagesToits.test.ts le rappelle).
+ */
+export const LECTURES_TOITS: readonly LectureToits[] = [
+  // Les seuils sortis du code sans changer une valeur : la lecture d'avant, a l'identique.
+  { version: 1, reglages: '3b9b6b2c' },
+];
+
+/**
+ * La version de lecture qui correspond a ces reglages et a ces faits : la plus recente qui les a lus.
+ * Des empreintes qu'aucune ligne ne connait (une valeur ou un fait change sans ligne nouvelle) donnent
+ * la version suivante : mieux vaut relire les toits que les garder lus avec d'autres seuils.
+ */
+export function versionDeLecture(lectures: readonly LectureToits[], empreinte: string, faits: string = EMPREINTE_FAITS_VIDE): number {
+  let connue = 0, derniere = 0;
+  for (const l of lectures) {
+    derniere = Math.max(derniere, l.version);
+    if (l.reglages === empreinte && (l.faits ?? EMPREINTE_FAITS_VIDE) === faits) connue = Math.max(connue, l.version);
+  }
+  return connue || derniere + 1;
+}
+
+/**
+ * La version de la lecture qui a marque un batiment (`toitLidarLu`) : les batiments marques d'une
+ * version plus ancienne redeviennent a lire. L'empreinte des reglages y entre (§9.2 des regles).
+ */
+export const VERSION_LECTURE_TOITS = versionDeLecture(LECTURES_TOITS, EMPREINTE_REGLAGES_TOITS, EMPREINTE_FAITS_TOITS);
+/**
+ * La marque d'un batiment lu avec des faits d'essai (`?regles=local`, model/faitsToits.ts) : lu pour
+ * la seance, mais pas a la version du depot. Enregistre ainsi, il sera relu a la prochaine ouverture,
+ * avec les faits livres : l'essai ne laisse rien derriere lui.
+ */
+export const MARQUE_ESSAI_FAITS = VERSION_LECTURE_TOITS - 0.5;
+/** Le toit de ce batiment a deja ete lu sur le LiDAR, a la version courante (ou avec l'essai en cours). */
+export const toitLu = (o: { toitLidarLu?: number | null }): boolean => (o.toitLidarLu ?? 0) >= VERSION_LECTURE_TOITS || (essaiDeFaits() && o.toitLidarLu === MARQUE_ESSAI_FAITS);
+/** La marque a poser sur un batiment qu'on vient de lire. */
+export const marqueDeLecture = (o: ObjetAToit): number => (cleToucheeParEssai(cleDuBatiment(o)) ? MARQUE_ESSAI_FAITS : VERSION_LECTURE_TOITS);
 /** Combien de lectures en meme temps : de petites grilles, le service repond vite. */
 const EN_PARALLELE = 4;
-/** En deca, l'egout mesure ne vaut pas de changer la hauteur BD TOPO ; au-dela de ces bornes, la mesure n'est pas un egout. */
-const ECART_EGOUT_MIN_M = 0.3;
-const EGOUT_MIN_M = 2;
-const EGOUT_MAX_M = 40;
 
 /** Un batiment dont Plan choisit le toit : pas de toit, ou un toit BD TOPO ou LiDAR. */
 export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } {
@@ -194,9 +232,6 @@ export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] }
   const s = o.toit?.source;
   return !o.toit || s === 'bdtopo' || s === 'lidar';
 }
-
-/** L'egout mesure vaut d'etre ecrit : entre les bornes d'un egout. */
-const egoutValide = (e: number) => e >= EGOUT_MIN_M && e <= EGOUT_MAX_M;
 
 /**
  * Le toit d'un batiment de la parcelle du projet, corps par corps : le contour decoupe en
@@ -275,8 +310,10 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       .sort((a, b) => a.d - b.d)
       .slice(0, options.maxBatiments ?? MAX_BATIMENTS_LIDAR)
       .map((c) => c.o);
-  if (!candidats.length) return bilan;
-  if (!(await (options.dalles ?? dallesLidarSur)(candidats.flatMap((o) => o.pts), proj))) {
+  // Un fait en remplacement donne le toit sans rien lire : avant la question des dalles, il vaut aussi sans LiDAR.
+  const aLire = candidats.filter((o) => { const f = faitDuBatiment(o); return !(f?.application === 'remplacement' && toitDuFait(o, f)); });
+  if (!aLire.length) return bilan;
+  if (!(await (options.dalles ?? dallesLidarSur)(aLire.flatMap((o) => o.pts), proj))) {
     bilan.sansLidar = true;
     return bilan;
   }
@@ -289,14 +326,14 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const estMitoyen = (o: ObjetAToit) => !!o.key && mitoyens.has(o.key);
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
-    while (suivant < candidats.length && maintenant() < fin) {
-      const o = candidats[suivant++];
+    while (suivant < aLire.length && maintenant() < fin) {
+      const o = aLire[suivant++];
       if (!o) break;
       if (options.pause) await options.pause();
       const lu = await lireSous(o, proj, lire, lireGrille, voisins);
       let { ech, grille } = lu;
       // Lu, meme sans rien dessous : seul un service muet laisse le batiment a relire.
-      if (!lu.echec) o.toitLidarLu = VERSION_LECTURE_TOITS;
+      if (!lu.echec) o.toitLidarLu = marqueDeLecture(o);
       if (!ech.length) continue;
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
       const principal = surParcellePrincipale(o);
@@ -307,14 +344,12 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
       // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
-      const brut = ajusterToit(o.pts, ech);
-      const hBd = hauteurBdTopo(o);
-      const ajuste = brut && hBd !== null && brut.egout > hBd + DEPASSEMENT_VEGETATION_M ? null : brut;
+      const ajuste = ajusteVraisemblable(o, ajusteSelonFait(faitDuBatiment(o), o.pts, ech, ajusterToit(o.pts, ech)));
       const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
       const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
       // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
       if (principal) {
-        o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsVraisemblables(o, reconstruireCorps(mesure, o.pts, { grille })) : null;
+        o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
         // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
         toitAChevalApresCalcul(o, objets, grille);
       }
@@ -324,7 +359,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       else if (voisins && grille) {
         const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
         const mitoyen = estMitoyen(o);
-        o.corpsToit = mesureVoisine ? corpsVraisemblables(o, reconstruireCorps(mesureVoisine, o.pts, { coupes: mitoyen, grille })) : null;
+        o.corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
         // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
         // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
         if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
@@ -334,14 +369,11 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       }
       if (mesure) bilan.mesures++;
       else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; continue; }
-      if (ajuste) {
-        const ancien = o.toit;
-        o.toit = { ...ajuste.toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}) };
-      }
+      if (ajuste) o.toit = avecCouleurDe(o.toit, ajuste.toit);
       // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
       const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
-      const h = o.elevation ?? 0;
-      if (egout !== null && egoutValide(egout) && Math.abs(egout - h) >= ECART_EGOUT_MIN_M) o.elevation = Math.round(egout * 10) / 10;
+      const elevation = elevationApresLecture(o.elevation, egout);
+      if (elevation !== undefined) o.elevation = elevation;
       if (ajuste || volumes?.ajustes) bilan.ajustes++;
     }
   };

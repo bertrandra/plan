@@ -25,48 +25,49 @@ import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../mod
 import { ajusterToit, diagnostiquerToit, ECART_MAX_M, ECART_MAX_APPENTIS_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
+import { REGLAGES_TOITS as R } from '../model/reglagesToits.js';
 
 /** Le pas des positions de faitage essayees dans la largeur d'un corps. */
-export const PAS_FAITAGE_M = 0.25;
+export const PAS_FAITAGE_M = R.PAS_FAITAGE_M;
 /** Au-dela, un pan n'est pas une couverture (l'ecretage de la BD TOPO est a 55°). */
-export const PENTE_MAX_DEG = 60;
+export const PENTE_MAX_DEG = R.PENTE_MAX_DEG;
 /** Une mesure a plus de cela du toit ajuste est un arbre, une cheminee, un pignon : ecartee, puis l'ajustement refait. */
-export const ECART_ABERRANT_M = 1.2;
+export const ECART_ABERRANT_M = R.ECART_ABERRANT_M;
 /**
  * Ce qui depasse le toit ajuste de plus de cela est ecarte, passe apres passe : un pignon, un arbre,
  * une lucarne ajoutent toujours de la hauteur au pan, jamais n'en retirent. Sans cela, deux pignons
  * qui couvrent la moitie d'un pan le relevaient d'un metre et n'etaient plus vus.
  */
-export const DEPASSEMENT_GARDE_M = 0.4;
+export const DEPASSEMENT_GARDE_M = R.DEPASSEMENT_GARDE_M;
 /** Le nombre de passes de l'ajustement. */
 const PASSES = 5;
 /** En deca de cette hauteur de faitage au-dessus des egouts, le toit est plat. */
-export const HAUTEUR_PLAT_M = 0.3;
+export const HAUTEUR_PLAT_M = R.HAUTEUR_PLAT_M;
 /** Et en deca de cette pente : l'ecoulement d'une toiture-terrasse, pas un pan. */
-export const PENTE_PLAT_DEG = 3;
+export const PENTE_PLAT_DEG = R.PENTE_PLAT_DEG;
 /** Un pan plus etroit que cela, contre un mur, n'en est pas un : le faitage est sur le mur, un appentis. */
-export const PAN_MIN_M = 1;
+export const PAN_MIN_M = R.PAN_MIN_M;
 /** L'appentis l'emporte sur ce faux petit pan tant que son ecart ne depasse pas le sien de plus de 10 % et 5 cm. */
-const TOLERANCE_APPENTIS = 1.1, TOLERANCE_APPENTIS_M = 0.05;
+const TOLERANCE_APPENTIS = R.TOLERANCE_APPENTIS, TOLERANCE_APPENTIS_M = R.TOLERANCE_APPENTIS_M;
 /** Un pan seul plutot qu'un toit plat : seulement si son ecart tombe a cette part de celui du plat. */
-export const GAIN_PAN_SUR_PLAT = 0.9;
+export const GAIN_PAN_SUR_PLAT = R.GAIN_PAN_SUR_PLAT;
 /** Un pignon depasse le pan qui le porte d'au moins cela, le long du mur. */
-export const SURPLUS_PIGNON_M = 0.8;
+export const SURPLUS_PIGNON_M = R.SURPLUS_PIGNON_M;
 /** La largeur d'un pignon le long du mur. */
-export const LARGEUR_PIGNON_MIN_M = 1.5;
-export const LARGEUR_PIGNON_MAX_M = 6;
+export const LARGEUR_PIGNON_MIN_M = R.LARGEUR_PIGNON_MIN_M;
+export const LARGEUR_PIGNON_MAX_M = R.LARGEUR_PIGNON_MAX_M;
 /** Un pignon avance d'au moins cela vers l'interieur, a hauteur constante. */
-export const PROFONDEUR_PIGNON_MIN_M = 1.5;
+export const PROFONDEUR_PIGNON_MIN_M = R.PROFONDEUR_PIGNON_MIN_M;
 /** Le long de son faitage, la mesure ne descend pas plus bas que cela sous lui. */
-export const TOLERANCE_FAITAGE_M = 0.5;
+export const TOLERANCE_FAITAGE_M = R.TOLERANCE_FAITAGE_M;
 /** Deux toits plutot qu'un : seulement si l'ecart tombe aux deux tiers, s'il valait au moins cela, et si les deux different d'autant. */
-export const GAIN_COUPE = 2 / 3;
-export const ECART_COUPE_MIN_M = 0.25;
-export const DIFFERENCE_COUPE_M = 0.6;
+export const GAIN_COUPE = R.GAIN_COUPE;
+export const ECART_COUPE_MIN_M = R.ECART_COUPE_MIN_M;
+export const DIFFERENCE_COUPE_M = R.DIFFERENCE_COUPE_M;
 /** Un corps fait au moins cela de large. */
-export const LARGEUR_CORPS_MIN_M = 2;
+export const LARGEUR_CORPS_MIN_M = R.LARGEUR_CORPS_MIN_M;
 /** Il faut tant de mesures pour ajuster un corps. */
-export const MESURES_MIN = 12;
+export const MESURES_MIN = R.MESURES_MIN;
 
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const cm = (v: number) => Math.round(v * 100) / 100;
@@ -249,8 +250,30 @@ export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: re
   return best?.c ?? null;
 }
 
+/** Le rectangle repris depuis son deuxieme sommet, pour les faits (facade/faitsToits.ts) : le faitage y suit l'autre sens. */
+export const rectangleTourne = tourne;
+
+/**
+ * Le toit d'un corps dont le faitage est impose en `p` (0 ou la largeur : un appentis), ajuste sur la
+ * mesure, ou un toit plat a la mediane des mesures (`'plat'`). Rien n'y est choisi : c'est ce que
+ * demande un fait (facade/faitsToits.ts), qui restreint les formes et laisse la mesure donner les
+ * hauteurs. Null sans assez de mesures ou sans toit plausible a cette position.
+ */
+export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat'): CorpsToit | null {
+  const r = repere(pts);
+  const ms = mesuresDans(m, r, pts, contour);
+  if (ms.length < MESURES_MIN) return null;
+  if (p === 'plat') {
+    const z = dixieme([...ms.map((x) => x.z)].sort((a, b) => a - b)[Math.floor(ms.length / 2)] ?? 0);
+    return { pts: [...pts], posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z], pignons: [], ecart: 0 };
+  }
+  const pr = profilEn(ms, r.W, p);
+  if (!pr) return null;
+  return { pts: [...pts], posFaitage: cm(pr.p), faitage: dixieme(pr.F), egouts: [dixieme(pr.e0), dixieme(pr.e1)], pignons: [], ecart: cm(pr.ecart) };
+}
+
 /** Le 80e centile. */
-const haut = (v: readonly number[]): number => { const t = [...v].sort((a, b) => a - b); return t[Math.min(t.length - 1, Math.floor(0.8 * t.length))] ?? 0; };
+const haut =(v: readonly number[]): number => { const t = [...v].sort((a, b) => a - b); return t[Math.min(t.length - 1, Math.floor(0.8 * t.length))] ?? 0; };
 
 /**
  * Les pignons d'un corps : sur le mur de chaque pan, les tronçons ou la mesure depasse le pan de
@@ -374,7 +397,7 @@ export function meilleureCoupe(m: ToitMesure, rect: readonly PtBrut[], contour: 
 }
 
 /** Une cellule est batie quand la mesure y depasse cela : un rez-de-chaussee, pas une haie. */
-export const HAUTEUR_BATIE_M = 2.5;
+export const HAUTEUR_BATIE_M = R.HAUTEUR_BATIE_M;
 
 /**
  * L'axe d'un contour, en degres : celui (a l'equerre pres) qui aligne la plus grande longueur de
@@ -425,13 +448,13 @@ export function contourEquerre(contour: readonly PtBrut[]): PtBrut[] | null {
 }
 
 /** Au-dela de cette part de cellules non baties sous son contour, un batiment est recale sur la mesure. */
-export const PART_VIDE_RECALAGE = 0.12;
+export const PART_VIDE_RECALAGE = R.PART_VIDE_RECALAGE;
 /** Le plus grand decalage essaye, dans chaque sens, et son pas. */
-export const DECALAGE_MAX_M = 3;
-const PAS_DECALAGE_M = 0.25;
+export const DECALAGE_MAX_M = R.DECALAGE_MAX_M;
+const PAS_DECALAGE_M = R.PAS_DECALAGE_M;
 
 /** La bande autour du contour ou le LiDAR ne devrait plus rien voir de bati, au-dela du debord. */
-const BANDE_DEHORS_M: [number, number] = [0.5, 1.5];
+const BANDE_DEHORS_M: [number, number] = [R.BANDE_DEHORS_DEBUT_M, R.BANDE_DEHORS_FIN_M];
 
 /**
  * Les cellules de la grille sous le contour decale de (dx, dy) : baties et non baties (sans mesure
@@ -485,7 +508,7 @@ export function decalageSurMesure(g: Grille, contour: readonly PtBrut[]): PtBrut
 
 
 /** En secours, un appentis au-dela de l'ecart admis doit battre la meilleure forme a faitage de cette part. */
-export const GAIN_APPENTIS_SECOURS = 0.9;
+export const GAIN_APPENTIS_SECOURS = R.GAIN_APPENTIS_SECOURS;
 
 /**
  * La lecture de dernier recours, quand l'ajustement des formes ne rend rien : la meilleure forme
@@ -604,22 +627,22 @@ function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille
 }
 
 /** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
-const PAS_COMPLETION_M = 0.25, COMPLETION_MAX_M = 8;
+const PAS_COMPLETION_M = R.PAS_COMPLETION_M, COMPLETION_MAX_M = R.COMPLETION_MAX_M;
 /**
  * La part de la bande devant un cote qui doit etre du contour sans toit pour que le corps avance : un
  * triangle laisse par une marche, pas la lisiere de quelques centimetres qu'une aile un peu de biais
  * laisse le long de son voisin - suivie sur 5 m, elle elargissait une aile de 5 m a 10 m, au-dessus
  * de la cour, l'egout descendu a -1,3 m (Hucqueliers).
  */
-const PART_COMPLETION_MIN = 0.1;
+const PART_COMPLETION_MIN = R.PART_COMPLETION_MIN;
 /** En travers, un corps n'avance pas au-dela du point ou un egout tomberait sous cette hauteur. */
-const EGOUT_ETENDU_MIN_M = 2;
+const EGOUT_ETENDU_MIN_M = R.EGOUT_ETENDU_MIN_M;
 /**
  * Ni sur une partie basse : la ou la mesure tombe a plus de cette hauteur sous son egout le plus bas,
  * le contour est un autre toit (un appentis, une annexe), pas un bout du sien. Le toit a 8,6 m d'une
  * maison couvrait sinon l'annexe a 3 m qui la prolonge (Hucqueliers).
  */
-const SOUS_EGOUT_ETENDU_M = 1;
+const SOUS_EGOUT_ETENDU_M = R.SOUS_EGOUT_ETENDU_M;
 
 /** Un cote d'un rectangle dans son repere : s = 0, s = L, t = 0, t = W. */
 type Cote = 's0' | 'sL' | 't0' | 'tW';
@@ -734,8 +757,8 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
  * sur les pavillons d'une longere (Hucqueliers). Un corps plus large reste, meme recouvert : c'est
  * souvent lui le bon toit, et les bandes ses morceaux.
  */
-export const PART_RECOUVERTE_MAX = 0.9;
-const PAS_RECOUVREMENT_M = 0.5;
+export const PART_RECOUVERTE_MAX = R.PART_RECOUVERTE_MAX;
+const PAS_RECOUVREMENT_M = R.PAS_RECOUVREMENT_M;
 
 /**
  * Les corps sans les bandes que les autres recouvrent : tant qu'une bande a plus de
@@ -777,14 +800,14 @@ function sansBandesRecouvertes(corps: readonly CorpsToit[], contour: readonly Pt
  * ecart ne depasse pas le leur de plus de cette part. Un toit plutot que deux morceaux qui collent a
  * peine mieux a la mesure, mais avec un egout a 8,4 m et un appentis de 2,3 m a pignon (AE 98).
  */
-export const TOLERANCE_REFONTE = 1.15;
+export const TOLERANCE_REFONTE = R.TOLERANCE_REFONTE;
 /**
  * Et quand la coupe aux marches laisse une bande plus etroite que LARGEUR_BANDE_M : un corps de moins
  * de 3 m n'est pas une maison mais une tranche de pente (un pavillon coupe en trois bandes de 1,5 a
  * 2,6 m, la maison mitoyenne d'AE 98). Le toit unique est alors admis jusqu'a TOLERANCE_BANDE.
  */
-export const LARGEUR_BANDE_M = 3;
-export const TOLERANCE_BANDE = 1.6;
+export const LARGEUR_BANDE_M = R.LARGEUR_BANDE_M;
+export const TOLERANCE_BANDE = R.TOLERANCE_BANDE;
 
 /** La reunion de deux rectangles qui partagent un cote entier, dans le repere du premier ; null sinon. */
 export function reunion(a: readonly PtBrut[], b: readonly PtBrut[]): PtBrut[] | null {
@@ -816,7 +839,7 @@ function reunionEtCote(a: readonly PtBrut[], b: readonly PtBrut[]): { rect: PtBr
  * Au-dela de ce saut median de la couverture au cote commun (une cellule de part et d'autre), deux
  * blocs sont separes par une marche ; en deca, c'est la pente d'un pan (40 degres : 0,42 m sur 50 cm).
  */
-export const CONTINUITE_M = 0.6;
+export const CONTINUITE_M = R.CONTINUITE_M;
 
 /** La hauteur de la grille a la cellule la plus proche d'un point ; null hors d'elle ou sans mesure. */
 function hauteurGrille(g: Grille, q: PtBrut): number | null {
@@ -925,7 +948,7 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
  * recoupee aux marches : celles qu'on y lit sont les pentes et les murs du toit qui la couvre
  * (Hucqueliers : deux ailes presque confondues sur un pavillon, debitees en bandes de 2 m).
  */
-export const PART_SOUS_PLUS_GRAND = 0.5;
+export const PART_SOUS_PLUS_GRAND = R.PART_SOUS_PLUS_GRAND;
 
 /** Vrai quand `r` a plus de PART_SOUS_PLUS_GRAND de sa surface sous l'un des rectangles `grands`. */
 function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boolean {
@@ -941,14 +964,14 @@ function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boo
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
-export const GAIN_CROUPES = 0.8;
+export const GAIN_CROUPES = R.GAIN_CROUPES;
 /**
  * Le faitage dans le sens que lisent les formes simples plutot qu'en travers : seulement si l'ecart a
  * la mesure, pignons compris, tombe a cette part. AD 128 (Le Vesinet) : deux pans sur la longueur,
  * le toit releve pour deux fenetres d'etage ; le modele ecartait ce qui depasse le pan, prenait le
  * vrai toit pour des pignons, et posait un faitage ecrase en travers.
  */
-export const GAIN_SENS = 0.8;
+export const GAIN_SENS = R.GAIN_SENS;
 
 /**
  * L'ecart d'un corps a la mesure sous lui, chaque mesure bornee a ECART_ABERRANT_M dans les deux sens.

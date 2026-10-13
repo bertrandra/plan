@@ -1,0 +1,169 @@
+{
+  "nom": "16-vues-voiture-devant",
+  "description": "Voiture garée devant le mur, entre la porte et une fenêtre du rez-de-chaussée ; trois vues du mur entier (de face, de biais à gauche et à droite) : la porte se voit de la gauche, la fenêtre de la droite, et le milieu reste caché partout (lot L13).",
+  "difficultes": [
+    "voiture",
+    "occlusion",
+    "multi-vues"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.6,
+    "coins": [
+      {
+        "x": 231.51,
+        "y": 224.64
+      },
+      {
+        "x": 1048.49,
+        "y": 224.64
+      },
+      {
+        "x": 1066.9,
+        "y": 689.44
+      },
+      {
+        "x": 213.1,
+        "y": 689.44
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "porte",
+        "x": 1.9,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            110,
+            40,
+            35
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.5,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 8.5,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 1.8,
+        "y": 3.5,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.2,
+        "y": 3.5,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 6.5,
+        "y": 3.5,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 8.5,
+        "y": 3.5,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 16,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          214,
+          204,
+          182
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "devant": [
+      {
+        "type": "voiture",
+        "x": 2.6,
+        "l": 4.2,
+        "h": 1.45,
+        "recul": 1.5,
+        "couleur": [
+          30,
+          60,
+          120
+        ]
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 11,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 5,
+      "bruit": 3,
+      "flou": 1
+    },
+    "vues": [
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": -32,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 4,
+        "bruit": 3,
+        "flou": 1,
+        "decalageCoins": [
+          3,
+          -2
+        ]
+      },
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": 32,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 5,
+        "roulis": 1,
+        "bruit": 3,
+        "flou": 1,
+        "decalageCoins": [
+          -2,
+          3
+        ]
+      }
+    ]
+  }
+}

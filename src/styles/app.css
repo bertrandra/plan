@@ -1638,6 +1638,7 @@
   .releve.camera button.secondary{ background:var(--camera-voile); color:var(--on-camera); border-color:var(--camera-voile); }
   .releve button.small{ min-height:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
   .releveSegment{ display:inline-flex; border-radius:var(--r-bouton); overflow:hidden; border:1px solid var(--rule); background:var(--segment-bg); flex-wrap:wrap; }
+  .releveCorps > .releveSegment{ flex-shrink:0; align-self:flex-start; }
   .releveSegment button{ min-height:36px; padding:0 12px; border:0; border-radius:0; background:transparent; color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
   .releveSegment button[aria-pressed="true"]{ background:var(--ink); color:var(--on-ink); }
   .releve.camera .releveSegment{ border-color:var(--camera-voile); background:var(--camera-voile); }
@@ -1707,7 +1708,9 @@
   /* Plusieurs photos pour un mur (spec-releve-facade §6.1) : la serie en vignettes, de gauche a
      droite ; la choisie porte l'accent. Et la consigne neutre de la visee (plan de prise). */
   .releveConsigneCamera.info{ color:var(--on-camera); }
-  .releveMorceaux{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  /* Dans la colonne du releve, ni le bandeau des photos ni un choix segmente ne se tassent : leur
+     debordement les rendait ecrasables quand la photo remplit l ecran. */
+  .releveMorceaux{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; flex-shrink:0; }
   .releveMorceau{ display:flex; flex-direction:column; align-items:center; gap:4px; flex:none; }
   .releveVignette{ position:relative; width:72px; height:72px; padding:0; border-radius:var(--r-champ);
     overflow:hidden; border:2px solid var(--rule); background:var(--camera-bg); }

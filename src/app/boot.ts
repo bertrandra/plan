@@ -32,6 +32,7 @@ import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toits
 import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
+import { brancherFaitsLocaux } from './ecouteurs/faitsLocaux.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -442,6 +443,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     rafraichir: () => magasin.notifier()
   }, commandes);
   brancherToitsFond(ch.toitsFond, commandes);
+  // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.
+  brancherFaitsLocaux({ objets: () => atelier.etat.objects, relireToits: () => { ch.toitsFond.arreter(); ch.toitsFond.relancer(); } }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {

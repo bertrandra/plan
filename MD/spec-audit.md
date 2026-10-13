@@ -831,7 +831,7 @@ et les couleurs lues sur les photos de terrain sont comparées à ce que Plan ca
 |---|---|---|---|
 | 1 | promenade | Accès admin, aucune sauvegarde, GPS ou adresse de départ, caméra qui suit, lecture à chaque pas de 10 m, toits en calcul entier et matériau BD TOPO, marquage, fiche (catégorie, problèmes, note, photo), liste de fin, fichier, partage *(fait)* | tests unitaires, fumée Playwright (adresse de départ et GPS simulé), une promenade réelle |
 | 2 | commun | Brouillon local et reprise (§10) ; pour la promenade : cases de 10 m et garde-fou de 600 bâtiments si la mesure le demande, menu Fichier réduit | GPS simulé sur un trajet de 500 m |
-| 3 | corpus | Script `audit.ts`, test de non-régression, circuit écrit dans le skill `toits` | premier fichier réel rejoué |
+| 3 | corpus | Script `audit.ts`, test de non-régression, circuit écrit dans le skill `toits` *(fait, lot L19 ; corpus de départ reconstitué depuis des relevés réels)* | premier fichier réel rejoué |
 | 4 | — | Plus tard : façade Panoramax à la demande sur un cas, note vocale | — |
 | 5 | commun | Photo située complète (§5 : plusieurs photos, focale, inclinaison), mur sur la photo et couleur de la façade (§6), « Ce que je vois » (§8.1) ; pour la promenade, captures opportunistes et fichier version 2 | tests sur des photos générées dont la prise de vue est connue, une promenade réelle |
 | 6 | commun | Relevé guidé par la position (§7), texture du matériau ; pour la promenade, depuis la fiche, sur la parcelle de départ | les images de test du relevé, une façade réelle |

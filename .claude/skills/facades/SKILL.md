@@ -111,6 +111,15 @@ nouveau), rappel, précision, cotes, hauteur, coins du calage fin. L'erreur d'un
 corrigée se mesure sur le sténopé vrai : la correction estimée est défaite, puis la distorsion vraie
 de l'objectif retirée, ce qui ne favorise pas la correction.
 
+**Fusion de plusieurs vues** (lot L13) : pour chaque scène qui porte des `vues` (d'autres prises du mur
+entier), `facade/fusion.ts::analyserVues` sur toutes les vues, coins vrais décalés de `decalageCoins`
+pixels sur les vues de plus, comparée à la chaîne du relevé sur la seule vue principale (« une vue →
+fusion ») : rappel, précision, corrections ; part du mur cachée sur la vue principale (vérité du
+générateur, `cacheDepuis`) et, parmi ces pixels, ceux que l'élévation montre comme le mur (à moins de
+30 niveaux du mur peint sans obstacle) ; masque restant ; recalage trouvé pour chaque vue de plus.
+Les scènes `16-` à `18-` sont faites pour cela : chaque partie cachée sur une vue se voit sur une
+autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui doit finir dans le masque.
+
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
 façade. Ils se lisent sur la chaîne du relevé.
@@ -156,6 +165,9 @@ image.
   chromaticité (spec §9 C).
 - **Devant** : `voiture` et `haie`, de vrais plans à `recul` mètres du mur. Sur la photo, ils
   cachent ce qu'ils cachent selon le point de vue.
+- **Vues** (lot L13) : `synthese.vues`, d'autres prises `camera` du mur entier (de biais, d'un autre
+  endroit) ; leurs coins se calculent (`coinsVrais(s, vue)`), `decalageCoins` les décale de quelques
+  pixels comme des coins posés au doigt. `photographier(s, px, vue)` les rend.
 - **Prise** :
   - `camera` : un sténopé à `distance` m du milieu du mur, `biais` (degrés, positif à droite),
     `ecartCap` (visée décentrée), `tangage`, `roulis`, `oeil` (1,5 m), `focale35`, `bruit`, `flou`.
@@ -371,6 +383,48 @@ n'y touche pas).
 - La mesure s'appuie sur la **ligne médiane** de chaque trace (le barycentre par rangée de pixels) :
   sur les pixels bruts, l'épaisseur de l'arête, que la correction d'un barillet étire au bord de
   l'image, faisait préférer un coefficient de mauvais signe.
+
+### Après le lot L14 (candidats ouvertures)
+
+Mesuré le 13 octobre 2026 sur `claude/lot-L14-candidats` (empilée sur L13), sans scène ajoutée.
+Chaîne du relevé, avant → après :
+
+| Critère | Objectif | Avant (L13) | Après |
+|---|---|---|---|
+| Rappel | ≥ 85 % | 71 % | **90 %** |
+| Précision | ≥ 90 % | 84 % | **93 %** |
+| Erreur médiane des cotes | ≤ 5 cm | 1 cm | 1 cm |
+| Corrections par façade | < 3 | 3,2 | **1,9** |
+
+Détection seule : précision 88 → 95 %, rappel 75 → 91 %. Les scènes d'origine (`00`, `01`, `02`) et
+les grands-angles (`13` à `15`) gardent toutes leurs ouvertures, sans fausse.
+
+- **Le code** : `facade/detection.ts` enchaîne ; `detectionCartes.ts` (réduction à 5 cm, morphologie,
+  taches, médianes glissantes par histogrammes) ; `detectionFond.ts` (objets nets mis de côté, fond de
+  rang, fond local, seuils zone par zone, écart de teinte seule) ; `detectionIndices.ts` (ombre,
+  gradients et soutien des arêtes, volets battants, affinage) ; `reglagesDetection.ts` (les seuils
+  nommés `facades.detection.*`, avec leur raison). `detecterOuvertures(img, px, vu, { reglages })`
+  accepte des surcharges : pour essayer un seuil sur le banc, jamais pour régler une scène.
+- **Fond local** : le fond de rang (bande de 50 cm sur toute la largeur) fait du soubassement, du
+  bandeau, de l'ombre du débord le fond de leur rang (`04`) ; le fond local se lit sur 1,5 m de large
+  et la hauteur du rang. Une fenêtre carrée, à 20 cm d'un soubassement uni, en prenait la teinte pour
+  l'enduit au-dessus et recollait les fenêtres au soubassement.
+- **Teinte seule** : sur la meulière (`10`), le grain de la pierre (luminance) relève le seuil d'écart
+  de couleur au point de couper le haut des vitrages, bleutés ; l'écart de chromaticité a son propre
+  seuil et les rend entiers.
+- **Ombre** : un pixel plus sombre de même chromaticité que son fond est retiré avant les taches ; le
+  vitrage dans l'ombre garde la sienne (`05`, `11`). Une tache d'ombre seule n'est gardée que si ses
+  deux tableaux sont des arêtes franches (porte grise sur enduit gris).
+- **Volets battants** : trois segments de colonnes, deux volets unis de même teinte d'environ la
+  moitié de la baie ; le bord de la baie est la première colonne qui ne ressemble plus au volet, et il
+  en faut une près de chaque coupure (sinon c'est un meneau entre deux vantaux) (`03`, `08`, `11`).
+- **Brique** (`03`) : une ouverture d'un pixel avant la fermeture coupe les joints qui soudaient les
+  baies entre elles ; l'affinage veut un bord tenu sur 3 cm de suite (un joint fait 1 cm).
+- **Petites taches** : sous 0,4 m², quatre arêtes nettes sont exigées (roue, touffe de haie).
+- **Ce qui reste** : le ton sur ton du tablier de volet roulant (`06`, la baie à 40 % fermée est à la
+  limite des 50 % de recouvrement, perdue sur l'élévation seule) et le coffre sont pour L15 ; les
+  occlusions d'une seule vue (`07`, `12`, `16` à `18`) relèvent de la fusion (L13). La détection prend
+  150 à 200 ms par élévation (contre 100 ms avant).
 
 ## 5. Ce que disent les chiffres de départ
 

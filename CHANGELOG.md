@@ -41,6 +41,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
     empreintes sont identiques. Points de fumée 62 et 63.
 
+- **Faits des toits et skill `regles-toits`** (lot L20 du plan de mise en œuvre,
+  `MD/spec-regles-toits.md` §5, §9 et §10).
+  - **`regles/toits/faits.json`** : une vérité observée sur un bâtiment, rangée par sa clé BD TOPO
+    (`cleabs`), qui vaut dans tous les projets qui le contiennent. En **contrainte** (par défaut), le
+    corps principal qui ne dit pas ce que l'on a vu (forme, sens du faîtage, bouts, nombre de corps
+    au plus, fourchettes de hauteur) est relu sur la mesure parmi les seules formes admises ; la
+    mesure donne les hauteurs, et un toit déjà d'accord ne bouge pas. En **remplacement**, le fait
+    donne aussi les dimensions : un corps sur la boîte orientée du contour, sans lecture, même sans
+    LiDAR. L'ordre est celui de la spec : calcul, fait, garde-fous de vraisemblance. Le fichier est
+    vérifié (vocabulaire fermé, `model/faitsToits.ts`), compilé dans le fichier livré, et appliqué à
+    l'import, en tâche de fond et au rejeu des cas d'audit (`facade/faitsToits.ts`). Son empreinte
+    entre dans `VERSION_LECTURE_TOITS` : un fait ajouté demande une version de lecture nouvelle, et la
+    CI le rappelle. Le fichier est livré **vide** : aucun toit ne change, la version de lecture reste 1.
+  - **Mode d'essai `?regles=local`** (administrateur) : menu Admin › « Essayer des faits de toits… »
+    charge un fichier de faits depuis votre poste, à la place de celui du dépôt, le temps de la page.
+    Les toits concernés sont relus en tâche de fond ; rien n'est enregistré, et à la prochaine
+    ouverture ils sont relus avec les faits livrés. Les réglages ne s'essaient pas encore ainsi.
+  - **Skill `.claude/skills/regles-toits/`** : traiter un fichier de promenade de bout en bout (tri des
+    cas : hors toit, fait, réglage, règle, question ; attendu ; images avant et après ; PR), en
+    s'appuyant sur le skill `toits`. Scripts : `trier.ts` (premier tri, seuils en jeu, squelette de
+    fait), `faits.ts` (faits comptés par forme, signal au-delà de cinq faits qui disent la même chose,
+    ligne de version de lecture à ajouter) ; `audit.ts --faits` rejoue avec les faits proposés pour
+    les cartes d'après. Premier passage sur le corpus : le cas d'Hucqueliers est classé « règle »
+    (chantier ouvert des ailes recouvertes), sans fait.
+  - AE 101 identique, banc des quatre villages identique, empreintes golden inchangées.
+
 - **Audit de la parcelle, phase 1 : la capture** (lot L9 du plan de mise en œuvre,
   `MD/spec-audit.md` §11, §12 et §8.1). Dans un projet, Fichier › « Auditer la parcelle… »
   (feuille du projet au doigt) ouvre la visite sur place, téléphone en main. La commande demande le
@@ -70,6 +96,54 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     termine la capture pour l'analyse qui viendra (lot L11). Points de fumée 60 et 61.
   - Une commande grisée peut dire ce qu'il faut faire d'abord (`raisonInactive` du registre) ; au
     doigt, la raison s'écrit sous l'entrée du menu.
+
+- **Corpus d'audit et réglages des toits** (lot L19 du plan de mise en œuvre, `MD/spec-audit.md`
+  §21 à §23, `MD/spec-regles-toits.md` §6 et §8).
+  - **Rejeu d'une promenade** : `.claude/skills/toits/scripts/audit.ts <fichier | dossier>` relit un
+    fichier de promenade (version 1 ou 2), rejoue chaque cas sans réseau avec le code courant, et le
+    compare à ce que le code avait produit sur le terrain et à l'attendu validé. Il écrit un tableau et
+    les fichiers de `rendu.py` (rejeu et terrain côte à côte). Il propose `facade.couleur`, sans le
+    cocher, quand une façade lue sur une photo du cas s'écarte de la couleur des murs retenue de plus
+    que le seuil de `model/couleurMur.ts` (§18.4). Le calcul pur est dans `facade/audit.ts` ; les
+    garde-fous de végétation et d'égout passent dans `facade/vraisemblance.ts`, partagés avec
+    l'import (aucun changement de règle).
+  - **Corpus** `tests/fixtures/audit/` et test `tests/unit/facade/audit.test.ts` : chaque cas
+    `valide` est rejoué en CI (corps au centimètre, couleur et source des murs) ; les cas `a_corriger`
+    et `corrige` sont listés en `it.todo`. Deux premiers fichiers, reconstitués depuis des relevés
+    réels (pas encore une promenade) : AE 101, la maison de référence, validée (format version 1), et
+    le pavillon est de la longère d'Hucqueliers, à corriger (format version 2).
+  - **Réglages des toits** : les 74 seuils de la lecture des toits (surface mesurée, rectangles,
+    formes simples, corps et pignons, recalage, complétion, végétation, bâtiments à cheval) sortent
+    du code dans `regles/toits/reglages.json`, avec leur unité, leur raison et les cas qui les
+    justifient, **sans changer une seule valeur**. Le fichier est compilé dans le fichier livré
+    (`model/reglagesToits.ts`) ; son empreinte entre dans `VERSION_LECTURE_TOITS`
+    (`LECTURES_TOITS`) : une valeur changée sans nouvelle version de lecture fait échouer la CI, et
+    relit de toute façon les toits déjà lus. La version de lecture reste 1 : rien n'est relu. Le
+    fichier de promenade note l'empreinte des réglages (`promenade.regles.reglagesToits`). Banc des
+    quatre villages et AE 101 identiques au bit près ; empreintes golden inchangées.
+
+- **Fusion de plusieurs vues d'une façade** (lot L13 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §8). Une voiture, une haie ou un poteau cachent une baie sur
+  une photo, pas sur une autre prise d'ailleurs : le relevé sait maintenant fondre des vues du mur
+  entier, de face et de biais, en plus de la mosaïque de morceaux côte à côte.
+  - `facade/fusion.ts` : chaque photo est redressée par ses propres coins dans le même repère de
+    l'élévation, avec une carte de qualité par pixel (résolution de la photo source au mur dans le sens
+    le moins bien vu, incidence, surexposition) ; un recalage fin par corrélation normalisée, en deux
+    dimensions, sur 30 cm au plus, repris sur chaque tiers du mur ; les occlusions par la parallaxe
+    (le centre optique de chaque vue se tire de son homographie : ce qui est devant le mur se retrouve
+    sur l'autre vue à un recul de 15 cm à 3 m, vérifié dans les deux sens, puis étendu à l'obstacle
+    entier) ; la composition par la vue de meilleure qualité hors obstacle, la médiane à partir de
+    trois vues libres. Ce qui reste caché partout forme le masque d'occlusion : aucune ouverture n'y
+    est cherchée.
+  - **Relevé** : avec deux photos ou plus, un choix « Morceaux côte à côte / Vues du mur entier ».
+    En vues, chaque photo reçoit les coins du mur entier (cherchés par le calage fin), la consigne le
+    dit, l'analyse fond les vues, et un avis signale une vue qui se raccorde mal ou une part du mur
+    cachée partout. Le calage garde la résolution de chaque vue. Point de fumée 65.
+  - **Banc de façades** : des vues de plus dans le générateur (`synthese.vues`, coins décalés de
+    quelques pixels), la vérité des occlusions (`cacheDepuis`), trois scènes (`16` à `18` : voiture,
+    haie, deux vues seulement) et une section « une vue → fusion ». Sur ces trois scènes : rappel de
+    74 à 100 %, précision de 82 à 95 %, corrections de 2,7 à 0,3 par façade ; le mur caché sur la vue
+    principale rendu à 69 % au lieu de 12 %. Les seize scènes d'avant ne bougent pas.
 
 - **Distorsion du grand-angle corrigée** (lot L8 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §4). Une photo prise à l'ultra grand-angle (focale
@@ -568,6 +642,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Détection des ouvertures : les candidats** (lot L14 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §9). L'écart à une seule teinte de mur ne suffisait pas : un
+  soubassement en pierre, l'ombre du débord, des volets battants, la brique ou la meulière faisaient
+  manquer des baies ou en inventaient. Sur le banc des façades, chaîne du relevé : rappel de 71 à
+  90 %, précision de 84 à 93 %, corrections de 3,2 à 1,9 par façade ; les images d'origine restent
+  justes au centimètre.
+  - **Fond local** (`facade/detectionFond.ts`) : les objets nets mis de côté, un fond de rang (une
+    bande de 50 cm sur toute la largeur : soubassement, bandeau, ombre du débord deviennent le fond de
+    leur rang), puis un fond local par médiane glissante sur 1,5 m de large ; le seuil
+    `max(28, 3 × écart médian)` se calcule zone par zone, et l'écart de teinte seule (chromaticité) a
+    le sien, pour la pierre dont le grain relève le seuil.
+  - **Filtre d'ombre** : un pixel plus sombre que son fond, de même chromaticité, n'est pas une baie ;
+    une tache qui n'est qu'ombre n'est gardée que si ses tableaux sont des arêtes franches.
+  - **Profils de contours** (`facade/detectionIndices.ts`) : soutien des arêtes sur les quatre côtés,
+    baie séparée de ses volets battants par le profil de ses colonnes, affinage des bords sur le profil
+    quand l'écart au fond ne dit rien.
+  - **Fusion des indices et confiance** : une tache est gardée si elle remplit sa boîte, ou si ses
+    quatre arêtes sont nettes ; sous 0,4 m², il faut les arêtes. La confiance de chaque ouverture
+    combine remplissage, rectangularité, soutien des arêtes et part vue sur la photo.
+  - **Réglages nommés** (`facade/reglagesDetection.ts`) : les filtres de taille et les seuils
+    deviennent `facades.detection.*`, chacun avec sa raison, surchargeables pour le banc.
+
 - **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
   le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.
 
@@ -732,6 +828,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le
   projet… » ou toute autre entrée refermait le panneau sans rien faire. La barre haute passe
   au-dessus du voile, comme au téléphone.
+
+- **Relevé** : dans la colonne du relevé, le bandeau des photos et les choix segmentés ne se tassent
+  plus quand la photo remplit l'écran (ils étaient écrasés à 1 440 px).
+- **Relevé** : une photo déjà corrigée de la distorsion du grand-angle n'est plus corrigée une seconde
+  fois quand la recherche des coins est relancée.
 
 - **L'enregistrement ne fige plus l'écran sur un grand projet.** Sur un voisinage d'un kilomètre
   (8 Mo), chaque enregistrement bloquait l'interface en une tâche de 0,5 à 0,8 s, suivie de deux
