@@ -56,11 +56,11 @@ describe('la promenade', () => {
     await p.enCours();
     expect(c.entrees.grille).not.toBeNull();
     expect(c.identite.adresse).toBe('2 allée des Limites');
-    p.completer('b1', { categorie: 'toit', problemes: ['toit.sens-faitage', 'toit.pignon-manquant', 'toit.sens-faitage'], note: 'côté rue', photo: { type: 'image/jpeg', base64: 'AAAA' } });
+    p.completer('b1', { categorie: 'toit', problemes: ['toit.sens-faitage', 'toit.pignon-manquant', 'toit.sens-faitage'], note: 'côté rue', ajouterPhoto: { type: 'image/jpeg', base64: 'AAAA' } });
     expect(c.constat.problemes).toEqual(['toit.sens-faitage', 'toit.pignon-manquant']);
-    expect(c.constat.photo?.base64).toBe('AAAA');
-    p.completer('b1', { photo: null });
-    expect(c.constat.photo).toBeUndefined();
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['AAAA']);
+    p.completer('b1', { retirerPhoto: 0 });
+    expect(c.constat.photos).toEqual([]);
     p.marquer('b2', { x: 0, y: 0 }, null);
     p.retirer('b2');
     const fichier = p.fichier({ commune: 'Le Vésinet', origine: { lat: 48.9, lon: 2.13 }, emprise: null, code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 } });
@@ -68,6 +68,22 @@ describe('la promenade', () => {
     expect(fichier.cas.map((x) => x.cle)).toEqual(['b1']);
     expect(fichier.promenade.debut).toBe('2026-10-13T09:00:00.000Z');
     expect(f).toHaveBeenCalled();
+  });
+
+  it('garde jusqu a six photos par cas, dans l ordre, et en retire une par son rang', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)) });
+    const c = p.marquer('b1', { x: 0, y: 0 }, null)!;
+    for (let i = 1; i <= 7; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'P6']);
+    p.completer('b1', { retirerPhoto: 1 });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6']);
+    p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P8' } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6', 'P8']);
+    const f = p.fichier({ commune: null, origine: { lat: 48.9, lon: 2.13 }, emprise: null, code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 } });
+    expect(f.version).toBe(2);
+    // Le fichier est une copie : une photo retiree ensuite n'en part pas.
+    p.completer('b1', { retirerPhoto: 0 });
+    expect(f.cas[0]!.constat.photos).toHaveLength(6);
   });
 
   it('un cas retire avant la fin de sa lecture n est pas ressuscite', async () => {

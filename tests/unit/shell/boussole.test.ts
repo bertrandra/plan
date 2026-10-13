@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { capDepuisOrientation, lisserCap, ecartCap } from '../../../src/shell/boussole.js';
+import { capDepuisOrientation, lisserCap, ecartCap, attitudeDepuisOrientation } from '../../../src/shell/boussole.js';
 
 // La boussole : le cap depuis l'evenement d'orientation de Safari ou de Chrome, l'ecran tourne, et
 // un lissage qui passe par le nord sans faire le tour.
@@ -24,5 +24,23 @@ describe('la boussole', () => {
     expect(l === 0 || l === 360 ? 0 : l).toBeCloseTo(0);
     expect(ecartCap(350, 10)).toBe(20);
     expect(ecartCap(10, 350)).toBe(-20);
+  });
+
+  it('donne l inclinaison de la visee et le roulis de l image, telephone debout compris', () => {
+    // Debout, d'aplomb : beta 90 ; gamma n'y change rien (il y perd son sens).
+    expect(attitudeDepuisOrientation(90, 0)).toEqual({ inclinaisonDeg: 0, roulisDeg: 0 });
+    expect(attitudeDepuisOrientation(90, 37)).toEqual({ inclinaisonDeg: 0, roulisDeg: 0 });
+    // Bascule en arriere : la visee monte ; en avant, elle descend.
+    expect(attitudeDepuisOrientation(100, 0)).toEqual({ inclinaisonDeg: 10, roulisDeg: 0 });
+    expect(attitudeDepuisOrientation(80, 0)).toEqual({ inclinaisonDeg: -10, roulisDeg: 0 });
+    // Debout, tourne de 30 degres dans le sens horaire : beta 60, gamma 90.
+    expect(attitudeDepuisOrientation(60, 90)).toEqual({ inclinaisonDeg: 0, roulisDeg: 30 });
+    expect(attitudeDepuisOrientation(60, -90)).toEqual({ inclinaisonDeg: 0, roulisDeg: -30 });
+    // En paysage, l'image est rangee au quart de tour : seul le reste compte.
+    expect(attitudeDepuisOrientation(0, 90)).toEqual({ inclinaisonDeg: 0, roulisDeg: 0 });
+    // A plat, la visee est verticale : le roulis ne se mesure plus.
+    expect(attitudeDepuisOrientation(0, 0)).toEqual({ inclinaisonDeg: -90, roulisDeg: null });
+    expect(attitudeDepuisOrientation(null, 0)).toBeNull();
+    expect(attitudeDepuisOrientation(90, Number.NaN)).toBeNull();
   });
 });
