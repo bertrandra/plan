@@ -519,3 +519,159 @@ promenades.
    dessiner en 3D ? Proposé : plus tard, après les formes.
 5. **Photo et vues de rue** : faut-il, à terme, lire la forme sur la photo (lucarnes, brisis) ?
    Proposé : non pour l'instant ; la photo reste une preuve, pas une mesure.
+
+---
+
+## 13. Roadmap de transformation
+
+Le §11 liste les chantiers. Cette roadmap les place dans une transformation : on part de règles
+écrites **dans le code**, réglées à l'œil sur quelques villages, pour aller vers des règles
+**nourries par le terrain** et protégées par un corpus. Chaque phase a un objectif, des livrables
+et un **critère de passage** mesurable. On ne passe à la phase suivante qu'une fois ce critère
+atteint. Les phases ne portent pas de date : leur rythme suit celui des promenades.
+
+### 13.1 D'où l'on part, où l'on va
+
+| | Aujourd'hui | Cible |
+|---|---|---|
+| **Règles** | dans le code, seuils en dur, commentés avec le cas qui les a montrés | logique dans le code, seuils dans `reglages.json`, chacun avec sa raison et ses cas |
+| **Formes** | plat, appentis, deux pans, croupes, avant-corps à pignon | les 21 formes du §3.1 que la mesure peut voir, et les éléments du §2 |
+| **Exceptions** | corrigées en touchant une règle, au risque d'en casser une autre | des faits par bâtiment (`faits.json`), sans toucher au modèle |
+| **Contrôle** | AE 101 au centimètre ; banc des villages lu à la main | AE 101, corpus de cas observés en CI, banc comparé automatiquement |
+| **Source de vérité** | la mesure LiDAR et l'œil du développeur | vos observations de terrain, avec photo, position et azimut |
+| **Boucle** | un retour ponctuel (« ce toit est faux ») | promenade → fichier → skill → PR avec images → validation → corpus |
+
+### 13.2 Les phases
+
+**Phase 0 — Outillage du terrain** *(fait)*
+
+- Mode audit : promenade GPS, marque, fiche, photo avec position et azimut, fichier partagé.
+- Boussole, vue à 70 m, accès par le menu Admin.
+- Cette spec.
+
+*Critère de passage atteint* : un fichier de promenade réel peut être produit et rejoué sans réseau.
+
+**Phase 1 — Observer**
+
+*Objectif : constituer la matière première.*
+
+- Fiche d'audit « Ce que je vois » (§7.2) : forme, sens du faîtage, bouts, lucarnes, cheminées.
+- Trois à cinq promenades réelles sur des bâtis différents :
+  - pavillons d'Île-de-France ;
+  - centre ancien à Mansart ;
+  - village provençal ;
+  - longères du Nord.
+- Premier tri à la main des cas : hors toit, fait, réglage, règle, question.
+
+*Critère de passage* : au moins 50 cas observés, dont 10 sur des formes que Plan ne sait pas encore
+faire. Le tri dit quelles formes et quels problèmes reviennent le plus.
+
+*Risque* : des observations trop vagues pour devenir des tests. *Parade* : la fiche n'accepte que le
+vocabulaire du §2 et du §3.
+
+**Phase 2 — Mesurer sans rien changer**
+
+*Objectif : savoir où l'on en est avant de toucher à une règle.*
+
+- `reglages.json` : les seuils sortent du code avec leurs valeurs actuelles (étape 2 du §11).
+- Corpus `tests/fixtures/toits/cas/` et `regles.test.ts`, importés depuis les fichiers de promenade
+  (étape 3 du §11).
+- Comparaison automatique du banc des villages avec `main`, dont le tableau s'affiche dans chaque PR.
+- Un **taux de conformité** : la part des cas observés dont le calcul actuel satisfait déjà
+  l'observation, par forme et par problème.
+
+*Critère de passage* :
+- empreintes, banc et AE 101 identiques au bit près ;
+- tous les cas de la phase 1 rejoués en CI ;
+- le taux de conformité de départ est connu, et c'est la référence de la suite.
+
+*Risque* : un seuil externalisé qui change de valeur sans le dire. *Parade* : la PR d'externalisation
+ne change aucune valeur, et le banc le prouve.
+
+**Phase 3 — Corriger par les faits**
+
+*Objectif : régler tout de suite les exceptions, sans risque pour le modèle.*
+
+- `faits.json` appliqué, en contrainte puis en remplacement (étape 4 du §11).
+- Skill `regles-toits` (étape 5 du §11) : il traite une promenade de bout en bout jusqu'à la PR
+  avec images.
+- Les cas classés « fait » passent en `valide`.
+
+*Critère de passage* : une promenade traitée par le skill de bout en bout, validée par vous. Les cas
+« fait » sont corrects en 3D dans tous les projets qui les contiennent.
+
+*Risque* : tout ranger en « fait » par facilité, et ne jamais améliorer le modèle. *Parade* : le skill
+compte les faits par forme ; quand plus de cinq faits disent la même chose, c'est une règle qui
+manque, et elle passe en phase 4.
+
+**Phase 4 — Généraliser : les formes**
+
+*Objectif : que le calcul trouve seul ce que les faits disaient.*
+
+- Formes nouvelles, une par PR, dans l'ordre de ce que les phases 1 et 3 ont trouvé (étape 6 du §11).
+  L'ordre attendu :
+  1. lucarnes ;
+  2. Mansart et gambrel ;
+  3. demi-croupe ;
+  4. cheminées ;
+  5. asymétrique ;
+  6. le reste.
+- Pour chaque forme : le modèle de données (§4), le dessin 3D, la détection, les cas du corpus.
+- Les faits que la règle rend inutiles sont retirés : le calcul les retrouve seul, le test le prouve.
+
+*Critère de passage, par forme* :
+- les cas observés de cette forme passent ;
+- aucun cas validé ne régresse ;
+- le banc montre que la forme apparaît là où on l'attend, et pas ailleurs (la liste des bâtiments qui changent est relue sur les cartes) ;
+- AE 101 reste identique.
+
+*Risque* : une forme détectée à tort, par exemple un Mansart vu dans chaque toit plat. *Parade* :
+- les faux positifs se comptent sur le banc ;
+- une forme nouvelle commence prudente (seuils hauts) ;
+- elle s'assouplit cas par cas.
+
+**Phase 5 — Généraliser : les profils**
+
+*Objectif : traiter la diversité régionale sans multiplier les exceptions.*
+
+- Profils dans `reglages.json`, déclenchés par des faits mesurables (étape 7 du §11).
+- Chaque profil naît d'une contradiction entre cas (§8.3) : deux observations qu'aucun seuil commun
+  ne satisfait.
+
+*Critère de passage* : les contradictions connues sont résolues par un profil ou par une question
+posée à l'utilisateur, et non par un compromis. Le taux de conformité progresse dans chaque région
+sans baisser ailleurs.
+
+**Phase 6 — Régime de croisière**
+
+*Objectif : une boucle d'amélioration continue, sans effort de coordination.*
+
+- Chaque promenade suit le même circuit : fichier, skill, PR avec images, validation, corpus.
+- Changer une règle relance la lecture des toits en tâche de fond dans les projets (§9.2).
+- Le tableau de conformité suit le taux par forme, région et problème. Il sert à choisir la
+  prochaine promenade, là où le modèle est le plus faible.
+- À évaluer seulement à ce stade : lire la forme sur la photo (lucarnes, brisis), ou s'appuyer sur
+  des photos de rue existantes (Panoramax) pour observer sans se déplacer.
+
+### 13.3 Indicateurs
+
+| Indicateur | Ce qu'il mesure | Sens attendu |
+|---|---|---|
+| Taux de conformité des cas observés | part des cas dont le calcul satisfait l'observation | ↑ à chaque phase, jamais ↓ sur les cas validés |
+| Cas par niveau (fait / réglage / règle / question) | où se loge la connaissance | les faits montent en phase 3, puis baissent en phase 4 |
+| Faits rendus inutiles | faits que le calcul retrouve seul | ↑ en phase 4 |
+| Suspects et sans-corps du banc | qualité sur les villages de référence | ↓ |
+| Formes produites par le calcul | couverture du catalogue §3.1 | de 4 à 15 ou plus |
+| AE 101 | non-régression absolue | identique au centimètre, toujours |
+| Empreintes golden | quantités et exports | identiques, toujours |
+
+### 13.4 Ce qui ne change pas en route
+
+- **AE 101 ne bouge pas.** Les quantités et les exports non plus : une règle de toit ne touche que
+  le toit.
+- **Une règle reste générale.** Un bâtiment nommé dans le code est un fait déguisé : il va dans
+  `faits.json`.
+- **Un cas validé ne change qu'avec votre accord**, avec images et ligne d'historique.
+- **Le doute se pose en question** plutôt que de se cacher dans un seuil.
+- **Une PR, un sujet.** Une forme, un réglage ou un lot de faits par PR. Le circuit du dépôt
+  s'applique à chacune (vérifications, CHANGELOG, PR, merge, livraison).
