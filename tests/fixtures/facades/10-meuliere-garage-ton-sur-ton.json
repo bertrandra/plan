@@ -1,0 +1,190 @@
+{
+  "nom": "10-meuliere-garage-ton-sur-ton",
+  "description": "Meulière (pierre irrégulière) sur toute la façade, porte de garage de la teinte de la pierre : le fond n'est pas uni et le garage ne s'en détache pas.",
+  "difficultes": [
+    "meuliere",
+    "pierre",
+    "ton-sur-ton",
+    "garage"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.6,
+    "coins": [
+      {
+        "x": 250.14,
+        "y": 238.2
+      },
+      {
+        "x": 998.23,
+        "y": 264.39
+      },
+      {
+        "x": 1012.39,
+        "y": 673.64
+      },
+      {
+        "x": 233.3,
+        "y": 684.03
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "garage",
+        "x": 0.8,
+        "y": 0,
+        "l": 2.4,
+        "h": 2.1,
+        "rendu": {
+          "couleur": [
+            170,
+            135,
+            95
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.4,
+        "y": 0,
+        "l": 0.9,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            60,
+            90,
+            70
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 8.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 3.7,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4.35,
+        "y": 3.7,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.4,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 11,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "pierre",
+        "couleurs": [
+          [
+            176,
+            140,
+            96
+          ],
+          [
+            150,
+            112,
+            74
+          ],
+          [
+            196,
+            160,
+            112
+          ],
+          [
+            132,
+            100,
+            70
+          ]
+        ],
+        "joint": [
+          214,
+          204,
+          186
+        ],
+        "assises": [
+          0.1,
+          0.28
+        ],
+        "longueurs": [
+          0.15,
+          0.4
+        ]
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 12,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -6,
+      "tangage": 5,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}
