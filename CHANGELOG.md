@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spec du mode audit : captures opportunistes et audit de la parcelle principale** (`MD/spec-audit.md`
+  §12 et §13, aucun code). Chaque photo d'un cas est exploitée au maximum :
+  - plusieurs photos par cas, chacune avec position GPS, azimut, focale et inclinaison ;
+  - le mur photographié proposé sur la photo ;
+  - la couleur de la façade lue, automatiquement ou d'un toucher ;
+  - sur la parcelle principale, le relevé de la façade : texture redressée, ouvertures réelles,
+    hauteur mesurée.
+
+  Un mode à part, l'audit de la parcelle principale, fait le tour d'une maison avec une liste de
+  contrôle : toutes les façades, le toit, les matériaux, la clôture et le portail. Il produit un
+  fichier qui nourrit le corpus et peut s'importer dans le projet de la même parcelle.
+
 - **Spécification des règles des toits** (`MD/spec-regles-toits.md`, aucun code). Elle couvre :
   - le vocabulaire complet du toit (versants, croupe et demi-croupe, brisis et terrasson, arêtier, noue, ligne de bris, rives, lucarnes, cheminées, débords), avec ce que le LiDAR peut voir de chacun ;
   - le catalogue de 21 formes, du plus simple au plus rare (plat, monopente, deux pans, croupe, pavillon, demi-croupe, Mansart, asymétrique, toit en M, papillon, gambrel, coyau, shed, berceau, carène, conique, dôme, impériale…), avec leurs confusions ;
