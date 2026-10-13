@@ -59,6 +59,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'vue.ajuster': 'Cadre la vue sur l’objet sélectionné',
   'audit.suivre': 'Mode audit : recadre la Vue 3D derrière vous, dans l’axe de votre cap (boussole, sinon sens de la marche), pour voir 70 m devant, et suit votre cap ; tourner la vue au doigt le lâche',
   'audit.cas': 'Mode audit : la liste des bâtiments notés pendant la promenade, à revoir, puis le partage du fichier',
+  'audit.parcelle': 'Sur place, téléphone en main : la liste de contrôle des bâtiments de la parcelle et des mitoyens (façades, toit, cheminées, matériaux, clôture, portail) ; la façade devant vous est reconnue et la photo s’y range d’elle-même. Rien ne change dans le projet avant la validation',
   'affichage.positionGps': 'Montre votre position GPS dans la Vue 3D, suivie pendant que vous marchez ; décochée par défaut, elle ne s’enregistre pas avec le projet',
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',
   'affichage.relief': 'Montre ou cache le sol en relief dans la 3D',
