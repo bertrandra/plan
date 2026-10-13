@@ -35,7 +35,7 @@ describe('corpus de facades', () => {
 
   it('couvre les difficultes du terrain', () => {
     const toutes = new Set(corpus.flatMap((s) => s.difficultes));
-    for (const d of ['existante', 'brique', 'soubassement', 'ombre-debord', 'ombre-balcon', 'volets-battants', 'coffres', 'voiture', 'haie', 'biais-fort']) expect(toutes.has(d), d).toBe(true);
+    for (const d of ['existante', 'brique', 'soubassement', 'ombre-debord', 'ombre-balcon', 'volets-battants', 'coffres', 'voiture', 'haie', 'biais-fort', 'multi-vues']) expect(toutes.has(d), d).toBe(true);
   });
 
   it('garde des coins vrais conformes au generateur (sinon : banc.ts --ecrire-coins)', () => {
