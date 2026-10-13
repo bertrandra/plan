@@ -647,7 +647,9 @@ promenades.
    contiennent le bâtiment. Proposé : oui.
 2. **Où vivent les JSON** : dans le dépôt, livrés avec le code. Proposé : oui, avec le mode d'essai
    `?regles=local` pour l'admin. L'alternative (sur le serveur, modifiables comme la palette) ferait
-   perdre la reproductibilité et le passage par la CI.
+   perdre la reproductibilité et le passage par la CI. **Réponse de l'utilisateur (13 octobre) : oui,
+   dans le dépôt.** (Les JSON de l'admin de l'analyse par Claude — journal, tarifs, plafonds — sont,
+   eux, sur le serveur de Plan : `spec-audit.md` §13.3.)
 3. **Les trois termes ⚠ du schéma** :
    - Déversée : quel sens ?
    - Queue de vache : chevrons apparents, ou relèvement (coyau) ?

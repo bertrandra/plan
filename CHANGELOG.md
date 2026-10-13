@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Décisions D1, D2 et D13 tranchées** (`MD/plan-mise-en-oeuvre-audit.md`, specs, aucun code) :
+  - l'analyse par Claude passe par `analyse.php`, sur le serveur de Plan, d'abord pour l'admin ;
+  - l'accord pour envoyer les photos est donné une fois par projet, et révocable ;
+  - les réglages et les faits des toits vivent dans le dépôt.
+
+  Les lots L17 et L19 sont débloqués.
+
 - **Cheminées et toits-terrasses dans les corps de toit, et en Vue 3D** (lot L10 de
   `MD/plan-mise-en-oeuvre-audit.md`, `MD/spec-regles-toits.md` §2.6, §2.7, §4). Un corps
   (`CorpsToit`) peut porter des souches (`cheminees` : centre, section, hauteur du débouché au-dessus
