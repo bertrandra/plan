@@ -10,13 +10,14 @@
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { differencePolygones } from '../geometry/difference.js';
 import type { CorpsToit, PtBrut } from './types.js';
+import { REGLAGES_TOITS as R } from './reglagesToits.js';
 
 /** Une part plus petite que cela, ou que cette part du batiment, est un trace du cadastre qui deborde, pas une moitie de maison. */
-export const AIRE_A_CHEVAL_MIN_M2 = 8;
-export const PART_A_CHEVAL_MIN = 0.15;
+export const AIRE_A_CHEVAL_MIN_M2 = R.AIRE_A_CHEVAL_MIN_M2;
+export const PART_A_CHEVAL_MIN = R.PART_A_CHEVAL_MIN;
 /** Un corps franchit la limite quand il a au moins cela de sa surface, dans le contour, de chaque cote. */
-const AIRE_CORPS_DE_CHAQUE_COTE_M2 = 4;
-const PAS_ECHANTILLON_M = 0.5;
+const AIRE_CORPS_DE_CHAQUE_COTE_M2 = R.AIRE_CORPS_DE_CHAQUE_COTE_M2;
+const PAS_ECHANTILLON_M = R.PAS_ECHANTILLON_A_CHEVAL_M;
 
 /** La part d'un batiment dans une parcelle. */
 export interface PartACheval {

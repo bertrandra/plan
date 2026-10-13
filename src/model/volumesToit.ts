@@ -19,17 +19,18 @@ import { angleDuPlusLongCote, repereFaitage, ELONGATION_MIN } from '../geometry/
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
+import { REGLAGES_TOITS as R } from './reglagesToits.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */
-export const TOLERANCE_DEG = 15;
+export const TOLERANCE_DEG = R.TOLERANCE_DEG;
 /** Un rectangle plus etroit que cela n'est pas un volume : une saillie, un decroche de facade. */
-export const LARGEUR_MIN_M = 1.5;
+export const LARGEUR_MIN_M = R.LARGEUR_MIN_M;
 /** Et en dessous de cette aire il est simplement oublie (un auvent, une marche) ; au-dela, le decoupage est refuse. */
-const AIRE_NEGLIGEABLE_M2 = 2;
+const AIRE_NEGLIGEABLE_M2 = R.AIRE_NEGLIGEABLE_M2;
 /** Deux abscisses a moins de cela sont la meme (le contour simplifie n'est droit qu'au centimetre). */
 const EPSILON_M = 0.05;
 /** Un cote plus court que cela est un decroche de facade (un ressaut, un conduit), pas un volume : il est lisse. */
-export const SEUIL_DECROCHE_M = 1.2;
+export const SEUIL_DECROCHE_M = R.SEUIL_DECROCHE_M;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;

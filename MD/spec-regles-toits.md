@@ -629,8 +629,8 @@ scripts (`banc.ts`, `rendu.py`, `diag.ts`).
 | Étape | Contenu | Vérifié par |
 |---|---|---|
 | 1 | Cette spec ; fiche d'audit « Ce que je vois » (forme, faîtage, bouts, lucarnes, cheminées) | fumée de l'audit |
-| 2 | `reglages.json` : seuils sortis du code **sans changer de valeur** | empreintes, banc, AE 101 identiques |
-| 3 | Corpus `tests/fixtures/toits/cas/` et `regles.test.ts` ; import d'un fichier de promenade | premiers cas réels |
+| 2 | `reglages.json` : seuils sortis du code **sans changer de valeur** *(fait, lot L19 : 74 seuils, empreinte dans `VERSION_LECTURE_TOITS` ; les profils ne sont pas encore appliqués)* | empreintes, banc, AE 101 identiques |
+| 3 | Corpus `tests/fixtures/toits/cas/` et `regles.test.ts` ; import d'un fichier de promenade *(en partie, lot L19 : le corpus vit dans `tests/fixtures/audit/`, fichiers de promenade tels quels, rejoués par `tests/unit/facade/audit.test.ts` ; les assertions d'observation du §7 restent à faire)* | premiers cas réels |
 | 4 | `faits.json` appliqué (contrainte, remplacement) | cas observés |
 | 5 | Skill `regles-toits` | une promenade traitée de bout en bout |
 | 6 | Formes nouvelles, une par PR, dans l'ordre de ce que l'audit trouve : **lucarnes** (et séparation lucarne / avant-corps), **Mansart et gambrel** (profil brisé), **demi-croupe**, **cheminées**, **asymétrique** (reconnaissance seule : déjà représentable), puis papillon, toit en M, coyau (sur observation), berceau et carène, formes axiales (conique, dôme, flèche, impériale) | cas du corpus, banc |

@@ -11,6 +11,10 @@
 //   vraie ; puis le calage grossier de l'audit (`calage.ts::calageGrossier`) depuis la prise de vue,
 //   avec des capteurs exacts, puis avec les erreurs typiques d'un telephone (`CAPTEURS_BANC`), et la
 //   part des coins vrais qui tombent dans leur zone de recherche ;
+// - **fusion de plusieurs vues** (lot L13) : pour une scene qui porte d'autres vues du mur entier,
+//   `analyserVues` sur toutes les vues (coins vrais, decales de quelques pixels sur les vues de plus),
+//   comparee a la chaine du releve sur la seule vue principale ; et la part du mur cache sur la vue
+//   principale que la fusion rend au mur ;
 // - **calage fin** (lot L7) : `calageFin.ts` sur la photo, depuis la prise du releve (distance, cap et
 //   attitude typiques) puis depuis celle de l'audit (GPS, boussole, attitude typiques) : coins trouves
 //   sur les aretes, ou repli sur les coins predits ; erreur de chacun, sa source, la note, l'azimut corrige.
@@ -21,12 +25,13 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection.js';
 import { analyserReleve, coinsProposes } from '../../../src/facade/analyse.js';
+import { analyserVues, type BilanVue } from '../../../src/facade/fusion.js';
 import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage.js';
 import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/homographie.js';
 import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/distorsion.js';
-import { peindreElevation, murSeul, photographier, stenope, coinsStenope, redresser, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
+import { peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
 import { mesurerDetection, mediane, erreurCoinsCm, type MesureDetection } from './mesure.js';
 
 export const DOSSIER_CORPUS = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));
@@ -60,12 +65,39 @@ export interface ResultatScene {
   fin: { releve: FinScene | null; audit: FinScene | null };
   /** La distorsion du grand-angle (lot L8), pour une prise sous 20 mm ou dont l'objectif deforme. */
   distorsion: DistorsionScene | null;
+  /** La fusion de plusieurs vues (lot L13), pour une scene qui en porte. */
+  vues: VuesScene | null;
   ms: number;
   /**
    * Ce qui a ete detecte, pour les images de controle du script. `image` est l'image analysee (corrigee
    * de la distorsion s'il y a lieu) ; `coinsImage`, les coins vrais dans cette image.
    */
-  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; coinsImage: P2[] | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null };
+  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; coinsImage: P2[] | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null; fusion?: DetailFusion | null };
+}
+
+/** Ce que la fusion de plusieurs vues (lot L13) fait d'une scene. */
+export interface VuesScene {
+  /** Nombre de vues fondues, la principale comprise. */
+  vues: number;
+  /** La chaine du releve sur la seule vue principale, puis la fusion de toutes. */
+  une: MesureDetection;
+  fusion: MesureDetection | null;
+  /** Part du mur cachee sur la vue principale (verite du generateur). */
+  cache: number;
+  /** Parmi ces pixels caches, ceux qui montrent le mur : sur la vue principale seule, puis apres la fusion. */
+  renduUne: number;
+  renduFusion: number;
+  /** Part du mur restee cachee sur toutes les vues, selon la fusion (masque d'occlusion). */
+  masque: number;
+  bilans: BilanVue[];
+  ms: number;
+}
+
+/** Pour les images de controle : l'elevation fondue, son masque d'occlusion et ses ouvertures. */
+export interface DetailFusion {
+  elevation: Image;
+  occlusion: Uint8Array;
+  ouvertures: OuvertureDetectee[];
 }
 
 /** La chaine du releve et le calage fin d'une scene, sur une image donnee (corrigee ou non). */
@@ -286,6 +318,84 @@ function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { imag
   return m;
 }
 
+/** Le mur, peint sans obstacle a la resolution d'une elevation : ce que la fusion devrait rendre. */
+function murSansObstacle(s: SceneFacade, elev: Image): { image: Image; px: number } {
+  const px = elev.largeur / s.verite.largeur;
+  return { image: murSeul(s, peindreElevation(s, px, false), px), px };
+}
+
+/**
+ * La part du mur cachee depuis la prise `p` (verite du generateur), et, parmi ces pixels, ceux que
+ * l'elevation `elev` montre comme le mur : a moins de 30 niveaux en moyenne du mur peint sans obstacle.
+ * Un pixel sur trois dans chaque sens suffit.
+ */
+function renduAuMur(s: SceneFacade, p: PriseCamera, elev: Image): { cache: number; rendu: number } {
+  const { image: mur, px } = murSansObstacle(s, elev);
+  const H = s.verite.hauteur;
+  let total = 0,
+    caches = 0,
+    rendus = 0;
+  for (let y = 1; y < Math.min(elev.hauteur, mur.hauteur); y += 3)
+    for (let x = 1; x < Math.min(elev.largeur, mur.largeur); x += 3) {
+      total++;
+      if (!cacheDepuis(s, p, (x + 0.5) / px, H - (y + 0.5) / px)) continue;
+      caches++;
+      const i = (y * elev.largeur + x) * 4,
+        j = (y * mur.largeur + x) * 4;
+      let e = 0;
+      for (let c = 0; c < 3; c++) e += Math.abs((elev.donnees[i + c] ?? 0) - (mur.donnees[j + c] ?? 0));
+      if (e / 3 < 30) rendus++;
+    }
+  return { cache: total ? caches / total : 0, rendu: caches ? rendus / caches : 1 };
+}
+
+/**
+ * La fusion des vues d'une scene (lot L13) : la vue principale et les autres vues du mur entier,
+ * chacune avec ses coins vrais, decales de `decalageCoins` pixels pour les vues de plus.
+ */
+function mesurerVues(s: SceneFacade, p: PriseCamera, photo: { image: Image; focalePx: number | null }, px: number, une: MesureDetection, redressee: Image | null): { vues: VuesScene; detail: DetailFusion | null } {
+  const t0 = performance.now();
+  const v = s.verite;
+  const autres = (s.synthese.vues ?? []).flatMap((q) => {
+    const ph = photographier(s, px, q);
+    const c = coinsVrais(s, q);
+    if (!ph || !c) return [];
+    const [dx, dy] = q.decalageCoins ?? [0, 0];
+    return [{ photo: ph.image, coins: c.map((k) => ({ x: k.x + dx, y: k.y + dy })), focalePx: p.focaleConnue === false ? null : ph.focalePx }];
+  });
+  const principale = { photo: photo.image, coins: v.coins ?? [], focalePx: p.focaleConnue === false ? null : photo.focalePx };
+  const f = analyserVues({
+    vues: [principale, ...autres],
+    largeur: v.largeur,
+    hauteur: p.hauteurEstimee ?? v.hauteur,
+    contour: [
+      { x: 0, y: 0 },
+      { x: v.largeur, y: 0 },
+      { x: v.largeur, y: 6 },
+      { x: 0, y: 6 },
+    ],
+    cote: 0,
+    distance: p.distanceConnue === false ? null : p.distance,
+  });
+  const avant = redressee ? renduAuMur(s, p, redressee) : { cache: 0, rendu: 0 };
+  const apres = f ? renduAuMur(s, p, f.elevation) : { cache: avant.cache, rendu: 0 };
+  const r3 = (x: number) => Math.round(x * 1000) / 1000;
+  return {
+    vues: {
+      vues: 1 + autres.length,
+      une,
+      fusion: f ? mesurerDetection(v.ouvertures, f.ouvertures) : null,
+      cache: r3(avant.cache),
+      renduUne: r3(avant.rendu),
+      renduFusion: r3(apres.rendu),
+      masque: f?.masque ?? 0,
+      bilans: f?.vues ?? [],
+      ms: Math.round(performance.now() - t0),
+    },
+    detail: f ? { elevation: f.elevation, occlusion: f.occlusion, ouvertures: f.ouvertures } : null,
+  };
+}
+
 const chaine = (m: MesurePhoto): ChaineScene => ({ photo: m.photo, hauteurCm: m.hauteurCm, coinsFinCm: m.fin.releve?.coinsCm ?? null });
 
 /** Rejoue une scene. */
@@ -308,6 +418,7 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
     coinsDansZone: null,
     fin: { releve: null, audit: null },
     distorsion: null,
+    vues: null,
     ms: 0,
     detail: { elevation: detElev, photo: null, image: null, coinsImage: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
   };
@@ -341,6 +452,11 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
         avant: chaine(avant),
         apres: chaine(apres),
       };
+    }
+    if (p.type === 'camera' && s.synthese.vues?.length && res.photo) {
+      const f = mesurerVues(s, p, photo, px, res.photo, res.detail.redressee);
+      res.vues = f.vues;
+      res.detail.fusion = f.detail;
     }
   }
   res.ms = Math.round(performance.now() - t0);
@@ -395,6 +511,22 @@ export interface ResultatBanc {
     dansZone: number;
   };
   fin: { releve: SyntheseFin; audit: SyntheseFin };
+  vues: SyntheseVues;
+}
+
+/** La fusion de plusieurs vues sur les scenes qui en portent (lot L13). */
+export interface SyntheseVues {
+  scenes: number;
+  une: SyntheseMode;
+  fusion: SyntheseMode;
+  /** Moyenne, sur les scenes, de la part du mur cache sur la vue principale qui montre le mur. */
+  renduUne: number | null;
+  renduFusion: number | null;
+}
+
+function synthetiserVues(v: VuesScene[]): SyntheseVues {
+  const moyenne = (f: (x: VuesScene) => number) => (v.length ? v.reduce((s, x) => s + f(x), 0) / v.length : null);
+  return { scenes: v.length, une: synthetiser(v.map((x) => x.une)), fusion: synthetiser(v.flatMap((x) => (x.fusion ? [x.fusion] : []))), renduUne: moyenne((x) => x.renduUne), renduFusion: moyenne((x) => x.renduFusion) };
 }
 
 /** Le calage fin sur tout le corpus. */
@@ -455,6 +587,7 @@ export function rejouerCorpus(scenes: SceneFacade[]): ResultatBanc {
       releve: synthetiserFin(res.flatMap((r) => (r.fin.releve ? [r.fin.releve] : []))),
       audit: synthetiserFin(res.flatMap((r) => (r.fin.audit ? [r.fin.audit] : []))),
     },
+    vues: synthetiserVues(res.flatMap((r) => (r.vues ? [r.vues] : []))),
   };
 }
 
@@ -543,6 +676,7 @@ export function tableau(b: ResultatBanc): string {
     }
     l.push('');
   }
+  l.push(...tableauVues(b));
   const p = b.photo;
   // Depuis le lot L7, les coins que propose le releve sont ceux du calage fin.
   const partCoins = b.fin.releve.coins ? b.fin.releve.justes / b.fin.releve.coins : 0;
@@ -554,4 +688,36 @@ export function tableau(b: ResultatBanc): string {
   l.push(`| Erreur médiane des cotes | ≤ 5 cm | ${cm(p.cotesMedianeCm)} cm | ${atteint(p.cotesMedianeCm !== null && p.cotesMedianeCm <= 5)} |`);
   l.push(`| Corrections par façade | < 3 | ${cm(p.correctionsParFacade)} | ${atteint(p.correctionsParFacade < 3)} |`);
   return l.join('\n');
+}
+
+/** La section de la fusion de plusieurs vues (lot L13), vide si aucune scene n'en porte. */
+function tableauVues(b: ResultatBanc): string[] {
+  const scenes = b.scenes.filter((r) => r.vues);
+  if (!scenes.length) return [];
+  const l: string[] = [];
+  l.push('### Fusion de plusieurs vues (lot L13 : recalage en deux dimensions, occlusions par la parallaxe, composition par qualité)', '');
+  l.push(
+    "Une vue : la chaîne du relevé sur la seule vue principale ; fusion : `analyserVues` sur toutes les vues (coins vrais, décalés de quelques pixels sur les vues de plus). Caché : part du mur que la vue principale ne voit pas (vérité du générateur) ; rendu au mur : parmi ces pixels, ceux que l'élévation montre comme le mur. Masque : part du mur restée cachée sur toutes les vues, selon la fusion. Recalage : décalage trouvé pour chaque vue de plus, en cm (x, y).",
+    '',
+  );
+  l.push('| Façade | Vues | Rappel | Précision | Corrections | Caché | Rendu au mur | Masque | Recalage (cm) | Temps (ms) |', '|---|--:|---|---|---|--:|---|--:|---|--:|');
+  const fleche = (a: string, c: string) => (a === c ? c : `${a} → ${c}`);
+  const cmv = (x: number) => Math.round(x * 100);
+  for (const r of scenes) {
+    const v = r.vues as VuesScene;
+    const f = v.fusion;
+    const recal = v.bilans
+      .filter((_, k) => k > 0 || v.bilans.length === 1)
+      .map((x) => `${cmv(x.dxM)}, ${cmv(x.dyM)}`)
+      .join(' ; ');
+    l.push(
+      `| ${r.nom} | ${v.vues} | ${fleche(pc(v.une.rappel), pc(f?.rappel ?? null))} | ${fleche(pc(v.une.precision), pc(f?.precision ?? null))} | ${fleche(String(v.une.corrections), f ? String(f.corrections) : '—')} | ${pc(v.cache)} | ${fleche(pc(v.renduUne), pc(v.renduFusion))} | ${pc(v.masque)} | ${recal || '—'} | ${v.ms} |`,
+    );
+  }
+  const s = b.vues;
+  l.push(
+    `| **Ensemble** (${s.scenes}) | | **${fleche(pc(s.une.rappel), pc(s.fusion.rappel))}** | **${fleche(pc(s.une.precision), pc(s.fusion.precision))}** | **${fleche(cm(s.une.correctionsParFacade), cm(s.fusion.correctionsParFacade))}** / façade | | **${fleche(pc(s.renduUne), pc(s.renduFusion))}** | | | |`,
+    '',
+  );
+  return l;
 }
