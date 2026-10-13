@@ -34,8 +34,8 @@ cas validés ; un cas qui ne satisfait plus son observation bloque la CI.
 | Bâtiments | Exigence | Comment on l'atteint |
 |---|---|---|
 | **Le voisinage** | Le modèle **automatique le plus juste possible, mais pas à 100 %**. Il fait l'horizon du projet : silhouettes, ombres, vues. | Les règles et les réglages, **calibrés par l'audit** : les promenades mesurent le taux de conformité (§13.5) et montrent où le modèle est faible. Une erreur isolée qu'aucune règle générale ne corrige est acceptée. |
-| **La parcelle principale** (celle du projet) | **100 %** : chaque bâtiment tel qu'il est, toit, façades, cheminées. | Le calcul automatique d'abord, puis l'**audit de la parcelle** (`spec-audit.md` §13, ouvert à tout utilisateur dans son projet), les faits, les relevés de façade et les questions posées à l'utilisateur. L'audit **propose**, l'utilisateur accepte, et ce qui est accepté met à jour le modèle et reste **figé dans le projet**. |
-| **Les mitoyens** | **100 %** aussi, très probablement (à confirmer, `spec-audit.md` §11) : ils touchent la parcelle, portent l'ombre et la limite. | Comme la parcelle principale, avec ce qui se voit depuis la rue et depuis la parcelle. |
+| **La parcelle principale** (celle du projet) | **100 %** : chaque bâtiment tel qu'il est, toit, façades, cheminées. | Le calcul automatique d'abord, puis l'**audit de la parcelle** (`spec-audit.md` partie B, ouvert à tout utilisateur dans son projet), les faits, les relevés de façade et les questions posées à l'utilisateur. L'audit **propose**, l'utilisateur accepte, et ce qui est accepté met à jour le modèle et reste **figé dans le projet**. |
+| **Les mitoyens** | **100 %** aussi, très probablement (à confirmer, `spec-audit.md` §25) : ils touchent la parcelle, portent l'ombre et la limite. | Comme la parcelle principale, avec ce qui se voit depuis la rue et depuis la parcelle. |
 
 Ce qui en découle :
 - Le 100 % ne s'obtient **jamais en tordant une règle** pour un bâtiment : sur la parcelle principale
@@ -535,7 +535,7 @@ tests/fixtures/toits/cas/
 tests/unit/facade/regles.test.ts  rejoue tout le dossier
 ```
 
-Un fichier de cas reprend le cas d'audit (`CasAudit`, `MD/spec-audit.md` §5.2) avec :
+Un fichier de cas reprend le cas d'audit (`CasAudit`, `MD/spec-audit.md` §9) avec :
 - `entrees` : le contour, la BD TOPO, la grille LiDAR et les voisins à moins de 5 m, figés au moment de la marque ;
 - `observation` : les assertions du §7 ;
 - `statut` : `a_corriger`, `corrige`, `valide` ou `sans_suite` ;
@@ -715,7 +715,7 @@ Chaque phase ci-dessous dit ce que fait l'un et l'autre ; le tableau du §13.4 l
 - Premier tri à la main des cas : hors toit, fait, réglage, règle, question.
 - En passant, sans effort de plus : chaque photo d'un cas donne aussi la **couleur de la façade**.
   Sur la parcelle principale, elle donne aussi la **texture et les ouvertures réelles**. Un **audit de
-  la parcelle principale** capture tout d'une maison en une visite (`spec-audit.md` §12 et §13). Ces
+  la parcelle principale** capture tout d'une maison en une visite (`spec-audit.md`, parties A et B). Ces
   captures nourrissent un corpus des façades, à côté de celui des toits. Pour les toits, l'audit de
   parcelle apporte des photos sous plusieurs angles et « Ce que je vois » complet.
 

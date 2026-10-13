@@ -1,4 +1,4 @@
-// La camera du mode audit (MD/spec-audit.md §4.3) : une vue « drone » derriere vous, qui suit votre
+// La camera du mode audit (MD/spec-audit.md §3) : une vue « drone » derriere vous, qui suit votre
 // position et, avec « Me suivre », votre cap.
 //
 // - Le centre de rotation et de zoom est votre position : a chaque deplacement, la cible y revient et

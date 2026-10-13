@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spec de l'audit : deux processus, les mêmes outils ; calage et détection des façades**
+  (`MD/spec-audit.md` réorganisée, `MD/spec-facades-calage-detection.md` nouvelle, aucun code).
+  - L'audit de la parcelle principale (tout utilisateur, dans son projet) et la promenade
+    (administrateur) partagent leurs outils : Vue 3D qui suit, photo située, façade reconnue à la prise
+    de vue, couleur lue sur la photo, relevé, « Ce que je vois », cas figé, brouillon.
+  - L'audit de parcelle se fait en trois phases : capture (photos rangées d'elles-mêmes sur la façade
+    que l'on a devant soi, observations), analyse (mesures dans le téléphone, puis batch Claude qui
+    rédige les propositions), validation des propositions dans la Vue 3D, avant et après, qui met le
+    projet à jour en un seul pas d'annulation.
+  - Le calage des photos et la détection des ouvertures sont repris pour en faire le moteur des
+    façades : coins trouvés par les points de fuite et cap corrigé, fusion de plusieurs vues pour voir
+    derrière une voiture ou une haie, teinte locale et profils de contours, filtre d'ombre, structure en
+    niveaux et travées, volets et coffres reconnus, confiance montrée, corrections tracées, banc de
+    mesure. Claude aide quand l'algorithme n'est pas sûr ; ses propositions sont recalées sur l'image.
+  - Les façades relevées règlent ensuite, par profil, les fenêtres automatiques du voisinage.
+
 - **Spec des toits : deux exigences, cheminées et toits-terrasses** (`MD/spec-regles-toits.md`,
   `MD/spec-audit.md`, aucun code).
   - Le voisinage vise le modèle automatique le plus juste possible, calibré par l'audit, mais pas à

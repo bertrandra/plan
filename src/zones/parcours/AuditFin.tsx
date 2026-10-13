@@ -1,4 +1,4 @@
-// Z8, la fin de la promenade en mode audit (MD/spec-audit.md §4.6) : la liste des batiments marques,
+// Z8, la fin de la promenade en mode audit (MD/spec-audit.md §18.5) : la liste des batiments marques,
 // a revoir ou a retirer, puis un seul fichier partage par le telephone (app/audit/controleur.ts).
 
 import { useState } from 'react';

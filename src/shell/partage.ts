@@ -1,4 +1,4 @@
-// Partager un fichier depuis le telephone (MD/spec-audit.md §4.6) : la feuille de partage du systeme
+// Partager un fichier depuis le telephone (MD/spec-audit.md §10) : la feuille de partage du systeme
 // (messagerie, Drive, mail), par l'API Web Share. Sans elle — un ordinateur, un ancien navigateur —
 // le fichier est telecharge.
 

@@ -1,4 +1,4 @@
-// Ce que le mode audit charge (MD/spec-audit.md §4.1 et §4.2) : la parcelle de depart, puis tout ce
+// Ce que le mode audit charge (MD/spec-audit.md §4 et §18.1 a §18.2) : la parcelle de depart, puis tout ce
 // qui est a moins de 70 m de la position, a chaque pas de 10 m.
 //
 // Les memes lectures que l'import et l'actualisation : le cadastre et la BD TOPO

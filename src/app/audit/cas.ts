@@ -1,4 +1,4 @@
-// Figer un cas (MD/spec-audit.md §5.2) : au moment ou un batiment est marque, ce que le calcul a lu
+// Figer un cas (MD/spec-audit.md §9) : au moment ou un batiment est marque, ce que le calcul a lu
 // (entrees) et ce qu'il en a fait (sorties). Les entrees suffisent a rejouer le calcul sans reseau,
 // meme si l'IGN publie plus tard d'autres donnees : la grille LiDAR est relue a cet instant, comme le
 // fait `village.mjs` pour le banc des toits.

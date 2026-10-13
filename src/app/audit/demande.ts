@@ -1,4 +1,4 @@
-// La demande du mode audit, lue dans l'adresse (MD/spec-audit.md §3).
+// La demande du mode audit, lue dans l'adresse (MD/spec-audit.md §17).
 //
 //   ?mode=audit                      la promenade suit le GPS ;
 //   ?mode=audit&depart=<adresse>     elle part d'une adresse, la position se deplacant au doigt :

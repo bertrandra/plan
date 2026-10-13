@@ -1,4 +1,4 @@
-// Z8, la fiche d'un batiment marque en mode audit (MD/spec-audit.md §4.5) : la categorie, les
+// Z8, la fiche d'un batiment marque en mode audit (MD/spec-audit.md §8.2) : la categorie, les
 // problemes a cocher, une note, une photo. Tout s'ecrit dans la promenade a chaque geste
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
