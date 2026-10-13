@@ -1,0 +1,157 @@
+{
+  "nom": "17-vues-haie-devant",
+  "description": "Haie haute devant une fenêtre du rez-de-chaussée, à 1,6 m du mur ; trois vues du mur entier : de face et de biais à gauche, la fenêtre est cachée ; de biais à droite, elle se voit (lot L13).",
+  "difficultes": [
+    "haie",
+    "occlusion",
+    "multi-vues"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 247.11,
+        "y": 236.59
+      },
+      {
+        "x": 1057.57,
+        "y": 215.19
+      },
+      {
+        "x": 1081.83,
+        "y": 710.77
+      },
+      {
+        "x": 225.71,
+        "y": 702.44
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 5,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "porte",
+        "x": 7.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            60,
+            70,
+            90
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.6,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 5,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 17,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          226,
+          218,
+          200
+        ],
+        "taches": 5
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          90,
+          90,
+          100
+        ]
+      }
+    },
+    "devant": [
+      {
+        "type": "haie",
+        "x": 1.4,
+        "l": 1.6,
+        "h": 1.7,
+        "recul": 1.6
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 11,
+      "biais": 4,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    },
+    "vues": [
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": -30,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 5,
+        "bruit": 3,
+        "flou": 1,
+        "decalageCoins": [
+          2,
+          2
+        ]
+      },
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": 30,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 6,
+        "bruit": 3,
+        "flou": 1,
+        "decalageCoins": [
+          -3,
+          0
+        ]
+      }
+    ]
+  }
+}

@@ -111,6 +111,15 @@ nouveau), rappel, précision, cotes, hauteur, coins du calage fin. L'erreur d'un
 corrigée se mesure sur le sténopé vrai : la correction estimée est défaite, puis la distorsion vraie
 de l'objectif retirée, ce qui ne favorise pas la correction.
 
+**Fusion de plusieurs vues** (lot L13) : pour chaque scène qui porte des `vues` (d'autres prises du mur
+entier), `facade/fusion.ts::analyserVues` sur toutes les vues, coins vrais décalés de `decalageCoins`
+pixels sur les vues de plus, comparée à la chaîne du relevé sur la seule vue principale (« une vue →
+fusion ») : rappel, précision, corrections ; part du mur cachée sur la vue principale (vérité du
+générateur, `cacheDepuis`) et, parmi ces pixels, ceux que l'élévation montre comme le mur (à moins de
+30 niveaux du mur peint sans obstacle) ; masque restant ; recalage trouvé pour chaque vue de plus.
+Les scènes `16-` à `18-` sont faites pour cela : chaque partie cachée sur une vue se voit sur une
+autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui doit finir dans le masque.
+
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
 façade. Ils se lisent sur la chaîne du relevé.
@@ -156,6 +165,9 @@ image.
   chromaticité (spec §9 C).
 - **Devant** : `voiture` et `haie`, de vrais plans à `recul` mètres du mur. Sur la photo, ils
   cachent ce qu'ils cachent selon le point de vue.
+- **Vues** (lot L13) : `synthese.vues`, d'autres prises `camera` du mur entier (de biais, d'un autre
+  endroit) ; leurs coins se calculent (`coinsVrais(s, vue)`), `decalageCoins` les décale de quelques
+  pixels comme des coins posés au doigt. `photographier(s, px, vue)` les rend.
 - **Prise** :
   - `camera` : un sténopé à `distance` m du milieu du mur, `biais` (degrés, positif à droite),
     `ecartCap` (visée décentrée), `tangage`, `roulis`, `oeil` (1,5 m), `focale35`, `bruit`, `flou`.

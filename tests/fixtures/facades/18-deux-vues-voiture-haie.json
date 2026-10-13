@@ -1,0 +1,155 @@
+{
+  "nom": "18-deux-vues-voiture-haie",
+  "description": "Petite voiture devant la porte, arbuste devant une fenêtre ; deux vues seulement (de face, de biais à droite), coins de la seconde posés à quelques centimètres près : sans médiane, la parallaxe seule dit quelle vue est cachée (lot L13).",
+  "difficultes": [
+    "voiture",
+    "haie",
+    "occlusion",
+    "multi-vues"
+  ],
+  "verite": {
+    "largeur": 11,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 175.84,
+        "y": 210.88
+      },
+      {
+        "x": 1066.86,
+        "y": 240.32
+      },
+      {
+        "x": 1089.84,
+        "y": 700.99
+      },
+      {
+        "x": 148.54,
+        "y": 712.45
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "porte",
+        "x": 2,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            110,
+            40,
+            35
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 8.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 1.3,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 8.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 18,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          218,
+          200,
+          172
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "devant": [
+      {
+        "type": "voiture",
+        "x": 0.6,
+        "l": 2.6,
+        "h": 1.45,
+        "recul": 1.4,
+        "couleur": [
+          150,
+          30,
+          30
+        ]
+      },
+      {
+        "type": "haie",
+        "x": 8.5,
+        "l": 1,
+        "h": 1.6,
+        "recul": 1.5
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 11,
+      "biais": -5,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    },
+    "vues": [
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": 34,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 5,
+        "bruit": 3,
+        "flou": 1,
+        "decalageCoins": [
+          3,
+          2
+        ]
+      }
+    ]
+  }
+}

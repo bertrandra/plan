@@ -128,6 +128,11 @@ export interface PriseCamera {
    * mesure aussi ce que coute l'ecart entre l'objectif et le modele.
    */
   distorsion?: number;
+  /**
+   * Pour une vue de plus (lot L13) : les coins donnes a l'analyse sont decales de tant de pixels sur
+   * la photo, comme des coins poses a quelques centimetres pres. Le recalage fin doit l'absorber.
+   */
+  decalageCoins?: [number, number];
 }
 
 export interface PriseCoins {
@@ -149,6 +154,12 @@ export interface Synthese {
   ombres?: Ombre[];
   devant?: Obstacle[];
   prise?: PriseCamera | PriseCoins;
+  /**
+   * D'autres vues du mur entier (lot L13, fusion de plusieurs vues) : de face, de biais, d'un autre
+   * endroit. La vue principale reste `prise` ; ses coins sont dans `verite.coins`, ceux des autres
+   * vues se calculent (`coinsVrais(s, vue)`).
+   */
+  vues?: PriseCamera[];
   sol?: RGB;
   ciel?: RGB;
 }
@@ -550,8 +561,8 @@ export function redresser(p: PriseCamera, q: P2): P2 {
 }
 
 /** Les coins du mur sur le stenope, sans la distorsion de l'objectif : HG, HD, BD, BG. */
-export function coinsStenope(s: SceneFacade): P2[] | null {
-  const p = s.synthese.prise;
+export function coinsStenope(s: SceneFacade, prise: PriseCamera | PriseCoins | undefined = s.synthese.prise): P2[] | null {
+  const p = prise;
   if (!p) return null;
   if (p.type === 'coins') return p.coins.map((c) => ({ ...c }));
   const st = stenope(p, s.verite.largeur);
@@ -565,9 +576,9 @@ export function coinsStenope(s: SceneFacade): P2[] | null {
 }
 
 /** Les coins vrais du mur sur la photo, distorsion de l'objectif comprise : HG, HD, BD, BG. */
-export function coinsVrais(s: SceneFacade): P2[] | null {
-  const p = s.synthese.prise;
-  const c = coinsStenope(s);
+export function coinsVrais(s: SceneFacade, prise: PriseCamera | PriseCoins | undefined = s.synthese.prise): P2[] | null {
+  const p = prise;
+  const c = coinsStenope(s, p);
   if (!c || !p || p.type === 'coins') return c;
   return c.map((q) => distordre(p, q));
 }
@@ -618,8 +629,8 @@ function flouter(img: Image, r: number): void {
 }
 
 /** Photographie la scene : l'image, et la focale vraie en pixels (`null` pour une prise par coins). */
-export function photographier(s: SceneFacade, pxParM: number): { image: Image; focalePx: number | null } | null {
-  const p = s.synthese.prise;
+export function photographier(s: SceneFacade, pxParM: number, prise: PriseCamera | PriseCoins | undefined = s.synthese.prise): { image: Image; focalePx: number | null } | null {
+  const p = prise;
   if (!p) return null;
   const y = s.synthese;
   const HT = hauteurPeinte(s);
@@ -700,4 +711,19 @@ export function photographier(s: SceneFacade, pxParM: number): { image: Image; f
   const image = { largeur: W, hauteur: H, donnees: d };
   if (p.flou) flouter(image, p.flou);
   return { image, focalePx: st.f };
+}
+
+/**
+ * Le point (X, Z) du mur est-il cache par un obstacle (voiture, haie) depuis la prise `p` ? C'est la
+ * verite des occlusions, pour mesurer ce que la fusion des vues (lot L13) retrouve du mur.
+ */
+export function cacheDepuis(s: SceneFacade, p: PriseCamera, X: number, Z: number): boolean {
+  const st = stenope(p, s.verite.largeur);
+  for (const ob of s.synthese.devant ?? []) {
+    // Le segment objectif -> mur traverse le plan de l'obstacle (Y = -recul) a la fraction t.
+    const t = (-ob.recul - st.C[1]) / (0 - st.C[1]);
+    if (!(t > 0 && t < 1)) continue;
+    if (couleurObstacle(ob, st.C[0] + t * (X - st.C[0]), st.C[2] + t * (Z - st.C[2]), s.synthese.graine)) return true;
+  }
+  return false;
 }

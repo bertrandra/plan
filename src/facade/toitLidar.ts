@@ -16,6 +16,7 @@ import { au } from '../util/tableaux.js';
 import { angleDuPlusLongCote, plansDuToit, hauteurToitEn, facettesToit, hauteurSurPans, profondeurToit, repereFaitage } from './toit.js';
 import { HAUTEUR_TOIT_MIN_M, PENTE_MIN_DEG, PENTE_MAX_DEG } from '../model/toitBdTopo.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
+import { REGLAGES_TOITS as R } from '../model/reglagesToits.js';
 
 /** Une mesure : un point du plan et la hauteur du sursol au-dessus du sol, en metres. */
 export interface EchantillonHauteur {
@@ -36,22 +37,22 @@ export interface ToitAjuste {
 }
 
 /** En dessous, on ne juge pas une forme : un abri de jardin fait une vingtaine de cellules. */
-export const ECHANTILLONS_MIN = 20;
+export const ECHANTILLONS_MIN = R.ECHANTILLONS_MIN;
 /** Au-dela de cet ecart, aucune forme simple n'explique les mesures : le toit BD TOPO reste. */
-export const ECART_MAX_M = 0.8;
+export const ECART_MAX_M = R.ECART_MAX_M;
 /** Un appentis se contente de moins : une rampe explique a peu pres n'importe quoi, un vrai appentis colle de pres. */
-export const ECART_MAX_APPENTIS_M = 0.4;
+export const ECART_MAX_APPENTIS_M = R.ECART_MAX_APPENTIS_M;
 /** Une mesure a plus de cela du toit ajuste est un arbre, une cheminee, une lucarne : ecartee, puis on refait l'ajustement. */
-export const RESIDU_ABERRANT_M = 1.5;
+export const RESIDU_ABERRANT_M = R.RESIDU_ABERRANT_M;
 /** L'axe des mesures : la tranche haute des cellules (sans les quelques plus hautes, cheminee ou arbre), et l'allongement qu'il lui faut pour dire une direction. */
-const PART_HAUTE = 0.2;
-const PART_ECARTEE = 0.04;
-const ALLONGEMENT_MIN = 2.5;
+const PART_HAUTE = R.PART_HAUTE;
+const PART_ECARTEE = R.PART_ECARTEE;
+const ALLONGEMENT_MIN = R.ALLONGEMENT_MIN;
 /** Deux axes a moins de cela l'un de l'autre sont le meme : inutile d'essayer deux fois. */
-const AXES_CONFONDUS_DEG = 8;
+const AXES_CONFONDUS_DEG = R.AXES_CONFONDUS_DEG;
 /** Deux paliers de hauteurs separes d'au moins cela, chacun avec au moins cette part des mesures : deux corps de batiment, pas un toit. */
-export const SAUT_DEUX_CORPS_M = 1;
-const PART_CORPS_MIN = 0.25;
+export const SAUT_DEUX_CORPS_M = R.SAUT_DEUX_CORPS_M;
+const PART_CORPS_MIN = R.PART_CORPS_MIN;
 
 interface Candidat {
   forme: FormeToit;

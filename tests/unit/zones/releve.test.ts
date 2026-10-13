@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, appliquerDistorsion, appliquerResultat, focaleDePrise, focale35DePrise, type Morceau, type Resultat, type ResultatCoins } from '../../../src/zones/releve/serie.js';
+import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, appliquerDistorsion, appliquerResultat, focaleDePrise, focale35DePrise, estPartielle, type Morceau, type Resultat, type ResultatCoins } from '../../../src/zones/releve/serie.js';
 import { modeleDistorsion, corrigerPoint } from '../../../src/facade/distorsion.js';
-import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision } from '../../../src/zones/releve/analyse.js';
+import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision, avisFusion } from '../../../src/zones/releve/analyse.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import type { Prise } from '../../../src/zones/releve/capteurs.js';
 import type { Facade } from '../../../src/facade/geometrie.js';
@@ -212,6 +212,34 @@ describe('releve : la distorsion du grand-angle (lot L8)', () => {
     const seule = appliquerResultat(m, { distorsion: corrigee, coins: null }, 'apres');
     expect(seule.recherche).toBe(false);
     expect(seule.coins[0]).toEqual(corrigerPoint(coins[0]!, modele));
+  });
+});
+
+describe('releve : plusieurs vues du mur entier (lot L13)', () => {
+  const coins = [{ x: 1000, y: 500 }, { x: 3000, y: 500 }, { x: 3000, y: 1500 }, { x: 1000, y: 1500 }];
+  it('ne fait un morceau d une photo que pour des morceaux cote a cote', () => {
+    expect(estPartielle('morceaux', null, 0)).toBe(false);
+    expect(estPartielle('morceaux', 3, 0)).toBe(true);
+    expect(estPartielle('morceaux', null, 1)).toBe(true);
+    expect(estPartielle('vues', 3, 2)).toBe(false);
+  });
+
+  it('demande les quatre coins du mur entier sur chaque vue', () => {
+    expect(consigneCoins(1, 3, 'vues')).toMatch(/^Vue 2 sur 3 : .*mur entier/);
+    expect(consigneCoins(0, 1, 'vues')).toMatch(/^Placez chaque rond/);
+    expect(consigneCoins(1, 3)).toMatch(/^Photo 2 sur 3/);
+  });
+
+  it('lit la resolution de chaque vue par ses coins, comme une photo seule', () => {
+    const c = calageDeSerie([{ prise: prise(), coins }, { prise: prise(), coins }], 8, 4, null, 'vues');
+    expect(c.photos.map((x) => x.pxParMSource)).toEqual([250, 250]);
+  });
+
+  it('dit ce que la fusion trouve a redire', () => {
+    const vue = (ressemblance: number) => ({ dxM: 0, dyM: 0, ressemblance, qualite: 80, occultee: 0, part: 0.5 });
+    expect(avisFusion({ reference: 0, masque: 0, vues: [vue(1), vue(0.9)] })).toBeNull();
+    expect(avisFusion({ reference: 0, masque: 0, vues: [vue(1), vue(0.9), vue(0.3)] })).toMatch(/^La vue 3 se raccorde mal/);
+    expect(avisFusion({ reference: 1, masque: 0.05, vues: [vue(0.8), vue(1)] })).toMatch(/5 %\) reste cachée sur toutes les vues/);
   });
 });
 

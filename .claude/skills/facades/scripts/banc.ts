@@ -4,7 +4,7 @@
 //   npx tsx .claude/skills/facades/scripts/banc.ts                 tout le corpus, tableau Markdown
 //   npx tsx .claude/skills/facades/scripts/banc.ts brique ombres   les scenes dont le nom contient l'un des mots
 //   ... --json /tmp/facades/banc.json                              le detail, pour comparer avant / apres
-//   ... --images /tmp/facades                                      photo, elevation et redressement en PNG,
+//   ... --images /tmp/facades                                      photo, elevation, redressement (et fusion) en PNG,
 //                                                                  verite en vert, detection en rouge ; sur la
 //                                                                  photo, coins du releve en jaune, coins et
 //                                                                  zones du calage grossier en cyan ; aretes du
@@ -192,6 +192,16 @@ if (images) {
       for (const o of s.verite.ouvertures) cadre(red, pxR, o, VERT, 2);
       for (const o of r.detail.photo ?? []) cadre(red, pxR, o, ROUGE, 1);
       writeFileSync(join(images, s.nom + '-redressee.png'), png(red));
+    }
+    // La fusion des vues (lot L13) : l'elevation fondue, son masque d'occlusion en magenta.
+    const fu = r.detail.fusion;
+    if (fu) {
+      const e = { ...fu.elevation, donnees: fu.elevation.donnees.slice() };
+      for (let k = 0; k < fu.occlusion.length; k++) if (fu.occlusion[k]) e.donnees.set([...MAGENTA, 255], k * 4);
+      const pxF = e.largeur / s.verite.largeur;
+      for (const o of s.verite.ouvertures) cadre(e, pxF, o, VERT, 2);
+      for (const o of fu.ouvertures) cadre(e, pxF, o, ROUGE, 1);
+      writeFileSync(join(images, s.nom + '-fusion.png'), png(e));
     }
   });
   console.log('\nimages ecrites dans', images);
