@@ -7,6 +7,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit, la couleur de la façade sur la photo** (lot L3 du plan de mise en œuvre,
+  `MD/spec-audit.md` §6.2 et §18.4). Chaque photo jointe à la fiche d'un bâtiment marqué est lue en
+  tâche de fond : Plan retrouve la façade de ce bâtiment devant la prise de vue (lot L2), pose ses
+  points sur la photo par la géométrie de la prise (position, boussole, focale, inclinaison et
+  roulis du téléphone) et en lit la teinte avec la règle de Panoramax (`model/couleurMur.ts`) :
+  - seule la **moitié centrale du mur** est lue, pour absorber l'erreur de la boussole ;
+  - une **clôture** en limite de parcelle est écartée : pas de ligne de vue sous 2,5 m à une
+    limite ; le ciel, le feuillage, les fenêtres et les ombres aussi.
+
+  Sous la photo, la fiche dit « Façade sud : #C9B49A, lue sur la photo », avec une pastille de la
+  teinte. Quand la lecture ne conclut pas, ou que la direction vient du sens de la marche, elle
+  demande « **Touchez la façade sur la photo** » : la photo s'affiche en entier, et la teinte est
+  lue autour du doigt. Les fenêtres et les ombres y sont écartées par l'écart à la médiane, comme
+  dans le relevé. « Plus tard » range la demande ; « Toucher la façade » la rappelle.
+  Sans direction de prise de vue, ou sans façade du bâtiment devant elle (3 à 40 m, de face), la
+  photo reste une photo. La couleur lue se range dans le cas (`lectures.facades` : mur, couleur,
+  source `automatique` ou `toucher`, rang de la photo, pixels lus) et part dans le fichier de la
+  promenade : une vérité terrain pour la lecture Panoramax, rien n'est changé sur le bâtiment
+  (`render/couleurPhotoAudit.ts`, `app/audit/couleurFacade.ts`).
+
 - **Audit, la façade devant vous** (lot L2 du plan de mise en œuvre, `MD/spec-audit.md` §6.1 et
   §12.2). En mode audit, Plan reconnaît en direct la façade que vous avez devant vous : celle dont
   vous voyez le côté extérieur, à 3 à 40 m, sans autre bâtiment entre vous et elle, puis, parmi

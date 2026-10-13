@@ -5,7 +5,7 @@
 // Marquer est immediat (le batiment passe en rouge sous le doigt) ; ce qui vient du reseau — la
 // grille LiDAR relue, l'adresse — complete le cas ensuite, sans rien bloquer.
 
-import { fichierPromenade, PHOTOS_PAR_CAS_MAX, type CasAudit, type CategorieAudit, type FichierPromenade, type MetaPromenade, type PhotoCas } from '../../model/audit.js';
+import { fichierPromenade, PHOTOS_PAR_CAS_MAX, type CasAudit, type CategorieAudit, type FichierPromenade, type LectureFacade, type MetaPromenade, type PhotoCas } from '../../model/audit.js';
 import type { GrilleRelief } from '../../model/relief.js';
 import type { PtBrut } from '../../model/types.js';
 
@@ -25,8 +25,10 @@ export interface Completion {
   note?: string;
   /** Une photo de plus, a la suite des autres ; au-dela de six, elle est ignoree. */
   ajouterPhoto?: PhotoCas;
-  /** Retire la photo de ce rang. */
+  /** Retire la photo de ce rang (et la couleur qu'elle a donnee). */
   retirerPhoto?: number;
+  /** La couleur d'une facade lue sur une photo : elle remplace celle que cette photo avait donnee. */
+  lectureFacade?: LectureFacade;
 }
 
 export interface Promenade {
@@ -84,8 +86,17 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
       if (x.categorie) c.constat.categorie = x.categorie;
       if (x.problemes) c.constat.problemes = [...new Set(x.problemes)];
       if (x.note !== undefined) c.constat.note = x.note;
-      if (x.retirerPhoto !== undefined) c.constat.photos = c.constat.photos.filter((_, i) => i !== x.retirerPhoto);
+      if (x.retirerPhoto !== undefined) {
+        const r = x.retirerPhoto;
+        c.constat.photos = c.constat.photos.filter((_, i) => i !== r);
+        // Les lectures designent leur photo par son rang : celles des photos suivantes descendent d'un cran.
+        if (c.lectures) c.lectures = { facades: c.lectures.facades.filter((l) => l.photo !== r).map((l) => (l.photo > r ? { ...l, photo: l.photo - 1 } : l)) };
+      }
       if (x.ajouterPhoto && c.constat.photos.length < PHOTOS_PAR_CAS_MAX) c.constat.photos = [...c.constat.photos, x.ajouterPhoto];
+      const l = x.lectureFacade;
+      if (l && l.photo >= 0 && l.photo < c.constat.photos.length) {
+        c.lectures = { facades: [...(c.lectures?.facades ?? []).filter((v) => v.photo !== l.photo), { ...l }].sort((a, b) => a.photo - b.photo) };
+      }
       signaler();
     },
     fichier(meta) {
