@@ -9,7 +9,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Spécification des règles des toits** (`MD/spec-regles-toits.md`, aucun code). Elle couvre :
   - le vocabulaire complet du toit (versants, croupe et demi-croupe, brisis et terrasson, arêtier, noue, ligne de bris, rives, lucarnes, cheminées, débords), avec ce que le LiDAR peut voir de chacun ;
-  - le catalogue des formes, du toit plat au Mansart, au papillon et au conique, avec leurs confusions ;
+  - le catalogue de 21 formes, du plus simple au plus rare (plat, monopente, deux pans, croupe, pavillon, demi-croupe, Mansart, asymétrique, toit en M, papillon, gambrel, coyau, shed, berceau, carène, conique, dôme, impériale…), avec leurs confusions ;
   - les trois niveaux d'une observation de terrain : fait sur un bâtiment, réglage par profil (JSON), règle dans le code ;
   - l'attendu testable écrit depuis ce que l'on a vu ;
   - le corpus de non-régression et le skill qui formalise un cas d'audit.
