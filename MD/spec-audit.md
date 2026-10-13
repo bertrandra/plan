@@ -10,6 +10,13 @@ Se promener dans un quartier, téléphone en main, et noter les bâtiments dont 
 calculés sont faux. En fin de promenade, un fichier part à Claude, qui rejoue chaque cas hors
 ligne, corrige la règle en cause, puis fige le résultat validé comme **cas de non-régression**.
 
+**Deux exigences** (décision du 13 octobre, `spec-regles-toits.md` §1) :
+- **Le voisinage** : le modèle automatique le plus juste possible, mais pas à 100 %. La promenade
+  sert à **calibrer** cet horizon : elle mesure où le modèle se trompe et nourrit les règles.
+- **La parcelle principale**, et très probablement les **mitoyens** : **100 %**. L'audit de la
+  parcelle (§13) capture tout ce qu'il faut pour y arriver, et ce qui est validé est figé dans le
+  projet.
+
 Le mode audit ne produit pas de projet : il produit un **jeu de test terrain**. Il étend ce que font
 déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 101 « au centimètre ».
 
@@ -148,6 +155,8 @@ tests lisent. La dernière colonne dit où le chercher dans la chaîne (skill `t
 | `toit.vegetation` | un arbre pris pour le toit : bosse, toit trop haut sous un arbre | végétation, `corpsVraisemblables` |
 | `toit.cheval` | deux maisons mitoyennes avec un seul toit, ou une maison coupée en deux | bâtiment à cheval, `toitACheval` |
 | `toit.absent` | aucun toit construit (boîte par défaut) alors que le toit est simple | lecture LiDAR, `toitsDepuisLidar` |
+| `toit.cheminee` | cheminée absente, en trop, mal placée, ou souche adossée en façade non dessinée (étape 5) | souches, `spec-regles-toits.md` §2.6 |
+| `toit.terrasse` | toit-terrasse mal lu : acrotère, édicule ou garde-corps manquant, terrasse accessible vue comme un toit (étape 5) | `spec-regles-toits.md` §2.7 |
 | `toit.couverture` | mauvais matériau (tuile, ardoise, zinc, terrasse) ou mauvaise couleur du toit | `materiauCouverture`, couleur sur l'orthophoto |
 | `toit.autre` | autre chose : à décrire dans la note | — |
 
@@ -412,7 +421,7 @@ pèsent environ 2,4 Mo en base64 : le résumé de fin le dit avant le partage.
 ### 13.1 Le but
 
 En une visite, capturer **le plus d'informations possible sur une parcelle**, en général celle du
-client :
+client. Le but est le **100 %** sur ses bâtiments (§1), et sur les mitoyens qui se voient :
 - toutes les façades de tous ses bâtiments ;
 - ce que l'on voit des toits ;
 - les couleurs, les matériaux et les textures ;
@@ -440,7 +449,9 @@ Un parcours plein écran (Z8) liste, pour chaque bâtiment de la parcelle :
 | Ligne | Statuts | D'où |
 |---|---|---|
 | chaque **façade** : orientation, longueur | à photographier · photographiée (n photos) · relevée · inaccessible | `facade/geometrie.ts::facadesDuContour` |
-| le **toit** : « Ce que je vois » (forme, sens du faîtage, bouts, lucarnes, cheminées) | à voir · vu | `spec-regles-toits.md` §7.2 |
+| le **toit** : « Ce que je vois » (forme, sens du faîtage, bouts, lucarnes) | à voir · vu | `spec-regles-toits.md` §7.2 |
+| les **cheminées** : nombre, position (faîtage, pan, pignon, adossée), matériau, couronnement | à voir · vues · aucune | `spec-regles-toits.md` §2.6 |
+| la **toiture-terrasse**, s'il y en a une : accessible, revêtement, acrotère, garde-corps, édicules | à voir · vue | `spec-regles-toits.md` §2.7 |
 | le **matériau** des murs et de la couverture | à voir · vu | les choix du §2 de `spec-regles-toits.md` et de `textureMur.ts` |
 
 Et pour la parcelle :
@@ -452,6 +463,8 @@ Et pour la parcelle :
 
 - Une façade sur une limite mitoyenne (`model/mitoyennete.ts`) est déjà marquée « mitoyenne, rien à
   photographier ». Une façade côté voisin ou cachée se marque « inaccessible » en une touche.
+- Les **mitoyens** apparaissent dans la liste, avec ce qui se voit depuis la rue et depuis la parcelle :
+  leur toit, leurs cheminées, la façade sur la limite. Le reste est « inaccessible ».
 - Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »).
 - Toucher une façade dans la Vue 3D ouvre sa ligne.
 
@@ -530,3 +543,7 @@ bâtiment, la texture dessinée de `textureMur.ts`, teinte comprise.
 - Pas d'intérieur, pas de mesure du terrain.
 - Pas de photo détaillée des parcelles voisines.
 - Pas d'envoi automatique : le partage passe par vous.
+10. **Mitoyens à 100 %** (§1) : l'exigence de la parcelle principale vaut-elle aussi pour les
+    bâtiments mitoyens ? Votre réponse du 13 octobre : « probablement ». Proposition : oui. L'audit
+    de parcelle les liste avec ce qui se voit depuis la rue et depuis la parcelle ; ce qui ne se voit
+    pas reste au calcul.

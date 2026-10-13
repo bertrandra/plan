@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spec des toits : deux exigences, cheminées et toits-terrasses** (`MD/spec-regles-toits.md`,
+  `MD/spec-audit.md`, aucun code).
+  - Le voisinage vise le modèle automatique le plus juste possible, calibré par l'audit, mais pas à
+    100 %. La parcelle principale, et très probablement les mitoyens, visent le 100 % : faits, relevés
+    et audit de la parcelle, figés dans le projet. Un changement de règle ne les recalcule plus.
+  - La cheminée est décrite en détail : souche, conduits, couronnement, positions (faîtage, pan,
+    pignon, adossée en façade), dimensions vraisemblables, ce que le LiDAR, l'orthophoto et la photo
+    en voient, modèle de données et assertions.
+  - La toiture-terrasse aussi : inaccessible, accessible, végétalisée, technique ; acrotère,
+    garde-corps, édicules, lanterneaux ; terrasse partielle ; modèle de données et assertions.
+  - Deux problèmes à cocher de plus dans l'audit : `toit.cheminee` et `toit.terrasse`.
+
 - **Spec du mode audit : captures opportunistes et audit de la parcelle principale** (`MD/spec-audit.md`
   §12 et §13, aucun code). Chaque photo d'un cas est exploitée au maximum :
   - plusieurs photos par cas, chacune avec position GPS, azimut, focale et inclinaison ;
