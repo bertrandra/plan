@@ -214,16 +214,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
   // La Vue 3D s'ouvre d'emblee : la bibliotheque se charge pendant qu'on cherche le depart.
   ctx.ouvrir3d();
 
-  function prisePhoto(): PrisePhoto | null {
-    if (!position) return null;
-    const d = proj?.versDegres(position.x, position.y) ?? null;
-    const r = (v: number, n: number) => Math.round(v * n) / n;
-    return {
-      t: new Date().toISOString(), x: r(position.x, 10), y: r(position.y, 10),
-      lat: d ? r(d.lat, 1e7) : null, lon: d ? r(d.lon, 1e7) : null, precisionM: precision,
-      ...suivi.azimut(), ...suivi.attitude(),
-    };
-  }
+  const prisePhoto = (): PrisePhoto | null => prisePhotoDe(position, precision, proj, suivi);
 
   const retirer = (cle: string) => { promenade.retirer(cle); ctx.repeindre3d([cle]); };
   /** La fiche d'un batiment ; ouverte depuis la liste de fin, elle y ramene. */
@@ -268,6 +259,19 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     sceneBatie() { if (position) suivi.camera(position); },
     ecrireBrouillon: () => reprise.ecrire(),
     arreter() { arreterGps?.(); arreterGps = null; suivi.arreter(); reconnue.oublier(); void reprise.ecrire(); },
+  };
+}
+
+/** La prise de vue d'une photo : la position (repere du plan et degres), sa precision, le cap et l'attitude. */
+function prisePhotoDe(position: PtBrut | null, precision: number | null, proj: ProjecteurLocal | null,
+  suivi: Pick<ReturnType<typeof suiviDuCap>, 'azimut' | 'attitude'>): PrisePhoto | null {
+  if (!position) return null;
+  const d = proj?.versDegres(position.x, position.y) ?? null;
+  const r = (v: number, n: number) => Math.round(v * n) / n;
+  return {
+    t: new Date().toISOString(), x: r(position.x, 10), y: r(position.y, 10),
+    lat: d ? r(d.lat, 1e7) : null, lon: d ? r(d.lon, 1e7) : null, precisionM: precision,
+    ...suivi.azimut(), ...suivi.attitude(),
   };
 }
 
