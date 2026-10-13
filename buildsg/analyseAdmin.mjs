@@ -1,0 +1,495 @@
+// L'analyse par Claude, cote serveur (MD/spec-audit.md 13.2 et 13.3, plan D1) : le proxy de l'API
+// Message Batches d'Anthropic, ses plafonds et son journal. Meme contrat que deploy/analyse.php,
+// route pour route : la page ne sait pas lequel lui repond.
+//
+//   GET  admin/claude/etat                    cle configuree ou non, versions du prompt et du schema
+//   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
+//   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
+//   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
+//   GET|PUT admin/claude/tarifs               la table des tarifs datee
+//   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
+//
+// **La cle ne quitte jamais le serveur**, et la page ne choisit ni le prompt, ni le schema, ni le
+// reglage : elle n'envoie que la partie propre a la maison (images et texte). Sans quoi la cle
+// servirait a n'importe quoi a qui ouvre une session.
+//
+// Session admin seulement pour l'instant (celle de demosAdmin.mjs) ; en-tete `X-Plan-Admin: 1` sur
+// toute ecriture. Les chiffres du journal viennent du champ `usage` des reponses, jamais d'une
+// estimation, et le cout de la table des tarifs en vigueur le jour de l'appel. Le journal ne garde
+// ni photo ni contenu de reponse.
+//
+// L'appel a l'API se fait en HTTP direct, comme analyse.php qui n'a pas de Composer sur
+// l'hebergement : les deux serveurs restent sans dependance, et parlent le meme JSON.
+
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+const ici = path.dirname(fileURLToPath(import.meta.url));
+
+export const VERSION_API = '2023-06-01';
+/** Les modeles que la page peut demander, et celui de chaque usage (spec-regles-toits.md 14.2). */
+export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
+export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat'];
+const MODELE_PAR_USAGE = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5' };
+/** Assez pour la reflexion a l'effort `low` et le JSON avec indices (~1 500 attendus, 14.4). */
+export const MAX_TOKENS = 8000;
+export const EFFORT = 'low';
+const TAILLE_MAX = 48 * 1024 * 1024;
+const ID_VALIDE = /^[A-Za-z0-9_-]{1,64}$/;
+const ID_BATCH = /^[A-Za-z0-9_-]{1,128}$/;
+const IMAGES_PAR_REQUETE = 40;
+const BLOCS_PAR_REQUETE = 120;
+const TEXTE_MAX = 200000;
+const TYPES_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+/** Ce qui vaut tant que l'administrateur n'a rien regle : un euro par jour, dix par mois, environ. */
+export const PLAFONDS_DEFAUT = Object.freeze({
+  format: 'plan-claude-plafonds',
+  defaut: { jour: 1, mois: 10 },
+  organisations: {},
+  requetesParBatch: 60,
+  estimationRequete: 0.005
+});
+
+const PRIX = ['entree', 'ecritureCache5m', 'ecritureCache1h', 'lectureCache', 'sortie'];
+
+// --- Le calcul, pur ---------------------------------------------------------------------------
+
+/** Le prompt versionne : l'en-tete `---` porte `version:`, le reste part tel quel en system. */
+export function lirePrompt(texte) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(texte);
+  if (!m) throw new Error('prompt-analyse.md : en-tete --- manquant');
+  const v = /^version:\s*(\d+)\s*$/m.exec(m[1] ?? '');
+  if (!v) throw new Error('prompt-analyse.md : version manquante');
+  return { version: Number(v[1]), texte: texte.slice(m[0].length).trim() };
+}
+
+/** Les compteurs de `usage`, tels que l'API les renvoie, sous les noms du journal. */
+export function tokensDeUsage(usage) {
+  const u = usage && typeof usage === 'object' ? usage : {};
+  const n = (x) => (Number.isFinite(x) && x > 0 ? Math.round(x) : 0);
+  const ecriture = n(u.cache_creation_input_tokens);
+  const detail = u.cache_creation && typeof u.cache_creation === 'object' ? u.cache_creation : null;
+  return {
+    entree: n(u.input_tokens),
+    ecritureCache: ecriture,
+    // Sans detail, toute l'ecriture est au tarif 5 minutes : c'est la duree par defaut du cache.
+    ecritureCache1h: Math.min(ecriture, detail ? n(detail.ephemeral_1h_input_tokens) : 0),
+    lectureCache: n(u.cache_read_input_tokens),
+    sortie: n(u.output_tokens)
+  };
+}
+
+/** La ligne de tarif d'un modele en vigueur ce jour-la (`AAAA-MM-JJ`) : la plus recente qui le precede. */
+export function tarifEnVigueur(tarifs, modele, jour) {
+  let retenu = null;
+  for (const l of (tarifs && Array.isArray(tarifs.lignes)) ? tarifs.lignes : []) {
+    if (!l || l.modele !== modele || typeof l.depuis !== 'string' || l.depuis > jour) continue;
+    if (!retenu || l.depuis > retenu.depuis) retenu = l;
+  }
+  return retenu;
+}
+
+/**
+ * Le cout d'un appel en dollars. Le palier « au-dela » s'applique a toute la requete des que son
+ * prompt (entree, ecriture et lecture du cache) passe le seuil ; la remise Batch multiplie chaque
+ * prix, cache compris. Arrondi a 1e-8 $ : assez fin pour une passe a 0,001 $, et le meme en PHP.
+ */
+export function coutAppel(tokens, ligne, batch) {
+  if (!ligne) return null;
+  const prompt = tokens.entree + tokens.ecritureCache + tokens.lectureCache;
+  const p = ligne.auDela && Number.isFinite(ligne.auDela.seuil) && prompt > ligne.auDela.seuil ? ligne.auDela : ligne;
+  const remise = batch && Number.isFinite(ligne.remiseBatch) ? ligne.remiseBatch : 1;
+  const somme = tokens.entree * p.entree
+    + (tokens.ecritureCache - tokens.ecritureCache1h) * p.ecritureCache5m
+    + tokens.ecritureCache1h * p.ecritureCache1h
+    + tokens.lectureCache * p.lectureCache
+    + tokens.sortie * p.sortie;
+  return Math.round((somme / 1e6) * remise * 1e8) / 1e8;
+}
+
+/** Les depenses d'une organisation ce jour-la et ce mois-la, lues dans les lignes du journal du mois. */
+export function depenses(lignes, organisation, jour) {
+  let j = 0;
+  let m = 0;
+  for (const l of lignes) {
+    if (!l || l.organisation !== organisation || typeof l.cout !== 'number' || typeof l.t !== 'string') continue;
+    if (l.t.slice(0, 7) !== jour.slice(0, 7)) continue;
+    m += l.cout;
+    if (l.t.slice(0, 10) === jour) j += l.cout;
+  }
+  return { jour: Math.round(j * 1e8) / 1e8, mois: Math.round(m * 1e8) / 1e8 };
+}
+
+/** Le plafond d'une organisation : le sien, sinon celui par defaut. */
+export function plafondDe(plafonds, organisation) {
+  const o = plafonds.organisations && plafonds.organisations[organisation];
+  return { jour: o && Number.isFinite(o.jour) ? o.jour : plafonds.defaut.jour, mois: o && Number.isFinite(o.mois) ? o.mois : plafonds.defaut.mois };
+}
+
+const refus = (message) => Object.assign(new Error(message), { statut: 400 });
+const texteCourt = (v, max) => (v === undefined || v === null ? null : typeof v === 'string' && v.length <= max ? v : undefined);
+
+/**
+ * La demande de la page : l'identite de la parcelle et les requetes, une par passe. Seuls des
+ * blocs `text` et `image` (base64) sont admis : le reste de la requete est fixe par le serveur.
+ */
+export function verifierDemande(d, plafonds) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw refus('Demande illisible.');
+  const meta = {};
+  for (const [cle, max] of [['projet', 128], ['idu', 64], ['adresse', 300], ['audit', 64]]) {
+    const v = texteCourt(d[cle], max);
+    if (v === undefined) throw refus('Champ « ' + cle + ' » invalide.');
+    meta[cle] = v;
+  }
+  const usage = d.usage === undefined ? 'analyse' : d.usage;
+  if (!USAGES.includes(usage)) throw refus('Usage inconnu : ' + String(usage) + '.');
+  const modele = d.modele === undefined ? MODELE_PAR_USAGE[usage] : d.modele;
+  if (!MODELES.includes(modele)) throw refus('Modèle non admis : ' + String(modele) + '.');
+  if (!Array.isArray(d.requetes) || d.requetes.length === 0) throw refus('Aucune requête.');
+  if (d.requetes.length > plafonds.requetesParBatch) throw refus('Trop de requêtes dans un batch (' + plafonds.requetesParBatch + ' au plus).');
+  const vus = new Set();
+  const requetes = d.requetes.map((r) => {
+    if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !ID_VALIDE.test(r.id)) throw refus('Identifiant de requête invalide.');
+    if (vus.has(r.id)) throw refus('Identifiant de requête en double : ' + r.id + '.');
+    vus.add(r.id);
+    const passe = r.passe === undefined || r.passe === null ? null : r.passe;
+    if (passe !== null && !(Number.isInteger(passe) && passe >= 1 && passe <= 3)) throw refus('Passe invalide (1, 2 ou 3).');
+    if (!Array.isArray(r.contenu) || r.contenu.length === 0 || r.contenu.length > BLOCS_PAR_REQUETE) throw refus('Contenu de requête invalide.');
+    let images = 0;
+    const contenu = r.contenu.map((b) => {
+      if (b && b.type === 'text' && typeof b.text === 'string' && b.text.length > 0 && b.text.length <= TEXTE_MAX) return { type: 'text', text: b.text };
+      const s = b && b.type === 'image' ? b.source : null;
+      if (s && s.type === 'base64' && TYPES_IMAGE.includes(s.media_type) && typeof s.data === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(s.data)) {
+        images++;
+        return { type: 'image', source: { type: 'base64', media_type: s.media_type, data: s.data } };
+      }
+      throw refus('Bloc de contenu non admis (texte ou image base64 seulement).');
+    });
+    if (images > IMAGES_PAR_REQUETE) throw refus('Trop d’images dans une requête (' + IMAGES_PAR_REQUETE + ' au plus).');
+    return { id: r.id, passe, images, contenu };
+  });
+  return { ...meta, usage, modele, requetes };
+}
+
+/** Les parametres d'une requete du batch : le prompt en cache, la sortie structuree, l'effort. */
+export function parametresRequete(modele, prompt, schema, contenu) {
+  return {
+    model: modele,
+    max_tokens: MAX_TOKENS,
+    system: [{ type: 'text', text: prompt, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: contenu }],
+    output_config: { effort: EFFORT, format: { type: 'json_schema', schema } }
+  };
+}
+
+/** Une table des tarifs valide : `{format, lignes: [{modele, depuis, verifieLe, prix…}]}`. */
+export function verifierTarifs(d) {
+  const r = () => refus('Ce n’est pas une table des tarifs (format, lignes datées, prix positifs).');
+  if (!d || d.format !== 'plan-claude-tarifs' || !Array.isArray(d.lignes)) throw r();
+  const date = /^\d{4}-\d{2}-\d{2}$/;
+  const prix = (o) => PRIX.every((k) => Number.isFinite(o[k]) && o[k] >= 0);
+  for (const l of d.lignes) {
+    if (!l || typeof l.modele !== 'string' || !/^claude-[a-z0-9-]{1,60}$/.test(l.modele) || !date.test(String(l.depuis)) || !date.test(String(l.verifieLe))) throw r();
+    if (!prix(l) || !(Number.isFinite(l.remiseBatch) && l.remiseBatch > 0 && l.remiseBatch <= 1)) throw r();
+    if (l.auDela !== undefined && !(l.auDela && Number.isInteger(l.auDela.seuil) && l.auDela.seuil > 0 && prix(l.auDela))) throw r();
+  }
+  return d;
+}
+
+/** Les lignes passees ne se reecrivent pas : chacune doit revenir a l'identique. */
+export function passeGarde(ancien, nouveau, jour) {
+  const cle = (l) => l.modele + '@' + l.depuis;
+  const signe = (l) => JSON.stringify([...PRIX.map((k) => l[k]), l.remiseBatch, l.auDela ? [l.auDela.seuil, ...PRIX.map((k) => l.auDela[k])] : null]);
+  const nouvelles = new Map(nouveau.lignes.map((l) => [cle(l), signe(l)]));
+  return ((ancien && ancien.lignes) || []).every((l) => !l || l.depuis > jour || nouvelles.get(cle(l)) === signe(l));
+}
+
+/** Des plafonds valides : montants positifs par jour et par mois, par defaut et par organisation. */
+export function verifierPlafonds(d) {
+  const r = () => refus('Ce ne sont pas des plafonds (format, montants par jour et par mois).');
+  const paire = (o) => o && Number.isFinite(o.jour) && o.jour >= 0 && Number.isFinite(o.mois) && o.mois >= 0;
+  if (!d || d.format !== 'plan-claude-plafonds' || !paire(d.defaut) || !d.organisations || typeof d.organisations !== 'object' || Array.isArray(d.organisations)) throw r();
+  for (const [id, o] of Object.entries(d.organisations)) if (!ID_VALIDE.test(id) || !paire(o)) throw r();
+  if (!(Number.isInteger(d.requetesParBatch) && d.requetesParBatch >= 1 && d.requetesParBatch <= 1000)) throw r();
+  if (!(Number.isFinite(d.estimationRequete) && d.estimationRequete >= 0)) throw r();
+  return d;
+}
+
+const STATUT_RESULTAT = { succeeded: 'reussi', errored: 'echoue', expired: 'expire', canceled: 'annule' };
+
+/** Ce qu'une ligne de resultats d'Anthropic devient : pour la page, et pour le journal. */
+export function lireResultat(ligne) {
+  const r = ligne && ligne.result ? ligne.result : {};
+  const statut = STATUT_RESULTAT[r.type] || 'echoue';
+  const message = r.type === 'succeeded' && r.message ? r.message : null;
+  const tokens = tokensDeUsage(message ? message.usage : null);
+  let sortie = null;
+  let erreur = null;
+  if (message) {
+    const bloc = (Array.isArray(message.content) ? message.content : []).find((b) => b && b.type === 'text');
+    if (message.stop_reason === 'refusal') erreur = { type: 'refusal', message: 'Analyse refusée par le modèle.' };
+    else if (message.stop_reason === 'max_tokens') erreur = { type: 'max_tokens', message: 'Réponse coupée (max_tokens).' };
+    else {
+      try { sortie = JSON.parse(bloc ? bloc.text : ''); } catch { erreur = { type: 'sortie_illisible', message: 'Sortie non JSON.' }; }
+    }
+  } else if (r.type === 'errored') {
+    const e = r.error && r.error.error ? r.error.error : r.error || {};
+    erreur = { type: String(e.type || 'erreur'), message: String(e.message || '').slice(0, 300) };
+  }
+  return { id: String(ligne && ligne.custom_id), statut, arret: message ? message.stop_reason ?? null : null, tokens, sortie, erreur };
+}
+
+// --- Le serveur -------------------------------------------------------------------------------
+
+/**
+ * @param {{
+ *   dossier: string,              dossier des donnees de l'admin (celui des demos)
+ *   actif: boolean,               l'admin existe (mot de passe configure)
+ *   sessionValide: (req: import('node:http').IncomingMessage) => boolean,
+ *   cle: string | undefined,      ANTHROPIC_API_KEY
+ *   anthropicUrl?: string,        pour les tests
+ *   deploy?: string,              ou lire le prompt, le schema et les tarifs livres
+ *   maintenant?: () => number
+ * }} options
+ */
+export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+  const dossierClaude = path.join(dossier, 'claude');
+  const dossierBatches = path.join(dossierClaude, 'batches');
+  const fTarifs = path.join(dossierClaude, 'tarifs.json');
+  const fPlafonds = path.join(dossierClaude, 'plafonds.json');
+  const avecCle = typeof cle === 'string' && cle.length > 0;
+
+  const iso = () => new Date(maintenant()).toISOString();
+  const lireJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
+
+  /** Ecriture atomique, version precedente gardee en `.bak` : jamais de demi-fichier. */
+  function ecrireJson(f, d) {
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    if (fs.existsSync(f)) fs.copyFileSync(f, f + '.bak');
+    const tmp = f + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(d, null, 2) + '\n');
+    fs.renameSync(tmp, f);
+  }
+
+  /** La table des tarifs : la premiere lecture pose celle livree avec Plan. */
+  function tarifs() {
+    const t = lireJson(fTarifs);
+    if (t) return t;
+    const livree = JSON.parse(fs.readFileSync(path.join(deploy, 'claude-tarifs.json'), 'utf8'));
+    ecrireJson(fTarifs, livree);
+    return livree;
+  }
+  const plafonds = () => lireJson(fPlafonds) || PLAFONDS_DEFAUT;
+
+  const fJournal = (t) => path.join(dossierClaude, 'journal-' + t.slice(0, 7) + '.jsonl');
+  /** Une ligne par appel, ajoutee d'un seul trait : le journal ne se reecrit jamais. */
+  function journaliser(lignes) {
+    if (!lignes.length) return;
+    fs.mkdirSync(dossierClaude, { recursive: true });
+    const parFichier = new Map();
+    for (const l of lignes) parFichier.set(fJournal(l.t), (parFichier.get(fJournal(l.t)) || '') + JSON.stringify(l) + '\n');
+    for (const [f, texte] of parFichier) fs.appendFileSync(f, texte);
+  }
+  function lireJournal(t) {
+    let texte = '';
+    try { texte = fs.readFileSync(fJournal(t), 'utf8'); } catch { return []; }
+    return texte.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } });
+  }
+
+  function promptEtSchema() {
+    const prompt = lirePrompt(fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8'));
+    const s = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-analyse.json'), 'utf8'));
+    return { prompt, schema: { version: s.version, schema: s.schema } };
+  }
+
+  async function anthropic(methode, chemin, corps) {
+    const r = await fetch(anthropicUrl.replace(/\/$/, '') + chemin, {
+      method: methode,
+      headers: { 'x-api-key': String(cle), 'anthropic-version': VERSION_API, ...(corps ? { 'content-type': 'application/json' } : {}) },
+      ...(corps ? { body: JSON.stringify(corps) } : {})
+    });
+    return { statut: r.status, texte: await r.text() };
+  }
+  const messageApi = (texte) => { try { return String(JSON.parse(texte).error.message); } catch { return texte.slice(0, 200); } };
+
+  const fBatch = (id) => path.join(dossierBatches, id + '.json');
+  const vueBatch = (b) => ({ id: b.id, etat: b.processing_status, compte: b.request_counts || null, creeLe: b.created_at || null, finLe: b.ended_at || null, expireLe: b.expires_at || null });
+
+  /** Les resultats d'un batch termine ; le journal les recoit une fois, a la premiere lecture. */
+  async function resultats(fiche) {
+    const r = await anthropic('GET', '/v1/messages/batches/' + encodeURIComponent(fiche.id) + '/results');
+    if (r.statut !== 200) return { erreur: r };
+    const lus = r.texte.split('\n').filter((l) => l.trim()).map((l) => lireResultat(JSON.parse(l)));
+    const t = typeof fiche.finLe === 'string' && !Number.isNaN(Date.parse(fiche.finLe)) ? new Date(fiche.finLe).toISOString() : iso();
+    const ligneTarif = tarifEnVigueur(tarifs(), fiche.modele, t.slice(0, 10));
+    const sortie = lus.map((x) => {
+      const req = fiche.requetes[x.id] || { passe: null, images: 0 };
+      return { ...x, passe: req.passe, cout: coutAppel(x.tokens, ligneTarif, true) };
+    });
+    if (!fiche.journalise) {
+      journaliser(sortie.map((x) => ({
+        t, organisation: fiche.organisation, projet: fiche.projet, idu: fiche.idu, adresse: fiche.adresse, audit: fiche.audit,
+        usage: fiche.usage, modele: fiche.modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
+        tokens: x.tokens, images: (fiche.requetes[x.id] || {}).images ?? 0, cout: x.cout, tarif: ligneTarif ? ligneTarif.depuis : null,
+        statut: x.statut, arret: x.arret, prompt: fiche.promptVersion, schema: fiche.schemaVersion
+      })));
+      ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });
+    }
+    return { sortie };
+  }
+
+  /** Les batches encore ouverts d'une organisation : ceux finis sont journalises, les autres comptes. */
+  async function engagements(organisation) {
+    let ouverts = 0;
+    let noms = [];
+    try { noms = fs.readdirSync(dossierBatches).filter((n) => n.endsWith('.json')); } catch { return 0; }
+    for (const n of noms) {
+      const fiche = lireJson(path.join(dossierBatches, n));
+      if (!fiche || fiche.journalise || fiche.organisation !== organisation) continue;
+      if (avecCle) {
+        try {
+          const r = await anthropic('GET', '/v1/messages/batches/' + encodeURIComponent(fiche.id));
+          const b = r.statut === 200 ? JSON.parse(r.texte) : null;
+          if (b && b.processing_status === 'ended') {
+            const fini = { ...fiche, finLe: b.ended_at || null };
+            if (!(await resultats(fini)).erreur) continue;
+          }
+        } catch { /* injoignable : le batch reste compte comme engage */ }
+      }
+      ouverts += Object.keys(fiche.requetes || {}).length;
+    }
+    return ouverts;
+  }
+
+  async function lireCorps(req, max) {
+    const morceaux = [];
+    let taille = 0;
+    for await (const m of req) {
+      taille += m.length;
+      if (taille > max) throw Object.assign(new Error('trop gros'), { statut: 413 });
+      morceaux.push(m);
+    }
+    const texte = Buffer.concat(morceaux).toString('utf8');
+    try { return JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+  }
+
+  /**
+   * Traite la requete si elle est pour l'analyse. Rend `false` sinon (demosAdmin.mjs continue).
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {URL} url
+   * @param {Record<string, string>} base
+   */
+  async function traiter(req, res, url, base) {
+    const m = /^\/admin\/claude(?:\/(.*))?$/.exec(url.pathname);
+    if (!m || !actif) return false;
+    const chemin = (m[1] || '').replace(/\/$/, '');
+    const json = (statut, corps) => {
+      res.writeHead(statut, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(req.method === 'HEAD' ? undefined : JSON.stringify(corps));
+      return true;
+    };
+    const erreur = (statut, code, message) => json(statut, { error: { code, message } });
+    const methode = req.method || 'GET';
+    const lecture = methode === 'GET' || methode === 'HEAD';
+    if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
+    if (!sessionValide(req)) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+    const sansCle = () => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : ANTHROPIC_API_KEY sur ce serveur (anthropicCle dans plan-admin-config.php pour Apache).');
+
+    try {
+      if (chemin === 'etat') {
+        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const { prompt, schema } = promptEtSchema();
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT });
+      }
+
+      if (chemin === 'tarifs' || chemin === 'plafonds') {
+        const f = chemin === 'tarifs' ? fTarifs : fPlafonds;
+        if (lecture) return json(200, chemin === 'tarifs' ? tarifs() : plafonds());
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const d = await lireCorps(req, 1024 * 1024);
+        if (chemin === 'tarifs') {
+          verifierTarifs(d);
+          if (!passeGarde(tarifs(), d, iso().slice(0, 10))) return erreur(409, 'PAST_PRICES', 'Un tarif passé ne se réécrit pas : ajoutez une ligne datée.');
+        } else verifierPlafonds(d);
+        ecrireJson(f, d);
+        return json(200, d);
+      }
+
+      if (chemin === 'batches') {
+        if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        if (!avecCle) return sansCle();
+        const p = plafonds();
+        const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p);
+        const organisation = 'admin';
+        const t = iso();
+        const identite = { organisation, projet: demande.projet ?? 'admin', idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
+        const { prompt, schema } = promptEtSchema();
+        const images = demande.requetes.reduce((s, r) => s + r.images, 0);
+        const ligneVide = (statut, extra) => ({ t, ...identite, idBatch: null, requete: null, passe: null, tokens: tokensDeUsage(null), images, cout: 0, tarif: null, statut, arret: null, prompt: prompt.version, schema: schema.version, ...extra });
+
+        // Les plafonds : ce qui est depense, plus ce qui est engage dans les batches ouverts, plus
+        // une estimation de celui-ci. Un batch se paie a la fin : sans l'engage, dix batches lances
+        // d'un coup passeraient tous sous le plafond.
+        const ouverts = await engagements(organisation);
+        const fait = depenses(lireJournal(t), organisation, t.slice(0, 10));
+        const engage = (ouverts + demande.requetes.length) * p.estimationRequete;
+        const plafond = plafondDe(p, organisation);
+        if (fait.jour + engage > plafond.jour || fait.mois + engage > plafond.mois) {
+          journaliser([ligneVide('plafond', {})]);
+          return json(429, { error: { code: 'BUDGET_EXCEEDED', message: 'Plafond de l’analyse atteint pour aujourd’hui ou ce mois-ci.' }, depense: fait, engage, plafond });
+        }
+
+        const corps = { requests: demande.requetes.map((r) => ({ custom_id: r.id, params: parametresRequete(demande.modele, prompt.texte, schema.schema, r.contenu) })) };
+        let r;
+        try { r = await anthropic('POST', '/v1/messages/batches', corps); } catch (e) {
+          journaliser([ligneVide('echoue', { erreur: 'reseau' })]);
+          return erreur(502, 'UPSTREAM', 'Anthropic injoignable : ' + String(e && e.message || e).slice(0, 120));
+        }
+        if (r.statut < 200 || r.statut >= 300) {
+          journaliser([ligneVide('echoue', { erreur: 'http-' + r.statut })]);
+          return erreur(502, 'UPSTREAM', 'Anthropic a refusé le batch (' + r.statut + ') : ' + messageApi(r.texte));
+        }
+        const b = JSON.parse(r.texte);
+        if (!b || typeof b.id !== 'string' || !ID_BATCH.test(b.id)) return erreur(502, 'UPSTREAM', 'Réponse d’Anthropic illisible.');
+        ecrireJson(fBatch(b.id), {
+          id: b.id, creeLe: t, ...identite, promptVersion: prompt.version, schemaVersion: schema.version,
+          requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images }])), etat: b.processing_status, journalise: false
+        });
+        return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version });
+      }
+
+      const mb = /^batches\/([^/]+)(\/resultats)?$/.exec(chemin);
+      if (mb) {
+        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const id = decodeURIComponent(mb[1] || '');
+        // Seuls les batches crees par ce serveur se lisent : la cle ne sert pas a fouiller le compte.
+        const fiche = ID_BATCH.test(id) ? lireJson(fBatch(id)) : null;
+        if (!fiche) return erreur(404, 'NOT_FOUND', 'Aucun batch « ' + id + ' ».');
+        if (!avecCle) return sansCle();
+        const r = await anthropic('GET', '/v1/messages/batches/' + encodeURIComponent(id));
+        if (r.statut !== 200) return erreur(502, 'UPSTREAM', 'Anthropic : ' + r.statut + ' ' + messageApi(r.texte));
+        const b = JSON.parse(r.texte);
+        if (!mb[2]) {
+          if (fiche.etat !== b.processing_status) ecrireJson(fBatch(id), { ...fiche, etat: b.processing_status });
+          return json(200, vueBatch(b));
+        }
+        if (b.processing_status !== 'ended') return erreur(409, 'NOT_READY', 'Le batch n’est pas terminé (' + b.processing_status + ').');
+        const lu = await resultats({ ...fiche, finLe: b.ended_at || null });
+        if (lu.erreur) return erreur(502, 'UPSTREAM', 'Anthropic : ' + lu.erreur.statut + ' ' + messageApi(lu.erreur.texte));
+        return json(200, { batch: vueBatch(b), modele: fiche.modele, prompt: fiche.promptVersion, schema: fiche.schemaVersion, resultats: lu.sortie });
+      }
+      return erreur(404, 'NOT_FOUND', 'Introuvable');
+    } catch (e) {
+      if (e && e.statut === 413) return erreur(413, 'TOO_LARGE', 'Demande trop grosse (48 Mo au plus).');
+      if (e && e.statut === 400) return erreur(400, 'BAD_REQUEST', e.message);
+      console.error('Plan analyse :', e);
+      return erreur(500, 'SERVER_ERROR', 'Erreur du serveur.');
+    }
+  }
+
+  return { actif: actif && avecCle, traiter };
+}

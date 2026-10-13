@@ -173,6 +173,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
         <ChoixMur
           bat={bat}
           facades={facades}
+          position={releve.position}
+          obstacles={releve.obstacles}
           onChoisir={(c) => {
             setCote(c);
             setEtape('methode');

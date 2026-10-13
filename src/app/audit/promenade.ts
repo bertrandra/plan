@@ -30,6 +30,7 @@ export interface Completion {
 }
 
 export interface Promenade {
+  /** Le debut de la promenade ; celui d'un audit repris (brouillon local) quand on le reprend. */
   readonly debut: Date;
   estMarque(cle: string): boolean;
   cas(cle: string): CasAudit | undefined;
@@ -41,21 +42,37 @@ export interface Promenade {
   fichier(meta: Omit<MetaPromenade, 'debut' | 'fin'>): FichierPromenade;
   /** Les lectures du reseau encore en cours (grilles, adresses) : a attendre avant de partager. */
   enCours(): Promise<void>;
+  /**
+   * Reprend un audit laisse en cours (le brouillon local, io/brouillonAudit.ts) : son debut, et ses
+   * cas avant ceux deja notes ici. Un batiment note des deux cotes garde le cas repris.
+   */
+  reprendre(debut: Date, cas: readonly CasAudit[]): void;
+  /**
+   * Relance la grille et l'adresse des cas qui ne les ont pas (un audit repris : l'onglet a pu etre
+   * tue avant leur arrivee), une fois par cas, quand leur batiment est de nouveau dans le plan.
+   */
+  relireManquants(present: (cle: string) => boolean): void;
   abonner(f: () => void): () => void;
 }
 
 export function creerPromenade(d: DependancesPromenade): Promenade {
   const maintenant = d.maintenant ?? (() => new Date());
-  const debut = maintenant();
-  const cas = new Map<string, CasAudit>();
+  let debut = maintenant();
+  let cas = new Map<string, CasAudit>();
+  const relus = new Set<string>();
   const abonnes = new Set<() => void>();
   const lectures = new Set<Promise<unknown>>();
   let numero = 0;
   const signaler = () => abonnes.forEach((f) => f());
   const suivre = (p: Promise<unknown>) => { lectures.add(p); void p.finally(() => lectures.delete(p)); };
+  /** La grille et l'adresse arrivent ensuite ; un cas retire entre-temps n'est pas ressuscite. */
+  function lire(cle: string, c: CasAudit, quoi: { grille: boolean; adresse: boolean }): void {
+    if (quoi.grille && d.lireGrille) suivre(d.lireGrille(cle).then((g) => { if (cas.get(cle) === c && g) { c.entrees.grille = g; signaler(); } }).catch(() => {}));
+    if (quoi.adresse && d.adresse) suivre(d.adresse(cle).then((a) => { if (cas.get(cle) === c && a) { c.identite.adresse = a; signaler(); } }).catch(() => {}));
+  }
 
   return {
-    debut,
+    get debut() { return debut; },
     estMarque: (cle) => cas.has(cle),
     cas: (cle) => cas.get(cle),
     liste: () => [...cas.values()],
@@ -71,9 +88,8 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
         ...fige, attendu: null, historique: [{ t, texte: 'marqué sur le terrain' }],
       };
       cas.set(cle, c);
-      // La grille et l'adresse arrivent ensuite ; un cas retire entre-temps n'est pas ressuscite.
-      if (d.lireGrille) suivre(d.lireGrille(cle).then((g) => { if (cas.get(cle) === c) { c.entrees.grille = g; signaler(); } }).catch(() => {}));
-      if (d.adresse) suivre(d.adresse(cle).then((a) => { if (cas.get(cle) === c) { c.identite.adresse = a; signaler(); } }).catch(() => {}));
+      relus.add(cle);
+      lire(cle, c, { grille: true, adresse: true });
       signaler();
       return c;
     },
@@ -92,6 +108,28 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
       return fichierPromenade({ ...meta, debut: debut.toISOString(), fin: maintenant().toISOString() }, [...cas.values()]);
     },
     async enCours() { await Promise.allSettled([...lectures]); },
+    reprendre(debutRepris, repris) {
+      const suite = new Map<string, CasAudit>(repris.map((c) => [c.cle, c]));
+      for (const [cle, c] of cas) if (!suite.has(cle)) suite.set(cle, c);
+      cas = suite;
+      debut = debutRepris;
+      // Les numeros reprennent apres le plus grand : deux cas ne portent jamais le meme identifiant.
+      const vus = new Set<string>();
+      for (const c of cas.values()) {
+        const n = /^c(\d+)$/.exec(c.id);
+        if (n) numero = Math.max(numero, Number(n[1]));
+      }
+      for (const c of cas.values()) { if (vus.has(c.id)) c.id = 'c' + ++numero; vus.add(c.id); }
+      signaler();
+    },
+    relireManquants(present) {
+      for (const [cle, c] of cas) {
+        if (relus.has(cle) || !present(cle)) continue;
+        const quoi = { grille: !c.entrees.grille, adresse: !c.identite.adresse };
+        relus.add(cle);
+        if (quoi.grille || quoi.adresse) lire(cle, c, quoi);
+      }
+    },
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };
 }

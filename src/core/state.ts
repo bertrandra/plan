@@ -66,7 +66,7 @@ export interface EtatApp {
   /** La position GPS de l'appareil est suivie et montree dans la Vue 3D (menu Affichage) : jamais enregistree. */
   positionGps: boolean;
   /** Le mode audit (app/audit/), ou null hors audit : ce que la barre de la Vue 3D en montre. */
-  audit: { statut: string; cas: number; suivre: boolean } | null;
+  audit: { statut: string; cas: number; suivre: boolean; facade: string | null } | null;
   grilleVisible: boolean;
   voisinageVisible: boolean;
 

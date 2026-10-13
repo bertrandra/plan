@@ -66,5 +66,10 @@ export function brancherAudit(a: AtelierAudit, demande: DemandeAudit): Controleu
   brancherHote();
   // Une scene batie (la premiere, ou apres une lecture autour de vous) : la camera reprend le suivi.
   abonnerSceneBatie(() => { brancherHote(); c.sceneBatie(); });
+  // L'ecran qui se verrouille, l'onglet mis en arriere-plan ou ferme : le brouillon s'ecrit sans
+  // attendre son delai, le systeme peut tuer l'onglet juste apres (spec §10).
+  const ecrire = () => { void c.ecrireBrouillon(); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') ecrire(); });
+  window.addEventListener('pagehide', ecrire);
   return c;
 }
