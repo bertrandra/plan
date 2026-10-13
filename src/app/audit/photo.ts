@@ -1,4 +1,4 @@
-// La photo jointe a un cas (MD/spec-audit.md §5.1) : prise avec l'appareil, reduite a 1 280 px de
+// La photo jointe a un cas (MD/spec-audit.md §5) : prise avec l'appareil, reduite a 1 280 px de
 // large en JPEG, environ 300 Ko, puis gardee en base64 dans le fichier de la promenade.
 
 import type { PhotoCas } from '../../model/audit.js';

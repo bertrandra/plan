@@ -1,4 +1,4 @@
-// L'etat d'une promenade d'audit (MD/spec-audit.md §4.4 a §4.6) : les batiments marques et ce qu'on
+// L'etat d'une promenade d'audit (MD/spec-audit.md §18.3 a §18.5) : les batiments marques et ce qu'on
 // en a dit. Aucun DOM ici : le controleur (app/audit/controleur.ts) branche le doigt, la Vue 3D et
 // le partage.
 //

@@ -409,6 +409,13 @@ poignées posées au doigt, 4,99 m pour 5,00 et 3,00 m pour 3,00.
 
 ## 7. Les ouvertures (`facade/detection.ts`)
 
+> **Évolution prévue** (13 octobre 2026) : l'audit devient le moteur des façades. Le calage des photos
+> (§5, §6) et la détection des ouvertures ci-dessous sont repris et améliorés dans
+> [`spec-facades-calage-detection.md`](spec-facades-calage-detection.md). On y trouve les coins trouvés
+> par les points de fuite, la fusion de plusieurs vues, la teinte locale, les profils de contours, la
+> structure en niveaux et travées, le renfort de Claude et un banc de mesure. Ce paragraphe décrit la
+> méthode d'aujourd'hui.
+
 Un mur est une grande surface à peu près uniforme ; une baie s'en détache.
 
 1. Réduction à 20 px/m (5 cm).
