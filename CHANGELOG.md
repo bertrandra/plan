@@ -527,6 +527,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Détection des ouvertures : les candidats** (lot L14 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §9). L'écart à une seule teinte de mur ne suffisait pas : un
+  soubassement en pierre, l'ombre du débord, des volets battants, la brique ou la meulière faisaient
+  manquer des baies ou en inventaient. Sur le banc des façades, chaîne du relevé : rappel de 71 à
+  90 %, précision de 84 à 93 %, corrections de 3,2 à 1,9 par façade ; les images d'origine restent
+  justes au centimètre.
+  - **Fond local** (`facade/detectionFond.ts`) : les objets nets mis de côté, un fond de rang (une
+    bande de 50 cm sur toute la largeur : soubassement, bandeau, ombre du débord deviennent le fond de
+    leur rang), puis un fond local par médiane glissante sur 1,5 m de large ; le seuil
+    `max(28, 3 × écart médian)` se calcule zone par zone, et l'écart de teinte seule (chromaticité) a
+    le sien, pour la pierre dont le grain relève le seuil.
+  - **Filtre d'ombre** : un pixel plus sombre que son fond, de même chromaticité, n'est pas une baie ;
+    une tache qui n'est qu'ombre n'est gardée que si ses tableaux sont des arêtes franches.
+  - **Profils de contours** (`facade/detectionIndices.ts`) : soutien des arêtes sur les quatre côtés,
+    baie séparée de ses volets battants par le profil de ses colonnes, affinage des bords sur le profil
+    quand l'écart au fond ne dit rien.
+  - **Fusion des indices et confiance** : une tache est gardée si elle remplit sa boîte, ou si ses
+    quatre arêtes sont nettes ; sous 0,4 m², il faut les arêtes. La confiance de chaque ouverture
+    combine remplissage, rectangularité, soutien des arêtes et part vue sur la photo.
+  - **Réglages nommés** (`facade/reglagesDetection.ts`) : les filtres de taille et les seuils
+    deviennent `facades.detection.*`, chacun avec sa raison, surchargeables pour le banc.
+
 - **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
   le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.
 
