@@ -7,6 +7,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Serveur de l'analyse par Claude** (lot L16, `MD/spec-audit.md` §13.2 et §13.3, aucun écran).
+  `deploy/analyse.php`, à côté d'`admin.php`, et son équivalent Node pour le serveur SiteGround
+  (`buildsg/analyseAdmin.mjs`) relaient l'API Message Batches d'Anthropic sous `admin/claude/…`,
+  pour l'administrateur seulement pour l'instant :
+  - créer un batch (Claude Haiku 5.5, Claude Sonnet 5.5 en escalade), suivre son état, lire ses
+    résultats ;
+  - la clé (`anthropicCle`, ou `ANTHROPIC_API_KEY` sous Node) ne quitte jamais le serveur, et la
+    page n'envoie que les images et le texte de la maison : le prompt, le schéma de sortie et
+    l'effort sont fixés par le serveur ;
+  - plafonds par organisation, par jour et par mois, qui comptent aussi les batches encore en
+    cours (`claude/plafonds.json`) ;
+  - une ligne de journal par appel (`claude/journal-AAAA-MM.jsonl`) : parcelle, modèle, usage,
+    passe, tokens renvoyés par l'API, nombre d'images, coût et statut, sans photo ni réponse ;
+  - table des tarifs datée (`claude/tarifs.json`), posée au premier usage depuis
+    `deploy/claude-tarifs.json`, prix vérifiés sur la page officielle le 13 octobre 2026 ; un tarif
+    passé ne se réécrit pas.
+
+  Le prompt « béton » (version 0, `deploy/prompt-analyse.md`) et son schéma de sortie structurée
+  (`deploy/schema-analyse.json`) sont versionnés, et leurs versions suivent chaque ligne du journal.
+
 - **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
   La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
   « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :

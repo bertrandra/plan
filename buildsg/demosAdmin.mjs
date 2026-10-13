@@ -291,7 +291,8 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
     }
   }
 
-  return { actif, traiter };
+  // La session se partage avec l'analyse par Claude (analyseAdmin.mjs) : un seul mot de passe.
+  return { actif, traiter, sessionValide };
 }
 
 /** Un document de demo : le format de l'export, `{meta, objects, measures}`, avec au moins des objets. */
