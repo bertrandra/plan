@@ -6,7 +6,7 @@ specs :
 - [`spec-facades-calage-detection.md`](spec-facades-calage-detection.md) : le moteur des façades ;
 - [`spec-regles-toits.md`](spec-regles-toits.md) : faits, réglages, corpus, formes.
 
-Il les découpe en **lots**, un lot par PR, chacun livrable seul, dans l'ordre des dépendances. Les
+Il les découpe en **lots** (22, avec L16 bis), un lot par PR, chacun livrable seul, dans l'ordre des dépendances. Les
 renvois `A§`, `F§` et `T§` désignent ces trois specs.
 
 ---
@@ -49,7 +49,7 @@ quelques décisions **bloquent** un lot.
 
 | # | Question | Défaut retenu | Bloque |
 |---|---|---|---|
-| D1 | Où vit l'appel à Claude, et qui le paie | un `deploy/analyse.php` à côté de `admin.php`, clé dans la configuration hors du dossier publié ; d'abord pour l'administrateur, puis pour les utilisateurs authentifiés par leur jeton de la plateforme, avec un plafond par organisation et par jour | **L17** pour les utilisateurs (pas pour l'admin) |
+| D1 | Où vit l'appel à Claude, et qui le paie | un `deploy/analyse.php` à côté de `admin.php`, clé dans la configuration hors du dossier publié ; **journal, tarifs et plafonds en JSON sur le serveur de Plan**, avec les autres données de l'admin (décision de l'utilisateur, 13 octobre) ; d'abord pour l'administrateur, puis pour les utilisateurs authentifiés par leur jeton de la plateforme, avec un plafond par organisation et par jour | **L17** pour les utilisateurs (pas pour l'admin) |
 | D2 | Accord pour envoyer les photos à l'analyse (A§25 q12) | une fois par projet, rappelé au lancement, révocable | **L17** |
 | D3 | Batch ou réponse immédiate (A§25 q13) | batch ; « Analyser tout de suite » au tarif normal | — |
 | D4 | Couleur sur photo automatique ou au toucher (A§25 q5) | automatique, toucher si la lecture échoue | — |
@@ -136,7 +136,8 @@ Chaque lot montre le banc avant et après.
 
 | Lot | Contenu | Spec | Taille | Dépend de | Preuve |
 |---|---|---|---|---|---|
-| **L16** | **Le serveur** : `deploy/analyse.php` (création du batch, suivi, résultats), clé et plafonds dans la configuration, session admin d'abord, journal des coûts ; prompt et schéma versionnés | A§13.2, T§14.3 | M | — | tests du proxy sur une réponse simulée ; un batch réel en admin |
+| **L16** | **Le serveur** : `deploy/analyse.php` (création du batch, suivi, résultats), clé et plafonds dans la configuration, session admin d'abord, **journal de chaque appel** (parcelle, modèle, usage, tokens, coût), table des tarifs datée et plafonds, en JSON sur le serveur de Plan ; prompt et schéma versionnés | A§13.2, A§13.3, T§14.3 | M | — | tests du proxy sur une réponse simulée ; un batch réel en admin |
+| **L16 bis** | **Tableau de bord de la consommation** : Admin › Consommation Claude ; tokens et coût dans le temps par modèle, par parcelle, par usage, par organisation ; chiffres clés, alertes, export CSV ; réglage des tarifs et des plafonds (routes `admin/claude/…`) (skill `dataviz` pour les graphiques) | A§13.3 | M | L16 | coûts identiques à ceux de la console Anthropic sur un mois d'essai ; fumée dans les trois classes et les deux thèmes |
 | **L17** | **Le client** : entrées préparées (photos réduites, rendu du modèle depuis la même prise de vue, orthophoto, carte LiDAR, indices), trois passes et un vote, propositions `source: 'claude'` avec indices, notification, accord de l'utilisateur ; puis ouverture aux utilisateurs authentifiés | A§13.2, T§14 | L | L11, L16, **D1, D2** | une parcelle réelle analysée ; taux d'accord mesuré sur vos validations |
 | **L18** | **Renfort du calage et de la détection** : appelé sur signal ; coins et ouvertures en graines, recalés sur l'image, origine marquée | F§12 bis | M | L15, L17 | banc : algorithme seul, puis avec Claude |
 
@@ -171,6 +172,7 @@ J2         └──► L9 ──► L11 ──► L12        L10 (indépendant)
 J3  L7 ──► L13 ──► L14 ──► L15
                         │
 J4  L16 (indépendant) ──► L17 ──► L18
+     └──► L16 bis
                         │
 J5  L19 (dès L1) ──► L20          L21 (après L11)
 ```
@@ -207,7 +209,7 @@ J5  L19 (dès L1) ──► L20          L21 (après L11)
 | Calculs lourds sur téléphone (segments sur une photo de 2 400 px) | worker, régulateur de charge (`app/regulateur.ts`), calcul pendant la prise de la façade suivante |
 | Brouillon trop gros pour le navigateur, ou effacé par le système | photos réduites, élévations en JPEG, alerte de place ; reprise testée (L4) |
 | Focale EXIF retirée par iOS | focale par modèle d'appareil apprise, sinon valeur par défaut annoncée « estimée » (L1) |
-| Coût de Claude qui dérape | plafonds par organisation et par jour dans `analyse.php`, journal des coûts, appel sur signal seulement après les premiers audits (L16, L18) |
+| Coût de Claude qui dérape | plafonds par organisation et par jour dans `analyse.php`, journal des coûts, tableau de bord avec alertes, appel sur signal seulement après les premiers audits (L16, L16 bis, L18) |
 | Photos privées qui partent sans accord | accord explicite (D2), rien sans réseau ni sans accord, partage pour le corpus séparé (D7) |
 | Une règle de toit qui casse un bâtiment validé | « vérifié sur place » protégé (L12), corpus en CI (L19) |
 | Rendu 3D hors écran trop gourmand sur mobile | rendu à 1 024 px, une prise de vue à la fois, libéré aussitôt |
