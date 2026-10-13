@@ -14,6 +14,73 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
   Les lots L17 et L19 sont débloqués.
 
+- **Cheminées et toits-terrasses dans les corps de toit, et en Vue 3D** (lot L10 de
+  `MD/plan-mise-en-oeuvre-audit.md`, `MD/spec-regles-toits.md` §2.6, §2.7, §4). Un corps
+  (`CorpsToit`) peut porter des souches (`cheminees` : centre, section, hauteur du débouché au-dessus
+  du sol, position faîtage, pan, pignon ou façade, conduits, matériau, couronnement, source) et, s'il
+  est plat, sa toiture-terrasse (`terrasse` : accessible, revêtement, acrotère, garde-corps,
+  édicules, source). Les deux champs sont facultatifs : un fichier ancien garde son sens, et
+  l'enregistrement les écrit tels quels (une liste vide de cheminées ne s'écrit pas).
+  - En 3D (`three/cheminees3d.ts`) : la souche part du pan, le pied de chaque face à la hauteur du
+    toit sous ses coins ; au faîtage, elle est centrée sur sa ligne ; dans un pignon, au nu du mur
+    de bout ; adossée, elle monte du sol jusqu'à son sommet, contre le mur extérieur le plus proche.
+    En haut, une dalle de couronnement qui déborde de 5 cm, et des mitrons, un par conduit, quand
+    ils ont été vus. Couleur du matériau (brique, pierre, métal), sinon celle des murs.
+  - En 3D (`three/terrasse3d.ts`) : l'acrotère en liseré sur les façades seulement (pas contre un
+    autre corps), coupé d'onglet aux angles ; les édicules, de la terrasse à leur sommet, à toit plat
+    en gravillons.
+  - L'inspecteur le dit après le corps : « 2 cheminées », « terrasse accessible, acrotère de
+    0,60 m, un édicule ».
+  - Ces données ne viennent que d'une observation : aucune détection LiDAR, aucun bâtiment existant
+    ne change (AE 101 identique, empreintes inchangées, GLB de la démonstration identique).
+
+- **Serveur de l'analyse par Claude** (lot L16, `MD/spec-audit.md` §13.2 et §13.3, aucun écran).
+  `deploy/analyse.php`, à côté d'`admin.php`, et son équivalent Node pour le serveur SiteGround
+  (`buildsg/analyseAdmin.mjs`) relaient l'API Message Batches d'Anthropic sous `admin/claude/…`,
+  pour l'administrateur seulement pour l'instant :
+  - créer un batch (Claude Haiku 5.5, Claude Sonnet 5.5 en escalade), suivre son état, lire ses
+    résultats ;
+  - la clé (`anthropicCle`, ou `ANTHROPIC_API_KEY` sous Node) ne quitte jamais le serveur, et la
+    page n'envoie que les images et le texte de la maison : le prompt, le schéma de sortie et
+    l'effort sont fixés par le serveur ;
+  - plafonds par organisation, par jour et par mois, qui comptent aussi les batches encore en
+    cours (`claude/plafonds.json`) ;
+  - une ligne de journal par appel (`claude/journal-AAAA-MM.jsonl`) : parcelle, modèle, usage,
+    passe, tokens renvoyés par l'API, nombre d'images, coût et statut, sans photo ni réponse ;
+  - table des tarifs datée (`claude/tarifs.json`), posée au premier usage depuis
+    `deploy/claude-tarifs.json`, prix vérifiés sur la page officielle le 13 octobre 2026 ; un tarif
+    passé ne se réécrit pas.
+
+  Le prompt « béton » (version 0, `deploy/prompt-analyse.md`) et son schéma de sortie structurée
+  (`deploy/schema-analyse.json`) sont versionnés, et leurs versions suivent chaque ligne du journal.
+
+- **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
+  La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
+  « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :
+  - la **focale équivalente 24×36 et le modèle d'appareil**, lus dans l'EXIF avant la réduction
+    qui l'efface. Si l'EXIF n'a pas de focale, Plan reprend celle déjà lue pour ce modèle sur ce
+    navigateur ; sinon il retient le champ par défaut du relevé (67°), annoncé « estimé » ;
+  - l'**inclinaison** de la visée et le **roulis** de l'image, lus sur l'orientation du téléphone
+    au retour de l'appareil photo.
+
+  Le fichier de la promenade passe en **version 2** (`constat.photos[]`). Un fichier de version 1 se
+  relit tel quel : sa photo unique devient la première de la liste (`lireFichierPromenade`).
+
+- **Banc de façades** (lot L5 du plan de mise en œuvre, `MD/spec-facades-calage-detection.md`
+  §14). Il est monté avant toute modification de la détection des ouvertures, qui ne change pas :
+  - un générateur de façades de synthèse difficiles (`tests/banc/facades/`) : brique, soubassement
+    en pierre, meulière, ombres de débord, de balcon et d'arbre, volets battants, coffres et tabliers
+    de volets roulants, voiture ou haie devant, prise de biais, focale inconnue ;
+  - un corpus de douze scènes (`tests/fixtures/facades/`), dont la vérité donne les ouvertures et
+    les coins. Les deux images des tests d'origine en font partie et restent justes à 1 ou 2 cm ;
+  - un script de mesure (`npx tsx .claude/skills/facades/scripts/banc.ts`). Il rejoue
+    `facade/detection.ts` et `facade/analyse.ts` tels qu'ils sont, et mesure la précision, le
+    rappel (recouvrement de plus de 50 %), l'erreur médiane des cotes, les corrections par façade et
+    l'erreur des coins proposés ;
+  - le skill `facades`, qui dit comment lancer le banc et lire son tableau. Il donne les chiffres
+    de départ : rappel 65 %, précision 78 %, cotes à 1 cm, 4,2 corrections par façade, aucun coin
+    proposé à moins de 10 cm.
+
 - **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
   `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût
   calculé avec une table des tarifs datée. Journal, tarifs et plafonds sont des JSON stockés sur le

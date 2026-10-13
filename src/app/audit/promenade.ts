@@ -5,7 +5,7 @@
 // Marquer est immediat (le batiment passe en rouge sous le doigt) ; ce qui vient du reseau — la
 // grille LiDAR relue, l'adresse — complete le cas ensuite, sans rien bloquer.
 
-import { fichierPromenade, type CasAudit, type CategorieAudit, type FichierPromenade, type MetaPromenade, type PhotoCas } from '../../model/audit.js';
+import { fichierPromenade, PHOTOS_PAR_CAS_MAX, type CasAudit, type CategorieAudit, type FichierPromenade, type MetaPromenade, type PhotoCas } from '../../model/audit.js';
 import type { GrilleRelief } from '../../model/relief.js';
 import type { PtBrut } from '../../model/types.js';
 
@@ -23,7 +23,10 @@ export interface Completion {
   categorie?: CategorieAudit;
   problemes?: string[];
   note?: string;
-  photo?: PhotoCas | null;
+  /** Une photo de plus, a la suite des autres ; au-dela de six, elle est ignoree. */
+  ajouterPhoto?: PhotoCas;
+  /** Retire la photo de ce rang. */
+  retirerPhoto?: number;
 }
 
 export interface Promenade {
@@ -64,7 +67,7 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
       const t = maintenant().toISOString();
       const c: CasAudit = {
         id: 'c' + ++numero, cle, statut: 'a_corriger',
-        constat: { categorie: 'toit', problemes: [], note: '', t, position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10, precisionM } },
+        constat: { categorie: 'toit', problemes: [], note: '', t, position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10, precisionM }, photos: [] },
         ...fige, attendu: null, historique: [{ t, texte: 'marqué sur le terrain' }],
       };
       cas.set(cle, c);
@@ -81,8 +84,8 @@ export function creerPromenade(d: DependancesPromenade): Promenade {
       if (x.categorie) c.constat.categorie = x.categorie;
       if (x.problemes) c.constat.problemes = [...new Set(x.problemes)];
       if (x.note !== undefined) c.constat.note = x.note;
-      if (x.photo === null) delete c.constat.photo;
-      else if (x.photo) c.constat.photo = x.photo;
+      if (x.retirerPhoto !== undefined) c.constat.photos = c.constat.photos.filter((_, i) => i !== x.retirerPhoto);
+      if (x.ajouterPhoto && c.constat.photos.length < PHOTOS_PAR_CAS_MAX) c.constat.photos = [...c.constat.photos, x.ajouterPhoto];
       signaler();
     },
     fichier(meta) {

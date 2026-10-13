@@ -1,10 +1,10 @@
 // Z8, la fiche d'un batiment marque en mode audit (MD/spec-audit.md §8.2) : la categorie, les
-// problemes a cocher, une note, une photo. Tout s'ecrit dans la promenade a chaque geste
+// problemes a cocher, une note, jusqu'a six photos (§5), chacune avec ce que l'on sait de sa prise. Tout s'ecrit dans la promenade a chaque geste
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
 import { useEffect, useReducer, useState } from 'react';
-import { CATEGORIES_AUDIT, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit, type PrisePhoto } from '../../model/audit.js';
-import { reduirePhoto } from '../../app/audit/photo.js';
+import { CATEGORIES_AUDIT, PHOTOS_PAR_CAS_MAX, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit, type PrisePhoto } from '../../model/audit.js';
+import { preparerPhoto } from '../../app/audit/photo.js';
 import type { Promenade } from '../../app/audit/promenade.js';
 
 interface Props { promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; fermer: () => void }
@@ -28,6 +28,27 @@ export function textePrise(p: PrisePhoto): string {
   if (p.azimutDeg === null) return ou + ', sans direction (pas de boussole)';
   const nom = POINTS_CARDINAUX[Math.round(p.azimutDeg / 22.5) % 16];
   return ou + ', vers ' + p.azimutDeg + '° (' + nom + ')' + (p.sourceAzimut === 'deplacement' ? ', sens de la marche' : ', boussole');
+}
+
+/**
+ * « Objectif 26 mm (69°), lu dans la photo · visée 4° vers le haut, penchée de 3° à droite » : ce que
+ * la fiche dit de l'optique et de l'attitude. Vide pour une photo de version 1, qui ne les a pas.
+ */
+export function texteOptique(p: PrisePhoto): string {
+  const morceaux: string[] = [];
+  if (p.sourceFocale && p.focale35 && p.champDeg) {
+    const objectif = 'Objectif ' + Math.round(p.focale35) + ' mm (' + Math.round(p.champDeg) + '°)';
+    if (p.sourceFocale === 'exif') morceaux.push(objectif + ', lu dans la photo');
+    else if (p.sourceFocale === 'appareil') morceaux.push(objectif + ', retenu pour ' + (p.modeleAppareil ?? 'ce téléphone'));
+    else morceaux.push('Champ estimé à ' + Math.round(p.champDeg) + '° (focale inconnue)');
+  }
+  if (typeof p.inclinaisonDeg === 'number') {
+    const i = p.inclinaisonDeg;
+    let visee = Math.abs(i) <= 1 ? 'visée d’aplomb' : 'visée ' + Math.abs(i) + '° vers le ' + (i > 0 ? 'haut' : 'bas');
+    if (typeof p.roulisDeg === 'number' && Math.abs(p.roulisDeg) >= 2) visee += ', penchée de ' + Math.abs(p.roulisDeg) + '° à ' + (p.roulisDeg > 0 ? 'droite' : 'gauche');
+    morceaux.push(visee);
+  }
+  return morceaux.join(' · ');
 }
 
 export function AuditCas({ promenade, cle, retirer, prise, fermer }: Props) {
@@ -56,11 +77,11 @@ export function AuditCas({ promenade, cle, retirer, prise, fermer }: Props) {
   };
   const prendrePhoto = (fichier: File | undefined) => {
     if (!fichier) return;
-    // La position et le cap au retour de l'appareil photo : la ou vous etes, vers ou vous visez.
+    // La position, le cap et l'attitude au retour de l'appareil photo : la ou vous etes, vers ou vous visez.
     const ou = prise();
     setPhotoEnCours(true);
     setErreurPhoto('');
-    void reduirePhoto(fichier).then((photo) => promenade.completer(cle, { photo: ou ? { ...photo, prise: ou } : photo }))
+    void preparerPhoto(fichier, ou).then((photo) => promenade.completer(cle, { ajouterPhoto: photo }))
       .catch(() => setErreurPhoto('Cette image n’a pas pu être lue. Réessayez avec une autre photo.'))
       .finally(() => setPhotoEnCours(false));
   };
@@ -86,17 +107,27 @@ export function AuditCas({ promenade, cle, retirer, prise, fermer }: Props) {
       <textarea id="auditNote" className="noteAudit" data-controle="audit.note" value={constat.note}
         placeholder="Ce que vous voyez : « faîtage parallèle à la rue », « deux maisons accolées »…"
         onChange={(e) => promenade.completer(cle, { note: e.target.value })} />
-      <div className="libelleChamp">Photo</div>
+      <div className="libelleChamp">{'Photos' + (constat.photos.length ? ' (' + constat.photos.length + ' sur ' + PHOTOS_PAR_CAS_MAX + ')' : '')}</div>
+      {constat.photos.length > 0 && <ul className="photosAudit" aria-label="Photos du bâtiment">
+        {constat.photos.map((ph, i) => (
+          <li key={i + ':' + ph.base64.length}>
+            <img src={'data:image/jpeg;base64,' + ph.base64} alt={'Photo ' + (i + 1) + ' de ' + titreCas(c)} />
+            {ph.prise && <div className="detailPhoto">{textePrise(ph.prise)}</div>}
+            {ph.prise && texteOptique(ph.prise) && <div className="detailPhoto">{texteOptique(ph.prise)}</div>}
+            <button type="button" className="secondary small" data-controle="audit.retirerPhoto" aria-label={'Retirer la photo ' + (i + 1)}
+              onClick={() => promenade.completer(cle, { retirerPhoto: i })}>Retirer</button>
+          </li>
+        ))}
+      </ul>}
       <div className="photoAudit">
-        <label className="boutonFichier">
-          <input type="file" accept="image/*" capture="environment" data-controle="audit.photo" disabled={photoEnCours}
-            onChange={(e) => { prendrePhoto(e.target.files?.[0]); e.target.value = ''; }} />
-          <span>{photoEnCours ? 'Réduction de la photo…' : constat.photo ? 'Remplacer la photo' : 'Prendre une photo'}</span>
-        </label>
-        {constat.photo && <button type="button" className="secondary" data-controle="audit.retirerPhoto" onClick={() => promenade.completer(cle, { photo: null })}>Retirer la photo</button>}
+        {constat.photos.length < PHOTOS_PAR_CAS_MAX
+          ? <label className="boutonFichier">
+            <input type="file" accept="image/*" capture="environment" data-controle="audit.photo" disabled={photoEnCours}
+              onChange={(e) => { prendrePhoto(e.target.files?.[0]); e.target.value = ''; }} />
+            <span>{photoEnCours ? 'Réduction de la photo…' : constat.photos.length ? 'Ajouter une photo' : 'Prendre une photo'}</span>
+          </label>
+          : <div className="detailPhoto">Six photos au plus : retirez-en une pour en prendre une autre.</div>}
         {erreurPhoto && <div className="erreurParcours" role="alert">{erreurPhoto}</div>}
-        {constat.photo && <img src={'data:image/jpeg;base64,' + constat.photo.base64} alt={'Photo de ' + titreCas(c)} />}
-        {constat.photo?.prise && <div className="detailPhoto">{textePrise(constat.photo.prise)}</div>}
       </div>
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="audit.retirerMarque" onClick={() => { retirer(); fermer(); }}>Retirer la marque</button>

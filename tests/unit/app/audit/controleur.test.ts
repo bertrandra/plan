@@ -143,6 +143,16 @@ describe('le cap et la photo', () => {
     expect(c.prisePhoto()).toMatchObject({ azimutDeg: 250, sourceAzimut: 'boussole' });
   });
 
+  it('la photo garde l inclinaison et le roulis du telephone, null sans capteur', () => {
+    let attitude: ((a: { inclinaisonDeg: number; roulisDeg: number | null }) => void) | undefined;
+    const { ctx } = contexte({ suivre: () => () => {}, boussole: { suivre: (_f, g) => { attitude = g; return () => {}; }, autoriser: async () => true } });
+    const c = creerControleurAudit(ctx, { depart: null });
+    c.nouvellePosition({ x: 0, y: 0 }, 5);
+    expect(c.prisePhoto()).toMatchObject({ inclinaisonDeg: null, roulisDeg: null });
+    attitude!({ inclinaisonDeg: 4, roulisDeg: -2 });
+    expect(c.prisePhoto()).toMatchObject({ inclinaisonDeg: 4, roulisDeg: -2 });
+  });
+
   it('un glisser lache le cap, « Me suivre » le reprend', () => {
     const { ctx, etat } = contexte({ suivre: () => () => {} });
     const c = creerControleurAudit(ctx, { depart: null });

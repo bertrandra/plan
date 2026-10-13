@@ -65,6 +65,22 @@ describe('Corps et pignons', () => {
     { pts: [{ x: 12, y: 0 }, { x: 16, y: 0 }, { x: 16, y: 6 }, { x: 12, y: 6 }], posFaitage: 0, faitage: 4.2, egouts: [4.2, 3], pignons: [], ecart: 0.2 },
     { pts: [{ x: 0, y: 8 }, { x: 4, y: 8 }, { x: 4, y: 12 }, { x: 0, y: 12 }], posFaitage: 2, faitage: 3.2, egouts: [3.2, 3.2], pignons: [], ecart: 0.1 },
   ];
+  it('dit les cheminees et la terrasse observees, seulement quand elles existent', () => {
+    const souche = { x: 6, y: 4, largeurM: 0.6, profondeurM: 0.4, sommetM: 8.2, position: 'faitage' as const, source: 'observation' as const };
+    const avec: CorpsToit[] = [
+      { ...corps[0]!, pignons: [], cheminees: [souche, { ...souche, x: 2 }] },
+      { ...corps[2]!, cheminees: [souche], terrasse: { accessible: true, acrotereM: 0.6, edicules: [{ pts: [], sommetM: 5 }], source: 'observation' } },
+      // Une terrasse sur un corps en pente n'a pas de sens : elle n'est pas dite.
+      { ...corps[1]!, terrasse: { source: 'observation' } },
+    ];
+    expect(decrireCorps(avec)).toEqual([
+      'Corps 12,0 × 8,0 m : deux pans, faîtage 7,6 m, égouts 6,1 / 5,4 m, 2 cheminées',
+      'Corps 2 4,0 × 4,0 m : toit plat à 3,2 m, une cheminée, terrasse accessible, acrotère de 0,60 m, un édicule',
+      'Corps 3 4,0 × 6,0 m : appentis de 3,0 m à 4,2 m',
+    ]);
+    expect(decrireCorps([{ ...corps[2]!, terrasse: { source: 'observation' } }])[0]).toBe('Corps 4,0 × 4,0 m : toit plat à 3,2 m, toit-terrasse');
+  });
+
   it('est le defaut quand les corps existent, la carte se montre avec le decoupage, et chaque corps se decrit', () => {
     const c = contexte({ toitMesure: mesure, volumesToit: volumes, corpsToit: corps });
     const mode = champ<ChampChoix>(c, 'toitMode');

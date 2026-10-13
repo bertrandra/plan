@@ -14,7 +14,7 @@ import { repere, penteDominante } from '../../facade/toitCorps.js';
 import { materiauCouverture, type MateriauCouverture } from '../../model/couleurToit.js';
 import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
-import type { CorpsToit, CouvertureChoisie, FormeToit, Toit } from '../../model/types.js';
+import type { CorpsToit, CouvertureChoisie, FormeToit, TerrasseToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 
@@ -95,8 +95,21 @@ export function decrireCorps(corps: readonly CorpsToit[]): string[] {
     const toit = plat ? `toit plat à ${m(c.faitage)}` : appentis ? `appentis de ${m(Math.min(e0, e1))} à ${m(c.faitage)}`
       : `${pans}, faîtage ${m(c.faitage)}, égouts ${Math.abs(e0 - e1) < 0.05 ? m(e0) : fr(e0, 1) + ' / ' + m(e1)}`;
     const pignons = c.pignons.length ? `, ${pluriel(c.pignons.length, 'pignon')} depuis le faîtage` : '';
-    return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}`;
+    // Ce qu'une observation a ajoute (MD/spec-regles-toits.md §2.6, §2.7) : dit seulement s'il existe,
+    // pour qu'un corps lu sur le LiDAR garde sa description d'avant.
+    const cheminees = c.cheminees?.length ? `, ${c.cheminees.length > 1 ? c.cheminees.length + ' cheminées' : 'une cheminée'}` : '';
+    const terrasse = c.terrasse && plat ? `, ${decrireTerrasse(c.terrasse)}` : '';
+    return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}${cheminees}${terrasse}`;
   });
+}
+
+/** Une toiture-terrasse en quelques mots : accessible ou non, son acrotere, ses edicules. */
+export function decrireTerrasse(t: TerrasseToit): string {
+  const morceaux = [t.accessible === true ? 'terrasse accessible' : t.accessible === false ? 'terrasse non accessible' : 'toit-terrasse'];
+  if (typeof t.acrotereM === 'number' && t.acrotereM > 0) morceaux.push(`acrotère de ${fr(t.acrotereM, 2)} m`);
+  const n = t.edicules?.length ?? 0;
+  if (n) morceaux.push(n > 1 ? `${n} édicules` : 'un édicule');
+  return morceaux.join(', ');
 }
 
 /** Le materiau de la couverture : deduit par defaut, impose s'il est choisi. */

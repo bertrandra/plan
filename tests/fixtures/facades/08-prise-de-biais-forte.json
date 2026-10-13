@@ -1,0 +1,169 @@
+{
+  "nom": "08-prise-de-biais-forte",
+  "description": "Enduit ocre, volets battants gris clair, photographié très de biais (38°), visée décentrée, téléphone un peu penché : les coins proposés au centre ne vont plus.",
+  "difficultes": [
+    "biais-fort",
+    "visee-decentree",
+    "roulis",
+    "volets-battants"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 214.2,
+        "y": 276.64
+      },
+      {
+        "x": 1050.34,
+        "y": -10.86
+      },
+      {
+        "x": 1135.56,
+        "y": 800.2
+      },
+      {
+        "x": 208.07,
+        "y": 736.89
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              176,
+              188,
+              190
+            ]
+          }
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            90,
+            60,
+            45
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              176,
+              188,
+              190
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              176,
+              188,
+              190
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              176,
+              188,
+              190
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              176,
+              188,
+              190
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 9,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          214,
+          178,
+          130
+        ],
+        "taches": 8
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 9,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 38,
+      "ecartCap": 7,
+      "tangage": 7,
+      "roulis": 2.5,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}
