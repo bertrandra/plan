@@ -1,0 +1,108 @@
+{
+  "nom": "11-pignon-ombre-arbre",
+  "description": "Mur pignon d'un plain-pied, ombre tachetée de deux arbres sur l'enduit, volets battants rouges sur une fenêtre.",
+  "difficultes": [
+    "pignon",
+    "ombre-arbre",
+    "volets-battants",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 7.5,
+    "hauteur": 3.2,
+    "coins": [
+      {
+        "x": 308.93,
+        "y": 485.23
+      },
+      {
+        "x": 1048.23,
+        "y": 448.46
+      },
+      {
+        "x": 1077.89,
+        "y": 827.14
+      },
+      {
+        "x": 289.68,
+        "y": 790.31
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 0.9,
+        "y": 0.95,
+        "l": 1,
+        "h": 1.15
+      },
+      {
+        "type": "porte-fenetre",
+        "x": 3,
+        "y": 0,
+        "l": 1.4,
+        "h": 2.15
+      },
+      {
+        "type": "fenetre",
+        "x": 5.6,
+        "y": 0.95,
+        "l": 1,
+        "h": 1.15,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              140,
+              50,
+              45
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 12,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          228,
+          220,
+          204
+        ],
+        "taches": 5
+      },
+      "pignon": 3.4
+    },
+    "ombres": [
+      {
+        "type": "arbre",
+        "x": 1.7,
+        "z": 1.9,
+        "rayon": 1.15,
+        "facteur": 0.62
+      },
+      {
+        "type": "arbre",
+        "x": 6.6,
+        "z": 2.4,
+        "rayon": 0.8,
+        "facteur": 0.65
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 9,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 15,
+      "tangage": 10,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

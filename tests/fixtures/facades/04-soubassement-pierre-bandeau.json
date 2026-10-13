@@ -1,0 +1,161 @@
+{
+  "nom": "04-soubassement-pierre-bandeau",
+  "description": "Enduit ocre clair sur un soubassement en pierre de 75 cm et un bandeau d'étage clair : la teinte unique du mur ne convient plus.",
+  "difficultes": [
+    "soubassement",
+    "pierre",
+    "bandeau",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 6,
+    "coins": [
+      {
+        "x": 206.68,
+        "y": 189.11
+      },
+      {
+        "x": 978.33,
+        "y": 279.66
+      },
+      {
+        "x": 996.99,
+        "y": 715.69
+      },
+      {
+        "x": 175.6,
+        "y": 749.83
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.95,
+        "l": 1.1,
+        "h": 1.4
+      },
+      {
+        "type": "porte",
+        "x": 4.5,
+        "y": 0,
+        "l": 1,
+        "h": 2.2,
+        "rendu": {
+          "couleur": [
+            70,
+            50,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 0.95,
+        "l": 1.1,
+        "h": 1.4
+      },
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.4
+      },
+      {
+        "type": "fenetre",
+        "x": 4.45,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.4
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.4
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 4,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          214,
+          196,
+          160
+        ],
+        "taches": 8
+      },
+      "soubassement": {
+        "hauteur": 0.75,
+        "parement": {
+          "type": "pierre",
+          "couleurs": [
+            [
+              150,
+              140,
+              125
+            ],
+            [
+              175,
+              165,
+              145
+            ],
+            [
+              125,
+              118,
+              108
+            ],
+            [
+              190,
+              178,
+              155
+            ]
+          ],
+          "joint": [
+            215,
+            210,
+            198
+          ]
+        }
+      },
+      "bandeaux": [
+        {
+          "z": 2.95,
+          "h": 0.2,
+          "couleur": [
+            238,
+            232,
+            218
+          ]
+        }
+      ],
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 12,
+      "focale35": 28,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -18,
+      "tangage": 7,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

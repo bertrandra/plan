@@ -7,6 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc de façades** (lot L5 du plan de mise en œuvre, `MD/spec-facades-calage-detection.md`
+  §14). Il est monté avant toute modification de la détection des ouvertures, qui ne change pas :
+  - un générateur de façades de synthèse difficiles (`tests/banc/facades/`) : brique, soubassement
+    en pierre, meulière, ombres de débord, de balcon et d'arbre, volets battants, coffres et tabliers
+    de volets roulants, voiture ou haie devant, prise de biais, focale inconnue ;
+  - un corpus de douze scènes (`tests/fixtures/facades/`), dont la vérité donne les ouvertures et
+    les coins. Les deux images des tests d'origine en font partie et restent justes à 1 ou 2 cm ;
+  - un script de mesure (`npx tsx .claude/skills/facades/scripts/banc.ts`). Il rejoue
+    `facade/detection.ts` et `facade/analyse.ts` tels qu'ils sont, et mesure la précision, le
+    rappel (recouvrement de plus de 50 %), l'erreur médiane des cotes, les corrections par façade et
+    l'erreur des coins proposés ;
+  - le skill `facades`, qui dit comment lancer le banc et lire son tableau. Il donne les chiffres
+    de départ : rappel 65 %, précision 78 %, cotes à 1 cm, 4,2 corrections par façade, aucun coin
+    proposé à moins de 10 cm.
+
 - **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
   `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût
   calculé avec une table des tarifs datée. Journal, tarifs et plafonds sont des JSON stockés sur le
