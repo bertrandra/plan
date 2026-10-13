@@ -5,7 +5,9 @@
 //   npx tsx .claude/skills/facades/scripts/banc.ts brique ombres   les scenes dont le nom contient l'un des mots
 //   ... --json /tmp/facades/banc.json                              le detail, pour comparer avant / apres
 //   ... --images /tmp/facades                                      photo, elevation et redressement en PNG,
-//                                                                  verite en vert, detection en rouge
+//                                                                  verite en vert, detection en rouge ; sur la
+//                                                                  photo, coins du releve en jaune, coins et
+//                                                                  zones du calage grossier en cyan
 //   ... --ecrire-coins                                             recalcule verite.coins apres un changement de prise
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -106,6 +108,27 @@ function cadre(img: Image, pxParM: number, o: { x: number; y: number; l: number;
   }
 }
 
+/** Trace le contour d'un rectangle de la photo (pixels), ramene dans l'image. */
+function rectangle(img: Image, x0: number, y0: number, x1: number, y1: number, c: [number, number, number]) {
+  const bx = (v: number) => Math.max(0, Math.min(img.largeur - 1, Math.round(v))),
+    by = (v: number) => Math.max(0, Math.min(img.hauteur - 1, Math.round(v)));
+  const [a, b, h, d] = [bx(x0), bx(x1), by(y0), by(y1)];
+  const pose = (x: number, y: number) => {
+    const k = (y * img.largeur + x) * 4;
+    img.donnees[k] = c[0];
+    img.donnees[k + 1] = c[1];
+    img.donnees[k + 2] = c[2];
+  };
+  for (let x = a; x <= b; x++) {
+    pose(x, h);
+    pose(x, d);
+  }
+  for (let y = h; y <= d; y++) {
+    pose(a, y);
+    pose(b, y);
+  }
+}
+
 /** Trace un point (une croix) sur la photo. */
 function croix(img: Image, x: number, y: number, c: [number, number, number]) {
   for (let d = -10; d <= 10; d++)
@@ -125,7 +148,8 @@ if (images) {
   mkdirSync(images, { recursive: true });
   const VERT: [number, number, number] = [0, 200, 60],
     ROUGE: [number, number, number] = [230, 20, 20],
-    JAUNE: [number, number, number] = [250, 210, 0];
+    JAUNE: [number, number, number] = [250, 210, 0],
+    CYAN: [number, number, number] = [0, 200, 230];
   scenes.forEach((s, i) => {
     const r = b.scenes[i];
     if (!r) return;
@@ -137,6 +161,8 @@ if (images) {
     const photo = r.detail.image;
     if (photo) {
       for (const c of s.verite.coins ?? []) croix(photo, c.x, c.y, VERT);
+      for (const z of r.detail.zones ?? []) if (z.bornee) rectangle(photo, z.x0, z.y0, z.x1, z.y1, CYAN);
+      for (const c of r.detail.coinsPredits ?? []) croix(photo, c.x, c.y, CYAN);
       for (const c of r.detail.coinsProposes ?? []) croix(photo, c.x, c.y, JAUNE);
       writeFileSync(join(images, s.nom + '-photo.png'), png(photo));
     }

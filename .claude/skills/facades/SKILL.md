@@ -1,6 +1,6 @@
 ---
 name: facades
-description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés) et chiffres de départ. À charger avant de toucher à src/facade/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/homographie.ts ou facade/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
+description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés, calage grossier et zones de recherche) et chiffres de départ. À charger avant de toucher à src/facade/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/calage.ts, facade/homographie.ts ou facade/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
 ---
 
 # Banc de façades
@@ -39,8 +39,9 @@ npx tsx .claude/skills/facades/scripts/banc.ts --ecrire-coins      # après un c
 
 - Le tableau sort en Markdown sur la sortie standard : il se colle tel quel dans une PR.
 - `--images` écrit trois PNG par scène, à regarder avec l'outil de lecture d'images :
-  - `<scène>-photo.png` : la photo, avec les coins vrais (croix vertes) et les coins proposés par
-    `coinsProposes` (croix jaunes) ;
+  - `<scène>-photo.png` : la photo, avec les coins vrais (croix vertes), les coins proposés par le
+    relevé (croix jaunes), les coins prédits par le calage grossier avec les capteurs typiques et
+    leurs zones de recherche (croix et rectangles cyan) ;
   - `<scène>-elevation.png` : l'élévation parfaite, avec la vérité (vert) et la détection (rouge) ;
   - `<scène>-redressee.png` : l'élévation redressée par `analyserReleve`, mêmes couleurs.
 - Avant / après : lancer avec `--json` sur `main` (un worktree détaché suffit) puis sur la branche,
@@ -73,12 +74,21 @@ redressement (rééchantillonnage, flou) et de la hauteur mesurée.
 La ligne **Ensemble** cumule les ouvertures de toutes les scènes (précision et rappel sur le total,
 médiane sur toutes les cotes), et donne la moyenne des corrections par façade.
 
-**Calage** : pour les prises par caméra, l'erreur de chacun des quatre coins proposés par
-`coinsProposes` (haut gauche, haut droit, bas droit, bas gauche). Le coin proposé est ramené dans le
-plan du mur par l'homographie vraie, et l'écart au vrai coin est donné en cm sur le mur. « ∞ » : un
-coin proposé au-delà de l'horizon du mur. Un coin à **10 cm au plus** compte pour « trouvé sans
-geste ». La hauteur est celle que retient `analyserReleve` moins la vraie : « mesurée » par la
-perspective si la focale est donnée, « estimée » (la hauteur d'entrée) sinon.
+**Calage** : pour les prises par caméra, l'erreur de chacun des quatre coins proposés par le
+relevé (haut gauche, haut droit, bas droit, bas gauche) : `facade/calage.ts::coinsDuReleve`, comme
+`zones/releve/serie.ts::coinsDePrise`, avec la distance, le cap et l'attitude au déclenchement ; le
+cadre à 12 % sans distance. Le coin proposé est ramené dans le plan du mur par l'homographie vraie,
+et l'écart au vrai coin est donné en cm sur le mur. « ∞ » : un coin proposé au-delà de l'horizon du
+mur. Un coin à **10 cm au plus** compte pour « trouvé sans geste ». La hauteur est celle que retient
+`analyserReleve` moins la vraie : « mesurée » par la perspective si la focale est donnée, « estimée »
+(la hauteur d'entrée) sinon.
+
+**Calage grossier de l'audit** (lot L6) : `calageGrossier` depuis la prise de vue située (position,
+azimut, inclinaison, roulis, focale), d'abord avec des **capteurs exacts** (ce que vaut le modèle
+sténopé seul), puis avec des **capteurs typiques** (`CAPTEURS_BANC` dans `tests/banc/facades/banc.ts` :
+boussole à 5°, GPS à 2 m pour 5 m annoncés, attitude à 1°, signes tirés de la graine, sans hasard).
+« Dans la zone » : les coins vrais qui tombent dans leur zone de recherche. Les capteurs typiques
+servent aussi au relevé (cap et attitude) : c'est ce qu'un téléphone donne vraiment.
 
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
@@ -216,11 +226,72 @@ Le tableau complet :
 | Erreur médiane des cotes | ≤ 5 cm | 1 cm | atteint |
 | Corrections par façade | < 3 | 4,2 | non atteint |
 
+### Après le lot L6 (calage grossier)
+
+Mesuré le 13 octobre 2026 sur `claude/lot-L6-calage-grossier`. La détection ne change pas : les deux
+premières sections sont identiques à celles du départ.
+
+| Critère | Départ | Après L6 |
+|---|---|---|
+| Coins du relevé, médiane | 146 cm | **36 cm** |
+| Coins du relevé sans geste (≤ 10 cm) | 0/40 | **4/40** |
+| Calage grossier, capteurs exacts | — | **36/40**, médiane 0 cm (tous sauf `09`, focale inconnue) |
+| Calage grossier, capteurs typiques | — | 0/40, médiane 148 cm |
+| Coins vrais dans leur zone de recherche | — | **40/40** |
+
+#### Calage (coins proposés par le relevé)
+
+| Façade | Coins proposés (cm) | Coins justes |
+|---|---|--:|
+| 02-enduit-uni-face | 9, 50, 34, 30 | 1/4 |
+| 03-brique-volets-battants | 17, 45, 22, 37 | 0/4 |
+| 04-soubassement-pierre-bandeau | 8, 60, 48, 19 | 1/4 |
+| 05-ombres-debord-balcon | 17, 50, 27, 37 | 0/4 |
+| 06-volets-roulants-ton-sur-ton | 9, 54, 39, 23 | 1/4 |
+| 07-voiture-haie-devant | 19, 53, 33, 39 | 0/4 |
+| 08-prise-de-biais-forte | 209, 86, 95, 230 | 0/4 |
+| 09-focale-inconnue-grand-angle | 693, 392, 283, 485 | 0/4 |
+| 10-meuliere-garage-ton-sur-ton | 7, 53, 36, 27 | 1/4 |
+| 11-pignon-ombre-arbre | 22, 28, 19, 36 | 0/4 |
+| **Ensemble** | médiane **36,3** | **4/40** |
+
+#### Calage grossier de l'audit
+
+| Façade | Exacts (cm) | Justes | Typiques (cm) | Justes | Dans la zone |
+|---|---|--:|---|--:|--:|
+| 02-enduit-uni-face | 0, 0, 0, 0 | 4/4 | 56, 100, 99, 43 | 0/4 | 4/4 |
+| 03-brique-volets-battants | 0, 0, 0, 0 | 4/4 | 302, 186, 193, 311 | 0/4 | 4/4 |
+| 04-soubassement-pierre-bandeau | 0, 0, 0, 0 | 4/4 | 198, 352, 346, 204 | 0/4 | 4/4 |
+| 05-ombres-debord-balcon | 0, 0, 0, 0 | 4/4 | 103, 98, 60, 85 | 0/4 | 4/4 |
+| 06-volets-roulants-ton-sur-ton | 0, 0, 0, 0 | 4/4 | 158, 81, 84, 139 | 0/4 | 4/4 |
+| 07-voiture-haie-devant | 0, 0, 0, 0 | 4/4 | 65, 168, 138, 12 | 0/4 | 4/4 |
+| 08-prise-de-biais-forte | 0, 0, 0, 0 | 4/4 | 157, 97, 91, 163 | 0/4 | 4/4 |
+| 09-focale-inconnue-grand-angle | 621, 498, 313, 403 | 0/4 | 1862, 541, 248, 1371 | 0/4 | 4/4 |
+| 10-meuliere-garage-ton-sur-ton | 0, 0, 0, 0 | 4/4 | 195, 428, 409, 195 | 0/4 | 4/4 |
+| 11-pignon-ombre-arbre | 0, 0, 0, 0 | 4/4 | 126, 81, 69, 117 | 0/4 | 4/4 |
+| **Ensemble** | médiane **0** | **36/40** | médiane **147,9** | **0/40** | **40/40** |
+
+Ce qu'ils disent :
+
+- **Le relevé** gagne surtout par l'**inclinaison** : le tangage de 5 à 10° des scènes décalait les
+  coins centrés de plus d'un mètre. Ce qui reste vient de l'erreur de la boussole sur le biais (5°
+  font environ 40 cm au bout d'un mur de 10 m vu à 12 m) et de l'arrondi de l'attitude au degré
+  (20 cm à 12 m). Sans le cap, la médiane serait de 50 cm et aucun coin juste : le cap aide, même
+  faux de 5°, parce que la visée reste sur le milieu du mur.
+- **Le calage grossier de l'audit** est exact quand les capteurs le sont : le modèle sténopé est le
+  bon. Avec des capteurs réels, il se trompe d'un à quatre mètres, parce que 2 m de GPS et 5° de
+  boussole déplacent l'image du mur latéralement. Il ne suffit donc **jamais seul** (spec §5) : ses
+  zones de recherche, qui contiennent tous les coins vrais, bornent le calage fin (lot L7).
+- **Focale inconnue** (`09`) : avec les 67° par défaut sur un 16 mm, même la prise exacte est fausse
+  de plusieurs mètres. La zone de recherche, élargie de ±50 % sur la focale, contient pourtant les
+  coins vrais.
+
 ## 5. Ce que disent les chiffres de départ
 
 - **Coins proposés (L1)** : aucun coin à moins de 10 cm, même de face (`02`). `coinsProposes`
   suppose le téléphone d'aplomb et le mur centré. Un tangage de 6° à 12 m décale déjà le mur de
-  1,3 m. Sans focale (`09`), l'erreur dépasse 13 m. C'est le terrain des lots L6 et L7.
+  1,3 m. Sans focale (`09`), l'erreur dépasse 13 m. C'est le terrain des lots L6 et L7 (voir
+  « Après le lot L6 » ci-dessus).
 - **Hauteur mesurée** : juste au centimètre quand la focale est vraie. Avec les 67° par défaut sur
   un 16 mm (`09`), elle reste à 10 cm, mais cela suffit à faire sortir des cotes de la tolérance
   de 5 cm (trois corrections).
@@ -246,9 +317,12 @@ Le tableau complet :
   moirés, comme un vrai capteur. Ce n'est pas un défaut du générateur.
 - **Recouvrement à 50 % pile** : il ne compte pas (« plus de 50 % »). Une baie avec ses volets
   battants est pile à la limite.
-- **Coins proposés bruts** : le banc compare `coinsProposes` tel quel. `zones/releve/serie.ts`
+- **Coins proposés bruts** : le banc compare `coinsDuReleve` tel quel. `zones/releve/serie.ts`
   ramène ensuite les coins hors cadre dans une marge de 20 %, ce qui ne change rien à l'erreur
   au-delà de cette marge.
+- **Repère du calage** : le générateur pose le mur de (0, 0) à (largeur, 0), la rue vers -Y ; le
+  calage lit ce repère comme celui du plan (Y au nord) : la façade regarde au sud (azimut 180). Le
+  roulis positif est horaire vu de derrière le téléphone, comme `shell/boussole.ts`.
 - **Temps** : une seconde environ par scène (peinture, photo, analyse). Le test unitaire n'en rejoue
   que quelques-unes ; le script les rejoue toutes.
 - **Coordonnées** : sur la photo, le pixel (i, j) couvre [i, i + 1] × [j, j + 1], comme dans

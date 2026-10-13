@@ -83,6 +83,13 @@ export interface PrisePhoto {
   champDeg?: number | null;
   sourceFocale?: SourceFocale | null;
   modeleAppareil?: string | null;
+  /**
+   * La taille de la photo source, avant la reduction a 1 280 px : avec la focale et la distance au
+   * mur, elle donne les pixels par metre au mur, la precision reelle des cotes
+   * (MD/spec-facades-calage-detection.md §4, `facade/calage.ts::pxParMetreSource`).
+   */
+  largeurSourcePx?: number | null;
+  hauteurSourcePx?: number | null;
 }
 
 /** Une photo prise sur place, reduite (environ 300 Ko), en base64, avec sa prise de vue. */

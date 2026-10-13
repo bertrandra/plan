@@ -3,9 +3,10 @@
 import { au } from '../../util/tableaux.js';
 import { focalePx } from '../../facade/cadrage.js';
 import { coinsProposes } from '../../facade/analyse.js';
+import { coinsDuReleve, biaisDepuisCap } from '../../facade/calage.js';
 import { type Decrochement } from '../../facade/profil.js';
 import type { P2 } from '../../facade/homographie.js';
-import type { Toit, PartieBasse } from '../../model/types.js';
+import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
 import { type Prise } from './capteurs.js';
 
 /* ------------------------------------------------------------------------------------------------
@@ -25,6 +26,8 @@ export interface Resultat {
   toitPropose: Toit | null;
   /** Ce que l'assemblage de plusieurs photos a trouve a redire, s'il y a lieu. */
   avis: string | null;
+  /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */
+  calage?: CalageReleve | null;
 }
 
 /** Une photo d'un morceau du mur et ses quatre coins. */
@@ -40,14 +43,23 @@ export interface Morceau {
  * reperes poses sur la video, qui disent exactement ou sont les bords et l'emportent. Quand le mur
  * se photographie en plusieurs fois, le rectangle propose est la part de mur que l'image couvre, pas
  * le mur entier.
+ *
+ * A distance connue, la projection tient compte de l'inclinaison et du roulis du telephone au
+ * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage.ts) : un tangage
+ * de 6 degres a 12 m decalait les coins centres de 1,3 m.
  */
-export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean): P2[] {
+export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): P2[] {
   const w = p.photo.image.largeur,
     h = p.photo.image.hauteur;
   const f = p.photo.focalePx ?? focalePx(w, h, p.photo.champ ?? p.champ);
   const d = p.mesure?.distance ?? null;
   const visible = d ? (d * w) / f : largeurMur;
-  const c = coinsProposes(w, h, f, d, partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur, hauteurEstimee);
+  const largeur = partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur;
+  const biais = p.cap != null && azimutFacade !== null ? biaisDepuisCap(p.cap, azimutFacade) : null;
+  const c =
+    d && d > 0
+      ? coinsDuReleve(largeur, hauteurEstimee, { largeurPx: w, hauteurPx: h, focalePx: f, distance: d, biaisDeg: biais, inclinaisonDeg: p.attitude?.inclinaisonDeg ?? null, roulisDeg: p.attitude?.roulisDeg ?? null })
+      : coinsProposes(w, h, f, d, largeur, hauteurEstimee);
   if (p.reperes) {
     const [a, b] = [Math.min(p.reperes.a, p.reperes.b), Math.max(p.reperes.a, p.reperes.b)];
     au(c, 0).x = au(c, 3).x = a * w;

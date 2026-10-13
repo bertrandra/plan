@@ -8,6 +8,7 @@ import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBas
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
 import { ChampCm, Elevation } from './Elevation.js';
 import { type Resultat } from './serie.js';
+import { pxParMDuCalage, textePrecision } from './analyse.js';
 
 /** La fiche de l'ouverture choisie : nature, cotes au centimetre, retrait. */
 function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: OuvertureFacade; largeur: number; hauteurMur: number; maj: (c: Partial<OuvertureFacade>) => void; retirer: () => void }) {
@@ -219,6 +220,7 @@ export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onR
     .filter(([, n]) => n > 0)
     .map(([t, n]) => `${n} ${LIBELLES_OUVERTURE[t].toLowerCase()}${n > 1 ? 's' : ''}`)
     .join(', ');
+  const precision = textePrecision(pxParMDuCalage(resultat.calage));
   const maj = (i: number, champ: Partial<OuvertureFacade>) => setOuvertures(ouvertures.map((x, k) => (k === i ? { ...x, ...champ } : x)));
   const ajouter = () => {
     const l = Math.min(1, largeur * 0.3),
@@ -242,6 +244,7 @@ export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onR
             <Icone nom="plus" taille={16} /> Ajouter une ouverture
           </button>
         </div>
+        {precision && <p className="releveNote">{precision}</p>}
         {o && choisie !== null && (
           <FicheOuverture
             o={o}

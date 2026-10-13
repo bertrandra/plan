@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Calage grossier des photos de façade** (lot L6 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §4 et §5). `facade/calage.ts` projette les coins du mur dans
+  la photo par un sténopé, depuis la prise de vue (position, azimut, inclinaison, roulis, focale,
+  objectif à 1,5 m). Aux bornes de l'incertitude, il donne une **zone de recherche** par coin :
+  précision du GPS, 15° pour la boussole, 25° pour le sens de la marche, quelques degrés d'attitude,
+  ±50 % de focale quand elle est estimée. Ces zones serviront au calage fin (lot L7).
+  - **Relevé** : les coins proposés tiennent compte de l'inclinaison et du roulis du téléphone au
+    déclenchement, et du biais que donne la boussole. Avant, le mur était supposé centré et le
+    téléphone d'aplomb. Au banc, l'erreur médiane des coins proposés passe de 146 à 36 cm.
+  - **Audit** : les coins d'une photo située sont prédits par sa prise de vue
+    (`coinsDeLaPhoto`), centrés sans azimut. La photo garde la taille de sa source, avant
+    réduction.
+  - **Précision annoncée** : l'écran de vérification du relevé dit la précision des cotes, un pixel
+    de la photo au mur (« Cotes précises à environ 2,5 cm : la photo ne voyait le mur qu'à 40 pixels
+    par mètre »). Le relevé garde les coins et les pixels par mètre de chaque photo
+    (`ReleveFacade.calage`, facultatif).
+  - **Banc de façades** : il mesure aussi le calage grossier, avec des capteurs exacts (36 coins
+    sur 40 à moins de 10 cm) et typiques (tous les coins vrais dans leur zone de recherche).
+
 - **Banc de façades** (lot L5 du plan de mise en œuvre, `MD/spec-facades-calage-detection.md`
   §14). Il est monté avant toute modification de la détection des ouvertures, qui ne change pas :
   - un générateur de façades de synthèse difficiles (`tests/banc/facades/`) : brique, soubassement
