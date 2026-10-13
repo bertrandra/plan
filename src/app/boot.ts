@@ -43,6 +43,7 @@ import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuPro
 import { brancherObjets } from './ecouteurs/objets.js';
 import { brancherAffichage } from './ecouteurs/affichage.js';
 import { brancherPositionGps } from './ecouteurs/positionGps.js';
+import { brancherAuditParcelle } from './audit/parcelle/commande.js';
 import { brancherVoisinage } from './ecouteurs/voisinage.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
@@ -424,6 +425,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherVoisinage(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
+  // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
+  brancherAuditParcelle({ etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {

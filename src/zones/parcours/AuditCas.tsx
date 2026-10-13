@@ -1,6 +1,7 @@
 // Z8, la fiche d'un batiment marque en mode audit (MD/spec-audit.md §8.2) : la categorie, les
-// problemes a cocher, une note, jusqu'a six photos (§5), chacune avec ce que l'on sait de sa prise et
-// la couleur de la facade qu'elle montre (§6.2). Tout s'ecrit dans la promenade a chaque geste
+// problemes a cocher, une note, « Ce que je vois » (§8.1, facultatif, le composant de l'audit de la
+// parcelle), jusqu'a six photos (§5), chacune avec ce que l'on sait de sa prise et la couleur de la
+// facade qu'elle montre (§6.2). Tout s'ecrit dans la promenade a chaque geste
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
 import { useEffect, useReducer, useState, type MouseEvent } from 'react';
@@ -8,6 +9,7 @@ import { CATEGORIES_AUDIT, PHOTOS_PAR_CAS_MAX, PROBLEMES_AUDIT, problemesDe, typ
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { TEXTES_SANS_MUR, TEXTES_TOUCHER, type CouleursPhotos, type EtatCouleurPhoto } from '../../app/audit/couleurFacade.js';
 import type { Promenade } from '../../app/audit/promenade.js';
+import { CeQueJeVois } from './CeQueJeVois.js';
 
 interface Props { promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; couleurs?: CouleursPhotos; fermer: () => void }
 
@@ -166,6 +168,11 @@ export function AuditCas({ promenade, cle, retirer, prise, couleurs, fermer }: P
       <textarea id="auditNote" className="noteAudit" data-controle="audit.note" value={constat.note}
         placeholder="Ce que vous voyez : « faîtage parallèle à la rue », « deux maisons accolées »…"
         onChange={(e) => promenade.completer(cle, { note: e.target.value })} />
+      {/* Le positif (spec §8.1), facultatif : il devient l'attendu testable du cas. */}
+      <details className="sectionVu" open={!!c.vu}>
+        <summary data-controle="audit.ceQueJeVois">Ce que je vois (facultatif)</summary>
+        <CeQueJeVois vu={c.vu ?? {}} changer={(vu) => promenade.completer(cle, { vu })} />
+      </details>
       <div className="libelleChamp">{'Photos' + (constat.photos.length ? ' (' + constat.photos.length + ' sur ' + PHOTOS_PAR_CAS_MAX + ')' : '')}</div>
       {constat.photos.length > 0 && <ul className="photosAudit" aria-label="Photos du bâtiment">
         {constat.photos.map((ph, i) => (

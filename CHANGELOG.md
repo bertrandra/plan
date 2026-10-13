@@ -33,6 +33,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     (chantier ouvert des ailes recouvertes), sans fait.
   - AE 101 identique, banc des quatre villages identique, empreintes golden inchangées.
 
+- **Audit de la parcelle, phase 1 : la capture** (lot L9 du plan de mise en œuvre,
+  `MD/spec-audit.md` §11, §12 et §8.1). Dans un projet, Fichier › « Auditer la parcelle… »
+  (feuille du projet au doigt) ouvre la visite sur place, téléphone en main. La commande demande le
+  droit d'écrire le projet ; sans parcelle cadastrale, elle est grisée : « Importez d'abord la
+  parcelle depuis son adresse. »
+  - **La liste de contrôle**, plein écran : pour chaque bâtiment de la parcelle puis des mitoyens,
+    chaque façade (à photographier, photographiée avec son nombre de photos, inaccessible d'une
+    touche ; mitoyenne, collée à un autre bâtiment ou posée sur une limite voisine, rien à
+    photographier ; celle d'un mitoyen qui donne chez un autre voisin, supposée inaccessible), le
+    toit, les cheminées, la toiture-terrasse s'il y en a une, les matériaux ; puis la clôture côté
+    rue (type, hauteur, soubassement, photo) et le portail (nature, position, largeur, photo). Un
+    compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »), et la liste de ce qui
+    manque, sans bloquer.
+  - **Photographier en marchant** : l'écran de prise se pose sur la Vue 3D. Le GPS et la boussole
+    reconnaissent la façade que vous avez devant vous parmi celles de la liste (lot L2), elle est
+    surlignée dans la scène et nommée (« Vous êtes devant la façade sud de Maison, 9,2 m — 0 photo »),
+    avec le plan de prise (« une photo suffit », « 3 photos, de gauche à droite ») ; la photo située
+    (lot L1) s'y range d'elle-même. « Ce n'est pas cette façade » propose la suivante ; sans
+    position, « Photographier » sur la ligne d'une façade la choisit.
+  - **« Ce que je vois »** : un composant partagé (forme parmi le catalogue des toits, sens du
+    faîtage, bouts, lucarnes, cheminées une à une, toiture-terrasse, matériaux des murs et de la
+    couverture). Toucher un choix retenu le retire : on n'écrit que ce que l'on a vu. La fiche de la
+    promenade le montre aussi, en section facultative, et l'écrit dans le cas (`vu`).
+  - **Rien n'entre dans le projet** à cette phase : la capture vit dans le brouillon de l'appareil
+    (table `parcelles`, à côté des promenades), se reprend à la réouverture (« Reprendre l'audit du
+    … » ou « Le jeter »), et « Lancer l'analyse », proposé dès qu'une façade est photographiée,
+    termine la capture pour l'analyse qui viendra (lot L11). Points de fumée 60 et 61.
+  - Une commande grisée peut dire ce qu'il faut faire d'abord (`raisonInactive` du registre) ; au
+    doigt, la raison s'écrit sous l'entrée du menu.
+
 - **Corpus d'audit et réglages des toits** (lot L19 du plan de mise en œuvre, `MD/spec-audit.md`
   §21 à §23, `MD/spec-regles-toits.md` §6 et §8).
   - **Rejeu d'une promenade** : `.claude/skills/toits/scripts/audit.ts <fichier | dossier>` relit un
@@ -578,6 +608,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Détection des ouvertures : les candidats** (lot L14 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §9). L'écart à une seule teinte de mur ne suffisait pas : un
+  soubassement en pierre, l'ombre du débord, des volets battants, la brique ou la meulière faisaient
+  manquer des baies ou en inventaient. Sur le banc des façades, chaîne du relevé : rappel de 71 à
+  90 %, précision de 84 à 93 %, corrections de 3,2 à 1,9 par façade ; les images d'origine restent
+  justes au centimètre.
+  - **Fond local** (`facade/detectionFond.ts`) : les objets nets mis de côté, un fond de rang (une
+    bande de 50 cm sur toute la largeur : soubassement, bandeau, ombre du débord deviennent le fond de
+    leur rang), puis un fond local par médiane glissante sur 1,5 m de large ; le seuil
+    `max(28, 3 × écart médian)` se calcule zone par zone, et l'écart de teinte seule (chromaticité) a
+    le sien, pour la pierre dont le grain relève le seuil.
+  - **Filtre d'ombre** : un pixel plus sombre que son fond, de même chromaticité, n'est pas une baie ;
+    une tache qui n'est qu'ombre n'est gardée que si ses tableaux sont des arêtes franches.
+  - **Profils de contours** (`facade/detectionIndices.ts`) : soutien des arêtes sur les quatre côtés,
+    baie séparée de ses volets battants par le profil de ses colonnes, affinage des bords sur le profil
+    quand l'écart au fond ne dit rien.
+  - **Fusion des indices et confiance** : une tache est gardée si elle remplit sa boîte, ou si ses
+    quatre arêtes sont nettes ; sous 0,4 m², il faut les arêtes. La confiance de chaque ouverture
+    combine remplissage, rectangularité, soutien des arêtes et part vue sur la photo.
+  - **Réglages nommés** (`facade/reglagesDetection.ts`) : les filtres de taille et les seuils
+    deviennent `facades.detection.*`, chacun avec sa raison, surchargeables pour le banc.
+
 - **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
   le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.
 
@@ -737,6 +789,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Sur tablette, les entrées du panneau Projet se touchent de nouveau.** Le voile transparent qui
+  referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le
+  projet… » ou toute autre entrée refermait le panneau sans rien faire. La barre haute passe
+  au-dessus du voile, comme au téléphone.
 
 - **Relevé** : dans la colonne du relevé, le bandeau des photos et les choix segmentés ne se tassent
   plus quand la photo remplit l'écran (ils étaient écrasés à 1 440 px).

@@ -91,6 +91,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.actualiser': menu('menuFichier'),
   'projet.toitsFond': menu('menuFichier'),
   'projet.supprimerVoisinage': menu('menuFichier'),
+  // L'audit de la parcelle (MD/spec-audit.md §11) : menu Projet (Fichier) sur bureau, feuille du projet au doigt.
+  'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },

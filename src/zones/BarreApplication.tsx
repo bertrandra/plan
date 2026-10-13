@@ -79,6 +79,16 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
   );
 }
 
+/**
+ * Au doigt, l'infobulle n'existe pas : la raison d'un refus s'ecrit sous l'entree (une permission
+ * manquante, ou ce qu'il faut faire d'abord). Rien sur bureau, ou l'infobulle la porte.
+ */
+function RefusAuDoigt({ commandes, id, tactile }: { commandes: RegistreCommandes; id: string; tactile: boolean }) {
+  const etat = commandes.etat(id);
+  if (!tactile || etat.utilisable || etat.raison === 'capacite' || !('message' in etat)) return null;
+  return <li className="refusMenu" role="note">{etat.message}</li>;
+}
+
 /** Une case a cocher de reglage, non controlee : la commande qui s'en sert la lit par son identifiant. */
 /** Une case d'option dans un menu : elle regle la commande qui suit (app/controlesInterface.ts). */
 /** Une option d'une commande du menu : le magasin la tient (`options`), la commande la lit la. */
@@ -105,6 +115,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
   // La lecture des toits et des murs en tache de fond : le menu suit son etat sans attendre un rendu du plan.
   const toitsFond = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const p = useStore(magasin.store, (s) => s.projet);
+  const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
   return (
     <details className="menu" id="menuFichier">
       <summary>Fichier</summary>
@@ -119,6 +130,10 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
         <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <li className="separateur" role="separator" />
+        {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
+        <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
+        <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
         <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />
