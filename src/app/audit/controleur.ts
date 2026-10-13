@@ -23,11 +23,16 @@ import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude }
 import { geocoderBAN, geocoderInverseBAN } from '../../geo/apiIgn.js';
 import { lireGrilleSous } from '../../geo/mnh.js';
 import { centroid } from '../../geometry/basic.js';
+import { obstacle } from '../../geometry/ligneDeVue.js';
+import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadeDevant, texteFacadeDevant, DISTANCE_DEVANT_MAX_M, type FacadeDevant } from '../../facade/priseDeVue.js';
+import { elevationOf } from '../../engine/hauteurs.js';
 import { aDesSommets } from '../../model/formes.js';
 import { nomFichierPromenade, type PrisePhoto } from '../../model/audit.js';
 import { APP_VERSION, BUILD_SHA } from '../../model/version.js';
 import { vue3d, hotes3d } from '../../three/etat3d.js';
 import { poserPositionGps } from '../../three/positionGps3d.js';
+import { poserFacadeDevant } from '../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
 import { COULEURS_DIAGNOSTIC } from '../diagnostic.js';
 import { VERSION_LECTURE_TOITS } from '../toitsLidar.js';
@@ -51,6 +56,8 @@ const PAS_ORIENTATION_DEG = 3;
 const APPUI_LONG_MS = 600;
 /** Un doigt qui bouge de plus que cela glisse : ce n'est plus un tapotement. */
 const GLISSER_PX = 8;
+/** La facade devant vous ne se recherche que si la boussole a tourne d'au moins cela : elle tremble. */
+const PAS_RECONNAISSANCE_DEG = 2;
 
 export interface ContexteAudit {
   etat: EtatApp;
@@ -87,6 +94,8 @@ export interface ControleurAudit {
   lacherSuivi: () => void;
   /** Ou vous etes et vers ou pointe le telephone, pour la photo d'un cas. */
   prisePhoto: () => PrisePhoto | null;
+  /** La facade devant laquelle vous etes (MD/spec-audit.md §6.1), surlignee dans la Vue 3D ; null sinon. */
+  facadeDevant: () => FacadeDevant | null;
   ouvrirListe: () => void;
   partager: () => Promise<void>;
   /** Une position, dans le repere du plan (le GPS, ou le doigt au depart d'une adresse). */
@@ -125,12 +134,16 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
   let gpsEnAttente: PositionGps | null = null;
 
   let statut = demande.depart ? 'Recherche de l’adresse de départ…' : 'En attente d’un GPS précis…';
-  const publier = () => { etat.audit = { statut, cas: promenade.liste().length, suivre: suivi.suivre() }; ctx.notifier(); };
+  const publier = () => {
+    etat.audit = { statut, cas: promenade.liste().length, suivre: suivi.suivre(), facade: reconnue.texte() };
+    ctx.notifier();
+  };
   const resumer = () => resume(etat.objects, precision) + (suivi.capBoussole() !== null ? ' · boussole' : '');
   const dire = (s: string) => { statut = s; publier(); };
   promenade.abonner(publier);
 
-  const suivi = suiviDuCap(ctx, () => dire(resumer()));
+  const reconnue = facadeReconnue(() => etat.objects, () => position, () => suivi.capBoussole(), () => publier());
+  const suivi = suiviDuCap(ctx, () => dire(resumer()), reconnue.capChange);
 
   function recharger(p: PtBrut): void {
     if (!proj) return;
@@ -143,6 +156,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
       ctx.remplacerObjets([...(etat.objects as ObjetBrut[]), ...ajouts]);
       ctx.reconstruire3d();
       promenade.relireManquants((cle) => estBatiment(objet(cle)));
+      reconnue.reconnaitre();
     }).finally(() => {
       lecture = false;
       dire(resumer());
@@ -157,6 +171,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     precision = precisionM;
     poserPositionGps(p, precisionM ?? 3);
     suivi.position(p);
+    reconnue.reconnaitre();
     if (fautRecharger(derniereLecture, p)) recharger(p);
     else if (!lecture) dire(resumer());
   }
@@ -227,6 +242,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     reprendreSuivi() { suivi.reprendre(position); publier(); },
     lacherSuivi() { if (suivi.lacher()) publier(); },
     prisePhoto,
+    facadeDevant: reconnue.courante,
     ouvrirListe,
     partager,
     nouvellePosition,
@@ -251,7 +267,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     },
     sceneBatie() { if (position) suivi.camera(position); },
     ecrireBrouillon: () => reprise.ecrire(),
-    arreter() { arreterGps?.(); arreterGps = null; suivi.arreter(); void reprise.ecrire(); },
+    arreter() { arreterGps?.(); arreterGps = null; suivi.arreter(); reconnue.oublier(); void reprise.ecrire(); },
   };
 }
 
@@ -259,7 +275,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
  * Le cap et la camera : la boussole (lissee), le sens de la marche a defaut, et « Me suivre » qui
  * tourne la vue sur ce cap tant que le doigt ne l'a pas tournee autrement.
  */
-function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
+function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void, capChange: (cap: number) => void) {
   const camera = cameraAudit();
   let suivre = true;
   let capBoussole: number | null = null, capMarche: number | null = null, capApplique: number | null = null;
@@ -290,6 +306,7 @@ function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
       capBoussole = lisserCap(capBoussole, c);
       if (premier) boussoleArrivee();
       orienter();
+      capChange(capBoussole);
     }, (a) => { attitude = a; });
   }
   ecouter();
@@ -324,6 +341,39 @@ function suiviDuCap(ctx: ContexteAudit, boussoleArrivee: () => void) {
   };
 }
 
+/**
+ * La facade devant vous (§6.1) : parmi les batiments charges autour de la position, celle dont vous
+ * voyez le cote exterieur, et que la boussole designe. Le sens de la marche ne dit pas ou pointe le
+ * telephone : sans boussole, c'est la plus proche. Surlignee dans la Vue 3D, nommee dans la barre
+ * (`changement`, appele seulement quand le texte change).
+ */
+function facadeReconnue(objets: () => readonly ObjetPlan[], position: () => PtBrut | null, capBoussole: () => number | null, changement: () => void) {
+  let devant: FacadeDevant | null = null;
+  /** Le cap de la derniere recherche : la boussole tremble, on ne cherche pas a chaque lecture. */
+  let capReconnu: number | null = null;
+  const texte = (v: FacadeDevant | null) => (v ? texteFacadeDevant(v) : null);
+  function reconnaitre(): void {
+    const cap = capBoussole(), p = position();
+    capReconnu = cap;
+    const v = p ? facadeDevantDans(objets(), p, cap) : null;
+    const memeMur = (v?.cle ?? null) === (devant?.cle ?? null) && v?.facade.cote === devant?.facade.cote;
+    const avant = texte(devant);
+    devant = v;
+    if (!memeMur) poserFacadeDevant(v ? v.facade : null);
+    if (texte(v) !== avant) changement();
+  }
+  return {
+    reconnaitre,
+    courante: () => devant,
+    texte: () => texte(devant),
+    capChange(c: number): void {
+      if (capReconnu !== null && Math.abs(ecartCap(capReconnu, c)) < PAS_RECONNAISSANCE_DEG) return;
+      reconnaitre();
+    },
+    oublier(): void { devant = null; poserFacadeDevant(null); },
+  };
+}
+
 /** La ligne d'etat entre deux lectures : ce qui est charge, et la precision du GPS. */
 function resume(objets: readonly ObjetPlan[], precision: number | null): string {
   const batis = objets.filter((o) => o.fonction === 'batiment').length;
@@ -331,6 +381,20 @@ function resume(objets: readonly ObjetPlan[], precision: number | null): string 
 }
 
 const estBatiment = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && o.fonction === 'batiment' && aDesSommets(o);
+
+/** Au-dela, un batiment ne peut ni etre devant vous, ni cacher un mur qui l'est : il n'est pas lu. */
+const RAYON_RECONNAISSANCE_M = DISTANCE_DEVANT_MAX_M + 30;
+
+/** La facade devant `pos`, parmi les batiments du plan proches de lui (§6.1). */
+export function facadeDevantDans(objets: readonly ObjetPlan[], pos: PtBrut, cap: number | null): FacadeDevant | null {
+  const r = RAYON_RECONNAISSANCE_M;
+  // Par l'emprise, pas par les sommets : un long batiment passe pres de vous sans qu'un angle y soit.
+  const proches = objets.filter((o): o is ObjetPlan & { pts: PtBrut[] } => estBatiment(o) && aDesSommets(o))
+    .map((o) => ({ o, emprise: obstacle(o.pts) }))
+    .filter(({ emprise: e }) => e.x1 > pos.x - r && e.x0 < pos.x + r && e.y1 > pos.y - r && e.y0 < pos.y + r);
+  const batiments = proches.map(({ o }) => ({ cle: o.key, facades: facadesDuContour(o.pts, elevationOf(o)) }));
+  return facadeDevant(pos, cap, batiments, proches.map(({ emprise }) => emprise));
+}
 
 /** La promenade, branchee sur le plan : ce qu'elle fige d'un batiment, sa grille LiDAR, son adresse. */
 function promenadeDuPlan(ctx: ContexteAudit, projecteur: () => ProjecteurLocal | null): Promenade {

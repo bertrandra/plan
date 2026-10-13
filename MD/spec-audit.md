@@ -865,7 +865,7 @@ et les couleurs lues sur les photos de terrain sont comparées à ce que Plan ca
 12. **Envoi des photos à l'analyse** (§13.2) : l'analyse par Claude envoie les photos de la maison au
     serveur de la plateforme, puis à l'API. Accord demandé à chaque lancement, ou une fois pour toutes
     dans le projet ? Proposition : une fois par projet, rappelé au lancement, révocable ; sans accord,
-    l'audit se contente des mesures.
+    l'audit se contente des mesures. **Réponse de l'utilisateur (13 octobre) : oui, la proposition.**
 13. **Batch ou réponse immédiate** (§13.2) : le batch coûte deux fois moins cher mais rend en minutes,
     parfois en heures. Proposition : batch par défaut ; « Analyser tout de suite » au tarif normal si
     vous êtes sur place et voulez valider avant de partir.

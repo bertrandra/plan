@@ -1,0 +1,169 @@
+{
+  "format": "plan-schema-analyse",
+  "version": 0,
+  "note": "Sortie structuree de l'analyse d'un toit par Claude (spec-regles-toits.md 14.2 et 14.3). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Le schema part tel quel dans output_config.format ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["forme", "profil", "faitage", "bouts", "lucarnes", "cheminees", "terrasse", "couverture", "elements", "ecarts", "contradictions", "confiance"],
+    "properties": {
+      "forme": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "valeur"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "valeur": {
+            "type": "string",
+            "enum": ["plat", "appentis", "deux-pans", "croupes", "pavillon", "demi-croupe", "mansart", "asymetrique", "deux-pans-decales", "toit-en-m", "papillon", "gambrel", "coyau", "shed", "berceau", "carene", "conique", "polygonal", "fleche", "dome", "imperiale", "indetermine"]
+          }
+        }
+      },
+      "profil": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "valeur"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "valeur": { "type": "string", "enum": ["droit", "brise", "courbe", "indetermine"] }
+        }
+      },
+      "faitage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "sens"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "sens": { "type": "string", "enum": ["perpendiculaire-rue", "parallele-rue", "sans-faitage", "indetermine"] }
+        }
+      },
+      "bouts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "gauche", "droite"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "gauche": { "$ref": "#/$defs/bout" },
+          "droite": { "$ref": "#/$defs/bout" }
+        }
+      },
+      "lucarnes": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "nombre", "types", "pan"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "nombre": { "$ref": "#/$defs/compte" },
+          "types": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["jacobine", "capucine", "chien-assis", "rampante", "meuniere", "oeil-de-boeuf", "outeau", "indetermine"] }
+          },
+          "pan": { "type": "string", "enum": ["rue", "arriere", "cote", "plusieurs", "aucun", "indetermine"] }
+        }
+      },
+      "cheminees": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "nombre", "souches"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "nombre": { "$ref": "#/$defs/compte" },
+          "souches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["position", "materiau"],
+              "properties": {
+                "position": { "type": "string", "enum": ["faitage", "pan", "pignon", "facade", "indetermine"] },
+                "materiau": { "type": "string", "enum": ["brique", "enduit", "pierre", "metal", "indetermine"] }
+              }
+            }
+          }
+        }
+      },
+      "terrasse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "presente", "type", "acrotere", "edicules"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "presente": { "$ref": "#/$defs/ouiNon" },
+          "type": { "type": "string", "enum": ["inaccessible", "accessible", "vegetalisee", "technique", "sans-objet", "indetermine"] },
+          "acrotere": { "$ref": "#/$defs/ouiNon" },
+          "edicules": { "$ref": "#/$defs/compte" }
+        }
+      },
+      "couverture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indices", "valeur"],
+        "properties": {
+          "indices": { "$ref": "#/$defs/indices" },
+          "valeur": { "type": "string", "enum": ["tuile-plate", "tuile-canal", "tuile-mecanique", "ardoise", "zinc", "bac-acier", "membrane", "gravillons", "vegetale", "indetermine"] }
+        }
+      },
+      "elements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["indices", "element"],
+          "properties": {
+            "indices": { "$ref": "#/$defs/indices" },
+            "element": { "type": "string", "enum": ["fenetre-de-toit", "chassis-eclairage", "verriere", "coyau", "acrotere", "garde-corps", "lanterneau", "pignon-a-redents"] }
+          }
+        }
+      },
+      "ecarts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["indices", "sujet", "modele", "observe"],
+          "properties": {
+            "indices": { "$ref": "#/$defs/indices" },
+            "sujet": { "type": "string", "enum": ["forme", "profil", "faitage", "bouts", "corps", "lucarnes", "cheminees", "terrasse", "couverture", "autre"] },
+            "modele": { "type": "string" },
+            "observe": { "type": "string" }
+          }
+        }
+      },
+      "contradictions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["indiceLidar", "observation"],
+          "properties": {
+            "indiceLidar": { "type": "string" },
+            "observation": { "type": "string" }
+          }
+        }
+      },
+      "confiance": { "type": "string", "enum": ["faible", "moyenne", "forte"] }
+    },
+    "$defs": {
+      "indices": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "vu"],
+          "properties": {
+            "image": { "type": "integer" },
+            "vu": { "type": "string" }
+          }
+        }
+      },
+      "bout": { "type": "string", "enum": ["pignon", "croupe", "demi-croupe", "brisis", "sans-objet", "indetermine"] },
+      "ouiNon": { "type": "string", "enum": ["oui", "non", "indetermine"] },
+      "compte": {
+        "anyOf": [
+          { "type": "integer" },
+          { "type": "string", "enum": ["indetermine"] }
+        ]
+      }
+    }
+  }
+}

@@ -5,4 +5,5 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 export function creerAdminDemos(options: { dossier: string; motDePasse: string | undefined; maintenant?: () => number }): {
   actif: boolean;
   traiter(req: IncomingMessage, res: ServerResponse, url: URL, base: Record<string, string>): Promise<boolean>;
+  sessionValide(req: IncomingMessage): boolean;
 };

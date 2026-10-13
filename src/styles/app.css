@@ -1315,7 +1315,10 @@
     border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
     font-family:var(--sans); font-size:0.82rem;
   }
-  .barreAudit .etatAudit{ flex:1 1 12em; min-width:0; font-variant-numeric:tabular-nums; }
+  .barreAudit .etatAudit{ flex:1 1 12em; min-width:0; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; gap:2px; }
+  /* La facade devant vous : ce que l'on cherche du regard en marchant, au-dessus de l'etat de la lecture. */
+  .barreAudit .facadeAudit{ font-weight:600; }
+  .barreAudit .facadeAudit + span{ color:var(--ink-soft); font-size:0.76rem; }
   .barreAudit button{ min-height:44px; padding:0 14px; display:inline-flex; align-items:center; gap:6px; border-radius:var(--r-bouton); font-family:var(--sans); }
   .barreAudit button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   html:not([data-classe="large"]) .barreAudit{

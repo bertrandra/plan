@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { creerControleurAudit, brancherDoigtAudit, PRECISION_DEPART_MAX_M, type ContexteAudit, type ControleurAudit } from '../../../../src/app/audit/controleur.js';
+import { creerControleurAudit, brancherDoigtAudit, facadeDevantDans, PRECISION_DEPART_MAX_M, type ContexteAudit, type ControleurAudit } from '../../../../src/app/audit/controleur.js';
 import { questionReprise, jourDe } from '../../../../src/app/audit/reprise.js';
 import { stockageMemoire } from '../../../../src/io/brouillonAudit.js';
 import type { DialogueChoix } from '../../../../src/shell/dialogues.js';
@@ -290,5 +290,42 @@ describe('le brouillon de la promenade (spec §10)', () => {
       cas: [{ constat: { photos: [{}, {}] } }, { constat: { photos: [] } }] as never }, () => {}, () => {}, () => {});
     expect(q.principal.libelle).toBe('Reprendre l’audit du 1er octobre');
     expect(q.texte).toBe('L’audit commencé le 1er octobre à 09:05 (Le Vésinet) est gardé sur cet appareil : 2 cas notés, 2 photos.');
+  });
+});
+
+describe('la facade devant vous', () => {
+  const rect = (x0: number, y0: number, l: number, h: number) => [{ x: x0, y: y0 }, { x: x0 + l, y: y0 }, { x: x0 + l, y: y0 + h }, { x: x0, y: y0 + h }];
+  const batiment = (key: string, pts: { x: number; y: number }[]) => ({ key, type: 'polygon', fonction: 'batiment', elevation: 6, pts }) as never;
+
+  it('sans boussole la plus proche ; la boussole designe celle que l on regarde ; la barre la nomme', () => {
+    let cap: ((c: number) => void) | null = null;
+    const { ctx, etat } = contexte({ suivre: () => () => {}, boussole: { suivre: (f) => { cap = f; return () => {}; }, autoriser: async () => true } });
+    etat.objects.push(batiment('maison', rect(0, 0, 10, 8)));
+    const c = creerControleurAudit(ctx, { depart: null });
+    expect(etat.audit?.facade).toBeNull();
+    // Face au mur sud, sans boussole : le seul mur devant soi.
+    c.nouvellePosition({ x: 5, y: -5 }, 3);
+    expect(c.facadeDevant()?.facade.orientation).toBe('Sud');
+    expect(etat.audit?.facade).toBe('Vous êtes devant la façade sud, 5,0 m');
+    // Au sud-est, deux murs se voient : la boussole choisit.
+    cap!(330);
+    c.nouvellePosition({ x: 14, y: -4 }, 3);
+    expect(c.facadeDevant()?.facade.orientation).toBe('Est');
+    expect(etat.audit?.facade).toBe('Vous êtes devant la façade est, 5,7 m');
+    // La boussole est lissee : il lui faut quelques lectures pour tourner.
+    const tourner = (v: number) => { for (let i = 0; i < 40; i++) cap!(v); };
+    tourner(300);
+    expect(c.facadeDevant()?.facade.orientation).toBe('Sud');
+    // Dos a la maison : plus rien.
+    tourner(135);
+    expect(c.facadeDevant()).toBeNull();
+    expect(etat.audit?.facade).toBeNull();
+    c.arreter();
+  });
+
+  it('facadeDevantDans ne lit que les batiments proches, et un voisin cache le mur', () => {
+    const objets = [batiment('maison', rect(0, 0, 10, 8)), batiment('garage', rect(2, -5, 6, 2)), batiment('loin', rect(500, 500, 10, 10))];
+    expect(facadeDevantDans(objets, { x: 5, y: -10 }, 0)?.cle).toBe('garage');
+    expect(facadeDevantDans(objets.slice(0, 1), { x: 5, y: -10 }, 0)?.cle).toBe('maison');
   });
 });
