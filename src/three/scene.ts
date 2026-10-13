@@ -10,6 +10,7 @@
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
 import { reposerPositionGps } from './positionGps3d.js';
+import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
 import { textureMur } from './textureMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
@@ -962,6 +963,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);
+  // La facade devant vous (mode audit), si elle est connue : surlignee sur cette scene.
+  reposerFacadeDevant(sol ? sol.hauteur : undefined);
   ctx.applyMode3D();
   // Le panneau relit tout, y compris la liste des points de vue.
   ctx.syncControlesSoleilVue3d();
