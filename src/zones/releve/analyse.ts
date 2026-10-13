@@ -6,7 +6,8 @@ import { focalePx } from '../../facade/cadrage.js';
 import { analyserReleve, type ResultatAnalyse } from '../../facade/analyse.js';
 import { analyserMosaique } from '../../facade/mosaique.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
-import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade } from '../../model/types.js';
+import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
+import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve } from '../../model/types.js';
 import { fr } from './commun.js';
 import { type Morceau, type Resultat } from './serie.js';
 
@@ -68,6 +69,40 @@ export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit
   };
 }
 
+/**
+ * Le calage de la serie : les coins poses sur chaque photo, et les pixels par metre au mur sur la
+ * photo source (MD/spec-facades-calage-detection.md §4) - par la focale et la distance mesuree,
+ * sinon, pour une photo seule, par ses coins rapportes a la taille du mur.
+ */
+export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number): CalageReleve {
+  const seul = morceaux.length === 1;
+  return {
+    photos: morceaux.map((m) => {
+      const d = m.prise.mesure?.distance ?? null;
+      const px = d && d > 0 ? pxParMetre(focaleDe(m), d) : seul ? pxParMetreDesCoins(m.coins, largeur, hauteur) : null;
+      return { coins: m.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), pxParMSource: px === null ? null : Math.round(px * 10) / 10 };
+    }),
+  };
+}
+
+/** La resolution qui borne la precision d'une serie : celle de la photo la moins bien definie. */
+export function pxParMDuCalage(c: CalageReleve | null | undefined): number | null {
+  const v = (c?.photos ?? []).map((p) => p.pxParMSource).filter((x): x is number => x !== null && x > 0);
+  return v.length ? Math.min(...v) : null;
+}
+
+/**
+ * La precision annoncee des cotes : un pixel de la photo source au mur. Les cotes restent arrondies
+ * au centimetre, mais une photo qui ne voyait le mur qu'a 40 pixels par metre ne le vaut pas (§7).
+ */
+export function textePrecision(pxParM: number | null): string | null {
+  if (pxParM === null || !(pxParM > 0)) return null;
+  const p = precisionCm(pxParM);
+  const px = Math.round(pxParM);
+  if (p <= 1) return `Cotes précises au centimètre : la photo voyait le mur à ${px} pixels par mètre.`;
+  return `Cotes précises à environ ${fr(Math.round(p * 2) / 2, p < 10 ? 1 : 0)} cm : la photo ne voyait le mur qu'à ${px} pixels par mètre.`;
+}
+
 /** Ce qui s'ecrit pour le mur : sa hauteur mesuree (ou corrigee), sa photo, ses ouvertures. */
 export function releveDuMur(facade: Facade, r: Resultat, ouvertures: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null): ReleveFacade {
   const cm = (v: number) => Math.round(v * 100) / 100;
@@ -82,5 +117,6 @@ export function releveDuMur(facade: Facade, r: Resultat, ouvertures: OuvertureFa
     sourceDistance: mesure?.source ?? null,
     releveLe: new Date().toISOString(),
     partieBasse: r.partieBasse,
+    ...(r.calage ? { calage: r.calage } : {}),
   };
 }

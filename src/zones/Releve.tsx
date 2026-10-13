@@ -41,7 +41,7 @@ import { Visee } from './releve/Visee.js';
 import { type Etape, type Morceau, type Resultat, coinsDePrise } from './releve/serie.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
-import { analyserSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
+import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
 
 /** Echap ferme le parcours, sans rien ecrire. */
 function useEchapFerme(releve: ServiceReleve) {
@@ -94,7 +94,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const surPrise = (p: Prise) => {
     if (!facade) return;
     const partiel = (p.photosPrevues ?? 1) > 1 || morceaux.length > 0;
-    const m: Morceau = { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel) };
+    const m: Morceau = { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut) };
     const k = aRemplacer ?? morceaux.length;
     setMorceaux(aRemplacer === null ? [...morceaux, m] : morceaux.map((x, i) => (i === aRemplacer ? m : x)));
     setCourant(k);
@@ -115,7 +115,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       }
       const { r } = a;
       setHauteurMur(r.hauteur);
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse });
+      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur) });
       setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
@@ -173,6 +173,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
         <ChoixMur
           bat={bat}
           facades={facades}
+          position={releve.position}
+          obstacles={releve.obstacles}
           onChoisir={(c) => {
             setCote(c);
             setEtape('methode');

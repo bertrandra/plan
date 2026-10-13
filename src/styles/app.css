@@ -1317,7 +1317,10 @@
     border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
     font-family:var(--sans); font-size:0.82rem;
   }
-  .barreAudit .etatAudit{ flex:1 1 12em; min-width:0; font-variant-numeric:tabular-nums; }
+  .barreAudit .etatAudit{ flex:1 1 12em; min-width:0; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; gap:2px; }
+  /* La facade devant vous : ce que l'on cherche du regard en marchant, au-dessus de l'etat de la lecture. */
+  .barreAudit .facadeAudit{ font-weight:600; }
+  .barreAudit .facadeAudit + span{ color:var(--ink-soft); font-size:0.76rem; }
   .barreAudit button{ min-height:44px; padding:0 14px; display:inline-flex; align-items:center; gap:6px; border-radius:var(--r-bouton); font-family:var(--sans); }
   .barreAudit button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   html:not([data-classe="large"]) .barreAudit{
@@ -1339,7 +1342,20 @@
   }
   .photoAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
   .photoAudit .detailPhoto{ flex-basis:100%; font-size:0.76rem; color:var(--ink-soft); }
-  .photoAudit img{ display:block; flex-basis:100%; max-width:100%; max-height:30vh; object-fit:contain; border-radius:var(--r-champ); }
+  /* Les photos d'un cas, en vignettes : six tiennent sur deux rangees, chacune avec sa prise de vue. */
+  .photosAudit{ list-style:none; margin:0 0 8px; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .photosAudit li{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0; }
+  .photosAudit img{ display:block; width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:var(--r-champ); background:var(--panel-2); }
+  .photosAudit .detailPhoto{ font-size:0.72rem; color:var(--ink-soft); }
+  /* La couleur de la facade lue sur la photo : la pastille montre la teinte, le texte la dit. */
+  .photosAudit .couleurPhoto{ display:flex; align-items:center; gap:6px; }
+  .pastilleCouleur{ flex:none; width:14px; height:14px; border-radius:999px; border:1px solid var(--rule); }
+  .photosAudit .actionsPhoto{ display:flex; flex-wrap:wrap; gap:6px; }
+  /* La photo a toucher, entiere et sans recadrage : le point touche doit tomber ou le doigt l'a pose. */
+  .toucherFacade{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin:0 0 10px; padding:10px; border:1px solid var(--alerte); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .toucherFacade .detailPhoto{ font-size:0.74rem; color:var(--ink-soft); }
+  .photoToucher{ display:block; width:100%; padding:0; border:0; background:none; cursor:crosshair; min-height:0; }
+  .photoToucher img{ display:block; width:100%; height:auto; border-radius:var(--r-champ); }
   /* Le champ fichier natif est illisible : on montre un bouton, le champ le couvre et recoit le doigt. */
   .boutonFichier{
     position:relative; display:inline-flex; align-items:center; min-height:36px; padding:0 14px; overflow:hidden; cursor:pointer;
@@ -1351,7 +1367,7 @@
   .listeCas .texteCas{ flex:1; min-width:0; }
   .listeCas .detailCas{ font-size:0.76rem; color:var(--ink-soft); }
   html:not([data-classe="large"]) .puces button, html:not([data-classe="large"]) .boutonFichier,
-  html:not([data-classe="large"]) .listeCas button{ min-height:44px; }
+  html:not([data-classe="large"]) .listeCas button, html:not([data-classe="large"]) .photosAudit button, html:not([data-classe="large"]) .toucherFacade button{ min-height:44px; }
   /* L'horloge du soleil (zones/vue3d/Horloge.tsx), en haut a gauche : les commandes de camera
      tiennent la droite. Elle ne capte aucun geste, la scene reste manipulable dessous. */
   .horloge3d{

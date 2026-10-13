@@ -56,11 +56,11 @@ describe('la promenade', () => {
     await p.enCours();
     expect(c.entrees.grille).not.toBeNull();
     expect(c.identite.adresse).toBe('2 allée des Limites');
-    p.completer('b1', { categorie: 'toit', problemes: ['toit.sens-faitage', 'toit.pignon-manquant', 'toit.sens-faitage'], note: 'côté rue', photo: { type: 'image/jpeg', base64: 'AAAA' } });
+    p.completer('b1', { categorie: 'toit', problemes: ['toit.sens-faitage', 'toit.pignon-manquant', 'toit.sens-faitage'], note: 'côté rue', ajouterPhoto: { type: 'image/jpeg', base64: 'AAAA' } });
     expect(c.constat.problemes).toEqual(['toit.sens-faitage', 'toit.pignon-manquant']);
-    expect(c.constat.photo?.base64).toBe('AAAA');
-    p.completer('b1', { photo: null });
-    expect(c.constat.photo).toBeUndefined();
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['AAAA']);
+    p.completer('b1', { retirerPhoto: 0 });
+    expect(c.constat.photos).toEqual([]);
     p.marquer('b2', { x: 0, y: 0 }, null);
     p.retirer('b2');
     const fichier = p.fichier({ commune: 'Le Vésinet', origine: { lat: 48.9, lon: 2.13 }, emprise: null, code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 } });
@@ -68,6 +68,37 @@ describe('la promenade', () => {
     expect(fichier.cas.map((x) => x.cle)).toEqual(['b1']);
     expect(fichier.promenade.debut).toBe('2026-10-13T09:00:00.000Z');
     expect(f).toHaveBeenCalled();
+  });
+
+  it('garde jusqu a six photos par cas, dans l ordre, et en retire une par son rang', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)) });
+    const c = p.marquer('b1', { x: 0, y: 0 }, null)!;
+    for (let i = 1; i <= 7; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'P6']);
+    p.completer('b1', { retirerPhoto: 1 });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6']);
+    p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P8' } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6', 'P8']);
+    const f = p.fichier({ commune: null, origine: { lat: 48.9, lon: 2.13 }, emprise: null, code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 } });
+    expect(f.version).toBe(2);
+    // Le fichier est une copie : une photo retiree ensuite n'en part pas.
+    p.completer('b1', { retirerPhoto: 0 });
+    expect(f.cas[0]!.constat.photos).toHaveLength(6);
+  });
+
+  it('range une couleur de facade par photo ; retirer une photo retire la sienne et decale les suivantes', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)) });
+    const c = p.marquer('b1', { x: 0, y: 0 }, null)!;
+    for (let i = 0; i < 3; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
+    p.completer('b1', { lectureFacade: { cote: 0, couleur: '#C9B49A', source: 'automatique', photo: 2, pixels: 80 } });
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#AAAAAA', source: 'automatique', photo: 1, pixels: 60 } });
+    // Le doigt corrige la lecture de la photo 1 : elle remplace l'automatique.
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#BBBBBB', source: 'toucher', photo: 1, pixels: 300 } });
+    // Une lecture pour une photo qui n'existe pas est ignoree.
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#000000', source: 'toucher', photo: 5, pixels: 1 } });
+    expect(c.lectures!.facades.map((l) => [l.photo, l.couleur, l.source])).toEqual([[1, '#BBBBBB', 'toucher'], [2, '#C9B49A', 'automatique']]);
+    p.completer('b1', { retirerPhoto: 1 });
+    expect(c.lectures!.facades.map((l) => [l.photo, l.couleur])).toEqual([[1, '#C9B49A']]);
   });
 
   it('un cas retire avant la fin de sa lecture n est pas ressuscite', async () => {
@@ -79,5 +110,37 @@ describe('la promenade', () => {
     await p.enCours();
     expect(p.estMarque('b1')).toBe(false);
     expect(c.entrees.grille).toBeNull();
+  });
+
+  it('reprend un audit du brouillon : son debut, ses cas d abord, des numeros sans doublon', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)), maintenant: () => new Date('2026-10-14T08:00:00Z') });
+    p.marquer('b1', { x: 0, y: 0 }, null);
+    p.marquer('neuf', { x: 0, y: 0 }, null);
+    const repris = (cle: string, id: string) => ({ ...JSON.parse(JSON.stringify(fige)), id, cle, statut: 'a_corriger', constat: { categorie: 'toit', problemes: [], note: 'repris', t: '', position: { x: 0, y: 0, precisionM: null }, photos: [] }, attendu: null, historique: [] });
+    const f = vi.fn(); p.abonner(f);
+    p.reprendre(new Date('2026-10-13T09:00:00Z'), [repris('b1', 'c1'), repris('b7', 'c4')]);
+    expect(f).toHaveBeenCalled();
+    expect(p.debut.toISOString()).toBe('2026-10-13T09:00:00.000Z');
+    expect(p.liste().map((c) => c.cle)).toEqual(['b1', 'b7', 'neuf']);
+    expect(p.cas('b1')!.constat.note).toBe('repris');
+    const ids = p.liste().map((c) => c.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(p.marquer('b9', { x: 0, y: 0 }, null)!.id).toBe('c5');
+  });
+
+  it('relit une fois la grille et l adresse qui manquent a un cas repris, quand son batiment est la', async () => {
+    const lireGrille = vi.fn(async () => ({ pas: 0.5, x0: 0, y0: 0, nx: 1, ny: 1, z: [3] }));
+    const adresse = vi.fn(async () => '3 rue des Lilas');
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)), lireGrille, adresse });
+    const repris = { ...JSON.parse(JSON.stringify(fige)), id: 'c1', cle: 'b1', statut: 'a_corriger', constat: { categorie: 'toit', problemes: [], note: '', t: '', position: { x: 0, y: 0, precisionM: null }, photos: [] }, attendu: null, historique: [] };
+    p.reprendre(new Date(), [repris]);
+    p.relireManquants(() => false);
+    expect(lireGrille).not.toHaveBeenCalled();
+    p.relireManquants(() => true);
+    p.relireManquants(() => true);
+    await p.enCours();
+    expect(lireGrille).toHaveBeenCalledOnce();
+    expect(p.cas('b1')!.entrees.grille).not.toBeNull();
+    expect(p.cas('b1')!.identite.adresse).toBe('3 rue des Lilas');
   });
 });

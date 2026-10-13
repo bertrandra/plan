@@ -10,6 +10,7 @@
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
 import { reposerPositionGps } from './positionGps3d.js';
+import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
 import { textureMur } from './textureMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
@@ -17,6 +18,8 @@ import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
 import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } from './toitCorps3d.js';
+import { ajouterCheminees3d } from './cheminees3d.js';
+import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
@@ -806,6 +809,16 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   } else if (o.type === 'polygon' && corpsToit) {
     ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
   }
+  // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui
+  // n'en porte pas (tous ceux lus sur le LiDAR) ne pose rien de plus.
+  if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
+    const sol = co.sol;
+    const ctxObs = { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture,
+      // Une souche adossee part du sol sous elle, compte depuis le sol au centre (origine du groupe).
+      ...(sol ? { sol: (p: PtBrut) => sol.hauteur(p) - ySol } : {}) };
+    ajouterCheminees3d(ctxObs, corpsToit);
+    ajouterTerrasses3d(ctxObs, corpsToit, o.toit, o.pts);
+  }
   // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
   if (o.type === 'polygon' && toitMesure) {
     ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
@@ -950,6 +963,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);
+  // La facade devant vous (mode audit), si elle est connue : surlignee sur cette scene.
+  reposerFacadeDevant(sol ? sol.hauteur : undefined);
   ctx.applyMode3D();
   // Le panneau relit tout, y compris la liste des points de vue.
   ctx.syncControlesSoleilVue3d();
