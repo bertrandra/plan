@@ -7,6 +7,40 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit de la parcelle, phases 2 et 3 sans Claude : propositions et validation** (lot L11 du
+  plan de mise en œuvre, `MD/spec-audit.md` §13.1 et §14). « Lancer l'analyse » ouvre maintenant les
+  propositions, posées sur la Vue 3D ; une capture terminée y revient par « Voir les propositions ».
+  - **Les mesures du téléphone** (`app/audit/parcelle/mesures.ts`), sans serveur : pour chaque
+    façade photographiée, le relevé (coins prédits par la prise de vue puis cherchés sur la photo,
+    lots L6 à L8 ; redressement, ouvertures, texture), la hauteur à l'égout mesurée quand les coins
+    ont été trouvés, la couleur du mur lue sur les photos prises à la boussole (lot L3).
+  - **Les propositions** (`model/propositions.ts`, `app/audit/parcelle/propositions.ts`) : le relevé
+    de chaque façade, la hauteur à l'égout (médiane des façades mesurées), la couleur des murs lue
+    sur vos photos, le matériau des murs et de la couverture vus, les cheminées vues (posées dans le
+    plus grand corps en pente, au faîtage, à mi-pan, dans le pignon ou adossées, 40 cm au-dessus du
+    faîtage) et la toiture-terrasse vue (sur le plus grand corps plat, édicules compris), la clôture
+    côté rue et le portail. Chacune dit son avant, son après et son origine ; la structure porte
+    déjà la source (`mesure` ou `claude`), les indices et la confiance pour les propositions de
+    Claude (lot L17).
+  - **Cases à cocher** : une valeur choisie à la main (source des murs, couverture, relevé déjà fait,
+    côté de clôture réglé, portail à une autre largeur, hauteur saisie) n'est jamais remplacée en
+    silence : sa ligne arrive décochée et dit « Remplace votre choix : … ». Un relevé dont les coins
+    n'ont pas été trouvés arrive décoché, comme une proposition de faible confiance.
+  - **Avant / Après** : la Vue 3D montre les bâtiments avec les propositions cochées, sur des copies
+    (`three/scene.ts::remplacerObjets3d` accepte d'autres objets que ceux du plan) ; le projet n'est
+    pas touché tant qu'on ne valide pas, ni par l'aperçu, ni par l'enregistrement.
+  - **Valider** écrit tout ce qui est coché en un seul pas d'historique : Ctrl+Z le défait, le projet
+    est marqué modifié. La décision (acceptées, refusées) est gardée avec la capture pour le
+    fichier de l'audit (lot L21).
+  - **Vérifié sur place** : un bâtiment dont toutes les façades ont été photographiées (ou sont
+    mitoyennes ou inaccessibles), dont le toit a été vu et dont toutes les propositions sont cochées
+    est marqué `verifieSurPlace` avec la date ; l'inspecteur le dit (Apparence). Champ facultatif :
+    un projet sans audit garde sa forme d'avant.
+  - **Couleur des murs** : `couleurMurs.terrain` (la couleur lue sur vos photos, validée) passe avant
+    la photo de rue, et `couleurMurs.materiau` (le matériau vu sur place) avant celui des fichiers
+    fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
+    empreintes sont identiques. Points de fumée 62 et 63.
+
 - **Audit de la parcelle, phase 1 : la capture** (lot L9 du plan de mise en œuvre,
   `MD/spec-audit.md` §11, §12 et §8.1). Dans un projet, Fichier › « Auditer la parcelle… »
   (feuille du projet au doigt) ouvre la visite sur place, téléphone en main. La commande demande le

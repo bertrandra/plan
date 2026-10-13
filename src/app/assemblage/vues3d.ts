@@ -126,8 +126,12 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
 
   return {
     buildThreeScene, genererGlb, vues3d,
-    /** Remplace ces objets dans la Vue 3D ouverte, sans la rebatir ; faux si elle n'est plus la meme. */
-    remplacerObjets3d: (cles: readonly string[]) => remplacerObjets3d(cles, etat),
+    /**
+     * Remplace ces objets dans la Vue 3D ouverte, sans la rebatir ; faux si elle n'est plus la meme.
+     * `objets` : d'autres objets que ceux du plan, l'apercu des propositions d'un audit
+     * (app/audit/parcelle/validation.ts) ; le plan lui-meme n'est pas touche.
+     */
+    remplacerObjets3d: (cles: readonly string[], objets?: readonly ObjetPlan[]) => remplacerObjets3d(cles, objets ? { ...etat, objects: [...objets] } : etat),
     allerAuPointDeVue: vues3d.allerAuPointDeVue,
     refreshTerrasseView: () => modes.refreshTerrasseView()
   };

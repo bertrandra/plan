@@ -216,6 +216,48 @@ async function stationDevantLaMaison(page) {
 }
 
 /**
+ * La capture minimale d'un audit de la parcelle, jusqu'aux propositions (lot L11) : les materiaux de
+ * la maison (brique, ardoise), la cloture sur rue (mur de 1,60 m), une photo rangee sur une facade
+ * choisie dans la liste, puis « Lancer l'analyse » ; on attend la fin des mesures.
+ */
+async function captureJusquAuxPropositions(page) {
+  const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+  await etape('ouvrir', () => ouvrirAuditParcelle(page));
+  await etape('materiaux', () => page.getByRole('button', { name: 'Noter : Matériaux de Maison' }).click({ timeout: 30000 }));
+  await etape('brique', () => page.locator('button[data-controle="vu.murs"]', { hasText: 'Brique' }).first().click({ timeout: 30000 }));
+  await etape('ardoise', () => page.locator('button[data-controle="vu.couverture"]', { hasText: 'Ardoise' }).first().click({ timeout: 30000 }));
+  await etape('cloture', () => page.locator('button[data-controle="auditParcelle.noter"]', { hasText: 'Clôture côté rue' }).click({ timeout: 30000 }));
+  await etape('mur', () => page.locator('button[data-controle="auditParcelle.typeCloture"]', { hasText: 'Mur' }).click({ timeout: 30000 }));
+  await etape('hauteur', () => page.locator('input[data-controle="auditParcelle.hauteurCloture"]').fill('1.6', { timeout: 30000 }));
+  await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+  // La Vue 3D s'ouvre sous l'ecran de prise : sa construction tient le fil quelques secondes.
+  await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+  const dessin = await page.context().newPage();
+  await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);x.fillStyle="#2b3440";x.fillRect(180,220,120,160);x.fillRect(500,220,120,160);</script>');
+  const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+  await dessin.close();
+  await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+  await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
+  await etape('liste', () => page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 }));
+  await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
+  await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+  await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 60000 });
+}
+
+/** Ce que le plan dit de la maison et de la cloture : ce que les propositions changent. */
+const etatAudite = (page) => page.evaluate(() => {
+  const o = window.__plan.etat().objects;
+  const m = o.find((x) => x.key === 'maison'), p = o.find((x) => x.key === 'parcelle');
+  return JSON.stringify({ murs: m?.couleurMurs ?? null, couverture: m?.toit?.couverture ?? null, facades: (m?.facades ?? []).length, cloture: p?.cloture?.cotes ?? null, verifie: m?.verifieSurPlace ?? null });
+});
+/** Une ligne de proposition : cochee ou non, et son texte. */
+const ligneProposition = async (page, texte) => {
+  const l = page.locator('.ligneProposition', { hasText: texte }).first();
+  if (!(await l.count())) return null;
+  return { cochee: await l.locator('input[type="checkbox"]').isChecked(), texte: ((await l.textContent()) || '').replace(/\s+/g, ' ').trim() };
+};
+
+/**
  * L'adresse des points cadastraux, la meme depuis la `1.1.0` : c'est elle qui rend les valeurs que
  * le journal de la liste de fumee cite, et en changer rendrait les passages incomparables.
  */
@@ -1232,6 +1274,70 @@ const POINTS = {
       && titreApres !== titre && /^1 façade sur/.test(compteur) && actif && toast === 1;
     return { ok, mesure: `« ${titre} » ; surlignée en 3D ${surlignee ? 'oui' : 'NON'} ; « ${range || 'RIEN'} » ; après « Ce n’est pas cette façade » : « ${titreApres} » ; « ${compteur} » ; Lancer ${actif ? 'actif' : 'GRISÉ'} ; toast ${toast ? 'oui' : 'NON'}` };
   },
+  62: async (page, f) => {
+    // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
+    // deviennent des propositions ; « Après » les montre dans la Vue 3D sans toucher au projet ;
+    // « Valider » les ecrit en un seul pas ; Ctrl+Z les defait.
+    const avant = await etatAudite(page);
+    await captureJusquAuxPropositions(page);
+    const n = await page.locator('.ligneProposition').count();
+    const releve = await ligneProposition(page, 'Façade');
+    const murs = await ligneProposition(page, 'Matériau des murs de Maison');
+    const couverture = await ligneProposition(page, 'Couverture de Maison');
+    const cloture = await ligneProposition(page, 'Clôture côté rue');
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }).click({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const apresPresse = await page.locator('button[data-controle="auditParcelle.avantApres"][aria-pressed="true"]').textContent();
+    const pendantApercu = await etatAudite(page);
+    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 });
+    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }).click({ timeout: 30000 });
+    // Le toast ne reste que quelques secondes, et la Vue 3D logicielle ralentit le clic d'autant :
+    // on note chaque toast qui parait, plutot que de le chercher apres coup.
+    await page.evaluate(() => {
+      window.__toastsVus = [];
+      new MutationObserver(() => document.querySelectorAll('.toast').forEach((t) => { if (!window.__toastsVus.includes(t.textContent)) window.__toastsVus.push(t.textContent); }))
+        .observe(document.body, { childList: true, subtree: true, characterData: true });
+    });
+    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const toast = (await page.evaluate(() => window.__toastsVus.find((t) => /Ctrl\+Z/.test(t)) ?? '')).trim();
+    const ferme = (await page.locator('.auditPropositions').count()) === 0;
+    const ecrit = await etatAudite(page);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(1500);
+    const annule = await etatAudite(page);
+    const e = JSON.parse(ecrit);
+    const ok = n >= 4 && !!releve && !releve.cochee && /prédits par la prise de vue/.test(releve.texte) && !!murs?.cochee && !!couverture?.cochee && !!cloture?.cochee
+      && apresPresse === 'Après' && pendantApercu === avant && ferme && /Ctrl\+Z les défait/.test(toast)
+      && e.murs?.materiau === 'brique' && e.couverture === 'ardoise' && e.facades === 0 && (e.cloture ?? []).some((c) => c.type === 'mur' && c.hauteur === 1.6)
+      && annule === avant && !deborde;
+    return { ok, mesure: `${n} propositions ; relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; murs ${murs?.cochee ? 'coché' : 'NON'} ; couverture ${couverture?.cochee ? 'cochée' : 'NON'} ; clôture ${cloture?.cochee ? 'cochée' : 'NON'} ; aperçu ${pendantApercu === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; « ${toast} » ; écrit ${ecrit} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE ' + annule} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  63: async (page) => {
+    // L'audit de la parcelle, une valeur choisie a la main (lot L11) : la couverture et la couleur
+    // des murs reglees dans l'inspecteur ; leurs lignes arrivent decochees et le disent. Cochee a la
+    // main, la ligne des murs s'ecrit ; la couverture choisie reste.
+    await page.evaluate(() => {
+      const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      m.couleurMurs = { source: 'plan' };
+      m.toit = { ...m.toit, couverture: 'tuile' };
+    });
+    const avant = await etatAudite(page);
+    await captureJusquAuxPropositions(page);
+    const murs = await ligneProposition(page, 'Matériau des murs de Maison');
+    const couverture = await ligneProposition(page, 'Couverture de Maison');
+    await page.locator('.ligneProposition', { hasText: 'Matériau des murs de Maison' }).locator('input[type="checkbox"]').check({ timeout: 30000 });
+    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const e = JSON.parse(await etatAudite(page));
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(1500);
+    const annule = await etatAudite(page);
+    const ok = !!murs && !murs.cochee && /Remplace votre choix : couleur du plan/.test(murs.texte) && !!couverture && !couverture.cochee && /Remplace votre choix : tuiles mécaniques/.test(couverture.texte)
+      && e.murs?.materiau === 'brique' && e.murs?.source === undefined && e.couverture === 'tuile' && annule === avant;
+    return { ok, mesure: `murs ${murs ? (murs.cochee ? 'COCHÉS' : 'décochés') + ' « ' + (murs.texte.match(/Remplace votre choix : [^.]*/)?.[0] ?? '—') + ' »' : 'ABSENTS'} ; couverture ${couverture ? (couverture.cochee ? 'COCHÉE' : 'décochée') + ' « ' + (couverture.texte.match(/Remplace votre choix : [^.]*/)?.[0] ?? '—') + ' »' : 'ABSENTE'} ; écrit murs ${JSON.stringify(e.murs)}, couverture ${e.couverture} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE ' + annule}` };
+  },
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
@@ -1321,8 +1427,9 @@ function pointsPour(nomClasse) {
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
   // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7) ;
-  // 59 : la distorsion du grand-angle (lot L8) ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61];
+  // 59 : la distorsion du grand-angle (lot L8) ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9) ;
+  // 62 et 63 : ses propositions, l'apercu avant / apres, la validation et Ctrl+Z (lot L11).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

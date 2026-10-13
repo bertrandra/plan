@@ -425,7 +425,15 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
   // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
-  brancherAuditParcelle({ etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast }, commandes);
+  brancherAuditParcelle({
+    etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast,
+    // La validation des propositions (§14) : un instantane, l'ecriture, le plan et la Vue 3D redessines.
+    projet: {
+      pushHistory: p.pushHistory, render: p.render,
+      refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
+      remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
+    },
+  }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {

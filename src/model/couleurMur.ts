@@ -72,14 +72,36 @@ export interface CouleurMurs {
   lecture?: number;
   /** Absente : automatique (la photo, sinon le materiau, sinon la couleur du plan). */
   source?: 'photo' | 'materiau' | 'plan';
+  /**
+   * La couleur lue sur vos photos, lors d'un audit de la parcelle (MD/spec-audit.md §6.2, §14), et
+   * validee : une verite terrain, qui passe avant la photo de rue. Rangee a part de `photo`, que la
+   * lecture Panoramax recrit : une actualisation ne doit pas l'effacer.
+   */
+  terrain?: CouleurTerrain | null;
+  /** Le materiau des murs vu sur place (audit de la parcelle) : il l'emporte sur celui des fichiers fonciers. */
+  materiau?: MateriauTexture | null;
+}
+
+/** La couleur des murs lue sur les photos d'un audit, et le jour de la validation. */
+export interface CouleurTerrain {
+  couleur: string;
+  /** AAAA-MM-JJ. */
+  date: string;
+}
+
+/** La teinte usuelle d'un materiau vu sur place, quand aucune photo n'a donne la sienne. */
+function couleurDuMateriauVu(m: MateriauTexture): string | null {
+  return Object.values(MATERIAUX_MURS).find((x) => x.texture === m)?.couleur ?? null;
 }
 
 /** La couleur des murs retenue pour la 3D, et sa source ; null : la couleur du plan. */
 export function couleurMursRetenue(o: { couleurMurs?: CouleurMurs | null; bdtopo?: unknown }): { couleur: string; source: 'photo' | 'materiau' } | null {
   const choix = o.couleurMurs?.source;
   if (choix === 'plan') return null;
-  const photo = o.couleurMurs?.photo?.couleur;
-  const materiau = materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.couleur;
+  // La couleur vue sur place passe avant la photo de rue : elle a ete validee par quelqu'un devant le mur.
+  const photo = o.couleurMurs?.terrain?.couleur ?? o.couleurMurs?.photo?.couleur;
+  const vu = o.couleurMurs?.materiau;
+  const materiau = (vu ? couleurDuMateriauVu(vu) : null) ?? materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.couleur;
   if (choix !== 'materiau' && photo) return { couleur: photo, source: 'photo' };
   if (materiau) return { couleur: materiau, source: 'materiau' };
   return null;
@@ -92,6 +114,7 @@ export function couleurMursRetenue(o: { couleurMurs?: CouleurMurs | null; bdtopo
  */
 export function textureDesMurs(o: { couleurMurs?: CouleurMurs | null; bdtopo?: unknown }): MateriauTexture | null {
   if (o.couleurMurs?.source === 'plan') return null;
+  if (o.couleurMurs?.materiau) return o.couleurMurs.materiau;
   return materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.texture ?? null;
 }
 
