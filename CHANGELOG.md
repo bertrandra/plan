@@ -7,6 +7,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Plan de mise en œuvre de l'audit, des façades et des règles des toits**
+  (`MD/plan-mise-en-oeuvre-audit.md`, aucun code). Il découpe les trois specs en 21 lots, une PR
+  chacun, regroupés en jalons :
+  - socle commun : photo située, façade reconnue, couleur sur photo, brouillon ;
+  - calage des photos ;
+  - audit de la parcelle sans Claude ;
+  - détection des ouvertures ;
+  - analyse par Claude ;
+  - corpus et règles ;
+  - généralisation.
+
+  Il donne leurs dépendances, ce que chacun doit prouver, les décisions qui bloquent et les défauts
+  retenus en attendant, les risques et le premier pas.
+
 - **Spec de l'audit : deux processus, les mêmes outils ; calage et détection des façades**
   (`MD/spec-audit.md` réorganisée, `MD/spec-facades-calage-detection.md` nouvelle, aucun code).
   - L'audit de la parcelle principale (tout utilisateur, dans son projet) et la promenade
