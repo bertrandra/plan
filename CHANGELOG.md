@@ -7,6 +7,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Corpus d'audit et réglages des toits** (lot L19 du plan de mise en œuvre, `MD/spec-audit.md`
+  §21 à §23, `MD/spec-regles-toits.md` §6 et §8).
+  - **Rejeu d'une promenade** : `.claude/skills/toits/scripts/audit.ts <fichier | dossier>` relit un
+    fichier de promenade (version 1 ou 2), rejoue chaque cas sans réseau avec le code courant, et le
+    compare à ce que le code avait produit sur le terrain et à l'attendu validé. Il écrit un tableau et
+    les fichiers de `rendu.py` (rejeu et terrain côte à côte). Il propose `facade.couleur`, sans le
+    cocher, quand une façade lue sur une photo du cas s'écarte de la couleur des murs retenue de plus
+    que le seuil de `model/couleurMur.ts` (§18.4). Le calcul pur est dans `facade/audit.ts` ; les
+    garde-fous de végétation et d'égout passent dans `facade/vraisemblance.ts`, partagés avec
+    l'import (aucun changement de règle).
+  - **Corpus** `tests/fixtures/audit/` et test `tests/unit/facade/audit.test.ts` : chaque cas
+    `valide` est rejoué en CI (corps au centimètre, couleur et source des murs) ; les cas `a_corriger`
+    et `corrige` sont listés en `it.todo`. Deux premiers fichiers, reconstitués depuis des relevés
+    réels (pas encore une promenade) : AE 101, la maison de référence, validée (format version 1), et
+    le pavillon est de la longère d'Hucqueliers, à corriger (format version 2).
+  - **Réglages des toits** : les 74 seuils de la lecture des toits (surface mesurée, rectangles,
+    formes simples, corps et pignons, recalage, complétion, végétation, bâtiments à cheval) sortent
+    du code dans `regles/toits/reglages.json`, avec leur unité, leur raison et les cas qui les
+    justifient, **sans changer une seule valeur**. Le fichier est compilé dans le fichier livré
+    (`model/reglagesToits.ts`) ; son empreinte entre dans `VERSION_LECTURE_TOITS`
+    (`LECTURES_TOITS`) : une valeur changée sans nouvelle version de lecture fait échouer la CI, et
+    relit de toute façon les toits déjà lus. La version de lecture reste 1 : rien n'est relu. Le
+    fichier de promenade note l'empreinte des réglages (`promenade.regles.reglagesToits`). Banc des
+    quatre villages et AE 101 identiques au bit près ; empreintes golden inchangées.
+
 - **Distorsion du grand-angle corrigée** (lot L8 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §4). Une photo prise à l'ultra grand-angle (focale
   équivalente sous 20 mm) que le téléphone n'a pas redressée courbe les arêtes du mur, ce que le

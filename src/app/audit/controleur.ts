@@ -36,6 +36,7 @@ import { poserFacadeDevant } from '../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
 import { COULEURS_DIAGNOSTIC } from '../diagnostic.js';
 import { VERSION_LECTURE_TOITS } from '../toitsLidar.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../../model/reglagesToits.js';
 import { VERSION_LECTURE_MURS } from '../mursFond.js';
 import { parcours } from '../parcours.js';
 import { planDeDepart, chargerAutour, fautRecharger, type DependancesChargement } from './chargement.js';
@@ -482,7 +483,7 @@ async function partagerPromenade(ctx: ContexteAudit, promenade: Promenade, parti
     origine: { lat: cad?.origineLat ?? 0, lon: cad?.origineLon ?? 0 },
     emprise: empriseDesObjets(etat.objects),
     code: { version: APP_VERSION, commit: BUILD_SHA },
-    regles: { lectureToits: VERSION_LECTURE_TOITS, lectureMurs: VERSION_LECTURE_MURS },
+    regles: { lectureToits: VERSION_LECTURE_TOITS, lectureMurs: VERSION_LECTURE_MURS, reglagesToits: EMPREINTE_REGLAGES_TOITS },
   });
   const nom = nomFichierPromenade(promenade.debut, cad?.commune ?? null);
   const issue = await (ctx.partager ?? partagerFichier)(nom, JSON.stringify(fichier), 'Audit des toits — ' + (cad?.commune ?? 'promenade'));
