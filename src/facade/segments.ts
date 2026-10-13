@@ -154,15 +154,29 @@ const ecartAngle = (a: number, b: number) => {
   return d;
 };
 
-/** Les segments de droite de la photo, du plus long au plus court. */
-export function detecterSegments(img: Image, o: OptionsSegments = {}): Segment[] {
+/** Ce que la croissance des regions laisse a chaque region : l'image reduite, son facteur et son gradient. */
+interface ContexteRegions {
+  /** Largeur de l'image reduite. */
+  l: number;
+  /** Facteur de reduction : un pixel reduit couvre s x s pixels de la photo. */
+  s: number;
+  mod: Float32Array;
+}
+
+/**
+ * Fait croitre les regions de gradient de meme direction, de la plus nette a la plus faible, et les
+ * passe une a une a `visiter` (les indices de leurs pixels dans l'image reduite). Le detecteur de
+ * segments les ajuste en droites ; la correction de la distorsion (distorsion.ts) en garde les pixels,
+ * car une arete courbee par l'objectif n'est plus une droite.
+ */
+function parcourirRegions(img: Image, o: OptionsSegments, visiter: (region: Int32Array, n: number, c: ContexteRegions) => void): void {
   const s = Math.max(1, Math.ceil(Math.max(img.largeur, img.hauteur) / (o.grandCoteMax ?? GRAND_COTE_MAX)));
   const { rgb, l, h } = preparer(img, s);
-  if (l < 3 || h < 3) return [];
+  if (l < 3 || h < 3) return;
   const { mod, angle } = gradient(rgb, l, h);
   const seuil = o.seuilGradient ?? SEUIL_GRADIENT;
   const tol = ((o.toleranceDeg ?? TOLERANCE_DEG) * Math.PI) / 180;
-  const longueurMin = o.longueurMin ?? LONGUEUR_MIN;
+  const contexte: ContexteRegions = { l, s, mod };
 
   // Tri par paquets du gradient, du plus fort au plus faible : les regions naissent sur les aretes
   // les plus nettes, comme dans LSD, ce qui les garde droites.
@@ -189,7 +203,6 @@ export function detecterSegments(img: Image, o: OptionsSegments = {}): Segment[]
 
   const pris = new Uint8Array(l * h);
   const region = new Int32Array(l * h);
-  const res: Segment[] = [];
   for (let r = ordre.length - 1; r >= 0; r--) {
     const graine = ordre[r] as number;
     if (pris[graine]) continue;
@@ -220,11 +233,58 @@ export function detecterSegments(img: Image, o: OptionsSegments = {}): Segment[]
           ang = Math.atan2(sy, sx);
         }
     }
-    if (n < PIXELS_MIN) continue;
-    const seg = ajuster(region, n, l, mod, s);
-    if (seg && seg.longueur >= longueurMin) res.push(seg);
+    visiter(region, n, contexte);
   }
+}
+
+/** Les segments de droite de la photo, du plus long au plus court. */
+export function detecterSegments(img: Image, o: OptionsSegments = {}): Segment[] {
+  const longueurMin = o.longueurMin ?? LONGUEUR_MIN;
+  const res: Segment[] = [];
+  parcourirRegions(img, o, (region, n, c) => {
+    if (n < PIXELS_MIN) return;
+    const seg = ajuster(region, n, c.l, c.mod, c.s);
+    if (seg && seg.longueur >= longueurMin) res.push(seg);
+  });
   return res.sort((a, b) => b.longueur - a.longueur);
+}
+
+/**
+ * Une trace : les pixels d'une region de gradient de meme direction, sans exiger qu'ils forment une
+ * droite. Coordonnees de la photo d'origine (centre des pixels reduits), poids = gradient.
+ */
+export interface Trace {
+  /** x0, y0, x1, y1, ... */
+  points: Float64Array;
+  poids: Float32Array;
+  /** Cote d'un pixel de l'image reduite, en pixels de la photo : l'espacement des points. */
+  pas: number;
+}
+
+/**
+ * Les traces de la photo d'au moins `pixelsMin` pixels (image reduite), au plus `pointsMax` points
+ * chacune (pris a pas regulier dans la region). Ce sont les memes regions que celles des segments.
+ */
+export function detecterTraces(img: Image, o: OptionsSegments & { pixelsMin?: number; pointsMax?: number } = {}): Trace[] {
+  const pixelsMin = Math.max(PIXELS_MIN, o.pixelsMin ?? PIXELS_MIN);
+  const pointsMax = Math.max(2, o.pointsMax ?? 5000);
+  const res: Trace[] = [];
+  parcourirRegions(img, o, (region, n, c) => {
+    if (n < pixelsMin) return;
+    const pas = Math.max(1, Math.ceil(n / pointsMax));
+    const m = Math.ceil(n / pas);
+    const points = new Float64Array(2 * m),
+      poids = new Float32Array(m);
+    for (let q = 0, t = 0; q < n && t < m; q += pas, t++) {
+      const k = region[q] as number;
+      const i = k % c.l;
+      points[2 * t] = (i + 0.5) * c.s;
+      points[2 * t + 1] = ((k - i) / c.l + 0.5) * c.s;
+      poids[t] = c.mod[k] as number;
+    }
+    res.push({ points, poids, pas: c.s });
+  });
+  return res;
 }
 
 /**

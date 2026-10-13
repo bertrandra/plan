@@ -20,6 +20,12 @@ export interface Photo {
   champ: number | null;
   /** Focale en pixels quand le module natif la donne directement (intrinseques ARKit). */
   focalePx: number | null;
+  /**
+   * La distorsion du grand-angle corrigee sur `image` (facade/distorsion.ts, lot L8) : son coefficient,
+   * et le facteur dont l'image corrigee a ete reduite pour garder ses coins, qui reduit la focale
+   * d'autant. Absente d'une photo non corrigee.
+   */
+  distorsion?: { k1: number; echelle: number } | null;
 }
 
 export function cameraDisponible(): boolean {

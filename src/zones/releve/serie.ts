@@ -4,7 +4,8 @@ import { au } from '../../util/tableaux.js';
 import { focalePx } from '../../facade/cadrage.js';
 import { coinsProposes } from '../../facade/analyse.js';
 import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../../facade/calage.js';
-import type { CalageFin, SourceCoin } from '../../facade/calageFin.js';
+import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../../facade/calageFin.js';
+import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../../facade/distorsion.js';
 import { type Decrochement } from '../../facade/profil.js';
 import type { Image, P2 } from '../../facade/homographie.js';
 import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
@@ -41,6 +42,8 @@ export interface Morceau {
   sources?: SourceCoin[];
   /** Vrai pendant que le calage fin cherche les coins sur la photo. */
   recherche?: boolean;
+  /** Vrai : la recherche ne fait que corriger la distorsion du grand-angle (un morceau d'une serie). */
+  distorsionSeule?: boolean;
   /** Ce que le calage fin a rendu (sans le detail), une fois la recherche faite. */
   fin?: ResultatCoins | null;
 }
@@ -61,6 +64,75 @@ export interface EntreeRecherche {
   hauteur: number;
   prise: PriseReleve;
   distance: { valeur: number; precisionM: number } | null;
+  /**
+   * La focale equivalente 24 x 36 de la photo, en mm : sous 20 mm (grand-angle), la distorsion est
+   * estimee et corrigee avant de chercher les coins (lot L8). `null` : inconnue, rien n'est corrige.
+   */
+  focale35?: number | null;
+  /** Faux : un morceau d'une serie, dont on ne cherche pas les coins ; seule la distorsion est corrigee. */
+  chercher?: boolean;
+}
+
+/** La photo corrigee de la distorsion du grand-angle, telle que la recherche la rend. */
+export interface DistorsionCorrigee {
+  image: Image;
+  modele: ModeleDistorsion;
+}
+
+/** Ce que rend la recherche d'une prise : la photo corrigee s'il y a lieu, et les coins s'ils etaient cherches. */
+export interface ResultatRecherche {
+  distorsion: DistorsionCorrigee | null;
+  coins: ResultatCoins | null;
+}
+
+/**
+ * La recherche d'une prise, sans DOM (worker ou fil principal) : la preparation de la photo (la
+ * distorsion du grand-angle, spec §4), puis le calage fin sur la photo preparee. La focale de l'image
+ * corrigee est reduite du meme facteur que l'image.
+ */
+export function rechercher(e: EntreeRecherche): ResultatRecherche {
+  const d = corrigerDistorsion(e.image, e.focale35);
+  const image = d?.image ?? e.image;
+  const prise = d ? { ...e.prise, focalePx: e.prise.focalePx * d.modele.echelle } : e.prise;
+  const coins = e.chercher === false ? null : sansDetail(calageFinDuReleve(image, e.largeur, e.hauteur, prise, e.distance));
+  return { distorsion: d ? { image: d.image, modele: d.modele } : null, coins };
+}
+
+/**
+ * La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de
+ * l'objectif. Une photo corrigee de la distorsion a ete reduite pour garder ses coins : la focale
+ * deduite du champ l'est d'autant (une focale donnee l'a deja ete a la correction).
+ */
+export function focaleDePrise(p: Prise): number {
+  const img = p.photo.image;
+  if (p.photo.focalePx != null) return p.photo.focalePx;
+  return focalePx(img.largeur, img.hauteur, p.photo.champ ?? p.champ) * (p.photo.distorsion?.echelle ?? 1);
+}
+
+/** La focale equivalente 24 x 36 d'une prise, en mm (celle que l'on croit, champ par defaut compris). */
+export function focale35DePrise(p: Prise): number {
+  return focale35DePixels(focaleDePrise(p), p.photo.image.largeur, p.photo.image.hauteur);
+}
+
+/**
+ * La prise une fois sa photo corrigee de la distorsion : l'image et son URL remplacees, les coins
+ * (et le decrochement) ramenes dans l'image corrigee, la focale reduite d'autant. Une recherche deja
+ * arretee (l'analyse est partie avec la photo d'origine et ses coins) ne change plus rien.
+ */
+export function appliquerDistorsion(m: Morceau, d: DistorsionCorrigee, url: string): Morceau {
+  if (!m.recherche) return m;
+  const { modele } = d;
+  const vers = (q: P2) => corrigerPoint(q, modele);
+  const photo = m.prise.photo;
+  return {
+    ...m,
+    coins: m.coins.map(vers),
+    ...(m.decrochement ? { decrochement: { ...m.decrochement, haut: vers(m.decrochement.haut), bas: vers(m.decrochement.bas) } } : {}),
+    prise: {
+      ...m.prise,
+      photo: { ...photo, image: d.image, url, focalePx: photo.focalePx != null ? photo.focalePx * modele.echelle : null, distorsion: { k1: modele.k1, echelle: modele.echelle } },
+    },
+  };
 }
 
 /**
@@ -82,9 +154,12 @@ function distanceIndependante(m: Prise['mesure']): EntreeRecherche['distance'] {
  * sont pas ceux du mur, il n'y a pas d'aretes a y chercher.
  */
 export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): EntreeRecherche | null {
-  if (partiel) return null;
+  // Un morceau d'une serie n'a pas d'aretes de mur a chercher ; pris au grand-angle, sa photo reste
+  // pourtant a corriger de la distorsion, comme une photo entiere.
+  const focale35 = focale35DePrise(p);
+  if (partiel && !grandAngleACorriger(focale35)) return null;
   const img = p.photo.image;
-  const f = p.photo.focalePx ?? focalePx(img.largeur, img.hauteur, p.photo.champ ?? p.champ);
+  const f = focaleDePrise(p);
   const mesuree = p.mesure?.distance ?? null;
   // Sans distance, on suppose le mur cadre sur les sept dixiemes de la largeur de la photo.
   const distance = mesuree && mesuree > 0 ? mesuree : (largeurMur * f) / (0.7 * img.largeur);
@@ -104,6 +179,8 @@ export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: nu
       distanceEstimee: !(mesuree && mesuree > 0),
     },
     distance: distanceIndependante(p.mesure),
+    focale35,
+    chercher: !partiel,
   };
 }
 
@@ -121,6 +198,19 @@ export function appliquerRecherche(m: Morceau, r: ResultatCoins): Morceau {
     h = m.prise.photo.image.hauteur;
   const marge = Math.max(w, h) * 0.2;
   return { ...fin, coins: r.coins.map((q) => ({ x: Math.max(-marge, Math.min(w + marge, q.x)), y: Math.max(-marge, Math.min(h + marge, q.y)) })), sources: [...r.sources] };
+}
+
+/**
+ * Le morceau une fois la recherche rendue : la photo corrigee de la distorsion (et ses coins ramenes
+ * dedans), puis les coins trouves. Sans URL pour la photo corrigee (le navigateur n'a pas pu l'encoder),
+ * on garde la photo d'origine et l'on ignore les coins trouves sur la corrigee : l'image analysee, celle
+ * que l'on montre et les coins doivent rester dans le meme repere.
+ */
+export function appliquerResultat(m: Morceau, r: ResultatRecherche, url: string | null): Morceau {
+  const corrigee = !!(r.distorsion && url);
+  let x = r.distorsion && url ? appliquerDistorsion(m, r.distorsion, url) : m;
+  if (r.coins && (corrigee || !r.distorsion)) x = appliquerRecherche(x, r.coins);
+  return x.recherche ? { ...x, recherche: false } : x;
 }
 
 /** Le morceau dont on n'attend plus le calage fin : l'analyse part avec les coins tels qu'ils sont. */
@@ -150,7 +240,7 @@ export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: nu
 export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): P2[] {
   const w = p.photo.image.largeur,
     h = p.photo.image.hauteur;
-  const f = p.photo.focalePx ?? focalePx(w, h, p.photo.champ ?? p.champ);
+  const f = focaleDePrise(p);
   const d = p.mesure?.distance ?? null;
   const visible = d ? (d * w) / f : largeurMur;
   const largeur = partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur;

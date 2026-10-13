@@ -55,16 +55,24 @@ function NoteCalage({ m, largeur }: { m: Morceau; largeur: number }) {
   if (m.recherche)
     return (
       <p className="releveNote" aria-live="polite">
-        Recherche des coins sur la photo…
+        {m.distorsionSeule ? 'Correction de la distorsion du grand-angle…' : 'Recherche des coins sur la photo…'}
       </p>
     );
+  // La photo redressee de la distorsion (lot L8) : on le dit, car ses bords ne sont plus ceux de la prise.
+  const corrigee = m.prise.photo.distorsion ? 'Distorsion du grand-angle corrigée sur la photo. ' : '';
   const r = m.fin;
-  if (!r) return null;
+  if (!r)
+    return corrigee ? (
+      <p className="releveNote" aria-live="polite">
+        {corrigee.trim()}
+      </p>
+    ) : null;
   const trouves = (m.sources ?? []).filter((s) => s === 'trouve').length;
   const decale = r.trouve && r.contour?.decale ? r.contour : null;
   return (
     <>
       <p className="releveNote" aria-live="polite">
+        {corrigee}
         {!r.trouve
           ? "Les coins n'ont pas été trouvés sur la photo : ils sont prédits (ronds en pointillé). Placez-les au doigt."
           : trouves === 4

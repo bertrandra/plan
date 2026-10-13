@@ -25,7 +25,8 @@ import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type Zo
 import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/homographie.js';
-import { peindreElevation, murSeul, photographier, stenope, type SceneFacade, type PriseCamera } from './synthese.js';
+import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/distorsion.js';
+import { peindreElevation, murSeul, photographier, stenope, coinsStenope, redresser, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
 import { mesurerDetection, mediane, erreurCoinsCm, type MesureDetection } from './mesure.js';
 
 export const DOSSIER_CORPUS = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));
@@ -57,9 +58,38 @@ export interface ResultatScene {
   coinsDansZone: number | null;
   /** Le calage fin (lot L7), depuis la prise du releve puis depuis celle de l'audit. */
   fin: { releve: FinScene | null; audit: FinScene | null };
+  /** La distorsion du grand-angle (lot L8), pour une prise sous 20 mm ou dont l'objectif deforme. */
+  distorsion: DistorsionScene | null;
   ms: number;
-  /** Ce qui a ete detecte, pour les images de controle du script. */
-  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null };
+  /**
+   * Ce qui a ete detecte, pour les images de controle du script. `image` est l'image analysee (corrigee
+   * de la distorsion s'il y a lieu) ; `coinsImage`, les coins vrais dans cette image.
+   */
+  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; coinsImage: P2[] | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null };
+}
+
+/** La chaine du releve et le calage fin d'une scene, sur une image donnee (corrigee ou non). */
+export interface ChaineScene {
+  photo: MesureDetection | null;
+  hauteurCm: number | null;
+  /** Erreur des quatre coins rendus par le calage fin du releve, en cm sur le mur. */
+  coinsFinCm: number[] | null;
+}
+
+/** Ce que la correction de la distorsion (lot L8) fait d'une scene, et la chaine avant et apres. */
+export interface DistorsionScene {
+  /** La focale equivalente que connait l'application, en mm. */
+  focale35: number | null;
+  /** Le coefficient de l'objectif (forme polynomiale du generateur) et celui estime (forme division). */
+  kVrai: number;
+  kEstime: number;
+  corrigee: boolean;
+  aretes: number;
+  /** Ecart des aretes presque verticales a leur droite, en px : sur la photo, puis sur l'image corrigee. */
+  residuAvantPx: number | null;
+  residuApresPx: number | null;
+  avant: ChaineScene;
+  apres: ChaineScene;
 }
 
 /** Ce que le calage fin rend sur une scene. */
@@ -126,6 +156,138 @@ const ecartSigne = (a: number) => ((((a + 180) % 360) + 360) % 360) - 180;
 const dansZone = (q: P2, z: ZoneRecherche) => q.x >= z.x0 && q.x <= z.x1 && q.y >= z.y0 && q.y <= z.y1;
 const QUATRE_INFINIS = [Infinity, Infinity, Infinity, Infinity];
 
+/** Ce que la photo d'une scene donne, sur l'image analysee : chaine du releve, calages, et leur detail. */
+type MesurePhoto = Pick<ResultatScene, 'photo' | 'hauteurCm' | 'hauteurMesuree' | 'coinsCm' | 'coinsExactsCm' | 'coinsBruitesCm' | 'coinsDansZone' | 'fin'> & {
+  detail: Omit<ResultatScene['detail'], 'elevation'>;
+};
+
+/**
+ * Rejoue la photo d'une scene. `prep` : la photo corrigee de la distorsion (lot L8), comme le releve
+ * l'analyse ; `null` pour la photo telle que l'objectif l'a prise. Les coins vrais sont ramenes dans
+ * l'image analysee ; l'erreur d'un coin rendu se mesure sur le stenope vrai (la correction estimee
+ * defaite, puis la distorsion vraie de l'objectif retiree), donc sans faveur pour la correction.
+ */
+function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { image: Image; focalePx: number | null }, prep: PhotoCorrigee | null): MesurePhoto {
+  const v = s.verite;
+  const vraisPhoto = v.coins ?? [];
+  const image = prep?.image ?? photo.image;
+  const W = image.largeur,
+    H = image.hauteur;
+  const coinsImage = prep ? vraisPhoto.map((q) => corrigerPoint(q, prep.modele)) : vraisPhoto;
+  const cam = p.type === 'camera' ? p : null;
+  const versStenope = (q: P2): P2 => {
+    const o = prep ? distordrePoint(q, prep.modele) : q;
+    return cam?.distorsion ? redresser(cam, o) : o;
+  };
+  const vraisStenope = cam?.distorsion ? (coinsStenope(s) ?? vraisPhoto) : vraisPhoto;
+  const erreur = (c: readonly P2[]) => erreurCoinsCm(c.map(versStenope), vraisStenope, v.largeur, v.hauteur);
+  const m: MesurePhoto = {
+    photo: null,
+    hauteurCm: null,
+    hauteurMesuree: null,
+    coinsCm: null,
+    coinsExactsCm: null,
+    coinsBruitesCm: null,
+    coinsDansZone: null,
+    fin: { releve: null, audit: null },
+    detail: { photo: null, image, coinsImage, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
+  };
+  const hauteurEstimee = p.hauteurEstimee ?? v.hauteur;
+  // La focale que l'application connaitrait : celle de l'EXIF, ou ses 67 degres par defaut ; l'image
+  // corrigee de la distorsion est reduite pour que ses coins tiennent, la focale l'est d'autant.
+  const focaleBrute = p.type === 'camera' ? (p.focaleConnue === false ? focaleParDefaut(W, H) : photo.focalePx) : null;
+  const focale = focaleBrute !== null ? focaleBrute * (prep?.modele.echelle ?? 1) : null;
+  const distance = p.type === 'camera' ? (p.distanceConnue === false ? null : p.distance) : (p.distance ?? null);
+  const r = analyserReleve({
+    photo: image,
+    coins: coinsImage,
+    largeur: v.largeur,
+    hauteur: hauteurEstimee,
+    focalePx: focale,
+    contour: [
+      { x: 0, y: 0 },
+      { x: v.largeur, y: 0 },
+      { x: v.largeur, y: 6 },
+      { x: 0, y: 6 },
+    ],
+    cote: 0,
+    distance,
+  });
+  if (r) {
+    m.photo = mesurerDetection(v.ouvertures, r.ouvertures);
+    m.hauteurCm = Math.round((r.hauteur - v.hauteur) * 100);
+    m.hauteurMesuree = r.hauteurMesuree;
+    m.detail.photo = r.ouvertures;
+    m.detail.redressee = r.elevation;
+  } else {
+    m.photo = mesurerDetection(v.ouvertures, []);
+  }
+  if (p.type === 'camera' && focale) {
+    // Le releve : la distance mesuree, le cap et l'attitude au declenchement (capteurs typiques),
+    // comme `zones/releve/serie.ts::coinsDePrise` ; sans distance, le cadre a 12 %.
+    const lu = capteursSimules(s, p, true);
+    const proposes = distance
+      ? coinsDuReleve(v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg })
+      : coinsProposes(W, H, focale, distance, v.largeur, hauteurEstimee);
+    m.detail.coinsProposes = proposes;
+    m.coinsCm = erreur(proposes);
+    // L'audit : la prise de vue situee projette le mur (calage grossier).
+    const mur = { gauche: { x: 0, y: 0 }, droite: { x: v.largeur, y: 0 }, hauteur: hauteurEstimee };
+    const prise = (c: CapteursSimules, precisionM: number | null): PriseDeVue => ({
+      x: c.x,
+      y: c.y,
+      precisionM,
+      azimutDeg: c.capDeg,
+      sourceAzimut: 'boussole',
+      inclinaisonDeg: c.inclinaisonDeg,
+      roulisDeg: c.roulisDeg,
+      focalePx: focale,
+      largeurPx: W,
+      hauteurPx: H,
+      sourceFocale: p.focaleConnue === false ? 'defaut' : 'exif',
+    });
+    const exact = calageGrossier(mur, prise(capteursSimules(s, p, false), 0));
+    m.coinsExactsCm = exact.coins ? erreur(exact.coins) : QUATRE_INFINIS;
+    const bruite = calageGrossier(mur, prise(lu, CAPTEURS_BANC.precisionM));
+    m.coinsBruitesCm = bruite.coins ? erreur(bruite.coins) : QUATRE_INFINIS;
+    m.coinsDansZone = coinsImage.filter((q, i) => {
+      const z = bruite.zones[i];
+      return !!z && dansZone(q, z);
+    }).length;
+    m.detail.coinsPredits = bruite.coins;
+    m.detail.zones = bruite.zones;
+    // Le calage fin : depuis la prise du releve (si la distance est mesuree), puis depuis l'audit.
+    const vrai = capteursSimules(s, p, false);
+    const finScene = (c: CalageFin, ms: number): FinScene => ({
+      coinsCm: c.coins ? erreur(c.coins) : QUATRE_INFINIS,
+      sources: c.sources,
+      note: Math.round(c.note * 100) / 100,
+      trouve: c.trouve,
+      azimutErreurDeg: c.azimutCorrige ? Math.round(ecartSigne(c.azimutDeg - vrai.capDeg) * 10) / 10 : null,
+      dansZone: coinsImage.filter((q, i) => {
+        const z = c.detail.zones[i];
+        return !!z && dansZone(q, z);
+      }).length,
+      ms,
+    });
+    let t = performance.now();
+    let segments = null;
+    if (distance) {
+      const f = calageFinDuReleve(image, v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg, focaleEstimee: p.focaleConnue === false }, { valeur: distance, precisionM: 0.03 * distance });
+      m.fin.releve = finScene(f, Math.round(performance.now() - t));
+      m.detail.fin = f;
+      segments = f.detail.segments;
+    }
+    t = performance.now();
+    const fa = calageFin({ image, mur, prise: prise(lu, CAPTEURS_BANC.precisionM), ...(segments ? { segments } : {}) });
+    m.fin.audit = finScene(fa, Math.round(performance.now() - t));
+    if (!m.detail.fin) m.detail.fin = fa;
+  }
+  return m;
+}
+
+const chaine = (m: MesurePhoto): ChaineScene => ({ photo: m.photo, hauteurCm: m.hauteurCm, coinsFinCm: m.fin.releve?.coinsCm ?? null });
+
 /** Rejoue une scene. */
 export function rejouerScene(s: SceneFacade): ResultatScene {
   const t0 = performance.now();
@@ -145,103 +307,40 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
     coinsBruitesCm: null,
     coinsDansZone: null,
     fin: { releve: null, audit: null },
+    distorsion: null,
     ms: 0,
-    detail: { elevation: detElev, photo: null, image: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
+    detail: { elevation: detElev, photo: null, image: null, coinsImage: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
   };
   const p = s.synthese.prise;
   const photo = photographier(s, px);
   if (p && photo && v.coins) {
     const W = photo.image.largeur,
       H = photo.image.hauteur;
-    const hauteurEstimee = p.hauteurEstimee ?? v.hauteur;
-    // La focale que l'application connaitrait : celle de l'EXIF, ou ses 67 degres par defaut.
-    const focale = p.type === 'camera' ? (p.focaleConnue === false ? focaleParDefaut(W, H) : photo.focalePx) : null;
-    const distance = p.type === 'camera' ? (p.distanceConnue === false ? null : p.distance) : (p.distance ?? null);
-    const r = analyserReleve({
-      photo: photo.image,
-      coins: v.coins,
-      largeur: v.largeur,
-      hauteur: hauteurEstimee,
-      focalePx: focale,
-      contour: [
-        { x: 0, y: 0 },
-        { x: v.largeur, y: 0 },
-        { x: v.largeur, y: 6 },
-        { x: 0, y: 6 },
-      ],
-      cote: 0,
-      distance,
-    });
-    res.detail.image = photo.image;
-    if (r) {
-      res.photo = mesurerDetection(v.ouvertures, r.ouvertures);
-      res.hauteurCm = Math.round((r.hauteur - v.hauteur) * 100);
-      res.hauteurMesuree = r.hauteurMesuree;
-      res.detail.photo = r.ouvertures;
-      res.detail.redressee = r.elevation;
-    } else {
-      res.photo = mesurerDetection(v.ouvertures, []);
-    }
-    if (p.type === 'camera' && focale) {
-      // Le releve : la distance mesuree, le cap et l'attitude au declenchement (capteurs typiques),
-      // comme `zones/releve/serie.ts::coinsDePrise` ; sans distance, le cadre a 12 %.
-      const lu = capteursSimules(s, p, true);
-      const proposes = distance
-        ? coinsDuReleve(v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg })
-        : coinsProposes(W, H, focale, distance, v.largeur, hauteurEstimee);
-      res.detail.coinsProposes = proposes;
-      res.coinsCm = erreurCoinsCm(proposes, v.coins, v.largeur, v.hauteur);
-      // L'audit : la prise de vue situee projette le mur (calage grossier).
-      const mur = { gauche: { x: 0, y: 0 }, droite: { x: v.largeur, y: 0 }, hauteur: hauteurEstimee };
-      const prise = (c: CapteursSimules, precisionM: number | null): PriseDeVue => ({
-        x: c.x,
-        y: c.y,
-        precisionM,
-        azimutDeg: c.capDeg,
-        sourceAzimut: 'boussole',
-        inclinaisonDeg: c.inclinaisonDeg,
-        roulisDeg: c.roulisDeg,
-        focalePx: focale,
-        largeurPx: W,
-        hauteurPx: H,
-        sourceFocale: p.focaleConnue === false ? 'defaut' : 'exif',
-      });
-      const exact = calageGrossier(mur, prise(capteursSimules(s, p, false), 0));
-      res.coinsExactsCm = exact.coins ? erreurCoinsCm(exact.coins, v.coins, v.largeur, v.hauteur) : QUATRE_INFINIS;
-      const bruite = calageGrossier(mur, prise(lu, CAPTEURS_BANC.precisionM));
-      res.coinsBruitesCm = bruite.coins ? erreurCoinsCm(bruite.coins, v.coins, v.largeur, v.hauteur) : QUATRE_INFINIS;
-      res.coinsDansZone = v.coins.filter((q, i) => {
-        const z = bruite.zones[i];
-        return !!z && dansZone(q, z);
-      }).length;
-      res.detail.coinsPredits = bruite.coins;
-      res.detail.zones = bruite.zones;
-      // Le calage fin : depuis la prise du releve (si la distance est mesuree), puis depuis l'audit.
-      const vrai = capteursSimules(s, p, false);
-      const finScene = (c: CalageFin, ms: number): FinScene => ({
-        coinsCm: c.coins ? erreurCoinsCm(c.coins, v.coins ?? [], v.largeur, v.hauteur) : QUATRE_INFINIS,
-        sources: c.sources,
-        note: Math.round(c.note * 100) / 100,
-        trouve: c.trouve,
-        azimutErreurDeg: c.azimutCorrige ? Math.round(ecartSigne(c.azimutDeg - vrai.capDeg) * 10) / 10 : null,
-        dansZone: (v.coins ?? []).filter((q, i) => {
-          const z = c.detail.zones[i];
-          return !!z && dansZone(q, z);
-        }).length,
-        ms,
-      });
-      let t = performance.now();
-      let segments = null;
-      if (distance) {
-        const f = calageFinDuReleve(photo.image, v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg, focaleEstimee: p.focaleConnue === false }, { valeur: distance, precisionM: 0.03 * distance });
-        res.fin.releve = finScene(f, Math.round(performance.now() - t));
-        res.detail.fin = f;
-        segments = f.detail.segments;
-      }
-      t = performance.now();
-      const fa = calageFin({ image: photo.image, mur, prise: prise(lu, CAPTEURS_BANC.precisionM), ...(segments ? { segments } : {}) });
-      res.fin.audit = finScene(fa, Math.round(performance.now() - t));
-      if (!res.detail.fin) res.detail.fin = fa;
+    // La preparation (lot L8), comme le releve la fait : sous 20 mm de focale equivalente connue (celle
+    // de l'EXIF, ou les 67 degres par defaut sans elle), la distorsion est estimee et corrigee.
+    const focale35 = p.type === 'camera' ? (p.focaleConnue === false ? focale35DePixels(focaleParDefaut(W, H), W, H) : p.focale35) : null;
+    const examinee = grandAngleACorriger(focale35);
+    const estimation = examinee ? estimerDistorsion(photo.image) : null;
+    const prep = estimation ? corrigerDistorsion(photo.image, focale35, { estimation }) : null;
+    const apres = mesurerPhoto(s, p, photo, prep);
+    const { detail, ...chiffres } = apres;
+    Object.assign(res, chiffres);
+    res.detail = { ...res.detail, ...detail };
+    const kVrai = p.type === 'camera' ? (p.distorsion ?? 0) : 0;
+    if (examinee || kVrai) {
+      const avant = prep ? mesurerPhoto(s, p, photo, null) : apres;
+      res.distorsion = {
+        focale35,
+        kVrai,
+        kEstime: estimation ? Math.round(estimation.k1Brut * 1000) / 1000 : 0,
+        corrigee: !!prep,
+        aretes: estimation?.aretes ?? 0,
+        residuAvantPx: estimation?.residuAvantPx ?? null,
+        // Mesure independante : les aretes detectees a nouveau, sur l'image corrigee.
+        residuApresPx: prep ? estimerDistorsion(prep.image).residuAvantPx : (estimation?.residuAvantPx ?? null),
+        avant: chaine(avant),
+        apres: chaine(apres),
+      };
     }
   }
   res.ms = Math.round(performance.now() - t0);
@@ -423,6 +522,27 @@ export function tableau(b: ResultatBanc): string {
   const ligneFin = (f: SyntheseFin) => `médiane **${cm(f.medianeCm)}** | **${f.justes}/${f.coins}** | ${f.trouvesJustes}/${f.trouves} pleins justes | ${f.azimutsCorriges} corrigés, méd. ${cm(f.azimutMedianDeg)}°`;
   l.push(`| **Ensemble** | ${ligneFin(b.fin.releve)} | ${ligneFin(b.fin.audit)} | |`, '');
   l.push(`Coins vrais dans leur zone de recherche : relevé ${b.fin.releve.dansZone}/${b.fin.releve.coins}, audit ${b.fin.audit.dansZone}/${b.fin.audit.coins}.`, '');
+  const dist = b.scenes.filter((r) => r.distorsion);
+  if (dist.length) {
+    l.push('### Distorsion du grand-angle (lot L8 : sous 20 mm, correction radiale à un coefficient)', '');
+    l.push(
+      "k : coefficient de l'objectif (forme polynomiale du générateur) et celui estimé sur les arêtes presque verticales (forme division, qui n'est pas la même : les deux ne coïncident pas exactement). Résidu : écart des arêtes verticales à leur droite, en px, sur la photo puis sur l'image corrigée. Chaîne du relevé et calage fin du relevé, sans puis avec la correction.",
+      '',
+    );
+    l.push('| Façade | Focale (mm) | k vrai | k estimé | Corrigée | Arêtes | Résidu (px) | Rappel | Précision | Cotes méd. (cm) | Hauteur (cm) | Coins calage fin (cm) |', '|---|--:|--:|--:|:-:|--:|---|---|---|---|---|---|');
+    const fleche = (a: string, c: string) => (a === c ? c : `${a} → ${c}`);
+    const px = (v: number | null) => (v === null ? '—' : (Math.round(v * 100) / 100).toLocaleString('fr-FR'));
+    const hcm = (v: number | null) => (v === null ? '—' : (v > 0 ? '+' : '') + v);
+    const coins = (c: number[] | null) => (c ? c.map(coinCm).join(', ') : '—');
+    for (const r of dist) {
+      const d = r.distorsion as DistorsionScene;
+      const { avant: a, apres: c } = d;
+      l.push(
+        `| ${r.nom} | ${d.focale35 === null ? '—' : Math.round(d.focale35)} | ${d.kVrai.toLocaleString('fr-FR')} | ${d.kEstime.toLocaleString('fr-FR')} | ${d.corrigee ? 'oui' : 'non'} | ${d.aretes} | ${fleche(px(d.residuAvantPx), px(d.residuApresPx))} | ${fleche(pc(a.photo?.rappel ?? null), pc(c.photo?.rappel ?? null))} | ${fleche(pc(a.photo?.precision ?? null), pc(c.photo?.precision ?? null))} | ${fleche(cm(mediane(a.photo?.cotes ?? [])), cm(mediane(c.photo?.cotes ?? [])))} | ${fleche(hcm(a.hauteurCm), hcm(c.hauteurCm))} | ${fleche(coins(a.coinsFinCm), coins(c.coinsFinCm))} |`,
+      );
+    }
+    l.push('');
+  }
   const p = b.photo;
   // Depuis le lot L7, les coins que propose le releve sont ceux du calage fin.
   const partCoins = b.fin.releve.coins ? b.fin.releve.justes / b.fin.releve.coins : 0;

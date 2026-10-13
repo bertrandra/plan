@@ -2,20 +2,16 @@
 
 import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../facade/geometrie.js';
-import { focalePx } from '../../facade/cadrage.js';
 import { analyserReleve, type ResultatAnalyse } from '../../facade/analyse.js';
 import { analyserMosaique } from '../../facade/mosaique.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve } from '../../model/types.js';
 import { fr } from './commun.js';
-import { type Morceau, type Resultat, capCorrige } from './serie.js';
+import { type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
-function focaleDe(m: Morceau): number {
-  const img = m.prise.photo.image;
-  return m.prise.photo.focalePx ?? focalePx(img.largeur, img.hauteur, m.prise.photo.champ ?? m.prise.champ);
-}
+const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
 
 /**
  * Ce que la hauteur mesuree a d'etonnant : loin de l'estimation (cadastre, ou releve precedent), c'est

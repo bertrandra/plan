@@ -121,6 +121,13 @@ export interface PriseCamera {
   bruit?: number;
   /** Flou : rayon d'une moyenne glissante, en pixels. */
   flou?: number;
+  /**
+   * Distorsion radiale de l'objectif (lot L8), sous sa forme polynomiale : un point du stenope au rayon
+   * r (en demi-diagonales de l'image) tombe sur la photo au rayon r (1 + k r^2). Negatif : barillet.
+   * C'est volontairement un autre modele que celui de la correction (la forme « division ») : le banc
+   * mesure aussi ce que coute l'ecart entre l'objectif et le modele.
+   */
+  distorsion?: number;
 }
 
 export interface PriseCoins {
@@ -516,8 +523,34 @@ export function projeter(s: Stenope, P: V3): P2 {
   return { x: s.cx + (s.f * scal(q, s.droite)) / z, y: s.cy + (s.f * scal(q, s.bas)) / z };
 }
 
-/** Les coins vrais du mur sur la photo : haut gauche, haut droit, bas droit, bas gauche. */
-export function coinsVrais(s: SceneFacade): P2[] | null {
+/** Un point du stenope, sur la photo deformee par l'objectif (`PriseCamera.distorsion`). */
+export function distordre(p: PriseCamera, q: P2): P2 {
+  const k = p.distorsion ?? 0;
+  if (!k) return q;
+  const cx = p.largeurPx / 2,
+    cy = p.hauteurPx / 2,
+    R2 = (p.largeurPx * p.largeurPx + p.hauteurPx * p.hauteurPx) / 4;
+  const f = 1 + (k * ((q.x - cx) ** 2 + (q.y - cy) ** 2)) / R2;
+  return { x: cx + (q.x - cx) * f, y: cy + (q.y - cy) * f };
+}
+
+/** Un point de la photo deformee, ramene sur le stenope : l'inverse de `distordre` (Newton). */
+export function redresser(p: PriseCamera, q: P2): P2 {
+  const k = p.distorsion ?? 0;
+  if (!k) return q;
+  const cx = p.largeurPx / 2,
+    cy = p.hauteurPx / 2,
+    R = Math.hypot(p.largeurPx, p.hauteurPx) / 2;
+  const rd = Math.hypot(q.x - cx, q.y - cy) / R;
+  if (rd < 1e-12) return q;
+  let ru = rd;
+  for (let i = 0; i < 30; i++) ru -= (ru * (1 + k * ru * ru) - rd) / (1 + 3 * k * ru * ru);
+  const f = ru / rd;
+  return { x: cx + (q.x - cx) * f, y: cy + (q.y - cy) * f };
+}
+
+/** Les coins du mur sur le stenope, sans la distorsion de l'objectif : HG, HD, BD, BG. */
+export function coinsStenope(s: SceneFacade): P2[] | null {
   const p = s.synthese.prise;
   if (!p) return null;
   if (p.type === 'coins') return p.coins.map((c) => ({ ...c }));
@@ -529,6 +562,14 @@ export function coinsVrais(s: SceneFacade): P2[] | null {
     projeter(st, [L, 0, 0]),
     projeter(st, [0, 0, 0]),
   ];
+}
+
+/** Les coins vrais du mur sur la photo, distorsion de l'objectif comprise : HG, HD, BD, BG. */
+export function coinsVrais(s: SceneFacade): P2[] | null {
+  const p = s.synthese.prise;
+  const c = coinsStenope(s);
+  if (!c || !p || p.type === 'coins') return c;
+  return c.map((q) => distordre(p, q));
 }
 
 const SOL: RGB = [110, 160, 80];
@@ -617,8 +658,10 @@ export function photographier(s: SceneFacade, pxParM: number): { image: Image; f
   const bruit = p.bruit ?? 0;
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
-      const u = i + 0.5 - st.cx,
-        v = j + 0.5 - st.cy;
+      // Le pixel de la photo deformee vise le rayon du stenope qui y tombe.
+      const q = p.distorsion ? redresser(p, { x: i + 0.5, y: j + 0.5 }) : { x: i + 0.5, y: j + 0.5 };
+      const u = q.x - st.cx,
+        v = q.y - st.cy;
       const D: V3 = [st.avant[0] * st.f + st.droite[0] * u + st.bas[0] * v, st.avant[1] * st.f + st.droite[1] * u + st.bas[1] * v, st.avant[2] * st.f + st.droite[2] * u + st.bas[2] * v];
       let t = Infinity;
       let c: RGB | null = null;

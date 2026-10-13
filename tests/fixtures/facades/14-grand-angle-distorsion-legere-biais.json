@@ -1,0 +1,111 @@
+{
+  "nom": "14-grand-angle-distorsion-legere-biais",
+  "description": "Grand-angle de 16 mm, de biais (10° à gauche) à 6,5 m, barillet léger de 7 % au coin : la courbure se voit à peine, mais déplace les coins de plusieurs centimètres.",
+  "difficultes": [
+    "grand-angle",
+    "distorsion",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 9,
+    "hauteur": 6,
+    "coins": [
+      {
+        "x": 245.44,
+        "y": 165.53
+      },
+      {
+        "x": 951.53,
+        "y": 229.14
+      },
+      {
+        "x": 996.76,
+        "y": 673.03
+      },
+      {
+        "x": 195.53,
+        "y": 718.7
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 1,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "porte",
+        "x": 4.1,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            60,
+            70,
+            90
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.8,
+        "y": 1,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 4,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 6.8,
+        "y": 4,
+        "l": 1.1,
+        "h": 1.3
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 14,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          232,
+          222,
+          200
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          90,
+          92,
+          100
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 6.5,
+      "focale35": 16,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -10,
+      "tangage": 8,
+      "roulis": 1,
+      "bruit": 3,
+      "flou": 1,
+      "distorsion": -0.07
+    }
+  }
+}

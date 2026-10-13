@@ -7,6 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Distorsion du grand-angle corrigée** (lot L8 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §4). Une photo prise à l'ultra grand-angle (focale
+  équivalente sous 20 mm) que le téléphone n'a pas redressée courbe les arêtes du mur, ce que le
+  calage et le redressement, qui supposent un sténopé, ne savent pas lire.
+  - `facade/distorsion.ts` estime un coefficient radial (forme « division ») sur les arêtes presque
+    verticales de la photo, qu'il doit rendre droites, et ne corrige que si le gain est net : une photo
+    déjà corrigée, ou sans arêtes, reste telle quelle. Au-delà de 20 mm, rien n'est fait. L'image
+    corrigée garde sa taille et ses quatre coins ; la focale suit. `facade/segments.ts` rend aussi les
+    traces de gradient, courbes comprises (`detecterTraces`), sans changer ses segments.
+  - **Relevé** : la correction se fait dans le worker du calage fin, juste avant la recherche des
+    coins, et pour chaque photo d'une série prise au grand-angle. La photo montrée devient la photo
+    corrigée, les coins déjà posés y sont ramenés, et une note le dit.
+  - **Banc de façades** : la distorsion de l'objectif dans le générateur (forme polynomiale, exprès
+    différente de celle de la correction), trois scènes (`13` à `15`, dont un témoin déjà corrigé) et
+    une section « avant → après ». Sur un 13 mm en barillet de 15 % : cotes de 6 à 1 cm, coins du
+    calage fin de 167 cm au pire à 2 cm ; le témoin et les treize scènes d'avant ne bougent pas.
+    Point de fumée 59.
+
 - **Calage fin des photos de façade : les coins trouvés sur la photo** (lot L7 du plan de mise en
   œuvre, `MD/spec-facades-calage-detection.md` §6). Les coins ne sont plus seulement prédits par la
   prise de vue : ils sont cherchés sur les arêtes de la photo.
