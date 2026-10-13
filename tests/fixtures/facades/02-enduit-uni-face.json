@@ -1,0 +1,152 @@
+{
+  "nom": "02-enduit-uni-face",
+  "description": "Maison à étage, enduit taché, menuiseries blanches à petits bois, photographiée de face à 12 m : la référence réaliste la plus facile.",
+  "difficultes": [
+    "enduit",
+    "menuiseries",
+    "face"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 266.75,
+        "y": 254.4
+      },
+      {
+        "x": 1013.25,
+        "y": 254.4
+      },
+      {
+        "x": 1032.46,
+        "y": 695.55
+      },
+      {
+        "x": 247.54,
+        "y": 695.55
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4.5,
+        "y": 3.8,
+        "l": 1.1,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 2,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          226,
+          214,
+          192
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.2,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "ombres": [
+      {
+        "type": "debord",
+        "hauteur": 0.25,
+        "facteur": 0.8
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 12,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

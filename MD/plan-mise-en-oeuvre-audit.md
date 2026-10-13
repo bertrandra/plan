@@ -44,13 +44,13 @@ renvois `A§`, `F§` et `T§` désignent ces trois specs.
 
 ## 3. Les décisions, et les défauts retenus
 
-Le plan avance avec la **proposition** de chaque spec tant qu'aucune réponse ne vient. Seules
+Le plan avance avec la **proposition** de chaque spec tant qu'aucune réponse ne vient. *Le 13 octobre, l'utilisateur a retenu les défauts de D1, D2 et D13 : plus rien ne bloque L17 ni L19.* Seules
 quelques décisions **bloquent** un lot.
 
 | # | Question | Défaut retenu | Bloque |
 |---|---|---|---|
-| D1 | Où vit l'appel à Claude, et qui le paie | un `deploy/analyse.php` à côté de `admin.php`, clé dans la configuration hors du dossier publié ; **journal, tarifs et plafonds en JSON sur le serveur de Plan**, avec les autres données de l'admin (décision de l'utilisateur, 13 octobre) ; d'abord pour l'administrateur, puis pour les utilisateurs authentifiés par leur jeton de la plateforme, avec un plafond par organisation et par jour | **L17** pour les utilisateurs (pas pour l'admin) |
-| D2 | Accord pour envoyer les photos à l'analyse (A§25 q12) | une fois par projet, rappelé au lancement, révocable | **L17** |
+| D1 | Où vit l'appel à Claude, et qui le paie | un `deploy/analyse.php` à côté de `admin.php`, clé dans la configuration hors du dossier publié ; **journal, tarifs et plafonds en JSON sur le serveur de Plan**, avec les autres données de l'admin (décision de l'utilisateur, 13 octobre) ; d'abord pour l'administrateur, puis pour les utilisateurs authentifiés par leur jeton de la plateforme, avec un plafond par organisation et par jour | ~~L17~~ **tranchée le 13 octobre : défaut retenu** |
+| D2 | Accord pour envoyer les photos à l'analyse (A§25 q12) | une fois par projet, rappelé au lancement, révocable | ~~L17~~ **tranchée le 13 octobre : défaut retenu** |
 | D3 | Batch ou réponse immédiate (A§25 q13) | batch ; « Analyser tout de suite » au tarif normal | — |
 | D4 | Couleur sur photo automatique ou au toucher (A§25 q5) | automatique, toucher si la lecture échoue | — |
 | D5 | Relevé sur place ou plus tard (A§25 q6) | quand on veut, depuis la liste | — |
@@ -61,7 +61,7 @@ quelques décisions **bloquent** un lot.
 | D10 | Détails des ouvertures dans le modèle (F§17 q3) | oui, dès L15 | — |
 | D11 | Renfort Claude à chaque façade au début (F§17 q5) | oui, pendant les premiers audits | — |
 | D12 | Sens de Déversée, Queue de vache, Brisure (T§12) | termes marqués ⚠, non proposés dans la fiche tant qu'ils ne sont pas tranchés | — |
-| D13 | Réglages et faits : dans le dépôt ou sur le serveur (T§12) | dans le dépôt (`regles/`), relus par les tests | **L19** |
+| D13 | Réglages et faits : dans le dépôt ou sur le serveur (T§12) | **tranchée le 13 octobre : défaut retenu** ; dans le dépôt (`regles/`), relus par les tests | ~~L19~~ débloqué |
 | D14 | Faits partagés entre comptes (T§12) | non : les faits du dépôt sont communs, les corrections d'un utilisateur restent dans son projet | L20 |
 
 **À vérifier tôt, sur votre téléphone** (lot L1) : qu'iOS garde la focale EXIF d'une photo prise
