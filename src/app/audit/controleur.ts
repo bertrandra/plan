@@ -10,11 +10,15 @@
 //   ouvre sa fiche. Au depart d'une adresse, un tapotement au sol y deplace votre position.
 // - Fin : la liste des cas, puis un seul fichier partage par le telephone.
 //
-// Rien n'est enregistre : main.ts ne pose aucun depot de projets, et la lecture des toits en tache de
-// fond n'est pas lancee (app/boot.ts).
+// Rien n'est enregistre sur la plateforme : main.ts ne pose aucun depot de projets, et la lecture des
+// toits en tache de fond n'est pas lancee (app/boot.ts). La promenade, elle, est gardee au fil de
+// l'eau dans le telephone (io/brouillonAudit.ts) : a la reouverture, « Reprendre l'audit du … » ou
+// « Le jeter » ; une fois le fichier partage, le brouillon s'efface si vous le confirmez.
 
 import { suivrePositionGps, type PositionGps, type SansPosition } from '../../shell/geolocalisation.js';
 import { partagerFichier } from '../../shell/partage.js';
+import { dialogues, type DialogueChoix } from '../../shell/dialogues.js';
+import { stockageNavigateur, type StockageBrouillon } from '../../io/brouillonAudit.js';
 import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../shell/boussole.js';
 import { geocoderBAN, geocoderInverseBAN } from '../../geo/apiIgn.js';
 import { lireGrilleSous } from '../../geo/mnh.js';
@@ -31,6 +35,7 @@ import { VERSION_LECTURE_MURS } from '../mursFond.js';
 import { parcours } from '../parcours.js';
 import { planDeDepart, chargerAutour, fautRecharger, type DependancesChargement } from './chargement.js';
 import { creerPromenade, type Promenade } from './promenade.js';
+import { creerReprise, type RepriseAudit } from './reprise.js';
 import { cameraAudit, capDuDeplacement } from './camera.js';
 import { entreesDe, sortiesDe, identiteDe } from './cas.js';
 import type { DemandeAudit } from './demande.js';
@@ -64,6 +69,12 @@ export interface ContexteAudit {
   adresse?: typeof geocoderInverseBAN;
   partager?: typeof partagerFichier;
   boussole?: { suivre: typeof suivreBoussole; autoriser: typeof autoriserBoussole };
+  /** Ou se range le brouillon de la promenade ; par defaut IndexedDB, `null` pour ne rien garder. */
+  stockageBrouillon?: StockageBrouillon | null;
+  /** Le delai entre un changement et son ecriture dans le brouillon. */
+  delaiBrouillonMs?: number;
+  /** Une question a deux issues (Z8) ; par defaut shell/dialogues.ts. */
+  questionner?: (d: DialogueChoix) => void;
 }
 
 export interface ControleurAudit {
@@ -85,6 +96,8 @@ export interface ControleurAudit {
   appuiLong: (ndc: { x: number; y: number }) => void;
   /** Une Vue 3D vient d'etre batie : la camera reprend le suivi sur elle. */
   sceneBatie: () => void;
+  /** Ecrit le brouillon tout de suite : l'ecran se verrouille, l'onglet passe en arriere-plan. */
+  ecrireBrouillon: () => Promise<boolean>;
   arreter: () => void;
 }
 
@@ -107,6 +120,9 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
 
   const objet = (cle: string) => etat.objects.find((o) => o.key === cle);
   const promenade = promenadeDuPlan(ctx, () => proj);
+  // Le brouillon local : tant que la question de la reprise attend sa reponse, le depart attend aussi.
+  const reprise = repriseDuControleur(ctx, promenade, (s) => dire(s), (lon, lat) => partir(lon, lat, null));
+  let gpsEnAttente: PositionGps | null = null;
 
   let statut = demande.depart ? 'Recherche de l’adresse de départ…' : 'En attente d’un GPS précis…';
   const publier = () => { etat.audit = { statut, cas: promenade.liste().length, suivre: suivi.suivre() }; ctx.notifier(); };
@@ -126,6 +142,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
       if (!ajouts.length) return;
       ctx.remplacerObjets([...(etat.objects as ObjetBrut[]), ...ajouts]);
       ctx.reconstruire3d();
+      promenade.relireManquants((cle) => estBatiment(objet(cle)));
     }).finally(() => {
       lecture = false;
       dire(resumer());
@@ -145,11 +162,13 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
   }
 
   async function partir(lon: number, lat: number, precisionM: number | null): Promise<void> {
+    if (proj || depart) return;
     depart = true;
     dire('Parcelle de départ…');
     const d = await planDeDepart(lon, lat, ctx.chargement).catch(() => null);
     if (!d) { depart = false; dire('Aucune parcelle trouvée ici.'); return; }
     proj = d.proj;
+    reprise.poserDepart(lon, lat);
     ctx.remplacerObjets(d.objets as ObjetBrut[]);
     ctx.ouvrir3d();
     const p = proj.versMetres(lon, lat);
@@ -157,6 +176,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
   }
 
   function surGps(g: PositionGps): void {
+    if (!reprise.repondu()) { gpsEnAttente = g; return; }
     if (proj) { nouvellePosition(proj.versMetres(g.lon, g.lat), g.precisionM); return; }
     if (depart) return;
     if (g.precisionM > PRECISION_DEPART_MAX_M) { dire('En attente d’un GPS précis (± ' + Math.round(g.precisionM) + ' m)…'); return; }
@@ -164,17 +184,17 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
   }
 
   if (demande.depart) {
-    void (ctx.geocoder ?? geocoderBAN)(demande.depart, false).then((r) => {
-      const a = r[0];
-      if (!a) { dire('Adresse de départ introuvable.'); return; }
-      void partir(a.lon, a.lat, null);
-    }).catch(() => dire('Adresse de départ introuvable.'));
+    const adresse = demande.depart;
+    // Un audit repris est reparti de sa propre parcelle : l'adresse ne sert plus.
+    reprise.apresReponse(() => { if (!proj && !depart) partirDeLAdresse(ctx, adresse, dire, (lon, lat) => partir(lon, lat, null)); });
   } else {
+    reprise.apresReponse(() => { const g = gpsEnAttente; gpsEnAttente = null; if (g) surGps(g); });
     arreterGps = (ctx.suivre ?? suivrePositionGps)(surGps, (e) => {
       ctx.signaler(MESSAGES_GPS[e.raison]);
       if (e.raison === 'refusee') dire('Position refusée.');
     });
   }
+  void reprise.proposer();
   publier();
   // La Vue 3D s'ouvre d'emblee : la bibliotheque se charge pendant qu'on cherche le depart.
   ctx.ouvrir3d();
@@ -199,7 +219,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
     parcours.ouvrir({ type: 'auditFin', promenade, modifier: (cle) => ouvrirFiche(cle, ouvrirListe), retirer, partager });
   }
 
-  const partager = () => partagerPromenade(ctx, promenade);
+  const partager = () => partagerPromenade(ctx, promenade, reprise.apresPartage);
 
   return {
     promenade,
@@ -230,7 +250,8 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
       ouvrirFiche(cle);
     },
     sceneBatie() { if (position) suivi.camera(position); },
-    arreter() { arreterGps?.(); arreterGps = null; suivi.arreter(); },
+    ecrireBrouillon: () => reprise.ecrire(),
+    arreter() { arreterGps?.(); arreterGps = null; suivi.arreter(); void reprise.ecrire(); },
   };
 }
 
@@ -334,8 +355,36 @@ function promenadeDuPlan(ctx: ContexteAudit, projecteur: () => ProjecteurLocal |
   });
 }
 
-/** Le fichier de la promenade, partage par le telephone (ou telecharge), une fois les lectures finies. */
-async function partagerPromenade(ctx: ContexteAudit, promenade: Promenade): Promise<void> {
+/** Le brouillon local de la promenade (app/audit/reprise.ts), branche sur le plan et les dialogues. */
+function repriseDuControleur(ctx: ContexteAudit, promenade: Promenade, dire: (s: string) => void, partir: (lon: number, lat: number) => Promise<void>): RepriseAudit {
+  const present = (cle: string) => estBatiment(ctx.etat.objects.find((o) => o.key === cle));
+  return creerReprise({
+    promenade, stockage: ctx.stockageBrouillon === undefined ? stockageNavigateur() : ctx.stockageBrouillon, delaiMs: ctx.delaiBrouillonMs,
+    questionner: ctx.questionner ?? ((d) => dialogues.ouvrir(d)), signaler: ctx.signaler, dire,
+    commune: () => communeDu(ctx.etat.objects), present, repeindre: ctx.repeindre3d, partir,
+  });
+}
+
+/** Le depart d'une adresse (`?depart=`) : geocodee, puis la parcelle sous elle. */
+function partirDeLAdresse(ctx: ContexteAudit, adresse: string, dire: (s: string) => void, partir: (lon: number, lat: number) => Promise<void>): void {
+  void (ctx.geocoder ?? geocoderBAN)(adresse, false).then((r) => {
+    const a = r[0];
+    if (!a) { dire('Adresse de départ introuvable.'); return; }
+    void partir(a.lon, a.lat);
+  }).catch(() => dire('Adresse de départ introuvable.'));
+}
+
+/** La commune de la parcelle de depart, quand elle est connue. */
+function communeDu(objets: readonly ObjetPlan[]): string | null {
+  const cad = objets.find((o) => o.key === 'parcelle')?.cadastre as { commune?: string } | undefined;
+  return cad?.commune ?? null;
+}
+
+/**
+ * Le fichier de la promenade, partage par le telephone (ou telecharge), une fois les lectures finies.
+ * `parti` est appele quand le fichier est parti, pas quand la personne a ferme la feuille de partage.
+ */
+async function partagerPromenade(ctx: ContexteAudit, promenade: Promenade, parti: (nom: string) => void): Promise<void> {
   await promenade.enCours();
   const { etat } = ctx;
   const parcelle = etat.objects.find((o) => o.key === 'parcelle');
@@ -351,6 +400,7 @@ async function partagerPromenade(ctx: ContexteAudit, promenade: Promenade): Prom
   const issue = await (ctx.partager ?? partagerFichier)(nom, JSON.stringify(fichier), 'Audit des toits — ' + (cad?.commune ?? 'promenade'));
   if (issue === 'partage') ctx.signaler('Fichier de la promenade partagé : ' + nom + '.');
   else if (issue === 'telecharge') ctx.signaler('Fichier de la promenade téléchargé : ' + nom + '.');
+  if (issue !== 'annule') parti(nom);
 }
 
 /** L'emprise des objets charges : ce que la promenade a couvert. */
