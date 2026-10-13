@@ -1,7 +1,8 @@
 # Mode audit — promenade de contrôle des toits et des façades
 
-Statut : **spécification**, aucun code encore. Rédigée le 12 octobre 2026 ; points ouverts tranchés
-le 13 octobre (§2), questions restantes au §11.
+Statut : étape 1 livrée (`2.2.0`). Rédigée le 12 octobre 2026 ; points ouverts tranchés le 13 octobre
+(§2). Ajouts du 13 octobre, non codés : captures opportunistes sur les photos (§12) et audit de la
+parcelle principale (§13). Questions restantes au §11.
 
 ## 1. Le but
 
@@ -29,6 +30,11 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
 - **Caméra** : vue « drone » qui suit, navigation libre au toucher.
 - **Calcul entier** des toits pour tous les bâtiments du rayon.
 - **Photo** jointe à un cas : admise, environ 300 Ko par image.
+- *13 octobre* : **chaque photo est exploitée au maximum** (§12). Elle donne la couleur de la façade
+  de tout bâtiment marqué. Sur un bâtiment de la parcelle principale, elle donne aussi la texture et
+  les ouvertures réelles. Plusieurs photos par cas, chacune avec sa position GPS et son azimut.
+- *13 octobre* : un **audit de la parcelle principale**, à part de la promenade, pour en capturer le
+  plus d'informations possible (§13).
 
 ## 3. Accès et cycle de vie
 
@@ -257,7 +263,9 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 
 ## 9. Ce que le mode audit ne fait pas
 
-- Pas d'édition du plan, pas de terrasse, pas d'export autre que le fichier de promenade.
+- Pas d'édition du plan, pas de terrasse, pas d'export autre que le fichier de promenade (ou celui
+  de l'audit de parcelle, §13). L'import d'un audit de parcelle dans un projet se fait dans
+  l'application, hors du mode audit (§13.6).
 - Pas de correction sur place : il note, il ne corrige pas.
 - Pas d'envoi automatique à un serveur : le partage passe par vous.
 
@@ -269,6 +277,10 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 | 2 | Cases de 10 m et garde-fou de 600 bâtiments si la mesure le demande, brouillon local et reprise, menu Fichier réduit | GPS simulé sur un trajet de 500 m |
 | 3 | Script `audit.ts`, test de non-régression, circuit écrit dans le skill `toits` | premier fichier réel rejoué |
 | 4 | Plus tard : façade Panoramax à la demande sur un cas, note vocale | — |
+| 5 | Captures opportunistes (§12.1 à §12.3) : plusieurs photos par cas, focale et inclinaison de la prise, mur proposé sur la photo, couleur de la façade lue | tests sur des photos générées dont la prise de vue est connue, une promenade réelle |
+| 6 | Relevé depuis une fiche, sur la parcelle principale (§12.4) : texture, ouvertures, hauteur mesurée | les images de test du relevé, une façade réelle |
+| 7 | Audit de la parcelle (§13) : mode, liste de contrôle, fichier | une parcelle réelle, toutes façades |
+| 8 | Import d'un audit de parcelle dans le projet de la même parcelle (§13.6) | un projet réel, Ctrl+Z, rien de saisi à la main écrasé |
 
 ## 11. Questions (réponses de l'utilisateur)
 
@@ -281,3 +293,240 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
    l'image après (vue 3D et carte des hauteurs) ; vous répondez « validé » ou non. Réponse : oui.
 4. **Photo à l'étape 1 ou 2** : réponse de l'utilisateur, dès l'étape 1 (fait : JPEG de 1 280 px au
    plus, 300 Ko au plus, `app/audit/photo.ts`).
+5. **Couleur opportuniste** (§12.3) : lecture automatique depuis la prise de vue, ou toujours un
+   toucher sur la façade pour la confirmer ? Proposition : automatique ; on demande un toucher
+   seulement quand la lecture ne conclut pas ou que l'azimut vient du sens de la marche.
+6. **Relevé sur place ou à la fin** (§12.4) : poser les coins et vérifier les ouvertures prend une à
+   deux minutes par façade. Proposition : photos sur place, relevé depuis la liste de fin, pour ne pas
+   ralentir la marche.
+7. **Import dans le projet** (§13.6) : l'audit de parcelle s'importe-t-il dans le projet de la même
+   parcelle ? Proposition : oui, par le menu Fichier, en un seul pas d'annulation, sans écraser ce qui
+   a été saisi à la main.
+8. **Ce que l'audit de parcelle couvre** (§13.3) : façades, toits, clôture côté rue et portail ;
+   arbres plus tard ? Proposition : oui.
+9. **Accès à l'audit de parcelle** : administrateur seulement, comme la promenade, ou plus tard ouvert
+   à tous comme relevé complet d'une maison ? Proposition : administrateur d'abord ; on décide après
+   quelques parcelles réelles.
+
+## 12. Captures opportunistes, pendant la promenade
+
+Rien de plus à faire sur le terrain : **chaque photo jointe à un cas est exploitée au maximum**, en
+tâche de fond, sans bloquer la marche. Ce qui en est tiré est rangé dans le cas (`lectures`, §12.5),
+comme une **proposition**. La Vue 3D de la promenade ne change pas : le mode audit note, il ne
+corrige pas (§9). Au rejeu, ces lectures sont comparées à ce que Plan avait calculé (§7).
+
+### 12.1 Plusieurs photos par cas, chacune située
+
+- Une fiche accepte **jusqu'à six photos**. Chacune garde sa prise de vue (`PhotoCas.prise`, déjà
+  livrée) :
+  - la position GPS et sa précision ;
+  - l'azimut et sa source (boussole ou sens de la marche).
+- Elle garde en plus :
+  - **la focale**, lue dans l'EXIF *avant* la réduction, qui l'efface (`facade/exif.ts::focale35mm`,
+    `champDepuisFocale35`) ; à défaut, le champ par défaut du relevé (67° sur le grand côté,
+    `facade/cadrage.ts::CHAMP_GRAND_COTE_DEFAUT`) ;
+  - **l'inclinaison** du téléphone au retour de l'appareil photo (`beta` de l'orientation) : la
+    projection d'un mur dans une photo prise vers le haut n'est pas celle d'une photo d'aplomb.
+- Limite à garder en tête : l'azimut est lu au retour de l'appareil photo, pas au déclenchement. La
+  boussole d'un téléphone se trompe aussi de 5 à 15° près d'un mur ou d'une voiture. Tout ce qui
+  suit tient compte de cette marge.
+
+### 12.2 Quel mur est sur la photo
+
+- Les murs du bâtiment marqué qui regardent la prise de vue sont ceux que la lecture Panoramax
+  sait déjà trouver (`render/couleurMurPhoto.ts::mursVisibles`, `vueCachee`). Ils doivent se
+  trouver à 3 à 40 m, vus à moins de 70° de face, sans autre bâtiment devant.
+- Le mur retenu est celui dont le milieu est le plus près de l'axe de la photo. La fiche le
+  dessine sur la photo, avec son orientation (« Façade sud-est, 9,2 m »). « Ce n'est pas ce mur »
+  passe au suivant.
+- Sans azimut (ni boussole ni marche), rien n'est proposé : la photo reste une photo.
+
+### 12.3 La couleur de la façade (tout bâtiment marqué)
+
+1. **Automatique.** Les points du mur sont posés sur la photo par la géométrie de la prise de vue
+   (`pointsDuMur`, `pointDansImage` en photo plate, avec la focale et l'inclinaison). Pour absorber
+   l'erreur de la boussole, on ne garde que la **moitié centrale** du mur. On garde aussi la règle
+   des clôtures : pas de ligne de vue sous 2,5 m aux limites de parcelle (`hauteurAuxLimites`). La
+   teinte est décidée par `model/couleurMur.ts::couleurMurDepuisPixels`, comme pour Panoramax :
+   teinte cohérente, ou rien.
+2. **Un toucher, si besoin.** Quand la lecture ne conclut pas, ou que l'azimut vient du sens de la
+   marche, la fiche demande « Touchez la façade sur la photo ». On lit la teinte autour du point
+   touché. Les fenêtres et les ombres sont écartées par le même filtre d'écart à la médiane que le
+   relevé (`facade/analyse.ts::teinteMediane`).
+3. **Ce qui est rangé** : la couleur, le mur (`cote`), la photo qui l'a donnée, le nombre de pixels
+   lus et la source (`automatique` ou `toucher`).
+
+Ce que cela apporte :
+- **Au rejeu** : si l'écart de teinte avec `sorties.couleurMurs` dépasse le seuil de
+  `model/couleurMur.ts`, le problème `facade.couleur` est **proposé** sur le cas (pas coché).
+- **Au corpus** : chaque couleur lue sur une photo de terrain est une **vérité terrain** pour la
+  lecture Panoramax et pour le repli sur le matériau BD TOPO (§6.5 de `spec-toit-ign.md`). On mesure
+  enfin leur taux de réussite.
+
+### 12.4 Sur la parcelle principale : texture et ouvertures réelles
+
+La **parcelle principale** est celle du départ (§4.1). Sur un bâtiment de cette parcelle, la fiche
+propose en plus **« Relever cette façade »**. Elle ouvre le relevé existant (`spec-releve-facade.md`)
+sur les photos du cas, sans le temps « Choisir le mur » (§12.2 l'a fait) ni « Se placer » (les
+photos sont prises) :
+
+- **Coins proposés** d'après la prise de vue : la distance au mur vient du GPS, et les coins de
+  `facade/analyse.ts::coinsProposes`, puis s'ajustent au doigt avec la loupe, comme dans le relevé.
+- **Plusieurs photos du même mur**, prises de gauche à droite : assemblées en mosaïque
+  (`facade/mosaique.ts::analyserMosaique`).
+- **Ce qui en sort**, un `ReleveFacade` complet :
+  - l'**élévation redressée** à l'échelle, qui devient la texture du mur ;
+  - les **ouvertures réelles** (type, position, dimensions au centimètre, `facade/detection.ts`),
+    vérifiées au doigt ;
+  - la **hauteur à l'égout mesurée** ;
+  - la partie basse d'un mur en L ;
+  - le toit lu sur la façade.
+- Le relevé peut attendre la **liste de fin** (« À relever », §4.6) : sur le terrain, les photos
+  suffisent.
+- Pas de relevé sur les autres parcelles. On y lit la couleur (§12.3), pas le détail d'une façade
+  qui n'est pas celle du client (vie privée et taille du fichier).
+
+### 12.5 Dans le fichier de la promenade
+
+Version 2 du format (`"version": 2`). Un fichier de version 1 se relit tel quel : sa `photo` unique
+devient `photos[0]`.
+
+```jsonc
+"constat": {
+  "photos": [{ "type": "image/jpeg", "base64": "…",
+               "prise": { "x": 12.4, "y": -3.1, "lat": 48.9, "lon": 2.13, "precisionM": 5,
+                          "azimutDeg": 245, "sourceAzimut": "boussole",
+                          "inclinaisonDeg": 4, "focale35": 26, "champDeg": 69.4 } }]
+},
+"lectures": {
+  "facades": [{ "cote": 2, "couleur": "#c9b49a", "source": "automatique", "photo": 0, "pixels": 412 }],
+  "releves": [{ "cote": 2, "photos": [0, 1], "coins": [/* par photo */], "releve": { /* ReleveFacade */ } }]
+}
+```
+
+Taille : une élévation redressée fait 1 024 px au plus en JPEG, environ 150 Ko. Six photos par cas
+pèsent environ 2,4 Mo en base64 : le résumé de fin le dit avant le partage.
+
+## 13. Audit de la parcelle principale
+
+### 13.1 Le but
+
+En une visite, capturer **le plus d'informations possible sur une parcelle**, en général celle du
+client :
+- toutes les façades de tous ses bâtiments ;
+- ce que l'on voit des toits ;
+- les couleurs, les matériaux et les textures ;
+- les ouvertures et les hauteurs mesurées ;
+- la clôture côté rue et le portail.
+
+C'est un mode **à part** de la promenade : on ne marche pas dans un quartier, on fait le tour d'une
+maison, avec une liste de contrôle qui dit ce qui manque. Le résultat sert au corpus et peut être
+importé dans le projet de cette parcelle (§13.6).
+
+### 13.2 Accès et départ
+
+- `?mode=audit&cible=parcelle`, **administrateur seulement**, comme la promenade (§3). Il s'ouvre
+  depuis **Admin › Audit de la parcelle**.
+- Départ : la parcelle sous la position GPS, ou `&depart=<adresse>`. La parcelle est chargée une
+  seule fois, avec ses bâtiments et ses mitoyens en calcul entier, comme à l'import. Le disque de
+  70 m qui suit la marche n'est pas utilisé.
+- Vue 3D centrée sur la parcelle, votre position montrée, pas de sauvegarde de projet. Le brouillon
+  local (§3, étape 2) vaut aussi ici : une visite peut durer une heure.
+
+### 13.3 La liste de contrôle
+
+Un parcours plein écran (Z8) liste, pour chaque bâtiment de la parcelle :
+
+| Ligne | Statuts | D'où |
+|---|---|---|
+| chaque **façade** : orientation, longueur | à photographier · photographiée (n photos) · relevée · inaccessible | `facade/geometrie.ts::facadesDuContour` |
+| le **toit** : « Ce que je vois » (forme, sens du faîtage, bouts, lucarnes, cheminées) | à voir · vu | `spec-regles-toits.md` §7.2 |
+| le **matériau** des murs et de la couverture | à voir · vu | les choix du §2 de `spec-regles-toits.md` et de `textureMur.ts` |
+
+Et pour la parcelle :
+
+| Ligne | Ce qui est noté |
+|---|---|
+| **clôture côté rue** | type (mur, grillage, palissade, haie), hauteur, soubassement, une photo |
+| **portail** | nature (portail ou portillon), position le long de la limite, largeur, une photo |
+
+- Une façade sur une limite mitoyenne (`model/mitoyennete.ts`) est déjà marquée « mitoyenne, rien à
+  photographier ». Une façade côté voisin ou cachée se marque « inaccessible » en une touche.
+- Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »).
+- Toucher une façade dans la Vue 3D ouvre sa ligne.
+
+### 13.4 Photographier une façade
+
+Le relevé existant, guidé par la position :
+
+1. **Le mur en face** : la boussole propose le mur que l'on regarde (`facadeFaceAuCap`) ; la liste
+   permet d'en choisir un autre.
+2. **Se placer** : la distance au mur vient du GPS (à sa précision près), puis du cadrage. Le plan de
+   prise dit « une photo suffit » ou « 3 photos, de gauche à droite » (`facade/cadrage.ts::planDePrise`).
+3. **Les photos**, chacune située (§12.1). Plusieurs photos par façade :
+   - la **mosaïque** quand le recul manque (`spec-releve-facade.md` §6.1) ;
+   - des **photos de face et de biais**, pour retrouver une ouverture cachée par un arbre ou une
+     voiture sur l'une d'elles ;
+   - un **gros plan du parement**, à un ou deux mètres, pour la texture du matériau (§13.5).
+4. **Le relevé** (coins, analyse, vérification) se fait sur place ou plus tard dans la liste.
+
+### 13.5 Ce qui est calculé, par façade
+
+Tout se calcule dans le navigateur, sans serveur, avec le code du relevé :
+
+| Donnée | Comment | Code |
+|---|---|---|
+| hauteur à l'égout, mesurée | les quatre coins et la focale | `facade/analyse.ts::mesurerHauteur` |
+| élévation redressée, texture du mur | homographie, mosaïque si plusieurs photos | `analyserReleve`, `analyserMosaique` |
+| ouvertures réelles (type, x, y, l, h) | détection puis correction au doigt | `facade/detection.ts::detecterOuvertures` |
+| couleur du mur | médiane de ce qui n'est pas une ouverture | `teinteMediane`, `couleurMurDepuisPixels` |
+| matériau du parement | choisi par vous (pierre, meulière, brique, enduit, béton, bois) ; plus tard proposé par Claude analyste | `three/textureMur.ts` |
+| **texture du matériau** | le gros plan, découpé au centre en tuile sans couture ; l'échelle vient du matériau (`TAILLE_M` : une brique, une pierre) | nouveau |
+| toit vu de la façade | silhouette au-dessus de l'égout, triangle du pignon | `facade/toit.ts` |
+| mur en L | les deux points du décrochement | `facade/profil.ts` |
+
+La texture de matériau tirée du gros plan est la seule partie nouvelle. Elle remplace, pour ce
+bâtiment, la texture dessinée de `textureMur.ts`, teinte comprise.
+
+### 13.6 Le fichier, et ce qu'il devient
+
+- Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1, partagé
+  comme la promenade (§4.6).
+- Contenu :
+  - la parcelle (IDU, adresse, origine), la version du code et des règles ;
+  - pour chaque bâtiment : les `entrees` et les `sorties` d'un cas (§5.2), le toit vu, et pour chaque
+    façade ses photos (avec prise et coins), son `ReleveFacade`, sa couleur, son matériau et son gros
+    plan ;
+  - la clôture et le portail.
+- Taille : dix façades à trois photos font environ 9 Mo d'images, plus 1,5 Mo d'élévations, soit
+  environ 14 Mo en base64. Cela passe par la messagerie ou le Drive.
+
+**Deux usages :**
+
+1. **Le corpus.** Chaque façade relevée est une vérité terrain, comparée au rejeu (§7) avec ce que
+   Plan calcule seul :
+   - la couleur Panoramax ou celle du matériau BD TOPO ;
+   - les ouvertures automatiques (`facade/ouvertures.ts::ouverturesAutomatiques`) ;
+   - la hauteur des murs ;
+   - le toit.
+
+   Le test de non-régression (§8) s'étend aux façades : couleur, nombre et position des ouvertures.
+2. **L'import dans le projet** (hors du mode audit). Dans le projet de la même parcelle (même IDU),
+   **Fichier › Importer un audit de parcelle** écrit le relevé de chaque façade dans son bâtiment.
+   La structure `ReleveFacade` est déjà celle du projet : la 3D et le plan l'affichent sans code
+   nouveau. Couleur et texture de matériau s'appliquent aussi. Règles :
+   - un seul pas d'historique (Ctrl+Z le défait) ;
+   - une valeur choisie à la main n'est jamais écrasée : la ligne de l'import le dit (« façade nord
+     déjà relevée, gardée ») ;
+   - les élévations restent sur l'appareil qui importe (`io/photosLocales.ts`), comme celles d'un
+     relevé (`spec-releve-facade.md` §10.1).
+
+   L'import ne touche pas au code des toits : AE 101 et les empreintes ne bougent pas.
+
+### 13.7 Ce que l'audit de parcelle ne fait pas
+
+- Pas de reconstruction de la géométrie depuis les photos : le contour reste celui du plan, comme
+  dans le relevé.
+- Pas d'intérieur, pas de mesure du terrain.
+- Pas de photo détaillée des parcelles voisines.
+- Pas d'envoi automatique : le partage passe par vous.

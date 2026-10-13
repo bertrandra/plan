@@ -580,6 +580,11 @@ Chaque phase ci-dessous dit ce que fait l'un et l'autre ; le tableau du §13.4 l
   - village provençal ;
   - longères du Nord.
 - Premier tri à la main des cas : hors toit, fait, réglage, règle, question.
+- En passant, sans effort de plus : chaque photo d'un cas donne aussi la **couleur de la façade**.
+  Sur la parcelle principale, elle donne aussi la **texture et les ouvertures réelles**. Un **audit de
+  la parcelle principale** capture tout d'une maison en une visite (`spec-audit.md` §12 et §13). Ces
+  captures nourrissent un corpus des façades, à côté de celui des toits. Pour les toits, l'audit de
+  parcelle apporte des photos sous plusieurs angles et « Ce que je vois » complet.
 
 *Critère de passage* : au moins 50 cas observés, dont 10 sur des formes que Plan ne sait pas encore
 faire. Le tri dit quelles formes et quels problèmes reviennent le plus.
