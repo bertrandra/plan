@@ -88,9 +88,15 @@ export async function lireExifFichier(fichier: Blob): Promise<ExifPhoto> {
   try { return lireExif(await fichier.slice(0, OCTETS_EXIF_MAX).arrayBuffer()); } catch { return { focale35: null, modele: null }; }
 }
 
+/** Une photo reduite, et la taille de sa source. */
+export interface PhotoReduite extends PhotoCas {
+  source: { largeurPx: number; hauteurPx: number };
+}
+
 /** Reduit un fichier image (l'appareil photo du telephone) en JPEG d'environ 300 Ko. */
-export async function reduirePhoto(fichier: Blob): Promise<PhotoCas> {
+export async function reduirePhoto(fichier: Blob): Promise<PhotoReduite> {
   const image = await createImageBitmap(fichier);
+  const source = { largeurPx: image.width, hauteurPx: image.height };
   const { l, h } = dimensionsReduites(image.width, image.height);
   const toile = document.createElement('canvas');
   toile.width = l; toile.height = h;
@@ -103,7 +109,7 @@ export async function reduirePhoto(fichier: Blob): Promise<PhotoCas> {
     base64 = toile.toDataURL('image/jpeg', q).split(',')[1] ?? '';
     if (octetsBase64(base64) <= OCTETS_PHOTO_MAX) break;
   }
-  return { type: 'image/jpeg', base64 };
+  return { type: 'image/jpeg', base64, source };
 }
 
 /**
@@ -113,6 +119,7 @@ export async function reduirePhoto(fichier: Blob): Promise<PhotoCas> {
  */
 export async function preparerPhoto(fichier: Blob, prise: PrisePhoto | null, memoire: MemoireFocales = memoireFocalesLocale()): Promise<PhotoCas> {
   const optique = optiqueDeLaPhoto(await lireExifFichier(fichier), memoire);
-  const photo = await reduirePhoto(fichier);
-  return prise ? { ...photo, prise: { ...prise, ...optique } } : photo;
+  const { source, ...photo } = await reduirePhoto(fichier);
+  // La taille de la source se garde avec la prise : la reduction l'efface, comme l'EXIF.
+  return prise ? { ...photo, prise: { ...prise, ...optique, largeurSourcePx: source.largeurPx, hauteurSourcePx: source.hauteurPx } } : photo;
 }

@@ -111,4 +111,36 @@ describe('la promenade', () => {
     expect(p.estMarque('b1')).toBe(false);
     expect(c.entrees.grille).toBeNull();
   });
+
+  it('reprend un audit du brouillon : son debut, ses cas d abord, des numeros sans doublon', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)), maintenant: () => new Date('2026-10-14T08:00:00Z') });
+    p.marquer('b1', { x: 0, y: 0 }, null);
+    p.marquer('neuf', { x: 0, y: 0 }, null);
+    const repris = (cle: string, id: string) => ({ ...JSON.parse(JSON.stringify(fige)), id, cle, statut: 'a_corriger', constat: { categorie: 'toit', problemes: [], note: 'repris', t: '', position: { x: 0, y: 0, precisionM: null }, photos: [] }, attendu: null, historique: [] });
+    const f = vi.fn(); p.abonner(f);
+    p.reprendre(new Date('2026-10-13T09:00:00Z'), [repris('b1', 'c1'), repris('b7', 'c4')]);
+    expect(f).toHaveBeenCalled();
+    expect(p.debut.toISOString()).toBe('2026-10-13T09:00:00.000Z');
+    expect(p.liste().map((c) => c.cle)).toEqual(['b1', 'b7', 'neuf']);
+    expect(p.cas('b1')!.constat.note).toBe('repris');
+    const ids = p.liste().map((c) => c.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(p.marquer('b9', { x: 0, y: 0 }, null)!.id).toBe('c5');
+  });
+
+  it('relit une fois la grille et l adresse qui manquent a un cas repris, quand son batiment est la', async () => {
+    const lireGrille = vi.fn(async () => ({ pas: 0.5, x0: 0, y0: 0, nx: 1, ny: 1, z: [3] }));
+    const adresse = vi.fn(async () => '3 rue des Lilas');
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)), lireGrille, adresse });
+    const repris = { ...JSON.parse(JSON.stringify(fige)), id: 'c1', cle: 'b1', statut: 'a_corriger', constat: { categorie: 'toit', problemes: [], note: '', t: '', position: { x: 0, y: 0, precisionM: null }, photos: [] }, attendu: null, historique: [] };
+    p.reprendre(new Date(), [repris]);
+    p.relireManquants(() => false);
+    expect(lireGrille).not.toHaveBeenCalled();
+    p.relireManquants(() => true);
+    p.relireManquants(() => true);
+    await p.enCours();
+    expect(lireGrille).toHaveBeenCalledOnce();
+    expect(p.cas('b1')!.entrees.grille).not.toBeNull();
+    expect(p.cas('b1')!.identite.adresse).toBe('3 rue des Lilas');
+  });
 });

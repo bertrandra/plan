@@ -1,0 +1,130 @@
+{
+  "nom": "09-focale-inconnue-grand-angle",
+  "description": "Photo au grand-angle (16 mm) prise de près, sans EXIF : l'application suppose ses 67°, et la hauteur BD TOPO est fausse de 70 cm.",
+  "difficultes": [
+    "focale-inconnue",
+    "grand-angle",
+    "hauteur-estimee"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 293.12,
+        "y": 275.72
+      },
+      {
+        "x": 1037,
+        "y": 231.72
+      },
+      {
+        "x": 1102.35,
+        "y": 721.93
+      },
+      {
+        "x": 244.24,
+        "y": 701.53
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.5,
+        "y": 3.8,
+        "l": 1.1,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 10,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          220,
+          215,
+          205
+        ],
+        "taches": 5
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 7,
+      "focale35": 16,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 6,
+      "tangage": 10,
+      "focaleConnue": false,
+      "hauteurEstimee": 6.5,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

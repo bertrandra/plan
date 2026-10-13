@@ -817,6 +817,24 @@ export interface ReleveFacade {
    * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
    */
   partieBasse?: PartieBasse | null;
+  /**
+   * Comment les photos ont ete calees (MD/spec-facades-calage-detection.md §13). Facultatif : un
+   * releve d'avant garde exactement son sens. Les lots suivants y ajoutent la source des coins,
+   * l'azimut corrige et la confiance.
+   */
+  calage?: CalageReleve;
+}
+
+/** Le calage d'une photo du releve : ses coins (pixels de la photo) et sa resolution au mur. */
+export interface CalagePhotoReleve {
+  /** Haut gauche, haut droit, bas droit, bas gauche, en pixels de la photo analysee. */
+  coins: PtBrut[];
+  /** Pixels par metre au mur sur la photo source : la precision reelle des cotes ; `null` si inconnue. */
+  pxParMSource: number | null;
+}
+
+export interface CalageReleve {
+  photos: CalagePhotoReleve[];
 }
 
 /** La partie basse d'un mur en L, dans le repere de sa facade (metres). */
@@ -892,6 +910,59 @@ export interface CorpsToit {
   croupes?: [number, number];
   /** L'ecart quadratique moyen a la mesure, en metres. */
   ecart: number;
+  /**
+   * Les souches de cheminee du corps (MD/spec-regles-toits.md §2.6, §4). Absentes : aucune n'est
+   * connue, et le corps garde exactement son sens d'avant (un fichier ancien n'en a pas).
+   */
+  cheminees?: Cheminee[];
+  /** Un corps plat : ce que l'on sait de sa toiture-terrasse (§2.7). Absente : un toit plat sans plus. */
+  terrasse?: TerrasseToit;
+}
+
+/** Ou sort une souche de cheminee (MD/spec-regles-toits.md §2.6). */
+export type PositionCheminee = 'faitage' | 'pan' | 'pignon' | 'facade';
+
+/**
+ * Une souche de cheminee (MD/spec-regles-toits.md §2.6, §4). Sa section est orientee comme le corps
+ * qui la porte : `largeurM` le long du faitage (`pts[0] -> pts[1]`), `profondeurM` en travers. Pour
+ * une souche adossee (`facade`), `largeurM` court le long du mur et `profondeurM` en sort, et (x, y)
+ * est le centre de la souche, contre le mur, du cote exterieur.
+ */
+export interface Cheminee {
+  /** Le centre de la souche, repere du plan, en metres. */
+  x: number;
+  y: number;
+  largeurM: number;
+  profondeurM: number;
+  /** La hauteur du debouche au-dessus du sol (pas au-dessus du pan : elle se compare au faitage). */
+  sommetM: number;
+  position: PositionCheminee;
+  conduits?: number;
+  materiau?: 'brique' | 'enduit' | 'pierre' | 'metal';
+  couronnement?: 'dalle' | 'chapeau' | 'mitrons';
+  /** D'ou elle vient : une observation (audit, releve). La detection LiDAR n'existe pas encore. */
+  source: 'lidar' | 'observation';
+}
+
+/** Un edicule pose sur une toiture-terrasse : son emprise et le dessus de son toit plat, au-dessus du sol. */
+export interface EdiculeTerrasse {
+  pts: PtBrut[];
+  sommetM: number;
+}
+
+/**
+ * Une toiture-terrasse (MD/spec-regles-toits.md §2.7, §4 : `Terrasse`). Nommee `TerrasseToit` pour ne
+ * pas la confondre avec la terrasse bois que Plan chiffre (`estTerrasse`, model/fonctions.ts).
+ */
+export interface TerrasseToit {
+  accessible?: boolean;
+  revetement?: 'gravillons' | 'membrane' | 'dalles' | 'bois' | 'vegetalise';
+  /** La hauteur de l'acrotere au-dessus de la terrasse, en metres ; 0 ou absente : pas d'acrotere. */
+  acrotereM?: number;
+  gardeCorps?: boolean;
+  /** Les edicules : cage d'escalier, local technique, chacun avec un toit plat. */
+  edicules?: EdiculeTerrasse[];
+  source: 'lidar' | 'observation';
 }
 
 /** Un volume d'un batiment en plusieurs corps : son emprise (un rectangle), son toit, son egout quand il est mesure. */

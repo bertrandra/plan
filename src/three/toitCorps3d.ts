@@ -34,7 +34,7 @@ const MUR_MIN_M = 0.02;
 export interface S3 { x: number; y: number; z: number }
 
 /** Le cote d'un corps est-il une facade (geometry/facadeExterieure.ts) ? Sans contour, tous le sont. */
-function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[] | null, cote: 's0' | 'sL' | 't0' | 'tW'): boolean {
+export function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[] | null, cote: 's0' | 'sL' | 't0' | 'tW'): boolean {
   if (!contour) return true;
   const milieu = point(r, r.L / 2, r.W / 2);
   const [a, b] = cote === 't0' ? [point(r, 0, 0), point(r, r.L, 0)] : cote === 'tW' ? [point(r, 0, r.W), point(r, r.L, r.W)]
@@ -277,7 +277,7 @@ export interface ContexteToitCorps {
  * Une maille de polygones, avec des coordonnees de texture si on les donne. Un pan entaille par ses
  * pignons n'est plus convexe : il se triangule par oreilles dans le plan ; un mur, vertical, en eventail.
  */
-function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false, uvMur = false): THREE_NS.BufferGeometry {
+export function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false, uvMur = false): THREE_NS.BufferGeometry {
   const pos: number[] = [], uvs: number[] = [], idx: number[] = [];
   for (const poly of polys) {
     const base = pos.length / 3;
