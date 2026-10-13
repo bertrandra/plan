@@ -7,6 +7,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Faits des toits et skill `regles-toits`** (lot L20 du plan de mise en œuvre,
+  `MD/spec-regles-toits.md` §5, §9 et §10).
+  - **`regles/toits/faits.json`** : une vérité observée sur un bâtiment, rangée par sa clé BD TOPO
+    (`cleabs`), qui vaut dans tous les projets qui le contiennent. En **contrainte** (par défaut), le
+    corps principal qui ne dit pas ce que l'on a vu (forme, sens du faîtage, bouts, nombre de corps
+    au plus, fourchettes de hauteur) est relu sur la mesure parmi les seules formes admises ; la
+    mesure donne les hauteurs, et un toit déjà d'accord ne bouge pas. En **remplacement**, le fait
+    donne aussi les dimensions : un corps sur la boîte orientée du contour, sans lecture, même sans
+    LiDAR. L'ordre est celui de la spec : calcul, fait, garde-fous de vraisemblance. Le fichier est
+    vérifié (vocabulaire fermé, `model/faitsToits.ts`), compilé dans le fichier livré, et appliqué à
+    l'import, en tâche de fond et au rejeu des cas d'audit (`facade/faitsToits.ts`). Son empreinte
+    entre dans `VERSION_LECTURE_TOITS` : un fait ajouté demande une version de lecture nouvelle, et la
+    CI le rappelle. Le fichier est livré **vide** : aucun toit ne change, la version de lecture reste 1.
+  - **Mode d'essai `?regles=local`** (administrateur) : menu Admin › « Essayer des faits de toits… »
+    charge un fichier de faits depuis votre poste, à la place de celui du dépôt, le temps de la page.
+    Les toits concernés sont relus en tâche de fond ; rien n'est enregistré, et à la prochaine
+    ouverture ils sont relus avec les faits livrés. Les réglages ne s'essaient pas encore ainsi.
+  - **Skill `.claude/skills/regles-toits/`** : traiter un fichier de promenade de bout en bout (tri des
+    cas : hors toit, fait, réglage, règle, question ; attendu ; images avant et après ; PR), en
+    s'appuyant sur le skill `toits`. Scripts : `trier.ts` (premier tri, seuils en jeu, squelette de
+    fait), `faits.ts` (faits comptés par forme, signal au-delà de cinq faits qui disent la même chose,
+    ligne de version de lecture à ajouter) ; `audit.ts --faits` rejoue avec les faits proposés pour
+    les cartes d'après. Premier passage sur le corpus : le cas d'Hucqueliers est classé « règle »
+    (chantier ouvert des ailes recouvertes), sans fait.
+  - AE 101 identique, banc des quatre villages identique, empreintes golden inchangées.
+
 - **Corpus d'audit et réglages des toits** (lot L19 du plan de mise en œuvre, `MD/spec-audit.md`
   §21 à §23, `MD/spec-regles-toits.md` §6 et §8).
   - **Rejeu d'une promenade** : `.claude/skills/toits/scripts/audit.ts <fichier | dossier>` relit un

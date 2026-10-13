@@ -7,6 +7,11 @@
 //   npx tsx .claude/skills/toits/scripts/audit.ts tests/fixtures/audit/              # tout le corpus
 //   npx tsx .claude/skills/toits/scripts/audit.ts audit-2026-10-13-0912-le-vesinet.json
 //   python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-vesinet-ae101 bati-vesinet-ae101-terrain
+//   npx tsx .claude/skills/toits/scripts/audit.ts --faits /tmp/faits-essai.json audit-….json   # avec d'autres faits
+//
+// `--faits` rejoue avec un autre regles/toits/faits.json (celui qu'une PR propose) : les fichiers de
+// rendu sont alors ceux d'apres, a mettre a cote de ceux d'avant (TOITS_DOSSIER different). Un cas
+// dont le batiment a un fait le dit (`fait :`), avec ce que les corps n'en tiennent pas encore.
 //
 // La ligne d'un cas : fichier et cas, statut, problemes notes, puis ce qui a change depuis le terrain
 // (`terrain :`), ce qui s'ecarte de l'attendu (`attendu :`, seulement pour un cas qui en a un) et ce
@@ -18,11 +23,16 @@ import { join, basename } from 'node:path';
 import { lireFichierPromenade, type CasAudit, type SortiesCas } from '../../../../src/model/audit.ts';
 import { rejouerCas, ecartsSorties, facadesEcartees, propositionsAuRejeu, type EcartSorties } from '../../../../src/facade/audit.ts';
 import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/model/reglagesToits.ts';
+import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, empreinteFaitsToits, signatureFait } from '../../../../src/model/faitsToits.ts';
+import { ecartsAuFait } from '../../../../src/facade/faitsToits.ts';
 import { VERSION_LECTURE_TOITS } from '../../../../src/app/toitsLidar.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
-const cible = process.argv[2];
-if (!cible) throw new Error('usage : audit.ts <fichier de promenade | dossier>');
+const args = process.argv.slice(2);
+const iFaits = args.indexOf('--faits');
+const faits = iFaits >= 0 ? lireFaitsToits(JSON.parse(readFileSync(args[iFaits + 1] ?? '', 'utf8'))) : faitsEnVigueur();
+const cible = args.filter((_, i) => iFaits < 0 || (i !== iFaits && i !== iFaits + 1))[0];
+if (!cible) throw new Error('usage : audit.ts [--faits faits.json] <fichier de promenade | dossier>');
 const fichiers = statSync(cible).isDirectory() ? readdirSync(cible).filter((f) => f.endsWith('.json')).sort().map((f) => join(cible, f)) : [cible];
 mkdirSync(S + 'q', { recursive: true });
 
@@ -45,7 +55,8 @@ for (const chemin of fichiers) {
   const versions = `lecture ${regles.lectureToits ?? '?'} -> ${VERSION_LECTURE_TOITS}` + (regles.reglagesToits ? `, reglages ${regles.reglagesToits} -> ${EMPREINTE_REGLAGES_TOITS}` : '');
   lignes.push(`# ${basename(chemin)} : ${f.promenade.commune ?? '?'}, ${f.cas.length} cas, code ${f.promenade.code.version} (${f.promenade.code.commit ?? '?'}), ${versions}`);
   for (const c of f.cas) {
-    const r = rejouerCas(c);
+    const r = rejouerCas(c, faits);
+    const fait = faitDuBatiment({ bdtopo: c.entrees.bdtopo }, faits);
     const terrain = c.sorties ? ecartsSorties(r.sorties, c.sorties) : [];
     const attendu = c.attendu ? ecartsSorties(r.sorties, c.attendu, CHAMPS_VALIDES) : null;
     const propose = propositionsAuRejeu(c, r.sorties);
@@ -53,6 +64,7 @@ for (const chemin of fichiers) {
     if (!r.rejoue) pb.push('sans grille : toit non rejoue');
     if (terrain.length) pb.push('terrain : ' + dire(terrain));
     if (attendu?.length) pb.push('attendu : ' + dire(attendu));
+    if (fait) { const e = ecartsAuFait(fait, r.sorties.corps, c.entrees.pts); pb.push('fait : ' + signatureFait(fait) + (e.length ? ' (non tenu : ' + e.join(', ') + ')' : ' (tenu)')); }
     if (propose.length) pb.push('propose : ' + propose.join(', ') + ' (' + facadesEcartees(c, r.sorties).map((e) => `mur ${e.cote} lu ${e.lue}, retenu ${e.retenue}, ecart ${e.ecart}`).join(' ; ') + ')');
     if (c.statut === 'valide') { valides++; if (attendu?.length) valideBouge++; }
     if (c.statut === 'a_corriger' || c.statut === 'corrige') { aTraiter++; if (attendu && !attendu.length) { prets++; pb.push('satisfait son attendu : pret a valider'); } }
@@ -66,6 +78,6 @@ for (const chemin of fichiers) {
     }
   }
 }
-console.log(`audit : ${fichiers.length} fichier(s), ${valides} cas valide(s) dont ${valideBouge} qui bouge(nt), ${aTraiter} a traiter dont ${prets} pret(s) a valider, ${proposes} proposition(s) ; reglages ${EMPREINTE_REGLAGES_TOITS}, lecture ${VERSION_LECTURE_TOITS}`);
+console.log(`audit : ${fichiers.length} fichier(s), ${valides} cas valide(s) dont ${valideBouge} qui bouge(nt), ${aTraiter} a traiter dont ${prets} pret(s) a valider, ${proposes} proposition(s) ; reglages ${EMPREINTE_REGLAGES_TOITS}, faits ${empreinteFaitsToits(faits)} (${Object.keys(faits).length}${iFaits >= 0 ? ', ' + args[iFaits + 1] : ''}), lecture ${VERSION_LECTURE_TOITS}`);
 console.log(lignes.join('\n'));
 process.exitCode = valideBouge ? 1 : 0;

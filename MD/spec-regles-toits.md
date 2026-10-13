@@ -590,7 +590,10 @@ La photo n'y est pas : elle reste dans le fichier de promenade, archivé à part
   relance la lecture en tâche de fond sur les projets ouverts. Les toits choisis à la main ne sont
   jamais touchés.
 - Un mode d'essai pour l'admin (`?regles=local`) charge un JSON depuis le poste, sans l'enregistrer :
-  pour essayer un réglage sur un vrai projet avant d'ouvrir une PR.
+  pour essayer un réglage sur un vrai projet avant d'ouvrir une PR. *Lot L20 : les faits seulement
+  (menu Admin › « Essayer des faits de toits… ») ; les bâtiments touchés sont relus pour la séance et
+  marqués à relire à la prochaine ouverture. Les réglages, lus au chargement des modules, ne s'y
+  essaient pas encore.*
 - Rien ne change de quantité ni d'export : les empreintes golden ne bougent pas. Si l'une bougeait,
   ce serait un autre sujet (`MD/RELEASE.md`).
 
@@ -631,8 +634,8 @@ scripts (`banc.ts`, `rendu.py`, `diag.ts`).
 | 1 | Cette spec ; fiche d'audit « Ce que je vois » (forme, faîtage, bouts, lucarnes, cheminées) | fumée de l'audit |
 | 2 | `reglages.json` : seuils sortis du code **sans changer de valeur** *(fait, lot L19 : 74 seuils, empreinte dans `VERSION_LECTURE_TOITS` ; les profils ne sont pas encore appliqués)* | empreintes, banc, AE 101 identiques |
 | 3 | Corpus `tests/fixtures/toits/cas/` et `regles.test.ts` ; import d'un fichier de promenade *(en partie, lot L19 : le corpus vit dans `tests/fixtures/audit/`, fichiers de promenade tels quels, rejoués par `tests/unit/facade/audit.test.ts` ; les assertions d'observation du §7 restent à faire)* | premiers cas réels |
-| 4 | `faits.json` appliqué (contrainte, remplacement) | cas observés |
-| 5 | Skill `regles-toits` | une promenade traitée de bout en bout |
+| 4 | `faits.json` appliqué (contrainte, remplacement) *(fait, lot L20 : `model/faitsToits.ts`, `facade/faitsToits.ts` ; à l'import, en tâche de fond et au rejeu des cas ; empreinte dans `VERSION_LECTURE_TOITS` ; mode d'essai `?regles=local` pour les faits seulement ; fichier livré vide)* | cas observés |
+| 5 | Skill `regles-toits` *(fait, lot L20 : `.claude/skills/regles-toits/`, scripts `trier.ts` et `faits.ts`, `audit.ts --faits` pour les images d'après)* | une promenade traitée de bout en bout |
 | 6 | Formes nouvelles, une par PR, dans l'ordre de ce que l'audit trouve : **lucarnes** (et séparation lucarne / avant-corps), **Mansart et gambrel** (profil brisé), **demi-croupe**, **cheminées**, **asymétrique** (reconnaissance seule : déjà représentable), puis papillon, toit en M, coyau (sur observation), berceau et carène, formes axiales (conique, dôme, flèche, impériale) | cas du corpus, banc |
 | 7 | Profils | cas qui se contredisent |
 

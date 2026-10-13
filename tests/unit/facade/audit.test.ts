@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { lireFichierPromenade, type CasAudit, type SortiesCas } from '../../../src/model/audit.js';
 import { rejouerCas, ecartsSorties, memesCorps, propositionsAuRejeu, facadesEcartees, type EcartSorties } from '../../../src/facade/audit.js';
 import { ECART_TEINTE } from '../../../src/model/couleurMur.js';
+import { lireFaitsToits } from '../../../src/model/faitsToits.js';
 
 // La non-regression du corpus d'audit (MD/spec-audit.md §23, MD/spec-regles-toits.md §8.2).
 //
@@ -100,6 +101,24 @@ describe('rejeu d’un cas', () => {
     expect(memesCorps(corps, [{ ...corps[0]!, faitage: 7.6 }])).toBe(false);
     expect(memesCorps(null, null)).toBe(true);
     expect(memesCorps(corps, null)).toBe(false);
+  });
+
+  it('se rejoue avec un autre jeu de faits : les images d apres d une PR qui ajoute un fait', () => {
+    const c = lus.flatMap((l) => l.fichier.cas).find((x) => x.identite.cleBdtopo === 'BATIMENT0000000349542179');
+    expect(c, 'le pavillon est de la longere d Hucqueliers').toBeDefined();
+    const sans = rejouerCas(c!);
+    const cle = 'BATIMENT0000000349542179';
+    const contrainte = lireFaitsToits({ format: 'plan-faits-toits', faits: { [cle]: { observation: { corps: { max: 1 } } } } });
+    const r = rejouerCas(c!, contrainte);
+    expect(r.rejoue).toBe(true);
+    expect(sans.sorties.corps!.length).toBeGreaterThan(1);
+    expect(r.sorties.corps).toHaveLength(1);
+    // Un remplacement se rejoue meme sans grille.
+    const remplacement = lireFaitsToits({ format: 'plan-faits-toits', faits: { [cle]: { observation: { forme: 'deux-pans' }, application: 'remplacement', dimensions: { egoutM: 5, faitageM: 9 } } } });
+    const sansGrille = rejouerCas({ ...c!, entrees: { ...c!.entrees, grille: null } }, remplacement);
+    expect(sansGrille.rejoue).toBe(true);
+    expect(sansGrille.sorties).toMatchObject({ elevation: 5, toit: { forme: 'deux-pans', hauteur: 4 } });
+    expect(sansGrille.sorties.corps![0]).toMatchObject({ faitage: 9, egouts: [5, 5] });
   });
 });
 

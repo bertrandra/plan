@@ -1249,6 +1249,36 @@ const POINTS = {
     const deux = ecrit[0]?.vues?.[0] ?? 0;
     const ok = parDefaut === 'true' && vues === 'true' && /^Vue 2 sur 2 .*mur entier/.test(consigne) && ecrit.length === 1 && deux === 2 && retour;
     return { ok, mesure: `assemblage par défaut : ${parDefaut === 'true' ? 'morceaux' : 'AUTRE'} ; « Vues du mur entier » ${vues === 'true' ? 'choisi' : 'NON choisi'} ; « ${consigne.slice(0, 60)}… » ; écrit : ${ecrit.map((e) => `${e.nom}, ${e.vues.join('/')} vue(s) calée(s), ${e.ouvertures.join('/')} ouverture(s)`).join(' ; ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
+  73: async (page) => {
+    // L'essai des faits des toits (lot L20, `?regles=local`, MD/spec-regles-toits.md §9.2) : l'entree
+    // du menu Admin n'existe qu'avec `?regles=local` ; un fichier de faits se charge depuis le poste,
+    // les batiments touches sont rendus a relire, rien n'est enregistre ni marque « modifie » ; un
+    // fichier abime est refuse avec sa raison.
+    const sansEssai = await page.locator('[data-commande="admin.faitsLocaux"]').count();
+    // Recharge : la plateforme simulee rouvre le plan de demonstration deja cree.
+    await page.goto(BASE + '/?regles=local');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(300);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    const avecEssai = await page.locator('[data-commande="admin.faitsLocaux"]').count();
+    const cle = 'BATIMENT0000000322509179';
+    const lu = () => page.evaluate((k) => window.__plan.etat().objects.find((o) => o.bdtopo?.cleabs === k)?.toitLidarLu ?? null, cle);
+    const sale = () => page.evaluate(() => !!window.__plan.etat().dirty);
+    const [luAvant, saleAvant] = [await lu(), await sale()];
+    const charger = async (nom, contenu) => {
+      const [choix] = await Promise.all([page.waitForEvent('filechooser', { timeout: 5000 }), page.evaluate(() => window.__plan.executer('admin.faitsLocaux'))]);
+      await choix.setFiles({ name: nom, mimeType: 'application/json', buffer: Buffer.from(contenu) });
+      await page.waitForTimeout(500);
+    };
+    await charger('faits.json', JSON.stringify({ format: 'plan-faits-toits', version: 1, faits: { [cle]: { observation: { forme: 'croupes' } } } }));
+    const toast = (await page.locator('.toast', { hasText: /Faits d’essai chargés/ }).first().textContent({ timeout: 3000 }).catch(() => '')) ?? '';
+    const [luApres, saleApres] = [await lu(), await sale()];
+    await charger('abime.json', JSON.stringify({ format: 'plan-faits-toits', faits: { [cle]: { observation: { forme: 'mansart' } } } }));
+    const refus = (await page.locator('body').textContent())?.match(/Faits refusés : .{0,160}?(forme|format)/)?.[0] ?? '';
+    const ok = sansEssai === 0 && avecEssai === 1 && /1 fait\(s\), 1 bâtiment/.test(toast) && luApres === null && saleApres === saleAvant && /forme/.test(refus);
+    return { ok, mesure: `entrée sans essai : ${sansEssai}, avec ?regles=local : ${avecEssai} ; « ${toast.trim().slice(0, 70)}… » ; bâtiment touché : marque ${luAvant} → ${luApres} ; projet modifié ${saleAvant ? 'oui' : 'non'} → ${saleApres ? 'oui' : 'non'} ; refus : « ${refus.slice(0, 80)} »` };
   }
 };
 
@@ -1258,8 +1288,9 @@ function pointsPour(nomClasse) {
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
   // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7) ;
-  // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 65];
+  // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13) ;
+  // 73 : l'essai des faits des toits (lot L20).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 65, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
