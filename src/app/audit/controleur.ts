@@ -43,6 +43,8 @@ import { creerPromenade, type Promenade } from './promenade.js';
 import { creerReprise, type RepriseAudit } from './reprise.js';
 import { cameraAudit, capDuDeplacement } from './camera.js';
 import { entreesDe, sortiesDe, identiteDe } from './cas.js';
+import { creerCouleursPhotos, type CouleursPhotos } from './couleurFacade.js';
+import { limitesDesParcelles } from '../../render/couleurMurPhoto.js';
 import type { DemandeAudit } from './demande.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { EtatApp } from '../../core/state.js';
@@ -86,6 +88,8 @@ export interface ContexteAudit {
 
 export interface ControleurAudit {
   promenade: Promenade;
+  /** La couleur de la facade lue sur les photos des cas (MD/spec-audit.md §6.2). */
+  couleurs: CouleursPhotos;
   /** La couleur d'affichage d'un batiment marque (rouge), pour la Vue 3D. */
   couleur: (o: ObjetPlan) => string | null;
   /** « Me suivre » : recadre dans l'axe du cap, et le suit. */
@@ -216,10 +220,11 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
 
   const prisePhoto = (): PrisePhoto | null => prisePhotoDe(position, precision, proj, suivi);
 
+  const couleurs = couleursDuPlan(etat, promenade);
   const retirer = (cle: string) => { promenade.retirer(cle); ctx.repeindre3d([cle]); };
   /** La fiche d'un batiment ; ouverte depuis la liste de fin, elle y ramene. */
   function ouvrirFiche(cle: string, retour?: () => void): void {
-    parcours.ouvrir({ type: 'auditCas', promenade, cle, retirer: () => retirer(cle), prise: prisePhoto, ...(retour ? { retour } : {}) });
+    parcours.ouvrir({ type: 'auditCas', promenade, cle, retirer: () => retirer(cle), prise: prisePhoto, couleurs, ...(retour ? { retour } : {}) });
   }
   function ouvrirListe(): void {
     parcours.ouvrir({ type: 'auditFin', promenade, modifier: (cle) => ouvrirFiche(cle, ouvrirListe), retirer, partager });
@@ -229,6 +234,7 @@ export function creerControleurAudit(ctx: ContexteAudit, demande: DemandeAudit):
 
   return {
     promenade,
+    couleurs,
     couleur: (o) => (promenade.estMarque(o.key) ? COULEURS_DIAGNOSTIC.rouge : null),
     reprendreSuivi() { suivi.reprendre(position); publier(); },
     lacherSuivi() { if (suivi.lacher()) publier(); },
@@ -389,15 +395,29 @@ const estBatiment = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && o.fonct
 /** Au-dela, un batiment ne peut ni etre devant vous, ni cacher un mur qui l'est : il n'est pas lu. */
 const RAYON_RECONNAISSANCE_M = DISTANCE_DEVANT_MAX_M + 30;
 
-/** La facade devant `pos`, parmi les batiments du plan proches de lui (§6.1). */
-export function facadeDevantDans(objets: readonly ObjetPlan[], pos: PtBrut, cap: number | null): FacadeDevant | null {
+/**
+ * La facade devant `pos`, parmi les batiments du plan proches de lui (§6.1). `seulement` : parmi les
+ * facades de ce batiment-la (la photo d'un cas), les autres ne comptant que pour cacher la vue.
+ */
+export function facadeDevantDans(objets: readonly ObjetPlan[], pos: PtBrut, cap: number | null, seulement?: string): FacadeDevant | null {
   const r = RAYON_RECONNAISSANCE_M;
   // Par l'emprise, pas par les sommets : un long batiment passe pres de vous sans qu'un angle y soit.
   const proches = objets.filter((o): o is ObjetPlan & { pts: PtBrut[] } => estBatiment(o) && aDesSommets(o))
     .map((o) => ({ o, emprise: obstacle(o.pts) }))
     .filter(({ emprise: e }) => e.x1 > pos.x - r && e.x0 < pos.x + r && e.y1 > pos.y - r && e.y0 < pos.y + r);
-  const batiments = proches.map(({ o }) => ({ cle: o.key, facades: facadesDuContour(o.pts, elevationOf(o)) }));
+  const batiments = proches.filter(({ o }) => seulement === undefined || o.key === seulement).map(({ o }) => ({ cle: o.key, facades: facadesDuContour(o.pts, elevationOf(o)) }));
   return facadeDevant(pos, cap, batiments, proches.map(({ emprise }) => emprise));
+}
+
+/** La couleur des facades sur les photos des cas, branchee sur le plan : murs, facade devant la prise, clotures. */
+function couleursDuPlan(etat: EtatApp, promenade: Promenade): CouleursPhotos {
+  const objet = (cle: string) => etat.objects.find((o) => o.key === cle);
+  return creerCouleursPhotos({
+    promenade,
+    facades: (cle) => { const o = objet(cle); return estBatiment(o) && aDesSommets(o) ? facadesDuContour(o.pts, elevationOf(o)) : []; },
+    devant: (cle, p, cap) => facadeDevantDans(etat.objects, p, cap, cle)?.facade ?? null,
+    limites: () => limitesDesParcelles(etat.objects),
+  });
 }
 
 /** La promenade, branchee sur le plan : ce qu'elle fige d'un batiment, sa grille LiDAR, son adresse. */

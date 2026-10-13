@@ -86,6 +86,21 @@ describe('la promenade', () => {
     expect(f.cas[0]!.constat.photos).toHaveLength(6);
   });
 
+  it('range une couleur de facade par photo ; retirer une photo retire la sienne et decale les suivantes', () => {
+    const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)) });
+    const c = p.marquer('b1', { x: 0, y: 0 }, null)!;
+    for (let i = 0; i < 3; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
+    p.completer('b1', { lectureFacade: { cote: 0, couleur: '#C9B49A', source: 'automatique', photo: 2, pixels: 80 } });
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#AAAAAA', source: 'automatique', photo: 1, pixels: 60 } });
+    // Le doigt corrige la lecture de la photo 1 : elle remplace l'automatique.
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#BBBBBB', source: 'toucher', photo: 1, pixels: 300 } });
+    // Une lecture pour une photo qui n'existe pas est ignoree.
+    p.completer('b1', { lectureFacade: { cote: 1, couleur: '#000000', source: 'toucher', photo: 5, pixels: 1 } });
+    expect(c.lectures!.facades.map((l) => [l.photo, l.couleur, l.source])).toEqual([[1, '#BBBBBB', 'toucher'], [2, '#C9B49A', 'automatique']]);
+    p.completer('b1', { retirerPhoto: 1 });
+    expect(c.lectures!.facades.map((l) => [l.photo, l.couleur])).toEqual([[1, '#C9B49A']]);
+  });
+
   it('un cas retire avant la fin de sa lecture n est pas ressuscite', async () => {
     let fin!: (g: unknown) => void;
     const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)), lireGrille: () => new Promise((r) => { fin = r as never; }) });

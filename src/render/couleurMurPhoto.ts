@@ -127,8 +127,9 @@ export function mursVisibles(batiments: readonly { key: string; pts: readonly Pt
 /**
  * La hauteur de la ligne de vue de l'objectif vers un point du mur, la ou elle franchit une limite de
  * parcelle (la plus basse si elle en franchit plusieurs) ; null quand elle n'en franchit aucune.
+ * `hauteurCamera` : un telephone tenu a la main est plus bas que la perche de Panoramax.
  */
-export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obstacle[]): number | null {
+export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obstacle[], hauteurCamera = HAUTEUR_CAMERA_M): number | null {
   const d = Math.hypot(p.x - cam.x, p.y - cam.y);
   let bas: number | null = null;
   for (const o of limites) {
@@ -138,7 +139,7 @@ export function hauteurAuxLimites(cam: PtBrut, p: Point3, limites: readonly Obst
       const t = fractionCroisement(cam, p, a, b);
       // Au pied du mur (le dernier demi-metre), c'est le mur lui-meme, pas une cloture devant lui.
       if (t === null || t * d > d - 0.5) return;
-      const h = HAUTEUR_CAMERA_M + (p.z - HAUTEUR_CAMERA_M) * t;
+      const h = hauteurCamera + (p.z - hauteurCamera) * t;
       if (bas === null || h < bas) bas = h;
     });
   }
@@ -179,7 +180,7 @@ export function pixelsDuMur(img: Pixels, mur: MurAVoir, limites: readonly Obstac
  * nuage). Une facade blanche en plein soleil peut y ressembler : elle se perd alors, et le materiau
  * reprend la main, plutot qu'un nuage pris pour une facade blanche (mesure d'octobre 2026).
  */
-function surLeCiel(img: Pixels, i: number, j: number): boolean {
+export function surLeCiel(img: Pixels, i: number, j: number): boolean {
   const W = img.largeur, d = img.data;
   if (i < 1 || j < 1 || i >= W - 1 || j >= img.hauteur - 1) return false;
   const L = (k: number) => 0.299 * (d[k] as number) + 0.587 * (d[k + 1] as number) + 0.114 * (d[k + 2] as number);
@@ -304,7 +305,7 @@ const photoMur = (l: { couleur: string; photo: PhotoRue }): PhotoMur => ({ coule
 const batimentsAMurs = (objets: readonly ObjetAMurs[]) =>
   objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => o.fonction === 'batiment' && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
 /** Les limites de parcelle, ou se tiennent les clotures et les haies. */
-const limitesDesParcelles = (objets: readonly ObjetAMurs[]) =>
+export const limitesDesParcelles = (objets: readonly ObjetAMurs[]): Obstacle[] =>
   objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
 const egoutDe = (o: ObjetAMurs) => (o.elevation && o.elevation > 1 ? o.elevation : 3);
 
