@@ -109,9 +109,12 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
     if(o.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.volumesToit));
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
-    // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts).
+    // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts). Les
+    // cheminees et la terrasse observees (MD/spec-regles-toits.md §4) passent telles quelles ; une
+    // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant.
     if(o.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.corpsToit)) as Record<string, unknown>[]).map((c) => {
       if(Array.isArray(c.pignons) && !c.pignons.length) delete c.pignons;
+      if(Array.isArray(c.cheminees) && !c.cheminees.length) delete c.cheminees;
       return c;
     });
     // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.

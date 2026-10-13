@@ -399,6 +399,12 @@ interface Terrasse {
   dessinera.
 - Le dessin 3D (`three/toitCorps3d.ts`) apprend chaque forme dans l'ordre du §10, **une par PR**.
   Une forme que la 3D ne sait pas dessiner n'est pas produite par le calcul.
+- **Fait (lot L10)** : `Cheminee` et `Terrasse` (nommée `TerrasseToit` dans `model/types.ts`, pour
+  ne pas la confondre avec la terrasse bois) sont dans `CorpsToit`, facultatives, et dessinées par
+  `three/cheminees3d.ts` (souche du pan au débouché, adossée du sol au débouché, dalle, mitrons) et
+  `three/terrasse3d.ts` (acrotère sur les façades, édicules à toit plat). Pour une souche adossée,
+  `largeurM` court le long du mur et `profondeurM` en sort. Elles ne viennent que d'une observation ;
+  une relecture LiDAR des corps les perd encore (à reprendre avec les propositions, lot L11).
 
 ---
 

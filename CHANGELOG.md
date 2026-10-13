@@ -7,6 +7,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Cheminées et toits-terrasses dans les corps de toit, et en Vue 3D** (lot L10 de
+  `MD/plan-mise-en-oeuvre-audit.md`, `MD/spec-regles-toits.md` §2.6, §2.7, §4). Un corps
+  (`CorpsToit`) peut porter des souches (`cheminees` : centre, section, hauteur du débouché au-dessus
+  du sol, position faîtage, pan, pignon ou façade, conduits, matériau, couronnement, source) et, s'il
+  est plat, sa toiture-terrasse (`terrasse` : accessible, revêtement, acrotère, garde-corps,
+  édicules, source). Les deux champs sont facultatifs : un fichier ancien garde son sens, et
+  l'enregistrement les écrit tels quels (une liste vide de cheminées ne s'écrit pas).
+  - En 3D (`three/cheminees3d.ts`) : la souche part du pan, le pied de chaque face à la hauteur du
+    toit sous ses coins ; au faîtage, elle est centrée sur sa ligne ; dans un pignon, au nu du mur
+    de bout ; adossée, elle monte du sol jusqu'à son sommet, contre le mur extérieur le plus proche.
+    En haut, une dalle de couronnement qui déborde de 5 cm, et des mitrons, un par conduit, quand
+    ils ont été vus. Couleur du matériau (brique, pierre, métal), sinon celle des murs.
+  - En 3D (`three/terrasse3d.ts`) : l'acrotère en liseré sur les façades seulement (pas contre un
+    autre corps), coupé d'onglet aux angles ; les édicules, de la terrasse à leur sommet, à toit plat
+    en gravillons.
+  - L'inspecteur le dit après le corps : « 2 cheminées », « terrasse accessible, acrotère de
+    0,60 m, un édicule ».
+  - Ces données ne viennent que d'une observation : aucune détection LiDAR, aucun bâtiment existant
+    ne change (AE 101 identique, empreintes inchangées, GLB de la démonstration identique).
+
 - **Serveur de l'analyse par Claude** (lot L16, `MD/spec-audit.md` §13.2 et §13.3, aucun écran).
   `deploy/analyse.php`, à côté d'`admin.php`, et son équivalent Node pour le serveur SiteGround
   (`buildsg/analyseAdmin.mjs`) relaient l'API Message Batches d'Anthropic sous `admin/claude/…`,
