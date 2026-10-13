@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit, la façade devant vous** (lot L2 du plan de mise en œuvre, `MD/spec-audit.md` §6.1 et
+  §12.2). En mode audit, Plan reconnaît en direct la façade que vous avez devant vous : celle dont
+  vous voyez le côté extérieur, à 3 à 40 m, sans autre bâtiment entre vous et elle, puis, parmi
+  celles-là, celle que désigne la boussole (à 50° près ; à égalité, la plus proche). Sans boussole,
+  c'est la plus proche devant laquelle vous êtes. Elle est **surlignée en ambre dans la Vue 3D** et
+  nommée en tête de la barre d'audit : « Vous êtes devant la façade sud, 9,2 m ».
+  Le relevé d'une façade s'en sert aussi : quand votre position est suivie (« Ma position (3D) »),
+  il propose le mur devant lequel vous vous tenez, avec sa distance ; sinon, comme avant, celui qui
+  fait face au cap de la boussole (`facade/priseDeVue.ts`).
+
 - **Audit, photo située complète** (lot L1 du plan de mise en œuvre, `MD/spec-audit.md` §5 et §19).
   La fiche d'un bâtiment marqué garde **jusqu'à six photos**, en vignettes, chacune avec
   « Retirer » et le texte de sa prise de vue. Chaque photo garde en plus :

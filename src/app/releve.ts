@@ -12,12 +12,15 @@
 // la case est cochee.
 
 import { vue3d } from '../three/etat3d.js';
+import { positionGpsCourante } from '../three/positionGps3d.js';
+import { obstacle, type Obstacle } from '../geometry/ligneDeVue.js';
+import { aDesSommets } from '../model/formes.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { showToast } from '../shell/dialogs.js';
 import { facadesDuContour } from '../facade/geometrie.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
+import { estBatiment, parcelleDuProjet } from '../model/fonctions.js';
 import type { EtatApp } from '../core/state.js';
-import type { ObjetPlan, ObjetPolygone, ReleveFacade, Toit } from '../model/types.js';
+import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../model/types.js';
 
 export interface ContexteReleve {
   etat: EtatApp;
@@ -43,6 +46,13 @@ export interface ServiceReleve {
   hauteurMur(): number;
   /** L'origine geographique du plan (le calage du cadastre), s'il est geolocalise : les photos de rue se cherchent autour. */
   origine(): { lat: number; lon: number } | null;
+  /**
+   * La position de l'appareil dans le plan, quand elle est suivie (« Ma position (3D) », ou le mode
+   * audit) : le mur propose est alors celui devant lequel on se tient (facade/priseDeVue.ts).
+   */
+  position(): PtBrut | null;
+  /** Les contours des batiments du plan : ce qui peut cacher un mur a la position. */
+  obstacles(): Obstacle[];
   /**
    * Ecrit le releve dans le projet. `hauteurMesuree` est la hauteur d'egout lue sur la photo : elle
    * est dite, pas appliquee — le batiment garde sa hauteur ; `toit`, s'il est donne, remplace celui
@@ -86,6 +96,8 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       const cad = parcelleDuProjet(ctx.etat.objects)?.cadastre;
       return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? { lat: cad.origineLat, lon: cad.origineLon } : null;
     },
+    position: () => positionGpsCourante()?.p ?? null,
+    obstacles: () => ctx.etat.objects.filter(estBatiment).filter(aDesSommets).map((o) => obstacle(o.pts)),
     valider(releve, toit, hauteurMesuree) {
       const o = batiment();
       if (!o) return;
