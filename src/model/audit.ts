@@ -51,8 +51,23 @@ export const PROBLEMES_AUDIT: readonly { code: string; categorie: CategorieAudit
 /** Le statut d'un cas, de la promenade a la reference (spec §6). */
 export type StatutCas = 'a_corriger' | 'corrige' | 'valide' | 'sans_suite';
 
-/** Une photo prise sur place, reduite (environ 300 Ko), en base64. */
-export interface PhotoCas { type: 'image/jpeg'; base64: string }
+/**
+ * Ou et vers ou la photo a ete prise : la position de l'appareil (repere du plan et degres) et le cap
+ * de sa boussole a cet instant. `deplacement` : sans boussole, le sens de la marche, a defaut.
+ */
+export interface PrisePhoto {
+  t: string;
+  x: number;
+  y: number;
+  lat: number | null;
+  lon: number | null;
+  precisionM: number | null;
+  azimutDeg: number | null;
+  sourceAzimut: 'boussole' | 'deplacement' | null;
+}
+
+/** Une photo prise sur place, reduite (environ 300 Ko), en base64, avec sa prise de vue. */
+export interface PhotoCas { type: 'image/jpeg'; base64: string; prise?: PrisePhoto }
 
 export interface ConstatCas {
   categorie: CategorieAudit;

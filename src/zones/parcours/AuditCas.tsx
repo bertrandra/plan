@@ -3,11 +3,11 @@
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
 import { useEffect, useReducer, useState } from 'react';
-import { CATEGORIES_AUDIT, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit } from '../../model/audit.js';
+import { CATEGORIES_AUDIT, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit, type PrisePhoto } from '../../model/audit.js';
 import { reduirePhoto } from '../../app/audit/photo.js';
 import type { Promenade } from '../../app/audit/promenade.js';
 
-interface Props { promenade: Promenade; cle: string; retirer: () => void; fermer: () => void }
+interface Props { promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; fermer: () => void }
 
 /** Ce qui designe le batiment pour la personne : l'adresse si elle est arrivee, sinon la parcelle. */
 export function titreCas(c: CasAudit): string {
@@ -20,7 +20,17 @@ export function useSuivrePromenade(promenade: Promenade): void {
   useEffect(() => promenade.abonner(maj), [promenade]);
 }
 
-export function AuditCas({ promenade, cle, retirer, fermer }: Props) {
+const POINTS_CARDINAUX = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+
+/** « Prise à ± 5 m, vers 245° (OSO), boussole » : ce que la fiche dit de la prise de vue. */
+export function textePrise(p: PrisePhoto): string {
+  const ou = p.precisionM !== null ? 'Prise à ± ' + Math.round(p.precisionM) + ' m' : 'Prise ici';
+  if (p.azimutDeg === null) return ou + ', sans direction (pas de boussole)';
+  const nom = POINTS_CARDINAUX[Math.round(p.azimutDeg / 22.5) % 16];
+  return ou + ', vers ' + p.azimutDeg + '° (' + nom + ')' + (p.sourceAzimut === 'deplacement' ? ', sens de la marche' : ', boussole');
+}
+
+export function AuditCas({ promenade, cle, retirer, prise, fermer }: Props) {
   useSuivrePromenade(promenade);
   const [photoEnCours, setPhotoEnCours] = useState(false);
   const [erreurPhoto, setErreurPhoto] = useState('');
@@ -46,9 +56,11 @@ export function AuditCas({ promenade, cle, retirer, fermer }: Props) {
   };
   const prendrePhoto = (fichier: File | undefined) => {
     if (!fichier) return;
+    // La position et le cap au retour de l'appareil photo : la ou vous etes, vers ou vous visez.
+    const ou = prise();
     setPhotoEnCours(true);
     setErreurPhoto('');
-    void reduirePhoto(fichier).then((photo) => promenade.completer(cle, { photo }))
+    void reduirePhoto(fichier).then((photo) => promenade.completer(cle, { photo: ou ? { ...photo, prise: ou } : photo }))
       .catch(() => setErreurPhoto('Cette image n’a pas pu être lue. Réessayez avec une autre photo.'))
       .finally(() => setPhotoEnCours(false));
   };
@@ -84,6 +96,7 @@ export function AuditCas({ promenade, cle, retirer, fermer }: Props) {
         {constat.photo && <button type="button" className="secondary" data-controle="audit.retirerPhoto" onClick={() => promenade.completer(cle, { photo: null })}>Retirer la photo</button>}
         {erreurPhoto && <div className="erreurParcours" role="alert">{erreurPhoto}</div>}
         {constat.photo && <img src={'data:image/jpeg;base64,' + constat.photo.base64} alt={'Photo de ' + titreCas(c)} />}
+        {constat.photo?.prise && <div className="detailPhoto">{textePrise(constat.photo.prise)}</div>}
       </div>
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="audit.retirerMarque" onClick={() => { retirer(); fermer(); }}>Retirer la marque</button>

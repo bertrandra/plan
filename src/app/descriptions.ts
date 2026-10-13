@@ -57,7 +57,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'vue.3d': 'Affiche la scène en 3D, avec le soleil du lieu et de la date choisis',
   'vue.visionneuse': 'Ouvre la visionneuse du modèle GLB généré depuis le plan',
   'vue.ajuster': 'Cadre la vue sur l’objet sélectionné',
-  'audit.suivre': 'Mode audit : la caméra de la Vue 3D suit votre position ; glisser sur la scène la libère, ce bouton la ramène',
+  'audit.suivre': 'Mode audit : recadre la Vue 3D derrière vous, dans l’axe de votre cap (boussole, sinon sens de la marche), pour voir 70 m devant, et suit votre cap ; tourner la vue au doigt le lâche',
   'audit.cas': 'Mode audit : la liste des bâtiments notés pendant la promenade, à revoir, puis le partage du fichier',
   'affichage.positionGps': 'Montre votre position GPS dans la Vue 3D, suivie pendant que vous marchez ; décochée par défaut, elle ne s’enregistre pas avec le projet',
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',

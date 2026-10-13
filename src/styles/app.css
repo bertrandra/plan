@@ -1336,6 +1336,7 @@
     border:1px solid var(--border); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink);
   }
   .photoAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .photoAudit .detailPhoto{ flex-basis:100%; font-size:0.76rem; color:var(--ink-soft); }
   .photoAudit img{ display:block; flex-basis:100%; max-width:100%; max-height:30vh; object-fit:contain; border-radius:var(--r-champ); }
   /* Le champ fichier natif est illisible : on montre un bouton, le champ le couvre et recoit le doigt. */
   .boutonFichier{

@@ -1,5 +1,5 @@
 // Ce que le mode audit charge (MD/spec-audit.md §4.1 et §4.2) : la parcelle de depart, puis tout ce
-// qui est a moins de 40 m de la position, a chaque pas de 10 m.
+// qui est a moins de 70 m de la position, a chaque pas de 10 m.
 //
 // Les memes lectures que l'import et l'actualisation : le cadastre et la BD TOPO
 // (app/actualisationIgn.ts::construireVoisinage, centre sur la position), la couleur des toits sur
@@ -18,14 +18,14 @@ import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan, ObjetBrut, PtBrut } from '../../model/types.js';
 
-/** Le rayon lu autour de la position (decision de l'utilisateur). */
-export const RAYON_AUDIT_M = 40;
+/** Le rayon lu autour de la position : ce que la vue « drone » montre devant vous (demande de l'utilisateur). */
+export const RAYON_AUDIT_M = 70;
 /** Un deplacement de plus que cela depuis la derniere lecture en declenche une nouvelle. */
 export const PAS_RECHARGE_M = 10;
 /** La recherche de la parcelle de depart : un carre de ce demi-cote autour du point. */
 const RAYON_DEPART_M = 30;
-/** Les toits d'une lecture : assez de temps pour une quarantaine de batiments, quatre a la fois. */
-const DELAI_TOITS_MS = 120000;
+/** Les toits d'une lecture : assez de temps pour une centaine de batiments, quatre a la fois. */
+const DELAI_TOITS_MS = 240000;
 
 export interface DependancesChargement {
   interrogerCadastre?: typeof interrogerCadastre;

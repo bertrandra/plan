@@ -6,7 +6,7 @@
 // declarees au registre comme les autres (la barre de la Vue 3D les lit, zones/vue3d/Vue3d.tsx).
 
 import { abonnerSceneBatie, hotes3d, vue3d } from '../../three/etat3d.js';
-import { creerControleurAudit, brancherDoigtAudit, poserLectureSuivi, type ControleurAudit } from './controleur.js';
+import { creerControleurAudit, brancherDoigtAudit, type ControleurAudit } from './controleur.js';
 import type { DemandeAudit } from './demande.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetBrut } from '../../model/types.js';
@@ -45,12 +45,11 @@ export function brancherAudit(a: AtelierAudit, demande: DemandeAudit): Controleu
     signaler: a.signaler,
   }, demande);
   courant = c;
-  poserLectureSuivi(() => etat.audit?.suivre ?? false);
 
   commandes.declarer({
     id: 'audit.suivre', libelle: 'Me suivre', groupe: 'audit',
     actif: () => !!vue3d.scene,
-    executer: () => c.basculerSuivi(),
+    executer: () => c.reprendreSuivi(),
   });
   commandes.declarer({
     id: 'audit.cas', libelle: 'Cas notés', groupe: 'audit',

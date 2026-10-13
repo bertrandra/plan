@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { creerControleurAudit, brancherDoigtAudit, poserLectureSuivi, PRECISION_DEPART_MAX_M, type ContexteAudit, type ControleurAudit } from '../../../../src/app/audit/controleur.js';
+import { creerControleurAudit, brancherDoigtAudit, PRECISION_DEPART_MAX_M, type ContexteAudit, type ControleurAudit } from '../../../../src/app/audit/controleur.js';
 import { SansPosition, type PositionGps } from '../../../../src/shell/geolocalisation.js';
 import { creerEtat } from '../../../../src/core/state.js';
 import { parcours } from '../../../../src/app/parcours.js';
@@ -15,7 +15,7 @@ function contexte(plus: Partial<ContexteAudit> = {}) {
   const messages: string[] = [];
   const ctx: ContexteAudit = {
     etat, remplacerObjets: vi.fn(), reconstruire3d: vi.fn(), repeindre3d: vi.fn(), ouvrir3d: vi.fn(), notifier: vi.fn(),
-    signaler: (m) => messages.push(m), ...plus,
+    signaler: (m) => messages.push(m), boussole: { suivre: () => () => {}, autoriser: async () => false }, ...plus,
   };
   return { ctx, etat, messages };
 }
@@ -89,9 +89,10 @@ describe('le doigt sur la Vue 3D', () => {
     const toile = document.createElement('canvas');
     hote.appendChild(toile);
     document.body.appendChild(hote);
-    const c = { tapoter: vi.fn(), appuiLong: vi.fn(), basculerSuivi: vi.fn() } as unknown as ControleurAudit;
+    const c = { tapoter: vi.fn(), appuiLong: vi.fn(), lacherSuivi: vi.fn() } as unknown as ControleurAudit;
     brancherDoigtAudit(c, hote);
-    const geste = (type: string, x: number, y: number) => toile.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }));
+    const geste = (type: string, x: number, y: number, doigt = 1) =>
+      toile.dispatchEvent(Object.assign(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }), { pointerId: doigt }));
     return { c, geste };
   }
 
@@ -114,11 +115,41 @@ describe('le doigt sur la Vue 3D', () => {
       expect(c.appuiLong).toHaveBeenCalledTimes(2);
       expect(c.tapoter).toHaveBeenCalledOnce();
 
-      poserLectureSuivi(() => true);
       geste('pointerdown', 10, 10); geste('pointermove', 40, 10); vi.advanceTimersByTime(700); geste('pointerup', 40, 10);
-      expect(c.basculerSuivi).toHaveBeenCalledOnce();
+      expect(c.lacherSuivi).toHaveBeenCalledOnce();
+      expect(c.appuiLong).toHaveBeenCalledTimes(2);
+      expect(c.tapoter).toHaveBeenCalledOnce();
+
+      // Deux doigts : un pincement (zoom). Le cap reste suivi, rien n'est tapote ni ouvert.
+      geste('pointerdown', 10, 10, 1); geste('pointerdown', 60, 10, 2); geste('pointermove', 0, 10, 1); geste('pointermove', 80, 10, 2);
+      vi.advanceTimersByTime(700); geste('pointerup', 0, 10, 1); geste('pointerup', 80, 10, 2);
+      expect(c.lacherSuivi).toHaveBeenCalledOnce();
       expect(c.appuiLong).toHaveBeenCalledTimes(2);
       expect(c.tapoter).toHaveBeenCalledOnce();
     } finally { vi.useRealTimers(); }
+  });
+});
+
+describe('le cap et la photo', () => {
+  it('la photo garde la position et le cap de la boussole ; sans boussole, le sens de la marche', async () => {
+    let cap: ((c: number) => void) | null = null;
+    const { ctx } = contexte({ suivre: () => () => {}, boussole: { suivre: (f) => { cap = f; return () => {}; }, autoriser: async () => true } });
+    const c = creerControleurAudit(ctx, { depart: null });
+    expect(c.prisePhoto()).toBeNull();
+    c.nouvellePosition({ x: 0, y: 0 }, 5);
+    c.nouvellePosition({ x: 0, y: 10 }, 5);
+    expect(c.prisePhoto()).toMatchObject({ x: 0, y: 10, precisionM: 5, azimutDeg: 0, sourceAzimut: 'deplacement' });
+    cap!(250);
+    expect(c.prisePhoto()).toMatchObject({ azimutDeg: 250, sourceAzimut: 'boussole' });
+  });
+
+  it('un glisser lache le cap, « Me suivre » le reprend', () => {
+    const { ctx, etat } = contexte({ suivre: () => () => {} });
+    const c = creerControleurAudit(ctx, { depart: null });
+    expect(etat.audit?.suivre).toBe(true);
+    c.lacherSuivi();
+    expect(etat.audit?.suivre).toBe(false);
+    c.reprendreSuivi();
+    expect(etat.audit?.suivre).toBe(true);
   });
 });

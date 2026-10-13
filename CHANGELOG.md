@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Mode audit : boussole, vue à 70 m, photo située.** Dans la Vue 3D, le centre de rotation et de zoom
+  est votre position : il vous suit à chaque pas, et la caméra garde le zoom et la rotation que vous
+  lui avez donnés. « Me suivre » recadre derrière vous, dans l'axe de votre cap, pour voir 70 m
+  devant, et tourne avec la boussole du téléphone (à défaut, avec le sens de la marche). Tourner la
+  vue d'un doigt lâche le cap, le pincement non. Les bâtiments sont lus jusqu'à 70 m (40 m avant).
+  La photo d'un cas garde sa position GPS et son azimut, que la fiche affiche.
+
 - **Menu Admin › Mode audit (promenade)** : le mode audit s'ouvre depuis l'écran, sans taper
   d'adresse. L'entrée est proposée en admin des démos (`?admin&mode=audit`, sans enregistrement sur les
   démos) et à l'administrateur de la plateforme, qui ne voit qu'elle dans le menu Admin.
