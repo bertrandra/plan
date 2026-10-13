@@ -32,6 +32,7 @@ import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toits
 import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
+import { brancherFaitsLocaux } from './ecouteurs/faitsLocaux.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -425,7 +426,15 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
   // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
-  brancherAuditParcelle({ etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast }, commandes);
+  brancherAuditParcelle({
+    etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast,
+    // La validation des propositions (§14) : un instantane, l'ecriture, le plan et la Vue 3D redessines.
+    projet: {
+      pushHistory: p.pushHistory, render: p.render,
+      refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
+      remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
+    },
+  }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {
@@ -434,6 +443,8 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     rafraichir: () => magasin.notifier()
   }, commandes);
   brancherToitsFond(ch.toitsFond, commandes);
+  // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.
+  brancherFaitsLocaux({ objets: () => atelier.etat.objects, relireToits: () => { ch.toitsFond.arreter(); ch.toitsFond.relancer(); } }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {

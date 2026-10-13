@@ -292,14 +292,17 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
 Chaque bâtiment lu sur le LiDAR porte `toitLidarLu` : la version de la lecture qui l'a traité
 (`app/toitsLidar.ts::VERSION_LECTURE_TOITS`). La tâche de fond (`app/toitsFond.ts`) ne relit que les
 bâtiments sans marque ou marqués d'une version plus ancienne.
-- La version se lit dans `LECTURES_TOITS` (`app/toitsLidar.ts`) : chaque ligne porte une version et
-  l'empreinte des réglages qu'elle lisait (§6 ter).
+- La version se lit dans `LECTURES_TOITS` (`app/toitsLidar.ts`) : chaque ligne porte une version,
+  l'empreinte des réglages qu'elle lisait (§6 ter) et celle des faits (`faits`, absente : aucun fait ;
+  §6 quinquies).
 - Une règle qui change visiblement les toits déjà lus (une forme, un recalage) : **ajouter une ligne
   `{ version: n + 1, reglages: <même empreinte> }`** dans la même PR. Les projets existants se
   relisent seuls à leur prochaine ouverture, du plus proche au plus loin.
 - Un seuil changé dans `regles/toits/reglages.json` : ajouter la ligne avec la nouvelle empreinte
   (le test `tests/unit/model/reglagesToits.test.ts` la donne). Oubliée, la CI est rouge, et
   l'application relit de toute façon (version suivante).
+- Un fait ajouté ou changé dans `regles/toits/faits.json` : la ligne avec l'empreinte des faits
+  (`npx tsx .claude/skills/regles-toits/scripts/faits.ts` l'écrit).
 - Une correction qui ne concerne que des cas encore jamais lus, ou un détail de dessin 3D (qui se
   recalcule depuis les corps enregistrés) : ne pas la passer, la relecture coûte des minutes sur un
   grand voisinage.
@@ -350,6 +353,17 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
   après dans la PR ; `valide` après l'accord de l'utilisateur.
 - Les deux premiers fichiers sont reconstitués depuis des relevés réels (AE 101, validé ; pavillon est
   de la longère d'Hucqueliers, à corriger), pas encore une promenade.
+
+## 6 quinquies. Les faits : `regles/toits/faits.json`
+
+Une vérité observée sur **un** bâtiment, par sa clé BD TOPO (`cleabs`) : `model/faitsToits.ts` lit et
+vérifie le fichier (compilé dans le fichier livré), `facade/faitsToits.ts` l'applique. Ordre de la
+spec §9.1 : le calcul, puis le fait (`contrainte` : le corps principal relu parmi les formes et le
+sens admis, hauteurs de la mesure ; `remplacement` : un corps aux dimensions du fait, sans lecture ni
+garde-fou, même sans LiDAR), puis les garde-fous de vraisemblance. Il s'applique à l'import, en tâche
+de fond (`app/toitsLidar.ts::corpsLus`, `toitDuFait`) et au rejeu des cas (`facade/audit.ts`).
+**Le skill `regles-toits` dit quand écrire un fait plutôt qu'un réglage ou une règle**, et traite un
+fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin (spec §9.2).
 
 ## 7. Tests et fixtures
 

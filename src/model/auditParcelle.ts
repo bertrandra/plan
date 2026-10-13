@@ -91,6 +91,21 @@ export interface CaptureParcelle<P = PhotoCas> {
   batiments: Record<string, BatimentCapture<P>>;
   cloture: ClotureCapturee<P>;
   portail: PortailCapture<P>;
+  /**
+   * Chaque validation des propositions (§14, lot L11) : ce qui a ete accepte et refuse, par
+   * identifiant de proposition. Une proposition refusee est une information (§15) : le fichier de
+   * l'audit la gardera. Absent tant que rien n'est valide.
+   */
+  decisions?: DecisionAudit[];
+}
+
+/** Une validation des propositions : quand, ce qui a ete ecrit dans le projet, ce qui a ete refuse. */
+export interface DecisionAudit {
+  t: string;
+  acceptees: string[];
+  refusees: string[];
+  /** Les batiments marques « vérifié sur place ». */
+  verifies: string[];
 }
 
 /** L'identifiant de la capture d'une parcelle : la meme parcelle retrouve son brouillon. */

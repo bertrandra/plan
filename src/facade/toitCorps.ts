@@ -250,8 +250,30 @@ export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: re
   return best?.c ?? null;
 }
 
+/** Le rectangle repris depuis son deuxieme sommet, pour les faits (facade/faitsToits.ts) : le faitage y suit l'autre sens. */
+export const rectangleTourne = tourne;
+
+/**
+ * Le toit d'un corps dont le faitage est impose en `p` (0 ou la largeur : un appentis), ajuste sur la
+ * mesure, ou un toit plat a la mediane des mesures (`'plat'`). Rien n'y est choisi : c'est ce que
+ * demande un fait (facade/faitsToits.ts), qui restreint les formes et laisse la mesure donner les
+ * hauteurs. Null sans assez de mesures ou sans toit plausible a cette position.
+ */
+export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat'): CorpsToit | null {
+  const r = repere(pts);
+  const ms = mesuresDans(m, r, pts, contour);
+  if (ms.length < MESURES_MIN) return null;
+  if (p === 'plat') {
+    const z = dixieme([...ms.map((x) => x.z)].sort((a, b) => a - b)[Math.floor(ms.length / 2)] ?? 0);
+    return { pts: [...pts], posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z], pignons: [], ecart: 0 };
+  }
+  const pr = profilEn(ms, r.W, p);
+  if (!pr) return null;
+  return { pts: [...pts], posFaitage: cm(pr.p), faitage: dixieme(pr.F), egouts: [dixieme(pr.e0), dixieme(pr.e1)], pignons: [], ecart: cm(pr.ecart) };
+}
+
 /** Le 80e centile. */
-const haut = (v: readonly number[]): number => { const t = [...v].sort((a, b) => a - b); return t[Math.min(t.length - 1, Math.floor(0.8 * t.length))] ?? 0; };
+const haut =(v: readonly number[]): number => { const t = [...v].sort((a, b) => a - b); return t[Math.min(t.length - 1, Math.floor(0.8 * t.length))] ?? 0; };
 
 /**
  * Les pignons d'un corps : sur le mur de chaque pan, les tronçons ou la mesure depasse le pan de

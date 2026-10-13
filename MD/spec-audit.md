@@ -581,6 +581,15 @@ Ce qui est écrit utilise les structures **déjà dans le projet** :
 
 L'audit ne touche pas au code des toits : AE 101 et les empreintes ne bougent pas.
 
+**Fait (lot L11, sans Claude)** : les mesures du téléphone (`app/audit/parcelle/mesures.ts`) et les
+observations deviennent des propositions (`model/propositions.ts`, source `mesure`, prêtes pour la
+source `claude`) ; Avant / Après dans la Vue 3D sur des copies des bâtiments ; cases, choix à la main
+décochés (« Remplace votre choix : … ») ; « Valider » en un pas d'historique ; `verifieSurPlace`.
+Restent : la forme du toit vue (forme, faîtage, bouts, lucarnes), qui attend les règles et Claude ;
+la photo et les indices touchés depuis la 3D ; l'éditeur du relevé ouvert depuis la ligne d'une
+façade ; la mosaïque de plusieurs photos d'un mur dans les mesures (lots L13 à L15) ; la texture du
+gros plan du parement.
+
 ## 15. Le fichier, pour le corpus
 
 - Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1.

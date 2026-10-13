@@ -218,6 +218,11 @@ const sectionApparence: Section = {
     },
     // La couleur des murs en 3D d'un batiment : photo de rue, materiau ou couleur du plan (§6.5).
     ...champsCouleurMurs,
+    // Le batiment vu et valide lors d'un audit de la parcelle (MD/spec-audit.md §14) : le dire, avec la date.
+    {
+      type: 'lecture', cle: 'verifieSurPlace', libelle: 'Vérifié sur place', visible: (c) => !!c.obj.verifieSurPlace,
+      valeur: (c) => { const j = c.obj.verifieSurPlace?.date ?? ''; const [a, m, d] = j.split('-'); return a && m && d ? 'le ' + d + '/' + m + '/' + a + ', par un audit de la parcelle' : j; }
+    },
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
     { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj) },

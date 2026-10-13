@@ -242,6 +242,12 @@ interface ObjetCommun {
    */
   couleurMurs?: CouleurMurs | null;
   /**
+   * Un batiment dont le toit et les facades ont ete vus et valides lors d'un audit de la parcelle
+   * (MD/spec-audit.md §14, « le 100 % ») : la date de la validation. Absent pour tous les autres, et
+   * le fichier d'un projet sans audit garde exactement sa forme d'avant.
+   */
+  verifieSurPlace?: VerifieSurPlace | null;
+  /**
    * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
    * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par
    * parcelle (les corps relus sur chaque part). Sans reponse, la question revient a l'ouverture.
@@ -768,6 +774,12 @@ export interface Mesure {
   displayMode?: string;
 }
 
+/** Ce qu'un audit de la parcelle a verifie sur place (MD/spec-audit.md §14). */
+export interface VerifieSurPlace {
+  /** Le jour de la validation, AAAA-MM-JJ. */
+  date: string;
+}
+
 /** Nature d'une ouverture relevee sur une facade. */
 export type TypeOuverture = 'fenetre' | 'porte-fenetre' | 'porte' | 'garage';
 
@@ -808,7 +820,7 @@ export interface ReleveFacade {
   ouvertures: OuvertureFacade[];
   /** Distance de prise de vue, en metres, et l'instrument qui l'a donnee. */
   distance: number | null;
-  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | 'rue' | null;
+  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps' | null;
   /** Date du releve, ISO 8601. */
   releveLe: string;
   /**

@@ -54,7 +54,7 @@ export const REGLAGES_TOITS = lireReglagesToits(fichier) as { readonly [K in Nom
 export const DESCRIPTION_REGLAGES_TOITS: { readonly [K in NomReglageToit]: DescriptionReglage } = fichier.seuils;
 
 /** FNV-1a sur 32 bits, en hexadecimal : assez pour reconnaitre un jeu de valeurs, sans dependance. */
-function fnv1a(texte: string): string {
+export function fnv1a(texte: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < texte.length; i++) h = Math.imul(h ^ texte.charCodeAt(i), 0x01000193) >>> 0;
   return h.toString(16).padStart(8, '0');

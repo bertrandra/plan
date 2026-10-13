@@ -122,6 +122,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.modeToit) out.modeToit = o.modeToit;
     if(o.toitACheval) out.toitACheval = JSON.parse(JSON.stringify(o.toitACheval));
     if(o.couleurMurs) out.couleurMurs = JSON.parse(JSON.stringify(o.couleurMurs));
+    // Verifie sur place par un audit de la parcelle (MD/spec-audit.md §14) : pose seulement s'il l'est.
+    if(o.verifieSurPlace) out.verifieSurPlace = { date: o.verifieSurPlace.date };
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.

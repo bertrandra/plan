@@ -7,6 +7,66 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit de la parcelle, phases 2 et 3 sans Claude : propositions et validation** (lot L11 du
+  plan de mise en œuvre, `MD/spec-audit.md` §13.1 et §14). « Lancer l'analyse » ouvre maintenant les
+  propositions, posées sur la Vue 3D ; une capture terminée y revient par « Voir les propositions ».
+  - **Les mesures du téléphone** (`app/audit/parcelle/mesures.ts`), sans serveur : pour chaque
+    façade photographiée, le relevé (coins prédits par la prise de vue puis cherchés sur la photo,
+    lots L6 à L8 ; redressement, ouvertures, texture), la hauteur à l'égout mesurée quand les coins
+    ont été trouvés, la couleur du mur lue sur les photos prises à la boussole (lot L3).
+  - **Les propositions** (`model/propositions.ts`, `app/audit/parcelle/propositions.ts`) : le relevé
+    de chaque façade, la hauteur à l'égout (médiane des façades mesurées), la couleur des murs lue
+    sur vos photos, le matériau des murs et de la couverture vus, les cheminées vues (posées dans le
+    plus grand corps en pente, au faîtage, à mi-pan, dans le pignon ou adossées, 40 cm au-dessus du
+    faîtage) et la toiture-terrasse vue (sur le plus grand corps plat, édicules compris), la clôture
+    côté rue et le portail. Chacune dit son avant, son après et son origine ; la structure porte
+    déjà la source (`mesure` ou `claude`), les indices et la confiance pour les propositions de
+    Claude (lot L17).
+  - **Cases à cocher** : une valeur choisie à la main (source des murs, couverture, relevé déjà fait,
+    côté de clôture réglé, portail à une autre largeur, hauteur saisie) n'est jamais remplacée en
+    silence : sa ligne arrive décochée et dit « Remplace votre choix : … ». Un relevé dont les coins
+    n'ont pas été trouvés arrive décoché, comme une proposition de faible confiance.
+  - **Avant / Après** : la Vue 3D montre les bâtiments avec les propositions cochées, sur des copies
+    (`three/scene.ts::remplacerObjets3d` accepte d'autres objets que ceux du plan) ; le projet n'est
+    pas touché tant qu'on ne valide pas, ni par l'aperçu, ni par l'enregistrement.
+  - **Valider** écrit tout ce qui est coché en un seul pas d'historique : Ctrl+Z le défait, le projet
+    est marqué modifié. La décision (acceptées, refusées) est gardée avec la capture pour le
+    fichier de l'audit (lot L21).
+  - **Vérifié sur place** : un bâtiment dont toutes les façades ont été photographiées (ou sont
+    mitoyennes ou inaccessibles), dont le toit a été vu et dont toutes les propositions sont cochées
+    est marqué `verifieSurPlace` avec la date ; l'inspecteur le dit (Apparence). Champ facultatif :
+    un projet sans audit garde sa forme d'avant.
+  - **Couleur des murs** : `couleurMurs.terrain` (la couleur lue sur vos photos, validée) passe avant
+    la photo de rue, et `couleurMurs.materiau` (le matériau vu sur place) avant celui des fichiers
+    fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
+    empreintes sont identiques. Points de fumée 62 et 63.
+
+- **Faits des toits et skill `regles-toits`** (lot L20 du plan de mise en œuvre,
+  `MD/spec-regles-toits.md` §5, §9 et §10).
+  - **`regles/toits/faits.json`** : une vérité observée sur un bâtiment, rangée par sa clé BD TOPO
+    (`cleabs`), qui vaut dans tous les projets qui le contiennent. En **contrainte** (par défaut), le
+    corps principal qui ne dit pas ce que l'on a vu (forme, sens du faîtage, bouts, nombre de corps
+    au plus, fourchettes de hauteur) est relu sur la mesure parmi les seules formes admises ; la
+    mesure donne les hauteurs, et un toit déjà d'accord ne bouge pas. En **remplacement**, le fait
+    donne aussi les dimensions : un corps sur la boîte orientée du contour, sans lecture, même sans
+    LiDAR. L'ordre est celui de la spec : calcul, fait, garde-fous de vraisemblance. Le fichier est
+    vérifié (vocabulaire fermé, `model/faitsToits.ts`), compilé dans le fichier livré, et appliqué à
+    l'import, en tâche de fond et au rejeu des cas d'audit (`facade/faitsToits.ts`). Son empreinte
+    entre dans `VERSION_LECTURE_TOITS` : un fait ajouté demande une version de lecture nouvelle, et la
+    CI le rappelle. Le fichier est livré **vide** : aucun toit ne change, la version de lecture reste 1.
+  - **Mode d'essai `?regles=local`** (administrateur) : menu Admin › « Essayer des faits de toits… »
+    charge un fichier de faits depuis votre poste, à la place de celui du dépôt, le temps de la page.
+    Les toits concernés sont relus en tâche de fond ; rien n'est enregistré, et à la prochaine
+    ouverture ils sont relus avec les faits livrés. Les réglages ne s'essaient pas encore ainsi.
+  - **Skill `.claude/skills/regles-toits/`** : traiter un fichier de promenade de bout en bout (tri des
+    cas : hors toit, fait, réglage, règle, question ; attendu ; images avant et après ; PR), en
+    s'appuyant sur le skill `toits`. Scripts : `trier.ts` (premier tri, seuils en jeu, squelette de
+    fait), `faits.ts` (faits comptés par forme, signal au-delà de cinq faits qui disent la même chose,
+    ligne de version de lecture à ajouter) ; `audit.ts --faits` rejoue avec les faits proposés pour
+    les cartes d'après. Premier passage sur le corpus : le cas d'Hucqueliers est classé « règle »
+    (chantier ouvert des ailes recouvertes), sans fait.
+  - AE 101 identique, banc des quatre villages identique, empreintes golden inchangées.
+
 - **Audit de la parcelle, phase 1 : la capture** (lot L9 du plan de mise en œuvre,
   `MD/spec-audit.md` §11, §12 et §8.1). Dans un projet, Fichier › « Auditer la parcelle… »
   (feuille du projet au doigt) ouvre la visite sur place, téléphone en main. La commande demande le
@@ -581,6 +641,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
 ### Modifié
+
+- **Détection des ouvertures : les candidats** (lot L14 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §9). L'écart à une seule teinte de mur ne suffisait pas : un
+  soubassement en pierre, l'ombre du débord, des volets battants, la brique ou la meulière faisaient
+  manquer des baies ou en inventaient. Sur le banc des façades, chaîne du relevé : rappel de 71 à
+  90 %, précision de 84 à 93 %, corrections de 3,2 à 1,9 par façade ; les images d'origine restent
+  justes au centimètre.
+  - **Fond local** (`facade/detectionFond.ts`) : les objets nets mis de côté, un fond de rang (une
+    bande de 50 cm sur toute la largeur : soubassement, bandeau, ombre du débord deviennent le fond de
+    leur rang), puis un fond local par médiane glissante sur 1,5 m de large ; le seuil
+    `max(28, 3 × écart médian)` se calcule zone par zone, et l'écart de teinte seule (chromaticité) a
+    le sien, pour la pierre dont le grain relève le seuil.
+  - **Filtre d'ombre** : un pixel plus sombre que son fond, de même chromaticité, n'est pas une baie ;
+    une tache qui n'est qu'ombre n'est gardée que si ses tableaux sont des arêtes franches.
+  - **Profils de contours** (`facade/detectionIndices.ts`) : soutien des arêtes sur les quatre côtés,
+    baie séparée de ses volets battants par le profil de ses colonnes, affinage des bords sur le profil
+    quand l'écart au fond ne dit rien.
+  - **Fusion des indices et confiance** : une tache est gardée si elle remplit sa boîte, ou si ses
+    quatre arêtes sont nettes ; sous 0,4 m², il faut les arêtes. La confiance de chaque ouverture
+    combine remplissage, rectangularité, soutien des arêtes et part vue sur la photo.
+  - **Réglages nommés** (`facade/reglagesDetection.ts`) : les filtres de taille et les seuils
+    deviennent `facades.detection.*`, chacun avec sa raison, surchargeables pour le banc.
 
 - **La grille du plan est masquée par défaut.** Le bouton « Grille » (menu Affichage) la montre, et
   le choix s'enregistre avec le projet. Un projet qui l'avait affichée en l'enregistrant la retrouve.

@@ -1426,6 +1426,27 @@
   .auditPrise .detailPhoto{ font-size:0.76rem; color:var(--ink-soft); margin-top:2px; }
   .auditPrise .rangementAudit{ color:var(--ink); }
   .auditPrise .piedDialogue{ margin-top:10px; }
+  /* Les propositions de l'audit (zones/parcours/PropositionsAudit.tsx) : la carte de l'ecran de prise,
+     plus haute ; la Vue 3D reste visible au-dessus pour comparer avant et apres. */
+  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:68dvh; }
+  .avantApresAudit{ margin:8px 0 4px; }
+  .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
+  .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
+  .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }
+  .texteProposition{ display:flex; flex-direction:column; gap:1px; min-width:0; cursor:pointer; }
+  .objetProposition{ font-weight:600; }
+  .avantApres{ font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  .avantProposition{ color:var(--ink-soft); }
+  .origineProposition{ font-size:0.72rem; color:var(--ink-soft); }
+  /* Ce qui fait arriver une ligne decochee : un filet d'alerte et le mot, la couleur ne porte pas seule. */
+  .reserveProposition{ font-size:0.74rem; color:var(--ink); border-left:2px solid var(--alerte); padding-left:6px; margin-top:2px; }
+  .verificationsAudit{ margin-top:10px; font-size:0.78rem; color:var(--ink-soft); }
+  .verificationsAudit li{ padding:2px 0; }
+  .verificationsAudit li.verifie{ color:var(--ink); box-shadow:inset 3px 0 0 var(--ok); padding-left:8px; }
+  .texteMasque{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  html:not([data-classe="large"]) .ligneProposition{ min-height:44px; }
+  html:not([data-classe="large"]) .ligneProposition input[type="checkbox"]{ width:20px; height:20px; margin-top:2px; }
+  html:not([data-classe="large"]) .avantApresAudit button{ min-height:44px; }
   /* Au doigt, la raison d'un refus s'ecrit sous l'entree du menu (l'infobulle n'existe pas). */
   details.menu li.refusMenu{ padding:0 12px 6px 30px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); line-height:1.35; }
   html:not([data-classe="large"]) .enteteLigneAudit button, html:not([data-classe="large"]) .auditPrise button,

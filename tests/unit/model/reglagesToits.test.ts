@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, empreinteReglagesToits, lireReglagesToits, ReglagesToitsIllisibles } from '../../../src/model/reglagesToits.js';
 import { LECTURES_TOITS, VERSION_LECTURE_TOITS, versionDeLecture } from '../../../src/app/toitsLidar.js';
+import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE } from '../../../src/model/faitsToits.js';
 import { SEUIL_MARCHE_M, SOL_M } from '../../../src/model/toitMesure.js';
 import { TOLERANCE_REFONTE, GAIN_COUPE, PART_VIDE_RECALAGE } from '../../../src/facade/toitCorps.js';
 import { ECART_MAX_M } from '../../../src/facade/toitLidar.js';
@@ -45,6 +46,7 @@ describe('regles/toits/reglages.json', () => {
 
   it('les reglages livres ont leur ligne dans LECTURES_TOITS (sinon : ajouter une version de lecture)', () => {
     expect(LECTURES_TOITS.at(-1)?.reglages, 'une valeur de reglages.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_REGLAGES_TOITS);
+    expect(LECTURES_TOITS.at(-1)?.faits ?? EMPREINTE_FAITS_VIDE, 'un fait de regles/toits/faits.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FAITS_TOITS);
     expect(VERSION_LECTURE_TOITS).toBe(LECTURES_TOITS.at(-1)?.version);
   });
 
@@ -101,5 +103,13 @@ describe('empreinte et version de lecture', () => {
     expect(versionDeLecture(l, 'aaaa')).toBe(2);
     expect(versionDeLecture(l, 'bbbb')).toBe(3);
     expect(versionDeLecture(l, 'cccc')).toBe(4);
+  });
+
+  it('les faits entrent dans la version : une ligne sans faits est une lecture sans fait', () => {
+    const l = [{ version: 1, reglages: 'aaaa' }, { version: 2, reglages: 'aaaa', faits: 'ffff' }];
+    expect(versionDeLecture(l, 'aaaa')).toBe(1);
+    expect(versionDeLecture(l, 'aaaa', EMPREINTE_FAITS_VIDE)).toBe(1);
+    expect(versionDeLecture(l, 'aaaa', 'ffff')).toBe(2);
+    expect(versionDeLecture(l, 'aaaa', 'eeee')).toBe(3);
   });
 });

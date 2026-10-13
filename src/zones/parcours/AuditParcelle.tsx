@@ -1,14 +1,15 @@
 // Z8, l'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §12).
 //
-// Deux ecrans, une session (app/audit/parcelle/controleur.ts) :
+// Trois ecrans, une session (app/audit/parcelle/controleur.ts) :
 // - la liste de controle, plein ecran : par batiment de la parcelle et des mitoyens, les facades, le
 //   toit, les cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le
 //   portail ; le compteur de ce qui reste, et « Lancer l'analyse » ;
 // - l'ecran de prise, pose en bas de la Vue 3D (le voile s'efface, la scene reste visible) : la
-//   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme.
+//   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme ;
+// - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
 //
 // Tout s'ecrit dans la capture a chaque geste, gardee dans le brouillon de l'appareil : fermer ne perd
-// rien, et rien n'entre dans le projet a cette phase.
+// rien, et rien n'entre dans le projet avant la validation des propositions.
 
 import { useEffect, useReducer, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
@@ -16,6 +17,7 @@ import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePart
 import { jourDe } from '../../app/audit/reprise.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
+import { PropositionsAudit } from './PropositionsAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
@@ -217,7 +219,8 @@ function Liste({ session, fermer }: Props) {
       <div className="titreParcours">Audit de la parcelle</div>
       <div className="sousTitreParcours compteurAudit" aria-live="polite">{l.compteur}</div>
       {terminee && <div className="bandeauAudit" role="status">
-        <span>{'Capture terminée le ' + jourDe(new Date(c.finCapture ?? c.debut)) + '. Elle est gardée sur cet appareil : l’analyse la reprendra.'}</span>
+        <span>{'Capture terminée le ' + jourDe(new Date(c.finCapture ?? c.debut)) + '. Elle est gardée sur cet appareil ; vos mesures deviennent des propositions, à valider.'}</span>
+        <button type="button" className="small" data-controle="auditParcelle.propositions" onClick={() => session.montrer('propositions')}>Voir les propositions</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.completer" onClick={() => session.capture.rouvrir()}>Compléter la capture</button>
       </div>}
       <div className="actionsAudit">
@@ -237,7 +240,7 @@ function Liste({ session, fermer }: Props) {
       <div className="piedDialogue">
         {!terminee && !l.peutLancer && <span className="detailPhoto">Photographiez au moins une façade pour lancer l’analyse.</span>}
         <button type="button" className="secondary" data-controle="auditParcelle.fermer" onClick={fermer}>Fermer</button>
-        {!terminee && <button type="button" data-controle="auditParcelle.lancer" disabled={!l.peutLancer} onClick={() => { session.lancerAnalyse(); fermer(); }}>Lancer l’analyse</button>}
+        {!terminee && <button type="button" data-controle="auditParcelle.lancer" disabled={!l.peutLancer} onClick={() => { session.lancerAnalyse(); session.montrer('propositions'); }}>Lancer l’analyse</button>}
       </div>
     </div>
   );
@@ -288,5 +291,7 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
 
 export function AuditParcelle({ session, fermer }: Props) {
   useSuivreSession(session);
-  return session.ecran() === 'prise' ? <Prise session={session} /> : <Liste session={session} fermer={fermer} />;
+  const e = session.ecran();
+  if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} />;
+  return e === 'prise' ? <Prise session={session} /> : <Liste session={session} fermer={fermer} />;
 }

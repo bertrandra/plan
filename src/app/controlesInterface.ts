@@ -240,6 +240,12 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.largeurPortail': etape(Z8, AUDIT_PARCELLE, 'Largeur du portail, en mètres'),
   'auditParcelle.photoPortail': etape(Z8, AUDIT_PARCELLE, 'Photo du portail'),
   'auditParcelle.completer': etape(Z8, AUDIT_PARCELLE, 'Compléter une capture terminée'),
+  // Les phases 2 et 3 (zones/parcours/PropositionsAudit.tsx) : les mesures deviennent des
+  // propositions, montrees avant et apres dans la Vue 3D ; seul « Valider » ecrit dans le projet.
+  'auditParcelle.propositions': etape(Z8, AUDIT_PARCELLE, 'Voir les propositions de l’audit, sur la Vue 3D'),
+  'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
+  'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
+  'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
   'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle (rien n’est perdu)'),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),

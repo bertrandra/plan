@@ -5,7 +5,8 @@
 // recale, la BD TOPO et la grille LiDAR relue au moment de la marque. Le rejeu refait la lecture que
 // la promenade a faite, en calcul entier (app/audit/chargement.ts : chaque batiment y est traite
 // comme un mitoyen, celui de la parcelle de depart comme le projet), avec les memes garde-fous
-// (facade/vraisemblance.ts) et les reglages courants (regles/toits/reglages.json). On compare
+// (facade/vraisemblance.ts), les reglages courants (regles/toits/reglages.json) et les faits
+// (regles/toits/faits.json, facade/faitsToits.ts). On compare
 // ensuite a `sorties` (ce que le code avait produit ce jour-la) et a `attendu` (ce que vous avez
 // valide) ; le script `.claude/skills/toits/scripts/audit.ts` en fait un tableau, et
 // tests/unit/facade/audit.test.ts bloque la CI quand un cas valide bouge.
@@ -20,6 +21,8 @@ import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, elevatio
 import { echantillonsDeGrille } from '../geo/mnh.js';
 import { toitMesureDepuisGrille } from '../model/toitMesure.js';
 import { couleurMursRetenue, ecartTeintes, ECART_TEINTE } from '../model/couleurMur.js';
+import { faitDuBatiment, faitsEnVigueur, type FaitsToits } from '../model/faitsToits.js';
+import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from './faitsToits.js';
 import type { CasAudit, SortiesCas } from '../model/audit.js';
 
 /** Ce que le rejeu rend : les sorties recalculees, et s'il y avait de quoi refaire la lecture du toit. */
@@ -39,17 +42,25 @@ function couleurRejouee(c: CasAudit): { couleur: string; source: 'photo' | 'mate
 /** Le batiment est-il celui de la parcelle de depart (le projet) ? Son toit mesure se garde alors toujours. */
 const estPrincipal = (bdtopo: unknown): boolean => (bdtopo as { surParcellePrincipale?: unknown } | null)?.surParcellePrincipale === true;
 
-/** Rejoue un cas avec le code et les reglages courants. Pur : ni reseau, ni plan. */
-export function rejouerCas(c: CasAudit): RejeuCas {
+/**
+ * Rejoue un cas avec le code, les reglages et les faits courants (`faits` : un autre jeu, celui
+ * qu'une PR propose, pour les images d'apres). Pur : ni reseau, ni plan. Un fait en remplacement
+ * donne le toit sans la grille, comme a l'import (app/toitsLidar.ts).
+ */
+export function rejouerCas(c: CasAudit, faits: FaitsToits = faitsEnVigueur()): RejeuCas {
   const b = { bdtopo: c.entrees.bdtopo };
   const murs = couleurRejouee(c);
   const hauteur = hauteurBdTopo(b);
   const { pts, grille } = c.entrees;
   const sans: SortiesCas = { mode: 'entier', elevation: hauteur, toit: null, corps: null, toitMesure: null, couleurMurs: murs?.couleur ?? null, sourceMurs: murs?.source ?? null };
+  const fait = faitDuBatiment(b, faits);
+  const remplace = fait?.application === 'remplacement' && pts.length >= 3 ? toitDeRemplacement(fait, pts) : null;
+  if (fait && remplace) return { sorties: { ...sans, elevation: remplace.egout, toit: remplace.toit, corps: corpsDeRemplacement(fait, pts) }, rejoue: true };
   if (!grille || pts.length < 3) return { sorties: sans, rejoue: false };
-  const ajuste = ajusteVraisemblable(b, ajusterToit(pts, echantillonsDeGrille(grille, pts)));
+  const ech = echantillonsDeGrille(grille, pts);
+  const ajuste = ajusteVraisemblable(b, ajusteSelonFait(fait, pts, ech, ajusterToit(pts, ech)));
   const mesure = mesureVraisemblable(b, toitMesureDepuisGrille(grille, pts));
-  const corps = mesure ? corpsVraisemblables(b, reconstruireCorps(mesure, pts, { coupes: true, grille })) : null;
+  const corps = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, reconstruireCorps(mesure, pts, { coupes: true, grille }), mesure, pts, grille)) : null;
   const principal = estPrincipal(c.entrees.bdtopo);
   // Comme app/toitsLidar.ts : le projet garde sa surface et en tire son egout ; un mitoyen ne garde la
   // surface qu'avec des corps, et son egout vient de la forme ajustee.

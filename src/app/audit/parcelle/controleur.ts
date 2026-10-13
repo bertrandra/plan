@@ -24,6 +24,11 @@ import { jourDe } from '../reprise.js';
 import { creerCapture, type CaptureEnCours } from './capture.js';
 import { listeDeControle, type ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
+import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
+import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
+import { versJpeg } from '../../../ui/releve/camera.js';
+import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
+import type { DependancesMesures } from './mesures.js';
 import type { Facade } from '../../../facade/geometrie.js';
 import type { FacadeDevant } from '../../../facade/priseDeVue.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
@@ -52,9 +57,14 @@ export interface ContexteAuditParcelle {
   poserPosition?: (p: PtBrut, precisionM: number) => void;
   retirerPosition?: () => void;
   maintenant?: () => Date;
+  /** L'historique, le rendu et la Vue 3D, pour valider les propositions (§14) ; absent dans les tests de la capture. */
+  projet?: ProjetAudit;
+  /** Ce que les mesures des facades demandent (§13.1) ; par defaut, le worker du releve et le canevas. */
+  mesures?: DependancesMesures;
 }
 
-export type EcranAudit = 'liste' | 'prise';
+/** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
+export type EcranAudit = 'liste' | 'prise' | 'propositions';
 export type EtatPosition = 'attente' | 'refusee' | 'horsPlan' | 'ok';
 
 /** La facade ou la prochaine photo se rangera, et comment on la connait. */
@@ -75,6 +85,8 @@ export interface CibleFacade {
 
 export interface SessionAuditParcelle {
   readonly capture: CaptureEnCours;
+  /** Les mesures devenues propositions, et leur validation (phases 2 et 3, §13.1 et §14). */
+  readonly validation: Validation;
   liste(): ListeDeControle;
   ecran(): EcranAudit;
   montrer(e: EcranAudit): void;
@@ -233,6 +245,18 @@ function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours) {
   };
 }
 
+/** Sans projet branche (tests de la capture), rien ne s'ecrit : l'apercu et la validation restent muets. */
+const PROJET_MUET: ProjetAudit = { pushHistory: () => {}, render: () => {}, refaire3d: () => {}, remplacer3d: () => false };
+
+/** La validation de la session, avec les dependances du navigateur par defaut. */
+function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, maintenant: () => Date): Validation {
+  return creerValidation({
+    etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant,
+    projet: ctx.projet ?? PROJET_MUET,
+    mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
+  });
+}
+
 export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAuditParcelle {
   const maintenant = ctx.maintenant ?? (() => new Date());
   const capture = creerCapture(ctx.idu, maintenant);
@@ -250,13 +274,22 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const visee = viseeDe(ctx, liste, publier);
   const sens = capteurs(ctx, (quoi) => visee.capteurs(sens, quoi));
   const brouillon = brouillonDe(ctx, capture);
+  const validation = validationDe(ctx, capture, liste, maintenant);
   capture.abonner(() => { visee.reconnaitre(sens); publier(); });
+  validation.abonner(publier);
 
   return {
     capture,
+    validation,
     liste,
     ecran: () => ecran,
-    montrer(e) { if (e === 'prise') { sens.autoriser(); ctx.ouvrir3d(); } ecran = e; publier(); },
+    montrer(e) {
+      if (e === 'prise') { sens.autoriser(); ctx.ouvrir3d(); }
+      // Les propositions se montrent sur la Vue 3D, et les mesures commencent des que l'ecran s'ouvre.
+      if (e === 'propositions') { ctx.ouvrir3d(); void validation.lancer(); } else validation.oublierApercu();
+      ecran = e;
+      publier();
+    },
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.gps()?.precisionM ?? null, boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
@@ -275,9 +308,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     lancerAnalyse() {
       capture.terminer();
       void brouillon.vider();
-      ctx.signaler('Capture terminée : elle est gardée sur cet appareil, l’analyse la reprendra.');
+      ctx.signaler('Capture terminée : elle est gardée sur cet appareil, et vos mesures deviennent des propositions.');
     },
-    suspendre() { sens.arreter(); visee.oublier(); },
+    suspendre() { sens.arreter(); visee.oublier(); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
     reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); },
     autoriserBoussole: () => sens.autoriser(),
