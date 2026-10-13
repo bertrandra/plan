@@ -147,6 +147,7 @@ describe('banc', () => {
     const t = tableau(b);
     for (const s of scenes) expect(t).toContain(s.nom);
     expect(t).toContain('Objectifs de la première version');
+    expect(t).toContain('Calage fin');
   }, LONG);
 
   it('mesure les coins proposes tels que le releve les propose', () => {
@@ -167,6 +168,13 @@ describe('banc', () => {
     // Prise de biais forte, visee decentree, roulis : la projection depuis la prise exacte est juste.
     expect(r.coinsExactsCm).toEqual([0, 0, 0, 0]);
     expect(r.coinsDansZone).toBe(4);
+    // Le calage fin (lot L7) trouve les quatre coins sur la photo, sans geste, depuis le releve
+    // comme depuis l'audit, avec les erreurs typiques des capteurs.
+    for (const f of [r.fin.releve, r.fin.audit]) {
+      expect(f?.trouve).toBe(true);
+      expect(f?.sources).toEqual(['trouve', 'trouve', 'trouve', 'trouve']);
+      for (const c of f?.coinsCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);
+    }
   }, LONG);
 
   it('simule des capteurs exacts conformes au generateur, et des erreurs bornees', () => {

@@ -1,0 +1,130 @@
+{
+  "nom": "12-haie-pied-cache-roulis",
+  "description": "Maison à étage en enduit gris, une haie sur toute la largeur cache le pied du mur ; prise de biais par la gauche, visée décentrée, téléphone penché et tourné, hauteur du cadastre trop forte de 10 % : le pied ne peut être que prédit.",
+  "difficultes": [
+    "enduit",
+    "haie",
+    "pied-cache",
+    "biais",
+    "roulis"
+  ],
+  "verite": {
+    "largeur": 10.5,
+    "hauteur": 6,
+    "coins": [
+      {
+        "x": 170.03,
+        "y": 254.88
+      },
+      {
+        "x": 885.4,
+        "y": 305.98
+      },
+      {
+        "x": 911.39,
+        "y": 681.86
+      },
+      {
+        "x": 156.35,
+        "y": 736.65
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.3,
+        "y": 1,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "porte",
+        "x": 4.8,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            60,
+            70,
+            62
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.8,
+        "y": 1,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 1.3,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 4.7,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 7.8,
+        "y": 3.9,
+        "l": 1.1,
+        "h": 1.3
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 12,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          196,
+          192,
+          184
+        ],
+        "taches": 7
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          72,
+          76,
+          86
+        ]
+      }
+    },
+    "devant": [
+      {
+        "type": "haie",
+        "x": -0.4,
+        "l": 11.3,
+        "h": 1.5,
+        "recul": 1
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 13,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -14,
+      "ecartCap": 4,
+      "tangage": 7,
+      "roulis": 2,
+      "hauteurEstimee": 6.6,
+      "bruit": 4,
+      "flou": 1
+    }
+  }
+}

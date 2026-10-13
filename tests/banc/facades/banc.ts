@@ -10,7 +10,10 @@
 //   sans distance) compares aux coins vrais, et la hauteur retenue par l'analyse comparee a la
 //   vraie ; puis le calage grossier de l'audit (`calage.ts::calageGrossier`) depuis la prise de vue,
 //   avec des capteurs exacts, puis avec les erreurs typiques d'un telephone (`CAPTEURS_BANC`), et la
-//   part des coins vrais qui tombent dans leur zone de recherche.
+//   part des coins vrais qui tombent dans leur zone de recherche ;
+// - **calage fin** (lot L7) : `calageFin.ts` sur la photo, depuis la prise du releve (distance, cap et
+//   attitude typiques) puis depuis celle de l'audit (GPS, boussole, attitude typiques) : coins trouves
+//   sur les aretes, ou repli sur les coins predits ; erreur de chacun, sa source, la note, l'azimut corrige.
 // Rien n'est modifie dans la detection : le banc mesure, il ne regle pas.
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -20,6 +23,7 @@ import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/
 import { analyserReleve, coinsProposes } from '../../../src/facade/analyse.js';
 import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage.js';
 import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
+import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/homographie.js';
 import { peindreElevation, murSeul, photographier, stenope, type SceneFacade, type PriseCamera } from './synthese.js';
 import { mesurerDetection, mediane, erreurCoinsCm, type MesureDetection } from './mesure.js';
@@ -51,9 +55,25 @@ export interface ResultatScene {
   coinsBruitesCm: number[] | null;
   /** Coins vrais dans leur zone de recherche (capteurs typiques), sur quatre. */
   coinsDansZone: number | null;
+  /** Le calage fin (lot L7), depuis la prise du releve puis depuis celle de l'audit. */
+  fin: { releve: FinScene | null; audit: FinScene | null };
   ms: number;
   /** Ce qui a ete detecte, pour les images de controle du script. */
-  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null };
+  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null };
+}
+
+/** Ce que le calage fin rend sur une scene. */
+export interface FinScene {
+  /** Erreur des quatre coins rendus, en cm sur le mur. */
+  coinsCm: number[];
+  sources: SourceCoin[];
+  note: number;
+  trouve: boolean;
+  /** Azimut rendu moins le vrai, en degres ; `null` si la boussole n'a pas ete corrigee. */
+  azimutErreurDeg: number | null;
+  /** Coins vrais dans la zone de recherche de leur coin. */
+  dansZone: number;
+  ms: number;
 }
 
 /**
@@ -102,6 +122,7 @@ export function capteursSimules(s: SceneFacade, p: PriseCamera, bruites: boolean
   };
 }
 
+const ecartSigne = (a: number) => ((((a + 180) % 360) + 360) % 360) - 180;
 const dansZone = (q: P2, z: ZoneRecherche) => q.x >= z.x0 && q.x <= z.x1 && q.y >= z.y0 && q.y <= z.y1;
 const QUATRE_INFINIS = [Infinity, Infinity, Infinity, Infinity];
 
@@ -123,8 +144,9 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
     coinsExactsCm: null,
     coinsBruitesCm: null,
     coinsDansZone: null,
+    fin: { releve: null, audit: null },
     ms: 0,
-    detail: { elevation: detElev, photo: null, image: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null },
+    detail: { elevation: detElev, photo: null, image: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
   };
   const p = s.synthese.prise;
   const photo = photographier(s, px);
@@ -194,6 +216,32 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
       }).length;
       res.detail.coinsPredits = bruite.coins;
       res.detail.zones = bruite.zones;
+      // Le calage fin : depuis la prise du releve (si la distance est mesuree), puis depuis l'audit.
+      const vrai = capteursSimules(s, p, false);
+      const finScene = (c: CalageFin, ms: number): FinScene => ({
+        coinsCm: c.coins ? erreurCoinsCm(c.coins, v.coins ?? [], v.largeur, v.hauteur) : QUATRE_INFINIS,
+        sources: c.sources,
+        note: Math.round(c.note * 100) / 100,
+        trouve: c.trouve,
+        azimutErreurDeg: c.azimutCorrige ? Math.round(ecartSigne(c.azimutDeg - vrai.capDeg) * 10) / 10 : null,
+        dansZone: (v.coins ?? []).filter((q, i) => {
+          const z = c.detail.zones[i];
+          return !!z && dansZone(q, z);
+        }).length,
+        ms,
+      });
+      let t = performance.now();
+      let segments = null;
+      if (distance) {
+        const f = calageFinDuReleve(photo.image, v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg, focaleEstimee: p.focaleConnue === false }, { valeur: distance, precisionM: 0.03 * distance });
+        res.fin.releve = finScene(f, Math.round(performance.now() - t));
+        res.detail.fin = f;
+        segments = f.detail.segments;
+      }
+      t = performance.now();
+      const fa = calageFin({ image: photo.image, mur, prise: prise(lu, CAPTEURS_BANC.precisionM), ...(segments ? { segments } : {}) });
+      res.fin.audit = finScene(fa, Math.round(performance.now() - t));
+      if (!res.detail.fin) res.detail.fin = fa;
     }
   }
   res.ms = Math.round(performance.now() - t0);
@@ -247,6 +295,39 @@ export interface ResultatBanc {
     bruitesMedianeCm: number | null;
     dansZone: number;
   };
+  fin: { releve: SyntheseFin; audit: SyntheseFin };
+}
+
+/** Le calage fin sur tout le corpus. */
+export interface SyntheseFin {
+  coins: number;
+  /** Coins a 10 cm au plus de leur place : ceux qui se passent du doigt. */
+  justes: number;
+  /** Coins rendus comme trouves sur la photo (pleins dans l'editeur). */
+  trouves: number;
+  /** Parmi eux, ceux qui sont justes : un coin plein faux couterait plus cher qu'un pointille. */
+  trouvesJustes: number;
+  medianeCm: number | null;
+  /** Mediane de l'erreur absolue de l'azimut corrige, en degres, et nombre de prises corrigees. */
+  azimutMedianDeg: number | null;
+  azimutsCorriges: number;
+  dansZone: number;
+}
+
+function synthetiserFin(f: FinScene[]): SyntheseFin {
+  const coins = f.flatMap((x) => x.coinsCm);
+  const paires = f.flatMap((x) => x.coinsCm.map((c, i) => ({ c, s: x.sources[i] })));
+  const az = f.flatMap((x) => (x.azimutErreurDeg === null ? [] : [Math.abs(x.azimutErreurDeg)]));
+  return {
+    coins: coins.length,
+    justes: coins.filter((c) => c <= COIN_JUSTE_CM).length,
+    trouves: paires.filter((x) => x.s === 'trouve').length,
+    trouvesJustes: paires.filter((x) => x.s === 'trouve' && x.c <= COIN_JUSTE_CM).length,
+    medianeCm: medianeCoins(coins),
+    azimutMedianDeg: mediane(az),
+    azimutsCorriges: az.length,
+    dansZone: f.reduce((n, x) => n + x.dansZone, 0),
+  };
 }
 
 const medianeCoins = (c: number[]) => mediane(c.map((e) => (Number.isFinite(e) ? e : 1e6)));
@@ -270,6 +351,10 @@ export function rejouerCorpus(scenes: SceneFacade[]): ResultatBanc {
       bruitesJustes: bruites.filter((c) => c <= COIN_JUSTE_CM).length,
       bruitesMedianeCm: medianeCoins(bruites),
       dansZone: res.reduce((n, r) => n + (r.coinsDansZone ?? 0), 0),
+    },
+    fin: {
+      releve: synthetiserFin(res.flatMap((r) => (r.fin.releve ? [r.fin.releve] : []))),
+      audit: synthetiserFin(res.flatMap((r) => (r.fin.audit ? [r.fin.audit] : []))),
     },
   };
 }
@@ -325,11 +410,25 @@ export function tableau(b: ResultatBanc): string {
     l.push(`| ${r.nom} | ${r.coinsExactsCm.map(coinCm).join(', ')} | ${justes(r.coinsExactsCm)} | ${(r.coinsBruitesCm ?? []).map(coinCm).join(', ')} | ${justes(r.coinsBruitesCm)} | ${r.coinsDansZone ?? '—'}/4 |`);
   }
   l.push(`| **Ensemble** | médiane **${cm(k.exactsMedianeCm)}** | **${k.exactsJustes}/${k.coins}** | médiane **${cm(k.bruitesMedianeCm)}** | **${k.bruitesJustes}/${k.coins}** | **${k.dansZone}/${k.coins}** |`, '');
+  l.push('### Calage fin (`calageFin`, lot L7 : segments, points de fuite, arêtes)', '');
+  l.push("Coins rendus, erreur en cm sur le mur (HG, HD, BD, BG) ; « p » : coin prédit (pointillé dans l'éditeur), sinon trouvé sur la photo. Azimut : erreur de l'azimut corrigé (« — » : boussole gardée).", '');
+  l.push('| Façade | Relevé (cm) | Justes | Note | Azimut (°) | Audit (cm) | Justes | Note | Azimut (°) | Temps (ms) |', '|---|---|--:|--:|--:|---|--:|--:|--:|--:|');
+  const coinsFin = (f: FinScene | null) => (f ? f.coinsCm.map((c, i) => coinCm(c) + (f.sources[i] === 'trouve' ? '' : ' p')).join(', ') : '—');
+  const az = (f: FinScene | null) => (f?.azimutErreurDeg == null ? '—' : (f.azimutErreurDeg > 0 ? '+' : '') + f.azimutErreurDeg.toLocaleString('fr-FR'));
+  for (const r of b.scenes) {
+    const { releve: fr, audit: fa } = r.fin;
+    if (!fr && !fa) continue;
+    l.push(`| ${r.nom} | ${coinsFin(fr)} | ${justes(fr?.coinsCm ?? null)} | ${fr ? fr.note.toLocaleString('fr-FR') : '—'} | ${az(fr)} | ${coinsFin(fa)} | ${justes(fa?.coinsCm ?? null)} | ${fa ? fa.note.toLocaleString('fr-FR') : '—'} | ${az(fa)} | ${(fr?.ms ?? 0) + (fa?.ms ?? 0)} |`);
+  }
+  const ligneFin = (f: SyntheseFin) => `médiane **${cm(f.medianeCm)}** | **${f.justes}/${f.coins}** | ${f.trouvesJustes}/${f.trouves} pleins justes | ${f.azimutsCorriges} corrigés, méd. ${cm(f.azimutMedianDeg)}°`;
+  l.push(`| **Ensemble** | ${ligneFin(b.fin.releve)} | ${ligneFin(b.fin.audit)} | |`, '');
+  l.push(`Coins vrais dans leur zone de recherche : relevé ${b.fin.releve.dansZone}/${b.fin.releve.coins}, audit ${b.fin.audit.dansZone}/${b.fin.audit.coins}.`, '');
   const p = b.photo;
-  const partCoins = k.coins ? k.coinsJustes / k.coins : 0;
+  // Depuis le lot L7, les coins que propose le releve sont ceux du calage fin.
+  const partCoins = b.fin.releve.coins ? b.fin.releve.justes / b.fin.releve.coins : 0;
   l.push('### Objectifs de la première version (spec §14), sur la chaîne du relevé', '');
   l.push('| Critère | Objectif | Mesuré | |', '|---|---|---|---|');
-  l.push(`| Coins trouvés sans geste (≤ ${COIN_JUSTE_CM} cm) | 70 % | ${pc(partCoins)} | ${atteint(partCoins >= 0.7)} |`);
+  l.push(`| Coins trouvés sans geste (≤ ${COIN_JUSTE_CM} cm, calage fin du relevé) | 70 % | ${pc(partCoins)} | ${atteint(partCoins >= 0.7)} |`);
   l.push(`| Rappel | ≥ 85 % | ${pc(p.rappel)} | ${atteint((p.rappel ?? 0) >= 0.85)} |`);
   l.push(`| Précision | ≥ 90 % | ${pc(p.precision)} | ${atteint((p.precision ?? 0) >= 0.9)} |`);
   l.push(`| Erreur médiane des cotes | ≤ 5 cm | ${cm(p.cotesMedianeCm)} cm | ${atteint(p.cotesMedianeCm !== null && p.cotesMedianeCm <= 5)} |`);

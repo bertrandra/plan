@@ -1027,15 +1027,59 @@ const POINTS = {
     const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
     const pxParM = ecrit[0]?.pxParM?.[0] ?? null;
     return { ok: ecrit.length === 1 && ouvertures >= 2 && retour && !!precision && pxParM > 0, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; ${precision ? '« ' + precision.trim() + ' »' : 'PAS de précision annoncée'} ; calage gardé : ${pxParM ?? 'RIEN'} px/m ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
+  57: async (page) => {
+    // Le calage fin (lot L7) : une facade photographiee de biais, sous un ciel et sur un gazon,
+    // importee sans distance ni cap ; les coins sont cherches sur la photo (dans un worker), trouves
+    // pleins, predits en pointille ; un coin deplace au doigt le dit ; la loupe suit le doigt.
+    const dessin = await page.context().newPage();
+    await dessin.setViewportSize({ width: 1600, height: 1200 });
+    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+      + "const x=document.getElementById('c').getContext('2d');"
+      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,865,1600,335);"
+      + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
+      // Un mur de 8 m sur 6 m (la maison de la demonstration), vu un peu de biais, sous une bande de toit.
+      + "q('#8a4a36',[260,170,1330,205,1330,300,260,290]);"
+      + "q('#e4d6bc',[260,290,1330,300,1350,1040,240,1075]);"
+      + "q('#2b3440',[420,420,620,423,620,660,420,662]);q('#2b3440',[980,428,1180,430,1180,665,980,664]);q('#5a3a2a',[730,760,880,762,880,1060,730,1065]);"
+      + '</script></body>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    const recherche = await page.locator('.releveNote', { hasText: 'Recherche des coins' }).count();
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 20000 });
+    const note = (await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().textContent())?.trim();
+    const classes = () => page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
+    const avant = await classes();
+    const etiquette = await page.locator('circle.releveCoinCible').first().getAttribute('aria-label');
+    // Un geste sur le premier coin : il devient « place au doigt », la loupe s'ouvre pendant le geste.
+    const cible = page.locator('circle.releveCoinCible').first();
+    const b = await cible.boundingBox();
+    let loupe = false;
+    if (b) {
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 4, { steps: 3 });
+      loupe = (await page.locator('.releveLoupe').count()) > 0;
+      await page.mouse.up();
+    }
+    const apres = await classes();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    const pleins = avant.filter((c) => c === 'trouve').length;
+    const ok = pleins >= 2 && avant.length === 4 && apres[0] === 'doigt' && loupe && !!etiquette && /\(/.test(etiquette);
+    return { ok, mesure: `${recherche ? 'recherche annoncée ; ' : ''}« ${note} » ; coins : ${avant.join(', ')} ; après un geste : ${apres.join(', ')} ; loupe ${loupe ? 'ouverte' : 'ABSENTE'} ; « ${etiquette} »` };
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : [])];
+  const gardeFous = [49, 50, 51, 52, 54, 57, ...(nomClasse === 'large' ? [53] : [])];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

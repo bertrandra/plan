@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
-import { facadesDuContour } from '../facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../facade/geometrie.js';
 import { hauteurPignon } from '../facade/toit.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
@@ -38,10 +38,30 @@ import { ChoixMethode } from './releve/ChoixMethode.js';
 import { PhotosRue } from './releve/PhotosRue.js';
 import { type Prise, useMurVise } from './releve/capteurs.js';
 import { Visee } from './releve/Visee.js';
-import { type Etape, type Morceau, type Resultat, coinsDePrise } from './releve/serie.js';
+import { type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche } from './releve/serie.js';
+import { lancerRecherche } from './releve/rechercheCoins.js';
+import type { SourceCoin } from '../facade/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
+
+/**
+ * Le morceau d'une prise : ses coins predits s'affichent tout de suite ; le calage fin les cherche
+ * ensuite sur la photo (dans un worker) et les remplace s'il les trouve, sauf ceux que le doigt a deja
+ * deplaces.
+ */
+function morceauDePrise(p: Prise, facade: Facade, hauteurEstimee: number, partiel: boolean, maj: (f: (ms: Morceau[]) => Morceau[]) => void): Morceau {
+  const entree = entreeRecherche(p, facade.largeur, hauteurEstimee, partiel, facade.azimut);
+  if (entree) lancerRecherche(p, entree, maj);
+  return { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut), sources: ['predit', 'predit', 'predit', 'predit'], recherche: !!entree };
+}
+
+/** Les sources des coins une fois le coin `k` deplace au doigt. */
+function coinAuDoigt(sources: Morceau['sources'], k: number | undefined): SourceCoin[] {
+  const s: SourceCoin[] = [...(sources ?? ['predit', 'predit', 'predit', 'predit'])];
+  if (k !== undefined && k >= 0 && k < 4) s[k] = 'doigt';
+  return s;
+}
 
 /** Echap ferme le parcours, sans rien ecrire. */
 function useEchapFerme(releve: ServiceReleve) {
@@ -94,7 +114,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const surPrise = (p: Prise) => {
     if (!facade) return;
     const partiel = (p.photosPrevues ?? 1) > 1 || morceaux.length > 0;
-    const m: Morceau = { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut) };
+    const m = morceauDePrise(p, facade, hauteurEstimee, partiel, setMorceaux);
     const k = aRemplacer ?? morceaux.length;
     setMorceaux(aRemplacer === null ? [...morceaux, m] : morceaux.map((x, i) => (i === aRemplacer ? m : x)));
     setCourant(k);
@@ -104,7 +124,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
 
   const analyser = () => {
     if (!morceaux.length || !facade) return;
-    setEtape('analyse');
+    setEtape('analyse'); setMorceaux((ms) => ms.map(arreterRecherche));
     // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
     setTimeout(() => {
       const a = analyserSerie(morceaux, facade, hauteurEstimee, bat);
@@ -115,7 +135,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       }
       const { r } = a;
       setHauteurMur(r.hauteur);
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur) });
+      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut) });
       setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
@@ -198,7 +218,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
             setMorceaux(morceaux.filter((_, i) => i !== k));
             setCourant(Math.max(0, Math.min(courant, morceaux.length - 2)));
           }}
-          setCoins={(c) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c } : m)))}
+          setCoins={(c, k) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c, sources: coinAuDoigt(m.sources, k) } : m)))}
           setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
           prevues={prevues}
           avis={avis}

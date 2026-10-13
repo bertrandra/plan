@@ -1562,6 +1562,10 @@
   .releveQuadEtiquette{ fill:var(--camera-ok); font-family:var(--sans); }
   .releveCoinCible{ fill:var(--camera-voile); stroke:var(--camera-ok); stroke-width:2; vector-effect:non-scaling-stroke; cursor:grab; touch-action:none; }
   .releveCoinCentre{ fill:var(--camera-ok); }
+  /* Calage fin (lot L7) : un coin trouve sur la photo est plein, un coin predit en pointille ; la
+     forme porte l'information, pas seulement la couleur (et le libelle la redit au lecteur d'ecran). */
+  .releveCoinCible.trouve{ fill:var(--camera-ok); fill-opacity:.45; stroke-width:3; }
+  .releveCoinCible.predit{ stroke-dasharray:6 5; }
   .releveLoupe{ position:absolute; top:8px; left:8px; width:132px; height:132px; border-radius:50%; border:3px solid var(--on-camera);
     box-shadow:var(--ombre-forte); pointer-events:none; background:var(--camera-bg); }
   .releveLoupeCroix{ stroke:var(--camera-ok); stroke-width:1; }

@@ -819,11 +819,17 @@ export interface ReleveFacade {
   partieBasse?: PartieBasse | null;
   /**
    * Comment les photos ont ete calees (MD/spec-facades-calage-detection.md §13). Facultatif : un
-   * releve d'avant garde exactement son sens. Les lots suivants y ajoutent la source des coins,
-   * l'azimut corrige et la confiance.
+   * releve d'avant garde exactement son sens. Depuis le lot L7 : la source des coins, l'azimut
+   * corrige et la confiance du calage fin.
    */
   calage?: CalageReleve;
 }
+
+/**
+ * D'ou vient un coin pose sur une photo : trouve sur les aretes (calage fin), predit par la prise de
+ * vue, propose par Claude (a venir), ou pose au doigt.
+ */
+export type SourceCoinReleve = 'trouve' | 'predit' | 'claude' | 'doigt';
 
 /** Le calage d'une photo du releve : ses coins (pixels de la photo) et sa resolution au mur. */
 export interface CalagePhotoReleve {
@@ -831,10 +837,18 @@ export interface CalagePhotoReleve {
   coins: PtBrut[];
   /** Pixels par metre au mur sur la photo source : la precision reelle des cotes ; `null` si inconnue. */
   pxParMSource: number | null;
+  /** La source de chacun des quatre coins, dans le meme ordre (absente avant le lot L7). */
+  sourceCoins?: SourceCoinReleve[];
 }
 
 export interface CalageReleve {
   photos: CalagePhotoReleve[];
+  /** L'azimut de la prise lu sur les points de fuite, en degres depuis le nord : la boussole calee. */
+  azimutCorrigeDeg?: number;
+  /** La note du calage fin de la premiere photo, de 0 a 1 (le seuil des coins trouves est 0,5). */
+  confiance?: number;
+  /** Largeur vue sur la photo moins celle du plan, en metres, quand elle depasse 0,5 m : le contour est decale. */
+  contourDecaleM?: number;
 }
 
 /** La partie basse d'un mur en L, dans le repere de sa facade (metres). */

@@ -7,6 +7,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Calage fin des photos de façade : les coins trouvés sur la photo** (lot L7 du plan de mise en
+  œuvre, `MD/spec-facades-calage-detection.md` §6). Les coins ne sont plus seulement prédits par la
+  prise de vue : ils sont cherchés sur les arêtes de la photo.
+  - `facade/segments.ts` détecte les segments de droite sur le gradient de couleur (du type LSD) ;
+    `facade/pointsFuite.ts` lit le point de fuite vertical, qui corrige l'inclinaison et le roulis
+    dans les bornes de l'accéléromètre, et le point de fuite horizontal du mur, qui corrige l'azimut
+    dans celles de la boussole (le calage de la boussole) ; `facade/calageFin.ts` cherche les côtés,
+    l'égout et le pied du mur dans les zones de recherche du calage grossier, et note chaque
+    hypothèse : soutien des segments, contraste et teinte de chaque côté, accord avec la largeur du
+    plan et la hauteur à 25 % près, accord avec la prise de vue, hauteur de l'objectif qu'elle
+    suppose. Sous le seuil, les coins prédits restent. Le pied caché (haie, voiture) est prédit
+    d'après la hauteur du téléphone, et marqué comme tel.
+  - **Relevé** : dans l'éditeur des coins, un coin trouvé est un rond plein, un coin prédit un rond
+    en pointillé, un coin déplacé au doigt l'est pour de bon (la recherche ne le reprend pas) ; la
+    loupe reste. Une note dit ce qui a été trouvé. Le calcul tourne dans un worker, inclus dans le
+    fichier livré : l'écran ne gèle pas. Le relevé garde la source de chaque coin, l'azimut corrigé et
+    la note du calage (`ReleveFacade.calage`, facultatif).
+  - **Contour décalé** : quand une distance mesurée (réalité augmentée, photo de rue) le permet, la
+    largeur vue sur la photo est comparée à celle du plan ; au-delà de 0,5 m, un avis dit que le
+    contour du bâtiment est sans doute décalé, et la façade garde la largeur du plan.
+  - **Banc de façades** : une section « Calage fin », depuis le relevé et depuis l'audit, et une scène
+    `12-haie-pied-cache-roulis`. Coins proposés par le relevé à 10 cm au plus : de 4 sur 44 (médiane
+    38 cm) à **44 sur 44** (médiane 0,5 cm), dont 40 trouvés sur la photo et 4 prédits ; calage de
+    l'audit avec des capteurs typiques : de 0 à 44 sur 44. Les détections d'ouvertures ne changent
+    pas. Point de fumée 57.
+
 - **Calage grossier des photos de façade** (lot L6 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §4 et §5). `facade/calage.ts` projette les coins du mur dans
   la photo par un sténopé, depuis la prise de vue (position, azimut, inclinaison, roulis, focale,

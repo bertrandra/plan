@@ -46,6 +46,40 @@ function FormeDuMur({ decro, choisir }: { decro: Decrochement | null; choisir: (
   );
 }
 
+/**
+ * Ce que le calage fin a fait des coins (lot L7) : la recherche en cours, les coins trouves (ronds
+ * pleins) et ceux qui restent predits (en pointille), et un contour du plan qui ne s'accorde pas avec
+ * la photo.
+ */
+function NoteCalage({ m, largeur }: { m: Morceau; largeur: number }) {
+  if (m.recherche)
+    return (
+      <p className="releveNote" aria-live="polite">
+        Recherche des coins sur la photo…
+      </p>
+    );
+  const r = m.fin;
+  if (!r) return null;
+  const trouves = (m.sources ?? []).filter((s) => s === 'trouve').length;
+  const decale = r.trouve && r.contour?.decale ? r.contour : null;
+  return (
+    <>
+      <p className="releveNote" aria-live="polite">
+        {!r.trouve
+          ? "Les coins n'ont pas été trouvés sur la photo : ils sont prédits (ronds en pointillé). Placez-les au doigt."
+          : trouves === 4
+            ? 'Les quatre coins ont été trouvés sur la photo (ronds pleins) : vérifiez-les avec la loupe.'
+            : `${trouves} coin${trouves > 1 ? 's' : ''} trouvé${trouves > 1 ? 's' : ''} sur la photo (ronds pleins) ; les ronds en pointillé sont prédits, vérifiez-les.`}
+      </p>
+      {decale && (
+        <p className="releveAvis" role="status">
+          Sur la photo, le mur paraît mesurer {fr(largeur + decale.ecartM, 1)} m de large, pour {fr(largeur, 1)} m sur le plan : le contour du bâtiment est sans doute décalé. La façade garde la largeur du plan.
+        </p>
+      )}
+    </>
+  );
+}
+
 export function EtapeCoins({
   morceaux,
   courant,
@@ -64,7 +98,7 @@ export function EtapeCoins({
   courant: number;
   choisir: (k: number) => void;
   retirer: (k: number) => void;
-  setCoins: (c: P2[]) => void;
+  setCoins: (c: P2[], k?: number) => void;
   setDecrochement: (d: Decrochement | null) => void;
   prevues: number;
   avis: string | null;
@@ -105,8 +139,9 @@ export function EtapeCoins({
             ordre={ordreDuContour(m.decrochement)}
           />
         ) : (
-          <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} />
+          <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} sources={m.sources} />
         )}
+        <NoteCalage m={m} largeur={largeur} />
         <p className="releveNote">Largeur du mur : {fr(largeur)} m, lue sur le plan. La hauteur se mesure sur la photo, d'après ces coins.</p>
         {manque > 0 && (
           <p className="releveNote">

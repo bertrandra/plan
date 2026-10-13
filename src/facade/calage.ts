@@ -104,17 +104,18 @@ export interface CalageGrossier {
   pxParM: number;
 }
 
-type V3 = [number, number, number];
+export type V3 = [number, number, number];
 const rad = (d: number) => (d * Math.PI) / 180;
 const scal = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const croix = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const modulo360 = (a: number) => ((a % 360) + 360) % 360;
-const ecartSigne = (a: number) => modulo360(a + 180) - 180;
+export const ecartSigne = (a: number) => modulo360(a + 180) - 180;
 
 /** En deca, un point est trop pres du plan de l'objectif (ou derriere) pour se projeter. */
 const PROFONDEUR_MIN_M = 0.1;
 
-interface Repere {
+/** Le repere d'une prise : centre, axes de l'image (avant, droite, bas), focale et point principal. */
+export interface Repere {
   C: V3;
   avant: V3;
   droite: V3;
@@ -147,6 +148,11 @@ function repere(p: PriseDeVue, ecarts: Ecarts = ZERO): Repere {
     cx: p.largeurPx / 2,
     cy: p.hauteurPx / 2,
   };
+}
+
+/** Le repere de l'appareil d'une prise de vue, tel que le stenope du calage le construit. */
+export function repereCamera(p: PriseDeVue): Repere {
+  return repere(p);
 }
 
 function projeterDans(s: Repere, P: V3): P2 | null {
@@ -320,6 +326,10 @@ export interface PriseReleve {
   inclinaisonDeg?: number | null;
   roulisDeg?: number | null;
   oeil?: number;
+  /** Vrai : la focale est celle par defaut (ni EXIF ni capteur), juste a 50 % pres. */
+  focaleEstimee?: boolean;
+  /** Vrai : la distance n'a pas ete mesuree, elle est supposee d'apres le cadrage. */
+  distanceEstimee?: boolean;
 }
 
 /**
@@ -347,6 +357,27 @@ export function priseVisantLeMilieu(largeur: number, hauteur: number, r: PriseRe
       sourceFocale: null,
       ...(r.oeil !== undefined ? { oeil: r.oeil } : {}),
     },
+  };
+}
+
+/** Sans cap, la personne peut se tenir de biais jusqu'a l'angle ou elle regarderait un autre mur. */
+export const INCERTITUDE_BIAIS_INCONNU_DEG = 35;
+
+/**
+ * L'incertitude d'une prise du releve, ou la position n'est pas mesuree : on suppose l'objectif a la
+ * distance mesuree, sur le cercle autour du milieu du mur, sous le biais que donne le cap. Une erreur
+ * du cap deplace donc l'objectif le long de ce cercle (la corde qu'il sous-tend), et la visee peut
+ * s'ecarter du milieu comme une boussole se trompe.
+ */
+export function incertitudeDuReleve(r: PriseReleve): Incertitude {
+  const biais = r.biaisDeg === null || r.biaisDeg === undefined ? INCERTITUDE_BIAIS_INCONNU_DEG : INCERTITUDE_BOUSSOLE_DEG;
+  return {
+    // Une distance supposee peut etre fausse de moitie : l'objectif peut etre plus pres ou plus loin.
+    positionM: 2 * r.distance * Math.sin(rad(biais) / 2) + (r.distanceEstimee ? 0.5 * r.distance : 0),
+    azimutDeg: INCERTITUDE_BOUSSOLE_DEG,
+    inclinaisonDeg: r.inclinaisonDeg === null || r.inclinaisonDeg === undefined ? INCERTITUDE_INCLINAISON_INCONNUE_DEG : INCERTITUDE_ATTITUDE_DEG,
+    roulisDeg: r.roulisDeg === null || r.roulisDeg === undefined ? INCERTITUDE_ROULIS_INCONNU_DEG : INCERTITUDE_ATTITUDE_DEG,
+    focale: r.focaleEstimee ? ECART_FOCALE_DEFAUT : 0,
   };
 }
 

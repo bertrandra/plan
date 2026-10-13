@@ -6,6 +6,10 @@ import { type CoteBas, type Decrochement } from '../../facade/profil.js';
 import type { P2 } from '../../facade/homographie.js';
 import { type Photo } from '../../ui/releve/camera.js';
 import { pointSvg, useEchelle } from './commun.js';
+import type { SourceCoin } from '../../facade/calageFin.js';
+
+/** Ce que dit un coin de sa source, pour le lecteur d'ecran (la forme le dit a l'oeil). */
+const DIT_SOURCE: Record<SourceCoin, string> = { trouve: 'trouvé sur la photo', predit: 'prédit, à vérifier', doigt: 'placé au doigt' };
 
 /* ------------------------------------------------------------------------------------------------
  * 3. Les coins
@@ -35,7 +39,23 @@ export function decrochementPropose(coins: readonly P2[], cote: CoteBas): Decroc
   return { cote, haut, bas: lerp(haut, pied, 0.5) };
 }
 
-export function Coins({ photo, coins, setCoins, noms = NOMS_COINS, ordre = [0, 1, 2, 3] }: { photo: Photo; coins: P2[]; setCoins: (c: P2[]) => void; noms?: string[]; ordre?: number[] }) {
+export function Coins({
+  photo,
+  coins,
+  setCoins,
+  noms = NOMS_COINS,
+  ordre = [0, 1, 2, 3],
+  sources,
+}: {
+  photo: Photo;
+  coins: P2[];
+  /** Les coins apres un geste, et l'indice du coin deplace. */
+  setCoins: (c: P2[], k?: number) => void;
+  noms?: string[];
+  ordre?: number[];
+  /** La source de chacun des quatre premiers coins : trouve (rond plein), predit (en pointille), doigt. */
+  sources?: SourceCoin[] | undefined;
+}) {
   const W = photo.image.largeur,
     H = photo.image.hauteur;
   const m = Math.max(W, H) * 0.22;
@@ -57,7 +77,7 @@ export function Coins({ photo, coins, setCoins, noms = NOMS_COINS, ordre = [0, 1
       const q = pointSvg(racine, ev);
       const n = [...coins];
       n[i] = { x: Math.max(-m, Math.min(W + m, origine.x + q.x - depart.x)), y: Math.max(-m, Math.min(H + m, origine.y + q.y - depart.y)) };
-      setCoins(n);
+      setCoins(n, i);
     };
     const lacher = () => {
       setActif(null);
@@ -90,7 +110,17 @@ export function Coins({ photo, coins, setCoins, noms = NOMS_COINS, ordre = [0, 1
         </text>
         {coins.map((c, i) => (
           <g key={i}>
-            <circle cx={c.x} cy={c.y} r={r * 1.7} className="releveCoinCible" onPointerDown={saisirCoin(i)} role="slider" aria-label={noms[i]} aria-valuenow={0} tabIndex={0} />
+            <circle
+              cx={c.x}
+              cy={c.y}
+              r={r * 1.7}
+              className={'releveCoinCible' + (sources?.[i] ? ' ' + sources[i] : '')}
+              onPointerDown={saisirCoin(i)}
+              role="slider"
+              aria-label={(noms[i] ?? '') + (sources?.[i] ? ' (' + DIT_SOURCE[sources[i]] + ')' : '')}
+              aria-valuenow={0}
+              tabIndex={0}
+            />
             <circle cx={c.x} cy={c.y} r={r * 0.35} className="releveCoinCentre" pointerEvents="none" />
           </g>
         ))}
