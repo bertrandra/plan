@@ -1071,15 +1071,62 @@ const POINTS = {
     const pleins = avant.filter((c) => c === 'trouve').length;
     const ok = pleins >= 2 && avant.length === 4 && apres[0] === 'doigt' && loupe && !!etiquette && /\(/.test(etiquette);
     return { ok, mesure: `${recherche ? 'recherche annoncée ; ' : ''}« ${note} » ; coins : ${avant.join(', ')} ; après un geste : ${apres.join(', ')} ; loupe ${loupe ? 'ouverte' : 'ABSENTE'} ; « ${etiquette} »` };
+  },
+  58: async (page) => {
+    // La distorsion du grand-angle (lot L8) : une facade de face, vue par un ultra grand-angle non
+    // corrige (barillet de 15 % au coin), en JPEG dont l'EXIF dit 13 mm ; la photo montree devient la
+    // photo corrigee, une note le dit, et les coins sont trouves sur les aretes redevenues droites.
+    const dessin = await page.context().newPage();
+    const jpeg = await dessin.evaluate(() => {
+      const L = 1280, H = 960, k = -0.15, R = Math.hypot(L, H) / 2;
+      const c = document.createElement('canvas'); c.width = L; c.height = H;
+      const x = c.getContext('2d'), img = x.createImageData(L, H);
+      const fen = [[330, 360, 470, 520], [810, 360, 950, 520], [330, 590, 470, 750], [810, 590, 950, 750], [585, 600, 695, 800]];
+      for (let j = 0; j < H; j++) for (let i = 0; i < L; i++) {
+        // Le pixel de la photo deformee vise le point du stenope qui y tombe (rd = ru (1 + k ru^2)).
+        const dx = i + 0.5 - L / 2, dy = j + 0.5 - H / 2, rd = Math.hypot(dx, dy) / R;
+        let ru = rd; for (let n = 0; n < 20; n++) ru -= (ru * (1 + k * ru * ru) - rd) / (1 + 3 * k * ru * ru);
+        const f = rd > 1e-9 ? ru / rd : 1, u = L / 2 + dx * f, v = H / 2 + dy * f;
+        let col = v > 800 ? [111, 154, 82] : [156, 195, 230];
+        if (u > 200 && u < 1080 && v > 200 && v < 800) col = v < 250 ? [138, 74, 54] : [228, 214, 188];
+        if (fen.some(([a, b, cc, d]) => u > a && u < cc && v > b && v < d)) col = [43, 52, 64];
+        const o = (j * L + i) * 4; img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+      }
+      x.putImageData(img, 0, 0);
+      const brut = atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
+      // Un segment APP1 Exif minimal : IFD0 -> sous-IFD Exif -> FocalLengthIn35mmFilm = 13.
+      const exif = [0x45, 0x78, 0x69, 0x66, 0, 0, 0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8,
+        0, 1, 0x87, 0x69, 0, 4, 0, 0, 0, 1, 0, 0, 0, 26, 0, 0, 0, 0,
+        0, 1, 0xa4, 0x05, 0, 3, 0, 0, 0, 1, 0, 13, 0, 0, 0, 0, 0, 0];
+      const app1 = [0xff, 0xe1, ((exif.length + 2) >> 8) & 0xff, (exif.length + 2) & 0xff, ...exif];
+      const octets = [0xff, 0xd8, ...app1];
+      for (let n = 2; n < brut.length; n++) octets.push(brut.charCodeAt(n));
+      return octets;
+    });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'grand-angle.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(jpeg) });
+    const urlAvant = await page.locator('.releveCoins image, .releveCoins img').first().getAttribute('href').catch(() => null);
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 });
+    const note = (await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().textContent())?.trim() ?? '';
+    const urlApres = await page.locator('.releveCoins image, .releveCoins img').first().getAttribute('href').catch(() => null);
+    const classes = await page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    const corrigee = /Distorsion du grand-angle corrigée/.test(note);
+    const pleins = classes.filter((c) => c === 'trouve').length;
+    const changee = !!urlApres && urlApres !== urlAvant && urlApres.startsWith('data:image/jpeg');
+    return { ok: corrigee && pleins >= 2 && changee, mesure: `« ${note} » ; coins : ${classes.join(', ')} ; photo montrée ${changee ? 'remplacée par la corrigée' : 'PAS remplacée (' + (urlApres ?? 'aucune') + ')'}` };
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57, 58). */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
-  const gardeFous = [49, 50, 51, 52, 54, 57, ...(nomClasse === 'large' ? [53] : [])];
+  const gardeFous = [49, 50, 51, 52, 54, 57, 58, ...(nomClasse === 'large' ? [53] : [])];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

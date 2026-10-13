@@ -177,6 +177,26 @@ describe('banc', () => {
     }
   }, LONG);
 
+  it('corrige la distorsion d un grand-angle non corrige, et laisse une photo deja droite (lot L8)', () => {
+    const forte = rejouerScene(parNom('13-'));
+    const d = forte.distorsion;
+    expect(d?.corrigee).toBe(true);
+    // Le modele de la correction (division) n'est pas celui du generateur (polynome) : ils s'accordent
+    // sur le sens et l'ordre de grandeur, pas au millieme.
+    expect(d?.kEstime).toBeLessThan(-0.12);
+    expect(d?.kEstime).toBeGreaterThan(-0.25);
+    // Les aretes verticales redeviennent droites, sur l'image corrigee detectee a nouveau.
+    expect(d?.residuApresPx ?? Infinity).toBeLessThan((d?.residuAvantPx ?? 0) / 2);
+    // Sans la correction, le calage fin manque des coins ; avec, ils sont tous a 10 cm au plus.
+    expect(Math.max(...(d?.avant.coinsFinCm ?? [0]))).toBeGreaterThan(10);
+    for (const c of d?.apres.coinsFinCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);
+    expect(Math.max(...(d?.apres.photo?.cotes ?? [Infinity]))).toBeLessThanOrEqual(5);
+    const droite = rejouerScene(parNom('15-'));
+    expect(droite.distorsion?.corrigee).toBe(false);
+    // Au-dela de 20 mm, rien n'est examine.
+    expect(rejouerScene(parNom('02-')).distorsion).toBeNull();
+  }, LONG);
+
   it('simule des capteurs exacts conformes au generateur, et des erreurs bornees', () => {
     const s = parNom('03-');
     const p = s.synthese.prise;

@@ -53,7 +53,13 @@ import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './re
 function morceauDePrise(p: Prise, facade: Facade, hauteurEstimee: number, partiel: boolean, maj: (f: (ms: Morceau[]) => Morceau[]) => void): Morceau {
   const entree = entreeRecherche(p, facade.largeur, hauteurEstimee, partiel, facade.azimut);
   if (entree) lancerRecherche(p, entree, maj);
-  return { prise: p, coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut), sources: ['predit', 'predit', 'predit', 'predit'], recherche: !!entree };
+  return {
+    prise: p,
+    coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut),
+    sources: ['predit', 'predit', 'predit', 'predit'],
+    recherche: !!entree,
+    ...(entree?.chercher === false ? { distorsionSeule: true } : {}),
+  };
 }
 
 /** Les sources des coins une fois le coin `k` deplace au doigt. */

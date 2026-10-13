@@ -177,7 +177,7 @@ if (images) {
     writeFileSync(join(images, s.nom + '-elevation.png'), png(elev));
     const photo = r.detail.image;
     if (photo) {
-      for (const c of s.verite.coins ?? []) croix(photo, c.x, c.y, VERT);
+      for (const c of r.detail.coinsImage ?? s.verite.coins ?? []) croix(photo, c.x, c.y, VERT);
       for (const z of r.detail.zones ?? []) if (z.bornee) rectangle(photo, z.x0, z.y0, z.x1, z.y1, CYAN);
       for (const c of r.detail.coinsPredits ?? []) croix(photo, c.x, c.y, CYAN);
       for (const c of r.detail.coinsProposes ?? []) croix(photo, c.x, c.y, JAUNE);

@@ -1,24 +1,25 @@
-// Chercher les coins d'une photo du releve (calage fin, lot L7) sans geler l'ecran.
+// Chercher les coins d'une photo du releve (calage fin, lot L7) sans geler l'ecran, apres l'avoir
+// corrigee de la distorsion du grand-angle s'il le faut (lot L8).
 //
 // Dans le navigateur, le calcul part dans un worker (calageFin.worker.ts), cree une fois et garde pour
 // les photos suivantes. La ou il n'y a pas de worker (tests, vieux navigateur) ou s'il echoue, le
 // calcul se fait sur le fil principal, apres que l'ecran a ete peint : c'est plus lent a l'oeil, jamais
 // faux.
 
-import { calageFinDuReleve } from '../../facade/calageFin.js';
-import { appliquerRecherche, sansDetail, type EntreeRecherche, type Morceau, type ResultatCoins } from './serie.js';
+import { versJpeg } from '../../ui/releve/camera.js';
+import { appliquerResultat, rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 
-type Reponse = { id: number; resultat?: ResultatCoins; erreur?: string };
+type Reponse = { id: number; resultat?: ResultatRecherche; erreur?: string };
 
 let travailleur: Promise<Worker | null> | null = null;
 let suivant = 1;
-const enAttente = new Map<number, { resoudre: (r: ResultatCoins) => void; entree: EntreeRecherche }>();
+const enAttente = new Map<number, { resoudre: (r: ResultatRecherche) => void; entree: EntreeRecherche }>();
 
 /** Le calcul sur le fil principal, apres une peinture de l'ecran. */
-function surLeFil(e: EntreeRecherche): Promise<ResultatCoins> {
+function surLeFil(e: EntreeRecherche): Promise<ResultatRecherche> {
   return new Promise((resoudre) => {
     setTimeout(() => {
-      resoudre(sansDetail(calageFinDuReleve(e.image, e.largeur, e.hauteur, e.prise, e.distance)));
+      resoudre(rechercher(e));
     }, 30);
   });
 }
@@ -52,6 +53,16 @@ function obtenirTravailleur(): Promise<Worker | null> {
   return travailleur;
 }
 
+/** L'URL d'affichage de la photo corrigee ; `null` si le navigateur n'a pas pu l'encoder. */
+function urlCorrigee(r: ResultatRecherche): string | null {
+  if (!r.distorsion) return null;
+  try {
+    return versJpeg(r.distorsion.image, 0.85);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Lance la recherche des coins d'une prise et range le resultat dans son morceau quand il arrive
  * (`maj` recoit une fonction des morceaux, comme le `setState` de React). Le morceau est reconnu a sa
@@ -59,13 +70,16 @@ function obtenirTravailleur(): Promise<Worker | null> {
  */
 export function lancerRecherche(prise: Morceau['prise'], e: EntreeRecherche, maj: (f: (ms: Morceau[]) => Morceau[]) => void): void {
   chercherCoins(e).then(
-    (r) => maj((ms) => ms.map((x) => (x.prise === prise ? appliquerRecherche(x, r) : x))),
+    (r) => {
+      const url = urlCorrigee(r);
+      maj((ms) => ms.map((x) => (x.prise === prise ? appliquerResultat(x, r, url) : x)));
+    },
     () => maj((ms) => ms.map((x) => (x.prise === prise ? { ...x, recherche: false } : x))),
   );
 }
 
-/** Les coins de la photo, trouves ou predits, et ce que le calage fin a lu. */
-export async function chercherCoins(e: EntreeRecherche): Promise<ResultatCoins> {
+/** La photo preparee (distorsion) et les coins de la photo, trouves ou predits, avec ce que le calage fin a lu. */
+export async function chercherCoins(e: EntreeRecherche): Promise<ResultatRecherche> {
   const w = await obtenirTravailleur();
   if (!w) return surLeFil(e);
   return new Promise((resoudre) => {

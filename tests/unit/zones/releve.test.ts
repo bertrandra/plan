@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, type Morceau, type Resultat, type ResultatCoins } from '../../../src/zones/releve/serie.js';
+import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, appliquerDistorsion, appliquerResultat, focaleDePrise, focale35DePrise, type Morceau, type Resultat, type ResultatCoins } from '../../../src/zones/releve/serie.js';
+import { modeleDistorsion, corrigerPoint } from '../../../src/facade/distorsion.js';
 import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision } from '../../../src/zones/releve/analyse.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import type { Prise } from '../../../src/zones/releve/capteurs.js';
@@ -160,6 +161,57 @@ describe('releve : le calage fin des coins (lot L7)', () => {
     expect(c.contourDecaleM).toBe(-0.8);
     // Un releve d'avant le calage fin garde exactement son sens.
     expect(calageDeSerie([{ prise: prise(), coins }], 8, 4)).toEqual({ photos: [{ coins, pxParMSource: 250 }] });
+  });
+});
+
+describe('releve : la distorsion du grand-angle (lot L8)', () => {
+  const coins = [{ x: 1000, y: 500 }, { x: 3000, y: 500 }, { x: 3000, y: 1500 }, { x: 1000, y: 1500 }];
+  // Ultra grand-angle : 108 degres sur le grand cote, soit 13 mm.
+  const grandAngle = (plus: Partial<Prise> = {}) => prise({ photo: { image: { largeur: 4000, hauteur: 3000 } as Prise['photo']['image'], url: 'avant', champ: null, focalePx: null }, champ: 108, ...plus });
+  const modele = modeleDistorsion(4000, 3000, -0.2);
+  const corrigee = { image: { largeur: 4000, hauteur: 3000, donnees: new Uint8ClampedArray(0) }, modele };
+
+  it('demande la correction sous 20 mm, meme pour un morceau d une serie, sans chercher ses coins', () => {
+    expect(focale35DePrise(grandAngle())).toBeCloseTo(13.1, 1);
+    expect(entreeRecherche(grandAngle(), 10, 6, false)).toMatchObject({ chercher: true });
+    expect(entreeRecherche(grandAngle(), 10, 6, false)?.focale35).toBeCloseTo(13.1, 1);
+    expect(entreeRecherche(grandAngle(), 10, 6, true)).toMatchObject({ chercher: false });
+    // L'objectif principal : un morceau ne demande rien, comme avant.
+    expect(focale35DePrise(prise())).toBeCloseTo(27, 6);
+    expect(entreeRecherche(prise(), 10, 6, true)).toBeNull();
+  });
+
+  it('ramene les coins dans la photo corrigee et reduit la focale d autant', () => {
+    const m: Morceau = { prise: grandAngle(), coins, recherche: true, decrochement: { cote: 'gauche', haut: { x: 0, y: 0 }, bas: { x: 10, y: 3000 } } };
+    const f0 = focaleDePrise(m.prise);
+    const a = appliquerDistorsion(m, corrigee, 'apres');
+    expect(a.prise.photo.url).toBe('apres');
+    expect(a.prise.photo.image).toBe(corrigee.image);
+    expect(a.prise.photo.distorsion).toEqual({ k1: -0.2, echelle: 0.8 });
+    expect(focaleDePrise(a.prise)).toBeCloseTo(f0 * 0.8, 9);
+    a.coins.forEach((q, i) => expect(q).toEqual(corrigerPoint(coins[i]!, modele)));
+    expect(a.decrochement?.haut.x).toBeCloseTo(0, 6);
+    // Une focale donnee par la photo est reduite a la correction.
+    const n = appliquerDistorsion({ ...m, prise: prise() }, corrigee, 'apres');
+    expect(n.prise.photo.focalePx).toBeCloseTo(2400, 9);
+    // Analyse deja partie : la photo d'origine reste.
+    expect(appliquerDistorsion({ ...m, recherche: false }, corrigee, 'apres').prise.photo.url).toBe('avant');
+  });
+
+  it('garde la photo d origine et ses coins si la photo corrigee n a pas pu etre encodee', () => {
+    const trouve: ResultatCoins = { coins: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }], sources: ['trouve', 'trouve', 'trouve', 'trouve'], note: 0.9, trouve: true, inclinaisonDeg: 0, roulisDeg: 0, azimutDeg: 0, azimutCorrige: false, distance: 5, hauteur: 6, contour: null };
+    const m: Morceau = { prise: grandAngle(), coins, sources: ['predit', 'predit', 'predit', 'predit'], recherche: true };
+    const sans = appliquerResultat(m, { distorsion: corrigee, coins: trouve }, null);
+    expect(sans.recherche).toBe(false);
+    expect(sans.prise.photo.url).toBe('avant');
+    expect(sans.coins).toBe(coins);
+    const avec = appliquerResultat(m, { distorsion: corrigee, coins: trouve }, 'apres');
+    expect(avec.prise.photo.url).toBe('apres');
+    expect(avec.coins[0]).toEqual({ x: 1, y: 1 });
+    // Un morceau d'une serie : la photo corrigee seule, la recherche finie.
+    const seule = appliquerResultat(m, { distorsion: corrigee, coins: null }, 'apres');
+    expect(seule.recherche).toBe(false);
+    expect(seule.coins[0]).toEqual(corrigerPoint(coins[0]!, modele));
   });
 });
 

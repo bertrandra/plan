@@ -1,0 +1,126 @@
+{
+  "nom": "15-grand-angle-deja-corrige",
+  "description": "Ultra grand-angle (13 mm) à 5,5 m dont le téléphone a déjà corrigé la distorsion : les arêtes sont droites, la photo ne doit pas être retouchée.",
+  "difficultes": [
+    "grand-angle"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 239.78,
+        "y": 203.87
+      },
+      {
+        "x": 997.47,
+        "y": 241.19
+      },
+      {
+        "x": 1055.99,
+        "y": 679.87
+      },
+      {
+        "x": 164.95,
+        "y": 697.85
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.5,
+        "y": 3.8,
+        "l": 1.1,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 15,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          210,
+          205,
+          195
+        ],
+        "taches": 5
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 5.5,
+      "focale35": 13,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -4,
+      "tangage": 9,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

@@ -102,6 +102,15 @@ qui sont à 10 cm au plus — un coin plein faux coûte plus cher qu'un pointill
 pas. Depuis le lot L7, la ligne « Coins trouvés sans geste » des objectifs lit le calage fin du relevé :
 ce sont ses coins que l'éditeur propose.
 
+**Distorsion du grand-angle** (lot L8) : pour chaque prise dont la focale équivalente connue est sous
+20 mm (ou dont l'objectif déforme), `facade/distorsion.ts` comme le relevé l'appelle. Le banc rejoue
+la chaîne **avec** la correction (c'est ce que montrent les autres sections) et **sans** elle, et
+écrit les deux côte à côte (« avant → après ») : coefficient vrai et estimé, arêtes presque verticales
+retenues, leur écart à la droite (sur la photo, puis sur l'image corrigée, où elles sont détectées à
+nouveau), rappel, précision, cotes, hauteur, coins du calage fin. L'erreur d'un coin rendu sur l'image
+corrigée se mesure sur le sténopé vrai : la correction estimée est défaite, puis la distorsion vraie
+de l'objectif retirée, ce qui ne favorise pas la correction.
+
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
 façade. Ils se lisent sur la chaîne du relevé.
@@ -152,6 +161,11 @@ image.
     `ecartCap` (visée décentrée), `tangage`, `roulis`, `oeil` (1,5 m), `focale35`, `bruit`, `flou`.
     `focaleConnue: false` donne à l'analyse les 67° par défaut (pas d'EXIF). `distanceConnue: false`
     donne le cadre à 12 %. `hauteurEstimee` est la hauteur que croit l'application (BD TOPO).
+    `distorsion` (lot L8) : le barillet de l'objectif, en forme **polynomiale** (un point du sténopé
+    au rayon r, en demi-diagonales, tombe au rayon r (1 + k r²)) ; volontairement pas la forme
+    « division » de la correction, pour que le banc paie l'écart entre l'objectif et le modèle.
+    `verite.coins` est alors sur la photo déformée (`coinsVrais`), `coinsStenope` donne ceux du
+    sténopé.
   - `coins` : l'homographie des tests d'origine, donnée par ses quatre coins.
 - **Ajouter une scène** : copier la plus proche, changer `nom` (préfixe numéroté), `graine` et ce qui
   la rend difficile, lancer `--ecrire-coins`, regarder les PNG de `--images`, puis lancer le test
@@ -333,6 +347,30 @@ Ce qu'ils disent, et ce qu'ils ne disent pas :
   dehors a encore la teinte du mur.
 - **Focale inconnue** (`09`) : les coins sont trouvés malgré les 67° par défaut ; la hauteur mesurée,
   elle, reste fausse de la focale (spec §4).
+
+### Après le lot L8 (distorsion du grand-angle)
+
+Mesuré le 13 octobre 2026 sur `claude/lot-L8-distorsion`, avec trois scènes ajoutées : `13` (13 mm à
+5 m, barillet de 15 % au coin), `14` (16 mm de biais, barillet de 7 %), `15` (13 mm déjà corrigé par
+le téléphone, le témoin). Les treize scènes d'avant donnent exactement les mêmes chiffres : aucune
+n'est sous 20 mm de focale connue (`09` est un 16 mm, mais sans EXIF : l'application croit 26 mm et
+n'y touche pas).
+
+| Scène | k vrai → estimé | Arêtes verticales (px) | Cotes méd. | Coins du calage fin (cm) |
+|---|---|---|---|---|
+| `13` | −0,15 → −0,19 | 1,23 → 0,25 | 6 → 1 cm | 10, 167, 109, 28 → 2, 2, 1, 2 |
+| `14` | −0,07 → −0,075 | 0,63 → 0,25 | 1 cm | 4, 4, 4, 3 → 0, 1, 0, 1 |
+| `15` | 0 → 0,003 (non corrigée) | 0,28 | 1 cm | 0, 0, 2, 1 |
+
+- L'estimation prend 40 à 60 ms sur une photo de 1 280 px (traces, puis une grille sur k1).
+- Sur les treize scènes sans distorsion, le meilleur k1 reste sous 0,05 et le gain sous 1,5 : aucune
+  ne serait corrigée, même si sa focale était connue sous 20 mm.
+- Le k1 estimé (forme division) ne vaut pas celui du générateur (forme polynomiale) : le meilleur
+  accord entre les deux formes dépend du rayon. Ce qui compte, ce sont les arêtes redevenues droites et
+  les coins.
+- La mesure s'appuie sur la **ligne médiane** de chaque trace (le barycentre par rangée de pixels) :
+  sur les pixels bruts, l'épaisseur de l'arête, que la correction d'un barillet étire au bord de
+  l'image, faisait préférer un coefficient de mauvais signe.
 
 ## 5. Ce que disent les chiffres de départ
 
