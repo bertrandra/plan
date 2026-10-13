@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Décisions D1, D2 et D13 tranchées** (`MD/plan-mise-en-oeuvre-audit.md`, specs, aucun code) :
+  - l'analyse par Claude passe par `analyse.php`, sur le serveur de Plan, d'abord pour l'admin ;
+  - l'accord pour envoyer les photos est donné une fois par projet, et révocable ;
+  - les réglages et les faits des toits vivent dans le dépôt.
+
+  Les lots L17 et L19 sont débloqués.
+
 - **Spec : tableau de bord de la consommation de Claude** (`MD/spec-audit.md` §13.3, aucun code).
   `analyse.php` journalise chaque appel : parcelle, modèle, usage, tokens renvoyés par l'API, coût
   calculé avec une table des tarifs datée. Journal, tarifs et plafonds sont des JSON stockés sur le
