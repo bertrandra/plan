@@ -31,7 +31,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     `12-haie-pied-cache-roulis`. Coins proposés par le relevé à 10 cm au plus : de 4 sur 44 (médiane
     38 cm) à **44 sur 44** (médiane 0,5 cm), dont 40 trouvés sur la photo et 4 prédits ; calage de
     l'audit avec des capteurs typiques : de 0 à 44 sur 44. Les détections d'ouvertures ne changent
-    pas. Point de fumée 57.
+    pas. Point de fumée 58.
 
 - **Tableau de bord de la consommation de Claude** (lot L16 bis, `MD/spec-audit.md` §13.3).
   Admin › Consommation de Claude (`?admin&ecran=consommation`), pour l'administrateur seulement,
