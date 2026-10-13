@@ -307,6 +307,13 @@ bâtiments sans marque ou marqués d'une version plus ancienne.
   recalcule depuis les corps enregistrés) : ne pas la passer, la relecture coûte des minutes sur un
   grand voisinage.
 - Le dire dans le CHANGELOG (« les toits déjà lus seront relus à l'ouverture »).
+- **Un bâtiment vérifié sur place** (`verifieSurPlace`, posé par la validation d'un audit de la
+  parcelle ; `model/toitVerifie.ts`) **n'est jamais recalculé** par la relecture : sa copie est lue
+  et comparée à ce qui est dans le plan (`lectureDAccord` : contour, égout, forme, corps un à un, à
+  `SEUIL_ACCORD_M` = 30 cm), seule la marque `toitLidarLu` s'écrit, et le bilan dit si « le nouveau
+  calcul serait d'accord ». C'est la mesure d'une règle sur le 100 % du projet, sans y toucher.
+  `toitsDepuisLidar` l'écarte de même (option `verifies: 'garder'`, défaut) ; « Fichier › Actualiser
+  le projet » le conserve sauf case cochée (`app/actualiserProjet.ts`).
 
 ## 6 ter. Les réglages : `regles/toits/reglages.json`
 

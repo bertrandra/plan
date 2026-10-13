@@ -590,6 +590,12 @@ la photo et les indices touchés depuis la 3D ; l'éditeur du relevé ouvert dep
 façade ; la mosaïque de plusieurs photos d'un mur dans les mesures (lots L13 à L15) ; la texture du
 gros plan du parement.
 
+**Fait (lot L12, le 100 % protégé)** : `model/toitVerifie.ts`. La relecture des toits en tâche de
+fond saute le bâtiment vérifié (sa copie est lue et comparée, rien ne s'écrit que la marque de
+lecture ; le bilan dit si le nouveau calcul serait d'accord). Fichier › Actualiser le projet le
+conserve tel quel, sauf la case « Recalculer aussi… » de la question ; Fichier › Actualiser depuis
+l'IGN le conserve aussi, sans case. Point de fumée 64.
+
 ## 15. Le fichier, pour le corpus
 
 - Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1.
