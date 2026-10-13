@@ -18,6 +18,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - La toiture-terrasse aussi : inaccessible, accessible, végétalisée, technique ; acrotère,
     garde-corps, édicules, lanterneaux ; terrasse partielle ; modèle de données et assertions.
   - Deux problèmes à cocher de plus dans l'audit : `toit.cheminee` et `toit.terrasse`.
+  - L'audit de la parcelle principale est ouvert à tout utilisateur, dans son projet. Il propose des
+    changements (ouvertures, hauteurs, couleur, cheminées, terrasse, clôture) ; ceux que l'utilisateur
+    accepte mettent à jour le modèle en un seul pas d'annulation. La promenade reste réservée à
+    l'administrateur.
 
 - **Spec du mode audit : captures opportunistes et audit de la parcelle principale** (`MD/spec-audit.md`
   §12 et §13, aucun code). Chaque photo d'un cas est exploitée au maximum :

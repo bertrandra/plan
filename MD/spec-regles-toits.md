@@ -34,7 +34,7 @@ cas validés ; un cas qui ne satisfait plus son observation bloque la CI.
 | Bâtiments | Exigence | Comment on l'atteint |
 |---|---|---|
 | **Le voisinage** | Le modèle **automatique le plus juste possible, mais pas à 100 %**. Il fait l'horizon du projet : silhouettes, ombres, vues. | Les règles et les réglages, **calibrés par l'audit** : les promenades mesurent le taux de conformité (§13.5) et montrent où le modèle est faible. Une erreur isolée qu'aucune règle générale ne corrige est acceptée. |
-| **La parcelle principale** (celle du projet) | **100 %** : chaque bâtiment tel qu'il est, toit, façades, cheminées. | Le calcul automatique d'abord, puis l'**audit de la parcelle** (`spec-audit.md` §13), les faits, les relevés de façade et les questions posées à l'utilisateur. Tout ce qui est vu et validé est **figé dans le projet**. |
+| **La parcelle principale** (celle du projet) | **100 %** : chaque bâtiment tel qu'il est, toit, façades, cheminées. | Le calcul automatique d'abord, puis l'**audit de la parcelle** (`spec-audit.md` §13, ouvert à tout utilisateur dans son projet), les faits, les relevés de façade et les questions posées à l'utilisateur. L'audit **propose**, l'utilisateur accepte, et ce qui est accepté met à jour le modèle et reste **figé dans le projet**. |
 | **Les mitoyens** | **100 %** aussi, très probablement (à confirmer, `spec-audit.md` §11) : ils touchent la parcelle, portent l'ombre et la limite. | Comme la parcelle principale, avec ce qui se voit depuis la rue et depuis la parcelle. |
 
 Ce qui en découle :
