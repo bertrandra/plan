@@ -27,6 +27,27 @@ Chaque observation **validée** devient aussi un **test** : son attendu est ce q
 les nombres du calcul (§7). Toute modification d'un réglage ou d'une règle est rejouée sur tous les
 cas validés ; un cas qui ne satisfait plus son observation bloque la CI.
 
+### Deux exigences, selon où est le bâtiment
+
+*Décision de l'utilisateur, 13 octobre 2026.*
+
+| Bâtiments | Exigence | Comment on l'atteint |
+|---|---|---|
+| **Le voisinage** | Le modèle **automatique le plus juste possible, mais pas à 100 %**. Il fait l'horizon du projet : silhouettes, ombres, vues. | Les règles et les réglages, **calibrés par l'audit** : les promenades mesurent le taux de conformité (§13.5) et montrent où le modèle est faible. Une erreur isolée qu'aucune règle générale ne corrige est acceptée. |
+| **La parcelle principale** (celle du projet) | **100 %** : chaque bâtiment tel qu'il est, toit, façades, cheminées. | Le calcul automatique d'abord, puis l'**audit de la parcelle** (`spec-audit.md` §13, ouvert à tout utilisateur dans son projet), les faits, les relevés de façade et les questions posées à l'utilisateur. L'audit **propose**, l'utilisateur accepte, et ce qui est accepté met à jour le modèle et reste **figé dans le projet**. |
+| **Les mitoyens** | **100 %** aussi, très probablement (à confirmer, `spec-audit.md` §11) : ils touchent la parcelle, portent l'ombre et la limite. | Comme la parcelle principale, avec ce qui se voit depuis la rue et depuis la parcelle. |
+
+Ce qui en découle :
+- Le 100 % ne s'obtient **jamais en tordant une règle** pour un bâtiment : sur la parcelle principale
+  et les mitoyens, l'écart restant se corrige par un **fait** ou par une **valeur du projet**
+  (relevé, choix de l'utilisateur), pas par un seuil.
+- Un bâtiment validé à 100 % **n'est plus recalculé** par un changement de règle : la relecture des
+  toits (§9.2, `VERSION_LECTURE_TOITS`) le saute. Elle dit seulement si le nouveau calcul serait
+  d'accord, ce qui mesure la règle sans toucher au projet.
+- Les cas d'audit du voisinage alimentent les **règles** ; ceux de la parcelle principale et des
+  mitoyens alimentent d'abord le **projet**, puis le corpus (une vérité terrain complète vaut
+  pour tous).
+
 ---
 
 ## 2. Vocabulaire du toit
@@ -100,6 +121,86 @@ Colonnes :
 - Les lignes (arêtier, noue, rive, ligne de bris) ne sont pas stockées : elles **découlent** des
   corps. Elles servent à écrire une observation (« le faîtage est perpendiculaire à la rue »,
   « il n'y a pas de noue ») et à dessiner.
+
+### 2.6 La cheminée
+
+Aujourd'hui, Plan ne dessine pas de cheminée. Ses mesures sont **écrêtées** comme une saillie, et
+l'ajustement robuste des corps les écarte : tout ce qui dépasse le pan de plus de 40 cm est mis de
+côté.
+
+**Ses parties**
+
+| Partie | Définition |
+|---|---|
+| **Souche** | La partie maçonnée qui sort du toit, celle que l'on voit. |
+| **Conduit** | Le passage des fumées. Une souche en porte un ou plusieurs, côte à côte : elle est alors allongée. |
+| **Couronnement** | Le haut de la souche : une dalle qui déborde de quelques centimètres, un chapeau (tôle, pierre), ou des mitrons (petits tuyaux en terre cuite, un par conduit). |
+| **Solin** | Le raccord étanche entre la souche et la couverture. Il n'est pas dessiné. |
+| **Tubage métallique** | Un conduit inox de poêle ou de chaudière, de 15 à 30 cm, qui sort du pan. |
+
+**Ses positions**
+
+| Position | Où | Ce que le dessin en fait |
+|---|---|---|
+| `faitage` | à cheval sur le faîtage | souche centrée sur la ligne de faîtage |
+| `pan` | dans un versant | la souche part du pan, son bas suit la pente |
+| `pignon` | dans le mur de bout, la souche dans l'alignement du mur | la souche prolonge le mur au-dessus de la rive |
+| `facade` | **adossée** à l'extérieur d'un mur, du sol (ou d'un étage) jusqu'au-dessus de l'égout | un volume collé au mur, sur toute sa hauteur : il se voit sur la façade, pas seulement sur le toit |
+
+**Ses dimensions, et ce qui est vraisemblable**
+
+- Section : de 40 × 40 cm (un conduit) à environ 60 × 150 cm (souche à plusieurs conduits).
+- Hauteur : la règle de l'art (DTU 24.1) veut en général que le débouché dépasse le faîtage d'au moins
+  40 cm. Une souche en bas de pan est donc haute, une souche au faîtage est courte.
+- Matériau : brique, enduit, pierre, métal. Il suit souvent celui des murs.
+- Un tubage métallique est trop fin pour le LiDAR : seule une observation ou la photo le donne.
+
+**Ce que la mesure en voit**
+
+| Source | Ce qu'elle donne |
+|---|---|
+| LiDAR (maille de 50 cm) | un pic **compact** de 1 à 6 mailles, de 0,5 à 2,5 m au-dessus du pan, dans le contour. C'est un paquet des points que l'ajustement écarte déjà : la détection les regroupe au lieu de les jeter. |
+| Orthophoto | un petit carré, souvent rouge ou gris, et son **ombre portée** sur le pan |
+| Photo de rue | la silhouette au-dessus de la ligne du toit : la source la plus sûre pour le nombre et la position |
+
+Une cheminée se distingue d'un arbre, d'une lucarne ou d'un édicule par sa taille et sa place
+(§3.4, confusions 4 et 8).
+
+### 2.7 La toiture-terrasse
+
+Plan en fait aujourd'hui un toit `plat` (moins de 30 cm de montée ou moins de 3°), couvert de
+gravillons en 3D (`model/couleurToit.ts::materiauCouverture`). AE 103 en a une entre ses deux
+quatre-pans. Le reste n'est pas lu.
+
+**Ses types**
+
+| Type | Ce que c'est | Revêtement |
+|---|---|---|
+| **Inaccessible** | on n'y monte que pour l'entretien | gravillons, membrane d'étanchéité apparente |
+| **Accessible** | une terrasse où l'on vit, souvent depuis un étage | dalles sur plots, carrelage, **lames de bois** (c'est un chantier possible pour Plan) |
+| **Végétalisée** | couverte de plantes (sedum, prairie) | substrat et végétation |
+| **Technique** | porte des machines (climatisation, ventilation, panneaux solaires) | membrane, gravillons |
+
+**Ses éléments**
+
+| Élément | Définition | LiDAR |
+|---|---|---|
+| **Acrotère** | rebord maçonné en tête de mur, de 20 cm à plus d'un mètre au-dessus de la terrasse | ~ : un liseré plus haut d'une maille sur le pourtour |
+| **Garde-corps** | barrière de sécurité d'une terrasse accessible (métal, verre, maçonnerie) | ✘, sauf un garde-corps maçonné (vu comme un acrotère haut) |
+| **Édicule** | petite construction sur la terrasse : cage d'escalier, local technique, sortie d'ascenseur | ✔ : un bloc de 2 m de côté ou plus, 2 à 3 m au-dessus de la terrasse |
+| **Lanterneau, coupole** | ouvrage vitré qui éclaire l'étage du dessous | ✘ (trop bas) ; visible sur orthophoto |
+| **Évacuation, chéneau** | descente des eaux pluviales, gouttière derrière l'acrotère | ✘ |
+
+**Les cas qui se présentent**
+
+- **Terrasse partielle** : une partie seulement d'un bâtiment est plate (entre deux corps en pente,
+  sur un garage, sur une extension). C'est un corps plat parmi les autres, comme à AE 103.
+- **Terrasse sur annexe, accessible depuis l'étage** : le toit plat d'une partie basse sert de
+  terrasse à la partie haute. Seule une observation dit qu'elle est accessible.
+- **Mansart vu comme une terrasse** : le dessus d'un Mansart est presque plat (§3.4, confusion 2).
+- **Végétalisée prise pour un arbre** : la végétation trouble la mesure de quelques dizaines de
+  centimètres et l'orthophoto est verte. La hauteur reste **uniforme** et le contour net, à la
+  différence d'un houppier (§3.2).
 
 ---
 
@@ -203,6 +304,10 @@ Ce sont celles qui produisent les erreurs de l'audit ; chacune appelle une règl
    marche ou un mur mitoyen entre eux.
 7. **Gambrel ou Mansart.** La bande raide longe les deux longs côtés seulement (gambrel) ou tous les
    murs (Mansart) : ce sont les bouts qui tranchent.
+8. **Cheminée, édicule ou petit corps.** Ce sont tous des blocs plus hauts que le toit qui les porte.
+   Une cheminée fait moins de 1,5 m de côté (jusqu'à 2,5 m pour une souche longue à plusieurs
+   conduits). Un édicule fait 2 m de côté ou plus et ne se trouve que sur un toit plat. Un petit corps
+   (tourelle, avant-corps) touche le contour et porte son propre toit en pente.
 
 ---
 
@@ -222,6 +327,8 @@ interface CorpsToit {
   /** Les superstructures detectees ou observees. */
   lucarnes?: Lucarne[];
   cheminees?: Cheminee[];
+  /** Un corps plat : ce que l'on sait de la terrasse (§2.7). Absent : un toit plat sans plus. */
+  terrasse?: Terrasse;
   /** Les bords, quand une observation les precise ; sinon les defauts du dessin. */
   bords?: { debordEgoutM?: number; saillieRiveM?: number; coyau?: boolean; queueDeVache?: boolean };
 }
@@ -251,7 +358,30 @@ interface Lucarne {
   source: 'lidar' | 'observation';
 }
 
-interface Cheminee { x: number; y: number; coteM: number; hauteurM: number; source: 'lidar' | 'observation' }
+/** Une souche de cheminee (§2.6). Pour une position `facade`, (x, y) est contre le mur, du cote exterieur. */
+interface Cheminee {
+  /** Le centre de la souche, repere du plan ; sa section, orientee comme le corps. */
+  x: number; y: number; largeurM: number; profondeurM: number;
+  /** La hauteur du debouche au-dessus du sol (pas au-dessus du pan : elle se compare au faitage). */
+  sommetM: number;
+  position: 'faitage' | 'pan' | 'pignon' | 'facade';
+  conduits?: number;
+  materiau?: 'brique' | 'enduit' | 'pierre' | 'metal';
+  couronnement?: 'dalle' | 'chapeau' | 'mitrons';
+  source: 'lidar' | 'observation';
+}
+
+/** Une toiture-terrasse (§2.7). */
+interface Terrasse {
+  accessible?: boolean;
+  revetement?: 'gravillons' | 'membrane' | 'dalles' | 'bois' | 'vegetalise';
+  /** La hauteur de l'acrotere au-dessus de la terrasse ; 0 : pas d'acrotere. */
+  acrotereM?: number;
+  gardeCorps?: boolean;
+  /** Les edicules : un rectangle et sa hauteur au-dessus du sol, avec un toit plat. */
+  edicules?: { pts: PtBrut[]; sommetM: number }[];
+  source: 'lidar' | 'observation';
+}
 ```
 
 - Un corps rectangulaire couvre les formes 1 à 16 du §3.1 : l'asymétrique est un deux-pans à faîtage
@@ -370,7 +500,8 @@ pas le cas, et une régression réelle le casse.
 | `egout`, `faitageM` | `{ "min": 5, "max": 6.5 }` | la fourchette donnée |
 | `profil` | `"brise"` (Mansart) | exacte |
 | `lucarnes` | `{ "nombre": 2, "pan": "rue" }` ou `{ "min": 1 }` | exacte ou fourchette |
-| `cheminees` | `{ "min": 1 }` | fourchette |
+| `cheminees` | `{ "nombre": 2 }`, `{ "min": 1 }`, ou par souche `{ "position": "faitage", "pres": [4.2, 7.0] }` | nombre exact ou fourchette ; position à ± 1 m |
+| `terrasse` | `{ "accessible": true, "acrotere": { "min": 0.8, "max": 1.2 }, "edicules": 1 }` | exacte ; fourchette pour l'acrotère |
 | `couvert` | tout le contour a un toit (pas de coin sans toit) | 2 % de la surface |
 | `pasDe` | `["vegetation", "noue"]` : ce qui ne doit pas apparaître | — |
 
@@ -385,7 +516,9 @@ faut aussi le **positif** (« il est perpendiculaire à la rue »). La fiche gag
 - sens du faîtage par rapport à la rue ;
 - bouts ;
 - lucarnes : nombre et pan ;
-- cheminées.
+- cheminées : nombre, et pour chacune sa position (faîtage, pan, pignon, adossée en façade), et son
+  matériau si on le voit ;
+- toit-terrasse : accessible ou non, acrotère (oui, non, hauteur à vue), édicules, revêtement.
 
 La photo, avec sa position et son azimut, sert de **preuve** à la validation. Elle n'entre pas dans le calcul.
 
@@ -667,7 +800,8 @@ temps (moins de corrections que de champs remplis), sans que le taux d'accord ba
   1. lucarnes ;
   2. Mansart et gambrel ;
   3. demi-croupe ;
-  4. cheminées ;
+  4. cheminées (souches au faîtage, dans le pan, en pignon, adossées) et toits-terrasses (acrotère,
+     édicules) ;
   5. asymétrique ;
   6. le reste.
 - Pour chaque forme : le modèle de données (§4), le dessin 3D, la détection, les cas du corpus.
@@ -755,6 +889,7 @@ fait un attendu de test ou un fait.
 | Faits rendus inutiles | faits que le calcul retrouve seul | ↑ en phase 4 |
 | Suspects et sans-corps du banc | qualité sur les villages de référence | ↓ |
 | Formes produites par le calcul | couverture du catalogue §3.1 | de 4 à 15 ou plus |
+| Conformité de la parcelle principale et des mitoyens | part des attributs observés que le projet satisfait (calcul, faits et valeurs du projet compris) | **100 %**, toujours (§1) |
 | Taux d'accord de Claude analyste, par attribut | fiabilité de ses propositions (§14.2) | ↑ ; un attribut n'est pré-accepté qu'au-dessus de 95 % |
 | Coût par maison analysée | coût réel des lots | ≈ 0,004 $ en nominal (§14.4) |
 | AE 101 | non-régression absolue | identique au centimètre, toujours |
@@ -764,6 +899,8 @@ fait un attendu de test ou un fait.
 
 - **AE 101 ne bouge pas.** Les quantités et les exports non plus : une règle de toit ne touche que
   le toit.
+- **Le voisinage vise le plus juste, la parcelle principale le 100 %** (§1). Un changement de règle
+  ne recalcule jamais un bâtiment validé du projet ou d'un mitoyen.
 - **Une règle reste générale.** Un bâtiment nommé dans le code est un fait déguisé : il va dans
   `faits.json`.
 - **Un cas validé ne change qu'avec votre accord**, avec images et ligne d'historique.

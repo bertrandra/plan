@@ -10,6 +10,13 @@ Se promener dans un quartier, téléphone en main, et noter les bâtiments dont 
 calculés sont faux. En fin de promenade, un fichier part à Claude, qui rejoue chaque cas hors
 ligne, corrige la règle en cause, puis fige le résultat validé comme **cas de non-régression**.
 
+**Deux exigences** (décision du 13 octobre, `spec-regles-toits.md` §1) :
+- **Le voisinage** : le modèle automatique le plus juste possible, mais pas à 100 %. La promenade
+  sert à **calibrer** cet horizon : elle mesure où le modèle se trompe et nourrit les règles.
+- **La parcelle principale**, et très probablement les **mitoyens** : **100 %**. L'audit de la
+  parcelle (§13) capture tout ce qu'il faut pour y arriver, et ce qui est validé est figé dans le
+  projet.
+
 Le mode audit ne produit pas de projet : il produit un **jeu de test terrain**. Il étend ce que font
 déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 101 « au centimètre ».
 
@@ -35,6 +42,9 @@ déjà les scripts du skill `toits` (`village.mjs`, `banc.ts`) et le test d'AE 1
   les ouvertures réelles. Plusieurs photos par cas, chacune avec sa position GPS et son azimut.
 - *13 octobre* : un **audit de la parcelle principale**, à part de la promenade, pour en capturer le
   plus d'informations possible (§13).
+- *13 octobre* : **l'audit de la parcelle principale est ouvert à tout utilisateur**, dans son projet :
+  il met à jour le modèle après proposition (§13.6). **La promenade reste réservée à
+  l'administrateur.**
 
 ## 3. Accès et cycle de vie
 
@@ -148,6 +158,8 @@ tests lisent. La dernière colonne dit où le chercher dans la chaîne (skill `t
 | `toit.vegetation` | un arbre pris pour le toit : bosse, toit trop haut sous un arbre | végétation, `corpsVraisemblables` |
 | `toit.cheval` | deux maisons mitoyennes avec un seul toit, ou une maison coupée en deux | bâtiment à cheval, `toitACheval` |
 | `toit.absent` | aucun toit construit (boîte par défaut) alors que le toit est simple | lecture LiDAR, `toitsDepuisLidar` |
+| `toit.cheminee` | cheminée absente, en trop, mal placée, ou souche adossée en façade non dessinée (étape 5) | souches, `spec-regles-toits.md` §2.6 |
+| `toit.terrasse` | toit-terrasse mal lu : acrotère, édicule ou garde-corps manquant, terrasse accessible vue comme un toit (étape 5) | `spec-regles-toits.md` §2.7 |
 | `toit.couverture` | mauvais matériau (tuile, ardoise, zinc, terrasse) ou mauvaise couleur du toit | `materiauCouverture`, couleur sur l'orthophoto |
 | `toit.autre` | autre chose : à décrire dans la note | — |
 
@@ -263,9 +275,8 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 
 ## 9. Ce que le mode audit ne fait pas
 
-- Pas d'édition du plan, pas de terrasse, pas d'export autre que le fichier de promenade (ou celui
-  de l'audit de parcelle, §13). L'import d'un audit de parcelle dans un projet se fait dans
-  l'application, hors du mode audit (§13.6).
+- Pas d'édition du plan, pas de terrasse, pas d'export autre que le fichier de promenade. (L'audit
+  de la parcelle, lui, se fait dans le projet et le met à jour après proposition, §13.)
 - Pas de correction sur place : il note, il ne corrige pas.
 - Pas d'envoi automatique à un serveur : le partage passe par vous.
 
@@ -279,8 +290,8 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
 | 4 | Plus tard : façade Panoramax à la demande sur un cas, note vocale | — |
 | 5 | Captures opportunistes (§12.1 à §12.3) : plusieurs photos par cas, focale et inclinaison de la prise, mur proposé sur la photo, couleur de la façade lue | tests sur des photos générées dont la prise de vue est connue, une promenade réelle |
 | 6 | Relevé depuis une fiche, sur la parcelle principale (§12.4) : texture, ouvertures, hauteur mesurée | les images de test du relevé, une façade réelle |
-| 7 | Audit de la parcelle (§13) : mode, liste de contrôle, fichier | une parcelle réelle, toutes façades |
-| 8 | Import d'un audit de parcelle dans le projet de la même parcelle (§13.6) | un projet réel, Ctrl+Z, rien de saisi à la main écrasé |
+| 7 | Audit de la parcelle dans le projet, pour tout utilisateur (§13) : commande, liste de contrôle, photos, propositions, mise à jour du modèle, bâtiments validés | une parcelle réelle, toutes façades ; Ctrl+Z ; rien de saisi à la main écrasé sans accord |
+| 8 | Partage de l'audit pour le corpus (§13.7), import d'un audit dans un autre projet | un fichier rejoué sans réseau |
 
 ## 11. Questions (réponses de l'utilisateur)
 
@@ -300,13 +311,15 @@ Façade : le script relit les photos Panoramax référencées, quand il y en a.
    deux minutes par façade. Proposition : photos sur place, relevé depuis la liste de fin, pour ne pas
    ralentir la marche.
 7. **Import dans le projet** (§13.6) : l'audit de parcelle s'importe-t-il dans le projet de la même
-   parcelle ? Proposition : oui, par le menu Fichier, en un seul pas d'annulation, sans écraser ce qui
-   a été saisi à la main.
+   parcelle ? Réponse de l'utilisateur (13 octobre) : l'audit se fait **dans le projet** et **met à
+   jour le modèle après proposition**. L'import d'un fichier ne sert plus qu'au cas d'un audit fait
+   ailleurs (§13.7).
 8. **Ce que l'audit de parcelle couvre** (§13.3) : façades, toits, clôture côté rue et portail ;
    arbres plus tard ? Proposition : oui.
 9. **Accès à l'audit de parcelle** : administrateur seulement, comme la promenade, ou plus tard ouvert
-   à tous comme relevé complet d'une maison ? Proposition : administrateur d'abord ; on décide après
-   quelques parcelles réelles.
+   à tous comme relevé complet d'une maison ? Réponse de l'utilisateur (13 octobre) : **ouvert à tout
+   utilisateur**, parce qu'il met à jour le modèle après proposition ; la promenade reste
+   administrateur.
 
 ## 12. Captures opportunistes, pendant la promenade
 
@@ -412,7 +425,7 @@ pèsent environ 2,4 Mo en base64 : le résumé de fin le dit avant le partage.
 ### 13.1 Le but
 
 En une visite, capturer **le plus d'informations possible sur une parcelle**, en général celle du
-client :
+client. Le but est le **100 %** sur ses bâtiments (§1), et sur les mitoyens qui se voient :
 - toutes les façades de tous ses bâtiments ;
 - ce que l'on voit des toits ;
 - les couleurs, les matériaux et les textures ;
@@ -420,18 +433,28 @@ client :
 - la clôture côté rue et le portail.
 
 C'est un mode **à part** de la promenade : on ne marche pas dans un quartier, on fait le tour d'une
-maison, avec une liste de contrôle qui dit ce qui manque. Le résultat sert au corpus et peut être
-importé dans le projet de cette parcelle (§13.6).
+maison, avec une liste de contrôle qui dit ce qui manque. Il est **ouvert à tout utilisateur**, dans
+son projet : ce qu'il capture devient des **propositions** qui, acceptées, **mettent à jour le
+modèle** du projet (§13.6). La promenade, elle, reste réservée à l'administrateur.
 
 ### 13.2 Accès et départ
 
-- `?mode=audit&cible=parcelle`, **administrateur seulement**, comme la promenade (§3). Il s'ouvre
-  depuis **Admin › Audit de la parcelle**.
-- Départ : la parcelle sous la position GPS, ou `&depart=<adresse>`. La parcelle est chargée une
-  seule fois, avec ses bâtiments et ses mitoyens en calcul entier, comme à l'import. Le disque de
-  70 m qui suit la marche n'est pas utilisé.
-- Vue 3D centrée sur la parcelle, votre position montrée, pas de sauvegarde de projet. Le brouillon
-  local (§3, étape 2) vaut aussi ici : une visite peut durer une heure.
+- **Dans un projet**, par une commande du registre, `audit.parcelle` (« Auditer la parcelle… »),
+  groupe `audit`. Elle demande le droit d'écrire le projet (`projects.write`) : en lecture seule, elle
+  est grisée avec sa raison. Elle s'inscrit dans `app/exposition.ts` pour les trois classes d'écran :
+  menu Projet en large, feuille du projet en compact et en moyen.
+- Elle porte sur la **parcelle du projet** (`model/fonctions.ts::parcelleDuProjet`) : ses bâtiments
+  et ses mitoyens, déjà chargés par l'import, en calcul entier. Rien d'autre n'est lu. Sans parcelle
+  cadastrale (plan dessiné à la main), la commande est grisée : « Importez d'abord la parcelle depuis
+  son adresse. »
+- Vue 3D centrée sur la parcelle, votre position GPS montrée si vous êtes sur place. On peut aussi
+  auditer **de chez soi** avec des photos déjà prises : la position et l'azimut viennent alors de
+  l'EXIF quand il les porte, sinon de la façade choisie dans la liste.
+- Ce qui est en cours (photos, relevés non encore acceptés) est gardé sur l'appareil
+  (`io/photosLocales.ts`, brouillon) : une visite peut durer une heure, et l'onglet peut être tué.
+  Rien n'entre dans le projet avant d'être accepté (§13.6).
+- L'administrateur peut ouvrir le même audit sur une parcelle hors projet (`?mode=audit&cible=parcelle`,
+  menu Admin) ; il en sort un fichier (§13.7).
 
 ### 13.3 La liste de contrôle
 
@@ -440,7 +463,9 @@ Un parcours plein écran (Z8) liste, pour chaque bâtiment de la parcelle :
 | Ligne | Statuts | D'où |
 |---|---|---|
 | chaque **façade** : orientation, longueur | à photographier · photographiée (n photos) · relevée · inaccessible | `facade/geometrie.ts::facadesDuContour` |
-| le **toit** : « Ce que je vois » (forme, sens du faîtage, bouts, lucarnes, cheminées) | à voir · vu | `spec-regles-toits.md` §7.2 |
+| le **toit** : « Ce que je vois » (forme, sens du faîtage, bouts, lucarnes) | à voir · vu | `spec-regles-toits.md` §7.2 |
+| les **cheminées** : nombre, position (faîtage, pan, pignon, adossée), matériau, couronnement | à voir · vues · aucune | `spec-regles-toits.md` §2.6 |
+| la **toiture-terrasse**, s'il y en a une : accessible, revêtement, acrotère, garde-corps, édicules | à voir · vue | `spec-regles-toits.md` §2.7 |
 | le **matériau** des murs et de la couverture | à voir · vu | les choix du §2 de `spec-regles-toits.md` et de `textureMur.ts` |
 
 Et pour la parcelle :
@@ -452,6 +477,8 @@ Et pour la parcelle :
 
 - Une façade sur une limite mitoyenne (`model/mitoyennete.ts`) est déjà marquée « mitoyenne, rien à
   photographier ». Une façade côté voisin ou cachée se marque « inaccessible » en une touche.
+- Les **mitoyens** apparaissent dans la liste, avec ce qui se voit depuis la rue et depuis la parcelle :
+  leur toit, leurs cheminées, la façade sur la limite. Le reste est « inaccessible ».
 - Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »).
 - Toucher une façade dans la Vue 3D ouvre sa ligne.
 
@@ -488,45 +515,85 @@ Tout se calcule dans le navigateur, sans serveur, avec le code du relevé :
 La texture de matériau tirée du gros plan est la seule partie nouvelle. Elle remplace, pour ce
 bâtiment, la texture dessinée de `textureMur.ts`, teinte comprise.
 
-### 13.6 Le fichier, et ce qu'il devient
+### 13.6 Les propositions, puis la mise à jour du modèle
 
-- Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1, partagé
-  comme la promenade (§4.6).
+Ce que l'audit capture n'entre pas tout seul dans le projet : Plan le **propose**, vous acceptez.
+
+1. **Après chaque façade relevée**, et à la fin de l'audit, une liste de propositions, une ligne par
+   changement, avec l'avant et l'après :
+   - « Façade sud : 6 ouvertures relevées (Plan en avait mis 4), texture de la photo » ;
+   - « Façade sud : 5,82 m à l'égout, mesurés (le bâtiment a 6,00 m) » ;
+   - « Murs : enduit beige #c9b49a, lu sur vos photos (au lieu de la couleur du matériau) » ;
+   - « Toit : deux cheminées au faîtage, brique » ;
+   - « Toit-terrasse du garage : accessible, acrotère de 1 m » ;
+   - « Clôture côté rue : mur de 1,60 m, portail de 3,50 m ».
+2. Chaque ligne se **coche ou se décoche** ; « Tout appliquer » et « Appliquer la sélection ».
+   La Vue 3D montre l'après en aperçu avant que vous validiez.
+3. **Appliquer** écrit tout en **un seul pas d'historique** (Ctrl+Z le défait), et le projet est
+   marqué modifié.
+4. **Une valeur que vous aviez choisie à la main** (couleur, matériau, relevé d'une façade, forme du
+   toit) n'est jamais remplacée en silence. Sa ligne est **décochée par défaut** et le dit : « remplace
+   votre choix : brique rouge ».
+5. Un bâtiment dont le toit et les façades ont été vus et acceptés est marqué **« vérifié sur
+   place »**, avec la date. C'est le 100 % du §1. Les changements de règle ne le recalculent plus
+   (`spec-regles-toits.md` §1). Une actualisation IGN (Fichier › Actualiser) non plus, sauf si vous le
+   demandez.
+
+Ce qui est écrit utilise les structures **déjà dans le projet** :
+- `ReleveFacade` pour chaque façade (texture, ouvertures, hauteur, partie basse, toit lu) : la 3D et
+  le plan l'affichent sans code nouveau ;
+- `couleurMurs` (source `photo`) et la texture de matériau ;
+- les cheminées et la terrasse dans le corps du toit (`spec-regles-toits.md` §4) ;
+- la clôture et le portail de la parcelle.
+
+Les élévations et les photos restent sur l'appareil (`io/photosLocales.ts`), comme celles d'un relevé
+(`spec-releve-facade.md` §10.1).
+
+L'audit ne touche pas au code des toits : AE 101 et les empreintes ne bougent pas.
+
+### 13.7 Le fichier, pour le corpus
+
+- Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1.
 - Contenu :
   - la parcelle (IDU, adresse, origine), la version du code et des règles ;
   - pour chaque bâtiment : les `entrees` et les `sorties` d'un cas (§5.2), le toit vu, et pour chaque
     façade ses photos (avec prise et coins), son `ReleveFacade`, sa couleur, son matériau et son gros
     plan ;
-  - la clôture et le portail.
+  - la clôture et le portail ;
+  - pour chaque proposition, si elle a été acceptée ou refusée.
 - Taille : dix façades à trois photos font environ 9 Mo d'images, plus 1,5 Mo d'élévations, soit
-  environ 14 Mo en base64. Cela passe par la messagerie ou le Drive.
+  environ 14 Mo en base64.
+- **Qui le produit** :
+  - l'administrateur, toujours (audit hors projet, menu Admin) ;
+  - un utilisateur, **seulement s'il accepte de le partager** (« Partager cet audit pour améliorer
+    Plan », décoché par défaut). Ses photos sont celles de sa maison : rien ne part sans son accord
+    (question 11).
+- **Ce qu'il apporte** : chaque façade relevée est une vérité terrain, comparée au rejeu (§7) avec ce
+  que Plan calcule seul :
+  - la couleur Panoramax ou celle du matériau BD TOPO ;
+  - les ouvertures automatiques (`facade/ouvertures.ts::ouverturesAutomatiques`) ;
+  - la hauteur des murs ;
+  - le toit.
 
-**Deux usages :**
+  Le test de non-régression (§8) s'étend aux façades : couleur, nombre et position des ouvertures.
+  Une proposition **refusée** est aussi une information : Plan s'est trompé dans sa lecture.
+- **Fichier › Importer un audit de parcelle** applique un fichier à un projet de la même parcelle
+  (même IDU), avec les mêmes propositions (§13.6). C'est le cas d'un audit fait par l'administrateur
+  pour un client.
 
-1. **Le corpus.** Chaque façade relevée est une vérité terrain, comparée au rejeu (§7) avec ce que
-   Plan calcule seul :
-   - la couleur Panoramax ou celle du matériau BD TOPO ;
-   - les ouvertures automatiques (`facade/ouvertures.ts::ouverturesAutomatiques`) ;
-   - la hauteur des murs ;
-   - le toit.
-
-   Le test de non-régression (§8) s'étend aux façades : couleur, nombre et position des ouvertures.
-2. **L'import dans le projet** (hors du mode audit). Dans le projet de la même parcelle (même IDU),
-   **Fichier › Importer un audit de parcelle** écrit le relevé de chaque façade dans son bâtiment.
-   La structure `ReleveFacade` est déjà celle du projet : la 3D et le plan l'affichent sans code
-   nouveau. Couleur et texture de matériau s'appliquent aussi. Règles :
-   - un seul pas d'historique (Ctrl+Z le défait) ;
-   - une valeur choisie à la main n'est jamais écrasée : la ligne de l'import le dit (« façade nord
-     déjà relevée, gardée ») ;
-   - les élévations restent sur l'appareil qui importe (`io/photosLocales.ts`), comme celles d'un
-     relevé (`spec-releve-facade.md` §10.1).
-
-   L'import ne touche pas au code des toits : AE 101 et les empreintes ne bougent pas.
-
-### 13.7 Ce que l'audit de parcelle ne fait pas
+### 13.8 Ce que l'audit de parcelle ne fait pas
 
 - Pas de reconstruction de la géométrie depuis les photos : le contour reste celui du plan, comme
   dans le relevé.
 - Pas d'intérieur, pas de mesure du terrain.
 - Pas de photo détaillée des parcelles voisines.
 - Pas d'envoi automatique : le partage passe par vous.
+- Pas de changement du modèle sans votre accord : tout passe par les propositions (§13.6).
+10. **Mitoyens à 100 %** (§1) : l'exigence de la parcelle principale vaut-elle aussi pour les
+    bâtiments mitoyens ? Votre réponse du 13 octobre : « probablement ». Proposition : oui. L'audit
+    de parcelle les liste avec ce qui se voit depuis la rue et depuis la parcelle ; ce qui ne se voit
+    pas reste au calcul.
+11. **Partage de l'audit d'un utilisateur** (§13.7) : un utilisateur peut-il partager son audit pour
+    améliorer les règles, et sous quelle forme ? Proposition : une case « Partager cet audit pour
+    améliorer Plan », décochée par défaut, qui envoie le fichier au serveur de la plateforme ; sans
+    elle, rien ne quitte l'appareil.
