@@ -73,6 +73,25 @@ export function passeGarde(ancien: Tarifs | null, nouveau: Tarifs, jour: string)
 export function verifierPlafonds(d: unknown): Plafonds;
 export function lireResultat(ligne: unknown): ResultatLu;
 
+export interface FiltresConsommation {
+  du: string;
+  au: string;
+  organisation: string | null;
+  modele: string | null;
+  usage: string | null;
+  parcelle: string | null;
+}
+
+export const MOIS_CONSULTABLES: number;
+export function decalerJour(jour: string, n: number): string;
+export function moisEntre(du: string, au: string): string[];
+export function lireFiltres(params: URLSearchParams, aujourdhui: string): FiltresConsommation;
+export function filtrerConsommation(lignes: unknown[], filtres: Pick<FiltresConsommation, 'du' | 'au'> & Partial<FiltresConsommation>): Record<string, unknown>[];
+export function etatOrganisations(lignesDuMois: unknown[], plafonds: Plafonds, jour: string): { id: string; jour: number; mois: number; plafond: { jour: number; mois: number } }[];
+export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
+  organisations: string[]; modeles: string[]; usages: string[]; parcelles: { idu: string; adresse: string | null }[];
+};
+
 export function creerAnalyseAdmin(options: {
   dossier: string;
   actif: boolean;

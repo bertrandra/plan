@@ -65,6 +65,8 @@ RedirectMatch 404 ^/data(/|$)
   # L'analyse par Claude (analyse.php, MD/spec-audit.md 13.2) : sous `admin/`, elle recoit le
   # cookie de la session admin. Avant la regle suivante, qui prendrait tout `admin/`.
   RewriteRule ^admin/claude(/(.*))?$ analyse.php?chemin=$2 [QSA,L]
+  # Le tableau de bord de la consommation (13.3) relit le journal d'analyse.php : meme script.
+  RewriteRule ^admin/consommation/?$ analyse.php?chemin=@consommation [QSA,L]
   RewriteRule ^admin/(.*)$ admin.php?chemin=$1 [QSA,L]
 </IfModule>
 # Le prompt de l'analyse ne se sert pas : analyse.php le lit. (Les .json le sont deja, plus haut.)

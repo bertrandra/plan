@@ -7,7 +7,8 @@ import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
 import {
   creerAnalyseAdmin, coutAppel, tarifEnVigueur, tokensDeUsage, depenses, lirePrompt, verifierDemande, verifierTarifs, passeGarde,
-  verifierPlafonds, lireResultat, parametresRequete, PLAFONDS_DEFAUT, MAX_TOKENS, type Tarifs, type Plafonds
+  verifierPlafonds, lireResultat, parametresRequete, PLAFONDS_DEFAUT, MAX_TOKENS, lireFiltres, moisEntre, decalerJour, filtrerConsommation,
+  etatOrganisations, choixConsommation, type Tarifs, type Plafonds
 } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { CLE, COUT_P1, COUT_P2, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
@@ -308,5 +309,106 @@ describe('analyse par Claude, routes', () => {
     expect((await (await navigateur('admin/claude/tarifs')).json()).lignes).toHaveLength(3);
     expect((await ecrire('admin/claude/plafonds', 'PUT', { format: 'plan-claude-plafonds' })).status).toBe(400);
     expect(await (await navigateur('admin/claude/plafonds')).json()).toEqual(PLAFONDS_DEFAUT);
+  });
+});
+
+// --- Le tableau de bord de la consommation (13.3, lot L16 bis) ----------------------------------
+
+/** Une ligne de journal comme analyse.php l'ecrit, avec ce qui varie d'un test a l'autre. */
+const ligneJournal = (t: string, plus: Record<string, unknown> = {}) => ({
+  t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
+  usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
+  tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, cout: COUT_P1,
+  tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 0, schema: 0, ...plus
+});
+
+describe('la consommation : filtres et lignes', () => {
+  it('lit les filtres, trente jours par defaut, et refuse ce qui est mal forme', () => {
+    expect(lireFiltres(new URLSearchParams(''), '2026-10-14')).toEqual({ du: '2026-09-15', au: '2026-10-14', organisation: null, modele: null, usage: null, parcelle: null });
+    expect(lireFiltres(new URLSearchParams('du=2026-10-01&au=2026-10-14&modele=claude-sonnet-5-5&parcelle=78650000AE0101&usage=escalade&organisation=org-1'), '2026-10-14'))
+      .toEqual({ du: '2026-10-01', au: '2026-10-14', organisation: 'org-1', modele: 'claude-sonnet-5-5', usage: 'escalade', parcelle: '78650000AE0101' });
+    expect(() => lireFiltres(new URLSearchParams('du=2026-10-15&au=2026-10-14'), '2026-10-14')).toThrow(/Période/);
+    expect(() => lireFiltres(new URLSearchParams('du=2026-02-30'), '2026-10-14')).toThrow(/Période/);
+    expect(() => lireFiltres(new URLSearchParams('du=2024-01-01&au=2026-10-14'), '2026-10-14')).toThrow(/trop longue/);
+    expect(() => lireFiltres(new URLSearchParams('modele=gpt'), '2026-10-14')).toThrow(/modele/);
+    expect(() => lireFiltres(new URLSearchParams('parcelle=../x'), '2026-10-14')).toThrow(/parcelle/);
+    expect(moisEntre('2025-11-20', '2026-02-03')).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
+    expect(decalerJour('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('ne rend que les lignes de la periode et des filtres, reduites aux compteurs', () => {
+    const lignes = [
+      ligneJournal('2026-10-01T08:00:00Z'),
+      ligneJournal('2026-10-02T08:00:00Z', { modele: 'claude-sonnet-5-5', usage: 'escalade' }),
+      ligneJournal('2026-10-03T08:00:00Z', { idu: '78650000AE0102', organisation: 'org-1' }),
+      ligneJournal('2026-09-30T23:59:59Z')
+    ];
+    const tout = filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14' });
+    expect(tout).toHaveLength(3);
+    expect(Object.keys(tout[0]!)).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut']);
+    expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', modele: 'claude-sonnet-5-5' }).map((l) => l.usage)).toEqual(['escalade']);
+    expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', parcelle: '78650000AE0102' }).map((l) => l.organisation)).toEqual(['org-1']);
+    expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', organisation: 'org-1', usage: 'analyse' })).toHaveLength(1);
+  });
+
+  it('donne a chaque organisation ses depenses du jour et du mois face a ses plafonds', () => {
+    const p = { ...PLAFONDS_DEFAUT, organisations: { 'org-1': { jour: 0.5, mois: 5 } } } as Plafonds;
+    const lignes = [ligneJournal('2026-10-14T08:00:00Z'), ligneJournal('2026-10-02T08:00:00Z'), ligneJournal('2026-10-14T09:00:00Z', { organisation: 'org-2', cout: 0.01 })];
+    expect(etatOrganisations(lignes, p, '2026-10-14')).toEqual([
+      { id: 'admin', jour: COUT_P1, mois: 2 * COUT_P1, plafond: { jour: 1, mois: 10 } },
+      { id: 'org-1', jour: 0, mois: 0, plafond: { jour: 0.5, mois: 5 } },
+      { id: 'org-2', jour: 0.01, mois: 0.01, plafond: { jour: 1, mois: 10 } }
+    ]);
+    expect(choixConsommation(lignes, p)).toEqual({
+      organisations: ['admin', 'org-1', 'org-2'], modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'],
+      usages: ['analyse', 'escalade', 'renfort', 'immediat'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+    });
+  });
+});
+
+describe('la consommation, route admin/consommation', () => {
+  beforeEach(async () => {
+    dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'consommation-'));
+    cookie = '';
+    maintenant = Date.parse('2026-10-14T09:00:00Z');
+    faux = await demarrerFauxAnthropic(reponseParDefaut);
+    fs.mkdirSync(path.join(dossier, 'claude'), { recursive: true });
+    const ecrireJournal = (mois: string, lignes: object[]) => fs.writeFileSync(path.join(dossier, 'claude', 'journal-' + mois + '.jsonl'), lignes.map((l) => JSON.stringify(l) + '\n').join(''));
+    ecrireJournal('2026-09', [ligneJournal('2026-09-20T08:00:00Z', { cout: 0.02 }), ligneJournal('2026-09-01T08:00:00Z')]);
+    ecrireJournal('2026-10', [ligneJournal('2026-10-10T08:00:00Z'), ligneJournal('2026-10-14T08:00:00Z', { modele: 'claude-sonnet-5-5', usage: 'escalade', cout: 0.004 })]);
+  });
+  afterEach(async () => {
+    await new Promise((ok) => serveur.close(ok));
+    await faux.fermer();
+    fs.rmSync(dossier, { recursive: true, force: true });
+  });
+
+  it('exige la session admin, lit le journal sans cle, et ne s ecrit pas', async () => {
+    await demarrer(undefined);
+    expect((await navigateur('admin/consommation')).status).toBe(401);
+    await connecterAdmin(navigateur, MDP);
+    const r = await navigateur('admin/consommation');
+    expect(r.status).toBe(200);
+    const d = await r.json();
+    expect(d).toMatchObject({ format: 'plan-claude-consommation', du: '2026-09-15', au: '2026-10-14', aujourdhui: '2026-10-14' });
+    expect(d.lignes.map((l: { t: string }) => l.t)).toEqual(['2026-09-20T08:00:00Z', '2026-10-10T08:00:00Z', '2026-10-14T08:00:00Z']);
+    // Les sept derniers jours, sans filtre : pour les alertes.
+    expect(d.recents.map((l: { t: string }) => l.t)).toEqual(['2026-10-10T08:00:00Z', '2026-10-14T08:00:00Z']);
+    expect(d.organisations).toEqual([{ id: 'admin', jour: 0.004, mois: 0.0061375, plafond: { jour: 1, mois: 10 } }]);
+    expect(d.choix.parcelles).toEqual([{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]);
+    expect((await ecrire('admin/consommation', 'PUT', {})).status).toBe(405);
+    expect(faux.entetes).toHaveLength(0);
+  });
+
+  it('applique les filtres, et refuse un filtre mal forme', async () => {
+    await demarrer(CLE);
+    await connecterAdmin(navigateur, MDP);
+    const d = await (await navigateur('admin/consommation?du=2026-10-01&au=2026-10-14&modele=claude-sonnet-5-5')).json();
+    expect(d.lignes).toHaveLength(1);
+    expect(d.lignes[0]).toMatchObject({ usage: 'escalade', cout: 0.004 });
+    expect(d.filtres).toEqual({ organisation: null, modele: 'claude-sonnet-5-5', usage: null, parcelle: null });
+    const refus = await navigateur('admin/consommation?du=2026-10-14&au=2026-10-01');
+    expect(refus.status).toBe(400);
+    expect((await refus.json()).error.code).toBe('BAD_REQUEST');
   });
 });

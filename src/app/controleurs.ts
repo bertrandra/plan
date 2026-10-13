@@ -56,7 +56,7 @@ export interface SourceControleurs {
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
 const ZONES: { cle: string; nom: string; emplacements: Emplacement[] }[] = [
-  { cle: 'Z1', nom: 'Barre d’application', emplacements: ['barreHaute', 'menuFichier', 'menuExporter', 'menuAffichage', 'menuAide', 'feuilleProjet', 'navigation'] },
+  { cle: 'Z1', nom: 'Barre d’application', emplacements: ['barreHaute', 'menuFichier', 'menuExporter', 'menuAffichage', 'menuAide', 'menuAdmin', 'feuilleProjet', 'navigation'] },
   { cle: 'Z2', nom: 'Palette d’outils', emplacements: ['palette', 'rail', 'feuilleOutils'] },
   { cle: 'Z3', nom: 'Explorateur', emplacements: ['explorateur'] },
   { cle: 'Z4', nom: 'Canevas', emplacements: ['surimpression', 'selection', 'vue3d', 'visionneuse'] },
@@ -69,7 +69,7 @@ const ZONES: { cle: string; nom: string; emplacements: Emplacement[] }[] = [
 const NOMS_EMPLACEMENTS: Record<Emplacement, string> = {
   palette: 'Palette (bureau)', rail: 'Rail (tablette)', feuilleOutils: 'Feuille Outils (téléphone)',
   navigation: 'Barre de navigation (téléphone)', barreHaute: 'Barre haute', feuilleProjet: 'Feuille Projet (téléphone)',
-  menuFichier: 'Menu Fichier', menuExporter: 'Menu Exporter', menuAffichage: 'Menu Affichage', menuAide: 'Menu Aide',
+  menuFichier: 'Menu Fichier', menuExporter: 'Menu Exporter', menuAffichage: 'Menu Affichage', menuAide: 'Menu Aide', menuAdmin: 'Menu Admin',
   surimpression: 'Surimpression du plan', selection: 'Barre de sélection', inspecteur: 'Inspecteur', explorateur: 'Explorateur',
   tiroir: 'Tiroir des résultats', vue3d: 'Vue 3D', visionneuse: 'Visionneuse GLB', clavier: 'Clavier',
   premierPas: 'Premier pas', sansObjet: 'Sans objet'

@@ -7,6 +7,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Tableau de bord de la consommation de Claude** (lot L16 bis, `MD/spec-audit.md` §13.3).
+  Admin › Consommation de Claude (`?admin&ecran=consommation`), pour l'administrateur seulement,
+  ouvert par une commande du registre (`admin.consommation`) inscrite dans les trois classes
+  d'écran. Il relit le journal d'`analyse.php` par une nouvelle route, `GET admin/consommation`
+  (Apache et Node, même réponse), filtrée par période, organisation, modèle, usage et parcelle :
+  - dans le temps : tokens ou dollars par jour, semaine ou mois, en aires empilées par modèle,
+    avec une infobulle au survol ou au doigt et le tableau des valeurs ;
+  - par parcelle (tableau trié sur chaque colonne), par usage (part du coût, part du Batch), par
+    organisation (jour et mois face aux plafonds) ;
+  - chiffres clés : coût, tokens, coût moyen par parcelle face à l'estimation de 1 à 2 centimes,
+    part de l'escalade, part lue en cache, taux d'échec ;
+  - alertes sur les sept derniers jours : organisation à 80 % de son plafond du jour ou du mois,
+    coût moyen par parcelle au-delà de deux fois l'estimation, plus de 5 % d'échecs ;
+  - export CSV de la vue affichée (point-virgule, virgule décimale, formules neutralisées) ;
+  - tarifs et plafonds réglés depuis l'écran : un tarif s'ajoute daté d'aujourd'hui ou plus tard,
+    seule une ligne à venir se retire.
+
+  Graphiques en SVG dessinés par la page, avec trois nouveaux jetons de couleur (`--serie-1` à
+  `--serie-3`, un par modèle, validés pour les daltoniens en clair et en sombre), chaque couleur
+  nommée à côté. Les modèles de palette les reprennent tels quels.
+
 - **Serveur de l'analyse par Claude** (lot L16, `MD/spec-audit.md` §13.2 et §13.3, aucun écran).
   `deploy/analyse.php`, à côté d'`admin.php`, et son équivalent Node pour le serveur SiteGround
   (`buildsg/analyseAdmin.mjs`) relaient l'API Message Batches d'Anthropic sous `admin/claude/…`,

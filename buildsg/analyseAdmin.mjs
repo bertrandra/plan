@@ -8,6 +8,7 @@
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
+//   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //
 // **La cle ne quitte jamais le serveur**, et la page ne choisit ni le prompt, ni le schema, ni le
 // reglage : elle n'envoie que la partie propre a la maison (images et texte). Sans quoi la cle
@@ -218,7 +219,83 @@ export function verifierPlafonds(d) {
   return d;
 }
 
-const STATUT_RESULTAT = { succeeded: 'reussi', errored: 'echoue', expired: 'expire', canceled: 'annule' };
+// --- Le tableau de bord de la consommation (13.3, lot L16 bis) ----------------------------------
+
+const JOUR = /^\d{4}-\d{2}-\d{2}$/;
+const MODELE_VALIDE = /^claude-[a-z0-9-]{1,60}$/;
+const USAGE_VALIDE = /^[a-z]{1,20}$/;
+/** Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus). */
+export const MOIS_CONSULTABLES = 25;
+/** Les champs d'une ligne que le tableau de bord lit : des compteurs et l'identite de la parcelle. */
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut'];
+
+const jourMs = (j) => Date.UTC(Number(j.slice(0, 4)), Number(j.slice(5, 7)) - 1, Number(j.slice(8, 10)));
+const jourValide = (j) => typeof j === 'string' && JOUR.test(j) && new Date(jourMs(j)).toISOString().slice(0, 10) === j;
+
+/** Un jour (`AAAA-MM-JJ`) decale de `n` jours, en UTC. */
+export function decalerJour(jour, n) {
+  return new Date(jourMs(jour) + n * 86400000).toISOString().slice(0, 10);
+}
+
+/** Les mois (`AAAA-MM`) d'une periode, dans l'ordre : un fichier de journal par mois. */
+export function moisEntre(du, au) {
+  const mois = [];
+  const fin = Number(au.slice(0, 4)) * 12 + Number(au.slice(5, 7)) - 1;
+  for (let k = Number(du.slice(0, 4)) * 12 + Number(du.slice(5, 7)) - 1; k <= fin; k++) {
+    mois.push(String(Math.floor(k / 12)) + '-' + String((k % 12) + 1).padStart(2, '0'));
+  }
+  return mois;
+}
+
+/**
+ * Les filtres de `GET admin/consommation`, lus dans l'adresse : `du` et `au` (AAAA-MM-JJ, par defaut
+ * les trente derniers jours), `organisation`, `modele`, `usage`, `parcelle` (un IDU). Un filtre mal
+ * forme est refuse net : ignore en silence, il montrerait des chiffres faux.
+ */
+export function lireFiltres(params, aujourdhui) {
+  const au = params.get('au') || aujourdhui;
+  const du = params.get('du') || (jourValide(au) ? decalerJour(au, -29) : '');
+  if (!jourValide(du) || !jourValide(au) || du > au) throw refus('Période invalide (du et au en AAAA-MM-JJ, du avant au).');
+  if (moisEntre(du, au).length > MOIS_CONSULTABLES) throw refus('Période trop longue (le journal est gardé 24 mois).');
+  const f = { du, au, organisation: null, modele: null, usage: null, parcelle: null };
+  for (const [cle, motif] of [['organisation', ID_VALIDE], ['modele', MODELE_VALIDE], ['usage', USAGE_VALIDE], ['parcelle', ID_VALIDE]]) {
+    const v = params.get(cle);
+    if (v === null || v === '') continue;
+    if (!motif.test(v)) throw refus('Filtre « ' + cle + ' » invalide.');
+    f[cle] = v;
+  }
+  return f;
+}
+
+/** Les lignes de la periode qui passent les filtres, reduites aux champs du tableau de bord. */
+export function filtrerConsommation(lignes, f) {
+  return lignes.filter((l) => l && typeof l.t === 'string' && l.t.slice(0, 10) >= f.du && l.t.slice(0, 10) <= f.au
+    && (!f.organisation || l.organisation === f.organisation) && (!f.modele || l.modele === f.modele)
+    && (!f.usage || l.usage === f.usage) && (!f.parcelle || l.idu === f.parcelle))
+    .map((l) => Object.fromEntries(CHAMPS_CONSOMMATION.map((k) => [k, l[k] === undefined ? null : l[k]])));
+}
+
+const chaines = (lignes, k) => lignes.map((l) => l && l[k]).filter((x) => typeof x === 'string' && x !== '');
+const organisationsConnues = (lignes, p) => [...new Set(['admin', ...Object.keys(p.organisations || {}), ...chaines(lignes, 'organisation')])].sort();
+
+/** Chaque organisation connue (plafonds ou journal du mois) : ses depenses du jour et du mois, ses plafonds. */
+export function etatOrganisations(lignesDuMois, p, jour) {
+  return organisationsConnues(lignesDuMois, p).map((id) => ({ id, ...depenses(lignesDuMois, id, jour), plafond: plafondDe(p, id) }));
+}
+
+/** De quoi remplir les listes des filtres : ce que la periode contient, avant filtre. */
+export function choixConsommation(lignes, p) {
+  const parcelles = new Map();
+  for (const l of lignes) if (l && typeof l.idu === 'string' && l.idu && !parcelles.has(l.idu)) parcelles.set(l.idu, typeof l.adresse === 'string' ? l.adresse : null);
+  return {
+    organisations: organisationsConnues(lignes, p),
+    modeles: [...new Set([...MODELES, ...chaines(lignes, 'modele')])],
+    usages: [...new Set([...USAGES, ...chaines(lignes, 'usage')])],
+    parcelles: [...parcelles].map(([idu, adresse]) => ({ idu, adresse })).sort((a, b) => (a.idu < b.idu ? -1 : a.idu > b.idu ? 1 : 0))
+  };
+}
+
+const STATUT_RESULTAT ={ succeeded: 'reussi', errored: 'echoue', expired: 'expire', canceled: 'annule' };
 
 /** Ce qu'une ligne de resultats d'Anthropic devient : pour la page, et pour le journal. */
 export function lireResultat(ligne) {
@@ -384,9 +461,10 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
    * @param {Record<string, string>} base
    */
   async function traiter(req, res, url, base) {
-    const m = /^\/admin\/claude(?:\/(.*))?$/.exec(url.pathname);
+    // `admin/consommation` (13.3) est servi ici aussi : il ne fait que relire le journal de ce module.
+    const m = /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
     if (!m || !actif) return false;
-    const chemin = (m[1] || '').replace(/\/$/, '');
+    const chemin = m[2] ? '@consommation' : (m[1] || '').replace(/\/$/, '');
     const json = (statut, corps) => {
       res.writeHead(statut, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(req.method === 'HEAD' ? undefined : JSON.stringify(corps));
@@ -404,6 +482,27 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const { prompt, schema } = promptEtSchema();
         return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT });
+      }
+
+      if (chemin === '@consommation') {
+        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const aujourdhui = iso().slice(0, 10);
+        const f = lireFiltres(url.searchParams, aujourdhui);
+        const p = plafonds();
+        // Chaque fichier mensuel est lu une fois, meme s'il sert a la periode, aux sept derniers
+        // jours et au mois des plafonds.
+        const lus = new Map();
+        const mois = (m) => { if (!lus.has(m)) lus.set(m, lireJournal(m + '-01').filter(Boolean)); return lus.get(m); };
+        const periode = moisEntre(f.du, f.au).flatMap(mois);
+        const debutRecents = decalerJour(aujourdhui, -6);
+        return json(200, {
+          format: 'plan-claude-consommation', du: f.du, au: f.au, aujourdhui,
+          filtres: { organisation: f.organisation, modele: f.modele, usage: f.usage, parcelle: f.parcelle },
+          lignes: filtrerConsommation(periode, f),
+          recents: filtrerConsommation(moisEntre(debutRecents, aujourdhui).flatMap(mois), { du: debutRecents, au: aujourdhui }),
+          organisations: etatOrganisations(mois(aujourdhui.slice(0, 7)), p, aujourdhui),
+          choix: choixConsommation(periode, p)
+        });
       }
 
       if (chemin === 'tarifs' || chemin === 'plafonds') {

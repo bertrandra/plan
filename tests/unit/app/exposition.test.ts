@@ -26,7 +26,7 @@ function fichiers(dossier: string): string[] {
  * `surClic` qui prennent l'element avant l'identifiant.
  */
 function commandesDeclarees(): string[] {
-  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade|relief|audit).[A-Za-z0-9.]+)'/g;
+  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade|relief|audit|admin).[A-Za-z0-9.]+)'/g;
   const ids = new Set<string>();
   for (const f of fichiers('src/app').filter((f) => f.endsWith('.ts'))) {
     const texte = lire(f);
@@ -47,6 +47,7 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   menuExporter: ['src/zones/BarreApplication.tsx'],
   menuAffichage: ['src/zones/BarreApplication.tsx'],
   menuAide: ['src/zones/BarreApplication.tsx'],
+  menuAdmin: ['src/zones/BarreApplication.tsx'],
   surimpression: ['src/zones/Surimpression.tsx'],
   selection: ['src/zones/FeuilleSelection.tsx'],
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
