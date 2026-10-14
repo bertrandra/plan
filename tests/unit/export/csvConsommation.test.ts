@@ -12,7 +12,7 @@ function ligne(t: string, plus: Partial<LigneConsommation> = {}): LigneConsommat
   return {
     t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
     usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, passe: 1,
-    tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, images: 1, cout: 0.0007, statut: 'reussi', ...plus
+    tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, images: 1, facades: 2, cout: 0.0007, statut: 'reussi', ...plus
   };
 }
 

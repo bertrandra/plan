@@ -49,6 +49,7 @@ import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
 import { droitsCourants, enLectureSeule, prevenirAdminDesCapacitesForcees } from './acces.js';
+import { analyseClaudeDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
@@ -434,6 +435,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
       remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
     },
+    analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
   }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.

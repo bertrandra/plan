@@ -18,8 +18,14 @@
 // publie), et la page ne choisit ni le prompt, ni le schema, ni le reglage : elle n'envoie que la
 // partie propre a la maison (images et texte). Sans quoi la cle servirait a n'importe quoi.
 //
-// Defenses : celles d'admin.php (session admin seulement pour l'instant, en-tete `X-Plan-Admin: 1`
-// sur toute ecriture, 404 partout sans configuration) ; seuls les batches crees ici se lisent ;
+// Qui peut appeler (plan D1, lot L17) : la session admin d'admin.php, ou un utilisateur de la
+// plateforme par son jeton (`Authorization: Bearer`), verifie aupres de la plateforme elle-meme
+// (`GET /api/v1/me/context`, `plateformeUrl` de la configuration) : son organisation (`tenant.id`)
+// est celle du journal et des plafonds. Un utilisateur ne voit que `etat` et ses propres batches ;
+// tarifs, plafonds et consommation restent a l'administrateur.
+//
+// Defenses : celles d'admin.php (en-tete `X-Plan-Admin: 1` sur toute ecriture, 404 partout sans
+// configuration) ; seuls les batches crees ici se lisent, et par l'organisation qui les a crees ;
 // ecriture atomique et `.bak` pour les JSON ; le journal ne fait que s'allonger, verrouille. Il ne
 // garde ni photo ni contenu de reponse : les compteurs de `usage`, l'identite de la parcelle, et
 // le cout calcule avec la table des tarifs en vigueur le jour de l'appel.
@@ -40,6 +46,10 @@ const TAILLE_MAX = 48 * 1024 * 1024;
 const ID_VALIDE = '/^[A-Za-z0-9_-]{1,64}$/';
 const ID_BATCH = '/^[A-Za-z0-9_-]{1,128}$/';
 const IMAGES_PAR_REQUETE = 40;
+// Les facades qu'une requete couvre (journal, cout par facade du tableau de bord) : un compte, borne.
+const FACADES_MAX = 200;
+const PRODUIT_PLATEFORME = 'plan';
+const PERMISSION_ANALYSE = 'projects.write';
 const BLOCS_PAR_REQUETE = 120;
 const TEXTE_MAX = 200000;
 const TYPES_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -75,6 +85,7 @@ if ($motDePasse === '' || $motDePasse === 'A-CHANGER') erreur(404, 'NOT_FOUND', 
 $cle = (string)($config['anthropicCle'] ?? '');
 $avecCle = $cle !== '' && $cle !== 'A-CHANGER';
 $anthropicUrl = rtrim((string)($config['anthropicUrl'] ?? 'https://api.anthropic.com'), '/');
+$plateformeUrl = rtrim((string)($config['plateformeUrl'] ?? 'https://www.raillard.org'), '/');
 $dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
 $dossierClaude = $dossier . '/claude';
 $dossierBatches = $dossierClaude . '/batches';
@@ -93,7 +104,13 @@ session_name('plan_admin');
 session_set_cookie_params(['lifetime' => 8 * 3600, 'path' => $cheminCookie, 'secure' => $https, 'httponly' => true, 'samesite' => 'Strict']);
 ini_set('session.use_strict_mode', '1');
 session_start(['read_and_close' => true]);
-if (!(isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time())) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+$sessionAdmin = isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time();
+
+/** Le jeton porteur de la plateforme, s'il y en a un ; Apache le passe parfois via REDIRECT_. */
+function jetonPorteur(): ?string {
+    $v = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+    return preg_match('/^Bearer\s+([A-Za-z0-9._~+\/=-]{16,4096})$/', trim($v), $m) ? $m[1] : null;
+}
 
 // --- Le calcul, pur (buildsg/analyseAdmin.mjs, memes noms) ---------------------------------------
 
@@ -214,7 +231,9 @@ function verifierDemande($d, array $plafonds): array {
             throw new Refus('Bloc de contenu non admis (texte ou image base64 seulement).');
         }
         if ($images > IMAGES_PAR_REQUETE) throw new Refus('Trop d’images dans une requête (' . IMAGES_PAR_REQUETE . ' au plus).');
-        $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'contenu' => $contenu];
+        $facades = $r['facades'] ?? 0;
+        if (!is_int($facades) || $facades < 0 || $facades > FACADES_MAX) throw new Refus('Nombre de façades invalide.');
+        $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'contenu' => $contenu];
     }
     return $meta + ['usage' => $usage, 'modele' => $modele, 'requetes' => $requetes];
 }
@@ -280,7 +299,7 @@ function verifierPlafonds($d): array {
 
 // Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus).
 const MOIS_CONSULTABLES = 25;
-const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut'];
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut'];
 
 function jourValide($j): bool {
     if (!is_string($j) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $j, $m)) return false;
@@ -476,13 +495,11 @@ function promptEtSchema(): array {
     return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema]];
 }
 
-/** Un appel a l'API : [statut, texte]. Statut 0 si Anthropic est injoignable. */
-function anthropic(string $methode, string $chemin, ?string $corps = null): array {
-    global $anthropicUrl, $cle;
-    $entetes = ['x-api-key: ' . $cle, 'anthropic-version: ' . VERSION_API];
+/** Un appel HTTP : [statut, texte]. Statut 0 si le serveur est injoignable. */
+function appelHttp(string $methode, string $url, array $entetes, ?string $corps = null): array {
     if ($corps !== null) $entetes[] = 'content-type: application/json';
     if (function_exists('curl_init')) {
-        $h = curl_init($anthropicUrl . $chemin);
+        $h = curl_init($url);
         curl_setopt_array($h, [CURLOPT_CUSTOMREQUEST => $methode, CURLOPT_HTTPHEADER => $entetes, CURLOPT_RETURNTRANSFER => true,
                                CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120]);
         if ($corps !== null) curl_setopt($h, CURLOPT_POSTFIELDS, $corps);
@@ -493,10 +510,36 @@ function anthropic(string $methode, string $chemin, ?string $corps = null): arra
     }
     $contexte = stream_context_create(['http' => ['method' => $methode, 'header' => implode("\r\n", $entetes), 'content' => $corps ?? '',
                                                   'ignore_errors' => true, 'timeout' => 120]]);
-    $texte = @file_get_contents($anthropicUrl . $chemin, false, $contexte);
+    $texte = @file_get_contents($url, false, $contexte);
     $statut = 0;
     foreach ($http_response_header ?? [] as $l) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $l, $m)) $statut = (int)$m[1];
     return [$texte === false ? 0 : $statut, $texte === false ? '' : (string)$texte];
+}
+
+/** Un appel a l'API d'Anthropic : [statut, texte]. */
+function anthropic(string $methode, string $chemin, ?string $corps = null): array {
+    global $anthropicUrl, $cle;
+    return appelHttp($methode, $anthropicUrl . $chemin, ['x-api-key: ' . $cle, 'anthropic-version: ' . VERSION_API], $corps);
+}
+
+/**
+ * Qui appelle : l'administrateur (session d'admin.php), ou un utilisateur de la plateforme, dont le
+ * jeton est verifie aupres d'elle a chaque appel (`/me/context`, spec-connexion-plateforme 3.4) : la
+ * plateforme seule sait s'il vaut encore, et son organisation est celle qui paie l'analyse.
+ */
+function acteur(bool $sessionAdmin, ?string $jeton, string $plateformeUrl): array {
+    if ($sessionAdmin) return ['admin' => true, 'organisation' => 'admin'];
+    if ($jeton === null) erreur(401, 'UNAUTHENTICATED', 'Mot de passe ou jeton de la plateforme requis.');
+    [$statut, $texte] = appelHttp('GET', $plateformeUrl . '/api/v1/me/context', ['Authorization: Bearer ' . $jeton, 'X-Product: ' . PRODUIT_PLATEFORME, 'Accept: application/json']);
+    if ($statut === 0) erreur(502, 'UPSTREAM', 'Plateforme injoignable.');
+    if ($statut === 401) erreur(401, 'UNAUTHENTICATED', 'Jeton de la plateforme refusé.');
+    if ($statut !== 200) erreur(403, 'FORBIDDEN', 'Ce compte ne tient pas Plan (' . $statut . ').');
+    $c = json_decode($texte, true);
+    $org = is_array($c) && is_array($c['tenant'] ?? null) ? (string)($c['tenant']['id'] ?? '') : '';
+    if (!preg_match(ID_VALIDE, $org) || $org === 'admin') erreur(502, 'UPSTREAM', 'Réponse de la plateforme illisible.');
+    $permissions = is_array($c['permissions'] ?? null) ? $c['permissions'] : [];
+    if (!in_array(PERMISSION_ANALYSE, $permissions, true)) erreur(403, 'FORBIDDEN', 'Le droit d’écrire les projets est requis pour lancer une analyse.');
+    return ['admin' => false, 'organisation' => $org];
 }
 
 function messageApi(string $texte): string {
@@ -534,8 +577,8 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
     $ligneTarif = tarifEnVigueur(tarifs($dossierClaude), $fiche['modele'], substr($t, 0, 10));
     $sortie = [];
     foreach ($lus as $x) {
-        $req = $fiche['requetes'][$x['id']] ?? ['passe' => null, 'images' => 0];
-        $sortie[] = $x + ['passe' => $req['passe'], 'cout' => coutAppel($x['tokens'], $ligneTarif, true), 'images' => $req['images']];
+        $req = $fiche['requetes'][$x['id']] ?? ['passe' => null, 'images' => 0, 'facades' => 0];
+        $sortie[] = $x + ['passe' => $req['passe'], 'cout' => coutAppel($x['tokens'], $ligneTarif, true), 'images' => $req['images'], 'facades' => (int)($req['facades'] ?? 0)];
     }
     $verrou = fopen(fBatch($dossierBatches, $fiche['id']) . '.verrou', 'c');
     if ($verrou) flock($verrou, LOCK_EX);
@@ -546,14 +589,14 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
             $lignes[] = ['t' => $t, 'organisation' => $fiche['organisation'], 'projet' => $fiche['projet'], 'idu' => $fiche['idu'],
                          'adresse' => $fiche['adresse'], 'audit' => $fiche['audit'], 'usage' => $fiche['usage'], 'modele' => $fiche['modele'],
                          'batch' => true, 'idBatch' => $fiche['id'], 'requete' => $x['id'], 'passe' => $x['passe'], 'tokens' => $x['tokens'],
-                         'images' => $x['images'], 'cout' => $x['cout'], 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
+                         'images' => $x['images'], 'facades' => $x['facades'], 'cout' => $x['cout'], 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
                          'arret' => $x['arret'], 'prompt' => $fiche['promptVersion'], 'schema' => $fiche['schemaVersion']];
         }
         journaliser($dossierClaude, $lignes);
         ecrireFiche($dossierBatches, ['journalise' => true, 'etat' => 'ended', 'finLe' => $fiche['finLe'] ?? null] + $actuelle);
     }
     if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
-    foreach ($sortie as &$x) unset($x['images']);
+    foreach ($sortie as &$x) { unset($x['images']); unset($x['facades']); }
     unset($x);
     return ['sortie' => $sortie];
 }
@@ -590,15 +633,21 @@ $sansCle = fn() => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : anthr
 
 // --- Les routes ---------------------------------------------------------------------------------
 try {
+    $qui = acteur($sessionAdmin, jetonPorteur(), $plateformeUrl);
+    $organisation = $qui['organisation'];
+    $reserveAdmin = function () use ($qui): void { if (!$qui['admin']) erreur(403, 'FORBIDDEN', 'Réservé à l’administrateur.'); };
+
     if ($chemin === 'etat') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT]);
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+                       'organisation' => $organisation, 'admin' => $qui['admin']]);
     }
 
     // `admin/consommation` (.htaccess : `chemin=@consommation`) : il ne fait que relire le journal.
     if ($chemin === '@consommation') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $reserveAdmin();
         $aujourdhui = gmdate('Y-m-d');
         $f = lireFiltres($_GET, $aujourdhui);
         $p = plafonds($dossierClaude);
@@ -626,6 +675,7 @@ try {
     }
 
     if ($chemin === 'tarifs' || $chemin === 'plafonds') {
+        $reserveAdmin();
         if ($lecture) repondre(200, $chemin === 'tarifs' ? tarifs($dossierClaude) : plafondsJson(plafonds($dossierClaude)));
         if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         $d = lireCorps(1024 * 1024);
@@ -645,14 +695,15 @@ try {
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
         $demande = verifierDemande(lireCorps(TAILLE_MAX), $p);
-        $organisation = 'admin';
         $t = maintenant();
-        $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? 'admin', 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
+        $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
         [$prompt, $schema] = promptEtSchema();
         $images = array_sum(array_column($demande['requetes'], 'images'));
+        // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
+        $facades = array_sum(array_map(fn($r) => ($r['passe'] ?? 1) === 1 ? $r['facades'] : 0, $demande['requetes']));
         $ligneVide = fn(string $statut, array $extra = []) => ['t' => $t] + $identite + ['idBatch' => null, 'requete' => null, 'passe' => null,
-            'tokens' => tokensDeUsage(null), 'images' => $images, 'cout' => 0, 'tarif' => null, 'statut' => $statut, 'arret' => null,
+            'tokens' => tokensDeUsage(null), 'images' => $images, 'facades' => $facades, 'cout' => 0, 'tarif' => null, 'statut' => $statut, 'arret' => null,
             'prompt' => $prompt['version'], 'schema' => $schema['version']] + $extra;
 
         // Les plafonds : ce qui est depense, plus ce qui est engage dans les batches ouverts, plus
@@ -682,7 +733,7 @@ try {
         $b = json_decode($texte, true);
         if (!is_array($b) || !is_string($b['id'] ?? null) || !preg_match(ID_BATCH, $b['id'])) erreur(502, 'UPSTREAM', 'Réponse d’Anthropic illisible.');
         $parRequete = [];
-        foreach ($demande['requetes'] as $r) $parRequete[$r['id']] = ['passe' => $r['passe'], 'images' => $r['images']];
+        foreach ($demande['requetes'] as $r) $parRequete[$r['id']] = ['passe' => $r['passe'], 'images' => $r['images'], 'facades' => $r['facades']];
         ecrireFiche($dossierBatches, ['id' => $b['id'], 'creeLe' => $t] + $identite + ['promptVersion' => $prompt['version'], 'schemaVersion' => $schema['version'],
                     'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false]);
         repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version']]);
@@ -691,9 +742,10 @@ try {
     if (preg_match('#^batches/([^/]+)(/resultats)?$#', $chemin, $mb)) {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         $id = rawurldecode($mb[1]);
-        // Seuls les batches crees par ce serveur se lisent : la cle ne sert pas a fouiller le compte.
+        // Seuls les batches crees par ce serveur se lisent, et par l'organisation qui les a crees : la
+        // cle ne sert pas a fouiller le compte, ni une organisation a lire les resultats d'une autre.
         $fiche = preg_match(ID_BATCH, $id) ? lireJson(fBatch($dossierBatches, $id)) : null;
-        if ($fiche === null) erreur(404, 'NOT_FOUND', 'Aucun batch « ' . $id . ' ».');
+        if ($fiche === null || (!$qui['admin'] && ($fiche['organisation'] ?? null) !== $organisation)) erreur(404, 'NOT_FOUND', 'Aucun batch « ' . $id . ' ».');
         if (!$avecCle) $sansCle();
         [$statut, $texte] = anthropic('GET', '/v1/messages/batches/' . rawurlencode($id));
         if ($statut !== 200) erreur(502, 'UPSTREAM', 'Anthropic : ' . $statut . ' ' . messageApi($texte));
