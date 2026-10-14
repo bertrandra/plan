@@ -64,6 +64,16 @@ export interface LigneBatiment {
   photosToit: number;
 }
 
+/**
+ * Une ligne de « Ce qui manque ». La cle est l'identite de ce qui manque (batiment et cote pour une
+ * facade), pas son texte : deux facades de meme orientation donnent le meme texte, et React exige
+ * une cle unique par ligne.
+ */
+export interface Manque {
+  cle: string;
+  texte: string;
+}
+
 export interface ListeDeControle {
   batiments: LigneBatiment[];
   cloture: { faite: boolean; resume: string };
@@ -73,7 +83,7 @@ export interface ListeDeControle {
   /** « 7 façades sur 9, toit vu, clôture à faire » */
   compteur: string;
   /** Ce qui manque, sans bloquer (§12.3) : « façade nord de Maison : pas de photo ». */
-  manques: string[];
+  manques: Manque[];
   /** « Lancer l'analyse » est propose des qu'une facade est photographiee (§12.3). */
   peutLancer: boolean;
 }
@@ -192,14 +202,16 @@ const NOMS_PARTIES: Record<PartieVue, [string, string]> = {
 };
 
 /** Ce qui manque (§12.3) : les facades sans photo, puis les parties non vues, puis la parcelle. */
-function manquesDe(batiments: readonly LigneBatiment[], cloture: boolean, portail: boolean): string[] {
-  const out: string[] = [];
+function manquesDe(batiments: readonly LigneBatiment[], cloture: boolean, portail: boolean): Manque[] {
+  const out: Manque[] = [];
   for (const b of batiments) {
-    for (const f of b.facades) if (f.statut === 'aPhotographier') out.push('façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom + ' : pas de photo');
-    for (const p of b.parties) if (!p.vu) out.push(NOMS_PARTIES[p.partie][0] + ' de ' + b.nom + ' : ' + NOMS_PARTIES[p.partie][1]);
+    for (const f of b.facades) {
+      if (f.statut === 'aPhotographier') out.push({ cle: 'facade:' + b.cle + ':' + f.cote, texte: 'façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom + ' : pas de photo' });
+    }
+    for (const p of b.parties) if (!p.vu) out.push({ cle: 'partie:' + b.cle + ':' + p.partie, texte: NOMS_PARTIES[p.partie][0] + ' de ' + b.nom + ' : ' + NOMS_PARTIES[p.partie][1] });
   }
-  if (!cloture) out.push('clôture côté rue : non notée');
-  if (!portail) out.push('portail : non noté');
+  if (!cloture) out.push({ cle: 'cloture', texte: 'clôture côté rue : non notée' });
+  if (!portail) out.push({ cle: 'portail', texte: 'portail : non noté' });
   return out;
 }
 

@@ -235,7 +235,7 @@ function Liste({ session, fermer }: Props) {
         photo={(quoi, f) => photo.prendre(f, (p) => (quoi === 'cloture' ? session.capture.ajouterPhotoCloture(p) : session.capture.ajouterPhotoPortail(p)))} />
       {l.peutLancer && l.manques.length > 0 && <details className="manquesAudit">
         <summary>{'Ce qui manque (' + l.manques.length + ')'}</summary>
-        <ul>{l.manques.map((m) => <li key={m}>{m}</li>)}</ul>
+        <ul>{l.manques.map((m) => <li key={m.cle}>{m.texte}</li>)}</ul>
       </details>}
       <div className="piedDialogue">
         {!terminee && !l.peutLancer && <span className="detailPhoto">Photographiez au moins une façade pour lancer l’analyse.</span>}
