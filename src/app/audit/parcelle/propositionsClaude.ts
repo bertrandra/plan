@@ -4,9 +4,10 @@
 // ce qu'il y a vu) et sa confiance (la part des passes d'accord).
 //
 // Ce qui se propose, parce que le projet sait l'ecrire : la couverture, les cheminees, la toiture-
-// terrasse, le materiau des murs (le parement lu sur les facades). La forme du toit, les lucarnes,
-// les details des ouvertures restent des observations : les regles des toits (lots L19, L20) et les
-// details du releve (lot L15) les ecriront. Les ecarts qu'il signale accompagnent les indices.
+// terrasse, le materiau des murs (le parement lu sur les facades). La forme du toit, les pignons, les
+// lucarnes, les elements, les ouvertures manquees ou en trop restent des observations, montrees a
+// part sans rien ecrire (observationsClaude.ts) : les regles des toits (lots L19, L20) et les details
+// du releve (lot L15) les ecriront.
 //
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
@@ -17,7 +18,8 @@ import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.
 import type { IndiceProposition, Proposition } from '../../../model/propositions.js';
 import { corpsDesCheminees, corpsDeLaTerrasse, souchesSurLeCorps, terrasseVueSurLeCorps } from './propositions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
-import type { CouvertureChoisie, ObjetPlan, ReleveFacade } from '../../../model/types.js';
+import type { CouvertureChoisie, ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
+import { bilanVide, texteBilan } from '../../../facade/renfortRecalage.js';
 import { avecGrille } from '../../../facade/verification.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { LigneBatiment } from './liste.js';
@@ -133,16 +135,25 @@ function propositionMateriau(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, et:
   }, 'materiauMurs', m, et, [], choisi ? libelle(choisi) : null);
 }
 
-/** Ce que Claude a releve sans que le projet sache l'ecrire : les ecarts, en clair, pour l'ecran et le fichier de l'audit. */
-export function ecartsEnClair(v: VoteAnalyse): string[] {
-  const out = v.ecarts.map((e) => e.sujet + ' : ' + e.observe + (e.modele ? ' (le modèle dit : ' + e.modele + ')' : ''));
+/** Un ecart en clair, et la facade qu'il concerne (null pour un ecart du toit ou du batiment). */
+export interface EcartClaude { texte: string; facade: string | null }
+
+/** Les ecarts du vote, chacun avec sa facade : l'ecran des propositions y rattache les images de la facade. */
+export function ecartsDuVote(v: VoteAnalyse): EcartClaude[] {
+  const out: EcartClaude[] = v.ecarts.map((e) => ({ texte: e.sujet + ' : ' + e.observe + (e.modele ? ' (le modèle dit : ' + e.modele + ')' : ''), facade: null }));
   for (const f of v.facades) {
     const m = f.manquees.valeur, t = f.enTrop.valeur;
-    if (typeof m === 'number' && m > 0) out.push('façade ' + f.facade + ' : ' + pluriel(m, 'ouverture') + ' non détectée' + (m > 1 ? 's' : '') + ' par Plan');
-    if (typeof t === 'number' && t > 0) out.push('façade ' + f.facade + ' : ' + pluriel(t, 'ouverture') + ' détectée' + (t > 1 ? 's' : '') + ' en trop');
-    out.push(...f.ecarts.map((e) => 'façade ' + f.facade + ' : ' + e));
+    const dire = (texte: string) => out.push({ texte: 'façade ' + f.facade + ' : ' + texte, facade: f.facade });
+    if (typeof m === 'number' && m > 0) dire(pluriel(m, 'ouverture') + ' non détectée' + (m > 1 ? 's' : '') + ' par Plan');
+    if (typeof t === 'number' && t > 0) dire(pluriel(t, 'ouverture') + ' détectée' + (t > 1 ? 's' : '') + ' en trop');
+    f.ecarts.forEach(dire);
   }
   return out;
+}
+
+/** Ce que Claude a releve sans que le projet sache l'ecrire : les ecarts, en clair (observationsClaude.ts les montre). */
+export function ecartsEnClair(v: VoteAnalyse): string[] {
+  return ecartsDuVote(v).map((e) => e.texte);
 }
 
 /** Les propositions de Claude pour un batiment : vote des passes lues, controle croise, puis chaque attribut. */
@@ -167,29 +178,70 @@ export function propositionsDeClaude(objets: readonly ObjetPlan[], batiments: re
 
 /** Le taux d'accord de Claude sur le releve des facades n'est pas encore mesure : ses propositions arrivent decochees. */
 export const RESERVE_RENFORT = 'Taux d’accord de Claude non encore mesuré sur le relevé des façades : vérifiez ses ouvertures sur la photo.';
+/** Les ouvertures que Claude voit sans que les contours de la photo les soutiennent : jamais cochees d'office. */
+export const RESERVE_POINTILLE = 'Vue par Claude, non confirmée sur la photo : vérifiez-la avant de la garder.';
+/** Quand la ligne du releve renforce existe aussi : dire que celle-ci la contient, pour que cocher les deux ne surprenne pas. */
+const AVEC_LE_RENFORT = ' Cochée, cette ligne comprend aussi les ouvertures de la ligne « avec l’aide de Claude ».';
+
+/** Le bilan d'une facade sans les ouvertures en pointille : elles ont leur propre ligne. */
+const resumeSansPointille = (rf: RenfortFacadeCapture): string | null => texteBilan({ ...bilanVide(), ...rf.bilan, pointille: 0 });
+
+/** Les ouvertures que Claude ajoute en pointille (graines que les contours ne soutiennent pas assez). */
+export const ouverturesPointillees = (rf: RenfortFacadeCapture): OuvertureFacade[] => rf.decochees.filter((o) => o.source === 'claude');
+
+/** Le nom d'un type d'ouverture, au singulier et au pluriel. */
+const TYPES_OUVERTURE: Record<TypeOuverture, [string, string]> = {
+  fenetre: ['fenêtre', 'fenêtres'], 'porte-fenetre': ['porte-fenêtre', 'portes-fenêtres'], porte: ['porte', 'portes'], garage: ['porte de garage', 'portes de garage'],
+};
+
+/** « 1 porte, 2 fenêtres » : les ouvertures par type, en clair. */
+export function typesEnClair(ouvertures: readonly Pick<OuvertureFacade, 'type'>[]): string {
+  const comptes = new Map<TypeOuverture, number>();
+  for (const o of ouvertures) comptes.set(o.type, (comptes.get(o.type) ?? 0) + 1);
+  return [...comptes].map(([t, n]) => n + ' ' + TYPES_OUVERTURE[t][n > 1 ? 1 : 0]).join(', ');
+}
 
 /**
  * Le renfort de Claude sur les facades (MD/spec-facades-calage-detection.md §12 bis, lot L18) : pour
  * chaque facade ou il a change quelque chose, le releve mesure avec ses ouvertures renforcees (graines
  * recalees sur l'image, retraits, types, details), source `claude`. Il remplacerait le releve des
  * mesures : il arrive decoche, et coche, il l'emporte (meme facade, meme effet, ecrit apres).
+ *
+ * Les ouvertures que Claude voit mais que la photo ne confirme pas (en pointille) ont leur propre
+ * ligne, apres : le releve renforce plus elles, decochee. Elle vient apres et contient tout le
+ * releve renforce : cochee seule ou avec la precedente, elle ecrit la meme chose.
  */
 export function propositionsRenfort(e: EntreesPropositions, renfort: Record<string, RenfortFacadeCapture>): Proposition[] {
   const out: Proposition[] = [];
   for (const b of e.liste.batiments) for (const f of b.facades) {
     const id = cleMesure(b.cle, f.cote);
-    const rf = renfort[id], m = e.mesures.get(id);
-    if (!rf?.resume || !m?.releve) continue;
-    const { ouvertures, grille } = avecGrille(rf.ouvertures, m.releve.largeur);
-    const n = ouvertures.length;
-    const releve: ReleveFacade = { ...m.releve, ouvertures, ...(grille ? { grille } : {}) };
-    out.push({
-      id: id + ':claude:releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
-      avant: pluriel(m.releve.ouvertures.length, 'ouverture') + ' mesurée' + (m.releve.ouvertures.length > 1 ? 's' : '') + ' sur la photo',
-      apres: pluriel(n, 'ouverture') + ' avec l’aide de Claude (' + rf.resume + ')',
-      effet: { type: 'releve', releve },
-      source: 'claude', indices: [], confiance: rf.passes / 3, remplaceChoix: null, reserve: RESERVE_RENFORT,
-    });
+    const rf = renfort[id], mesure = e.mesures.get(id), mesure0 = mesure?.releve;
+    if (!rf?.resume || !mesure0) continue;
+    const n0 = mesure0.ouvertures.length;
+    const base = {
+      cible: { type: 'facade' as const, cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
+      avant: pluriel(n0, 'ouverture') + ' mesurée' + (n0 > 1 ? 's' : '') + ' sur la photo',
+      source: 'claude' as const, indices: [], confiance: rf.passes / 3, remplaceChoix: null,
+    };
+    const releveAvec = (liste: readonly OuvertureFacade[]): ReleveFacade => {
+      const { ouvertures, grille } = avecGrille([...liste], mesure0.largeur);
+      return { ...mesure0, ouvertures, ...(grille ? { grille } : {}) };
+    };
+    const resume = resumeSansPointille(rf);
+    if (resume) {
+      const releve = releveAvec(rf.ouvertures);
+      out.push({ ...base, id: id + ':claude:releve', apres: pluriel(releve.ouvertures.length, 'ouverture') + ' avec l’aide de Claude (' + resume + ')', effet: { type: 'releve', releve }, reserve: RESERVE_RENFORT });
+    }
+    const pointillees = ouverturesPointillees(rf);
+    if (pointillees.length) {
+      const releve = releveAvec([...rf.ouvertures, ...pointillees]);
+      const n = pointillees.length, s = n > 1 ? 's' : '';
+      out.push({
+        ...base, id: id + ':claude:pointille',
+        apres: pluriel(releve.ouvertures.length, 'ouverture') + ', dont ' + typesEnClair(pointillees) + ' en pointillé, vue' + s + ' par Claude, non confirmée' + s + ' sur la photo',
+        effet: { type: 'releve', releve }, reserve: RESERVE_POINTILLE + (resume ? AVEC_LE_RENFORT : ''),
+      });
+    }
   }
   return out;
 }
