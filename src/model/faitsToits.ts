@@ -50,6 +50,22 @@ export interface AppentisFait {
   hautM?: number;
 }
 
+/**
+ * Les pignons d'une facade du corps principal (spec §5.1) : des pignons traversants qui coupent le
+ * pan de cette facade, comme les deux pignons de la facade sud d'AE 101. La facade se designe comme
+ * pour un appentis (l'azimut de sa normale sortante). `position: 'bouts'` : un pignon a chaque bout
+ * de la facade. `haut: 'faitage'` : ils montent jusqu'au point haut du faitage du corps (dit par le
+ * proprietaire) ; sans lui, leur hauteur est lue sur la mesure. `largeurM`, quand le fait la donne,
+ * l'emporte ; sinon la largeur se lit sur la mesure, puis celle de l'autre pignon de la facade.
+ */
+export interface PignonsFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  position: 'bouts';
+  haut?: 'faitage';
+  /** La largeur de chaque pignon le long de la facade, en metres ; donnee, elle l'emporte sur la mesure. */
+  largeurM?: number;
+}
+
 /** Ce que vous avez vu : chaque assertion absente n'est pas imposee (spec §7.1). */
 export interface ObservationFait {
   /**
@@ -64,6 +80,8 @@ export interface ObservationFait {
   faitageM?: Fourchette;
   /** Les appentis adosses que le calcul ajoute aux corps lus (spec §5.1). */
   appentis?: AppentisFait[];
+  /** Les pignons traversants d'une facade du corps principal (spec §5.1). */
+  pignons?: PignonsFait[];
 }
 
 /** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */
@@ -138,6 +156,26 @@ function appentis(v: unknown, quoi: string): AppentisFait[] | undefined {
   return v.map((a, i) => unAppentis(a, quoi + '[' + i + ']'));
 }
 
+function desPignons(v: unknown, quoi: string): PignonsFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste de pignons par facade');
+  return v.map((x, i) => {
+    const q = quoi + '[' + i + ']';
+    const p = x as { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown }; position?: unknown; haut?: unknown; largeurM?: unknown } | null;
+    if (!p || typeof p !== 'object' || !p.facade || !estNombre(p.facade.azimutDeg) || (p.facade.toleranceDeg !== undefined && !positif(p.facade.toleranceDeg))) throw new FaitsToitsIllisibles(q + ' : { facade: { azimutDeg }, position: "bouts" } (l\'azimut de la normale sortante de la facade : 180 pour la facade sud)');
+    // Seuls les pignons aux deux bouts se decrivent pour l'instant : ailleurs, il faudrait dire ou.
+    if (p.position !== 'bouts') throw new FaitsToitsIllisibles(q + '.position : "bouts" (un pignon a chaque bout de la facade)');
+    if (p.haut !== undefined && p.haut !== 'faitage') throw new FaitsToitsIllisibles(q + '.haut : "faitage" (jusqu\'au point haut du faitage du corps), ou absent');
+    if (p.largeurM !== undefined && !positif(p.largeurM)) throw new FaitsToitsIllisibles(q + '.largeurM : un nombre de metres positif');
+    return {
+      facade: { azimutDeg: p.facade.azimutDeg, ...(p.facade.toleranceDeg !== undefined ? { toleranceDeg: p.facade.toleranceDeg as number } : {}) },
+      position: 'bouts' as const,
+      ...(p.haut === 'faitage' ? { haut: 'faitage' as const } : {}),
+      ...(p.largeurM !== undefined ? { largeurM: p.largeurM as number } : {}),
+    };
+  });
+}
+
 function observation(v: unknown, quoi: string): ObservationFait {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== 'object') throw new FaitsToitsIllisibles(quoi + ' : sans observation');
@@ -149,6 +187,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
   if (corps !== undefined && ((corps.min !== undefined && !(Number.isInteger(corps.min) && (corps.min as number) >= 1)) || (corps.max !== undefined && !(Number.isInteger(corps.max) && (corps.max as number) >= 1)))) throw new FaitsToitsIllisibles(quoi + '.corps : { min, max } entiers, au moins 1');
   const f = faitage(o.faitage, quoi), eg = fourchette(o.egout, quoi + '.egout'), fm = fourchette(o.faitageM, quoi + '.faitageM');
   const ap = appentis(o.appentis, quoi + '.appentis');
+  const pg = desPignons(o.pignons, quoi + '.pignons');
   return {
     ...(formes ? { forme: formes as FormeToitSimple[] } : {}),
     ...(f ? { faitage: f } : {}),
@@ -157,6 +196,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
     ...(eg ? { egout: eg } : {}),
     ...(fm ? { faitageM: fm } : {}),
     ...(ap ? { appentis: ap } : {}),
+    ...(pg ? { pignons: pg } : {}),
   };
 }
 
@@ -264,12 +304,13 @@ export const FAITS_SEMBLABLES_MAX = 5;
 /** Ce qu'un fait dit, en mots courts : la forme, le sens du faitage, les bouts. Deux faits de meme signature disent la meme chose. */
 export function signatureFait(f: FaitToit): string {
   const o = f.observation;
-  // Un fait qui ne dit qu'un appentis adosse ne dit rien de la forme : inutile de le rappeler.
-  const forme = o.forme ? [...o.forme].sort().join('|') : o.appentis && !o.faitage && !o.bouts ? '' : 'forme ?';
+  // Un fait qui ne dit qu'un appentis adosse ou des pignons de facade ne dit rien de la forme : inutile de le rappeler.
+  const forme = o.forme ? [...o.forme].sort().join('|') : (o.appentis || o.pignons) && !o.faitage && !o.bouts ? '' : 'forme ?';
   const sens = o.faitage ? (o.faitage.par === 'long' ? 'faitage ' + o.faitage.sens + ' au long cote' : 'faitage a azimut') : '';
   const bouts = o.bouts ? 'bouts ' + [...o.bouts].sort().join('+') : '';
   const adosses = o.appentis ? o.appentis.length + ' appentis adosse(s)' : '';
-  return [forme, sens, bouts, adosses, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
+  const pignons = o.pignons ? 'pignons aux bouts de ' + o.pignons.length + ' facade(s)' : '';
+  return [forme, sens, bouts, adosses, pignons, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
 }
 
 /** Les faits comptes par signature, les plus nombreux d'abord ; `signal` au-dela de FAITS_SEMBLABLES_MAX. */

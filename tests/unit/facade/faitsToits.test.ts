@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { reconstruireCorps, repere } from '../../../src/facade/toitCorps.js';
+import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import { ajusterToit } from '../../../src/facade/toitLidar.js';
 import { echantillonsDeGrille } from '../../../src/geo/mnh.js';
 import {
@@ -234,12 +235,17 @@ describe('un appentis adosse le long d une facade', () => {
 });
 
 describe('les faits livres', () => {
-  it('AE 101 : l appentis de la facade sud s ajoute aux trois corps du calcul, qui ne bougent pas', () => {
+  it('AE 101 : l appentis de la facade sud s ajoute aux trois corps du calcul, ses deux pignons montent au faitage', () => {
     const r = releve('vesinet-ae101') as Releve & { cleabs: string; corps: CorpsToit[]; corpsAvecFaits: CorpsToit[] };
     const f = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } }, FAITS_TOITS_LIVRES)!;
     expect(f).not.toBe(null);
     const corps = corpsSelonFait(f, lus(r), r.toitMesure, r.contour, r.grille ?? null)!;
-    expect(corps.slice(0, 3)).toEqual(r.corps);
+    // Les autres corps du calcul ne bougent pas ; sur le corps principal, deux pignons de 3,7 m aux bouts
+    // de la facade sud (la largeur du proprietaire), montant au point haut du faitage.
+    expect(corps.slice(1, 3)).toEqual(r.corps.slice(1, 3));
+    expect(corps[0]!.pts).toEqual(r.corps[0]!.pts);
+    expect(corps[0]!.pignons.map((p) => [p.pan, p.debut, p.fin])).toEqual([[1, 0, 3.7], [1, 6.21, 9.91]]);
+    expect(corps[0]!.pignons.every((p) => p.faitage === corps[0]!.faitage)).toBe(true);
     expect(corps).toEqual(r.corpsAvecFaits);
     const a = corps[3]!;
     // Contre le mur sud du corps principal, sur toute sa longueur, cotes lues sur le LiDAR.
@@ -249,5 +255,42 @@ describe('les faits livres', () => {
     expect(ecartsAuFait(f, corps, r.contour)).toEqual([]);
     // Sans la cle BD TOPO, rien ne change.
     expect(corpsSelonFait(faitDuBatiment({ bdtopo: null }), lus(r), r.toitMesure, r.contour)).toEqual(r.corps);
+  });
+
+  it('AE 101, lecture LiDAR du 14 octobre au soir : le calcul seul perd le pignon est, le fait garde les deux', () => {
+    const d = releve('vesinet-ae101-lidar-soir') as Releve & { cleabs: string; grille: GrilleRelief };
+    const m = toitMesureDepuisGrille(d.grille, d.contour)!;
+    const seul = reconstruireCorps(m, d.contour, { grille: d.grille })!;
+    const principalSeul = plusGrand(seul);
+    expect(principalSeul.pignons).toHaveLength(1);
+    const f = faitDuBatiment({ bdtopo: { cleabs: d.cleabs } }, FAITS_TOITS_LIVRES)!;
+    const corps = corpsSelonFait(f, seul, m, d.contour, d.grille)!;
+    const principal = plusGrand(corps);
+    const L = repere(principal.pts).L;
+    const pg = [...principal.pignons].sort((a, b) => a.debut - b.debut);
+    // Un pignon a chaque bout de la facade sud, sur le meme pan, montant au point haut du faitage.
+    expect(pg).toHaveLength(2);
+    expect(pg[0]!.debut).toBe(0);
+    expect(pg[1]!.fin).toBeCloseTo(L, 1);
+    // La largeur du proprietaire l'emporte sur la mesure : la meme qu'avec la lecture du matin.
+    expect(pg.map((p) => Math.round((p.fin - p.debut) * 10) / 10)).toEqual([3.7, 3.7]);
+    expect(pg.every((p) => p.pan === pg[0]!.pan && p.faitage === principal.faitage)).toBe(true);
+    expect(ecartsAuFait(f, corps, d.contour)).toEqual([]);
+  });
+
+  it('pignons aux bouts : sans mesure ni largeur, le fait ne fabrique pas un pignon, et le dit', () => {
+    const r = releve('vesinet-ae101');
+    const corps = lus(r)!;
+    const sansPignons = corps.map((c) => ({ ...c, pignons: [] }));
+    const f = fait({ pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage' }] });
+    // Une mesure plate a l'egout : rien ne depasse le pan, aucune largeur ne se lit.
+    const plate = { ...r.toitMesure, z: r.toitMesure.z.map((v) => (v === null ? null : 0)) } as ToitMesure;
+    const res = corpsSelonFait(f, sansPignons, plate, r.contour, null)!;
+    expect(plusGrand(res).pignons).toHaveLength(0);
+    expect(ecartsAuFait(f, res, r.contour)).toEqual(['pignons vers 180 : 0 sur 2']);
+    // Avec une largeur dans le fait, ils se posent aux deux bouts.
+    const large = fait({ pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage', largeurM: 2.5 }] });
+    const avec = corpsSelonFait(large, sansPignons, plate, r.contour, null)!;
+    expect(plusGrand(avec).pignons.map((p) => p.fin - p.debut)).toEqual([2.5, 2.5]);
   });
 });
