@@ -1,0 +1,19 @@
+{
+  "format": "plan-reglages-facades",
+  "version": 1,
+  "pourquoi": "Les reglages de la disposition automatique des ouvertures, sur les murs des batiments sans releve de facade (MD/spec-facades-calage-detection.md §15.2). Les seuils sont le profil par defaut : les valeurs d'avant le fichier, choisies une fois. Un profil en change quelques-uns pour les batiments qui remplissent toutes ses conditions, dans un vocabulaire ferme (departement, epoque, usage, nombre d'etages, mitoyennete) ; le plus precis l'emporte. Ce fichier est compile dans le fichier livre : une facade dessinee hier se redessine a l'identique. Son empreinte entre dans VERSION_LECTURE_FACADES (model/reglagesFacades.ts) : la changer fait rechoisir le profil des batiments en tache de fond. Les tolerances de geometrie (marges, ecart entre deux fenetres) restent dans le code.",
+  "seuils": {
+    "FENETRE_LARGEUR_M": { "valeur": 1, "unite": "m", "ou": "model/fenetres3d.ts (FENETRE.l)", "pourquoi": "Une fenetre a deux vantaux courante, dormant compris.", "cas": [] },
+    "FENETRE_HAUTEUR_M": { "valeur": 1.2, "unite": "m", "ou": "model/fenetres3d.ts (FENETRE.h)", "pourquoi": "La hauteur d'une fenetre courante ; raccourcie quand le niveau est trop bas pour elle.", "cas": [] },
+    "FENETRE_APPUI_M": { "valeur": 0.9, "unite": "m", "ou": "model/fenetres3d.ts (FENETRE.appui)", "pourquoi": "L'appui d'une fenetre au-dessus du plancher de son niveau : la hauteur d'une allege a garde-corps.", "cas": [] },
+    "PORTE_LARGEUR_M": { "valeur": 0.9, "unite": "m", "ou": "model/fenetres3d.ts (PORTE.l)", "pourquoi": "Une porte d'entree a un vantail.", "cas": [] },
+    "PORTE_HAUTEUR_M": { "valeur": 2.1, "unite": "m", "ou": "model/fenetres3d.ts (PORTE.h)", "pourquoi": "La hauteur d'une porte d'entree ; un mur plus bas que cela et 30 cm n'en recoit pas.", "cas": [] },
+    "ENTRAXE_FENETRES_M": { "valeur": 2.4, "unite": "m", "ou": "model/fenetres3d.ts", "pourquoi": "D'axe en axe de deux fenetres d'un meme niveau : une fenetre par piece de facade.", "cas": [] },
+    "FENETRES_MAX_PAR_MUR": { "valeur": 8, "unite": "fenetres", "ou": "facade/ouvertures.ts", "pourquoi": "Au plus tant de fenetres par niveau sur un mur : au-dela, un long mur se lit comme un hangar perce partout.", "cas": [] },
+    "HAUTEUR_NIVEAU_M": { "valeur": 2.7, "unite": "m", "ou": "facade/ouvertures.ts (niveaux), comme HAUTEUR_ETAGE_M de geo/bdtopo.ts", "pourquoi": "La hauteur d'un niveau, pour compter les niveaux d'un mur quand la BD TOPO ne donne pas le nombre d'etages.", "cas": [] },
+    "HAUTEUR_NIVEAU_MIN_M": { "valeur": 2.2, "unite": "m", "ou": "facade/ouvertures.ts", "pourquoi": "En dessous, un niveau n'a pas de fenetre : un abri, un garage bas.", "cas": [] },
+    "LARGEUR_MUR_MIN_M": { "valeur": 2, "unite": "m", "ou": "facade/ouvertures.ts", "pourquoi": "Un mur plus etroit n'a pas de fenetre.", "cas": [] },
+    "HAUTEUR_PIGNON_FENETRE_M": { "valeur": 1.8, "unite": "m", "ou": "facade/ouvertures.ts", "pourquoi": "Un pignon plus bas que cela, de son egout a son faitage, n'a pas de fenetre.", "cas": [] }
+  },
+  "profils": []
+}

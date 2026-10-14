@@ -38,6 +38,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Les règles du chantier : rien ne change dans les exports, poids et fluidité sous contrôle. Les
   décisions V1 à V6 sont prises avec leur défaut.
 
+- **Les cas candidats Panoramax** (lot G3 bis de la vague 3, `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §13.3 phase 4 et §14.5, usage 3 de Claude analyste). Un script du skill
+  `regles-toits` (`scripts/candidats.ts`) parcourt les photos de rue Panoramax d'un village relevé
+  par `village.mjs` : pour chaque bâtiment, les photos qui voient son toit (même choix que la couleur
+  des murs, avec du recul et le faîte dans le cadre), trois passes de Claude par les routes de
+  l'analyse et leur vote, puis les bâtiments qui ont probablement une forme que Plan ne sait pas
+  encore faire (Mansart, gambrel, demi-croupes, lucarnes…). Ils entrent au corpus
+  (`tests/fixtures/toits/candidats/<village>.json`) au statut « proposé », avec la forme visée dans
+  le vocabulaire du modèle de toit, le vote et les photos qui en sont la preuve, à trier sur images ;
+  un candidat trié n'est plus jamais réécrit. Rien ne s'applique au calcul : AE 101, le banc des
+  villages et les empreintes n'ont pas bougé. `--essai` liste sans appeler Claude ce qui serait
+  envoyé. `village.mjs` écrit désormais l'origine du repère du plan dans le fichier du village.
+- **Un usage « Cas candidats » pour l'analyse par Claude** (`deploy/analyse.php`,
+  `buildsg/analyseAdmin.mjs`) : mêmes plafonds, même prompt et même schéma que l'analyse d'une
+  maison, mais une ligne de journal à part ; l'écran « Consommation » en montre le coût dans la
+  répartition par usage.
+
 - **Le modèle de toit étendu** (lot G1 de la vague 3, `MD/plan-vague-3-generaliser.md`,
   `MD/spec-regles-toits.md` §4). Un corps de toit peut porter, tous facultatifs, son **profil** en
   travers (droit, brisé, à coyau, courbe), ce qui ferme ses **bouts** (pignon, croupe, demi-croupe,
@@ -74,6 +91,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     lecture des toits (1) aussi ; rien n'est relu. L'empreinte des profils (conditions, surcharges,
     bornes du vocabulaire) entre dans `VERSION_LECTURE_TOITS` dès le premier profil.
 
+- **Profils de façades** (lot G12 de la vague 3, `MD/spec-facades-calage-detection.md` §15.2,
+  décisions D18 et D19). Les dimensions et les seuils de la disposition automatique des ouvertures
+  (fenêtre de 1,00 × 1,20 m à 0,90 m d'appui, porte de 0,90 × 2,10 m, entraxe de 2,40 m, au plus
+  8 fenêtres par niveau, niveaux de 2,7 m, rien sous 2,2 m de niveau ni sur un mur de moins de 2 m,
+  fenêtre de pignon à partir de 1,8 m) sortent du code dans `regles/facades/reglages.json`, compilé
+  dans le fichier livré comme les réglages des toits. Ils forment le **profil par défaut**, seul
+  profil livré : rien ne change dans la 3D, l'export GLB ni les empreintes. Un profil se déclenche
+  sur un vocabulaire fermé (département tiré de l'IDU, époque `date_d_apparition`, usage
+  `usage_1`, nombre d'étages, mitoyenneté) ; le plus précis l'emporte, deux profils de même
+  précision qui peuvent tomber sur le même bâtiment font refuser le fichier
+  (`model/reglagesFacades.ts`, `facade/profilsFacades.ts`). Le profil retenu se range sur le
+  bâtiment avec la version de lecture (`VERSION_LECTURE_FACADES`, où entre l'empreinte du fichier) :
+  un profil ajouté ou changé fait rechoisir les profils en tâche de fond
+  (`app/profilsFacadesFond.ts`), jamais sur la parcelle du projet ni sur un bâtiment vérifié sur
+  place. Les dimensions réglées par l'utilisateur (inspecteur, apparence du voisinage) l'emportent
+  sur le profil.
 - **Mesurer une façade relevée** (lot G11 de la vague 3, `MD/spec-facades-calage-detection.md`
   §15.1). `model/mesureFacade.ts` lit un relevé (ouvertures, grille, largeur, hauteur) et en tire la
   largeur, la hauteur et l'appui des fenêtres (médianes, l'appui depuis le plancher de leur niveau),

@@ -39,8 +39,11 @@ export interface DemandeAnalyse {
   requetes: RequeteAnalyse[];
 }
 
-/** Les usages que la page demande : l'analyse d'une maison (batch), le renfort d'une facade (batch ou appel immediat). */
-export type UsageAnalyse = 'analyse' | 'renfort';
+/**
+ * Les usages demandes : l'analyse d'une maison (batch), le renfort d'une facade (batch ou appel
+ * immediat), et les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page).
+ */
+export type UsageAnalyse = 'analyse' | 'renfort' | 'candidats';
 
 export interface EtatServeurAnalyse {
   actif: boolean;

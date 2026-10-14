@@ -181,6 +181,8 @@ seul toit » et « deux toits de même hauteur ». **Plan ne devine pas : il pos
 Fenêtres : niveaux de 2,7 m (`HAUTEUR_ETAGE_M`), rien sous 2,2 m (`HAUTEUR_NIVEAU_MIN_M`) ni sur un
 mur de moins de 2 m. Une fenêtre de pignon se pose si le triangle fait au moins 1,8 m
 (`HAUTEUR_PIGNON_FENETRE_M`), jamais sous une croupe ni sur un appentis.
+Ces dimensions et seuils sont le profil par défaut de `regles/facades/reglages.json` (lot G12,
+skill `facades` §1 ter) : un profil de façades peut les changer pour le voisinage.
 
 Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur les façades
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son

@@ -1,6 +1,6 @@
 ---
 name: regles-toits
-description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, ou avant de toucher à regles/toits/faits.json, model/faitsToits.ts ou facade/faitsToits.ts. S'appuie sur le skill toits.
+description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. Cherche aussi des cas candidats sur les photos de rue Panoramax d'un village (Claude analyste, statut propose, scripts/candidats.ts). À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, demande des cas candidats pour une forme, ou avant de toucher à regles/toits/faits.json, model/faitsToits.ts, facade/faitsToits.ts, model/casCandidats.ts ou app/candidatsPanoramax.ts. S'appuie sur le skill toits.
 ---
 
 # Règles des toits : d'une promenade à la PR
@@ -199,3 +199,55 @@ référence d'AE 101 change une fois : `corps` de `tests/fixtures/toits/vesinet-
 calcul (identique), `corpsAvecFaits` est la nouvelle référence (`identite.ts` vérifie les deux), et le
 cas c1 du corpus a pris la clé BD TOPO et l'appentis dans son attendu, avec une ligne d'historique.
 Lecture 2 (`LECTURES_TOITS`). Images : `MD/images/toits/ae101-appentis-cartes.png` et `-3d.jpg`.
+
+## 8. Cas candidats Panoramax : observer sans marcher (lot G3 bis)
+
+Avant d'écrire la règle d'une forme (vague 3b : lucarnes, Mansart, demi-croupes…), il faut des
+bâtiments qui l'ont. `scripts/candidats.ts` les cherche sur les photos de rue Panoramax d'un village
+(spec §13.3 phase 4 et §14.5, usage 3 de Claude analyste) et les écrit au statut **`propose`** dans
+le corpus, `tests/fixtures/toits/candidats/<village>.json`. **Rien ne s'applique au calcul** : un
+candidat n'est ni un fait, ni un attendu de test, tant que vous ne l'avez pas trié sur ses photos.
+
+```bash
+# 0. Le village, relevé comme d'habitude (skill toits, §6) : village.mjs écrit aussi l'origine du repère
+NODE_PATH=$(npm root -g) node .claude/skills/toits/scripts/village.mjs "Place du Marché Notre-Dame 78000 Versailles" 100 versailles
+# 1. Essai à blanc, gratuit : quels bâtiments ont une photo de leur toit, combien de requêtes
+npx tsx .claude/skills/regles-toits/scripts/candidats.ts versailles --essai
+# 2. Pour de vrai : trois passes de Claude par bâtiment, par le serveur de Plan (batch, moitié prix)
+PLAN_ADMIN_MOT_DE_PASSE=… npx tsx .claude/skills/regles-toits/scripts/candidats.ts versailles \
+  --serveur https://www.raillard.org/plan --formes mansart,gambrel,lucarnes --max 60
+```
+
+- **Les photos** : la recherche Panoramax autour du village (250 m au plus), puis, pour chaque
+  bâtiment, les photos qui voient un de ses murs (`render/couleurMurPhoto.ts::mursVisibles` : de
+  face, à moins de 40 m, sans autre bâtiment entre deux), avec au moins 8 m de recul et le faîte
+  dans le cadre ; deux par bâtiment, les plus proches et de face d'abord
+  (`app/candidatsPanoramax.ts`). L'étiquette de chaque image dit où est le bâtiment visé
+  (« à 31 % de la largeur depuis la gauche ») : le reste de l'image est le voisinage.
+- **Claude** : les routes de l'analyse (`deploy/analyse.php`), sous l'usage **`candidats`** : le
+  prompt et le schéma de l'analyse d'une maison, les plafonds par organisation, le journal (le coût
+  se lit à part dans « Consommation »). Trois passes identiques et le vote du lot L17
+  (`model/analyseClaude.ts::voter`), puis le contrôle croisé avec les indices LiDAR de la grille du
+  village (`contradictionsLidar`). `--immediat` : l'appel immédiat, au tarif normal, bâtiment par
+  bâtiment. Connexion : `PLAN_ADMIN_MOT_DE_PASSE` (session admin) ou `PLAN_JETON` (plateforme).
+- **Un candidat** (`model/casCandidats.ts`) : la forme visée dans le vocabulaire du modèle de toit
+  (lot G1 : `Toit.forme`, types de `ProfilPan`, de `BoutToit`, de `Lucarne`, sans cotes : une photo
+  n'en donne pas), seulement ce que la majorité des passes affirme ; pourquoi il est candidat
+  (`visees` : sa forme du catalogue, des demi-croupes ou des brisis aux bouts, un profil brisé, des
+  lucarnes) ; le vote résumé (accord par attribut, confiance, contradictions LiDAR) ; les photos
+  (lien `hd`, date, auteur, licence) ; la source (modèle, versions du prompt et du schéma, jour).
+  Les plus sûrs d'abord : sans contradiction, la forme à l'unanimité, la confiance.
+- **Trier** : ouvrir les photos de chaque candidat, passer `statut` à `valide` (la forme est bien
+  là) ou `sans_suite`, avec une ligne d'`historique`. Un candidat trié n'est **jamais** réécrit, et
+  son bâtiment n'est plus renvoyé à Claude ; un candidat `propose` est remplacé à la relecture de son
+  bâtiment. Un candidat `valide` devient un cas du corpus de la forme quand sa règle s'écrit (G4 à
+  G9) : on relève alors le bâtiment, et l'attendu s'écrit avec le vocabulaire du §3.
+- **Coût** (spec §14.4) : ~0,004 $ par bâtiment en appel immédiat, la moitié en batch ; un village
+  de 60 bâtiments photographiés se compte en dizaines de centimes. Le script affiche le coût réel à
+  la fin (celui que le serveur calcule avec sa table des tarifs).
+- Un ancien fichier de village n'a pas l'origine du repère : relancer `village.mjs`, ou donner
+  `--origine lat,lon` (l'origine du cadastre de la parcelle du projet, pas l'adresse).
+- Tests sans réseau : `tests/unit/model/casCandidats.test.ts`, `tests/unit/app/candidatsPanoramax.test.ts`
+  (serveur Node et API Anthropic simulée, `tests/fixtures/deploy/fauxAnthropic.ts`, recherche
+  Panoramax figée, `tests/fixtures/candidats/village.ts`) et `tests/unit/deploy/analysePhpCandidats.test.ts`
+  (la même chose par `analyse.php`).
