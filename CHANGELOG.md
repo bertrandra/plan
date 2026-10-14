@@ -37,6 +37,41 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - Une validation garde les propositions telles qu'elles étaient : une fois écrites, elles ne se
     proposent plus, et le fichier doit les redire. Points de fumée 74 et 75.
 
+- **Relevé de façade : la structure et le classement des ouvertures** (lot L15 du plan de mise en
+  œuvre, `MD/spec-facades-calage-detection.md` §10 à §13).
+  - **Niveaux et travées** (`facade/structure.ts`) : les ouvertures se rangent en rangées (appui et
+    linteau de leurs fenêtres) et en travées (centres à 10 cm près) ; la façade est dite symétrique,
+    les hauteurs d'étage contrôlées (2,5 à 3,2 m). Une baie à 5 cm de la médiane de sa travée
+    (largeur) ou de son niveau (hauteur), à type égal, en prend la valeur, sans jamais bouger un bord
+    de plus de 10 cm de sa mesure.
+  - **Complétion devinée** : un croisement de la grille sans baie, caché sur toutes les vues ou peu
+    sûr, reçoit une baie devinée, jamais dans un mur vu et net. Sûre, elle est proposée cochée, en
+    pointillé ; peu sûre, elle reste en pointillé et décochée : une touche la garde, la case
+    « Garder cette baie devinée » la rend au pointillé.
+  - **Détails des ouvertures** (`facade/classement.ts`, `OuvertureFacade.details`) : volets battants
+    fusionnés dans la baie, coffre de volet roulant retiré de sa hauteur, persiennes fermées, balcon
+    ou garde-corps (une haute baie d'étage au-dessus d'un balcon est une porte-fenêtre), grande baie
+    au sol vitrée (porte-fenêtre, pas garage), haut cintré ou œil-de-bœuf. Chaque lecture est
+    prudente : sur une brique, une pierre, un bandeau qui court sur la façade ou une haie, elle ne
+    dit rien. Les seuils sont des réglages nommés (`facades.structure.*`, `facades.classement.*`).
+  - **Confiance et source** de chaque ouverture (`detectee`, `devinee`, `ajoutee`, `corrigee`) :
+    pleine à 0,7 et plus, en pointillé en dessous ; retouchée au doigt, elle est vérifiée et redevient
+    pleine. La fiche de l'ouverture dit d'où elle vient et ce qui a été reconnu.
+  - **Gestes en une touche** : « Même taille pour la travée », « Même hauteur pour le niveau »
+    (grisés, avec leur raison, quand il n'y a rien à égaliser), « Ajouter dans la grille » (la baie
+    au croisement libre le plus proche, à la taille de sa travée et de son niveau).
+  - **Ce qui est enregistré** : la grille recalculée sur les ouvertures retenues
+    (`ReleveFacade.grille`), la rangée et la travée de chaque ouverture, et les corrections tracées
+    par rapport à la proposition de l'analyse (`ReleveFacade.corrections` : ajout, retrait,
+    déplacement avec l'écart, changement de type) ; c'est ce qui mesurera le détecteur sur les
+    audits. Champs facultatifs : un relevé d'avant garde exactement son sens. L'audit de la parcelle
+    garde lui aussi confiance, source et détails des ouvertures qu'il propose.
+  - **Banc** : une scène de plus (`19-vues-haie-haute-baie-cachee`, une baie cachée sur les deux
+    vues). Avant / après sur le corpus de 20 scènes, chaîne du relevé : précision 93 % et rappel
+    89 % inchangés, erreur médiane des cotes 1 cm, types justes 100/102 → 102/102, corrections par
+    façade 2 → 1,8 ; fusion de plusieurs vues : rappel 96 % → 100 %, corrections 0,5 → 0,3 par
+    façade. Aucune scène ne perd. Point de fumée 67.
+
 - **Audit de la parcelle, phases 2 et 3 sans Claude : propositions et validation** (lot L11 du
   plan de mise en œuvre, `MD/spec-audit.md` §13.1 et §14). « Lancer l'analyse » ouvre maintenant les
   propositions, posées sur la Vue 3D ; une capture terminée y revient par « Voir les propositions ».
@@ -70,6 +105,46 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     la photo de rue, et `couleurMurs.materiau` (le matériau vu sur place) avant celui des fichiers
     fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
     empreintes sont identiques. Points de fumée 62 et 63.
+
+- **Analyse de l'audit de la parcelle par Claude** (lot L17 du plan de mise en œuvre,
+  `MD/spec-audit.md` §13.2, `MD/spec-regles-toits.md` §14 ; décisions D1, D2 et D7).
+  - **L'accord** : à la fin de la capture, l'écran des propositions demande l'accord d'envoyer les
+    photos (« Envoyer mes photos à l'analyse » ou « Seulement les mesures »), avec la case « Partager
+    cet audit pour améliorer Plan », cochée par défaut (lue par le fichier de l'audit, lot L21).
+    L'accord vaut pour le projet, est gardé sur l'appareil (pas dans le projet, qui ne devient pas
+    « modifié »), est rappelé par un toast à chaque envoi et se retire par « Retirer l'accord » : plus
+    rien ne part, et les propositions de Claude disparaissent. Sans accord, sans réseau ou sans compte
+    de la plateforme, seules les mesures deviennent des propositions, et l'écran le dit.
+  - **Les entrées préparées** (`app/audit/parcelle/entreesAnalyse.ts`) : par bâtiment photographié,
+    chaque photo réduite à 1 024 px avec sa prise de vue (« prise à 8 m, vers 245° »), le rendu du
+    modèle depuis la même prise de vue (Vue 3D hors écran, `three/renduPrise.ts`), les photos du toit,
+    l'orthophoto recadrée sur le contour et la carte des hauteurs LiDAR (`render/imagesAnalyse.ts`),
+    puis les indices LiDAR chiffrés (montée, bande raide aux bords, sommets, creux, corps), le modèle
+    actuel en JSON compact, les mesures du téléphone et « Ce que je vois ».
+  - **Trois passes et un vote** (`model/analyseClaude.ts`) : trois requêtes identiques par bâtiment,
+    envoyées par les routes batches de `analyse.php` ; le vote retient, attribut par attribut, la
+    valeur donnée par plus de la moitié des passes, sinon `indetermine`, et le contrôle croisé
+    confronte la réponse aux indices LiDAR (toit plat qui monte, Mansart sans bande raide…).
+  - **Les propositions de Claude** (`app/audit/parcelle/propositionsClaude.ts`), source `claude`,
+    ajoutées à la liste après celles des mesures : couverture, cheminées, toiture-terrasse et matériau
+    des murs (le parement lu sur les façades), chacune avec ses indices (quelle image, ce qu'il y a
+    vu) et la part des passes d'accord. Tant que le taux d'accord de Claude n'est pas mesuré à 95 %
+    sur un attribut (corpus, lots L19 à L21), elles arrivent décochées et le disent ; une
+    contradiction avec le LiDAR aussi. Le schéma de sortie, version 1, couvre aussi les façades
+    (ouvertures manquées ou en trop, volets, coffre, balcon, forme, matériau) ; ses écarts restent
+    des indices. Une proposition de Claude laissée décochée alors qu'une autre, cochée, écrit le
+    même attribut (l'ardoise notée sur place contre le zinc vu par Claude) a été tranchée : elle ne
+    retient pas le bâtiment hors du « vérifié sur place ».
+  - **Le suivi** : le batch est relu toutes les vingt secondes, et survit à un rechargement (il vit
+    dans le brouillon de la capture) ; un toast, et une notification du navigateur quand l'onglet est
+    en arrière-plan, disent quand les propositions sont prêtes. Des photos changées depuis l'envoi
+    font proposer « Relancer l'analyse ».
+  - **Côté serveur** (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`) : ouvert aux utilisateurs
+    de la plateforme par leur jeton, vérifié auprès d'elle (`/api/v1/me/context`, droit d'écrire les
+    projets) ; l'organisation de la plateforme est celle des plafonds et du journal, et ne lit que ses
+    batches ; tarifs, plafonds et consommation restent à l'administrateur. Le journal compte les
+    façades de chaque requête, et le tableau de bord montre le coût par façade de chaque parcelle.
+    Points de fumée 69 et 70.
 
 - **Le 100 % protégé** (lot L12 du plan de mise en œuvre, `MD/spec-regles-toits.md` §1,
   `MD/spec-audit.md` §14.5) : un bâtiment marqué « vérifié sur place » par un audit de la parcelle

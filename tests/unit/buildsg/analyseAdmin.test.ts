@@ -12,6 +12,7 @@ import {
 } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { CLE, COUT_P1, COUT_P2, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // L'analyse par Claude, cote serveur (MD/spec-audit.md 13.2 et 13.3) : le calcul du cout et du
 // journal sur des reponses simulees, puis les routes contre une API Message Batches simulee.
@@ -90,10 +91,10 @@ describe('le cout et le journal, sur des reponses simulees', () => {
 describe('le prompt, le schema et la demande', () => {
   it('versionne le prompt et le schema', () => {
     const p = lirePrompt(fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8'));
-    expect(p.version).toBe(0);
+    expect(p.version).toBe(1);
     expect(p.texte).toMatch(/^# Rôle/);
     expect(p.texte).not.toMatch(/^version:/m);
-    expect(SCHEMA.version).toBe(0);
+    expect(SCHEMA.version).toBe(1);
   });
 
   it('respecte les limites de la sortie structuree : objets fermes, tous les champs requis', () => {
@@ -112,6 +113,19 @@ describe('le prompt, le schema et la demande', () => {
     const prompt = fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8');
     const formes = (SCHEMA.schema.properties as { forme: { properties: { valeur: { enum: string[] } } } }).forme.properties.valeur.enum;
     for (const f of formes.filter((x) => x !== 'indetermine')) expect(prompt, f).toContain('`' + f + '`');
+    // Les facades (version 1) : chaque terme des details et du materiau aussi.
+    const facade = (SCHEMA.schema.properties as { facades: { items: { properties: Record<string, { enum?: string[]; properties?: Record<string, { enum: string[] }> }> } } }).facades.items.properties;
+    const termes = [...(facade.materiau!.enum ?? []), ...Object.values(facade.details!.properties ?? {}).flatMap((p) => p.enum ?? [])];
+    for (const t of termes.filter((x) => !['indetermine', 'oui', 'non'].includes(x))) expect(prompt, t).toContain('`' + t + '`');
+  });
+
+  it('compte les facades de chaque requete, et refuse un compte hors bornes', () => {
+    const d = verifierDemande(demande(), PLAFONDS_DEFAUT as Plafonds);
+    expect(d.requetes.map((r) => r.facades)).toEqual([2, 2]);
+    const sans = demande(['p1']) as { requetes: { facades?: number }[] };
+    delete sans.requetes[0]!.facades;
+    expect(verifierDemande(sans, PLAFONDS_DEFAUT as Plafonds).requetes[0]!.facades).toBe(0);
+    expect(() => verifierDemande({ ...demande(['p1']), requetes: [{ ...(demande(['p1']) as { requetes: object[] }).requetes[0], facades: 201 }] }, PLAFONDS_DEFAUT as Plafonds)).toThrow(/façades/);
   });
 
   it('fixe le modele, le prompt en cache, l effort et la sortie, sans temperature', () => {
@@ -148,6 +162,7 @@ let serveur: http.Server;
 let base: string;
 let cookie: string;
 let faux: FauxAnthropic;
+let plateforme: FauxPlateforme;
 let maintenant = Date.parse('2026-10-14T09:00:00Z');
 
 function navigateur(entree: string, init: RequestInit = {}): Promise<Response> {
@@ -167,7 +182,7 @@ const journal = () => {
 
 async function demarrer(cle: string | undefined): Promise<void> {
   const admin = creerAdminDemos({ dossier, motDePasse: MDP });
-  const analyse = creerAnalyseAdmin({ dossier, actif: admin.actif, sessionValide: admin.sessionValide, cle, anthropicUrl: faux.url, deploy, maintenant: () => maintenant });
+  const analyse = creerAnalyseAdmin({ dossier, actif: admin.actif, sessionValide: admin.sessionValide, cle, anthropicUrl: faux.url, plateformeUrl: plateforme.url, deploy, maintenant: () => maintenant });
   serveur = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
     void (async () => {
@@ -185,10 +200,12 @@ describe('analyse par Claude, routes', () => {
     cookie = '';
     maintenant = Date.parse('2026-10-14T09:00:00Z');
     faux = await demarrerFauxAnthropic(reponseParDefaut);
+    plateforme = await demarrerFauxePlateforme();
   });
   afterEach(async () => {
     await new Promise((ok) => serveur.close(ok));
     await faux.fermer();
+    await plateforme.fermer();
     fs.rmSync(dossier, { recursive: true, force: true });
   });
 
@@ -199,8 +216,38 @@ describe('analyse par Claude, routes', () => {
     expect(await connecterAdmin(navigateur, MDP)).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
     const etat = await (await navigateur('admin/claude/etat')).json();
-    expect(etat).toMatchObject({ actif: true, prompt: 0, schema: 0, effort: 'low' });
+    expect(etat).toMatchObject({ actif: true, prompt: 1, schema: 1, effort: 'low', organisation: 'admin', admin: true });
     expect(faux.batches).toHaveLength(0);
+  });
+
+  it('ouvre l analyse a un utilisateur de la plateforme par son jeton, dans son organisation seulement', async () => {
+    await demarrer(CLE);
+    const porteur = (jeton: string) => ({ Authorization: 'Bearer ' + jeton });
+    const utilisateur = (entree: string, init: RequestInit = {}) => navigateur(entree, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), ...porteur(JETON_ORGA) } });
+    // Un jeton inconnu : la plateforme le refuse, nous aussi ; un lecteur seul ne lance rien.
+    expect((await navigateur('admin/claude/etat', { headers: porteur('jeton-inconnu-de-la-plateforme') })).status).toBe(401);
+    expect((await navigateur('admin/claude/etat', { headers: porteur(JETON_LECTEUR) })).status).toBe(403);
+    expect(await (await utilisateur('admin/claude/etat')).json()).toMatchObject({ actif: true, organisation: ORGA, admin: false });
+    // Tarifs, plafonds et consommation restent a l'administrateur.
+    expect((await utilisateur('admin/claude/tarifs')).status).toBe(403);
+    expect((await utilisateur('admin/claude/plafonds')).status).toBe(403);
+    expect((await utilisateur('admin/consommation')).status).toBe(403);
+    expect((await utilisateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
+
+    const cree = await utilisateur('admin/claude/batches', { method: 'POST', headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(demande()) });
+    expect(cree.status).toBe(201);
+    expect(plateforme.jetons.filter((j) => j === JETON_ORGA).length).toBeGreaterThan(0);
+    expect(await (await utilisateur('admin/claude/batches/msgbatch_1')).json()).toMatchObject({ id: 'msgbatch_1' });
+    faux.terminer();
+    const lu = await (await utilisateur('admin/claude/batches/msgbatch_1/resultats')).json();
+    expect(lu.resultats).toHaveLength(2);
+    // Le journal porte l'organisation de la plateforme et les facades de chaque requete.
+    expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ organisation: ORGA, projet: 'projet-1', facades: 2, statut: 'reussi' });
+    // L'administrateur voit ce batch ; un autre utilisateur ne le verrait pas (meme reponse qu'un batch inconnu).
+    await connecterAdmin(navigateur, MDP);
+    expect((await navigateur('admin/claude/batches/msgbatch_1')).status).toBe(200);
+    const orgs = await (await navigateur('admin/consommation')).json();
+    expect(orgs.organisations.map((o: { id: string }) => o.id).sort()).toEqual(['admin', ORGA].sort());
   });
 
   it('sans cle, dit pourquoi et n appelle rien', async () => {
@@ -243,8 +290,8 @@ describe('analyse par Claude, routes', () => {
     expect(lignes.find((l) => l.requete === 'p1')).toEqual({
       t: '2026-10-14T10:00:00.000Z', organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet',
       audit: 'audit-1', usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
-      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, cout: COUT_P1,
-      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 0, schema: 0
+      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1,
+      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 1, schema: 1
     });
     // Ni photo ni contenu de reponse dans le journal.
     expect(JSON.stringify(lignes)).not.toMatch(/QUJDRA|deux-pans/);
@@ -272,7 +319,7 @@ describe('analyse par Claude, routes', () => {
     expect(refus.status).toBe(429);
     expect((await refus.json()).error.code).toBe('BUDGET_EXCEEDED');
     expect(faux.batches).toHaveLength(1);
-    expect(journal()).toMatchObject([{ statut: 'plafond', cout: 0, images: 1, idBatch: null }]);
+    expect(journal()).toMatchObject([{ statut: 'plafond', cout: 0, images: 1, facades: 2, idBatch: null }]);
 
     // Le premier batch fini est journalise en passant : 0,0028 $ depenses + 0,004 $ estimes.
     maintenant = Date.parse('2026-10-14T11:00:00Z');
@@ -345,7 +392,7 @@ describe('la consommation : filtres et lignes', () => {
     ];
     const tout = filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14' });
     expect(tout).toHaveLength(3);
-    expect(Object.keys(tout[0]!)).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut']);
+    expect(Object.keys(tout[0]!)).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', modele: 'claude-sonnet-5-5' }).map((l) => l.usage)).toEqual(['escalade']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', parcelle: '78650000AE0102' }).map((l) => l.organisation)).toEqual(['org-1']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', organisation: 'org-1', usage: 'analyse' })).toHaveLength(1);

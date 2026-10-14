@@ -3,7 +3,7 @@ import {
   captureDuFichier, correspondanceBatiments, decisionDe, derniereDecision, fichierAuditParcelle, FichierAuditParcelleIllisible, lireFichierAuditParcelle,
   mesuresDuFichier, nomFichierAuditParcelle, refusParcelle, renommerBatiments, type EntreesFichierAudit, type FichierAuditParcelle,
 } from '../../../src/model/fichierAuditParcelle.js';
-import { captureVide, type CaptureParcelle } from '../../../src/model/auditParcelle.js';
+import { captureVide, partageDe, type CaptureParcelle } from '../../../src/model/auditParcelle.js';
 import type { Proposition } from '../../../src/model/propositions.js';
 
 // Le fichier de l'audit de parcelle (MD/spec-audit.md §15), format `plan-audit-parcelle` version 1 :
@@ -118,6 +118,13 @@ describe('le fichier de l audit de parcelle', () => {
     expect(decisionDe('bat-7:materiauMurs', g.decisions)).toBe('validee');
     // La meme cle dans les deux projets : le fichier ne change pas.
     expect(renommerBatiments(f, correspondanceBatiments(f, [{ cle: 'maison', cleBdtopo: null }]))).toBe(f);
+  });
+
+  it('lit la case du partage : la sienne, sinon celle de l accord de l analyse, sinon cochee', () => {
+    const c = captureVide(IDU);
+    expect(partageDe(c)).toEqual({ accord: true, envoi: null });
+    expect(partageDe({ ...c, analyse: { accord: { t: '2026-10-13T09:00:00Z', partage: false } } })).toEqual({ accord: false, envoi: null });
+    expect(partageDe({ ...c, analyse: { accord: { t: '2026-10-13T09:00:00Z', partage: false } }, partage: { accord: true, envoi: null } }).accord).toBe(true);
   });
 
   it('nomme le fichier du jour local et de l IDU', () => {

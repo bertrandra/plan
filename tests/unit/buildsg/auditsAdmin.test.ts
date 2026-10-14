@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerAnalyseAdmin, jetonPorteur, verifierAudit } from '../../../buildsg/analyseAdmin.mjs';
+import { creerAnalyseAdmin, verifierAudit } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { demarrerContextePlateforme, fichierAudit, type ContextePlateforme } from '../../fixtures/deploy/contextePlateforme.js';
 import { jouerScenarioAudits } from '../../fixtures/deploy/scenarioAudits.js';
@@ -59,10 +59,7 @@ describe('les audits partages, cote Node', () => {
     await jouerScenarioAudits({ navigateur, connecter: async () => { expect(await connecterAdmin(navigateur, MDP)).toBe(null); }, dossier }, plateforme);
   });
 
-  it('lit le jeton porteur, et verifie la forme d un audit', () => {
-    expect(jetonPorteur('Bearer abcdefghijklmnop')).toBe('abcdefghijklmnop');
-    expect(jetonPorteur('Bearer court')).toBe(null);
-    expect(jetonPorteur(undefined)).toBe(null);
+  it('verifie la forme d un audit', () => {
     expect(verifierAudit(fichierAudit())).toEqual({ idu: '78650000AE0101', adresse: '2 allée des Limites' });
     expect(verifierAudit(fichierAudit('48.900000,2.130000')).idu).toBe('48.900000,2.130000');
     expect(() => verifierAudit({ ...fichierAudit(), version: 2 })).toThrow('Version du fichier d’audit inconnue.');

@@ -128,6 +128,9 @@ export function TableParcelles({ lignes, series }: { lignes: LigneParcelle[]; se
     ...series.map((s): ColonneParcelle => ({ cle: 'tokens:' + s, titre: 'Tokens ' + nomModele(s).replace(/^Claude /, ''), num: true, valeur: (l) => l.tokensParModele[s] ?? 0, texte: (l) => fmt.tokens(l.tokensParModele[s] ?? 0) })),
     { cle: 'partCache', titre: 'Part du cache', num: true, valeur: (l) => l.partCache, texte: (l) => fmt.part(l.partCache) },
     cout,
+    // Le cout par facade (spec-audit §13.3) : les facades sont comptees par le journal depuis le lot
+    // L17 ; une parcelle d'avant n'en a pas, et le dit par un tiret plutot que par un zero.
+    { cle: 'coutParFacade', titre: 'Coût par façade', num: true, valeur: (l) => l.coutParFacade, texte: (l) => (l.coutParFacade === null ? '—' : fmt.dollars(l.coutParFacade)) },
     { cle: 'dernier', titre: 'Dernier audit', valeur: (l) => l.dernier, texte: (l) => fmt.date(l.dernier) }
   ];
   const col = colonnes.find((c) => c.cle === tri.cle) ?? cout;

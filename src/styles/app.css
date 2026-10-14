@@ -1445,6 +1445,21 @@
   .origineProposition{ font-size:0.72rem; color:var(--ink-soft); }
   /* Ce qui fait arriver une ligne decochee : un filet d'alerte et le mot, la couleur ne porte pas seule. */
   .reserveProposition{ font-size:0.74rem; color:var(--ink); border-left:2px solid var(--alerte); padding-left:6px; margin-top:2px; }
+  /* L'analyse par Claude (zones/parcours/AnalyseClaudeAudit.tsx) : la question de l'accord dans une
+     tuile, puis une ligne d'etat ; les lignes de Claude portent un filet d'accent pour que l'origine
+     se voie aussi a l'oeil, en plus du mot. */
+  .accordAnalyse{ margin:8px 0 4px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); display:flex; flex-direction:column; gap:6px; }
+  .titreAnalyse{ font-weight:600; font-size:0.82rem; }
+  .casePartage{ display:flex; align-items:center; gap:8px; font-size:0.78rem; cursor:pointer; }
+  .casePartage input[type="checkbox"]{ width:18px; height:18px; margin:0; flex:none; accent-color:var(--accent); }
+  .actionsAnalyse{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+  .etatAnalyse{ margin:8px 0 4px; padding:6px 10px; border-left:2px solid var(--accent); font-size:0.78rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 6px; }
+  .etatAnalyse .actionsAnalyse{ width:100%; }
+  .etatAnalyse.etat-erreur{ border-left-color:var(--alerte); }
+  .ligneProposition.source-claude{ box-shadow:inset 3px 0 0 var(--accent-light); padding-left:8px; }
+  html:not([data-classe="large"]) .casePartage{ min-height:44px; }
+  html:not([data-classe="large"]) .casePartage input[type="checkbox"]{ width:20px; height:20px; }
+  html:not([data-classe="large"]) .actionsAnalyse button{ min-height:44px; }
   .verificationsAudit{ margin-top:10px; font-size:0.78rem; color:var(--ink-soft); }
   .verificationsAudit li{ padding:2px 0; }
   .verificationsAudit li.verifie{ color:var(--ink); box-shadow:inset 3px 0 0 var(--ok); padding-left:8px; }
@@ -1701,6 +1716,12 @@
   .releveOuverture.choisie rect{ stroke:var(--accent); stroke-width:3; fill:var(--zebra-hover); }
   .releveOuverture text{ fill:var(--on-camera); font-family:var(--sans); font-variant-numeric:tabular-nums;
     paint-order:stroke; stroke:var(--camera-bg); }
+  /* Une ouverture incertaine (faible confiance, ou devinee par la grille de la facade) se dessine en
+     pointille ; decochee, elle n'est qu'une proposition, plus pale, qu'une touche garde (spec facades
+     §12). Le pointille porte l'information, la couleur ne la porte pas seule. */
+  .releveOuverture.incertaine rect{ stroke-dasharray:6 4; }
+  .releveOuverture.decochee rect{ stroke:var(--on-camera); opacity:.75; cursor:pointer; }
+  .releveGestes{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .relevePoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2; vector-effect:non-scaling-stroke; cursor:nwse-resize; }
   .releveBarre{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .releveFiche{ display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }

@@ -65,7 +65,7 @@ export function plafondDe(plafonds: Plafonds, organisation: string): { jour: num
 export function verifierDemande(d: unknown, plafonds: Plafonds): {
   projet: string | null; idu: string | null; adresse: string | null; audit: string | null;
   usage: string; modele: string;
-  requetes: { id: string; passe: number | null; images: number; contenu: unknown[] }[];
+  requetes: { id: string; passe: number | null; images: number; facades: number; contenu: unknown[] }[];
 };
 export function parametresRequete(modele: string, prompt: string, schema: unknown, contenu: unknown[]): Record<string, unknown>;
 export function verifierTarifs(d: unknown): Tarifs;
@@ -93,8 +93,6 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
 };
 
 // Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
-export const PRODUIT_PLATEFORME: string;
-export function jetonPorteur(valeur: string | undefined): string | null;
 export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
 
 export function creerAnalyseAdmin(options: {
@@ -103,7 +101,6 @@ export function creerAnalyseAdmin(options: {
   sessionValide: (req: IncomingMessage) => boolean;
   cle: string | undefined;
   anthropicUrl?: string;
-  /** Ou verifier le jeton d'un utilisateur de la plateforme (audits partages, lot L21). */
   plateformeUrl?: string;
   deploy?: string;
   maintenant?: () => number;

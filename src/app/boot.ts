@@ -50,6 +50,7 @@ import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
 import { droitsCourants, enAdmin, enLectureSeule, prevenirAdminDesCapacitesForcees, sessionCourante } from './acces.js';
 import { creerClientAudits } from '../io/auditsServeur.js';
+import { analyseClaudeDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
@@ -443,6 +444,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
     audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
     admin: enAdmin,
+    analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
   }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.

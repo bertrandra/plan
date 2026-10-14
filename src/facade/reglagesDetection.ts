@@ -10,7 +10,7 @@
 
 export interface Reglage {
   valeur: number;
-  unite: 'm' | 'm2' | 'niveaux' | 'rapport' | 'part';
+  unite: 'm' | 'm2' | 'niveaux' | 'rapport' | 'part' | 'nombre';
   pourquoi: string;
 }
 

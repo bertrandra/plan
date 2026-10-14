@@ -29,6 +29,8 @@ import { creerCorpus, type Corpus } from './corpus.js';
 import { ecrireFichierAudit, type EntreesEcriture } from './fichier.js';
 import { captureDuFichier, derniereDecision, mesuresDuFichier, nomFichierAuditParcelle, type FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { partagerFichier } from '../../../shell/partage.js';
+import { creerAnalyseClaude, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
+import type { IdentiteAnalyse } from './entreesAnalyse.js';
 import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
@@ -72,6 +74,12 @@ export interface ContexteAuditParcelle {
   admin?: () => boolean;
   partager?: typeof partagerFichier;
   lireGrille?: EntreesEcriture['lireGrille'];
+  /**
+   * L'analyse par Claude (§13.2, lot L17) : le client des routes du serveur (null hors plateforme et
+   * hors admin), l'identite de la parcelle pour le journal, et ce qui dessine les images (par defaut
+   * le navigateur). Absente dans les tests de la capture : l'analyse est alors indisponible.
+   */
+  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier'>>;
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -98,6 +106,8 @@ export interface SessionAuditParcelle {
   readonly capture: CaptureEnCours;
   /** Les mesures devenues propositions, et leur validation (phases 2 et 3, §13.1 et §14). */
   readonly validation: Validation;
+  /** L'analyse par Claude (§13.2) : accord, envoi, suivi, resultats. */
+  readonly analyse: AnalyseClaude;
   /** « Partager cet audit pour améliorer Plan » (§15, decision D7). */
   readonly corpus: Corpus;
   /** Le fichier de l'audit, tel qu'il se partage (§15). */
@@ -239,7 +249,7 @@ function priseDe(c: ReturnType<typeof capteurs>, maintenant: Date): PrisePhoto |
 }
 
 /** Le brouillon de la capture : ecrit un peu apres chaque geste, une note tapee ne fait qu'une ecriture. */
-function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours) {
+function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, apresReprise: () => void = () => {}) {
   const stockage = ctx.stockage === undefined ? stockageNavigateur() : ctx.stockage;
   const brouillon = creerBrouillonParcelle(stockage, { surEchec: (r) => ctx.signaler(MESSAGES_BROUILLON[r]) });
   let minuteur: ReturnType<typeof setTimeout> | null = null;
@@ -263,6 +273,7 @@ function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours) {
         const perdues = lu.photosManquantes;
         ctx.signaler('Audit du ' + jourDe(new Date(lu.capture.debut)) + ' repris' + (perdues ? ' (' + pluriel(perdues, 'photo') + ' introuvable' + (perdues > 1 ? 's' : '') + ')' : '') + '.');
         fin();
+        apresReprise();
       }, () => { void brouillon.jeter(lu.capture.id); fin(); }, fin));
     },
     /**
@@ -296,12 +307,35 @@ export function questionRemplacement(c: CaptureParcelle, remplacer: () => void):
 /** Sans projet branche (tests de la capture), rien ne s'ecrit : l'apercu et la validation restent muets. */
 const PROJET_MUET: ProjetAudit = { pushHistory: () => {}, render: () => {}, refaire3d: () => {}, remplacer3d: () => false };
 
-/** La validation de la session, avec les dependances du navigateur par defaut. */
-function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, maintenant: () => Date, apresValidation: () => void): Validation {
+/**
+ * La validation de la session, avec les dependances du navigateur par defaut ; l'analyse y ajoute ses
+ * reponses, et le partage pour le corpus part apres chaque validation.
+ */
+function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, maintenant: () => Date, analyse: () => AnalyseClaude, apresValidation: () => void): Validation {
   return creerValidation({
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
+    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version() },
+  });
+}
+
+/** L'analyse par Claude de la session : indisponible sans client (tests de la capture, hors plateforme). */
+function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validation: () => Validation, maintenant: () => Date): AnalyseClaude {
+  const a = ctx.analyse;
+  return creerAnalyseClaude({
+    capture, signaler: ctx.signaler, maintenant,
+    entrees: () => validation().entrees(),
+    mesuresPretes: () => validation().lancer(),
+    client: a?.client ?? null,
+    // L'audit du journal : la parcelle et l'heure du debut, pour distinguer deux audits du meme jour.
+    identite: () => ({ ...(a?.identite?.() ?? { projet: null, idu: ctx.idu, adresse: null }), audit: idAuditAnalyse(capture.lire()) }),
+    images: a?.images ?? fabriqueImagesNavigateur(),
+    ...(a?.notifier ? { notifier: a.notifier } : {}),
+    ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
+    ...(a?.memoire ? { memoire: a.memoire } : {}),
+    ...(a?.delaiSuiviMs !== undefined ? { delaiSuiviMs: a.delaiSuiviMs } : {}),
+    ...(a?.planifier ? { planifier: a.planifier } : {}),
   });
 }
 
@@ -339,19 +373,25 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   };
   const visee = viseeDe(ctx, liste, publier);
   const sens = capteurs(ctx, (quoi) => visee.capteurs(sens, quoi));
-  const brouillon = brouillonDe(ctx, capture);
-  // Le partage part apres chaque validation ; il lit le fichier, qui lit la validation : lie ensuite.
-  let corpus: Corpus | null = null;
-  const validation = validationDe(ctx, capture, liste, maintenant, () => { void corpus?.envoyer(); });
+  // Un brouillon repris avec un batch en cours : son suivi repart.
+  const brouillon = brouillonDe(ctx, capture, () => analyse.reprendre());
+  // L'analyse lit les mesures de la validation, la validation lit les reponses de l'analyse : chacune
+  // recoit l'autre par une fonction, posee apres les deux creations. Le partage part apres chaque
+  // validation ; il lit le fichier, qui lit la validation : lie de meme.
+  let validation: Validation, analyse: AnalyseClaude, corpus: Corpus | null = null;
+  analyse = analyseDe(ctx, capture, () => validation, maintenant);
+  validation = validationDe(ctx, capture, liste, maintenant, () => analyse, () => { void corpus?.envoyer(); });
   const fichier = fichierDe(ctx, capture, liste, validation, maintenant);
   corpus = creerCorpus({ capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, signaler: ctx.signaler, maintenant });
   capture.abonner(() => { visee.reconnaitre(sens); publier(); });
   validation.abonner(publier);
+  analyse.abonner(publier);
   corpus.abonner(publier);
 
   return {
     capture,
     validation,
+    analyse,
     corpus,
     fichier: fichier.ecrire,
     fichierDisponible: () => ctx.admin?.() ?? false,
@@ -393,6 +433,8 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       capture.terminer();
       void brouillon.vider();
       ctx.signaler('Capture terminée : elle est gardée sur cet appareil, et vos mesures deviennent des propositions.');
+      // Avec l'accord deja donne, les photos partent (et le toast le rappelle) ; sinon l'ecran pose la question.
+      void analyse.lancer();
     },
     suspendre() { sens.arreter(); visee.oublier(); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.

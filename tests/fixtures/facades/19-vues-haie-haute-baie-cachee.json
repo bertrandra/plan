@@ -1,0 +1,139 @@
+{
+  "nom": "19-vues-haie-haute-baie-cachee",
+  "description": "Façade régulière (trois travées, deux niveaux) ; une haie haute, presque contre le mur, cache toute la fenêtre de gauche du rez-de-chaussée sur les deux vues : la fusion la marque cachée, et la structure doit y deviner une baie (lot L15, spec §10.5).",
+  "difficultes": [
+    "haie",
+    "occlusion",
+    "multi-vues",
+    "completion"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 193.82,
+        "y": 171.48
+      },
+      {
+        "x": 980.09,
+        "y": 267.94
+      },
+      {
+        "x": 996.83,
+        "y": 690.34
+      },
+      {
+        "x": 164.57,
+        "y": 727.96
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "porte",
+        "x": 4.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            60,
+            70,
+            90
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.38,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 7.6,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 19,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          218,
+          200,
+          172
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "devant": [
+      {
+        "type": "haie",
+        "x": 0.7,
+        "l": 2.3,
+        "h": 2.6,
+        "recul": 0.5
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 11,
+      "biais": -18,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    },
+    "vues": [
+      {
+        "type": "camera",
+        "distance": 11,
+        "biais": 22,
+        "focale35": 26,
+        "largeurPx": 1280,
+        "hauteurPx": 960,
+        "tangage": 5,
+        "bruit": 3,
+        "flou": 1
+      }
+    ]
+  }
+}

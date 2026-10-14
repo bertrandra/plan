@@ -103,12 +103,12 @@ export const reponseParDefaut: Reponse = (id) => {
   return { custom_id: id, result: { type: 'errored', error: { type: 'error', error: { type: 'overloaded_error', message: 'Surcharge' } } } };
 };
 
-/** Une demande d'analyse comme L17 l'enverra : deux passes, une image et un texte chacune. */
+/** Une demande d'analyse comme L17 l'envoie : deux passes, une image et un texte chacune, deux facades. */
 export function demande(ids: string[] = ['p1', 'p2']): object {
   return {
     projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1', usage: 'analyse',
     requetes: ids.map((id, i) => ({
-      id, passe: i + 1,
+      id, passe: i + 1, facades: 2,
       contenu: [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJDRA==' } },
         { type: 'text', text: 'Image 1 : photo de rue, prise à 12 m, vers 245°.' }

@@ -100,10 +100,62 @@ export interface CaptureParcelle<P = PhotoCas> {
   decisions?: DecisionAudit[];
   /**
    * Le partage pour le corpus (§15, decision D7) : « Partager cet audit pour améliorer Plan ».
-   * Absent : la case est cochee (decision de l'utilisateur, 13 octobre) et rien n'est encore parti.
-   * Il reste sur l'appareil : le fichier de l'audit ne le recopie pas, le secret de retrait non plus.
+   * Absent : la case de l'accord de l'analyse s'il a ete donne, sinon cochee (decision de
+   * l'utilisateur, 13 octobre) ; rien n'est encore parti. Il reste sur l'appareil : le fichier de
+   * l'audit ne le recopie pas, le secret de retrait non plus.
    */
   partage?: PartageCorpus;
+  /**
+   * L'analyse par Claude (§13.2, lot L17) : l'accord de l'utilisateur, le batch en cours et ses
+   * resultats. Absente tant que la question n'a pas ete posee. Elle vit dans la capture pour
+   * survivre a un rechargement (brouillon) et pour le fichier de l'audit (§15).
+   */
+  analyse?: AnalyseCapture;
+}
+
+/** L'accord d'envoyer les photos a l'analyse (decision D2) : une fois par projet, revocable. */
+export interface AccordAnalyse {
+  t: string;
+  /** « Partager cet audit pour améliorer Plan » (decision D7, cochee par defaut) : lu par le fichier de l'audit (lot L21). */
+  partage: boolean;
+}
+
+/** Le batch envoye : son identifiant chez le serveur, quand, et quelles requetes (une par batiment et par passe). */
+export interface BatchAnalyse {
+  id: string;
+  creeLe: string;
+  /** Ce qui a ete envoye : les photos de la capture a ce moment-la ; un changement relance l'analyse. */
+  signature: string;
+  /** L'identifiant de requete -> la cle du batiment et la passe. */
+  requetes: Record<string, { cle: string; passe: number }>;
+  /** Les etiquettes des images envoyees, par batiment, dans l'ordre : les indices de Claude s'y referent. */
+  etiquettes: Record<string, EtiquetteImage[]>;
+}
+
+/** Ce qu'une image envoyee etait : une photo de la capture (et laquelle), ou une image produite par Plan. */
+export interface EtiquetteImage {
+  texte: string;
+  photo?: { cle: string; cote?: number; rang: number };
+}
+
+/** Les reponses lues : les passes de chaque batiment, dans la forme du schema (model/analyseClaude.ts). */
+export interface ResultatsAnalyse {
+  t: string;
+  modele: string;
+  schema: number;
+  prompt: number;
+  /** Par cle du batiment, les reponses des passes reussies (les autres sont absentes). */
+  parBatiment: Record<string, unknown[]>;
+}
+
+export interface AnalyseCapture {
+  accord: AccordAnalyse | null;
+  /** « Seulement les mesures » : quand on l'a dit ; la question n'est plus posee tant que la capture ne change pas. */
+  refus?: string | null;
+  batch?: BatchAnalyse | null;
+  resultats?: ResultatsAnalyse | null;
+  /** Le dernier echec, en clair, pour l'ecran ; null quand tout va bien. */
+  erreur?: string | null;
 }
 
 /** L'audit tel que le serveur de Plan l'a recu : de quoi le retirer (la case decochee). */
@@ -123,7 +175,15 @@ export interface PartageCorpus {
 /** Ce que dit la case quand la capture n'en a rien retenu : cochee, rien d'envoye. */
 export const PARTAGE_PAR_DEFAUT: PartageCorpus = Object.freeze({ accord: true, envoi: null }) as PartageCorpus;
 
-export const partageDe = (c: Pick<CaptureParcelle, 'partage'>): PartageCorpus => c.partage ?? PARTAGE_PAR_DEFAUT;
+/**
+ * La case du partage : celle touchee dans l'ecran des propositions, sinon celle de l'accord de
+ * l'analyse par Claude (la meme question, posee avec l'accord, lot L17), sinon cochee.
+ */
+export function partageDe(c: Pick<CaptureParcelle, 'partage' | 'analyse'>): PartageCorpus {
+  if (c.partage) return c.partage;
+  const accord = c.analyse?.accord;
+  return accord ? { accord: accord.partage, envoi: null } : PARTAGE_PAR_DEFAUT;
+}
 
 /** Une validation des propositions : quand, ce qui a ete ecrit dans le projet, ce qui a ete refuse. */
 export interface DecisionAudit {
@@ -183,4 +243,17 @@ export function transformerPhotos<A, B>(c: CaptureParcelle<A>, f: (photos: A[]) 
     batiments[cle] = { facades, vu: JSON.parse(JSON.stringify(b.vu)) as CeQueJeVois, photos: f(b.photos) };
   }
   return { ...c, batiments, cloture: { ...c.cloture, photos: f(c.cloture.photos) }, portail: { ...c.portail, photos: f(c.portail.photos) } };
+}
+
+/**
+ * Ce que l'analyse par Claude a recu : les photos de la capture, par leur taille et leur prise. Une
+ * photo ajoutee ou retiree change la signature, et l'analyse se relance ; une note ne la change pas.
+ */
+export function signatureAnalyse(c: CaptureParcelle): string {
+  const parts: string[] = [];
+  for (const [cle, b] of Object.entries(c.batiments).sort(([a], [z]) => a.localeCompare(z))) {
+    for (const [cote, f] of Object.entries(b.facades).sort(([a], [z]) => Number(a) - Number(z))) parts.push(cle + '#' + cote + ':' + f.photos.map((p) => p.base64.length + '@' + (p.prise?.t ?? '')).join(','));
+    parts.push(cle + '/toit:' + b.photos.map((p) => p.base64.length + '@' + (p.prise?.t ?? '')).join(','));
+  }
+  return parts.join('|');
 }
