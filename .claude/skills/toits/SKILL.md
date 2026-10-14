@@ -326,8 +326,22 @@ valeur dans `model/reglagesToits.ts`, qui importe le fichier : il est compilé d
   les modules). Banc avant et après, AE 101, corpus d'audit, ligne de `LECTURES_TOITS` (§6 bis).
 - **Un seuil nouveau** s'ajoute au fichier avec sa raison, puis se lit par `R.NOM` ; les constantes de
   calcul numérique (passes, epsilon) restent dans le code.
-- **Les profils** (surcharges par région, §6 de la spec) ne sont pas encore appliqués : le fichier
-  n'en déclare aucun, et un test le vérifie.
+- **Les modules lisent `S.NOM`** (`SEUILS_TOITS`, la table en vigueur) **à chaque appel**, jamais une
+  copie prise au chargement : le nom exporté (`export const SEUIL_MARCHE_M = R.SEUIL_MARCHE_M`) ne
+  sert qu'aux tests et à la documentation. Un test refuse `const NOM = R.…` et un nom exporté lu dans
+  le code. Sinon un profil ne changerait rien.
+- **Les profils** (surcharges par région, §6 de la spec ; lot G15) : `model/profilsToits.ts` lit et
+  vérifie `profils` (vocabulaire fermé : `departements`, `latitude`, `materiauxMurs`,
+  `materiauxToiture`, `hauteur`, `surface`, `mitoyennete`, `formeContour`, `epoque` ; deux cas cités
+  au moins ; seuils connus), choisit seuil par seuil le plus précis, et refuse deux profils de même
+  précision sur le même seuil qui peuvent toucher le même bâtiment. `facade/profilsToits.ts` décrit le
+  bâtiment (lieu du projet, BD TOPO, contour, voisins) et fait le calcul sous ses seuils
+  (`avecProfilsDuBatiment`, `avecSeuilsToit` : un calcul **synchrone**, jamais à cheval sur une
+  attente réseau). Branché à l'import, en tâche de fond, au recalage, à la réponse « à cheval », au
+  rejeu des cas et au banc (`banc.ts <village> --profils essai.json` essaie une liste de profils,
+  et chaque ligne dit les profils appliqués). Le fichier livré n'en déclare **aucun** : AE 101, banc
+  et empreintes identiques, version de lecture restée 1. Le premier profil change l'empreinte des
+  réglages : ajouter sa ligne à `LECTURES_TOITS` (le test la donne).
 - La première extraction (lot L19) n'a changé aucune valeur : banc des quatre villages et AE 101
   identiques au bit près, version de lecture restée 1.
 

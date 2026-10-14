@@ -19,14 +19,14 @@ import { angleDuPlusLongCote, repereFaitage, ELONGATION_MIN } from '../geometry/
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
-import { REGLAGES_TOITS as R } from './reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */
 export const TOLERANCE_DEG = R.TOLERANCE_DEG;
 /** Un rectangle plus etroit que cela n'est pas un volume : une saillie, un decroche de facade. */
 export const LARGEUR_MIN_M = R.LARGEUR_MIN_M;
-/** Et en dessous de cette aire il est simplement oublie (un auvent, une marche) ; au-dela, le decoupage est refuse. */
-const AIRE_NEGLIGEABLE_M2 = R.AIRE_NEGLIGEABLE_M2;
+// Et en dessous de S.AIRE_NEGLIGEABLE_M2 il est simplement oublie (un auvent, une marche) ; au-dela, le
+// decoupage est refuse.
 /** Deux abscisses a moins de cela sont la meme (le contour simplifie n'est droit qu'au centimetre). */
 const EPSILON_M = 0.05;
 /** Un cote plus court que cela est un decroche de facade (un ressaut, un conduit), pas un volume : il est lisse. */
@@ -60,7 +60,7 @@ export function equerrer(local: readonly PtBrut[]): PtBrut[] | null {
     if (Math.hypot(dx, dy) < EPSILON_M) { sens.push(sens.length ? (sens[sens.length - 1] as boolean) : true); continue; }
     const angle = Math.abs(deg(Math.atan2(dy, dx))) % 180;
     const ecartH = Math.min(angle, 180 - angle), ecartV = Math.abs(angle - 90);
-    if (ecartH > TOLERANCE_DEG && ecartV > TOLERANCE_DEG) return null;
+    if (ecartH > S.TOLERANCE_DEG && ecartV > S.TOLERANCE_DEG) return null;
     sens.push(ecartH <= ecartV);
   }
   // Fusion des cotes consecutifs de meme sens : on garde les sommets ou le sens change.
@@ -90,7 +90,7 @@ export function lisserDecroches(droit: readonly PtBrut[]): PtBrut[] {
   let pts = droit.map((p) => ({ ...p }));
   for (let garde = 0; garde < 40 && pts.length > 4; garde++) {
     const n = pts.length;
-    let court = -1, lCourt = SEUIL_DECROCHE_M;
+    let court = -1, lCourt = S.SEUIL_DECROCHE_M;
     for (let i = 0; i < n; i++) {
       const a = au(pts, i), b = sommetDe(pts, i + 1);
       const l = Math.hypot(b.x - a.x, b.y - a.y);
@@ -184,8 +184,8 @@ export function rectanglesDuContour(pts: readonly PtBrut[]): PtBrut[][] | null {
   // Un contour equerre et lisse qui a perdu plus de 15 % de son aire n'etait pas rectiligne.
   const a0 = Math.abs(signedArea(pts)), a1 = Math.abs(signedArea(droit));
   if (a0 <= 0 || Math.abs(a1 - a0) / a0 > 0.15) return null;
-  const rects = couvertureRectangles(droit).filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2).sort((p, q) => aire(q) - aire(p));
-  if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) return null;
+  const rects = couvertureRectangles(droit).filter((r) => aire(r) >= S.AIRE_NEGLIGEABLE_M2).sort((p, q) => aire(q) - aire(p));
+  if (!rects.length || rects.some((r) => largeurMin(r) < S.LARGEUR_MIN_M)) return null;
   return rects.map((r) => tourner([{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }], angle).map((p) => ({ x: cm(p.x), y: cm(p.y) })));
 }
 
@@ -239,7 +239,7 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
   for (const axe of ['x', 'y'] as const) {
     let rects = tranches(droit, axe);
     for (let garde = 0; garde < 20; garde++) {
-      const etroit = rects.find((r) => largeurMin(r) < LARGEUR_MIN_M);
+      const etroit = rects.find((r) => largeurMin(r) < S.LARGEUR_MIN_M);
       if (!etroit) break;
       const autres = rects.filter((r) => r !== etroit);
       const fusions = autres.filter((r) => touchent(r, etroit)).map((r) => {
@@ -248,11 +248,11 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
       }).sort((a, b) => a.ajout - b.ajout);
       const f = fusions[0];
       if (f && f.ajout <= 0.15) rects = [...autres.filter((r) => r !== f.r), f.u];
-      else if (aire(etroit) < AIRE_NEGLIGEABLE_M2) rects = autres;
+      else if (aire(etroit) < S.AIRE_NEGLIGEABLE_M2) rects = autres;
       else { rects = []; break; }
     }
-    rects = rects.filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2);
-    if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) continue;
+    rects = rects.filter((r) => aire(r) >= S.AIRE_NEGLIGEABLE_M2);
+    if (!rects.length || rects.some((r) => largeurMin(r) < S.LARGEUR_MIN_M)) continue;
     if (!best || rects.length < best.length) best = rects;
   }
   if (!best) return null;

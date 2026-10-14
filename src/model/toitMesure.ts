@@ -18,7 +18,7 @@ import { sommetDe } from '../geometry/anneau.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import type { GrilleRelief } from './relief.js';
 import type { PtBrut, ToitMesure } from './types.js';
-import { REGLAGES_TOITS as R } from './reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
 
 /** Une cellule plus haute que la mediane de ses voisines de plus de cela est un arbre ou une cheminee : ramenee a elles. */
 export const SAILLIE_M = R.SAILLIE_M;
@@ -40,9 +40,7 @@ export const SEUIL_MARCHE_M = R.SEUIL_MARCHE_M;
 export const LARGEUR_BLOC_MIN_M = R.LARGEUR_BLOC_MIN_M;
 /** Il faut au moins tant de cellules sous le contour, et au moins la moitie des cellules du contour, pour un toit. */
 export const CELLULES_MIN = R.CELLULES_MIN;
-/** Bornes de l'egout, en metres. */
-const EGOUT_MIN_M = R.EGOUT_MESURE_MIN_M;
-const EGOUT_MAX_M = R.EGOUT_MESURE_MAX_M;
+// Bornes de l'egout, en metres : S.EGOUT_MESURE_MIN_M, S.EGOUT_MESURE_MAX_M.
 /** Boucher de proche en proche : jamais plus de passes que cela (une grille de 30 m de cote). */
 const PASSES_MAX = 60;
 
@@ -90,7 +88,7 @@ export function boucher(z: readonly (number | null)[], nx: number, ny: number): 
  * au-dessus de ses voisines (une cheminee, le bord d'un houppier) est ramenee a elles.
  */
 export function nettoyer(z: readonly (number | null)[], nx: number, ny: number, plafond = Infinity): (number | null)[] {
-  let courant = boucher(z.map((v) => (v === null || v === undefined || v < SOL_M || v > plafond ? null : v)), nx, ny);
+  let courant = boucher(z.map((v) => (v === null || v === undefined || v < S.SOL_M || v > plafond ? null : v)), nx, ny);
   for (let passe = 0; passe < 2; passe++) {
     const suivant = [...courant];
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
@@ -100,7 +98,7 @@ export function nettoyer(z: readonly (number | null)[], nx: number, ny: number, 
       const autour = voisines(courant, nx, ny, i, j, false);
       if (autour.length < 3) continue;
       const m = mediane(autour);
-      if (v > m + SAILLIE_M) suivant[k] = m;
+      if (v > m + S.SAILLIE_M) suivant[k] = m;
     }
     courant = suivant;
   }
@@ -119,7 +117,7 @@ function centile(v: readonly number[], p: number): number {
 }
 
 /** L'egout d'une liste de hauteurs : le dixieme centile, borne. */
-const egoutDe = (v: readonly number[]) => Math.min(EGOUT_MAX_M, Math.max(EGOUT_MIN_M, dixieme(centile(v, 0.1))));
+const egoutDe = (v: readonly number[]) => Math.min(S.EGOUT_MESURE_MAX_M, Math.max(S.EGOUT_MESURE_MIN_M, dixieme(centile(v, 0.1))));
 
 /**
  * Le toit mesure sous un contour, depuis la grille du MNH : recadree sur les cellules du contour,
@@ -134,7 +132,7 @@ export function toitMesureDepuisGrille(g: GrilleRelief, contour: readonly PtBrut
   for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
     const inside = pointInPolygon(p, contour);
-    dedans.push(inside); coeur.push(inside && distancePointContour(p, contour) >= RETRAIT_EGOUT_M);
+    dedans.push(inside); coeur.push(inside && distancePointContour(p, contour) >= S.RETRAIT_EGOUT_M);
     if (inside) { iMin = Math.min(iMin, i); iMax = Math.max(iMax, i); jMin = Math.min(jMin, j); jMax = Math.max(jMax, j); }
   }
   if (iMax < iMin || jMax < jMin) return null;
@@ -148,16 +146,16 @@ export function toitMesureDepuisGrille(g: GrilleRelief, contour: readonly PtBrut
     coeurRecadre.push(!!coeur[k]);
     if (dedans[k]) nDedans++;
   }
-  const mesures = brut.filter((v): v is number => v !== null && v >= SOL_M);
-  if (mesures.length < CELLULES_MIN || mesures.length < nDedans / 2) return null;
+  const mesures = brut.filter((v): v is number => v !== null && v >= S.SOL_M);
+  if (mesures.length < S.CELLULES_MIN || mesures.length < nDedans / 2) return null;
   // Un arbre sur le toit est au-dessus du gros du toit : au-dela du neuvieme decile et d'un depassement.
-  const propre = nettoyer(brut, nx, ny, centile(mesures, 0.9) + DEPASSEMENT_M);
+  const propre = nettoyer(brut, nx, ny, centile(mesures, 0.9) + S.DEPASSEMENT_M);
   const auCoeur = propre.filter((v, k): v is number => v !== null && coeurRecadre[k] === true);
   const egout = egoutDe(auCoeur.length >= 4 ? auCoeur : propre.filter((v): v is number => v !== null));
   // Sous l'egout, ce n'est pas la couverture mais le mur vu de biais : un trou de plus a boucher.
-  const z = lisser(boucher(propre.map((v) => (v !== null && v < egout - SOUS_EGOUT_M ? null : v)), nx, ny), nx, ny);
+  const z = lisser(boucher(propre.map((v) => (v !== null && v < egout - S.SOUS_EGOUT_M ? null : v)), nx, ny), nx, ny);
   const valides = z.filter((v): v is number => v !== null);
-  if (valides.length < CELLULES_MIN) return null;
+  if (valides.length < S.CELLULES_MIN) return null;
   return { pas: g.pas, x0: g.x0 + iMin * g.pas, y0: g.y0 - jMin * g.pas, nx, ny, z, egout, faite: dixieme(Math.max(...valides)), source: 'lidar' };
 }
 
@@ -191,7 +189,7 @@ export function egoutDansRect(t: ToitMesure, rect: readonly PtBrut[], contour?: 
     const z = t.z[j * t.nx + i];
     if (z === null || z === undefined) continue;
     const p = { x: t.x0 + i * t.pas, y: t.y0 - j * t.pas };
-    if (pointInPolygon(p, rect) && (!contour || distancePointContour(p, contour) >= RETRAIT_EGOUT_M)) v.push(z);
+    if (pointInPolygon(p, rect) && (!contour || distancePointContour(p, contour) >= S.RETRAIT_EGOUT_M)) v.push(z);
   }
   return v.length >= 4 ? egoutDe(v) : t.egout;
 }
@@ -210,15 +208,14 @@ export function hauteursLeLongDe(t: ToitMesure, a: PtBrut, b: PtBrut, interieur:
   let nx = -uy, ny = ux;
   if ((interieur.x - a.x) * nx + (interieur.y - a.y) * ny < 0) { nx = -nx; ny = -ny; }
   const out: number[] = [];
-  const n = Math.max(1, Math.round(L / PAS_PROFIL_M));
+  const n = Math.max(1, Math.round(L / S.PAS_PROFIL_M));
   for (let k = 0; k < n; k++) {
     const s = ((k + 0.5) * L) / n;
-    const z = hauteurToitMesure(t, a.x + ux * s + nx * RETRAIT_EGOUT_M, a.y + uy * s + ny * RETRAIT_EGOUT_M);
+    const z = hauteurToitMesure(t, a.x + ux * s + nx * S.RETRAIT_EGOUT_M, a.y + uy * s + ny * S.RETRAIT_EGOUT_M);
     if (z !== null) out.push(z);
   }
   return out;
 }
-const PAS_PROFIL_M = R.PAS_PROFIL_M;
 
 /**
  * La hauteur du mur `i` d'un bloc (de `pts[i]` a `pts[i + 1]`) : la ou la couverture rejoint le
@@ -264,7 +261,7 @@ export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtB
     const basses = series.map((c) => bas(c, 1));
     let best: { k: number; score: number } | null = null;
     for (let k = 2; k + 2 <= series.length; k++) {
-      if (k * pas < LARGEUR_BLOC_MIN_M || longueur - k * pas < LARGEUR_BLOC_MIN_M) continue;
+      if (k * pas < S.LARGEUR_BLOC_MIN_M || longueur - k * pas < S.LARGEUR_BLOC_MIN_M) continue;
       const avant = [basses[k - 2], basses[k - 1]].filter((x): x is number => x !== null);
       const apres = [basses[k], basses[k + 1]].filter((x): x is number => x !== null);
       if (avant.length < 2 || apres.length < 2) continue;
@@ -282,7 +279,7 @@ export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtB
       const calme = voisines.length ? Math.min(...voisines) : 0;
       if (saut < 1.6 * calme) continue;
       const score = Math.min(saut, Math.abs(droite - gauche));
-      if (score >= SEUIL_MARCHE_M && (!best || score > best.score)) best = { k, score };
+      if (score >= S.SEUIL_MARCHE_M && (!best || score > best.score)) best = { k, score };
     }
     return best;
   };

@@ -13,6 +13,7 @@ import { libelleParcelle } from '../geo/bdtopo.js';
 import { partsACheval, corpsQuiFranchissent, type PartACheval } from '../model/aCheval.js';
 import { signedArea } from '../geometry/basic.js';
 import { corpsParParcelle } from './toitsLidar.js';
+import { avecProfilsDuBatiment, contexteProfils } from '../facade/profilsToits.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export interface ContexteToitsACheval {
@@ -78,7 +79,9 @@ export function questionACheval(o: ObjetPlan, objets: readonly ObjetPlan[]): { t
 export function repondreACheval(o: ObjetPlan, objets: readonly ObjetPlan[], reponse: 'un' | 'parParcelle'): boolean {
   const parts = partsACheval(o, objets);
   if (!parts || !o.toitMesure) return false;
-  if (reponse === 'parParcelle') o.corpsToit = corpsParParcelle(o, parts, o.toitMesure, null) ?? o.corpsToit ?? null;
+  // Relus sous les seuils du profil du batiment, comme a la lecture (app/toitsLidar.ts).
+  const mesure = o.toitMesure;
+  if (reponse === 'parParcelle') o.corpsToit = avecProfilsDuBatiment(o, contexteProfils(objets), () => corpsParParcelle(o, parts, mesure, null)) ?? o.corpsToit ?? null;
   o.toitACheval = { parcelles: parts.map((p) => p.parcelle), reponse };
   return true;
 }
