@@ -207,6 +207,18 @@ describe('la Vue 3D de la prise', () => {
     expect(surlignerFaites).toHaveBeenLastCalledWith([]);
   });
 
+  it('traverse un arbre devant la facade : seule compte la premiere facade de la liste', () => {
+    // Le rayon touche d'abord l'arbre, puis le mur nord de la maison.
+    const traverses = [{ cle: 'arbre', point: { x: 10, y: 22 } }, { cle: 'maison', point: { x: 10, y: 19.9 } }];
+    const objetSous = vi.fn((_: unknown, retenir: (cle: string) => boolean) => traverses.find((t) => retenir(t.cle)) ?? { cle: null, point: null });
+    const t = session({ vue: vue(), objetSous });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
+  });
+
   it('dit quand le batiment touche n est pas dans la liste, et ne fait rien hors de la prise', () => {
     const objetSous = vi.fn(() => ({ cle: 'inconnu', point: { x: 0, y: 0 } as PtBrut }));
     const t = session({ vue: vue(), objetSous });

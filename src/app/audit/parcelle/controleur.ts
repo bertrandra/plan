@@ -70,7 +70,7 @@ export interface ContexteAuditParcelle {
   /** La camera a hauteur d'homme de l'ecran de prise ; par defaut celle de la Vue 3D ouverte. */
   vue?: VuePieton;
   /** Ce que le doigt touche dans la Vue 3D (cle de l'objet et point du plan) ; par defaut la scene ouverte. */
-  objetSous?: (ndc: { x: number; y: number }) => { cle: string | null; point: PtBrut | null };
+  objetSous?: (ndc: { x: number; y: number }, retenir: (cle: string) => boolean) => { cle: string | null; point: PtBrut | null };
   horloge?: () => number;
   poserPosition?: (p: PtBrut, precisionM: number) => void;
   retirerPosition?: () => void;
@@ -579,7 +579,10 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
     /** La facade touchee : celle du batiment de la liste dont le mur passe le plus pres du doigt. */
     toucher(ndc: { x: number; y: number }): string | 'choisie' | null {
       if (!suivi.actif()) return null;
-      const { cle, point } = (ctx.objetSous ?? objetSousLePointeur)(ndc);
+      // Le rayon traverse un arbre, une cloture, un batiment hors de la liste : seule compte la
+      // premiere facade de la liste qu'il rencontre.
+      const dansLaListe = (cle: string) => liste().batiments.some((b) => b.cle === cle);
+      const { cle, point } = (ctx.objetSous ?? objetSousLePointeur)(ndc, dansLaListe);
       if (!cle || !point) return null;
       const ligne = liste().batiments.find((b) => b.cle === cle);
       if (!ligne) return 'Ce bâtiment n’est pas dans la liste de la parcelle.';
