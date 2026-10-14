@@ -30,6 +30,31 @@ function portLibre(): Promise<number> {
   });
 }
 
+/**
+ * Un `php -S` sur un port libre, rendu quand PHP dit l'avoir pris. Le port choisi est relache avant
+ * que PHP s'y attache : un autre serveur des tests lances en parallele peut le prendre entre-temps,
+ * et PHP sort alors (« Failed to listen ») pendant qu'un autre repond a sa place. On attend donc son
+ * « started », et on recommence sur un autre port s'il n'a pas pu s'y attacher.
+ */
+async function lancerPhp(ini: string[], env: NodeJS.ProcessEnv): Promise<{ proc: ChildProcess; base: string; journal: () => string }> {
+  for (let essai = 0; essai < 5; essai++) {
+    const port = await portLibre();
+    const proc = spawn('php', [...ini, '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], { env, stdio: ['ignore', 'ignore', 'pipe'] });
+    let sortie = '';
+    const pris = await new Promise<boolean>((ok) => {
+      const fin = setTimeout(() => ok(false), 10000);
+      proc.stderr?.on('data', (d: Buffer) => {
+        sortie += d.toString();
+        if (sortie.includes('started')) { clearTimeout(fin); ok(true); }
+      });
+      proc.once('exit', () => { clearTimeout(fin); ok(false); });
+    });
+    if (pris) return { proc, base: 'http://127.0.0.1:' + port, journal: () => sortie };
+    proc.kill();
+  }
+  throw new Error('php -S ne demarre pas');
+}
+
 function navigateur(entree: string, init: RequestInit = {}): Promise<Response> {
   const entetes = new Headers(init.headers);
   if (cookie) entetes.set('Cookie', cookie);
@@ -40,6 +65,8 @@ function navigateur(entree: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
+const envPhp = (): NodeJS.ProcessEnv => ({ ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), ANALYSE_PHP: path.join(racine, 'deploy/analyse.php'), PLAN_ADMIN_CONFIG: config });
+
 describe.skipIf(!php)('les audits partages, cote PHP', () => {
   beforeAll(async () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'auditsphp-'));
@@ -48,15 +75,9 @@ describe.skipIf(!php)('les audits partages, cote PHP', () => {
     config = path.join(tmp, 'config.php');
     fs.writeFileSync(config, '<?php return [\n  "motDePasse" => "secret-admin",\n  "dossierDemos" => ' + JSON.stringify(path.join(tmp, 'demos'))
       + ',\n  "anthropicCle" => "A-CHANGER",\n  "plateformeUrl" => ' + JSON.stringify(plateforme.url) + ',\n];\n');
-    const port = await portLibre();
-    base = 'http://127.0.0.1:' + port;
-    serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
-      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), ANALYSE_PHP: path.join(racine, 'deploy/analyse.php'), PLAN_ADMIN_CONFIG: config },
-      stdio: 'ignore'
-    });
-    for (let i = 0; i < 50; i++) {
-      try { await fetch(base + '/'); return; } catch { await new Promise((ok) => setTimeout(ok, 100)); }
-    }
+    const lance = await lancerPhp(['-d', 'session.save_path=' + path.join(tmp, 'sessions')], envPhp());
+    serveur = lance.proc;
+    base = lance.base;
   });
   afterAll(async () => {
     serveur.kill();
@@ -70,20 +91,17 @@ describe.skipIf(!php)('les audits partages, cote PHP', () => {
 
   it('lit un audit plus gros que post_max_size : PHP ne coupe pas un corps JSON', async () => {
     // Un hebergement a 8 Mo par defaut, un audit de 20 Mo : il doit passer. Ici, un plafond de 2 Ko.
-    const port = await portLibre();
-    const petit = spawn('php', ['-d', 'post_max_size=2K', '-d', 'display_errors=0', '-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
-      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), ANALYSE_PHP: path.join(racine, 'deploy/analyse.php'), PLAN_ADMIN_CONFIG: config },
-      stdio: 'ignore'
-    });
+    const petit = await lancerPhp(['-d', 'post_max_size=2K', '-d', 'display_errors=0', '-d', 'session.save_path=' + path.join(tmp, 'sessions')], envPhp());
     try {
-      for (let i = 0; i < 50; i++) { try { await fetch('http://127.0.0.1:' + port + '/'); break; } catch { await new Promise((ok) => setTimeout(ok, 100)); } }
       const gros = JSON.stringify({ ...(fichierAudit() as Record<string, unknown>), bourrage: 'x'.repeat(4096) });
-      const r = await fetch('http://127.0.0.1:' + port + '/admin/audits', { method: 'POST', headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json', 'X-Plan-Depot': 'sauvegarde', Authorization: 'Bearer ' + JETON }, body: gros });
-      expect(r.status).toBe(201);
+      // Ce que PHP a ecrit accompagne un echec : c'est lui qui dit pourquoi il a coupe.
+      const r = await fetch(petit.base + '/admin/audits', { method: 'POST', headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json', 'X-Plan-Depot': 'sauvegarde', Authorization: 'Bearer ' + JETON }, body: gros })
+        .catch((e: unknown) => { throw new Error(String(e) + ' ; php : ' + petit.journal(), { cause: e }); });
+      expect(r.status, petit.journal()).toBe(201);
       const { id } = await r.json() as { id: string };
       expect(fs.readFileSync(path.join(tmp, 'demos', 'audits', id + '.json'), 'utf8')).toBe(gros);
     } finally {
-      petit.kill();
+      petit.proc.kill();
     }
   });
 });
