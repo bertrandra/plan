@@ -257,7 +257,8 @@ taille restent :
 - appui sous 0,45 m et 1,9 m de haut ou plus : porte-fenêtre ;
 - sinon : fenêtre.
 
-S'ajoutent des **détails**, facultatifs, que la 3D pourra dessiner plus tard :
+S'ajoutent des **détails**, facultatifs, que la 3D dessine depuis le lot G17 (`three/detailsOuvertures.ts`) et
+dont le banc mesure la justesse :
 
 | Détail | Comment on le reconnaît | Ce qu'il change |
 |---|---|---|
@@ -371,6 +372,21 @@ quelques dixièmes de centime par façade aidée.
   mesurent le recalage, pas Claude. Le taux d'accord de Claude sur les façades n'étant pas mesuré,
   ses propositions arrivent décochées.
 
+**Mise en œuvre (lot G20, partie sans corpus, 14 octobre 2026)** :
+- **Le masque hachuré** : à la vérification, ce qui reste caché sur toutes les vues d'une fusion (§8)
+  se hachure sur l'élévation, sous les ouvertures, avec une légende (`zones/releve/masque.ts` : le
+  masque, pixel par pixel, devient des rectangles de 10 cm en fractions du mur, qui suivent une
+  hauteur corrigée). Le masque n'est pas enregistré : il appartient à la série de photos, pas au
+  relevé.
+- **L'aide sur plusieurs vues** : « Demander de l'aide » est proposé aussi quand l'élévation vient
+  d'une fusion. Claude reçoit la vue de référence (la mieux définie) et l'élévation fondue, masque
+  hachuré dessus. Le signal « façade mal vue » se lève dans le relevé dès que le masque couvre **10 %**
+  du mur (`MASQUE_NOTABLE`), et non 30 % : la personne a déjà pris plusieurs vues pour voir derrière
+  l'obstacle, et ce qui reste caché partout est là où une baie se devine sans se voir. Le seuil de
+  30 % reste celui de `signauxRenfort` (audit, banc). Jamais sur des morceaux côte à côte.
+- Restent pour le corpus : les vraies réponses et les taux d'accord par situation, le recalage des
+  coins dans l'audit, la fin du renfort à chaque façade (D22).
+
 ## 13. Ce qui est enregistré
 
 Tous les ajouts sont **facultatifs** : un relevé d'aujourd'hui garde exactement son sens.
@@ -454,6 +470,31 @@ les **régler par profil**, comme les seuils des toits (`spec-regles-toits.md` �
    fonciers, usage et nombre d'étages BD TOPO). Par exemple :
    `facades.profils["pavillon-idf"] = { fenetre: { l: 1.1, h: 1.35, appui: 0.95 }, entraxe: 2.6, pignonAveugle: true }`.
    Les constantes d'aujourd'hui deviennent le profil par défaut.
+
+   **Fait (lot G12)** : `regles/facades/reglages.json` (format `plan-reglages-facades`), compilé dans
+   le fichier livré. Ses `seuils` sont le profil par défaut, au bit près les constantes d'avant
+   (`FENETRE_LARGEUR_M`, `FENETRE_HAUTEUR_M`, `FENETRE_APPUI_M`, `PORTE_LARGEUR_M`,
+   `PORTE_HAUTEUR_M`, `ENTRAXE_FENETRES_M`, `FENETRES_MAX_PAR_MUR`, `HAUTEUR_NIVEAU_M`,
+   `HAUTEUR_NIVEAU_MIN_M`, `LARGEUR_MUR_MIN_M`, `HAUTEUR_PIGNON_FENETRE_M`), chacun avec son unité, le
+   module qui le lit et sa raison. Un profil s'écrit
+   `{ "id": "pavillon-idf", "quand": { "departements": ["78"], "usages": ["Résidentiel"] }, "surcharges": { "FENETRE_LARGEUR_M": 1.1, "ENTRAXE_FENETRES_M": 2.6 }, "pourquoi": "…", "cas": ["…"] }`.
+   Le vocabulaire est fermé (D19) : `departements` (tiré de l'IDU de la parcelle du projet),
+   `epoque` (année de `date_d_apparition`, plage), `usages` (`usage_1` de la BD TOPO), `etages`
+   (plage), `mitoyennete` (`aucune`, `partielle` dès 5 % du périmètre collé à un autre bâtiment,
+   `forte` dès 40 %). Une valeur inconnue ne remplit aucune condition. Un profil s'applique **en
+   entier** (ses dimensions vont ensemble) ; le plus précis (le plus de conditions) l'emporte, et
+   deux profils de même précision qui peuvent tomber sur le même bâtiment font refuser le fichier
+   (test en CI). Le profil retenu se range sur le bâtiment (`profilFacades : { id, version }`) ;
+   l'empreinte du fichier entre dans `VERSION_LECTURE_FACADES` (`model/reglagesFacades.ts`,
+   `LECTURES_FACADES`) : une valeur ou un profil changé fait rechoisir les profils en tâche de fond
+   (`app/profilsFacadesFond.ts`), sauf sur la parcelle du projet et les bâtiments vérifiés sur
+   place. Les dimensions réglées à la main (inspecteur « Fenêtres (3D) », apparence du voisinage)
+   l'emportent sur le profil. Le booléen `pignonAveugle` de l'exemple ci-dessus attend son premier
+   profil (G14) : la disposition ne sait pas encore laisser un pignon aveugle.
+
+   Les empreintes golden qui voient les fenêtres : `glb-structure.json` (la Vue 3D, point de fumée
+   24). `dossier.pdf`, `plan.pdf`, `plan.svg`, `plan.dxf` et `projet.json` ne les dessinent pas (un
+   projet sans profil retenu s'enregistre comme avant).
 3. **Le contrôle** : sur les façades relevées, la disposition automatique est comparée au relevé :
    nombre de baies par façade (± 1), part vitrée (± 20 %), hauteur des niveaux. C'est le **taux de
    conformité des façades**, suivi comme celui des toits (`spec-regles-toits.md` §13.5).

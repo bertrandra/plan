@@ -64,6 +64,8 @@ export function percerSol(mat: THREE_NS.Material): void {
 export const SANS_OMBRE = 'sansOmbre';
 /** Marque d'un gabarit qui perce le sol : l'export GLB le retire (il n'a de sens que pour ce rendu). */
 export const GABARIT_SOL = 'gabaritSol';
+/** Marque d'un objet propre a l'ecran (la position GPS de l'appareil) : l'export GLB le retire aussi. */
+export const HORS_EXPORT = 'horsExport';
 
 /** Un polygone du plan, a plat, en y = 0. */
 export function polygoneAPlat(pts: PtBrut[], versLocal: VersLocal): THREE_NS.BufferGeometry {

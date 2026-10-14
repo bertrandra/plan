@@ -14,7 +14,9 @@ import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from '../../engine/hauteu
 import { positionMat } from '../../engine/parasol.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { ortho } from '../../render/ortho.js';
-import { buildThreeScene as construireScene3D } from '../../three/scene.js';
+import { buildThreeScene as construireScene3D, remplacerObjets3d } from '../../three/scene.js';
+import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
+import { controleurAudit } from '../audit/branchement.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../../three/navigation.js';
 import { genererGlb as genererGlbModule } from '../../three/exportGlb.js';
 import { chargerTexturePolyhaven } from '../../three/chargeurs.js';
@@ -48,6 +50,7 @@ export interface DependancesVues3d {
 
 export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: RegistreCommandes, d: DependancesVues3d) {
   const { etat } = atelier;
+  const diagnostic = modeDiagnostic();
   const { lieuActuel } = d.affichage;
   const appliquerLumiereVue3d = () => appliquerSoleilVue3d({ lieuActuel });
   const rafraichirVisionneuse = (camera: CameraConservee = null) => rafraichirVisionneuseGlb(camera, { lieuActuel });
@@ -57,7 +60,12 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     elevationOf, hauteurAppuiMm, objetMasque: d.affichage.objetMasque, positionMat,
     syncControlesSoleilVue3d: syncControlesSoleil, trouverParcelleCloture: d.affichage.trouverParcelleCloture,
     orthoActif: () => ortho.actif,
-    orthoTuiles: () => ortho.tuiles
+    // ?mode=devroof ou devwall (app/diagnostic.ts) : les batiments peints selon l'origine de leur toit ou de leurs murs.
+    ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
+    // ?mode=audit (app/audit/) : les batiments marques sur le terrain, en rouge.
+    ...(!diagnostic && controleurAudit() ? { couleurDiagnostic: (o: ObjetPlan) => controleurAudit()?.couleur(o) ?? null } : {}),
+    // Le paysage (tuiles larges, sous les fines) suit le voisinage, comme sur le plan.
+    orthoTuiles: () => (etat.voisinageVisible ? [...ortho.tuilesLarges, ...ortho.tuiles] : ortho.tuiles)
   });
   // Le pilotage des deux vues (zoom, mode du glisser, points de vue, plein page) vit dans three/navigation.ts.
   const nav3d = creerNavigation3d(etat, { showErrBanner, hauteurFinieMm, ouvrirVue3d: () => { commandes.executer('vue.3d'); } });
@@ -118,6 +126,12 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
 
   return {
     buildThreeScene, genererGlb, vues3d,
+    /**
+     * Remplace ces objets dans la Vue 3D ouverte, sans la rebatir ; faux si elle n'est plus la meme.
+     * `objets` : d'autres objets que ceux du plan, l'apercu des propositions d'un audit
+     * (app/audit/parcelle/validation.ts) ; le plan lui-meme n'est pas touche.
+     */
+    remplacerObjets3d: (cles: readonly string[], objets?: readonly ObjetPlan[]) => remplacerObjets3d(cles, objets ? { ...etat, objects: [...objets] } : etat),
     allerAuPointDeVue: vues3d.allerAuPointDeVue,
     refreshTerrasseView: () => modes.refreshTerrasseView()
   };

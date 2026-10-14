@@ -27,8 +27,8 @@ let racine: Root, hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); racine = createRoot(hote); });
 afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 
-function ecran() {
-  const etat = creerEtat({ objects: quartier() } as never, (o) => o as never);
+function ecran(objets: ObjetPlan[] = quartier()) {
+  const etat = creerEtat({ objects: objets } as never, (o) => o as never);
   const s = creerSessionAuditParcelle({ etat, idu: '78650000AE0101', ouvrir3d: vi.fn(), signaler: () => {}, stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false }, surligner: () => {}, retirerPosition: () => {} });
   const fermer = vi.fn();
   act(() => racine.render(createElement(AuditParcelle, { session: s, fermer })));
@@ -95,6 +95,25 @@ describe('la liste de controle', () => {
     expect(hote.querySelector<HTMLInputElement>('input[data-controle="auditParcelle.photo"]')?.disabled).toBe(true);
     expect(bouton('Ce n’est pas cette façade')?.disabled).toBe(true);
     expect(s.cible()).toBeNull();
+  });
+});
+
+describe('ce qui manque', () => {
+  it('rend deux facades de meme orientation sans cle React en double', () => {
+    // Une maison en L : deux murs regardent l'est, et leurs lignes de « Ce qui manque » ont le meme texte.
+    const L: PtBrut[] = [{ x: 5, y: 10 }, { x: 15, y: 10 }, { x: 15, y: 15 }, { x: 10, y: 15 }, { x: 10, y: 20 }, { x: 5, y: 20 }];
+    const objets = [quartier()[0]!, obj('maison', { name: 'Maison', fonction: 'batiment', pts: L, elevation: 6 })];
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { s } = ecran(objets);
+      // La liste « Ce qui manque » n'apparait qu'une fois une facade photographiee.
+      act(() => { s.capture.ajouterPhotoFacade('maison', 0, { type: 'image/jpeg', base64: 'AAAA' }); });
+      const lignes = [...hote.querySelectorAll('.manquesAudit li')].map((li) => li.textContent);
+      expect(lignes.filter((t) => t === 'façade est de Maison : pas de photo')).toHaveLength(2);
+      expect(erreurs.mock.calls.filter((c) => c.some((a) => typeof a === 'string' && /same key/.test(a)))).toEqual([]);
+    } finally {
+      erreurs.mockRestore();
+    }
   });
 });
 

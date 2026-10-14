@@ -12,7 +12,10 @@
 //   node scripts/fumee.mjs [http://localhost:5199] [points…]
 
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
 
 const require = createRequire(import.meta.url);
@@ -24,6 +27,80 @@ const choisis = process.argv.slice(3).map(Number).filter(Boolean);
 const THEMES = ['light', 'dark'];
 
 // ---- Aides cote page -----------------------------------------------------------------------------
+
+/**
+ * Les photos de synthese d'une scene du banc de facades (tests/fixtures/facades/), en PNG : la vue
+ * principale puis ses autres vues. Rendues une fois par passage par le generateur du banc
+ * (.claude/skills/facades/scripts/photos.ts), deterministe : le corpus ne porte aucune image.
+ */
+const photosRendues = new Map();
+function photosScene(nom) {
+  if (!photosRendues.has(nom)) {
+    const dossier = mkdtempSync(join(tmpdir(), 'fumee-facade-'));
+    execFileSync('npx', ['tsx', '.claude/skills/facades/scripts/photos.ts', nom, dossier], { stdio: 'ignore' });
+    const vues = readdirSync(dossier).filter((f) => /^vue-\d+\.png$/.test(f)).sort().map((f) => readFileSync(join(dossier, f)));
+    const { coins, largeur, largeurPx } = JSON.parse(readFileSync(join(dossier, 'coins.json'), 'utf8'));
+    photosRendues.set(nom, { vues, coins, largeur, largeurPx });
+  }
+  return photosRendues.get(nom);
+}
+
+/**
+ * Le mur de la maison le plus proche de la largeur d'une scene du banc : la detection se lit en metres,
+ * et un mur deux fois plus court ecraserait les baies sous les seuils de taille.
+ */
+async function choisirMurProche(page, largeur) {
+  const murs = page.locator('.releveListe [data-controle="releve.choisirMur"]');
+  const largeurs = await murs.evaluateAll((bs) => bs.map((b) => Number((b.textContent.match(/([\d,]+) m/)?.[1] ?? '0').replace(',', '.'))));
+  const k = largeurs.length ? largeurs.reduce((m, l, i) => (Math.abs(l - largeur) < Math.abs(largeurs[m] - largeur) ? i : m), 0) : -1;
+  if (k >= 0) await murs.nth(k).click(); else await page.locator('[data-controle="releve.choisirMur"]').first().click();
+  await page.waitForTimeout(600);
+  return k >= 0 ? largeurs[k] : null;
+}
+
+/**
+ * Le releve d'une seule photo de synthese d'une scene du banc, coins vrais poses au doigt, jusqu'a
+ * l'etape Verifier. Rend l'etat des facades d'avant, pour le Ctrl+Z.
+ */
+async function releverScene(page, nom) {
+  const { vues: [photo], coins, largeur, largeurPx } = photosScene(nom);
+  await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+  const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+  await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+  const mur = await choisirMurProche(page, largeur);
+  await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-0.png', mimeType: 'image/png', buffer: photo });
+  await poserCoins(page, coins[0], largeurPx[0]);
+  await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
+  await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
+  return { avant, mur };
+}
+
+/**
+ * Pose au doigt les quatre coins du mur sur la photo du releve (haut gauche, haut droit, bas droit, bas
+ * gauche), en pixels de la photo d'origine : chaque cible est glissee de sa place proposee a la sienne.
+ * La photo importee a pu etre reduite : les coins le sont d'autant.
+ */
+async function poserCoins(page, coins, largeurPx) {
+  await page.locator('svg.releveCoins').first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(800);
+  for (let i = 0; i < 4; i++) {
+    await page.locator('circle.releveCoinCible').nth(i).scrollIntoViewIfNeeded();
+    const { a, b } = await page.evaluate(({ i, p }) => {
+      const svg = document.querySelector('svg.releveCoins');
+      const img = svg.querySelector('image');
+      const k = Number(img.getAttribute('width')) / p.largeurPx;
+      const ctm = svg.getScreenCTM();
+      const pt = svg.createSVGPoint();
+      const c = svg.querySelectorAll('circle.releveCoinCible')[i];
+      pt.x = Number(c.getAttribute('cx')); pt.y = Number(c.getAttribute('cy'));
+      const a = pt.matrixTransform(ctm);
+      pt.x = p.x * k; pt.y = p.y * k;
+      const b = pt.matrixTransform(ctm);
+      return { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } };
+    }, { i, p: { ...coins[i], largeurPx } });
+    await glisser(page, a, b.x - a.x, b.y - a.y, 6);
+  }
+}
 
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
 const lireEtat = (page) => page.evaluate(() => {
@@ -359,6 +436,52 @@ const ADRESSE = 'Place de la Mairie 35000 Rennes';
 const TERRASSE = "o.fonction === 'terrasse' && o.type === 'polygon' && o.name === 'Terrasse'";
 const DALLE = "o.name === 'Dalle beton'";
 const PARASOL = "o.fonction === 'parasol' && o.type === 'circle'";
+
+/**
+ * Les routes `admin/…` de l'ecran Admin › Conformité (lot G3), simulees : session ouverte, un audit
+ * de parcelle recu (AE 101 tel que le corpus le fige, vu « en croupes » : le calcul le lit en deux
+ * pans), et l'historique des mesures, qui garde ce que l'ecran y range. `illisible` ajoute un audit
+ * d'une version plus recente, que l'ecran doit nommer sans s'arreter.
+ */
+async function simulerConformite(page, { illisible = false } = {}) {
+  const promenade = JSON.parse(readFileSync(new URL('../tests/fixtures/audit/audit-2026-10-13-1200-le-vesinet.json', import.meta.url), 'utf8'));
+  const c = promenade.cas[0];
+  const audit = {
+    format: 'plan-audit-parcelle', version: 1, parcelle: { idu: '78650000AE0101', adresse: '2 allée des Limites', origine: null },
+    code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-14T09:00:00Z', finCapture: null, ecritLe: '2026-10-14T10:00:00Z',
+    batiments: [{ cle: 'maison', nom: 'Maison', mitoyen: false, cas: { identite: c.identite, entrees: c.entrees, sorties: c.sorties }, vu: { forme: 'croupes' }, photos: [], facades: [] }],
+    cloture: { photos: [] }, portail: { photos: [] }, propositions: [], decisions: []
+  };
+  const recus = [{ id: '20261014-100000-abcdef01', recuLe: '2026-10-14T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites' }];
+  if (illisible) recus.push({ id: '20261014-110000-0000beef', recuLe: '2026-10-14T11:00:00Z', organisation: 'admin', idu: '78650000AE0102', adresse: null });
+  const serveur = { mesures: [], posts: [], listes: 0 };
+  await page.route(/\/admin\//, async (route) => {
+    const req = route.request(), u = new URL(req.url());
+    const json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    if (u.pathname.endsWith('/admin/session')) return json({});
+    if (u.pathname.endsWith('/admin/audits')) { serveur.listes++; return json({ audits: recus }); }
+    if (u.pathname.endsWith('/admin/audits/20261014-100000-abcdef01')) return json(audit);
+    if (u.pathname.endsWith('/admin/audits/20261014-110000-0000beef')) return json({ ...audit, version: 9 });
+    if (u.pathname.endsWith('/admin/conformite')) {
+      if (req.method() === 'POST') {
+        const m = { ...JSON.parse(req.postData() || 'null'), recuLe: new Date().toISOString().slice(0, 19) + 'Z' };
+        serveur.posts.push(m);
+        serveur.mesures.push(m);
+        return json({ recuLe: m.recuLe, mesures: serveur.mesures.length }, 201);
+      }
+      return json({ format: 'plan-conformite', version: 1, mesures: serveur.mesures });
+    }
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+  return serveur;
+}
+
+/** L'ecran Admin › Conformité ouvert, les audits recus rejoues (l'etat le dit). */
+async function ouvrirConformite(page) {
+  await page.goto(BASE + '/?admin&ecran=conformite');
+  await page.waitForSelector('.consTuile', { timeout: 20000 });
+  await page.waitForFunction(() => /audits? reçus? \(/.test(document.querySelector('.consEtat')?.textContent || ''), null, { timeout: 90000 });
+}
 
 // ---- Les points --------------------------------------------------------------------------------
 // Chacun rend { ok, mesure } ; `ok: null` veut dire non joue, et `mesure` dit pourquoi.
@@ -1897,6 +2020,201 @@ const POINTS = {
       && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
     return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  76: async (page, f) => {
+    // Admin › Conformité (lot G3) : le corpus du depot (deja juge, compile dans la page) et un audit
+    // partage recu, rejoue dans la page. On mesure : le taux des deux sources (AE 101 conforme ; la
+    // longere d'Hucqueliers, toujours en morceaux, et AE 101 vu en croupes, non : 33 %), le critere
+    // de la phase 1, les colonnes a venir (facades, Claude), les axes, les cas ; rien ne deborde.
+    await simulerConformite(page);
+    await ouvrirConformite(page);
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    const tuiles = (await page.locator('.consTuile').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    const formes = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    const facades = await page.locator('#confVue tbody tr:first-child td:last-child').textContent();
+    await page.getByRole('tab', { name: 'Par région' }).click({ timeout: 5000 });
+    const regions = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    await page.getByRole('tab', { name: 'Par problème' }).click({ timeout: 5000 });
+    const problemes = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    await page.getByRole('tab', { name: 'Cas', exact: true }).click({ timeout: 5000 });
+    const cas = (await page.locator('#confVue tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    debords.push(await deborde());
+    await page.getByRole('tab', { name: 'Accord de Claude' }).click({ timeout: 5000 });
+    const claude = await page.locator('#confVue tbody tr').count();
+    debords.push(await deborde());
+    const ok = !debords.some(Boolean) && /33 %/.test(tuiles[0] || '') && /3 \/ 50/.test(tuiles[1] || '') && /À venir/.test(tuiles[4] || '') && /À venir/.test(tuiles[5] || '')
+      && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === 'À venir'
+      && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
+      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 4;
+    return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  77: async (page, f) => {
+    // Admin › Conformité (lot G3) : un audit recu illisible est nomme sans arreter les autres ;
+    // « Enregistrer la mesure » range sur le serveur ce que l'ecran montre (toutes sources, facades et
+    // Claude a venir), l'historique la montre ; « Relire les audits » relit la liste du serveur.
+    const serveur = await simulerConformite(page, { illisible: true });
+    await ouvrirConformite(page);
+    const alertes = await page.locator('.consAlertes li').allTextContents();
+    await page.getByRole('button', { name: 'Enregistrer la mesure' }).click({ timeout: 5000 });
+    await page.waitForSelector('.confMessage', { timeout: 5000 });
+    const message = await page.locator('.confMessage').textContent();
+    const m = serveur.posts[0];
+    await page.getByRole('tab', { name: 'Historique' }).click({ timeout: 5000 });
+    await page.waitForSelector('#confVue tbody tr', { timeout: 5000 });
+    const historique = (await page.locator('#confVue tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    await page.getByRole('button', { name: 'Relire les audits' }).click({ timeout: 5000 });
+    await page.waitForFunction(() => /audits? reçus? \(/.test(document.querySelector('.consEtat')?.textContent || ''), null, { timeout: 90000 });
+    const ok = alertes.length === 1 && /20261014-110000-0000beef/.test(alertes[0] || '') && /version plus récente/.test(alertes[0] || '')
+      && message === 'Mesure enregistrée sur le serveur.' && serveur.posts.length === 1 && m?.format === 'plan-conformite-mesure'
+      && m.sources?.corpus === 2 && m.sources?.audits === 1 && m.toits?.conformes === 1 && m.toits?.nonConformes === 2 && m.facades === null && m.claude === null && m.cas?.length === 3
+      && historique.length === 1 && /33 %/.test(historique[0] || '') && serveur.listes === 2 && !deborde;
+    return { ok, mesure: `alerte « ${(alertes[0] || '').slice(0, 90)} » ; « ${message} » ; mesure ${m ? `${m.format}, corpus ${m.sources?.corpus}, audits ${m.sources?.audits}, ${m.toits?.conformes}/${(m.toits?.conformes ?? 0) + (m.toits?.nonConformes ?? 0)} conformes, façades ${m.facades}, Claude ${m.claude}` : 'AUCUNE'} ; historique « ${(historique[0] || '').slice(0, 80)} » ; relu ${serveur.listes} fois ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  68: async (page) => {
+    // La baie devinee en pointille, sur de vraies prises (lot G17, suite du lot L15, spec facades §10.5) :
+    // les deux photos de synthese de la scene 19 du banc (une haie haute, presque contre le mur, cache la
+    // fenetre de gauche du rez-de-chaussee sur les deux vues). « Vues du mur entier » les fait fondre ; la
+    // parallaxe separe la haie du mur, la partie cachee partout finit dans le masque d'occlusion, et la
+    // grille y devine une baie, proposee en pointille. Une touche la garde ; Valider l'ecrit avec sa
+    // source `devinee` ; un Ctrl+Z retire tout.
+    const { vues: [face, biais], coins, largeur, largeurPx } = photosScene('19-vues-haie-haute-baie-cachee');
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const avant = await facades();
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await choisirMurProche(page, largeur);
+    // Les coins vrais de chaque vue, poses au doigt comme le ferait l'utilisateur : la fumee joue la
+    // fusion et la grille, pas le calage d'une photo sans EXIF.
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-0.png', mimeType: 'image/png', buffer: face });
+    await poserCoins(page, coins[0], largeurPx[0]);
+    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 20000 }); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-1.png', mimeType: 'image/png', buffer: biais });
+    const choix = page.locator('[data-controle="releve.assemblage"]');
+    await choix.first().waitFor({ timeout: 20000 });
+    await choix.nth(1).click(); await page.waitForTimeout(400);
+    await poserCoins(page, coins[1], largeurPx[1]);
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 90000 });
+    // Les devinees : sures, cochees mais en pointille ; peu sures, decochees, a garder d'une touche.
+    const decochees = page.locator('g.releveOuverture.decochee rect[data-controle="releve.garderDevinee"]');
+    const cochees = page.locator('g.releveOuverture:not(.decochee) rect');
+    const caseGarder = page.locator('input[type="checkbox"][data-controle="releve.garderDevinee"]');
+    const nDecochees = await decochees.count();
+    const pointilles = page.locator('g.releveOuverture.incertaine:not(.decochee) rect');
+    const nPointilles = await pointilles.count();
+    // Parmi les pointilles, la devinee : sa fiche porte la case « Garder cette baie devinee ».
+    let cochee = false;
+    for (let i = 0; i < nPointilles && !cochee; i++) {
+      await pointilles.nth(i).click({ force: true }); await page.waitForTimeout(200);
+      cochee = (await caseGarder.count()) > 0 && await caseGarder.first().isChecked();
+    }
+    const c0 = await cochees.count(), d0 = await decochees.count();
+    // La case decochee la rend au pointille decoche ; une touche la garde a nouveau.
+    if (cochee) { await caseGarder.first().click(); await page.waitForTimeout(250); }
+    const c1 = await cochees.count(), d1 = await decochees.count();
+    if (d1) { await decochees.first().click({ force: true }); await page.waitForTimeout(250); }
+    const c2 = await cochees.count(), d2 = await decochees.count();
+    const regardee = (await caseGarder.count()) ? await caseGarder.first().isChecked() : null;
+    const aller = cochee ? c1 === c0 - 1 && d1 === d0 + 1 : nDecochees > 0;
+    const retourGeste = c2 === c1 + 1 && d2 === d1 - 1 && regardee === true;
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => {
+      const f = o.facades[o.facades.length - 1];
+      return { ouvertures: f.ouvertures.length, sources: f.ouvertures.map((x) => x.source ?? '—'), detail: f.ouvertures.map((x) => `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${x.source ?? '—'} ${x.confiance ?? ''}`), vues: (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length };
+    }));
+    await annuler(page);
+    const retour = (await facades()) === avant;
+    const e = ecrit[0];
+    const devinees = e ? e.sources.filter((s) => s === 'devinee').length : 0;
+    const ok = aller && retourGeste && !!e && e.vues === 2 && devinees >= 1 && !deborde && retour;
+    return { ok, mesure: `proposée(s) : ${nDecochees} devinée(s) décochée(s), ${nPointilles} ouverture(s) en pointillé dont ${cochee ? 'une devinée cochée' : 'AUCUNE devinée cochée'} ; case « Garder » décochée : ${c0}/${d0} → ${c1}/${d1} (cochées/décochées) ; une touche : → ${c2}/${d2}, case ${regardee === null ? 'ABSENTE' : regardee ? 'cochée' : 'DÉCOCHÉE'} ; écrit : ${e ? `${e.ouvertures} ouvertures dont ${devinees} devinée(s), ${e.vues} vue(s) calée(s)` : 'RIEN'}${process.env.FUMEE_DETAIL ? ' [' + (e?.detail ?? []).join(' | ') + ']' : ''} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
+  80: async (page) => {
+    // Les details des ouvertures dans le releve (lot G17) : la photo de synthese de la scene 20 du banc
+    // (fenetre en plein cintre, persiennes fermees, balcon, oeil-de-boeuf, garde-corps). La fiche de
+    // chaque ouverture dit ce qui a ete reconnu ; Valider ecrit les details avec le releve ; un Ctrl+Z
+    // retire tout.
+    const { avant, mur } = await releverScene(page, '20-details-cintres-persiennes-garde-corps');
+    const cochees = page.locator('g.releveOuverture:not(.decochee) rect');
+    const n = await cochees.count();
+    const fiches = [];
+    for (let i = 0; i < n; i++) {
+      // Au telephone, la fiche ouverte pousse l'elevation vers le haut de la colonne : on la ramene a
+      // l'ecran, et l'on referme d'un toucher les notifications qui la couvriraient.
+      for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
+      await cochees.nth(i).scrollIntoViewIfNeeded();
+      await cochees.nth(i).click({ force: true }); await page.waitForTimeout(150);
+      fiches.push(((await page.locator('.releveFiche').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '').replace(/\s+/g, ' '));
+    }
+    // Le haut cintre et les persiennes fermees sont lus a coup sur ; l'oeil-de-boeuf, petite baie ronde,
+    // l'est au banc mais pas toujours ici (mur de la maison un peu plus large, coins poses au pixel pres) :
+    // il est dit, sans etre exige.
+    const lus = ['haut cintré', 'persiennes fermées', 'œil-de-bœuf'].map((t) => [t, fiches.some((f) => f.toLowerCase().includes(t))]);
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const ecrites = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).flatMap((o) => o.facades.at(-1).ouvertures.map((x) => ({ d: x.details, t: `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${JSON.stringify(x.details ?? {})}` }))));
+    const details = ecrites.map((x) => x.d).filter(Boolean);
+    await annuler(page);
+    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)))) === avant;
+    const formes = details.map((d) => d.forme).filter((f) => f === 'cintre' || f === 'rond').length;
+    const ok = lus.slice(0, 2).every(([, v]) => v) && formes >= 1 && details.some((d) => d.forme === 'cintre') && details.some((d) => d.volets === 'persiennes') && !deborde && retour;
+    return { ok, mesure: `mur de ${mur ?? '?'} m, ${n} ouverture(s) ; fiches : ${lus.map(([t, v]) => `« ${t} » ${v ? 'lu' : 'ABSENT'}`).join(', ')} ; écrit : ${details.length} ouverture(s) détaillée(s), ${formes} forme(s) cintrée ou ronde${process.env.FUMEE_DETAIL ? ' [' + ecrites.map((x) => x.t).join(' | ') + ']' : ''} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
+  81: async (page) => {
+    // Les details des ouvertures en 3D (lot G17, three/detailsOuvertures.ts) : le releve de la scene 20
+    // valide, la Vue 3D pose une maille de details (les persiennes fermees) et l'encadrement de la baie
+    // cintree (et de l'oeil-de-boeuf quand il est lu) ; une maison sans details n'en a aucune (empreinte
+    // du GLB, point 24).
+    const compter = () => page.evaluate(() => {
+      const n = { details: 0, formes: 0, quads: 0 };
+      window.__plan.scene3d()?.scene.traverse((o) => {
+        if (o.name === 'batiment-details-ouvertures') { n.details++; n.quads += (o.geometry.index?.count ?? 0) / 6; }
+        if (o.name === 'releve-ouverture-forme') n.formes++;
+      });
+      return n;
+    });
+    const avantVue = await POINTS[22](page);
+    if (!avantVue.ok) return { ok: avantVue.ok, mesure: 'vue 3D préalable : ' + avantVue.mesure };
+    const sans = await compter();
+    await page.evaluate(() => window.__plan.executer('vue.plan')); await page.waitForTimeout(400);
+    const { avant } = await releverScene(page, '20-details-cintres-persiennes-garde-corps');
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForTimeout(3500);
+    const avec = await compter();
+    if (process.env.FUMEE_CAPTURE_3D) {
+      // Pour l'oeil : la camera devant le mur releve, a quelques metres (hors mesure).
+      await page.evaluate(() => {
+        const v = window.__plan.scene3d();
+        const m = v.scene.getObjectByName('releve-ouverture-forme') ?? v.scene.getObjectByName('batiment-details-ouvertures');
+        if (!m) return;
+        const p = m.geometry.attributes.position.array;
+        const a = new THREE.Vector3(p[0], p[1], p[2]), b = new THREE.Vector3(p[3], p[4], p[5]), c = new THREE.Vector3(p[6], p[7], p[8]);
+        const n = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
+        n.y = 0; n.normalize();
+        const centre = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
+        centre.x += 0; centre.y = 3;
+        const lateral = new THREE.Vector3(-n.z, 0, n.x);
+        v.camera.position.copy(centre.clone().add(n.clone().multiplyScalar(11)).add(lateral.multiplyScalar(4)).add(new THREE.Vector3(0, 1.5, 0)));
+        v.controls.target.copy(centre.clone().add(new THREE.Vector3(-n.z, 0, n.x).multiplyScalar(-2)));
+        v.controls.update();
+        v.renderer.render(v.scene, v.camera);
+      });
+      await page.waitForTimeout(800);
+      await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: process.env.FUMEE_CAPTURE_3D });
+    }
+    await page.evaluate(() => window.__plan.executer('vue.plan')); await page.waitForTimeout(400);
+    await annuler(page);
+    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)))) === avant;
+    const ok = sans.details === 0 && sans.formes === 0 && avec.details >= 1 && avec.formes >= 1 && retour;
+    return { ok, mesure: `avant le relevé : ${sans.details} maille(s) de détails, ${sans.formes} encadrement(s) de forme ; après : ${avec.details} maille(s) de détails (${avec.quads} quads), ${avec.formes} encadrement(s) cintré ou rond ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
   71: async (page) => {
     // L'aide de Claude au releve (lot L18, spec facades §12 bis) : une photo sans aucune arete (un ciel en
     // degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que
@@ -1979,6 +2297,95 @@ const POINTS = {
     const refus = (await page.locator('body').textContent())?.match(/Faits refusés : .{0,160}?(forme|format)/)?.[0] ?? '';
     const ok = sansEssai === 0 && avecEssai === 1 && /1 fait\(s\), 1 bâtiment/.test(toast) && luApres === null && saleApres === saleAvant && /forme/.test(refus);
     return { ok, mesure: `entrée sans essai : ${sansEssai}, avec ?regles=local : ${avecEssai} ; « ${toast.trim().slice(0, 70)}… » ; bâtiment touché : marque ${luAvant} → ${luApres} ; projet modifié ${saleAvant ? 'oui' : 'non'} → ${saleApres ? 'oui' : 'non'} ; refus : « ${refus.slice(0, 80)} »` };
+  },
+  82: async (page) => {
+    // Le masque d'occlusion hachure (lot G20, spec facades §8) : deux vues du meme mur, une
+    // camionnette vitree devant qui se deplace d'une vue a l'autre sans jamais degager le milieu du
+    // mur ; « Vues du mur entier », Analyser. La part cachee sur les deux vues se hachure dans
+    // l'elevation, avec sa legende ; « Demander de l'aide » est propose (avant G20, jamais sur
+    // plusieurs photos), en disant la part cachee ; l'envoi porte la photo de reference et l'elevation
+    // (route `admin/claude/messages` simulee).
+    const recues = [];
+    const sortie = { mur: { indices: [], vu: 'attendu' }, coins: { indices: [], hautGauche: 'indetermine', hautDroit: 'indetermine', basDroit: 'indetermine', basGauche: 'indetermine' }, ouvertures: [], manquees: [], confiance: 'moyenne' };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      const d = JSON.parse(route.request().postData() || 'null');
+      recues.push(d);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'renfort', sortie, erreur: null })) }) });
+    });
+    const dessiner = async (mur, camion) => {
+      const d = await page.context().newPage();
+      await d.setViewportSize({ width: 1600, height: 1200 });
+      await d.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+        + "const x=document.getElementById('c').getContext('2d');"
+        + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,880,1600,320);"
+        + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
+        + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(camion)};`
+        + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
+        + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
+        + "q('#e4d6bc',m);q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
+        // La camionnette et ses deux vitres : leurs bords trahissent le recul d'une vue a l'autre.
+        + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],700,420);x.fillStyle='#cfe3f2';x.fillRect(v[0]+80,v[1]+40,160,110);x.fillRect(v[0]+420,v[1]+40,160,110);"
+        + '</script></body>');
+      const png = await d.locator('#c').screenshot({ type: 'png' });
+      await d.close();
+      return png;
+    };
+    const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [400, 620]);
+    const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [620, 640]);
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face });
+    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 15000 }); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais });
+    const choix = page.locator('[data-controle="releve.assemblage"]');
+    await choix.first().waitFor({ timeout: 15000 });
+    await choix.nth(1).click(); await page.waitForTimeout(400);
+    // Les coins se posent au doigt sur chaque vue, comme la personne le ferait : le calage fin de ces
+    // dessins (sans perspective vraie) n'est pas ce que ce point mesure.
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const poser = async (quad) => {
+      const svg = page.locator('svg.releveCoins').first();
+      await svg.scrollIntoViewIfNeeded();
+      for (let k = 0; k < 4; k++) {
+        const cible = await svg.evaluate((s, [x, y]) => { const p = s.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(s.getScreenCTM()); return { x: q.x, y: q.y }; }, [quad[2 * k], quad[2 * k + 1]]);
+        const b = await page.locator('circle.releveCoinCible').nth(k).boundingBox();
+        if (!b) continue;
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(cible.x, cible.y, { steps: 4 });
+        await page.mouse.up();
+      }
+    };
+    await poser([330, 200, 1250, 300, 1250, 960, 330, 1060]);
+    await page.locator('.releveVignette').first().click(); await page.waitForTimeout(500);
+    await poser([250, 260, 1350, 260, 1350, 1000, 250, 1000]);
+    const auDoigt = await page.locator('circle.releveCoinCible.doigt').count();
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
+    const chemins = await page.locator('g.releveMasque path').evaluateAll((ps) => ps.map((p) => (p.getAttribute('d') || '').split('M').length - 1));
+    // Le trait du hachure lit son jeton : une couleur resolue dans les deux themes, pas « none ».
+    const trait = await page.locator('g.releveMasque .releveMasqueTrait').first().evaluate((l) => getComputedStyle(l).stroke).catch(() => 'absent');
+    const legende = ((await page.locator('.releveLegendeMasque').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    const bouton = page.locator('[data-controle="releve.demanderAide"]');
+    const propose = await bouton.count();
+    const note = ((await page.locator('.releveAide .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    if (propose) await bouton.first().click();
+    const accord = page.locator('[data-controle="releve.accorderAide"]');
+    if (await accord.count()) await accord.first().click();
+    await page.locator('.releveAide [role="status"]').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const message = ((await page.locator('.releveAide [role="status"]').first().textContent().catch(() => '')) || '').trim();
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.unroute(/\/admin\/claude\/messages$/);
+    const d = recues[0];
+    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
+    const zones = chemins[1] ?? 0;
+    const ok = chemins.length === 2 && zones >= 1 && !!trait && trait !== 'none' && trait !== 'absent'
+      && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
+      && recues.length === 1 && d.usage === 'renfort' && d.requetes.length === 3 && images === 2 && /^Claude (propose|confirme)/.test(message) && !deborde;
+    return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
   }
 };
 
@@ -1995,11 +2402,15 @@ function pointsPour(nomClasse) {
   // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
   // l'actualisation (lot L12).
   // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
+  // 68 : la baie devinee en pointille, sur les deux vues de synthese d'une scene du banc (lot G17).
+  // 80 et 81 : les details des ouvertures, dans le releve puis en 3D (lot G17).
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
+  // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
+  // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75, 84];
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

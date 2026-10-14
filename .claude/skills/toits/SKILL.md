@@ -178,6 +178,8 @@ seul toit » et « deux toits de même hauteur ». **Plan ne devine pas : il pos
 Fenêtres : niveaux de 2,7 m (`HAUTEUR_ETAGE_M`), rien sous 2,2 m (`HAUTEUR_NIVEAU_MIN_M`) ni sur un
 mur de moins de 2 m. Une fenêtre de pignon se pose si le triangle fait au moins 1,8 m
 (`HAUTEUR_PIGNON_FENETRE_M`), jamais sous une croupe ni sur un appentis.
+Ces dimensions et seuils sont le profil par défaut de `regles/facades/reglages.json` (lot G12,
+skill `facades` §1 ter) : un profil de façades peut les changer pour le voisinage.
 
 Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur les façades
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
@@ -241,15 +243,30 @@ ardoises.
 | Gordes, Aix, Saint-Rémy (Provence) | village perché, trapèzes, mitoyenneté | contours aux angles non droits (→ reprise, boîte orientée, toit à un pan). Château : plat construit au lieu d'un relief en vagues. Gordes : 52 bâtiments sans toit construit avant, 13 après. |
 | Hucqueliers (Pas-de-Calais) | longères en brique, pavillons hauts aux bouts d'un corps bas, église, annexes basses | complétion qui suivait une lisière de biais (égout à −1,3 m) ou couvrait une annexe à 3 m d'un toit à 8,6 m (→ trois garde-fous de la complétion). Ailes presque confondues débitées en bandes, pignons en double (→ ailes et bandes recouvertes). Église : nef à deux pans 7/7 m. |
 
-Chiffres de référence du banc (code de la branche `claude/toits-nord`, ailes recouvertes comprises), à comparer après une
-modification :
+Chiffres de référence du banc (code de `main` au 14 octobre 2026, bf39898, sur les JSON de
+`/tmp/toits`), à comparer après une modification. Les quatre premières colonnes de compteurs sont
+celles d'avant le banc des formes, inchangées ; seule Hucqueliers a un suspect de plus que la
+version précédente de ce tableau (33, branche `claude/toits-nord`) : 37248618 a pris un écart de
+0,53 m avec le faîtage « dans le sens que lit la mesure » (42eeef2, 11 octobre). Les formes sont
+celles des bâtiments (corps principal, §6.1) : plat, appentis (1p), deux-pans (2p), croupes (4p),
+pavillon (pav.), sans corps ou sans mesure (—).
 
-| Village | Bâtiments | Corps | Suspects | Sans corps | Reprise |
-|---|---|---|---|---|---|
-| hucqueliers | 69 | 118 | 33 | 2 | 14 |
-| gordes | 152 | 216 | 95 | 13 | 74 |
-| aix | 51 | 86 | 27 | 4 | 5 |
-| stremy | 75 | 126 | 34 | 4 | 5 |
+| Village | Bâtiments | Corps | Suspects | Sans corps | Reprise | plat | 1p | 2p | 4p | pav. | — |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| vesinet (AE 101, 100 m) | 58 | 100 | 30 | 1 | 5 | 6 | 6 | 35 | 10 | 0 | 1 |
+| hucqueliers | 69 | 118 | 34 | 2 | 14 | 12 | 21 | 31 | 3 | 0 | 2 |
+| gordes | 152 | 216 | 95 | 13 | 74 | 12 | 74 | 48 | 4 | 1 | 13 |
+| aix | 51 | 86 | 27 | 4 | 5 | 13 | 10 | 19 | 5 | 0 | 4 |
+| stremy | 75 | 126 | 34 | 4 | 5 | 9 | 16 | 42 | 3 | 1 | 4 |
+| versailles (D16) | 98 | 190 | 61 | 12 | 31 | 14 | 23 | 41 | 5 | 3 | 12 |
+| eguisheim (D16) | 327 | 401 | 241 | 52 | 125 | 19 | 100 | 140 | 12 | 4 | 52 |
+| beuvron (D16) | 119 | 206 | 80 | 17 | 27 | 8 | 39 | 47 | 7 | 0 | 17 |
+
+Les trois villages de D16 ont été capturés le 14 octobre 2026 (§6.2) ; aucune forme nouvelle n'y
+est encore produite, c'est leur point de départ. À Versailles, les toits à la Mansart à terrasson
+plat se lisent aujourd'hui en pavillon ou en croupes (28283510, 28283290) : ce sont les premiers
+candidats du lot Mansart. À Eguisheim, 44 bâtiments n'ont pas de surface mesurée (petites annexes
+serrées) : à regarder avant d'y juger une forme.
 
 « Suspect » ne veut pas dire faux : c'est une liste de bâtiments à regarder.
 
@@ -281,11 +298,79 @@ SANS_DUMP=1 VUES='[["sud",16,-3,0,14,24]]' NODE_PATH=$(npm root -g) node .claude
   le faîtage en noir avec sa hauteur. Le blanc est le sol ou une absence de mesure. Une bande rouge
   le long d'un mur, c'est souvent un faîtage décentré ou un pignon. Un bloc rouge rond, une tour ou
   un arbre.
-- Avant de modifier, enregistrer `banc-<nom>.txt`. Après, faire un `diff` des listes **et** regarder
-  les bâtiments qui changent, sur les cartes : une règle qui améliore un bâtiment peut en abîmer un
-  autre. Le banc n'affiche que les 40 premiers suspects ; `--tous` les affiche tous.
+- Avant de modifier, enregistrer `banc-<nom>.txt` **et** la référence des formes (§6.1). Après,
+  faire un `diff` des listes **et** regarder les bâtiments qui changent, sur les cartes : une règle
+  qui améliore un bâtiment peut en abîmer un autre. Le banc n'affiche que les 40 premiers suspects ;
+  `--tous` les affiche tous.
 - `data.geopf.fr` peut être bloqué dans l'environnement cloud (CLAUDE.md). Les fixtures et un JSON
-  de village déjà relevé suffisent alors pour travailler.
+  de village déjà relevé suffisent alors pour travailler. Le 14 octobre 2026, il passait par le
+  mandataire de l'environnement, navigateur de `village.mjs` compris : essayer avant de renoncer.
+
+### 6.1 Le banc des formes (lot G2, spec des règles §8.2)
+
+Chaque forme nouvelle de la vague 3b (lucarnes, Mansart, demi-croupe…) dit combien de bâtiments elle
+fait changer de forme, et lesquels : une forme qui apparaît partout est un faux positif.
+
+```bash
+# Avant de modifier : la reference des formes de chaque village (dans $TOITS_DOSSIER)
+npx tsx .claude/skills/toits/scripts/banc.ts hucqueliers --enregistrer formes-hucqueliers.json
+# Apres : compteurs qui bougent, batiments dont la forme change, planche de leurs cartes
+npx tsx .claude/skills/toits/scripts/banc.ts hucqueliers --reference formes-hucqueliers.json
+```
+
+- Sous la ligne des compteurs, le banc écrit les **formes des bâtiments** (celle du corps principal,
+  le plus grand, comme l'observation) et les **formes des corps**, dans le vocabulaire du catalogue
+  (§3.1 de la spec : `plat`, `appentis`, `deux-pans`, `croupes`, `pavillon`…), puis `sans corps`
+  (surface mesurée, aucun corps) et `sans mesure`. Les jetons `[2p 1p plat]` des lignes de suspects
+  restent ceux d'avant (plat sous 5 cm de montée) : les listes d'hier se comparent toujours par `diff`.
+- La forme se déduit des corps par `model/formeToit.ts` (lot G1) quand il est dans la branche, sinon
+  par sa copie dans `tests/banc/toits/formes.ts` (plat sous `HAUTEUR_PLAT_M`, appentis, croupes,
+  pavillon : faîtage de moins de 1 m sur un plan presque carré). La ligne `deduction des formes` dit
+  laquelle ; la copie et G1 donnent les mêmes formes sur les 646 corps des cinq villages, et
+  `tests/unit/facade/bancFormes.test.ts` le revérifie dès que G1 est là.
+- Avec `--reference` : `compteurs : identiques` (ou `suspects 33 -> 34`), `formes qui changent : n`
+  avec le bilan (`appentis -> deux-pans 1`) et la liste, puis les bâtiments de même forme dont un
+  corps change. La planche `formes-<nom>.png` (40 cartes au plus, la forme dans la légende) se lit
+  avec l'outil Read ; `--planche autre.png` la renomme. Pour comparer deux versions du code sur des
+  cartes avant/après, lancer chacune avec son propre `$TOITS_DOSSIER`.
+- Exemple réel : la référence enregistrée avec le code du 10 octobre (18b6ca0), relue avec celui de
+  `main`, donne à Hucqueliers `suspects 33 -> 34` et `bati-batiment-37248533 appentis -> deux-pans` :
+  c'est le faîtage « dans le sens que lit la mesure » (42eeef2).
+
+### 6.2 Ajouter un village au banc (décision D16)
+
+Trois villages choisis pour leurs formes, dans `scripts/villages.json` (adresse, rayon, formes
+attendues, repli approximatif pour la couverture si le géocodage ne répond pas) :
+
+| Nom | Lieu | Adresse | Rayon | Formes attendues |
+|---|---|---|---|---|
+| versailles | Versailles, quartier Notre-Dame | Place du Marché Notre-Dame 78000 Versailles | 100 m | Mansart, lucarnes dans le brisis |
+| eguisheim | Eguisheim (Haut-Rhin) | Place du Château Saint-Léon 68420 Eguisheim | 100 m | demi-croupes, pans très pentus |
+| beuvron | Beuvron-en-Auge (Calvados) | Place Michel Vermughen 14430 Beuvron-en-Auge | 100 m | lucarnes, demi-croupes, colombages |
+| riquewihr | Riquewihr (réserve d'Eguisheim) | Rue du Général de Gaulle 68340 Riquewihr | 100 m | demi-croupes |
+| lyons | Lyons-la-Forêt (réserve de Beuvron) | Place Isaac Benserade 27480 Lyons-la-Forêt | 100 m | lucarnes, demi-croupes |
+
+```bash
+# 1. Couverture LiDAR HD (dallesLidarSur, la fonction de l'application) et commande de capture
+npx tsx .claude/skills/toits/scripts/couverture.ts            # tous les villages de villages.json
+npx tsx .claude/skills/toits/scripts/couverture.ts "<adresse>" 100
+# 2. Capture (serveur Vite lance), puis banc et reference des formes
+NODE_PATH=$(npm root -g) node .claude/skills/toits/scripts/village.mjs "Place Michel Vermughen 14430 Beuvron-en-Auge" 100 beuvron
+npx tsx .claude/skills/toits/scripts/banc.ts beuvron --enregistrer formes-beuvron.json
+```
+
+- Un village sans dalle (`PAS DE DALLE`) est écarté : l'application n'y lit aucun toit. Une
+  requête qui échoue est dite `indetermine`, jamais « pas de LiDAR ». Les cinq villages de la table
+  étaient couverts le 14 octobre 2026.
+- `village.mjs` écrit le JSON **avant** les captures 3D : si la Vue 3D d'un grand village dépasse
+  le délai de capture (Versailles, 98 bâtiments), le JSON est déjà là et suffit au banc.
+- La ligne d'un village nouveau entre dans le tableau du §5, avec ses formes. Versailles, Eguisheim
+  et Beuvron-en-Auge y sont depuis le 14 octobre 2026 ; leurs JSON sont dans `/tmp/toits` tant que
+  le conteneur les garde, sinon les recapturer par les commandes ci-dessus (le LiDAR et la BD TOPO
+  évoluent : les chiffres peuvent alors bouger un peu, sans que le code y soit pour rien).
+- Si la page se recharge pendant la création (`window.__plan` indéfini juste après), c'est Vite qui
+  a vu un fichier de `src/` réécrit (une suite de tests en parallèle réécrit
+  `src/plateforme/contrat.ts`) : relancer la capture une fois les tests finis.
 
 ## 6 bis. Relire tous les toits après un changement de règle
 
@@ -326,8 +411,22 @@ valeur dans `model/reglagesToits.ts`, qui importe le fichier : il est compilé d
   les modules). Banc avant et après, AE 101, corpus d'audit, ligne de `LECTURES_TOITS` (§6 bis).
 - **Un seuil nouveau** s'ajoute au fichier avec sa raison, puis se lit par `R.NOM` ; les constantes de
   calcul numérique (passes, epsilon) restent dans le code.
-- **Les profils** (surcharges par région, §6 de la spec) ne sont pas encore appliqués : le fichier
-  n'en déclare aucun, et un test le vérifie.
+- **Les modules lisent `S.NOM`** (`SEUILS_TOITS`, la table en vigueur) **à chaque appel**, jamais une
+  copie prise au chargement : le nom exporté (`export const SEUIL_MARCHE_M = R.SEUIL_MARCHE_M`) ne
+  sert qu'aux tests et à la documentation. Un test refuse `const NOM = R.…` et un nom exporté lu dans
+  le code. Sinon un profil ne changerait rien.
+- **Les profils** (surcharges par région, §6 de la spec ; lot G15) : `model/profilsToits.ts` lit et
+  vérifie `profils` (vocabulaire fermé : `departements`, `latitude`, `materiauxMurs`,
+  `materiauxToiture`, `hauteur`, `surface`, `mitoyennete`, `formeContour`, `epoque` ; deux cas cités
+  au moins ; seuils connus), choisit seuil par seuil le plus précis, et refuse deux profils de même
+  précision sur le même seuil qui peuvent toucher le même bâtiment. `facade/profilsToits.ts` décrit le
+  bâtiment (lieu du projet, BD TOPO, contour, voisins) et fait le calcul sous ses seuils
+  (`avecProfilsDuBatiment`, `avecSeuilsToit` : un calcul **synchrone**, jamais à cheval sur une
+  attente réseau). Branché à l'import, en tâche de fond, au recalage, à la réponse « à cheval », au
+  rejeu des cas et au banc (`banc.ts <village> --profils essai.json` essaie une liste de profils,
+  et chaque ligne dit les profils appliqués). Le fichier livré n'en déclare **aucun** : AE 101, banc
+  et empreintes identiques, version de lecture restée 1. Le premier profil change l'empreinte des
+  réglages : ajouter sa ligne à `LECTURES_TOITS` (le test la donne).
 - La première extraction (lot L19) n'a changé aucune valeur : banc des quatre villages et AE 101
   identiques au bit près, version de lecture restée 1.
 
@@ -347,6 +446,9 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
   réseau (`facade/audit.ts::rejouerCas` : calcul entier, comme la promenade ; mêmes garde-fous que
   l'import, `facade/vraisemblance.ts`), puis compare aux `sorties` du terrain et à l'`attendu`. Il
   écrit `q/bati-<cle>.json` (rejeu) et `q/bati-<cle>-terrain.json` (sorties notées) pour `rendu.py`.
+- Un fichier d'**audit de parcelle** (`plan-audit-parcelle`, lot L21), seul ou dans le dossier, n'a
+  pas de cas de toit : le script mesure ses façades relevées (lot G11, `model/mesureFacade.ts`), une
+  ligne par façade, comme `.claude/skills/facades/scripts/mesures.ts` (skill `facades`, §1 bis).
 - Il **propose** `facade.couleur` (sans le cocher) quand une façade lue sur une photo du cas s'écarte
   de la couleur des murs retenue de plus que `ECART_TEINTE` (`model/couleurMur.ts`, §18.4).
 - Ne se rejouent pas sans réseau, et restent tels que notés : la couleur Panoramax, la réponse à la
@@ -358,6 +460,11 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
 - Circuit d'un cas (§22) : diagnostic sur les cartes, règle générale (jamais un cas codé), banc et
   AE 101, puis `corrige` avec l'attendu proposé et `correction: { commit, regle }`, images avant et
   après dans la PR ; `valide` après l'accord de l'utilisateur.
+- **Taux de conformité** (lot G3, spec §13.5) : `npx tsx .claude/skills/toits/scripts/conformite.ts`
+  juge chaque cas sur ce que vous avez vu (attendu validé, « Ce que je vois ») et donne le taux par
+  forme, région et problème ; `--ecrire` réécrit `regles/conformite.json`, que l'écran Admin ›
+  Conformité montre et que `tests/unit/facade/conformite.test.ts` garde à jour. Une règle qui change
+  le taux le relance dans sa PR. Départ : 50 % (AE 101 conforme, la longère d'Hucqueliers non).
 - Les deux premiers fichiers sont reconstitués depuis des relevés réels (AE 101, validé ; pavillon est
   de la longère d'Hucqueliers, à corriger), pas encore une promenade.
 

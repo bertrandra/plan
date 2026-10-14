@@ -19,19 +19,50 @@ import { sommetDe } from '../geometry/anneau.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
 import { signedArea, pointInPolygon } from '../geometry/basic.js';
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
+import { estFormeSimple, FORMES_TOIT_SIMPLES, toitDessine } from '../model/formeToit.js';
 
 export type { Toit, FormeToit };
 
 /** Couleur par defaut d'une couverture : tuile rouge (MD/spec-toit-ign.md §6). */
 export const COULEUR_TOIT_DEFAUT = '#B0432F';
 
+/**
+ * Le nom de chaque forme. Les formes du catalogue (MD/spec-regles-toits.md §3.1) ne se choisissent
+ * pas dans les menus tant que la 3D ne les dessine pas (`FORMES_TOIT_SIMPLES`) : elles se nomment
+ * seulement, quand une observation ou les corps les disent.
+ */
 export const LIBELLES_FORME_TOIT: Record<FormeToit, string> = {
   plat: 'Toit plat',
   appentis: 'Appentis (un pan)',
   'deux-pans': 'Deux pans',
   'quatre-pans': 'Quatre pans',
   croupes: 'Croupes (pans sur chaque mur)',
+  'demi-croupes': 'Demi-croupes',
+  pavillon: 'Pavillon (pyramide)',
+  mansart: 'Toit à la Mansart',
+  gambrel: 'Gambrel (brisé sur les longs pans)',
+  asymetrique: 'Deux pans asymétriques',
+  'deux-pans-decales': 'Deux pans décalés',
+  'toit-en-m': 'Toit en M',
+  papillon: 'Papillon (en V)',
+  coyau: 'Deux pans à coyau',
+  shed: 'Shed (dents de scie)',
+  berceau: 'Berceau (voûte)',
+  carene: 'Carène',
+  conique: 'Conique (poivrière)',
+  polygonal: 'Polygonal',
+  fleche: 'Flèche',
+  dome: 'Dôme',
+  imperiale: 'Impériale (bulbe)',
 };
+
+/**
+ * Les formes proposees dans un menu de choix : les formes simples, et la forme en place si c'en est
+ * une autre (elle reste proposee, comme la fonction d'un ancien fichier dans le menu « Fonction »).
+ */
+export function formesAuChoix(enPlace?: FormeToit | null): FormeToit[] {
+  return enPlace && !estFormeSimple(enPlace) ? [...FORMES_TOIT_SIMPLES, enPlace] : [...FORMES_TOIT_SIMPLES];
+}
 
 /** Un plan de toit : z = a x + b y + c, en metres au-dessus de l'egout. */
 export interface PlanToit {
@@ -54,7 +85,8 @@ const rad = (d: number) => (d * Math.PI) / 180;
 export { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 
 /** Pente d'un toit, en degres, pour affichage. */
-export function penteDeg(pts: readonly PtBrut[], toit: Toit): number {
+export function penteDeg(pts: readonly PtBrut[], toitLu: Toit): number {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0) return 0;
   if (toit.forme === 'croupes') {
     if (toit.pente !== undefined) return toit.pente;
@@ -70,7 +102,9 @@ export function penteDeg(pts: readonly PtBrut[], toit: Toit): number {
  * Les plans du toit. Un plan `z = s (k - (v - v0))` s'ecrit `a x + b y + c` en developpant
  * `v = x vx + y vy`.
  */
-export function plansDuToit(pts: readonly PtBrut[], toit: Toit): PlanToit[] {
+export function plansDuToit(pts: readonly PtBrut[], toitLu: Toit): PlanToit[] {
+  // Une forme du catalogue se dessine en sa forme simple la plus proche (model/formeToit.ts).
+  const toit = toitDessine(toitLu);
   const H = Math.max(0, toit.hauteur);
   // Des croupes decrites en plans : le quatre pans sur l'enveloppe, qui les approche. Seul
   // `facettesToit` pose les vraies (le squelette).
@@ -225,7 +259,8 @@ function facettesCroupes(pts: readonly PtBrut[], toit: Toit): { pans: Pan[]; pig
 }
 
 /** Les pans et les pignons d'un toit pose sur un contour. */
-export function facettesToit(pts: readonly PtBrut[], toit: Toit): { pans: Pan[]; pignons: Pignon[] } {
+export function facettesToit(pts: readonly PtBrut[], toitLu: Toit): { pans: Pan[]; pignons: Pignon[] } {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'croupes' && toit.hauteur > 0) return facettesCroupes(pts, toit);
   const plans = plansDuToit(pts, toit);
   const pans: Pan[] = [];
@@ -309,7 +344,8 @@ function planDuPan(pan: Pan): PlanToit | null {
  * quand le mur n'est pas un pignon. C'est ce qui s'ajoute a la hauteur a l'egout pour avoir la
  * hauteur de la facade, et ce que la photo doit cadrer pour lire le toit.
  */
-export function hauteurPignon(pts: readonly PtBrut[], toit: Toit | null | undefined, cote: number): number {
+export function hauteurPignon(pts: readonly PtBrut[], toitLu: Toit | null | undefined, cote: number): number {
+  const toit = toitLu ? toitDessine(toitLu) : toitLu;
   if (!toit || toit.forme === 'plat' || !(toit.hauteur > 0)) return 0;
   const g = facettesToit(pts, toit).pignons.find((x) => x.cote === cote);
   return g ? Math.max(0, ...g.profil.map((q) => q.z)) : 0;

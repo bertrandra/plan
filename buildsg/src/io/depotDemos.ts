@@ -207,3 +207,76 @@ export async function enregistrerPalette(f: Fetch, document: unknown): Promise<v
     body: JSON.stringify(document)
   });
 }
+
+// --- La consommation de Claude (MD/spec-audit.md 13.3, lot L16 bis) ------------------------------
+
+/** Les filtres de `GET admin/consommation` ; un filtre vide n'est pas envoye. */
+export interface FiltresConsommation {
+  du: string;
+  au: string;
+  organisation?: string;
+  modele?: string;
+  usage?: string;
+  parcelle?: string;
+}
+
+/** Le journal filtre (model/consommation.ts le lit), tel que le serveur le rend. */
+export async function lireConsommation(f: Fetch, filtres: FiltresConsommation): Promise<unknown> {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(filtres)) if (typeof v === 'string' && v !== '') p.set(k, v);
+  const r = await appeler(f, '/consommation?' + p.toString(), 'lecture de la consommation');
+  return r.json() as Promise<unknown>;
+}
+
+/** La table des tarifs datee (`admin/claude/tarifs`). */
+export async function lireTarifsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'lecture des tarifs')).json() as Promise<unknown>;
+}
+
+/** Remplace la table des tarifs ; le serveur refuse qu'un tarif passe soit reecrit (409). */
+export async function enregistrerTarifsClaude(f: Fetch, tarifs: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'enregistrement des tarifs', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(tarifs)
+  })).json() as Promise<unknown>;
+}
+
+/** Les plafonds par organisation, par jour et par mois (`admin/claude/plafonds`). */
+export async function lirePlafondsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'lecture des plafonds')).json() as Promise<unknown>;
+}
+
+export async function enregistrerPlafondsClaude(f: Fetch, plafonds: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'enregistrement des plafonds', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(plafonds)
+  })).json() as Promise<unknown>;
+}
+
+// --- Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) ----------------------
+
+/** L'historique des mesures (`GET admin/conformite`) ; model/conformite.ts le relit. */
+export async function lireMesuresConformiteServeur(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/conformite', 'lecture des mesures de conformité')).json() as Promise<unknown>;
+}
+
+/** Range une mesure de plus ; le serveur y ajoute l'heure de reception et garde les dernieres. */
+export async function enregistrerMesureConformite(f: Fetch, mesure: unknown): Promise<unknown> {
+  return (await appeler(f, '/conformite', 'enregistrement de la mesure', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(mesure)
+  })).json() as Promise<unknown>;
+}
+
+/** Un audit de parcelle recu (`GET admin/audits`) : sa fiche, sans le fichier. */
+export interface AuditRecu { id: string; recuLe: string; organisation: string | null; idu: string; adresse: string | null }
+
+/** Les audits partages recus, les plus recents d'abord (lot L21). */
+export async function listerAuditsRecus(f: Fetch): Promise<AuditRecu[]> {
+  const d = await (await appeler(f, '/audits', 'liste des audits reçus')).json() as { audits?: unknown };
+  return (Array.isArray(d.audits) ? d.audits as Partial<AuditRecu>[] : [])
+    .filter((a): a is AuditRecu => typeof a.id === 'string' && typeof a.idu === 'string')
+    .map((a) => ({ id: a.id, recuLe: typeof a.recuLe === 'string' ? a.recuLe : '', organisation: typeof a.organisation === 'string' ? a.organisation : null, idu: a.idu, adresse: typeof a.adresse === 'string' ? a.adresse : null }));
+}
+
+/** Le fichier d'un audit recu, tel qu'il est arrive (model/fichierAuditParcelle.ts le relit). */
+export async function lireAuditRecu(f: Fetch, id: string): Promise<unknown> {
+  return (await appeler(f, '/audits/' + encodeURIComponent(id), 'lecture de l’audit « ' + id + ' »')).json() as Promise<unknown>;
+}

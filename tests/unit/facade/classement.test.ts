@@ -63,6 +63,28 @@ describe('formeDeTache', () => {
     };
     expect(formeDeTache(l, h, dentele, rg)).toBe('rect');
   });
+
+  it('une baie posee sur une haie plus large qu elle (un T) : pas un cintre (lot G17)', () => {
+    // La haie : toute la largeur, sur le bas ; la baie : le milieu, sur toute la hauteur.
+    const t = (x: number, y: number) => y >= 12 || (x >= 4 && x < l - 4);
+    expect(formeDeTache(l, h, t, rg)).toBe('rect');
+    // Le meme T, la haie a peine plus large que la baie (un pixel de chaque cote) : la marche est au
+    // bord, comme la naissance d'un arc ; mais son haut plat n'est pas un arc qui descend.
+    const etroit = (x: number, y: number) => y >= 12 || (x >= 1 && x < l - 1);
+    expect(formeDeTache(l, h, etroit, rg)).toBe('rect');
+  });
+
+  it('un plein cintre ou un arc surbaisse, a la resolution de la detection (5 cm) : cintre', () => {
+    for (const [lp, hp, f] of [
+      [22, 32, 11],
+      [24, 30, 6],
+      [16, 28, 8],
+    ] as const) {
+      const R = (f * f + (lp / 2) ** 2) / (2 * f);
+      const arc = (x: number, y: number) => y >= f || Math.hypot(x + 0.5 - lp / 2, y + 0.5 - R) <= R;
+      expect(formeDeTache(lp, hp, arc, rg), `${lp} x ${hp}, fleche ${f}`).toBe('cintre');
+    }
+  });
 });
 
 /** Une image unie de `l` x `h` pixels, dont la couleur de chaque pixel est donnee. */

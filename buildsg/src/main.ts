@@ -17,6 +17,39 @@ function texteErreur(err: unknown): string {
   return base + (e && e.stack ? '\n' + e.stack : '');
 }
 
+/**
+ * Les ecrans secondaires de l'admin, une fois sa porte franchie : chacun prend toute la page.
+ * Rend vrai si l'adresse en demandait un (il est alors ouvert).
+ */
+async function ouvrirEcranAdmin(): Promise<boolean> {
+  // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
+  // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
+  // lance la decouverte (app/ecranControleurs.ts).
+  const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
+  if (demandeEcranControleurs(location.search)) {
+    document.documentElement.dataset.ecran = 'controleurs';
+    await ouvrirEcranControleurs();
+    return true;
+  }
+  // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
+  // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
+  const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/ecranConsommation.js');
+  if (demandeEcranConsommation(location.search)) {
+    document.documentElement.dataset.ecran = 'consommation';
+    ouvrirEcranConsommation();
+    return true;
+  }
+  // L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, MD/spec-regles-toits.md
+  // 13.5) : le corpus du depot et les audits recus, rejoues. Plan ne demarre pas dessous.
+  const { demandeEcranConformite, ouvrirEcranConformite } = await import('./app/ecranConformite.js');
+  if (demandeEcranConformite(location.search)) {
+    document.documentElement.dataset.ecran = 'conformite';
+    ouvrirEcranConformite();
+    return true;
+  }
+  return false;
+}
+
 // L'import est dynamique pour une raison de comportement, pas de style : dans le fichier
 // mono-page, le bloc 2 etait enveloppe dans un try/catch qui affichait le bandeau si une
 // instruction de premier niveau levait pendant la definition. Un import statique leverait avant
@@ -67,18 +100,25 @@ async function demarrer(): Promise<void> {
         chargement(false);
         return;
       }
-      // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
-      // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
-      // lance la decouverte (app/ecranControleurs.ts).
-      const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
-      if (demandeEcranControleurs(location.search)) {
-        document.documentElement.dataset.ecran = 'controleurs';
-        await ouvrirEcranControleurs();
+      // Les ecrans secondaires de l'admin (controleurs, consommation, conformite) : Plan ne demarre
+      // pas dessous.
+      if (await ouvrirEcranAdmin()) {
         chargement(false);
         return;
       }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
+      // Le mode audit depuis le menu Admin (`?admin&mode=audit`) : meme demarrage qu'apres la porte
+      // de la plateforme, sans le depot des demos, donc sans rien enregistrer.
+      const { lireDemandeAudit } = await import('./app/audit/demande.js');
+      const auditAdmin = lireDemandeAudit(location.search);
+      if (auditAdmin) {
+        const { boot, graineAudit } = await import('./app/boot.js');
+        boot(graineAudit(), { audit: auditAdmin });
+        document.title = 'Audit — Plan';
+        finChargementApresRendu();
+        return;
+      }
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
@@ -107,12 +147,30 @@ async function demarrer(): Promise<void> {
     // boot, parce que le registre des commandes se construit pendant cet import.
     const { poserAcces } = await import('./app/acces.js');
     poserAcces(acces.session, acces.contexte);
+    // Le mode audit (MD/spec-audit.md), reserve a l'administrateur : un plan vide qui suit la
+    // promenade, sans depot de projets, donc sans rien enregistrer.
+    const { lireDemandeAudit } = await import('./app/audit/demande.js');
+    const audit = lireDemandeAudit(location.search);
+    // Relu aussi hors audit : le menu Admin (son entree « Mode audit ») se montre a l'administrateur.
+    const { confirmerAdministrateur } = await import('./app/acces.js');
+    const administrateur = await confirmerAdministrateur();
+    if (audit && administrateur) {
+      const { boot, graineAudit } = await import('./app/boot.js');
+      boot(graineAudit(), { audit });
+      document.title = 'Audit — Plan';
+      finChargementApresRendu();
+      return;
+    }
     // Le depot des projets, pose ici parce que c'est ici que la session existe : io/ ne remonte pas
     // vers app/ pour aller la chercher (spec-connexion-plateforme §16, etape 4).
     const { creerDepotPlateforme } = await import('./io/depotPlateforme.js');
     const { definirDepot } = await import('./io/api.js');
     definirDepot(creerDepotPlateforme(acces.session));
     const { boot, loadInitialProject } = await import('./app/boot.js');
+    if (audit) {
+      const { showToast } = await import('./shell/dialogs.js');
+      showToast('Le mode audit est réservé aux administrateurs : le plan s’ouvre normalement.');
+    }
     try {
       // Apres la porte (qui a retire la roue pour se montrer), la lecture du projet la remet : un
       // plan lourd met plusieurs secondes a arriver et a se dessiner.

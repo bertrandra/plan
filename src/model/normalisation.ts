@@ -19,6 +19,7 @@
 
 import { deplierRelief } from './relief.js';
 import type { CorpsToit, ObjetBrut, ObjetAPoints } from './types.js';
+import { lireChampsEtendus } from './corpsToitEtendu.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -58,8 +59,13 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     if (c.volumesToit) c.volumesToit = JSON.parse(JSON.stringify(c.volumesToit));
     if (c.toitMesure) c.toitMesure = JSON.parse(JSON.stringify(c.toitMesure));
-    // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient.
-    if (c.corpsToit) c.corpsToit = (JSON.parse(JSON.stringify(c.corpsToit)) as CorpsToit[]).map((k) => ({ ...k, pignons: k.pignons ?? [] }));
+    // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient. Ses
+    // champs etendus (profil, bouts, lucarnes, bords) sont verifies, et retires s'ils sont mal formes.
+    if (c.corpsToit) c.corpsToit = (JSON.parse(JSON.stringify(c.corpsToit)) as CorpsToit[]).map((k) => {
+      const copie = { ...k, pignons: k.pignons ?? [] };
+      lireChampsEtendus(copie as unknown as Record<string, unknown>);
+      return copie;
+    });
     if (c.toitACheval) c.toitACheval = JSON.parse(JSON.stringify(c.toitACheval));
     if (c.couleurMurs) c.couleurMurs = JSON.parse(JSON.stringify(c.couleurMurs));
     if (c.verifieSurPlace) c.verifieSurPlace = { date: String(c.verifieSurPlace.date) };

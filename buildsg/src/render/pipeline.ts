@@ -43,6 +43,33 @@ export interface ContexteRendu extends ContexteOrtho {
   dessinerRelief?: () => void;
   /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
   dessinerRues?: () => void;
+  /** Un mode de diagnostic (app/diagnostic.ts) : la couleur d'affichage d'un objet, ou null pour la sienne. */
+  couleurDiagnostic?: (obj: ObjetPlan) => string | null;
+}
+
+/**
+ * Repositionne ces objets seulement, comme le ferait le rendu entier : la lecture des toits en tache
+ * de fond (app/toitsFond.ts) redessine les batiments qu'elle vient d'ecrire, pas les milliers d'autres
+ * - redessiner tout le plan a chaque lot figeait l'ecran plusieurs secondes.
+ */
+export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly ObjetPlan[]): void {
+  const activeSel = etat.selectedKey;
+  objets.forEach(obj=>{
+    positionnerObjet(obj as ObjetRendu, {
+      scene: etat.scene,
+      selectionnee: obj.key === activeSel,
+      masque: ctx.objetMasque(obj),
+      transparent: obj.key === etat.isolement,
+      // Une terrasse percee (bassin, trou) se dessine avec son trou.
+      trous: trousDeTerrasse(obj, etat.objects),
+      ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
+      estTerrain: ctx.estTerrain,
+      pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
+      pointageCotes: !!(mesure.pointage && mesure.pointage.mode === 'ref'),
+      reconstruirePoignees: ctx.rebuildHandles,
+      couleurDiagnostic: ctx.couleurDiagnostic?.(obj) ?? null
+    });
+  });
 }
 
 export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
@@ -64,21 +91,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   // Le cast dit ce que le type de `ObjetPlan` ne dit pas encore : un objet du plan vivant porte
   // toujours forme et couleurs, poses par `creation.ts` ou `normalisation.ts` a son entree dans
   // `etat.objects` (voir la note d'`ObjetRendu` dans render/objects.ts).
-  etat.objects.forEach(obj=>{
-    positionnerObjet(obj as ObjetRendu, {
-      scene: etat.scene,
-      selectionnee: obj.key === activeSel,
-      masque: ctx.objetMasque(obj),
-      transparent: obj.key === etat.isolement,
-      // Une terrasse percee (bassin, trou) se dessine avec son trou.
-      trous: trousDeTerrasse(obj, etat.objects),
-      ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
-      estTerrain: ctx.estTerrain,
-      pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
-      pointageCotes: !!(mesure.pointage && mesure.pointage.mode === 'ref'),
-      reconstruirePoignees: ctx.rebuildHandles
-    });
-  });
+  rendreObjets(etat, ctx, etat.objects);
 
   ctx.renderReleves?.();
   ctx.drawScaleBar();

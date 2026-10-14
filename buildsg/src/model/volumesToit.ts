@@ -19,17 +19,19 @@ import { angleDuPlusLongCote, repereFaitage, ELONGATION_MIN } from '../geometry/
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
+import { toitDessine } from './formeToit.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */
-export const TOLERANCE_DEG = 15;
+export const TOLERANCE_DEG = R.TOLERANCE_DEG;
 /** Un rectangle plus etroit que cela n'est pas un volume : une saillie, un decroche de facade. */
-export const LARGEUR_MIN_M = 1.5;
-/** Et en dessous de cette aire il est simplement oublie (un auvent, une marche) ; au-dela, le decoupage est refuse. */
-const AIRE_NEGLIGEABLE_M2 = 2;
+export const LARGEUR_MIN_M = R.LARGEUR_MIN_M;
+// Et en dessous de S.AIRE_NEGLIGEABLE_M2 il est simplement oublie (un auvent, une marche) ; au-dela, le
+// decoupage est refuse.
 /** Deux abscisses a moins de cela sont la meme (le contour simplifie n'est droit qu'au centimetre). */
 const EPSILON_M = 0.05;
 /** Un cote plus court que cela est un decroche de facade (un ressaut, un conduit), pas un volume : il est lisse. */
-export const SEUIL_DECROCHE_M = 1.2;
+export const SEUIL_DECROCHE_M = R.SEUIL_DECROCHE_M;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
@@ -59,7 +61,7 @@ export function equerrer(local: readonly PtBrut[]): PtBrut[] | null {
     if (Math.hypot(dx, dy) < EPSILON_M) { sens.push(sens.length ? (sens[sens.length - 1] as boolean) : true); continue; }
     const angle = Math.abs(deg(Math.atan2(dy, dx))) % 180;
     const ecartH = Math.min(angle, 180 - angle), ecartV = Math.abs(angle - 90);
-    if (ecartH > TOLERANCE_DEG && ecartV > TOLERANCE_DEG) return null;
+    if (ecartH > S.TOLERANCE_DEG && ecartV > S.TOLERANCE_DEG) return null;
     sens.push(ecartH <= ecartV);
   }
   // Fusion des cotes consecutifs de meme sens : on garde les sommets ou le sens change.
@@ -89,7 +91,7 @@ export function lisserDecroches(droit: readonly PtBrut[]): PtBrut[] {
   let pts = droit.map((p) => ({ ...p }));
   for (let garde = 0; garde < 40 && pts.length > 4; garde++) {
     const n = pts.length;
-    let court = -1, lCourt = SEUIL_DECROCHE_M;
+    let court = -1, lCourt = S.SEUIL_DECROCHE_M;
     for (let i = 0; i < n; i++) {
       const a = au(pts, i), b = sommetDe(pts, i + 1);
       const l = Math.hypot(b.x - a.x, b.y - a.y);
@@ -183,8 +185,8 @@ export function rectanglesDuContour(pts: readonly PtBrut[]): PtBrut[][] | null {
   // Un contour equerre et lisse qui a perdu plus de 15 % de son aire n'etait pas rectiligne.
   const a0 = Math.abs(signedArea(pts)), a1 = Math.abs(signedArea(droit));
   if (a0 <= 0 || Math.abs(a1 - a0) / a0 > 0.15) return null;
-  const rects = couvertureRectangles(droit).filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2).sort((p, q) => aire(q) - aire(p));
-  if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) return null;
+  const rects = couvertureRectangles(droit).filter((r) => aire(r) >= S.AIRE_NEGLIGEABLE_M2).sort((p, q) => aire(q) - aire(p));
+  if (!rects.length || rects.some((r) => largeurMin(r) < S.LARGEUR_MIN_M)) return null;
   return rects.map((r) => tourner([{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }], angle).map((p) => ({ x: cm(p.x), y: cm(p.y) })));
 }
 
@@ -238,7 +240,7 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
   for (const axe of ['x', 'y'] as const) {
     let rects = tranches(droit, axe);
     for (let garde = 0; garde < 20; garde++) {
-      const etroit = rects.find((r) => largeurMin(r) < LARGEUR_MIN_M);
+      const etroit = rects.find((r) => largeurMin(r) < S.LARGEUR_MIN_M);
       if (!etroit) break;
       const autres = rects.filter((r) => r !== etroit);
       const fusions = autres.filter((r) => touchent(r, etroit)).map((r) => {
@@ -247,11 +249,11 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
       }).sort((a, b) => a.ajout - b.ajout);
       const f = fusions[0];
       if (f && f.ajout <= 0.15) rects = [...autres.filter((r) => r !== f.r), f.u];
-      else if (aire(etroit) < AIRE_NEGLIGEABLE_M2) rects = autres;
+      else if (aire(etroit) < S.AIRE_NEGLIGEABLE_M2) rects = autres;
       else { rects = []; break; }
     }
-    rects = rects.filter((r) => aire(r) >= AIRE_NEGLIGEABLE_M2);
-    if (!rects.length || rects.some((r) => largeurMin(r) < LARGEUR_MIN_M)) continue;
+    rects = rects.filter((r) => aire(r) >= S.AIRE_NEGLIGEABLE_M2);
+    if (!rects.length || rects.some((r) => largeurMin(r) < S.LARGEUR_MIN_M)) continue;
     if (!best || rects.length < best.length) best = rects;
   }
   if (!best) return null;
@@ -259,7 +261,8 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
 }
 
 /** La pente du toit d'un batiment, en degres, d'apres son toit et son contour ; celle d'une tuile a defaut. */
-export function penteDuToit(pts: readonly PtBrut[], toit: Toit): number {
+export function penteDuToit(pts: readonly PtBrut[], toitLu: Toit): number {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || !(toit.hauteur > 0)) return 0;
   if (toit.forme === 'croupes') {
     if (toit.pente !== undefined) return toit.pente;
@@ -305,7 +308,7 @@ export function toitDuVolume(v: VolumeToit, reference: Toit | null | undefined):
 }
 
 /** « Corps 12,0 × 8,0 m : deux pans » : une ligne par volume, le plus grand d'abord. */
-export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Record<Toit['forme'], string>): string[] {
+export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Readonly<Partial<Record<Toit['forme'], string>>>): string[] {
   return volumes.map((v, i) => {
     const r = repereFaitage(v.pts, angleDuPlusLongCote(v.pts));
     const dims = (2 * r.hl).toFixed(1).replace('.', ',') + ' × ' + (2 * r.hw).toFixed(1).replace('.', ',') + ' m';
@@ -314,6 +317,6 @@ export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Record<
     const murs = v.hauteursMurs?.length ? v.hauteursMurs : [];
     const ecartMurs = murs.length ? Math.max(...murs) - Math.min(...murs) : 0;
     const hauts = ecartMurs >= 0.3 ? ' · murs de ' + Math.min(...murs).toFixed(1).replace('.', ',') + ' à ' + Math.max(...murs).toFixed(1).replace('.', ',') + ' m' : '';
-    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + libelles[v.toit.forme].toLowerCase() + egout + hauts;
+    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + (libelles[v.toit.forme] ?? v.toit.forme).toLowerCase() + egout + hauts;
   });
 }

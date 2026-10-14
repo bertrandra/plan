@@ -16,16 +16,20 @@ import { sommetDe } from '../geometry/anneau.js';
 import { signedArea, centroid, pointInPolygon } from '../geometry/basic.js';
 import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
+import { toitDessine } from '../model/formeToit.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
+import type { ValeursFacades } from '../model/reglagesFacades.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
 import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
+import { Batisseur, type S3 } from './batisseur.js';
+import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteDetails {
@@ -70,6 +74,8 @@ export interface OptionsDetails {
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];
+  /** Le profil de facades retenu (facade/profilsFacades.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
+  profil?: ValeursFacades;
 }
 
 // La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
@@ -110,47 +116,6 @@ const COULEUR_CHEMINEE_TUILE = 0x8a5a44;
 const COULEUR_CHEMINEE_ARDOISE = 0x6b6b6b;
 
 const rad = (d: number) => (d * Math.PI) / 180;
-type S3 = [number, number, number];
-
-/** Des quads accumules en une seule maille, par groupes de materiau : une maille par detail, pas par face. */
-class Batisseur {
-  positions: number[] = [];
-  uvs: number[] = [];
-  indices: number[] = [];
-  groupes: { debut: number; compte: number; materiau: number }[] = [];
-  private debutGroupe = 0;
-
-  /** Un quadrilatere `a b c d` (deux triangles), avec ses coordonnees de texture s'il en a. */
-  quad(a: S3, b: S3, c: S3, d: S3, uv?: number[]): void {
-    const k = this.positions.length / 3;
-    this.positions.push(...a, ...b, ...c, ...d);
-    this.uvs.push(...(uv ?? [0, 0, 0, 0, 0, 0, 0, 0]));
-    this.indices.push(k, k + 1, k + 2, k, k + 2, k + 3);
-  }
-
-  /** Clot le groupe en cours : ce qui a ete ajoute depuis le dernier prend ce materiau. */
-  groupe(materiau: number): void {
-    const compte = this.indices.length - this.debutGroupe;
-    if (compte > 0) this.groupes.push({ debut: this.debutGroupe, compte, materiau });
-    this.debutGroupe = this.indices.length;
-  }
-
-  get vide(): boolean {
-    return this.indices.length === 0;
-  }
-
-  maillage(materiaux: THREE_NS.Material[], nom: string): THREE_NS.Mesh {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2));
-    geo.setIndex(this.indices);
-    this.groupes.forEach((g) => geo.addGroup(g.debut, g.compte, g.materiau));
-    geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, materiaux);
-    m.name = nom;
-    return m;
-  }
-}
 
 /**
  * Le contour decale de `d` vers l'exterieur, sommet pour sommet (meme nombre, meme ordre) : les
@@ -181,7 +146,8 @@ export function contourDecale(pts: readonly PtBrut[], d: number): PtBrut[] {
  * La hauteur du toit au-dessus de l'egout, prolongee hors des murs pour le cote `i` : negative
  * sous l'egout d'un pan qui descend, celle du profil au droit d'un pignon.
  */
-function hauteurProlongee(contour: readonly PtBrut[], toit: Toit): (i: number, q: PtBrut) => number {
+function hauteurProlongee(contour: readonly PtBrut[], toitLu: Toit): (i: number, q: PtBrut) => number {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0) return () => 0;
   if (toit.forme === 'croupes') {
     const d = profondeurToit(contour);
@@ -198,7 +164,8 @@ function hauteurProlongee(contour: readonly PtBrut[], toit: Toit): (i: number, q
 }
 
 /** Les cassures du profil le long du cote `(a, b)` : la ou deux plans du toit s'egalent. */
-function cassures(contour: readonly PtBrut[], toit: Toit, a: PtBrut, b: PtBrut): number[] {
+function cassures(contour: readonly PtBrut[], toitLu: Toit, a: PtBrut, b: PtBrut): number[] {
+  const toit = toitDessine(toitLu);
   const ts = new Set<number>([0, 1]);
   if (toit.forme !== 'plat' && toit.forme !== 'croupes' && toit.hauteur > 0) {
     const plans: PlanToit[] = plansDuToit(contour, toit);
@@ -228,7 +195,9 @@ function materiauToit(ctx: ContexteDetails, toit: Toit): THREE_NS.MeshStandardMa
  * des pans (elle descend le long d'un egout, suit le profil d'un pignon), avec son epaisseur — la
  * sous-face plus claire et la planche de rive. Et la gouttiere, le long des egouts seulement.
  */
-function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number, avecGouttiere: boolean, batiment: readonly PtBrut[] | null = null): void {
+function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu: Toit, h: number, avecGouttiere: boolean, batiment: readonly PtBrut[] | null = null): void {
+  // Une forme du catalogue se dessine en sa forme simple la plus proche (model/formeToit.ts).
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0 || contour.length < 3) return;
   // Un corps parmi d'autres : pas de debord sur un mur commun, il traverserait le corps voisin.
   const dedans = centroid(contour);
@@ -388,7 +357,7 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
     poserOuvertures(ctx, c.pts, [{ pts: c.pts, hauteur: bas, hauteursMurs: hauteursMursCorps(c) }], bas, {
       ...options, cotesReleves: interieurs, porte: k === 0,
-      ouverturesHautes: fenetresDesPignons(c, largeur, hauteur).filter((f) => !interieurs.includes(f.cote)),
+      ouverturesHautes: fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M).filter((f) => !interieurs.includes(f.cote)),
     });
   });
 }
@@ -403,7 +372,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   // Un mur photographie garde les ouvertures de son releve (releve3d.ts) : la liste reglee a la
   // main n'y dessine rien, pas plus que la disposition automatique.
   const releves = new Set(options.cotesReleves ?? []);
-  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}), ...(options.porte === false ? { porte: false } : {}) })).filter((o) => !releves.has(o.cote));
+  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}), ...(options.porte === false ? { porte: false } : {}), ...(options.profil ? { profil: options.profil } : {}) })).filter((o) => !releves.has(o.cote));
   // Les fenetres des pignons montent au-dessus de l'egout : elles ne passent pas le controle de hauteur du mur.
   const hautes = new Set((options.ouverturesHautes ?? []).filter((o) => !releves.has(o.cote)));
   liste.push(...hautes);
@@ -422,6 +391,16 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   const cadres: (() => void)[] = [],
     vitres: (() => void)[] = [],
     portes: (() => void)[] = [];
+  // Les volets, coffres, balcons et garde-corps des ouvertures qui en ont (three/detailsOuvertures.ts).
+  const poses: PoseOuverture[] = [];
+  // Une baie cintree ou ronde : son cadre et sa vitre suivent son contour (lot G17) ; les autres
+  // gardent exactement leurs deux quads d'avant.
+  const forme = (f: Facade, o: Fenetre3d, y: number, vers: (() => void)[], porte: boolean) => {
+    const pt = repereFacade(ctx.toLocal, f);
+    const c = cadreEtVitreFormes(b, pt, { ...o, y }, CADRE_M, DECOLLEMENT, DECOLLEMENT * 2, porte);
+    cadres.push(c.cadre);
+    if (c.vitre) vers.push(c.vitre);
+  };
   liste.forEach((o) => {
     const f = facades.find((x) => x.cote === o.cote);
     if (!f || o.x < 0 || o.x + o.l > f.largeur + 0.01 || o.l <= 0 || o.h <= 0) return;
@@ -429,13 +408,21 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     if (o.type === 'porte' || o.type === 'garage') {
       // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
       const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - o.h - 0.3, ctx.sol(pointDeFacade(f, o.x + o.l / 2)))) : o.y;
-      cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
-      portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+      if (aUneForme(o.details)) forme(f, o, yp, portes, true);
+      else {
+        cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
+        portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+      }
+      if (aDesDetails(o.details)) poses.push({ f, o: { ...o, y: yp }, hMur, cadre: CADRE_M });
       return;
     }
     if (!hautes.has(o) && o.y + o.h > hMur - 0.15) return;
-    cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
-    vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
+    if (aUneForme(o.details)) forme(f, o, o.y, vitres, false);
+    else {
+      cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
+      vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
+    }
+    if (aDesDetails(o.details)) poses.push({ f, o, hMur, cadre: CADRE_M });
   });
   if (!cadres.length) return;
   cadres.forEach((f) => f());
@@ -452,10 +439,12 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   // Un centimetre devant le mur ne suffit pas vu de loin : les ouvertures gagnent le test de profondeur.
   materiaux.forEach((m) => poserEnCouche(m, COUCHES_SOL.surMur));
   ctx.scene.add(b.maillage(materiaux, 'batiment-ouvertures'));
+  poserDetailsOuvertures(ctx, poses);
 }
 
 /** Une cheminee sur un toit en pente assez grand : un carre de brique (ou de pierre grise sous l'ardoise), a cote du faitage. */
-function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number): void {
+function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu: Toit, h: number): void {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0 || Math.abs(signedArea(contour)) < AIRE_CHEMINEE_MIN_M2) return;
   const angle = toit.forme === 'croupes' ? angleDuPlusLongCote(contour) : toit.angleFaitage;
   const r = repereFaitage(contour, angle);

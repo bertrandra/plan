@@ -164,26 +164,38 @@ async function imageSous(pts: readonly PtBrut[], proj: ProjecteurLocal): Promise
  * Pose sur chaque toit dont Plan choisit la couleur celle que l'orthophoto montre, ou la couverture
  * de repli. Modifie les toits en place. Un toit dont l'orthophoto ne repond pas reste tel quel.
  */
-export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS): Promise<BilanCouleursToits> {
+export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS, enParallele = 1): Promise<BilanCouleursToits> {
   const bilan: BilanCouleursToits = { lus: 0, replis: 0 };
   const fin = Date.now() + delaiMs;
-  for (const o of objets) {
+  // Plusieurs toits a la fois pour la tache de fond (app/toitsFond.ts) : les tuiles se partagent par le
+  // cache de render/ortho.ts. A l'import, un seul a la fois, dans l'ordre des objets.
+  let suivant = 0;
+  const ouvrier = async (): Promise<void> => {
+    while (suivant < objets.length && Date.now() <= fin) {
+      const o = objets[suivant++];
+      if (o) await lireUnToit(o);
+    }
+  };
+  const lireUnToit = async (o: ObjetAvecToit): Promise<void> => {
     const toit = o.toit;
-    if (!couleurAResoudre(toit) || !Array.isArray(o.pts) || o.pts.length < 3) continue;
-    if (Date.now() > fin) break;
+    if (!couleurAResoudre(toit) || !Array.isArray(o.pts) || o.pts.length < 3) return;
     let img: ImageMonde | null = null;
     try {
-      // Une tuile qui ne repond jamais ne doit pas tenir l'import : au-dela du delai, on s'arrete.
-      img = await Promise.race([imageSous(o.pts, proj), new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, fin - Date.now())))]);
+      // Une tuile qui ne repond jamais ne doit pas tenir l'import : au-dela du delai, on s'arrete. Sans
+      // delai (la tache de fond), pas de minuterie : setTimeout(Infinity) partirait tout de suite.
+      img = Number.isFinite(fin)
+        ? await Promise.race([imageSous(o.pts, proj), new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, fin - Date.now())))])
+        : await imageSous(o.pts, proj);
     } catch {
       img = null;
     }
-    if (!img) continue;
+    if (!img) return;
     const lue = repliSelonMateriau(couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj), toit.forme === 'plat'), o.bdtopo, toit.forme === 'plat');
     toit.couleur = lue.couleur;
     toit.origineCouleur = lue.origine;
     if (lue.origine === 'orthophoto') bilan.lus++;
     else bilan.replis++;
-  }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, enParallele) }, ouvrier));
   return bilan;
 }

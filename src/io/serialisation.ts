@@ -9,6 +9,7 @@
 // avoir la meme forme quel que soit l'etat de la memoire, sinon deux enregistrements du meme plan
 // ne se comparent pas.
 import { compacterRelief } from '../model/relief.js';
+import { compacterChampsEtendus } from '../model/corpsToitEtendu.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
 import type { ObjetSerialise } from '../model/creation.js';
 
@@ -111,10 +112,12 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
     // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts). Les
     // cheminees et la terrasse observees (MD/spec-regles-toits.md §4) passent telles quelles ; une
-    // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant.
+    // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant. Les champs
+    // etendus (profil, bouts, lucarnes, bords) ne s'ecrivent que s'ils disent autre chose que leur absence.
     if(o.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.corpsToit)) as Record<string, unknown>[]).map((c) => {
       if(Array.isArray(c.pignons) && !c.pignons.length) delete c.pignons;
       if(Array.isArray(c.cheminees) && !c.cheminees.length) delete c.cheminees;
+      compacterChampsEtendus(c);
       return c;
     });
     // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.
@@ -125,6 +128,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Verifie sur place par un audit de la parcelle (MD/spec-audit.md §14) : pose seulement s'il l'est.
     if(o.verifieSurPlace) out.verifieSurPlace = { date: o.verifieSurPlace.date };
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
+    // Le profil de facades retenu (facade/profilsFacades.ts) : sans lui, la tache de fond le rechoisirait a chaque ouverture.
+    if(o.profilFacades) out.profilFacades = { id: o.profilFacades.id, version: o.profilFacades.version };
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.
     if(o.relief) out.relief = compacterRelief(o.relief);

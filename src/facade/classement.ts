@@ -303,6 +303,18 @@ export function estVitree(img: Image, b: BoitePx, rg: ValeursStructure, franc = 
 }
 
 /**
+ * Une marche dans le haut d'une tache (lot G17) : loin des tableaux (au-dela de `cintreBordPart` de la
+ * largeur), deux colonnes voisines dont le haut differe de plus de `cintreMarcheMaxPart` de la hauteur
+ * (deux pixels au moins). `haut(x)` est la premiere ligne pleine de la colonne x, depuis le haut.
+ */
+function marcheDansArc(l: number, h: number, haut: (x: number) => number, rg: ValeursStructure): boolean {
+  const bord = Math.max(1, Math.ceil(rg['facades.classement.cintreBordPart'] * l));
+  const marche = Math.max(2, rg['facades.classement.cintreMarcheMaxPart'] * h);
+  for (let x = bord; x < l - bord; x++) if (Math.abs(haut(x) - haut(x - 1)) > marche) return true;
+  return false;
+}
+
+/**
  * La forme d'une tache dans sa boite (spec §11) : `cintre` si les deux coins du haut sont vides et le
  * haut du milieu plein, `rond` si ses quatre coins sont vides et sa boite presque carree. `remplis`
  * dit si le pixel (x, y) de la boite (y vers le bas) appartient a la tache.
@@ -337,6 +349,11 @@ export function formeDeTache(l: number, h: number, remplis: (x: number, y: numbe
   // L'arc descend regulierement du milieu vers chaque tableau : le haut d'une haie ou d'un houppier,
   // dentele, monte et descend.
   for (let x = 1; x < Math.floor(l / 2); x++) if (haut(x) > haut(x - 1) + 1 || haut(l - 1 - x) > haut(l - x) + 1) return 'rect';
+  // Et il descend sans marche : la pente d'un arc n'est raide que tout pres des tableaux (un plein
+  // cintre est vertical a sa naissance, et ne monte plus que de deux pixels par colonne a 5 % de la
+  // largeur du tableau). Une baie posee sur une haie plus large qu'elle (scenes 07 et 17 du banc) forme
+  // un T : le haut de la haie, plat, puis une marche franche jusqu'au linteau de la baie.
+  if (marcheDansArc(l, h, haut, rg)) return 'rect';
   if (bg <= max && bd <= max && Math.abs(l - h) <= 0.2 * Math.max(l, h)) return 'rond';
   return bg >= 0.8 && bd >= 0.8 ? 'cintre' : 'rect';
 }

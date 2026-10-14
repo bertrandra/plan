@@ -10,6 +10,7 @@
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA;
     --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
+    --serie-1:#2A78D6; --serie-2:#EB6834; --serie-3:#1BAF7A;
     --camera-voile:rgba(20,16,11,0.62);
     /* Teinte d'alternance : une nuance de l'accent, assez faible pour guider l'oeil le long
        d'une ligne sans decouper le tableau en bandes. */
@@ -34,6 +35,7 @@
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426;
       --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
+      --serie-1:#3987E5; --serie-2:#D95926; --serie-3:#199E70;
       --camera-voile:rgba(20,16,11,0.62);
       --zebra:rgba(224,181,100,0.06); --zebra-hover:rgba(224,181,100,0.13);
       --ombre:0 1px 3px rgba(0,0,0,0.35); --ombre-flottante:0 4px 14px rgba(0,0,0,0.4);
@@ -115,6 +117,10 @@
   }
   #zoneEtat .etatPointeur{ font-variant-numeric:tabular-nums; min-width:14ch; }
   #zoneEtat #projectStatus.local{ color:var(--accent); font-style:normal; }
+  /* Les modes de diagnostic (?mode=devroof, devwall) : une pastille de la couleur et son compte. */
+  #zoneEtat .etatDiagnostic{ display:inline-flex; align-items:center; gap:10px; font-variant-numeric:tabular-nums; }
+  #zoneEtat .classeDiagnostic{ display:inline-flex; align-items:center; gap:4px; }
+  #zoneEtat .pastilleDiagnostic{ width:10px; height:10px; border-radius:999px; border:1px solid var(--rule); }
   h1{
     font-size:1.05rem; font-weight:400; margin:0 0 0 auto; letter-spacing:0.02em; text-align:right;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
@@ -197,6 +203,9 @@
   .dialogueTitre{ font-weight:600; margin-bottom:8px; font-size:1.05rem; }
   .dialoguePoints{ margin:0 0 16px; padding-left:1.2em; font-size:0.84rem; line-height:1.45; color:var(--ink-soft); }
   .dialogueTexte{ margin:0 0 14px; font-size:0.92rem; line-height:1.4; }
+  /* L'option d'un choix (« Recalculer aussi… ») : une case de 18 px, sa ligne cliquable entiere, au-dessus des boutons. */
+  .dialogueCase{ display:flex; align-items:flex-start; gap:8px; margin:0 0 14px; font-size:0.84rem; line-height:1.4; cursor:pointer; }
+  .dialogueCase input{ width:18px; height:18px; margin:1px 0 0; flex:none; }
   .dialogueBoutons{ display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
   .dialogueBoutons.centre{ justify-content:center; }
   .dialogueBoutons button{ min-height:36px; }
@@ -740,8 +749,9 @@
   html[data-classe="compact"] .corpsFeuille{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:4px 16px 16px; }
   .voileFeuille{ position:fixed; inset:0; z-index:75; background:var(--scrim); }
   /* La feuille Projet vit dans la barre haute, qui forme son propre contexte d'empilement : c'est
-     la barre entiere qui passe au-dessus du voile. */
-  html[data-classe="compact"][data-feuille="projet"] #zoneBarre{ z-index:85; }
+     la barre entiere qui passe au-dessus du voile. Sur tablette aussi : sans cela, le voile
+     transparent recouvrait le panneau deroulant, et toucher une entree du menu le refermait. */
+  html:is([data-classe="compact"], [data-classe="moyen"])[data-feuille="projet"] #zoneBarre{ z-index:85; }
   .enteteFeuille{ flex:none; display:flex; flex-direction:column; padding:0 8px 6px 16px; }
   .poigneeFeuille{
     align-self:center; width:72px; height:24px; padding:0; margin:0; border:none; background:transparent;
@@ -1219,6 +1229,8 @@
   }
   html[data-classe="compact"] .dialogueTitre{ font-family:var(--serif); font-size:20px; }
   html[data-classe="compact"] .dialogueTexte{ font-size:15px; }
+  html[data-classe="compact"] .dialogueCase{ font-size:15px; min-height:44px; align-items:center; }
+  html[data-classe="compact"] .dialogueCase input{ width:22px; height:22px; margin:0; }
   html[data-classe="compact"] .dialogueBoutons{ flex-direction:column-reverse; }
   html[data-classe="compact"] .dialogueBoutons button{ width:100%; min-height:48px; font-family:var(--sans); font-size:15px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .promptInput{ min-height:48px; font-size:16px; border-radius:var(--r-champ); }
@@ -1232,11 +1244,11 @@
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }
   html[data-classe="compact"] .dialogueImperatif input[type=checkbox], html[data-classe="compact"] .dialogueImperatif input[type=radio]{ width:20px; height:20px; }
-  html[data-classe="compact"] .dialogueCadastre .piedDialogue{
+  html[data-classe="compact"] .dialogueCadastre .piedDialogue, html[data-classe="compact"] .dialogueAudit .piedDialogue{
     position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); margin:14px -16px 0 !important; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
     background:var(--panel-bg); border-top:1px solid var(--hairline);
   }
-  html[data-classe="compact"] .dialogueCadastre .piedDialogue button{ flex:1 1 auto; }
+  html[data-classe="compact"] .dialogueCadastre .piedDialogue button, html[data-classe="compact"] .dialogueAudit .piedDialogue button{ flex:1 1 auto; }
   /* Le selecteur de textures : la grille passe au-dessus de l'apercu, trois colonnes. */
   html[data-classe="compact"] .corpsTextures{ flex-direction:column; }
   html[data-classe="compact"] .grilleTextures{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
@@ -1262,13 +1274,39 @@
   .valeurReglage{ font-size:0.88rem; min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
   .infoSoleil{ font-size:0.8rem; color:var(--ink-soft); margin-left:8px; min-width:150px; }
   .barreSoleil{ align-items:center; margin-top:6px; flex-wrap:wrap; }
+  /* Les reglages de la Vue 3D en bande, un cadre par theme (Terrasse, Scene, Soleil, Points de
+     vue) : quatre lignes de cases au long libelle prenaient le haut de l'ecran a la scene. */
+  .groupes3d{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:stretch; }
+  .groupe3d{ flex:1 1 auto; display:flex; align-items:center; flex-wrap:wrap; gap:2px 12px; min-width:0; margin:0; padding:2px 10px 5px; border:1px solid var(--hairline); border-radius:var(--r-champ); }
+  .groupe3d legend{ padding:0 4px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .groupe3d .caseReglage{ margin-right:0; font-size:0.82rem; }
+  .groupe3d .controls{ margin:0; gap:6px; flex-wrap:nowrap; }
+  .groupe3d .etiquetteReglage, .groupe3d .valeurReglage{ font-size:0.82rem; }
+  .groupe3d .petitLibelle{ margin-left:0; }
+  .groupe3d select{ max-width:220px; }
+  .boutonVue3d{ display:inline-flex; align-items:center; gap:4px; }
+  .hint3d{ margin:4px 0 0; font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Sur bureau, les reglages sont un tiroir replie sur une ligne de titre ; au doigt, une feuille. */
+  .titreTiroir3d{
+    display:flex; align-items:center; gap:6px; width:100%; padding:4px 2px; border:none; background:none; color:var(--ink-soft); cursor:pointer;
+    font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; text-align:left;
+  }
+  .titreTiroir3d:hover{ color:var(--ink); background:none; }
+  html[data-classe="large"] .reglages3d{ position:relative; }
+  html[data-classe="large"] .reglages3d:not(.ouvert) .corpsFeuille{ display:none; }
+  /* Ouvert, le tiroir glisse par-dessus le haut de la scene : elle garde sa taille et ne descend pas. */
+  html[data-classe="large"] .reglages3d.ouvert .corpsFeuille{
+    position:absolute; top:100%; left:0; right:0; z-index:6; padding:8px 10px 6px;
+    background:var(--panel-bg); border:1px solid var(--border); border-radius:var(--r-tuile); box-shadow:var(--ombre-menu);
+  }
+  html:not([data-classe="large"]) .reglages3d .titreTiroir3d{ display:none; }
   /* Le conteneur des deux panneaux 3D (zones/vue3d/) ne compte pas dans la mise en page. */
   #zoneVues3d{ display:contents; }
   .titreAvecAction{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .panneauVisionneuse{ width:98vw; max-width:1600px; margin:0 auto; }
   .boutonGenerer{ margin-left:8px; }
   .hoteVisionneuse{ margin-top:6px; }
-  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 380px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
+  .hote3d{ position:relative; width:100%; height:max(420px, calc(100dvh - 210px)); border:1px solid var(--border); border-radius:var(--r-champ); overflow:hidden; background:var(--fond-3d); }
   .commandes3d{ position:absolute; top:8px; right:8px; z-index:2; display:flex; flex-direction:column; gap:4px; }
   .bouton3d{
     width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;
@@ -1277,12 +1315,189 @@
   .bouton3d:hover{ background:var(--accent-light); opacity:1; }
   .bouton3d.actif{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .separateur3d{ height:1px; background:var(--border); margin:2px 0; }
+  /* Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes. Sur bureau, en ligne au-dessus
+     de la scene ; au doigt, en bas de l'ecran, ou le pouce l'atteint. Cibles de 44 px partout : on s'en
+     sert en marchant. */
+  .barreAudit{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; padding:6px 8px 6px 14px;
+    border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
+    font-family:var(--sans); font-size:0.82rem;
+  }
+  .barreAudit .etatAudit{ flex:1 1 12em; min-width:0; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; gap:2px; }
+  /* La facade devant vous : ce que l'on cherche du regard en marchant, au-dessus de l'etat de la lecture. */
+  .barreAudit .facadeAudit{ font-weight:600; }
+  .barreAudit .facadeAudit + span{ color:var(--ink-soft); font-size:0.76rem; }
+  .barreAudit button{ min-height:44px; padding:0 14px; display:inline-flex; align-items:center; gap:6px; border-radius:var(--r-bouton); font-family:var(--sans); }
+  .barreAudit button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  html:not([data-classe="large"]) .barreAudit{
+    position:absolute; left:10px; right:10px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:6; margin:0; box-shadow:var(--ombre-flottante);
+  }
+  /* Sur tablette, la barre d'etat reste en bas de l'ecran : la barre d'audit se pose au-dessus. */
+  html[data-classe="moyen"] .barreAudit{ bottom:calc(var(--hauteur-etat) + 12px + env(safe-area-inset-bottom)); }
+  /* La fiche d'un batiment et la liste de fin (zones/parcours/AuditCas.tsx, AuditFin.tsx). */
+  .dialogueAudit{ width:min(560px,96vw); max-height:92vh; overflow:auto; }
+  .puces{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .puces button{
+    min-height:36px; padding:4px 12px; border-radius:999px; border:1px solid var(--rule); background:var(--panel-bg); color:var(--ink);
+    font-family:var(--sans); font-size:0.8rem;
+  }
+  .puces button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .noteAudit{
+    width:100%; min-height:4.5em; box-sizing:border-box; font:inherit; padding:8px; resize:vertical;
+    border:1px solid var(--border); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink);
+  }
+  .photoAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .photoAudit .detailPhoto{ flex-basis:100%; font-size:0.76rem; color:var(--ink-soft); }
+  /* Les photos d'un cas, en vignettes : six tiennent sur deux rangees, chacune avec sa prise de vue. */
+  .photosAudit{ list-style:none; margin:0 0 8px; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .photosAudit li{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0; }
+  .photosAudit img{ display:block; width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:var(--r-champ); background:var(--panel-2); }
+  .photosAudit .detailPhoto{ font-size:0.72rem; color:var(--ink-soft); }
+  /* La couleur de la facade lue sur la photo : la pastille montre la teinte, le texte la dit. */
+  .photosAudit .couleurPhoto{ display:flex; align-items:center; gap:6px; }
+  .pastilleCouleur{ flex:none; width:14px; height:14px; border-radius:999px; border:1px solid var(--rule); }
+  .photosAudit .actionsPhoto{ display:flex; flex-wrap:wrap; gap:6px; }
+  /* La photo a toucher, entiere et sans recadrage : le point touche doit tomber ou le doigt l'a pose. */
+  .toucherFacade{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin:0 0 10px; padding:10px; border:1px solid var(--alerte); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .toucherFacade .detailPhoto{ font-size:0.74rem; color:var(--ink-soft); }
+  .photoToucher{ display:block; width:100%; padding:0; border:0; background:none; cursor:crosshair; min-height:0; }
+  .photoToucher img{ display:block; width:100%; height:auto; border-radius:var(--r-champ); }
+  /* Le champ fichier natif est illisible : on montre un bouton, le champ le couvre et recoit le doigt. */
+  .boutonFichier{
+    position:relative; display:inline-flex; align-items:center; min-height:36px; padding:0 14px; overflow:hidden; cursor:pointer;
+    border-radius:var(--r-bouton); background:var(--ink); color:var(--on-ink); font-family:var(--sans);
+  }
+  .boutonFichier input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .listeCas{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+  .listeCas li{ display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--hairline); }
+  .listeCas .texteCas{ flex:1; min-width:0; }
+  .listeCas .detailCas{ font-size:0.76rem; color:var(--ink-soft); }
+  html:not([data-classe="large"]) .puces button, html:not([data-classe="large"]) .boutonFichier,
+  html:not([data-classe="large"]) .listeCas button, html:not([data-classe="large"]) .photosAudit button, html:not([data-classe="large"]) .toucherFacade button{ min-height:44px; }
+  /* « Ce que je vois » (zones/parcours/CeQueJeVois.tsx), partage par l'audit de la parcelle et la fiche
+     de la promenade ; dans la fiche, une section repliee : elle est facultative. */
+  .sectionVu{ margin:12px 0 4px; }
+  .sectionVu > summary{ cursor:pointer; font-family:var(--sans); font-size:0.8rem; color:var(--ink-soft); min-height:32px; display:flex; align-items:center; }
+  .soucheVue{ margin-top:6px; padding-left:10px; border-left:2px solid var(--rule); }
+  /* L'audit de la parcelle (zones/parcours/AuditParcelle.tsx) : la liste de controle prend l'ecran
+     (plein ecran au doigt, par la regle des parcours ; haute colonne sur bureau). */
+  .dialogueAuditParcelle{ width:min(760px,96vw); height:min(94vh,1000px); max-height:94vh; }
+  html[data-classe="moyen"] .dialogueAuditParcelle{ width:100%; height:100dvh; max-height:none; border-radius:0; }
+  html[data-classe="moyen"] .dialogueVoile:has(> .dialogueAuditParcelle){ padding:0; }
+  .compteurAudit{ font-variant-numeric:tabular-nums; }
+  .bandeauAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 10px; padding:8px 10px; border:1px solid var(--alerte); border-radius:var(--r-tuile); background:var(--panel-2); font-size:0.8rem; }
+  .actionsAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 6px; }
+  .actionsAudit .detailPhoto, .piedDialogue .detailPhoto{ font-size:0.74rem; color:var(--ink-soft); }
+  .piedDialogue .detailPhoto{ flex:1 1 100%; text-align:right; }
+  .batimentAudit{ margin-top:14px; }
+  .titreBatimentAudit{ display:flex; align-items:center; gap:8px; margin:0 0 4px; font-family:var(--serif); font-size:0.98rem; font-weight:600; }
+  .pastilleAudit{ font-family:var(--sans); font-size:0.66rem; font-weight:500; padding:2px 8px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); text-transform:uppercase; letter-spacing:.06em; }
+  .lignesAudit{ list-style:none; margin:0; padding:0; }
+  .ligneAudit{ border-bottom:1px solid var(--hairline); padding:4px 0 4px 8px; }
+  /* Fait : un filet a gauche, en plus du mot qui le dit (la couleur ne porte jamais seule). */
+  .ligneAudit.statut-photographiee, .ligneAudit.statut-vu{ box-shadow:inset 3px 0 0 var(--ok); }
+  .enteteLigneAudit{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .texteLigneAudit{
+    flex:1 1 220px; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:1px; text-align:left;
+    background:none; border:none; padding:4px 0; color:var(--ink); font:inherit; cursor:pointer; min-height:32px;
+  }
+  .texteLigneAudit:disabled{ cursor:default; opacity:1; }
+  /* Au telephone, le libelle prend la ligne, les deux boutons se rangent dessous, cote a cote. */
+  html[data-classe="compact"] .texteLigneAudit{ flex-basis:100%; }
+  .statutLigneAudit{ font-size:0.74rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .ligneAudit.statut-mitoyenne .texteLigneAudit, .ligneAudit.statut-inaccessible .texteLigneAudit{ color:var(--ink-soft); }
+  .enteteLigneAudit button[aria-pressed="true"]{ background:var(--accent-light); color:var(--on-accent-light); }
+  .corpsLigneAudit{ padding:4px 0 10px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+  .corpsLigneAudit .ceQueJeVois{ width:100%; }
+  .corpsLigneAudit .photosAudit{ width:100%; }
+  .champMetresAudit{ display:inline-flex; align-items:center; gap:6px; }
+  .champMetresAudit .libelleChamp{ margin:0; }
+  .champMetresAudit input{ width:6em; padding:6px 8px; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font:inherit; font-variant-numeric:tabular-nums; }
+  .champMetresAudit .unite{ color:var(--ink-soft); }
+  .manquesAudit{ margin-top:14px; font-size:0.8rem; }
+  .manquesAudit > summary{ cursor:pointer; color:var(--ink-soft); min-height:32px; display:flex; align-items:center; }
+  .manquesAudit ul{ margin:4px 0 0; padding-left:1.2em; color:var(--ink-soft); line-height:1.5; }
+  .boutonFichier.desactive{ opacity:0.45; cursor:not-allowed; }
+  .boutonFichier.desactive input{ cursor:not-allowed; }
+  /* L'ecran de prise : une carte en bas, le voile s'efface et laisse la Vue 3D visible et manipulable
+     (la facade surlignee doit se voir ; le doigt peut tourner la scene). */
+  .dialogueVoile:has(> .auditPrise){ background:transparent; pointer-events:none; align-items:flex-end; padding:0 0 calc(var(--reserve-bas, 0px) + 12px); }
+  .auditPrise{
+    pointer-events:auto; width:min(560px, calc(100vw - 32px)); max-height:60dvh; overflow:auto;
+    background:var(--panel-bg); color:var(--ink); padding:14px 16px; border-radius:var(--r-panneau); border:1px solid var(--border);
+    font-family:var(--sans); font-size:0.86rem; box-shadow:var(--ombre-forte);
+  }
+  .auditPrise .titreParcours{ margin-bottom:4px; font-size:1rem; }
+  .auditPrise .detailPhoto{ font-size:0.76rem; color:var(--ink-soft); margin-top:2px; }
+  .auditPrise .rangementAudit{ color:var(--ink); }
+  .auditPrise .piedDialogue{ margin-top:10px; }
+  /* Les propositions de l'audit (zones/parcours/PropositionsAudit.tsx) : la carte de l'ecran de prise,
+     plus haute ; la Vue 3D reste visible au-dessus pour comparer avant et apres. */
+  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:68dvh; }
+  .avantApresAudit{ margin:8px 0 4px; }
+  .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
+  .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
+  .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }
+  .texteProposition{ display:flex; flex-direction:column; gap:1px; min-width:0; cursor:pointer; }
+  .objetProposition{ font-weight:600; }
+  .avantApres{ font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  .avantProposition{ color:var(--ink-soft); }
+  .origineProposition{ font-size:0.72rem; color:var(--ink-soft); }
+  /* Ce qui fait arriver une ligne decochee : un filet d'alerte et le mot, la couleur ne porte pas seule. */
+  .reserveProposition{ font-size:0.74rem; color:var(--ink); border-left:2px solid var(--alerte); padding-left:6px; margin-top:2px; }
+  /* L'analyse par Claude (zones/parcours/AnalyseClaudeAudit.tsx) : la question de l'accord dans une
+     tuile, puis une ligne d'etat ; les lignes de Claude portent un filet d'accent pour que l'origine
+     se voie aussi a l'oeil, en plus du mot. */
+  .accordAnalyse{ margin:8px 0 4px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); display:flex; flex-direction:column; gap:6px; }
+  .titreAnalyse{ font-weight:600; font-size:0.82rem; }
+  .casePartage{ display:flex; align-items:center; gap:8px; font-size:0.78rem; cursor:pointer; }
+  .casePartage input[type="checkbox"]{ width:18px; height:18px; margin:0; flex:none; accent-color:var(--accent); }
+  .actionsAnalyse{ display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+  .etatAnalyse{ margin:8px 0 4px; padding:6px 10px; border-left:2px solid var(--accent); font-size:0.78rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 6px; }
+  .etatAnalyse .actionsAnalyse{ width:100%; }
+  .etatAnalyse.etat-erreur{ border-left-color:var(--alerte); }
+  .ligneProposition.source-claude{ box-shadow:inset 3px 0 0 var(--accent-light); padding-left:8px; }
+  html:not([data-classe="large"]) .casePartage{ min-height:44px; }
+  html:not([data-classe="large"]) .casePartage input[type="checkbox"]{ width:20px; height:20px; }
+  html:not([data-classe="large"]) .actionsAnalyse button{ min-height:44px; }
+  .verificationsAudit{ margin-top:10px; font-size:0.78rem; color:var(--ink-soft); }
+  .verificationsAudit li{ padding:2px 0; }
+  .verificationsAudit li.verifie{ color:var(--ink); box-shadow:inset 3px 0 0 var(--ok); padding-left:8px; }
+  .texteMasque{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  /* Le partage pour le corpus (§15) : une case sous la liste, et ce qui partira ou est parti. */
+  .partageAudit{ margin-top:10px; padding-top:8px; border-top:1px solid var(--rule); }
+  .partageAudit label{ display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .partageAudit input[type="checkbox"]{ width:18px; height:18px; margin:0; flex:none; accent-color:var(--accent); }
+  .partageAudit .notePartage{ margin:2px 0 0 28px; font-size:0.72rem; color:var(--ink-soft); }
+  html:not([data-classe="large"]) .partageAudit label{ min-height:44px; }
+  html:not([data-classe="large"]) .partageAudit input[type="checkbox"]{ width:20px; height:20px; }
+  html:not([data-classe="large"]) .ligneProposition{ min-height:44px; }
+  html:not([data-classe="large"]) .ligneProposition input[type="checkbox"]{ width:20px; height:20px; margin-top:2px; }
+  html:not([data-classe="large"]) .avantApresAudit button{ min-height:44px; }
+  /* Au doigt, la raison d'un refus s'ecrit sous l'entree du menu (l'infobulle n'existe pas). */
+  details.menu li.refusMenu{ padding:0 12px 6px 30px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); line-height:1.35; }
+  html:not([data-classe="large"]) .enteteLigneAudit button, html:not([data-classe="large"]) .auditPrise button,
+  html:not([data-classe="large"]) .auditPrise .boutonFichier, html:not([data-classe="large"]) .corpsLigneAudit .boutonFichier,
+  html:not([data-classe="large"]) .champMetresAudit input, html:not([data-classe="large"]) .actionsAudit button{ min-height:44px; }
   /* L'horloge du soleil (zones/vue3d/Horloge.tsx), en haut a gauche : les commandes de camera
      tiennent la droite. Elle ne capte aucun geste, la scene reste manipulable dessous. */
   .horloge3d{
-    position:absolute; top:8px; left:8px; z-index:2; display:flex; align-items:center; gap:8px; pointer-events:none;
+    position:absolute; top:8px; left:8px; z-index:2; display:flex; align-items:center; gap:8px; cursor:pointer;
     padding:4px 12px 4px 4px; border:1px solid var(--border); border-radius:999px; background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
+    font:inherit; min-height:0;
   }
+  .horloge3d:hover, .horloge3d.ouverte{ border-color:var(--accent); }
+  /* L'heure et la date, sous l'horloge : un clic sur l'horloge les ouvre et les referme. */
+  .reglageHeure3d{
+    position:absolute; top:64px; left:8px; z-index:3; width:min(420px, calc(100% - 16px)); box-sizing:border-box;
+    padding:8px 12px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); color:var(--ink);
+    box-shadow:var(--ombre-menu); font-family:var(--sans);
+  }
+  .reglageHeure3d[hidden]{ display:none; }
+  .reglageHeure3d .controls{ margin:0; gap:8px; flex-wrap:wrap; }
+  .reglageHeure3d .ligneReglage{ margin-top:6px; }
+  .reglageHeure3d .infoSoleil{ flex-basis:100%; margin-left:0; min-width:0; }
+  .reglageHeure3d .petitLibelle{ margin-left:0; }
   .horloge3d .texteHorloge{ font-family:var(--sans); font-size:1.05rem; font-weight:600; font-variant-numeric:tabular-nums; }
   .cadranHorloge .fondCadran{ fill:var(--panel-2); stroke:var(--rule); stroke-width:1.5; }
   .cadranHorloge .repere{ stroke:var(--ink-soft); stroke-width:1; stroke-linecap:round; }
@@ -1318,6 +1533,9 @@
   }
   html:not([data-classe="large"]) .barreSoleil input[type=range]{ max-width:none !important; min-height:32px; }
   html:not([data-classe="large"]) .barreSoleil .infoSoleil{ display:none; }
+  html:not([data-classe="large"]) .reglageHeure3d{ top:calc(56px + 8px + 56px); left:10px; width:calc(100% - 76px); box-shadow:var(--ombre-flottante); }
+  html:not([data-classe="large"]) .reglageHeure3d .barreSoleil{ position:static; padding:0; border:none; box-shadow:none; background:none; flex-wrap:wrap; }
+  html:not([data-classe="large"]) .reglageHeure3d input[type=date]{ min-height:44px; font-size:15px; }
   html:not([data-classe="large"]) #terrasse3dLoading, html:not([data-classe="large"]) #glbViewerLoading{ position:absolute; top:72px; left:16px; right:16px; z-index:4; }
   html:not([data-classe="large"]) #glbViewerEmpty{ position:absolute; top:40%; left:16px; right:16px; text-align:center; font-size:15px; display:flex; flex-direction:column; align-items:center; gap:12px; }
   html:not([data-classe="large"]) #glbViewerEmpty button{ min-height:48px; font-size:15px; font-family:var(--sans); margin:0 !important; }
@@ -1328,6 +1546,14 @@
   html:not([data-classe="large"]) .reglages3d select, html:not([data-classe="large"]) .reglages3d input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) .reglages3d button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); display:inline-flex; align-items:center; gap:6px; }
   html:not([data-classe="large"]) .reglages3d .etiquetteReglage{ font-size:14px; font-weight:600; font-family:var(--sans); }
+  html:not([data-classe="large"]) .groupes3d{ display:block; }
+  html:not([data-classe="large"]) .groupe3d{ display:block; margin:0 0 12px; padding:0; border:none; }
+  html:not([data-classe="large"]) .groupe3d legend{ padding:0 0 4px; font-size:0.68rem; }
+  html:not([data-classe="large"]) .groupe3d .controls{ flex-wrap:wrap; margin-bottom:4px; }
+  html:not([data-classe="large"]) .groupe3d select{ max-width:none; }
+  html:not([data-classe="large"]) .hint3d{ white-space:normal; }
+  /* Sur telephone et tablette la scene occupe deja l'ecran : le plein ecran n'y apporte rien. */
+  html:not([data-classe="large"]) #terrasse3dFullPageBtn{ display:none; }
   /* Tablette : les reglages en panneau a droite, ouverts par le bouton ⚙. */
   html[data-classe="moyen"] .reglages3d{
     position:fixed; top:calc(var(--reserve-haut) + 8px); right:64px; z-index:85; width:360px; max-height:calc(100dvh - var(--reserve-haut) - 24px);
@@ -1439,6 +1665,7 @@
   .releve.camera button.secondary{ background:var(--camera-voile); color:var(--on-camera); border-color:var(--camera-voile); }
   .releve button.small{ min-height:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
   .releveSegment{ display:inline-flex; border-radius:var(--r-bouton); overflow:hidden; border:1px solid var(--rule); background:var(--segment-bg); flex-wrap:wrap; }
+  .releveCorps > .releveSegment{ flex-shrink:0; align-self:flex-start; }
   .releveSegment button{ min-height:36px; padding:0 12px; border:0; border-radius:0; background:transparent; color:var(--ink); font-family:var(--sans); font-size:0.8rem; }
   .releveSegment button[aria-pressed="true"]{ background:var(--ink); color:var(--on-ink); }
   .releve.camera .releveSegment{ border-color:var(--camera-voile); background:var(--camera-voile); }
@@ -1461,6 +1688,15 @@
   .releveQuadEtiquette{ fill:var(--camera-ok); font-family:var(--sans); }
   .releveCoinCible{ fill:var(--camera-voile); stroke:var(--camera-ok); stroke-width:2; vector-effect:non-scaling-stroke; cursor:grab; touch-action:none; }
   .releveCoinCentre{ fill:var(--camera-ok); }
+  /* Calage fin (lot L7) : un coin trouve sur la photo est plein, un coin predit en pointille ; la
+     forme porte l'information, pas seulement la couleur (et le libelle la redit au lecteur d'ecran). */
+  .releveCoinCible.trouve{ fill:var(--camera-ok); fill-opacity:.45; stroke-width:3; }
+  .releveCoinCible.predit{ stroke-dasharray:6 5; }
+  /* Un coin propose par Claude et recale sur les aretes de la photo (lot L18) : soutenu, comme un coin
+     trouve, mais plus clair, pour qu'on le verifie. Le libelle accessible dit son origine. */
+  .releveCoinCible.claude{ fill:var(--camera-ok); fill-opacity:.2; stroke-width:3; }
+  /* L'aide de Claude au releve : une note, le bouton, puis ce qu'il a propose. */
+  .releveAide{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin:6px 0; }
   .releveLoupe{ position:absolute; top:8px; left:8px; width:132px; height:132px; border-radius:50%; border:3px solid var(--on-camera);
     box-shadow:var(--ombre-forte); pointer-events:none; background:var(--camera-bg); }
   .releveLoupeCroix{ stroke:var(--camera-ok); stroke-width:1; }
@@ -1479,12 +1715,20 @@
   @media (prefers-reduced-motion: reduce){ .releveSablier{ animation:none; } }
 
   /* 5. Le resultat : l'elevation a l'echelle, les ouvertures comme des cadres a saisir. */
-  .releveElevation{ width:100%; max-height:52vh; display:block; touch-action:none; background:var(--stage-bg); border-radius:var(--r-panneau); }
+  /* Ne se tasse pas : dans la colonne du releve, qui defile, un telephone l'ecrasait a quelques
+     dizaines de pixels sous les cartes de la hauteur et du toit (lot G20 : le hachure s'y perdait). */
+  .releveElevation{ width:100%; max-height:52vh; display:block; flex-shrink:0; touch-action:none; background:var(--stage-bg); border-radius:var(--r-panneau); }
   .releveElevationCadre{ fill:none; stroke:var(--rule); stroke-width:1; }
   .releveOuverture rect{ fill:transparent; stroke:var(--camera-ok); stroke-width:2; cursor:move; }
   .releveOuverture.choisie rect{ stroke:var(--accent); stroke-width:3; fill:var(--zebra-hover); }
   .releveOuverture text{ fill:var(--on-camera); font-family:var(--sans); font-variant-numeric:tabular-nums;
     paint-order:stroke; stroke:var(--camera-bg); }
+  /* Une ouverture incertaine (faible confiance, ou devinee par la grille de la facade) se dessine en
+     pointille ; decochee, elle n'est qu'une proposition, plus pale, qu'une touche garde (spec facades
+     §12). Le pointille porte l'information, la couleur ne la porte pas seule. */
+  .releveOuverture.incertaine rect{ stroke-dasharray:6 4; }
+  .releveOuverture.decochee rect{ stroke:var(--on-camera); opacity:.75; cursor:pointer; }
+  .releveGestes{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .relevePoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2; vector-effect:non-scaling-stroke; cursor:nwse-resize; }
   .releveBarre{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .releveFiche{ display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
@@ -1504,7 +1748,9 @@
   /* Plusieurs photos pour un mur (spec-releve-facade §6.1) : la serie en vignettes, de gauche a
      droite ; la choisie porte l'accent. Et la consigne neutre de la visee (plan de prise). */
   .releveConsigneCamera.info{ color:var(--on-camera); }
-  .releveMorceaux{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  /* Dans la colonne du releve, ni le bandeau des photos ni un choix segmente ne se tassent : leur
+     debordement les rendait ecrasables quand la photo remplit l ecran. */
+  .releveMorceaux{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; flex-shrink:0; }
   .releveMorceau{ display:flex; flex-direction:column; align-items:center; gap:4px; flex:none; }
   .releveVignette{ position:relative; width:72px; height:72px; padding:0; border-radius:var(--r-champ);
     overflow:hidden; border:2px solid var(--rule); background:var(--camera-bg); }
@@ -1514,6 +1760,16 @@
   .releveMorceau.choisi .releveVignette{ border-color:var(--accent); }
   /* Mur en L (§6.2) : au-dessus de la partie basse, il n'y a pas de mur ; la zone se voile. */
   .releveVide{ fill:var(--scrim); }
+  /* Le masque d'occlusion d'une fusion de vues (lot G20) : ce qui reste cache sur toutes les photos
+     (voiture, haie) se hachure, sur un voile de la chambre noire qui eteint l'obstacle. Les traits
+     prennent la couleur d'alerte du releve, lisible sur le voile dans les deux themes ; le motif, pas
+     la couleur seule, porte l'information, et la legende le dit en mots. */
+  .releveMasqueVoile{ fill:var(--camera-bg); fill-opacity:.35; }
+  .releveMasqueTrait{ stroke:var(--camera-alerte); }
+  /* Sans contour : le masque est fait de rectangles accoles, dont les bords communs se verraient. */
+  .releveMasqueHachure{ stroke:none; }
+  .releveLegendeMasque{ display:flex; align-items:center; gap:8px; }
+  .releveEchantillon{ flex:none; border-radius:3px; border:1px solid var(--rule); }
 
   /* ---- La vitrine publique (app/vitrine.ts, ?mode=demo) --------------------------------------
      Ne reste que la scene 3D, a la taille demandee (x, y) ou a celle de la fenetre — le cas d'un
@@ -1579,6 +1835,7 @@
     flex-wrap:wrap-reverse; align-content:flex-start;
   }
   html[data-vitrine] .horloge3d{ top:8px; left:8px; }
+  html[data-vitrine] .reglageHeure3d{ top:64px; left:8px; }
 
   /* L'ecran des controleurs de l'admin (zones/EcranControleurs.tsx). Plan tourne dessous, cache :
      c'est la qu'on lit ses controleurs, mais on n'y touche pas. */
@@ -1954,4 +2211,119 @@
   @media (max-width: 599px){
     .palMot{ font-size:1.5rem; }
     .palTuile--bois{ grid-column:span 2; }
+  }
+
+  /* L'ecran de la consommation de Claude (`?admin&ecran=consommation`, zones/EcranConsommation.tsx).
+     Plan ne tourne pas dessous. Les series des graphiques passent par --serie-1 a --serie-3 (un
+     modele chacune) ; « autres modeles » et la serie seule des barres prennent l'encre et l'accent.
+     Le texte ne porte jamais la couleur d'une serie : la pastille a cote la porte. */
+  html[data-ecran="consommation"] body > :not(#zoneEcranConsommation):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="consommation"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="consommation"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  /* L'hote est un element flexible du corps : sans min-width:0, un tableau large l'elargirait, et
+     le telephone dezoomerait toute la page au lieu de faire defiler le seul tableau. */
+  #zoneEcranConsommation{ width:100%; min-width:0; }
+  /* L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, zones/EcranConformite.tsx) :
+     meme forme que la consommation, dont il reprend les classes (filtres, tuiles, onglets, tableaux).
+     Un etat s'ecrit en mots dans la premiere colonne : aucune couleur ne le porte seule. */
+  html[data-ecran="conformite"] body > :not(#zoneEcranConformite):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="conformite"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="conformite"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranConformite{ width:100%; min-width:0; }
+  .confRaison, .confMessage{ margin:6px 0 0; }
+  /* Les ecarts d'un cas se lisent en entier : la seule colonne qui passe a la ligne. */
+  .confCas td.confEcarts{ white-space:normal; min-width:220px; max-width:420px; font-size:0.74rem; }
+  .confCas tr[data-etat="non-conforme"] td:first-child strong{ color:var(--danger); }
+  .consEcran{ max-width:1280px; width:100%; min-width:0; margin:0 auto; padding:20px 16px 48px; color:var(--ink); text-align:left; font-family:var(--sans); }
+  .consOnglets .palOnglet{ white-space:nowrap; }
+  .consEntete{ border-bottom:1px solid var(--rule); padding-bottom:12px; }
+  .consFiltres{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 12px; margin:14px 0 0; }
+  .consFiltres label{ display:flex; flex-direction:column; gap:2px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .consFiltres select{ min-height:32px; max-width:260px; font-family:var(--sans); font-size:0.8rem; letter-spacing:0; text-transform:none; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); padding:4px 8px; }
+  .consExporter{ min-height:32px; }
+  .consEtat{ font-size:0.72rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .consErreur{ margin:12px 0 0; padding:8px 12px; border-radius:var(--r-champ); background:var(--danger-bg); color:var(--danger); font-size:0.8rem; }
+  .consAlertes{ list-style:none; margin:12px 0 0; padding:0; display:grid; gap:6px; }
+  .consAlertes li{ padding:8px 12px; border:1px solid var(--alerte); border-left-width:4px; border-radius:var(--r-champ); background:var(--panel-bg); font-size:0.8rem; }
+  .consAlertes strong{ margin-right:6px; text-transform:uppercase; font-size:0.66rem; letter-spacing:.1em; }
+  /* Pendant une relecture, l'ecran garde son rendu, attenue : pas de saut, pas de squelette. */
+  .consCorps{ transition:opacity .15s; }
+  .consRecharge{ opacity:0.55; }
+  .consTuiles{ display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:10px; margin:16px 0 0; }
+  .consTuile{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:var(--r-tuile); background:var(--panel-2); border:1px solid var(--border); }
+  .consTuileTitre{ font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .consTuileValeur{ font-size:1.5rem; font-weight:600; color:var(--ink); }
+  .consTuileNote{ font-size:0.7rem; color:var(--ink-soft); }
+  .consOnglets{ margin-top:20px; }
+  .consVue{ padding:14px 0 0; }
+  .consCommandes{ display:flex; flex-wrap:wrap; gap:8px 16px; margin:0 0 10px; }
+  .consGraphe{ position:relative; width:100%; margin:0 0 12px; }
+  .consSvg{ display:block; touch-action:pan-y; }
+  .consSvg:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  .consVide{ padding:24px 12px; border:1px dashed var(--rule); border-radius:var(--r-tuile); color:var(--ink-soft); font-size:0.8rem; text-align:center; }
+  .consLegende{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 8px; padding:0; font-size:0.76rem; color:var(--ink); }
+  .consLegende li{ display:inline-flex; align-items:center; gap:6px; }
+  .consGrille{ stroke:var(--hairline); stroke-width:1; }
+  .consAxe{ fill:var(--ink-soft); font-family:var(--sans); font-size:11px; font-variant-numeric:tabular-nums; }
+  .consAxeCategorie{ fill:var(--ink); font-size:12px; }
+  .consEtiquette{ fill:var(--ink); font-family:var(--sans); font-size:12px; font-variant-numeric:tabular-nums; }
+  .consSerie1{ fill:var(--serie-1); stroke:var(--serie-1); color:var(--serie-1); }
+  .consSerie2{ fill:var(--serie-2); stroke:var(--serie-2); color:var(--serie-2); }
+  .consSerie3{ fill:var(--serie-3); stroke:var(--serie-3); color:var(--serie-3); }
+  .consSerieAutre{ fill:var(--ink-soft); stroke:var(--ink-soft); color:var(--ink-soft); }
+  .consLegende rect, .consInfobulle rect, .consEcran svg > g > rect{ stroke:none; }
+  /* Aires empilees : un lavis de la serie et un trait de 2 px a son bord superieur. */
+  .consAire{ fill-opacity:0.3; stroke:none; }
+  .consTrait{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+  .consReticule{ stroke:var(--ink-soft); stroke-width:1; }
+  /* Le point a l'intervalle choisi : 8 px, cerne de 2 px de la couleur du fond. */
+  .consPoint{ stroke:var(--paper); stroke-width:2; }
+  .consInfobulle{ position:absolute; top:28px; transform:translateX(12px); min-width:160px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-champ);
+    background:var(--panel-bg); box-shadow:var(--ombre-menu); font-size:0.74rem; pointer-events:none; z-index:2; }
+  .consInfobulle.aGauche{ transform:translateX(calc(-100% - 12px)); }
+  .consInfobulleTitre{ margin:0 0 4px; color:var(--ink-soft); }
+  .consInfobulleLigne{ display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .consInfobulleLigne strong{ font-variant-numeric:tabular-nums; color:var(--ink); }
+  .consInfobulleLigne span{ color:var(--ink-soft); }
+  .consInfobulleTotal{ margin-top:4px; padding-top:4px; border-top:1px solid var(--hairline); padding-left:18px; }
+  .consBarre{ fill:var(--accent); }
+  .consBarre:hover{ fill-opacity:0.8; }
+  .consJauge{ display:inline-flex; align-items:center; gap:8px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .consJaugePiste{ fill:var(--accent-light); }
+  .consJaugeRemplie{ fill:var(--accent); }
+  .consJaugeAlerte{ fill:var(--alerte); }
+  .consMotAlerte{ font-weight:600; }
+  .consDetails{ margin:6px 0 0; font-size:0.8rem; }
+  .consDetails > summary{ cursor:pointer; color:var(--ink-soft); min-height:32px; display:flex; align-items:center; }
+  /* Relatif : un texte cache (position absolue) reste dans le tableau qui defile, sans elargir la page. */
+  .consTableau{ position:relative; width:100%; overflow-x:auto; }
+  .consTable{ font-family:var(--sans); }
+  .consTable td, .consTable th{ white-space:nowrap; }
+  .consTable .num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .consTri{ border:none; background:none; padding:0; color:inherit; font:inherit; text-transform:inherit; letter-spacing:inherit; cursor:pointer; min-height:24px; }
+  .consNote{ color:var(--ink-soft); font-size:0.72rem; }
+  .consCache{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .consReglages .palSection:first-child{ margin-top:0; }
+  .consFormulaire{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px 12px; margin:12px 0 0; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); }
+  .consFormulaire legend{ padding:0 6px; font-family:var(--serif); font-size:0.95rem; }
+  .consChamp{ display:flex; flex-direction:column; gap:2px; font-size:0.72rem; color:var(--ink-soft); }
+  .consChamp input, .consChamp select{ min-height:32px; font-family:var(--sans); font-size:0.8rem; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); padding:4px 8px; }
+  .consLigneOrganisation{ grid-column:1 / -1; display:grid; grid-template-columns:minmax(120px, 1fr) minmax(90px, 140px) minmax(90px, 140px) auto; gap:8px 12px; align-items:end; }
+  .consFormulaireActions{ grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+
+  /* Telephone et tablette : des cibles de 44 px, les filtres sur deux colonnes, les tableaux qui
+     defilent d'eux-memes plutot que la page. */
+  @media (max-width: 1023px){
+    .consFiltres select, .consExporter, .consChamp input, .consChamp select, .consFormulaireActions button, .consDetails > summary, .consCommandes .segmente button, .consTri{ min-height:44px; }
+    .consTable button.small{ min-height:44px; }
+  }
+  @media (max-width: 599px){
+    .consFiltres{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .consFiltres select{ max-width:none; width:100%; }
+    .consEtat{ grid-column:1 / -1; }
+    .consTuiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .consTuileValeur{ font-size:1.25rem; }
+    .consLigneOrganisation{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .consInfobulle{ position:static; transform:none; margin:6px 0 0; }
+    .consInfobulle.aGauche{ transform:none; }
   }

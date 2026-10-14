@@ -7,14 +7,16 @@
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { designerFacade } from '../../facade/choix.js';
-import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
+import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
-import { repere } from '../../facade/toitCorps.js';
+import { repere, penteDominante } from '../../facade/toitCorps.js';
+import { materiauCouverture, type MateriauCouverture } from '../../model/couleurToit.js';
+import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
-import type { CorpsToit, FormeToit, Toit } from '../../model/types.js';
+import type { CorpsToit, CouvertureChoisie, FormeToit, TerrasseToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
-import { estBatiment } from '../../model/fonctions.js';
+import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 
 /** Un batiment : le seul objet qui porte des facades et un toit. */
 export { estBatiment };
@@ -39,6 +41,25 @@ function origineCouleur(toit: Toit | null | undefined): string {
     case 'gris': return 'couverture grise : orthophoto peu lisible';
     default: return '';
   }
+}
+
+export const LIBELLES_COUVERTURE: Record<MateriauCouverture, string> = {
+  tuile: 'Tuile romane', 'tuile-plate': 'Tuile plate', 'tuile-canal': 'Tuile canal', ardoise: 'Ardoise', zinc: 'Zinc', terrasse: 'Toit-terrasse',
+};
+const COUVERTURES_CHOISIES: CouvertureChoisie[] = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'zinc'];
+
+/**
+ * Le materiau que Plan deduit, sans le choix de l'inspecteur : les memes indices que la 3D
+ * (three/scene.ts, toitCorps3d.ts) - fichiers fonciers, couleur, pente du toit dessine, latitude.
+ */
+export function couvertureDeduite(c: ContexteChamps): MateriauCouverture {
+  const o = c.obj;
+  const toit = o.toit;
+  const corps = modeToitActif(o) === 'corps' && o.corpsToit?.length ? o.corpsToit : null;
+  const pente = corps ? penteDominante(corps) : toit ? penteDuToit(enPoints(o).pts, toit) : null;
+  const lat = (parcelleDuProjet(c.objets)?.cadastre as { origineLat?: unknown } | null | undefined)?.origineLat;
+  const ff = (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture;
+  return materiauCouverture(toit, { materiauxToiture: ff, pente, latitude: typeof lat === 'number' ? lat : null });
 }
 
 /** D'ou vient la forme d'un toit : mesuree, estimee, par defaut, lue, saisie - pour qu'on sache ce qu'elle vaut. */
@@ -74,8 +95,47 @@ export function decrireCorps(corps: readonly CorpsToit[]): string[] {
     const toit = plat ? `toit plat à ${m(c.faitage)}` : appentis ? `appentis de ${m(Math.min(e0, e1))} à ${m(c.faitage)}`
       : `${pans}, faîtage ${m(c.faitage)}, égouts ${Math.abs(e0 - e1) < 0.05 ? m(e0) : fr(e0, 1) + ' / ' + m(e1)}`;
     const pignons = c.pignons.length ? `, ${pluriel(c.pignons.length, 'pignon')} depuis le faîtage` : '';
-    return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}`;
+    // Ce qu'une observation a ajoute (MD/spec-regles-toits.md §2.6, §2.7) : dit seulement s'il existe,
+    // pour qu'un corps lu sur le LiDAR garde sa description d'avant.
+    const cheminees = c.cheminees?.length ? `, ${c.cheminees.length > 1 ? c.cheminees.length + ' cheminées' : 'une cheminée'}` : '';
+    const terrasse = c.terrasse && plat ? `, ${decrireTerrasse(c.terrasse)}` : '';
+    return `${i === 0 ? 'Corps' : 'Corps ' + (i + 1)} ${dims} : ${toit}${pignons}${cheminees}${terrasse}`;
   });
+}
+
+/** Une toiture-terrasse en quelques mots : accessible ou non, son acrotere, ses edicules. */
+export function decrireTerrasse(t: TerrasseToit): string {
+  const morceaux = [t.accessible === true ? 'terrasse accessible' : t.accessible === false ? 'terrasse non accessible' : 'toit-terrasse'];
+  if (typeof t.acrotereM === 'number' && t.acrotereM > 0) morceaux.push(`acrotère de ${fr(t.acrotereM, 2)} m`);
+  const n = t.edicules?.length ?? 0;
+  if (n) morceaux.push(n > 1 ? `${n} édicules` : 'un édicule');
+  return morceaux.join(', ');
+}
+
+/** Le materiau de la couverture : deduit par defaut, impose s'il est choisi. */
+function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
+  return {
+    // Le materiau releve (fichiers fonciers, couleur, pente) se trompe parfois : une ardoise
+    // grisee prise pour une tuile, un zinc inconnu des fichiers. Choisi, il l'emporte en 3D.
+    type: 'choix',
+    cle: 'toitMateriau',
+    libelle: 'Matériau',
+    // Un toit plat simple est un toit-terrasse : rien a choisir.
+    visible: (cc) => !!cc.obj.toit && !(unSeul(cc) && cc.obj.toit.forme === 'plat'),
+    historique: true,
+    effets: ['scene3d', 'inspecteur'],
+    aide: 'Automatique : le matériau déduit des fichiers fonciers, de la couleur et de la pente. Un autre choix l’emporte en 3D.',
+    options: (cc) => [
+      { valeur: '', libelle: 'Automatique (' + LIBELLES_COUVERTURE[couvertureDeduite(cc)].toLowerCase() + ')' },
+      ...COUVERTURES_CHOISIES.map((m) => ({ valeur: m, libelle: LIBELLES_COUVERTURE[m] })),
+    ],
+    lire: (cc) => cc.obj.toit?.couverture ?? '',
+    ecrire: (cc, v) => {
+      const toit = toitDe(cc);
+      if ((COUVERTURES_CHOISIES as string[]).includes(v)) toit.couverture = v as CouvertureChoisie;
+      else delete toit.couverture;
+    },
+  };
 }
 
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
@@ -149,7 +209,8 @@ function champsDuToit(): Champ[] {
       // l'actualisation IGN respecte, la ou un toit absent serait remplace (MD/spec-toit-ign.md §5.4).
       options: (cc) => [
         ...(cc.obj.toit ? [] : [{ valeur: '', libelle: 'Non modélisé' }]),
-        ...(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
+        // Les formes simples seules, celles que la 3D dessine ; une forme du catalogue en place reste proposee.
+        ...formesAuChoix(cc.obj.toit?.forme).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
       ],
       lire: (cc) => cc.obj.toit?.forme || '',
       ecrire: (cc, v) => {
@@ -218,6 +279,7 @@ function champsDuToit(): Champ[] {
         delete toit.origineCouleur;
       },
     },
+    champMateriau(unSeul),
   ];
 }
 

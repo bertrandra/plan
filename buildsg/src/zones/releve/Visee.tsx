@@ -8,7 +8,7 @@ import { cameraDisponible, saisir, lireFichier, lirePhotoNative, type Photo } fr
 import { type Objectif } from '../../facade/objectifs.js';
 import { natifDisponible, attendrePhotoNative, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { fr } from './commun.js';
-import { type Prise, type Reperes, useCadreVideo, useCamera, useInclinaison, useObjectif, useWebxr } from './capteurs.js';
+import { type Prise, type Reperes, useCadreVideo, useCamera, useInclinaison, useObjectif, useOrientationPrise, useWebxr } from './capteurs.js';
 
 type Cadre = { l: number; h: number; x: number; y: number };
 
@@ -84,7 +84,7 @@ function MesureVisee({
   beta: number | null;
 }) {
   const aplomb = consigneAplomb(beta);
-  const source = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée, non mesurée', rue: 'Photo de rue' }[mesure.source] : '';
+  const source = mesure ? { lidar: 'LiDAR', webxr: 'Réalité augmentée', cadrage: 'Estimée, non mesurée', rue: 'Photo de rue', gps: 'Position GPS' }[mesure.source] : '';
   const alerte = mesuree
     ? null
     : natif
@@ -217,6 +217,7 @@ export function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { f
   }, [choisir]);
   const { erreur, setErreur } = useCamera(natif, video, setCapteur, obj.choix, obj.setOffre, surEchecGrandAngle);
   const niveau = useInclinaison();
+  const orientation = useOrientationPrise();
   const { taille, cadre } = useCadreVideo(video, scene);
   const ar = useWebxr(natif, scene, setCapteur, setErreur);
 
@@ -235,7 +236,7 @@ export function Visee({ facade, hauteurACadrer, faites, onPrise, onRetour }: { f
     onPrise(
       importee
         ? { photo, mesure: capteur, reperes: null, champ: photo.champ ?? champ, photosPrevues }
-        : { photo, mesure, reperes: reperes.touches && !capteur ? reperes : null, champ, photosPrevues },
+        : { photo, mesure, reperes: reperes.touches && !capteur ? reperes : null, champ, photosPrevues, cap: orientation.current.cap, attitude: orientation.current.attitude },
     ),
   );
 

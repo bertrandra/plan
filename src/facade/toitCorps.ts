@@ -20,12 +20,12 @@
 import { au } from '../util/tableaux.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { hauteurToitMesure, decouperParHauteurs, SOL_M } from '../model/toitMesure.js';
-import { rectanglesDuContour, rectanglesEnTranches, TOLERANCE_DEG } from '../model/volumesToit.js';
-import { ajusterToit, diagnostiquerToit, ECART_MAX_M, ECART_MAX_APPENTIS_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { hauteurToitMesure, decouperParHauteurs } from '../model/toitMesure.js';
+import { rectanglesDuContour, rectanglesEnTranches } from '../model/volumesToit.js';
+import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
-import { REGLAGES_TOITS as R } from '../model/reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../model/reglagesToits.js';
 
 /** Le pas des positions de faitage essayees dans la largeur d'un corps. */
 export const PAS_FAITAGE_M = R.PAS_FAITAGE_M;
@@ -47,8 +47,8 @@ export const HAUTEUR_PLAT_M = R.HAUTEUR_PLAT_M;
 export const PENTE_PLAT_DEG = R.PENTE_PLAT_DEG;
 /** Un pan plus etroit que cela, contre un mur, n'en est pas un : le faitage est sur le mur, un appentis. */
 export const PAN_MIN_M = R.PAN_MIN_M;
-/** L'appentis l'emporte sur ce faux petit pan tant que son ecart ne depasse pas le sien de plus de 10 % et 5 cm. */
-const TOLERANCE_APPENTIS = R.TOLERANCE_APPENTIS, TOLERANCE_APPENTIS_M = R.TOLERANCE_APPENTIS_M;
+// S.TOLERANCE_APPENTIS, S.TOLERANCE_APPENTIS_M : l'appentis l'emporte sur ce faux petit pan tant que son
+// ecart ne depasse pas le sien de plus de 10 % et 5 cm.
 /** Un pan seul plutot qu'un toit plat : seulement si son ecart tombe a cette part de celui du plat. */
 export const GAIN_PAN_SUR_PLAT = R.GAIN_PAN_SUR_PLAT;
 /** Un pignon depasse le pan qui le porte d'au moins cela, le long du mur. */
@@ -71,8 +71,9 @@ export const MESURES_MIN = R.MESURES_MIN;
 
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const cm = (v: number) => Math.round(v * 100) / 100;
-const TAN_MAX = Math.tan((PENTE_MAX_DEG * Math.PI) / 180);
-const TAN_MAX_RAD = (PENTE_MAX_DEG * Math.PI) / 180;
+// Lues a chaque appel : un profil peut changer PENTE_MAX_DEG le temps d'un batiment.
+const tanMax = () => Math.tan((S.PENTE_MAX_DEG * Math.PI) / 180);
+const penteMaxRad = () => (S.PENTE_MAX_DEG * Math.PI) / 180;
 
 /** Le repere d'un rectangle : son coin, la direction de sa longueur et de sa largeur, leurs longueurs. */
 export interface Repere { p0: PtBrut; u: PtBrut; v: PtBrut; L: number; W: number }
@@ -121,7 +122,7 @@ function mesuresDans(m: ToitMesure, r: Repere, rect: readonly PtBrut[], contour:
   const out: Mesure[] = [];
   for (let j = 0; j < m.ny; j++) for (let i = 0; i < m.nx; i++) {
     const z = m.z[j * m.nx + i];
-    if (z === null || z === undefined || z < SOL_M) continue;
+    if (z === null || z === undefined || z < S.SOL_M) continue;
     const p = { x: m.x0 + i * m.pas, y: m.y0 - j * m.pas };
     if (!pointInPolygon(p, rect) || !pointInPolygon(p, contour) || exclure.some((e) => pointInPolygon(p, e))) continue;
     const dx = p.x - r.p0.x, dy = p.y - r.p0.y;
@@ -166,13 +167,13 @@ function profilEn(ms: readonly Mesure[], W: number, p: number): Profil | null {
   let garde = ms;
   let sol: number[] | null = null;
   for (let passe = 0; passe < PASSES; passe++) {
-    if (garde.length < MESURES_MIN) return null;
+    if (garde.length < S.MESURES_MIN) return null;
     sol = moindresCarres(garde.map((m) => ligne(m.t)), garde.map((m) => m.z));
     if (!sol) return null;
     const s = sol;
     const predit = (t: number) => ligne(t).reduce((a, x, k) => a + x * (s[k] ?? 0), 0);
     // Au-dessus du pan, on ecarte vite ; en dessous, seulement l'aberrant (un trou mal bouche).
-    const suivant = ms.filter((m) => { const r = m.z - predit(m.t); return r <= (passe === 0 ? ECART_ABERRANT_M : DEPASSEMENT_GARDE_M) && r >= -ECART_ABERRANT_M; });
+    const suivant = ms.filter((m) => { const r = m.z - predit(m.t); return r <= (passe === 0 ? S.ECART_ABERRANT_M : S.DEPASSEMENT_GARDE_M) && r >= -S.ECART_ABERRANT_M; });
     if (suivant.length === garde.length && passe > 0) break;
     garde = suivant;
   }
@@ -182,19 +183,20 @@ function profilEn(ms: readonly Mesure[], W: number, p: number): Profil | null {
   const e1 = p >= W ? F : p <= 0 ? (sol[1] ?? 0) : (sol[2] ?? 0);
   // Un toit, pas une coupe : le faitage au-dessus des egouts, des pentes de couverture.
   if (F < Math.max(e0, e1) - 0.1 || Math.min(e0, e1) < 1.5) return null;
-  if (p > 0 && (F - e0) / p > TAN_MAX) return null;
-  if (p < W && (F - e1) / (W - p) > TAN_MAX) return null;
+  const tan = tanMax();
+  if (p > 0 && (F - e0) / p > tan) return null;
+  if (p < W && (F - e1) / (W - p) > tan) return null;
   const c = { posFaitage: p, faitage: F, egouts: [e0, e1] as [number, number] };
   // L'ecart se compare d'une position a l'autre sur toutes les mesures, chacune bornee : ce qui depasse
   // le pan (pignon, arbre) compte peu, ce qui passe sous lui compte pleinement — un pan trop haut se paie.
-  const ecart = Math.sqrt(ms.reduce((a, m) => { const r = m.z - hauteurCorps(c, W, m.t); return a + (r > 0 ? Math.min(DEPASSEMENT_GARDE_M, r) : Math.min(ECART_ABERRANT_M, -r)) ** 2; }, 0) / ms.length);
+  const ecart = Math.sqrt(ms.reduce((a, m) => { const r = m.z - hauteurCorps(c, W, m.t); return a + (r > 0 ? Math.min(S.DEPASSEMENT_GARDE_M, r) : Math.min(S.ECART_ABERRANT_M, -r)) ** 2; }, 0) / ms.length);
   return { p, F, e0, e1, ecart };
 }
 
 /** Un profil plat : son faitage a moins de HAUTEUR_PLAT_M au-dessus des egouts, ou chaque pan sous PENTE_PLAT_DEG. */
 function profilPlat(pr: Profil, W: number): boolean {
-  if (pr.F - Math.min(pr.e0, pr.e1) < HAUTEUR_PLAT_M) return true;
-  const tan = Math.tan((PENTE_PLAT_DEG * Math.PI) / 180);
+  if (pr.F - Math.min(pr.e0, pr.e1) < S.HAUTEUR_PLAT_M) return true;
+  const tan = Math.tan((S.PENTE_PLAT_DEG * Math.PI) / 180);
   const pente0 = pr.p > 0 ? (pr.F - pr.e0) / pr.p : 0, pente1 = pr.p < W ? (pr.F - pr.e1) / (W - pr.p) : 0;
   return Math.max(pente0, pente1) < tan;
 }
@@ -202,7 +204,7 @@ function profilPlat(pr: Profil, W: number): boolean {
 /** Le meilleur toit d'un rectangle dont le faitage suit `pts[0] -> pts[1]`. */
 function meilleurProfil(ms: readonly Mesure[], W: number): Profil | null {
   let best: Profil | null = null;
-  const n = Math.max(1, Math.round(W / PAS_FAITAGE_M));
+  const n = Math.max(1, Math.round(W / S.PAS_FAITAGE_M));
   for (let k = 0; k <= n; k++) {
     const pr = profilEn(ms, W, (k * W) / n);
     if (pr && (!best || pr.ecart < best.ecart - 1e-6)) best = pr;
@@ -232,9 +234,9 @@ export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: re
     const ms = mesuresDans(m, r, pts, contour, exclure);
     let pr = meilleurProfil(ms, r.W);
     // Un faitage a moins d'un metre d'un mur laisse un pan qui n'en est pas un : sur le mur, un appentis.
-    if (pr && ((pr.p > 0 && pr.p < PAN_MIN_M) || (pr.p < r.W && r.W - pr.p < PAN_MIN_M))) {
+    if (pr && ((pr.p > 0 && pr.p < S.PAN_MIN_M) || (pr.p < r.W && r.W - pr.p < S.PAN_MIN_M))) {
       const appentis = profilEn(ms, r.W, pr.p < r.W / 2 ? 0 : r.W);
-      if (appentis && appentis.ecart <= TOLERANCE_APPENTIS * pr.ecart + TOLERANCE_APPENTIS_M) pr = appentis;
+      if (appentis && appentis.ecart <= S.TOLERANCE_APPENTIS * pr.ecart + S.TOLERANCE_APPENTIS_M) pr = appentis;
     }
     if (!pr || (best && pr.ecart >= best.ecart)) continue;
     // Plat quand aucun pan ne monte : un appentis a un egout au faitage, c'est l'autre qui compte.
@@ -262,7 +264,7 @@ export const rectangleTourne = tourne;
 export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat'): CorpsToit | null {
   const r = repere(pts);
   const ms = mesuresDans(m, r, pts, contour);
-  if (ms.length < MESURES_MIN) return null;
+  if (ms.length < S.MESURES_MIN) return null;
   if (p === 'plat') {
     const z = dixieme([...ms.map((x) => x.z)].sort((a, b) => a - b)[Math.floor(ms.length / 2)] ?? 0);
     return { pts: [...pts], posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z], pignons: [], ecart: 0 };
@@ -283,14 +285,14 @@ const haut =(v: readonly number[]): number => { const t = [...v].sort((a, b) => 
  */
 export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly PtBrut[]): PignonToit[] {
   const r = repere(c.pts);
-  const plat = c.faitage - Math.min(...c.egouts) < HAUTEUR_PLAT_M;
+  const plat = c.faitage - Math.min(...c.egouts) < S.HAUTEUR_PLAT_M;
   if (plat) return [];
   // Un appentis n'a pas de faitage dont partirait un pignon : son sommet est un mur.
   if (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01) return [];
   const out: PignonToit[] = [];
   for (const pan of [0, 1] as const) {
     const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage;
-    if (largeurPan < PROFONDEUR_PIGNON_MIN_M) continue;
+    if (largeurPan < S.PROFONDEUR_PIGNON_MIN_M) continue;
     const e = c.egouts[pan];
     const tDe = (d: number) => (pan === 0 ? d : r.W - d); // d : distance au mur du pan
     const mesure = (s: number, d: number) => hauteurToitMesure(m, point(r, s, tDe(d)).x, point(r, s, tDe(d)).y);
@@ -303,8 +305,8 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
     const troncons: [number, number][] = [];
     let debut = -1, trou = 0;
     surplus.forEach((v, k) => {
-      if (v >= SURPLUS_PIGNON_M) { if (debut < 0) debut = k; trou = 0; return; }
-      if (debut >= 0 && trou === 0 && k + 1 < surplus.length && (surplus[k + 1] ?? -Infinity) >= SURPLUS_PIGNON_M) { trou = 1; return; }
+      if (v >= S.SURPLUS_PIGNON_M) { if (debut < 0) debut = k; trou = 0; return; }
+      if (debut >= 0 && trou === 0 && k + 1 < surplus.length && (surplus[k + 1] ?? -Infinity) >= S.SURPLUS_PIGNON_M) { trou = 1; return; }
       if (debut >= 0) troncons.push([debut, k - 1 - trou]);
       debut = -1; trou = 0;
     });
@@ -314,7 +316,7 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
       // un pignon net, juste sur un pignon que le pas de 50 cm a aplati (le cas du LiDAR).
       const s0 = Math.max(0, (ss[a] ?? 0) - pas / 2), s1 = Math.min(r.L, (ss[b] ?? 0) + pas / 2);
       const w = s1 - s0;
-      if (w < LARGEUR_PIGNON_MIN_M || w > Math.min(LARGEUR_PIGNON_MAX_M, 0.75 * r.L)) continue;
+      if (w < S.LARGEUR_PIGNON_MIN_M || w > Math.min(S.LARGEUR_PIGNON_MAX_M, 0.75 * r.L)) continue;
       const sc = (s0 + s1) / 2;
       // Un pignon dresse son triangle sur une facade : juste devant le mur, on est dehors. Le long
       // d'un mur interieur (un corps contre un autre), ce qui depasse est le toit du voisin.
@@ -322,18 +324,18 @@ export function detecterPignons(m: ToitMesure, c: CorpsToit, contour: readonly P
       if (pointInPolygon(devant, contour)) continue;
       const hauteurs = ss.slice(a, b + 1).map((s) => mesure(s, 0.5)).filter((z): z is number => z !== null);
       const P = Math.min(c.faitage, haut(hauteurs));
-      if (P - e < SURPLUS_PIGNON_M) continue;
+      if (P - e < S.SURPLUS_PIGNON_M) continue;
       // Vers l'interieur : le faitage du pignon reste a sa hauteur, jusqu'a rejoindre le pan du corps.
       const rejoint = c.faitage > e ? (largeurPan * (P - e)) / (c.faitage - e) : largeurPan;
       let profondeur = 0;
       for (let d = 0.5; d <= rejoint + 0.01; d += 0.5) {
         const z = mesure(sc, d);
-        if (z === null || z < P - TOLERANCE_FAITAGE_M) break;
+        if (z === null || z < P - S.TOLERANCE_FAITAGE_M) break;
         // Et au-dessus du pan, nettement, tant que le pan ne l'a pas rattrape : sinon c'est le pan lui-meme qui monte.
-        if (d < rejoint - 0.75 && z - hauteurCorps(c, r.W, tDe(d)) < SURPLUS_PIGNON_M / 2) break;
+        if (d < rejoint - 0.75 && z - hauteurCorps(c, r.W, tDe(d)) < S.SURPLUS_PIGNON_M / 2) break;
         profondeur = d;
       }
-      if (profondeur < PROFONDEUR_PIGNON_MIN_M) continue;
+      if (profondeur < S.PROFONDEUR_PIGNON_MIN_M) continue;
       // Il part du faitage quand il le rejoint (a un demi-metre pres) : sa profondeur est celle ou il rencontre le pan.
       out.push({ pan, debut: cm(s0), fin: cm(s1), faitage: dixieme(P), profondeur: cm(profondeur >= rejoint - 0.75 ? rejoint : profondeur) });
     }
@@ -374,26 +376,26 @@ function moities(rect: readonly PtBrut[], axe: 'u' | 'v', s: number): [PtBrut[],
  */
 export function meilleureCoupe(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[]): [PtBrut[], PtBrut[]] | null {
   const seul = corpsAvecPignons(m, rect, contour);
-  if (!seul || seul.ecart < ECART_COUPE_MIN_M) return null;
+  if (!seul || seul.ecart < S.ECART_COUPE_MIN_M) return null;
   const exclure = seul.pignons.map((p) => empreintePignon(seul, p));
   const ref = ajusterCorps(m, rect, contour, exclure);
-  if (!ref || ref.ecart < ECART_COUPE_MIN_M) return null;
+  if (!ref || ref.ecart < S.ECART_COUPE_MIN_M) return null;
   const r = repere(rect);
   let best: { parts: [PtBrut[], PtBrut[]]; ecart: number } | null = null;
   for (const axe of ['u', 'v'] as const) {
     const longueur = axe === 'u' ? r.L : r.W;
-    for (let s = LARGEUR_CORPS_MIN_M; s <= longueur - LARGEUR_CORPS_MIN_M + 1e-6; s += 0.5) {
+    for (let s = S.LARGEUR_CORPS_MIN_M; s <= longueur - S.LARGEUR_CORPS_MIN_M + 1e-6; s += 0.5) {
       const parts = moities(rect, axe, s);
       const [a, b] = parts.map((q) => ajusterCorps(m, q, contour, exclure));
       if (!a || !b) continue;
-      const differents = Math.abs(a.faitage - b.faitage) >= DIFFERENCE_COUPE_M || Math.abs(Math.min(...a.egouts) - Math.min(...b.egouts)) >= DIFFERENCE_COUPE_M;
+      const differents = Math.abs(a.faitage - b.faitage) >= S.DIFFERENCE_COUPE_M || Math.abs(Math.min(...a.egouts) - Math.min(...b.egouts)) >= S.DIFFERENCE_COUPE_M;
       if (!differents) continue;
       const aire = (q: readonly PtBrut[]) => { const rr = repere(q); return rr.L * rr.W; };
       const ecart = Math.sqrt((a.ecart ** 2 * aire(parts[0]) + b.ecart ** 2 * aire(parts[1])) / (aire(parts[0]) + aire(parts[1])));
       if (!best || ecart < best.ecart) best = { parts, ecart };
     }
   }
-  return best && best.ecart <= GAIN_COUPE * ref.ecart ? best.parts : null;
+  return best && best.ecart <= S.GAIN_COUPE * ref.ecart ? best.parts : null;
 }
 
 /** Une cellule est batie quand la mesure y depasse cela : un rez-de-chaussee, pas une haie. */
@@ -408,7 +410,7 @@ function axeDesCotes(contour: readonly PtBrut[]): number {
   const ecart = (a: number, b: number) => { const d = (((a - b) % 90) + 90) % 90; return Math.min(d, 90 - d); };
   let best = { angle: angleDuPlusLongCote(contour), l: -1 };
   for (const c of cotes) {
-    const l = cotes.reduce((s, o) => s + (ecart(o.angle, c.angle) <= TOLERANCE_DEG ? o.l : 0), 0);
+    const l = cotes.reduce((s, o) => s + (ecart(o.angle, c.angle) <= S.TOLERANCE_DEG ? o.l : 0), 0);
     if (l > best.l + 1e-6) best = { angle: c.angle, l };
   }
   return best.angle;
@@ -434,12 +436,12 @@ export function contourEquerre(contour: readonly PtBrut[]): PtBrut[] | null {
     out.push(p);
     const q = au(L, (i + 1) % L.length);
     const angle = Math.abs((Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI) % 180;
-    if (Math.min(angle, 180 - angle) <= TOLERANCE_DEG || Math.abs(angle - 90) <= TOLERANCE_DEG) return;
+    if (Math.min(angle, 180 - angle) <= S.TOLERANCE_DEG || Math.abs(angle - 90) <= S.TOLERANCE_DEG) return;
     biais = true;
     // Le ressaut est vertical sur un biais plutot couche, horizontal sur un biais plutot dresse.
     const couche = Math.abs(q.x - p.x) >= Math.abs(q.y - p.y);
     const [u0, u1] = couche ? [p.x, q.x] : [p.y, q.y];
-    const lo = Math.min(u0, u1) + LARGEUR_CORPS_MIN_M, hi = Math.max(u0, u1) - LARGEUR_CORPS_MIN_M, milieu = (u0 + u1) / 2;
+    const lo = Math.min(u0, u1) + S.LARGEUR_CORPS_MIN_M, hi = Math.max(u0, u1) - S.LARGEUR_CORPS_MIN_M, milieu = (u0 + u1) / 2;
     const appuis = L.filter((_, k) => k !== i && k !== (i + 1) % L.length).map((v) => (couche ? v.x : v.y)).filter((u) => u >= lo && u <= hi);
     const u = appuis.reduce((m, v) => (Math.abs(v - milieu) < Math.abs(m - milieu) ? v : m), appuis[0] ?? milieu);
     out.push(...(couche ? [{ x: u, y: p.y }, { x: u, y: q.y }] : [{ x: p.x, y: u }, { x: q.x, y: u }]));
@@ -451,10 +453,8 @@ export function contourEquerre(contour: readonly PtBrut[]): PtBrut[] | null {
 export const PART_VIDE_RECALAGE = R.PART_VIDE_RECALAGE;
 /** Le plus grand decalage essaye, dans chaque sens, et son pas. */
 export const DECALAGE_MAX_M = R.DECALAGE_MAX_M;
-const PAS_DECALAGE_M = R.PAS_DECALAGE_M;
-
-/** La bande autour du contour ou le LiDAR ne devrait plus rien voir de bati, au-dela du debord. */
-const BANDE_DEHORS_M: [number, number] = [R.BANDE_DEHORS_DEBUT_M, R.BANDE_DEHORS_FIN_M];
+// Son pas : S.PAS_DECALAGE_M. La bande autour du contour ou le LiDAR ne devrait plus rien voir de bati,
+// au-dela du debord : de S.BANDE_DEHORS_DEBUT_M a S.BANDE_DEHORS_FIN_M.
 
 /**
  * Les cellules de la grille sous le contour decale de (dx, dy) : baties et non baties (sans mesure
@@ -462,17 +462,17 @@ const BANDE_DEHORS_M: [number, number] = [R.BANDE_DEHORS_DEBUT_M, R.BANDE_DEHORS
  */
 function sousLeContour(g: Grille, contour: readonly PtBrut[], dx: number, dy: number): { bati: number; vide: number; batiDehors: number; videDehors: number } {
   const P = contour.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-  const m = BANDE_DEHORS_M[1];
+  const m = S.BANDE_DEHORS_FIN_M;
   const xs = P.map((p) => p.x), ys = P.map((p) => p.y);
   const i0 = Math.max(0, Math.floor((Math.min(...xs) - m - g.x0) / g.pas)), i1 = Math.min(g.nx - 1, Math.ceil((Math.max(...xs) + m - g.x0) / g.pas));
   const j0 = Math.max(0, Math.floor((g.y0 - Math.max(...ys) - m) / g.pas)), j1 = Math.min(g.ny - 1, Math.ceil((g.y0 - Math.min(...ys) + m) / g.pas));
   const c = { bati: 0, vide: 0, batiDehors: 0, videDehors: 0 };
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
-    const bati = (g.z[j * g.nx + i] ?? 0) >= HAUTEUR_BATIE_M;
+    const bati = (g.z[j * g.nx + i] ?? 0) >= S.HAUTEUR_BATIE_M;
     if (pointInPolygon(p, P)) { if (bati) c.bati++; else c.vide++; continue; }
     const d = distancePointContour(p, P);
-    if (d <= BANDE_DEHORS_M[0] || d > m) continue;
+    if (d <= S.BANDE_DEHORS_DEBUT_M || d > m) continue;
     if (bati) c.batiDehors++; else c.videDehors++;
   }
   return c;
@@ -493,17 +493,17 @@ export function partVideSous(g: Grille, contour: readonly PtBrut[]): number {
  */
 export function decalageSurMesure(g: Grille, contour: readonly PtBrut[]): PtBrut | null {
   const zero = sousLeContour(g, contour, 0, 0);
-  if (!(zero.bati + zero.vide) || zero.vide / (zero.bati + zero.vide) < PART_VIDE_RECALAGE) return null;
+  if (!(zero.bati + zero.vide) || zero.vide / (zero.bati + zero.vide) < S.PART_VIDE_RECALAGE) return null;
   // Bati sous le contour, rien juste dehors : le batiment se pose au milieu de ce que le LiDAR voit,
   // au lieu de glisser contre un bord du bati.
   const score = (c: typeof zero) => c.bati - c.vide + c.videDehors - c.batiDehors;
   let best = { dx: 0, dy: 0, ...zero };
-  const n = Math.round(DECALAGE_MAX_M / PAS_DECALAGE_M);
+  const n = Math.round(S.DECALAGE_MAX_M / S.PAS_DECALAGE_M);
   for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) {
-    const c = sousLeContour(g, contour, a * PAS_DECALAGE_M, b * PAS_DECALAGE_M);
-    if (score(c) > score(best)) best = { dx: a * PAS_DECALAGE_M, dy: b * PAS_DECALAGE_M, ...c };
+    const c = sousLeContour(g, contour, a * S.PAS_DECALAGE_M, b * S.PAS_DECALAGE_M);
+    if (score(c) > score(best)) best = { dx: a * S.PAS_DECALAGE_M, dy: b * S.PAS_DECALAGE_M, ...c };
   }
-  return best.vide <= zero.vide / 2 && Math.hypot(best.dx, best.dy) >= 2 * PAS_DECALAGE_M ? { x: best.dx, y: best.dy } : null;
+  return best.vide <= zero.vide / 2 && Math.hypot(best.dx, best.dy) >= 2 * S.PAS_DECALAGE_M ? { x: best.dx, y: best.dy } : null;
 }
 
 
@@ -518,19 +518,19 @@ export const GAIN_APPENTIS_SECOURS = R.GAIN_APPENTIS_SECOURS;
  * exigee, comme pour l'ajustement.
  */
 function lectureDeSecours(rect: readonly PtBrut[], ech: readonly EchantillonHauteur[]): ToitAjuste | null {
-  if (ech.length < MESURES_MIN) return null;
-  const essais = diagnostiquerToit(rect, ech).filter((x) => x.ecart <= ECART_MAX_M);
+  if (ech.length < S.MESURES_MIN) return null;
+  const essais = diagnostiquerToit(rect, ech).filter((x) => x.ecart <= S.ECART_MAX_M);
   const pente = (x: { forme: string; angleFaitage: number; H: number }) => {
     const r = repereFaitage(rect, x.angleFaitage);
     const course = x.forme === 'appentis' ? 2 * r.hw : r.hw;
     return course > 0 ? Math.atan(x.H / course) : 0;
   };
-  const admis = essais.filter((x) => pente(x) <= TAN_MAX_RAD).sort((a, b) => a.ecart - b.ecart);
+  const admis = essais.filter((x) => pente(x) <= penteMaxRad()).sort((a, b) => a.ecart - b.ecart);
   let choix = admis[0];
   if (!choix) return null;
-  if (choix.forme === 'appentis' && choix.ecart > ECART_MAX_APPENTIS_M) {
+  if (choix.forme === 'appentis' && choix.ecart > S.ECART_MAX_APPENTIS_M) {
     const faitage = admis.find((x) => x.forme === 'deux-pans' || x.forme === 'quatre-pans' || x.forme === 'croupes');
-    if (faitage && choix.ecart > GAIN_APPENTIS_SECOURS * faitage.ecart) choix = faitage;
+    if (faitage && choix.ecart > S.GAIN_APPENTIS_SECOURS * faitage.ecart) choix = faitage;
   }
   return { toit: { forme: choix.forme, hauteur: cm(choix.H), angleFaitage: choix.angleFaitage, source: 'lidar' }, egout: cm(choix.e), ecart: cm(choix.ecart), echantillons: choix.gardes };
 }
@@ -549,8 +549,8 @@ function unPanPlutotQuePlat(rect: readonly PtBrut[], ech: readonly EchantillonHa
   const pan = essais.filter((x) => x.forme === 'appentis').sort((x, y) => x.ecart - y.ecart)[0];
   if (!plat || !pan) return a;
   const course = 2 * repereFaitage(rect, pan.angleFaitage).hw;
-  const pentu = pan.H >= HAUTEUR_PLAT_M && course > 0 && Math.atan(pan.H / course) >= (PENTE_PLAT_DEG * Math.PI) / 180;
-  if (pentu && pan.ecart <= GAIN_PAN_SUR_PLAT * plat.ecart) return { ...a, toit: { ...a.toit, forme: 'appentis', hauteur: pan.H, angleFaitage: pan.angleFaitage }, egout: pan.e, ecart: pan.ecart };
+  const pentu = pan.H >= S.HAUTEUR_PLAT_M && course > 0 && Math.atan(pan.H / course) >= (S.PENTE_PLAT_DEG * Math.PI) / 180;
+  if (pentu && pan.ecart <= S.GAIN_PAN_SUR_PLAT * plat.ecart) return { ...a, toit: { ...a.toit, forme: 'appentis', hauteur: pan.H, angleFaitage: pan.angleFaitage }, egout: pan.e, ecart: pan.ecart };
   return { ...a, toit: { ...a.toit, forme: 'plat', hauteur: 0 }, egout: plat.e, ecart: plat.ecart };
 }
 
@@ -564,7 +564,7 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: r
   for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
     const z = g.z[j * g.nx + i];
     const p = { x: g.x0 + i * g.pas, y: g.y0 - j * g.pas };
-    if (z !== null && z !== undefined && z >= SOL_M && pointInPolygon(p, rect) && (!contour || pointInPolygon(p, contour))) ech.push({ ...p, z });
+    if (z !== null && z !== undefined && z >= S.SOL_M && pointInPolygon(p, rect) && (!contour || pointInPolygon(p, contour))) ech.push({ ...p, z });
   }
   const a = unPanPlutotQuePlat(rect, ech, ajusterToit(rect, ech) ?? (secours ? lectureDeSecours(rect, ech) : null));
   if (!a) return null;
@@ -577,7 +577,7 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: r
   const r = repere(pts);
   const H = Math.max(0, toit.hauteur), E = dixieme(egout), F = dixieme(egout + H);
   const base = { pts, pignons: [], ecart: cm(a.ecart) };
-  if (toit.forme === 'plat' || H < HAUTEUR_PLAT_M) {
+  if (toit.forme === 'plat' || H < S.HAUTEUR_PLAT_M) {
     const z = dixieme(toit.forme === 'appentis' ? egout + H / 2 : egout);
     return { ...base, posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z] };
   }
@@ -626,23 +626,18 @@ function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille
   return c ? [c] : null;
 }
 
-/** Le pas dont un corps s'etend pour couvrir le contour, et son plus long trajet. */
-const PAS_COMPLETION_M = R.PAS_COMPLETION_M, COMPLETION_MAX_M = R.COMPLETION_MAX_M;
-/**
- * La part de la bande devant un cote qui doit etre du contour sans toit pour que le corps avance : un
- * triangle laisse par une marche, pas la lisiere de quelques centimetres qu'une aile un peu de biais
- * laisse le long de son voisin - suivie sur 5 m, elle elargissait une aile de 5 m a 10 m, au-dessus
- * de la cour, l'egout descendu a -1,3 m (Hucqueliers).
- */
-const PART_COMPLETION_MIN = R.PART_COMPLETION_MIN;
-/** En travers, un corps n'avance pas au-dela du point ou un egout tomberait sous cette hauteur. */
-const EGOUT_ETENDU_MIN_M = R.EGOUT_ETENDU_MIN_M;
-/**
- * Ni sur une partie basse : la ou la mesure tombe a plus de cette hauteur sous son egout le plus bas,
- * le contour est un autre toit (un appentis, une annexe), pas un bout du sien. Le toit a 8,6 m d'une
- * maison couvrait sinon l'annexe a 3 m qui la prolonge (Hucqueliers).
- */
-const SOUS_EGOUT_ETENDU_M = R.SOUS_EGOUT_ETENDU_M;
+// Les seuils de la completion, lus dans S (model/reglagesToits.ts) a chaque appel :
+// - S.PAS_COMPLETION_M, S.COMPLETION_MAX_M : le pas dont un corps s'etend pour couvrir le contour, et son
+//   plus long trajet ;
+// - S.PART_COMPLETION_MIN : la part de la bande devant un cote qui doit etre du contour sans toit pour que
+//   le corps avance : un triangle laisse par une marche, pas la lisiere de quelques centimetres qu'une aile
+//   un peu de biais laisse le long de son voisin - suivie sur 5 m, elle elargissait une aile de 5 m a
+//   10 m, au-dessus de la cour, l'egout descendu a -1,3 m (Hucqueliers) ;
+// - S.EGOUT_ETENDU_MIN_M : en travers, un corps n'avance pas au-dela du point ou un egout tomberait sous
+//   cette hauteur ;
+// - S.SOUS_EGOUT_ETENDU_M : ni sur une partie basse : la ou la mesure tombe a plus de cette hauteur sous son
+//   egout le plus bas, le contour est un autre toit (un appentis, une annexe), pas un bout du sien. Le toit
+//   a 8,6 m d'une maison couvrait sinon l'annexe a 3 m qui la prolonge (Hucqueliers).
 
 /** Un cote d'un rectangle dans son repere : s = 0, s = L, t = 0, t = W. */
 type Cote = 's0' | 'sL' | 't0' | 'tW';
@@ -670,22 +665,22 @@ function etendreSurContour(c: CorpsToit, autres: readonly PtBrut[][], contour: r
   // Les points d'une bande parallele au cote, a la position `v` de son axe, sur toute la longueur de l'autre.
   const bande = (cote: Cote, v: number): PtBrut[] => {
     const out: PtBrut[] = [];
-    if (cote === 's0' || cote === 'sL') for (let t = b.t0 + 0.125; t < b.tW; t += PAS_COMPLETION_M) out.push(point(r, v, t));
-    else for (let sv = b.s0 + 0.125; sv < b.sL; sv += PAS_COMPLETION_M) out.push(point(r, sv, v));
+    if (cote === 's0' || cote === 'sL') for (let t = b.t0 + 0.125; t < b.tW; t += S.PAS_COMPLETION_M) out.push(point(r, v, t));
+    else for (let sv = b.s0 + 0.125; sv < b.sL; sv += S.PAS_COMPLETION_M) out.push(point(r, sv, v));
     return out;
   };
   const ailleurs = (q: PtBrut) => autres.some((a) => pointInPolygon(q, a));
-  const bas = Math.min(...c.egouts) - SOUS_EGOUT_ETENDU_M;
+  const bas = Math.min(...c.egouts) - S.SOUS_EGOUT_ETENDU_M;
   const aSaHauteur = (q: PtBrut) => { const z = g ? hauteurGrille(g, q) : null; return z === null || z >= bas; };
   for (const cote of ['s0', 'sL', 't0', 'tW'] as const) {
     const signe = cote === 's0' || cote === 't0' ? -1 : 1;
     const devant = bande(cote, b[cote] + signe * 0.3);
     if (devant.filter(ailleurs).length > devant.length / 2) continue;
-    for (let d = PAS_COMPLETION_M; d <= COMPLETION_MAX_M + 1e-6; d += PAS_COMPLETION_M) {
-      const pts = bande(cote, b[cote] + (signe * PAS_COMPLETION_M) / 2);
-      if (pts.filter((q) => pointInPolygon(q, contour) && !ailleurs(q) && aSaHauteur(q)).length < Math.max(1, PART_COMPLETION_MIN * pts.length)) break;
-      const essai = { ...b, [cote]: b[cote] + signe * PAS_COMPLETION_M };
-      if ((cote === 't0' || cote === 'tW') && Math.min(...corpsEtendu(c, essai).egouts) < EGOUT_ETENDU_MIN_M) break;
+    for (let d = S.PAS_COMPLETION_M; d <= S.COMPLETION_MAX_M + 1e-6; d += S.PAS_COMPLETION_M) {
+      const pts = bande(cote, b[cote] + (signe * S.PAS_COMPLETION_M) / 2);
+      if (pts.filter((q) => pointInPolygon(q, contour) && !ailleurs(q) && aSaHauteur(q)).length < Math.max(1, S.PART_COMPLETION_MIN * pts.length)) break;
+      const essai = { ...b, [cote]: b[cote] + signe * S.PAS_COMPLETION_M };
+      if ((cote === 't0' || cote === 'tW') && Math.min(...corpsEtendu(c, essai).egouts) < S.EGOUT_ETENDU_MIN_M) break;
       b[cote] = essai[cote];
     }
   }
@@ -704,7 +699,7 @@ export function corpsEtendu(c: CorpsToit, b: Record<Cote, number>): CorpsToit {
   const W2 = b.tW - b.t0;
   if (W2 === r.W) return { ...c, pts };
   const [e0, e1] = c.egouts, p = c.posFaitage;
-  const plat = c.faitage - Math.min(e0, e1) < HAUTEUR_PLAT_M;
+  const plat = c.faitage - Math.min(e0, e1) < S.HAUTEUR_PLAT_M;
   if (plat) return { ...c, pts };
   // En travers : le faitage reste au meme endroit du batiment, chaque pan descend a sa pente jusqu'au
   // nouveau mur ; un appentis garde son egout bas et monte d'autant.
@@ -758,7 +753,7 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
  * souvent lui le bon toit, et les bandes ses morceaux.
  */
 export const PART_RECOUVERTE_MAX = R.PART_RECOUVERTE_MAX;
-const PAS_RECOUVREMENT_M = R.PAS_RECOUVREMENT_M;
+// Le pas des points qui mesurent le recouvrement : S.PAS_RECOUVREMENT_M.
 
 /**
  * Les corps sans les bandes que les autres recouvrent : tant qu'une bande a plus de
@@ -771,9 +766,9 @@ function sansBandesRecouvertes(corps: readonly CorpsToit[], contour: readonly Pt
   const largeur = corps.map((c) => { const r = repere(c.pts); return Math.min(r.L, r.W); });
   const echantillons = corps.map((c, k) => {
     const out: PtBrut[] = [];
-    if ((largeur[k] as number) >= LARGEUR_BANDE_M) return out;
+    if ((largeur[k] as number) >= S.LARGEUR_BANDE_M) return out;
     const r = repere(c.pts);
-    for (let s = PAS_RECOUVREMENT_M / 2; s < r.L; s += PAS_RECOUVREMENT_M) for (let t = PAS_RECOUVREMENT_M / 2; t < r.W; t += PAS_RECOUVREMENT_M) {
+    for (let s = S.PAS_RECOUVREMENT_M / 2; s < r.L; s += S.PAS_RECOUVREMENT_M) for (let t = S.PAS_RECOUVREMENT_M / 2; t < r.W; t += S.PAS_RECOUVREMENT_M) {
       const q = point(r, s, t);
       if (pointInPolygon(q, contour)) out.push(q);
     }
@@ -781,7 +776,7 @@ function sansBandesRecouvertes(corps: readonly CorpsToit[], contour: readonly Pt
   });
   const garde = corps.map(() => true);
   for (;;) {
-    let pire = -1, part = PART_RECOUVERTE_MAX;
+    let pire = -1, part = S.PART_RECOUVERTE_MAX;
     corps.forEach((_, k) => {
       const ech = echantillons[k] as PtBrut[];
       if (!garde[k] || !ech.length) return;
@@ -895,7 +890,7 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
     // la couvre. Entiere, si son toit tient la mesure a la tolerance des bandes, sans egout trop bas.
     if (parts.length > 1 && sousUnPlusGrand(r, rects.slice(0, k))) {
       const entiere = corpsAvecPignons(m, r, contour);
-      if (entiere && Math.min(...entiere.egouts) >= EGOUT_ETENDU_MIN_M && ecartAuCorps(m, entiere, contour) <= TOLERANCE_BANDE * ecartDe(parts)) {
+      if (entiere && Math.min(...entiere.egouts) >= S.EGOUT_ETENDU_MIN_M && ecartAuCorps(m, entiere, contour) <= S.TOLERANCE_BANDE * ecartDe(parts)) {
         liste.push({ rect: [...r], corps: entiere });
         continue;
       }
@@ -903,16 +898,16 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
     const f = parts.length > 1 ? corpsDepuisFormes(grille ?? m, r) : null;
     const un = f ? ecartAuCorps(m, f, contour) : Infinity;
     // Une bande de moins de 3 m est une tranche coupee dans une pente, pas un corps : plus de tolerance.
-    const bande = parts.some((x) => { const q = repere(x.rect); return Math.min(q.L, q.W) < LARGEUR_BANDE_M; });
+    const bande = parts.some((x) => { const q = repere(x.rect); return Math.min(q.L, q.W) < S.LARGEUR_BANDE_M; });
     // Et sans aucune marche aux coupes, c'est le meme toit, tant que les formes simples le lisent.
     const sansMarche = parts.length > 1 && parts.every((x, k) => parts.every((y, l) => {
       if (l <= k) return true;
       const ru = reunionEtCote(x.rect, y.rect);
       if (!ru) return true;
       const saut = sautAuCote(grille ?? m, x.rect, ru.cote);
-      return saut !== null && saut < CONTINUITE_M;
+      return saut !== null && saut < S.CONTINUITE_M;
     }));
-    if (f && (sansMarche || un <= (bande ? TOLERANCE_BANDE : TOLERANCE_REFONTE) * ecartDe(parts))) liste.push({ rect: [...r], corps: { ...f, ecart: cm(un) } });
+    if (f && (sansMarche || un <= (bande ? S.TOLERANCE_BANDE : S.TOLERANCE_REFONTE) * ecartDe(parts))) liste.push({ rect: [...r], corps: { ...f, ecart: cm(un) } });
     else liste.push(...parts);
   }
   if (liste.length < 2) return liste;
@@ -932,8 +927,8 @@ function refondre(m: ToitMesure, rects: readonly PtBrut[][], contour: readonly P
       // Sans marche entre eux, c'est le meme toit : refondus des que les formes simples le lisent (elles
       // renoncent d'elles-memes au-dela de 80 cm d'ecart), meme si les morceaux collaient mieux - une
       // bande d'un deux-pans coupee le long du faitage est un appentis presque parfait.
-      const memeToit = saut !== null && saut < CONTINUITE_M;
-      if (!memeToit && un > TOLERANCE_REFONTE * deux) continue;
+      const memeToit = saut !== null && saut < S.CONTINUITE_M;
+      if (!memeToit && un > S.TOLERANCE_REFONTE * deux) continue;
       liste.splice(j, 1);
       liste[i] = { rect: u, corps: { ...f, ecart: cm(un) } };
       fait = true;
@@ -960,7 +955,7 @@ function sousUnPlusGrand(r: readonly PtBrut[], grands: readonly PtBrut[][]): boo
     const p = point(q, s, t);
     if (grands.some((g) => pointInPolygon(p, g))) sous++;
   }
-  return n > 0 && sous / n > PART_SOUS_PLUS_GRAND;
+  return n > 0 && sous / n > S.PART_SOUS_PLUS_GRAND;
 }
 
 /** Des croupes plutot que des pignons de bout : seulement si l'ecart a la mesure tombe a cette part. */
@@ -982,7 +977,7 @@ export function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBr
   const r = repere(c.pts);
   const ms = mesuresDans(m, r, c.pts, contour);
   if (!ms.length) return Infinity;
-  return Math.sqrt(ms.reduce((a, q) => a + Math.min(ECART_ABERRANT_M, Math.abs(q.z - hauteurAvecPignons(c, r, q.s, q.t))) ** 2, 0) / ms.length);
+  return Math.sqrt(ms.reduce((a, q) => a + Math.min(S.ECART_ABERRANT_M, Math.abs(q.z - hauteurAvecPignons(c, r, q.s, q.t))) ** 2, 0) / ms.length);
 }
 
 /** La hauteur d'un corps, ses pignons compris : chacun, deux pans perpendiculaires au faitage, de son mur a sa profondeur. */
@@ -1018,14 +1013,14 @@ function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: rea
     const candidats = [f, corpsAvecPignons(m, f.pts, contour, true)]
       .filter((x): x is CorpsToit => x !== null).map((x) => ({ x, e: ecartAuCorps(m, x, contour) })).sort((a, b) => a.e - b.e);
     const mieux = candidats[0];
-    if (mieux && mieux.e < GAIN_SENS * ecartAuCorps(m, c, contour)) c = { ...mieux.x, ecart: cm(mieux.e) };
+    if (mieux && mieux.e < S.GAIN_SENS * ecartAuCorps(m, c, contour)) c = { ...mieux.x, ecart: cm(mieux.e) };
   }
   if (c?.pignons.length) return c;
   // Sans corps du modele, la lecture des formes, quelle qu'elle soit (un pan, deux, quatre, plat).
   if (!c) return f;
   if (!f?.croupes) return c;
   const ef = ecartAuCorps(m, f, contour);
-  return ef < GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
+  return ef < S.GAIN_CROUPES * ecartAuCorps(m, c, contour) ? { ...f, ecart: cm(ef) } : c;
 }
 
 /** La hauteur du mur `i` d'un corps (de `pts[i]` a `pts[i + 1]`) : l'egout de son pan, ou le plus bas des egouts sous un pignon de bout. */

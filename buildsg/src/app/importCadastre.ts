@@ -105,10 +105,10 @@ export interface EtatImportCadastre {
   propriete: Set<string>;
   /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
   voisinageEtendu: boolean;
-  /** Le rayon du curseur, de 10 a 5 000 m. */
+  /** Le rayon du curseur, de 10 a 1 500 m. */
   rayonEtendu: number;
   /**
-   * Ce que l'IGN a rendu pour le palier de lecture qui couvre le curseur (200, 500, 1 000, 2 000 ou 5 000 m),
+   * Ce que l'IGN a rendu pour le palier de lecture qui couvre le curseur (200, 500, 1 000 ou 1 500 m),
    * autour de la parcelle principale ; le rayon du curseur le filtre localement. `null` tant que
    * rien n'est lu ; relu au palier superieur si le curseur le depasse.
    */

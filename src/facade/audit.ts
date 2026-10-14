@@ -23,6 +23,7 @@ import { toitMesureDepuisGrille } from '../model/toitMesure.js';
 import { couleurMursRetenue, ecartTeintes, ECART_TEINTE } from '../model/couleurMur.js';
 import { faitDuBatiment, faitsEnVigueur, type FaitsToits } from '../model/faitsToits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from './faitsToits.js';
+import { avecProfilsDuBatiment, type ContexteProfils } from './profilsToits.js';
 import type { CasAudit, SortiesCas } from '../model/audit.js';
 
 /** Ce que le rejeu rend : les sorties recalculees, et s'il y avait de quoi refaire la lecture du toit. */
@@ -43,11 +44,23 @@ function couleurRejouee(c: CasAudit): { couleur: string; source: 'photo' | 'mate
 const estPrincipal = (bdtopo: unknown): boolean => (bdtopo as { surParcellePrincipale?: unknown } | null)?.surParcellePrincipale === true;
 
 /**
- * Rejoue un cas avec le code, les reglages et les faits courants (`faits` : un autre jeu, celui
- * qu'une PR propose, pour les images d'apres). Pur : ni reseau, ni plan. Un fait en remplacement
+ * Le lieu d'un cas, pour ses profils de toits (facade/profilsToits.ts) : la latitude de l'origine de la
+ * promenade, le departement quand on le sait. Les voisins a moins de 5 m viennent du cas lui-meme.
+ */
+export interface LieuDuCas { departement?: string | null; latitude?: number | null }
+
+/**
+ * Rejoue un cas avec le code, les reglages, les profils et les faits courants (`faits` : un autre jeu,
+ * celui qu'une PR propose, pour les images d'apres). Pur : ni reseau, ni plan. Un fait en remplacement
  * donne le toit sans la grille, comme a l'import (app/toitsLidar.ts).
  */
-export function rejouerCas(c: CasAudit, faits: FaitsToits = faitsEnVigueur()): RejeuCas {
+export function rejouerCas(c: CasAudit, faits: FaitsToits = faitsEnVigueur(), lieu: LieuDuCas = {}): RejeuCas {
+  const ctx: ContexteProfils = { departement: lieu.departement ?? null, latitude: lieu.latitude ?? null, voisins: (c.entrees.voisins ?? []).map((v) => ({ cle: v.cle, pts: v.pts })) };
+  return avecProfilsDuBatiment({ bdtopo: c.entrees.bdtopo, pts: c.entrees.pts }, ctx, () => rejouer(c, faits));
+}
+
+/** Le rejeu lui-meme, sous les seuils du profil du batiment. */
+function rejouer(c: CasAudit, faits: FaitsToits): RejeuCas {
   const b = { bdtopo: c.entrees.bdtopo };
   const murs = couleurRejouee(c);
   const hauteur = hauteurBdTopo(b);

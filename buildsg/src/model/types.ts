@@ -232,10 +232,21 @@ interface ObjetCommun {
    */
   corpsToit?: CorpsToit[] | null;
   /**
+   * La version de la lecture LiDAR qui a traite ce batiment (app/toitsLidar.ts) ; absente, il reste
+   * a lire, et la tache de fond (app/toitsFond.ts) le prendra a son tour.
+   */
+  toitLidarLu?: number | null;
+  /**
    * La couleur des murs lue sur une photo de rue, et la source choisie pour la 3D (model/couleurMur.ts) :
    * la photo, le materiau des fichiers fonciers (`bdtopo.materiauxMurs`) ou la couleur du plan.
    */
   couleurMurs?: CouleurMurs | null;
+  /**
+   * Un batiment dont le toit et les facades ont ete vus et valides lors d'un audit de la parcelle
+   * (MD/spec-audit.md §14, « le 100 % ») : la date de la validation. Absent pour tous les autres, et
+   * le fichier d'un projet sans audit garde exactement sa forme d'avant.
+   */
+  verifieSurPlace?: VerifieSurPlace | null;
   /**
    * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
    * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par
@@ -763,6 +774,12 @@ export interface Mesure {
   displayMode?: string;
 }
 
+/** Ce qu'un audit de la parcelle a verifie sur place (MD/spec-audit.md §14). */
+export interface VerifieSurPlace {
+  /** Le jour de la validation, AAAA-MM-JJ. */
+  date: string;
+}
+
 /** Nature d'une ouverture relevee sur une facade. */
 export type TypeOuverture = 'fenetre' | 'porte-fenetre' | 'porte' | 'garage';
 
@@ -776,6 +793,64 @@ export interface OuvertureFacade {
   y: number;
   l: number;
   h: number;
+  /**
+   * De 0 a 1 : ce que la detection en pense (MD/spec-facades-calage-detection.md §9, §12). Pleine a
+   * 0,7 et plus ; en dessous, ou devinee, elle se dessine en pointille. Absente : posee au doigt, ou
+   * relevee avant le lot L15.
+   */
+  confiance?: number;
+  /** D'ou elle vient (§12, §12 bis) : `corrigee` des que le doigt l'a retouchee. */
+  source?: SourceOuverture;
+  /** Sa rangee et sa travee dans la grille du releve (`ReleveFacade.grille`, §10), depuis le bas et la gauche. */
+  niveau?: number;
+  travee?: number;
+  /** Ce que le classement a reconnu en plus du type (§11) ; la 3D le dessine (three/detailsOuvertures.ts). */
+  details?: DetailsOuverture;
+}
+
+/** D'ou vient une ouverture du releve (spec facades §13). */
+export type SourceOuverture = 'detectee' | 'devinee' | 'claude' | 'ajoutee' | 'corrigee';
+
+/**
+ * Les details d'une ouverture (spec facades §11). Les volets battants sont fusionnes dans la baie (ils
+ * n'en font pas deux fausses), le coffre d'un volet roulant est retire de sa hauteur.
+ */
+export interface DetailsOuverture {
+  volets?: 'aucun' | 'battants' | 'roulant' | 'persiennes';
+  /** Volets (persiennes, tablier) fermes sur la photo : la baie existe derriere. */
+  ferme?: boolean;
+  allege?: 'pleine' | 'balcon' | 'garde-corps';
+  forme?: 'rect' | 'cintre' | 'rond';
+}
+
+/**
+ * La structure d'une facade (spec facades §10) : ses rangees (appui et linteau, en metres depuis le
+ * sol, de bas en haut) et ses travees (centre depuis la gauche et largeur, de gauche a droite).
+ */
+export interface GrilleFacade {
+  niveaux: { appuiM: number; linteauM: number }[];
+  travees: { xM: number; largeurM: number }[];
+}
+
+/**
+ * Une correction de l'utilisateur sur ce que l'analyse proposait (spec facades §12) : ajout, retrait,
+ * deplacement (l'ecart, en metres, de la proposition a la cote retenue), changement de type. Les
+ * corrections mesurent le detecteur et designent le reglage a toucher.
+ */
+export interface CorrectionOuverture {
+  geste: 'ajout' | 'retrait' | 'deplacement' | 'type';
+  /** L'ouverture retenue (ajout, deplacement, type) ou retiree (retrait). */
+  type: TypeOuverture;
+  x: number;
+  y: number;
+  l: number;
+  h: number;
+  /** Deplacement : la cote retenue moins la cote proposee, par cote. */
+  ecart?: { x: number; y: number; l: number; h: number };
+  /** Changement de type : le type propose. */
+  avant?: TypeOuverture;
+  /** Ajout d'une ouverture devinee que l'analyse laissait decochee ; retrait d'une devinee. */
+  source?: SourceOuverture;
 }
 
 /**
@@ -803,7 +878,7 @@ export interface ReleveFacade {
   ouvertures: OuvertureFacade[];
   /** Distance de prise de vue, en metres, et l'instrument qui l'a donnee. */
   distance: number | null;
-  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | 'rue' | null;
+  sourceDistance: 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps' | null;
   /** Date du releve, ISO 8601. */
   releveLe: string;
   /**
@@ -812,6 +887,42 @@ export interface ReleveFacade {
    * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
    */
   partieBasse?: PartieBasse | null;
+  /**
+   * Comment les photos ont ete calees (MD/spec-facades-calage-detection.md §13). Facultatif : un
+   * releve d'avant garde exactement son sens. Depuis le lot L7 : la source des coins, l'azimut
+   * corrige et la confiance du calage fin.
+   */
+  calage?: CalageReleve;
+  /** La structure de la facade, recalculee sur les ouvertures retenues (spec facades §10, lot L15). */
+  grille?: GrilleFacade;
+  /** Les corrections de l'utilisateur sur la proposition de l'analyse (spec facades §12, lot L15). */
+  corrections?: CorrectionOuverture[];
+}
+
+/**
+ * D'ou vient un coin pose sur une photo : trouve sur les aretes (calage fin), predit par la prise de
+ * vue, propose par Claude (a venir), ou pose au doigt.
+ */
+export type SourceCoinReleve = 'trouve' | 'predit' | 'claude' | 'doigt';
+
+/** Le calage d'une photo du releve : ses coins (pixels de la photo) et sa resolution au mur. */
+export interface CalagePhotoReleve {
+  /** Haut gauche, haut droit, bas droit, bas gauche, en pixels de la photo analysee. */
+  coins: PtBrut[];
+  /** Pixels par metre au mur sur la photo source : la precision reelle des cotes ; `null` si inconnue. */
+  pxParMSource: number | null;
+  /** La source de chacun des quatre coins, dans le meme ordre (absente avant le lot L7). */
+  sourceCoins?: SourceCoinReleve[];
+}
+
+export interface CalageReleve {
+  photos: CalagePhotoReleve[];
+  /** L'azimut de la prise lu sur les points de fuite, en degres depuis le nord : la boussole calee. */
+  azimutCorrigeDeg?: number;
+  /** La note du calage fin de la premiere photo, de 0 a 1 (le seuil des coins trouves est 0,5). */
+  confiance?: number;
+  /** Largeur vue sur la photo moins celle du plan, en metres, quand elle depasse 0,5 m : le contour est decale. */
+  contourDecaleM?: number;
 }
 
 /** La partie basse d'un mur en L, dans le repere de sa facade (metres). */
@@ -821,8 +932,20 @@ export interface PartieBasse {
   hauteur: number;
 }
 
-/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */
-export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
+/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. Ce sont les seules que le calcul produit et que la 3D dessine. */
+export type FormeToitSimple = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
+
+/**
+ * Les autres formes du catalogue (MD/spec-regles-toits.md §3.1, §4). Elles se deduisent des corps
+ * (model/formeToit.ts) ou s'ecrivent depuis une observation ; aucun calcul ne les produit encore, et
+ * la 3D dessine a leur place la forme simple la plus proche (`formeDessinee`).
+ */
+export type FormeToitCatalogue =
+  | 'demi-croupes' | 'pavillon' | 'mansart' | 'gambrel' | 'asymetrique' | 'deux-pans-decales' | 'toit-en-m'
+  | 'papillon' | 'coyau' | 'shed' | 'berceau' | 'carene' | 'conique' | 'polygonal' | 'fleche' | 'dome' | 'imperiale';
+
+/** La forme d'ensemble d'un toit : une forme simple, ou une forme du catalogue. */
+export type FormeToit = FormeToitSimple | FormeToitCatalogue;
 
 /**
  * Un toit mesure : la grille des hauteurs du sursol (metres au-dessus du sol) sous le contour d'un
@@ -887,6 +1010,122 @@ export interface CorpsToit {
   croupes?: [number, number];
   /** L'ecart quadratique moyen a la mesure, en metres. */
   ecart: number;
+  /**
+   * Les souches de cheminee du corps (MD/spec-regles-toits.md §2.6, §4). Absentes : aucune n'est
+   * connue, et le corps garde exactement son sens d'avant (un fichier ancien n'en a pas).
+   */
+  cheminees?: Cheminee[];
+  /** Un corps plat : ce que l'on sait de sa toiture-terrasse (§2.7). Absente : un toit plat sans plus. */
+  terrasse?: TerrasseToit;
+  /**
+   * Le profil en travers de chaque pan, du cote `pts[0]-pts[1]` puis du cote oppose
+   * (MD/spec-regles-toits.md §4). Absent : deux pentes droites, le sens d'avant.
+   */
+  profil?: [ProfilPan, ProfilPan];
+  /** Ce qui ferme chaque bout, au bout `s = 0` puis `s = L`. Absents : deduits de `croupes`. */
+  bouts?: [BoutToit, BoutToit];
+  /** Les lucarnes du corps, detectees ou observees. Absentes : aucune n'est connue. */
+  lucarnes?: Lucarne[];
+  /** Les bords, quand une observation les precise ; absents : les defauts du dessin (35 cm, 20 cm). */
+  bords?: BordsToit;
+}
+
+/**
+ * La coupe en travers d'un pan, de l'egout au faitage (MD/spec-regles-toits.md §4) : droite (le sens
+ * d'avant), brisee (Mansart, gambrel : le brisis depuis l'egout, puis le terrasson), retroussee
+ * (coyau) ou courbe (berceau, carene).
+ */
+export type ProfilPan =
+  | { type: 'droit' }
+  /** La ligne de bris : a `largeurBrisisM` du mur, a `hauteurBrisM` au-dessus du sol. */
+  | { type: 'brise'; largeurBrisisM: number; hauteurBrisM: number }
+  /** Le bas du pan, adouci sur `largeurM`, a `penteDeg`. */
+  | { type: 'coyau'; largeurM: number; penteDeg: number }
+  /** L'ecart de l'arc a la corde, en metres. */
+  | { type: 'courbe'; flecheM: number };
+
+/** Ce qui ferme un bout du faitage (MD/spec-regles-toits.md §4). */
+export type BoutToit =
+  | { type: 'pignon' }
+  /** La distance a plat du mur de bout au bout du faitage, comme `croupes`. */
+  | { type: 'croupe'; profondeurM: number }
+  /** Une courte croupe sur un petit pignon, haut de `hauteurPignonM` au-dessus de l'egout. */
+  | { type: 'demi-croupe'; profondeurM: number; hauteurPignonM: number }
+  /** Le brisis d'un Mansart au bout, large de `largeurM` a plat. */
+  | { type: 'brisis'; largeurM: number }
+  /** Un pignon a gradins : un mur, sans effet sur le toit. */
+  | { type: 'redents' };
+
+/** Les types de lucarne que l'on distingue (MD/spec-regles-toits.md §2.3). */
+export type TypeLucarne = 'jacobine' | 'capucine' | 'chien-assis' | 'rampante' | 'meuniere' | 'inconnue';
+
+/** Une lucarne sur un pan du corps (MD/spec-regles-toits.md §2.3, §4). */
+export interface Lucarne {
+  type: TypeLucarne;
+  /** Le pan qui la porte : 0 du cote `pts[0]-pts[1]`, 1 du cote oppose. */
+  pan: 0 | 1;
+  /** Ses bords le long du faitage, en metres depuis `pts[0]`. */
+  debutM: number;
+  finM: number;
+  /** La hauteur de son faitage au-dessus du sol, en metres. */
+  faitageM: number;
+  /** Son avancee depuis le mur vers l'interieur, en metres. */
+  profondeurM: number;
+  source: 'lidar' | 'observation';
+}
+
+/** Les bords d'un toit qu'une observation precise (MD/spec-regles-toits.md §2.4). */
+export interface BordsToit {
+  debordEgoutM?: number;
+  saillieRiveM?: number;
+  coyau?: boolean;
+  queueDeVache?: boolean;
+}
+
+/** Ou sort une souche de cheminee (MD/spec-regles-toits.md §2.6). */
+export type PositionCheminee = 'faitage' | 'pan' | 'pignon' | 'facade';
+
+/**
+ * Une souche de cheminee (MD/spec-regles-toits.md §2.6, §4). Sa section est orientee comme le corps
+ * qui la porte : `largeurM` le long du faitage (`pts[0] -> pts[1]`), `profondeurM` en travers. Pour
+ * une souche adossee (`facade`), `largeurM` court le long du mur et `profondeurM` en sort, et (x, y)
+ * est le centre de la souche, contre le mur, du cote exterieur.
+ */
+export interface Cheminee {
+  /** Le centre de la souche, repere du plan, en metres. */
+  x: number;
+  y: number;
+  largeurM: number;
+  profondeurM: number;
+  /** La hauteur du debouche au-dessus du sol (pas au-dessus du pan : elle se compare au faitage). */
+  sommetM: number;
+  position: PositionCheminee;
+  conduits?: number;
+  materiau?: 'brique' | 'enduit' | 'pierre' | 'metal';
+  couronnement?: 'dalle' | 'chapeau' | 'mitrons';
+  /** D'ou elle vient : une observation (audit, releve). La detection LiDAR n'existe pas encore. */
+  source: 'lidar' | 'observation';
+}
+
+/** Un edicule pose sur une toiture-terrasse : son emprise et le dessus de son toit plat, au-dessus du sol. */
+export interface EdiculeTerrasse {
+  pts: PtBrut[];
+  sommetM: number;
+}
+
+/**
+ * Une toiture-terrasse (MD/spec-regles-toits.md §2.7, §4 : `Terrasse`). Nommee `TerrasseToit` pour ne
+ * pas la confondre avec la terrasse bois que Plan chiffre (`estTerrasse`, model/fonctions.ts).
+ */
+export interface TerrasseToit {
+  accessible?: boolean;
+  revetement?: 'gravillons' | 'membrane' | 'dalles' | 'bois' | 'vegetalise';
+  /** La hauteur de l'acrotere au-dessus de la terrasse, en metres ; 0 ou absente : pas d'acrotere. */
+  acrotereM?: number;
+  gardeCorps?: boolean;
+  /** Les edicules : cage d'escalier, local technique, chacun avec un toit plat. */
+  edicules?: EdiculeTerrasse[];
+  source: 'lidar' | 'observation';
 }
 
 /** Un volume d'un batiment en plusieurs corps : son emprise (un rectangle), son toit, son egout quand il est mesure. */
@@ -898,6 +1137,9 @@ export interface VolumeToit {
   /** La hauteur de chaque mur (de `pts[i]` a `pts[i + 1]`), mesuree la ou la couverture le rejoint ; absente, l'egout. */
   hauteursMurs?: number[];
 }
+
+/** Les couvertures d'un toit en pente que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). */
+export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc';
 
 export interface Toit {
   forme: FormeToit;
@@ -913,6 +1155,11 @@ export interface Toit {
    * l'a choisie, et rien ne la recalcule.
    */
   origineCouleur?: 'orthophoto' | 'rouge' | 'brun' | 'gris';
+  /**
+   * Le materiau de la couverture choisi dans l'inspecteur : il l'emporte sur celui que Plan deduit
+   * des fichiers fonciers, de la couleur et de la pente (model/couleurToit.ts). Absent : deduit.
+   */
+  couverture?: CouvertureChoisie;
   /**
    * D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ajustee sur le MNH LiDAR
    * HD de l'IGN (MD/spec-toit-ign.md §10), ou saisie.

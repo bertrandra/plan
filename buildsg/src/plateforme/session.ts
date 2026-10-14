@@ -96,6 +96,12 @@ export interface OptionsAppel {
   params?: Record<string, string>;
   /** Le corps JSON, s'il y en a un. */
   corps?: unknown;
+  /**
+   * Le meme, deja ecrit en JSON (texte ou Blob) : l'enregistrement d'un grand projet l'ecrit par
+   * paquets (util/jsonParPaquets.ts) plutot que d'un seul tenant ici. L'emporte sur `corps`. Un Blob
+   * se relit tel quel au second envoi, apres un renouvellement de session.
+   */
+  corpsEcrit?: string | Blob;
   /** La chaine de requete. */
   requete?: Record<string, string | number>;
   /** Le locataire, quand la personne en tient plusieurs. */
@@ -209,12 +215,13 @@ export function creerSession(ctx: ContexteSession): Session {
     const entetes: Record<string, string> = { 'X-Product': BACKPROD_PRODUCT_CODE };
     if (jeton) entetes['Authorization'] = 'Bearer ' + jeton.valeur;
     if (options.locataire) entetes['X-Tenant'] = options.locataire;
-    if (options.corps !== undefined) entetes['Content-Type'] = 'application/json';
+    const corps = options.corpsEcrit ?? (options.corps !== undefined ? JSON.stringify(options.corps) : undefined);
+    if (corps !== undefined) entetes['Content-Type'] = 'application/json';
     return ctx.fetch(adresse(op.chemin, options.params) + requete, {
       method: op.methode,
       credentials: 'include',
       headers: entetes,
-      ...(options.corps !== undefined ? { body: JSON.stringify(options.corps) } : {})
+      ...(corps !== undefined ? { body: corps } : {})
     });
   }
 

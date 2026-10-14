@@ -5,7 +5,8 @@
 #   python3 .claude/skills/toits/scripts/rendu.py [--montage planche.png] <cle|numero BD TOPO> ...
 #
 # Lit $TOITS_DOSSIER/q/<cle>.json (ecrit par banc.ts), ecrit q/<cle>.png ; --montage colle les
-# images par quatre dans $TOITS_DOSSIER/<planche.png>, a ouvrir avec l'outil Read.
+# images par quatre dans $TOITS_DOSSIER/<planche.png> (ou au chemin absolu donne), a ouvrir avec
+# l'outil Read. La legende porte la forme d'ensemble que banc.ts a deduite des corps.
 import json, sys, math, os
 from PIL import Image, ImageDraw, ImageFont
 S=os.environ.get('TOITS_DOSSIER','/tmp/toits').rstrip('/')+'/'
@@ -42,14 +43,14 @@ def rendu(key, suffixe=''):
     h0,h1=(c.get('croupes') or [0,0])
     if c['faitage']-min(c['egouts'])>0.05: dr.line([P(h0,c['posFaitage']),P(L-h1,c['posFaitage'])],fill='black',width=3)
     cx,cy=P(L/2,Wd/2); dr.text((cx-14,cy-6),f"{c['faitage']}",fill='black')
-  dr.text((4,H-36),f"{key} {a:.1f}->{b:.1f} m",fill='black'); dr.text((4,H-20),', '.join(d['pb'])[:70],fill='black')
+  dr.text((4,H-36),f"{key} {d.get('forme','')} {a:.1f}->{b:.1f} m",fill='black'); dr.text((4,H-20),', '.join(d['pb'])[:70],fill='black')
   im.save(S+'q/'+key+suffixe+'.png')
 def montage(sortie, cles):
   ims=[Image.open(S+'q/'+k+'.png') for k in cles]
   W=max(i.width for i in ims); H=max(i.height for i in ims)
   m=Image.new('RGB',(W*4,H*((len(ims)+3)//4)),'white')
   for n,i in enumerate(ims): m.paste(i,((n%4)*W,(n//4)*H))
-  m.save(S+sortie)
+  m.save(os.path.join(S,sortie))
 
 args=sys.argv[1:]
 sortie=None

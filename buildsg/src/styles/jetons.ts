@@ -14,7 +14,7 @@ export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d'
-  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte';
+  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
   clair: {
@@ -50,7 +50,14 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
-    'camera-alerte': '#F2B38F'
+    'camera-alerte': '#F2B38F',
+    // Les series des graphiques (tableau de bord de la consommation de Claude) : une couleur par
+    // modele, bleu, orange, vert d'eau. Ordre et valeurs passes au validateur du skill dataviz
+    // (ecart pour les daltoniens, luminosite, saturation) contre panel-bg, en clair comme en sombre.
+    // Le vert d'eau clair n'atteint pas 3:1 : chaque serie est toujours nommee a cote de sa couleur.
+    'serie-1': '#2A78D6',
+    'serie-2': '#EB6834',
+    'serie-3': '#1BAF7A'
   },
   sombre: {
     'ink': '#F1E7D0',
@@ -82,12 +89,15 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
-    'camera-alerte': '#F2B38F'
+    'camera-alerte': '#F2B38F',
+    'serie-1': '#3987E5',
+    'serie-2': '#D95926',
+    'serie-3': '#199E70'
   }
 };
 
 /** Les familles de la palette, dans l'ordre ou l'ecran de la palette les montre. */
-export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes';
+export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes' | 'graphiques';
 
 export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[] = [
   { id: 'texte', titre: 'Encres', idee: 'Ce qui se lit : le texte, et le texte posé sur une couleur pleine.' },
@@ -96,7 +106,8 @@ export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[
   { id: 'accent', titre: 'Bois', idee: 'L’accent : la sélection, l’état actif, le total. Une seule couleur forte.' },
   { id: 'etats', titre: 'États', idee: 'Enregistré, alerte, danger : toujours accompagnés d’un mot ou d’une icône.' },
   { id: 'notifications', titre: 'Notifications', idee: 'Le toast, en négatif de la page.' },
-  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' }
+  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' },
+  { id: 'graphiques', titre: 'Graphiques', idee: 'Une couleur par série, toujours nommée à côté : la couleur ne porte jamais seule l’information.' }
 ];
 
 /**
@@ -133,7 +144,10 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
   'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
   'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },
-  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' }
+  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' },
+  'serie-1': { famille: 'graphiques', role: 'Première série (Claude Haiku)' },
+  'serie-2': { famille: 'graphiques', role: 'Deuxième série (Claude Sonnet)' },
+  'serie-3': { famille: 'graphiques', role: 'Troisième série (Claude Opus)' }
 };
 
 /**

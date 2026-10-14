@@ -87,16 +87,6 @@ export function LigneIntensite({ ids, soleil, children }: { ids: IdsSoleil; sole
   );
 }
 
-/** Les reglages du soleil de la Vue 3D : la date, puis l'intensite et l'appoint. */
-export function ReglagesSoleil({ ids, soleil }: { ids: IdsSoleil; soleil: ServiceSoleil }) {
-  return (
-    <>
-      <LigneDate ids={ids} soleil={soleil} avecEtiquette />
-      <LigneIntensite ids={ids} soleil={soleil}><CaseAppoint ids={ids} soleil={soleil} /></LigneIntensite>
-    </>
-  );
-}
-
 /** L'heure, toujours visible sous la scene : c'est le reglage qu'on fait glisser en regardant. */
 export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSoleil; id: string; soleil: ServiceSoleil; formatHeure: (m: number) => string; info?: string }) {
   return (
