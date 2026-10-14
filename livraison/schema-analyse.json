@@ -1,11 +1,11 @@
 {
   "format": "plan-schema-analyse",
-  "version": 0,
-  "note": "Sortie structuree de l'analyse d'un toit par Claude (spec-regles-toits.md 14.2 et 14.3). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Le schema part tel quel dans output_config.format ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
+  "version": 1,
+  "note": "Sortie structuree de l'analyse d'une maison par Claude (spec-regles-toits.md 14.2 et 14.3 ; spec-audit.md 13.2). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Version 1 (lot L17) : les facades aussi (ouvertures par niveau, manquees ou en trop par la detection, details, materiau du parement). Le schema part tel quel dans output_config.format ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["forme", "profil", "faitage", "bouts", "lucarnes", "cheminees", "terrasse", "couverture", "elements", "ecarts", "contradictions", "confiance"],
+    "required": ["forme", "profil", "faitage", "bouts", "lucarnes", "cheminees", "terrasse", "couverture", "elements", "facades", "ecarts", "contradictions", "confiance"],
     "properties": {
       "forme": {
         "type": "object",
@@ -115,6 +115,42 @@
           }
         }
       },
+      "facades": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["indices", "facade", "ouvertures", "details", "materiau", "ecart"],
+          "properties": {
+            "indices": { "$ref": "#/$defs/indices" },
+            "facade": { "type": "string" },
+            "ouvertures": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["niveaux", "parNiveau", "manquees", "enTrop"],
+              "properties": {
+                "niveaux": { "$ref": "#/$defs/compte" },
+                "parNiveau": { "type": "array", "items": { "$ref": "#/$defs/compte" } },
+                "manquees": { "$ref": "#/$defs/compte" },
+                "enTrop": { "$ref": "#/$defs/compte" }
+              }
+            },
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["volets", "coffre", "balcon", "forme"],
+              "properties": {
+                "volets": { "type": "string", "enum": ["battants", "roulants", "persiennes", "aucun", "mixte", "indetermine"] },
+                "coffre": { "$ref": "#/$defs/ouiNon" },
+                "balcon": { "$ref": "#/$defs/ouiNon" },
+                "forme": { "type": "string", "enum": ["rectangulaire", "cintree", "oeil-de-boeuf", "mixte", "indetermine"] }
+              }
+            },
+            "materiau": { "type": "string", "enum": ["pierre", "meuliere", "beton", "brique", "enduit", "bois", "indetermine"] },
+            "ecart": { "type": "string" }
+          }
+        }
+      },
       "ecarts": {
         "type": "array",
         "items": {
@@ -123,7 +159,7 @@
           "required": ["indices", "sujet", "modele", "observe"],
           "properties": {
             "indices": { "$ref": "#/$defs/indices" },
-            "sujet": { "type": "string", "enum": ["forme", "profil", "faitage", "bouts", "corps", "lucarnes", "cheminees", "terrasse", "couverture", "autre"] },
+            "sujet": { "type": "string", "enum": ["forme", "profil", "faitage", "bouts", "corps", "lucarnes", "cheminees", "terrasse", "couverture", "facade", "autre"] },
             "modele": { "type": "string" },
             "observe": { "type": "string" }
           }
