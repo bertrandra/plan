@@ -7,7 +7,7 @@
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { designerFacade } from '../../facade/choix.js';
-import { angleDuPlusLongCote, penteDeg, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
+import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
 import { repere, penteDominante } from '../../facade/toitCorps.js';
@@ -209,7 +209,8 @@ function champsDuToit(): Champ[] {
       // l'actualisation IGN respecte, la ou un toit absent serait remplace (MD/spec-toit-ign.md §5.4).
       options: (cc) => [
         ...(cc.obj.toit ? [] : [{ valeur: '', libelle: 'Non modélisé' }]),
-        ...(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
+        // Les formes simples seules, celles que la 3D dessine ; une forme du catalogue en place reste proposee.
+        ...formesAuChoix(cc.obj.toit?.forme).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
       ],
       lire: (cc) => cc.obj.toit?.forme || '',
       ecrire: (cc, v) => {

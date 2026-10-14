@@ -27,6 +27,146 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Les règles du chantier : rien ne change dans les exports, poids et fluidité sous contrôle. Les
   décisions V1 à V6 sont prises avec leur défaut.
 
+- **Le modèle de toit étendu** (lot G1 de la vague 3, `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §4). Un corps de toit peut porter, tous facultatifs, son **profil** en
+  travers (droit, brisé, à coyau, courbe), ce qui ferme ses **bouts** (pignon, croupe, demi-croupe,
+  brisis, redents), ses **lucarnes** et ses **bords** observés (débord, saillie de rive, coyau, queue
+  de vache). Ils se relisent vérifiés (un champ mal formé est retiré, le corps reste) et ne
+  s'écrivent que s'ils disent autre chose que leur absence (`model/corpsToitEtendu.ts`). La forme
+  d'ensemble d'un toit gagne les formes du catalogue (demi-croupes, pavillon, Mansart, gambrel,
+  asymétrique, deux pans décalés, en M, papillon, coyau, shed, berceau, carène, conique, polygonal,
+  flèche, dôme, impériale), **déduite des corps** par `model/formeToit.ts` et écrite dans le même
+  vocabulaire que « Ce que je vois ». Aucun calcul ne les produit encore et la 3D dessine à leur
+  place la forme simple la plus proche ; les menus de l'inspecteur et du relevé ne proposent que les
+  formes simples. Un fichier ancien se relit et se réécrit à l'identique ; AE 101, le banc des
+  villages et les empreintes n'ont pas bougé.
+
+- **Le moteur des profils de toits** (lot G15 de `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §6 et §9.1). Un profil de `regles/toits/reglages.json` change quelques
+  seuils de la lecture des toits pour les bâtiments qui remplissent toutes ses conditions.
+  - **Un vocabulaire fermé** (`model/profilsToits.ts`) : département (tiré du code INSEE ou de l'IDU
+    de la parcelle du projet), latitude, matériau des murs ou de la toiture (fichiers fonciers),
+    hauteur, surface, mitoyenneté (part du contour collée à un autre bâtiment : aucune, partielle,
+    forte), forme du contour (rectangle, composée, trapèze, biais), époque. Jamais une adresse ni un
+    bâtiment : une condition hors du vocabulaire, un seuil inconnu, un profil sans condition ou qui
+    ne cite pas deux cas font refuser le fichier.
+  - **Le plus précis l'emporte**, seuil par seuil (le plus de conditions) ; deux profils de même
+    précision sur le même seuil, qui peuvent toucher le même bâtiment, font refuser le fichier, et
+    la CI le dit (`tests/unit/model/reglagesToits.test.ts`).
+  - **Appliqué partout où un toit se lit** (`facade/profilsToits.ts`) : à l'import et en tâche de
+    fond (`app/toitsLidar.ts`, recalage compris), à la réponse « un toit par parcelle », au rejeu
+    des cas d'audit et au banc des villages (`banc.ts --profils <fichier>` essaie des profils avant
+    de les écrire). Les modules de la lecture lisent leurs seuils à chaque appel
+    (`SEUILS_TOITS`), plus une copie prise au chargement : un test le vérifie.
+  - **Le fichier livré ne contient aucun profil** : AE 101, le banc des cinq villages (corps au bit
+    près) et les empreintes golden sont identiques, l'empreinte des réglages et la version de
+    lecture des toits (1) aussi ; rien n'est relu. L'empreinte des profils (conditions, surcharges,
+    bornes du vocabulaire) entre dans `VERSION_LECTURE_TOITS` dès le premier profil.
+
+- **Mesurer une façade relevée** (lot G11 de la vague 3, `MD/spec-facades-calage-detection.md`
+  §15.1). `model/mesureFacade.ts` lit un relevé (ouvertures, grille, largeur, hauteur) et en tire la
+  largeur, la hauteur et l'appui des fenêtres (médianes, l'appui depuis le plancher de leur niveau),
+  l'entraxe, la part vitrée, les baies par niveau, la hauteur d'un niveau, la place de la porte, le
+  garage, et le type de la façade (sur rue, arrière, pignon, côté voisin) quand le contexte le dit
+  (`facade/contexteFacade.ts` : toit du cas figé, voisins, photo de rue). Le script
+  `.claude/skills/facades/scripts/mesures.ts` les donne sur le banc de façades (vérité → relevé :
+  1 cm d'écart médian sur les fenêtres) et sur les audits de parcelle ; le rejeu des audits du skill
+  `toits` mesure aussi les façades d'un fichier `plan-audit-parcelle`. Rien de ce que Plan calcule ne
+  change : ces mesures préparent les profils de façades (G12) et le taux de conformité (G13).
+
+- **Le banc des formes de toit** (lot G2 de `MD/plan-vague-3-generaliser.md`, `MD/spec-regles-toits.md`
+  §8.2, décision D16). Outil de développement : rien ne change dans ce que Plan calcule.
+  - `banc.ts` (skill `toits`) compte, par village, les formes produites (catalogue §3.1 : plat,
+    appentis, deux pans, croupes, pavillon…), par bâtiment (la forme de son corps principal) et par
+    corps. La forme se déduit des corps par `model/formeToit.ts` dès que le lot G1 est là, sinon par
+    sa copie locale (`tests/banc/toits/formes.ts`), vérifiée identique sur les 646 corps des cinq
+    villages et par un test qui s'active avec G1.
+  - `--enregistrer` écrit une référence (formes de chaque bâtiment, compteurs) ; `--reference` liste
+    ensuite les compteurs qui ont bougé, les bâtiments dont la forme change (« appentis ->
+    deux-pans »), ceux dont seul un corps change, et dessine la planche de leurs cartes
+    (`rendu.py --montage`, la forme écrite dans la légende). Les lignes d'avant restent les mêmes,
+    pour comparer les listes d'hier par `diff`.
+  - Les villages de D16 : `villages.json` (Versailles quartier Notre-Dame, Eguisheim, Beuvron-en-Auge ;
+    Riquewihr et Lyons-la-Forêt en réserve) et `couverture.ts`, qui géocode chaque adresse, vérifie
+    la couverture LiDAR HD par `dallesLidarSur` et écrit la commande `village.mjs` qui le capture.
+    Les cinq sont couverts ; les trois retenus ont été capturés et mesurés (98, 327 et 119
+    bâtiments). Le tableau du skill `toits` (§5) gagne Le Vésinet, ces trois villages et les
+    colonnes des formes.
+
+- **Les indicateurs de conformité et l'écran Admin › « Conformité »** (lot G3 du plan de la vague 3,
+  `MD/spec-regles-toits.md` §13.5, `MD/spec-facades-calage-detection.md` §15.3).
+  - **Le jugement d'un cas** (`model/conformite.ts`, `facade/conformite.ts`) : un cas observé est
+    conforme quand le calcul d'aujourd'hui satisfait ce que vous avez vu — son attendu validé (corps
+    au centimètre, couleur et source des murs, comme le test du corpus) et « Ce que je vois » (forme,
+    bouts, lucarnes, cheminées, toit-terrasse ; le sens du faîtage, dit par rapport à la rue, et les
+    matériaux sont notés mais ne se comparent pas au calcul). Une forme que Plan ne calcule pas
+    encore (Mansart, gambrel, demi-croupe…), des lucarnes ou des cheminées vues comptent « hors
+    calcul ». Un cas qui ne note que des problèmes est non conforme tant que le rejeu redonne ce que
+    le terrain a donné, « à revoir » si le calcul a changé depuis. Les taux se lisent par forme, par
+    région (le département tiré de l'IDU, `model/departements.ts`) et par problème.
+  - **Le corpus du dépôt** est rejoué par `npx tsx .claude/skills/toits/scripts/conformite.ts`
+    (`--ecrire` réécrit `regles/conformite.json`, qu'un test garde à jour : une PR qui change le taux
+    le montre dans son diff). **Taux de départ sur les deux promenades de démonstration : 50 %** (AE
+    101 conforme ; le pavillon de la longère d'Hucqueliers, toujours découpé en morceaux, non).
+  - **L'écran** (`?admin&ecran=conformite`, menu Admin › Conformité, à côté de la consommation de
+    Claude) : le corpus et les audits de parcelle partagés reçus sur le serveur, rejoués dans la page
+    un à un ; le taux, le critère de la phase 1 (50 cas observés, dont 10 hors calcul) ; six
+    onglets : par forme, par région, par problème, les cas un à un avec ce qui ne tient pas, l'accord
+    de Claude par attribut et l'historique. Le taux de conformité des façades (lot G13) et l'accord
+    de Claude (lot G18) ont leur place, marquée « À venir ». Un audit illisible est nommé sans
+    arrêter les autres.
+  - **Les mesures sur le serveur de Plan** : « Enregistrer la mesure » range ce que l'écran montre
+    (`POST admin/conformite`, `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat,
+    administrateur seul), dans `conformite/mesures.json` avec les données de l'admin ; le serveur
+    garde les 200 dernières. Aucune valeur calculée ne change : AE 101, le banc et les empreintes
+    golden sont identiques.
+
+- **Les détails des ouvertures, en 3D et au banc des façades** (lot G17 du plan de la vague 3,
+  `MD/plan-vague-3-generaliser.md` ; `MD/spec-facades-calage-detection.md` §11 ; suite du lot L15).
+  - **En 3D** (`three/detailsOuvertures.ts`) : ce que le relevé a reconnu sur une ouverture se
+    dessine sur son mur. Volets battants : deux vantaux d'une demi-baie, ouverts contre le mur de
+    part et d'autre du cadre, ou fermés devant la vitre ; persiennes : les mêmes, à lames
+    inclinées ; volet roulant : le coffre au-dessus du linteau, et le tablier baissé s'il est
+    fermé ; balcon : une dalle au niveau de l'appui qui déborde des tableaux, et son garde-corps
+    sur trois côtés ; garde-corps seul : devant la baie, à hauteur d'appui ; baie cintrée (plein
+    cintre, ou arc surbaissé sur une baie basse) et œil-de-bœuf : le cadre et la vitre suivent
+    leur contour, sur le mur photographié comme sur la disposition réglée une par une. Les cotes
+    des détails sont les proportions courantes, pas des mesures. **Une ouverture sans détails se
+    dessine exactement comme avant** : la démonstration garde son GLB au nœud près (point 24).
+  - **Au banc** (skill `facades`) : une section « Détails des ouvertures » compte, pour les
+    volets, l'allège et la forme, les détails lus justes, manqués et lus à tort, sur l'élévation,
+    la chaîne du relevé et la fusion. La vérité vient de la scène (`detailsVrais` : son rendu, ses
+    balcons, la forme de ses baies) ; le générateur peint maintenant les baies cintrées et rondes,
+    les persiennes ouvertes et fermées, et le garde-corps sans dalle. Une scène de plus,
+    `20-details-cintres-persiennes-garde-corps`. Chaîne du relevé, sur les 21 scènes : volets
+    11/16 (aucun volet roulant ton sur ton lu, scène 06), allège 1/3, forme 2/2.
+  - **La baie devinée en pointillé se joue au navigateur** (point de fumée 68) : les deux photos de
+    synthèse de la scène 19 du banc (une haie haute qui cache une fenêtre sur les deux vues),
+    rendues en PNG par `.claude/skills/facades/scripts/photos.ts`, importées dans le relevé. Points
+    80 et 81 : les détails de la scène 20 dans la fiche des ouvertures, puis en 3D.
+
+- **Le masque d'occlusion hachuré dans l'élévation du relevé** (lot G20 de
+  `MD/plan-vague-3-generaliser.md`, partie sans corpus ; `MD/spec-facades-calage-detection.md` §8 et
+  §12 bis). Quand plusieurs vues d'un même mur sont fondues (« Vues du mur entier »), ce qui reste
+  caché sur toutes les photos (une voiture, une haie) se hachure à l'étape « Vérifier », sous les
+  ouvertures, qui restent à saisir, avec une légende courte (« Hachuré : caché sur toutes les photos
+  par ce qui est devant le mur (voiture, haie…), 17 % du mur. »). Les couleurs passent par les jetons
+  du relevé (`--camera-bg`, `--camera-alerte`), le motif porte l'information avec les mots
+  (`zones/releve/masque.ts`, `Elevation.tsx`).
+  - **« Demander de l'aide » est proposé aussi sur plusieurs vues** : jusqu'ici, il ne l'était que
+    sur une photo seule. Claude reçoit la vue de référence de la fusion (la mieux définie) et
+    l'élévation fondue, le masque hachuré dessus (le prompt du renfort dit déjà de ne rien inventer
+    dans une zone hachurée). L'aide est proposée dès qu'un signal est levé, et dès que le masque
+    couvre un dixième du mur (`MASQUE_NOTABLE`, `zones/releve/aide.ts`) : la note le dit telle
+    quelle (« 17 % du mur caché sur toutes les photos »). Rien ne change pour l'audit, ni pour des
+    morceaux côte à côte. `RENFORT_A_CHAQUE_FACADE` et les taux d'accord, qui attendent le corpus,
+    ne bougent pas.
+  - L'avis « La photo couvrait … % du mur ; le reste est complété à la teinte du mur » ne compte plus
+    le masque d'une fusion, que la texture montre tel quel (« Les photos couvraient … »).
+  - L'élévation de la vérification ne se tasse plus au téléphone : dans la colonne du relevé, qui
+    défile, elle était écrasée à quelques dizaines de pixels sous les cartes de la hauteur et du toit.
+  - Aucune valeur calculée ne change : banc des façades identique. Point de fumée 82.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
@@ -1031,6 +1171,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   la consommation, et le passage du jeton de la plateforme ; le prompt et le schéma de l'analyse
   étaient en retard. Un test (`tests/unit/buildsg/synchro.test.ts`) compare désormais chaque
   fichier de `deploy/` recopié dans `buildsg/deploy/` à son original.
+
+- **Une baie posée sur une haie plus large qu'elle n'est plus lue « cintrée »** (lot G17). La
+  détection prenait la tache en T (le haut plat de la haie, puis la fenêtre au-dessus) pour un arc :
+  un arc ne fait de marche franche que tout près des tableaux (`facades.classement.cintreBordPart`,
+  `cintreMarcheMaxPart`). Les faux « cintre » des scènes 07 et 17 du banc disparaissent ; aucune autre
+  valeur du banc ne bouge, et les deux vraies baies de forme de la scène 20 restent lues.
+- **Au téléphone, l'élévation du relevé garde sa hauteur quand la fiche d'une ouverture s'ouvre.**
+  Elle se retrécissait dans la colonne qui défile jusqu'à zéro de haut : plus aucune ouverture ne se
+  touchait sans refermer la fiche.
 
 - **Sur tablette, les entrées du panneau Projet se touchent de nouveau.** Le voile transparent qui
   referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le

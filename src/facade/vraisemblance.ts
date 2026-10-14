@@ -6,15 +6,13 @@
 // (facade/audit.ts) doit appliquer exactement les memes, sans reseau ni plan : ils sont donc ici, purs,
 // et app/toitsLidar.ts les reexporte sous les memes noms.
 
-import { REGLAGES_TOITS as R } from '../model/reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../model/reglagesToits.js';
 import type { CorpsToit, ToitMesure } from '../model/types.js';
 
 /** Au-dela de la hauteur de la BD TOPO plus cela, ce que le LiDAR voit sur un batiment est un arbre. */
 export const DEPASSEMENT_VEGETATION_M = R.DEPASSEMENT_VEGETATION_M;
-/** En deca, l'egout mesure ne vaut pas de changer la hauteur BD TOPO ; au-dela de ces bornes, la mesure n'est pas un egout. */
-const ECART_EGOUT_MIN_M = R.ECART_EGOUT_MIN_M;
-const EGOUT_MIN_M = R.EGOUT_ECRIT_MIN_M;
-const EGOUT_MAX_M = R.EGOUT_ECRIT_MAX_M;
+// En deca de S.ECART_EGOUT_MIN_M, l'egout mesure ne vaut pas de changer la hauteur BD TOPO ; hors de
+// S.EGOUT_ECRIT_MIN_M et S.EGOUT_ECRIT_MAX_M, la mesure n'est pas un egout.
 
 /**
  * Ce que les garde-fous lisent d'un batiment : ses attributs BD TOPO (`bdtopo`), et rien d'autre.
@@ -38,7 +36,7 @@ export function hauteurBdTopo(o: AvecBdTopo): number | null {
 export function corpsVraisemblables(o: AvecBdTopo, corps: CorpsToit[] | null): CorpsToit[] | null {
   const h = hauteurBdTopo(o);
   if (!corps || h === null) return corps;
-  const gardes = corps.filter((c) => Math.min(...c.egouts) <= h + DEPASSEMENT_VEGETATION_M);
+  const gardes = corps.filter((c) => Math.min(...c.egouts) <= h + S.DEPASSEMENT_VEGETATION_M);
   return gardes.length ? gardes : null;
 }
 
@@ -49,17 +47,17 @@ export function corpsVraisemblables(o: AvecBdTopo, corps: CorpsToit[] | null): C
  */
 export function mesureVraisemblable(o: AvecBdTopo, mesure: ToitMesure | null): ToitMesure | null {
   const h = hauteurBdTopo(o);
-  return mesure && h !== null && mesure.egout > h + DEPASSEMENT_VEGETATION_M ? null : mesure;
+  return mesure && h !== null && mesure.egout > h + S.DEPASSEMENT_VEGETATION_M ? null : mesure;
 }
 
 /** Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre : null alors. */
 export function ajusteVraisemblable<T extends { egout: number }>(o: AvecBdTopo, ajuste: T | null): T | null {
   const h = hauteurBdTopo(o);
-  return ajuste && h !== null && ajuste.egout > h + DEPASSEMENT_VEGETATION_M ? null : ajuste;
+  return ajuste && h !== null && ajuste.egout > h + S.DEPASSEMENT_VEGETATION_M ? null : ajuste;
 }
 
 /** L'egout mesure vaut d'etre ecrit : entre les bornes d'un egout. */
-export const egoutValide = (e: number): boolean => e >= EGOUT_MIN_M && e <= EGOUT_MAX_M;
+export const egoutValide = (e: number): boolean => e >= S.EGOUT_ECRIT_MIN_M && e <= S.EGOUT_ECRIT_MAX_M;
 
 /**
  * La hauteur a l'egout du batiment apres la lecture : l'egout mesure, au decimetre, quand il est
@@ -67,5 +65,5 @@ export const egoutValide = (e: number): boolean => e >= EGOUT_MIN_M && e <= EGOU
  */
 export function elevationApresLecture(elevation: number | undefined, egout: number | null): number | undefined {
   const h = elevation ?? 0;
-  return egout !== null && egoutValide(egout) && Math.abs(egout - h) >= ECART_EGOUT_MIN_M ? Math.round(egout * 10) / 10 : elevation;
+  return egout !== null && egoutValide(egout) && Math.abs(egout - h) >= S.ECART_EGOUT_MIN_M ? Math.round(egout * 10) / 10 : elevation;
 }

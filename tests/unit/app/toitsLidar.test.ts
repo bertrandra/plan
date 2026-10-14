@@ -4,6 +4,8 @@ import { hauteurToitEn, plansDuToit } from '../../../src/facade/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
+import { lireProfilsToits } from '../../../src/model/profilsToits.js';
+import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../src/model/reglagesToits.js';
 
 // L'etape « toits sur le LiDAR » d'un import ou d'une actualisation (MD/spec-toit-ign.md §10) :
 // quels batiments, dans quel ordre, ce qui est garde, ce qui est ecrit.
@@ -284,5 +286,30 @@ describe('toitsDepuisLidar', () => {
     expect(mesureVraisemblable(maison, { egout: 6 } as Parameters<typeof mesureVraisemblable>[1])).not.toBeNull();
     // Sans hauteur BD TOPO, rien a comparer : les corps restent.
     expect(corpsVraisemblables({ fonction: 'batiment', pts: rect(0, 0, 4, 3) }, [corps(9.5, 15)])).toHaveLength(1);
+  });
+});
+
+describe('toitsDepuisLidar et les profils de toits (MD/spec-regles-toits.md §6)', () => {
+  // Un profil d'essai, jamais livre : sur les grands batiments du 78, il faut cent mille mesures pour
+  // juger une forme - autant dire que la forme simple n'est plus lue, et que le toit BD TOPO reste.
+  const profils = lireProfilsToits([{ id: 'essai-grands', quand: { departements: ['78'], surface: { min: 150 } }, surcharges: { ECHANTILLONS_MIN: 100000 }, pourquoi: 'Un profil des tests, jamais livre.', cas: ['essai/a', 'essai/b'] }], Object.keys(REGLAGES_TOITS));
+  const objets = (insee = '78650'): ObjetAToit[] => [
+    { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 60, 30), cadastre: { codeInsee: insee } } as ObjetAToit,
+    { key: 'petit', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 },
+    { key: 'grand', fonction: 'batiment', pts: rect(20, 0, 20, 10), toit: { ...bdtopo }, elevation: 5 },
+  ];
+
+  it('chaque batiment est lu sous les seuils de ses profils, et seulement les siens', async () => {
+    const o = objets();
+    const bilan = await toitsDepuisLidar(o, proj, { lire: lecteurDeuxPans(), dalles: async () => true, profils });
+    expect(bilan).toMatchObject({ ajustes: 1, gardes: 1 });
+    expect(o[1]!.toit!.source).toBe('lidar');
+    expect(o[2]!.toit!.source).toBe('bdtopo');
+    expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
+  });
+
+  it('sans profil (le fichier livre), ou hors du departement du profil, les deux sont lus', async () => {
+    expect(await toitsDepuisLidar(objets(), proj, { lire: lecteurDeuxPans(), dalles: async () => true })).toMatchObject({ ajustes: 2, gardes: 0 });
+    expect(await toitsDepuisLidar(objets('13004'), proj, { lire: lecteurDeuxPans(), dalles: async () => true, profils })).toMatchObject({ ajustes: 2, gardes: 0 });
   });
 });

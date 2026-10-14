@@ -7,7 +7,7 @@ import type { AideClaudeReleve } from '../../app/renfortReleve.js';
 import type { Image } from '../../facade/homographie.js';
 import type { GrilleFacade } from '../../model/types.js';
 import { AideClaude } from './AideClaude.js';
-import { coinsAvecAide, ouverturesAvecAide, signauxDeVerification, signauxDesCoins } from './aide.js';
+import { coinsAvecAide, motifAide, ouverturesAvecAide, signauxDeVerification, signauxDesCoins } from './aide.js';
 import type { OuverturesEnCours } from './ouvertures.js';
 import type { Morceau } from './serie.js';
 
@@ -30,16 +30,21 @@ export function AideDesCoins({ aide, morceau, maj, largeurM, hauteurM, etiquette
   return <AideClaude key={morceau.prise.photo.url} aide={aide} signaux={signaux} etape="coins" demander={demander} />;
 }
 
-/** L'aide a la verification : les ouvertures proposees, sur l'elevation redressee. */
-export function AideDesOuvertures(p: { aide: AideClaudeReleve | null; ouv: OuverturesEnCours; morceau: Morceau | undefined; elevation: Image | null; largeurM: number; hauteurM: number; hauteurMesuree: boolean; couverture: number; grille: GrilleFacade | null; etiquette: string }) {
+/**
+ * L'aide a la verification : les ouvertures proposees, sur l'elevation redressee. `morceau` est la
+ * photo que Claude regarde : la seule, ou la vue de reference d'une fusion (lot G20), dont le masque
+ * d'occlusion (`occlusion`, part `masque` du mur) part hachure sur l'elevation.
+ */
+export function AideDesOuvertures(p: { aide: AideClaudeReleve | null; ouv: OuverturesEnCours; morceau: Morceau | undefined; elevation: Image | null; largeurM: number; hauteurM: number; hauteurMesuree: boolean; couverture: number; masque?: number; occlusion?: Uint8Array | null; grille: GrilleFacade | null; etiquette: string }) {
   const { aide, ouv, morceau } = p;
-  const signaux = signauxDeVerification({ ouvertures: ouv.ouvertures, devinees: ouv.devinees, largeurM: p.largeurM, couverture: p.couverture });
+  const masque = p.masque ?? 0;
+  const signaux = signauxDeVerification({ ouvertures: ouv.ouvertures, devinees: ouv.devinees, largeurM: p.largeurM, couverture: p.couverture, masque });
   if (!morceau || !p.elevation) return null;
   const elevation = p.elevation;
   const demander = async () => {
     const ouvertures = ouv.ouvertures;
     const r = await (aide as AideClaudeReleve).demander({
-      photo: morceau.prise.photo.image, coins: morceau.coins, coinsTrouves: (morceau.sources ?? []).every((s) => s !== 'predit'), elevation,
+      photo: morceau.prise.photo.image, coins: morceau.coins, coinsTrouves: (morceau.sources ?? []).every((s) => s !== 'predit'), elevation, cache: p.occlusion ?? null,
       largeurM: p.largeurM, hauteurM: p.hauteurM, hauteurMesuree: p.hauteurMesuree, ouvertures, grille: p.grille, signaux, etiquette: p.etiquette,
     });
     if ('erreur' in r) return { message: r.erreur, erreur: true };
@@ -48,5 +53,5 @@ export function AideDesOuvertures(p: { aide: AideClaudeReleve | null; ouv: Ouver
     const t = texteBilan(res.bilan);
     return { message: t ? 'Claude propose : ' + t + '. Ses propositions sont marquées « Proposée par Claude » : vérifiez-les.' : 'Claude confirme ce que Plan a trouvé : rien à changer.', erreur: false };
   };
-  return <AideClaude aide={aide} signaux={signaux} etape="ouvertures" demander={demander} />;
+  return <AideClaude aide={aide} signaux={signaux} etape="ouvertures" demander={demander} motif={motifAide(signaux, masque)} />;
 }

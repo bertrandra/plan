@@ -63,7 +63,8 @@ const r = await page.evaluate(async () => {
     const g = await mnh.lireGrilleSous(b.pts, pr).catch(() => null);
     out.push({ key: b.key, d: Math.round(Math.hypot(c.x - c0.x, c.y - c0.y)), pts: b.pts, bdtopo: b.bdtopo, principal: !!b.bdtopo?.surParcellePrincipale, mesure: !!b.toitMesure, toit: b.toit, corps: b.corpsToit ?? null, grille: g && { ...g, z: g.z.map((v) => (v === null ? null : Math.round(v * 100) / 100)) } });
   }
-  return { parcelle: parc.cadastre?.idu, batiments: out };
+  // La latitude, pour les profils de toits (banc.ts) ; l'IDU en donne le departement.
+  return { parcelle: parc.cadastre?.idu, latitude: parc.cadastre?.origineLat ?? parc.latitude ?? null, batiments: out };
 });
 if (!process.env.SANS_DUMP) writeFileSync(S + 'village-' + NOM + '.json', JSON.stringify(r));
 console.log('parcelle', r.parcelle, 'batiments', r.batiments.length, 'avec corps', r.batiments.filter((b) => b.corps?.length).length, 'grilles', r.batiments.filter((b) => b.grille).length);

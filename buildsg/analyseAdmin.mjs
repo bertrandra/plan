@@ -10,6 +10,7 @@
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
+//   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
 // **La cle ne quitte jamais le serveur**, et la page ne choisit ni le prompt, ni le schema, ni le
 // reglage : elle n'envoie que la partie propre a la maison (images et texte). Sans quoi la cle
@@ -359,6 +360,26 @@ export function verifierAudit(d) {
   return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
 }
 
+// --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; deploy/analyse.php, memes noms) --
+// L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
+// ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
+
+/** Les dernieres mesures gardees : plus, l'historique ne se lit plus d'un coup d'oeil. */
+export const MESURES_CONFORMITE_MAX = 200;
+const TAILLE_MESURE_MAX = 2 * 1024 * 1024;
+const RESUME_CONFORMITE = ['total', 'observes', 'conformes', 'nonConformes', 'aRevoir', 'sansObservation', 'ecartes', 'horsCalcul'];
+
+/** Ce que le serveur verifie d'une mesure : sa forme et son resume, le reste est relu par la page. */
+export function verifierMesureConformite(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d) || d.format !== 'plan-conformite-mesure') throw refus('Ce n’est pas une mesure de conformité.');
+  if (d.version !== 1) throw refus('Version de la mesure de conformité inconnue.');
+  if (typeof d.t !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(d.t)) throw refus('Date de la mesure invalide.');
+  const r = d.toits;
+  if (!r || typeof r !== 'object' || !RESUME_CONFORMITE.every((k) => typeof r[k] === 'number' && Number.isFinite(r[k]) && r[k] >= 0)) throw refus('Résumé de la mesure invalide.');
+  if (!['parForme', 'parRegion', 'parProbleme', 'cas'].every((k) => Array.isArray(d[k]))) throw refus('Mesure de conformité incomplète.');
+  return d;
+}
+
 // --- Le serveur -------------------------------------------------------------------------------
 
 /**
@@ -642,6 +663,22 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     return json(200, { id, retire: true });
   }
 
+  const fConformite = path.join(dossier, 'conformite', 'mesures.json');
+
+  /** `admin/conformite` : l'historique des mesures (GET), une mesure de plus (POST) ; l'administrateur seul. */
+  async function conformite(req, admin, json, erreur) {
+    const methode = req.method || 'GET';
+    if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+    const lu = lireJson(fConformite);
+    const mesures = lu && Array.isArray(lu.mesures) ? lu.mesures : [];
+    if (methode === 'GET' || methode === 'HEAD') return json(200, { format: 'plan-conformite', version: 1, mesures });
+    if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    const mesure = { ...verifierMesureConformite(await lireCorps(req, TAILLE_MESURE_MAX)), recuLe: iso().replace(/\.\d{3}Z$/, 'Z') };
+    const gardees = [...mesures, mesure].slice(-MESURES_CONFORMITE_MAX);
+    ecrireJson(fConformite, { format: 'plan-conformite', version: 1, mesures: gardees });
+    return json(201, { recuLe: mesure.recuLe, mesures: gardees.length });
+  }
+
   /**
    * Traite la requete si elle est pour l'analyse. Rend `false` sinon (demosAdmin.mjs continue).
    * @param {import('node:http').IncomingMessage} req
@@ -652,9 +689,11 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   async function traiter(req, res, url, base) {
     // `admin/consommation` (13.3) est servi ici aussi : il ne fait que relire le journal de ce module.
     // `admin/audits` (15, L21) aussi : les audits de parcelle partages, rangés avec les donnees de l'admin.
+    // `admin/conformite` (13.5, G3) aussi : les mesures des indicateurs, a cote des audits qu'elles lisent.
     const ma = /^\/admin\/audits(?:\/([^/]*))?\/?$/.exec(url.pathname);
-    const m = ma ? null : /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
-    if ((!m && !ma) || !actif) return false;
+    const mc = /^\/admin\/conformite\/?$/.test(url.pathname);
+    const m = ma || mc ? null : /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
+    if ((!m && !ma && !mc) || !actif) return false;
     const chemin = ma ? '@audits' : m && m[2] ? '@consommation' : ((m && m[1]) || '').replace(/\/$/, '');
     const json = (statut, corps) => {
       res.writeHead(statut, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -665,6 +704,14 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
     if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
+    if (mc) {
+      try { return await conformite(req, sessionValide(req), json, erreur); } catch (e) {
+        if (e && e.statut === 413) return erreur(413, 'TOO_LARGE', 'Mesure trop grosse (2 Mo au plus).');
+        if (e && e.statut === 400) return erreur(400, 'BAD_REQUEST', e.message);
+        console.error('Plan conformite :', e);
+        return erreur(500, 'SERVER_ERROR', 'Erreur du serveur.');
+      }
+    }
     // Les audits partages verifient eux-memes qui appelle : leur retrait se fait aussi par le seul
     // secret rendu a l'envoi, sans session ni jeton.
     if (ma) {

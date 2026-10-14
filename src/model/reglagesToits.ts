@@ -12,6 +12,7 @@
 // VERSION_LECTURE_TOITS) : une valeur changee relit les toits deja lus.
 
 import fichier from '../../regles/toits/reglages.json';
+import { formeEmpreinteProfils, lireProfilsToits, type ProfilToit } from './profilsToits.js';
 
 type Seuils = typeof fichier.seuils;
 /** Le nom d'un seuil de la lecture des toits, tel que le fichier l'ecrit. */
@@ -47,8 +48,45 @@ export function lireReglagesToits(donnees: unknown): Record<string, number> {
   return out;
 }
 
-/** Les seuils de la lecture des toits, par nom. */
-export const REGLAGES_TOITS = lireReglagesToits(fichier) as { readonly [K in NomReglageToit]: number };
+/** Une table complete des seuils, par nom. */
+export type TableSeuilsToits = { [K in NomReglageToit]: number };
+/** Les valeurs que des profils changent pour un batiment : seulement celles-la. */
+export type SurchargesSeuilsToits = Partial<Record<NomReglageToit, number>>;
+
+/** Les seuils de la lecture des toits, par nom, tels que le fichier les donne. */
+export const REGLAGES_TOITS: Readonly<TableSeuilsToits> = Object.freeze(lireReglagesToits(fichier) as TableSeuilsToits);
+
+/**
+ * Les seuils en vigueur pour le calcul en cours : ceux du fichier, ou, le temps d'un batiment, ceux que
+ * ses profils surchargent (facade/profilsToits.ts, avecSeuilsToit). Les modules de la lecture les
+ * lisent ici a chaque appel, jamais une copie prise au chargement du module : une copie ignorerait
+ * le profil du batiment. Hors d'avecSeuilsToit, la table vaut REGLAGES_TOITS au bit pres.
+ */
+export const SEUILS_TOITS: Readonly<TableSeuilsToits> = { ...REGLAGES_TOITS };
+
+/** Un calcul asynchrone sous des seuils surcharges laisserait d'autres batiments les lire entre deux attentes. */
+export class CalculAsynchroneRefuse extends Error {}
+
+/**
+ * Fait `calcul` avec ces seuils a la place de ceux du fichier, puis remet les precedents, meme sur une
+ * erreur. Le calcul doit etre synchrone : JavaScript n'execute alors rien d'autre pendant qu'il tourne,
+ * et les lectures paralleles des autres batiments (app/toitsLidar.ts) ne voient jamais ces valeurs.
+ * Sans surcharge, `calcul` est appele tel quel : sans profil, rien ne change.
+ */
+export function avecSeuilsToit<T>(surcharges: SurchargesSeuilsToits, calcul: () => T): T {
+  const noms = Object.keys(surcharges) as NomReglageToit[];
+  if (!noms.length) return calcul();
+  const table = SEUILS_TOITS as TableSeuilsToits;
+  const avant: SurchargesSeuilsToits = {};
+  for (const n of noms) { avant[n] = table[n]; table[n] = surcharges[n] as number; }
+  try {
+    const r = calcul();
+    if (r && typeof (r as { then?: unknown }).then === 'function') throw new CalculAsynchroneRefuse('avecSeuilsToit : le calcul doit etre synchrone');
+    return r;
+  } finally {
+    Object.assign(table, avant);
+  }
+}
 
 /** Le fichier tel qu'il est livre : la description de chaque seuil, pour le dire (scripts, tests). */
 export const DESCRIPTION_REGLAGES_TOITS: { readonly [K in NomReglageToit]: DescriptionReglage } = fichier.seuils;
@@ -70,5 +108,14 @@ export function empreinteReglagesToits(valeurs: Readonly<Record<string, number>>
   return fnv1a(lignes.join('\n') + '\nprofils=' + JSON.stringify(profils));
 }
 
-/** L'empreinte des reglages livres. */
-export const EMPREINTE_REGLAGES_TOITS = empreinteReglagesToits(REGLAGES_TOITS, fichier.profils);
+/**
+ * Les profils livres (model/profilsToits.ts), verifies au chargement comme les seuils : un profil mal
+ * ecrit, ou deux profils de meme precision sur le meme seuil, et le fichier est refuse.
+ */
+export const PROFILS_TOITS: readonly ProfilToit[] = Object.freeze(lireProfilsToits(fichier.profils, Object.keys(REGLAGES_TOITS)));
+
+/**
+ * L'empreinte des reglages livres : les seuils et les profils (leurs conditions, leurs surcharges et le
+ * vocabulaire qui les lit). Sans profil, c'est l'empreinte d'avant le moteur des profils.
+ */
+export const EMPREINTE_REGLAGES_TOITS = empreinteReglagesToits(REGLAGES_TOITS, formeEmpreinteProfils(PROFILS_TOITS));

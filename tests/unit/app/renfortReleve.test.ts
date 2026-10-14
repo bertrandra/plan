@@ -57,6 +57,22 @@ describe('l aide de Claude au releve', () => {
     expect(textes[2]).toMatch(/coins non trouvés sur la photo/);
   });
 
+  it('hachure le masque d une fusion sur l elevation envoyee (lot G20)', async () => {
+    const vus: (Uint8Array | null | undefined)[] = [];
+    const images: FabriqueImagesRenfort = {
+      photo: () => ({ base64: 'UEhPVE8=', mediaType: 'image/jpeg' }),
+      elevation: (_e, _l, _h, _o, cache) => { vus.push(cache); return { base64: 'RUxFVg==', mediaType: 'image/png' }; },
+    };
+    const client = { immediat: async (d: DemandeAnalyse) => ({ modele: 'm', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi' as const, passe: q.passe, sortie: SORTIE, erreur: null })) }) } as unknown as ClientAnalyse;
+    const aide = creerAideReleve({ client: () => client, identite: () => ({ projet: 'p', idu: null, adresse: null }), memoire: { lire: () => null, ecrire: () => {} }, images, maintenant: () => new Date('2026-10-14T08:30:00Z') });
+    const elevation = { largeur: 2, hauteur: 2, donnees: new Uint8ClampedArray(16) };
+    const cache = new Uint8Array([1, 0, 1, 0]);
+    await aide.demander({ ...DEMANDE, elevation, cache, signaux: ['malVue'] });
+    await aide.demander({ ...DEMANDE, elevation, signaux: ['peuSure'] });
+    // Une photo seule n'a pas de masque : rien n'est hachure.
+    expect(vus).toEqual([cache, null]);
+  });
+
   it('dit pourquoi rien n est revenu', async () => {
     const plafond = { immediat: async () => { throw new EchecAnalyse('plafond', 'x'); } } as unknown as ClientAnalyse;
     expect(await monter(plafond).aide.demander(DEMANDE)).toEqual({ erreur: 'Le plafond de l’analyse est atteint pour aujourd’hui ou ce mois-ci.' });

@@ -11,11 +11,12 @@
 // Ce qui ne s'impose pas (un nombre de corps minimum, une hauteur hors de la mesure) est dit par
 // `ecartsAuFait`, pour le skill regles-toits et les tests : un fait n'est jamais tordu en silence.
 
-import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, PAN_MIN_M, PAS_FAITAGE_M, HAUTEUR_PLAT_M, type Grille } from './toitCorps.js';
-import { diagnostiquerToit, ECART_MAX_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from './toitCorps.js';
+import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { signedArea } from '../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../model/faitsToits.js';
-import type { CorpsToit, FormeToit, PtBrut, Toit, ToitMesure } from '../model/types.js';
+import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../model/types.js';
+import { SEUILS_TOITS as S } from '../model/reglagesToits.js';
 
 /** Les formes d'un corps : les croupes et le quatre-pans n'y font qu'un (des croupes aux deux bouts). */
 export type FormeCorps = 'plat' | 'appentis' | 'deux-pans' | 'croupes';
@@ -45,13 +46,13 @@ export function azimutFaitage(c: Pick<CorpsToit, 'pts'>): number {
 /** La forme d'un corps, dans le vocabulaire des faits. */
 export function formeDuCorps(c: CorpsToit): FormeCorps {
   const W = repere(c.pts).W;
-  if (c.faitage - Math.min(...c.egouts) < HAUTEUR_PLAT_M) return 'plat';
+  if (c.faitage - Math.min(...c.egouts) < S.HAUTEUR_PLAT_M) return 'plat';
   if (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) return 'appentis';
   return c.croupes?.some((h) => h > 0) ? 'croupes' : 'deux-pans';
 }
 
 /** Ce qui ferme les deux bouts d'un corps, au bout `s = 0` puis `s = L`. */
-const boutsDuCorps = (c: CorpsToit): [BoutFait, BoutFait] => [(c.croupes?.[0] ?? 0) > 0 ? 'croupe' : 'pignon', (c.croupes?.[1] ?? 0) > 0 ? 'croupe' : 'pignon'];
+export const boutsDuCorps = (c: CorpsToit): [BoutFait, BoutFait] => [(c.croupes?.[0] ?? 0) > 0 ? 'croupe' : 'pignon', (c.croupes?.[1] ?? 0) > 0 ? 'croupe' : 'pignon'];
 const memesBouts = (a: readonly BoutFait[], b: readonly BoutFait[]) => [...a].sort().join() === [...b].sort().join();
 
 /**
@@ -59,7 +60,7 @@ const memesBouts = (a: readonly BoutFait[], b: readonly BoutFait[]) => [...a].so
  * et un sens de faitage observe retire le plat : un toit plat n'a pas de faitage a voir.
  */
 export function formesAdmises(o: ObservationFait): Set<FormeCorps> {
-  const vers = (f: FormeToit): FormeCorps => (f === 'quatre-pans' ? 'croupes' : f);
+  const vers = (f: FormeToitSimple): FormeCorps => (f === 'quatre-pans' ? 'croupes' : f);
   let formes = new Set<FormeCorps>(o.forme ? o.forme.map(vers) : ['plat', 'appentis', 'deux-pans', 'croupes']);
   if (o.faitage) formes.delete('plat');
   if (o.bouts) {
@@ -100,7 +101,7 @@ export function corpsConforme(c: CorpsToit, o: ObservationFait, contour: readonl
 function meilleurDeuxPans(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[]): CorpsToit | null {
   const W = repere(pts).W;
   let best: CorpsToit | null = null;
-  for (let p = PAN_MIN_M; p <= W - PAN_MIN_M + 1e-6; p += PAS_FAITAGE_M) {
+  for (let p = S.PAN_MIN_M; p <= W - S.PAN_MIN_M + 1e-6; p += S.PAS_FAITAGE_M) {
     const c = corpsImpose(m, pts, contour, p);
     if (c && (!best || c.ecart < best.ecart - 1e-6)) best = c;
   }
@@ -152,7 +153,7 @@ export function meilleurCorpsSelonObservation(m: ToitMesure, rect: readonly PtBr
 const presqueRectangle = (contour: readonly PtBrut[]) => aire(boiteOrientee(contour)) <= 1.1 * aire(contour);
 
 /** Le rang du plus grand corps : c'est lui que l'observation decrit (la forme du batiment). */
-const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i) => (aire(c.pts) > aire((corps[k] as CorpsToit).pts) ? i : k), 0);
+export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i) => (aire(c.pts) > aire((corps[k] as CorpsToit).pts) ? i : k), 0);
 
 /**
  * Les corps sous un fait en contrainte (spec §5). `corps` : ce que le calcul a reconstruit (null : il
@@ -232,11 +233,12 @@ export function toitDeRemplacement(f: FaitToit, contour: readonly PtBrut[]): { t
 export function ajusteSousContrainte(f: FaitToit, pts: readonly PtBrut[], ech: readonly EchantillonHauteur[], ajuste: ToitAjuste | null): ToitAjuste | null {
   const o = f.observation;
   const formes = formesAdmises(o);
-  const vers = (forme: FormeToit): FormeCorps => (forme === 'quatre-pans' ? 'croupes' : forme);
+  // Une forme du catalogue n'est jamais admise : le fait ne parle que des formes simples.
+  const vers = (forme: FormeToit): string => (forme === 'quatre-pans' ? 'croupes' : forme);
   const azimut = (angle: number) => ((90 - angle) % 180 + 180) % 180;
-  const admis = (forme: FormeToit, angle: number) => formes.has(vers(forme)) && (forme === 'plat' || sensAdmis(o, pts, azimut(angle)));
+  const admis = (forme: FormeToit, angle: number) => (formes as ReadonlySet<string>).has(vers(forme)) && (forme === 'plat' || sensAdmis(o, pts, azimut(angle)));
   if (ajuste && admis(ajuste.toit.forme, ajuste.toit.angleFaitage)) return ajuste;
-  const essai = diagnostiquerToit(pts, ech).filter((x) => x.ecart <= ECART_MAX_M && admis(x.forme, x.angleFaitage)).sort((a, b) => a.ecart - b.ecart)[0];
+  const essai = diagnostiquerToit(pts, ech).filter((x) => x.ecart <= S.ECART_MAX_M && admis(x.forme, x.angleFaitage)).sort((a, b) => a.ecart - b.ecart)[0];
   if (!essai) return ajuste;
   const plat = essai.forme === 'plat';
   return { toit: { forme: essai.forme, hauteur: plat ? 0 : essai.H, angleFaitage: plat ? 0 : essai.angleFaitage, source: 'lidar' }, egout: essai.e, ecart: essai.ecart, echantillons: essai.gardes };

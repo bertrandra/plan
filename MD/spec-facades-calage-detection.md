@@ -257,7 +257,8 @@ taille restent :
 - appui sous 0,45 m et 1,9 m de haut ou plus : porte-fenêtre ;
 - sinon : fenêtre.
 
-S'ajoutent des **détails**, facultatifs, que la 3D pourra dessiner plus tard :
+S'ajoutent des **détails**, facultatifs, que la 3D dessine depuis le lot G17 (`three/detailsOuvertures.ts`) et
+dont le banc mesure la justesse :
 
 | Détail | Comment on le reconnaît | Ce qu'il change |
 |---|---|---|
@@ -370,6 +371,21 @@ quelques dixièmes de centime par façade aidée.
 - **Banc** : les réponses de Claude sont encore **simulées** (erreurs typiques imitées) ; elles
   mesurent le recalage, pas Claude. Le taux d'accord de Claude sur les façades n'étant pas mesuré,
   ses propositions arrivent décochées.
+
+**Mise en œuvre (lot G20, partie sans corpus, 14 octobre 2026)** :
+- **Le masque hachuré** : à la vérification, ce qui reste caché sur toutes les vues d'une fusion (§8)
+  se hachure sur l'élévation, sous les ouvertures, avec une légende (`zones/releve/masque.ts` : le
+  masque, pixel par pixel, devient des rectangles de 10 cm en fractions du mur, qui suivent une
+  hauteur corrigée). Le masque n'est pas enregistré : il appartient à la série de photos, pas au
+  relevé.
+- **L'aide sur plusieurs vues** : « Demander de l'aide » est proposé aussi quand l'élévation vient
+  d'une fusion. Claude reçoit la vue de référence (la mieux définie) et l'élévation fondue, masque
+  hachuré dessus. Le signal « façade mal vue » se lève dans le relevé dès que le masque couvre **10 %**
+  du mur (`MASQUE_NOTABLE`), et non 30 % : la personne a déjà pris plusieurs vues pour voir derrière
+  l'obstacle, et ce qui reste caché partout est là où une baie se devine sans se voir. Le seuil de
+  30 % reste celui de `signauxRenfort` (audit, banc). Jamais sur des morceaux côte à côte.
+- Restent pour le corpus : les vraies réponses et les taux d'accord par situation, le recalage des
+  coins dans l'audit, la fin du renfort à chaque façade (D22).
 
 ## 13. Ce qui est enregistré
 

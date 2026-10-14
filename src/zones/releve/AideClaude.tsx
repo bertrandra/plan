@@ -13,8 +13,10 @@ type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { ph
 /**
  * `demander` envoie et applique ; il rend la phrase a afficher (ce que Claude a change) ou une erreur.
  * `etape` dit ce que Claude regardera : les coins de la photo, ou les ouvertures de l'elevation.
+ * `motif` remplace les signaux en clair quand l'appelant sait mieux les dire (la part du mur cachee
+ * sur toutes les photos d'une fusion, lot G20).
  */
-export function AideClaude({ aide, signaux, etape, demander }: { aide: AideClaudeReleve | null; signaux: readonly SituationRenfort[]; etape: 'coins' | 'ouvertures'; demander: () => Promise<{ message: string; erreur: boolean }> }) {
+export function AideClaude({ aide, signaux, etape, demander, motif }: { aide: AideClaudeReleve | null; signaux: readonly SituationRenfort[]; etape: 'coins' | 'ouvertures'; demander: () => Promise<{ message: string; erreur: boolean }>; motif?: string }) {
   const [etat, setEtat] = useState<Etat>({ phase: 'repos' });
   if (!aide || !aide.disponible() || (!signaux.length && etat.phase !== 'fait')) return null;
   const lancer = async () => {
@@ -31,7 +33,7 @@ export function AideClaude({ aide, signaux, etape, demander }: { aide: AideClaud
     <div className="releveAide" role="group" aria-label="Aide de Claude">
       {etat.phase === 'repos' && (
         <>
-          <p className="releveNote">Plan n’est pas sûr de lui ({texteSignaux(signaux)}). Claude peut regarder la photo et proposer {quoi} ; Plan les recale sur la photo, et vous vérifiez.</p>
+          <p className="releveNote">Plan n’est pas sûr de lui ({motif ?? texteSignaux(signaux)}). Claude peut regarder la photo et proposer {quoi} ; Plan les recale sur la photo, et vous vérifiez.</p>
           <button data-controle="releve.demanderAide" type="button" className="secondary" onClick={cliquer}>
             Demander de l’aide
           </button>

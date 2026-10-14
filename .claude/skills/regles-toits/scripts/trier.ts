@@ -65,7 +65,7 @@ const f = lireFichierPromenade(JSON.parse(readFileSync(chemin, 'utf8')));
 const nom = basename(chemin);
 console.log(`# ${nom} : ${f.promenade.commune ?? '?'}, ${f.cas.length} cas`);
 for (const c of f.cas) {
-  const r = rejouerCas(c, faits);
+  const r = rejouerCas(c, faits, { latitude: f.promenade.origine?.lat ?? null });
   const formes = (r.sorties.corps ?? []).map(formeDuCorps).join(' ') || 'aucun corps';
   const pistes = c.constat.problemes.map((p) => ({ p, ...(PISTES[p] ?? { niveau: 'a voir', seuils: [] }) }));
   const fait = faitDuBatiment({ bdtopo: c.entrees.bdtopo }, faits);

@@ -7,6 +7,7 @@
 // exactement ses mailles (fumee, point 24 : structure du GLB).
 
 import { toitDuVolume } from '../model/volumesToit.js';
+import { toitDessine } from '../model/formeToit.js';
 import type { VolumeToit } from '../model/types.js';
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
@@ -20,6 +21,7 @@ import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facad
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { safeOffset } from '../engine/structure.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
+import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -108,6 +110,11 @@ function habillageDuSegment(habillages: readonly Habillage[], a: PtBrut, b: PtBr
 
 /** L'encadrement d'une ouverture, et sa vitre ou son vantail quand il n'y a pas de photo. */
 function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, avecPhoto: boolean) {
+  // Une baie cintree ou ronde (lot G17) : l'encadrement suit son contour, en une bande.
+  if (aUneForme(o.details)) {
+    encadrementForme(ctx, f, o, SECTION_CADRE, SAILLIE_CADRE, { cadre: COULEUR_MENUISERIE, vitre: avecPhoto ? null : COULEUR_VITRE }, DECOLLEMENT * 2);
+    return;
+  }
   const { ux, uz, pt } = repereMur(ctx, f);
   const angle = Math.atan2(-uz, ux);
   const mat = new THREE.MeshStandardMaterial({ color: COULEUR_MENUISERIE, roughness: 0.6 });
@@ -166,7 +173,9 @@ function poserToitPlat(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: 
 }
 
 /** Les pans du toit et les pignons, au-dessus de l'egout `h`, sur l'emprise `contour`. */
-function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: number, habillages: readonly Habillage[]) {
+function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: number, habillages: readonly Habillage[]) {
+  // Une forme du catalogue se dessine en sa forme simple la plus proche (model/formeToit.ts).
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0) { poserToitPlat(ctx, contour, toit, h); return; }
   const { pans, pignons } = facettesToit(contour, toit);
   // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).
@@ -244,9 +253,10 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       habillages.push(hab);
       plaquerTexture(ctx, hab, hMur, partie);
     }
-    r.ouvertures
-      .filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01)
-      .forEach((ov) => poserOuverture(ctx, f, ov, avecPhoto));
+    const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01);
+    posees.forEach((ov) => poserOuverture(ctx, f, ov, avecPhoto));
+    // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts).
+    poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: egoutEn(o.x + o.l / 2, hMur, partie), cadre: SECTION_CADRE })));
   });
   // Un toit par corps de batiment (model/volumesToit.ts), chacun a son egout ; sinon le toit coiffe
   // la partie haute, et la partie basse garde le toit plat de son prisme. `sansToit` : la surface
