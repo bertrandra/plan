@@ -1419,7 +1419,8 @@ const POINTS = {
       return null;
     });
     if (cible) await page.mouse.click(cible.x, cible.y);
-    await page.waitForTimeout(300);
+    // L'ecran se redessine apres le geste : sur une machine chargee, cela peut prendre plusieurs secondes.
+    await page.locator('.auditPrise .titreParcours', { hasText: '(choisie)' }).waitFor({ timeout: 15000 }).catch(() => {});
     const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
     // Une photo sur cette facade : elle passe au vert, et une seconde photo s'y range encore.
     const dessin = await page.context().newPage();
