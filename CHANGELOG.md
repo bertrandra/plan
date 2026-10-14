@@ -7,6 +7,41 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Relevé de façade : la structure et le classement des ouvertures** (lot L15 du plan de mise en
+  œuvre, `MD/spec-facades-calage-detection.md` §10 à §13).
+  - **Niveaux et travées** (`facade/structure.ts`) : les ouvertures se rangent en rangées (appui et
+    linteau de leurs fenêtres) et en travées (centres à 10 cm près) ; la façade est dite symétrique,
+    les hauteurs d'étage contrôlées (2,5 à 3,2 m). Une baie à 5 cm de la médiane de sa travée
+    (largeur) ou de son niveau (hauteur), à type égal, en prend la valeur, sans jamais bouger un bord
+    de plus de 10 cm de sa mesure.
+  - **Complétion devinée** : un croisement de la grille sans baie, caché sur toutes les vues ou peu
+    sûr, reçoit une baie devinée, jamais dans un mur vu et net. Sûre, elle est proposée cochée, en
+    pointillé ; peu sûre, elle reste en pointillé et décochée : une touche la garde, la case
+    « Garder cette baie devinée » la rend au pointillé.
+  - **Détails des ouvertures** (`facade/classement.ts`, `OuvertureFacade.details`) : volets battants
+    fusionnés dans la baie, coffre de volet roulant retiré de sa hauteur, persiennes fermées, balcon
+    ou garde-corps (une haute baie d'étage au-dessus d'un balcon est une porte-fenêtre), grande baie
+    au sol vitrée (porte-fenêtre, pas garage), haut cintré ou œil-de-bœuf. Chaque lecture est
+    prudente : sur une brique, une pierre, un bandeau qui court sur la façade ou une haie, elle ne
+    dit rien. Les seuils sont des réglages nommés (`facades.structure.*`, `facades.classement.*`).
+  - **Confiance et source** de chaque ouverture (`detectee`, `devinee`, `ajoutee`, `corrigee`) :
+    pleine à 0,7 et plus, en pointillé en dessous ; retouchée au doigt, elle est vérifiée et redevient
+    pleine. La fiche de l'ouverture dit d'où elle vient et ce qui a été reconnu.
+  - **Gestes en une touche** : « Même taille pour la travée », « Même hauteur pour le niveau »
+    (grisés, avec leur raison, quand il n'y a rien à égaliser), « Ajouter dans la grille » (la baie
+    au croisement libre le plus proche, à la taille de sa travée et de son niveau).
+  - **Ce qui est enregistré** : la grille recalculée sur les ouvertures retenues
+    (`ReleveFacade.grille`), la rangée et la travée de chaque ouverture, et les corrections tracées
+    par rapport à la proposition de l'analyse (`ReleveFacade.corrections` : ajout, retrait,
+    déplacement avec l'écart, changement de type) ; c'est ce qui mesurera le détecteur sur les
+    audits. Champs facultatifs : un relevé d'avant garde exactement son sens. L'audit de la parcelle
+    garde lui aussi confiance, source et détails des ouvertures qu'il propose.
+  - **Banc** : une scène de plus (`19-vues-haie-haute-baie-cachee`, une baie cachée sur les deux
+    vues). Avant / après sur le corpus de 20 scènes, chaîne du relevé : précision 93 % et rappel
+    89 % inchangés, erreur médiane des cotes 1 cm, types justes 100/102 → 102/102, corrections par
+    façade 2 → 1,8 ; fusion de plusieurs vues : rappel 96 % → 100 %, corrections 0,5 → 0,3 par
+    façade. Aucune scène ne perd. Point de fumée 67.
+
 - **Audit de la parcelle, phases 2 et 3 sans Claude : propositions et validation** (lot L11 du
   plan de mise en œuvre, `MD/spec-audit.md` §13.1 et §14). « Lancer l'analyse » ouvre maintenant les
   propositions, posées sur la Vue 3D ; une capture terminée y revient par « Voir les propositions ».

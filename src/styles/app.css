@@ -1694,6 +1694,12 @@
   .releveOuverture.choisie rect{ stroke:var(--accent); stroke-width:3; fill:var(--zebra-hover); }
   .releveOuverture text{ fill:var(--on-camera); font-family:var(--sans); font-variant-numeric:tabular-nums;
     paint-order:stroke; stroke:var(--camera-bg); }
+  /* Une ouverture incertaine (faible confiance, ou devinee par la grille de la facade) se dessine en
+     pointille ; decochee, elle n'est qu'une proposition, plus pale, qu'une touche garde (spec facades
+     §12). Le pointille porte l'information, la couleur ne la porte pas seule. */
+  .releveOuverture.incertaine rect{ stroke-dasharray:6 4; }
+  .releveOuverture.decochee rect{ stroke:var(--on-camera); opacity:.75; cursor:pointer; }
+  .releveGestes{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .relevePoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2; vector-effect:non-scaling-stroke; cursor:nwse-resize; }
   .releveBarre{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .releveFiche{ display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }

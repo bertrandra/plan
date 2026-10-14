@@ -1507,6 +1507,62 @@ const POINTS = {
     const ok = parDefaut === 'true' && vues === 'true' && /^Vue 2 sur 2 .*mur entier/.test(consigne) && ecrit.length === 1 && deux === 2 && retour;
     return { ok, mesure: `assemblage par défaut : ${parDefaut === 'true' ? 'morceaux' : 'AUTRE'} ; « Vues du mur entier » ${vues === 'true' ? 'choisi' : 'NON choisi'} ; « ${consigne.slice(0, 60)}… » ; écrit : ${ecrit.map((e) => `${e.nom}, ${e.vues.join('/')} vue(s) calée(s), ${e.ouvertures.join('/')} ouverture(s)`).join(' ; ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  67: async (page) => {
+    // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
+    // travees sur deux niveaux, la fenetre d'etage de droite absente ; « Ajouter dans la grille » la pose
+    // au croisement libre ; « Meme taille pour la travee » egalise la travee de gauche ; Valider ecrit la
+    // grille et les corrections tracees ; un Ctrl+Z retire tout.
+    const dessin = await page.context().newPage();
+    await dessin.setViewportSize({ width: 1600, height: 1200 });
+    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+      + "const x=document.getElementById('c').getContext('2d');"
+      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6b6b5a';x.fillRect(0,1000,1600,200);"
+      + "x.fillStyle='#e8dcc4';x.fillRect(200,250,1200,750);"
+      // Rez : deux fenetres et la porte du milieu ; etage : deux fenetres, la gauche plus etroite de 20 cm.
+      + "x.fillStyle='#2b3440';x.fillRect(380,700,180,180);x.fillRect(1040,700,180,180);x.fillRect(735,640,150,360);"
+      + "x.fillRect(395,370,150,180);x.fillRect(720,370,180,180);"
+      + '</script></body>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const avant = await facades();
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 15000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 30000 });
+    const cadres = page.locator('g.releveOuverture:not(.decochee) rect');
+    const n0 = await cadres.count();
+    const grille = page.locator('[data-controle="releve.ajouterDansGrille"]');
+    const grilleActif = await grille.isEnabled();
+    if (grilleActif) await grille.click();
+    await page.waitForTimeout(200);
+    const n1 = await cadres.count();
+    const ajoutee = (await page.locator('.releveFiche .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '';
+    // La fenetre la plus a gauche du rez (la premiere dans l'ordre des x, puis des hauteurs).
+    await cadres.first().click({ force: true });
+    await page.waitForTimeout(200);
+    const taille = page.locator('[data-controle="releve.memeTailleTravee"]');
+    const tailleActif = (await taille.count()) > 0 && (await taille.isEnabled());
+    if (tailleActif) await taille.click();
+    await page.waitForTimeout(200);
+    const apresTaille = (await taille.count()) > 0 ? await taille.isEnabled() : null;
+    const fiche = ((await page.locator('.releveFiche .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '').trim();
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => {
+      const f = o.facades[o.facades.length - 1];
+      return { nom: o.name, ouvertures: f.ouvertures.length, niveaux: f.grille?.niveaux?.length ?? 0, travees: f.grille?.travees?.length ?? 0, gestes: (f.corrections ?? []).map((c) => c.geste), sources: f.ouvertures.map((x) => x.source ?? '—') };
+    }));
+    await annuler(page);
+    const retour = (await facades()) === avant;
+    const e = ecrit[0];
+    const ok = n0 >= 4 && grilleActif && n1 === n0 + 1 && /Ajoutée par vous/.test(ajoutee) && tailleActif && apresTaille === false && !deborde
+      && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
+    return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
+  },
   73: async (page) => {
     // L'essai des faits des toits (lot L20, `?regles=local`, MD/spec-regles-toits.md §9.2) : l'entree
     // du menu Admin n'existe qu'avec `?regles=local` ; un fichier de faits se charge depuis le poste,
@@ -1551,7 +1607,8 @@ function pointsPour(nomClasse) {
   // 73 : l'essai des faits des toits (lot L20).
   // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
   // l'actualisation (lot L12).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 73];
+  // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

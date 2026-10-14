@@ -3,6 +3,7 @@
 import { au } from '../../util/tableaux.js';
 import { useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
+import { estIncertaine, retouchee } from '../../facade/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
 
 /* ------------------------------------------------------------------------------------------------
@@ -19,6 +20,8 @@ export function Elevation({
   setOuvertures,
   choisie,
   setChoisie,
+  devinees = [],
+  garder,
 }: {
   texture: string;
   /** Hauteur couverte par la texture : le mur, et au-dessus la bande du pignon, hors du cadre. */
@@ -31,6 +34,9 @@ export function Elevation({
   setOuvertures: (o: OuvertureFacade[]) => void;
   choisie: number | null;
   setChoisie: (i: number | null) => void;
+  /** Les baies devinees decochees (spec facades §10.5), en pointille : une touche les garde. */
+  devinees?: OuvertureFacade[];
+  garder?: (i: number) => void;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const echelle = useEchelle(svg, L);
@@ -70,7 +76,8 @@ export function Elevation({
       }
       const cm = (v: number) => Math.round(v * 100) / 100;
       const n = [...ouvertures];
-      n[i] = { ...o, x: cm(o.x), y: cm(o.y), l: cm(o.l), h: cm(o.h) };
+      // Retouchee au doigt, l'ouverture est verifiee : elle quitte le pointille.
+      n[i] = retouchee({ ...o, x: cm(o.x), y: cm(o.y), l: cm(o.l), h: cm(o.h) });
       setOuvertures(n);
     };
     const lacher = () => {
@@ -90,11 +97,24 @@ export function Elevation({
       </svg>
       <rect x={0} y={0} width={L} height={H} className="releveElevationCadre" vectorEffect="non-scaling-stroke" />
       {partie && <rect x={partie.debut} y={0} width={partie.fin - partie.debut} height={H - partie.hauteur} className="releveVide" pointerEvents="none" />}
+      {devinees.map((o, i) => (
+        <g key={'d' + i} className="releveOuverture incertaine decochee">
+          <rect x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" role="button" tabIndex={0}
+            data-controle="releve.garderDevinee" aria-label={`Baie devinée, à garder : ${LIBELLES_OUVERTURE[o.type]} ${fr(o.l)} × ${fr(o.h)} m`}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              garder?.(i);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') garder?.(i);
+            }} />
+        </g>
+      ))}
       {ouvertures.map((o, i) => {
         const y = H - o.y - o.h;
         const sel = i === choisie;
         return (
-          <g key={i} className={'releveOuverture' + (sel ? ' choisie' : '')}>
+          <g key={i} className={'releveOuverture' + (sel ? ' choisie' : '') + (estIncertaine(o) ? ' incertaine' : '')}>
             <rect x={o.x} y={y} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" onPointerDown={saisir(i, -1)} role="button" aria-label={`${LIBELLES_OUVERTURE[o.type]} ${fr(o.l)} × ${fr(o.h)} m`} tabIndex={0} />
             <text x={o.x + o.l / 2} y={y + o.h / 2} fontSize={12 / echelle} strokeWidth={3 / echelle} textAnchor="middle" dominantBaseline="middle" pointerEvents="none">
               {Math.round(o.l * 100)}×{Math.round(o.h * 100)}
