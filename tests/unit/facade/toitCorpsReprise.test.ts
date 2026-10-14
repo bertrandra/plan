@@ -7,12 +7,14 @@ import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../src/model/types.js';
+import { corpsSelonFait } from '../../../src/facade/faitsToits.js';
+import { faitDuBatiment } from '../../../src/model/faitsToits.js';
 
 // La reprise des contours qui ne se decoupent pas tels quels (MD/spec-toit-ign.md §13.7), sur deux
 // releves reels du Vesinet : AE 101, dont les corps ont ete valides et ne doivent pas bouger d'un
 // centimetre, et AE 103, dont la BD TOPO trace la maison en biais et deux metres trop au nord.
 
-interface Releve { contour: PtBrut[]; toitMesure: ToitMesure; corps: CorpsToit[] | null; grille: GrilleRelief; grilleLarge?: GrilleRelief }
+interface Releve { contour: PtBrut[]; toitMesure: ToitMesure; corps: CorpsToit[] | null; grille: GrilleRelief; grilleLarge?: GrilleRelief; cleabs?: string; corpsAvecFaits?: CorpsToit[] }
 const releve = (n: string): Releve => JSON.parse(readFileSync(new URL(`../../fixtures/toits/vesinet-${/^\d{8}$/.test(n) ? n : 'ae' + n}.json`, import.meta.url), 'utf8'));
 const p = (x: number, y: number): PtBrut => ({ x, y });
 
@@ -23,6 +25,16 @@ describe('reprise des contours de biais', () => {
     expect(reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille })).toEqual(r.corps);
     expect(partVideSous(r.grille, r.contour)).toBeLessThan(PART_VIDE_RECALAGE);
     expect(r.corps?.every((c) => !c.croupes)).toBe(true);
+  });
+
+  it('AE 101 avec ses faits : les corps d apres l appentis de la facade sud, au centimetre', () => {
+    // La reference a change une fois, par decision de l'utilisateur (14 octobre 2026) : le calcul
+    // ci-dessus ne bouge pas, le fait ajoute la galerie couverte de la facade sud.
+    const r = releve('101');
+    const fait = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } });
+    expect(fait).not.toBe(null);
+    expect(corpsSelonFait(fait, reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille }), r.toitMesure, r.contour, r.grille)).toEqual(r.corpsAvecFaits);
+    expect(r.corpsAvecFaits).toHaveLength(4);
   });
 
   it('AE 100 : un quatre-pans, lu par les formes simples la ou le modele des corps n avait qu un appentis', () => {

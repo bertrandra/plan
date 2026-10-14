@@ -2,5 +2,17 @@
   "format": "plan-faits-toits",
   "version": 1,
   "pourquoi": "Les faits des toits (MD/spec-regles-toits.md §5) : une verite observee sur UN batiment, rangee par sa cle BD TOPO (cleabs), qui survit aux mises a jour du contour. 'contrainte' (par defaut) restreint les formes du calcul et laisse la mesure donner les hauteurs ; 'remplacement' donne aussi les dimensions (un batiment sans LiDAR, une mesure trompeuse). Un fait s'applique a tous les projets qui contiennent le batiment. Ce fichier est compile dans le fichier livre (model/faitsToits.ts) et son empreinte entre dans VERSION_LECTURE_TOITS (app/toitsLidar.ts) : un fait ajoute relit les toits deja lus. Le skill regles-toits (.claude/skills/regles-toits/) dit quand ecrire un fait plutot qu'un reglage ou une regle.",
-  "faits": {}
+  "faits": {
+    "BATIMENT0000000322509182": {
+      "observation": {
+        "appentis": [{ "facade": { "azimutDeg": 180 }, "longueur": "toute" }]
+      },
+      "application": "contrainte",
+      "preuve": { "observation": "observation sur place du propriétaire, 14 octobre 2026", "photo": false },
+      "adresse": "2 allée des Limites, 78110 Le Vésinet (parcelle 78650000AE0101, AE 101)",
+      "historique": [
+        { "t": "2026-10-14", "texte": "Observé sur place par le propriétaire : sur la façade sud, un toit en appentis (porche, galerie couverte d'une maison de style colonial américain) sur toute la longueur de la façade, avec un décroché en plan d'environ 50 cm au milieu ; le toit de l'appentis reste à la même hauteur. Cotes non données : lues sur le LiDAR (profondeur 1,25 m, 3,2 m contre le mur, égout 2,4 m). Le décroché, plus petit que SEUIL_DECROCHE_M et à moitié sous un arbre sur la mesure, n'est pas dessiné : un seul pan. L'utilisateur a accepté que la référence d'AE 101 change une fois pour ce fait." }
+      ]
+    }
+  }
 }
