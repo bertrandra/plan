@@ -81,7 +81,9 @@ export const NOMS_USAGES: Record<string, string> = {
   analyse: 'Analyse',
   escalade: 'Escalade',
   renfort: 'Renfort',
-  immediat: 'Immédiat'
+  immediat: 'Immédiat',
+  // Les cas candidats Panoramax du skill regles-toits (lot G3 bis) : leur cout se lit a part.
+  candidats: 'Cas candidats'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */
@@ -332,7 +334,7 @@ export interface LigneUsage {
   partBatch: number;
 }
 
-/** La repartition entre analyse, escalade, renfort et immediat. Les quatre usages sont toujours la. */
+/** La repartition entre analyse, escalade, renfort, immediat et cas candidats. Les cinq usages sont toujours la. */
 export function parUsage(ls: LigneConsommation[], usages: string[] = Object.keys(NOMS_USAGES)): LigneUsage[] {
   const total = ls.filter(appel).reduce((n, l) => n + cout(l), 0);
   const ordre = [...usages, ...new Set(ls.map((l) => l.usage).filter((u) => !usages.includes(u)))];
