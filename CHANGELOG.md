@@ -1229,6 +1229,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Audit de la parcelle, ce que l'essai sur le terrain d'AE 101 a montré** (`MD/spec-audit.md`
+  §12.1 et §12.2) :
+  - **La maison d'à côté n'est plus proposée** : la liste mettait votre maison et six mitoyens à
+    égalité (33 façades, dont 19 chez les voisins). Seuls les bâtiments de la parcelle du projet
+    comptent et sont reconnus ; les mitoyens sont rangés à part, repliés, facultatifs, et se
+    photographient depuis leur ligne ou en touchant leur façade dans la Vue 3D.
+  - **Les décrochés ne sont plus des façades** : les bouts de mur de moins de 1,5 m (14 « façades »
+    pour la seule maison d'AE 101, dont des murs de 0,6 m) sont sur la photo du mur qu'ils décrochent.
+  - **La position est lissée**, selon la précision annoncée par le GPS, et **ramenée sur la parcelle**
+    quand elle tombe dans le jardin d'un voisin à portée de l'erreur.
+  - **La boussole, téléphone debout** (Chrome Android) donne le cap de l'appareil photo, calculé sur
+    les trois angles de l'orientation : le cap du haut du téléphone pouvait s'en écarter de plusieurs
+    dizaines de degrés.
+  - **La Vue 3D cadre la partie visible** au-dessus de l'écran de prise, qui cachait la moitié de la
+    façade ; elle vise le milieu de la façade, ne recule plus au travers d'un mur ni derrière la
+    clôture, et glisse d'une position à l'autre au lieu de sauter. Sans position encore, une façade
+    choisie se montre depuis huit mètres devant elle.
+  - **Le voile monte jusque sous le toit**, étage compris, et suit le haut du mur (une aile basse,
+    puis l'étage). **Une façade photographiée est verte, même visée** : rouge sur vert donnait du
+    brun ; le rouge ne dit plus que « à photographier ».
+
 - **Audit de la parcelle, « Ce qui manque »** (lot G18 bis) : deux façades de même orientation
   (« façade est de Maison : pas de photo » deux fois, sur une maison en L) ne donnent plus deux
   lignes de même clé React. Chaque ligne a pour clé ce qui manque (bâtiment et côté pour une

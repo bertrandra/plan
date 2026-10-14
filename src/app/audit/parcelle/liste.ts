@@ -9,10 +9,21 @@
 // Une facade collee a un autre batiment, ou posee sur la limite d'une parcelle voisine, est
 // « mitoyenne » : rien a photographier. Celle d'un mitoyen qui donne chez un autre voisin est
 // supposee inaccessible ; une touche la rend a la liste.
+//
+// Ce qui compte, ce sont les batiments de la parcelle du projet (essai sur le terrain d'AE 101,
+// 14 octobre : 7 batiments et 33 facades, dont 19 chez les voisins, et la reconnaissance proposait
+// la maison d'a cote). Les mitoyens restent dans la liste, a part et facultatifs : ils n'entrent ni
+// dans le compteur, ni dans ce qui manque, et la reconnaissance ne les propose pas d'elle-meme.
+// Un bout de mur de moins de MUR_COURT_M (un decroche) n'est pas une facade : il est sur la photo
+// du mur qu'il decroche.
 
 import { centroid, pointInPolygon } from '../../../geometry/basic.js';
 import { distancePointContour } from '../../../geometry/proximite.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../../../facade/geometrie.js';
+import { hauteursMursCorps } from '../../../facade/toitCorps.js';
+import { distancePointSegment } from '../../../geometry/segments.js';
+import { sommetDe } from '../../../geometry/anneau.js';
+import { au } from '../../../util/tableaux.js';
 import { elevationOf } from '../../../engine/hauteurs.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../../model/fonctions.js';
@@ -31,6 +42,10 @@ const DEVANT_M = 1.5;
 const PORTEE_VUE_M = 25;
 /** Un mur est colle quand au moins cette part de sa longueur touche un autre batiment. */
 const PART_COLLEE = 0.5;
+/** Plus court, un mur est un decroche : il se photographie avec le mur voisin, pas seul. */
+export const MUR_COURT_M = 1.5;
+/** Un mur de corps a moins de cela du milieu de la facade est ce mur-la (comme facade/ouvertures.ts). */
+const MUR_PROCHE_M = 0.8;
 /** Un toit plat : moins de cela entre le faitage et l'egout le plus haut (spec-regles-toits §2.7). */
 const MONTEE_PLATE_M = 0.3;
 
@@ -38,9 +53,20 @@ export type StatutFacade = 'aPhotographier' | 'photographiee' | 'inaccessible' |
 /** Ce qu'il y a devant le mur : la parcelle du projet, la rue (aucune parcelle), un autre voisin. */
 export type Situation = 'mitoyenne' | 'parcelle' | 'rue' | 'voisin';
 
+/** Un morceau du haut d'un mur : de `de` a `a` metres depuis sa gauche (vue de dehors), a `h` metres. */
+export interface MorceauMur { de: number; a: number; h: number }
+
 export interface LigneFacade {
   cote: number;
   facade: Facade;
+  /**
+   * La hauteur du mur jusque sous le toit, corps compris (l'etage d'AE 101 montait au-dessus du
+   * prisme, et le voile de la Vue 3D s'arretait au rez-de-chaussee) : pour le surlignage et le plan
+   * de prise. La geometrie de `facade` ne change pas : c'est elle que l'analyse mesure.
+   */
+  hauteurMur: number;
+  /** Le haut du mur par morceaux, de gauche a droite (`de` et `a` en metres le long du mur) : une aile basse, puis l'etage. */
+  profilMur: MorceauMur[];
   statut: StatutFacade;
   photos: number;
   /** « Façade sud · 9,2 m » */
@@ -135,6 +161,72 @@ export function situationFacade(f: Facade, cle: string, objets: readonly ObjetPl
   return 'voisin';
 }
 
+/** Un mur de corps fait face a la facade quand l'angle entre eux a un cosinus au moins de cela (25 degres). */
+const PARALLELE_MIN = 0.9;
+/** Un point de la facade un peu au-dela du bout d'un mur de corps compte encore pour lui (arrondis du contour). */
+const BOUT_M = 0.1;
+/** Un morceau plus court n'est pas un mur a part. */
+const MORCEAU_MIN_M = 0.75;
+/** Le haut du mur est lu tous les tant de metres le long de la facade. */
+const PAS_PROFIL_M = 0.25;
+
+/**
+ * La hauteur du mur sous le toit au point `p` de la facade : celle du mur de corps qui passe la
+ * (l'egout de son pan, ou le bas d'un pignon : le triangle n'est pas compte), la plus haute s'il y en
+ * a plusieurs ; sinon le prisme.
+ */
+function hauteurAuPoint(o: ObjetPlan, f: Facade, p: PtBrut, prisme: number): number {
+  let h = prisme;
+  const ux = (f.droite.x - f.gauche.x) / (f.largeur || 1), uy = (f.droite.y - f.gauche.y) / (f.largeur || 1);
+  for (const c of o.corpsToit ?? []) {
+    const murs = hauteursMursCorps(c);
+    c.pts.forEach((a, i) => {
+      const b = sommetDe(c.pts, i + 1), l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      // Seul compte un mur du corps parallele a la facade : pres d'un coin, le mur voisin passe aussi a moins de 0,8 m.
+      if (Math.abs(((b.x - a.x) * ux + (b.y - a.y) * uy) / l) < PARALLELE_MIN) return;
+      // Le point doit tomber le long du mur du corps (pas au-dela de son bout), et pres de lui.
+      const le = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l;
+      if (le < -BOUT_M || le > l + BOUT_M) return;
+      if (distancePointSegment(p, a, b) < MUR_PROCHE_M) h = Math.max(h, murs[i] ?? h);
+    });
+  }
+  return h;
+}
+
+/** Le haut du mur par morceaux, lu le long de la facade (un peu en retrait des coins). */
+export function profilMurSousToit(o: ObjetPlan, f: Facade): MorceauMur[] {
+  const n = Math.max(1, Math.ceil(f.largeur / PAS_PROFIL_M));
+  const out: MorceauMur[] = [];
+  for (let k = 0; k < n; k++) {
+    const de = (f.largeur * k) / n, a = (f.largeur * (k + 1)) / n;
+    const h = hauteurAuPoint(o, f, pointDeFacade(f, (de + a) / 2), f.hauteur);
+    const dernier = out[out.length - 1];
+    if (dernier && Math.abs(dernier.h - h) < 0.05) dernier.a = a;
+    else out.push({ de, a, h });
+  }
+  // Un bout de moins de MORCEAU_MIN_M est l'angle d'un corps voisin (AE 101 : 24 cm a 5,9 m au coin
+  // de la facade sud) : il prend la hauteur du morceau le plus long a cote de lui.
+  const court = () => out.findIndex((m) => m.a - m.de < MORCEAU_MIN_M);
+  for (let i = court(); out.length > 1 && i >= 0; i = court()) {
+    const m = au(out, i);
+    const g = i > 0 ? au(out, i - 1) : null, d = i < out.length - 1 ? au(out, i + 1) : null;
+    if (g && (!d || g.a - g.de >= d.a - d.de)) g.a = m.a; else if (d) d.de = m.de;
+    out.splice(i, 1);
+  }
+  // Deux voisins devenus de meme hauteur ne font plus qu'un.
+  const net: MorceauMur[] = [];
+  for (const m of out) {
+    const dernier = net[net.length - 1];
+    if (dernier && Math.abs(dernier.h - m.h) < 0.05) dernier.a = m.a; else net.push({ ...m });
+  }
+  return net;
+}
+
+/** La hauteur du mur sous le toit : le plus haut de ses morceaux (etage compris). */
+export function hauteurMurSousToit(o: ObjetPlan, f: Facade): number {
+  return Math.max(f.hauteur, ...profilMurSousToit(o, f).map((m) => m.h));
+}
+
 /** Le statut d'une facade : mitoyenne, puis photographiee (une photo l'emporte sur tout), puis inaccessible. */
 export function statutFacade(situation: Situation, mitoyen: boolean, photos: number, inaccessible: boolean | undefined): StatutFacade {
   if (situation === 'mitoyenne') return 'mitoyenne';
@@ -183,10 +275,13 @@ function nommer(liste: { o: Batiment }[]): Map<string, string> {
 /** Les lignes d'un batiment : ses facades, puis toit, cheminees, terrasse s'il en a une, materiaux. */
 export function ligneBatiment(o: Batiment, mitoyen: boolean, nom: string, objets: readonly ObjetPlan[], capture: CaptureParcelle): LigneBatiment {
   const b = capture.batiments[o.key] ?? batimentVide();
-  const facades = facadesDuContour(o.pts, elevationOf(o)).map((f): LigneFacade => {
+  const facades = facadesDuContour(o.pts, elevationOf(o)).flatMap((f): LigneFacade[] => {
     const fc = b.facades[String(f.cote)];
     const photos = fc?.photos.length ?? 0;
-    return { cote: f.cote, facade: f, photos, statut: statutFacade(situationFacade(f, o.key, objets), mitoyen, photos, fc?.inaccessible), libelle: 'Façade ' + f.orientation.toLowerCase() + ' · ' + metres(f.largeur) };
+    // Un decroche ne se photographie pas seul ; il reste dans la liste s'il a deja des photos (ancien brouillon).
+    if (f.largeur < MUR_COURT_M && !photos) return [];
+    const profilMur = profilMurSousToit(o, f);
+    return [{ cote: f.cote, facade: f, hauteurMur: Math.max(f.hauteur, ...profilMur.map((m) => m.h)), profilMur, photos, statut: statutFacade(situationFacade(f, o.key, objets), mitoyen, photos, fc?.inaccessible), libelle: 'Façade ' + f.orientation.toLowerCase() + ' · ' + metres(f.largeur) }];
   });
   const parties: PartieVue[] = ['toit', 'cheminees', ...(aUnToitPlat(o, b) ? ['terrasse' as const] : []), 'materiaux'];
   return { cle: o.key, nom, mitoyen, facades, parties: parties.map((p) => lignePartie(b, p)), photosToit: b.photos.length };
@@ -231,7 +326,9 @@ export function listeDeControle(objets: readonly ObjetPlan[], capture: CapturePa
   const audites = batimentsAudites(objets);
   const noms = nommer(audites);
   const batiments = audites.map(({ o, mitoyen }) => ligneBatiment(o, mitoyen, noms.get(o.key) ?? o.key, objets, capture));
-  const toutes = batiments.flatMap((b) => b.facades);
+  // Le compteur et ce qui manque ne parlent que de la parcelle du projet ; les mitoyens sont facultatifs.
+  const propres = batiments.filter((b) => !b.mitoyen);
+  const toutes = propres.flatMap((b) => b.facades);
   const photographiees = toutes.filter((f) => f.statut === 'photographiee').length;
   const aPrendre = toutes.filter((f) => f.statut === 'photographiee' || f.statut === 'aPhotographier').length;
   const { cloture: c, portail: p } = capture;
@@ -243,9 +340,10 @@ export function listeDeControle(objets: readonly ObjetPlan[], capture: CapturePa
     portail: { faite: portailFait, resume: resumePortail(capture) },
     facadesPhotographiees: photographiees,
     facadesAPrendre: aPrendre,
-    compteur: compteurDe(batiments, photographiees, aPrendre, clotureFaite, portailFait),
-    manques: manquesDe(batiments, clotureFaite, portailFait),
-    peutLancer: photographiees > 0,
+    compteur: compteurDe(propres, photographiees, aPrendre, clotureFaite, portailFait),
+    manques: manquesDe(propres, clotureFaite, portailFait),
+    // Une photo d'un mitoyen suffit aussi a lancer l'analyse.
+    peutLancer: batiments.some((b) => b.facades.some((f) => f.statut === 'photographiee')),
   };
 }
 

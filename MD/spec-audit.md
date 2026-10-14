@@ -394,9 +394,17 @@ Et pour la parcelle :
 
 - Une façade sur une limite mitoyenne (`model/mitoyennete.ts`) est déjà marquée « mitoyenne, rien à
   photographier ». Une façade côté voisin ou cachée se marque « inaccessible » en une touche.
-- Les **mitoyens** apparaissent dans la liste, avec ce qui se voit depuis la rue et depuis la parcelle :
-  leur toit, leurs cheminées, la façade sur la limite. Le reste est « inaccessible ».
-- Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »).
+- Les **mitoyens** apparaissent dans la liste, **à part, repliés et facultatifs** (« Bâtiments voisins,
+  facultatif (n) »), avec ce qui se voit depuis la rue et depuis la parcelle : leur toit, leurs
+  cheminées, la façade sur la limite. Le reste est « inaccessible ». Ils n'entrent ni dans le
+  compteur ni dans « Ce qui manque », et la reconnaissance ne les propose jamais d'elle-même : on les
+  photographie depuis leur ligne, ou en touchant leur façade dans la Vue 3D. Une photo de mitoyen
+  suffit pour lancer l'analyse. (Essai sur le terrain d'AE 101, 14 octobre : 7 bâtiments et
+  33 façades, dont 19 chez les voisins, et la reconnaissance proposait la maison d'à côté.)
+- Un bout de mur de moins de 1,5 m (un décroché) n'est pas une façade : il est sur la photo du mur
+  qu'il décroche. Il reste dans la liste s'il a déjà des photos (`liste.ts`, `MUR_COURT_M`).
+- Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »), pour la parcelle du
+  projet seulement.
 - Toucher une façade dans la Vue 3D ouvre sa ligne.
 
 ### 12.2 Photographier : Plan sait devant quelle façade vous êtes
@@ -404,14 +412,27 @@ Et pour la parcelle :
 1. Vous marchez autour de la maison, l'écran de prise ouvert. **La façade que vous avez devant vous
    est reconnue en direct** (§6.1), surlignée **en rouge** dans la Vue 3D et nommée : « Vous êtes devant
    la façade sud, 9,2 m — 0 photo ».
-   - La Vue 3D est **à hauteur d'homme** (1,7 m), prise 6 m derrière vous, le regard 10° vers le haut
-     pour voir la façade entière. Elle **suit votre position et votre cap** (boussole, sinon sens de la
-     marche) : ce n'est pas une image fixe. Un doigt qui la fait tourner la garde 6 s, puis le suivi
-     reprend (`app/audit/parcelle/vuePrise.ts`).
+   - La Vue 3D est **à hauteur d'homme** (1,7 m), prise jusqu'à 6 m derrière vous, jamais au travers
+     d'un mur ni au-delà de la clôture de la parcelle ; le regard monte vers le milieu de la façade
+     visée. Elle **cadre la partie que l'écran de prise laisse voir** (champ de 50° au-dessus de lui).
+     Elle **suit votre position et votre cap** (boussole, sinon sens de la marche) et glisse d'une
+     pose à l'autre : ce n'est pas une image fixe. Sans position encore, une façade choisie se montre
+     depuis 8 m devant elle. Un doigt qui la fait tourner la garde 6 s, puis le suivi reprend
+     (`app/audit/parcelle/vuePrise.ts`).
+   - **La position** est lissée selon la précision annoncée (un filtre de Kalman, à 3 m/s de marche)
+     et, quand elle tombe dans le jardin d'un voisin à portée de l'erreur, ramenée juste à l'intérieur
+     de la parcelle du projet : l'audit se fait depuis la parcelle ou depuis la rue
+     (`app/audit/parcelle/positionFiltree.ts`).
+   - **La boussole**, téléphone debout pour photographier, donne le cap de l'appareil photo arrière,
+     calculé sur les trois angles de l'orientation (Chrome Android) ; à plat, celui du haut du
+     téléphone (`shell/boussole.ts::capAppareilPhoto`).
    - Si l'automatisme ne trouve pas la bonne façade, **toucher une façade dans la Vue 3D la choisit**
      (« Photo pour la façade … (choisie) ») ; « Suivre ma position » revient à la façade reconnue.
-   - Les façades **déjà photographiées passent au vert**. Elles restent reconnues et se touchent
-     encore : on peut toujours en reprendre une (huit photos au plus par façade).
+   - Les façades **déjà photographiées passent au vert**, visée comprise (rouge sur vert faisait du
+     brun) : le rouge ne dit que « à photographier ». Elles restent reconnues et se touchent encore :
+     on peut toujours en reprendre une (huit photos au plus par façade).
+   - Le voile monte **jusque sous le toit**, étage compris, et suit le haut du mur par morceaux (une
+     aile basse, puis l'étage) : `liste.ts::profilMurSousToit`, d'après les murs des corps.
    - Décision de l'utilisateur du 14 octobre 2026.
 2. Le plan de prise (§7) dit combien de photos il faut : « une photo suffit » ou « 3 photos, de gauche
    à droite », plus un gros plan du parement.

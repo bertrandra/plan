@@ -54,6 +54,24 @@ describe('la facade devant vous dans la Vue 3D', () => {
     expect(g.getObjectByName('contour')).toBeDefined();
   });
 
+  it('suit le haut du mur par morceaux : rien sur le ciel au-dessus d une aile basse', () => {
+    reposerFacadeDevant(() => 0);
+    poserFacadeDevant({ ...sud, hauteur: 6, profil: [{ de: 0, a: 4, h: 3 }, { de: 4, a: 10, h: 6 }] });
+    const g = scene.getObjectByName(NOM_FACADE_DEVANT) as Obj3;
+    const voile = g.getObjectByName('voile') as Maille;
+    const pos = voile.geometry.attrs.position!.array;
+    // Deux morceaux, deux quadrilateres : l'aile a 3 m, puis l'etage a 6 m.
+    expect(voile.geometry.index).toEqual([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+    expect(pos[7]).toBeCloseTo(3, 9);
+    expect(pos[12 + 6]).toBeCloseTo(10, 9);
+    expect(pos[12 + 7]).toBeCloseTo(6, 9);
+    // Le contour passe par la marche : le bas, puis le haut de droite a gauche.
+    const contour = (g.getObjectByName('contour') as Maille).geometry.attrs.position!.array;
+    const hauts = [];
+    for (let i = 4; i < contour.length; i += 3) hauts.push(contour[i]);
+    expect(hauts).toEqual([0, 6, 6, 3, 3]);
+  });
+
   it('un seul surlignage, qui change de mur et s efface', () => {
     reposerFacadeDevant(undefined);
     poserFacadeDevant(sud);

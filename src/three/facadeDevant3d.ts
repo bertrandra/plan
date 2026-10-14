@@ -8,6 +8,7 @@
 
 import { vue3d } from './etat3d.js';
 import { versLocalDepuis, HORS_EXPORT } from './primitives.js';
+import { au } from '../util/tableaux.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut } from '../model/types.js';
 
@@ -27,34 +28,58 @@ export const VERT_FACADE = 0x2e9e4f;
 /** Le nom du groupe des facades photographiees : sous la facade visee, qui l'emporte quand c'est la meme. */
 export const NOM_FACADES_FAITES = 'facadesFaites';
 
-/** Le mur a surligner : ses deux bouts au sol, sa normale sortante et sa hauteur a l'egout. */
-export interface MurSurligne { gauche: PtBrut; droite: PtBrut; normale: PtBrut; hauteur: number }
+/**
+ * Le mur a surligner : ses deux bouts au sol, sa normale sortante et sa hauteur a l'egout ; et, quand
+ * il change de hauteur le long de sa longueur (une aile basse, puis un etage), son haut par morceaux,
+ * `de` et `a` en metres depuis sa gauche : le voile suit alors le mur, sans couvrir le ciel.
+ */
+export interface MurSurligne { gauche: PtBrut; droite: PtBrut; normale: PtBrut; hauteur: number; profil?: readonly { de: number; a: number; h: number }[] }
 
 let courant: MurSurligne | null = null;
 let couleur = AMBRE;
 let faites: MurSurligne[] = [];
 let hauteurSol: ((p: PtBrut) => number) | undefined;
 
-/** Les quatre coins du voile, dans le repere de la scene : bas gauche, bas droite, haut droite, haut gauche. */
-function coins(m: MurSurligne, cen: PtBrut): number[] {
+/**
+ * Les morceaux du voile, dans le repere de la scene : pour chacun, bas gauche, bas droite, haut
+ * droite, haut gauche ; et le contour, du bas gauche au bas droit puis par le haut, de droite a gauche.
+ */
+function morceaux(m: MurSurligne, cen: PtBrut): { quads: number[]; contour: number[] } {
   const local = versLocalDepuis(cen);
-  const decale = (p: PtBrut) => ({ x: p.x + m.normale.x * DECOLLEMENT_M, y: p.y + m.normale.y * DECOLLEMENT_M });
-  const g = local(decale(m.gauche)), d = local(decale(m.droite));
-  const sg = hauteurSol ? hauteurSol(m.gauche) : 0, sd = hauteurSol ? hauteurSol(m.droite) : 0;
-  return [g.x, sg, g.z, d.x, sd, d.z, d.x, sd + m.hauteur, d.z, g.x, sg + m.hauteur, g.z];
+  const lx = m.droite.x - m.gauche.x, ly = m.droite.y - m.gauche.y, l = Math.hypot(lx, ly) || 1;
+  const profil = m.profil?.length ? m.profil : [{ de: 0, a: l, h: m.hauteur }];
+  /** Le point a `s` metres de la gauche, decolle du mur, et son sol. */
+  const point = (s: number) => {
+    const p = { x: m.gauche.x + (lx * s) / l + m.normale.x * DECOLLEMENT_M, y: m.gauche.y + (ly * s) / l + m.normale.y * DECOLLEMENT_M };
+    return { ...local(p), sol: hauteurSol ? hauteurSol({ x: m.gauche.x + (lx * s) / l, y: m.gauche.y + (ly * s) / l }) : 0 };
+  };
+  const quads: number[] = [];
+  const haut: number[] = [];
+  for (const q of profil) {
+    const a = point(q.de), b = point(q.a);
+    quads.push(a.x, a.sol, a.z, b.x, b.sol, b.z, b.x, b.sol + q.h, b.z, a.x, a.sol + q.h, a.z);
+    haut.push(a.x, a.sol + q.h, a.z, b.x, b.sol + q.h, b.z);
+  }
+  const g = point(0), d = point(l);
+  // Le contour : le bas, puis le haut parcouru de droite a gauche, marches comprises.
+  const retour: number[] = [];
+  for (let i = haut.length - 3; i >= 0; i -= 3) retour.push(au(haut, i), au(haut, i + 1), au(haut, i + 2));
+  return { quads, contour: [g.x, g.sol, g.z, d.x, d.sol, d.z, ...retour] };
 }
 
 /** Le voile et le contour d'un mur, dans cette couleur, devant tout ce qui a un ordre plus petit. */
 function voileDe(m: MurSurligne, cen: PtBrut, teinte: number, ordre: number): THREE_NS.Object3D[] {
-  const sommets = coins(m, cen);
+  const { quads, contour: sommetsContour } = morceaux(m, cen);
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
-  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(quads, 3));
+  const index: number[] = [];
+  for (let k = 0; k < quads.length / 12; k++) index.push(4 * k, 4 * k + 1, 4 * k + 2, 4 * k, 4 * k + 2, 4 * k + 3);
+  geo.setIndex(index);
   const voile = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: teinte, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
   voile.name = 'voile';
   voile.renderOrder = ordre;
   const geoContour = new THREE.BufferGeometry();
-  geoContour.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
+  geoContour.setAttribute('position', new THREE.Float32BufferAttribute(sommetsContour, 3));
   const contour = new THREE.LineLoop(geoContour, new THREE.LineBasicMaterial({ color: teinte, depthTest: false, transparent: true }));
   contour.name = 'contour';
   contour.renderOrder = ordre;
@@ -96,7 +121,10 @@ function placerFaites(): void {
   sc.scene.add(creerGroupe(NOM_FACADES_FAITES, faites, sc.cen, VERT_FACADE, 996));
 }
 
-const copie = (m: MurSurligne): MurSurligne => ({ gauche: { ...m.gauche }, droite: { ...m.droite }, normale: { ...m.normale }, hauteur: m.hauteur });
+const copie = (m: MurSurligne): MurSurligne => ({
+  gauche: { ...m.gauche }, droite: { ...m.droite }, normale: { ...m.normale }, hauteur: m.hauteur,
+  ...(m.profil?.length ? { profil: m.profil.map((q) => ({ ...q })) } : {}),
+});
 
 /** Les facades deja photographiees (audit de la parcelle), en vert ; une liste vide les retire. */
 export function poserFacadesFaites(murs: readonly MurSurligne[]): void {
@@ -107,7 +135,7 @@ export function poserFacadesFaites(murs: readonly MurSurligne[]): void {
 /** La facade devant vous change (ou disparait, avec null) : le surlignage la suit, dans cette couleur. */
 export function poserFacadeDevant(m: MurSurligne | null, teinte = AMBRE): void {
   couleur = teinte;
-  courant = m ? { gauche: { ...m.gauche }, droite: { ...m.droite }, normale: { ...m.normale }, hauteur: m.hauteur } : null;
+  courant = m ? copie(m) : null;
   placer();
 }
 

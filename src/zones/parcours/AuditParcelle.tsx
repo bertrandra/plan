@@ -1,9 +1,9 @@
 // Z8, l'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §12).
 //
 // Trois ecrans, une session (app/audit/parcelle/controleur.ts) :
-// - la liste de controle, plein ecran : par batiment de la parcelle et des mitoyens, les facades, le
-//   toit, les cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le
-//   portail ; le compteur de ce qui reste, et « Lancer l'analyse » ;
+// - la liste de controle, plein ecran : par batiment de la parcelle, les facades, le toit, les
+//   cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le portail ; les
+//   mitoyens a part, replies et facultatifs ; le compteur de ce qui reste, et « Lancer l'analyse » ;
 // - l'ecran de prise, pose en bas de la Vue 3D (le voile s'efface, la scene reste visible) : la
 //   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme ;
 // - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
@@ -11,7 +11,7 @@
 // Tout s'ecrit dans la capture a chaque geste, gardee dans le brouillon de l'appareil : fermer ne perd
 // rien, et rien n'entre dans le projet avant la validation des propositions.
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
@@ -214,6 +214,11 @@ function Liste({ session, fermer }: Props) {
   const c = session.capture.lire();
   const basculer = (cle: string) => setOuverte(ouverte === cle ? null : cle);
   const terminee = c.phase === 'analyse';
+  // Les batiments de la parcelle d'abord ; les mitoyens a part, replies : ils sont facultatifs.
+  const voisins = l.batiments.filter((b) => b.mitoyen);
+  const section = (b: LigneBatiment) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
+    prendre={(cle, cote) => session.photographier(cle, cote)}
+    photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />;
   return (
     <div className="dialogueImperatif dialogueAudit dialogueAuditParcelle" role="dialog" aria-modal="true" aria-label="Audit de la parcelle">
       <div className="titreParcours">Audit de la parcelle</div>
@@ -228,11 +233,14 @@ function Liste({ session, fermer }: Props) {
         <span className="detailPhoto">La Vue 3D vous suit à hauteur d’homme ; la façade devant vous passe en rouge et la photo s’y range d’elle-même. Sinon, touchez la façade dans la 3D.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
-      {l.batiments.map((b) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
-        prendre={(cle, cote) => session.photographier(cle, cote)}
-        photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />)}
+      {l.batiments.filter((b) => !b.mitoyen).map(section)}
       <SectionParcelle session={session} ouverte={ouverte} basculer={basculer}
         photo={(quoi, f) => photo.prendre(f, (p) => (quoi === 'cloture' ? session.capture.ajouterPhotoCloture(p) : session.capture.ajouterPhotoPortail(p)))} />
+      {voisins.length > 0 && <details className="manquesAudit voisinsAudit">
+        <summary>{'Bâtiments voisins, facultatif (' + voisins.length + ')'}</summary>
+        <p className="detailPhoto">Ils ne comptent pas dans l’audit et ne sont jamais proposés d’eux-mêmes : « Photographier » sur une ligne, ou touchez la façade dans la 3D.</p>
+        {voisins.map(section)}
+      </details>}
       {l.peutLancer && l.manques.length > 0 && <details className="manquesAudit">
         <summary>{'Ce qui manque (' + l.manques.length + ')'}</summary>
         <ul>{l.manques.map((m) => <li key={m.cle}>{m.texte}</li>)}</ul>
@@ -266,12 +274,25 @@ function texteVisee(session: SessionAuditParcelle): { titre: string; detail: str
 
 function Prise({ session }: { session: SessionAuditParcelle }) {
   const photo = usePhoto(session);
+  // La Vue 3D cadre la partie que l'ecran de prise laisse voir : il dit ou il commence, a chaque
+  // changement de taille (une ligne de plus, l'ecran tourne).
+  const cadre = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = cadre.current;
+    if (!el) return;
+    const dire = () => session.cadrerVue(el.getBoundingClientRect().top);
+    dire();
+    const obs = typeof ResizeObserver === 'function' ? new ResizeObserver(dire) : null;
+    obs?.observe(el);
+    window.addEventListener('resize', dire);
+    return () => { obs?.disconnect(); window.removeEventListener('resize', dire); session.cadrerVue(null); };
+  }, [session]);
   const c = session.cible();
   const pos = session.position();
   const { titre, detail } = texteVisee(session);
   const etatGps = pos.etat === 'ok' ? 'GPS ± ' + Math.round(pos.precisionM ?? 0) + ' m' + (pos.boussole ? ' · boussole' : ' · sans boussole : la façade la plus proche') : null;
   return (
-    <div className="auditPrise" role="dialog" aria-modal="false" aria-label="Photographier les façades">
+    <div ref={cadre} className="auditPrise" role="dialog" aria-modal="false" aria-label="Photographier les façades">
       <div className="titreParcours" aria-live="polite">{titre}</div>
       {detail && <div className="detailPhoto">{detail}</div>}
       {etatGps && <div className="detailPhoto">{etatGps}</div>}

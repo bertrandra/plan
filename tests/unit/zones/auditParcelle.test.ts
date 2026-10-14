@@ -38,12 +38,16 @@ const bouton = (texte: string | RegExp) => [...hote.querySelectorAll('button')].
 const cliquer = (b: HTMLElement | undefined) => { expect(b).toBeDefined(); act(() => b?.click()); };
 
 describe('la liste de controle', () => {
-  it('montre les batiments de la parcelle puis les mitoyens, et le compteur', () => {
+  it('montre les batiments de la parcelle, la parcelle, puis les mitoyens a part, et le compteur', () => {
     ecran();
     expect(hote.querySelector('.titreParcours')?.textContent).toBe('Audit de la parcelle');
-    expect(hote.querySelector('.compteurAudit')?.textContent).toMatch(/^0 façade sur \d+, 0 toit vu sur 2, clôture à faire, portail à faire$/);
+    expect(hote.querySelector('.compteurAudit')?.textContent).toMatch(/^0 façade sur \d+, toit à voir, clôture à faire, portail à faire$/);
     const titres = [...hote.querySelectorAll('.titreBatimentAudit')].map((h) => h.textContent);
-    expect(titres).toEqual(['Maison', 'Voisinmitoyen', 'La parcelle']);
+    expect(titres).toEqual(['Maison', 'La parcelle', 'Voisinmitoyen']);
+    // Les mitoyens sont replies, facultatifs.
+    const voisins = hote.querySelector('details.voisinsAudit');
+    expect(voisins?.querySelector('summary')?.textContent).toBe('Bâtiments voisins, facultatif (1)');
+    expect(voisins?.querySelector('.titreBatimentAudit')?.textContent).toBe('Voisinmitoyen');
     expect(bouton('Lancer l’analyse')?.disabled).toBe(true);
     expect(hote.textContent).toContain('Photographiez au moins une façade pour lancer l’analyse.');
   });
