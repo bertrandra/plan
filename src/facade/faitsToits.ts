@@ -17,6 +17,7 @@
 import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from './toitCorps.js';
 import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { appentisVers, avecAppentis } from './appentisFait.js';
+import { avecPignons, pignonsManquants } from './pignonsFait.js';
 import { signedArea } from '../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../model/faitsToits.js';
 import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../model/types.js';
@@ -166,8 +167,10 @@ export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i)
  * sinon les plus grands, etendus sur le contour ; un nombre au moins ne se fabrique pas.
  */
 export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null = null): CorpsToit[] | null {
-  // Les appentis adosses se lisent sur la grille brute : la surface mesuree s'arrete au contour.
-  return avecAppentis(f.observation.appentis, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), contour, grille);
+  // Les pignons d'une facade se posent sur le corps principal relu ; les appentis adosses se lisent
+  // ensuite sur la grille brute (la surface mesuree s'arrete au contour).
+  const principaux = avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour);
+  return avecAppentis(f.observation.appentis, principaux, contour, grille);
 }
 
 /** Les corps lus, le corps principal relu dans les formes et le sens observes, le nombre de corps tenu. */
@@ -283,6 +286,7 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   if (!dans(Math.min(...c.egouts), o.egout)) out.push('egout : ' + Math.min(...c.egouts));
   if (!dans(c.faitage, o.faitageM)) out.push('faitage : ' + c.faitage + ' m');
   for (const ap of o.appentis ?? []) if (!adosses.includes(ap)) out.push('appentis vers ' + ap.facade.azimutDeg + ' : non lu');
+  for (const pf of o.pignons ?? []) { const n = pignonsManquants(pf, c, contour); if (n) out.push('pignons vers ' + pf.facade.azimutDeg + ' : ' + (2 - n) + ' sur 2'); }
   return out;
 }
 

@@ -105,6 +105,8 @@ Le vocabulaire est fermé (`model/faitsToits.ts::lireFaitsToits` refuse le reste
 | `egout`, `faitageM` | `{ min, max }` en mètres | trient les candidats quand l'un d'eux les tient ; la mesure décide sinon |
 | `application` | `contrainte` (défaut), `remplacement` | voir ci-dessous |
 | `dimensions` | `{ egoutM, faitageM, hautVersDeg }` | **remplacement seulement** : les hauteurs, et le côté haut d'un appentis |
+| `appentis` | `[{ facade: { azimutDeg }, longueur: "toute", profondeurM?, egoutM?, hautM? }]` | un appentis adossé ajouté contre cette façade, cotes lues sur la mesure (spec §5.1) |
+| `pignons` | `[{ facade: { azimutDeg }, position: "bouts", haut?: "faitage", largeurM? }]` | un pignon traversant à chaque bout du pan de cette façade, tenu quelle que soit la lecture (spec §5.2) |
 | `appentis` | `[{ facade: { azimutDeg, toleranceDeg? }, longueur: "toute", profondeurM?, egoutM?, hautM? }]` | **ajoute** un appentis adossé (porche, galerie, auvent) que le contour ne contient pas, contre la façade dont la normale sortante regarde vers `azimutDeg` (180 : la façade sud ; 45° de tolérance) : un seul pan sur tout le côté du corps, cotes absentes lues sur la grille brute du MNH, données l'emportant ; rien n'est fabriqué sans mesure ni cotes (spec §5.1) |
 
 - **Une façade se nomme par sa normale** : « la façade sud » s'écrit `facade: { azimutDeg: 180 }`,
