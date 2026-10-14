@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les cas candidats Panoramax** (lot G3 bis de la vague 3, `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §13.3 phase 4 et §14.5, usage 3 de Claude analyste). Un script du skill
+  `regles-toits` (`scripts/candidats.ts`) parcourt les photos de rue Panoramax d'un village relevé
+  par `village.mjs` : pour chaque bâtiment, les photos qui voient son toit (même choix que la couleur
+  des murs, avec du recul et le faîte dans le cadre), trois passes de Claude par les routes de
+  l'analyse et leur vote, puis les bâtiments qui ont probablement une forme que Plan ne sait pas
+  encore faire (Mansart, gambrel, demi-croupes, lucarnes…). Ils entrent au corpus
+  (`tests/fixtures/toits/candidats/<village>.json`) au statut « proposé », avec la forme visée dans
+  le vocabulaire du modèle de toit, le vote et les photos qui en sont la preuve, à trier sur images ;
+  un candidat trié n'est plus jamais réécrit. Rien ne s'applique au calcul : AE 101, le banc des
+  villages et les empreintes n'ont pas bougé. `--essai` liste sans appeler Claude ce qui serait
+  envoyé. `village.mjs` écrit désormais l'origine du repère du plan dans le fichier du village.
+- **Un usage « Cas candidats » pour l'analyse par Claude** (`deploy/analyse.php`,
+  `buildsg/analyseAdmin.mjs`) : mêmes plafonds, même prompt et même schéma que l'analyse d'une
+  maison, mais une ligne de journal à part ; l'écran « Consommation » en montre le coût dans la
+  répartition par usage.
+
 - **Le modèle de toit étendu** (lot G1 de la vague 3, `MD/plan-vague-3-generaliser.md`,
   `MD/spec-regles-toits.md` §4). Un corps de toit peut porter, tous facultatifs, son **profil** en
   travers (droit, brisé, à coyau, courbe), ce qui ferme ses **bouts** (pignon, croupe, demi-croupe,

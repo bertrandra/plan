@@ -37,8 +37,10 @@ const ici = path.dirname(fileURLToPath(import.meta.url));
 export const VERSION_API = '2023-06-01';
 /** Les modeles que la page peut demander, et celui de chaque usage (spec-regles-toits.md 14.2). */
 export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
-export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat'];
-const MODELE_PAR_USAGE = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5' };
+// `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, avec le prompt et le
+// schema de l'analyse ; un usage a part pour que le journal et le tableau de bord en disent le cout.
+export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
+const MODELE_PAR_USAGE = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' };
 /**
  * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
  * siens ; les autres usages lisent ceux de l'analyse d'une maison.

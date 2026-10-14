@@ -49,10 +49,13 @@ declare(strict_types=1);
 
 const VERSION_API = '2023-06-01';
 const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
-const USAGES = ['analyse', 'escalade', 'renfort', 'immediat'];
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5'];
+// `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, qui observent un
+// batiment sur des photos de rue avec le prompt et le schema de l'analyse ; un usage a part pour que
+// le journal et le tableau de bord en disent le cout.
+const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
-// siens ; les autres usages lisent ceux de l'analyse d'une maison.
+// siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
 const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus.
