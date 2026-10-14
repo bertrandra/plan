@@ -23,6 +23,7 @@ import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { estTerrasse } from '../../model/fonctions.js';
+import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
@@ -55,6 +56,31 @@ export interface ReglagesVue3d {
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
+  /**
+   * Le niveau de qualite (three/qualite.ts) : preference de l'appareil, rangee dans le navigateur.
+   * Choisir un niveau remet la case « Ombres » a ce qu'il propose ; elle reste libre ensuite.
+   */
+  choisirQualite(q: Qualite3d): void;
+}
+
+const CLE_QUALITE = 'plan.qualite3d';
+
+/**
+ * Le niveau de cet appareil : celui choisi la derniere fois, sinon celui que l'appareil laisse
+ * attendre (decision V1). Le stockage peut manquer (navigation privee) : on retombe sur la detection.
+ */
+function qualiteDeLAppareil(): Qualite3d {
+  try {
+    const v = localStorage.getItem(CLE_QUALITE);
+    if (estQualite3d(v)) return v;
+  } catch { /* stockage indisponible : la detection suffit */ }
+  if (typeof navigator === 'undefined') return 'normale';
+  const media = (q: string) => typeof matchMedia === 'function' && matchMedia(q).matches;
+  return qualiteParDefaut({
+    coeurs: navigator.hardwareConcurrency,
+    memoireGo: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+    tactile: media('(pointer: coarse)') && !media('(any-pointer: fine)')
+  });
 }
 
 /** Le pas des boutons + et − de la Vue 3D : la distance a la cible divisee (ou multipliee) par deux. */
@@ -65,6 +91,9 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   const cam = (_idDom: string, id: string, libelle: string, executer: () => void, permission?: string) =>
     cmd.declarer({ id, libelle, groupe: '3d', executer, ...(permission ? { permission } : {}) });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && estTerrasse(o));
+
+  vue3d.qualite = qualiteDeLAppareil();
+  vue3d.ombres = parametresQualite(vue3d.qualite).ombresParDefaut;
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };
@@ -179,6 +208,11 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
      * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
      */
-    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; })
+    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; }),
+    choisirQualite: (q) => preference(() => {
+      vue3d.qualite = q;
+      vue3d.ombres = parametresQualite(q).ombresParDefaut;
+      try { localStorage.setItem(CLE_QUALITE, q); } catch { /* stockage indisponible : le choix vaut pour la session */ }
+    })
   };
 }

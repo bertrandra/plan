@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'reac
 import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
+import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
@@ -106,6 +107,11 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
               <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
+              <label className="etiquetteReglage" title={QUALITES_3D.find((x) => x.id === vue3d.qualite)?.aide}>Qualité
+                <select id="terrasse3dQualite" data-controle="vue3d.qualite" value={vue3d.qualite} onChange={(e) => { if (estQualite3d(e.target.value)) r.choisirQualite(e.target.value); }}>
+                  {QUALITES_3D.map((x) => <option key={x.id} value={x.id} title={x.aide}>{x.libelle}</option>)}
+                </select>
+              </label>
             </fieldset>
             <fieldset className="groupe3d groupeSoleil3d">
               <legend>Soleil</legend>

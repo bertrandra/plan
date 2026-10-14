@@ -9,6 +9,7 @@
 // Un objet mutable partage plutot que des accesseurs : c'est la meme forme que `etat` pour le plan,
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
+import type { Qualite3d } from './qualite.js';
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
@@ -173,6 +174,8 @@ export const vue3d: {
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
+  /** Le niveau de qualite de l'appareil (three/qualite.ts) : pose au demarrage, regle dans le panneau. */
+  qualite: Qualite3d;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -186,7 +189,8 @@ export const vue3d: {
   textures: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
-  ombres: true
+  ombres: true,
+  qualite: 'normale'
 };
 
 /**

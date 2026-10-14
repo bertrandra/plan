@@ -26,6 +26,7 @@ import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
@@ -203,12 +204,15 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // isole gardent leur recul, qui laisse voir la maison autour.
   const recul = terrain.serre ? distanceDeCadrage(extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
   camera.position.set(recul, recul + hCible, recul);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  const niveau = parametresQualite(vue3d.qualite);
+  const renderer = new THREE.WebGLRenderer({ antialias: niveau.anticrenelage, preserveDrawingBuffer: true });
   const glCtx3d = renderer.getContext && renderer.getContext();
   if (!glCtx3d || (glCtx3d.isContextLost && glCtx3d.isContextLost())) {
     showErrBanner('Vue 3D : le navigateur a refuse de creer un contexte 3D (trop d\'onglets/vues 3D ouverts ?). Ferme quelques onglets ou recharge la page, puis reessaie.');
     return null;
   }
+  // Le rapport de pixels suit l'ecran jusqu'au plafond du niveau : a 1 (Normale), le cout d'avant.
+  renderer.setPixelRatio(Math.min(niveau.pixelRatioMax, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
   renderer.setSize(w, h);
   renderer.shadowMap.enabled = vue3d.ombres;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -271,7 +275,8 @@ function poserLumieres(scene: THREE_NS.Scene, extent: number) {
     // fin de journee s'allonge bien au-dela de l'objet qui la projette. Seule la lumiere principale
     // projette — une deuxieme direction d'ombres ajouterait de la confusion pour peu de gain.
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
+    const carte = parametresQualite(vue3d.qualite).carteOmbre;
+    dirLight.shadow.mapSize.set(carte, carte);
     const d = extent * 1.8;
     dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;

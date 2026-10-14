@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
-import { choisirModeReseau, reseau } from './fumee-reseau.mjs';
+import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -2607,20 +2607,6 @@ function pointsPour(nomClasse) {
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
 
-/**
- * three.js r128 et ses trois scripts d'exemples, servis depuis `node_modules/three` (la meme version
- * que le CDN, en devDependency) plutot que depuis jsDelivr : les points de la Vue 3D (22, 23, 24, 38)
- * se jouent alors sans reseau sortant. `FUMEE_CDN=1` rejoue le vrai CDN.
- */
-async function servirThreeLocal(page) {
-  if (process.env.FUMEE_CDN === '1') return;
-  const racine = new URL('../node_modules/three/', import.meta.url).pathname;
-  const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'application/javascript' }) : route.continue();
-  // La bibliotheque vient de cdnjs, ses exemples de jsDelivr (three/glbViewer.ts, three/chargeurs.ts).
-  await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/r128\/three\.min\.js/, (route) => servir(route, racine + 'build/three.min.js'));
-  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) =>
-    servir(route, racine + route.request().url().split('three@0.128.0/')[1].split('?')[0]));
-}
 
 /**
  * Les parties d'un passage : une par point, classe d'ecran et theme. `FUMEE_CLASSES` et

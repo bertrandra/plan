@@ -15,8 +15,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
-const DOSSIER = new URL('../tests/fixtures/fumee-reseau/', import.meta.url).pathname;
-const INDEX = DOSSIER + 'index.json';
+const DOSSIER_FUMEE = new URL('../tests/fixtures/fumee-reseau/', import.meta.url).pathname;
 const HOTES = /^https:\/\/(data\.geopf\.fr|apicarto\.ign\.fr|api-adresse\.data\.gouv\.fr|wxs\.ign\.fr)\//;
 const SONDE = 'https://data.geopf.fr/geocodage/search?q=Rennes&limit=1';
 
@@ -54,11 +53,10 @@ function plusProche(index, k) {
   return meilleure && index[meilleure];
 }
 
-const lireIndex = () => (existsSync(INDEX) ? JSON.parse(readFileSync(INDEX, 'utf8')) : {});
+const lireIndex = (dossier) => (existsSync(dossier + 'index.json') ? JSON.parse(readFileSync(dossier + 'index.json', 'utf8')) : {});
 
 /** Le mode du passage : celui demande, sinon direct si l'IGN repond au navigateur, temoin sinon. */
-export async function choisirModeReseau(navigateur) {
-  const demande = process.env.FUMEE_RESEAU;
+export async function choisirModeReseau(navigateur, demande = process.env.FUMEE_RESEAU) {
   if (demande === 'direct' || demande === 'temoin' || demande === 'enregistrer') return demande;
   const contexte = await navigateur.newContext();
   const repond = await contexte.request.get(SONDE, { timeout: 5000 }).then((r) => r.status() < 500).catch(() => false);
@@ -66,9 +64,14 @@ export async function choisirModeReseau(navigateur) {
   return repond ? 'direct' : 'temoin';
 }
 
-/** Le reseau d'un passage : brancher chaque contexte, puis faire le bilan (et ecrire le temoin). */
-export function reseau(mode) {
-  const index = lireIndex();
+/**
+ * Le reseau d'un passage : brancher chaque contexte, puis faire le bilan (et ecrire le temoin).
+ * `dossier` : ou ranger le temoin (celui de la fumee par defaut ; le banc visuel a le sien).
+ */
+export function reseau(mode, dossier = DOSSIER_FUMEE) {
+  const DOSSIER = dossier.endsWith('/') ? dossier : dossier + '/';
+  const INDEX = DOSSIER + 'index.json';
+  const index = lireIndex(DOSSIER);
   const neufs = {};
   const manquants = new Set();
 
@@ -112,7 +115,7 @@ export function reseau(mode) {
       }
       const trie = Object.fromEntries(Object.keys(fusion).sort().map((k) => [k, fusion[k]]));
       writeFileSync(INDEX, JSON.stringify(trie, null, 1) + '\n');
-      return `réseau enregistré : ${Object.keys(neufs).length} réponse(s) rangée(s) dans tests/fixtures/fumee-reseau/`;
+      return `réseau enregistré : ${Object.keys(neufs).length} réponse(s) rangée(s) dans ${DOSSIER}`;
     }
     if (mode === 'temoin') {
       const liste = [...manquants];
@@ -123,4 +126,19 @@ export function reseau(mode) {
   }
 
   return { mode, brancher, bilan };
+}
+
+/**
+ * three.js r128 et ses trois scripts d'exemples, servis depuis `node_modules/three` (la meme version
+ * que le CDN, en devDependency) plutot que depuis jsDelivr : les points de la Vue 3D (22, 23, 24, 38)
+ * se jouent alors sans reseau sortant. `FUMEE_CDN=1` rejoue le vrai CDN.
+ */
+export async function servirThreeLocal(page) {
+  if (process.env.FUMEE_CDN === '1') return;
+  const racine = new URL('../node_modules/three/', import.meta.url).pathname;
+  const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'application/javascript' }) : route.continue();
+  // La bibliotheque vient de cdnjs, ses exemples de jsDelivr (three/glbViewer.ts, three/chargeurs.ts).
+  await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/r128\/three\.min\.js/, (route) => servir(route, racine + 'build/three.min.js'));
+  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) =>
+    servir(route, racine + route.request().url().split('three@0.128.0/')[1].split('?')[0]));
 }

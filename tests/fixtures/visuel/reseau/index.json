@@ -1,0 +1,347 @@
+{
+ "GET https://apicarto.ign.fr/api/cadastre/parcelle?code_insee=78650&section=AE&numero=0101&_limit=5": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "cda80d49d84386b1.gz"
+ },
+ "GET https://apicarto.ign.fr/api/cadastre/parcelle?geom=%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B2.132223%2C48.904853%5D%2C%5B2.133306%2C48.904853%5D%2C%5B2.133306%2C48.905546%5D%2C%5B2.132223%2C48.905546%5D%2C%5B2.132223%2C48.904853%5D%5D%5D%7D&_limit=60&code_insee=78650": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "30278bd0c21ed0e0.gz"
+ },
+ "GET https://apicarto.ign.fr/api/cadastre/parcelle?geom=%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B2.132372%2C48.904959%5D%2C%5B2.132700%2C48.904959%5D%2C%5B2.132700%2C48.905175%5D%2C%5B2.132372%2C48.905175%5D%2C%5B2.132372%2C48.904959%5D%5D%5D%7D&_limit=60&code_insee=78650": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "6a726a1e346e94b5.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/assiette-sup-l?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "1333bb418d6353a7.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/assiette-sup-p?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "0c28108e49633b75.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/assiette-sup-s?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "85a33f8ab7bfe398.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/document?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "daf1ab15c9bb7bb3.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/generateur-sup-s?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "991d46103852c9f4.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/info-surf?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "feba7b3411a7ff57.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/municipality?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "973798d0051fa592.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/prescription-surf?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "aad2f7f896b2f570.gz"
+ },
+ "GET https://apicarto.ign.fr/api/gpu/zone-urba?geom=%7B%22type%22%3A%22Point%22%2C%22coordinates%22%3A%5B2.132811%2C48.905189%5D%7D": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "c03b91b9a19e37b6.gz"
+ },
+ "GET https://data.geopf.fr/geocodage/search?q=2%20all%C3%A9e%20des%20Limites%2078110%20Le%20V%C3%A9sinet&limit=5&autocomplete=1": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "fichier": "d15db07659cb8cb5.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Abatiment&SRSNAME=EPSG:4326&BBOX=48.904729%2C2.132236%2C48.905638%2C2.133483%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=80": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "fichier": "137a1747fae2a7f0.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Abatiment&SRSNAME=EPSG:4326&BBOX=48.904774%2C2.132304%2C48.905593%2C2.133415%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=80": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "fichier": "c46f278beaacf268.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Ahaie&SRSNAME=EPSG:4326&BBOX=48.904729%2C2.132236%2C48.905638%2C2.133483%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=40": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "fichier": "7c7540854a6b7d38.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Azone_de_vegetation&SRSNAME=EPSG:4326&BBOX=48.904729%2C2.132236%2C48.905638%2C2.133483%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=40": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "fichier": "8705c172cd234963.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&OUTPUTFORMAT=application%2Fjson&COUNT=1&SRSNAME=CRS%3A84&BBOX=2.132791%2C48.905169%2C2.132831%2C48.905209%2CCRS%3A84": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "fichier": "98e95b2bc79e1111.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&RESULTTYPE=hits&SRSNAME=CRS%3A84&BBOX=2.132359%2C48.904943%2C2.133169%2C48.905456%2CCRS%3A84": {
+  "statut": 200,
+  "type": "text/xml; charset=UTF-8",
+  "fichier": "851788d0ee6f580d.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&RESULTTYPE=hits&SRSNAME=CRS%3A84&BBOX=2.132443%2C48.905004%2C2.133259%2C48.905457%2CCRS%3A84": {
+  "statut": 200,
+  "type": "text/xml; charset=UTF-8",
+  "fichier": "b4adede6467ea6ba.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&RESULTTYPE=hits&SRSNAME=CRS%3A84&BBOX=2.132748%2C48.905147%2C2.132983%2C48.905319%2CCRS%3A84": {
+  "statut": 200,
+  "type": "text/xml; charset=UTF-8",
+  "fichier": "1814881ca7e5188b.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132403%2C48.905224%2C2.132703%2C48.905404&WIDTH=44&HEIGHT=40&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "61f5074852751e98.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132410%2C48.905349%2C2.132595%2C48.905484&WIDTH=27&HEIGHT=30&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "3ecde4dcd90c5471.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132443%2C48.905251%2C2.132662%2C48.905377&WIDTH=32&HEIGHT=28&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "99404d45a7ebaec0.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132451%2C48.905376%2C2.132554%2C48.905457&WIDTH=15&HEIGHT=18&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "cd0241546416d463.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132730%2C48.904977%2C2.133153%2C48.905143&WIDTH=62&HEIGHT=37&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "608864877d21b63f.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132737%2C48.905336%2C2.132826%2C48.905390&WIDTH=13&HEIGHT=12&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "2a02b8cb287d2a04.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132748%2C48.905144%2C2.132987%2C48.905319&WIDTH=35&HEIGHT=39&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "e6108c0a72976ae3.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132771%2C48.905004%2C2.133112%2C48.905116&WIDTH=50&HEIGHT=25&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "5295e0bad93d206c.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.133047%2C48.905160%2C2.133238%2C48.905291&WIDTH=28&HEIGHT=29&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "08de970df3edd734.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.133097%2C48.905321%2C2.133261%2C48.905425&WIDTH=24&HEIGHT=23&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "b3608f5e6ba36bfc.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132236%2C48.904725%2C2.133484%2C48.905638&WIDTH=183&HEIGHT=203&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "d6d80deef64568e0.gz"
+ },
+ "GET https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&CRS=CRS%3A84&BBOX=2.132359%2C48.904939%2C2.133171%2C48.905456&WIDTH=119&HEIGHT=115&FORMAT=image%2Fx-bil%3Bbits%3D32": {
+  "statut": 200,
+  "type": "image/x-bil;bits=32",
+  "fichier": "1bdb8281e911f608.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45064&TILECOL=66311": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "a1407dadca41bd94.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45064&TILECOL=66312": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "08959c55c595a7c8.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45064&TILECOL=66313": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "4b5b590640407fa7.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45065&TILECOL=66311": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "1e50cd32c9ea3d3e.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45065&TILECOL=66312": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "cb237e1d76bf8026.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45065&TILECOL=66313": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "125a3060ccaf0e22.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45066&TILECOL=66311": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "0fd6643dd1b0683b.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45066&TILECOL=66312": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "26a64ef0ccbc8794.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=17&TILEROW=45066&TILECOL=66313": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "6cd788d8fd0468c1.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90129&TILECOL=132623": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "dbea996eedf7afa9.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90129&TILECOL=132624": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "bc42611b298d74e1.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90129&TILECOL=132625": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "e436cba11ebfc40b.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90129&TILECOL=132626": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "d9e88babd4655c74.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90130&TILECOL=132623": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "1956c4fc456d391c.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90130&TILECOL=132624": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "8fab829211e06317.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90130&TILECOL=132625": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "d2d23be0d5f72038.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90130&TILECOL=132626": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "8f10e9d2dbc360d0.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90131&TILECOL=132623": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "ec830bfc7c32036c.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90131&TILECOL=132624": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "03d786962d5c464f.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90131&TILECOL=132625": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "5d2857bc91ee32ac.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90131&TILECOL=132626": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "45df270f8091782c.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90132&TILECOL=132623": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "714c9b919ac1c01e.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90132&TILECOL=132624": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "c8b13f45f6fe40b5.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90132&TILECOL=132625": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "d160af2b765edd23.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=18&TILEROW=90132&TILECOL=132626": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "6013f3392825d559.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180261&TILECOL=265249": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "65e6293d8df4d6e9.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180261&TILECOL=265250": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "2ac0f62cfaea3888.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180261&TILECOL=265251": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "5550661e47e88ba7.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180262&TILECOL=265249": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "caceb282a0810ef6.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180262&TILECOL=265250": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "926ccf96c4108d33.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180262&TILECOL=265251": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "8480ae536e5d8683.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180263&TILECOL=265249": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "d8523b381abb9f1c.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180263&TILECOL=265250": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "1cfef202a2225cbb.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=19&TILEROW=180263&TILECOL=265251": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "fichier": "9131768980046eb9.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=20&TILEROW=360524&TILECOL=530499": {
+  "statut": 404,
+  "type": "text/xml; charset=UTF-8",
+  "fichier": "4de9b739edb69f8f.gz"
+ },
+ "GET https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=20&TILEROW=360524&TILECOL=530500": {
+  "statut": 404,
+  "type": "text/xml; charset=UTF-8",
+  "fichier": "8126085bcc8db5ff.gz"
+ }
+}

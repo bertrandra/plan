@@ -1,0 +1,49 @@
+{
+ "profil": "Chromium sans carte graphique (SwiftShader) ; compact = processeur ralenti x4",
+ "compact": {
+  "econome": {
+   "constructionMs": 1015,
+   "imageMs": 119.9,
+   "imagesParSeconde": 8.3,
+   "triangles": 85262,
+   "appels": 279
+  },
+  "normale": {
+   "constructionMs": 1073,
+   "imageMs": 271.2,
+   "imagesParSeconde": 3.7,
+   "triangles": 85262,
+   "appels": 279
+  },
+  "soignee": {
+   "constructionMs": 963,
+   "imageMs": 306,
+   "imagesParSeconde": 3.3,
+   "triangles": 85262,
+   "appels": 279
+  }
+ },
+ "large": {
+  "econome": {
+   "constructionMs": 293,
+   "imageMs": 149.5,
+   "imagesParSeconde": 6.7,
+   "triangles": 85550,
+   "appels": 282
+  },
+  "normale": {
+   "constructionMs": 349,
+   "imageMs": 356.1,
+   "imagesParSeconde": 2.8,
+   "triangles": 85550,
+   "appels": 282
+  },
+  "soignee": {
+   "constructionMs": 398,
+   "imageMs": 392.6,
+   "imagesParSeconde": 2.5,
+   "triangles": 85550,
+   "appels": 282
+  }
+ }
+}

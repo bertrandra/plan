@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Réglage « Qualité » de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R0 ; `three/qualite.ts`). Dans
+  les réglages de la vue 3D (groupe « Scène ») : Économe, Normale ou Soignée. C'est une préférence de
+  l'appareil, rangée dans le navigateur et jamais dans le projet : Économe est proposée d'office sur un
+  appareil tactile modeste (quatre cœurs ou 2 Go au plus), Normale ailleurs ; Soignée se demande.
+  Normale est la Vue 3D d'avant, à l'identique. Économe coupe le lissage des arêtes et les ombres par
+  défaut, et réduit la carte d'ombre ; Soignée suit la pleine définition de l'écran et affine les
+  ombres. Choisir un niveau remet la case « Ombres » à ce qu'il propose.
+- **Banc visuel de la Vue 3D** (`scripts/banc-visuel.mjs`, R0). Les mêmes vues d'AE 101 et de sa rue
+  (aérienne, depuis la rue, depuis le jardin), à 390 et 1 440 px, en clair et en sombre, et le coût de
+  la scène par niveau de qualité (construction, temps d'une image, triangles) ; références dans
+  `tests/fixtures/visuel/`. Le réseau de l'IGN y est rejoué depuis des données témoin, comme pour la
+  fumée.
 - **Le modèle de chaque usage, choisi par l'administrateur** (`MD/spec-audit.md` §13.2 et §13.3,
   demande de l'utilisateur). Dans le tableau de bord de la consommation (`?admin&ecran=consommation`),
   l'onglet « Réglages » (l'ancien « Tarifs et plafonds ») commence par une section « Modèles » : une
