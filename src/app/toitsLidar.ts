@@ -12,7 +12,7 @@ import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLid
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
-import { reconstruireCorps, decalageSurMesure, partVideSous, PART_VIDE_RECALAGE, DECALAGE_MAX_M } from '../facade/toitCorps.js';
+import { reconstruireCorps, decalageSurMesure, partVideSous } from '../facade/toitCorps.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { surParcelleDuProjet } from '../model/fonctions.js';
 import { batimentsMitoyens } from '../model/mitoyennete.js';
@@ -20,7 +20,9 @@ import { partsACheval, douteACheval, type PartACheval } from '../model/aCheval.j
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
 import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../model/types.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../model/reglagesToits.js';
+import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../model/reglagesToits.js';
+import { contexteProfils, surchargesDuBatiment } from '../facade/profilsToits.js';
+import type { ProfilToit } from '../model/profilsToits.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../model/faitsToits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/faitsToits.js';
 import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/vraisemblance.js';
@@ -71,12 +73,15 @@ function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
  * sous le batiment deplace, ou null quand il reste ou il est (le cas d'un contour bien pose, sans
  * seconde lecture).
  */
-async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: GrilleRelief, proj: ProjecteurLocal, lireGrille: LecteurGrilleMnh): Promise<GrilleRelief | null> {
-  if (partVideSous(grille, o.pts) < PART_VIDE_RECALAGE) return null;
-  const xs = o.pts.map((p) => p.x), ys = o.pts.map((p) => p.y), m = DECALAGE_MAX_M;
+async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: GrilleRelief, proj: ProjecteurLocal, lireGrille: LecteurGrilleMnh, seuils: SurchargesSeuilsToits = {}): Promise<GrilleRelief | null> {
+  // Les seuils du profil du batiment, de part et d'autre de la lecture de la grille large : jamais
+  // pendant l'attente, ou d'autres batiments lus en parallele les verraient.
+  if (avecSeuilsToit(seuils, () => partVideSous(grille, o.pts) < S.PART_VIDE_RECALAGE)) return null;
+  const m = avecSeuilsToit(seuils, () => S.DECALAGE_MAX_M);
+  const xs = o.pts.map((p) => p.x), ys = o.pts.map((p) => p.y);
   const boite = [{ x: Math.min(...xs) - m, y: Math.min(...ys) - m }, { x: Math.max(...xs) + m, y: Math.min(...ys) - m }, { x: Math.max(...xs) + m, y: Math.max(...ys) + m }, { x: Math.min(...xs) - m, y: Math.max(...ys) + m }];
   const large = await lireGrille(boite, proj).catch(() => null);
-  const d = large ? decalageSurMesure(large, o.pts) : null;
+  const d = large ? avecSeuilsToit(seuils, () => decalageSurMesure(large, o.pts)) : null;
   if (!large || !d) return null;
   o.pts = o.pts.map((p) => ({ x: Math.round((p.x + d.x) * 100) / 100, y: Math.round((p.y + d.y) * 100) / 100 }));
   return large;
@@ -177,6 +182,8 @@ export interface OptionsToitsLidar {
    * expressement, ou la tache de fond qui lit une copie pour dire si le calcul serait d'accord.
    */
   verifies?: 'garder' | 'relire';
+  /** Les profils de toits a appliquer (PROFILS_TOITS, ceux du fichier livre, par defaut) : les tests en essaient d'autres. */
+  profils?: readonly ProfilToit[];
 }
 
 /** Le delai donne a la lecture des toits, comme a celle des couleurs sur l'orthophoto. */
@@ -304,6 +311,49 @@ function centreDuProjet(objets: readonly ObjetAToit[]): PtBrut {
   return pts.length ? centroid(pts) : { x: 0, y: 0 };
 }
 
+/** Ou se trouve le batiment lu : le projet, une maison mitoyenne, et si le voisinage se lit en corps et pignons. */
+interface PlaceDuBatiment { principal: boolean; mitoyen: boolean; voisins: boolean }
+
+/**
+ * Le toit d'un batiment, une fois sa grille lue (et le batiment recale) : la forme ajustee, la surface
+ * mesuree, les volumes, les corps et pignons, la hauteur a l'egout. Synchrone : il tourne sous les
+ * seuils du profil du batiment (avecSeuilsToit) sans que les lectures paralleles s'intercalent.
+ */
+function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAToit[], ech: EchantillonHauteur[], grille: GrilleRelief | null, place: PlaceDuBatiment, bilan: BilanToitsLidar): void {
+  const { principal, mitoyen, voisins } = place;
+  // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
+  const ajuste = ajusteVraisemblable(o, ajusteSelonFait(faitDuBatiment(o), o.pts, ech, ajusterToit(o.pts, ech)));
+  const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
+  const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
+  // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
+  if (principal) {
+    o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
+    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+    toitAChevalApresCalcul(o, objets, grille);
+  }
+  // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
+  // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
+  // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
+  else if (voisins && grille) {
+    const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
+    o.corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
+    // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
+    // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
+    if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
+    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+    if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
+    if (o.corpsToit) bilan.corpsVoisins++;
+  }
+  if (mesure) bilan.mesures++;
+  else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; return; }
+  if (ajuste) o.toit = avecCouleurDe(o.toit, ajuste.toit);
+  // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
+  const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
+  const elevation = elevationApresLecture(o.elevation, egout);
+  if (elevation !== undefined) o.elevation = elevation;
+  if (ajuste || volumes?.ajustes) bilan.ajustes++;
+}
+
 /**
  * Pose sur chaque batiment eligible le toit que le LiDAR HD mesure, en gardant la couleur de
  * couverture en place ; corrige la hauteur a l'egout quand la mesure s'en ecarte franchement.
@@ -338,6 +388,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const voisins = corpsDuVoisinage(objets);
   const mitoyens = options.mitoyens ?? clesMitoyens(objets);
   const estMitoyen = (o: ObjetAToit) => !!o.key && mitoyens.has(o.key);
+  // Le lieu du projet et les contours de ses batiments, une fois pour toute la lecture.
+  const lieu = contexteProfils(objets, options.profils);
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
     while (suivant < aLire.length && maintenant() < fin) {
@@ -351,44 +403,17 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       if (!ech.length) continue;
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
       const principal = surParcellePrincipale(o);
+      // Les profils de toits du batiment (regles/toits/reglages.json, facade/profilsToits.ts), choisis
+      // une fois, sur le contour d'avant le recalage : sans profil livre, aucune surcharge.
+      const seuils = surchargesDuBatiment(o, lieu, options.profils);
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
       // recale, d'un bloc, sur le LiDAR (MD/spec-toit-ign.md §13.7).
       if (grille && lireGrille && (principal || estMitoyen(o))) {
-        const large = await recalerSurLidar(o, grille, proj, lireGrille);
+        const large = await recalerSurLidar(o, grille, proj, lireGrille, seuils);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
-      // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
-      const ajuste = ajusteVraisemblable(o, ajusteSelonFait(faitDuBatiment(o), o.pts, ech, ajusterToit(o.pts, ech)));
-      const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
-      const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
-      // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
-      if (principal) {
-        o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
-        // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
-        toitAChevalApresCalcul(o, objets, grille);
-      }
-      // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
-      // mesure garde (la carte, « tel que mesure ») ; plus loin, sans la coupe par le modele (la plus
-      // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
-      else if (voisins && grille) {
-        const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
-        const mitoyen = estMitoyen(o);
-        o.corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
-        // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
-        // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
-        if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
-        // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
-        if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
-        if (o.corpsToit) bilan.corpsVoisins++;
-      }
-      if (mesure) bilan.mesures++;
-      else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; continue; }
-      if (ajuste) o.toit = avecCouleurDe(o.toit, ajuste.toit);
-      // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
-      const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
-      const elevation = elevationApresLecture(o.elevation, egout);
-      if (elevation !== undefined) o.elevation = elevation;
-      if (ajuste || volumes?.ajustes) bilan.ajustes++;
+      // Le toit, sous les seuils du profil du batiment (facade/profilsToits.ts) : un calcul synchrone.
+      avecSeuilsToit(seuils, () => poserLeToit(o, objets, ech, grille, { principal, mitoyen: estMitoyen(o), voisins }, bilan));
     }
   };
   await Promise.all(Array.from({ length: options.enParallele ?? EN_PARALLELE }, ouvrier));

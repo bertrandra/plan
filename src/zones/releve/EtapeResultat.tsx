@@ -7,10 +7,10 @@ import { classer } from '../../facade/detection.js';
 import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/structure.js';
 import { retouchee } from '../../facade/verification.js';
 import { texteDetails, texteOrigine } from './ouvertures.js';
-import { LIBELLES_FORME_TOIT, penteDeg, hauteurPignon } from '../../facade/toit.js';
+import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../../facade/toit.js';
 import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
-import { ChampCm, Elevation } from './Elevation.js';
+import { ChampCm, Elevation, LegendeMasque } from './Elevation.js';
 import { type Resultat } from './serie.js';
 import { pxParMDuCalage, textePrecision } from './analyse.js';
 
@@ -174,7 +174,7 @@ function CarteToit({
           <label className="releveCm">
             <span>Forme</span>
             <select data-controle="releve.formeToit" value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
-              {(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => (
+              {formesAuChoix(toit.forme).map((k) => (
                 <option key={k} value={k}>
                   {LIBELLES_FORME_TOIT[k]}
                 </option>
@@ -308,6 +308,17 @@ function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; lar
   );
 }
 
+/**
+ * La part du mur que la serie n'a pas vue, completee a la teinte du mur. Le masque d'une fusion n'en
+ * fait pas partie : la texture y montre l'obstacle, hachure (lot G20), pas la teinte du mur.
+ */
+function AvisCouverture({ resultat }: { resultat: Resultat }) {
+  const m = resultat.masque;
+  const vue = Math.min(1, resultat.couverture + (m?.part ?? 0));
+  if (vue >= 0.9) return null;
+  return <p className="releveAvis">{m ? 'Les photos couvraient' : 'La photo couvrait'} {Math.round(vue * 100)} % du mur ; le reste est complété à la teinte du mur.</p>;
+}
+
 export function EtapeResultat({ v, onRevoir, onValider, aide = null }: { v: Verification; onRevoir: () => void; onValider: () => void; aide?: ReactNode }) {
   const { resultat, largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
   const precision = textePrecision(pxParMDuCalage(resultat.calage));
@@ -321,9 +332,10 @@ export function EtapeResultat({ v, onRevoir, onValider, aide = null }: { v: Veri
             {resultat.avis}
           </p>
         )}
-        {resultat.couverture < 0.9 && <p className="releveAvis">La photo couvrait {Math.round(resultat.couverture * 100)} % du mur ; le reste est complété à la teinte du mur.</p>}
+        <AvisCouverture resultat={resultat} />
         <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
-          devinees={v.devinees} garder={v.garder} />
+          devinees={v.devinees} garder={v.garder} masque={resultat.masque?.zones ?? null} />
+        {resultat.masque && <LegendeMasque part={resultat.masque.part} />}
         <BarreOuvertures v={v} />
         {aide}
         {precision && <p className="releveNote">{precision}</p>}

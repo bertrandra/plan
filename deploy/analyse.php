@@ -18,6 +18,7 @@
 //   GET  admin/audits                         la liste des audits recus (administrateur)
 //   GET  admin/audits/<id>                    un audit recu (administrateur)
 //   DELETE admin/audits/<id>                  le retire : son secret de retrait, ou l'administrateur
+//   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
 // Les audits partages pour le corpus (spec-audit 15, decision D7) : l'utilisateur coche « Partager
 // cet audit pour améliorer Plan » ; le fichier arrive ici, par la session admin ou le jeton de la
@@ -596,6 +597,27 @@ function verifierAudit($d): array {
     return ['idu' => $p['idu'], 'adresse' => $adresse];
 }
 
+// --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; buildsg/analyseAdmin.mjs, memes noms)
+// L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
+// ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
+
+// Les dernieres mesures gardees : plus, l'historique ne se lit plus d'un coup d'oeil.
+const MESURES_CONFORMITE_MAX = 200;
+const TAILLE_MESURE_MAX = 2 * 1024 * 1024;
+const RESUME_CONFORMITE = ['total', 'observes', 'conformes', 'nonConformes', 'aRevoir', 'sansObservation', 'ecartes', 'horsCalcul'];
+
+/** Ce que le serveur verifie d'une mesure : sa forme et son resume, le reste est relu par la page. */
+function verifierMesureConformite($d): array {
+    if (!is_array($d) || array_is_list($d) || ($d['format'] ?? null) !== 'plan-conformite-mesure') throw new Refus('Ce n’est pas une mesure de conformité.');
+    if (($d['version'] ?? null) !== 1) throw new Refus('Version de la mesure de conformité inconnue.');
+    if (!is_string($d['t'] ?? null) || !preg_match('/^\d{4}-\d{2}-\d{2}T/', $d['t'])) throw new Refus('Date de la mesure invalide.');
+    $r = $d['toits'] ?? null;
+    if (!is_array($r)) throw new Refus('Résumé de la mesure invalide.');
+    foreach (RESUME_CONFORMITE as $k) if (!nombre($r[$k] ?? null) || $r[$k] < 0) throw new Refus('Résumé de la mesure invalide.');
+    foreach (['parForme', 'parRegion', 'parProbleme', 'cas'] as $k) if (!is_array($d[$k] ?? null) || !array_is_list($d[$k])) throw new Refus('Mesure de conformité incomplète.');
+    return $d;
+}
+
 function fAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.json'; }
 function fFicheAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.fiche.json'; }
 
@@ -799,6 +821,27 @@ $sansCle = fn() => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : anthr
 
 // --- Les routes ---------------------------------------------------------------------------------
 try {
+    // `admin/conformite` (.htaccess : `chemin=@conformite`) : les mesures des indicateurs (13.5, G3),
+    // a l'administrateur seul.
+    if ($chemin === '@conformite') {
+        if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+        $fConformite = $dossier . '/conformite/mesures.json';
+        $lu = lireJson($fConformite);
+        $mesures = is_array($lu['mesures'] ?? null) ? $lu['mesures'] : [];
+        if ($lecture) repondre(200, ['format' => 'plan-conformite', 'version' => 1, 'mesures' => $mesures]);
+        if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MESURE_MAX + 1);
+        if (strlen($texte) > TAILLE_MESURE_MAX) erreur(413, 'TOO_LARGE', 'Mesure trop grosse (2 Mo au plus).');
+        $d = json_decode($texte, true);
+        if ($d === null) throw new Refus('JSON illisible.');
+        $mesure = verifierMesureConformite($d);
+        $mesure['recuLe'] = maintenant();
+        $mesures[] = $mesure;
+        $gardees = array_slice($mesures, -MESURES_CONFORMITE_MAX);
+        ecrireJson($fConformite, ['format' => 'plan-conformite', 'version' => 1, 'mesures' => $gardees]);
+        repondre(201, ['recuLe' => $mesure['recuLe'], 'mesures' => count($gardees)]);
+    }
+
     // `admin/audits` (.htaccess : `chemin=@audits/<id>`) : les audits de parcelle partages (15, L21).
     if ($routeAudits) {
         $id = trim(substr($chemin, strlen('@audits')), '/');

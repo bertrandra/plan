@@ -17,6 +17,39 @@ function texteErreur(err: unknown): string {
   return base + (e && e.stack ? '\n' + e.stack : '');
 }
 
+/**
+ * Les ecrans secondaires de l'admin, une fois sa porte franchie : chacun prend toute la page.
+ * Rend vrai si l'adresse en demandait un (il est alors ouvert).
+ */
+async function ouvrirEcranAdmin(): Promise<boolean> {
+  // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
+  // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
+  // lance la decouverte (app/ecranControleurs.ts).
+  const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
+  if (demandeEcranControleurs(location.search)) {
+    document.documentElement.dataset.ecran = 'controleurs';
+    await ouvrirEcranControleurs();
+    return true;
+  }
+  // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
+  // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
+  const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/ecranConsommation.js');
+  if (demandeEcranConsommation(location.search)) {
+    document.documentElement.dataset.ecran = 'consommation';
+    ouvrirEcranConsommation();
+    return true;
+  }
+  // L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, MD/spec-regles-toits.md
+  // 13.5) : le corpus du depot et les audits recus, rejoues. Plan ne demarre pas dessous.
+  const { demandeEcranConformite, ouvrirEcranConformite } = await import('./app/ecranConformite.js');
+  if (demandeEcranConformite(location.search)) {
+    document.documentElement.dataset.ecran = 'conformite';
+    ouvrirEcranConformite();
+    return true;
+  }
+  return false;
+}
+
 // L'import est dynamique pour une raison de comportement, pas de style : dans le fichier
 // mono-page, le bloc 2 etait enveloppe dans un try/catch qui affichait le bandeau si une
 // instruction de premier niveau levait pendant la definition. Un import statique leverait avant
@@ -67,22 +100,9 @@ async function demarrer(): Promise<void> {
         chargement(false);
         return;
       }
-      // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
-      // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
-      // lance la decouverte (app/ecranControleurs.ts).
-      const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
-      if (demandeEcranControleurs(location.search)) {
-        document.documentElement.dataset.ecran = 'controleurs';
-        await ouvrirEcranControleurs();
-        chargement(false);
-        return;
-      }
-      // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
-      // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
-      const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/ecranConsommation.js');
-      if (demandeEcranConsommation(location.search)) {
-        document.documentElement.dataset.ecran = 'consommation';
-        ouvrirEcranConsommation();
+      // Les ecrans secondaires de l'admin (controleurs, consommation, conformite) : Plan ne demarre
+      // pas dessous.
+      if (await ouvrirEcranAdmin()) {
         chargement(false);
         return;
       }

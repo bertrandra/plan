@@ -131,3 +131,94 @@ export function erreurCoinsCm(proposes: readonly P2[], vrais: readonly P2[], lar
     return Math.round(Math.hypot(m.x - r.x, m.y - r.y) * 1000) / 10;
   });
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Les details des ouvertures (lot G17, spec §11)
+ * ------------------------------------------------------------------------------------------- */
+
+/** Les trois details que le classement lit et que la 3D dessine. */
+export const ATTRIBUTS_DETAILS = ['volets', 'allege', 'forme'] as const;
+export type AttributDetail = (typeof ATTRIBUTS_DETAILS)[number];
+
+/** Ce qui vaut « rien » pour un attribut : pas de volets, une allege pleine, un rectangle. */
+const RIEN: Record<AttributDetail, string> = { volets: 'aucun', allege: 'pleine', forme: 'rect' };
+
+/** Le compte d'un attribut sur les ouvertures retrouvees. */
+export interface CompteDetail {
+  /** Ouvertures retrouvees dont la verite porte ce detail. */
+  vrais: number;
+  /** Lu juste. */
+  justes: number;
+  /** Rien lu la ou la verite en porte un. */
+  manques: number;
+  /** Un detail lu qui n'est pas le vrai : la ou il n'y a rien, ou un autre (des persiennes pour un roulant). */
+  faux: number;
+  /** Ce qui a ete lu de faux, pour le dire dans le tableau. */
+  lusFaux: string[];
+}
+
+export type MesureDetails = Record<AttributDetail, CompteDetail>;
+
+type AvecDetails = Boite & { details?: Partial<Record<AttributDetail, string | boolean | undefined>> | undefined };
+
+const compteVide = (): MesureDetails => ({
+  volets: { vrais: 0, justes: 0, manques: 0, faux: 0, lusFaux: [] },
+  allege: { vrais: 0, justes: 0, manques: 0, faux: 0, lusFaux: [] },
+  forme: { vrais: 0, justes: 0, manques: 0, faux: 0, lusFaux: [] },
+});
+
+/** La valeur d'un attribut, `null` quand elle vaut « rien ». */
+function valeurDetail(x: AvecDetails | undefined, a: AttributDetail): string | null {
+  const v = x?.details?.[a];
+  return typeof v === 'string' && v !== RIEN[a] ? v : null;
+}
+
+/**
+ * La justesse des details (lot G17) sur les ouvertures retrouvees (meme appariement que la detection) :
+ * pour chaque attribut, la valeur lue comparee a la vraie. Une ouverture manquee ne compte pas ici (elle
+ * compte deja dans le rappel) ; une detection fausse compte les details qu'elle porte comme faux : la
+ * fiche de l'ouverture les montre (le « cintre » d'une haie prise avec la baie au-dessus d'elle).
+ */
+export function mesurerDetails(vraies: readonly AvecDetails[], trouvees: readonly AvecDetails[]): MesureDetails {
+  const m = compteVide();
+  const paires = apparier(vraies, trouvees);
+  const appariees = new Set(paires.map(([, j]) => j));
+  trouvees.forEach((t, j) => {
+    if (appariees.has(j)) return;
+    for (const a of ATTRIBUTS_DETAILS) {
+      const v = valeurDetail(t, a);
+      if (!v) continue;
+      m[a].faux++;
+      m[a].lusFaux.push(v);
+    }
+  });
+  for (const [i, j] of paires) {
+    for (const a of ATTRIBUTS_DETAILS) {
+      const v = valeurDetail(vraies[i], a),
+        t = valeurDetail(trouvees[j], a);
+      const c = m[a];
+      if (v) c.vrais++;
+      if (v && t === v) c.justes++;
+      else if (v && !t) c.manques++;
+      else if (t) {
+        c.faux++;
+        c.lusFaux.push(t);
+      }
+    }
+  }
+  return m;
+}
+
+/** Plusieurs mesures de details mises bout a bout (la ligne « Ensemble »). */
+export function cumulerDetails(mesures: readonly MesureDetails[]): MesureDetails {
+  const m = compteVide();
+  for (const x of mesures)
+    for (const a of ATTRIBUTS_DETAILS) {
+      m[a].vrais += x[a].vrais;
+      m[a].justes += x[a].justes;
+      m[a].manques += x[a].manques;
+      m[a].faux += x[a].faux;
+      m[a].lusFaux.push(...x[a].lusFaux);
+    }
+  return m;
+}

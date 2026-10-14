@@ -46,6 +46,7 @@ import type { SourceCoin } from '../facade/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
+import { masqueDeFusion } from './releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
 import type { AideClaudeReleve } from '../app/renfortReleve.js';
@@ -143,6 +144,46 @@ function CoinsDuParcours(p: {
   );
 }
 
+/**
+ * Ce que l'analyse laisse a la verification, hors de l'ecran : l'elevation redressee et la grille, que
+ * l'aide de Claude regarde ; pour une fusion de vues, son masque d'occlusion et sa vue de reference
+ * (lot G20) : c'est la photo que Claude recoit, et le masque part hachure sur l'elevation.
+ */
+interface ExtrasAnalyse {
+  elevation: Image;
+  grille: GrilleFacade | null;
+  fusion: { occlusion: Uint8Array; masque: number; reference: number } | null;
+}
+
+type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
+
+function extrasDe({ r, fusion }: Analyse): ExtrasAnalyse {
+  return { elevation: r.elevation, grille: r.grille, fusion: fusion ? { occlusion: fusion.occlusion, masque: fusion.masque, reference: fusion.reference } : null };
+}
+
+/** Le resultat affiche par la verification : la texture, la hauteur, l'avis, le calage et le masque hachure d'une fusion. */
+function resultatDe(a: Analyse, morceaux: readonly Morceau[], facade: Facade, assemblage: Assemblage): Resultat {
+  const { r } = a;
+  return {
+    texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse,
+    calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage), masque: masqueDeFusion(a.fusion ?? null, facade.largeur),
+  };
+}
+
+/**
+ * L'aide de Claude a la verification : sur une photo seule, ou sur la vue de reference d'une fusion
+ * (lot G20) ; jamais sur des morceaux cote a cote, dont aucune photo ne montre le mur entier.
+ */
+function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<typeof useOuvertures>; morceaux: readonly Morceau[]; extras: ExtrasAnalyse | null; v: Verification; facade: Facade }) {
+  const { extras, morceaux, v } = p;
+  const fusion = extras?.fusion ?? null;
+  const morceau = fusion ? morceaux[fusion.reference] : morceaux.length === 1 ? morceaux[0] : undefined;
+  return (
+    <AideDesOuvertures aide={p.aide} ouv={p.ouv} morceau={morceau} elevation={extras?.elevation ?? null} largeurM={p.facade.largeur} hauteurM={v.hauteurMur} hauteurMesuree={v.hauteurMesuree}
+      couverture={v.resultat.couverture} masque={fusion?.masque ?? 0} occlusion={fusion?.occlusion ?? null} grille={extras?.grille ?? null} etiquette={p.facade.orientation.toLowerCase()} />
+  );
+}
+
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
   // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
   // viser et propose les coins ; la photo mesure la vraie.
@@ -163,8 +204,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const [toit, setToit] = useState<Toit | null>(null);
   const [appliquerToit, setAppliquerToit] = useState(true);
   const [avis, setAvis] = useState<string | null>(null);
-  // L'elevation redressee et la grille de l'analyse : ce que l'aide de Claude regarde a la verification.
-  const [extras, setExtras] = useState<{ elevation: Image; grille: GrilleFacade | null } | null>(null);
+  // L'elevation redressee, la grille et le masque d'une fusion : ce que l'aide de Claude regarde a la verification.
+  const [extras, setExtras] = useState<ExtrasAnalyse | null>(null);
   const facade = facades.find((f) => f.cote === cote) || null;
   // Ce que la photo doit cadrer en hauteur : l'egout et, sur un pignon du toit connu, son triangle.
   const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.toit, facade.cote) : hauteurEstimee;
@@ -196,9 +237,9 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       }
       const { r } = a;
       setHauteurMur(r.hauteur);
-      setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage) });
+      setResultat(resultatDe(a, morceaux, facade, assemblage));
       ouv.poser(r);
-      setExtras({ elevation: r.elevation, grille: r.grille });
+      setExtras(extrasDe(a));
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
       // par defaut (cadastre, saisie, releve precedent). Decocher la case garde l'ancien.
@@ -287,7 +328,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       )}
       {etape === 'analyse' && <EtapeAnalyse vues={assemblage === 'vues' && morceaux.length > 1} />}
       {etape === 'resultat' && verification && facade && (
-        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDesOuvertures aide={releve.aide()} ouv={ouv} morceau={morceaux.length === 1 ? morceaux[0] : undefined} elevation={extras?.elevation ?? null} largeurM={facade.largeur} hauteurM={hauteurMur} hauteurMesuree={verification.hauteurMesuree} couverture={verification.resultat.couverture} grille={extras?.grille ?? null} etiquette={facade.orientation.toLowerCase()} />} />
+        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDeVerification aide={releve.aide()} ouv={ouv} morceaux={morceaux} extras={extras} v={verification} facade={facade} />} />
       )}
     </div>
   );

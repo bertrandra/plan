@@ -9,6 +9,7 @@
 // avoir la meme forme quel que soit l'etat de la memoire, sinon deux enregistrements du meme plan
 // ne se comparent pas.
 import { compacterRelief } from '../model/relief.js';
+import { compacterChampsEtendus } from '../model/corpsToitEtendu.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
 import type { ObjetSerialise } from '../model/creation.js';
 
@@ -111,10 +112,12 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
     // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts). Les
     // cheminees et la terrasse observees (MD/spec-regles-toits.md §4) passent telles quelles ; une
-    // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant.
+    // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant. Les champs
+    // etendus (profil, bouts, lucarnes, bords) ne s'ecrivent que s'ils disent autre chose que leur absence.
     if(o.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.corpsToit)) as Record<string, unknown>[]).map((c) => {
       if(Array.isArray(c.pignons) && !c.pignons.length) delete c.pignons;
       if(Array.isArray(c.cheminees) && !c.cheminees.length) delete c.cheminees;
+      compacterChampsEtendus(c);
       return c;
     });
     // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.

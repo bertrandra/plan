@@ -14,11 +14,11 @@
 //                                                                  rejoue les reponses simulees de tests/fixtures/facades/claude/
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { deflateSync } from 'node:zlib';
 import { chargerCorpus, rejouerCorpus, tableau, DOSSIER_CORPUS } from '../../../../tests/banc/facades/banc.ts';
 import { chargerReponses, rejouerRenfort, tableauRenfort, type RenfortScene } from '../../../../tests/banc/facades/renfort.ts';
 import { coinsVrais, peindreElevation, murSeul, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
 import type { Image } from '../../../../src/facade/homographie.ts';
+import { png } from '../../../../tests/banc/facades/png.ts';
 
 const args = process.argv.slice(2);
 const option = (nom: string) => {
@@ -64,39 +64,6 @@ if (renfort.length) console.log('\n' + tableauRenfort(renfort));
 if (json) {
   const sansImages = { ...b, scenes: b.scenes.map(({ detail, ...r }) => ({ ...r, detectees: { elevation: detail.elevation, photo: detail.photo } })), renfort };
   writeFileSync(json, JSON.stringify(sansImages, null, 2));
-}
-
-/** Un PNG RGBA minimal (filtre nul), sans dependance. */
-function png(img: Image): Buffer {
-  const crcTable = Array.from({ length: 256 }, (_, n) => {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    return c >>> 0;
-  });
-  const crc = (buf: Buffer) => {
-    let c = 0xffffffff;
-    for (const x of buf) c = (crcTable[(c ^ x) & 0xff] ?? 0) ^ (c >>> 8);
-    return (c ^ 0xffffffff) >>> 0;
-  };
-  const bloc = (type: string, data: Buffer) => {
-    const t = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-    const lg = Buffer.alloc(4);
-    lg.writeUInt32BE(data.length);
-    const c = Buffer.alloc(4);
-    c.writeUInt32BE(crc(t));
-    return Buffer.concat([lg, t, c]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(img.largeur, 0);
-  ihdr.writeUInt32BE(img.hauteur, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  const brut = Buffer.alloc((img.largeur * 4 + 1) * img.hauteur);
-  for (let y = 0; y < img.hauteur; y++) {
-    brut[y * (img.largeur * 4 + 1)] = 0;
-    for (let i = 0; i < img.largeur * 4; i++) brut[y * (img.largeur * 4 + 1) + 1 + i] = (i % 4 === 3 ? 255 : img.donnees[y * img.largeur * 4 + i]) ?? 0;
-  }
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), bloc('IHDR', ihdr), bloc('IDAT', deflateSync(brut)), bloc('IEND', Buffer.alloc(0))]);
 }
 
 /** Trace le contour d'une boite (metres, y depuis le sol) sur une elevation de `pxParM`. */

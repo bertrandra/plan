@@ -1,0 +1,167 @@
+{
+  "nom": "20-details-cintres-persiennes-garde-corps",
+  "description": "Façade à détails (lot G17) : fenêtre en plein cintre et persiennes fermées au rez-de-chaussée ; à l'étage, porte-fenêtre sur balcon, œil-de-bœuf, porte-fenêtre derrière un garde-corps sans dalle. Enduit uni, prise presque de face : seuls les détails sont difficiles.",
+  "difficultes": [
+    "cintre",
+    "rond",
+    "persiennes",
+    "balcon",
+    "garde-corps"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 6,
+    "coins": [
+      {
+        "x": 290.5,
+        "y": 257.78
+      },
+      {
+        "x": 1030.8,
+        "y": 220.03
+      },
+      {
+        "x": 1052.91,
+        "y": 702.94
+      },
+      {
+        "x": 272.93,
+        "y": 688.98
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.6,
+        "rendu": {
+          "forme": "cintre"
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            90,
+            60,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.5,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.35,
+        "rendu": {
+          "volets": {
+            "type": "persiennes",
+            "couleur": [
+              96,
+              128,
+              110
+            ],
+            "ferme": true
+          }
+        }
+      },
+      {
+        "type": "porte-fenetre",
+        "x": 1,
+        "y": 3.4,
+        "l": 1.3,
+        "h": 2.05
+      },
+      {
+        "type": "fenetre",
+        "x": 4.6,
+        "y": 4.25,
+        "l": 0.75,
+        "h": 0.75,
+        "rendu": {
+          "forme": "rond"
+        }
+      },
+      {
+        "type": "porte-fenetre",
+        "x": 7.4,
+        "y": 3.4,
+        "l": 1.3,
+        "h": 2.05
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 20,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          222,
+          212,
+          190
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.1,
+        "couleur": [
+          120,
+          120,
+          126
+        ]
+      }
+    },
+    "balcons": [
+      {
+        "x": 0.7,
+        "l": 1.9,
+        "z": 3.4,
+        "epaisseur": 0.16,
+        "gardeCorps": {
+          "hauteur": 1,
+          "couleur": [
+            40,
+            40,
+            42
+          ],
+          "pas": 0.12
+        }
+      },
+      {
+        "x": 7.1,
+        "l": 1.9,
+        "z": 3.4,
+        "epaisseur": 0,
+        "gardeCorps": {
+          "hauteur": 1,
+          "couleur": [
+            40,
+            40,
+            42
+          ],
+          "pas": 0.11
+        }
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 12,
+      "biais": 8,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

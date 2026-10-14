@@ -13,7 +13,8 @@
 
 import fichier from '../../regles/toits/faits.json';
 import { fnv1a } from './reglagesToits.js';
-import type { FormeToit } from './types.js';
+import { FORMES_TOIT_SIMPLES } from './formeToit.js';
+import type { FormeToitSimple } from './types.js';
 
 /** Ce qui ferme un bout du faitage : un mur pignon, ou une croupe. */
 export type BoutFait = 'pignon' | 'croupe';
@@ -51,8 +52,11 @@ export interface AppentisFait {
 
 /** Ce que vous avez vu : chaque assertion absente n'est pas imposee (spec §7.1). */
 export interface ObservationFait {
-  /** La forme du corps principal (le plus grand), ou les formes admises. */
-  forme?: FormeToit[];
+  /**
+   * La forme du corps principal (le plus grand), ou les formes admises : une forme simple, la seule
+   * que le calcul sache produire (les formes du catalogue, model/formeToit.ts, viendront avec leur regle).
+   */
+  forme?: FormeToitSimple[];
   faitage?: FaitageFait;
   bouts?: [BoutFait, BoutFait];
   corps?: { min?: number; max?: number };
@@ -87,7 +91,7 @@ export type FaitsToits = Readonly<Record<string, FaitToit>>;
 /** Un fichier de faits illisible : le message dit quel fait et pourquoi. */
 export class FaitsToitsIllisibles extends Error {}
 
-const FORMES: readonly FormeToit[] = ['plat', 'appentis', 'deux-pans', 'quatre-pans', 'croupes'];
+const FORMES = FORMES_TOIT_SIMPLES;
 const BOUTS: readonly BoutFait[] = ['pignon', 'croupe'];
 
 const estNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -138,7 +142,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== 'object') throw new FaitsToitsIllisibles(quoi + ' : sans observation');
   const formes = o.forme === undefined ? undefined : Array.isArray(o.forme) ? o.forme : [o.forme];
-  if (formes && (!formes.length || formes.some((x) => !FORMES.includes(x as FormeToit)))) throw new FaitsToitsIllisibles(quoi + '.forme : ' + FORMES.join(', ') + ' (les autres formes du catalogue ne se calculent pas encore)');
+  if (formes && (!formes.length || formes.some((x) => !FORMES.includes(x as FormeToitSimple)))) throw new FaitsToitsIllisibles(quoi + '.forme : ' + FORMES.join(', ') + ' (les autres formes du catalogue ne se calculent pas encore)');
   const bouts = o.bouts as unknown[] | undefined;
   if (bouts !== undefined && (!Array.isArray(bouts) || bouts.length !== 2 || bouts.some((b) => !BOUTS.includes(b as BoutFait)))) throw new FaitsToitsIllisibles(quoi + '.bouts : deux bouts parmi pignon, croupe');
   const corps = o.corps as { min?: unknown; max?: unknown } | undefined;
@@ -146,7 +150,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
   const f = faitage(o.faitage, quoi), eg = fourchette(o.egout, quoi + '.egout'), fm = fourchette(o.faitageM, quoi + '.faitageM');
   const ap = appentis(o.appentis, quoi + '.appentis');
   return {
-    ...(formes ? { forme: formes as FormeToit[] } : {}),
+    ...(formes ? { forme: formes as FormeToitSimple[] } : {}),
     ...(f ? { faitage: f } : {}),
     ...(bouts ? { bouts: bouts as [BoutFait, BoutFait] } : {}),
     ...(corps ? { corps: { ...(corps.min !== undefined ? { min: corps.min as number } : {}), ...(corps.max !== undefined ? { max: corps.max as number } : {}) } } : {}),

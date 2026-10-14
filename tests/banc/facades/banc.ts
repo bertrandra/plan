@@ -31,8 +31,8 @@ import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/homographie.js';
 import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/distorsion.js';
-import { peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
-import { mesurerDetection, mediane, erreurCoinsCm, type MesureDetection } from './mesure.js';
+import { peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
+import { mesurerDetection, mesurerDetails, cumulerDetails, mediane, erreurCoinsCm, ATTRIBUTS_DETAILS, type MesureDetection, type MesureDetails } from './mesure.js';
 
 export const DOSSIER_CORPUS = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));
 
@@ -67,6 +67,11 @@ export interface ResultatScene {
   distorsion: DistorsionScene | null;
   /** La fusion de plusieurs vues (lot L13), pour une scene qui en porte. */
   vues: VuesScene | null;
+  /**
+   * La justesse des details des ouvertures retrouvees (lot G17) : sur l'elevation parfaite, sur la
+   * chaine du releve, et apres la fusion des vues s'il y en a.
+   */
+  details: { elevation: MesureDetails; photo: MesureDetails | null; fusion: MesureDetails | null };
   ms: number;
   /**
    * Ce qui a ete detecte, pour les images de controle du script. `image` est l'image analysee (corrigee
@@ -429,6 +434,7 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
     fin: { releve: null, audit: null },
     distorsion: null,
     vues: null,
+    details: { elevation: mesurerDetails([], []), photo: null, fusion: null },
     ms: 0,
     detail: { elevation: detElev, photo: null, image: null, coinsImage: null, redressee: null, coinsProposes: null, coinsPredits: null, zones: null, fin: null },
   };
@@ -469,6 +475,13 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
       res.detail.fusion = f.detail;
     }
   }
+  // La verite des details (lot G17) : ce que le rendu et les balcons de la scene en disent.
+  const vraies = v.ouvertures.map((o) => ({ ...o, details: detailsVrais(s, o) }));
+  res.details = {
+    elevation: mesurerDetails(vraies, detElev),
+    photo: res.detail.photo ? mesurerDetails(vraies, res.detail.photo) : null,
+    fusion: res.detail.fusion ? mesurerDetails(vraies, res.detail.fusion.ouvertures) : null,
+  };
   res.ms = Math.round(performance.now() - t0);
   return res;
 }
@@ -522,6 +535,8 @@ export interface ResultatBanc {
   };
   fin: { releve: SyntheseFin; audit: SyntheseFin };
   vues: SyntheseVues;
+  /** Les details des ouvertures retrouvees, cumules sur le corpus (lot G17). */
+  details: { elevation: MesureDetails; photo: MesureDetails; fusion: MesureDetails };
 }
 
 /** La fusion de plusieurs vues sur les scenes qui en portent (lot L13). */
@@ -598,6 +613,11 @@ export function rejouerCorpus(scenes: SceneFacade[]): ResultatBanc {
       audit: synthetiserFin(res.flatMap((r) => (r.fin.audit ? [r.fin.audit] : []))),
     },
     vues: synthetiserVues(res.flatMap((r) => (r.vues ? [r.vues] : []))),
+    details: {
+      elevation: cumulerDetails(res.map((r) => r.details.elevation)),
+      photo: cumulerDetails(res.flatMap((r) => (r.details.photo ? [r.details.photo] : []))),
+      fusion: cumulerDetails(res.flatMap((r) => (r.details.fusion ? [r.details.fusion] : []))),
+    },
   };
 }
 
@@ -687,6 +707,7 @@ export function tableau(b: ResultatBanc): string {
     l.push('');
   }
   l.push(...tableauVues(b));
+  l.push(...tableauDetails(b));
   const p = b.photo;
   // Depuis le lot L7, les coins que propose le releve sont ceux du calage fin.
   const partCoins = b.fin.releve.coins ? b.fin.releve.justes / b.fin.releve.coins : 0;
@@ -729,5 +750,37 @@ function tableauVues(b: ResultatBanc): string[] {
     `| **Ensemble** (${s.scenes}) | | **${fleche(pc(s.une.rappel), pc(s.fusion.rappel))}** | **${fleche(pc(s.une.precision), pc(s.fusion.precision))}** | **${fleche(cm(s.une.correctionsParFacade), cm(s.fusion.correctionsParFacade))}** / façade | | **${fleche(pc(s.renduUne), pc(s.renduFusion))}** | | | |`,
     '',
   );
+  return l;
+}
+
+/** Un compte de details : justes sur vrais, et ce qui a ete lu de faux (« 1 faux : cintre »). */
+function compteDetail(c: MesureDetails[keyof MesureDetails]): string {
+  if (!c.vrais && !c.faux) return '—';
+  const faux = c.faux ? ` ; ${c.faux} faux (${[...new Set(c.lusFaux)].join(', ')})` : '';
+  return `${c.justes}/${c.vrais}${faux}`;
+}
+
+/**
+ * La section des details des ouvertures (lot G17) : sur les ouvertures retrouvees, chaque attribut lu
+ * (volets, allege, forme) compare a la verite de la scene (`detailsVrais`). Seules les scenes ou il y a
+ * un detail, vrai ou lu, ont leur ligne.
+ */
+function tableauDetails(b: ResultatBanc): string[] {
+  const l: string[] = [];
+  l.push('### Détails des ouvertures (lot G17 : volets, allège, forme)', '');
+  l.push(
+    "Pour chaque attribut : lus justes sur vrais, puis les détails lus à tort (là où il n'y a rien, ou un autre). Vérité : le rendu de la scène (volets battants, roulants, persiennes ; un tablier fermé aux neuf dixièmes compte fermé), ses balcons (dalle : balcon ; sans dalle : garde-corps), la forme de ses baies. Une ouverture manquée ne compte pas ici (rappel) ; une détection fausse compte comme faux les détails qu'elle porte.",
+    '',
+  );
+  l.push('| Façade | Élévation : volets | allège | forme | Relevé : volets | allège | forme | Fusion : volets | allège | forme |', '|---|---|---|---|---|---|---|---|---|---|');
+  const cellules = (m: MesureDetails | null) => (m ? ATTRIBUTS_DETAILS.map((a) => compteDetail(m[a])) : ['—', '—', '—']);
+  const vide = (m: MesureDetails | null) => !m || ATTRIBUTS_DETAILS.every((a) => !m[a].vrais && !m[a].faux);
+  for (const r of b.scenes) {
+    const d = r.details;
+    if (vide(d.elevation) && vide(d.photo) && vide(d.fusion)) continue;
+    l.push(`| ${r.nom} | ${[...cellules(d.elevation), ...cellules(d.photo), ...cellules(d.fusion)].join(' | ')} |`);
+  }
+  const e = b.details;
+  l.push(`| **Ensemble** | ${[...cellules(e.elevation), ...cellules(e.photo), ...cellules(e.fusion)].map((c) => '**' + c + '**').join(' | ')} |`, '');
   return l;
 }

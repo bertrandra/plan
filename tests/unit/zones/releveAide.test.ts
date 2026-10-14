@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coinsAvecAide, propositionRenforcee, signauxDeVerification, signauxDesCoins } from '../../../src/zones/releve/aide.js';
+import { MASQUE_NOTABLE, coinsAvecAide, motifAide, propositionRenforcee, signauxDeVerification, signauxDesCoins } from '../../../src/zones/releve/aide.js';
 import { voterRenfort, type ReponseRenfort } from '../../../src/facade/renfort.js';
 import { bilanVide } from '../../../src/facade/renfortRecalage.js';
 import type { Morceau } from '../../../src/zones/releve/serie.js';
@@ -40,6 +40,22 @@ describe('l aide de Claude au releve', () => {
     const sure: OuvertureFacade = { type: 'fenetre', x: 1, y: 1, l: 1, h: 1, confiance: 0.9, source: 'detectee' };
     expect(signauxDeVerification({ ouvertures: [sure], devinees: [], largeurM: 9, couverture: 1 })).toEqual([]);
     expect(signauxDeVerification({ ouvertures: [sure], devinees: [], largeurM: 9, couverture: 0.6 })).toEqual(['malVue']);
+  });
+
+  it('la propose sur plusieurs vues des que le masque couvre un dixieme du mur (lot G20)', () => {
+    const sure: OuvertureFacade = { type: 'fenetre', x: 1, y: 1, l: 1, h: 1, confiance: 0.9, source: 'detectee' };
+    // Le masque compte deja dans la couverture de la fusion (ses pixels ne sont pas vus).
+    expect(signauxDeVerification({ ouvertures: [sure], devinees: [], largeurM: 9, couverture: 0.95, masque: 0.05 })).toEqual([]);
+    expect(MASQUE_NOTABLE).toBe(0.1);
+    const s = signauxDeVerification({ ouvertures: [sure], devinees: [], largeurM: 9, couverture: 0.83, masque: 0.17 });
+    expect(s).toEqual(['malVue']);
+    expect(motifAide(s, 0.17)).toBe('17 % du mur caché sur toutes les photos');
+    // Avec un autre signal, les deux se disent ; sans masque, le libelle du signal reste.
+    const peu: OuvertureFacade = { ...sure, confiance: 0.4 };
+    const s2 = signauxDeVerification({ ouvertures: [peu], devinees: [], largeurM: 9, couverture: 0.6, masque: 0.35 });
+    expect(s2[0]).toBe('malVue');
+    expect(motifAide(s2, 0.35)).toMatch(/^35 % du mur caché sur toutes les photos, détection peu sûre/);
+    expect(motifAide(['malVue'])).toBe('façade en grande partie cachée');
   });
 
   it('remplace les coins predits par les graines recalees, jamais un coin trouve ni pose au doigt', () => {
