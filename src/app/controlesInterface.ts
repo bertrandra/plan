@@ -247,6 +247,10 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
   'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
+  // Le fichier de l'audit (§15) : partage pour le corpus (case cochee par defaut, revocable), et le
+  // fichier lui-meme pour l'administrateur. Ni l'un ni l'autre n'ecrit dans le projet.
+  'auditParcelle.partagerCorpus': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (décocher le retire du serveur)', { repete: true }),
+  'auditParcelle.fichier': etape(Z8, AUDIT_PARCELLE, 'Fichier de l’audit : le partager ou le télécharger (administrateur)'),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),

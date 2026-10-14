@@ -67,6 +67,9 @@ RedirectMatch 404 ^/data(/|$)
   # `REDIRECT_HTTP_AUTHORIZATION` apres la reecriture ; analyse.php lit les deux).
   RewriteCond %{HTTP:Authorization} .
   RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21) : analyse.php les
+  # range avec les autres donnees de l'admin ; la session admin, ou le jeton de la plateforme.
+  RewriteRule ^admin/audits(/(.*))?$ analyse.php?chemin=@audits/$2 [QSA,L]
   # L'analyse par Claude (analyse.php, MD/spec-audit.md 13.2) : sous `admin/`, elle recoit le
   # cookie de la session admin, ou le jeton de la plateforme. Avant la regle suivante, qui prendrait
   # tout `admin/`.

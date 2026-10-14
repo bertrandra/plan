@@ -48,7 +48,8 @@ import { brancherVoisinage } from './ecouteurs/voisinage.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
-import { droitsCourants, enLectureSeule, prevenirAdminDesCapacitesForcees } from './acces.js';
+import { droitsCourants, enAdmin, enLectureSeule, prevenirAdminDesCapacitesForcees, sessionCourante } from './acces.js';
+import { creerClientAudits } from '../io/auditsServeur.js';
 import { analyseClaudeDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
@@ -396,6 +397,11 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   };
 }
 
+/** Le jeton de la plateforme, relu a chaque appel : il se renouvelle pendant que la page vit. */
+const jetonPlateforme = (): string | null => sessionCourante()?.jeton()?.valeur ?? null;
+/** Le partage des audits de parcelle pour le corpus (MD/spec-audit.md §15) : un client pour la page. */
+const clientAudits = creerClientAudits((entree, init) => fetch(entree, init), jetonPlateforme);
+
 /** Les objets deja presents recoivent leur DOM, puis les gestes du pointeur et les commandes du plan. */
 function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargements>, seed: GraineDemarrage, tardifs: Tardifs) {
   const { etat, magasin, commandes, surface, dessin, affichage, resultats, tiroir } = p;
@@ -436,6 +442,9 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
       remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
     },
+    // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
+    audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
+    admin: enAdmin,
     analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
   }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond

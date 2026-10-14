@@ -7,6 +7,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
+  de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
+  - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
+    (IDU, adresse, origine), les versions du code et des règles, pour chaque bâtiment un cas figé
+    (contour, BD TOPO, voisins, grille LiDAR relue à l'écriture, sorties du jour), « Ce que je
+    vois », et pour chaque façade ses photos avec leur prise de vue, ses mesures (relevé avec son
+    calage, couleur, hauteur) ; la clôture et le portail ; chaque proposition avec ses indices et sa
+    décision, validée ou refusée. Il recopie sans recalculer : relu, il redonne le même audit.
+    L'administrateur le partage ou le télécharge depuis l'écran des propositions (« Fichier de
+    l'audit »).
+  - **Fichier › Importer un audit de parcelle…** reprend un fichier de la même parcelle à l'étape des
+    propositions : un fichier d'une autre parcelle est refusé et le dit ; les bâtiments d'un autre
+    projet de la même parcelle sont retrouvés par leur identifiant BD TOPO ; les mesures du fichier
+    tiennent lieu de calcul ; les cases suivent ses décisions, sans jamais cocher une ligne qui
+    remplacerait un choix fait à la main ; un audit en cours sur l'appareil n'est remplacé qu'après
+    confirmation. Rien n'entre dans le projet avant « Valider », que Ctrl+Z défait en un pas.
+  - **« Partager cet audit pour améliorer Plan »**, sur l'écran des propositions : **cochée par
+    défaut** (décision de l'utilisateur du 13 octobre), révocable. À chaque validation, le fichier,
+    photos comprises, part sur le serveur de Plan et remplace le précédent ; décocher le retire. La
+    case n'est montrée qu'avec une session admin ou un jeton de la plateforme : sans eux, rien ne
+    quitte l'appareil.
+  - **Le serveur** : `admin/audits` dans `deploy/analyse.php` et `buildsg/analyseAdmin.mjs` (même
+    contrat), par la session admin ou le jeton de la plateforme vérifié auprès d'elle
+    (`plateformeUrl` de la configuration, `BACKPROD_API_URL` sous Node). Les audits se rangent tels
+    qu'ils sont arrivés dans `audits/` du dossier des données de l'admin ; l'envoi rend un secret de
+    retrait dont le serveur ne garde que l'empreinte ; la liste et la lecture sont à
+    l'administrateur. `.htaccess` passe l'en-tête `Authorization` à PHP.
+  - Une validation garde les propositions telles qu'elles étaient : une fois écrites, elles ne se
+    proposent plus, et le fichier doit les redire. Points de fumée 74 et 75.
+
 - **Plan de la vague 3, « Généraliser »** (`MD/plan-vague-3-generaliser.md`) : les formes de toit
   nouvelles (lucarnes, Mansart et gambrel, demi-croupe, cheminées lues sur le LiDAR, asymétrique),
   les profils de façades du voisinage, les profils de toits régionaux et les suites des lots L15,

@@ -15,6 +15,13 @@ if (getenv('ANALYSE_PHP') && preg_match('#^/admin/consommation/?$#', $p)) {
     require getenv('ANALYSE_PHP');
     return true;
 }
+// `admin/audits[/<id>]` -> analyse.php?chemin=@audits/<id> (les audits partages, lot L21).
+if (getenv('ANALYSE_PHP') && preg_match('#^/admin/audits(?:/(.*))?$#', $p, $m)) {
+    $_GET['chemin'] = '@audits/' . ($m[1] ?? '');
+    $_SERVER['SCRIPT_NAME'] = '/analyse.php';
+    require getenv('ANALYSE_PHP');
+    return true;
+}
 if (preg_match('#^/admin/(.*)$#', $p, $m)) {
     $_GET['chemin'] = $m[1];
     $_SERVER['SCRIPT_NAME'] = '/admin.php';

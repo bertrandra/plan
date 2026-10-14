@@ -1464,6 +1464,13 @@
   .verificationsAudit li{ padding:2px 0; }
   .verificationsAudit li.verifie{ color:var(--ink); box-shadow:inset 3px 0 0 var(--ok); padding-left:8px; }
   .texteMasque{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  /* Le partage pour le corpus (§15) : une case sous la liste, et ce qui partira ou est parti. */
+  .partageAudit{ margin-top:10px; padding-top:8px; border-top:1px solid var(--rule); }
+  .partageAudit label{ display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .partageAudit input[type="checkbox"]{ width:18px; height:18px; margin:0; flex:none; accent-color:var(--accent); }
+  .partageAudit .notePartage{ margin:2px 0 0 28px; font-size:0.72rem; color:var(--ink-soft); }
+  html:not([data-classe="large"]) .partageAudit label{ min-height:44px; }
+  html:not([data-classe="large"]) .partageAudit input[type="checkbox"]{ width:20px; height:20px; }
   html:not([data-classe="large"]) .ligneProposition{ min-height:44px; }
   html:not([data-classe="large"]) .ligneProposition input[type="checkbox"]{ width:20px; height:20px; margin-top:2px; }
   html:not([data-classe="large"]) .avantApresAudit button{ min-height:44px; }

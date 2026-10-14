@@ -11,6 +11,7 @@
 
 import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
+import type { Proposition } from './propositions.js';
 import type { OuvertureFacade } from './types.js';
 
 /** La version de la capture ecrite : une capture d'une version inconnue n'est pas reprise. */
@@ -99,6 +100,13 @@ export interface CaptureParcelle<P = PhotoCas> {
    */
   decisions?: DecisionAudit[];
   /**
+   * Le partage pour le corpus (§15, decision D7) : « Partager cet audit pour améliorer Plan ».
+   * Absent : la case de l'accord de l'analyse s'il a ete donne, sinon cochee (decision de
+   * l'utilisateur, 13 octobre) ; rien n'est encore parti. Il reste sur l'appareil : le fichier de
+   * l'audit ne le recopie pas, le secret de retrait non plus.
+   */
+  partage?: PartageCorpus;
+  /**
    * L'analyse par Claude (§13.2, lot L17) : l'accord de l'utilisateur, le batch en cours et ses
    * resultats. Absente tant que la question n'a pas ete posee. Elle vit dans la capture pour
    * survivre a un rechargement (brouillon) et pour le fichier de l'audit (§15).
@@ -172,6 +180,33 @@ export interface AnalyseCapture {
   erreur?: string | null;
 }
 
+/** L'audit tel que le serveur de Plan l'a recu : de quoi le retirer (la case decochee). */
+export interface EnvoiCorpus {
+  id: string;
+  /** Le secret rendu par le serveur a l'envoi : lui seul (ou l'administrateur) retire le fichier. */
+  retrait: string;
+  /** Quand il est parti, ISO. */
+  t: string;
+}
+
+export interface PartageCorpus {
+  accord: boolean;
+  envoi: EnvoiCorpus | null;
+}
+
+/** Ce que dit la case quand la capture n'en a rien retenu : cochee, rien d'envoye. */
+export const PARTAGE_PAR_DEFAUT: PartageCorpus = Object.freeze({ accord: true, envoi: null }) as PartageCorpus;
+
+/**
+ * La case du partage : celle touchee dans l'ecran des propositions, sinon celle de l'accord de
+ * l'analyse par Claude (la meme question, posee avec l'accord, lot L17), sinon cochee.
+ */
+export function partageDe(c: Pick<CaptureParcelle, 'partage' | 'analyse'>): PartageCorpus {
+  if (c.partage) return c.partage;
+  const accord = c.analyse?.accord;
+  return accord ? { accord: accord.partage, envoi: null } : PARTAGE_PAR_DEFAUT;
+}
+
 /** Une validation des propositions : quand, ce qui a ete ecrit dans le projet, ce qui a ete refuse. */
 export interface DecisionAudit {
   t: string;
@@ -179,6 +214,12 @@ export interface DecisionAudit {
   refusees: string[];
   /** Les batiments marques « vérifié sur place ». */
   verifies: string[];
+  /**
+   * Les propositions telles qu'elles etaient a cet instant, acceptees et refusees : une fois ecrite,
+   * une proposition ne se recalcule plus (l'avant est devenu l'apres), et le fichier de l'audit
+   * (§15) doit pourtant dire ce qui a ete propose. Absent d'une validation plus ancienne.
+   */
+  propositions?: Proposition[];
 }
 
 /** L'identifiant de la capture d'une parcelle : la meme parcelle retrouve son brouillon. */

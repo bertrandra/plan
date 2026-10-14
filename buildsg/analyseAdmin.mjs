@@ -343,6 +343,22 @@ export function lireResultat(ligne) {
   return { id: String(ligne && ligne.custom_id), statut, arret: message ? message.stop_reason ?? null : null, tokens, sortie, erreur };
 }
 
+// --- Les audits partages pour le corpus (spec-audit 15, lot L21 ; deploy/analyse.php, memes noms) --
+
+const ID_AUDIT = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
+/** L'IDU d'une parcelle, ou son point de calage (`48.900000,2.130000`) pour un plan sans IDU. */
+const IDU_AUDIT = /^[A-Za-z0-9_.,-]{1,64}$/;
+
+/** Ce que le serveur verifie d'un audit : sa forme, pas son contenu (la page le relit en entier). */
+export function verifierAudit(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d) || d.format !== 'plan-audit-parcelle') throw refus('Ce n’est pas un fichier d’audit de parcelle.');
+  if (d.version !== 1) throw refus('Version du fichier d’audit inconnue.');
+  const p = d.parcelle;
+  if (!p || typeof p !== 'object' || typeof p.idu !== 'string' || !IDU_AUDIT.test(p.idu)) throw refus('Parcelle du fichier d’audit invalide.');
+  if (!Array.isArray(d.batiments) || !Array.isArray(d.propositions)) throw refus('Fichier d’audit incomplet.');
+  return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
+}
+
 // --- Le serveur -------------------------------------------------------------------------------
 
 /**
@@ -358,6 +374,7 @@ export function lireResultat(ligne) {
  * }} options
  */
 export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', plateformeUrl = 'https://www.raillard.org', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+  const dossierAudits = path.join(dossier, 'audits');
   const dossierClaude = path.join(dossier, 'claude');
   const dossierBatches = path.join(dossierClaude, 'batches');
   const fTarifs = path.join(dossierClaude, 'tarifs.json');
@@ -555,7 +572,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     return ouverts;
   }
 
-  async function lireCorps(req, max) {
+  async function lireTexte(req, max) {
     const morceaux = [];
     let taille = 0;
     for await (const m of req) {
@@ -563,8 +580,66 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       if (taille > max) throw Object.assign(new Error('trop gros'), { statut: 413 });
       morceaux.push(m);
     }
-    const texte = Buffer.concat(morceaux).toString('utf8');
+    return Buffer.concat(morceaux).toString('utf8');
+  }
+
+  async function lireCorps(req, max) {
+    const texte = await lireTexte(req, max);
     try { return JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+  }
+
+  const fAudit = (id) => path.join(dossierAudits, id + '.json');
+  const fFicheAudit = (id) => path.join(dossierAudits, id + '.fiche.json');
+
+  /** `admin/audits[/<id>]` : deposer, lister, lire, retirer un audit de parcelle partage (15, L21). */
+  async function audits(req, res, base, id, admin, json, erreur) {
+    const methode = req.method || 'GET';
+    const lecture = methode === 'GET' || methode === 'HEAD';
+    if (!id) {
+      if (lecture) {
+        if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+        let noms = [];
+        try { noms = fs.readdirSync(dossierAudits).filter((n) => n.endsWith('.fiche.json')); } catch { /* aucun audit */ }
+        const liste = noms.map((n) => lireJson(path.join(dossierAudits, n))).filter(Boolean).map((f) => { const g = { ...f }; delete g.retrait; return g; });
+        liste.sort((a, b) => String(b.recuLe || '').localeCompare(String(a.recuLe || '')));
+        return json(200, { audits: liste });
+      }
+      if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+      // Deposer : la session admin, ou le jeton d'un compte qui peut ecrire les projets (comme l'analyse).
+      const qui = await acteur(req);
+      if (qui.refus) return erreur(...qui.refus);
+      const organisation = qui.organisation;
+      const texte = await lireTexte(req, TAILLE_MAX);
+      let d;
+      try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+      const parcelle = verifierAudit(d);
+      const t = iso();
+      const nouvel = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + crypto.randomBytes(4).toString('hex');
+      const retrait = crypto.randomBytes(24).toString('hex');
+      fs.mkdirSync(dossierAudits, { recursive: true });
+      // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
+      const tmp = fAudit(nouvel) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+      fs.writeFileSync(tmp, texte);
+      fs.renameSync(tmp, fAudit(nouvel));
+      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
+      return json(201, { id: nouvel, retrait });
+    }
+    const fiche = ID_AUDIT.test(id) ? lireJson(fFicheAudit(id)) : null;
+    if (!fiche) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + id + ' ».');
+    if (lecture) {
+      if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+      res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fAudit(id)));
+      return true;
+    }
+    if (methode !== 'DELETE') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+    const secret = String(req.headers['x-plan-retrait'] || '');
+    const attendu = Buffer.from(String(fiche.retrait || ''));
+    const recu = Buffer.from(secret ? crypto.createHash('sha256').update(secret).digest('hex') : '');
+    if (!admin && !(secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu))) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+    for (const f of [fAudit(id), fFicheAudit(id), fFicheAudit(id) + '.bak']) fs.rmSync(f, { force: true });
+    return json(200, { id, retire: true });
   }
 
   /**
@@ -576,9 +651,11 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
    */
   async function traiter(req, res, url, base) {
     // `admin/consommation` (13.3) est servi ici aussi : il ne fait que relire le journal de ce module.
-    const m = /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
-    if (!m || !actif) return false;
-    const chemin = m[2] ? '@consommation' : (m[1] || '').replace(/\/$/, '');
+    // `admin/audits` (15, L21) aussi : les audits de parcelle partages, rangés avec les donnees de l'admin.
+    const ma = /^\/admin\/audits(?:\/([^/]*))?\/?$/.exec(url.pathname);
+    const m = ma ? null : /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
+    if ((!m && !ma) || !actif) return false;
+    const chemin = ma ? '@audits' : m && m[2] ? '@consommation' : ((m && m[1]) || '').replace(/\/$/, '');
     const json = (statut, corps) => {
       res.writeHead(statut, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(req.method === 'HEAD' ? undefined : JSON.stringify(corps));
@@ -588,6 +665,16 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
     if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
+    // Les audits partages verifient eux-memes qui appelle : leur retrait se fait aussi par le seul
+    // secret rendu a l'envoi, sans session ni jeton.
+    if (ma) {
+      try { return await audits(req, res, base, decodeURIComponent(ma[1] || ''), sessionValide(req), json, erreur); } catch (e) {
+        if (e && e.statut === 413) return erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+        if (e && e.statut === 400) return erreur(400, 'BAD_REQUEST', e.message);
+        console.error('Plan audits :', e);
+        return erreur(500, 'SERVER_ERROR', 'Erreur du serveur.');
+      }
+    }
     const qui = await acteur(req);
     if (qui.refus) return erreur(...qui.refus);
     const organisation = qui.organisation;
@@ -595,6 +682,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const sansCle = () => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : ANTHROPIC_API_KEY sur ce serveur (anthropicCle dans plan-admin-config.php pour Apache).');
 
     try {
+
       if (chemin === 'etat') {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const { prompt, schema } = promptEtSchema();

@@ -625,7 +625,11 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
 - **Qui le produit** :
   - l'administrateur, toujours (audit hors projet) ;
   - un utilisateur, **seulement s'il accepte de le partager** (« Partager cet audit pour améliorer
-    Plan », décoché par défaut). Ses photos sont celles de sa maison : rien ne part sans son accord
+    Plan »). **Décision de l'utilisateur (13 octobre) : la case est cochée par défaut**, et elle se
+    décoche à tout moment : décocher retire du serveur le fichier déjà parti. Elle est posée avec
+    l'accord de l'analyse par Claude (lot L17) quand cette question l'est, puis montrée seule sur
+    l'écran des propositions, avec ce qui partira (« le fichier de l'audit, photos comprises ») ;
+    rien ne part avant « Valider », ni sans réseau, ni sans session admin ou jeton de la plateforme
     (question 11).
 - Les validations et les refus mesurent le **taux d'accord** de Claude par attribut
   (`spec-regles-toits.md` §14.2) et la précision du détecteur d'ouvertures
@@ -633,6 +637,30 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
 - **Fichier › Importer un audit de parcelle** applique un fichier à un projet de la même parcelle
   (même IDU) : il reprend à la phase 3. C'est le cas d'un audit fait par l'administrateur pour un
   client.
+
+**Fait (lot L21)** :
+- `model/fichierAuditParcelle.ts` écrit et relit le format `plan-audit-parcelle` version 1 ; il
+  recopie sans recalculer. Chaque validation garde les propositions telles qu'elles étaient
+  (`DecisionAudit.propositions`) : une proposition écrite ne se propose plus, le fichier la redit
+  avec sa décision. `app/audit/parcelle/fichier.ts` fige chaque bâtiment comme un cas (§9), grille
+  LiDAR relue à l'écriture (sans réseau, le cas part sans grille).
+- L'administrateur a le bouton « Fichier de l'audit » sur l'écran des propositions (feuille de
+  partage du système, sinon téléchargement).
+- L'import refuse un fichier d'une autre parcelle en le disant. Un projet de la même parcelle peut
+  donner d'autres clés aux mêmes bâtiments : ils sont retrouvés par leur identifiant BD TOPO. Les
+  mesures du fichier tiennent lieu de calcul tant que les photos de leur façade ne changent pas ;
+  les cases suivent la dernière validation du fichier, sans jamais cocher une ligne qui remplacerait
+  un choix fait à la main dans ce projet. Une capture déjà sur l'appareil n'est remplacée qu'après
+  confirmation. Un audit importé arrive avec la case du partage décochée : son auteur l'a déjà.
+- Le partage va sur le serveur de Plan, dans les données de l'admin : `admin/audits`
+  (`deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat), par la session admin ou le
+  jeton de la plateforme vérifié auprès d'elle (`plateformeUrl`). Le fichier est rangé tel qu'il est
+  arrivé dans `audits/`, avec une fiche (IDU, adresse, organisation, taille). L'envoi rend un secret
+  de retrait, gardé avec la capture sur l'appareil ; le serveur n'en garde que l'empreinte. Chaque
+  validation renvoie le fichier et retire le précédent. La liste et la lecture sont à
+  l'administrateur seul.
+- Restent : l'écran de l'admin qui liste les audits reçus et les verse au corpus (§21), et les
+  corrections faites dans l'éditeur du relevé, qui attendent son ouverture depuis la ligne d'une façade.
 
 ## 16. Ce que l'audit de parcelle ne fait pas
 
@@ -889,7 +917,9 @@ et les couleurs lues sur les photos de terrain sont comparées à ce que Plan ca
 11. **Partage de l'audit d'un utilisateur** (§15) : un utilisateur peut-il partager son audit pour
     améliorer les règles, et sous quelle forme ? Proposition : une case « Partager cet audit pour
     améliorer Plan », décochée par défaut, qui envoie le fichier au serveur de la plateforme ; sans
-    elle, rien ne quitte l'appareil.
+    elle, rien ne quitte l'appareil. **Réponse de l'utilisateur (13 octobre) : la case, mais cochée
+    par défaut**, et révocable ; le fichier va sur le serveur de Plan, dans les données de l'admin
+    (fait, lot L21, §15).
 12. **Envoi des photos à l'analyse** (§13.2) : l'analyse par Claude envoie les photos de la maison au
     serveur de la plateforme, puis à l'API. Accord demandé à chaque lancement, ou une fois pour toutes
     dans le projet ? Proposition : une fois par projet, rappelé au lancement, révocable ; sans accord,

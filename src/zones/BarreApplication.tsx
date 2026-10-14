@@ -134,6 +134,8 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
         <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
         <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
+        {/* Un audit fait ailleurs (l'administrateur pour un client, §15) : repris a ses propositions. */}
+        <Entree commandes={commandes} id="audit.importerParcelle" libelle="Importer un audit de parcelle…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
         <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />

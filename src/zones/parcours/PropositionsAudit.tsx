@@ -6,6 +6,7 @@
 // main n'est jamais remplacee en silence : sa ligne arrive decochee et le dit. « Valider » ecrit ce
 // qui est coche en un seul pas d'historique (app/audit/parcelle/validation.ts).
 
+import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { Proposition } from '../../model/propositions.js';
@@ -26,6 +27,25 @@ function LigneProposition({ p, cochee, basculer }: { p: Proposition; cochee: boo
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
       </label>
     </li>
+  );
+}
+
+/**
+ * « Partager cet audit pour améliorer Plan » (§15, decision D7) : cochee par defaut, revocable. Absente
+ * quand personne ne peut envoyer (ni session admin ni jeton de la plateforme) : rien ne part alors.
+ */
+function PartageAudit({ session }: { session: SessionAuditParcelle }) {
+  const e = session.corpus.etat();
+  // La question de l'accord de l'analyse pose deja la meme case (AnalyseClaudeAudit) : une seule a la fois.
+  if (!e.disponible || session.analyse.etat() === 'sansAccord') return null;
+  return (
+    <div className="partageAudit">
+      <label>
+        <input type="checkbox" data-controle="auditParcelle.partagerCorpus" checked={e.accord} disabled={e.enCours} onChange={() => session.corpus.basculer()} />
+        Partager cet audit pour améliorer Plan
+      </label>
+      <p className="notePartage" aria-live="polite">{texteDuPartage(e)}</p>
+    </div>
   );
 }
 
@@ -59,8 +79,10 @@ export function PropositionsAudit({ session, fermer }: { session: SessionAuditPa
       {verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
         {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
       </ul>}
+      <PartageAudit session={session} />
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
+        {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}
         <button type="button" data-controle="auditParcelle.valider" disabled={enCours !== null || (!cochees && !verifies)}
           onClick={() => { if (v.valider()) fermer(); }}>{'Valider' + (cochees ? ' (' + cochees + ')' : '')}</button>
       </div>

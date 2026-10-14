@@ -44,7 +44,7 @@ renvois `A§`, `F§` et `T§` désignent ces trois specs.
 
 ## 3. Les décisions, et les défauts retenus
 
-Le plan avance avec la **proposition** de chaque spec tant qu'aucune réponse ne vient. *Le 13 octobre, l'utilisateur a retenu les défauts de D1, D2 et D13 : plus rien ne bloque L17 ni L19.* Seules
+Le plan avance avec la **proposition** de chaque spec tant qu'aucune réponse ne vient. *Le 13 octobre, l'utilisateur a retenu les défauts de D1, D2 et D13 : plus rien ne bloque L17 ni L19. Il a tranché D7 le même jour : la case du partage est **cochée** par défaut (L21).* Seules
 quelques décisions **bloquent** un lot.
 
 | # | Question | Défaut retenu | Bloque |
@@ -55,7 +55,7 @@ quelques décisions **bloquent** un lot.
 | D4 | Couleur sur photo automatique ou au toucher (A§25 q5) | automatique, toucher si la lecture échoue | — |
 | D5 | Relevé sur place ou plus tard (A§25 q6) | quand on veut, depuis la liste | — |
 | D6 | Mitoyens à 100 % (A§25 q10) | oui, pour ce qui se voit | — |
-| D7 | Partage de l'audit d'un utilisateur pour le corpus (A§25 q11) | ~~case décochée par défaut~~ **tranchée par l'utilisateur : la case « Partager cet audit pour améliorer Plan » est cochée par défaut** ; posée avec l'accord de l'analyse (L17), lue par le fichier de l'audit | **L21** |
+| D7 | Partage de l'audit d'un utilisateur pour le corpus (A§25 q11) | ~~case décochée par défaut~~ **tranchée par l'utilisateur (13 octobre) : la case « Partager cet audit pour améliorer Plan » est cochée par défaut**, révocable ; posée avec l'accord de l'analyse (L17), puis seule sur l'écran des propositions ; rien ne part avant « Valider », ni sans session admin ou jeton de la plateforme (L21) | ~~L21~~ tranchée |
 | D8 | Analyse en pleine définition, photo réduite gardée (F§17 q1) | oui | — |
 | D9 | Ouvertures devinées (F§17 q2) | proposées en pointillé, décochées si confiance faible | — |
 | D10 | Détails des ouvertures dans le modèle (F§17 q3) | oui, dès L15 | — |
@@ -149,7 +149,7 @@ L19 peut commencer dès J0 : il ne dépend que des fichiers de promenade.
 |---|---|---|---|---|---|
 | **L19** | **Corpus** : script `audit.ts` de rejeu, `tests/fixtures/audit/`, test de non-régression des cas `valide` (toits, couleur, ouvertures) ; `reglages.json` des toits sorti du code **sans changer une valeur** | A§21 à A§23, T§6, T§8 | L | L1, **D13** | banc des villages et AE 101 identiques au bit près |
 | **L20** | **Faits et skill `regles-toits`** : `faits.json` appliqué, skill qui traite une promenade jusqu'à la PR avec images | T§5, T§10 | L | L19 | une promenade réelle traitée de bout en bout |
-| **L21** | **Fichier de l'audit de parcelle** : partage pour le corpus avec accord, import d'un audit dans un projet de la même parcelle | A§15 | M | L11, **D7** | un fichier rejoué sans réseau ; import, puis Ctrl+Z |
+| **L21** | **Fichier de l'audit de parcelle** : partage pour le corpus (case cochée par défaut, révocable), import d'un audit dans un projet de la même parcelle | A§15 | M | L11, D7 (tranchée) | un fichier rejoué sans réseau ; import, puis Ctrl+Z |
 
 ### J6 — Généraliser
 

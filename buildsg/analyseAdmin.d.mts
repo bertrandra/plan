@@ -96,6 +96,9 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
   organisations: string[]; modeles: string[]; usages: string[]; parcelles: { idu: string; adresse: string | null }[];
 };
 
+// Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
+export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
+
 export function creerAnalyseAdmin(options: {
   dossier: string;
   actif: boolean;

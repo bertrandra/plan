@@ -245,6 +245,50 @@ async function captureJusquAuxPropositions(page) {
 }
 
 /**
+ * Le serveur des audits partages (`admin/audits`, lot L21), simule : il garde ce qu'on lui envoie et
+ * ce qu'on lui retire, pour que le point le mesure.
+ */
+async function simulerAudits(page) {
+  const recus = [], retires = [];
+  await page.route(/\/admin\/audits(\/|$)/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'POST') {
+      recus.push({ texte: req.postData() || '', entetes: req.headers() });
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: '20261013-090000-0000000' + recus.length, retrait: 'secret' + recus.length }) });
+    }
+    if (req.method() === 'DELETE') { retires.push({ url: req.url(), secret: req.headers()['x-plan-retrait'] }); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"retire":true}' }); }
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+  return { recus, retires };
+}
+/**
+ * Une entree du menu Fichier (feuille Projet au doigt), touchee par le DOM : apres la Vue 3D, le
+ * rendu logiciel tient le fil et Playwright n'attend pas assez qu'elle soit stable pour la cliquer.
+ */
+async function entreeFichier(page, commande) {
+  if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+  await page.evaluate((c) => {
+    document.getElementById('menuFichier')?.setAttribute('open', '');
+    document.querySelector('#menuFichier [data-commande="' + c + '"]')?.click();
+  }, commande);
+}
+/** Note chaque toast qui parait :il ne reste que quelques secondes, la Vue 3D logicielle ralentit tout. */
+async function noterToasts(page) {
+  await page.evaluate(() => {
+    window.__toastsVus = [];
+    new MutationObserver(() => document.querySelectorAll('.toast').forEach((t) => { if (!window.__toastsVus.includes(t.textContent)) window.__toastsVus.push(t.textContent); }))
+      .observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+}
+/** « Seulement les mesures » quand la question de l'analyse par Claude est posee (lot L17). */
+async function seulementLesMesures(page) {
+  const bouton = page.locator('[data-controle="auditParcelle.sansAnalyse"]');
+  if (await bouton.count()) await bouton.click({ timeout: 30000 });
+  await page.locator('.accordAnalyse').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
+}
+const toastVu = (page, motif) => page.evaluate((m) => (window.__toastsVus || []).find((t) => new RegExp(m).test(t)) ?? '', motif);
+
+/**
  * Les routes `admin/claude/…` de l'analyse par Claude (deploy/analyse.php), simulees (lot L17) :
  * les demandes recues et leurs jetons ; un batch fini des le premier suivi, dont les trois passes
  * disent la meme chose (zinc, une cheminee, un parement en pierre sur chaque facade a decrire).
@@ -1626,6 +1670,100 @@ const POINTS = {
     const ok = parDefaut === 'true' && vues === 'true' && /^Vue 2 sur 2 .*mur entier/.test(consigne) && ecrit.length === 1 && deux === 2 && retour;
     return { ok, mesure: `assemblage par défaut : ${parDefaut === 'true' ? 'morceaux' : 'AUTRE'} ; « Vues du mur entier » ${vues === 'true' ? 'choisi' : 'NON choisi'} ; « ${consigne.slice(0, 60)}… » ; écrit : ${ecrit.map((e) => `${e.nom}, ${e.vues.join('/')} vue(s) calée(s), ${e.ouvertures.join('/')} ouverture(s)`).join(' ; ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  74: async (page, f) => {
+    // Le partage pour le corpus (lot L21, decision D7) : la case « Partager cet audit pour améliorer
+    // Plan » est cochee par defaut sur l'ecran des propositions ; rien ne part avant « Valider » ;
+    // le fichier `plan-audit-parcelle` part alors, photos et decisions comprises ; decocher le retire
+    // du serveur par son secret. Le serveur `admin/audits` est simule.
+    const serveur = await simulerAudits(page);
+    await captureJusquAuxPropositions(page);
+    // La question de l'analyse par Claude (lot L17) porte la meme case tant qu'elle est posee :
+    // « Seulement les mesures », et la case du partage parait seule.
+    await seulementLesMesures(page);
+    const boite = page.locator('.partageAudit');
+    const visible = await boite.count();
+    const cochee = visible ? await boite.locator('input[data-controle="auditParcelle.partagerCorpus"]').isChecked() : false;
+    const note = visible ? ((await boite.locator('.notePartage').textContent()) || '').trim() : '';
+    const avantValider = serveur.recus.length;
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await noterToasts(page);
+    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit partagé/.test(t)), null, { timeout: 30000 }).catch(() => {});
+    const recu = serveur.recus[0];
+    const fichier = recu ? JSON.parse(recu.texte) : null;
+    const decisions = (fichier?.propositions ?? []).map((p) => p.decision);
+    const photos = (fichier?.batiments ?? []).flatMap((b) => b.facades.flatMap((x) => x.photos)).length;
+    // On revient sur les propositions : la case dit ce qui est parti ; la decocher le retire. La Vue 3D
+    // logicielle tient le fil : l'entree du menu se touche par le DOM, sans attendre qu'elle soit stable.
+    await entreeFichier(page, 'audit.parcelle');
+    await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 30000 });
+    await page.locator('[data-controle="auditParcelle.propositions"]').click({ timeout: 30000 });
+    await page.locator('.partageAudit').waitFor({ timeout: 30000 });
+    const noteApres = ((await page.locator('.partageAudit .notePartage').textContent()) || '').trim();
+    await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').uncheck({ timeout: 30000 });
+    await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit retiré/.test(t)), null, { timeout: 30000 }).catch(() => {});
+    const retire = serveur.retires[0];
+    const decocheeApres = !(await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').isChecked());
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ok = visible === 1 && cochee && /photos comprises/.test(note) && avantValider === 0 && serveur.recus.length === 1
+      && fichier?.format === 'plan-audit-parcelle' && fichier?.version === 1 && !!fichier?.parcelle?.idu && photos >= 1 && decisions.includes('validee')
+      && recu.entetes['x-plan-admin'] === '1' && /^Partagé le /.test(noteApres) && retire?.secret === 'secret1' && /\/admin\/audits\/20261013-090000-00000001$/.test(retire?.url || '')
+      && decocheeApres && /Audit partagé/.test(await toastVu(page, 'Audit partagé')) && !deborde;
+    return { ok, mesure: `case ${visible ? (cochee ? 'cochée' : 'DÉCOCHÉE') : 'ABSENTE'} « ${note.slice(0, 70)}… » ; avant Valider ${avantValider} envoi ; envoyé ${serveur.recus.length} : ${fichier?.format ?? '—'} v${fichier?.version ?? '?'}, parcelle ${fichier?.parcelle?.idu ?? '—'}, ${photos} photo(s), décisions ${decisions.join('/')} ; après : « ${noteApres.slice(0, 40)}… » ; décochée : retrait ${retire ? 'par le secret ' + retire.secret : 'AUCUN'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  75: async (page, f) => {
+    // L'import d'un audit de parcelle (lot L21) : un audit valide sur cet appareil, son fichier
+    // recupere ; Ctrl+Z ; Fichier › « Importer un audit de parcelle… » : un fichier d'une autre
+    // parcelle est refuse et le dit ; celui de la parcelle demande avant de remplacer l'audit en
+    // cours, puis rouvre les propositions, cases du fichier, sans rien ecrire avant « Valider ».
+    const serveur = await simulerAudits(page);
+    const avant = await etatAudite(page);
+    await captureJusquAuxPropositions(page);
+    await seulementLesMesures(page);
+    await noterToasts(page);
+    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit partagé/.test(t)), null, { timeout: 30000 }).catch(() => {});
+    const texte = serveur.recus[0]?.texte ?? '';
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(1500);
+    const defait = (await etatAudite(page)) === avant;
+    const importer = async (nom, contenu) => {
+      const [choix] = await Promise.all([page.waitForEvent('filechooser', { timeout: 30000 }), entreeFichier(page, 'audit.importerParcelle')]);
+      await choix.setFiles({ name: nom, mimeType: 'application/json', buffer: Buffer.from(contenu) });
+      await page.waitForTimeout(800);
+    };
+    const autre = texte ? JSON.stringify({ ...JSON.parse(texte), parcelle: { ...JSON.parse(texte).parcelle, idu: '35238000AB0001' } }) : '{}';
+    await importer('autre.json', autre);
+    // Le fichier se lit en tache de fond, et la Vue 3D logicielle tient le fil : on attend le toast.
+    await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Import refusé/.test(t)), null, { timeout: 30000 }).catch(() => {});
+    const refus = await toastVu(page, 'Import refusé');
+    const ouvertApresRefus = await page.locator('.auditPropositions').count();
+    await importer('audit.json', texte);
+    const question = page.locator('.dialogueVoile', { hasText: 'Remplacer l’audit en cours' });
+    // La question attend la lecture du brouillon (IndexedDB) : elle peut venir apres le choix du fichier.
+    await question.waitFor({ timeout: 30000 }).catch(() => {});
+    const demande = await question.count();
+    if (demande) await question.locator('[data-controle="dialogue.principal"]').click({ timeout: 30000 });
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 }).catch(() => {});
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 60000 }).catch(() => {});
+    const importe = await toastVu(page, 'Audit de la parcelle importé');
+    await seulementLesMesures(page);
+    const murs = await ligneProposition(page, 'Matériau des murs de Maison');
+    const releve = await ligneProposition(page, 'Façade');
+    const caseCorpus = await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').isChecked().catch(() => null);
+    const intact = (await etatAudite(page)) === avant;
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const e = JSON.parse(await etatAudite(page));
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(1500);
+    const annule = (await etatAudite(page)) === avant;
+    const ok = !!texte && defait && /^Import refusé : Ce fichier est l’audit de la parcelle 35238000AB0001/.test(refus) && ouvertApresRefus === 0 && demande === 1
+      && /Audit de la parcelle importé/.test(importe) && !!murs?.cochee && !!releve && !releve.cochee && caseCorpus === false && intact
+      && e.murs?.materiau === 'brique' && annule && !deborde;
+    return { ok, mesure: `fichier ${texte ? Math.round(texte.length / 1024) + ' Ko' : 'ABSENT'} ; Ctrl+Z ${defait ? 'défait' : 'NON'} ; autre parcelle : « ${refus.slice(0, 70)}… » ; question de remplacement ${demande ? 'posée' : 'ABSENTE'} ; « ${importe.slice(0, 60)}… » ; murs ${murs ? (murs.cochee ? 'cochés' : 'DÉCOCHÉS') : 'ABSENTS'}, relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; partage ${caseCorpus === false ? 'décoché' : String(caseCorpus)} ; projet ${intact ? 'intact avant Valider' : 'MODIFIÉ'} ; Valider : murs ${e.murs?.materiau ?? '—'} ; Ctrl+Z ${annule ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
     // travees sur deux niveaux, la fenetre d'etage de droite absente ; « Ajouter dans la grille » la pose
@@ -1782,7 +1920,8 @@ function pointsPour(nomClasse) {
   // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73];
+  // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
