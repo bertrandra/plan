@@ -402,8 +402,17 @@ Et pour la parcelle :
 ### 12.2 Photographier : Plan sait devant quelle façade vous êtes
 
 1. Vous marchez autour de la maison, l'écran de prise ouvert. **La façade que vous avez devant vous
-   est reconnue en direct** (§6.1), surlignée dans la Vue 3D et nommée : « Vous êtes devant la façade
-   sud, 9,2 m — 0 photo ».
+   est reconnue en direct** (§6.1), surlignée **en rouge** dans la Vue 3D et nommée : « Vous êtes devant
+   la façade sud, 9,2 m — 0 photo ».
+   - La Vue 3D est **à hauteur d'homme** (1,7 m), prise 6 m derrière vous, le regard 10° vers le haut
+     pour voir la façade entière. Elle **suit votre position et votre cap** (boussole, sinon sens de la
+     marche) : ce n'est pas une image fixe. Un doigt qui la fait tourner la garde 6 s, puis le suivi
+     reprend (`app/audit/parcelle/vuePrise.ts`).
+   - Si l'automatisme ne trouve pas la bonne façade, **toucher une façade dans la Vue 3D la choisit**
+     (« Photo pour la façade … (choisie) ») ; « Suivre ma position » revient à la façade reconnue.
+   - Les façades **déjà photographiées passent au vert**. Elles restent reconnues et se touchent
+     encore : on peut toujours en reprendre une (huit photos au plus par façade).
+   - Décision de l'utilisateur du 14 octobre 2026.
 2. Le plan de prise (§7) dit combien de photos il faut : « une photo suffit » ou « 3 photos, de gauche
    à droite », plus un gros plan du parement.
 3. Chaque photo est **située** (§5) et **rangée d'elle-même** sur la façade reconnue. La ligne de la

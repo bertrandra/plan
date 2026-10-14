@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { poserFacadeDevant, reposerFacadeDevant, facadeDevantSurlignee, NOM_FACADE_DEVANT } from '../../../src/three/facadeDevant3d.js';
+import { poserFacadeDevant, poserFacadesFaites, reposerFacadeDevant, facadeDevantSurlignee, couleurFacadeDevant, NOM_FACADE_DEVANT, NOM_FACADES_FAITES, AMBRE, ROUGE_FACADE, VERT_FACADE } from '../../../src/three/facadeDevant3d.js';
 import { HORS_EXPORT } from '../../../src/three/primitives.js';
 import { vue3d } from '../../../src/three/etat3d.js';
 
@@ -30,6 +30,7 @@ beforeAll(() => {
 const scene = new Obj3();
 beforeEach(() => {
   poserFacadeDevant(null);
+  poserFacadesFaites([]);
   scene.children = [];
   (vue3d as { scene: unknown }).scene = { scene, cen: { x: 100, y: 50 } };
 });
@@ -71,5 +72,30 @@ describe('la facade devant vous dans la Vue 3D', () => {
     (vue3d as { scene: unknown }).scene = { scene: neuve, cen: { x: 100, y: 50 } };
     reposerFacadeDevant(() => 0);
     expect(neuve.getObjectByName(NOM_FACADE_DEVANT)).toBeDefined();
+  });
+
+  it('reste ambre pour la promenade, passe en rouge pour l audit de la parcelle', () => {
+    poserFacadeDevant(sud);
+    expect(couleurFacadeDevant()).toBe(AMBRE);
+    poserFacadeDevant(sud, ROUGE_FACADE);
+    expect(((scene.getObjectByName('voile') as Maille).material as Mat).p.color).toBe(ROUGE_FACADE);
+  });
+
+  it('pose les facades photographiees en vert, sous la facade visee, et les reprend sur une scene rebatie', () => {
+    const est = { ...sud, gauche: { x: 110, y: 50 }, droite: { x: 110, y: 58 }, normale: { x: 1, y: 0 } };
+    poserFacadesFaites([sud, est]);
+    const g = scene.getObjectByName(NOM_FACADES_FAITES) as Obj3;
+    expect(g.userData[HORS_EXPORT]).toBe(true);
+    const voiles = g.children.filter((c) => c.name === 'voile') as Maille[];
+    expect(voiles).toHaveLength(2);
+    expect((voiles[0]!.material as Mat).p.color).toBe(VERT_FACADE);
+    poserFacadeDevant(sud, ROUGE_FACADE);
+    expect((scene.getObjectByName(NOM_FACADE_DEVANT)!.getObjectByName('voile') as Maille).renderOrder).toBeGreaterThan(voiles[0]!.renderOrder);
+    const neuve = new Obj3();
+    (vue3d as { scene: unknown }).scene = { scene: neuve, cen: { x: 100, y: 50 } };
+    reposerFacadeDevant(() => 0);
+    expect(neuve.getObjectByName(NOM_FACADES_FAITES)).toBeDefined();
+    poserFacadesFaites([]);
+    expect(neuve.getObjectByName(NOM_FACADES_FAITES)).toBeUndefined();
   });
 });

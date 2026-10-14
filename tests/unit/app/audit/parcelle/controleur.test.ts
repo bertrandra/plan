@@ -133,6 +133,104 @@ describe('la facade devant vous', () => {
   });
 });
 
+describe('la Vue 3D de la prise', () => {
+  const vue = () => ({ poser: vi.fn<(pose: unknown) => boolean>(() => true) });
+
+  it('suit votre position et votre cap a hauteur d homme, seulement pendant la prise', () => {
+    const v = vue();
+    const t = session({ vue: v });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    expect(v.poser).not.toHaveBeenCalled();
+    t.s.montrer('prise');
+    expect(v.poser).toHaveBeenCalled();
+    const avant = v.poser.mock.calls.length;
+    t.cap(40);
+    t.gps({ x: 11, y: 3 });
+    expect(v.poser.mock.calls.length).toBeGreaterThan(avant);
+    const derniere = v.poser.mock.calls.at(-1)?.[0] as { oeil: PtBrut; vise: PtBrut; hauteurOeil: number };
+    expect(derniere.hauteurOeil).toBeCloseTo(1.7);
+    // Cap de 40 degres : la camera est derriere vous, au sud-ouest.
+    expect(derniere.oeil.x).toBeLessThan(11);
+    expect(derniere.oeil.y).toBeLessThan(3);
+    t.s.montrer('liste');
+    const n = v.poser.mock.calls.length;
+    t.cap(80);
+    expect(v.poser.mock.calls.length).toBe(n);
+  });
+
+  it('attend un moment apres un geste du doigt, sans perdre la facade', () => {
+    let maintenant = 0;
+    const v = vue();
+    const t = session({ vue: v, horloge: () => maintenant });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.lacherVue();
+    const n = v.poser.mock.calls.length;
+    t.cap(30);
+    expect(v.poser.mock.calls.length).toBe(n);
+    maintenant = 60_000;
+    t.cap(60);
+    expect(v.poser.mock.calls.length).toBeGreaterThan(n);
+  });
+
+  it('choisit la facade touchee dans la 3D, et la passe en rouge', () => {
+    const v = vue();
+    const objetSous = vi.fn(() => ({ cle: 'maison', point: { x: 10, y: 19.8 } as PtBrut }));
+    const t = session({ vue: v, objetSous });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
+    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Nord' }));
+    t.s.suivreLaPosition();
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+  });
+
+  it('passe en vert les facades photographiees pendant la prise, et les laisse reprendre', () => {
+    const surlignerFaites = vi.fn<(m: Facade[]) => void>();
+    const t = session({ vue: vue(), surlignerFaites });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    expect(surlignerFaites).toHaveBeenLastCalledWith([]);
+    t.s.rangerPhoto(PHOTO);
+    expect(surlignerFaites).toHaveBeenLastCalledWith([expect.objectContaining({ orientation: 'Sud' })]);
+    // La facade verte reste reconnue : une deuxieme photo s'y range.
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+    expect(t.s.rangerPhoto(PHOTO)).not.toBeNull();
+    expect(t.s.cible()?.photos).toBe(2);
+    t.s.montrer('liste');
+    expect(surlignerFaites).toHaveBeenLastCalledWith([]);
+  });
+
+  it('traverse un arbre devant la facade : seule compte la premiere facade de la liste', () => {
+    // Le rayon touche d'abord l'arbre, puis le mur nord de la maison.
+    const traverses = [{ cle: 'arbre', point: { x: 10, y: 22 } }, { cle: 'maison', point: { x: 10, y: 19.9 } }];
+    const objetSous = vi.fn((_: unknown, retenir: (cle: string) => boolean) => traverses.find((t) => retenir(t.cle)) ?? { cle: null, point: null });
+    const t = session({ vue: vue(), objetSous });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
+  });
+
+  it('dit quand le batiment touche n est pas dans la liste, et ne fait rien hors de la prise', () => {
+    const objetSous = vi.fn(() => ({ cle: 'inconnu', point: { x: 0, y: 0 } as PtBrut }));
+    const t = session({ vue: vue(), objetSous });
+    t.s.reprendre();
+    t.s.toucher({ x: 0, y: 0 });
+    expect(objetSous).not.toHaveBeenCalled();
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.messages.at(-1)).toBe('Ce bâtiment n’est pas dans la liste de la parcelle.');
+  });
+});
+
 describe('la capture et son brouillon', () => {
   it('termine la capture a « Lancer l analyse » et l ecrit dans le brouillon', async () => {
     const stockage = stockageMemoire();

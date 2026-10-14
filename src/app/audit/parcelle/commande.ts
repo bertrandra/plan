@@ -14,6 +14,8 @@ import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
 import { preparerImport } from './fichier.js';
+import { brancherDoigtAudit } from '../controleur.js';
+import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { ObjetPlan } from '../../../model/types.js';
 
@@ -71,6 +73,19 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void session?.ecrireBrouillon(); });
     window.addEventListener('pagehide', () => { void session?.ecrireBrouillon(); });
   }
+
+  // Le doigt sur la Vue 3D pendant la prise (vuePrise.ts) : toucher une facade la choisit, faire
+  // tourner la vue suspend un moment le suivi. Pose une fois sur l'hote de la scene, qui survit aux
+  // reconstructions ; hors de l'ecran de prise, la session ne fait rien de ces gestes.
+  let hote: HTMLElement | null = null;
+  const brancherHote = () => {
+    if (hote || !hotes3d.vue3d) return;
+    hote = hotes3d.vue3d;
+    brancherDoigtAudit({
+      tapoter: (ndc) => session?.toucher(ndc), appuiLong: (ndc) => session?.toucher(ndc), lacherSuivi: () => session?.lacherVue(),
+    }, hote);
+  };
+  abonnerSceneBatie(() => { brancherHote(); session?.sceneBatie(); });
 
   /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
   function sessionDe(idu: string): SessionAuditParcelle {

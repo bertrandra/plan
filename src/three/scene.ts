@@ -655,7 +655,7 @@ function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d,
  * de l'objet du plan touche le premier, et le point touche dans le repere du plan (le sol, si aucun
  * objet n'est touche). Le mode audit (app/audit/) s'en sert pour marquer un batiment au doigt.
  */
-export function objetSousLePointeur(ndc: { x: number; y: number }): { cle: string | null; point: PtBrut | null } {
+export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle: string) => boolean = () => true): { cle: string | null; point: PtBrut | null } {
   const sc = vue3d.scene, d = derniere;
   if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
   const rayon = new THREE.Raycaster();
@@ -670,7 +670,10 @@ export function objetSousLePointeur(ndc: { x: number; y: number }): { cle: strin
     premierPoint ??= versPlan(t.point);
     for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
       const cle = proprietaire.get(o);
-      if (cle) return { cle, point: versPlan(t.point) };
+      // `retenir` laisse le rayon traverser ce qui ne compte pas pour l'appelant : un arbre devant
+      // la facade a photographier (audit de la parcelle).
+      if (cle && retenir(cle)) return { cle, point: versPlan(t.point) };
+      if (cle) break;
     }
   }
   const plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);

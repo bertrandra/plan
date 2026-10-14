@@ -2,10 +2,11 @@
 //
 // Une session par parcelle tant que la page vit : la liste de controle (Z8 plein ecran) et l'ecran
 // de prise, pose sur la Vue 3D. Pendant la prise, le GPS et la boussole reconnaissent la facade que
-// vous avez devant vous (facade/priseDeVue.ts, lot L2) parmi celles de la liste ; elle est surlignee
-// en 3D (three/facadeDevant3d.ts) et nommee, et la photo prise (app/audit/photo.ts, lot L1) s'y range
-// d'elle-meme. « Ce n'est pas cette façade » propose la suivante ; sans position, la facade se
-// choisit dans la liste.
+// vous avez devant vous (facade/priseDeVue.ts, lot L2) parmi celles de la liste ; elle passe en rouge
+// en 3D (three/facadeDevant3d.ts) et elle est nommee, et la photo prise (app/audit/photo.ts, lot L1)
+// s'y range d'elle-meme. « Ce n'est pas cette façade » propose la suivante ; la facade se choisit aussi
+// en la touchant dans la 3D, ou dans la liste. La Vue 3D est alors a hauteur d'homme et suit votre
+// position et votre cap (vuePrise.ts).
 //
 // L'en-cours vit dans le brouillon local (io/brouillonAudit.ts, lot L4) : rien n'entre dans le
 // projet a cette phase. « Lancer l'analyse » termine la capture ; l'analyse (§13) la reprendra.
@@ -16,7 +17,9 @@ import { dialogues, type DialogueChoix } from '../../../shell/dialogues.js';
 import { creerBrouillonParcelle, stockageNavigateur, type RaisonEchec, type StockageBrouillon } from '../../../io/brouillonAudit.js';
 import { photosDeLaCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
-import { poserFacadeDevant } from '../../../three/facadeDevant3d.js';
+import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE } from '../../../three/facadeDevant3d.js';
+import { objetSousLePointeur } from '../../../three/scene.js';
+import { facadeTouchee, suiviPieton, vuePieton, type VuePieton } from './vuePrise.js';
 import { poserPositionGps, retirerPositionGps } from '../../../three/positionGps3d.js';
 import { positionDansLePlan } from '../../ecouteurs/positionGps.js';
 import { capDuDeplacement } from '../camera.js';
@@ -62,6 +65,13 @@ export interface ContexteAuditParcelle {
   delaiBrouillonMs?: number;
   questionner?: (d: DialogueChoix) => void;
   surligner?: (f: Facade | null) => void;
+  /** Les facades deja photographiees, en vert pendant la prise ; une liste vide les retire. */
+  surlignerFaites?: (murs: Facade[]) => void;
+  /** La camera a hauteur d'homme de l'ecran de prise ; par defaut celle de la Vue 3D ouverte. */
+  vue?: VuePieton;
+  /** Ce que le doigt touche dans la Vue 3D (cle de l'objet et point du plan) ; par defaut la scene ouverte. */
+  objetSous?: (ndc: { x: number; y: number }, retenir: (cle: string) => boolean) => { cle: string | null; point: PtBrut | null };
+  horloge?: () => number;
   poserPosition?: (p: PtBrut, precisionM: number) => void;
   retirerPosition?: () => void;
   maintenant?: () => Date;
@@ -96,7 +106,7 @@ export interface CibleFacade {
   nom: string;
   /** La distance au mur, quand la position la donne. */
   distance: number | null;
-  /** Choisie dans la liste plutot que reconnue. */
+  /** Choisie dans la liste ou touchee dans la 3D, plutot que reconnue. */
   choisie: boolean;
   photos: number;
   /** « Une photo suffit », « 3 photos, de gauche à droite » (§12.2), avec le gros plan du parement. */
@@ -134,6 +144,12 @@ export interface SessionAuditParcelle {
   suivreLaPosition(): void;
   /** « Ce n'est pas cette façade » : la suivante parmi celles devant vous. */
   pasCetteFacade(): void;
+  /** Le doigt touche la Vue 3D pendant la prise : la facade touchee devient celle de la prochaine photo. */
+  toucher(ndc: { x: number; y: number }): void;
+  /** Un doigt fait tourner la Vue 3D : elle reste ou il l'a mise un moment avant de reprendre le suivi. */
+  lacherVue(): void;
+  /** Une scene vient d'etre batie : la camera de la prise s'y repose. */
+  sceneBatie(): void;
   /** Range la photo sur la facade visee ; null s'il n'y en a pas (ou plus de place). */
   rangerPhoto(photo: PhotoCas): { cle: string; cote: number } | null;
   /** La phrase de la derniere photo rangee : « Photo rangée sur la façade sud de Maison (2 photos). » */
@@ -375,7 +391,8 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     return memo.liste;
   };
   const visee = viseeDe(ctx, liste, publier);
-  const sens = capteurs(ctx, (quoi) => visee.capteurs(sens, quoi));
+  const sens = capteurs(ctx, (quoi) => { visee.capteurs(sens, quoi); vue.suivre(); });
+  const vue = vueDe(ctx, sens, visee, liste);
   // Un brouillon repris avec un batch en cours : son suivi repart.
   const brouillon = brouillonDe(ctx, capture, () => analyse.reprendre());
   // L'analyse lit les mesures de la validation, la validation lit les reponses de l'analyse : chacune
@@ -386,7 +403,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   validation = validationDe(ctx, capture, liste, maintenant, () => analyse, () => { void corpus?.envoyer(); });
   const fichier = fichierDe(ctx, capture, liste, validation, maintenant);
   corpus = creerCorpus({ capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, signaler: ctx.signaler, maintenant });
-  capture.abonner(() => { visee.reconnaitre(sens); publier(); });
+  capture.abonner(() => { visee.reconnaitre(sens); vue.faites(); publier(); });
   validation.abonner(publier);
   analyse.abonner(publier);
   corpus.abonner(publier);
@@ -412,6 +429,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     montrer(e) {
       // Les capteurs demarrent ici aussi : un audit importe (§15) s'ouvre sans eux, sur les propositions.
       if (e === 'prise') { sens.autoriser(); sens.demarrer(); ctx.ouvrir3d(); }
+      vue.activer(e === 'prise');
       // Les propositions se montrent sur la Vue 3D, et les mesures commencent des que l'ecran s'ouvre.
       if (e === 'propositions') { ctx.ouvrir3d(); void validation.lancer(); } else validation.oublierApercu();
       ecran = e;
@@ -420,9 +438,17 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.gps()?.precisionM ?? null, boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
-    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); publier(); },
-    suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); publier(); },
-    pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); publier(); },
+    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.activer(true); publier(); },
+    suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.suivre(true); publier(); },
+    pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); vue.suivre(true); publier(); },
+    toucher(ndc) {
+      if (ecran !== 'prise') return;
+      const r = vue.toucher(ndc);
+      if (r && r !== 'choisie') ctx.signaler(r);
+      if (r === 'choisie') publier();
+    },
+    lacherVue: () => vue.lacher(),
+    sceneBatie() { if (ecran === 'prise') vue.suivre(true); },
     rangerPhoto(photo) {
       const c = visee.cible(capture);
       if (!c) return null;
@@ -439,9 +465,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       // Avec l'accord deja donne, les photos partent (et le toast le rappelle) ; sinon l'ecran pose la question.
       void analyse.lancer();
     },
-    suspendre() { sens.arreter(); visee.oublier(); validation.oublierApercu(); },
+    suspendre() { sens.arreter(); visee.oublier(); vue.activer(false); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
-    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); },
+    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); if (ecran === 'prise') vue.activer(true); },
     autoriserBoussole: () => sens.autoriser(),
     ecrireBrouillon: () => brouillon.vider(),
     proposerReprise: (pret) => brouillon.proposer(pret),
@@ -454,7 +480,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
  * des qu'elle change ; les facades ecartees sont oubliees quand on s'est deplace.
  */
 function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publier: () => void) {
-  const surligner = ctx.surligner ?? ((f: Facade | null) => poserFacadeDevant(f));
+  const surligner = ctx.surligner ?? ((f: Facade | null) => poserFacadeDevant(f, ROUGE_FACADE));
   let reconnue: FacadeDevant | null = null;
   let choisie: { cle: string; cote: number } | null = null;
   let capReconnu: number | null = null;
@@ -507,7 +533,7 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
     /** Ecarte la facade reconnue ; rend la phrase a dire quand il n'y en a pas d'autre. */
     ecarter(sens: Sens): string | null {
       if (choisie) { choisie = null; reconnaitre(sens); return null; }
-      if (!reconnue) return 'Aucune façade reconnue devant vous : choisissez-la dans la liste.';
+      if (!reconnue) return 'Aucune façade reconnue devant vous : touchez-la dans la 3D, ou choisissez-la dans la liste.';
       const actuelle = cleFacade(reconnue.cle, reconnue.facade.cote);
       ecartees.add(actuelle);
       ecartDepuis ??= sens.position();
@@ -515,7 +541,7 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
       let suivante = facadeRetenue(toutes, ecartees);
       // Toutes ecartees : on repart du debut de la liste, sans la facade refusee a l'instant.
       if (!suivante) { ecartees.clear(); ecartees.add(actuelle); suivante = facadeRetenue(toutes, ecartees); }
-      if (!suivante) { ecartees.clear(); return 'Aucune autre façade devant vous : choisissez-la dans la liste.'; }
+      if (!suivante) { ecartees.clear(); return 'Aucune autre façade devant vous : touchez-la dans la 3D, ou choisissez-la dans la liste.'; }
       reconnue = suivante;
       surlignerCourante();
       return null;
@@ -531,5 +557,40 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
       };
     },
     oublier(): void { reconnue = null; surlignee = null; surligner(null); },
+    facade: (): Facade | null => cibleFacade()?.facade ?? null,
+  };
+}
+
+/**
+ * La Vue 3D de la prise (vuePrise.ts) : posee a chaque position et a chaque cap tant que l'ecran de
+ * prise est ouvert ; le doigt y choisit une facade. Rien ne bouge hors de l'ecran de prise.
+ */
+function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle) {
+  const suivi = suiviPieton(ctx.vue ?? vuePieton(), ctx.horloge);
+  const suivre = (force = false) => { suivi.suivre(sens.position(), sens.cap(), visee.facade(), force); };
+  const poserFaites = ctx.surlignerFaites ?? poserFacadesFaites;
+  /** En vert, les facades qui ont deja une photo : on voit ce qui reste, et on peut les reprendre. */
+  const faites = () => { poserFaites(suivi.actif() ? liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => f.facade)) : []); };
+  return {
+    suivre,
+    faites,
+    activer(oui: boolean): void { suivi.activer(oui); faites(); if (oui) suivre(true); },
+    lacher: () => suivi.lacher(),
+    /** La facade touchee : celle du batiment de la liste dont le mur passe le plus pres du doigt. */
+    toucher(ndc: { x: number; y: number }): string | 'choisie' | null {
+      if (!suivi.actif()) return null;
+      // Le rayon traverse un arbre, une cloture, un batiment hors de la liste : seule compte la
+      // premiere facade de la liste qu'il rencontre.
+      const dansLaListe = (cle: string) => liste().batiments.some((b) => b.cle === cle);
+      const { cle, point } = (ctx.objetSous ?? objetSousLePointeur)(ndc, dansLaListe);
+      if (!cle || !point) return null;
+      const ligne = liste().batiments.find((b) => b.cle === cle);
+      if (!ligne) return 'Ce bâtiment n’est pas dans la liste de la parcelle.';
+      const f = facadeTouchee(ligne.facades, point);
+      if (!f) return 'Ce bâtiment n’a pas de façade à photographier.';
+      visee.choisir(cle, f.cote);
+      suivre(true);
+      return 'choisie';
+    },
   };
 }
