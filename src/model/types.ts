@@ -804,7 +804,7 @@ export interface OuvertureFacade {
   /** Sa rangee et sa travee dans la grille du releve (`ReleveFacade.grille`, §10), depuis le bas et la gauche. */
   niveau?: number;
   travee?: number;
-  /** Ce que le classement a reconnu en plus du type (§11) ; la 3D pourra le dessiner plus tard. */
+  /** Ce que le classement a reconnu en plus du type (§11) ; la 3D le dessine (three/detailsOuvertures.ts). */
   details?: DetailsOuverture;
 }
 

@@ -50,8 +50,9 @@ npx tsx .claude/skills/facades/scripts/simuler-claude.ts           # réécrit l
   et comparer scène par scène (`vp`, `fp`, `fn`, `cotes`, `detectees`).
 
 Le code : `tests/banc/facades/` (`synthese.ts` le générateur, `mesure.ts` les mesures, `banc.ts` le
-rejeu et le tableau, `renfort.ts` le renfort de Claude), le script `scripts/banc.ts` de ce skill, le
-corpus `tests/fixtures/facades/` et ses réponses simulées `tests/fixtures/facades/claude/`.
+rejeu et le tableau, `renfort.ts` le renfort de Claude, `png.ts` l'écriture des images), les scripts
+`scripts/banc.ts` et `scripts/photos.ts` de ce skill, le corpus `tests/fixtures/facades/` et ses
+réponses simulées `tests/fixtures/facades/claude/`.
 
 ## 2. Lire le tableau
 
@@ -428,6 +429,34 @@ les grands-angles (`13` à `15`) gardent toutes leurs ouvertures, sans fausse.
   limite des 50 % de recouvrement, perdue sur l'élévation seule) et le coffre sont pour L15 ; les
   occlusions d'une seule vue (`07`, `12`, `16` à `18`) relèvent de la fusion (L13). La détection prend
   150 à 200 ms par élévation (contre 100 ms avant).
+
+### Après le lot G17 (détails des ouvertures)
+
+Mesuré le 14 octobre 2026 sur `claude/g17-details-ouvertures-3d`, avec la scène
+`20-details-cintres-persiennes-garde-corps` ajoutée (plein cintre, persiennes fermées au pas de 7 cm,
+balcon, œil-de-bœuf, garde-corps sans dalle). Les vingt scènes d'avant gardent leurs chiffres au
+centimètre près ; seuls les faux « cintre » de `07` et `17` disparaissent.
+
+- **La section « Détails des ouvertures »** du tableau : pour les volets, l'allège et la forme, les
+  détails lus justes sur vrais, puis ceux lus à tort (là où il n'y a rien, un autre, ou sur une
+  détection fausse). La vérité est `synthese.ts::detailsVrais` : le rendu de la scène (volets
+  battants, roulants, persiennes ; un tablier fermé aux neuf dixièmes compte fermé), ses balcons
+  (avec dalle : `balcon` ; `epaisseur: 0` : `garde-corps`), `rendu.forme` (`cintre`, `rond`) ; une
+  ouverture vraie peut imposer ses `details`. Le générateur peint les baies cintrées (plein cintre,
+  ou arc de flèche 0,4 h sur une baie basse) et rondes, et les persiennes.
+- **Chiffres** (chaîne du relevé, 21 scènes) : volets 11/16 (les roulants ton sur ton de `06` ne
+  sont jamais lus ; un « battants » de trop sur la haie de `12`), allège 1/3 (le balcon et le
+  garde-corps de `20` ne sont pas lus sur la photo ; sur l'élévation, le balcon est pris pour un
+  garde-corps), forme 2/2 sans faux (avant : un faux « cintre » sur `07`, deux sur l'élévation avec
+  `17`).
+- **Le faux cintre** : une baie posée sur une haie plus large qu'elle fait une tache en T, dont le haut
+  « descend » d'un coup ; `formeDeTache` refuse désormais une marche franche loin des tableaux
+  (`facades.classement.cintreBordPart`, `cintreMarcheMaxPart`).
+- **Photos de synthèse au navigateur** : `npx tsx .claude/skills/facades/scripts/photos.ts <scène>
+  <dossier>` écrit les vues d'une scène en PNG et leurs coins vrais (`coins.json`). La fumée s'en sert
+  (points 68, 80, 81) : de vraies prises, coins posés au doigt, plutôt que des dessins au canevas. Au
+  navigateur, l'œil-de-bœuf de `20` n'est pas toujours lu « rond » (mur de la maison de 10,14 m, coins
+  au pixel près) : la forme ronde d'une petite baie reste fragile.
 
 ## 5. Ce que disent les chiffres de départ
 

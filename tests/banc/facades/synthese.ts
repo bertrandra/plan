@@ -25,7 +25,7 @@
 import { homographie, appliquer, type Image, type P2 } from '../../../src/facade/homographie.js';
 import { focalePx } from '../../../src/facade/cadrage.js';
 import { champDepuisFocale35 } from '../../../src/facade/exif.js';
-import type { TypeOuverture } from '../../../src/model/types.js';
+import type { DetailsOuverture, TypeOuverture } from '../../../src/model/types.js';
 
 export type RGB = [number, number, number];
 
@@ -36,7 +36,9 @@ export type Parement =
 
 export type Volets =
   | { type: 'battants'; couleur: RGB }
-  | { type: 'roulant'; /** hauteur du coffre au-dessus de la baie */ coffre: number; couleur?: RGB; /** part de la baie fermee par le tablier, depuis le haut */ fermeture?: number };
+  | { type: 'roulant'; /** hauteur du coffre au-dessus de la baie */ coffre: number; couleur?: RGB; /** part de la baie fermee par le tablier, depuis le haut */ fermeture?: number }
+  /** Des persiennes (lot G17) : ouvertes, deux vantaux a lames contre le mur ; fermees, devant la baie. */
+  | { type: 'persiennes'; couleur: RGB; ferme?: boolean };
 
 /** Comment peindre une ouverture. Absent d'une photo reelle : seule la verite compte pour le banc. */
 export interface RenduOuverture {
@@ -49,6 +51,11 @@ export interface RenduOuverture {
   /** Petits bois : nombre de carreaux en largeur et en hauteur. */
   carreaux?: [number, number];
   volets?: Volets;
+  /**
+   * Le contour de la baie (lot G17) : un haut cintre (plein cintre si la baie est assez haute, sinon un
+   * arc surbaisse de fleche 0,4 h), ou une baie ronde inscrite dans la boite. Hors du contour, le mur.
+   */
+  forme?: 'cintre' | 'rond';
 }
 
 /** Une ouverture vraie, dans le repere du mur : x depuis la gauche, y (appui) depuis le sol. */
@@ -59,6 +66,8 @@ export interface OuvertureVraie {
   l: number;
   h: number;
   rendu?: RenduOuverture;
+  /** Les details vrais, quand ils ne se deduisent pas du rendu et des balcons (`detailsVrais`). */
+  details?: DetailsOuverture;
 }
 
 export interface Mur {
@@ -78,6 +87,7 @@ export interface Balcon {
   l: number;
   /** Dessus de la dalle, depuis le sol. */
   z: number;
+  /** Epaisseur de la dalle (15 cm) ; 0 : un garde-corps seul, sans dalle (balconnet). */
   epaisseur?: number;
   couleur?: RGB;
   gardeCorps?: { hauteur: number; couleur: RGB; pas?: number };
@@ -296,14 +306,25 @@ export function couleurOuverture(o: OuvertureVraie, X: number, Z: number): RGB |
       return (Z - y) % 0.07 < 0.014 ? assombrir(v.couleur, 0.78) : v.couleur;
     }
   }
+  if (v?.type === 'persiennes' && !v.ferme && Z >= y && Z < y + h) {
+    // Ouvertes, rabattues de part et d'autre : des lames serrees, plus marquees que des volets pleins.
+    const w = l / 2;
+    if ((X >= x - w && X < x) || (X >= x + l && X < x + l + w)) return (Z - y) % 0.07 < 0.022 ? assombrir(v.couleur, 0.7) : v.couleur;
+  }
   if (v?.type === 'roulant' && X >= x && X < x + l && Z >= y + h && Z < y + h + v.coffre) {
     const c = v.couleur ?? [236, 234, 228];
     return (Z - y - h) % 0.05 < 0.006 ? assombrir(c, 0.9) : c;
   }
   if (X < x || X >= x + l || Z < y || Z >= y + h) return null;
+  if (!dansForme(o, X, Z)) return null;
   if (r.uni) return r.uni;
   const u = X - x,
     w = Z - y;
+  if (v?.type === 'persiennes' && v.ferme) {
+    // Fermees devant la baie : deux vantaux a lames, un battement au milieu.
+    if (Math.abs(u - l / 2) < 0.015) return assombrir(v.couleur, 0.6);
+    return w % 0.07 < 0.022 ? assombrir(v.couleur, 0.7) : v.couleur;
+  }
   if (o.type === 'porte') {
     const c = r.couleur ?? [120, 70, 40];
     if (u < 0.05 || u > l - 0.05 || h - w < 0.05) return assombrir(c, 0.8);
@@ -339,6 +360,47 @@ export function couleurOuverture(o: OuvertureVraie, X: number, Z: number): RGB |
   const V = r.vitre ?? [58, 66, 76];
   const reflet = Math.max(0, Math.min(1, (w / h - 0.55) / 0.45)) * 0.45;
   return melanger(V, [150, 165, 182], reflet);
+}
+
+/** La fleche du haut cintre : plein cintre quand la baie est assez haute, sinon un arc surbaisse. */
+export function flecheCintre(l: number, h: number): number {
+  return Math.max(0, Math.min(l / 2, 0.4 * h));
+}
+
+/** Le point (X, Z) de la boite d'une ouverture est-il dans son contour (cintre, rond) ? */
+function dansForme(o: OuvertureVraie, X: number, Z: number): boolean {
+  const forme = o.rendu?.forme;
+  if (!forme) return true;
+  const { x, y, l, h } = o;
+  if (forme === 'rond') return ((X - x - l / 2) / (l / 2)) ** 2 + ((Z - y - h / 2) / (h / 2)) ** 2 <= 1;
+  const f = flecheCintre(l, h);
+  if (Z <= y + h - f || f <= 0) return true;
+  const R = (f * f + (l / 2) * (l / 2)) / (2 * f);
+  return Math.hypot(X - x - l / 2, Z - (y + h - R)) <= R;
+}
+
+/**
+ * Les details vrais d'une ouverture (lot G17), ce que le classement devrait lire (spec §11) : ses volets
+ * (un tablier fermé aux neuf dixiemes ou plus compte comme ferme), sa forme, et ce qui est sous elle —
+ * un balcon dont la dalle porte la baie (a 20 cm pres) et la deborde, ou un garde-corps seul. Une
+ * ouverture qui porte ses `details` les impose.
+ */
+export function detailsVrais(s: SceneFacade, o: OuvertureVraie): DetailsOuverture {
+  if (o.details) return o.details;
+  const d: DetailsOuverture = {};
+  const v = o.rendu?.volets;
+  if (v?.type === 'battants') d.volets = 'battants';
+  else if (v?.type === 'persiennes') {
+    d.volets = 'persiennes';
+    if (v.ferme) d.ferme = true;
+  } else if (v?.type === 'roulant') {
+    d.volets = 'roulant';
+    if ((v.fermeture ?? 0) >= 0.9) d.ferme = true;
+  }
+  const b = (s.synthese.balcons ?? []).find((q) => q.x <= o.x + 0.05 && q.x + q.l >= o.x + o.l - 0.05 && Math.abs(q.z - o.y) <= 0.2);
+  if (b) d.allege = (b.epaisseur ?? 0.15) > 0 ? 'balcon' : 'garde-corps';
+  if (o.rendu?.forme) d.forme = o.rendu.forme;
+  return d;
 }
 
 function couleurBalcon(b: Balcon, X: number, Z: number): RGB | null {

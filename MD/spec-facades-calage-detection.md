@@ -257,7 +257,8 @@ taille restent :
 - appui sous 0,45 m et 1,9 m de haut ou plus : porte-fenêtre ;
 - sinon : fenêtre.
 
-S'ajoutent des **détails**, facultatifs, que la 3D pourra dessiner plus tard :
+S'ajoutent des **détails**, facultatifs, que la 3D dessine depuis le lot G17 (`three/detailsOuvertures.ts`) et
+dont le banc mesure la justesse :
 
 | Détail | Comment on le reconnaît | Ce qu'il change |
 |---|---|---|

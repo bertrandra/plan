@@ -7,6 +7,30 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les détails des ouvertures, en 3D et au banc des façades** (lot G17 du plan de la vague 3,
+  `MD/plan-vague-3-generaliser.md` ; `MD/spec-facades-calage-detection.md` §11 ; suite du lot L15).
+  - **En 3D** (`three/detailsOuvertures.ts`) : ce que le relevé a reconnu sur une ouverture se
+    dessine sur son mur. Volets battants : deux vantaux d'une demi-baie, ouverts contre le mur de
+    part et d'autre du cadre, ou fermés devant la vitre ; persiennes : les mêmes, à lames
+    inclinées ; volet roulant : le coffre au-dessus du linteau, et le tablier baissé s'il est
+    fermé ; balcon : une dalle au niveau de l'appui qui déborde des tableaux, et son garde-corps
+    sur trois côtés ; garde-corps seul : devant la baie, à hauteur d'appui ; baie cintrée (plein
+    cintre, ou arc surbaissé sur une baie basse) et œil-de-bœuf : le cadre et la vitre suivent
+    leur contour, sur le mur photographié comme sur la disposition réglée une par une. Les cotes
+    des détails sont les proportions courantes, pas des mesures. **Une ouverture sans détails se
+    dessine exactement comme avant** : la démonstration garde son GLB au nœud près (point 24).
+  - **Au banc** (skill `facades`) : une section « Détails des ouvertures » compte, pour les
+    volets, l'allège et la forme, les détails lus justes, manqués et lus à tort, sur l'élévation,
+    la chaîne du relevé et la fusion. La vérité vient de la scène (`detailsVrais` : son rendu, ses
+    balcons, la forme de ses baies) ; le générateur peint maintenant les baies cintrées et rondes,
+    les persiennes ouvertes et fermées, et le garde-corps sans dalle. Une scène de plus,
+    `20-details-cintres-persiennes-garde-corps`. Chaîne du relevé, sur les 21 scènes : volets
+    11/16 (aucun volet roulant ton sur ton lu, scène 06), allège 1/3, forme 2/2.
+  - **La baie devinée en pointillé se joue au navigateur** (point de fumée 68) : les deux photos de
+    synthèse de la scène 19 du banc (une haie haute qui cache une fenêtre sur les deux vues),
+    rendues en PNG par `.claude/skills/facades/scripts/photos.ts`, importées dans le relevé. Points
+    80 et 81 : les détails de la scène 20 dans la fiche des ouvertures, puis en 3D.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
@@ -1001,6 +1025,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Une baie posée sur une haie plus large qu'elle n'est plus lue « cintrée »** (lot G17). La
+  détection prenait la tache en T (le haut plat de la haie, puis la fenêtre au-dessus) pour un arc :
+  un arc ne fait de marche franche que tout près des tableaux (`facades.classement.cintreBordPart`,
+  `cintreMarcheMaxPart`). Les faux « cintre » des scènes 07 et 17 du banc disparaissent ; aucune autre
+  valeur du banc ne bouge, et les deux vraies baies de forme de la scène 20 restent lues.
+- **Au téléphone, l'élévation du relevé garde sa hauteur quand la fiche d'une ouverture s'ouvre.**
+  Elle se retrécissait dans la colonne qui défile jusqu'à zéro de haut : plus aucune ouverture ne se
+  touchait sans refermer la fiche.
 
 - **Sur tablette, les entrées du panneau Projet se touchent de nouveau.** Le voile transparent qui
   referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le
