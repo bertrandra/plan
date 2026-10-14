@@ -1,26 +1,66 @@
 // Banc d'essai d'un village : relance la reconstruction des corps sur les grilles de village-<nom>.json
-// avec le code courant, liste les batiments suspects et ecrit q/<cle>.json pour rendu.py.
+// avec le code courant, compte les formes produites, liste les batiments suspects et ecrit
+// q/<cle>.json pour rendu.py.
 //
 //   npx tsx .claude/skills/toits/scripts/banc.ts <nom> [--tous]
+//   npx tsx .claude/skills/toits/scripts/banc.ts <nom> --enregistrer formes-<nom>.json   # avant de modifier
+//   npx tsx .claude/skills/toits/scripts/banc.ts <nom> --reference formes-<nom>.json     # apres
+//
+// Sortie, dans l'ordre :
+// 1. les compteurs (batiments, corps, suspects, sans corps, reprises) : ceux du tableau du skill (§5) ;
+// 2. les formes produites (catalogue de MD/spec-regles-toits.md §3.1), par batiment (la forme de son
+//    corps principal) puis par corps, et la deduction utilisee (`modele` : model/formeToit.ts du lot
+//    G1 ; `locale` : sa copie dans tests/banc/toits/formes.ts tant que G1 n'est pas dans la branche) ;
+// 3. avec `--reference` : les compteurs qui ont bouge, les batiments dont la forme change (avant ->
+//    apres), ceux dont seul un corps change, et la planche de leurs cartes (rendu.py --montage,
+//    $TOITS_DOSSIER/formes-<nom>.png, ou le fichier de `--planche`) ;
+// 4. les suspects (40 premiers, ou tous avec --tous).
+//
+// `--enregistrer` ecrit la reference (formes de chaque batiment et compteurs). Les chemins relatifs
+// de `--enregistrer` et `--reference` sont pris dans $TOITS_DOSSIER, comme les JSON des villages.
 //
 // La ligne d'un batiment : distance au centre de la parcelle, cle, hauteur BD TOPO, sommets du
 // contour, `reprise` (contour qui ne se decoupe pas en rectangles), `complet` (calcul entier : projet
-// ou mitoyen) ou `leger` (sans coupe par le modele), les formes des corps, puis les soupcons.
+// ou mitoyen) ou `leger` (sans coupe par le modele), les formes des corps, puis les soupcons. Elle
+// est restee celle d'avant le banc des formes, pour que les listes d'hier se comparent par diff.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
+import {
+  chargerDeduction, formesDuBatiment, lignesFormes, lireReference, changementsDeForme, changementsDeCorps,
+  bilanChangements, ecartsCompteurs, ABSENT, type FormesBatiment, type ReferenceFormes, type CompteursBanc,
+} from '../../../../tests/banc/toits/formes.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
-const nom = process.argv[2];
-if (!nom) throw new Error('usage : banc.ts <nom> [--tous]');
-const tous = process.argv.includes('--tous');
+const args = process.argv.slice(2);
+const option = (nom: string): string | null => {
+  const i = args.indexOf(nom);
+  if (i < 0) return null;
+  const v = args[i + 1];
+  if (!v || v.startsWith('--')) throw new Error(nom + ' attend un fichier');
+  return v;
+};
+const dansDossier = (f: string) => (isAbsolute(f) ? f : S + f);
+const nom = args[0];
+if (!nom || nom.startsWith('--')) throw new Error('usage : banc.ts <nom> [--tous] [--enregistrer f.json] [--reference f.json] [--planche f.png]');
+const tous = args.includes('--tous');
+const enregistrer = option('--enregistrer');
+const referenceLue = option('--reference');
+const planche = option('--planche') ?? 'formes-' + nom + '.png';
+const reference: ReferenceFormes | null = referenceLue ? lireReference(JSON.parse(readFileSync(dansDossier(referenceLue), 'utf8'))) : null;
+const deduction = await chargerDeduction();
+
 const D = JSON.parse(readFileSync(S + 'village-' + nom + '.json', 'utf8'));
 mkdirSync(S + 'q', { recursive: true });
 const dims = (c: any) => { const [a, b, , d] = c.pts; return [Math.hypot(b.x - a.x, b.y - a.y), Math.hypot(d.x - a.x, d.y - a.y)]; };
 let nCorps = 0, nSus = 0, nSans = 0, nReprise = 0;
 const lignes: string[] = [];
+const formes: Record<string, FormesBatiment> = {};
 const t0 = performance.now();
 for (const b of D.batiments) {
   if (!b.grille) continue;
@@ -46,10 +86,51 @@ for (const b of D.batiments) {
   if (corps.length >= 4) pb.push(`${corps.length} corps`);
   nCorps += corps.length;
   if (pb.length) nSus++;
-  const formes = corps.map((c: any) => { const [, W] = dims(c); const plat = c.faitage - Math.min(...c.egouts) < 0.05; return plat ? 'plat' : c.croupes ? '4p' : (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) ? '1p' : '2p'; });
-  lignes.push(`${pb.length ? '!' : ' '} ${String(b.d).padStart(3)} ${b.key} h${h} ${b.pts.length}pts${reprise ? ' reprise' : ''} ${fort ? 'complet' : 'leger'} [${formes.join(' ')}] ${pb.join(', ')}`);
-  writeFileSync(S + 'q/' + b.key + '.json', JSON.stringify({ key: b.key, pts: b.pts, grille: b.grille, corps, pb }));
+  // Les jetons d'origine du banc (plat sous 5 cm de montee) : la forme du catalogue est a part, plus bas.
+  const jetons = corps.map((c: any) => { const [, W] = dims(c); const plat = c.faitage - Math.min(...c.egouts) < 0.05; return plat ? 'plat' : c.croupes ? '4p' : (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) ? '1p' : '2p'; });
+  lignes.push(`${pb.length ? '!' : ' '} ${String(b.d).padStart(3)} ${b.key} h${h} ${b.pts.length}pts${reprise ? ' reprise' : ''} ${fort ? 'complet' : 'leger'} [${jetons.join(' ')}] ${pb.join(', ')}`);
+  formes[b.key] = formesDuBatiment(deduction, corps, !!m);
+  writeFileSync(S + 'q/' + b.key + '.json', JSON.stringify({ key: b.key, pts: b.pts, grille: b.grille, corps, pb, forme: formes[b.key].forme }));
 }
+const compteurs: CompteursBanc = { batiments: D.batiments.length, corps: nCorps, suspects: nSus, sansCorps: nSans, reprise: nReprise };
 console.log(nom, 'temps', (performance.now() - t0).toFixed(0), 'ms batiments', D.batiments.length, 'corps', nCorps, 'suspects', nSus, 'sans corps', nSans, 'contours en reprise', nReprise);
+for (const l of lignesFormes(formes)) console.log(l);
+console.log('deduction des formes :', deduction.source === 'modele' ? 'model/formeToit.ts' : 'locale (tests/banc/toits/formes.ts, G1 absent)');
+
+if (enregistrer) {
+  const commit = (() => { try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } })();
+  const ref: ReferenceFormes = { version: 1, village: nom, date: new Date().toISOString(), commit, deduction: deduction.source, compteurs, batiments: formes };
+  writeFileSync(dansDossier(enregistrer), JSON.stringify(ref, null, 1));
+  console.log('reference enregistree :', dansDossier(enregistrer));
+}
+
+if (reference) comparer(reference);
+
 const choisies = tous ? lignes : lignes.filter((l) => l.startsWith('!')).sort((a, b) => b.length - a.length).slice(0, 40);
 console.log(choisies.join('\n'));
+
+/** La comparaison a la reference : compteurs, formes qui changent, planche de leurs cartes. */
+function comparer(ref: ReferenceFormes): void {
+  console.log(`reference : ${ref.village}, ${ref.date.slice(0, 16)}${ref.commit ? ', ' + ref.commit : ''}`);
+  if (ref.village !== nom) console.log('  attention : la reference est celle d\'un autre village');
+  if (ref.deduction !== deduction.source) console.log(`  attention : formes deduites autrement (${ref.deduction} -> ${deduction.source})`);
+  const ecarts = ecartsCompteurs(ref.compteurs, compteurs);
+  console.log('compteurs :', ecarts.length ? ecarts.join(', ') : 'identiques');
+  const ch = changementsDeForme(ref.batiments, formes);
+  const corpsSeuls = changementsDeCorps(ref.batiments, formes);
+  console.log(`formes qui changent : ${ch.length} batiment(s)${ch.length ? ' (' + bilanChangements(ch).join(', ') + ')' : ''}`);
+  for (const c of ch) console.log(`  ${c.cle} ${c.avant} -> ${c.apres}`);
+  console.log(`corps qui changent, meme forme d'ensemble : ${corpsSeuls.length}`);
+  for (const cle of corpsSeuls) console.log(`  ${cle} [${ref.batiments[cle]?.corps.join(' ')}] -> [${formes[cle]?.corps.join(' ')}]`);
+  const cartes = [...ch.filter((c) => c.apres !== ABSENT).map((c) => c.cle), ...corpsSeuls];
+  if (cartes.length) dessinerPlanche(cartes);
+}
+
+/** La planche des cartes des batiments qui changent (40 au plus, quatre par ligne), par rendu.py. */
+function dessinerPlanche(cles: string[]): void {
+  const MAX_PLANCHE = 40;
+  const rendu = fileURLToPath(new URL('./rendu.py', import.meta.url));
+  const r = spawnSync('python3', [rendu, '--montage', planche, ...cles.slice(0, MAX_PLANCHE)], { env: { ...process.env, TOITS_DOSSIER: S }, encoding: 'utf8' });
+  if (r.status === 0) console.log(`planche : ${dansDossier(planche)}${cles.length > MAX_PLANCHE ? ` (${MAX_PLANCHE} premiers sur ${cles.length})` : ''}`);
+  else console.log('planche non dessinee :', (r.stderr || String(r.error ?? '')).trim().split('\n').pop());
+}

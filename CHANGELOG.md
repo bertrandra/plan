@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le banc des formes de toit** (lot G2 de `MD/plan-vague-3-generaliser.md`, `MD/spec-regles-toits.md`
+  §8.2, décision D16). Outil de développement : rien ne change dans ce que Plan calcule.
+  - `banc.ts` (skill `toits`) compte, par village, les formes produites (catalogue §3.1 : plat,
+    appentis, deux pans, croupes, pavillon…), par bâtiment (la forme de son corps principal) et par
+    corps. La forme se déduit des corps par `model/formeToit.ts` dès que le lot G1 est là, sinon par
+    sa copie locale (`tests/banc/toits/formes.ts`), vérifiée identique sur les 646 corps des cinq
+    villages et par un test qui s'active avec G1.
+  - `--enregistrer` écrit une référence (formes de chaque bâtiment, compteurs) ; `--reference` liste
+    ensuite les compteurs qui ont bougé, les bâtiments dont la forme change (« appentis ->
+    deux-pans »), ceux dont seul un corps change, et dessine la planche de leurs cartes
+    (`rendu.py --montage`, la forme écrite dans la légende). Les lignes d'avant restent les mêmes,
+    pour comparer les listes d'hier par `diff`.
+  - Les villages de D16 : `villages.json` (Versailles quartier Notre-Dame, Eguisheim, Beuvron-en-Auge ;
+    Riquewihr et Lyons-la-Forêt en réserve) et `couverture.ts`, qui géocode chaque adresse, vérifie
+    la couverture LiDAR HD par `dallesLidarSur` et écrit la commande `village.mjs` qui le capture.
+    Les cinq sont couverts ; les trois retenus ont été capturés et mesurés (98, 327 et 119
+    bâtiments). Le tableau du skill `toits` (§5) gagne Le Vésinet, ces trois villages et les
+    colonnes des formes.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
