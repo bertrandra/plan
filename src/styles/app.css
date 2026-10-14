@@ -1417,6 +1417,9 @@
   .manquesAudit{ margin-top:14px; font-size:0.8rem; }
   .manquesAudit > summary{ cursor:pointer; color:var(--ink-soft); min-height:32px; display:flex; align-items:center; }
   .manquesAudit ul{ margin:4px 0 0; padding-left:1.2em; color:var(--ink-soft); line-height:1.5; }
+  /* Les mitoyens, facultatifs : replies sous la parcelle, a la taille des sections des batiments. */
+  .voisinsAudit{ font-size:inherit; }
+  .voisinsAudit > .detailPhoto{ margin:4px 0 8px; }
   .boutonFichier.desactive{ opacity:0.45; cursor:not-allowed; }
   .boutonFichier.desactive input{ cursor:not-allowed; }
   /* L'ecran de prise : une carte en bas, le voile s'efface et laisse la Vue 3D visible et manipulable

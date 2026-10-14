@@ -17,15 +17,18 @@ import { dialogues, type DialogueChoix } from '../../../shell/dialogues.js';
 import { creerBrouillonParcelle, stockageNavigateur, type RaisonEchec, type StockageBrouillon } from '../../../io/brouillonAudit.js';
 import { photosDeLaCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
-import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE } from '../../../three/facadeDevant3d.js';
+import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../../three/scene.js';
 import { facadeTouchee, suiviPieton, vuePieton, type VuePieton } from './vuePrise.js';
+import { filtrePosition, surLaParcelle } from './positionFiltree.js';
+import { estBatiment, parcelleDuProjet } from '../../../model/fonctions.js';
+import { aDesSommets } from '../../../model/formes.js';
 import { poserPositionGps, retirerPositionGps } from '../../../three/positionGps3d.js';
 import { positionDansLePlan } from '../../ecouteurs/positionGps.js';
 import { capDuDeplacement } from '../camera.js';
 import { jourDe } from '../reprise.js';
 import { creerCapture, type CaptureEnCours } from './capture.js';
-import { listeDeControle, type ListeDeControle } from './liste.js';
+import { listeDeControle, type LigneFacade, type ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
 import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
 import { creerCorpus, type Corpus } from './corpus.js';
@@ -64,7 +67,8 @@ export interface ContexteAuditParcelle {
   stockage?: StockageBrouillon | null;
   delaiBrouillonMs?: number;
   questionner?: (d: DialogueChoix) => void;
-  surligner?: (f: Facade | null) => void;
+  /** La facade visee, dans sa teinte : rouge a photographier, vert deja photographiee. */
+  surligner?: (f: Facade | null, teinte: number) => void;
   /** Les facades deja photographiees, en vert pendant la prise ; une liste vide les retire. */
   surlignerFaites?: (murs: Facade[]) => void;
   /** La camera a hauteur d'homme de l'ecran de prise ; par defaut celle de la Vue 3D ouverte. */
@@ -150,6 +154,8 @@ export interface SessionAuditParcelle {
   lacherVue(): void;
   /** Une scene vient d'etre batie : la camera de la prise s'y repose. */
   sceneBatie(): void;
+  /** Le haut de l'ecran de prise, en pixels de la fenetre (null : rien ne cache la vue) : la Vue 3D cadre au-dessus. */
+  cadrerVue(hautEcranPx: number | null): void;
   /** Range la photo sur la facade visee ; null s'il n'y en a pas (ou plus de place). */
   rangerPhoto(photo: PhotoCas): { cle: string; cote: number } | null;
   /** La phrase de la derniere photo rangee : « Photo rangée sur la façade sud de Maison (2 photos). » */
@@ -203,27 +209,36 @@ export function questionRepriseParcelle(c: CaptureParcelle, reprendre: () => voi
   };
 }
 
-/** Le GPS et la boussole : la position dans le plan, le cap (boussole, sinon sens de la marche), l'attitude. */
+/**
+ * Le GPS et la boussole : la position dans le plan (lissee, et ramenee sur la parcelle quand elle
+ * tombe chez un voisin : positionFiltree.ts), le cap (boussole, sinon sens de la marche), l'attitude.
+ */
 function capteurs(ctx: ContexteAuditParcelle, change: (quoi: 'position' | 'cap') => void) {
-  let position: PtBrut | null = null, gps: PositionGps | null = null;
+  let position: PtBrut | null = null, gps: PositionGps | null = null, precision: number | null = null;
+  const filtre = filtrePosition();
+  const horloge = ctx.horloge ?? (() => Date.now());
   let etat: EtatPosition = 'attente';
   let capBoussole: number | null = null, capMarche: number | null = null, pointDeCap: PtBrut | null = null;
   let attitude: Attitude | null = null;
   let arretGps: (() => void) | null = null, arretBoussole: (() => void) | null = null;
   const poser = ctx.poserPosition ?? poserPositionGps;
   function surGps(g: PositionGps): void {
-    const p = positionDansLePlan(ctx.etat.objects, g);
-    if (!p) { etat = 'horsPlan'; change('position'); return; }
-    gps = g; position = p; etat = 'ok';
+    const brute = positionDansLePlan(ctx.etat.objects, g);
+    if (!brute) { etat = 'horsPlan'; change('position'); return; }
+    const lisse = filtre.ajouter(brute, g.precisionM, g.t ?? horloge());
+    const p = surLaParcelle(ctx.etat.objects, lisse.p, lisse.precisionM);
+    gps = g; position = p; precision = lisse.precisionM; etat = 'ok';
     if (!pointDeCap) pointDeCap = p;
     const c = capDuDeplacement(pointDeCap, p);
     if (c !== null) { capMarche = c; pointDeCap = p; }
-    poser(p, g.precisionM);
+    poser(p, lisse.precisionM);
     change('position');
   }
   return {
     position: () => position,
     gps: () => gps,
+    /** La precision de la position lissee, en metres. */
+    precision: () => precision,
     etat: () => etat,
     capBoussole: () => capBoussole,
     cap: () => capBoussole ?? capMarche,
@@ -247,6 +262,8 @@ function capteurs(ctx: ContexteAuditParcelle, change: (quoi: 'position' | 'cap')
     autoriser(): void { void (ctx.boussole?.autoriser ?? autoriserBoussole)().catch(() => false); },
     arreter(): void {
       arretGps?.(); arretGps = null; arretBoussole?.(); arretBoussole = null;
+      // Au retour, on peut etre ailleurs : le lissage repart de la premiere position.
+      filtre.oublier();
       (ctx.retirerPosition ?? retirerPositionGps)();
     },
   };
@@ -391,7 +408,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     return memo.liste;
   };
   const visee = viseeDe(ctx, liste, publier);
-  const sens = capteurs(ctx, (quoi) => { visee.capteurs(sens, quoi); vue.suivre(); });
+  const sens = capteurs(ctx, (quoi) => { visee.capteurs(sens, quoi); vue.faites(); vue.suivre(); });
   const vue = vueDe(ctx, sens, visee, liste);
   // Un brouillon repris avec un batch en cours : son suivi repart.
   const brouillon = brouillonDe(ctx, capture, () => analyse.reprendre());
@@ -436,11 +453,11 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       publier();
     },
     cible: () => visee.cible(capture),
-    position: () => ({ etat: sens.etat(), precisionM: sens.gps()?.precisionM ?? null, boussole: sens.capBoussole() !== null }),
+    position: () => ({ etat: sens.etat(), precisionM: sens.precision(), boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
     photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.activer(true); publier(); },
-    suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.suivre(true); publier(); },
-    pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); vue.suivre(true); publier(); },
+    suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.faites(); vue.suivre(true); publier(); },
+    pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); vue.faites(); vue.suivre(true); publier(); },
     toucher(ndc) {
       if (ecran !== 'prise') return;
       const r = vue.toucher(ndc);
@@ -449,6 +466,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     },
     lacherVue: () => vue.lacher(),
     sceneBatie() { if (ecran === 'prise') vue.suivre(true); },
+    cadrerVue: (haut) => vue.cadrer(haut),
     rangerPhoto(photo) {
       const c = visee.cible(capture);
       if (!c) return null;
@@ -480,7 +498,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
  * des qu'elle change ; les facades ecartees sont oubliees quand on s'est deplace.
  */
 function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publier: () => void) {
-  const surligner = ctx.surligner ?? ((f: Facade | null) => poserFacadeDevant(f, ROUGE_FACADE));
+  const surligner = ctx.surligner ?? ((f: Facade | null, teinte: number) => poserFacadeDevant(f, teinte));
   let reconnue: FacadeDevant | null = null;
   let choisie: { cle: string; cote: number } | null = null;
   let capReconnu: number | null = null;
@@ -495,21 +513,33 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
     const { batiments, obstacles } = entreesReconnaissance(ctx.etat.objects, liste().batiments, p);
     return facadesProposees(p, sens.cap(), batiments, obstacles);
   };
-  /** La facade a surligner : la choisie, sinon la reconnue ; le surlignage ne bouge que si elle change. */
+  /**
+   * La facade a surligner : la choisie, sinon la reconnue. Rouge tant qu'elle n'a pas de photo, verte
+   * ensuite : rouge sur vert faisait du brun (essai d'AE 101), et une facade photographiee doit se
+   * voir comme telle, visee ou non. Le surlignage ne bouge que si la facade ou sa teinte change.
+   */
   function surlignerCourante(): void {
     const f = cibleFacade();
-    const cle = f ? cleFacade(f.cle, f.facade.cote) : null;
+    const teinte = f && estPhotographiee(f.cle, f.facade.cote) ? VERT_FACADE : ROUGE_FACADE;
+    const cle = f ? cleFacade(f.cle, f.facade.cote) + '/' + teinte : null;
     if (cle === surlignee) return;
     surlignee = cle;
-    surligner(f ? f.facade : null);
+    surligner(f ? f.facade : null, teinte);
   }
+  const estPhotographiee = (cle: string, cote: number) =>
+    liste().batiments.find((b) => b.cle === cle)?.facades.find((x) => x.cote === cote)?.statut === 'photographiee';
+  /** La facade telle qu'on la montre : son mur jusque sous le toit, par morceaux (liste.ts, `profilMur`). */
+  const montree = (cle: string, f: Facade): Facade => {
+    const l = liste().batiments.find((b) => b.cle === cle)?.facades.find((x) => x.cote === f.cote);
+    return l ? facadeMontree(l) : f;
+  };
   function cibleFacade(): { cle: string; facade: Facade; distance: number | null } | null {
     if (choisie) {
       const { cle, cote } = choisie;
       const f = liste().batiments.find((b) => b.cle === cle)?.facades.find((x) => x.cote === cote);
-      return f ? { cle, facade: f.facade, distance: reconnue && reconnue.cle === cle && reconnue.facade.cote === cote ? reconnue.distance : null } : null;
+      return f ? { cle, facade: montree(cle, f.facade), distance: reconnue && reconnue.cle === cle && reconnue.facade.cote === cote ? reconnue.distance : null } : null;
     }
-    return reconnue ? { cle: reconnue.cle, facade: reconnue.facade, distance: reconnue.distance } : null;
+    return reconnue ? { cle: reconnue.cle, facade: montree(reconnue.cle, reconnue.facade), distance: reconnue.distance } : null;
   }
   function reconnaitre(sens: Sens): void {
     capReconnu = sens.cap();
@@ -556,10 +586,22 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
         distance: f.distance, choisie: !!choisie, photos, plan: f.distance !== null ? textePlanDePrise(f.facade, f.distance) : null,
       };
     },
-    oublier(): void { reconnue = null; surlignee = null; surligner(null); },
+    oublier(): void { reconnue = null; surlignee = null; surligner(null, ROUGE_FACADE); },
     facade: (): Facade | null => cibleFacade()?.facade ?? null,
+    /** La cle de la facade visee (batiment et cote), ou null. */
+    cleVisee: (): string | null => { const f = cibleFacade(); return f ? cleFacade(f.cle, f.facade.cote) : null; },
   };
 }
+
+/** Une ligne de la liste, telle que la Vue 3D la montre : le mur jusque sous le toit, et son haut par morceaux. */
+const facadeMontree = (l: LigneFacade): Facade => ({ ...l.facade, hauteur: l.hauteurMur, profil: l.profilMur } as Facade);
+
+/** Sans position, une facade se regarde d'ici : devant son milieu, a la distance d'une photo. */
+const DISTANCE_STATION_M = 8;
+const stationDevant = (f: Facade): PtBrut => ({
+  x: (f.gauche.x + f.droite.x) / 2 + f.normale.x * DISTANCE_STATION_M,
+  y: (f.gauche.y + f.droite.y) / 2 + f.normale.y * DISTANCE_STATION_M,
+});
 
 /**
  * La Vue 3D de la prise (vuePrise.ts) : posee a chaque position et a chaque cap tant que l'ecran de
@@ -567,15 +609,47 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
  */
 function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle) {
   const suivi = suiviPieton(ctx.vue ?? vuePieton(), ctx.horloge);
-  const suivre = (force = false) => { suivi.suivre(sens.position(), sens.cap(), visee.facade(), force); };
+  /**
+   * Ce qui borne le recul de la camera : les batiments, et la limite de la parcelle (sa cloture, qui
+   * cachait le bas de la facade quand la camera passait derriere, AE 101). Recalcules quand le plan change.
+   */
+  let murs: { objets: unknown; contours: PtBrut[][] } | null = null;
+  const contours = (): PtBrut[][] => {
+    if (murs?.objets !== ctx.etat.objects) {
+      const parcelle = parcelleDuProjet(ctx.etat.objects);
+      const batis = ctx.etat.objects.filter((o) => estBatiment(o) && aDesSommets(o)).map((o) => (o as { pts: PtBrut[] }).pts);
+      murs = { objets: ctx.etat.objects, contours: parcelle && aDesSommets(parcelle) ? [...batis, parcelle.pts] : batis };
+    }
+    return murs.contours;
+  };
+  const suivre = (force = false) => {
+    const f = visee.facade(), p = sens.position();
+    // Sans position encore (le GPS cherche), une facade choisie se montre depuis un point devant elle.
+    if (!p && f) { suivi.suivre(stationDevant(f), null, f, force, contours()); return; }
+    suivi.suivre(p, sens.cap(), f, force, contours());
+  };
   const poserFaites = ctx.surlignerFaites ?? poserFacadesFaites;
-  /** En vert, les facades qui ont deja une photo : on voit ce qui reste, et on peut les reprendre. */
-  const faites = () => { poserFaites(suivi.actif() ? liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => f.facade)) : []); };
+  let faitesPosees: string | null = null;
+  /**
+   * En vert, les facades qui ont deja une photo : on voit ce qui reste, et on peut les reprendre. La
+   * facade visee n'y est pas : son propre surlignage la dit (verte si elle a deja une photo). Les
+   * voiles ne sont refaits que si la liste change, pas a chaque mouvement de la boussole.
+   */
+  const faites = () => {
+    const visee_ = visee.cleVisee();
+    const lignes = suivi.actif() ? liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee' && cleFacade(b.cle, f.cote) !== visee_).map((f) => ({ cle: cleFacade(b.cle, f.cote), facade: facadeMontree(f) }))) : [];
+    const cle = lignes.map((l) => l.cle).join(',');
+    if (cle === faitesPosees) return;
+    faitesPosees = cle;
+    poserFaites(lignes.map((l) => l.facade));
+  };
   return {
     suivre,
     faites,
     activer(oui: boolean): void { suivi.activer(oui); faites(); if (oui) suivre(true); },
     lacher: () => suivi.lacher(),
+    /** L'ecran de prise commence la (pixels de la fenetre) : la camera cadre au-dessus, et se repose. */
+    cadrer(hautEcranPx: number | null): void { suivi.cadrer(hautEcranPx); suivre(true); },
     /** La facade touchee : celle du batiment de la liste dont le mur passe le plus pres du doigt. */
     toucher(ndc: { x: number; y: number }): string | 'choisie' | null {
       if (!suivi.actif()) return null;
@@ -589,6 +663,7 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
       const f = facadeTouchee(ligne.facades, point);
       if (!f) return 'Ce bâtiment n’a pas de façade à photographier.';
       visee.choisir(cle, f.cote);
+      faites();
       suivre(true);
       return 'choisie';
     },

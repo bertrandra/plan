@@ -1445,7 +1445,9 @@ const POINTS = {
     const garde = await page.locator('.ligneAudit', { hasText: 'Vu · Quatre pans (croupes)' }).count();
     const apres = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
-    const ok = titres[0] === 'Maison' && titres.some((t) => /mitoyen$/.test(t)) && titres.at(-1) === 'La parcelle' && marquee >= 1 && garde === 1
+    // Les batiments de la parcelle, la parcelle, puis les mitoyens a part (facultatifs, essai d'AE 101).
+    const iParcelle = titres.indexOf('La parcelle');
+    const ok = titres[0] === 'Maison' && iParcelle > 0 && titres.slice(iParcelle + 1).length > 0 && titres.slice(iParcelle + 1).every((t) => /mitoyen$/.test(t)) && marquee >= 1 && garde === 1
       && /clôture notée/.test(compteur || '') && /1 toit vu sur/.test(compteur || '') && lancerGrise && avant === apres && !debords.some(Boolean);
     return { ok, mesure: `bâtiments ${titres.length - 1} (${titres.slice(0, 3).join(', ')}…) ; « ${compteurAvant} » → « ${compteur} » ; inaccessible ${marquee} ; toit gardé à la réouverture ${garde ? 'oui' : 'NON'} ; Lancer ${lancerGrise ? 'grisé' : 'ACTIF'} sans photo ; projet ${avant === apres ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
@@ -1515,12 +1517,23 @@ const POINTS = {
       const dx = t.x - c.x, dz = t.z - c.z;
       return { y: c.y, cap: ((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360, montee: (Math.atan2(t.y - c.y, Math.hypot(dx, dz)) * 180) / Math.PI };
     });
-    const avant = await camera();
+    // La camera glisse vers sa pose (un tiers de seconde a 60 images par seconde ; le navigateur de
+    // la fumee, sans carte graphique, en dessine bien moins) : on la lit une fois arretee.
+    const posee = async () => {
+      let a = await camera();
+      for (let i = 0; i < 30; i++) {
+        await page.waitForTimeout(250);
+        const b = await camera();
+        if (a && b && Math.abs(((a.cap - b.cap + 540) % 360) - 180) < 0.5 && Math.abs(a.montee - b.montee) < 0.5) return b;
+        a = b;
+      }
+      return a;
+    };
+    const avant = await posee();
     await tourner((station.cap + 40) % 360);
-    await page.waitForTimeout(300);
-    const apres = await camera();
+    const apres = await posee();
     await tourner(station.cap);
-    await page.waitForTimeout(300);
+    await posee();
     const couleurDe = (nom) => page.evaluate((n) => window.__plan.scene3d()?.scene.getObjectByName(n)?.getObjectByName('voile')?.material.color.getHex() ?? null, nom);
     const rouge = await couleurDe('facadeDevant');
     // Toucher la facade surlignee dans la 3D : elle devient « choisie ».
@@ -1556,7 +1569,9 @@ const POINTS = {
     await entree.setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
     await page.locator('.rangementAudit', { hasText: '(1 photo)' }).waitFor({ timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(300);
-    const vert = await couleurDe('facadesFaites');
+    // Visee et photographiee : la facade passe au vert par son propre surlignage (rouge sur vert
+    // faisait du brun, essai d'AE 101).
+    const vert = await couleurDe('facadeDevant');
     await entree.setInputFiles({ name: 'facade2.png', mimeType: 'image/png', buffer: photo });
     await page.locator('.rangementAudit', { hasText: '(2 photos)' }).waitFor({ timeout: 30000 }).catch(() => {});
     const reprise = (await page.locator('.rangementAudit').textContent().catch(() => ''))?.trim() ?? '';

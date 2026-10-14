@@ -7,6 +7,7 @@ import { projecteurLocal } from '../../../../../src/geo/projection.js';
 import { SansPosition, type PositionGps } from '../../../../../src/shell/geolocalisation.js';
 import type { DialogueChoix } from '../../../../../src/shell/dialogues.js';
 import type { Facade } from '../../../../../src/facade/geometrie.js';
+import { ROUGE_FACADE, VERT_FACADE } from '../../../../../src/three/facadeDevant3d.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // La session de l'audit de la parcelle (app/audit/parcelle/controleur.ts), sans reseau ni scene : le
@@ -39,7 +40,7 @@ function session(plus: Partial<ContexteAuditParcelle> = {}) {
   const etat = creerEtat({ objects: quartier() } as never, (o) => o as never);
   let gps: ((g: PositionGps) => void) | null = null, erreur: ((e: SansPosition) => void) | null = null;
   let boussole: ((c: number) => void) | null = null;
-  const surligner = vi.fn<(f: Facade | null) => void>();
+  const surligner = vi.fn<(f: Facade | null, teinte: number) => void>();
   const messages: string[] = [];
   const ctx: ContexteAuditParcelle = {
     etat, idu: '78650000AE0101', ouvrir3d: vi.fn(), signaler: (m) => messages.push(m),
@@ -49,7 +50,10 @@ function session(plus: Partial<ContexteAuditParcelle> = {}) {
     maintenant: () => new Date('2026-10-13T09:00:00Z'), ...plus,
   };
   const s = creerSessionAuditParcelle(ctx);
-  return { s, ctx, surligner, messages, gps: (p: PtBrut) => gps?.(gpsEn(p)), cap: (c: number) => boussole?.(c), erreur: (e: SansPosition) => erreur?.(e), actif: () => gps !== null };
+  // Une position toutes les dix secondes : on a eu le temps de marcher jusqu'a la suivante, le
+  // lissage (positionFiltree.ts) la suit presque entierement.
+  let t = 0;
+  return { s, ctx, surligner, messages, gps: (p: PtBrut) => gps?.({ ...gpsEn(p), t: (t += 10000) }), cap: (c: number) => boussole?.(c), erreur: (e: SansPosition) => erreur?.(e), actif: () => gps !== null };
 }
 
 describe('la facade devant vous', () => {
@@ -64,7 +68,7 @@ describe('la facade devant vous', () => {
     expect(c?.distance).toBeCloseTo(7, 5);
     expect(c?.choisie).toBe(false);
     expect(c?.plan).toMatch(/^(Une photo suffit|\d photos, de gauche à droite), plus un gros plan du parement/);
-    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Sud' }));
+    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Sud' }), ROUGE_FACADE);
     expect(t.s.position()).toEqual({ etat: 'ok', precisionM: 4, boussole: true });
     expect(t.ctx.poserPosition).toHaveBeenCalled();
   });
@@ -82,6 +86,14 @@ describe('la facade devant vous', () => {
     expect(t.s.dernierRangement()).toBe('Photo rangée sur la façade sud de maison (1 photo).');
     expect(t.s.liste().facadesPhotographiees).toBe(1);
     expect(t.s.liste().peutLancer).toBe(true);
+  });
+
+  it('ne propose jamais d elle-meme la facade d un mitoyen, meme droit devant (essai d AE 101)', () => {
+    const t = session();
+    t.s.reprendre();
+    // Sur la parcelle, a 4 m du mur ouest du voisin, face a lui (cap est) : il n'est pas reconnu.
+    t.gps({ x: 16, y: 8 }); t.cap(90);
+    expect(t.s.cible()?.cle).not.toBe('chezVoisin');
   });
 
   it('« Ce n est pas cette façade » propose la suivante, puis revient', () => {
@@ -126,7 +138,7 @@ describe('la facade devant vous', () => {
     t.gps({ x: 10, y: 3 }); t.cap(0);
     t.s.suspendre();
     expect(t.actif()).toBe(false);
-    expect(t.surligner).toHaveBeenLastCalledWith(null);
+    expect(t.surligner).toHaveBeenLastCalledWith(null, ROUGE_FACADE);
     expect(t.ctx.retirerPosition).toHaveBeenCalled();
     t.s.reprendre();
     expect(t.actif()).toBe(true);
@@ -185,7 +197,7 @@ describe('la Vue 3D de la prise', () => {
     expect(t.s.cible()?.nom).toBe('la façade sud de maison');
     t.s.toucher({ x: 0, y: 0 });
     expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
-    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Nord' }));
+    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Nord' }), ROUGE_FACADE);
     t.s.suivreLaPosition();
     expect(t.s.cible()?.nom).toBe('la façade sud de maison');
   });
@@ -197,12 +209,20 @@ describe('la Vue 3D de la prise', () => {
     t.gps({ x: 10, y: 3 }); t.cap(0);
     t.s.montrer('prise');
     expect(surlignerFaites).toHaveBeenLastCalledWith([]);
+    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Sud' }), ROUGE_FACADE);
     t.s.rangerPhoto(PHOTO);
-    expect(surlignerFaites).toHaveBeenLastCalledWith([expect.objectContaining({ orientation: 'Sud' })]);
+    // Visee et photographiee : elle passe au vert par son propre surlignage (rouge sur vert faisait
+    // du brun), et n'est pas doublee dans les facades faites.
+    expect(t.surligner).toHaveBeenLastCalledWith(expect.objectContaining({ orientation: 'Sud' }), VERT_FACADE);
+    expect(surlignerFaites).toHaveBeenLastCalledWith([]);
     // La facade verte reste reconnue : une deuxieme photo s'y range.
     expect(t.s.cible()?.nom).toBe('la façade sud de maison');
     expect(t.s.rangerPhoto(PHOTO)).not.toBeNull();
     expect(t.s.cible()?.photos).toBe(2);
+    // Une autre facade visee : la sud rejoint les facades vertes.
+    t.gps({ x: 0.5, y: 15 }); t.cap(90);
+    expect(t.s.cible()?.nom).toBe('la façade ouest de maison');
+    expect(surlignerFaites).toHaveBeenLastCalledWith([expect.objectContaining({ orientation: 'Sud' })]);
     t.s.montrer('liste');
     expect(surlignerFaites).toHaveBeenLastCalledWith([]);
   });

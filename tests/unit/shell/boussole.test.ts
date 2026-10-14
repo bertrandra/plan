@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { capDepuisOrientation, lisserCap, ecartCap, attitudeDepuisOrientation } from '../../../src/shell/boussole.js';
+import { capDepuisOrientation, capAppareilPhoto, lisserCap, ecartCap, attitudeDepuisOrientation } from '../../../src/shell/boussole.js';
 
 // La boussole : le cap depuis l'evenement d'orientation de Safari ou de Chrome, l'ecran tourne, et
 // un lissage qui passe par le nord sans faire le tour.
@@ -42,5 +42,30 @@ describe('la boussole', () => {
     expect(attitudeDepuisOrientation(0, 0)).toEqual({ inclinaisonDeg: -90, roulisDeg: null });
     expect(attitudeDepuisOrientation(null, 0)).toBeNull();
     expect(attitudeDepuisOrientation(90, Number.NaN)).toBeNull();
+  });
+});
+
+describe('le cap de l appareil photo, telephone debout (Chrome Android)', () => {
+  it('debout et droit, vaut le cap du haut du telephone a plat : 360 - alpha', () => {
+    expect(capAppareilPhoto(90, 90, 0)).toBeCloseTo(270, 6);
+    expect(capDepuisOrientation({ alpha: 30, absolute: true, beta: 90, gamma: 0 })).toBeCloseTo(330, 6);
+  });
+
+  it('debout, compte la part de la rotation que Chrome range dans gamma', () => {
+    // Le meme cap (90, l'est) ecrit de deux facons, comme Chrome le fait pres de beta = 90.
+    expect(capAppareilPhoto(270, 90, 0)).toBeCloseTo(90, 6);
+    expect(capAppareilPhoto(300, 89.9, -30)).toBeCloseTo(90, 1);
+    // Avant : 360 - alpha donnait 60, trente degres a cote.
+    expect(capDepuisOrientation({ alpha: 300, absolute: true, beta: 89.9, gamma: -30 })).toBeCloseTo(90, 1);
+  });
+
+  it('debout, ne tourne pas avec l ecran en paysage : l appareil photo vise au meme endroit', () => {
+    expect(capDepuisOrientation({ alpha: 30, absolute: true, beta: 90, gamma: 0 }, 90)).toBeCloseTo(330, 6);
+  });
+
+  it('a plat, garde le cap du haut du telephone, ecran compris', () => {
+    expect(capAppareilPhoto(30, 5, 0)).toBeNull();
+    expect(capDepuisOrientation({ alpha: 30, absolute: true, beta: 5, gamma: 0 })).toBe(330);
+    expect(capDepuisOrientation({ alpha: 0, absolute: true, beta: 0, gamma: 0 }, 90)).toBe(90);
   });
 });

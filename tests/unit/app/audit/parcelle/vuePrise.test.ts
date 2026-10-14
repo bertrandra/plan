@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { capDeLaVue, facadeTouchee, posePieton, suiviPieton, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG } from '../../../../../src/app/audit/parcelle/vuePrise.js';
+import { capDeLaVue, champComplet, facadeTouchee, posePieton, reculLibre, suiviPieton, CHAMP_VISIBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG } from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import type { Facade } from '../../../../../src/facade/geometrie.js';
 
 // La Vue 3D de « Photographier en marchant » (app/audit/parcelle/vuePrise.ts) : a hauteur d'homme,
@@ -24,6 +24,35 @@ describe('la pose a hauteur d\'homme', () => {
     expect(p.oeil.x).toBeCloseTo(-RECUL_PIETON_M);
     expect(p.oeil.y).toBeCloseTo(0);
     expect(p.vise.x).toBeGreaterThan(0);
+  });
+});
+
+describe('ce que l essai d AE 101 a corrige', () => {
+  const sud = facade({ x: 5, y: 10 }, { x: 15, y: 10 });
+  it('ne recule pas au travers d un mur ou d une cloture derriere vous', () => {
+    const cloture = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: -1 }, { x: 0, y: -1 }];
+    expect(reculLibre({ x: 10, y: 3 }, 0, 1, [cloture])).toBeCloseTo(3 - MARGE_MUR_M, 6);
+    expect(reculLibre({ x: 10, y: 3 }, 0, 1, [])).toBe(RECUL_PIETON_M);
+    const p = posePieton({ x: 10, y: 3 }, 0, null, [cloture]);
+    expect(p.oeil.y).toBeCloseTo(MARGE_MUR_M, 6);
+  });
+
+  it('avec une facade visee, regarde vers le haut de son milieu, dans l axe du cap', () => {
+    const p = posePieton({ x: 10, y: 3 }, 0, sud);
+    expect(p.oeil.x).toBeCloseTo(10);
+    expect(p.vise.x).toBeCloseTo(10);
+    expect(p.vise.y).toBeCloseTo(10);
+    expect(p.hauteurVise).toBeGreaterThan(sud.hauteur / 2);
+    expect(p.hauteurVise).toBeLessThan(sud.hauteur);
+  });
+
+  it('elargit le champ pour que la partie au-dessus de l ecran de prise garde le sien', () => {
+    expect(champComplet(800, 0)).toBeCloseTo(CHAMP_VISIBLE_DEG, 6);
+    const c = champComplet(800, 300);
+    expect(c).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+    // La partie visible (500 px sur 1 100 de champ complet) garde CHAMP_VISIBLE_DEG.
+    const visible = 2 * Math.atan(Math.tan((c * Math.PI) / 360) * 500 / 1100) * 180 / Math.PI;
+    expect(visible).toBeCloseTo(CHAMP_VISIBLE_DEG, 6);
   });
 });
 
@@ -68,6 +97,20 @@ describe('le suivi pendant la prise', () => {
     expect(poser).toHaveBeenCalledTimes(2);
     s.activer(false);
     expect(s.suivre({ x: 0, y: 2 }, 30, null)).toBe(false);
+  });
+
+  it('rend la camera quand l ecran se ferme, et coupe le glissement sous le doigt', () => {
+    const vue = { poser: vi.fn(() => true), liberer: vi.fn(), arreter: vi.fn(), cadrer: vi.fn() };
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.cadrer(600);
+    expect(vue.cadrer).toHaveBeenCalledWith(600);
+    s.lacher();
+    expect(vue.arreter).toHaveBeenCalled();
+    s.activer(false);
+    expect(vue.liberer).toHaveBeenCalledTimes(1);
+    s.activer(false);
+    expect(vue.liberer).toHaveBeenCalledTimes(1);
   });
 
   it('attend apres un geste du doigt, puis reprend tout seul', () => {

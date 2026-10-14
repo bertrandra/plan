@@ -37,15 +37,17 @@ export function facadeRetenue(proposees: readonly FacadeDevant[], ecartees: Read
 const RAYON_M = 70;
 
 /**
- * Ce que la reconnaissance regarde : les facades de la liste qui se photographient (ni mitoyennes,
- * ni inaccessibles), et tous les batiments proches comme obstacles a la vue.
+ * Ce que la reconnaissance regarde : les facades des batiments de la parcelle du projet qui se
+ * photographient (ni mitoyennes, ni inaccessibles), et tous les batiments proches comme obstacles a
+ * la vue. Les mitoyens ne sont jamais proposes d'eux-memes : avec un GPS a 5 ou 10 m pres, leur
+ * facade passait devant celle de la maison (AE 101) ; on les choisit dans la liste ou en les touchant.
  */
 export function entreesReconnaissance(objets: readonly ObjetPlan[], lignes: readonly LigneBatiment[], pos: PtBrut): { batiments: FacadesDUnBatiment[]; obstacles: Obstacle[] } {
   const r = RAYON_M;
   const obstacles = objets.filter((o): o is ObjetPlan & { pts: PtBrut[] } => estBatiment(o) && aDesSommets(o))
     .map((o) => obstacle(o.pts))
     .filter((e) => e.x1 > pos.x - r && e.x0 < pos.x + r && e.y1 > pos.y - r && e.y0 < pos.y + r);
-  const batiments = lignes.map((b) => ({ cle: b.cle, facades: b.facades.filter((f) => f.statut !== 'mitoyenne' && f.statut !== 'inaccessible').map((f) => f.facade) }))
+  const batiments = lignes.filter((b) => !b.mitoyen).map((b) => ({ cle: b.cle, facades: b.facades.filter((f) => f.statut !== 'mitoyenne' && f.statut !== 'inaccessible').map((f) => f.facade) }))
     .filter((b) => b.facades.length > 0);
   return { batiments, obstacles };
 }
