@@ -18,6 +18,7 @@ import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
+import type { DecisionAudit } from '../../../model/auditParcelle.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
 export interface ProjetAudit {
@@ -44,6 +45,8 @@ export interface ContexteValidation {
   mesures: DependancesMesures;
   signaler: (message: string) => void;
   maintenant: () => Date;
+  /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
+  apresValidation?: () => void;
 }
 
 export interface Validation {
@@ -60,6 +63,15 @@ export interface Validation {
   valider(): { ecrites: number; verifies: number } | null;
   /** La Vue 3D revient au plan (l'ecran se ferme, on revient a la liste). */
   oublierApercu(): void;
+  /** Les mesures a jour, par `cle#cote` : ce que le fichier de l'audit recopie (§15). */
+  mesuresFaites(): ReadonlyMap<string, MesureFacade>;
+  /**
+   * Un fichier importe (§15) : ses mesures tiennent lieu de calcul, tant que les photos de leur
+   * facade ne changent pas ; rejouer le releve donnerait le meme resultat, en plus long.
+   */
+  poserMesures(mesures: readonly MesureFacade[]): void;
+  /** Les cases d'une validation passee (un fichier importe) : acceptees cochees, refusees decochees. */
+  preregler(d: DecisionAudit): void;
   abonner(f: () => void): () => void;
 }
 
@@ -111,6 +123,15 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       enCours ??= tout().finally(() => { enCours = null; });
       return enCours;
     },
+    /** Des mesures venues d'ailleurs, signees des photos de la capture d'aujourd'hui. */
+    poser(mesures: readonly MesureFacade[]): void {
+      for (const m of mesures) {
+        const photos = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)]?.photos ?? [];
+        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos), mesure: m });
+      }
+      version++;
+      publier();
+    },
   };
 }
 
@@ -131,7 +152,18 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     memo = { cle, objets: ctx.etat.objects, propositions, defaut: cochesParDefaut(propositions) };
     return memo;
   }
-  const cochee = (id: string) => choix.get(id) ?? calculer().defaut.has(id);
+  /**
+   * Les cases d'une validation passee (un fichier importe) : elles viennent apres celles touchees ici,
+   * et ne cochent jamais une ligne qui remplacerait un choix fait a la main dans ce projet (§14.3).
+   */
+  const preregle = new Map<string, boolean>();
+  const cochee = (id: string): boolean => {
+    const c = choix.get(id);
+    if (c !== undefined) return c;
+    const p = preregle.get(id);
+    if (p === false || (p === true && !calculer().propositions.find((x) => x.id === id)?.remplaceChoix)) return p;
+    return calculer().defaut.has(id);
+  };
   const cochees = () => new Set(calculer().propositions.filter((p) => cochee(p.id)).map((p) => p.id));
   const verifs = () => verifications(ctx.liste(), ctx.capture.lire(), calculer().propositions, cochees());
 
@@ -181,17 +213,31 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       appliquerPropositions(ctx.etat.objects, choisies, verifies, jourIso(maintenant));
       ctx.projet.render();
       ctx.projet.refaire3d();
-      ctx.capture.noterDecision({ t: maintenant.toISOString(), acceptees: choisies.map((p) => p.id), refusees: propositions.filter((p) => !cochee(p.id)).map((p) => p.id), verifies });
+      ctx.capture.noterDecision({
+        t: maintenant.toISOString(), acceptees: choisies.map((p) => p.id), refusees: propositions.filter((p) => !cochee(p.id)).map((p) => p.id), verifies,
+        // Telles qu'elles etaient : ecrites, elles ne se proposeront plus, le fichier doit les redire.
+        propositions: JSON.parse(JSON.stringify(propositions)) as Proposition[],
+      });
       const n = choisies.length;
       const v = verifies.length;
       ctx.signaler((n ? n + ' changement' + (n > 1 ? 's' : '') + ' écrit' + (n > 1 ? 's' : '') + ' dans le projet' : 'Aucun changement')
         + (v ? ', ' + v + ' bâtiment' + (v > 1 ? 's' : '') + ' vérifié' + (v > 1 ? 's' : '') + ' sur place' : '') + '. Ctrl+Z les défait.');
       choix.clear();
+      preregle.clear();
       memo = null;
       publier();
+      ctx.apresValidation?.();
       return { ecrites: n, verifies: v };
     },
     oublierApercu() { if (apercu === 'apres' || montres.length) { apercu = 'avant'; poserApercu(); } },
+    mesuresFaites: () => mesureur.lues(),
+    poserMesures: (mesures) => mesureur.poser(mesures),
+    preregler(d) {
+      preregle.clear();
+      for (const id of d.acceptees) preregle.set(id, true);
+      for (const id of d.refusees) preregle.set(id, false);
+      publier();
+    },
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };
 }

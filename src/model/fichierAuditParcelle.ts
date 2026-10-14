@@ -107,12 +107,32 @@ const copie = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 /** Ce que la derniere validation a dit de cette proposition ; la plus recente l'emporte. */
 export function decisionDe(id: string, decisions: readonly DecisionAudit[]): DecisionProposition {
-  for (let i = decisions.length - 1; i >= 0; i--) {
-    const d = decisions[i]!;
+  for (const d of [...decisions].reverse()) {
     if (d.acceptees.includes(id)) return 'validee';
     if (d.refusees.includes(id)) return 'refusee';
   }
   return null;
+}
+
+/**
+ * Les champs d'une mesure, sans ce qui designe sa facade : la facade la porte dans le fichier, et un
+ * import renomme le batiment (une cle recopiee dans la mesure y resterait l'ancienne).
+ */
+const mesureSeule = (m: MesureFacadeAuditee): MesureFacadeAuditee => copie({
+  releve: m.releve, rangReleve: m.rangReleve, coinsTrouves: m.coinsTrouves, confiance: m.confiance, hauteurM: m.hauteurM, couleur: m.couleur,
+});
+
+const sansPropositions =(d: DecisionAudit): DecisionAudit => ({ t: d.t, acceptees: [...d.acceptees], refusees: [...d.refusees], verifies: [...d.verifies] });
+
+/**
+ * Les propositions du fichier : celles de chaque validation, telles qu'elles etaient au moment de la
+ * decision (une proposition ecrite ne se recalcule plus), puis celles du moment, pas encore decidees.
+ */
+function propositionsDuFichier(actuelles: readonly Proposition[], decisions: readonly DecisionAudit[]): PropositionAuditee[] {
+  const parId = new Map<string, Proposition>();
+  for (const d of decisions) for (const p of d.propositions ?? []) parId.set(p.id, p);
+  for (const p of actuelles) if (!parId.has(p.id)) parId.set(p.id, p);
+  return [...parId.values()].map((p) => ({ ...copie(p), decision: decisionDe(p.id, decisions) }));
 }
 
 function facadesDuBatiment(cle: string, b: BatimentPourFichier | undefined, c: BatimentCapture | undefined, mesures: EntreesFichierAudit['mesures']): FacadeAuditee[] {
@@ -127,7 +147,7 @@ function facadesDuBatiment(cle: string, b: BatimentPourFichier | undefined, c: B
       cote, orientation: plan?.orientation ?? null, largeurM: plan?.largeurM ?? null, hauteurM: plan?.hauteurM ?? null,
       ...(cap?.inaccessible !== undefined ? { inaccessible: cap.inaccessible } : {}),
       photos: [...(cap?.photos ?? [])],
-      mesure: m ? copie(m) : null,
+      mesure: m ? mesureSeule(m) : null,
     };
   });
 }
@@ -144,7 +164,7 @@ export function fichierAuditParcelle(e: EntreesFichierAudit): FichierAuditParcel
       vu: copie(c?.vu ?? {}), photos: [...(c?.photos ?? [])], facades: facadesDuBatiment(cle, b, c, e.mesures),
     };
   });
-  const decisions = (capture.decisions ?? []).map(copie);
+  const decisions = capture.decisions ?? [];
   return {
     format: FORMAT_AUDIT_PARCELLE, version: VERSION_FICHIER_AUDIT_PARCELLE,
     parcelle: copie(e.parcelle), code: { ...e.code }, regles: { ...e.regles },
@@ -152,8 +172,9 @@ export function fichierAuditParcelle(e: EntreesFichierAudit): FichierAuditParcel
     batiments,
     cloture: { ...capture.cloture, photos: [...capture.cloture.photos] },
     portail: { ...capture.portail, photos: [...capture.portail.photos] },
-    propositions: e.propositions.map((p) => ({ ...copie(p), decision: decisionDe(p.id, decisions) })),
-    decisions,
+    propositions: propositionsDuFichier(e.propositions, decisions),
+    // Les propositions de chaque validation sont deja dans `propositions`, avec leur decision.
+    decisions: decisions.map(sansPropositions),
   };
 }
 
@@ -189,6 +210,17 @@ export function lireFichierAuditParcelle(donnees: unknown): FichierAuditParcelle
   };
 }
 
+/** Une validation du fichier, avec les propositions qu'elle a decidees : un second fichier les redira. */
+function decisionAvecPropositions(d: DecisionAudit, propositions: readonly PropositionAuditee[]): DecisionAudit {
+  const ids = new Set([...d.acceptees, ...d.refusees]);
+  const decidees = propositions.filter((p) => ids.has(p.id)).map((p) => {
+    const sans: Partial<PropositionAuditee> = copie(p);
+    delete sans.decision;
+    return sans as Proposition;
+  });
+  return { ...sansPropositions(d), ...(decidees.length ? { propositions: decidees } : {}) };
+}
+
 /** La capture du fichier, terminee, telle que la session la reprend a la phase 3. */
 export function captureDuFichier(f: FichierAuditParcelle): CaptureParcelle {
   const batiments: Record<string, BatimentCapture> = {};
@@ -205,18 +237,21 @@ export function captureDuFichier(f: FichierAuditParcelle): CaptureParcelle {
     version: VERSION_CAPTURE_PARCELLE, id: idCaptureParcelle(f.parcelle.idu), debut: f.debut, idu: f.parcelle.idu,
     phase: 'analyse', finCapture: f.finCapture ?? f.ecritLe, batiments,
     cloture: { ...f.cloture, photos: [...f.cloture.photos] }, portail: { ...f.portail, photos: [...f.portail.photos] },
-    ...(f.decisions.length ? { decisions: f.decisions.map(copie) } : {}),
+    ...(f.decisions.length ? { decisions: f.decisions.map((d) => decisionAvecPropositions(d, f.propositions)) } : {}),
+    // Un audit venu d'un fichier est deja connu de qui l'a ecrit (l'administrateur, pour un client) :
+    // la case du partage arrive decochee, pour ne pas l'envoyer une seconde fois sans le vouloir.
+    partage: { accord: false, envoi: null },
   };
 }
 
 /** Les mesures du fichier, par facade : ce que l'import pose a la place d'un nouveau calcul. */
 export function mesuresDuFichier(f: FichierAuditParcelle): (MesureFacadeAuditee & { cle: string; cote: number })[] {
-  return f.batiments.flatMap((b) => b.facades.filter((fa) => fa.mesure).map((fa) => ({ cle: b.cle, cote: fa.cote, ...copie(fa.mesure!) })));
+  return f.batiments.flatMap((b) => b.facades.flatMap((fa) => (fa.mesure ? [{ ...mesureSeule(fa.mesure), cle: b.cle, cote: fa.cote }] : [])));
 }
 
 /** La derniere validation du fichier : les cases que l'import coche et decoche. */
 export function derniereDecision(f: FichierAuditParcelle): DecisionAudit | null {
-  return f.decisions.length ? f.decisions[f.decisions.length - 1]! : null;
+  return f.decisions[f.decisions.length - 1] ?? null;
 }
 
 /** `audit-parcelle-2026-10-13-78650000AE0101.json` : le jour local de l'ecriture et l'IDU. */
@@ -224,4 +259,62 @@ export function nomFichierAuditParcelle(date: Date, idu: string): string {
   const d2 = (n: number) => String(n).padStart(2, '0');
   const jour = date.getFullYear() + '-' + d2(date.getMonth() + 1) + '-' + d2(date.getDate());
   return 'audit-parcelle-' + jour + '-' + idu.replace(/[^A-Za-z0-9_-]+/g, '-') + '.json';
+}
+
+/**
+ * Pourquoi ce fichier ne s'applique pas a ce projet : un audit decrit une parcelle (§15, « même
+ * IDU ») ; ses photos et ses mesures n'ont aucun sens sur une autre. Null quand il s'applique.
+ */
+export function refusParcelle(f: FichierAuditParcelle, iduProjet: string | null): string | null {
+  if (!iduProjet) return 'Ce projet n’a pas de parcelle cadastrale : importez d’abord la parcelle depuis son adresse.';
+  if (f.parcelle.idu === iduProjet) return null;
+  return 'Ce fichier est l’audit de la parcelle ' + f.parcelle.idu + (f.parcelle.adresse ? ' (' + f.parcelle.adresse + ')' : '')
+    + ', ce projet est sur la parcelle ' + iduProjet + ' : ouvrez le projet de cette parcelle.';
+}
+
+/** Une proposition designe son batiment par sa cle en tete : `cle:hauteur`, `cle#2:releve`. */
+function renommerId(id: string, renommage: ReadonlyMap<string, string>): string {
+  const m = /^(.*?)([:#].*)$/.exec(id);
+  const [, cle = '', suite = ''] = m ?? [];
+  const nouvelle = m ? renommage.get(cle) : undefined;
+  return nouvelle === undefined ? id : nouvelle + suite;
+}
+
+/**
+ * Le meme fichier, ses batiments sous les cles de ce projet-ci. Un autre projet de la meme parcelle
+ * (ouvert ailleurs, refait depuis l'adresse) donne parfois d'autres cles aux memes batiments ; leur
+ * identifiant BD TOPO, lui, ne change pas : l'import s'en sert pour les retrouver.
+ */
+export function renommerBatiments(f: FichierAuditParcelle, renommage: ReadonlyMap<string, string>): FichierAuditParcelle {
+  if (![...renommage].some(([a, b]) => a !== b)) return f;
+  const cle = (c: string) => renommage.get(c) ?? c;
+  const ids = (l: readonly string[]) => l.map((id) => renommerId(id, renommage));
+  const indice = (i: Proposition['indices'][number]) => (i.photo ? { ...i, photo: { ...i.photo, cle: cle(i.photo.cle) } } : i);
+  return {
+    ...f,
+    batiments: f.batiments.map((b) => ({ ...b, cle: cle(b.cle) })),
+    propositions: f.propositions.map((p) => ({
+      ...p, id: renommerId(p.id, renommage), indices: p.indices.map(indice),
+      cible: p.cible.type === 'parcelle' ? p.cible : { ...p.cible, cle: cle(p.cible.cle) },
+    })),
+    decisions: f.decisions.map((d) => ({ ...d, acceptees: ids(d.acceptees), refusees: ids(d.refusees), verifies: d.verifies.map(cle) })),
+  };
+}
+
+/**
+ * Les cles des batiments du fichier dans ce projet : la meme cle si elle y est, sinon le batiment du
+ * projet qui a le meme identifiant BD TOPO. Un batiment introuvable n'y figure pas : la liste de
+ * controle ne le montre pas, rien ne lui est propose.
+ */
+export function correspondanceBatiments(f: FichierAuditParcelle, projet: readonly { cle: string; cleBdtopo: string | null }[]): Map<string, string> {
+  const presentes = new Set(projet.map((b) => b.cle));
+  const parBdtopo = new Map(projet.flatMap((b) => (b.cleBdtopo ? [[b.cleBdtopo, b.cle] as const] : [])));
+  const out = new Map<string, string>();
+  for (const b of f.batiments) {
+    if (presentes.has(b.cle)) { out.set(b.cle, b.cle); continue; }
+    const bd = b.cas?.identite.cleBdtopo;
+    const trouvee = bd ? parBdtopo.get(bd) : undefined;
+    if (trouvee) out.set(b.cle, trouvee);
+  }
+  return out;
 }

@@ -319,6 +319,29 @@ export function lireResultat(ligne) {
   return { id: String(ligne && ligne.custom_id), statut, arret: message ? message.stop_reason ?? null : null, tokens, sortie, erreur };
 }
 
+// --- Les audits partages pour le corpus (spec-audit 15, lot L21 ; deploy/analyse.php, memes noms) --
+
+export const PRODUIT_PLATEFORME = 'plan';
+const ID_AUDIT = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
+/** L'IDU d'une parcelle, ou son point de calage (`48.900000,2.130000`) pour un plan sans IDU. */
+const IDU_AUDIT = /^[A-Za-z0-9_.,-]{1,64}$/;
+
+/** Le jeton porteur de la plateforme, s'il y en a un. */
+export function jetonPorteur(valeur) {
+  const m = /^Bearer\s+([A-Za-z0-9._~+/=-]{16,4096})$/.exec(String(valeur || '').trim());
+  return m ? m[1] : null;
+}
+
+/** Ce que le serveur verifie d'un audit : sa forme, pas son contenu (la page le relit en entier). */
+export function verifierAudit(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d) || d.format !== 'plan-audit-parcelle') throw refus('Ce n’est pas un fichier d’audit de parcelle.');
+  if (d.version !== 1) throw refus('Version du fichier d’audit inconnue.');
+  const p = d.parcelle;
+  if (!p || typeof p !== 'object' || typeof p.idu !== 'string' || !IDU_AUDIT.test(p.idu)) throw refus('Parcelle du fichier d’audit invalide.');
+  if (!Array.isArray(d.batiments) || !Array.isArray(d.propositions)) throw refus('Fichier d’audit incomplet.');
+  return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
+}
+
 // --- Le serveur -------------------------------------------------------------------------------
 
 /**
@@ -328,11 +351,13 @@ export function lireResultat(ligne) {
  *   sessionValide: (req: import('node:http').IncomingMessage) => boolean,
  *   cle: string | undefined,      ANTHROPIC_API_KEY
  *   anthropicUrl?: string,        pour les tests
+ *   plateformeUrl?: string,       ou verifier un jeton de la plateforme (audits partages)
  *   deploy?: string,              ou lire le prompt, le schema et les tarifs livres
  *   maintenant?: () => number
  * }} options
  */
-export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', plateformeUrl = 'https://www.raillard.org', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+  const dossierAudits = path.join(dossier, 'audits');
   const dossierClaude = path.join(dossier, 'claude');
   const dossierBatches = path.join(dossierClaude, 'batches');
   const fTarifs = path.join(dossierClaude, 'tarifs.json');
@@ -441,7 +466,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     return ouverts;
   }
 
-  async function lireCorps(req, max) {
+  async function lireTexte(req, max) {
     const morceaux = [];
     let taille = 0;
     for await (const m of req) {
@@ -449,8 +474,85 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       if (taille > max) throw Object.assign(new Error('trop gros'), { statut: 413 });
       morceaux.push(m);
     }
-    const texte = Buffer.concat(morceaux).toString('utf8');
+    return Buffer.concat(morceaux).toString('utf8');
+  }
+
+  async function lireCorps(req, max) {
+    const texte = await lireTexte(req, max);
     try { return JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+  }
+
+  /**
+   * Qui depose un audit : l'administrateur (sa session), ou un utilisateur de la plateforme, dont le
+   * jeton est verifie aupres d'elle (`/me/context`) : la plateforme seule sait s'il vaut encore.
+   * Rend son organisation, ou `{ statut, code, message }` pour le refus.
+   */
+  async function deposant(req, admin) {
+    if (admin) return 'admin';
+    const jeton = jetonPorteur(req.headers.authorization);
+    if (!jeton) return { statut: 401, code: 'UNAUTHENTICATED', message: 'Mot de passe ou jeton de la plateforme requis.' };
+    let r;
+    try {
+      r = await fetch(plateformeUrl.replace(/\/$/, '') + '/api/v1/me/context', { headers: { Authorization: 'Bearer ' + jeton, 'X-Product': PRODUIT_PLATEFORME, Accept: 'application/json' } });
+    } catch { return { statut: 502, code: 'UPSTREAM', message: 'Plateforme injoignable.' }; }
+    if (r.status === 401) return { statut: 401, code: 'UNAUTHENTICATED', message: 'Jeton de la plateforme refusé.' };
+    if (r.status !== 200) return { statut: 403, code: 'FORBIDDEN', message: 'Ce compte ne tient pas Plan (' + r.status + ').' };
+    const c = await r.json().catch(() => null);
+    const org = c && c.tenant && typeof c.tenant.id === 'string' ? c.tenant.id : '';
+    if (!ID_VALIDE.test(org) || org === 'admin') return { statut: 502, code: 'UPSTREAM', message: 'Réponse de la plateforme illisible.' };
+    return org;
+  }
+
+  const fAudit = (id) => path.join(dossierAudits, id + '.json');
+  const fFicheAudit = (id) => path.join(dossierAudits, id + '.fiche.json');
+
+  /** `admin/audits[/<id>]` : deposer, lister, lire, retirer un audit de parcelle partage (15, L21). */
+  async function audits(req, res, base, id, admin, json, erreur) {
+    const methode = req.method || 'GET';
+    const lecture = methode === 'GET' || methode === 'HEAD';
+    if (!id) {
+      if (lecture) {
+        if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+        let noms = [];
+        try { noms = fs.readdirSync(dossierAudits).filter((n) => n.endsWith('.fiche.json')); } catch { /* aucun audit */ }
+        const liste = noms.map((n) => lireJson(path.join(dossierAudits, n))).filter(Boolean).map((f) => { const g = { ...f }; delete g.retrait; return g; });
+        liste.sort((a, b) => String(b.recuLe || '').localeCompare(String(a.recuLe || '')));
+        return json(200, { audits: liste });
+      }
+      if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+      const organisation = await deposant(req, admin);
+      if (typeof organisation !== 'string') return erreur(organisation.statut, organisation.code, organisation.message);
+      const texte = await lireTexte(req, TAILLE_MAX);
+      let d;
+      try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+      const parcelle = verifierAudit(d);
+      const t = iso();
+      const nouvel = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + crypto.randomBytes(4).toString('hex');
+      const retrait = crypto.randomBytes(24).toString('hex');
+      fs.mkdirSync(dossierAudits, { recursive: true });
+      // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
+      const tmp = fAudit(nouvel) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+      fs.writeFileSync(tmp, texte);
+      fs.renameSync(tmp, fAudit(nouvel));
+      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
+      return json(201, { id: nouvel, retrait });
+    }
+    const fiche = ID_AUDIT.test(id) ? lireJson(fFicheAudit(id)) : null;
+    if (!fiche) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + id + ' ».');
+    if (lecture) {
+      if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+      res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fAudit(id)));
+      return true;
+    }
+    if (methode !== 'DELETE') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+    const secret = String(req.headers['x-plan-retrait'] || '');
+    const attendu = Buffer.from(String(fiche.retrait || ''));
+    const recu = Buffer.from(secret ? crypto.createHash('sha256').update(secret).digest('hex') : '');
+    if (!admin && !(secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu))) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+    for (const f of [fAudit(id), fFicheAudit(id), fFicheAudit(id) + '.bak']) fs.rmSync(f, { force: true });
+    return json(200, { id, retire: true });
   }
 
   /**
@@ -462,9 +564,11 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
    */
   async function traiter(req, res, url, base) {
     // `admin/consommation` (13.3) est servi ici aussi : il ne fait que relire le journal de ce module.
-    const m = /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
-    if (!m || !actif) return false;
-    const chemin = m[2] ? '@consommation' : (m[1] || '').replace(/\/$/, '');
+    // `admin/audits` (15, L21) aussi : les audits de parcelle partages, rangés avec les donnees de l'admin.
+    const ma = /^\/admin\/audits(?:\/([^/]*))?\/?$/.exec(url.pathname);
+    const m = ma ? null : /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
+    if ((!m && !ma) || !actif) return false;
+    const chemin = ma ? '@audits' : m && m[2] ? '@consommation' : ((m && m[1]) || '').replace(/\/$/, '');
     const json = (statut, corps) => {
       res.writeHead(statut, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(req.method === 'HEAD' ? undefined : JSON.stringify(corps));
@@ -474,10 +578,14 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
     if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
-    if (!sessionValide(req)) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+    const admin = sessionValide(req);
+    // Les audits partages s'ouvrent aussi au jeton de la plateforme, verifie par leur route.
+    if (!admin && !ma) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
     const sansCle = () => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : ANTHROPIC_API_KEY sur ce serveur (anthropicCle dans plan-admin-config.php pour Apache).');
 
     try {
+      if (chemin === '@audits') return await audits(req, res, base, decodeURIComponent((ma && ma[1]) || ''), admin, json, erreur);
+
       if (chemin === 'etat') {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const { prompt, schema } = promptEtSchema();

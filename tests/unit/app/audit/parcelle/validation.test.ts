@@ -84,7 +84,11 @@ describe('la validation des propositions', () => {
     expect(t.projet.refaire3d).toHaveBeenCalledOnce();
     expect(t.messages.at(-1)).toBe('3 changements écrits dans le projet. Ctrl+Z les défait.');
     // La decision est gardee avec la capture, pour le fichier de l'audit.
-    expect(t.capture.lire().decisions).toEqual([{ t: '2026-10-13T09:00:00.000Z', acceptees: ['maison:materiauMurs', 'maison:cheminees', 'parcelle:cloture'], refusees: ['maison:couverture'], verifies: [] }]);
+    const decisions = t.capture.lire().decisions ?? [];
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]).toMatchObject({ t: '2026-10-13T09:00:00.000Z', acceptees: ['maison:materiauMurs', 'maison:cheminees', 'parcelle:cloture'], refusees: ['maison:couverture'], verifies: [] });
+    // Les propositions telles qu'elles etaient : une fois ecrites, elles ne se proposent plus.
+    expect(decisions[0]?.propositions?.map((p) => p.id)).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'parcelle:cloture']);
     // Ce qui est ecrit survit a un enregistrement.
     expect(t.plan()).toContain('"materiau":"brique"');
     t.historique.annuler();

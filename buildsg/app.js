@@ -50,7 +50,9 @@ const analyse = creerAnalyseAdmin({
   dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
   actif: adminDemos.actif,
   sessionValide: adminDemos.sessionValide,
-  cle: process.env.ANTHROPIC_API_KEY
+  cle: process.env.ANTHROPIC_API_KEY,
+  // Les audits partages par un utilisateur (lot L21) : son jeton se verifie aupres de sa plateforme.
+  plateformeUrl: process.env.BACKPROD_API_URL
 });
 
 // ---------------------------------------------------------------------------------------------

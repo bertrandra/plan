@@ -62,6 +62,14 @@ RedirectMatch 404 ^/data(/|$)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^(plan-demos|demos)(/|$) - [R=404,L]
+  # Le jeton de la plateforme (`Authorization: Bearer`, lot L17) : PHP en CGI ou FPM ne recoit pas
+  # cet en-tete sans ce passage par une variable d'environnement (`HTTP_AUTHORIZATION`, ou
+  # `REDIRECT_HTTP_AUTHORIZATION` apres la reecriture ; analyse.php lit les deux).
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21) : analyse.php les
+  # range avec les autres donnees de l'admin ; la session admin, ou le jeton de la plateforme.
+  RewriteRule ^admin/audits(/(.*))?$ analyse.php?chemin=@audits/$2 [QSA,L]
   # L'analyse par Claude (analyse.php, MD/spec-audit.md 13.2) : sous `admin/`, elle recoit le
   # cookie de la session admin. Avant la regle suivante, qui prendrait tout `admin/`.
   RewriteRule ^admin/claude(/(.*))?$ analyse.php?chemin=$2 [QSA,L]

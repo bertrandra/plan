@@ -92,12 +92,19 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
   organisations: string[]; modeles: string[]; usages: string[]; parcelles: { idu: string; adresse: string | null }[];
 };
 
+// Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
+export const PRODUIT_PLATEFORME: string;
+export function jetonPorteur(valeur: string | undefined): string | null;
+export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
+
 export function creerAnalyseAdmin(options: {
   dossier: string;
   actif: boolean;
   sessionValide: (req: IncomingMessage) => boolean;
   cle: string | undefined;
   anthropicUrl?: string;
+  /** Ou verifier le jeton d'un utilisateur de la plateforme (audits partages, lot L21). */
+  plateformeUrl?: string;
   deploy?: string;
   maintenant?: () => number;
 }): {

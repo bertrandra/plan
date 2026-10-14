@@ -14,6 +14,9 @@
 //    MD/spec-audit.md 13.2). Elle ne quitte jamais le serveur. Tant qu'elle vaut « A-CHANGER »,
 //    l'analyse repond 503 et rien n'est envoye a Anthropic. Les plafonds par jour et par mois
 //    (1 $ et 10 $ par defaut) se reglent dans `claude/plafonds.json`.
+// 5. `plateformeUrl` (facultatif) : la plateforme qui reconnait un utilisateur par son jeton, quand
+//    il partage un audit de parcelle pour le corpus (MD/spec-audit.md 15) ; par defaut
+//    https://www.raillard.org. Les audits recus se rangent dans `audits/` de `dossierDemos`.
 
 return [
     'motDePasse' => 'A-CHANGER',

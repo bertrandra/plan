@@ -13,6 +13,17 @@
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
+//   POST admin/audits                         depose un fichier `plan-audit-parcelle` (15, lot L21)
+//   GET  admin/audits                         la liste des audits recus (administrateur)
+//   GET  admin/audits/<id>                    un audit recu (administrateur)
+//   DELETE admin/audits/<id>                  le retire : son secret de retrait, ou l'administrateur
+//
+// Les audits partages pour le corpus (spec-audit 15, decision D7) : l'utilisateur coche « Partager
+// cet audit pour améliorer Plan » ; le fichier arrive ici, par la session admin ou le jeton de la
+// plateforme (`Authorization: Bearer`, verifie aupres d'elle, `plateformeUrl` de la configuration).
+// Ils se rangent dans `<dossierDemos>/audits/`, avec les autres donnees de l'admin, hors du dossier
+// publie. L'envoi rend un secret de retrait, garde sur l'appareil, seul a pouvoir retirer le fichier
+// quand la personne decoche la case ; le serveur n'en garde que l'empreinte.
 //
 // **La cle ne quitte jamais le serveur** (`anthropicCle`, dans la configuration hors du dossier
 // publie), et la page ne choisit ni le prompt, ni le schema, ni le reglage : elle n'envoie que la
@@ -75,7 +86,9 @@ if ($motDePasse === '' || $motDePasse === 'A-CHANGER') erreur(404, 'NOT_FOUND', 
 $cle = (string)($config['anthropicCle'] ?? '');
 $avecCle = $cle !== '' && $cle !== 'A-CHANGER';
 $anthropicUrl = rtrim((string)($config['anthropicUrl'] ?? 'https://api.anthropic.com'), '/');
+$plateformeUrl = rtrim((string)($config['plateformeUrl'] ?? 'https://www.raillard.org'), '/');
 $dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
+$dossierAudits = $dossier . '/audits';
 $dossierClaude = $dossier . '/claude';
 $dossierBatches = $dossierClaude . '/batches';
 if (!is_dir($dossierBatches) && !@mkdir($dossierBatches, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier claude/ impossible a creer (droits du dossier des demos).');
@@ -93,7 +106,16 @@ session_name('plan_admin');
 session_set_cookie_params(['lifetime' => 8 * 3600, 'path' => $cheminCookie, 'secure' => $https, 'httponly' => true, 'samesite' => 'Strict']);
 ini_set('session.use_strict_mode', '1');
 session_start(['read_and_close' => true]);
-if (!(isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time())) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+$sessionAdmin = isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time();
+// Les audits partages (`@audits`) s'ouvrent aussi au jeton de la plateforme, verifie par leur route.
+$routeAudits = preg_match('#^@audits(/|$)#', $chemin) === 1;
+if (!$sessionAdmin && !$routeAudits) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+
+/** Le jeton porteur de la plateforme, s'il y en a un ; Apache le passe parfois via REDIRECT_. */
+function jetonPorteur(): ?string {
+    $v = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+    return preg_match('/^Bearer\s+([A-Za-z0-9._~+\/=-]{16,4096})$/', trim($v), $m) ? $m[1] : null;
+}
 
 // --- Le calcul, pur (buildsg/analyseAdmin.mjs, memes noms) ---------------------------------------
 
@@ -476,13 +498,11 @@ function promptEtSchema(): array {
     return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema]];
 }
 
-/** Un appel a l'API : [statut, texte]. Statut 0 si Anthropic est injoignable. */
-function anthropic(string $methode, string $chemin, ?string $corps = null): array {
-    global $anthropicUrl, $cle;
-    $entetes = ['x-api-key: ' . $cle, 'anthropic-version: ' . VERSION_API];
+/** Un appel HTTP : [statut, texte]. Statut 0 si le serveur est injoignable. */
+function appelHttp(string $methode, string $url, array $entetes, ?string $corps = null): array {
     if ($corps !== null) $entetes[] = 'content-type: application/json';
     if (function_exists('curl_init')) {
-        $h = curl_init($anthropicUrl . $chemin);
+        $h = curl_init($url);
         curl_setopt_array($h, [CURLOPT_CUSTOMREQUEST => $methode, CURLOPT_HTTPHEADER => $entetes, CURLOPT_RETURNTRANSFER => true,
                                CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120]);
         if ($corps !== null) curl_setopt($h, CURLOPT_POSTFIELDS, $corps);
@@ -493,10 +513,68 @@ function anthropic(string $methode, string $chemin, ?string $corps = null): arra
     }
     $contexte = stream_context_create(['http' => ['method' => $methode, 'header' => implode("\r\n", $entetes), 'content' => $corps ?? '',
                                                   'ignore_errors' => true, 'timeout' => 120]]);
-    $texte = @file_get_contents($anthropicUrl . $chemin, false, $contexte);
+    $texte = @file_get_contents($url, false, $contexte);
     $statut = 0;
     foreach ($http_response_header ?? [] as $l) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $l, $m)) $statut = (int)$m[1];
     return [$texte === false ? 0 : $statut, $texte === false ? '' : (string)$texte];
+}
+
+/** Un appel a l'API d'Anthropic : [statut, texte]. */
+function anthropic(string $methode, string $chemin, ?string $corps = null): array {
+    global $anthropicUrl, $cle;
+    return appelHttp($methode, $anthropicUrl . $chemin, ['x-api-key: ' . $cle, 'anthropic-version: ' . VERSION_API], $corps);
+}
+
+// --- Les audits partages pour le corpus (spec-audit 15, lot L21 ; buildsg/analyseAdmin.mjs, memes noms)
+
+const PRODUIT_PLATEFORME = 'plan';
+const ID_AUDIT = '/^\d{8}-\d{6}-[0-9a-f]{8}$/';
+// L'IDU d'une parcelle, ou son point de calage (`48.900000,2.130000`) pour un plan sans IDU.
+const IDU_AUDIT = '/^[A-Za-z0-9_.,-]{1,64}$/';
+
+/**
+ * Qui depose un audit : l'administrateur (session d'admin.php), ou un utilisateur de la plateforme,
+ * dont le jeton est verifie aupres d'elle (`/me/context`) : la plateforme seule sait s'il vaut
+ * encore. Son organisation (`tenant.id`) est rangee avec l'audit. Rend l'organisation.
+ */
+function deposant(bool $sessionAdmin, ?string $jeton, string $plateformeUrl): string {
+    if ($sessionAdmin) return 'admin';
+    if ($jeton === null) erreur(401, 'UNAUTHENTICATED', 'Mot de passe ou jeton de la plateforme requis.');
+    [$statut, $texte] = appelHttp('GET', $plateformeUrl . '/api/v1/me/context', ['Authorization: Bearer ' . $jeton, 'X-Product: ' . PRODUIT_PLATEFORME, 'Accept: application/json']);
+    if ($statut === 0) erreur(502, 'UPSTREAM', 'Plateforme injoignable.');
+    if ($statut === 401) erreur(401, 'UNAUTHENTICATED', 'Jeton de la plateforme refusé.');
+    if ($statut !== 200) erreur(403, 'FORBIDDEN', 'Ce compte ne tient pas Plan (' . $statut . ').');
+    $c = json_decode($texte, true);
+    $org = is_array($c) && is_array($c['tenant'] ?? null) ? (string)($c['tenant']['id'] ?? '') : '';
+    if (!preg_match(ID_VALIDE, $org) || $org === 'admin') erreur(502, 'UPSTREAM', 'Réponse de la plateforme illisible.');
+    return $org;
+}
+
+/** Ce que le serveur verifie d'un audit : sa forme, pas son contenu (la page le relit en entier). */
+function verifierAudit($d): array {
+    if (!is_array($d) || ($d['format'] ?? null) !== 'plan-audit-parcelle') throw new Refus('Ce n’est pas un fichier d’audit de parcelle.');
+    if (($d['version'] ?? null) !== 1) throw new Refus('Version du fichier d’audit inconnue.');
+    $p = $d['parcelle'] ?? null;
+    if (!is_array($p) || !is_string($p['idu'] ?? null) || !preg_match(IDU_AUDIT, $p['idu'])) throw new Refus('Parcelle du fichier d’audit invalide.');
+    if (!is_array($d['batiments'] ?? null) || !is_array($d['propositions'] ?? null)) throw new Refus('Fichier d’audit incomplet.');
+    $adresse = is_string($p['adresse'] ?? null) ? mb_substr($p['adresse'], 0, 300) : null;
+    return ['idu' => $p['idu'], 'adresse' => $adresse];
+}
+
+function fAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.json'; }
+function fFicheAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.fiche.json'; }
+
+/** Les fiches des audits recus, les plus recents d'abord, sans l'empreinte du secret. */
+function listeAudits(string $dossierAudits): array {
+    $liste = [];
+    foreach (glob($dossierAudits . '/*.fiche.json') ?: [] as $f) {
+        $fiche = lireJson($f);
+        if ($fiche === null) continue;
+        unset($fiche['retrait']);
+        $liste[] = $fiche;
+    }
+    usort($liste, fn($a, $b) => strcmp((string)($b['recuLe'] ?? ''), (string)($a['recuLe'] ?? '')));
+    return $liste;
 }
 
 function messageApi(string $texte): string {
@@ -590,6 +668,52 @@ $sansCle = fn() => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : anthr
 
 // --- Les routes ---------------------------------------------------------------------------------
 try {
+    // `admin/audits` (.htaccess : `chemin=@audits/<id>`) : les audits de parcelle partages (15, L21).
+    if ($routeAudits) {
+        $id = trim(substr($chemin, strlen('@audits')), '/');
+        if ($id === '') {
+            if ($lecture) {
+                if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+                repondre(200, ['audits' => listeAudits($dossierAudits)]);
+            }
+            if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+            $organisation = deposant($sessionAdmin, jetonPorteur(), $plateformeUrl);
+            $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+            if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+            $d = json_decode($texte, true);
+            if ($d === null) throw new Refus('JSON illisible.');
+            $parcelle = verifierAudit($d);
+            if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
+            $t = maintenant();
+            $id = gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4));
+            $retrait = bin2hex(random_bytes(24));
+            // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
+            $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
+            if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+            ecrireJson(fFicheAudit($dossierAudits, $id), ['id' => $id, 'recuLe' => $t, 'organisation' => $organisation] + $parcelle
+                + ['taille' => strlen($texte), 'retrait' => hash('sha256', $retrait)]);
+            repondre(201, ['id' => $id, 'retrait' => $retrait]);
+        }
+        if (!preg_match(ID_AUDIT, $id)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
+        $fiche = lireJson(fFicheAudit($dossierAudits, $id));
+        if ($fiche === null) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
+        if ($lecture) {
+            if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(200);
+            if ($methode !== 'HEAD') readfile(fAudit($dossierAudits, $id));
+            exit;
+        }
+        if ($methode !== 'DELETE') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+        $secret = (string)($_SERVER['HTTP_X_PLAN_RETRAIT'] ?? '');
+        if (!$sessionAdmin && !($secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret)))) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+        @unlink(fAudit($dossierAudits, $id));
+        @unlink(fFicheAudit($dossierAudits, $id));
+        @unlink(fFicheAudit($dossierAudits, $id) . '.bak');
+        repondre(200, ['id' => $id, 'retire' => true]);
+    }
+
     if ($chemin === 'etat') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();

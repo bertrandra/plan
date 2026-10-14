@@ -25,10 +25,15 @@ import { creerCapture, type CaptureEnCours } from './capture.js';
 import { listeDeControle, type ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
 import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
+import { creerCorpus, type Corpus } from './corpus.js';
+import { ecrireFichierAudit, type EntreesEcriture } from './fichier.js';
+import { captureDuFichier, derniereDecision, mesuresDuFichier, nomFichierAuditParcelle, type FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
+import { partagerFichier } from '../../../shell/partage.js';
 import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
 import type { DependancesMesures } from './mesures.js';
+import type { ClientAudits } from '../../../io/auditsServeur.js';
 import type { Facade } from '../../../facade/geometrie.js';
 import type { FacadeDevant } from '../../../facade/priseDeVue.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
@@ -61,6 +66,12 @@ export interface ContexteAuditParcelle {
   projet?: ProjetAudit;
   /** Ce que les mesures des facades demandent (§13.1) ; par defaut, le worker du releve et le canevas. */
   mesures?: DependancesMesures;
+  /** Le client des routes `admin/audits` (partage pour le corpus, §15) ; null ou absent : rien ne part. */
+  audits?: () => ClientAudits | null;
+  /** L'administrateur ecrit toujours le fichier de l'audit (§15) ; un utilisateur le partage par la case. */
+  admin?: () => boolean;
+  partager?: typeof partagerFichier;
+  lireGrille?: EntreesEcriture['lireGrille'];
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -87,6 +98,18 @@ export interface SessionAuditParcelle {
   readonly capture: CaptureEnCours;
   /** Les mesures devenues propositions, et leur validation (phases 2 et 3, §13.1 et §14). */
   readonly validation: Validation;
+  /** « Partager cet audit pour améliorer Plan » (§15, decision D7). */
+  readonly corpus: Corpus;
+  /** Le fichier de l'audit, tel qu'il se partage (§15). */
+  fichier(): Promise<FichierAuditParcelle>;
+  /** L'administrateur ecrit le fichier de l'audit (un audit fait pour un client, §15). */
+  fichierDisponible(): boolean;
+  partagerLeFichier(): Promise<void>;
+  /**
+   * Reprend un fichier d'audit de cette parcelle a la phase 3 : sa capture, ses mesures et ses cases.
+   * Une capture en cours sur l'appareil n'est remplacee qu'apres confirmation ; `pret` ensuite.
+   */
+  importer(f: FichierAuditParcelle, pret: () => void): Promise<void>;
   liste(): ListeDeControle;
   ecran(): EcranAudit;
   montrer(e: EcranAudit): void;
@@ -242,6 +265,31 @@ function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours) {
         fin();
       }, () => { void brouillon.jeter(lu.capture.id); fin(); }, fin));
     },
+    /**
+     * Un fichier importe remplace la capture : celle de la page et celle du brouillon. S'il y avait
+     * quelque chose, la question est posee d'abord ; rien n'est perdu sans un geste.
+     */
+    async remplacer(nouvelle: CaptureParcelle, fait: () => void): Promise<void> {
+      const lu = pret ? null : await brouillon.lire(capture.lire().id).catch(() => null);
+      const appliquer = () => { pret = true; capture.remplacer(nouvelle); void vider(); fait(); };
+      const deja = [capture.lire(), lu?.capture].find((c) => c && (photosDeLaCapture(c).length || Object.keys(c.batiments).length || c.decisions?.length));
+      if (!deja) { appliquer(); return; }
+      (ctx.questionner ?? ((q) => dialogues.ouvrir(q)))(questionRemplacement(deja, appliquer));
+    },
+  };
+}
+
+/** La question posee avant qu'un fichier importe remplace un audit garde sur l'appareil. */
+export function questionRemplacement(c: CaptureParcelle, remplacer: () => void): DialogueChoix {
+  const photos = photosDeLaCapture(c).length;
+  return {
+    type: 'choix',
+    titre: 'Remplacer l’audit en cours ?',
+    texte: 'L’audit commencé le ' + jourDe(new Date(c.debut)) + (photos ? ' (' + pluriel(photos, 'photo') + ')' : '')
+      + ' est gardé sur cet appareil. Le fichier importé le remplace.',
+    principal: { libelle: 'Remplacer par le fichier', executer: remplacer },
+    secondaire: { libelle: 'Garder l’audit en cours', executer: () => {} },
+    abandonner: () => {},
   };
 }
 
@@ -249,12 +297,30 @@ function brouillonDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours) {
 const PROJET_MUET: ProjetAudit = { pushHistory: () => {}, render: () => {}, refaire3d: () => {}, remplacer3d: () => false };
 
 /** La validation de la session, avec les dependances du navigateur par defaut. */
-function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, maintenant: () => Date): Validation {
+function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, maintenant: () => Date, apresValidation: () => void): Validation {
   return creerValidation({
-    etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant,
+    etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
   });
+}
+
+/** Le fichier de l'audit (§15) : l'ecrire d'apres la session, et le partager par le telephone. */
+function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, validation: Validation, maintenant: () => Date) {
+  const ecrire = () => ecrireFichierAudit({
+    objets: ctx.etat.objects, capture: capture.lire(), liste: liste(), mesures: validation.mesuresFaites(),
+    propositions: validation.propositions(), maintenant: maintenant(), ...(ctx.lireGrille ? { lireGrille: ctx.lireGrille } : {}),
+  });
+  return {
+    ecrire,
+    async partager(): Promise<void> {
+      const f = await ecrire();
+      const nom = nomFichierAuditParcelle(maintenant(), f.parcelle.idu);
+      const issue = await (ctx.partager ?? partagerFichier)(nom, JSON.stringify(f), 'Audit de la parcelle ' + f.parcelle.idu);
+      if (issue === 'partage') ctx.signaler('Fichier de l’audit partagé : ' + nom + '.');
+      else if (issue === 'telecharge') ctx.signaler('Fichier de l’audit téléchargé : ' + nom + '.');
+    },
+  };
 }
 
 export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAuditParcelle {
@@ -274,17 +340,35 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const visee = viseeDe(ctx, liste, publier);
   const sens = capteurs(ctx, (quoi) => visee.capteurs(sens, quoi));
   const brouillon = brouillonDe(ctx, capture);
-  const validation = validationDe(ctx, capture, liste, maintenant);
+  // Le partage part apres chaque validation ; il lit le fichier, qui lit la validation : lie ensuite.
+  let corpus: Corpus | null = null;
+  const validation = validationDe(ctx, capture, liste, maintenant, () => { void corpus?.envoyer(); });
+  const fichier = fichierDe(ctx, capture, liste, validation, maintenant);
+  corpus = creerCorpus({ capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, signaler: ctx.signaler, maintenant });
   capture.abonner(() => { visee.reconnaitre(sens); publier(); });
   validation.abonner(publier);
+  corpus.abonner(publier);
 
   return {
     capture,
     validation,
+    corpus,
+    fichier: fichier.ecrire,
+    fichierDisponible: () => ctx.admin?.() ?? false,
+    partagerLeFichier: fichier.partager,
+    async importer(f, pret) {
+      await brouillon.remplacer(captureDuFichier(f), () => {
+        validation.poserMesures(mesuresDuFichier(f));
+        const d = derniereDecision(f);
+        if (d) validation.preregler(d);
+        pret();
+      });
+    },
     liste,
     ecran: () => ecran,
     montrer(e) {
-      if (e === 'prise') { sens.autoriser(); ctx.ouvrir3d(); }
+      // Les capteurs demarrent ici aussi : un audit importe (§15) s'ouvre sans eux, sur les propositions.
+      if (e === 'prise') { sens.autoriser(); sens.demarrer(); ctx.ouvrir3d(); }
       // Les propositions se montrent sur la Vue 3D, et les mesures commencent des que l'ecran s'ouvre.
       if (e === 'propositions') { ctx.ouvrir3d(); void validation.lancer(); } else validation.oublierApercu();
       ecran = e;
@@ -293,7 +377,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.gps()?.precisionM ?? null, boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
-    photographier(cle, cote) { sens.autoriser(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); publier(); },
+    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); publier(); },
     suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); publier(); },
     pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); publier(); },
     rangerPhoto(photo) {

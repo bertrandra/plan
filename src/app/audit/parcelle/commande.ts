@@ -1,19 +1,25 @@
-// La commande « Auditer la parcelle… » (MD/spec-audit.md §11) : dans un projet, groupe `audit`, droit
-// d'ecrire le projet (grisee avec sa raison en lecture seule), et une parcelle cadastrale (grisee
-// sinon : « Importez d'abord la parcelle depuis son adresse. »).
+// Les commandes de l'audit de la parcelle (MD/spec-audit.md §11, §15) : dans un projet, groupe
+// `audit`, droit d'ecrire le projet (grisees avec leur raison en lecture seule), et une parcelle
+// cadastrale (grisees sinon : « Importez d'abord la parcelle depuis son adresse. »).
 //
-// Elle ouvre la session de la parcelle (app/audit/parcelle/controleur.ts), une par parcelle tant que
-// la page vit : refermer l'ecran ne perd rien, rouvrir la commande y revient. Les capteurs ne
-// tournent que pendant que l'ecran est ouvert.
+// - « Auditer la parcelle… » ouvre la session de la parcelle (app/audit/parcelle/controleur.ts), une
+//   par parcelle tant que la page vit : refermer l'ecran ne perd rien, rouvrir la commande y revient.
+//   Les capteurs ne tournent que pendant que l'ecran est ouvert.
+// - « Importer un audit de parcelle… » (§15) reprend un fichier `plan-audit-parcelle` de la meme
+//   parcelle (meme IDU) a la phase 3, sur ses propositions : un audit fait par l'administrateur pour
+//   un client. Rien n'entre dans le projet avant « Valider » ; Ctrl+Z le defait alors en un pas.
 
 import { PERMISSION_ECRITURE } from '../../acces.js';
 import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
+import { preparerImport } from './fichier.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { ObjetPlan } from '../../../model/types.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
+/** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
+export const IMPORT_AUDIT_TAILLE_MAX = 64 * 1024 * 1024;
 
 /**
  * L'identifiant de la parcelle cadastrale du projet : son IDU, sinon son point de calage. Null pour
@@ -25,7 +31,31 @@ export function parcelleCadastrale(objets: readonly ObjetPlan[]): string | null 
   return typeof cad.idu === 'string' && cad.idu ? cad.idu : cad.origineLat.toFixed(6) + ',' + cad.origineLon.toFixed(6);
 }
 
-export type AtelierAuditParcelle = Omit<ContexteAuditParcelle, 'idu'>;
+export type AtelierAuditParcelle = Omit<ContexteAuditParcelle, 'idu'> & {
+  /** Demande un fichier au poste et rend son texte ; par defaut, le selecteur du navigateur. */
+  choisirFichier?: (surTexte: (texte: string) => void) => void;
+};
+
+/** Le selecteur du navigateur : un input neuf a chaque fois, pour que rechoisir le meme fichier le relise. */
+function choisirFichierNavigateur(signaler: (m: string) => void): (surTexte: (texte: string) => void) => void {
+  return (surTexte) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      if (f.size > IMPORT_AUDIT_TAILLE_MAX) { signaler('Ce fichier est trop gros pour un audit de parcelle (64 Mo au plus).'); return; }
+      const lecteur = new FileReader();
+      lecteur.onload = () => surTexte(String(lecteur.result ?? ''));
+      lecteur.onerror = () => signaler('Le fichier n’a pas pu être lu.');
+      lecteur.readAsText(f);
+    });
+    input.click();
+  };
+}
+
+const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 
 export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreCommandes): { session: () => SessionAuditParcelle | null } {
   let session: SessionAuditParcelle | null = null;
@@ -42,19 +72,27 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     window.addEventListener('pagehide', () => { void session?.ecrireBrouillon(); });
   }
 
-  cmd.declarer({
-    id: 'audit.parcelle',
-    libelle: 'Auditer la parcelle…',
+  /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
+  function sessionDe(idu: string): SessionAuditParcelle {
+    if (!session || iduSession !== idu) { session?.suspendre(); session = creerSessionAuditParcelle({ ...a, idu }); iduSession = idu; }
+    return session;
+  }
+
+  const condition = {
     groupe: 'audit',
     permission: PERMISSION_ECRITURE,
     actif: () => parcelleCadastrale(a.etat.objects) !== null,
     raisonInactive: () => (parcelleCadastrale(a.etat.objects) === null ? RAISON_SANS_PARCELLE : null),
+  } as const;
+
+  cmd.declarer({
+    id: 'audit.parcelle',
+    libelle: 'Auditer la parcelle…',
+    ...condition,
     executer: () => {
       const idu = parcelleCadastrale(a.etat.objects);
       if (!idu) return;
-      // Une autre parcelle (un autre projet ouvert) : une autre session.
-      if (!session || iduSession !== idu) { session?.suspendre(); session = creerSessionAuditParcelle({ ...a, idu }); iduSession = idu; }
-      const s = session;
+      const s = sessionDe(idu);
       // Dans le geste meme : la reprise du brouillon attend, Safari refuserait ensuite la boussole.
       s.autoriserBoussole();
       void s.proposerReprise(() => {
@@ -64,6 +102,31 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
         parcours.ouvrir({ type: 'auditParcelle', session: s });
       });
     },
+  });
+
+  /** Le texte d'un fichier choisi : refuse avec sa raison, ou repris a la phase 3. */
+  function importer(texte: string): void {
+    const idu = parcelleCadastrale(a.etat.objects);
+    const r = preparerImport(texte, a.etat.objects, idu);
+    if ('refus' in r) { a.signaler('Import refusé : ' + r.refus); return; }
+    if (!idu) return;
+    const s = sessionDe(idu);
+    void s.importer(r.fichier, () => {
+      s.montrer('propositions');
+      parcours.ouvrir({ type: 'auditParcelle', session: s });
+      const validees = r.fichier.propositions.filter((p) => p.decision === 'validee').length;
+      a.signaler('Audit de la parcelle importé' + (validees ? ' : ' + pluriel(validees, 'proposition') + ' validée' + (validees > 1 ? 's' : '') + ' dans le fichier' : '')
+        + (r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '')
+        + '. Vérifiez les cases, puis « Valider ».');
+    });
+  }
+
+  cmd.declarer({
+    id: 'audit.importerParcelle',
+    libelle: 'Importer un audit de parcelle…',
+    description: 'Reprend le fichier d’un audit de cette parcelle (même IDU), fait sur un autre appareil, à l’étape des propositions',
+    ...condition,
+    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))(importer),
   });
   return { session: () => session };
 }

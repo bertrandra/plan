@@ -52,3 +52,45 @@ describe('la commande audit.parcelle', () => {
     expect(b.session()).toBe(premiere);
   });
 });
+
+describe('la commande audit.importerParcelle', () => {
+  /** Un fichier d'audit minimal de cette parcelle : une capture vide, rien a proposer. */
+  const fichier = (idu: string) => JSON.stringify({
+    format: 'plan-audit-parcelle', version: 1, parcelle: { idu, adresse: null, origine: null }, code: { version: '2.2.0', commit: null },
+    regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-13T08:00:00.000Z', finCapture: '2026-10-13T08:30:00.000Z', ecritLe: '2026-10-13T09:00:00.000Z',
+    batiments: [], cloture: { photos: [] }, portail: { photos: [] }, propositions: [], decisions: [],
+  });
+
+  function monterImport(objets: ObjetPlan[], texte: string) {
+    const etat = creerEtat({ objects: objets } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const messages: string[] = [];
+    brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: (m) => messages.push(m), stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, choisirFichier: (f) => f(texte),
+    }, cmd);
+    return { cmd, messages };
+  }
+
+  it('est grisee avec sa raison sans parcelle cadastrale', () => {
+    const { cmd } = monterImport([parcelle(null)], fichier('X'));
+    expect(cmd.etat('audit.importerParcelle')).toEqual({ utilisable: false, raison: 'contexte', message: RAISON_SANS_PARCELLE });
+    expect(cmd.obtenir('audit.importerParcelle')).toMatchObject({ libelle: 'Importer un audit de parcelle…', groupe: 'audit', permission: 'projects.write' });
+  });
+
+  it('refuse le fichier d une autre parcelle, sans rien ouvrir', () => {
+    const { cmd, messages } = monterImport([parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })], fichier('78650000AE0103'));
+    cmd.executer('audit.importerParcelle');
+    expect(messages).toEqual(['Import refusé : Ce fichier est l’audit de la parcelle 78650000AE0103, ce projet est sur la parcelle 78650000AE0101 : ouvrez le projet de cette parcelle.']);
+    expect(parcours.courant()).toBeNull();
+  });
+
+  it('reprend le fichier de la meme parcelle sur ses propositions', async () => {
+    const { cmd, messages } = monterImport([parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })], fichier('78650000AE0101'));
+    cmd.executer('audit.importerParcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    const p = parcours.courant();
+    expect(p?.type === 'auditParcelle' ? p.session.ecran() : null).toBe('propositions');
+    expect(messages.at(-1)).toBe('Audit de la parcelle importé. Vérifiez les cases, puis « Valider ».');
+  });
+});
