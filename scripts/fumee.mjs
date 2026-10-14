@@ -1778,8 +1778,9 @@ function pointsPour(nomClasse) {
   // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13) ;
   // 73 : l'essai des faits des toits (lot L20).
   // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
-  // l'actualisation (lot L12) ; 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
+  // l'actualisation (lot L12).
   // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
+  // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
