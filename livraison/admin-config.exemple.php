@@ -14,9 +14,15 @@
 //    MD/spec-audit.md 13.2). Elle ne quitte jamais le serveur. Tant qu'elle vaut « A-CHANGER »,
 //    l'analyse repond 503 et rien n'est envoye a Anthropic. Les plafonds par jour et par mois
 //    (1 $ et 10 $ par defaut) se reglent dans `claude/plafonds.json`.
+// 5. `plateformeUrl` : l'origine de la plateforme (backprod). Un utilisateur connecte a Plan lance
+//    l'analyse avec son jeton, que analyse.php verifie aupres d'elle (`/api/v1/me/context`) ; son
+//    organisation est celle du journal et des plafonds. Par defaut https://www.raillard.org.
+//    Le meme jeton sert a partager un audit de parcelle pour le corpus (MD/spec-audit.md 15) : les
+//    audits recus se rangent dans `audits/` de `dossierDemos`.
 
 return [
     'motDePasse' => 'A-CHANGER',
     'dossierDemos' => __DIR__ . '/plan-demos',
     'anthropicCle' => 'A-CHANGER',
+    'plateformeUrl' => 'https://www.raillard.org',
 ];
