@@ -7,6 +7,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le modèle de toit étendu** (lot G1 de la vague 3, `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §4). Un corps de toit peut porter, tous facultatifs, son **profil** en
+  travers (droit, brisé, à coyau, courbe), ce qui ferme ses **bouts** (pignon, croupe, demi-croupe,
+  brisis, redents), ses **lucarnes** et ses **bords** observés (débord, saillie de rive, coyau, queue
+  de vache). Ils se relisent vérifiés (un champ mal formé est retiré, le corps reste) et ne
+  s'écrivent que s'ils disent autre chose que leur absence (`model/corpsToitEtendu.ts`). La forme
+  d'ensemble d'un toit gagne les formes du catalogue (demi-croupes, pavillon, Mansart, gambrel,
+  asymétrique, deux pans décalés, en M, papillon, coyau, shed, berceau, carène, conique, polygonal,
+  flèche, dôme, impériale), **déduite des corps** par `model/formeToit.ts` et écrite dans le même
+  vocabulaire que « Ce que je vois ». Aucun calcul ne les produit encore et la 3D dessine à leur
+  place la forme simple la plus proche ; les menus de l'inspecteur et du relevé ne proposent que les
+  formes simples. Un fichier ancien se relit et se réécrit à l'identique ; AE 101, le banc des
+  villages et les empreintes n'ont pas bougé.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle

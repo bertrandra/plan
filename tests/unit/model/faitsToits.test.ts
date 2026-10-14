@@ -37,6 +37,11 @@ describe('lireFaitsToits', () => {
     });
   });
 
+  it('refuse une forme du catalogue que le calcul ne produit pas encore (lot G1 : le vocabulaire reste ferme)', () => {
+    expect(() => lireFaitsToits(fichier({ [CLE]: { observation: { forme: 'mansart' } } }))).toThrow(FaitsToitsIllisibles);
+    expect(() => lireFaitsToits(fichier({ [CLE]: { observation: { forme: ['deux-pans', 'demi-croupes'] } } }))).toThrow(/ne se calculent pas encore/);
+  });
+
   it('prend la contrainte par defaut, et lit un remplacement avec ses dimensions', () => {
     const f = lireFaitsToits(fichier({
       [CLE]: { observation: { forme: 'plat' } },

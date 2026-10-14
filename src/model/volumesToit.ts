@@ -20,6 +20,7 @@ import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
 import { REGLAGES_TOITS as R } from './reglagesToits.js';
+import { toitDessine } from './formeToit.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */
 export const TOLERANCE_DEG = R.TOLERANCE_DEG;
@@ -260,7 +261,8 @@ export function rectanglesEnTranches(pts: readonly PtBrut[]): PtBrut[][] | null 
 }
 
 /** La pente du toit d'un batiment, en degres, d'apres son toit et son contour ; celle d'une tuile a defaut. */
-export function penteDuToit(pts: readonly PtBrut[], toit: Toit): number {
+export function penteDuToit(pts: readonly PtBrut[], toitLu: Toit): number {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || !(toit.hauteur > 0)) return 0;
   if (toit.forme === 'croupes') {
     if (toit.pente !== undefined) return toit.pente;
@@ -306,7 +308,7 @@ export function toitDuVolume(v: VolumeToit, reference: Toit | null | undefined):
 }
 
 /** « Corps 12,0 × 8,0 m : deux pans » : une ligne par volume, le plus grand d'abord. */
-export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Record<Toit['forme'], string>): string[] {
+export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Readonly<Partial<Record<Toit['forme'], string>>>): string[] {
   return volumes.map((v, i) => {
     const r = repereFaitage(v.pts, angleDuPlusLongCote(v.pts));
     const dims = (2 * r.hl).toFixed(1).replace('.', ',') + ' × ' + (2 * r.hw).toFixed(1).replace('.', ',') + ' m';
@@ -315,6 +317,6 @@ export function decrireVolumes(volumes: readonly VolumeToit[], libelles: Record<
     const murs = v.hauteursMurs?.length ? v.hauteursMurs : [];
     const ecartMurs = murs.length ? Math.max(...murs) - Math.min(...murs) : 0;
     const hauts = ecartMurs >= 0.3 ? ' · murs de ' + Math.min(...murs).toFixed(1).replace('.', ',') + ' à ' + Math.max(...murs).toFixed(1).replace('.', ',') + ' m' : '';
-    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + libelles[v.toit.forme].toLowerCase() + egout + hauts;
+    return (i === 0 ? 'Corps ' : 'Aile ') + dims + ' : ' + (libelles[v.toit.forme] ?? v.toit.forme).toLowerCase() + egout + hauts;
   });
 }

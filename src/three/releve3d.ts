@@ -7,6 +7,7 @@
 // exactement ses mailles (fumee, point 24 : structure du GLB).
 
 import { toitDuVolume } from '../model/volumesToit.js';
+import { toitDessine } from '../model/formeToit.js';
 import type { VolumeToit } from '../model/types.js';
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
@@ -166,7 +167,9 @@ function poserToitPlat(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: 
 }
 
 /** Les pans du toit et les pignons, au-dessus de l'egout `h`, sur l'emprise `contour`. */
-function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toit: Toit, h: number, habillages: readonly Habillage[]) {
+function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: number, habillages: readonly Habillage[]) {
+  // Une forme du catalogue se dessine en sa forme simple la plus proche (model/formeToit.ts).
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0) { poserToitPlat(ctx, contour, toit, h); return; }
   const { pans, pignons } = facettesToit(contour, toit);
   // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).

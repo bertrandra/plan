@@ -932,8 +932,20 @@ export interface PartieBasse {
   hauteur: number;
 }
 
-/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. */
-export type FormeToit = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
+/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. Ce sont les seules que le calcul produit et que la 3D dessine. */
+export type FormeToitSimple = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
+
+/**
+ * Les autres formes du catalogue (MD/spec-regles-toits.md §3.1, §4). Elles se deduisent des corps
+ * (model/formeToit.ts) ou s'ecrivent depuis une observation ; aucun calcul ne les produit encore, et
+ * la 3D dessine a leur place la forme simple la plus proche (`formeDessinee`).
+ */
+export type FormeToitCatalogue =
+  | 'demi-croupes' | 'pavillon' | 'mansart' | 'gambrel' | 'asymetrique' | 'deux-pans-decales' | 'toit-en-m'
+  | 'papillon' | 'coyau' | 'shed' | 'berceau' | 'carene' | 'conique' | 'polygonal' | 'fleche' | 'dome' | 'imperiale';
+
+/** La forme d'ensemble d'un toit : une forme simple, ou une forme du catalogue. */
+export type FormeToit = FormeToitSimple | FormeToitCatalogue;
 
 /**
  * Un toit mesure : la grille des hauteurs du sursol (metres au-dessus du sol) sous le contour d'un
@@ -1005,6 +1017,69 @@ export interface CorpsToit {
   cheminees?: Cheminee[];
   /** Un corps plat : ce que l'on sait de sa toiture-terrasse (§2.7). Absente : un toit plat sans plus. */
   terrasse?: TerrasseToit;
+  /**
+   * Le profil en travers de chaque pan, du cote `pts[0]-pts[1]` puis du cote oppose
+   * (MD/spec-regles-toits.md §4). Absent : deux pentes droites, le sens d'avant.
+   */
+  profil?: [ProfilPan, ProfilPan];
+  /** Ce qui ferme chaque bout, au bout `s = 0` puis `s = L`. Absents : deduits de `croupes`. */
+  bouts?: [BoutToit, BoutToit];
+  /** Les lucarnes du corps, detectees ou observees. Absentes : aucune n'est connue. */
+  lucarnes?: Lucarne[];
+  /** Les bords, quand une observation les precise ; absents : les defauts du dessin (35 cm, 20 cm). */
+  bords?: BordsToit;
+}
+
+/**
+ * La coupe en travers d'un pan, de l'egout au faitage (MD/spec-regles-toits.md §4) : droite (le sens
+ * d'avant), brisee (Mansart, gambrel : le brisis depuis l'egout, puis le terrasson), retroussee
+ * (coyau) ou courbe (berceau, carene).
+ */
+export type ProfilPan =
+  | { type: 'droit' }
+  /** La ligne de bris : a `largeurBrisisM` du mur, a `hauteurBrisM` au-dessus du sol. */
+  | { type: 'brise'; largeurBrisisM: number; hauteurBrisM: number }
+  /** Le bas du pan, adouci sur `largeurM`, a `penteDeg`. */
+  | { type: 'coyau'; largeurM: number; penteDeg: number }
+  /** L'ecart de l'arc a la corde, en metres. */
+  | { type: 'courbe'; flecheM: number };
+
+/** Ce qui ferme un bout du faitage (MD/spec-regles-toits.md §4). */
+export type BoutToit =
+  | { type: 'pignon' }
+  /** La distance a plat du mur de bout au bout du faitage, comme `croupes`. */
+  | { type: 'croupe'; profondeurM: number }
+  /** Une courte croupe sur un petit pignon, haut de `hauteurPignonM` au-dessus de l'egout. */
+  | { type: 'demi-croupe'; profondeurM: number; hauteurPignonM: number }
+  /** Le brisis d'un Mansart au bout, large de `largeurM` a plat. */
+  | { type: 'brisis'; largeurM: number }
+  /** Un pignon a gradins : un mur, sans effet sur le toit. */
+  | { type: 'redents' };
+
+/** Les types de lucarne que l'on distingue (MD/spec-regles-toits.md §2.3). */
+export type TypeLucarne = 'jacobine' | 'capucine' | 'chien-assis' | 'rampante' | 'meuniere' | 'inconnue';
+
+/** Une lucarne sur un pan du corps (MD/spec-regles-toits.md §2.3, §4). */
+export interface Lucarne {
+  type: TypeLucarne;
+  /** Le pan qui la porte : 0 du cote `pts[0]-pts[1]`, 1 du cote oppose. */
+  pan: 0 | 1;
+  /** Ses bords le long du faitage, en metres depuis `pts[0]`. */
+  debutM: number;
+  finM: number;
+  /** La hauteur de son faitage au-dessus du sol, en metres. */
+  faitageM: number;
+  /** Son avancee depuis le mur vers l'interieur, en metres. */
+  profondeurM: number;
+  source: 'lidar' | 'observation';
+}
+
+/** Les bords d'un toit qu'une observation precise (MD/spec-regles-toits.md §2.4). */
+export interface BordsToit {
+  debordEgoutM?: number;
+  saillieRiveM?: number;
+  coyau?: boolean;
+  queueDeVache?: boolean;
 }
 
 /** Ou sort une souche de cheminee (MD/spec-regles-toits.md §2.6). */

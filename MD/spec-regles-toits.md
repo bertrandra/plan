@@ -409,6 +409,21 @@ interface Terrasse {
   `three/terrasse3d.ts` (acrotère sur les façades, édicules à toit plat). Pour une souche adossée,
   `largeurM` court le long du mur et `profondeurM` en sort. Elles ne viennent que d'une observation ;
   une relecture LiDAR des corps les perd encore (à reprendre avec les propositions, lot L11).
+- **Fait (lot G1, vague 3)** : `ProfilPan`, `BoutToit`, `Lucarne` et `BordsToit` sont dans
+  `CorpsToit` (`profil`, `bouts`, `lucarnes`, `bords`), facultatifs, aux types ci-dessus. Ils sont
+  vérifiés à la lecture (un champ mal formé est retiré, le corps reste) et compactés à l'écriture
+  (`model/corpsToitEtendu.ts` : deux pentes droites, des bouts égaux à ceux des croupes, une liste
+  vide ne s'écrivent pas). `Toit.forme` gagne les formes du catalogue (`FormeToitCatalogue`) ;
+  `model/formeToit.ts` les **déduit** des corps (`formeDuCorpsToit`, `formeDesCorps` : la forme du
+  corps principal) et traduit le vocabulaire de « Ce que je vois » (`formeDeLaVue`). Aucun calcul ne
+  les produit encore ; la 3D dessine à leur place la forme simple la plus proche (`formeDessinee` :
+  Mansart, pavillon, demi-croupes et formes axiales en croupes ; gambrel, asymétrique, coyau,
+  berceau, carène en deux pans ; shed en appentis ; papillon plat), et les menus ne proposent que
+  les formes simples. Les faits gardent un vocabulaire fermé aux formes simples tant qu'une forme
+  n'a pas sa règle. Restent aux lots suivants : l'asymétrique (G9) et les compositions (shed, toit
+  en M, deux pans décalés : G10), que la déduction nomme encore par leur corps principal ; les
+  lucarnes et les bouts écrits depuis « Ce que je vois », dont le vocabulaire ne donne pas encore
+  les dimensions (G4, G7).
 
 ---
 

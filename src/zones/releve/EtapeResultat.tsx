@@ -7,7 +7,7 @@ import { classer } from '../../facade/detection.js';
 import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/structure.js';
 import { retouchee } from '../../facade/verification.js';
 import { texteDetails, texteOrigine } from './ouvertures.js';
-import { LIBELLES_FORME_TOIT, penteDeg, hauteurPignon } from '../../facade/toit.js';
+import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../../facade/toit.js';
 import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
 import { ChampCm, Elevation } from './Elevation.js';
@@ -174,7 +174,7 @@ function CarteToit({
           <label className="releveCm">
             <span>Forme</span>
             <select data-controle="releve.formeToit" value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
-              {(Object.keys(LIBELLES_FORME_TOIT) as FormeToit[]).map((k) => (
+              {formesAuChoix(toit.forme).map((k) => (
                 <option key={k} value={k}>
                   {LIBELLES_FORME_TOIT[k]}
                 </option>
