@@ -76,6 +76,8 @@ RedirectMatch 404 ^/data(/|$)
   RewriteRule ^admin/claude(/(.*))?$ analyse.php?chemin=$2 [QSA,L]
   # Le tableau de bord de la consommation (13.3) relit le journal d'analyse.php : meme script.
   RewriteRule ^admin/consommation/?$ analyse.php?chemin=@consommation [QSA,L]
+  # Les mesures de conformite (spec-regles-toits 13.5, lot G3) : analyse.php les range aussi.
+  RewriteRule ^admin/conformite/?$ analyse.php?chemin=@conformite [QSA,L]
   RewriteRule ^admin/(.*)$ admin.php?chemin=$1 [QSA,L]
 </IfModule>
 # Les prompts de l'analyse et du renfort ne se servent pas : analyse.php les lit. (Les .json le sont deja, plus haut.)
