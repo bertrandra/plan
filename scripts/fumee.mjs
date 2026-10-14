@@ -1422,6 +1422,8 @@ const POINTS = {
     // L'ecran se redessine apres le geste : sur une machine chargee, cela peut prendre plusieurs secondes.
     await page.locator('.auditPrise .titreParcours', { hasText: '(choisie)' }).waitFor({ timeout: 15000 }).catch(() => {});
     const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    const toasts = (await page.locator('.toast').allTextContents()).join(' | ');
+    const sousLeDoigt = cible ? await page.evaluate((c) => { const e = document.elementFromPoint(c.x, c.y); return e ? e.tagName + '.' + e.className : 'rien'; }, cible) : 'aucun point';
     // Une photo sur cette facade : elle passe au vert, et une seconde photo s'y range encore.
     const dessin = await page.context().newPage();
     await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
@@ -1440,7 +1442,7 @@ const POINTS = {
     const ok = !!avant && !!apres && avant.montee > 3 && avant.montee < 20
       && ecartCap(avant.cap, station.cap) < 15 && ecartCap(apres.cap, (station.cap + 40) % 360) < 15
       && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
-    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? '' : '(AUCUN point du mur visible) '}→ « ${titre} » ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
+    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
   },
   62: async (page, f) => {
     // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
