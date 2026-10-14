@@ -1085,6 +1085,14 @@ se suivent à moins de 5 minutes : elle est négligeable sur un village.
    justifie, images à l'appui, dans la PR du skill. Vous validez.
 3. **Observer sans marcher.** Le skill parcourt les photos de rue Panoramax d'un village, rend le
    modèle depuis chaque prise de vue, et propose des cas.
+   **Fait (lot G3 bis, vague 3)** : `.claude/skills/regles-toits/scripts/candidats.ts` (logique dans
+   `app/candidatsPanoramax.ts` et `model/casCandidats.ts`). Pour chaque bâtiment du fichier de
+   village, deux photos qui voient son toit, trois passes et le vote du lot L17 par les routes de
+   l'analyse (usage `candidats`), puis les candidats au statut `propose` dans
+   `tests/fixtures/toits/candidats/<village>.json`, avec la forme visée dans le vocabulaire du §4
+   (types seulement, sans cotes). Le rendu du modèle depuis chaque prise de vue n'est pas encore
+   joint (il demande la Vue 3D hors écran du navigateur) : l'étiquette de la photo dit où se trouve
+   le bâtiment visé dans l'image.
 
 ### 14.6 Statuts et garde-fous
 

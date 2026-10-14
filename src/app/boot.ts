@@ -32,6 +32,7 @@ import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toits
 import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
+import { creerProfilsFacadesFond } from './profilsFacadesFond.js';
 import { brancherFaitsLocaux } from './ecouteurs/faitsLocaux.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
@@ -356,9 +357,20 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       if (vue3d.scene && !tardifs.vues?.remplacerObjets3d(cles)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
     }
   });
+  // Les profils de facades rechoisis apres un changement de reglages (app/profilsFacadesFond.ts) : sans
+  // reseau, par lots ; seuls les batiments dont le profil change se redessinent dans la Vue 3D ouverte.
+  const profilsFacades = creerProfilsFacadesFond({
+    objets: () => etat.objects,
+    lectureSeule: () => !!etat.lectureSeule || !toitsFondPermis,
+    apresLot: (b) => {
+      p.markDirty();
+      if (b.changes.length && vue3d.scene && !tardifs.vues?.remplacerObjets3d(b.changes)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
+    }
+  });
   const apresActualisation = () => {
     questionsACheval();
     toitsFond.relancer();
+    void profilsFacades.relancer();
     const refaire3d = () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); };
     p.render();
     refaire3d();
@@ -378,10 +390,12 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     // Un autre plan : la lecture en cours s'arrete, et reprend sur celui-ci.
     toitsFond.arreter();
     toitsFond.relancer();
+    profilsFacades.arreter();
+    void profilsFacades.relancer();
     return r;
   };
   return {
-    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond,
+    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond, profilsFacades,
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
@@ -687,7 +701,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
-  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); }
+  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer(); }
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {

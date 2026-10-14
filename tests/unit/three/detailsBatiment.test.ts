@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ajouterDetailsBatiment, contourDecale, niveaux, abscissesFenetres, DEBORD_TOIT_M, DETAIL_FIN_M, EPAISSEUR_TOIT_M, FENETRE, PORTE } from '../../../src/three/detailsBatiment.js';
-import type { ObjetPolygone, PtBrut } from '../../../src/model/types.js';
+import type { CorpsToit, ObjetPolygone, PtBrut } from '../../../src/model/types.js';
+import { REGLAGES_FACADES } from '../../../src/model/reglagesFacades.js';
 
 // Les details d'un batiment en 3D (MD/spec-toit-ign.md §6.3), verifies en structure, comme le releve :
 // quelles mailles, combien, a quelle hauteur — avec un THREE minimal qui retient ce qu'on lui donne.
@@ -173,6 +174,22 @@ describe('ajouterDetailsBatiment', () => {
     ajouterDetailsBatiment(abri.ctx, { ...maison(), pts: [p(0, 0), p(3, 0), p(3, 2), p(0, 2)] }, 2);
     expect(noms(abri.ajoutes)).toEqual(['batiment-aretes', 'batiment-soubassement']);
     expect(PORTE.h).toBe(2.1);
+  });
+
+  it('profil de facades : le defaut dessine exactement ce que dessinaient les dimensions d avant (G12)', () => {
+    // La maison voisine d'avant recevait ses dimensions de l'apparence du voisinage ; elle les recoit
+    // maintenant de son profil. Avec le profil par defaut, les mailles sont identiques au bit pres.
+    const corps: CorpsToit = { pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [] } as unknown as CorpsToit;
+    const dessin = (options: Parameters<typeof ajouterDetailsBatiment>[3]) => {
+      const { ajoutes, ctx } = scene();
+      ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, 6, options);
+      return JSON.stringify(ajoutes.map((m) => [m.name, m.geometry.attributes.position?.array, m.geometry.index]));
+    };
+    for (const extra of [{}, { corps: [corps] }]) {
+      const avant = dessin({ etages: 2, fenetres: { couleur: '#6F8AA6', largeur: 1, hauteur: 1.2, entraxe: 2.4 }, ...extra });
+      expect(dessin({ etages: 2, fenetres: { couleur: '#6F8AA6' }, profil: REGLAGES_FACADES, ...extra })).toBe(avant);
+      expect(dessin({ etages: 2, fenetres: { couleur: '#6F8AA6' }, profil: { ...REGLAGES_FACADES, FENETRE_LARGEUR_M: 1.3 }, ...extra })).not.toBe(avant);
+    }
   });
 
   it('ne fait rien sans contour ni hauteur', () => {
