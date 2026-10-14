@@ -22,6 +22,7 @@ import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../fac
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
+import type { ValeursFacades } from '../model/reglagesFacades.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
 import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
@@ -70,6 +71,8 @@ export interface OptionsDetails {
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];
+  /** Le profil de facades retenu (facade/profilsFacades.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
+  profil?: ValeursFacades;
 }
 
 // La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
@@ -388,7 +391,7 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
     poserOuvertures(ctx, c.pts, [{ pts: c.pts, hauteur: bas, hauteursMurs: hauteursMursCorps(c) }], bas, {
       ...options, cotesReleves: interieurs, porte: k === 0,
-      ouverturesHautes: fenetresDesPignons(c, largeur, hauteur).filter((f) => !interieurs.includes(f.cote)),
+      ouverturesHautes: fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M).filter((f) => !interieurs.includes(f.cote)),
     });
   });
 }
@@ -403,7 +406,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   // Un mur photographie garde les ouvertures de son releve (releve3d.ts) : la liste reglee a la
   // main n'y dessine rien, pas plus que la disposition automatique.
   const releves = new Set(options.cotesReleves ?? []);
-  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}), ...(options.porte === false ? { porte: false } : {}) })).filter((o) => !releves.has(o.cote));
+  const liste = (options.ouvertures ?? ouverturesAutomatiques(contour, volumes, h, { ...(options.fenetres ?? {}), ...(options.etages !== undefined ? { etages: options.etages } : {}), ...(options.cotesReleves ? { cotesReleves: options.cotesReleves } : {}), ...(options.porte === false ? { porte: false } : {}), ...(options.profil ? { profil: options.profil } : {}) })).filter((o) => !releves.has(o.cote));
   // Les fenetres des pignons montent au-dessus de l'egout : elles ne passent pas le controle de hauteur du mur.
   const hautes = new Set((options.ouverturesHautes ?? []).filter((o) => !releves.has(o.cote)));
   liste.push(...hautes);

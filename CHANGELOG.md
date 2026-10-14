@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Profils de façades** (lot G12 de la vague 3, `MD/spec-facades-calage-detection.md` §15.2,
+  décisions D18 et D19). Les dimensions et les seuils de la disposition automatique des ouvertures
+  (fenêtre de 1,00 × 1,20 m à 0,90 m d'appui, porte de 0,90 × 2,10 m, entraxe de 2,40 m, au plus
+  8 fenêtres par niveau, niveaux de 2,7 m, rien sous 2,2 m de niveau ni sur un mur de moins de 2 m,
+  fenêtre de pignon à partir de 1,8 m) sortent du code dans `regles/facades/reglages.json`, compilé
+  dans le fichier livré comme les réglages des toits. Ils forment le **profil par défaut**, seul
+  profil livré : rien ne change dans la 3D, l'export GLB ni les empreintes. Un profil se déclenche
+  sur un vocabulaire fermé (département tiré de l'IDU, époque `date_d_apparition`, usage
+  `usage_1`, nombre d'étages, mitoyenneté) ; le plus précis l'emporte, deux profils de même
+  précision qui peuvent tomber sur le même bâtiment font refuser le fichier
+  (`model/reglagesFacades.ts`, `facade/profilsFacades.ts`). Le profil retenu se range sur le
+  bâtiment avec la version de lecture (`VERSION_LECTURE_FACADES`, où entre l'empreinte du fichier) :
+  un profil ajouté ou changé fait rechoisir les profils en tâche de fond
+  (`app/profilsFacadesFond.ts`), jamais sur la parcelle du projet ni sur un bâtiment vérifié sur
+  place. Les dimensions réglées par l'utilisateur (inspecteur, apparence du voisinage) l'emportent
+  sur le profil.
 - **Mesurer une façade relevée** (lot G11 de la vague 3, `MD/spec-facades-calage-detection.md`
   §15.1). `model/mesureFacade.ts` lit un relevé (ouvertures, grille, largeur, hauteur) et en tire la
   largeur, la hauteur et l'appui des fenêtres (médianes, l'appui depuis le plancher de leur niveau),

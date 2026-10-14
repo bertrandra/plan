@@ -1,0 +1,26 @@
+{
+  "pourquoi": "Des profils d'essai pour les tests du choix des profils de facades (tests/unit/model/reglagesFacades.test.ts, facade/profilsFacades.test.ts, app/profilsFacadesFond.test.ts). Ils ne sont pas livres : ils ne viennent d'aucune facade relevee, ils montrent seulement que les declencheurs, les priorites et les surcharges font bouger la disposition.",
+  "profils": [
+    {
+      "id": "pavillon-essai",
+      "quand": { "departements": ["78", "92"], "usages": ["Résidentiel"] },
+      "surcharges": { "FENETRE_LARGEUR_M": 1.2, "FENETRE_HAUTEUR_M": 1.35, "FENETRE_APPUI_M": 0.95, "ENTRAXE_FENETRES_M": 3 },
+      "pourquoi": "Essai : des fenetres plus grandes et plus espacees sur les maisons d'habitation des Yvelines et des Hauts-de-Seine.",
+      "cas": ["essai/pavillon"]
+    },
+    {
+      "id": "maison-de-rang-essai",
+      "quand": { "departements": ["78"], "usages": ["Résidentiel"], "mitoyennete": ["forte"] },
+      "surcharges": { "FENETRE_LARGEUR_M": 0.8, "ENTRAXE_FENETRES_M": 1.8, "HAUTEUR_NIVEAU_MIN_M": 2.5 },
+      "pourquoi": "Essai : la maison de rang, collee des deux cotes, plus etroite et plus serree ; plus precis que le pavillon, il l'emporte.",
+      "cas": ["essai/rang"]
+    },
+    {
+      "id": "ancien-essai",
+      "quand": { "departements": ["13"], "epoque": { "max": 1900 }, "etages": { "min": 2 } },
+      "surcharges": { "FENETRE_HAUTEUR_M": 1.6 },
+      "pourquoi": "Essai : les batiments des Bouches-du-Rhone d'avant 1900, de deux etages ou plus, aux fenetres hautes.",
+      "cas": ["essai/ancien"]
+    }
+  ]
+}

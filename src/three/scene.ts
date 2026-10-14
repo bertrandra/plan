@@ -41,7 +41,8 @@ import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
 import { geometrieGazon, materiauGazon } from './gazon.js';
-import { voisinage3dDe, apparenceVoisin } from '../model/voisinage3d.js';
+import { voisinage3dDe, apparenceVoisin, fenetresDuVoisin } from '../model/voisinage3d.js';
+import { valeursFacadesDe } from '../model/reglagesFacades.js';
 import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
@@ -830,12 +831,13 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
     // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
     // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
     const f3d = fenetres3dDe(o);
-    const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
+    const fenetres = apparence ? fenetresDuVoisin(apparence, co.voisinage3d) : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
     ajouterDetailsBatiment(
       { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
         // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
         ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
+      // Le profil de facades retenu pour le batiment (facade/profilsFacades.ts) : ses dimensions et ses seuils.
+      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o),
         ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
         // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
         ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),

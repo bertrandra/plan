@@ -93,6 +93,29 @@ et la chaîne de `02` au centimètre.
 `19`, un pignon aveugle contre un garage voisin) : les vrais audits de parcelle viendront du corpus
 partagé (lot L21) et s'y rangeront tels quels.
 
+## 1 ter. Les profils de façades (lot G12)
+
+La disposition automatique des ouvertures (`facade/ouvertures.ts`) lit ses dimensions et ses seuils
+dans `regles/facades/reglages.json` (spec §15.2) : les `seuils` sont le **profil par défaut** (les
+constantes d'avant), les `profils` en surchargent quelques-uns. Le banc ne les touche pas : il mesure
+la détection et le calage, pas la disposition automatique.
+
+- **Un profil naît d'un écart mesuré** sur des façades relevées (G13), jamais d'une intuition, et cite
+  ces façades (`cas`). Un profil par PR (G14).
+- **Vocabulaire fermé** : `departements`, `epoque` (année de `date_d_apparition`, plage `min` compris,
+  `max` exclu), `usages` (`usage_1`), `etages` (plage), `mitoyennete` (`aucune`, `partielle`,
+  `forte`). Le plus précis l'emporte ; deux profils de même précision qui peuvent se rencontrer font
+  refuser le fichier (`tests/unit/model/reglagesFacades.test.ts`).
+- **Changer le fichier** : ajouter à `LECTURES_FACADES` (`model/reglagesFacades.ts`) la ligne
+  `{ version: n + 1, reglages: '<empreinte>' }` que le test donne. Les projets ouverts rechoisissent
+  alors leurs profils en tâche de fond (`app/profilsFacadesFond.ts`), sauf la parcelle du projet et
+  les bâtiments vérifiés sur place.
+- **Les empreintes golden** : seule `glb-structure.json` voit les fenêtres (point de fumée 24). Un
+  profil qui la fait bouger est un changement de version majeure (`MD/RELEASE.md`, `EMPREINTES.md`).
+  Les mitoyens de la démonstration ne sont pas sur la parcelle du projet : un profil qui s'y applique bouge le GLB.
+- Profils d'essai pour les tests : `tests/fixtures/regles-facades/profils-essai.json` (pas dans
+  `tests/fixtures/facades/`, que le banc lit comme des scènes).
+
 ## 2. Lire le tableau
 
 Trois sections, puis les objectifs.

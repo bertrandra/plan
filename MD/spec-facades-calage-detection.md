@@ -454,6 +454,31 @@ les **régler par profil**, comme les seuils des toits (`spec-regles-toits.md` �
    fonciers, usage et nombre d'étages BD TOPO). Par exemple :
    `facades.profils["pavillon-idf"] = { fenetre: { l: 1.1, h: 1.35, appui: 0.95 }, entraxe: 2.6, pignonAveugle: true }`.
    Les constantes d'aujourd'hui deviennent le profil par défaut.
+
+   **Fait (lot G12)** : `regles/facades/reglages.json` (format `plan-reglages-facades`), compilé dans
+   le fichier livré. Ses `seuils` sont le profil par défaut, au bit près les constantes d'avant
+   (`FENETRE_LARGEUR_M`, `FENETRE_HAUTEUR_M`, `FENETRE_APPUI_M`, `PORTE_LARGEUR_M`,
+   `PORTE_HAUTEUR_M`, `ENTRAXE_FENETRES_M`, `FENETRES_MAX_PAR_MUR`, `HAUTEUR_NIVEAU_M`,
+   `HAUTEUR_NIVEAU_MIN_M`, `LARGEUR_MUR_MIN_M`, `HAUTEUR_PIGNON_FENETRE_M`), chacun avec son unité, le
+   module qui le lit et sa raison. Un profil s'écrit
+   `{ "id": "pavillon-idf", "quand": { "departements": ["78"], "usages": ["Résidentiel"] }, "surcharges": { "FENETRE_LARGEUR_M": 1.1, "ENTRAXE_FENETRES_M": 2.6 }, "pourquoi": "…", "cas": ["…"] }`.
+   Le vocabulaire est fermé (D19) : `departements` (tiré de l'IDU de la parcelle du projet),
+   `epoque` (année de `date_d_apparition`, plage), `usages` (`usage_1` de la BD TOPO), `etages`
+   (plage), `mitoyennete` (`aucune`, `partielle` dès 5 % du périmètre collé à un autre bâtiment,
+   `forte` dès 40 %). Une valeur inconnue ne remplit aucune condition. Un profil s'applique **en
+   entier** (ses dimensions vont ensemble) ; le plus précis (le plus de conditions) l'emporte, et
+   deux profils de même précision qui peuvent tomber sur le même bâtiment font refuser le fichier
+   (test en CI). Le profil retenu se range sur le bâtiment (`profilFacades : { id, version }`) ;
+   l'empreinte du fichier entre dans `VERSION_LECTURE_FACADES` (`model/reglagesFacades.ts`,
+   `LECTURES_FACADES`) : une valeur ou un profil changé fait rechoisir les profils en tâche de fond
+   (`app/profilsFacadesFond.ts`), sauf sur la parcelle du projet et les bâtiments vérifiés sur
+   place. Les dimensions réglées à la main (inspecteur « Fenêtres (3D) », apparence du voisinage)
+   l'emportent sur le profil. Le booléen `pignonAveugle` de l'exemple ci-dessus attend son premier
+   profil (G14) : la disposition ne sait pas encore laisser un pignon aveugle.
+
+   Les empreintes golden qui voient les fenêtres : `glb-structure.json` (la Vue 3D, point de fumée
+   24). `dossier.pdf`, `plan.pdf`, `plan.svg`, `plan.dxf` et `projet.json` ne les dessinent pas (un
+   projet sans profil retenu s'enregistre comme avant).
 3. **Le contrôle** : sur les façades relevées, la disposition automatique est comparée au relevé :
    nombre de baies par façade (± 1), part vitrée (± 20 %), hauteur des niveaux. C'est le **taux de
    conformité des façades**, suivi comme celui des toits (`spec-regles-toits.md` §13.5).

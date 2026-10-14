@@ -9,6 +9,7 @@
 
 import type { ObjetPlan, ReglagesVoisinage3d, TypeCloture } from './types.js';
 import { DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT } from './cloture.js';
+import { FENETRE, ENTRAXE_FENETRES_M } from './fenetres3d.js';
 
 /** La couleur des murs des maisons voisines a l'import (geo/cadastreObjets.ts), et son second ton. */
 export const COULEUR_MAISON_VOISINE = '#CFC3B4';
@@ -19,7 +20,7 @@ export const COULEUR_GRILLAGE_VOISINAGE = '#A9B2A6';
 
 export const VOISINAGE_3D_DEFAUT: ReglagesVoisinage3d = {
   maisons: { mode: 'plan', couleur: COULEUR_MAISON_VOISINE, couleur2: '#B9A98F', couleur3: '#E6DED0', nombre: 2 },
-  fenetres: { mode: 'unique', couleur: COULEUR_VITRE_DEFAUT, couleur2: '#8FA6BE', largeurMin: 1, largeurMax: 1, hauteurMin: 1.2, hauteurMax: 1.2, entraxeMin: 2.4, entraxeMax: 2.4 },
+  fenetres: { mode: 'unique', couleur: COULEUR_VITRE_DEFAUT, couleur2: '#8FA6BE', largeurMin: FENETRE.l, largeurMax: FENETRE.l, hauteurMin: FENETRE.h, hauteurMax: FENETRE.h, entraxeMin: ENTRAXE_FENETRES_M, entraxeMax: ENTRAXE_FENETRES_M },
   cloture: { afficher: true, type: 'grillage', couleur: COULEUR_GRILLAGE_VOISINAGE },
   rues: { afficher: false },
   toits: { corps: true },
@@ -110,4 +111,19 @@ export function apparenceVoisin(r: ReglagesVoisinage3d, cle: string): ApparenceV
     ...(couleurMur ? { couleurMur } : {}),
     fenetres: { couleur, largeur: cm(entre(f.largeurMin, f.largeurMax, t())), hauteur: cm(entre(f.hauteurMin, f.hauteurMax, t())), entraxe: cm(entre(f.entraxeMin, f.entraxeMax, t())) },
   };
+}
+
+/** Les dimensions des fenetres du voisinage sont-elles reglees (autres que celles par defaut) ? */
+export function dimensionsVoisinReglees(r: ReglagesVoisinage3d): boolean {
+  const f = r.fenetres, d = VOISINAGE_3D_DEFAUT.fenetres;
+  return (['largeurMin', 'largeurMax', 'hauteurMin', 'hauteurMax', 'entraxeMin', 'entraxeMax'] as const).some((k) => f[k] !== d[k]);
+}
+
+/**
+ * Les fenetres qu'une maison voisine recoit : celles de son apparence si l'utilisateur a regle les
+ * dimensions du voisinage ; sinon sa seule vitre, et les dimensions viennent de son profil de facades
+ * (facade/ouvertures.ts, regles/facades/reglages.json). Sans profil, ce sont les memes.
+ */
+export function fenetresDuVoisin(a: ApparenceVoisin, r: ReglagesVoisinage3d): { couleur: string; largeur?: number; hauteur?: number; entraxe?: number } {
+  return dimensionsVoisinReglees(r) ? a.fenetres : { couleur: a.fenetres.couleur };
 }
