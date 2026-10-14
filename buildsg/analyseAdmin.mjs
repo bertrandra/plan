@@ -9,7 +9,8 @@
 //   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
-//   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
+//   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
+//   GET  admin/consommation                  le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
 // **La cle ne quitte jamais le serveur**, et la page ne choisit ni le prompt, ni le schema, ni le
@@ -41,7 +42,13 @@ export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, avec le prompt et le
 // schema de l'analyse ; un usage a part pour que le journal et le tableau de bord en disent le cout.
 export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
-const MODELE_PAR_USAGE = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' };
+/**
+ * Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
+ * deploy/analyse.php, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
+ * immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
+ * plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
+ */
+export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' });
 /**
  * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
  * siens ; les autres usages lisent ceux de l'analyse d'une maison.
@@ -157,7 +164,7 @@ const texteCourt = (v, max) => (v === undefined || v === null ? null : typeof v 
  * La demande de la page : l'identite de la parcelle et les requetes, une par passe. Seuls des
  * blocs `text` et `image` (base64) sont admis : le reste de la requete est fixe par le serveur.
  */
-export function verifierDemande(d, plafonds) {
+export function verifierDemande(d, plafonds, modeles = MODELE_PAR_USAGE) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw refus('Demande illisible.');
   const meta = {};
   for (const [cle, max] of [['projet', 128], ['idu', 64], ['adresse', 300], ['audit', 64]]) {
@@ -167,7 +174,7 @@ export function verifierDemande(d, plafonds) {
   }
   const usage = d.usage === undefined ? 'analyse' : d.usage;
   if (!USAGES.includes(usage)) throw refus('Usage inconnu : ' + String(usage) + '.');
-  const modele = d.modele === undefined ? MODELE_PAR_USAGE[usage] : d.modele;
+  const modele = d.modele === undefined ? modeles[usage] : d.modele;
   if (!MODELES.includes(modele)) throw refus('Modèle non admis : ' + String(modele) + '.');
   if (!Array.isArray(d.requetes) || d.requetes.length === 0) throw refus('Aucune requête.');
   if (d.requetes.length > plafonds.requetesParBatch) throw refus('Trop de requêtes dans un batch (' + plafonds.requetesParBatch + ' au plus).');
@@ -196,7 +203,7 @@ export function verifierDemande(d, plafonds) {
     // prompt, son schema et son modele sont alors les siens.
     const usageR = r.usage === undefined ? usage : r.usage;
     if (!USAGES.includes(usageR)) throw refus('Usage inconnu : ' + String(usageR) + '.');
-    const modeleR = d.modele === undefined ? MODELE_PAR_USAGE[usageR] : modele;
+    const modeleR = d.modele === undefined ? modeles[usageR] : modele;
     return { id: r.id, passe, images, facades, usage: usageR, modele: modeleR, contenu };
   });
   return { ...meta, usage, modele, requetes };
@@ -246,6 +253,87 @@ export function verifierPlafonds(d) {
   return d;
 }
 
+/**
+ * Le modele de chaque usage : le reglage de l'administrateur, sinon celui par defaut. Un modele
+ * regle qui n'est plus admis (un deploiement l'a retire) retombe sur le defaut, sans tomber.
+ */
+export function modelesParUsage(reglage) {
+  const choisis = reglage && typeof reglage === 'object' && reglage.usages && typeof reglage.usages === 'object' ? reglage.usages : {};
+  return Object.fromEntries(USAGES.map((u) => [u, MODELES.includes(choisis[u]) ? choisis[u] : MODELE_PAR_USAGE[u]]));
+}
+
+/** Un reglage des modeles valide : un modele admis par usage connu ; un usage absent garde son defaut. */
+export function verifierModeles(d) {
+  const r = () => refus('Ce n’est pas un réglage des modèles (format, un modèle admis par usage).');
+  // Une liste vide vaut un objet vide : PHP ne les distingue pas, et les deux serveurs repondent pareil.
+  if (!d || typeof d !== 'object' || d.format !== 'plan-claude-modeles' || !d.usages || typeof d.usages !== 'object' || (Array.isArray(d.usages) && d.usages.length > 0)) throw r();
+  for (const [u, m] of Object.entries(d.usages)) {
+    if (!USAGES.includes(u)) throw refus('Usage inconnu : ' + u + '.');
+    if (!MODELES.includes(m)) throw refus('Modèle non admis : ' + (typeof m === 'string' ? m : '?') + '.');
+  }
+  return { format: 'plan-claude-modeles', usages: Array.isArray(d.usages) ? {} : d.usages };
+}
+
+/** Ce que `admin/claude/modeles` rend : le modele de chaque usage, les defauts, les modeles admis. */
+export function vueModeles(reglage) {
+  return { format: 'plan-claude-modeles', usages: modelesParUsage(reglage), defaut: { ...MODELE_PAR_USAGE }, admis: MODELES, regle: reglage !== null && reglage !== undefined };
+}
+
+// --- Ce que les reponses contiennent (13.3 : comparer les modeles sur ce qu'ils trouvent) ---------
+// Le journal ne garde pas la reponse : seulement ces comptes, lus quand le serveur la relit, par la
+// forme du schema de l'usage (schema-analyse.json, schema-renfort.json ; deploy/analyse.php, memes noms).
+
+export const COMPTES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'];
+/** Un compte ecrit par le modele est borne : un nombre aberrant ne doit pas noyer le tableau de bord. */
+const COMPTE_MAX = 999;
+const BOUTS_TROUVES = ['pignon', 'croupe', 'demi-croupe', 'brisis'];
+
+/** Un entier positif ecrit par le modele, sinon zero : `indetermine` ne compte pas. */
+const compte = (v) => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? Math.min(COMPTE_MAX, v) : 0);
+const listeDe = (v) => (Array.isArray(v) ? v : []);
+const objetDe = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+const determine = (v) => typeof v === 'string' && v !== '' && v !== 'indetermine';
+
+/** Les comptes d'une sortie lue (`null` sans sortie) ; `vide` quand la reponse ne dit rien. */
+export function comptesSortie(sortie, usage) {
+  if (sortie === null || sortie === undefined) return null;
+  const s = objetDe(sortie);
+  const c = Object.fromEntries(COMPTES.map((k) => [k, 0]));
+  if (usage === 'renfort') {
+    for (const o of listeDe(s.ouvertures)) {
+      const decision = objetDe(o).decision;
+      if (decision === 'garder') c.ouvertures++;
+      if (decision === 'retirer') c.enTrop++;
+    }
+    c.manquees = listeDe(s.manquees).length;
+    const coins = objetDe(s.coins);
+    for (const k of ['hautGauche', 'hautDroit', 'basDroit', 'basGauche']) if (coins[k] !== null && typeof coins[k] === 'object') c.coins++;
+    c.determines = ['attendu', 'autre'].includes(objetDe(s.mur).vu) ? 1 : 0;
+  } else {
+    for (const f of listeDe(s.facades)) {
+      const o = objetDe(objetDe(f).ouvertures);
+      for (const n of listeDe(o.parNiveau)) c.ouvertures += compte(n);
+      c.manquees += compte(o.manquees);
+      c.enTrop += compte(o.enTrop);
+    }
+    const bouts = objetDe(s.bouts);
+    for (const k of ['gauche', 'droite']) if (BOUTS_TROUVES.includes(bouts[k])) c.bouts++;
+    c.lucarnes = compte(objetDe(s.lucarnes).nombre);
+    c.elements = listeDe(s.elements).length;
+    c.ecarts = listeDe(s.ecarts).length;
+    for (const [k, champ] of [['forme', 'valeur'], ['profil', 'valeur'], ['faitage', 'sens'], ['couverture', 'valeur'], ['terrasse', 'type']]) {
+      if (determine(objetDe(s[k])[champ])) c.determines++;
+    }
+  }
+  for (const k of COMPTES) c[k] = Math.min(COMPTE_MAX, c[k]);
+  return { ...c, vide: COMPTES.every((k) => c[k] === 0) };
+}
+
+/** Les comptes d'un resultat relu : seulement d'une reponse reussie dont la sortie s'est lue. */
+export function trouvailles(x, usage) {
+  return x.statut === 'reussi' && x.erreur === null ? comptesSortie(x.sortie, usage) : null;
+}
+
 // --- Le tableau de bord de la consommation (13.3, lot L16 bis) ----------------------------------
 
 const JOUR = /^\d{4}-\d{2}-\d{2}$/;
@@ -253,8 +341,11 @@ const MODELE_VALIDE = /^claude-[a-z0-9-]{1,60}$/;
 const USAGE_VALIDE = /^[a-z]{1,20}$/;
 /** Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus). */
 export const MOIS_CONSULTABLES = 25;
-/** Les champs d'une ligne que le tableau de bord lit : des compteurs et l'identite de la parcelle. */
-const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut'];
+/**
+ * Les champs d'une ligne que le tableau de bord lit : des compteurs et l'identite de la parcelle.
+ * `idBatch` compte les batches par modele ; `trouve`, les comptes de la reponse (null sur un journal d'avant).
+ */
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'idBatch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut', 'trouve'];
 
 const jourMs = (j) => Date.UTC(Number(j.slice(0, 4)), Number(j.slice(5, 7)) - 1, Number(j.slice(8, 10)));
 const jourValide = (j) => typeof j === 'string' && JOUR.test(j) && new Date(jourMs(j)).toISOString().slice(0, 10) === j;
@@ -362,6 +453,32 @@ export function verifierAudit(d) {
   return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
 }
 
+/** Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus. */
+export const MARQUES_AUDIT = ['corpus', 'sauvegarde'];
+
+/** La marque demandee, ou un refus ; `defaut` : celle d'un depot qui n'en dit rien. */
+export function marqueAudit(entete, defaut = 'corpus') {
+  if (entete === undefined || entete === '') return defaut;
+  if (!MARQUES_AUDIT.includes(entete)) throw refus('Marque de dépôt inconnue (corpus ou sauvegarde).');
+  return entete;
+}
+
+/**
+ * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ */
+export function resumeAudit(d) {
+  const nb = (l) => (Array.isArray(l) ? l.length : 0);
+  let photos = nb(d.cloture && d.cloture.photos) + nb(d.portail && d.portail.photos);
+  for (const b of d.batiments) {
+    if (!b || typeof b !== 'object') continue;
+    photos += nb(b.photos);
+    for (const f of Array.isArray(b.facades) ? b.facades : []) photos += nb(f && f.photos);
+  }
+  const debut = typeof d.debut === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(d.debut) ? d.debut.slice(0, 40) : null;
+  return { photos, phase: typeof d.finCapture === 'string' && d.finCapture ? 'analyse' : 'capture', debut };
+}
+
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; deploy/analyse.php, memes noms) --
 // L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
 // ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
@@ -402,6 +519,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   const dossierBatches = path.join(dossierClaude, 'batches');
   const fTarifs = path.join(dossierClaude, 'tarifs.json');
   const fPlafonds = path.join(dossierClaude, 'plafonds.json');
+  const fModeles = path.join(dossierClaude, 'modeles.json');
   const avecCle = typeof cle === 'string' && cle.length > 0;
 
   const iso = () => new Date(maintenant()).toISOString();
@@ -425,6 +543,8 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     return livree;
   }
   const plafonds = () => lireJson(fPlafonds) || PLAFONDS_DEFAUT;
+  /** Le reglage des modeles par l'administrateur, ou `null` tant qu'il n'a rien regle. */
+  const reglageModeles = () => lireJson(fModeles);
 
   const fJournal = (t) => path.join(dossierClaude, 'journal-' + t.slice(0, 7) + '.jsonl');
   /** Une ligne par appel, ajoutee d'un seul trait : le journal ne se reecrit jamais. */
@@ -497,7 +617,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       const cout = coutAppel(x.tokens, ligneTarif, false);
       const { prompt, schema } = prompts[r.usage];
       journal.push({ t, ...identite, usage: r.usage, modele: r.modele, batch: false, idBatch: null, requete: r.id, passe: r.passe, tokens: x.tokens, images: r.images, facades: r.facades,
-        cout, tarif: ligneTarif ? ligneTarif.depuis : null, statut: x.statut, arret: x.arret, prompt: prompt.version, schema: schema.version });
+        cout, tarif: ligneTarif ? ligneTarif.depuis : null, statut: x.statut, arret: x.arret, prompt: prompt.version, schema: schema.version, trouve: trouvailles(x, r.usage) });
       return { id: r.id, statut: x.statut, arret: x.arret, tokens: x.tokens, sortie: x.sortie, erreur: x.erreur, passe: r.passe, usage: r.usage, cout };
     });
     journaliser(journal);
@@ -558,14 +678,15 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       const req = fiche.requetes[x.id] || { passe: null, images: 0, facades: 0 };
       const modele = req.modele || fiche.modele;
       const ligneTarif = tarifEnVigueur(table, modele, t.slice(0, 10));
-      return { x: { ...x, passe: req.passe, usage: req.usage || fiche.usage, cout: coutAppel(x.tokens, ligneTarif, true) }, req, modele, tarif: ligneTarif ? ligneTarif.depuis : null };
+      const usage = req.usage || fiche.usage;
+      return { x: { ...x, passe: req.passe, usage, cout: coutAppel(x.tokens, ligneTarif, true) }, req, modele, tarif: ligneTarif ? ligneTarif.depuis : null, trouve: trouvailles(x, usage) };
     });
     if (!fiche.journalise) {
-      journaliser(detail.map(({ x, req, modele, tarif }) => ({
+      journaliser(detail.map(({ x, req, modele, tarif, trouve }) => ({
         t, organisation: fiche.organisation, projet: fiche.projet, idu: fiche.idu, adresse: fiche.adresse, audit: fiche.audit,
         usage: x.usage, modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
         tokens: x.tokens, images: req.images ?? 0, facades: req.facades ?? 0, cout: x.cout, tarif,
-        statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion
+        statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion, trouve
       })));
       ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });
     }
@@ -614,7 +735,18 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   const fAudit = (id) => path.join(dossierAudits, id + '.json');
   const fFicheAudit = (id) => path.join(dossierAudits, id + '.fiche.json');
 
-  /** `admin/audits[/<id>]` : deposer, lister, lire, retirer un audit de parcelle partage (15, L21). */
+  /** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
+  function ecrireAudit(id, texte) {
+    fs.mkdirSync(dossierAudits, { recursive: true });
+    const tmp = fAudit(id) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+    fs.writeFileSync(tmp, texte);
+    fs.renameSync(tmp, fAudit(id));
+  }
+
+  /**
+   * `admin/audits[/<id>]` : deposer (POST), lister, lire, remplacer (PUT, la sauvegarde de la capture),
+   * retirer un audit de parcelle (15, L21).
+   */
   async function audits(req, res, base, id, admin, json, erreur) {
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
@@ -636,15 +768,12 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       let d;
       try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
       const parcelle = verifierAudit(d);
+      const marque = marqueAudit(req.headers['x-plan-depot']);
       const t = iso();
       const nouvel = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + crypto.randomBytes(4).toString('hex');
       const retrait = crypto.randomBytes(24).toString('hex');
-      fs.mkdirSync(dossierAudits, { recursive: true });
-      // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
-      const tmp = fAudit(nouvel) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
-      fs.writeFileSync(tmp, texte);
-      fs.renameSync(tmp, fAudit(nouvel));
-      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
+      ecrireAudit(nouvel, texte);
+      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
       return json(201, { id: nouvel, retrait });
     }
     const fiche = ID_AUDIT.test(id) ? lireJson(fFicheAudit(id)) : null;
@@ -655,12 +784,28 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fAudit(id)));
       return true;
     }
-    if (methode !== 'DELETE') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+    if (methode !== 'DELETE' && methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne remplace ni ne retire un audit.
     const secret = String(req.headers['x-plan-retrait'] || '');
     const attendu = Buffer.from(String(fiche.retrait || ''));
     const recu = Buffer.from(secret ? crypto.createHash('sha256').update(secret).digest('hex') : '');
-    if (!admin && !(secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu))) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+    const proprietaire = !!secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu);
+    if (methode === 'PUT') {
+      // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
+      // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+      const qui = await acteur(req);
+      if (qui.refus) return erreur(...qui.refus);
+      if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+      const texte = await lireTexte(req, TAILLE_MAX);
+      let d;
+      try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+      const parcelle = verifierAudit(d);
+      const marque = marqueAudit(req.headers['x-plan-depot'], fiche.marque || 'corpus');
+      ecrireAudit(id, texte);
+      ecrireJson(fFicheAudit(id), { ...fiche, recuLe: iso().replace(/\.\d{3}Z$/, 'Z'), ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d) });
+      return json(200, { id, remplace: true });
+    }
+    if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
     for (const f of [fAudit(id), fFicheAudit(id), fFicheAudit(id) + '.bak']) fs.rmSync(f, { force: true });
     return json(200, { id, retire: true });
   }
@@ -738,7 +883,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
         let renfort = null;
         try { const r = promptEtSchema('renfort'); renfort = { prompt: r.prompt.version, schema: r.schema.version }; } catch { renfort = null; }
-        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin });
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, modelesParUsage: modelesParUsage(reglageModeles()), prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin });
       }
 
       if (chemin === '@consommation') {
@@ -777,11 +922,21 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         return json(200, d);
       }
 
+      // Le modele de chaque usage (13.2), a l'administrateur seul. Il vaut pour les envois suivants :
+      // un batch deja cree garde le sien, ecrit dans sa fiche.
+      if (chemin === 'modeles') {
+        if (reserveAdmin()) return true;
+        if (lecture) return json(200, vueModeles(reglageModeles()));
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        ecrireJson(fModeles, verifierModeles(await lireCorps(req, 64 * 1024)));
+        return json(200, vueModeles(reglageModeles()));
+      }
+
       if (chemin === 'batches') {
         if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         if (!avecCle) return sansCle();
         const p = plafonds();
-        const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p);
+        const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p, modelesParUsage(reglageModeles()));
         const t = iso();
         const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
         const { prompt, schema } = promptEtSchema(demande.usage);
@@ -829,7 +984,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         const p = plafonds();
         const d = await lireCorps(req, TAILLE_MAX);
         if (d && typeof d === 'object' && !Array.isArray(d) && d.usage === undefined) d.usage = 'renfort';
-        const demande = verifierDemande(d, { ...p, requetesParBatch: Math.min(REQUETES_IMMEDIATES, p.requetesParBatch) });
+        const demande = verifierDemande(d, { ...p, requetesParBatch: Math.min(REQUETES_IMMEDIATES, p.requetesParBatch) }, modelesParUsage(reglageModeles()));
         const r = await appelImmediat(demande, organisation, qui.admin);
         return r.refus ? json(...r.refus) : json(200, r.reponse);
       }

@@ -7,6 +7,63 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le modèle de chaque usage, choisi par l'administrateur** (`MD/spec-audit.md` §13.2 et §13.3,
+  demande de l'utilisateur). Dans le tableau de bord de la consommation (`?admin&ecran=consommation`),
+  l'onglet « Réglages » (l'ancien « Tarifs et plafonds ») commence par une section « Modèles » : une
+  liste déroulante par usage (« Analyse des audits », « Renfort des façades », « Aide immédiate »,
+  « Escalade », « Cas candidats »), qui ne propose que les modèles admis par le serveur, avec leur nom
+  et leur prix d'entrée et de sortie au million de tokens. « Enregistrer les modèles » l'envoie au
+  serveur (`GET|PUT admin/claude/modeles`, nouveau, dans `deploy/analyse.php` et
+  `buildsg/analyseAdmin.mjs`) ; il le garde dans `claude/modeles.json`, version précédente en `.bak`,
+  et refuse un modèle hors de sa liste. Le message rappelle que les analyses déjà lancées gardent leur
+  modèle. Une demande qui nomme son modèle le garde, comme avant.
+- **« Par modèle » dans le tableau de bord** : les modèles comparés sur la période et les filtres
+  choisis. La part des réponses vides d'abord, en barres ; puis requêtes, batchs, appels immédiats,
+  images, tokens, coût, coût par façade et échecs ; puis ce que les réponses contiennent
+  (ouvertures, manquées signalées, en trop, pignons et croupes, lucarnes, éléments de toit, écarts au
+  modèle, coins situés, attributs tranchés), en total ou par réponse lue. « Exporter en CSV » rend
+  cette vue. Pour cela, le journal du serveur garde désormais, à chaque réponse qu'il relit, ces comptes
+  (champ `trouve`, jamais la réponse elle-même) et l'identifiant du batch ; une ligne d'avant reste
+  lisible, ses réponses sont dites « sans comptes » et laissées hors du calcul.
+
+- **L'audit de parcelle sauvegardé sur le serveur pendant la capture, et catalogué par
+  l'administrateur** (`MD/spec-audit.md` §15). Le brouillon de l'appareil se perdait avec le
+  téléphone ; désormais, quand une session admin ou le jeton de la plateforme le permettent :
+  - l'audit part sur le serveur de Plan **cinq secondes après la dernière photo rangée** (un envoi
+    par rafale), à « Lancer l'analyse », et à la demande, par la commande « Envoyer l'audit au
+    serveur » de la liste de contrôle, qui dit où il en est (« Envoyé à 17:42 », « En attente de
+    réseau, nouvel essai à 17:45 », l'erreur en clair, ou la taille quand il dépasse les 48 Mo du
+    serveur) ; hors ligne, il réessaie de plus en plus espacé, et dès que le réseau revient, sans
+    jamais bloquer la capture ;
+  - chaque envoi **remplace le même dépôt** (`PUT admin/audits/<id>`, nouveau, par son secret de
+    retrait ou la session admin), gardé avec la capture comme celui du corpus ;
+  - le dépôt est **marqué `sauvegarde`** (en-tête `X-Plan-Depot`) ; le partage « pour améliorer
+    Plan » reste un dépôt `corpus` à part, cochable et retirable (décision D7). Le format du fichier
+    ne change pas. Un utilisateur qui décoche le partage retire aussi sa sauvegarde, et sans son
+    accord rien ne part de soi-même ; l'administrateur garde toujours la sienne. L'écran Conformité
+    ignore les sauvegardes ;
+  - **Admin › « Audits de parcelle »** (à côté de « Conformité », admin des démos) liste les audits
+    reçus : date, parcelle, adresse, photos, phase (capture ou analyse), sauvegarde ou partage ; pour
+    chacun, « Ouvrir dans ce projet » (même IDU ; reprend l'audit par le chemin de l'import, à la
+    phase où il en était, en capture s'il n'était pas fini, avec la question de remplacement),
+    « Télécharger » le fichier tel qu'il est arrivé, et « Retirer », confirmé sur la carte ;
+  - l'import d'un fichier dont la capture n'était pas terminée le reprend sur la liste de contrôle ;
+  - côté serveur (`deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat) : la fiche d'un
+    audit dit sa marque, ses photos, sa phase et le début de la visite ; si PHP a jeté le corps d'un
+    audit, la réponse nomme `post_max_size` au lieu de « JSON illisible ». Sur un hébergement PHP,
+    porter `memory_limit` à 256M (un audit de 40 Mo en demande environ 120) et `post_max_size` à 64M.
+
+- **Les pignons d'une façade, dits par un fait de toit** (`MD/spec-regles-toits.md` §5.2) :
+  `pignons: [{ facade: { azimutDeg }, position: "bouts", haut: "faitage" }]` tient un pignon
+  traversant à chaque bout du pan de cette façade, jusqu'au point haut du faîtage, à la largeur
+  donnée (`largeurM`) ou, sans elle, à celle que lit la mesure. Premier cas : **AE 101**, « deux
+  pignons à gauche et à droite de la façade sud, de 3,7 m environ, qui montent au faîtage » (le
+  propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour cette maison a changé
+  l'après-midi même, et le calcul seul n'y trouvait plus que le pignon ouest : le toit sud était
+  cassé. La référence d'AE 101 sous ses faits change (pignons de 3,7 m au faîtage, pan relu sans
+  eux) ; le calcul seul ne change pas, ni aucun autre bâtiment. Les toits déjà lus seront relus à
+  l'ouverture.
+
 - **Un appentis adossé le long d'une façade, dit par un fait de toit** (`MD/spec-regles-toits.md`
   §5.1). Un porche, une galerie couverte, un auvent que le contour BD TOPO ne contient pas se
   décrivent dans `regles/toits/faits.json` : `appentis: [{ facade: { azimutDeg }, longueur: "toute" }]`,
@@ -1023,6 +1080,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se découpaient déjà gardent leurs corps au centimètre près (AE 101, vérifié sur le relevé réel).
 
 ### Modifié
+
+- **L'analyse des audits, le renfort des façades et l'aide immédiate passent par défaut au modèle
+  plus fin (Sonnet)** au lieu du modèle rapide (Haiku), qui ne trouvait rien sur les photos d'un vrai
+  audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats
+  au modèle rapide. Le coût d'une parcelle passe de 1 à 2 centimes à **20 à 40 centimes** environ :
+  les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête sont à relever dans
+  « Réglages ». L'administrateur peut revenir au modèle rapide usage par usage.
 
 - **Audit de la parcelle, « Photographier en marchant »** (`MD/spec-audit.md` §12.2, demande de
   l'utilisateur) :

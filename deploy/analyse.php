@@ -13,10 +13,12 @@
 //   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
-//   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
+//   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
+//   GET  admin/consommation                  le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //   POST admin/audits                         depose un fichier `plan-audit-parcelle` (15, lot L21)
 //   GET  admin/audits                         la liste des audits recus (administrateur)
 //   GET  admin/audits/<id>                    un audit recu (administrateur)
+//   PUT  admin/audits/<id>                    le remplace (la sauvegarde de la capture) : son secret, ou l'administrateur
 //   DELETE admin/audits/<id>                  le retire : son secret de retrait, ou l'administrateur
 //   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
@@ -25,7 +27,16 @@
 // plateforme (`Authorization: Bearer`, verifie aupres d'elle, `plateformeUrl` de la configuration).
 // Ils se rangent dans `<dossierDemos>/audits/`, avec les autres donnees de l'admin, hors du dossier
 // publie. L'envoi rend un secret de retrait, garde sur l'appareil, seul a pouvoir retirer le fichier
-// quand la personne decoche la case ; le serveur n'en garde que l'empreinte.
+// quand la personne decoche la case ; le serveur n'en garde que l'empreinte. La sauvegarde de la
+// capture (15) arrive par la meme route, marquee `X-Plan-Depot: sauvegarde`, et chaque envoi remplace
+// son depot (PUT) ; sans marque, un depot est un partage pour le corpus.
+//
+// Taille : 48 Mo au plus (TAILLE_MAX). Le fichier se lit par `php://input`, que `post_max_size`
+// (8 Mo par defaut) ne coupe pas pour un corps JSON (PHP n'en ecrit qu'un avertissement au journal) ;
+// un hebergement qui le jetterait quand meme laisse un corps vide, et la route le dit. La vraie borne
+// est `memory_limit` (128 Mo par defaut) : le texte et son JSON decode tiennent ensemble en memoire,
+// ~3 fois la taille du fichier. A regler dans la configuration de PHP de l'hebergement (php.ini, ou
+// `.user.ini` du dossier publie) : `memory_limit = 256M`, et `post_max_size = 64M` pour le journal.
 //
 // **La cle ne quitte jamais le serveur** (`anthropicCle`, dans la configuration hors du dossier
 // publie), et la page ne choisit ni le prompt, ni le schema, ni le reglage : elle n'envoie que la
@@ -54,7 +65,11 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // batiment sur des photos de rue avec le prompt et le schema de l'analyse ; un usage a part pour que
 // le journal et le tableau de bord en disent le cout.
 const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5'];
+// Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
+// buildsg/analyseAdmin.mjs, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
+// immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
+// plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
+const MODELE_PAR_USAGE = ['analyse' => 'claude-sonnet-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-sonnet-5-5', 'immediat' => 'claude-sonnet-5-5', 'candidats' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
 // siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
 const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
@@ -216,7 +231,7 @@ function texteCourt($v, int $max) {
 }
 
 /** La demande de la page : identite de la parcelle et requetes. Seuls des blocs texte et image. */
-function verifierDemande($d, array $plafonds): array {
+function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE): array {
     if (!is_array($d) || array_is_list($d)) throw new Refus('Demande illisible.');
     $meta = [];
     foreach (['projet' => 128, 'idu' => 64, 'adresse' => 300, 'audit' => 64] as $cle => $max) {
@@ -226,7 +241,7 @@ function verifierDemande($d, array $plafonds): array {
     }
     $usage = $d['usage'] ?? 'analyse';
     if (!in_array($usage, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usage) ? $usage : '?') . '.');
-    $modele = $d['modele'] ?? MODELE_PAR_USAGE[$usage];
+    $modele = $d['modele'] ?? $modeles[$usage];
     if (!in_array($modele, MODELES, true)) throw new Refus('Modèle non admis : ' . (is_string($modele) ? $modele : '?') . '.');
     $rs = $d['requetes'] ?? null;
     if (!is_array($rs) || !array_is_list($rs) || count($rs) === 0) throw new Refus('Aucune requête.');
@@ -263,7 +278,7 @@ function verifierDemande($d, array $plafonds): array {
         // son prompt, son schema et son modele sont alors les siens.
         $usageR = $r['usage'] ?? $usage;
         if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
-        $modeleR = isset($d['modele']) ? $modele : MODELE_PAR_USAGE[$usageR];
+        $modeleR = isset($d['modele']) ? $modele : $modeles[$usageR];
         $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'usage' => $usageR, 'modele' => $modeleR, 'contenu' => $contenu];
     }
     return $meta + ['usage' => $usage, 'modele' => $modele, 'requetes' => $requetes];
@@ -326,11 +341,98 @@ function verifierPlafonds($d): array {
     return $d;
 }
 
+/**
+ * Le modele de chaque usage : le reglage de l'administrateur, sinon celui par defaut. Un modele
+ * regle qui n'est plus admis (un deploiement l'a retire) retombe sur le defaut, sans tomber.
+ */
+function modelesParUsage($reglage): array {
+    $choisis = is_array($reglage) && is_array($reglage['usages'] ?? null) ? $reglage['usages'] : [];
+    $m = [];
+    foreach (USAGES as $u) $m[$u] = in_array($choisis[$u] ?? null, MODELES, true) ? $choisis[$u] : MODELE_PAR_USAGE[$u];
+    return $m;
+}
+
+/** Un reglage des modeles valide : un modele admis par usage connu ; un usage absent garde son defaut. */
+function verifierModeles($d): array {
+    $msg = 'Ce n’est pas un réglage des modèles (format, un modèle admis par usage).';
+    if (!is_array($d) || ($d['format'] ?? null) !== 'plan-claude-modeles' || !is_array($d['usages'] ?? null)) throw new Refus($msg);
+    if ($d['usages'] !== [] && array_is_list($d['usages'])) throw new Refus($msg);
+    foreach ($d['usages'] as $u => $m) {
+        if (!in_array($u, USAGES, true)) throw new Refus('Usage inconnu : ' . $u . '.');
+        if (!in_array($m, MODELES, true)) throw new Refus('Modèle non admis : ' . (is_string($m) ? $m : '?') . '.');
+    }
+    return ['format' => 'plan-claude-modeles', 'usages' => $d['usages']];
+}
+
+/** Ce que `admin/claude/modeles` rend : le modele de chaque usage, les defauts, les modeles admis. */
+function vueModeles(?array $reglage): array {
+    return ['format' => 'plan-claude-modeles', 'usages' => modelesParUsage($reglage), 'defaut' => MODELE_PAR_USAGE, 'admis' => MODELES, 'regle' => $reglage !== null];
+}
+
+// --- Ce que les reponses contiennent (13.3 : comparer les modeles sur ce qu'ils trouvent) ---------
+// Le journal ne garde pas la reponse : seulement ces comptes, lus quand le serveur la relit, par la
+// forme du schema de l'usage (schema-analyse.json, schema-renfort.json ; buildsg, memes noms).
+
+const COMPTES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'];
+// Un compte ecrit par le modele est borne : un nombre aberrant ne doit pas noyer le tableau de bord.
+const COMPTE_MAX = 999;
+const BOUTS_TROUVES = ['pignon', 'croupe', 'demi-croupe', 'brisis'];
+
+/** Un entier positif ecrit par le modele (`2` ou `2.0`), sinon zero : `indetermine` ne compte pas. */
+function compte($v): int {
+    return nombre($v) && $v > 0 && floor((float)$v) == $v ? (int)min(COMPTE_MAX, $v) : 0;
+}
+function listeDe($v): array { return is_array($v) && array_is_list($v) ? $v : []; }
+function objetDe($v): array { return is_array($v) && ($v === [] || !array_is_list($v)) ? $v : []; }
+function determine($v): bool { return is_string($v) && $v !== '' && $v !== 'indetermine'; }
+
+/** Les comptes d'une sortie lue (`null` sans sortie) ; `vide` quand la reponse ne dit rien. */
+function comptesSortie($sortie, string $usage): ?array {
+    if ($sortie === null) return null;
+    // La sortie arrive en objets (elle repart telle quelle vers la page) : relue ici en tableaux.
+    $s = objetDe(json_decode((string)json_encode($sortie), true));
+    $c = array_fill_keys(COMPTES, 0);
+    if ($usage === 'renfort') {
+        foreach (listeDe($s['ouvertures'] ?? null) as $o) {
+            $decision = objetDe($o)['decision'] ?? null;
+            if ($decision === 'garder') $c['ouvertures']++;
+            if ($decision === 'retirer') $c['enTrop']++;
+        }
+        $c['manquees'] = count(listeDe($s['manquees'] ?? null));
+        $coins = objetDe($s['coins'] ?? null);
+        foreach (['hautGauche', 'hautDroit', 'basDroit', 'basGauche'] as $k) if (is_array($coins[$k] ?? null)) $c['coins']++;
+        $c['determines'] = in_array(objetDe($s['mur'] ?? null)['vu'] ?? null, ['attendu', 'autre'], true) ? 1 : 0;
+    } else {
+        foreach (listeDe($s['facades'] ?? null) as $f) {
+            $o = objetDe(objetDe($f)['ouvertures'] ?? null);
+            foreach (listeDe($o['parNiveau'] ?? null) as $n) $c['ouvertures'] += compte($n);
+            $c['manquees'] += compte($o['manquees'] ?? null);
+            $c['enTrop'] += compte($o['enTrop'] ?? null);
+        }
+        $bouts = objetDe($s['bouts'] ?? null);
+        foreach (['gauche', 'droite'] as $k) if (in_array($bouts[$k] ?? null, BOUTS_TROUVES, true)) $c['bouts']++;
+        $c['lucarnes'] = compte(objetDe($s['lucarnes'] ?? null)['nombre'] ?? null);
+        $c['elements'] = count(listeDe($s['elements'] ?? null));
+        $c['ecarts'] = count(listeDe($s['ecarts'] ?? null));
+        foreach ([['forme', 'valeur'], ['profil', 'valeur'], ['faitage', 'sens'], ['couverture', 'valeur'], ['terrasse', 'type']] as [$k, $champ]) {
+            if (determine(objetDe($s[$k] ?? null)[$champ] ?? null)) $c['determines']++;
+        }
+    }
+    foreach ($c as $k => $n) $c[$k] = min(COMPTE_MAX, $n);
+    return $c + ['vide' => array_sum($c) === 0];
+}
+
+/** Les comptes d'un resultat relu : seulement d'une reponse reussie dont la sortie s'est lue. */
+function trouvailles(array $x, string $usage): ?array {
+    return $x['statut'] === 'reussi' && $x['erreur'] === null ? comptesSortie($x['sortie'], $usage) : null;
+}
+
 // --- Le tableau de bord de la consommation (13.3, lot L16 bis ; buildsg/analyseAdmin.mjs, memes noms)
 
 // Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus).
 const MOIS_CONSULTABLES = 25;
-const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut'];
+// `idBatch` compte les batches par modele ; `trouve`, les comptes de la reponse (null sur un journal d'avant).
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'idBatch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut', 'trouve'];
 
 function jourValide($j): bool {
     if (!is_string($j) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $j, $m)) return false;
@@ -492,6 +594,9 @@ function plafonds(string $dossierClaude): array {
 }
 function plafondsJson(array $p): array { $p['organisations'] = (object)$p['organisations']; return $p; }
 
+/** Le reglage des modeles par l'administrateur, ou `null` tant qu'il n'a rien regle. */
+function reglageModeles(string $dossierClaude): ?array { return lireJson($dossierClaude . '/modeles.json'); }
+
 function fJournal(string $dossierClaude, string $t): string { return $dossierClaude . '/journal-' . substr($t, 0, 7) . '.jsonl'; }
 
 /** Une ligne par appel, ajoutee d'un seul trait et verrouillee : le journal ne se reecrit jamais. */
@@ -600,6 +705,55 @@ function verifierAudit($d): array {
     return ['idu' => $p['idu'], 'adresse' => $adresse];
 }
 
+// Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus.
+const MARQUES_AUDIT = ['corpus', 'sauvegarde'];
+
+/** La marque demandee, ou un refus ; `$defaut` : celle d'un depot qui n'en dit rien. */
+function marqueAudit(string $entete, string $defaut = 'corpus'): string {
+    if ($entete === '') return $defaut;
+    if (!in_array($entete, MARQUES_AUDIT, true)) throw new Refus('Marque de dépôt inconnue (corpus ou sauvegarde).');
+    return $entete;
+}
+
+/**
+ * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ */
+function resumeAudit(array $d): array {
+    $nb = fn($l) => is_array($l) ? count($l) : 0;
+    $photos = $nb($d['cloture']['photos'] ?? null) + $nb($d['portail']['photos'] ?? null);
+    foreach ($d['batiments'] as $b) {
+        if (!is_array($b)) continue;
+        $photos += $nb($b['photos'] ?? null);
+        foreach (is_array($b['facades'] ?? null) ? $b['facades'] : [] as $f) $photos += $nb(is_array($f) ? ($f['photos'] ?? null) : null);
+    }
+    $debut = is_string($d['debut'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T/', $d['debut']) ? substr($d['debut'], 0, 40) : null;
+    return ['photos' => $photos, 'phase' => is_string($d['finCapture'] ?? null) && $d['finCapture'] !== '' ? 'analyse' : 'capture', 'debut' => $debut];
+}
+
+/**
+ * Le corps d'un fichier d'audit, ou un refus qui dit sa cause. Un corps annonce mais vide : PHP l'a
+ * jete (`post_max_size` d'un hebergement plus strict) ; une page qui n'aurait que « JSON illisible »
+ * ne saurait quoi faire.
+ */
+function texteAudit(): string {
+    $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+    if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+    $longueur = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($texte === '' && $longueur > 0) {
+        $taille = $longueur >= 1048576 ? (int)ceil($longueur / 1048576) . ' Mo' : (int)ceil($longueur / 1024) . ' Ko';
+        erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros pour ce serveur (' . $taille . ' refusés par PHP ; post_max_size = ' . ini_get('post_max_size') . ' dans sa configuration, à porter à 64M).');
+    }
+    return $texte;
+}
+
+/** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
+function ecrireAudit(string $dossierAudits, string $id, string $texte): void {
+    if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
+    $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+}
+
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; buildsg/analyseAdmin.mjs, memes noms)
 // L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
 // ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
@@ -676,7 +830,8 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         // Une requete du renfort dans le batch de l'analyse a son usage, son modele, son prompt et son schema.
         $modeleR = (string)($req['modele'] ?? $fiche['modele']);
         $ligneTarif = tarifEnVigueur($table, $modeleR, substr($t, 0, 10));
-        $sortie[] = $x + ['passe' => $req['passe'], 'usage' => (string)($req['usage'] ?? $fiche['usage']), 'modele' => $modeleR, 'cout' => coutAppel($x['tokens'], $ligneTarif, true),
+        $usageR = (string)($req['usage'] ?? $fiche['usage']);
+        $sortie[] = $x + ['passe' => $req['passe'], 'usage' => $usageR, 'modele' => $modeleR, 'cout' => coutAppel($x['tokens'], $ligneTarif, true), 'trouve' => trouvailles($x, $usageR),
                           'tarif' => $ligneTarif['depuis'] ?? null, 'images' => $req['images'], 'facades' => (int)($req['facades'] ?? 0),
                           'prompt' => (int)($req['prompt'] ?? $fiche['promptVersion']), 'schema' => (int)($req['schema'] ?? $fiche['schemaVersion'])];
     }
@@ -690,13 +845,13 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
                          'adresse' => $fiche['adresse'], 'audit' => $fiche['audit'], 'usage' => $x['usage'], 'modele' => $x['modele'],
                          'batch' => true, 'idBatch' => $fiche['id'], 'requete' => $x['id'], 'passe' => $x['passe'], 'tokens' => $x['tokens'],
                          'images' => $x['images'], 'facades' => $x['facades'], 'cout' => $x['cout'], 'tarif' => $x['tarif'], 'statut' => $x['statut'],
-                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema']];
+                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']];
         }
         journaliser($dossierClaude, $lignes);
         ecrireFiche($dossierBatches, ['journalise' => true, 'etat' => 'ended', 'finLe' => $fiche['finLe'] ?? null] + $actuelle);
     }
     if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
-    foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema']); }
+    foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema'], $x['trouve']); }
     unset($x);
     return ['sortie' => $sortie];
 }
@@ -804,7 +959,7 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
         [$pR, $sR] = $prompts[$r['usage']];
         $journal[] = ['t' => $t] + $identite + ['usage' => $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
-            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version']];
+            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage'])];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
                         'passe' => $r['passe'], 'usage' => $r['usage'], 'cout' => $cout];
     }
@@ -855,20 +1010,17 @@ try {
             }
             if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
             $organisation = acteur($sessionAdmin, jetonPorteur(), $plateformeUrl)['organisation'];
-            $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
-            if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+            $texte = texteAudit();
             $d = json_decode($texte, true);
             if ($d === null) throw new Refus('JSON illisible.');
             $parcelle = verifierAudit($d);
-            if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
+            $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''));
             $t = maintenant();
             $id = gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4));
             $retrait = bin2hex(random_bytes(24));
-            // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
-            $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
-            if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+            ecrireAudit($dossierAudits, $id, $texte);
             ecrireJson(fFicheAudit($dossierAudits, $id), ['id' => $id, 'recuLe' => $t, 'organisation' => $organisation] + $parcelle
-                + ['taille' => strlen($texte), 'retrait' => hash('sha256', $retrait)]);
+                + ['taille' => strlen($texte), 'marque' => $marque] + resumeAudit($d) + ['retrait' => hash('sha256', $retrait)]);
             repondre(201, ['id' => $id, 'retrait' => $retrait]);
         }
         if (!preg_match(ID_AUDIT, $id)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
@@ -881,10 +1033,25 @@ try {
             if ($methode !== 'HEAD') readfile(fAudit($dossierAudits, $id));
             exit;
         }
-        if ($methode !== 'DELETE') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-        // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+        if ($methode !== 'DELETE' && $methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne remplace ni ne retire un audit.
         $secret = (string)($_SERVER['HTTP_X_PLAN_RETRAIT'] ?? '');
-        if (!$sessionAdmin && !($secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret)))) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+        $proprietaire = $secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret));
+        if ($methode === 'PUT') {
+            // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
+            // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+            acteur($sessionAdmin, jetonPorteur(), $plateformeUrl);
+            if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+            $texte = texteAudit();
+            $d = json_decode($texte, true);
+            if ($d === null) throw new Refus('JSON illisible.');
+            $parcelle = verifierAudit($d);
+            $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''), (string)($fiche['marque'] ?? 'corpus'));
+            ecrireAudit($dossierAudits, $id, $texte);
+            ecrireJson(fFicheAudit($dossierAudits, $id), array_merge($fiche, ['recuLe' => maintenant()], $parcelle, ['taille' => strlen($texte), 'marque' => $marque], resumeAudit($d)));
+            repondre(200, ['id' => $id, 'remplace' => true]);
+        }
+        if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
         @unlink(fAudit($dossierAudits, $id));
         @unlink(fFicheAudit($dossierAudits, $id));
         @unlink(fFicheAudit($dossierAudits, $id) . '.bak');
@@ -905,7 +1072,7 @@ try {
         } catch (Throwable $e) {
             $renfort = null;
         }
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
                        'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]);
     }
 
@@ -955,11 +1122,23 @@ try {
         repondre(200, $d);
     }
 
+    // Le modele de chaque usage (13.2), a l'administrateur seul. Il vaut pour les envois suivants : un
+    // batch deja cree garde le sien, ecrit dans sa fiche.
+    if ($chemin === 'modeles') {
+        $reserveAdmin();
+        if ($lecture) repondre(200, vueModeles(reglageModeles($dossierClaude)));
+        if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $d = verifierModeles(lireCorps(64 * 1024));
+        // `usages` reste un objet en JSON, meme vide.
+        ecrireJson($dossierClaude . '/modeles.json', ['format' => $d['format'], 'usages' => (object)$d['usages']]);
+        repondre(200, vueModeles(reglageModeles($dossierClaude)));
+    }
+
     if ($chemin === 'batches') {
         if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
-        $demande = verifierDemande(lireCorps(TAILLE_MAX), $p);
+        $demande = verifierDemande(lireCorps(TAILLE_MAX), $p, modelesParUsage(reglageModeles($dossierClaude)));
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
@@ -1017,7 +1196,7 @@ try {
         $p = plafonds($dossierClaude);
         $d = lireCorps(TAILLE_MAX);
         if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
-        $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p);
+        $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
         repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p));
     }
 

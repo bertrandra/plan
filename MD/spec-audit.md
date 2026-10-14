@@ -491,6 +491,21 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     environ 60 000 tokens d'entrée par passe, soit environ 0,003 $ ; la sortie, environ 0,001 $ ;
   - avec trois passes, **de l'ordre de 1 à 2 centimes par parcelle** ;
   - quelques dizaines de centimes si une partie passe à l'escalade.
+  - **Depuis le 14 octobre 2026, le modèle plus fin (Sonnet) est celui de l'analyse par défaut** (voir
+    ci-dessous) : ses prix sont vingt fois ceux du modèle rapide, soit **de l'ordre de 20 à 40 centimes
+    par parcelle**. Les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête
+    (0,005 $) datent du modèle rapide : l'administrateur les relève dans « Réglages ».
+- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026* : sur les photos d'un vrai
+  audit, le modèle rapide ne trouvait rien) est un réglage du serveur, choisi par l'administrateur dans
+  le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
+  (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
+  modèles que le serveur admet (`MODELES` de `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`) et
+  refuse les autres. Par défaut : le modèle plus fin pour l'analyse des audits, le renfort des façades
+  et l'aide immédiate ; l'escalade reste au plus fin des modèles admis ; les cas candidats
+  (`spec-regles-toits.md`), nombreux et revus par une personne, au modèle rapide. Un modèle réglé que
+  le serveur n'admet plus retombe sur le défaut. Une demande qui nomme son modèle le garde, comme
+  avant. Le réglage vaut pour les envois suivants : un batch déjà créé garde le modèle écrit dans sa
+  fiche.
 - **Où** : le serveur de la plateforme envoie le batch ; la clé d'API ne quitte jamais le serveur. Les
   photos partent avec l'accord de l'utilisateur, donné au lancement de l'analyse (question 12). Elles
   ne servent qu'à cette analyse : le partage pour le corpus est un autre accord (§15).
@@ -542,6 +557,7 @@ dossier de données de l'admin, hors du dossier publié. Rien de cela ne va sur 
 | `claude/journal-AAAA-MM.jsonl` | une ligne par appel à l'API (tableau ci-dessous) | `analyse.php`, à chaque appel |
 | `claude/tarifs.json` | la table des tarifs datée | l'administrateur, depuis l'écran ; une première version est livrée avec Plan |
 | `claude/plafonds.json` | les plafonds par organisation, par jour et par mois | l'administrateur, depuis l'écran |
+| `claude/modeles.json` | le modèle de chaque usage (§13.2) ; absent, les défauts du serveur | l'administrateur, depuis l'écran |
 
 Écriture atomique et version précédente gardée en `.bak`, comme les autres fichiers de l'admin.
 
@@ -559,11 +575,13 @@ du champ `usage` que l'API renvoie, jamais d'une estimation.
 | `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
 | `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, Sonnet 5.5 en escalade…) |
 | `batch` | vrai si l'appel est passé par l'API Batch |
+| `idBatch` | l'identifiant du batch (hors batch : vide) ; la vue « Par modèle » compte les batches |
 | `passe` | 1, 2 ou 3 (le vote) |
 | `tokens` | entrée, écriture du cache, lecture du cache, sortie, tels que renvoyés par l'API |
 | `images` | nombre d'images envoyées |
 | `cout` | le coût en dollars, calculé avec la **table des tarifs** en vigueur à cette date |
 | `statut` | réussi, échoué, expiré, refusé par le plafond |
+| `trouve` | ce que la réponse contient, en **comptes** lus par le serveur quand il la relit (depuis le 14 octobre 2026 ; vide sur une ligne d'avant, ou sans réponse lisible) : ouvertures (comptées niveau par niveau par l'analyse, gardées par le renfort), manquées signalées, en trop (ou retirées par le renfort), pignons et croupes, lucarnes, éléments de toit, écarts au modèle, coins situés (renfort), attributs tranchés, et `vide` quand la réponse ne dit rien |
 
 **La table des tarifs** (`claude/tarifs.json`) est datée. Chaque modèle y a ses
 prix par million de tokens (entrée, sortie, écriture et lecture du cache), avec la remise Batch. Un
@@ -572,15 +590,21 @@ d'hier. Les prix sont vérifiés sur la page officielle d'Anthropic à chaque mo
 vérification est notée.
 
 **L'écran** : **Admin › Consommation Claude** (`?admin&ecran=consommation`), administrateur seulement,
-lu par `GET admin/consommation` (session admin, filtres en paramètres). Il règle aussi les tarifs et
-les plafonds (`GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
-`X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`).
+lu par `GET admin/consommation` (session admin, filtres en paramètres). Son onglet « Réglages » règle
+le modèle de chaque usage, les tarifs et les plafonds (`GET|PUT admin/claude/modeles`,
+`GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
+`X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`). Le modèle de chaque
+usage (« Analyse des audits », « Renfort des façades », « Aide immédiate », « Escalade », « Cas
+candidats ») se choisit dans une liste déroulante : les modèles admis par le serveur, leur nom et leur
+prix d'entrée et de sortie au million de tokens en vigueur ; « Enregistrer les modèles » rappelle que
+les analyses déjà lancées gardent le leur.
 
 | Vue | Ce qu'elle montre |
 |---|---|
 | **Dans le temps** | tokens et coût par jour, semaine ou mois, en aires empilées **par modèle** ; bascule tokens ou dollars |
 | **Par parcelle** | une ligne par parcelle : adresse, IDU, nombre d'audits, tokens par modèle, part du cache, coût total, coût par façade, date du dernier audit ; tri sur chaque colonne |
 | **Par usage** | répartition entre analyse, escalade, renfort et immédiat, et part du Batch |
+| **Par modèle** | les modèles comparés sur la période et les filtres : la part des **réponses vides** (en barres), requêtes, batchs, appels immédiats, images, tokens, coût, coût par façade examinée, échecs, puis ce que les réponses contiennent (champ `trouve`), en total ou par réponse lue ; les réponses sans comptes (journal d'avant) sont dites et laissées hors du calcul |
 | **Par organisation** | coût du mois, plafond, part consommée |
 | **Chiffres clés** | coût moyen par parcelle comparé à l'estimation (1 à 2 centimes, §13.2), part de l'escalade, part des tokens lus en cache, coût par proposition validée |
 
@@ -721,8 +745,69 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
   de retrait, gardé avec la capture sur l'appareil ; le serveur n'en garde que l'empreinte. Chaque
   validation renvoie le fichier et retire le précédent. La liste et la lecture sont à
   l'administrateur seul.
-- Restent : l'écran de l'admin qui liste les audits reçus et les verse au corpus (§21), et les
-  corrections faites dans l'éditeur du relevé, qui attendent son ouverture depuis la ligne d'une façade.
+
+**Sauvegarde pendant la capture, et catalogue de l'administrateur** (demande de l'administrateur du
+14 octobre : « il faut pouvoir pousser un audit parcelle pour le rejouer ; si problème, on perd
+tout ») :
+- Le brouillon de l'appareil se perd avec le téléphone ou le navigateur. Quand quelqu'un peut envoyer
+  (même condition que le corpus : session admin ou jeton de la plateforme), le fichier de l'audit
+  part aussi au serveur de Plan **pendant la capture** (`app/audit/parcelle/sauvegarde.ts`) :
+  cinq secondes après la dernière photo rangée ou retirée (une rafale fait un envoi ; une note tapée
+  n'en fait aucun), à « Lancer l'analyse », et à la demande par la commande « Envoyer l'audit au
+  serveur » (`audit.envoyerParcelle`), sous la liste de contrôle, qui dit l'état : « Envoyé à 17:42 »,
+  « En attente de réseau, nouvel essai à 17:45 », l'erreur du serveur en clair, ou la taille.
+- **Le même dépôt est remplacé à chaque envoi** : `PUT admin/audits/<id>`, par le secret de retrait
+  gardé avec la capture (`CaptureParcelle.sauvegarde`, sur l'appareil seulement, comme celui du
+  corpus) ou par la session admin ; un dépôt retiré entre-temps est refait par un `POST`. La grille
+  LiDAR d'un bâtiment n'est relue qu'une fois par session (contour inchangé).
+- **Hors ligne**, l'envoi réessaie à 15 s, 30 s, 1 min, 2 min puis toutes les 5 min, et dès que le
+  navigateur retrouve le réseau ; un serveur indisponible (5xx, 408, 429) de même ; un refus (401,
+  403, 400) se dit sans insister. La capture n'attend jamais.
+- **Taille** : huit photos de 1 280 px (300 Ko au plus chacune, ~400 Ko en base64) par façade, soit
+  ~3,2 Mo la façade au plus ; dix façades pleines font ~32 Mo, sous les **48 Mo** que les deux
+  serveurs acceptent (`TAILLE_MAX`). Au-delà, rien ne part et la ligne le dit (« L'audit pèse 52 Mo :
+  le serveur de Plan en accepte 48 Mo au plus. Retirez quelques photos… »). Sur l'hébergement PHP,
+  `post_max_size` (8 Mo par défaut) ne coupe pas un corps JSON lu par `php://input` (vérifié en
+  PHP 8.3 : un audit de 4 Ko passe un plafond de 2 Ko ; PHP n'en écrit qu'un avertissement au
+  journal) ; une configuration qui le jetterait quand même laisse un corps vide, et `analyse.php`
+  répond alors 413 « … post_max_size = 8M dans sa configuration, à porter à 64M », montré tel quel.
+  La vraie borne est **`memory_limit`** (128 Mo par défaut) : le texte et son JSON décodé tiennent
+  ensemble en mémoire, environ trois fois la taille du fichier. À régler sur l'hébergement :
+  `memory_limit = 256M`, et `post_max_size = 64M` pour ne pas remplir le journal d'avertissements.
+- **Sauvegarde ou corpus** : le dépôt porte sa marque, en-tête `X-Plan-Depot: sauvegarde` ;
+  sans en-tête (les pages d'avant), c'est un partage `corpus`. Le fichier lui-même ne change pas : la
+  marque dit pourquoi il a été déposé, pas ce qu'il contient, et un fichier se rejoue à l'octet près
+  quelle que soit sa marque. La fiche du serveur la garde, avec les photos, la phase (`capture` tant
+  que `finCapture` est vide) et le début de la visite. Le partage D7 reste ce qu'il était, cochable
+  et retirable, un dépôt à part après « Valider » ; l'écran Conformité ignore les sauvegardes (une
+  capture inachevée n'a rien validé, et un audit partagé ensuite compterait deux fois).
+- **L'accord** (§16, « pas d'envoi de photos sans votre accord ») : l'envoi automatique est celui de
+  l'administrateur, ou d'un utilisateur qui laisse cochée la case du partage (cochée par défaut :
+  c'est l'accord d'envoyer le fichier, photos comprises, au serveur de Plan). Décocher la case retire
+  aussi la sauvegarde d'un utilisateur ; ensuite rien ne part sans le bouton. L'administrateur garde
+  toujours la sienne, et sa case le dit (« La sauvegarde de l'audit reste sur le serveur de Plan »).
+- **Admin › « Audits de parcelle »** (`admin.auditsParcelle`, menu Admin à côté de « Conformité »,
+  admin des démos seulement) : un parcours de Z8 (`zones/parcours/AuditsParcelle.tsx`), et non un écran
+  plein page comme la Conformité, parce qu'il rouvre un audit dans le projet ouvert dessous. Une carte
+  par audit reçu, du plus récent au plus ancien : date de réception, sauvegarde ou partage, capture en
+  cours ou terminée, parcelle (IDU), adresse, photos, taille, organisation. Pour chacun :
+  - « Ouvrir dans ce projet », si le projet est sur la même parcelle (sinon grisé, avec la raison
+    écrite sous les boutons) : le fichier est lu sur le serveur et repris par le chemin de l'import,
+    question de remplacement comprise, **à la phase où il en était** — sur la liste de contrôle
+    quand la capture n'était pas finie (`captureDuFichier` lit `finCapture`), sur les propositions
+    sinon. Une sauvegarde rouverte reste la même : les envois suivants de l'administrateur la
+    remplacent (par sa session), au lieu d'en créer une autre ;
+  - « Télécharger » le fichier tel qu'il est arrivé (`audit-parcelle-<jour>-<idu>.json`) ;
+  - « Retirer », confirmé sur la carte même (« Retirer définitivement » ou « Garder ») : une question
+    de Z8 s'ouvrirait sous le parcours.
+- Contrat (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, scénario commun
+  `tests/fixtures/deploy/scenarioAudits.ts`) : `PUT admin/audits/<id>` (secret ou admin, et comme le
+  dépôt une session ou un jeton ; identifiant, secret et organisation du premier envoi gardés ;
+  404 s'il n'existe plus), `X-Plan-Depot` (`corpus` ou `sauvegarde`, sinon 400), fiche augmentée de
+  `marque`, `photos`, `phase`, `debut` ; 413 qui dit `post_max_size` quand PHP a jeté le corps. Client : `io/auditsServeur.ts` (`envoyer`, `remplacer`,
+  `retirer`, `lister`, `lire`). Fumée : point 85.
+- Restent : verser les audits reçus au corpus du dépôt (§21), et les corrections faites dans l'éditeur
+  du relevé, qui attendent son ouverture depuis la ligne d'une façade.
 
 ## 16. Ce que l'audit de parcelle ne fait pas
 

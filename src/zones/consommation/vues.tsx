@@ -4,8 +4,8 @@
 
 import { useState } from 'react';
 import {
-  ESTIMATION_PAR_PARCELLE, NOMS_USAGES, nomModele, trier, valeurA,
-  type ChiffresCles, type LigneOrganisation, type LigneParcelle, type LigneUsage, type Mesure, type Pas, type SerieTemps
+  CLES_TROUVAILLES, ESTIMATION_PAR_PARCELLE, NOMS_TROUVAILLES, NOMS_USAGES, nomModele, trier, valeurA,
+  type ChiffresCles, type LigneModele, type LigneOrganisation, type LigneParcelle, type LigneUsage, type Mesure, type Pas, type SerieTemps
 } from '../../model/consommation.js';
 import { AiresEmpilees, Barres, Jauge } from './graphiques.js';
 import * as fmt from './format.js';
@@ -93,6 +93,68 @@ export function VueUsages({ usages }: { usages: LigneUsage[] }) {
   );
 }
 
+export type MesureTrouve = 'total' | 'moyenne';
+
+/**
+ * Les modeles compares sur la periode et les filtres : ce qu'ils coutent, puis ce que leurs reponses
+ * contiennent. La part des reponses vides d'abord : c'est elle qui a fait changer le modele par
+ * defaut. Les comptes se lisent en total ou par reponse lue (un modele peu employe n'a pas de
+ * petits totaux parce qu'il trouve moins).
+ */
+export function VueModeles({ modeles, mesure, choisirMesure }: { modeles: LigneModele[]; mesure: MesureTrouve; choisirMesure: (m: MesureTrouve) => void }) {
+  if (!modeles.length) return <p className="consVide">Aucun appel sur cette période et ces filtres.</p>;
+  const lus = modeles.filter((m) => m.partVide !== null);
+  const sansComptes = modeles.reduce((n, m) => n + m.sansComptes, 0);
+  const compte = (m: LigneModele, n: number) => (mesure === 'total' ? fmt.tokens(n) : m.lues ? fmt.decimal(n / m.lues) : '—');
+  return (
+    <>
+      <h2 className="palSectionTitre">Réponses vides</h2>
+      {lus.length
+        ? <Barres libelle="Part des réponses vides par modèle" lignes={lus.map((m) => ({ nom: nomModele(m.modele).replace(/^Claude /, ''), valeur: m.partVide ?? 0, texte: fmt.part(m.partVide ?? 0) + ' · ' + m.vides + ' sur ' + m.lues }))} />
+        : <p className="hint">Aucune réponse comptée sur cette période : les comptes sont tenus depuis la version qui les a ajoutés au journal.</p>}
+
+      <h2 className="palSectionTitre">Volume et coût</h2>
+      <div className="consTableau">
+        <table className="attrTable consTable">
+          <thead><tr><th scope="col">Modèle</th><th scope="col" className="num">Requêtes</th><th scope="col" className="num">Batchs</th><th scope="col" className="num">Immédiats</th><th scope="col" className="num">Images</th><th scope="col" className="num">Tokens</th><th scope="col" className="num">Coût</th><th scope="col" className="num">Façades</th><th scope="col" className="num">Coût par façade</th><th scope="col" className="num">Échecs</th></tr></thead>
+          <tbody>
+            {modeles.map((m) => (
+              <tr key={m.modele}>
+                <td>{nomModele(m.modele)}</td><td className="num">{fmt.tokens(m.requetes)}</td><td className="num">{fmt.tokens(m.batchs)}</td><td className="num">{fmt.tokens(m.immediats)}</td>
+                <td className="num">{fmt.tokens(m.images)}</td><td className="num">{fmt.tokens(m.tokens)}</td><td className="num">{fmt.dollars(m.cout)}</td>
+                <td className="num">{fmt.tokens(m.facades)}</td><td className="num">{m.coutParFacade === null ? '—' : fmt.dollars(m.coutParFacade)}</td><td className="num">{fmt.tokens(m.echecs)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="palSectionTitre">Ce que les réponses contiennent</h2>
+      <div className="consCommandes">
+        <Segmente libelle="Comptes" choix={[['total', 'Total'], ['moyenne', 'Par réponse lue']]} valeur={mesure} choisir={choisirMesure} />
+      </div>
+      <div className="consTableau">
+        <table className="attrTable consTable">
+          <thead><tr><th scope="col">Modèle</th><th scope="col" className="num">Réponses lues</th><th scope="col" className="num">Vides</th>{CLES_TROUVAILLES.map((k) => <th key={k} scope="col" className="num">{NOMS_TROUVAILLES[k]}</th>)}</tr></thead>
+          <tbody>
+            {modeles.map((m) => (
+              <tr key={m.modele}>
+                <td>{nomModele(m.modele)}</td><td className="num">{fmt.tokens(m.lues)}</td><td className="num">{m.partVide === null ? '—' : fmt.part(m.partVide)}</td>
+                {CLES_TROUVAILLES.map((k) => <td key={k} className="num">{compte(m, m.trouve[k])}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="hint">
+        Une réponse est vide quand tout y est indéterminé ou absent. Les ouvertures sont celles que l’analyse compte niveau par niveau, ou que le
+        renfort garde ; « En trop », celles qu’elle juge fausses ou que le renfort retire. Les façades sont comptées sur la première passe de chaque requête.
+        {sansComptes > 0 && ' ' + sansComptes + ' réponse' + (sansComptes > 1 ? 's' : '') + ' sans comptes (journal antérieur, ou sortie coupée ou illisible) ne ' + (sansComptes > 1 ? 'sont' : 'est') + ' pas comptée' + (sansComptes > 1 ? 's' : '') + '.'}
+      </p>
+    </>
+  );
+}
+
 export function VueOrganisations({ organisations }: { organisations: LigneOrganisation[] }) {
   const jauge = (depense: number, plafond: number, p: number) => fmt.dollars(depense) + ' sur ' + fmt.dollars(plafond) + ' (' + fmt.part(p) + ')';
   return (
@@ -110,7 +172,7 @@ export function VueOrganisations({ organisations }: { organisations: LigneOrgani
           ))}
         </tbody>
       </table>
-      <p className="hint">« Aujourd’hui » et « Ce mois » suivent les plafonds, quelle que soit la période choisie ; les plafonds se règlent dans l’onglet « Tarifs et plafonds ».</p>
+      <p className="hint">« Aujourd’hui » et « Ce mois » suivent les plafonds, quelle que soit la période choisie ; les plafonds se règlent dans l’onglet « Réglages ».</p>
     </div>
   );
 }

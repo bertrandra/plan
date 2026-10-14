@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { PLAFONDS_DEFAUT, choixConsommation, etatOrganisations, filtrerConsommation, type Plafonds } from '../../../buildsg/analyseAdmin.mjs';
-import { CLE, COUT_P1, COUT_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, COUT_P1_FIN, COUT_P2, COUT_P2_FIN, TROUVE_DEFAUT, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // analyse.php, l'analyse par Claude sans Node (deploy/analyse.php), contre une API Message Batches
@@ -140,7 +140,8 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(cree.status).toBe(201);
     expect((await cree.json()).batch).toMatchObject({ id: 'msgbatch_1', etat: 'in_progress' });
     const params = faux.batches[0]!.corps.requests[0]!.params;
-    expect(params).toMatchObject({ model: 'claude-haiku-5-5', output_config: { effort: 'low', format: { type: 'json_schema' } } });
+    // L'analyse part par defaut au modele plus fin : le modele rapide ne trouvait rien sur les photos.
+    expect(params).toMatchObject({ model: 'claude-sonnet-5-5', output_config: { effort: 'low', format: { type: 'json_schema' } } });
     expect((params.system as { text: string; cache_control: unknown }[])[0]).toMatchObject({ cache_control: { type: 'ephemeral' } });
     // Le schema repart tel quel, objets vides compris.
     const schema = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-analyse.json'), 'utf8')).schema;
@@ -151,16 +152,18 @@ describe.skipIf(!php)('analyse.php', () => {
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     const p1 = lu.resultats.find((r: { id: string }) => r.id === 'p1');
-    expect(p1).toMatchObject({ statut: 'reussi', passe: 1, cout: COUT_P1, sortie: { forme: { indices: [], valeur: 'deux-pans' } } });
-    expect(lu.resultats.find((r: { id: string }) => r.id === 'p2').cout).toBe(COUT_P2);
+    expect(p1).toMatchObject({ statut: 'reussi', passe: 1, cout: COUT_P1_FIN, sortie: { forme: { indices: [], valeur: 'deux-pans' } } });
+    expect(lu.resultats.find((r: { id: string }) => r.id === 'p2').cout).toBe(COUT_P2_FIN);
 
     const lignes = journal();
     expect(lignes).toHaveLength(2);
     expect(lignes.find((l) => l.requete === 'p2')).toMatchObject({
       organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
-      usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, facades: 2, cout: COUT_P2,
-      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 1, schema: 1
+      usage: 'analyse', modele: 'claude-sonnet-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, facades: 2, cout: COUT_P2_FIN,
+      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 1, schema: 1, trouve: TROUVE_DEFAUT
     });
+    // La page ne recoit pas les comptes : ils ne servent qu'au tableau de bord.
+    expect(p1).not.toHaveProperty('trouve');
     expect((await navigateur('admin/claude/batches/msgbatch_1/resultats')).status).toBe(200);
     expect(journal()).toHaveLength(2);
     expect((await navigateur('admin/claude/batches/msgbatch_9')).status).toBe(404);
@@ -169,6 +172,8 @@ describe.skipIf(!php)('analyse.php', () => {
   it('refuse au plafond en comptant les batches ouverts, et le journalise', async () => {
     await connecterAdmin(navigateur, 'secret-admin');
     const plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.01, mois: 1 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.004 };
+    // Les montants de ce scenario sont ceux du modele rapide : il est regle pour l'analyse.
+    expect((await ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: 'claude-haiku-5-5' } })).status).toBe(200);
     const pose = await ecrire('admin/claude/plafonds', 'PUT', plafonds);
     expect(pose.status).toBe(200);
     expect(await (await navigateur('admin/claude/plafonds')).json()).toEqual(plafonds);

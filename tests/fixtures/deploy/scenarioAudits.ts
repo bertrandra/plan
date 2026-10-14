@@ -48,11 +48,35 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   expect((await n.navigateur('admin/audits/' + id)).status).toBe(401);
 
   // Retirer : le secret, et rien d'autre ; un audit retire n'existe plus.
-  const retirer = (secret: string) => n.navigateur('admin/audits/' + id, { method: 'DELETE', headers: { 'X-Plan-Admin': '1', 'X-Plan-Retrait': secret } });
+  const retirer = (secret: string, i = id) => n.navigateur('admin/audits/' + i, { method: 'DELETE', headers: { 'X-Plan-Admin': '1', 'X-Plan-Retrait': secret } });
   expect((await retirer('0'.repeat(48))).status).toBe(403);
   expect((await retirer(retrait)).status).toBe(200);
   expect(fs.existsSync(path.join(n.dossier, 'audits', id + '.json'))).toBe(false);
   expect((await retirer(retrait)).status).toBe(404);
+
+  // La sauvegarde de la capture (15) : marquee a l'envoi, puis remplacee sous le meme identifiant par
+  // son secret ; la fiche dit ses photos et sa phase, pour le catalogue de l'administrateur.
+  const ficheDe = (i: string) => JSON.parse(fs.readFileSync(path.join(n.dossier, 'audits', i + '.fiche.json'), 'utf8')) as Record<string, unknown>;
+  const enCapture = { ...(fichierAudit() as Record<string, unknown>), finCapture: null, cloture: { photos: [{ type: 'image/jpeg', base64: 'AAAA' }] } };
+  const jeton = { ...ECRITURE, Authorization: 'Bearer ' + JETON };
+  expect((await poster({ ...jeton, 'X-Plan-Depot': 'brouillon' })).status).toBe(400);
+  const s = await poster({ ...jeton, 'X-Plan-Depot': 'sauvegarde' }, JSON.stringify(enCapture));
+  expect(s.status).toBe(201);
+  const sauve = await s.json() as { id: string; retrait: string };
+  expect(ficheDe(sauve.id)).toMatchObject({ id: sauve.id, organisation: ORGANISATION, idu: '78650000AE0101', marque: 'sauvegarde', photos: 1, phase: 'capture', debut: '2026-10-13T08:00:00.000Z' });
+  const fini = JSON.stringify({ ...enCapture, finCapture: '2026-10-13T08:30:00.000Z', cloture: { photos: [{ type: 'image/jpeg', base64: 'AAAA' }, { type: 'image/jpeg', base64: 'BBBB' }] } });
+  const remplacer = (i: string, entetes: Record<string, string>, corps = fini) => n.navigateur('admin/audits/' + i, { method: 'PUT', headers: entetes, body: corps });
+  expect((await remplacer(sauve.id, { ...jeton, 'X-Plan-Retrait': '0'.repeat(48) })).status).toBe(403);
+  expect((await remplacer(sauve.id, { ...ECRITURE, 'X-Plan-Retrait': sauve.retrait })).status).toBe(401);
+  expect((await remplacer('20990101-000000-00000000', { ...jeton, 'X-Plan-Retrait': sauve.retrait })).status).toBe(404);
+  const r2 = await remplacer(sauve.id, { ...jeton, 'X-Plan-Retrait': sauve.retrait });
+  expect(r2.status).toBe(200);
+  expect(await r2.json()).toEqual({ id: sauve.id, remplace: true });
+  expect(fs.readFileSync(path.join(n.dossier, 'audits', sauve.id + '.json'), 'utf8')).toBe(fini);
+  expect(ficheDe(sauve.id)).toMatchObject({ id: sauve.id, organisation: ORGANISATION, marque: 'sauvegarde', photos: 2, phase: 'analyse', taille: Buffer.byteLength(fini) });
+  expect(JSON.stringify(ficheDe(sauve.id))).not.toContain(sauve.retrait);
+  // Le meme secret retire toujours le depot remplace.
+  expect((await retirer(sauve.retrait, sauve.id)).status).toBe(200);
 
   // L'administrateur : il depose sans jeton, liste, lit et retire sans secret.
   await n.connecter();
@@ -60,9 +84,14 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   expect(a.status).toBe(201);
   const { id: idAdmin } = await a.json() as { id: string };
   const liste = await (await n.navigateur('admin/audits')).json() as { audits: Record<string, unknown>[] };
-  expect(liste.audits).toEqual([expect.objectContaining({ id: idAdmin, organisation: 'admin', idu: '78650000AE0101' })]);
+  // Sans marque, un depot est un partage pour le corpus (les pages d'avant la sauvegarde).
+  expect(liste.audits).toEqual([expect.objectContaining({ id: idAdmin, organisation: 'admin', idu: '78650000AE0101', marque: 'corpus', photos: 0, phase: 'capture' })]);
   expect(liste.audits[0]).not.toHaveProperty('retrait');
   expect(await (await n.navigateur('admin/audits/' + idAdmin)).text()).toBe(texte);
+  // L'administrateur remplace sans secret (un audit rouvert depuis son catalogue) ; la marque reste.
+  expect((await remplacer(idAdmin, ECRITURE)).status).toBe(200);
+  expect(await (await n.navigateur('admin/audits/' + idAdmin)).text()).toBe(fini);
+  expect(((await (await n.navigateur('admin/audits')).json()) as { audits: Record<string, unknown>[] }).audits[0]).toMatchObject({ id: idAdmin, marque: 'corpus', photos: 2, phase: 'analyse' });
   expect((await n.navigateur('admin/audits/' + idAdmin, { method: 'DELETE', headers: { 'X-Plan-Admin': '1' } })).status).toBe(200);
   expect((await (await n.navigateur('admin/audits')).json() as { audits: unknown[] }).audits).toEqual([]);
 }

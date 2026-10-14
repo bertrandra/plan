@@ -1485,6 +1485,24 @@
   html:not([data-classe="large"]) .ligneProposition{ min-height:44px; }
   html:not([data-classe="large"]) .ligneProposition input[type="checkbox"]{ width:20px; height:20px; margin-top:2px; }
   html:not([data-classe="large"]) .avantApresAudit button{ min-height:44px; }
+  /* La sauvegarde sur le serveur (§15), sous la liste de controle : le bouton, et ce qui est parti.
+     Une erreur se dit en mots, la bordure d'alerte ne fait que l'accompagner. */
+  .sauvegardeAudit{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin-top:10px; padding-top:8px; border-top:1px solid var(--rule); }
+  .sauvegardeAudit .noteSauvegarde{ flex:1 1 220px; margin:0; font-size:0.72rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .sauvegardeAudit .noteSauvegarde.alerte{ color:var(--danger); }
+  .sauvegardeAudit.etat-erreur, .sauvegardeAudit.etat-tropGros{ border-top-color:var(--alerte); }
+  /* Admin › Audits de parcelle : une carte par audit recu, ses actions en dessous. */
+  .dialogueAuditsParcelle{ width:min(680px,96vw); }
+  .listeAuditsRecus{ list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .carteAuditRecu{ padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .carteAuditRecu.occupe{ opacity:.75; }
+  .enteteAuditRecu{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+  .dateAuditRecu{ font-family:var(--serif); font-size:0.9rem; font-variant-numeric:tabular-nums; }
+  .parcelleAuditRecu{ margin-top:2px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
+  .actionsAuditRecu{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .raisonAuditRecu{ margin:4px 0 0; font-size:0.72rem; color:var(--ink-soft); }
+  .confirmationAuditRecu{ margin-top:6px; padding-top:6px; border-top:1px solid var(--hairline); }
+  html:not([data-classe="large"]) .actionsAuditRecu button, html:not([data-classe="large"]) .sauvegardeAudit button{ min-height:44px; }
   /* Au doigt, la raison d'un refus s'ecrit sous l'entree du menu (l'infobulle n'existe pas). */
   details.menu li.refusMenu{ padding:0 12px 6px 30px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); line-height:1.35; }
   html:not([data-classe="large"]) .enteteLigneAudit button, html:not([data-classe="large"]) .auditPrise button,

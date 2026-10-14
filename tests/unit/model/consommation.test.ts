@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   alertes, bornesPeriode, chiffresCles, cleDePas, couleurSerie, intervalles, lireReponseConsommation, nomModele, ordonnerSeries,
-  parOrganisation, parParcelle, parUsage, pasParDefaut, serieDuModele, serieTemps, totalTokens, trier, valeurA,
-  type EtatOrganisation, type LigneConsommation
+  parModele, parOrganisation, parParcelle, parUsage, pasParDefaut, serieDuModele, serieTemps, totalTokens, trier, valeurA,
+  type EtatOrganisation, type LigneConsommation, type Trouvailles
 } from '../../../src/model/consommation.js';
 
 // Le tableau de bord de la consommation de Claude (MD/spec-audit.md 13.3) : l'agregation des lignes
@@ -14,9 +14,9 @@ const SONNET = 'claude-sonnet-5-5';
 function ligne(t: string, plus: Partial<LigneConsommation> = {}): LigneConsommation {
   return {
     t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
-    usage: 'analyse', modele: HAIKU, batch: true, passe: 1,
+    usage: 'analyse', modele: HAIKU, batch: true, idBatch: 'msgbatch_1', passe: 1,
     tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1000 },
-    images: 1, facades: 2, cout: 0.001, statut: 'reussi', ...plus
+    images: 1, facades: 2, cout: 0.001, statut: 'reussi', trouve: null, ...plus
   };
 }
 
@@ -170,5 +170,53 @@ describe('la reponse du serveur', () => {
     expect(d?.choix).toEqual({ organisations: ['admin'], modeles: [HAIKU], usages: ['analyse'], parcelles: [{ idu: '78650000AE0101', adresse: null }] });
     expect(lireReponseConsommation({ format: 'autre' })).toBe(null);
     expect(lireReponseConsommation(null)).toBe(null);
+  });
+
+  it('lit les comptes et le batch d une ligne, et null pour une ligne d avant les comptes', () => {
+    const trouve = { ouvertures: 9, manquees: 1, enTrop: 0, bouts: 1, lucarnes: 2, elements: 0, ecarts: 1, coins: 0, determines: 3, vide: false };
+    const d = lireReponseConsommation({
+      format: 'plan-claude-consommation', du: '2026-10-01', au: '2026-10-14',
+      lignes: [{ ...JOURNAL[0], trouve: { ...trouve, coins: -2, elements: 'x' } }, { ...JOURNAL[1], idBatch: undefined, trouve: undefined }, { ...JOURNAL[2], trouve: [] }],
+      recents: [], organisations: [], choix: {}
+    });
+    expect(d?.lignes.map((l) => [l.idBatch, l.trouve])).toEqual([['msgbatch_1', { ...trouve, coins: 0, elements: 0 }], [null, null], ['msgbatch_1', null]]);
+  });
+});
+
+describe('par modele', () => {
+  const trouve = (t: Partial<Trouvailles>): Trouvailles => ({ ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 0, vide: false, ...t });
+  const VIDE = trouve({ vide: true });
+
+  it('compare les modeles : requetes, batchs, images, tokens, cout et cout par facade', () => {
+    const ls = [
+      ...JOURNAL,
+      ligne('2026-10-13T09:00:00Z', { modele: SONNET, usage: 'renfort', batch: false, idBatch: null, passe: 1, facades: 1, cout: 0.01 }),
+      ligne('2026-10-13T09:00:00Z', { modele: 'claude-fable-6', cout: 0.5, idBatch: 'msgbatch_9' })
+    ];
+    const [h, s, autre] = parModele(ls);
+    // Le refus du plafond n'est pas une requete ; l'echec en est une.
+    expect(h).toMatchObject({ modele: HAIKU, requetes: 4, batchs: 1, immediats: 0, images: 4, cout: 0.004, facades: 4, coutParFacade: 0.001, echecs: 1 });
+    // L'escalade (sans passe) et le renfort immediat comptent chacun leurs facades.
+    expect(s).toMatchObject({ modele: SONNET, requetes: 2, batchs: 1, immediats: 1, cout: 0.03, facades: 3, coutParFacade: 0.01 });
+    expect(autre?.modele).toBe('claude-fable-6');
+    expect(parModele([])).toEqual([]);
+  });
+
+  it('dit ce que les reponses contiennent, et la part des vides parmi les reponses lues', () => {
+    const ls = [
+      ligne('2026-10-12T08:00:00Z', { modele: HAIKU, trouve: VIDE }),
+      ligne('2026-10-12T08:00:00Z', { modele: HAIKU, trouve: VIDE }),
+      ligne('2026-10-12T08:00:00Z', { modele: HAIKU, trouve: trouve({ ouvertures: 2, determines: 1 }) }),
+      // Une reponse d'avant les comptes, et un echec : ni vides ni pleines.
+      ligne('2026-10-12T08:00:00Z', { modele: HAIKU }),
+      ligne('2026-10-12T08:00:00Z', { modele: HAIKU, statut: 'echoue', cout: 0 }),
+      ligne('2026-10-12T08:00:00Z', { modele: SONNET, trouve: trouve({ ouvertures: 9, manquees: 1, bouts: 1, lucarnes: 2, determines: 3 }) }),
+      ligne('2026-10-12T08:00:00Z', { modele: SONNET, trouve: trouve({ ouvertures: 7, coins: 4, determines: 1 }) })
+    ];
+    const [h, s] = parModele(ls);
+    expect(h).toMatchObject({ lues: 3, vides: 2, sansComptes: 1, echecs: 1, trouve: { ouvertures: 2, determines: 1, manquees: 0 } });
+    expect(h?.partVide).toBeCloseTo(2 / 3);
+    expect(s).toMatchObject({ lues: 2, vides: 0, partVide: 0, sansComptes: 0, trouve: { ouvertures: 16, manquees: 1, bouts: 1, lucarnes: 2, coins: 4, determines: 4 } });
+    expect(parModele([ligne('2026-10-12T08:00:00Z')])[0]?.partVide).toBe(null);
   });
 });

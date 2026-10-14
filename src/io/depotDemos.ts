@@ -251,6 +251,18 @@ export async function enregistrerPlafondsClaude(f: Fetch, plafonds: unknown): Pr
   })).json() as Promise<unknown>;
 }
 
+/** Le modele de chaque usage (`admin/claude/modeles`), les defauts et les modeles admis. */
+export async function lireModelesClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'lecture des modèles')).json() as Promise<unknown>;
+}
+
+/** Remplace le reglage ; le serveur refuse un modele hors de sa liste et garde le precedent en `.bak`. */
+export async function enregistrerModelesClaude(f: Fetch, reglage: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'enregistrement des modèles', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(reglage)
+  })).json() as Promise<unknown>;
+}
+
 // --- Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) ----------------------
 
 /** L'historique des mesures (`GET admin/conformite`) ; model/conformite.ts le relit. */
@@ -265,15 +277,19 @@ export async function enregistrerMesureConformite(f: Fetch, mesure: unknown): Pr
   })).json() as Promise<unknown>;
 }
 
-/** Un audit de parcelle recu (`GET admin/audits`) : sa fiche, sans le fichier. */
-export interface AuditRecu { id: string; recuLe: string; organisation: string | null; idu: string; adresse: string | null }
+/**
+ * Un audit de parcelle recu (`GET admin/audits`) : sa fiche, sans le fichier. `marque` : pourquoi il
+ * a ete depose, `sauvegarde` de la capture ou partage pour le `corpus` (un ancien depot sans marque
+ * est du corpus).
+ */
+export interface AuditRecu { id: string; recuLe: string; organisation: string | null; idu: string; adresse: string | null; marque: 'corpus' | 'sauvegarde' }
 
 /** Les audits partages recus, les plus recents d'abord (lot L21). */
 export async function listerAuditsRecus(f: Fetch): Promise<AuditRecu[]> {
   const d = await (await appeler(f, '/audits', 'liste des audits reçus')).json() as { audits?: unknown };
   return (Array.isArray(d.audits) ? d.audits as Partial<AuditRecu>[] : [])
     .filter((a): a is AuditRecu => typeof a.id === 'string' && typeof a.idu === 'string')
-    .map((a) => ({ id: a.id, recuLe: typeof a.recuLe === 'string' ? a.recuLe : '', organisation: typeof a.organisation === 'string' ? a.organisation : null, idu: a.idu, adresse: typeof a.adresse === 'string' ? a.adresse : null }));
+    .map((a) => ({ id: a.id, recuLe: typeof a.recuLe === 'string' ? a.recuLe : '', organisation: typeof a.organisation === 'string' ? a.organisation : null, idu: a.idu, adresse: typeof a.adresse === 'string' ? a.adresse : null, marque: a.marque === 'sauvegarde' ? 'sauvegarde' : 'corpus' }));
 }
 
 /** Le fichier d'un audit recu, tel qu'il est arrive (model/fichierAuditParcelle.ts le relit). */

@@ -339,6 +339,43 @@ async function simulerAudits(page) {
   return { recus, retires };
 }
 /**
+ * Le serveur `admin/audits` complet, simule comme le vrai (deploy/analyse.php) : depot (POST, marque
+ * `X-Plan-Depot`), remplacement par le secret ou la session (PUT), liste des fiches avec leur marque,
+ * leurs photos et leur phase, lecture du fichier tel qu'il est arrive, retrait. La route vit avec la
+ * page : apres un rechargement (l'admin des demos), le catalogue lit ce que la sauvegarde a depose.
+ */
+async function simulerDepotAudits(page) {
+  const depots = new Map(), appels = [];
+  let n = 0;
+  const fiche = (id, texte, plus) => {
+    const d = JSON.parse(texte), nb = (l) => (Array.isArray(l) ? l.length : 0);
+    const photos = nb(d.cloture?.photos) + nb(d.portail?.photos) + (d.batiments || []).reduce((t, b) => t + nb(b?.photos) + (b?.facades || []).reduce((u, x) => u + nb(x?.photos), 0), 0);
+    return { id, recuLe: new Date().toISOString().slice(0, 19) + 'Z', organisation: 'org-fumee', idu: d.parcelle?.idu, adresse: d.parcelle?.adresse ?? null, taille: Buffer.byteLength(texte), photos, phase: d.finCapture ? 'analyse' : 'capture', debut: d.debut ?? null, ...plus };
+  };
+  await page.route(/\/admin\/audits(\/|\?|$)/, async (route) => {
+    const req = route.request(), u = new URL(req.url()), m = /\/admin\/audits(?:\/([^/]+))?\/?$/.exec(u.pathname);
+    const id = m && m[1] ? decodeURIComponent(m[1]) : '', entetes = req.headers(), methode = req.method();
+    const json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    appels.push({ methode, id, depot: entetes['x-plan-depot'] ?? null, retrait: entetes['x-plan-retrait'] ?? null });
+    if (!id && methode === 'GET') return json({ audits: [...depots.values()].map((x) => x.fiche).sort((a, b) => b.recuLe.localeCompare(a.recuLe)) });
+    if (!id && methode === 'POST') {
+      n++;
+      const nouvel = '20261014-1000' + String(n).padStart(2, '0') + '-0000000' + n, texte = req.postData() || '';
+      depots.set(nouvel, { texte, retrait: 'secret' + n, fiche: fiche(nouvel, texte, { marque: entetes['x-plan-depot'] || 'corpus' }) });
+      return json({ id: nouvel, retrait: 'secret' + n }, 201);
+    }
+    const x = depots.get(id);
+    if (!x) return json({ error: { code: 'NOT_FOUND', message: 'Aucun audit « ' + id + ' ».' } }, 404);
+    if (methode === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: x.texte });
+    // L'administrateur (session simulee) n'envoie pas de secret ; un autre secret est refuse.
+    if (entetes['x-plan-retrait'] && entetes['x-plan-retrait'] !== x.retrait) return json({ error: { code: 'FORBIDDEN', message: 'Secret de retrait invalide.' } }, 403);
+    if (methode === 'PUT') { x.texte = req.postData() || ''; x.fiche = fiche(id, x.texte, { marque: x.fiche.marque }); return json({ id, remplace: true }); }
+    if (methode === 'DELETE') { depots.delete(id); return json({ id, retire: true }); }
+    return json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Méthode non autorisée.' } }, 405);
+  });
+  return { depots, appels };
+}
+/**
  * Une entree du menu Fichier (feuille Projet au doigt), touchee par le DOM : apres la Vue 3D, le
  * rendu logiciel tient le fil et Playwright n'attend pas assez qu'elle soit stable pour la cliquer.
  */
@@ -1687,8 +1724,9 @@ const POINTS = {
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
-    // tarifs livres et des plafonds. On mesure : rien ne deborde de la page, une couleur et un nom
-    // par modele, l'infobulle au survol, le tri, l'export CSV de la vue, l'ajout d'un tarif.
+    // tarifs livres, des plafonds et le modele de chaque usage. On mesure : rien ne deborde de la page,
+    // une couleur et un nom par modele, l'infobulle au survol, le tri, l'export CSV de la vue, la part
+    // des reponses vides par modele, l'ajout d'un tarif et le choix du modele de l'analyse.
     const jour = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
     const lignes = [];
     for (let n = 0; n < 30; n++) {
@@ -1697,14 +1735,18 @@ const POINTS = {
         for (const passe of [1, 2, 3]) {
           lignes.push({ t: jour(n) + 'T0' + passe + ':00:00Z', organisation: 'admin', projet: 'admin', idu, adresse: (i + 2) + ' allée des Limites, Le Vésinet', audit: 'a' + n + i,
             usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, passe, tokens: { entree: 4000, ecritureCache: passe === 1 ? 25000 : 0, ecritureCache1h: 0, lectureCache: passe === 1 ? 0 : 25000, sortie: 1500 },
-            images: 30, cout: passe === 1 ? 0.0021375 : 0.0007, statut: n === 4 && passe === 3 ? 'echoue' : 'reussi' });
+            images: 30, cout: passe === 1 ? 0.0021375 : 0.0007, statut: n === 4 && passe === 3 ? 'echoue' : 'reussi', idBatch: 'msgbatch_' + n + i,
+            trouve: { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: n % 2, vide: n % 2 === 0 } });
         }
-        if (n % 7 === 0) lignes.push({ ...lignes[lignes.length - 1], t: jour(n) + 'T05:00:00Z', usage: 'escalade', modele: 'claude-sonnet-5-5', cout: 0.014, statut: 'reussi', passe: null });
+        if (n % 7 === 0) lignes.push({ ...lignes[lignes.length - 1], t: jour(n) + 'T05:00:00Z', usage: 'escalade', modele: 'claude-sonnet-5-5', cout: 0.014, statut: 'reussi', passe: null,
+          trouve: { ouvertures: 9, manquees: 1, enTrop: 0, bouts: 2, lucarnes: 1, elements: 1, ecarts: 1, coins: 0, determines: 4, vide: false } });
       }
     }
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
+    const defaut = { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' };
+    let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());
       const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
@@ -1721,6 +1763,10 @@ const POINTS = {
       }
       if (u.pathname.endsWith('/admin/claude/tarifs')) { if (req.method() === 'PUT') tarifsEnvoyes = JSON.parse(req.postData() || 'null'); return json(tarifsEnvoyes || tarifs); }
       if (u.pathname.endsWith('/admin/claude/plafonds')) { if (req.method() === 'PUT') plafonds = JSON.parse(req.postData() || 'null'); return json(plafonds); }
+      if (u.pathname.endsWith('/admin/claude/modeles')) {
+        if (req.method() === 'PUT') modelesEnvoyes = JSON.parse(req.postData() || 'null');
+        return json({ format: 'plan-claude-modeles', usages: { ...defaut, ...(modelesEnvoyes?.usages ?? {}) }, defaut, admis: ['claude-haiku-5-5', 'claude-sonnet-5-5'], regle: !!modelesEnvoyes });
+      }
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
     // Chaque geste nomme son etape : un echec dit ou il s'est arrete.
@@ -1749,10 +1795,19 @@ const POINTS = {
     const nomCsv = telechargement.suggestedFilename();
     await etape('onglet Par usage', () => page.getByRole('tab', { name: 'Par usage' }).click({ timeout: 5000 }));
     const barres = await page.locator('.consBarre').count();
+    await etape('onglet Par modèle', () => page.getByRole('tab', { name: 'Par modèle' }).click({ timeout: 5000 }));
+    const vides = await page.locator('.consEtiquette').allTextContents();
+    const [csvModeles] = await etape('export CSV des modèles', () => Promise.all([page.waitForEvent('download', { timeout: 5000 }), page.getByRole('button', { name: 'Exporter en CSV' }).click({ timeout: 5000 })]));
+    debords.push(await deborde());
     await etape('onglet Par organisation', () => page.getByRole('tab', { name: 'Par organisation' }).click({ timeout: 5000 }));
     const jauges = await page.locator('.consJauge').count();
     debords.push(await deborde());
-    await etape('onglet Tarifs', () => page.getByRole('tab', { name: 'Tarifs et plafonds' }).click({ timeout: 5000 }));
+    await etape('onglet Réglages', () => page.getByRole('tab', { name: 'Réglages' }).click({ timeout: 5000 }));
+    await etape('liste du modèle de l’analyse', () => page.waitForSelector('#consModele-analyse', { timeout: 5000 }));
+    const optionsAnalyse = await page.locator('#consModele-analyse option').allTextContents();
+    await page.selectOption('#consModele-analyse', 'claude-haiku-5-5');
+    await etape('Enregistrer les modèles', () => page.getByRole('button', { name: 'Enregistrer les modèles' }).click({ timeout: 5000 }));
+    await page.waitForTimeout(300);
     await etape('formulaire du tarif', () => page.waitForSelector('#consTarif-sortie', { timeout: 5000 }));
     await page.fill('#consTarifDepuis', jour(-30));
     await page.fill('#consTarif-sortie', '0,45');
@@ -1762,8 +1817,10 @@ const POINTS = {
     debords.push(await deborde());
     const ok = !debords.some(Boolean) && legende.join() === 'Claude Haiku 5.5,Claude Sonnet 5.5' && new Set(couleurs).size === 2 && alertes.some((a) => /plafond du jour/.test(a))
       && /Claude Haiku 5\.5/.test(infobulle || '') && idus.length === 3 && [...idus].sort().join() === idus.join() && /^consommation-claude-parcelles-.*\.csv$/.test(nomCsv)
-      && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45;
-    return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'}` };
+      && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45
+      && vides.length === 2 && /^0 %/.test(vides[1] || '') && /^consommation-claude-modeles-.*\.csv$/.test(csvModeles.suggestedFilename())
+      && optionsAnalyse.length === 2 && optionsAnalyse.every((o) => / \$ \/ .* \$/.test(o)) && modelesEnvoyes?.usages?.analyse === 'claude-haiku-5-5';
+    return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'} ; réponses vides ${vides.join(' | ')} ; CSV ${csvModeles.suggestedFilename()} ; modèles proposés ${optionsAnalyse.join(' | ')} ; analyse réglée à ${modelesEnvoyes?.usages?.analyse ?? 'RIEN'}` };
   },
   69: async (page, f) => {
     // L'analyse par Claude (lot L17) contre une API simulee : la question de l'accord dans l'ecran des
@@ -1981,6 +2038,78 @@ const POINTS = {
       && /Audit de la parcelle importé/.test(importe) && !!murs?.cochee && !!releve && !releve.cochee && caseCorpus === false && intact
       && e.murs?.materiau === 'brique' && annule && !deborde;
     return { ok, mesure: `fichier ${texte ? Math.round(texte.length / 1024) + ' Ko' : 'ABSENT'} ; Ctrl+Z ${defait ? 'défait' : 'NON'} ; autre parcelle : « ${refus.slice(0, 70)}… » ; question de remplacement ${demande ? 'posée' : 'ABSENTE'} ; « ${importe.slice(0, 60)}… » ; murs ${murs ? (murs.cochee ? 'cochés' : 'DÉCOCHÉS') : 'ABSENTS'}, relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; partage ${caseCorpus === false ? 'décoché' : String(caseCorpus)} ; projet ${intact ? 'intact avant Valider' : 'MODIFIÉ'} ; Valider : murs ${e.murs?.materiau ?? '—'} ; Ctrl+Z ${annule ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  85: async (page, f) => {
+    // La sauvegarde de l'audit de parcelle sur le serveur, et le catalogue de l'administrateur (§15) :
+    // une photo rangee part d'elle-meme au serveur simule quelques secondes apres (marque
+    // `sauvegarde`) ; la liste de controle dit « Envoyé à … » ; « Envoyer l'audit au serveur » remplace
+    // le meme depot (PUT, par son secret). Puis en admin des demos, sur le meme projet : Admin ›
+    // « Audits de parcelle » le liste (sauvegarde, capture en cours, 1 photo) et « Ouvrir dans ce
+    // projet » le reprend sur la liste de controle, en capture.
+    const serveur = await simulerDepotAudits(page);
+    const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
+    await ouvrirAuditParcelle(page);
+    await page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);x.fillStyle="#2b3440";x.fillRect(180,220,120,160);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
+    const posee = Date.now();
+    const premier = () => serveur.appels.find((a) => a.methode === 'POST' && a.depot === 'sauvegarde');
+    for (let i = 0; i < 60 && !premier(); i++) await page.waitForTimeout(500);
+    const delai = premier() ? Math.round((Date.now() - posee) / 1000) : null;
+    await page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => /^Envoyé /.test(document.querySelector('.sauvegardeAudit .noteSauvegarde')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const envoye = ((await page.locator('.sauvegardeAudit .noteSauvegarde').textContent().catch(() => '')) || '').trim();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.locator('.sauvegardeAudit [data-commande="audit.envoyerParcelle"]').click({ timeout: 30000 });
+    for (let i = 0; i < 60 && !serveur.appels.some((a) => a.methode === 'PUT'); i++) await page.waitForTimeout(500);
+    const put = serveur.appels.find((a) => a.methode === 'PUT');
+    const id = [...serveur.depots.keys()][0];
+    const depots = serveur.depots.size;
+    const fiche = serveur.depots.get(id)?.fiche;
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+
+    // L'administrateur des demos, sur le meme projet (la demo 1 en est la copie). Ces routes ne
+    // touchent pas `admin/audits` : le faux serveur des audits garde ses depots.
+    await page.route(/\/admin\/(session|demos)/, async (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/demos')) return json({ demos: [{ id: '1', name: 'Démonstration' }] });
+      if (u.pathname.endsWith('/admin/demos/1')) return json({ meta: { id: '1', name: 'Démonstration', schemaVersion: 1 }, objects: objets, measures: [] });
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto(BASE + '/?demofile=1');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await noterToasts(page);
+    await page.evaluate(() => window.__plan.executer('admin.auditsParcelle'));
+    await page.locator('.carteAuditRecu').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const cartes = await page.locator('.carteAuditRecu').count();
+    const carte = ((await page.locator('.carteAuditRecu').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const ouvrir = page.locator('.carteAuditRecu [data-controle="auditsParcelle.ouvrir"]').first();
+    const ouvrable = (await ouvrir.count()) ? await ouvrir.isEnabled() : false;
+    const debordeCatalogue = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    if (ouvrable) await ouvrir.click({ timeout: 30000 });
+    // Le brouillon de la meme parcelle est sur l'appareil : la question de remplacement d'abord.
+    const question = page.locator('.dialogueVoile', { hasText: 'Remplacer l’audit en cours' });
+    await question.waitFor({ timeout: 15000 }).catch(() => {});
+    if (await question.count()) await question.locator('[data-controle="dialogue.principal"]').click({ timeout: 30000 });
+    await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 30000 }).catch(() => {});
+    const liste = await page.locator('.dialogueAuditParcelle').count();
+    const compteur = ((await page.locator('.dialogueAuditParcelle .compteurAudit').textContent().catch(() => '')) || '').trim();
+    const repris = await toastVu(page, 'repris en capture');
+    const ok = delai !== null && delai <= 20 && /^Envoyé (le \d\d\/\d\d )?à \d\d:\d\d\./.test(envoye) && !!put && put.id === id && put.retrait === 'secret1' && depots === 1
+      && fiche?.marque === 'sauvegarde' && fiche?.phase === 'capture' && fiche?.photos === 1
+      && cartes === 1 && /Sauvegarde/.test(carte) && /Capture en cours/.test(carte) && /1 photo/.test(carte) && ouvrable
+      && liste === 1 && /^1 façade/.test(compteur) && /^Audit de la parcelle repris en capture : 1 photo/.test(repris) && !deborde && !debordeCatalogue;
+    return { ok, mesure: `sauvegarde ${delai !== null ? 'partie en ' + delai + ' s' : 'NON partie'} (« ${envoye.slice(0, 50)} ») ; bouton : ${put ? 'PUT ' + put.id + ' par ' + put.retrait : 'AUCUN remplacement'}, ${depots} dépôt(s) ; fiche ${fiche ? fiche.marque + ', ' + fiche.phase + ', ' + fiche.photos + ' photo(s)' : '—'} ; catalogue ${cartes} carte(s) « ${carte.slice(0, 90)} », ouvrir ${ouvrable ? 'actif' : 'GRISÉ'} ; repris : ${liste ? 'liste de contrôle « ' + compteur.slice(0, 40) + ' »' : 'RIEN'}, « ${repris.slice(0, 60)} » ; débordement ${deborde || debordeCatalogue ? 'OUI' : 'non'}` };
   },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
@@ -2428,7 +2557,8 @@ function pointsPour(nomClasse) {
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
   // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84];
+  // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits de parcelle qui la rouvre (§15).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

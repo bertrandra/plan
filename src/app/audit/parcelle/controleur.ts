@@ -15,7 +15,7 @@ import { suivrePositionGps, type PositionGps, type SansPosition } from '../../..
 import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../../shell/boussole.js';
 import { dialogues, type DialogueChoix } from '../../../shell/dialogues.js';
 import { creerBrouillonParcelle, stockageNavigateur, type RaisonEchec, type StockageBrouillon } from '../../../io/brouillonAudit.js';
-import { photosDeLaCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
+import { partageDe, photosDeLaCapture, type CaptureParcelle, type EnvoiCorpus } from '../../../model/auditParcelle.js';
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../../three/scene.js';
@@ -32,6 +32,8 @@ import { listeDeControle, type LigneFacade, type ListeDeControle } from './liste
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
 import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
 import { creerCorpus, type Corpus } from './corpus.js';
+import { creerSauvegarde, signaturePhotos, type DependancesSauvegarde, type Sauvegarde } from './sauvegarde.js';
+import { lireGrilleSous } from '../../../geo/mnh.js';
 import { ecrireFichierAudit, type EntreesEcriture } from './fichier.js';
 import { captureDuFichier, derniereDecision, mesuresDuFichier, nomFichierAuditParcelle, type FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { partagerFichier } from '../../../shell/partage.js';
@@ -43,6 +45,7 @@ import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
 import type { DependancesMesures } from './mesures.js';
 import type { ClientAudits } from '../../../io/auditsServeur.js';
+import type { GrilleRelief } from '../../../model/relief.js';
 import type { Facade } from '../../../facade/geometrie.js';
 import type { FacadeDevant } from '../../../facade/priseDeVue.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
@@ -87,6 +90,8 @@ export interface ContexteAuditParcelle {
   audits?: () => ClientAudits | null;
   /** L'administrateur ecrit toujours le fichier de l'audit (§15) ; un utilisateur le partage par la case. */
   admin?: () => boolean;
+  /** La sauvegarde sur le serveur pendant la capture (§15) : delais et horloge, pour les tests. */
+  sauvegarde?: Partial<Pick<DependancesSauvegarde, 'delaiMs' | 'reessaisMs' | 'tailleMax' | 'planifier' | 'surReseau'>>;
   partager?: typeof partagerFichier;
   lireGrille?: EntreesEcriture['lireGrille'];
   /**
@@ -125,16 +130,21 @@ export interface SessionAuditParcelle {
   readonly analyse: AnalyseClaude;
   /** « Partager cet audit pour améliorer Plan » (§15, decision D7). */
   readonly corpus: Corpus;
+  /** La sauvegarde sur le serveur de Plan, pendant la capture (§15) : « Envoyer l'audit au serveur ». */
+  readonly sauvegarde: Sauvegarde;
   /** Le fichier de l'audit, tel qu'il se partage (§15). */
   fichier(): Promise<FichierAuditParcelle>;
   /** L'administrateur ecrit le fichier de l'audit (un audit fait pour un client, §15). */
   fichierDisponible(): boolean;
   partagerLeFichier(): Promise<void>;
   /**
-   * Reprend un fichier d'audit de cette parcelle a la phase 3 : sa capture, ses mesures et ses cases.
-   * Une capture en cours sur l'appareil n'est remplacee qu'apres confirmation ; `pret` ensuite.
+   * Reprend un fichier d'audit de cette parcelle la ou il en etait : a la phase 3 (sa capture, ses
+   * mesures et ses cases) si la capture etait terminee, sur la liste de controle sinon. Une capture
+   * en cours sur l'appareil n'est remplacee qu'apres confirmation ; `pret` ensuite. `depot` : le
+   * depot du serveur d'ou vient le fichier (catalogue de l'administrateur), que la sauvegarde
+   * remplacera desormais au lieu d'en creer un autre.
    */
-  importer(f: FichierAuditParcelle, pret: () => void): Promise<void>;
+  importer(f: FichierAuditParcelle, pret: () => void, depot?: EnvoiCorpus): Promise<void>;
   liste(): ListeDeControle;
   ecran(): EcranAudit;
   montrer(e: EcranAudit): void;
@@ -377,9 +387,23 @@ function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validati
 
 /** Le fichier de l'audit (§15) : l'ecrire d'apres la session, et le partager par le telephone. */
 function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: () => ListeDeControle, validation: Validation, maintenant: () => Date) {
+  // La sauvegarde ecrit le fichier apres chaque rafale de photos : la grille LiDAR d'un batiment ne
+  // se relit pas a chaque fois (contour inchange, meme grille). Un echec n'est pas garde : le
+  // prochain fichier la redemande.
+  const grilles = new Map<string, Promise<GrilleRelief | null>>();
+  const lire = ctx.lireGrille ?? lireGrilleSous;
+  const lireGrille: NonNullable<EntreesEcriture['lireGrille']> = (pts, proj) => {
+    const cle = JSON.stringify(pts);
+    let g = grilles.get(cle);
+    if (!g) {
+      g = lire(pts, proj).catch(() => null).then((r) => { if (!r) grilles.delete(cle); return r; });
+      grilles.set(cle, g);
+    }
+    return g;
+  };
   const ecrire = () => ecrireFichierAudit({
     objets: ctx.etat.objects, capture: capture.lire(), liste: liste(), mesures: validation.mesuresFaites(),
-    propositions: validation.propositions(), maintenant: maintenant(), ...(ctx.lireGrille ? { lireGrille: ctx.lireGrille } : {}),
+    propositions: validation.propositions(), maintenant: maintenant(), lireGrille,
   });
   return {
     ecrire,
@@ -410,31 +434,52 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const visee = viseeDe(ctx, liste, publier);
   const sens = capteurs(ctx, (quoi) => { visee.capteurs(sens, quoi); vue.faites(); vue.suivre(); });
   const vue = vueDe(ctx, sens, visee, liste);
-  // Un brouillon repris avec un batch en cours : son suivi repart.
-  const brouillon = brouillonDe(ctx, capture, () => analyse.reprendre());
+  // Un brouillon repris avec un batch en cours : son suivi repart ; la sauvegarde le remet a jour.
+  const brouillon = brouillonDe(ctx, capture, () => { analyse.reprendre(); sauvegarde.planifier(); });
   // L'analyse lit les mesures de la validation, la validation lit les reponses de l'analyse : chacune
   // recoit l'autre par une fonction, posee apres les deux creations. Le partage part apres chaque
   // validation ; il lit le fichier, qui lit la validation : lie de meme.
-  let validation: Validation, analyse: AnalyseClaude, corpus: Corpus | null = null;
+  let validation: Validation, analyse: AnalyseClaude, corpus: Corpus | null = null, sauvegarde: Sauvegarde;
   analyse = analyseDe(ctx, capture, () => validation, maintenant);
   validation = validationDe(ctx, capture, liste, maintenant, () => analyse, () => { void corpus?.envoyer(); });
   const fichier = fichierDe(ctx, capture, liste, validation, maintenant);
-  corpus = creerCorpus({ capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, signaler: ctx.signaler, maintenant });
+  const admin = () => ctx.admin?.() ?? false;
+  sauvegarde = creerSauvegarde({
+    capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, maintenant, ...ctx.sauvegarde,
+    // L'administrateur, ou l'accord du partage (D7) : sans lui, rien ne part sans le bouton.
+    automatique: () => admin() || partageDe(capture.lire()).accord,
+  });
+  corpus = creerCorpus({
+    capture, client: ctx.audits ?? (() => null), fichier: fichier.ecrire, signaler: ctx.signaler, maintenant,
+    // Un utilisateur qui decoche reprend son accord : sa sauvegarde quitte le serveur avec le partage.
+    apresRevocation: () => { if (!admin()) void sauvegarde.retirer(); },
+  });
+  // Une photo de plus ou de moins : la sauvegarde part quelques secondes apres. Une capture remplacee
+  // (brouillon repris, fichier importe : un autre debut) n'est pas un geste de la visite.
+  let photos = { debut: capture.lire().debut, signature: signaturePhotos(capture.lire()) };
+  capture.abonner(() => {
+    const c = capture.lire(), signature = signaturePhotos(c);
+    if (signature !== photos.signature && c.debut === photos.debut) sauvegarde.planifier();
+    photos = { debut: c.debut, signature };
+  });
   capture.abonner(() => { visee.reconnaitre(sens); vue.faites(); publier(); });
   validation.abonner(publier);
   analyse.abonner(publier);
   corpus.abonner(publier);
+  sauvegarde.abonner(publier);
 
   return {
     capture,
     validation,
     analyse,
     corpus,
+    sauvegarde,
     fichier: fichier.ecrire,
     fichierDisponible: () => ctx.admin?.() ?? false,
     partagerLeFichier: fichier.partager,
-    async importer(f, pret) {
-      await brouillon.remplacer(captureDuFichier(f), () => {
+    async importer(f, pret, depot) {
+      const nouvelle = captureDuFichier(f);
+      await brouillon.remplacer(depot ? { ...nouvelle, sauvegarde: { ...depot } } : nouvelle, () => {
         validation.poserMesures(mesuresDuFichier(f));
         const d = derniereDecision(f);
         if (d) validation.preregler(d);
@@ -480,6 +525,8 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       capture.terminer();
       void brouillon.vider();
       ctx.signaler('Capture terminée : elle est gardée sur cet appareil, et vos mesures deviennent des propositions.');
+      // La capture finie part au serveur tout de suite : c'est elle que l'analyse reprendra.
+      if (sauvegarde.etat().automatique) void sauvegarde.envoyer();
       // Avec l'accord deja donne, les photos partent (et le toast le rappelle) ; sinon l'ecran pose la question.
       void analyse.lancer();
     },

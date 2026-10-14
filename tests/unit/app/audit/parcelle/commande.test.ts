@@ -3,6 +3,8 @@ import { brancherAuditParcelle, parcelleCadastrale, RAISON_SANS_PARCELLE } from 
 import { creerRegistre, PHRASE_PERMISSION, type Droits } from '../../../../../src/app/commandes.js';
 import { parcours } from '../../../../../src/app/parcours.js';
 import { creerEtat } from '../../../../../src/core/state.js';
+import { entrerEnAdmin } from '../../../../../src/app/acces.js';
+import type { ClientAudits, FicheAudit } from '../../../../../src/io/auditsServeur.js';
 import type { ObjetPlan } from '../../../../../src/model/types.js';
 
 // La commande « Auditer la parcelle… » (MD/spec-audit.md §11) : grisee avec sa raison en lecture
@@ -94,3 +96,75 @@ describe('la commande audit.importerParcelle', () => {
     expect(messages.at(-1)).toBe('Audit de la parcelle importé. Vérifiez les cases, puis « Valider ».');
   });
 });
+
+describe('la commande audit.envoyerParcelle', () => {
+  const client = (): ClientAudits & { envoyer: ReturnType<typeof vi.fn> } => ({
+    envoyer: vi.fn(async () => ({ id: 'd1', retrait: 'r1' })), remplacer: vi.fn(async (id: string, retrait: string) => ({ id, retrait })),
+    retirer: vi.fn(async () => {}), lister: vi.fn(async () => []), lire: vi.fn(async () => ''),
+  });
+
+  it('n agit que dans un audit ouvert, quand quelqu un peut envoyer, et envoie la sauvegarde', async () => {
+    const etat = creerEtat({ objects: [parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })] } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const c = client();
+    let peutEnvoyer = false;
+    brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: () => {}, stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, audits: () => (peutEnvoyer ? c : null), lireGrille: async () => null,
+    }, cmd);
+    expect(cmd.etat('audit.envoyerParcelle')).toEqual({ utilisable: false, raison: 'contexte' });
+    expect(cmd.obtenir('audit.envoyerParcelle')).toMatchObject({ libelle: 'Envoyer l’audit au serveur', groupe: 'audit' });
+    cmd.executer('audit.parcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    expect(cmd.etat('audit.envoyerParcelle')).toEqual({ utilisable: false, raison: 'contexte', message: 'Connectez-vous à la plateforme pour envoyer l’audit au serveur de Plan.' });
+    peutEnvoyer = true;
+    expect(cmd.executer('audit.envoyerParcelle')).toBe(true);
+    await vi.waitFor(() => expect(c.envoyer).toHaveBeenCalledOnce());
+    expect(c.envoyer.mock.calls[0]?.[1]).toBe('sauvegarde');
+  });
+});
+
+describe('la commande admin.auditsParcelle', () => {
+  const sauvegarde = (idu: string) => JSON.stringify({
+    format: 'plan-audit-parcelle', version: 1, parcelle: { idu, adresse: '2 allée des Limites', origine: null }, code: { version: '2.2.0', commit: null },
+    regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-13T08:00:00.000Z', finCapture: null, ecritLe: '2026-10-13T09:00:00.000Z',
+    batiments: [], cloture: { photos: [{ type: 'image/jpeg', base64: 'AAAA' }] }, portail: { photos: [] }, propositions: [], decisions: [],
+  });
+  const fiche = (id: string, idu: string): FicheAudit => ({ id, recuLe: '2026-10-13T09:00:00Z', organisation: 'org', idu, adresse: null, taille: 100, marque: 'sauvegarde', photos: 1, phase: 'capture', debut: '2026-10-13T08:00:00.000Z' });
+
+  it('est reservee a l admin des demos, et rouvre une sauvegarde en capture, sur le meme depot', async () => {
+    const etat = creerEtat({ objects: [parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })] } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const messages: string[] = [];
+    const c: ClientAudits = {
+      envoyer: vi.fn(async () => ({ id: 'x', retrait: 'y' })), remplacer: vi.fn(async (id: string, retrait: string) => ({ id, retrait })), retirer: vi.fn(async () => {}),
+      lister: vi.fn(async () => [fiche('a', '78650000AE0101'), fiche('b', '78650000AE0199')]), lire: vi.fn(async () => sauvegarde('78650000AE0101')),
+    };
+    brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: (m) => messages.push(m), stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, audits: () => c, admin: () => true, lireGrille: async () => null,
+    }, cmd);
+    expect(cmd.etat('admin.auditsParcelle')).toEqual({ utilisable: false, raison: 'contexte' });
+    entrerEnAdmin();
+    expect(cmd.executer('admin.auditsParcelle')).toBe(true);
+    const p = parcours.courant();
+    if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
+    await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(2));
+    const [ici, ailleurs] = p.catalogue.etat().audits ?? [];
+    if (!ici || !ailleurs) throw new Error('liste incomplete');
+    expect(p.catalogue.raisonOuvrir(ici)).toBeNull();
+    expect(p.catalogue.raisonOuvrir(ailleurs)).toBe('Ce projet est sur la parcelle 78650000AE0101 : ouvrez le projet de la parcelle 78650000AE0199.');
+    await p.catalogue.ouvrir(ici);
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    const q = parcours.courant();
+    if (q?.type !== 'auditParcelle') throw new Error('audit absent');
+    expect(q.session.ecran()).toBe('liste');
+    expect(q.session.capture.lire()).toMatchObject({ phase: 'capture', finCapture: null, sauvegarde: { id: 'a', retrait: '', t: '2026-10-13T09:00:00Z' } });
+    expect(messages.at(-1)).toBe('Audit de la parcelle repris en capture : 1 photo. Complétez la liste, puis « Lancer l’analyse ».');
+    // L'envoi suivant remplace ce depot, par la session de l'administrateur.
+    await q.session.sauvegarde.envoyer();
+    expect(c.remplacer).toHaveBeenCalledWith('a', '', expect.any(String), 'sauvegarde');
+    expect(c.envoyer).not.toHaveBeenCalled();
+  });
+});
+

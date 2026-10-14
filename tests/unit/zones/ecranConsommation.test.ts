@@ -7,7 +7,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EcranConsommation, type PropsEcranConsommation } from '../../../src/zones/EcranConsommation.js';
 import { demandeEcranConsommation } from '../../../src/app/ecranConsommation.js';
 import type { FiltresConsommation } from '../../../src/io/depotDemos.js';
-import type { Tarifs } from '../../../src/model/tarifsClaude.js';
+import type { ReglageModeles, Tarifs } from '../../../src/model/tarifsClaude.js';
 
 // L'ecran Admin › Consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
 // filtres envoyes au serveur, chiffres cles, alertes, vues, export CSV de la vue affichee, tarifs.
@@ -15,16 +15,22 @@ import type { Tarifs } from '../../../src/model/tarifsClaude.js';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const TARIFS = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../deploy/claude-tarifs.json'), 'utf8')) as Tarifs;
+const MODELES = {
+  format: 'plan-claude-modeles', admis: ['claude-haiku-5-5', 'claude-sonnet-5-5'], regle: false,
+  usages: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' },
+  defaut: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' }
+};
+const VIDE = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 0, vide: true };
 const PLAFONDS = { format: 'plan-claude-plafonds', defaut: { jour: 1, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
 
 const ligne = (t: string, plus: Record<string, unknown> = {}) => ({
   t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
-  usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, passe: 1,
+  usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 1, trouve: VIDE,
   tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, images: 1, cout: 0.0007, statut: 'reussi', ...plus
 });
 
 function reponse(f: FiltresConsommation) {
-  const lignes = [ligne('2026-10-12T08:00:00Z'), ligne('2026-10-13T08:00:00Z', { modele: 'claude-sonnet-5-5', usage: 'escalade', cout: 0.0893, idu: '78650000AE0102', adresse: 'Rue B', audit: 'audit-2' })];
+  const lignes = [ligne('2026-10-12T08:00:00Z'), ligne('2026-10-13T08:00:00Z', { modele: 'claude-sonnet-5-5', usage: 'escalade', cout: 0.0893, idu: '78650000AE0102', adresse: 'Rue B', audit: 'audit-2', idBatch: 'msgbatch_2', trouve: { ...VIDE, ouvertures: 9, lucarnes: 2, determines: 3, vide: false } })];
   return {
     format: 'plan-claude-consommation', du: f.du, au: f.au, aujourdhui: '2026-10-14',
     lignes: lignes.filter((l) => !f.modele || l.modele === f.modele), recents: lignes,
@@ -42,6 +48,7 @@ describe('l ecran de la consommation de Claude', () => {
     const demandes: FiltresConsommation[] = [];
     const telecharges: { nom: string; texte: string }[] = [];
     const tarifsEnvoyes: Tarifs[] = [];
+    const modelesEnvoyes: ReglageModeles[] = [];
     const props: PropsEcranConsommation = {
       aujourdhui: '2026-10-14',
       charger: async (f) => { demandes.push(f); return reponse(f); },
@@ -49,6 +56,8 @@ describe('l ecran de la consommation de Claude', () => {
       enregistrerTarifs: async (t) => { tarifsEnvoyes.push(t); return t; },
       lirePlafonds: async () => PLAFONDS,
       enregistrerPlafonds: async (p) => p,
+      lireModeles: async () => MODELES,
+      enregistrerModeles: async (r) => { modelesEnvoyes.push(r); return { ...MODELES, usages: { ...MODELES.usages, ...r.usages }, regle: true }; },
       telecharger: (nom, texte) => { telecharges.push({ nom, texte }); }
     };
     const hote = document.createElement('div');
@@ -56,7 +65,7 @@ describe('l ecran de la consommation de Claude', () => {
     const racine = createRoot(hote);
     await act(async () => { racine.render(createElement(EcranConsommation, props)); });
     monte = { racine, hote };
-    return { hote, demandes, telecharges, tarifsEnvoyes };
+    return { hote, demandes, telecharges, tarifsEnvoyes, modelesEnvoyes };
   }
   const onglet = async (hote: HTMLElement, nom: string) => {
     const b = [...hote.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((e) => e.textContent === nom);
@@ -116,13 +125,13 @@ describe('l ecran de la consommation de Claude', () => {
     await act(async () => { bouton(hote, 'Exporter en CSV')?.click(); });
     expect(telecharges[1]?.nom).toBe('consommation-claude-parcelles-2026-09-15-2026-10-14.csv');
     expect(telecharges[1]?.texte).toContain('Adresse;IDU;Audits;Tokens Claude Haiku 5.5;Tokens Claude Sonnet 5.5');
-    await onglet(hote, 'Tarifs et plafonds');
+    await onglet(hote, 'Réglages');
     expect(bouton(hote, 'Exporter en CSV')?.disabled).toBe(true);
   });
 
   it('ajoute un tarif date et refuse un tarif dans le passe', async () => {
     const { hote, tarifsEnvoyes } = await monter();
-    await onglet(hote, 'Tarifs et plafonds');
+    await onglet(hote, 'Réglages');
     expect(hote.querySelectorAll('.consReglages tbody tr')).toHaveLength(2);
     const sortie = hote.querySelector<HTMLInputElement>('#consTarif-sortie');
     const depuis = hote.querySelector<HTMLInputElement>('#consTarifDepuis');
@@ -145,5 +154,44 @@ describe('l ecran de la consommation de Claude', () => {
     expect(tarifsEnvoyes).toHaveLength(1);
     expect(tarifsEnvoyes[0]?.lignes[2]).toMatchObject({ modele: 'claude-haiku-5-5', depuis: '2026-11-01', sortie: 0.4 });
     expect(hote.querySelectorAll('.consReglages tbody tr')).toHaveLength(3);
+  });
+
+  it('compare les modeles : volume, cout, reponses vides et ce qu elles contiennent, et l exporte', async () => {
+    const { hote, telecharges } = await monter();
+    await onglet(hote, 'Par modèle');
+    const tables = [...hote.querySelectorAll<HTMLTableElement>('#consVue table')];
+    expect(tables).toHaveLength(2);
+    const lignesDe = (t: HTMLTableElement | undefined) => [...(t?.querySelectorAll('tbody tr') ?? [])].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent));
+    expect(lignesDe(tables[0]).map((l) => l.slice(0, 3))).toEqual([['Claude Haiku 5.5', '1', '1'], ['Claude Sonnet 5.5', '1', '1']]);
+    // La part des reponses vides, en barres nommees : une couleur ne parle jamais seule.
+    expect(hote.querySelector('svg[aria-label="Part des réponses vides par modèle"]')).not.toBe(null);
+    expect([...hote.querySelectorAll('.consEtiquette')].map((e) => e.textContent)).toEqual(['100 % · 1 sur 1', '0 % · 0 sur 1']);
+    expect(lignesDe(tables[1])[1]?.slice(0, 4)).toEqual(['Claude Sonnet 5.5', '1', '0 %', '9']);
+    await act(async () => { [...hote.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((b) => b.textContent === 'Par réponse lue')?.click(); });
+    expect(lignesDe([...hote.querySelectorAll<HTMLTableElement>('#consVue table')][1])[1]?.[3]).toBe('9');
+    await act(async () => { bouton(hote, 'Exporter en CSV')?.click(); });
+    expect(telecharges[0]?.nom).toBe('consommation-claude-modeles-2026-09-15-2026-10-14.csv');
+    expect(telecharges[0]?.texte).toContain('Claude Sonnet 5.5;claude-sonnet-5-5;1;1;0;1;');
+  });
+
+  it('regle le modele de chaque usage par une liste, avec son prix, et l envoie au serveur', async () => {
+    const { hote, modelesEnvoyes } = await monter();
+    await onglet(hote, 'Réglages');
+    const liste = hote.querySelector<HTMLSelectElement>('#consModele-analyse');
+    expect(liste?.value).toBe('claude-sonnet-5-5');
+    // Le nom lisible et le prix au million de tokens (entree / sortie) en vigueur.
+    expect([...(liste?.options ?? [])].map((o) => o.textContent)).toEqual(['Claude Haiku 5.5 — 0,10 $ / 0,50 $', 'Claude Sonnet 5.5 — 2,00 $ / 10,00 $ (par défaut)']);
+    expect([...hote.querySelectorAll('.consReglages fieldset')[0]?.querySelectorAll('label > span') ?? []].map((e) => e.textContent))
+      .toEqual(['Analyse des audits', 'Renfort des façades', 'Aide immédiate', 'Escalade', 'Cas candidats']);
+    expect(bouton(hote, 'Enregistrer les modèles')?.disabled).toBe(true);
+    await act(async () => {
+      if (!liste) return;
+      liste.value = 'claude-haiku-5-5';
+      liste.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => { bouton(hote, 'Enregistrer les modèles')?.click(); });
+    expect(modelesEnvoyes).toEqual([{ format: 'plan-claude-modeles', usages: { ...MODELES.usages, analyse: 'claude-haiku-5-5' } }]);
+    expect(hote.querySelector('.palMessage')?.textContent).toMatch(/analyses déjà lancées gardent leur modèle/);
+    expect(bouton(hote, 'Enregistrer les modèles')?.disabled).toBe(true);
   });
 });

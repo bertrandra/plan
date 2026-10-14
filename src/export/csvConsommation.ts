@@ -8,8 +8,8 @@
 // devenir une formule a l'ouverture.
 
 import {
-  NOMS_USAGES, nomModele, valeurA,
-  type LigneOrganisation, type LigneParcelle, type LigneUsage, type Mesure, type SerieTemps
+  CLES_TROUVAILLES, NOMS_TROUVAILLES, NOMS_USAGES, nomModele, valeurA,
+  type LigneModele, type LigneOrganisation, type LigneParcelle, type LigneUsage, type Mesure, type SerieTemps
 } from '../model/consommation.js';
 
 type Cellule = string | number | null;
@@ -41,6 +41,14 @@ export function csvParcelles(ls: LigneParcelle[], series: string[]): string {
 export function csvUsages(ls: LigneUsage[]): string {
   return csv(['Usage', 'Appels', 'Tokens', 'Coût ($)', 'Part du coût', 'Part du Batch'],
     ls.map((l) => [NOMS_USAGES[l.usage] ?? l.usage, l.appels, l.tokens, l.cout, l.partCout, l.partBatch]));
+}
+
+/** La comparaison des modeles : volume, cout, et les comptes en total (la moyenne se recalcule par les reponses lues). */
+export function csvModeles(ls: LigneModele[]): string {
+  return csv(['Modèle', 'Identifiant', 'Requêtes', 'Batchs', 'Immédiats', 'Images', 'Tokens', 'Coût ($)', 'Façades', 'Coût par façade ($)', 'Échecs',
+    'Réponses lues', 'Réponses vides', 'Part des réponses vides', 'Sans comptes', ...CLES_TROUVAILLES.map((k) => NOMS_TROUVAILLES[k])],
+  ls.map((l) => [nomModele(l.modele), l.modele, l.requetes, l.batchs, l.immediats, l.images, l.tokens, l.cout, l.facades, l.coutParFacade, l.echecs,
+    l.lues, l.vides, l.partVide, l.sansComptes, ...CLES_TROUVAILLES.map((k) => l.trouve[k])]));
 }
 
 export function csvOrganisations(ls: LigneOrganisation[]): string {
