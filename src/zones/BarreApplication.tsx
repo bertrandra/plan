@@ -249,10 +249,11 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
 
 /**
  * Le menu Admin : les ecrans secondaires de l'admin des demos (l'arbre des controleurs, la palette
- * de l'interface, la consommation de Claude) et le mode audit (MD/spec-audit.md). Les ecrans
+ * de l'interface, la consommation de Claude, la conformite) et le mode audit (MD/spec-audit.md). Les ecrans
  * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
  * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
- * son bouton de retour. La consommation passe par le registre (`admin.consommation`). Avec
+ * son bouton de retour. La consommation et la conformite passent par le registre (`admin.consommation`,
+ * `admin.conformite`). Avec
  * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`).
  */
 export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
@@ -280,6 +281,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
           </button>
         </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
+        <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>

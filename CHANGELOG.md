@@ -7,6 +7,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les indicateurs de conformité et l'écran Admin › « Conformité »** (lot G3 du plan de la vague 3,
+  `MD/spec-regles-toits.md` §13.5, `MD/spec-facades-calage-detection.md` §15.3).
+  - **Le jugement d'un cas** (`model/conformite.ts`, `facade/conformite.ts`) : un cas observé est
+    conforme quand le calcul d'aujourd'hui satisfait ce que vous avez vu — son attendu validé (corps
+    au centimètre, couleur et source des murs, comme le test du corpus) et « Ce que je vois » (forme,
+    bouts, lucarnes, cheminées, toit-terrasse ; le sens du faîtage, dit par rapport à la rue, et les
+    matériaux sont notés mais ne se comparent pas au calcul). Une forme que Plan ne calcule pas
+    encore (Mansart, gambrel, demi-croupe…), des lucarnes ou des cheminées vues comptent « hors
+    calcul ». Un cas qui ne note que des problèmes est non conforme tant que le rejeu redonne ce que
+    le terrain a donné, « à revoir » si le calcul a changé depuis. Les taux se lisent par forme, par
+    région (le département tiré de l'IDU, `model/departements.ts`) et par problème.
+  - **Le corpus du dépôt** est rejoué par `npx tsx .claude/skills/toits/scripts/conformite.ts`
+    (`--ecrire` réécrit `regles/conformite.json`, qu'un test garde à jour : une PR qui change le taux
+    le montre dans son diff). **Taux de départ sur les deux promenades de démonstration : 50 %** (AE
+    101 conforme ; le pavillon de la longère d'Hucqueliers, toujours découpé en morceaux, non).
+  - **L'écran** (`?admin&ecran=conformite`, menu Admin › Conformité, à côté de la consommation de
+    Claude) : le corpus et les audits de parcelle partagés reçus sur le serveur, rejoués dans la page
+    un à un ; le taux, le critère de la phase 1 (50 cas observés, dont 10 hors calcul) ; six
+    onglets : par forme, par région, par problème, les cas un à un avec ce qui ne tient pas, l'accord
+    de Claude par attribut et l'historique. Le taux de conformité des façades (lot G13) et l'accord
+    de Claude (lot G18) ont leur place, marquée « À venir ». Un audit illisible est nommé sans
+    arrêter les autres.
+  - **Les mesures sur le serveur de Plan** : « Enregistrer la mesure » range ce que l'écran montre
+    (`POST admin/conformite`, `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat,
+    administrateur seul), dans `conformite/mesures.json` avec les données de l'admin ; le serveur
+    garde les 200 dernières. Aucune valeur calculée ne change : AE 101, le banc et les empreintes
+    golden sont identiques.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle

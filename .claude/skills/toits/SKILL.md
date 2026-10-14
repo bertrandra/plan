@@ -358,6 +358,11 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
 - Circuit d'un cas (§22) : diagnostic sur les cartes, règle générale (jamais un cas codé), banc et
   AE 101, puis `corrige` avec l'attendu proposé et `correction: { commit, regle }`, images avant et
   après dans la PR ; `valide` après l'accord de l'utilisateur.
+- **Taux de conformité** (lot G3, spec §13.5) : `npx tsx .claude/skills/toits/scripts/conformite.ts`
+  juge chaque cas sur ce que vous avez vu (attendu validé, « Ce que je vois ») et donne le taux par
+  forme, région et problème ; `--ecrire` réécrit `regles/conformite.json`, que l'écran Admin ›
+  Conformité montre et que `tests/unit/facade/conformite.test.ts` garde à jour. Une règle qui change
+  le taux le relance dans sa PR. Départ : 50 % (AE 101 conforme, la longère d'Hucqueliers non).
 - Les deux premiers fichiers sont reconstitués depuis des relevés réels (AE 101, validé ; pavillon est
   de la longère d'Hucqueliers, à corriger), pas encore une promenade.
 

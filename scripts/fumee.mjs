@@ -360,6 +360,52 @@ const TERRASSE = "o.fonction === 'terrasse' && o.type === 'polygon' && o.name ==
 const DALLE = "o.name === 'Dalle beton'";
 const PARASOL = "o.fonction === 'parasol' && o.type === 'circle'";
 
+/**
+ * Les routes `admin/…` de l'ecran Admin › Conformité (lot G3), simulees : session ouverte, un audit
+ * de parcelle recu (AE 101 tel que le corpus le fige, vu « en croupes » : le calcul le lit en deux
+ * pans), et l'historique des mesures, qui garde ce que l'ecran y range. `illisible` ajoute un audit
+ * d'une version plus recente, que l'ecran doit nommer sans s'arreter.
+ */
+async function simulerConformite(page, { illisible = false } = {}) {
+  const promenade = JSON.parse(readFileSync(new URL('../tests/fixtures/audit/audit-2026-10-13-1200-le-vesinet.json', import.meta.url), 'utf8'));
+  const c = promenade.cas[0];
+  const audit = {
+    format: 'plan-audit-parcelle', version: 1, parcelle: { idu: '78650000AE0101', adresse: '2 allée des Limites', origine: null },
+    code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-14T09:00:00Z', finCapture: null, ecritLe: '2026-10-14T10:00:00Z',
+    batiments: [{ cle: 'maison', nom: 'Maison', mitoyen: false, cas: { identite: c.identite, entrees: c.entrees, sorties: c.sorties }, vu: { forme: 'croupes' }, photos: [], facades: [] }],
+    cloture: { photos: [] }, portail: { photos: [] }, propositions: [], decisions: []
+  };
+  const recus = [{ id: '20261014-100000-abcdef01', recuLe: '2026-10-14T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites' }];
+  if (illisible) recus.push({ id: '20261014-110000-0000beef', recuLe: '2026-10-14T11:00:00Z', organisation: 'admin', idu: '78650000AE0102', adresse: null });
+  const serveur = { mesures: [], posts: [], listes: 0 };
+  await page.route(/\/admin\//, async (route) => {
+    const req = route.request(), u = new URL(req.url());
+    const json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    if (u.pathname.endsWith('/admin/session')) return json({});
+    if (u.pathname.endsWith('/admin/audits')) { serveur.listes++; return json({ audits: recus }); }
+    if (u.pathname.endsWith('/admin/audits/20261014-100000-abcdef01')) return json(audit);
+    if (u.pathname.endsWith('/admin/audits/20261014-110000-0000beef')) return json({ ...audit, version: 9 });
+    if (u.pathname.endsWith('/admin/conformite')) {
+      if (req.method() === 'POST') {
+        const m = { ...JSON.parse(req.postData() || 'null'), recuLe: new Date().toISOString().slice(0, 19) + 'Z' };
+        serveur.posts.push(m);
+        serveur.mesures.push(m);
+        return json({ recuLe: m.recuLe, mesures: serveur.mesures.length }, 201);
+      }
+      return json({ format: 'plan-conformite', version: 1, mesures: serveur.mesures });
+    }
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+  return serveur;
+}
+
+/** L'ecran Admin › Conformité ouvert, les audits recus rejoues (l'etat le dit). */
+async function ouvrirConformite(page) {
+  await page.goto(BASE + '/?admin&ecran=conformite');
+  await page.waitForSelector('.consTuile', { timeout: 20000 });
+  await page.waitForFunction(() => /audits? reçus? \(/.test(document.querySelector('.consEtat')?.textContent || ''), null, { timeout: 90000 });
+}
+
 // ---- Les points --------------------------------------------------------------------------------
 // Chacun rend { ok, mesure } ; `ok: null` veut dire non joue, et `mesure` dit pourquoi.
 
@@ -1820,6 +1866,57 @@ const POINTS = {
       && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
     return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  76: async (page, f) => {
+    // Admin › Conformité (lot G3) : le corpus du depot (deja juge, compile dans la page) et un audit
+    // partage recu, rejoue dans la page. On mesure : le taux des deux sources (AE 101 conforme ; la
+    // longere d'Hucqueliers, toujours en morceaux, et AE 101 vu en croupes, non : 33 %), le critere
+    // de la phase 1, les colonnes a venir (facades, Claude), les axes, les cas ; rien ne deborde.
+    await simulerConformite(page);
+    await ouvrirConformite(page);
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    const tuiles = (await page.locator('.consTuile').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    const formes = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    const facades = await page.locator('#confVue tbody tr:first-child td:last-child').textContent();
+    await page.getByRole('tab', { name: 'Par région' }).click({ timeout: 5000 });
+    const regions = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    await page.getByRole('tab', { name: 'Par problème' }).click({ timeout: 5000 });
+    const problemes = await page.locator('#confVue tbody tr td:first-child').allTextContents();
+    await page.getByRole('tab', { name: 'Cas', exact: true }).click({ timeout: 5000 });
+    const cas = (await page.locator('#confVue tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    debords.push(await deborde());
+    await page.getByRole('tab', { name: 'Accord de Claude' }).click({ timeout: 5000 });
+    const claude = await page.locator('#confVue tbody tr').count();
+    debords.push(await deborde());
+    const ok = !debords.some(Boolean) && /33 %/.test(tuiles[0] || '') && /3 \/ 50/.test(tuiles[1] || '') && /À venir/.test(tuiles[4] || '') && /À venir/.test(tuiles[5] || '')
+      && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === 'À venir'
+      && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
+      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 4;
+    return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  77: async (page, f) => {
+    // Admin › Conformité (lot G3) : un audit recu illisible est nomme sans arreter les autres ;
+    // « Enregistrer la mesure » range sur le serveur ce que l'ecran montre (toutes sources, facades et
+    // Claude a venir), l'historique la montre ; « Relire les audits » relit la liste du serveur.
+    const serveur = await simulerConformite(page, { illisible: true });
+    await ouvrirConformite(page);
+    const alertes = await page.locator('.consAlertes li').allTextContents();
+    await page.getByRole('button', { name: 'Enregistrer la mesure' }).click({ timeout: 5000 });
+    await page.waitForSelector('.confMessage', { timeout: 5000 });
+    const message = await page.locator('.confMessage').textContent();
+    const m = serveur.posts[0];
+    await page.getByRole('tab', { name: 'Historique' }).click({ timeout: 5000 });
+    await page.waitForSelector('#confVue tbody tr', { timeout: 5000 });
+    const historique = (await page.locator('#confVue tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    await page.getByRole('button', { name: 'Relire les audits' }).click({ timeout: 5000 });
+    await page.waitForFunction(() => /audits? reçus? \(/.test(document.querySelector('.consEtat')?.textContent || ''), null, { timeout: 90000 });
+    const ok = alertes.length === 1 && /20261014-110000-0000beef/.test(alertes[0] || '') && /version plus récente/.test(alertes[0] || '')
+      && message === 'Mesure enregistrée sur le serveur.' && serveur.posts.length === 1 && m?.format === 'plan-conformite-mesure'
+      && m.sources?.corpus === 2 && m.sources?.audits === 1 && m.toits?.conformes === 1 && m.toits?.nonConformes === 2 && m.facades === null && m.claude === null && m.cas?.length === 3
+      && historique.length === 1 && /33 %/.test(historique[0] || '') && serveur.listes === 2 && !deborde;
+    return { ok, mesure: `alerte « ${(alertes[0] || '').slice(0, 90)} » ; « ${message} » ; mesure ${m ? `${m.format}, corpus ${m.sources?.corpus}, audits ${m.sources?.audits}, ${m.toits?.conformes}/${(m.toits?.conformes ?? 0) + (m.toits?.nonConformes ?? 0)} conformes, façades ${m.facades}, Claude ${m.claude}` : 'AUCUNE'} ; historique « ${(historique[0] || '').slice(0, 80)} » ; relu ${serveur.listes} fois ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   71: async (page) => {
     // L'aide de Claude au releve (lot L18, spec facades §12 bis) : une photo sans aucune arete (un ciel en
     // degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que
@@ -1921,7 +2018,8 @@ function pointsPour(nomClasse) {
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75];
+  // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75, 76, 77];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -1,0 +1,46 @@
+{
+ "format": "plan-conformite-corpus",
+ "version": 1,
+ "pourquoi": "Les verdicts de conformite du corpus du depot (tests/fixtures/audit/), rejoue avec le code, les reglages et les faits courants (MD/spec-regles-toits.md §13.5, lot G3). Engendre par `npx tsx .claude/skills/toits/scripts/conformite.ts --ecrire` ; tests/unit/facade/conformite.test.ts verifie qu'il est a jour. L'ecran Admin › Conformité le lit, avec les audits partages recus sur le serveur.",
+ "verdicts": [
+  {
+   "source": "corpus",
+   "fichier": "audit-2026-10-13-1200-hucqueliers.json",
+   "id": "c1",
+   "cle": "bati-batiment-37248484",
+   "statut": "a_corriger",
+   "forme": "non-notee",
+   "region": "62",
+   "problemes": [
+    "toit.morceaux"
+   ],
+   "etat": "non-conforme",
+   "assertions": [
+    {
+     "assertion": "probleme",
+     "tenue": false,
+     "motif": "toit.morceaux : toujours là"
+    }
+   ],
+   "nonVerifiees": []
+  },
+  {
+   "source": "corpus",
+   "fichier": "audit-2026-10-13-1200-le-vesinet.json",
+   "id": "c1",
+   "cle": "vesinet-ae101",
+   "statut": "valide",
+   "forme": "deux-pans",
+   "region": "78",
+   "problemes": [],
+   "etat": "conforme",
+   "assertions": [
+    {
+     "assertion": "attendu",
+     "tenue": true
+    }
+   ],
+   "nonVerifiees": []
+  }
+ ]
+}
