@@ -1460,6 +1460,14 @@
   .etatAnalyse .actionsAnalyse{ width:100%; }
   .etatAnalyse.etat-erreur{ border-left-color:var(--alerte); }
   .ligneProposition.source-claude{ box-shadow:inset 3px 0 0 var(--accent-light); padding-left:8px; }
+  /* Ce que Claude a vu sans le proposer : des lignes a lire, sans case, sous les propositions ; le
+     meme filet d'accent que ses propositions dit l'origine, le titre dit que rien ne s'ecrit. */
+  .observationsClaude{ margin-top:10px; padding-top:8px; border-top:1px solid var(--rule); }
+  .titreObservations{ font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .noteObservations{ margin:2px 0 4px; font-size:0.72rem; color:var(--ink-soft); }
+  .nomObservations{ font-weight:600; margin-top:6px; }
+  .listeObservations{ list-style:none; margin:2px 0 0; padding:0; }
+  .ligneObservation{ display:flex; flex-direction:column; gap:1px; padding:4px 0 4px 8px; border-bottom:1px solid var(--hairline); box-shadow:inset 3px 0 0 var(--accent-light); overflow-wrap:anywhere; }
   html:not([data-classe="large"]) .casePartage{ min-height:44px; }
   html:not([data-classe="large"]) .casePartage input[type="checkbox"]{ width:20px; height:20px; }
   html:not([data-classe="large"]) .actionsAnalyse button{ min-height:44px; }

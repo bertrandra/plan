@@ -88,16 +88,19 @@ export function murDeLaTexture(t: Image, r: Pick<ReleveFacade, 'hauteur' | 'haut
 /**
  * Le renfort applique a chaque facade : vote des passes, recalage des graines sur l'elevation
  * (decodee de la texture du releve mesure), resultat pret a proposer. `decoder` rend les pixels d'une
- * image `data:` ; une facade sans mesure ou sans texture lisible garde ses graines en pointille.
+ * image `data:` ; une facade sans texture lisible garde ses graines en pointille, une facade sans
+ * releve mesure n'a pas de resultat (l'appelant attend les mesures avant, analyseClaude.ts).
  */
 export async function renforcerFacades(parFacade: Record<string, ReponseRenfort[]>, mesures: ReadonlyMap<string, MesureFacade>, decoder: (dataUrl: string) => Promise<Image | null>): Promise<Record<string, RenfortFacadeCapture>> {
   const out: Record<string, RenfortFacadeCapture> = {};
   for (const [cle, reponses] of Object.entries(parFacade)) {
-    const r = mesures.get(cle)?.releve;
+    const m = mesures.get(cle), r = m?.releve;
     if (!r || !reponses.length) continue;
     const texture = r.texture ? await decoder(r.texture).catch(() => null) : null;
     const mur = texture ? murDeLaTexture(texture, r) : null;
-    const res = appliquerRenfort({ ouvertures: r.ouvertures, decochees: [], vote: voterRenfort(reponses), cartes: mur ? cartesAretes(mur, mur.largeur / r.largeur) : null, largeurM: r.largeur, hauteurM: r.hauteur });
+    // Les baies devinees du releve : une boite manquee de Claude au meme endroit les confirme, au lieu
+    // d'ajouter une seconde baie sur la premiere (le releve fait de meme, zones/releve/aide.ts).
+    const res = appliquerRenfort({ ouvertures: r.ouvertures, decochees: m?.devinees ?? [], vote: voterRenfort(reponses), cartes: mur ? cartesAretes(mur, mur.largeur / r.largeur) : null, largeurM: r.largeur, hauteurM: r.hauteur });
     out[cle] = { passes: reponses.length, ouvertures: res.ouvertures, decochees: res.decochees, bilan: { ...res.bilan }, resume: texteBilan(res.bilan) };
   }
   return out;

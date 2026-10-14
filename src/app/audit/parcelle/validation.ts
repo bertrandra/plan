@@ -14,6 +14,7 @@ import { appliquerPropositions, jourIso, cleDeLaCible, type Proposition } from '
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
+import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
@@ -60,6 +61,8 @@ export interface Validation {
   /** Les entrees des propositions a cet instant (le plan, la liste, la capture, les mesures faites). */
   entrees(): EntreesPropositions;
   propositions(): readonly Proposition[];
+  /** Ce que Claude a vu sans que le projet sache l'ecrire, batiment par batiment : a lire, rien a cocher. */
+  observations(): readonly ObservationsBatiment[];
   cochee(id: string): boolean;
   basculer(id: string): void;
   apercu(): Apercu;
@@ -149,7 +152,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const choix = new Map<string, boolean>();
   let apercu: Apercu = 'avant';
   let montres: string[] = [];
-  let memo: { cle: string; objets: unknown; propositions: Proposition[]; defaut: Set<string> } | null = null;
+  let memo: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
 
   const entrees = (): EntreesPropositions => ({ objets: ctx.etat.objects, liste: ctx.liste(), capture: ctx.capture.lire(), mesures: mesureur.lues() });
   function calculer() {
@@ -160,7 +163,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     const reponses = ctx.analyse?.reponses();
     const renfort = ctx.analyse?.renfort?.();
     const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])];
-    memo = { cle, objets: ctx.etat.objects, propositions, defaut: cochesParDefaut(propositions) };
+    const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
+    memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
     return memo;
   }
   /**
@@ -203,6 +207,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     lancer: () => mesureur.lancer(),
     entrees,
     propositions: () => calculer().propositions,
+    observations: () => calculer().observations,
     cochee,
     basculer(id) {
       choix.set(id, !cochee(id));

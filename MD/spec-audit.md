@@ -510,6 +510,24 @@ pas mesuré (lots L19 à L21). Restent : la forme du toit, les lucarnes et les d
 (règles des toits et lot L15), l'escalade vers un modèle plus fin, et les coins et ouvertures proposés
 pour le calage (lot L18). Points de fumée 69 et 70.
 
+**Corrigé (essai sur téléphone, « il ne trouve rien »)** :
+- **Les observations.** Ce que le vote établit sans que le projet sache l'écrire se montre, à part
+  des propositions, en lignes à lire sans case (`app/audit/parcelle/observationsClaude.ts`) : forme
+  du toit (comparée au modèle), profil, sens du faîtage, bouts (pignon, croupe, demi-croupe, brisis,
+  vus de la rue), lucarnes (nombre, types, pan), éléments, volets, balcon et forme des baies de chaque
+  façade, ouvertures manquées ou en trop et écarts au modèle (`ecartsEnClair`), et ce que le renfort a
+  fait des ouvertures, par type. Chacune dit sur quelle image et avec quelle part des passes d'accord.
+  Le schéma version 1 ne donne pour une façade que des **comptes** d'ouvertures manquées ou en trop ;
+  leurs **types** (fenêtre, porte-fenêtre, porte, garage) viennent du renfort. Le fichier de l'audit
+  (§15) ne les porte pas : son format n'a pas de place pour elles.
+- **« Prêtes » dit combien** : « N propositions et M observations », ou que Claude n'a rien vu à
+  proposer ni à signaler.
+- **Les images d'une requête** sont plafonnées à 40, la limite du serveur (`IMAGES_PAR_REQUETE`,
+  `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`), qui refuse toute la demande au-delà. Ordre de
+  priorité : orthophoto et carte LiDAR, meilleure photo de chaque façade et du toit (prise à la
+  boussole d'abord), leur rendu, puis les autres photos tour à tour et leurs rendus. Un refus du
+  serveur s'affiche avec son message.
+
 ### 13.3 Le tableau de bord de la consommation
 
 *Demande de l'utilisateur, 13 octobre 2026.* Un écran dit combien de tokens chaque parcelle a
@@ -623,6 +641,20 @@ Ce qui est écrit utilise les structures **déjà dans le projet** :
 - la clôture et le portail de la parcelle.
 
 L'audit ne touche pas au code des toits : AE 101 et les empreintes ne bougent pas.
+
+**Ce que Claude a vu sans le proposer** suit la liste, bâtiment par bâtiment, sous le titre « Vu par
+Claude, à vérifier sur place » : des lignes à lire, sans case, qui ne changent rien au projet (forme
+du toit vue, pignons, lucarnes, éléments, ouvertures manquées ou en trop, écarts au modèle ; §13.2).
+
+**Le renfort des façades** (`spec-facades-calage-detection.md` §12 bis) se propose en deux lignes
+par façade, toutes deux décochées : le relevé « avec l'aide de Claude » (ouvertures recalées,
+retraits, types, détails), puis, s'il y en a, les ouvertures que Claude voit mais que les contours de
+la photo ne confirment pas, « vues par Claude, non confirmées sur la photo ». La seconde contient la
+première : cochée seule ou avec elle, elle écrit le même relevé. Le recalage demande le relevé mesuré
+de la façade (§13.1) : il attend les mesures, façade par façade, et ne note jamais un renfort vide.
+Les réponses brutes du renfort sont gardées dans la capture, si bien qu'un brouillon repris avec un
+batch déjà fini recale chaque façade quand sa mesure arrive. Les baies devinées du relevé passent au
+renfort, qui les confirme plutôt que d'en poser une seconde.
 
 **Fait (lot L11, sans Claude)** : les mesures du téléphone (`app/audit/parcelle/mesures.ts`) et les
 observations deviennent des propositions (`model/propositions.ts`, source `mesure`, prêtes pour la
